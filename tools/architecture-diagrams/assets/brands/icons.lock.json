@@ -1,0 +1,45 @@
+{
+  "icons": {
+    "entra-id": {
+      "archiveSha256": "4e07536706a2d092e6524e5417e2c861333fdbdb41c36f78d44dfa07ccc5eedc",
+      "file": "entra-id.svg",
+      "mediaType": "image/svg+xml",
+      "productName": "Microsoft Entra ID",
+      "sha256": "efd9f54562bfb78bf3c77aecdd5fc31b61fce8a1cec78c4370b41fc470e54eda",
+      "source": "https://learn.microsoft.com/entra/architecture/architecture-icons",
+      "sourcePage": "https://learn.microsoft.com/entra/architecture/architecture-icons"
+    },
+    "github": {
+      "file": "github.svg",
+      "mediaType": "image/svg+xml",
+      "productName": "GitHub",
+      "sha256": "cf4193b9a5ef5e1ac04d6f3ae1373534e212064ce1f4540b92f71fe7b4632ba8",
+      "source": "https://brand.github.com/GitHub_Logos.zip",
+      "sourcePage": "https://github.com/logos"
+    },
+    "gitlab": {
+      "file": "gitlab.svg",
+      "mediaType": "image/svg+xml",
+      "productName": "GitLab",
+      "sha256": "d8522f9bb83b35bcf0ab6e7fc25a312c26120028af308bec1dd9d20e15c1a615",
+      "source": "https://about.gitlab.com/images/press/gitlab-logo-500-rgb.svg",
+      "sourcePage": "https://about.gitlab.com/press/press-kit/"
+    },
+    "slack": {
+      "file": "slack.png",
+      "mediaType": "image/png",
+      "productName": "Slack",
+      "sha256": "cfd9f050bf26ea547af438722c5a93be002c721f0f32a3c996595eab7af1b36d",
+      "source": "https://a.slack-edge.com/80588/marketing/img/icons/icon_slack_hash_colored.png",
+      "sourcePage": "https://slack.com/brand-guidelines"
+    },
+    "teams": {
+      "file": "teams.svg",
+      "mediaType": "image/svg+xml",
+      "productName": "Microsoft Teams",
+      "sha256": "6ec0e1afd7359a71915430bab4a49554bcfd1f1b881db5108c807ed08f1a0afb",
+      "source": "https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/assets/brand-icons/product/svg/teams_48x1.svg",
+      "sourcePage": "https://www.microsoft.com/microsoft-365/microsoft-teams/group-chat-software"
+    }
+  }
+}

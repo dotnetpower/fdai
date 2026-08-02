@@ -76,6 +76,7 @@ class CapabilityBundle:
 
     capabilities: tuple[Capability, ...] = ()
     bindings: tuple[CapabilityBinding, ...] = ()
+    reasoning_tools: tuple[ToolArtifact, ...] = ()
     tool_providers: Mapping[str, ToolProvider] = field(default_factory=dict)
 
 
@@ -95,17 +96,24 @@ class CapabilityRuntimeError(ValueError):
 class CapabilityRuntime:
     """Immutable, atomically extended runtime capability registry."""
 
-    __slots__ = ("_bindings", "_catalog", "_tool_providers")
+    __slots__ = ("_bindings", "_catalog", "_reasoning_tools", "_tool_providers")
 
     def __init__(
         self,
         *,
         catalog: CapabilityCatalog | None = None,
         bindings: Mapping[str, CapabilityBinding] | None = None,
+        reasoning_tools: Iterable[ToolArtifact] = (),
         tool_providers: Mapping[str, ToolProvider] | None = None,
     ) -> None:
         self._catalog = catalog or CapabilityCatalog()
         self._bindings = MappingProxyType(dict(bindings or {}))
+        loaded_tools = tuple(reasoning_tools)
+        duplicate_tool_ids = _duplicate_tool_ids(loaded_tools)
+        if duplicate_tool_ids:
+            names = ", ".join(sorted(duplicate_tool_ids))
+            raise CapabilityRuntimeError(f"duplicate reasoning tool ids: {names}")
+        self._reasoning_tools = tuple(sorted(loaded_tools, key=lambda artifact: artifact.id))
         self._tool_providers = MappingProxyType(dict(tool_providers or {}))
 
     @property
@@ -115,6 +123,10 @@ class CapabilityRuntime:
     @property
     def tool_providers(self) -> Mapping[str, ToolProvider]:
         return self._tool_providers
+
+    @property
+    def reasoning_tools(self) -> tuple[ToolArtifact, ...]:
+        return self._reasoning_tools
 
     def install(
         self,
@@ -130,6 +142,28 @@ class CapabilityRuntime:
                 catalog.register(capability)
         except ValueError as exc:
             raise CapabilityRuntimeError(f"capability registration failed: {exc}") from exc
+
+        tools = list(self._reasoning_tools)
+        installed_tool_ids = {artifact.id for artifact in tools}
+        package_tool_ids = {artifact.id for artifact in bundle.reasoning_tools}
+        duplicate_package_tool_ids = _duplicate_tool_ids(bundle.reasoning_tools)
+        if duplicate_package_tool_ids:
+            names = ", ".join(sorted(duplicate_package_tool_ids))
+            raise CapabilityRuntimeError(f"duplicate reasoning tool ids: {names}")
+        duplicate_tool_ids = installed_tool_ids & package_tool_ids
+        duplicate_tool_ids |= set(references.reasoning_tools) & package_tool_ids
+        if duplicate_tool_ids:
+            names = ", ".join(sorted(duplicate_tool_ids))
+            raise CapabilityRuntimeError(f"duplicate reasoning tool ids: {names}")
+        tools.extend(bundle.reasoning_tools)
+
+        package_references = {artifact.id: artifact.provider for artifact in bundle.reasoning_tools}
+        effective_references = CapabilityReferences(
+            reasoning_tools=dict(references.reasoning_tools) | package_references,
+            action_types=references.action_types,
+            context_selection_policies=references.context_selection_policies,
+            workflows=references.workflows,
+        )
 
         providers = dict(self._tool_providers)
         for provider_id, provider in bundle.tool_providers.items():
@@ -149,7 +183,7 @@ class CapabilityRuntime:
                 raise CapabilityRuntimeError(
                     f"binding references unknown capability {binding.capability_id!r}"
                 )
-            _validate_binding(binding, references=references, providers=providers)
+            _validate_binding(binding, references=effective_references, providers=providers)
             bindings[binding.capability_id] = binding
 
         used_provider_ids = {
@@ -160,9 +194,20 @@ class CapabilityRuntime:
             names = ", ".join(sorted(unreferenced))
             raise CapabilityRuntimeError(f"unreferenced tool providers: {names}")
 
+        bound_tool_ids = {
+            binding.target_ref
+            for binding in bundle.bindings
+            if binding.kind is CapabilityBindingKind.REASONING_TOOL
+        }
+        unreferenced_tools = package_tool_ids - bound_tool_ids
+        if unreferenced_tools:
+            names = ", ".join(sorted(unreferenced_tools))
+            raise CapabilityRuntimeError(f"unreferenced reasoning tools: {names}")
+
         return CapabilityRuntime(
             catalog=catalog,
             bindings=bindings,
+            reasoning_tools=tools,
             tool_providers=providers,
         )
 
@@ -212,6 +257,16 @@ def _validate_binding(
                 f"reasoning tool {binding.target_ref!r} declares provider "
                 f"{declared_provider!r}, not {binding.provider_id!r}"
             )
+
+
+def _duplicate_tool_ids(artifacts: Iterable[ToolArtifact]) -> set[str]:
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for artifact in artifacts:
+        if artifact.id in seen:
+            duplicates.add(artifact.id)
+        seen.add(artifact.id)
+    return duplicates
 
 
 def build_capability_references(

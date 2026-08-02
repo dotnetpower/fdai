@@ -17,7 +17,12 @@ export interface DiagramGroup {
   description?: LocalizedText;
   direction?: Direction;
   layout?: "flow" | "row" | "column" | "free";
-  placement?: "below";
+  gap?: number;
+  justify?: "start" | "center" | "space-between";
+  placement?: "top" | "below" | "right";
+  placementGap?: number;
+  alignWith?: string;
+  width?: number;
 }
 
 export interface DiagramPort {
@@ -55,7 +60,17 @@ export interface DiagramEdge {
   kind: EdgeKind;
   label?: LocalizedText;
   protocol?: string;
-  route?: "diagonal" | "curve" | "orthogonal" | "orthogonal-above";
+  route?:
+    | "diagonal"
+    | "curve"
+    | "orthogonal"
+    | "orthogonal-shortest"
+    | "orthogonal-horizontal"
+    | "orthogonal-trunk"
+    | "orthogonal-top"
+    | "orthogonal-above"
+    | "orthogonal-right";
+  lane?: number;
   step?: number;
 }
 
@@ -64,11 +79,13 @@ export interface DiagramSpec {
   version: number;
   kind: "context" | "container" | "component" | "deployment" | "data-flow" | "network";
   updated?: string;
+  formats?: Array<"svg" | "png">;
   locales: Record<Locale, DiagramDocumentText>;
   canvas: {
     width: number;
     height: number;
     direction: Direction;
+    rootLayout?: "row" | "column";
     padding?: number;
     profile?: "default" | "azure-reference";
   };

@@ -2,7 +2,13 @@ import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
 
 import { t } from "../i18n";
-import type { EvidenceBranch, InvestigationActivity } from "./backend";
+import type {
+  EvidenceBranch,
+  IntentGraphEvidence,
+  IntentGraphMetadata,
+  InvestigationActivity,
+} from "./backend";
+import { buildExecutionTimeline } from "./conversation-execution-timeline";
 import type { ConversationTrajectory } from "./conversation-trajectory";
 import { ConversationExecutionTimelineView } from "./conversation-execution-timeline-view";
 import {
@@ -34,11 +40,15 @@ export function ConversationTrajectoryView({
     ...(answer.verification?.evidence_refs ?? []),
   ]);
   const presentation = buildTrajectoryPresentation(trajectory);
+  const observedEventCount = buildExecutionTimeline(trajectory, {
+    includeModelCalls: showModelTrace,
+  }).length;
   const omittedDetailCount = answer.trajectoryDetail
     ? Object.values(answer.trajectoryDetail.omitted).reduce((total, count) => total + count, 0)
     : 0;
   const timelinePhases: TrajectoryPhase[] = [
     "input",
+    ...(answer.intentGraph ? ["plan" as const] : []),
     ...(presentation.evidenceAttemptCount > 0 || milestones.length > 0 ? ["evidence" as const] : []),
     ...(answer.verification ? ["verification" as const] : []),
     "answer",
@@ -47,15 +57,38 @@ export function ConversationTrajectoryView({
   const completedAt = firstValidTimestamp(trajectory.completedAt, trajectory.answer.at);
 
   return (
-    <details class="deck-trajectory" onToggle={(event) => setOpen(event.currentTarget.open)}>
+    <div class="deck-trajectory-cluster">
+      <div class="deck-trajectory-results" aria-label={t("deck.trajectory.title")}>
+        <span data-state="observed">
+          {t("deck.trajectory.observedEventCount", { count: observedEventCount })}
+        </span>
+        <span data-state={presentation.phaseStates.evidence}>
+          {t("deck.trajectory.evidenceSummary", {
+            successful: presentation.evidenceCompletedCount,
+            attempted: presentation.evidenceAttemptCount,
+            references: presentation.evidenceReferenceCount,
+          })}
+        </span>
+        {answer.verification ? (
+          <span data-state={presentation.phaseStates.verification}>
+            {answer.verification.checks_completed}/{answer.verification.checks_total} {t("deck.trajectory.checks")}
+          </span>
+        ) : null}
+      </div>
+      <details class="deck-trajectory" onToggle={(event) => setOpen(event.currentTarget.open)}>
       <summary class="deck-trajectory-summary">
         <span class="deck-trajectory-title">
           <span class="deck-trajectory-glyph" aria-hidden="true" />
-          {t("deck.trajectory.title")}
+          <span class="deck-trajectory-title-copy">
+            <small>{t("deck.trajectory.runRecord")}</small>
+            <strong>{t("deck.trajectory.title")}</strong>
+          </span>
         </span>
         <span class="deck-trajectory-stats">
           {t("deck.trajectory.summary", {
-            models: showModelTrace ? presentation.modelCallCount : 0,
+            models: presentation.modelCallCountIsLowerBound
+              ? `${presentation.modelCallCount}+`
+              : presentation.modelCallCount,
             successful: presentation.evidenceCompletedCount,
             attempted: presentation.evidenceAttemptCount,
             verification: phaseStateLabel(presentation.phaseStates.verification),
@@ -66,30 +99,61 @@ export function ConversationTrajectoryView({
             ? t("deck.trajectory.sequenceOnly")
             : formatDuration(trajectory.durationMs)}
         </span>
+        <span class="deck-trajectory-chevron" aria-hidden="true" />
       </summary>
       {open ? (
         <div class="deck-trajectory-body">
           <PhaseStrip phaseStates={presentation.phaseStates} />
-          <div class="deck-trajectory-window">
-            <Timestamp value={startedAt} />
-            <span aria-hidden="true" />
-            <Timestamp value={completedAt} />
-          </div>
-          <TrajectoryDecisionContext trajectory={trajectory}
-            collaborationState={presentation.phaseStates.collaboration} />
           <ConversationExecutionTimelineView trajectory={trajectory}
             includeModelCalls={showModelTrace} />
           {showModelTrace ? (
             <ModelTraceWaterfall {...(answer.modelTrace ? { trace: answer.modelTrace } : {})} />
           ) : null}
-          <h4 class="deck-trajectory-execution-title">{t("deck.trajectory.executionDetails")}</h4>
-          <ol class="deck-trajectory-events">
+          <dl class="deck-trajectory-signals">
+            <div data-state={presentation.phaseStates.evidence}>
+              <dt>{t("deck.trajectory.phase.evidence")}</dt>
+              <dd>{t("deck.trajectory.evidenceSummary", {
+                successful: presentation.evidenceCompletedCount,
+                attempted: presentation.evidenceAttemptCount,
+                references: presentation.evidenceReferenceCount,
+              })}</dd>
+            </div>
+            <div data-state={presentation.phaseStates.verification}>
+              <dt>{t("deck.trajectory.authority")}</dt>
+              <dd>{answer.verification?.authority ?? t("deck.trajectory.none")}</dd>
+            </div>
+            <div data-state={presentation.phaseStates.answer}>
+              <dt>{t("deck.trajectory.source")}</dt>
+              <dd>{answer.source ?? answer.agent ?? t("deck.trajectory.none")}</dd>
+            </div>
+          </dl>
+          <details class="deck-trajectory-records">
+            <summary>
+              <strong>{t("deck.trajectory.executionDetails")}</strong>
+              <span>{timelinePhases.length}</span>
+            </summary>
+            <div class="deck-trajectory-window">
+              <Timestamp value={startedAt} />
+              <span aria-hidden="true" />
+              <Timestamp value={completedAt} />
+            </div>
+            <TrajectoryDecisionContext trajectory={trajectory}
+              collaborationState={presentation.phaseStates.collaboration} />
+            <ol class="deck-trajectory-events">
             <TrajectoryPhase index={phaseIndex(timelinePhases, "input")} phase="input"
               state={presentation.phaseStates.input} heading={t("deck.trajectory.phase.input")}
               summary={trajectory.question.text} time={formatTimestamp(startedAt)}
               {...(startedAt ? { dateTime: startedAt } : {})}>
               <p class="deck-trajectory-prose">{trajectory.question.text}</p>
             </TrajectoryPhase>
+            {answer.intentGraph ? (
+              <IntentGraphPhase
+                graph={answer.intentGraph}
+                {...(answer.intentGraphEvidence ? { evidence: answer.intentGraphEvidence } : {})}
+                index={phaseIndex(timelinePhases, "plan")}
+                state={presentation.phaseStates.plan}
+              />
+            ) : null}
             {timelinePhases.includes("evidence") ? (
               <TrajectoryPhase index={phaseIndex(timelinePhases, "evidence")} phase="evidence"
                 state={presentation.phaseStates.evidence} heading={t("deck.trajectory.phase.evidence")}
@@ -107,20 +171,77 @@ export function ConversationTrajectoryView({
                 state={presentation.phaseStates.verification} />
             ) : null}
             <AnswerPhase trajectory={trajectory} index={phaseIndex(timelinePhases, "answer")} />
-          </ol>
-          <TrajectoryCoverage phaseStates={presentation.phaseStates} />
-          {answer.trajectoryDetail &&
-              (omittedDetailCount > 0 || answer.trajectoryDetail.truncated_outputs > 0) ? (
-            <p class="deck-trajectory-gap">
-              {t("deck.trajectory.historyDetailBound", {
-                omitted: omittedDetailCount,
-                truncated: answer.trajectoryDetail.truncated_outputs,
-              })}
-            </p>
-          ) : null}
+            </ol>
+            <TrajectoryCoverage phaseStates={presentation.phaseStates} />
+            {answer.trajectoryDetail &&
+                (omittedDetailCount > 0 || answer.trajectoryDetail.truncated_outputs > 0) ? (
+              <p class="deck-trajectory-gap">
+                {t("deck.trajectory.historyDetailBound", {
+                  omitted: omittedDetailCount,
+                  truncated: answer.trajectoryDetail.truncated_outputs,
+                })}
+              </p>
+            ) : null}
+          </details>
         </div>
       ) : null}
-    </details>
+      </details>
+    </div>
+  );
+}
+
+function IntentGraphPhase({
+  graph,
+  evidence,
+  index,
+  state,
+}: {
+  readonly graph: IntentGraphMetadata;
+  readonly evidence?: IntentGraphEvidence;
+  readonly index: string;
+  readonly state: TrajectoryPhaseState;
+}) {
+  const receipts = new Map((evidence?.goals ?? []).map((goal) => [goal.goal_id, goal]));
+  const mode = evidence?.evidence_mode ?? "held_for_review";
+  return (
+    <TrajectoryPhase
+      index={index}
+      phase="plan"
+      state={state}
+      heading={t("deck.trajectory.phase.plan")}
+      summary={t("deck.trajectory.planSummary", {
+        count: graph.goals.length,
+        mode: t(`deck.trajectory.evidenceMode.${mode}`),
+      })}
+    >
+      <ol class="deck-trajectory-goals" aria-label={t("deck.trajectory.goalsLabel")}>
+        {graph.goals.map((goal, goalIndex) => {
+          const receipt = receipts.get(goal.goal_id);
+          const status = receipt?.status ?? "planned";
+          return (
+            <li key={goal.goal_id} data-status={status}>
+              <span class="deck-trajectory-goal-index" aria-hidden="true">
+                {String(goalIndex + 1).padStart(2, "0")}
+              </span>
+              <span class="deck-trajectory-goal-copy">
+                <strong>{t("deck.trajectory.goalLabel", { index: goalIndex + 1 })}</strong>
+                <code>{goal.capability ?? t("deck.trajectory.contextGoal")}</code>
+                {goal.depends_on.length > 0 ? (
+                  <small>{t("deck.trajectory.dependsOn", {
+                    goals: goal.depends_on.join(", "),
+                  })}</small>
+                ) : null}
+              </span>
+              <span class={`deck-trajectory-goal-status is-${status}`}>
+                {status === "planned"
+                  ? t("deck.trajectory.planned")
+                  : t(`deck.investigation.${status}`)}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </TrajectoryPhase>
   );
 }
 
@@ -133,13 +254,22 @@ function PhaseStrip({
     <ol class="deck-trajectory-phase-strip" aria-label={t("deck.trajectory.phaseLabel")}>
       {TRAJECTORY_PHASES.map((phase, index) => (
         <li key={phase} data-state={phaseStates[phase]}>
-          <span>{String(index + 1).padStart(2, "0")}</span>
+          <span aria-hidden="true">{phaseMark(phaseStates[phase], index)}</span>
           <strong>{t(`deck.trajectory.phase.${phase}`)}</strong>
           <small>{phaseStateLabel(phaseStates[phase])}</small>
         </li>
       ))}
     </ol>
   );
+}
+
+function phaseMark(state: TrajectoryPhaseState, index: number): string {
+  if (state === "completed") return "✓";
+  if (state === "corrected") return "R";
+  if (state === "degraded" || state === "unverified") return "!";
+  if (state === "failed") return "x";
+  if (state === "running") return "...";
+  return String(index + 1).padStart(2, "0");
 }
 
 function VerificationPhase({ trajectory, index, state }: {

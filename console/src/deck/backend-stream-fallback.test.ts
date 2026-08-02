@@ -330,6 +330,20 @@ describe("askBackendStream fallback typewriter", () => {
     expect(reply.source).toBe("partial (stream error)");
   });
 
+  test("discards partial text when a structured content-policy error arrives", async () => {
+    const body =
+      'event: token\ndata: {"delta":"must not survive"}\n\n' +
+      'event: error\ndata: {"code":"content_policy_block","stage":"output"}\n\n';
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+    mod.fallbackTypewriter.intervalMs = 0;
+
+    const reply = await mod.askBackendStream("q", snap(), [], { onToken: () => undefined });
+
+    expect(reply.text).not.toContain("must not survive");
+    expect(reply.source).toBe("deterministic (blocked by content policy)");
+  });
+
   test("ignores every frame after the first terminal done event", async () => {
     const body =
       'event: token\ndata: {"seq":1,"delta":"Draft"}\n\n' +

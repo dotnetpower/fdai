@@ -1,0 +1,26 @@
+[project]
+name = "fdai-code-assurance"
+dynamic = ["version"]
+description = "Optional read-only code and security review capabilities for FDAI"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fdai>=0.1,<0.2",
+    "httpx>=0.27,<1",
+]
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+fdai = { workspace = true }
+
+[tool.hatch.version]
+path = "src/fdai_code_assurance/__about__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fdai_code_assurance"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/fdai_code_assurance", "README.md", "pyproject.toml"]

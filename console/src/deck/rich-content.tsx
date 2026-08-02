@@ -38,7 +38,6 @@ import {
   type ListItem,
 } from "./rich-parse";
 import { Tooltip } from "../components/tooltip";
-import { TABLE_PREVIEW_ROW_COUNT, tableRowsForDisplay } from "./table-presentation";
 
 // Register the languages that plausibly appear in FDAI answers (config, IaC,
 // policy, glue). Unregistered languages fall back to auto-detect, then plain.
@@ -176,8 +175,6 @@ function TableBlock({
   readonly headers: readonly string[];
   readonly rows: readonly string[][];
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const { visibleRows, hiddenCount } = tableRowsForDisplay(rows, expanded);
   return (
     <div class="deck-table-block">
       <div class="deck-table-wrap">
@@ -190,7 +187,7 @@ function TableBlock({
             </tr>
           </thead>
           <tbody>
-            {visibleRows.map((row, r) => (
+            {rows.map((row, r) => (
               <tr key={r}>
                 {headers.map((_, c) => (
                   <td key={c}>{row[c] ?? ""}</td>
@@ -200,16 +197,6 @@ function TableBlock({
           </tbody>
         </table>
       </div>
-      {rows.length > TABLE_PREVIEW_ROW_COUNT ? (
-        <div class="deck-table-meta">
-          <span>{t("deck.table.rowsShown", { shown: visibleRows.length, total: rows.length })}</span>
-          <button type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
-            {expanded
-              ? t("deck.table.showPreview", { count: TABLE_PREVIEW_ROW_COUNT })
-              : t("deck.table.showRemaining", { count: hiddenCount })}
-          </button>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -467,6 +454,13 @@ export function RichContent({
    *  while streaming, to avoid chips flickering mid-token). */
   readonly citeMarks?: readonly InlineCiteMark[] | undefined;
 }) {
+  if (streaming) {
+    return (
+      <div class="deck-rich is-streaming">
+        <TextBlock text={text} caret />
+      </div>
+    );
+  }
   const segments = parseAnswer(text);
   if (segments.length === 0) {
     return streaming ? <span class="deck-gr-caret" aria-hidden="true" /> : null;

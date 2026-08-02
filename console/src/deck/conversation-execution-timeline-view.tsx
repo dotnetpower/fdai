@@ -24,19 +24,25 @@ export function ConversationExecutionTimelineView({
       <ol>
         {items.map((item) => (
           <li key={item.id} data-kind={item.kind} data-state={item.state}>
-            <span class="deck-execution-kind">{t(`deck.trajectory.executionKind.${item.kind}`)}</span>
-            <span class="deck-execution-label">
-              <strong>{executionLabel(item)}</strong>
-              <small>{executionDetail(item)}</small>
-            </span>
-            <span class="deck-execution-track" aria-hidden="true">
-              <span style={{ left: `${item.leftPct}%`, width: `${item.widthPct}%` }} />
-            </span>
-            <time>{formatClock(item.startedAt)}</time>
-            <span class="deck-execution-outcome">
-              <strong>{phaseStateLabel(item.state)}</strong>
-              <small>{formatDuration(item.durationMs)}</small>
-            </span>
+            <details>
+              <summary>
+                <span class="deck-execution-kind">{t(`deck.trajectory.executionKind.${item.kind}`)}</span>
+                <strong class="deck-execution-label">{executionLabel(item)}</strong>
+                <span class="deck-execution-track" aria-hidden="true">
+                  <span style={{ left: `${item.leftPct}%`, width: `${item.widthPct}%` }} />
+                </span>
+                <span class="deck-execution-duration">{formatDuration(item.durationMs)}</span>
+                <span class="deck-execution-outcome">{phaseStateLabel(item.state)}</span>
+                <span class="deck-execution-chevron" aria-hidden="true" />
+              </summary>
+              <div class="deck-execution-detail">
+                <dl class="deck-execution-facts">
+                  <div><dt>{t("deck.trajectory.status")}</dt><dd>{executionDetail(item)}</dd></div>
+                  <div><dt>{t("deck.investigation.startedAt")}</dt><dd><time dateTime={item.startedAt}>{formatClock(item.startedAt)}</time></dd></div>
+                  <div><dt>{t("deck.investigation.completedAt")}</dt><dd><time dateTime={item.completedAt}>{formatClock(item.completedAt)}</time></dd></div>
+                </dl>
+              </div>
+            </details>
           </li>
         ))}
       </ol>
@@ -67,7 +73,7 @@ function formatClock(value: string): string {
 }
 
 function formatDuration(durationMs: number): string {
-  if (durationMs === 0) return t("deck.trajectory.pointInTime");
+  if (durationMs === 0) return "0 ms";
   if (durationMs < 1000) return `${durationMs} ms`;
   return `${(durationMs / 1000).toFixed(2)} s`;
 }

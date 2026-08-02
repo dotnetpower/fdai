@@ -481,6 +481,11 @@ export function useCommandDeckSubmit({
                   ...(reply.turnTiming ? { turnTiming: reply.turnTiming } : {}),
                   ...(reply.trajectoryDetail ? { trajectoryDetail: reply.trajectoryDetail } : {}),
                   ...(reply.resourceContext ? { resourceContext: reply.resourceContext } : {}),
+                  ...(reply.intentGraph ? { intentGraph: reply.intentGraph } : {}),
+                  ...(reply.intentGraphEvidence ? {
+                    intentGraphEvidence: reply.intentGraphEvidence,
+                  } : {}),
+                  ...(reply.evidenceMode ? { evidenceMode: reply.evidenceMode } : {}),
                 }
               : turn;
           });

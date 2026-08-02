@@ -22,6 +22,7 @@
       --sensing: #167a72;
       --governance: #70579c;
       --domain: #3d7454;
+      --collective: #44688e;
       --gold: #aa7417;
       --silver: #687982;
       --bronze: #9b5732;
@@ -164,6 +165,46 @@
 
     .sample-glyph svg { display: block; }
     .context-sample span { color: var(--faint); font-size: 11px; }
+
+    .collective-panel {
+      display: grid;
+      grid-template-columns: 96px minmax(0, 1fr) auto;
+      gap: 20px;
+      align-items: center;
+      margin-top: 26px;
+      padding: 18px 20px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: 0 10px 30px rgba(28, 45, 55, 0.06), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+    }
+
+    .collective-icon {
+      width: 78px;
+      height: 78px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--collective) 9%, white);
+      color: var(--collective);
+    }
+
+    .collective-icon span {
+      width: 52px;
+      height: 52px;
+      background: currentColor;
+      -webkit-mask: url("../../console/public/agent-icons/pantheon.svg") center / contain no-repeat;
+      mask: url("../../console/public/agent-icons/pantheon.svg") center / contain no-repeat;
+    }
+
+    .collective-kicker { margin: 0 0 5px; color: var(--collective); font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+    .collective-copy h2 { margin: 0; font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif; font-size: 23px; font-weight: 600; line-height: 1.1; }
+    .collective-copy p:last-child { max-width: 620px; margin: 7px 0 0; color: var(--muted); font-size: 12px; }
+    .collective-meta { display: grid; gap: 8px; margin: 0; }
+    .collective-meta div { display: grid; gap: 2px; }
+    .collective-meta dt { color: var(--faint); font-size: 9px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; }
+    .collective-meta dd { margin: 0; color: var(--ink); font-size: 11px; }
+    .collective-meta code { font-family: "Cascadia Code", monospace; font-size: 10px; }
 
     .controls {
       display: flex;
@@ -364,6 +405,10 @@
       .context-heading { grid-column: 1 / -1; min-height: auto; flex-direction: row; }
       .context-sample { min-height: 84px; border-top: 1px solid var(--line); }
       .context-sample:nth-child(2) { border-left: 0; }
+      .collective-panel { grid-template-columns: 78px minmax(0, 1fr); }
+      .collective-icon { width: 68px; height: 68px; }
+      .collective-icon span { width: 44px; height: 44px; }
+      .collective-meta { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .controls { align-items: flex-start; flex-direction: column; }
       .agent-grid { grid-template-columns: 1fr; }
       .board-footer { flex-direction: column; gap: 8px; }
@@ -375,6 +420,8 @@
       .agent-card { grid-template-columns: 60px minmax(0, 1fr); min-height: 94px; padding: 13px; }
       .icon-tile { width: 60px; height: 60px; }
       .filter-bar button { padding-inline: 8px; }
+      .collective-panel { grid-template-columns: 1fr; }
+      .collective-meta { grid-template-columns: 1fr; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -390,14 +437,27 @@
       <div>
         <p class="eyebrow">Pantheon / Visual language</p>
         <h1>Agent icon system</h1>
-        <p class="intro">Fifteen distinct marks built on one quiet geometry. The second pass removes decorative weight, improves optical balance, and keeps each role legible from navigation to identity views.</p>
+        <p class="intro">Fifteen distinct marks and one collective symbol built on one quiet geometry. The second pass removes decorative weight, improves optical balance, and keeps each role legible from navigation to architecture diagrams.</p>
       </div>
-      <div class="system-mark" aria-label="Version 2 with 15 icons">
+      <div class="system-mark" aria-label="Version 2 with 15 agent icons and one collective mark">
         <strong>15</strong>
-        <span>icons<br />v2.0</span>
+        <span>agent icons<br />+ 1 collective</span>
         <div class="mark-rule"></div>
       </div>
     </header>
+
+    <section class="collective-panel" aria-labelledby="collective-title">
+      <div class="collective-icon" role="img" aria-label="Agent Pantheon collective mark"><span aria-hidden="true"></span></div>
+      <div class="collective-copy">
+        <p class="collective-kicker">Collective mark</p>
+        <h2 id="collective-title">Agent Pantheon</h2>
+        <p>Six role groups connect through one coordination core. Use this mark when a diagram represents the complete fixed 15-agent runtime rather than one named agent.</p>
+      </div>
+      <dl class="collective-meta">
+        <div><dt>Diagram token</dt><dd><code>agent-pantheon</code></dd></div>
+        <div><dt>Source</dt><dd><code>pantheon.svg</code></dd></div>
+      </dl>
+    </section>
 
     <section class="context-strip" aria-label="Odin icon size comparison">
       <div class="context-heading">
@@ -432,7 +492,7 @@
     </section>
 
     <footer class="board-footer">
-      <span><strong>Shared geometry:</strong> 24 x 24 viewBox, 1.7 stroke, round caps and joins.</span>
+      <span><strong>Shared geometry:</strong> 15 named marks plus 1 collective mark, 24 x 24 viewBox, round caps and joins.</span>
       <span><code>stroke: currentColor / gradient</code> / no fixed fills</span>
     </footer>
   </main>

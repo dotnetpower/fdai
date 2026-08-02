@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from contextlib import suppress
 from datetime import UTC, datetime
 from typing import Any, Final
@@ -34,6 +34,7 @@ from fdai.delivery.operator_api.routes.chat_answer_quality import (
 from fdai.delivery.operator_api.routes.chat_backend_common import (
     ChatBackend,
     ChatBackendUnavailableError,
+    ChatContentPolicyError,
 )
 from fdai.delivery.operator_api.routes.chat_backend_router import LatencyRoutedChatBackend
 from fdai.delivery.operator_api.routes.chat_busy_input import (
@@ -42,6 +43,10 @@ from fdai.delivery.operator_api.routes.chat_busy_input import (
     answer_with_busy_input,
     append_next_steer,
     interruptible_events,
+)
+from fdai.delivery.operator_api.routes.chat_content_policy import (
+    answer_with_content_policy_recovery,
+    collect_stream_with_content_policy_recovery,
 )
 from fdai.delivery.operator_api.routes.chat_document_evidence import (
     ChatDocumentEvidenceResolver,
@@ -65,10 +70,25 @@ from fdai.delivery.operator_api.routes.chat_evidence_pipeline import (
 )
 from fdai.delivery.operator_api.routes.chat_history import (
     append_assistant_turn,
+    append_content_policy_receipt,
     append_operator_turn,
     completed_replay_payload,
     replay_metadata,
 )
+from fdai.delivery.operator_api.routes.chat_history_context import (
+    DEFAULT_CHAT_HISTORY_POLICY,
+    BackendChatHistoryCompressor,
+    ChatHistoryPolicy,
+)
+from fdai.delivery.operator_api.routes.chat_intent_graph import (
+    IntentGraph,
+    IntentGraphPlanner,
+    apply_intent_graph_to_answer_plan,
+    draft_capability_available,
+    plan_semantic_turn,
+    planner_context_envelope,
+)
+from fdai.delivery.operator_api.routes.chat_inventory_compiler import compile_inventory_query
 from fdai.delivery.operator_api.routes.chat_model_trace import (
     activate_model_trace,
     deactivate_model_trace,
@@ -184,8 +204,9 @@ def make_chat_stream_route(
     busy_input_coordinator: BusyInputCoordinator | None = None,
     document_evidence_resolver: ChatDocumentEvidenceResolver | None = None,
     progress_metrics: ConversationProgressMetrics | None = None,
-    turn_planner: TurnPlanner | None = None,
-    turn_tools: tuple[TurnTool, ...] = (),
+    turn_planner: TurnPlanner | IntentGraphPlanner | None = None,
+    turn_tools: tuple[TurnTool, ...] | Callable[[], tuple[TurnTool, ...]] = (),
+    history_policy: ChatHistoryPolicy = DEFAULT_CHAT_HISTORY_POLICY,
     path: str = DEFAULT_STREAM_PATH,
     max_body_bytes: int = DEFAULT_MAX_CHAT_BODY_BYTES,
 ) -> Route:
@@ -200,6 +221,11 @@ def make_chat_stream_route(
     Read-only in the FDAI sense - no state mutation, no privileged call.
     """
 
+    history_compressor = BackendChatHistoryCompressor(
+        backend=backend,
+        max_summary_chars=history_policy.max_summary_chars,
+    )
+
     async def handler(request: Request) -> StreamingResponse:
         prepared = await prepare_chat_stream_request(
             request,
@@ -207,6 +233,9 @@ def make_chat_stream_route(
             model_preference_resolver=model_preference_resolver,
             answer_preference_resolver=answer_preference_resolver,
             document_evidence_resolver=document_evidence_resolver,
+            conversation_history_store=conversation_history_store,
+            history_compressor=history_compressor,
+            history_policy=history_policy,
             max_body_bytes=max_body_bytes,
         )
         user_id = prepared.user_id
@@ -220,12 +249,14 @@ def make_chat_stream_route(
             resource_followup
             or prepared.inventory_screen_scope
             or prepared.inventory_scope_followup
-            or needs_subscription_health(evidence_prompt)
+            or compile_inventory_query(evidence_prompt) is not None
+            or (turn_planner is None and needs_subscription_health(evidence_prompt))
         )
         view_context = prepared.view_context
         conversation_context = prepared.conversation_context
         target_agent = prepared.target_agent
         history = prepared.history
+        history_metadata = prepared.history_metadata
         answer_plan = prepared.answer_plan
         session_id = prepared.session_id
         request_id = prepared.request_id
@@ -255,7 +286,10 @@ def make_chat_stream_route(
                         request_id=request_id,
                         content=clean_prompt,
                         recorded_at=datetime.now(tz=UTC),
-                        metadata={"document_refs": list(document_evidence_refs)},
+                        metadata={
+                            "document_refs": list(document_evidence_refs),
+                            **history_metadata,
+                        },
                         ontology_projector=user_context_ontology_projector,
                     )
                 except UserContextConflictError as exc:
@@ -338,13 +372,22 @@ def make_chat_stream_route(
                     await cleanup()
                     yield frame("done", completed_payload)
                     return
+                semantic_plan = None
                 if turn_planner is not None and not deterministic_followup:
                     semantic_plan_timing = turn_timing.begin("semantic_plan")
                     try:
-                        semantic_plan = await turn_planner.plan_turn(
+                        semantic_plan = await plan_semantic_turn(
+                            turn_planner,
                             prompt=clean_prompt,
-                            tools=turn_tools,
+                            tools=turn_tools() if callable(turn_tools) else turn_tools,
                             history=history,
+                            attachments=view_context.get("_attachments"),
+                            context=planner_context_envelope(
+                                view_context,
+                                resource_context=resource_context,
+                                conversation_context=conversation_context,
+                                document_refs=document_evidence_refs,
+                            ),
                         )
                     except Exception as exc:  # noqa: BLE001 - shadow plan degrades closed
                         turn_timing.complete(semantic_plan_timing, status="degraded")
@@ -355,10 +398,33 @@ def make_chat_stream_route(
                         )
                     else:
                         turn_timing.complete(semantic_plan_timing, status="completed")
-                        answer_plan = apply_turn_plan_to_answer_plan(answer_plan, semantic_plan)
+                        answer_plan = (
+                            apply_intent_graph_to_answer_plan(answer_plan, semantic_plan)
+                            if isinstance(semantic_plan, IntentGraph)
+                            else apply_turn_plan_to_answer_plan(answer_plan, semantic_plan)
+                        )
                         view_context["_answer_plan"] = answer_plan.to_dict()
-                        view_context["_turn_plan"] = semantic_plan.to_dict()
+                        view_context[
+                            "_intent_graph"
+                            if isinstance(semantic_plan, IntentGraph)
+                            else "_turn_plan"
+                        ] = semantic_plan.to_dict()
                         if semantic_plan.requires_confirmation:
+                            if isinstance(
+                                semantic_plan, IntentGraph
+                            ) and not draft_capability_available(
+                                semantic_plan,
+                                turn_tools() if callable(turn_tools) else turn_tools,
+                            ):
+                                await cleanup()
+                                yield frame(
+                                    "error",
+                                    {
+                                        "error": "draft capability is no longer available",
+                                        "status": 409,
+                                    },
+                                )
+                                return
                             await cleanup()
                             yield frame(
                                 "done",
@@ -465,6 +531,9 @@ def make_chat_stream_route(
                         agent_delegate=agent_delegate,
                         web_search_resolver=web_search_resolver,
                         progress_observer=observe_evidence_progress,
+                        intent_graph=(
+                            semantic_plan if isinstance(semantic_plan, IntentGraph) else None
+                        ),
                     )
                 )
                 try:
@@ -618,26 +687,48 @@ def make_chat_stream_route(
                     model_generated = True
                     steer_reruns = 0
                     while steer_reruns <= MAX_STEER_RERUNS:
-                        if isinstance(backend, LatencyRoutedChatBackend):
-                            upstream = backend.answer_stream(
-                                prompt=clean_prompt,
-                                view_context=enriched_context,
+
+                        async def invoke_stream(
+                            candidate_history: list[dict[str, str]],
+                        ) -> AsyncIterator[dict[str, Any]]:
+                            if isinstance(backend, LatencyRoutedChatBackend):
+                                async for candidate_event in backend.answer_stream(
+                                    prompt=clean_prompt,
+                                    view_context=enriched_context,
+                                    history=candidate_history,
+                                    preferred_model=preferred_model,
+                                ):
+                                    yield candidate_event
+                            else:
+                                async for candidate_event in stream(
+                                    prompt=clean_prompt,
+                                    view_context=enriched_context,
+                                    history=candidate_history,
+                                ):
+                                    yield candidate_event
+
+                        async def recovered_stream() -> AsyncIterator[dict[str, Any]]:
+                            nonlocal history_metadata
+                            buffered, recovery = await collect_stream_with_content_policy_recovery(
+                                invoke=invoke_stream,
                                 history=history,
-                                preferred_model=preferred_model,
+                                compressor=history_compressor,
+                                policy=history_policy,
                             )
-                        else:
-                            upstream = stream(
-                                prompt=clean_prompt,
-                                view_context=enriched_context,
-                                history=history,
-                            )
+                            if recovery is not None:
+                                history_metadata = recovery.metadata()
+                                if progress_metrics is not None:
+                                    progress_metrics.increment("history_policy_degraded")
+                            for buffered_event in buffered:
+                                yield buffered_event
+
                         provisional_answer = ""
                         with (
                             with_correlation(_metering_correlation_id(user_id, session_id)),
                             with_invocation_scope(InvocationScope.OPERATOR_CHAT),
                         ):
                             events = _with_sse_heartbeats(
-                                upstream, interval=DEFAULT_STREAM_HEARTBEAT_S
+                                recovered_stream(), interval=DEFAULT_STREAM_HEARTBEAT_S
                             )
                             async for event in interruptible_events(
                                 events,
@@ -680,18 +771,35 @@ def make_chat_stream_route(
                     async def invoke_backend(
                         active_history: list[dict[str, str]],
                     ) -> dict[str, Any]:
-                        if isinstance(backend, LatencyRoutedChatBackend):
+                        nonlocal history_metadata
+
+                        async def invoke_raw(
+                            candidate_history: list[dict[str, str]],
+                        ) -> dict[str, Any]:
+                            if isinstance(backend, LatencyRoutedChatBackend):
+                                return await backend.answer(
+                                    prompt=clean_prompt,
+                                    view_context=enriched_context,
+                                    history=candidate_history,
+                                    preferred_model=preferred_model,
+                                )
                             return await backend.answer(
                                 prompt=clean_prompt,
                                 view_context=enriched_context,
-                                history=active_history,
-                                preferred_model=preferred_model,
+                                history=candidate_history,
                             )
-                        return await backend.answer(
-                            prompt=clean_prompt,
-                            view_context=enriched_context,
+
+                        backend_reply, recovery = await answer_with_content_policy_recovery(
+                            invoke=invoke_raw,
                             history=active_history,
+                            compressor=history_compressor,
+                            policy=history_policy,
                         )
+                        if recovery is not None:
+                            history_metadata = recovery.metadata()
+                            if progress_metrics is not None:
+                                progress_metrics.increment("history_policy_degraded")
+                        return backend_reply
 
                     with (
                         with_correlation(_metering_correlation_id(user_id, session_id)),
@@ -860,6 +968,7 @@ def make_chat_stream_route(
                     turn_timing=turn_timing.snapshot(),
                     trajectory_detail=None,
                 )
+                done_payload["history_context"] = history_metadata
                 trajectory_detail_snapshot = trajectory_detail.snapshot(
                     max_bytes=trajectory_detail_budget(done_payload)
                 )
@@ -880,7 +989,8 @@ def make_chat_stream_route(
                                 model=str(terminal_model or "unknown"),
                                 view_context=enriched_context,
                                 answer_planning=answer_planning,
-                            ),
+                            )
+                            | history_metadata,
                         ),
                         ontology_projector=user_context_ontology_projector,
                     )
@@ -913,6 +1023,38 @@ def make_chat_stream_route(
             except ChatBackendUnavailableError:
                 await cleanup()
                 yield frame("error", {"detail": "chat backend not configured"})
+            except ChatContentPolicyError as exc:
+                await cleanup()
+                if progress_metrics is not None:
+                    progress_metrics.increment("content_policy_blocks")
+                receipt_persisted = True
+                if conversation_history_store is not None and operator_turn is not None:
+                    try:
+                        await append_content_policy_receipt(
+                            store=conversation_history_store,
+                            principal_id=user_id,
+                            conversation_id=session_id,
+                            request_id=request_id,
+                            stage=exc.stage,
+                            recorded_at=datetime.now(tz=UTC),
+                            history_metadata=history_metadata,
+                        )
+                    except Exception as receipt_error:  # noqa: BLE001 - preserve stream error
+                        receipt_persisted = False
+                        _LOG.error(
+                            "chat stream content-policy receipt failed: %s",
+                            type(receipt_error).__name__,
+                            extra={"request_id": request_id},
+                        )
+                yield frame(
+                    "error",
+                    {
+                        "code": "content_policy_block",
+                        "stage": exc.stage,
+                        "receipt_persisted": receipt_persisted,
+                        "detail": str(exc),
+                    },
+                )
             except HTTPException as exc:
                 await cleanup()
                 yield frame("error", {"detail": str(exc.detail)})

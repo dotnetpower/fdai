@@ -56,8 +56,14 @@ Each `.diagram.yaml` file contains:
   `console/public/agent-icons/manifest.json` pantheon set. Non-agent nodes
   without an explicit product icon render as text-only cards rather than
   profile initials.
+- A non-agent node that represents the complete fixed runtime can set
+  `icon: agent-pantheon`. This collective mark doesn't create a sixteenth agent.
 - Single-direction edges with an explicit semantic kind.
 - A legend whenever line styles carry meaning.
+
+SVG is the mandatory canonical format. Diagrams default to SVG and PNG for
+backward compatibility, and can set `formats: [svg]` when no raster consumer
+exists.
 
 Deployment diagrams can opt into `canvas.profile: azure-reference` for a compact,
 icon-forward Azure reference style. In that profile, use semantic presentation
@@ -65,6 +71,12 @@ values instead of pixel-level styling:
 
 - Set groups to `presentation: boundary`, `band`, or `panel` to distinguish
   network boundaries, subnet bands, and surrounding surfaces.
+- Set a group to `layout: row` or `layout: column` when its direct child nodes
+  or groups need a stable presentation independent of cross-group edges.
+- Set `gap` on an explicit row or column when routing corridors need more room
+  than the compact profile's default spacing.
+- Set `justify: center` or `justify: start` when a fixed-width row shouldn't
+  spread a small child set across all available space.
 - Set icon-bearing nodes to `presentation: icon` when the official product icon
   should carry the visual hierarchy. FDAI-owned runtime components remain cards.
 - Set `step` on an edge to render a numbered flow badge separately from its
@@ -77,10 +89,15 @@ bend with a bounded quadratic curve. Direct hops stay straight, so curved
 connectors improve flow without turning the diagram into an ambiguous free-form
 graph.
 
-Supporting groups can opt into `placement: below` to form a lower band instead
-of consuming another horizontal root column. Individual cross-layer edges can
-opt into `route: diagonal`; compilation rejects a diagonal when it crosses an
-unrelated node. All other edges retain ELK routing and bounded corner rounding.
+Supporting groups can opt into `placement: top`, `below`, or `right` to form a
+stable region composition. Set `placementGap` to control the gap to the aligned
+surface. Add `alignWith: <group-id>` when that band should share the horizontal
+center of a nested reference group.
+Individual cross-layer edges can opt into an explicit route; compilation rejects
+a route when it crosses an unrelated node. All other edges retain ELK routing
+and bounded corner rounding. Use `orthogonal-shortest` for an obstacle-aware
+one-bend connection that falls back to the standard orthogonal route when both
+L-shaped candidates are blocked.
 
 The validator rejects unknown keys, duplicate ids, missing locales, unknown
 parents, edges that reference missing elements, and port references that don't

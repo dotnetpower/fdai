@@ -27,6 +27,11 @@ from fdai.delivery.operator_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
     contextualize_inventory_screen_scope,
 )
+from fdai.delivery.operator_api.routes.chat_inventory_query import (
+    InventoryField,
+    InventoryQueryKind,
+    InventoryQueryScope,
+)
 from fdai.delivery.operator_api.routes.chat_resource_context import resource_followup_answer
 from fdai.delivery.operator_api.routes.chat_subscription_health import SubscriptionHealthChatTools
 from fdai.delivery.operator_api.routes.chat_turn_plan import parse_turn_plan
@@ -232,7 +237,7 @@ async def _inventory_evidence(prompt: str) -> dict[str, Any]:
 
 
 async def test_inventory_table_format_is_rendered_deterministically() -> None:
-    evidence = await _inventory_evidence("리소스 그룹 목록을 표로 보여줘")
+    evidence = await _inventory_evidence("현재 우리구독의 리소스그룹을 표로 보여줘")
 
     verification = verify_answer(
         "unsupported draft",
@@ -240,9 +245,21 @@ async def test_inventory_table_format_is_rendered_deterministically() -> None:
         locale="ko",
     )
 
-    assert "| 이름 | 형식 | 상태 | 위치 | 리소스 그룹 |" in verification.answer
-    assert "| rg-app | resource-group | unknown | - | rg-app |" in verification.answer
+    assert "구독 범위에서 리소스 그룹 2개를 확인했습니다." in verification.answer
+    assert "| 리소스 그룹 | 위치 | 상태 |" in verification.answer
+    assert "| rg-app | - | unknown |" in verification.answer
+    assert "| 형식 |" not in verification.answer
     assert "- 리소스 rg-app" not in verification.answer
+
+
+def test_compound_korean_resource_group_request_keeps_subject_and_scope() -> None:
+    query = compile_inventory_query("현재 우리구독의 리소스그룹을 표로 보여줘")
+
+    assert query is not None
+    assert query.kind is InventoryQueryKind.LIST
+    assert query.scope is InventoryQueryScope.SUBSCRIPTION
+    assert query.predicates[0].field is InventoryField.RESOURCE_TYPE
+    assert query.predicates[0].value == "resource-group"
 
 
 async def test_inventory_chart_format_emits_valid_chart_json() -> None:
@@ -617,6 +634,12 @@ async def test_current_state_query_without_refresh_barrier_fails_closed() -> Non
                 {"field": "status", "operator": "in", "value": ["stopped", "deallocated"]},
             ],
             "lookback_seconds": None,
+            "scope": "subscription",
+            "group_by": "none",
+            "projection": "details",
+            "require_fresh": True,
+            "include_workloads": False,
+            "require_state_history": False,
         },
         "freshness": "stale",
     }
@@ -2075,6 +2098,44 @@ def test_deterministic_inventory_filter_precedes_semantic_inventory_plan() -> No
     payload = response.json()
     assert "vm-job" in payload["answer"]
     assert "vm-app" not in payload["answer"]
+    assert payload["verification"]["authority"] == "server_inventory_graph"
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_complete_resource_group_table_skips_semantic_planner(stream: bool) -> None:
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            raise AssertionError("complete inventory query must not invoke semantic planning")
+
+    tools = InventoryChatTools(_provider)
+    route = (
+        make_chat_stream_route(
+            backend=RecordingBackend(),
+            authorize=_allow,
+            tool_resolver=tools,
+            planned_tool_resolver=tools,
+            turn_planner=Planner(),  # type: ignore[arg-type]
+            turn_tools=tools.turn_tools(),
+        )
+        if stream
+        else make_chat_route(
+            backend=RecordingBackend(),
+            authorize=_allow,
+            tool_resolver=tools,
+            planned_tool_resolver=tools,
+            turn_planner=Planner(),  # type: ignore[arg-type]
+            turn_tools=tools.turn_tools(),
+        )
+    )
+    response = TestClient(Starlette(routes=[route])).post(
+        "/chat/stream" if stream else "/chat",
+        json={"prompt": "현재 우리구독의 리소스그룹을 표로 보여줘", "view_context": {}},
+    )
+
+    assert response.status_code == 200
+    payload = _inventory_done_event(response.text) if stream else response.json()
+    assert payload is not None
+    assert "| 리소스 그룹 | 위치 | 상태 |" in payload["answer"]
     assert payload["verification"]["authority"] == "server_inventory_graph"
 
 

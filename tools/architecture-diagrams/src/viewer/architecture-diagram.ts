@@ -30,7 +30,7 @@ interface ManifestText {
 interface DiagramManifest {
   id: string;
   locales: Record<Locale, ManifestText>;
-  assets: Record<Locale, { svg: string; png: string }>;
+  assets: Record<Locale, { svg: string; png?: string }>;
   nodes: Array<{
     id: string;
     kind: string;

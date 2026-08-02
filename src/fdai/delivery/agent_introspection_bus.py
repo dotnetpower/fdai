@@ -421,6 +421,15 @@ class EventBusAgentIntrospectionClient:
     _start_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     _privacy_salt: str = field(default_factory=lambda: uuid.uuid4().hex)
 
+    @property
+    def available(self) -> bool:
+        """Return whether the bounded request/reply bridge is ready now."""
+        return (
+            self._consumer_task is not None
+            and not self._consumer_task.done()
+            and self._ready.is_set()
+        )
+
     async def start(self) -> None:
         async with self._start_lock:
             if self._consumer_task is not None and not self._consumer_task.done():

@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 from fdai.delivery.operator_api.routes.chat import LatencyRoutedChatBackend, describe_backend
+from fdai.delivery.operator_api.routes.chat_backend_common import ChatContentPolicyError
 
 
 class _FixedLatencyBackend:
@@ -45,6 +46,17 @@ class _RaisingBackend:
     ) -> dict[str, Any]:
         self.calls += 1
         raise RuntimeError("upstream down")
+
+
+class _PolicyBlockedBackend(_RaisingBackend):
+    async def answer(self, **_kwargs: Any) -> dict[str, Any]:
+        self.calls += 1
+        raise ChatContentPolicyError(stage="input")
+
+    async def answer_stream(self, **_kwargs: Any) -> AsyncIterator[dict[str, Any]]:
+        self.calls += 1
+        raise ChatContentPolicyError(stage="input")
+        yield {}
 
 
 class _EmptyBackend:
@@ -309,6 +321,30 @@ class TestRouterWarmupAndSelection:
 
 
 class TestRouterFailureHandling:
+    async def test_content_policy_block_does_not_fail_over_or_penalize(self) -> None:
+        blocked = _PolicyBlockedBackend(model="blocked")
+        good = _FixedLatencyBackend(model="good", delay_ms=1)
+        router = LatencyRoutedChatBackend(candidates=[("blocked", blocked), ("good", good)])
+
+        with pytest.raises(ChatContentPolicyError):
+            await router.answer(prompt="hi", view_context={}, history=[])
+
+        assert blocked.calls == 1
+        assert good.calls == 0
+        assert router.stats()[0]["samples"] == 0
+
+    async def test_stream_content_policy_block_does_not_fail_over_or_penalize(self) -> None:
+        blocked = _PolicyBlockedBackend(model="blocked")
+        good = _StreamingBackend()
+        router = LatencyRoutedChatBackend(candidates=[("blocked", blocked), ("good", good)])
+
+        with pytest.raises(ChatContentPolicyError):
+            await _collect_stream(router)
+
+        assert blocked.calls == 1
+        assert good.calls == 0
+        assert router.stats()[0]["samples"] == 0
+
     async def test_total_turn_deadline_bounds_all_candidate_attempts(self) -> None:
         first = _NeverBackend()
         second = _NeverBackend()

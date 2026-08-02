@@ -12,6 +12,9 @@ import {
   type EvidenceBranch,
   type GroundedCodeArtifact,
   type InvestigationActivity,
+  type IntentGraphEvidence,
+  type IntentGraphMetadata,
+  type IntentEvidenceMode,
   type ModelTrace,
   type TurnTiming,
   type TrajectoryDetail,
@@ -62,6 +65,9 @@ export interface Turn {
   readonly turnTiming?: TurnTiming;
   readonly trajectoryDetail?: TrajectoryDetail;
   readonly resourceContext?: ResourceContext;
+  readonly intentGraph?: IntentGraphMetadata;
+  readonly intentGraphEvidence?: IntentGraphEvidence;
+  readonly evidenceMode?: IntentEvidenceMode;
   readonly agent?: string;
   readonly at: string;
 }
@@ -306,6 +312,9 @@ export function TurnBubble({
   onRegenerate,
   searchMatch,
   activeSearchMatch,
+  progressIndex,
+  investigationFlowStart,
+  investigationFlowEnd,
 }: {
   readonly turn: Turn;
   readonly trajectory?: ConversationTrajectory;
@@ -314,16 +323,20 @@ export function TurnBubble({
   readonly onRegenerate?: () => void;
   readonly searchMatch: boolean;
   readonly activeSearchMatch: boolean;
+  readonly progressIndex?: number;
+  readonly investigationFlowStart: boolean;
+  readonly investigationFlowEnd: boolean;
 }) {
   const isDeck = turn.role === "deck";
   const isActivity = turn.kind === "activity";
   const isProgressMessage = turn.kind === "message" && turn.source === "investigation";
+  const isInvestigationFlow = isActivity || isProgressMessage;
   return (
     <article
       id={`deck-turn-${turn.id}`}
-      class={`deck-turn deck-turn-${turn.role}${turn.source === "context" ? " is-context" : ""}${turn.streaming ? " is-streaming" : ""}${searchMatch ? " is-search-match" : ""}${activeSearchMatch ? " is-active-search-match" : ""}`}
+      class={`deck-turn deck-turn-${turn.role}${isActivity ? " deck-turn-activity" : ""}${turn.source === "context" ? " is-context" : ""}${turn.streaming ? " is-streaming" : ""}${searchMatch ? " is-search-match" : ""}${activeSearchMatch ? " is-active-search-match" : ""}${isInvestigationFlow ? " is-investigation-flow" : ""}${investigationFlowStart ? " is-flow-start" : ""}${investigationFlowEnd ? " is-flow-end" : ""}`}
     >
-      {isDeck ? (
+      {isDeck && !isInvestigationFlow ? (
         <header class="deck-turn-head">
           <span class="deck-turn-role deck-turn-agent">
             <span
@@ -351,8 +364,17 @@ export function TurnBubble({
         />
       ) : isProgressMessage ? (
         <div class="deck-progress-note" role="status">
-          <span class="deck-progress-note-mark" aria-hidden="true" />
-          <p>{turn.text}</p>
+          <span class="deck-progress-note-mark" aria-hidden="true">
+            {String((progressIndex ?? 0) + 1).padStart(2, "0")}
+          </span>
+          <div class="deck-progress-note-body">
+            <strong>
+              {t((progressIndex ?? 0) === 0
+                ? "deck.investigation.startingWork"
+                : "deck.investigation.progressUpdate")}
+            </strong>
+            <p>{turn.text}</p>
+          </div>
         </div>
       ) : isDeck ? (
         <GroundedReply

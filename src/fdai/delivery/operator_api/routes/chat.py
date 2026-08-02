@@ -12,7 +12,7 @@ import asyncio
 import json
 import logging
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any, Final
 
@@ -27,6 +27,7 @@ from fdai.core.conversation_assurance import ConversationPolicyRuntime
 from fdai.core.metering import InvocationScope, with_invocation_scope
 from fdai.core.python_task.grounded_code import extract_grounded_code
 from fdai.core.user_context_projection import UserContextOntologyProjector
+from fdai.delivery.handover_events import HandoverAvailabilityPublisher
 from fdai.delivery.operator_api.routes.chat_answer_planning import (
     AnswerPlanningDelegate,
     cancel_planning,
@@ -45,6 +46,7 @@ from fdai.delivery.operator_api.routes.chat_backend_common import (
     _DIRECT_OVERRIDE,
     ChatBackend,
     ChatBackendUnavailableError,
+    ChatContentPolicyError,
     DisabledChatBackend,
     _completion_body_params,
     _default_chat_http_client,
@@ -79,6 +81,9 @@ from fdai.delivery.operator_api.routes.chat_busy_input import (
     answer_with_busy_input,
     await_with_interrupt,
 )
+from fdai.delivery.operator_api.routes.chat_content_policy import (
+    answer_with_content_policy_recovery,
+)
 from fdai.delivery.operator_api.routes.chat_document_evidence import (
     ChatDocumentEvidenceResolver,
     merge_document_verification,
@@ -109,10 +114,29 @@ from fdai.delivery.operator_api.routes.chat_evidence_pipeline import (
 )
 from fdai.delivery.operator_api.routes.chat_history import (
     append_assistant_turn,
+    append_content_policy_receipt,
     append_operator_turn,
     completed_replay_payload,
     replay_metadata,
 )
+from fdai.delivery.operator_api.routes.chat_history_context import (
+    DEFAULT_CHAT_HISTORY_POLICY,
+    BackendChatHistoryCompressor,
+    ChatHistoryPolicy,
+    resolve_chat_history_result,
+)
+from fdai.delivery.operator_api.routes.chat_intent_graph import (
+    IntentGraph,
+    IntentGraphPlanner,
+    apply_intent_graph_to_answer_plan,
+    draft_capability_available,
+    plan_semantic_turn,
+    planner_context_envelope,
+)
+from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
+    public_intent_graph_evidence,
+)
+from fdai.delivery.operator_api.routes.chat_inventory_compiler import compile_inventory_query
 from fdai.delivery.operator_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
     contextualize_inventory_screen_scope,
@@ -144,7 +168,6 @@ from fdai.delivery.operator_api.routes.chat_prompt import (
     _WHO_TOKEN,
     DEFAULT_MAX_CONTEXT_BYTES,
     DEFAULT_MAX_EXPLANATION_ITEMS,
-    DEFAULT_MAX_HISTORY_TURNS,
     DEFAULT_MAX_RECORDS_PER_KEY,
     _build_messages,
     _concept_answer,
@@ -168,7 +191,6 @@ from fdai.delivery.operator_api.routes.chat_resource_context import (
 )
 from fdai.delivery.operator_api.routes.chat_route_common import (
     DEFAULT_MAX_CHAT_BODY_BYTES,
-    DEFAULT_MAX_HISTORY_ITEMS,
     DEFAULT_MAX_SESSION_ID_CHARS,
     AnswerPreferenceResolver,
     AuthorizeFn,
@@ -269,9 +291,10 @@ def make_chat_route(
     post_turn_review_submitter: PostTurnReviewSubmitter | None = None,
     busy_input_coordinator: BusyInputCoordinator | None = None,
     document_evidence_resolver: ChatDocumentEvidenceResolver | None = None,
-    turn_planner: TurnPlanner | None = None,
-    turn_tools: tuple[TurnTool, ...] = (),
-    handover_availability_publisher: object | None = None,
+    turn_planner: TurnPlanner | IntentGraphPlanner | None = None,
+    turn_tools: tuple[TurnTool, ...] | Callable[[], tuple[TurnTool, ...]] = (),
+    handover_availability_publisher: HandoverAvailabilityPublisher | None = None,
+    history_policy: ChatHistoryPolicy = DEFAULT_CHAT_HISTORY_POLICY,
     path: str = DEFAULT_ROUTE_PATH,
     max_body_bytes: int = DEFAULT_MAX_CHAT_BODY_BYTES,
 ) -> Route:
@@ -281,6 +304,11 @@ def make_chat_route(
     read-only in the FDAI sense (no state mutation, no privileged call).
     Reader role is required (enforced by the shared ``authorize`` fn).
     """
+
+    history_compressor = BackendChatHistoryCompressor(
+        backend=backend,
+        max_summary_chars=history_policy.max_summary_chars,
+    )
 
     async def handler(request: Request) -> JSONResponse:
         user_id = await authorize(request)
@@ -352,15 +380,6 @@ def make_chat_route(
         history_raw = body.get("history", [])
         if not isinstance(history_raw, list):
             raise HTTPException(status_code=400, detail="history MUST be a list")
-        # Bound the input list BEFORE materializing dicts - a pathological
-        # payload of 10k+ one-char turns would slip past the body-byte cap
-        # (each turn is ~20 bytes) and force the interpreter to allocate a
-        # huge intermediate list only to slice to the last 8.
-        if len(history_raw) > DEFAULT_MAX_HISTORY_ITEMS:
-            raise HTTPException(
-                status_code=400,
-                detail=(f"history exceeds cap ({len(history_raw)} > {DEFAULT_MAX_HISTORY_ITEMS})"),
-            )
         history: list[dict[str, str]] = []
         for turn in history_raw:
             if isinstance(turn, dict):
@@ -370,7 +389,25 @@ def make_chat_route(
                     history.append({"role": role, "content": content})
 
         clean_prompt = prompt.strip()
-        _reject_direct_override(clean_prompt)
+        try:
+            _reject_direct_override(clean_prompt)
+        except ChatContentPolicyError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        session_id = _session_id(body)
+        with (
+            with_correlation(_metering_correlation_id(user_id, session_id)),
+            with_invocation_scope(InvocationScope.OPERATOR_CHAT),
+        ):
+            history_result = await resolve_chat_history_result(
+                store=conversation_history_store,
+                principal_id=user_id,
+                conversation_id=session_id,
+                client_history=history,
+                compressor=history_compressor,
+                policy=history_policy,
+            )
+            history = list(history_result.messages)
+            history_metadata = history_result.metadata()
         try:
             resource_context = parse_resource_context(body.get("resource_context"))
         except ValueError as exc:
@@ -393,7 +430,8 @@ def make_chat_route(
             resource_followup
             or inventory_screen_scope
             or inventory_scope_followup
-            or needs_subscription_health(evidence_prompt)
+            or compile_inventory_query(evidence_prompt) is not None
+            or (turn_planner is None and needs_subscription_health(evidence_prompt))
         )
         answer_plan = build_answer_plan(
             evidence_prompt,
@@ -401,7 +439,6 @@ def make_chat_route(
             preferences=answer_preferences,
         )
         view_context["_answer_plan"] = answer_plan.to_dict()
-        session_id = _session_id(body)
         if handover_availability_publisher is not None:
             task = asyncio.create_task(
                 handover_availability_publisher.publish(
@@ -429,10 +466,18 @@ def make_chat_route(
             semantic_plan = None
             if turn_planner is not None and not deterministic_followup:
                 try:
-                    semantic_plan = await turn_planner.plan_turn(
+                    semantic_plan = await plan_semantic_turn(
+                        turn_planner,
                         prompt=clean_prompt,
-                        tools=turn_tools,
+                        tools=turn_tools() if callable(turn_tools) else turn_tools,
                         history=history,
+                        attachments=view_context.get("_attachments"),
+                        context=planner_context_envelope(
+                            view_context,
+                            resource_context=resource_context,
+                            conversation_context=conversation_context,
+                            document_refs=document_evidence_refs,
+                        ),
                     )
                 except Exception as exc:  # noqa: BLE001 - shadow plan degrades closed
                     _LOG.warning(
@@ -441,9 +486,15 @@ def make_chat_route(
                         extra={"request_id": request_id},
                     )
                 else:
-                    answer_plan = apply_turn_plan_to_answer_plan(answer_plan, semantic_plan)
+                    answer_plan = (
+                        apply_intent_graph_to_answer_plan(answer_plan, semantic_plan)
+                        if isinstance(semantic_plan, IntentGraph)
+                        else apply_turn_plan_to_answer_plan(answer_plan, semantic_plan)
+                    )
                     view_context["_answer_plan"] = answer_plan.to_dict()
-                    view_context["_turn_plan"] = semantic_plan.to_dict()
+                    view_context[
+                        "_intent_graph" if isinstance(semantic_plan, IntentGraph) else "_turn_plan"
+                    ] = semantic_plan.to_dict()
             if conversation_history_store is not None:
                 try:
                     operator_turn = await append_operator_turn(
@@ -453,7 +504,10 @@ def make_chat_route(
                         request_id=request_id,
                         content=clean_prompt,
                         recorded_at=datetime.now(tz=UTC),
-                        metadata={"document_refs": list(document_evidence_refs)},
+                        metadata={
+                            "document_refs": list(document_evidence_refs),
+                            **history_metadata,
+                        },
                         ontology_projector=user_context_ontology_projector,
                     )
                 except UserContextConflictError as exc:
@@ -474,6 +528,20 @@ def make_chat_route(
                         )
                     return JSONResponse(completed_replay_payload(completed_turn))
             if semantic_plan is not None and semantic_plan.requires_confirmation:
+                if isinstance(semantic_plan, IntentGraph) and not draft_capability_available(
+                    semantic_plan,
+                    turn_tools() if callable(turn_tools) else turn_tools,
+                ):
+                    if busy_input_coordinator is not None and active_turn is not None:
+                        await busy_input_coordinator.finish_turn(
+                            session_id=session_id,
+                            turn_id=request_id,
+                            principal_id=user_id,
+                        )
+                    return JSONResponse(
+                        {"detail": "draft capability is no longer available"},
+                        status_code=409,
+                    )
                 if busy_input_coordinator is not None and active_turn is not None:
                     await busy_input_coordinator.finish_turn(
                         session_id=session_id,
@@ -533,6 +601,7 @@ def make_chat_route(
                 agent_delegate=agent_delegate,
                 web_search_resolver=web_search_resolver,
                 progress_observer=ignore_evidence_progress,
+                intent_graph=(semantic_plan if isinstance(semantic_plan, IntentGraph) else None),
             )
             view_context = _with_concept_evidence(evidence_prompt, view_context)
             view_context = _with_ontology_storage_contract(evidence_prompt, view_context)
@@ -667,18 +736,31 @@ def make_chat_route(
                 async def invoke_backend(
                     active_history: list[dict[str, str]],
                 ) -> dict[str, Any]:
-                    if isinstance(backend, LatencyRoutedChatBackend):
+                    nonlocal history_metadata
+
+                    async def invoke_raw(candidate_history: list[dict[str, str]]) -> dict[str, Any]:
+                        if isinstance(backend, LatencyRoutedChatBackend):
+                            return await backend.answer(
+                                prompt=clean_prompt,
+                                view_context=view_context,
+                                history=candidate_history,
+                                preferred_model=preferred_model,
+                            )
                         return await backend.answer(
                             prompt=clean_prompt,
                             view_context=view_context,
-                            history=active_history,
-                            preferred_model=preferred_model,
+                            history=candidate_history,
                         )
-                    return await backend.answer(
-                        prompt=clean_prompt,
-                        view_context=view_context,
+
+                    backend_reply, recovery = await answer_with_content_policy_recovery(
+                        invoke=invoke_raw,
                         history=active_history,
+                        compressor=history_compressor,
+                        policy=history_policy,
                     )
+                    if recovery is not None:
+                        history_metadata = recovery.metadata()
+                    return backend_reply
 
                 with (
                     with_correlation(_metering_correlation_id(user_id, session_id)),
@@ -758,6 +840,30 @@ def make_chat_route(
                 status_code=501,
                 detail="chat backend not configured on this deployment",
             ) from None
+        except ChatContentPolicyError as exc:
+            await cancel_planning(planning_task)
+            if conversation_history_store is not None and operator_turn is not None:
+                try:
+                    await append_content_policy_receipt(
+                        store=conversation_history_store,
+                        principal_id=user_id,
+                        conversation_id=session_id,
+                        request_id=request_id,
+                        stage=exc.stage,
+                        recorded_at=datetime.now(tz=UTC),
+                        history_metadata=history_metadata,
+                    )
+                except Exception as receipt_error:  # noqa: BLE001 - preserve policy response
+                    _LOG.error(
+                        "chat content-policy receipt failed: %s",
+                        type(receipt_error).__name__,
+                        extra={"request_id": request_id},
+                    )
+                    raise HTTPException(
+                        status_code=503,
+                        detail="content policy receipt unavailable",
+                    ) from receipt_error
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         except Exception:
             await cancel_planning(planning_task)
             raise
@@ -778,7 +884,14 @@ def make_chat_route(
         if web_search is not None:
             enriched["web_search"] = web_search
         enriched["latency_ms"] = latency_ms
+        enriched["history_context"] = history_metadata
         enriched["answer_plan"] = answer_plan.to_dict()
+        if isinstance(view_context.get("_intent_graph"), Mapping):
+            enriched["intent_graph"] = dict(view_context["_intent_graph"])
+        if isinstance(view_context.get("_intent_graph_evidence"), Mapping):
+            graph_evidence = public_intent_graph_evidence(view_context["_intent_graph_evidence"])
+            enriched["intent_graph_evidence"] = graph_evidence
+            enriched["evidence_mode"] = graph_evidence.get("evidence_mode")
         policy_summary = assurance_policy_summary(view_context)
         if policy_summary is not None:
             enriched["conversation_policy"] = policy_summary
@@ -805,7 +918,8 @@ def make_chat_route(
                         model=str(reply.get("model") or "unknown"),
                         view_context=view_context,
                         answer_planning=answer_planning,
-                    ),
+                    )
+                    | history_metadata,
                 ),
                 ontology_projector=user_context_ontology_projector,
             )

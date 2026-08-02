@@ -446,6 +446,26 @@ context* - re-assembled every turn under a token budget so a long session
 never blows up the prompt. Memory (lossless, `O(L)` in session length)
 and prompt (bounded, constant ceiling) are deliberately distinct.
 
+The JSON and SSE chat routes resolve history from the durable store by the authenticated
+`(principal_id, conversation_id)` pair before follow-up planning. They never use client-provided
+history when that store is configured. The resolver reads the complete transcript without a turn
+limit and preserves every character while the history remains within the default 160,000-byte
+budget. Above that budget it compacts older chunks with two bounded attempts while retaining the
+newest 20 turns word-for-word. A read timeout, compaction timeout, provider error, or excessive
+compaction fan-out degrades to a second principal-scoped read of the newest 20 turns. If that read
+also fails, the route uses empty history instead of accepting a browser copy that could cross the
+authorization boundary.
+
+Content-policy decisions are typed, non-retryable outcomes rather than provider outages. A blocked
+history-compaction chunk is split under bounded depth and probe budgets until only the triggering
+turn is omitted from model context; its durable transcript row remains unchanged. The prompt gets a
+content-free omission marker, while the operator and assistant turns retain `history_mode`, omitted
+count, and policy stage metadata. No digest derived from blocked content reaches the provider,
+browser, logs, or durable metadata. A final narrator input block retries once with policy-safe
+compacted history and once with empty history under one 30-second recovery deadline; an output block
+is never retried or routed to another model. An unrecoverable block writes a body-free SYSTEM
+receipt with one idempotent retry and no assistant turn.
+
 Assembly is the pure
 [`compose_working_context`](../../../src/fdai/core/working_context/composer.py)
 policy. It never caps the *number of turns*; it caps *tokens*, across four

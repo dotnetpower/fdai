@@ -30,6 +30,10 @@ from fdai.delivery.operator_api.routes.chat_evidence_enrichment import (
     _with_web_evidence,
     merge_evidence_branch_results,
 )
+from fdai.delivery.operator_api.routes.chat_intent_graph import IntentGraph
+from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
+    resolve_intent_graph_evidence,
+)
 from fdai.delivery.operator_api.routes.chat_inventory import needs_inventory_evidence
 from fdai.delivery.operator_api.routes.chat_inventory_compiler import compile_inventory_query
 from fdai.delivery.operator_api.routes.chat_preincident_activity import parse_preincident_activity
@@ -52,6 +56,7 @@ async def resolve_parallel_chat_evidence(
     agent_delegate: AgentChatDelegate | None,
     web_search_resolver: ChatWebSearchEvidenceResolver | None,
     progress_observer: BranchProgressObserver,
+    intent_graph: IntentGraph | None = None,
 ) -> dict[str, Any]:
     """Resolve independent evidence snapshots and merge established authority order."""
 
@@ -65,6 +70,19 @@ async def resolve_parallel_chat_evidence(
         "_web_evidence",
     ):
         base_context.pop(key, None)
+    if intent_graph is not None:
+        return await resolve_intent_graph_evidence(
+            request_id=request_id,
+            prompt=prompt,
+            graph=intent_graph,
+            view_context=base_context,
+            user_id=user_id,
+            session_id=session_id,
+            planned_tool_resolver=planned_tool_resolver,
+            agent_delegate=agent_delegate,
+            web_search_resolver=web_search_resolver,
+            progress_observer=progress_observer,
+        )
     specs: list[EvidenceBranchSpec] = []
     semantic_plan = base_context.get("_turn_plan")
     has_semantic_plan = isinstance(semantic_plan, Mapping)

@@ -21,6 +21,7 @@ from fdai.delivery.operator_api.routes.chat_backend_openai import (
 )
 from fdai.delivery.operator_api.routes.chat_backend_router import LatencyRoutedChatBackend
 from fdai.delivery.operator_api.routes.chat_evidence_pipeline import resolve_parallel_chat_evidence
+from fdai.delivery.operator_api.routes.chat_intent_graph import parse_intent_graph
 from fdai.delivery.operator_api.routes.chat_model_trace import (
     activate_model_trace,
     deactivate_model_trace,
@@ -86,6 +87,48 @@ class _Planner:
         return self.result
 
 
+class _GraphPlanner:
+    def __init__(self, tools: tuple[TurnTool, ...]) -> None:
+        self.calls = 0
+        self.result = parse_intent_graph(
+            {
+                "schema_version": 2,
+                "goals": [
+                    {
+                        "goal_id": "incidents",
+                        "intent": "status",
+                        "capability": "list_incidents",
+                        "arguments": {"status": "active"},
+                        "depends_on": [],
+                        "evidence_mode": "operational",
+                        "freshness_required": True,
+                        "confidence": 0.94,
+                        "alternatives": [],
+                    },
+                    {
+                        "goal_id": "kpi",
+                        "intent": "comparison",
+                        "capability": "get_kpi",
+                        "arguments": {},
+                        "depends_on": ["incidents"],
+                        "evidence_mode": "screen",
+                        "freshness_required": True,
+                        "confidence": 0.9,
+                        "alternatives": [],
+                    },
+                ],
+                "clarification": None,
+                "confidence": 0.91,
+                "action_posture": "advise_only",
+            },
+            tools=tools,
+        )
+
+    async def plan_turn(self, **_kwargs: object):
+        self.calls += 1
+        return self.result
+
+
 class _FailingKeywordResolver:
     async def resolve(self, *_args: object, **_kwargs: object) -> dict[str, object] | None:
         raise AssertionError("legacy keyword resolver must not run for a semantic plan")
@@ -106,7 +149,12 @@ class _PlannedResolver:
         return {
             "tool": tool_name,
             "authority": "server_read_model",
-            "result": {"arguments": arguments, "principal_id": principal_id},
+            "result": {
+                "arguments": arguments,
+                "principal_id": principal_id,
+                "secret_detail": "server-context-only",
+                "evidence_refs": [f"tool:{tool_name}"],
+            },
         }
 
 
@@ -408,6 +456,174 @@ def test_chat_routes_attach_shadow_semantic_plan(stream: bool) -> None:
         "confidence": 0.91,
         "requires_confirmation": False,
     }
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_chat_routes_execute_hierarchical_intent_graph(stream: bool) -> None:
+    backend = _AnswerBackend()
+    tools = (
+        TurnTool("list_incidents", "Read incidents.", "read", {"type": "object"}),
+        TurnTool("get_kpi", "Read KPI values.", "read", {"type": "object"}),
+    )
+    planner = _GraphPlanner(tools)
+    resolver = _PlannedResolver()
+    route = (
+        make_chat_stream_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=tools,
+            planned_tool_resolver=resolver,
+        )
+        if stream
+        else make_chat_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=tools,
+            planned_tool_resolver=resolver,
+        )
+    )
+
+    response = TestClient(Starlette(routes=[route])).post(
+        "/chat/stream" if stream else "/chat",
+        json={"prompt": "show incidents and compare the KPI"},
+    )
+
+    assert response.status_code == 200
+    assert planner.calls == 1
+    assert resolver.calls == 2
+    assert backend.context["_intent_graph"]["schema_version"] == 2
+    ledger = backend.context["_intent_graph_evidence"]
+    assert ledger["status"] == "completed"
+    assert [goal["goal_id"] for goal in ledger["goals"]] == ["incidents", "kpi"]
+    assert ledger["goals"][0]["evidence"]["result"]["secret_detail"] == "server-context-only"
+    assert "_agent_evidence" not in backend.context
+    payload = response.text if stream else json.dumps(response.json())
+    assert '"intent_graph"' in payload
+    assert '"intent_graph_evidence"' in payload
+    assert '"evidence_mode":"mixed_grounded"' in payload.replace(" ", "")
+    assert '"evidence_refs"' in payload
+    assert "server-context-only" not in payload
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        "Are all FDAI services healthy?",
+        "FDAI 서비스가 모두 정상인가?",
+    ],
+)
+def test_hierarchical_planner_owns_multilingual_health_intent(
+    stream: bool,
+    prompt: str,
+) -> None:
+    backend = _AnswerBackend()
+    tools = (
+        TurnTool("list_incidents", "Read incidents.", "read", {"type": "object"}),
+        TurnTool("get_kpi", "Read KPI values.", "read", {"type": "object"}),
+    )
+    planner = _GraphPlanner(tools)
+    route = (
+        make_chat_stream_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=tools,
+            planned_tool_resolver=_PlannedResolver(),
+        )
+        if stream
+        else make_chat_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=tools,
+            planned_tool_resolver=_PlannedResolver(),
+        )
+    )
+
+    response = TestClient(Starlette(routes=[route])).post(
+        "/chat/stream" if stream else "/chat",
+        json={"prompt": prompt},
+    )
+
+    assert response.status_code == 200
+    assert planner.calls == 1
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_graph_draft_rechecks_current_capability_manifest(stream: bool) -> None:
+    action = TurnTool(
+        "ops.restart-service",
+        "Draft a restart.",
+        "write",
+        {
+            "type": "object",
+            "properties": {"resource_ref": {"type": "string"}},
+            "required": ["resource_ref"],
+            "additionalProperties": False,
+        },
+    )
+    graph = parse_intent_graph(
+        {
+            "schema_version": 2,
+            "goals": [
+                {
+                    "goal_id": "restart",
+                    "intent": "proposal",
+                    "capability": "ops.restart-service",
+                    "arguments": {"resource_ref": "service-example"},
+                    "depends_on": [],
+                    "evidence_mode": "operational",
+                    "freshness_required": True,
+                    "confidence": 0.9,
+                    "alternatives": [],
+                }
+            ],
+            "clarification": None,
+            "confidence": 0.9,
+            "action_posture": "draft_only",
+        },
+        tools=(action,),
+    )
+
+    class DraftPlanner:
+        async def plan_turn(self, **_kwargs: object):
+            return graph
+
+    manifest_reads = 0
+
+    def current_tools() -> tuple[TurnTool, ...]:
+        nonlocal manifest_reads
+        manifest_reads += 1
+        return (action,) if manifest_reads == 1 else ()
+
+    route = (
+        make_chat_stream_route(
+            backend=_AnswerBackend(),
+            authorize=_allow,
+            turn_planner=DraftPlanner(),
+            turn_tools=current_tools,
+        )
+        if stream
+        else make_chat_route(
+            backend=_AnswerBackend(),
+            authorize=_allow,
+            turn_planner=DraftPlanner(),
+            turn_tools=current_tools,
+        )
+    )
+
+    response = TestClient(Starlette(routes=[route])).post(
+        "/chat/stream" if stream else "/chat",
+        json={"prompt": "Draft a restart"},
+    )
+
+    assert manifest_reads == 2
+    assert "draft capability is no longer available" in response.text
+    assert '"action_draft"' not in response.text
+    assert response.status_code == (200 if stream else 409)
 
 
 @pytest.mark.parametrize("stream", [False, True])

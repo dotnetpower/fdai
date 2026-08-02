@@ -36,6 +36,7 @@ import {
   parseResourceContext,
 } from "./backend-normalizers";
 import { parseTrajectoryDetail } from "./trajectory-detail";
+import { parseIntentGraph, parseIntentGraphEvidence } from "./intent-graph";
 
 export const TRANSCRIPT_KEY = "fdai.deck.transcript.v1";
 export const MAX_TRANSCRIPT_JSON_CHARS = 4 * 1024 * 1024;
@@ -98,6 +99,9 @@ export interface PersistedTurn {
   readonly turnTiming?: TurnTiming;
   readonly trajectoryDetail?: TrajectoryDetail;
   readonly resourceContext?: ResourceContext;
+  readonly intentGraph?: import("./backend-types").IntentGraphMetadata;
+  readonly intentGraphEvidence?: import("./backend-types").IntentGraphEvidence;
+  readonly evidenceMode?: import("./backend-types").IntentEvidenceMode;
 }
 
 interface MaybeStreamingTurn extends PersistedTurn {
@@ -138,6 +142,8 @@ export function serializeTurns(
       const turnTiming = parseTurnTiming(t.turnTiming);
       const trajectoryDetail = parseTrajectoryDetail(t.trajectoryDetail);
       const resourceContext = parseResourceContext(t.resourceContext);
+      const intentGraph = parseIntentGraph(t.intentGraph);
+      const intentGraphEvidence = parseIntentGraphEvidence(t.intentGraphEvidence);
       return {
         ...base,
         ...(boundedString(t.groundingText, MAX_TURN_TEXT_CHARS)
@@ -162,6 +168,11 @@ export function serializeTurns(
         ...(turnTiming ? { turnTiming } : {}),
         ...(trajectoryDetail ? { trajectoryDetail } : {}),
         ...(resourceContext ? { resourceContext } : {}),
+        ...(intentGraph ? { intentGraph } : {}),
+        ...(intentGraphEvidence ? {
+          intentGraphEvidence,
+          evidenceMode: intentGraphEvidence.evidence_mode,
+        } : {}),
       };
     });
   let serialized = JSON.stringify(persisted);
@@ -199,6 +210,8 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
     const trajectoryDetail = parseTrajectoryDetail(rec.trajectoryDetail);
     const verification = parseAnswerVerification(rec.verification);
     const resourceContext = parseResourceContext(rec.resourceContext);
+    const intentGraph = parseIntentGraph(rec.intentGraph);
+    const intentGraphEvidence = parseIntentGraphEvidence(rec.intentGraphEvidence);
     const turn: PersistedTurn = {
       id: rec.id,
       role: rec.role,
@@ -228,6 +241,11 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
       ...(turnTiming ? { turnTiming } : {}),
       ...(trajectoryDetail ? { trajectoryDetail } : {}),
       ...(resourceContext ? { resourceContext } : {}),
+      ...(intentGraph ? { intentGraph } : {}),
+      ...(intentGraphEvidence ? {
+        intentGraphEvidence,
+        evidenceMode: intentGraphEvidence.evidence_mode,
+      } : {}),
     };
     out.push(turn);
   }

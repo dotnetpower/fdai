@@ -4,7 +4,7 @@ description: FDAI의 15개 에이전트 조직이 이벤트 기반 컨트롤 플
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: d32c8c265373a333eaf0127ea5e526994a379c72
+translation_source_sha: 6569f5c9e0d6aea7d88faf6c8089f678373848a6
 translation_revised: 2026-08-02
 ---
 
@@ -54,18 +54,38 @@ FDAI는 느슨하게 결합된 5개 레이어로 이루어집니다. 레이어�
 
 ## Azure resource network flow
 
-각 연결을 Azure resource 수준에서 추적하려면 이 보기를 사용하세요. Container Apps
-infrastructure subnet, private endpoint subnet 및 PostgreSQL delegated subnet을 분리하고,
-각 private endpoint를 해당 managed service backend에 연결합니다. 운영자는 별도 identity를
-사용하는 동일한 Operator API를 통해 FDAI Web Console 또는 FDAI CLI를 사용할 수 있습니다.
+현재 및 target-state 연결을 Azure resource 수준에서 추적하려면 이 보기를 사용하세요.
+Private Application Gateway, Container Apps infrastructure 및 private endpoint subnet을
+분리하고, 각 private endpoint를 해당 managed service backend에 연결합니다.
+이 다이어그램은 FDAI Web Console 경로를 표시합니다. FDAI CLI는 동일한 Operator API를
+사용하지만 가독성을 위해 이 보기에서는 생략합니다.
 
 <fdai-architecture-diagram manifest="../../diagrams/generated/fdai-azure-resource-network-flow.manifest.json" locale="ko" style="display:block">
-  <img src="../../diagrams/generated/fdai-azure-resource-network-flow.ko.svg" alt="운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console 또는 FDAI CLI를 사용합니다. 두 client는 모두 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API를 호출합니다. Azure Event Hubs, Container Registry, Key Vault 및 Azure OpenAI는 private endpoint subnet의 전용 private endpoint를 통해 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행되고 Azure Database for PostgreSQL은 delegated subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Teams는 사람 승인을 전달하고 Git은 통제된 수정 pull request를 받습니다." loading="lazy" style="display:block;width:100%;height:auto" />
+  <img src="../../diagrams/generated/fdai-azure-resource-network-flow.ko.svg" alt="운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. WAF policy로 보호되는 private Application Gateway가 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API와 optional Ingestion Gateway로 요청을 전달합니다. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL 및 optional ADLS Gen2 storage는 전용 private endpoint를 통해 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Azure Managed Grafana는 monitoring data를 읽습니다. Email, Teams 및 Slack은 사람 승인을 전달합니다. GitHub, GitLab 및 Azure DevOps는 통제된 수정 pull request를 받습니다." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
+Baseline 영역은 `enable_private_postgres=false`일 때 `postgresqlServer` private endpoint를
+추가하는 기본 private-networking profile을 표시합니다. `enable_private_postgres=true`로
+설정하면 이 경로 대신 PostgreSQL Flexible Server를 delegated subnet에 배치하고 endpoint를
+생성하지 않습니다.
+Optional document-ingestion 경로는 Ingestion Gateway, Blob 및 DFS private endpoint와 ADLS
+Gen2 account를 표시합니다. Case-history storage와 development operations gateway는 각각의
+feature-specific profile에 남아 있습니다. APIM은 표시하지 않습니다.
+
+같은 보기에는 의도한 gateway, model platform, observability 및 delivery provider topology도
+겹쳐서 표시합니다. Product 및 network label을 안정적으로 유지하기 위해 상태는 다이어그램이
+아니라 이 문서에서 관리합니다.
+
+| Target-state 요소 | Day-zero baseline | 상태 |
+|-------------------|-------------------|------|
+| Application Gateway와 WAF policy가 있는 private Application Gateway subnet | 프로비전되지 않음 | TBD - Terraform profile을 추가하고 private operator access 경로를 검증합니다. |
+| Microsoft Foundry private endpoint와 Azure Managed Grafana | 프로비전되지 않음 | TBD - 각 서비스를 feature-specific deployment profile로 연결합니다. |
+| Email, Teams 및 Slack 승인 채널 | Adapter 선택지 | 배포별 TBD - 채널, credential, callback identity 및 fallback policy를 선택합니다. |
+| GitHub, GitLab 및 Azure DevOps 전달 provider | Provider 선택지 | 배포별 TBD - Git host를 선택하고 review 및 rollback binding을 구성합니다. |
+
 Azure Resource Graph 조회와 observability 쓰기는 Azure control-plane 및 telemetry contract를
-사용하므로 private data-plane 경로 밖에 표시합니다. Terraform 배포가 소유하지 않는
-Application Gateway, WAF 또는 load balancer는 baseline에 추가하지 않습니다.
+사용하므로 private data-plane 경로 밖에 표시합니다. Day-zero Terraform baseline은 여전히
+Application Gateway, WAF, Managed Grafana 또는 load balancer를 추가하지 않습니다.
 
 ## 5개 아키텍처 레이어
 

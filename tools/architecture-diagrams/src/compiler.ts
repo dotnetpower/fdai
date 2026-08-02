@@ -32,31 +32,36 @@ export async function compileDiagram(spec: DiagramSpec): Promise<DiagramArtifact
   const layout = await layoutDiagram(spec);
   assertLayoutIntegrity(spec, layout);
   const artifacts: DiagramArtifact[] = [];
+  const formats = new Set(spec.formats ?? ["svg", "png"]);
   for (const locale of ["en", "ko"] satisfies Locale[]) {
     const svg = await renderSvg(spec, layout, locale);
-    artifacts.push({
-      path: `${spec.id}.${locale}.svg`,
-      content: canonicalTextArtifact(svg),
-    });
-    artifacts.push({
-      path: `${spec.id}.${locale}.png`,
-      content: Buffer.from(
-        new Resvg(resolveCssFallbacks(svg), {
-          background: "#f7f9fc",
-          fitTo: { mode: "width", value: 1800 },
-          font: {
-            fontFiles: [diagramFontPath],
-            loadSystemFonts: false,
-            defaultFontFamily: "Noto Sans KR",
-          },
-          languages: [locale],
-          shapeRendering: 2,
-          textRendering: 1,
-        })
-          .render()
-          .asPng(),
-      ),
-    });
+    if (formats.has("svg")) {
+      artifacts.push({
+        path: `${spec.id}.${locale}.svg`,
+        content: canonicalTextArtifact(svg),
+      });
+    }
+    if (formats.has("png")) {
+      artifacts.push({
+        path: `${spec.id}.${locale}.png`,
+        content: Buffer.from(
+          new Resvg(resolveCssFallbacks(svg), {
+            background: "#f7f9fc",
+            fitTo: { mode: "width", value: 1800 },
+            font: {
+              fontFiles: [diagramFontPath],
+              loadSystemFonts: false,
+              defaultFontFamily: "Noto Sans KR",
+            },
+            languages: [locale],
+            shapeRendering: 2,
+            textRendering: 1,
+          })
+            .render()
+            .asPng(),
+        ),
+      });
+    }
   }
   const manifest = {
     id: spec.id,
@@ -64,8 +69,14 @@ export async function compileDiagram(spec: DiagramSpec): Promise<DiagramArtifact
     updated: spec.updated ?? null,
     locales: spec.locales,
     assets: {
-      en: { svg: `${spec.id}.en.svg`, png: `${spec.id}.en.png` },
-      ko: { svg: `${spec.id}.ko.svg`, png: `${spec.id}.ko.png` },
+      en: {
+        svg: `${spec.id}.en.svg`,
+        ...(formats.has("png") ? { png: `${spec.id}.en.png` } : {}),
+      },
+      ko: {
+        svg: `${spec.id}.ko.svg`,
+        ...(formats.has("png") ? { png: `${spec.id}.ko.png` } : {}),
+      },
     },
     nodes: spec.nodes.map((node) => ({
       id: node.id,

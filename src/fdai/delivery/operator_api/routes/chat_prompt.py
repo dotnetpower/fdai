@@ -24,6 +24,7 @@ from fdai.delivery.operator_api.routes.chat_prompt_content import (
     _CONCEPT_EVIDENCE_DIRECTIVE,
     _EXPLANATION_DIRECTIVE,
     _GLOSSARY,
+    _INTENT_GRAPH_EVIDENCE_DIRECTIVE,
     _OPERATIONAL_EVIDENCE_DIRECTIVE,
     _SCREEN_EXPLANATION_DIRECTIVE,
     _SCREEN_SCOPE_DIRECTIVE,
@@ -53,9 +54,6 @@ _LOG = logging.getLogger(__name__)
 
 
 DEFAULT_MAX_CONTEXT_BYTES: Final[int] = 60_000
-
-
-DEFAULT_MAX_HISTORY_TURNS: Final[int] = 8
 
 
 DEFAULT_MAX_RECORDS_PER_KEY: Final[int] = 40
@@ -634,6 +632,8 @@ def _build_messages(
         )
     if "_tool_evidence" in view_context:
         messages.append({"role": "system", "content": _TOOL_EVIDENCE_DIRECTIVE})
+    if "_intent_graph_evidence" in view_context:
+        messages.append({"role": "system", "content": _INTENT_GRAPH_EVIDENCE_DIRECTIVE})
     if "_screen_scope" in view_context:
         messages.append({"role": "system", "content": _SCREEN_SCOPE_DIRECTIVE})
     if "_concept_evidence" in view_context:
@@ -650,11 +650,11 @@ def _build_messages(
     # or already English.
     if locale is not None:
         messages.append({"role": "system", "content": _locale_directive(locale)})
-    for turn in history[-DEFAULT_MAX_HISTORY_TURNS:]:
+    for turn in history:
         role = turn.get("role")
         content = turn.get("content")
         if role in {"user", "assistant"} and isinstance(content, str) and content:
-            messages.append({"role": role, "content": content[:4000]})
+            messages.append({"role": role, "content": content})
     messages.append({"role": "user", "content": _vision_user_content(prompt[:4000], attachments)})
     return messages
 
@@ -741,7 +741,6 @@ def _agent_turn_constraints(evidence: Mapping[str, Any]) -> str:
 __all__ = [
     "DEFAULT_MAX_EXPLANATION_ITEMS",
     "DEFAULT_MAX_CONTEXT_BYTES",
-    "DEFAULT_MAX_HISTORY_TURNS",
     "DEFAULT_MAX_RECORDS_PER_KEY",
     "_AGENT_EVIDENCE_DIRECTIVE",
     "_ANSWER_QUALITY_REVIEW_DIRECTIVE",

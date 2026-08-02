@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 202d46721ca3a3ccb44cdb8949c5a07dec74bb69
+translation_source_sha: a56afc788299b99c874210cc39decf9567d8ecbf
 translation_revised: 2026-08-02
 ---
 
@@ -117,7 +117,7 @@ fdai/
 │   │   ├── trajectory/         # deterministic JSONL streaming export, quarantine, atomic partial-file cleanup
 │   │   ├── chaos/              # `Chaos` runbook 단계가 enforce로 갈 때 쓰는 라이브 카오스 주입 어댑터: `live_injectors.py` (CSP-중립 프리미티브 fan-out) + `chaos_mesh.py` (Chaos Mesh CRD) + `mysql_load.py` (MySQL 벤치마크 부하)
 │   │   ├── remediation/        # 직접 API 리메디에이션용 구체 `DirectApiExecutor` (`live_direct_api.py`); Protocol 은 `shared/providers/`에 있음
-│   │   ├── operator_api/           # 얇은 ASGI - `main.py`가 IAM 옆의 Owner 전용 관찰 assignment case를 포함한 route module을 조립. GET route는 bounded state를 projection하고 POST command route는 governed record 또는 typed proposal을 제출하며 privileged executor 또는 human-access provisioner를 직접 호출하지 않음
+│   │   ├── operator_api/           # 얇은 ASGI - `main.py`가 principal 범위 complete-history 조립과 IAM 옆의 Owner 전용 관찰 assignment case를 포함한 route module을 조립. GET route는 bounded state를 projection하고 POST command route는 governed record 또는 typed proposal을 제출하며 privileged executor 또는 human-access provisioner를 직접 호출하지 않음
 │   │   ├── ingestion_gateway/  # 전용 content-write ASGI: scoped upload, uploader-scoped web chat ref, governed deletion, optional handover governance
 │   │   ├── provisioning/       # surface-A Genesis 부트스트랩: 순수 `terraform_bridge.py` (terraform `-json` → `provision.*`) + `serve.py` harness (`aiter_json_lines` + `pump_provision_events`, I/O 주입, subprocess 없음)
 │   │   └── scheduler_tick_cli.py  # cron / Container Apps Job에서 스케줄러 tick을 구동하는 독립 엔트리 포인트
@@ -134,6 +134,8 @@ fdai/
 │   └── __main__.py            # 진입점 (P1 컨트롤 루프 기동)
 ├── evaluation-sdk/            # 독립적으로 package할 수 있는 neutral evaluation contract와 runner; FDAI implementation import 없음
 ├── benchmarks/                # 독립적으로 package된 external-harness driver; FDAI wheel에 포함되지 않음
+├── extensions/                # 독립적으로 package된 optional capability; FDAI wheel에 포함되지 않음
+│   └── code-assurance/         # read-only bounded GitHub PR code/security review + governed skill asset
 ├── rule-catalog/              # catalog-as-code 데이터 (YAML) - Python 아님; 파이프라인은 src/fdai/rule_catalog/ 에
 │   ├── schema/                 # JSON Schema 정의 (데이터)
 │   ├── vocabulary/             # canonical CSP-중립 어휘: resource-types.yaml, object-types/, link-types/
@@ -437,20 +439,23 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 
 포크가 인프라 seam을 교체하는 대신 탐색 가능한 capability를 추가할 때는
 `CapabilityBundle`을 사용합니다. Bundle은 운영자에게 표시할 `Capability` 메타데이터,
-하나의 typed `CapabilityBinding`, reasoning-tool `ToolProvider` 구현을 함께 묶습니다.
-Binding은 이미 로드된 reasoning tool, `ActionType`, `Workflow`를 가리키며 별도의 실행
-경로를 정의하지 않습니다.
+하나의 typed `CapabilityBinding`, optional reviewed `ToolArtifact` 메타데이터,
+reasoning-tool `ToolProvider` 구현을 함께 묶습니다. Binding은 이미 로드된 reasoning tool,
+같은 bundle이 제공하는 tool 또는 기존 `ActionType`, `Workflow`를 가리킵니다. 별도 실행
+경로를 정의하거나 artifact에서 provider code를 load하지 않습니다.
 
 `fdai.composition.install_capability_bundle(...)`로 bundle을 설치합니다. Installer는 로드된
 카탈로그에서 cross-reference를 만들고 검증된 등록을 `capability_runtime`에 포함하는 새
 `Container`를 반환합니다. 대상이 없거나, provider가 누락 또는 중복되거나, tool에 선언된
-provider와 bundle이 일치하지 않거나, provider가 참조되지 않으면 시작이 차단됩니다. 검증이
-실패해도 입력 container는 변경되지 않습니다.
+provider와 bundle이 일치하지 않거나, package tool 또는 provider가 참조되지 않거나, package
+tool id가 다른 source를 shadow하면 시작이 차단됩니다. 검증이 실패해도 입력 container는
+변경되지 않습니다.
 
-`wire_azure_container(...)`는 설치된 runtime의 reasoning-tool provider를 읽고 명시적인
-`AzureWireOverrides.tool_providers`와 결합합니다. 중복 provider id는 암시적으로 덮어쓰지 않고
-설정 오류로 처리합니다. `ActionType`과 `Workflow` binding은 참조일 뿐입니다. 변경 요청은 계속
-trust router, risk gate, executor, audit 경로로 다시 들어갑니다. 복사해서 사용할 수 있는
+`wire_azure_container(...)`는 file-backed tool catalog와 설치된 runtime의 package tool을
+결합한 다음 runtime provider와 명시적인 `AzureWireOverrides.tool_providers`를 결합합니다. 중복
+tool 또는 provider id는 암시적으로 덮어쓰지 않고 설정 오류로 처리합니다. `ActionType`과
+`Workflow` binding은 참조일 뿐입니다. 변경 요청은 계속 trust router, risk gate, executor,
+audit 경로로 다시 들어갑니다. 복사해서 사용할 수 있는
 read-only provider와 bundle은
 [`fdai.fork_examples.capability_bundle`](../../../src/fdai/fork_examples/capability_bundle.py)를
 참조하세요.
@@ -465,8 +470,8 @@ manifest-to-bundle capability parity를 검증합니다. 검증된 extension은 
 
 이 lifecycle은 dynamic code loader나 public package downloader가 아닙니다. Fork composition
 root가 이미 review한 provider 구현과 trust verifier를 제공합니다. Extension activation은 typed
-reference만 등록합니다. 모든 mutation은 정상 pipeline을 계속 사용하고 ActionType 또는 Workflow
-contract에 따라 shadow mode에서 시작합니다.
+metadata와 reference만 등록합니다. 모든 mutation은 정상 pipeline을 계속 사용하고 ActionType
+또는 Workflow contract에 따라 shadow mode에서 시작합니다.
 
 `core/supply_chain/`은 extension과 skill이 공유하는 durable trusted-artifact contract 및 install
 orchestration을 소유합니다. Install은 먼저 기존 extension 또는 skill lifecycle을 통과한 다음 exact
@@ -518,7 +523,7 @@ phase 는 `core/` 를 편집하지 않고 composition root 에서 새 구현을 
 | **Action precondition evidence** | `core/risk_gate/preconditions.py`의 `PreconditionEvaluator`; RiskGate가 consume하는 indexed `PreconditionEvaluation` record | - | `EventPreconditionEvaluator`가 canonical event snapshot의 resource property와 tag를 확인하고 graph freshness는 bounded inventory age를 사용하며, 다른 condition kind는 사람 승인 상태로 유지 | 모든 선언된 condition index와 fail-closed omission을 보존하면서 authoritative graph, open-action, maintenance-window evidence를 결합하는 async evaluator를 주입 |
 | **관리형 trajectory dataset** | `shared/providers/trajectory.py`의 immutable audit / conversation / tool / approval / outcome snapshot Protocol, `TrajectoryAccessAuthorizer`, `TrajectoryDatasetStore`; `core/trajectory/`의 `TrajectoryJoinService`, `TrajectoryDatasetAdminService` | - | Deny-by-default allowlist authorizer, in-memory metadata store, deterministic JSONL exporter, PostgreSQL metadata/quarantine adapter, Owner-only GET projection, offline validator | authorization-before-materialization, bounded excerpt, checksum, retention/legal hold, reviewed-only Norns intake를 유지하며 policy-backed scope authorization과 immutable source reader를 주입 ([설계](../interfaces/governed-trajectory-datasets-ko.md)) |
 | Rule / policy source | rule-catalog + `policies/` 로더 | - | 번들된 범용 규칙 | 고객 규칙 세트 / 임계값 |
-| **Capability bundle runtime** | `core/capability_catalog/`의 `CapabilityRuntime` + `CapabilityBundle` 및 trust-verified `ExtensionManager`; `composition/`의 `install_capability_bundle(...)` | - | fork binding이 없는 기본 discovery catalog, extension은 disabled 상태로 설치 | review된 reasoning tool provider 추가 또는 capability를 기존 `ActionType` / `Workflow`에 binding; digest, trust, compatibility, manifest parity, 모든 reference를 activation 전에 검증 |
+| **Capability bundle runtime** | `core/capability_catalog/`의 `CapabilityRuntime` + `CapabilityBundle` 및 trust-verified `ExtensionManager`; `core/tools/`의 additive `StaticToolRegistry` / `CompositeToolRegistry`; `composition/`의 `install_capability_bundle(...)` | - | fork binding이 없는 기본 discovery catalog, extension은 disabled 상태로 설치 | review된 reasoning-tool metadata와 provider를 추가하거나 capability를 기존 `ActionType` / `Workflow`에 binding; duplicate id, digest, trust, compatibility, manifest parity, 모든 reference를 activation 전에 검증 |
 | **Capability 라이선싱** | `core/licensing/`의 `LicenseVerifier` Protocol, token contract, `resolve_entitlement(...)`; `delivery/trust/ed25519.py`의 `Ed25519LicenseVerifier` | - | Upstream은 license 없이 배포되므로 전체 catalog가 available이고 개발이 막히지 않음 | Distribution이 자기 public key를 이미지에 packaging하고 서명된 token을 secret 경로로 주입하며, fail-closed가 필요하면 `require_license`를 설정. License는 `available` 축만 움직이며 promotion, RBAC, risk, approval은 건드리지 않음 ([design](../fork-and-sequencing/capability-licensing-ko.md)) |
 | **Context selection policy** | `core/working_context/`의 `ContextSelectionPolicy`, 필수 invariant wrapper, revision-safe authority, shadow runner, replay, evidence store; `CapabilityRuntime`의 `context_selection_policy` reference | - | 불변 `deterministic-tiered-v1@1.0.0`, candidate 설치는 disabled, durable evidence는 `StateStore` 재사용 | composition에서 review된 policy implementation을 등록하고 exact id/version을 `CapabilityRuntime`으로 binding하며, bounded shadow 측정 후 evidence window와 rollback target으로만 promote ([설계](../decisioning/context-selection-policy-ko.md)) |
 | **Browser evidence** | `shared/providers/browser_evidence.py`의 `BrowserEvidenceProvider`, origin policy, capture request, artifact store, custody sink와 `core/browser_evidence/`의 policy 및 service | - | 기본 unbound, 선택적 isolated Playwright delivery adapter, PostgreSQL artifact, append-only custody, evidence workflow step, GET-only inspection | Exact server-owned policy와 executor identity가 없는 restricted-egress runtime을 bind하며 content는 untrusted 및 shadow-only로 유지합니다. ([설계](../interfaces/browser-evidence-ko.md)) |

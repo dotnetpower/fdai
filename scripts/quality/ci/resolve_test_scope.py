@@ -15,6 +15,7 @@ _PYTHON_PREFIXES = (
     "alembic/",
     "config/",
     "examples/",
+    "extensions/",
     "mocks/",
     "policies/",
     "rule-catalog/",

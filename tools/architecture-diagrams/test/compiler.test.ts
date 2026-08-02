@@ -65,3 +65,37 @@ edges:
   };
   assert.equal(manifest.edges[0]?.step, 2);
 });
+
+test("SVG-only diagrams omit PNG artifacts and manifest references", async () => {
+  const spec = parseDiagram(`
+id: svg-only
+version: 1
+kind: deployment
+formats: [svg]
+locales:
+  en: { title: SVG, description: SVG, alt: SVG diagram. }
+  ko: { title: SVG, description: SVG, alt: SVG diagram입니다. }
+canvas: { width: 640, height: 360, direction: RIGHT }
+groups: []
+nodes:
+  - id: service
+    kind: service
+    label: { en: Service, ko: Service }
+edges: []
+`);
+  const artifacts = await compileDiagram(spec);
+  assert.ok(artifacts.some((artifact) => artifact.path === "svg-only.en.svg"));
+  assert.ok(artifacts.every((artifact) => !artifact.path.endsWith(".png")));
+  const manifestArtifact = artifacts.find(
+    (artifact) => artifact.path === "svg-only.manifest.json",
+  );
+  assert.ok(manifestArtifact);
+  const manifest = JSON.parse(manifestArtifact.content.toString("utf8")) as {
+    assets: {
+      en: { svg: string; png?: string };
+      ko: { svg: string; png?: string };
+    };
+  };
+  assert.equal(manifest.assets.en.png, undefined);
+  assert.equal(manifest.assets.ko.png, undefined);
+});

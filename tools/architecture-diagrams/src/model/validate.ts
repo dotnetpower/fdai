@@ -60,6 +60,11 @@ export function validateDiagram(value: unknown): DiagramSpec {
       throw new Error(`Unknown parent group '${element.parent}' on '${element.id}'`);
     }
   }
+  for (const group of spec.groups) {
+    if (group.alignWith && !groupIds.has(group.alignWith)) {
+      throw new Error(`Unknown alignment group '${group.alignWith}' on '${group.id}'`);
+    }
+  }
 
   const nodeById = new Map(spec.nodes.map((node) => [node.id, node]));
   for (const node of spec.nodes) {

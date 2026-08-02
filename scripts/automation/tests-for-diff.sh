@@ -90,6 +90,10 @@ while IFS= read -r file; do
             add_test "tests"
             continue
             ;;
+        extensions/code-assurance/*)
+            add_test "extensions/code-assurance/tests"
+            continue
+            ;;
     esac
 
     if [[ ("$file" == tests/* || "$file" == src/*) && "$file" != *.py ]]; then

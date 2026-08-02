@@ -122,6 +122,43 @@ async def append_assistant_turn(
     return stored
 
 
+async def append_content_policy_receipt(
+    *,
+    store: ConversationHistoryStore,
+    principal_id: str,
+    conversation_id: str,
+    request_id: str,
+    stage: str,
+    recorded_at: datetime,
+    history_metadata: Mapping[str, str],
+) -> ConversationTurnRecord:
+    """Persist a content-free policy receipt without creating an assistant answer."""
+
+    record = ConversationTurnRecord(
+        turn_id=f"turn:{request_id}:content-policy",
+        conversation_id=conversation_id,
+        principal_id=principal_id,
+        turn_index=0,
+        role=ConversationTurnRole.SYSTEM,
+        content="Model context was withheld by content policy.",
+        recorded_at=recorded_at,
+        idempotency_key=f"{request_id}:content-policy",
+        metadata={
+            **dict(history_metadata),
+            "content_policy_stage": stage,
+            "content_policy_blocked": "true",
+        },
+    )
+    for attempt in range(2):
+        try:
+            return await store.append_turn(record, allocate_index=True)
+        except Exception:  # noqa: BLE001 - idempotent transient retry
+            if attempt == 1:
+                raise
+            await asyncio.sleep(0)
+    raise AssertionError("unreachable")
+
+
 def replay_metadata(
     *,
     model: str,
@@ -157,6 +194,7 @@ def completed_replay_payload(turn: ConversationTurnRecord) -> dict[str, Any]:
 
 __all__ = [
     "append_assistant_turn",
+    "append_content_policy_receipt",
     "append_operator_turn",
     "completed_replay_payload",
     "replay_metadata",

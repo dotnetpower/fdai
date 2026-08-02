@@ -2,6 +2,7 @@ import type {
   ElkEdgeSection,
   ElkExtendedEdge,
   ElkNode,
+  ElkPoint,
   ElkPort,
 } from "elkjs/lib/elk-api.js";
 import { createRequire } from "node:module";
@@ -327,12 +328,140 @@ function moveGroupTree(
   }
 }
 
+function groupDepth(spec: DiagramSpec, groupId: string): number {
+  let depth = 0;
+  let current = spec.groups.find((group) => group.id === groupId)?.parent;
+  while (current) {
+    depth += 1;
+    current = spec.groups.find((group) => group.id === current)?.parent;
+  }
+  return depth;
+}
+
+function applyDirectLayouts(
+  spec: DiagramSpec,
+  groups: Map<string, PositionedShape>,
+  nodes: Map<string, PositionedShape>,
+): void {
+  const compact = spec.canvas.profile === "azure-reference";
+  const left = compact ? 18 : 28;
+  const top = compact ? 44 : 52;
+  const bottom = compact ? 18 : 28;
+  const gap = compact ? 16 : 22;
+  const explicitGroups = spec.groups
+    .filter((group) => group.layout === "row" || group.layout === "column")
+    .sort(
+      (leftGroup, rightGroup) =>
+        groupDepth(spec, rightGroup.id) - groupDepth(spec, leftGroup.id),
+    );
+  for (const groupSpec of explicitGroups) {
+    const group = groups.get(groupSpec.id);
+    const childGap = groupSpec.gap ?? gap;
+    const children = [
+      ...spec.groups
+        .filter((child) => child.parent === groupSpec.id)
+        .map((child) => groups.get(child.id)),
+      ...spec.nodes
+        .filter((node) => node.parent === groupSpec.id)
+        .map((node) => nodes.get(node.id)),
+    ].filter((child): child is PositionedShape => Boolean(child));
+    if (!group || !children.length) continue;
+    const moveChild = (child: PositionedShape, x: number, y: number): void => {
+      if (groups.has(child.id)) {
+        moveGroupTree(spec, child.id, x - child.x, y - child.y, groups, nodes);
+      } else {
+        child.x = x;
+        child.y = y;
+      }
+    };
+    if (groupSpec.layout === "row") {
+      const contentHeight = Math.max(...children.map((node) => node.height));
+      const contentWidth =
+        children.reduce((total, node) => total + node.width, 0) +
+        childGap * (children.length - 1);
+      const naturalWidth =
+        left * 2 + contentWidth;
+      const targetWidth = Math.max(naturalWidth, groupSpec.width ?? 0);
+      const justify = groupSpec.justify ?? "space-between";
+      const rowGap = justify === "space-between" && children.length > 1
+        ? childGap + (targetWidth - naturalWidth) / (children.length - 1)
+        : childGap;
+      let x = group.x + left;
+      if (justify === "center") {
+        x = group.x + (targetWidth - contentWidth) / 2;
+      } else if (justify === "start") {
+        x = group.x + left;
+      }
+      for (const child of children) {
+        moveChild(
+          child,
+          x,
+          group.y + top + (contentHeight - child.height) / 2,
+        );
+        x += child.width + rowGap;
+      }
+      group.width = targetWidth;
+      group.height = top + contentHeight + bottom;
+      continue;
+    }
+    const contentWidth = Math.max(...children.map((node) => node.width));
+    const targetWidth = Math.max(left + contentWidth + left, groupSpec.width ?? 0);
+    const innerWidth = targetWidth - left * 2;
+    let y = group.y + top;
+    for (const child of children) {
+      moveChild(
+        child,
+        group.x + left + (innerWidth - child.width) / 2,
+        y,
+      );
+      y += child.height + childGap;
+    }
+    group.width = targetWidth;
+    group.height = y - childGap - group.y + bottom;
+  }
+}
+
+function applyHorizontalAlignments(
+  spec: DiagramSpec,
+  groups: Map<string, PositionedShape>,
+  nodes: Map<string, PositionedShape>,
+): void {
+  for (const groupSpec of spec.groups.filter(
+    (group) => group.alignWith && !group.placement,
+  )) {
+    const group = groups.get(groupSpec.id);
+    const alignment = groups.get(groupSpec.alignWith!);
+    if (!group || !alignment) continue;
+    const nextX = alignment.x + (alignment.width - group.width) / 2;
+    moveGroupTree(spec, group.id, nextX - group.x, 0, groups, nodes);
+  }
+}
+
 function applyGroupPlacements(
   spec: DiagramSpec,
   groups: Map<string, PositionedShape>,
   nodes: Map<string, PositionedShape>,
 ): number {
   let bottom = 0;
+  const touchedParents = new Set<string>();
+  for (const groupSpec of spec.groups.filter(
+    (group) => group.placement === "top" && group.parent,
+  )) {
+    const group = groups.get(groupSpec.id);
+    const parent = groups.get(groupSpec.parent!);
+    if (!group || !parent) continue;
+    const nextX = parent.x + 28;
+    const nextY = parent.y + 49;
+    moveGroupTree(
+      spec,
+      group.id,
+      nextX - group.x,
+      nextY - group.y,
+      groups,
+      nodes,
+    );
+    touchedParents.add(parent.id);
+  }
   for (const groupSpec of spec.groups.filter(
     (group) => group.placement === "below" && group.parent,
   )) {
@@ -357,7 +486,7 @@ function applyGroupPlacements(
     const compactDeltaY = siblingTops.length
       ? Math.min(0, parent.y + 52 - Math.min(...siblingTops))
       : 0;
-    if (compactDeltaY) {
+    if (compactDeltaY && !groupSpec.alignWith) {
       for (const sibling of siblingGroups) {
         moveGroupTree(spec, sibling.id, 0, compactDeltaY, groups, nodes);
       }
@@ -376,12 +505,39 @@ function applyGroupPlacements(
         .filter((shape): shape is PositionedShape => Boolean(shape))
         .map((shape) => shape.y + shape.height),
     ];
-    const nextY = Math.max(parent.y + 52, ...siblingBottoms) + 24;
-    const nextX = parent.x + (parent.width - group.width) / 2;
+    const alignment = groupSpec.alignWith
+      ? groups.get(groupSpec.alignWith)
+      : parent;
+    let containingAlignment = alignment;
+    if (groupSpec.alignWith) {
+      let currentId = groupSpec.alignWith;
+      while (currentId) {
+        const current = spec.groups.find(
+          (candidate) => candidate.id === currentId,
+        );
+        if (!current?.parent || current.parent === parent.id) {
+          containingAlignment = groups.get(currentId) ?? alignment;
+          break;
+        }
+        currentId = current.parent;
+      }
+    }
+    const nextY = groupSpec.alignWith && alignment
+      ? Math.max(
+          alignment.y + alignment.height,
+          (containingAlignment?.y ?? alignment.y) +
+            (containingAlignment?.height ?? alignment.height),
+        ) + (groupSpec.placementGap ?? 24)
+      : Math.max(parent.y + 52, ...siblingBottoms) +
+        (groupSpec.placementGap ?? 24);
+    const nextX = alignment
+      ? alignment.x + (alignment.width - group.width) / 2
+      : parent.x + (parent.width - group.width) / 2;
     const deltaX = nextX - group.x;
     const deltaY = nextY - group.y;
 
     moveGroupTree(spec, group.id, deltaX, deltaY, groups, nodes);
+    touchedParents.add(parent.id);
 
     const groupBottom = group.y + group.height;
     const childBottoms = [
@@ -398,7 +554,122 @@ function applyGroupPlacements(
     parent.height = Math.max(...childBottoms) - parent.y + 28;
     bottom = Math.max(bottom, parent.y + parent.height);
   }
+  for (const groupSpec of spec.groups.filter(
+    (group) => group.placement === "right" && group.parent,
+  )) {
+    const group = groups.get(groupSpec.id);
+    const parent = groups.get(groupSpec.parent!);
+    const alignment = groupSpec.alignWith
+      ? groups.get(groupSpec.alignWith)
+      : undefined;
+    if (!group || !parent || !alignment) continue;
+    const nextX = alignment.x + alignment.width + 24;
+    const nextY = alignment.y;
+    moveGroupTree(
+      spec,
+      group.id,
+      nextX - group.x,
+      nextY - group.y,
+      groups,
+      nodes,
+    );
+    touchedParents.add(parent.id);
+    const childShapes = [
+      ...spec.groups
+        .filter((candidate) => candidate.parent === parent.id)
+        .map((candidate) => groups.get(candidate.id))
+        .filter((shape): shape is PositionedShape => Boolean(shape)),
+      ...spec.nodes
+        .filter((candidate) => candidate.parent === parent.id)
+        .map((candidate) => nodes.get(candidate.id))
+        .filter((shape): shape is PositionedShape => Boolean(shape)),
+    ];
+    parent.width = Math.max(
+      parent.width,
+      ...childShapes.map((shape) => shape.x + shape.width - parent.x + 28),
+    );
+    parent.height = Math.max(
+      parent.height,
+      ...childShapes.map((shape) => shape.y + shape.height - parent.y + 28),
+    );
+    bottom = Math.max(bottom, parent.y + parent.height);
+  }
+  for (const parentId of touchedParents) {
+    const parent = groups.get(parentId);
+    if (!parent) continue;
+    const childShapes = [
+      ...spec.groups
+        .filter((candidate) => candidate.parent === parentId)
+        .map((candidate) => groups.get(candidate.id))
+        .filter((shape): shape is PositionedShape => Boolean(shape)),
+      ...spec.nodes
+        .filter((candidate) => candidate.parent === parentId)
+        .map((candidate) => nodes.get(candidate.id))
+        .filter((shape): shape is PositionedShape => Boolean(shape)),
+    ];
+    parent.width = Math.max(
+      56,
+      ...childShapes.map((shape) => shape.x + shape.width - parent.x + 28),
+    );
+    parent.height = Math.max(
+      80,
+      ...childShapes.map((shape) => shape.y + shape.height - parent.y + 28),
+    );
+    bottom = Math.max(bottom, parent.y + parent.height);
+  }
   return bottom;
+}
+
+function applyRootGroupFlow(
+  spec: DiagramSpec,
+  groups: Map<string, PositionedShape>,
+  nodes: Map<string, PositionedShape>,
+): { width: number; bottom: number } | undefined {
+  if (
+    spec.canvas.profile !== "azure-reference" ||
+    (!spec.canvas.rootLayout && spec.canvas.direction !== "DOWN")
+  ) {
+    return undefined;
+  }
+  const rootGroups = spec.groups
+    .filter((group) => !group.parent)
+    .map((group) => groups.get(group.id))
+    .filter((group): group is PositionedShape => Boolean(group));
+  if (!rootGroups.length) return undefined;
+  const padding = spec.canvas.padding ?? 24;
+  const gap = 38;
+  const rootLayout = spec.canvas.rootLayout ??
+    (spec.canvas.direction === "DOWN" ? "column" : "row");
+  if (rootLayout === "row") {
+    const contentHeight = Math.max(...rootGroups.map((group) => group.height));
+    let x = padding;
+    for (const group of rootGroups) {
+      moveGroupTree(
+        spec,
+        group.id,
+        x - group.x,
+        padding - group.y,
+        groups,
+        nodes,
+      );
+      x += group.width + gap;
+    }
+    return {
+      width: x - gap + padding,
+      bottom: contentHeight + padding * 2,
+    };
+  }
+  const contentWidth = Math.max(...rootGroups.map((group) => group.width));
+  let y = padding;
+  for (const group of rootGroups) {
+    const x = padding + (contentWidth - group.width) / 2;
+    moveGroupTree(spec, group.id, x - group.x, y - group.y, groups, nodes);
+    y += group.height + gap;
+  }
+  return {
+    width: contentWidth + padding * 2,
+    bottom: y - gap + padding,
+  };
 }
 
 function boundaryPoint(
@@ -425,6 +696,7 @@ function orthogonalRouteSection(
   edgeId: string,
   source: PositionedShape,
   target: PositionedShape,
+  forceHorizontal = false,
 ): ElkEdgeSection {
   const sourceCenter = {
     x: source.x + source.width / 2,
@@ -434,7 +706,7 @@ function orthogonalRouteSection(
     x: target.x + target.width / 2,
     y: target.y + target.height / 2,
   };
-  const horizontal =
+  const horizontal = forceHorizontal ||
     Math.abs(targetCenter.x - sourceCenter.x) >=
     Math.abs(targetCenter.y - sourceCenter.y);
   if (horizontal) {
@@ -486,19 +758,280 @@ function orthogonalRouteSection(
   };
 }
 
-function orthogonalAboveRouteSection(
+function segmentCrossesNode(
+  start: ElkPoint,
+  end: ElkPoint,
+  node: PositionedShape,
+): boolean {
+  const padding = 3;
+  if (start.x === end.x) {
+    return (
+      start.x > node.x - padding &&
+      start.x < node.x + node.width + padding &&
+      Math.max(Math.min(start.y, end.y), node.y - padding) <
+        Math.min(Math.max(start.y, end.y), node.y + node.height + padding)
+    );
+  }
+  if (start.y === end.y) {
+    return (
+      start.y > node.y - padding &&
+      start.y < node.y + node.height + padding &&
+      Math.max(Math.min(start.x, end.x), node.x - padding) <
+        Math.min(Math.max(start.x, end.x), node.x + node.width + padding)
+    );
+  }
+  return true;
+}
+
+function orthogonalShortestRouteSection(
+  edgeId: string,
+  source: PositionedShape,
+  target: PositionedShape,
+  nodes: Map<string, PositionedShape>,
+): ElkEdgeSection {
+  const sourceCenter = {
+    x: source.x + source.width / 2,
+    y: source.y + source.height / 2,
+  };
+  const targetCenter = {
+    x: target.x + target.width / 2,
+    y: target.y + target.height / 2,
+  };
+  const targetIsRight = targetCenter.x >= sourceCenter.x;
+  const targetIsBelow = targetCenter.y >= sourceCenter.y;
+  const candidates: ElkEdgeSection[] = [
+    {
+      id: `${edgeId}-orthogonal-shortest-horizontal-first`,
+      startPoint: {
+        x: targetIsRight ? source.x + source.width : source.x,
+        y: sourceCenter.y,
+      },
+      bendPoints: [{
+        x: targetCenter.x,
+        y: sourceCenter.y,
+      }],
+      endPoint: {
+        x: targetCenter.x,
+        y: targetIsBelow ? target.y : target.y + target.height,
+      },
+    },
+    {
+      id: `${edgeId}-orthogonal-shortest-vertical-sides`,
+      startPoint: {
+        x: sourceCenter.x,
+        y: targetIsBelow ? source.y + source.height : source.y,
+      },
+      bendPoints: [
+        {
+          x: sourceCenter.x,
+          y: (source.y + source.height + target.y) / 2,
+        },
+        {
+          x: targetCenter.x,
+          y: (source.y + source.height + target.y) / 2,
+        },
+      ],
+      endPoint: {
+        x: targetCenter.x,
+        y: targetIsBelow ? target.y : target.y + target.height,
+      },
+    },
+    {
+      id: `${edgeId}-orthogonal-shortest-vertical-first`,
+      startPoint: {
+        x: sourceCenter.x,
+        y: targetIsBelow ? source.y + source.height : source.y,
+      },
+      bendPoints: [{
+        x: sourceCenter.x,
+        y: targetCenter.y,
+      }],
+      endPoint: {
+        x: targetIsRight ? target.x : target.x + target.width,
+        y: targetCenter.y,
+      },
+    },
+  ];
+  const obstacles = [...nodes.values()].filter(
+    (node) => node.id !== source.id && node.id !== target.id,
+  );
+  const clear = candidates.find((candidate) => {
+    const points = [
+      candidate.startPoint,
+      ...(candidate.bendPoints ?? []),
+      candidate.endPoint,
+    ];
+    return points.slice(1).every((end, index) =>
+      obstacles.every(
+        (node) => !segmentCrossesNode(points[index]!, end, node),
+      ),
+    );
+  });
+  return clear ?? orthogonalRouteSection(edgeId, source, target);
+}
+
+function orthogonalHorizontalRouteSection(
   edgeId: string,
   source: PositionedShape,
   target: PositionedShape,
   nodes: Map<string, PositionedShape>,
   laneIndex: number,
 ): ElkEdgeSection {
+  const targetIsRight = target.x >= source.x;
+  const startPoint = {
+    x: targetIsRight ? source.x + source.width : source.x,
+    y: source.y + source.height / 2,
+  };
+  const endPoint = {
+    x: targetIsRight ? target.x : target.x + target.width,
+    y: target.y + target.height / 2,
+  };
+  const candidates = [...nodes.values()].filter(
+    (node) =>
+      node.id !== source.id &&
+      node.id !== target.id &&
+      (targetIsRight
+        ? node.x >= startPoint.x && node.x < endPoint.x
+        : node.x + node.width <= startPoint.x && node.x > endPoint.x),
+  );
+  const nearestObstacle = targetIsRight
+    ? Math.min(endPoint.x, ...candidates.map((node) => node.x))
+    : Math.max(endPoint.x, ...candidates.map((node) => node.x + node.width));
+  const laneX = (startPoint.x + nearestObstacle) / 2 +
+    laneIndex * (targetIsRight ? 24 : -24);
+  return {
+    id: `${edgeId}-orthogonal-horizontal-route`,
+    startPoint,
+    bendPoints: [
+      { x: laneX, y: startPoint.y },
+      { x: laneX, y: endPoint.y },
+    ],
+    endPoint,
+  };
+}
+
+function orthogonalTrunkRouteSection(
+  edgeId: string,
+  source: PositionedShape,
+  target: PositionedShape,
+  lane = 0,
+  sourceOffset = 0,
+  targetOffset = 0,
+): ElkEdgeSection {
+  const targetIsBelow = target.y >= source.y;
+  const startPoint = {
+    x: source.x + source.width / 2 + sourceOffset,
+    y: targetIsBelow ? source.y + source.height : source.y,
+  };
+  const endPoint = {
+    x: target.x + target.width / 2 + targetOffset,
+    y: targetIsBelow ? target.y : target.y + target.height,
+  };
+  const direction = targetIsBelow ? 1 : -1;
+  const trunkY = (startPoint.y + endPoint.y) / 2 + lane * 12 * direction;
+  return {
+    id: `${edgeId}-orthogonal-trunk-route`,
+    startPoint,
+    bendPoints: [
+      { x: startPoint.x, y: trunkY },
+      { x: endPoint.x, y: trunkY },
+    ],
+    endPoint,
+  };
+}
+
+function trunkAnchorOffsets(
+  spec: DiagramSpec,
+  nodes: Map<string, PositionedShape>,
+): Map<string, { source: number; target: number }> {
+  const offsets = new Map<string, { source: number; target: number }>();
+  const connections = new Map<
+    string,
+    Array<{ edgeId: string; endpoint: "source" | "target"; otherX: number }>
+  >();
+  for (const edge of spec.edges.filter(
+    (candidate) => candidate.route === "orthogonal-trunk",
+  )) {
+    const sourceId = endpointNodeId(edge.from);
+    const targetId = endpointNodeId(edge.to);
+    const source = nodes.get(sourceId);
+    const target = nodes.get(targetId);
+    if (!source || !target) continue;
+    const targetIsBelow = target.y >= source.y;
+    for (const connection of [
+      {
+        key: `${sourceId}:${targetIsBelow ? "bottom" : "top"}`,
+        endpoint: "source" as const,
+        otherX: target.x + target.width / 2,
+      },
+      {
+        key: `${targetId}:${targetIsBelow ? "top" : "bottom"}`,
+        endpoint: "target" as const,
+        otherX: source.x + source.width / 2,
+      },
+    ]) {
+      const entries = connections.get(connection.key) ?? [];
+      entries.push({ edgeId: edge.id, ...connection });
+      connections.set(connection.key, entries);
+    }
+  }
+  for (const [key, entries] of connections) {
+    if (entries.length < 2) continue;
+    const node = nodes.get(key.split(":", 1)[0]!);
+    if (!node) continue;
+    entries.sort((left, right) => left.otherX - right.otherX);
+    const span = Math.min(node.width - 24, (entries.length - 1) * 14);
+    entries.forEach((entry, index) => {
+      const offset = -span / 2 + (span * index) / (entries.length - 1);
+      const edgeOffsets = offsets.get(entry.edgeId) ?? { source: 0, target: 0 };
+      edgeOffsets[entry.endpoint] = offset;
+      offsets.set(entry.edgeId, edgeOffsets);
+    });
+  }
+  return offsets;
+}
+
+function orthogonalTopRouteSection(
+  edgeId: string,
+  source: PositionedShape,
+  target: PositionedShape,
+  laneIndex: number,
+): ElkEdgeSection {
+  const laneY = -8 - laneIndex * 28;
+  const startPoint = {
+    x: source.x + source.width / 2,
+    y: source.y,
+  };
+  const endPoint = {
+    x: target.x + target.width / 2,
+    y: target.y,
+  };
+  return {
+    id: `${edgeId}-orthogonal-top-route`,
+    startPoint,
+    bendPoints: [
+      { x: startPoint.x, y: laneY },
+      { x: endPoint.x, y: laneY },
+    ],
+    endPoint,
+  };
+}
+
+function orthogonalAboveRouteSection(
+  edgeId: string,
+  source: PositionedShape,
+  target: PositionedShape,
+  spec: DiagramSpec,
+  nodes: Map<string, PositionedShape>,
+  laneIndex: number,
+): ElkEdgeSection {
   const sourceCenterY = source.y + source.height / 2;
   const targetCenterY = target.y + target.height / 2;
+  const targetCenterX = target.x + target.width / 2;
   const sourceX = target.x >= source.x ? source.x + source.width : source.x;
   const sourceCorridorX = target.x >= source.x ? sourceX + 24 : sourceX - 24;
   const targetX = target.x >= source.x ? target.x : target.x + target.width;
-  const corridorX = target.x >= source.x ? targetX - 24 : targetX + 24;
+  const corridorX = target.x >= source.x ? targetX - 16 : targetX + 16;
   const minimumX = Math.min(sourceCorridorX, corridorX);
   const maximumX = Math.max(sourceCorridorX, corridorX);
   const obstacleTop = Math.min(
@@ -515,6 +1048,48 @@ function orthogonalAboveRouteSection(
       .map((node) => node.y),
   );
   const laneY = obstacleTop - 36 - laneIndex * 28;
+  const verticalApproachBlocked = [...nodes.values()].some(
+    (node) =>
+      node.id !== source.id &&
+      node.id !== target.id &&
+      node.x < targetCenterX &&
+      node.x + node.width > targetCenterX &&
+      node.y < target.y &&
+      node.y + node.height > laneY,
+  );
+  if (!verticalApproachBlocked) {
+    return {
+      id: `${edgeId}-orthogonal-above-route`,
+      startPoint: { x: sourceX, y: sourceCenterY },
+      bendPoints: [
+        { x: sourceCorridorX, y: sourceCenterY },
+        { x: sourceCorridorX, y: laneY },
+        { x: targetCenterX, y: laneY },
+      ],
+      endPoint: { x: targetCenterX, y: target.y },
+    };
+  }
+  const targetParent = spec.groups.find(
+    (group) => group.id === elementParent(spec, target.id),
+  );
+  if (targetParent?.layout === "row") {
+    const clearanceX = target.x >= source.x
+      ? target.x - 8
+      : target.x + target.width + 8;
+    const approachY = target.y - 16;
+    return {
+      id: `${edgeId}-orthogonal-above-route`,
+      startPoint: { x: sourceX, y: sourceCenterY },
+      bendPoints: [
+        { x: sourceCorridorX, y: sourceCenterY },
+        { x: sourceCorridorX, y: laneY },
+        { x: clearanceX, y: laneY },
+        { x: clearanceX, y: approachY },
+        { x: targetCenterX, y: approachY },
+      ],
+      endPoint: { x: targetCenterX, y: target.y },
+    };
+  }
   return {
     id: `${edgeId}-orthogonal-above-route`,
     startPoint: { x: sourceX, y: sourceCenterY },
@@ -525,6 +1100,51 @@ function orthogonalAboveRouteSection(
       { x: corridorX, y: targetCenterY },
     ],
     endPoint: { x: targetX, y: targetCenterY },
+  };
+}
+
+function orthogonalRightRouteSection(
+  edgeId: string,
+  source: PositionedShape,
+  target: PositionedShape,
+  nodes: Map<string, PositionedShape>,
+  laneIndex: number,
+): ElkEdgeSection {
+  const sourceCenterY = source.y + source.height / 2;
+  const targetIsBelow = target.y >= source.y;
+  const targetEntry = {
+    x: target.x + target.width / 2,
+    y: targetIsBelow ? target.y : target.y + target.height,
+  };
+  const approachY = targetEntry.y + (targetIsBelow ? -24 : 24);
+  const minimumY = Math.min(sourceCenterY, approachY);
+  const maximumY = Math.max(sourceCenterY, approachY);
+  const obstacleRight = Math.max(
+    source.x + source.width,
+    target.x + target.width,
+    ...[...nodes.values()]
+      .filter(
+        (node) =>
+          node.id !== source.id &&
+          node.id !== target.id &&
+          node.y < maximumY &&
+          node.y + node.height > minimumY,
+      )
+      .map((node) => node.x + node.width),
+  );
+  const corridorX = obstacleRight + 36 + laneIndex * 96;
+  return {
+    id: `${edgeId}-orthogonal-right-route`,
+    startPoint: {
+      x: source.x + source.width,
+      y: sourceCenterY,
+    },
+    bendPoints: [
+      { x: corridorX, y: sourceCenterY },
+      { x: corridorX, y: approachY },
+      { x: targetEntry.x, y: approachY },
+    ],
+    endPoint: targetEntry,
   };
 }
 
@@ -569,14 +1189,73 @@ function routeLabelPosition(
   };
 }
 
+function rightRouteLabelPosition(
+  section: ElkEdgeSection,
+  width: number,
+  height: number,
+): { x: number; y: number } {
+  const vertical = section.bendPoints?.slice(0, 2);
+  if (!vertical || vertical.length < 2) {
+    return routeLabelPosition(section, width, height);
+  }
+  return {
+    x: vertical[0]!.x + 8,
+    y: (vertical[0]!.y + vertical[1]!.y) / 2 - height / 2,
+  };
+}
+
+function routeLaneGroup(spec: DiagramSpec, endpoint: string): string {
+  const immediateParent = elementParent(spec, endpointNodeId(endpoint));
+  let topGroup = immediateParent;
+  while (elementParent(spec, topGroup) !== "root") {
+    topGroup = elementParent(spec, topGroup);
+  }
+  const topKind = spec.groups.find((group) => group.id === topGroup)?.kind;
+  return topKind === "cloud" || topKind === "region"
+    ? immediateParent
+    : topGroup;
+}
+
 function applyExplicitRoutes(
   spec: DiagramSpec,
   edges: ElkExtendedEdge[],
   nodes: Map<string, PositionedShape>,
+  groups: Map<string, PositionedShape>,
 ): ElkExtendedEdge[] {
-  const aboveLaneByEdge = new Map(
+  const trunkOffsets = trunkAnchorOffsets(spec, nodes);
+  const aboveLaneByEdge = new Map<string, number>();
+  const aboveLaneCountByTargetGroup = new Map<string, number>();
+  for (const edge of spec.edges.filter(
+    (candidate) => candidate.route === "orthogonal-above",
+  )) {
+    const targetGroup = routeLaneGroup(spec, edge.to);
+    const lane = aboveLaneCountByTargetGroup.get(targetGroup) ?? 0;
+    aboveLaneByEdge.set(edge.id, lane);
+    aboveLaneCountByTargetGroup.set(targetGroup, lane + 1);
+  }
+  const rightLaneByEdge = new Map<string, number>();
+  const rightLaneCountByTargetGroup = new Map<string, number>();
+  for (const edge of spec.edges.filter(
+    (candidate) => candidate.route === "orthogonal-right",
+  )) {
+    const targetGroup = elementParent(spec, endpointNodeId(edge.to));
+    const lane = rightLaneCountByTargetGroup.get(targetGroup) ?? 0;
+    rightLaneByEdge.set(edge.id, lane);
+    rightLaneCountByTargetGroup.set(targetGroup, lane + 1);
+  }
+  const horizontalLaneByEdge = new Map<string, number>();
+  const horizontalLaneCountByTargetGroup = new Map<string, number>();
+  for (const edge of spec.edges.filter(
+    (candidate) => candidate.route === "orthogonal-horizontal",
+  )) {
+    const targetGroup = elementParent(spec, endpointNodeId(edge.to));
+    const lane = horizontalLaneCountByTargetGroup.get(targetGroup) ?? 0;
+    horizontalLaneByEdge.set(edge.id, lane);
+    horizontalLaneCountByTargetGroup.set(targetGroup, lane + 1);
+  }
+  const topLaneByEdge = new Map(
     spec.edges
-      .filter((edge) => edge.route === "orthogonal-above")
+      .filter((edge) => edge.route === "orthogonal-top")
       .map((edge, index) => [edge.id, index]),
   );
   return edges.map((edge) => {
@@ -586,23 +1265,74 @@ function applyExplicitRoutes(
       (specEdge.route !== "diagonal" &&
         specEdge.route !== "curve" &&
       specEdge.route !== "orthogonal" &&
-      specEdge.route !== "orthogonal-above")
+      specEdge.route !== "orthogonal-shortest" &&
+        specEdge.route !== "orthogonal-horizontal" &&
+      specEdge.route !== "orthogonal-trunk" &&
+      specEdge.route !== "orthogonal-top" &&
+        specEdge.route !== "orthogonal-above" &&
+        specEdge.route !== "orthogonal-right")
     ) {
       return edge;
     }
-    const source = nodes.get(endpointNodeId(specEdge.from));
-    const target = nodes.get(endpointNodeId(specEdge.to));
+    const sourceId = endpointNodeId(specEdge.from);
+    const targetId = endpointNodeId(specEdge.to);
+    const source = nodes.get(sourceId) ?? groups.get(sourceId);
+    const target = nodes.get(targetId) ?? groups.get(targetId);
     if (!source || !target) return edge;
-    const section = specEdge.route === "orthogonal"
-      ? orthogonalRouteSection(edge.id, source, target)
+    const section = specEdge.route === "orthogonal-trunk"
+      ? orthogonalTrunkRouteSection(
+          edge.id,
+          source,
+          target,
+          specEdge.lane ?? 0,
+          trunkOffsets.get(edge.id)?.source ?? 0,
+          trunkOffsets.get(edge.id)?.target ?? 0,
+        )
+      : specEdge.route === "orthogonal-top"
+        ? orthogonalTopRouteSection(
+            edge.id,
+            source,
+            target,
+            topLaneByEdge.get(edge.id) ?? 0,
+          )
+      : specEdge.route === "orthogonal-horizontal"
+      ? orthogonalHorizontalRouteSection(
+          edge.id,
+          source,
+          target,
+          nodes,
+          horizontalLaneByEdge.get(edge.id) ?? 0,
+        )
+      : specEdge.route === "orthogonal"
+      ? orthogonalRouteSection(
+          edge.id,
+          source,
+          target,
+        )
+      : specEdge.route === "orthogonal-shortest"
+        ? orthogonalShortestRouteSection(
+            edge.id,
+            source,
+            target,
+            nodes,
+          )
       : specEdge.route === "orthogonal-above"
         ? orthogonalAboveRouteSection(
             edge.id,
             source,
             target,
+          spec,
             nodes,
             aboveLaneByEdge.get(edge.id) ?? 0,
           )
+        : specEdge.route === "orthogonal-right"
+          ? orthogonalRightRouteSection(
+              edge.id,
+              source,
+              target,
+              nodes,
+              rightLaneByEdge.get(edge.id) ?? 0,
+            )
         : {
             id: `${edge.id}-diagonal-route`,
             startPoint: boundaryPoint(source, target),
@@ -610,7 +1340,14 @@ function applyExplicitRoutes(
           };
     const labels = edge.labels?.map((label) => ({
       ...label,
-      ...(specEdge.route === "orthogonal" || specEdge.route === "orthogonal-above"
+      ...(specEdge.route === "orthogonal-right" ||
+      specEdge.route === "orthogonal-horizontal"
+        ? rightRouteLabelPosition(section, label.width ?? 0, label.height ?? 0)
+        : specEdge.route === "orthogonal" ||
+      specEdge.route === "orthogonal-shortest" ||
+      specEdge.route === "orthogonal-trunk" ||
+      specEdge.route === "orthogonal-top" ||
+      specEdge.route === "orthogonal-above"
         ? routeLabelPosition(section, label.width ?? 0, label.height ?? 0)
         : {
             x:
@@ -671,17 +1408,50 @@ export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
     nodes,
     edges,
   );
+  applyDirectLayouts(spec, groups, nodes);
+  applyHorizontalAlignments(spec, groups, nodes);
   const placementBottom = applyGroupPlacements(spec, groups, nodes);
-  const explicitRoutes = applyExplicitRoutes(spec, edges, nodes);
+  const rootFlow = applyRootGroupFlow(spec, groups, nodes);
+  const explicitRoutes = applyExplicitRoutes(spec, edges, nodes, groups);
   const routed = applyFixedSideRoutes(spec, explicitRoutes, nodes);
 
+  let routeRight = 0;
+  let routeBottom = 0;
+  for (const edge of routed.edges) {
+    const container = edge.container ? groups.get(edge.container) : undefined;
+    const offsetX = container?.x ?? 0;
+    const offsetY = container?.y ?? 0;
+    for (const section of edge.sections ?? []) {
+      for (const point of [
+        section.startPoint,
+        ...(section.bendPoints ?? []),
+        section.endPoint,
+      ]) {
+        routeRight = Math.max(routeRight, point.x + offsetX);
+        routeBottom = Math.max(routeBottom, point.y + offsetY);
+      }
+    }
+  }
+
+  const width = rootFlow
+    ? Math.max(spec.canvas.width, rootFlow.width, routeRight + 24)
+    : Math.max(result.width ?? spec.canvas.width, routeRight + 24);
+  const height = rootFlow
+    ? Math.max(
+        spec.canvas.height,
+        rootFlow.bottom,
+        routed.bottom + 24,
+        routeBottom + 24,
+      )
+    : Math.max(
+        result.height ?? spec.canvas.height,
+        placementBottom + 36,
+        routed.bottom + 24,
+        routeBottom + 24,
+      );
   return {
-    width: result.width ?? spec.canvas.width,
-    height: Math.max(
-      result.height ?? spec.canvas.height,
-      placementBottom + 36,
-      routed.bottom + 24,
-    ),
+    width,
+    height,
     groups,
     nodes,
     edges: routed.edges,

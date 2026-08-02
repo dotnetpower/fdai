@@ -27,7 +27,7 @@
 #
 # All values are English, secret-free, and customer-agnostic.
 schema_version: "1.0.0"
-version: "0.3.3"
+version: "0.3.4"
 category_query_terms:
   database: [database, databases, db, dbs, 데이터베이스, 디비]
 query_groups:
@@ -337,7 +337,7 @@ types:
     category: governance
     description: Logical grouping of resources under one lifecycle. Root of the `contains` chain from `subscription`.
     azure_arm_type: Microsoft.Resources/resourceGroups
-    query_terms: [resource group, resource groups, 리소스 그룹]
+    query_terms: [resource group, resource groups, 리소스 그룹, 리소스그룹]
     typical_parents: [subscription]
   - id: subscription
     category: governance

@@ -151,6 +151,16 @@ class ChatWebSearchResolver:
     def probe_interval_seconds(self) -> int:
         return self._config.probe_interval_seconds
 
+    @property
+    def available(self) -> bool:
+        """Return whether provider prerequisites are currently ready."""
+        return self._available
+
+    @property
+    def enabled(self) -> bool:
+        """Return the independently configured operator policy state."""
+        return self._policy.enabled
+
     async def benchmark(self, *, rounds: int | None = None) -> str | None:
         if not self._available:
             return None

@@ -8,6 +8,12 @@
   "properties": {
     "id": { "$ref": "#/definitions/id" },
     "version": { "type": "integer", "minimum": 1 },
+    "formats": {
+      "type": "array",
+      "items": { "enum": ["svg", "png"] },
+      "contains": { "const": "svg" },
+      "uniqueItems": true
+    },
     "kind": {
       "enum": ["context", "container", "component", "deployment", "data-flow", "network"]
     },
@@ -29,6 +35,7 @@
         "width": { "type": "integer", "minimum": 640, "maximum": 2400 },
         "height": { "type": "integer", "minimum": 360, "maximum": 1800 },
         "direction": { "enum": ["RIGHT", "DOWN"] },
+        "rootLayout": { "enum": ["row", "column"] },
         "padding": { "type": "integer", "minimum": 16, "maximum": 160, "default": 40 },
         "profile": { "enum": ["default", "azure-reference"], "default": "default" }
       }
@@ -100,7 +107,12 @@
         "description": { "$ref": "#/definitions/localizedText" },
         "direction": { "enum": ["RIGHT", "DOWN"] },
         "layout": { "enum": ["flow", "row", "column", "free"] },
-        "placement": { "enum": ["below"] }
+        "gap": { "type": "integer", "minimum": 8, "maximum": 240 },
+        "justify": { "enum": ["start", "center", "space-between"] },
+        "placement": { "enum": ["top", "below", "right"] },
+        "placementGap": { "type": "integer", "minimum": 8, "maximum": 240 },
+        "alignWith": { "$ref": "#/definitions/id" },
+        "width": { "type": "integer", "minimum": 152, "maximum": 1200 }
       }
     },
     "port": {
@@ -147,7 +159,8 @@
         "kind": { "enum": ["request", "event", "approval", "mutation", "audit", "rollback", "read", "write"] },
         "label": { "$ref": "#/definitions/localizedText" },
         "protocol": { "type": "string", "minLength": 1 },
-        "route": { "enum": ["diagonal", "curve", "orthogonal", "orthogonal-above"] },
+        "route": { "enum": ["diagonal", "curve", "orthogonal", "orthogonal-shortest", "orthogonal-horizontal", "orthogonal-trunk", "orthogonal-top", "orthogonal-above", "orthogonal-right"] },
+        "lane": { "type": "integer", "minimum": -8, "maximum": 8 },
         "step": { "type": "integer", "minimum": 1, "maximum": 99 }
       }
     },

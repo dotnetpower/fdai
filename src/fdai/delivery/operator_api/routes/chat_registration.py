@@ -17,6 +17,7 @@ from fdai.core.conversation.answer_preferences import ResponsePreferenceProfile
 from fdai.core.conversation_assurance import ConversationPolicyRuntime
 from fdai.core.skills import RuntimeSkillDisclosure
 from fdai.core.user_context_projection import UserContextOntologyProjector
+from fdai.delivery.handover_events import HandoverAvailabilityPublisher
 from fdai.delivery.operator_api.read_model import ConsoleReadModel
 from fdai.delivery.operator_api.routes.busy_input import make_busy_input_routes
 from fdai.delivery.operator_api.routes.busy_input_runtime import BusyInputRuntime
@@ -35,11 +36,17 @@ from fdai.delivery.operator_api.routes.chat_answer_planning import compatible_pl
 from fdai.delivery.operator_api.routes.chat_behavior_evidence import (
     RepositoryBehaviorEvidenceResolver,
 )
+from fdai.delivery.operator_api.routes.chat_capability_registry import (
+    ConversationCapability,
+    ConversationCapabilityRegistry,
+    static_capabilities,
+)
 from fdai.delivery.operator_api.routes.chat_current_time import CurrentTimeChatTools
 from fdai.delivery.operator_api.routes.chat_data_sources import DataSourceChatTools
 from fdai.delivery.operator_api.routes.chat_detection_readiness import DetectionReadinessChatTools
 from fdai.delivery.operator_api.routes.chat_document_evidence import ChatDocumentEvidenceResolver
 from fdai.delivery.operator_api.routes.chat_evidence import OperationalEvidenceResolver
+from fdai.delivery.operator_api.routes.chat_intent_graph import BackendIntentGraphPlanner
 from fdai.delivery.operator_api.routes.chat_inventory import (
     InventoryActivityProvider,
     InventoryChatTools,
@@ -54,7 +61,6 @@ from fdai.delivery.operator_api.routes.chat_subscription_health import (
 from fdai.delivery.operator_api.routes.chat_system_health import SystemHealthChatTools
 from fdai.delivery.operator_api.routes.chat_tools import ReadModelChatTools
 from fdai.delivery.operator_api.routes.chat_turn_plan import (
-    BackendTurnPlanner,
     StructuredCompletionBackend,
     action_turn_tools,
     agent_turn_tools,
@@ -121,7 +127,7 @@ def append_chat_routes(
     user_context_ontology_projector: UserContextOntologyProjector | None = None,
     model_settings: object | None = None,
     console_action: object | None = None,
-    handover_availability_publisher: object | None = None,
+    handover_availability_publisher: HandoverAvailabilityPublisher | None = None,
     authorize: Callable[[Request], Awaitable[str]],
     read_model: ConsoleReadModel,
     core_paths: Collection[str],
@@ -194,17 +200,57 @@ def append_chat_routes(
         fallback=system_health_tools,
     )
     turn_planner = (
-        BackendTurnPlanner(backend) if isinstance(backend, StructuredCompletionBackend) else None
+        BackendIntentGraphPlanner(backend)
+        if isinstance(backend, StructuredCompletionBackend)
+        else None
     )
     action_names = getattr(console_action, "action_type_names", ())
-    turn_tools = (
+    read_capabilities = (
         *read_tools.turn_tools(),
         *(inventory_chat_tools.turn_tools() if inventory_chat_tools is not None else ()),
-        *agent_turn_tools(),
-        *((web_search_turn_tool(),) if web_search_resolver is not None else ()),
-        *(action_turn_tools(tuple(action_names)) if console_action is not None else ()),
+        *(
+            subscription_health_tools.turn_tools()
+            if isinstance(subscription_health_tools, SubscriptionHealthChatTools)
+            else ()
+        ),
     )
+    capabilities = [
+        *static_capabilities(
+            read_capabilities,
+            owner="operator_api",
+            authority="read",
+        ),
+        *static_capabilities(
+            action_turn_tools(tuple(action_names)) if console_action is not None else (),
+            owner="console_action",
+            authority="draft_write",
+        ),
+    ]
+    if agent_delegate is not None:
+        capabilities.extend(
+            ConversationCapability(
+                tool=tool,
+                owner="agent_event_bus",
+                authority="read",
+                available=lambda: bool(getattr(agent_delegate, "available", True)),
+                unavailable_reason="agent_event_bus_unavailable",
+            )
+            for tool in agent_turn_tools()
+        )
+    if web_search_resolver is not None:
+        capabilities.append(
+            ConversationCapability(
+                tool=web_search_turn_tool(),
+                owner="approved_web_search",
+                authority="read",
+                available=lambda: bool(getattr(web_search_resolver, "available", True)),
+                enabled=lambda: bool(getattr(web_search_resolver, "enabled", True)),
+                unavailable_reason="web_search_unavailable",
+            )
+        )
+    capability_registry = ConversationCapabilityRegistry(capabilities)
     planned_tools = _PlannedToolChain(
+        *((subscription_health_tools,) if subscription_health_provider is not None else ()),
         read_tools,
         *((inventory_chat_tools,) if inventory_chat_tools is not None else ()),
     )
@@ -236,7 +282,7 @@ def append_chat_routes(
                     busy_input_runtime.coordinator if busy_input_runtime is not None else None
                 ),
                 turn_planner=turn_planner,
-                turn_tools=turn_tools,
+                turn_tools=capability_registry.visible_tools,
                 handover_availability_publisher=handover_availability_publisher,
             ),
             make_chat_stream_route(
@@ -266,7 +312,7 @@ def append_chat_routes(
                 ),
                 progress_metrics=progress_metrics,
                 turn_planner=turn_planner,
-                turn_tools=turn_tools,
+                turn_tools=capability_registry.visible_tools,
             ),
             make_chat_health_route(
                 backend=backend,

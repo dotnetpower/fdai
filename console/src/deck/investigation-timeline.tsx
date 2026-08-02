@@ -65,7 +65,7 @@ function statusMark(status: InvestigationActivity["status"]): string {
   return "";
 }
 
-function statusLabel(status: InvestigationActivity["status"]): string {
+function statusLabel(status: InvestigationActivity["status"] | "partial"): string {
   return t(`deck.investigation.${status}`);
 }
 
@@ -94,10 +94,10 @@ function terminalDuration(branches: readonly EvidenceBranch[]): number {
   return Math.max(0, ...branches.map((branch) => branch.durationMs ?? 0));
 }
 
-function terminalTone(
+export function investigationTone(
   activities: readonly InvestigationActivity[],
   branches: readonly EvidenceBranch[],
-): "completed" | "unavailable" | "failed" {
+): "completed" | "partial" | "unavailable" | "failed" {
   const statuses = [
     ...activities.map((activity) => activity.status),
     ...branches.map((branch) => branch.status),
@@ -105,7 +105,8 @@ function terminalTone(
   if (statuses.some((status) => ["failed", "timed_out", "cancelled"].includes(status))) {
     return "failed";
   }
-  return statuses.some((status) => status !== "completed") ? "unavailable" : "completed";
+  if (statuses.every((status) => status === "completed")) return "completed";
+  return statuses.some((status) => status === "completed") ? "partial" : "unavailable";
 }
 
 function useInvestigationElapsed(running: boolean, finalDurationMs: number): number {
@@ -218,6 +219,38 @@ function ExecutionEvidence({
   );
 }
 
+function ActivitySummary({
+  activity,
+}: {
+  readonly activity: InvestigationActivity;
+}) {
+  const progress = activity.completed !== null && activity.total !== null
+    ? `${activity.completed}/${activity.total}`
+    : null;
+  return (
+    <div class={`deck-investigation-summary${activity.execution ? " has-kind-badge" : ""}`}>
+      <span class="deck-investigation-state" aria-hidden="true">
+        {statusMark(activity.status)}
+      </span>
+      {activity.execution ? (
+        <span
+          class={`deck-investigation-kind-badge ${activity.execution.inputKind === "query" ? "is-query" : "is-tool"}`}
+          aria-hidden="true"
+        >
+          {activity.execution.inputKind === "query" ? "QUERY" : "TOOL"}
+        </span>
+      ) : null}
+      <span class="deck-investigation-copy">
+        <strong>{activity.label}</strong>
+        {activity.detail ? <small>{activity.detail}</small> : null}
+      </span>
+      <span class="deck-investigation-meta muted">
+        {progress ?? statusLabel(activity.status)}
+      </span>
+    </div>
+  );
+}
+
 export function InvestigationTimeline({
   activities,
   branches,
@@ -229,7 +262,7 @@ export function InvestigationTimeline({
 }) {
   const finalDurationMs = terminalDuration(branches);
   const elapsedMs = useInvestigationElapsed(running, finalDurationMs);
-  const tone = terminalTone(activities, branches);
+  const tone = investigationTone(activities, branches);
   const visibleBranches = unrepresentedEvidenceBranches(branches, activities);
   const summary = branches.length > 0
     ? t("deck.investigation.sourceSummary", { count: branches.length })
@@ -272,42 +305,25 @@ export function InvestigationTimeline({
           </summary>
           <ol class="deck-investigation-list">
             {activities.map((activity) => {
-              const progress = activity.completed !== null && activity.total !== null
-                ? `${activity.completed}/${activity.total}`
-                : null;
               return (
                 <li
                   key={activity.activityId}
                   class={`deck-investigation-item is-${activity.status}`}
                 >
-                  <div class={`deck-investigation-summary${activity.execution ? " has-kind-badge" : ""}`}>
-                    <span class="deck-investigation-state" aria-hidden="true">
-                      {statusMark(activity.status)}
-                    </span>
-                    {activity.execution ? (
-                      <span
-                        class={`deck-investigation-kind-badge ${activity.execution.inputKind === "query" ? "is-query" : "is-tool"}`}
-                        aria-hidden="true"
-                      >
-                        {activity.execution.inputKind === "query" ? "QUERY" : "TOOL"}
-                      </span>
-                    ) : null}
-                    <span class="deck-investigation-copy">
-                      <strong>{activity.label}</strong>
-                      {activity.detail ? <small>{activity.detail}</small> : null}
-                    </span>
-                    <span class="deck-investigation-meta muted">
-                      {progress ?? statusLabel(activity.status)}
-                    </span>
-                  </div>
                   {activity.execution ? (
-                    <ExecutionEvidence
-                      evidence={activity.execution}
-                      status={activity.status}
-                      {...(activity.agent ? { agent: activity.agent } : {})}
-                      {...(activity.authority ? { authority: activity.authority } : {})}
-                    />
-                  ) : null}
+                    <details
+                      class="deck-investigation-item-disclosure"
+                      open={activity.status === "running"}
+                    >
+                      <summary><ActivitySummary activity={activity} /></summary>
+                      <ExecutionEvidence
+                        evidence={activity.execution}
+                        status={activity.status}
+                        {...(activity.agent ? { agent: activity.agent } : {})}
+                        {...(activity.authority ? { authority: activity.authority } : {})}
+                      />
+                    </details>
+                  ) : <ActivitySummary activity={activity} />}
                 </li>
               );
             })}
@@ -324,9 +340,8 @@ export function InvestigationTimeline({
         aria-label={t("deck.investigation.label")}
       >
         <header class="deck-investigation-head">
-          <span class="deck-investigation-phase" aria-hidden="true">01</span>
           <span class="deck-investigation-state" aria-hidden="true">
-            {tone === "completed" ? "\u2713" : tone === "failed" ? "\u00d7" : "!"}
+            {tone === "completed" ? "\u2713" : tone === "failed" ? "\u00d7" : tone === "partial" ? "~" : "!"}
           </span>
           <strong>{t("deck.investigation.title")}</strong>
           <span class="muted">{summary}</span>
@@ -348,7 +363,6 @@ export function InvestigationTimeline({
       aria-label={t("deck.investigation.label")}
     >
       <header class="deck-investigation-head">
-        <span class="deck-investigation-phase" aria-hidden="true">01</span>
         <span class="deck-investigation-spinner" aria-hidden="true" />
         <strong>{t("deck.investigation.title")}</strong>
         <span class="muted">{summary}</span>

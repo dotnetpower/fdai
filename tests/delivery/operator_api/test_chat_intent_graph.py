@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 
 import pytest
@@ -9,6 +10,7 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
     BackendIntentGraphPlanner,
     EvidenceMode,
     parse_intent_graph,
+    planner_context_envelope,
 )
 from fdai.delivery.operator_api.routes.chat_turn_plan import TurnTool
 
@@ -159,6 +161,7 @@ async def test_backend_planner_sends_strict_graph_schema_and_capabilities() -> N
     assert schema["additionalProperties"] is False
     goal_schema = schema["properties"]["goals"]["items"]
     assert goal_schema["additionalProperties"] is False
+    assert "uniqueItems" not in json.dumps(schema)
     assert set(goal_schema["properties"]["capability"]["enum"]) == {
         "query_subscription_health",
         "web_search",
@@ -168,6 +171,132 @@ async def test_backend_planner_sends_strict_graph_schema_and_capabilities() -> N
     user_content = str(backend.call["user_content"])
     assert "상태를 확인하고 외부 기준과 비교해줘" in user_content
     assert "query_subscription_health" in user_content
+
+
+@pytest.mark.asyncio
+async def test_backend_planner_projects_validated_images_into_intent_input() -> None:
+    backend = _StructuredBackend(
+        _graph(
+            _goal(
+                "diagnose_image",
+                capability=None,
+                evidence_mode="model_knowledge",
+                intent="diagnosis",
+            )
+        )
+    )
+
+    await BackendIntentGraphPlanner(backend).plan_turn_with_context(
+        prompt="Analyze the attached service diagram.",
+        tools=_tools(),
+        history=(),
+        attachments=[
+            {
+                "name": "diagram.png",
+                "media_type": "image/png",
+                "data_url": "data:image/png;base64,cG5n",
+                "byte_size": 3,
+            }
+        ],
+    )
+
+    content = backend.call["user_content"]
+    assert isinstance(content, list)
+    assert content[0]["type"] == "text"
+    assert "Analyze the attached service diagram." in content[0]["text"]
+    assert content[1] == {
+        "type": "image_url",
+        "image_url": {"url": "data:image/png;base64,cG5n"},
+    }
+
+
+@pytest.mark.asyncio
+async def test_backend_planner_accepts_multiservice_image_diagnosis_graph() -> None:
+    inventory_schema = {
+        "type": "object",
+        "properties": {
+            "source": {"type": "string", "enum": ["current"]},
+            "kind": {"type": "string", "enum": ["list"]},
+            "provider_type": {"type": "string", "maxLength": 128},
+        },
+        "required": ["source", "kind", "provider_type"],
+        "additionalProperties": False,
+    }
+    inventory_tool = TurnTool(
+        "query_inventory",
+        "Read one current service type.",
+        "read",
+        inventory_schema,
+    )
+    service_goals = [
+        _goal(
+            goal_id,
+            capability="query_inventory",
+            arguments={"source": "current", "kind": "list", "provider_type": provider_type},
+            intent="diagnosis",
+        )
+        for goal_id, provider_type in (
+            ("app_gateway", "Microsoft.Network/applicationGateways"),
+            ("aks", "Microsoft.ContainerService/managedClusters"),
+            ("api_management", "Microsoft.ApiManagement/service"),
+            ("mysql", "Microsoft.DBforMySQL/flexibleServers"),
+            ("azure_openai", "Microsoft.CognitiveServices/accounts"),
+        )
+    ]
+    correlate = _goal(
+        "correlate",
+        capability=None,
+        depends_on=[goal["goal_id"] for goal in service_goals],
+        evidence_mode="screen",
+        intent="diagnosis",
+    )
+    backend = _StructuredBackend(_graph(*service_goals, correlate))
+    context = planner_context_envelope(
+        {
+            "routeId": "resilience",
+            "headline": "Five-service topology",
+            "facts": [
+                {
+                    "key": "window",
+                    "value": "30m",
+                    "label": "Observation window",
+                    "window": "30m",
+                }
+            ],
+            "_attachments": [
+                {
+                    "name": "service-topology.png",
+                    "media_type": "image/png",
+                    "data_url": "data:image/png;base64,cG5n",
+                    "byte_size": 3,
+                }
+            ],
+        },
+        resource_context=None,
+        conversation_context=None,
+    )
+
+    graph = await BackendIntentGraphPlanner(backend).plan_turn_with_context(
+        prompt="이 화면의 다섯 서비스를 함께 진단하고 상관관계를 설명해줘.",
+        tools=(inventory_tool,),
+        history=(),
+        attachments=[
+            {
+                "name": "service-topology.png",
+                "media_type": "image/png",
+                "data_url": "data:image/png;base64,cG5n",
+                "byte_size": 3,
+            }
+        ],
+        context=context,
+    )
+
+    assert [goal.capability for goal in graph.goals[:5]] == ["query_inventory"] * 5
+    assert graph.goals[-1].depends_on == tuple(goal["goal_id"] for goal in service_goals)
+    assert graph.action_posture is ActionPosture.ADVISE_ONLY
+    planner_text = backend.call["user_content"][0]["text"]
+    assert "service-topology.png" in planner_text
+    assert "data:image" not in planner_text
 
 
 def test_model_knowledge_goal_needs_no_capability_or_arguments() -> None:
@@ -184,6 +313,101 @@ def test_model_knowledge_goal_needs_no_capability_or_arguments() -> None:
     )
 
     assert graph.goals[0].capability is None
+
+
+def test_model_knowledge_cannot_satisfy_freshness_requirement() -> None:
+    raw_goal = _goal(
+        "latest",
+        capability=None,
+        evidence_mode="model_knowledge",
+        intent="status",
+    )
+    raw_goal["freshness_required"] = True
+
+    with pytest.raises(ValueError, match="fresh evidence"):
+        parse_intent_graph(_graph(raw_goal), tools=_tools())
+
+
+def test_planner_context_envelope_is_bounded_and_allowlisted() -> None:
+    envelope = planner_context_envelope(
+        {
+            "routeId": "resilience",
+            "routeLabel": "Resilience",
+            "_locale": "ko-KR",
+            "headline": "MTTR is 12 minutes",
+            "capturedAt": "2026-08-02T03:00:00Z",
+            "facts": [
+                {
+                    "key": "mttr",
+                    "label": "Mean time to recovery",
+                    "value": 12,
+                    "unit": "minutes",
+                    "window": "24h",
+                    "observedAt": "2026-08-02T03:00:00Z",
+                    "ignored": "not projected",
+                }
+            ],
+            "explanations": {
+                "selection": {
+                    "entity_kind": "service",
+                    "entity_id": "checkout-api",
+                    "label": "Checkout API",
+                }
+            },
+            "records": {"incidents": [{"secret": "must-not-leak"}]},
+            "_user": {"name": "must-not-leak"},
+            "_attachments": [
+                {
+                    "name": "topology.png",
+                    "media_type": "image/png",
+                    "byte_size": 42,
+                    "data_url": "data:image/png;base64,c2VjcmV0",
+                }
+            ],
+        },
+        resource_context={
+            "name": "checkout-api",
+            "resource_type": "container_app",
+            "evidence_ref": "inventory:checkout-api",
+            "resource_group": "not-projected",
+        },
+        conversation_context={
+            "kind": "incident",
+            "incident_id": "INC-42",
+            "selected_agent": "Heimdall",
+            "private": "not-projected",
+        },
+        document_refs=(
+            "doc:00000000-0000-0000-0000-000000000001:00000000-0000-0000-0000-000000000002",
+        ),
+    )
+
+    assert envelope["authority"] == "selector_hint"
+    assert envelope["locale"] == "ko-KR"
+    screen = envelope["screen"]
+    assert isinstance(screen, dict)
+    assert screen["facts"][0] == {
+        "key": "mttr",
+        "value": 12,
+        "label": "Mean time to recovery",
+        "unit": "minutes",
+        "window": "24h",
+        "observedAt": "2026-08-02T03:00:00Z",
+    }
+    assert screen["selection"]["entity_id"] == "checkout-api"
+    assert envelope["attachments"] == [
+        {"name": "topology.png", "media_type": "image/png", "byte_size": 42}
+    ]
+    assert envelope["documents"] == {
+        "authority": "governed_document_ingestion",
+        "evidence_refs": [
+            "doc:00000000-0000-0000-0000-000000000001:00000000-0000-0000-0000-000000000002"
+        ],
+    }
+    serialized = str(envelope)
+    assert "must-not-leak" not in serialized
+    assert "data:image" not in serialized
+    assert "not-projected" not in serialized
 
 
 @pytest.mark.parametrize(
@@ -224,21 +448,6 @@ def test_model_knowledge_goal_needs_no_capability_or_arguments() -> None:
         (
             _graph(
                 _goal(
-                    "first",
-                    capability="query_subscription_health",
-                    arguments={"lookback_seconds": 3600},
-                ),
-                _goal(
-                    "second",
-                    capability="query_subscription_health",
-                    arguments={"lookback_seconds": 7200},
-                ),
-            ),
-            "more than once",
-        ),
-        (
-            _graph(
-                _goal(
                     "restart",
                     capability="ops.restart-service",
                     arguments={"resource_ref": "service-example"},
@@ -251,6 +460,26 @@ def test_model_knowledge_goal_needs_no_capability_or_arguments() -> None:
 def test_invalid_graphs_fail_closed(raw: dict[str, object], message: str) -> None:
     with pytest.raises(ValueError, match=message):
         parse_intent_graph(raw, tools=_tools())
+
+
+def test_graph_allows_repeated_read_capability_with_distinct_arguments() -> None:
+    graph = parse_intent_graph(
+        _graph(
+            _goal(
+                "current",
+                capability="query_subscription_health",
+                arguments={"lookback_seconds": 3600},
+            ),
+            _goal(
+                "baseline",
+                capability="query_subscription_health",
+                arguments={"lookback_seconds": 7200},
+            ),
+        ),
+        tools=_tools(),
+    )
+
+    assert [goal.arguments["lookback_seconds"] for goal in graph.goals] == [3600, 7200]
 
 
 def test_draft_only_allows_one_terminal_write_goal() -> None:
@@ -273,6 +502,12 @@ def test_draft_only_allows_one_terminal_write_goal() -> None:
     )
 
     assert graph.requires_confirmation is True
+    assert graph.confirmation_payload(request_id="request-1", session_id="session-1") == {
+        "action_type": "ops.restart-service",
+        "arguments": {"resource_ref": "service-example"},
+        "session_id": "session-1",
+        "idempotency_key": "draft-request-1",
+    }
 
 
 def test_write_goal_cannot_feed_another_goal() -> None:

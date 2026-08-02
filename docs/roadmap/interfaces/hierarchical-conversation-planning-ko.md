@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 2b311a7dbe243a8978d7312f845302a560013f60
+translation_source_sha: 211138b8ddbd221c559da8c80d8cd3770c7ae5ca
 translation_revised: 2026-08-02
 ---
 
@@ -32,6 +32,26 @@ Mini-model은 언어를 해석하고 graph를 제안합니다. 현재 principal�
 capability만 볼 수 있습니다. Validator는 알 수 없는 capability, cycle, 해결되지 않은 dependency,
 잘못된 argument, scope 날조, confirmation draft 밖의 write를 차단합니다.
 
+## 구현 상태
+
+Operator API는 이제 one-shot 및 streamed turn의 active planner로 structured intent graph를 사용합니다.
+검증된 read goal은 기존 tool, web, agent provider seam을 통해 bounded concurrency로 dependency wave별
+실행됩니다. Goal receipt는 하나의 evidence ledger에 유지되며 failed 또는 unavailable goal은 성공한
+sibling을 삭제하지 않고 partial result를 만듭니다.
+
+Subscription health는 server-owned scope를 사용하는 typed capability입니다. Agent 및 web capability는
+request 시점에 provider가 ready 및 enabled인 경우에만 planner에 표시됩니다. 반복 read capability는 서로
+다른 validated argument를 사용할 수 있습니다. 실패한 dependency는 descendant를 skip하며 cancellation은
+active provider까지 전달됩니다. Legacy single-tool parser는 제거 기간 중 compatibility test에 남습니다.
+
+Terminal response는 raw provider payload가 아니라 redacted graph와 timestamp가 있는 goal receipt를
+저장합니다. Console은 Observed process에서 goal, dependency, status, evidence mode를 replay합니다. Action
+draft는 confirmation 직전에 현재 capability manifest에 대해 다시 검사합니다.
+Provider-facing schema는 지원되는 structured-output subset만 사용하며 deterministic parsing은 goal
+dependency와 alternative의 uniqueness를 계속 검사합니다. Catalog가 완전하게 compile한 inventory
+request는 typed query에 scope, grouping, projection, freshness를 유지하고 model planning을 건너뜁니다.
+불완전하거나 compound인 request는 intent graph를 계속 사용합니다.
+
 ## Intent graph 계약
 
 Intent graph는 operator 요청을 하나의 tool로 축소하지 않고 기록합니다. 모든 graph에는 다음 항목이
@@ -57,7 +77,8 @@ Planner는 model invocation 전에 조립된 bounded context envelope를 받습�
 - 현재 route, 선택한 object, semantic screen fact, unit, measurement window, source age입니다.
 - Principal-scoped conversation history와 operator locale입니다.
 - 검증된 image part와 immutable document evidence reference입니다.
-- RBAC, availability, enabled state, authority와 교차한 runtime capability입니다.
+- Route authorization 이후 availability, enabled state, authority로 필터링한 runtime capability입니다.
+    Draft는 submission route의 현재 RBAC 및 safety gate를 계속 통과해야 합니다.
 - 명시적인 web-search availability와 approved-domain policy입니다.
 
 `이 수치`, `여기`, `Bragi` 같은 참조는 typed context에 대해 해석합니다. 모호한 참조는 clarification
@@ -66,9 +87,9 @@ agent 요청으로 바뀌지 않습니다.
 
 ## Capability registry
 
-하나의 registry가 planner-visible descriptor와 resolver binding을 소유합니다. Descriptor에는 stable
-name, purpose, side-effect class, argument schema, evidence authority, owner, availability, enabled state,
-authority mode, unavailable reason, object type, freshness 특성이 포함됩니다.
+하나의 registry가 planner-visible descriptor를 소유하며 composition은 resolver binding을 typed provider
+seam 뒤에 유지합니다. Descriptor에는 stable name, purpose, side-effect class, argument schema, owner,
+availability, enabled state, authority mode, unavailable reason이 포함됩니다.
 
 Planner는 unavailable capability를 받지 않습니다. Subscription health, inventory, screen read, web
 search, agent-owned read는 같은 계약을 사용합니다. Language term, resource alias, service name은 Python
@@ -87,14 +108,16 @@ search, agent-owned read는 같은 계약을 사용합니다. Language term, res
 
 Web result는 untrusted evidence입니다. Sanitization, approved domain, retrieval time, claim verification이
 계속 필요합니다. Search가 unavailable이면 answer는 model knowledge를 표시하고 freshness 제한을
-설명하며 citation을 날조하지 않습니다. Raw chain-of-thought는 저장하거나 표시하지 않습니다. Bragi는
-간결한 conclusion, evidence, assumption, comparison basis, limitation, uncertainty를 제공합니다.
+설명하며 citation을 날조하지 않습니다. 이 fallback은 validated goal에 fresh evidence가 필요하지 않은
+경우에만 허용됩니다. Raw chain-of-thought는 저장하거나 표시하지 않습니다. Bragi는 간결한 conclusion,
+evidence, assumption, comparison basis, limitation, uncertainty를 제공합니다.
 
 ## Task DAG 컴파일
 
 Deterministic compiler는 검증된 read goal을 bounded task로 변환합니다. 독립 task는 동시에 실행하고,
 dependent task는 선언된 prerequisite를 기다립니다. 각 task에는 stable identity, capability, validated
-argument, deadline, evidence key, authority, dependency, correlation이 포함됩니다.
+argument, deadline, evidence key, authority, dependency, correlation, UTC lifecycle timestamp가 포함됩니다.
+Browser persistence는 bounded reference만 유지하고 provider body를 제거합니다.
 
 복합 subscription diagnosis는 inventory, Resource Health, metric, approved web benchmark read를 fan-out한
 후 시간 정렬과 correlation을 위해 join할 수 있습니다. unavailable branch 하나는 false success나 전체
@@ -116,12 +139,14 @@ Bragi는 evidence collection과 verification 이후 presentation을 streaming합
 
 Recommendation은 executable action이 아닙니다. 명시적인 변경 요청은 기존 안전성과 승인 경로로
 들어가는 typed draft를 만듭니다. Planner는 실행, 승인, promotion, policy 변경을 할 수 없습니다.
+Graph executor는 normal route 밖에서 호출돼도 모든 non-read goal을 거부하며, route는 confirmation data를
+반환하기 직전에 draft availability를 다시 검사합니다.
 
 ## Migration
 
-1. Incumbent route가 answer를 제공하는 동안 observation mode에서 graph를 생성하고 저장합니다.
+1. 완료된 모든 turn에 active graph를 저장하고 replay합니다.
 2. Bilingual scenario에서 selection, authority, clarification, latency, answer quality를 비교합니다.
-3. Observation gate가 통과되면 read-only turn을 graph execution으로 전환합니다.
+3. 모든 supported read path가 typed planning을 사용하도록 registry를 확장합니다.
 4. Replay가 coverage를 확인하면 legacy single-tool 및 question-specific route를 제거합니다.
 
 Compatibility 기간은 일시적입니다. Migration은 하나의 graph contract와 하나의 registry로 끝납니다.

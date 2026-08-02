@@ -24,13 +24,16 @@ from fdai.delivery.operator_api.routes.chat import (
     _GLOSSARY,
     DEFAULT_MAX_CONTEXT_BYTES,
     DEFAULT_MAX_EXPLANATION_ITEMS,
-    DEFAULT_MAX_HISTORY_TURNS,
     DEFAULT_MAX_RECORDS_PER_KEY,
     _build_messages,
     _is_capability_query,
     _is_concept_query,
     _raise_upstream_error,
     _trim_view_context,
+)
+from fdai.delivery.operator_api.routes.chat_backend_common import (
+    ChatContentPolicyError,
+    _raise_if_content_filtered,
 )
 from fdai.delivery.operator_api.routes.chat_prompt_content import (
     _AGENT_EVIDENCE_DIRECTIVE,
@@ -631,16 +634,19 @@ def test_snapshot_is_embedded_in_system() -> None:
     assert payload["_answer_plan"]["intent"] == "open_question"
 
 
-def test_history_is_bounded_and_sanitised() -> None:
-    history = [{"role": "user", "content": f"q{i}"} for i in range(DEFAULT_MAX_HISTORY_TURNS + 5)]
+def test_history_keeps_all_valid_turns_and_full_content() -> None:
+    long_content = "x" * 5_001
+    history = [{"role": "user", "content": f"q{i}"} for i in range(25)]
+    history.append({"role": "assistant", "content": long_content})
     # Interleave some invalid entries that must be dropped.
     history.append({"role": "system", "content": "should be dropped"})
     history.append({"role": "user", "content": ""})
     msgs = _build_messages("final", {}, history)
     convo = msgs[1:-1]  # exclude system + final user turn
-    assert len(convo) <= DEFAULT_MAX_HISTORY_TURNS
+    assert len(convo) == 26
     assert all(m["role"] in {"user", "assistant"} for m in convo)
     assert all(m["content"] for m in convo)
+    assert convo[-1]["content"] == long_content
     assert "should be dropped" not in [m["content"] for m in convo]
 
 
@@ -934,10 +940,38 @@ _CONTENT_FILTER_BODIES: list[str] = [
 
 @pytest.mark.parametrize("body", _CONTENT_FILTER_BODIES)
 def test_content_policy_block_maps_to_422(body: str) -> None:
-    with pytest.raises(HTTPException) as ei:
+    with pytest.raises(ChatContentPolicyError) as exc_info:
         _raise_upstream_error(400, body)
-    assert ei.value.status_code == 422
-    assert "content policy" in ei.value.detail
+    assert exc_info.value.stage == "unknown"
+
+
+def test_non_400_content_policy_marker_is_still_typed() -> None:
+    with pytest.raises(ChatContentPolicyError):
+        _raise_upstream_error(403, '{"error":{"code":"content_filter"}}')
+
+
+@pytest.mark.parametrize(
+    ("envelope", "stage"),
+    [
+        (
+            {
+                "prompt_filter_results": [
+                    {"content_filter_results": {"jailbreak": {"filtered": True}}}
+                ]
+            },
+            "input",
+        ),
+        ({"choices": [{"finish_reason": "content_filter"}]}, "output"),
+        (
+            {"choices": [{"content_filter_results": {"violence": {"filtered": True}}}]},
+            "output",
+        ),
+    ],
+)
+def test_success_envelope_content_policy_is_typed(envelope: object, stage: str) -> None:
+    with pytest.raises(ChatContentPolicyError) as exc_info:
+        _raise_if_content_filtered(envelope)
+    assert exc_info.value.stage == stage
 
 
 @pytest.mark.parametrize(

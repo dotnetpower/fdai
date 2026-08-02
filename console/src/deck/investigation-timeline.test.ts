@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { InvestigationActivity } from "./backend";
 import {
+  investigationTone,
   unrepresentedEvidenceBranches,
   upsertEvidenceBranch,
   upsertInvestigationActivity,
@@ -110,25 +111,84 @@ describe("upsertEvidenceBranch", () => {
       fileURLToPath(new URL("./command-deck-presenters.tsx", import.meta.url)),
       "utf8",
     );
-
-    expect(component).toContain(
-      '<details class="deck-investigation-activity-disclosure" open>',
+    const retrieval = readFileSync(
+      fileURLToPath(new URL("./retrieval-trace.tsx", import.meta.url)),
+      "utf8",
     );
+    const view = readFileSync(
+      fileURLToPath(new URL("./command-deck-view.tsx", import.meta.url)),
+      "utf8",
+    );
+    const reply = readFileSync(
+      fileURLToPath(new URL("./grounded-reply.tsx", import.meta.url)),
+      "utf8",
+    );
+    const richContent = readFileSync(
+      fileURLToPath(new URL("./rich-content.tsx", import.meta.url)),
+      "utf8",
+    );
+    const trajectory = readFileSync(
+      fileURLToPath(new URL("./conversation-trajectory-view.tsx", import.meta.url)),
+      "utf8",
+    );
+
+    expect(component).toContain('<details class="deck-investigation-activity-disclosure" open>');
+    expect(component).toContain('class="deck-investigation-item-disclosure"');
+    expect(component).toContain('open={activity.status === "running"}');
     expect(component).toContain('aria-label={t("deck.investigation.branches")}');
     expect(component).toContain('class={`deck-investigation is-settled is-${tone}`}');
     expect(component).toContain('class={`deck-investigation-badge is-${tone}`}');
     expect(component).toContain('class="deck-investigation-elapsed muted"');
     expect(component).toContain("deck-branch-badge");
-    expect(component).toContain('class="deck-investigation-phase"');
     expect(component).toContain('"is-query" : "is-tool"');
     expect(component).toContain('activity.execution.inputKind === "query" ? "QUERY" : "TOOL"');
     expect(component).toContain('t("deck.investigation.copyQuery")');
     expect(component).toContain('t("deck.investigation.sourceSummary"');
     expect(styles).toContain("@keyframes deck-investigation-rise");
     expect(presenter).toContain('turn.source === "investigation"');
-    expect(presenter).toContain("{isDeck ? (");
+    expect(presenter).toContain("{isDeck && !isInvestigationFlow ? (");
     expect(presenter).toContain('class="deck-progress-note" role="status"');
+    expect(presenter).toContain('class="deck-progress-note-body"');
+    expect(presenter).toContain('"deck.investigation.startingWork"');
+    expect(presenter).toContain("is-investigation-flow");
+    expect(presenter).toContain('isActivity ? " deck-turn-activity"');
+    expect(presenter).toContain("isDeck && !isInvestigationFlow");
     expect(styles).toContain(".deck-progress-note {");
+    expect(styles).toContain(".deck-turn.is-investigation-flow::before");
+    expect(retrieval).toContain('class="deck-turn-head deck-rt-agent-head"');
+    expect(retrieval).toContain('class="deck-turn-source"');
+    expect(view).toContain("showPreparingAnswer");
+    expect(view).toContain("inFlight && !finalAnswerPresent");
+    expect(view).toContain("index === activeOperatorIndex");
+    expect(view).toContain('class="deck-composer-inner"');
+    expect(view).toContain('class="deck-transcript-inner"');
+    expect(styles).toContain("overflow-anchor: none;");
+    expect(styles).toContain("padding: 16px 42px 88px;");
+    expect(styles).toContain(".deck-table-wrap { max-height: none; overflow: visible; }");
+    expect(richContent).toContain("if (streaming) {");
+    expect(richContent).toContain("<TextBlock text={text} caret />");
+    expect(richContent).toContain("{rows.map((row, r) => (");
+    expect(richContent).not.toContain("tableRowsForDisplay");
+    expect(styles).toContain(".deck-composer-inner {");
+    expect(styles).toContain(".deck-transcript-inner {");
+    expect(reply).toContain('<details\n          class="deck-llm-escalation"');
+    expect(reply).toContain('class="deck-llm-escalation-chevron"');
+    expect(trajectory).toContain("<IntentGraphPhase");
+    expect(trajectory).toContain('class="deck-trajectory-goals"');
+    expect(trajectory).toContain('t("deck.trajectory.runRecord")');
+    expect(trajectory).toContain('class="deck-trajectory-results"');
+    expect(trajectory).toContain('class="deck-trajectory-signals"');
+    expect(trajectory).toContain("buildExecutionTimeline(trajectory");
+    expect(trajectory).toContain("function phaseMark(");
+    expect(trajectory).toContain('class="deck-trajectory-records"');
+    expect(trajectory).toContain('t("deck.trajectory.checks")');
+    expect(styles).toContain(".deck-trajectory-results {");
+    expect(styles).toContain(".deck-trajectory-signals {");
+    expect(styles).toContain(".deck-execution-chevron {");
+    expect(styles).toContain(".deck-overlay-mode-workspace .deck-header {");
+    expect(styles).toContain(".deck-overlay-mode-workspace .deck-transcript-tools {");
+    expect(styles).toContain(".deck-trajectory-goal-status.is-skipped");
+    expect(styles).toContain(".deck-trajectory-title-copy");
     expect(styles).toMatch(
       /\.deck-body\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/,
     );
@@ -138,9 +198,8 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toMatch(
       /\.deck-investigation-command,[\s\S]*?\.deck-investigation-output\s*\{[^}]*background:\s*#1f2428/,
     );
-    expect(styles).toMatch(
-      /\.deck-investigation-list::before\s*\{[^}]*background:\s*var\(--border\)/,
-    );
+    expect(styles).toContain(".deck-investigation-item-disclosure > summary::after");
+    expect(styles).toMatch(/\.deck-investigation-summary\s*\{[^}]*min-height:\s*44px/);
     expect(styles).toMatch(
       /\.deck-investigation-item\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent/,
     );
@@ -153,5 +212,18 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toMatch(
       /@media \(max-width: 640px\)[\s\S]*?\.deck-branch-item\s*\{[^}]*grid-template-columns:\s*42px minmax\(0, 1fr\)/,
     );
+  });
+});
+
+describe("investigationTone", () => {
+  it("keeps mixed successful and unavailable evidence visibly partial", () => {
+    expect(investigationTone([], [branch("completed"), branch("unavailable")]))
+      .toBe("partial");
+  });
+
+  it("distinguishes all unavailable, all completed, and failed evidence", () => {
+    expect(investigationTone([], [branch("unavailable")])).toBe("unavailable");
+    expect(investigationTone([], [branch("completed")])).toBe("completed");
+    expect(investigationTone([], [branch("completed"), branch("failed")])).toBe("failed");
   });
 });

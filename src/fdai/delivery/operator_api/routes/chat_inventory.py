@@ -612,6 +612,11 @@ def render_inventory_answer(
     if answer_format == "table":
         return _render_inventory_table_answer(
             resources,
+            requested_types=(
+                tuple(str(item) for item in result.get("requested_types", []))
+                if isinstance(result.get("requested_types"), list)
+                else ()
+            ),
             korean=korean,
             count=count,
             total=total,
@@ -772,6 +777,7 @@ def _safe_nonnegative_int(value: object) -> int | None:
 def _render_inventory_table_answer(
     resources: list[Mapping[str, Any]],
     *,
+    requested_types: tuple[str, ...],
     korean: bool,
     count: int,
     total: int,
@@ -781,24 +787,41 @@ def _render_inventory_table_answer(
     freshness: str,
     truncated: bool,
 ) -> str:
-    lead = (
-        f"현재 Azure inventory view '{active_view}'의 {total}개 중 {count}개가 일치합니다."
-        if korean
-        else f"{count} of {total} resources in Azure inventory view '{active_view}' match."
+    resource_group_table = (
+        requested_types == ("resource-group",)
+        or bool(resources)
+        and all(item.get("type") == "resource-group" for item in resources)
     )
-    headers = (
-        ("이름", "형식", "상태", "위치", "리소스 그룹")
-        if korean
-        else ("Name", "Type", "Status", "Location", "Resource group")
-    )
-    lines = [lead, "", "| " + " | ".join(headers) + " |", "| --- | --- | --- | --- | --- |"]
-    lines.extend(
-        "| "
-        + " | ".join(
-            _markdown_cell(item.get(field) or "-")
-            for field in ("name", "type", "status", "location", "resource_group")
+    if resource_group_table:
+        lead = (
+            f"구독 범위에서 리소스 그룹 {count}개를 확인했습니다."
+            if korean
+            else f"Found {count} resource groups in the subscription scope."
         )
-        + " |"
+        headers = (
+            ("리소스 그룹", "위치", "상태") if korean else ("Resource group", "Location", "Status")
+        )
+        fields = ("name", "location", "status")
+    else:
+        lead = (
+            f"현재 Azure inventory view '{active_view}'의 {total}개 중 {count}개가 일치합니다."
+            if korean
+            else f"{count} of {total} resources in Azure inventory view '{active_view}' match."
+        )
+        headers = (
+            ("이름", "형식", "상태", "위치", "리소스 그룹")
+            if korean
+            else ("Name", "Type", "Status", "Location", "Resource group")
+        )
+        fields = ("name", "type", "status", "location", "resource_group")
+    lines = [
+        lead,
+        "",
+        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join("---" for _ in headers) + " |",
+    ]
+    lines.extend(
+        "| " + " | ".join(_markdown_cell(item.get(field) or "-") for field in fields) + " |"
         for item in resources
     )
     if count > len(resources):

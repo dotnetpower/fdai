@@ -13,6 +13,7 @@ from fdai.delivery.operator_api.routes.chat_backend_azure import AzureAdChatBack
 from fdai.delivery.operator_api.routes.chat_backend_common import (
     ChatBackend,
     ChatBackendUnavailableError,
+    ChatContentPolicyError,
 )
 
 _LOG = logging.getLogger(__name__)
@@ -226,6 +227,8 @@ class LatencyRoutedChatBackend:
                         f"chat candidate {name!r} returned an empty answer"
                     )
             except Exception as exc:
+                if isinstance(exc, ChatContentPolicyError):
+                    raise
                 if isinstance(exc, TimeoutError):
                     exc = TimeoutError("chat turn deadline exceeded")
                 self._samples[name].append(_ROUTER_FAILURE_PENALTY_MS)
@@ -273,7 +276,7 @@ class LatencyRoutedChatBackend:
         self,
         *,
         system_prompt: str,
-        user_content: str,
+        user_content: str | list[dict[str, object]],
         schema_name: str,
         schema: Mapping[str, object],
         max_tokens: int,
@@ -306,6 +309,8 @@ class LatencyRoutedChatBackend:
                         f"chat candidate {name!r} returned an invalid structured completion"
                     )
             except Exception as exc:
+                if isinstance(exc, ChatContentPolicyError):
+                    raise
                 self._samples[name].append(_ROUTER_FAILURE_PENALTY_MS)
                 attempted.add(name)
                 last_error = exc
@@ -420,6 +425,8 @@ class LatencyRoutedChatBackend:
                             },
                         }
             except Exception as exc:
+                if isinstance(exc, ChatContentPolicyError):
+                    raise
                 if isinstance(exc, TimeoutError):
                     exc = TimeoutError("chat turn deadline exceeded")
                 self._samples[name].append(_ROUTER_FAILURE_PENALTY_MS)

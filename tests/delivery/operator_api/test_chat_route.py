@@ -51,6 +51,7 @@ from fdai.delivery.operator_api.routes.chat import (
     make_chat_route,
     make_chat_stream_route,
 )
+from fdai.delivery.operator_api.routes.chat_backend_common import ChatContentPolicyError
 from fdai.delivery.operator_api.routes.chat_evidence import OperationalEvidenceResolver
 from fdai.delivery.operator_api.routes.chat_registration import append_chat_routes
 from fdai.shared.providers.conversation_channel import ChannelAttachment
@@ -71,6 +72,7 @@ class _RecordingBackend(ChatBackend):
         self._model = model
         self._delay_ms = delay_ms
         self.view_context: dict[str, Any] | None = None
+        self.history: list[dict[str, str]] | None = None
         self.calls = 0
 
     async def answer(
@@ -78,10 +80,11 @@ class _RecordingBackend(ChatBackend):
         *,
         prompt: str,  # noqa: ARG002 - Protocol required
         view_context: dict[str, Any],
-        history: list[dict[str, str]],  # noqa: ARG002
+        history: list[dict[str, str]],
     ) -> dict[str, str]:
         self.calls += 1
         self.view_context = view_context
+        self.history = history
         await asyncio.sleep(self._delay_ms / 1000)
         return {"answer": "hello", "model": self._model}
 
@@ -825,6 +828,23 @@ class TestChatRouteLatencySurface:
         assert reply == {"answer": "managed identity ready", "model": "narrator-mini"}
         assert identity.audiences == ["https://cognitiveservices.azure.com/.default"]
 
+    async def test_azure_backend_recognizes_successful_content_filter_envelope(self) -> None:
+        identity = _RecordingIdentity()
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"choices": [{"finish_reason": "content_filter"}]})
+
+        backend = AzureAdChatBackend(
+            endpoint="https://example.openai.azure.com/",
+            deployment="narrator-mini",
+            identity=identity,
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+
+        with pytest.raises(ChatContentPolicyError) as exc_info:
+            await backend.answer(prompt="status", view_context={}, history=[])
+        assert exc_info.value.stage == "output"
+
     async def test_azure_backend_records_operator_chat_usage(self) -> None:
         identity = _RecordingIdentity()
         sink = InMemoryMeteringSink()
@@ -908,6 +928,32 @@ class TestChatRouteLatencySurface:
         assert record.correlation_id == "chat-openai-test"
         assert record.usage_scope is InvocationScope.OPERATOR_CHAT
 
+    async def test_openai_backend_recognizes_prompt_filter_envelope(self) -> None:
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "prompt_filter_results": [
+                        {"content_filter_results": {"jailbreak": {"filtered": True}}}
+                    ],
+                    "choices": [],
+                },
+            )
+
+        backend = OpenAiCompatibleChatBackend(
+            config=OpenAiCompatibleChatBackendConfig(
+                provider="openai",
+                base_url="https://models.example.com",
+                api_key="test-key",  # noqa: S106 - synthetic test credential
+                model="narrator-mini",
+            ),
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+
+        with pytest.raises(ChatContentPolicyError) as exc_info:
+            await backend.answer(prompt="status", view_context={}, history=[])
+        assert exc_info.value.stage == "input"
+
     async def test_narrator_probe_usage_is_not_counted_as_chat(self) -> None:
         identity = _RecordingIdentity()
         sink = InMemoryMeteringSink()
@@ -977,6 +1023,34 @@ class TestChatRouteLatencySurface:
             {"type": "done", "answer": "managed stream", "model": "narrator-mini"},
         ]
         assert identity.audiences == ["https://cognitiveservices.azure.com/.default"]
+
+    async def test_azure_stream_recognizes_terminal_content_filter(self) -> None:
+        identity = _RecordingIdentity()
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                text=(
+                    'data: {"choices":[{"delta":{"content":"partial"}}]}\n\n'
+                    'data: {"choices":[{"finish_reason":"content_filter","delta":{}}]}\n\n'
+                    "data: [DONE]\n\n"
+                ),
+            )
+
+        backend = AzureAdChatBackend(
+            endpoint="https://example.openai.azure.com/",
+            deployment="narrator-mini",
+            identity=identity,
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+
+        events: list[dict[str, Any]] = []
+        with pytest.raises(ChatContentPolicyError) as exc_info:
+            async for event in backend.answer_stream(prompt="status", view_context={}, history=[]):
+                events.append(event)
+        assert exc_info.value.stage == "output"
+        assert events == [{"type": "token", "delta": "partial"}]
 
     async def test_azure_stream_records_terminal_usage_once(self) -> None:
         identity = _RecordingIdentity()
@@ -1687,17 +1761,16 @@ class TestChatRouteInputCaps:
     """Bounded-input regression: a pathological body must 4xx instead of
     forcing the interpreter to allocate a large intermediate list."""
 
-    def test_history_list_over_hard_cap_is_400(self) -> None:
+    def test_history_over_two_hundred_items_is_preserved(self) -> None:
         backend = _RecordingBackend(model="gpt-x", delay_ms=0)
         client = TestClient(_app(backend))
-        # 201 items exceeds DEFAULT_MAX_HISTORY_ITEMS=200; each turn is
-        # small enough that the body-byte cap is not hit first.
         huge = [{"role": "user", "content": "x"}] * 201
         resp = client.post(
             "/chat",
             json={"prompt": "hi", "view_context": {}, "history": huge},
         )
-        assert resp.status_code == 400
+        assert resp.status_code == 200
+        assert backend.history == huge
 
     def test_history_not_a_list_is_400(self) -> None:
         backend = _RecordingBackend(model="gpt-x", delay_ms=0)

@@ -56,17 +56,29 @@
     .ex-answer-preparing-spinner { width: 11px; height: 11px; border: 2px solid rgba(53,109,155,.2); border-top-color: var(--ex-blue); border-radius: 50%; animation: ex-spin .62s linear infinite; }
     .ex-answer-lead { margin: 2px 0 10px; color: var(--ex-ink); font-size: 13.5px; line-height: 1.55; }
 
-    .ex-run { position: relative; display: flex; flex-direction: column; gap: 2px; }
-    .ex-run::before { content: ""; position: absolute; z-index: 1; top: 24px; bottom: 35px; left: 9px; width: 1px; background: #cbd2d9; }
+    .ex-run { position: relative; isolation: isolate; display: flex; flex-direction: column; gap: 2px; }
+    .ex-run::before { content: ""; position: absolute; z-index: 0; top: 24px; bottom: 35px; left: 9px; width: 1px; background: #cbd2d9; pointer-events: none; }
     .ex-phase { display: none; }
-    .ex-phase.is-visible { position: relative; display: block; animation: ex-arrive .2s ease both; }
+    .ex-phase.is-visible { position: relative; z-index: 1; display: block; animation: ex-arrive .32s cubic-bezier(.22,1,.36,1) both; }
+    .ex-next-skeleton { position: relative; z-index: 1; display: none; grid-template-columns: 19px minmax(0, 1fr); gap: 11px; margin: 14px 0 8px; padding: 1px 0; }
+    .ex-next-skeleton.is-visible { display: grid; animation: ex-arrive .22s cubic-bezier(.22,1,.36,1) both; }
+    .ex-next-skeleton-mark { width: 19px; height: 19px; border: 1px solid rgba(53,109,155,.2); border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px #fff; }
+    .ex-next-skeleton-stack { min-width: 0; display: grid; gap: 10px; }
+    .ex-next-skeleton-card { display: grid; gap: 7px; padding: 9px; border: 1px solid var(--ex-line); border-radius: 6px; background: #fbfcfd; }
+    .ex-next-skeleton-session { min-height: 42px; display: grid; grid-template-columns: 15px minmax(0, 1fr) 58px; align-items: center; gap: 9px; padding: 0 3px 7px; }
+    .ex-next-skeleton-dot, .ex-next-skeleton-line, .ex-next-skeleton-pill { display: block; background: linear-gradient(90deg, #eef1f3 25%, #dde3e7 45%, #eef1f3 65%); background-size: 240% 100%; animation: cs-skeleton-pulse 1.4s ease-in-out infinite; }
+    .ex-next-skeleton-dot { width: 15px; height: 15px; border-radius: 50%; }
+    .ex-next-skeleton-line { width: min(100%, 520px); height: 10px; border-radius: 5px; }
+    .ex-next-skeleton-line.is-label { width: 88px; height: 7px; }
+    .ex-next-skeleton-session .ex-next-skeleton-line { width: min(58%, 240px); }
+    .ex-next-skeleton-pill { width: 58px; height: 19px; border-radius: 10px; }
     .ex-progress-note { display: flex; align-items: flex-start; gap: 11px; margin: 14px 0 8px; padding: 1px 0; }
     .ex-progress-mark { position: relative; z-index: 2; width: 19px; height: 19px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid rgba(53,109,155,.34); border-radius: 50%; background: #fff; color: var(--ex-blue); font: 700 7.5px "JetBrains Mono", monospace; box-shadow: 0 0 0 3px #fff; }
     .ex-progress-body { min-width: 0; padding: 7px 9px; border: 1px solid var(--ex-line); border-radius: 6px; background: #fbfcfd; }
     .ex-progress-label { display: block; margin-bottom: 3px; color: var(--ex-blue); font-size: 9.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
     .ex-progress-copy { margin: 0; color: var(--ex-ink); font-size: 12.5px; line-height: 1.55; }
 
-    .ex-session { margin-top: 8px; background: #fff; }
+    .ex-session { margin-top: 8px; background: transparent; }
     .ex-session-head { min-height: 42px; display: flex; align-items: center; gap: 9px; padding: 0 3px 7px; }
     .ex-session-state { min-width: 0; display: flex; align-items: baseline; gap: 7px; }
     .ex-session-title { color: var(--ex-ink); font-size: 12.5px; font-weight: 700; }
@@ -84,10 +96,10 @@
       content: ""; position: absolute; z-index: 2; top: 17px; left: 5px; width: 9px; height: 9px;
       box-sizing: border-box; border: 2px solid #aeb7c0; border-radius: 50%; background: #fff;
     }
-    .ex-step::after { content: ""; position: absolute; top: 21px; left: 14px; width: 15px; border-top: 1px solid #cbd2d9; }
+    .ex-step::after { content: ""; position: absolute; z-index: 0; top: 21px; left: 14px; width: 15px; border-top: 1px solid #cbd2d9; pointer-events: none; }
     .ex-step.is-active::before { border-color: var(--ex-blue); border-top-color: transparent; animation: ex-spin .72s linear infinite; }
     .ex-step.is-complete::before { content: "\2713"; width: 15px; height: 15px; top: 14px; left: 2px; border: 0; background: var(--ex-green); color: #fff; font: 800 9px/15px var(--cs-font); text-align: center; }
-    .ex-step-toggle { width: 100%; min-height: 43px; display: grid; grid-template-columns: 24px minmax(0, 1fr) auto 16px; align-items: center; gap: 8px; padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--ex-ink); font: inherit; text-align: left; cursor: pointer; }
+    .ex-step-toggle { position: relative; z-index: 1; width: 100%; min-height: 43px; display: grid; grid-template-columns: 24px minmax(0, 1fr) auto 16px; align-items: center; gap: 8px; padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--ex-ink); font: inherit; text-align: left; cursor: pointer; }
     .ex-step-toggle:hover { background: #f6f8fa; }
     .ex-step.is-active .ex-step-toggle { background: rgba(53,109,155,.06); }
     .ex-step-icon { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #d8dee4; border-radius: 5px; background: #f6f8fa; color: var(--ex-muted); font: 700 9px "JetBrains Mono", monospace; }
@@ -101,7 +113,7 @@
     .ex-chevron { width: 7px; height: 7px; border-right: 1.5px solid var(--ex-muted); border-bottom: 1.5px solid var(--ex-muted); transform: rotate(45deg) translateY(-2px); transition: transform .16s ease; }
     .ex-step-toggle[aria-expanded="true"] .ex-chevron { transform: rotate(225deg) translate(-1px, -1px); }
 
-    .ex-step-detail { max-height: 0; overflow: hidden; margin: 0 0 0 8px; border-radius: 6px; background: var(--ex-terminal); opacity: 0; transform: translateY(-3px); transition: max-height 90ms cubic-bezier(.2,0,.2,1), margin 90ms cubic-bezier(.2,0,.2,1), opacity 55ms linear, transform 90ms cubic-bezier(.2,0,.2,1), box-shadow 90ms linear; }
+    .ex-step-detail { max-height: 0; overflow: hidden; margin: 0 0 0 8px; border-radius: 6px; background: var(--ex-terminal); opacity: 0; transform: translateY(-4px); transition: max-height 180ms cubic-bezier(.22,1,.36,1), margin 180ms cubic-bezier(.22,1,.36,1), opacity 120ms ease, transform 180ms cubic-bezier(.22,1,.36,1), box-shadow 180ms ease; }
     .ex-step-detail.is-open { max-height: var(--ex-detail-height); margin: 2px 0 2px 8px; opacity: 1; transform: none; box-shadow: 0 4px 14px rgba(31,36,40,.12); }
     .ex-step-detail-inner { min-height: 0; overflow: hidden; }
     .ex-commandbar { min-height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-bottom: 1px solid #343b42; color: #aeb7c0; font-size: 10px; }
@@ -112,12 +124,14 @@
     .ex-terminal { min-height: 82px; margin: 0; padding: 10px 12px 12px; overflow-x: auto; color: #d7dde3; font: 11px/1.55 "JetBrains Mono", monospace; white-space: pre; }
     .ex-prompt { color: #7fb3dd; }
     .ex-output { color: #b8c1ca; }
+    .ex-output.is-entering { animation: ex-output-arrive .16s ease-out both; }
     .ex-output.is-success { color: #8fc394; }
     .ex-output.is-warning { color: #d5a66a; }
 
     .ex-final { display: none; opacity: 0; transform: translateY(4px); }
-    .ex-final.is-visible { display: block; animation: ex-arrive .24s ease forwards; }
-    @keyframes ex-arrive { to { opacity: 1; transform: none; } }
+    .ex-final.is-visible { display: block; animation: ex-arrive .3s cubic-bezier(.22,1,.36,1) forwards; }
+    @keyframes ex-arrive { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+    @keyframes ex-output-arrive { from { opacity: 0; } to { opacity: 1; } }
     .ex-final-copy { color: var(--ex-ink); font-size: 13.5px; line-height: 1.62; }
     .ex-final-copy p { margin: 0 0 9px; }
     .ex-final-copy code { color: #425467; }
@@ -125,7 +139,7 @@
     .ex-final.is-streaming .ex-turn-foot { visibility: hidden; }
     .ex-stream-caret { width: 1px; height: 1em; display: inline-block; margin-left: 2px; vertical-align: -2px; background: var(--ex-blue); animation: ex-caret .45s steps(1, end) infinite; }
     @keyframes ex-caret { 50% { opacity: 0; } }
-    .ex-final-reveal.is-visible { animation: ex-arrive .16s ease both; }
+    .ex-final-reveal.is-visible { animation: ex-arrive .24s cubic-bezier(.22,1,.36,1) both; }
     .ex-result-line { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
     .ex-result-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; border: 1px solid var(--ex-line); border-radius: 5px; background: #f8f9fa; color: var(--ex-muted); font-size: 10.5px; }
     .ex-result-chip strong { color: var(--ex-ink); }
@@ -328,7 +342,7 @@
                     <span class="ex-observed-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
                     <span><span class="ex-observed-kicker">Run record</span><span class="ex-observed-title">Observed process</span></span>
                   </span>
-                  <span class="ex-observed-summary">11 observed events / sources 4 / <strong>verification passed</strong></span>
+                  <span class="ex-observed-summary">10 observed events / sources 4 / <strong>verification passed</strong></span>
                   <span class="ex-observed-duration">9.0s</span>
                   <span class="ex-observed-chevron" aria-hidden="true"></span>
                 </summary>
@@ -344,7 +358,7 @@
                   <section class="ex-observed-timeline" aria-labelledby="ex-observed-timeline-title">
                     <header class="ex-observed-timeline-head">
                       <h4 id="ex-observed-timeline-title">Observed execution timeline</h4>
-                      <span>11 observed events</span>
+                      <span>10 observed events</span>
                     </header>
                     <ol class="ex-observed-events">
                       <li class="ex-observed-event" data-kind="turn">
@@ -356,18 +370,6 @@
                         <blockquote class="ex-observed-prompt"><span>Original prompt</span><p>Find why the example API health probe keeps failing. Check Azure, fix the validator script, and run it.</p></blockquote>
                         <dl class="ex-observed-event-facts">
                           <div><dt>Source</dt><dd><code>conversation.turn</code></dd></div><div><dt>Locale</dt><dd><code>en-US</code></dd></div><div><dt>Evidence ref</dt><dd><code>turn:request</code></dd></div>
-                        </dl></div></details>
-                      </li>
-                      <li class="ex-observed-event" data-kind="phase">
-                        <details name="ex-observed-event-detail"><summary>
-                          <span class="ex-observed-kind">Phase</span><span class="ex-observed-event-label">Preparing answer</span>
-                          <span class="ex-observed-track" aria-hidden="true"><span style="left: 0; width: 1.3%;"></span></span>
-                          <span class="ex-observed-event-duration">120 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
-                        </summary><div class="ex-observed-event-detail">
-                        <span class="ex-observed-detail-label">Initial response setup</span><ol class="ex-observed-plan">
-                          <li>Acknowledge the operator question</li><li>Attach Dashboard view context</li><li>Open the progressive response stream</li><li>Queue the investigation plan</li>
-                        </ol><dl class="ex-observed-event-facts">
-                          <div><dt>Context</dt><dd>Dashboard / 29 records</dd></div><div><dt>Mode</dt><dd>Progressive response</dd></div><div><dt>Output</dt><dd>Bragi stream</dd></div>
                         </dl></div></details>
                       </li>
                       <li class="ex-observed-event" data-kind="phase">
@@ -552,6 +554,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       var finalSource = finalAnswer.querySelector(".ex-agent-source");
       var finalSourceText = finalSource.textContent;
       var streamAnswer = finalAnswer.querySelector(".ex-stream-answer");
+      var nextSkeleton = null;
       var runToken = 0;
       var waits = [];
 
@@ -699,7 +702,24 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
           phaseNode.appendChild(session);
           runHost.appendChild(phaseNode);
         });
+        nextSkeleton = create("div", "ex-next-skeleton");
+        nextSkeleton.setAttribute("aria-hidden", "true");
+        nextSkeleton.appendChild(create("span", "ex-next-skeleton-mark"));
+        var skeletonStack = create("div", "ex-next-skeleton-stack");
+        var skeletonCard = create("div", "ex-next-skeleton-card");
+        skeletonCard.appendChild(create("span", "ex-next-skeleton-line is-label"));
+        skeletonCard.appendChild(create("span", "ex-next-skeleton-line"));
+        skeletonStack.appendChild(skeletonCard);
+        var skeletonSession = create("div", "ex-next-skeleton-session");
+        skeletonSession.appendChild(create("span", "ex-next-skeleton-dot"));
+        skeletonSession.appendChild(create("span", "ex-next-skeleton-line"));
+        skeletonSession.appendChild(create("span", "ex-next-skeleton-pill"));
+        skeletonStack.appendChild(skeletonSession);
+        nextSkeleton.appendChild(skeletonStack);
+        runHost.appendChild(nextSkeleton);
       }
+
+      function showNextSkeleton(visible) { nextSkeleton.classList.toggle("is-visible", visible); }
 
       function reset() {
         runToken += 1;
@@ -713,7 +733,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       }
 
       function appendOutput(step, activity, line) {
-        var output = create("span", "ex-output", line + "\n");
+        var output = create("span", "ex-output is-entering", line + "\n");
         if (activity.success && (line.indexOf("passed") >= 0 || line.indexOf("Exit code 0") >= 0)) output.classList.add("is-success");
         if (activity.warning && (line.indexOf("unhealthy") >= 0 || line.indexOf("Exit code 1") >= 0)) output.classList.add("is-warning");
         step.querySelector(".ex-terminal").appendChild(output);
@@ -740,7 +760,8 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       }
 
       function completeRun() {
-        Array.prototype.forEach.call(runHost.children, function (phaseNode, phaseIndex) {
+        showNextSkeleton(false);
+        Array.prototype.forEach.call(runHost.querySelectorAll(".ex-phase"), function (phaseNode, phaseIndex) {
           phaseNode.classList.add("is-visible");
           phaseNode.querySelector(".ex-progress-copy").textContent = PHASES[phaseIndex].update;
           completePhase(phaseNode, PHASES[phaseIndex]);
@@ -754,13 +775,13 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
 
       async function run() {
         var token = reset();
-        if (!await wait(450, token)) return;
-        answerPreparing.classList.remove("is-active");
+        if (!await wait(1400, token)) return;
         if (!await streamNodeText(answerLead, answerLeadText, token, 14)) return;
         if (!await wait(120, token)) return;
         for (var phaseIndex = 0; phaseIndex < PHASES.length; phaseIndex += 1) {
           var phase = PHASES[phaseIndex];
           var phaseNode = runHost.children[phaseIndex];
+          showNextSkeleton(false);
           phaseNode.classList.add("is-visible");
           var progressCopy = phaseNode.querySelector(".ex-progress-copy");
           if (!await streamNodeText(progressCopy, phase.update, token, 14)) return;
@@ -785,8 +806,11 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
             if (!await wait(240, token)) return;
           }
           completePhase(phaseNode, phase);
+          showNextSkeleton(true);
           if (!await wait(620, token)) return;
         }
+        showNextSkeleton(false);
+        answerPreparing.classList.remove("is-active");
         await streamFinalAnswer(token);
       }
 

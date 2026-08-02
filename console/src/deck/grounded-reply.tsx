@@ -263,7 +263,7 @@ export function GroundedReply({
       ) : null}
 
       {showProcessingDisclosure ? (
-        <section
+        <details
           class="deck-llm-escalation"
           aria-label={t(
             parsedSource.kind === "llm"
@@ -271,7 +271,7 @@ export function GroundedReply({
               : "deck.grounded.deterministicPath",
           )}
         >
-          <header class="deck-llm-escalation-head">
+          <summary class="deck-llm-escalation-head">
             <span class="deck-llm-escalation-label">
               {t(
                 parsedSource.kind === "llm"
@@ -289,24 +289,27 @@ export function GroundedReply({
                 {t("deck.grounded.processingTime", { timing: parsedSource.timing })}
               </span>
             ) : null}
-          </header>
-          <p class="deck-llm-escalation-summary">
-            {parsedSource.kind === "llm"
-              ? t(
-                  sources.length > 0
-                    ? "deck.grounded.llmGroundedSummary"
-                    : "deck.grounded.llmContextSummary",
-                  { model: parsedSource.model },
-                )
-              : t(
-                  parsedSource.reason
-                    ? "deck.grounded.deterministicReasonSummary"
-                    : "deck.grounded.deterministicSummary",
-                  { reason: parsedSource.reason ?? "" },
-                )}
-          </p>
-          <GroundingTrace stages={stages} />
-        </section>
+            <span class="deck-llm-escalation-chevron" aria-hidden="true" />
+          </summary>
+          <div class="deck-llm-escalation-body">
+            <p class="deck-llm-escalation-summary">
+              {parsedSource.kind === "llm"
+                ? t(
+                    sources.length > 0
+                      ? "deck.grounded.llmGroundedSummary"
+                      : "deck.grounded.llmContextSummary",
+                    { model: parsedSource.model },
+                  )
+                : t(
+                    parsedSource.reason
+                      ? "deck.grounded.deterministicReasonSummary"
+                      : "deck.grounded.deterministicSummary",
+                    { reason: parsedSource.reason ?? "" },
+                  )}
+            </p>
+            <GroundingTrace stages={stages} />
+          </div>
+        </details>
       ) : null}
 
       {!streaming && (verification || text.trim().length > 0 || cites.length > 0) ? (

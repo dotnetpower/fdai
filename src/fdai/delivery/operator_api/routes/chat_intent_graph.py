@@ -7,16 +7,19 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final
+from typing import Final, Protocol
 
 from jsonschema import Draft202012Validator
 
-from fdai.core.conversation.answer_plan import AnswerIntent
+from fdai.core.conversation.answer_plan import AnswerIntent, AnswerPlan
 from fdai.delivery.operator_api.routes.chat_turn_plan import (
     StructuredCompletionBackend,
+    TurnPlan,
     TurnTool,
     _argument_union_schema,
+    apply_answer_intent_to_plan,
 )
+from fdai.delivery.operator_api.routes.chat_vision_prompt import vision_user_content
 
 
 class ActionPosture(StrEnum):
@@ -44,6 +47,7 @@ class IntentGoal:
     freshness_required: bool
     confidence: float
     alternatives: tuple[str, ...]
+    side_effect_class: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +57,7 @@ class IntentGraph:
     clarification: str | None
     confidence: float
     action_posture: ActionPosture
+    draft_goal_id: str | None = None
 
     @property
     def requires_confirmation(self) -> bool:
@@ -61,6 +66,22 @@ class IntentGraph:
     @property
     def primary_intent(self) -> AnswerIntent:
         return self.goals[0].intent
+
+    def confirmation_payload(
+        self,
+        *,
+        request_id: str,
+        session_id: str | None,
+    ) -> dict[str, object]:
+        if not self.requires_confirmation:
+            raise ValueError("intent graph does not require confirmation")
+        write_goal = next(goal for goal in self.goals if goal.goal_id == self.draft_goal_id)
+        return {
+            "action_type": write_goal.capability,
+            "arguments": dict(write_goal.arguments),
+            "session_id": session_id,
+            "idempotency_key": f"draft-{request_id}"[:200],
+        }
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -98,15 +119,71 @@ class BackendIntentGraphPlanner:
         tools: Sequence[TurnTool],
         history: Sequence[Mapping[str, str]],
     ) -> IntentGraph:
+        return await self.plan_turn_with_context(
+            prompt=prompt,
+            tools=tools,
+            history=history,
+            attachments=None,
+        )
+
+    async def plan_turn_with_context(
+        self,
+        *,
+        prompt: str,
+        tools: Sequence[TurnTool],
+        history: Sequence[Mapping[str, str]],
+        attachments: object,
+        context: Mapping[str, object] | None = None,
+    ) -> IntentGraph:
         bounded_tools = tuple(tools[:_MAX_CAPABILITIES])
+        planner_input = _planner_input(prompt, bounded_tools, history, context=context)
         raw = await self._backend.complete_structured(
             system_prompt=INTENT_GRAPH_SYSTEM_PROMPT,
-            user_content=_planner_input(prompt, bounded_tools, history),
+            user_content=vision_user_content(planner_input, attachments),
             schema_name="fdai_intent_graph_v2",
             schema=intent_graph_schema(bounded_tools),
             max_tokens=1_536,
         )
         return parse_intent_graph(raw, tools=bounded_tools)
+
+
+class IntentGraphPlanner(Protocol):
+    async def plan_turn(
+        self,
+        *,
+        prompt: str,
+        tools: Sequence[TurnTool],
+        history: Sequence[Mapping[str, str]],
+    ) -> IntentGraph: ...
+
+
+async def plan_semantic_turn(
+    planner: object,
+    *,
+    prompt: str,
+    tools: Sequence[TurnTool],
+    history: Sequence[Mapping[str, str]],
+    attachments: object,
+    context: Mapping[str, object] | None = None,
+) -> IntentGraph | TurnPlan:
+    """Invoke context-aware graph planning or one validated legacy planner."""
+    contextual = getattr(planner, "plan_turn_with_context", None)
+    if callable(contextual):
+        result = await contextual(
+            prompt=prompt,
+            tools=tools,
+            history=history,
+            attachments=attachments,
+            context=context,
+        )
+    else:
+        plan_turn = getattr(planner, "plan_turn", None)
+        if not callable(plan_turn):
+            raise TypeError("semantic planner does not expose plan_turn")
+        result = await plan_turn(prompt=prompt, tools=tools, history=history)
+    if not isinstance(result, IntentGraph | TurnPlan):
+        raise ValueError("semantic planner returned an invalid plan")
+    return result
 
 
 INTENT_GRAPH_SYSTEM_PROMPT: Final = """You interpret one FDAI operator turn.
@@ -125,6 +202,7 @@ _MAX_CAPABILITIES: Final = 64
 _MAX_PROMPT_CHARS: Final = 8_000
 _MAX_HISTORY_TURNS: Final = 8
 _MAX_HISTORY_CHARS: Final = 1_500
+_MAX_SCREEN_FACTS: Final = 12
 _GOAL_ID: Final = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 _GRAPH_FIELDS: Final = {"schema_version", "goals", "clarification", "confidence", "action_posture"}
 _GOAL_FIELDS: Final = {
@@ -154,14 +232,29 @@ def parse_intent_graph(raw: Mapping[str, object], *, tools: Sequence[TurnTool]) 
     by_name = {tool.name: tool for tool in tools}
     goals = tuple(_parse_goal(item, by_name) for item in raw_goals)
     _validate_dag(goals)
-    _validate_authority(goals, by_name, posture)
+    draft_goal_id = _validate_authority(goals, by_name, posture)
     return IntentGraph(
         schema_version=_VERSION,
         goals=goals,
         clarification=_optional_text(raw.get("clarification"), 512),
         confidence=_confidence(raw.get("confidence"), "graph"),
         action_posture=posture,
+        draft_goal_id=draft_goal_id,
     )
+
+
+def apply_intent_graph_to_answer_plan(plan: AnswerPlan, graph: IntentGraph) -> AnswerPlan:
+    return apply_answer_intent_to_plan(plan, graph.primary_intent)
+
+
+def draft_capability_available(graph: IntentGraph, tools: Sequence[TurnTool]) -> bool:
+    """Return whether the graph's retained draft capability is still writable now."""
+    if not graph.requires_confirmation or graph.draft_goal_id is None:
+        return False
+    draft = next((goal for goal in graph.goals if goal.goal_id == graph.draft_goal_id), None)
+    if draft is None or draft.capability is None:
+        return False
+    return any(tool.name == draft.capability and tool.side_effect_class != "read" for tool in tools)
 
 
 def intent_graph_schema(tools: Sequence[TurnTool]) -> dict[str, object]:
@@ -178,7 +271,6 @@ def intent_graph_schema(tools: Sequence[TurnTool]) -> dict[str, object]:
                 "type": "array",
                 "items": {"type": "string", "pattern": _GOAL_ID.pattern, "maxLength": 64},
                 "maxItems": 7,
-                "uniqueItems": True,
             },
             "evidence_mode": {"type": "string", "enum": [mode.value for mode in EvidenceMode]},
             "freshness_required": {"type": "boolean"},
@@ -187,7 +279,6 @@ def intent_graph_schema(tools: Sequence[TurnTool]) -> dict[str, object]:
                 "type": "array",
                 "items": {"type": "string", "enum": names},
                 "maxItems": 4,
-                "uniqueItems": True,
             },
         },
         "required": sorted(_GOAL_FIELDS),
@@ -243,6 +334,8 @@ def _parse_goal(raw: object, by_name: Mapping[str, TurnTool]) -> IntentGoal:
             EvidenceMode.MODEL_KNOWLEDGE,
         }:
             raise ValueError("intent graph presentation goal is invalid")
+        if freshness and evidence_mode is EvidenceMode.MODEL_KNOWLEDGE:
+            raise ValueError("intent graph fresh evidence cannot use model knowledge")
     else:
         tool = by_name.get(capability)
         if tool is None:
@@ -261,6 +354,7 @@ def _parse_goal(raw: object, by_name: Mapping[str, TurnTool]) -> IntentGoal:
         freshness_required=freshness,
         confidence=_confidence(raw.get("confidence"), "goal"),
         alternatives=alternatives,
+        side_effect_class=by_name[capability].side_effect_class if capability is not None else None,
     )
 
 
@@ -292,10 +386,7 @@ def _validate_authority(
     goals: Sequence[IntentGoal],
     by_name: Mapping[str, TurnTool],
     posture: ActionPosture,
-) -> None:
-    selected = [by_name[goal.capability] for goal in goals if goal.capability is not None]
-    if len({tool.name for tool in selected}) != len(selected):
-        raise ValueError("intent graph cannot select one capability more than once")
+) -> str | None:
     writes = [
         goal
         for goal in goals
@@ -308,6 +399,8 @@ def _validate_authority(
             raise ValueError("intent graph draft_only requires exactly one write capability")
         if any(writes[0].goal_id in goal.depends_on for goal in goals):
             raise ValueError("intent graph write draft must be a terminal goal")
+        return writes[0].goal_id
+    return None
 
 
 def _optional_text(value: object, maximum: int) -> str | None:
@@ -343,6 +436,8 @@ def _planner_input(
     prompt: str,
     tools: Sequence[TurnTool],
     history: Sequence[Mapping[str, str]],
+    *,
+    context: Mapping[str, object] | None = None,
 ) -> str:
     return json.dumps(
         {
@@ -363,10 +458,115 @@ def _planner_input(
                 }
                 for turn in history[-_MAX_HISTORY_TURNS:]
             ],
+            "context": dict(context or {}),
         },
         ensure_ascii=False,
         separators=(",", ":"),
     )
+
+
+def planner_context_envelope(
+    view_context: Mapping[str, object],
+    *,
+    resource_context: Mapping[str, str] | None,
+    conversation_context: Mapping[str, str] | None,
+    document_refs: Sequence[str] = (),
+) -> dict[str, object]:
+    """Project bounded selector hints for decomposition, never evidence authority."""
+    envelope: dict[str, object] = {"authority": "selector_hint"}
+    locale = _bounded_context_text(view_context.get("_locale"), 32)
+    if locale is not None:
+        envelope["locale"] = locale
+    screen: dict[str, object] = {}
+    for source, target, maximum in (
+        ("routeId", "route_id", 128),
+        ("routeLabel", "route_label", 128),
+        ("purpose", "purpose", 512),
+        ("headline", "headline", 512),
+        ("capturedAt", "captured_at", 64),
+    ):
+        value = _bounded_context_text(view_context.get(source), maximum)
+        if value is not None:
+            screen[target] = value
+    facts = view_context.get("facts")
+    projected_facts: list[dict[str, object]] = []
+    if isinstance(facts, list):
+        for raw_fact in facts[:_MAX_SCREEN_FACTS]:
+            if not isinstance(raw_fact, Mapping):
+                continue
+            key = _bounded_context_text(raw_fact.get("key"), 128)
+            value = raw_fact.get("value")
+            if key is None or not isinstance(value, str | int | float | bool | None):
+                continue
+            fact: dict[str, object] = {
+                "key": key,
+                "value": value[:256] if isinstance(value, str) else value,
+            }
+            for field, maximum in (
+                ("label", 128),
+                ("group", 128),
+                ("unit", 64),
+                ("window", 128),
+                ("observedAt", 64),
+            ):
+                text = _bounded_context_text(raw_fact.get(field), maximum)
+                if text is not None:
+                    fact[field] = text
+            projected_facts.append(fact)
+    if projected_facts:
+        screen["facts"] = projected_facts
+    explanations = view_context.get("explanations")
+    if isinstance(explanations, Mapping):
+        selection = explanations.get("selection")
+        if isinstance(selection, Mapping):
+            projected_selection = {
+                field: text
+                for field in ("entity_kind", "entity_id", "label")
+                if (text := _bounded_context_text(selection.get(field), 256)) is not None
+            }
+            if projected_selection:
+                screen["selection"] = projected_selection
+    if screen:
+        envelope["screen"] = screen
+    if resource_context:
+        envelope["resource"] = {
+            key: value[:512]
+            for key, value in resource_context.items()
+            if key in {"name", "resource_type", "evidence_ref", "event_at", "event_status"}
+        }
+    if conversation_context:
+        envelope["conversation"] = {
+            key: value[:256]
+            for key, value in conversation_context.items()
+            if key in {"kind", "incident_id", "correlation_id", "selected_agent"}
+        }
+    if document_refs:
+        envelope["documents"] = {
+            "authority": "governed_document_ingestion",
+            "evidence_refs": [reference[:256] for reference in document_refs[:8]],
+        }
+    attachments = view_context.get("_attachments")
+    if isinstance(attachments, list):
+        projected_attachments = []
+        for attachment in attachments[:4]:
+            if not isinstance(attachment, Mapping):
+                continue
+            name = _bounded_context_text(attachment.get("name"), 256)
+            media_type = _bounded_context_text(attachment.get("media_type"), 64)
+            byte_size = attachment.get("byte_size")
+            if name is not None and media_type is not None and isinstance(byte_size, int):
+                projected_attachments.append(
+                    {"name": name, "media_type": media_type, "byte_size": byte_size}
+                )
+        if projected_attachments:
+            envelope["attachments"] = projected_attachments
+    return envelope
+
+
+def _bounded_context_text(value: object, maximum: int) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    return value.strip()[:maximum]
 
 
 __all__ = [
@@ -376,6 +576,11 @@ __all__ = [
     "INTENT_GRAPH_SYSTEM_PROMPT",
     "IntentGoal",
     "IntentGraph",
+    "IntentGraphPlanner",
+    "apply_intent_graph_to_answer_plan",
+    "draft_capability_available",
     "intent_graph_schema",
+    "planner_context_envelope",
+    "plan_semantic_turn",
     "parse_intent_graph",
 ]

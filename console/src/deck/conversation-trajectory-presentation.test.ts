@@ -92,6 +92,15 @@ describe("buildTrajectoryPresentation", () => {
     expect(result.evidenceReferenceCount).toBe(1);
   });
 
+  it("reports a model-call lower bound when detailed tracing is disabled", () => {
+    const result = buildTrajectoryPresentation(trajectory({
+      source: "llm:narrator-mini · 500ms",
+    }));
+
+    expect(result.modelCallCount).toBe(1);
+    expect(result.modelCallCountIsLowerBound).toBe(true);
+  });
+
   it("distinguishes corrected verification and degraded planning", () => {
     const input = trajectory({
       answerPlanning: {

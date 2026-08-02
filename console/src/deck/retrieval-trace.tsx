@@ -148,26 +148,39 @@ export function RetrievalTrace({
   const stages = buildStages(snapshot, health, progress);
   const rolled = Math.max(0, shown - VISIBLE);
   const visibleSources = sources.slice(0, shown);
+  const iconUrl = `url("${typeof import.meta.env.BASE_URL === "string" ? import.meta.env.BASE_URL : "/"}agent-icons/bragi.svg")`;
 
   return (
-    <article class="deck-rt" aria-label={t("deck.retrieval.preparingAnswer")}>
-      <span class="sr-only" role="status" aria-live="polite">
-        {t("deck.retrieval.status", {
-          detail: progress?.label ?? t("deck.retrieval.readingCurrentSources"),
-        })}
-      </span>
-      <header class="deck-rt-head">
-        <span class="deck-rt-spin" aria-hidden="true" />
-        <span class="deck-rt-title">{t("deck.retrieval.preparingAnswer")}</span>
-        <span class="deck-rt-sub muted">
-          {progress?.label ?? t("deck.retrieval.groundingReadOnly")}
+    <article class="deck-rt-turn">
+      <header class="deck-turn-head deck-rt-agent-head">
+        <span class="deck-turn-role deck-turn-agent">
+          <span
+            class="deck-turn-agent-icon"
+            aria-hidden="true"
+            style={{ WebkitMaskImage: iconUrl, maskImage: iconUrl }}
+          />
+          Bragi
         </span>
-        <span class="deck-rt-elapsed muted" aria-hidden="true">
-          {(elapsedMs / 1000).toFixed(1)}s
-        </span>
+        <span class="deck-turn-source">{t("deck.retrieval.groundingReadOnly")}</span>
       </header>
+      <section class="deck-rt" aria-label={t("deck.retrieval.preparingAnswer")}>
+        <span class="sr-only" role="status" aria-live="polite">
+          {t("deck.retrieval.status", {
+            detail: progress?.label ?? t("deck.retrieval.readingCurrentSources"),
+          })}
+        </span>
+        <header class="deck-rt-head">
+          <span class="deck-rt-spin" aria-hidden="true" />
+          <span class="deck-rt-title">{t("deck.retrieval.preparingAnswer")}</span>
+          <span class="deck-rt-sub muted">
+            {progress?.label ?? t("deck.retrieval.groundingReadOnly")}
+          </span>
+          <span class="deck-rt-elapsed muted" aria-hidden="true">
+            {(elapsedMs / 1000).toFixed(1)}s
+          </span>
+        </header>
 
-      <ol class="deck-rt-stages">
+        <ol class="deck-rt-stages">
         {stages.map((s, i) => (
           <li key={`${s.label}-${i}`} class={`deck-rt-stage ${s.done ? "is-done" : "is-active"}`}>
             <span class="deck-rt-ico" aria-hidden="true" />
@@ -184,10 +197,10 @@ export function RetrievalTrace({
             ) : null}
           </li>
         ))}
-      </ol>
+        </ol>
 
-      {sourceCount > 0 ? (
-        <div class="deck-rt-sources">
+        {sourceCount > 0 ? (
+          <div class="deck-rt-sources">
           <div class="deck-rt-sources-label muted">
             <span>{t("deck.retrieval.readingSources")}</span>
             <span>{Math.min(shown, sourceCount)}/{sourceCount}</span>
@@ -208,8 +221,9 @@ export function RetrievalTrace({
               ))}
             </ul>
           </div>
-        </div>
-      ) : null}
+          </div>
+        ) : null}
+      </section>
     </article>
   );
 }

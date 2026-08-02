@@ -103,7 +103,7 @@ class StructuredCompletionBackend(Protocol):
         self,
         *,
         system_prompt: str,
-        user_content: str,
+        user_content: str | list[dict[str, object]],
         schema_name: str,
         schema: Mapping[str, object],
         max_tokens: int,
@@ -246,10 +246,16 @@ class BackendTurnPlanner:
 def apply_turn_plan_to_answer_plan(plan: AnswerPlan, semantic: TurnPlan) -> AnswerPlan:
     """Use semantic intent while preserving user-selected presentation preferences."""
 
+    return apply_answer_intent_to_plan(plan, semantic.answer_intent)
+
+
+def apply_answer_intent_to_plan(plan: AnswerPlan, intent: AnswerIntent) -> AnswerPlan:
+    """Apply one validated semantic intent to presentation preferences."""
+
     return replace(
         plan,
-        intent=semantic.answer_intent,
-        sections=_ANSWER_SECTIONS[semantic.answer_intent],
+        intent=intent,
+        sections=_ANSWER_SECTIONS[intent],
     )
 
 
@@ -547,6 +553,7 @@ __all__ = [
     "TurnTool",
     "action_turn_tools",
     "agent_turn_tools",
+    "apply_answer_intent_to_plan",
     "apply_turn_plan_to_answer_plan",
     "default_read_turn_tools",
     "parse_turn_plan",

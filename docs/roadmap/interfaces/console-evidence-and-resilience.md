@@ -214,17 +214,24 @@ provider payloads, and validation results remain unchanged.
 ## Observed conversation trajectory
 
 Each completed Command Deck question exposes one collapsed observed trajectory. Its status overview distinguishes completed, corrected, degraded, failed, unverified, running, and unobserved phases; record presence isn't success.
+Recorded event, evidence, reference, and verification counts appear as compact result chips. The
+expanded view leads with the six-phase rail, expandable observed-event timeline, and provenance
+signals, while timing windows, decision context, phase records, and coverage gaps remain in one
+collapsed execution-details disclosure.
+The preparing-answer surface remains between the operator turn and observed work until final answer
+streaming starts. The transcript disables browser scroll anchoring, keeps extra bottom space, and
+pins only the latest edge so streaming layout changes don't move the visible reading position.
 Untimed plan and collaboration metadata stays in decision context, while only observed input, evidence and tools, model calls, verification, and delivery use the timeline.
-Primary text is at least 14 px, main disclosures are 44 px high, and content reflows without loss at 200% text resize and 320 CSS pixels.
-The transcript uses 15 px text, trajectory headings and primary detail use 14 px, controls use 13 px,
-and readable metadata never drops below 12 px. A published screen snapshot becomes visibly stale
+Answer text is at least 14 px, main disclosures are 44 px high, and content reflows without loss at 200% text resize and 320 CSS pixels.
+The transcript uses 15 px text, trajectory headings use 13 px, event labels use 12 px, controls use
+13 px, and compact trajectory metadata never drops below 11 px. A published screen snapshot becomes visibly stale
 after five minutes and offers an explicit page refresh; a bare clock never implies current evidence.
-Markdown tables initially create at most 20 body rows, retain sticky headings in a 420 px scrolling
-region, and render the remaining rows only after an explicit expansion.
+Markdown tables render every bounded answer row in the transcript flow without an internal vertical
+scroll region or row-expansion control. Cells wrap on narrow screens instead of widening the transcript.
 
 Detail includes bounded recorded metadata but doesn't repeat the answer body. Valid object or array JSON in provider messages, action arguments, commands, and outputs uses indented syntax highlighting and copy; malformed or plain text stays unchanged. The terminal replay payload retains final ID-deduplicated branch, activity, milestone, and redacted execution detail under a 64 KiB aggregate cap, truncates each history output at 32 KiB, and reports truncation and omission counts, so durable history and the live turn use the same strict parser and trajectory view. Unavailable or timed-out
 evidence is an attempt, not completed evidence, and unverified work never receives completed styling. Missing activity stays in an observation-coverage disclosure and proves no absence. Exact-answer
-durable replay uses the same bounded browser parsers.
+durable replay uses the same bounded browser parsers. The server buffers model tokens until the provider's terminal content-policy decision is known; a block exposes no partial token or assistant answer, records only a content-free receipt, and produces the same deterministic fallback for SSE and JSON `422`, while logs retain only stage and aggregate counts.
 
 Terminal timing covers at most eight allowlisted semantic-plan, evidence, generation, quality-review,
 and verification phases. One UTC anchor plus monotonic elapsed time produces observed status, start, completion, and duration. Interrupts persist none; strict parsing rejects inconsistent timing.

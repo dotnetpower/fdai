@@ -112,7 +112,7 @@ fdai/
 │   │   ├── trajectory/         # deterministic JSONL streaming export with quarantine and atomic partial-file cleanup
 │   │   ├── chaos/              # live chaos-inject adapters when a `Chaos` runbook step goes enforce: `live_injectors.py` (CSP-neutral primitive fan-out) + `chaos_mesh.py` (Chaos Mesh CRDs) + `mysql_load.py` (MySQL benchmark load)
 │   │   ├── remediation/        # concrete `DirectApiExecutor` for direct-API remediation (`live_direct_api.py`); the Protocol lives in `shared/providers/`
-│   │   ├── operator_api/           # thin ASGI - `main.py` composes route modules, including Owner-only observation assignment cases beside IAM. GET routes project bounded state; POST commands submit governed records or typed proposals and never call a privileged executor or human-access provisioner directly
+│   │   ├── operator_api/           # thin ASGI - `main.py` composes route modules, including principal-scoped complete-history assembly and Owner-only observation assignment cases beside IAM. GET routes project bounded state; POST commands submit governed records or typed proposals and never call a privileged executor or human-access provisioner directly
 │   │   ├── ingestion_gateway/  # dedicated content-write ASGI: scoped uploads, uploader-scoped web chat refs, governed deletion, and optional handover governance
 │   │   ├── provisioning/       # surface-A Genesis bootstrap: pure `terraform_bridge.py` (terraform `-json` → `provision.*`) + `serve.py` harness (`aiter_json_lines` + `pump_provision_events`, I/O injected, no subprocess)
 │   │   └── scheduler_tick_cli.py  # standalone entry point that drives the scheduler tick from a cron / Container Apps Job
@@ -129,6 +129,8 @@ fdai/
 │   └── __main__.py            # entry point (starts the P1 control loop)
 ├── evaluation-sdk/            # independently packageable neutral evaluation contracts and runner; no FDAI implementation imports
 ├── benchmarks/                # independently packaged external-harness drivers; not included in the FDAI wheel
+├── extensions/                # independently packaged optional capabilities; not included in the FDAI wheel
+│   └── code-assurance/         # read-only bounded GitHub PR code/security review + governed skill assets
 ├── rule-catalog/              # catalog-as-code DATA (YAML) - no Python; pipeline lives in src/fdai/rule_catalog/
 │   ├── schema/                 # JSON Schema definitions (data)
 │   ├── vocabulary/             # canonical CSP-neutral vocabularies: resource-types.yaml, object-types/, link-types/
@@ -451,22 +453,23 @@ clean (see the fork model in
 
 Use a `CapabilityBundle` when a fork adds a discoverable capability rather than replacing one
 infrastructure seam. A bundle groups the operator-facing `Capability` metadata, one typed
-`CapabilityBinding`, and any reasoning-tool `ToolProvider` implementations. The binding points
-to an already loaded reasoning tool, `ActionType`, or `Workflow`; it does not define another
-execution path.
+`CapabilityBinding`, optional reviewed `ToolArtifact` metadata, and any reasoning-tool
+`ToolProvider` implementations. A binding points to either an already loaded reasoning tool or a
+tool carried by the same bundle, or to an existing `ActionType` or `Workflow`. It does not define
+another execution path or load provider code from an artifact.
 
 Install a bundle with `fdai.composition.install_capability_bundle(...)`. The installer builds
 cross-references from the loaded catalogs and returns a new `Container` whose
 `capability_runtime` contains the validated registration. Startup is blocked when a target is
 unknown, a provider is missing or duplicated, a tool's declared provider does not match the
-bundle, or a provider is not referenced. The input container remains unchanged when validation
-fails.
+bundle, a package tool is unreferenced, or a package tool id shadows another source. The input
+container remains unchanged when validation fails.
 
-`wire_azure_container(...)` consumes reasoning-tool providers from the installed runtime and
-combines them with explicit `AzureWireOverrides.tool_providers`. Duplicate provider ids are a
-configuration error rather than an implicit override. `ActionType` and `Workflow` bindings are
-references only: mutating requests still re-enter the trust router, risk gate, executor, and
-audit path. See
+`wire_azure_container(...)` combines the file-backed tool catalog with package tools from the
+installed runtime, then combines runtime providers with explicit
+`AzureWireOverrides.tool_providers`. Duplicate tool or provider ids are configuration errors
+rather than implicit overrides. `ActionType` and `Workflow` bindings are references only:
+mutating requests still re-enter the trust router, risk gate, executor, and audit path. See
 [`fdai.fork_examples.capability_bundle`](../../../src/fdai/fork_examples/capability_bundle.py)
 for a copy-ready read-only provider and bundle.
 
@@ -480,8 +483,8 @@ current manager. Disable the extension before uninstalling it.
 
 This lifecycle is intentionally not a dynamic code loader or public package downloader. The fork
 composition root supplies already-reviewed provider implementations and the trust verifier.
-Extension activation registers typed references only; every mutation still uses the normal
-pipeline and starts in shadow mode according to its ActionType or Workflow contract.
+Extension activation registers typed metadata and references only; every mutation still uses the
+normal pipeline and starts in shadow mode according to its ActionType or Workflow contract.
 
 `core/supply_chain/` owns the durable trusted-artifact contract and install orchestration shared by
 extensions and skills. Installation first passes the existing extension or skill lifecycle, then
@@ -532,7 +535,7 @@ non-Azure phase registers a new implementation at the composition root without e
 | **Action precondition evidence** | `PreconditionEvaluator` in `core/risk_gate/preconditions.py`; indexed `PreconditionEvaluation` records consumed by RiskGate | - | `EventPreconditionEvaluator` checks resource properties and tags from the canonical event snapshot; graph freshness uses the bounded inventory age; other condition kinds remain in human approval | inject an async evaluator that combines authoritative graph, open-action, and maintenance-window evidence while preserving every declared condition index and fail-closed omission |
 | **Governed trajectory datasets** | Immutable audit / conversation / tool / approval / outcome snapshot Protocols, `TrajectoryAccessAuthorizer`, and `TrajectoryDatasetStore` in `shared/providers/trajectory.py`; `TrajectoryJoinService` and `TrajectoryDatasetAdminService` in `core/trajectory/` | - | Deny-by-default allowlist authorizer, in-memory metadata store, deterministic JSONL exporter, PostgreSQL metadata/quarantine adapters, Owner-only GET projection, and offline validator | inject policy-backed scope authorization and immutable source readers while preserving authorization-before-materialization, bounded excerpts, checksums, retention/legal hold, and reviewed-only Norns intake ([design](../interfaces/governed-trajectory-datasets.md)) |
 | Rule / policy source | rule-catalog + `policies/` loader | - | bundled generic rules | customer rule set / thresholds |
-| **Capability bundle runtime** | `CapabilityRuntime` + `CapabilityBundle` and trust-verified `ExtensionManager` in `core/capability_catalog/`; `install_capability_bundle(...)` in `composition/` | - | default discovery catalog with no fork bindings; extensions install disabled | add a reviewed reasoning tool provider or bind a capability to an existing `ActionType` / `Workflow`; digest, trust, compatibility, manifest parity, and all references validate before activation |
+| **Capability bundle runtime** | `CapabilityRuntime` + `CapabilityBundle` and trust-verified `ExtensionManager` in `core/capability_catalog/`; additive `StaticToolRegistry` / `CompositeToolRegistry` in `core/tools/`; `install_capability_bundle(...)` in `composition/` | - | default discovery catalog with no fork bindings; extensions install disabled | add reviewed reasoning-tool metadata and its provider, or bind a capability to an existing `ActionType` / `Workflow`; duplicate ids, digest, trust, compatibility, manifest parity, and all references validate before activation |
 | **Capability licensing** | `LicenseVerifier` Protocol, token contract, and `resolve_entitlement(...)` in `core/licensing/`; `Ed25519LicenseVerifier` in `delivery/trust/ed25519.py` | - | upstream ships unlicensed, so the full catalog is available and development is never gated | a distribution packages its public key in the image, injects a signed token through the secret path, and may set `require_license` for fail-closed behavior; a license moves the `available` axis only and never promotion, RBAC, risk, or approval ([design](../fork-and-sequencing/capability-licensing.md)) |
 | **Context selection policy** | `ContextSelectionPolicy`, mandatory invariant wrapper, revision-safe authority, shadow runner, replay, and evidence store in `core/working_context/`; `context_selection_policy` references in `CapabilityRuntime` | - | immutable `deterministic-tiered-v1@1.0.0`; candidate installation disabled; durable evidence reuses `StateStore` | register a reviewed policy implementation at composition, bind its exact id/version through `CapabilityRuntime`, measure it in bounded shadow, and promote only with an evidence window plus rollback target ([design](../decisioning/context-selection-policy.md)) |
 | **Browser evidence** | `BrowserEvidenceProvider`, origin policy, capture request, artifact store, and custody sink in `shared/providers/browser_evidence.py`; policy and services in `core/browser_evidence/` | - | unbound by default; optional isolated Playwright delivery adapter, PostgreSQL artifacts, append-only custody, evidence workflow step, and GET-only inspection | bind exact server-owned policies and a restricted-egress runtime without executor identity; content stays untrusted and shadow-only ([design](../interfaces/browser-evidence.md)) |

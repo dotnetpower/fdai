@@ -20,6 +20,9 @@ from fdai.core.capability_catalog import (
     ExtensionState,
     SideEffectClass,
 )
+from fdai.core.prompts.types import PromptMode
+from fdai.core.tools import CapabilityGate, ToolArtifact
+from fdai.core.tools.testing import InMemoryToolProvider
 from fdai.shared.telemetry import InMemoryRoutingTransitionSink
 
 _ARCHIVE = b"synthetic signed capability archive"
@@ -85,6 +88,57 @@ def test_enable_atomically_activates_existing_pipeline_binding() -> None:
 
     assert installed.runtime().bound_capability_ids() == ()
     assert enabled.runtime().bound_capability_ids() == ("example.inspect",)
+
+
+def test_enable_atomically_activates_package_reasoning_tool() -> None:
+    artifact = ToolArtifact(
+        id="example.inspect-tool",
+        version=1,
+        description="Inspect example state.",
+        input_schema={"type": "object"},
+        capability_gate=CapabilityGate(None, None, 0.0),
+        allowlist=None,
+        output_wrapper=None,
+        default_mode=PromptMode.SHADOW,
+        provider="ExampleInspectProvider",
+        provenance_source="package:test",
+    )
+    capability = Capability(
+        capability_id="example.inspect-tool",
+        name="Inspect example state with a tool",
+        category=CapabilityCategory.INVESTIGATION,
+        summary="Inspect a synthetic state projection with a package tool.",
+        side_effect_class=SideEffectClass.READ,
+    )
+    package = ExtensionPackage(
+        manifest=ExtensionManifest(
+            extension_id="example.inspect-tool",
+            version="1.0.0",
+            source="source:example.inspect-tool",
+            archive_sha256=hashlib.sha256(_ARCHIVE).hexdigest(),
+            min_host_version="1.0.0",
+            capability_ids=(capability.capability_id,),
+        ),
+        bundle=CapabilityBundle(
+            capabilities=(capability,),
+            bindings=(
+                CapabilityBinding(
+                    capability_id=capability.capability_id,
+                    kind=CapabilityBindingKind.REASONING_TOOL,
+                    target_ref=artifact.id,
+                    provider_id="ExampleInspectProvider",
+                ),
+            ),
+            reasoning_tools=(artifact,),
+            tool_providers={"ExampleInspectProvider": InMemoryToolProvider()},
+        ),
+    )
+    installed = _manager().install(package, archive=_ARCHIVE, verifier=_Verifier())
+
+    assert installed.runtime().reasoning_tools == ()
+    enabled = installed.enable(package.manifest.extension_id)
+    assert enabled.runtime().reasoning_tools == (artifact,)
+    assert enabled.runtime().bound_capability_ids() == (capability.capability_id,)
 
 
 def test_extension_lifecycle_emits_stable_transitions() -> None:

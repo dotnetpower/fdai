@@ -45,6 +45,15 @@ def test_profile_extensions_reject_export_metadata() -> None:
         module._profile_extensions(profile)
 
 
+def test_machine_settings_reject_terraform_ls_reserved_ignore_names() -> None:
+    module = _load_module()
+
+    with pytest.raises(module.ProfileContractError, match="reserved ignore directory"):
+        module._validate_machine_settings(
+            {"terraform.languageServer.indexing.ignoreDirectoryNames": [".terraform"]}
+        )
+
+
 def test_apply_machine_settings_preserves_existing_values_and_is_idempotent(
     tmp_path: Path,
 ) -> None:

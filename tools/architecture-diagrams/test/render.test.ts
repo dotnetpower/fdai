@@ -113,6 +113,25 @@ test("rejects an agent node outside the fixed pantheon", async () => {
   );
 });
 
+test("renders the collective pantheon mark without creating a sixteenth agent", async () => {
+  const spec = parseDiagram(source.replace(
+    "    kind: process\n    label: { en: Processor, ko: Processor }",
+    "    kind: process\n    icon: agent-pantheon\n    label: { en: Processor, ko: Processor }",
+  ));
+  const layout = await layoutDiagram(spec);
+  const svg = await renderSvg(spec, layout, "en");
+  const start = svg.indexOf('data-node-id="processor"');
+  const next = svg.indexOf('<g class="diagram-node', start + 1);
+  const processorMarkup = svg.slice(start, next >= 0 ? next : undefined);
+  const icon = processorMarkup.match(/href="data:image\/svg\+xml;base64,([^"]+)"/);
+
+  assert.ok(icon);
+  const iconSvg = Buffer.from(icon[1]!, "base64").toString("utf8");
+  assert.match(iconSvg, /FDAI Agent Pantheon \(15-agent collective\)/);
+  assert.match(iconSvg, /#44688e/);
+  assert.doesNotMatch(iconSvg, /currentColor/);
+});
+
 test("rounds orthogonal corners without changing endpoints", () => {
   const path = roundedEdgePath(
     [

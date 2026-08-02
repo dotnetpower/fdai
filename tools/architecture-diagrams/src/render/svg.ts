@@ -20,6 +20,7 @@ import type {
 import {
   EDGE_FONT_SIZE,
   EDGE_LINE_HEIGHT,
+  GROUP_FONT_SIZE,
   NODE_FONT_SIZE,
   NODE_LINE_HEIGHT,
   edgeLabelGeometry,
@@ -50,25 +51,33 @@ const edgeKindLabels: Record<EdgeKind, Record<Locale, string>> = {
   write: { en: "Write", ko: "쓰기" },
 };
 
+interface IconEntry {
+  file: string;
+  mediaType?: "image/png" | "image/svg+xml";
+  productName: string;
+  sha256: string;
+}
+
 interface IconLock {
-  icons: Record<string, { file: string; productName: string; sha256: string }>;
+  icons: Record<string, IconEntry>;
+}
+
+interface PantheonIconEntry {
+  name: string;
+  role: string;
+  accent: string;
+  file: string;
 }
 
 interface PantheonIconManifest {
-  agents: Array<{
-    name: string;
-    role: string;
-    accent: string;
-    file: string;
-  }>;
+  collective: PantheonIconEntry;
+  agents: PantheonIconEntry[];
 }
 
-const iconDirectory = fileURLToPath(
-  new URL("../../assets/azure/", import.meta.url),
-);
-const iconLock = JSON.parse(
-  await readFile(new URL("../../assets/azure/icons.lock.json", import.meta.url), "utf8"),
-) as IconLock;
+const iconCatalogs = await Promise.all([
+  loadIconCatalog("azure"),
+  loadIconCatalog("brands"),
+]);
 const pantheonIconDirectory = fileURLToPath(
   new URL("../../../../console/public/agent-icons/", import.meta.url),
 );
@@ -78,6 +87,19 @@ const pantheonIconManifest = JSON.parse(
 const pantheonIconById = new Map(
   pantheonIconManifest.agents.map((agent) => [agent.name.toLowerCase(), agent]),
 );
+
+async function loadIconCatalog(name: string): Promise<{
+  directory: string;
+  lock: IconLock;
+}> {
+  const assetUrl = new URL(`../../assets/${name}/`, import.meta.url);
+  return {
+    directory: fileURLToPath(assetUrl),
+    lock: JSON.parse(
+      await readFile(new URL("icons.lock.json", assetUrl), "utf8"),
+    ) as IconLock,
+  };
+}
 
 function escapeXml(value: string): string {
   return value
@@ -106,32 +128,38 @@ function textLines(
 
 async function iconDataUri(icon: string | undefined): Promise<string | undefined> {
   if (!icon) return undefined;
-  const entry = iconLock.icons[icon];
+  const catalog = iconCatalogs.find(({ lock }) => lock.icons[icon]);
+  if (!catalog) throw new Error(`Unknown diagram icon '${icon}'`);
+  const entry = catalog.lock.icons[icon];
   if (!entry) throw new Error(`Unknown diagram icon '${icon}'`);
-  const source = await readFile(`${iconDirectory}/${entry.file}`);
+  const source = await readFile(`${catalog.directory}/${entry.file}`);
   const payload = source.at(-1) === 0x0a ? source.subarray(0, -1) : source;
   const digest = createHash("sha256").update(payload).digest("hex");
   if (digest !== entry.sha256) {
     throw new Error(`Diagram icon '${icon}' does not match icons.lock.json`);
   }
-  return `data:image/svg+xml;base64,${source.toString("base64")}`;
+  return `data:${entry.mediaType ?? "image/svg+xml"};base64,${source.toString("base64")}`;
 }
 
-async function pantheonIconDataUri(node: DiagramNode): Promise<string> {
-  const entry = pantheonIconById.get(node.id);
-  if (!entry) {
-    throw new Error(`Unknown pantheon agent icon '${node.id}'`);
-  }
+async function pantheonIconDataUri(entry: PantheonIconEntry, iconId: string): Promise<string> {
   const source = await readFile(`${pantheonIconDirectory}/${entry.file}`, "utf8");
   if (
     !source.startsWith("<svg ") ||
     /<(?:script|foreignObject)\b|\b(?:href|src)\s*=/iu.test(source)
   ) {
-    throw new Error(`Pantheon agent icon '${node.id}' contains unsupported SVG content`);
+    throw new Error(`Pantheon icon '${iconId}' contains unsupported SVG content`);
   }
   return `data:image/svg+xml;base64,${Buffer.from(
     source.replaceAll("currentColor", entry.accent),
   ).toString("base64")}`;
+}
+
+async function pantheonAgentIconDataUri(node: DiagramNode): Promise<string> {
+  const entry = pantheonIconById.get(node.id);
+  if (!entry) {
+    throw new Error(`Unknown pantheon agent icon '${node.id}'`);
+  }
+  return pantheonIconDataUri(entry, node.id);
 }
 
 async function renderNode(
@@ -141,8 +169,10 @@ async function renderNode(
 ): Promise<string> {
   const geometry = nodeGeometry(node);
   const icon = node.kind === "agent"
-    ? await pantheonIconDataUri(node)
-    : await iconDataUri(node.icon);
+    ? await pantheonAgentIconDataUri(node)
+    : node.icon === "agent-pantheon"
+      ? await pantheonIconDataUri(pantheonIconManifest.collective, node.icon)
+      : await iconDataUri(node.icon);
   const x = shape.x + shape.width / 2;
   const labelLines = wrapText(node.label[locale], geometry.maxLabelUnits);
   const labelStart = shape.y + geometry.labelTop + NODE_FONT_SIZE;
@@ -291,7 +321,7 @@ function renderEdge(
           offsetY,
           profile === "azure-reference" ? 4 : 14,
         );
-  return `<g class="diagram-edge edge-${edge.kind}" data-edge-id="${edge.id}" data-edge-from="${edge.from.split(":", 1)[0]}" data-edge-to="${edge.to.split(":", 1)[0]}"><title>${escapeXml(accessibleLabel)}</title><path class="edge-hit" d="${path}"/><path class="edge-path" d="${path}" fill="none" stroke="${style.color}" stroke-width="${style.width}" stroke-dasharray="${style.dash}" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-${edge.kind})"/>${labelMarkup}${stepMarkup}</g>`;
+  return `<g class="diagram-edge edge-${edge.kind}" data-edge-id="${edge.id}" data-edge-from="${edge.from.split(":", 1)[0]}" data-edge-to="${edge.to.split(":", 1)[0]}" data-edge-route="${edge.route ?? "auto"}"${edge.step ? ` data-edge-step="${edge.step}"` : ""}><title>${escapeXml(accessibleLabel)}</title><path class="edge-hit" d="${path}"/><path class="edge-path" d="${path}" fill="none" stroke="${style.color}" stroke-width="${style.width}" stroke-dasharray="${style.dash}" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-${edge.kind})"/>${labelMarkup}${stepMarkup}</g>`;
 }
 
 function renderLegend(spec: DiagramSpec, locale: Locale, y: number): string {
@@ -327,7 +357,7 @@ export async function renderSvg(
   const markers = Object.entries(edgeStyles)
     .map(
       ([kind, style]) =>
-        `<marker id="arrow-${kind}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="${style.color}"/></marker>`,
+        `<marker id="arrow-${kind}" viewBox="0 0 10 10" refX="9.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10z" fill="${style.color}"/></marker>`,
     )
     .join("");
   const groups = [...layout.groups.values()]
@@ -335,7 +365,10 @@ export async function renderSvg(
     .map((shape) => {
       const group = groupById.get(shape.id);
       if (!group) return "";
-      const groupLines = wrapText(group.label[locale], (shape.width - 36) / 14);
+      const groupLines = wrapText(
+        group.label[locale],
+        (shape.width - 36) / GROUP_FONT_SIZE,
+      );
       const presentation = group.presentation ?? "default";
       const radius = spec.canvas.profile === "azure-reference" ? 2 : 8;
       return `<g class="diagram-group group-${group.kind}" data-group-id="${group.id}" data-presentation="${presentation}" role="group" aria-label="${escapeXml(group.label[locale])}"><rect class="group-surface" x="${shape.x + offsetX}" y="${shape.y + offsetY}" width="${shape.width}" height="${shape.height}" rx="${radius}"/><rect class="group-header" x="${shape.x + offsetX + 1}" y="${shape.y + offsetY + 1}" width="${Math.max(0, shape.width - 2)}" height="38" rx="${radius}"/>${textLines(groupLines, shape.x + offsetX + 18, shape.y + offsetY + 27, "group-label", 16, "start")}</g>`;
@@ -403,13 +436,14 @@ export async function renderSvg(
     .diagram-group[data-group-id="operator-console-layer"] .group-surface { fill: var(--fdai-diagram-delivery-surface, #f0fbfd); stroke: var(--fdai-diagram-cyan-dark, #35b4e3); }
     .diagram-group[data-group-id="operator-console-layer"] .group-header { fill: var(--fdai-diagram-delivery-header, #d9f8ff); }
     .diagram-group.group-network .group-surface, .diagram-group.group-subnet .group-surface { fill: var(--fdai-diagram-delivery-surface, #f0fbfd); stroke: #008272; }
-    .group-label { font-size: 14px; font-weight: 650; fill: var(--fdai-diagram-muted, #605e5c); }
+    .group-label { font-size: ${GROUP_FONT_SIZE}px; font-weight: 650; fill: var(--fdai-diagram-muted, #605e5c); }
     .diagram-node > rect { fill: var(--fdai-diagram-node, #ffffff); stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1.25; filter: url(#node-shadow); }
     .diagram-node:hover > rect, .diagram-node:focus > rect, .diagram-node.is-active > rect { stroke: var(--fdai-diagram-azure-dark, #005a9e); stroke-width: 3; }
     .diagram-node:focus { outline: none; }
-    .node-label { font-size: 13px; font-weight: 650; fill: var(--fdai-diagram-text, #323130); letter-spacing: 0; }
+    .node-label { font-size: ${NODE_FONT_SIZE}px; font-weight: 650; fill: var(--fdai-diagram-text, #323130); letter-spacing: 0; }
     .edge-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
     .edge-path { pointer-events: stroke; transition: stroke-width 140ms ease, opacity 140ms ease; }
+    .diagram-edge[data-edge-route="orthogonal-above"][data-edge-step] > .edge-path { opacity: 0.52; stroke-width: 2; }
     .edge-label { cursor: pointer; }
     .edge-label rect { fill: var(--fdai-diagram-label-surface, #ffffff); stroke: var(--fdai-diagram-border, #a19f9d); transition: fill 140ms ease, stroke 140ms ease, stroke-width 140ms ease; }
     .edge-label-text, .legend-item text { font-size: 12px; font-weight: 600; fill: var(--fdai-diagram-muted, #605e5c); }
@@ -428,12 +462,24 @@ export async function renderSvg(
     svg[data-profile="azure-reference"] .diagram-group[data-presentation="band"] .group-surface { fill: #f3f2f1; stroke: #d2d0ce; stroke-width: 1; }
     svg[data-profile="azure-reference"] .diagram-group[data-presentation="band"] .group-header { fill: #e9e9e9; }
     svg[data-profile="azure-reference"] .diagram-group[data-presentation="panel"] .group-surface { fill: #ffffff; stroke: #d2d0ce; stroke-width: 1; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="azure-region"] > .group-surface { fill: #f8fbfe; stroke: #b8c7d9; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="azure-region"] > .group-header { fill: #eef4fa; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="fdai-vnet"] > .group-surface { fill: #ffffff; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="platform-services"] > .group-surface { fill: #f5f9fc; stroke: #b8c7d9; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="platform-services"] > .group-header { fill: #e7f0f7; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="governed-delivery"] > .group-surface { fill: #f8fafc; stroke: #b8c7d9; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="governed-delivery"] > .group-header { fill: #eaf0f5; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="private-service-backends"] > .group-surface { fill: #fbfcfd; stroke: #c8d0d8; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="private-service-backends"] > .group-header { fill: #f1f4f6; }
     svg[data-profile="azure-reference"] .diagram-node > rect { filter: none; }
     svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"] > rect { fill: transparent; stroke: transparent; }
     svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"]:hover > rect,
     svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"]:focus > rect,
     svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"].is-active > rect { fill: #ffffff; stroke: var(--fdai-diagram-azure, #0078d4); stroke-width: 1.5; }
-    svg[data-profile="azure-reference"] .node-label { font-size: 12px; font-weight: 600; }
+    svg[data-profile="azure-reference"] .group-label { fill: #3b3a39; font-weight: 650; }
+    svg[data-profile="azure-reference"] .node-label { font-size: 13px; font-weight: 650; fill: #323130; }
+    svg[data-profile="azure-reference"] .edge-label-text,
+    svg[data-profile="azure-reference"] .legend-item text { fill: #484644; font-weight: 650; }
   </style>
   <rect class="diagram-background" width="${width}" height="${height}" fill="${spec.canvas.profile === "azure-reference" ? "#ffffff" : "var(--fdai-diagram-canvas, #faf9f8)"}"/>
   <text class="diagram-title" x="48" y="45">${escapeXml(spec.locales[locale].title)}</text>

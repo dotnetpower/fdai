@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from fdai.core.capability_catalog import (
@@ -74,6 +76,31 @@ def test_bundle_resolves_reasoning_tool_action_and_workflow() -> None:
     )
     assert runtime.resolve("evidence.audit").provider is provider
     assert runtime.resolve("ops.restart").provider is None
+
+
+def test_bundle_can_supply_its_own_reasoning_tool_metadata() -> None:
+    provider = InMemoryToolProvider()
+    artifact = _tool_artifact("review.code", provider="review-provider")
+
+    runtime = CapabilityRuntime().install(
+        CapabilityBundle(
+            capabilities=(_capability("assurance.code-review"),),
+            bindings=(
+                CapabilityBinding(
+                    capability_id="assurance.code-review",
+                    kind=CapabilityBindingKind.REASONING_TOOL,
+                    target_ref=artifact.id,
+                    provider_id="review-provider",
+                ),
+            ),
+            reasoning_tools=(artifact,),
+            tool_providers={"review-provider": provider},
+        ),
+        references=CapabilityReferences(),
+    )
+
+    assert runtime.reasoning_tools == (artifact,)
+    assert runtime.resolve("assurance.code-review").provider is provider
 
 
 def test_install_is_atomic_when_reference_is_unknown() -> None:
@@ -156,19 +183,58 @@ def test_reasoning_tool_provider_must_match_artifact_declaration() -> None:
         )
 
 
-def test_reference_builder_uses_loaded_catalog_objects() -> None:
-    artifact = ToolArtifact(
-        id="audit.query",
+def test_bundle_rejects_reasoning_tool_that_shadows_loaded_catalog() -> None:
+    artifact = _tool_artifact("audit.query", provider="audit-provider")
+
+    with pytest.raises(CapabilityRuntimeError, match="duplicate reasoning tool ids: audit.query"):
+        CapabilityRuntime().install(
+            CapabilityBundle(reasoning_tools=(artifact,)),
+            references=CapabilityReferences(reasoning_tools={"audit.query": "audit-provider"}),
+        )
+
+
+def test_bundle_rejects_unreferenced_reasoning_tool() -> None:
+    artifact = _tool_artifact("review.code", provider="review-provider")
+
+    with pytest.raises(CapabilityRuntimeError, match="unreferenced reasoning tools: review.code"):
+        CapabilityRuntime().install(
+            CapabilityBundle(reasoning_tools=(artifact,)),
+            references=CapabilityReferences(),
+        )
+
+
+def test_bundle_rejects_multiple_versions_of_one_reasoning_tool() -> None:
+    first = _tool_artifact("review.code", provider="review-provider")
+    second = replace(first, version=2)
+
+    with pytest.raises(CapabilityRuntimeError, match="duplicate reasoning tool ids: review.code"):
+        CapabilityRuntime().install(
+            CapabilityBundle(reasoning_tools=(first, second)),
+            references=CapabilityReferences(),
+        )
+
+
+def _tool_artifact(
+    tool_id: str,
+    *,
+    provider: str = "AuditLogQueryProvider",
+) -> ToolArtifact:
+    return ToolArtifact(
+        id=tool_id,
         version=1,
-        description="query audit",
+        description=f"query with {tool_id}",
         input_schema={"type": "object"},
         capability_gate=CapabilityGate(None, None, 0.0),
         allowlist=None,
         output_wrapper=None,
         default_mode=PromptMode.SHADOW,
-        provider="AuditLogQueryProvider",
+        provider=provider,
         provenance_source="test",
     )
+
+
+def test_reference_builder_uses_loaded_catalog_objects() -> None:
+    artifact = _tool_artifact("audit.query")
 
     references = build_capability_references(
         reasoning_tools=(artifact,),

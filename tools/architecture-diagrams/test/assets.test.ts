@@ -9,17 +9,53 @@ function sha256(value: Uint8Array): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-test("vendored Azure icon payloads match the provenance lock", async () => {
+async function assertLockedIcons(catalog: string): Promise<void> {
   const lock = JSON.parse(
-    await readFile(new URL("azure/icons.lock.json", assets), "utf8"),
+    await readFile(new URL(`${catalog}/icons.lock.json`, assets), "utf8"),
   );
 
   for (const [id, entry] of Object.entries(lock.icons)) {
-    const typedEntry = entry as { file: string; sha256: string };
-    const source = await readFile(new URL(`azure/${typedEntry.file}`, assets));
+    const typedEntry = entry as {
+      file: string;
+      mediaType?: string;
+      sha256: string;
+      source?: string;
+      sourcePage?: string;
+    };
+    const source = await readFile(new URL(`${catalog}/${typedEntry.file}`, assets));
     const payload = source.at(-1) === 0x0a ? source.subarray(0, -1) : source;
     assert.equal(sha256(payload), typedEntry.sha256, id);
+    assert.equal(
+      typedEntry.mediaType ?? "image/svg+xml",
+      typedEntry.file.endsWith(".png") ? "image/png" : "image/svg+xml",
+      id,
+    );
+    if (typedEntry.file.endsWith(".svg")) {
+      const svg = source.toString("utf8");
+      assert.doesNotMatch(svg, /<(?:script|foreignObject)\b/iu, id);
+      assert.doesNotMatch(
+        svg,
+        /\bsrc\s*=|\bhref\s*=\s*["'](?!#)/iu,
+        id,
+      );
+    }
+    if (catalog === "brands") {
+      assert.match(typedEntry.source ?? "", /^https:\/\//u, `${id} source`);
+      assert.match(
+        typedEntry.sourcePage ?? "",
+        /^https:\/\//u,
+        `${id} sourcePage`,
+      );
+    }
   }
+}
+
+test("vendored Azure icon payloads match the provenance lock", async () => {
+  await assertLockedIcons("azure");
+});
+
+test("vendored brand icon payloads match the provenance lock", async () => {
+  await assertLockedIcons("brands");
 });
 
 test("the deterministic diagram font matches its provenance lock", async () => {

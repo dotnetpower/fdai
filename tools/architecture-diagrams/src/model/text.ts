@@ -5,6 +5,7 @@ import type {
   LocalizedText,
 } from "./types.js";
 
+export const GROUP_FONT_SIZE = 14;
 export const NODE_FONT_SIZE = 13;
 export const NODE_LINE_HEIGHT = 17;
 export const NODE_ICON_SIZE = 42;
@@ -90,7 +91,7 @@ export interface NodeGeometry {
 
 export function nodeGeometry(node: DiagramNode): NodeGeometry {
   const iconPresentation = node.presentation === "icon";
-  const width = Math.max(iconPresentation ? 116 : 148, node.width ?? 0);
+  const width = node.width ?? (iconPresentation ? 116 : 148);
   const maxLabelUnits = (width - (iconPresentation ? 12 : 20)) / NODE_FONT_SIZE;
   const lineCount = maxLocaleLineCount(node.label, maxLabelUnits);
   const hasIcon = Boolean(node.icon) || node.kind === "agent";

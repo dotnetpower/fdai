@@ -34,6 +34,12 @@ export interface ViewFact {
   readonly value: string | number | boolean | null;
   /** Optional group heading for the digest column. */
   readonly group?: string;
+  /** Optional semantic unit for comparisons, such as ms or percent. */
+  readonly unit?: string;
+  /** Optional aggregation or observation window. */
+  readonly window?: string;
+  /** Optional ISO timestamp for this fact's observation. */
+  readonly observedAt?: string;
 }
 
 /**

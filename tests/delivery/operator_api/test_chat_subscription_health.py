@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+import pytest
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
@@ -99,6 +100,66 @@ class _SubscriptionProvider:
             "subscription_id": "subscription-example",
             "state": "Enabled",
         }
+
+
+async def test_planned_subscription_health_uses_typed_server_scope_arguments() -> None:
+    calls: list[tuple[int, bool, bool]] = []
+
+    class Provider:
+        async def query_health(
+            self,
+            lookback_seconds: int,
+            *,
+            include_metrics: bool,
+            include_service_health: bool = False,
+            progress_observer: Any = None,
+        ) -> dict[str, object]:
+            assert progress_observer is None
+            calls.append((lookback_seconds, include_metrics, include_service_health))
+            return {"status": "matched", "resource_count": 3}
+
+    tools = SubscriptionHealthChatTools(Provider())  # type: ignore[arg-type]
+
+    descriptor = tools.turn_tools()[0]
+    result = await tools.resolve_planned(
+        "query_subscription_health",
+        {
+            "lookback_seconds": 7_200,
+            "include_metrics": True,
+            "include_service_health": True,
+        },
+        principal_id="reader",
+    )
+
+    assert descriptor.name == "query_subscription_health"
+    assert descriptor.side_effect_class == "read"
+    assert calls == [(7_200, True, True)]
+    assert result == {
+        "tool": "query_subscription_health",
+        "authority": "server_subscription_health",
+        "query": {
+            "lookback_seconds": 7_200,
+            "include_metrics": True,
+            "include_service_health": True,
+        },
+        "result": {"status": "matched", "resource_count": 3},
+    }
+
+
+async def test_planned_subscription_health_rejects_unknown_arguments() -> None:
+    tools = SubscriptionHealthChatTools(_SubscriptionProvider())
+
+    with pytest.raises(ValueError, match="planned subscription health arguments"):
+        await tools.resolve_planned(
+            "query_subscription_health",
+            {
+                "lookback_seconds": 3_600,
+                "include_metrics": True,
+                "include_service_health": False,
+                "scope": "caller-selected",
+            },
+            principal_id="reader",
+        )
 
 
 def test_generic_service_outage_question_uses_subscription_health() -> None:

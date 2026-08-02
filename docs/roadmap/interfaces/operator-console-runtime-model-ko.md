@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: 04e6b05770807644a35772950b2460993c74d04c
+translation_source_sha: 2e7f58b224fe88c0671094eabe8bdc4fdea8a942
 translation_revised: 2026-08-02
 ---
 
@@ -424,6 +424,25 @@ class ConversationSession:
 *working context* - 로, 매 턴 토큰 예산 하에 재조립되므로 긴 세션이
 프롬프트를 폭발시키지 않는다. Memory(무손실, 세션 길이에 대해 `O(L)`)와
 prompt(경계, 상수 상한)는 의도적으로 구분된다.
+
+JSON 및 SSE chat route는 follow-up planning 전에 인증된 `(principal_id, conversation_id)`
+쌍으로 durable store에서 history를 resolve합니다. Store가 구성된 경우 client가 제공한 history는
+사용하지 않습니다. Resolver는 turn 수 제한 없이 전체 transcript를 읽고, history가 기본
+160,000-byte 예산 안에 있으면 모든 문자를 그대로 유지합니다. 예산을 넘으면 오래된 chunk를 최대
+두 번의 bounded attempt로 압축하면서 최신 20개 turn은 원문 그대로 유지합니다. Read timeout,
+compaction timeout, provider 오류 또는 과도한 compaction fan-out이 발생하면 동일 principal 범위에서
+최신 20개 turn을 다시 읽습니다. 해당 read도 실패하면 authorization boundary를 넘을 수 있는 browser
+copy를 수락하는 대신 빈 history를 사용합니다.
+
+Content-policy 결정은 provider outage가 아니라 typed non-retryable outcome으로 처리합니다. 차단된
+history-compaction chunk는 bounded depth 및 probe budget 안에서 분할하여 원인 turn만 model
+context에서 제외하며 durable transcript row는 변경하지 않습니다. Prompt에는 content-free omission
+marker를 넣고 operator 및 assistant turn metadata에는 `history_mode`, omitted count 및 policy stage를
+남깁니다. Blocked content에서 파생된 digest는 provider, browser, log 또는 durable metadata에 전달하지
+않습니다. 최종 narrator input block은 하나의 30초 recovery deadline 안에서 policy-safe compacted
+history로 한 번, empty history로 한 번만 재시도합니다. Output block은 재시도하거나 다른 model로
+routing하지 않습니다. 복구할 수 없는 block은 한 번의 idempotent retry로 body-free SYSTEM receipt를
+기록하고 assistant turn은 기록하지 않습니다.
 
 조립은 순수
 [`compose_working_context`](../../../src/fdai/core/working_context/composer.py)

@@ -13,6 +13,7 @@ members = [
     "fdai",
     "fdai-benchmark-cybergym",
     "fdai-benchmark-sregym",
+    "fdai-code-assurance",
     "fdai-evaluation-sdk",
 ]
 
@@ -823,6 +824,20 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.7,<1" },
 ]
 provides-extras = ["dev"]
+
+[[package]]
+name = "fdai-code-assurance"
+source = { editable = "extensions/code-assurance" }
+dependencies = [
+    { name = "fdai" },
+    { name = "httpx" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fdai", editable = "." },
+    { name = "httpx", specifier = ">=0.27,<1" },
+]
 
 [[package]]
 name = "fdai-evaluation-sdk"

@@ -5,23 +5,21 @@
   "locales": {
     "en": {
       "title": "FDAI Azure resource network flow",
-      "description": "Azure resources, private network boundaries, identities, and governed operator flows for the FDAI deployment.",
-      "alt": "An operator signs in through Microsoft Entra ID and uses either the FDAI Web Console on Azure Static Web Apps or the FDAI CLI. Both clients call the separately identified Operator API in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, and Azure OpenAI connect through dedicated private endpoints in the private endpoint subnet. The FDAI core and Container Apps Jobs run in the Container Apps subnet, while Azure Database for PostgreSQL runs in its delegated subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, Teams carries human approval, and Git receives governed remediation pull requests."
+      "description": "Azure resources, private-endpoint flows, target-state gateway services, and governed delivery channels for FDAI private networking.",
+      "alt": "An operator signs in through Microsoft Entra ID and uses the FDAI Web Console on Azure Static Web Apps. A private Application Gateway protected by a WAF policy routes requests to the separately identified Operator API and optional Ingestion Gateway in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL, and optional ADLS Gen2 storage connect through dedicated private endpoints. The FDAI core and Container Apps Jobs run in the Container Apps subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, and Azure Managed Grafana reads monitoring data. Email, Teams, and Slack carry human approvals. GitHub, GitLab, and Azure DevOps receive governed remediation pull requests."
     },
     "ko": {
       "title": "FDAI Azure resource network flow",
-      "description": "FDAI Azure 배포의 resource, private network, identity 및 통제된 flow입니다.",
-      "alt": "운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console 또는 FDAI CLI를 사용합니다. 두 client는 모두 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API를 호출합니다. Azure Event Hubs, Container Registry, Key Vault 및 Azure OpenAI는 private endpoint subnet의 전용 private endpoint를 통해 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행되고 Azure Database for PostgreSQL은 delegated subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Teams는 사람 승인을 전달하고 Git은 통제된 수정 pull request를 받습니다."
+      "description": "FDAI private networking의 Azure resource, private endpoint, target-state gateway service 및 통제된 전달 채널입니다.",
+      "alt": "운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. WAF policy로 보호되는 private Application Gateway가 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API와 optional Ingestion Gateway로 요청을 전달합니다. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL 및 optional ADLS Gen2 storage는 전용 private endpoint를 통해 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Azure Managed Grafana는 monitoring data를 읽습니다. Email, Teams 및 Slack은 사람 승인을 전달합니다. GitHub, GitLab 및 Azure DevOps는 통제된 수정 pull request를 받습니다."
     }
   },
   "assets": {
     "en": {
-      "svg": "fdai-azure-resource-network-flow.en.svg",
-      "png": "fdai-azure-resource-network-flow.en.png"
+      "svg": "fdai-azure-resource-network-flow.en.svg"
     },
     "ko": {
-      "svg": "fdai-azure-resource-network-flow.ko.svg",
-      "png": "fdai-azure-resource-network-flow.ko.png"
+      "svg": "fdai-azure-resource-network-flow.ko.svg"
     }
   },
   "nodes": [
@@ -62,23 +60,11 @@
       }
     },
     {
-      "id": "operator-cli",
-      "kind": "service",
-      "label": {
-        "en": "FDAI CLI",
-        "ko": "FDAI CLI"
-      },
-      "description": {
-        "en": "Terminal client for the shared Operator API",
-        "ko": "Shared Operator API를 사용하는 terminal client"
-      }
-    },
-    {
       "id": "operator-api",
       "kind": "process",
       "label": {
-        "en": "Operator API Container App",
-        "ko": "Operator API Container App"
+        "en": "Operator API",
+        "ko": "Operator API"
       },
       "description": {
         "en": "Separate read and command transport identities with no executor permission",
@@ -86,23 +72,35 @@
       }
     },
     {
-      "id": "core-runtime",
-      "kind": "process",
+      "id": "application-gateway",
+      "kind": "azure-service",
       "label": {
-        "en": "FDAI core Container App",
-        "ko": "FDAI core Container App"
+        "en": "Application Gateway",
+        "ko": "Application Gateway"
       },
       "description": {
-        "en": "Fifteen agents, trust router, safety checks, and privileged executor",
-        "ko": "15개 agent, trust router, 안전성 검토 및 권한 있는 executor"
+        "en": "Private ingress for operator and ingestion requests",
+        "ko": "운영자 및 ingestion 요청을 위한 private ingress"
+      }
+    },
+    {
+      "id": "waf-policy",
+      "kind": "azure-service",
+      "label": {
+        "en": "WAF policy",
+        "ko": "WAF policy"
+      },
+      "description": {
+        "en": "Managed protection attached to Application Gateway",
+        "ko": "Application Gateway에 연결된 managed protection"
       }
     },
     {
       "id": "scheduled-jobs",
       "kind": "process",
       "label": {
-        "en": "Container Apps Jobs",
-        "ko": "Container Apps Jobs"
+        "en": "Scheduled jobs",
+        "ko": "예약 job"
       },
       "description": {
         "en": "Inventory, detection, canary, measurement, and resilience jobs",
@@ -110,71 +108,131 @@
       }
     },
     {
+      "id": "core-runtime",
+      "kind": "process",
+      "label": {
+        "en": "FDAI core",
+        "ko": "FDAI core"
+      },
+      "description": {
+        "en": "Fifteen agents, trust router, safety checks, and privileged executor",
+        "ko": "15개 agent, trust router, 안전성 검토 및 권한 있는 executor"
+      }
+    },
+    {
+      "id": "ingestion-gateway",
+      "kind": "process",
+      "label": {
+        "en": "Ingestion gateway (optional)",
+        "ko": "Ingestion gateway (optional)"
+      },
+      "description": {
+        "en": "Authenticated document upload and governed ingestion",
+        "ko": "인증된 document upload 및 통제된 ingestion"
+      }
+    },
+    {
       "id": "event-hubs-pe",
       "kind": "service",
       "label": {
-        "en": "Event Hubs private endpoint",
-        "ko": "Event Hubs private endpoint"
+        "en": "Event Hubs",
+        "ko": "Event Hubs"
       },
       "description": {
-        "en": "Event Hubs private endpoint",
-        "ko": "Event Hubs private endpoint"
+        "en": "Event Hubs",
+        "ko": "Event Hubs"
       }
     },
     {
       "id": "registry-pe",
       "kind": "service",
       "label": {
-        "en": "Registry private endpoint",
-        "ko": "Registry private endpoint"
+        "en": "Registry",
+        "ko": "Registry"
       },
       "description": {
-        "en": "Registry private endpoint",
-        "ko": "Registry private endpoint"
+        "en": "Registry",
+        "ko": "Registry"
       }
     },
     {
       "id": "key-vault-pe",
       "kind": "service",
       "label": {
-        "en": "Key Vault private endpoint",
-        "ko": "Key Vault private endpoint"
+        "en": "Key Vault",
+        "ko": "Key Vault"
       },
       "description": {
-        "en": "Key Vault private endpoint",
-        "ko": "Key Vault private endpoint"
+        "en": "Key Vault",
+        "ko": "Key Vault"
       }
     },
     {
       "id": "openai-pe",
       "kind": "service",
       "label": {
-        "en": "Azure OpenAI private endpoint",
-        "ko": "Azure OpenAI private endpoint"
+        "en": "Azure OpenAI",
+        "ko": "Azure OpenAI"
       },
       "description": {
-        "en": "Azure OpenAI private endpoint",
-        "ko": "Azure OpenAI private endpoint"
+        "en": "Azure OpenAI",
+        "ko": "Azure OpenAI"
       }
     },
     {
-      "id": "postgres",
-      "kind": "azure-service",
+      "id": "foundry-pe",
+      "kind": "service",
       "label": {
-        "en": "Azure Database for PostgreSQL",
-        "ko": "Azure Database for PostgreSQL"
+        "en": "Microsoft Foundry",
+        "ko": "Microsoft Foundry"
       },
       "description": {
-        "en": "State, append-only audit, operator memory, and pgvector",
-        "ko": "상태, 추가 전용 감사, operator memory 및 pgvector"
+        "en": "Microsoft Foundry",
+        "ko": "Microsoft Foundry"
+      }
+    },
+    {
+      "id": "postgres-pe",
+      "kind": "service",
+      "label": {
+        "en": "PostgreSQL",
+        "ko": "PostgreSQL"
+      },
+      "description": {
+        "en": "PostgreSQL",
+        "ko": "PostgreSQL"
+      }
+    },
+    {
+      "id": "document-blob-pe",
+      "kind": "service",
+      "label": {
+        "en": "Blob (optional)",
+        "ko": "Blob (optional)"
+      },
+      "description": {
+        "en": "Blob (optional)",
+        "ko": "Blob (optional)"
+      }
+    },
+    {
+      "id": "document-dfs-pe",
+      "kind": "service",
+      "label": {
+        "en": "DFS (optional)",
+        "ko": "DFS (optional)"
+      },
+      "description": {
+        "en": "DFS (optional)",
+        "ko": "DFS (optional)"
       }
     },
     {
       "id": "event-hubs",
       "kind": "azure-service",
       "label": {
-        "en": "Azure Event Hubs",
-        "ko": "Azure Event Hubs"
+        "en": "Event Hubs",
+        "ko": "Event Hubs"
       },
       "description": {
         "en": "Kafka :9093 topics, control topics, replay, and dead-letter streams",
@@ -185,8 +243,8 @@
       "id": "container-registry",
       "kind": "azure-service",
       "label": {
-        "en": "Azure Container Registry",
-        "ko": "Azure Container Registry"
+        "en": "Container Registry",
+        "ko": "Container Registry"
       },
       "description": {
         "en": "Signed images pinned by digest",
@@ -197,8 +255,8 @@
       "id": "key-vault",
       "kind": "azure-service",
       "label": {
-        "en": "Azure Key Vault",
-        "ko": "Azure Key Vault"
+        "en": "Key Vault",
+        "ko": "Key Vault"
       },
       "description": {
         "en": "Native Container Apps secret references",
@@ -218,11 +276,47 @@
       }
     },
     {
+      "id": "microsoft-foundry",
+      "kind": "azure-service",
+      "label": {
+        "en": "Microsoft Foundry",
+        "ko": "Microsoft Foundry"
+      },
+      "description": {
+        "en": "Governed model, evaluation, and agent project plane",
+        "ko": "통제된 model, evaluation 및 agent project plane"
+      }
+    },
+    {
+      "id": "postgres",
+      "kind": "azure-service",
+      "label": {
+        "en": "PostgreSQL",
+        "ko": "PostgreSQL"
+      },
+      "description": {
+        "en": "State, append-only audit, operator memory, and pgvector",
+        "ko": "상태, 추가 전용 감사, operator memory 및 pgvector"
+      }
+    },
+    {
+      "id": "document-storage",
+      "kind": "store",
+      "label": {
+        "en": "ADLS Gen2 (optional)",
+        "ko": "ADLS Gen2 (optional)"
+      },
+      "description": {
+        "en": "Quarantine, governed source, and derived filesystems",
+        "ko": "Quarantine, governed source 및 derived filesystem"
+      }
+    },
+    {
       "id": "workload-identities",
       "kind": "azure-service",
       "label": {
-        "en": "User-assigned managed identities",
-        "ko": "User-assigned managed identity"
+        "en": "Managed identities",
+        "ko": "Managed identity"
       },
       "description": {
         "en": "Separate executor, inventory, read, command, and job principals",
@@ -233,8 +327,8 @@
       "id": "resource-graph",
       "kind": "azure-service",
       "label": {
-        "en": "Azure Resource Graph",
-        "ko": "Azure Resource Graph"
+        "en": "Resource Graph",
+        "ko": "Resource Graph"
       },
       "description": {
         "en": "Subscription and resource inventory through the Azure control plane",
@@ -245,8 +339,8 @@
       "id": "monitor",
       "kind": "azure-service",
       "label": {
-        "en": "Application Insights and Log Analytics",
-        "ko": "Application Insights 및 Log Analytics"
+        "en": "App Insights + Logs",
+        "ko": "App Insights + Logs"
       },
       "description": {
         "en": "Traces, metrics, logs, alerts, and correlation",
@@ -254,11 +348,35 @@
       }
     },
     {
+      "id": "managed-grafana",
+      "kind": "azure-service",
+      "label": {
+        "en": "Managed Grafana",
+        "ko": "Managed Grafana"
+      },
+      "description": {
+        "en": "Governed dashboards over Azure Monitor data",
+        "ko": "Azure Monitor data 기반의 통제된 dashboard"
+      }
+    },
+    {
+      "id": "email-approval",
+      "kind": "azure-service",
+      "label": {
+        "en": "Email",
+        "ko": "Email"
+      },
+      "description": {
+        "en": "Azure Communication Services email adapter",
+        "ko": "Azure Communication Services email adapter"
+      }
+    },
+    {
       "id": "teams-approval",
       "kind": "external",
       "label": {
-        "en": "Teams approval channel",
-        "ko": "Teams 승인 채널"
+        "en": "Teams",
+        "ko": "Teams"
       },
       "description": {
         "en": "Human approval with a separate approver identity",
@@ -266,11 +384,47 @@
       }
     },
     {
-      "id": "git-delivery",
+      "id": "slack-approval",
       "kind": "external",
       "label": {
-        "en": "Git remediation pull request",
-        "ko": "Git 수정 pull request"
+        "en": "Slack",
+        "ko": "Slack"
+      },
+      "description": {
+        "en": "Reauthenticated approval and notification adapter",
+        "ko": "재인증된 승인 및 알림 adapter"
+      }
+    },
+    {
+      "id": "github-delivery",
+      "kind": "external",
+      "label": {
+        "en": "GitHub",
+        "ko": "GitHub"
+      },
+      "description": {
+        "en": "Reviewable and reversible change delivery",
+        "ko": "검토 및 되돌리기가 가능한 변경 전달"
+      }
+    },
+    {
+      "id": "gitlab-delivery",
+      "kind": "external",
+      "label": {
+        "en": "GitLab",
+        "ko": "GitLab"
+      },
+      "description": {
+        "en": "Reviewable and reversible change delivery",
+        "ko": "검토 및 되돌리기가 가능한 변경 전달"
+      }
+    },
+    {
+      "id": "azure-devops-delivery",
+      "kind": "azure-service",
+      "label": {
+        "en": "Azure DevOps",
+        "ko": "Azure DevOps"
       },
       "description": {
         "en": "Reviewable and reversible change delivery",
@@ -284,10 +438,7 @@
       "from": "operator",
       "to": "entra-id",
       "kind": "request",
-      "label": {
-        "en": "Sign in",
-        "ko": "로그인"
-      },
+      "label": null,
       "step": 1
     },
     {
@@ -295,39 +446,36 @@
       "from": "entra-id",
       "to": "operator-console",
       "kind": "approval",
-      "label": {
-        "en": "App Role token",
-        "ko": "App Role token"
-      }
-    },
-    {
-      "id": "entra-to-cli",
-      "from": "entra-id",
-      "to": "operator-cli",
-      "kind": "approval",
       "label": null
     },
     {
-      "id": "console-to-api",
+      "id": "console-to-gateway",
       "from": "operator-console",
-      "to": "operator-api",
+      "to": "application-gateway",
       "kind": "request",
-      "label": {
-        "en": "HTTPS request",
-        "ko": "HTTPS 요청"
-      },
+      "label": null,
       "step": 2
     },
     {
-      "id": "cli-to-api",
-      "from": "operator-cli",
+      "id": "waf-to-gateway",
+      "from": "waf-policy",
+      "to": "application-gateway",
+      "kind": "read",
+      "label": null
+    },
+    {
+      "id": "gateway-to-api",
+      "from": "application-gateway",
       "to": "operator-api",
       "kind": "request",
-      "label": {
-        "en": "HTTPS and SSE",
-        "ko": "HTTPS 및 SSE"
-      },
-      "step": 2
+      "label": null
+    },
+    {
+      "id": "gateway-to-ingestion",
+      "from": "application-gateway",
+      "to": "ingestion-gateway",
+      "kind": "request",
+      "label": null
     },
     {
       "id": "event-hubs-to-pe",
@@ -352,20 +500,14 @@
       "from": "operator-api",
       "to": "event-hubs-pe",
       "kind": "event",
-      "label": {
-        "en": "Typed proposal",
-        "ko": "Typed proposal"
-      }
+      "label": null
     },
     {
       "id": "registry-to-pe",
       "from": "container-registry",
       "to": "registry-pe",
       "kind": "read",
-      "label": {
-        "en": "Signed image",
-        "ko": "서명 image"
-      }
+      "label": null
     },
     {
       "id": "registry-pe-to-core",
@@ -379,11 +521,7 @@
       "from": "core-runtime",
       "to": "key-vault-pe",
       "kind": "read",
-      "label": {
-        "en": "Native secret resolution",
-        "ko": "Native secret resolution"
-      },
-      "step": 4
+      "label": null
     },
     {
       "id": "key-vault-pe-to-service",
@@ -398,8 +536,8 @@
       "to": "openai-pe",
       "kind": "request",
       "label": {
-        "en": "Verified T2 request",
-        "ko": "검증된 T2 요청"
+        "en": "Private data plane",
+        "ko": "Private data plane"
       },
       "step": 4
     },
@@ -411,21 +549,70 @@
       "label": null
     },
     {
-      "id": "core-to-postgres",
+      "id": "core-to-foundry-pe",
       "from": "core-runtime",
-      "to": "postgres",
+      "to": "foundry-pe",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "foundry-pe-to-service",
+      "from": "foundry-pe",
+      "to": "microsoft-foundry",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "core-to-postgres-pe",
+      "from": "core-runtime",
+      "to": "postgres-pe",
       "kind": "audit",
-      "label": {
-        "en": "State and audit",
-        "ko": "상태 및 감사"
-      },
+      "label": null,
       "step": 5
     },
     {
-      "id": "api-to-postgres",
+      "id": "api-to-postgres-pe",
       "from": "operator-api",
-      "to": "postgres",
+      "to": "postgres-pe",
       "kind": "read",
+      "label": null
+    },
+    {
+      "id": "postgres-pe-to-service",
+      "from": "postgres-pe",
+      "to": "postgres",
+      "kind": "write",
+      "label": {
+        "en": "PostgreSQL private link",
+        "ko": "PostgreSQL private link"
+      }
+    },
+    {
+      "id": "ingestion-to-blob-pe",
+      "from": "ingestion-gateway",
+      "to": "document-blob-pe",
+      "kind": "write",
+      "label": null
+    },
+    {
+      "id": "ingestion-to-dfs-pe",
+      "from": "ingestion-gateway",
+      "to": "document-dfs-pe",
+      "kind": "write",
+      "label": null
+    },
+    {
+      "id": "blob-pe-to-storage",
+      "from": "document-blob-pe",
+      "to": "document-storage",
+      "kind": "write",
+      "label": null
+    },
+    {
+      "id": "dfs-pe-to-storage",
+      "from": "document-dfs-pe",
+      "to": "document-storage",
+      "kind": "write",
       "label": null
     },
     {
@@ -433,42 +620,37 @@
       "from": "core-runtime",
       "to": "resource-graph",
       "kind": "read",
-      "label": {
-        "en": "Azure control-plane inventory read",
-        "ko": "Azure control-plane inventory 조회"
-      }
+      "label": null
     },
     {
       "id": "core-to-monitor",
       "from": "core-runtime",
       "to": "monitor",
       "kind": "audit",
-      "label": {
-        "en": "Telemetry",
-        "ko": "Telemetry"
-      }
+      "label": null
     },
     {
-      "id": "core-to-teams",
+      "id": "monitor-to-grafana",
+      "from": "monitor",
+      "to": "managed-grafana",
+      "kind": "read",
+      "label": null
+    },
+    {
+      "id": "core-to-approval-channels",
       "from": "core-runtime",
-      "to": "teams-approval",
+      "to": "approval-channels",
       "kind": "approval",
-      "label": {
-        "en": "Approval request",
-        "ko": "승인 요청"
-      },
+      "label": null,
       "step": 6
     },
     {
-      "id": "core-to-git",
+      "id": "core-to-git-providers",
       "from": "core-runtime",
-      "to": "git-delivery",
+      "to": "git-providers",
       "kind": "mutation",
-      "label": {
-        "en": "Governed change",
-        "ko": "통제된 변경"
-      },
-      "step": 6
+      "label": null,
+      "step": 7
     }
   ]
 }

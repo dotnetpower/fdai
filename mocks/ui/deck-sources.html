@@ -330,7 +330,7 @@
     ];
 
     // ---- animation engine ------------------------------------------------
-    var SPEED = 0.5;
+    var SPEED = 1;
     var running = false;
     var timers = [];
     function sleep(ms) { return new Promise(function (r) { timers.push(setTimeout(r, ms * SPEED)); }); }
@@ -390,6 +390,7 @@
       sourcesBox.appendChild(slot);
       trace.appendChild(sourcesBox);
       t.appendChild(trace);
+      await sleep(900);
 
       // 3. stream stages
       for (var i = 0; i < STAGES.length; i++) {
