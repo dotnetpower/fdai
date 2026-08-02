@@ -74,3 +74,16 @@ test("icon presentation uses compact icon-forward geometry", () => {
   assert.equal(geometry.width, 116);
   assert.ok(geometry.height < 100);
 });
+
+test("explicit node width overrides the presentation default", () => {
+  const geometry = nodeGeometry({
+    id: "endpoint",
+    kind: "service",
+    icon: "private-endpoint",
+    presentation: "icon",
+    label: { en: "PostgreSQL", ko: "PostgreSQL" },
+    width: 100,
+  });
+
+  assert.equal(geometry.width, 100);
+});

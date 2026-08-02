@@ -98,18 +98,6 @@
       }
     },
     {
-      "id": "ingestion-gateway",
-      "kind": "process",
-      "label": {
-        "en": "Ingestion Gateway (optional)",
-        "ko": "Ingestion Gateway (optional)"
-      },
-      "description": {
-        "en": "Authenticated document upload and governed ingestion",
-        "ko": "인증된 document upload 및 통제된 ingestion"
-      }
-    },
-    {
       "id": "scheduled-jobs",
       "kind": "process",
       "label": {
@@ -134,99 +122,111 @@
       }
     },
     {
+      "id": "ingestion-gateway",
+      "kind": "process",
+      "label": {
+        "en": "Ingestion Gateway (optional)",
+        "ko": "Ingestion Gateway (optional)"
+      },
+      "description": {
+        "en": "Authenticated document upload and governed ingestion",
+        "ko": "인증된 document upload 및 통제된 ingestion"
+      }
+    },
+    {
       "id": "event-hubs-pe",
       "kind": "service",
       "label": {
-        "en": "Event Hubs private endpoint",
-        "ko": "Event Hubs private endpoint"
+        "en": "Event Hubs",
+        "ko": "Event Hubs"
       },
       "description": {
-        "en": "Event Hubs private endpoint",
-        "ko": "Event Hubs private endpoint"
+        "en": "Event Hubs",
+        "ko": "Event Hubs"
       }
     },
     {
       "id": "registry-pe",
       "kind": "service",
       "label": {
-        "en": "Registry private endpoint",
-        "ko": "Registry private endpoint"
+        "en": "Registry",
+        "ko": "Registry"
       },
       "description": {
-        "en": "Registry private endpoint",
-        "ko": "Registry private endpoint"
+        "en": "Registry",
+        "ko": "Registry"
       }
     },
     {
       "id": "key-vault-pe",
       "kind": "service",
       "label": {
-        "en": "Key Vault private endpoint",
-        "ko": "Key Vault private endpoint"
+        "en": "Key Vault",
+        "ko": "Key Vault"
       },
       "description": {
-        "en": "Key Vault private endpoint",
-        "ko": "Key Vault private endpoint"
+        "en": "Key Vault",
+        "ko": "Key Vault"
       }
     },
     {
       "id": "openai-pe",
       "kind": "service",
       "label": {
-        "en": "Azure OpenAI private endpoint",
-        "ko": "Azure OpenAI private endpoint"
+        "en": "Azure OpenAI",
+        "ko": "Azure OpenAI"
       },
       "description": {
-        "en": "Azure OpenAI private endpoint",
-        "ko": "Azure OpenAI private endpoint"
+        "en": "Azure OpenAI",
+        "ko": "Azure OpenAI"
       }
     },
     {
       "id": "foundry-pe",
       "kind": "service",
       "label": {
-        "en": "Microsoft Foundry private endpoint",
-        "ko": "Microsoft Foundry private endpoint"
+        "en": "Microsoft Foundry",
+        "ko": "Microsoft Foundry"
       },
       "description": {
-        "en": "Microsoft Foundry private endpoint",
-        "ko": "Microsoft Foundry private endpoint"
+        "en": "Microsoft Foundry",
+        "ko": "Microsoft Foundry"
       }
     },
     {
       "id": "postgres-pe",
       "kind": "service",
       "label": {
-        "en": "PostgreSQL private endpoint",
-        "ko": "PostgreSQL private endpoint"
+        "en": "PostgreSQL",
+        "ko": "PostgreSQL"
       },
       "description": {
-        "en": "PostgreSQL private endpoint",
-        "ko": "PostgreSQL private endpoint"
+        "en": "PostgreSQL",
+        "ko": "PostgreSQL"
       }
     },
     {
       "id": "document-blob-pe",
       "kind": "service",
       "label": {
-        "en": "Document Blob PE (optional)",
-        "ko": "Document Blob PE (optional)"
+        "en": "Blob (optional)",
+        "ko": "Blob (optional)"
       },
       "description": {
-        "en": "Document Blob PE (optional)",
-        "ko": "Document Blob PE (optional)"
+        "en": "Blob (optional)",
+        "ko": "Blob (optional)"
       }
     },
     {
       "id": "document-dfs-pe",
       "kind": "service",
       "label": {
-        "en": "Document DFS PE (optional)",
-        "ko": "Document DFS PE (optional)"
+        "en": "DFS (optional)",
+        "ko": "DFS (optional)"
       },
       "description": {
-        "en": "Document DFS PE (optional)",
-        "ko": "Document DFS PE (optional)"
+        "en": "DFS (optional)",
+        "ko": "DFS (optional)"
       }
     },
     {

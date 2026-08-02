@@ -95,7 +95,6 @@ test("Azure resource network flow routes every compound edge", async () => {
     assert.ok(group.width > group.height, `${groupId} must be wider than tall`);
   }
   const gridGroups = [
-    layout.groups.get("gateway-subnet")!,
     layout.groups.get("container-apps-subnet")!,
     layout.groups.get("private-endpoint-subnet")!,
     layout.groups.get("private-service-backends")!,
@@ -106,6 +105,20 @@ test("Azure resource network flow routes every compound edge", async () => {
   const gatewaySubnet = layout.groups.get("gateway-subnet")!;
   const privateEndpoints = layout.groups.get("private-endpoint-subnet")!;
   const privateServices = layout.groups.get("private-service-backends")!;
+  assert.ok(gatewaySubnet.width <= 320);
+  assert.ok(
+    Math.abs(
+      gatewaySubnet.x + gatewaySubnet.width / 2 -
+      privateEndpoints.x - privateEndpoints.width / 2,
+    ) <= 1,
+  );
+  const gatewayChildren = ["application-gateway", "waf-policy"].map(
+    (id) => layout.nodes.get(id)!,
+  );
+  assert.ok(
+    gatewayChildren[1]!.x -
+      (gatewayChildren[0]!.x + gatewayChildren[0]!.width) <= 56,
+  );
   assert.ok(gatewaySubnet.y + gatewaySubnet.height < containerApps.y);
   assert.ok(containerApps.y + containerApps.height < privateEndpoints.y);
   assert.ok(privateEndpoints.y + privateEndpoints.height < privateServices.y);
@@ -114,6 +127,11 @@ test("Azure resource network flow routes every compound edge", async () => {
   const governedDelivery = layout.groups.get("governed-delivery")!;
   assert.ok(operatorAccess.x + operatorAccess.width < azureRegion.x);
   assert.ok(azureRegion.x + azureRegion.width < governedDelivery.x);
+  assert.ok(governedDelivery.width <= 460);
+  assert.ok(layout.width < 2500);
+  const gitProviders = layout.groups.get("git-providers")!;
+  const approvalChannels = layout.groups.get("approval-channels")!;
+  assert.ok(gitProviders.y + gitProviders.height < approvalChannels.y);
   assert.ok(Math.max(
     operatorAccess.y,
     azureRegion.y,
@@ -153,6 +171,15 @@ test("Azure resource network flow routes every compound edge", async () => {
     assert.ok(gap >= 70, `operator access gap ${index} is ${gap}`);
   }
   assert.equal(spec.nodes.find((node) => node.id === "entra-id")!.label.en, "Microsoft Entra ID");
+  const orderedContainerApps = [
+    "operator-api",
+    "scheduled-jobs",
+    "core-runtime",
+    "ingestion-gateway",
+  ].map((id) => layout.nodes.get(id)!);
+  for (let index = 1; index < orderedContainerApps.length; index += 1) {
+    assert.ok(orderedContainerApps[index - 1]!.x < orderedContainerApps[index]!.x);
+  }
   const platformNodes = spec.nodes
     .filter((node) => node.parent === "platform-services")
     .map((node) => layout.nodes.get(node.id)!);
@@ -181,7 +208,7 @@ test("Azure resource network flow routes every compound edge", async () => {
     (candidate) => candidate.id === "core-to-resource-graph",
   );
   const resourceGraphBends = resourceGraphEdge?.sections?.[0]?.bendPoints ?? [];
-  assert.ok(resourceGraphBends.length <= 2);
+  assert.equal(resourceGraphBends.length, 4);
   for (const edgeId of [
     "event-pe-to-core",
     "api-to-event-pe",

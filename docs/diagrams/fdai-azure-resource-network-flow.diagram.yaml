@@ -25,7 +25,7 @@ groups:
     label: { en: Operator access, ko: 운영자 접근 }
     direction: RIGHT
     layout: row
-    width: 620
+    width: 540
   - id: azure-region
     kind: cloud
     presentation: panel
@@ -46,7 +46,7 @@ groups:
     direction: RIGHT
     layout: row
     alignWith: private-endpoint-subnet
-    width: 1080
+    width: 320
   - id: container-apps-subnet
     parent: fdai-vnet
     kind: subnet
@@ -55,7 +55,7 @@ groups:
     direction: RIGHT
     layout: row
     alignWith: private-endpoint-subnet
-    width: 1080
+    width: 960
   - id: private-endpoint-subnet
     parent: fdai-vnet
     kind: subnet
@@ -63,7 +63,7 @@ groups:
     label: { en: Private endpoint subnet, ko: Private endpoint subnet }
     direction: RIGHT
     layout: row
-    width: 1080
+    width: 960
   - id: private-service-backends
     parent: azure-region
     kind: layer
@@ -73,7 +73,7 @@ groups:
     layout: row
     placement: below
     alignWith: private-endpoint-subnet
-    width: 1080
+    width: 960
   - id: platform-services
     parent: azure-region
     kind: layer
@@ -88,18 +88,19 @@ groups:
     presentation: panel
     label: { en: Governed delivery channels, ko: 통제된 전달 채널 }
     direction: DOWN
-  - id: approval-channels
-    parent: governed-delivery
-    kind: layer
-    presentation: band
-    label: { en: Human approval channels, ko: 사람 승인 채널 }
-    direction: RIGHT
-    layout: row
+    layout: column
   - id: git-providers
     parent: governed-delivery
     kind: layer
     presentation: band
     label: { en: Git delivery providers, ko: Git 전달 provider }
+    direction: RIGHT
+    layout: row
+  - id: approval-channels
+    parent: governed-delivery
+    kind: layer
+    presentation: band
+    label: { en: Human approval channels, ko: 사람 승인 채널 }
     direction: RIGHT
     layout: row
 nodes:
@@ -144,12 +145,6 @@ nodes:
     presentation: icon
     label: { en: WAF policy, ko: WAF policy }
     description: { en: Managed protection attached to Application Gateway, ko: Application Gateway에 연결된 managed protection }
-  - id: ingestion-gateway
-    parent: container-apps-subnet
-    kind: process
-    icon: container-apps
-    label: { en: Ingestion Gateway (optional), ko: Ingestion Gateway (optional) }
-    description: { en: Authenticated document upload and governed ingestion, ko: 인증된 document upload 및 통제된 ingestion }
   - id: scheduled-jobs
     parent: container-apps-subnet
     kind: process
@@ -163,54 +158,68 @@ nodes:
     icon: container-apps
     label: { en: FDAI core Container App, ko: FDAI core Container App }
     description: { en: "Fifteen agents, trust router, safety checks, and privileged executor", ko: "15개 agent, trust router, 안전성 검토 및 권한 있는 executor" }
+  - id: ingestion-gateway
+    parent: container-apps-subnet
+    kind: process
+    icon: container-apps
+    label: { en: Ingestion Gateway (optional), ko: Ingestion Gateway (optional) }
+    description: { en: Authenticated document upload and governed ingestion, ko: 인증된 document upload 및 통제된 ingestion }
   - id: event-hubs-pe
     parent: private-endpoint-subnet
     kind: service
     icon: private-endpoint
     presentation: icon
-    label: { en: Event Hubs private endpoint, ko: Event Hubs private endpoint }
+    label: { en: Event Hubs, ko: Event Hubs }
+    width: 100
   - id: registry-pe
     parent: private-endpoint-subnet
     kind: service
     icon: private-endpoint
     presentation: icon
-    label: { en: Registry private endpoint, ko: Registry private endpoint }
+    label: { en: Registry, ko: Registry }
+    width: 100
   - id: key-vault-pe
     parent: private-endpoint-subnet
     kind: service
     icon: private-endpoint
     presentation: icon
-    label: { en: Key Vault private endpoint, ko: Key Vault private endpoint }
+    label: { en: Key Vault, ko: Key Vault }
+    width: 100
   - id: openai-pe
     parent: private-endpoint-subnet
     kind: service
     icon: private-endpoint
     presentation: icon
-    label: { en: Azure OpenAI private endpoint, ko: Azure OpenAI private endpoint }
+    label: { en: Azure OpenAI, ko: Azure OpenAI }
+    width: 100
   - id: foundry-pe
     parent: private-endpoint-subnet
     kind: service
     icon: private-endpoint
     presentation: icon
-    label: { en: Microsoft Foundry private endpoint, ko: Microsoft Foundry private endpoint }
+    label: { en: Microsoft Foundry, ko: Microsoft Foundry }
+    width: 100
   - id: postgres-pe
     parent: private-endpoint-subnet
     kind: service
     icon: private-endpoint
     presentation: icon
-    label: { en: PostgreSQL private endpoint, ko: PostgreSQL private endpoint }
+    label: { en: PostgreSQL, ko: PostgreSQL }
+    width: 100
   - id: document-blob-pe
     parent: private-endpoint-subnet
     kind: service
     icon: private-endpoint
     presentation: icon
-    label: { en: Document Blob PE (optional), ko: Document Blob PE (optional) }
+    label: { en: Blob (optional), ko: Blob (optional) }
+    width: 100
   - id: document-dfs-pe
     parent: private-endpoint-subnet
     kind: service
     icon: private-endpoint
     presentation: icon
-    label: { en: Document DFS PE (optional), ko: Document DFS PE (optional) }
+    label: { en: DFS (optional), ko: DFS (optional) }
+    width: 100
   - id: event-hubs
     parent: private-service-backends
     kind: azure-service
@@ -362,7 +371,7 @@ edges:
     from: application-gateway
     to: ingestion-gateway
     kind: request
-    route: orthogonal
+    route: orthogonal-above
   - id: event-hubs-to-pe
     from: event-hubs
     to: event-hubs-pe
@@ -473,12 +482,12 @@ edges:
     from: core-runtime
     to: resource-graph
     kind: read
-    route: orthogonal
+    route: orthogonal-above
   - id: core-to-monitor
     from: core-runtime
     to: monitor
     kind: audit
-    route: orthogonal
+    route: orthogonal-above
   - id: monitor-to-grafana
     from: monitor
     to: managed-grafana

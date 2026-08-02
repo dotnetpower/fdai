@@ -327,7 +327,17 @@ function moveGroupTree(
   }
 }
 
-function applyDirectNodeLayouts(
+function groupDepth(spec: DiagramSpec, groupId: string): number {
+  let depth = 0;
+  let current = spec.groups.find((group) => group.id === groupId)?.parent;
+  while (current) {
+    depth += 1;
+    current = spec.groups.find((group) => group.id === current)?.parent;
+  }
+  return depth;
+}
+
+function applyDirectLayouts(
   spec: DiagramSpec,
   groups: Map<string, PositionedShape>,
   nodes: Map<string, PositionedShape>,
@@ -337,15 +347,31 @@ function applyDirectNodeLayouts(
   const top = compact ? 44 : 52;
   const bottom = compact ? 18 : 28;
   const gap = compact ? 16 : 22;
-  for (const groupSpec of spec.groups.filter(
-    (group) => group.layout === "row" || group.layout === "column",
-  )) {
+  const explicitGroups = spec.groups
+    .filter((group) => group.layout === "row" || group.layout === "column")
+    .sort(
+      (leftGroup, rightGroup) =>
+        groupDepth(spec, rightGroup.id) - groupDepth(spec, leftGroup.id),
+    );
+  for (const groupSpec of explicitGroups) {
     const group = groups.get(groupSpec.id);
-    const children = spec.nodes
-      .filter((node) => node.parent === groupSpec.id)
-      .map((node) => nodes.get(node.id))
-      .filter((node): node is PositionedShape => Boolean(node));
+    const children = [
+      ...spec.groups
+        .filter((child) => child.parent === groupSpec.id)
+        .map((child) => groups.get(child.id)),
+      ...spec.nodes
+        .filter((node) => node.parent === groupSpec.id)
+        .map((node) => nodes.get(node.id)),
+    ].filter((child): child is PositionedShape => Boolean(child));
     if (!group || !children.length) continue;
+    const moveChild = (child: PositionedShape, x: number, y: number): void => {
+      if (groups.has(child.id)) {
+        moveGroupTree(spec, child.id, x - child.x, y - child.y, groups, nodes);
+      } else {
+        child.x = x;
+        child.y = y;
+      }
+    };
     if (groupSpec.layout === "row") {
       const contentHeight = Math.max(...children.map((node) => node.height));
       const naturalWidth =
@@ -358,8 +384,11 @@ function applyDirectNodeLayouts(
         : 0;
       let x = group.x + left;
       for (const child of children) {
-        child.x = x;
-        child.y = group.y + top + (contentHeight - child.height) / 2;
+        moveChild(
+          child,
+          x,
+          group.y + top + (contentHeight - child.height) / 2,
+        );
         x += child.width + rowGap;
       }
       group.width = targetWidth;
@@ -369,8 +398,11 @@ function applyDirectNodeLayouts(
     const contentWidth = Math.max(...children.map((node) => node.width));
     let y = group.y + top;
     for (const child of children) {
-      child.x = group.x + left + (contentWidth - child.width) / 2;
-      child.y = y;
+      moveChild(
+        child,
+        group.x + left + (contentWidth - child.width) / 2,
+        y,
+      );
       y += child.height + gap;
     }
     group.width = Math.max(left + contentWidth + left, groupSpec.width ?? 0);
@@ -1122,7 +1154,7 @@ export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
     nodes,
     edges,
   );
-  applyDirectNodeLayouts(spec, groups, nodes);
+  applyDirectLayouts(spec, groups, nodes);
   applyHorizontalAlignments(spec, groups, nodes);
   const placementBottom = applyGroupPlacements(spec, groups, nodes);
   const rootFlow = applyRootGroupFlow(spec, groups, nodes);

@@ -67,8 +67,8 @@ values instead of pixel-level styling:
 
 - Set groups to `presentation: boundary`, `band`, or `panel` to distinguish
   network boundaries, subnet bands, and surrounding surfaces.
-- Set a direct-node group to `layout: row` or `layout: column` when its child
-  resources need a stable presentation independent of cross-group edges.
+- Set a group to `layout: row` or `layout: column` when its direct child nodes
+  or groups need a stable presentation independent of cross-group edges.
 - Set icon-bearing nodes to `presentation: icon` when the official product icon
   should carry the visual hierarchy. FDAI-owned runtime components remain cards.
 - Set `step` on an edge to render a numbered flow badge separately from its
