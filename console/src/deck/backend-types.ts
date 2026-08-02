@@ -323,6 +323,40 @@ export interface TrajectoryDetail {
   readonly truncated_outputs: number;
 }
 
+export type IntentEvidenceMode =
+  | "screen_grounded"
+  | "operational_grounded"
+  | "web_grounded"
+  | "mixed_grounded"
+  | "model_knowledge"
+  | "partial"
+  | "held_for_review";
+
+export interface IntentGraphMetadata {
+  readonly schema_version: 2;
+  readonly goals: readonly {
+    readonly goal_id: string;
+    readonly intent: string;
+    readonly capability: string | null;
+    readonly arguments: Readonly<Record<string, unknown>>;
+    readonly depends_on: readonly string[];
+    readonly evidence_mode: string;
+    readonly freshness_required: boolean;
+    readonly confidence: number;
+    readonly alternatives: readonly string[];
+  }[];
+  readonly clarification: string | null;
+  readonly confidence: number;
+  readonly action_posture: "advise_only" | "draft_only";
+}
+
+export interface IntentGraphEvidence {
+  readonly schema_version: 1;
+  readonly status: "completed" | "partial" | "unavailable" | "failed";
+  readonly evidence_mode: IntentEvidenceMode;
+  readonly goals: readonly Readonly<Record<string, unknown>>[];
+}
+
 export type ProgressiveAnswer = Answer & {
   readonly source: string;
   readonly router?: RouterSnapshot;
@@ -337,6 +371,9 @@ export type ProgressiveAnswer = Answer & {
   readonly modelTrace?: ModelTrace;
   readonly turnTiming?: TurnTiming;
   readonly trajectoryDetail?: TrajectoryDetail;
+  readonly intentGraph?: IntentGraphMetadata;
+  readonly intentGraphEvidence?: IntentGraphEvidence;
+  readonly evidenceMode?: IntentEvidenceMode;
 };
 
 export interface BackendHealth {

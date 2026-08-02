@@ -493,6 +493,10 @@ def test_chat_routes_execute_hierarchical_intent_graph(stream: bool) -> None:
     assert ledger["status"] == "completed"
     assert [goal["goal_id"] for goal in ledger["goals"]] == ["incidents", "kpi"]
     assert "_agent_evidence" not in backend.context
+    payload = response.text if stream else json.dumps(response.json())
+    assert '"intent_graph"' in payload
+    assert '"intent_graph_evidence"' in payload
+    assert '"evidence_mode":"mixed_grounded"' in payload.replace(" ", "")
 
 
 @pytest.mark.parametrize("stream", [False, True])

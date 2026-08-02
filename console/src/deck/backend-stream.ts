@@ -36,6 +36,7 @@ import type {
 } from "./backend-types";
 import type { ViewSnapshot } from "./context";
 import { parseTrajectoryDetail } from "./trajectory-detail";
+import { parseIntentGraph, parseIntentGraphEvidence } from "./intent-graph";
 
 export const fallbackTypewriter = { intervalMs: 12 };
 export const streamBurstPacer = { intervalMs: 16 };
@@ -404,6 +405,8 @@ export async function askBackendStream(
   const modelTrace = parseModelTrace(done.model_trace);
   const turnTiming = parseTurnTiming(done.turn_timing);
   const trajectoryDetail = parseTrajectoryDetail(done.trajectory_detail);
+  const intentGraph = parseIntentGraph(done.intent_graph);
+  const intentGraphEvidence = parseIntentGraphEvidence(done.intent_graph_evidence);
   const chosen = router?.chose ?? model;
   const explicitSource = typeof done.source === "string" ? done.source : null;
   const source = explicitSource ?? (
@@ -430,6 +433,11 @@ export async function askBackendStream(
     ...(modelTrace ? { modelTrace } : {}),
     ...(turnTiming ? { turnTiming } : {}),
     ...(trajectoryDetail ? { trajectoryDetail } : {}),
+    ...(intentGraph ? { intentGraph } : {}),
+    ...(intentGraphEvidence ? {
+      intentGraphEvidence,
+      evidenceMode: intentGraphEvidence.evidence_mode,
+    } : {}),
   };
 }
 

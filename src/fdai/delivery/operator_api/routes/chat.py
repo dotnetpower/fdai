@@ -807,6 +807,12 @@ def make_chat_route(
             enriched["web_search"] = web_search
         enriched["latency_ms"] = latency_ms
         enriched["answer_plan"] = answer_plan.to_dict()
+        if isinstance(view_context.get("_intent_graph"), Mapping):
+            enriched["intent_graph"] = dict(view_context["_intent_graph"])
+        if isinstance(view_context.get("_intent_graph_evidence"), Mapping):
+            graph_evidence = dict(view_context["_intent_graph_evidence"])
+            enriched["intent_graph_evidence"] = graph_evidence
+            enriched["evidence_mode"] = graph_evidence.get("evidence_mode")
         policy_summary = assurance_policy_summary(view_context)
         if policy_summary is not None:
             enriched["conversation_policy"] = policy_summary

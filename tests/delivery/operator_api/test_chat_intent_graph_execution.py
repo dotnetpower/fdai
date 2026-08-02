@@ -133,6 +133,7 @@ async def test_graph_executor_preserves_dependency_order_and_all_evidence() -> N
 
     ledger = result["_intent_graph_evidence"]
     assert ledger["status"] == "completed"
+    assert ledger["evidence_mode"] == "mixed_grounded"
     assert [goal["goal_id"] for goal in ledger["goals"]] == ["health", "benchmark"]
     assert resolver.calls == ["query_health"]
     assert result["_tool_evidence"]["tool"] == "query_health"
@@ -164,6 +165,7 @@ async def test_graph_executor_reports_partial_without_dropping_success() -> None
 
     ledger = result["_intent_graph_evidence"]
     assert ledger["status"] == "partial"
+    assert ledger["evidence_mode"] == "partial"
     assert [goal["status"] for goal in ledger["goals"]] == [
         "completed",
         "unavailable",

@@ -12,6 +12,9 @@ import {
   type EvidenceBranch,
   type GroundedCodeArtifact,
   type InvestigationActivity,
+  type IntentGraphEvidence,
+  type IntentGraphMetadata,
+  type IntentEvidenceMode,
   type ModelTrace,
   type TurnTiming,
   type TrajectoryDetail,
@@ -62,6 +65,9 @@ export interface Turn {
   readonly turnTiming?: TurnTiming;
   readonly trajectoryDetail?: TrajectoryDetail;
   readonly resourceContext?: ResourceContext;
+  readonly intentGraph?: IntentGraphMetadata;
+  readonly intentGraphEvidence?: IntentGraphEvidence;
+  readonly evidenceMode?: IntentEvidenceMode;
   readonly agent?: string;
   readonly at: string;
 }

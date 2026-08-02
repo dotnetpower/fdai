@@ -73,9 +73,11 @@ async def resolve_intent_graph_evidence(
             _merge_compatibility_evidence(merged, receipt)
             completed.add(goal.goal_id)
             pending.pop(goal.goal_id)
+    aggregate_status = _aggregate_status(receipts)
     merged["_intent_graph_evidence"] = {
         "schema_version": 1,
-        "status": _aggregate_status(receipts),
+        "status": aggregate_status,
+        "evidence_mode": _evidence_mode(receipts, aggregate_status),
         "goals": receipts,
     }
     return merged
@@ -226,6 +228,27 @@ def _aggregate_status(receipts: Sequence[Mapping[str, Any]]) -> str:
     if "failed" in statuses or "timed_out" in statuses:
         return "failed"
     return "unavailable"
+
+
+def _evidence_mode(receipts: Sequence[Mapping[str, Any]], status: str) -> str:
+    if status == "partial":
+        return "partial"
+    completed_modes = {
+        str(receipt.get("evidence_mode"))
+        for receipt in receipts
+        if receipt.get("status") == "completed"
+    }
+    if not completed_modes:
+        return "held_for_review"
+    if completed_modes == {"model_knowledge"}:
+        return "model_knowledge"
+    if completed_modes == {"web"}:
+        return "web_grounded"
+    if completed_modes == {"screen"}:
+        return "screen_grounded"
+    if completed_modes == {"operational"}:
+        return "operational_grounded"
+    return "mixed_grounded"
 
 
 def _progress(

@@ -44,6 +44,7 @@ import type {
 } from "./backend-types";
 import type { IncidentConversationBinding } from "./open-deck";
 import { parseTrajectoryDetail } from "./trajectory-detail";
+import { parseIntentGraph, parseIntentGraphEvidence } from "./intent-graph";
 
 export { setChatAuth } from "./auth";
 export { renderActionResult, type ActionSubmitResult } from "./backend-actions";
@@ -192,6 +193,16 @@ export async function askBackend(
       ? (payload as Record<string, unknown>).trajectory_detail
       : undefined,
   );
+  const intentGraph = parseIntentGraph(
+    typeof payload === "object" && payload !== null
+      ? (payload as Record<string, unknown>).intent_graph
+      : undefined,
+  );
+  const intentGraphEvidence = parseIntentGraphEvidence(
+    typeof payload === "object" && payload !== null
+      ? (payload as Record<string, unknown>).intent_graph_evidence
+      : undefined,
+  );
   if (answerText === null) {
     const local = deterministicAnswer(prompt, snapshot);
     return { ...local, source: "deterministic (no answer field)" };
@@ -230,6 +241,11 @@ export async function askBackend(
     ...(modelTrace ? { modelTrace } : {}),
     ...(turnTiming ? { turnTiming } : {}),
     ...(trajectoryDetail ? { trajectoryDetail } : {}),
+    ...(intentGraph ? { intentGraph } : {}),
+    ...(intentGraphEvidence ? {
+      intentGraphEvidence,
+      evidenceMode: intentGraphEvidence.evidence_mode,
+    } : {}),
   };
 }
 

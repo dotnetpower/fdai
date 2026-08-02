@@ -139,6 +139,30 @@ describe("serializeTurns", () => {
           },
           reason: null,
         },
+        intentGraph: {
+          schema_version: 2 as const,
+          goals: [{
+            goal_id: "health",
+            intent: "status",
+            capability: "query_subscription_health",
+            arguments: { lookback_seconds: 3600 },
+            depends_on: [],
+            evidence_mode: "operational",
+            freshness_required: true,
+            confidence: 0.9,
+            alternatives: [],
+          }],
+          clarification: null,
+          confidence: 0.9,
+          action_posture: "advise_only" as const,
+        },
+        intentGraphEvidence: {
+          schema_version: 1 as const,
+          status: "partial" as const,
+          evidence_mode: "partial" as const,
+          goals: [{ goal_id: "health", status: "completed" }],
+        },
+        evidenceMode: "partial" as const,
         delegation: {
           primary_agent: "Heimdall",
           contributors: ["Forseti"],
@@ -210,6 +234,9 @@ describe("serializeTurns", () => {
     expect(parsed[1]!.recordedAt).toBe("2026-07-31T01:00:01Z");
     expect(parsed[1]!.resourceContext?.name).toBe("db-current");
     expect(parsed[1]!.answerPlanning?.consulted_agents).toEqual(["Freyr", "Njord"]);
+    expect(parsed[1]!.intentGraph?.goals[0]?.goal_id).toBe("health");
+    expect(parsed[1]!.intentGraphEvidence?.status).toBe("partial");
+    expect(parsed[1]!.evidenceMode).toBe("partial");
     expect(parsed[1]!.delegation).toEqual({
       primary_agent: "Heimdall",
       contributors: ["Forseti"],

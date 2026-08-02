@@ -185,6 +185,12 @@ def build_done_payload(
             artifact.to_dict() for artifact in extract_grounded_code(verification.answer)
         ],
     }
+    if isinstance(enriched_context.get("_intent_graph"), Mapping):
+        payload["intent_graph"] = dict(enriched_context["_intent_graph"])
+    if isinstance(enriched_context.get("_intent_graph_evidence"), Mapping):
+        graph_evidence = dict(enriched_context["_intent_graph_evidence"])
+        payload["intent_graph_evidence"] = graph_evidence
+        payload["evidence_mode"] = graph_evidence.get("evidence_mode")
     if quality is not None:
         payload["answer_quality"] = quality.to_dict()
     if resource_context is not None:
