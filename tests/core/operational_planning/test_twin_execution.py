@@ -275,6 +275,41 @@ def _plan_and_release() -> tuple[OperationalPlan, OntologyObjectRecord, object]:
     return plan, target, release
 
 
+def _response_outcome(
+    *,
+    prediction_id: str,
+    label: ResponseOutcomeLabel,
+    observed_value: float,
+) -> ResponseOutcome:
+    action_id = uuid4()
+    return ResponseOutcome(
+        schema_version="1.0.0",
+        outcome_id=uuid4(),
+        idempotency_key=f"response-outcome:{action_id}",
+        action_id=action_id,
+        event_id=uuid4(),
+        action_type_id="ops.scale-out",
+        target_digest="d" * 64,
+        prediction_id=prediction_id,
+        metric="availability",
+        expected_min=0.9,
+        expected_max=1.0,
+        observed_value=observed_value,
+        predicted_at=NOW,
+        observation_deadline=NOW + timedelta(minutes=5),
+        observed_at=NOW + timedelta(minutes=4),
+        label=label,
+        verification_status=ResponseVerificationStatus.VERIFIED,
+        verification_reason="within_expected_range",
+        execution_mode=Mode.ENFORCE,
+        execution_outcome="success",
+        decision="hil",
+        rollback_succeeded=None,
+        evidence_refs=("metric:1",),
+        recorded_at=NOW + timedelta(minutes=5),
+    )
+
+
 def test_selected_plan_compiles_exact_mutation_plan_and_closes_outcome() -> None:
     plan, target, release = _plan_and_release()
     mutation = compile_selected_mutation_plan(
@@ -314,7 +349,7 @@ def test_selected_plan_compiles_exact_mutation_plan_and_closes_outcome() -> None
         recorded_at=NOW + timedelta(minutes=5),
     )
 
-    closure = close_operational_plan(plan, outcome)
+    closure = close_operational_plan(plan, mutation, outcome)
 
     assert mutation.action_type_ref.name == "ops.scale-out"
     assert mutation.targets[0].revision == 1
@@ -356,6 +391,27 @@ def test_mutation_compiler_rejects_action_mismatch_or_incomplete_plan() -> None:
         )
 
 
+def test_outcome_closure_requires_exact_mutation_prediction() -> None:
+    plan, target, release = _plan_and_release()
+    mutation = compile_selected_mutation_plan(
+        plan=plan,
+        target=target,
+        action_type_ref=release.type_ref(OntologyDeclarationKind.ACTION, "ops.scale-out"),
+        command_ref="provider.scale-out",
+        rollback_command_ref="provider.scale-in",
+        created_at=NOW,
+        max_affected_objects=1,
+    )
+    outcome = _response_outcome(
+        prediction_id="mutation-plan:" + "f" * 64,
+        label=ResponseOutcomeLabel.VERIFIED,
+        observed_value=0.99,
+    )
+
+    with pytest.raises(ValueError, match="does not cite"):
+        close_operational_plan(plan, mutation, outcome)
+
+
 def test_partial_failure_keeps_rollback_and_is_not_reusable() -> None:
     plan, target, release = _plan_and_release()
     mutation = compile_selected_mutation_plan(
@@ -395,7 +451,7 @@ def test_partial_failure_keeps_rollback_and_is_not_reusable() -> None:
         recorded_at=NOW + timedelta(minutes=5),
     )
 
-    closure = close_operational_plan(plan, outcome)
+    closure = close_operational_plan(plan, mutation, outcome)
 
     assert mutation.rollback_effects[0].command_ref == "provider.scale-in"
     assert closure.effect_verified is False

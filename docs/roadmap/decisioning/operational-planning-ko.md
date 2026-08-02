@@ -1,6 +1,6 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: 23b2a255bfd840913145397e59d3a162d29f3969
+translation_source_sha: b9d88789c053eb7198c46d628621630523aa973c
 translation_revised: 2026-08-03
 ---
 # 운영 계획
@@ -188,6 +188,10 @@ Risk evaluation은 current policy, promotion state, role, environment, impact, a
 일곱 safeguard를 다시 검사합니다. Planning evidence는 결과 authority를 유지하거나 낮출 수만
 있습니다. T2가 만든 candidate content도 ActionOption이 되기 전에 일반 mixed-model, grounding,
 schema, policy, verifier check를 통과합니다.
+
+Observed outcome closure에는 하나의 exact evidence chain이 필요합니다. MutationPlan은 선택된
+operational plan을 참조하고, ActionType은 선택된 option과 일치하며, ResponseOutcome prediction id는
+해당 MutationPlan을 참조해야 합니다. 이 chain이 없는 provider acceptance는 결정을 닫지 않습니다.
 
 ## Planning Room
 

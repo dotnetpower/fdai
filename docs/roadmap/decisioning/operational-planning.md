@@ -191,6 +191,10 @@ target revision, and all seven safeguards. Planning evidence can only preserve o
 resulting authority. T2-generated candidate content also passes the ordinary mixed-model,
 grounding, schema, policy, and verifier checks before it can become an ActionOption.
 
+Observed outcome closure requires one exact evidence chain: the MutationPlan cites the selected
+operational plan, its ActionType matches the selected option, and the ResponseOutcome prediction id
+cites that MutationPlan. Provider acceptance without this chain does not close the decision.
+
 ## Planning Room
 
 FDAI Console presents a Planning Room as a read projection over Process events, DecisionCase,

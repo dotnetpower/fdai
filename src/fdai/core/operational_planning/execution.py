@@ -79,9 +79,27 @@ def compile_selected_mutation_plan(
     )
 
 
-def close_operational_plan(plan: OperationalPlan, outcome: ResponseOutcome) -> DecisionClosure:
+def close_operational_plan(
+    plan: OperationalPlan,
+    mutation: MutationPlan,
+    outcome: ResponseOutcome,
+) -> DecisionClosure:
     if not plan.complete:
         raise ValueError("incomplete operational plan cannot close as an executed decision")
+    selected = next(
+        (
+            option
+            for option in plan.decision_case.options
+            if option.option_id == plan.selection.selected_option_id
+        ),
+        None,
+    )
+    if mutation.planner_ref != plan.plan_id:
+        raise ValueError("mutation plan does not cite the operational plan")
+    if selected is None or mutation.action_type_ref.name != selected.action_type:
+        raise ValueError("mutation plan ActionType does not match selected option")
+    if outcome.prediction_id != mutation.plan_id:
+        raise ValueError("response outcome does not cite the mutation plan prediction")
     return close_decision(plan.decision_case, plan.selection, outcome)
 
 
