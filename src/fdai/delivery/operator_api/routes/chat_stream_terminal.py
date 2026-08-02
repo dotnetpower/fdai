@@ -12,6 +12,9 @@ from fdai.core.conversation.answer_plan import AnswerPlan
 from fdai.core.python_task.grounded_code import extract_grounded_code
 from fdai.delivery.operator_api.routes.chat_answer_quality import AnswerQualityResult
 from fdai.delivery.operator_api.routes.chat_evidence_enrichment import _web_search_summary
+from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
+    public_intent_graph_evidence,
+)
 from fdai.delivery.operator_api.routes.chat_route_common import assurance_policy_summary
 from fdai.delivery.operator_api.routes.chat_verification import AnswerVerification
 
@@ -188,7 +191,7 @@ def build_done_payload(
     if isinstance(enriched_context.get("_intent_graph"), Mapping):
         payload["intent_graph"] = dict(enriched_context["_intent_graph"])
     if isinstance(enriched_context.get("_intent_graph_evidence"), Mapping):
-        graph_evidence = dict(enriched_context["_intent_graph_evidence"])
+        graph_evidence = public_intent_graph_evidence(enriched_context["_intent_graph_evidence"])
         payload["intent_graph_evidence"] = graph_evidence
         payload["evidence_mode"] = graph_evidence.get("evidence_mode")
     if quality is not None:

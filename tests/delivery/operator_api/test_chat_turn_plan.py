@@ -149,7 +149,12 @@ class _PlannedResolver:
         return {
             "tool": tool_name,
             "authority": "server_read_model",
-            "result": {"arguments": arguments, "principal_id": principal_id},
+            "result": {
+                "arguments": arguments,
+                "principal_id": principal_id,
+                "secret_detail": "server-context-only",
+                "evidence_refs": [f"tool:{tool_name}"],
+            },
         }
 
 
@@ -492,11 +497,14 @@ def test_chat_routes_execute_hierarchical_intent_graph(stream: bool) -> None:
     ledger = backend.context["_intent_graph_evidence"]
     assert ledger["status"] == "completed"
     assert [goal["goal_id"] for goal in ledger["goals"]] == ["incidents", "kpi"]
+    assert ledger["goals"][0]["evidence"]["result"]["secret_detail"] == "server-context-only"
     assert "_agent_evidence" not in backend.context
     payload = response.text if stream else json.dumps(response.json())
     assert '"intent_graph"' in payload
     assert '"intent_graph_evidence"' in payload
     assert '"evidence_mode":"mixed_grounded"' in payload.replace(" ", "")
+    assert '"evidence_refs"' in payload
+    assert "server-context-only" not in payload
 
 
 @pytest.mark.parametrize("stream", [False, True])

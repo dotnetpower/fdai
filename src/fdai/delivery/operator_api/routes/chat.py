@@ -126,6 +126,9 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
     plan_semantic_turn,
     planner_context_envelope,
 )
+from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
+    public_intent_graph_evidence,
+)
 from fdai.delivery.operator_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
     contextualize_inventory_screen_scope,
@@ -816,7 +819,7 @@ def make_chat_route(
         if isinstance(view_context.get("_intent_graph"), Mapping):
             enriched["intent_graph"] = dict(view_context["_intent_graph"])
         if isinstance(view_context.get("_intent_graph_evidence"), Mapping):
-            graph_evidence = dict(view_context["_intent_graph_evidence"])
+            graph_evidence = public_intent_graph_evidence(view_context["_intent_graph_evidence"])
             enriched["intent_graph_evidence"] = graph_evidence
             enriched["evidence_mode"] = graph_evidence.get("evidence_mode")
         policy_summary = assurance_policy_summary(view_context)
