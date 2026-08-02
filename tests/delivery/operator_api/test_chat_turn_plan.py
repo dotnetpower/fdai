@@ -508,6 +508,51 @@ def test_chat_routes_execute_hierarchical_intent_graph(stream: bool) -> None:
 
 
 @pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        "Are all FDAI services healthy?",
+        "FDAI 서비스가 모두 정상인가?",
+    ],
+)
+def test_hierarchical_planner_owns_multilingual_health_intent(
+    stream: bool,
+    prompt: str,
+) -> None:
+    backend = _AnswerBackend()
+    tools = (
+        TurnTool("list_incidents", "Read incidents.", "read", {"type": "object"}),
+        TurnTool("get_kpi", "Read KPI values.", "read", {"type": "object"}),
+    )
+    planner = _GraphPlanner(tools)
+    route = (
+        make_chat_stream_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=tools,
+            planned_tool_resolver=_PlannedResolver(),
+        )
+        if stream
+        else make_chat_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=tools,
+            planned_tool_resolver=_PlannedResolver(),
+        )
+    )
+
+    response = TestClient(Starlette(routes=[route])).post(
+        "/chat/stream" if stream else "/chat",
+        json={"prompt": prompt},
+    )
+
+    assert response.status_code == 200
+    assert planner.calls == 1
+
+
+@pytest.mark.parametrize("stream", [False, True])
 def test_chat_write_plan_returns_draft_without_calling_answer_backend(stream: bool) -> None:
     backend = _AnswerBackend()
     planner = _Planner(

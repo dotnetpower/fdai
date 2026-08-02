@@ -241,7 +241,7 @@ def make_chat_stream_route(
             resource_followup
             or prepared.inventory_screen_scope
             or prepared.inventory_scope_followup
-            or needs_subscription_health(evidence_prompt)
+            or (turn_planner is None and needs_subscription_health(evidence_prompt))
         )
         view_context = prepared.view_context
         conversation_context = prepared.conversation_context

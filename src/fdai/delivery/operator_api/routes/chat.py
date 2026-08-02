@@ -417,7 +417,7 @@ def make_chat_route(
             resource_followup
             or inventory_screen_scope
             or inventory_scope_followup
-            or needs_subscription_health(evidence_prompt)
+            or (turn_planner is None and needs_subscription_health(evidence_prompt))
         )
         answer_plan = build_answer_plan(
             evidence_prompt,
