@@ -229,7 +229,8 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
     .toBeVisible();
   const investigation = workspace.locator(".deck-investigation.is-settled");
   await expect(investigation).toBeVisible();
-  await expect(investigation.locator(".deck-investigation-phase")).toHaveText("01");
+  await expect(investigation.locator(".deck-investigation-head strong")).toHaveText("Investigation");
+  await expect(investigation.locator(".deck-investigation-badge")).toHaveText("Completed");
   await expect(investigation.locator(".deck-branch-item")).toHaveCount(0);
   await expect(investigation.locator(".deck-investigation-item")).toHaveCount(1);
   await expect(investigation.locator(".deck-investigation-kind-badge")).toHaveText("QUERY");

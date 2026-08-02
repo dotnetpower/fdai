@@ -190,7 +190,7 @@ function TableBlock({
             {rows.map((row, r) => (
               <tr key={r}>
                 {headers.map((_, c) => (
-                  <td key={c}>{row[c] ?? ""}</td>
+                  <td key={c} data-label={headers[c]}>{row[c] ?? ""}</td>
                 ))}
               </tr>
             ))}
