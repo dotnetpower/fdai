@@ -35,14 +35,22 @@
     .ex-window-context { margin-left: auto; font-family: "JetBrains Mono", monospace; font-size: 10.5px; }
 
     .ex-thread { min-height: 640px; padding: 22px clamp(16px, 4vw, 42px) 96px; scroll-padding-bottom: 96px; background: #fff; }
-    .ex-turn { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; }
+    .ex-turn { min-width: 0; }
     .ex-turn + .ex-turn { margin-top: 20px; }
-    .ex-avatar { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; background: var(--cs-navy); color: #fff; font-size: 10px; font-weight: 800; }
-    .ex-avatar.is-deck { background: var(--cs-plum); }
     .ex-turn-body { min-width: 0; }
-    .ex-turn-name { height: 24px; display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: var(--ex-ink); }
-    .ex-turn-time { color: var(--ex-muted); font-weight: 400; font-variant-numeric: tabular-nums; }
-    .ex-user-message { margin: 2px 0 0; color: var(--ex-ink); font-size: 13.5px; line-height: 1.6; }
+    .ex-turn.is-user { width: fit-content; max-width: min(100%, 560px); margin-left: auto; }
+    .ex-turn.is-user .ex-turn-body { display: flex; flex-direction: column; align-items: flex-end; }
+    .ex-turn.is-bragi { width: min(100%, 780px); }
+    .ex-user-bubble { padding: 9px 15px; border-radius: 16px 16px 5px 16px; background: #f4f2f0; color: var(--ex-ink); }
+    .ex-user-message { margin: 0; font-size: 13.5px; line-height: 1.55; }
+    .ex-turn-foot { display: flex; margin-top: 4px; }
+    .ex-turn.is-user .ex-turn-foot { justify-content: flex-end; }
+    .ex-turn.is-bragi .ex-turn-foot { justify-content: flex-start; }
+    .ex-turn-time { color: var(--ex-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+    .ex-agent-head { min-height: 18px; display: flex; align-items: center; gap: 5px; margin-bottom: 6px; }
+    .ex-agent-name { display: inline-flex; align-items: center; gap: 5px; color: var(--ex-ink); font-size: 12px; font-weight: 700; }
+    .ex-agent-icon { width: 16px; height: 16px; flex: 0 0 auto; background: var(--ex-blue); -webkit-mask: url("../../console/public/agent-icons/bragi.svg") center / contain no-repeat; mask: url("../../console/public/agent-icons/bragi.svg") center / contain no-repeat; }
+    .ex-agent-source { max-width: min(60%, 420px); overflow: hidden; margin-left: 8px; padding: 1px 6px; border: 1px solid var(--ex-line); border-radius: 4px; background: #fff; color: var(--ex-muted); font: 10px "JetBrains Mono", monospace; text-overflow: ellipsis; white-space: nowrap; }
     .ex-answer-lead { margin: 2px 0 10px; color: var(--ex-ink); font-size: 13.5px; line-height: 1.55; }
 
     .ex-run { position: relative; display: flex; flex-direction: column; gap: 2px; }
@@ -105,7 +113,7 @@
     .ex-output.is-warning { color: #d5a66a; }
 
     .ex-final { display: none; opacity: 0; transform: translateY(4px); }
-    .ex-final.is-visible { display: grid; animation: ex-arrive .24s ease forwards; }
+    .ex-final.is-visible { display: block; animation: ex-arrive .24s ease forwards; }
     @keyframes ex-arrive { to { opacity: 1; transform: none; } }
     .ex-final-copy { color: var(--ex-ink); font-size: 13.5px; line-height: 1.62; }
     .ex-final-copy p { margin: 0 0 9px; }
@@ -190,9 +198,16 @@
     .ex-observed-signal dd { margin: 0; overflow: hidden; color: var(--ex-ink); font-size: 10px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
     .ex-observed-signal dd::before { content: ""; width: 5px; height: 5px; display: inline-block; margin: 0 6px 1px 0; border-radius: 50%; background: var(--ex-green); }
 
-    .ex-composer { display: flex; align-items: center; gap: 8px; padding: 11px 13px; border-top: 1px solid var(--ex-line); background: #f8f9fa; }
-    .ex-composer-input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--ex-line); border-radius: 6px; background: #fff; color: var(--ex-muted); font-size: 11.5px; }
-    .ex-send { width: 32px; height: 32px; border: 0; border-radius: 6px; background: var(--ex-blue); color: #fff; font-size: 14px; cursor: pointer; }
+    .ex-composer { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 10px; padding: 12px 13px 16px; border-top: 1px solid var(--ex-line); background: #fff; }
+    .ex-composer-scope { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--ex-muted); font-size: 11px; }
+    .ex-composer-scope strong { overflow: hidden; color: var(--ex-ink); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .ex-composer-records::before { content: "\00b7"; margin-right: 8px; }
+    .ex-composer-freshness { margin-left: auto; color: var(--ex-green); font-size: 10px; }
+    .ex-attach { width: 40px; min-height: 40px; border: 1px solid var(--ex-line); border-radius: 10px; background: #fff; color: var(--ex-muted); font: 400 22px/1 var(--cs-font); cursor: pointer; }
+    .ex-composer-input { width: 100%; min-height: 40px; max-height: 120px; box-sizing: border-box; resize: none; padding: 9px 13px; border: 1px solid var(--ex-line); border-radius: 10px; background: #fbfaf9; color: var(--ex-ink); font: 13px/1.5 var(--cs-font); overflow-y: hidden; }
+    .ex-composer-input::placeholder { color: var(--ex-muted); }
+    .ex-send { min-height: 40px; padding: 8px 18px; border: 1px solid var(--ex-blue); border-radius: 8px; background: var(--ex-blue); color: #fff; font: 650 12px var(--cs-font); cursor: pointer; }
+    .ex-attach:focus-visible, .ex-composer-input:focus, .ex-send:focus-visible { outline: 2px solid rgba(53,109,155,.42); outline-offset: 2px; }
     [hidden] { display: none !important; }
     @media (max-width: 720px) {
       .ex-page-header { align-items: flex-start; flex-direction: column; }
@@ -206,6 +221,8 @@
       .ex-step::after { width: 11px; }
       .ex-run::before { top: 22px; }
       .ex-progress-note { margin-top: 12px; }
+      .ex-agent-head { flex-wrap: wrap; gap: 5px 8px; }
+      .ex-agent-source { max-width: calc(100% - 26px); margin-left: 0; }
       .ex-observed > summary { grid-template-columns: minmax(142px, auto) minmax(0, 1fr) 14px; gap: 8px; }
       .ex-observed-duration { display: none; }
       .ex-observed-rail { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 12px; }
@@ -223,6 +240,11 @@
       .ex-observed-claims code { grid-column: 2; }
       .ex-observed-signals { grid-template-columns: 1fr; gap: 8px; }
       .ex-observed-signal, .ex-observed-signal:first-child, .ex-observed-signal:last-child { padding: 0; border-left: 0; }
+      .ex-composer { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 10px 12px 12px; }
+      .ex-composer-scope { flex-wrap: wrap; }
+      .ex-composer-freshness { width: 100%; margin-left: 0; }
+      .ex-attach { justify-self: start; }
+      .ex-send { justify-self: end; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
@@ -250,25 +272,23 @@
         <span class="ex-window-context">task / probe-diagnostics</span>
       </div>
       <div class="ex-thread">
-        <article class="ex-turn">
-          <span class="ex-avatar">MC</span>
+        <article class="ex-turn is-user">
           <div class="ex-turn-body">
-            <div class="ex-turn-name">You <span class="ex-turn-time">10:42</span></div>
-            <p class="ex-user-message">Find why the example API health probe keeps failing. Check Azure, fix the validator script, and run it.</p>
+            <div class="ex-user-bubble"><p class="ex-user-message">Find why the example API health probe keeps failing. Check Azure, fix the validator script, and run it.</p></div>
+            <div class="ex-turn-foot"><time class="ex-turn-time">10:42</time></div>
           </div>
         </article>
-        <article class="ex-turn">
-          <span class="ex-avatar is-deck">BR</span>
+        <article class="ex-turn is-bragi">
           <div class="ex-turn-body">
-            <div class="ex-turn-name">Bragi <span class="ex-turn-time">10:42</span></div>
+            <header class="ex-agent-head"><span class="ex-agent-name"><span class="ex-agent-icon" aria-hidden="true"></span>Bragi</span><span class="ex-agent-source">investigation / probe-diagnostics</span></header>
             <p class="ex-answer-lead">I will check the deployed state first, then follow the local failure through the validator before changing anything.</p>
             <div class="ex-run" id="ex-run" aria-live="polite"></div>
+            <div class="ex-turn-foot"><time class="ex-turn-time">10:42</time></div>
           </div>
         </article>
-        <article class="ex-turn ex-final" id="ex-final">
-          <span class="ex-avatar is-deck">BR</span>
+        <article class="ex-turn is-bragi ex-final" id="ex-final">
           <div class="ex-turn-body">
-            <div class="ex-turn-name">Bragi <span class="ex-turn-time">10:43</span></div>
+            <header class="ex-agent-head"><span class="ex-agent-name"><span class="ex-agent-icon" aria-hidden="true"></span>Bragi</span><span class="ex-agent-source">llm:narrator-gpt-4-1-mini · 9000ms · 6 events</span></header>
             <div class="ex-final-copy">
               <p>The probe endpoint is healthy in Azure. The local validator was treating the expected <code>204</code> response as a failure because it accepted only <code>200</code>.</p>
               <p>I updated <code>scripts/ops/check_probe.py</code> to accept the full successful response range and ran the focused checks. All four passed; no cloud resource was changed.</p>
@@ -389,12 +409,15 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
                 </div>
               </details>
             </div>
+            <div class="ex-turn-foot"><time class="ex-turn-time">10:43</time></div>
           </div>
         </article>
       </div>
       <footer class="ex-composer">
-        <div class="ex-composer-input">Ask a follow-up or review a completed step...</div>
-        <button class="ex-send" type="button" aria-label="Send message" title="Send message">&#8593;</button>
+        <div class="ex-composer-scope"><strong>Dashboard</strong><span class="ex-composer-records">29 grounded records</span><span class="ex-composer-freshness">Context current</span></div>
+        <button class="ex-attach" type="button" aria-label="Attach evidence" title="Attach evidence">+</button>
+        <textarea class="ex-composer-input" rows="1" aria-label="Message" placeholder="Ask anything about Dashboard, or type / for commands"></textarea>
+        <button class="ex-send" type="button">Send</button>
       </footer>
     </section>
   </main>
