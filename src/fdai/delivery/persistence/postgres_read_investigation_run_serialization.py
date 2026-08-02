@@ -22,6 +22,7 @@ from fdai.core.read_investigation.models import (
 from fdai.shared.providers.read_investigation import (
     ActorKind,
     EvidenceFreshness,
+    EvidenceLimitationKind,
     EvidenceStatus,
     ReadEvidenceEnvelope,
     ReadEvidenceRecord,
@@ -266,19 +267,37 @@ def _evidence_to_dict(envelope: ReadEvidenceEnvelope) -> dict[str, object]:
         "truncated": envelope.truncated,
         "records": [_record_to_dict(item) for item in envelope.records],
         "evidence_refs": list(envelope.evidence_refs),
+        "limitations": [item.value for item in envelope.limitations],
+        "truncation_reason": (
+            envelope.truncation_reason.value if envelope.truncation_reason is not None else None
+        ),
     }
 
 
 def _evidence(raw: dict[str, Any]) -> ReadEvidenceEnvelope:
+    truncated = bool(raw["truncated"])
+    raw_reason = raw.get("truncation_reason")
+    truncation_reason = (
+        EvidenceLimitationKind(str(raw_reason))
+        if raw_reason is not None
+        else EvidenceLimitationKind.UNSPECIFIED
+        if truncated
+        else None
+    )
+    limitations = tuple(EvidenceLimitationKind(str(item)) for item in raw.get("limitations", []))
+    if truncation_reason is not None and truncation_reason not in limitations:
+        limitations = (*limitations, truncation_reason)
     return ReadEvidenceEnvelope(
         status=EvidenceStatus(str(raw["status"])),
         authority=str(raw["authority"]),
         resource_ref=str(raw["resource_ref"]),
         observed_at=datetime.fromisoformat(str(raw["observed_at"])),
         freshness=EvidenceFreshness(str(raw["freshness"])),
-        truncated=bool(raw["truncated"]),
+        truncated=truncated,
         records=tuple(_record(_mapping(item)) for item in raw.get("records", [])),
         evidence_refs=tuple(str(item) for item in raw.get("evidence_refs", [])),
+        limitations=limitations,
+        truncation_reason=truncation_reason,
     )
 
 

@@ -368,6 +368,12 @@ the grounded terminal status.
 
 ## Evidence contract
 
+Every envelope preserves bounded source limitations as stable machine values. Truncated evidence
+must name exactly one primary reason such as `result_limit`, `byte_limit`, or `source_cutoff`, and
+that reason must also appear in the limitation set. Provider failure records
+`source_unavailable` without copying provider error text. Legacy persisted payloads that predate
+the reason field replay as `unspecified`; they never become complete evidence silently.
+
 Providers return a cloud-provider-neutral envelope. Raw Azure responses and raw CLI output do not
 enter narrator context.
 

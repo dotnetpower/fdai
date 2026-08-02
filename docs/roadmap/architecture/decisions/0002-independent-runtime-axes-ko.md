@@ -1,7 +1,7 @@
 ---
 title: ADR-0002 Independent Runtime and Customization Axes
 translation_of: 0002-independent-runtime-axes.md
-translation_source_sha: d01d7dc6440d59f1243cb554471331eef0204f74
+translation_source_sha: 39fdd82082bb4198aa49e122166e168684c20210
 translation_revised: 2026-08-02
 ---
 # ADR-0002: 독립적인 Runtime 및 Customization 축
@@ -49,6 +49,8 @@ FDAI는 다음 축을 독립 configuration으로 취급합니다.
 - Development deployment는 production과 같은 risk, approval, blast-radius, rollback, audit gate를
   통과할 때 promoted action을 enforce mode로 실행할 수 있습니다.
 - Production deployment도 어떤 action이든 shadow mode로 유지할 수 있습니다.
+- Evidence profile은 source limitation 및 truncation reason을 typed value로 보존합니다. Execution
+  venue 또는 environment 변경으로 partial이나 unavailable evidence가 complete evidence로 바뀔 수 없습니다.
 - Fork는 모든 environment에 deployment가 없거나 여러 개 있을 수 있습니다. Upstream도 직접
   deploy할 수 있습니다.
 - Fork detection은 upstream framework surface를 보호합니다. Runtime behavior, autonomy, identity,

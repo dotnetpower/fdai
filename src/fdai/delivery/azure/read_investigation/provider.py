@@ -13,6 +13,7 @@ from fdai.delivery.azure.read_investigation.transport import AzureReadTransport,
 from fdai.shared.providers.read_investigation import (
     ActorKind,
     EvidenceFreshness,
+    EvidenceLimitationKind,
     EvidenceStatus,
     ReadEvidenceAttempt,
     ReadEvidenceEnvelope,
@@ -236,7 +237,9 @@ class AzureReadInvestigationProvider:
             raise LookupError("resolved resource binding is unavailable")
         started = self._monotonic()
         rows = await fetch(provider_ref)
-        records, truncated = _normalize_records(tool_id, rows, limits)
+        records, limitations = _normalize_records(tool_id, rows, limits)
+        truncation_reason = limitations[0] if limitations else None
+        truncated = truncation_reason is not None
         authority, operation_class = _authority(tool_id)
         evidence = ReadEvidenceEnvelope(
             status=EvidenceStatus.MATCHED if records else EvidenceStatus.NONE,
@@ -247,6 +250,8 @@ class AzureReadInvestigationProvider:
             truncated=truncated,
             records=records,
             evidence_refs=tuple(_evidence_ref(authority, record) for record in records),
+            limitations=limitations,
+            truncation_reason=truncation_reason,
         )
         return ReadEvidenceAttempt(
             tool_id=tool_id,
@@ -330,27 +335,27 @@ def _normalize_records(
     tool_id: ReadToolId,
     rows: Sequence[AzureRow],
     limits: ReadToolLimits,
-) -> tuple[tuple[ReadEvidenceRecord, ...], bool]:
+) -> tuple[tuple[ReadEvidenceRecord, ...], tuple[EvidenceLimitationKind, ...]]:
     records: list[ReadEvidenceRecord] = []
     used_bytes = 0
-    truncated = False
+    limitations: list[EvidenceLimitationKind] = []
     for row in rows:
         if row.get("_truncated") is True:
-            truncated = True
+            limitations.append(EvidenceLimitationKind.SOURCE_CUTOFF)
             continue
         record = _normalize_record(tool_id, row)
         if record is None:
             continue
         record_bytes = len(repr(record).encode("utf-8"))
-        if (
-            len(records) >= limits.max_results
-            or used_bytes + record_bytes > limits.max_output_bytes
-        ):
-            truncated = True
+        if len(records) >= limits.max_results:
+            limitations.append(EvidenceLimitationKind.RESULT_LIMIT)
+            break
+        if used_bytes + record_bytes > limits.max_output_bytes:
+            limitations.append(EvidenceLimitationKind.BYTE_LIMIT)
             break
         records.append(record)
         used_bytes += record_bytes
-    return tuple(records), truncated
+    return tuple(records), tuple(dict.fromkeys(limitations))
 
 
 def _normalize_record(tool_id: ReadToolId, row: AzureRow) -> ReadEvidenceRecord | None:

@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 439cd1cf718dcc96ad023cc87042f7c050000a56
+translation_source_sha: 5859324d314e3147b40c425b31776525b9d0a045
 translation_revised: 2026-08-04
 ---
 
@@ -360,6 +360,12 @@ finding이 없는 partial result는 `unverified`로 유지됩니다. 응답은 �
 status를 유지합니다.
 
 ## Evidence 계약
+
+모든 envelope은 bounded source limitation을 stable machine value로 보존합니다. Truncated evidence는
+`result_limit`, `byte_limit`, `source_cutoff` 같은 primary reason 하나를 지정해야 하며 해당 reason은
+limitation set에도 있어야 합니다. Provider failure는 provider error text를 복사하지 않고
+`source_unavailable`을 기록합니다. Reason field 이전의 legacy persisted payload는 `unspecified`로
+replay되며 complete evidence로 조용히 바뀌지 않습니다.
 
 Provider는 cloud-provider-neutral envelope을 반환합니다. Raw Azure response 및 raw CLI output은
 narrator context에 들어가지 않습니다.

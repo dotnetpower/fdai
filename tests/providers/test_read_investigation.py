@@ -7,6 +7,7 @@ import pytest
 from fdai.shared.providers.read_investigation import (
     ActorKind,
     EvidenceFreshness,
+    EvidenceLimitationKind,
     EvidenceStatus,
     ReadEvidenceEnvelope,
     ReadEvidenceRecord,
@@ -121,3 +122,37 @@ def test_network_evidence_details_are_bounded_and_unique() -> None:
             records=(record,),
             evidence_refs=(),
         )
+
+
+def test_truncated_evidence_requires_a_bounded_reason() -> None:
+    record = ReadEvidenceRecord(
+        occurred_at=NOW,
+        status="succeeded",
+        state="running",
+    )
+
+    with pytest.raises(ValueError, match="truncation_reason"):
+        ReadEvidenceEnvelope(
+            status=EvidenceStatus.MATCHED,
+            authority="resource_state",
+            resource_ref="resource:one",
+            observed_at=NOW,
+            freshness=EvidenceFreshness.LIVE,
+            truncated=True,
+            records=(record,),
+            evidence_refs=("evidence:one",),
+        )
+
+    envelope = ReadEvidenceEnvelope(
+        status=EvidenceStatus.MATCHED,
+        authority="resource_state",
+        resource_ref="resource:one",
+        observed_at=NOW,
+        freshness=EvidenceFreshness.LIVE,
+        truncated=True,
+        records=(record,),
+        evidence_refs=("evidence:one",),
+        limitations=(EvidenceLimitationKind.RESULT_LIMIT,),
+        truncation_reason=EvidenceLimitationKind.RESULT_LIMIT,
+    )
+    assert envelope.truncation_reason is EvidenceLimitationKind.RESULT_LIMIT

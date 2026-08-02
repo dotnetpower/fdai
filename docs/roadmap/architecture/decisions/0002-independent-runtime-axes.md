@@ -45,6 +45,8 @@ No value on one axis selects a value on another axis. In particular:
 - A development deployment may run promoted actions in enforce mode when the same production risk,
   approval, blast-radius, rollback, and audit gates pass.
 - A production deployment may keep any action in shadow mode.
+- Evidence profiles preserve source limitations and truncation reasons as typed values. Changing
+  execution venue or environment cannot turn partial or unavailable evidence into complete evidence.
 - A fork may have zero or many deployments in any environment. Upstream may also be deployed
   directly.
 - Fork detection protects the upstream framework surface. It never changes runtime behavior,
