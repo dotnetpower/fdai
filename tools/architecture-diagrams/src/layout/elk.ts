@@ -821,10 +821,16 @@ function orthogonalShortestRouteSection(
         x: sourceCenter.x,
         y: targetIsBelow ? source.y + source.height : source.y,
       },
-      bendPoints: [{
-        x: targetCenter.x,
-        y: targetIsBelow ? source.y + source.height : source.y,
-      }],
+      bendPoints: [
+        {
+          x: sourceCenter.x,
+          y: (source.y + source.height + target.y) / 2,
+        },
+        {
+          x: targetCenter.x,
+          y: (source.y + source.height + target.y) / 2,
+        },
+      ],
       endPoint: {
         x: targetCenter.x,
         y: targetIsBelow ? target.y : target.y + target.height,

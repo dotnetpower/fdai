@@ -291,11 +291,23 @@ test("Azure resource network flow routes every compound edge", async () => {
     spec.edges.find((edge) => edge.id === "gateway-to-ingestion")!.route,
     "orthogonal-shortest",
   );
-  assert.equal(gatewayToIngestion.bendPoints?.length, 1);
+  assert.equal(gatewayToIngestion.bendPoints?.length, 2);
   assert.equal(
     gatewayToIngestion.startPoint.y,
     layout.nodes.get("application-gateway")!.y +
       layout.nodes.get("application-gateway")!.height,
+  );
+  assert.equal(
+    gatewayToIngestion.startPoint.x,
+    gatewayToIngestion.bendPoints![0]!.x,
+  );
+  assert.equal(
+    gatewayToIngestion.bendPoints![0]!.y,
+    gatewayToIngestion.bendPoints![1]!.y,
+  );
+  assert.equal(
+    gatewayToIngestion.bendPoints![1]!.x,
+    gatewayToIngestion.endPoint.x,
   );
   assert.equal(
     gatewayToIngestion.endPoint.y,
