@@ -1017,12 +1017,14 @@
       "paths": [
         "docs/roadmap/decisioning/operational-planning*.md",
         "src/fdai/core/operational_planning/**",
-        "src/fdai/delivery/operator_api/routes/operational_planning.py",
-        "console/src/routes/operational-planning*",
+        "src/fdai/core/views/engine.py",
+        "src/fdai/delivery/operator_api/routes/process_views.py",
+        "console/src/routes/processes.model*",
+        "console/src/routes/processes.tsx",
         "rule-catalog/workflows/operational-planning.yaml",
-        "rule-catalog/views/operational-planning.yaml",
         "tests/core/operational_planning/**",
-        "tests/delivery/operator_api/test_operational_planning.py",
+        "tests/core/views/test_views.py",
+        "tests/delivery/operator_api/test_process_views.py",
         "tests/scenarios/operational-planning/**"
       ],
       "must_read": [
@@ -1046,8 +1048,8 @@
         "docs/roadmap/interfaces/operator-console.md"
       ],
       "validate": [
-        "uv run pytest -q --no-cov tests/core/operational_planning tests/delivery/operator_api/test_operational_planning.py",
-        "npm --prefix console test -- --run src/routes/operational-planning.test.tsx",
+        "uv run pytest -q --no-cov tests/core/operational_planning tests/core/views/test_views.py tests/delivery/operator_api/test_process_views.py",
+        "npm --prefix console test -- --run src/routes/processes.model.test.ts",
         "python3 scripts/quality/architecture/check-document-size.py"
       ]
     },
