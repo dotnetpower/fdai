@@ -22,6 +22,7 @@ from fdai.delivery.operator_api.prod import (
     build_prod_app,
     build_prod_read_model,
 )
+from fdai.delivery.operator_api.routes.chat_agent_delegate import PantheonChatDelegate
 from fdai.delivery.persistence import PostgresReadInvestigationRunStore
 
 _GOOD_ENV: Final[dict[str, str]] = {
@@ -256,6 +257,28 @@ def test_build_prod_app_wires_remote_agent_delegate_with_kafka(
     shutdown_callbacks = captured_config.shutdown_callbacks  # type: ignore[attr-defined]
     assert any(getattr(callback, "__self__", None) is delegate for callback in startup_callbacks)
     assert any(getattr(callback, "__self__", None) is delegate for callback in shutdown_callbacks)
+
+
+def test_build_prod_app_never_wires_direct_pantheon_delegate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_config = None
+
+    def capture_build_app(**kwargs: object) -> Starlette:
+        nonlocal captured_config
+        captured_config = kwargs["config"]
+        return Starlette()
+
+    monkeypatch.setattr(
+        "fdai.delivery.operator_api.production.factory.build_app",
+        capture_build_app,
+    )
+
+    build_prod_app(dict(_GOOD_ENV))
+
+    assert captured_config is not None
+    delegate = captured_config.chat_agent_delegate  # type: ignore[attr-defined]
+    assert not isinstance(delegate, PantheonChatDelegate)
 
 
 def test_build_prod_app_rejects_unimplemented_identity_provider() -> None:
