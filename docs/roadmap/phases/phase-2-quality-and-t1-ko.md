@@ -1,7 +1,7 @@
 ---
 title: "Phase 2 - 지속적 규칙 업데이트, Quality Gate, T1"
 translation_of: phase-2-quality-and-t1.md
-translation_source_sha: 6eda55ed2d07964afae12cd2f0affe4720475598
+translation_source_sha: 9f30d0740d1c0c43968a9a143994e662b2ba5abf
 translation_revised: 2026-07-21
 ---
 
@@ -19,6 +19,9 @@ translation_revised: 2026-07-21
 > risk gate 및 해당 deterministic tests는 구현되어 있습니다. Production source watcher에서
 > GitHub PR delivery까지의 composition, P0 baseline 대비 측정된 T1/auto-resolution exit evidence,
 > Assurance Twin의 model-backed NL compiler와 discovery-loop binding은 아직 완료되지 않았습니다.
+> 현재 case, topology, owner, policy, dry-run, idempotency 및 rollback evidence가 있는 T1 reuse는
+> 이제 typed Action이 되어 execution authorization과 unified risk gate를 통과하며, 이 receipt가
+> 없는 legacy reuse는 inert shadow log로 남습니다.
 > 아래 percentage와 Exit 기준은 목표이며 현재 달성 주장으로 읽으면 안 됩니다.
 
 ## 산출물

@@ -13,6 +13,7 @@ from fdai.core.executor.action_builder import (
 )
 from fdai.core.quality_gate import QualityCandidate
 from fdai.core.tiers.t0_deterministic.models import Finding
+from fdai.core.tiers.t1_lightweight import LearnedAction
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.shared.contracts.models import (
     BlastRadiusScope,
@@ -145,6 +146,31 @@ def test_finding_context_stays_out_of_action_params() -> None:
     action = builder.build_from_finding(event=_event(), finding=_finding(rule), rule=rule)
     assert action.params == {"tag_name": "owner"}
     assert "_finding_context" not in action.params
+
+
+def test_builds_valid_action_from_t1_learned_action() -> None:
+    builder = ActionBuilder(action_types_by_name=_shipped_action_types())  # type: ignore[arg-type]
+    learned = LearnedAction(
+        signature="learned-signature",
+        rule_id="r1",
+        action_type="remediate.tag-add",
+        params={},
+        incident_id="incident-1",
+        success_rate=0.99,
+        reuse_count=50,
+    )
+
+    action = builder.build_from_learned_action(
+        event=_event(),
+        learned=learned,
+        target_resource_ref="resource-1",
+    )
+
+    assert action.action_type == "remediate.tag-add"
+    assert action.target_resource_ref == "resource-1"
+    assert action.idempotency_key == "e1::t1::learned-signature::resource-1"
+    assert action.citing_rules == ["r1"]
+    assert action.mode is Mode.SHADOW
 
 
 def test_unknown_remediates_raises_action_build_error() -> None:
