@@ -78,6 +78,7 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
     IntentGraph,
     IntentGraphPlanner,
     apply_intent_graph_to_answer_plan,
+    plan_semantic_turn,
 )
 from fdai.delivery.operator_api.routes.chat_model_trace import (
     activate_model_trace,
@@ -361,10 +362,12 @@ def make_chat_stream_route(
                 if turn_planner is not None and not deterministic_followup:
                     semantic_plan_timing = turn_timing.begin("semantic_plan")
                     try:
-                        semantic_plan = await turn_planner.plan_turn(
+                        semantic_plan = await plan_semantic_turn(
+                            turn_planner,
                             prompt=clean_prompt,
                             tools=turn_tools,
                             history=history,
+                            attachments=view_context.get("_attachments"),
                         )
                     except Exception as exc:  # noqa: BLE001 - shadow plan degrades closed
                         turn_timing.complete(semantic_plan_timing, status="degraded")

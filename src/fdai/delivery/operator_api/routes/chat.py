@@ -123,6 +123,7 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
     IntentGraph,
     IntentGraphPlanner,
     apply_intent_graph_to_answer_plan,
+    plan_semantic_turn,
 )
 from fdai.delivery.operator_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
@@ -447,10 +448,12 @@ def make_chat_route(
             semantic_plan = None
             if turn_planner is not None and not deterministic_followup:
                 try:
-                    semantic_plan = await turn_planner.plan_turn(
+                    semantic_plan = await plan_semantic_turn(
+                        turn_planner,
                         prompt=clean_prompt,
                         tools=turn_tools,
                         history=history,
+                        attachments=view_context.get("_attachments"),
                     )
                 except Exception as exc:  # noqa: BLE001 - shadow plan degrades closed
                     _LOG.warning(

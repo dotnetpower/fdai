@@ -160,7 +160,7 @@ class OpenAiCompatibleChatBackend:
         self,
         *,
         system_prompt: str,
-        user_content: str,
+        user_content: str | list[dict[str, object]],
         schema_name: str,
         schema: Mapping[str, object],
         max_tokens: int,

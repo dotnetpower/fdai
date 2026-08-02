@@ -170,6 +170,43 @@ async def test_backend_planner_sends_strict_graph_schema_and_capabilities() -> N
     assert "query_subscription_health" in user_content
 
 
+@pytest.mark.asyncio
+async def test_backend_planner_projects_validated_images_into_intent_input() -> None:
+    backend = _StructuredBackend(
+        _graph(
+            _goal(
+                "diagnose_image",
+                capability=None,
+                evidence_mode="model_knowledge",
+                intent="diagnosis",
+            )
+        )
+    )
+
+    await BackendIntentGraphPlanner(backend).plan_turn_with_context(
+        prompt="Analyze the attached service diagram.",
+        tools=_tools(),
+        history=(),
+        attachments=[
+            {
+                "name": "diagram.png",
+                "media_type": "image/png",
+                "data_url": "data:image/png;base64,cG5n",
+                "byte_size": 3,
+            }
+        ],
+    )
+
+    content = backend.call["user_content"]
+    assert isinstance(content, list)
+    assert content[0]["type"] == "text"
+    assert "Analyze the attached service diagram." in content[0]["text"]
+    assert content[1] == {
+        "type": "image_url",
+        "image_url": {"url": "data:image/png;base64,cG5n"},
+    }
+
+
 def test_model_knowledge_goal_needs_no_capability_or_arguments() -> None:
     graph = parse_intent_graph(
         _graph(

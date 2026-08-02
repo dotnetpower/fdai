@@ -14,10 +14,12 @@ from jsonschema import Draft202012Validator
 from fdai.core.conversation.answer_plan import AnswerIntent, AnswerPlan
 from fdai.delivery.operator_api.routes.chat_turn_plan import (
     StructuredCompletionBackend,
+    TurnPlan,
     TurnTool,
     _argument_union_schema,
     apply_answer_intent_to_plan,
 )
+from fdai.delivery.operator_api.routes.chat_vision_prompt import vision_user_content
 
 
 class ActionPosture(StrEnum):
@@ -116,10 +118,26 @@ class BackendIntentGraphPlanner:
         tools: Sequence[TurnTool],
         history: Sequence[Mapping[str, str]],
     ) -> IntentGraph:
+        return await self.plan_turn_with_context(
+            prompt=prompt,
+            tools=tools,
+            history=history,
+            attachments=None,
+        )
+
+    async def plan_turn_with_context(
+        self,
+        *,
+        prompt: str,
+        tools: Sequence[TurnTool],
+        history: Sequence[Mapping[str, str]],
+        attachments: object,
+    ) -> IntentGraph:
         bounded_tools = tuple(tools[:_MAX_CAPABILITIES])
+        planner_input = _planner_input(prompt, bounded_tools, history)
         raw = await self._backend.complete_structured(
             system_prompt=INTENT_GRAPH_SYSTEM_PROMPT,
-            user_content=_planner_input(prompt, bounded_tools, history),
+            user_content=vision_user_content(planner_input, attachments),
             schema_name="fdai_intent_graph_v2",
             schema=intent_graph_schema(bounded_tools),
             max_tokens=1_536,
@@ -135,6 +153,33 @@ class IntentGraphPlanner(Protocol):
         tools: Sequence[TurnTool],
         history: Sequence[Mapping[str, str]],
     ) -> IntentGraph: ...
+
+
+async def plan_semantic_turn(
+    planner: object,
+    *,
+    prompt: str,
+    tools: Sequence[TurnTool],
+    history: Sequence[Mapping[str, str]],
+    attachments: object,
+) -> IntentGraph | TurnPlan:
+    """Invoke context-aware graph planning or one validated legacy planner."""
+    contextual = getattr(planner, "plan_turn_with_context", None)
+    if callable(contextual):
+        result = await contextual(
+            prompt=prompt,
+            tools=tools,
+            history=history,
+            attachments=attachments,
+        )
+    else:
+        plan_turn = getattr(planner, "plan_turn", None)
+        if not callable(plan_turn):
+            raise TypeError("semantic planner does not expose plan_turn")
+        result = await plan_turn(prompt=prompt, tools=tools, history=history)
+    if not isinstance(result, IntentGraph | TurnPlan):
+        raise ValueError("semantic planner returned an invalid plan")
+    return result
 
 
 INTENT_GRAPH_SYSTEM_PROMPT: Final = """You interpret one FDAI operator turn.
@@ -414,5 +459,6 @@ __all__ = [
     "IntentGraphPlanner",
     "apply_intent_graph_to_answer_plan",
     "intent_graph_schema",
+    "plan_semantic_turn",
     "parse_intent_graph",
 ]
