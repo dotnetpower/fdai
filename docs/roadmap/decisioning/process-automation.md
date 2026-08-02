@@ -477,6 +477,12 @@ Operators can refresh the read projection after a CLI or ChatOps command advance
 the Process. A workflow-specific ViewSpec, when available, appears below the
 runtime journal. The screen exposes no start, approve, retry, or execute button.
 
+An operational-planning Process also folds its append-only `planning.phase.recorded` child events
+into a Planning Room inside the same detail route. The projection shows accountable agents,
+candidate ActionTypes, expected ranges, constraint and simulation receipts, rejected reasons,
+selection margin, and human-review status. It is rebuildable from the journal, adds no route, and
+contains no approval or execution control.
+
 The architecture map remains separate. It visualizes the actual infrastructure
 topology returned by the inventory graph. Process views visualize workflow state
 and domain projections. Neither surface is the source of truth for the other.

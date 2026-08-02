@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: bcdcdeeefc121e15a62f06fb5de5bfaf990cc372
-translation_revised: 2026-08-02
+translation_source_sha: 1ecdfeb4f339709528efe1478efd26a42ae40943
+translation_revised: 2026-08-03
 ---
 
 # 프로세스 자동화(Process Automation)
@@ -456,6 +456,12 @@ Workflow -> Process snapshot + journal -> ontology projection
 projection 을 새로 고칠 수 있습니다. Workflow-specific ViewSpec 이 있으면 runtime
 journal 아래에 표시됩니다. 화면은 start, approve, retry, execute button 을 제공하지
 않습니다.
+
+Operational-planning Process는 append-only `planning.phase.recorded` child event를 동일한 detail
+route의 Planning Room으로 fold합니다. Projection은 accountable agent, candidate ActionType,
+expected range, constraint 및 simulation receipt, rejected reason, selection margin, 사람 검토
+상태를 보여 줍니다. Journal에서 rebuild할 수 있고 route를 추가하지 않으며 approval 또는 execution
+control을 포함하지 않습니다.
 
 Architecture map 은 별도입니다. Inventory graph 가 반환한 실제 infrastructure
 topology 를 시각화합니다. Process view 는 workflow state 및 domain projection 을

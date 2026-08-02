@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: eba589769a896b62abcf6142eb28f0597eb8f18d
+translation_source_sha: 0759f57aed7268d38d0bfcb93f292efb2deda6a7
 translation_revised: 2026-08-03
 ---
 
@@ -76,6 +76,11 @@ Operations에는 Muninn의 durable StateSnapshot만 사용하는 감지 준비�
 브라우저는 AKS를 probe하거나 대체 판정을 만들지 않습니다. 각 target은 Architecture resource로,
 promotion 관련 count는 Promotion gates로 연결됩니다. 성공한 HTTP 응답이 strict decoding을
 통과하지 못하면 loading skeleton에 머물지 않고 error를 렌더링합니다.
+
+Processes detail route는 동일한 authoritative Process journal에서 Planning Room을 조건부로
+렌더링합니다. Strict decoder는 모순된 phase count, duplicate candidate, invalid selection,
+non-finite effect range를 거부합니다. 일반 Process는 `planning: null`인 기존 view를 유지합니다.
+Planning Room은 read-only이며 action, approval, retry control을 노출하지 않습니다.
 
 활동 view는 durable audit 행과 browser-session runtime frame을 하나의 bounded chronological log로
 표시합니다. 각 행은 source label을 유지하므로 runtime frame을 durable audit evidence로 표시하지

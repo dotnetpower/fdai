@@ -1,6 +1,6 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: 4b0c3e2bdda500056b0f0c8d57a1652ecfd98a0a
+translation_source_sha: ea3e358e49749676d40364f932ba8ccd80eda6e1
 translation_revised: 2026-08-03
 ---
 # 운영 계획
@@ -24,7 +24,8 @@ DecisionCase, ActionOption, typed ontology function, Assurance Twin을 재사용
 > enrich할 수 있습니다. Programmatic simulator는 exact reviewed source를 bounded pipeline sandbox에서
 > 실행하고 timeout 또는 malformed output을 unscorable로 처리합니다. P5는 read-only Twin adapter,
 > exact selected-option MutationPlan compilation, independent ResponseOutcome closure를 추가합니다.
-> P6-P7은 Console, frozen scenario, staging proof, shadow measurement를 계속 연결해야 합니다.
+> P6는 기존 Process detail route 안에 strict read-only Planning Room projection을 추가합니다.
+> P7은 frozen scenario, staging proof, shadow measurement를 계속 연결해야 합니다.
 
 ## 한눈에 보는 설계
 

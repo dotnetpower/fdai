@@ -187,6 +187,37 @@ async def test_process_journal_returns_snapshot_and_append_only_events() -> None
     assert response.json()["process"]["has_view"] is True
     assert response.json()["count"] == 1
     assert response.json()["events"][0]["kind"] == "process.created"
+    assert response.json()["planning"] is None
+
+
+async def test_process_journal_projects_planning_child_events() -> None:
+    store = await _process_store()
+    await store.append_event(
+        ProcessEvent(
+            event_id="planning-context",
+            process_id="process-1",
+            kind=ProcessEventKind.PLANNING_PHASE_RECORDED,
+            idempotency_key="process-1:planning:context_frozen",
+            recorded_at=_NOW,
+            correlation_id="corr-1",
+            payload={
+                "planning_phase": "context_frozen",
+                "actor_agent": "Forseti",
+                "evidence_refs": ["context:1"],
+            },
+        )
+    )
+    engine = ViewEngine(
+        specs=(),
+        reports=cast(ReportEngine, _Reports()),
+        processes=store,
+    )
+
+    journal = await engine.process_journal("process-1")
+
+    assert journal["planning"]["current_phase"] == "context_frozen"
+    assert journal["planning"]["phase_count"] == 1
+    assert journal["planning"]["plan"] is None
 
 
 async def test_process_view_rejects_bad_or_missing_id() -> None:

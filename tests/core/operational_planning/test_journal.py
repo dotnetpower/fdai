@@ -8,6 +8,7 @@ from fdai.core.operational_planning import (
     PlanningPhase,
     PlanningPhaseOrderError,
     append_planning_phase,
+    project_planning_room,
 )
 from fdai.shared.providers.process_runtime import (
     ProcessEvent,
@@ -102,3 +103,9 @@ async def test_out_of_order_or_post_terminal_phase_fails_closed() -> None:
         await _append(store, snapshot, phase)
     with pytest.raises(PlanningPhaseOrderError, match="terminal"):
         await _append(store, snapshot, PlanningPhase.ABSTAINED)
+
+
+async def test_planning_room_projection_is_absent_without_planning_events() -> None:
+    store, snapshot = await _process()
+
+    assert project_planning_room(await store.events(snapshot.process_id)) is None

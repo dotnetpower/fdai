@@ -22,6 +22,7 @@ from .models import (
     SimulationStatus,
     SpecialistContribution,
 )
+from .projection import operational_plan_event_payload, project_planning_room
 from .selection import build_operational_plan
 from .simulation import (
     PlanningProgram,
@@ -56,4 +57,6 @@ __all__ = [
     "build_operational_plan",
     "close_operational_plan",
     "compile_selected_mutation_plan",
+    "operational_plan_event_payload",
+    "project_planning_room",
 ]

@@ -123,12 +123,51 @@ describe("process view route model", () => {
         payload: { outcome: "success" },
       }],
       count: 1,
+      planning: null,
     });
 
     expect(decoded.process.has_view).toBe(false);
     expect(decoded.events[0]?.step_id).toBe("inspect");
     expect(decoded.events[0]?.payload["outcome"]).toBe("success");
+    expect(decoded.planning).toBeNull();
     expect(() => assertProcessDetailSelection("process-1", decoded, null)).not.toThrow();
+  });
+
+  it("decodes a bounded Planning Room projection", () => {
+    const decoded = decodeProcessJournal({
+      ...validJournal(),
+      planning: validPlanningRoom(),
+    });
+
+    expect(decoded.planning?.current_phase).toBe("selected");
+    expect(decoded.planning?.plan?.selected_option_id).toBe("capacity:scale_up");
+    expect(decoded.planning?.plan?.candidates[0]?.proposing_agents).toEqual(["Freyr"]);
+    expect(decoded.planning?.plan?.candidates[0]?.expected_effects[0]?.expected_min).toBe(0.99);
+  });
+
+  it("rejects contradictory Planning Room projections", () => {
+    const planning = validPlanningRoom();
+    expect(() => decodeProcessJournal({
+      ...validJournal(),
+      planning: { ...planning, phase_count: 2 },
+    })).toThrow(/phase_count/);
+    expect(() => decodeProcessJournal({
+      ...validJournal(),
+      planning: {
+        ...planning,
+        plan: { ...planning.plan, selected_option_id: "missing" },
+      },
+    })).toThrow(/selection MUST reference/);
+    expect(() => decodeProcessJournal({
+      ...validJournal(),
+      planning: {
+        ...planning,
+        plan: {
+          ...planning.plan,
+          candidates: [planning.plan.candidates[0], planning.plan.candidates[0]],
+        },
+      },
+    })).toThrow(/candidate ids MUST be unique/);
   });
 
   it("rejects duplicate process and journal identities", () => {
@@ -196,6 +235,48 @@ function validJournal() {
       payload: { outcome: "success" },
     }],
     count: 1,
+    planning: null,
+  };
+}
+
+function validPlanningRoom() {
+  const candidate = {
+    candidate_id: "capacity:scale_up",
+    action_type: "ops.scale-out",
+    disposition: "selected",
+    reasons: [],
+    proposing_agents: ["Freyr"],
+    logic_receipt_refs: ["logic-invocation:1"],
+    simulation_receipt_refs: ["simulation:1"],
+    constraint_evaluation_refs: ["constraint:slo:passed"],
+    expected_effects: [{
+      objective_id: "reliability",
+      metric: "availability",
+      expected_min: 0.99,
+      expected_max: 1,
+      confidence: 0.9,
+    }],
+  };
+  return {
+    current_phase: "selected",
+    phase_count: 1,
+    phases: [{
+      phase: "selected",
+      actor_agent: "Forseti",
+      recorded_at: "2026-08-03T00:00:00Z",
+      event_id: "planning:selected",
+      evidence_refs: ["simulation:1"],
+    }],
+    plan: {
+      plan_id: "operational-plan:1",
+      logic_release_digest: `sha256:${"a".repeat(64)}`,
+      complete: true,
+      reason: "selected",
+      selected_option_id: "capacity:scale_up",
+      requires_human_approval: true,
+      margin: 0.2,
+      candidates: [candidate],
+    },
   };
 }
 

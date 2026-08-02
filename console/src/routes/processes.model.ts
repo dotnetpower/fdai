@@ -66,6 +66,53 @@ export interface ProcessJournalResponse {
   };
   readonly events: readonly ProcessEvent[];
   readonly count: number;
+  readonly planning: PlanningRoom | null;
+}
+
+export interface PlanningPhaseRecord {
+  readonly phase: string;
+  readonly actor_agent: string;
+  readonly recorded_at: string;
+  readonly event_id: string;
+  readonly evidence_refs: readonly string[];
+}
+
+export interface PlanningExpectedEffect {
+  readonly objective_id: string;
+  readonly metric: string;
+  readonly expected_min: number | null;
+  readonly expected_max: number | null;
+  readonly confidence: number | null;
+}
+
+export interface PlanningCandidate {
+  readonly candidate_id: string;
+  readonly action_type: string | null;
+  readonly disposition: string;
+  readonly reasons: readonly string[];
+  readonly proposing_agents: readonly string[];
+  readonly logic_receipt_refs: readonly string[];
+  readonly simulation_receipt_refs: readonly string[];
+  readonly constraint_evaluation_refs: readonly string[];
+  readonly expected_effects: readonly PlanningExpectedEffect[];
+}
+
+export interface PlanningPlan {
+  readonly plan_id: string;
+  readonly logic_release_digest: string;
+  readonly complete: boolean;
+  readonly reason: string;
+  readonly selected_option_id: string | null;
+  readonly requires_human_approval: boolean;
+  readonly margin: number | null;
+  readonly candidates: readonly PlanningCandidate[];
+}
+
+export interface PlanningRoom {
+  readonly current_phase: string;
+  readonly phase_count: number;
+  readonly phases: readonly PlanningPhaseRecord[];
+  readonly plan: PlanningPlan | null;
 }
 
 export interface ProcessDetailData {
@@ -188,10 +235,95 @@ export function decodeProcessJournal(value: unknown): ProcessJournalResponse {
   if (events.some((event) => event.correlation_id !== decodedProcess.correlation_id)) {
     throw new Error("process journal events MUST match the process correlation_id");
   }
+  const planning = root["planning"] === undefined || root["planning"] === null
+    ? null
+    : decodePlanningRoom(root["planning"]);
   return {
     process: decodedProcess,
     events,
     count,
+    planning,
+  };
+}
+
+function decodePlanningRoom(value: unknown): PlanningRoom {
+  const root = record(value, "planning room");
+  if (!Array.isArray(root["phases"])) throw new Error("planning room phases MUST be an array");
+  const phases = root["phases"].map((value, index) => {
+    const phase = record(value, `planning room phases[${index}]`);
+    return {
+      phase: stringField(phase, "phase", `planning room phases[${index}]`),
+      actor_agent: stringField(phase, "actor_agent", `planning room phases[${index}]`),
+      recorded_at: stringField(phase, "recorded_at", `planning room phases[${index}]`),
+      event_id: stringField(phase, "event_id", `planning room phases[${index}]`),
+      evidence_refs: stringArray(phase["evidence_refs"], `planning room phases[${index}].evidence_refs`),
+    };
+  });
+  const phaseCount = nonNegativeIntegerField(root, "phase_count", "planning room");
+  if (phaseCount !== phases.length) throw new Error("planning room phase_count MUST match phases");
+  return {
+    current_phase: stringField(root, "current_phase", "planning room"),
+    phase_count: phaseCount,
+    phases,
+    plan: root["plan"] === null ? null : decodePlanningPlan(root["plan"]),
+  };
+}
+
+function decodePlanningPlan(value: unknown): PlanningPlan {
+  const plan = record(value, "planning plan");
+  if (!Array.isArray(plan["candidates"])) throw new Error("planning candidates MUST be an array");
+  const selected = plan["selected_option_id"];
+  if (selected !== null && typeof selected !== "string") {
+    throw new Error("planning selected_option_id MUST be a string or null");
+  }
+  const margin = nullableFiniteNumber(plan["margin"], "planning margin");
+  const candidates = plan["candidates"].map((value, index) => decodePlanningCandidate(value, index));
+  assertUnique(candidates.map((candidate) => candidate.candidate_id), "planning candidate ids");
+  if (selected !== null && !candidates.some((candidate) => candidate.candidate_id === selected)) {
+    throw new Error("planning selection MUST reference a returned candidate");
+  }
+  return {
+    plan_id: stringField(plan, "plan_id", "planning plan"),
+    logic_release_digest: stringField(plan, "logic_release_digest", "planning plan"),
+    complete: booleanField(plan, "complete", "planning plan"),
+    reason: stringField(plan, "reason", "planning plan"),
+    selected_option_id: selected,
+    requires_human_approval: booleanField(plan, "requires_human_approval", "planning plan"),
+    margin,
+    candidates,
+  };
+}
+
+function decodePlanningCandidate(value: unknown, index: number): PlanningCandidate {
+  const label = `planning candidates[${index}]`;
+  const candidate = record(value, label);
+  const actionType = candidate["action_type"];
+  if (actionType !== null && typeof actionType !== "string") {
+    throw new Error(`${label}.action_type MUST be a string or null`);
+  }
+  if (!Array.isArray(candidate["expected_effects"])) {
+    throw new Error(`${label}.expected_effects MUST be an array`);
+  }
+  return {
+    candidate_id: stringField(candidate, "candidate_id", label),
+    action_type: actionType,
+    disposition: stringField(candidate, "disposition", label),
+    reasons: stringArray(candidate["reasons"], `${label}.reasons`),
+    proposing_agents: stringArray(candidate["proposing_agents"], `${label}.proposing_agents`),
+    logic_receipt_refs: stringArray(candidate["logic_receipt_refs"], `${label}.logic_receipt_refs`),
+    simulation_receipt_refs: stringArray(candidate["simulation_receipt_refs"], `${label}.simulation_receipt_refs`),
+    constraint_evaluation_refs: stringArray(candidate["constraint_evaluation_refs"], `${label}.constraint_evaluation_refs`),
+    expected_effects: candidate["expected_effects"].map((value, effectIndex) => {
+      const effectLabel = `${label}.expected_effects[${effectIndex}]`;
+      const effect = record(value, effectLabel);
+      return {
+        objective_id: stringField(effect, "objective_id", effectLabel),
+        metric: stringField(effect, "metric", effectLabel),
+        expected_min: nullableFiniteNumber(effect["expected_min"], `${effectLabel}.expected_min`),
+        expected_max: nullableFiniteNumber(effect["expected_max"], `${effectLabel}.expected_max`),
+        confidence: nullableFiniteNumber(effect["confidence"], `${effectLabel}.confidence`),
+      };
+    }),
   };
 }
 
@@ -356,4 +488,19 @@ function assertUnique(values: readonly string[], label: string): void {
 function booleanField(value: Readonly<Record<string, unknown>>, key: string, label: string): boolean {
   if (typeof value[key] !== "boolean") throw new Error(`${label}.${key} MUST be a boolean`);
   return value[key];
+}
+
+function stringArray(value: unknown, label: string): readonly string[] {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw new Error(`${label} MUST be a string array`);
+  }
+  return value;
+}
+
+function nullableFiniteNumber(value: unknown, label: string): number | null {
+  if (value === null) return null;
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`${label} MUST be a finite number or null`);
+  }
+  return value;
 }

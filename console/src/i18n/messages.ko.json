@@ -930,6 +930,25 @@
     "correlation": "상관관계",
     "causation": "인과관계",
     "attempt": "시도"
+    ,"planningEyebrow": "운영 계획"
+    ,"planningTitle": "계획 룸"
+    ,"planningBody": "전문 에이전트 제안, 제약 조건, 시뮬레이션, 선택 근거를 읽기 전용으로 표시합니다. 실행은 통제된 파이프라인에 유지됩니다."
+    ,"planningPhases": "계획 단계"
+    ,"planningPlan": "계획"
+    ,"planningSelection": "선택"
+    ,"planningHeld": "검토를 위해 보류"
+    ,"planningReview": "사람 승인"
+    ,"planningRequired": "필요"
+    ,"planningNotRequired": "계획 단계에서 불필요"
+    ,"planningMargin": "차이"
+    ,"planningCandidates": "계획 후보"
+    ,"planningCandidate": "후보"
+    ,"planningAgents": "에이전트"
+    ,"planningAction": "ActionType"
+    ,"planningStatus": "상태"
+    ,"planningEffects": "예상 효과"
+    ,"planningEvidence": "영수증"
+    ,"planningPending": "계획 단계가 기록되었지만 종단 계획 투영은 아직 없습니다."
   },
   "rca": {
     "subtitle": "추가 전용 감사 로그에서 읽기 전용으로 투영한 단일 인시던트의 근본 원인 분석입니다. RCA 결과는 근거를 갖춘 가설이며 권위 있는 최종 판정이 아닙니다. 실행 자격은 여전히 안전성 검토(리스크 게이트)와 검증기에 있습니다.",

@@ -77,6 +77,11 @@ links to its Architecture resource, and promotion-related counts link to Promoti
 successful HTTP response that fails strict decoding renders an error instead of remaining in the
 loading skeleton.
 
+The Processes detail route conditionally renders a Planning Room from the same authoritative
+Process journal. Its strict decoder rejects contradictory phase counts, duplicate candidates,
+invalid selections, and non-finite effect ranges. Ordinary Processes keep the existing view with
+`planning: null`. The Planning Room is read-only and exposes no action, approval, or retry control.
+
 Activity uses one bounded chronological log for durable audit rows and browser-session runtime
 frames. Each row keeps its source label, so a runtime frame is never presented as durable audit
 evidence. Recorded and live agent-to-agent turns render as individual `from -> to` rows with their

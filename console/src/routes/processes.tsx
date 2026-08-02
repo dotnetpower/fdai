@@ -18,6 +18,7 @@ import {
     INITIAL_PROCESS_REFRESH,
     type ProcessDetailData,
     type ProcessEvent,
+    type PlanningRoom as PlanningRoomData,
   defaultProcessId,
   processHref,
   processEventHref,
@@ -286,11 +287,71 @@ function ProcessDetail({ detail }: { readonly detail: ProcessDetailData }) {
         <div><dt>{t("processesView.revision")}</dt><dd>{process.revision}</dd></div>
         <div><dt>{t("processesView.journalEvents")}</dt><dd>{detail.journal.count}</dd></div>
       </dl>
+      {detail.journal.planning ? <PlanningRoom planning={detail.journal.planning} /> : null}
       <ProcessJournal processId={process.id} events={events} />
       {detail.view ? <RenderedProcess view={detail.view} compactHeader /> : (
         <p class="process-generic-note muted">{t("processesView.noViewSpec")}</p>
       )}
     </div>
+  );
+}
+
+function PlanningRoom({ planning }: { readonly planning: PlanningRoomData }) {
+  const plan = planning.plan;
+  return (
+    <section class="planning-room" aria-labelledby="planning-room-title">
+      <div class="process-section-heading">
+        <div>
+          <span class="eyebrow">{t("processesView.planningEyebrow")}</span>
+          <h3 id="planning-room-title">{t("processesView.planningTitle")}</h3>
+          <p class="muted">{t("processesView.planningBody")}</p>
+        </div>
+        <StatusPill kind={plan?.complete ? "success" : "warning"} label={planning.current_phase} />
+      </div>
+      <ol class="planning-phase-list" aria-label={t("processesView.planningPhases")}>
+        {planning.phases.map((phase) => (
+          <li key={phase.event_id}>
+            <strong>{phase.phase.replaceAll("_", " ")}</strong>
+            <span>{phase.actor_agent}</span>
+            <time dateTime={phase.recorded_at}>{formatConsoleTimestamp(phase.recorded_at)}</time>
+          </li>
+        ))}
+      </ol>
+      {plan ? (
+        <>
+          <dl class="planning-plan-meta">
+            <div><dt>{t("processesView.planningPlan")}</dt><dd><code>{plan.plan_id}</code></dd></div>
+            <div><dt>{t("processesView.planningSelection")}</dt><dd>{plan.selected_option_id ?? t("processesView.planningHeld")}</dd></div>
+            <div><dt>{t("processesView.planningReview")}</dt><dd>{plan.requires_human_approval ? t("processesView.planningRequired") : t("processesView.planningNotRequired")}</dd></div>
+            <div><dt>{t("processesView.planningMargin")}</dt><dd>{plan.margin === null ? "-" : plan.margin.toFixed(3)}</dd></div>
+          </dl>
+          <div class="planning-candidate-table" role="region" aria-label={t("processesView.planningCandidates")}>
+            <table>
+              <thead><tr>
+                <th>{t("processesView.planningCandidate")}</th>
+                <th>{t("processesView.planningAgents")}</th>
+                <th>{t("processesView.planningAction")}</th>
+                <th>{t("processesView.planningStatus")}</th>
+                <th>{t("processesView.planningEffects")}</th>
+                <th>{t("processesView.planningEvidence")}</th>
+              </tr></thead>
+              <tbody>
+                {plan.candidates.map((candidate) => (
+                  <tr key={candidate.candidate_id}>
+                    <td><strong>{candidate.candidate_id}</strong>{candidate.reasons.length ? <small>{candidate.reasons.join(", ")}</small> : null}</td>
+                    <td>{candidate.proposing_agents.join(", ") || "-"}</td>
+                    <td><code>{candidate.action_type ?? "hold"}</code></td>
+                    <td><StatusPill kind={candidate.disposition === "selected" ? "success" : candidate.disposition === "ineligible" ? "danger" : "info"} label={candidate.disposition} /></td>
+                    <td>{candidate.expected_effects.map((effect) => `${effect.metric}: ${effect.expected_min ?? "?"}..${effect.expected_max ?? "?"}`).join("; ")}</td>
+                    <td>{candidate.logic_receipt_refs.length + candidate.simulation_receipt_refs.length + candidate.constraint_evaluation_refs.length}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : <p class="muted planning-pending">{t("processesView.planningPending")}</p>}
+    </section>
   );
 }
 

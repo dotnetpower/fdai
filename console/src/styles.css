@@ -5310,7 +5310,7 @@ button.workflow-canvas-node { cursor: pointer; }
 .advanced-details > summary { margin-bottom: 6px; list-style: revert; }
 .advanced-details > summary .section-title { display: inline; }
 
-/* "When -> do" live workflow summary (Palantir condition -> effect model) */
+/* "When -> do" live workflow summary (condition -> effect model) */
 .wf-summary {
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
   padding: 12px 14px; border-radius: 8px;
@@ -13235,6 +13235,24 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
 .process-runtime-meta dt { color: var(--fg-muted); font-size: 0.68rem; text-transform: uppercase; }
 .process-runtime-meta dd { margin: 4px 0 0; overflow-wrap: anywhere; font-size: 0.82rem; font-weight: 650; }
 .process-journal { padding-top: 6px; }
+.planning-room { display: grid; gap: 14px; padding-block: 16px 8px; border-bottom: 1px solid var(--border); }
+.planning-phase-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; margin: 0; padding: 0; list-style: none; background: var(--border); }
+.planning-phase-list li { display: grid; gap: 3px; min-width: 0; padding: 10px 12px; background: var(--bg-elevated); }
+.planning-phase-list strong { text-transform: capitalize; }
+.planning-phase-list span,
+.planning-phase-list time { color: var(--fg-muted); font-size: 0.72rem; }
+.planning-plan-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; border-block: 1px solid var(--border); }
+.planning-plan-meta > div { min-width: 0; padding: 10px 12px; border-right: 1px solid var(--border); }
+.planning-plan-meta > div:last-child { border-right: 0; }
+.planning-plan-meta dt { color: var(--fg-muted); font-size: 0.68rem; text-transform: uppercase; }
+.planning-plan-meta dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+.planning-candidate-table { overflow-x: auto; }
+.planning-candidate-table table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.planning-candidate-table th,
+.planning-candidate-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.planning-candidate-table th { color: var(--fg-muted); font-size: 0.68rem; text-transform: uppercase; }
+.planning-candidate-table td small { display: block; margin-top: 4px; color: var(--fg-muted); }
+.planning-pending { margin: 0; }
 .process-section-heading {
   display: flex;
   align-items: flex-start;
@@ -13434,7 +13452,9 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
   .process-list-entry { min-width: 220px; border-right: 1px solid var(--border); border-bottom: 0; }
   .process-widget-grid > .kpi-card { grid-column: span 6; }
   .process-runtime-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .planning-plan-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .process-runtime-meta > div:nth-child(2) { border-right: 0; }
+  .planning-plan-meta > div:nth-child(2) { border-right: 0; }
   .reports-workspace { grid-template-columns: 1fr; }
   .reports-list { display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border); }
   .reports-list a { min-width: 220px; border-right: 1px solid var(--border); border-bottom: 0; }
@@ -13445,7 +13465,9 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
   .process-view-stage { padding: 12px; }
   .process-view-header { flex-direction: column; }
   .process-runtime-meta { grid-template-columns: 1fr; }
+  .planning-plan-meta { grid-template-columns: 1fr; }
   .process-runtime-meta > div { border-right: 0; border-bottom: 1px solid var(--border); }
+  .planning-plan-meta > div { border-right: 0; border-bottom: 1px solid var(--border); }
   .process-event-head { align-items: flex-start; flex-direction: column; gap: 2px; }
   .process-widget-grid > .kpi-card { grid-column: 1 / -1; }
   .process-check-row { grid-template-columns: 1fr; gap: 6px; }

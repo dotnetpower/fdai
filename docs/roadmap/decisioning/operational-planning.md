@@ -24,7 +24,8 @@ central planner or another authority surface.
 > an optional coordinator. A programmatic simulator runs exact reviewed sources through the bounded
 > pipeline sandbox and treats timeout or malformed output as unscorable. P5 adds a read-only Twin
 > adapter, exact selected-option MutationPlan compilation, and independent ResponseOutcome closure.
-> P6-P7 still need the Console, frozen scenarios, staging proof, and shadow measurement.
+> P6 adds a strict, read-only Planning Room projection inside the existing Process detail route.
+> P7 still needs frozen scenarios, staging proof, and shadow measurement.
 
 ## Design at a glance
 

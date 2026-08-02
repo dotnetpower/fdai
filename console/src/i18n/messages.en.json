@@ -930,6 +930,25 @@
     "correlation": "Correlation",
     "causation": "Causation",
     "attempt": "Attempt"
+    ,"planningEyebrow": "Operational planning"
+    ,"planningTitle": "Planning Room"
+    ,"planningBody": "Read-only specialist proposals, constraints, simulations, and selection evidence. Execution remains in the governed pipeline."
+    ,"planningPhases": "Planning phases"
+    ,"planningPlan": "Plan"
+    ,"planningSelection": "Selection"
+    ,"planningHeld": "Held for review"
+    ,"planningReview": "Human approval"
+    ,"planningRequired": "Required"
+    ,"planningNotRequired": "Not required by planning"
+    ,"planningMargin": "Margin"
+    ,"planningCandidates": "Planning candidates"
+    ,"planningCandidate": "Candidate"
+    ,"planningAgents": "Agents"
+    ,"planningAction": "ActionType"
+    ,"planningStatus": "Status"
+    ,"planningEffects": "Expected effects"
+    ,"planningEvidence": "Receipts"
+    ,"planningPending": "Planning phases are recorded, but no terminal plan projection is available yet."
   },
   "rca": {
     "subtitle": "Root-cause analysis for one incident, projected read-only from the append-only audit log. An RCA result is an evidence-backed hypothesis, never an authoritative final decision; execution eligibility stays with the safety check (risk gate) and verifier.",

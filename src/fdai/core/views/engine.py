@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from fdai.core.operational_planning import project_planning_room
 from fdai.core.reporting.engine import ReportEngine
 from fdai.core.reporting.models import RenderedReport
 from fdai.core.views.models import ViewSpec
@@ -110,6 +111,7 @@ class ViewEngine:
         if process is None:
             raise ProcessNotFoundError(f"unknown process {process_id!r}")
         events = await self._processes.events(process_id)
+        planning = project_planning_room(events)
         return {
             "process": _process_dict(
                 process,
@@ -129,6 +131,7 @@ class ViewEngine:
                 for event in events
             ],
             "count": len(events),
+            "planning": planning,
         }
 
     async def list_processes(

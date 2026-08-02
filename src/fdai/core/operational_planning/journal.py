@@ -12,7 +12,8 @@ from fdai.shared.providers.process_runtime import (
     ProcessSnapshot,
 )
 
-from .models import PlanningPhase
+from .models import OperationalPlan, PlanningPhase
+from .projection import operational_plan_event_payload
 
 _ORDER = (
     PlanningPhase.CONTEXT_FROZEN,
@@ -39,6 +40,7 @@ async def append_planning_phase(
     logic_release_digest: str,
     evidence_refs: tuple[str, ...],
     recorded_at: datetime,
+    plan: OperationalPlan | None = None,
 ) -> bool:
     if snapshot.status.terminal:
         raise PlanningPhaseOrderError("terminal Process cannot accept planning phases")
@@ -70,6 +72,23 @@ async def append_planning_phase(
             f"planning phase {phase.value!r} requires {predecessor.value!r}"
         )
     identity = f"{snapshot.process_id}:planning:{phase.value}"
+    if plan is not None:
+        if plan.process_id != snapshot.process_id:
+            raise ValueError("operational plan process does not match planning phase")
+        if plan.decision_case.case_id != decision_case_id:
+            raise ValueError("operational plan DecisionCase does not match planning phase")
+        if plan.logic_release_digest != logic_release_digest:
+            raise ValueError("operational plan release does not match planning phase")
+    payload: dict[str, object] = {
+        "planning_phase": phase.value,
+        "actor_agent": actor_agent,
+        "decision_case_id": decision_case_id,
+        "context_digest": context_digest,
+        "logic_release_digest": logic_release_digest,
+        "evidence_refs": list(evidence_refs),
+    }
+    if plan is not None:
+        payload["operational_plan"] = operational_plan_event_payload(plan)
     return await store.append_event(
         ProcessEvent(
             event_id=str(uuid5(NAMESPACE_URL, identity)),
@@ -78,14 +97,7 @@ async def append_planning_phase(
             idempotency_key=identity,
             recorded_at=recorded_at,
             correlation_id=snapshot.correlation_id,
-            payload={
-                "planning_phase": phase.value,
-                "actor_agent": actor_agent,
-                "decision_case_id": decision_case_id,
-                "context_digest": context_digest,
-                "logic_release_digest": logic_release_digest,
-                "evidence_refs": list(evidence_refs),
-            },
+            payload=payload,
         )
     )
 
