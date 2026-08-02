@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c98d0e9552f0666d68e29d5232a03f48c4d39795
+translation_source_sha: f0577ead5066d69a81ebaf157eca5ac752c3060e
 translation_revised: 2026-08-02
 ---
 # 코드 맵
@@ -94,9 +94,9 @@ shared 패키지를 커버한다.
 | skills | Progressive disclosure, governed bundle, durable approved-source quarantine ([bundle 설계](../decisioning/governed-skill-bundles-ko.md), [source 설계](../interfaces/skill-source-management-ko.md)) | [src/fdai/core/skills/](../../../src/fdai/core/skills/) 및 [src/fdai/core/supply_chain/](../../../src/fdai/core/supply_chain/) | [tests/core/skills/](../../../tests/core/skills/), [tests/core/supply_chain/](../../../tests/core/supply_chain/), [tests/persistence/](../../../tests/persistence/) |
 | programmatic_pipeline | Run capability, durable receipt, isolated runner, compact result를 사용하는 검토된 bounded read-only tool loop ([설계](../interfaces/programmatic-tool-pipelines-ko.md)) | [src/fdai/core/programmatic_pipeline/](../../../src/fdai/core/programmatic_pipeline/) | [tests/core/programmatic_pipeline/](../../../tests/core/programmatic_pipeline/) 및 [tests/delivery/programmatic_pipeline/](../../../tests/delivery/programmatic_pipeline/) |
 | browser_evidence | Origin 및 DNS policy, redaction, immutable artifact, evidence-only surface, shadow comparison ([설계](../interfaces/browser-evidence-ko.md)) | [src/fdai/core/browser_evidence/](../../../src/fdai/core/browser_evidence/) | [tests/core/browser_evidence/](../../../tests/core/browser_evidence/) 및 [tests/delivery/browser/](../../../tests/delivery/browser/) |
-| tools | T2 툴 레지스트리 + ToolExecutor + typed command catalog | [src/fdai/core/tools/](../../../src/fdai/core/tools/) | [tests/core/tools/](../../../tests/core/tools/) |
+| tools | T2 file, package, composite tool registry + ToolExecutor + typed command catalog | [src/fdai/core/tools/](../../../src/fdai/core/tools/) | [tests/core/tools/](../../../tests/core/tools/) |
 | web_search | 최후 수단 웹 검색 seam | [src/fdai/core/web_search/](../../../src/fdai/core/web_search/) | [tests/core/web_search/](../../../tests/core/web_search/) |
-| capability_catalog | 각 에이전트가 아는 것 | [src/fdai/core/capability_catalog/](../../../src/fdai/core/capability_catalog/) | [tests/core/capability_catalog/](../../../tests/core/capability_catalog/) |
+| capability_catalog | Typed binding, optional reasoning-tool metadata, provider, disabled-first extension lifecycle을 갖춘 additive capability package | [src/fdai/core/capability_catalog/](../../../src/fdai/core/capability_catalog/) | [tests/core/capability_catalog/](../../../tests/core/capability_catalog/) |
 | licensing | 이미지로 전달되는 distribution을 위한 서명된 capability entitlement: crypto-free token contract, available 축 전용 해석, 안전 저하 ([design](../fork-and-sequencing/capability-licensing-ko.md)) | [src/fdai/core/licensing/](../../../src/fdai/core/licensing/) | [tests/core/licensing/](../../../tests/core/licensing/)와 [tests/scripts/test_issue_license.py](../../../tests/scripts/test_issue_license.py) |
 | ontology_explorer | 로드된 ObjectType / LinkType 카탈로그의 결정론적 Mermaid 렌더러 (단일 모듈, 패키지 아님) | [src/fdai/core/ontology_explorer.py](../../../src/fdai/core/ontology_explorer.py) | [tests/core/](../../../tests/core/) |
 | ontology_platform | Exact release, semantic interface, bounded ObjectSet, mutation planning, typed function, projection/reconciliation, proposal-only SDK generation | [src/fdai/core/ontology_platform/](../../../src/fdai/core/ontology_platform/) | [tests/core/ontology_platform/](../../../tests/core/ontology_platform/) |

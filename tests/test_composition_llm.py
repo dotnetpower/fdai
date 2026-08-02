@@ -1131,6 +1131,76 @@ async def test_wire_azure_container_forwards_tool_providers(tmp_path: Path) -> N
     # hardcode ``providers={}`` in __main__.
 
 
+async def test_wire_azure_container_includes_capability_bundle_tools(tmp_path: Path) -> None:
+    """A package tool reaches the model without copying YAML into the base catalog."""
+    from fdai.composition import AzureWireOverrides, install_capability_bundle, wire_azure_container
+    from fdai.core.capability_catalog import (
+        Capability,
+        CapabilityBinding,
+        CapabilityBindingKind,
+        CapabilityBundle,
+        CapabilityCategory,
+        SideEffectClass,
+    )
+    from fdai.core.operator_memory import InMemoryOperatorMemoryStore
+    from fdai.core.prompts.types import PromptMode
+    from fdai.core.tools import CapabilityGate, ToolArtifact
+    from fdai.core.tools.testing import InMemoryToolProvider
+
+    artifact = ToolArtifact(
+        id="assurance.review-pr",
+        version=1,
+        description="Review a pull request.",
+        input_schema={"type": "object", "additionalProperties": False},
+        capability_gate=CapabilityGate(None, None, 0.0),
+        allowlist=None,
+        output_wrapper=None,
+        default_mode=PromptMode.ENFORCE,
+        provider="CodeAssuranceProvider",
+        provenance_source="package:test",
+    )
+    capability = Capability(
+        capability_id="assurance.code-review",
+        name="Review source changes",
+        category=CapabilityCategory.INVESTIGATION,
+        summary="Review a bounded source change.",
+        side_effect_class=SideEffectClass.READ,
+    )
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json(), encoding="utf-8")
+    container = install_capability_bundle(
+        default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved))),
+        CapabilityBundle(
+            capabilities=(capability,),
+            bindings=(
+                CapabilityBinding(
+                    capability_id=capability.capability_id,
+                    kind=CapabilityBindingKind.REASONING_TOOL,
+                    target_ref=artifact.id,
+                    provider_id="CodeAssuranceProvider",
+                ),
+            ),
+            reasoning_tools=(artifact,),
+            tool_providers={"CodeAssuranceProvider": InMemoryToolProvider()},
+        ),
+    )
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _request: httpx.Response(200)))
+
+    finalized = await wire_azure_container(
+        container,
+        http_client=http,
+        identity=_StaticIdentity(),
+        overrides=AzureWireOverrides(
+            endpoint="https://oai-fork.openai.azure.com",
+            catalog_root=_SHIPPED_CATALOG_ROOT,
+            operator_memory_store=InMemoryOperatorMemoryStore(),
+        ),
+    )
+
+    primary = finalized.require_llm_bindings().cross_check_models[0]
+    assert primary._name_to_id["assurance_review-pr"] == "assurance.review-pr"  # noqa: SLF001
+
+
 async def test_wire_azure_container_rejects_duplicate_runtime_provider(
     tmp_path: Path,
 ) -> None:

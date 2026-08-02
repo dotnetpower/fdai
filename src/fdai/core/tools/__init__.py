@@ -27,7 +27,9 @@ from fdai.core.tools.executor import (
     UnknownToolError,
 )
 from fdai.core.tools.registry import (
+    CompositeToolRegistry,
     FileSystemToolRegistry,
+    StaticToolRegistry,
     ToolRegistry,
     ToolRegistryError,
     ToolRegistryIssue,
@@ -39,11 +41,13 @@ from fdai.core.tools.types import (
 
 __all__ = [
     "CapabilityGate",
+    "CompositeToolRegistry",
     "DefaultToolExecutor",
     "FileSystemToolRegistry",
     "MissingProviderError",
     "ProviderCallError",
     "ShadowToolBlockedError",
+    "StaticToolRegistry",
     "ToolArgumentValidationError",
     "ToolArtifact",
     "ToolExecutor",

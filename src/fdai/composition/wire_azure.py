@@ -239,7 +239,13 @@ async def wire_azure_container(
         )
 
     from ..core.prompts import DefaultPromptComposer, FileSystemPromptRegistry
-    from ..core.tools import DefaultToolExecutor, FileSystemToolRegistry
+    from ..core.tools import (
+        CompositeToolRegistry,
+        DefaultToolExecutor,
+        FileSystemToolRegistry,
+        StaticToolRegistry,
+        ToolRegistry,
+    )
 
     prompt_registry = FileSystemPromptRegistry(overrides.catalog_root)
     composer = DefaultPromptComposer(
@@ -249,7 +255,15 @@ async def wire_azure_container(
     composed = await composer.compose(capability_id="t2.reasoner.primary")
     proposer_composed = await composer.compose(capability_id="t2.proposer")
 
-    tool_registry = FileSystemToolRegistry(overrides.catalog_root)
+    file_tool_registry = FileSystemToolRegistry(overrides.catalog_root)
+    tool_registry: ToolRegistry = file_tool_registry
+    if container.capability_runtime.reasoning_tools:
+        tool_registry = CompositeToolRegistry(
+            (
+                file_tool_registry,
+                StaticToolRegistry(container.capability_runtime.reasoning_tools),
+            )
+        )
     runtime_tool_providers = dict(container.capability_runtime.tool_providers)
     override_tool_providers = dict(overrides.tool_providers or {})
     duplicate_provider_ids = runtime_tool_providers.keys() & override_tool_providers.keys()

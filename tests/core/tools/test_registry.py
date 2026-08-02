@@ -17,7 +17,11 @@ import yaml
 
 from fdai.core.prompts.types import PromptMode
 from fdai.core.tools import (
+    CapabilityGate,
+    CompositeToolRegistry,
     FileSystemToolRegistry,
+    StaticToolRegistry,
+    ToolArtifact,
     ToolRegistryError,
 )
 
@@ -203,6 +207,49 @@ def test_registry_artifacts_sorted_deterministically(tmp_path: Path) -> None:
     reg = FileSystemToolRegistry(tmp_path)
     ids = [(a.id, a.version) for a in reg.artifacts()]
     assert ids == sorted(ids)
+
+
+def _artifact(tool_id: str, version: int = 1) -> ToolArtifact:
+    return ToolArtifact(
+        id=tool_id,
+        version=version,
+        description=f"Review with {tool_id}.",
+        input_schema={"type": "object"},
+        capability_gate=CapabilityGate(None, None, 0.0),
+        allowlist=None,
+        output_wrapper=None,
+        default_mode=PromptMode.SHADOW,
+        provider="PackageProvider",
+        provenance_source="package:test",
+    )
+
+
+def test_static_registry_is_sorted_and_selects_highest_version() -> None:
+    registry = StaticToolRegistry((_artifact("review.code", 2), _artifact("review.code", 1)))
+
+    assert [artifact.version for artifact in registry.artifacts()] == [1, 2]
+    assert registry.get("review.code").version == 2
+
+
+def test_composite_registry_combines_additive_sources() -> None:
+    registry = CompositeToolRegistry(
+        (
+            StaticToolRegistry((_artifact("audit.query"),)),
+            StaticToolRegistry((_artifact("review.code"),)),
+        )
+    )
+
+    assert [artifact.id for artifact in registry.artifacts()] == ["audit.query", "review.code"]
+
+
+def test_composite_registry_rejects_cross_source_tool_shadowing() -> None:
+    with pytest.raises(ValueError, match="multiple sources: review.code"):
+        CompositeToolRegistry(
+            (
+                StaticToolRegistry((_artifact("review.code", 1),)),
+                StaticToolRegistry((_artifact("review.code", 2),)),
+            )
+        )
 
 
 def test_registry_shipped_tree_loads() -> None:

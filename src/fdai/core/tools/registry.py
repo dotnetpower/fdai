@@ -9,7 +9,7 @@ time.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, Protocol
@@ -71,6 +71,50 @@ class ToolRegistry(Protocol):
 
     def artifacts(self) -> tuple[ToolArtifact, ...]:
         """Every tool discovered in the tree, sorted by (id, version)."""
+
+
+class StaticToolRegistry(ToolRegistry):
+    """Immutable registry for reviewed artifacts supplied by one package."""
+
+    def __init__(self, artifacts: Iterable[ToolArtifact]) -> None:
+        loaded = sorted(tuple(artifacts), key=lambda artifact: (artifact.id, artifact.version))
+        identities = [(artifact.id, artifact.version) for artifact in loaded]
+        if len(set(identities)) != len(identities):
+            raise ValueError("static tool registry MUST NOT contain duplicate id/version pairs")
+        self._artifacts: Final[tuple[ToolArtifact, ...]] = tuple(loaded)
+
+    def get(self, tool_id: str) -> ToolArtifact:
+        candidates = [artifact for artifact in self._artifacts if artifact.id == tool_id]
+        if not candidates:
+            raise LookupError(f"no static tool with id {tool_id!r}")
+        return max(candidates, key=lambda artifact: artifact.version)
+
+    def artifacts(self) -> tuple[ToolArtifact, ...]:
+        return self._artifacts
+
+
+class CompositeToolRegistry(ToolRegistry):
+    """Combine additive registries while refusing cross-source tool shadowing."""
+
+    def __init__(self, registries: Sequence[ToolRegistry]) -> None:
+        artifacts: list[ToolArtifact] = []
+        claimed_ids: set[str] = set()
+        for registry in registries:
+            current = registry.artifacts()
+            current_ids = {artifact.id for artifact in current}
+            duplicate_ids = claimed_ids & current_ids
+            if duplicate_ids:
+                names = ", ".join(sorted(duplicate_ids))
+                raise ValueError(f"tool ids are registered by multiple sources: {names}")
+            claimed_ids.update(current_ids)
+            artifacts.extend(current)
+        self._registry: Final[StaticToolRegistry] = StaticToolRegistry(artifacts)
+
+    def get(self, tool_id: str) -> ToolArtifact:
+        return self._registry.get(tool_id)
+
+    def artifacts(self) -> tuple[ToolArtifact, ...]:
+        return self._registry.artifacts()
 
 
 # ---------------------------------------------------------------------------
@@ -241,7 +285,9 @@ def _coerce(raw: dict[str, Any]) -> ToolArtifact:
 
 
 __all__ = [
+    "CompositeToolRegistry",
     "FileSystemToolRegistry",
+    "StaticToolRegistry",
     "ToolRegistry",
     "ToolRegistryError",
     "ToolRegistryIssue",
