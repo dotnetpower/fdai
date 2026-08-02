@@ -66,6 +66,7 @@ export interface DiagramEdge {
     | "orthogonal-top"
     | "orthogonal-above"
     | "orthogonal-right";
+  lane?: number;
   step?: number;
 }
 

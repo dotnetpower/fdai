@@ -758,6 +758,7 @@ function orthogonalTrunkRouteSection(
   edgeId: string,
   source: PositionedShape,
   target: PositionedShape,
+  lane = 0,
 ): ElkEdgeSection {
   const targetIsBelow = target.y >= source.y;
   const startPoint = {
@@ -768,7 +769,8 @@ function orthogonalTrunkRouteSection(
     x: target.x + target.width / 2,
     y: targetIsBelow ? target.y : target.y + target.height,
   };
-  const trunkY = (startPoint.y + endPoint.y) / 2;
+  const direction = targetIsBelow ? 1 : -1;
+  const trunkY = (startPoint.y + endPoint.y) / 2 + lane * 18 * direction;
   return {
     id: `${edgeId}-orthogonal-trunk-route`,
     startPoint,
@@ -1003,7 +1005,12 @@ function applyExplicitRoutes(
     const target = nodes.get(endpointNodeId(specEdge.to));
     if (!source || !target) return edge;
     const section = specEdge.route === "orthogonal-trunk"
-      ? orthogonalTrunkRouteSection(edge.id, source, target)
+      ? orthogonalTrunkRouteSection(
+          edge.id,
+          source,
+          target,
+          specEdge.lane ?? 0,
+        )
       : specEdge.route === "orthogonal-top"
         ? orthogonalTopRouteSection(
             edge.id,

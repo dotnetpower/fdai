@@ -107,6 +107,16 @@ test("Azure resource network flow routes every compound edge", async () => {
     (node) => node.y + node.height / 2,
   );
   assert.ok(Math.max(...operatorCenters) - Math.min(...operatorCenters) <= 9);
+  const orderedOperatorNodes = ["operator", "entra-id", "operator-console"].map(
+    (id) => layout.nodes.get(id)!,
+  );
+  for (let index = 1; index < orderedOperatorNodes.length; index += 1) {
+    const gap =
+      orderedOperatorNodes[index]!.x -
+      (orderedOperatorNodes[index - 1]!.x + orderedOperatorNodes[index - 1]!.width);
+    assert.ok(gap >= 70, `operator access gap ${index} is ${gap}`);
+  }
+  assert.equal(spec.nodes.find((node) => node.id === "entra-id")!.label.en, "Entra ID");
   const platformNodes = spec.nodes
     .filter((node) => node.parent === "platform-services")
     .map((node) => layout.nodes.get(node.id)!);
@@ -135,6 +145,19 @@ test("Azure resource network flow routes every compound edge", async () => {
   );
   const resourceGraphBends = resourceGraphEdge?.sections?.[0]?.bendPoints ?? [];
   assert.ok(resourceGraphBends.length <= 2);
+  for (const edgeId of [
+    "event-pe-to-core",
+    "api-to-event-pe",
+    "registry-pe-to-core",
+    "core-to-key-vault-pe",
+    "core-to-openai-pe",
+    "core-to-postgres",
+    "api-to-postgres",
+  ]) {
+    const edge = layout.edges.find((candidate) => candidate.id === edgeId)!;
+    const bends = edge.sections?.[0]?.bendPoints ?? [];
+    assert.ok(bends.length <= 2, `${edgeId} has ${bends.length} bends`);
+  }
   const eventHubsEdge = spec.edges.find((edge) => edge.id === "event-hubs-to-pe")!;
   assert.equal(eventHubsEdge.from, "event-hubs");
   assert.equal(eventHubsEdge.to, "event-hubs-pe");
