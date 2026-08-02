@@ -8,6 +8,7 @@ import pytest
 
 from fdai.core.executor import DirectApiExecutionOutcome, DirectApiShadowExecutor
 from fdai.core.executor.lock import ResourceLockManager
+from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.direct_api import DirectApiReceipt, DirectApiRequest
 from fdai.shared.providers.testing import InMemoryStateStore, RecordingDirectApiExecutor
 from fdai.shared.providers.testing.idempotency import InMemoryIdempotencyStore
@@ -18,6 +19,7 @@ def _executor(
     *,
     adapter: RecordingDirectApiExecutor | None = None,
     idempotency: InMemoryIdempotencyStore | None = None,
+    allow_enforce: bool = False,
 ) -> tuple[DirectApiShadowExecutor, RecordingDirectApiExecutor, InMemoryStateStore]:
     resolved_adapter = adapter or RecordingDirectApiExecutor()
     audit = InMemoryStateStore()
@@ -27,6 +29,7 @@ def _executor(
             audit_store=audit,
             resource_lock=ResourceLockManager(),
             idempotency=idempotency,
+            allow_enforce=allow_enforce,
         ),
         resolved_adapter,
         audit,
@@ -77,10 +80,10 @@ async def test_conflict_does_not_poison_original_cache() -> None:
 
 async def test_durable_collision_after_restart_is_rejected() -> None:
     idempotency = InMemoryIdempotencyStore()
-    first_executor, _, _ = _executor(idempotency=idempotency)
-    original = _action()
+    first_executor, _, _ = _executor(idempotency=idempotency, allow_enforce=True)
+    original = _action(mode=Mode.ENFORCE)
     await first_executor.execute(action=original)
-    second_executor, adapter, _ = _executor(idempotency=idempotency)
+    second_executor, adapter, _ = _executor(idempotency=idempotency, allow_enforce=True)
 
     result = await second_executor.execute(
         action=original.model_copy(update={"target_resource_ref": "resource:other"})
@@ -109,6 +112,35 @@ async def test_legacy_durable_payload_without_fingerprint_fails_closed() -> None
     assert result.outcome is DirectApiExecutionOutcome.REJECTED_IDEMPOTENCY_CONFLICT
     assert adapter.records == ()
     assert len(list(audit.audit_entries)) == 1
+
+
+async def test_shadow_l1_cache_does_not_block_later_enforce() -> None:
+    executor, adapter, _ = _executor(allow_enforce=True)
+    shadow = _action(idempotency_key="shadow-to-enforce")
+
+    await executor.execute(action=shadow)
+    enforced = await executor.execute(action=shadow.model_copy(update={"mode": Mode.ENFORCE}))
+
+    assert enforced.outcome is DirectApiExecutionOutcome.DISPATCHED
+    assert [request.mode for request in adapter.records] == [Mode.SHADOW, Mode.ENFORCE]
+
+
+async def test_shadow_l2_store_does_not_block_enforce_after_restart() -> None:
+    idempotency = InMemoryIdempotencyStore()
+    shadow_executor, _, _ = _executor(idempotency=idempotency)
+    shadow = _action(idempotency_key="shadow-to-enforce-restart")
+    await shadow_executor.execute(action=shadow)
+    enforce_executor, adapter, _ = _executor(
+        idempotency=idempotency,
+        allow_enforce=True,
+    )
+
+    enforced = await enforce_executor.execute(
+        action=shadow.model_copy(update={"mode": Mode.ENFORCE})
+    )
+
+    assert enforced.outcome is DirectApiExecutionOutcome.DISPATCHED
+    assert [request.mode for request in adapter.records] == [Mode.ENFORCE]
 
 
 async def test_concurrent_same_key_different_resources_are_serialized() -> None:

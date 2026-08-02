@@ -1,7 +1,7 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 894bfc1f2751fc8a781420c0f60576c46d8903e5
+translation_source_sha: 9378faa11abd0b392f551e4034edddb090805a60
 translation_revised: 2026-08-02
 ---
 
@@ -465,6 +465,10 @@ Best for: configuration 변경, IaC patch, 카탈로그 업데이트, governance
   idempotency key 사용 (기존 invariant
   [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md));
   retry 된 call 이 double-apply MUST NOT.
+- Shadow observation은 durable mutation ledger를 채우지 않습니다. Process-local cache는
+  idempotency key와 mode를 함께 사용하므로, 이후 검토된 promotion은 같은 action을 enforce
+  mode로 실행할 수 있습니다. Legacy shadow ledger row는 이 shadow-to-enforce 전환에서만
+  무시되며 enforce mutation receipt는 계속 authoritative하여 payload collision을 거부합니다.
 - **Upstream Azure gateway binding** - development operations gateway URL과 Easy Auth audience가
   모두 구성되면 headless runtime은 enforce-capable `AzureGatewayDirectApiExecutor`를 bind합니다.
   이 adapter는 `ops.start-vm`, `ops.deallocate-vm`, `ops.upsert-network-rule`,

@@ -79,7 +79,7 @@ class RecordingDirectApiExecutor(DirectApiExecutor):
             self._records.append(request)
             # Only cache SUCCESS-like outcomes so a subsequent retry can
             # try again cleanly.
-            if forced.outcome is DirectApiOutcome.SUCCEEDED:
+            if forced.outcome is DirectApiOutcome.SUCCEEDED and request.mode is Mode.ENFORCE:
                 self._by_key[request.idempotency_key] = forced
             return forced
 
@@ -90,7 +90,8 @@ class RecordingDirectApiExecutor(DirectApiExecutor):
             receipt_ref=receipt_ref,
             detail=f"recorded direct-api call for {request.action_type_name}",
         )
-        self._by_key[request.idempotency_key] = receipt
+        if request.mode is Mode.ENFORCE:
+            self._by_key[request.idempotency_key] = receipt
         self._records.append(request)
         return receipt
 

@@ -475,6 +475,10 @@ Best for: configuration changes, IaC patches, catalog updates, governance change
   stable idempotency key (existing invariant in
   [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md));
   a retried call MUST NOT double-apply.
+- Shadow observations never populate the durable mutation ledger. The process-local cache is
+  keyed by both idempotency key and mode, so a later reviewed promotion can execute the same
+  action in enforce mode; legacy shadow ledger rows are ignored only for that shadow-to-enforce
+  transition. Enforce mutation receipts remain authoritative and still reject payload collisions.
 - **Upstream Azure gateway binding** - when the development operations gateway URL and Easy Auth
   audience are both configured, the headless runtime binds an enforce-capable
   `AzureGatewayDirectApiExecutor`. It supports only `ops.start-vm`, `ops.deallocate-vm`,
