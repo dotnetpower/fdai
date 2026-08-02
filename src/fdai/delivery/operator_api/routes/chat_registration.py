@@ -200,11 +200,17 @@ def append_chat_routes(
     turn_tools = (
         *read_tools.turn_tools(),
         *(inventory_chat_tools.turn_tools() if inventory_chat_tools is not None else ()),
-        *agent_turn_tools(),
+        *(
+            subscription_health_tools.turn_tools()
+            if subscription_health_provider is not None
+            else ()
+        ),
+        *(agent_turn_tools() if agent_delegate is not None else ()),
         *((web_search_turn_tool(),) if web_search_resolver is not None else ()),
         *(action_turn_tools(tuple(action_names)) if console_action is not None else ()),
     )
     planned_tools = _PlannedToolChain(
+        *((subscription_health_tools,) if subscription_health_provider is not None else ()),
         read_tools,
         *((inventory_chat_tools,) if inventory_chat_tools is not None else ()),
     )

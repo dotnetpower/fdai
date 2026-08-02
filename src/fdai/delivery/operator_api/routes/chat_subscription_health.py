@@ -20,6 +20,7 @@ from fdai.delivery.operator_api.routes.chat_inventory_resource_types import (
     default_inventory_resource_type_resolver,
 )
 from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
+from fdai.delivery.operator_api.routes.chat_turn_plan import TurnTool
 from fdai.rule_catalog.schema.inventory_query_language import QueryEvidenceAuthority
 
 _SCOPE: Final = re.compile(r"\b(?:azure\s+)?subscriptions?\b|구독", re.IGNORECASE)
@@ -102,6 +103,71 @@ class SubscriptionScopeProvider(Protocol):
 class SubscriptionHealthChatTools:
     provider: SubscriptionHealthProvider
     fallback: ChatToolResolver | None = None
+
+    def turn_tools(self) -> tuple[TurnTool, ...]:
+        return (
+            TurnTool(
+                name="query_subscription_health",
+                description=(
+                    "Read bounded Resource Health, service health, and representative metric "
+                    "evidence from the server-owned Azure scope."
+                ),
+                side_effect_class="read",
+                argument_schema={
+                    "type": "object",
+                    "properties": {
+                        "lookback_seconds": {"type": "integer", "minimum": 60, "maximum": 86_400},
+                        "include_metrics": {"type": "boolean"},
+                        "include_service_health": {"type": "boolean"},
+                    },
+                    "required": ["lookback_seconds", "include_metrics", "include_service_health"],
+                    "additionalProperties": False,
+                },
+            ),
+        )
+
+    async def resolve_planned(
+        self,
+        tool_name: str,
+        arguments: Mapping[str, object],
+        *,
+        principal_id: str,
+    ) -> dict[str, Any] | None:
+        if tool_name != "query_subscription_health":
+            fallback = getattr(self.fallback, "resolve_planned", None)
+            if callable(fallback):
+                result = await fallback(tool_name, arguments, principal_id=principal_id)
+                return dict(result) if isinstance(result, Mapping) else None
+            return None
+        lookback_seconds = arguments.get("lookback_seconds")
+        include_metrics = arguments.get("include_metrics")
+        include_service_health = arguments.get("include_service_health")
+        if (
+            not isinstance(lookback_seconds, int)
+            or isinstance(lookback_seconds, bool)
+            or not 60 <= lookback_seconds <= 86_400
+            or not isinstance(include_metrics, bool)
+            or not isinstance(include_service_health, bool)
+            or set(arguments) != {"lookback_seconds", "include_metrics", "include_service_health"}
+        ):
+            raise ValueError("planned subscription health arguments are invalid")
+        try:
+            if isinstance(self.provider, ConfigurableSubscriptionHealthProvider):
+                raw_result = await self.provider.query_health(
+                    lookback_seconds,
+                    include_metrics=include_metrics,
+                    include_service_health=include_service_health,
+                )
+            else:
+                raw_result = await self.provider(lookback_seconds)
+        except Exception as exc:  # noqa: BLE001 - provider boundary fails closed
+            raw_result = {"status": "unavailable", "reason": type(exc).__name__}
+        return {
+            "tool": "query_subscription_health",
+            "authority": "server_subscription_health",
+            "query": dict(arguments),
+            "result": dict(raw_result),
+        }
 
     async def resolve(self, prompt: str, *, principal_id: str) -> dict[str, Any] | None:
         if needs_subscription_context(prompt):
