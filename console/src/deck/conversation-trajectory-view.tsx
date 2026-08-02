@@ -64,7 +64,9 @@ export function ConversationTrajectoryView({
         </span>
         <span class="deck-trajectory-stats">
           {t("deck.trajectory.summary", {
-            models: showModelTrace ? presentation.modelCallCount : 0,
+            models: presentation.modelCallCountIsLowerBound
+              ? `${presentation.modelCallCount}+`
+              : presentation.modelCallCount,
             successful: presentation.evidenceCompletedCount,
             attempted: presentation.evidenceAttemptCount,
             verification: phaseStateLabel(presentation.phaseStates.verification),

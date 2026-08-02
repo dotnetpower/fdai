@@ -131,6 +131,7 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
 from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
     public_intent_graph_evidence,
 )
+from fdai.delivery.operator_api.routes.chat_inventory_compiler import compile_inventory_query
 from fdai.delivery.operator_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
     contextualize_inventory_screen_scope,
@@ -419,6 +420,7 @@ def make_chat_route(
             resource_followup
             or inventory_screen_scope
             or inventory_scope_followup
+            or compile_inventory_query(evidence_prompt) is not None
             or (turn_planner is None and needs_subscription_health(evidence_prompt))
         )
         answer_plan = build_answer_plan(

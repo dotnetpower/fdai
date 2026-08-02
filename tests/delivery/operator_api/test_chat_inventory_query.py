@@ -7,7 +7,10 @@ from fdai.delivery.operator_api.routes.chat_inventory_query import (
     InventoryOperator,
     InventoryPredicate,
     InventoryQuery,
+    InventoryQueryGrouping,
     InventoryQueryKind,
+    InventoryQueryProjection,
+    InventoryQueryScope,
     InventoryQuerySource,
     inventory_query_argument_schema,
     inventory_query_matches,
@@ -36,6 +39,12 @@ def test_current_query_round_trips_and_matches_exact_normalized_status() -> None
             {"field": "status", "operator": "eq", "value": "powerstate running"},
         ],
         "lookback_seconds": None,
+        "scope": "active_view",
+        "group_by": "none",
+        "projection": "details",
+        "require_fresh": False,
+        "include_workloads": False,
+        "require_state_history": False,
     }
     assert inventory_query_matches(
         query,
@@ -85,7 +94,7 @@ def test_activity_query_accepts_bounded_change_predicates() -> None:
                 "kind": "list",
                 "predicates": [],
                 "lookback_seconds": None,
-                "scope": "caller-supplied",
+                "unknown": "caller-supplied",
             },
             "unknown fields",
         ),
@@ -187,3 +196,25 @@ def test_semantic_schema_is_closed_and_bounded() -> None:
     predicates = properties["predicates"]
     assert isinstance(predicates, dict)
     assert predicates["maxItems"] == 8
+
+
+def test_planned_query_preserves_subscription_table_selection() -> None:
+    query = InventoryQuery.from_mapping(
+        {
+            "source": "current",
+            "kind": "list",
+            "predicates": [{"field": "resource_type", "operator": "eq", "value": "resource-group"}],
+            "lookback_seconds": None,
+            "scope": "subscription",
+            "group_by": "none",
+            "projection": "details",
+            "require_fresh": True,
+            "include_workloads": False,
+            "require_state_history": False,
+        }
+    )
+
+    assert query.scope is InventoryQueryScope.SUBSCRIPTION
+    assert query.group_by is InventoryQueryGrouping.NONE
+    assert query.projection is InventoryQueryProjection.DETAILS
+    assert query.require_fresh is True

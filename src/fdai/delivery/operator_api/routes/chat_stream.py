@@ -82,6 +82,7 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
     plan_semantic_turn,
     planner_context_envelope,
 )
+from fdai.delivery.operator_api.routes.chat_inventory_compiler import compile_inventory_query
 from fdai.delivery.operator_api.routes.chat_model_trace import (
     activate_model_trace,
     deactivate_model_trace,
@@ -242,6 +243,7 @@ def make_chat_stream_route(
             resource_followup
             or prepared.inventory_screen_scope
             or prepared.inventory_scope_followup
+            or compile_inventory_query(evidence_prompt) is not None
             or (turn_planner is None and needs_subscription_health(evidence_prompt))
         )
         view_context = prepared.view_context

@@ -23,6 +23,7 @@ export type TrajectoryPhaseState =
 export interface TrajectoryPresentation {
   readonly phaseStates: Readonly<Record<TrajectoryPhase, TrajectoryPhaseState>>;
   readonly modelCallCount: number;
+  readonly modelCallCountIsLowerBound: boolean;
   readonly evidenceAttemptCount: number;
   readonly evidenceCompletedCount: number;
   readonly evidenceReferenceCount: number;
@@ -37,6 +38,8 @@ export function buildTrajectoryPresentation(
     ...(trajectory.answer.verification?.evidence_refs ?? []),
   ]);
 
+  const recordedModelCalls = trajectory.answer.modelTrace?.calls.length ?? 0;
+  const modelBacked = trajectory.answer.source?.startsWith("llm:") === true;
   return {
     phaseStates: {
       input: "completed",
@@ -46,7 +49,8 @@ export function buildTrajectoryPresentation(
       verification: verificationState(trajectory),
       answer: "completed",
     },
-    modelCallCount: trajectory.answer.modelTrace?.calls.length ?? 0,
+    modelCallCount: Math.max(recordedModelCalls, modelBacked ? 1 : 0),
+    modelCallCountIsLowerBound: modelBacked && recordedModelCalls === 0,
     evidenceAttemptCount: evidenceStatuses.length,
     evidenceCompletedCount: evidenceStatuses.filter((status) => status === "completed").length,
     evidenceReferenceCount: evidenceReferences.size,

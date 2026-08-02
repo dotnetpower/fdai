@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 
 import pytest
@@ -160,6 +161,7 @@ async def test_backend_planner_sends_strict_graph_schema_and_capabilities() -> N
     assert schema["additionalProperties"] is False
     goal_schema = schema["properties"]["goals"]["items"]
     assert goal_schema["additionalProperties"] is False
+    assert "uniqueItems" not in json.dumps(schema)
     assert set(goal_schema["properties"]["capability"]["enum"]) == {
         "query_subscription_health",
         "web_search",

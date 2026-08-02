@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: fc248776c4fca8975cc52c14587eca9176a1173e
+translation_source_sha: 211138b8ddbd221c559da8c80d8cd3770c7ae5ca
 translation_revised: 2026-08-02
 ---
 
@@ -47,6 +47,10 @@ active provider까지 전달됩니다. Legacy single-tool parser는 제거 기�
 Terminal response는 raw provider payload가 아니라 redacted graph와 timestamp가 있는 goal receipt를
 저장합니다. Console은 Observed process에서 goal, dependency, status, evidence mode를 replay합니다. Action
 draft는 confirmation 직전에 현재 capability manifest에 대해 다시 검사합니다.
+Provider-facing schema는 지원되는 structured-output subset만 사용하며 deterministic parsing은 goal
+dependency와 alternative의 uniqueness를 계속 검사합니다. Catalog가 완전하게 compile한 inventory
+request는 typed query에 scope, grouping, projection, freshness를 유지하고 model planning을 건너뜁니다.
+불완전하거나 compound인 request는 intent graph를 계속 사용합니다.
 
 ## Intent graph 계약
 

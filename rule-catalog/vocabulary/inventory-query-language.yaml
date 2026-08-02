@@ -1,5 +1,5 @@
 schema_version: "1.1.0"
-version: "1.1.14"
+version: "1.1.15"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -52,7 +52,7 @@ projections:
     terms: [list names, show names, names only, name list, 이름만, 이름 목록, 이름을 보여줘, 이름으로 보여줘, 이름만 알려줘]
 scopes:
   subscription:
-    terms: [subscription, subscription wide, subscription scope, in subscription, in the subscription, from subscription, from the subscription, across subscription, across the subscription, entire subscription, whole subscription, 구독, 구독 범위, 구독 전체, 전체 구독, 전체 구독 범위]
+    terms: [subscription, subscription wide, subscription scope, in subscription, in the subscription, from subscription, from the subscription, across subscription, across the subscription, entire subscription, whole subscription, 구독, 우리 구독, 우리구독, 구독 범위, 구독 전체, 전체 구독, 전체 구독 범위]
   active_view:
     terms: [this view, current view, this screen, current screen, this group, this resource group, 현재 보기, 현재 화면, 이 화면, 이 그룹, 이 리소스 그룹]
 states:

@@ -45,6 +45,10 @@ reaches active providers. Legacy single-tool parsing remains for compatibility t
 The terminal response persists a redacted graph and timestamped goal receipts, not raw provider
 payloads. The Console replays goals, dependencies, status, and evidence mode in Observed process.
 Action drafts are checked against the current capability manifest again before confirmation.
+The provider-facing schema uses only the supported structured-output subset; deterministic parsing
+still enforces unique goal dependencies and alternatives. A complete catalog-compiled inventory
+request keeps scope, grouping, projection, and freshness in its typed query and bypasses model
+planning, while incomplete or compound requests continue through the intent graph.
 
 ## Intent graph contract
 

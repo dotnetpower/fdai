@@ -220,7 +220,18 @@ class InventoryQuery:
     def from_mapping(cls, raw: Mapping[str, object]) -> InventoryQuery:
         """Parse one untrusted structured planner result without partial acceptance."""
 
-        if set(raw) - {"source", "kind", "predicates", "lookback_seconds"}:
+        if set(raw) - {
+            "source",
+            "kind",
+            "predicates",
+            "lookback_seconds",
+            "scope",
+            "group_by",
+            "projection",
+            "require_fresh",
+            "include_workloads",
+            "require_state_history",
+        }:
             raise ValueError("inventory query contains unknown fields")
         if not {"source", "kind", "predicates"}.issubset(raw):
             raise ValueError("inventory query is missing required fields")
@@ -231,12 +242,25 @@ class InventoryQuery:
         lookback = raw.get("lookback_seconds")
         if lookback is not None and (not isinstance(lookback, int) or isinstance(lookback, bool)):
             raise ValueError("inventory query lookback_seconds MUST be an integer or null")
+        boolean_fields = ("require_fresh", "include_workloads", "require_state_history")
+        if any(field in raw and not isinstance(raw[field], bool) for field in boolean_fields):
+            raise ValueError("inventory query evidence requirements MUST be booleans")
         try:
             return cls(
                 source=InventoryQuerySource(str(raw["source"])),
                 kind=InventoryQueryKind(str(raw["kind"])),
                 predicates=predicates,
                 lookback_seconds=lookback,
+                scope=InventoryQueryScope(str(raw.get("scope", InventoryQueryScope.ACTIVE_VIEW))),
+                group_by=InventoryQueryGrouping(
+                    str(raw.get("group_by", InventoryQueryGrouping.NONE))
+                ),
+                projection=InventoryQueryProjection(
+                    str(raw.get("projection", InventoryQueryProjection.DETAILS))
+                ),
+                require_fresh=bool(raw.get("require_fresh", False)),
+                include_workloads=bool(raw.get("include_workloads", False)),
+                require_state_history=bool(raw.get("require_state_history", False)),
             )
         except ValueError as exc:
             raise ValueError(f"inventory query is invalid: {exc}") from exc
@@ -249,6 +273,12 @@ class InventoryQuery:
             "kind": self.kind.value,
             "predicates": [predicate.to_dict() for predicate in self.predicates],
             "lookback_seconds": self.lookback_seconds,
+            "scope": self.scope.value,
+            "group_by": self.group_by.value,
+            "projection": self.projection.value,
+            "require_fresh": self.require_fresh,
+            "include_workloads": self.include_workloads,
+            "require_state_history": self.require_state_history,
         }
 
 
@@ -299,6 +329,18 @@ def inventory_query_argument_schema() -> dict[str, object]:
                 "minimum": _MIN_ACTIVITY_LOOKBACK_SECONDS,
                 "maximum": MAX_ACTIVITY_LOOKBACK_SECONDS,
             },
+            "scope": {"type": "string", "enum": [item.value for item in InventoryQueryScope]},
+            "group_by": {
+                "type": "string",
+                "enum": [item.value for item in InventoryQueryGrouping],
+            },
+            "projection": {
+                "type": "string",
+                "enum": [item.value for item in InventoryQueryProjection],
+            },
+            "require_fresh": {"type": "boolean"},
+            "include_workloads": {"type": "boolean"},
+            "require_state_history": {"type": "boolean"},
         },
         "required": ["source", "kind", "predicates", "lookback_seconds"],
         "additionalProperties": False,
