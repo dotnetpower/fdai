@@ -45,6 +45,8 @@ class CandidateKind(StrEnum):
     WORKFLOW = "workflow"
     ACTION_TYPE = "action_type"
     POLICY = "policy"
+    ONTOLOGY_OBJECT = "ontology_object"
+    ONTOLOGY_LINK = "ontology_link"
 
 
 @dataclass(frozen=True, slots=True)

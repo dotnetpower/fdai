@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a56afc788299b99c874210cc39decf9567d8ecbf
-translation_revised: 2026-08-02
+translation_source_sha: a1f4674bb003c59d805293feed8ef3e39cef905c
+translation_revised: 2026-08-03
 ---
 
 # 프로젝트 구조
@@ -124,7 +124,7 @@ fdai/
 │   ├── rule_catalog/          # rule-catalog 파이프라인 코드
 │   │   ├── schema/             # 룰, Best Practice, governance 및 온톨로지 스키마 + 검증
 │   │   ├── sources/            # 소스별 컬렉터 (WAF, CIS, OPA, IaC scanners, ...)
-│   │   ├── pipeline/           # watch → collect → shadow eval → regression → promote/rollback
+│   │   ├── pipeline/           # watch -> collect -> shadow/regression; distill은 grounded review-only ontology proposal과 evidence gate 추가
 │   │   └── codegen/            # 저작 헬퍼 (`new_action_type`, `new_object_type`) - 스캐폴드 생성만, 라이브 카탈로그 변경 안 함
 │   ├── agents/                # 판테온 런타임 - 15개 agent, typed topic, v2 conversation charter 및 bounded T1/T2 deliberation; [agent-pantheon-ko.md](../agents/agent-pantheon-ko.md) 참조
 │   ├── evaluation/            # public EvaluationHost 구현, capability attenuation, workspace policy, artifact custody 및 typed ingress

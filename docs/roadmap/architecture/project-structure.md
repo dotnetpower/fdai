@@ -119,7 +119,7 @@ fdai/
 │   ├── rule_catalog/          # rule-catalog PIPELINE code
 │   │   ├── schema/             # rule, Best Practice, governance, and ontology schemas + validation
 │   │   ├── sources/            # per-source collectors (WAF, CIS, OPA, IaC scanners, ...)
-│   │   ├── pipeline/           # watch → collect → shadow eval → regression → promote/rollback
+│   │   ├── pipeline/           # watch -> collect -> shadow/regression; distill adds grounded review-only ontology proposals and evidence gates
 │   │   └── codegen/            # authoring helpers (`new_action_type`, `new_object_type`) - generate scaffolds, never mutate the live catalog
 │   ├── agents/                # pantheon runtime - 15 named agents, typed topics, v2 conversation charters, and bounded T1/T2 deliberation; see [agent-pantheon.md](../agents/agent-pantheon.md)
 │   ├── evaluation/            # public EvaluationHost implementation, capability attenuation, workspace policy, artifact custody, and typed ingress

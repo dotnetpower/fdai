@@ -77,4 +77,6 @@ def test_candidate_kind_values() -> None:
         "workflow",
         "action_type",
         "policy",
+        "ontology_object",
+        "ontology_link",
     }

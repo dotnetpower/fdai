@@ -1,0 +1,264 @@
+---
+translation_of: document-ontology-distillation.md
+translation_source_sha: 626e60cad8f551ffab23f7ad0d28f7faddbc2637
+translation_revised: 2026-08-03
+---
+# 문서 온톨로지 증류
+
+이 문서는 FDAI가 승인된 운영 문서를 근거 기반 온톨로지 변경 제안으로 변환하는 방법을 정의합니다.
+모델 출력은 비활성 상태를 유지합니다. 모델은 claim을 식별하고 typed graph 변경을 제안할 수 있지만,
+결정론적 검증과 책임 있는 검토만 온톨로지 revision 반영 여부를 결정합니다.
+
+> **권위 경계:** 문서는 승인된 source authority 범위 안에서 의도, 담당 체계, 절차 및 과거 증거를
+> 선언할 수 있습니다. 현재 provider 상태, telemetry, 실행 권한 또는 외부 effect 성공을 증명할 수는
+> 없습니다.
+>
+> **안전 경계:** 증류는 graph, catalog, policy 또는 provider를 직접 변경하지 않습니다.
+> `OntologyChangeProposal`을 생성하며, 모호하거나 근거가 없거나 오래되거나 충돌하거나 불완전한
+> proposal은 검토 대기 상태가 됩니다.
+>
+> **고객 경계:** 업로드된 문서, 추출된 text, deployment identity 및 제안된 instance는 승인된
+> deployment storage에만 남습니다. Upstream은 generic contract, 결정론적 gate 및 provider seam만
+> 제공합니다.
+>
+> **구현 상태(2026-08-03):** D0-D4 contract, claim inventory, strict proposal compilation,
+> deterministic gate, review package, lifecycle plan 및 frozen-corpus scoring을 구현했습니다. D5
+> promotion assessment는 evidence-only evaluation으로 구현했으며 live-shadow evidence 또는 automatic
+> promotion을 달성했다고 주장하지 않습니다.
+
+## 한눈에 보는 설계
+
+Pipeline은 추출 전에 claim inventory를 만들어 누락된 문장을 측정할 수 있게 합니다. 그런 다음 각
+claim을 기존 ontology declaration에 mapping하고, 정확한 source 근거와 authoritative external
+evidence를 검증한 뒤 검토 가능한 graph diff를 stage합니다. 승인된 proposal은 새로운 immutable
+revision을 만들며, reconciliation은 승인된 의도와 관측된 외부 사실을 분리합니다.
+
+```mermaid
+flowchart LR
+    D[승인된 문서] --> I[Claim inventory]
+    I --> E[Typed extraction]
+    E --> V[결정론적 검증]
+    V --> P[Ontology change proposal]
+    P --> H[책임 있는 검토]
+    H --> R[Immutable ontology revision]
+    R --> C[Authority reconciliation]
+    C --> S[Shadow measurement]
+```
+
+## Proposal contract
+
+`OntologyChangeProposal`은 content-addressed proposal-only record입니다. 다음 내용을 포함합니다.
+
+- proposal id, source document id, immutable document revision, content hash 및 extraction run
+- target ontology release와 expected graph revision
+- object 또는 link에 대한 add, update, remove 또는 supersede operation 하나
+- section 및 1-based inclusive line range가 있는 정확한 source evidence
+- claim authority class, effective interval 및 freshness policy
+- bounded entity-resolution candidate와 resolution에 성공한 canonical identity
+- independent extractor 또는 reviewer의 normalized vote
+- deterministic gate receipt, conflict reference 및 proposal digest
+- review, projection, reconciliation, supersession, rejection 및 rollback lineage
+
+Lifecycle은 단조롭게 진행합니다.
+
+```text
+candidate -> validated -> review_required -> approved -> projected -> reconciled
+                  |              |
+                  +-> denied     +-> rejected
+projected -> superseded | rolled_back
+```
+
+같은 source revision, claim, operation 및 target release로 재시도하면 같은 proposal identity가
+생성됩니다. Source 또는 target revision이 바뀌면 이전 record를 변경하지 않고 새 proposal을
+생성합니다.
+
+## Claim inventory
+
+Coverage는 ontology extraction 전에 시작합니다. Claim inventory는 다음과 같이 운영 의미를 담을 수
+있는 모든 문장을 기록합니다.
+
+- normative term, threshold, unit, prohibition 및 conditional branch
+- service, workload, resource, environment 및 owner reference
+- dependency, containment, implementation 및 escalation relationship
+- procedure, action, rollback step, stop condition 및 expected effect
+- event-time observation, historical incident 및 declared effective interval
+
+각 claim은 `mapped`, `ignored_with_reason` 또는 `needs_review` 중 정확히 하나로 종료합니다. 중복 claim
+id, disposition 누락, 서로 모순되는 중복 disposition 및 알 수 없는 claim을 참조하는 candidate는
+검증에 실패합니다. Structural heuristic과 model-backed detector가 모두 claim을 제안할 수 있지만,
+결정론적 ledger가 completeness accounting을 수행합니다.
+
+## Authority class
+
+Source authority가 eligible proposal operation을 결정합니다.
+
+| Authority class | 문서 사용 | 필요한 reconciliation |
+|-----------------|-----------|-------------------------|
+| `declared_intent` | objective, ownership, constraint, service map | 승인된 intent source 및 effective interval |
+| `procedure` | rule, workflow, ActionType candidate | catalog schema, safety invariant, shadow replay, review |
+| `historical_evidence` | incident, outcome, lesson | immutable case 또는 audit evidence |
+| `provider_observation` | resource 및 topology statement | fresh Inventory 또는 provider observation |
+| `telemetry_observation` | metric 및 health statement | event time이 있는 fresh telemetry evidence |
+| `execution_authority` | permission 또는 autonomy statement | 문서로 부여하지 않으며 approved policy가 계속 authoritative함 |
+
+Source precedence는 model confidence가 아니라 authority class와 scope로 구성합니다. 낮은 authority
+source는 높은 authority source를 덮어쓸 수 없습니다. 같은 authority의 disagreement는 explicit
+conflict로 유지하고 검토 대상으로 보냅니다.
+
+## Extraction 및 identity resolution
+
+Extractor는 제한 없는 document byte가 아니라 bounded structural unit을 받습니다. Schema-constrained
+data를 반환해야 하며 source text를 instruction이 아닌 untrusted data로 처리합니다.
+
+1. Extraction 중 heading, table, page, slide, cell 및 line provenance를 보존합니다.
+2. Pinned ontology release의 정확한 기존 ObjectType 또는 LinkType만 matching합니다.
+3. Identifier, value, unit, polarity, comparison 및 effective time을 normalize합니다.
+4. Fuzzy candidate를 사용하기 전에 stable id와 configured alias로 entity를 resolve합니다.
+5. Unique identity가 없으면 bounded ambiguous set을 반환하며 instance id를 만들지 않습니다.
+6. 기존 type으로 supported claim을 표현할 수 없으면 inert schema change를 제안합니다.
+
+Exact stable-id match는 자동으로 resolve할 수 있습니다. Alias와 fuzzy match에는 deterministic scoring
+evidence, configured threshold를 넘는 하나의 unique winner 및 충돌하는 exact match가 없다는 증거가
+필요합니다. Ambiguity는 항상 `review_required`를 생성합니다.
+
+## 검증 gate
+
+Verifier는 executor를 호출하거나 source를 변경하지 않고 proposal 하나를 평가합니다.
+
+| Gate | 필요한 증거 | 실패 결과 |
+|------|-------------|-----------|
+| Shape | schema, enum, line range, digest 및 target release가 valid함 | `denied` |
+| Grounding | cited text가 존재하고 normalized claim을 지원함 | `denied` |
+| Claim accounting | claim이 존재하고 disposition이 정확히 하나임 | `denied` |
+| Semantic fidelity | polarity, comparison, number, unit, scope 및 time이 보존됨 | `review_required` |
+| Identity | canonical target 하나가 증명됨 | `review_required` |
+| Authority | source가 해당 scope에서 이 fact class를 주장할 수 있음 | `denied` 또는 `review_required` |
+| Conflict | precedence가 deterministic이고 unresolved tie가 보임 | `review_required` |
+| External truth | provider 또는 telemetry statement에 fresh authoritative evidence가 있음 | `review_required` |
+| Safety | rule, workflow 및 action이 complete safety contract를 충족함 | `denied` |
+| Coverage | 모든 claim에 disposition이 있고 critical recall이 release gate를 통과함 | `review_required` |
+
+Model self-reported confidence는 authority signal이 아닙니다. Computed confidence는 grounding,
+independent agreement, identity resolution, freshness 및 historical performance를 요약할 수 있지만
+eligibility를 낮출 수만 있습니다. Normalized critical field에 대한 independent model disagreement는
+검토 대상으로 보냅니다.
+
+## Lifecycle 및 rollback
+
+Document와 graph lifecycle은 immutable digest로 연결됩니다.
+
+- **Revision:** Content 또는 curation 변경은 영향받은 claim과 proposal만 다시 처리합니다.
+- **Deletion:** 확인된 source deletion은 bounded tombstone proposal을 생성합니다. Non-empty snapshot에
+  대한 empty listing은 suspected source outage이며 graph state를 대량 삭제할 수 없습니다.
+- **Access change:** 더 좁아진 source ACL은 derived read를 즉시 차단하고 영향받은 artifact의 제거 또는
+  재보호를 예약합니다.
+- **Conflict:** 나중의 conflicting source는 accepted history를 다시 쓰지 않습니다. Prior revision과
+  conflict receipt에 연결된 새 proposal을 만듭니다.
+- **Supersession:** Approved intent는 historical decision context를 변경하지 않고 prior effective
+  interval을 교체합니다.
+- **Rollback:** Projection failure 또는 later rejection은 exact prior graph revision을 복원하고 failed
+  proposal digest를 기록합니다.
+
+Projection과 reconciliation은 별개입니다. Declared intent를 수락하면 governed intent projection을
+update할 수 있습니다. Provider-observed statement는 fresh external observation과 일치한 뒤에만 current
+truth가 됩니다.
+
+## Agent ownership
+
+기존 pantheon이 새 coordinator 없이 pipeline을 소유합니다.
+
+| Stage | 책임 agent | Output |
+|-------|------------|--------|
+| Ingress | Huginn | document event |
+| Safety 및 source observation | Heimdall | bounded finding |
+| Admissibility | Forseti | admit, hold 또는 deny decision |
+| Structural index 및 claim ledger | Muninn | immutable context index |
+| Inert proposal creation | Norns | proposal candidate |
+| Catalog 및 ontology lifecycle | Mimir | reviewed change package |
+| Human approval | Var | independent approval |
+| Conflict arbitration | Odin | arbitration decision |
+| Audit | Saga | append-only lifecycle evidence |
+| Rollback | Vidar | rollback outcome |
+
+어떤 stage도 다른 agent를 직접 호출하지 않습니다. Authority-bearing transition은 typed event를
+사용하며 graph와 catalog 변경은 reviewed governance proposal로 남기 때문에 document path는 Thor에
+도달하지 않습니다.
+
+## 평가 및 promotion
+
+평가는 licensed 또는 synthetic document, annotated claim, expected graph diff, adversarial instruction,
+scan, table, conflicting revision, deletion 및 source outage를 포함하는 frozen versioned corpus를
+사용합니다. Human annotation은 reviewer identity와 disagreement resolution을 기록합니다.
+
+Release gate는 다음과 같습니다.
+
+- unsupported critical claim 0건
+- critical claim의 number, unit, polarity 또는 comparison 변경 0건
+- critical claim disposition accounting 100%
+- frozen corpus에서 critical-claim recall 0.98 이상 및 entity/link precision 0.98 이상
+- competency-query, replay, rollback, deletion 및 ACL regression pass rate 100%
+- authority violation, policy escape, wrong-target projection 및 unverified truth claim 0건
+
+초기 capability는 review-only입니다. 이후 promotion은 최소 30일의 distinct live-shadow day와 500개의
+eligible reviewed proposal, guard violation 0건 및 0.99 이상의 Wilson 95% precision lower bound를
+충족한 low-risk mapping에만 적용을 검토할 수 있습니다. Ownership, objective, constraint, rule,
+policy, workflow, ActionType, permission, autonomy, schema change, conflict 및 ambiguous identity는 항상
+책임 있는 검토가 필요합니다.
+
+## 제공 순서
+
+| Wave | Deliverable | 종료 기준 |
+|------|-------------|-----------|
+| D0 | Proposal, claim, evidence, authority, receipt 및 lifecycle contract | invalid identity, range, digest, state 및 authority fixture가 fail closed함 |
+| D1 | Claim inventory 및 typed extraction adapter | 모든 detected claim이 정확히 하나의 disposition을 받음 |
+| D2 | Grounding, semantic, identity, authority, conflict 및 coverage gate | adversarial 및 ambiguity fixture가 deny 또는 review로만 종료함 |
+| D3 | Incremental revision, deletion, ACL, supersession 및 rollback planning | outage가 mass deletion을 만들 수 없고 replay가 exact revision을 복원함 |
+| D4 | Review package 및 evaluation report | reviewer가 graph diff, source evidence, gate receipt 및 unresolved claim을 확인함 |
+| D5 | Shadow measurement 및 limited promotion evidence | authority를 넓히지 않고 statistical 및 zero-violation gate를 통과함 |
+
+## 하드닝 기록
+
+13개의 adversarial round가 complete proposal-only path를 검토했습니다.
+
+| Round | Focus | Result |
+|-------|-------|--------|
+| 1 | immutable contract 및 replay digest | bounded identifier, scalar value 및 candidate lineage |
+| 2 | claim completeness | provider/Korean claim, percent threshold, fence, exact claim accounting |
+| 3 | untrusted model output | source-revision pinning, strict key, authority-bound identity, size limit |
+| 4 | verifier behavior | unknown-link crash, stale revision, comparator normalization, safety denial |
+| 5 | entity 및 link integrity | declared endpoint type, target-resolution binding, operation semantic |
+| 6 | conflict 및 external truth | source revision, UTC time, freshness policy, evidence/conflict provenance |
+| 7 | review privacy | source access-policy lineage, exact content digest, package bound |
+| 8 | lifecycle 및 rollback | projection-only revision change, exact rollback, duplicate retirement rejection |
+| 9 | promotion statistics | typed risk class, as-of cutoff, unique evidence, future-observation rejection |
+| 10 | integration boundary | package invariant, context bound, correct mixed fence handling |
+| 11 | reconciliation isolation | proposal-bound receipt 및 restored current graph revision |
+| 12 | boundary format | ontology release digest, RFC 3339 UTC evidence, bounded reference |
+| 13 | executable closure | focused test 156개, branch coverage 90.62%, Ruff 및 strict mypy 통과 |
+
+검증된 Medium, High 또는 Critical finding은 남아 있지 않습니다. Residual Low risk는 complex layout
+또는 language form에 대한 conservative heuristic coverage, carried access-policy reference의 downstream
+enforcement 및 아직 없는 live-shadow promotion evidence로 제한됩니다. 이 조건에서는 capability가
+review-only mode를 유지하며 authority를 높일 수 없습니다.
+
+## 검증 매트릭스
+
+| Concern | 필요한 증거 |
+|---------|-------------|
+| Grounding | 모든 accepted change가 immutable source text와 document revision으로 resolve됨 |
+| Completeness | 모든 critical claim에 disposition이 하나 있고 omission이 보임 |
+| Identity | Ambiguous 또는 stale target이 자동으로 project되지 않음 |
+| Authority | 문서가 current external state를 주장하거나 execution permission을 부여할 수 없음 |
+| Security | Untrusted text가 prompt, tool, policy 또는 execution identity를 바꿀 수 없음 |
+| Replay | 같은 input과 release가 같은 proposal 및 gate digest를 생성함 |
+| Lifecycle | Revision, deletion, outage, ACL, supersession 및 rollback이 bounded되고 audited됨 |
+| Customer isolation | Upstream code, fixture 및 docs에 deployment document content가 없음 |
+
+## 관련 문서
+
+| 알아볼 내용 | 문서 |
+|-------------|------|
+| Upload protection 및 governed storage | [문서 수집](../interfaces/document-ingestion-ko.md) |
+| 기존 manual compilation pipeline | [Manual 증류](manual-distillation-ko.md) |
+| Shared semantic 및 authority model | [FDAI 운영 온톨로지](../architecture/operating-ontology-ko.md) |
+| Proposal-only ontology primitive | [FDAI 온톨로지 안전 인프라](../architecture/operating-ontology-platform-ko.md) |

@@ -32,6 +32,11 @@ from fdai.rule_catalog.pipeline.distill.freshness import (
     plan_retirements,
     snapshot_of,
 )
+from fdai.rule_catalog.pipeline.distill.ontology_review import (
+    OntologyReviewPackage,
+    build_ontology_review_package,
+)
+from fdai.rule_catalog.pipeline.distill.ontology_verify import VerificationContext
 from fdai.rule_catalog.pipeline.distill.sensitivity import scan_sensitivity
 from fdai.rule_catalog.pipeline.distill.triage import (
     TriageDrop,
@@ -40,7 +45,7 @@ from fdai.rule_catalog.pipeline.distill.triage import (
     prioritize,
     triage_filter,
 )
-from fdai.shared.providers.distiller import DistillationResult, Distiller
+from fdai.shared.providers.distiller import CandidateKind, DistillationResult, Distiller
 from fdai.shared.providers.manual_classifier import (
     ClassifiedManual,
     ManualClassifier,
@@ -67,6 +72,7 @@ class DistilledManual:
 
     candidate: ManualCandidate
     result: DistillationResult
+    ontology_review: OntologyReviewPackage | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +104,12 @@ class DistillationPlan:
     @property
     def distilled_candidate_count(self) -> int:
         return sum(len(d.result.candidates) for d in self.distilled)
+
+    @property
+    def ontology_reviews(self) -> tuple[OntologyReviewPackage, ...]:
+        return tuple(
+            item.ontology_review for item in self.distilled if item.ontology_review is not None
+        )
 
 
 def _sensitivity_reason(labels: list[str]) -> str:
@@ -154,6 +166,8 @@ async def build_distillation_plan(
     previous_snapshot: Mapping[str, str] | None = None,
     incident_refs: frozenset[str] = frozenset(),
     now: datetime | None = None,
+    ontology_context: VerificationContext | None = None,
+    extraction_run_id: str = "",
 ) -> DistillationPlan:
     """Run one incremental, build-time distillation pass over ``source``.
 
@@ -163,6 +177,8 @@ async def build_distillation_plan(
     the classifier says PROCEDURE and the sensitivity scan is CLEAR - is
     distilled. Uncertain classifications and sensitivity holds route to HIL.
     """
+    if ontology_context is not None and not extraction_run_id:
+        raise ValueError("extraction_run_id MUST be provided with ontology_context")
     active_policy = policy or TriagePolicy()
     prior = previous_snapshot or {}
 
@@ -209,7 +225,29 @@ async def build_distillation_plan(
             held.append(HeldManual(candidate=candidate, reason=reason))
             continue
         result = await distiller.distill(document)
-        distilled.append(DistilledManual(candidate=candidate, result=result))
+        has_ontology_candidates = any(
+            item.kind in {CandidateKind.ONTOLOGY_OBJECT, CandidateKind.ONTOLOGY_LINK}
+            for item in result.candidates
+        )
+        if has_ontology_candidates and ontology_context is None:
+            raise ValueError("ontology candidates require a VerificationContext")
+        ontology_review = (
+            build_ontology_review_package(
+                document=document,
+                result=result,
+                context=ontology_context,
+                extraction_run_id=extraction_run_id,
+            )
+            if has_ontology_candidates and ontology_context is not None
+            else None
+        )
+        distilled.append(
+            DistilledManual(
+                candidate=candidate,
+                result=result,
+                ontology_review=ontology_review,
+            )
+        )
 
     # Do not record sensitivity-held docs in the snapshot: they carry an
     # unresolved secret and were not distilled, so marking them "seen" would
