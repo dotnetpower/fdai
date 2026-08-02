@@ -1340,6 +1340,9 @@ module "compute" {
   log_workspace_id                  = module.log_analytics.workspace_id
   executor_identity_id              = module.identity.resource_id
   executor_identity_client_id       = module.identity.client_id
+  change_identity_client_id         = module.identity_change.client_id
+  resilience_identity_client_id     = module.identity_resilience.client_id
+  finops_identity_client_id         = module.identity_finops.client_id
   t1_similarity_threshold           = var.t1_similarity_threshold
   t1_min_success_rate               = var.t1_min_success_rate
   quality_gate_confidence_threshold = var.quality_gate_confidence_threshold
@@ -1354,6 +1357,11 @@ module "compute" {
   image                             = var.core_image
   max_replicas                      = var.max_replicas
   extra_identity_ids = concat(
+    [
+      module.identity_change.resource_id,
+      module.identity_resilience.resource_id,
+      module.identity_finops.resource_id,
+    ],
     var.enable_email_notifications ? [module.notification_identity[0].resource_id] : [],
     var.enable_case_history ? [module.case_history_identity[0].resource_id] : [],
   )

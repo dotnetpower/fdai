@@ -55,6 +55,21 @@ variable "executor_identity_client_id" {
   type        = string
 }
 
+variable "change_identity_client_id" {
+  description = "Client id of the attached Change Safety execution identity."
+  type        = string
+}
+
+variable "resilience_identity_client_id" {
+  description = "Client id of the attached Resilience execution identity."
+  type        = string
+}
+
+variable "finops_identity_client_id" {
+  description = "Client id of the attached Cost Governance execution identity."
+  type        = string
+}
+
 variable "t1_similarity_threshold" {
   description = "Cosine-similarity floor for T1 reuse."
   type        = number
