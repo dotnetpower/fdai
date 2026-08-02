@@ -164,9 +164,24 @@
     .ex-observed-event-detail { margin: 0 0 9px 69px; padding: 7px 9px; border-left: 2px solid #d8dee4; background: #f8f9fa; }
     .ex-observed-event-facts { display: grid; grid-template-columns: 1.4fr .8fr .8fr; gap: 10px; margin: 0; }
     .ex-observed-event-facts > div { min-width: 0; }
-    .ex-observed-event-facts dt { margin-bottom: 2px; color: var(--ex-muted); font-size: 8.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
-    .ex-observed-event-facts dd { margin: 0; color: var(--ex-ink); font-size: 9.5px; line-height: 1.4; overflow-wrap: anywhere; }
+    .ex-observed-event-facts dt { margin-bottom: 2px; color: var(--ex-muted); font-size: 9px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+    .ex-observed-event-facts dd { margin: 0; color: var(--ex-ink); font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
     .ex-observed-event-facts code { color: #425467; font: 9px "JetBrains Mono", monospace; }
+    .ex-observed-prompt { margin: 0 0 9px; padding: 8px 10px; border-left: 2px solid var(--ex-blue); background: #fff; }
+    .ex-observed-prompt span, .ex-observed-detail-label { display: block; margin-bottom: 4px; color: var(--ex-muted); font-size: 9px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+    .ex-observed-prompt p { margin: 0; color: var(--ex-ink); font-size: 10.5px; line-height: 1.55; }
+    .ex-observed-plan { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; margin: 0 0 9px; padding: 0; list-style: none; counter-reset: observed-plan; }
+    .ex-observed-plan li { min-width: 0; display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 6px; padding: 5px 0; border-top: 1px solid #e3e7eb; color: var(--ex-ink); font-size: 10px; line-height: 1.4; counter-increment: observed-plan; }
+    .ex-observed-plan li::before { content: "0" counter(observed-plan); color: var(--ex-blue); font: 800 8.5px/1.5 "JetBrains Mono", monospace; }
+    .ex-observed-data { max-height: 160px; margin: 0 0 9px; padding: 8px 10px; overflow: auto; border-radius: 4px; background: var(--ex-terminal); color: #cfd6dc; font: 9.5px/1.55 "JetBrains Mono", monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .ex-observed-data .is-command { color: #7fb3dd; }
+    .ex-observed-data .is-result { color: #8fc394; }
+    .ex-observed-claims { margin: 0 0 9px; padding: 0; list-style: none; }
+    .ex-observed-claims li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 7px; padding: 6px 0; border-top: 1px solid #e3e7eb; }
+    .ex-observed-claims li:first-child { border-top: 0; }
+    .ex-observed-claims span { color: var(--ex-green); font-size: 8.5px; font-weight: 800; text-transform: uppercase; }
+    .ex-observed-claims p { margin: 0; color: var(--ex-ink); font-size: 10px; line-height: 1.4; }
+    .ex-observed-claims code { color: #425467; font: 8.5px "JetBrains Mono", monospace; }
     .ex-observed-signals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 13px 0 0; padding-top: 10px; border-top: 1px solid #e7eaee; }
     .ex-observed-signal { min-width: 0; margin: 0; padding: 0 12px; border-left: 1px solid #e7eaee; }
     .ex-observed-signal:first-child { padding-left: 0; border-left: 0; }
@@ -202,6 +217,9 @@
       .ex-observed-event-chevron { grid-column: 4; grid-row: 1; }
       .ex-observed-event-detail { margin-left: 0; }
       .ex-observed-event-facts { grid-template-columns: 1fr; gap: 7px; }
+      .ex-observed-plan { grid-template-columns: 1fr; }
+      .ex-observed-claims li { grid-template-columns: auto minmax(0, 1fr); }
+      .ex-observed-claims code { grid-column: 2; }
       .ex-observed-signals { grid-template-columns: 1fr; gap: 8px; }
       .ex-observed-signal, .ex-observed-signal:first-child, .ex-observed-signal:last-child { padding: 0; border-left: 0; }
     }
@@ -288,8 +306,10 @@
                           <span class="ex-observed-kind">Turn</span><span class="ex-observed-event-label">Input received</span>
                           <span class="ex-observed-track" aria-hidden="true"><span style="left: 0; width: 1%;"></span></span>
                           <span class="ex-observed-event-duration">0 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
-                        </summary><div class="ex-observed-event-detail"><dl class="ex-observed-event-facts">
-                          <div><dt>Observed</dt><dd>Question accepted and turn created</dd></div><div><dt>Source</dt><dd><code>conversation.turn</code></dd></div><div><dt>Evidence ref</dt><dd><code>turn:request</code></dd></div>
+                        </summary><div class="ex-observed-event-detail">
+                        <blockquote class="ex-observed-prompt"><span>Original prompt</span><p>Find why the example API health probe keeps failing. Check Azure, fix the validator script, and run it.</p></blockquote>
+                        <dl class="ex-observed-event-facts">
+                          <div><dt>Source</dt><dd><code>conversation.turn</code></dd></div><div><dt>Locale</dt><dd><code>en-US</code></dd></div><div><dt>Evidence ref</dt><dd><code>turn:request</code></dd></div>
                         </dl></div></details>
                       </li>
                       <li class="ex-observed-event" data-kind="phase">
@@ -297,8 +317,11 @@
                           <span class="ex-observed-kind">Phase</span><span class="ex-observed-event-label">Semantic planning</span>
                           <span class="ex-observed-track" aria-hidden="true"><span style="left: 1.3%; width: 4.7%;"></span></span>
                           <span class="ex-observed-event-duration">420 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
-                        </summary><div class="ex-observed-event-detail"><dl class="ex-observed-event-facts">
-                          <div><dt>Observed</dt><dd>Diagnostic intent and response shape resolved</dd></div><div><dt>Source</dt><dd><code>semantic-planner</code></dd></div><div><dt>Evidence ref</dt><dd><code>phase:plan</code></dd></div>
+                        </summary><div class="ex-observed-event-detail">
+                        <span class="ex-observed-detail-label">Recorded response plan</span><ol class="ex-observed-plan">
+                          <li>Check the deployed API and probe configuration</li><li>Reproduce the local validator failure</li><li>Change only the rejecting condition</li><li>Run focused tests and dry-run verification</li>
+                        </ol><dl class="ex-observed-event-facts">
+                          <div><dt>Intent</dt><dd><code>probe_diagnostics</code></dd></div><div><dt>Constraints</dt><dd>Read-only cloud / local edit</dd></div><div><dt>Evidence ref</dt><dd><code>phase:plan</code></dd></div>
                         </dl></div></details>
                       </li>
                       <li class="ex-observed-event" data-kind="evidence">
@@ -306,8 +329,12 @@
                           <span class="ex-observed-kind">Evidence</span><span class="ex-observed-event-label">Workspace search</span>
                           <span class="ex-observed-track" aria-hidden="true"><span style="left: 6%; width: 8.9%;"></span></span>
                           <span class="ex-observed-event-duration">800 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
-                        </summary><div class="ex-observed-event-detail"><dl class="ex-observed-event-facts">
-                          <div><dt>Observed</dt><dd>Validator and focused tests located</dd></div><div><dt>Source</dt><dd><code>workspace-search</code></dd></div><div><dt>Evidence ref</dt><dd><code>ev:workspace</code></dd></div>
+                        </summary><div class="ex-observed-event-detail">
+                        <span class="ex-observed-detail-label">Command and bounded output</span><pre class="ex-observed-data"><span class="is-command">$ rg -n "health|probe|status_code" scripts/ops tests/ops</span>
+scripts/ops/check_probe.py:41: if response.status_code != 200:
+tests/ops/test_check_probe.py:28: def test_accepts_healthy_response():
+<span class="is-result">2 files matched</span></pre><dl class="ex-observed-event-facts">
+                          <div><dt>Safety</dt><dd>Read-only</dd></div><div><dt>Matches</dt><dd>2 files / 2 lines</dd></div><div><dt>Evidence ref</dt><dd><code>ev:workspace</code></dd></div>
                         </dl></div></details>
                       </li>
                       <li class="ex-observed-event" data-kind="evidence">
@@ -315,8 +342,12 @@
                           <span class="ex-observed-kind">Evidence</span><span class="ex-observed-event-label">Azure state query</span>
                           <span class="ex-observed-track" aria-hidden="true"><span style="left: 14.9%; width: 18.9%;"></span></span>
                           <span class="ex-observed-event-duration">1700 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
-                        </summary><div class="ex-observed-event-detail"><dl class="ex-observed-event-facts">
-                          <div><dt>Observed</dt><dd>API running and probe path configured</dd></div><div><dt>Source</dt><dd><code>azure-resource-graph</code></dd></div><div><dt>Evidence ref</dt><dd><code>ev:azure-state</code></dd></div>
+                        </summary><div class="ex-observed-event-detail">
+                        <span class="ex-observed-detail-label">Query and bounded result</span><pre class="ex-observed-data"><span class="is-command">$ az graph query -q "Resources | where name == 'api-example' | project name, resourceGroup, properties.state"</span>
+Name          Resource group   State
+api-example   rg-example-app   Running
+<span class="is-result">Query returned 1 resource</span></pre><dl class="ex-observed-event-facts">
+                          <div><dt>Safety</dt><dd>Read-only</dd></div><div><dt>Result</dt><dd>1 running resource</dd></div><div><dt>Evidence ref</dt><dd><code>ev:azure-state</code></dd></div>
                         </dl></div></details>
                       </li>
                       <li class="ex-observed-event" data-kind="phase">
@@ -324,8 +355,13 @@
                           <span class="ex-observed-kind">Phase</span><span class="ex-observed-event-label">Verification</span>
                           <span class="ex-observed-track" aria-hidden="true"><span style="left: 54.4%; width: 45.6%;"></span></span>
                           <span class="ex-observed-event-duration">4100 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
-                        </summary><div class="ex-observed-event-detail"><dl class="ex-observed-event-facts">
-                          <div><dt>Observed</dt><dd>Four focused checks passed</dd></div><div><dt>Source</dt><dd><code>local-test-runner</code></dd></div><div><dt>Evidence ref</dt><dd><code>ev:verification</code></dd></div>
+                        </summary><div class="ex-observed-event-detail">
+                        <span class="ex-observed-detail-label">Verification command and result</span><pre class="ex-observed-data"><span class="is-command">$ pytest -q tests/ops/test_check_probe.py &amp;&amp; python scripts/ops/check_probe.py --resource api-example --dry-run</span>
+tests/ops/test_check_probe.py ....  [100%]
+<span class="is-result">4 passed in 0.31s
+validator: healthy (204)
+Exit code 0</span></pre><dl class="ex-observed-event-facts">
+                          <div><dt>Checks</dt><dd>4 / 4 passed</dd></div><div><dt>Exit code</dt><dd><code>0</code></dd></div><div><dt>Evidence ref</dt><dd><code>ev:verification</code></dd></div>
                         </dl></div></details>
                       </li>
                       <li class="ex-observed-event" data-kind="turn">
@@ -333,8 +369,13 @@
                           <span class="ex-observed-kind">Turn</span><span class="ex-observed-event-label">Answer delivered</span>
                           <span class="ex-observed-track" aria-hidden="true"><span style="left: 99%; width: 1%;"></span></span>
                           <span class="ex-observed-event-duration">0 ms</span><span class="ex-observed-event-outcome">Completed</span><span class="ex-observed-event-chevron" aria-hidden="true"></span>
-                        </summary><div class="ex-observed-event-detail"><dl class="ex-observed-event-facts">
-                          <div><dt>Observed</dt><dd>Verified result rendered for the operator</dd></div><div><dt>Source</dt><dd><code>Bragi</code></dd></div><div><dt>Evidence ref</dt><dd><code>turn:answer</code></dd></div>
+                        </summary><div class="ex-observed-event-detail">
+                        <span class="ex-observed-detail-label">Claim-to-evidence map</span><ul class="ex-observed-claims">
+                          <li><span>Supported</span><p>The deployed probe endpoint is healthy.</p><code>ev:azure-state</code></li>
+                          <li><span>Supported</span><p>The validator rejected the expected HTTP 204 response.</p><code>ev:workspace</code></li>
+                          <li><span>Supported</span><p>The local change passed all focused checks.</p><code>ev:verification</code></li>
+                        </ul><dl class="ex-observed-event-facts">
+                          <div><dt>Narrator</dt><dd><code>Bragi</code></dd></div><div><dt>Claims</dt><dd>3 / 3 supported</dd></div><div><dt>Evidence ref</dt><dd><code>turn:answer</code></dd></div>
                         </dl></div></details>
                       </li>
                     </ol>
