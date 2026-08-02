@@ -191,6 +191,39 @@ async def test_concurrent_claim_allows_exactly_one_creator() -> None:
     assert claims[0][0] == claims[1][0]
 
 
+async def test_concurrent_claim_rejects_different_canonical_request() -> None:
+    store = InMemoryReadInvestigationRunStore()
+
+    claims = await asyncio.gather(
+        store.claim(
+            owner_principal_id="principal:one",
+            request=_request(lookback_seconds=3_600),
+            mode=ReadInvestigationRunMode.STREAMED,
+            lease_owner="coordinator:one",
+            lease_token="lease:one",
+            now=_NOW,
+            lease_seconds=30,
+            retention_seconds=300,
+        ),
+        store.claim(
+            owner_principal_id="principal:one",
+            request=_request(lookback_seconds=7_200),
+            mode=ReadInvestigationRunMode.STREAMED,
+            lease_owner="coordinator:two",
+            lease_token="lease:two",
+            now=_NOW,
+            lease_seconds=30,
+            retention_seconds=300,
+        ),
+        return_exceptions=True,
+    )
+
+    assert sum(isinstance(item, tuple) and item[1] is True for item in claims) == 1
+    conflicts = [item for item in claims if isinstance(item, ReadInvestigationRunConflictError)]
+    assert len(conflicts) == 1
+    assert "reused with another request" in str(conflicts[0])
+
+
 async def test_completed_result_replays_for_same_owner_and_key() -> None:
     store = InMemoryReadInvestigationRunStore()
     request = _request()
