@@ -264,6 +264,18 @@ export function CommandDeckView({
               ) : null}
               {turns.map((turn, index) => {
                 const trajectory = trajectories.get(turn.id);
+                const investigationFlow = turn.kind === "activity" ||
+                  (turn.kind === "message" && turn.source === "investigation");
+                const previous = turns[index - 1];
+                const next = turns[index + 1];
+                const previousInFlow = previous?.kind === "activity" ||
+                  (previous?.kind === "message" && previous.source === "investigation");
+                const nextInFlow = next?.kind === "activity" ||
+                  (next?.kind === "message" && next.source === "investigation");
+                const progressIndex = turn.kind === "message" && turn.source === "investigation"
+                  ? turns.slice(0, index).filter((candidate) =>
+                      candidate.kind === "message" && candidate.source === "investigation").length
+                  : undefined;
                 return (
                   <TurnBubble
                     key={turn.id}
@@ -273,6 +285,9 @@ export function CommandDeckView({
                     searchMatch={searchMatches.includes(index)}
                     activeSearchMatch={searchMatches[activeSearchMatch] === index}
                     onPickFollowUp={onSubmit}
+                    {...(progressIndex !== undefined ? { progressIndex } : {})}
+                    investigationFlowStart={investigationFlow && !previousInFlow}
+                    investigationFlowEnd={investigationFlow && !nextInFlow}
                     {...(turn.role === "deck" &&
                       !turn.streaming &&
                       !inFlight &&

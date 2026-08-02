@@ -57,7 +57,10 @@ export function ConversationTrajectoryView({
       <summary class="deck-trajectory-summary">
         <span class="deck-trajectory-title">
           <span class="deck-trajectory-glyph" aria-hidden="true" />
-          {t("deck.trajectory.title")}
+          <span class="deck-trajectory-title-copy">
+            <small>{t("deck.trajectory.runRecord")}</small>
+            <strong>{t("deck.trajectory.title")}</strong>
+          </span>
         </span>
         <span class="deck-trajectory-stats">
           {t("deck.trajectory.summary", {

@@ -219,6 +219,38 @@ function ExecutionEvidence({
   );
 }
 
+function ActivitySummary({
+  activity,
+}: {
+  readonly activity: InvestigationActivity;
+}) {
+  const progress = activity.completed !== null && activity.total !== null
+    ? `${activity.completed}/${activity.total}`
+    : null;
+  return (
+    <div class={`deck-investigation-summary${activity.execution ? " has-kind-badge" : ""}`}>
+      <span class="deck-investigation-state" aria-hidden="true">
+        {statusMark(activity.status)}
+      </span>
+      {activity.execution ? (
+        <span
+          class={`deck-investigation-kind-badge ${activity.execution.inputKind === "query" ? "is-query" : "is-tool"}`}
+          aria-hidden="true"
+        >
+          {activity.execution.inputKind === "query" ? "QUERY" : "TOOL"}
+        </span>
+      ) : null}
+      <span class="deck-investigation-copy">
+        <strong>{activity.label}</strong>
+        {activity.detail ? <small>{activity.detail}</small> : null}
+      </span>
+      <span class="deck-investigation-meta muted">
+        {progress ?? statusLabel(activity.status)}
+      </span>
+    </div>
+  );
+}
+
 export function InvestigationTimeline({
   activities,
   branches,
@@ -273,42 +305,25 @@ export function InvestigationTimeline({
           </summary>
           <ol class="deck-investigation-list">
             {activities.map((activity) => {
-              const progress = activity.completed !== null && activity.total !== null
-                ? `${activity.completed}/${activity.total}`
-                : null;
               return (
                 <li
                   key={activity.activityId}
                   class={`deck-investigation-item is-${activity.status}`}
                 >
-                  <div class={`deck-investigation-summary${activity.execution ? " has-kind-badge" : ""}`}>
-                    <span class="deck-investigation-state" aria-hidden="true">
-                      {statusMark(activity.status)}
-                    </span>
-                    {activity.execution ? (
-                      <span
-                        class={`deck-investigation-kind-badge ${activity.execution.inputKind === "query" ? "is-query" : "is-tool"}`}
-                        aria-hidden="true"
-                      >
-                        {activity.execution.inputKind === "query" ? "QUERY" : "TOOL"}
-                      </span>
-                    ) : null}
-                    <span class="deck-investigation-copy">
-                      <strong>{activity.label}</strong>
-                      {activity.detail ? <small>{activity.detail}</small> : null}
-                    </span>
-                    <span class="deck-investigation-meta muted">
-                      {progress ?? statusLabel(activity.status)}
-                    </span>
-                  </div>
                   {activity.execution ? (
-                    <ExecutionEvidence
-                      evidence={activity.execution}
-                      status={activity.status}
-                      {...(activity.agent ? { agent: activity.agent } : {})}
-                      {...(activity.authority ? { authority: activity.authority } : {})}
-                    />
-                  ) : null}
+                    <details
+                      class="deck-investigation-item-disclosure"
+                      open={activity.status === "running"}
+                    >
+                      <summary><ActivitySummary activity={activity} /></summary>
+                      <ExecutionEvidence
+                        evidence={activity.execution}
+                        status={activity.status}
+                        {...(activity.agent ? { agent: activity.agent } : {})}
+                        {...(activity.authority ? { authority: activity.authority } : {})}
+                      />
+                    </details>
+                  ) : <ActivitySummary activity={activity} />}
                 </li>
               );
             })}
@@ -325,7 +340,6 @@ export function InvestigationTimeline({
         aria-label={t("deck.investigation.label")}
       >
         <header class="deck-investigation-head">
-          <span class="deck-investigation-phase" aria-hidden="true">01</span>
           <span class="deck-investigation-state" aria-hidden="true">
             {tone === "completed" ? "\u2713" : tone === "failed" ? "\u00d7" : tone === "partial" ? "~" : "!"}
           </span>
@@ -349,7 +363,6 @@ export function InvestigationTimeline({
       aria-label={t("deck.investigation.label")}
     >
       <header class="deck-investigation-head">
-        <span class="deck-investigation-phase" aria-hidden="true">01</span>
         <span class="deck-investigation-spinner" aria-hidden="true" />
         <strong>{t("deck.investigation.title")}</strong>
         <span class="muted">{summary}</span>

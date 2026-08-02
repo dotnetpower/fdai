@@ -111,32 +111,51 @@ describe("upsertEvidenceBranch", () => {
       fileURLToPath(new URL("./command-deck-presenters.tsx", import.meta.url)),
       "utf8",
     );
+    const retrieval = readFileSync(
+      fileURLToPath(new URL("./retrieval-trace.tsx", import.meta.url)),
+      "utf8",
+    );
+    const reply = readFileSync(
+      fileURLToPath(new URL("./grounded-reply.tsx", import.meta.url)),
+      "utf8",
+    );
     const trajectory = readFileSync(
       fileURLToPath(new URL("./conversation-trajectory-view.tsx", import.meta.url)),
       "utf8",
     );
 
-    expect(component).toContain(
-      '<details class="deck-investigation-activity-disclosure" open>',
-    );
+    expect(component).toContain('<details class="deck-investigation-activity-disclosure" open>');
+    expect(component).toContain('class="deck-investigation-item-disclosure"');
+    expect(component).toContain('open={activity.status === "running"}');
     expect(component).toContain('aria-label={t("deck.investigation.branches")}');
     expect(component).toContain('class={`deck-investigation is-settled is-${tone}`}');
     expect(component).toContain('class={`deck-investigation-badge is-${tone}`}');
     expect(component).toContain('class="deck-investigation-elapsed muted"');
     expect(component).toContain("deck-branch-badge");
-    expect(component).toContain('class="deck-investigation-phase"');
     expect(component).toContain('"is-query" : "is-tool"');
     expect(component).toContain('activity.execution.inputKind === "query" ? "QUERY" : "TOOL"');
     expect(component).toContain('t("deck.investigation.copyQuery")');
     expect(component).toContain('t("deck.investigation.sourceSummary"');
     expect(styles).toContain("@keyframes deck-investigation-rise");
     expect(presenter).toContain('turn.source === "investigation"');
-    expect(presenter).toContain("{isDeck ? (");
+    expect(presenter).toContain("{isDeck && !isInvestigationFlow ? (");
     expect(presenter).toContain('class="deck-progress-note" role="status"');
+    expect(presenter).toContain('class="deck-progress-note-body"');
+    expect(presenter).toContain('"deck.investigation.startingWork"');
+    expect(presenter).toContain("is-investigation-flow");
+    expect(presenter).toContain('isActivity ? " deck-turn-activity"');
+    expect(presenter).toContain("isDeck && !isInvestigationFlow");
     expect(styles).toContain(".deck-progress-note {");
+    expect(styles).toContain(".deck-turn.is-investigation-flow::before");
+    expect(retrieval).toContain('class="deck-turn-head deck-rt-agent-head"');
+    expect(retrieval).toContain('class="deck-turn-source"');
+    expect(reply).toContain('<details\n          class="deck-llm-escalation"');
+    expect(reply).toContain('class="deck-llm-escalation-chevron"');
     expect(trajectory).toContain("<IntentGraphPhase");
     expect(trajectory).toContain('class="deck-trajectory-goals"');
+    expect(trajectory).toContain('t("deck.trajectory.runRecord")');
     expect(styles).toContain(".deck-trajectory-goal-status.is-skipped");
+    expect(styles).toContain(".deck-trajectory-title-copy");
     expect(styles).toMatch(
       /\.deck-body\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/,
     );
@@ -146,9 +165,8 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toMatch(
       /\.deck-investigation-command,[\s\S]*?\.deck-investigation-output\s*\{[^}]*background:\s*#1f2428/,
     );
-    expect(styles).toMatch(
-      /\.deck-investigation-list::before\s*\{[^}]*background:\s*var\(--border\)/,
-    );
+    expect(styles).toContain(".deck-investigation-item-disclosure > summary::after");
+    expect(styles).toMatch(/\.deck-investigation-summary\s*\{[^}]*min-height:\s*44px/);
     expect(styles).toMatch(
       /\.deck-investigation-item\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent/,
     );

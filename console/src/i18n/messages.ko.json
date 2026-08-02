@@ -2114,6 +2114,8 @@
       "title": "조사",
       "pending": "대기 중",
       "running": "진행 중",
+      "startingWork": "작업 시작",
+      "progressUpdate": "진행 상황",
       "completed": "완료",
       "partial": "일부 완료",
       "unavailable": "사용할 수 없음",
@@ -2145,6 +2147,7 @@
       "duration": "소요 시간"
     },
     "trajectory": {
+      "runRecord": "실행 기록",
       "title": "관찰된 처리 과정",
       "summary": "모델 호출 {models}건 / 근거 {successful}/{attempted}건 / 검증 {verification}",
       "sequenceOnly": "인과 순서",

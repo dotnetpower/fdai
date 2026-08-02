@@ -2114,6 +2114,8 @@
       "title": "Investigation",
       "pending": "Pending",
       "running": "In progress",
+      "startingWork": "Starting work",
+      "progressUpdate": "Progress update",
       "completed": "Completed",
       "partial": "Partial",
       "unavailable": "Unavailable",
@@ -2145,6 +2147,7 @@
       "duration": "Duration"
     },
     "trajectory": {
+      "runRecord": "Run record",
       "title": "Observed process",
       "summary": "{models} model calls / evidence {successful}/{attempted} / verification {verification}",
       "sequenceOnly": "causal sequence",
