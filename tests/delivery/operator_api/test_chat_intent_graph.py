@@ -6,10 +6,21 @@ import pytest
 
 from fdai.delivery.operator_api.routes.chat_intent_graph import (
     ActionPosture,
+    BackendIntentGraphPlanner,
     EvidenceMode,
     parse_intent_graph,
 )
 from fdai.delivery.operator_api.routes.chat_turn_plan import TurnTool
+
+
+class _StructuredBackend:
+    def __init__(self, result: dict[str, object]) -> None:
+        self.result = result
+        self.call: dict[str, object] = {}
+
+    async def complete_structured(self, **kwargs: object) -> dict[str, object]:
+        self.call = dict(kwargs)
+        return self.result
 
 
 def _tools() -> tuple[TurnTool, ...]:
@@ -113,6 +124,50 @@ def test_compound_read_graph_preserves_goal_dependencies() -> None:
     assert graph.goals[1].depends_on == ("health",)
     assert graph.goals[1].evidence_mode is EvidenceMode.WEB
     assert graph.to_dict() == raw
+
+
+@pytest.mark.asyncio
+async def test_backend_planner_sends_strict_graph_schema_and_capabilities() -> None:
+    raw = _graph(
+        _goal(
+            "health",
+            capability="query_subscription_health",
+            arguments={"lookback_seconds": 3600},
+        ),
+        _goal(
+            "benchmark",
+            capability="web_search",
+            arguments={"query": "reliable service recovery benchmark"},
+            depends_on=["health"],
+            evidence_mode="web",
+            intent="comparison",
+        ),
+    )
+    backend = _StructuredBackend(raw)
+
+    graph = await BackendIntentGraphPlanner(backend).plan_turn(
+        prompt="상태를 확인하고 외부 기준과 비교해줘",
+        tools=_tools(),
+        history=({"role": "user", "content": "current dashboard"},),
+    )
+
+    assert graph.goals[1].depends_on == ("health",)
+    assert backend.call["schema_name"] == "fdai_intent_graph_v2"
+    assert backend.call["max_tokens"] == 1536
+    schema = backend.call["schema"]
+    assert isinstance(schema, dict)
+    assert schema["additionalProperties"] is False
+    goal_schema = schema["properties"]["goals"]["items"]
+    assert goal_schema["additionalProperties"] is False
+    assert set(goal_schema["properties"]["capability"]["enum"]) == {
+        "query_subscription_health",
+        "web_search",
+        "ops.restart-service",
+        None,
+    }
+    user_content = str(backend.call["user_content"])
+    assert "상태를 확인하고 외부 기준과 비교해줘" in user_content
+    assert "query_subscription_health" in user_content
 
 
 def test_model_knowledge_goal_needs_no_capability_or_arguments() -> None:
