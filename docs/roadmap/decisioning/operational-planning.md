@@ -20,8 +20,9 @@ central planner or another authority surface.
 > **Implementation status:** P1-P2 core contracts are implemented. Canonical releases pin function
 > declarations; authorized invocation emits replay-stable receipts; operational planning applies
 > hard constraints before Pareto pruning and weighted selection; and ordered planning phases append
-> to the existing Process journal without changing its snapshot. P3-P7 still need to connect
-> sandbox execution, agent event choreography, governed execution, the Console, and live proof.
+> to the existing Process journal without changing its snapshot. P3 is also implemented as an
+> optional Forseti coordinator over the existing Cost and Capacity topics. P4-P7 still need to
+> connect concrete sandbox execution, governed execution, the Console, and live proof.
 
 ## Design at a glance
 

@@ -11,6 +11,13 @@ from fdai.agents.odin import Odin
 from fdai.agents.thor import Thor
 from fdai.agents.var import Var
 from fdai.core.operational_context import OperationalContextMaterializer
+from fdai.core.operational_planning import (
+    ConstraintEvaluation,
+    ConstraintStatus,
+    SimulationReceipt,
+    SimulationStatus,
+    SpecialistPlanningCoordinator,
+)
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.ontology_instance import OntologyLinkRecord, OntologyObjectRecord
@@ -233,6 +240,85 @@ async def test_selected_option_action_mismatch_is_denied() -> None:
 
     assert bus.messages_on("object.action-run")[-1].payload["state"] == "deny_dropped"
     assert var.pending_tickets() == ()
+
+
+class _PlanningConstraints:
+    async def evaluate(self, *, context, option):
+        return (
+            ConstraintEvaluation(
+                "protected_objectives",
+                ConstraintStatus.PASSED,
+                3,
+                "verified",
+                (f"context:{context.snapshot_id}", *option.evidence_refs),
+            ),
+        )
+
+
+class _PlanningSimulator:
+    async def simulate(
+        self, *, context, candidate_id, action_type, effects, observed_at
+    ) -> SimulationReceipt:
+        return SimulationReceipt(
+            receipt_id=f"simulation:{candidate_id}",
+            candidate_id=candidate_id,
+            snapshot_id=context.snapshot_id,
+            logic_invocation_id="logic-invocation:" + "f" * 64,
+            status=SimulationStatus.SUCCEEDED,
+            started_at=observed_at,
+            completed_at=observed_at,
+            evidence_refs=(f"simulation:{action_type}", f"effects:{len(effects)}"),
+        )
+
+
+async def test_specialist_events_carry_operational_plan_to_human_review() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    store = await _context_store()
+    planning = SpecialistPlanningCoordinator(
+        logic_release_digest="sha256:" + "e" * 64,
+        constraint_evaluator=_PlanningConstraints(),
+        simulator=_PlanningSimulator(),
+    )
+    forseti = Forseti(
+        bus=bus,
+        operational_context=OperationalContextMaterializer(store=store),
+        operational_planner=planning,
+    )
+    odin = Odin(bus=bus)
+    thor = Thor(bus=bus)
+    var = Var(bus=bus)
+    bus.subscribe("object.arbitration-request", "Odin", odin.on_typed_message)
+    bus.subscribe("object.arbitration-decision", "Forseti", forseti.on_typed_message)
+    bus.subscribe("object.verdict", "Thor", thor.on_typed_message)
+    bus.subscribe("object.action-run", "Var", var.on_typed_message)
+
+    await forseti.on_typed_message(
+        "object.cost-anomaly",
+        {
+            "correlation_id": "planning-e2e",
+            "resource_id": "resource-example",
+            "recommendation": "scale_down",
+            "impact": 0.2,
+            "observed_at": AT,
+        },
+    )
+    await forseti.on_typed_message(
+        "object.capacity-forecast",
+        {
+            "correlation_id": "planning-e2e",
+            "resource_id": "resource-example",
+            "recommendation": "scale_up",
+            "impact": 0.9,
+            "observed_at": AT,
+        },
+    )
+
+    verdict = bus.messages_on("object.verdict")[-1].payload
+    case = verdict["decision_case"]
+    assert case["operational_plan"]["complete"] is True
+    assert case["logic_release_digest"] == "sha256:" + "e" * 64
+    assert verdict["action_type"] == "ops.scale-out"
+    assert var.pending_tickets()[0].decision_case["operational_plan"]["plan_id"]
 
 
 async def test_non_semantic_decision_case_action_mismatch_is_denied() -> None:

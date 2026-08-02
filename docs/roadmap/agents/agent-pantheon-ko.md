@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: effc6bd86a40a76314128ad2abbc69c34a4b68e7
-translation_revised: 2026-08-02
+translation_source_sha: 56e1ed7bb92cd8fc7fb9b8b066165ffe68fb945b
+translation_revised: 2026-08-03
 ---
 
 # 에이전트 판테온
@@ -165,6 +165,13 @@ Odin은 `src/fdai/agents/_framework/arbitration.py`의 결정론적 **다목적*
   `object.arbitration-decision`에 기록하므로 결과는 근거가 있고 감사 가능하다.
 
 중재기는 LLM 호출도 I/O도 없다; 설정과 입력이 주어지면 순수하고 결정론적이다.
+
+Forseti는 동일한 `object.arbitration-request`를 emit하기 전에 read-only
+`SpecialistPlanningCoordinator`를 bind할 수 있습니다. Coordinator는 기존 Cost 및 Capacity topic을
+유지하고, exact logic 및 simulation receipt와 hard-constraint evaluation을 DecisionCase에 추가하며,
+Odin이 eligible soft-objective tradeoff를 받기 전에 Pareto pruning을 적용합니다. Binding이 없으면
+기존 decision path를 유지합니다. Incomplete 또는 unscorable plan은 사람 검토에 도달하며 다른
+topic이나 execution route를 만들지 않습니다.
 
 **시간적 공정성(temporal fairness, 옵트인)** - fork는 append-only 감사 로그를
 백엔드로 하는 `DecisionHistory` seam과 `TemporalPolicy`를 Odin에 배선해서

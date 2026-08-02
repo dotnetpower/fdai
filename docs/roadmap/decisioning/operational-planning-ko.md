@@ -1,6 +1,6 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: c822f354ba76e46db743953751e25368d61e8173
+translation_source_sha: 06c8d1585eea679074050b9359078b54fda398c1
 translation_revised: 2026-08-03
 ---
 # 운영 계획
@@ -21,7 +21,8 @@ DecisionCase, ActionOption, typed ontology function, Assurance Twin을 재사용
 > declaration을 고정하고, authorized invocation이 replay-stable receipt를 emit하며, operational
 > planning은 Pareto pruning 및 weighted selection 전에 hard constraint를 적용하고, ordered planning
 > phase는 snapshot을 변경하지 않고 기존 Process journal에 append합니다. P3-P7은 sandbox execution,
-> agent event choreography, governed execution, Console, live proof를 계속 연결해야 합니다.
+> P3도 기존 Cost 및 Capacity topic 위의 optional Forseti coordinator로 구현되었습니다. P4-P7은
+> concrete sandbox execution, governed execution, Console, live proof를 계속 연결해야 합니다.
 
 ## 한눈에 보는 설계
 

@@ -174,6 +174,13 @@ Odin resolves the conflict with the deterministic **multi-objective**
 The arbiter takes no LLM call and no I/O; it is pure and deterministic
 given its config and inputs.
 
+Forseti can bind the read-only `SpecialistPlanningCoordinator` before it emits the same
+`object.arbitration-request`. The coordinator preserves the existing Cost and Capacity topics,
+adds exact logic and simulation receipts plus hard-constraint evaluations to the DecisionCase,
+and applies Pareto pruning before Odin receives eligible soft-objective tradeoffs. An absent
+binding preserves the existing decision path. An incomplete or unscorable plan reaches human
+review and never creates another topic or execution route.
+
 **Temporal fairness (opt-in)** - a fork can wire a `DecisionHistory`
 seam (backed by the append-only audit log) and a `TemporalPolicy` into
 Odin to prevent two failure modes on repeated conflicts:

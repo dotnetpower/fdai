@@ -33,6 +33,10 @@ from fdai.agents._framework.pantheon import _FORSETI
 from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
 from fdai.core.decision_case import DomainDecisionCoordinator, DomainDecisionProjection
 from fdai.core.operational_context import OperationalContextMaterializer, SourceFreshness
+from fdai.core.operational_planning import (
+    SpecialistPlanningCoordinator,
+    SpecialistPlanningProjection,
+)
 from fdai.core.readiness import AuthorityCeiling, DetectionReadinessDecision
 
 # ---------------------------------------------------------------------------
@@ -76,6 +80,8 @@ _DEFAULT_RBAC: dict[str, frozenset[str]] = {
 # sees advice for many resources without a conflict cannot leak memory.
 _MAX_RESOURCES = 10_000
 
+_DecisionProjection = DomainDecisionProjection | SpecialistPlanningProjection
+
 
 class Forseti(Agent):
     """Wave-3 Forseti: rule match + risk verdict + RBAC + SecurityEvent."""
@@ -88,6 +94,7 @@ class Forseti(Agent):
         action_semantics: ActionSemanticsCatalog | None = None,
         operational_context: OperationalContextMaterializer | None = None,
         decision_coordinator: DomainDecisionCoordinator | None = None,
+        operational_planner: SpecialistPlanningCoordinator | None = None,
     ) -> None:
         super().__init__(spec=_FORSETI)
         self.bus = bus
@@ -95,6 +102,7 @@ class Forseti(Agent):
         self._action_semantics = action_semantics
         self._operational_context = operational_context
         self._decision_coordinator = decision_coordinator or DomainDecisionCoordinator()
+        self._operational_planner = operational_planner
         # Latest arbitration winner per correlation id (populated when Odin
         # resolves a cross-vertical conflict Forseti raised).
         self.arbitrations: dict[str, str] = {}
@@ -119,8 +127,8 @@ class Forseti(Agent):
         # to Odin so arbitration weighs magnitude, not just priority.
         self._domain_impact: BoundedLruDict[str, dict[str, float]] = BoundedLruDict(_MAX_RESOURCES)
         self._domain_observed_at: BoundedLruDict[str, str] = BoundedLruDict(_MAX_RESOURCES)
-        self._pending_decision_cases: BoundedLruDict[str, DomainDecisionProjection] = (
-            BoundedLruDict(_MAX_RESOURCES)
+        self._pending_decision_cases: BoundedLruDict[str, _DecisionProjection] = BoundedLruDict(
+            _MAX_RESOURCES
         )
         self._detection_readiness: BoundedLruDict[str, dict[str, str]] = BoundedLruDict(
             _MAX_RESOURCES
@@ -347,7 +355,7 @@ class Forseti(Agent):
         advice: dict[str, str],
         impacts: dict[str, float],
         observed_at: str,
-    ) -> DomainDecisionProjection | None:
+    ) -> DomainDecisionProjection | SpecialistPlanningProjection | None:
         if self._operational_context is None or not resource_id or not observed_at:
             return None
         try:
@@ -361,6 +369,14 @@ class Forseti(Agent):
             )
             if context.review_required:
                 return None
+            if self._operational_planner is not None:
+                return await self._operational_planner.build(
+                    correlation_id=correlation_id,
+                    context=context,
+                    advice=advice,
+                    impacts=impacts,
+                    created_at=cutoff,
+                )
             return self._decision_coordinator.build(
                 correlation_id=correlation_id,
                 context=context,
@@ -380,7 +396,7 @@ class Forseti(Agent):
         *,
         correlation_id: str,
         decision: dict[str, Any],
-        projection: DomainDecisionProjection,
+        projection: _DecisionProjection,
         action_type: str,
     ) -> None:
         risk_verdict = _RISK_VERDICT.get(action_type, "hil")
