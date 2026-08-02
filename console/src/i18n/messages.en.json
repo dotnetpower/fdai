@@ -2093,6 +2093,16 @@
       "groundingReadOnly": "grounding on read-only sources",
       "readingSources": "Reading sources"
     },
+    "announcement": {
+      "retrieving": "Retrieving answer...",
+      "answering": "Assistant is answering...",
+      "corrected": "Answer corrected.",
+      "unverified": "Answer could not be verified.",
+      "verified": "Answer verified.",
+      "stopped": "Stopped.",
+      "ready": "Answer ready.",
+      "responseDismissed": "Response dismissed; submission outcome may be unknown."
+    },
     "answerState": {
       "draft": "Draft",
       "confirmed": "Confirmed",

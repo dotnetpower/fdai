@@ -154,7 +154,7 @@ export function useCommandDeckSubmit({
     historyRef.current = recordHistory(historyRef.current, text);
     setPending(true);
     setRetrievalProgress(null);
-    setSrStatus("Retrieving answer...");
+    setSrStatus(t("deck.announcement.retrieving"));
     setInFlight(true);
 
     const history = backendHistoryForTurns(turns);
@@ -202,7 +202,7 @@ export function useCommandDeckSubmit({
         started = true;
         setPending(false);
         setRetrievalProgress(null);
-        setSrStatus("Assistant is answering...");
+        setSrStatus(t("deck.announcement.answering"));
         setTurns((current) => {
           const next: readonly Turn[] = [
             ...current,
@@ -385,10 +385,10 @@ export function useCommandDeckSubmit({
             revealWhenReady();
             setSrStatus(
               status === "corrected"
-                ? "Answer corrected."
+                ? t("deck.announcement.corrected")
                 : status === "unverified"
-                  ? "Answer could not be verified."
-                  : "Answer verified.",
+                  ? t("deck.announcement.unverified")
+                  : t("deck.announcement.verified"),
             );
             if (!started) return;
             if (paintFrame !== null) {
@@ -508,7 +508,9 @@ export function useCommandDeckSubmit({
         inFlightRef.current = false;
         setPending(false);
         setRetrievalProgress(null);
-        setSrStatus(controller.signal.aborted ? "Stopped." : "Answer ready.");
+        setSrStatus(controller.signal.aborted
+          ? t("deck.announcement.stopped")
+          : t("deck.announcement.ready"));
         setInFlight(false);
         focusInput();
       }

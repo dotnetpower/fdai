@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "preact/hooks";
+import { t } from "../i18n";
 import { fetchOpeningBriefing } from "../user-context-client";
 import type { Turn } from "./command-deck-presenters";
 import { DEFAULT_NARRATOR } from "./command-deck-presenters";
@@ -222,8 +223,8 @@ export function useCommandDeckEvents(options: EventsOptions) {
         if (inFlightRef.current) {
           const kind = cancelActiveRequest();
           setSrStatus(kind === "action"
-            ? "Response dismissed; submission outcome may be unknown."
-            : "Stopped.");
+            ? t("deck.announcement.responseDismissed")
+            : t("deck.announcement.stopped"));
           return;
         }
         closeDeck();

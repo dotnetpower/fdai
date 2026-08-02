@@ -2093,6 +2093,16 @@
       "groundingReadOnly": "읽기 전용 출처로 근거 확인 중",
       "readingSources": "출처 읽는 중"
     },
+    "announcement": {
+      "retrieving": "답변을 가져오는 중입니다...",
+      "answering": "답변을 작성하는 중입니다...",
+      "corrected": "답변이 수정되었습니다.",
+      "unverified": "답변을 검증하지 못했습니다.",
+      "verified": "답변이 검증되었습니다.",
+      "stopped": "중지되었습니다.",
+      "ready": "답변이 준비되었습니다.",
+      "responseDismissed": "응답 표시를 중단했습니다. 제출 결과는 아직 확인되지 않았을 수 있습니다."
+    },
     "answerState": {
       "draft": "초안",
       "confirmed": "확인됨",

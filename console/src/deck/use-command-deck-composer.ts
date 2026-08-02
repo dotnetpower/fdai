@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo } from "preact/hooks";
+import { t } from "../i18n";
 import { DEFAULT_NARRATOR, type Turn } from "./command-deck-presenters";
 import {
   DECK_SLASH_COMMANDS,
@@ -101,8 +102,8 @@ export function useCommandDeckComposer({
   const stopStream = useCallback(() => {
     const kind = cancelActiveRequest();
     setSrStatus(kind === "action"
-      ? "Response dismissed; submission outcome may be unknown."
-      : "Stopped.");
+      ? t("deck.announcement.responseDismissed")
+      : t("deck.announcement.stopped"));
   }, [cancelActiveRequest, setSrStatus]);
 
   const regenerateAt = useCallback(
