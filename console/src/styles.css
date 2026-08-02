@@ -8902,6 +8902,41 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-transcript-tools { overflow-x: auto; padding-inline: 12px; }
   .deck-transcript-tools button { flex: 0 0 auto; min-height: 40px; }
   .deck-turn { padding: 10px 12px; }
+  .deck-table { display: block; }
+  .deck-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .deck-table tbody { display: block; }
+  .deck-table tbody tr {
+    display: block;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .deck-table tbody tr:last-child { border-bottom: 0; }
+  .deck-table td {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(88px, 36%) minmax(0, 1fr);
+    gap: 8px;
+    box-sizing: border-box;
+    padding: 4px 9px;
+    border-bottom: 0;
+  }
+  .deck-table td::before {
+    content: attr(data-label);
+    color: var(--fg-muted);
+    font-size: 11px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
   .deck-turn-head { flex-wrap: wrap; gap: 5px 8px; }
   .deck-gr-pill {
     border-radius: 8px;
