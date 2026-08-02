@@ -22,6 +22,7 @@ from fdai.core.read_investigation import (
     interactive_investigation_policy,
     latency_profile,
     plan_read_investigation,
+    read_investigation_intent_spec,
     read_tool_spec,
     resource_name_from_question,
 )
@@ -43,11 +44,9 @@ from fdai.shared.providers.read_investigation import (
     ReadEvidenceRecord,
     ReadInvestigationIntent,
     ReadLatencyProfileStore,
-    ReadToolId,
     ResourceSelector,
 )
 
-_HISTORY_LOOKBACK_SECONDS = 30 * 24 * 3_600
 _LATEST_CHANGE_SUFFIX = "change history: show the most recent successful operation"
 _READ_AVAILABILITY_MARKER = "current state: explain read availability"
 
@@ -107,26 +106,15 @@ class HeimdallReadInvestigationResponder:
                 "facts": {"status": "unavailable", "reason": "identity_context_missing"},
             }
         digest = hashlib.sha256(f"{user_id}:{session_id}:{question}".encode()).hexdigest()
+        intent_spec = read_investigation_intent_spec(intent)
         request = ReadInvestigationRequest(
             requester_ref=user_id,
             conversation_ref=session_id,
             correlation_ref=f"read:sha256:{digest}",
             intent=intent,
             selector=ResourceSelector(name=resource_name, scope_ref=self._scope_ref),
-            lookback_seconds=(
-                _HISTORY_LOOKBACK_SECONDS
-                if intent
-                in {
-                    ReadInvestigationIntent.CHANGE_ATTRIBUTION,
-                    ReadInvestigationIntent.RESOURCE_CHANGE_HISTORY,
-                }
-                else 3_600
-            ),
-            requested_evidence=(
-                (ReadToolId.QUERY_RESOURCE_ACTIVITY,)
-                if intent is ReadInvestigationIntent.CHANGE_ATTRIBUTION
-                else ()
-            ),
+            lookback_seconds=intent_spec.lookback_seconds,
+            requested_evidence=intent_spec.interactive_tools,
             budget=ReadInvestigationBudget(),
             idempotency_key=f"read:sha256:{digest}",
             created_at=datetime.now(UTC),

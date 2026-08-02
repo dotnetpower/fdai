@@ -54,3 +54,12 @@ def test_binding_rejects_duplicate_plan_ids() -> None:
 
     with pytest.raises(ReadInvestigationCatalogBindingError, match="plan_id values MUST be unique"):
         validate_investigation_intent_bindings(registry)
+
+
+def test_binding_rejects_catalog_plan_id_drift() -> None:
+    raw = _raw()
+    raw["intents"]["resource_state"]["plan_id"] = "read.resource-state.v2"
+    registry = load_investigation_intents_from_mapping(raw)
+
+    with pytest.raises(ReadInvestigationCatalogBindingError, match="does not match runtime spec"):
+        validate_investigation_intent_bindings(registry)

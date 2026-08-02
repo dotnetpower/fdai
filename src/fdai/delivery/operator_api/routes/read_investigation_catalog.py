@@ -6,6 +6,7 @@ from pathlib import Path
 
 import yaml
 
+from fdai.core.read_investigation.intent_spec import READ_INVESTIGATION_INTENT_SPECS
 from fdai.rule_catalog.schema.investigation_intent import (
     InvestigationIntentRegistry,
     InvestigationOwner,
@@ -55,6 +56,16 @@ def validate_investigation_intent_bindings(registry: InvestigationIntentRegistry
     if len(set(plan_ids)) != len(plan_ids):
         raise ReadInvestigationCatalogBindingError(
             "read investigation intent plan_id values MUST be unique"
+        )
+    mismatched_plans = tuple(
+        intent.value
+        for intent, spec in READ_INVESTIGATION_INTENT_SPECS.items()
+        if registry.intents[intent.value].plan_id != spec.plan_id
+    )
+    if mismatched_plans:
+        raise ReadInvestigationCatalogBindingError(
+            "read investigation catalog plan_id does not match runtime spec: "
+            + ",".join(sorted(mismatched_plans))
         )
 
 

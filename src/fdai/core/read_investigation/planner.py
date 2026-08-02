@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fdai.core.read_investigation.catalog import read_tool_spec
+from fdai.core.read_investigation.intent_spec import read_investigation_intent_spec
 from fdai.core.read_investigation.models import (
     ReadInvestigationPlan,
     ReadInvestigationRequest,
@@ -10,26 +11,11 @@ from fdai.core.read_investigation.models import (
 )
 from fdai.shared.providers.read_investigation import ReadInvestigationIntent, ReadToolId
 
-_DEFAULT_EVIDENCE: dict[ReadInvestigationIntent, tuple[ReadToolId, ...]] = {
-    ReadInvestigationIntent.RESOURCE_STATE: (ReadToolId.GET_RESOURCE_STATE,),
-    ReadInvestigationIntent.CHANGE_ATTRIBUTION: (
-        ReadToolId.QUERY_RESOURCE_ACTIVITY,
-        ReadToolId.QUERY_GUEST_SHUTDOWN_EVENTS,
-        ReadToolId.QUERY_RESOURCE_HEALTH,
-    ),
-    ReadInvestigationIntent.RESOURCE_CHANGE_HISTORY: (ReadToolId.QUERY_RESOURCE_ACTIVITY,),
-    ReadInvestigationIntent.PLATFORM_HEALTH: (ReadToolId.QUERY_RESOURCE_HEALTH,),
-    ReadInvestigationIntent.GUEST_SHUTDOWN: (ReadToolId.QUERY_GUEST_SHUTDOWN_EVENTS,),
-    ReadInvestigationIntent.NETWORK_SECURITY: (ReadToolId.QUERY_NETWORK_SECURITY,),
-    ReadInvestigationIntent.NETWORK_PEERING: (ReadToolId.QUERY_NETWORK_PEERINGS,),
-}
-
-if set(_DEFAULT_EVIDENCE) != set(ReadInvestigationIntent):
-    raise RuntimeError("read investigation planner intent coverage is incomplete")
-
 
 def plan_read_investigation(request: ReadInvestigationRequest) -> ReadInvestigationPlan:
-    requested = request.requested_evidence or _DEFAULT_EVIDENCE[request.intent]
+    requested = (
+        request.requested_evidence or read_investigation_intent_spec(request.intent).default_tools
+    )
     if request.explicit_deep and request.intent not in {
         ReadInvestigationIntent.NETWORK_SECURITY,
         ReadInvestigationIntent.NETWORK_PEERING,

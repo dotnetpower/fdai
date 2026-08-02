@@ -51,8 +51,8 @@ No value on one axis selects a value on another axis. In particular:
   nonempty terminal evidence manifest regardless of venue, environment, or answer source.
 - Chat-policy promotion requires a statistically positive measured gain. Venue, environment, or
   deployment defaults cannot turn a tie into promotion evidence.
-- Read-investigation catalog IDs and planner evidence mappings must both cover the exact runtime
-  intent set. Venue or environment cannot supply a missing plan at request time.
+- One immutable read-investigation intent spec owns plan IDs, tools, and lookback. Catalog IDs and
+  plan IDs must match it exactly; venue or environment cannot supply missing semantics at request time.
 - A fork may have zero or many deployments in any environment. Upstream may also be deployed
   directly.
 - Fork detection protects the upstream framework surface. It never changes runtime behavior,
