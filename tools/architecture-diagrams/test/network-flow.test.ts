@@ -302,22 +302,14 @@ test("Azure resource network flow routes every compound edge", async () => {
     layout.nodes.get("ingestion-gateway")!.y,
   );
   const gitSection = layout.edges.find(
-    (candidate) => candidate.id === "core-to-github",
+    (candidate) => candidate.id === "core-to-git-providers",
   )?.sections?.[0];
-  const teamsSection = layout.edges.find(
-    (candidate) => candidate.id === "core-to-teams",
+  const approvalSection = layout.edges.find(
+    (candidate) => candidate.id === "core-to-approval-channels",
   )?.sections?.[0];
   assert.ok(gitSection?.bendPoints?.length === 3);
-  assert.ok(teamsSection?.bendPoints?.length === 5);
+  assert.ok(approvalSection?.bendPoints?.length === 4);
   assert.ok(gitSection.bendPoints[1]!.y < gitSection.startPoint.y);
-  assert.ok(gitSection.bendPoints[1]!.y > 40);
-  assert.ok(teamsSection.bendPoints[1]!.y > 40);
-  assert.equal(
-    Math.abs(
-      gitSection.bendPoints[1]!.y - teamsSection.bendPoints[1]!.y,
-    ),
-    28,
-  );
   for (const edge of layout.edges) {
     for (const section of edge.sections ?? []) {
       const previous = section.bendPoints?.at(-1) ?? section.startPoint;
@@ -330,11 +322,26 @@ test("Azure resource network flow routes every compound edge", async () => {
       );
     }
   }
-  assert.equal(spec.edges.find((edge) => edge.id === "core-to-teams")!.step, 6);
-  assert.equal(spec.edges.find((edge) => edge.id === "core-to-github")!.step, 7);
+  const approvalEdge = spec.edges.find(
+    (edge) => edge.id === "core-to-approval-channels",
+  )!;
+  const gitEdge = spec.edges.find(
+    (edge) => edge.id === "core-to-git-providers",
+  )!;
+  assert.equal(approvalEdge.to, "approval-channels");
+  assert.equal(gitEdge.to, "git-providers");
+  assert.equal(approvalEdge.step, 6);
+  assert.equal(gitEdge.step, 7);
+  assert.equal(gitSection.endPoint.x, gitProviders.x + gitProviders.width / 2);
+  assert.equal(gitSection.endPoint.y, gitProviders.y);
+  assert.equal(approvalSection.endPoint.x, approvalChannels.x);
+  assert.equal(
+    approvalSection.endPoint.y,
+    approvalChannels.y + approvalChannels.height / 2,
+  );
   assert.match(
     svg,
-    /data-edge-id="core-to-teams"[^>]*data-edge-route="orthogonal-above"[^>]*data-edge-step="6"/,
+    /data-edge-id="core-to-approval-channels"[^>]*data-edge-route="orthogonal-above"[^>]*data-edge-step="6"/,
   );
   assert.match(
     svg,

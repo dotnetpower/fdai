@@ -1199,6 +1199,7 @@ function applyExplicitRoutes(
   spec: DiagramSpec,
   edges: ElkExtendedEdge[],
   nodes: Map<string, PositionedShape>,
+  groups: Map<string, PositionedShape>,
 ): ElkExtendedEdge[] {
   const trunkOffsets = trunkAnchorOffsets(spec, nodes);
   const aboveLaneByEdge = new Map<string, number>();
@@ -1252,8 +1253,10 @@ function applyExplicitRoutes(
     ) {
       return edge;
     }
-    const source = nodes.get(endpointNodeId(specEdge.from));
-    const target = nodes.get(endpointNodeId(specEdge.to));
+    const sourceId = endpointNodeId(specEdge.from);
+    const targetId = endpointNodeId(specEdge.to);
+    const source = nodes.get(sourceId) ?? groups.get(sourceId);
+    const target = nodes.get(targetId) ?? groups.get(targetId);
     if (!source || !target) return edge;
     const section = specEdge.route === "orthogonal-trunk"
       ? orthogonalTrunkRouteSection(
@@ -1388,7 +1391,7 @@ export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
   applyHorizontalAlignments(spec, groups, nodes);
   const placementBottom = applyGroupPlacements(spec, groups, nodes);
   const rootFlow = applyRootGroupFlow(spec, groups, nodes);
-  const explicitRoutes = applyExplicitRoutes(spec, edges, nodes);
+  const explicitRoutes = applyExplicitRoutes(spec, edges, nodes, groups);
   const routed = applyFixedSideRoutes(spec, explicitRoutes, nodes);
 
   let routeRight = 0;

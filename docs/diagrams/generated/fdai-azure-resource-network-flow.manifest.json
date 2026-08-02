@@ -637,17 +637,17 @@
       "label": null
     },
     {
-      "id": "core-to-teams",
+      "id": "core-to-approval-channels",
       "from": "core-runtime",
-      "to": "teams-approval",
+      "to": "approval-channels",
       "kind": "approval",
       "label": null,
       "step": 6
     },
     {
-      "id": "core-to-github",
+      "id": "core-to-git-providers",
       "from": "core-runtime",
-      "to": "github-delivery",
+      "to": "git-providers",
       "kind": "mutation",
       "label": null,
       "step": 7
