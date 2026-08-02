@@ -74,6 +74,11 @@ from fdai.delivery.operator_api.routes.chat_history_context import (
     BackendChatHistoryCompressor,
     ChatHistoryPolicy,
 )
+from fdai.delivery.operator_api.routes.chat_intent_graph import (
+    IntentGraph,
+    IntentGraphPlanner,
+    apply_intent_graph_to_answer_plan,
+)
 from fdai.delivery.operator_api.routes.chat_model_trace import (
     activate_model_trace,
     deactivate_model_trace,
@@ -189,7 +194,7 @@ def make_chat_stream_route(
     busy_input_coordinator: BusyInputCoordinator | None = None,
     document_evidence_resolver: ChatDocumentEvidenceResolver | None = None,
     progress_metrics: ConversationProgressMetrics | None = None,
-    turn_planner: TurnPlanner | None = None,
+    turn_planner: TurnPlanner | IntentGraphPlanner | None = None,
     turn_tools: tuple[TurnTool, ...] = (),
     history_policy: ChatHistoryPolicy = DEFAULT_CHAT_HISTORY_POLICY,
     path: str = DEFAULT_STREAM_PATH,
@@ -352,6 +357,7 @@ def make_chat_stream_route(
                     await cleanup()
                     yield frame("done", completed_payload)
                     return
+                semantic_plan = None
                 if turn_planner is not None and not deterministic_followup:
                     semantic_plan_timing = turn_timing.begin("semantic_plan")
                     try:
@@ -369,9 +375,17 @@ def make_chat_stream_route(
                         )
                     else:
                         turn_timing.complete(semantic_plan_timing, status="completed")
-                        answer_plan = apply_turn_plan_to_answer_plan(answer_plan, semantic_plan)
+                        answer_plan = (
+                            apply_intent_graph_to_answer_plan(answer_plan, semantic_plan)
+                            if isinstance(semantic_plan, IntentGraph)
+                            else apply_turn_plan_to_answer_plan(answer_plan, semantic_plan)
+                        )
                         view_context["_answer_plan"] = answer_plan.to_dict()
-                        view_context["_turn_plan"] = semantic_plan.to_dict()
+                        view_context[
+                            "_intent_graph"
+                            if isinstance(semantic_plan, IntentGraph)
+                            else "_turn_plan"
+                        ] = semantic_plan.to_dict()
                         if semantic_plan.requires_confirmation:
                             await cleanup()
                             yield frame(
@@ -479,6 +493,9 @@ def make_chat_stream_route(
                         agent_delegate=agent_delegate,
                         web_search_resolver=web_search_resolver,
                         progress_observer=observe_evidence_progress,
+                        intent_graph=(
+                            semantic_plan if isinstance(semantic_plan, IntentGraph) else None
+                        ),
                     )
                 )
                 try:

@@ -30,6 +30,17 @@ The mini-model interprets language and proposes a graph. It sees only capabiliti
 current principal and deployment. The validator blocks unknown capabilities, cycles, unresolved
 dependencies, invalid arguments, scope invention, and writes outside a confirmation draft.
 
+## Implementation status
+
+The Operator API now uses the structured intent graph as its active planner for one-shot and
+streamed turns. Validated read goals execute in dependency waves with bounded concurrency through
+the existing tool, web, and agent provider seams. Goal receipts remain in one evidence ledger, and
+a failed or unavailable goal produces a partial result without dropping successful siblings.
+
+Subscription health is a typed capability with server-owned scope. Agent and web capabilities are
+shown to the planner only when their runtime providers are bound. Legacy single-tool parsing remains
+only for stored-turn compatibility and focused rollback tests during removal.
+
 ## Intent graph contract
 
 An intent graph records the operator request without reducing it to one tool. Every graph contains:
@@ -118,9 +129,9 @@ change policy.
 
 ## Migration
 
-1. Generate and persist the graph in observation mode while the incumbent route serves answers.
+1. Persist and replay the active graph with every completed turn.
 2. Compare selection, authority, clarification, latency, and answer quality on bilingual scenarios.
-3. Switch read-only turns to graph execution after the observation gate passes.
+3. Expand the registry until every supported read path is available through typed planning.
 4. Remove legacy single-tool and question-specific routes after replay confirms coverage.
 
 The compatibility period is temporary. Migration ends with one graph contract and one registry.

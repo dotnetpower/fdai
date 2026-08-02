@@ -119,6 +119,11 @@ from fdai.delivery.operator_api.routes.chat_history_context import (
     ChatHistoryPolicy,
     resolve_chat_history,
 )
+from fdai.delivery.operator_api.routes.chat_intent_graph import (
+    IntentGraph,
+    IntentGraphPlanner,
+    apply_intent_graph_to_answer_plan,
+)
 from fdai.delivery.operator_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
     contextualize_inventory_screen_scope,
@@ -273,7 +278,7 @@ def make_chat_route(
     post_turn_review_submitter: PostTurnReviewSubmitter | None = None,
     busy_input_coordinator: BusyInputCoordinator | None = None,
     document_evidence_resolver: ChatDocumentEvidenceResolver | None = None,
-    turn_planner: TurnPlanner | None = None,
+    turn_planner: TurnPlanner | IntentGraphPlanner | None = None,
     turn_tools: tuple[TurnTool, ...] = (),
     handover_availability_publisher: object | None = None,
     history_policy: ChatHistoryPolicy = DEFAULT_CHAT_HISTORY_POLICY,
@@ -454,9 +459,15 @@ def make_chat_route(
                         extra={"request_id": request_id},
                     )
                 else:
-                    answer_plan = apply_turn_plan_to_answer_plan(answer_plan, semantic_plan)
+                    answer_plan = (
+                        apply_intent_graph_to_answer_plan(answer_plan, semantic_plan)
+                        if isinstance(semantic_plan, IntentGraph)
+                        else apply_turn_plan_to_answer_plan(answer_plan, semantic_plan)
+                    )
                     view_context["_answer_plan"] = answer_plan.to_dict()
-                    view_context["_turn_plan"] = semantic_plan.to_dict()
+                    view_context[
+                        "_intent_graph" if isinstance(semantic_plan, IntentGraph) else "_turn_plan"
+                    ] = semantic_plan.to_dict()
             if conversation_history_store is not None:
                 try:
                     operator_turn = await append_operator_turn(
@@ -546,6 +557,7 @@ def make_chat_route(
                 agent_delegate=agent_delegate,
                 web_search_resolver=web_search_resolver,
                 progress_observer=ignore_evidence_progress,
+                intent_graph=(semantic_plan if isinstance(semantic_plan, IntentGraph) else None),
             )
             view_context = _with_concept_evidence(evidence_prompt, view_context)
             view_context = _with_ontology_storage_contract(evidence_prompt, view_context)

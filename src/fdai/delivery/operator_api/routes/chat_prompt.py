@@ -24,6 +24,7 @@ from fdai.delivery.operator_api.routes.chat_prompt_content import (
     _CONCEPT_EVIDENCE_DIRECTIVE,
     _EXPLANATION_DIRECTIVE,
     _GLOSSARY,
+    _INTENT_GRAPH_EVIDENCE_DIRECTIVE,
     _OPERATIONAL_EVIDENCE_DIRECTIVE,
     _SCREEN_EXPLANATION_DIRECTIVE,
     _SCREEN_SCOPE_DIRECTIVE,
@@ -631,6 +632,8 @@ def _build_messages(
         )
     if "_tool_evidence" in view_context:
         messages.append({"role": "system", "content": _TOOL_EVIDENCE_DIRECTIVE})
+    if "_intent_graph_evidence" in view_context:
+        messages.append({"role": "system", "content": _INTENT_GRAPH_EVIDENCE_DIRECTIVE})
     if "_screen_scope" in view_context:
         messages.append({"role": "system", "content": _SCREEN_SCOPE_DIRECTIVE})
     if "_concept_evidence" in view_context:

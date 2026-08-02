@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 2b311a7dbe243a8978d7312f845302a560013f60
+translation_source_sha: 36a9d0931400a8aaec009cda274757f4c88a6d1b
 translation_revised: 2026-08-02
 ---
 
@@ -31,6 +31,17 @@ flowchart LR
 Mini-model은 언어를 해석하고 graph를 제안합니다. 현재 principal과 deployment에서 사용 가능한
 capability만 볼 수 있습니다. Validator는 알 수 없는 capability, cycle, 해결되지 않은 dependency,
 잘못된 argument, scope 날조, confirmation draft 밖의 write를 차단합니다.
+
+## 구현 상태
+
+Operator API는 이제 one-shot 및 streamed turn의 active planner로 structured intent graph를 사용합니다.
+검증된 read goal은 기존 tool, web, agent provider seam을 통해 bounded concurrency로 dependency wave별
+실행됩니다. Goal receipt는 하나의 evidence ledger에 유지되며 failed 또는 unavailable goal은 성공한
+sibling을 삭제하지 않고 partial result를 만듭니다.
+
+Subscription health는 server-owned scope를 사용하는 typed capability입니다. Agent 및 web capability는
+runtime provider가 bind된 경우에만 planner에 표시됩니다. Legacy single-tool parser는 제거 기간 중
+stored-turn compatibility와 focused rollback test에만 남습니다.
 
 ## Intent graph 계약
 
@@ -119,9 +130,9 @@ Recommendation은 executable action이 아닙니다. 명시적인 변경 요청�
 
 ## Migration
 
-1. Incumbent route가 answer를 제공하는 동안 observation mode에서 graph를 생성하고 저장합니다.
+1. 완료된 모든 turn에 active graph를 저장하고 replay합니다.
 2. Bilingual scenario에서 selection, authority, clarification, latency, answer quality를 비교합니다.
-3. Observation gate가 통과되면 read-only turn을 graph execution으로 전환합니다.
+3. 모든 supported read path가 typed planning을 사용하도록 registry를 확장합니다.
 4. Replay가 coverage를 확인하면 legacy single-tool 및 question-specific route를 제거합니다.
 
 Compatibility 기간은 일시적입니다. Migration은 하나의 graph contract와 하나의 registry로 끝납니다.

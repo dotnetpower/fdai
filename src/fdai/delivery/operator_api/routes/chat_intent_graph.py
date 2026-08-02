@@ -7,15 +7,16 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final
+from typing import Final, Protocol
 
 from jsonschema import Draft202012Validator
 
-from fdai.core.conversation.answer_plan import AnswerIntent
+from fdai.core.conversation.answer_plan import AnswerIntent, AnswerPlan
 from fdai.delivery.operator_api.routes.chat_turn_plan import (
     StructuredCompletionBackend,
     TurnTool,
     _argument_union_schema,
+    apply_answer_intent_to_plan,
 )
 
 
@@ -53,6 +54,7 @@ class IntentGraph:
     clarification: str | None
     confidence: float
     action_posture: ActionPosture
+    draft_goal_id: str | None = None
 
     @property
     def requires_confirmation(self) -> bool:
@@ -61,6 +63,22 @@ class IntentGraph:
     @property
     def primary_intent(self) -> AnswerIntent:
         return self.goals[0].intent
+
+    def confirmation_payload(
+        self,
+        *,
+        request_id: str,
+        session_id: str | None,
+    ) -> dict[str, object]:
+        if not self.requires_confirmation:
+            raise ValueError("intent graph does not require confirmation")
+        write_goal = next(goal for goal in self.goals if goal.goal_id == self.draft_goal_id)
+        return {
+            "action_type": write_goal.capability,
+            "arguments": dict(write_goal.arguments),
+            "session_id": session_id,
+            "idempotency_key": f"draft-{request_id}"[:200],
+        }
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -109,6 +127,16 @@ class BackendIntentGraphPlanner:
         return parse_intent_graph(raw, tools=bounded_tools)
 
 
+class IntentGraphPlanner(Protocol):
+    async def plan_turn(
+        self,
+        *,
+        prompt: str,
+        tools: Sequence[TurnTool],
+        history: Sequence[Mapping[str, str]],
+    ) -> IntentGraph: ...
+
+
 INTENT_GRAPH_SYSTEM_PROMPT: Final = """You interpret one FDAI operator turn.
 Return only JSON matching the supplied schema. Decompose compound requests into bounded goals and
 declare every dependency. Select only listed capabilities. Prefer available read capabilities for
@@ -154,14 +182,19 @@ def parse_intent_graph(raw: Mapping[str, object], *, tools: Sequence[TurnTool]) 
     by_name = {tool.name: tool for tool in tools}
     goals = tuple(_parse_goal(item, by_name) for item in raw_goals)
     _validate_dag(goals)
-    _validate_authority(goals, by_name, posture)
+    draft_goal_id = _validate_authority(goals, by_name, posture)
     return IntentGraph(
         schema_version=_VERSION,
         goals=goals,
         clarification=_optional_text(raw.get("clarification"), 512),
         confidence=_confidence(raw.get("confidence"), "graph"),
         action_posture=posture,
+        draft_goal_id=draft_goal_id,
     )
+
+
+def apply_intent_graph_to_answer_plan(plan: AnswerPlan, graph: IntentGraph) -> AnswerPlan:
+    return apply_answer_intent_to_plan(plan, graph.primary_intent)
 
 
 def intent_graph_schema(tools: Sequence[TurnTool]) -> dict[str, object]:
@@ -292,7 +325,7 @@ def _validate_authority(
     goals: Sequence[IntentGoal],
     by_name: Mapping[str, TurnTool],
     posture: ActionPosture,
-) -> None:
+) -> str | None:
     selected = [by_name[goal.capability] for goal in goals if goal.capability is not None]
     if len({tool.name for tool in selected}) != len(selected):
         raise ValueError("intent graph cannot select one capability more than once")
@@ -308,6 +341,8 @@ def _validate_authority(
             raise ValueError("intent graph draft_only requires exactly one write capability")
         if any(writes[0].goal_id in goal.depends_on for goal in goals):
             raise ValueError("intent graph write draft must be a terminal goal")
+        return writes[0].goal_id
+    return None
 
 
 def _optional_text(value: object, maximum: int) -> str | None:
@@ -376,6 +411,8 @@ __all__ = [
     "INTENT_GRAPH_SYSTEM_PROMPT",
     "IntentGoal",
     "IntentGraph",
+    "IntentGraphPlanner",
+    "apply_intent_graph_to_answer_plan",
     "intent_graph_schema",
     "parse_intent_graph",
 ]

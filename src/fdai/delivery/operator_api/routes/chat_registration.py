@@ -40,6 +40,7 @@ from fdai.delivery.operator_api.routes.chat_data_sources import DataSourceChatTo
 from fdai.delivery.operator_api.routes.chat_detection_readiness import DetectionReadinessChatTools
 from fdai.delivery.operator_api.routes.chat_document_evidence import ChatDocumentEvidenceResolver
 from fdai.delivery.operator_api.routes.chat_evidence import OperationalEvidenceResolver
+from fdai.delivery.operator_api.routes.chat_intent_graph import BackendIntentGraphPlanner
 from fdai.delivery.operator_api.routes.chat_inventory import (
     InventoryActivityProvider,
     InventoryChatTools,
@@ -54,7 +55,6 @@ from fdai.delivery.operator_api.routes.chat_subscription_health import (
 from fdai.delivery.operator_api.routes.chat_system_health import SystemHealthChatTools
 from fdai.delivery.operator_api.routes.chat_tools import ReadModelChatTools
 from fdai.delivery.operator_api.routes.chat_turn_plan import (
-    BackendTurnPlanner,
     StructuredCompletionBackend,
     action_turn_tools,
     agent_turn_tools,
@@ -194,7 +194,9 @@ def append_chat_routes(
         fallback=system_health_tools,
     )
     turn_planner = (
-        BackendTurnPlanner(backend) if isinstance(backend, StructuredCompletionBackend) else None
+        BackendIntentGraphPlanner(backend)
+        if isinstance(backend, StructuredCompletionBackend)
+        else None
     )
     action_names = getattr(console_action, "action_type_names", ())
     turn_tools = (

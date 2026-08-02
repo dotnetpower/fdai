@@ -273,6 +273,12 @@ def test_draft_only_allows_one_terminal_write_goal() -> None:
     )
 
     assert graph.requires_confirmation is True
+    assert graph.confirmation_payload(request_id="request-1", session_id="session-1") == {
+        "action_type": "ops.restart-service",
+        "arguments": {"resource_ref": "service-example"},
+        "session_id": "session-1",
+        "idempotency_key": "draft-request-1",
+    }
 
 
 def test_write_goal_cannot_feed_another_goal() -> None:
