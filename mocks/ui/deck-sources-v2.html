@@ -755,7 +755,6 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       async function run() {
         var token = reset();
         if (!await wait(450, token)) return;
-        answerPreparing.classList.remove("is-active");
         if (!await streamNodeText(answerLead, answerLeadText, token, 14)) return;
         if (!await wait(120, token)) return;
         for (var phaseIndex = 0; phaseIndex < PHASES.length; phaseIndex += 1) {
@@ -787,6 +786,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
           completePhase(phaseNode, phase);
           if (!await wait(620, token)) return;
         }
+        answerPreparing.classList.remove("is-active");
         await streamFinalAnswer(token);
       }
 
