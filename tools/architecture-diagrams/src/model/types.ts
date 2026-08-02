@@ -64,6 +64,7 @@ export interface DiagramEdge {
     | "diagonal"
     | "curve"
     | "orthogonal"
+    | "orthogonal-shortest"
     | "orthogonal-horizontal"
     | "orthogonal-trunk"
     | "orthogonal-top"

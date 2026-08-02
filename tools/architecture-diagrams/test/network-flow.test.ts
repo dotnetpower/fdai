@@ -119,7 +119,7 @@ test("Azure resource network flow routes every compound edge", async () => {
     gatewayChildren[1]!.y -
       gatewayChildren[0]!.y -
       gatewayChildren[0]!.height,
-    32,
+    48,
   );
   assert.equal(
     gatewayChildren[0]!.x + gatewayChildren[0]!.width / 2,
@@ -180,7 +180,7 @@ test("Azure resource network flow routes every compound edge", async () => {
     const gap =
       orderedOperatorNodes[index]!.y -
       (orderedOperatorNodes[index - 1]!.y + orderedOperatorNodes[index - 1]!.height);
-    assert.equal(gap, 32, `operator access gap ${index} is ${gap}`);
+    assert.equal(gap, 48, `operator access gap ${index} is ${gap}`);
   }
   assert.equal(spec.nodes.find((node) => node.id === "entra-id")!.label.en, "Microsoft Entra ID");
   assert.equal(
@@ -241,13 +241,14 @@ test("Azure resource network flow routes every compound edge", async () => {
     (candidate) => candidate.id === "core-to-resource-graph",
   );
   const resourceGraphBends = resourceGraphEdge?.sections?.[0]?.bendPoints ?? [];
-  assert.equal(resourceGraphBends.length, 4);
+  assert.equal(resourceGraphBends.length, 3);
   assert.equal(
-    Math.abs(
-      resourceGraphBends.at(-1)!.x -
-      resourceGraphEdge!.sections![0]!.endPoint.x,
-    ),
-    16,
+    resourceGraphBends.at(-1)!.x,
+    resourceGraphEdge!.sections![0]!.endPoint.x,
+  );
+  assert.equal(
+    resourceGraphEdge!.sections![0]!.endPoint.y,
+    layout.nodes.get("resource-graph")!.y,
   );
   for (const edgeId of [
     "event-pe-to-core",
@@ -283,6 +284,23 @@ test("Azure resource network flow routes every compound edge", async () => {
   const registryEdge = spec.edges.find((edge) => edge.id === "registry-to-pe")!;
   assert.equal(registryEdge.from, "container-registry");
   assert.equal(registryEdge.to, "registry-pe");
+  const gatewayToIngestion = layout.edges.find(
+    (candidate) => candidate.id === "gateway-to-ingestion",
+  )!.sections![0]!;
+  assert.equal(
+    spec.edges.find((edge) => edge.id === "gateway-to-ingestion")!.route,
+    "orthogonal-shortest",
+  );
+  assert.equal(gatewayToIngestion.bendPoints?.length, 1);
+  assert.equal(
+    gatewayToIngestion.startPoint.x,
+    layout.nodes.get("application-gateway")!.x +
+      layout.nodes.get("application-gateway")!.width,
+  );
+  assert.equal(
+    gatewayToIngestion.endPoint.y,
+    layout.nodes.get("ingestion-gateway")!.y,
+  );
   const gitSection = layout.edges.find(
     (candidate) => candidate.id === "core-to-github",
   )?.sections?.[0];

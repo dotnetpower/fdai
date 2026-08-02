@@ -2,6 +2,7 @@ import type {
   ElkEdgeSection,
   ElkExtendedEdge,
   ElkNode,
+  ElkPoint,
   ElkPort,
 } from "elkjs/lib/elk-api.js";
 import { createRequire } from "node:module";
@@ -757,6 +758,97 @@ function orthogonalRouteSection(
   };
 }
 
+function segmentCrossesNode(
+  start: ElkPoint,
+  end: ElkPoint,
+  node: PositionedShape,
+): boolean {
+  const padding = 3;
+  if (start.x === end.x) {
+    return (
+      start.x > node.x - padding &&
+      start.x < node.x + node.width + padding &&
+      Math.max(Math.min(start.y, end.y), node.y - padding) <
+        Math.min(Math.max(start.y, end.y), node.y + node.height + padding)
+    );
+  }
+  if (start.y === end.y) {
+    return (
+      start.y > node.y - padding &&
+      start.y < node.y + node.height + padding &&
+      Math.max(Math.min(start.x, end.x), node.x - padding) <
+        Math.min(Math.max(start.x, end.x), node.x + node.width + padding)
+    );
+  }
+  return true;
+}
+
+function orthogonalShortestRouteSection(
+  edgeId: string,
+  source: PositionedShape,
+  target: PositionedShape,
+  nodes: Map<string, PositionedShape>,
+): ElkEdgeSection {
+  const sourceCenter = {
+    x: source.x + source.width / 2,
+    y: source.y + source.height / 2,
+  };
+  const targetCenter = {
+    x: target.x + target.width / 2,
+    y: target.y + target.height / 2,
+  };
+  const targetIsRight = targetCenter.x >= sourceCenter.x;
+  const targetIsBelow = targetCenter.y >= sourceCenter.y;
+  const candidates: ElkEdgeSection[] = [
+    {
+      id: `${edgeId}-orthogonal-shortest-horizontal-first`,
+      startPoint: {
+        x: targetIsRight ? source.x + source.width : source.x,
+        y: sourceCenter.y,
+      },
+      bendPoints: [{
+        x: targetCenter.x,
+        y: sourceCenter.y,
+      }],
+      endPoint: {
+        x: targetCenter.x,
+        y: targetIsBelow ? target.y : target.y + target.height,
+      },
+    },
+    {
+      id: `${edgeId}-orthogonal-shortest-vertical-first`,
+      startPoint: {
+        x: sourceCenter.x,
+        y: targetIsBelow ? source.y + source.height : source.y,
+      },
+      bendPoints: [{
+        x: sourceCenter.x,
+        y: targetCenter.y,
+      }],
+      endPoint: {
+        x: targetIsRight ? target.x : target.x + target.width,
+        y: targetCenter.y,
+      },
+    },
+  ];
+  const obstacles = [...nodes.values()].filter(
+    (node) => node.id !== source.id && node.id !== target.id,
+  );
+  const clear = candidates.find((candidate) => {
+    const points = [
+      candidate.startPoint,
+      ...(candidate.bendPoints ?? []),
+      candidate.endPoint,
+    ];
+    return points.slice(1).every((end, index) =>
+      obstacles.every(
+        (node) => !segmentCrossesNode(points[index]!, end, node),
+      ),
+    );
+  });
+  return clear ?? orthogonalRouteSection(edgeId, source, target);
+}
+
 function orthogonalHorizontalRouteSection(
   edgeId: string,
   source: PositionedShape,
@@ -1151,6 +1243,7 @@ function applyExplicitRoutes(
       (specEdge.route !== "diagonal" &&
         specEdge.route !== "curve" &&
       specEdge.route !== "orthogonal" &&
+      specEdge.route !== "orthogonal-shortest" &&
         specEdge.route !== "orthogonal-horizontal" &&
       specEdge.route !== "orthogonal-trunk" &&
       specEdge.route !== "orthogonal-top" &&
@@ -1192,6 +1285,13 @@ function applyExplicitRoutes(
           source,
           target,
         )
+      : specEdge.route === "orthogonal-shortest"
+        ? orthogonalShortestRouteSection(
+            edge.id,
+            source,
+            target,
+            nodes,
+          )
       : specEdge.route === "orthogonal-above"
         ? orthogonalAboveRouteSection(
             edge.id,
@@ -1220,6 +1320,7 @@ function applyExplicitRoutes(
       specEdge.route === "orthogonal-horizontal"
         ? rightRouteLabelPosition(section, label.width ?? 0, label.height ?? 0)
         : specEdge.route === "orthogonal" ||
+      specEdge.route === "orthogonal-shortest" ||
       specEdge.route === "orthogonal-trunk" ||
       specEdge.route === "orthogonal-top" ||
       specEdge.route === "orthogonal-above"

@@ -26,7 +26,7 @@ groups:
     label: { en: Operator access, ko: 운영자 접근 }
     direction: DOWN
     layout: column
-    gap: 32
+    gap: 48
     width: 184
   - id: azure-region
     kind: cloud
@@ -49,7 +49,7 @@ groups:
     label: { en: Application Gateway subnet, ko: Application Gateway subnet }
     direction: DOWN
     layout: column
-    gap: 32
+    gap: 48
     alignWith: private-endpoint-subnet
     width: 184
   - id: container-apps-subnet
@@ -89,7 +89,7 @@ groups:
     label: { en: Platform services, ko: Platform service }
     direction: DOWN
     layout: column
-    gap: 24
+    gap: 48
     placement: right
     alignWith: fdai-vnet
   - id: governed-delivery
@@ -388,7 +388,7 @@ edges:
     from: application-gateway
     to: ingestion-gateway
     kind: request
-    route: orthogonal-above
+    route: orthogonal-shortest
   - id: event-hubs-to-pe
     from: event-hubs
     to: event-hubs-pe

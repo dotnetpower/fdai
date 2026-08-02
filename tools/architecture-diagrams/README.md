@@ -95,7 +95,9 @@ surface. Add `alignWith: <group-id>` when that band should share the horizontal
 center of a nested reference group.
 Individual cross-layer edges can opt into an explicit route; compilation rejects
 a route when it crosses an unrelated node. All other edges retain ELK routing
-and bounded corner rounding.
+and bounded corner rounding. Use `orthogonal-shortest` for an obstacle-aware
+one-bend connection that falls back to the standard orthogonal route when both
+L-shaped candidates are blocked.
 
 The validator rejects unknown keys, duplicate ids, missing locales, unknown
 parents, edges that reference missing elements, and port references that don't

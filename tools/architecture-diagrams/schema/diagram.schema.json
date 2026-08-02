@@ -159,7 +159,7 @@
         "kind": { "enum": ["request", "event", "approval", "mutation", "audit", "rollback", "read", "write"] },
         "label": { "$ref": "#/definitions/localizedText" },
         "protocol": { "type": "string", "minLength": 1 },
-        "route": { "enum": ["diagonal", "curve", "orthogonal", "orthogonal-horizontal", "orthogonal-trunk", "orthogonal-top", "orthogonal-above", "orthogonal-right"] },
+        "route": { "enum": ["diagonal", "curve", "orthogonal", "orthogonal-shortest", "orthogonal-horizontal", "orthogonal-trunk", "orthogonal-top", "orthogonal-above", "orthogonal-right"] },
         "lane": { "type": "integer", "minimum": -8, "maximum": 8 },
         "step": { "type": "integer", "minimum": 1, "maximum": 99 }
       }
