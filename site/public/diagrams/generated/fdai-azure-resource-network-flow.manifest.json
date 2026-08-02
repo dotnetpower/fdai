@@ -72,18 +72,6 @@
       }
     },
     {
-      "id": "waf-policy",
-      "kind": "azure-service",
-      "label": {
-        "en": "WAF policy",
-        "ko": "WAF policy"
-      },
-      "description": {
-        "en": "Managed protection attached to Application Gateway",
-        "ko": "Application Gateway에 연결된 managed protection"
-      }
-    },
-    {
       "id": "application-gateway",
       "kind": "azure-service",
       "label": {
@@ -93,6 +81,18 @@
       "description": {
         "en": "Private ingress for operator and ingestion requests",
         "ko": "운영자 및 ingestion 요청을 위한 private ingress"
+      }
+    },
+    {
+      "id": "waf-policy",
+      "kind": "azure-service",
+      "label": {
+        "en": "WAF policy",
+        "ko": "WAF policy"
+      },
+      "description": {
+        "en": "Managed protection attached to Application Gateway",
+        "ko": "Application Gateway에 연결된 managed protection"
       }
     },
     {

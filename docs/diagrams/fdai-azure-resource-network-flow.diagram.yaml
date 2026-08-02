@@ -47,11 +47,12 @@ groups:
     kind: subnet
     presentation: band
     label: { en: Application Gateway subnet, ko: Application Gateway subnet }
-    direction: DOWN
-    layout: column
+    direction: RIGHT
+    layout: row
     gap: 48
+    justify: center
     alignWith: private-endpoint-subnet
-    width: 184
+    width: 320
   - id: container-apps-subnet
     parent: fdai-vnet
     kind: subnet
@@ -141,13 +142,6 @@ nodes:
     icon: container-apps
     label: { en: Operator API, ko: Operator API }
     description: { en: Separate read and command transport identities with no executor permission, ko: Executor 권한 없이 분리된 read 및 command transport identity }
-  - id: waf-policy
-    parent: gateway-subnet
-    kind: azure-service
-    icon: waf-policy
-    presentation: icon
-    label: { en: WAF policy, ko: WAF policy }
-    description: { en: Managed protection attached to Application Gateway, ko: Application Gateway에 연결된 managed protection }
   - id: application-gateway
     parent: gateway-subnet
     kind: azure-service
@@ -155,6 +149,13 @@ nodes:
     presentation: icon
     label: { en: Application Gateway, ko: Application Gateway }
     description: { en: Private ingress for operator and ingestion requests, ko: 운영자 및 ingestion 요청을 위한 private ingress }
+  - id: waf-policy
+    parent: gateway-subnet
+    kind: azure-service
+    icon: waf-policy
+    presentation: icon
+    label: { en: WAF policy, ko: WAF policy }
+    description: { en: Managed protection attached to Application Gateway, ko: Application Gateway에 연결된 managed protection }
   - id: scheduled-jobs
     parent: container-apps-subnet
     kind: process

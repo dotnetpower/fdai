@@ -816,6 +816,21 @@ function orthogonalShortestRouteSection(
       },
     },
     {
+      id: `${edgeId}-orthogonal-shortest-vertical-sides`,
+      startPoint: {
+        x: sourceCenter.x,
+        y: targetIsBelow ? source.y + source.height : source.y,
+      },
+      bendPoints: [{
+        x: targetCenter.x,
+        y: targetIsBelow ? source.y + source.height : source.y,
+      }],
+      endPoint: {
+        x: targetCenter.x,
+        y: targetIsBelow ? target.y : target.y + target.height,
+      },
+    },
+    {
       id: `${edgeId}-orthogonal-shortest-vertical-first`,
       startPoint: {
         x: sourceCenter.x,

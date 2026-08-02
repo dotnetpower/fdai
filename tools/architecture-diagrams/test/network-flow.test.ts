@@ -104,26 +104,26 @@ test("Azure resource network flow routes every compound edge", async () => {
   const gatewaySubnet = layout.groups.get("gateway-subnet")!;
   const privateEndpoints = layout.groups.get("private-endpoint-subnet")!;
   const privateServices = layout.groups.get("private-service-backends")!;
-  assert.equal(gatewaySubnet.width, 184);
-  assert.ok(gatewaySubnet.height > gatewaySubnet.width);
+  assert.equal(gatewaySubnet.width, 320);
+  assert.ok(gatewaySubnet.width > gatewaySubnet.height);
   assert.ok(
     Math.abs(
       gatewaySubnet.x + gatewaySubnet.width / 2 -
       privateEndpoints.x - privateEndpoints.width / 2,
     ) <= 1,
   );
-  const gatewayChildren = ["waf-policy", "application-gateway"].map(
+  const gatewayChildren = ["application-gateway", "waf-policy"].map(
     (id) => layout.nodes.get(id)!,
   );
   assert.equal(
-    gatewayChildren[1]!.y -
-      gatewayChildren[0]!.y -
-      gatewayChildren[0]!.height,
+    gatewayChildren[1]!.x -
+      gatewayChildren[0]!.x -
+      gatewayChildren[0]!.width,
     48,
   );
   assert.equal(
-    gatewayChildren[0]!.x + gatewayChildren[0]!.width / 2,
-    gatewayChildren[1]!.x + gatewayChildren[1]!.width / 2,
+    gatewayChildren[0]!.y + gatewayChildren[0]!.height / 2,
+    gatewayChildren[1]!.y + gatewayChildren[1]!.height / 2,
   );
   const wafEdge = layout.edges.find(
     (candidate) => candidate.id === "waf-to-gateway",
@@ -293,9 +293,9 @@ test("Azure resource network flow routes every compound edge", async () => {
   );
   assert.equal(gatewayToIngestion.bendPoints?.length, 1);
   assert.equal(
-    gatewayToIngestion.startPoint.x,
-    layout.nodes.get("application-gateway")!.x +
-      layout.nodes.get("application-gateway")!.width,
+    gatewayToIngestion.startPoint.y,
+    layout.nodes.get("application-gateway")!.y +
+      layout.nodes.get("application-gateway")!.height,
   );
   assert.equal(
     gatewayToIngestion.endPoint.y,
