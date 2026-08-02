@@ -1,6 +1,6 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: c66e65494977e52d4706ab3e75c139301c1381b2
+translation_source_sha: 4c392b4bd8471f4228df9b0e30a298f40d0ed282
 translation_revised: 2026-08-03
 ---
 # 운영 계획
@@ -214,6 +214,15 @@ Planning Room을 제공합니다. 다음 정보를 보여 줍니다.
 Operator API는 A0 simulation을 시작하거나 선택한 proposal을 typed ingress로 submit하기 위한 인증되고
 revision-bound request를 받을 수 있습니다. Browser는 executor identity를 받지 않으며 숨겨진 control을
 authorization으로 간주하지 않습니다.
+
+### Runtime availability
+
+Startup은 exact ontology release, operational context materializer, Process store, effect-model reader,
+causal-evidence verifier로 하나의 immutable capability status를 계산합니다. Structured log는
+`available`, `enabled`, `mode`, `reason`, 누락된 모든 requirement를 기록합니다. Planning은 항상
+`shadow`이고 모든 requirement를 사용할 수 있을 때만 bind됩니다. Optional planner를 사용할 수 없는
+상태는 runtime readiness를 낮추거나 관련 없는 agent work를 차단하지 않으며, 명시적으로 관측 가능한
+안전한 degradation으로 남습니다.
 
 ## 초기 vertical
 

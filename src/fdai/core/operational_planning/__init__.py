@@ -38,6 +38,10 @@ from .simulation import (
     ProgrammaticPlanningRunner,
     ProgrammaticPlanningSimulator,
 )
+from .status import (
+    OperationalPlanningCapabilityStatus,
+    operational_planning_capability_status,
+)
 from .twin import AssuranceTwinPlanningSimulator
 from .workflow import ProcessPlanningRecorder
 
@@ -57,6 +61,7 @@ __all__ = [
     "MAX_PLAN_SPECIALIST_DOMAINS",
     "MAX_PLAN_TEXT_LENGTH",
     "OperationalPlan",
+    "OperationalPlanningCapabilityStatus",
     "PlanCandidate",
     "PlanningPhase",
     "PlanningPhaseOrderError",
@@ -78,5 +83,6 @@ __all__ = [
     "close_operational_plan",
     "compile_selected_mutation_plan",
     "operational_plan_event_payload",
+    "operational_planning_capability_status",
     "project_planning_room",
 ]

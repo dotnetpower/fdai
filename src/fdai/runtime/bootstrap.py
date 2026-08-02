@@ -31,6 +31,7 @@ from fdai.core.operational_planning import (
     ConstitutionalPlanningConstraintEvaluator,
     ProcessPlanningRecorder,
     SpecialistPlanningCoordinator,
+    operational_planning_capability_status,
 )
 from fdai.core.readiness import AuthorityCeiling
 from fdai.core.readiness.coordinator import _TRANSITION_TOPIC
@@ -542,25 +543,42 @@ async def _run() -> int:
                     if control_loop.ontology_instance_store is not None
                     else None
                 )
+                ontology_release = control_loop.ontology_release
+                process_store = control_loop.process_runtime_store
+                effect_model_reader = container.effect_model_reader
+                causal_evidence_verifier = container.effect_model_causal_evidence_verifier
                 operational_planner = None
-                if (
-                    operational_context_materializer is not None
-                    and control_loop.ontology_release is not None
-                    and control_loop.process_runtime_store is not None
-                    and container.effect_model_reader is not None
-                    and container.effect_model_causal_evidence_verifier is not None
-                ):
+                planning_status = operational_planning_capability_status(
+                    ontology_release_available=ontology_release is not None,
+                    operational_context_available=operational_context_materializer is not None,
+                    process_store_available=process_store is not None,
+                    effect_model_reader_available=effect_model_reader is not None,
+                    causal_verifier_available=causal_evidence_verifier is not None,
+                )
+                _LOGGER.info(
+                    "operational_planning_capability",
+                    extra={"capability": planning_status.to_mapping()},
+                )
+                if planning_status.can_plan:
+                    if operational_context_materializer is None:
+                        raise RuntimeError("planning status requires operational context")
+                    if ontology_release is None:
+                        raise RuntimeError("planning status requires an ontology release")
+                    if process_store is None:
+                        raise RuntimeError("planning status requires a Process store")
+                    if effect_model_reader is None:
+                        raise RuntimeError("planning status requires an effect model reader")
+                    if causal_evidence_verifier is None:
+                        raise RuntimeError("planning status requires a causal evidence verifier")
                     operational_planner = SpecialistPlanningCoordinator(
-                        logic_release_digest=control_loop.ontology_release.digest,
+                        logic_release_digest=ontology_release.digest,
                         constraint_evaluator=ConstitutionalPlanningConstraintEvaluator(),
                         simulator=AssuranceTwinPlanningSimulator(
-                            model_reader=container.effect_model_reader,
-                            causal_evidence_verifier=(
-                                container.effect_model_causal_evidence_verifier
-                            ),
+                            model_reader=effect_model_reader,
+                            causal_evidence_verifier=causal_evidence_verifier,
                             clock=lambda: datetime.now(tz=UTC),
                         ),
-                        recorder=ProcessPlanningRecorder(store=control_loop.process_runtime_store),
+                        recorder=ProcessPlanningRecorder(store=process_store),
                     )
                 pantheon_runtime = PantheonRuntime.build(
                     provider=bus,

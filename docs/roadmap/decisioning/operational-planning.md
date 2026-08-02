@@ -217,6 +217,15 @@ The Operator API may accept an authenticated, revision-bound request to start an
 submit a selected proposal through typed ingress. The browser never receives an executor identity
 and never treats a hidden control as authorization.
 
+### Runtime availability
+
+Startup computes one immutable capability status from the exact ontology release, operational
+context materializer, Process store, effect-model reader, and causal-evidence verifier. Its
+structured log records `available`, `enabled`, `mode`, `reason`, and every missing requirement.
+Planning is always `shadow` and binds only when all requirements are available. An unavailable
+optional planner does not lower runtime readiness or block unrelated agent work; it remains an
+explicitly observable safe degradation.
+
 ## Initial vertical
 
 The first complete vertical is predictive capacity planning for one generic compute workload.
