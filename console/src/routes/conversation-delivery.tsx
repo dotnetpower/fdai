@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { isOptionalReadApiUnavailable, type ReadApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import {
   AsyncBoundary,
   KpiCard,
@@ -40,7 +40,7 @@ export interface ConversationDeliveryResponse {
   readonly acknowledgement_count: number;
 }
 
-export function ConversationDeliveryRoute({ client }: { readonly client: ReadApiClient }) {
+export function ConversationDeliveryRoute({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<ConversationDeliveryResponse>>({ status: "loading" });
   useEffect(() => {
     let cancelled = false;
@@ -50,7 +50,7 @@ export function ConversationDeliveryRoute({ client }: { readonly client: ReadApi
       })
       .catch((error: unknown) => {
         if (!cancelled) setState({
-          status: isOptionalReadApiUnavailable(error) ? "unavailable" : "error",
+          status: isOptionalOperatorApiUnavailable(error) ? "unavailable" : "error",
           message: error instanceof Error ? error.message : String(error),
         });
       });
@@ -64,7 +64,7 @@ export function decodeConversationDelivery(value: unknown): ConversationDelivery
   const readOnly = panelBoolean(root, "read_only", "conversation delivery");
   const mutationsAvailable = panelBoolean(root, "mutations_available", "conversation delivery");
   if (!readOnly || mutationsAvailable) {
-    throw new Error("invalid read API response: conversation delivery MUST be read-only");
+    throw new Error("invalid Operator API response: conversation delivery MUST be read-only");
   }
   const latency = panelRecord(root["delivery_latency_ms"], "conversation delivery.delivery_latency_ms");
   return {
@@ -91,7 +91,7 @@ function decodeCounts(value: unknown, label: string): Readonly<Record<string, nu
   const record = panelRecord(value, label);
   return Object.fromEntries(Object.entries(record).map(([key, count]) => {
     if (!Number.isInteger(count) || (count as number) < 0) {
-      throw new Error(`invalid read API response: ${label}.${key} MUST be a non-negative integer`);
+      throw new Error(`invalid Operator API response: ${label}.${key} MUST be a non-negative integer`);
     }
     return [key, count as number];
   }));

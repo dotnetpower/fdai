@@ -22,8 +22,8 @@ share the executor identity.
 
 ## Read-only surface
 
-The SPA starts with six always-on GET routes on the read API
-(`src/fdai/delivery/read_api/main.py`):
+The SPA starts with six always-on GET routes on the Operator API
+(`src/fdai/delivery/operator_api/main.py`):
 
 | Route | Purpose |
 |-------|---------|
@@ -32,19 +32,19 @@ The SPA starts with six always-on GET routes on the read API
 | `GET /hil-queue` | Pending approval count for Readers; safety detail for Approvers and Owners (decisions still happen through ChatOps). |
 | `GET /incidents` | Paginated incident roster with active/resolved/all filters. |
 | `GET /audit/{correlation_id}/trace` | Ordered end-to-end trace for one incident. |
-| `GET /healthz` | Read-API health status. |
+| `GET /healthz` | Operator API health status. |
 
 Managed-resource views use GET-only read routes. The console has narrow POST
 carve-outs for narrator turns, typed action **proposals**, and pure workflow
 validation; none executes a managed-resource mutation directly. Core read
 routes enforce `405` on mutating verbs
-(`tests/delivery/read_api/test_main.py::TestReadOnlyInvariant`).
+(`tests/delivery/operator_api/test_main.py::TestReadOnlyInvariant`).
 
 The **Evidence > Documents** panel is a separate content-ingestion surface, not
 a managed-resource mutation path. Its dedicated client talks only to the
 ingestion gateway, uploads source bytes directly to the gateway-provided object
 target, and requires the operator to acknowledge the effective shared audience.
-The GET-only `ReadApiClient` remains unchanged and never gains upload helpers.
+The GET-only `OperatorApiClient` remains unchanged and never gains upload helpers.
 
 The panel registry in [`src/panels.tsx`](src/panels.tsx) groups the complete
 operator surface into five stable navigation domains: Overview, Operations,
@@ -156,8 +156,8 @@ The standalone Settings panel changes presentation plus opt-in chat verification
 Theme, locale, reduced-motion, and experimental semantic-verification preferences are
 validated and stored in browser
 `localStorage`, with an in-memory fallback for the current tab when persistent
-storage is blocked. The runtime section exposes the configured read-API
-endpoint for diagnostics. Settings never call the read API, mutate managed
+storage is blocked. The runtime section exposes the configured Operator API
+endpoint for diagnostics. Settings never call the Operator API, mutate managed
 resources, or hold an execution identity.
 
 The **Agents > Pantheon** panel combines two read-only sources without
@@ -202,8 +202,8 @@ reclassified as durable audit evidence. This preserves the append-only ledger
 as the source of truth while allowing a visible tab to update without polling.
 The hook closes the SSE connection while the tab is
 hidden and reconnects when it becomes visible. The dev
-read-API seed
-([`src/fdai/delivery/read_api/_local.py`](../src/fdai/delivery/read_api/dev/local.py))
+Operator API seed
+([`src/fdai/delivery/operator_api/_local.py`](../src/fdai/delivery/operator_api/dev/local.py))
 attributes each row to its producing agent and carries the lifecycle
 timestamps + inputs / outputs + conversation so the pane renders a realistic
 sample.
@@ -254,7 +254,7 @@ Beyond the three always-on routes above, the app factory registers several
 **opt-in** GET routes when their inputs are wired at the composition root
 (ontology graph, pantheon, impact scope, promotion gates, rule-fire trace, and
 the inventory graph, and the rule catalog below). Each is reader-role gated and collision-checked; none
-ships enabled upstream unless its `ReadApiConfig` input is set.
+ships enabled upstream unless its `OperatorApiConfig` input is set.
 
 ### Governance presentation
 
@@ -364,7 +364,7 @@ detected issues deep-link into the full Architecture panel when they carry a res
 The **Knowledge > Rules** panel ([`src/routes/rule-catalog.tsx`](src/routes/rule-catalog.tsx))
 answers "what does this rule enforce, why does it matter, and which resources
 violate it" and shows versioned control-framework coverage over five GET routes
-([`src/fdai/delivery/read_api/rule_catalog.py`](../src/fdai/delivery/read_api/routes/rule_catalog.py)):
+([`src/fdai/delivery/operator_api/rule_catalog.py`](../src/fdai/delivery/operator_api/routes/rule_catalog.py)):
 
 | Route | Purpose |
 |-------|---------|
@@ -380,7 +380,7 @@ The Controls view switches between Azure WAF, MCSB v1, and MCSB v2 preview. MCSB
 complete 86-control import and its implementation crosswalk. MCSB v2 renders all 81 pinned preview
 definitions as Unmapped until its independent crosswalk is reviewed.
 
-The seams are `ReadApiConfig.rule_catalog_rules`, `_collected_rules`,
+The seams are `OperatorApiConfig.rule_catalog_rules`, `_collected_rules`,
 `_policies_root`, `_remediation_root`, and `_findings_provider`. Interactive
 local development leaves detected issues unavailable until an Azure-backed inventory
 evaluation source is configured; it never evaluates a synthetic inventory. A selected rule is deep-linked into
@@ -402,7 +402,7 @@ conversation session. The question path never issues a privileged call.
 
 For resource-history continuity, the deck returns only a server-selected bounded resource context.
 Resource Health history can add a complete anomalous-event anchor consisting of resource group,
-timestamp, and status. The browser preserves these fields without interpreting them; the read API
+timestamp, and status. The browser preserves these fields without interpreting them; the Operator API
 rejects partial anchors and uses its configured Azure reader scope for any pre-incident Activity
 Log correlation. Provider failures and truncated reads remain visible instead of falling through
 to an ungrounded narrator answer.
@@ -476,7 +476,7 @@ that answers "what is this agent doing right now?" - the coarse state, a
 plain-language task description (`STATE_TASK`), the streamed `detail` when the
 producer supplies one, and the incident (ticket + title) it is engaged on. The
 dev/demo emitter enriches each `agent.state` frame with a task `detail`
-([`agent_activity_emitter.py`](../src/fdai/delivery/read_api/streaming/agent_activity_emitter.py));
+([`agent_activity_emitter.py`](../src/fdai/delivery/operator_api/streaming/agent_activity_emitter.py));
 the field stays optional so the real relay is free to omit it. A hovered node
 returns to full opacity even while dimmed, so its card stays readable (a parent
 `opacity` otherwise caps the child tooltip).
@@ -488,7 +488,7 @@ accordion: selecting a row pins it and expands its workflow card (steps,
 agent-to-agent conversation, RCA) inline directly beneath that row; clicking
 the open row again collapses it.
 
-The interactive local read API does not start a local ControlLoop or Pantheon
+The interactive local Operator API does not start a local ControlLoop or Pantheon
 runtime. Live and Agents remain unavailable until a deployed Azure FDAI runtime
 relay supplies authoritative frames. Authentication mode is not treated as
 evidence provenance.
@@ -584,7 +584,7 @@ vocabulary, not by adding code. The server narrator receives the same `purpose`
 and `glossary` in the snapshot JSON and is instructed to ground term and causal
 answers in them.
 
-The chat backend (`src/fdai/delivery/read_api/routes/chat.py`) keeps each turn's
+The chat backend (`src/fdai/delivery/operator_api/routes/chat.py`) keeps each turn's
 system prompt lean for cost and latency: compact base instructions, the FDAI
 glossary appended only for concept questions (EN + KO), and every `records`
 array capped to a representative sample (with a `_records_truncated` hint) so
@@ -682,8 +682,8 @@ DR-drill history) **without editing `app.tsx` or `shell.tsx`**, through two
 matching seams:
 
 1. **API side** - implement the `ReadPanel` Protocol
-   (`src/fdai/delivery/read_api/panels.py`) and register it at the
-   composition root via `ReadApiConfig.extra_panels`. The app factory wraps
+   (`src/fdai/delivery/operator_api/panels.py`) and register it at the
+   composition root via `OperatorApiConfig.extra_panels`. The app factory wraps
    each panel as a **GET-only** route, authorizes it with the same reader-role
    gate as the core routes, and fails fast on a malformed / colliding path -
    so the read-only invariant holds for extensions exactly as for core routes.
@@ -729,7 +729,7 @@ console/
     ├── app.tsx         - top-level router + init
     ├── config.ts       - env-var-driven runtime config
     ├── auth.ts         - MSAL.js wrapper + anonymous / Azure CLI dev modes
-    ├── api.ts          - read-only ReadApiClient (core GET methods + panel())
+    ├── api.ts          - read-only OperatorApiClient (core GET methods + panel())
     ├── preferences.ts  - validated browser-local display preferences
     ├── types.ts        - TS mirrors of read_model.py shapes
     ├── panels.tsx      - panel registry (core panels + fork extension point)
@@ -760,7 +760,7 @@ console/
 
 The canonical local topology is the VS Code compound
 `Console Web: Full Stack` in [`.vscode/launch.json`](../.vscode/launch.json):
-console SPA `5273`, read API `8010`, and ingestion gateway `8011`. Start that
+console SPA `5273`, Operator API `8010`, and ingestion gateway `8011`. Start that
 compound from Run and Debug, or run the equivalent commands below.
 
 ```sh
@@ -768,13 +768,13 @@ cd console
 npm install
 # Terminal 1: load local MSAL values and verify browser Entra tokens.
 set -a; . console/.env.local; set +a
-FDAI_READ_API_LOCAL_ENTRA=1 \
-  uv run uvicorn 'fdai.delivery.read_api.dev.local:app' \
+FDAI_OPERATOR_API_LOCAL_ENTRA=1 \
+  uv run uvicorn 'fdai.delivery.operator_api.dev.local:app' \
   --factory --port 8010
 
 # Terminal 2: run the SPA with browser Entra sign-in.
 VITE_DEV_MODE=0 \
-  VITE_READ_API_BASE_URL=http://127.0.0.1:8010 npm run dev
+  VITE_OPERATOR_API_BASE_URL=http://127.0.0.1:8010 npm run dev
 ```
 
 The browser access token is the authorization principal. The API verifies its
@@ -813,21 +813,21 @@ FDAI_INGESTION_GATEWAY_CORS_ALLOW_ORIGINS=http://127.0.0.1:5178 \
   --factory --host 127.0.0.1 --port 8011
 ```
 
-The local read API allows both Vite's development origin on port `5273`
+The local Operator API allows both Vite's development origin on port `5273`
 and the production-preview origin on port `4173`. To smoke-test the built
 artifact, run `npm run build && npm run preview` against the same API.
 
-When Vite uses another port, add that exact origin to the read API process.
+When Vite uses another port, add that exact origin to the Operator API process.
 Wildcards aren't accepted.
 
 ```sh
-FDAI_READ_API_LOCAL_ENTRA=1 \
-  FDAI_READ_API_CORS_ALLOW_ORIGINS=http://127.0.0.1:5178 \
-  uv run uvicorn 'fdai.delivery.read_api.dev.local:app' \
+FDAI_OPERATOR_API_LOCAL_ENTRA=1 \
+  FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS=http://127.0.0.1:5178 \
+  uv run uvicorn 'fdai.delivery.operator_api.dev.local:app' \
     --factory --port 8010
 ```
 
-The interactive API requires either `FDAI_READ_API_LOCAL_ENTRA=1` (canonical)
+The interactive API requires either `FDAI_OPERATOR_API_LOCAL_ENTRA=1` (canonical)
 or the explicit CLI-principal alternative. It rejects anonymous dev mode,
 scenario replay, and synthetic inventory outside pytest fixtures.
 
@@ -853,7 +853,7 @@ narrator has `publicNetworkAccess: Disabled` (a tenant policy can flip it), so
 every call from the laptop returns `403 "Public access is disabled"` and the
 `/chat/health` mode reads `azure-ad-routed-unavailable`.
 
-The **local** read API reconciles this at startup **by default**: it finds the
+The **local** Operator API reconciles this at startup **by default**: it finds the
 account behind the narrator endpoint and, only when the endpoint is
 unreachable, adds this machine's current public IP to the account firewall and
 enables restricted public access (`defaultAction: Deny` plus the single IP). An
@@ -862,8 +862,8 @@ already-reachable account is left untouched. Disable the hook with
 
 ```sh
 # Auto-open runs by default; set the flag to 0 to opt out.
-FDAI_READ_API_LOCAL_AZURE_CLI=1 \
-  uv run uvicorn 'fdai.delivery.read_api.dev.local:app' \
+FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1 \
+  uv run uvicorn 'fdai.delivery.operator_api.dev.local:app' \
     --factory --host 127.0.0.1 --port 8010
 ```
 
@@ -885,7 +885,7 @@ az login --use-device-code
 az account show --query '{subscription:name,user:user.name,tenant:tenantId}' --output table
 ```
 
-The read API inherits `AZURE_CONFIG_DIR` from its process. If you use a named
+The Operator API inherits `AZURE_CONFIG_DIR` from its process. If you use a named
 Azure CLI profile, set the same `AZURE_CONFIG_DIR` when starting the API. The
 API checks `az account show`, obtains a short-lived ARM token, and keeps that
 token inside the API process. It exposes only the stable object id, username,
@@ -893,21 +893,21 @@ display name, and local role projection to the SPA.
 
 ```sh
 # Terminal 1: Azure-backed API projected as the current Azure CLI user.
-FDAI_READ_API_LOCAL_AZURE_CLI=1 \
-  uv run uvicorn 'fdai.delivery.read_api.dev.local:app' \
+FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1 \
+  uv run uvicorn 'fdai.delivery.operator_api.dev.local:app' \
   --factory --host 127.0.0.1 --port 8010
 
 # Terminal 2: SPA with MSAL bypassed in favor of the local CLI profile.
 cd console
 VITE_LOCAL_AZURE_CLI_AUTH=1 \
-  VITE_READ_API_BASE_URL=http://127.0.0.1:8010 \
+  VITE_OPERATOR_API_BASE_URL=http://127.0.0.1:8010 \
     npm run dev
 ```
 
 The local principal has a fixed `Contributor` development ceiling. It doesn't import production App Roles or
 grant Azure resource permissions to the browser. The API refuses this mode
 when `RUNTIME_ENV` is `staging` or `prod`, and it can't be combined with
-`FDAI_READ_API_DEV_MODE=1` or `FDAI_READ_API_LOCAL_ENTRA=1`.
+`FDAI_OPERATOR_API_DEV_MODE=1` or `FDAI_OPERATOR_API_LOCAL_ENTRA=1`.
 
 ## Test-only authentication fixtures
 
@@ -934,14 +934,14 @@ CI env):
 
 | Env var | Meaning |
 |---------|---------|
-| `VITE_READ_API_BASE_URL` | Origin of the read API (e.g. `https://api.<fork>`). |
+| `VITE_OPERATOR_API_BASE_URL` | Origin of the Operator API (e.g. `https://api.<fork>`). |
 | `VITE_INGESTION_API_BASE_URL` | Origin of the Azure-backed document-ingestion gateway. Port `8011` is reserved for isolated automated gateway tests. |
 | `VITE_MSAL_CLIENT_ID` | Entra App Registration client id (SPA). |
 | `VITE_MSAL_TENANT_ID` | Entra tenant id (single-tenant per fork). |
 | `VITE_MSAL_API_SCOPE` | API audience scope (e.g. `api://<api-guid>/access`). |
-| `VITE_DEV_MODE` | Test-only authorization bypass paired with read-API fixtures. The interactive full-stack profile never sets it. |
+| `VITE_DEV_MODE` | Test-only authorization bypass paired with Operator API fixtures. The interactive full-stack profile never sets it. |
 | `VITE_LOCAL_LOGIN_PROMPT` | Test-only chooser toggle used with `VITE_DEV_MODE`; not an interactive Azure data mode. |
-| `VITE_LOCAL_AZURE_CLI_AUTH` | `1` to project the current local `az login` user through the local read API. Explicit alternative to browser Entra sign-in; never set in production or together with `VITE_DEV_MODE`. |
+| `VITE_LOCAL_AZURE_CLI_AUTH` | `1` to project the current local `az login` user through the local Operator API. Explicit alternative to browser Entra sign-in; never set in production or together with `VITE_DEV_MODE`. |
 | `VITE_CONSOLE_BASE_PATH` | Optional subpath if not served at origin root. |
 | `VITE_WORKFLOW_CATALOG_REPO` | Optional `owner/repo` of the catalog repo. When set, a validated workflow draft shows a one-click "Open a PR on GitHub" (new-file link); the console still never commits. |
 | `VITE_WORKFLOW_CATALOG_BRANCH` | Branch the new-file PR link targets (default `main`). |

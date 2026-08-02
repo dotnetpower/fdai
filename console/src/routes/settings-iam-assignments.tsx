@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { DataTable, LoadingState, StatusPill } from "../components/ui";
 import { t } from "../i18n";
@@ -33,7 +33,7 @@ const DUTIES: readonly AssignmentDuty[] = ["primary", "backup", "escalation"];
 const EMPTY_FILTERS: AssignmentFilters = { query: "", role: "all", agent: "", coverage: "all" };
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly auth: AuthContext;
   readonly canManage: boolean;
   readonly principalOid: string;
@@ -191,7 +191,7 @@ function AssignmentFilterBar({ filters, onChange }: {
 }
 
 function AssignmentEditor({ client, auth, onCreated }: {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly auth: AuthContext;
   readonly onCreated: () => Promise<void>;
 }) {
@@ -227,11 +227,11 @@ function AssignmentEditor({ client, auth, onCreated }: {
     try {
       createdCase = await createAssignmentCase(
         auth,
-        client.readApiBaseUrl,
+        client.operatorApiBaseUrl,
         draft,
         mutation.idempotencyKey,
       );
-      await submitAssignmentCase(auth, client.readApiBaseUrl, createdCase);
+      await submitAssignmentCase(auth, client.operatorApiBaseUrl, createdCase);
       intent.current = null;
       setDraft({ ...draft, identity: null, goalRefs: [], justification: "" });
       setResults([]);
@@ -290,7 +290,7 @@ function DutyRow({ duty, onChange, onRemove }: { readonly duty: AssignmentDutyBi
   return <div class="assignment-duty-row"><select aria-label={t("settings.iam.agent")} value={duty.agentName} onChange={(event) => onChange({ ...duty, agentName: event.currentTarget.value })}>{AGENTS.map((agent) => <option key={agent}>{agent}</option>)}</select><select aria-label={t("settings.iam.duty")} value={duty.duty} onChange={(event) => onChange({ ...duty, duty: event.currentTarget.value as AssignmentDuty })}>{DUTIES.map((value) => <option key={value} value={value}>{t(`settings.iam.dutyValue.${value}`)}</option>)}</select><input type="text" aria-label={t("settings.iam.scope")} value={duty.scopeRef} maxLength={256} onInput={(event) => onChange({ ...duty, scopeRef: event.currentTarget.value })} /><button type="button" class="secondary" onClick={onRemove} aria-label={t("settings.iam.removeDuty")}>×</button></div>;
 }
 
-function AssignmentEvidence({ item, auth, client, principalOid, onClose, onChanged }: { readonly item: AssignmentProjectionItem; readonly auth: AuthContext; readonly client: ReadApiClient; readonly principalOid: string; readonly onClose: () => void; readonly onChanged: () => Promise<void> }) {
+function AssignmentEvidence({ item, auth, client, principalOid, onClose, onChanged }: { readonly item: AssignmentProjectionItem; readonly auth: AuthContext; readonly client: OperatorApiClient; readonly principalOid: string; readonly onClose: () => void; readonly onChanged: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const assignmentCase = item.assignmentCase;
@@ -298,7 +298,7 @@ function AssignmentEvidence({ item, auth, client, principalOid, onClose, onChang
     if (!assignmentCase) return;
     setBusy(true);
     setError(null);
-    try { await reviewAssignmentCase(auth, client.readApiBaseUrl, assignmentCase, decision); await onChanged(); }
+    try { await reviewAssignmentCase(auth, client.operatorApiBaseUrl, assignmentCase, decision); await onChanged(); }
     catch (reason) { setError(message(reason)); }
     finally { setBusy(false); }
   };

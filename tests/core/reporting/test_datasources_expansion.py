@@ -24,7 +24,7 @@ from fdai.core.reporting.datasources import (
     ReportFeedDataSource,
 )
 from fdai.core.reporting.models import DataSet, QuerySpec
-from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.shared.contracts.models import Severity
 from fdai.shared.providers.log_query import LogRecord, StaticLogQueryProvider
 from fdai.shared.providers.metric import MetricPoint, StaticMetricProvider

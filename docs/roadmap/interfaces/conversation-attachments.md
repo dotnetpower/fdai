@@ -114,7 +114,7 @@ letting untrusted payloads select a network destination.
 
 ## Web chat contract
 
-The read API does not accept multipart files, raw bytes, storage URLs, or channel attachment ids.
+The Operator API does not accept multipart files, raw bytes, storage URLs, or channel attachment ids.
 The future SPA flow is:
 
 1. Create an authenticated ingestion upload session.
@@ -212,7 +212,7 @@ this structural split does not change protected ingestion or the redaction bound
 
 The repository currently ships these composition components as a library boundary. It does not yet
 ship a standalone channel ASGI factory or Terraform channel workload that instantiates
-`ProductionChannelRuntime`; the read API and headless core do not mount channel ingress routes.
+`ProductionChannelRuntime`; the Operator API and headless core do not mount channel ingress routes.
 Deployment remains pending until that separate process supplies the gateway, persistence, Teams
 resolver, identities, attachment ingestor, and lifecycle callbacks. Do not set the attachment or
 Slack/Teams channel enable flags in a deployed workload that lacks that complete composition.
@@ -268,7 +268,7 @@ uv run pytest -q --no-cov \
   tests/delivery/channels \
   tests/delivery/azure/test_document_ocr.py \
   tests/delivery/ingestion_gateway/test_chat_evidence.py \
-  tests/delivery/read_api/test_chat_route.py
+  tests/delivery/operator_api/test_chat_route.py
 terraform -chdir=infra validate
 ```
 

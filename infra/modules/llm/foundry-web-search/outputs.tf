@@ -9,7 +9,7 @@ output "project_id" {
 }
 
 output "project_endpoint" {
-  description = "Foundry project data-plane endpoint used by the agent reconciler and read API."
+  description = "Foundry project data-plane endpoint used by the agent reconciler and Operator API."
   value       = "https://${var.account_name}.services.ai.azure.com/api/projects/${var.project_name}"
 }
 

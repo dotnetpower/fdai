@@ -21,17 +21,17 @@ describe("console config", () => {
     );
   });
 
-  test("loads a configured Read API request timeout", () => {
-    vi.stubEnv("VITE_READ_API_REQUEST_TIMEOUT_MS", "15000");
+  test("loads a configured Operator API request timeout", () => {
+    vi.stubEnv("VITE_OPERATOR_API_REQUEST_TIMEOUT_MS", "15000");
 
-    expect(loadConfig().readApiRequestTimeoutMs).toBe(15_000);
+    expect(loadConfig().operatorApiRequestTimeoutMs).toBe(15_000);
   });
 
-  test("rejects an invalid Read API request timeout", () => {
-    vi.stubEnv("VITE_READ_API_REQUEST_TIMEOUT_MS", "never");
+  test("rejects an invalid Operator API request timeout", () => {
+    vi.stubEnv("VITE_OPERATOR_API_REQUEST_TIMEOUT_MS", "never");
 
     expect(() => loadConfig()).toThrow(
-      "VITE_READ_API_REQUEST_TIMEOUT_MS must be a positive integer.",
+      "VITE_OPERATOR_API_REQUEST_TIMEOUT_MS must be a positive integer.",
     );
   });
 });

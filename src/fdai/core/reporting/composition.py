@@ -5,13 +5,13 @@ upstream defaults so a fork composition root can wire the whole
 subsystem in one call.
 
 Usage sketch (a fork composition root calls this factory and hands the
-result to ``fdai.delivery.read_api.routes.reporting.ReportingConfig``):
+result to ``fdai.delivery.operator_api.routes.reporting.ReportingConfig``):
 
 - import ``default_reporting_engine`` from :mod:`fdai.core.reporting.composition`;
 - call it with the seams the fork has wired (any missing datasource
   falls back to :class:`NoopDataSource` under the same name);
 - pass the returned ``(engine, formats)`` pair into the delivery-side
-  ``ReportingConfig`` and mount it on ``ReadApiConfig.reporting``.
+  ``ReportingConfig`` and mount it on ``OperatorApiConfig.reporting``.
 
 Every argument is optional; the missing datasources fall back to
 :class:`~fdai.core.reporting.datasources.static.NoopDataSource` under

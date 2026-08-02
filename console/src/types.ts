@@ -1,6 +1,6 @@
 /**
- * Payload shapes returned by the read API. Mirrored from
- * `src/fdai/delivery/read_api/read_model.py`. Keep in sync by hand
+ * Payload shapes returned by the Operator API. Mirrored from
+ * `src/fdai/delivery/operator_api/read_model.py`. Keep in sync by hand
  * - the surface is intentionally small (three routes).
  */
 
@@ -154,7 +154,7 @@ export interface DashboardKpi {
 
 /**
  * Cost-vertical summary served by the FinOps read panel
- * (`GET /finops`, `ExampleFinOpsPanel` in `read_api/panels.py`). It is a
+ * (`GET /finops`, `ExampleFinOpsPanel` in `operator_api/panels.py`). It is a
  * fork/opt-in panel: production or a fork that has not registered it
  * returns 404, so the Overview treats a missing payload as "cost axis
  * unavailable" rather than an error.

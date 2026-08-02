@@ -25,7 +25,7 @@ class PlanningVmTaskRunner(VmTaskRunner):
             run_ref=f"plan:{request.task.artifact_hash}:{request.target.resource_ref}",
             artifact_hash=request.task.artifact_hash,
             status=VmTaskStatus.PLANNED,
-            detail="validated plan; read API has no VM executor identity",
+            detail="validated plan; Operator API has no VM executor identity",
         )
 
     async def status(self, run_ref: str) -> VmTaskReceipt:

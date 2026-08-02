@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 7b0545228d0ceefdb4cadd5668655ce8b4ef3e73
-translation_revised: 2026-07-29
+translation_source_sha: 9dfc7273c78b190201d01ea002fe40fea951d2ad
+translation_revised: 2026-08-02
 ---
 
 # CSP-중립성 계약
@@ -258,7 +258,7 @@ executor 는 런타임 서브스트레이트에서 얻은 **짧은 수명의 OID
   교체합니다.
 
 읽기 전용 콘솔은 승격된 그래프의 별도 프로젝션을 `GET /inventory/graph`를 통해
-사용합니다. 이 경로는 `ReadApiConfig.inventory_graph_provider`가 주입된 경우에만
+사용합니다. 이 경로는 `OperatorApiConfig.inventory_graph_provider`가 주입된 경우에만
 활성화됩니다. CSP-중립 `Resource` 레코드와 `contains` / `attached_to` / `depends_on`
 링크, 스냅샷 신선도, 잘림 메타데이터를 반환합니다. 이 경로는 Azure Resource Graph를
 직접 호출하지 않으며 실행자 ID를 전달받지 않습니다.

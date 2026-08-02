@@ -183,7 +183,7 @@ class ResolvedModels:
     Populated by :func:`collect_narrator` when the CLI is given a
     ``--narrator-endpoint``. The list is ordered by the registry's
     preference order (fastest / most-preferred family first). When
-    empty, the read-api chat backend falls back to :attr:`narrator`
+    empty, the operator-api chat backend falls back to :attr:`narrator`
     (single-narrator path) or a deterministic answerer.
     """
 

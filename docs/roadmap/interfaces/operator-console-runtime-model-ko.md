@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: a3e7a710c6d1d4aef49f3babb651116047cba79d
-translation_revised: 2026-08-01
+translation_source_sha: 04e6b05770807644a35772950b2460993c74d04c
+translation_revised: 2026-08-02
 ---
 
 # Operator Console - Narrator, DI Seams, and Session Model
@@ -34,7 +34,7 @@ revision, 마지막 actor와 update time, validation conflict를 표시합니다
 ## 4. Narrator - LLM tier 모델
 
 Narrator는 콘솔의 LLM translator layer입니다. Core/CLI는 `Narrator` Protocol을 사용하고,
-web progressive-answer generation은 read API의 별도 backend seam을 사용합니다. Azure binding은
+web progressive-answer generation은 Operator API의 별도 backend seam을 사용합니다. Azure binding은
 특정 account 이름에 고정되지 않고 `resolved-models.json`과 environment composition에서 선택됩니다.
 
 ### 4.1 세 tier (trust router를 반영)
@@ -73,7 +73,7 @@ valid structured decision을 truncate하지 않습니다. 이 classifier prompt�
 분리됩니다.
 
 Public retrieval은 `narrator_candidates`를 빌리지 않습니다. Resolver는 `t1.web_search`를
-`web_search_candidates`로 선택하고 startup은 read API가 traffic을 serve하기 전에 candidate별 실제
+`web_search_candidates`로 선택하고 startup은 Operator API가 traffic을 serve하기 전에 candidate별 실제
 managed-tool request를 한 번 전송합니다. 실패 candidate는 제외합니다. 남은 candidate가 없으면 Settings는
 enabled preference를 보존하지만 제한된 reason과 함께 `available=false`를 보고하고 관리를 비활성화합니다.
 Settings는 sanitized provider, Foundry project 구성 여부, agent 이름, model deployment,
@@ -82,7 +82,7 @@ tenant identity 또는 credential은 노출하지 않습니다.
 
 ### 4.1.1 Cross-process agent introspection
 
-Core runtime만 Pantheon을 소유합니다. 분리된 read API는 두 번째 agent runtime을 내장하지 않고
+Core runtime만 Pantheon을 소유합니다. 분리된 Operator API는 두 번째 agent runtime을 내장하지 않고
 `aw.pantheon.objects`에 multiplex한 bounded logical service topic 두 개로 Bragi에 접근합니다.
 Server-echo probe로 response consumer를 확인하고 retry 중 같은 joining consumer를 재사용하며 최초
 Event Hubs group join을 최대 20초 허용합니다. Request는 silent truncation 없이 최대 2,000자 question과 process-secret salted
@@ -163,8 +163,8 @@ prompt/completion token count를 metering stream에 기록합니다.
 상한 내에서 반환합니다. 콘솔은 이를 read-only **LLM 사용량** 패널로 렌더링합니다.
 
 리전, 통화, 협상 요율 차이로 설정 기반 추정치와 provider invoice가 달라질 수
-있으므로 read API와 콘솔에는 파생 비용을 노출하지 않습니다. 배포는 내부 budget
-gate에서 설정된 가격표를 계속 사용할 수 있습니다. 헤드리스 코어와 read API는
+있으므로 Operator API와 콘솔에는 파생 비용을 노출하지 않습니다. 배포는 내부 budget
+gate에서 설정된 가격표를 계속 사용할 수 있습니다. 헤드리스 코어와 Operator API는
 별도 프로세스이므로 production은 durable Postgres `llm_invocation` store를
 사용합니다. 단일 프로세스 개발 하네스는 narrator 호출과 패널이 하나의
 `InMemoryMeteringSink`를 공유합니다.
@@ -235,7 +235,7 @@ class ConsoleTool(Protocol):
 ```
 
 - 현재 core 이름은 `SystemConsoleTool`이며 `call()`은 coordinator가 파싱하고 검증한 arguments와
-  authenticated principal을 받습니다. Session history가 필요한 web tool은 read API의 별도 async
+  authenticated principal을 받습니다. Session history가 필요한 web tool은 Operator API의 별도 async
   provider path를 사용합니다.
 - `ToolResult`는 `data` (serialisable), `preview` (narrator가 요약하도록
   받는 짧은 human-readable string), 그리고 옵션 `evidence_refs` (audit id,
@@ -254,7 +254,7 @@ class ConversationChannelAdapter(Protocol):
 ```
 
 - Vendor wire당 하나의 adapter가 있습니다. Teams는 Bot Framework activity, Slack은 signed
-  HTTP Events API, web은 authenticated read API JSON/SSE를 사용합니다. CLI는 shared read API를
+  HTTP Events API, web은 authenticated Operator API JSON/SSE를 사용합니다. CLI는 shared Operator API를
   호출하며 별도 vendor adapter가 아닙니다.
 - `InboundTurn`은 coordinator가 보기 전에 bounded channel, message, sender, thread, text field를
   검증합니다. `ConversationChannelGateway`는 unresolved sender를 차단하고 tool 실행 전에 duplicate

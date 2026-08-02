@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { isOptionalReadApiUnavailable, ReadApiError, type ReadApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, OperatorApiError, type OperatorApiClient } from "../api";
 import { ArchitectureInspector } from "../components/architecture-inspector";
 import { ArchitectureMap, type ArchitectureMapHandle } from "../components/architecture-map";
 import { ArchitectureOverviewPanel } from "../components/architecture-overview-panel";
@@ -23,7 +23,7 @@ import { TERMS, composeGlossary } from "../deck/glossary";
 import { navigate, replaceRouteState } from "../router";
 import { t } from "./i18n/architecture";
 
-interface Props { readonly client: ReadApiClient }
+interface Props { readonly client: OperatorApiClient }
 
 export function architectureResourceExists(
   resources: readonly Pick<InventoryResource, "id">[],
@@ -76,7 +76,7 @@ export function architectureContextRecords(
 }
 
 export async function loadArchitectureGraph(
-  client: Pick<ReadApiClient, "panel">,
+  client: Pick<OperatorApiClient, "panel">,
   requestedView: string | null,
 ): Promise<InventoryGraphResponse> {
   const params = { depth: "4", include: "contains,attached_to,depends_on" };
@@ -89,7 +89,7 @@ export async function loadArchitectureGraph(
       scope: requestedView,
     });
   } catch (error) {
-    if (!(error instanceof ReadApiError) || error.status !== 404) throw error;
+    if (!(error instanceof OperatorApiError) || error.status !== 404) throw error;
     return client.panel<InventoryGraphResponse>("/inventory/graph", params);
   }
 }
@@ -138,7 +138,7 @@ export function ArchitectureRoute({ client }: Props) {
       (error: unknown) => {
         if (cancelled) return;
         const message = error instanceof Error ? error.message : String(error);
-        setState(isOptionalReadApiUnavailable(error)
+        setState(isOptionalOperatorApiUnavailable(error)
           ? { status: "unavailable", message: t("graphUnavailable") }
           : { status: "error", message });
       },

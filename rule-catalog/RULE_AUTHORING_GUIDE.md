@@ -290,7 +290,7 @@ Natural-language inventory behavior is catalog-as-code in
 [`rule-catalog/vocabulary/inventory-query-language.yaml`](vocabulary/inventory-query-language.yaml).
 Add reusable English or Korean terms to its semantic signal, query-kind, grouping, projection,
 scope, state, operation, or time-unit entry. Do not add question-specific regular expressions or
-aliases to the read API. The bundled JSON Schema rejects unknown fields and invalid bounds; the
+aliases to the Operator API. The bundled JSON Schema rejects unknown fields and invalid bounds; the
 runtime freezes the loaded registry before it compiles any prompt. Catalog terms translate text to
 a typed read query only. They never become runtime evidence, widen provider scope beyond the
 server-owned scope policy, grant an action, or bypass verification.

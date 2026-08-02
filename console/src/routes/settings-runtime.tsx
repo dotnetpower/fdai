@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { LoadingState, PageHeader, StatusPill } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
@@ -18,7 +18,7 @@ import {
 } from "./settings-runtime.model";
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly auth: AuthContext;
 }
 
@@ -88,7 +88,7 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
     try {
       const next = await saveRuntimeSettings(
         auth,
-        client.readApiBaseUrl,
+        client.operatorApiBaseUrl,
         changes,
         view.revision,
       );

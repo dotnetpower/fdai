@@ -42,7 +42,7 @@ title: Operator Console - Data and Wire Contracts
 - Exit code: `0` on clean session end; `2` on invalid config; `3` on
   unrecoverable channel error.
 
-### 13.3 Read-API approval callback (Week 1)
+### 13.3 Operator API approval callback (Week 1)
 
 - `POST /hil/{approval_id}/decision`
 - Body: `{"decision": "approve|reject|defer", "justification": "..."}`
@@ -55,7 +55,7 @@ title: Operator Console - Data and Wire Contracts
   swap). The bot MUST include the same `approval_id` it puts in the URL.
 - Response: `200 {"queued": true, "audit_entry_id": "..."}`.
 
-This is a documented write-route exception to the read API's GET-only
+This is a documented write-route exception to the Operator API's GET-only
 projection surface. The invariant test allow-lists this callback explicitly.
 This does **not**
 break the "console never executes" rule from
@@ -83,9 +83,9 @@ and does not send natural language directly to a write endpoint.
   proposal. Unknown fields and unlisted actions are rejected.
 - **Compatibility endpoint**: `POST /chat/action`, body
   `{"prompt": str, "session_id": str?,
-  "idempotency_key": str?}`. Registered only when `ReadApiConfig.console_action`
+  "idempotency_key": str?}`. Registered only when `OperatorApiConfig.console_action`
   wires a `ConsoleActionSubmitter`
-  (`src/fdai/delivery/read_api/routes/console_action.py`). This raw-prompt route
+  (`src/fdai/delivery/operator_api/routes/console_action.py`). This raw-prompt route
   remains for compatible API clients; the browser Command Deck does not use it.
   Operator-supplied values are bounded (prompt <= 4000,
   question <= 2000, resource id / session id / idempotency key <= 200 chars) so
@@ -154,7 +154,7 @@ and does not send natural language directly to a write endpoint.
 
 The Workflow Builder includes a multi-file Python task workbench backed by the
 six mutation routes and the read-only `GET /python-tasks/capabilities` route in
-[`python_tasks.py`](../../../src/fdai/delivery/read_api/routes/python_tasks.py).
+[`python_tasks.py`](../../../src/fdai/delivery/operator_api/routes/python_tasks.py).
 Operators can edit source files, choose an entrypoint, declare modules and host
 capabilities, validate, stage an immutable artifact, and render a shadow plan
 for an inventory Resource.
@@ -171,7 +171,7 @@ The workbench preserves the console identity boundary:
   operator intent, target capabilities, and allowlisted modules. The draft must
   still validate and stage before any request control is enabled.
 - **Stage artifact** writes the content-addressed artifact store, not a VM.
-- **Test shadow plan** uses `PlanningVmTaskRunner`; the read API has no Managed
+- **Test shadow plan** uses `PlanningVmTaskRunner`; the Operator API has no Managed
   Identity capable of creating a Run Command.
 - **Request governed run** publishes a typed `ActionProposal`. It doesn't call
   `VmTaskRunner`, copy a file, or execute Python from the console process.
@@ -179,14 +179,14 @@ The workbench preserves the console identity boundary:
   Workflow, artifact, and inventory target. A later scheduler tick publishes
   the typed event.
 
-The read-API keeps background, busy-input, and skill runtime composition helpers under `routes/`; the result panel shows validation issues, artifact reference, planned file and
+The Operator API keeps background, busy-input, and skill runtime composition helpers under `routes/`; the result panel shows validation issues, artifact reference, planned file and
 byte counts, target capabilities, or the submitted correlation id. Runtime
 status continues on the Processes and audit surfaces after the control loop
 accepts the proposal.
 
 ### 13.8 Grounded code in chat replies
 
-When a terminal Command Deck answer contains a fenced code block, the read API
+When a terminal Command Deck answer contains a fenced code block, the Operator API
 extracts it as a bounded `GroundedCodeArtifact`. The artifact carries the code,
 language, SHA-256 reference, and a static validation result. Python blocks are
 parsed and compiled without importing or executing them. Other languages are
@@ -205,7 +205,7 @@ This display contract does not grant execution authority:
   FDAI source tree, installed package, container filesystem, or active Git
   checkout.
 - **No chat execution**: static parsing is the only operation performed in the
-  read API. It does not import the generated module, start a subprocess, create
+  Operator API. It does not import the generated module, start a subprocess, create
   a virtual environment, or call `VmTaskRunner`.
 - **Governed execution stays separate**: an operator who wants to run code must
   create and stage a `PythonTask`, then publish a typed `ActionProposal` through
@@ -228,7 +228,7 @@ Storage questions use a deterministic catalog contract rather than treating the 
 a missing screen field. Built-in ObjectType and LinkType definitions come from
 `rule-catalog/vocabulary/object-types/` and `rule-catalog/vocabulary/link-types/`; ActionType
 definitions come from `rule-catalog/action-types/`. A downstream composition can inject additional
-validated roots. At startup, the Read API loads the combined definitions into an immutable
+validated roots. At startup, the Operator API loads the combined definitions into an immutable
 in-memory catalog, and `/ontology/graph` provides its read-only projection. Runtime ontology
 instances are stored in PostgreSQL `ontology_resource` and `ontology_link`. ObjectType and LinkType
 metadata can also be synchronized to PostgreSQL as validated references for foreign-key checks,

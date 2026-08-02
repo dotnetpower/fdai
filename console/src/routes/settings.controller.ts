@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
@@ -37,7 +37,7 @@ import {
   setLocaleOverride,
 } from "./settings.model";
 
-export function useSettingsController(client: ReadApiClient) {
+export function useSettingsController(client: OperatorApiClient) {
   const [preferences, setPreferences] = useState<ConsolePreferences>(readConsolePreferences);
   const [serverContext, setServerContext] = useState<UserContextPayload | null>(null);
   const [contextLoading, setContextLoading] = useState(true);

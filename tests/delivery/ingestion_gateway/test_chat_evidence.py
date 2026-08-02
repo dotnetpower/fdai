@@ -6,7 +6,7 @@ from uuid import UUID
 import pytest
 
 from fdai.delivery.ingestion_gateway.chat_evidence import UploaderDocumentEvidenceResolver
-from fdai.delivery.read_api.routes.chat_document_evidence import ChatDocumentRef
+from fdai.delivery.operator_api.routes.chat_document_evidence import ChatDocumentRef
 from fdai.shared.contracts import (
     AccessDescriptor,
     DocumentPurpose,

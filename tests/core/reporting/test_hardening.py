@@ -360,7 +360,7 @@ widgets:
             load_report_catalog(tmp_path, max_files=3)
 
 
-# --- Risk #7: read-API report_id validation ---------------------------
+# --- Risk #7: Operator API report_id validation ---------------------------
 
 
 class TestReportIdValidation:
@@ -372,19 +372,19 @@ class TestReportIdValidation:
 
         from fdai.core.reporting.formats import install_default_formats
         from fdai.core.reporting.registry import FormatRegistry
-        from fdai.delivery.read_api.auth import build_authenticator
-        from fdai.delivery.read_api.main import ReadApiConfig, build_app
-        from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
-        from fdai.delivery.read_api.routes.reporting import ReportingConfig
+        from fdai.delivery.operator_api.auth import build_authenticator
+        from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
+        from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
+        from fdai.delivery.operator_api.routes.reporting import ReportingConfig
 
         engine = _engine()
         auth = build_authenticator(verifier=lambda t: {"oid": "u"}, resolver=lambda claims: None)
-        os.environ["FDAI_READ_API_DEV_MODE"] = "1"
+        os.environ["FDAI_OPERATOR_API_DEV_MODE"] = "1"
         try:
             app = build_app(
                 authenticator=auth,
                 read_model=InMemoryConsoleReadModel(),
-                config=ReadApiConfig(
+                config=OperatorApiConfig(
                     dev_mode=True,
                     reporting=ReportingConfig(
                         engine=engine,
@@ -399,7 +399,7 @@ class TestReportIdValidation:
             response = client.get("/reports/x/render", params={"format": "..%2f"})
             assert response.status_code == 400
         finally:
-            os.environ.pop("FDAI_READ_API_DEV_MODE", None)
+            os.environ.pop("FDAI_OPERATOR_API_DEV_MODE", None)
 
 
 # --- Risk #8: RenderedWidget error length cap -------------------------
@@ -441,7 +441,7 @@ class TestErrorMessageCap:
 class TestAuditTzAware:
     async def test_naive_since_treated_as_utc(self) -> None:
         from fdai.core.reporting.datasources.audit import AuditDataSource
-        from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
+        from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 
         reader = InMemoryConsoleReadModel()
         # tz-aware recorded_at

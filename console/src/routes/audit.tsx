@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import type { AuditItem, AuditPage } from "../types";
 import {
   AsyncBoundary,
@@ -17,7 +17,7 @@ import { appendAuditPage, resolveAuditEntry, type AuditData as Data } from "./au
 import { t } from "./i18n/evidence";
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
 }
 
 const PAGE_SIZE = 25;

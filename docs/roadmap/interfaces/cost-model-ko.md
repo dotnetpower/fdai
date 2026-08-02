@@ -1,8 +1,8 @@
 ---
 title: 비용 모델 (예시)
 translation_of: cost-model.md
-translation_source_sha: 6c77bb278a9517139d7be7c17b6c779fa5773645
-translation_revised: 2026-07-27
+translation_source_sha: 3f900edba01ea5a341f56ab1d80c46432a409b9d
+translation_revised: 2026-08-02
 ---
 
 # 비용 모델 (예시)
@@ -91,7 +91,7 @@ translation_revised: 2026-07-27
 이 합계는 scale-to-zero를 가정한 초기 snapshot이므로 현재 core `min_replicas = 1` 배포의 예산으로
 사용하면 안 됩니다. 배포 전 `terraform plan`에서 활성 resource와 SKU를 추출하고 Azure Pricing
 Calculator 또는 Retail Prices API로 다시 합산합니다. Production HA PostgreSQL, private networking,
-Azure OpenAI, document ingestion, read API/console, email channel은 각각 별도 line item입니다.
+Azure OpenAI, document ingestion, Operator API/console, email channel은 각각 별도 line item입니다.
 
 ### 현재 Terraform inventory reconciliation
 
@@ -101,7 +101,7 @@ Azure OpenAI, document ingestion, read API/console, email channel은 각각 별�
 | Production delta | zone-redundant PostgreSQL HA, 35일 geo backup, private networking/DNS 및 private runner 경로 | dev B1ms band에 포함하지 않고 별도 계산 |
 | `enable_llm` | Azure OpenAI/Foundry account와 capability deployment | token/PTU 및 embedding usage를 모델 budget에 합산 |
 | `enable_document_ingestion` | ADLS Gen2 ZRS/HNS, blob/dfs private endpoint, ingestion app + ClamAV, migration worker | storage capacity/operations, endpoint, always-on replica를 별도 계산 |
-| Channel/console opt-in | read API/channel app, Static Web Apps, ACS Email/SMS 등 활성 adapter | 실제 enablement와 전송량 기준으로 별도 계산 |
+| Channel/console opt-in | Operator API/channel app, Static Web Apps, ACS Email/SMS 등 활성 adapter | 실제 enablement와 전송량 기준으로 별도 계산 |
 
 ## T2 LLM 비용
 

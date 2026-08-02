@@ -1,8 +1,8 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: f4f5231923240a2e77e961f3978ac1fb8b54685f
-translation_revised: 2026-07-22
+translation_source_sha: 416c9e73bbc250882700046046b7e88a05cdd34c
+translation_revised: 2026-08-02
 ---
 
 # Workflow Control-Loop Integration
@@ -123,8 +123,8 @@ Action step은 일반 typed pipeline으로 다시 게시되며 workflow가 execu
 `ProcessRuntimeStore` 에 연결합니다. 다음 CLI wrapper 로 실행해 볼 수 있습니다.
 
 ```bash
-FDAI_READ_API_LOCAL_AZURE_CLI=1 uv run uvicorn \
-  'fdai.delivery.read_api.dev.local:app' --factory --port 8000
+FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1 uv run uvicorn \
+  'fdai.delivery.operator_api.dev.local:app' --factory --port 8000
 
 uv run python scripts/automation/run-workflow.py architecture-review \
   --target fdai-control-plane
@@ -159,7 +159,7 @@ Authoring 경로는 여섯 operation 을 분리합니다.
 3. `POST /python-tasks/stage` 는 valid content-addressed artifact 를 immutable 하게
   저장합니다. 같은 `task_id@version` 을 다른 content 로 다시 쓰는 것은 차단됩니다.
 4. `POST /python-tasks/test` 는 active inventory 에서 target 을 resolve 하고 shadow
-  plan 을 반환합니다. Read API 는 executor identity 가 없고 file copy 또는 code
+  plan 을 반환합니다. Operator API 는 executor identity 가 없고 file copy 또는 code
   실행이 불가능한 `PlanningVmTaskRunner` 를 바인딩합니다.
 5. `POST /python-tasks/request-run` 은 artifact reference, target Resource reference,
   reason 만 `ActionProposal` 로 publish 합니다. 일반 control loop 는 proposal 을
@@ -252,7 +252,7 @@ cursor parameter를 받습니다. Production은 PostgreSQL ledger와 이를 구�
 `synthetic-dev`와 `false`를 보고합니다. Console은 route 이름이나 static copy에서 durability를
 추론하지 않고 이 필드를 렌더링하며 [Reviewable Automation Blueprints](automation-blueprints-ko.md)가 repeated-work suggestion을 소유합니다.
 
-Local read API 도 in-memory task, inventory, audit, HIL adapter 와 함께 동일한
+Local Operator API 도 in-memory task, inventory, audit, HIL adapter 와 함께 동일한
 authoritative ControlLoop 를 사용합니다. 따라서 Workflow Builder run request 는 Owner
 approval gate 까지 도달하고 route, gate, terminal audit frame 을 `/live/stream` 으로
 emit 합니다. Dev harness 는 parked action 을 auto-approve 하지 않습니다.

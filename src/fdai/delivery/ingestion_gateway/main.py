@@ -28,7 +28,7 @@ from fdai.core.rbac.enforcer import RoleRequiredError
 from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import Role
 from fdai.delivery.ingestion_gateway.handover import HandoverDraftReader
-from fdai.delivery.read_api.auth import AuthenticationError, Authenticator
+from fdai.delivery.operator_api.auth import AuthenticationError, Authenticator
 from fdai.shared.contracts import DocumentPurpose, DocumentState, SourceStorageMode
 from fdai.shared.providers import (
     DocumentAccessDeniedError,

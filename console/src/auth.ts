@@ -1,8 +1,8 @@
 /**
  * MSAL.js wrapper. Handles sign-in redirect, silent token acquisition,
- * and produces the `Authorization: Bearer <token>` header the read API
+ * and produces the `Authorization: Bearer <token>` header the Operator API
  * expects. In dev mode the wrapper is a no-op - the API accepts
- * anonymous requests when `FDAI_READ_API_DEV_MODE=1` is set. Local Azure
+ * anonymous requests when `FDAI_OPERATOR_API_DEV_MODE=1` is set. Local Azure
  * CLI mode reads only a browser-safe profile from the local API; the CLI
  * access token remains in the API process.
  *
@@ -159,13 +159,13 @@ export async function initAuth(config: ConsoleConfig): Promise<AuthContext> {
     throw new Error("VITE_DEV_MODE and VITE_LOCAL_AZURE_CLI_AUTH MUST NOT both be enabled.");
   }
   if (config.localAzureCliAuth) {
-    const response = await fetch(`${config.readApiBaseUrl.replace(/\/$/, "")}/local-auth/me`, {
+    const response = await fetch(`${config.operatorApiBaseUrl.replace(/\/$/, "")}/local-auth/me`, {
       headers: { accept: "application/json" },
       cache: "no-store",
     });
     if (!response.ok) {
       throw new Error(
-        `Local Azure CLI auth failed (${response.status}). Run 'az login' and start the read API with FDAI_READ_API_LOCAL_AZURE_CLI=1.`
+        `Local Azure CLI auth failed (${response.status}). Run 'az login' and start the Operator API with FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1.`
       );
     }
     return new LocalAzureCliAuth(parseLocalCliProfile(await response.json()));

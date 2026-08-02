@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { isOptionalReadApiUnavailable, type ReadApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import {
   AsyncBoundary,
@@ -35,7 +35,7 @@ export function ConversationAssuranceRoute({
   client,
   auth,
 }: {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly auth: AuthContext;
 }) {
   const [state, setState] = useState<AsyncState<ConversationAssurancePayload>>({ status: "loading" });
@@ -47,7 +47,7 @@ export function ConversationAssuranceRoute({
       setSelectedId((current) => current ?? data.assessments[0]?.assessment_id ?? null);
     } catch (error) {
       setState({
-        status: isOptionalReadApiUnavailable(error) ? "unavailable" : "error",
+        status: isOptionalOperatorApiUnavailable(error) ? "unavailable" : "error",
         message: error instanceof Error ? error.message : String(error),
       });
     }
@@ -81,7 +81,7 @@ function AssuranceBody({
   onRefresh,
 }: {
   readonly auth: AuthContext;
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly data: ConversationAssurancePayload;
   readonly selectedId: string | null;
   readonly onSelect: (value: string) => void;
@@ -122,7 +122,7 @@ function AssessmentTable({ assessments, onSelect }: { readonly assessments: read
   return <section id="assessments" class="stack"><h2>{t("assurance.assessments")}</h2>{assessments.length === 0 ? <p>{t("assurance.empty")}</p> : <div class="scroll"><table class="data-table"><thead><tr><th scope="col">{t("assurance.turn")}</th><th scope="col">{t("assurance.score")}</th><th scope="col">{t("assurance.models")}</th><th scope="col">{t("assurance.cost")}</th><th scope="col">{t("assurance.assessed")}</th></tr></thead><tbody>{assessments.map((item) => <tr key={item.assessment_id}><td><button type="button" class="btn btn-small" onClick={() => onSelect(item.assessment_id)}>{item.turn_id}</button><br /><StatusPill kind={verdictKind(item.verdict)} label={t(`assurance.verdict.${item.verdict}`)} /></td><td>{item.content_score.toFixed(1)}/100</td><td>{item.model_calls}</td><td>{formatCost(item.cost_microusd)}</td><td>{new Date(item.assessed_at).toLocaleString()}</td></tr>)}</tbody></table></div>}</section>;
 }
 
-function AssessmentDetail({ auth, client, assessment, onRefresh }: { readonly auth: AuthContext; readonly client: ReadApiClient; readonly assessment: AssuranceAssessment | null; readonly onRefresh: () => Promise<void> }) {
+function AssessmentDetail({ auth, client, assessment, onRefresh }: { readonly auth: AuthContext; readonly client: OperatorApiClient; readonly assessment: AssuranceAssessment | null; readonly onRefresh: () => Promise<void> }) {
   const [detail, setDetail] = useState<AsyncState<AssuranceDetailPayload> | null>(null);
   useEffect(() => {
     if (assessment === null) { setDetail(null); return; }
@@ -137,14 +137,14 @@ function AssessmentDetail({ auth, client, assessment, onRefresh }: { readonly au
   return <section class="stack"><h2>{t("assurance.details")}</h2><AsyncBoundary state={detail} resourceLabel={t("assurance.details")}>{(value) => <DetailBody key={value.assessment.assessment_id} auth={auth} client={client} detail={value} onRefresh={onRefresh} />}</AsyncBoundary></section>;
 }
 
-function DetailBody({ auth, client, detail, onRefresh }: { readonly auth: AuthContext; readonly client: ReadApiClient; readonly detail: AssuranceDetailPayload; readonly onRefresh: () => Promise<void> }) {
+function DetailBody({ auth, client, detail, onRefresh }: { readonly auth: AuthContext; readonly client: OperatorApiClient; readonly detail: AssuranceDetailPayload; readonly onRefresh: () => Promise<void> }) {
   const [reason, setReason] = useState<(typeof REASONS)[number]>("wrong_fact");
   const [text, setText] = useState("");
   const [status, setStatus] = useState<"idle" | "submitting" | "submitted" | "error">("idle");
   const submit = async (event: Event) => {
     event.preventDefault(); setStatus("submitting");
     try {
-      await putGovernedJson(auth, client.readApiBaseUrl, `/conversation-assurance/${encodeURIComponent(detail.assessment.assessment_id)}/disputes`, { reason, detail: text.trim(), evidence_refs: [], idempotency_key: crypto.randomUUID() }, "POST");
+      await putGovernedJson(auth, client.operatorApiBaseUrl, `/conversation-assurance/${encodeURIComponent(detail.assessment.assessment_id)}/disputes`, { reason, detail: text.trim(), evidence_refs: [], idempotency_key: crypto.randomUUID() }, "POST");
       setText(""); setStatus("submitted"); await onRefresh();
     } catch { setStatus("error"); }
   };

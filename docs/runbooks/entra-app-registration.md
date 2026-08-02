@@ -5,7 +5,7 @@ title: Entra App Registration
 # Entra App Registration
 
 How to create the two Entra ID app registrations the FDAI console needs -
-`fdai-api` (the read-API audience) and `fdai-console-spa` (the SPA sign-in
+`fdai-api` (the Operator API audience) and `fdai-console-spa` (the SPA sign-in
 client) - plus the App Roles, service principals, and role assignment that make
 sign-in work. This runbook covers both the **local sign-in test**
 ([console/README.md § Local sign-in test](../../console/README.md)) and the
@@ -85,10 +85,10 @@ print(json.dumps({"api": {
   "requestedAccessTokenVersion": 2,
   "oauth2PermissionScopes": [{
     "id": sys.argv[1],
-    "adminConsentDescription": "Allow the console to call the fdai read API on behalf of the signed-in operator",
-    "adminConsentDisplayName": "Access the fdai read API",
-    "userConsentDescription": "Allow the console to call the fdai read API on your behalf",
-    "userConsentDisplayName": "Access the fdai read API",
+    "adminConsentDescription": "Allow the console to call the fdai Operator API on behalf of the signed-in operator",
+    "adminConsentDisplayName": "Access the fdai Operator API",
+    "userConsentDescription": "Allow the console to call the fdai Operator API on your behalf",
+    "userConsentDisplayName": "Access the fdai Operator API",
     "isEnabled": True, "type": "User", "value": "access",
   }],
 }}))
@@ -196,14 +196,14 @@ groups instead of to individual users
 The values from the steps above feed the runtime config. Keep them out of
 tracked files.
 
-| Value | Read API env | SPA env (Vite) |
+| Value | Operator API env | SPA env (Vite) |
 |-------|--------------|----------------|
 | Tenant id | `FDAI_ENTRA_TENANT_ID` | `VITE_MSAL_TENANT_ID` |
 | `api://$API_APPID` | `FDAI_API_AUDIENCE` | - |
 | `api://$API_APPID/access` | - | `VITE_MSAL_API_SCOPE` |
 | `$SPA_APPID` | - | `VITE_MSAL_CLIENT_ID` |
 
-Read-API verifier env: [deploy-and-onboard.md](../roadmap/deployment/deploy-and-onboard.md)
+Operator API verifier env: [deploy-and-onboard.md](../roadmap/deployment/deploy-and-onboard.md)
 (`FDAI_ENTRA_TENANT_ID`, `FDAI_API_AUDIENCE`, optional `FDAI_ENTRA_ISSUER` /
 `FDAI_ENTRA_JWKS_URI`). SPA env: [console/README.md § Fork configuration](../../console/README.md).
 

@@ -5,7 +5,7 @@ Two shipped implementations, both satisfying the
 
 - :class:`SseSinkStagePublisher` - fan out directly onto an
   :class:`~fdai.shared.providers.sse.SseSink`. Zero-hop in-process
-  delivery, ideal for a single-replica read-API + browser SPA. Also the
+  delivery, ideal for a single-replica Operator API + browser SPA. Also the
   path used by the local dev harness so nothing depends on a running
   Kafka.
 - :class:`EventBusStagePublisher` - publish onto a Kafka topic so the

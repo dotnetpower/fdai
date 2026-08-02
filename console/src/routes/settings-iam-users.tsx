@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import { DataTable, StatusPill } from "../components/ui";
 import { t } from "../i18n";
 import {
@@ -27,7 +27,7 @@ export function isCurrentDirectorySearch(currentGeneration: number, candidate: n
 }
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly canManage: boolean;
   readonly roster: readonly IdentityRosterItem[];
   readonly rosterAvailable: boolean;

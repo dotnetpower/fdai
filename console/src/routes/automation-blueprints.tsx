@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { isOptionalReadApiUnavailable, type ReadApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import {
   AsyncBoundary,
   DataTable,
@@ -66,13 +66,13 @@ export interface AutomationBlueprintResponse {
   };
 }
 
-export function AutomationBlueprintsRoute({ client }: { readonly client: ReadApiClient }) {
+export function AutomationBlueprintsRoute({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<AutomationBlueprintResponse>>({ status: "loading" });
   useEffect(() => {
     let cancelled = false;
     client.panel<unknown>("/automation-blueprints")
       .then((value) => { if (!cancelled) setState({ status: "ready", data: decodeAutomationBlueprints(value) }); })
-      .catch((error: unknown) => { if (!cancelled) setState({ status: isOptionalReadApiUnavailable(error) ? "unavailable" : "error", message: error instanceof Error ? error.message : String(error) }); });
+      .catch((error: unknown) => { if (!cancelled) setState({ status: isOptionalOperatorApiUnavailable(error) ? "unavailable" : "error", message: error instanceof Error ? error.message : String(error) }); });
     return () => { cancelled = true; };
   }, [client]);
   return <div class="stack"><PageHeader title={t("route.automationBlueprints")} subtitle={t("nav.panelSub.automationBlueprints")} /><AsyncBoundary state={state} resourceLabel={t("evidence.blueprints.resource")}>{(data) => <BlueprintBody data={data} />}</AsyncBoundary></div>;
@@ -83,7 +83,7 @@ export function decodeAutomationBlueprints(value: unknown): AutomationBlueprintR
   const candidates = panelArray(root["candidates"], "automation blueprints.candidates")
     .map((raw, index) => decodeCard(raw, index));
   const count = panelNonNegativeInteger(root, "count", "automation blueprints");
-  if (count !== candidates.length) throw new Error("invalid read API response: automation blueprint count MUST match candidates");
+  if (count !== candidates.length) throw new Error("invalid Operator API response: automation blueprint count MUST match candidates");
   const metrics = panelRecord(root["metrics"], "automation blueprints.metrics");
   return {
     source: panelNonEmptyString(root, "source", "automation blueprints"),
@@ -134,7 +134,7 @@ function decodeCard(value: unknown, index: number): BlueprintCard {
 
 function ratio(value: Readonly<Record<string, unknown>>, key: string): number {
   const result = panelNonNegativeNumber(value, key, "automation blueprints");
-  if (result > 1) throw new Error(`invalid read API response: ${key} MUST be <= 1`);
+  if (result > 1) throw new Error(`invalid Operator API response: ${key} MUST be <= 1`);
   return result;
 }
 

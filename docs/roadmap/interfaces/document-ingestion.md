@@ -223,7 +223,7 @@ allowing metadata-only storage.
 
 ## Large-document and batch design
 
-File bytes do not pass through the read-only console/read API process, but they do pass through the
+File bytes do not pass through the read-only console/Operator API process, but they do pass through the
 dedicated ingestion gateway. The gateway streams to private object storage without buffering the
 whole request, and bounded workers process the result.
 
@@ -436,7 +436,7 @@ removal and ACL change events use the same reconciliation and lineage path.
 
 ## API and event contracts
 
-Document ingestion is served by a dedicated ingestion gateway, not by the read API and not by the
+Document ingestion is served by a dedicated ingestion gateway, not by the Operator API and not by the
 executor process. The initial HTTP surface is:
 
 For local console development, you can run the guarded in-memory gateway on a separate port:

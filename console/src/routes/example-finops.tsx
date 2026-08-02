@@ -2,12 +2,12 @@
  * Reference fork panel - a minimal FinOps cost summary.
  *
  * This is the frontend twin of `ExampleFinOpsPanel` in
- * `src/fdai/delivery/read_api/panels.py`. It is intentionally NOT
+ * `src/fdai/delivery/operator_api/panels.py`. It is intentionally NOT
  * listed in `EXTRA_PANELS` (see `../panels.tsx`) so the upstream console
  * stays minimal. A fork opts in by:
  *
  *   1. registering `ExampleFinOpsPanel` (or its own `ReadPanel`) on the
- *      API via `ReadApiConfig.extra_panels`, and
+ *      API via `OperatorApiConfig.extra_panels`, and
  *   2. adding this component to `EXTRA_PANELS`:
  *
  *      ```ts

@@ -69,7 +69,7 @@ Code map (see [project-structure.md](../architecture/project-structure.md)):
 - `src/fdai/core/reporting/` - the whole engine (framework-neutral).
 - `src/fdai/core/reporting/composition.py` - `default_reporting_engine`
   factory for fork composition roots.
-- `src/fdai/delivery/read_api/routes/reporting.py` - the eight `GET` routes.
+- `src/fdai/delivery/operator_api/routes/reporting.py` - the eight `GET` routes.
 - `rule-catalog/reports/` - the YAML catalog + JSON Schema.
 
 ### Console SPA implementation status
@@ -396,10 +396,10 @@ Six reports ship in the current catalog:
 - [`incident-rca-dossier.yaml`](../../../rule-catalog/reports/incident-rca-dossier.yaml) - correlation-scoped RCA dossier.
 - [`security-assessment.yaml`](../../../rule-catalog/reports/security-assessment.yaml) - security control assessment.
 
-## Read-API routes
+## Operator API routes
 
 Eight GETs, mounted under a configurable prefix (default `/reports`) by
-[`build_reporting_routes`](../../../src/fdai/delivery/read_api/routes/reporting.py):
+[`build_reporting_routes`](../../../src/fdai/delivery/operator_api/routes/reporting.py):
 
 | Route | Purpose |
 |-------|---------|
@@ -412,12 +412,12 @@ Eight GETs, mounted under a configurable prefix (default `/reports`) by
 | `GET /reports/{id}` | Full report definition (projection of the loaded `ReportSpec`) |
 | `GET /reports/{id}/render?format=json\|markdown\|csv\|html\|text\|ndjson&<vars>` | The rendered payload |
 
-The routes plug into the existing read-API through `ReadApiConfig.reporting`:
+The routes plug into the existing Operator API through `OperatorApiConfig.reporting`:
 
 ```python
 from fdai.core.reporting.composition import default_reporting_engine
-from fdai.delivery.read_api.routes.reporting import ReportingConfig
-from fdai.delivery.read_api.main import ReadApiConfig, build_app
+from fdai.delivery.operator_api.routes.reporting import ReportingConfig
+from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 
 engine, formats = default_reporting_engine(
     reports_root=Path("rule-catalog/reports"),
@@ -426,7 +426,7 @@ engine, formats = default_reporting_engine(
     metric_provider=container.metric_provider,
     log_query_provider=container.log_query_provider,
 )
-config = ReadApiConfig(
+config = OperatorApiConfig(
     dev_mode=False,
     reporting=ReportingConfig(engine=engine, formats=formats),
 )
@@ -543,7 +543,7 @@ in [`tests/core/reporting/test_hardening.py`](../../../tests/core/reporting/test
 6. **Catalog loader size guards** - `max_file_size_bytes` /
    `max_files` / `max_widgets_per_report` cap memory exposure to a
    hostile YAML tree; violations fail at load, not at first render.
-7. **Report id / format regex validation** at the read-API edge so a
+7. **Report id / format regex validation** at the Operator API edge so a
    `../../etc/passwd` probe never reaches the catalog lookup.
 8. **Rendered error length cap** - `ReportEngineConfig.max_error_message_chars`
    (default 512) truncates long tracebacks with a `...truncated` marker.

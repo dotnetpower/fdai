@@ -99,13 +99,13 @@ cannot fetch the same source concurrently.
 - **Other failures**: the exception type is recorded as a bounded error kind. Tokens and response
   bodies are not included.
 
-Production starts the runner with the read API lifespan. `FDAI_SKILL_SOURCE_TICK_SECONDS` controls
+Production starts the runner with the Operator API lifespan. `FDAI_SKILL_SOURCE_TICK_SECONDS` controls
 the wake interval and must be at least 30 seconds. `FDAI_GITHUB_API_BASE` may replace the default
 GitHub API base with another HTTPS GitHub endpoint.
 
 ## HTTP surfaces
 
-The route group is opt-in through `ReadApiConfig.skill_sources` and uses the authenticated
+The route group is opt-in through `OperatorApiConfig.skill_sources` and uses the authenticated
 principal resolved by the server.
 
 | Method and route | Minimum authority | Purpose |
@@ -148,7 +148,7 @@ Use these focused checks while changing this subsystem:
 ```bash
 uv run pytest -q tests/core/supply_chain/test_skill_source_*.py
 uv run pytest -q tests/persistence/test_postgres_skill_source*.py tests/persistence/test_postgres_skill_quarantine.py
-uv run pytest -q tests/delivery/github/test_skill_source.py tests/delivery/read_api/test_skill_sources.py
+uv run pytest -q tests/delivery/github/test_skill_source.py tests/delivery/operator_api/test_skill_sources.py
 uv run ruff check src/fdai/core/supply_chain/skill_source_*.py src/fdai/delivery/persistence/postgres_skill_*.py
 uv run mypy src/fdai/core/supply_chain/skill_source_*.py src/fdai/delivery/persistence/postgres_skill_*.py
 ```

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useState } from "preact/hooks";
-import { isOptionalReadApiUnavailable } from "../api";
-import type { ReadApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable } from "../api";
+import type { OperatorApiClient } from "../api";
 import { AgentOrgChart } from "../components/agent-org-chart";
 import { AgentWorkspaceNav } from "../components/agent-workspace-nav";
 import {
@@ -35,7 +35,7 @@ import { panelArray, panelBoolean, panelContractError, panelNullableString, pane
  * cross-agent workflows as read-only tables.
  *
  * Endpoints are opt-in on the API side
- * (``ReadApiConfig.expose_pantheon=True``). When they are not wired,
+ * (``OperatorApiConfig.expose_pantheon=True``). When they are not wired,
  * the panel surfaces a friendly "unavailable" state.
  */
 
@@ -83,7 +83,7 @@ interface CombinedData {
 }
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
 }
 
 export function pantheonAgentHref(agent: string, correlation?: string | null): string {
@@ -117,12 +117,12 @@ export function PantheonRoute({ client }: Props) {
       } catch (err) {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : String(err);
-          if (isOptionalReadApiUnavailable(err)) {
+          if (isOptionalOperatorApiUnavailable(err)) {
             setState({
               status: "unavailable",
               message:
                 "The pantheon endpoints are not wired on this deployment. " +
-                "Set ReadApiConfig.expose_pantheon=True in the composition root to enable them.",
+                "Set OperatorApiConfig.expose_pantheon=True in the composition root to enable them.",
             });
           } else {
             setState({ status: "error", message });

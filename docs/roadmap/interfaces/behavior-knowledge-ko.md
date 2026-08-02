@@ -1,8 +1,8 @@
 ---
 title: Command Deck 행동 지식
 translation_of: behavior-knowledge.md
-translation_source_sha: 60f8db61f48c91484b63b3574be4d1140074f368
-translation_revised: 2026-07-31
+translation_source_sha: c4d644ace9ba5745c76af40191dff21b2a5387a7
+translation_revised: 2026-08-02
 ---
 
 # Command Deck 행동 지식
@@ -120,7 +120,7 @@ Built-in seed set은 13개 contract를 포함합니다. 초기 3개에 architect
 | Trust routing 및 T2 quality gate | `TrustRouter`, `QualityGate` | Core implementation과 focused test |
 | 사람 승인 및 shadow promotion | `RiskGate`, `Var`, `ActionPromotionRegistry` | Agent/core implementation과 regression test |
 | Executor safety, event deduplication, rollback | `ShadowExecutor`, `EventIngest`, `Vidar` | Core/agent implementation과 idempotency test |
-| Console identity boundary 및 local evidence parity | Read API composition과 `Thor` | Configuration contract와 local read-API test |
+| Console identity boundary 및 local evidence parity | Operator API composition과 `Thor` | Configuration contract와 local Operator API test |
 | Narrator translator-only path | `Bragi` | Agent implementation, typed-pipeline re-entry 및 primary/contributor normalization test |
 
 Odin 계약은 single-domain 및 unanimous recommendation을 명시적으로 제외합니다. Portfolio review는
@@ -129,7 +129,7 @@ designed-only로, temporal fairness는 선택적 dependency-injected behavior로
 ## Command Deck 답변 경로
 
 Repository resolver는 첫 chat evidence lookup에서 한 번 초기화됩니다. Tracked seed source만
-hash하고 process lifetime 동안 in-memory index를 유지합니다. 각 질문에 대해 read API는 다음
+hash하고 process lifetime 동안 in-memory index를 유지합니다. 각 질문에 대해 Operator API는 다음
 단계를 수행합니다.
 
 1. Client가 제공한 behavior evidence를 제거합니다.
@@ -157,7 +157,7 @@ behavior, owner, implementation status, citations 또는 provenance 구조를 �
   server-owned chat resolver; deterministic terminal renderer 및 verifier; PostgreSQL/pgvector
   adapter; offline test와 live-database rank parity test.
 - **Designed, not production-bound**: generated PostgreSQL schema migration, production composition
-  binding, incremental index 또는 sync CLI입니다. 이 기능이 구현되기 전에는 read API가 tracked
+  binding, incremental index 또는 sync CLI입니다. 이 기능이 구현되기 전에는 Operator API가 tracked
   checkout의 repository seed를 사용하며 repository metadata를 사용할 수 없으면 답변을 보류합니다.
 
 ## 검증

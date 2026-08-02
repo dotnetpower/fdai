@@ -23,7 +23,7 @@ renderer keyed on ``type``. See
 
 Read-only by contract: the entire subsystem never mutates state, never
 holds the executor identity, and every route wired via
-:mod:`fdai.delivery.read_api.reporting` is ``GET``-only. This matches the
+:mod:`fdai.delivery.operator_api.reporting` is ``GET``-only. This matches the
 console invariant in ``app-shape.instructions.md``.
 """
 

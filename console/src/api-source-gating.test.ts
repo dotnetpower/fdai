@@ -1,18 +1,18 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { ReadApiClient, ReadApiError } from "./api";
+import { OperatorApiClient, OperatorApiError } from "./api";
 import type { AuthContext } from "./auth";
 import { observeUnauthorizedApiResponses } from "./auth-response";
 import type { ConsoleConfig } from "./config";
 
 const config: ConsoleConfig = {
-  readApiBaseUrl: "http://127.0.0.1:8010",
+  operatorApiBaseUrl: "http://127.0.0.1:8010",
   ingestionApiBaseUrl: "http://127.0.0.1:8011",
   msalClientId: "",
   msalTenantId: "",
   msalApiScope: "",
   authTokenTimeoutMs: 10_000,
-  readApiRequestTimeoutMs: 30_000,
+  operatorApiRequestTimeoutMs: 30_000,
   devMode: true,
   localAzureCliAuth: false,
   localLoginPrompt: false,
@@ -49,10 +49,10 @@ describe("read source gating", () => {
       }],
     }));
     vi.stubGlobal("fetch", fetchMock);
-    const client = new ReadApiClient(config, auth);
+    const client = new OperatorApiClient(config, auth);
 
     await expect(client.dashboardMetrics()).rejects.toEqual(
-      expect.objectContaining<Partial<ReadApiError>>({
+      expect.objectContaining<Partial<OperatorApiError>>({
         status: 503,
         message: "Authoritative state is not connected.",
       }),
@@ -81,10 +81,10 @@ describe("read source gating", () => {
       }],
     }));
     vi.stubGlobal("fetch", fetchMock);
-    const client = new ReadApiClient(config, auth);
+    const client = new OperatorApiClient(config, auth);
 
     await expect(client.panel("/views/process/run-1/events")).rejects.toEqual(
-      expect.objectContaining<Partial<ReadApiError>>({
+      expect.objectContaining<Partial<OperatorApiError>>({
         status: 503,
         message: "Process state is not connected.",
       }),
@@ -106,10 +106,10 @@ describe("read source gating", () => {
       }));
     vi.stubGlobal("fetch", fetchMock);
       const stopObserving = observeUnauthorizedApiResponses(
-        [config.readApiBaseUrl],
+        [config.operatorApiBaseUrl],
         onUnauthorized,
       );
-    const client = new ReadApiClient(config, auth, { onUnauthorized });
+    const client = new OperatorApiClient(config, auth, { onUnauthorized });
 
       try {
         await expect(client.dataSources()).rejects.toEqual(

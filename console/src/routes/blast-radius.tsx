@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { isOptionalReadApiUnavailable, type ReadApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import { ArchitectureMap } from "../components/architecture-map";
 import {
   architectureHref,
@@ -61,11 +61,11 @@ interface BlastRadiusResponse {
 }
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
 }
 
 export function blastRadiusFailure(error: unknown): AsyncState<never> {
-  if (isOptionalReadApiUnavailable(error)) {
+  if (isOptionalOperatorApiUnavailable(error)) {
     return {
       status: "unavailable",
       message: t("ontology.blast.unavailable"),
@@ -270,7 +270,7 @@ export function BlastRadiusRoute({ client }: Props) {
     </div>
   );
 }
-function ReportView({ data, client, architectureView }: { readonly data: BlastRadiusResponse; readonly client: ReadApiClient; readonly architectureView: string | null }) {
+function ReportView({ data, client, architectureView }: { readonly data: BlastRadiusResponse; readonly client: OperatorApiClient; readonly architectureView: string | null }) {
   const initialResult = currentRoute().search.get("result");
   const evidenceHref = blastRadiusHref({
     target: data.target,
@@ -486,7 +486,7 @@ function shortResource(value: string): string {
   return last.length > 22 ? `${last.slice(0, 20)}...` : last;
 }
 
-function BlastRadiusMap({ client, data, architectureView }: { readonly client: ReadApiClient; readonly data: BlastRadiusResponse; readonly architectureView: string | null }) {
+function BlastRadiusMap({ client, data, architectureView }: { readonly client: OperatorApiClient; readonly data: BlastRadiusResponse; readonly architectureView: string | null }) {
   const [graph, setGraph] = useState<InventoryGraphResponse | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   useEffect(() => {

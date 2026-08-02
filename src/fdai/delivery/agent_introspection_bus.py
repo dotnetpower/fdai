@@ -405,7 +405,7 @@ def _parse_request(payload: Mapping[str, Any]) -> dict[str, str] | None:
 
 @dataclass(slots=True)
 class EventBusAgentIntrospectionClient:
-    """Read API adapter that correlates bounded agent-introspection replies."""
+    """Operator API adapter that correlates bounded agent-introspection replies."""
 
     event_bus: EventBus
     instance_id: str

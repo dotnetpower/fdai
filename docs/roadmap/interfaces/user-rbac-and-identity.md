@@ -417,7 +417,7 @@ The API validates every request as follows (deny by default):
    audit and no-self-approval use `oid`.
 
 Steps 1-4 are implemented upstream by the generic
-[`EntraJwtVerifier`](../../../src/fdai/delivery/read_api/entra_verifier.py) (PyJWT +
+[`EntraJwtVerifier`](../../../src/fdai/delivery/operator_api/entra_verifier.py) (PyJWT +
 `PyJWKClient`); steps 5-6 by [`RoleResolver`](../../../src/fdai/core/rbac/resolver.py). The
 verifier is customer-agnostic - a fork supplies only values, via env:
 
@@ -467,7 +467,7 @@ External collaborators are onboarded via **Entra B2B invitation**, producing a g
 
 Human users never hold PATs or long-lived secrets:
 
-- **Azure-backed local console**: `FDAI_READ_API_LOCAL_ENTRA=1` is the canonical
+- **Azure-backed local console**: `FDAI_OPERATOR_API_LOCAL_ENTRA=1` is the canonical
   interactive development mode. The browser signs in through Entra, and the API
   verifies the JWT signature, issuer, audience, lifetime, and App Roles exactly as
   production does. The server's Azure CLI session supplies short-lived tokens only to
@@ -478,7 +478,7 @@ Human users never hold PATs or long-lived secrets:
   idempotently synchronizes both fixed loopback origins into the configured SPA registration;
   a tenant mismatch or insufficient Graph permission stops startup instead of leaving a broken
   post-sign-in redirect.
-- **CLI principal alternative**: `FDAI_READ_API_LOCAL_AZURE_CLI=1` and
+- **CLI principal alternative**: `FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1` and
   `VITE_LOCAL_AZURE_CLI_AUTH=1` project the current CLI user with a fixed local role
   ceiling when browser sign-in isn't required. This is an explicit alternative, not the
   canonical full-stack profile.
@@ -520,7 +520,7 @@ console's cloud permissions:
 | `/settings/memory` | Durable operator guidance when a provider is registered; otherwise an explicit unavailable state. |
 | `/settings/iam` | Signed-in principal, App Roles, effective capabilities, referenced users, and access requests. |
 | `/settings/integrations` | Read-only identity, delivery, and operator-channel connection status. |
-| `/settings/diagnostics` | Read API endpoint and authentication-session diagnostics. |
+| `/settings/diagnostics` | Operator API endpoint and authentication-session diagnostics. |
 
 `/settings` remains a compatibility alias for `/settings/general`. Settings is a bottom
 navigation group, so selecting it opens the same Explorer pattern used by the operator
@@ -599,7 +599,7 @@ Entra group membership.
 
 Approval stays in ChatOps or the governance pull-request path. After approval, an Owner
 applies the allowlisted `aw-*` group change through the tenant's identity-administration
-process. This separation keeps the browser, read API, and executor identity away from
+process. This separation keeps the browser, Operator API, and executor identity away from
 Microsoft Graph membership permissions.
 
 ### 11.3 First sign-in without a role

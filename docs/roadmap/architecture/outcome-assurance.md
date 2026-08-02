@@ -159,9 +159,9 @@ reader and does not publish agent-owned object topics.
 | Norns and Mimir | supply candidate, pattern, and promotion lifecycle evidence |
 | Bragi | explains cited projection fields in the operator locale and never changes status |
 
-## Read API and console
+## Operator API and console
 
-The read API adds `GET /kpi/outcome-assurance` as an optional, authenticated read panel. It queries
+The Operator API adds `GET /kpi/outcome-assurance` as an optional, authenticated read panel. It queries
 injected projection sources directly; it does not call other HTTP panel routes or construct missing
 facts in the delivery layer.
 

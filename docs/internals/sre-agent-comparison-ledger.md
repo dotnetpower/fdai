@@ -121,7 +121,7 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 3 | 4 | 3 | 4 | 26/28 |
 | FDAI | 1 | 1 | 3 | 4 | 4 | 1 | 2 | 16/28 |
 
-### RUN-0003: Q002 candidate rerun after read API restart
+### RUN-0003: Q002 candidate rerun after Operator API restart
 
 | Field | Value |
 |-------|-------|
@@ -130,7 +130,7 @@ Question generation uses these contracts to vary wording without changing the in
 | Locale | English |
 | Question | `Are any databases stopped right now?` |
 | Prior run | `RUN-0002` |
-| Candidate state | Uncommitted catalog-driven resource-type resolver loaded by a restarted local read API. |
+| Candidate state | Uncommitted catalog-driven resource-type resolver loaded by a restarted local Operator API. |
 | Azure SRE Agent answer | Reused the matched `RUN-0002` baseline: four stopped MySQL or PostgreSQL servers and one separately identified paused SQL database. |
 | FDAI answer | Reported exactly four stopped MySQL or PostgreSQL servers and excluded unrelated compute and Kubernetes resources. Names were redacted. |
 | FDAI evidence | Compiled a database-category resource-type predicate intersected with stopped status, returned four matches, and exposed source, snapshot time, stale freshness, verification, and zero model calls. |

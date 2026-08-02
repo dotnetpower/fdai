@@ -1,6 +1,6 @@
 """Surface-A bootstrap entrypoint - run the Genesis screen off a local apply.
 
-At Day-1 none of the runtime exists yet (read-API, event bus, RBAC, console
+At Day-1 none of the runtime exists yet (Operator API, event bus, RBAC, console
 hosting are the very resources being provisioned), so the in-product SSE path
 cannot serve the Genesis screen. This module is the *ephemeral* bootstrap: for
 the lifetime of one ``terraform apply`` it
@@ -17,7 +17,7 @@ It adds no persistent component: the process is born with the apply and dies
 with it (scale-to-zero, literally). Subprocess ownership stays with the caller
 (``azd up ... | python -m fdai.delivery.provisioning``); the core never spawns
 Terraform. The transport is the existing
-:class:`~fdai.delivery.read_api.streaming.provision_stream.ProvisionPublisher`
+:class:`~fdai.delivery.operator_api.streaming.provision_stream.ProvisionPublisher`
 seam, so the in-product surface (event bus) and this bootstrap surface (local
 stdin) share one contract.
 
@@ -41,17 +41,17 @@ from starlette.requests import Request
 from starlette.responses import FileResponse, Response
 from starlette.routing import Route
 
+from fdai.delivery.operator_api.streaming.provision_stream import (
+    DEFAULT_CHANNEL,
+    DEFAULT_ROUTE_PATH,
+    SseProvisionPublisher,
+    make_provision_stream_route,
+)
 from fdai.delivery.provisioning.serve import aiter_json_lines, pump_provision_events
 from fdai.delivery.provisioning.terraform_bridge import (
     DEFAULT_CONSOLE_OUTPUT,
     DEFAULT_WAITING_THRESHOLD_SECONDS,
     TerraformProvisionBridge,
-)
-from fdai.delivery.read_api.streaming.provision_stream import (
-    DEFAULT_CHANNEL,
-    DEFAULT_ROUTE_PATH,
-    SseProvisionPublisher,
-    make_provision_stream_route,
 )
 from fdai.shared.providers.sse import SseSink
 from fdai.shared.providers.testing.sse import InMemorySseSink

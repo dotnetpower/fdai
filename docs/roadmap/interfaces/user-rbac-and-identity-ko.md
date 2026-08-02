@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: feb93596677c72c6b597f753bc14bf0fe9bec5c1
-translation_revised: 2026-08-01
+translation_source_sha: 3b243ce68356c2aa9b99a242489b42ed99cb3186
+translation_revised: 2026-08-02
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -405,7 +405,7 @@ API는 다음처럼 모든 요청 검증(deny by default):
    자기승인 없음은 `oid` 사용.
 
 1-4단계는 제네릭
-[`EntraJwtVerifier`](../../../src/fdai/delivery/read_api/entra_verifier.py) (PyJWT +
+[`EntraJwtVerifier`](../../../src/fdai/delivery/operator_api/entra_verifier.py) (PyJWT +
 `PyJWKClient`)가 upstream에서 구현; 5-6단계는
 [`RoleResolver`](../../../src/fdai/core/rbac/resolver.py)가 구현. 이 verifier는
 customer-agnostic - 포크는 값만 env로 공급:
@@ -455,7 +455,7 @@ Teams SSO OBO 승인에 대한 목표 계약은 다음과 같습니다:
 
 사람 사용자는 절대 PAT나 장기 시크릿을 보유하지 않음:
 
-- **Azure-backed 로컬 콘솔**: `FDAI_READ_API_LOCAL_ENTRA=1`이 canonical interactive 개발
+- **Azure-backed 로컬 콘솔**: `FDAI_OPERATOR_API_LOCAL_ENTRA=1`이 canonical interactive 개발
   모드입니다. 브라우저는 Entra로 로그인하고 API는 production과 동일하게 JWT 서명, issuer,
   audience, lifetime, App Role을 검증합니다. 서버의 Azure CLI 세션은 Microsoft Graph, Azure
   Resource Graph, Azure OpenAI 같은 Azure adapter에만 단기 token을 제공하며 브라우저
@@ -465,7 +465,7 @@ Teams SSO OBO 승인에 대한 목표 계약은 다음과 같습니다:
   구성된 SPA 등록에 안전하게 재시도할 수 있는 방식으로 동기화합니다. Tenant가 다르거나 Graph
   권한이 부족하면 sign-in 후 redirect가 깨진 상태로 남지 않도록 startup을 중단합니다.
 - **CLI principal 대안**: 브라우저 로그인이 필요하지 않을 때
-  `FDAI_READ_API_LOCAL_AZURE_CLI=1`과 `VITE_LOCAL_AZURE_CLI_AUTH=1`은 현재 CLI 사용자를 고정된
+  `FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1`과 `VITE_LOCAL_AZURE_CLI_AUTH=1`은 현재 CLI 사용자를 고정된
   로컬 역할 상한으로 projection합니다. 이는 명시적 대안이며 canonical full-stack profile이
   아닙니다.
 - **Synthetic fixture**: 익명 권한 부여, static 사용자, seed audit record 및 scenario replay는
@@ -505,7 +505,7 @@ Settings activity bar 그룹은 콘솔의 클라우드 권한을 넓히지 않�
 | `/settings/memory` | Provider가 등록된 경우 durable operator guidance를 표시하고, 그렇지 않으면 명시적인 unavailable 상태를 표시합니다. |
 | `/settings/iam` | 로그인 principal, App Role, 유효 기능, 참조된 사용자 및 액세스 요청입니다. |
 | `/settings/integrations` | ID, 전달 및 운영자 채널 연결의 읽기 전용 상태입니다. |
-| `/settings/diagnostics` | Read API 엔드포인트 및 인증 세션 진단입니다. |
+| `/settings/diagnostics` | Operator API 엔드포인트 및 인증 세션 진단입니다. |
 
 `/settings`는 `/settings/general`의 호환성 alias로 유지됩니다. Settings는 하단 탐색
 그룹이므로 선택하면 이전 도메인 메뉴를 남기지 않고 다른 운영자 도메인과 같은 Explorer
@@ -583,7 +583,7 @@ state-and-audit transaction을 사용합니다. 요청 검토는 안정적인 `r
 
 승인은 ChatOps 또는 거버넌스 PR 경로에 유지됩니다. 승인 후 Owner가 테넌트의 ID 관리
 프로세스를 통해 허용 목록에 포함된 `aw-*` 그룹 변경을 반영합니다. 이 분리를 통해 브라우저,
-Read API 및 executor ID가 Microsoft Graph 멤버십 권한을 갖지 않도록 유지합니다.
+Operator API 및 executor ID가 Microsoft Graph 멤버십 권한을 갖지 않도록 유지합니다.
 
 ### 11.3 역할이 없는 첫 로그인
 

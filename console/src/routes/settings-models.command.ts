@@ -6,11 +6,11 @@ export { GovernedCommandError as ModelSettingsCommandError };
 
 export async function saveNarratorPreference(
   auth: AuthContext,
-  readApiBaseUrl: string,
+  operatorApiBaseUrl: string,
   preferredNarratorModel: string,
   expectedRevision: number,
 ): Promise<ModelSettingsView> {
-  return putModelSettings(auth, readApiBaseUrl, "/me/model-preferences", {
+  return putModelSettings(auth, operatorApiBaseUrl, "/me/model-preferences", {
     preferred_narrator_model: preferredNarratorModel,
     expected_revision: expectedRevision,
   });
@@ -18,14 +18,14 @@ export async function saveNarratorPreference(
 
 export async function saveWebSearchSettings(
   auth: AuthContext,
-  readApiBaseUrl: string,
+  operatorApiBaseUrl: string,
   input: {
     readonly enabled: boolean;
     readonly allowedDomains: readonly string[];
     readonly expectedRevision: number;
   },
 ): Promise<ModelSettingsView> {
-  return putModelSettings(auth, readApiBaseUrl, "/models/web-search-settings", {
+  return putModelSettings(auth, operatorApiBaseUrl, "/models/web-search-settings", {
     enabled: input.enabled,
     allowed_domains: [...input.allowedDomains],
     expected_revision: input.expectedRevision,
@@ -34,9 +34,9 @@ export async function saveWebSearchSettings(
 
 async function putModelSettings(
   auth: AuthContext,
-  readApiBaseUrl: string,
+  operatorApiBaseUrl: string,
   path: string,
   body: Record<string, unknown>,
 ): Promise<ModelSettingsView> {
-  return decodeModelSettings(await putGovernedJson(auth, readApiBaseUrl, path, body));
+  return decodeModelSettings(await putGovernedJson(auth, operatorApiBaseUrl, path, body));
 }

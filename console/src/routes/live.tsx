@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import { loadConfig } from "../config";
 import type { LiveStageEvent } from "../hooks/use-live-stream";
 import { useLiveStream } from "../hooks/use-live-stream";
@@ -20,7 +20,7 @@ import { useLiveViewModel } from "./live.view-model";
 export { liveTraceHref } from "./live.ticker";
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
 }
 
 export const LIVE_BACKLOG_CAP = 1_000;
@@ -111,7 +111,7 @@ export function LiveRoute({ client }: Props) {
 
   const url = useMemo(() => {
     const config = loadConfig();
-    const base = config.readApiBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
+    const base = config.operatorApiBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
     return `${base.replace(/\/$/, "")}/live/stream`;
   }, []);
 

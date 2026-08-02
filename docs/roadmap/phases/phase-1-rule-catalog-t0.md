@@ -139,7 +139,7 @@ It consumes the telemetry, baseline, and identity/policy unblocking delivered by
   identity, falls back to direct paged ARM lists, stages immutable candidates in
   PostgreSQL, and swaps the active pointer only after the final fence and whole-graph
   validation. `contains` / `attached_to` / `depends_on` extraction is live; the
-  production read API serves only the active last-known-good generation.
+  production Operator API serves only the active last-known-good generation.
 - **Fixtures and a regression suite** covering the initial rule set and the detection paths.
 - **Frozen scenario replay harness** -
   [`tests/scenarios/test_v2026_07_replay.py`](../../../tests/scenarios/test_v2026_07_replay.py)

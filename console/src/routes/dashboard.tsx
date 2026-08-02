@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import {
   AsyncBoundary,
   DataTable,
@@ -36,7 +36,7 @@ import {
 } from "./dashboard.loading";
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
 }
 
 /**

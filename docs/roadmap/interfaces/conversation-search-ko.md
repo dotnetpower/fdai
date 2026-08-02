@@ -1,8 +1,8 @@
 ---
 title: Access-Scoped 대화 검색
 translation_of: conversation-search.md
-translation_source_sha: dcfaa44e5c3cd40811704c3ad57dbdf46ba075b9
-translation_revised: 2026-07-20
+translation_source_sha: b8ad3c6b9265a9e2005a64d66019b2e5646ce94a
+translation_revised: 2026-08-02
 ---
 
 # Access-Scoped 대화 검색
@@ -16,7 +16,7 @@ PostgreSQL indexing, retention, rebuild operation, narrator 사용, Console view
 
 ## 한눈에 보는 설계
 
-Read API는 `ConversationSearchScope`를 만들기 전에 principal을 resolve합니다. Provider는 모든
+Operator API는 `ConversationSearchScope`를 만들기 전에 principal을 resolve합니다. Provider는 모든
 storage query 안에서 scope를 적용한 뒤 결과를 좁히기만 하는 request filter를 적용합니다.
 Inference call은 필요하지 않습니다.
 
@@ -116,7 +116,7 @@ cap을 노출하지만 duration은 제외합니다. Deterministic 250-turn corpu
 
 ## API 및 Console
 
-Read API는 GET-only route를 제공합니다:
+Operator API는 GET-only route를 제공합니다:
 
 - `/me/conversations/search`
 - `/me/conversations/search/{result_id}/context`

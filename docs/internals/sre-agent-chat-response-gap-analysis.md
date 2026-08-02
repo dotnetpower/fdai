@@ -263,29 +263,29 @@ FDAI implementation evidence:
 - [Operator console](../roadmap/interfaces/operator-console.md)
 - `src/fdai/core/read_investigation/routing.py`
 - `src/fdai/core/conversation/answer_plan.py`
-- `src/fdai/delivery/read_api/routes/read_investigation_responder.py`
-- `src/fdai/delivery/read_api/routes/chat_evidence.py`
-- `src/fdai/delivery/read_api/routes/chat_inventory.py`
-- `src/fdai/delivery/read_api/routes/chat_log_query.py`
-- `src/fdai/delivery/read_api/routes/chat_subscription_health.py`
-- `src/fdai/delivery/read_api/routes/chat_verification.py`
-- `tests/delivery/read_api/test_chat_inventory.py`
-- `tests/delivery/read_api/test_chat_evidence.py`
-- `tests/delivery/read_api/test_chat_log_query.py`
-- `tests/delivery/read_api/test_chat_subscription_health.py`
-- `tests/delivery/read_api/test_read_investigations.py`
+- `src/fdai/delivery/operator_api/routes/read_investigation_responder.py`
+- `src/fdai/delivery/operator_api/routes/chat_evidence.py`
+- `src/fdai/delivery/operator_api/routes/chat_inventory.py`
+- `src/fdai/delivery/operator_api/routes/chat_log_query.py`
+- `src/fdai/delivery/operator_api/routes/chat_subscription_health.py`
+- `src/fdai/delivery/operator_api/routes/chat_verification.py`
+- `tests/delivery/operator_api/test_chat_inventory.py`
+- `tests/delivery/operator_api/test_chat_evidence.py`
+- `tests/delivery/operator_api/test_chat_log_query.py`
+- `tests/delivery/operator_api/test_chat_subscription_health.py`
+- `tests/delivery/operator_api/test_read_investigations.py`
 
 Executable validation map:
 
 | Scenario rows | Focused evidence |
 |---------------|------------------|
-| 1-2 | [Inventory chat tests](../../tests/delivery/read_api/test_chat_inventory.py) |
-| 3-10, 35, 37-40 | [Read investigation tests](../../tests/delivery/read_api/test_read_investigations.py) and [progress tests](../../tests/delivery/read_api/test_read_investigation_chat_progress.py) |
-| 4, 36 | [Subscription health tests](../../tests/delivery/read_api/test_chat_subscription_health.py) |
-| 14 | [Bounded KQL chat tests](../../tests/delivery/read_api/test_chat_log_query.py) |
-| 26-29, 43 | [Operational evidence tests](../../tests/delivery/read_api/test_chat_evidence.py) and [chat route tests](../../tests/delivery/read_api/test_chat_route.py) |
-| 38, 52 | [Terminal verification tests](../../tests/delivery/read_api/test_chat_verification.py) |
-| 53-54 | [Answer-plan tests](../../tests/delivery/read_api/test_chat_turn_plan.py) and [chat route tests](../../tests/delivery/read_api/test_chat_route.py) |
+| 1-2 | [Inventory chat tests](../../tests/delivery/operator_api/test_chat_inventory.py) |
+| 3-10, 35, 37-40 | [Read investigation tests](../../tests/delivery/operator_api/test_read_investigations.py) and [progress tests](../../tests/delivery/operator_api/test_read_investigation_chat_progress.py) |
+| 4, 36 | [Subscription health tests](../../tests/delivery/operator_api/test_chat_subscription_health.py) |
+| 14 | [Bounded KQL chat tests](../../tests/delivery/operator_api/test_chat_log_query.py) |
+| 26-29, 43 | [Operational evidence tests](../../tests/delivery/operator_api/test_chat_evidence.py) and [chat route tests](../../tests/delivery/operator_api/test_chat_route.py) |
+| 38, 52 | [Terminal verification tests](../../tests/delivery/operator_api/test_chat_verification.py) |
+| 53-54 | [Answer-plan tests](../../tests/delivery/operator_api/test_chat_turn_plan.py) and [chat route tests](../../tests/delivery/operator_api/test_chat_route.py) |
 
 ## Related docs
 

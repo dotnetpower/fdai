@@ -1,4 +1,4 @@
-import type { ReadApiClient } from "./api";
+import type { OperatorApiClient } from "./api";
 import type { ConsoleConfig } from "./config";
 
 export interface IngestionCapabilities {
@@ -75,9 +75,9 @@ export class IngestionApiError extends Error {
 /** Dedicated client for content writes. It is intentionally separate from the GET-only client. */
 export class IngestionApiClient {
   readonly #baseUrl: string;
-  readonly #readClient: ReadApiClient;
+  readonly #readClient: OperatorApiClient;
 
-  constructor(config: ConsoleConfig, readClient: ReadApiClient) {
+  constructor(config: ConsoleConfig, readClient: OperatorApiClient) {
     this.#baseUrl = config.ingestionApiBaseUrl;
     this.#readClient = readClient;
   }

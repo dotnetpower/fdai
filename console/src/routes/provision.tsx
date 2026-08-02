@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useMemo, useReducer, useState } from "preact/hooks";
-import { sourceForRoute, type ReadApiClient, type ReadDataSourcesPayload } from "../api";
+import { sourceForRoute, type OperatorApiClient, type ReadDataSourcesPayload } from "../api";
 import { PageHeader, StatusPill } from "../components/ui";
 import { loadConfig } from "../config";
 import { usePublishViewContext } from "../deck/context";
@@ -29,7 +29,7 @@ import { useProvisionStream } from "../hooks/use-provision-stream";
 import { t } from "../i18n";
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
 }
 
 interface ProvisionSourceState {
@@ -212,7 +212,7 @@ export function ProvisionRoute({ client }: Props) {
   const url = useMemo(() => {
     const cfg = loadConfig();
     const base =
-      cfg.readApiBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
+      cfg.operatorApiBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
     return `${base.replace(/\/$/, "")}/provision/stream`;
   }, []);
 

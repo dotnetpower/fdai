@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import type {
   AuditItem,
   IncidentPage,
@@ -28,7 +28,7 @@ import { incidentTimelinePresentation } from "./incidents.timeline";
 const INCIDENT_DETAIL_ID = "incident-detail";
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
 }
 
 interface IncidentData {

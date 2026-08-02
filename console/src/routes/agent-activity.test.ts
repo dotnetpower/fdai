@@ -134,7 +134,7 @@ describe("agent activity evidence provenance", () => {
     const sample = makeItem({
       actor: "Heimdall",
       entry: {
-        fixture_source: "read-api-dev-seed",
+        fixture_source: "operator-api-dev-seed",
         observation_source: "synthetic-dev",
       },
     });

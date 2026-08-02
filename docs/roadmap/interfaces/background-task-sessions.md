@@ -97,7 +97,7 @@ closes. Cross-owner tasks use the same 404 response as missing tasks.
 
 ## Commands and authorization
 
-The production read API registers routes only when a dedicated Azure reader binding is configured:
+The production Operator API registers routes only when a dedicated Azure reader binding is configured:
 
 - `POST /background-tasks` requires the Contributor `start-read-investigation` capability and returns
   immediately.

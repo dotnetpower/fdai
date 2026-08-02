@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import { architectureHref } from "../components/architecture-map.model";
 import type { RcaHypothesis, RcaView } from "../types";
 import {
@@ -31,7 +31,7 @@ import "./incident-clarity.css";
  */
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
 }
 
 /** Read a ``?correlation=`` deep-link value from the hash query string.

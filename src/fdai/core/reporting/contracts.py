@@ -54,7 +54,7 @@ class VariableRejectedError(ReportingError):
     """A caller-supplied variable override failed validation.
 
     Raised for both "not declared" and "not in the allowlist" cases so
-    the read-API can map the whole family to HTTP 400 without leaking
+    the Operator API can map the whole family to HTTP 400 without leaking
     which of the two conditions tripped.
     """
 

@@ -499,7 +499,7 @@ class HilResumeCoordinator:
         re-dispatches the action to the executor.
 
         ``approver_can_approve_hil`` is the caller's RBAC verdict for
-        ``Capability.APPROVE_RUNTIME_HIL`` (the read-API HIL callback fills it
+        ``Capability.APPROVE_RUNTIME_HIL`` (the Operator API HIL callback fills it
         from the operator's roles). The delegation gate refuses an approver
         who lacks it, and - when the park carries a different ``assignee_oid``
         than the approver - records the approval as **delegated** so the audit
@@ -581,7 +581,7 @@ class HilResumeCoordinator:
         if decision is HilDecision.APPROVE:
             # Delegation gate: no self-approval, a verifiable+distinct approver,
             # and the HIL-approval capability. Fail closed on any refusal. A
-            # single pure function shared with the read-API callback so the
+            # single pure function shared with the Operator API callback so the
             # rule never drifts between entry points.
             delegation = evaluate_hil_delegation(
                 approver_oid=approver_oid,

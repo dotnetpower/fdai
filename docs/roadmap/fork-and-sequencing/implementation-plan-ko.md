@@ -1,8 +1,8 @@
 ---
 title: 구현 계획 기록 (2026-07-06 표준 세트)
 translation_of: implementation-plan.md
-translation_source_sha: eaf2e92a37325359383f5c2c5c69a092d8a6dbf2
-translation_revised: 2026-07-22
+translation_source_sha: 8fe829728ea97691e75ee80cea7afc5bd94dc411
+translation_revised: 2026-08-02
 ---
 
 # 구현 계획 기록 (2026-07-06 표준 세트)
@@ -414,7 +414,7 @@ prompt-composition Wave 3 step B pipeline slice 3 잔재
   배송 완료** (같은 모듈): Approver-scoped 큐 projection은 새 CSP-중립
   `HilApprovalRegistry` Protocol (`shared/providers/hil_registry.py`
   + fake) 위에 얹혀 있음. `list_hil`은 Approver-visible full detail
-  (submitter_oid, action_id, citing rules)을 반환하며, read-API의
+  (submitter_oid, action_id, citing rules)을 반환하며, Operator API의
   Reader 대시보드 tile과 구분됨. `approve_hil`은 registry write **이전**에
   4개 fail-closed 불변식을 적용: 존재 검사, verifier 재검사
   (`action_kind`가 shipped 카탈로그에 여전히 존재), `no_self_approval`
@@ -443,10 +443,10 @@ prompt-composition Wave 3 step B pipeline slice 3 잔재
 - **W1.2** `TeamsBotChannel`과 `SlackBotChannel` (pull).
   [config/notifications-matrix.yaml](../../../config/notifications-matrix.yaml)
   의 push 채널 자격증명 재사용.
-- **W1.3** Read-API HIL 콜백 (`POST /hil/{approval_id}/decision`,
-  HMAC 검증). 읽기 API에서 유일하게 허용된 POST. **Shipped**:
-  `delivery/read_api/hil_callback.py`가 POST 라우트의 유일한 카모-아웃이며,
-  기본값은 OFF (opt-in은 `ReadApiConfig.hil_callback` + `hil_registry`).
+- **W1.3** Operator API HIL 콜백 (`POST /hil/{approval_id}/decision`,
+  HMAC 검증). Operator API에서 유일하게 허용된 POST. **Shipped**:
+  `delivery/operator_api/hil_callback.py`가 POST 라우트의 유일한 카모-아웃이며,
+  기본값은 OFF (opt-in은 `OperatorApiConfig.hil_callback` + `hil_registry`).
   `timestamp.approval_id.body`에 대한 HMAC-SHA256, 재생 윈도우 설정 가능(기본 300s),
   바디 사이즈 측, no-self-approval 강제, 그리고 필수
   `X-FDAI-Signature` + `X-FDAI-Timestamp` 헤더 - Teams
@@ -457,7 +457,7 @@ prompt-composition Wave 3 step B pipeline slice 3 잔재
   `StateStore`에 park 합니다. `fdai-api`는 `PostgresHilApprovalRegistry`를 통해
   decision 을 원자적으로 기록하고 receipt-only event 를 `aw.hil.decisions`에
   publish 합니다. Core 는 별도 consumer group 으로 이 topic 을 소비한 후
-  `HilResumeCoordinator.resolve`를 호출합니다. Read API 는 executor identity 를
+  `HilResumeCoordinator.resolve`를 호출합니다. Operator API 는 executor identity 를
   받지 않습니다. Broker delivery 실패는 durable decision receipt 를 보존하면서
   재시도 가능한 HTTP 503을 반환합니다.
 - **W1.4** 알림 실패 시 fail-close하는 BreakGlass: 어떤 채널도 배송

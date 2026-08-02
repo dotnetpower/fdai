@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: d7a305eb4152e8fc0bcb6b215089369659383c92
-translation_revised: 2026-07-29
+translation_source_sha: 5b6b9883a264faceebbbd4d4a437b8ce58245a4b
+translation_revised: 2026-08-02
 ---
 # 리포팅 서브시스템
 
@@ -74,7 +74,7 @@ source나 문제 있는 빌더는 그 위젯을 `error` 설정 + 빈 `data`로
 - `src/fdai/core/reporting/` - 엔진 전체 (framework-neutral).
 - `src/fdai/core/reporting/composition.py` - 포크 composition
   root용 `default_reporting_engine` factory.
-- `src/fdai/delivery/read_api/routes/reporting.py` - 여덟 개의 `GET` 라우트.
+- `src/fdai/delivery/operator_api/routes/reporting.py` - 여덟 개의 `GET` 라우트.
 - `rule-catalog/reports/` - YAML 카탈로그 + JSON Schema.
 
 ### Console SPA 구현 상태
@@ -394,10 +394,10 @@ widgets:
 - [`incident-rca-dossier.yaml`](../../../rule-catalog/reports/incident-rca-dossier.yaml) - correlation-scoped RCA dossier.
 - [`security-assessment.yaml`](../../../rule-catalog/reports/security-assessment.yaml) - security control assessment.
 
-## Read-API 라우트
+## Operator API 라우트
 
 여덟 개의 GET을 설정 가능한 prefix(기본 `/reports`) 아래에서
-[`build_reporting_routes`](../../../src/fdai/delivery/read_api/routes/reporting.py)가
+[`build_reporting_routes`](../../../src/fdai/delivery/operator_api/routes/reporting.py)가
 마운트:
 
 | Route | Purpose |
@@ -411,13 +411,13 @@ widgets:
 | `GET /reports/{id}` | 리포트 정의 전체 (로드된 `ReportSpec`의 projection) |
 | `GET /reports/{id}/render?format=json\|markdown\|csv\|html\|text\|ndjson&<vars>` | 렌더된 페이로드 |
 
-라우트는 `ReadApiConfig.reporting`을 통해 기존 read-API에
+라우트는 `OperatorApiConfig.reporting`을 통해 기존 Operator API에
 연결됩니다:
 
 ```python
 from fdai.core.reporting.composition import default_reporting_engine
-from fdai.delivery.read_api.routes.reporting import ReportingConfig
-from fdai.delivery.read_api.main import ReadApiConfig, build_app
+from fdai.delivery.operator_api.routes.reporting import ReportingConfig
+from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 
 engine, formats = default_reporting_engine(
     reports_root=Path("rule-catalog/reports"),
@@ -426,7 +426,7 @@ engine, formats = default_reporting_engine(
     metric_provider=container.metric_provider,
     log_query_provider=container.log_query_provider,
 )
-config = ReadApiConfig(
+config = OperatorApiConfig(
     dev_mode=False,
     reporting=ReportingConfig(engine=engine, formats=formats),
 )
@@ -546,7 +546,7 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 6. **Catalog loader 크기 가드** - `max_file_size_bytes` / `max_files`
    / `max_widgets_per_report`가 악성 YAML의 memory 소비를 상한;
    로드 시점에 fail.
-7. **Report id / format 정규식 검증** at the read-API edge → path
+7. **Report id / format 정규식 검증** at the Operator API edge → path
    traversal 시도가 catalog 조회에 도달하지 않음.
 8. **Rendered error 길이 cap** - `ReportEngineConfig.max_error_message_chars`
    (default 512) 긴 traceback을 `...truncated` 마커와 함께 자름.

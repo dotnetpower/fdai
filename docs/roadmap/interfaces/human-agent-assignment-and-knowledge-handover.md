@@ -158,7 +158,7 @@ schedule adapter supplies the current on-call person.
 ## Governed IAM provisioning
 
 The assignment path now includes a write-only `HumanAccessProvisioner` provider behind Thor. The
-existing `HumanIdentityDirectory` and every read API route remain read-only. The new path is
+existing `HumanIdentityDirectory` and every Operator API route remain read-only. The new path is
 observation-only until its ActionType is separately promoted.
 
 1. Forseti validates the exact active subject, configured role group, coverage rules, requester

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { Tooltip } from "../components/tooltip";
 import { DataTable, LoadingState, PageHeader, StatusPill, type PillKind } from "../components/ui";
@@ -21,7 +21,7 @@ import type {
 } from "./settings-iam.model";
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly auth: AuthContext;
 }
 
@@ -225,7 +225,7 @@ export function SettingsIamRoute({ client, auth }: Props) {
         username,
         canManage: canManage ?? false,
         assignRole: async (identity, role, justification, idempotencyKey) => {
-          await submitIamAccessRequest(auth, client.readApiBaseUrl, {
+          await submitIamAccessRequest(auth, client.operatorApiBaseUrl, {
             idempotencyKey,
             identityProvider: identity.provider,
             targetSubjectId: identity.subjectId,
@@ -265,7 +265,7 @@ function renderTab(props: {
     idempotencyKey: string,
   ) => Promise<void>;
   readonly auth: AuthContext;
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly reload: () => Promise<void>;
 }) {
   switch (props.tab) {
@@ -445,7 +445,7 @@ function UsersView({
   readonly roster: readonly IdentityRosterItem[];
   readonly rosterAvailable: boolean;
   readonly rosterError: string | null;
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly canManage: boolean;
   readonly onAssign: (
     identity: IdentityRosterItem | HumanIdentityResult,

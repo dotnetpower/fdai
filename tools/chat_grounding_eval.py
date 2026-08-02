@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Live grounded-accuracy harness for the console chat backend.
 
-Fires a fixed set of (snapshot, prompt) cases at a running read-api ``/chat``
+Fires a fixed set of (snapshot, prompt) cases at a running operator-api ``/chat``
 endpoint and scores each reply on two axes the deck actually cares about:
 
 - **Grounding hit**: for a data question, every expected snapshot value the

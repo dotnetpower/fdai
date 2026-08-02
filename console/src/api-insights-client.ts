@@ -3,7 +3,7 @@ import {
   decodeDashboardKpi,
   decodeScopeView,
 } from "./api-insights";
-import type { ReadApiTransport } from "./api-transport";
+import type { OperatorApiTransport } from "./api-transport";
 import type {
   AutonomyPayload,
   DashboardKpi,
@@ -12,9 +12,9 @@ import type {
 } from "./types";
 
 export class InsightsApiClient {
-  readonly #transport: ReadApiTransport;
+  readonly #transport: OperatorApiTransport;
 
-  constructor(transport: ReadApiTransport) {
+  constructor(transport: OperatorApiTransport) {
     this.#transport = transport;
   }
 

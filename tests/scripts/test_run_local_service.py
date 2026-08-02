@@ -14,13 +14,13 @@ _TIMESTAMP_PREFIX = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}[+-]
 
 
 def test_runner_preserves_output_permissions_and_exit_status(tmp_path: Path) -> None:
-    log_file = tmp_path / "logs" / "read-api.log"
+    log_file = tmp_path / "logs" / "operator-api.log"
 
     result = subprocess.run(  # noqa: S603 - command and executable are fixed test inputs
         [
             _BASH,
             str(_RUNNER),
-            "read-api",
+            "operator-api",
             str(log_file),
             "--",
             sys.executable,
@@ -41,21 +41,21 @@ def test_runner_preserves_output_permissions_and_exit_status(tmp_path: Path) -> 
     assert stat.S_IMODE(log_file.stat().st_mode) == 0o600
     assert stat.S_IMODE(log_file.parent.stat().st_mode) == 0o700
     lines = log_file.read_text(encoding="utf-8").splitlines()
-    assert "service=read-api event=starting" in lines[0]
+    assert "service=operator-api event=starting" in lines[0]
     assert _TIMESTAMP_PREFIX.match(lines[0])
     output_lines = [line for line in lines if line.endswith(("stdout-line", "stderr-line"))]
     assert len(output_lines) == 2
     assert all(_TIMESTAMP_PREFIX.match(line) for line in output_lines)
-    assert lines[-1].endswith("service=read-api event=stopped exit_code=7")
+    assert lines[-1].endswith("service=operator-api event=stopped exit_code=7")
     assert _TIMESTAMP_PREFIX.match(lines[-1])
 
 
 def test_runner_removes_only_stale_output_fifos(tmp_path: Path) -> None:
     log_dir = tmp_path / "logs"
     log_dir.mkdir()
-    stale_fifo = log_dir / ".read-api.output.999999999"
-    live_fifo = log_dir / f".read-api.output.{os.getpid()}"
-    regular_file = log_dir / ".read-api.output.999999998"
+    stale_fifo = log_dir / ".operator-api.output.999999999"
+    live_fifo = log_dir / f".operator-api.output.{os.getpid()}"
+    regular_file = log_dir / ".operator-api.output.999999998"
     os.mkfifo(stale_fifo)
     os.mkfifo(live_fifo)
     regular_file.touch()
@@ -64,8 +64,8 @@ def test_runner_removes_only_stale_output_fifos(tmp_path: Path) -> None:
         [
             _BASH,
             str(_RUNNER),
-            "read-api",
-            str(log_dir / "read-api.log"),
+            "operator-api",
+            str(log_dir / "operator-api.log"),
             "--",
             sys.executable,
             "-c",
@@ -115,14 +115,14 @@ def test_runner_rotates_three_bounded_previous_logs(tmp_path: Path) -> None:
 
 
 def test_runner_uses_one_mibibyte_default_rotation_limit(tmp_path: Path) -> None:
-    log_file = tmp_path / "read-api.log"
+    log_file = tmp_path / "operator-api.log"
     log_file.write_bytes(b"x" * 1_048_576)
 
     result = subprocess.run(  # noqa: S603 - command and executable are fixed test inputs
         [
             _BASH,
             str(_RUNNER),
-            "read-api",
+            "operator-api",
             str(log_file),
             "--",
             sys.executable,
@@ -213,12 +213,12 @@ def test_runner_preserves_allowlisted_consumer_context_only(tmp_path: Path) -> N
 
 
 def test_runner_flushes_output_while_child_is_running(tmp_path: Path) -> None:
-    log_file = tmp_path / "read-api.log"
+    log_file = tmp_path / "operator-api.log"
     process = subprocess.Popen(  # noqa: S603 - command and executable are fixed test inputs
         [
             _BASH,
             str(_RUNNER),
-            "read-api",
+            "operator-api",
             str(log_file),
             "--",
             sys.executable,
@@ -247,12 +247,12 @@ def test_runner_flushes_output_while_child_is_running(tmp_path: Path) -> None:
 def test_runner_rejects_a_second_instance_of_the_same_service(
     tmp_path: Path,
 ) -> None:
-    log_file = tmp_path / "logs" / "read-api.log"
+    log_file = tmp_path / "logs" / "operator-api.log"
     first_process = subprocess.Popen(  # noqa: S603 - fixed test command
         [
             _BASH,
             str(_RUNNER),
-            "read-api",
+            "operator-api",
             str(log_file),
             "--",
             sys.executable,
@@ -272,7 +272,7 @@ def test_runner_rejects_a_second_instance_of_the_same_service(
             [
                 _BASH,
                 str(_RUNNER),
-                "read-api",
+                "operator-api",
                 str(log_file),
                 "--",
                 sys.executable,
@@ -285,7 +285,7 @@ def test_runner_rejects_a_second_instance_of_the_same_service(
         )
 
         assert second_result.returncode == 75
-        assert "service already running: read-api" in second_result.stderr
+        assert "service already running: operator-api" in second_result.stderr
         assert "second-child-ran" not in log_file.read_text(encoding="utf-8")
     finally:
         first_process.terminate()

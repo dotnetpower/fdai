@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 9771e867712464ed0694e873075b65a8ef2ee8db
-translation_revised: 2026-08-01
+translation_source_sha: 21440f574a8627132e4726f511a59cb8f7ebedc4
+translation_revised: 2026-08-02
 ---
 
 # 프로젝트 구조
@@ -52,7 +52,7 @@ fdai/
 │   │   ├── rca/                # 루트 원인 분석 (T0 deterministic + seam 뒤의 T2 reasoner; grounding-gated)
 │   │   ├── risk_gate/          # 통합 authority: 리스크 스코어 + auto vs HIL vs deny; malformed promotion metric 거부 + 4개 안전 불변식 강제
 │   │   ├── execution_authorization/ # 온톨로지 기반 pre-dispatch capability policy, grant lifecycle, replay-stable decision
-│   │   ├── rbac/               # 리드 API 를 위한 사람 RBAC (5개 롤 매트릭스, resolver, enforcer)
+│   │   ├── rbac/               # Operator API 를 위한 사람 RBAC (5개 롤 매트릭스, resolver, enforcer)
 │   │   ├── human_assignment/   # 변경 불가능한 역할/임무 의도, 정규화된 검토 정족수, 리비전 기반 StateStore lifecycle, 결과 영수증
 │   │   ├── hil_resume/         # HIL park/resume, no-drop grouping, bounded reminder, CAS 소유 shadow non-response supervision
 │   │   ├── executor/           # 리소스별 락, 딜리버리 어댑터로 멱등 적용
@@ -117,7 +117,7 @@ fdai/
 │   │   ├── trajectory/         # deterministic JSONL streaming export, quarantine, atomic partial-file cleanup
 │   │   ├── chaos/              # `Chaos` runbook 단계가 enforce로 갈 때 쓰는 라이브 카오스 주입 어댑터: `live_injectors.py` (CSP-중립 프리미티브 fan-out) + `chaos_mesh.py` (Chaos Mesh CRD) + `mysql_load.py` (MySQL 벤치마크 부하)
 │   │   ├── remediation/        # 직접 API 리메디에이션용 구체 `DirectApiExecutor` (`live_direct_api.py`); Protocol 은 `shared/providers/`에 있음
-│   │   ├── read_api/           # 얇은 ASGI - `main.py`가 IAM 옆의 Owner 전용 관찰 assignment case를 포함한 route module을 조립. GET route는 bounded state를 projection하고 POST command route는 governed record 또는 typed proposal을 제출하며 privileged executor 또는 human-access provisioner를 직접 호출하지 않음
+│   │   ├── operator_api/           # 얇은 ASGI - `main.py`가 IAM 옆의 Owner 전용 관찰 assignment case를 포함한 route module을 조립. GET route는 bounded state를 projection하고 POST command route는 governed record 또는 typed proposal을 제출하며 privileged executor 또는 human-access provisioner를 직접 호출하지 않음
 │   │   ├── ingestion_gateway/  # 전용 content-write ASGI: scoped upload, uploader-scoped web chat ref, governed deletion, optional handover governance
 │   │   ├── provisioning/       # surface-A Genesis 부트스트랩: 순수 `terraform_bridge.py` (terraform `-json` → `provision.*`) + `serve.py` harness (`aiter_json_lines` + `pump_provision_events`, I/O 주입, subprocess 없음)
 │   │   └── scheduler_tick_cli.py  # cron / Container Apps Job에서 스케줄러 tick을 구동하는 독립 엔트리 포인트
@@ -230,7 +230,7 @@ fdai/
   executor는 추상 액션을 발행하고 어댑터가 그것을 렌더링합니다(remediation-pr, Adaptive Card).
   executor가 유일한 privileged identity를 보유하며 어댑터는 이를 공유하지 않습니다.
 - **console에는 privileged identity가 없음**: 상태, 감사, shadow 결과, HIL 큐를 시각화합니다.
-  Command surface는 인증된 record 또는 typed proposal을 read API에 제출할 수 있지만 resource
+  Command surface는 인증된 record 또는 typed proposal을 Operator API에 제출할 수 있지만 resource
   executor를 직접 호출하지 않습니다. Risk, approval, audit, executor 경계는 server-side에 유지됩니다
   ([security-and-identity-ko.md](security-and-identity-ko.md) 참조).
   Repository Best Practice 정의는 composition root에서 한 번 로드하고 GET 전용 list 및 detail
@@ -251,7 +251,7 @@ fdai/
   `전체 현황 / Dashboard`를 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립
   유틸리티는 단일 제목을 유지합니다. 에이전트 영역은 Roster,
   Organization, Activity, Handover 패널 전체에 표시되는 작업 공간 탭 행도 유지합니다. Roster는
-  기본 에이전트 보기이며 read API가 반환하지 않은 지표를 만들지 않고 현재 스트림 상태, 현재 작업,
+  기본 에이전트 보기이며 Operator API가 반환하지 않은 지표를 만들지 않고 현재 스트림 상태, 현재 작업,
   인시던트 연결, 보고선, 증적 링크를 투영합니다. 필터와 검색은 브라우저 로컬 표시 제어이며,
   또한 runtime binding을 별도로 표시합니다. 11개의 typed EventBus subscriber와 Huginn의 raw-ingress
   subscriber는 대기 상태를 유지하고, Njord와 Freyr는 외부 adapter를 기다리며 Loki는 scheduled
@@ -479,7 +479,7 @@ Production은 `PostgresTrustedArtifactStore`와 `trusted_artifact` table을 사�
 skill id는 하나의 schema를 공유하지만 `artifact_kind`로 분리됩니다. Insert는 expected revision
 0을 요구하고 update는 exact revision 및 1 증가를 요구합니다. Table은 content size, SHA-256,
 64-byte signature, state, timestamp, revision constraint를 반복합니다. Private key 또는 provider
-credential은 저장하지 않습니다. Production read-API startup은 skill record를 load하고
+credential은 저장하지 않습니다. Production Operator API startup은 skill record를 load하고
 `FDAI_SKILL_TRUSTED_PUBLISHERS_PATH`에서 publisher public key를 resolve한 뒤 재검증된
 `RuntimeSkillDisclosure`를 atomic하게 publish합니다. Bragi, optional typed RPC, GET-only Skills
 panel이 이를 공유하며 local composition은 durable store가 없으면 empty fail-closed snapshot을 냅니다.
@@ -526,7 +526,7 @@ phase 는 `core/` 를 편집하지 않고 composition root 에서 새 구현을 
 | **Typed external RPC** | `core/rpc/`의 `RpcRegistry`, `RpcMethod`, scope, idempotency contract, `delivery/rpc/`의 bounded HTTP client/route, deterministic Python stub codegen, `build_production_rpc_app(...)` | - | Control plane은 RPC route를 mount하지 않으며 opt-in standalone app이 built-in tool discovery와 PostgreSQL hashed claim을 binding | Fork가 identity-aware authorizer와 explicit additional method를 제공합니다. Side-effect method는 durable idempotency claim이 필요하고 executor를 직접 호출하지 않고 typed proposal을 제출합니다. |
 | **Ontology ObjectType / LinkType** | `src/fdai/rule_catalog/schema/`의 `load_object_type_catalog(root, *, schema_registry)` 및 `load_link_type_catalog(root, *, schema_registry, object_types=...)` | - | upstream ObjectType 4개(`Resource`, `Rule`, `Signal`, `Finding`)와 `rule-catalog/vocabulary/{object-types,link-types}/` 아래의 LinkType들. 엔트리포인트가 `Container.ontology_object_types` / `Container.ontology_link_types`로 주입 | fork는 자체 YAML 디렉토리(예: `fork/vocabulary/object-types/ArchitectureProposal.yaml`)를 추가로 로드해 두 루트를 concatenate 후 `dataclasses.replace(container, ontology_object_types=..., ontology_link_types=...)`로 주입. 두 루트 간 `name` 중복은 fail-close. 자세한 절차는 [downstream-fork-seam-recipes-ko.md § 5.8a](../fork-and-sequencing/downstream-fork-seam-recipes-ko.md#58a-ontology-object-type--link-type-additions). |
 | **Workflow 카탈로그 (프로세스 자동화)** | `src/fdai/rule_catalog/schema/workflow.py`의 `load_workflow_catalog(root, *, schema_registry, action_type_names, rule_ids=...)`; `src/fdai/core/workflow/`의 `compile_workflow(...)` | - | `rule-catalog/workflows/` 아래 shadow-first Workflow입니다. 각 action step은 `ActionType`을 cross-reference하고 evidence/control step은 전용 typed contract를 사용합니다. | fork는 자체 `fork/workflows/` 디렉토리에 Workflow YAML을 추가로 로드해 concatenate한 ActionType / rule 집합과 함께 `dataclasses.replace(container, workflows=...)`로 주입합니다. 두 루트 간 `name` 중복은 fail-closed됩니다. 자세한 내용은 [(4[56])](../decisioning/process-automation-ko.md)을 참고하세요. |
-| **Governed Python task** | `shared/providers/`의 `PythonTaskAuthor`, `PythonTaskArtifactStore`, `VmTaskTargetResolver`, `VmTaskRunner` | - | local template author + in-memory artifact/target + planning runner; production은 immutable artifact를 Postgres에 저장하고 active inventory에서 target을 resolve하며 headless executor가 Azure Managed Run Command를 bind | fork는 content hash, declared capability, idempotency, non-executing read-API plan, typed proposal dispatch를 유지하면서 다른 author, artifact repository, target resolver, compute runner를 제공. [(4[56]) § 4.5](../decisioning/workflow-control-loop-integration-ko.md#45-governed-python-task-및-cron-schedule) 참조. |
+| **Governed Python task** | `shared/providers/`의 `PythonTaskAuthor`, `PythonTaskArtifactStore`, `VmTaskTargetResolver`, `VmTaskRunner` | - | local template author + in-memory artifact/target + planning runner; production은 immutable artifact를 Postgres에 저장하고 active inventory에서 target을 resolve하며 headless executor가 Azure Managed Run Command를 bind | fork는 content hash, declared capability, idempotency, non-executing Operator API plan, typed proposal dispatch를 유지하면서 다른 author, artifact repository, target resolver, compute runner를 제공. [(4[56]) § 4.5](../decisioning/workflow-control-loop-integration-ko.md#45-governed-python-task-및-cron-schedule) 참조. |
 | **Governed sandbox profile** | `core/sandbox/`의 `SandboxProfileCatalog`, `VmTaskSandboxCatalog`, `ToolSandboxCatalog`, `DocumentConverterSandboxCatalog`; `shared/providers/`의 `DocumentConverter` | - | Profile이 없는 command, VM-task, tool, converter request는 fail closed합니다. Profiled wrapper는 concrete adapter 직전에 capability, mode, suffix, timeout, argument/input/output byte, workspace/network ceiling을 적용합니다. | Fork는 각 adapter binding과 함께 explicit server-owned profile을 제공합니다. Provider contract 뒤에서 converter 또는 alternate runner를 구현할 수 있지만 host path, executable, credential 또는 더 넓은 request authority를 노출하지 않습니다. [(4[56]) § 4.6](../decisioning/workflow-control-loop-integration-ko.md#46-governed-command-및-shell-artifact) 참조. |
 | **Governed execution backend** | `shared/providers/execution_backend.py`의 `ExecutionBackend`와 `ExecutionSubmissionLedger`; `core/execution_backend/`의 profile intersection 및 coordinator; `composition/`의 `bind_execution_backends(...)` | - | Profile은 disabled 상태로 로드되고 기존 sandbox validation이 먼저 실행됩니다. PostgreSQL은 idempotent lifecycle attempt를 저장하고 bubblewrap 및 VM adapter는 기존 동작을 보존하며 Azure Container Apps Job은 pre-provisioned pinned template만 시작합니다. | Composition에서 server-owned profile과 concrete adapter를 제공합니다. Binding은 workload, credential, network, workspace access, limit, region, scope를 추가하지 않고 낮출 수만 있습니다. Eligibility, approval, rollback, audit decision을 소유하지 않습니다. [execution-backends-ko.md](../interfaces/execution-backends-ko.md)를 참조하세요. |
 | **Governed command, shell task 및 code workspace** | `shared/providers/`의 `CommandRunner`, `CommandPlan`, `ShellTaskChecker`, `ShellTaskSpec`, `CodeWorkspaceProvider`, `CodePatchSet`; `core/tools/` 및 `core/python_task/`의 `CommandCatalog`, default command spec, shell structural validation, workspace patch validation | - | `RecordingCommandRunner`, `BashSyntaxChecker`, opt-in `BubblewrapCommandRunner`, copy-on-write `GitCodeWorkspaceProvider`, typed `azure.resource.list`, `azure.group.list`, `azure.vm.list`, `azure.vm.status` read용 opt-in `AzureCliCommandRunner`; local VM inventory는 `az vm list --show-details`를 사용합니다. Generated Python은 `process`를 거부하고 shell artifact는 validate하지만 실행하지 않으며 upstream app은 기본적으로 live runner를 bind하지 않습니다. | fork는 credential-free local runner와 private workspace provider 또는 credentialed Azure read broker를 bind할 수 있습니다. Server-owned scope 및 identity, deterministic argv rendering, raw command string 금지, stale-file hash check, idempotency, output bound, `tool_call` / `direct_api` / `run_runbook` path 분리를 유지해야 합니다. [(4[56]) § 4.6](../decisioning/workflow-control-loop-integration-ko.md#46-governed-command-및-shell-artifact) 참조. |
@@ -537,8 +537,8 @@ phase 는 `core/` 를 편집하지 않고 composition root 에서 새 구현을 
 | Model provider | model client (capability별) | - | 설정된 기본 엔드포인트 | 고객 승인 모델 |
 | **실시간 아웃바운드 스트림** | `SseSink` (async publish + async-iterator subscribe, SSE 페이로드) | - | `InMemorySseSink` (테스트/데브); HTTP `text/event-stream` 어댑터는 콘솔 read-only 표면과 함께 랜딩 | 양방향 표면이 필요하면 WebSocket 어댑터로 교체; 헤드리스 observer는 webhook 전용. `shared/streaming/SseBroadcaster` 가 `EventBus` 토픽을 채널로 릴레이. |
 | **파이프라인 스테이지 발행자** | `StagePublisher` (`shared/providers/stage_publisher.py`) 의 `emit(StageEvent)` | - | `NullStagePublisher` (기본 - 스테이지 코드가 관찰 사이드이펙트 없이 실행되도록 유지) | 인프로세스 데브 / 단일 레플리카: `SseSinkStagePublisher` 가 `SseSink` 로 바로 fan-out. 멀티 레플리카 프로덕션: `EventBusStagePublisher` 가 Kafka 토픽(기본 `aw.pipeline.stages`) 에 발행하고 기존 `SseBroadcaster` 가 모든 레플리카가 소비하는 SSE 채널로 릴레이. 파이프라인 스테이지 (`event_ingest`, `trust_router`, T0/T1/T2, `risk_gate`, `executor`, `audit`) 가 프로토콜을 받도록 backward-compat - 업스트림 기본은 아무 것도 emit 하지 않음. |
-| **콘솔 read 패널** | `ReadPanel` (`delivery/read_api/panels.py`) | - | 코어 라우트만 (`/audit`, `/kpi`, `/hil-queue`); `ExampleFinOpsPanel` 은 참조용으로 제공되지만 UI 최소화를 위해 **미등록** | 포크가 `ReadApiConfig.extra_panels` (각각 GET 전용 라우트로 래핑, 빌드 시 path 검증) + 콘솔 `panels.tsx` 레지스트리 항목으로 버티컬 대시보드(FinOps 비용, 드리프트 보드, DR 드릴 이력) 추가 |
-| **LLM 계량(metering)** | `MeteringSink` / `MeteringReader` (`core/metering/sink.py`); `MeteringEmitter`가 명시적인 `control_plane` 또는 `operator_chat` scope와 함께 provider가 측정한 `usage`를 기록 | - | 단일 프로세스 dev harness는 하나의 `InMemoryMeteringSink`를 공유합니다. T1, T2, narrator adapter가 측정된 토큰을 emit하며 `LlmCostPanel`은 `GET /kpi/llm-cost`를 유지하고 scope / model / call / conversation / 일 / 월별 token-only projection을 노출합니다. | production은 headless core와 read API가 durable Postgres `llm_invocation` store를 함께 사용합니다. 설정된 가격은 내부 budget control에 남고 provider 지출로 projection되지 않습니다. |
+| **콘솔 read 패널** | `ReadPanel` (`delivery/operator_api/panels.py`) | - | 코어 라우트만 (`/audit`, `/kpi`, `/hil-queue`); `ExampleFinOpsPanel` 은 참조용으로 제공되지만 UI 최소화를 위해 **미등록** | 포크가 `OperatorApiConfig.extra_panels` (각각 GET 전용 라우트로 래핑, 빌드 시 path 검증) + 콘솔 `panels.tsx` 레지스트리 항목으로 버티컬 대시보드(FinOps 비용, 드리프트 보드, DR 드릴 이력) 추가 |
+| **LLM 계량(metering)** | `MeteringSink` / `MeteringReader` (`core/metering/sink.py`); `MeteringEmitter`가 명시적인 `control_plane` 또는 `operator_chat` scope와 함께 provider가 측정한 `usage`를 기록 | - | 단일 프로세스 dev harness는 하나의 `InMemoryMeteringSink`를 공유합니다. T1, T2, narrator adapter가 측정된 토큰을 emit하며 `LlmCostPanel`은 `GET /kpi/llm-cost`를 유지하고 scope / model / call / conversation / 일 / 월별 token-only projection을 노출합니다. | production은 headless core와 Operator API가 durable Postgres `llm_invocation` store를 함께 사용합니다. 설정된 가격은 내부 budget control에 남고 provider 지출로 projection되지 않습니다. |
 | **Infra module** | `infra/modules/<seam>/` (Terraform 서브-모듈, `var.<seam>_kind` 로 선택) | - | Container Apps + PostgreSQL Flex + Event Hubs Kafka + Key Vault + Log Analytics | [csp-neutrality-ko.md § 승인된 대안 Azure 구현](csp-neutrality-ko.md#승인된-대안-azure-구현approved-alternative-azure-implementations) 에 따라 다른 서브-모듈 선택; 모듈의 output 계약은 고정 유지 |
 
 모든 seam이 주입되는 인터페이스이므로 고객 추가나 두 번째 클라우드는 구현 등록 문제입니다 -

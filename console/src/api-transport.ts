@@ -2,34 +2,34 @@ import type { AuthContext } from "./auth";
 import type { ConsoleConfig } from "./config";
 import type { ApiError } from "./types";
 
-export class ReadApiError extends Error {
+export class OperatorApiError extends Error {
   readonly status: number;
 
   constructor(status: number, message: string) {
     super(message);
-    this.name = "ReadApiError";
+    this.name = "OperatorApiError";
     this.status = status;
   }
 }
 
-export function isOptionalReadApiUnavailable(error: unknown): error is ReadApiError {
-  return error instanceof ReadApiError
+export function isOptionalOperatorApiUnavailable(error: unknown): error is OperatorApiError {
+  return error instanceof OperatorApiError
     && (error.status === 404 || error.status === 501 || error.status === 503);
 }
 
-export interface ReadApiTransportOptions {
-  readonly onUnauthorized?: (error: ReadApiError) => void;
+export interface OperatorApiTransportOptions {
+  readonly onUnauthorized?: (error: OperatorApiError) => void;
 }
 
-export class ReadApiTransport {
+export class OperatorApiTransport {
   readonly #config: ConsoleConfig;
   readonly #auth: AuthContext;
-  readonly #onUnauthorized: ((error: ReadApiError) => void) | undefined;
+  readonly #onUnauthorized: ((error: OperatorApiError) => void) | undefined;
 
   constructor(
     config: ConsoleConfig,
     auth: AuthContext,
-    options: ReadApiTransportOptions = {},
+    options: OperatorApiTransportOptions = {},
   ) {
     this.#config = config;
     this.#auth = auth;
@@ -37,7 +37,7 @@ export class ReadApiTransport {
   }
 
   get baseUrl(): string {
-    return this.#config.readApiBaseUrl;
+    return this.#config.operatorApiBaseUrl;
   }
 
   readonly authorizationHeader = async (): Promise<string | null> => {
@@ -50,13 +50,13 @@ export class ReadApiTransport {
       authHeader = await withTimeout(
         this.#auth.getAuthorizationHeader(),
         this.#config.authTokenTimeoutMs,
-        () => new ReadApiError(
+        () => new OperatorApiError(
           401,
           "Authentication token request timed out. Retry or sign in again.",
         ),
       );
     } catch (error) {
-      if (error instanceof ReadApiError && error.status === 401) {
+      if (error instanceof OperatorApiError && error.status === 401) {
         this.#onUnauthorized?.(error);
       }
       throw error;
@@ -66,7 +66,7 @@ export class ReadApiTransport {
       && this.#auth.account !== null
       && this.#auth.localAzureCli !== true
     ) {
-      const error = new ReadApiError(
+      const error = new OperatorApiError(
         401,
         "Authentication token unavailable for signed-in account.",
       );
@@ -81,7 +81,7 @@ export class ReadApiTransport {
     try {
       return (await response.json()) as T;
     } catch {
-      throw new ReadApiError(
+      throw new OperatorApiError(
         response.status,
         `response body was not JSON (${response.headers.get("content-type") ?? "no content-type"})`,
       );
@@ -93,7 +93,7 @@ export class ReadApiTransport {
     params: URLSearchParams | undefined,
     accept: string,
   ): Promise<Response> {
-    const url = new URL(path, this.#config.readApiBaseUrl);
+    const url = new URL(path, this.#config.operatorApiBaseUrl);
     if (params && params.toString().length > 0) {
       url.search = params.toString();
     }
@@ -103,7 +103,7 @@ export class ReadApiTransport {
     const controller = new AbortController();
     const timeout = globalThis.setTimeout(
       () => controller.abort(),
-      this.#config.readApiRequestTimeoutMs,
+      this.#config.operatorApiRequestTimeoutMs,
     );
     let response: Response;
     try {
@@ -115,7 +115,7 @@ export class ReadApiTransport {
       });
     } catch (error) {
       if (controller.signal.aborted) {
-        throw new ReadApiError(504, "Read API request timed out. Retry the request.");
+        throw new OperatorApiError(504, "Operator API request timed out. Retry the request.");
       }
       throw error;
     } finally {
@@ -129,7 +129,7 @@ export class ReadApiTransport {
       } catch {
         /* body was not JSON - fall through */
       }
-      const error = new ReadApiError(response.status, message);
+      const error = new OperatorApiError(response.status, message);
       throw error;
     }
     return response;

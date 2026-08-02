@@ -1,7 +1,7 @@
 /**
  * Authenticated agent-activity SSE stream.
  *
- * `EventSource` cannot attach the bearer header required by the read API, so
+ * `EventSource` cannot attach the bearer header required by the Operator API, so
  * this hook uses fetch streaming. It keeps visibility gating and reconnect
  * behavior while decoding only the three supported agent frames.
  */
@@ -22,7 +22,7 @@ export interface AgentStreamDescriptor {
 
 export function agentStreamDescriptor(): AgentStreamDescriptor {
   const config = loadConfig();
-  const base = config.readApiBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
+  const base = config.operatorApiBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
   return {
     url: `${base.replace(/\/$/, "")}/agents/stream`,
   };

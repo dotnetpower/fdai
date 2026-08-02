@@ -12,7 +12,7 @@ point, runtime, and observability as recommendations or open choices.
 **Accepted:** 2026-07-13.
 
 > **Implementation update (2026-07-21):** The initial single-app baseline has
-> expanded additively into separate core, read API, and ingestion-gateway
+> expanded additively into separate core, Operator API, and ingestion-gateway
 > Container Apps plus bounded Container Apps Jobs. The wire, identity, state,
 > secret, observability, and Terraform decisions below remain in force. The
 > current runtime topology is owned by

@@ -1,4 +1,4 @@
-import { ReadApiError } from "../api";
+import { OperatorApiError } from "../api";
 
 export function panelRecord(value: unknown, label: string): Readonly<Record<string, unknown>> {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
@@ -88,6 +88,6 @@ export function panelNullableString(
   return panelString(value, key, label);
 }
 
-export function panelContractError(message: string): ReadApiError {
-  return new ReadApiError(502, `invalid read API response: ${message}`);
+export function panelContractError(message: string): OperatorApiError {
+  return new OperatorApiError(502, `invalid Operator API response: ${message}`);
 }

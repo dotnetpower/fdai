@@ -46,7 +46,7 @@ flowchart LR
 
 | Capability | Owner | Status | Evidence |
 |------------|-------|--------|----------|
-| Production map binding | read API composition | Implemented | `build_prod_app()` loads `config/agent-stewardship.yaml` and registers `GET /stewardship`. |
+| Production map binding | Operator API composition | Implemented | `build_prod_app()` loads `config/agent-stewardship.yaml` and registers `GET /stewardship`. |
 | Real-binding readiness | Terraform plus resolver | Implemented | Container Apps receives `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1`, maintainer OIDs, and per-agent overrides. |
 | Stale identity audit | stewardship health monitor | Implemented | Entra liveness runs on a configured interval and writes transition-only state plus audit. |
 | Handover draft PR | ingestion consumer plus GitOps adapter | Implemented, opt-in | A processed `handover_bootstrap` upload opens one draft PR for `config/agent-stewardship.yaml`. |
@@ -61,11 +61,11 @@ instead of guessing.
 
 ### Production startup
 
-The read API loads the ownership map before route construction. The same environment mapping used
+The Operator API loads the ownership map before route construction. The same environment mapping used
 by the production factory is passed into the resolver, so deployment overrides and
 `FDAI_STEWARDSHIP_REQUIRE_BINDINGS` cannot diverge from the process that serves the projection.
 
-A deployment with `enable_read_api=true` supplies:
+A deployment with `enable_operator_api=true` supplies:
 
 - at least one real maintainer OID, with two recommended;
 - an accountable binding for each non-autonomous pantheon agent;
@@ -94,8 +94,8 @@ The monitor stores one revisioned snapshot under `stewardship_health:current`:
 An unchanged result is a no-op. A clean-to-stale or stale-to-clean transition atomically updates
 state and appends `stewardship.health.changed`. A Graph failure logs only the error type and retries
 at the next interval; it does not mark every identity stale and does not stop the control loop. The
-first sweep starts in a named background task, so Graph latency never delays read-API startup. The
-read API validates the latest snapshot and merges its stale findings into `/stewardship` coverage;
+first sweep starts in a named background task, so Graph latency never delays Operator API startup. The
+Operator API validates the latest snapshot and merges its stale findings into `/stewardship` coverage;
 malformed durable state renders `identity_health.status=unavailable` without hiding the base map.
 
 ### Draft PR creation
@@ -183,7 +183,7 @@ new accountable owners receive the handover result.
 
 ## Deployment configuration
 
-Set `enable_stewardship_governance=true` only after document ingestion, the read API, and ChatOps are
+Set `enable_stewardship_governance=true` only after document ingestion, the Operator API, and ChatOps are
 enabled. Terraform requires the following deployment-owned values:
 
 | Input | Runtime binding | Storage |

@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const apiPort = Number(process.env.FDAI_E2E_READ_API_PORT ?? "8012");
+const apiPort = Number(process.env.FDAI_E2E_OPERATOR_API_PORT ?? "8012");
 const frontendPort = Number(process.env.FDAI_E2E_FRONTEND_PORT ?? "5275");
 const defaultBaseURL = `http://127.0.0.1:${frontendPort}`;
 const baseURL = process.env.FDAI_E2E_BASE_URL ?? defaultBaseURL;
@@ -29,10 +29,10 @@ export default defineConfig({
         {
           command:
             `set -a && . ../.fdai/local-runtime.env && set +a && ` +
-            `env -u AZURE_CONFIG_DIR -u FDAI_READ_API_DEV_MODE -u FDAI_READ_API_LOCAL_ENTRA ` +
-            `FDAI_READ_API_LOCAL_AZURE_CLI=1 FDAI_READ_API_EMBED_PANTHEON=0 ` +
-            `FDAI_READ_API_CORS_ALLOW_ORIGINS=${defaultBaseURL} ` +
-            `../.venv/bin/python -m uvicorn fdai.delivery.read_api.dev.local:app ` +
+            `env -u AZURE_CONFIG_DIR -u FDAI_OPERATOR_API_DEV_MODE -u FDAI_OPERATOR_API_LOCAL_ENTRA ` +
+            `FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1 FDAI_OPERATOR_API_EMBED_PANTHEON=0 ` +
+            `FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS=${defaultBaseURL} ` +
+            `../.venv/bin/python -m uvicorn fdai.delivery.operator_api.dev.local:app ` +
             `--factory --host 127.0.0.1 --port ${apiPort}`,
           url: `http://127.0.0.1:${apiPort}/healthz`,
           reuseExistingServer: true,
@@ -43,7 +43,7 @@ export default defineConfig({
         {
           command:
             `VITE_DEV_MODE=0 VITE_LOCAL_AZURE_CLI_AUTH=1 VITE_LOCAL_LOGIN_PROMPT=0 ` +
-            `VITE_READ_API_BASE_URL=http://127.0.0.1:${apiPort} ` +
+            `VITE_OPERATOR_API_BASE_URL=http://127.0.0.1:${apiPort} ` +
             `VITE_INGESTION_API_BASE_URL=http://127.0.0.1:8011 ` +
             `npm run dev -- --host 127.0.0.1 --port ${frontendPort} --strictPort`,
           url: defaultBaseURL,

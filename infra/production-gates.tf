@@ -20,13 +20,13 @@ check "python_task_author_requires_resolved_capability" {
   assert {
     condition = var.python_task_author_capability == "" || (
       var.enable_llm &&
-      var.enable_read_api &&
+      var.enable_operator_api &&
       contains(
         [for capability in var.resolved_capabilities : capability.name],
         var.python_task_author_capability,
       )
     )
-    error_message = "python_task_author_capability requires enable_llm, enable_read_api, and a matching resolved capability."
+    error_message = "python_task_author_capability requires enable_llm, enable_operator_api, and a matching resolved capability."
   }
 }
 
@@ -34,7 +34,7 @@ check "document_ingestion_requires_dependencies" {
   assert {
     condition = !var.enable_document_ingestion || (
       var.enable_llm &&
-      trimspace(var.read_api_audience) != "" &&
+      trimspace(var.operator_api_audience) != "" &&
       trimspace(var.ingestion_cors_allow_origins) != "" &&
       trimspace(var.rbac_readers_group_id) != "" &&
       trimspace(var.rbac_contributors_group_id) != "" &&
@@ -64,17 +64,17 @@ check "document_ocr_requires_complete_binding" {
   }
 }
 
-check "read_api_requires_stewardship_bindings" {
+check "operator_api_requires_stewardship_bindings" {
   assert {
-    condition = !var.enable_read_api || (
+    condition = !var.enable_operator_api || (
       trimspace(var.stewardship_maintainers) != "" &&
-      var.read_api_iam_directory_provider == "entra" &&
+      var.operator_api_iam_directory_provider == "entra" &&
       alltrue([
         for agent in ["Odin", "Thor", "Forseti", "Huginn", "Heimdall", "Vidar", "Var", "Bragi", "Saga", "Mimir", "Muninn", "Norns", "Njord", "Freyr"] :
         contains(keys(var.stewardship_agent_bindings), agent)
       ])
     )
-    error_message = "enable_read_api requires the Entra directory, stewardship_maintainers, and bindings for every non-autonomous pantheon agent."
+    error_message = "enable_operator_api requires the Entra directory, stewardship_maintainers, and bindings for every non-autonomous pantheon agent."
   }
 }
 
@@ -82,7 +82,7 @@ check "stewardship_governance_requires_delivery" {
   assert {
     condition = !var.enable_stewardship_governance || (
       var.enable_document_ingestion &&
-      var.enable_read_api &&
+      var.enable_operator_api &&
       var.enable_chatops_hil &&
       trimspace(var.gitops_owner) != "" &&
       trimspace(var.gitops_repo) != "" &&
@@ -94,7 +94,7 @@ check "stewardship_governance_requires_delivery" {
         contains(keys(var.stewardship_agent_bindings), agent)
       ])
     )
-    error_message = "stewardship governance requires document ingestion, read API, ChatOps, GitOps credentials, a 32+ character webhook secret, and complete stewardship bindings."
+    error_message = "stewardship governance requires document ingestion, Operator API, ChatOps, GitOps credentials, a 32+ character webhook secret, and complete stewardship bindings."
   }
 }
 

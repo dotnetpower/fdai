@@ -5,13 +5,13 @@ import type { ConsoleConfig } from "./config";
 
 function config(overrides: Partial<ConsoleConfig> = {}): ConsoleConfig {
   return {
-    readApiBaseUrl: "http://127.0.0.1:8000",
+    operatorApiBaseUrl: "http://127.0.0.1:8000",
     ingestionApiBaseUrl: "http://127.0.0.1:8010",
     msalClientId: "",
     msalTenantId: "",
     msalApiScope: "",
     authTokenTimeoutMs: 10_000,
-    readApiRequestTimeoutMs: 30_000,
+    operatorApiRequestTimeoutMs: 30_000,
     devMode: false,
     localAzureCliAuth: true,
     localLoginPrompt: false,

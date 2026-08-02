@@ -88,7 +88,7 @@ def _package_version() -> str:
 
 def _add_deployment_feature_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--deploy-console", action="store_true")
-    parser.add_argument("--deploy-read-api", action="store_true")
+    parser.add_argument("--deploy-operator-api", action="store_true")
     parser.add_argument("--deploy-dev-operations-gateway", action="store_true")
     parser.add_argument("--deploy-document-ingestion", action="store_true")
 
@@ -475,7 +475,7 @@ def main(argv: list[str] | None = None, *, stdout: TextIO | None = None) -> int:
                         commit_sha=args.commit_sha,
                         force_config=args.force_config,
                         deploy_console=args.deploy_console,
-                        deploy_read_api=args.deploy_read_api,
+                        deploy_operator_api=args.deploy_operator_api,
                         deploy_dev_operations_gateway=args.deploy_dev_operations_gateway,
                         deploy_document_ingestion=args.deploy_document_ingestion,
                     )
@@ -565,7 +565,7 @@ def main(argv: list[str] | None = None, *, stdout: TextIO | None = None) -> int:
                     commit_sha=args.commit_sha,
                     doctor_report=doctor_report,
                     deploy_console=args.deploy_console,
-                    deploy_read_api=args.deploy_read_api,
+                    deploy_operator_api=args.deploy_operator_api,
                     deploy_dev_operations_gateway=args.deploy_dev_operations_gateway,
                     deploy_document_ingestion=args.deploy_document_ingestion,
                 )
@@ -621,7 +621,7 @@ def main(argv: list[str] | None = None, *, stdout: TextIO | None = None) -> int:
                     commit_sha=args.commit_sha,
                     doctor_report=doctor_report,
                     deploy_console=args.deploy_console,
-                    deploy_read_api=args.deploy_read_api,
+                    deploy_operator_api=args.deploy_operator_api,
                     deploy_dev_operations_gateway=args.deploy_dev_operations_gateway,
                     deploy_document_ingestion=args.deploy_document_ingestion,
                     resume_verification=args.resume_verification,

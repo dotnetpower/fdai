@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ReadApiError } from "./api";
+import { OperatorApiError } from "./api";
 import { withStartupTransportRetry } from "./bootstrap-retry";
 
 describe("withStartupTransportRetry", () => {
@@ -21,7 +21,7 @@ describe("withStartupTransportRetry", () => {
   });
 
   it("does not retry an HTTP or authentication response", async () => {
-    const error = new ReadApiError(401, "Authentication token unavailable");
+    const error = new OperatorApiError(401, "Authentication token unavailable");
     const operation = vi.fn<() => Promise<never>>().mockRejectedValue(error);
     const wait = vi.fn(async () => undefined);
 

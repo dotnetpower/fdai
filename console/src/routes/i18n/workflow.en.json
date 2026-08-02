@@ -1,6 +1,6 @@
 {
   "builder": {
-    "unavailable": "The workflow authoring routes are not wired on this deployment. Set ReadApiConfig.workflow_authoring in the composition root to enable them.",
+    "unavailable": "The workflow authoring routes are not wired on this deployment. Set OperatorApiConfig.workflow_authoring in the composition root to enable them.",
     "resourceLabel": "workflow builder",
     "routeLabel": "Workflow builder",
     "purpose": "Inspect the built-in workflows (a trigger plus an ordered chain of ActionType steps) and design a new one by chatting with the builder. New workflows are locked to shadow mode; promotion to enforce is a separate reviewed PR. Read-only by construction.",

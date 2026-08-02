@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ReadApiError } from "../api";
+import { OperatorApiError } from "../api";
 import {
   assertProcessDetailSelection,
   decodeProcessJournal,
@@ -44,15 +44,15 @@ describe("process view route model", () => {
   });
 
   it("classifies an unwired optional process API as unavailable", () => {
-    expect(processListFailure(new ReadApiError(404, "Not Found"))).toEqual({
+    expect(processListFailure(new OperatorApiError(404, "Not Found"))).toEqual({
       status: "unavailable",
       message: "Process projections are not wired on this deployment.",
     });
-    expect(processListFailure(new ReadApiError(501, "Not Implemented")).status).toBe("unavailable");
+    expect(processListFailure(new OperatorApiError(501, "Not Implemented")).status).toBe("unavailable");
   });
 
   it("keeps operational process API failures visible as errors", () => {
-    expect(processListFailure(new ReadApiError(503, "upstream unavailable"))).toEqual({
+    expect(processListFailure(new OperatorApiError(503, "upstream unavailable"))).toEqual({
       status: "error",
       message: "upstream unavailable",
     });

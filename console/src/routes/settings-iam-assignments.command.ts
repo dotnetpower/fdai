@@ -8,14 +8,14 @@ import {
 
 export async function createAssignmentCase(
   auth: AuthContext,
-  readApiBaseUrl: string,
+  operatorApiBaseUrl: string,
   draft: AssignmentDraft,
   idempotencyKey: string,
 ): Promise<AssignmentCase> {
   if (draft.identity === null) throw new Error("An exact identity is required");
   return decodeAssignmentCase(await putGovernedJson(
     auth,
-    readApiBaseUrl,
+    operatorApiBaseUrl,
     "/iam/assignment-cases",
     {
       idempotency_key: idempotencyKey,
@@ -35,12 +35,12 @@ export async function createAssignmentCase(
 
 export async function submitAssignmentCase(
   auth: AuthContext,
-  readApiBaseUrl: string,
+  operatorApiBaseUrl: string,
   assignmentCase: AssignmentCase,
 ): Promise<AssignmentCase> {
   return decodeAssignmentCase(await putGovernedJson(
     auth,
-    readApiBaseUrl,
+    operatorApiBaseUrl,
     `/iam/assignment-cases/${encodeURIComponent(assignmentCase.caseId)}/submit`,
     { expected_revision: assignmentCase.revision },
     "POST",
@@ -49,13 +49,13 @@ export async function submitAssignmentCase(
 
 export async function reviewAssignmentCase(
   auth: AuthContext,
-  readApiBaseUrl: string,
+  operatorApiBaseUrl: string,
   assignmentCase: AssignmentCase,
   decision: "approve" | "reject",
 ): Promise<AssignmentCase> {
   return decodeAssignmentCase(await putGovernedJson(
     auth,
-    readApiBaseUrl,
+    operatorApiBaseUrl,
     `/iam/assignment-cases/${encodeURIComponent(assignmentCase.caseId)}/review`,
     { expected_revision: assignmentCase.revision, decision },
     "POST",

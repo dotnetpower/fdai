@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { isOptionalReadApiUnavailable, ReadApiError } from "../api";
-import type { ReadApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, OperatorApiError } from "../api";
+import type { OperatorApiClient } from "../api";
 import {
   AsyncBoundary,
   DataTable,
@@ -54,7 +54,7 @@ interface Response {
 }
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
 }
 
 type PromotionReason = "policy-escape" | null;
@@ -124,7 +124,7 @@ export function PromotionGatesRoute({ client }: Props) {
       } catch (err) {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : String(err);
-          if (isOptionalReadApiUnavailable(err)) {
+          if (isOptionalOperatorApiUnavailable(err)) {
             setState({
               status: "unavailable",
               message: t("governance.promotion.unavailable"),
@@ -186,14 +186,14 @@ export function decodePromotionGates(value: unknown): Response {
   const root = panelRecord(value, "promotion gates");
   const windowDays = root["window_days"];
   if (windowDays !== null && (typeof windowDays !== "number" || !Number.isFinite(windowDays) || windowDays < 0)) {
-    throw new ReadApiError(502, t("governance.promotion.error.windowDays"));
+    throw new OperatorApiError(502, t("governance.promotion.error.windowDays"));
   }
   const rows = panelArray(root["rows"], "promotion gates.rows").map((value, index) => {
       const row = panelRecord(value, `promotion gates.rows[${index}]`);
       const reviewedCount = panelNonNegativeInteger(row, "reviewed_count", "promotion gate row");
       const agreedCount = panelNonNegativeInteger(row, "agreed_count", "promotion gate row");
       if (agreedCount > reviewedCount) {
-        throw new ReadApiError(
+        throw new OperatorApiError(
           502,
           t("governance.promotion.error.agreedCount"),
         );
@@ -213,7 +213,7 @@ export function decodePromotionGates(value: unknown): Response {
   const readyCount = panelNonNegativeInteger(root, "ready_count", "promotion gates");
   const blockedCount = panelNonNegativeInteger(root, "blocked_count", "promotion gates");
   if (readyCount !== rows.filter((row) => row.ready).length || blockedCount !== rows.filter((row) => !row.ready).length) {
-    throw new ReadApiError(502, t("governance.promotion.error.summaryCounts"));
+    throw new OperatorApiError(502, t("governance.promotion.error.summaryCounts"));
   }
   return {
     window_days: windowDays,

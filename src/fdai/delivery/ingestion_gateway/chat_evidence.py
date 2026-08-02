@@ -16,7 +16,7 @@ _READY_STATES = frozenset({DocumentState.READY, DocumentState.READY_WITH_WARNING
 class UploaderDocumentEvidenceResolver:
     """Resolve only ready versions uploaded by the authenticated principal.
 
-    This is the safe baseline for web chat because the read API authorize seam
+    This is the safe baseline for web chat because the Operator API authorize seam
     currently returns a principal id, not complete collection group claims.
     """
 

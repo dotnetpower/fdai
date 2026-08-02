@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: 178147d3b4cacb69b9e1c28c203342dc5544a7b3
-translation_revised: 2026-07-27
+translation_source_sha: f51ae623a0808e858e311a1dd8d4cd823da28fa2
+translation_revised: 2026-08-02
 title: 대화 첨부파일
 ---
 # 대화 첨부파일
@@ -121,7 +121,7 @@ Framework, Microsoft Graph 및 sovereign-cloud deployment를 지원합니다.
 
 ## Web chat contract
 
-Read API는 multipart file, raw byte, storage URL 또는 channel attachment id를 받지 않습니다.
+Operator API는 multipart file, raw byte, storage URL 또는 channel attachment id를 받지 않습니다.
 향후 SPA flow는 다음과 같습니다.
 
 1. Authenticated ingestion upload session을 만듭니다.
@@ -220,7 +220,7 @@ Channel publisher는 transport 및 acknowledgement 처리를 pure rendering과 �
 
 Repository는 현재 이 composition component를 library boundary로 제공합니다. 아직
 `ProductionChannelRuntime`을 instantiate하는 standalone channel ASGI factory 또는 Terraform
-channel workload는 제공하지 않으며 read API와 headless core는 channel ingress route를 mount하지
+channel workload는 제공하지 않으며 Operator API와 headless core는 channel ingress route를 mount하지
 않습니다. 별도 process가 gateway, persistence, Teams resolver, identity, attachment ingestor 및
 lifecycle callback을 모두 제공할 때까지 deployment는 대기 상태입니다. Complete composition이
 없는 deployed workload에서는 attachment 또는 Slack/Teams channel enable flag를 설정하지 않습니다.
@@ -276,7 +276,7 @@ uv run pytest -q --no-cov \
   tests/delivery/channels \
   tests/delivery/azure/test_document_ocr.py \
   tests/delivery/ingestion_gateway/test_chat_evidence.py \
-  tests/delivery/read_api/test_chat_route.py
+  tests/delivery/operator_api/test_chat_route.py
 terraform -chdir=infra validate
 ```
 

@@ -6,11 +6,11 @@ import {
   decodeHilQueuePage,
   decodeIncidentPage,
   decodeRcaView,
-  isOptionalReadApiUnavailable,
-  ReadApiError,
+  isOptionalOperatorApiUnavailable,
+  OperatorApiError,
 } from "./api";
 
-describe("read API response decoders", () => {
+describe("Operator API response decoders", () => {
   const metric = { value: 0.1, baseline: 0.2, direction: "lower" } as const;
   const autonomy = {
     synthetic: false,
@@ -44,20 +44,20 @@ describe("read API response decoders", () => {
     expect(() => decodeAutonomyPayload({
       ...autonomy,
       success: { ...autonomy.success, cost_per_resolved_event_usd: undefined },
-    })).toThrow(ReadApiError);
+    })).toThrow(OperatorApiError);
     expect(() => decodeAutonomyPayload({
       ...autonomy,
       attribution: { attributed_events: 0, unattributed_events: 1, coverage: 0 },
-    })).toThrow(ReadApiError);
+    })).toThrow(OperatorApiError);
     expect(() => decodeAutonomyPayload({
       ...autonomy,
       finalization: { finalized_events: 0, pending_events: 0, adverse_events: 1 },
-    })).toThrow(ReadApiError);
-    expect(() => decodeAutonomyPayload({ ...autonomy, sample_size: 2 })).toThrow(ReadApiError);
+    })).toThrow(OperatorApiError);
+    expect(() => decodeAutonomyPayload({ ...autonomy, sample_size: 2 })).toThrow(OperatorApiError);
     expect(() => decodeAutonomyPayload({
       ...autonomy,
       finalization: { finalized_events: 1, pending_events: 0, adverse_events: 1 },
-    })).toThrow(ReadApiError);
+    })).toThrow(OperatorApiError);
   });
 
   test("keeps unobserved audit-derived measurements unavailable", () => {
@@ -75,9 +75,9 @@ describe("read API response decoders", () => {
 
   test("reject malformed always-on payloads with a uniform contract error", () => {
     for (const decode of [decodeAuditPage, decodeDashboardKpi, decodeHilQueuePage, decodeIncidentPage]) {
-      expect(() => decode({})).toThrow(ReadApiError);
+      expect(() => decode({})).toThrow(OperatorApiError);
       try { decode({}); } catch (error) {
-        expect((error as ReadApiError).status).toBe(502);
+        expect((error as OperatorApiError).status).toBe(502);
       }
     }
   });
@@ -328,11 +328,11 @@ describe("read API response decoders", () => {
     })).toThrow(/inconsistent/);
   });
 
-describe("optional read API availability", () => {
+describe("optional Operator API availability", () => {
   test("treats only missing and unimplemented routes as unavailable", () => {
-    expect(isOptionalReadApiUnavailable(new ReadApiError(404, "missing"))).toBe(true);
-    expect(isOptionalReadApiUnavailable(new ReadApiError(501, "disabled"))).toBe(true);
-    expect(isOptionalReadApiUnavailable(new ReadApiError(502, "invalid contract"))).toBe(false);
-    expect(isOptionalReadApiUnavailable(new Error("network"))).toBe(false);
+    expect(isOptionalOperatorApiUnavailable(new OperatorApiError(404, "missing"))).toBe(true);
+    expect(isOptionalOperatorApiUnavailable(new OperatorApiError(501, "disabled"))).toBe(true);
+    expect(isOptionalOperatorApiUnavailable(new OperatorApiError(502, "invalid contract"))).toBe(false);
+    expect(isOptionalOperatorApiUnavailable(new Error("network"))).toBe(false);
   });
 });

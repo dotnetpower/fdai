@@ -1,6 +1,6 @@
 """HIL approval registry - Approver-scoped queue for `approve_hil` / `list_hil`.
 
-The read-API's :class:`~fdai.delivery.read_api.read_model.HilQueueItem`
+The Operator API's :class:`~fdai.delivery.operator_api.read_model.HilQueueItem`
 is the **Reader** projection (dashboard tile: count + short reason). This
 module ships the **Approver** projection: the full item detail
 (including ``submitter_oid``) that the console's `approve_hil` /
@@ -14,7 +14,7 @@ Why a distinct projection
   intent (see the Week-1 write/approve/runbook section of
   ``docs/roadmap/interfaces/operator-console.md``).
 - **Distinct write surface**: recording a decision needs an authoritative
-  ledger the executor observes; the read-API is deliberately read-only
+  ledger the executor observes; the Operator API is deliberately read-only
   (`docs/roadmap/deployment/deploy-and-onboard.md`).
 
 Wave scope

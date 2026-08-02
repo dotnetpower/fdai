@@ -42,7 +42,7 @@ models:
   t1.web_search:
     # Dedicated Foundry prompt-agent model for public-web retrieval. The
     # protected deploy reconciles WebSearchTool with the exact domain allowlist,
-    # then the read API confirms availability with an actual managed-tool probe.
+    # then the Operator API confirms availability with an actual managed-tool probe.
     preferences:
       - {publisher: OpenAI, family: gpt-4.1-nano}
     sku: GlobalStandard

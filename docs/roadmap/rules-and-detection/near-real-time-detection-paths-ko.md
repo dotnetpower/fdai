@@ -1,8 +1,8 @@
 ---
 title: Near-real-time detection paths
 translation_of: near-real-time-detection-paths.md
-translation_source_sha: d5b1c2dc827a5073db89f574129097aa81912136
-translation_revised: 2026-07-27
+translation_source_sha: 2a6a38803d62654146e52efe373c9ccdcaa17e81
+translation_revised: 2026-08-02
 ---
 
 # 근실시간 감지 경로
@@ -61,7 +61,7 @@ flowchart LR
 - [Normalizer](../../../src/fdai/delivery/azure/monitor_alert.py) -
   Common Alert Schema v2 -> `Event`. Pure function, fired /
   resolved / malformed 페이로드에 대한 unit test.
-- [Webhook route](../../../src/fdai/delivery/read_api/routes/azure_monitor_webhook.py) -
+- [Webhook route](../../../src/fdai/delivery/operator_api/routes/azure_monitor_webhook.py) -
   Starlette POST `/webhook/azure-monitor`. Bearer-token 인증 (constant-time
   비교), 256 KiB body cap, 소문자화된 ARM id를 key로 ingest topic에 publish.
 - [Terraform 모듈](../../../infra/modules/observability/metric-alert-rules/main.tf) -
@@ -159,7 +159,7 @@ Saga는 전환을 감사하고, Forseti는 스냅샷을 권한 상한으로 사�
 
 축약은 fail-closed입니다. 누락, stale, unavailable, unauthorized 근거는 ready가 되지 않습니다.
 6개 차원이 모두 통과해도 새 readiness capability는 `shadow`로 유지되므로 ActionType을 승격하거나
-변경을 실행할 수 없습니다. Read API와 콘솔은 Muninn 판정을 projection하며 다시 계산하지 않습니다.
+변경을 실행할 수 없습니다. Operator API와 콘솔은 Muninn 판정을 projection하며 다시 계산하지 않습니다.
 Muninn은 `generated_at`이 엄격히 더 새로운 경우에만 대상의 최신 snapshot을 교체하므로 순서가 바뀌거나
 재전달된 Drift가 durable 준비도를 과거로 되돌릴 수 없습니다.
 Inventory 기반 target은 graph freshness와 coverage evidence를 discovery dimension에 전달합니다.

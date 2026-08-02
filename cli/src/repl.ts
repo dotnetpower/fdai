@@ -15,7 +15,7 @@
 import { randomUUID } from "node:crypto";
 
 import { withChannelLocale, type CliChannelContext } from "./channel-context.js";
-import { askChat, type ChatHistoryTurn } from "./data/read-api.js";
+import { askChat, type ChatHistoryTurn } from "./data/operator-api.js";
 
 const TEAL = "\x1b[38;2;99;166;156m";
 const DIM = "\x1b[38;2;124;132;139m";
@@ -50,7 +50,7 @@ function strWidth(s: string): number {
 export async function startRepl(ctx: CliChannelContext): Promise<void> {
   const stdin = process.stdin;
   // Sample mode is a renderer fixture only. Interactive turns always go
-  // through the shared read-API coordinator.
+  // through the shared Operator API coordinator.
   if (!ctx.apiUrl || !stdin.isTTY || typeof stdin.setRawMode !== "function") return;
   const apiUrl = ctx.apiUrl;
 

@@ -4,7 +4,7 @@ These functions turn a flat list of :class:`LlmInvocation` records into
 the three views the operator asks for: **per conversation** (grouped by
 ``correlation_id``), **per day**, and **per month**. They are pure - no
 I/O, no clock - so they are trivially testable and deterministic; the
-read-API and console call them over whatever records a
+Operator API and console call them over whatever records a
 :class:`~fdai.core.metering.sink.MeteringSink` implementation returns.
 
 Cost is summed as :class:`Decimal` and only the *known* costs contribute
@@ -160,7 +160,7 @@ def _format_cost(cost: Decimal) -> str:
 
 
 def summaries_as_mapping(summaries: Iterable[UsageSummary]) -> tuple[Mapping[str, object], ...]:
-    """Render summaries as JSON-serialisable dicts for the read-API boundary.
+    """Render summaries as JSON-serialisable dicts for the Operator API boundary.
 
     ``cost`` is emitted as a ``str`` so the exact decimal survives JSON
     (floats would reintroduce the rounding drift Decimal avoids), capped

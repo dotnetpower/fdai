@@ -336,12 +336,12 @@ scope with a neutral value. It installs the locked CLI, converts the exact binar
 runs all four read-only live categories, and accepts only a `clear` report with complete check
 coverage. Plan JSON, environment identifiers, and the input profile are removed at step exit.
 
-When `deploy_read_api` is enabled, configure non-secret `STEWARDSHIP_MAINTAINERS` and
+When `deploy_operator_api` is enabled, configure non-secret `STEWARDSHIP_MAINTAINERS` and
 `STEWARDSHIP_AGENT_BINDINGS_JSON` repository Variables. The latter maps every non-autonomous
 Pantheon agent to one or more `user:<oid>` or `group:<oid>` tokens; Loki may retain its explicit
 autonomous acceptance. The workflow binds the Entra directory provider and these values into
 Terraform. Resource preconditions reject an empty maintainer or any missing agent binding before a
-broken read API revision can be created.
+broken Operator API revision can be created.
 
 Only the sanitized report is stored beside the protected plan. Metadata binds separate SHA-256
 digests for runner-egress evidence and Azure live evidence. Exact apply downloads both original
@@ -478,7 +478,7 @@ fdaictl release rollback \
 `fdaictl deploy plan` submits a plan-only workflow and currently returns the workflow run id and
 URL. It requires the same environment config to pass `doctor`, reads the GitHub credential only
 from `FDAI_GITHUB_TOKEN`, and sends `apply=false`, the environment, exact commit, and a SHA-256
-deployment-context fingerprint. Console, read API, development gateway, and document-ingestion
+deployment-context fingerprint. Console, Operator API, development gateway, and document-ingestion
 flags are included in that fingerprint and sent to both plan and apply. A changed flag invalidates
 the plan. Tenant, subscription, backend, and runner identifiers aren't sent in the dispatch body.
 The workflow validates the bounded request id, context digest, and exact checked-out commit before
@@ -491,7 +491,7 @@ FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy plan \
   --bundle-digest <sha256> \
   --commit-sha <git-sha> \
   --deploy-console \
-  --deploy-read-api \
+  --deploy-operator-api \
   --output json
 ```
 

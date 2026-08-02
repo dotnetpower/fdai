@@ -568,18 +568,18 @@ approves it, that is a **delegated** approval: allowed (same authority) and
 recorded distinctly, so the audit entry names both the actual `approver_oid`
 and the original `assignee_oid` (`delegation_mode` = `direct` / `delegated`
 / `role_scoped`). The gate is one pure function
-(`core/hil_resume/delegation.py`) shared by the coordinator and the read-API
+(`core/hil_resume/delegation.py`) shared by the coordinator and the Operator API
 callback so the rule never drifts. Refusals stay fail-closed: a blank /
 self-approving / capability-lacking approver never executes
 (`missing_capability` returns 403 and leaves the park resolvable by an
-authorized operator). The read-API callback derives
+authorized operator). The Operator API callback derives
 `approver_can_approve_hil` from the HMAC-signed `actor_roles` the push
 channel asserts; an omitted `actor_roles` trusts the channel (defaults to
 allowed) while no-self-approval and the HMAC gate still apply.
 
 This closes the loop between the `hil` verdict (§2) and an approved
 action actually running, without a blocking wait or an ungated
-auto-execution. The read-API HIL callback
+auto-execution. The Operator API HIL callback
 (`POST /hil/{approval_id}/decision`) drives the resolve trigger: an
 inbound decision hits the coordinator first (park path - `APPROVE`
 re-dispatches to the executor), and falls through to the registry for
@@ -587,7 +587,7 @@ console-pull approvals raised via `approve_hil`. The coordinator is
 transport-neutral. `__main__` wires it into the control loop when a
 ChatOps channel is configured (`FDAI_CHATOPS_WEBHOOK_URL`), so a `hil`
 verdict parks the action and pushes an A1 card; absent, the loop records
-the verdict and falls back to the persisted queue. The read-API server
+the verdict and falls back to the persisted queue. The Operator API server
 supplies the same coordinator to the callback route so an inbound
 decision resolves the park.
 

@@ -105,7 +105,7 @@ and `superseded`. Compare-and-set revision checks reject stale commands.
 
 ### Commands, events, and actions
 
-The read API may create a case but can't apply its effects. Machine collaboration uses validated
+The Operator API may create a case but can't apply its effects. Machine collaboration uses validated
 events and existing control-loop ingress.
 
 | Contract | Purpose |
@@ -159,10 +159,10 @@ no transition can mark it active without both ownership and IAM receipts.
 
 ### Package 3 - Observation-only API and Assignments tab
 
-**Status:** Implemented. The read API and browser receive no human-access provisioner or Graph
+**Status:** Implemented. The Operator API and browser receive no human-access provisioner or Graph
 write capability. Missing directory, role, and handover evidence remains explicitly unavailable.
 
-**Changes:** Add `delivery/read_api/routes/human_assignments.py` and register it beside `iam.py`.
+**Changes:** Add `delivery/operator_api/routes/human_assignments.py` and register it beside `iam.py`.
 Extend app config with the case service and ownership projection, not a provisioner. Add
 `settings-iam-assignments.tsx`, model and command types, the fifth IAM tab, English/Korean catalog
 keys, skeleton loading, filters, editor, validation summary, and evidence drawer.
@@ -200,7 +200,7 @@ exceptions use the same ownership-aware recovery path.
 
 **Changes:** Add CSP-neutral `shared/providers/human_access.py` with plan, apply, verify, and
 rollback receipts. Add `delivery/identity/entra_access.py`, a runtime binder, ActionTypes, and an
-executor adapter. The read API never imports or receives this provider.
+executor adapter. The Operator API never imports or receives this provider.
 
 For user membership, Microsoft Graph documents `GroupMember.ReadWrite.All` as the least privileged
 application permission for `POST /groups/{group-id}/members/$ref`. Use a dedicated managed identity,
@@ -240,7 +240,7 @@ mode never changes the action hash, accepts two decisions, or turns exhaustion i
 
 ### Package 7 - Proactive knowledge transfer goals
 
-**Status:** Core lifecycle and read API commands are implemented. Active assignments gate goal
+**Status:** Core lifecycle and Operator API commands are implemented. Active assignments gate goal
 creation and mutation, session and weekly invitation claims survive restart, and raw answers are rejected in
 favor of admitted evidence references. Agent-side goal production and localized Bragi rendering
 remain rollout work.
@@ -305,7 +305,7 @@ coverage and a current handover review date.
 |-------|------------------------------|
 | Stewardship v2 | `uv run pytest -q --no-cov tests/core/stewardship` plus `bash scripts/governance/check-stewardship.sh` |
 | Assignment core | `uv run pytest -q --no-cov tests/core/human_assignment` |
-| IAM API | `uv run pytest -q --no-cov tests/delivery/read_api/test_iam.py tests/delivery/read_api/test_human_assignments.py` |
+| IAM API | `uv run pytest -q --no-cov tests/delivery/operator_api/test_iam.py tests/delivery/operator_api/test_human_assignments.py` |
 | Console | `npm --prefix console test -- --run src/routes/settings-iam.test.ts src/routes/settings-iam-assignments.test.tsx` |
 | Ownership governance | `uv run pytest -q --no-cov tests/delivery/stewardship tests/delivery/ingestion_gateway/test_handover.py` |
 | HIL supervisor | `uv run pytest -q --no-cov tests/core/hil_resume` |
@@ -336,7 +336,7 @@ escalation kill switches are independent.
 - [ ] Owner search returns the exact live Entra subject and existing FDAI role and duties.
 - [ ] Stewardship v2 enforces one primary and one distinct backup or escalation target.
 - [ ] One immutable case correlates independent review, ownership PR, IAM receipt, and audit.
-- [ ] The read API and browser never receive membership-write credentials.
+- [ ] The Operator API and browser never receive membership-write credentials.
 - [ ] Thor applies only allowlisted group changes after ownership merge and independent approval.
 - [ ] Unanswered approvals advance by durable deadlines and exhaust to audited no-op.
 - [ ] Login-triggered handover respects fatigue limits and never blocks access.

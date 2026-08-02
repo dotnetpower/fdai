@@ -45,7 +45,7 @@ python_paths=(
   src/fdai/shared/providers/local/document_ingestion.py
   src/fdai/shared/telemetry
   src/fdai/delivery/mcp
-  src/fdai/delivery/read_api/routes/scheduler_runs.py
+  src/fdai/delivery/operator_api/routes/scheduler_runs.py
   src/fdai/delivery/rpc
   src/fdai/delivery/webhook
   src/fdai/delivery/persistence/postgres_schedule_run_ledger.py
@@ -92,10 +92,10 @@ test_paths=(
   tests/core/document_ingestion/test_document_ingestion.py
   tests/shared/test_transition_telemetry.py
   tests/delivery/mcp
-  tests/delivery/read_api/test_scheduler_runs_panel.py
+  tests/delivery/operator_api/test_scheduler_runs_panel.py
   tests/delivery/rpc
   tests/delivery/webhook
-  tests/delivery/read_api/test_webhook_route.py
+  tests/delivery/operator_api/test_webhook_route.py
   tests/delivery/azure/llm/test_latency_routed_cross_check.py
   tests/persistence/test_postgres_schedule_run_ledger.py
   tests/persistence/test_postgres_scheduler_store.py
@@ -107,8 +107,8 @@ test_paths=(
   tests/persistence/test_postgres_operator_memory.py
   tests/persistence/test_postgres_trusted_artifact.py
   tests/persistence/test_postgres_rpc_idempotency.py
-  tests/delivery/read_api/test_operator_memory_panel.py
-  tests/delivery/read_api/test_model_settings.py
+  tests/delivery/operator_api/test_operator_memory_panel.py
+  tests/delivery/operator_api/test_model_settings.py
   tests/rule_catalog/schema/test_llm_registry.py
   tests/rule_catalog/schema/test_llm_resolver.py
   tests/rule_catalog/schema/test_model_endpoint.py

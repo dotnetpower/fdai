@@ -2,7 +2,7 @@
 
 Design contract: ``docs/roadmap/app-shape.instructions.md`` (event-driven,
 scale-to-zero; no always-on polling) and the Azure SRE Agent parity note in
-``docs/internals/sre-agent-gap-analysis.md`` (P2-7). The console read API is
+``docs/internals/sre-agent-gap-analysis.md`` (P2-7). The console Operator API is
 read-only; ingestion is otherwise Kafka-only. This adapter adds an inbound
 webhook path: it authenticates a raw HTTP request, normalizes the JSON body
 into an :class:`Event`, and publishes it onto the event-ingest topic, so the

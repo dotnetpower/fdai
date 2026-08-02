@@ -54,11 +54,11 @@ bounded terminal turn-timing contract through the real Starlette route and evide
 
 The complementary `npm --prefix console run test:e2e:live` suite starts the authoritative local
 PostgreSQL and Azure CLI profile without route interception. It visits every registered Console
-panel, waits for the panel boundary to settle, rejects browser exceptions and read API `4xx`/`5xx`
+panel, waits for the panel boundary to settle, rejects browser exceptions and Operator API `4xx`/`5xx`
 responses, and verifies that the tested route inventory remains synchronized with the production
 registry. It also submits a deterministic current-time turn and an allowlisted Microsoft Learn web
 search through the live Command Deck, then requires verified or grounded terminal evidence. Set
-`FDAI_E2E_BASE_URL` and `FDAI_E2E_READ_API_URL` to reuse an already authenticated stack instead of
+`FDAI_E2E_BASE_URL` and `FDAI_E2E_OPERATOR_API_URL` to reuse an already authenticated stack instead of
 starting the CLI-principal profile.
 
 ### Backed by dev-up.sh (still local)
@@ -77,10 +77,10 @@ site is static and separate from the authenticated Console full stack.
 |---------|-----------------|-----------------------|
 | Design mocks | `http://127.0.0.1:5373` | `Design Mocks: Static Site` launch, `design mocks: serve (5373)` task, or Live Server |
 | Console SPA | `http://127.0.0.1:5273` | `Console Web: Full Stack` (recommended) or `Console Web: Frontend` (SPA only) |
-| Read API | `http://127.0.0.1:8010` | `Console Web: Read API` |
+| Operator API | `http://127.0.0.1:8010` | `Console Web: Operator API` |
 | Test ingestion gateway | `http://127.0.0.1:8011` | `Console Web: Ingestion Gateway` |
 
-The `Console Web: Full Stack` compound starts the core runtime, Console SPA, and read API. It does
+The `Console Web: Full Stack` compound starts the core runtime, Console SPA, and Operator API. It does
 not start the static design mocks or the isolated test ingestion gateway.
 Opening the trusted workspace automatically runs `console: prepare local state` once, which starts
 the local PostgreSQL and Redpanda containers and applies pending migrations. The committed workspace
@@ -89,7 +89,7 @@ so no separate task selection is required.
 The compound completes `console: prepare full stack` once before starting any child configuration,
 so PostgreSQL migration, runtime environment generation, and Entra synchronization are not repeated
 by both backend launches. Run that preparation task first when starting the standalone Core Runtime
-or Read API debug configuration.
+or Operator API debug configuration.
 The preparation sequence safely retries both fixed loopback origins into the configured Entra SPA
 registration. The helper preserves redirects, permits loopback HTTP only, and stops when the active
 tenant or registration permission is wrong. Local Event Hubs token refreshes stay pinned to prepared
@@ -98,27 +98,27 @@ When a resolved-model artifact is present, the same preparation step validates i
 endpoint as an HTTPS origin and writes `FDAI_LLM_ENDPOINT` with `LLM_RESOLVED_MODELS_PATH` into the
 private local runtime environment. A missing or malformed narrator endpoint stops preparation
 before Terraform or Azure provider access instead of allowing the core runtime to fail after launch.
-While the read API completes its startup probes, the browser keeps the initial panel skeleton and
+While the Operator API completes its startup probes, the browser keeps the initial panel skeleton and
 retries only fetch-level network failures from `GET /iam/self` on a bounded schedule of about 28
 seconds. An HTTP response, authentication failure, malformed payload, or exhausted schedule stops
 immediately at the existing access-recovery surface instead of being hidden by another retry.
 After IAM bootstrap succeeds, Dashboard treats `GET /kpi` as its required backbone and leaves the
 route skeleton as soon as that response resolves. Optional FinOps, promotion-gate, and autonomy
 projections join independently and never keep the complete Dashboard in a loading state.
-Every browser Read API request also has a configurable 30-second default timeout. A stalled fetch
+Every browser Operator API request also has a configurable 30-second default timeout. A stalled fetch
 is aborted and enters the existing route error surface instead of leaving a permanent skeleton.
 Each long-running Console task permits one VS Code instance. The core task and debug launch also
 share `.fdai/core-runtime.lock`; a second process fails before joining Kafka consumer groups. This
 prevents task/debug overlap from creating duplicate Pantheon consumers and continuous rebalancing.
-The core runtime, read API, and frontend tasks use separate dedicated terminal groups and clear only
-their own previous output when restarted. Read API startup stays silent and never takes editor focus.
+The core runtime, Operator API, and frontend tasks use separate dedicated terminal groups and clear only
+their own previous output when restarted. Operator API startup stays silent and never takes editor focus.
 VS Code marks each background task ready only after the
 Pantheon bridge starts, Uvicorn completes application startup, or Vite publishes its local address,
 respectively, so a spawned process isn't presented as a ready service.
 The standard local Azure profile uses the same lock by default when `FDAI_RUNTIME_LOCK_FILE` is
 unset, so a direct `python -m fdai` launch cannot bypass the singleton guard. Production runtimes
 continue to use a process lock only when the deployment configures one explicitly.
-The core runtime remains the only Pantheon owner. With `FDAI_READ_API_EMBED_PANTHEON=0`, the read
+The core runtime remains the only Pantheon owner. With `FDAI_OPERATOR_API_EMBED_PANTHEON=0`, the read
 API reaches Bragi's conversational port through bounded request and response logical topics on the
 existing `aw.pantheon.objects` transport. A startup probe confirms the response consumer before
 traffic is accepted. The client reuses a joining consumer across retries and allows a 20-second
@@ -128,15 +128,15 @@ begins at the current physical-topic offset instead of replaying unrelated Panth
 previous process. Requests carry salted SHA-256 user and session references rather than raw identities;
 timeouts or invalid responses become an explicit agent-to-Bragi handoff instead of a fabricated
 specialist answer.
-The long-running core and read API tasks preserve their terminal output in
-`.fdai/logs/core-runtime.log` and `.fdai/logs/read-api.log`. Every captured child-output line begins
+The long-running core and Operator API tasks preserve their terminal output in
+`.fdai/logs/core-runtime.log` and `.fdai/logs/operator-api.log`. Every captured child-output line begins
 with a Python logging-style timestamp containing milliseconds and the local timezone abbreviation,
 for example `2026-07-28 15:25:53,717 KST`. Each log also records service start and stop timestamps
 plus the child exit code and uses private local permissions. Logs rotate at 1 MiB with up to three
 previous generations retained. These gitignored diagnostics survive a task terminal closing; they
 don't replace the structured `warnings.jsonl` warning and error record. The core terminal keeps its
 machine-readable JSON stream, while the core file renders those records as `LEVEL: logger: message`
-lines to match the read API log. The local read API uses the same structured logger and honors
+lines to match the Operator API log. The local Operator API uses the same structured logger and honors
 `FDAI_LOG_LEVEL` with an `INFO` default. Its Uvicorn access log is disabled, and `aiokafka`, `httpx`,
 and `weasyprint` records below `WARNING` are suppressed while FDAI lifecycle and decision records
 remain at `INFO`. The Event Hubs adapter also suppresses aiokafka's context-free per-socket
@@ -146,13 +146,13 @@ warnings and errors remain visible. Short-lived readiness consumers cancel and d
 before closing their group coordinator and socket, so an intentional probe shutdown isn't reported
 as a transport failure. Startup model latency probes use a bounded Azure Responses API
 output-token budget supported by every configured reasoning candidate. Core readiness samples use
-stable `startup-readiness:<probe-id>` correlation ids, and read API latency samples use stable
-`read-api:*:latency-probe` correlation ids, so measured probe usage isn't filed as uncorrelated
+stable `startup-readiness:<probe-id>` correlation ids, and Operator API latency samples use stable
+`operator-api:*:latency-probe` correlation ids, so measured probe usage isn't filed as uncorrelated
 traffic.
 In both local and deployed consoles, an agent-card Ask action allocates a fresh user-scoped
 conversation key while persisting the selected agent in the conversation summary before submit.
 The browser never uses a stable per-agent key to resume an earlier transcript implicitly.
-Core, read API, debugger, and local migration commands explicitly place the current workspace
+Core, Operator API, debugger, and local migration commands explicitly place the current workspace
 `src` directory first on the Python import path. A virtual environment whose editable-install
 metadata was changed by another worktree therefore cannot launch stale FDAI source.
 
@@ -187,10 +187,10 @@ receive no prompt or network change.
 
 ### Console data in local development
 
-The canonical local read API uses `FDAI_READ_API_LOCAL_ENTRA=1` and shares route-owned runtime helpers with deployment. The browser obtains the API token
+The canonical local Operator API uses `FDAI_OPERATOR_API_LOCAL_ENTRA=1` and shares route-owned runtime helpers with deployment. The browser obtains the API token
 and the API verifies its JWT and App Roles exactly as deployment does. The server's Azure CLI token
 is confined to Azure adapters such as Resource Graph, Microsoft Graph, model discovery, and Event
-Hubs. `FDAI_READ_API_LOCAL_AZURE_CLI=1` with `VITE_LOCAL_AZURE_CLI_AUTH=1` is an explicit
+Hubs. `FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1` with `VITE_LOCAL_AZURE_CLI_AUTH=1` is an explicit
 CLI-principal debug alternative with a fixed role ceiling.
 
 Local Kubernetes workload evidence is opt-in and server-owned. Set
@@ -228,7 +228,7 @@ durable override, and effective value projection. Owners can update only the all
 optimistic revision and atomic audit checks. IRP changes apply to the next eligible alert; analyzer,
 inventory, and retention cadence changes apply to the next Job or tick. Logging level and case
 retention/deletion day changes are labeled restart required and are loaded when the headless runtime
-starts. No setting grants the local read API an executor identity or changes ActionType and Workflow
+starts. No setting grants the local Operator API an executor identity or changes ActionType and Workflow
 promotion state.
 
 Incident auto-open enablement, minimum severity, repeat threshold, and repeat window are also
@@ -241,7 +241,7 @@ PostgreSQL. Interactive local registers `/detection-readiness` only when local P
 configured; otherwise the route and source manifest report unavailable. The local browser never
 substitutes Azure CLI inventory or recomputes Heimdall's decision.
 
-The standard full-stack launch also leaves narrator endpoint reconciliation enabled. The read API
+The standard full-stack launch also leaves narrator endpoint reconciliation enabled. The Operator API
 always tries the configured Azure OpenAI narrator instead of forcing the Command Deck into its
 deterministic fallback. At startup, the local-only hook can add the current public IP to the
 account's restricted firewall when the active Azure CLI principal has permission. Automated tests
@@ -258,7 +258,7 @@ Without the artifact, model and assurance inference remain unavailable and no fi
 
 When `FDAI_MONITOR_WORKSPACE_ID` is configured, explicit Command Deck `query_log` commands use
 the same bounded Azure Monitor Logs provider in both profiles. Interactive local obtains its data
-plane token from the current Azure CLI context; deployment uses the dedicated read-API managed
+plane token from the current Azure CLI context; deployment uses the dedicated Operator API managed
 identity selected by `FDAI_MI_CLIENT_ID`. The workspace is server-configured and cannot be changed
 by the browser. If the workspace, identity, permission, or telemetry is unavailable, the query
 holds as unavailable without a fixture or model fallback.
@@ -271,7 +271,7 @@ the wrapper, while a configured gateway failure reports unavailable without a di
 The gateway uses separate reader and executor managed identities and does not give the local read
 API an execution identity. Upstream Terraform enables the development-only mutation operations for
 the configured executor principal and passes the gateway URL and audience only to the headless core
-Container App. That runtime binds `AzureGatewayDirectApiExecutor`; the read API keeps its read-only
+Container App. That runtime binds `AzureGatewayDirectApiExecutor`; the Operator API keeps its read-only
 gateway transport and never receives enforce capability. The executor must first request a server-issued dry-run receipt
 for the exact registered operation, arguments, and idempotency, audit, stop-condition, rollback,
 and impact evidence. The gateway confirms the target through a bounded reader-identity ARM GET,
@@ -320,8 +320,8 @@ the active Azure CLI subscription and stops before resource lookup or file creat
 It also derives a non-identifying consumer instance hash from the local user and host so concurrent
 developers never join the same Event Hubs Kafka consumer group. Automation can set
 `FDAI_LOCAL_CONSUMER_INSTANCE` to a lowercase alphanumeric-and-hyphen identifier of at most 20
-characters when it needs a stable explicit name. Generated core, Pantheon, and read API groups use
-that instance, while deployed read API replicas use their runtime hostname. Each console stream
+characters when it needs a stable explicit name. Generated core, Pantheon, and Operator API groups use
+that instance, while deployed Operator API replicas use their runtime hostname. Each console stream
 therefore receives every frame instead of sharing partitions with another developer or replica.
 
 Workflow definitions use the same enforce allowlist as deployment, while each ActionType remains
@@ -333,18 +333,18 @@ fakes, synthetic scheduler/cost data, scope templates, and blast-radius fixtures
 When FDAI's Azure PostgreSQL, Event Hubs, runtime, or executor resources are absent, the associated
 surfaces are unavailable or empty with no runtime claim. Repository catalogs and schemas remain
 visible because they are configuration-as-code, not observed runtime evidence.
-Local and deployed read API factories load the same validated Best Practice definitions for the
+Local and deployed Operator API factories load the same validated Best Practice definitions for the
 Rules `Controls` reference view. This parity does not create a runtime claim: without an
 authoritative evidence provider, both factories expose every control and requirement as `Unknown`
 with source `not_connected`.
 
 The local API exposes `GET /system/data-sources`. In the standard full stack, the production
-PostgreSQL read-model adapter points to local pgvector. Before accepting traffic, the local read API
+PostgreSQL read-model adapter points to local pgvector. Before accepting traffic, the local Operator API
 runs a bounded `SELECT 1` through that adapter. A failed probe stops startup instead of exposing a
 partially connected console. After the probe succeeds, PostgreSQL-backed entries report
 `available` and `reachable=true`; configured remote and Azure request-time sources remain `unknown`
 until their own evidence contract verifies them.
-`FDAI_DATABASE_URL` and `FDAI_AUTHORITATIVE_READ_API_BASE_URL` select mutually exclusive source
+`FDAI_DATABASE_URL` and `FDAI_AUTHORITATIVE_OPERATOR_API_BASE_URL` select mutually exclusive source
 profiles. Configuring both stops startup before either provider is constructed so the manifest can
 never describe local PostgreSQL while allowlisted requests are served by the remote API.
 Remote forwarding matches only decoded canonical allowlisted paths; normalized, encoded,
@@ -364,7 +364,7 @@ agent always shows its live state, current work, runtime binding, state timestam
 provenance, and incident context. If no audit row is attributed in the current window, the timeline
 states that explicitly instead of replacing the live summary or inferring an audit event.
 The headless Pantheon publishes health-derived `agent.runtime-state` frames on the same
-`aw.pipeline.stages` transport that carries control-loop progress. The read API distinguishes
+`aw.pipeline.stages` transport that carries control-loop progress. The Operator API distinguishes
 runtime-state frames from stage frames and forwards only agents whose consumers are live and whose
 health probe isn't in error. Interactive local and deployment use this same cross-process path; the
 local profile changes the PostgreSQL binding, not agent activation or stream semantics.
@@ -378,7 +378,7 @@ Completed conversation review follows the same split. Interactive local transpor
 bounded Bragi `object.turn` envelope, but it does not fabricate a reviewer or durable proposal
 store. The deployed headless runtime records deterministic ineligible/unsupported reasons and uses
 the Azure reviewer only when two distinct model families resolve. PostgreSQL holds restart-safe
-review and draft state; the production read API projects those rows without sharing process memory
+review and draft state; the production Operator API projects those rows without sharing process memory
 or adding an approval endpoint.
 
 Approval decision delivery also keeps one shape across restarts. Production records the signed A1
@@ -408,7 +408,7 @@ domain routing. Embedding is a conversational fallback only and never enters typ
 | Key Vault secret provider (`SecretProvider`) | deployment injects Key Vault references | interactive adapters use environment references; fixture values remain test-only |
 | GitOps PR publisher | Real GitHub adapter exists | interactive execution uses the configured adapter; recording publishers are test-only |
 The local inventory cache promotes only scans that reach the final fence and writes them by atomic
-replace. A fresh cache returns immediately across read API restarts. An expired or Huginn-invalidated
+replace. A fresh cache returns immediately across Operator API restarts. An expired or Huginn-invalidated
 cache returns immediately as `stale` with `cache.status=refreshing`, then a background Azure CLI scan
 atomically replaces it. When a provisioned `aw.inventory.raw` topic is configured through
 `FDAI_INVENTORY_RAW_TOPIC`, accepted write/delete events invalidate the local cache after durable

@@ -94,7 +94,7 @@ output "dev_operations_gateway_url" {
 
 output "dev_operations_gateway_audience" {
   description = "Microsoft Entra audience for the development operations gateway. Empty when disabled."
-  value       = length(azurerm_function_app_flex_consumption.dev_gateway) > 0 ? var.read_api_audience : ""
+  value       = length(azurerm_function_app_flex_consumption.dev_gateway) > 0 ? var.operator_api_audience : ""
 }
 
 output "dev_operations_gateway_app_name" {
@@ -221,19 +221,19 @@ output "console_static_web_app_id" {
   value       = length(module.console) > 0 ? module.console[0].static_web_app_id : ""
 }
 
-output "read_api_fqdn" {
-  description = "Console read-API Container App ingress FQDN (empty string when enable_read_api = false). Wire into the console build as VITE_READ_API_BASE_URL=https://<fqdn>."
-  value       = length(module.read_api) > 0 ? module.read_api[0].fqdn : ""
+output "operator_api_fqdn" {
+  description = "Console Operator API Container App ingress FQDN (empty string when enable_operator_api = false). Wire into the console build as VITE_OPERATOR_API_BASE_URL=https://<fqdn>."
+  value       = length(module.operator_api) > 0 ? module.operator_api[0].fqdn : ""
 }
 
-output "read_api_name" {
-  description = "Console read-API Container App resource name."
-  value       = length(module.read_api) > 0 ? module.read_api[0].name : ""
+output "operator_api_name" {
+  description = "Console Operator API Container App resource name."
+  value       = length(module.operator_api) > 0 ? module.operator_api[0].name : ""
 }
 
-output "read_api_migrate_job_name" {
-  description = "Schema-migration Container Apps Job name (empty string when enable_read_api = false). Start it after apply to run `alembic upgrade head`."
-  value       = length(module.read_api) > 0 ? module.read_api[0].migrate_job_name : ""
+output "operator_api_migrate_job_name" {
+  description = "Schema-migration Container Apps Job name (empty string when enable_operator_api = false). Start it after apply to run `alembic upgrade head`."
+  value       = length(module.operator_api) > 0 ? module.operator_api[0].migrate_job_name : ""
 }
 
 output "document_storage_account_name" {

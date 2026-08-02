@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 DECK = ROOT / "console" / "src" / "deck"
-ROUTES = ROOT / "src" / "fdai" / "delivery" / "read_api" / "routes"
+ROUTES = ROOT / "src" / "fdai" / "delivery" / "operator_api" / "routes"
 
 LEGACY_REGEX_FILES = frozenset(
     {

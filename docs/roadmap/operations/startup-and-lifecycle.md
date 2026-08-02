@@ -231,7 +231,7 @@ Concrete event types and filter expressions are **TBD** and captured in
 Before T2 can run, the capability→deployment mapping must be resolved. The resolver CLI and schema
 are implemented, but `deploy-dev.yml` does not currently run the resolver before `terraform apply`.
 CI materializes the `RESOLVED_MODELS_JSON` repository variable as `resolved-models.json`, and the
-runtime and read API load a configured filesystem path:
+runtime and Operator API load a configured filesystem path:
 
 1. **Resolver runs from `rule-catalog/llm-registry.yaml`** - reads preferences per
    capability, queries the Azure OpenAI / Foundry catalog for the target region, and

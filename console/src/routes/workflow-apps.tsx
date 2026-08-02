@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import { AsyncBoundary, EmptyState, PageHeader, StatusPill, type AsyncState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
@@ -8,7 +8,7 @@ import { currentRoute } from "../router";
 import { decodeProcessList, processHref, processTone, type ProcessListResponse } from "./processes.model";
 import { decodeWorkflowApps, workflowAppHref, type WorkflowAppEntry, type WorkflowAppsResponse } from "./workflow-apps.model";
 
-interface Props { readonly client: ReadApiClient }
+interface Props { readonly client: OperatorApiClient }
 
 export function WorkflowAppsRoute({ client }: Props) {
   const [state, setState] = useState<AsyncState<WorkflowAppsResponse>>({ status: "loading" });
@@ -53,7 +53,7 @@ export function WorkflowAppsRoute({ client }: Props) {
 }
 
 function WorkflowAppsWorkspace({ client, data, selectedId }: {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly data: WorkflowAppsResponse;
   readonly selectedId: string | null;
 }) {
@@ -113,7 +113,7 @@ function WorkflowAppsWorkspace({ client, data, selectedId }: {
   );
 }
 
-function WorkflowAppRuns({ client, app }: { readonly client: ReadApiClient; readonly app: WorkflowAppEntry }) {
+function WorkflowAppRuns({ client, app }: { readonly client: OperatorApiClient; readonly app: WorkflowAppEntry }) {
   const [state, setState] = useState<AsyncState<ProcessListResponse>>({ status: "loading" });
   useEffect(() => {
     let cancelled = false;

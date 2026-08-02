@@ -126,7 +126,7 @@ rule-catalog/
 ### Runtime data (Postgres, hash-addressed blobs)
 
   This is the target persistence model. `operator_memory` is shipped; dedicated
-  `agent_transcript` and `web_evidence` tables remain planned. The read API currently
+  `agent_transcript` and `web_evidence` tables remain planned. The Operator API currently
   attaches sanitized web evidence to the durable conversation turn.
 
 ```sql
@@ -258,7 +258,7 @@ grounding source.
 
 - **Default off**: upstream ships a no-op `WebSearchProvider`. Set
   `FDAI_WEB_SEARCH_ENABLED=true` and provide a curated domain allowlist to
-  activate the Azure Responses adapter. Production reuses the read API's
+  activate the Azure Responses adapter. Production reuses the Operator API's
   managed identity; no search API key is added to the conversation surface.
 - **When it may run**: T2 case, novelty score above threshold, capability's
   tool allowlist includes `web.search`, and the per-event query / cost budget
@@ -442,7 +442,7 @@ promotion gates to hold.
 | 4.5 delta-2a | `DebateRouter` pure policy module in `core/quality_gate/debate_router.py`: `DebateRoutingDecision` + `DebateRouterConfig` (`enabled` killswitch, `on_cross_check_disagreement` axis, `always_for_action_types` / `never_for_action_types` allow/deny lists) + `decide_debate_route()` fail-closed predicate. Orchestrator unavailability short-circuits to SKIP; killswitch dominates the allowlist; denylist wins over allowlist | yes |
 | 4.5 delta-2b | `QualityGate` accepts optional `debate_orchestrator` + `debate_router_config`. On cross-check disagreement, calls `decide_debate_route()`; if `DEBATE`, runs the orchestrator with a no-directive `retry_proposer` that re-invokes the primary cross-check model. `DebateOutcome.PROCEED` flips the disagreement to `ELIGIBLE` (provided no other soft issues remain); `ABORT` keeps `DISAGREE`. Half-wiring (only one of the two params) raises at construction | yes |
 | 5 alpha | Web search seam in `core/web_search/`: `WebSearchQuery` / `WebSnippet` / `WebSearchResult` types, `WebSearchProvider` async Protocol, `NoOpWebSearchProvider` deny-by-default fake (returns zero snippets on every query with `reasons=("no_op_provider",)`), and sanitizer helpers (`validate_snippet_domain`, `detect_snippet_injection_markers`, `wrap_web_snippet`) that produce a `<web_snippet trusted="false" ...>...</web_snippet>` envelope after refusing off-allowlist domains and injection markers | yes |
-| 5 beta-A | Azure Responses provider + latency-routed model pool + read API chat opt-in wiring | yes |
+| 5 beta-A | Azure Responses provider + latency-routed model pool + Operator API chat opt-in wiring | yes |
 | 5 beta-B | Core T2 composition wire that threads sanitized snippets into the tool manifest per policy | planned |
 
 ## Wave 1 - what shipped
@@ -1475,7 +1475,7 @@ shape when no debate params are passed, so every existing
 
 Wave 5 alpha lands the upstream **seam** for web search: types,
 Protocol, deny-by-default fake, and sanitizer defenses. The reviewed Azure
-Responses adapter and read API chat wiring landed afterward; core T2 prompt
+Responses adapter and Operator API chat wiring landed afterward; core T2 prompt
 composition still stops at this seam.
 
 - `src/fdai/core/web_search/types.py` -

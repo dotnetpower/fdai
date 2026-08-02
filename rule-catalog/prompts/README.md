@@ -35,6 +35,6 @@ for the full design.
 Azure OpenAI adapters; `core/` never opens these files directly.
 
 The operator-console narrator is not loaded from this catalog. Pull-direction
-channels call the shared read API, whose chat coordinator owns its grounded
+channels call the shared Operator API, whose chat coordinator owns its grounded
 prompt and verification flow. Keep channel-specific presentation instructions
 out of this T2 prompt registry.

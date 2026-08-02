@@ -1,4 +1,4 @@
-import { ReadApiError } from "../api";
+import { OperatorApiError } from "../api";
 import { routeHref } from "../router";
 import {
   panelArray,
@@ -70,7 +70,7 @@ export interface McsbFilters {
 
 function decodeCoverage(value: string, label: string): McsbCoverage {
   if (!MCSB_COVERAGES.includes(value as McsbCoverage)) {
-    throw new ReadApiError(502, `invalid read API response: ${label} has unknown coverage ${value}`);
+    throw new OperatorApiError(502, `invalid Operator API response: ${label} has unknown coverage ${value}`);
   }
   return value as McsbCoverage;
 }
@@ -80,7 +80,7 @@ function decodeCountMap(value: unknown, label: string): Readonly<Record<string, 
   return Object.fromEntries(
     Object.entries(raw).map(([key, count]) => {
       if (typeof count !== "number" || !Number.isInteger(count) || count < 0) {
-        throw new ReadApiError(502, `invalid read API response: ${label}.${key} MUST be a count`);
+        throw new OperatorApiError(502, `invalid Operator API response: ${label}.${key} MUST be a count`);
       }
       return [key, count];
     }),
@@ -89,7 +89,7 @@ function decodeCountMap(value: unknown, label: string): Readonly<Record<string, 
 
 function decodeVersion(value: string, label: string): McsbVersion {
   if (value !== "v1" && value !== "v2-preview") {
-    throw new ReadApiError(502, `invalid read API response: ${label} has unknown version ${value}`);
+    throw new OperatorApiError(502, `invalid Operator API response: ${label} has unknown version ${value}`);
   }
   return value;
 }
@@ -140,11 +140,11 @@ export function decodeMcsbControlResponse(value: unknown): McsbControlResponse {
   const limit = panelNonNegativeInteger(root, "limit", "MCSB controls");
   const controls = panelArray(root["controls"], "MCSB controls.items").map(decodeControl);
   if (filteredTotal > total || controls.length > filteredTotal || controls.length > limit) {
-    throw new ReadApiError(502, "invalid read API response: MCSB control totals do not reconcile");
+    throw new OperatorApiError(502, "invalid Operator API response: MCSB control totals do not reconcile");
   }
   const ids = controls.map((control) => control.control_id);
   if (new Set(ids).size !== ids.length) {
-    throw new ReadApiError(502, "invalid read API response: MCSB control ids MUST be unique");
+    throw new OperatorApiError(502, "invalid Operator API response: MCSB control ids MUST be unique");
   }
   const facets = panelRecord(root["facets"], "MCSB controls.facets");
   return {

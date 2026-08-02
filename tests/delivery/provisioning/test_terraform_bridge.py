@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import json
 
+from fdai.delivery.operator_api.streaming.provision_stream import ProvisionPhase
 from fdai.delivery.provisioning.terraform_bridge import (
     TerraformProvisionBridge,
     console_url_from_outputs,
     parse_json_line,
 )
-from fdai.delivery.read_api.streaming.provision_stream import ProvisionPhase
 
 
 def _line(record: dict[str, object]) -> str:

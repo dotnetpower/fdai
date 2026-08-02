@@ -56,10 +56,10 @@ const SOURCE_INDEPENDENT_PANELS = new Set([
   "labs",
 ]);
 
-export type PanelSourceClassification = "read-api" | "separate-client" | "independent";
+export type PanelSourceClassification = "operator-api" | "separate-client" | "independent";
 
 export function panelSourceClassification(panelId: string): PanelSourceClassification | null {
-  if (PANEL_SOURCE_ROUTES[panelId] !== undefined) return "read-api";
+  if (PANEL_SOURCE_ROUTES[panelId] !== undefined) return "operator-api";
   if (SEPARATE_CLIENT_PANELS.has(panelId)) return "separate-client";
   if (SOURCE_INDEPENDENT_PANELS.has(panelId)) return "independent";
   return null;

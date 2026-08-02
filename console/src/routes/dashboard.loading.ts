@@ -1,5 +1,5 @@
-import type { ReadApiClient } from "../api";
-import { ReadApiError } from "../api";
+import type { OperatorApiClient } from "../api";
+import { OperatorApiError } from "../api";
 import { withStartupTransportRetry } from "../bootstrap-retry";
 import type {
   AutonomyPayload,
@@ -16,7 +16,7 @@ export interface DashboardOverviewData {
 }
 
 type DashboardOverviewClient = Pick<
-  ReadApiClient,
+  OperatorApiClient,
   "dashboardMetrics" | "finops" | "panel" | "autonomy"
 >;
 
@@ -45,7 +45,7 @@ async function optionalOverview<T>(
   try {
     return await load();
   } catch (error) {
-    if (error instanceof ReadApiError && unavailableStatuses.includes(error.status)) return null;
+    if (error instanceof OperatorApiError && unavailableStatuses.includes(error.status)) return null;
     throw error;
   }
 }

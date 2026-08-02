@@ -20,7 +20,7 @@ export default defineConfig({
   webServer: {
     command:
       `VITE_DEV_MODE=1 VITE_LOCAL_LOGIN_PROMPT=0 ` +
-      `VITE_READ_API_BASE_URL=${baseURL}/api npm run dev -- ` +
+      `VITE_OPERATOR_API_BASE_URL=${baseURL}/api npm run dev -- ` +
       `--host 127.0.0.1 --port ${port} --strictPort`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,

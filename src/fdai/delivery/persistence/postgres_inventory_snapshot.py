@@ -295,7 +295,7 @@ def _canonical_json_mapping(value: object, field: str) -> str:
 
 
 class PostgresInventoryGraphProvider:
-    """Serve the active immutable inventory generation to the read API."""
+    """Serve the active immutable inventory generation to the Operator API."""
 
     def __init__(self, *, config: PostgresInventorySnapshotStoreConfig) -> None:
         self._config = config

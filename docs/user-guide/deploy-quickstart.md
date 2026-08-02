@@ -97,7 +97,7 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
 2. **Verify runtime health and identity.** Confirm the internal core probes are
    healthy, all 15 agents report through the health snapshot, and the first canary
    publisher Job finished. Then check the features you enabled:
-   - **Read API**: browser Entra App Roles work, and its read and command
+   - **Operator API**: browser Entra App Roles work, and its read and command
      credentials stay separate from Thor's executor managed identity.
    - **Email notifications**: an incident-open message arrives as multipart HTML and plain text.
      When the Console is enabled, its detail link uses the Static Web App origin and Settings >

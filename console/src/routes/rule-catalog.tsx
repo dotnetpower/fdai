@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { isOptionalReadApiUnavailable } from "../api";
-import type { ReadApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable } from "../api";
+import type { OperatorApiClient } from "../api";
 import { bestPracticeHref, rulesCatalogViewFromSearch } from "./best-practice-controls.model";
 import { ControlsCatalogRoute } from "./controls-catalog";
 import {
@@ -47,7 +47,7 @@ export {
  * server-side: the panel re-fetches a page on any filter / page change
  * and reads facet counts (computed over the full corpus) for the
  * dropdowns and KPIs. The endpoint is opt-in on the API side
- * (``ReadApiConfig.rule_catalog_rules`` / ``rule_catalog_collected_rules``).
+ * (``OperatorApiConfig.rule_catalog_rules`` / ``rule_catalog_collected_rules``).
  * Read-only like every console route - it renders the catalog, it never
  * mutates it (rule changes flow through the catalog pipeline as PRs).
  */
@@ -65,7 +65,7 @@ function selectionFromHash(): Selection | null {
 }
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
 }
 
 export function RuleCatalogRoute({ client }: Props) {
@@ -155,7 +155,7 @@ function AtomicRuleCatalogRoute({ client }: Props) {
       } catch (err) {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : String(err);
-          if (isOptionalReadApiUnavailable(err)) {
+          if (isOptionalOperatorApiUnavailable(err)) {
             setStatus("unavailable");
             setErrorMsg(t("governance.rules.routeUnavailable"));
           } else {

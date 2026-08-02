@@ -71,7 +71,7 @@ it does not rewrite the append-only audit row. Lifecycle state is authoritative
 when present. Otherwise the projection derives `open`, `in_progress`, or
 `resolved` from audit stages. A denied, abstained, or failed remediation does
 not by itself claim that the underlying incident is resolved.
-Local read-API audit fixtures carry explicit sample provenance and stay visible
+Local Operator API audit fixtures carry explicit sample provenance and stay visible
 in Audit, Trace, and Agent activity. They are excluded from the operational
 Incident roster, so a normal or within-threshold monitoring sample cannot look
 like an opened Incident.
@@ -183,7 +183,7 @@ committed delete as not found.
 Agent runtime state also requires observed evidence. Before an agent state frame or durable incident
 projection attributes work, Agents, Agent Activity, and Pantheon render it `unobserved`, not `idle`
 or ready. The fixed runtime-binding map doesn't prove consumer health. A headless Pantheon publishes
-health-derived `agent.runtime-state` heartbeats, and the read API marks only live, non-error agents
+health-derived `agent.runtime-state` heartbeats, and the Operator API marks only live, non-error agents
 `idle` or `watching`. Deployment schedule status stays unavailable until a scheduler supplies it.
 
 The Capabilities route is an inert catalog projection with `source=static-catalog` and
@@ -358,5 +358,5 @@ An RCA hypothesis answers "why", never "execute": execution eligibility stays
 with the risk gate + verifier. The route is Reader-gated, returns `405` for
 mutating verbs, and provides links into Audit and Trace but no execute /
 approve / rollback button. The projection is a pure function
-(`src/fdai/delivery/read_api/routes/rca_projection.py`) covered by
-`tests/delivery/read_api/test_rca.py`.
+(`src/fdai/delivery/operator_api/routes/rca_projection.py`) covered by
+`tests/delivery/operator_api/test_rca.py`.

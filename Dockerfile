@@ -85,7 +85,7 @@ COPY --chown=65532:65532 tests/scenarios/ /app/tests/scenarios/
 # App source colocated at /app/src (on PYTHONPATH) so path-relative catalog
 # resolution (``prod.py`` computes the catalog root from ``__file__``) finds
 # /app/rule-catalog + /app/policies in the container exactly as in a repo
-# checkout. Without this the read-API prod factory cannot load the ontology
+# checkout. Without this the Operator API prod factory cannot load the ontology
 # / views / reporting catalogs.
 COPY --chown=65532:65532 src/ /app/src/
 # Schema migrations (raw-SQL alembic revisions). alembic is a runtime

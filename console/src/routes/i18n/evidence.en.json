@@ -104,7 +104,7 @@
     "headlineIdle": "Trace not loaded for {correlation}",
     "headlineLoading": "Loading trace for {correlation}",
     "headlineError": "Trace unavailable for {correlation}",
-    "invalidEvidence": "Trace evidence is inconsistent. Open the correlated audit log and retry after the read API data is repaired.",
+    "invalidEvidence": "Trace evidence is inconsistent. Open the correlated audit log and retry after the Operator API data is repaired.",
     "loadError": "Trace could not be loaded: {message}",
     "column": {
       "recordedAt": "Recorded at",

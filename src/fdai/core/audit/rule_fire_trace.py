@@ -8,7 +8,7 @@ end-to-end trace of what happened for that event:
 
 Each stage lands as one :class:`RuleFireTraceStep` on the trace; the
 reader is Protocol-typed so a fork can plug in any backing store
-(shipped read-API model, Postgres direct, Log Analytics).
+(shipped Operator API model, Postgres direct, Log Analytics).
 
 Placement invariant
 -------------------
@@ -16,7 +16,7 @@ Placement invariant
 the minimal :class:`AuditItemLike` Protocol below rather than the
 delivery-side ``AuditItem`` dataclass. The reference delivery-side
 reader lives at
-:mod:`fdai.delivery.read_api.rule_fire_trace_reader` where the
+:mod:`fdai.delivery.operator_api.rule_fire_trace_reader` where the
 concrete dependency is legal.
 """
 

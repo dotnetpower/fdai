@@ -61,13 +61,13 @@ resolved_capabilities = [{
 }]
 clamav_image = "clamav/clamav@sha256:0000000000000000000000000000000000000000000000000000000000000000"
 
-read_api_audience                 = "00000000-0000-0000-0000-000000000000"
+operator_api_audience                 = "00000000-0000-0000-0000-000000000000"
 rbac_readers_group_id             = "00000000-0000-0000-0000-000000000000"
 rbac_contributors_group_id        = "00000000-0000-0000-0000-000000000000"
 rbac_approvers_group_id           = "00000000-0000-0000-0000-000000000000"
 rbac_owners_group_id              = "00000000-0000-0000-0000-000000000000"
 rbac_break_glass_group_id         = "00000000-0000-0000-0000-000000000000"
-read_api_iam_directory_provider   = "entra"
+operator_api_iam_directory_provider   = "entra"
 stewardship_maintainers           = "00000000-0000-0000-0000-000000000000,00000000-0000-0000-0000-000000000000"
 stewardship_agent_bindings = {
   Odin     = "user:00000000-0000-0000-0000-000000000000"

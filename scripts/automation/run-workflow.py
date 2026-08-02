@@ -24,7 +24,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--target", required=True, help="Target resource id or scope.")
     parser.add_argument(
         "--api-url",
-        default=os.environ.get("FDAI_READ_API_URL", DEFAULT_API_URL),
+        default=os.environ.get("FDAI_OPERATOR_API_URL", DEFAULT_API_URL),
         help="FDAI API base URL (default: %(default)s).",
     )
     parser.add_argument(

@@ -61,7 +61,7 @@ class PostureAssessmentReport:
     A grounded, deterministic snapshot: every entry cites the rule that
     produced it, and the aggregate verdict is derived from the findings,
     never invented. The delivery layer (console `ReadPanel` /
-    read-api HIL queue) renders this without a privileged call.
+    operator-api HIL queue) renders this without a privileged call.
     """
 
     scope: str

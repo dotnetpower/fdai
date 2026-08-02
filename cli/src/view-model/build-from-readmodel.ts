@@ -1,14 +1,14 @@
 /**
- * Compile a live read-API snapshot into the shared BLOCK IR.
+ * Compile a live Operator API snapshot into the shared BLOCK IR.
  *
  * The counterpart to `build-briefing.ts`: same output type (`Block[]`), so every
  * renderer (Ink / text / Slack / Teams) works unchanged - only the data source
- * differs. Everything here is derived from what the read API actually exposes
+ * differs. Everything here is derived from what the Operator API actually exposes
  * (KPI counts, the HIL queue, the audit tail); nothing is fabricated.
  */
 
 import type { Block, RiskLevel, Tone } from "./blocks.js";
-import type { ReadModelSnapshot } from "../data/read-api.js";
+import type { ReadModelSnapshot } from "../data/operator-api.js";
 import { t, type Locale } from "../i18n/index.js";
 
 // Tier labels are sourced from the i18n catalog (English is the source of

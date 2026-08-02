@@ -19,7 +19,7 @@ Design invariants
   MUST have short-circuited before the message was formed).
 - Every session MUST carry the caller's declared purposes so the
   projection ACL (:mod:`fdai.shared.ontology.acl`) applies the same
-  redaction the read-API panels apply.
+  redaction the Operator API panels apply.
 - Sessions are immutable snapshots: adding a turn produces a new
   :class:`ChatSession` via :meth:`ChatSession.with_message`. A store
   that mutates in place violates the audit contract.

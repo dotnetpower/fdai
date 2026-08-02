@@ -1,7 +1,7 @@
 # Development Operations Gateway
 
 This Azure Functions project provides a development-only, authenticated gateway from the local
-FDAI read API to private Azure resources. It exposes registered operations rather than arbitrary
+FDAI Operator API to private Azure resources. It exposes registered operations rather than arbitrary
 URLs, ARM paths, commands, or query text.
 
 ## Contracts
@@ -38,7 +38,7 @@ URLs, ARM paths, commands, or query text.
 - App Service Authentication validates Microsoft Entra tokens before the anonymous Function route
   runs. Function keys are not an authorization boundary.
 - The headless runtime binds `AzureGatewayDirectApiExecutor` only when both the gateway URL and
-  audience are configured. The read API never receives this executor binding. Gateway responses
+  audience are configured. The Operator API never receives this executor binding. Gateway responses
   are streamed under a 256 KiB cap before JSON parsing.
 
 ## Operations

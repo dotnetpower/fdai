@@ -1,6 +1,6 @@
 /**
- * Read API client. The console makes exactly three kinds of GET call
- * against the API defined in `src/fdai/delivery/read_api/main.py`.
+ * Operator API client. The console makes exactly three kinds of GET call
+ * against the API defined in `src/fdai/delivery/operator_api/main.py`.
  * All routes are read-only; there are NO helpers here for POST / PUT /
  * DELETE / PATCH - the read-only invariant is enforced by not writing
  * such helpers in the first place (see app-shape.instructions.md).
@@ -17,10 +17,10 @@ import {
 } from "./api-data-sources";
 import type { ConsoleConfig } from "./config";
 import {
-  isOptionalReadApiUnavailable,
-  ReadApiError,
-  ReadApiTransport,
-  type ReadApiTransportOptions,
+  isOptionalOperatorApiUnavailable,
+  OperatorApiError,
+  OperatorApiTransport,
+  type OperatorApiTransportOptions,
 } from "./api-transport";
 import { IamApiClient } from "./api-iam-client";
 import { InsightsApiClient } from "./api-insights-client";
@@ -53,8 +53,8 @@ import {
   type IdentityRosterItem,
 } from "./routes/settings-iam.model";
 
-export class ReadApiClient {
-  readonly #transport: ReadApiTransport;
+export class OperatorApiClient {
+  readonly #transport: OperatorApiTransport;
   readonly #operations: OperationsApiClient;
   readonly #insights: InsightsApiClient;
   readonly #iam: IamApiClient;
@@ -64,16 +64,16 @@ export class ReadApiClient {
   constructor(
     config: ConsoleConfig,
     auth: AuthContext,
-    options: ReadApiTransportOptions = {},
+    options: OperatorApiTransportOptions = {},
   ) {
-    this.#transport = new ReadApiTransport(config, auth, options);
+    this.#transport = new OperatorApiTransport(config, auth, options);
     this.#operations = new OperationsApiClient(this.#transport);
     this.#insights = new InsightsApiClient(this.#transport);
     this.#iam = new IamApiClient(this.#transport);
     this.#reporting = new ReportingApiClient(this.#transport);
   }
 
-  get readApiBaseUrl(): string {
+  get operatorApiBaseUrl(): string {
     return this.#transport.baseUrl;
   }
 
@@ -121,7 +121,7 @@ export class ReadApiClient {
 
   /**
    * Fetch the FinOps cost summary (`GET /finops`). This is a fork opt-in
-   * panel; callers MUST tolerate a 404 (`ReadApiError` status 404) as
+   * panel; callers MUST tolerate a 404 (`OperatorApiError` status 404) as
    * "cost axis not served here" rather than a hard failure.
    */
   async finops(): Promise<FinOpsPayload> {
@@ -209,7 +209,7 @@ export class ReadApiClient {
 
   /**
    * Fetch a fork-supplied read-only panel payload. Backs the `ReadPanel`
-   * seam in `src/fdai/delivery/read_api/panels.py`: a fork registers
+   * seam in `src/fdai/delivery/operator_api/panels.py`: a fork registers
    * a GET route on the API and a matching console panel, then reads it
    * here. This is GET-only like every other call - a panel MUST NOT mutate
    * state (see app-shape.instructions.md § Operator console).
@@ -224,15 +224,15 @@ export class ReadApiClient {
     try {
       sources = await this.dataSources();
     } catch (error) {
-      if (isOptionalReadApiUnavailable(error)) return;
+      if (isOptionalOperatorApiUnavailable(error)) return;
       throw error;
     }
     const reason = unavailableSourceReason(sources, path);
-    if (reason !== null) throw new ReadApiError(503, reason);
+    if (reason !== null) throw new OperatorApiError(503, reason);
   }
 }
 
-export { isOptionalReadApiUnavailable, ReadApiError };
+export { isOptionalOperatorApiUnavailable, OperatorApiError };
 export {
   decodeAuditPage,
   decodeHilQueuePage,

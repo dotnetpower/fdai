@@ -41,14 +41,14 @@ Correlation은 audit와 agent step을 묶는 investigation key입니다. Correla
 | 16 | Trace link와 Incident link의 존재 조건이 같았습니다. | Trace는 correlation, Incident는 lifecycle match를 요구합니다. |
 | 17 | Agent activity purpose가 `Each incident (correlation id)`라고 정의했습니다. | Hand-off cascade를 correlation group으로 정의했습니다. |
 | 18 | Static glossary가 correlation id를 incident key라고 정의했습니다. | Investigation key이며 Incident 증거가 아니라고 수정했습니다. |
-| 19 | Local seed audit에 machine-readable provenance가 없었습니다. | `fixture_source=read-api-dev-seed`를 기록합니다. |
+| 19 | Local seed audit에 machine-readable provenance가 없었습니다. | `fixture_source=operator-api-dev-seed`를 기록합니다. |
 | 20 | Local seed audit에 observation source가 없었습니다. | `observation_source=synthetic-dev`를 기록합니다. |
 | 21 | Seed trace row에는 provenance가 없어 sample audit 일부만 구분될 수 있었습니다. | Audit와 trace seed 모두 같은 marker를 기록합니다. |
 | 22 | 모든 audit correlation이 Incident roster entry로 투영됐습니다. | Exact local fixture marker를 projection에서 제외합니다. |
 | 23 | Heimdall `within_threshold` sample도 Incident처럼 보였습니다. | Fixture exclusion과 sample UI로 Incident roster에서 제거했습니다. |
 | 24 | 정상 capacity forecast sample도 Incident처럼 보였습니다. | 모든 local fixture correlation을 roster에서 제외했습니다. |
 | 25 | Sample audit 자체를 삭제하면 Audit과 Trace 학습 화면이 비게 됩니다. | Audit과 Trace에는 sample을 그대로 보존합니다. |
-| 26 | Fixture exclusion이 모든 synthetic signal을 숨길 위험이 있었습니다. | Broad source가 아니라 exact `read-api-dev-seed` marker만 제외합니다. |
+| 26 | Fixture exclusion이 모든 synthetic signal을 숨길 위험이 있었습니다. | Broad source가 아니라 exact `operator-api-dev-seed` marker만 제외합니다. |
 | 27 | Operational audit fallback까지 제거하면 migration compatibility가 깨집니다. | Marker 없는 operational correlation projection은 유지합니다. |
 | 28 | Explicit lifecycle state보다 inferred audit status가 우선할 위험이 있었습니다. | 기존 lifecycle-authoritative test를 유지하고 통과시켰습니다. |
 | 29 | 실제 operator-confirmed Incident가 local roster에서 사라질 위험이 있었습니다. | `ProjectingIncidentStateStore` lifecycle test가 Incident 1건을 보장합니다. |
@@ -116,7 +116,7 @@ production build가 통과했고 entry bundle gate는
 `498775 raw / 140912 gzip / 37 lazy imports`였습니다. Translation 101 English docs와
 102 translations, punctuation, documentation link gate도 통과했습니다.
 
-Fresh local read API 8012와 isolated Console 5274에서 Playwright로 확인한 결과,
+Fresh local Operator API 8012와 isolated Console 5274에서 Playwright로 확인한 결과,
 Heimdall 화면은 Operational audit 0, Local samples 1, Live incidents 0, sample badge 1,
 `fdai` chip 0, System chip 1을 표시했습니다. Incident roster는 seed entry 0건이었고,
 1440 x 900 및 390 x 844 모두 alert와 page-level horizontal overflow가 없었습니다.

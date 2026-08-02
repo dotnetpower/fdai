@@ -6,8 +6,8 @@
     "abstain": "Abstained"
   },
   "console": {
-    "context": "{env} - read-only - live read API",
-    "connected": "Connected to the read API. {events} events recorded, {pending} awaiting your decision.",
+    "context": "{env} - read-only - live Operator API",
+    "connected": "Connected to the Operator API. {events} events recorded, {pending} awaiting your decision.",
     "summaryEvents": "events",
     "summaryShadow": "shadow",
     "summaryEnforce": "enforce",

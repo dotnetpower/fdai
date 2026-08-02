@@ -1,0 +1,143 @@
+"""Azure-backed command and progress transport for interactive local use."""
+
+from __future__ import annotations
+
+import os
+from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass
+from typing import Any, Literal
+
+from fdai.core.incident import IncidentLifecycleWorkflow, IncidentRegistry
+from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
+from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
+from fdai.delivery.operator_api.console_action_dispatch import ConsoleActionDispatchRecovery
+from fdai.delivery.operator_api.routes.console_action import ConsoleActionSubmitter
+from fdai.delivery.operator_api.streaming.agent_activity_broadcaster import (
+    DEFAULT_GROUP_ID as DEFAULT_AGENT_ACTIVITY_GROUP_ID,
+)
+from fdai.delivery.operator_api.streaming.agent_activity_broadcaster import (
+    DEFAULT_STAGE_TOPIC,
+    AgentActivityBroadcaster,
+)
+from fdai.delivery.operator_api.streaming.agent_activity_stream import AgentActivityStreamConfig
+from fdai.delivery.operator_api.streaming.consumer_groups import instance_consumer_group
+from fdai.delivery.operator_api.streaming.live_stage_broadcaster import (
+    DEFAULT_GROUP_ID as DEFAULT_LIVE_STAGE_GROUP_ID,
+)
+from fdai.delivery.operator_api.streaming.live_stage_broadcaster import (
+    LiveStageBroadcaster,
+)
+from fdai.delivery.operator_api.streaming.live_stream import LiveStreamConfig
+from fdai.delivery.workflow_action_dispatcher import EventBusWorkflowActionDispatcher
+from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.local import LocalEventBus, LocalSseSink
+from fdai.shared.providers.state_store import StateStore
+
+_BOOTSTRAP_ENV = "FDAI_KAFKA_BOOTSTRAP_SERVERS"
+_EVENT_TOPIC_ENV = "KAFKA_TOPIC_EVENTS"
+_STAGE_TOPIC_ENV = "FDAI_STAGE_TOPIC"
+
+
+@dataclass(frozen=True, slots=True)
+class LocalCommandTransport:
+    kind: Literal["local", "azure"]
+    event_bus: EventBus
+    event_topic: str
+    console_action: ConsoleActionSubmitter
+    action_dispatcher: EventBusWorkflowActionDispatcher
+    live_stream: LiveStreamConfig
+    agent_activity: AgentActivityStreamConfig
+    start: Callable[[], Awaitable[None]]
+    shutdown: Callable[[], Awaitable[None]]
+
+
+def build_local_command_transport(
+    *,
+    read_model: Any,
+    action_types: tuple[Any, ...],
+    state_store: StateStore,
+    environ: Mapping[str, str] | None = None,
+) -> LocalCommandTransport:
+    """Build Azure transport when configured, otherwise the default local transport."""
+    env = environ if environ is not None else os.environ
+    bootstrap = env.get(_BOOTSTRAP_ENV, "").strip()
+    event_topic = env.get(_EVENT_TOPIC_ENV, "").strip()
+    if not bootstrap or not event_topic:
+        if bootstrap or event_topic:
+            raise RuntimeError(
+                f"{_BOOTSTRAP_ENV} and {_EVENT_TOPIC_ENV} MUST be configured together"
+            )
+        event_bus: EventBus = LocalEventBus()
+        event_topic = "aw.events"
+        kind: Literal["local", "azure"] = "local"
+    else:
+        event_bus = EventHubsKafkaBus(
+            identity=AsyncAzureCliWorkloadIdentity.from_env(env),
+            config=EventHubsKafkaBusConfig(
+                bootstrap_servers=bootstrap,
+                client_id="fdai-local-command",
+            ),
+        )
+        kind = "azure"
+    incident_workflow = IncidentLifecycleWorkflow(
+        registry=IncidentRegistry(state_store=state_store)
+    )
+    stage_topic = env.get(_STAGE_TOPIC_ENV, "").strip() or DEFAULT_STAGE_TOPIC
+    agent_activity_group = instance_consumer_group(DEFAULT_AGENT_ACTIVITY_GROUP_ID, env)
+    live_stage_group = instance_consumer_group(DEFAULT_LIVE_STAGE_GROUP_ID, env)
+
+    console_action = ConsoleActionSubmitter(
+        event_bus=event_bus,
+        raw_event_topic=event_topic,
+        action_type_names=frozenset(item.name for item in action_types),
+        incident_workflow=incident_workflow,
+        dispatch_state_store=state_store,
+    )
+    recovery = ConsoleActionDispatchRecovery(
+        dispatcher=console_action.dispatcher,
+        reconcile=console_action.reconcile_incident_ticket_dispatches,
+    )
+
+    async def shutdown() -> None:
+        await recovery.stop()
+        if isinstance(event_bus, EventHubsKafkaBus):
+            await event_bus.close()
+
+    if kind == "local":
+        live_stream = LiveStreamConfig(sink=LocalSseSink())
+        agent_activity = AgentActivityStreamConfig(sink=LocalSseSink())
+    else:
+        live_stream = LiveStreamConfig(
+            broadcaster_factory=lambda publisher: LiveStageBroadcaster(
+                event_bus=event_bus,
+                publisher=publisher,
+                stage_topic=stage_topic,
+                group_id=live_stage_group,
+            )
+        )
+        agent_activity = AgentActivityStreamConfig(
+            broadcaster_factory=lambda publisher: AgentActivityBroadcaster(
+                event_bus=event_bus,
+                publisher=publisher,
+                stage_topic=stage_topic,
+                group_id=agent_activity_group,
+            )
+        )
+
+    return LocalCommandTransport(
+        kind=kind,
+        event_bus=event_bus,
+        event_topic=event_topic,
+        console_action=console_action,
+        action_dispatcher=EventBusWorkflowActionDispatcher(
+            event_bus=event_bus,
+            topic=event_topic,
+        ),
+        live_stream=live_stream,
+        agent_activity=agent_activity,
+        start=recovery.start,
+        shutdown=shutdown,
+    )
+
+
+__all__ = ["LocalCommandTransport", "build_local_command_transport"]

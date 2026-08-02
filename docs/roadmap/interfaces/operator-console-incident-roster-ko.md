@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 057ff3155c7a0e07e8cc501b5b483c3327fc3fe5
-translation_revised: 2026-07-28
+translation_source_sha: 489f8f9d42b55ea73c84f5070dbb2283996be513
+translation_revised: 2026-08-02
 ---
 
 # Operator Console - Incident Roster and Fix History
@@ -71,7 +71,7 @@ link가 정확히 하나의 correlation으로 확인될 때만 해당 행을 연
 있으면 이를 authoritative하게 사용합니다. 그렇지 않으면 audit stage에서 `open`,
 `in_progress`, `resolved`를 도출합니다. 교정이 deny, abstain 또는 실패했다는
 사실만으로 기반 인시던트가 해결되었다고 표시하지 않습니다.
-Local read API audit fixture는 명시적인 sample provenance를 가지며 Audit, Trace,
+Local Operator API audit fixture는 명시적인 sample provenance를 가지며 Audit, Trace,
 Agent activity에서 계속 볼 수 있습니다. Operational Incident roster에서는 제외되므로
 정상 또는 within-threshold monitoring sample이 열린 Incident처럼 보이지 않습니다.
 
@@ -172,7 +172,7 @@ Committed workflow definition 또는 binding은 즉시 ontology projection이 �
 Agent runtime state에도 관찰된 evidence가 필요합니다. Agent state frame 또는 durable incident
 projection이 작업을 귀속하기 전에는 Agents, Agent Activity, Pantheon이 `unobserved`로 표시합니다.
 고정 runtime-binding map은 consumer health를 증명하지 않습니다. Headless Pantheon은 실제 health에서
-파생한 `agent.runtime-state` heartbeat를 발행하고, Read API는 live이며 error가 아닌 agent만 `idle`
+파생한 `agent.runtime-state` heartbeat를 발행하고, Operator API는 live이며 error가 아닌 agent만 `idle`
 또는 `watching`으로 표시합니다. Schedule 상태는 scheduler projection 전까지 unavailable입니다.
 
 Capabilities route는 `source=static-catalog`, `execution_eligibility=false`인 inert catalog
@@ -330,5 +330,5 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 게이트 + 검증기에 있습니다. Route는 Reader 게이트가 적용되고, 변경 동사에는
 `405`를 반환하며, Audit / Trace로의 링크는 제공하지만 실행 / 승인 / 롤백
 버튼은 없습니다. 투영은 순수 함수
-(`src/fdai/delivery/read_api/routes/rca_projection.py`)이며
-`tests/delivery/read_api/test_rca.py`로 커버됩니다.
+(`src/fdai/delivery/operator_api/routes/rca_projection.py`)이며
+`tests/delivery/operator_api/test_rca.py`로 커버됩니다.

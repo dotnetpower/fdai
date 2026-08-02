@@ -60,7 +60,7 @@ protocol, and destination port.
 | Container Apps image pull | `<registry>.azurecr.io` and `<registry>.<region>.data.azurecr.io` | TCP 443 | image manifest and layer download | new revisions fail with image-pull errors even when an old revision remains healthy |
 | Inventory and action adapters | `management.azure.com` or an approved Resource Manager private link | TCP 443 | Resource Graph, ARM reads, what-if, and governed actions | inventory becomes stale and cloud actions are blocked |
 | Telemetry exporters | Azure Monitor ingestion hosts or Azure Monitor Private Link Scope (AMPLS) | TCP 443 | logs, metrics, traces, and Application Insights | control decisions continue, but telemetry and operational evidence become unavailable |
-| Operator browser | console FQDN, read API FQDN, and `login.microsoftonline.com` | TCP 443 | SPA delivery, read-only evidence, and interactive Entra sign-in | console or sign-in is unavailable; the headless core continues |
+| Operator browser | console FQDN, Operator API FQDN, and `login.microsoftonline.com` | TCP 443 | SPA delivery, read-only evidence, and interactive Entra sign-in | console or sign-in is unavailable; the headless core continues |
 | Optional delivery adapters | configured Teams, Slack, GitHub, email, pager, or webhook FQDN | TCP 443 | approvals, notifications, and remediation pull requests | the channel queues or fails over; approval requirements are never bypassed |
 
 For an internal Container Apps environment with HTTP ingress, also allow approved clients to the
@@ -68,7 +68,7 @@ environment on TCP 443 and the platform's internal HTTPS edge port 31443. Allow 
 Balancer probes to the assigned ports in TCP 30000-32767. FDAI core itself has no public inbound
 endpoint; these rules apply to enabled read, ingestion, or command APIs.
 
-A closed-network console additionally needs private ingress for both the SPA and read API, VPN or
+A closed-network console additionally needs private ingress for both the SPA and Operator API, VPN or
 ExpressRoute routing from the operator, and private DNS visible to the browser's host operating
 system. The current root Terraform does not provision a Static Web Apps private endpoint. Without
 that additional deployment-owned path, the core can run privately while the console stays

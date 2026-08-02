@@ -14,7 +14,7 @@ policy** on top of that floor, in one pure, testable place:
 - Self-approval is refused here too (defense in depth with the coordinator),
   and an operator lacking the HIL-approval capability is refused.
 
-Pure function: no I/O. The coordinator and the read-API HIL callback both call
+Pure function: no I/O. The coordinator and the Operator API HIL callback both call
 it so the rule never drifts between the two entry points.
 """
 

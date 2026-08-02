@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { ReadApiError } from "../api";
+import { OperatorApiError } from "../api";
 import {
   buildGithubNewFileUrl,
   hasActionTypeRef,
@@ -50,7 +50,7 @@ describe("workflow catalog wire tolerance", () => {
 
   test("keeps built-in browsing available when principal definitions are unwired", async () => {
     const definitions = await loadWorkflowDefinitions({
-      panel: async () => { throw new ReadApiError(404, "Not Found"); },
+      panel: async () => { throw new OperatorApiError(404, "Not Found"); },
     } as never);
     expect(definitions).toEqual({
       groups: { built_in: [], shared: [], mine: [] },
@@ -61,7 +61,7 @@ describe("workflow catalog wire tolerance", () => {
 
   test("keeps workflow browsing available when Python tasks are unwired", async () => {
     const availability = await loadPythonTaskAvailability({
-      panel: async () => { throw new ReadApiError(404, "Not Found"); },
+      panel: async () => { throw new OperatorApiError(404, "Not Found"); },
     } as never);
     expect(availability).toBeNull();
   });

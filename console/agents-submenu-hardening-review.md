@@ -2,7 +2,7 @@
 
 이 문서는 2026-07-19에 수행한 Console Agents 도메인의 전수검사와 10라운드
 하드닝 결과를 기록합니다. 범위는 `Agents`, `Pantheon`, `Agent activity`,
-`Handover` 메뉴와 공통 navigation, authenticated agent stream, read API projection,
+`Handover` 메뉴와 공통 navigation, authenticated agent stream, Operator API projection,
 URL state, accessibility, localization 및 regression test입니다.
 
 > 검사 기준은 고정 15-agent pantheon, read-only console, append-only audit projection,

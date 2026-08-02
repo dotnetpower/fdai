@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 9c0c9b9d590c455425e837598d837623a1c08646
-translation_revised: 2026-07-31
+translation_source_sha: 3ee9afdc90b04cedde808a637bdeb2df05e8a798
+translation_revised: 2026-08-02
 ---
 
 # Operator Console - Data and Wire Contracts
@@ -45,7 +45,7 @@ translation_revised: 2026-07-31
 - Exit code: clean 세션 종료 시 `0`; 유효하지 않은 config 시 `2`; 복구
   불가능한 채널 error 시 `3`.
 
-### 13.3 Read-API approval callback (Week 1)
+### 13.3 Operator API approval callback (Week 1)
 
 - `POST /hil/{approval_id}/decision`
 - Body: `{"decision": "approve|reject|defer", "justification": "..."}`
@@ -58,7 +58,7 @@ translation_revised: 2026-07-31
   반드시 동일하게 포함해야 함.
 - Response: `200 {"queued": true, "audit_entry_id": "..."}`.
 
-이 경로는 read API의 GET 전용 projection surface에 문서화된 write-route
+이 경로는 Operator API의 GET 전용 projection surface에 문서화된 write-route
 예외입니다. Invariant test는 이 callback을 명시적으로 allow-list합니다. 이는
 [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)
 의 "console never executes" 규칙을 깨지 **않음**: 이 endpoint는 기존 HIL
@@ -85,9 +85,9 @@ strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 action intent�
   ActionType allowlist, argument bounds, 인증된 principal 및 RBAC를 다시
   확인합니다. 알 수 없는 field 및 allowlist에 없는 action은 차단됩니다.
 - **호환 endpoint**: `POST /chat/action`, body `{"prompt": str, "session_id": str?,
-  "idempotency_key": str?}`. `ReadApiConfig.console_action` 이
+  "idempotency_key": str?}`. `OperatorApiConfig.console_action` 이
   `ConsoleActionSubmitter`
-  (`src/fdai/delivery/read_api/routes/console_action.py`)를 wire할 때만
+  (`src/fdai/delivery/operator_api/routes/console_action.py`)를 wire할 때만
   등록됩니다. 이 raw-prompt route는 호환 API client를 위해 남아 있으며 브라우저
   Command Deck은 사용하지 않습니다. 오퍼레이터 제공 값은
   bound된다(prompt <= 4000, question <= 2000, resource id / session id /
@@ -151,7 +151,7 @@ strict JSON-schema `TurnPlan`을 반환합니다. 브라우저는 action intent�
 ### 13.7 Python VM task workbench
 
 Workflow Builder 는
-[`python_tasks.py`](../../../src/fdai/delivery/read_api/routes/python_tasks.py) 의 여섯
+[`python_tasks.py`](../../../src/fdai/delivery/operator_api/routes/python_tasks.py) 의 여섯
 mutation route 와 read-only `GET /python-tasks/capabilities` route 를 사용하는
 multi-file Python task workbench 를 포함합니다.
 Operator 는 source file 을 편집하고 entrypoint 를 선택하며 module 및 host
@@ -170,7 +170,7 @@ Workbench 는 console identity boundary 를 유지합니다.
   module 로 injected `PythonTaskAuthor` 를 호출합니다. Draft 는 request control 이
   enable 되기 전에 계속 validate 및 stage 되어야 합니다.
 - **Stage artifact** 는 VM 이 아니라 content-addressed artifact store 에 씁니다.
-- **Test shadow plan** 은 `PlanningVmTaskRunner` 를 사용합니다. Read API 에는 Run
+- **Test shadow plan** 은 `PlanningVmTaskRunner` 를 사용합니다. Operator API 에는 Run
   Command 를 만들 수 있는 Managed Identity 가 없습니다.
 - **Request governed run** 은 typed `ActionProposal` 을 publish 합니다. Console
   process 에서 `VmTaskRunner` 를 호출하거나 file 을 copy 하거나 Python 을 실행하지
@@ -179,13 +179,13 @@ Workbench 는 console identity boundary 를 유지합니다.
   strict cron binding 을 저장합니다. 이후 scheduler tick 이 typed event 를
   publish 합니다.
 
-Background task, busy input, skill의 read API composition helper는 `routes/`에 두며 result panel은 validation issue, artifact reference, planned file 및 byte count,
+Background task, busy input, skill의 Operator API composition helper는 `routes/`에 두며 result panel은 validation issue, artifact reference, planned file 및 byte count,
 target capability 또는 submitted correlation id 를 표시합니다. Control loop 가
 proposal 을 수락한 후 runtime status 는 Processes 및 audit surface 에 이어집니다.
 
 ### 13.8 채팅 답변의 그라운딩된 코드
 
-Command Deck 의 최종 답변에 fenced code block 이 있으면 read API 는 이를 크기가
+Command Deck 의 최종 답변에 fenced code block 이 있으면 Operator API 는 이를 크기가
 제한된 `GroundedCodeArtifact` 로 추출합니다. Artifact 는 code, language, SHA-256
 reference, static validation 결과를 포함합니다. Python block 은 import 하거나
 실행하지 않고 parse 및 compile 합니다. 다른 언어는 검증되었다고 표시하지 않고
@@ -202,7 +202,7 @@ entry 를 제거합니다.
 
 - **Runtime write 없음**: chat route 는 생성된 code 를 FDAI source tree, 설치된
   package, container filesystem 또는 active Git checkout 에 쓰지 않습니다.
-- **Chat execution 없음**: read API 에서는 static parsing 만 수행합니다. 생성된
+- **Chat execution 없음**: Operator API 에서는 static parsing 만 수행합니다. 생성된
   module 을 import 하거나 subprocess 를 시작하거나 virtual environment 를 만들거나
   `VmTaskRunner` 를 호출하지 않습니다.
 - **Governed execution 분리**: code 실행이 필요한 operator 는 `PythonTask` 를 만들고
@@ -224,7 +224,7 @@ entry 를 제거합니다.
 저장 위치 질문은 요청한 경로를 누락된 화면 필드로 취급하지 않고 결정적 catalog contract를
 사용합니다. 기본 ObjectType과 LinkType 정의는 `rule-catalog/vocabulary/object-types/` 및
 `rule-catalog/vocabulary/link-types/`에서, ActionType 정의는 `rule-catalog/action-types/`에서
-가져옵니다. Downstream composition은 검증된 추가 root를 주입할 수 있습니다. Read API는 시작할
+가져옵니다. Downstream composition은 검증된 추가 root를 주입할 수 있습니다. Operator API는 시작할
 때 합성된 정의를 immutable in-memory catalog로 로드하고 `/ontology/graph`가 그 catalog를
 read-only projection으로 제공합니다. 운영 ontology instance는 PostgreSQL의
 `ontology_resource`와 `ontology_link`에 저장됩니다. ObjectType과 LinkType metadata도 FK 검증용

@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: e6db5495ce9b83a03b73b8cb1f979e88447586a6
-translation_revised: 2026-08-01
+translation_source_sha: cad78175adf549b1a384d5e586051eb0ea3566ff
+translation_revised: 2026-08-02
 ---
 
 # 배포 빠른 시작
@@ -93,7 +93,7 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
 2. **런타임 상태와 자격 증명 검증.** 내부 코어 프로브가 정상인지, 15개 에이전트가 모두 상태
    스냅샷에 보고되는지, 첫 canary publisher Job이 완료됐는지 확인합니다. 이어서 켜 둔 기능만
    확인합니다.
-   - **읽기 API**: 브라우저 Entra 앱 역할이 동작하고, 읽기와 명령 자격 증명이 Thor의 실행기
+   - **Operator API**: 브라우저 Entra 앱 역할이 동작하고, 읽기와 명령 자격 증명이 Thor의 실행기
      관리 자격 증명과 분리돼 있습니다.
    - **Email 알림**: incident-open message가 multipart HTML과 plain text로 도착합니다. Console을
      활성화한 경우 detail link는 Static Web App origin을 사용하고 Settings > Integrations는 합성

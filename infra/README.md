@@ -25,7 +25,7 @@ from the repository Dockerfile. The variable rejects the former
 `mcr.microsoft.com/azure-cli` bootstrap placeholder. The core Container App
 keeps one replica, exposes internal `/live` and `/ready` probes, and starts a
 dedicated five-minute canary Job. The canary UAMI has only ACR pull and Event
-Hubs send. When the read API is enabled, a read UAMI owns ACR, Key Vault, and
+Hubs send. When the Operator API is enabled, a read UAMI owns ACR, Key Vault, and
 Reader access while a separate command UAMI owns Event Hubs send/receive.
 
 Production plans also require PostgreSQL `ZoneRedundant` high availability,
@@ -134,7 +134,7 @@ uses them or does not.
 | `topics` | list(string) | day-zero: `["aw.change.events", "aw.dr.events", "aw.finops.events"]` |
 | `connection_string_ref` | string | pointer to a Key Vault secret; **never the raw value** |
 | `log_workspace_id` | string | Log Analytics workspace resource id |
-| `log_workspace_customer_id` | string | Log Analytics workspace customer GUID (auto-wired into the core app for metric KQL and the read API for bounded Command Deck KQL as `FDAI_MONITOR_WORKSPACE_ID`) |
+| `log_workspace_customer_id` | string | Log Analytics workspace customer GUID (auto-wired into the core app for metric KQL and the Operator API for bounded Command Deck KQL as `FDAI_MONITOR_WORKSPACE_ID`) |
 | `admin_group_object_id_ref` | string | env-var name that carries the Entra group OID |
 
 Values are always **references**, never raw secrets: any `*_ref` field points at a Key Vault

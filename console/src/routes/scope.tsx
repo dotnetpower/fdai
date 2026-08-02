@@ -1,6 +1,6 @@
 import { architectureHref } from "../components/architecture-map.model";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { isOptionalReadApiUnavailable, type ReadApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import type {
   EffectiveScope,
   ScopeAxis,
@@ -43,7 +43,7 @@ import { t } from "./i18n/evidence";
  */
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
 }
 
 export function includedScopeEntryCount(entries: readonly ScopeEntry[]): number {
@@ -64,7 +64,7 @@ export function ScopeRoute({ client }: Props) {
         if (!live) return;
         // A deployment that does not wire a scope source returns 404 -
         // render "not served here" rather than a hard error.
-        if (isOptionalReadApiUnavailable(error)) {
+        if (isOptionalOperatorApiUnavailable(error)) {
           setState({ status: "ready", data: null });
           return;
         }

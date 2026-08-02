@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 35dd9c3bf74321f24932ed8121fd59d58cf5da82
-translation_revised: 2026-08-01
+translation_source_sha: 64fa28ce6c1476727a96ee2e38fd7fefb964f5ee
+translation_revised: 2026-08-02
 ---
 
 # LLM 전략(LLM Strategy)
@@ -265,7 +265,7 @@ models:
 - **Tool capability는 독립적으로 resolve합니다.** `tool_calling_required`는 일반 function
   tool을 gate합니다. Public retrieval은 전용 `t1.web_search` preference를 사용하며 해당
   deployment만 `web_search_candidates`로 serialize합니다. Protected apply는 정확한 domain
-  allowlist로 Foundry prompt agent를 reconcile하고 read API는 startup에 실제 managed-tool
+  allowlist로 Foundry prompt agent를 reconcile하고 Operator API는 startup에 실제 managed-tool
   request를 전송합니다. Model, project, agent, entitlement 또는 tool readiness가 없으면 narrator
   pool을 빌리지 않고 search만 unavailable로 전환합니다. Conversation authority는 바뀌지 않습니다.
 
@@ -396,7 +396,7 @@ HIL로 라우팅)을 반환하며, 다음 하드닝 불변식을 지킨다:
 
 ### Narrator Latency Routing (T1 전용)
 
-콘솔 chat 백엔드(`fdai.delivery.read_api.chat.LatencyRoutedChatBackend`)는
+콘솔 chat 백엔드(`fdai.delivery.operator_api.chat.LatencyRoutedChatBackend`)는
 `t1.judge` mini 스택의 N개 deployment 를 감싸서 매 turn 마다 rolling p50 지연이
 가장 낮은 후보를 pick. 리졸버가 `resolved-models.json` 의 `narrator_candidates`
 배열을 2개 이상 emit할 때 자동 활성화; 1개 이하이면 plain `AzureAdChatBackend`
@@ -425,7 +425,7 @@ HIL로 라우팅)을 반환하며, 다음 하드닝 불변식을 지킨다:
 새 capability(예: `t1.judge.fast-pool`)를 quality gate 와 함께 선언하고
 composer 로 라우팅, 스왑을 감사. narrator 라우터를 통해 쓰레딩하지 말 것.
 
-Read API는 operator traffic과 독립적으로 이 pool을 갱신합니다. 시작할 때 모든
+Operator API는 operator traffic과 독립적으로 이 pool을 갱신합니다. 시작할 때 모든
 후보를 두 번 probe하고, 이후 `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS`마다 후보별
 최소 sample을 하나씩 추가합니다. 기본값은 `300`초입니다. 실제 대화 latency도
 같은 8-sample rolling window에 들어가므로 느려지거나 실패한 deployment는 재시작을
@@ -452,7 +452,7 @@ T1 내부 judgment, embedding 및 모든 T2 secondary/critic/rubric/escalation �
 시스템 관리 상태로 유지됩니다. T2 primary pool은 same-publisher invariant를 유지하며
 operator별로 개인화되지 않습니다.
 
-Settings > Models는 **T2 모델 정책 초안 builder**도 제공합니다. Read API는
+Settings > Models는 **T2 모델 정책 초안 builder**도 제공합니다. Operator API는
 `rule-catalog/llm-registry.yaml`의 primary 및 secondary publisher/family 선호만
 projection하며 endpoint나 credential은 노출하지 않습니다. Operator는 publisher가 서로
 다른 경우에만 각 role의 후보를 하나씩 선택하고 governance PR에 사용할 검증된 YAML
@@ -473,7 +473,7 @@ id, endpoint 및 credential은 계속 숨깁니다. 모델은 `deployed`, `provi
 auto-provision 안내가 포함된 같은 초안을 생성합니다. 두 경로 모두 console에서 Azure를
 변경하지 않습니다. 검토 후 bootstrap resolver가 catalog, quota, 배포자 권한 및 publisher
 distinctness를 다시 확인하고 Terraform이 capability deployment를 생성합니다. Production
-read API는 이 화면만을 위해 subscription-wide Reader를 추가로 받지 않습니다. Live
+Operator API는 이 화면만을 위해 subscription-wide Reader를 추가로 받지 않습니다. Live
 discovery를 사용할 수 없으면 page는 registry와 resolved snapshot으로 fallback합니다.
 
 같은 page는 검증된 binding의 read-only endpoint inventory를 projection합니다. Capability,
@@ -564,7 +564,7 @@ collapse" 위험은 *쌍 전체*를 속도로 라우팅할 때의 문제이고, 
   않습니다. PostgreSQL persistence는 process restart 후에도 유지되고 같은 contract가 narrator,
   T1, 다른 T2 role event를 받을 수 있습니다. Telemetry persistence 실패는 log되지만 model
   failover 또는 successful proposal을 차단하지 않습니다.
-- **Operator visibility.** Read API는 최신 selected deployment, failover reason,
+- **Operator visibility.** Operator API는 최신 selected deployment, failover reason,
   unhealthy/recovered candidate, cooldown을 Settings > Models에 project합니다. Console은 read-only를
   유지하며 routing 변경, cooldown 해제, deployment promotion을 수행할 수 없습니다.
 

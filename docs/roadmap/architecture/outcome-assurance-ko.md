@@ -1,8 +1,8 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: 021fcde5e461e2683685e166c72f10fe21f0a775
-translation_revised: 2026-07-31
+translation_source_sha: 84d875724fbc67921e994cc2cbf0297e90b490e5
+translation_revised: 2026-08-02
 ---
 # Outcome Assurance
 
@@ -162,9 +162,9 @@ agent-owned object topic을 publish하지 않습니다.
 | Norns와 Mimir | candidate, pattern, promotion lifecycle evidence를 공급합니다 |
 | Bragi | operator locale로 인용된 projection field를 설명하며 status를 변경하지 않습니다 |
 
-## Read API와 콘솔
+## Operator API와 콘솔
 
-Read API는 선택적이고 인증된 read panel로 `GET /kpi/outcome-assurance`를 추가합니다. 주입된
+Operator API는 선택적이고 인증된 read panel로 `GET /kpi/outcome-assurance`를 추가합니다. 주입된
 projection source를 직접 query하며, 다른 HTTP panel route를 호출하거나 delivery layer에서
 누락된 fact를 만들지 않습니다.
 

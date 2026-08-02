@@ -2,7 +2,7 @@
 
 Composition-root helper - drop-in wrapper that memoizes
 :meth:`ReportEngine.render` for identical ``(report_id, variables)``
-pairs within a configurable window. Useful for busy read-API endpoints
+pairs within a configurable window. Useful for busy Operator API endpoints
 where a report is hit many times per second by a dashboard poll.
 
 The cache is process-local and unbounded is prevented by
@@ -39,7 +39,7 @@ class ReportCacheEntry:
 class InMemoryReportCache:
     """LRU-with-TTL wrapper around a :class:`ReportEngine`.
 
-    Not thread-safe (the read-API runs one asyncio loop). If a future
+    Not thread-safe (the Operator API runs one asyncio loop). If a future
     fork needs multi-thread access, wrap externally.
     """
 

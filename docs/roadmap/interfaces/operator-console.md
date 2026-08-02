@@ -143,7 +143,7 @@ flowchart TD
   when rendering fails, exceeds the response bound, or omits an `evidence_ref`. Its system prompt is
   assembled deterministically from `AnswerPlan`, tool side-effect class, evidence-reference count,
   and the presence of prior conversation context. The current inbound/tool/result transaction is
-  excluded from that prior context. Web generation uses the read API backend seam, so deployments
+  excluded from that prior context. Web generation uses the Operator API backend seam, so deployments
   can bind providers.
   `AnswerPlan.format` treats `table` and `chart` as first-class presentation contracts. The
   deterministic inventory verifier renders Markdown tables for explicit table requests and fenced
@@ -217,10 +217,10 @@ flowchart TD
     [conversation-attachments.md](conversation-attachments.md); web chat submits only already-ingested
     immutable document refs, and the resolver must return the exact requested citations in order.
     A dedicated WebSocket adapter remains optional future transport work.
-- [`src/fdai/delivery/read_api/routes/chat_current_time.py`](../../../src/fdai/delivery/read_api/routes/chat_current_time.py)
+- [`src/fdai/delivery/operator_api/routes/chat_current_time.py`](../../../src/fdai/delivery/operator_api/routes/chat_current_time.py)
   - resolves current-time questions from an injected aware clock and principal IANA timezone;
     deterministic verification emits the exact timestamp and an explicit UTC fallback.
-- [`src/fdai/delivery/read_api/routes/`](../../../src/fdai/delivery/read_api/routes)
+- [`src/fdai/delivery/operator_api/routes/`](../../../src/fdai/delivery/operator_api/routes)
   - `chat_stream_setup.py` owns authenticated request, evidence, history, and answer-plan validation;
     `chat_stream_terminal.py` owns pure terminal verification-frame and replay-payload assembly;
     `chat_trajectory_detail.py` owns bounded final progress projection for durable trajectory replay.
@@ -499,8 +499,8 @@ idempotent and does not merge principal records, roles, sessions, or audit histo
 | Webhook | send-only | (not planned; caller must own an interactive protocol themselves) | n/a |
 | Pager (PagerDuty) | send-only | (not planned) | n/a |
 | SMS | send-only | (not planned) | n/a |
-| Web chat | n/a | Authenticated `POST /chat` and `POST /chat/stream` SSE | Console SPA/read API config |
-| CLI | n/a | stdin/stdout UI calling the shared read API `/chat` | local auth/read API config |
+| Web chat | n/a | Authenticated `POST /chat` and `POST /chat/stream` SSE | Console SPA/Operator API config |
+| CLI | n/a | stdin/stdout UI calling the shared Operator API `/chat` | local auth/Operator API config |
 
 ### 8.1 Separate channel configuration
 

@@ -42,7 +42,7 @@ flowchart LR
 | Browser runtime | `delivery/browser/` | Optional async Playwright adapter |
 | Durable artifact metadata and payload | `delivery/persistence/postgres_browser_evidence.py` | Alembic `0050` |
 | Runtime binding | `composition/wire_browser_evidence.py` | Explicit, fail-closed DI seam |
-| Inspection | read API and Console Evidence domain | GET-only metadata, no controls |
+| Inspection | Operator API and Console Evidence domain | GET-only metadata, no controls |
 
 The provider exposes one operation: `capture(policy, request)`. It exposes no `click`, `fill`,
 `press`, `select`, clipboard, page, context, script-evaluation, upload, or download API. Bragi can
@@ -93,7 +93,7 @@ all of these conditions are true:
 
 The opt-in Playwright implementation is locked in the `browser-evidence` dependency extra. Install
 it in the isolated worker with `uv sync --extra browser-evidence`, then provision Chromium in that
-worker image. The core and read API images omit the extra. The implementation uses async Python,
+worker image. The core and Operator API images omit the extra. The implementation uses async Python,
 one isolated context and page, fixed viewport and device scale, blocked service workers and
 extensions, request interception, locator waits, locator text, ARIA snapshots, screenshot masks,
 and popup/download/file-chooser handlers.
@@ -127,7 +127,7 @@ step closed.
 
 The Console Evidence view is inspection-only. It shows source host, policy, capture and expiry,
 redaction count, prompt-injection scan status, isolation status, hashes, and custody reference. The
-read API doesn't return screenshot, visible text, or snapshot payloads through this panel, and the
+Operator API doesn't return screenshot, visible text, or snapshot payloads through this panel, and the
 view has no capture, promotion, approval, or execution controls.
 
 ## Shadow measurement and promotion
@@ -164,7 +164,7 @@ Focused tests cover SSRF and metadata addresses, DNS rebinding, redirects, Unico
 URLs, popup/download/upload events, mutation methods, cross-origin requests, public API minimization,
 secret and visual/text redaction, injection scanning, bounds, timeout/crash handling, hashes,
 custody, replay, human/API conflict, unavailable abstention, no executor credential, workflow
-authority separation, read API projection, and Console decoding.
+authority separation, Operator API projection, and Console decoding.
 
 Real-browser release evidence should additionally run the optional Playwright adapter inside the
 target restricted-egress image against a synthetic allowlisted HTTPS fixture. Unit tests use a fake

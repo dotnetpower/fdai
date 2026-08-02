@@ -137,7 +137,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(tmp_path: P
         "FDAI_RUNTIME_LOCAL_AZURE_CLI=1",
         "FDAI_CORE_CONSUMER_GROUP_ID=fdai-local-developer-a-core",
         "FDAI_PANTHEON_CONSUMER_GROUP_PREFIX=fdai-local-developer-a-pantheon",
-        "FDAI_READ_API_CONSUMER_INSTANCE=fdai-local-developer-a-read-api",
+        "FDAI_OPERATOR_API_CONSUMER_INSTANCE=fdai-local-developer-a-operator-api",
         "FDAI_AZURE_READER_SUBSCRIPTION_ID=00000000-0000-0000-0000-000000000001",
         "FDAI_AZURE_READER_RESOURCE_GROUPS=rg-example",
         "FDAI_DEV_OPERATIONS_GATEWAY_URL=https://gateway.example.com",

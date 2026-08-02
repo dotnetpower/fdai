@@ -585,96 +585,96 @@ variable "console_region" {
 }
 
 # ---------------------------------------------------------------------------
-# Operator console read API (layer 3 backend) - Azure Container App serving
-# `fdai.delivery.read_api.prod:app`. Default off so the day-zero deploy stays
+# Operator console Operator API (layer 3 backend) - Azure Container App serving
+# `fdai.delivery.operator_api.prod:app`. Default off so the day-zero deploy stays
 # headless. Tenant-specific Entra/RBAC ids are supplied via CI Variables.
 # ---------------------------------------------------------------------------
-variable "enable_read_api" {
-  description = "Provision the console read-API Container App + migration job. Default false so the day-zero deploy stays headless."
+variable "enable_operator_api" {
+  description = "Provision the console Operator API Container App + migration job. Default false so the day-zero deploy stays headless."
   type        = bool
   default     = false
 }
 
-variable "read_api_image" {
-  description = "Container image for the read API (the fdai runtime image built with the `serve` extra, e.g. `<acr>/fdai:dev`). Empty falls back to core_image, which is only valid if that image carries uvicorn + alembic."
+variable "operator_api_image" {
+  description = "Container image for the Operator API (the fdai runtime image built with the `serve` extra, e.g. `<acr>/fdai:dev`). Empty falls back to core_image, which is only valid if that image carries uvicorn + alembic."
   type        = string
   default     = ""
 }
 
-variable "read_api_resolved_models_path" {
+variable "operator_api_resolved_models_path" {
   description = "Container path to resolved-models.json for the Command Deck narrator. Empty disables narrator routes. Supplied via CI Variables; never committed with environment-specific values."
   type        = string
   default     = ""
 }
 
-variable "read_api_narrator_probe_interval_seconds" {
+variable "operator_api_narrator_probe_interval_seconds" {
   description = "Periodic narrator model latency-probe interval in seconds."
   type        = number
   default     = 300
 
   validation {
-    condition     = var.read_api_narrator_probe_interval_seconds >= 30
-    error_message = "read_api_narrator_probe_interval_seconds MUST be >= 30."
+    condition     = var.operator_api_narrator_probe_interval_seconds >= 30
+    error_message = "operator_api_narrator_probe_interval_seconds MUST be >= 30."
   }
 }
 
-variable "read_api_web_search_enabled" {
+variable "operator_api_web_search_enabled" {
   description = "Enable controlled Azure Responses web search for eligible chat turns."
   type        = bool
   default     = false
 }
 
-variable "read_api_web_search_allowed_domains" {
+variable "operator_api_web_search_allowed_domains" {
   description = "Exact public source hosts allowed for conversational web search."
   type        = list(string)
   default     = []
 
   validation {
     condition = (
-      length(var.read_api_web_search_allowed_domains) <= 100 &&
+      length(var.operator_api_web_search_allowed_domains) <= 100 &&
       alltrue([
-        for domain in var.read_api_web_search_allowed_domains :
+        for domain in var.operator_api_web_search_allowed_domains :
         can(regex("^[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$", domain))
       ])
     )
-    error_message = "read_api_web_search_allowed_domains MUST contain at most 100 host names without schemes or paths."
+    error_message = "operator_api_web_search_allowed_domains MUST contain at most 100 host names without schemes or paths."
   }
 }
 
-variable "read_api_web_search_max_results" {
+variable "operator_api_web_search_max_results" {
   description = "Maximum citations retained from one conversational web search."
   type        = number
   default     = 3
 
   validation {
-    condition     = var.read_api_web_search_max_results >= 1 && var.read_api_web_search_max_results <= 10
-    error_message = "read_api_web_search_max_results MUST be in [1, 10]."
+    condition     = var.operator_api_web_search_max_results >= 1 && var.operator_api_web_search_max_results <= 10
+    error_message = "operator_api_web_search_max_results MUST be in [1, 10]."
   }
 }
 
-variable "read_api_web_search_budget_ms" {
+variable "operator_api_web_search_budget_ms" {
   description = "Per-search Azure Responses timeout in milliseconds."
   type        = number
   default     = 15000
 
   validation {
-    condition     = var.read_api_web_search_budget_ms >= 1
-    error_message = "read_api_web_search_budget_ms MUST be >= 1."
+    condition     = var.operator_api_web_search_budget_ms >= 1
+    error_message = "operator_api_web_search_budget_ms MUST be >= 1."
   }
 }
 
-variable "read_api_web_search_probe_interval_seconds" {
+variable "operator_api_web_search_probe_interval_seconds" {
   description = "Periodic web-search candidate model probe interval in seconds."
   type        = number
   default     = 300
 
   validation {
-    condition     = var.read_api_web_search_probe_interval_seconds >= 30
-    error_message = "read_api_web_search_probe_interval_seconds MUST be >= 30."
+    condition     = var.operator_api_web_search_probe_interval_seconds >= 30
+    error_message = "operator_api_web_search_probe_interval_seconds MUST be >= 30."
   }
 }
 
-variable "read_api_audience" {
+variable "operator_api_audience" {
   description = "Expected JWT aud claim (FDAI_API_AUDIENCE), commonly the API application client id for v2 tokens. Do not use the OAuth scope string. Supplied via CI Variables; never committed."
   type        = string
   default     = ""
@@ -710,20 +710,20 @@ variable "rbac_break_glass_group_id" {
   default     = ""
 }
 
-variable "read_api_cors_allow_origins" {
+variable "operator_api_cors_allow_origins" {
   description = "Comma-separated allowed origins for the console SPA (e.g. the Static Web App origin). MUST NOT contain `*` outside dev."
   type        = string
   default     = ""
 }
 
-variable "read_api_iam_directory_provider" {
-  description = "Human identity directory adapter for IAM user search. Empty disables search; set entra only after Graph User.Read.All admin consent for the read API managed identity."
+variable "operator_api_iam_directory_provider" {
+  description = "Human identity directory adapter for IAM user search. Empty disables search; set entra only after Graph User.Read.All admin consent for the Operator API managed identity."
   type        = string
   default     = ""
 
   validation {
-    condition     = contains(["", "entra"], var.read_api_iam_directory_provider)
-    error_message = "read_api_iam_directory_provider MUST be empty or entra."
+    condition     = contains(["", "entra"], var.operator_api_iam_directory_provider)
+    error_message = "operator_api_iam_directory_provider MUST be empty or entra."
   }
 }
 

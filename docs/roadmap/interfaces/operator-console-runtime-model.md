@@ -32,7 +32,7 @@ a conflict and requires the operator to review the latest state before retrying.
 ## 4. Narrator - LLM tier model
 
 The narrator is the console's LLM translator layer. Core/CLI use the `Narrator` Protocol, while
-web progressive-answer generation uses a separate read API backend seam. Azure binding is selected
+web progressive-answer generation uses a separate Operator API backend seam. Azure binding is selected
 from `resolved-models.json` and environment composition, never a fixed account name.
 
 ### 4.1 Three tiers (mirrors the trust router)
@@ -72,7 +72,7 @@ valid structured decision. This classifier prompt is separate from Bragi's answe
 
 Public retrieval never borrows `narrator_candidates`. The resolver selects `t1.web_search` into
 `web_search_candidates`, and startup sends one actual managed-tool request per candidate before the
-read API serves traffic. Failed candidates are excluded. If none remain, Settings preserves the
+Operator API serves traffic. Failed candidates are excluded. If none remain, Settings preserves the
 enabled preference but reports `available=false` with a bounded reason and disables management.
 Settings also shows the sanitized provider, whether the Foundry project is configured, agent name,
 model deployment, provisioning status, and real-tool readiness. It never exposes the project
@@ -80,7 +80,7 @@ endpoint, Azure resource ID, tenant identity, or credentials.
 
 ### 4.1.1 Cross-process agent introspection
 
-The core runtime remains the only Pantheon owner. A separate read API reaches Bragi through two
+The core runtime remains the only Pantheon owner. A separate Operator API reaches Bragi through two
 bounded logical service topics multiplexed over `aw.pantheon.objects`; it never embeds another
 agent runtime. A server-echo probe confirms the response consumer, reuses the same joining consumer
 across retries, and allows 20 seconds for the initial Event Hubs group join. A request carries a
@@ -170,11 +170,11 @@ scope, model, mode, conversation (`correlation_id`), day, and month, plus
 a bounded newest-first invocation ledger with model and capability on
 every row. The console renders this as the read-only **LLM usage** panel.
 
-Derived price isn't exposed by the read API or console because regional,
+Derived price isn't exposed by the Operator API or console because regional,
 currency, and negotiated rates can make a configured estimate differ
 from the provider invoice. A deployment can still use its configured
 price table for an internal budget gate. Because the headless core and
-read API are separate processes, production uses the durable Postgres
+Operator API are separate processes, production uses the durable Postgres
 `llm_invocation` store; the single-process development harness shares one
 `InMemoryMeteringSink` between narrator calls and the panel.
 
@@ -248,7 +248,7 @@ class SystemConsoleTool(Protocol):
 ```
 
 - `call()` receives coordinator-parsed arguments and the authenticated principal, then applies its
-  own typed bounds. A web tool requiring history uses a separate asynchronous read API provider.
+  own typed bounds. A web tool requiring history uses a separate asynchronous Operator API provider.
 - `ToolResult` is a typed dataclass with `data` (serialisable), `preview`
   (short human-readable string the narrator gets to summarise), and
   optional `evidence_refs` (audit ids, PR urls, ARG resource ids) the
@@ -266,7 +266,7 @@ class ConversationChannelAdapter(Protocol):
 ```
 
 - One adapter per vendor wire. Teams uses Bot Framework activities; Slack uses the signed HTTP
-  Events API; web uses authenticated JSON/SSE read API routes. The CLI calls the shared read API
+  Events API; web uses authenticated JSON/SSE Operator API routes. The CLI calls the shared Operator API
   and is not another vendor adapter.
 - `InboundTurn` validates bounded channel, message, sender, thread, and text fields before the
   coordinator sees them. `ConversationChannelGateway` denies unresolved senders and suppresses

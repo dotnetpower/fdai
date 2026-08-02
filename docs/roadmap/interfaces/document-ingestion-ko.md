@@ -1,8 +1,8 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: 53b70a5a944e99f1c3be03b6cbf559f152937484
-translation_revised: 2026-07-23
+translation_source_sha: d8b8822491364ae5fcbeeb69f032924c1aef17b7
+translation_revised: 2026-08-02
 ---
 # 문서 인제스트와 Drop Zone
 
@@ -226,7 +226,7 @@ resource budget을 다룹니다. Lossy extraction은 warning으로 표시하며 
 
 ## 대용량 문서와 batch 설계
 
-파일 byte는 read-only console/read API process를 통과하지 않지만 전용 ingestion gateway를
+파일 byte는 read-only console/Operator API process를 통과하지 않지만 전용 ingestion gateway를
 통과합니다. Gateway는 request 전체를 memory에 올리지 않고 private object storage로 stream하며
 bounded worker가 처리합니다.
 
@@ -443,7 +443,7 @@ Linked-source removal과 ACL change event에도 동일한 reconciliation 및 lin
 
 ## API와 event 계약
 
-Document ingestion은 read API 또는 executor process가 아닌 전용 ingestion gateway가
+Document ingestion은 Operator API 또는 executor process가 아닌 전용 ingestion gateway가
 제공합니다. 초기 HTTP surface는 다음과 같습니다.
 
 로컬 콘솔 개발에서는 보호된 in-memory gateway를 별도 포트에서 실행할 수 있습니다.

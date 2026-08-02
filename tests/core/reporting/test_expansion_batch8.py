@@ -41,10 +41,10 @@ from fdai.core.reporting.registry import (
     WidgetRegistry,
 )
 from fdai.core.reporting.widgets import install_default_widgets
-from fdai.delivery.read_api.auth import build_authenticator
-from fdai.delivery.read_api.main import ReadApiConfig, build_app
-from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
-from fdai.delivery.read_api.routes.reporting import ReportingConfig
+from fdai.delivery.operator_api.auth import build_authenticator
+from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
+from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.operator_api.routes.reporting import ReportingConfig
 
 _NOW = datetime(2026, 7, 10, 12, 0, tzinfo=UTC)
 
@@ -167,11 +167,11 @@ def _engine_with_static() -> ReportEngine:
 
 def _client(engine: ReportEngine) -> TestClient:
     auth = build_authenticator(verifier=lambda t: {"oid": "u"}, resolver=lambda claims: None)
-    os.environ["FDAI_READ_API_DEV_MODE"] = "1"
+    os.environ["FDAI_OPERATOR_API_DEV_MODE"] = "1"
     app = build_app(
         authenticator=auth,
         read_model=InMemoryConsoleReadModel(),
-        config=ReadApiConfig(
+        config=OperatorApiConfig(
             dev_mode=True,
             reporting=ReportingConfig(
                 engine=engine,
@@ -191,7 +191,7 @@ class TestNewApiEndpoints:
             names = {item["name"] for item in response.json()["items"]}
             assert {"json", "markdown", "csv", "html", "text", "ndjson"} <= names
         finally:
-            os.environ.pop("FDAI_READ_API_DEV_MODE", None)
+            os.environ.pop("FDAI_OPERATOR_API_DEV_MODE", None)
 
     def test_widget_types_endpoint(self) -> None:
         client = _client(_engine_with_static())
@@ -201,7 +201,7 @@ class TestNewApiEndpoints:
             names = set(response.json()["items"])
             assert {"timeseries", "table", "pie_chart"} <= names
         finally:
-            os.environ.pop("FDAI_READ_API_DEV_MODE", None)
+            os.environ.pop("FDAI_OPERATOR_API_DEV_MODE", None)
 
     def test_datasources_endpoint(self) -> None:
         client = _client(_engine_with_static())
@@ -211,7 +211,7 @@ class TestNewApiEndpoints:
             names = set(response.json()["items"])
             assert {"audit", "static_s"} <= names
         finally:
-            os.environ.pop("FDAI_READ_API_DEV_MODE", None)
+            os.environ.pop("FDAI_OPERATOR_API_DEV_MODE", None)
 
     def test_health_endpoint(self) -> None:
         client = _client(_engine_with_static())
@@ -222,7 +222,7 @@ class TestNewApiEndpoints:
             assert "reports" in payload
             assert "config" in payload
         finally:
-            os.environ.pop("FDAI_READ_API_DEV_MODE", None)
+            os.environ.pop("FDAI_OPERATOR_API_DEV_MODE", None)
 
 
 # ---- InMemoryReportCache --------------------------------------------

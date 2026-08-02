@@ -89,7 +89,7 @@ async def test_submit_returns_only_opaque_workflow_metadata(tmp_path: Path) -> N
     def handle(request: httpx.Request) -> httpx.Response:
         inputs = json.loads(request.read())["inputs"]
         assert inputs["deploy_console"] is True
-        assert inputs["deploy_read_api"] is True
+        assert inputs["deploy_operator_api"] is True
         assert inputs["deploy_dev_operations_gateway"] is True
         assert inputs["deploy_document_ingestion"] is True
         return httpx.Response(
@@ -110,7 +110,7 @@ async def test_submit_returns_only_opaque_workflow_metadata(tmp_path: Path) -> N
             commit_sha="b" * 40,
             doctor_report=_doctor(ready=True),
             deploy_console=True,
-            deploy_read_api=True,
+            deploy_operator_api=True,
             deploy_dev_operations_gateway=True,
             deploy_document_ingestion=True,
             environ={"FDAI_GITHUB_TOKEN": "test-token"},

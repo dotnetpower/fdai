@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 361fd6f762ce48a35a054d491fc250f48e4d7577
-translation_revised: 2026-08-01
+translation_source_sha: 9fdd3490d5379e9ad33756637822d23fd53e3526
+translation_revised: 2026-08-02
 ---
 
 # Azure 읽기 조사
@@ -179,9 +179,9 @@ Azure MCP는 registered tool을 위한 추가 read transport를 제공할 수 �
 사항입니다. MCP가 없거나, 연결할 수 없거나, 권한이 없거나, allowlist tool이 누락되어도 Resource
 Graph와 typed REST provider가 authoritative provider로 유지되며 요청을 계속 처리합니다.
 
-Read API는 traffic을 받기 전에 bounded MCP handshake와 `tools/list` probe를 한 번 수행합니다.
+Operator API는 traffic을 받기 전에 bounded MCP handshake와 `tools/list` probe를 한 번 수행합니다.
 초기 deadline은 구성 가능하며 최대 10초입니다. Probe 실패는 capability를 unavailable로 기록하지만
-read API 시작을 차단하지 않습니다. Unavailable 상태의 요청은 MCP server에 접속하지 않고 기존
+Operator API 시작을 차단하지 않습니다. Unavailable 상태의 요청은 MCP server에 접속하지 않고 기존
 provider를 즉시 사용합니다. Background health monitor는 호출 없는 probe를 다시 시도합니다. Discovery가
 성공하면 process restart 없이 routing이 복구됩니다.
 
@@ -458,7 +458,7 @@ comma-separated `FDAI_AZURE_READER_RESOURCE_GROUPS` allowlist가 모두 있을 �
 evidence는 `unavailable`을 반환합니다. Reader binding이 활성화되면 startup은 traffic을 받기 전에
 run-ledger table을 probe하고 필요한 migration이 없으면 즉시 실패합니다.
 
-배포된 read API는 dedicated read API managed identity와 해당 identity가 Reader를 가진 resource
+배포된 Operator API는 dedicated Operator API managed identity와 해당 identity가 Reader를 가진 resource
 group에서 세 reader setting을 제공합니다. 이 reader binding이 있으면 Azure MCP는 기본적으로
 enabled입니다. `FDAI_AZURE_MCP_ENABLED=false`는 REST path를 비활성화하지 않고 MCP만
 비활성화합니다. 설정이 없고 optional Azure MCP SDK가 설치되지 않은 경우 composition은 startup을

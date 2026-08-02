@@ -405,7 +405,7 @@ def build_architecture_behavior_specs(
                 "Approval.Button.Substrate.Mutation"
             ),
             status="configured",
-            owner="Read API / Thor",
+            owner="Operator API / Thor",
             aliases=(
                 "콘솔에서 바로 Azure 리소스를 변경할 수 있어?",
                 "콘솔 사용자와 executor identity는 왜 분리돼?",
@@ -416,7 +416,7 @@ def build_architecture_behavior_specs(
                 "The browser principal is authenticated independently from workload identity.",
             ),
             steps=(
-                "The console reads bounded projections through the read API.",
+                "The console reads bounded projections through the Operator API.",
                 "Mutation intent re-enters the typed control pipeline rather than calling Azure directly.",
                 "Only Thor's allowlisted workload identity reaches privileged delivery adapters.",
             ),
@@ -437,7 +437,7 @@ def build_architecture_behavior_specs(
                     "browser principal은 workload identity와 별도로 인증되어야 합니다.",
                 ),
                 steps=(
-                    "console은 read API를 통해 제한된 projection만 읽습니다.",
+                    "console은 Operator API를 통해 제한된 projection만 읽습니다.",
                     "mutation intent는 Azure를 직접 호출하지 않고 typed control pipeline에 재진입합니다.",
                     "Thor의 allowlist된 workload identity만 privileged delivery adapter에 접근합니다.",
                 ),
@@ -668,7 +668,7 @@ def build_architecture_behavior_specs(
             behavior_id="architecture.local-evidence-parity",
             subject_id="LocalAzureTruthContract",
             status="configured",
-            owner="Read API composition",
+            owner="Operator API composition",
             aliases=(
                 "로컬 콘솔에 Azure 근거가 없으면 demo data를 보여줘?",
                 "로컬과 배포 환경은 promotion state를 다르게 바꿔?",
@@ -733,7 +733,7 @@ def build_architecture_behavior_specs(
                 _source(
                     blob_shas,
                     "test",
-                    "tests/delivery/read_api/test_local.py",
+                    "tests/delivery/operator_api/test_local.py",
                     "test_local_azure_discovery_rejects_synthetic_opt_out",
                     437,
                     444,

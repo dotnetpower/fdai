@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import {
   AsyncBoundary,
   DataTable,
@@ -97,7 +97,7 @@ export interface RuntimeSkillsResponse {
   readonly mutation_controls: boolean;
 }
 
-export function SkillsRoute({ client }: { readonly client: ReadApiClient }) {
+export function SkillsRoute({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<RuntimeSkillsResponse>>({ status: "loading" });
   useEffect(() => {
     let cancelled = false;

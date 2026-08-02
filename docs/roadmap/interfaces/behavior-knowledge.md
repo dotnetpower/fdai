@@ -116,7 +116,7 @@ The built-in seed set contains 13 contracts. Ten architecture contracts extend t
 | Trust routing and T2 quality gate | `TrustRouter`, `QualityGate` | Core implementation and focused tests |
 | Human approval and shadow promotion | `RiskGate`, `Var`, `ActionPromotionRegistry` | Agent/core implementation and regression tests |
 | Executor safety, event deduplication, and rollback | `ShadowExecutor`, `EventIngest`, `Vidar` | Core/agent implementation and idempotency tests |
-| Console identity boundary and local evidence parity | Read API composition and `Thor` | Configuration contract plus local read-API tests |
+| Console identity boundary and local evidence parity | Operator API composition and `Thor` | Configuration contract plus local Operator API tests |
 | Narrator translator-only path | `Bragi` | Agent implementation, typed-pipeline re-entry, and primary/contributor normalization tests |
 
 The Odin contract explicitly excludes single-domain and unanimous recommendations. It also marks
@@ -125,7 +125,7 @@ portfolio review as designed-only and temporal fairness as optional dependency-i
 ## Command Deck answer path
 
 The repository resolver initializes once on the first chat evidence lookup. It hashes only tracked
-seed sources and keeps the in-memory index for the process lifetime. For each question, the read API
+seed sources and keeps the in-memory index for the process lifetime. For each question, the Operator API
 performs these steps:
 
 1. Remove any client-supplied behavior evidence.
@@ -153,7 +153,7 @@ The current implementation is intentionally split so deployed claims remain accu
   server-owned chat resolver; deterministic terminal renderer and verifier; PostgreSQL/pgvector
   adapter; offline tests and a live-database rank parity test.
 - **Designed, not production-bound**: generated PostgreSQL schema migration, production composition
-  binding, and an incremental index or sync CLI. Until those land, the read API uses repository seeds
+  binding, and an incremental index or sync CLI. Until those land, the Operator API uses repository seeds
   in a tracked checkout and holds the answer when repository metadata is unavailable.
 
 ## Verification

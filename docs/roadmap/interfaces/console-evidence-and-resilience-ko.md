@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: a4eb468f46244141373541f5b14d0a0b994d3cd2
-translation_revised: 2026-08-01
+translation_source_sha: 59d30a4be99d8f1f0f64508fa15c396e8b6e4f86
+translation_revised: 2026-08-02
 ---
 
 # 콘솔 근거 및 복원력
@@ -29,7 +29,7 @@ activity만 ordering timestamp를 갱신합니다.
 Conversation 제목이 시각적으로 잘리면 pointer hover에서 공용 console tooltip으로 전체 label을
 표시합니다. 제목이 영역 안에 모두 표시되면 중복 tooltip을 표시하지 않습니다.
 Agent card의 Ask action은 항상 unique user-scoped key를 가진 비어 있는 새 agent conversation을
-엽니다. 새 summary는 선택한 agent를 즉시 보유하므로 첫 submit부터 같은 agent target을 read API에
+엽니다. 새 summary는 선택한 agent를 즉시 보유하므로 첫 submit부터 같은 agent target을 Operator API에
 전달합니다. 기존 agent conversation은 별도 history entry로 보존하며 operator가 명시적으로 선택할
 때만 복원합니다.
 Active cached conversation을 제거하면 current-route default(legacy `screen` key 포함) 또는
@@ -351,7 +351,7 @@ failure 또는 escalation reason을 인용할 수 있지만, 완전한 root-caus
 ownership을 상속하지 않습니다. Owned route가 manifest에 하나라도 없으면 panel은 `unknown`이고,
 명시적으로 source-independent인 panel만 source status를 생략합니다.
 
-Production read API는 `GET /stewardship`을 등록하기 전에 operational ownership map을 load하고
+Production Operator API는 `GET /stewardship`을 등록하기 전에 operational ownership map을 load하고
 validate합니다. Console은 이 source를 read-only로 projection합니다. Handover form은 structured
 person 또는 group assignment를 별도 ingestion boundary에 제출할 수 있지만 map을 적용하거나 Git
 credential을 보유할 수 없습니다. Draft PR 생성과 signed merge processing은 ingestion/GitOps
@@ -359,7 +359,7 @@ boundary에 유지되며 반환된 draft에는 persisted idempotent PR receipt�
 Browser는 receipt URL이 embedded credential 없는 absolute HTTPS URL일 때만 link로 렌더링하며,
 그 외에는 PR reference를 클릭할 수 없는 text로 표시합니다.
 Content upload는 same-origin ingestion proxy target에만 API bearer token을 유지합니다.
-Cross-origin direct-upload target에는 content header를 보내지만 read API credential은 전달하지
+Cross-origin direct-upload target에는 content header를 보내지만 Operator API credential은 전달하지
 않습니다.
 
 ## 점진적 병렬 대화
@@ -524,7 +524,7 @@ notification delivery를 분당 5건으로 제한하지만 audit 또는 Incident
 Agent stream은 local 및 deployed profile에서 같은 shared stage transport를 통해 실제 health에서
 파생한 `agent.runtime-state` heartbeat를 수신합니다. Heartbeat는 live agent의 현재 runtime 관찰을
 증명하지만 work로 분류되지 않습니다. 누락되거나 malformed인 health frame은 선언된 subscriber
-binding을 observed state로 승격하지 않습니다. 각 read API replica는 instance-scoped consumer
+binding을 observed state로 승격하지 않습니다. 각 Operator API replica는 instance-scoped consumer
 group을 사용하므로 연결된 모든 console이 완전한 heartbeat set을 수신합니다. Deployed Pantheon도
 handler `started`, `completed`, `failed` transition을 이 transport로 게시합니다. Give up 또는 halt된
 consumer는 sibling을 유지한 채 health-derived heartbeat에서 빠지고 terminal agent/topic은 runtime
@@ -539,7 +539,7 @@ terminal state 하나로 진행합니다. Stale backward frame과 terminal repla
 failed 또는 unavailable operation이 spinner로 돌아가지 않습니다.
 
 Console data를 열기 전에 bootstrap은 인증된 `GET /iam/self`로 principal을 확인합니다. Transport
-failure는 data를 닫힌 상태로 유지하고 access-check retry 및 sign-in을 제공합니다. Read API가
+failure는 data를 닫힌 상태로 유지하고 access-check retry 및 sign-in을 제공합니다. Operator API가
 unreachable일 때 redirect loop가 생기므로 자동 redirect는 시작하지 않습니다.
 
 ## Architecture map resilience
@@ -636,7 +636,7 @@ Local projection은 선택된 endpoint id와 resource type이 일치하는 regis
 신뢰할 수 없는 edge를 렌더링하지 않고 마지막 complete resource graph를 유지합니다.
 
 Subscription-scoped cached snapshot은 즉시 렌더링됩니다. Expired 또는 change-invalidated snapshot은
-background refresh 동안 stale로 표시됩니다. Browser는 read API가 완료된 refresh를 원자적으로
+background refresh 동안 stale로 표시됩니다. Browser는 Operator API가 완료된 refresh를 원자적으로
 promote할 때까지만 polling하고 server freshness verdict를 높이지 않으며, stale graph를 유지한 채
 transient failure를 bounded 2-30초 backoff로 재시도합니다.
 

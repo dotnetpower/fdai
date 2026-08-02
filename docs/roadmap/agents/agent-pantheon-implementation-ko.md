@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 4ab91e86a308da5f62e878d82ed478420cffaa67
-translation_revised: 2026-07-31
+translation_source_sha: d440b2a6e504952845e18a71bc30c4871d46ced1
+translation_revised: 2026-08-02
 ---
 
 # 에이전트 판테온 구현 계획
@@ -755,10 +755,10 @@ verdict, approval, execution, rollback, audit 및 promotion owner는 변경되�
 **Metering (측정값, 추정 아님).** Metering 대상 T1, T2, narrator 호출은
 provider가 측정한 `usage`를 `MeteringSink`로 기록합니다. narrator는
 `operator_chat`을 사용하고 나머지 호출은 `control_plane`을 사용합니다.
-Read-API `LlmCostPanel`은 `GET /kpi/llm-cost`를 호환 경로로 유지하며 scope,
+Operator API `LlmCostPanel`은 `GET /kpi/llm-cost`를 호환 경로로 유지하며 scope,
 model, call, conversation, 일, 월별 token-only rollup을 노출합니다. 단일 프로세스
 dev harness는 하나의 in-memory sink를 공유하고 production은 durable Postgres
-`llm_invocation` store를 통해 headless core와 read API가 같은 metering stream을
+`llm_invocation` store를 통해 headless core와 Operator API가 같은 metering stream을
 사용합니다.
 
 ## 14. 타임라인 shape (commitment 아님)

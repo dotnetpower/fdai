@@ -1,4 +1,4 @@
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { useEffect, useRef, useState } from "preact/hooks";
 import "./settings-email-template.css";
@@ -24,7 +24,7 @@ import {
 } from "./settings-runtime.model";
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly auth: AuthContext;
 }
 
@@ -159,7 +159,7 @@ export function SettingsDiagnosticsRoute({ client, auth }: Props) {
       }),
       capturedAt: new Date().toISOString(),
       facts: [
-        { key: "read_api_liveness", value: health, group: "runtime" },
+        { key: "operator_api_liveness", value: health, group: "runtime" },
         { key: "kpi_read_path", value: readPath, group: "runtime" },
         { key: "authentication_mode", value: authMode, group: "identity" },
       ],
@@ -177,7 +177,7 @@ export function SettingsDiagnosticsRoute({ client, auth }: Props) {
       <section class="settings-section" aria-labelledby="settings-runtime">
         <h3 id="settings-runtime">{t("settings.runtime")}</h3>
         <div class="settings-list">
-          <SettingRow label={t("settings.readApiLiveness")} hint={t("settings.readApiLivenessHint")}>
+          <SettingRow label={t("settings.operatorApiLiveness")} hint={t("settings.operatorApiLivenessHint")}>
             <span class="settings-diagnostic-action">
               <StatusPill
                 kind={health === "available" ? "success" : health === "unavailable" ? "danger" : "neutral"}
@@ -216,7 +216,7 @@ export function SettingsDiagnosticsRoute({ client, auth }: Props) {
   );
 }
 
-function useRuntimeSettings(client: ReadApiClient): AsyncState<RuntimeSettingsView> {
+function useRuntimeSettings(client: OperatorApiClient): AsyncState<RuntimeSettingsView> {
   const [state, setState] = useState<AsyncState<RuntimeSettingsView>>({ status: "loading" });
   useEffect(() => {
     let active = true;
@@ -241,7 +241,7 @@ function useRuntimeSettings(client: ReadApiClient): AsyncState<RuntimeSettingsVi
   return state;
 }
 
-function useIncidentEmailTemplate(client: ReadApiClient): AsyncState<EmailTemplatePreview> {
+function useIncidentEmailTemplate(client: OperatorApiClient): AsyncState<EmailTemplatePreview> {
   const [state, setState] = useState<AsyncState<EmailTemplatePreview>>({ status: "loading" });
   useEffect(() => {
     let active = true;

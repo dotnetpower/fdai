@@ -66,7 +66,7 @@ dependencies = [
     # portable behind the `EventBus` Protocol.
     "aiokafka>=0.12,<0.13",
     # Read-only console API - Starlette is the ASGI micro-framework used by
-    # `delivery/read_api/`. Chosen over FastAPI because the surface is three
+    # `delivery/operator_api/`. Chosen over FastAPI because the surface is three
     # GET routes (no OpenAPI generation, no request-body validation via
     # pydantic-integration) and Starlette carries fewer transitive deps
     # (see app-shape.instructions.md § Operator console). `core/` never
@@ -79,7 +79,7 @@ dependencies = [
     # PYSEC-2026-249 (FormParser urlencoded limits ignored). Upper bound
     # <2 tracks the next stable major.
     "starlette>=1.3.1,<2",
-    # Console read-API Entra JWT verification (delivery/read_api/entra_verifier.py).
+    # Console Operator API Entra JWT verification (delivery/operator_api/entra_verifier.py).
     # PyJWT's PyJWKClient fetches + caches the tenant JWKS and `jwt.decode`
     # validates signature + `aud` + `iss` + `exp`/`nbf` in one call. The
     # `[crypto]` extra pulls `cryptography` for RS256. Generic + CSP-neutral:
@@ -118,15 +118,15 @@ dev = [
     # catches the same failures CI would surface. See
     # .github/instructions/generic-scope.instructions.md § Enforcement.
     "pre-commit>=4.0,<5",
-    # Local dev-only ASGI server so the console SPA can hit the read-API
-    # (`fdai.delivery.read_api.dev.local:app`) at development time. Not
+    # Local dev-only ASGI server so the console SPA can hit the Operator API
+    # (`fdai.delivery.operator_api.dev.local:app`) at development time. Not
     # required in production - a fork picks its own ASGI server per
     # container-runtime policy.
     "uvicorn>=0.32,<1",
 ]
 
 # Production ASGI server for the read-only console API
-# (`fdai.delivery.read_api.prod:app`). Kept as an opt-in extra so the
+# (`fdai.delivery.operator_api.prod:app`). Kept as an opt-in extra so the
 # headless core image stays minimal; the console-serving image installs
 # it with `uv sync --extra serve`. A fork MAY swap this for another ASGI
 # server per its container-runtime policy.
@@ -137,7 +137,7 @@ pdf-report = [
     "weasyprint>=66,<70",
 ]
 # Isolated browser-evidence workers install this extra explicitly. The core and
-# read-API images omit it so browser code and binaries never inherit executor identity.
+# Operator API images omit it so browser code and binaries never inherit executor identity.
 browser-evidence = [
     "playwright>=1.51,<2",
 ]
@@ -208,14 +208,14 @@ ignore = []
 # Chat backend embeds a long-form system prompt as a triple-quoted string
 # literal. Breaking the prompt across lines would corrupt the payload the
 # LLM sees; the E501 rule does not apply to prose inside a prompt.
-"src/fdai/delivery/read_api/routes/chat.py" = ["E501"]
+"src/fdai/delivery/operator_api/routes/chat.py" = ["E501"]
 # Codegen CLI + object-type loader header comments run slightly over the
 # 100-column budget for readability of a single-line docstring / import.
 # These are already committed; opening the doorway to reformat every
 # docstring would exceed the intent of this cleanup.
 "src/fdai/rule_catalog/codegen/**" = ["E501"]
 "src/fdai/rule_catalog/schema/object_type.py" = ["E501"]
-"tests/delivery/read_api/test_bitemporal.py" = ["E501"]
+"tests/delivery/operator_api/test_bitemporal.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"

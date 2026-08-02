@@ -2,8 +2,8 @@
 title: 제한된 작업 워커
 translation_of: bounded-task-workers.md
 translation_source: docs/roadmap/agents/bounded-task-workers.md
-translation_source_sha: 1c16891277ec1d3cc22b92f35f83a733c68fad9a
-translation_revised: 2026-07-22
+translation_source_sha: 95b436eac8386b1fde2af0ab234196c6520e69b4
+translation_revised: 2026-08-02
 ---
 
 # 제한된 작업 워커
@@ -140,7 +140,7 @@ Production은 PostgreSQL store를 사용하는 GET-only route를 제공합니다
 인증된 principal은 각 store query 안에서 owner predicate가 됩니다. 다른 principal이 소유한
 worker는 없는 worker와 동일한 404 shape를 사용합니다. List row는 goal과 constraint를 제외하고
 status, budget, heartbeat, tool, evidence count, usage, terminal reason을 표시합니다. Detail은
-제한되고 신뢰되지 않은 result를 포함할 수 있습니다. Read API에는 create, cancel, approve,
+제한되고 신뢰되지 않은 result를 포함할 수 있습니다. Operator API에는 create, cancel, approve,
 execute route가 없습니다.
 
 ## 실패 동작

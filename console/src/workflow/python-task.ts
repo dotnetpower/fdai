@@ -205,7 +205,7 @@ export async function schedulePythonTask(args: {
 
 async function post<T>(path: string, payload: unknown): Promise<T> {
   const config = loadConfig();
-  const base = config.readApiBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
+  const base = config.operatorApiBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
   const headers: Record<string, string> = {
     "content-type": "application/json",
     accept: "application/json",

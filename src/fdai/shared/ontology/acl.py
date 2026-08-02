@@ -9,11 +9,11 @@ Y with purpose set Z" without leaking the real value.
 
 Why it lives in ``shared/``
 --------------------------
-Every projection surface - the read-API panels, the assurance twin
+Every projection surface - the Operator API panels, the assurance twin
 answer renderer, exported JSON reports, chat responses - MUST apply
 the same redaction so a caller cannot bypass the ACL by choosing a
 different surface. Keeping the function in ``shared/`` lets ``core/``
-(assurance twin, control loop) and ``delivery/`` (read-API) both call
+(assurance twin, control loop) and ``delivery/`` (Operator API) both call
 it without either side depending on the other.
 
 Design invariants

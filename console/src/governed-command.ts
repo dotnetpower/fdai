@@ -9,7 +9,7 @@ export class GovernedCommandError extends Error {
 
 export async function putGovernedJson(
   auth: AuthContext,
-  readApiBaseUrl: string,
+  operatorApiBaseUrl: string,
   path: string,
   body: Record<string, unknown>,
   method: "POST" | "PUT" = "PUT",
@@ -24,7 +24,7 @@ export async function putGovernedJson(
   const timer = globalThis.setTimeout(() => controller.abort(), 10_000);
   let response: Response;
   try {
-    response = await fetch(new URL(path, readApiBaseUrl), {
+    response = await fetch(new URL(path, operatorApiBaseUrl), {
       method,
       headers,
       credentials: "omit",

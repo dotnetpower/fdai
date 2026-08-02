@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { isOptionalReadApiUnavailable } from "../api";
-import type { ReadApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable } from "../api";
+import type { OperatorApiClient } from "../api";
 import { ErrorState, LoadingState, UnavailableState } from "../components/ui";
 import { currentRoute, navigate, replaceRouteState } from "../router";
 import { BestPracticeControlsBody } from "./best-practice-controls-body";
@@ -23,7 +23,7 @@ type DetailState =
   | { readonly status: "ready"; readonly data: BestPracticeDetail }
   | { readonly status: "error"; readonly message: string };
 
-export function BestPracticeControlsRoute({ client }: { readonly client: ReadApiClient }) {
+export function BestPracticeControlsRoute({ client }: { readonly client: OperatorApiClient }) {
   const initial = bestPracticeStateFromSearch(currentRoute().search);
   const [filters, setFilters] = useState(initial.filters);
   const [searchInput, setSearchInput] = useState(initial.filters.q);
@@ -66,7 +66,7 @@ export function BestPracticeControlsRoute({ client }: { readonly client: ReadApi
       } catch (error) {
         if (!cancelled) {
           setMessage(error instanceof Error ? error.message : String(error));
-          setStatus(isOptionalReadApiUnavailable(error) ? "unavailable" : "error");
+          setStatus(isOptionalOperatorApiUnavailable(error) ? "unavailable" : "error");
         }
       }
     })();

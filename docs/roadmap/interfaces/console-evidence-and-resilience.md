@@ -27,7 +27,7 @@ When a conversation title is visually truncated, pointer hover shows the complet
 the shared console tooltip. A title that fits does not show a redundant tooltip.
 An agent-card Ask action always opens a new empty agent conversation with a unique user-scoped key.
 The new summary carries the selected agent immediately, so the first submit sends the same agent
-target to the read API. Existing agent conversations are preserved as separate history entries and
+target to the Operator API. Existing agent conversations are preserved as separate history entries and
 are restored only when the operator selects one explicitly.
 Removing the active cached conversation selects only a current-route default (including the legacy
 `screen` key) or current-route thread. If neither exists, the console creates a new current-route
@@ -349,7 +349,7 @@ paths or descendants on a path-segment boundary, and selects the longest owner. 
 not inherit ownership. A panel remains `unknown` when any owned route is absent from the manifest;
 only explicitly source-independent panels omit source status.
 
-The production read API loads and validates the operational ownership map before registering
+The production Operator API loads and validates the operational ownership map before registering
 `GET /stewardship`. The console projects that source read-only. Its Handover form can submit
 structured person or group assignments to the separate ingestion boundary, but it cannot apply the
 map or hold Git credentials. Draft PR creation and signed merge processing remain on the
@@ -357,7 +357,7 @@ ingestion/GitOps boundary, and the returned draft includes the persisted idempot
 The browser renders a receipt URL as a link only when it is an absolute HTTPS URL without embedded
 credentials; otherwise it displays the PR reference as non-clickable text.
 Content upload keeps the API bearer token only for same-origin ingestion proxy targets. A
-cross-origin direct-upload target receives the content headers but never the read API credential.
+cross-origin direct-upload target receives the content headers but never the Operator API credential.
 
 ## Progressive parallel conversations
 
@@ -527,7 +527,7 @@ minute without removing any audit or Incident evidence.
 The agent stream receives health-derived `agent.runtime-state` heartbeats through the same shared
 stage transport in local and deployed profiles. A heartbeat establishes current runtime observation
 for a live agent but isn't classified as work. Missing or malformed health frames never promote a
-declared subscriber binding into an observed state. Each read API replica uses an instance-scoped
+declared subscriber binding into an observed state. Each Operator API replica uses an instance-scoped
 consumer group so every connected console receives the complete heartbeat set. The deployed
 Pantheon also publishes handler `started`, `completed`, and `failed` transitions through this
 transport. A consumer that gives up or halts is removed from health-derived heartbeats while its
@@ -543,7 +543,7 @@ ignored so a completed, failed, or unavailable operation cannot return to a spin
 
 Before opening console data, bootstrap verifies the principal through authenticated
 `GET /iam/self`. Transport failure keeps data closed and offers access-check retry and sign-in. It
-does not start an automatic redirect because an unreachable read API would cause a redirect loop.
+does not start an automatic redirect because an unreachable Operator API would cause a redirect loop.
 
 ## Architecture-map resilience
 
@@ -646,7 +646,7 @@ resource types agree. It drops malformed or over-limit vendor relationships, mar
 truncated, and keeps the last complete resource graph rather than rendering an untrusted edge.
 
 A subscription-scoped cached snapshot renders immediately. Expired or change-invalidated snapshots
-are marked stale while a background refresh runs. The browser polls only until the read API
+are marked stale while a background refresh runs. The browser polls only until the Operator API
 atomically promotes the completed refresh, never upgrades the server freshness verdict, and retries
 transient failures with bounded 2-to-30-second backoff while the stale graph remains usable.
 

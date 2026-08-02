@@ -1,6 +1,6 @@
 /**
  * Workflow authoring client - the one non-GET call the console makes,
- * kept OUT of the GET-only `ReadApiClient` exactly like the chat backend
+ * kept OUT of the GET-only `OperatorApiClient` exactly like the chat backend
  * (`deck/backend.ts`).
  *
  * `POST /workflows/validate` is a pure, read-only validation: it runs the
@@ -9,7 +9,7 @@
  * creates a PR - the operator copies the previewed YAML into a
  * remediation PR through the git-native path (app-shape.instructions.md
  * § Operator console). The `ActionType` palette itself is a plain GET and
- * is fetched through `ReadApiClient.panel`.
+ * is fetched through `OperatorApiClient.panel`.
  *
  * Auth: the signed-in operator's bearer token is threaded here through a
  * module singleton set once at app init (mirroring `deck/deck-user.ts`),
@@ -188,7 +188,7 @@ async function workflowMutation(
   body?: Readonly<Record<string, unknown>>,
 ): Promise<Record<string, unknown>> {
   const cfg = loadConfig();
-  const base = cfg.readApiBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
+  const base = cfg.operatorApiBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
   const headers: Record<string, string> = { accept: "application/json" };
   if (body !== undefined) headers["content-type"] = "application/json";
   const authHeader = authContext ? await authContext.getAuthorizationHeader() : null;
@@ -236,7 +236,7 @@ function requiredResponseString(value: Record<string, unknown>, key: string): st
 function validateUrl(): string {
   const cfg = loadConfig();
   const base =
-    cfg.readApiBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
+    cfg.operatorApiBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
   return `${base.replace(/\/$/, "")}/workflows/validate`;
 }
 
@@ -280,7 +280,7 @@ export async function validateWorkflowDraft(
   if (response.status === 404) {
     throw new Error(
       "The workflow authoring route is not wired on this deployment. " +
-        "Set ReadApiConfig.workflow_authoring in the composition root to enable it.",
+        "Set OperatorApiConfig.workflow_authoring in the composition root to enable it.",
     );
   }
   if (response.status === 413) {

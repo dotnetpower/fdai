@@ -8,10 +8,10 @@
  * a drift board, a DR-drill history) does NOT edit `app.tsx` or
  * `shell.tsx`. It appends a `ConsolePanel` to `EXTRA_PANELS` (or injects
  * one at build time) and, on the API side, registers a matching
- * `ReadPanel` (`src/fdai/delivery/read_api/panels.py`).
+ * `ReadPanel` (`src/fdai/delivery/operator_api/panels.py`).
  *
  * Every panel is read-only. A panel renders data fetched through the
- * GET-only `ReadApiClient`; there is no mutating back-channel. Approvals
+ * GET-only `OperatorApiClient`; there is no mutating back-channel. Approvals
  * and actions still flow through ChatOps / remediation PRs, never a
  * console button (app-shape.instructions.md § Operator console).
  *
@@ -25,7 +25,7 @@
 
 import type { ComponentType } from "preact";
 import { lazy } from "preact/compat";
-import type { ReadApiClient } from "./api";
+import type { OperatorApiClient } from "./api";
 import type { AuthContext } from "./auth";
 import { t } from "./i18n";
 
@@ -80,7 +80,7 @@ const LabsRoute = lazy(async () => ({ default: (await import("./routes/labs")).L
 
 /** Props every panel component receives. Read-only client only. */
 export interface PanelProps {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly auth: AuthContext;
 }
 

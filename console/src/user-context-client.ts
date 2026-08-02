@@ -277,7 +277,7 @@ async function request(
   method: "GET" | "POST" | "PUT" | "DELETE",
   body?: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
-  const base = loadConfig().readApiBaseUrl || window.location.origin;
+  const base = loadConfig().operatorApiBaseUrl || window.location.origin;
   const headers: Record<string, string> = { accept: "application/json" };
   if (body !== undefined) headers["content-type"] = "application/json";
   const authorization = authContext ? await authContext.getAuthorizationHeader() : null;

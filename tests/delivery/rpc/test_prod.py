@@ -18,7 +18,7 @@ from fdai.core.supply_chain import (
     TrustedArtifactKind,
     TrustedArtifactRecord,
 )
-from fdai.delivery.read_api.production.skills import build_production_skill_runtime
+from fdai.delivery.operator_api.production.skills import build_production_skill_runtime
 from fdai.delivery.rpc.prod import ProductionRpcConfig, build_production_rpc_app
 
 

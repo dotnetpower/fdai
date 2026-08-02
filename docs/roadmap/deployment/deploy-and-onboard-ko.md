@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: a21dfc67e34ae1bb2645a604230a4e7ed922e177
-translation_revised: 2026-08-01
+translation_source_sha: 2c1d42e74f148be71a71abb11c87df0e64e19dd4
+translation_revised: 2026-08-02
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
@@ -126,14 +126,14 @@ Protected plan은 binary Terraform plan, bounded preflight evidence, Function so
 검증합니다. 새 plan 저장 전 runner는 24시간이 지난 allowlisted plan, metadata, source,
 preflight, claim, receipt blob만 선택합니다. 1001개 미만을 scan하고 worker 8개로 최대 1000개를
 삭제하며 selection이 incomplete이거나 delete가 하나라도 실패하면 plan을 중지합니다.
-Development operations gateway를 선택하면 Terraform은 해당 Function, core, read API,
+Development operations gateway를 선택하면 Terraform은 해당 Function, core, Operator API,
 ingestion, operational canary, inventory reconciliation Job, realtime inventory publisher 및 해당
 dependency graph를 target합니다. 이렇게 하면 관련 없는 runtime resource 변경은 plan에서
 제외하면서 Job image와 required shared runtime config를 수렴 상태로 유지합니다. Terraform은 host와 deployment
 storage에 reader managed identity를 사용하며 workflow는 publish 전에 Flex-generated exact shared-key
 override를 제거합니다. 해당 identity에는 host용 `Storage Blob Data Owner`와 idempotency용 contributor
 grant를 별도로 부여합니다. Function `site_config`는 Application Insights를 단독 관리하며 Easy Auth는
-gateway principal 검사 전에 core executor managed identity client만 허용합니다. Read API deployment는
+gateway principal 검사 전에 core executor managed identity client만 허용합니다. Operator API deployment는
 repository Variable의 non-secret maintainer와 모든 non-autonomous agent stewardship binding도 요구하며
 Container App precondition이 incomplete map을 거부합니다. Exact apply가 수렴하면 workflow가 검증된
 source를 official Flex One Deploy action으로 remote build하고 bounded trigger sync 후 두 Function trigger를 확인합니다.
@@ -325,7 +325,7 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 | 8 | **User-assigned Managed Identity** | - | executor의 최소권한, 액션-화이트리스트 아이덴티티; [워크로드 아이덴티티 계약](../architecture/csp-neutrality-ko.md#4-워크로드-아이덴티티-계약--oidc-토큰) 구현 | Phase 1은 built-in 롤 구성으로 RG-스코프의 **하나의** MI (`mi-aw-executor`) 배포; Phase 3에서 도메인별 MI로 분할 - [security-and-identity-ko.md § Identity Mapping (Phased)](../architecture/security-and-identity-ko.md#identity-mapping-phased) 참조 |
 | 9 | **Log Analytics workspace + Application Insights** | Pay-as-you-go, **기본 30일 보존** | traces / metrics / logs / audit-forward | `appi-*` 리소스가 workspace에 바인딩되며 보존은 배포 후 **UI에서 설정 가능** |
 | 10 | **Container Registry (ACR)** | Basic (나중에 geo-replication 필요 시 Standard) | 서명된 이미지 + 빌드 attestation | digest로 고정, mutable 태그 절대 아님 |
-| 11 | **Azure OpenAI account + Foundry account/project** (**opt-in**, `var.enable_llm`) | Standard | T1 embedding + T2 mixed-model deployment 및 100K TPM의 전용 GPT-4.1-nano web-search prompt agent | 프로비저닝에는 deployer 권한과 리전 family capacity가 필요하며, 그렇지 않으면 해당 capability가 **`hil-only`**로 강등됩니다. [dev-and-deploy-parity-ko.md § 배포자-스코프 LLM 프로비저닝](dev-and-deploy-parity-ko.md#배포자-스코프-llm-프로비저닝)을 참조하세요. Web search를 활성화하면 Terraform이 deployment region에 별도 `AIServices` Foundry account, project 및 `t1.web_search` deployment를 만들고 deployer와 활성화된 read API identity에 `Azure AI User`를 부여합니다. 보호된 post-apply 단계는 실제 tool readiness probe 전에 정확한 domain allowlist로 `fdai-web-search`를 reconcile합니다. Private mode는 `privatelink.services.ai.azure.com`을 추가하며 tenant policy가 소유하는 deny ACL 세부 정보는 Terraform이 보존합니다. |
+| 11 | **Azure OpenAI account + Foundry account/project** (**opt-in**, `var.enable_llm`) | Standard | T1 embedding + T2 mixed-model deployment 및 100K TPM의 전용 GPT-4.1-nano web-search prompt agent | 프로비저닝에는 deployer 권한과 리전 family capacity가 필요하며, 그렇지 않으면 해당 capability가 **`hil-only`**로 강등됩니다. [dev-and-deploy-parity-ko.md § 배포자-스코프 LLM 프로비저닝](dev-and-deploy-parity-ko.md#배포자-스코프-llm-프로비저닝)을 참조하세요. Web search를 활성화하면 Terraform이 deployment region에 별도 `AIServices` Foundry account, project 및 `t1.web_search` deployment를 만들고 deployer와 활성화된 Operator API identity에 `Azure AI User`를 부여합니다. 보호된 post-apply 단계는 실제 tool readiness probe 전에 정확한 domain allowlist로 `fdai-web-search`를 reconcile합니다. Private mode는 `privatelink.services.ai.azure.com`을 추가하며 tenant policy가 소유하는 deny ACL 세부 정보는 Terraform이 보존합니다. |
 | 12 | **ADLS Gen2 document account** (**opt-in**, `enable_document_ingestion`) | StorageV2 Standard ZRS, HNS | private quarantine, immutable governed version, derived envelope | Private mode에서 Shared Key와 public access 비활성화; soft delete + lifecycle; `blob`과 `dfs` private endpoint |
 | 13 | **Case-history Blob account** (`enable_case_history`) | StorageV2 Standard ZRS | Replay 및 governed Norns 분석용 content-addressed prediction/incident case revision | Shared Key 비활성화, private container, versioning, change feed, soft delete, bounded old-version lifecycle, 전용 case-history UAMI data role, `blob` private endpoint. Executor MI에는 Blob role을 부여하지 않습니다. |
 | 14 | **Document ingestion Container App** (**opt-in**) | Consumption, gateway + ClamAV sidecar | 인증된 bounded upload relay, safety scan, extraction, pgvector indexing, lifecycle event | Dedicated UAMI를 사용하며 external HTTPS gateway에는 executor permission이 없습니다. Durable worker는 shared `aw.pipeline.stages`의 document lifecycle record를 consume합니다. |
@@ -353,11 +353,11 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 - **Azure Bot (Free tier, 미프로비저닝)** - Teams Adaptive Card 채널을 선택한 downstream
   deployment가 별도로 제공합니다. Upstream Terraform은 signed webhook seam만 배포합니다.
 - **서명된 HIL webhook** - production은 CI secret으로 URL과 32자 이상의 HMAC secret을
-  제공합니다. Terraform은 둘 다 Key Vault에 저장하며, core는 URL과 secret을 읽고 read API에는
+  제공합니다. Terraform은 둘 다 Key Vault에 저장하며, core는 URL과 secret을 읽고 Operator API에는
   callback secret만 전달합니다.
 - **Topic-scoped Event Hubs role** - executor는 namespace가 아니라 현재 프로비저닝된 각 hub
   entity에 Data Owner를 받습니다. Inventory와 canary는 각자의 topic에만 send할 수 있습니다.
-  Read API command identity는 proposal/HIL decision을 send하고 stage topic을 receive합니다.
+  Operator API command identity는 proposal/HIL decision을 send하고 stage topic을 receive합니다.
   Document ingestion은 `aw.pipeline.stages`로 제한됩니다.
 - **Static Web Apps (Free tier, opt-in)** - `enable_console=true`일 때 읽기 전용 콘솔을 호스팅합니다.
 - **Workload identity federation** - CI/CD 단명 OIDC 토큰; 리소스 아님, 비용 없음.
@@ -402,7 +402,7 @@ Identity를 사용하며 connection string 또는 Storage account key를 만들�
 ### Compute Shape (control-loop core의 단일 모듈식 프로세스)
 
 권위 있는 control-loop core는 하나의 Container App 안에서 서명된 이미지 하나와 Python
-프로세스 하나로 배포됩니다. Opt-in read API와 document-ingestion gateway는 권한/ingress
+프로세스 하나로 배포됩니다. Opt-in Operator API와 document-ingestion gateway는 권한/ingress
 경계 때문에 별도 Container App입니다. 코드 수준의 core 경계는 Protocol과 composition
 root로 유지되며, 문서화되지 않은 localhost IPC는 없습니다.
 
@@ -414,7 +414,7 @@ root로 유지되며, 문서화되지 않은 localhost IPC는 없습니다.
   Hubs 데이터로 깨어나지 않으므로 Terraform은 scale-to-zero를 주장하지 않습니다.
 - **분리 기준**: 측정된 부하 또는 권한 격리에 독립 scale unit이 필요하고 typed transport가
   준비된 경우에만 서브시스템을 별도 Container App으로 분리합니다.
-- **Identity 분리**: 별도 read API에는 read UAMI와 command-transport UAMI가 연결됩니다. Event
+- **Identity 분리**: 별도 Operator API에는 read UAMI와 command-transport UAMI가 연결됩니다. Event
   Hubs send/receive 권한은 read principal에 속하지 않습니다.
 
 ## 부트스트랩 순서
@@ -502,9 +502,9 @@ promotion 및 test-only key는 editable surface에 포함되지 않습니다.
 | `RULE_CATALOG_REF` | env | deployment | 카탈로그 스냅샷 git ref |
 | `AUTONOMY_MODE_DEFAULT` | env | deployment | **반드시** `shadow` 기본값 |
 | `FDAI_LOG_LEVEL` | env | upstream | 코어 앱의 Python 로거 레벨 (`DEBUG` / `INFO` / `WARNING` / `ERROR`). 기본 `INFO`. |
-| `FDAI_READ_API_LOCAL_AZURE_CLI` | env | local-only | Fixed role ceiling을 사용하는 명시적 CLI-principal debug 대안입니다. `VITE_LOCAL_AZURE_CLI_AUTH=1`과 함께 사용합니다. |
-| `FDAI_READ_API_DEV_MODE` | env | test-only | Automated read API test용 authentication bypass입니다. VS Code full-stack profile은 설정하지 않습니다. |
-| `FDAI_READ_API_LOCAL_ENTRA` | env | local-only | Canonical interactive profile입니다. Browser Entra JWT와 App Role은 deployment와 같으며 server Azure CLI session은 Azure adapter로 제한됩니다. |
+| `FDAI_OPERATOR_API_LOCAL_AZURE_CLI` | env | local-only | Fixed role ceiling을 사용하는 명시적 CLI-principal debug 대안입니다. `VITE_LOCAL_AZURE_CLI_AUTH=1`과 함께 사용합니다. |
+| `FDAI_OPERATOR_API_DEV_MODE` | env | test-only | Automated Operator API test용 authentication bypass입니다. VS Code full-stack profile은 설정하지 않습니다. |
+| `FDAI_OPERATOR_API_LOCAL_ENTRA` | env | local-only | Canonical interactive profile입니다. Browser Entra JWT와 App Role은 deployment와 같으며 server Azure CLI session은 Azure adapter로 제한됩니다. |
 | `FDAI_START_PANTHEON` | env | upstream / local | 15-agent runtime의 disable-only control입니다. 미설정은 활성 상태이며 `0`, `false`, `no`, `off`만 비활성화합니다. Event Hubs variable은 transport를 선택하며 Pantheon을 활성화하지 않습니다. |
 | `FDAI_LOCAL_SCENARIO_REPLAY` | env | test-only | Automated test와 명시적 mock application용 generated scenario replay입니다. Interactive local startup은 이를 거부합니다. |
 | `FDAI_LOCAL_AZURE_DISCOVERY` | env | local-only | Azure discovery는 필수입니다. 미설정 또는 `1`은 read-only `AzureCliInventory`를 사용하고 `0`은 거부하며 synthetic graph를 선택하지 않습니다. |
@@ -528,14 +528,14 @@ promotion 및 test-only key는 editable surface에 포함되지 않습니다.
 | `FDAI_PROFILE_ID` | env | deployment | `rule-catalog/profiles/` 에서 한 프로파일을 선택 ([rule-catalog-profiles-ko.md](../rules-and-detection/rule-catalog-profiles-ko.md) 참조). **2026-07 기준 composition-root 배선 대기.** |
 | `FDAI_NARRATOR_PROVIDER` / `FDAI_NARRATOR_BASE_URL` / `FDAI_NARRATOR_MODEL` / `FDAI_NARRATOR_API_VERSION` / `FDAI_NARRATOR_API_KEY` | env + KV ref | deployment | Operator-console narrator translator 설정 ([operator-console-ko.md](../interfaces/operator-console-ko.md) 참조); `API_KEY` 는 반드시 KV 경유. 빈 provider = 결정론적 폴백. |
 | `FDAI_CHATOPS_APPROVE_CALLBACK_URL` / `FDAI_CHATOPS_REJECT_CALLBACK_URL` / `FDAI_CHATOPS_WEBHOOK_SECRET` / `FDAI_CHATOPS_TIMEOUT_SECONDS` | env + KV ref | deployment | Chatops HIL 콜백 엔드포인트와 공유 webhook secret입니다. Secret 은 반드시 KV를 경유합니다. Secret 을 설정하면 production callback route 와 durable Postgres decision registry 가 활성화됩니다. |
-| `FDAI_KAFKA_BOOTSTRAP_SERVERS` / `FDAI_HIL_DECISION_TOPIC` | env | deployment / upstream | Read API 가 durable HIL decision receipt 를 publish 하는 Event Hubs Kafka endpoint 입니다. Topic 기본값은 `aw.hil.decisions`이며 core 가 같은 topic 을 소비하고 resume/execution 을 소유합니다. |
+| `FDAI_KAFKA_BOOTSTRAP_SERVERS` / `FDAI_HIL_DECISION_TOPIC` | env | deployment / upstream | Operator API 가 durable HIL decision receipt 를 publish 하는 Event Hubs Kafka endpoint 입니다. Topic 기본값은 `aw.hil.decisions`이며 core 가 같은 topic 을 소비하고 resume/execution 을 소유합니다. |
 | `FDAI_GITOPS_API_BASE` / `FDAI_GITOPS_DEFAULT_BRANCH` / `FDAI_GITOPS_BRANCH_PREFIX` / `FDAI_GITOPS_TIMEOUT_SECONDS` | env | deployment | `gitops-pr` 어댑터 target repo 설정 (GitHub App / Azure DevOps). 인증 secret 은 플랫폼 App installation 을 통해 흐르고 env var 아님. |
 | `FDAI_GITOPS_TOKEN` / `FDAI_GITOPS_OWNER` / `FDAI_GITOPS_REPO` / `FDAI_GITHUB_WORKFLOW_TOOLS_ENFORCE` | KV ref + env | deployment | fix/release/security/incident/IRP artifact용 GitHub change feed 및 workflow tool binding. enforce flag는 ActionType promotion 및 risk/HIL gate를 우회하지 않습니다. |
 | `FDAI_RBAC_READERS_GROUP_ID` / `FDAI_RBAC_CONTRIBUTORS_GROUP_ID` / `FDAI_RBAC_APPROVERS_GROUP_ID` / `FDAI_RBAC_OWNERS_GROUP_ID` / `FDAI_RBAC_BREAK_GLASS_GROUP_ID` | env | deployment | 5개 human role 의 Entra ID group object id ([user-rbac-and-identity-ko.md](../interfaces/user-rbac-and-identity-ko.md) 참조). 미설정 group = role 미할당. |
 | `FDAI_STEWARDSHIP_REQUIRE_BINDINGS` | env | deployment | 모든 deployed environment에서 `1`로 설정하여 placeholder maintainer/steward id가 startup을 차단하게 합니다. 이 readiness gate는 fork 여부와 독립적입니다. |
-| `FDAI_ENTRA_TENANT_ID` / `FDAI_API_AUDIENCE` | env | deployment | 프로덕션 read-API Entra JWT verifier (`EntraJwtVerifier`) 필수: deployment tenant id와 `fdai-api` App ID URI (`api://<fdai-api-guid>`). [user-rbac-and-identity-ko.md#102-api-토큰-검증](../interfaces/user-rbac-and-identity-ko.md#102-api-토큰-검증) 참조. |
+| `FDAI_ENTRA_TENANT_ID` / `FDAI_API_AUDIENCE` | env | deployment | 프로덕션 Operator API Entra JWT verifier (`EntraJwtVerifier`) 필수: deployment tenant id와 `fdai-api` App ID URI (`api://<fdai-api-guid>`). [user-rbac-and-identity-ko.md#102-api-토큰-검증](../interfaces/user-rbac-and-identity-ko.md#102-api-토큰-검증) 참조. |
 | `FDAI_ENTRA_ISSUER` / `FDAI_ENTRA_JWKS_URI` | env | deployment | 선택 verifier 오버라이드; 기본값은 tenant 의 v2 발급자 + 공개 키 셋. v1-토큰 앱은 `ISSUER` 를 `https://sts.windows.net/<tenant>/` 로; `JWKS_URI` 는 소버린 / 에어갭 클라우드에서만 오버라이드. |
-| `FDAI_EXECUTOR_PRINCIPAL_ID` / `FDAI_EXECUTOR_EVENT_ROLE_DEFINITION_ID` / `FDAI_EXECUTOR_SECRET_ROLE_DEFINITION_ID` | env | upstream | read API onboarding probe 입력. ARG를 사용해 provisioned resource set 및 executor Event Hubs / Key Vault 역할을 검증합니다. |
+| `FDAI_EXECUTOR_PRINCIPAL_ID` / `FDAI_EXECUTOR_EVENT_ROLE_DEFINITION_ID` / `FDAI_EXECUTOR_SECRET_ROLE_DEFINITION_ID` | env | upstream | Operator API onboarding probe 입력. ARG를 사용해 provisioned resource set 및 executor Event Hubs / Key Vault 역할을 검증합니다. |
 | `FDAI_DR_DRILL_SOURCE_SERVER_ARM_ID` / `FDAI_DR_DRILL_TARGET_LOCATION` / `FDAI_DR_DRILL_TARGET_RG_PREFIX` / `FDAI_DR_DRILL_TARGET_SERVER_PREFIX` / `FDAI_DR_DRILL_PITR_OFFSET_MINUTES` / `FDAI_DR_DRILL_DRY_RUN` | env | deployment | DB-DR drill job 설정 ([../runbooks/db-dr-drill-ko.md](../../runbooks/db-dr-drill-ko.md) 참조); `DRY_RUN=true` upstream 기본으로 job 이 idempotent 유지. |
 | `FDAI_SECRET_KAFKA_TOKEN` / 기타 `FDAI_SECRET_*` | KV ref | deployment | 전용 env var 이름이 아직 없는 어댑터가 소비하는 secret 을 위한 generic escape hatch; 모든 `FDAI_SECRET_*` 값은 반드시 KV 경유. |
 

@@ -16,6 +16,31 @@ moved {
   to   = azurerm_role_assignment.command_api_eventhubs_receiver["aw.pipeline.stages"]
 }
 
+moved {
+  from = module.read_api_identity
+  to   = module.operator_api_identity
+}
+
+moved {
+  from = azurerm_role_assignment.read_api_acr_pull
+  to   = azurerm_role_assignment.operator_api_acr_pull
+}
+
+moved {
+  from = azurerm_role_assignment.read_api_reader
+  to   = azurerm_role_assignment.operator_api_reader
+}
+
+moved {
+  from = azurerm_role_assignment.read_api_kv_secrets_user
+  to   = azurerm_role_assignment.operator_api_kv_secrets_user
+}
+
+moved {
+  from = module.read_api
+  to   = module.operator_api
+}
+
 data "azurerm_client_config" "current" {}
 
 locals {
@@ -241,12 +266,13 @@ module "notification_identity" {
   tags                = merge(local.tags, { "fdai:component" = "notification-delivery" })
 }
 
-# Read API identity is intentionally distinct from the executor. It can pull
+# Operator API identity is intentionally distinct from the executor. It can pull
 # the API image and read the state-store DSN, but receives no VM Run Command or
 # mutation role. This preserves the console/proposal identity boundary.
-module "read_api_identity" {
-  count               = var.enable_read_api ? 1 : 0
-  source              = "./modules/identity/user-assigned-mi"
+module "operator_api_identity" {
+  count  = var.enable_operator_api ? 1 : 0
+  source = "./modules/identity/user-assigned-mi"
+  # Keep the pre-rename physical name so existing deployments are not replaced.
   name                = "id-${var.workload}${local.full_suffix}-readapi"
   resource_group_name = module.resource_group.name
   location            = var.region
@@ -254,7 +280,7 @@ module "read_api_identity" {
 }
 
 module "command_api_identity" {
-  count               = var.enable_read_api ? 1 : 0
+  count               = var.enable_operator_api ? 1 : 0
   source              = "./modules/identity/user-assigned-mi"
   name                = "id-${var.workload}${local.full_suffix}-command"
   resource_group_name = module.resource_group.name
@@ -319,11 +345,11 @@ module "case_history_identity" {
   tags                = merge(local.tags, { "fdai:component" = "case-history" })
 }
 
-resource "azurerm_role_assignment" "read_api_acr_pull" {
-  count                = var.enable_read_api ? 1 : 0
+resource "azurerm_role_assignment" "operator_api_acr_pull" {
+  count                = var.enable_operator_api ? 1 : 0
   scope                = module.container_registry.id
   role_definition_name = "AcrPull"
-  principal_id         = module.read_api_identity[0].principal_id
+  principal_id         = module.operator_api_identity[0].principal_id
 }
 
 # -----------------------------------------------------------------------
@@ -404,7 +430,7 @@ import {
 }
 
 resource "azurerm_role_assignment" "command_api_eventhubs_sender" {
-  for_each = var.enable_read_api ? {
+  for_each = var.enable_operator_api ? {
     (local.event_topics[0]) = module.event_bus.topic_ids[local.event_topics[0]]
     "aw.hil.decisions"      = module.event_bus.auxiliary_topic_ids["aw.hil.decisions"]
   } : {}
@@ -414,7 +440,7 @@ resource "azurerm_role_assignment" "command_api_eventhubs_sender" {
 }
 
 resource "azurerm_role_assignment" "command_api_eventhubs_receiver" {
-  for_each = var.enable_read_api ? {
+  for_each = var.enable_operator_api ? {
     "aw.pipeline.stages" = module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]
   } : {}
   scope                = each.value
@@ -422,11 +448,11 @@ resource "azurerm_role_assignment" "command_api_eventhubs_receiver" {
   principal_id         = module.command_api_identity[0].principal_id
 }
 
-resource "azurerm_role_assignment" "read_api_reader" {
-  count                = var.enable_read_api ? 1 : 0
+resource "azurerm_role_assignment" "operator_api_reader" {
+  count                = var.enable_operator_api ? 1 : 0
   scope                = module.resource_group.id
   role_definition_name = "Reader"
-  principal_id         = module.read_api_identity[0].principal_id
+  principal_id         = module.operator_api_identity[0].principal_id
 }
 
 resource "azurerm_role_assignment" "ingestion_acr_pull" {
@@ -665,11 +691,11 @@ resource "azurerm_role_assignment" "inventory_kv_secrets_user" {
   principal_id         = module.inventory_identity.principal_id
 }
 
-resource "azurerm_role_assignment" "read_api_kv_secrets_user" {
-  count                = var.enable_read_api ? 1 : 0
+resource "azurerm_role_assignment" "operator_api_kv_secrets_user" {
+  count                = var.enable_operator_api ? 1 : 0
   scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
-  principal_id         = module.read_api_identity[0].principal_id
+  principal_id         = module.operator_api_identity[0].principal_id
 }
 
 resource "azurerm_role_assignment" "ingestion_kv_secrets_user" {
@@ -957,9 +983,9 @@ resource "azurerm_function_app_flex_consumption" "dev_gateway" {
     }
 
     active_directory_v2 {
-      client_id            = trimprefix(var.read_api_audience, "api://")
+      client_id            = trimprefix(var.operator_api_audience, "api://")
       tenant_auth_endpoint = "https://login.microsoftonline.com/${var.tenant_id}/v2.0"
-      allowed_audiences    = [var.read_api_audience]
+      allowed_audiences    = [var.operator_api_audience]
       allowed_applications = [module.identity.client_id]
     }
   }
@@ -1358,7 +1384,7 @@ module "compute" {
     : ""
   )
   dev_operations_gateway_audience = (
-    var.enable_dev_operations_gateway ? var.read_api_audience : ""
+    var.enable_dev_operations_gateway ? var.operator_api_audience : ""
   )
 
   # Auto-bind the Azure Monitor Logs metric adapter at composition time.
@@ -1490,8 +1516,8 @@ module "llm_azure_openai" {
   executor_principal_id = module.identity.principal_id
   additional_user_principal_ids = (
     merge(
-      var.enable_read_api
-      ? { read_api = module.read_api_identity[0].principal_id }
+      var.enable_operator_api
+      ? { operator_api = module.operator_api_identity[0].principal_id }
       : {},
       var.enable_document_ingestion
       ? { ingestion = module.ingestion_identity[0].principal_id }
@@ -1503,7 +1529,7 @@ module "llm_azure_openai" {
 }
 
 locals {
-  foundry_web_search_enabled = var.enable_llm && var.read_api_web_search_enabled
+  foundry_web_search_enabled = var.enable_llm && var.operator_api_web_search_enabled
   foundry_web_search_capabilities = [
     for capability in var.resolved_capabilities : capability if capability.name == "t1.web_search"
   ]
@@ -1551,7 +1577,7 @@ module "foundry_web_search" {
   model_capacity_tpm         = local.foundry_web_search_capability.capacity_tpm
   user_principal_ids = merge(
     { deployer = data.azurerm_client_config.current.object_id },
-    var.enable_read_api ? { read_api = module.read_api_identity[0].principal_id } : {},
+    var.enable_operator_api ? { operator_api = module.operator_api_identity[0].principal_id } : {},
   )
   tags = merge(local.tags, { "fdai:component" = "web-search" })
 
@@ -1695,36 +1721,37 @@ module "console" {
 }
 
 # -----------------------------------------------------------------------
-# Operator console read API (opt-in) - Azure Container App serving
-# `fdai.delivery.read_api.prod:app` with external ingress so the console
+# Operator console Operator API (opt-in) - Azure Container App serving
+# `fdai.delivery.operator_api.prod:app` with external ingress so the console
 # SPA can call it cross-origin. Enforces Entra JWT + RBAC group resolution.
 # Uses separate read and command-transport identities in the shared
 # Container Apps Environment.
 # A manual-trigger migration job runs `alembic upgrade head`. Tenant-specific
 # Entra/RBAC ids arrive via CI Variables (never committed).
 # -----------------------------------------------------------------------
-module "read_api" {
-  count  = var.enable_read_api ? 1 : 0
-  source = "./modules/read-api/container-app"
+module "operator_api" {
+  count  = var.enable_operator_api ? 1 : 0
+  source = "./modules/operator-api/container-app"
 
+  # Keep the pre-rename physical name so existing deployments are not replaced.
   name                              = "ca-${var.workload}${local.full_suffix}-readapi"
   migrate_job_name                  = "caj-${var.workload}${local.full_suffix}-migrate"
   container_app_environment_id      = module.compute.environment_id
   location                          = var.region
   resource_group_name               = module.resource_group.name
-  image                             = var.read_api_image == "" ? var.core_image : var.read_api_image
-  read_api_identity_id              = module.read_api_identity[0].resource_id
-  read_api_identity_client_id       = module.read_api_identity[0].client_id
+  image                             = var.operator_api_image == "" ? var.core_image : var.operator_api_image
+  operator_api_identity_id          = module.operator_api_identity[0].resource_id
+  operator_api_identity_client_id   = module.operator_api_identity[0].client_id
   monitor_workspace_customer_id     = module.log_analytics.workspace_customer_id
   command_api_identity_id           = module.command_api_identity[0].resource_id
   command_api_identity_client_id    = module.command_api_identity[0].client_id
-  resolved_models_path              = var.read_api_resolved_models_path
-  narrator_probe_interval_seconds   = var.read_api_narrator_probe_interval_seconds
-  web_search_enabled                = var.read_api_web_search_enabled
-  web_search_allowed_domains        = var.read_api_web_search_allowed_domains
-  web_search_max_results            = var.read_api_web_search_max_results
-  web_search_budget_ms              = var.read_api_web_search_budget_ms
-  web_search_probe_interval_seconds = var.read_api_web_search_probe_interval_seconds
+  resolved_models_path              = var.operator_api_resolved_models_path
+  narrator_probe_interval_seconds   = var.operator_api_narrator_probe_interval_seconds
+  web_search_enabled                = var.operator_api_web_search_enabled
+  web_search_allowed_domains        = var.operator_api_web_search_allowed_domains
+  web_search_max_results            = var.operator_api_web_search_max_results
+  web_search_budget_ms              = var.operator_api_web_search_budget_ms
+  web_search_probe_interval_seconds = var.operator_api_web_search_probe_interval_seconds
   web_search_foundry_project_endpoint = (
     local.foundry_web_search_enabled ? module.foundry_web_search[0].project_endpoint : ""
   )
@@ -1740,14 +1767,14 @@ module "read_api" {
     var.enable_chatops_hil ? azurerm_key_vault_secret.chatops_webhook_secret[0].id : ""
   )
   entra_tenant_id                    = var.tenant_id
-  api_audience                       = var.read_api_audience
+  api_audience                       = var.operator_api_audience
   rbac_readers_group_id              = var.rbac_readers_group_id
   rbac_contributors_group_id         = var.rbac_contributors_group_id
   rbac_approvers_group_id            = var.rbac_approvers_group_id
   rbac_owners_group_id               = var.rbac_owners_group_id
   rbac_break_glass_group_id          = var.rbac_break_glass_group_id
-  cors_allow_origins                 = var.read_api_cors_allow_origins
-  iam_directory_provider             = var.read_api_iam_directory_provider
+  cors_allow_origins                 = var.operator_api_cors_allow_origins
+  iam_directory_provider             = var.operator_api_iam_directory_provider
   stewardship_maintainers            = var.stewardship_maintainers
   stewardship_agent_bindings         = var.stewardship_agent_bindings
   stewardship_audit_interval_seconds = var.stewardship_audit_interval_seconds
@@ -1773,11 +1800,11 @@ module "read_api" {
 
   depends_on = [
     azurerm_key_vault_secret.state_store_dsn,
-    azurerm_role_assignment.read_api_acr_pull,
-    azurerm_role_assignment.read_api_kv_secrets_user,
+    azurerm_role_assignment.operator_api_acr_pull,
+    azurerm_role_assignment.operator_api_kv_secrets_user,
     azurerm_role_assignment.command_api_eventhubs_receiver,
     azurerm_role_assignment.command_api_eventhubs_sender,
-    azurerm_role_assignment.read_api_reader,
+    azurerm_role_assignment.operator_api_reader,
     module.llm_azure_openai,
   ]
 }
@@ -1811,7 +1838,7 @@ module "ingestion_gateway" {
   stewardship_maintainers        = var.stewardship_maintainers
   stewardship_agent_bindings     = var.stewardship_agent_bindings
   entra_tenant_id                = var.tenant_id
-  api_audience                   = var.read_api_audience
+  api_audience                   = var.operator_api_audience
   rbac_readers_group_id          = var.rbac_readers_group_id
   rbac_contributors_group_id     = var.rbac_contributors_group_id
   rbac_approvers_group_id        = var.rbac_approvers_group_id

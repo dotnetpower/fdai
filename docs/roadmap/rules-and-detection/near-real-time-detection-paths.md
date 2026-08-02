@@ -60,7 +60,7 @@ static.
 - [Normalizer](../../../src/fdai/delivery/azure/monitor_alert.py) -
   Common Alert Schema v2 -> `Event`. Pure function, unit tested
   against fired / resolved / malformed payloads.
-- [Webhook route](../../../src/fdai/delivery/read_api/routes/azure_monitor_webhook.py) -
+- [Webhook route](../../../src/fdai/delivery/operator_api/routes/azure_monitor_webhook.py) -
   Starlette POST /webhook/azure-monitor. Bearer-token auth
   (constant-time compare), 256 KiB body cap, publishes to the
   ingest topic keyed by lowercased ARM id.
@@ -163,7 +163,7 @@ snapshot.
 
 The reduction is fail-closed. Missing, stale, unavailable, or unauthorized evidence never becomes
 ready. New readiness capability remains `shadow` even when all six dimensions pass, so it cannot
-promote an ActionType or execute a change. The read API and console project Muninn's decision and
+promote an ActionType or execute a change. The Operator API and console project Muninn's decision and
 do not recompute it. Muninn replaces the latest target snapshot only when `generated_at` is
 strictly newer, so reordered or replayed Drift delivery cannot roll durable readiness backward.
 An inventory-backed target carries graph freshness and coverage evidence into the discovery

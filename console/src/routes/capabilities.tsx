@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import { AsyncBoundary, CopyButton, DataTable, KpiCard, KpiGrid, PageHeader, StatusPill, UnavailableState, type AsyncState, type Column } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
@@ -34,7 +34,7 @@ interface CapabilityResponse {
   readonly capabilities: readonly Capability[];
 }
 
-export function CapabilitiesRoute({ client }: { readonly client: ReadApiClient }) {
+export function CapabilitiesRoute({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<CapabilityResponse>>({ status: "loading" });
   useEffect(() => {
     let cancelled = false;
@@ -63,9 +63,9 @@ export function decodeCapabilities(value: unknown): CapabilityResponse {
       };
     });
   const count = panelNonNegativeInteger(root, "count", "capabilities");
-  if (count !== capabilities.length) throw new Error("invalid read API response: capabilities.count MUST match items");
+  if (count !== capabilities.length) throw new Error("invalid Operator API response: capabilities.count MUST match items");
   const ids = capabilities.map((item) => item.capability_id);
-  if (new Set(ids).size !== ids.length) throw new Error("invalid read API response: capability ids MUST be unique");
+  if (new Set(ids).size !== ids.length) throw new Error("invalid Operator API response: capability ids MUST be unique");
   return {
     source: panelNonEmptyString(root, "source", "capabilities"),
     execution_eligibility: panelBoolean(root, "execution_eligibility", "capabilities"),

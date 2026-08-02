@@ -380,7 +380,7 @@ no customer profile, laptop data-plane apply, public runner IP, or local Terrafo
 | 20 | Targeted plans can leave console output empty | Static Web App remained in exact Terraform state | High | Resolve hostname from the state-bound resource id through ARM |
 | 21 | Root-owned action cache can block checkout | `infra/None/.cache` caused `EACCES` | High | Remove only that legacy path before checkout and isolate future cache |
 | 22 | `runner.temp` is invalid in job-level environment | GitHub rejected workflow parsing with HTTP 422 | High | Export `$RUNNER_TEMP` path through `GITHUB_ENV` in the prepare step |
-| 23 | Read API can deploy without real stewardship bindings | Latest revision failed at startup | Critical | Bind deployment Variables and enforce resource preconditions |
+| 23 | Operator API can deploy without real stewardship bindings | Latest revision failed at startup | Critical | Bind deployment Variables and enforce resource preconditions |
 | 24 | Inventory job omits required runtime config | Recovery delta failed with eight missing vars | Critical | Inherit the shared core config map in the job |
 | 25 | Workflow definition identity omits action catalog digest | New catalog collided with an older immutable row | Critical | Migrate uniqueness to include the catalog digest |
 | 26 | Dev PostgreSQL keeps public access and broad Azure firewall | Private endpoint was already approved | High | Close public access whenever private networking is enabled |
@@ -405,7 +405,7 @@ no customer profile, laptop data-plane apply, public runner IP, or local Terrafo
 - The post-convergence inventory execution succeeded and logged `inventory snapshot promoted from
 	arm`. The core logged `pantheon_ready` with 15 agents, no disabled agents, 43 subscriptions, and
 	enforcement off. PostgreSQL reported Ready, public access disabled, and zero firewall resources.
-	The latest core, read API, and ingestion revisions each reported zero traceback, unique-constraint,
+	The latest core, Operator API, and ingestion revisions each reported zero traceback, unique-constraint,
 	and authorization-error signatures in the acceptance window.
 - Exact-plan, topology, workflow transport, cleanup, and derivation tests pass with strict mypy,
 	Ruff, and the complete fast gate stack.

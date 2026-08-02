@@ -1,14 +1,14 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: afa25e4246dc3cfa4d23ba981a526a720e0a25f5
-translation_revised: 2026-07-26
+translation_source_sha: 0b05ba6ed1ab387092726ca56a8ef55aaa280b07
+translation_revised: 2026-08-02
 ---
 
 # 배포(Deployment)
 
 배포는 앱 형상을 따릅니다: 기본 1 replica의 **headless 이벤트-기반 코어**, opt-in
-**얇은 콘솔 + read API**, 그리고 **PR-네이티브 + ChatOps** 딜리버리
+**얇은 콘솔 + Operator API**, 그리고 **PR-네이티브 + ChatOps** 딜리버리
 ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md) 참조).
 인프라는 코드이며, 모든 릴리스는 [Release and Rollback](#release-and-rollback) 에 정의된
 계층화된 롤백 경로로 되돌릴 수 있습니다.
@@ -61,7 +61,7 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
     Container App** 으로 `event-ingest` + `trust-router` + `executor`
     + `audit-writer`, 런타임이 이식 가능하도록 **OCI 이미지 + Knative 호환 매니페스트 서브셋**
     에서 배포 ([csp-neutrality-ko.md § 런타임 계약](../architecture/csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트)).
-    Core에는 sidecar/ingress가 없습니다. Opt-in read API와 ClamAV sidecar를 가진 ingestion
+    Core에는 sidecar/ingress가 없습니다. Opt-in Operator API와 ClamAV sidecar를 가진 ingestion
     gateway는 별도 Container App입니다.
   - **Container Apps Jobs** (같은 environment) 로 스케줄 프로브와 경량 트리거를 실행하며 runtime
     scheduling에서 Azure Functions를 대체합니다. Opt-in 개발 전용 FC1 Function App은 예외이며,

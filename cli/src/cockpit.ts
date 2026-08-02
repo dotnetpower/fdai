@@ -18,7 +18,7 @@ import {
   reduceStageFrame,
 } from "./cockpit-state.js";
 import { parseScreenCommand, viewBadge } from "./cockpit-view.js";
-import { askChat } from "./data/read-api.js";
+import { askChat } from "./data/operator-api.js";
 
 export { parseScreenCommand, tierLabel, viewBadge } from "./cockpit-view.js";
 

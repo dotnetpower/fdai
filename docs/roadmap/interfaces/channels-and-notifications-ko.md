@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 61836ab6cf04f9427fe7cad52a51f9238904dbf0
-translation_revised: 2026-07-28
+translation_source_sha: 536dbf1e2576144910c63e1741bce007103f6dc6
+translation_revised: 2026-08-02
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -311,7 +311,7 @@ Service worker는 page가 background 상태일 때 notification rendering과 cli
 현재 Console은 Push API subscription이나 server-side subscription store를 등록하지 않습니다.
 따라서 browser가 완전히 종료되면 notification을 받지 않습니다. Closed-browser Web Push를
 활성화하려면 별도로 인증된 write service, 암호화된 subscription storage, revocation, CSRF
-protection, delivery audit가 필요하며 read API에 속하지 않습니다.
+protection, delivery audit가 필요하며 Operator API에 속하지 않습니다.
 
 ## 5. Channel 인터페이스 (계약)
 

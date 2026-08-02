@@ -45,7 +45,7 @@ class Role(StrEnum):
 
 
 class Capability(StrEnum):
-    """Individual actions the read API may gate.
+    """Individual actions the Operator API may gate.
 
     One capability per matrix row. Kept coarse-grained on purpose -
     differentiation for high-risk paths comes from
@@ -138,7 +138,7 @@ def capabilities_for(roles: Iterable[Role]) -> frozenset[Capability]:
     An empty iterable returns an empty frozenset - an unassigned user
     holds no capabilities. Callers MUST NOT infer "at least
     :attr:`Capability.VIEW_CONSOLE`" from a valid Entra sign-in; the
-    read API's first-sign-in-denied audit path
+    Operator API's first-sign-in-denied audit path
     ([`user-rbac-and-identity.md § 10.3`]
     (../../../../docs/roadmap/interfaces/user-rbac-and-identity.md#103-first-sign-in-unassigned-users))
     depends on this being deny-by-default.

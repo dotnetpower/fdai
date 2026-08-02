@@ -122,8 +122,8 @@ The local dev composition wires the command and the Processes read routes to
 the same `ProcessRuntimeStore`. Use the CLI wrapper to exercise it:
 
 ```bash
-FDAI_READ_API_LOCAL_AZURE_CLI=1 uv run uvicorn \
-  'fdai.delivery.read_api.dev.local:app' --factory --port 8000
+FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1 uv run uvicorn \
+  'fdai.delivery.operator_api.dev.local:app' --factory --port 8000
 
 uv run python scripts/automation/run-workflow.py architecture-review \
   --target fdai-control-plane
@@ -161,7 +161,7 @@ The authoring path separates six operations:
   artifact. Rewriting the same `task_id@version` with different content is
   blocked.
 4. `POST /python-tasks/test` resolves the target from active inventory and
-  returns a shadow plan. The read API binds `PlanningVmTaskRunner`, which has
+  returns a shadow plan. The Operator API binds `PlanningVmTaskRunner`, which has
   no executor identity and cannot copy files or run code.
 5. `POST /python-tasks/request-run` publishes only the artifact reference,
   target Resource reference, and reason as an `ActionProposal`. The ordinary
@@ -255,7 +255,7 @@ also carries `source` and `durable`: production reports `postgres` and `true`, w
 in-memory harness reports `synthetic-dev` and `false`. The console renders these fields instead of
 inferring durability from the route name or static copy; [Reviewable Automation Blueprints](automation-blueprints.md) owns repeated-work suggestions.
 
-The local read API uses the same authoritative ControlLoop with in-memory task,
+The local Operator API uses the same authoritative ControlLoop with in-memory task,
 inventory, audit, and HIL adapters. A Workflow Builder run request therefore
 reaches the Owner approval gate and emits route, gate, and terminal audit frames
 to `/live/stream`; the dev harness never auto-approves the parked action.

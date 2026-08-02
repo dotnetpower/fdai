@@ -9,7 +9,7 @@ export async function requestHeaders(
 
 export function chatUrl(): string {
   const config = loadConfig();
-  const base = config.readApiBaseUrl || (
+  const base = config.operatorApiBaseUrl || (
     typeof window !== "undefined" ? window.location.origin : ""
   );
   return `${base.replace(/\/$/, "")}/chat`;

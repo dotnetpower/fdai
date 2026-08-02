@@ -7,7 +7,7 @@ driven by the real Terraform apply that ``azd up`` performs.
 
 Terraform's ``-json`` machine output emits one JSON object per line. This
 module is a **pure** state machine that folds those lines into
-:class:`~fdai.delivery.read_api.streaming.provision_stream.ProvisionEvent` s:
+:class:`~fdai.delivery.operator_api.streaming.provision_stream.ProvisionEvent` s:
 
 - the plan ``change_summary`` sets the denominator (how many resources will
   be touched),
@@ -35,7 +35,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from fdai.delivery.read_api.streaming.provision_stream import ProvisionEvent, ProvisionPhase
+from fdai.delivery.operator_api.streaming.provision_stream import ProvisionEvent, ProvisionPhase
 
 # Terraform output name that carries the operator-console URL. The value is
 # decided in Terraform (infra/) - Python never computes a resource name or

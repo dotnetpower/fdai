@@ -782,11 +782,11 @@ typed verdict, approval, execution, rollback, audit, and promotion owners remain
 
 **Metering (measured, never estimated).** Every metered T1, T2, and narrator call
 records the provider's measured `usage` through a `MeteringSink`. The narrator
-uses `operator_chat`; other calls use `control_plane`. The read-API
+uses `operator_chat`; other calls use `control_plane`. The Operator API
 `LlmCostPanel` retains `GET /kpi/llm-cost` as a compatibility path and exposes
 token-only rollups by scope, model, call, conversation, day, and month. The
 single-process dev harness shares one in-memory sink; production uses the
-durable Postgres `llm_invocation` store across the headless core and read API.
+durable Postgres `llm_invocation` store across the headless core and Operator API.
 
 ## 14. Timeline shape (not commitments)
 

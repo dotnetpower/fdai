@@ -2,14 +2,14 @@
 
 The pure :class:`~fdai.delivery.provisioning.terraform_bridge.TerraformProvisionBridge`
 folds ``terraform apply -json`` lines into ``provision.*`` events, and
-:class:`~fdai.delivery.read_api.streaming.provision_stream.SseProvisionPublisher` fans
+:class:`~fdai.delivery.operator_api.streaming.provision_stream.SseProvisionPublisher` fans
 them out - but nothing connected the two. The "thin serve harness" the bridge
 docstring refers to did not exist, leaving the bridge (and its ``finalize``)
 unreachable. This module is that harness.
 
 It is deliberately I/O-agnostic: the caller supplies an async iterable of
 already-split lines (subprocess stdout via :func:`aiter_json_lines`, a file, a
-socket) and a :class:`~fdai.delivery.read_api.streaming.provision_stream.ProvisionPublisher`.
+socket) and a :class:`~fdai.delivery.operator_api.streaming.provision_stream.ProvisionPublisher`.
 The pump owns only fold + publish + a single clean-EOF finalize, so it stays
 unit-testable and spawns no subprocess itself - subprocess ownership stays
 with the bootstrap caller, never the core.
@@ -20,8 +20,8 @@ from __future__ import annotations
 import codecs
 from collections.abc import AsyncIterable, AsyncIterator
 
+from fdai.delivery.operator_api.streaming.provision_stream import ProvisionPublisher
 from fdai.delivery.provisioning.terraform_bridge import TerraformProvisionBridge
-from fdai.delivery.read_api.streaming.provision_stream import ProvisionPublisher
 
 
 async def aiter_json_lines(

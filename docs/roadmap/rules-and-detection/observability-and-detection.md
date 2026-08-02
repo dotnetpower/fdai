@@ -440,7 +440,7 @@ Make RCA a first-class output of the tiers instead of an implicit side effect.
 - **Read-only console surface**: the shadow `rca.hypothesis` audit entries
   are projected into a first-class **History > RCA** operator-console panel
   (`GET /rca?correlation=<id>`, pure projection in
-  `delivery/read_api/routes/rca_projection.py`). Given an incident
+  `delivery/operator_api/routes/rca_projection.py`). Given an incident
   `correlation_id` it renders the tiered hypotheses, their citations, the
   structured T1 causal chain when recorded,
   grounding state (an abstained hypothesis shows as "insufficient grounding

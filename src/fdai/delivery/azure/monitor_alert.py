@@ -18,7 +18,7 @@ The full push-based chain is::
       -> Action Group (webhook OR event-hub receiver)
       -> Diagnostic transport
             option A: HTTPS POST to FDAI webhook route
-                      (:mod:`fdai.delivery.read_api.routes.azure_monitor_webhook`)
+                      (:mod:`fdai.delivery.operator_api.routes.azure_monitor_webhook`)
             option B: Azure Event Hub -> existing Kafka consumer
       -> normalize_common_alert_schema()  <-- this module
       -> Event on the ingest topic

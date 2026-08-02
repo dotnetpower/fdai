@@ -122,14 +122,14 @@ source archive with separate SHA-256 digests. Exact apply downloads and verifies
 Before storing a new plan, the runner selects only allowlisted plan, metadata, source, preflight,
 claim, and receipt blobs older than 24 hours. It scans fewer than 1001, deletes at most 1000 with
 eight workers, and fails the plan if selection is incomplete or any delete fails.
-When the development operations gateway is selected, Terraform targets that Function, core, read API,
+When the development operations gateway is selected, Terraform targets that Function, core, Operator API,
 ingestion, operational canary, inventory reconciliation Job, realtime inventory publishers, and their
 dependency graphs. This keeps the Job's image and required shared runtime configuration converged while
 unrelated runtime-resource changes stay outside the plan.
 Terraform uses the reader managed identity for host and deployment storage; the workflow removes
 Flex-generated shared-key overrides before publishing. It grants `Storage Blob Data Owner` for the host
 and a separate idempotency role. Easy Auth admits only the core executor client before principal checks.
-Read API deployment also requires non-secret maintainer and all non-autonomous agent stewardship
+Operator API deployment also requires non-secret maintainer and all non-autonomous agent stewardship
 bindings from repository Variables; Container App preconditions reject an incomplete map.
 After exact apply converges, the official Flex One Deploy action remote-builds the verified source,
 retries bounded trigger sync, and requires both Function triggers before recording the apply receipt.
@@ -322,7 +322,7 @@ replica caps are still **deployment-specific** and tuned per environment; the sh
 | 8 | **User-assigned Managed Identity** | - | executor's least-privilege, action-whitelisted identity; realizes the [Workload Identity contract](../architecture/csp-neutrality.md#4-workload-identity-contract--oidc-token) | Phase 1 ships **one** MI (`mi-aw-executor`) using built-in role composition, RG-scoped; Phase 3 splits into per-domain MIs - see [security-and-identity.md § Identity Mapping (Phased)](../architecture/security-and-identity.md#identity-mapping-phased) |
 | 9 | **Log Analytics workspace + Application Insights** | Pay-as-you-go, **30-day default retention** | traces / metrics / logs / audit-forward | an `appi-*` resource binds to the workspace; retention is **UI-configurable** post-deploy |
 | 10 | **Container Registry (ACR)** | Basic (Standard if geo-replication needed later) | signed images + build attestations | pin by digest, never a mutable tag |
-| 11 | **Azure OpenAI accounts + Foundry account/project** (**opt-in**, `var.enable_llm`) | Standard | T1 embedding + T2 mixed-model deployments, plus a dedicated GPT-4.1-nano web-search prompt agent at 100K TPM | Provisioning requires deployer permission and regional family capacity; otherwise the affected capability degrades to **`hil-only`** (see [dev-and-deploy-parity.md § Deployer-Scoped LLM Provisioning](dev-and-deploy-parity.md#deployer-scoped-llm-provisioning)). When web search is enabled, Terraform creates a separate `AIServices` Foundry account, project, and `t1.web_search` deployment in the deployment region, grants `Azure AI User` to the deployer and enabled read API identity, and the protected post-apply stage reconciles `fdai-web-search` with the exact domain allowlist before a real-tool readiness probe. Private mode adds `privatelink.services.ai.azure.com`; tenant policy owns deny ACL details, which Terraform preserves. |
+| 11 | **Azure OpenAI accounts + Foundry account/project** (**opt-in**, `var.enable_llm`) | Standard | T1 embedding + T2 mixed-model deployments, plus a dedicated GPT-4.1-nano web-search prompt agent at 100K TPM | Provisioning requires deployer permission and regional family capacity; otherwise the affected capability degrades to **`hil-only`** (see [dev-and-deploy-parity.md § Deployer-Scoped LLM Provisioning](dev-and-deploy-parity.md#deployer-scoped-llm-provisioning)). When web search is enabled, Terraform creates a separate `AIServices` Foundry account, project, and `t1.web_search` deployment in the deployment region, grants `Azure AI User` to the deployer and enabled Operator API identity, and the protected post-apply stage reconciles `fdai-web-search` with the exact domain allowlist before a real-tool readiness probe. Private mode adds `privatelink.services.ai.azure.com`; tenant policy owns deny ACL details, which Terraform preserves. |
 | 12 | **ADLS Gen2 document account** (**opt-in**, `enable_document_ingestion`) | StorageV2 Standard ZRS, HNS | private quarantine, immutable governed versions, derived envelopes | Shared Key and public access disabled in private mode; soft delete + lifecycle; `blob` and `dfs` private endpoints |
 | 13 | **Case-history Blob account** (`enable_case_history`) | StorageV2 Standard ZRS | content-addressed prediction/incident case revisions for replay and governed Norns analysis | Shared Key disabled; private container, versioning, change feed, soft delete, bounded old-version lifecycle, dedicated case-history UAMI data role, and `blob` private endpoint; the executor MI receives no Blob role |
 | 14 | **Document ingestion Container App** (**opt-in**) | Consumption, gateway + ClamAV sidecar | authenticated bounded upload relay, safety scan, extraction, pgvector indexing, lifecycle events | dedicated UAMI; external HTTPS gateway cannot access executor permissions; durable worker consumes document lifecycle records from shared `aw.pipeline.stages` |
@@ -350,11 +350,11 @@ Additional identity, channel, and console elements are deployment-owned or opt-i
 - **Azure Bot (Free tier, not provisioned)** - a downstream deployment that selects Teams
   Adaptive Cards supplies it. Upstream Terraform ships only the signed webhook seam.
 - **Signed HIL webhook** - production supplies the URL and a 32+ character HMAC secret through
-  CI secrets. Terraform stores both in Key Vault; the core reads URL + secret and the read API
+  CI secrets. Terraform stores both in Key Vault; the core reads URL + secret and the Operator API
   receives only the callback secret.
 - **Topic-scoped Event Hubs roles** - the executor receives Data Owner on each currently
   provisioned hub entity, not the namespace. Inventory and canary can send only to their own
-  topics. The read API command identity sends proposals/HIL decisions and receives the stage
+  topics. The Operator API command identity sends proposals/HIL decisions and receives the stage
   topic. Document ingestion is limited to `aw.pipeline.stages`.
 - **Static Web Apps (Free tier, opt-in)** - hosts the read-only console when
   `enable_console=true`.
@@ -401,7 +401,7 @@ justifies them):
 ### Compute Shape (single modular control-loop core)
 
 The authoritative control-loop core deploys as one signed image and one Python process inside one
-Container App. The opt-in read API and document-ingestion gateway are separate Container Apps for
+Container App. The opt-in Operator API and document-ingestion gateway are separate Container Apps for
 their identity and ingress boundaries. Core subsystem boundaries remain explicit through Protocols
 and the composition root; there is no undocumented localhost IPC.
 
@@ -413,7 +413,7 @@ and the composition root; there is no undocumented localhost IPC.
   would never wake on Event Hubs data, so Terraform does not claim scale-to-zero.
 - **Graduation rule**: split a subsystem into another Container App only after measured load or
   privilege isolation requires an independent scale unit and a typed transport is available.
-- **Identity split**: the separate read API attaches a read UAMI and a command-transport UAMI;
+- **Identity split**: the separate Operator API attaches a read UAMI and a command-transport UAMI;
   Event Hubs send/receive does not belong to the read principal.
 
 ## Bootstrap Sequence
@@ -501,9 +501,9 @@ secret, promotion, and test-only keys remain outside the editable surface.
 | `RULE_CATALOG_REF` | env | deployment | git ref of catalog snapshot |
 | `AUTONOMY_MODE_DEFAULT` | env | deployment | MUST default to `shadow` |
 | `FDAI_LOG_LEVEL` | env | upstream | Python logger level for the core app (`DEBUG` / `INFO` / `WARNING` / `ERROR`). Default `INFO`. |
-| `FDAI_READ_API_LOCAL_AZURE_CLI` | env | local-only | Explicit CLI-principal debug alternative with a fixed role ceiling. Paired with `VITE_LOCAL_AZURE_CLI_AUTH=1`. |
-| `FDAI_READ_API_DEV_MODE` | env | test-only | Authentication bypass for automated read-API tests. The VS Code full-stack profile MUST NOT set it. |
-| `FDAI_READ_API_LOCAL_ENTRA` | env | local-only | Canonical interactive profile. Browser Entra JWT and App Roles match deployment; the server Azure CLI session is confined to Azure adapters. |
+| `FDAI_OPERATOR_API_LOCAL_AZURE_CLI` | env | local-only | Explicit CLI-principal debug alternative with a fixed role ceiling. Paired with `VITE_LOCAL_AZURE_CLI_AUTH=1`. |
+| `FDAI_OPERATOR_API_DEV_MODE` | env | test-only | Authentication bypass for automated Operator API tests. The VS Code full-stack profile MUST NOT set it. |
+| `FDAI_OPERATOR_API_LOCAL_ENTRA` | env | local-only | Canonical interactive profile. Browser Entra JWT and App Roles match deployment; the server Azure CLI session is confined to Azure adapters. |
 | `FDAI_START_PANTHEON` | env | upstream / local | Disable-only control for the 15-agent runtime. Unset means enabled; `0`, `false`, `no`, or `off` disables it. Event Hubs variables select transport and do not activate the Pantheon. |
 | `FDAI_LOCAL_SCENARIO_REPLAY` | env | test-only | Generated scenario replay for automated tests and explicit mock applications. Interactive local startup rejects it. |
 | `FDAI_LOCAL_AZURE_DISCOVERY` | env | local-only | Azure discovery is mandatory. Unset or `1` uses read-only `AzureCliInventory`; `0` is rejected and never selects a synthetic graph. |
@@ -527,14 +527,14 @@ secret, promotion, and test-only keys remain outside the editable surface.
 | `FDAI_PROFILE_ID` | env | deployment | selects one profile from `rule-catalog/profiles/` (see [rule-catalog-profiles.md](../rules-and-detection/rule-catalog-profiles.md)). **Composition-root wiring pending** as of 2026-07. |
 | `FDAI_NARRATOR_PROVIDER` / `FDAI_NARRATOR_BASE_URL` / `FDAI_NARRATOR_MODEL` / `FDAI_NARRATOR_API_VERSION` / `FDAI_NARRATOR_API_KEY` | env + KV ref | deployment | Operator-console narrator translator config (see [operator-console.md](../interfaces/operator-console.md)); `API_KEY` MUST go through KV. Empty provider = deterministic fallback. |
 | `FDAI_CHATOPS_APPROVE_CALLBACK_URL` / `FDAI_CHATOPS_REJECT_CALLBACK_URL` / `FDAI_CHATOPS_WEBHOOK_SECRET` / `FDAI_CHATOPS_TIMEOUT_SECONDS` | env + KV ref | deployment | Chatops HIL callback endpoints and the shared webhook secret; the secret MUST go through KV. Setting the secret enables the production callback route and durable Postgres decision registry. |
-| `FDAI_KAFKA_BOOTSTRAP_SERVERS` / `FDAI_HIL_DECISION_TOPIC` | env | deployment / upstream | Event Hubs Kafka endpoint used by the read API to publish durable HIL decision receipts; topic defaults to `aw.hil.decisions`. Core consumes the same topic and owns resume/execution. |
+| `FDAI_KAFKA_BOOTSTRAP_SERVERS` / `FDAI_HIL_DECISION_TOPIC` | env | deployment / upstream | Event Hubs Kafka endpoint used by the Operator API to publish durable HIL decision receipts; topic defaults to `aw.hil.decisions`. Core consumes the same topic and owns resume/execution. |
 | `FDAI_GITOPS_API_BASE` / `FDAI_GITOPS_DEFAULT_BRANCH` / `FDAI_GITOPS_BRANCH_PREFIX` / `FDAI_GITOPS_TIMEOUT_SECONDS` | env | deployment | `gitops-pr` adapter target repo config (GitHub App / Azure DevOps). Auth secrets flow through the platform's App installation, not env vars. |
 | `FDAI_GITOPS_TOKEN` / `FDAI_GITOPS_OWNER` / `FDAI_GITOPS_REPO` / `FDAI_GITHUB_WORKFLOW_TOOLS_ENFORCE` | KV ref + env | deployment | Binds the GitHub change feed and workflow tools for fix/release/security/incident/IRP artifacts. The enforce flag never bypasses the ActionType promotion and risk/HIL gates. |
 | `FDAI_RBAC_READERS_GROUP_ID` / `FDAI_RBAC_CONTRIBUTORS_GROUP_ID` / `FDAI_RBAC_APPROVERS_GROUP_ID` / `FDAI_RBAC_OWNERS_GROUP_ID` / `FDAI_RBAC_BREAK_GLASS_GROUP_ID` | env | deployment | Entra ID group object ids for the five human roles (see [user-rbac-and-identity.md](../interfaces/user-rbac-and-identity.md)). Unset group = role unassigned. |
 | `FDAI_STEWARDSHIP_REQUIRE_BINDINGS` | env | deployment | Set to `1` so placeholder identities fail startup. Terraform also supplies `FDAI_MAINTAINERS`, `FDAI_STEWARD_<AGENT>`, the audit interval, and optional Key Vault-backed GitOps/webhook inputs defined in [Agent operational ownership lifecycle](../interfaces/agent-stewardship-operations.md). |
-| `FDAI_ENTRA_TENANT_ID` / `FDAI_API_AUDIENCE` | env | deployment | Required for the production read-API Entra JWT verifier (`EntraJwtVerifier`): the deployment tenant id and the `fdai-api` App ID URI (`api://<fdai-api-guid>`). See [user-rbac-and-identity.md#102-api-token-validation](../interfaces/user-rbac-and-identity.md#102-api-token-validation). |
+| `FDAI_ENTRA_TENANT_ID` / `FDAI_API_AUDIENCE` | env | deployment | Required for the production Operator API Entra JWT verifier (`EntraJwtVerifier`): the deployment tenant id and the `fdai-api` App ID URI (`api://<fdai-api-guid>`). See [user-rbac-and-identity.md#102-api-token-validation](../interfaces/user-rbac-and-identity.md#102-api-token-validation). |
 | `FDAI_ENTRA_ISSUER` / `FDAI_ENTRA_JWKS_URI` | env | deployment | Optional verifier overrides; default to the tenant's v2 issuer + public key set. Set `ISSUER` to `https://sts.windows.net/<tenant>/` for a v1-token app; override `JWKS_URI` only for sovereign / air-gapped clouds. |
-| `FDAI_EXECUTOR_PRINCIPAL_ID` / `FDAI_EXECUTOR_EVENT_ROLE_DEFINITION_ID` / `FDAI_EXECUTOR_SECRET_ROLE_DEFINITION_ID` | env | upstream | Read-API onboarding probe inputs. The probe uses ARG to verify the provisioned resource set and the executor's Event Hubs / Key Vault roles. |
+| `FDAI_EXECUTOR_PRINCIPAL_ID` / `FDAI_EXECUTOR_EVENT_ROLE_DEFINITION_ID` / `FDAI_EXECUTOR_SECRET_ROLE_DEFINITION_ID` | env | upstream | Operator API onboarding probe inputs. The probe uses ARG to verify the provisioned resource set and the executor's Event Hubs / Key Vault roles. |
 | `FDAI_DR_DRILL_SOURCE_SERVER_ARM_ID` / `FDAI_DR_DRILL_TARGET_LOCATION` / `FDAI_DR_DRILL_TARGET_RG_PREFIX` / `FDAI_DR_DRILL_TARGET_SERVER_PREFIX` / `FDAI_DR_DRILL_PITR_OFFSET_MINUTES` / `FDAI_DR_DRILL_DRY_RUN` | env | deployment | DB-DR drill job config (see [../runbooks/db-dr-drill.md](../../runbooks/db-dr-drill.md)); `DRY_RUN=true` upstream default keeps the job idempotent. |
 | `FDAI_SECRET_KAFKA_TOKEN` / other `FDAI_SECRET_*` | KV ref | deployment | generic escape hatch for a secret consumed by an adapter that does not yet have a dedicated env-var name; every `FDAI_SECRET_*` value MUST come from KV. |
 

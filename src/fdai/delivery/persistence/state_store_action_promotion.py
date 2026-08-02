@@ -22,7 +22,7 @@ _REVISION = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 
 
 class StateStoreActionPromotionRegistry(ActionPromotionRegistry):
-    """Keep the RiskGate sync read API over an asynchronously refreshed cache."""
+    """Keep the RiskGate sync Operator API over an asynchronously refreshed cache."""
 
     def __init__(
         self,

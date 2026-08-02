@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 5f96a0818e2bcd3895766db222c21fa937b5c85f
+translation_source_sha: a256b682890fac5b5e1a597e70f830531a7f3b16
 translation_revised: 2026-08-02
 ---
 
@@ -57,12 +57,12 @@ turn-timing contract를 실제 Starlette route와 evidence resolver로 별도 �
 
 이를 보완하는 `npm --prefix console run test:e2e:live` suite는 route interception 없이 신뢰할
 수 있는 local PostgreSQL 및 Azure CLI profile을 시작합니다. 등록된 모든 Console panel을 방문하고,
-panel boundary가 안정될 때까지 기다리며, browser exception과 read API `4xx`/`5xx` response를
+panel boundary가 안정될 때까지 기다리며, browser exception과 Operator API `4xx`/`5xx` response를
 차단하고, test route inventory가 production registry와 계속 일치하는지 검증합니다. 또한 live
 Command Deck을 통해 결정론적 현재 시각 turn과 allowlist에 포함된 Microsoft Learn web search를
 제출하고, verified 또는 grounded terminal evidence를 요구합니다. CLI principal profile을 새로
 시작하는 대신 이미 인증된 stack을 재사용하려면 `FDAI_E2E_BASE_URL`과
-`FDAI_E2E_READ_API_URL`을 설정합니다.
+`FDAI_E2E_OPERATOR_API_URL`을 설정합니다.
 
 ### dev-up.sh 필요 (여전히 로컬)
 
@@ -80,10 +80,10 @@ site는 인증된 Console full stack과 분리되어 있습니다.
 |---------|-------------|-----------------------|
 | Design mock | `http://127.0.0.1:5373` | `Design Mocks: Static Site` launch, `design mocks: serve (5373)` task 또는 Live Server |
 | Console SPA | `http://127.0.0.1:5273` | `Console Web: Full Stack` (권장) 또는 `Console Web: Frontend` (SPA 전용) |
-| Read API | `http://127.0.0.1:8010` | `Console Web: Read API` |
+| Operator API | `http://127.0.0.1:8010` | `Console Web: Operator API` |
 | Test ingestion gateway | `http://127.0.0.1:8011` | `Console Web: Ingestion Gateway` |
 
-`Console Web: Full Stack` compound는 core runtime, Console SPA, read API를 시작합니다. 정적 design
+`Console Web: Full Stack` compound는 core runtime, Console SPA, Operator API를 시작합니다. 정적 design
 mock과 격리된 test ingestion gateway는 시작하지 않습니다.
 신뢰된 workspace를 열면 `console: prepare local state`가 한 번 자동 실행되어 local PostgreSQL과
 Redpanda container를 시작하고 대기 중인 migration을 적용합니다. 커밋된 workspace 설정이 automatic
@@ -91,7 +91,7 @@ task를 허용하고 task의 single-instance limit가 중복 준비를 방지하
 않습니다.
 Compound는 child configuration을 시작하기 전에 `console: prepare full stack`을 한 번 완료합니다.
 따라서 두 backend launch가 PostgreSQL migration, runtime environment 생성, Entra 동기화를 반복하지
-않습니다. Standalone Core Runtime 또는 Read API debug configuration을 시작할 때는 이 준비 task를
+않습니다. Standalone Core Runtime 또는 Operator API debug configuration을 시작할 때는 이 준비 task를
 먼저 실행합니다.
 준비 순서에서는 구성된 Entra SPA 등록에 `http://localhost:5273`과
 `http://127.0.0.1:5273`을 안전하게 재시도할 수 있는 방식으로 동기화합니다. Helper는 기존
@@ -103,27 +103,27 @@ Resolved-model artifact가 있으면 같은 준비 단계에서 narrator endpoin
 `FDAI_LLM_ENDPOINT`와 `LLM_RESOLVED_MODELS_PATH`를 private local runtime environment에 기록합니다.
 Narrator endpoint가 없거나 올바르지 않으면 core runtime을 시작한 뒤 실패하게 두지 않고 Terraform
 또는 Azure provider에 접근하기 전에 준비 단계를 중단합니다.
-Read API가 startup probe를 완료하는 동안 browser는 initial panel skeleton을 유지하고
+Operator API가 startup probe를 완료하는 동안 browser는 initial panel skeleton을 유지하고
 `GET /iam/self`의 fetch-level network failure만 약 28초 동안 bounded schedule로 재시도합니다.
 HTTP response, authentication failure, malformed payload 또는 소진된 schedule은 추가 retry로 숨기지
 않고 기존 access-recovery surface에 즉시 표시합니다.
 IAM bootstrap이 성공하면 Dashboard는 `GET /kpi`를 필수 backbone으로 취급하고 해당 response가
 resolve되는 즉시 route skeleton을 종료합니다. 선택 FinOps, promotion-gate 및 autonomy projection은
 독립적으로 합류하며 전체 Dashboard를 loading 상태로 유지하지 않습니다.
-모든 browser Read API request에도 구성 가능한 기본 30초 timeout을 적용합니다. 정지한 fetch는
+모든 browser Operator API request에도 구성 가능한 기본 30초 timeout을 적용합니다. 정지한 fetch는
 abort되고 영구 skeleton을 남기지 않고 기존 route error surface로 전환됩니다.
 각 long-running Console task는 VS Code instance 하나만 허용합니다. Core task와 debug launch는
 `.fdai/core-runtime.lock`도 공유하므로 두 번째 process는 Kafka consumer group에 참여하기 전에
 실패합니다. 따라서 task/debug overlap이 duplicate Pantheon consumer와 지속적인 rebalance를 만들지 않습니다.
-Core runtime, read API 및 frontend task는 각각 별도의 dedicated terminal group을 사용하며 재시작할 때
-자신의 이전 output만 지웁니다. Read API startup은 조용히 유지되며 editor focus를 가져가지 않습니다.
+Core runtime, Operator API 및 frontend task는 각각 별도의 dedicated terminal group을 사용하며 재시작할 때
+자신의 이전 output만 지웁니다. Operator API startup은 조용히 유지되며 editor focus를 가져가지 않습니다.
 VS Code는 Pantheon bridge 시작, Uvicorn application startup 완료 또는
 Vite local address 게시를 각각 확인한 뒤에만 background task를 ready로 표시합니다. 따라서 process가
 생성되기만 한 상태를 준비된 service로 표시하지 않습니다.
 표준 local Azure profile은 `FDAI_RUNTIME_LOCK_FILE`이 설정되지 않아도 같은 lock을 기본값으로 사용하므로,
 `python -m fdai`를 직접 실행해도 singleton guard를 우회할 수 없습니다. Production runtime은 deployment에서
 명시적으로 구성한 경우에만 process lock을 계속 사용합니다.
-Core runtime만 Pantheon을 소유합니다. `FDAI_READ_API_EMBED_PANTHEON=0`일 때 read API는 기존
+Core runtime만 Pantheon을 소유합니다. `FDAI_OPERATOR_API_EMBED_PANTHEON=0`일 때 Operator API는 기존
 `aw.pantheon.objects` transport의 bounded request/response logical topic을 통해 Bragi conversational
 port에 접근합니다. Startup probe로 response consumer 준비를 확인한 후 traffic을 받습니다. Client는
 retry 중 joining consumer를 재사용하고 최초 Event Hubs group join을 최대 20초 허용합니다. Production
@@ -132,14 +132,14 @@ core는 process-scoped server group을 사용하므로 재시작할 때 이전 p
 replay하지 않고 physical topic의 현재 offset에서 시작합니다. Request는
 raw identity 대신 salted SHA-256 user/session reference를 전달하며, timeout 또는 invalid response는 specialist
 answer를 꾸미지 않고 명시적인 agent-to-Bragi handoff로 표시합니다.
-장기 실행 core 및 read API task의 terminal output은 `.fdai/logs/core-runtime.log`와
-`.fdai/logs/read-api.log`에 보존됩니다. 캡처된 모든 child-output 줄은 millisecond와 local timezone
+장기 실행 core 및 Operator API task의 terminal output은 `.fdai/logs/core-runtime.log`와
+`.fdai/logs/operator-api.log`에 보존됩니다. 캡처된 모든 child-output 줄은 millisecond와 local timezone
 약어를 포함한 Python logging style timestamp로 시작합니다. 예시는 `2026-07-28 15:25:53,717 KST`입니다.
 각 log는 service 시작 및 중지 timestamp와 child exit code도 기록하고 private local permission을
 사용하며, 1 MiB에서 회전하여 이전 세대를 최대 3개 유지합니다. Git에서 제외된 이 진단 log는 task
 terminal이 닫혀도 유지되며 structured warning 및 error record인 `warnings.jsonl`을 대체하지 않습니다.
-Core terminal은 machine-readable JSON stream을 유지하지만, core file은 read API log와 같은
-`LEVEL: logger: message` 형식으로 record를 렌더링합니다. Local read API는 같은 structured logger를
+Core terminal은 machine-readable JSON stream을 유지하지만, core file은 Operator API log와 같은
+`LEVEL: logger: message` 형식으로 record를 렌더링합니다. Local Operator API는 같은 structured logger를
 사용하고 기본값이 `INFO`인 `FDAI_LOG_LEVEL`을 적용합니다. Uvicorn access log는 비활성화하고,
 `aiokafka`, `httpx`, `weasyprint`의 `WARNING` 미만 record는 억제하지만 FDAI lifecycle 및 decision
 record는 `INFO`로 유지합니다. Event Hubs adapter는 aiokafka의 context가 없는 socket별 authentication
@@ -149,13 +149,13 @@ error는 계속 표시됩니다. 단기 readiness consumer는 group coordinator�
 I/O를 cancel하고 drain하므로 의도적인 probe 종료가 transport failure로 기록되지 않습니다. Startup
 model latency probe는 구성된 모든
 reasoning candidate가 지원하는 Azure Responses API output-token budget을 사용합니다. Core readiness
-sample은 안정적인 `startup-readiness:<probe-id>` correlation id를 사용하고 read API latency sample은
-안정적인 `read-api:*:latency-probe` correlation id를 사용하므로 측정된 probe 사용량이 uncorrelated
+sample은 안정적인 `startup-readiness:<probe-id>` correlation id를 사용하고 Operator API latency sample은
+안정적인 `operator-api:*:latency-probe` correlation id를 사용하므로 측정된 probe 사용량이 uncorrelated
 traffic으로 기록되지 않습니다.
 Local 및 deployed console 모두 agent card의 Ask action에서 새 user-scoped conversation key를
 할당하고 submit 전에 선택한 agent를 conversation summary에 저장합니다. Browser는 stable per-agent
 key를 사용해 이전 transcript를 묵시적으로 재개하지 않습니다.
-Core, read API, debugger 및 local migration command는 현재 workspace의 `src` directory를 Python
+Core, Operator API, debugger 및 local migration command는 현재 workspace의 `src` directory를 Python
 import path의 첫 위치에 명시합니다. 따라서 다른 worktree가 virtual environment의 editable-install
 metadata를 변경해도 오래된 FDAI source를 시작할 수 없습니다.
 
@@ -190,10 +190,10 @@ MFA를 계속 완료합니다. Local dev-access state가 없는 workstation에�
 
 ### 로컬 개발의 Console 데이터
 
-Canonical local read API는 `FDAI_READ_API_LOCAL_ENTRA=1`을 사용하고 deployment와 route-owned runtime helper를 공유합니다. Browser가 API token을
+Canonical local Operator API는 `FDAI_OPERATOR_API_LOCAL_ENTRA=1`을 사용하고 deployment와 route-owned runtime helper를 공유합니다. Browser가 API token을
 얻고 API는 deployment와 동일하게 JWT 및 App Role을 검증합니다. Server의 Azure CLI token은
 Resource Graph, Microsoft Graph, model discovery, Event Hubs 같은 Azure adapter로 제한됩니다.
-`FDAI_READ_API_LOCAL_AZURE_CLI=1`과 `VITE_LOCAL_AZURE_CLI_AUTH=1` 조합은 fixed role ceiling을
+`FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1`과 `VITE_LOCAL_AZURE_CLI_AUTH=1` 조합은 fixed role ceiling을
 사용하는 명시적 CLI-principal debug 대안입니다.
 
 Local Kubernetes workload evidence는 opt-in이며 server-owned입니다.
@@ -245,7 +245,7 @@ StateSnapshot을 읽습니다. Interactive local은 local PostgreSQL이 구성�
 보고합니다. Local browser는 Azure CLI inventory로 대체하거나 Heimdall 판정을 다시 계산하지
 않습니다.
 
-Standard full-stack launch는 narrator endpoint reconciliation도 활성 상태로 유지합니다. Read API는
+Standard full-stack launch는 narrator endpoint reconciliation도 활성 상태로 유지합니다. Operator API는
 Command Deck을 deterministic fallback으로 강제하지 않고 configured Azure OpenAI narrator를 항상
 먼저 시도합니다. Startup 시 local-only hook은 active Azure CLI principal에 권한이 있으면 현재 public
 IP를 account의 restricted firewall에 추가할 수 있습니다. Automated test는
@@ -262,7 +262,7 @@ Artifact가 없으면 model 및 assurance inference는 unavailable이며 fixture
 
 `FDAI_MONITOR_WORKSPACE_ID`가 설정되면 명시적 Command Deck `query_log` 명령은 두 profile에서
 같은 bounded Azure Monitor Logs provider를 사용합니다. Interactive local은 현재 Azure CLI
-context에서 data plane token을 얻고 deployment는 `FDAI_MI_CLIENT_ID`가 선택한 전용 read-API
+context에서 data plane token을 얻고 deployment는 `FDAI_MI_CLIENT_ID`가 선택한 전용 Operator API
 managed identity를 사용합니다. Workspace는 server config로 정하며 browser가 변경할 수 없습니다.
 Workspace, identity, permission 또는 telemetry를 사용할 수 없으면 fixture나 model fallback 없이
 unavailable로 보류합니다.
@@ -272,10 +272,10 @@ read-investigation adapter에 제공합니다. Terraform이 optional development
 Easy Auth audience를 모두 출력하면 NSG 및 VNet peering 질문은 local Azure CLI identity로 gateway의
 registered read operation만 호출합니다. Pair가 없으면 wrapper를 비활성화하고 configured gateway가
 실패하면 direct ARM fallback 없이 unavailable을 보고합니다. Gateway는 reader/executor managed
-identity를 분리하며 local read API에 execution identity를 제공하지 않습니다. Mutation은 target-scoped
+identity를 분리하며 local Operator API에 execution identity를 제공하지 않습니다. Mutation은 target-scoped
 Blob lease와 durable idempotency claim을 사용하며 upstream Terraform은 configured executor
 principal에 development-only mutation operation을 활성화하고 gateway URL과 audience는 headless core
-Container App에만 전달합니다. 해당 runtime은 `AzureGatewayDirectApiExecutor`를 bind하며 read API는
+Container App에만 전달합니다. 해당 runtime은 `AzureGatewayDirectApiExecutor`를 bind하며 Operator API는
 read-only gateway transport를 유지하고 enforce capability를 받지 않습니다. Executor는 정확한 registered
 operation, arguments, idempotency, audit, stop-condition, rollback 및 impact evidence에 대해
 server-issued dry-run receipt를 먼저 요청해야 합니다. Gateway는 bounded reader-identity ARM GET으로
@@ -325,8 +325,8 @@ Terraform executor identity resource ID에 포함된 subscription과 활성 Azur
 또한 local user와 host에서 식별 정보를 노출하지 않는 consumer instance hash를 파생하므로 동시에
 실행하는 개발자가 같은 Event Hubs Kafka consumer group에 참여하지 않습니다. Automation에서
 명시적으로 안정된 이름이 필요하면 `FDAI_LOCAL_CONSUMER_INSTANCE`에 최대 20자의 lowercase
-alphanumeric 및 hyphen identifier를 설정할 수 있습니다. 생성된 core, Pantheon, read API group은
-이 instance를 사용하고 deployed read API replica는 runtime hostname을 사용합니다. 따라서 각
+alphanumeric 및 hyphen identifier를 설정할 수 있습니다. 생성된 core, Pantheon, Operator API group은
+이 instance를 사용하고 deployed Operator API replica는 runtime hostname을 사용합니다. 따라서 각
 console stream은 다른 developer 또는 replica와 partition을 나누지 않고 모든 frame을 수신합니다.
 
 Workflow definition은 deployment와 같은 enforce allowlist를 사용하며 각 ActionType은
@@ -339,18 +339,18 @@ executor, VM-task fake, synthetic scheduler/cost data, scope template, blast-rad
 FDAI Azure PostgreSQL, Event Hubs, runtime, executor resource가 없으면 해당 surface는 runtime
 claim 없이 unavailable 또는 empty로 표시됩니다. Repository catalog와 schema는 observed runtime
 evidence가 아니라 configuration-as-code이므로 계속 표시합니다.
-Local 및 deployed read API factory는 Rules의 `Controls` reference view를 위해 동일한 validated
+Local 및 deployed Operator API factory는 Rules의 `Controls` reference view를 위해 동일한 validated
 Best Practice 정의를 로드합니다. 이 parity는 runtime claim을 만들지 않습니다. Authoritative
 evidence provider가 없으면 두 factory 모두 모든 control과 requirement를 `Unknown`, source는
 `not_connected`로 노출합니다.
 
 Local API는 `GET /system/data-sources`를 제공합니다. Standard full stack에서는 production
-PostgreSQL read-model adapter가 local pgvector를 사용합니다. Local read API는 traffic을 받기 전에
+PostgreSQL read-model adapter가 local pgvector를 사용합니다. Local Operator API는 traffic을 받기 전에
 해당 adapter를 통해 bounded `SELECT 1`을 실행합니다. Probe가 실패하면 부분적으로 연결된 콘솔을
 노출하지 않고 startup을 중단합니다. Probe가 성공하면 PostgreSQL 기반 entry는 `available` 및
 `reachable=true`를 보고합니다. 구성된 remote 및 Azure request-time source는 자체 evidence
 contract가 검증할 때까지 `unknown`을 유지합니다.
-`FDAI_DATABASE_URL`과 `FDAI_AUTHORITATIVE_READ_API_BASE_URL`은 상호배타적인 source profile을
+`FDAI_DATABASE_URL`과 `FDAI_AUTHORITATIVE_OPERATOR_API_BASE_URL`은 상호배타적인 source profile을
 선택합니다. 둘을 함께 구성하면 provider를 만들기 전에 startup을 중단하므로 manifest가 local
 PostgreSQL을 설명하면서 allowlist request를 remote API가 처리하는 상태를 허용하지 않습니다.
 Remote forwarding은 decoded canonical allowlisted path만 일치시키며 normalized, encoded, 중복
@@ -369,7 +369,7 @@ live state, current work, runtime binding, state timestamp, stream provenance, i
 항상 표시합니다. 현재 window에 귀속 audit row가 없으면 live summary를 대체하거나 audit event를
 추론하지 않고 timeline에서 그 부재를 명시합니다.
 Headless Pantheon은 control-loop progress를 전달하는 동일한 `aw.pipeline.stages` transport에 실제
-health에서 파생한 `agent.runtime-state` frame을 발행합니다. Read API는 runtime-state frame과 stage
+health에서 파생한 `agent.runtime-state` frame을 발행합니다. Operator API는 runtime-state frame과 stage
 frame을 구분하고 consumer가 live이며 health probe가 error가 아닌 agent만 전달합니다. Interactive
 local과 deployment는 같은 cross-process 경로를 사용하며 local profile은 agent activation이나 stream
 semantic이 아니라 PostgreSQL binding만 바꿉니다.
@@ -383,7 +383,7 @@ analyzing, deciding, executing, approving, auditing, Incident 및 handoff frame�
 `object.turn` envelope를 발행할 수 있지만 reviewer나 durable proposal store를 만들어 내지
 않습니다. Deployed headless runtime은 결정론적 ineligible/unsupported reason을 기록하고 서로 다른
 두 model family가 resolve된 경우에만 Azure reviewer를 사용합니다. PostgreSQL은 restart-safe review
-및 draft state를 보관하며 production read API는 process memory를 공유하거나 approval endpoint를
+및 draft state를 보관하며 production Operator API는 process memory를 공유하거나 approval endpoint를
 추가하지 않고 해당 row를 projection합니다.
 
 Approval decision delivery도 restart 전후에 같은 shape을 유지합니다. Production은 서명된 A1
@@ -414,7 +414,7 @@ traffic에 들어가지 않습니다.
 | Key Vault secret provider (`SecretProvider`) | deployment가 Key Vault reference 주입 | interactive adapter는 environment reference 사용, fixture value는 test 전용 |
 | GitOps PR publisher | 실제 GitHub adapter 존재 | interactive execution은 configured adapter 사용, recording publisher는 test 전용 |
 Local inventory cache는 final fence에 도달한 scan만 promote하고 atomic replace로 기록합니다.
-Fresh cache는 read API restart 이후에도 즉시 반환됩니다. 만료되었거나 Huginn이 invalidate한 cache는
+Fresh cache는 Operator API restart 이후에도 즉시 반환됩니다. 만료되었거나 Huginn이 invalidate한 cache는
 `cache.status=refreshing`인 `stale` 상태로 즉시 반환되고, background Azure CLI scan이 이를 원자적으로
 교체합니다. Provision된 `aw.inventory.raw` topic을 `FDAI_INVENTORY_RAW_TOPIC`으로 구성하면 수락된
 write/delete event가 durable projection 이후 local cache를 invalidate합니다. 해당 auxiliary-topic

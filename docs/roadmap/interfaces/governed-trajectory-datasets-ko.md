@@ -1,8 +1,8 @@
 ---
 title: 관리형 Trajectory 데이터셋
 translation_of: governed-trajectory-datasets.md
-translation_source_sha: 6b84dd08d2c9c26feb378297307495526b45aecf
-translation_revised: 2026-07-21
+translation_source_sha: b94ca93a59fe58117f7dd7b300076d600beb23a0
+translation_revised: 2026-08-02
 ---
 
 # 관리형 Trajectory 데이터셋
@@ -147,7 +147,7 @@ Git에서 ignore되며 이 저장소에 commit하지 않습니다.
 
 ## 관리 surface
 
-Read API는 선택적으로 Owner-only GET route를 등록합니다.
+Operator API는 선택적으로 Owner-only GET route를 등록합니다.
 
 - `GET /admin/trajectory-datasets?purpose=...&access_scope=...`
 - `GET /admin/trajectory-datasets/{dataset_id}?purpose=...&access_scope=...`
@@ -176,7 +176,7 @@ Norns-to-Mimir quality gate를 사용합니다.
 | Source 및 dataset provider contract | `src/fdai/shared/providers/trajectory.py` |
 | JSONL exporter 및 scanner quarantine | `src/fdai/delivery/trajectory/` |
 | PostgreSQL metadata adapter | `src/fdai/delivery/persistence/postgres_trajectory.py` |
-| 읽기 전용 admin route | `src/fdai/delivery/read_api/routes/trajectory_datasets.py` |
+| 읽기 전용 admin route | `src/fdai/delivery/operator_api/routes/trajectory_datasets.py` |
 | Offline CLI | `src/fdai/deployment_cli/trajectory.py` |
 | Migration | `alembic/versions/20260720_0048_trajectory_dataset.py` |
 | Golden test | `tests/core/trajectory/`, `tests/delivery/trajectory/` |

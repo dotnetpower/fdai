@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import {
   AsyncBoundary,
   DataTable,
@@ -31,7 +31,7 @@ interface Query {
 
 const PAGE_SIZE = 50;
 
-export function SchedulerRunsRoute({ client }: { readonly client: ReadApiClient }) {
+export function SchedulerRunsRoute({ client }: { readonly client: OperatorApiClient }) {
   const initial = queryFromRoute();
   const [taskInput, setTaskInput] = useState(initial.taskId);
   const [statusInput, setStatusInput] = useState<Query["status"]>(initial.status);

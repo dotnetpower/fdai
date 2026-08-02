@@ -118,7 +118,7 @@ export function tierOf(item: AuditItem): string | null {
 export type AuditProvenance = "operational" | "sample";
 
 export function auditProvenanceOf(item: AuditItem): AuditProvenance {
-  return item.entry["fixture_source"] === "read-api-dev-seed" ||
+  return item.entry["fixture_source"] === "operator-api-dev-seed" ||
     item.entry["observation_source"] === "synthetic-dev"
     ? "sample"
     : "operational";

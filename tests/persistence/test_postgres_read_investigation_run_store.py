@@ -260,7 +260,7 @@ async def test_postgres_schema_exposes_attempt_count_with_bounds(database_url: s
                     "claimed",
                     1,
                     0,
-                    "read-api",
+                    "operator-api",
                     "lease:invalid",
                     _NOW + timedelta(seconds=30),
                     None,

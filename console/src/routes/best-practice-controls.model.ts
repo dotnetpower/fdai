@@ -1,4 +1,4 @@
-import { ReadApiError } from "../api";
+import { OperatorApiError } from "../api";
 import { routeHref } from "../router";
 import {
   panelArray,
@@ -72,7 +72,7 @@ export interface BestPracticeFilters {
 
 function decodeStatus(value: string, label: string): ControlStatus {
   if (!CONTROL_STATUSES.includes(value as ControlStatus)) {
-    throw new ReadApiError(502, `invalid read API response: ${label} has unknown status ${value}`);
+    throw new OperatorApiError(502, `invalid Operator API response: ${label} has unknown status ${value}`);
   }
   return value as ControlStatus;
 }
@@ -92,9 +92,9 @@ function decodeControl(value: unknown, index: number): BestPracticeControl {
   const requirementCount = panelNonNegativeInteger(row, "requirement_count", label);
   const satisfiedCount = panelNonNegativeInteger(row, "satisfied_requirement_count", label);
   if (satisfiedCount > requirementCount) {
-    throw new ReadApiError(
+    throw new OperatorApiError(
       502,
-      `invalid read API response: ${label}.satisfied_requirement_count exceeds requirement_count`,
+      `invalid Operator API response: ${label}.satisfied_requirement_count exceeds requirement_count`,
     );
   }
   return {
@@ -121,7 +121,7 @@ function decodeFacet(value: unknown, label: string): Readonly<Record<string, num
   return Object.fromEntries(
     Object.entries(raw).map(([key, count]) => {
       if (typeof count !== "number" || !Number.isInteger(count) || count < 0) {
-        throw new ReadApiError(502, `invalid read API response: ${label}.${key} MUST be a count`);
+        throw new OperatorApiError(502, `invalid Operator API response: ${label}.${key} MUST be a count`);
       }
       return [key, count];
     }),
@@ -136,12 +136,12 @@ export function decodeBestPracticeResponse(value: unknown): BestPracticeResponse
   const limit = panelNonNegativeInteger(root, "limit", "best practices");
   const controls = panelArray(root["controls"], "best practices.controls").map(decodeControl);
   if (filteredTotal > total || controls.length > filteredTotal || controls.length > limit) {
-    throw new ReadApiError(502, "invalid read API response: best practice totals do not reconcile");
+    throw new OperatorApiError(502, "invalid Operator API response: best practice totals do not reconcile");
   }
   const ids = controls.map((control) => control.id);
   const controlIds = controls.map((control) => control.control_id);
   if (new Set(ids).size !== ids.length || new Set(controlIds).size !== controlIds.length) {
-    throw new ReadApiError(502, "invalid read API response: best practice ids MUST be unique");
+    throw new OperatorApiError(502, "invalid Operator API response: best practice ids MUST be unique");
   }
   const facets = panelRecord(root["facets"], "best practices.facets");
   return {
@@ -176,7 +176,7 @@ export function decodeBestPracticeDetail(value: unknown): BestPracticeDetail {
     },
   );
   if (requirements.length !== base.requirement_count) {
-    throw new ReadApiError(502, "invalid read API response: requirement count does not reconcile");
+    throw new OperatorApiError(502, "invalid Operator API response: requirement count does not reconcile");
   }
   return { ...base, requirements, provenance: panelRecord(root["provenance"], "provenance") };
 }

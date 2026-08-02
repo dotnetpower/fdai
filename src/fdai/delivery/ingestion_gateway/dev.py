@@ -19,6 +19,7 @@ from fdai.delivery.ingestion_gateway.handover import (
     InMemoryHandoverDraftStore,
 )
 from fdai.delivery.ingestion_gateway.main import IngestionGatewayConfig, build_app
+from fdai.delivery.operator_api.auth import UnsafeClaimsExtractor, build_authenticator
 from fdai.delivery.persistence.postgres_document_ingestion import (
     PostgresDocumentMetadataStore,
     PostgresDocumentMetadataStoreConfig,
@@ -27,7 +28,6 @@ from fdai.delivery.pgvector.document_index import (
     PgvectorDocumentIndex,
     PgvectorDocumentIndexConfig,
 )
-from fdai.delivery.read_api.auth import UnsafeClaimsExtractor, build_authenticator
 from fdai.shared.contracts import IngestionCapabilities, SourceStorageMode
 from fdai.shared.providers.document_ingestion import (
     DocumentMetadataStore,

@@ -266,7 +266,7 @@ Heimdall does not write the Incident or publish a new object type. Only candidat
 severity reach the workflow; all others remain anomalies. The workflow rechecks evidence before
 `IncidentRegistry` writes the audited record. Hook failure records a behavior counter and leaves
 the bounded window for retry; accepted and policy-held outcomes use separate counters. Production composition rehydrates the registry and binds the hook when
-enabled; the read API does not impersonate Heimdall.
+enabled; the Operator API does not impersonate Heimdall.
 
 Huginn is the logical owner of real-time resource discovery. Azure resource
 create, update, and delete signals enter through the canonical Event Hubs Kafka
@@ -426,7 +426,7 @@ principal is checked by the schema registry: only the owner may publish.
 ## 6. Communication contract
 
 The pantheon uses the existing `EventBus` wire: Kafka on Event Hubs `:9093`, or the in-process local adapter. Heimdall emits Drift only after one readiness pass has all six dimensions; Muninn accepts only a strictly newer snapshot.
-A best-effort `AgentHandlerObserver` reports handler lifecycle without changing delivery, judgment, or execution. Local composition publishes to SSE; deployed composition publishes `started`, `completed`, and `failed` onto the shared stage topic for read API relay.
+A best-effort `AgentHandlerObserver` reports handler lifecycle without changing delivery, judgment, or execution. Local composition publishes to SSE; deployed composition publishes `started`, `completed`, and `failed` onto the shared stage topic for Operator API relay.
 
 ### 6.1 Typed port
 

@@ -10,7 +10,7 @@ from fdai.deployment_cli.security_audit import run_security_audit
 
 
 def test_non_dev_auth_bypass_and_missing_entra_are_critical() -> None:
-    report = run_security_audit(env={"RUNTIME_ENV": "prod", "FDAI_READ_API_DEV_MODE": "1"})
+    report = run_security_audit(env={"RUNTIME_ENV": "prod", "FDAI_OPERATOR_API_DEV_MODE": "1"})
 
     assert report.secure is False
     assert {finding.check_id for finding in report.findings} == {

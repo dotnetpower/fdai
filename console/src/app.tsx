@@ -1,6 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { lazy, Suspense } from "preact/compat";
-import { ReadApiClient } from "./api";
+import { OperatorApiClient } from "./api";
 import type { AuthContext } from "./auth";
 import { initAuth } from "./auth";
 import { observeUnauthorizedApiResponses } from "./auth-response";
@@ -40,7 +40,7 @@ interface AppState {
   readonly status: "loading" | "ready" | "access-error" | "error";
   readonly config?: ConsoleConfig;
   readonly auth?: AuthContext;
-  readonly client?: ReadApiClient;
+  readonly client?: OperatorApiClient;
   readonly iamSelf?: IamSelfStatus;
   readonly error?: string;
 }
@@ -125,7 +125,7 @@ export function App() {
           clearLocalAuthBypass();
           if (!cancelled) setLocalDevBypass(false);
         }
-        let client: ReadApiClient;
+        let client: OperatorApiClient;
         const handleUnauthorized = (error: { readonly message: string }) => {
           if (cancelled) return;
           setState((current) => current.status === "access-error"
@@ -138,11 +138,11 @@ export function App() {
                 error: error.message,
               });
         };
-        client = new ReadApiClient(config, auth, {
+        client = new OperatorApiClient(config, auth, {
           onUnauthorized: handleUnauthorized,
         });
         stopObservingUnauthorized = observeUnauthorizedApiResponses(
-          [config.readApiBaseUrl, config.ingestionApiBaseUrl],
+          [config.operatorApiBaseUrl, config.ingestionApiBaseUrl],
           handleUnauthorized,
         );
         let iamSelf: IamSelfStatus | undefined;

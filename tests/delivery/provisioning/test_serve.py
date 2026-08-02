@@ -12,13 +12,13 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from fdai.delivery.provisioning.serve import aiter_json_lines, pump_provision_events
-from fdai.delivery.read_api.streaming.provision_stream import (
+from fdai.delivery.operator_api.streaming.provision_stream import (
     DEFAULT_CHANNEL,
     ProvisionEvent,
     ProvisionPhase,
     SseProvisionPublisher,
 )
+from fdai.delivery.provisioning.serve import aiter_json_lines, pump_provision_events
 from fdai.shared.providers.testing.sse import InMemorySseSink
 
 

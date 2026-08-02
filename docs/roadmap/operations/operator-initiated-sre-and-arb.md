@@ -176,7 +176,7 @@ credentials differ.
   the console does not need a local-only presentation path.
 
 This parity means "all work is possible locally" when the operator configures the same providers
-and permissions. It does not mean that the local read API receives the production executor's
+and permissions. It does not mean that the local Operator API receives the production executor's
 managed identity or that an unavailable Azure data plane is simulated.
 
 ## Implementation plan

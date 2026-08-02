@@ -142,7 +142,7 @@ by git, and these files are never committed to this repository.
 
 ## Administrative surfaces
 
-The read API optionally registers Owner-only GET routes:
+The Operator API optionally registers Owner-only GET routes:
 
 - `GET /admin/trajectory-datasets?purpose=...&access_scope=...`
 - `GET /admin/trajectory-datasets/{dataset_id}?purpose=...&access_scope=...`
@@ -171,7 +171,7 @@ the existing Norns-to-Mimir quality gate.
 | Source and dataset provider contracts | `src/fdai/shared/providers/trajectory.py` |
 | JSONL exporter and scanner quarantine | `src/fdai/delivery/trajectory/` |
 | PostgreSQL metadata adapters | `src/fdai/delivery/persistence/postgres_trajectory.py` |
-| Read-only admin routes | `src/fdai/delivery/read_api/routes/trajectory_datasets.py` |
+| Read-only admin routes | `src/fdai/delivery/operator_api/routes/trajectory_datasets.py` |
 | Offline CLI | `src/fdai/deployment_cli/trajectory.py` |
 | Migration | `alembic/versions/20260720_0048_trajectory_dataset.py` |
 | Golden tests | `tests/core/trajectory/`, `tests/delivery/trajectory/` |

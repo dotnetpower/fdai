@@ -14,7 +14,7 @@ from fdai.core.rbac.enforcer import RoleEnforcer
 from fdai.core.rbac.resolver import GroupMapping, RoleResolver
 from fdai.delivery.ingestion_gateway import IngestionGatewayConfig, build_app
 from fdai.delivery.ingestion_gateway import dev as _dev
-from fdai.delivery.read_api.auth import Authenticator
+from fdai.delivery.operator_api.auth import Authenticator
 from fdai.shared.contracts import IngestionCapabilities, SourceStorageMode
 from fdai.shared.providers.local.document_ingestion import (
     SignatureProtectionInspector,

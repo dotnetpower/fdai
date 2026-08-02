@@ -14,8 +14,8 @@ name: deploy-dev
 #       OPS_RESOURCE_GROUP_NAME, OPS_VNET_ID, OPS_VNET_NAME, STATE_STORAGE_ACCOUNT,
 #       DEPLOY_PREFLIGHT_INPUT_JSON (non-secret complete live-probe profile),
 #       ENTRA_CONSOLE_SPA_CLIENT_ID (required when deploy_console=true),
-#       RESOLVED_CAPABILITIES_JSON, READ_API_AUDIENCE, RBAC_*_GROUP_ID,
-#       READ_API_WEB_SEARCH_ENABLED, READ_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON,
+#       RESOLVED_CAPABILITIES_JSON, OPERATOR_API_AUDIENCE, RBAC_*_GROUP_ID,
+#       OPERATOR_API_WEB_SEARCH_ENABLED, OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON,
 #       INGESTION_CORS_ALLOW_ORIGINS, CLAMAV_IMAGE,
 #       SCHEDULER_TICK_CRON_EXPRESSION, ANALYZER_TICK_CRON_EXPRESSION,
 #       ANALYZER_TARGETS_JSON, ANALYZER_WINDOW_SECONDS, ANALYZER_BUDGET_SECONDS,
@@ -70,8 +70,8 @@ on:
         description: "Provision the operator console Static Web App (enable_console)."
         type: boolean
         default: false
-      deploy_read_api:
-        description: "Provision the console read-API Container App + migration job (enable_read_api)."
+      deploy_operator_api:
+        description: "Provision the console Operator API Container App + migration job (enable_operator_api)."
         type: boolean
         default: false
       deploy_dev_operations_gateway:
@@ -126,28 +126,28 @@ jobs:
       TF_VAR_enable_private_networking: "true"
       TF_VAR_enable_private_postgres: ${{ inputs.environment == 'prod' }}
       TF_VAR_enable_console: ${{ inputs.deploy_console }}
-      TF_VAR_enable_read_api: ${{ inputs.deploy_read_api }}
+      TF_VAR_enable_operator_api: ${{ inputs.deploy_operator_api }}
       TF_VAR_enable_dev_operations_gateway: ${{ inputs.environment == 'dev' && inputs.deploy_dev_operations_gateway }}
-      TF_CLI_ARGS_plan: ${{ inputs.deploy_dev_operations_gateway && '-target=azurerm_function_app_flex_consumption.dev_gateway[0] -target=module.compute.azurerm_container_app.core -target=module.compute.azurerm_container_app_job.canary[0] -target=module.compute.azurerm_container_app_job.inventory[0] -target=module.read_api[0] -target=module.ingestion_gateway[0] -target=azurerm_role_assignment.inventory_eventhubs_raw_sender -target=azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0]' || '' }}
+      TF_CLI_ARGS_plan: ${{ inputs.deploy_dev_operations_gateway && '-target=azurerm_function_app_flex_consumption.dev_gateway[0] -target=module.compute.azurerm_container_app.core -target=module.compute.azurerm_container_app_job.canary[0] -target=module.compute.azurerm_container_app_job.inventory[0] -target=module.operator_api[0] -target=module.ingestion_gateway[0] -target=azurerm_role_assignment.inventory_eventhubs_raw_sender -target=azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0]' || '' }}
       TF_VAR_dev_operations_gateway_private_probes_json: "${{ vars.DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON || '{}' }}"
       TF_VAR_enable_document_ingestion: ${{ inputs.deploy_document_ingestion }}
-      TF_VAR_enable_llm: ${{ inputs.deploy_document_ingestion || vars.ENABLE_LLM == 'true' || vars.READ_API_WEB_SEARCH_ENABLED == 'true' }}
+      TF_VAR_enable_llm: ${{ inputs.deploy_document_ingestion || vars.ENABLE_LLM == 'true' || vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
       TF_VAR_resolved_capabilities: "${{ vars.RESOLVED_CAPABILITIES_JSON }}"
-      TF_VAR_core_image: ${{ vars.CORE_IMAGE || vars.READ_API_IMAGE }}
-      # Read-API image + Entra/RBAC ids (tenant-specific; via repo Variables,
-      # never committed). Empty when deploy_read_api is false.
-      TF_VAR_read_api_image: ${{ vars.READ_API_IMAGE }}
-      TF_VAR_read_api_resolved_models_path: ${{ vars.READ_API_RESOLVED_MODELS_PATH }}
-      TF_VAR_read_api_web_search_enabled: ${{ vars.READ_API_WEB_SEARCH_ENABLED == 'true' }}
-      TF_VAR_read_api_web_search_allowed_domains: "${{ vars.READ_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}"
-      TF_VAR_read_api_audience: ${{ vars.READ_API_AUDIENCE }}
+      TF_VAR_core_image: ${{ vars.CORE_IMAGE || vars.OPERATOR_API_IMAGE }}
+      # Operator API image + Entra/RBAC ids (tenant-specific; via repo Variables,
+      # never committed). Empty when deploy_operator_api is false.
+      TF_VAR_operator_api_image: ${{ vars.OPERATOR_API_IMAGE }}
+      TF_VAR_operator_api_resolved_models_path: ${{ vars.OPERATOR_API_RESOLVED_MODELS_PATH }}
+      TF_VAR_operator_api_web_search_enabled: ${{ vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
+      TF_VAR_operator_api_web_search_allowed_domains: "${{ vars.OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}"
+      TF_VAR_operator_api_audience: ${{ vars.OPERATOR_API_AUDIENCE }}
       TF_VAR_rbac_readers_group_id: ${{ vars.RBAC_READERS_GROUP_ID }}
       TF_VAR_rbac_contributors_group_id: ${{ vars.RBAC_CONTRIBUTORS_GROUP_ID }}
       TF_VAR_rbac_approvers_group_id: ${{ vars.RBAC_APPROVERS_GROUP_ID }}
       TF_VAR_rbac_owners_group_id: ${{ vars.RBAC_OWNERS_GROUP_ID }}
       TF_VAR_rbac_break_glass_group_id: ${{ vars.RBAC_BREAK_GLASS_GROUP_ID }}
-      TF_VAR_read_api_cors_allow_origins: ${{ vars.READ_API_CORS_ALLOW_ORIGINS }}
-      TF_VAR_read_api_iam_directory_provider: ${{ inputs.deploy_read_api && 'entra' || '' }}
+      TF_VAR_operator_api_cors_allow_origins: ${{ vars.OPERATOR_API_CORS_ALLOW_ORIGINS }}
+      TF_VAR_operator_api_iam_directory_provider: ${{ inputs.deploy_operator_api && 'entra' || '' }}
       TF_VAR_stewardship_maintainers: ${{ vars.STEWARDSHIP_MAINTAINERS }}
       TF_VAR_stewardship_agent_bindings: "${{ vars.STEWARDSHIP_AGENT_BINDINGS_JSON || '{}' }}"
       TF_VAR_ingestion_image: ${{ vars.INGESTION_IMAGE }}
@@ -991,9 +991,9 @@ jobs:
           fi
 
       - name: Reconcile Foundry web-search agent
-        if: ${{ inputs.apply && vars.READ_API_WEB_SEARCH_ENABLED == 'true' }}
+        if: ${{ inputs.apply && vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
         env:
-          WEB_SEARCH_ALLOWED_DOMAINS_JSON: "${{ vars.READ_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}"
+          WEB_SEARCH_ALLOWED_DOMAINS_JSON: "${{ vars.OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}"
         run: |
           set -euo pipefail
           project_endpoint="$(terraform output -raw foundry_web_search_project_endpoint)"
@@ -1132,13 +1132,13 @@ jobs:
             --origin "https://$hostname"
 
       - name: Run schema migration
-        if: ${{ inputs.apply && (inputs.deploy_read_api || inputs.deploy_document_ingestion) }}
+        if: ${{ inputs.apply && (inputs.deploy_operator_api || inputs.deploy_document_ingestion) }}
         run: |
           set -euo pipefail
           rg="$(terraform output -raw resource_group_name)"
           jobs=()
-          if [ "${{ inputs.deploy_read_api }}" = "true" ]; then
-            jobs+=("$(terraform output -raw read_api_migrate_job_name)")
+          if [ "${{ inputs.deploy_operator_api }}" = "true" ]; then
+            jobs+=("$(terraform output -raw operator_api_migrate_job_name)")
           fi
           if [ "${{ inputs.deploy_document_ingestion }}" = "true" ]; then
             jobs+=("$(terraform output -raw ingestion_migrate_job_name)")
@@ -1162,14 +1162,14 @@ jobs:
           done
 
       - name: Verify deployed health endpoints
-        if: ${{ inputs.apply && (inputs.deploy_read_api || inputs.deploy_document_ingestion) }}
+        if: ${{ inputs.apply && (inputs.deploy_operator_api || inputs.deploy_document_ingestion) }}
         run: |
           set -euo pipefail
           rg="$(terraform output -raw resource_group_name)"
           targets=()
-          if [ "${{ inputs.deploy_read_api }}" = "true" ]; then
-            apps=("$(terraform output -raw read_api_name)")
-            targets+=("https://$(terraform output -raw read_api_fqdn)/healthz")
+          if [ "${{ inputs.deploy_operator_api }}" = "true" ]; then
+            apps=("$(terraform output -raw operator_api_name)")
+            targets+=("https://$(terraform output -raw operator_api_fqdn)/healthz")
           else
             apps=()
           fi
@@ -1269,9 +1269,9 @@ jobs:
       - name: Publish console API endpoints
         if: ${{ inputs.apply && inputs.deploy_console }}
         run: |
-          read_api="$(terraform output -raw read_api_fqdn)"
+          operator_api="$(terraform output -raw operator_api_fqdn)"
           ingestion="$(terraform output -raw ingestion_gateway_fqdn)"
           {
-            echo "VITE_READ_API_BASE_URL=${read_api:+https://$read_api}"
+            echo "VITE_OPERATOR_API_BASE_URL=${operator_api:+https://$operator_api}"
             echo "VITE_INGESTION_API_BASE_URL=${ingestion:+https://$ingestion}"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -47,10 +47,10 @@ from fdai.core.reporting.registry import (
     WidgetRegistry,
 )
 from fdai.core.reporting.widgets import IframeBuilder, install_default_widgets
-from fdai.delivery.read_api.auth import build_authenticator
-from fdai.delivery.read_api.main import ReadApiConfig, build_app
-from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
-from fdai.delivery.read_api.routes.reporting import ReportingConfig
+from fdai.delivery.operator_api.auth import build_authenticator
+from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
+from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.operator_api.routes.reporting import ReportingConfig
 
 _NOW = datetime(2026, 7, 11, 12, 0, tzinfo=UTC)
 
@@ -346,10 +346,10 @@ class TestIframeSandboxDefault:
         assert result["sandbox"] == "allow-scripts allow-same-origin"
 
 
-# --- Fix #9: read-API variable-name regex ---------------------------
+# --- Fix #9: Operator API variable-name regex ---------------------------
 
 
-class TestReadApiVariableNameRegex:
+class TestOperatorApiVariableNameRegex:
     def test_malformed_variable_key_returns_400(self) -> None:
         engine = ReportEngine(
             catalog=ReportCatalog(),
@@ -376,12 +376,12 @@ class TestReadApiVariableNameRegex:
             )
         )
         auth = build_authenticator(verifier=lambda t: {"oid": "u"}, resolver=lambda claims: None)
-        os.environ["FDAI_READ_API_DEV_MODE"] = "1"
+        os.environ["FDAI_OPERATOR_API_DEV_MODE"] = "1"
         try:
             app = build_app(
                 authenticator=auth,
                 read_model=InMemoryConsoleReadModel(),
-                config=ReadApiConfig(
+                config=OperatorApiConfig(
                     dev_mode=True,
                     reporting=ReportingConfig(
                         engine=engine,
@@ -399,7 +399,7 @@ class TestReadApiVariableNameRegex:
             response = client.get("/reports/ok/render", params={"BadName": "x"})
             assert response.status_code == 400
         finally:
-            os.environ.pop("FDAI_READ_API_DEV_MODE", None)
+            os.environ.pop("FDAI_OPERATOR_API_DEV_MODE", None)
 
 
 # --- Fix #10: format encoders survive non-Mapping rows --------------

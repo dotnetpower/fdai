@@ -28,7 +28,7 @@ class RecordingRemediationPrPublisher(RemediationPrPublisher):
 
     Bounded mode: pass ``max_records`` to cap the retained history and
     dedupe cache. Required for long-running dev pumps
-    (:class:`~fdai.delivery.read_api.streaming.live_control_loop.ControlLoopLiveEmitter`);
+    (:class:`~fdai.delivery.operator_api.streaming.live_control_loop.ControlLoopLiveEmitter`);
     tests leave it ``None`` for the historical unbounded semantics.
     """
 

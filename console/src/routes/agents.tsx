@@ -13,7 +13,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "preact/hooks";
 import type { VNode } from "preact";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import { AgentWorkspaceNav } from "../components/agent-workspace-nav";
 import { UnavailableState } from "../components/ui";
 import { agentStreamDescriptor, useAgentStream } from "../hooks/use-agent-stream";
@@ -59,7 +59,7 @@ import {
 import { AgentFocus, IncidentWorkflow } from "./agents.detail";
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
 }
 
 /** How many incidents the side list shows before the "All" toggle. */

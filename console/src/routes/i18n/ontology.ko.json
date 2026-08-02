@@ -2,7 +2,7 @@
   "route": {
     "subtitle": "이 배포에 등록된 ObjectType, LinkType 및 ActionType 안전 계약을 살펴봅니다.",
     "loadingLabel": "온톨로지 그래프",
-    "unavailable": "이 배포에는 온톨로지 탐색기 라우트가 연결되어 있지 않습니다. 사용하려면 컴포지션 루트에서 ReadApiConfig.ontology_object_types + ontology_link_types를 설정하세요."
+    "unavailable": "이 배포에는 온톨로지 탐색기 라우트가 연결되어 있지 않습니다. 사용하려면 컴포지션 루트에서 OperatorApiConfig.ontology_object_types + ontology_link_types를 설정하세요."
   },
   "context": {
     "ontologyLabel": "온톨로지",

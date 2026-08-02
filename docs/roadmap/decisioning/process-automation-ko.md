@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 962fa94f38186155c87ee8ecc8a0b2e1a2c70a03
-translation_revised: 2026-08-01
+translation_source_sha: f02010aa18fdd8a5c42ffc4d1b4416dbb711215b
+translation_revised: 2026-08-02
 ---
 
 # 프로세스 자동화(Process Automation)
@@ -162,7 +162,7 @@ audit 로그를 복제하지 않으면서 실행 중 프로세스를 그래프�
 
 | 속성 | 타입 | 의미 |
 |------|------|------|
-| `id` | string | `(workflow_ref, target_resource_id, trigger_ts)` 에서 파생한 idempotent process id이며 재시도는 이를 재사용합니다. 저장된 모든 Process를 읽기 API에서 조회할 수 있도록 1-200자의 URL-safe 영문자, 숫자, `_`, `.`, `:`, `-`만 사용합니다. |
+| `id` | string | `(workflow_ref, target_resource_id, trigger_ts)` 에서 파생한 idempotent process id이며 재시도는 이를 재사용합니다. 저장된 모든 Process를 Operator API에서 조회할 수 있도록 1-200자의 URL-safe 영문자, 숫자, `_`, `.`, `:`, `-`만 사용합니다. |
 | `workflow_ref` | string | 이 프로세스가 인스턴스화하는 `Workflow` name. |
 | `workflow_version` | string | 이 실행에 선택된 불변 Workflow 버전. |
 | `status` | string | `pending`, `running`, `waiting`, `compensating`, `compensated`, `succeeded`, `failed`, `cancelled`, `timed_out`. |
@@ -378,9 +378,9 @@ echo 되는 클릭 가능한 **옵션 칩**입니다. 설계 속성은 다음과
 오퍼레이터가 직접 친 텍스트는 (마크다운 파서를 거치지 않고) 평문으로 echo 되며,
 최신 턴의 칩만 인터랙티브해서 지난 제안이 이후 단계를 오염시킬 수 없다.
 
-세 개의 opt-in, Reader-gated read API 라우트가 validation 및 browse 를
+세 개의 opt-in, Reader-gated Operator API 라우트가 validation 및 browse 를
 뒷받침합니다. 모두 상태를 쓰지 않는 pure projection 입니다 (see
-[`workflow_authoring.py`](../../../src/fdai/delivery/read_api/routes/workflow_authoring.py)):
+[`workflow_authoring.py`](../../../src/fdai/delivery/operator_api/routes/workflow_authoring.py)):
 
 - **`GET /workflows/catalog`** - 빌트인 Workflow 카탈로그. 로드된 `Workflow`
   카탈로그의 read-only projection 으로 각 워크플로의 전체 내용 (trigger, steps,
@@ -399,14 +399,14 @@ echo 되는 클릭 가능한 **옵션 칩**입니다. 설계 속성은 다음과
   미리보기를 반환한다. 아무것도 mutate 하지 않고 PR 도 만들지 않는다.
 
 세 라우트는
-[`ReadApiConfig.workflow_authoring`](../../../src/fdai/delivery/read_api/main.py)
+[`OperatorApiConfig.workflow_authoring`](../../../src/fdai/delivery/operator_api/main.py)
 (로드된 팔레트, 빌트인 워크플로, rule id, schema registry 를 담은
 `WorkflowAuthoringConfig`) 를 통해 opt-in 이다; upstream 에선 unset 이라 콘솔이
 minimal 로 유지되고, 로컬 dev 하네스에는 배선되어 뷰가 곧바로 렌더된다.
 
 Console 은 privileged read-only 불변식을 유지합니다
 ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)).
-Palette 및 catalog 는 GET-only `ReadApiClient` 를 통한 GET이고 validation 은 pure이며,
+Palette 및 catalog 는 GET-only `OperatorApiClient` 를 통한 GET이고 validation 은 pure이며,
 save 는 principal 소유 private authoring record 만 씁니다. Save route 는 executor
 identity 를 받지 않으며 definition 을 publish, bind, enable 또는 run 할 수 없습니다.
 유효한 draft 는 `rule-catalog/workflows/<name>.yaml` 에 제안할 YAML 도 제공합니다.
@@ -478,7 +478,7 @@ Manifest lifecycle 은 노출을 다음과 같이 제어합니다.
 
 `WorkflowApp` id와 route는 영구적인 machine reference입니다. Launchpad, catalog, detail,
 automation, chat 및 Python-task view는 parity-checked route catalog와 영어 fallback으로 label을
-현지화하며 workflow id, serialized value 및 validation result는 바꾸지 않습니다. Read API는
+현지화하며 workflow id, serialized value 및 validation result는 바꾸지 않습니다. Operator API는
 principal에게 authorized된 manifest만 반환하며 browser hiding은 access control이 아닙니다. 새
 interaction model이나 executable frontend code는 build-time `EXTRA_PANELS`, injected
 `ReadPanel` 및 별도 reviewed release를 사용하고 대화에서 remote code로 생성하지 않습니다.

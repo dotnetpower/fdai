@@ -53,7 +53,7 @@ describe("parseCliArgs", () => {
     expect(() => parseCliArgs(["--api="])).toThrow(/missing value for --api/);
   });
 
-  it("validates the shared read-API base URL", () => {
+  it("validates the shared Operator API base URL", () => {
     expect(() => parseCliArgs(["--api=not-a-url"])).toThrow(/invalid --api URL/);
     expect(() => parseCliArgs(["--api=ftp://example.com"])).toThrow(/http or https/);
     expect(() => parseCliArgs(["--api=https://user:pass@example.com"])).toThrow(

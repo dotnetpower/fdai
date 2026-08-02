@@ -1,8 +1,8 @@
 ---
 title: 네트워크 연결 매트릭스
 translation_of: network-connectivity-matrix.md
-translation_source_sha: be7abc3c113a11e9c02a82b7864c3681de2d107c
-translation_revised: 2026-08-01
+translation_source_sha: 0385e61d471339c894027efa0d80b27f15b37eab
+translation_revised: 2026-08-02
 ---
 # 네트워크 연결 매트릭스
 
@@ -63,7 +63,7 @@ destination port를 제한하는 것이 좋습니다.
 | Container Apps image pull | `<registry>.azurecr.io` 및 `<registry>.<region>.data.azurecr.io` | TCP 443 | image manifest 및 layer download | 기존 revision은 유지될 수 있지만 새 revision은 image-pull 오류로 실패 |
 | Inventory 및 action adapter | `management.azure.com` 또는 승인된 Resource Manager private link | TCP 443 | Resource Graph, ARM read, what-if 및 governed action | inventory가 stale 상태가 되고 cloud action 차단 |
 | Telemetry exporter | Azure Monitor ingestion host 또는 AMPLS(Azure Monitor Private Link Scope) | TCP 443 | log, metric, trace 및 Application Insights | control decision은 계속되지만 telemetry와 operational evidence 사용 불가 |
-| Operator browser | console FQDN, read API FQDN 및 `login.microsoftonline.com` | TCP 443 | SPA delivery, read-only evidence 및 interactive Entra sign-in | console 또는 sign-in 사용 불가, headless core는 계속 동작 |
+| Operator browser | console FQDN, Operator API FQDN 및 `login.microsoftonline.com` | TCP 443 | SPA delivery, read-only evidence 및 interactive Entra sign-in | console 또는 sign-in 사용 불가, headless core는 계속 동작 |
 | 선택적 delivery adapter | 구성된 Teams, Slack, GitHub, email, pager 또는 webhook FQDN | TCP 443 | approval, notification 및 remediation pull request | channel queue 또는 failover, approval 요구사항은 우회하지 않음 |
 
 HTTP ingress를 사용하는 internal Container Apps environment에서는 승인된 client에서
@@ -72,7 +72,7 @@ environment의 TCP 443 및 platform internal HTTPS edge port 31443도 허용하�
 자체에는 public inbound endpoint가 없습니다. 이 rule은 활성화된 read, ingestion 또는 command
 API에 적용됩니다.
 
-Closed-network console에는 SPA와 read API의 private ingress, operator에서 오는 VPN 또는
+Closed-network console에는 SPA와 Operator API의 private ingress, operator에서 오는 VPN 또는
 ExpressRoute routing, browser host operating system에서 볼 수 있는 Private DNS도 필요합니다.
 현재 root Terraform은 Static Web Apps private endpoint를 provision하지 않습니다. 추가
 deployment-owned 경로가 없으면 core는 private으로 실행되지만 console에는 접근할 수 없습니다.

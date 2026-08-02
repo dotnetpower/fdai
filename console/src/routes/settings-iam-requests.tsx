@@ -1,5 +1,5 @@
 import { useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { DataTable, StatusPill, type PillKind } from "../components/ui";
 import { t } from "../i18n";
@@ -28,7 +28,7 @@ export function AccessRequestsView({
   readonly roster: readonly IdentityRosterItem[];
   readonly canManage: boolean;
   readonly auth: AuthContext;
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly reload: () => Promise<void>;
 }) {
   const [loadingMore, setLoadingMore] = useState(false);
@@ -177,7 +177,7 @@ function reviewedByLabel(
 function RequestReviewActions({ item, auth, client, reload }: {
   readonly item: IamAccessRequest;
   readonly auth: AuthContext;
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly reload: () => Promise<void>;
 }) {
   const [justification, setJustification] = useState("");
@@ -194,7 +194,7 @@ function RequestReviewActions({ item, auth, client, reload }: {
     setSubmitting(true);
     setError(null);
     try {
-      await reviewIamAccessRequest(auth, client.readApiBaseUrl, item.requestId, {
+      await reviewIamAccessRequest(auth, client.operatorApiBaseUrl, item.requestId, {
         decision,
         justification,
       });

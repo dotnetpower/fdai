@@ -1,8 +1,8 @@
 ---
 title: Phase 1 - 규칙 카탈로그와 T0 결정론적 엔진
 translation_of: phase-1-rule-catalog-t0.md
-translation_source_sha: 7b565111af9e5e10bfa29968801f6bcf9685a9ec
-translation_revised: 2026-07-22
+translation_source_sha: 998f69be1e43189dbeaf5fea292bd626799b30c7
+translation_revised: 2026-08-02
 ---
 
 # Phase 1 - 규칙 카탈로그와 T0 결정론적 엔진
@@ -131,7 +131,7 @@ Change Safety - 를 완전히 **shadow 모드**(judge와 log, 실행 없음) 로
   Scheduled collector는 별도 read-only identity를 사용하고 direct paged ARM list로
   fallback하며 PostgreSQL에 immutable candidate를 stage합니다. Final fence와 전체 graph
   validation이 완료된 뒤에만 active pointer를 교체합니다. `contains` / `attached_to` /
-  `depends_on` 추출은 live 상태이며 production read API는 active last-known-good generation만
+  `depends_on` 추출은 live 상태이며 production Operator API는 active last-known-good generation만
   제공합니다.
 - **픽스처와 회귀 스위트** - 초기 규칙 세트와 감지 경로 커버.
 - **프로즌 시나리오 replay harness** -

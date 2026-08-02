@@ -2,7 +2,7 @@
   "route": {
     "subtitle": "Browse ObjectTypes, LinkTypes, and the ActionType safety contracts registered on this deployment.",
     "loadingLabel": "ontology graph",
-    "unavailable": "The ontology explorer route is not wired on this deployment. Set ReadApiConfig.ontology_object_types + ontology_link_types in the composition root to enable it."
+    "unavailable": "The ontology explorer route is not wired on this deployment. Set OperatorApiConfig.ontology_object_types + ontology_link_types in the composition root to enable it."
   },
   "context": {
     "ontologyLabel": "Ontology",

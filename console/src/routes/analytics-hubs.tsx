@@ -1,4 +1,4 @@
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import type { AutonomyPayload } from "../types";
 import { usePublishViewContext } from "../deck/context";
 import {
@@ -25,7 +25,7 @@ import {
   type OutcomeKey,
 } from "./operating-outcomes";
 
-interface Props { readonly client: ReadApiClient }
+interface Props { readonly client: OperatorApiClient }
 
 export function measuredTierValue(
   values: Readonly<Record<string, number>>,

@@ -1,4 +1,4 @@
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import { PageHeader } from "../components/ui";
 import { t } from "../i18n";
 import { SettingsContextSections } from "./settings.context";
@@ -19,7 +19,7 @@ export {
   settingsDraftIsCurrent,
 } from "./settings.model";
 
-interface Props { readonly client: ReadApiClient }
+interface Props { readonly client: OperatorApiClient }
 
 export function SettingsGeneralRoute({ client }: Props) {
   const controller = useSettingsController(client);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ReadApiError } from "../api";
+import { OperatorApiError } from "../api";
 import {
   ruleCatalogHref,
   ruleDetailFailure,
@@ -35,12 +35,12 @@ describe("rule detail citation failures", () => {
   });
 
   it("preserves a missing historical rule id for recovery", () => {
-    expect(ruleDetailFailure(new ReadApiError(404, "unknown rule"), "retired.rule"))
+    expect(ruleDetailFailure(new OperatorApiError(404, "unknown rule"), "retired.rule"))
       .toEqual({ status: "unavailable", ruleId: "retired.rule" });
   });
 
   it("keeps operational failures visible as errors", () => {
-    expect(ruleDetailFailure(new ReadApiError(503, "catalog unavailable"), "active.rule"))
+    expect(ruleDetailFailure(new OperatorApiError(503, "catalog unavailable"), "active.rule"))
       .toEqual({ status: "error", message: "catalog unavailable" });
   });
 });

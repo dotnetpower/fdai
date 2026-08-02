@@ -126,7 +126,7 @@ adapter. A denied or failed fallback is audited. Fallback failure does not reope
 execution authority.
 
 Pause, resume, and status commands live in the separately authenticated channel command app under
-`/commands/adapters/*`. They are not mounted in the console read API.
+`/commands/adapters/*`. They are not mounted in the console Operator API.
 
 ## Conversation and scheduled integration
 

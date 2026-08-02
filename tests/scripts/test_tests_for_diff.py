@@ -247,7 +247,7 @@ def test_global_test_configuration_falls_back_to_full_suite(git_repo: Path) -> N
     "path",
     (
         "tests/scenarios/fixture.json",
-        "src/fdai/delivery/read_api/schema.json",
+        "src/fdai/delivery/operator_api/schema.json",
     ),
 )
 def test_python_resource_change_falls_back_to_full_suite(git_repo: Path, path: str) -> None:

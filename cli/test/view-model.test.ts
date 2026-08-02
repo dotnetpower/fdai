@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { buildBriefing } from "../src/view-model/build-briefing.js";
 import { buildFromReadModel } from "../src/view-model/build-from-readmodel.js";
 import { sampleBriefing } from "../src/data/sample-briefing.js";
-import type { ReadModelSnapshot } from "../src/data/read-api.js";
+import type { ReadModelSnapshot } from "../src/data/operator-api.js";
 import type { Block } from "../src/view-model/blocks.js";
 
 const types = (blocks: readonly Block[]) => blocks.map((b) => b.type);

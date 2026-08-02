@@ -5,7 +5,7 @@
     "t2": "AI 추론 필요"
   },
   "console": {
-    "connected": "읽기 API에 연결됨. 이벤트 {events}건 기록, {pending}건 결정 대기 중.",
+    "connected": "Operator API에 연결됨. 이벤트 {events}건 기록, {pending}건 결정 대기 중.",
     "summaryEvents": "이벤트",
     "summaryShadow": "섀도우",
     "summaryEnforce": "적용",

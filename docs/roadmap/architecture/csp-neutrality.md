@@ -267,7 +267,7 @@ single `Inventory` Protocol with two operations returning CSP-neutral records:
 
 The read-only console consumes a separate projection of the promoted graph through
 `GET /inventory/graph`. The route is enabled only when
-`ReadApiConfig.inventory_graph_provider` is injected. It returns CSP-neutral `Resource`
+`OperatorApiConfig.inventory_graph_provider` is injected. It returns CSP-neutral `Resource`
 records plus `contains` / `attached_to` / `depends_on` links, snapshot freshness, and
 truncation metadata. The route never calls Azure Resource Graph directly and never receives
 the executor identity.

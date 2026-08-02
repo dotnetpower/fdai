@@ -1,6 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
-import { isOptionalReadApiUnavailable } from "../api";
-import type { ReadApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable } from "../api";
+import type { OperatorApiClient } from "../api";
 import {
   AsyncBoundary,
   DataTable,
@@ -80,7 +80,7 @@ interface Response {
 }
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
 }
 
 export function tokenShare(part: number, total: number): number | null {
@@ -114,7 +114,7 @@ export function LlmCostRoute({ client }: Props) {
       } catch (err) {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : String(err);
-          if (isOptionalReadApiUnavailable(err)) {
+          if (isOptionalOperatorApiUnavailable(err)) {
             setState({
               status: "unavailable",
               message: t("llmCost.unavailable"),

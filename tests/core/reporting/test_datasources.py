@@ -17,7 +17,7 @@ from fdai.core.reporting.datasources import (
     StaticDataSource,
 )
 from fdai.core.reporting.models import DataSet, QuerySpec, Series
-from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.shared.contracts.models import Severity
 from fdai.shared.providers.log_query import (
     LogRecord,

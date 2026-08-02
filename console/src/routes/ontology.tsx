@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { isOptionalReadApiUnavailable } from "../api";
-import type { ReadApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable } from "../api";
+import type { OperatorApiClient } from "../api";
 import {
   AsyncBoundary,
   PageHeader,
@@ -35,7 +35,7 @@ import {
  */
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
 }
 
 export function ontologyNamedSelection(
@@ -157,7 +157,7 @@ export function OntologyRoute({ client }: Props) {
       } catch (err) {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : String(err);
-          if (isOptionalReadApiUnavailable(err)) {
+          if (isOptionalOperatorApiUnavailable(err)) {
             setState({
               status: "unavailable",
               message: t("ontology.route.unavailable"),

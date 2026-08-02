@@ -430,7 +430,7 @@ prompt-composition Wave 3 step B pipeline slice 3 leftover
   under a new CSP-neutral `HilApprovalRegistry` Protocol
   (`shared/providers/hil_registry.py` + fake). `list_hil` returns full
   Approver-visible detail (submitter_oid, action_id, citing rules),
-  distinct from the Reader dashboard tile in the read-API. `approve_hil`
+  distinct from the Reader dashboard tile in the Operator API. `approve_hil`
   enforces four fail-closed invariants BEFORE the registry write:
   existence check, verifier re-check (`action_kind` still in the
   shipped catalog), `no_self_approval` (`principal.id ==
@@ -460,10 +460,10 @@ prompt-composition Wave 3 step B pipeline slice 3 leftover
 - **W1.2** `TeamsBotChannel` and `SlackBotChannel` (pull). Reuse the
   push channel credentials in
   [config/notifications-matrix.yaml](../../../config/notifications-matrix.yaml).
-- **W1.3** Read-API HIL callback (`POST /hil/{approval_id}/decision`,
-  HMAC-verified). Only allowed POST on the read API. **Shipped**:
-  `delivery/read_api/hil_callback.py` is the sole POST route carve-out,
-  gated OFF by default (opt-in via `ReadApiConfig.hil_callback` +
+- **W1.3** Operator API HIL callback (`POST /hil/{approval_id}/decision`,
+  HMAC-verified). Only allowed POST on the Operator API. **Shipped**:
+  `delivery/operator_api/hil_callback.py` is the sole POST route carve-out,
+  gated OFF by default (opt-in via `OperatorApiConfig.hil_callback` +
   `hil_registry`). HMAC-SHA256 over `timestamp.approval_id.body`, replay window
   configurable (300s default), body size cap, no-self-approval
   enforcement, and mandatory `X-FDAI-Signature` +
@@ -476,7 +476,7 @@ prompt-composition Wave 3 step B pipeline slice 3 leftover
   `fdai-api` records the decision atomically through
   `PostgresHilApprovalRegistry` and publishes a receipt-only event on
   `aw.hil.decisions`; the core consumes that topic under a separate group and
-  calls `HilResumeCoordinator.resolve`. The read API never receives the
+  calls `HilResumeCoordinator.resolve`. The Operator API never receives the
   executor identity. Broker delivery failure returns retryable HTTP 503 while
   preserving the durable decision receipt.
 - **W1.4** BreakGlass fail-closed on notification: refuse when no

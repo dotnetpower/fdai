@@ -14,7 +14,7 @@ Console view.
 
 ## Design at a glance
 
-The read API resolves the principal before it constructs `ConversationSearchScope`. The provider
+The Operator API resolves the principal before it constructs `ConversationSearchScope`. The provider
 applies that scope inside every storage query, then applies request filters that can only narrow the
 result. No inference call is required.
 
@@ -114,7 +114,7 @@ records this measurement contract without claiming a universal latency SLA.
 
 ## API and Console
 
-The read API exposes GET-only routes:
+The Operator API exposes GET-only routes:
 
 - `/me/conversations/search`
 - `/me/conversations/search/{result_id}/context`

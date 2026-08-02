@@ -391,7 +391,7 @@ export interface ExternalLinkProps {
 
 /**
  * Reject anything that is not an absolute http(s) URL. ``href`` values on
- * this component often originate on the read-API wire (rule provenance
+ * this component often originate on the Operator API wire (rule provenance
  * ``source_url``, generated PR links, etc.); a ``javascript:``, ``data:``,
  * or ``vbscript:`` URI would execute on click (DOM-based XSS, OWASP A03).
  * Same guarantee as :func:`safeHttpUrl` in the provision route. Exported

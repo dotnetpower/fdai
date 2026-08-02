@@ -183,9 +183,9 @@ Azure MCP can provide an additional read transport for registered tools. It rema
 Resource Graph and typed REST providers stay authoritative and continue serving requests when MCP
 is absent, unreachable, unauthorized, or missing an allowlisted tool.
 
-The read API performs one bounded MCP handshake and `tools/list` probe before accepting traffic.
+The Operator API performs one bounded MCP handshake and `tools/list` probe before accepting traffic.
 The initial deadline is configurable and capped at 10 seconds. Probe failure records the capability
-as unavailable but does not block the read API. While unavailable, a request does not contact the
+as unavailable but does not block the Operator API. While unavailable, a request does not contact the
 MCP server and immediately uses the existing provider. A background health monitor retries the
 non-invoking probe. Successful discovery restores routing without a process restart.
 
@@ -468,7 +468,7 @@ without it, guest shutdown evidence reports `unavailable` while other sources re
 the reader binding is enabled, startup probes the run-ledger table before accepting traffic and
 fails immediately if the required migration is missing.
 
-The deployed read API supplies those three reader settings from its dedicated read API managed
+The deployed Operator API supplies those three reader settings from its dedicated Operator API managed
 identity and the resource group on which that identity has Reader. Azure MCP is enabled by default
 when this reader binding exists. `FDAI_AZURE_MCP_ENABLED=false` disables it without disabling the
 REST path. When the setting is unset and the optional Azure MCP SDK isn't installed, composition

@@ -79,13 +79,13 @@ export interface AssuranceDetailPayload {
 export function decodeConversationAssurance(value: unknown): ConversationAssurancePayload {
   const root = panelRecord(value, "conversation assurance");
   if (!panelBoolean(root, "read_only", "conversation assurance")) {
-    throw new Error("invalid read API response: assurance projection MUST be read-only");
+    throw new Error("invalid Operator API response: assurance projection MUST be read-only");
   }
   if (!panelBoolean(root, "disputes_available", "conversation assurance")) {
-    throw new Error("invalid read API response: assurance disputes MUST be available");
+    throw new Error("invalid Operator API response: assurance disputes MUST be available");
   }
   if (panelBoolean(root, "policy_mutations_available", "conversation assurance")) {
-    throw new Error("invalid read API response: assurance policy mutation is not allowed");
+    throw new Error("invalid Operator API response: assurance policy mutation is not allowed");
   }
   const summary = panelRecord(root["summary"], "conversation assurance.summary");
   const average = summary["average_content_score"] === null
@@ -121,7 +121,7 @@ export function decodeAssuranceDetail(value: unknown): AssuranceDetailPayload {
   const question = nullableString(turn, "question", "conversation assurance detail.turn");
   const answer = nullableString(turn, "answer", "conversation assurance detail.turn");
   if (available !== (answer !== null)) {
-    throw new Error("invalid read API response: assurance turn availability is inconsistent");
+    throw new Error("invalid Operator API response: assurance turn availability is inconsistent");
   }
   return {
     assessment: decodeAssessment(root["assessment"], "conversation assurance detail.assessment"),
@@ -174,7 +174,7 @@ function decodeDispute(value: unknown, label: string): AssuranceDispute {
 
 function boundedScore(value: Readonly<Record<string, unknown>>, key: string, label: string, max: number): number {
   const item = panelNonNegativeNumber(value, key, label);
-  if (item > max) throw new Error(`invalid read API response: ${label}.${key} MUST be <= ${max}`);
+  if (item > max) throw new Error(`invalid Operator API response: ${label}.${key} MUST be <= ${max}`);
   return item;
 }
 
@@ -184,6 +184,6 @@ function nullableString(value: Readonly<Record<string, unknown>>, key: string, l
 
 function enumValue<const T extends readonly string[]>(value: Readonly<Record<string, unknown>>, key: string, label: string, allowed: T): T[number] {
   const item = panelString(value, key, label);
-  if (!allowed.includes(item)) throw new Error(`invalid read API response: ${label}.${key} is unsupported`);
+  if (!allowed.includes(item)) throw new Error(`invalid Operator API response: ${label}.${key} is unsupported`);
   return item as T[number];
 }

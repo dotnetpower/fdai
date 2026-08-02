@@ -69,14 +69,14 @@
       "diagnostics": "No skill reads recorded"
     },
     "error": {
-      "installedCount": "invalid read API response: skills.installed_count MUST match items",
-      "eligibleCount": "invalid read API response: skills.eligible_count MUST match eligible items",
-      "uniqueNames": "invalid read API response: skill names MUST be unique",
-      "installedBundleCount": "invalid read API response: skills.installed_bundle_count MUST match bundles",
-      "eligibleBundleCount": "invalid read API response: skills.eligible_bundle_count MUST match eligible bundles",
-      "uniqueBundleNames": "invalid read API response: skill bundle names MUST be unique",
-      "digestStrings": "invalid read API response: {label}.digests MUST contain strings",
-      "nullableString": "invalid read API response: {label} MUST be a string or null"
+      "installedCount": "invalid Operator API response: skills.installed_count MUST match items",
+      "eligibleCount": "invalid Operator API response: skills.eligible_count MUST match eligible items",
+      "uniqueNames": "invalid Operator API response: skill names MUST be unique",
+      "installedBundleCount": "invalid Operator API response: skills.installed_bundle_count MUST match bundles",
+      "eligibleBundleCount": "invalid Operator API response: skills.eligible_bundle_count MUST match eligible bundles",
+      "uniqueBundleNames": "invalid Operator API response: skill bundle names MUST be unique",
+      "digestStrings": "invalid Operator API response: {label}.digests MUST contain strings",
+      "nullableString": "invalid Operator API response: {label} MUST be a string or null"
     }
   },
   "capabilities": {
@@ -125,12 +125,12 @@
       "openRelated": "Open related surface"
     },
     "error": {
-      "count": "invalid read API response: capabilities.count MUST match items",
-      "uniqueIds": "invalid read API response: capability ids MUST be unique"
+      "count": "invalid Operator API response: capabilities.count MUST match items",
+      "uniqueIds": "invalid Operator API response: capability ids MUST be unique"
     }
   },
   "promotion": {
-    "unavailable": "Promotion-gate dashboard route is not wired on this deployment. Set ReadApiConfig.promotion_gate_source in the composition root to enable it.",
+    "unavailable": "Promotion-gate dashboard route is not wired on this deployment. Set OperatorApiConfig.promotion_gate_source in the composition root to enable it.",
     "subtitle": "Per-ActionType readiness against each shipped promotion_gate. Actions promote from shadow to enforce only when every gap is closed.",
     "resourceLabel": "promotion gates",
     "context": {
@@ -180,9 +180,9 @@
     "empty": "No ActionTypes declared a promotion gate."
     ,
     "error": {
-      "windowDays": "invalid read API response: promotion gates.window_days MUST be a non-negative number or null",
-      "agreedCount": "invalid read API response: promotion gate row.agreed_count MUST NOT exceed reviewed_count",
-      "summaryCounts": "invalid read API response: promotion gate summary counts MUST match rows"
+      "windowDays": "invalid Operator API response: promotion gates.window_days MUST be a non-negative number or null",
+      "agreedCount": "invalid Operator API response: promotion gate row.agreed_count MUST NOT exceed reviewed_count",
+      "summaryCounts": "invalid Operator API response: promotion gate summary counts MUST match rows"
     }
   },
   "rules": {
@@ -193,7 +193,7 @@
     },
     "lifecycleInvalid": "The requested rule lifecycle status is not registered.",
     "lifecycleUnavailable": "Rule {status} lifecycle evidence is not exposed by this deployment.",
-    "routeUnavailable": "The rule-catalog route is not wired on this deployment. Set ReadApiConfig.rule_catalog_rules / rule_catalog_collected_rules in the composition root to enable it.",
+    "routeUnavailable": "The rule-catalog route is not wired on this deployment. Set OperatorApiConfig.rule_catalog_rules / rule_catalog_collected_rules in the composition root to enable it.",
     "subtitle": "Every policy the system knows: the active catalog T0 evaluates plus the imported collected corpus. Read-only - rule changes flow through the catalog pipeline as PRs.",
     "loadFailed": "Failed to load rule catalog: {message}",
     "refreshFailed": "Failed to refresh rule catalog: {message}",

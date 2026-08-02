@@ -1,8 +1,8 @@
 ---
 title: 시작과 라이프사이클(Startup and Lifecycle)
 translation_of: startup-and-lifecycle.md
-translation_source_sha: 2012afbf22690cb1882990fe49578e7cc777b15b
-translation_revised: 2026-07-30
+translation_source_sha: 3d50b4a7e82c6e2484dc6e83d15a09c7c0bf7870
+translation_revised: 2026-08-02
 ---
 
 # 시작과 라이프사이클(Startup and Lifecycle)
@@ -232,7 +232,7 @@ binding해야 합니다.
 T2가 실행되기 전에 capability→deployment 매핑을 해결해야 합니다. Resolver CLI와 schema는
 구현되어 있지만 현재 `deploy-dev.yml`은 `terraform apply` 전에 resolver를 자동 실행하지
 않습니다. CI는 repository variable `RESOLVED_MODELS_JSON`을 `resolved-models.json`으로
-materialize하고 runtime/read API는 configured filesystem path를 읽습니다.
+materialize하고 runtime/Operator API는 configured filesystem path를 읽습니다.
 
 1. **Resolver가 `rule-catalog/llm-registry.yaml` 에서 실행** - capability별 선호를 읽고,
    대상 리전의 Azure OpenAI / Foundry 카탈로그를 쿼리, `capacity_tpm` 상한과 함께 capability당

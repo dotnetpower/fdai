@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ReadApiError } from "../api";
+import { OperatorApiError } from "../api";
 import {
   architectureContextRecords,
   architectureResourceExists,
@@ -95,7 +95,7 @@ describe("architecture view selection", () => {
 
   it("reloads the default graph after a named-view 404", async () => {
     const panel = vi.fn()
-      .mockRejectedValueOnce(new ReadApiError(404, "view not found"))
+      .mockRejectedValueOnce(new OperatorApiError(404, "view not found"))
       .mockResolvedValueOnce(graph);
 
     await expect(loadArchitectureGraph({ panel }, "production")).resolves.toBe(graph);

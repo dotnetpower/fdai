@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: ade7e3b241abca868c6817574d6307aa9da655fe
-translation_revised: 2026-08-01
+translation_source_sha: 99305e2197ff8ee76937c2228b9fd5540484a64d
+translation_revised: 2026-08-02
 ---
 
 # FDAI Console 대화
@@ -140,7 +140,7 @@ flowchart TD
   보존하고 새 tool call을 허용하지 않으며 rendering 실패, 응답 한도 초과 또는 `evidence_ref`
   누락 시 deterministic preview로 fallback합니다. System prompt는 `AnswerPlan`, tool side-effect
   class, evidence-reference count 및 prior conversation context 유무에서 결정론적으로 조립합니다.
-  현재 inbound/tool/result transaction은 prior context에서 제외합니다. Web generation은 read API
+  현재 inbound/tool/result transaction은 prior context에서 제외합니다. Web generation은 Operator API
   backend seam이므로 deployment가 provider를 바인딩할 수 있습니다.
   `AnswerPlan.format`은 `table`과 `chart`를 first-class presentation contract로 취급합니다. 명시적인
   표 요청에는 deterministic inventory verifier가 Markdown table을 렌더링하고, 명시적인 차트 또는
@@ -212,10 +212,10 @@ flowchart TD
     [conversation-attachments-ko.md](conversation-attachments-ko.md)를 통해 수렴합니다. Web chat은
     already-ingested immutable document ref만 제출하고 resolver는 요청된 exact citation을 순서대로
     반환해야 합니다. 전용 WebSocket adapter는 선택적입니다.
-- [`src/fdai/delivery/read_api/routes/chat_current_time.py`](../../../src/fdai/delivery/read_api/routes/chat_current_time.py)
+- [`src/fdai/delivery/operator_api/routes/chat_current_time.py`](../../../src/fdai/delivery/operator_api/routes/chat_current_time.py)
   - injected aware clock과 principal IANA timezone에서 current-time 질문을 resolve합니다. Deterministic
     verification은 exact timestamp와 명시적 UTC fallback을 emit합니다.
-- [`src/fdai/delivery/read_api/routes/`](../../../src/fdai/delivery/read_api/routes)
+- [`src/fdai/delivery/operator_api/routes/`](../../../src/fdai/delivery/operator_api/routes)
   - `chat_stream_setup.py`는 authenticated request, evidence, history, answer-plan validation을,
     `chat_stream_terminal.py`는 pure terminal verification-frame 및 replay-payload assembly를 소유하고,
     `chat_trajectory_detail.py`는 durable trajectory replay용 bounded final progress projection을 소유합니다.
@@ -488,8 +488,8 @@ record, role, session, audit history를 merge하지 않습니다.
 | Webhook | send-only | (계획 없음; 호출자가 인터랙티브 protocol을 자체 소유해야) | n/a |
 | Pager (PagerDuty) | send-only | (계획 없음) | n/a |
 | SMS | send-only | (계획 없음) | n/a |
-| Web chat | n/a | authenticated `POST /chat` 및 `POST /chat/stream` SSE | Console SPA/read API config |
-| CLI | n/a | stdin/stdout UI가 shared read API `/chat` 호출 | local auth/read API config |
+| Web chat | n/a | authenticated `POST /chat` 및 `POST /chat/stream` SSE | Console SPA/Operator API config |
+| CLI | n/a | stdin/stdout UI가 shared Operator API `/chat` 호출 | local auth/Operator API config |
 
 ### 8.1 분리된 channel configuration
 

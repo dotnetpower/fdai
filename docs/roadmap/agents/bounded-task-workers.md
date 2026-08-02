@@ -138,7 +138,7 @@ The authenticated principal becomes the owner predicate inside each store query.
 by another principal has the same 404 shape as a missing worker. List rows omit goal and
 constraints; they expose status, budget, heartbeat, tools, evidence count, usage, and terminal
 reason. Detail can include the bounded untrusted result. No create, cancel, approve, or execute
-route is part of the read API.
+route is part of the Operator API.
 
 ## Failure behavior
 

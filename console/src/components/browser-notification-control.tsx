@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import {
   browserAlertForLiveEvent,
   browserNotificationsSupported,
@@ -15,7 +15,7 @@ import { useLiveStream } from "../hooks/use-live-stream";
 import { t } from "../i18n";
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly principalId?: string | null;
 }
 
@@ -97,7 +97,7 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
   }, [supported, principalId]);
 
   useLiveStream({
-    url: `${client.readApiBaseUrl.replace(/\/$/, "")}/live/stream`,
+    url: `${client.operatorApiBaseUrl.replace(/\/$/, "")}/live/stream`,
     enabled: state === "on" && workerReady,
     pauseWhenHidden: false,
     retryAuthenticationFailures: true,

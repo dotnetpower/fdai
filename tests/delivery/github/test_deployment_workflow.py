@@ -41,7 +41,7 @@ def _context() -> DeploymentPlanContext:
         backend_ref="backend:dev",
         runner_ref="runner:private",
         deploy_console=True,
-        deploy_read_api=True,
+        deploy_operator_api=True,
         deploy_dev_operations_gateway=True,
         deploy_document_ingestion=True,
     )
@@ -73,7 +73,7 @@ async def test_submit_plan_dispatches_hashed_plan_only_context() -> None:
         assert parsed["inputs"]["apply"] is False
         assert parsed["inputs"]["commit_sha"] == "b" * 40
         assert parsed["inputs"]["deploy_console"] is True
-        assert parsed["inputs"]["deploy_read_api"] is True
+        assert parsed["inputs"]["deploy_operator_api"] is True
         assert parsed["inputs"]["deploy_dev_operations_gateway"] is True
         assert parsed["inputs"]["deploy_document_ingestion"] is True
         assert len(parsed["inputs"]["context_digest"]) == 64
@@ -117,7 +117,7 @@ async def test_submit_apply_dispatches_exact_opaque_plan_context() -> None:
         assert payload["inputs"]["plan_digest"] == "c" * 64
         assert payload["inputs"]["request_id"].startswith("apply-")
         assert payload["inputs"]["deploy_console"] is True
-        assert payload["inputs"]["deploy_read_api"] is True
+        assert payload["inputs"]["deploy_operator_api"] is True
         assert payload["inputs"]["deploy_dev_operations_gateway"] is True
         assert payload["inputs"]["deploy_document_ingestion"] is True
         assert payload["inputs"]["resume_verification"] is False
@@ -336,7 +336,7 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "-target=module.compute.azurerm_container_app.core" in workflow
     assert "-target=module.compute.azurerm_container_app_job.canary[0]" in workflow
     assert "-target=module.compute.azurerm_container_app_job.inventory[0]" in workflow
-    assert "-target=module.read_api[0]" in workflow
+    assert "-target=module.operator_api[0]" in workflow
     assert "-target=module.ingestion_gateway[0]" in workflow
     assert "-target=azurerm_role_assignment.inventory_eventhubs_raw_sender" in workflow
     assert (
@@ -414,9 +414,9 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}" in workflow
     assert "if: ${{ !inputs.apply }}\n        run: terraform plan" in workflow
     assert "Verify Terraform convergence" in workflow
-    assert "TF_VAR_read_api_web_search_enabled" in workflow
-    assert "TF_VAR_read_api_web_search_allowed_domains" in workflow
-    assert "vars.ENABLE_LLM == 'true' || vars.READ_API_WEB_SEARCH_ENABLED == 'true'" in workflow
+    assert "TF_VAR_operator_api_web_search_enabled" in workflow
+    assert "TF_VAR_operator_api_web_search_allowed_domains" in workflow
+    assert "vars.ENABLE_LLM == 'true' || vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true'" in workflow
     assert "Reconcile Foundry web-search agent" in workflow
     assert "foundry_web_search_project_endpoint" in workflow
     assert "fdai.delivery.azure.foundry_agent_reconciler" in workflow

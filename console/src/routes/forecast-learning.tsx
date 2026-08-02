@@ -1,6 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
-import { isOptionalReadApiUnavailable, ReadApiError } from "../api";
-import type { ReadApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, OperatorApiError } from "../api";
+import type { OperatorApiClient } from "../api";
 import {
   AsyncBoundary,
   DataTable,
@@ -46,7 +46,7 @@ interface ForecastLearningResponse {
   readonly retention: DebtSummary;
 }
 
-export function ForecastLearningRoute({ client }: { readonly client: ReadApiClient }) {
+export function ForecastLearningRoute({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<ForecastLearningResponse>>({
     status: "loading",
   });
@@ -60,7 +60,7 @@ export function ForecastLearningRoute({ client }: { readonly client: ReadApiClie
         if (!cancelled) setState({ status: "ready", data });
       } catch (error) {
         if (cancelled) return;
-        if (isOptionalReadApiUnavailable(error)) {
+        if (isOptionalOperatorApiUnavailable(error)) {
           setState({
             status: "unavailable",
             message: t("evidence.forecastLearning.unavailable"),
@@ -107,9 +107,9 @@ export function decodeForecastLearning(value: unknown): ForecastLearningResponse
     closure_completeness: nullableRatio(episodes["closure_completeness"]),
   };
   if (decodedEpisodes.closed + decodedEpisodes.open !== decodedEpisodes.total) {
-    throw new ReadApiError(
+    throw new OperatorApiError(
       502,
-      "invalid read API response: forecast episode totals do not reconcile",
+      "invalid Operator API response: forecast episode totals do not reconcile",
     );
   }
   return {
@@ -216,9 +216,9 @@ function ForecastLearningBody({ data }: { readonly data: ForecastLearningRespons
 
 function integer(value: unknown, label: string): number {
   if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
-    throw new ReadApiError(
+    throw new OperatorApiError(
       502,
-      `invalid read API response: ${label} MUST be a non-negative integer`,
+      `invalid Operator API response: ${label} MUST be a non-negative integer`,
     );
   }
   return value;
@@ -227,9 +227,9 @@ function integer(value: unknown, label: string): number {
 function nullableRatio(value: unknown): number | null {
   if (value === null) return null;
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) {
-    throw new ReadApiError(
+    throw new OperatorApiError(
       502,
-      "invalid read API response: closure completeness MUST be a ratio or null",
+      "invalid Operator API response: closure completeness MUST be a ratio or null",
     );
   }
   return value;
@@ -237,9 +237,9 @@ function nullableRatio(value: unknown): number | null {
 
 function text(value: unknown, label: string): string {
   if (typeof value !== "string" || value.length === 0) {
-    throw new ReadApiError(
+    throw new OperatorApiError(
       502,
-      `invalid read API response: ${label} MUST be a non-empty string`,
+      `invalid Operator API response: ${label} MUST be a non-empty string`,
     );
   }
   return value;

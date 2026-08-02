@@ -1,4 +1,4 @@
-import { ReadApiError, type ReadApiTransport } from "./api-transport";
+import { OperatorApiError, type OperatorApiTransport } from "./api-transport";
 import {
   decodeRenderedReport,
   decodeReportingRegistry,
@@ -9,9 +9,9 @@ import {
 } from "./routes/reporting.model";
 
 export class ReportingApiClient {
-  readonly #transport: ReadApiTransport;
+  readonly #transport: OperatorApiTransport;
 
-  constructor(transport: ReadApiTransport) {
+  constructor(transport: OperatorApiTransport) {
     this.#transport = transport;
   }
 
@@ -59,7 +59,7 @@ function decodeReporting<T>(decode: (value: unknown) => T, value: unknown): T {
   try {
     return decode(value);
   } catch (error) {
-    if (error instanceof ReadApiError) throw error;
-    throw new ReadApiError(502, error instanceof Error ? error.message : String(error));
+    if (error instanceof OperatorApiError) throw error;
+    throw new OperatorApiError(502, error instanceof Error ? error.message : String(error));
   }
 }

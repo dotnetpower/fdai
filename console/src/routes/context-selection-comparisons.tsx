@@ -1,6 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
-import { isOptionalReadApiUnavailable, ReadApiError } from "../api";
-import type { ReadApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, OperatorApiError } from "../api";
+import type { OperatorApiClient } from "../api";
 import {
   AsyncBoundary,
   DataTable,
@@ -45,7 +45,7 @@ interface ComparisonResponse {
   readonly comparisons: readonly ComparisonRow[];
 }
 
-export function ContextSelectionComparisonsRoute({ client }: { readonly client: ReadApiClient }) {
+export function ContextSelectionComparisonsRoute({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<ComparisonResponse>>({ status: "loading" });
   useEffect(() => {
     let cancelled = false;
@@ -57,7 +57,7 @@ export function ContextSelectionComparisonsRoute({ client }: { readonly client: 
         if (!cancelled) setState({ status: "ready", data });
       } catch (error) {
         if (cancelled) return;
-        if (isOptionalReadApiUnavailable(error)) {
+        if (isOptionalOperatorApiUnavailable(error)) {
           setState({ status: "unavailable", message: t("evidence.contextSelection.unavailable") });
         } else {
           setState({ status: "error", message: error instanceof Error ? error.message : String(error) });
@@ -85,14 +85,14 @@ export function decodeContextSelectionComparisons(value: unknown): ComparisonRes
   const readOnly = panelBoolean(root, "read_only", "context policy comparisons");
   const mutationControls = panelBoolean(root, "mutation_controls", "context policy comparisons");
   if (!readOnly || mutationControls) {
-    throw new ReadApiError(502, "invalid read API response: context policy panel MUST be read-only");
+    throw new OperatorApiError(502, "invalid Operator API response: context policy panel MUST be read-only");
   }
   const comparisons = panelArray(root["comparisons"], "context policy comparisons.comparisons")
     .map((value, index) => decodeRow(value, index));
   const count = panelNonNegativeInteger(root, "count", "context policy comparisons");
   const failures = panelNonNegativeInteger(root, "invariant_failures", "context policy comparisons");
   if (count !== comparisons.length || failures !== comparisons.filter((row) => row.failure_reason !== null).length) {
-    throw new ReadApiError(502, "invalid read API response: context policy summary counts MUST match rows");
+    throw new OperatorApiError(502, "invalid Operator API response: context policy summary counts MUST match rows");
   }
   return { read_only: readOnly, mutation_controls: mutationControls, count, invariant_failures: failures, comparisons };
 }
@@ -117,7 +117,7 @@ function decodeRow(value: unknown, index: number): ComparisonRow {
 function nullableNonNegativeInteger(value: unknown, label: string): number | null {
   if (value === null) return null;
   if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
-    throw new ReadApiError(502, `invalid read API response: ${label} MUST be a non-negative integer or null`);
+    throw new OperatorApiError(502, `invalid Operator API response: ${label} MUST be a non-negative integer or null`);
   }
   return value;
 }
@@ -125,7 +125,7 @@ function nullableNonNegativeInteger(value: unknown, label: string): number | nul
 function nullableRatio(value: unknown, label: string): number | null {
   if (value === null) return null;
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) {
-    throw new ReadApiError(502, `invalid read API response: ${label} MUST be between 0 and 1 or null`);
+    throw new OperatorApiError(502, `invalid Operator API response: ${label} MUST be between 0 and 1 or null`);
   }
   return value;
 }
@@ -133,7 +133,7 @@ function nullableRatio(value: unknown, label: string): number | null {
 function nullableString(value: unknown, label: string): string | null {
   if (value === null) return null;
   if (typeof value !== "string") {
-    throw new ReadApiError(502, `invalid read API response: ${label} MUST be a string or null`);
+    throw new OperatorApiError(502, `invalid Operator API response: ${label} MUST be a string or null`);
   }
   return value;
 }

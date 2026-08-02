@@ -1,7 +1,7 @@
 ---
 translation_of: browser-evidence.md
-translation_source_sha: 1df5be9c50b4185b3f03aaa3afccef94b545952b
-translation_revised: 2026-07-21
+translation_source_sha: bc49d4e9c4046d54855174ec0f46ca3469a0d964
+translation_revised: 2026-08-02
 ---
 # 브라우저 근거 수집
 
@@ -42,7 +42,7 @@ flowchart LR
 | Browser runtime | `delivery/browser/` | 선택적 async Playwright adapter |
 | Durable artifact metadata and payload | `delivery/persistence/postgres_browser_evidence.py` | Alembic `0050` |
 | Runtime binding | `composition/wire_browser_evidence.py` | 명시적 fail-closed DI seam |
-| Inspection | read API 및 Console Evidence domain | GET-only metadata, control 없음 |
+| Inspection | Operator API 및 Console Evidence domain | GET-only metadata, control 없음 |
 
 Provider는 `capture(policy, request)` 작업 하나만 노출합니다. `click`, `fill`, `press`, `select`,
 clipboard, page, context, script evaluation, upload 또는 download API를 노출하지 않습니다. Bragi는
@@ -92,7 +92,7 @@ Delivery adapter는 `BrowserRuntimeIsolation` receipt를 기록합니다. 다음
 
 Opt-in Playwright 구현은 `browser-evidence` dependency extra에 lock됩니다. 격리 worker에서
 `uv sync --extra browser-evidence`로 설치한 뒤 해당 worker image에 Chromium을 provision합니다.
-Core 및 read API image에는 이 extra를 포함하지 않습니다. 구현은 async Python, isolated context와
+Core 및 Operator API image에는 이 extra를 포함하지 않습니다. 구현은 async Python, isolated context와
 page 하나, fixed viewport와 device scale, blocked service worker와 extension, request
 interception, locator wait, locator text, ARIA snapshot, screenshot mask 및
 popup/download/file-chooser handler를 사용합니다. Playwright가 없거나 호환되지
@@ -123,7 +123,7 @@ interaction primitive 대신 artifact receipt를 반환합니다. `WorkflowStepK
 종료합니다.
 
 Console Evidence view는 검사 전용입니다. Source host, policy, capture와 expiry, redaction count,
-prompt-injection scan status, isolation status, hash 및 custody reference를 표시합니다. Read API는 이
+prompt-injection scan status, isolation status, hash 및 custody reference를 표시합니다. Operator API는 이
 panel을 통해 screenshot, visible text 또는 snapshot payload를 반환하지 않으며 capture, promotion,
 approval 또는 execution control도 제공하지 않습니다.
 
@@ -160,7 +160,7 @@ process에 속합니다.
 Focused test는 SSRF 및 metadata address, DNS rebinding, redirect, Unicode hostname, file URL,
 popup/download/upload event, mutation method, cross-origin request, public API 최소화, secret 및
 visual/text redaction, injection scan, bound, timeout/crash handling, hash, custody, replay, human/API
-conflict, unavailable abstention, executor credential 부재, workflow authority 분리, read API projection 및
+conflict, unavailable abstention, executor credential 부재, workflow authority 분리, Operator API projection 및
 Console decoding을 다룹니다.
 
 Real-browser release evidence는 target restricted-egress image 안에서 선택적 Playwright adapter를 synthetic

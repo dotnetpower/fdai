@@ -6,9 +6,9 @@ surfaces are:
 - :class:`RoleEnforcer` - the pure decision object: given a
   :class:`~fdai.core.rbac.resolver.Principal` and a required role or
   capability, either return ``None`` or raise an
-  :class:`AuthorizationError` subclass. The read-API layer wraps this in
+  :class:`AuthorizationError` subclass. The Operator API layer wraps this in
   its own FastAPI dependency (see
-  :mod:`fdai.delivery.read_api.auth`).
+  :mod:`fdai.delivery.operator_api.auth`).
 - :func:`require_roles` / :func:`require_capability` - factory helpers
   that return a *callable dependency* of shape ``(principal) -> principal``.
   The shape is FastAPI-compatible via ``Depends(...)`` but does not require
@@ -70,7 +70,7 @@ class BreakGlassExpiredError(AuthorizationError):
 class RoleEnforcer:
     """Immutable authorizer.
 
-    Instances are cheap - the read-API layer builds one per process and
+    Instances are cheap - the Operator API layer builds one per process and
     reuses it for every request. No state is mutated per call, so
     concurrent access is safe.
     """
@@ -179,7 +179,7 @@ def require_roles(
     The returned callable takes an already-resolved
     :class:`Principal` and returns it unchanged when authorized, so the
     surrounding framework's DI can inject the resolved principal into the
-    handler. Raises :class:`RoleRequiredError` on failure - the read-API
+    handler. Raises :class:`RoleRequiredError` on failure - the Operator API
     layer maps that to HTTP 403.
     """
     if not roles:

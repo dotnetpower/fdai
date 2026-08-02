@@ -1,7 +1,7 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 0e567d86b1cb058cea282a657abc6d9ac2c5830d
-translation_revised: 2026-08-01
+translation_source_sha: 69a640e798056df4cb26a84a844b65ead5ebe07d
+translation_revised: 2026-08-02
 ---
 # 사용자-에이전트 할당 구현 계획
 
@@ -104,7 +104,7 @@ ownership_merged -> iam_applying -> active`입니다. 최종 또는 보류 상�
 
 ### 명령, 이벤트, 작업
 
-read API는 케이스를 만들 수 있지만 결과를 적용할 수 없습니다. 머신 협업은 검증된 이벤트와 기존
+Operator API는 케이스를 만들 수 있지만 결과를 적용할 수 없습니다. 머신 협업은 검증된 이벤트와 기존
 컨트롤 루프 수집 경로를 사용합니다.
 
 | 계약 | 목적 |
@@ -156,10 +156,10 @@ IAM 영수증 모두 없이 어떤 전환도 케이스를 active로 만들 수 �
 
 ### 묶음 3 - 관찰 전용 API 및 Assignments 탭
 
-**상태:** 구현되었습니다. Read API와 브라우저는 사용자 접근 provisioner 또는 Graph 쓰기 기능을
+**상태:** 구현되었습니다. Operator API와 브라우저는 사용자 접근 provisioner 또는 Graph 쓰기 기능을
 받지 않습니다. 누락된 디렉터리, 역할 및 인수인계 근거는 명시적으로 unavailable 상태를 유지합니다.
 
-**변경:** `delivery/read_api/routes/human_assignments.py`를 추가하고 `iam.py` 옆에 등록합니다. 앱
+**변경:** `delivery/operator_api/routes/human_assignments.py`를 추가하고 `iam.py` 옆에 등록합니다. 앱
 구성에는 케이스 서비스와 담당 체계 프로젝션만 추가하고 프로비저너는 넣지 않습니다.
 `settings-iam-assignments.tsx`, 모델 및 명령 타입, 다섯 번째 IAM 탭, 영문/한국어 카탈로그 키,
 스켈레톤 로딩, 필터, 편집기, 검증 요약, 근거 서랍을 추가합니다.
@@ -195,7 +195,7 @@ case에 기록합니다.
 
 **변경:** plan, apply, verify, rollback 영수증을 제공하는 CSP 중립
 `shared/providers/human_access.py`를 추가합니다. `delivery/identity/entra_access.py`, 런타임
-바인더, ActionType, executor 어댑터를 추가합니다. read API는 이 공급자를 import하거나 받지
+바인더, ActionType, executor 어댑터를 추가합니다. Operator API는 이 공급자를 import하거나 받지
 않습니다.
 
 사용자 멤버십에 대해 Microsoft Graph는 `POST /groups/{group-id}/members/$ref`의 최소
@@ -236,7 +236,7 @@ tick, 거절 최종성, 역할 상실, 일정 장애 대체 경로, 전체 만�
 
 ### 묶음 7 - 선제적 지식 이전 목표
 
-**상태:** Core lifecycle과 read API command가 구현되었습니다. Active assignment가 goal 생성과
+**상태:** Core lifecycle과 Operator API command가 구현되었습니다. Active assignment가 goal 생성과
 mutation을 제어하고 session 및 주간 invitation claim은 재시작 후에도 유지되며 raw answer 대신 승인된 evidence
 reference만 받습니다. Agent-side goal 생산과 현지화된 Bragi rendering은 rollout 작업으로 남습니다.
 
@@ -301,7 +301,7 @@ restart, 재해 복구 훈련을 완료합니다. 모든 활성 할당은 검증
 |------|-------------------|
 | Stewardship v2 | `uv run pytest -q --no-cov tests/core/stewardship` 및 `bash scripts/governance/check-stewardship.sh` |
 | 할당 코어 | `uv run pytest -q --no-cov tests/core/human_assignment` |
-| IAM API | `uv run pytest -q --no-cov tests/delivery/read_api/test_iam.py tests/delivery/read_api/test_human_assignments.py` |
+| IAM API | `uv run pytest -q --no-cov tests/delivery/operator_api/test_iam.py tests/delivery/operator_api/test_human_assignments.py` |
 | 콘솔 | `npm --prefix console test -- --run src/routes/settings-iam.test.ts src/routes/settings-iam-assignments.test.tsx` |
 | 담당 체계 거버넌스 | `uv run pytest -q --no-cov tests/delivery/stewardship tests/delivery/ingestion_gateway/test_handover.py` |
 | 승인 감독자 | `uv run pytest -q --no-cov tests/core/hil_resume` |
@@ -331,7 +331,7 @@ Validator가 diff 범위 통합과 저장소 전체 검증 영수증을 소유�
 - [ ] Owner 검색이 정확한 라이브 Entra 주체와 기존 FDAI 역할 및 임무를 반환합니다.
 - [ ] Stewardship v2가 primary 한 명과 서로 다른 backup 또는 escalation 대상 한 명을 적용합니다.
 - [ ] 변경 불가능한 케이스 하나가 독립 검토, 담당 체계 PR, IAM 영수증, 감사를 연결합니다.
-- [ ] read API와 브라우저가 멤버십 쓰기 자격 증명을 받지 않습니다.
+- [ ] Operator API와 브라우저가 멤버십 쓰기 자격 증명을 받지 않습니다.
 - [ ] Thor가 담당 체계 병합과 독립 승인 후 허용 목록 그룹 변경만 적용합니다.
 - [ ] 미응답 승인이 영구 마감에 따라 진행하고 감사된 no-op으로 소진됩니다.
 - [ ] 로그인 트리거 인수인계가 피로도 제한을 지키고 접근을 차단하지 않습니다.

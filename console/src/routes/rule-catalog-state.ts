@@ -1,4 +1,4 @@
-import { ReadApiError } from "../api";
+import { OperatorApiError } from "../api";
 import { routeHref } from "../router";
 
 export interface RuleDetailData {
@@ -30,7 +30,7 @@ export function ruleDetailFailure<T extends RuleDetailData>(
   error: unknown,
   ruleId: string,
 ): DetailState<T> {
-  return error instanceof ReadApiError && error.status === 404
+  return error instanceof OperatorApiError && error.status === 404
     ? { status: "unavailable", ruleId }
     : { status: "error", message: error instanceof Error ? error.message : String(error) };
 }

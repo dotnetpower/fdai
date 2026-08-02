@@ -1,6 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
-import { isOptionalReadApiUnavailable } from "../api";
-import type { ReadApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable } from "../api";
+import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import {
   AsyncBoundary,
@@ -22,7 +22,7 @@ import { panelArray, panelBoolean, panelContractError, panelNullableString, pane
  * (maintainers + 15 agents + their stewards) plus the coverage report
  * (bus-factor / over-assignment / maintainer findings) as read-only tables.
  *
- * Opt-in on the API side (``ReadApiConfig.stewardship_map`` set). When not
+ * Opt-in on the API side (``OperatorApiConfig.stewardship_map`` set). When not
  * wired, the panel surfaces a friendly "unavailable" state. Read-only: edits
  * are governance draft PRs, never a console mutation.
  */
@@ -75,7 +75,7 @@ interface StewardshipResponse {
 }
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly auth: AuthContext;
 }
 
@@ -94,7 +94,7 @@ export function HandoverRoute({ client, auth }: Props) {
       } catch (err) {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : String(err);
-          if (isOptionalReadApiUnavailable(err)) {
+          if (isOptionalOperatorApiUnavailable(err)) {
             setState({
               status: "unavailable",
               message: t("handover.unavailable"),
@@ -212,7 +212,7 @@ function HandoverBody({
   auth,
 }: {
   readonly data: StewardshipResponse;
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly auth: AuthContext;
 }) {
   const { map, coverage } = data;

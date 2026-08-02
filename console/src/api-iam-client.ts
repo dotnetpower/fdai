@@ -1,4 +1,4 @@
-import type { ReadApiTransport } from "./api-transport";
+import type { OperatorApiTransport } from "./api-transport";
 import {
   decodeAssignmentProjectionPage,
   type AssignmentProjectionPage,
@@ -17,9 +17,9 @@ import {
 } from "./routes/settings-iam.model";
 
 export class IamApiClient {
-  readonly #transport: ReadApiTransport;
+  readonly #transport: OperatorApiTransport;
 
-  constructor(transport: ReadApiTransport) {
+  constructor(transport: OperatorApiTransport) {
     this.#transport = transport;
   }
 

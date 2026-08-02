@@ -8,8 +8,8 @@
  */
 
 export interface ConsoleConfig {
-  /** Base URL of the read API (`https://api.<fork>/...`). */
-  readonly readApiBaseUrl: string;
+  /** Base URL of the Operator API (`https://api.<fork>/...`). */
+  readonly operatorApiBaseUrl: string;
   /** Base URL of the dedicated document-ingestion gateway. */
   readonly ingestionApiBaseUrl: string;
   /** MSAL.js client id (Entra app registration for the SPA). */
@@ -21,13 +21,13 @@ export interface ConsoleConfig {
   /** Maximum wait for a bearer token before the console surfaces an
    *  authentication error instead of leaving panels in a loading state. */
   readonly authTokenTimeoutMs: number;
-  /** Maximum wait for one read API response before the request is aborted. */
-  readonly readApiRequestTimeoutMs: number;
-  /** When true, MSAL is bypassed and the read API is called anonymously
-   *  (matches `FDAI_READ_API_DEV_MODE=1` on the API). */
+  /** Maximum wait for one Operator API response before the request is aborted. */
+  readonly operatorApiRequestTimeoutMs: number;
+  /** When true, MSAL is bypassed and the Operator API is called anonymously
+   *  (matches `FDAI_OPERATOR_API_DEV_MODE=1` on the API). */
   readonly devMode: boolean;
-  /** When true, MSAL is bypassed and the local read API projects the
-   *  current `az login` user (matches `FDAI_READ_API_LOCAL_AZURE_CLI=1`). */
+  /** When true, MSAL is bypassed and the local Operator API projects the
+   *  current `az login` user (matches `FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1`). */
   readonly localAzureCliAuth: boolean;
   /** Show a local auth chooser before entering a dev-mode console. Defaults
    *  to true when VITE_DEV_MODE=1; set VITE_LOCAL_LOGIN_PROMPT=0 to retain
@@ -59,13 +59,13 @@ function positiveIntegerEnv(key: string, fallback: string): number {
 export function loadConfig(): ConsoleConfig {
   const devMode = envVar("VITE_DEV_MODE", "0") === "1";
   return {
-    readApiBaseUrl: envVar("VITE_READ_API_BASE_URL", "http://127.0.0.1:8000"),
+    operatorApiBaseUrl: envVar("VITE_OPERATOR_API_BASE_URL", "http://127.0.0.1:8000"),
     ingestionApiBaseUrl: envVar("VITE_INGESTION_API_BASE_URL", "http://127.0.0.1:8011"),
     msalClientId: envVar("VITE_MSAL_CLIENT_ID"),
     msalTenantId: envVar("VITE_MSAL_TENANT_ID"),
     msalApiScope: envVar("VITE_MSAL_API_SCOPE"),
     authTokenTimeoutMs: positiveIntegerEnv("VITE_AUTH_TOKEN_TIMEOUT_MS", "10000"),
-    readApiRequestTimeoutMs: positiveIntegerEnv("VITE_READ_API_REQUEST_TIMEOUT_MS", "30000"),
+    operatorApiRequestTimeoutMs: positiveIntegerEnv("VITE_OPERATOR_API_REQUEST_TIMEOUT_MS", "30000"),
     devMode,
     localAzureCliAuth: envVar("VITE_LOCAL_AZURE_CLI_AUTH", "0") === "1",
     localLoginPrompt: envVar("VITE_LOCAL_LOGIN_PROMPT", devMode ? "1" : "0") === "1",

@@ -7,13 +7,13 @@
  * content, only the rendering.
  *
  *   npm run cli                              # Ink terminal (synthetic sample)
- *   tsx src/cli.tsx --source=api             # live data from the read API
+ *   tsx src/cli.tsx --source=api             # live data from the Operator API
  *   tsx src/cli.tsx --surface=slack          # Slack Block Kit JSON
  *   tsx src/cli.tsx --surface=cli --mode=all-clear
  */
 
 import { CLI_HELP, isHelpRequest, parseCliArgs } from "./args.js";
-import { fetchSnapshot } from "./data/read-api.js";
+import { fetchSnapshot } from "./data/operator-api.js";
 import { sampleBriefing } from "./data/sample-briefing.js";
 import type { Block } from "./view-model/blocks.js";
 import { buildBriefing } from "./view-model/build-briefing.js";
@@ -51,11 +51,11 @@ if (source === "api") {
     liveApi = apiUrl;
   } catch (err) {
     console.error(
-      `could not reach the read API at ${apiUrl}: ${(err as Error).message}`,
+      `could not reach the Operator API at ${apiUrl}: ${(err as Error).message}`,
     );
     console.error(
-      "start it with: FDAI_READ_API_DEV_MODE=1 uv run --with uvicorn " +
-        "uvicorn 'fdai.delivery.read_api.dev.local:app' --factory --port 8010",
+      "start it with: FDAI_OPERATOR_API_DEV_MODE=1 uv run --with uvicorn " +
+        "uvicorn 'fdai.delivery.operator_api.dev.local:app' --factory --port 8010",
     );
     process.exit(1);
   }

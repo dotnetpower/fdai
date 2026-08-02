@@ -1,8 +1,8 @@
 ---
 title: Fork Seam Recipe 조리서
 translation_of: downstream-fork-seam-recipes.md
-translation_source_sha: 02c8a8d777a9f80ad0add87cf5086964bf4c4cff
-translation_revised: 2026-07-22
+translation_source_sha: 7d47d54b641e3b40cc80b7c8f5033fd551fb27cb
+translation_revised: 2026-08-02
 ---
 
 # Fork Seam Recipes
@@ -838,10 +838,10 @@ Wire 테스트는 벤더 API에 대해 `httpx.MockTransport` 사용; contract
 배포된 `/audit`, `/kpi`, `/hil-queue` 라우트만 소비한다면 이 recipe
 건너뛰기.
 
-**Seam**: `fdai.delivery.read_api.routes.panels.ReadPanel` Protocol +
-[`fdai.delivery.read_api.main`](../../../src/fdai/delivery/read_api/main.py)
-의 `ReadApiConfig.extra_panels` 튜플. `ReadPanel`은 자체 HTTP 경로를
-선언하고 `render()`에서 직렬화된 모델 반환; read-API가 각 panel을
+**Seam**: `fdai.delivery.operator_api.routes.panels.ReadPanel` Protocol +
+[`fdai.delivery.operator_api.main`](../../../src/fdai/delivery/operator_api/main.py)
+의 `OperatorApiConfig.extra_panels` 튜플. `ReadPanel`은 자체 HTTP 경로를
+선언하고 `render()`에서 직렬화된 모델 반환; Operator API가 각 panel을
 GET-only 라우트로 mount 하며 경로는 빌드 시 검증 (`/`로 시작, `..`
 traversal 없음).
 
@@ -851,7 +851,7 @@ traversal 없음).
   안 됨 - projection surface 전용. Workflow를 트리거하려는 panel은
   event bus에 `Signal`을 emit 하는 방식으로 하지 executor 호출로
   하지 말 것.
-- [`panels.py`](../../../src/fdai/delivery/read_api/routes/panels.py) 아래
+- [`panels.py`](../../../src/fdai/delivery/operator_api/routes/panels.py) 아래
   upstream `ExampleFinOpsPanel`은 reference 구현이며 기본으로
   **등록되지 않음**. 그 shape를 복사하되 import해서 재등록하지 말 것 -
   upstream은 의도적으로 UI를 최소로 유지.
@@ -864,7 +864,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from fdai.delivery.read_api.routes.panels import ReadPanel
+from fdai.delivery.operator_api.routes.panels import ReadPanel
 
 @dataclass(frozen=True)
 class GovernanceDecisionsPanel(ReadPanel):
@@ -876,7 +876,7 @@ class GovernanceDecisionsPanel(ReadPanel):
     async def render(self, *, params: Mapping[str, str]) -> dict[str, Any]:
         # 1. fork의 projection store 조회 (Postgres 뷰, read model, ...).
         # 2. 콘솔에 안전하지 않은 identity 값은 redact.
-        # 3. JSON-serialisable dict 반환; read-API가 직렬화.
+        # 3. JSON-serialisable dict 반환; Operator API가 직렬화.
         return {
             "items": [],           # {proposal_id, decided_at, reviewers, outcome} 리스트
             "generated_at": "...",
@@ -887,13 +887,13 @@ class GovernanceDecisionsPanel(ReadPanel):
 
 ```python
 # fork/entry.py
-from fdai.delivery.read_api.main import ReadApiConfig, build_app
+from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 from fork.adapters.read_panels import GovernanceDecisionsPanel
 
 app = build_app(
   authenticator=authenticator,
   read_model=read_model,
-    config=ReadApiConfig(
+    config=OperatorApiConfig(
         extra_panels=(GovernanceDecisionsPanel(),),
     ),
 )
@@ -905,12 +905,12 @@ SPA. 새 panel을 배포하는 fork는 panel이 sidebar에 나타나도록
 MUST. 그 콘솔 편집은 fork의 repo `console/` 아래에서만 살고 upstream
 `console/`은 generic 유지.
 
-**테스트 방법**: `tests/delivery/read_api/test_panels.py`가 upstream의
+**테스트 방법**: `tests/delivery/operator_api/test_panels.py`가 upstream의
 mount / path-validation 로직을 커버. Fork는 다음을 추가:
 
 1. 스텁된 데이터 소스로 panel의 `render()`에 대한 unit 테스트.
 2. Starlette test client로 `build_app(authenticator=..., read_model=...,
-   config=ReadApiConfig(extra_panels=(YourPanel(),)))`
+   config=OperatorApiConfig(extra_panels=(YourPanel(),)))`
    를 부팅하고 panel이 선언된 경로의 GET으로 도달 가능한지 assert 하는
    HTTP-level 테스트.
 3. Panel이 non-GET verb를 거부하는지 assert 하는 negative 테스트

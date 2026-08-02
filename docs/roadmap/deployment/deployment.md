@@ -4,7 +4,7 @@ title: Deployment
 # Deployment
 
 Deployment follows the app shape: a **headless, event-driven core** with one replica by default,
-an opt-in **thin console + read API**, and **PR-native + ChatOps** delivery (see
+an opt-in **thin console + Operator API**, and **PR-native + ChatOps** delivery (see
 [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)).
 Infrastructure is code; every release is reversible through the layered rollback paths defined
 in [Release and Rollback](#release-and-rollback).
@@ -59,7 +59,7 @@ prod topology so shadow evaluation is representative.
     App** for `event-ingest` + `trust-router` + `executor` +
     `audit-writer`, deployed from an **OCI image + Knative-compatible manifest subset** so
     the runtime is portable ([csp-neutrality.md § Runtime contract](../architecture/csp-neutrality.md#2-runtime-contract--oci-image--knative-compatible-manifest)).
-    The core has no sidecar or ingress. The opt-in read API and ingestion gateway with its
+    The core has no sidecar or ingress. The opt-in Operator API and ingestion gateway with its
     ClamAV sidecar are separate Container Apps.
   - **Container Apps Jobs** in the same environment for scheduled probes and light triggers
     (replaces Azure Functions for runtime scheduling). An opt-in development-only FC1 Function

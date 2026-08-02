@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { NebulaBackground } from "../components/nebula-background";
 import { StatusPill } from "../components/ui";
@@ -13,7 +13,7 @@ import type { IamSelfStatus } from "./settings-iam.model";
 
 interface Props {
   readonly auth: AuthContext;
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly initialStatus: IamSelfStatus;
 }
 
@@ -78,7 +78,7 @@ export function AccessRequiredRoute({ auth, client, initialStatus }: Props) {
         normalizedMessage,
       );
       accessRequestIntent.current = identity;
-      const created = await submitSelfAccessRequest(auth, client.readApiBaseUrl, {
+      const created = await submitSelfAccessRequest(auth, client.operatorApiBaseUrl, {
         idempotencyKey: identity.idempotencyKey,
         ...(normalizedMessage ? { message: normalizedMessage } : {}),
       });

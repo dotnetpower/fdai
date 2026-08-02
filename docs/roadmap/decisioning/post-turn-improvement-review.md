@@ -55,7 +55,7 @@ not part of the contract.
 
 ## Ownership and transport
 
-Bragi remains the single writer of `object.turn`. The read API submits to a bounded queue and uses
+Bragi remains the single writer of `object.turn`. The Operator API submits to a bounded queue and uses
 `EventBusPostTurnReviewIntake` only to publish a Bragi-owned envelope. It does not instantiate a
 reviewer or label itself as Norns.
 
@@ -64,7 +64,7 @@ envelope whose `producer_principal` is not `Bragi`, strictly parses the review m
 the injected coordinator off path. Norns gains no new owned topic and no execution authority.
 
 Azure transport sends every Pantheon logical object topic through the configured physical object
-topic with `MultiplexedEventBus`. The headless runtime and read API therefore share the same
+topic with `MultiplexedEventBus`. The headless runtime and Operator API therefore share the same
 logical-to-physical mapping. Process-local transport keeps the same logical contract without
 inventing Azure evidence.
 

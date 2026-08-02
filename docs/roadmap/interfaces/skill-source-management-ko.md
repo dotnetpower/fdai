@@ -1,8 +1,8 @@
 ---
 title: 스킬 소스 관리
 translation_of: skill-source-management.md
-translation_source_sha: d0fd5546164a1d094c629463e233c6adf9cebcb5
-translation_revised: 2026-07-21
+translation_source_sha: cf9bd813ca230eb3bda24a60e7b7cbf683041762
+translation_revised: 2026-08-02
 ---
 # 스킬 소스 관리
 
@@ -101,13 +101,13 @@ atomic하게 claim합니다. Claim은 `next_refresh_at`을 5분 hold로 전진�
 - **기타 failure**: Exception type을 bounded error kind로 기록합니다. Token과 response body는
   포함하지 않습니다.
 
-Production은 read API lifespan에서 runner를 시작합니다. `FDAI_SKILL_SOURCE_TICK_SECONDS`는 wake
+Production은 Operator API lifespan에서 runner를 시작합니다. `FDAI_SKILL_SOURCE_TICK_SECONDS`는 wake
 interval을 제어하며 최소 30초여야 합니다. `FDAI_GITHUB_API_BASE`는 기본 GitHub API base를 다른
 HTTPS GitHub endpoint로 바꿀 때 사용합니다.
 
 ## HTTP surface
 
-Route group은 `ReadApiConfig.skill_sources`로 opt-in하며 server가 resolve한 authenticated principal을
+Route group은 `OperatorApiConfig.skill_sources`로 opt-in하며 server가 resolve한 authenticated principal을
 사용합니다.
 
 | Method와 route | 최소 authority | 목적 |
@@ -150,7 +150,7 @@ quarantine evidence는 계속 inspect할 수 있습니다.
 ```bash
 uv run pytest -q tests/core/supply_chain/test_skill_source_*.py
 uv run pytest -q tests/persistence/test_postgres_skill_source*.py tests/persistence/test_postgres_skill_quarantine.py
-uv run pytest -q tests/delivery/github/test_skill_source.py tests/delivery/read_api/test_skill_sources.py
+uv run pytest -q tests/delivery/github/test_skill_source.py tests/delivery/operator_api/test_skill_sources.py
 uv run ruff check src/fdai/core/supply_chain/skill_source_*.py src/fdai/delivery/persistence/postgres_skill_*.py
 uv run mypy src/fdai/core/supply_chain/skill_source_*.py src/fdai/delivery/persistence/postgres_skill_*.py
 ```

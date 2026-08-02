@@ -29,7 +29,7 @@ describe("panel source availability", () => {
     expect(panelSourceAvailability("labs", sources)).toBeNull();
   });
 
-  test("keeps a read-API panel unknown when no manifest source owns its route", () => {
+  test("keeps a Operator API panel unknown when no manifest source owns its route", () => {
     expect(panelSourceAvailability("skills", sources)).toBe("unknown");
   });
 
@@ -48,6 +48,6 @@ describe("panel source availability", () => {
     expect(panels.filter((panel) => panelSourceClassification(panel.id) === null))
       .toEqual([]);
     expect(panelSourceClassification("documents")).toBe("separate-client");
-    expect(panelSourceClassification("settings-diagnostics")).toBe("read-api");
+    expect(panelSourceClassification("settings-diagnostics")).toBe("operator-api");
   });
 });

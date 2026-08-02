@@ -1,8 +1,8 @@
 """Audit-log datasource - projects an audit reader into report shapes.
 
-The upstream ``ConsoleReadModel`` (``delivery/read_api/read_model.py``)
+The upstream ``ConsoleReadModel`` (``delivery/operator_api/read_model.py``)
 already exposes ``list_audit`` returning
-:class:`~fdai.delivery.read_api.read_model.AuditPage`; this datasource
+:class:`~fdai.delivery.operator_api.read_model.AuditPage`; this datasource
 consumes anything that structurally matches - a narrow duck-typed
 :class:`AuditReader` Protocol - so ``core/`` never imports
 ``delivery/``.
@@ -45,7 +45,7 @@ _MAX_LIMIT = 5000
 
 @runtime_checkable
 class AuditRow(Protocol):
-    """Duck-typed audit row (matches ``read_api.AuditItem``)."""
+    """Duck-typed audit row (matches ``operator_api.AuditItem``)."""
 
     seq: int
     event_id: str
@@ -59,7 +59,7 @@ class AuditRow(Protocol):
 
 @runtime_checkable
 class AuditPage(Protocol):
-    """Duck-typed audit page (matches ``read_api.AuditPage``)."""
+    """Duck-typed audit page (matches ``operator_api.AuditPage``)."""
 
     items: Sequence[AuditRow]
     next_cursor: str | None

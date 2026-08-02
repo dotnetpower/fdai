@@ -43,6 +43,8 @@ from fdai.delivery.ingestion_gateway.main import IngestionGatewayConfig, build_a
 from fdai.delivery.ingestion_gateway.pantheon_events import EventBusDocumentIngestionIntake
 from fdai.delivery.ingestion_gateway.worker_service import DocumentIngestionEventConsumer
 from fdai.delivery.malware import ClamAvMalwareScanner, ClamAvScannerConfig
+from fdai.delivery.operator_api.auth import build_authenticator
+from fdai.delivery.operator_api.entra_verifier import EntraJwtVerifier
 from fdai.delivery.persistence.postgres import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_document_ingestion import (
     PostgresDocumentMetadataStore,
@@ -52,8 +54,6 @@ from fdai.delivery.pgvector.document_index import (
     PgvectorDocumentIndex,
     PgvectorDocumentIndexConfig,
 )
-from fdai.delivery.read_api.auth import build_authenticator
-from fdai.delivery.read_api.entra_verifier import EntraJwtVerifier
 from fdai.delivery.stewardship import GraphPersonDirectory
 from fdai.delivery.stewardship.production import (
     build_production_stewardship_governance,

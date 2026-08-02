@@ -204,7 +204,7 @@ class GroupMapping:
                   break_glass: <objectId>
 
         A missing slot fails fast with :class:`ValueError` - there is no
-        "default reader group" that silently opens the read API. Env-var
+        "default reader group" that silently opens the Operator API. Env-var
         overrides let a fork adjust one slot without re-templating YAML::
 
             FDAI_RBAC_READERS_GROUP_ID
@@ -266,7 +266,7 @@ def decode_jwt_payload(token: str) -> Mapping[str, Any]:
     token against Entra JWKS + audience + issuer + expiry BEFORE the
     resolver acts on the returned claims. This function exists to give
     tests and offline tools a stdlib-only way to look at a token, and to
-    give the read-API layer a claim extractor after its verifier has
+    give the Operator API layer a claim extractor after its verifier has
     already accepted the token.
     """
     if not token or not isinstance(token, str):

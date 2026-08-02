@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import type { ReadApiClient } from "./api";
+import type { OperatorApiClient } from "./api";
 import type { ConsoleConfig } from "./config";
 import { IngestionApiClient } from "./ingestion-api";
 
@@ -10,7 +10,7 @@ const config = {
 function client(authorizationHeader = "Bearer test-token"): IngestionApiClient {
   return new IngestionApiClient(config, {
     authorizationHeader: vi.fn().mockResolvedValue(authorizationHeader),
-  } as unknown as ReadApiClient);
+  } as unknown as OperatorApiClient);
 }
 
 describe("IngestionApiClient upload authorization", () => {

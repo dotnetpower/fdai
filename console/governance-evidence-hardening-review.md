@@ -2,7 +2,7 @@
 
 이 문서는 2026-07-19에 수행한 Console Web의 Governance와 Evidence 전수검사와
 10라운드 하드닝 결과를 기록합니다. 범위는 Governance 8개 메뉴와 Evidence 5개
-메뉴, 공통 route, read API decoder, URL state, accessibility, document ingestion,
+메뉴, 공통 route, Operator API decoder, URL state, accessibility, document ingestion,
 production build 및 regression test입니다.
 
 > 판정 기준은 read-only console, 실제 Azure evidence, append-only audit,

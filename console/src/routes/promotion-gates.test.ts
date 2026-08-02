@@ -34,7 +34,7 @@ describe("promotion gate drilldown filters", () => {
     rows: [{ ...rows[1], ...overrides }],
   });
 
-  it("rejects malformed metrics at the read API boundary", () => {
+  it("rejects malformed metrics at the Operator API boundary", () => {
     expect(() => decodePromotionGates(response({ action_type_name: " " }))).toThrow(/MUST NOT be empty/);
     expect(() => decodePromotionGates(response({ sample_count: -1 }))).toThrow(/non-negative integer/);
     expect(() => decodePromotionGates(response({ accuracy: 1.1 }))).toThrow(/between 0 and 1/);

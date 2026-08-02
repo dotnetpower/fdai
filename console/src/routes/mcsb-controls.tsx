@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { isOptionalReadApiUnavailable, type ReadApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import { ErrorState, LoadingState, UnavailableState } from "../components/ui";
 import { currentRoute, navigate, replaceRouteState } from "../router";
 import { t } from "./i18n/governance";
@@ -22,7 +22,7 @@ export type McsbDetailState =
   | { readonly status: "ready"; readonly data: McsbControlDetail }
   | { readonly status: "error"; readonly message: string };
 
-export function McsbControlsRoute({ client }: { readonly client: ReadApiClient }) {
+export function McsbControlsRoute({ client }: { readonly client: OperatorApiClient }) {
   const initial = mcsbStateFromSearch(currentRoute().search);
   const [version, setVersion] = useState(initial.version);
   const [filters, setFilters] = useState(initial.filters);
@@ -68,7 +68,7 @@ export function McsbControlsRoute({ client }: { readonly client: ReadApiClient }
       } catch (error) {
         if (!cancelled) {
           setMessage(error instanceof Error ? error.message : String(error));
-          setStatus(isOptionalReadApiUnavailable(error) ? "unavailable" : "error");
+          setStatus(isOptionalOperatorApiUnavailable(error) ? "unavailable" : "error");
         }
       }
     })();

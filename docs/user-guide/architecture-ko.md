@@ -4,8 +4,8 @@ description: FDAI의 15개 에이전트 조직이 이벤트 기반 컨트롤 플
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: a0cf2892ba5373cd2a37d9b38b81676df04b704f
-translation_revised: 2026-08-01
+translation_source_sha: 0eb6616d50b7e30315faca92a584c7300013041b
+translation_revised: 2026-08-02
 ---
 
 # FDAI 아키텍처
@@ -45,7 +45,7 @@ FDAI는 느슨하게 결합된 5개 레이어로 이루어집니다. 레이어�
 나타냅니다.
 
 <fdai-architecture-diagram manifest="../../diagrams/generated/fdai-azure-deployment-topology.manifest.json" locale="ko" style="display:block">
-  <img src="../../diagrams/generated/fdai-azure-deployment-topology.ko.svg" alt="Azure 플랫폼 신호와 예약 점검이 Kafka endpoint를 통해 Azure Event Hubs로 들어갑니다. VNet에 통합된 Container Apps 환경에서 FDAI core, 예약 job, 별도 identity를 사용하는 read API가 실행됩니다. Core는 managed identity로 Azure Resource Graph를 읽고, 선택적인 Azure OpenAI 모델을 호출하며, Key Vault 참조를 가져오고, 통제된 상태와 추가 전용 감사 근거를 PostgreSQL에 기록합니다. Private endpoint와 private DNS는 지원되는 data plane 트래픽을 virtual network 안에 유지합니다. 운영자는 Microsoft Entra ID로 인증하고 읽기 전용 콘솔을 확인하며, Teams에서 고위험 작업을 승인하고 Git pull request로 통제된 변경을 전달받습니다. Application Insights와 Log Analytics는 의사 결정에 개입하지 않고 모든 runtime 경로를 관찰합니다." loading="lazy" style="display:block;width:100%;height:auto" />
+  <img src="../../diagrams/generated/fdai-azure-deployment-topology.ko.svg" alt="Azure 플랫폼 신호와 예약 점검이 Kafka endpoint를 통해 Azure Event Hubs로 들어갑니다. VNet에 통합된 Container Apps 환경에서 FDAI core, 예약 job, 별도 identity를 사용하는 Operator API가 실행됩니다. Core는 managed identity로 Azure Resource Graph를 읽고, 선택적인 Azure OpenAI 모델을 호출하며, Key Vault 참조를 가져오고, 통제된 상태와 추가 전용 감사 근거를 PostgreSQL에 기록합니다. Private endpoint와 private DNS는 지원되는 data plane 트래픽을 virtual network 안에 유지합니다. 운영자는 Microsoft Entra ID로 인증하고 읽기 전용 콘솔을 확인하며, Teams에서 고위험 작업을 승인하고 Git pull request로 통제된 변경을 전달받습니다. Application Insights와 Log Analytics는 의사 결정에 개입하지 않고 모든 runtime 경로를 관찰합니다." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 이 다이어그램은 특정 tenant의 resource name이 아니라 parameterized Terraform 배포를
@@ -295,7 +295,7 @@ FDAI에서 권한 분리는 아키텍처 속성입니다. 나중에 손쉬운 �
 
 ```mermaid
 flowchart TB
-  UI[console 및 CLI] --> API[read API 및 ChatOps adapter]
+  UI[console 및 CLI] --> API[Operator API 및 ChatOps adapter]
   API --> CONTRACTS[shared contract 및 provider protocol]
   DELIVERY[delivery adapter] --> CONTRACTS
   CORE[core control loop] --> CONTRACTS

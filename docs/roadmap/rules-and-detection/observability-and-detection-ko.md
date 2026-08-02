@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 63ea4397408abd11ce87418fd0ea2154a5481e85
-translation_revised: 2026-07-30
+translation_source_sha: cb161bd8b2cbcfd8da875b4908e53221a4953ef7
+translation_revised: 2026-08-02
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -413,7 +413,7 @@ RCA를 암묵적 부작용이 아니라 티어의 first-class 출력으로 만�
   wired 시 T2) RCA 만 실행된다(하위호환).
 - **읽기 전용 콘솔 표면**: shadow `rca.hypothesis` audit 항목은 일급
   **History > RCA** 오퍼레이터 콘솔 패널로 투영된다(`GET /rca?correlation=<id>`,
-  순수 투영은 `delivery/read_api/routes/rca_projection.py`). 인시던트
+  순수 투영은 `delivery/operator_api/routes/rca_projection.py`). 인시던트
   `correlation_id`가 주어지면 티어별 가설, 인용, 근거 상태(기권 가설은 신뢰할 수
   있는 원인이 아니라 "근거 부족 -> HIL"로 표시), 기록된 경우 구조화된 T1 인과 체인,
   그리고 동일한 상관관계 audit

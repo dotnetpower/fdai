@@ -9,7 +9,7 @@ import pytest
 
 from fdai.core.report_feed.feed import ReportFeed, StaticSignalSource
 from fdai.core.reporting.composition import default_reporting_engine
-from fdai.delivery.read_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.shared.providers.log_query import StaticLogQueryProvider
 from fdai.shared.providers.metric import StaticMetricProvider
 

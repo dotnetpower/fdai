@@ -8,7 +8,7 @@ single-responsibility rule:
 - :class:`MeteringSink` - **write** one invocation (called by the LLM
   adapters on the hot path; async because a real backend is I/O-bound).
 - :class:`MeteringReader` - **read** the recorded invocations back
-  (called by the read-API cost panel to build the summaries).
+  (called by the Operator API cost panel to build the summaries).
 
 The upstream default :class:`InMemoryMeteringSink` implements both over
 a process-lifetime list. It is deliberately non-durable (like the dev
@@ -58,7 +58,7 @@ class InMemoryMeteringSink:
 
     Implements both :class:`MeteringSink` and :class:`MeteringReader`, so
     the composition root wires one instance to the LLM adapters (write)
-    and the read-API cost panel (read).
+    and the Operator API cost panel (read).
 
     ``max_records`` caps retention (oldest records are evicted first) so a
     long-running single process cannot grow memory without bound; pass

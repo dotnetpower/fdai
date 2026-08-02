@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: e20cd18e381145763fe9b19588a180e9fc693711
-translation_revised: 2026-08-01
+translation_source_sha: e612d62044c006520f7e31d007c84205c5fa61f9
+translation_revised: 2026-08-02
 title: 에이전트 운영 책임 수명 주기
 ---
 # 에이전트 운영 책임 수명 주기
@@ -49,7 +49,7 @@ flowchart LR
 
 | Capability | Owner | 상태 | 근거 |
 |------------|-------|------|------|
-| Production map binding | read API composition | 구현됨 | `build_prod_app()`이 `config/agent-stewardship.yaml`을 load하고 `GET /stewardship`을 등록합니다. |
+| Production map binding | Operator API composition | 구현됨 | `build_prod_app()`이 `config/agent-stewardship.yaml`을 load하고 `GET /stewardship`을 등록합니다. |
 | Real-binding readiness | Terraform plus resolver | 구현됨 | Container Apps가 `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1`, maintainer OID, agent별 override를 받습니다. |
 | Stale identity audit | stewardship health monitor | 구현됨 | 설정한 interval로 Entra liveness를 실행하고 transition-only state 및 audit를 기록합니다. |
 | Handover draft PR | ingestion consumer plus GitOps adapter | 구현됨, opt-in | 처리된 `handover_bootstrap` upload가 `config/agent-stewardship.yaml` draft PR 하나를 엽니다. |
@@ -64,11 +64,11 @@ extractor와 exact Graph resolution은 이 binding 없이 동작하며, 기본 i
 
 ### Production startup
 
-Read API는 route를 구성하기 전에 ownership map을 load합니다. Production factory가 사용하는 동일한
+Operator API는 route를 구성하기 전에 ownership map을 load합니다. Production factory가 사용하는 동일한
 environment mapping을 resolver에 전달하므로 deployment override와
 `FDAI_STEWARDSHIP_REQUIRE_BINDINGS`가 projection을 제공하는 process에서 분리되지 않습니다.
 
-`enable_read_api=true`인 deployment는 다음 값을 제공합니다.
+`enable_operator_api=true`인 deployment는 다음 값을 제공합니다.
 
 - real maintainer OID 최소 1개, 권장 2개
 - autonomous가 아닌 모든 pantheon agent의 accountable binding
@@ -97,8 +97,8 @@ Monitor는 `stewardship_health:current` 아래 revisioned snapshot 하나를 저
 결과가 바뀌지 않으면 no-op입니다. Clean-to-stale 또는 stale-to-clean transition은 state를
 원자적으로 update하고 `stewardship.health.changed`를 append합니다. Graph failure는 error type만
 log하고 다음 interval에 retry합니다. 모든 identity를 stale로 만들거나 control loop를 중지하지
-않습니다. 첫 sweep는 named background task에서 시작하므로 Graph latency가 read API startup을
-지연하지 않습니다. Read API는 최신 snapshot을 validate하고 stale finding을 `/stewardship`
+않습니다. 첫 sweep는 named background task에서 시작하므로 Graph latency가 Operator API startup을
+지연하지 않습니다. Operator API는 최신 snapshot을 validate하고 stale finding을 `/stewardship`
 coverage에 merge합니다. Malformed durable state는 base map을 숨기지 않고
 `identity_health.status=unavailable`로 표시합니다.
 
@@ -186,7 +186,7 @@ handover 결과를 받도록 merged map을 사용합니다.
 
 ## Deployment configuration
 
-Document ingestion, read API, ChatOps를 활성화한 후에만
+Document ingestion, Operator API, ChatOps를 활성화한 후에만
 `enable_stewardship_governance=true`를 설정하세요. Terraform은 다음 deployment-owned 값을
 요구합니다.
 

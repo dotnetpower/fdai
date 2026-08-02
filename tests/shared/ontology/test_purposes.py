@@ -144,7 +144,7 @@ def test_audit_event_captures_declared_purposes_and_redactions() -> None:
         audit_id="00000000-0000-0000-0000-000000000ac1",
         request=request,
         caller_id="user@example.com",
-        surface="read-api:/panels/example",
+        surface="operator-api:/panels/example",
         object_type="AuditTarget",
         projected=projected,
         instance_key="x",
@@ -156,7 +156,7 @@ def test_audit_event_captures_declared_purposes_and_redactions() -> None:
     assert reasons == {"owner_only": "access_scope", "audit_only": "purpose_binding"}
     assert event.caller_role is CeilingRole.CONTRIBUTOR
     assert event.declared_purposes == ()
-    assert event.surface == "read-api:/panels/example"
+    assert event.surface == "operator-api:/panels/example"
     assert event.object_type == "AuditTarget"
     assert event.instance_key == "x"
     assert event.correlation_id == "req-1"
@@ -188,7 +188,7 @@ def test_audit_event_never_carries_underlying_values(tmp_path: Path) -> None:
         audit_id="00000000-0000-0000-0000-000000000ac2",
         request=request,
         caller_id="user@example.com",
-        surface="read-api:/panels/x",
+        surface="operator-api:/panels/x",
         object_type="AuditTarget",
         projected=projected,
     )

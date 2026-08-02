@@ -1,6 +1,6 @@
 """Projection audit event - one record per read that touched gated properties.
 
-Every projection surface (read-API panel, assurance twin, exported
+Every projection surface (Operator API panel, assurance twin, exported
 report) that applies :mod:`fdai.shared.ontology.acl` MUST emit one
 :class:`ProjectionAuditEvent` per query. The event captures WHO read
 WHAT under WHICH purpose so an auditor can reconstruct the read.
@@ -53,7 +53,7 @@ class ProjectionAuditEvent:
     """Purposes the caller declared (sorted for stable comparison)."""
 
     surface: str
-    """Which projection surface fired the read (`read-api:/panels/...`, `twin:query`, ...)."""
+    """Which projection surface fired the read (`operator-api:/panels/...`, `twin:query`, ...)."""
 
     object_type: str
     """PascalCase ObjectType `name` the projection targeted."""

@@ -1,8 +1,8 @@
 ---
 title: 기술 스택
 translation_of: tech-stack.md
-translation_source_sha: 16cc224af56745c68a0ad1dac60110beb07f4d25
-translation_revised: 2026-07-21
+translation_source_sha: 8dfb8b3f2d11b4d019050f073a183bc818e31b9c
+translation_revised: 2026-08-02
 ---
 
 # 기술 스택
@@ -50,7 +50,7 @@ translation_revised: 2026-07-21
 | Event bus | **Event Hubs** 를 **`:9093` 의 Kafka endpoint 로만** 소비 (Kafka 와이어 프로토콜이 CSP-중립 계약 - [csp-neutrality-ko.md](csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜) 참조) | 하나의 와이어 프로토콜이 모든 관리형 대상 (MSK, GCP Managed Kafka, Confluent, Redpanda) 을 커버 → 비-Azure 어댑터는 config 스왑 | MSK Serverless / GCP Managed Kafka / Confluent / Redpanda / self-hosted Strimzi - 비-Azure 옵션은 TBD |
 | Event/message 스키마 | 버전된 레지스트리에 JSON Schema (또는 CloudEvents envelope) | 타입 있는 버전된 이벤트 계약; 안전한 진화와 인그레스 검증 가능 | Avro/Protobuf + Confluent-호환 레지스트리 |
 | Dead-letter 처리 | Kafka **dead-letter 토픽** 규약 (예: `<topic>.dlq`) + replay/redrive 워커 | 어떤 이벤트도 조용히 드롭되지 않음; poison 메시지는 격리·재처리 가능; 모든 프로바이더에서 동일 | 벤더 native DLQ 는 **미사용** (프로바이더별 동작 상이) |
-| Compute | **Azure Container Apps** (Consumption) - modular core app 하나, 분리된 read API와 ingestion gateway app, 같은 environment의 bounded Job을 **OCI image + Knative 호환 manifest subset**에서 렌더링 ([csp-neutrality-ko.md](csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트) 참조) | Headless core contract를 바꾸지 않고 edge/read app과 bounded job을 독립적으로 scale; manifest는 Cloud Run / App Runner / K8s 위 Knative로도 렌더링 | Cloud Run (native Knative), App Runner, AKS/EKS/GKE 위의 Knative; 커스텀 네트워킹/DaemonSets/GPU 필요 시 AKS |
+| Compute | **Azure Container Apps** (Consumption) - modular core app 하나, 분리된 Operator API와 ingestion gateway app, 같은 environment의 bounded Job을 **OCI image + Knative 호환 manifest subset**에서 렌더링 ([csp-neutrality-ko.md](csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트) 참조) | Headless core contract를 바꾸지 않고 edge/read app과 bounded job을 독립적으로 scale; manifest는 Cloud Run / App Runner / K8s 위 Knative로도 렌더링 | Cloud Run (native Knative), App Runner, AKS/EKS/GKE 위의 Knative; 커스텀 네트워킹/DaemonSets/GPU 필요 시 AKS |
 | 경량 트리거 | **Container Apps Jobs** (Compute와 동일 환경); 다른 대상에서는 K8s `CronJob` / Cloud Run Job / EventBridge 로 렌더링 | out-of-band 변경 감지, 비용 이상 훅, 스케줄 프로브 - 별도 Functions plan 프로비저닝을 회피 | 네이티브 바인딩이 필요하면 Azure Functions; Knative eventing |
 | State / audit / KPI | **PostgreSQL** (기본) 또는 **Cosmos DB** | append-only 감사 로그, 패턴 라이브러리, KPI 저장; 런타임 온톨로지 인스턴스 상태도 호스팅 ([llm-strategy-ko.md § Ontology Storage Layout](llm-strategy-ko.md#ontology-storage-layout)) | [Data Store Selection](#data-store-selection-criteria) 참조 |
 | Vector 검색 (T1) | pgvector (PostgreSQL과 co-located) | 임베딩을 감사/상태 옆에 유지; 하나의 datastore로 운영 | 큰 스케일에서는 전용 vector DB (Qdrant/Milvus) - [Vector Search Rationale](#vector-search-rationale) 참조 |

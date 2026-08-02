@@ -1,6 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
-import { isOptionalReadApiUnavailable, ReadApiError } from "../api";
-import type { ReadApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, OperatorApiError } from "../api";
+import type { OperatorApiClient } from "../api";
 import {
   AsyncBoundary,
   DataTable,
@@ -42,7 +42,7 @@ export interface BrowserEvidenceResponse {
   readonly artifacts: readonly BrowserEvidenceRow[];
 }
 
-export function BrowserEvidenceRoute({ client }: { readonly client: ReadApiClient }) {
+export function BrowserEvidenceRoute({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<BrowserEvidenceResponse>>({
     status: "loading",
   });
@@ -54,7 +54,7 @@ export function BrowserEvidenceRoute({ client }: { readonly client: ReadApiClien
         if (!cancelled) setState({ status: "ready", data });
       } catch (error) {
         if (cancelled) return;
-        if (isOptionalReadApiUnavailable(error)) {
+        if (isOptionalOperatorApiUnavailable(error)) {
           setState({ status: "unavailable", message: "Browser evidence is not wired." });
         } else {
           setState({
@@ -88,13 +88,13 @@ export function decodeBrowserEvidence(value: unknown): BrowserEvidenceResponse {
   const promotionControls = panelBoolean(root, "promotion_controls", "browser evidence");
   const mutationControls = panelBoolean(root, "mutation_controls", "browser evidence");
   if (!readOnly || !shadowOnly || captureControls || promotionControls || mutationControls) {
-    throw new ReadApiError(502, "invalid read API response: browser evidence MUST be read-only and shadow-only");
+    throw new OperatorApiError(502, "invalid Operator API response: browser evidence MUST be read-only and shadow-only");
   }
   const artifacts = panelArray(root["artifacts"], "browser evidence.artifacts")
     .map((item, index) => decodeArtifact(item, index));
   const count = panelNonNegativeInteger(root, "count", "browser evidence");
   if (count !== artifacts.length) {
-    throw new ReadApiError(502, "invalid read API response: browser evidence count MUST match rows");
+    throw new OperatorApiError(502, "invalid Operator API response: browser evidence count MUST match rows");
   }
   return { read_only: readOnly, shadow_only: shadowOnly, count, artifacts };
 }
@@ -108,13 +108,13 @@ function decodeArtifact(value: unknown, index: number): BrowserEvidenceRow {
     if (parsed.protocol !== "https:") throw new Error("HTTPS required");
     sourceHost = parsed.host;
   } catch {
-    throw new ReadApiError(502, "invalid read API response: browser evidence source URL MUST be HTTPS");
+    throw new OperatorApiError(502, "invalid Operator API response: browser evidence source URL MUST be HTTPS");
   }
   if (panelBoolean(row, "can_authorize_action", "browser evidence")) {
-    throw new ReadApiError(502, "invalid read API response: browser evidence cannot authorize action");
+    throw new OperatorApiError(502, "invalid Operator API response: browser evidence cannot authorize action");
   }
   if (!panelBoolean(row, "untrusted", "browser evidence")) {
-    throw new ReadApiError(502, "invalid read API response: browser evidence MUST be untrusted");
+    throw new OperatorApiError(502, "invalid Operator API response: browser evidence MUST be untrusted");
   }
   return {
     artifact_id: panelNonEmptyString(row, "artifact_id", "browser evidence"),

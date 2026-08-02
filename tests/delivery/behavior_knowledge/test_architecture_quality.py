@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from fdai.delivery.read_api.routes.chat_behavior_evidence import (
+from fdai.delivery.operator_api.routes.chat_behavior_evidence import (
     RepositoryBehaviorEvidenceResolver,
     render_behavior_answer,
 )

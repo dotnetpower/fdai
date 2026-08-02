@@ -165,7 +165,7 @@ shipped built-in.
 
 | Property | Type | Meaning |
 |----------|------|---------|
-| `id` | string | Idempotent process id derived from `(workflow_ref, target_resource_id, trigger_ts)`; retries reuse it. Uses 1-200 URL-safe letters, digits, `_`, `.`, `:`, or `-` so every stored Process is addressable through the read API. |
+| `id` | string | Idempotent process id derived from `(workflow_ref, target_resource_id, trigger_ts)`; retries reuse it. Uses 1-200 URL-safe letters, digits, `_`, `.`, `:`, or `-` so every stored Process is addressable through the Operator API. |
 | `workflow_ref` | string | The `Workflow` name this process instantiates. |
 | `workflow_version` | string | The immutable Workflow version selected for this run. |
 | `status` | string | `pending`, `running`, `waiting`, `compensating`, `compensated`, `succeeded`, `failed`, `cancelled`, or `timed_out`. |
@@ -398,9 +398,9 @@ The operator's own typed text is echoed as plain text (never through the
 markdown parser), and only the newest turn's chips stay interactive so a stale
 suggestion cannot corrupt a later stage.
 
-Three opt-in, Reader-gated read API routes back validation and browsing as pure
+Three opt-in, Reader-gated Operator API routes back validation and browsing as pure
 projections that write no state (see
-[`workflow_authoring.py`](../../../src/fdai/delivery/read_api/routes/workflow_authoring.py)):
+[`workflow_authoring.py`](../../../src/fdai/delivery/operator_api/routes/workflow_authoring.py)):
 
 - **`GET /workflows/catalog`** - the built-in Workflow catalog. A read-only
   projection of the loaded `Workflow` catalog carrying each workflow's full
@@ -420,14 +420,14 @@ projections that write no state (see
   issues plus a canonical YAML preview. It mutates nothing and creates no PR.
 
 These routes are opt-in through
-[`ReadApiConfig.workflow_authoring`](../../../src/fdai/delivery/read_api/main.py)
+[`OperatorApiConfig.workflow_authoring`](../../../src/fdai/delivery/operator_api/main.py)
 (a `WorkflowAuthoringConfig` carrying the loaded palette, built-in workflows,
 rule ids, and schema registry); unset upstream so the console stays minimal,
 wired in the local dev harness so the view renders out of the box.
 
 The console keeps the privileged read-only invariant
 ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)):
-the palette and catalog are GETs through the GET-only `ReadApiClient`, validation
+the palette and catalog are GETs through the GET-only `OperatorApiClient`, validation
 is pure, and saving writes only a principal-owned private authoring record. The
 save route never receives the executor identity and cannot publish, bind, enable,
 or run the definition. A valid draft also yields YAML the operator can propose at

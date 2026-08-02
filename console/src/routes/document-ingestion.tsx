@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import { PageHeader } from "../components/ui";
 import { loadConfig } from "../config";
 import { usePublishViewContext } from "../deck/context";
@@ -12,7 +12,7 @@ import {
 import { t } from "../i18n";
 import { buildDocumentViewSnapshot } from "./document-ingestion.view";
 
-interface Props { readonly client: ReadApiClient }
+interface Props { readonly client: OperatorApiClient }
 
 type UploadState = "queued" | "hashing" | "uploading" | "processing" | "ready" | "failed";
 interface UploadRow {

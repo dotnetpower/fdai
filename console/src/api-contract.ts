@@ -1,7 +1,7 @@
-import { ReadApiError } from "./api-transport";
+import { OperatorApiError } from "./api-transport";
 
-export function contractError(message: string): ReadApiError {
-  return new ReadApiError(502, `invalid read API response: ${message}`);
+export function contractError(message: string): OperatorApiError {
+  return new OperatorApiError(502, `invalid Operator API response: ${message}`);
 }
 
 export function apiRecord(value: unknown, label: string): Readonly<Record<string, unknown>> {

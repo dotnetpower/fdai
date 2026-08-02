@@ -48,7 +48,7 @@ Run one cycle in this order:
 1. **Select a challenge**: choose the least-used contract and alternate English and Korean.
 2. **Generate one question**: use the tool-disabled Copilot CLI wrapper. Reject exact and near
    duplicates from the local ledger.
-3. **Measure the real answer**: start an ephemeral Azure-backed read API with server-owned scope.
+3. **Measure the real answer**: start an ephemeral Azure-backed Operator API with server-owned scope.
 4. **Evaluate objectively**: check required concepts, forbidden fallback text, and expected
    authority. Subjective Copilot review is advisory only.
 5. **Hold or harden**: a deterministic failure may start one isolated hardening candidate. A

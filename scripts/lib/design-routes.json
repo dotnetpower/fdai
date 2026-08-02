@@ -230,7 +230,7 @@
       "paths": [
         "docs/roadmap/architecture/outcome-assurance*.md",
         "src/fdai/core/measurement/**",
-        "src/fdai/delivery/read_api/routes/measurement_summary.py",
+        "src/fdai/delivery/operator_api/routes/measurement_summary.py",
         "console/src/routes/operating-outcomes*",
         "console/src/routes/control-assurance*"
       ],
@@ -249,7 +249,7 @@
         "docs/roadmap/interfaces/operator-console.md"
       ],
       "validate": [
-        "uv run pytest -q --no-cov tests/core/measurement tests/delivery/read_api/test_measurement_summary.py",
+        "uv run pytest -q --no-cov tests/core/measurement tests/delivery/operator_api/test_measurement_summary.py",
         "npm --prefix console test -- --run src/routes/analytics-hubs.test.ts"
       ]
     },
@@ -286,11 +286,11 @@
         "src/fdai/core/working_context/**",
         "src/fdai/core/conversation/context_bridge.py",
         "src/fdai/core/capability_catalog/runtime.py",
-        "src/fdai/delivery/read_api/routes/context_selection_comparisons.py",
-        "src/fdai/delivery/read_api/production/panels.py",
+        "src/fdai/delivery/operator_api/routes/context_selection_comparisons.py",
+        "src/fdai/delivery/operator_api/production/panels.py",
         "console/src/routes/context-selection-comparisons*",
         "tests/core/working_context/**",
-        "tests/delivery/read_api/test_context_selection_comparisons.py"
+        "tests/delivery/operator_api/test_context_selection_comparisons.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
@@ -305,7 +305,7 @@
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
-        "uv run pytest -q --no-cov tests/core/working_context tests/delivery/read_api/test_context_selection_comparisons.py tests/core/capability_catalog/test_runtime.py tests/core/conversation/test_context_bridge.py tests/core/conversation/test_assemble_turn_context.py",
+        "uv run pytest -q --no-cov tests/core/working_context tests/delivery/operator_api/test_context_selection_comparisons.py tests/core/capability_catalog/test_runtime.py tests/core/conversation/test_context_bridge.py tests/core/conversation/test_assemble_turn_context.py",
         "npm --prefix console test -- --run src/routes/context-selection-comparisons.test.ts"
       ]
     },
@@ -367,14 +367,14 @@
         "src/fdai/delivery/azure/read_investigation/**",
         "src/fdai/delivery/azure/subscription_health.py",
         "src/fdai/delivery/persistence/read_investigation_latency.py",
-        "src/fdai/delivery/read_api/routes/chat_subscription_health.py",
-        "src/fdai/delivery/read_api/routes/read_investigations.py",
+        "src/fdai/delivery/operator_api/routes/chat_subscription_health.py",
+        "src/fdai/delivery/operator_api/routes/read_investigations.py",
         "src/fdai/agents/heimdall.py",
         "src/fdai/agents/_framework/bragi_routing.py",
         "tests/**/*read_investigation*.py",
         "tests/**/read_investigation/**",
         "tests/delivery/azure/test_subscription_health.py",
-        "tests/delivery/read_api/test_chat_subscription_health.py",
+        "tests/delivery/operator_api/test_chat_subscription_health.py",
         "docs/roadmap/interfaces/azure-read-investigations*.md",
         "docs/roadmap/interfaces/azure-resource-discovery-commands*.md"
       ],
@@ -397,9 +397,9 @@
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
-        "uv run pytest -q --no-cov tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/azure/test_subscription_health.py tests/delivery/read_api/test_read_investigations.py tests/delivery/read_api/test_chat_subscription_health.py tests/agents/test_read_investigation_routing.py",
-        "uv run ruff check src/fdai/core/read_investigation src/fdai/shared/providers/read_investigation.py src/fdai/delivery/azure/read_investigation src/fdai/delivery/azure/subscription_health.py src/fdai/delivery/persistence/read_investigation_latency.py src/fdai/delivery/read_api/routes/read_investigations.py src/fdai/delivery/read_api/routes/chat_subscription_health.py tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/azure/test_subscription_health.py tests/delivery/read_api/test_read_investigations.py tests/delivery/read_api/test_chat_subscription_health.py tests/agents/test_read_investigation_routing.py",
-        "uv run mypy src/fdai/core/read_investigation src/fdai/shared/providers/read_investigation.py src/fdai/delivery/azure/read_investigation src/fdai/delivery/azure/subscription_health.py src/fdai/delivery/persistence/read_investigation_latency.py src/fdai/delivery/read_api/routes/read_investigations.py src/fdai/delivery/read_api/routes/chat_subscription_health.py tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/azure/test_subscription_health.py tests/delivery/read_api/test_read_investigations.py tests/delivery/read_api/test_chat_subscription_health.py tests/agents/test_read_investigation_routing.py"
+        "uv run pytest -q --no-cov tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/azure/test_subscription_health.py tests/delivery/operator_api/test_read_investigations.py tests/delivery/operator_api/test_chat_subscription_health.py tests/agents/test_read_investigation_routing.py",
+        "uv run ruff check src/fdai/core/read_investigation src/fdai/shared/providers/read_investigation.py src/fdai/delivery/azure/read_investigation src/fdai/delivery/azure/subscription_health.py src/fdai/delivery/persistence/read_investigation_latency.py src/fdai/delivery/operator_api/routes/read_investigations.py src/fdai/delivery/operator_api/routes/chat_subscription_health.py tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/azure/test_subscription_health.py tests/delivery/operator_api/test_read_investigations.py tests/delivery/operator_api/test_chat_subscription_health.py tests/agents/test_read_investigation_routing.py",
+        "uv run mypy src/fdai/core/read_investigation src/fdai/shared/providers/read_investigation.py src/fdai/delivery/azure/read_investigation src/fdai/delivery/azure/subscription_health.py src/fdai/delivery/persistence/read_investigation_latency.py src/fdai/delivery/operator_api/routes/read_investigations.py src/fdai/delivery/operator_api/routes/chat_subscription_health.py tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/azure/test_subscription_health.py tests/delivery/operator_api/test_read_investigations.py tests/delivery/operator_api/test_chat_subscription_health.py tests/agents/test_read_investigation_routing.py"
       ]
     },
     {
@@ -407,10 +407,10 @@
       "paths": [
         "src/fdai/core/task_worker/**",
         "src/fdai/delivery/persistence/postgres_task_worker.py",
-        "src/fdai/delivery/read_api/routes/task_workers.py",
+        "src/fdai/delivery/operator_api/routes/task_workers.py",
         "tests/core/task_worker/**",
         "tests/persistence/test_task_worker.py",
-        "tests/delivery/read_api/test_task_workers.py"
+        "tests/delivery/operator_api/test_task_workers.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
@@ -428,12 +428,12 @@
       "paths": [
         "src/fdai/core/background_task/**",
         "src/fdai/delivery/persistence/postgres_background_task.py",
-        "src/fdai/delivery/read_api/routes/background_executor.py",
-        "src/fdai/delivery/read_api/routes/background_runtime.py",
-        "src/fdai/delivery/read_api/routes/background_tasks.py",
+        "src/fdai/delivery/operator_api/routes/background_executor.py",
+        "src/fdai/delivery/operator_api/routes/background_runtime.py",
+        "src/fdai/delivery/operator_api/routes/background_tasks.py",
         "tests/core/background_task/**",
         "tests/persistence/test_background_task.py",
-        "tests/delivery/read_api/test_background*.py"
+        "tests/delivery/operator_api/test_background*.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
@@ -452,13 +452,13 @@
         "src/fdai/core/conversation/busy_input*.py",
         "src/fdai/core/conversation/channel_gateway.py",
         "src/fdai/delivery/persistence/postgres_busy_input.py",
-        "src/fdai/delivery/read_api/routes/busy_input_runtime.py",
-        "src/fdai/delivery/read_api/routes/busy_input.py",
-        "src/fdai/delivery/read_api/routes/chat*.py",
+        "src/fdai/delivery/operator_api/routes/busy_input_runtime.py",
+        "src/fdai/delivery/operator_api/routes/busy_input.py",
+        "src/fdai/delivery/operator_api/routes/chat*.py",
         "tests/conversation/test_busy_input*.py",
         "tests/conversation/test_channel_gateway.py",
         "tests/persistence/test_busy_input.py",
-        "tests/delivery/read_api/test_busy_input*.py"
+        "tests/delivery/operator_api/test_busy_input*.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
@@ -488,9 +488,9 @@
         "src/fdai/delivery/channels/teams.py",
         "src/fdai/delivery/persistence/postgres_conversation_delivery.py",
         "src/fdai/delivery/persistence/postgres_principal_binding.py",
-        "src/fdai/delivery/read_api/app/config.py",
-        "src/fdai/delivery/read_api/app/factory.py",
-        "src/fdai/delivery/read_api/routes/conversation_delivery.py",
+        "src/fdai/delivery/operator_api/app/config.py",
+        "src/fdai/delivery/operator_api/app/factory.py",
+        "src/fdai/delivery/operator_api/routes/conversation_delivery.py",
         "alembic/versions/*conversation_delivery*.py",
         "tests/**/*conversation_delivery*.py",
         "tests/**/*outbound_delivery*.py",
@@ -513,7 +513,7 @@
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
-        "uv run pytest -q --no-cov tests/providers/test_conversation_delivery.py tests/conversation/test_outbound_delivery.py tests/conversation/test_principal_binding.py tests/conversation/test_identity_verification.py tests/conversation/test_binding_delivery_context.py tests/conversation/test_adapter_health.py tests/conversation/test_channel_gateway.py tests/persistence/test_conversation_delivery.py tests/delivery/channels/test_adapter_health_commands.py tests/delivery/channels/test_publishers_and_routes.py tests/delivery/channels/test_scheduled_continuation.py tests/delivery/channels/test_prod.py tests/delivery/read_api/test_conversation_delivery.py"
+        "uv run pytest -q --no-cov tests/providers/test_conversation_delivery.py tests/conversation/test_outbound_delivery.py tests/conversation/test_principal_binding.py tests/conversation/test_identity_verification.py tests/conversation/test_binding_delivery_context.py tests/conversation/test_adapter_health.py tests/conversation/test_channel_gateway.py tests/persistence/test_conversation_delivery.py tests/delivery/channels/test_adapter_health_commands.py tests/delivery/channels/test_publishers_and_routes.py tests/delivery/channels/test_scheduled_continuation.py tests/delivery/channels/test_prod.py tests/delivery/operator_api/test_conversation_delivery.py"
       ]
     },
     {
@@ -524,7 +524,7 @@
         "src/fdai/core/supply_chain/skill_*.py",
         "src/fdai/core/conversation/skill_discovery.py",
         "src/fdai/core/rpc/skill_discovery.py",
-        "src/fdai/delivery/read_api/**/*skill*.py",
+        "src/fdai/delivery/operator_api/**/*skill*.py",
         "src/fdai/delivery/rpc/prod.py",
         "console/src/routes/skills*",
         "tests/**/*skill*.py"
@@ -577,7 +577,7 @@
         "src/fdai/shared/providers/skill_source.py",
         "src/fdai/delivery/github/skill_source.py",
         "src/fdai/delivery/persistence/postgres_skill_*.py",
-        "src/fdai/delivery/read_api/**/*skill_source*.py",
+        "src/fdai/delivery/operator_api/**/*skill_source*.py",
         "alembic/versions/*skill_source*.py",
         "tests/**/*skill_source*.py",
         "tests/persistence/test_postgres_skill_quarantine.py"
@@ -595,7 +595,7 @@
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
-        "uv run pytest -q tests/core/supply_chain/test_skill_source_*.py tests/persistence/test_postgres_skill_source*.py tests/persistence/test_postgres_skill_quarantine.py tests/delivery/github/test_skill_source.py tests/delivery/read_api/test_skill_sources.py"
+        "uv run pytest -q tests/core/supply_chain/test_skill_source_*.py tests/persistence/test_postgres_skill_source*.py tests/persistence/test_postgres_skill_quarantine.py tests/delivery/github/test_skill_source.py tests/delivery/operator_api/test_skill_sources.py"
       ]
     },
     {
@@ -667,7 +667,7 @@
       "paths": [
         "src/fdai/core/scheduler/blueprints/**",
         "src/fdai/delivery/persistence/postgres_automation_blueprint.py",
-        "src/fdai/delivery/read_api/routes/automation_blueprints.py",
+        "src/fdai/delivery/operator_api/routes/automation_blueprints.py",
         "console/src/routes/automation-blueprints*",
         "alembic/versions/*automation_blueprint*.py",
         "tests/**/*blueprint*.py"
@@ -692,7 +692,7 @@
         "src/fdai/shared/providers/trajectory.py",
         "src/fdai/delivery/trajectory/**",
         "src/fdai/delivery/persistence/postgres_trajectory.py",
-        "src/fdai/delivery/read_api/**/*trajectory*.py",
+        "src/fdai/delivery/operator_api/**/*trajectory*.py",
         "src/fdai/deployment_cli/trajectory.py",
         "alembic/versions/*trajectory*.py",
         "tests/**/*trajectory*.py"
@@ -709,7 +709,7 @@
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
-        "uv run pytest -q --no-cov tests/core/trajectory tests/delivery/trajectory tests/persistence/test_trajectory.py tests/delivery/read_api/test_trajectory_datasets.py tests/deployment_cli/test_trajectory_cli.py tests/agents/test_norns_trajectory.py"
+        "uv run pytest -q --no-cov tests/core/trajectory tests/delivery/trajectory tests/persistence/test_trajectory.py tests/delivery/operator_api/test_trajectory_datasets.py tests/deployment_cli/test_trajectory_cli.py tests/agents/test_norns_trajectory.py"
       ]
     },
     {
@@ -754,7 +754,7 @@
         "src/fdai/delivery/ingestion_gateway/activity.py",
         "src/fdai/delivery/ingestion_gateway/worker_service.py",
         "src/fdai/delivery/ingestion_gateway/prod.py",
-        "src/fdai/delivery/read_api/routes/chat_document_evidence.py",
+        "src/fdai/delivery/operator_api/routes/chat_document_evidence.py",
         "tests/delivery/channels/**",
         "tests/delivery/azure/test_document_ocr.py",
         "tests/delivery/ingestion_gateway/test_chat_evidence.py",
@@ -781,7 +781,7 @@
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
-        "uv run pytest -q --no-cov tests/core/conversation/test_attachment_directive.py tests/conversation/test_channel_gateway.py tests/delivery/channels tests/delivery/azure/test_document_ocr.py tests/delivery/ingestion_gateway/test_chat_evidence.py tests/delivery/read_api/test_chat_route.py"
+        "uv run pytest -q --no-cov tests/core/conversation/test_attachment_directive.py tests/conversation/test_channel_gateway.py tests/delivery/channels tests/delivery/azure/test_document_ocr.py tests/delivery/ingestion_gateway/test_chat_evidence.py tests/delivery/operator_api/test_chat_route.py"
       ]
     },
     {
@@ -818,8 +818,8 @@
         "src/fdai/delivery/direct_api_router.py",
         "src/fdai/delivery/identity/direct_api.py",
         "src/fdai/delivery/identity/entra_access.py",
-        "src/fdai/delivery/read_api/routes/iam.py",
-        "src/fdai/delivery/read_api/routes/human_assignments.py",
+        "src/fdai/delivery/operator_api/routes/iam.py",
+        "src/fdai/delivery/operator_api/routes/human_assignments.py",
         "src/fdai/runtime/human_access.py",
         "console/src/routes/settings-iam*",
         "rule-catalog/action-types/ops.assignment-role-*",
@@ -855,7 +855,7 @@
         "src/fdai/runtime/conversation_assurance.py",
         "src/fdai/delivery/azure/llm/conversation_assurance.py",
         "src/fdai/delivery/persistence/postgres_conversation_assurance.py",
-        "src/fdai/delivery/read_api/routes/conversation_assurance*.py",
+        "src/fdai/delivery/operator_api/routes/conversation_assurance*.py",
         "console/src/routes/conversation-assurance*",
         "console/src/routes/i18n/conversation-assurance*",
         "alembic/versions/*conversation_assurance*.py",
@@ -876,13 +876,13 @@
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
-        "uv run pytest -q --no-cov tests/core/conversation_assurance tests/delivery/read_api/test_conversation_assurance.py tests/delivery/read_api/test_conversation_assurance_intake.py tests/delivery/azure/llm/test_conversation_assurance.py tests/runtime/test_conversation_assurance.py",
+        "uv run pytest -q --no-cov tests/core/conversation_assurance tests/delivery/operator_api/test_conversation_assurance.py tests/delivery/operator_api/test_conversation_assurance_intake.py tests/delivery/azure/llm/test_conversation_assurance.py tests/runtime/test_conversation_assurance.py",
         "npm --prefix console test -- --run src/routes/conversation-assurance.test.ts"
       ]
     },
     {
       "id": "operator-surfaces",
-      "paths": ["console/**", "cli/**", "src/fdai/delivery/read_api/**"],
+      "paths": ["console/**", "cli/**", "src/fdai/delivery/operator_api/**"],
       "must_read": [
         ".github/instructions/app-shape.instructions.md",
         "docs/roadmap/interfaces/operator-console.md",
@@ -903,11 +903,11 @@
         "src/fdai/shared/providers/browser_evidence.py",
         "src/fdai/delivery/browser/**",
         "src/fdai/delivery/persistence/postgres_browser_evidence.py",
-        "src/fdai/delivery/read_api/routes/browser_evidence.py",
+        "src/fdai/delivery/operator_api/routes/browser_evidence.py",
         "src/fdai/composition/wire_browser_evidence.py",
         "tests/core/browser_evidence/**",
         "tests/delivery/browser/**",
-        "tests/delivery/read_api/test_browser_evidence.py",
+        "tests/delivery/operator_api/test_browser_evidence.py",
         "console/src/routes/browser-evidence*",
         "alembic/versions/*browser_evidence.py"
       ],
@@ -926,7 +926,7 @@
         "docs/roadmap/deployment/dev-and-deploy-parity.md"
       ],
       "validate": [
-        "uv run pytest -q --no-cov tests/core/browser_evidence tests/delivery/browser tests/delivery/read_api/test_browser_evidence.py",
+        "uv run pytest -q --no-cov tests/core/browser_evidence tests/delivery/browser tests/delivery/operator_api/test_browser_evidence.py",
         "npm --prefix console test -- --run src/routes/browser-evidence.test.ts"
       ]
     },
@@ -936,10 +936,10 @@
         "src/fdai/shared/providers/behavior_knowledge.py",
         "src/fdai/delivery/behavior_knowledge/**",
         "src/fdai/delivery/pgvector/behavior_knowledge.py",
-        "src/fdai/delivery/read_api/routes/chat_behavior_evidence.py",
+        "src/fdai/delivery/operator_api/routes/chat_behavior_evidence.py",
         "tests/delivery/behavior_knowledge/**",
         "tests/delivery/pgvector/test_behavior_knowledge.py",
-        "tests/delivery/read_api/test_chat_behavior_evidence.py"
+        "tests/delivery/operator_api/test_chat_behavior_evidence.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
@@ -980,8 +980,8 @@
         ".vscode/**",
         "console/src/config.ts",
         "console/src/auth.ts",
-        "src/fdai/delivery/read_api/dev/**",
-        "tests/delivery/read_api/test_local.py"
+        "src/fdai/delivery/operator_api/dev/**",
+        "tests/delivery/operator_api/test_local.py"
       ],
       "must_read": [
         ".github/instructions/app-shape.instructions.md",

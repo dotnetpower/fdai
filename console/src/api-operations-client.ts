@@ -4,7 +4,7 @@ import {
   decodeIncidentPage,
   decodeRcaView,
 } from "./api-operations";
-import type { ReadApiTransport } from "./api-transport";
+import type { OperatorApiTransport } from "./api-transport";
 import type {
   AuditPage,
   HilQueuePage,
@@ -36,9 +36,9 @@ export interface IncidentQuery {
 }
 
 export class OperationsApiClient {
-  readonly #transport: ReadApiTransport;
+  readonly #transport: OperatorApiTransport;
 
-  constructor(transport: ReadApiTransport) {
+  constructor(transport: OperatorApiTransport) {
     this.#transport = transport;
   }
 

@@ -34,7 +34,7 @@ describe("i18n.t", () => {
   });
 
   it("substitutes {name} placeholders from params", () => {
-    // `console.connected` = "Connected to the read API. {events} events
+    // `console.connected` = "Connected to the Operator API. {events} events
     // recorded, {pending} awaiting your decision."
     const rendered = t("console.connected", "en", { events: 12, pending: 3 });
     expect(rendered).toContain("12 events recorded");
@@ -53,7 +53,7 @@ describe("i18n.t", () => {
     // ko lags `console.context`; the helper falls back to English AND still
     // substitutes the param.
     expect(t("console.context", "ko", { env: "dev" })).toBe(
-      "dev - read-only - live read API",
+      "dev - read-only - live Operator API",
     );
   });
 });

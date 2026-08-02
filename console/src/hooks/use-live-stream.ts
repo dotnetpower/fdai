@@ -1,7 +1,7 @@
 /**
  * Live stage-event stream hook.
  *
- * Subscribes to the read-API's `GET /live/stream` SSE endpoint via
+ * Subscribes to the Operator API's `GET /live/stream` SSE endpoint via
  * authenticated fetch streaming, honours the connection lifecycle (open / closed /
  * reconnecting), and hands raw {@link LiveStageEvent} records to a
  * consumer via a mutable ring buffer.

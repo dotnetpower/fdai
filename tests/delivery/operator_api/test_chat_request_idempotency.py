@@ -1,0 +1,228 @@
+from __future__ import annotations
+
+import asyncio
+import json
+from typing import Any
+
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.testclient import TestClient
+
+from fdai.delivery.operator_api.routes.chat import (
+    ChatBackend,
+    make_chat_route,
+    make_chat_stream_route,
+)
+from fdai.shared.providers.testing.user_context import InMemoryConversationHistoryStore
+from fdai.shared.telemetry import ConversationProgressMetrics
+
+
+class _ChangingBackend(ChatBackend):
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def answer(
+        self,
+        *,
+        prompt: str,  # noqa: ARG002
+        view_context: dict[str, Any],  # noqa: ARG002
+        history: list[dict[str, str]],  # noqa: ARG002
+    ) -> dict[str, str]:
+        self.calls += 1
+        return {"answer": f"answer-{self.calls}", "model": "changing-test"}
+
+
+async def _authorize(request: Request) -> str:
+    return request.headers.get("x-test-principal", "principal-a")
+
+
+def _client() -> tuple[TestClient, _ChangingBackend, InMemoryConversationHistoryStore]:
+    backend = _ChangingBackend()
+    store = InMemoryConversationHistoryStore()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_authorize,
+                conversation_history_store=store,
+            ),
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_authorize,
+                conversation_history_store=store,
+            ),
+        ]
+    )
+    return TestClient(app), backend, store
+
+
+def _client_with_progress_metrics() -> tuple[
+    TestClient,
+    _ChangingBackend,
+    ConversationProgressMetrics,
+]:
+    backend = _ChangingBackend()
+    store = InMemoryConversationHistoryStore()
+    metrics = ConversationProgressMetrics()
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_authorize,
+                conversation_history_store=store,
+                progress_metrics=metrics,
+            ),
+        ]
+    )
+    return TestClient(app), backend, metrics
+
+
+def _request(
+    *,
+    prompt: str = "Show major issues.",
+    session_id: str = "conversation-1",
+) -> dict[str, str]:
+    return {
+        "prompt": prompt,
+        "session_id": session_id,
+        "request_id": "request-1",
+    }
+
+
+def _done_payload(response_text: str) -> dict[str, Any]:
+    lines = response_text.splitlines()
+    for index, line in enumerate(lines):
+        if line == "event: done":
+            return json.loads(lines[index + 1].removeprefix("data: "))
+    raise AssertionError("stream did not emit done")
+
+
+def _terminal_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in payload.items()
+        if key not in {"v", "request_id", "seq", "revision"}
+    }
+
+
+def test_json_exact_retry_replays_completed_response_without_backend_call() -> None:
+    client, backend, store = _client()
+
+    first = client.post("/chat", json=_request())
+    retry = client.post("/chat", json=_request())
+
+    assert first.status_code == retry.status_code == 200
+    assert retry.json() == first.json()
+    assert backend.calls == 1
+    turns = asyncio.run(
+        store.list_turns(principal_id="principal-a", conversation_id="conversation-1")
+    )
+    assert [turn.turn_index for turn in turns] == [0, 1]
+
+
+def test_stream_exact_retry_replays_only_completed_terminal_response() -> None:
+    client, backend, _ = _client()
+
+    first = client.post("/chat/stream", json=_request())
+    retry = client.post("/chat/stream", json=_request())
+
+    assert first.status_code == retry.status_code == 200
+    assert _terminal_payload(_done_payload(retry.text)) == _terminal_payload(
+        _done_payload(first.text)
+    )
+    assert retry.text.count("event: done") == 1
+    assert "event: token" not in retry.text
+    assert backend.calls == 1
+
+
+def test_stream_replay_records_time_to_first_confirmed_latency() -> None:
+    client, backend, metrics = _client_with_progress_metrics()
+
+    first = client.post("/chat/stream", json=_request())
+    retry = client.post("/chat/stream", json=_request())
+
+    assert first.status_code == retry.status_code == 200
+    assert backend.calls == 1
+    snapshot = metrics.snapshot()
+    assert snapshot.counts["replays"] == 1
+    assert snapshot.latency_ms["time_to_first_confirmed"].count == 2
+
+
+def test_json_changed_prompt_retry_is_conflict() -> None:
+    client, backend, _ = _client()
+    assert client.post("/chat", json=_request()).status_code == 200
+
+    conflict = client.post("/chat", json=_request(prompt="Show a different result."))
+
+    assert conflict.status_code == 409
+    assert backend.calls == 1
+
+
+def test_stream_changed_prompt_retry_is_conflict() -> None:
+    client, backend, _ = _client()
+    assert client.post("/chat/stream", json=_request()).status_code == 200
+
+    conflict = client.post(
+        "/chat/stream",
+        json=_request(prompt="Show a different result."),
+    )
+
+    assert conflict.status_code == 409
+    assert backend.calls == 1
+
+
+def test_json_then_stream_reuses_json_terminal_payload() -> None:
+    client, backend, _ = _client()
+    first = client.post("/chat", json=_request())
+
+    retry = client.post("/chat/stream", json=_request())
+
+    assert _terminal_payload(_done_payload(retry.text)) == first.json()
+    assert backend.calls == 1
+
+
+def test_stream_then_json_reuses_stream_terminal_payload() -> None:
+    client, backend, _ = _client()
+    first = client.post("/chat/stream", json=_request())
+
+    retry = client.post("/chat", json=_request())
+
+    assert retry.json() == _terminal_payload(_done_payload(first.text))
+    assert backend.calls == 1
+
+
+def test_request_idempotency_is_principal_scoped() -> None:
+    client, backend, store = _client()
+
+    first = client.post(
+        "/chat",
+        json=_request(),
+        headers={"x-test-principal": "principal-a"},
+    )
+    second = client.post(
+        "/chat",
+        json=_request(),
+        headers={"x-test-principal": "principal-b"},
+    )
+
+    assert first.status_code == second.status_code == 200
+    assert first.json()["answer"] != second.json()["answer"]
+    assert backend.calls == 2
+    for principal_id in ("principal-a", "principal-b"):
+        turns = asyncio.run(
+            store.list_turns(principal_id=principal_id, conversation_id="conversation-1")
+        )
+        assert len(turns) == 2
+
+
+def test_request_id_cannot_move_to_another_conversation() -> None:
+    client, backend, _ = _client()
+    assert client.post("/chat", json=_request()).status_code == 200
+
+    conflict = client.post(
+        "/chat",
+        json=_request(session_id="conversation-2"),
+    )
+
+    assert conflict.status_code == 409
+    assert backend.calls == 1

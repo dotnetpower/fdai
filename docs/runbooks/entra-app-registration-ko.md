@@ -1,13 +1,13 @@
 ---
 title: Entra 앱 등록
 translation_of: entra-app-registration.md
-translation_source_sha: 1ffca9ed60eb28d1728b8a0171bc4fc49b52d6c6
-translation_revised: 2026-07-28
+translation_source_sha: 89a8a3f44b11773173d88aeb5d79444625ec865a
+translation_revised: 2026-08-02
 ---
 
 # Entra 앱 등록
 
-FDAI 콘솔에 필요한 두 개의 Entra ID 앱 등록 - `fdai-api` (read-API 오디언스)
+FDAI 콘솔에 필요한 두 개의 Entra ID 앱 등록 - `fdai-api` (Operator API 오디언스)
 와 `fdai-console-spa` (SPA 사인인 클라이언트) - 을 만들고, 사인인이 동작하게
 하는 App Roles, service principal, 롤 할당을 생성하는 방법입니다. 이 runbook은
 **로컬 사인인 테스트**
@@ -88,10 +88,10 @@ print(json.dumps({"api": {
   "requestedAccessTokenVersion": 2,
   "oauth2PermissionScopes": [{
     "id": sys.argv[1],
-    "adminConsentDescription": "Allow the console to call the fdai read API on behalf of the signed-in operator",
-    "adminConsentDisplayName": "Access the fdai read API",
-    "userConsentDescription": "Allow the console to call the fdai read API on your behalf",
-    "userConsentDisplayName": "Access the fdai read API",
+    "adminConsentDescription": "Allow the console to call the fdai Operator API on behalf of the signed-in operator",
+    "adminConsentDisplayName": "Access the fdai Operator API",
+    "userConsentDescription": "Allow the console to call the fdai Operator API on your behalf",
+    "userConsentDisplayName": "Access the fdai Operator API",
     "isEnabled": True, "type": "User", "value": "access",
   }],
 }}))
@@ -197,14 +197,14 @@ az ad app permission admin-consent --id "$SPA_APPID"
 
 위 단계의 값들은 런타임 config로 들어갑니다. 추적 파일 밖에 보관하세요.
 
-| 값 | Read API env | SPA env (Vite) |
+| 값 | Operator API env | SPA env (Vite) |
 |----|--------------|----------------|
 | Tenant id | `FDAI_ENTRA_TENANT_ID` | `VITE_MSAL_TENANT_ID` |
 | `api://$API_APPID` | `FDAI_API_AUDIENCE` | - |
 | `api://$API_APPID/access` | - | `VITE_MSAL_API_SCOPE` |
 | `$SPA_APPID` | - | `VITE_MSAL_CLIENT_ID` |
 
-Read-API verifier env: [deploy-and-onboard.md](../roadmap/deployment/deploy-and-onboard.md)
+Operator API verifier env: [deploy-and-onboard.md](../roadmap/deployment/deploy-and-onboard.md)
 (`FDAI_ENTRA_TENANT_ID`, `FDAI_API_AUDIENCE`, 선택 `FDAI_ENTRA_ISSUER` /
 `FDAI_ENTRA_JWKS_URI`). SPA env: [console/README.md § Fork configuration](../../console/README.md).
 

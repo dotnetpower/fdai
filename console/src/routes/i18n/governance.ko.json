@@ -69,14 +69,14 @@
       "diagnostics": "기록된 스킬 읽기가 없습니다"
     },
     "error": {
-      "installedCount": "잘못된 읽기 API 응답: skills.installed_count는 항목 수와 반드시 일치해야 합니다",
-      "eligibleCount": "잘못된 읽기 API 응답: skills.eligible_count는 적격 항목 수와 반드시 일치해야 합니다",
-      "uniqueNames": "잘못된 읽기 API 응답: 스킬 이름은 반드시 고유해야 합니다",
-      "installedBundleCount": "잘못된 읽기 API 응답: skills.installed_bundle_count는 번들 수와 반드시 일치해야 합니다",
-      "eligibleBundleCount": "잘못된 읽기 API 응답: skills.eligible_bundle_count는 적격 번들 수와 반드시 일치해야 합니다",
-      "uniqueBundleNames": "잘못된 읽기 API 응답: 스킬 번들 이름은 반드시 고유해야 합니다",
-      "digestStrings": "잘못된 읽기 API 응답: {label}.digests에는 문자열만 포함되어야 합니다",
-      "nullableString": "잘못된 읽기 API 응답: {label}은(는) 문자열 또는 null이어야 합니다"
+      "installedCount": "잘못된 Operator API 응답: skills.installed_count는 항목 수와 반드시 일치해야 합니다",
+      "eligibleCount": "잘못된 Operator API 응답: skills.eligible_count는 적격 항목 수와 반드시 일치해야 합니다",
+      "uniqueNames": "잘못된 Operator API 응답: 스킬 이름은 반드시 고유해야 합니다",
+      "installedBundleCount": "잘못된 Operator API 응답: skills.installed_bundle_count는 번들 수와 반드시 일치해야 합니다",
+      "eligibleBundleCount": "잘못된 Operator API 응답: skills.eligible_bundle_count는 적격 번들 수와 반드시 일치해야 합니다",
+      "uniqueBundleNames": "잘못된 Operator API 응답: 스킬 번들 이름은 반드시 고유해야 합니다",
+      "digestStrings": "잘못된 Operator API 응답: {label}.digests에는 문자열만 포함되어야 합니다",
+      "nullableString": "잘못된 Operator API 응답: {label}은(는) 문자열 또는 null이어야 합니다"
     }
   },
   "capabilities": {
@@ -125,12 +125,12 @@
       "openRelated": "관련 화면 열기"
     },
     "error": {
-      "count": "잘못된 읽기 API 응답: capabilities.count는 항목 수와 반드시 일치해야 합니다",
-      "uniqueIds": "잘못된 읽기 API 응답: 기능 ID는 반드시 고유해야 합니다"
+      "count": "잘못된 Operator API 응답: capabilities.count는 항목 수와 반드시 일치해야 합니다",
+      "uniqueIds": "잘못된 Operator API 응답: 기능 ID는 반드시 고유해야 합니다"
     }
   },
   "promotion": {
-    "unavailable": "이 배포에는 승격 게이트 대시보드 경로가 연결되지 않았습니다. 활성화하려면 컴포지션 루트에서 ReadApiConfig.promotion_gate_source를 설정하세요.",
+    "unavailable": "이 배포에는 승격 게이트 대시보드 경로가 연결되지 않았습니다. 활성화하려면 컴포지션 루트에서 OperatorApiConfig.promotion_gate_source를 설정하세요.",
     "subtitle": "제공된 각 promotion_gate에 대한 ActionType별 준비 상태입니다. 모든 격차가 해소되어야 작업이 shadow에서 enforce로 승격됩니다.",
     "resourceLabel": "승격 게이트",
     "context": {
@@ -179,9 +179,9 @@
     "section": "ActionType ({count})",
     "empty": "승격 게이트를 선언한 ActionType이 없습니다.",
     "error": {
-      "windowDays": "잘못된 읽기 API 응답: promotion gates.window_days는 음수가 아닌 숫자 또는 null이어야 합니다",
-      "agreedCount": "잘못된 읽기 API 응답: promotion gate row.agreed_count는 reviewed_count를 초과할 수 없습니다",
-      "summaryCounts": "잘못된 읽기 API 응답: 승격 게이트 요약 수는 행 수와 반드시 일치해야 합니다"
+      "windowDays": "잘못된 Operator API 응답: promotion gates.window_days는 음수가 아닌 숫자 또는 null이어야 합니다",
+      "agreedCount": "잘못된 Operator API 응답: promotion gate row.agreed_count는 reviewed_count를 초과할 수 없습니다",
+      "summaryCounts": "잘못된 Operator API 응답: 승격 게이트 요약 수는 행 수와 반드시 일치해야 합니다"
     }
   },
   "rules": {
@@ -192,7 +192,7 @@
     },
     "lifecycleInvalid": "요청한 규칙 수명 주기 상태가 등록되지 않았습니다.",
     "lifecycleUnavailable": "이 배포에서는 규칙 {status} 수명 주기 증거를 제공하지 않습니다.",
-    "routeUnavailable": "이 배포에는 규칙 카탈로그 경로가 연결되지 않았습니다. 활성화하려면 컴포지션 루트에서 ReadApiConfig.rule_catalog_rules / rule_catalog_collected_rules를 설정하세요.",
+    "routeUnavailable": "이 배포에는 규칙 카탈로그 경로가 연결되지 않았습니다. 활성화하려면 컴포지션 루트에서 OperatorApiConfig.rule_catalog_rules / rule_catalog_collected_rules를 설정하세요.",
     "subtitle": "시스템이 아는 모든 정책입니다. 활성 카탈로그는 T0에서 평가하며 수집된 코퍼스는 가져온 항목입니다. 읽기 전용이며 규칙 변경은 카탈로그 파이프라인을 통해 PR로 반영됩니다.",
     "loadFailed": "규칙 카탈로그를 로드하지 못했습니다: {message}",
     "refreshFailed": "규칙 카탈로그를 새로 고치지 못했습니다: {message}",

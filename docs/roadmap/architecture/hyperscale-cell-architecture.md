@@ -13,7 +13,7 @@ queries at hyperscale without breaking any safety invariant.
 > **Scope:** this doc is a **forward-looking scale-out design**, not the day-zero
 > deployment. The minimum-cost topology in
 > [deploy-and-onboard.md](../deployment/deploy-and-onboard.md) (Event Hubs Standard 1 TU, one
-> modular core Container App plus separated read API and ingestion gateway apps,
+> modular core Container App plus separated Operator API and ingestion gateway apps,
 > bounded Container Apps Jobs, and Postgres B1ms) stays the default. This blueprint
 > is entered only when a tenant crosses the hyperscale trigger below, and it
 > lands under Phase 4 ([phases/phase-4-scale.md](../phases/phase-4-scale.md)).
@@ -157,7 +157,7 @@ drifts the moment a subscription is added. Fan-in is a **governance artifact**.
 
 The runtime environment described in
 [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md) -
-one modular core app, separated read API and ingestion gateway apps, and bounded
+one modular core app, separated Operator API and ingestion gateway apps, and bounded
 jobs - is **one cell**. Plan B runs many.
 
 - **A cell = one scale unit** bound to a cell key: its own Event Hubs namespace,

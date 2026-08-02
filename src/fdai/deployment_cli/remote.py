@@ -36,7 +36,7 @@ class DeploymentPlanContext:
     backend_ref: str
     runner_ref: str
     deploy_console: bool = False
-    deploy_read_api: bool = False
+    deploy_operator_api: bool = False
     deploy_dev_operations_gateway: bool = False
     deploy_document_ingestion: bool = False
 
@@ -155,7 +155,7 @@ def deployment_context_digest(context: DeploymentPlanContext) -> str:
         "deploy_console": context.deploy_console,
         "deploy_dev_operations_gateway": context.deploy_dev_operations_gateway,
         "deploy_document_ingestion": context.deploy_document_ingestion,
-        "deploy_read_api": context.deploy_read_api,
+        "deploy_operator_api": context.deploy_operator_api,
         "environment": context.environment,
         "runner_ref": context.runner_ref,
         "subscription_id": str(context.subscription_id),

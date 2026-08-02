@@ -3,7 +3,7 @@
 Given a proposed action (target Resource id, traversal spec), computes
 the depth-N neighborhood subgraph so a reviewer sees exactly which
 resources would be touched **before** the action fires. Called by the
-read-API simulator endpoint and by the risk-gate `graph_derived` axis
+Operator API simulator endpoint and by the risk-gate `graph_derived` axis
 whenever a live graph adapter is bound.
 
 The module is dependency-free of ``delivery/`` and cloud SDKs: the
@@ -234,7 +234,7 @@ def _check_truncation(
 
 @dataclass(slots=True)
 class InMemoryOntologyGraph:
-    """Fixture graph used by tests and the local read-API demo.
+    """Fixture graph used by tests and the local Operator API demo.
 
     ``edges`` maps ``(source, link_type) -> ordered tuple of targets``.
     ``link_types`` MUST include every link type the caller may name;

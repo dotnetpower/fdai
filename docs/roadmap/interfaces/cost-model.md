@@ -102,7 +102,7 @@ API/console, and email channels are separate line items.
 | Production delta | Zone-redundant PostgreSQL HA, 35-day geo backup, private networking/DNS, and private runner path | Price separately from the dev B1ms band. |
 | `enable_llm` | Azure OpenAI/Foundry account and capability deployments | Add token/PTU and embedding usage to the model budget. |
 | `enable_document_ingestion` | ADLS Gen2 ZRS/HNS, blob/dfs private endpoints, ingestion app + ClamAV, migration worker | Price storage capacity/operations, endpoints, and always-on replicas separately. |
-| Channel/console opt-in | Read API/channel app, Static Web Apps, ACS Email/SMS, and other enabled adapters | Price from actual enablement and delivery volume. |
+| Channel/console opt-in | Operator API/channel app, Static Web Apps, ACS Email/SMS, and other enabled adapters | Price from actual enablement and delivery volume. |
 
 ## T2 LLM Cost
 

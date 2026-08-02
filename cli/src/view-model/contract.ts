@@ -2,7 +2,7 @@
  * Briefing CONTRACT - the presentation-neutral data the console reads.
  *
  * This mirrors the shape a real deployment would receive from the read-only
- * `console-tool` calls (see `src/fdai/delivery/read_api/read_model.py` and
+ * `console-tool` calls (see `src/fdai/delivery/operator_api/read_model.py` and
  * `console/src/types.ts`). It is the raw content; `build-briefing.ts` compiles
  * it into the surface-neutral block IR. Nothing here is presentation.
  *

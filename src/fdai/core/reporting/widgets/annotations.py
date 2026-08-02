@@ -78,7 +78,7 @@ class ImageBuilder:
 
     On rejection returns an ``error``-style body so the FE has no
     reason to attempt the fetch. Defense in depth on top of the CSP the
-    read-API serves.
+    Operator API serves.
     """
 
     type_name = "image"

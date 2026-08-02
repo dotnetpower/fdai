@@ -72,7 +72,7 @@ class PlanSubmitter(Protocol):
         commit_sha: str,
         doctor_report: DoctorReport,
         deploy_console: bool,
-        deploy_read_api: bool,
+        deploy_operator_api: bool,
         deploy_dev_operations_gateway: bool,
         deploy_document_ingestion: bool,
     ) -> PlanSubmissionResult: ...
@@ -96,7 +96,7 @@ class GuidedOnboardingRequest:
     ref: str = "main"
     force_config: bool = False
     deploy_console: bool = False
-    deploy_read_api: bool = False
+    deploy_operator_api: bool = False
     deploy_dev_operations_gateway: bool = False
     deploy_document_ingestion: bool = False
 
@@ -219,7 +219,7 @@ async def run_guided_onboarding(
             commit_sha=request.commit_sha,
             doctor_report=target_report,
             deploy_console=request.deploy_console,
-            deploy_read_api=request.deploy_read_api,
+            deploy_operator_api=request.deploy_operator_api,
             deploy_dev_operations_gateway=request.deploy_dev_operations_gateway,
             deploy_document_ingestion=request.deploy_document_ingestion,
         )

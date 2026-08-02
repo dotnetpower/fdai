@@ -1,7 +1,7 @@
 """Tests for ``fdai.shared.ontology.acl``.
 
 Cover the property-level ACL projection contract used by every
-read surface (read-API panels, assurance twin, exported reports).
+read surface (Operator API panels, assurance twin, exported reports).
 """
 
 from __future__ import annotations

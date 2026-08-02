@@ -49,10 +49,10 @@ const ROUTES = [
   "/labs",
 ] as const;
 
-function isReadApiResponse(response: Response): boolean {
-  const configured = process.env.FDAI_E2E_READ_API_URL;
+function isOperatorApiResponse(response: Response): boolean {
+  const configured = process.env.FDAI_E2E_OPERATOR_API_URL;
   if (configured) return response.url().startsWith(configured.replace(/\/$/, ""));
-  return new URL(response.url()).port === (process.env.FDAI_E2E_READ_API_PORT ?? "8012");
+  return new URL(response.url()).port === (process.env.FDAI_E2E_OPERATOR_API_PORT ?? "8012");
 }
 
 async function waitForPanel(page: Page): Promise<void> {
@@ -63,11 +63,11 @@ async function waitForPanel(page: Page): Promise<void> {
 }
 
 for (const routePath of ROUTES) {
-  test(`${routePath} renders through the live read API without panel failures`, async ({ page }) => {
+  test(`${routePath} renders through the live Operator API without panel failures`, async ({ page }) => {
     const failedResponses: string[] = [];
     const pageErrors: string[] = [];
     page.on("response", (response) => {
-      if (isReadApiResponse(response) && response.status() >= 400) {
+      if (isOperatorApiResponse(response) && response.status() >= 400) {
         failedResponses.push(`${response.status()} ${new URL(response.url()).pathname}`);
       }
     });

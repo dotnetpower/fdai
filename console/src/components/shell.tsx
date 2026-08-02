@@ -1,6 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { t } from "../i18n";
 import {
@@ -19,7 +19,7 @@ import { NavigationTitleProvider } from "./navigation-title";
 interface ShellProps {
   readonly activePanelId: string;
   readonly auth: AuthContext;
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly children: ComponentChildren;
   readonly onExitLocalSession?: () => void;
 }

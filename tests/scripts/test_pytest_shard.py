@@ -18,7 +18,7 @@ def test_each_file_is_assigned_to_exactly_one_shard() -> None:
     paths = (
         Path("tests/core/risk_gate/test_gate.py"),
         Path("tests/core/quality_gate/test_gate.py"),
-        Path("tests/delivery/read_api/test_local.py"),
+        Path("tests/delivery/operator_api/test_local.py"),
     )
     assignments = {_shard_for(path, 3) for path in paths}
     assert assignments <= {0, 1, 2}

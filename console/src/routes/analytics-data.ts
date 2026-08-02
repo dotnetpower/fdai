@@ -1,6 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
-import { ReadApiError } from "../api";
+import type { OperatorApiClient } from "../api";
+import { OperatorApiError } from "../api";
 import type { AutonomyPayload, DashboardKpi } from "../types";
 import type { AsyncState } from "../components/ui";
 import type { GatesSummary } from "./dashboard.model";
@@ -19,7 +19,7 @@ async function optional<T>(load: () => Promise<T>): Promise<T | null> {
   try {
     return await load();
   } catch (error) {
-    if (error instanceof ReadApiError && (error.status === 404 || error.status === 501)) {
+    if (error instanceof OperatorApiError && (error.status === 404 || error.status === 501)) {
       return null;
     }
     throw error;
@@ -27,7 +27,7 @@ async function optional<T>(load: () => Promise<T>): Promise<T | null> {
 }
 
 export async function loadAnalyticsData(
-  client: ReadApiClient,
+  client: OperatorApiClient,
   options: AnalyticsDataOptions = {},
 ): Promise<AnalyticsData> {
   const [kpi, autonomy, gates] = await Promise.all([
@@ -41,7 +41,7 @@ export async function loadAnalyticsData(
 }
 
 export function useAnalyticsData(
-  client: ReadApiClient,
+  client: OperatorApiClient,
   options: AnalyticsDataOptions = {},
 ): AsyncState<AnalyticsData> {
   const [state, setState] = useState<AsyncState<AnalyticsData>>({ status: "loading" });

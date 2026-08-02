@@ -1,0 +1,234 @@
+"""Shared validation, metadata, and policy helpers for chat routes."""
+
+from __future__ import annotations
+
+import hashlib
+import uuid
+from collections.abc import Awaitable, Callable, Mapping
+from typing import Any, Final
+
+from starlette.exceptions import HTTPException
+from starlette.requests import Request
+
+from fdai.agents import PANTHEON_NAMES
+from fdai.core.conversation.answer_preferences import ResponsePreferenceProfile
+from fdai.core.conversation.policy_prompt import UserPolicyCompiler
+from fdai.core.conversation_assurance import (
+    ChatPolicyTarget,
+    ConversationPolicyRuntime,
+    assurance_principal_scope,
+)
+from fdai.delivery.operator_api.routes.chat_prompt import (
+    _ASSURANCE_POLICY_KEY,
+    _COMPILED_USER_POLICY_KEY,
+)
+from fdai.shared.providers.briefing import ConversationPolicyStore
+
+DEFAULT_MAX_BODY_BYTES: Final[int] = 200_000
+
+
+# The chat routes accept up to DEFAULT_MAX_IMAGES inline base64 images as
+# read-only vision evidence, so their body cap is raised to fit that bounded
+# payload: DEFAULT_MAX_IMAGES (4) * DEFAULT_MAX_IMAGE_BYTES (4 MiB) * 4/3
+# (base64 expansion) plus headroom for the prompt, history, and JSON framing.
+DEFAULT_MAX_CHAT_BODY_BYTES: Final[int] = 26 * 1024 * 1024
+
+
+DEFAULT_MAX_HISTORY_ITEMS: Final[int] = 200
+
+
+DEFAULT_MAX_SESSION_ID_CHARS: Final[int] = 200
+
+
+def _conversation_context(body: Mapping[str, Any]) -> dict[str, str] | None:
+    raw = body.get("conversation_context")
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping):
+        raise HTTPException(status_code=400, detail="conversation_context MUST be an object")
+    if raw.get("kind") != "incident":
+        raise HTTPException(status_code=400, detail="conversation_context kind MUST be incident")
+    context: dict[str, str] = {"kind": "incident"}
+    for field in ("incident_id", "correlation_id"):
+        value = raw.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise HTTPException(status_code=400, detail=f"{field} MUST be a non-empty string")
+        normalized = value.strip()
+        if len(normalized) > 256:
+            raise HTTPException(status_code=400, detail=f"{field} exceeds cap (256)")
+        context[field] = normalized
+    selected_agent = raw.get("selected_agent")
+    if selected_agent is not None:
+        if not isinstance(selected_agent, str) or selected_agent not in PANTHEON_NAMES:
+            raise HTTPException(status_code=400, detail="selected_agent MUST name a Pantheon agent")
+        context["selected_agent"] = selected_agent
+    return context
+
+
+def _target_agent(
+    body: Mapping[str, Any],
+    conversation_context: Mapping[str, str] | None,
+) -> str | None:
+    raw = body.get("target_agent")
+    if raw is None:
+        return None
+    if not isinstance(raw, str) or raw not in PANTHEON_NAMES:
+        raise HTTPException(status_code=400, detail="target_agent MUST name a Pantheon agent")
+    selected_agent = (
+        conversation_context.get("selected_agent") if conversation_context is not None else None
+    )
+    if selected_agent is not None and raw != selected_agent:
+        raise HTTPException(
+            status_code=400,
+            detail="target_agent MUST match conversation_context.selected_agent",
+        )
+    return raw
+
+
+def _turn_metadata(
+    *,
+    model: str,
+    view_context: Mapping[str, Any],
+    answer_planning: Mapping[str, object] | None = None,
+) -> dict[str, Any]:
+    """Persist replay evidence while keeping it out of the browser payload."""
+
+    metadata: dict[str, Any] = {"model": model}
+    web = view_context.get("_web_evidence")
+    if isinstance(web, Mapping):
+        metadata["web_evidence"] = dict(web)
+    if answer_planning is not None:
+        metadata["answer_planning"] = dict(answer_planning)
+    return metadata
+
+
+def _session_id(body: Mapping[str, Any]) -> str:
+    raw = body.get("session_id")
+    if raw is None:
+        return "default"
+    if not isinstance(raw, str) or not raw.strip():
+        raise HTTPException(status_code=400, detail="session_id MUST be a non-empty string")
+    value = raw.strip()
+    if len(value) > DEFAULT_MAX_SESSION_ID_CHARS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"session_id exceeds cap ({len(value)} > {DEFAULT_MAX_SESSION_ID_CHARS})",
+        )
+    return value
+
+
+def _request_id(body: Mapping[str, Any]) -> str:
+    raw = body.get("request_id")
+    if raw is None:
+        return f"chat-{uuid.uuid4()}"
+    if not isinstance(raw, str) or not raw.strip():
+        raise HTTPException(status_code=400, detail="request_id MUST be a non-empty string")
+    value = raw.strip()
+    if len(value) > 128:
+        raise HTTPException(status_code=400, detail="request_id exceeds cap (128)")
+    return value
+
+
+def _metering_correlation_id(user_id: str, session_id: str) -> str:
+    """Return an opaque, stable metering key for one operator conversation."""
+    digest = hashlib.sha256(f"{user_id}\0{session_id}".encode()).hexdigest()[:32]
+    return f"chat-{digest}"
+
+
+def _uses_evidence_fast_path(view_context: Mapping[str, Any]) -> bool:
+    """Return whether server evidence can render the answer without a model."""
+
+    if isinstance(view_context.get("_behavior_evidence"), Mapping):
+        return True
+    tool = view_context.get("_tool_evidence")
+    if isinstance(tool, Mapping) and tool.get("tool") in {
+        "describe_read_sources",
+        "get_current_time",
+        "query_inventory",
+        "query_detection_readiness",
+        "query_log",
+        "query_subscription_scope",
+        "query_subscription_health",
+    }:
+        return True
+    raw = view_context.get("_operational_evidence")
+    if not isinstance(raw, Mapping):
+        return False
+    if raw.get("status") != "matched":
+        return True
+    hypotheses = raw.get("grounded_hypotheses")
+    return not isinstance(hypotheses, list) or len(hypotheses) == 0
+
+
+AuthorizeFn = Callable[[Request], Awaitable[str]]
+
+
+ModelPreferenceResolver = Callable[[str], Awaitable[str | None]]
+
+
+AnswerPreferenceResolver = Callable[[str], Awaitable[ResponsePreferenceProfile | None]]
+
+
+async def _with_compiled_user_policy(
+    view_context: dict[str, Any],
+    *,
+    user_id: str,
+    store: ConversationPolicyStore | None,
+) -> dict[str, Any]:
+    enriched = dict(view_context)
+    enriched.pop(_COMPILED_USER_POLICY_KEY, None)
+    if store is None:
+        return enriched
+    policies = tuple(await store.list_for_principal(principal_id=user_id))
+    compiled = UserPolicyCompiler().compile(policies)
+    if compiled is None:
+        return enriched
+    enriched[_COMPILED_USER_POLICY_KEY] = {
+        "text": compiled.system_text,
+        "policy_refs": list(compiled.policy_refs),
+        "compiler_version": compiled.compiler_version,
+    }
+    return enriched
+
+
+async def _with_assurance_policy(
+    view_context: dict[str, Any],
+    *,
+    user_id: str,
+    request_id: str,
+    runtime: ConversationPolicyRuntime | None,
+) -> dict[str, Any]:
+    """Replace any client value with one server-resolved canary policy."""
+
+    enriched = dict(view_context)
+    enriched.pop(_ASSURANCE_POLICY_KEY, None)
+    if runtime is None:
+        return enriched
+    policy = await runtime.resolve(
+        principal_scope=assurance_principal_scope(user_id),
+        target=ChatPolicyTarget.NARRATOR_PROMPT,
+        assignment_key=request_id,
+    )
+    if policy is None:
+        return enriched
+    enriched[_ASSURANCE_POLICY_KEY] = {
+        "candidate_id": policy.candidate_id,
+        "policy_digest": policy.policy_digest,
+        "stage": policy.stage.value,
+        "target": policy.target.value,
+        "text": policy.policy_text,
+    }
+    return enriched
+
+
+def assurance_policy_summary(view_context: Mapping[str, Any]) -> dict[str, str] | None:
+    raw = view_context.get(_ASSURANCE_POLICY_KEY)
+    if not isinstance(raw, Mapping):
+        return None
+    summary: dict[str, str] = {}
+    for key in ("candidate_id", "policy_digest", "stage", "target"):
+        value = raw.get(key)
+        if not isinstance(value, str) or not value:
+            return None
+        summary[key] = value
+    return summary

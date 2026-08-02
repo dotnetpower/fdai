@@ -1,4 +1,4 @@
-"""Human-identity RBAC - the authority for who may do what via the read API.
+"""Human-identity RBAC - the authority for who may do what via the Operator API.
 
 Governs *human* users only: console sign-in, ChatOps approvers, catalog PR
 authors. Non-human identities (executor Managed Identity, GitHub App,

@@ -104,7 +104,7 @@
     "headlineIdle": "{correlation}의 추적을 아직 불러오지 않음",
     "headlineLoading": "{correlation}의 추적을 불러오는 중",
     "headlineError": "{correlation}의 추적을 사용할 수 없음",
-    "invalidEvidence": "추적 근거가 일관되지 않습니다. 연결된 감사 로그를 열고 읽기 API 데이터가 복구된 후 다시 시도하세요.",
+    "invalidEvidence": "추적 근거가 일관되지 않습니다. 연결된 감사 로그를 열고 Operator API 데이터가 복구된 후 다시 시도하세요.",
     "loadError": "추적을 불러오지 못했습니다: {message}",
     "column": {
       "recordedAt": "기록 시각",

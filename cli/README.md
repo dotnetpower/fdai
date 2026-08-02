@@ -11,7 +11,7 @@ runnable successor to the design mock at [../mocks/ui-cli](../mocks/ui-cli).
 
 ## Quick start (one command)
 
-To boot the dev read API and open the CLI wired to it in a single step, use the
+To boot the dev Operator API and open the CLI wired to it in a single step, use the
 Python launcher (it starts the API, waits for health, runs the CLI, then tears
 the API down on exit):
 
@@ -20,7 +20,7 @@ uv run python -m tools.console          # from the repo root
 # or:  python tools/console.py
 ```
 
-It reuses an already-running read API on the port if one is up. See
+It reuses an already-running Operator API on the port if one is up. See
 [../tools/console.py](../tools/console.py). The rest of this doc covers running
 the pieces directly.
 
@@ -112,7 +112,7 @@ format to stdout from the same block IR.
 - `--source=api` - the live read-only console API; `--api=<url>` sets the base
   URL (default `http://127.0.0.1:8010`). In a terminal this opens the **live
   cockpit** ([src/cockpit.ts](src/cockpit.ts)): a single alternate-screen view
-  fed by the read API's `/live/stream` (SSE), where each frame is a **real
+  fed by the Operator API's `/live/stream` (SSE), where each frame is a **real
   StageEvent from an actual `ControlLoop` run** (real rule catalog, T0 engine,
   Rego). The header reads `Forward Deployed Agents - Cloud Ops - read-only`, followed
   by a plain-language summary of what has been handled (fixed-rules vs stepped
@@ -161,23 +161,23 @@ format to stdout from the same block IR.
 ## Narrator (natural language)
 
 Questions typed at the prompt go to `POST /chat` through
-[src/data/read-api.ts](src/data/read-api.ts). The Python read API owns intent
+[src/data/operator-api.ts](src/data/operator-api.ts). The Python Operator API owns intent
 routing, role-aware tool evidence, model selection, evidence check, semantic shadow
 verification, response verification, and refusal behavior. The CLI contributes
 only a self-describing snapshot of what it currently renders and displays the
 returned answer.
 
-Configure the narrator on the read-API process, not in the CLI process. The
+Configure the narrator on the Operator API process, not in the CLI process. The
 backend accepts the `FDAI_NARRATOR_*` settings and `resolved-models.json`
 described in the operator-console design. When the backend is unavailable, the
 CLI reports the HTTP failure; it does not silently switch to a second policy
 implementation.
 
-Start the dev read API first:
+Start the dev Operator API first:
 
 ```bash
-FDAI_READ_API_DEV_MODE=1 uv run --with uvicorn \
-  uvicorn 'fdai.delivery.read_api.dev.local:app' --factory --port 8010
+FDAI_OPERATOR_API_DEV_MODE=1 uv run --with uvicorn \
+  uvicorn 'fdai.delivery.operator_api.dev.local:app' --factory --port 8010
 # then, in cli/:
 npm run api          # interactive terminal against live data
 tsx src/cli.tsx --surface=slack --source=api   # live data as Block Kit
@@ -190,7 +190,7 @@ cd cli
 npm install
 
 npm run cli      # Ink terminal render (default)
-npm run api      # live interactive cockpit through the shared read API
+npm run api      # live interactive cockpit through the shared Operator API
 npm run text     # plain text
 npm run slack    # Slack Block Kit JSON
 npm run teams    # Teams Adaptive Card JSON
@@ -209,7 +209,7 @@ Unknown, duplicate, empty, and malformed options exit with status 2.
   [src/i18n](src/i18n); a key missing from a locale falls back to English, never a
   blank. Data values (operator name, window label, resource ids) are never
   translated.
-- `--api=http://127.0.0.1:8010` - shared read-API base URL. Only HTTP(S) URLs
+- `--api=http://127.0.0.1:8010` - shared Operator API base URL. Only HTTP(S) URLs
   without embedded credentials, a query, or a fragment are accepted.
 - `--help` / `-h` - print usage and exit.
 
@@ -225,9 +225,9 @@ tsx src/cli.tsx --surface=text --locale=ko
 | [src/view-model/contract.ts](src/view-model/contract.ts) | briefing input contract (mirrors the read-only `console-tool` payload) |
 | [src/view-model/blocks.ts](src/view-model/blocks.ts) | the presentation-neutral block IR (`Block`, `Tone`) |
 | [src/view-model/build-briefing.ts](src/view-model/build-briefing.ts) | the single compiler: contract -> `Block[]` |
-| [src/view-model/build-from-readmodel.ts](src/view-model/build-from-readmodel.ts) | compile a live read-API snapshot -> `Block[]` |
+| [src/view-model/build-from-readmodel.ts](src/view-model/build-from-readmodel.ts) | compile a live Operator API snapshot -> `Block[]` |
 | [src/i18n/](src/i18n/) | L2 message catalogs (`messages.en.json` source + `messages.ko.json`) and the `t()` helper (dot-path lookup, `{name}` params, English fallback) |
-| [src/data/read-api.ts](src/data/read-api.ts) | read-only client for `/kpi`, `/hil-queue`, `/audit`, and shared `/chat` |
+| [src/data/operator-api.ts](src/data/operator-api.ts) | read-only client for `/kpi`, `/hil-queue`, `/audit`, and shared `/chat` |
 | [src/channel-context.ts](src/channel-context.ts) | minimal presentation context passed to the REPL and cockpit |
 | [src/data/sample-briefing.ts](src/data/sample-briefing.ts) | synthetic payload for both modes |
 | [src/renderers/ink/](src/renderers/ink/) | terminal briefing renderer (React/Ink) + tone->hex theme |

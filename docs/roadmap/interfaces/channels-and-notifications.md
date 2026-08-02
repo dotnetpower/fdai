@@ -312,7 +312,7 @@ The service worker keeps notification rendering and click handling available whi
 backgrounded, but the current Console does not register a Push API subscription or a server-side
 subscription store. A fully closed browser therefore receives no notification. Closed-browser Web
 Push requires a separately authenticated write service, encrypted subscription storage, revocation,
-CSRF protection, and delivery audit before it can be enabled; it does not belong in the read API.
+CSRF protection, and delivery audit before it can be enabled; it does not belong in the Operator API.
 
 ## 5. Channel Interfaces (contracts)
 

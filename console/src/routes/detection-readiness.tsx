@@ -1,6 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 
-import { isOptionalReadApiUnavailable, ReadApiError, type ReadApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, OperatorApiError, type OperatorApiClient } from "../api";
 import { architectureHref } from "../components/architecture-map.model";
 import {
   AsyncBoundary,
@@ -66,7 +66,7 @@ interface DetectionReadinessView {
   readonly targets: readonly DetectionTargetView[];
 }
 
-export function DetectionReadinessRoute({ client }: { readonly client: ReadApiClient }) {
+export function DetectionReadinessRoute({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<DetectionReadinessView>>({ status: "loading" });
   useEffect(() => {
     let active = true;
@@ -87,13 +87,13 @@ export function DetectionReadinessRoute({ client }: { readonly client: ReadApiCl
 }
 
 export async function loadDetectionReadinessState(
-  client: ReadApiClient,
+  client: OperatorApiClient,
 ): Promise<AsyncState<DetectionReadinessView>> {
   try {
     const value = await client.panel<unknown>("/detection-readiness");
     return { status: "ready", data: decodeDetectionReadiness(value) };
   } catch (error) {
-    return isOptionalReadApiUnavailable(error)
+    return isOptionalOperatorApiUnavailable(error)
       ? { status: "unavailable", message: t("unavailable") }
       : { status: "error", message: error instanceof Error ? error.message : String(error) };
   }
@@ -113,7 +113,7 @@ export function decodeDetectionReadiness(value: unknown): DetectionReadinessView
   );
   const targetCount = panelNonNegativeInteger(root, "target_count", "detection readiness");
   if (targets.length !== targetCount || Object.values(counts).reduce((sum, count) => sum + count, 0) !== targetCount) {
-    throw new ReadApiError(502, "invalid read API response: detection readiness totals do not reconcile");
+    throw new OperatorApiError(502, "invalid Operator API response: detection readiness totals do not reconcile");
   }
   return {
     source: panelNonEmptyString(root, "source", "detection readiness"),
@@ -137,7 +137,7 @@ function decodeTarget(value: unknown, index: number): DetectionTargetView {
   });
   const dimensions = observations.map((item) => item.dimension);
   if (new Set(dimensions).size !== dimensions.length) {
-    throw new ReadApiError(502, "invalid read API response: duplicate detection readiness dimension");
+    throw new OperatorApiError(502, "invalid Operator API response: duplicate detection readiness dimension");
   }
   return {
     resource_ref: panelNonEmptyString(row, "resource_ref", "detection target"),
@@ -152,7 +152,7 @@ function decodeTarget(value: unknown, index: number): DetectionTargetView {
 
 function member<T extends string>(value: string, values: readonly T[], label: string): T {
   if (!values.includes(value as T)) {
-    throw new ReadApiError(502, `invalid read API response: unknown detection readiness ${label}`);
+    throw new OperatorApiError(502, `invalid Operator API response: unknown detection readiness ${label}`);
   }
   return value as T;
 }

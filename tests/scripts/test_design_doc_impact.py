@@ -21,7 +21,7 @@ def _manifest() -> dict[str, object]:
         "routes": [
             {
                 "id": "local",
-                "paths": ["src/fdai/delivery/read_api/dev/**"],
+                "paths": ["src/fdai/delivery/operator_api/dev/**"],
                 "docs_update": ["docs/parity.md", "docs/rbac.md"],
             }
         ]
@@ -32,13 +32,13 @@ def test_behavior_change_requires_route_owned_doc() -> None:
     module = _load_module()
 
     failures = module.missing_doc_updates(
-        {"src/fdai/delivery/read_api/dev/factory.py"}, _manifest()
+        {"src/fdai/delivery/operator_api/dev/factory.py"}, _manifest()
     )
 
     assert failures == [
         (
             "local",
-            ("src/fdai/delivery/read_api/dev/factory.py",),
+            ("src/fdai/delivery/operator_api/dev/factory.py",),
             ("docs/parity.md", "docs/rbac.md"),
         )
     ]
@@ -49,7 +49,7 @@ def test_one_owning_doc_satisfies_route() -> None:
 
     failures = module.missing_doc_updates(
         {
-            "src/fdai/delivery/read_api/dev/factory.py",
+            "src/fdai/delivery/operator_api/dev/factory.py",
             "docs/parity.md",
         },
         _manifest(),

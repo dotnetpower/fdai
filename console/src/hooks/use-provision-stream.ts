@@ -1,9 +1,9 @@
 /**
  * Provisioning progress stream hook (surface B consumer).
  *
- * Subscribes to the read-API's `GET /provision/stream` SSE endpoint via
+ * Subscribes to the Operator API's `GET /provision/stream` SSE endpoint via
  * authenticated fetch and decodes the `provision.*` events documented in
- * {@link fdai.delivery.read_api.provision_stream}. It mirrors
+ * {@link fdai.delivery.operator_api.provision_stream}. It mirrors
  * {@link useLiveStream}: pure read consumer, browser-managed reconnect,
  * visibility-gated so a backgrounded tab does not hammer the server.
  *

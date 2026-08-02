@@ -18,11 +18,11 @@ from pathlib import Path
 
 import pytest
 
-from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
-from fdai.delivery.read_api.postgres_read_model import (
+from fdai.delivery.operator_api.postgres_read_model import (
     PostgresConsoleReadModel,
     PostgresConsoleReadModelConfig,
 )
+from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 
 pytestmark = pytest.mark.integration
 

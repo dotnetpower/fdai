@@ -18,8 +18,8 @@
  */
 
 import { useEffect, useState } from "preact/hooks";
-import { isOptionalReadApiUnavailable } from "../api";
-import type { ReadApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable } from "../api";
+import type { OperatorApiClient } from "../api";
 import { AsyncBoundary, PageHeader, type AsyncState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
@@ -47,7 +47,7 @@ export { workflowStepHref } from "./workflow-builder.detail";
 export { hasActionTypeRef, requestedActionType, workflowSelection } from "./workflow-builder.model";
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
 }
 
 const EMPTY_WORKFLOW_DEFINITIONS: WorkflowDefinitionCatalogResponse = {
@@ -57,24 +57,24 @@ const EMPTY_WORKFLOW_DEFINITIONS: WorkflowDefinitionCatalogResponse = {
 };
 
 export async function loadWorkflowDefinitions(
-  client: Pick<ReadApiClient, "panel">,
+  client: Pick<OperatorApiClient, "panel">,
 ): Promise<WorkflowDefinitionCatalogResponse> {
   try {
     return await client.panel<WorkflowDefinitionCatalogResponse>("/workflows/definitions");
   } catch (error) {
-    if (isOptionalReadApiUnavailable(error)) return EMPTY_WORKFLOW_DEFINITIONS;
+    if (isOptionalOperatorApiUnavailable(error)) return EMPTY_WORKFLOW_DEFINITIONS;
     throw error;
   }
 }
 
 export async function loadPythonTaskAvailability(
-  client: Pick<ReadApiClient, "panel">,
+  client: Pick<OperatorApiClient, "panel">,
 ): Promise<PythonTaskAvailability | null> {
   try {
     const payload = await client.panel<unknown>("/python-tasks/capabilities");
     return decodePythonTaskAvailability(payload);
   } catch (error) {
-    if (isOptionalReadApiUnavailable(error)) return null;
+    if (isOptionalOperatorApiUnavailable(error)) return null;
     throw error;
   }
 }
@@ -107,7 +107,7 @@ export function WorkflowBuilderRoute({ client }: Props) {
       } catch (err) {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : String(err);
-          if (isOptionalReadApiUnavailable(err)) {
+          if (isOptionalOperatorApiUnavailable(err)) {
             setState({
               status: "unavailable",
               message: t("workflow.builder.unavailable"),

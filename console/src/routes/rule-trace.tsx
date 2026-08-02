@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import {
   AsyncBoundary,
   DataTable,
@@ -59,7 +59,7 @@ export interface TraceOperationalSummary {
 }
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
 }
 
 /**
@@ -190,7 +190,7 @@ export function RuleTraceRoute({ client }: Props) {
 
 function traceLoadErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
-  return message.startsWith("invalid read API response:")
+  return message.startsWith("invalid Operator API response:")
     ? t("evidence.trace.invalidEvidence")
     : t("evidence.trace.loadError", { message });
 }
@@ -202,11 +202,11 @@ export function decodeTraceResponse(value: unknown): TraceResponse {
     const row = panelRecord(value, `trace.steps[${index}]`);
     const recordedAt = panelNonEmptyString(row, "recorded_at", "trace step");
     if (!isRfc3339Timestamp(recordedAt)) {
-      throw new Error("invalid read API response: trace step.recorded_at MUST be RFC 3339");
+      throw new Error("invalid Operator API response: trace step.recorded_at MUST be RFC 3339");
     }
     const stage = panelNullableString(row, "stage", "trace step");
     if (stage !== null && stage.trim().length === 0) {
-      throw new Error("invalid read API response: trace step.stage MUST be null or non-empty");
+      throw new Error("invalid Operator API response: trace step.stage MUST be null or non-empty");
     }
     return {
       seq: panelNonNegativeInteger(row, "seq", "trace step"),
@@ -221,22 +221,22 @@ export function decodeTraceResponse(value: unknown): TraceResponse {
   });
   const stepCount = panelNonNegativeInteger(root, "step_count", "trace");
   if (stepCount !== steps.length) {
-    throw new Error("invalid read API response: trace.step_count MUST match steps");
+    throw new Error("invalid Operator API response: trace.step_count MUST match steps");
   }
   const sequence = steps.map((step) => step.seq);
   if (new Set(sequence).size !== sequence.length || sequence.some((seq, index) => index > 0 && seq <= sequence[index - 1]!)) {
-    throw new Error("invalid read API response: trace steps MUST have unique ascending seq values");
+    throw new Error("invalid Operator API response: trace steps MUST have unique ascending seq values");
   }
   const terminalStage = panelNullableString(root, "terminal_stage", "trace");
   if (terminalStage !== null && terminalStage.trim().length === 0) {
-    throw new Error("invalid read API response: trace.terminal_stage MUST be null or non-empty");
+    throw new Error("invalid Operator API response: trace.terminal_stage MUST be null or non-empty");
   }
   let lastNamedStage: string | null = null;
   for (const step of steps) {
     if (step.stage !== null) lastNamedStage = step.stage;
   }
   if (terminalStage !== lastNamedStage) {
-    throw new Error("invalid read API response: trace.terminal_stage MUST match the last named stage");
+    throw new Error("invalid Operator API response: trace.terminal_stage MUST match the last named stage");
   }
   return {
     correlation_id: correlationId,

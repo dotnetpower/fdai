@@ -17,7 +17,7 @@ npm --prefix console install
 
 ## 2. Azure sign-in (`az login`)
 
-The local read API and Azure adapters reuse your interactive Azure CLI
+The local Operator API and Azure adapters reuse your interactive Azure CLI
 session. Sign in and confirm the active account before anything else, because
 a wrong subscription or tenant is the most common source of confusing errors.
 
@@ -71,7 +71,7 @@ in [console/README.md](console/README.md#fork-configuration). The common keys:
 | Variable | Purpose |
 |----------|---------|
 | `VITE_MSAL_CLIENT_ID` / `VITE_MSAL_TENANT_ID` | Entra SPA app registration for browser sign-in. |
-| `VITE_READ_API_BASE_URL` | Read API origin (local default `http://127.0.0.1:8010`). |
+| `VITE_OPERATOR_API_BASE_URL` | Operator API origin (local default `http://127.0.0.1:8010`). |
 | `VITE_LOCAL_AZURE_CLI_AUTH` | `1` projects your `az login` user through the API instead of browser Entra. Never set in production. |
 | `FDAI_DATABASE_URL` | Postgres DSN; gates the `tests/persistence/` tests and the local core runtime. |
 | `AZURE_CONFIG_DIR` | Named Azure CLI profile (see section 2). Export the same value for the API. |
@@ -82,12 +82,12 @@ with the `azure-selfprovision` skill.
 
 ## 5. Start the local stack
 
-The canonical topology is the console SPA (`5273`), read API (`8010`), and
+The canonical topology is the console SPA (`5273`), Operator API (`8010`), and
 ingestion gateway (`8011`).
 
 - VS Code (recommended): trust the workspace. Automatic workspace tasks are
-  enabled in `.vscode/settings.json`, so `console: read API (Local Entra)`
-  prepares and starts the read API without prompting whenever the folder opens.
+  enabled in `.vscode/settings.json`, so `console: Operator API (Local Entra)`
+  prepares and starts the Operator API without prompting whenever the folder opens.
   Start `console: core runtime` and
   `console: frontend (Browser Entra)` separately, or use the
   `Console Web: Full Stack` compound from Run and Debug.

@@ -1,8 +1,8 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: 7e2fadf478c8b92a30dc42e1bfa7de3f4d1e6cf5
-translation_revised: 2026-08-01
+translation_source_sha: fcfd12cd718d0179ae4176e47d8cf05ed088aee9
+translation_revised: 2026-08-02
 ---
 
 # 진화하는 시스템 프롬프트
@@ -122,7 +122,7 @@ rule-catalog/
 ### 런타임 데이터 (Postgres, hash 주소 blob)
 
   다음은 목표 persistence 모델입니다. `operator_memory`는 배포됐고 전용
-  `agent_transcript`와 `web_evidence` 테이블은 아직 계획 단계입니다. Read API는 현재
+  `agent_transcript`와 `web_evidence` 테이블은 아직 계획 단계입니다. Operator API는 현재
   sanitized web evidence를 durable conversation turn에 첨부합니다.
 
 ```sql
@@ -255,7 +255,7 @@ Web search는 최후의 수단 툴입니다. 배포별 opt-in이며 절대 groun
 
 - **기본 off**: 업스트림은 no-op `WebSearchProvider`를 배포합니다.
   `FDAI_WEB_SEARCH_ENABLED=true`와 curated 도메인 allowlist를 설정하면 Azure
-  Responses adapter가 활성화됩니다. 프로덕션은 read API managed identity를
+  Responses adapter가 활성화됩니다. 프로덕션은 Operator API managed identity를
   재사용하며 대화 surface에 검색 API key를 추가하지 않습니다.
 - **언제 실행 가능**: T2 케이스, novelty score가 threshold 초과, capability의
   tool allowlist가 `web.search`를 포함, 이벤트당 query / cost budget이 소진되지
@@ -431,7 +431,7 @@ PR review comment on rem PR     --/         v
 | 4.5 delta-2a | `core/quality_gate/debate_router.py`의 `DebateRouter` 순수 정책 모듈: `DebateRoutingDecision` + `DebateRouterConfig` (`enabled` 킬스위치, `on_cross_check_disagreement` 축, `always_for_action_types` / `never_for_action_types` 허용/거부 리스트) + `decide_debate_route()` fail-closed 술어. Orchestrator 미이용 시 SKIP short-circuit; 킬스위치가 allowlist 지배; denylist가 allowlist 이김 | yes |
 | 4.5 delta-2b | `QualityGate`가 선택적 `debate_orchestrator` + `debate_router_config` 수용. Cross-check disagreement 시 `decide_debate_route()` 호출; `DEBATE`면 primary cross-check 모델을 재호출하는 no-directive `retry_proposer`와 함께 orchestrator 실행. `DebateOutcome.PROCEED`가 disagreement를 `ELIGIBLE`로 flip (다른 soft issue가 없는 한); `ABORT`는 `DISAGREE` 유지. Half-wiring (두 파라미터 중 하나만) 은 construction 시점에 raise | yes |
 | 5 alpha | `core/web_search/`의 웹 검색 seam: `WebSearchQuery` / `WebSnippet` / `WebSearchResult` 타입, `WebSearchProvider` async Protocol, `NoOpWebSearchProvider` 기본 비활성 fake (모든 쿼리에서 zero snippets + `reasons=("no_op_provider",)` 반환), 그리고 off-allowlist 도메인과 injection marker를 거부한 후 `<web_snippet trusted="false" ...>...</web_snippet>` envelope을 생성하는 sanitizer 헬퍼 (`validate_snippet_domain`, `detect_snippet_injection_markers`, `wrap_web_snippet`) | yes |
-| 5 beta-A | Azure Responses provider + latency-routed model pool + read API chat opt-in wiring | yes |
+| 5 beta-A | Azure Responses provider + latency-routed model pool + Operator API chat opt-in wiring | yes |
 | 5 beta-B | 정책에 따라 sanitized snippet을 tool manifest에 threading하는 core T2 composition wire | 계획됨 |
 
 ## Wave 1 - 무엇이 배포되었나
@@ -1391,7 +1391,7 @@ historical shape을 유지하므로 모든 기존 `QualityGate` caller가 동작
 
 Wave 5 alpha는 웹 검색을 위한 upstream **seam**을 랜딩합니다: 타입,
 Protocol, 기본 비활성 fake, sanitizer 방어. 이후 검토된 Azure Responses
-adapter와 read API chat wiring이 배포됐고 core T2 prompt composition은
+adapter와 Operator API chat wiring이 배포됐고 core T2 prompt composition은
 아직 이 seam에서 멈춥니다.
 
 - `src/fdai/core/web_search/types.py` -

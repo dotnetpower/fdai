@@ -1,7 +1,7 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: b8e0fe20b3c47af12ca4f24719480cf6a3c60bc2
-translation_revised: 2026-07-27
+translation_source_sha: 97252125dd0f2afe916a75be1bc545071b2af78c
+translation_revised: 2026-08-02
 ---
 # 영구 대화 전송
 
@@ -127,7 +127,7 @@ Denied 또는 failed fallback은 audited됩니다. Fallback failure는 delivery�
 authority를 부여하지 않습니다.
 
 Pause, resume 및 status command는 별도로 authenticated된 channel command app의
-`/commands/adapters/*`에 있습니다. Console read API에는 mount하지 않습니다.
+`/commands/adapters/*`에 있습니다. Console Operator API에는 mount하지 않습니다.
 
 ## Conversation 및 scheduled integration
 

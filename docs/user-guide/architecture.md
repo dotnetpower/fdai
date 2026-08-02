@@ -43,7 +43,7 @@ primary signal, decision, evidence, approval, and delivery paths. Nested
 boundaries show the Azure region, virtual network, and delegated subnets.
 
 <fdai-architecture-diagram manifest="../diagrams/generated/fdai-azure-deployment-topology.manifest.json" locale="en" style="display:block">
-  <img src="../diagrams/generated/fdai-azure-deployment-topology.en.svg" alt="Azure platform signals and scheduled probes enter Azure Event Hubs through its Kafka endpoint. A VNet-integrated Container Apps environment runs the FDAI core, scheduled jobs, and a separately identified read API. The core uses managed identity to read Azure Resource Graph, request optional Azure OpenAI models, obtain Key Vault references, and write governed state and append-only audit evidence to PostgreSQL. Private endpoints and private DNS keep supported data-plane traffic inside the virtual network. Operators authenticate with Microsoft Entra ID, inspect the read-only console, approve high-risk work through Teams, and receive governed changes through Git pull requests. Application Insights and Log Analytics observe every runtime path without becoming a decision surface." loading="lazy" style="display:block;width:100%;height:auto" />
+  <img src="../diagrams/generated/fdai-azure-deployment-topology.en.svg" alt="Azure platform signals and scheduled probes enter Azure Event Hubs through its Kafka endpoint. A VNet-integrated Container Apps environment runs the FDAI core, scheduled jobs, and a separately identified Operator API. The core uses managed identity to read Azure Resource Graph, request optional Azure OpenAI models, obtain Key Vault references, and write governed state and append-only audit evidence to PostgreSQL. Private endpoints and private DNS keep supported data-plane traffic inside the virtual network. Operators authenticate with Microsoft Entra ID, inspect the read-only console, approve high-risk work through Teams, and receive governed changes through Git pull requests. Application Insights and Log Analytics observe every runtime path without becoming a decision surface." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 The diagram maps the parameterized Terraform deployment, not one tenant's
@@ -312,7 +312,7 @@ The repository follows the same dependency direction as the runtime system.
 
 ```mermaid
 flowchart TB
-  UI[console and CLI] --> API[read API and ChatOps adapters]
+  UI[console and CLI] --> API[Operator API and ChatOps adapters]
   API --> CONTRACTS[shared contracts and provider protocols]
   DELIVERY[delivery adapters] --> CONTRACTS
   CORE[core control loop] --> CONTRACTS
@@ -327,7 +327,7 @@ flowchart TB
 - **`shared/`** defines versioned event, action, rule, workflow, and provider
   contracts. It never imports the core.
 - **`delivery/`** implements persistence, Azure access, GitOps, notifications,
-  ChatOps, and read APIs behind those contracts.
+  ChatOps, and Operator APIs behind those contracts.
 - **`rule-catalog/` and `policies/`** hold governed data. You can add a rule or
   an action type without rewriting the control loop.
 - **The composition root** reads validated configuration, picks the concrete
@@ -353,7 +353,7 @@ not touch decision logic.
 | Inventory | Resource graph contract | Azure Resource Graph plus activity deltas |
 | Observability | OpenTelemetry-compatible signals | Log Analytics and Application Insights |
 | Console | Static read-only application | Azure Static Web Apps |
-| Console read API | HTTP read contract | Container App with its own read-only identity |
+| Console Operator API | HTTP read contract | Container App with its own read-only identity |
 | Document ingestion | Upload and chunking contract | Container App plus Data Lake Storage |
 | Human approval | Typed approval message | Teams bot and Adaptive Cards |
 

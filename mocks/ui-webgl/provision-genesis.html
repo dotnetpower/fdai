@@ -362,7 +362,7 @@
       //
       // Bootstrap (Day-1): a local `azd up` wrapper parses `terraform apply -json`
       // and emits these over a local SSE/file (the console does not exist yet).
-      // In-product: the event bus streams them via read_api SSE. Demo: a timer
+      // In-product: the event bus streams them via operator_api SSE. Demo: a timer
       // synthesizes completion after LOOPS_BEFORE_COMPLETE.
       const MODE = new URLSearchParams(location.search).get("mode") || "demo";
       const STREAM = new URLSearchParams(location.search).get("stream") || "provision.stream";

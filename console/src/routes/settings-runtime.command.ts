@@ -10,12 +10,12 @@ export { GovernedCommandError as RuntimeSettingsCommandError };
 
 export async function saveRuntimeSettings(
   auth: AuthContext,
-  readApiBaseUrl: string,
+  operatorApiBaseUrl: string,
   changes: Readonly<Record<string, RuntimeSettingValue | null>>,
   expectedRevision: number,
 ): Promise<RuntimeSettingsView> {
   return decodeRuntimeSettings(
-    await putGovernedJson(auth, readApiBaseUrl, "/runtime/settings", {
+    await putGovernedJson(auth, operatorApiBaseUrl, "/runtime/settings", {
       changes: { ...changes },
       expected_revision: expectedRevision,
     }),

@@ -1,8 +1,8 @@
 ---
 title: Post-Turn 개선 검토
 translation_of: post-turn-improvement-review.md
-translation_source_sha: 875786138927be1d1a2a2b2427b8f71a04090635
-translation_revised: 2026-07-21
+translation_source_sha: 2d56e40889f290549a9dd46eec13f354eb5a8230
+translation_revised: 2026-08-02
 ---
 
 # Post-Turn 개선 검토
@@ -57,7 +57,7 @@ hidden reasoning, unrestricted process state, unrestricted tool output은 contra
 
 ## Ownership 및 transport
 
-Bragi는 계속 `object.turn`의 single writer입니다. Read API는 bounded queue에 제출하고
+Bragi는 계속 `object.turn`의 single writer입니다. Operator API는 bounded queue에 제출하고
 `EventBusPostTurnReviewIntake`를 사용해 Bragi-owned envelope만 발행합니다. Reviewer를 만들거나
 자신을 Norns로 표시하지 않습니다.
 
@@ -67,7 +67,7 @@ Norns는 `object.turn`의 consent-filtered `post_turn_review` envelope를 구독
 얻지 않습니다.
 
 Azure transport는 모든 Pantheon logical object topic을 `MultiplexedEventBus`를 통해 configured
-physical object topic으로 보냅니다. 따라서 headless runtime과 read API는 같은
+physical object topic으로 보냅니다. 따라서 headless runtime과 Operator API는 같은
 logical-to-physical mapping을 사용합니다. Process-local transport도 Azure evidence를 만들지 않고
 같은 logical contract를 유지합니다.
 

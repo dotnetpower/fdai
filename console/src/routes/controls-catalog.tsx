@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import { currentRoute } from "../router";
 import { BestPracticeControlsRoute } from "./best-practice-controls";
 import { bestPracticeHref } from "./best-practice-controls.model";
@@ -15,7 +15,7 @@ function controlFramework(): ControlFramework {
   return "azure-waf";
 }
 
-export function ControlsCatalogRoute({ client }: { readonly client: ReadApiClient }) {
+export function ControlsCatalogRoute({ client }: { readonly client: OperatorApiClient }) {
   const [framework, setFramework] = useState(controlFramework());
   useEffect(() => {
     const onRouteChange = () => setFramework(controlFramework());

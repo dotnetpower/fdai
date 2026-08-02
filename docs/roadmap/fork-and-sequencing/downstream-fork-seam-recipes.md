@@ -871,11 +871,11 @@ console - a FinOps cost summary, a drift board, a governance-decision
 history, a DR-drill run log. If you only consume the shipped
 `/audit`, `/kpi`, `/hil-queue` routes, skip this recipe.
 
-**The seam**: `fdai.delivery.read_api.routes.panels.ReadPanel` Protocol plus
-the `ReadApiConfig.extra_panels` tuple in
-[`fdai.delivery.read_api.main`](../../../src/fdai/delivery/read_api/main.py).
+**The seam**: `fdai.delivery.operator_api.routes.panels.ReadPanel` Protocol plus
+the `OperatorApiConfig.extra_panels` tuple in
+[`fdai.delivery.operator_api.main`](../../../src/fdai/delivery/operator_api/main.py).
 A `ReadPanel` declares its own HTTP path and returns a serialised
-model on `render()`; the read-API mounts each panel as a GET-only
+model on `render()`; the Operator API mounts each panel as a GET-only
 route with the path validated at build (starts with `/`, no `..`
 traversal).
 
@@ -886,7 +886,7 @@ traversal).
   workflow does it by emitting a `Signal` to the event bus, never by
   calling into an executor.
 - The upstream `ExampleFinOpsPanel` under
-  [`panels.py`](../../../src/fdai/delivery/read_api/routes/panels.py) is a
+  [`panels.py`](../../../src/fdai/delivery/operator_api/routes/panels.py) is a
   reference implementation and is **not** registered by default. Copy
   its shape, do not import and re-register it - upstream keeps the UI
   minimal on purpose.
@@ -899,7 +899,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from fdai.delivery.read_api.routes.panels import ReadPanel
+from fdai.delivery.operator_api.routes.panels import ReadPanel
 
 @dataclass(frozen=True)
 class GovernanceDecisionsPanel(ReadPanel):
@@ -911,7 +911,7 @@ class GovernanceDecisionsPanel(ReadPanel):
     async def render(self, *, params: Mapping[str, str]) -> dict[str, Any]:
         # 1. Query the fork's projection store (Postgres view, read model, ...).
         # 2. Redact any identity value that is not console-safe.
-        # 3. Return a JSON-serialisable dict; the read-API serialises it.
+        # 3. Return a JSON-serialisable dict; the Operator API serialises it.
         return {
             "items": [],           # list of {proposal_id, decided_at, reviewers, outcome}
             "generated_at": "...",
@@ -922,13 +922,13 @@ class GovernanceDecisionsPanel(ReadPanel):
 
 ```python
 # fork/entry.py
-from fdai.delivery.read_api.main import ReadApiConfig, build_app
+from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 from fork.adapters.read_panels import GovernanceDecisionsPanel
 
 app = build_app(
   authenticator=authenticator,
   read_model=read_model,
-    config=ReadApiConfig(
+    config=OperatorApiConfig(
         extra_panels=(GovernanceDecisionsPanel(),),
     ),
 )
@@ -941,13 +941,13 @@ for its UI stack) so the panel appears in the sidebar. That console
 edit lives entirely under `console/` in the fork's repo; upstream
 `console/` stays generic.
 
-**How to test**: `tests/delivery/read_api/test_main.py` covers the
+**How to test**: `tests/delivery/operator_api/test_main.py` covers the
 mount / path-validation logic upstream. A fork adds:
 
 1. A unit test over your panel's `render()` with a stubbed data
    source.
 2. An HTTP-level test that boots `build_app(authenticator=..., read_model=...,
-  config=ReadApiConfig(extra_panels=(YourPanel(),)))` with Starlette's test client and asserts the panel is reachable via
+  config=OperatorApiConfig(extra_panels=(YourPanel(),)))` with Starlette's test client and asserts the panel is reachable via
    GET at its declared path.
 3. A negative test asserting the panel refuses to accept non-GET
    verbs (the mount code enforces this; the test protects against

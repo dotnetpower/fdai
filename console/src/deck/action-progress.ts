@@ -72,7 +72,7 @@ export async function watchActionProgress(
   }, timeoutMs);
   const events = new Map<LiveStageName, LiveStageEvent>();
   const config = loadConfig();
-  const base = dependencies.baseUrl ?? (config.readApiBaseUrl || window.location.origin);
+  const base = dependencies.baseUrl ?? (config.operatorApiBaseUrl || window.location.origin);
   try {
     const headers = await (dependencies.requestHeaders ?? chatRequestHeaders)();
     const response = await (dependencies.fetcher ?? fetch)(`${base.replace(/\/$/, "")}/live/stream`, {

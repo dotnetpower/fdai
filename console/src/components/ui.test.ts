@@ -7,7 +7,7 @@ import {
 } from "./ui";
 
 /**
- * ExternalLink is used to render URLs that originate on the read-API wire
+ * ExternalLink is used to render URLs that originate on the Operator API wire
  * (rule provenance source_url, generated PR links, etc.). safeExternalHref
  * is the trust boundary: only absolute http(s) URLs pass; a javascript:,
  * data:, or vbscript: URI is dropped (DOM-based XSS, OWASP A03).

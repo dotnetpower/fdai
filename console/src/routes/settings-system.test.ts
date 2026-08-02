@@ -23,7 +23,7 @@ describe("Settings diagnostics health contract", () => {
     expect(isCurrentDiagnosticCheck(4, 4)).toBe(true);
   });
 
-  it("accepts only the explicit read API health response", () => {
+  it("accepts only the explicit Operator API health response", () => {
     expect(isHealthy({ status: "ok" })).toBe(true);
     expect(isHealthy({ status: "degraded" })).toBe(false);
     expect(isHealthy({ status: true })).toBe(false);

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import { AsyncBoundary, ErrorState, KpiCard, KpiGrid, PageHeader, StatusPill, UnavailableState, kpiEvidenceLabel, type AsyncState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
@@ -19,7 +19,7 @@ interface OnboardingResponse {
   readonly error: string | null;
 }
 
-export function OnboardingRoute({ client }: { readonly client: ReadApiClient }) {
+export function OnboardingRoute({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<OnboardingResponse>>({ status: "loading" });
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);

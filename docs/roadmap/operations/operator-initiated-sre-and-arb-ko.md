@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: e4ab19d0dbcc92084526be101e09d2b83e6fbe7d
-translation_revised: 2026-07-22
+translation_source_sha: b2c94ed62f248e9e1926391a45dcac00cc93abe4
+translation_revised: 2026-08-02
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰
@@ -181,7 +181,7 @@ Process journal, stage publisher, executor 선택을 사용합니다. Adapter와
   Console은 local 전용 presentation path를 필요로 하지 않습니다.
 
 이 동등성에서 "모든 작업을 로컬에서 수행할 수 있음"은 operator가 같은 provider 및 permission을
-구성했을 때를 의미합니다. Local read API가 production executor의 managed identity를 받거나,
+구성했을 때를 의미합니다. Local Operator API가 production executor의 managed identity를 받거나,
 사용할 수 없는 Azure data plane을 simulate한다는 의미가 아닙니다.
 
 ## 구현 계획

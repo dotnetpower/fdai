@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { ReadApiClient } from "../api";
+import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { DataTable, PageHeader, StatusPill } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
@@ -32,7 +32,7 @@ import {
 } from "./settings-models.model";
 
 interface Props {
-  readonly client: ReadApiClient;
+  readonly client: OperatorApiClient;
   readonly auth: AuthContext;
 }
 
@@ -156,7 +156,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
     try {
       const next = await saveNarratorPreference(
         auth,
-        client.readApiBaseUrl,
+        client.operatorApiBaseUrl,
         selection,
         view?.narrator.revision ?? 0,
       );
@@ -188,7 +188,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
     const generation = ++loadGeneration.current;
     setWebSearchError(null);
     try {
-      const next = await saveWebSearchSettings(auth, client.readApiBaseUrl, {
+      const next = await saveWebSearchSettings(auth, client.operatorApiBaseUrl, {
         enabled: webSearchEnabled,
         allowedDomains: validation.domains,
         expectedRevision: view.webSearch.revision,

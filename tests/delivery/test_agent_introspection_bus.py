@@ -75,7 +75,7 @@ async def test_routes_to_runtime_and_returns_agent_owned_evidence() -> None:
     server = EventBusAgentIntrospectionServer(event_bus=bus, runtime=runtime)
     client = EventBusAgentIntrospectionClient(
         event_bus=bus,
-        instance_id="read-api-test",
+        instance_id="operator-api-test",
         response_timeout_seconds=1.0,
     )
     server_task = asyncio.create_task(server.run())
@@ -107,7 +107,7 @@ async def test_routes_to_runtime_and_returns_agent_owned_evidence() -> None:
 async def test_unavailable_server_returns_explicit_bounded_handoff() -> None:
     client = EventBusAgentIntrospectionClient(
         event_bus=_bus(),
-        instance_id="read-api-test",
+        instance_id="operator-api-test",
         startup_timeout_seconds=0.05,
         response_timeout_seconds=0.05,
     )
@@ -132,7 +132,7 @@ async def test_unavailable_server_returns_explicit_bounded_handoff() -> None:
 async def test_start_retry_reuses_consumer_instead_of_rebalancing_group() -> None:
     client = EventBusAgentIntrospectionClient(
         event_bus=_bus(),
-        instance_id="read-api-test",
+        instance_id="operator-api-test",
         startup_timeout_seconds=0.01,
     )
 
@@ -150,7 +150,7 @@ async def test_client_recovers_when_server_starts_after_initial_timeout() -> Non
     bus = _bus()
     client = EventBusAgentIntrospectionClient(
         event_bus=bus,
-        instance_id="read-api-test",
+        instance_id="operator-api-test",
         startup_timeout_seconds=0.01,
         recovery_timeout_seconds=1.0,
     )
@@ -178,7 +178,7 @@ async def test_pending_capacity_fails_closed_without_publishing() -> None:
     bus = _bus()
     client = EventBusAgentIntrospectionClient(
         event_bus=bus,
-        instance_id="read-api-test",
+        instance_id="operator-api-test",
         max_pending_requests=0,
     )
     server = EventBusAgentIntrospectionServer(
@@ -206,7 +206,7 @@ async def test_oversized_question_fails_before_publish_or_runtime() -> None:
     runtime = SimpleNamespace(ask=AsyncMock())
     client = EventBusAgentIntrospectionClient(
         event_bus=bus,
-        instance_id="read-api-test",
+        instance_id="operator-api-test",
         startup_timeout_seconds=0.01,
     )
 
@@ -226,7 +226,7 @@ async def test_oversized_question_fails_before_publish_or_runtime() -> None:
         {
             "v": 1,
             "request_id": "oversized-request",
-            "reply_to": "read-api-test",
+            "reply_to": "operator-api-test",
             "target_agent": "Huginn",
             "question": "@Huginn " + "x" * 2_001,
             "user_ref": "a" * 64,
@@ -254,7 +254,7 @@ async def test_duplicate_request_is_replayed_without_reinvoking_runtime() -> Non
     request = {
         "v": 1,
         "request_id": "request-duplicate",
-        "reply_to": "read-api-test",
+        "reply_to": "operator-api-test",
         "target_agent": "Huginn",
         "question": "@Huginn status",
         "user_ref": "a" * 64,
@@ -286,7 +286,7 @@ async def test_expired_cache_entry_reinvokes_runtime() -> None:
     request = {
         "v": 1,
         "request_id": "request-expired",
-        "reply_to": "read-api-test",
+        "reply_to": "operator-api-test",
         "target_agent": "Huginn",
         "question": "@Huginn status",
         "user_ref": "a" * 64,
@@ -317,7 +317,7 @@ async def test_conflicting_duplicate_request_is_not_replayed_as_original() -> No
     request = {
         "v": 1,
         "request_id": "request-conflict",
-        "reply_to": "read-api-test",
+        "reply_to": "operator-api-test",
         "target_agent": "Huginn",
         "question": "@Huginn status",
         "user_ref": "a" * 64,
@@ -349,7 +349,7 @@ async def test_oversized_agent_answer_fails_closed() -> None:
     server = EventBusAgentIntrospectionServer(event_bus=bus, runtime=runtime)
     client = EventBusAgentIntrospectionClient(
         event_bus=bus,
-        instance_id="read-api-test",
+        instance_id="operator-api-test",
         response_timeout_seconds=1.0,
     )
     server_task = asyncio.create_task(server.run())
@@ -543,7 +543,7 @@ async def test_client_rejects_untrusted_response_identity() -> None:
     bus = _bus()
     client = EventBusAgentIntrospectionClient(
         event_bus=bus,
-        instance_id="read-api-test",
+        instance_id="operator-api-test",
         response_timeout_seconds=1.0,
     )
 

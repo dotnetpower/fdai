@@ -169,7 +169,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         "Project resource relationships and dependency paths.",
         _DIAGNOSE,
         (
-            "src/fdai/delivery/read_api/routes/inventory_graph.py",
+            "src/fdai/delivery/operator_api/routes/inventory_graph.py",
             "src/fdai/core/rca/causal_chain.py",
         ),
     ),
@@ -189,7 +189,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         _DIAGNOSE,
         (
             "src/fdai/delivery/azure/log_query.py",
-            "src/fdai/delivery/read_api/routes/chat_log_query.py",
+            "src/fdai/delivery/operator_api/routes/chat_log_query.py",
         ),
     ),
     _parity(
@@ -450,7 +450,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         _TOOLS,
         (
             "src/fdai/delivery/azure/demo_queries.py",
-            "src/fdai/delivery/read_api/routes/chat_log_query.py",
+            "src/fdai/delivery/operator_api/routes/chat_log_query.py",
         ),
         status=CapabilityParity.SAFER_ALTERNATIVE,
     ),
@@ -489,7 +489,10 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.KNOWLEDGE,
         "Carry bounded evidence and source references instead of executable browser templates.",
         _TOOLS,
-        ("src/fdai/core/rca/contract.py", "src/fdai/delivery/read_api/routes/chat_verification.py"),
+        (
+            "src/fdai/core/rca/contract.py",
+            "src/fdai/delivery/operator_api/routes/chat_verification.py",
+        ),
         status=CapabilityParity.SAFER_ALTERNATIVE,
     ),
     _parity(
@@ -541,7 +544,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         CapabilityCategory.RESPONSE_PLAN,
         "Validate versioned workflow definitions and execute through the normal action pipeline.",
         _WORKFLOWS,
-        ("src/fdai/core/workflow/", "src/fdai/delivery/read_api/routes/workflow_authoring.py"),
+        ("src/fdai/core/workflow/", "src/fdai/delivery/operator_api/routes/workflow_authoring.py"),
     ),
     _parity(
         "automation.specialists",

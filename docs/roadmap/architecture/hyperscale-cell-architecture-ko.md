@@ -1,8 +1,8 @@
 ---
 title: 초대규모 셀 아키텍처 (B안)
 translation_of: hyperscale-cell-architecture.md
-translation_source_sha: fb285e1278ac29ae7d191a379bddb5422c145f59
-translation_revised: 2026-07-21
+translation_source_sha: f2f811147877b3302179490d1fc33a0e8a3b1762
+translation_revised: 2026-08-02
 ---
 # 초대규모 셀 아키텍처 (B안)
 
@@ -15,7 +15,7 @@ deterministic-first 제어 루프는 그대로 두고, **셀 기반 스트리밍
 > **범위:** 이 문서는 day-zero 배포가 아니라 **향후를 내다본 scale-out
 > 설계**다. [deploy-and-onboard-ko.md](../deployment/deploy-and-onboard-ko.md) 의 최소비용
 > 토폴로지(Event Hubs Standard 1 TU, modular core Container App 하나,
-> 분리된 read API와 ingestion gateway app, bounded Container Apps Job,
+> 분리된 Operator API와 ingestion gateway app, bounded Container Apps Job,
 > Postgres B1ms)가 기본으로 유지된다. 이 청사진은 테넌트가 아래 초대규모
 > 트리거를 넘을 때만 진입하며 Phase 4
 > ([phases/phase-4-scale-ko.md](../phases/phase-4-scale-ko.md)) 아래에 놓인다.
@@ -150,7 +150,7 @@ config). 둘 다 셀 모델, 두 로그 평면, CQRS 감사 원장, 런타임 �
 ## 셀 기반 scale unit
 
 [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)의
-runtime environment, 즉 modular core app 하나, 분리된 read API와 ingestion gateway app,
+runtime environment, 즉 modular core app 하나, 분리된 Operator API와 ingestion gateway app,
 bounded job 집합이 **셀 1개**다. B안은 여러 개를 돌린다.
 
 - **셀 = scale unit 1개**로 셀 키에 바인딩된다: 자기 Event Hubs 네임스페이스,

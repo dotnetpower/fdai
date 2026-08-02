@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 79c7f48589f0f773245fc964f996f3240fc18eb1
-translation_revised: 2026-08-01
+translation_source_sha: c65034d0769016ad0f2171f24d4ab989fc032e10
+translation_revised: 2026-08-02
 ---
 
 # 에이전트 판테온
@@ -245,7 +245,7 @@ Routine heartbeat, healthy probe, within-threshold observation은 finding이나 
 갖춘 candidate만 Workflow에 도달하며 나머지는 anomaly로 남습니다. Workflow는 evidence를 다시 확인한
 후 `IncidentRegistry`에 audited record를 씁니다. Hook 실패는 window를 유지하고 accepted와 held는 별도로 기록합니다.
 Production control-plane composition은 durable registry를 먼저 rehydrate하고
-pantheon이 enabled일 때 이 hook을 bind합니다. Read API는 Heimdall을 impersonate하지
+pantheon이 enabled일 때 이 hook을 bind합니다. Operator API는 Heimdall을 impersonate하지
 않습니다.
 
 Huginn은 실시간 resource discovery의 논리적 소유자입니다. Azure resource create,
@@ -404,7 +404,7 @@ properties:
 ## 6. 통신 계약
 
 판테온은 Event Hubs `:9093`의 Kafka 또는 in-process local adapter인 기존 `EventBus` wire를 사용합니다. Heimdall은 한 readiness pass의 6개 dimension이 모두 도착한 뒤 Drift를 게시하며 Muninn은 엄격히 더 새로운 snapshot만 수락합니다.
-Best-effort `AgentHandlerObserver`는 delivery, judgment, execution을 변경하지 않고 handler lifecycle을 보고합니다. Local composition은 SSE로, deployed composition은 shared stage topic으로 게시해 read API가 relay합니다.
+Best-effort `AgentHandlerObserver`는 delivery, judgment, execution을 변경하지 않고 handler lifecycle을 보고합니다. Local composition은 SSE로, deployed composition은 shared stage topic으로 게시해 Operator API가 relay합니다.
 
 ### 6.1 Typed port
 

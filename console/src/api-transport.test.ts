@@ -3,16 +3,16 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import type { AuthContext } from "./auth";
 import { observeUnauthorizedApiResponses } from "./auth-response";
 import type { ConsoleConfig } from "./config";
-import { ReadApiError, ReadApiTransport } from "./api-transport";
+import { OperatorApiError, OperatorApiTransport } from "./api-transport";
 
 const config: ConsoleConfig = {
-  readApiBaseUrl: "http://127.0.0.1:8010",
+  operatorApiBaseUrl: "http://127.0.0.1:8010",
   ingestionApiBaseUrl: "http://127.0.0.1:8011",
   msalClientId: "",
   msalTenantId: "",
   msalApiScope: "",
   authTokenTimeoutMs: 10_000,
-  readApiRequestTimeoutMs: 100,
+  operatorApiRequestTimeoutMs: 100,
   devMode: true,
   localAzureCliAuth: false,
   localLoginPrompt: true,
@@ -36,12 +36,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("read API authentication boundary", () => {
+describe("Operator API authentication boundary", () => {
   test("fails closed when a signed-in Entra account has no bearer token", async () => {
     const fetchMock = vi.fn();
     const onUnauthorized = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const transport = new ReadApiTransport(config, auth({
+    const transport = new OperatorApiTransport(config, auth({
       account: {
         homeAccountId: "home-1",
         localAccountId: "user-1",
@@ -50,11 +50,11 @@ describe("read API authentication boundary", () => {
     }), { onUnauthorized });
 
     await expect(transport.getJson("/iam/self")).rejects.toEqual(
-      expect.objectContaining<Partial<ReadApiError>>({ status: 401 }),
+      expect.objectContaining<Partial<OperatorApiError>>({ status: 401 }),
     );
     expect(fetchMock).not.toHaveBeenCalled();
     expect(onUnauthorized).toHaveBeenCalledWith(
-      expect.objectContaining<Partial<ReadApiError>>({ status: 401 }),
+      expect.objectContaining<Partial<OperatorApiError>>({ status: 401 }),
     );
   });
 
@@ -62,7 +62,7 @@ describe("read API authentication boundary", () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const transport = new ReadApiTransport(config, auth({
+    const transport = new OperatorApiTransport(config, auth({
       account: {
         homeAccountId: "home-1",
         localAccountId: "user-1",
@@ -73,7 +73,7 @@ describe("read API authentication boundary", () => {
 
     const request = transport.getJson("/iam/self");
     const expectation = expect(request).rejects.toEqual(
-      expect.objectContaining<Partial<ReadApiError>>({
+      expect.objectContaining<Partial<OperatorApiError>>({
         status: 401,
         message: "Authentication token request timed out. Retry or sign in again.",
       }),
@@ -87,7 +87,7 @@ describe("read API authentication boundary", () => {
   test("keeps tokenless requests for explicit anonymous dev bypass", async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ ok: true }));
     vi.stubGlobal("fetch", fetchMock);
-    const transport = new ReadApiTransport(config, auth());
+    const transport = new OperatorApiTransport(config, auth());
 
     await expect(transport.getJson("/healthz")).resolves.toEqual({ ok: true });
     expect(fetchMock).toHaveBeenCalledWith(
@@ -99,7 +99,7 @@ describe("read API authentication boundary", () => {
   test("keeps tokenless requests for the local Azure CLI projection", async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ ok: true }));
     vi.stubGlobal("fetch", fetchMock);
-    const transport = new ReadApiTransport(config, auth({
+    const transport = new OperatorApiTransport(config, auth({
       localAzureCli: true,
       account: {
         homeAccountId: "cli-1",
@@ -118,14 +118,14 @@ describe("read API authentication boundary", () => {
       { status: 401 },
     )));
     const stopObserving = observeUnauthorizedApiResponses(
-      [config.readApiBaseUrl],
+      [config.operatorApiBaseUrl],
       onUnauthorized,
     );
-    const transport = new ReadApiTransport(config, auth(), { onUnauthorized });
+    const transport = new OperatorApiTransport(config, auth(), { onUnauthorized });
 
     try {
       await expect(transport.getJson("/kpi")).rejects.toEqual(
-        expect.objectContaining<Partial<ReadApiError>>({ status: 401 }),
+        expect.objectContaining<Partial<OperatorApiError>>({ status: 401 }),
       );
       expect(onUnauthorized).toHaveBeenCalledOnce();
       expect(onUnauthorized).toHaveBeenCalledWith({
@@ -149,13 +149,13 @@ describe("read API authentication boundary", () => {
       });
     });
     vi.stubGlobal("fetch", fetchMock);
-    const transport = new ReadApiTransport(config, auth());
+    const transport = new OperatorApiTransport(config, auth());
 
     const request = transport.getJson("/kpi");
     const expectation = expect(request).rejects.toEqual(
-      expect.objectContaining<Partial<ReadApiError>>({
+      expect.objectContaining<Partial<OperatorApiError>>({
         status: 504,
-        message: "Read API request timed out. Retry the request.",
+        message: "Operator API request timed out. Retry the request.",
       }),
     );
     await vi.advanceTimersByTimeAsync(100);

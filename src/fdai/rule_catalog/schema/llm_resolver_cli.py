@@ -169,7 +169,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "Azure OpenAI endpoint (https://<name>.openai.azure.com/) used to populate "
             "resolved-models.json's `narrator` + `narrator_candidates` fields. "
-            "When omitted the narrator fields are skipped and the read-api chat "
+            "When omitted the narrator fields are skipped and the operator-api chat "
             "backend stays disabled."
         ),
     )

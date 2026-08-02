@@ -2,8 +2,8 @@
 title: 영구 Background Task Session
 translation_of: background-task-sessions.md
 translation_source: docs/roadmap/interfaces/background-task-sessions.md
-translation_source_sha: ad8683f000b555afc3a486bf81554c5aba11c1cd
-translation_revised: 2026-07-22
+translation_source_sha: 2fb4a26c62db3eebc421b6c5272be6c7283b4c2d
+translation_revised: 2026-08-02
 ---
 
 # 영구 Background Task Session
@@ -99,7 +99,7 @@ task는 없는 task와 같은 404 response를 사용합니다.
 
 ## Command 및 authorization
 
-Production read API는 dedicated Azure reader binding이 설정된 경우에만 route를 등록합니다.
+Production Operator API는 dedicated Azure reader binding이 설정된 경우에만 route를 등록합니다.
 
 - `POST /background-tasks`는 Contributor `start-read-investigation` capability가 필요하고 즉시 반환합니다.
 - `GET /background-tasks` 및 `GET /background-tasks/{task_id}`는 owner scope를 적용합니다.

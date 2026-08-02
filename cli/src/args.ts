@@ -26,7 +26,7 @@ Options:
   --source <sample|api>              Data source (default: sample)
   --mode <needs-me|all-clear>        Sample fixture state (default: needs-me)
   --locale <en|ko>                   Presentation locale (default: FDAI_LOCALE or en)
-  --api <http(s)://host[:port]>      Shared read-API base URL
+  --api <http(s)://host[:port]>      Shared Operator API base URL
   -h, --help                         Show this help
 
 Interactive questions require --source=api and are delegated to POST /chat.

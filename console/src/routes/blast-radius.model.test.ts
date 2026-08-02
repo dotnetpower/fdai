@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { ReadApiError } from "../api";
+import { OperatorApiError } from "../api";
 import { blastRadiusFailure } from "./blast-radius";
 import {
   blastRadiusHref,
@@ -61,15 +61,15 @@ describe("blast-radius route query", () => {
   });
 
   test("distinguishes an unwired simulator from operational failures", () => {
-    expect(blastRadiusFailure(new ReadApiError(404, "Not Found")).status).toBe("unavailable");
-    expect(blastRadiusFailure(new ReadApiError(501, "Not Implemented")).status).toBe("unavailable");
-    expect(blastRadiusFailure(new ReadApiError(400, "invalid target"))).toEqual({
+    expect(blastRadiusFailure(new OperatorApiError(404, "Not Found")).status).toBe("unavailable");
+    expect(blastRadiusFailure(new OperatorApiError(501, "Not Implemented")).status).toBe("unavailable");
+    expect(blastRadiusFailure(new OperatorApiError(400, "invalid target"))).toEqual({
       status: "error",
       message: "invalid target",
     });
-    expect(blastRadiusFailure(new ReadApiError(503, "inventory unavailable")).status)
+    expect(blastRadiusFailure(new OperatorApiError(503, "inventory unavailable")).status)
       .toBe("unavailable");
-    expect(blastRadiusFailure(new ReadApiError(500, "inventory failed"))).toEqual({
+    expect(blastRadiusFailure(new OperatorApiError(500, "inventory failed"))).toEqual({
       status: "error",
       message: "inventory failed",
     });

@@ -37,7 +37,7 @@ function sse(route: Route, frames: readonly string[]): Promise<void> {
   });
 }
 
-async function installReadApiFixture(
+async function installOperatorApiFixture(
   page: Page,
   options: { readonly executionTimeline?: boolean } = {},
 ): Promise<{
@@ -176,7 +176,7 @@ async function installReadApiFixture(
 }
 
 test("defaults to the right dock and restores the last display mode", async ({ page }) => {
-  await installReadApiFixture(page);
+  await installOperatorApiFixture(page);
   await page.goto(
     `/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`,
   );
@@ -212,7 +212,7 @@ test("defaults to the right dock and restores the last display mode", async ({ p
 });
 
 test("keeps a mock-aligned execution timeline in full workspace", async ({ page }) => {
-  await installReadApiFixture(page, { executionTimeline: true });
+  await installOperatorApiFixture(page, { executionTimeline: true });
   await page.goto(
     `/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`,
   );
@@ -266,7 +266,7 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
 test("pins a Var incident through the deck and renders a grounded Bragi answer", async ({
   page,
 }) => {
-  const fixture = await installReadApiFixture(page);
+  const fixture = await installOperatorApiFixture(page);
   await page.goto(
     `/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`,
   );

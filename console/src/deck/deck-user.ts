@@ -5,7 +5,7 @@
  * The deck forwards this (as `_user` in the chat request's view_context) so the
  * narrator can answer "what can I do?" from the operator's real roles. The
  * roles come from the verified MSAL id token (`account.idTokenClaims.roles`) -
- * the same App Role claim the read API verifies server-side. This is
+ * the same App Role claim the Operator API verifies server-side. This is
  * informational only: the chat is read-only and every real permission is
  * enforced by the executor / PR / HIL gates regardless of what the narrator
  * explains, so surfacing the roles here cannot grant access.

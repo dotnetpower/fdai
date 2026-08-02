@@ -4,8 +4,8 @@ import { decodePromotionGates } from "./promotion-gates";
 
 describe("optional panel response decoders", () => {
   test("reject malformed LLM cost and promotion responses", () => {
-    expect(() => decodeLlmCost({})).toThrow(/invalid read API response/);
-    expect(() => decodePromotionGates({ rows: null })).toThrow(/invalid read API response/);
+    expect(() => decodeLlmCost({})).toThrow(/invalid Operator API response/);
+    expect(() => decodePromotionGates({ rows: null })).toThrow(/invalid Operator API response/);
     expect(() => decodePromotionGates({
       window_days: null,
       ready_count: 0,

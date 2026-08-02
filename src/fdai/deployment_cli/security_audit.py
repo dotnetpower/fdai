@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Final
 
 SECURITY_AUDIT_SCHEMA: Final = "fdai.deployment-cli.security-audit.v1"
-_DEV_AUTH_FLAGS: Final = ("FDAI_READ_API_DEV_MODE", "FDAI_READ_API_LOCAL_AZURE_CLI")
+_DEV_AUTH_FLAGS: Final = ("FDAI_OPERATOR_API_DEV_MODE", "FDAI_OPERATOR_API_LOCAL_AZURE_CLI")
 _SECRET_KEY_PARTS: Final = (
     "password",
     "private_key",
@@ -75,7 +75,9 @@ def run_security_audit(
                 check_id="auth.dev-bypass-non-dev",
                 severity="critical",
                 summary="A development authentication bypass is enabled outside development",
-                remediation="Disable local and anonymous auth flags before starting the read API.",
+                remediation=(
+                    "Disable local and anonymous auth flags before starting the Operator API."
+                ),
             )
         )
     if non_dev and not all(

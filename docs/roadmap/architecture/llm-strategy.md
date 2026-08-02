@@ -280,7 +280,7 @@ Rules the registry enforces (MUST, at config load):
 - **Tool capabilities resolve independently.** `tool_calling_required` gates ordinary function
   tools. Public retrieval uses the dedicated `t1.web_search` preference and serializes only its
   deployment into `web_search_candidates`. Protected apply reconciles its Foundry prompt agent
-  with the exact domain allowlist, and the read API sends an actual managed-tool request at startup.
+  with the exact domain allowlist, and the Operator API sends an actual managed-tool request at startup.
   Missing model, project, agent, entitlement, or tool readiness makes search unavailable without
   borrowing the narrator pool or changing conversation and execution authority.
 
@@ -421,7 +421,7 @@ unresolved case to HIL), under these hardening invariants:
 
 ### Narrator Latency Routing (T1-Only)
 
-The console chat backend (`fdai.delivery.read_api.chat.LatencyRoutedChatBackend`)
+The console chat backend (`fdai.delivery.operator_api.chat.LatencyRoutedChatBackend`)
 wraps N deployments of the `t1.judge` mini stack and per turn picks the candidate with
 the lowest rolling p50 latency. It ships enabled whenever the resolver emits two or
 more entries under `resolved-models.json`'s `narrator_candidates` array; a single
@@ -453,7 +453,7 @@ declare a new capability (e.g. `t1.judge.fast-pool`) with its own quality gate,
 route via the composer, and audit the swap - do not thread it through the
 narrator router.
 
-The read API refreshes this pool independently of operator traffic. It probes
+The Operator API refreshes this pool independently of operator traffic. It probes
 every candidate twice at startup and then adds one minimal sample per candidate
 every `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS` (default `300`). Real conversation
 latencies share the same eight-sample rolling window, so a deployment that
@@ -480,7 +480,7 @@ latency. This preference applies only to the T1 narrator. T1 internal judgment, 
 all T2 secondary/critic/rubric/escalation assignments remain system-governed. The T2 primary
 pool keeps its same-publisher invariant and isn't personalized per operator.
 
-Settings > Models also provides a **T2 model-policy draft builder**. The read API projects only
+Settings > Models also provides a **T2 model-policy draft builder**. The Operator API projects only
 the primary and secondary publisher/family preferences from `rule-catalog/llm-registry.yaml`;
 it doesn't expose endpoints or credentials. An operator can select one candidate for each role
 only when their publishers differ, then copy a validated YAML fragment for a governance PR.
@@ -502,7 +502,7 @@ Selecting a deployed model adds it to the T2 governance draft. Selecting a
 provisionable model creates the same draft with an auto-provision note. Neither
 path mutates Azure from the console. After review, the bootstrap resolver
 rechecks catalog, quota, deployer permission, and publisher distinctness;
-Terraform then creates the capability deployment. Production read APIs don't
+Terraform then creates the capability deployment. Production Operator APIs don't
 gain subscription-wide Reader solely for this screen. When live discovery
 isn't available, the page falls back to the registry and resolved snapshot.
 
@@ -596,7 +596,7 @@ deployments for one side of the pair.
   text. PostgreSQL persistence survives process restart and the same contract accepts narrator,
   T1, and other T2 role events. Telemetry persistence failure is logged but does not block model
   failover or a successful proposal.
-- **Operator visibility.** The read API projects the latest selected deployment, failover reason,
+- **Operator visibility.** The Operator API projects the latest selected deployment, failover reason,
   unhealthy/recovered candidates, and cooldown on Settings > Models. The console remains read-only;
   it cannot alter routing, clear cooldown, or promote a deployment.
 

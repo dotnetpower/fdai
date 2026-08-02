@@ -1,7 +1,7 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: 59281d752db6c164ed82f5ba7131952e3d2bfceb
-translation_revised: 2026-08-01
+translation_source_sha: 821ad4810d1f8d9e51ca2c7e65952ebee463ab66
+translation_revised: 2026-08-02
 ---
 # 사용자-에이전트 할당 및 지식 이전
 
@@ -161,7 +161,7 @@ AgentDuty -> requires_role -> FDAI App Role
 ## 통제된 IAM 프로비저닝
 
 할당 경로에는 이제 Thor 뒤의 쓰기 전용 `HumanAccessProvisioner` 공급자가 포함됩니다. 기존
-`HumanIdentityDirectory`와 모든 read API route는 읽기 전용입니다. 새 경로는 ActionType을 별도로
+`HumanIdentityDirectory`와 모든 Operator API route는 읽기 전용입니다. 새 경로는 ActionType을 별도로
 승격할 때까지 관찰 전용입니다.
 
 1. Forseti가 정확한 활성 주체, 구성된 역할 그룹, 커버리지 규칙, 요청자 분리, 예상 현재 멤버십을

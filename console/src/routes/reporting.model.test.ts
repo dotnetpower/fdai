@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { ReadApiError } from "../api";
+import { OperatorApiError } from "../api";
 import {
   decodeRenderedReport,
   decodeReportingRegistry,
@@ -67,7 +67,7 @@ describe("reporting wire decoders", () => {
       .toThrow();
   });
 
-  test("API decoder failures normalize to ReadApiError when called by the client", () => {
-    expect(new ReadApiError(502, "invalid reporting response").status).toBe(502);
+  test("API decoder failures normalize to OperatorApiError when called by the client", () => {
+    expect(new OperatorApiError(502, "invalid reporting response").status).toBe(502);
   });
 });

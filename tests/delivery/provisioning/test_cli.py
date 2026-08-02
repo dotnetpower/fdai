@@ -14,13 +14,13 @@ from collections.abc import AsyncIterator
 
 from starlette.testclient import TestClient
 
+from fdai.delivery.operator_api.streaming.provision_stream import DEFAULT_CHANNEL
 from fdai.delivery.provisioning.cli import (
     build_bootstrap_app,
     run_bootstrap,
     stdin_byte_chunks,
 )
 from fdai.delivery.provisioning.terraform_bridge import TerraformProvisionBridge
-from fdai.delivery.read_api.streaming.provision_stream import DEFAULT_CHANNEL
 from fdai.shared.providers.testing.sse import InMemorySseSink
 
 

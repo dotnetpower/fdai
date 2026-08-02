@@ -8,12 +8,12 @@ import {
 
 export async function submitIamAccessRequest(
   auth: AuthContext,
-  readApiBaseUrl: string,
+  operatorApiBaseUrl: string,
   input: IamAccessRequestInput,
 ): Promise<IamAccessRequest> {
   return decodeIamAccessRequest(await putGovernedJson(
     auth,
-    readApiBaseUrl,
+    operatorApiBaseUrl,
     "/iam/access-requests",
     {
       idempotency_key: input.idempotencyKey,
@@ -30,12 +30,12 @@ export async function submitIamAccessRequest(
 
 export async function submitSelfAccessRequest(
   auth: AuthContext,
-  readApiBaseUrl: string,
+  operatorApiBaseUrl: string,
   input: { readonly idempotencyKey: string; readonly message?: string },
 ): Promise<IamAccessRequest> {
   return decodeIamAccessRequest(await putGovernedJson(
     auth,
-    readApiBaseUrl,
+    operatorApiBaseUrl,
     "/iam/access-requests/self",
     {
       idempotency_key: input.idempotencyKey,
@@ -47,14 +47,14 @@ export async function submitSelfAccessRequest(
 
 export async function reviewIamAccessRequest(
   auth: AuthContext,
-  readApiBaseUrl: string,
+  operatorApiBaseUrl: string,
   requestId: string,
   input: { readonly decision: "approve" | "reject"; readonly justification: string },
 ): Promise<IamAccessRequest> {
   const path = `/iam/access-requests/${encodeURIComponent(requestId)}/decision`;
   return decodeIamAccessRequest(await putGovernedJson(
     auth,
-    readApiBaseUrl,
+    operatorApiBaseUrl,
     path,
     { ...input },
     "POST",

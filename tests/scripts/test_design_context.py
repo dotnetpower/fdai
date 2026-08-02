@@ -23,7 +23,7 @@ def _load_module() -> ModuleType:
 def test_required_context_composes_every_matching_route() -> None:
     module = _load_module()
 
-    required = module.required_context(("src/fdai/delivery/read_api/dev/factory.py",))
+    required = module.required_context(("src/fdai/delivery/operator_api/dev/factory.py",))
 
     assert ".github/copilot-instructions.md" in required
     assert ".github/instructions/coding-conventions.instructions.md" in required

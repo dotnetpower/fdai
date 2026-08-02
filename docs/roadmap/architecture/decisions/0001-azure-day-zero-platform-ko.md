@@ -1,8 +1,8 @@
 ---
 title: ADR-0001 Azure Day-Zero Platform Baseline
 translation_of: 0001-azure-day-zero-platform.md
-translation_source_sha: c2dfdfe9eae5bcab3059440cc8ed4be8d0c686e6
-translation_revised: 2026-07-21
+translation_source_sha: daec66d874ad31cd658d3b8b1951ee52ecabcaa3
+translation_revised: 2026-08-02
 ---
 # ADR-0001: Azure Day-Zero Platform Baseline
 
@@ -14,7 +14,7 @@ choice로 설명하던 이전 lightweight decision을 종료합니다.
 
 **Accepted:** 2026-07-13.
 
-> **구현 업데이트 (2026-07-21):** 초기 single-app baseline은 core, read API,
+> **구현 업데이트 (2026-07-21):** 초기 single-app baseline은 core, Operator API,
 > ingestion gateway를 위한 별도 Container App과 bounded Container Apps Job으로
 > additive하게 확장되었습니다. 아래 wire, identity, state, secret, observability,
 > Terraform 결정은 계속 유효합니다. 현재 runtime topology의 authority는

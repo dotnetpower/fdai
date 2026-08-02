@@ -33,7 +33,7 @@ ARCHITECTURE_SOURCE_PATHS = frozenset(
         "tests/core/quality_gate/test_gate.py",
         "tests/core/risk_gate/test_gate.py",
         "tests/core/trust_router/test_trust_router.py",
-        "tests/delivery/read_api/test_local.py",
+        "tests/delivery/operator_api/test_local.py",
     }
 )
 
