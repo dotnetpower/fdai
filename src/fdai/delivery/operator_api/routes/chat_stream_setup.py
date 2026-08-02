@@ -18,6 +18,7 @@ from fdai.delivery.operator_api.routes.chat_document_evidence import (
     ChatDocumentEvidenceResolver,
     resolve_document_refs,
 )
+from fdai.delivery.operator_api.routes.chat_history import content_policy_replay_stage
 from fdai.delivery.operator_api.routes.chat_history_context import (
     DEFAULT_CHAT_HISTORY_POLICY,
     ChatHistoryCompressor,
@@ -44,7 +45,18 @@ from fdai.delivery.operator_api.routes.chat_route_common import (
 from fdai.delivery.operator_api.routes.chat_stream_request import read_chat_stream_body
 from fdai.delivery.operator_api.routes.chat_vision_evidence import parse_vision_attachments
 from fdai.shared.providers.document_ingestion import DocumentAccessDeniedError
-from fdai.shared.providers.user_context import ConversationHistoryStore
+from fdai.shared.providers.user_context import (
+    ConversationHistoryStore,
+    UserContextConflictError,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ContentPolicyReplayRequest:
+    user_id: str
+    session_id: str
+    request_id: str
+    stage: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,8 +93,40 @@ async def prepare_chat_stream_request(
     history_compressor: ChatHistoryCompressor,
     history_policy: ChatHistoryPolicy = DEFAULT_CHAT_HISTORY_POLICY,
     max_body_bytes: int,
-) -> PreparedChatStreamRequest:
+) -> PreparedChatStreamRequest | ContentPolicyReplayRequest:
     user_id = await authorize(request)
+    body = await read_chat_stream_body(request, max_body_bytes=max_body_bytes)
+    prompt = body.get("prompt")
+    if not isinstance(prompt, str) or not prompt.strip():
+        raise HTTPException(status_code=400, detail="prompt MUST be a non-empty string")
+    clean_prompt = prompt.strip()
+    try:
+        _reject_direct_override(clean_prompt)
+    except ChatContentPolicyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    session_id = _session_id(body)
+    request_id = _request_id(body)
+    if conversation_history_store is not None:
+        try:
+            replay_stage = await content_policy_replay_stage(
+                store=conversation_history_store,
+                principal_id=user_id,
+                conversation_id=session_id,
+                request_id=request_id,
+                content=clean_prompt,
+            )
+        except UserContextConflictError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="chat request id conflicts with an existing turn",
+            ) from exc
+        if replay_stage is not None:
+            return ContentPolicyReplayRequest(
+                user_id=user_id,
+                session_id=session_id,
+                request_id=request_id,
+                stage=replay_stage,
+            )
     preferred_model = (
         await model_preference_resolver(user_id) if model_preference_resolver is not None else None
     )
@@ -91,7 +135,6 @@ async def prepare_chat_stream_request(
         if answer_preference_resolver is not None
         else None
     )
-    body = await read_chat_stream_body(request, max_body_bytes=max_body_bytes)
     try:
         document_evidence_refs = await resolve_document_refs(
             body=body,
@@ -105,9 +148,6 @@ async def prepare_chat_stream_request(
     except RuntimeError as exc:
         raise HTTPException(status_code=501, detail=str(exc)) from exc
 
-    prompt = body.get("prompt")
-    if not isinstance(prompt, str) or not prompt.strip():
-        raise HTTPException(status_code=400, detail="prompt MUST be a non-empty string")
     view_context = body.get("view_context")
     if view_context is None:
         view_context = {}
@@ -141,12 +181,6 @@ async def prepare_chat_stream_request(
             if isinstance(role, str) and isinstance(content, str):
                 history.append({"role": role, "content": content})
 
-    clean_prompt = prompt.strip()
-    try:
-        _reject_direct_override(clean_prompt)
-    except ChatContentPolicyError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    session_id = _session_id(body)
     history_result = await resolve_chat_history_result(
         store=conversation_history_store,
         principal_id=user_id,
@@ -199,6 +233,6 @@ async def prepare_chat_stream_request(
         history_metadata=history_result.metadata(),
         answer_plan=answer_plan,
         session_id=session_id,
-        request_id=_request_id(body),
+        request_id=request_id,
         include_model_trace=include_model_trace,
     )

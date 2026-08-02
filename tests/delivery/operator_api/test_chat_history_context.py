@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 import pytest
 from starlette.applications import Starlette
+from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
@@ -658,6 +659,74 @@ def test_json_route_output_policy_block_is_422_without_assistant_turn() -> None:
     assert "Normal prompt" not in receipt.content
 
 
+def test_json_route_replays_policy_receipt_without_backend_call() -> None:
+    class Backend:
+        calls = 0
+
+        async def answer(self, **_kwargs: object) -> dict[str, str]:
+            self.calls += 1
+            raise ChatContentPolicyError(stage="output")
+
+    store = InMemoryConversationHistoryStore()
+    backend = Backend()
+    preference_calls = 0
+
+    async def resolve_preference(_principal_id: str) -> None:
+        nonlocal preference_calls
+        preference_calls += 1
+        return None
+
+    client = TestClient(
+        Starlette(
+            routes=[
+                make_chat_route(
+                    backend=backend,
+                    authorize=_allow,
+                    conversation_history_store=store,
+                    model_preference_resolver=resolve_preference,
+                )
+            ]
+        )
+    )
+    body = {
+        "prompt": "A normal prompt.",
+        "session_id": "conversation-1",
+        "request_id": "policy-replay",
+        "history": [],
+        "view_context": {},
+    }
+
+    first = client.post("/chat", json=body)
+    import asyncio
+
+    async def append_large_history() -> None:
+        for index in range(21):
+            await store.append_turn(
+                ConversationTurnRecord(
+                    turn_id=f"policy-replay-history-{index}",
+                    conversation_id="conversation-1",
+                    principal_id="principal-a",
+                    turn_index=0,
+                    role=ConversationTurnRole.ASSISTANT,
+                    content="x" * 10_000,
+                    recorded_at=NOW,
+                    idempotency_key=f"policy-replay-history-{index}",
+                ),
+                allocate_index=True,
+            )
+
+    asyncio.run(append_large_history())
+    replay = client.post("/chat", json=body)
+    conflict = client.post("/chat", json={**body, "prompt": "Changed prompt."})
+
+    assert first.status_code == 422
+    assert replay.status_code == 422
+    assert replay.text == "chat request blocked by content policy"
+    assert conflict.status_code == 409
+    assert backend.calls == 1
+    assert preference_calls == 1
+
+
 def test_json_policy_receipt_failure_is_explicit_503() -> None:
     class FailingReceiptStore(InMemoryConversationHistoryStore):
         receipt_attempts = 0
@@ -790,6 +859,81 @@ def test_stream_output_policy_block_discards_buffered_tokens() -> None:
     assert '"stage": "output"' in response.text
     assert "must-not-leak" not in response.text
     assert "event: done" not in response.text
+
+
+def test_stream_upstream_failure_discards_buffered_tokens() -> None:
+    class Backend:
+        async def answer(self, **_kwargs: object) -> dict[str, str]:
+            raise AssertionError("stream backend must not use one-shot answer")
+
+        async def answer_stream(self, **_kwargs: object) -> object:
+            yield {"type": "token", "delta": "must-not-leak"}
+            raise HTTPException(status_code=502, detail="incomplete upstream stream")
+
+    response = TestClient(
+        Starlette(routes=[make_chat_stream_route(backend=Backend(), authorize=_allow)])
+    ).post(
+        "/chat/stream",
+        json={"prompt": "Normal prompt", "history": [], "view_context": {}},
+    )
+
+    assert response.status_code == 200
+    assert "event: error" in response.text
+    assert "incomplete upstream stream" in response.text
+    assert "must-not-leak" not in response.text
+    assert "event: done" not in response.text
+
+
+def test_stream_route_replays_policy_receipt_without_backend_call() -> None:
+    class Backend:
+        calls = 0
+
+        async def answer(self, **_kwargs: object) -> dict[str, str]:
+            raise AssertionError("stream path expected")
+
+        async def answer_stream(self, **_kwargs: object) -> object:
+            self.calls += 1
+            raise ChatContentPolicyError(stage="output")
+            yield {}
+
+    store = InMemoryConversationHistoryStore()
+    backend = Backend()
+    preference_calls = 0
+
+    async def resolve_preference(_principal_id: str) -> None:
+        nonlocal preference_calls
+        preference_calls += 1
+        return None
+
+    client = TestClient(
+        Starlette(
+            routes=[
+                make_chat_stream_route(
+                    backend=backend,
+                    authorize=_allow,
+                    conversation_history_store=store,
+                    model_preference_resolver=resolve_preference,
+                )
+            ]
+        )
+    )
+    body = {
+        "prompt": "Normal prompt",
+        "session_id": "conversation-1",
+        "request_id": "stream-policy-replay",
+        "history": [],
+        "view_context": {},
+    }
+
+    first = client.post("/chat/stream", json=body)
+    replay = client.post("/chat/stream", json=body)
+
+    assert '"code": "content_policy_block"' in first.text
+    assert '"code": "content_policy_block"' in replay.text
+    assert '"stage": "output"' in replay.text
+    assert '"receipt_persisted": true' in replay.text
+    assert backend.calls == 1
+    assert preference_calls == 1
 
 
 def test_stream_receipt_failure_keeps_policy_block_code() -> None:

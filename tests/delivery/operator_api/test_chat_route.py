@@ -13,6 +13,7 @@ from uuid import UUID
 import httpx
 import pytest
 from starlette.applications import Starlette
+from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
@@ -845,6 +846,92 @@ class TestChatRouteLatencySurface:
             await backend.answer(prompt="status", view_context={}, history=[])
         assert exc_info.value.stage == "output"
 
+    @pytest.mark.parametrize("provider", ["azure-ad", "openai"])
+    async def test_backend_rejects_length_truncated_completion(self, provider: str) -> None:
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "finish_reason": "length",
+                            "message": {"content": "partial answer"},
+                        }
+                    ]
+                },
+            )
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        backend: ChatBackend
+        if provider == "azure-ad":
+            backend = AzureAdChatBackend(
+                endpoint="https://example.openai.azure.com/",
+                deployment="narrator-mini",
+                identity=_RecordingIdentity(),
+                http_client=client,
+            )
+        else:
+            backend = OpenAiCompatibleChatBackend(
+                config=OpenAiCompatibleChatBackendConfig(
+                    provider="openai",
+                    base_url="https://models.example.com",
+                    api_key="test-key",  # noqa: S106 - synthetic test credential
+                    model="narrator-mini",
+                ),
+                http_client=client,
+            )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await backend.answer(prompt="status", view_context={}, history=[])
+
+        assert exc_info.value.status_code == 502
+        assert exc_info.value.detail == "chat upstream returned incomplete completion"
+        await client.aclose()
+
+    @pytest.mark.parametrize("provider", ["azure-ad", "openai"])
+    async def test_backend_recognizes_refusal_even_with_content(self, provider: str) -> None:
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "finish_reason": "stop",
+                            "message": {
+                                "content": "must not be accepted",
+                                "refusal": "policy refusal",
+                            },
+                        }
+                    ]
+                },
+            )
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        backend: ChatBackend
+        if provider == "azure-ad":
+            backend = AzureAdChatBackend(
+                endpoint="https://example.openai.azure.com/",
+                deployment="narrator-mini",
+                identity=_RecordingIdentity(),
+                http_client=client,
+            )
+        else:
+            backend = OpenAiCompatibleChatBackend(
+                config=OpenAiCompatibleChatBackendConfig(
+                    provider="openai",
+                    base_url="https://models.example.com",
+                    api_key="test-key",  # noqa: S106 - synthetic test credential
+                    model="narrator-mini",
+                ),
+                http_client=client,
+            )
+
+        with pytest.raises(ChatContentPolicyError) as exc_info:
+            await backend.answer(prompt="status", view_context={}, history=[])
+
+        assert exc_info.value.stage == "output"
+        await client.aclose()
+
     async def test_azure_backend_records_operator_chat_usage(self) -> None:
         identity = _RecordingIdentity()
         sink = InMemoryMeteringSink()
@@ -1050,6 +1137,72 @@ class TestChatRouteLatencySurface:
             async for event in backend.answer_stream(prompt="status", view_context={}, history=[]):
                 events.append(event)
         assert exc_info.value.stage == "output"
+        assert events == [{"type": "token", "delta": "partial"}]
+
+    async def test_azure_stream_rejects_length_truncated_completion(self) -> None:
+        identity = _RecordingIdentity()
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                text=(
+                    'data: {"choices":[{"delta":{"content":"partial"}}]}\n\n'
+                    'data: {"choices":[{"finish_reason":"length","delta":{}}]}\n\n'
+                    "data: [DONE]\n\n"
+                ),
+            )
+
+        backend = AzureAdChatBackend(
+            endpoint="https://example.openai.azure.com/",
+            deployment="narrator-mini",
+            identity=identity,
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+
+        events: list[dict[str, Any]] = []
+        with pytest.raises(HTTPException) as exc_info:
+            async for event in backend.answer_stream(prompt="status", view_context={}, history=[]):
+                events.append(event)
+
+        assert exc_info.value.status_code == 502
+        assert events == [{"type": "token", "delta": "partial"}]
+
+    @pytest.mark.parametrize(
+        ("stream_tail", "expected_detail"),
+        [
+            ("data: not-json\n\ndata: [DONE]\n\n", "chat upstream returned malformed stream frame"),
+            ("", "chat upstream stream ended before completion"),
+        ],
+    )
+    async def test_azure_stream_rejects_unverified_terminal_state(
+        self,
+        stream_tail: str,
+        expected_detail: str,
+    ) -> None:
+        identity = _RecordingIdentity()
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                text='data: {"choices":[{"delta":{"content":"partial"}}]}\n\n' + stream_tail,
+            )
+
+        backend = AzureAdChatBackend(
+            endpoint="https://example.openai.azure.com/",
+            deployment="narrator-mini",
+            identity=identity,
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+
+        events: list[dict[str, Any]] = []
+        with pytest.raises(HTTPException) as exc_info:
+            async for event in backend.answer_stream(prompt="status", view_context={}, history=[]):
+                events.append(event)
+
+        assert exc_info.value.status_code == 502
+        assert exc_info.value.detail == expected_detail
         assert events == [{"type": "token", "delta": "partial"}]
 
     async def test_azure_stream_records_terminal_usage_once(self) -> None:

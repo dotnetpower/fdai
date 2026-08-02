@@ -125,7 +125,10 @@ from fdai.delivery.operator_api.routes.chat_stream_protocol import (
     _sse_heartbeat,
     _with_sse_heartbeats,
 )
-from fdai.delivery.operator_api.routes.chat_stream_setup import prepare_chat_stream_request
+from fdai.delivery.operator_api.routes.chat_stream_setup import (
+    ContentPolicyReplayRequest,
+    prepare_chat_stream_request,
+)
 from fdai.delivery.operator_api.routes.chat_stream_terminal import (
     TurnTimingRecorder,
     TurnTimingStatus,
@@ -238,6 +241,30 @@ def make_chat_stream_route(
             history_policy=history_policy,
             max_body_bytes=max_body_bytes,
         )
+        if isinstance(prepared, ContentPolicyReplayRequest):
+            if progress_metrics is not None:
+                progress_metrics.increment("content_policy_blocks")
+
+            async def policy_replay_source() -> AsyncIterator[bytes]:
+                yield _sse(
+                    "error",
+                    {
+                        "v": 1,
+                        "request_id": prepared.request_id,
+                        "seq": 1,
+                        "revision": 0,
+                        "code": "content_policy_block",
+                        "stage": prepared.stage,
+                        "receipt_persisted": True,
+                        "detail": "chat request blocked by content policy",
+                    },
+                )
+
+            return StreamingResponse(
+                policy_replay_source(),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+            )
         user_id = prepared.user_id
         preferred_model = prepared.preferred_model
         document_evidence_refs = prepared.document_evidence_refs

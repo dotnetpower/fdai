@@ -58,6 +58,7 @@ _CONTENT_FILTER_MARKERS: Final[tuple[str, ...]] = (
     "jailbreak",
     "content management policy",
 )
+_COMPLETE_FINISH_REASONS: Final[frozenset[str]] = frozenset({"stop"})
 
 ContentPolicyStage = Literal["input", "output", "history_compaction", "unknown"]
 
@@ -123,6 +124,36 @@ def _raise_if_content_filtered(envelope: object) -> None:
             raise ChatContentPolicyError(stage="output")
         if _contains_filter_signal(choice.get("content_filter_results")):
             raise ChatContentPolicyError(stage="output")
+        for payload_key in ("message", "delta"):
+            payload = choice.get(payload_key)
+            if not isinstance(payload, Mapping):
+                continue
+            refusal = payload.get("refusal")
+            if refusal is not None and (not isinstance(refusal, str) or refusal.strip()):
+                raise ChatContentPolicyError(stage="output")
+
+
+def _raise_if_incomplete_completion(envelope: object) -> None:
+    """Reject provider-declared truncation before partial output is accepted."""
+
+    if not isinstance(envelope, Mapping):
+        return
+    choices = envelope.get("choices")
+    if not isinstance(choices, list):
+        return
+    for choice in choices:
+        if not isinstance(choice, Mapping):
+            continue
+        finish_reason = choice.get("finish_reason")
+        if (
+            isinstance(finish_reason, str)
+            and finish_reason.lower() != "content_filter"
+            and finish_reason.lower() not in _COMPLETE_FINISH_REASONS
+        ):
+            raise HTTPException(
+                status_code=502,
+                detail="chat upstream returned incomplete completion",
+            )
 
 
 def _contains_filter_signal(value: object) -> bool:

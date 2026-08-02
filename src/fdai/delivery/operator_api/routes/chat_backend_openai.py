@@ -16,6 +16,7 @@ from fdai.delivery.operator_api.routes.chat_backend_common import (
     _default_chat_http_client,
     _metering_scope,
     _raise_if_content_filtered,
+    _raise_if_incomplete_completion,
     _raise_upstream_error,
     _structured_completion_body,
     _structured_content,
@@ -139,6 +140,7 @@ class OpenAiCompatibleChatBackend:
         except ValueError as exc:
             raise HTTPException(status_code=502, detail="chat upstream returned non-JSON") from exc
         _raise_if_content_filtered(envelope)
+        _raise_if_incomplete_completion(envelope)
 
         choices = envelope.get("choices")
         if not isinstance(choices, list) or not choices:
@@ -202,6 +204,7 @@ class OpenAiCompatibleChatBackend:
         except ValueError as exc:
             raise HTTPException(status_code=502, detail="chat upstream returned non-JSON") from exc
         _raise_if_content_filtered(envelope)
+        _raise_if_incomplete_completion(envelope)
         result = _structured_result(envelope)
         complete_model_call(
             trace_call,

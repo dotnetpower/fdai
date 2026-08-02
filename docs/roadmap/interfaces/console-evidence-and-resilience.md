@@ -231,7 +231,7 @@ scroll region or row-expansion control. Cells wrap on narrow screens instead of 
 
 Detail includes bounded recorded metadata but doesn't repeat the answer body. Valid object or array JSON in provider messages, action arguments, commands, and outputs uses indented syntax highlighting and copy; malformed or plain text stays unchanged. The terminal replay payload retains final ID-deduplicated branch, activity, milestone, and redacted execution detail under a 64 KiB aggregate cap, truncates each history output at 32 KiB, and reports truncation and omission counts, so durable history and the live turn use the same strict parser and trajectory view. Unavailable or timed-out
 evidence is an attempt, not completed evidence, and unverified work never receives completed styling. Missing activity stays in an observation-coverage disclosure and proves no absence. Exact-answer
-durable replay uses the same bounded browser parsers. The server buffers model tokens until the provider's terminal content-policy decision is known; a block exposes no partial token or assistant answer, records only a content-free receipt, and produces the same deterministic fallback for SSE and JSON `422`, while logs retain only stage and aggregate counts.
+durable replay uses the same bounded browser parsers. The server buffers model tokens until the provider's terminal content-policy decision is known; a block exposes no partial token or assistant answer, records only a content-free receipt, and produces the same deterministic fallback for SSE and JSON `422`, while logs retain only stage and aggregate counts. An explicit provider refusal, truncated completion, malformed stream frame, or stream without a verified terminal signal never becomes an assistant answer.
 
 Terminal timing covers at most eight allowlisted semantic-plan, evidence, generation, quality-review,
 and verification phases. One UTC anchor plus monotonic elapsed time produces observed status, start, completion, and duration. Interrupts persist none; strict parsing rejects inconsistent timing.
@@ -255,6 +255,9 @@ A completed request is replayed only when principal, conversation, idempotency k
 content match. The stored terminal assistant payload is returned without repeating evidence
 retrieval, narration, or post-turn review. Changed content or another conversation under the same
 key is a conflict. JSON, SSE, and cross-transport retries share this terminal payload.
+A content-policy receipt follows the same identity checks. A matching retry replays the policy
+result before preference resolution, document retrieval, history compaction, planning, or provider
+work. A changed prompt or conversation under the same request key is a conflict.
 
 An optional incident conversation binding carries a bounded incident id, correlation id, and
 allowlisted Pantheon agent. The browser and server enforce the same bounds. Invalid persisted

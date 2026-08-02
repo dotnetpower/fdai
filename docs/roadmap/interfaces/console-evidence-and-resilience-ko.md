@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: c449c60197281dc19d778f21ef3e92620535aace
-translation_revised: 2026-08-02
+translation_source_sha: eba589769a896b62abcf6142eb28f0597eb8f18d
+translation_revised: 2026-08-03
 ---
 
 # 콘솔 근거 및 복원력
@@ -235,7 +235,7 @@ branch, activity, milestone 및 redacted execution detail을 총 64 KiB 이하�
 live turn이 같은 strict parser 및 trajectory view를 사용합니다. Unavailable 또는
 timed-out evidence는 시도이지 완료된 evidence가 아니며 unverified 작업에는 완료 styling을 적용하지
 않습니다. 누락된 activity는 observation coverage disclosure에 두며 작업 부재를 증명하지 않습니다.
-Exact-answer durable replay에는 같은 bounded browser parser를 사용합니다. Server는 provider의 terminal content-policy 결정이 확인될 때까지 model token을 buffering합니다. Block은 partial token 또는 assistant answer를 노출하지 않고 content-free receipt만 기록하며 SSE와 JSON `422`에 같은 deterministic fallback을 사용하고, log에는 stage와 aggregate count만 남깁니다.
+Exact-answer durable replay에는 같은 bounded browser parser를 사용합니다. Server는 provider의 terminal content-policy 결정이 확인될 때까지 model token을 buffering합니다. Block은 partial token 또는 assistant answer를 노출하지 않고 content-free receipt만 기록하며 SSE와 JSON `422`에 같은 deterministic fallback을 사용하고, log에는 stage와 aggregate count만 남깁니다. 명시적인 provider refusal, truncated completion, malformed stream frame 또는 검증된 terminal signal 없이 끝난 stream은 assistant answer가 되지 않습니다.
 
 Terminal timing은 최대 8개의 allowlisted semantic-plan, evidence, generation, quality-review 및
 verification phase를 포함합니다. 하나의 UTC anchor와 monotonic elapsed time으로 관측된 status, start,
@@ -259,6 +259,9 @@ unredacted prompt, credential, unrestricted payload 및 해당 turn에 기록되
 replay됩니다. 저장된 terminal assistant payload를 반환하며 evidence retrieval, narration 또는
 post-turn review를 반복하지 않습니다. 같은 key에 다른 content나 conversation이 들어오면
 conflict입니다. JSON, SSE 및 cross-transport retry는 같은 terminal payload를 사용합니다.
+Content-policy receipt에도 같은 identity check를 적용합니다. 일치하는 retry는 preference resolution,
+document retrieval, history compaction, planning 또는 provider 작업 전에 policy result를 replay합니다.
+같은 request key에서 prompt 또는 conversation이 바뀌면 conflict입니다.
 
 Optional incident conversation binding은 bounded incident id, correlation id 및 allowlisted
 Pantheon agent를 전달합니다. Browser와 server는 같은 bound를 강제합니다. 잘못 저장된 binding은

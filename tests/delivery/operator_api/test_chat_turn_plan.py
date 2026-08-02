@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 import pytest
 from starlette.applications import Starlette
+from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
@@ -361,6 +362,55 @@ async def test_real_backends_send_strict_turn_plan_schema(provider: str) -> None
     assert trace["calls"][0]["kind"] == "structured:fdai_turn_plan"
     assert "query_incidents" in trace["calls"][0]["response"]["content"]
     assert plan.tool_name == "query_incidents"
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("provider", ["azure-ad", "openai"])
+async def test_real_backends_reject_length_truncated_structured_completion(
+    provider: str,
+) -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "length",
+                        "message": {"content": json.dumps(_plan())},
+                    }
+                ]
+            },
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    backend: object
+    if provider == "azure-ad":
+        backend = AzureAdChatBackend(
+            endpoint="https://example.openai.azure.com",
+            deployment="narrator-mini",
+            identity=_Identity(),
+            http_client=client,
+        )
+    else:
+        backend = OpenAiCompatibleChatBackend(
+            config=OpenAiCompatibleChatBackendConfig(
+                provider="openai",
+                base_url="https://models.example.com",
+                api_key="test-key",  # noqa: S106 - synthetic credential
+                model="narrator-mini",
+            ),
+            http_client=client,
+        )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await BackendTurnPlanner(backend).plan_turn(
+            prompt="show active incidents",
+            tools=_read_tools(),
+            history=(),
+        )
+
+    assert exc_info.value.status_code == 502
     await client.aclose()
 
 

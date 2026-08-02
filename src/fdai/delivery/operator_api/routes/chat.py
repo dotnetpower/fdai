@@ -117,6 +117,7 @@ from fdai.delivery.operator_api.routes.chat_history import (
     append_content_policy_receipt,
     append_operator_turn,
     completed_replay_payload,
+    content_policy_replay_stage,
     replay_metadata,
 )
 from fdai.delivery.operator_api.routes.chat_history_context import (
@@ -312,16 +313,6 @@ def make_chat_route(
 
     async def handler(request: Request) -> JSONResponse:
         user_id = await authorize(request)
-        preferred_model = (
-            await model_preference_resolver(user_id)
-            if model_preference_resolver is not None
-            else None
-        )
-        answer_preferences = (
-            await answer_preference_resolver(user_id)
-            if answer_preference_resolver is not None
-            else None
-        )
 
         # Bound the body up-front so a malicious page cannot inflate cost.
         # Preflight Content-Length so an attacker cannot force us to
@@ -394,6 +385,36 @@ def make_chat_route(
         except ChatContentPolicyError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         session_id = _session_id(body)
+        request_id = _request_id(body)
+        if conversation_history_store is not None:
+            try:
+                replay_stage = await content_policy_replay_stage(
+                    store=conversation_history_store,
+                    principal_id=user_id,
+                    conversation_id=session_id,
+                    request_id=request_id,
+                    content=clean_prompt,
+                )
+            except UserContextConflictError as exc:
+                raise HTTPException(
+                    status_code=409,
+                    detail="chat request id conflicts with an existing turn",
+                ) from exc
+            if replay_stage is not None:
+                raise HTTPException(
+                    status_code=422,
+                    detail="chat request blocked by content policy",
+                )
+        preferred_model = (
+            await model_preference_resolver(user_id)
+            if model_preference_resolver is not None
+            else None
+        )
+        answer_preferences = (
+            await answer_preference_resolver(user_id)
+            if answer_preference_resolver is not None
+            else None
+        )
         with (
             with_correlation(_metering_correlation_id(user_id, session_id)),
             with_invocation_scope(InvocationScope.OPERATOR_CHAT),
@@ -447,7 +468,6 @@ def make_chat_route(
                 )
             )
             task.add_done_callback(_log_handover_availability_failure)
-        request_id = _request_id(body)
         active_turn = None
         if busy_input_coordinator is not None:
             try:

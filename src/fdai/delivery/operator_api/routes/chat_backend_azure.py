@@ -20,6 +20,7 @@ from fdai.delivery.operator_api.routes.chat_backend_common import (
     _default_chat_http_client,
     _metering_scope,
     _raise_if_content_filtered,
+    _raise_if_incomplete_completion,
     _raise_upstream_error,
     _structured_completion_body,
     _structured_content,
@@ -152,6 +153,7 @@ class AzureAdChatBackend:
         except ValueError as exc:
             raise HTTPException(status_code=502, detail="chat upstream returned non-JSON") from exc
         _raise_if_content_filtered(envelope)
+        _raise_if_incomplete_completion(envelope)
         choices = envelope.get("choices")
         if not isinstance(choices, list) or not choices:
             raise HTTPException(status_code=502, detail="chat upstream returned no choices")
@@ -232,6 +234,7 @@ class AzureAdChatBackend:
         except ValueError as exc:
             raise HTTPException(status_code=502, detail="chat upstream returned non-JSON") from exc
         _raise_if_content_filtered(envelope)
+        _raise_if_incomplete_completion(envelope)
         result = _structured_result(envelope)
         complete_model_call(
             trace_call,
@@ -297,6 +300,7 @@ class AzureAdChatBackend:
         }
         collected: list[str] = []
         stream_usage: dict[str, int] | None = None
+        terminal_received = False
         try:
             async with self._http.stream(
                 "POST",
@@ -314,13 +318,17 @@ class AzureAdChatBackend:
                         continue
                     data = line[len("data:") :].strip()
                     if data == "[DONE]":
+                        terminal_received = True
                         break
                     try:
                         obj = json.loads(data)
-                    except ValueError:
-                        _LOG.warning("chat stream skipped malformed JSON frame")
-                        continue
+                    except ValueError as exc:
+                        raise HTTPException(
+                            status_code=502,
+                            detail="chat upstream returned malformed stream frame",
+                        ) from exc
                     _raise_if_content_filtered(obj)
+                    _raise_if_incomplete_completion(obj)
                     maybe_usage = (
                         _usage_summary(obj.get("usage")) if isinstance(obj, dict) else None
                     )
@@ -329,7 +337,13 @@ class AzureAdChatBackend:
                     choices = obj.get("choices")
                     if not isinstance(choices, list) or not choices:
                         continue
-                    delta = choices[0].get("delta") if isinstance(choices[0], dict) else None
+                    first_choice = choices[0]
+                    if (
+                        isinstance(first_choice, dict)
+                        and first_choice.get("finish_reason") == "stop"
+                    ):
+                        terminal_received = True
+                    delta = first_choice.get("delta") if isinstance(first_choice, dict) else None
                     piece = delta.get("content") if isinstance(delta, dict) else None
                     if isinstance(piece, str) and piece:
                         collected.append(piece)
@@ -337,6 +351,11 @@ class AzureAdChatBackend:
         except httpx.HTTPError as exc:
             _LOG.warning("chat stream HTTP error: %s", exc)
             raise HTTPException(status_code=502, detail="chat upstream unreachable") from exc
+        if not terminal_received:
+            raise HTTPException(
+                status_code=502,
+                detail="chat upstream stream ended before completion",
+            )
         done: dict[str, Any] = {
             "type": "done",
             "answer": "".join(collected).strip(),
