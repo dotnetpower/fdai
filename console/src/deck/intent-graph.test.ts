@@ -34,6 +34,11 @@ describe("parseIntentGraph", () => {
     expect(parseIntentGraph({ ...graph(), goals: Array(9).fill(graph().goals[0]) }))
       .toBeUndefined();
     expect(parseIntentGraph({ ...graph(), confidence: 2 })).toBeUndefined();
+    expect(parseIntentGraph({ ...graph(), unexpected: "field" })).toBeUndefined();
+    expect(parseIntentGraph({
+      ...graph(),
+      goals: [{ ...graph().goals[0], arguments: { nested: [[[[["too deep"]]]]] } }],
+    })).toBeUndefined();
   });
 });
 
@@ -43,7 +48,16 @@ describe("parseIntentGraphEvidence", () => {
       schema_version: 1,
       status: "partial",
       evidence_mode: "partial",
-      goals: [{ goal_id: "health", status: "completed" }],
+      goals: [{
+        goal_id: "health",
+        intent: "status",
+        capability: "query_subscription_health",
+        evidence_mode: "operational",
+        status: "completed",
+        duration_ms: 12,
+        depends_on: [],
+        evidence_refs: ["subscription-health:latest"],
+      }],
     });
 
     expect(parsed?.evidence_mode).toBe("partial");
@@ -56,6 +70,30 @@ describe("parseIntentGraphEvidence", () => {
       status: "completed",
       evidence_mode: "invented",
       goals: [],
+    })).toBeUndefined();
+  });
+
+  it("rejects raw provider evidence and oversized receipt references", () => {
+    const receipt = {
+      goal_id: "health",
+      intent: "status",
+      capability: "query_subscription_health",
+      evidence_mode: "operational",
+      status: "completed",
+      duration_ms: 12,
+      depends_on: [],
+    };
+    expect(parseIntentGraphEvidence({
+      schema_version: 1,
+      status: "completed",
+      evidence_mode: "operational_grounded",
+      goals: [{ ...receipt, evidence: { secret: "raw" } }],
+    })).toBeUndefined();
+    expect(parseIntentGraphEvidence({
+      schema_version: 1,
+      status: "completed",
+      evidence_mode: "operational_grounded",
+      goals: [{ ...receipt, evidence_refs: ["x".repeat(513)] }],
     })).toBeUndefined();
   });
 });

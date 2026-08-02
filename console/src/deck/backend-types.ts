@@ -354,7 +354,18 @@ export interface IntentGraphEvidence {
   readonly schema_version: 1;
   readonly status: "completed" | "partial" | "unavailable" | "failed";
   readonly evidence_mode: IntentEvidenceMode;
-  readonly goals: readonly Readonly<Record<string, unknown>>[];
+  readonly goals: readonly {
+    readonly goal_id: string;
+    readonly intent: string;
+    readonly capability: string | null;
+    readonly evidence_mode: string;
+    readonly status: "completed" | "unavailable" | "failed" | "timed_out" | "skipped";
+    readonly duration_ms: number;
+    readonly depends_on: readonly string[];
+    readonly reason?: string;
+    readonly blocked_by?: readonly string[];
+    readonly evidence_refs?: readonly string[];
+  }[];
 }
 
 export type ProgressiveAnswer = Answer & {

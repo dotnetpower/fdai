@@ -160,7 +160,15 @@ describe("serializeTurns", () => {
           schema_version: 1 as const,
           status: "partial" as const,
           evidence_mode: "partial" as const,
-          goals: [{ goal_id: "health", status: "completed" }],
+          goals: [{
+            goal_id: "health",
+            intent: "status",
+            capability: "query_subscription_health",
+            evidence_mode: "operational",
+            status: "completed" as const,
+            duration_ms: 12,
+            depends_on: [],
+          }],
         },
         evidenceMode: "partial" as const,
         delegation: {
