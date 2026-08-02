@@ -2,7 +2,12 @@ import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
 
 import { t } from "../i18n";
-import type { EvidenceBranch, InvestigationActivity } from "./backend";
+import type {
+  EvidenceBranch,
+  IntentGraphEvidence,
+  IntentGraphMetadata,
+  InvestigationActivity,
+} from "./backend";
 import type { ConversationTrajectory } from "./conversation-trajectory";
 import { ConversationExecutionTimelineView } from "./conversation-execution-timeline-view";
 import {
@@ -39,6 +44,7 @@ export function ConversationTrajectoryView({
     : 0;
   const timelinePhases: TrajectoryPhase[] = [
     "input",
+    ...(answer.intentGraph ? ["plan" as const] : []),
     ...(presentation.evidenceAttemptCount > 0 || milestones.length > 0 ? ["evidence" as const] : []),
     ...(answer.verification ? ["verification" as const] : []),
     "answer",
@@ -90,6 +96,14 @@ export function ConversationTrajectoryView({
               {...(startedAt ? { dateTime: startedAt } : {})}>
               <p class="deck-trajectory-prose">{trajectory.question.text}</p>
             </TrajectoryPhase>
+            {answer.intentGraph ? (
+              <IntentGraphPhase
+                graph={answer.intentGraph}
+                {...(answer.intentGraphEvidence ? { evidence: answer.intentGraphEvidence } : {})}
+                index={phaseIndex(timelinePhases, "plan")}
+                state={presentation.phaseStates.plan}
+              />
+            ) : null}
             {timelinePhases.includes("evidence") ? (
               <TrajectoryPhase index={phaseIndex(timelinePhases, "evidence")} phase="evidence"
                 state={presentation.phaseStates.evidence} heading={t("deck.trajectory.phase.evidence")}
@@ -121,6 +135,61 @@ export function ConversationTrajectoryView({
         </div>
       ) : null}
     </details>
+  );
+}
+
+function IntentGraphPhase({
+  graph,
+  evidence,
+  index,
+  state,
+}: {
+  readonly graph: IntentGraphMetadata;
+  readonly evidence?: IntentGraphEvidence;
+  readonly index: string;
+  readonly state: TrajectoryPhaseState;
+}) {
+  const receipts = new Map((evidence?.goals ?? []).map((goal) => [goal.goal_id, goal]));
+  const mode = evidence?.evidence_mode ?? "held_for_review";
+  return (
+    <TrajectoryPhase
+      index={index}
+      phase="plan"
+      state={state}
+      heading={t("deck.trajectory.phase.plan")}
+      summary={t("deck.trajectory.planSummary", {
+        count: graph.goals.length,
+        mode: t(`deck.trajectory.evidenceMode.${mode}`),
+      })}
+    >
+      <ol class="deck-trajectory-goals" aria-label={t("deck.trajectory.goalsLabel")}>
+        {graph.goals.map((goal, goalIndex) => {
+          const receipt = receipts.get(goal.goal_id);
+          const status = receipt?.status ?? "planned";
+          return (
+            <li key={goal.goal_id} data-status={status}>
+              <span class="deck-trajectory-goal-index" aria-hidden="true">
+                {String(goalIndex + 1).padStart(2, "0")}
+              </span>
+              <span class="deck-trajectory-goal-copy">
+                <strong>{t("deck.trajectory.goalLabel", { index: goalIndex + 1 })}</strong>
+                <code>{goal.capability ?? t("deck.trajectory.contextGoal")}</code>
+                {goal.depends_on.length > 0 ? (
+                  <small>{t("deck.trajectory.dependsOn", {
+                    goals: goal.depends_on.join(", "),
+                  })}</small>
+                ) : null}
+              </span>
+              <span class={`deck-trajectory-goal-status is-${status}`}>
+                {status === "planned"
+                  ? t("deck.trajectory.planned")
+                  : t(`deck.investigation.${status}`)}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </TrajectoryPhase>
   );
 }
 

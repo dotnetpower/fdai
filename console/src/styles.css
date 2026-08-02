@@ -6294,6 +6294,19 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-trajectory-event[data-state="failed"] .deck-trajectory-state { color: var(--danger); }
 .deck-trajectory-event-detail { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); }
 .deck-trajectory-prose { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .875rem; line-height: 1.6; }
+.deck-trajectory-goals { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.deck-trajectory-goals > li { display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; align-items: center; gap: 8px; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); }
+.deck-trajectory-goal-index { color: var(--fg-muted); font-size: .75rem; font-variant-numeric: tabular-nums; }
+.deck-trajectory-goal-copy { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.deck-trajectory-goal-copy strong { font-size: .8125rem; }
+.deck-trajectory-goal-copy code { overflow-wrap: anywhere; color: var(--fg); font-size: .8125rem; }
+.deck-trajectory-goal-copy small { color: var(--fg-muted); font-size: .75rem; }
+.deck-trajectory-goal-status { align-self: start; padding: 2px 6px; border-radius: 4px; background: var(--bg-elevated); color: var(--fg-muted); font-size: .75rem; font-weight: 700; }
+.deck-trajectory-goal-status.is-completed { color: var(--success); }
+.deck-trajectory-goal-status.is-failed,
+.deck-trajectory-goal-status.is-timed_out { color: var(--danger); }
+.deck-trajectory-goal-status.is-unavailable,
+.deck-trajectory-goal-status.is-skipped { color: var(--warning); }
 .deck-trajectory-facts { display: grid; grid-template-columns: minmax(90px, auto) minmax(0, 1fr); gap: 6px 12px; margin: 0; font-size: .875rem; line-height: 1.5; }
 .deck-trajectory-facts dt { color: var(--fg-muted); }
 .deck-trajectory-facts dd { margin: 0; overflow-wrap: anywhere; }

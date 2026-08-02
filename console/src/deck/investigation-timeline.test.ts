@@ -111,6 +111,10 @@ describe("upsertEvidenceBranch", () => {
       fileURLToPath(new URL("./command-deck-presenters.tsx", import.meta.url)),
       "utf8",
     );
+    const trajectory = readFileSync(
+      fileURLToPath(new URL("./conversation-trajectory-view.tsx", import.meta.url)),
+      "utf8",
+    );
 
     expect(component).toContain(
       '<details class="deck-investigation-activity-disclosure" open>',
@@ -130,6 +134,9 @@ describe("upsertEvidenceBranch", () => {
     expect(presenter).toContain("{isDeck ? (");
     expect(presenter).toContain('class="deck-progress-note" role="status"');
     expect(styles).toContain(".deck-progress-note {");
+    expect(trajectory).toContain("<IntentGraphPhase");
+    expect(trajectory).toContain('class="deck-trajectory-goals"');
+    expect(styles).toContain(".deck-trajectory-goal-status.is-skipped");
     expect(styles).toMatch(
       /\.deck-body\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/,
     );
