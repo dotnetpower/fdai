@@ -168,9 +168,10 @@ describe("upsertEvidenceBranch", () => {
     expect(richContent).toContain("if (streaming) {");
     expect(richContent).toContain("<TextBlock text={text} caret />");
     expect(richContent).toContain("{rows.map((row, r) => (");
-    expect(richContent).toContain('data-label={headers[c]}');
+    expect(richContent).toContain('<th key={i} scope="col">');
+    expect(richContent).toContain('class="deck-table-cell-label" aria-hidden="true"');
     expect(richContent).not.toContain("tableRowsForDisplay");
-    expect(styles).toContain(".deck-table td::before {");
+    expect(styles).toContain(".deck-table-cell-label {");
     expect(styles).toContain("grid-template-columns: minmax(88px, 36%) minmax(0, 1fr);");
     expect(styles).toContain(".deck-composer-inner {");
     expect(styles).toContain(".deck-transcript-inner {");

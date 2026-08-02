@@ -182,7 +182,7 @@ function TableBlock({
           <thead>
             <tr>
               {headers.map((h, i) => (
-                <th key={i}>{h}</th>
+                <th key={i} scope="col">{h}</th>
               ))}
             </tr>
           </thead>
@@ -190,7 +190,12 @@ function TableBlock({
             {rows.map((row, r) => (
               <tr key={r}>
                 {headers.map((_, c) => (
-                  <td key={c} data-label={headers[c]}>{row[c] ?? ""}</td>
+                  <td key={c}>
+                    <span class="deck-table-cell-label" aria-hidden="true">
+                      {headers[c] ?? ""}
+                    </span>
+                    <span class="deck-table-cell-value">{row[c] ?? ""}</span>
+                  </td>
                 ))}
               </tr>
             ))}

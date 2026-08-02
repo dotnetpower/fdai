@@ -8139,6 +8139,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-table tbody tr:last-child td { border-bottom: 0; }
 .deck-table tbody tr:hover td { background: color-mix(in oklab, var(--accent) 6%, transparent); }
+.deck-table-cell-label { display: none; }
 .deck-table-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--fg-muted); font-size: 12px; }
 .deck-table-meta button { min-height: 32px; padding: 5px 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); font: inherit; font-size: 12px; cursor: pointer; }
 .deck-table-meta button:hover { border-color: var(--accent); color: var(--accent-strong); }
@@ -8930,13 +8931,14 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     padding: 4px 9px;
     border-bottom: 0;
   }
-  .deck-table td::before {
-    content: attr(data-label);
+  .deck-table-cell-label {
+    display: block;
     color: var(--fg-muted);
     font-size: 11px;
     font-weight: 600;
     overflow-wrap: anywhere;
   }
+  .deck-table-cell-value { min-width: 0; }
   .deck-turn-head { flex-wrap: wrap; gap: 5px 8px; }
   .deck-gr-pill {
     border-radius: 8px;

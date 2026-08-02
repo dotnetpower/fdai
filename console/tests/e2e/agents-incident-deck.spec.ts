@@ -39,7 +39,10 @@ function sse(route: Route, frames: readonly string[]): Promise<void> {
 
 async function installOperatorApiFixture(
   page: Page,
-  options: { readonly executionTimeline?: boolean } = {},
+  options: {
+    readonly answer?: string;
+    readonly executionTimeline?: boolean;
+  } = {},
 ): Promise<{
   readonly chatBody: () => Record<string, unknown> | null;
 }> {
@@ -96,12 +99,13 @@ async function installOperatorApiFixture(
     }
     if (path === "/chat/stream") {
       capturedChatBody = request.postDataJSON() as Record<string, unknown>;
-      const answer =
+      const answer = options.answer ?? (
         `${correlationId} (Environment tag required) is investigating and was last updated ` +
         "at 2026-07-22T00:01:00Z, but no grounded root cause with citations is recorded. " +
         "The cause cannot be confirmed.\n\nCurrent recorded agent activity:\n" +
         "- Var: hil.requested at 2026-07-22T00:01:00Z\n" +
-        "- Forseti: risk_gate.decided at 2026-07-22T00:00:30Z";
+        "- Forseti: risk_gate.decided at 2026-07-22T00:00:30Z"
+      );
       const frames = options.executionTimeline ? [
         `event: branch\ndata: ${JSON.stringify({
           seq: 1,
@@ -262,6 +266,52 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   expect(metrics.investigationOverflow).toBe(false);
   expect(metrics.commandBackground).toBe("rgb(31, 36, 40)");
   expect(metrics.codeBackground).toBe("rgba(0, 0, 0, 0)");
+});
+
+test("keeps responsive table labels visual-only at 320px", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await installOperatorApiFixture(page, {
+    answer: [
+      "| Fact | Value | Description / Alias |",
+      "| --- | --- | --- |",
+      "| health | attention | Overall health status |",
+      "| event_count | 500 | Events observed in the current window |",
+      "| change_lead_time_seconds | unavailable | Change lead time |",
+    ].join("\n"),
+  });
+  await page.goto(
+    `/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`,
+  );
+
+  await page.getByRole("button", { name: "Open command deck" }).click();
+  const deck = page.getByRole("complementary", { name: "Command deck" });
+  await deck.getByPlaceholder(/Ask anything/i).fill("Show the evidence as a table");
+  await deck.getByRole("button", { name: "Send" }).click();
+
+  const table = deck.getByRole("table");
+  await expect(table).toBeVisible();
+  await expect(table.getByRole("columnheader", { name: "Fact" })).toHaveAttribute(
+    "scope",
+    "col",
+  );
+  await expect(table.getByRole("cell", { name: "health", exact: true })).toBeVisible();
+  await expect(table.getByRole("cell", { name: "Fact health", exact: true })).toHaveCount(0);
+  await expect(table.locator("tbody tr")).toHaveCount(3);
+
+  const metrics = await deck.evaluate((root) => {
+    const wrap = root.querySelector<HTMLElement>(".deck-table-wrap");
+    const cell = root.querySelector<HTMLElement>(".deck-table td");
+    return {
+      deckOverflow: root.scrollWidth > root.clientWidth,
+      tableOverflow: wrap ? wrap.scrollWidth > wrap.clientWidth : true,
+      cellDisplay: cell ? getComputedStyle(cell).display : "",
+    };
+  });
+  expect(metrics).toEqual({
+    deckOverflow: false,
+    tableOverflow: false,
+    cellDisplay: "grid",
+  });
 });
 
 test("pins a Var incident through the deck and renders a grounded Bragi answer", async ({
