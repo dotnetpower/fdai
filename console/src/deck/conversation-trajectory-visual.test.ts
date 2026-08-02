@@ -6,7 +6,9 @@ const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.u
 
 describe("observed trajectory typography", () => {
   test("keeps primary detail text readable and subordinate to the transcript", () => {
-    expect(styles).toContain(".deck-transcript {\n  overflow-y: auto;\n  padding: 0;\n  font-size: 15px;");
+    expect(styles).toMatch(
+      /\.deck-transcript\s*\{[^}]*overflow-y:\s*auto;[^}]*overflow-anchor:\s*none;[^}]*padding:\s*0;[^}]*font-size:\s*15px;/,
+    );
     expect(styles).toMatch(
       /\.deck-transcript-inner\s*\{[^}]*width:\s*min\(100%, 900px\);[^}]*display:\s*flex;[^}]*flex-direction:\s*column;[^}]*gap:\s*12px;/,
     );

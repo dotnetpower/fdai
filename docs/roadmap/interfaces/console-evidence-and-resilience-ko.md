@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 51b4d4472792bb7773df6abae8afdc4bda2b628c
+translation_source_sha: c449c60197281dc19d778f21ef3e92620535aace
 translation_revised: 2026-08-02
 ---
 
@@ -216,14 +216,16 @@ provider payload 및 validation result는 변경하지 않습니다.
 않습니다. 기록된 event, evidence, reference 및 verification count는 compact result chip으로 표시합니다.
 펼친 view는 6단계 rail, 펼칠 수 있는 observed-event timeline 및 provenance signal을 먼저 표시하고,
 timing window, decision context, phase record 및 coverage gap은 하나의 접힌 execution-details disclosure에
-유지합니다. Timing이 없는 plan과 collaboration metadata는 decision context에 두고, 관측된 input, evidence
+유지합니다. Preparing-answer surface는 final answer streaming이 시작될 때까지 operator turn과 observed
+work 사이에 유지됩니다. Transcript는 browser scroll anchoring을 끄고 하단 공간을 추가하며 latest edge만
+고정해 streaming layout 변경이 현재 읽기 위치를 움직이지 않게 합니다. Timing이 없는 plan과 collaboration metadata는 decision context에 두고, 관측된 input, evidence
 및 tool, model call, verification 및 delivery만 timeline에 표시합니다. Answer text는 14 px 이상이고,
 main disclosure 높이는 44 px이며, 200% text resize와 320 CSS pixel에서 content loss 없이 reflow합니다.
 Transcript text는 15 px, trajectory heading은 13 px, event label은 12 px, control은 13 px을 사용하며
 compact trajectory metadata는 11 px 아래로 내려가지 않습니다. 게시된 screen snapshot은 5분 후 visibly stale 상태가 되고
 명시적인 page refresh를 제공합니다. Bare clock은 current evidence를 의미하지 않습니다. Markdown
-table은 처음에 body row를 최대 20개 생성하고 sticky heading을 420 px scrolling region에 유지하며,
-명시적으로 펼친 후에만 나머지 row를 렌더링합니다.
+table은 bounded answer row를 transcript flow에 모두 렌더링하며 내부 vertical scroll region이나 row
+expansion control을 사용하지 않습니다. Narrow screen에서는 transcript 폭을 늘리지 않고 cell을 줄바꿈합니다.
 
 상세 화면은 bounded recorded metadata를 표시하지만 answer body를 반복하지 않습니다. Provider message,
 action argument, command 및 output의 유효한 object 또는 array JSON은 indentation, syntax highlighting 및

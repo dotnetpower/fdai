@@ -775,7 +775,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
 
       async function run() {
         var token = reset();
-        if (!await wait(450, token)) return;
+        if (!await wait(1400, token)) return;
         if (!await streamNodeText(answerLead, answerLeadText, token, 14)) return;
         if (!await wait(120, token)) return;
         for (var phaseIndex = 0; phaseIndex < PHASES.length; phaseIndex += 1) {

@@ -123,6 +123,10 @@ describe("upsertEvidenceBranch", () => {
       fileURLToPath(new URL("./grounded-reply.tsx", import.meta.url)),
       "utf8",
     );
+    const richContent = readFileSync(
+      fileURLToPath(new URL("./rich-content.tsx", import.meta.url)),
+      "utf8",
+    );
     const trajectory = readFileSync(
       fileURLToPath(new URL("./conversation-trajectory-view.tsx", import.meta.url)),
       "utf8",
@@ -153,13 +157,18 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toContain(".deck-turn.is-investigation-flow::before");
     expect(retrieval).toContain('class="deck-turn-head deck-rt-agent-head"');
     expect(retrieval).toContain('class="deck-turn-source"');
-    expect(view).toContain("function InvestigationNextSkeleton()");
-    expect(view).toContain("showInvestigationBridge");
-    expect(view).toContain("inFlight && lastTurnIsInvestigation");
-    expect(view).toContain("lastTurn?.streaming !== true");
+    expect(view).toContain("showPreparingAnswer");
+    expect(view).toContain("inFlight && !finalAnswerPresent");
+    expect(view).toContain("index === activeOperatorIndex");
     expect(view).toContain('class="deck-composer-inner"');
     expect(view).toContain('class="deck-transcript-inner"');
-    expect(styles).toContain(".deck-next-skeleton {");
+    expect(styles).toContain("overflow-anchor: none;");
+    expect(styles).toContain("padding: 16px 42px 88px;");
+    expect(styles).toContain(".deck-table-wrap { max-height: none; overflow: visible; }");
+    expect(richContent).toContain("if (streaming) {");
+    expect(richContent).toContain("<TextBlock text={text} caret />");
+    expect(richContent).toContain("{rows.map((row, r) => (");
+    expect(richContent).not.toContain("tableRowsForDisplay");
     expect(styles).toContain(".deck-composer-inner {");
     expect(styles).toContain(".deck-transcript-inner {");
     expect(reply).toContain('<details\n          class="deck-llm-escalation"');

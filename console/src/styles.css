@@ -6441,7 +6441,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-execution-timeline > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
 .deck-execution-timeline > header h4 { margin: 0; font-size: .9375rem; }
 .deck-execution-timeline > header span { color: var(--fg-muted); font-size: .8125rem; }
-.deck-execution-timeline > ol { margin: 0; padding: 0; list-style: none; }
+.deck-execution-timeline > ol { display: block; margin: 0; padding: 0; list-style: none; color: var(--fg); }
 .deck-execution-timeline > ol > li { border-top: 1px solid color-mix(in oklab, var(--border) 72%, transparent); }
 .deck-execution-timeline > ol > li:first-child { border-top: 0; }
 .deck-execution-timeline > ol > li > details > summary { min-height: 44px; display: grid; grid-template-columns: 62px minmax(120px, .95fr) minmax(100px, 1.45fr) 58px 70px 9px; align-items: center; gap: 7px; cursor: pointer; list-style: none; }
@@ -6611,6 +6611,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-transcript {
   overflow-y: auto;
+  overflow-anchor: none;
+  scrollbar-gutter: stable;
   padding: 0;
   font-size: 15px;
 }
@@ -6618,7 +6620,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   width: min(100%, 900px);
   min-height: 100%;
   margin: 0 auto;
-  padding: 16px 42px 10px;
+  padding: 16px 42px 88px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -8110,10 +8112,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 
 .deck-table-block { display: grid; gap: 6px; }
-.deck-table-wrap { max-height: 420px; overflow: auto; }
+.deck-table-wrap { max-height: none; overflow: visible; }
 .deck-table {
   border-collapse: collapse;
   width: 100%;
+  table-layout: fixed;
   font-size: 12.5px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -8124,12 +8127,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   padding: 6px 10px;
   text-align: left;
   border-bottom: 1px solid var(--border);
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .deck-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
+  position: static;
   background: color-mix(in oklab, var(--accent) 10%, var(--bg-elevated));
   color: var(--fg);
   font-weight: 600;
@@ -8895,7 +8898,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .deck-transcript-inner { padding: 16px 12px 8px; }
+  .deck-transcript-inner { padding: 16px 12px 72px; }
   .deck-transcript-tools { overflow-x: auto; padding-inline: 12px; }
   .deck-transcript-tools button { flex: 0 0 auto; min-height: 40px; }
   .deck-turn { padding: 10px 12px; }

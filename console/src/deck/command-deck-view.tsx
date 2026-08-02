@@ -1,4 +1,4 @@
-import type { RefObject } from "preact";
+import { Fragment, type RefObject } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { t } from "../i18n";
 import {
@@ -76,25 +76,6 @@ interface CommandDeckViewProps {
   readonly onDraftInput: (value: string) => void;
   readonly onInputKeyDown: (event: KeyboardEvent) => void;
   readonly onStopStream: () => void;
-}
-
-function InvestigationNextSkeleton() {
-  return (
-    <div class="deck-next-skeleton" aria-hidden="true">
-      <span class="deck-next-skeleton-mark" />
-      <span class="deck-next-skeleton-stack">
-        <span class="deck-next-skeleton-card">
-          <span class="deck-next-skeleton-line is-label" />
-          <span class="deck-next-skeleton-line" />
-        </span>
-        <span class="deck-next-skeleton-session">
-          <span class="deck-next-skeleton-dot" />
-          <span class="deck-next-skeleton-line" />
-          <span class="deck-next-skeleton-pill" />
-        </span>
-      </span>
-    </div>
-  );
 }
 
 export function CommandDeckView({
@@ -176,10 +157,14 @@ export function CommandDeckView({
     ? Object.values(snapshot.records).reduce((count, records) => count + records.length, 0)
     : 0;
   const lastTurn = turns[turns.length - 1];
-  const lastTurnIsInvestigation = lastTurn?.kind === "activity" ||
-    (lastTurn?.kind === "message" && lastTurn.source === "investigation");
-  const showInvestigationBridge = inFlight && lastTurnIsInvestigation &&
-    lastTurn?.streaming !== true;
+  const finalAnswerPresent = lastTurn?.role === "deck" &&
+    lastTurn.kind !== "activity" && lastTurn.source !== "investigation" &&
+    (lastTurn.streaming === true || lastTurn.terminal === true);
+  const showPreparingAnswer = inFlight && !finalAnswerPresent;
+  const activeOperatorIndex = turns.reduce(
+    (latest, turn, index) => turn.role === "operator" ? index : latest,
+    -1,
+  );
   return (
     <>
       <CommandDeckLauncher
@@ -296,16 +281,15 @@ export function CommandDeckView({
                 const previousInFlow = previous?.kind === "activity" ||
                   (previous?.kind === "message" && previous.source === "investigation");
                 const nextInFlow = next?.kind === "activity" ||
-                  (next?.kind === "message" && next.source === "investigation") ||
-                  (showInvestigationBridge && index === turns.length - 1);
+                  (next?.kind === "message" && next.source === "investigation");
                 const progressIndex = turn.kind === "message" && turn.source === "investigation"
                   ? turns.slice(0, index).filter((candidate) =>
                       candidate.kind === "message" && candidate.source === "investigation").length
                   : undefined;
                 return (
-                  <TurnBubble
-                    key={turn.id}
-                    turn={turn}
+                  <Fragment key={turn.id}>
+                    <TurnBubble
+                      turn={turn}
                     {...(trajectory ? { trajectory } : {})}
                     showModelTrace={showModelTrace}
                     searchMatch={searchMatches.includes(index)}
@@ -313,17 +297,25 @@ export function CommandDeckView({
                     onPickFollowUp={onSubmit}
                     {...(progressIndex !== undefined ? { progressIndex } : {})}
                     investigationFlowStart={investigationFlow && !previousInFlow}
-                    investigationFlowEnd={investigationFlow && !nextInFlow}
+                      investigationFlowEnd={investigationFlow && !nextInFlow}
                     {...(turn.role === "deck" &&
                       !turn.streaming &&
                       !inFlight &&
                       turns.slice(0, index).some((previous) => previous.role === "operator")
                       ? { onRegenerate: () => onRegenerate(index) }
                       : {})}
-                  />
+                    />
+                    {showPreparingAnswer && index === activeOperatorIndex ? (
+                      <RetrievalTrace
+                        snapshot={snapshot}
+                        health={health}
+                        progress={retrievalProgress}
+                      />
+                    ) : null}
+                  </Fragment>
                 );
               })}
-              {showInvestigationBridge ? <InvestigationNextSkeleton /> : pending ? (
+              {pending && activeOperatorIndex < 0 ? (
                 <RetrievalTrace
                   snapshot={snapshot}
                   health={health}
