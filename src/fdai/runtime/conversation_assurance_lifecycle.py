@@ -208,7 +208,9 @@ class BilingualBlindPolicyTrialMeasurer:
                 return None
             incumbent_rows.append(incumbent)
             candidate_rows.append(challenger)
-        if not _has_verified_answer(incumbent_rows) or not _has_verified_answer(candidate_rows):
+        if not _has_verified_answer_per_locale(
+            incumbent_rows
+        ) or not _has_verified_answer_per_locale(candidate_rows):
             return None
         deltas = [
             challenger.decision.content_score - incumbent.decision.content_score
@@ -343,8 +345,14 @@ def _lower_confidence_bound(values: list[float]) -> float:
     return mean - 1.96 * statistics.stdev(values) / math.sqrt(len(values))
 
 
-def _has_verified_answer(rows: list[_MeasuredAnswer]) -> bool:
-    return any(item.decision.verdict is AssuranceVerdict.PASS for item in rows)
+def _has_verified_answer_per_locale(rows: list[_MeasuredAnswer]) -> bool:
+    return all(
+        any(
+            item.locale == locale and item.decision.verdict is AssuranceVerdict.PASS
+            for item in rows
+        )
+        for locale in ("en", "ko")
+    )
 
 
 def _cost_per_verified(rows: list[_MeasuredAnswer]) -> float:

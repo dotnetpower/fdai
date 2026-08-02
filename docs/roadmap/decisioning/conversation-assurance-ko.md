@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 6be0b8dc4431c8bee1a95fd5b433b3a2727d8a08
+translation_source_sha: 8032f3496f67eac6fd7747c6ecd338bf9b55a62f
 translation_revised: 2026-08-04
 ---
 # 대화 품질 보증
@@ -204,6 +204,9 @@ resolved local profile도 secondary reasoner가 `hil-only`이면 이 hold 동작
 각 후보는 원래 실패 질문, 실패당 최소 세 개의 paraphrase, 고정된 영어 및 한국어 benchmark,
 숨겨진 holdout에서 실행됩니다. 이후 shadow, 트래픽 1 percent, 5 percent, 25 percent, 100
 percent 단계를 진행합니다.
+Incumbent와 candidate는 각각 영어와 한국어에서 verified answer를 하나 이상 생성해야 합니다.
+Locale 하나라도 verified answer가 없으면 trial은 unmeasured 상태를 유지하고 promotion metric을
+생성할 수 없습니다. 다른 locale의 aggregate success로 이 gap을 숨길 수 없습니다.
 
 각 단계에는 관측 중인 단계에 결속된 새로운 측정 기간이 필요합니다. stage `r`의 candidate
 `c`에 대해 trial은 `observed_stage = r`과 시나리오 세트 버전, holdout 버전, 입력 cohort, 정책

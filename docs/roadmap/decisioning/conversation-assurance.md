@@ -208,6 +208,9 @@ is `hil-only`.
 Each candidate runs against original failures, at least three paraphrases per failure, the frozen
 English and Korean benchmark, and a hidden holdout. It then advances through shadow, 1 percent,
 5 percent, 25 percent, and 100 percent traffic stages.
+The incumbent and candidate must each produce at least one verified answer in English and Korean.
+If either locale has no verified answer, the trial remains unmeasured and cannot emit promotion
+metrics; aggregate success in the other locale cannot hide the gap.
 
 Each stage requires a fresh measurement window bound to the stage being observed. For candidate
 `c` at stage `r`, the trial reports `observed_stage = r` and a stable evidence digest `d(M_r)` over
