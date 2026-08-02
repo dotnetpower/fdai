@@ -43,6 +43,7 @@ interface DiagramManifest {
     to: string;
     kind: string;
     label: Record<Locale, string> | null;
+    step?: number;
   }>;
 }
 
@@ -476,7 +477,8 @@ class ArchitectureDiagramElement extends HTMLElement {
         edgeKindLabels[locale][
           edge.kind as keyof (typeof edgeKindLabels)[Locale]
         ] ?? edge.kind;
-      flow.textContent = `${outgoing ? labels.outgoing : labels.incoming}: ${kind} - ${peer?.label[locale] ?? peerId}`;
+      const step = edge.step ? `${edge.step}. ` : "";
+      flow.textContent = `${step}${outgoing ? labels.outgoing : labels.incoming}: ${kind} - ${peer?.label[locale] ?? peerId}`;
       flows.append(flow);
     }
     const close = toolbarButton(X, labels.closeDetails, () => {

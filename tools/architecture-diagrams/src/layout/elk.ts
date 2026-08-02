@@ -222,6 +222,7 @@ function groupToElk(
   containedEdges: Map<string, ElkExtendedEdge[]>,
 ): ElkNode {
   const edges = containedEdges.get(group.id);
+  const compact = spec.canvas.profile === "azure-reference";
   return {
     id: group.id,
     children: childrenForGroup(spec, group, containedEdges),
@@ -230,9 +231,11 @@ function groupToElk(
       "elk.algorithm": "layered",
       "elk.direction": group.direction ?? spec.canvas.direction,
       "elk.edgeRouting": "ORTHOGONAL",
-      "elk.padding": "[top=52,left=28,bottom=28,right=28]",
-      "elk.spacing.nodeNode": "22",
-      "elk.layered.spacing.nodeNodeBetweenLayers": "36",
+      "elk.padding": compact
+        ? "[top=44,left=18,bottom=18,right=18]"
+        : "[top=52,left=28,bottom=28,right=28]",
+      "elk.spacing.nodeNode": compact ? "16" : "22",
+      "elk.layered.spacing.nodeNodeBetweenLayers": compact ? "28" : "36",
     },
   };
 }
@@ -458,6 +461,7 @@ function applyExplicitRoutes(
 }
 
 export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
+  const compact = spec.canvas.profile === "azure-reference";
   const containedEdges = edgesByContainer(spec);
   const rootGroups = spec.groups
     .filter((group) => !group.parent)
@@ -475,9 +479,9 @@ export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
       "elk.edgeRouting": "ORTHOGONAL",
       "elk.hierarchyHandling":
         spec.kind === "deployment" ? "INCLUDE_CHILDREN" : "SEPARATE_CHILDREN",
-      "elk.padding": `[top=${spec.canvas.padding ?? 40},left=${spec.canvas.padding ?? 40},bottom=${spec.canvas.padding ?? 40},right=${spec.canvas.padding ?? 40}]`,
-      "elk.spacing.nodeNode": "28",
-      "elk.layered.spacing.nodeNodeBetweenLayers": "52",
+      "elk.padding": `[top=${spec.canvas.padding ?? (compact ? 24 : 40)},left=${spec.canvas.padding ?? (compact ? 24 : 40)},bottom=${spec.canvas.padding ?? (compact ? 24 : 40)},right=${spec.canvas.padding ?? (compact ? 24 : 40)}]`,
+      "elk.spacing.nodeNode": compact ? "18" : "28",
+      "elk.layered.spacing.nodeNodeBetweenLayers": compact ? "38" : "52",
       "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
     },
   };

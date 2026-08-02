@@ -59,6 +59,17 @@ Each `.diagram.yaml` file contains:
 - Single-direction edges with an explicit semantic kind.
 - A legend whenever line styles carry meaning.
 
+Deployment diagrams can opt into `canvas.profile: azure-reference` for a compact,
+icon-forward Azure reference style. In that profile, use semantic presentation
+values instead of pixel-level styling:
+
+- Set groups to `presentation: boundary`, `band`, or `panel` to distinguish
+  network boundaries, subnet bands, and surrounding surfaces.
+- Set icon-bearing nodes to `presentation: icon` when the official product icon
+  should carry the visual hierarchy. FDAI-owned runtime components remain cards.
+- Set `step` on an edge to render a numbered flow badge separately from its
+  localized label.
+
 High-level overviews keep architecture responsibilities in separate labeled
 groups instead of merging every human and delivery surface into one box. The
 renderer preserves ELK's collision-aware orthogonal route, then rounds each

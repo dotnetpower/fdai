@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   NODE_ICON_SIZE,
   NODE_LABEL_GAP,
+  REFERENCE_NODE_ICON_SIZE,
   edgeLabelGeometry,
   nodeGeometry,
   visualUnits,
@@ -58,4 +59,18 @@ test("edge labels reserve the widest bilingual text", () => {
   assert.ok(geometry);
   assert.ok(geometry.width >= 64);
   assert.ok(geometry.height >= 24);
+});
+
+test("icon presentation uses compact icon-forward geometry", () => {
+  const geometry = nodeGeometry({
+    id: "service",
+    kind: "azure-service",
+    icon: "key-vault",
+    presentation: "icon",
+    label: { en: "Key Vault", ko: "Key Vault" },
+  });
+
+  assert.equal(geometry.iconSize, REFERENCE_NODE_ICON_SIZE);
+  assert.equal(geometry.width, 116);
+  assert.ok(geometry.height < 100);
 });

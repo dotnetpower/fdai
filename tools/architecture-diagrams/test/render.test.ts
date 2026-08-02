@@ -133,3 +133,19 @@ test("renders long cross-band connections as a bounded cubic curve", () => {
     "M10 20 C10 104 110 136 110 220",
   );
 });
+
+test("renders the Azure reference profile with semantic presentations and a step badge", async () => {
+  const spec = parseDiagram(source);
+  spec.canvas.profile = "azure-reference";
+  spec.groups[0]!.presentation = "band";
+  spec.nodes[2]!.presentation = "icon";
+  spec.edges[1]!.step = 1;
+  const layout = await layoutDiagram(spec);
+  const svg = await renderSvg(spec, layout, "en");
+
+  assert.match(svg, /data-profile="azure-reference"/);
+  assert.match(svg, /data-presentation="band"/);
+  assert.match(svg, /data-node-id="thor" data-presentation="icon"/);
+  assert.match(svg, /<g class="edge-step"[^>]*><circle r="13"\/><text y="4">1<\/text><\/g>/);
+  assert.match(svg, /<title>Step 1\. Write<\/title>/);
+});

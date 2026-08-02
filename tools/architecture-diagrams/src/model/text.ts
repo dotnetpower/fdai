@@ -11,6 +11,7 @@ export const NODE_ICON_SIZE = 42;
 export const NODE_ICON_TOP = 12;
 export const NODE_LABEL_GAP = 10;
 export const NODE_BOTTOM_PADDING = 12;
+export const REFERENCE_NODE_ICON_SIZE = 50;
 export const EDGE_FONT_SIZE = 12;
 export const EDGE_LINE_HEIGHT = 16;
 
@@ -88,20 +89,25 @@ export interface NodeGeometry {
 }
 
 export function nodeGeometry(node: DiagramNode): NodeGeometry {
-  const width = Math.max(148, node.width ?? 0);
-  const maxLabelUnits = (width - 20) / NODE_FONT_SIZE;
+  const iconPresentation = node.presentation === "icon";
+  const width = Math.max(iconPresentation ? 116 : 148, node.width ?? 0);
+  const maxLabelUnits = (width - (iconPresentation ? 12 : 20)) / NODE_FONT_SIZE;
   const lineCount = maxLocaleLineCount(node.label, maxLabelUnits);
   const hasIcon = Boolean(node.icon) || node.kind === "agent";
   const textHeight = lineCount * NODE_LINE_HEIGHT;
-  const iconLabelTop = NODE_ICON_TOP + NODE_ICON_SIZE + NODE_LABEL_GAP;
-  const requiredHeight = iconLabelTop + textHeight + NODE_BOTTOM_PADDING;
+  const iconSize = iconPresentation ? REFERENCE_NODE_ICON_SIZE : NODE_ICON_SIZE;
+  const iconTop = iconPresentation ? 8 : NODE_ICON_TOP;
+  const labelGap = iconPresentation ? 6 : NODE_LABEL_GAP;
+  const bottomPadding = iconPresentation ? 8 : NODE_BOTTOM_PADDING;
+  const iconLabelTop = iconTop + iconSize + labelGap;
+  const requiredHeight = iconLabelTop + textHeight + bottomPadding;
   const height = Math.max(requiredHeight, node.height ?? 0);
   return {
     width,
     height,
     hasIcon,
-    iconSize: hasIcon ? NODE_ICON_SIZE : 0,
-    iconTop: hasIcon ? NODE_ICON_TOP : 0,
+    iconSize: hasIcon ? iconSize : 0,
+    iconTop: hasIcon ? iconTop : 0,
     labelTop: hasIcon ? iconLabelTop : (height - textHeight) / 2,
     maxLabelUnits,
   };

@@ -62,6 +62,11 @@ export function validateDiagram(value: unknown): DiagramSpec {
   }
 
   const nodeById = new Map(spec.nodes.map((node) => [node.id, node]));
+  for (const node of spec.nodes) {
+    if (node.presentation === "icon" && !node.icon && node.kind !== "agent") {
+      throw new Error(`Icon presentation requires an icon on '${node.id}'`);
+    }
+  }
   const validEndpointIds = new Set(elementIds);
   for (const edge of spec.edges) {
     for (const endpoint of [edge.from, edge.to]) {

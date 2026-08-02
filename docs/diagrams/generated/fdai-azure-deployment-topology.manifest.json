@@ -1,7 +1,7 @@
 {
   "id": "fdai-azure-deployment-topology",
   "version": 1,
-  "updated": "2026-07-29",
+  "updated": "2026-08-02",
   "locales": {
     "en": {
       "title": "FDAI Azure deployment topology",
@@ -249,9 +249,10 @@
       "to": "event-hubs",
       "kind": "event",
       "label": {
-        "en": "1. Platform events",
-        "ko": "1. 플랫폼 이벤트"
-      }
+        "en": "Platform events",
+        "ko": "플랫폼 이벤트"
+      },
+      "step": 1
     },
     {
       "id": "probes-to-event-hubs",
@@ -259,9 +260,10 @@
       "to": "event-hubs",
       "kind": "event",
       "label": {
-        "en": "1. Probe findings",
-        "ko": "1. 점검 finding"
-      }
+        "en": "Probe findings",
+        "ko": "점검 finding"
+      },
+      "step": 1
     },
     {
       "id": "event-hubs-to-core",
@@ -269,9 +271,10 @@
       "to": "core-runtime",
       "kind": "event",
       "label": {
-        "en": "2. Kafka OAUTHBEARER",
-        "ko": "2. Kafka OAUTHBEARER"
-      }
+        "en": "Kafka OAUTHBEARER",
+        "ko": "Kafka OAUTHBEARER"
+      },
+      "step": 2
     },
     {
       "id": "jobs-to-event-hubs",
@@ -286,9 +289,10 @@
       "to": "azure-openai",
       "kind": "request",
       "label": {
-        "en": "3. Verified T2 request",
-        "ko": "3. 검증된 T2 요청"
-      }
+        "en": "Verified T2 request",
+        "ko": "검증된 T2 요청"
+      },
+      "step": 3
     },
     {
       "id": "core-to-postgres",
@@ -296,9 +300,10 @@
       "to": "postgres",
       "kind": "audit",
       "label": {
-        "en": "4. State and audit",
-        "ko": "4. 상태 및 감사"
-      }
+        "en": "State and audit",
+        "ko": "상태 및 감사"
+      },
+      "step": 4
     },
     {
       "id": "operator-api-to-postgres",
@@ -376,9 +381,10 @@
       "to": "operator-console",
       "kind": "read",
       "label": {
-        "en": "5. Read evidence",
-        "ko": "5. 근거 조회"
-      }
+        "en": "Read evidence",
+        "ko": "근거 조회"
+      },
+      "step": 5
     },
     {
       "id": "core-to-teams",
@@ -386,9 +392,10 @@
       "to": "teams-approval",
       "kind": "approval",
       "label": {
-        "en": "6. Approval request",
-        "ko": "6. 승인 요청"
-      }
+        "en": "Approval request",
+        "ko": "승인 요청"
+      },
+      "step": 6
     },
     {
       "id": "core-to-git",
@@ -396,9 +403,10 @@
       "to": "git-delivery",
       "kind": "mutation",
       "label": {
-        "en": "7. Governed change",
-        "ko": "7. 통제된 변경"
-      }
+        "en": "Governed change",
+        "ko": "통제된 변경"
+      },
+      "step": 7
     },
     {
       "id": "core-to-monitor",

@@ -79,6 +79,7 @@ export async function compileDiagram(spec: DiagramSpec): Promise<DiagramArtifact
       to: edge.to.split(":", 1)[0],
       kind: edge.kind,
       label: edge.label ?? null,
+      ...(edge.step ? { step: edge.step } : {}),
     })),
   };
   artifacts.push({

@@ -29,7 +29,8 @@
         "width": { "type": "integer", "minimum": 640, "maximum": 2400 },
         "height": { "type": "integer", "minimum": 360, "maximum": 1800 },
         "direction": { "enum": ["RIGHT", "DOWN"] },
-        "padding": { "type": "integer", "minimum": 16, "maximum": 160, "default": 40 }
+        "padding": { "type": "integer", "minimum": 16, "maximum": 160, "default": 40 },
+        "profile": { "enum": ["default", "azure-reference"], "default": "default" }
       }
     },
     "groups": {
@@ -94,6 +95,7 @@
         "id": { "$ref": "#/definitions/id" },
         "parent": { "$ref": "#/definitions/id" },
         "kind": { "enum": ["system", "cloud", "region", "network", "subnet", "cluster", "layer"] },
+        "presentation": { "enum": ["boundary", "band", "panel"] },
         "label": { "$ref": "#/definitions/localizedText" },
         "description": { "$ref": "#/definitions/localizedText" },
         "direction": { "enum": ["RIGHT", "DOWN"] },
@@ -118,6 +120,7 @@
         "id": { "$ref": "#/definitions/id" },
         "parent": { "$ref": "#/definitions/id" },
         "kind": { "enum": ["azure-service", "service", "process", "store", "external", "person", "agent", "decision"] },
+        "presentation": { "enum": ["card", "icon"] },
         "icon": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
         "label": { "$ref": "#/definitions/localizedText" },
         "description": { "$ref": "#/definitions/localizedText" },
@@ -144,7 +147,8 @@
         "kind": { "enum": ["request", "event", "approval", "mutation", "audit", "rollback", "read", "write"] },
         "label": { "$ref": "#/definitions/localizedText" },
         "protocol": { "type": "string", "minLength": 1 },
-        "route": { "enum": ["diagonal", "curve"] }
+        "route": { "enum": ["diagonal", "curve"] },
+        "step": { "type": "integer", "minimum": 1, "maximum": 99 }
       }
     },
     "legendItem": {

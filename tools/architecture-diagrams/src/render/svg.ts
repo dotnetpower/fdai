@@ -150,7 +150,8 @@ async function renderNode(
     ? `<image${node.kind === "agent" ? ' class="agent-icon"' : ""} href="${icon}" x="${x - geometry.iconSize / 2}" y="${shape.y + geometry.iconTop}" width="${geometry.iconSize}" height="${geometry.iconSize}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"/>`
     : "";
   const description = node.description?.[locale] ?? node.label[locale];
-  return `<g class="diagram-node node-${node.kind}" data-node-id="${node.id}" role="button" tabindex="0" aria-label="${escapeXml(`${node.label[locale]}. ${description}`)}"><rect x="${shape.x}" y="${shape.y}" width="${shape.width}" height="${shape.height}" rx="8"/>${iconMarkup}${textLines(labelLines, x, labelStart, "node-label")}</g>`;
+  const presentation = node.presentation ?? "card";
+  return `<g class="diagram-node node-${node.kind}" data-node-id="${node.id}" data-presentation="${presentation}" role="button" tabindex="0" aria-label="${escapeXml(`${node.label[locale]}. ${description}`)}"><rect x="${shape.x}" y="${shape.y}" width="${shape.width}" height="${shape.height}" rx="${presentation === "icon" ? 4 : 8}"/>${iconMarkup}${textLines(labelLines, x, labelStart, "node-label")}</g>`;
 }
 
 function distance(left: ElkPoint, right: ElkPoint): number {
@@ -232,12 +233,29 @@ function edgeLabelPosition(section: ElkEdgeSection): ElkPoint {
   return { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 };
 }
 
+function edgeStepPosition(
+  section: ElkEdgeSection,
+  labelX: number,
+  labelY: number,
+  labelGeometry: ReturnType<typeof edgeLabelGeometry>,
+): ElkPoint {
+  if (labelGeometry) {
+    return {
+      x: labelX - labelGeometry.width / 2 - 19,
+      y: labelY,
+    };
+  }
+  const fallback = edgeLabelPosition(section);
+  return { x: fallback.x, y: fallback.y - 18 };
+}
+
 function renderEdge(
   edge: DiagramEdge,
   section: ElkEdgeSection,
   locale: Locale,
   offsetX: number,
   offsetY: number,
+  profile: DiagramSpec["canvas"]["profile"],
   layoutLabel?: ElkLabel,
 ): string {
   const style = edgeStyles[edge.kind];
@@ -259,12 +277,21 @@ function renderEdge(
   const labelMarkup = label && labelGeometry
     ? `<g class="edge-label" transform="translate(${labelX + offsetX} ${labelY + offsetY})"><rect x="${-labelGeometry.width / 2}" y="${-labelGeometry.height / 2}" width="${labelGeometry.width}" height="${labelGeometry.height}" rx="4"/>${textLines(labelLines, 0, labelStart, "edge-label-text", EDGE_LINE_HEIGHT)}</g>`
     : "";
-  const accessibleLabel = label ?? edgeKindLabels[edge.kind][locale];
+  const stepPosition = edgeStepPosition(section, labelX, labelY, labelGeometry);
+  const stepMarkup = edge.step
+    ? `<g class="edge-step" transform="translate(${stepPosition.x + offsetX} ${stepPosition.y + offsetY})" aria-hidden="true"><circle r="13"/><text y="4">${edge.step}</text></g>`
+    : "";
+  const accessibleLabel = `${edge.step ? `Step ${edge.step}. ` : ""}${label ?? edgeKindLabels[edge.kind][locale]}`;
   const path =
     edge.route === "curve"
       ? smoothCurvePath(section.startPoint, section.endPoint, offsetX, offsetY)
-      : roundedEdgePath(sectionPoints(section), offsetX, offsetY);
-  return `<g class="diagram-edge edge-${edge.kind}" data-edge-id="${edge.id}" data-edge-from="${edge.from.split(":", 1)[0]}" data-edge-to="${edge.to.split(":", 1)[0]}"><title>${escapeXml(accessibleLabel)}</title><path class="edge-hit" d="${path}"/><path class="edge-path" d="${path}" fill="none" stroke="${style.color}" stroke-width="${style.width}" stroke-dasharray="${style.dash}" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-${edge.kind})"/>${labelMarkup}</g>`;
+      : roundedEdgePath(
+          sectionPoints(section),
+          offsetX,
+          offsetY,
+          profile === "azure-reference" ? 4 : 14,
+        );
+  return `<g class="diagram-edge edge-${edge.kind}" data-edge-id="${edge.id}" data-edge-from="${edge.from.split(":", 1)[0]}" data-edge-to="${edge.to.split(":", 1)[0]}"><title>${escapeXml(accessibleLabel)}</title><path class="edge-hit" d="${path}"/><path class="edge-path" d="${path}" fill="none" stroke="${style.color}" stroke-width="${style.width}" stroke-dasharray="${style.dash}" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow-${edge.kind})"/>${labelMarkup}${stepMarkup}</g>`;
 }
 
 function renderLegend(spec: DiagramSpec, locale: Locale, y: number): string {
@@ -309,7 +336,9 @@ export async function renderSvg(
       const group = groupById.get(shape.id);
       if (!group) return "";
       const groupLines = wrapText(group.label[locale], (shape.width - 36) / 14);
-      return `<g class="diagram-group group-${group.kind}" data-group-id="${group.id}" role="group" aria-label="${escapeXml(group.label[locale])}"><rect class="group-surface" x="${shape.x + offsetX}" y="${shape.y + offsetY}" width="${shape.width}" height="${shape.height}" rx="8"/><rect class="group-header" x="${shape.x + offsetX + 1}" y="${shape.y + offsetY + 1}" width="${Math.max(0, shape.width - 2)}" height="38" rx="7"/>${textLines(groupLines, shape.x + offsetX + 18, shape.y + offsetY + 27, "group-label", 16, "start")}</g>`;
+      const presentation = group.presentation ?? "default";
+      const radius = spec.canvas.profile === "azure-reference" ? 2 : 8;
+      return `<g class="diagram-group group-${group.kind}" data-group-id="${group.id}" data-presentation="${presentation}" role="group" aria-label="${escapeXml(group.label[locale])}"><rect class="group-surface" x="${shape.x + offsetX}" y="${shape.y + offsetY}" width="${shape.width}" height="${shape.height}" rx="${radius}"/><rect class="group-header" x="${shape.x + offsetX + 1}" y="${shape.y + offsetY + 1}" width="${Math.max(0, shape.width - 2)}" height="38" rx="${radius}"/>${textLines(groupLines, shape.x + offsetX + 18, shape.y + offsetY + 27, "group-label", 16, "start")}</g>`;
     })
     .join("");
   const edges = layout.edges
@@ -326,6 +355,7 @@ export async function renderSvg(
           locale,
           offsetX + (container?.x ?? 0),
           offsetY + (container?.y ?? 0),
+          spec.canvas.profile,
           index === 0 ? layoutEdge.labels?.[0] : undefined,
         ),
       );
@@ -346,7 +376,7 @@ export async function renderSvg(
     )
   ).join("");
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="diagram-title diagram-description" data-diagram-id="${spec.id}" data-locale="${locale}">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="diagram-title diagram-description" data-diagram-id="${spec.id}" data-locale="${locale}" data-profile="${spec.canvas.profile ?? "default"}">
   <title id="diagram-title">${escapeXml(spec.locales[locale].title)}</title>
   <desc id="diagram-description">${escapeXml(spec.locales[locale].alt)}</desc>
   <metadata>${escapeXml(JSON.stringify({ id: spec.id, version: spec.version, updated: spec.updated }))}</metadata>
@@ -389,8 +419,23 @@ export async function renderSvg(
     .diagram-edge.is-active > .edge-path, .diagram-edge:hover > .edge-path { stroke-width: 4; opacity: 1; }
     .diagram-edge:hover .edge-label rect { fill: var(--fdai-diagram-control-header, #deecf9); stroke: var(--fdai-diagram-azure-dark, #005a9e); stroke-width: 2; }
     .diagram-edge:hover .edge-label-text { fill: var(--fdai-diagram-text, #323130); font-weight: 700; }
+    .edge-step circle { fill: #107c10; stroke: #ffffff; stroke-width: 2; }
+    .edge-step text { fill: #ffffff; font-size: 12px; font-weight: 700; text-anchor: middle; }
+    svg[data-profile="azure-reference"] .diagram-title { font-size: 24px; }
+    svg[data-profile="azure-reference"] .diagram-group .group-surface { stroke-dasharray: none; }
+    svg[data-profile="azure-reference"] .diagram-group .group-header { fill: transparent; }
+    svg[data-profile="azure-reference"] .diagram-group[data-presentation="boundary"] .group-surface { fill: #ffffff; stroke: var(--fdai-diagram-azure, #0078d4); stroke-width: 1.75; }
+    svg[data-profile="azure-reference"] .diagram-group[data-presentation="band"] .group-surface { fill: #f3f2f1; stroke: #d2d0ce; stroke-width: 1; }
+    svg[data-profile="azure-reference"] .diagram-group[data-presentation="band"] .group-header { fill: #e9e9e9; }
+    svg[data-profile="azure-reference"] .diagram-group[data-presentation="panel"] .group-surface { fill: #ffffff; stroke: #d2d0ce; stroke-width: 1; }
+    svg[data-profile="azure-reference"] .diagram-node > rect { filter: none; }
+    svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"] > rect { fill: transparent; stroke: transparent; }
+    svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"]:hover > rect,
+    svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"]:focus > rect,
+    svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"].is-active > rect { fill: #ffffff; stroke: var(--fdai-diagram-azure, #0078d4); stroke-width: 1.5; }
+    svg[data-profile="azure-reference"] .node-label { font-size: 12px; font-weight: 600; }
   </style>
-  <rect class="diagram-background" width="${width}" height="${height}" fill="var(--fdai-diagram-canvas, #faf9f8)"/>
+  <rect class="diagram-background" width="${width}" height="${height}" fill="${spec.canvas.profile === "azure-reference" ? "#ffffff" : "var(--fdai-diagram-canvas, #faf9f8)"}"/>
   <text class="diagram-title" x="48" y="45">${escapeXml(spec.locales[locale].title)}</text>
   <text class="diagram-subtitle" x="48" y="72">${escapeXml(spec.locales[locale].description)}</text>
   <g data-diagram-viewport="">${groups}${edges}${nodes}${renderLegend(spec, locale, height - 30)}</g>

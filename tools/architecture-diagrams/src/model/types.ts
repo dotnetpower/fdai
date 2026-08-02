@@ -12,6 +12,7 @@ export interface DiagramGroup {
   id: string;
   parent?: string;
   kind: "system" | "cloud" | "region" | "network" | "subnet" | "cluster" | "layer";
+  presentation?: "boundary" | "band" | "panel";
   label: LocalizedText;
   description?: LocalizedText;
   direction?: Direction;
@@ -28,6 +29,7 @@ export interface DiagramNode {
   id: string;
   parent?: string;
   kind: "azure-service" | "service" | "process" | "store" | "external" | "person" | "agent" | "decision";
+  presentation?: "card" | "icon";
   icon?: string;
   label: LocalizedText;
   description?: LocalizedText;
@@ -54,6 +56,7 @@ export interface DiagramEdge {
   label?: LocalizedText;
   protocol?: string;
   route?: "diagonal" | "curve";
+  step?: number;
 }
 
 export interface DiagramSpec {
@@ -67,6 +70,7 @@ export interface DiagramSpec {
     height: number;
     direction: Direction;
     padding?: number;
+    profile?: "default" | "azure-reference";
   };
   groups: DiagramGroup[];
   nodes: DiagramNode[];

@@ -45,6 +45,17 @@ test("parses a bilingual diagram specification", () => {
   assert.equal(diagram.nodes.length, 2);
 });
 
+test("parses optional semantic presentation settings", () => {
+  const diagram = parseDiagram(minimalDiagram);
+  diagram.canvas.profile = "azure-reference";
+  diagram.groups[0]!.presentation = "boundary";
+  diagram.nodes[1]!.icon = "key-vault";
+  diagram.nodes[1]!.presentation = "icon";
+  diagram.edges[0]!.step = 1;
+
+  assert.doesNotThrow(() => validateDiagram(diagram));
+});
+
 test("rejects duplicate element identifiers", () => {
   const diagram = parseDiagram(minimalDiagram);
   diagram.nodes[1]!.id = "source";
@@ -77,4 +88,13 @@ test("requires both display locales", () => {
   const locales = diagram.locales as Record<string, unknown>;
   delete locales.ko;
   assert.throws(() => validateDiagram(diagram), /must have required property 'ko'/);
+});
+
+test("requires an asset for icon presentation", () => {
+  const diagram = parseDiagram(minimalDiagram);
+  diagram.nodes[1]!.presentation = "icon";
+  assert.throws(
+    () => validateDiagram(diagram),
+    /Icon presentation requires an icon on 'processor'/,
+  );
 });

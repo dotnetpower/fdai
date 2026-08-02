@@ -1,7 +1,7 @@
 id: fdai-azure-deployment-topology
 version: 1
 kind: deployment
-updated: 2026-07-29
+updated: 2026-08-02
 locales:
   en:
     title: FDAI Azure deployment topology
@@ -16,47 +16,57 @@ canvas:
   height: 940
   direction: RIGHT
   padding: 28
+  profile: azure-reference
 groups:
   - id: signal-sources
     kind: layer
+    presentation: panel
     label: { en: Signal sources, ko: 신호 원천 }
     direction: DOWN
   - id: azure-boundary
     kind: cloud
+    presentation: panel
     label: { en: Azure deployment region, ko: Azure 배포 region }
     direction: RIGHT
   - id: platform-ingress
     parent: azure-boundary
     kind: layer
+    presentation: panel
     label: { en: Ingress and workload identity, ko: 수집 및 workload identity }
     direction: DOWN
   - id: fdai-vnet
     parent: azure-boundary
     kind: network
+    presentation: boundary
     label: { en: FDAI virtual network, ko: FDAI virtual network }
     direction: RIGHT
   - id: container-apps-subnet
     parent: fdai-vnet
     kind: subnet
+    presentation: band
     label: { en: Container Apps infrastructure subnet, ko: Container Apps infrastructure subnet }
     direction: DOWN
   - id: private-endpoint-subnet
     parent: fdai-vnet
     kind: subnet
+    presentation: band
     label: { en: Private endpoint subnet, ko: Private endpoint subnet }
     direction: DOWN
   - id: postgres-subnet
     parent: fdai-vnet
     kind: subnet
+    presentation: band
     label: { en: PostgreSQL delegated subnet, ko: PostgreSQL delegated subnet }
     direction: DOWN
   - id: service-dependencies
     parent: azure-boundary
     kind: layer
+    presentation: panel
     label: { en: Governed service dependencies, ko: 통제된 service dependency }
     direction: DOWN
   - id: human-delivery
     kind: layer
+    presentation: panel
     label: { en: Operator and delivery channels, ko: 운영자 및 전달 채널 }
     direction: DOWN
 nodes:
@@ -64,6 +74,7 @@ nodes:
     parent: signal-sources
     kind: azure-service
     icon: resource-graph
+    presentation: icon
     label: { en: Azure platform signals, ko: Azure 플랫폼 신호 }
     description: { en: "Resource changes, health, metrics, and cost signals", ko: "리소스 변경, 상태, 메트릭 및 비용 신호" }
   - id: scheduled-probes
@@ -80,24 +91,28 @@ nodes:
     parent: platform-ingress
     kind: azure-service
     icon: event-hubs
+    presentation: icon
     label: { en: Azure Event Hubs, ko: Azure Event Hubs }
     description: { en: "Kafka :9093 topics, control topics, and dead-letter streams", ko: "Kafka :9093 topic, control topic 및 dead-letter stream" }
   - id: key-vault
     parent: service-dependencies
     kind: azure-service
     icon: key-vault
+    presentation: icon
     label: { en: Azure Key Vault, ko: Azure Key Vault }
     description: { en: Native Container Apps secret references, ko: Container Apps native secret 참조 }
   - id: container-registry
     parent: platform-ingress
     kind: azure-service
     icon: container-registry
+    presentation: icon
     label: { en: Azure Container Registry, ko: Azure Container Registry }
     description: { en: Signed images pinned by digest, ko: Digest로 고정된 서명 image }
   - id: azure-openai
     parent: service-dependencies
     kind: azure-service
     icon: azure-openai
+    presentation: icon
     label: { en: Azure OpenAI, ko: Azure OpenAI }
     description: { en: Optional governed T2 model capabilities, ko: 선택적인 통제된 T2 model capability }
   - id: core-runtime
@@ -110,6 +125,7 @@ nodes:
     parent: container-apps-subnet
     kind: process
     icon: container-apps
+    presentation: icon
     label: { en: Container Apps Jobs, ko: Container Apps Jobs }
     description: { en: "Inventory, detection, canary, measurement, and resilience jobs", ko: "Inventory, detection, canary, measurement 및 resilience job" }
   - id: operator-api
@@ -122,24 +138,28 @@ nodes:
     parent: private-endpoint-subnet
     kind: service
     icon: private-endpoint
+    presentation: icon
     label: { en: Private endpoints and DNS, ko: Private endpoint 및 DNS }
     description: { en: "Event Hubs, Key Vault, registry, storage, and model data planes", ko: "Event Hubs, Key Vault, registry, storage 및 model data plane" }
   - id: postgres
     parent: postgres-subnet
     kind: azure-service
     icon: postgresql
+    presentation: icon
     label: { en: Azure Database for PostgreSQL, ko: Azure Database for PostgreSQL }
     description: { en: "State, append-only audit, operator memory, and pgvector", ko: "상태, 추가 전용 감사, operator memory 및 pgvector" }
   - id: workload-identities
     parent: platform-ingress
     kind: service
     icon: managed-identity
+    presentation: icon
     label: { en: User-assigned managed identities, ko: User-assigned managed identity }
     description: { en: "Separate executor, inventory, read, command, and job principals", ko: "분리된 executor, inventory, read, command 및 job principal" }
   - id: monitor
     parent: service-dependencies
     kind: azure-service
     icon: monitor
+    presentation: icon
     label: { en: Application Insights and Log Analytics, ko: Application Insights 및 Log Analytics }
     description: { en: "Traces, metrics, logs, alerts, and correlation", ko: "Trace, metric, log, alert 및 correlation" }
   - id: entra-id
@@ -151,6 +171,7 @@ nodes:
     parent: human-delivery
     kind: service
     icon: static-web-app
+    presentation: icon
     label: { en: Read-only operator console, ko: 읽기 전용 운영자 콘솔 }
     description: { en: "Evidence, incidents, approvals, and runtime projections", ko: "근거, incident, approval 및 runtime projection" }
   - id: teams-approval
@@ -168,17 +189,20 @@ edges:
     from: azure-signals
     to: event-hubs
     kind: event
-    label: { en: 1. Platform events, ko: 1. 플랫폼 이벤트 }
+    step: 1
+    label: { en: Platform events, ko: 플랫폼 이벤트 }
   - id: probes-to-event-hubs
     from: scheduled-probes
     to: event-hubs
     kind: event
-    label: { en: 1. Probe findings, ko: 1. 점검 finding }
+    step: 1
+    label: { en: Probe findings, ko: 점검 finding }
   - id: event-hubs-to-core
     from: event-hubs
     to: core-runtime
     kind: event
-    label: { en: 2. Kafka OAUTHBEARER, ko: 2. Kafka OAUTHBEARER }
+    step: 2
+    label: { en: Kafka OAUTHBEARER, ko: Kafka OAUTHBEARER }
   - id: jobs-to-event-hubs
     from: scheduled-jobs
     to: event-hubs
@@ -187,12 +211,14 @@ edges:
     from: private-link
     to: azure-openai
     kind: request
-    label: { en: 3. Verified T2 request, ko: 3. 검증된 T2 요청 }
+    step: 3
+    label: { en: Verified T2 request, ko: 검증된 T2 요청 }
   - id: core-to-postgres
     from: core-runtime
     to: postgres
     kind: audit
-    label: { en: 4. State and audit, ko: 4. 상태 및 감사 }
+    step: 4
+    label: { en: State and audit, ko: 상태 및 감사 }
   - id: operator-api-to-postgres
     from: operator-api
     to: postgres
@@ -232,17 +258,20 @@ edges:
     from: operator-api
     to: operator-console
     kind: read
-    label: { en: 5. Read evidence, ko: 5. 근거 조회 }
+    step: 5
+    label: { en: Read evidence, ko: 근거 조회 }
   - id: core-to-teams
     from: core-runtime
     to: teams-approval
     kind: approval
-    label: { en: 6. Approval request, ko: 6. 승인 요청 }
+    step: 6
+    label: { en: Approval request, ko: 승인 요청 }
   - id: core-to-git
     from: core-runtime
     to: git-delivery
     kind: mutation
-    label: { en: 7. Governed change, ko: 7. 통제된 변경 }
+    step: 7
+    label: { en: Governed change, ko: 통제된 변경 }
   - id: core-to-monitor
     from: core-runtime
     to: monitor
