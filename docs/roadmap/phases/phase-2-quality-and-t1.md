@@ -21,6 +21,9 @@ are **targets to validate**, not guarantees ([goals-and-metrics.md](../architect
 > risk order, so a prohibited or unresolved execution profile never reaches risk evaluation.
 > Missing risk authority or a missing cited rule produces an explicit audited HIL hold rather
 > than a generic shadow outcome.
+> Ready operational-promotion receipts have an immutable exact-key StateStore adapter that writes
+> state and audit atomically. Measurement still never promotes: an approved Thor-owned governance
+> action must consume the exact stored receipt in the promotion path.
 > The percentages and Exit Criteria below are targets,
 > not claims of current attainment.
 

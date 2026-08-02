@@ -1,7 +1,7 @@
 ---
 title: "Phase 2 - 지속적 규칙 업데이트, Quality Gate, T1"
 translation_of: phase-2-quality-and-t1.md
-translation_source_sha: 22577e46c9cff366e0262d74c51ee6ffe5e7382a
+translation_source_sha: a508fd0c32b703ab21b11366ec105324fde69a38
 translation_revised: 2026-07-21
 ---
 
@@ -25,6 +25,9 @@ translation_revised: 2026-07-21
 > authorization-before-risk 순서를 따르므로 금지되었거나 unresolved 상태인 execution profile은
 > risk evaluation에 도달하지 않습니다. Risk authority 또는 cited rule이 없으면 generic shadow
 > outcome 대신 명시적인 audited HIL hold를 생성합니다.
+> Ready operational-promotion receipt는 state와 audit를 atomic하게 기록하는 immutable exact-key
+> StateStore adapter를 사용합니다. Measurement는 계속 promotion을 수행하지 않으며, 승인된
+> Thor 소유 governance action이 promotion 경로에서 저장된 exact receipt를 사용해야 합니다.
 > 아래 percentage와 Exit 기준은 목표이며 현재 달성 주장으로 읽으면 안 됩니다.
 
 ## 산출물
