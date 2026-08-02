@@ -106,6 +106,8 @@ nodes:
   - id: operator
     parent: operator-access
     kind: person
+    icon: users
+    presentation: icon
     label: { en: Operator, ko: 운영자 }
     description: { en: "Reader, contributor, approver, owner, or break-glass role", ko: "Reader, contributor, approver, owner 또는 break-glass 역할" }
   - id: entra-id

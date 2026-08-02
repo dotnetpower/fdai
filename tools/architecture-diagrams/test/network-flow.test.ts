@@ -50,6 +50,7 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.match(svg, /data-node-id="document-dfs-pe"/);
   assert.match(svg, /data-node-id="document-storage"/);
   for (const [nodeId, icon] of [
+    ["operator", "users"],
     ["entra-id", "entra-id"],
     ["application-gateway", "application-gateway"],
     ["waf-policy", "waf-policy"],

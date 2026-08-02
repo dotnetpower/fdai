@@ -90,6 +90,11 @@
       "productName": "Azure Static Web Apps",
       "sha256": "c3075406ba25213b52f9fdbee5dfeb3cc31217be17a867ed6dca32020ec03646"
     },
+    "users": {
+      "file": "users.svg",
+      "productName": "Users",
+      "sha256": "7c08aa6365b41e7f0b74833bfd420f174081f6e90ba278e0c01cd988027eb3ca"
+    },
     "waf-policy": {
       "file": "waf-policy.svg",
       "productName": "Web Application Firewall Policies",
