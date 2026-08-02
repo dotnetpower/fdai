@@ -84,6 +84,7 @@ def inventory_claims(document: ManualDocument) -> tuple[ClaimUnit, ...]:
         raise ValueError("ontology claim inventory document exceeds the byte limit")
     content_sha = document_content_digest(document)
     revision = document.metadata.get("revision", content_sha)
+    provenance_by_line = {item.line_number: item for item in document.line_provenance}
     claims: list[ClaimUnit] = []
     fence_marker: str | None = None
 
@@ -111,6 +112,7 @@ def inventory_claims(document: ManualDocument) -> tuple[ClaimUnit, ...]:
                 [document.source_ref, content_sha, str(line_number), str(unit_ordinal), text_sha]
             )
             claim_id = "claim-" + hashlib.sha256(claim_material.encode("utf-8")).hexdigest()
+            provenance = provenance_by_line.get(line_number)
             claims.append(
                 ClaimUnit(
                     claim_id=claim_id,
@@ -124,6 +126,17 @@ def inventory_claims(document: ManualDocument) -> tuple[ClaimUnit, ...]:
                         line_start=line_number,
                         line_end=line_number,
                         text_sha256=text_sha,
+                        source_format=(
+                            provenance.source_format
+                            if provenance is not None
+                            else document.metadata.get("source_format", "manual")
+                        ),
+                        structural_unit_id=(
+                            provenance.unit_id if provenance is not None else f"line-{line_number}"
+                        ),
+                        structural_locator=(
+                            provenance.locator if provenance is not None else f"line:{line_number}"
+                        ),
                     ),
                     critical=kind
                     in {

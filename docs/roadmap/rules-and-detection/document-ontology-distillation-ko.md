@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 626e60cad8f551ffab23f7ad0d28f7faddbc2637
+translation_source_sha: 5824e4d9f261054b49646807b45d41dc184cde72
 translation_revised: 2026-08-03
 ---
 # 문서 온톨로지 증류
@@ -22,9 +22,10 @@ translation_revised: 2026-08-03
 > 제공합니다.
 >
 > **구현 상태(2026-08-03):** D0-D4 contract, claim inventory, strict proposal compilation,
-> deterministic gate, review package, lifecycle plan 및 frozen-corpus scoring을 구현했습니다. D5
-> promotion assessment는 evidence-only evaluation으로 구현했으며 live-shadow evidence 또는 automatic
-> promotion을 달성했다고 주장하지 않습니다.
+> deterministic gate, review package, lifecycle plan 및 frozen-corpus scoring을 구현했습니다. D4b는
+> canonical `DocumentEnvelope` provenance bridge, 구조화된 Office/PDF locator, OCR fallback 및
+> cross-format conformance를 추가합니다. D5 promotion assessment는 evidence-only이며 live-shadow
+> evidence 또는 automatic promotion을 달성했다고 주장하지 않습니다.
 
 ## 한눈에 보는 설계
 
@@ -121,6 +122,35 @@ Exact stable-id match는 자동으로 resolve할 수 있습니다. Alias와 fuzz
 evidence, configured threshold를 넘는 하나의 unique winner 및 충돌하는 exact match가 없다는 증거가
 필요합니다. Ambiguity는 항상 `review_required`를 생성합니다.
 
+## Envelope provenance bridge
+
+Ontology distillation은 safety check를 통과한 `DocumentEnvelope`를 소비하며 uploaded byte를 다시
+parse하지 않습니다. Bridge는 비어 있지 않은 structural unit 하나를 normalized manual line 하나로
+만들고 해당 line의 source format, unit id 및 locator를 기록합니다. Claim evidence, proposal evidence,
+review-package digest 및 replay digest가 이 tuple을 모두 보존하므로 citation이 다른 paragraph, shape,
+table cell, page block 또는 speaker note로 이동할 수 없습니다.
+
+Locator는 deterministic grammar와 1-based ordinal을 사용합니다.
+
+- **DOCX:** `docx/paragraph:{n}`, `docx/heading:{level}:{n}` 또는
+  `docx/table:{table}/row:{row}/cell:{cell}`
+- **PPTX:** `pptx/slide:{slide}/shape:{shape}`, `/table:{table}/row:{row}/cell:{cell}` suffix
+  또는 `pptx/slide:{slide}/notes:{paragraph}`
+- **PDF:** native text는 `pdf/page:{page}/block:{block}`, OCR fallback은
+  `pdf/page:{page}/ocr:{block}`
+
+각 PDF page는 evidence path를 정확히 하나만 선택합니다. Native text가 있으면 이를 사용하고, 없으면
+injected page OCR provider가 bounded cited block을 반환해야 합니다. OCR 부재, encrypted input, parser
+damage, unsupported compression, page/count limit 또는 extracted-character limit 초과는 fail closed하며
+review package를 만들지 않습니다. OCR은 evidence extraction만 수행하며 executor identity를 받지
+않습니다.
+
+Frozen synthetic corpus는 같은 operational claim을 Markdown, DOCX, PPTX, native text PDF 및 scanned
+PDF로 표현합니다. Conformance는 source-format과 locator field만 다를 수 있도록 허용하고 normalized
+claim, proposal 및 graph operation을 비교합니다. Release에는 critical claim accounting 100%, semantic
+또는 citation error 0건, normalized graph difference 0건, critical-claim recall과 entity/link precision
+각 0.98 이상 및 모든 format의 replay-stable digest가 필요합니다.
+
 ## 검증 gate
 
 Verifier는 executor를 호출하거나 source를 변경하지 않고 proposal 하나를 평가합니다.
@@ -214,11 +244,12 @@ policy, workflow, ActionType, permission, autonomy, schema change, conflict 및 
 | D2 | Grounding, semantic, identity, authority, conflict 및 coverage gate | adversarial 및 ambiguity fixture가 deny 또는 review로만 종료함 |
 | D3 | Incremental revision, deletion, ACL, supersession 및 rollback planning | outage가 mass deletion을 만들 수 없고 replay가 exact revision을 복원함 |
 | D4 | Review package 및 evaluation report | reviewer가 graph diff, source evidence, gate receipt 및 unresolved claim을 확인함 |
+| D4b | Envelope provenance 및 cross-format extraction | 구조화된 locator가 review까지 보존되고 synthetic corpus의 normalized graph diff가 일치함 |
 | D5 | Shadow measurement 및 limited promotion evidence | authority를 넓히지 않고 statistical 및 zero-violation gate를 통과함 |
 
 ## 하드닝 기록
 
-13개의 adversarial round가 complete proposal-only path를 검토했습니다.
+23개의 adversarial round가 proposal-only path와 envelope 후속 구현을 검토했습니다.
 
 | Round | Focus | Result |
 |-------|-------|--------|
@@ -235,6 +266,7 @@ policy, workflow, ActionType, permission, autonomy, schema change, conflict 및 
 | 11 | reconciliation isolation | proposal-bound receipt 및 restored current graph revision |
 | 12 | boundary format | ontology release digest, RFC 3339 UTC evidence, bounded reference |
 | 13 | executable closure | focused test 156개, branch coverage 90.62%, Ruff 및 strict mypy 통과 |
+| 14-23 | envelope 및 format hardening | locator identity, Office/PDF/OCR fail-closed parsing, semantic equivalence, replay, bound 및 E2E. Focused test 238개와 branch coverage 90.63% 통과 |
 
 검증된 Medium, High 또는 Critical finding은 남아 있지 않습니다. Residual Low risk는 complex layout
 또는 language form에 대한 conservative heuristic coverage, carried access-policy reference의 downstream

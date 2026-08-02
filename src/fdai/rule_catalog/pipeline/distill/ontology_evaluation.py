@@ -12,6 +12,7 @@ from fdai.rule_catalog.pipeline.distill.ontology_models import (
     ClaimDisposition,
     GateOutcome,
     ProposalState,
+    stable_digest,
 )
 from fdai.rule_catalog.pipeline.distill.ontology_review import OntologyReviewPackage
 from fdai.rule_catalog.pipeline.distill.ontology_verify import (
@@ -73,6 +74,58 @@ class ReviewEvaluationReport:
         if self.expected_critical_claims == 0:
             return 1.0
         return self.mapped_critical_claims / self.expected_critical_claims
+
+
+@dataclass(frozen=True, slots=True)
+class NormalizedReviewProjection:
+    """Format-neutral digests for claims, proposals, and graph operations."""
+
+    claim_digest: str
+    proposal_digest: str
+    graph_digest: str
+
+
+def normalize_review_package(package: OntologyReviewPackage) -> NormalizedReviewProjection:
+    """Remove document identity and locator differences before corpus comparison."""
+    claims = sorted(
+        (
+            claim.kind.value,
+            claim.authority.value,
+            claim.critical,
+            claim.evidence.text_sha256,
+        )
+        for claim in package.claims
+    )
+    active = tuple(
+        item.proposal for item in package.proposals if item.state is not ProposalState.DENIED
+    )
+    proposals = [
+        (
+            proposal.operation.value,
+            proposal.target_kind.value,
+            proposal.target_type,
+            proposal.target_identity,
+            proposal.authority.value,
+            tuple((item.name, item.value) for item in proposal.properties),
+            proposal.from_identity,
+            proposal.to_identity,
+        )
+        for proposal in active
+    ]
+    proposals.sort(key=stable_digest)
+    graph = sorted(
+        (
+            proposal.operation.value,
+            proposal_fact_key(proposal),
+            proposal_value_digest(proposal),
+        )
+        for proposal in active
+    )
+    return NormalizedReviewProjection(
+        claim_digest=stable_digest(claims),
+        proposal_digest=stable_digest(proposals),
+        graph_digest=stable_digest(graph),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -231,10 +284,12 @@ def _wilson_interval(successes: int, samples: int) -> tuple[float, float]:
 __all__ = [
     "ChangeRiskClass",
     "ExpectedOntologyFact",
+    "NormalizedReviewProjection",
     "PromotionAssessment",
     "PromotionPolicy",
     "ReviewEvaluationReport",
     "ShadowReviewOutcome",
     "assess_low_risk_promotion",
     "evaluate_review_package",
+    "normalize_review_package",
 ]

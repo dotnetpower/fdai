@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 
 import pytest
@@ -13,6 +14,7 @@ from fdai.rule_catalog.pipeline.distill.ontology_evaluation import (
     ShadowReviewOutcome,
     assess_low_risk_promotion,
     evaluate_review_package,
+    normalize_review_package,
 )
 from fdai.rule_catalog.pipeline.distill.ontology_models import (
     AuthorityClass,
@@ -42,7 +44,18 @@ from fdai.rule_catalog.pipeline.distill.ontology_verify import (
 
 
 def _package() -> OntologyReviewPackage:
-    evidence = SourceEvidence("doc:a", "a", "rev-1", "a" * 64, 1, 1, "b" * 64)
+    evidence = SourceEvidence(
+        "doc:a",
+        "a",
+        "rev-1",
+        "a" * 64,
+        1,
+        1,
+        "b" * 64,
+        "manual",
+        "line-1",
+        "line:1",
+    )
     claim = ClaimUnit(
         "claim-1",
         ClaimKind.RELATIONSHIP,
@@ -107,6 +120,47 @@ def test_frozen_evaluation_scores_exact_fact_and_critical_claim() -> None:
     assert report.precision == 1.0
     assert report.recall == 1.0
     assert report.critical_claim_recall == 1.0
+
+
+def test_normalized_projection_ignores_format_locator_identity() -> None:
+    package = _package()
+    verified = package.proposals[0]
+    relocated_evidence = replace(
+        verified.proposal.evidence,
+        source_format="pdf",
+        structural_unit_id="pdf-page-1-block-1",
+        structural_locator="pdf/page:1/block:1",
+    )
+    relocated_claim = replace(package.claims[0], evidence=relocated_evidence)
+    relocated_proposal = replace(verified.proposal, evidence=relocated_evidence)
+    relocated = replace(
+        package,
+        claims=(relocated_claim,),
+        proposals=(replace(verified, proposal=relocated_proposal),),
+    )
+
+    assert package.package_digest != relocated.package_digest
+    assert normalize_review_package(package) == normalize_review_package(relocated)
+
+
+def test_normalized_projection_orders_mixed_scalar_properties() -> None:
+    package = _package()
+    first = package.proposals[0]
+    second_proposal = replace(
+        first.proposal,
+        proposal_id="odp-2",
+        candidate_id="candidate-2",
+        properties=(OntologyProperty("owner_ref", 2),),
+    )
+    expanded = replace(
+        package,
+        proposals=(first, replace(first, proposal=second_proposal)),
+        summary=replace(package.summary, proposals=2, review_proposals=2),
+    )
+
+    projection = normalize_review_package(expanded)
+
+    assert len(projection.proposal_digest) == 64
 
 
 def test_frozen_evaluation_reports_false_positive_and_negative() -> None:

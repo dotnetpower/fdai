@@ -35,6 +35,9 @@ def _evidence() -> SourceEvidence:
         line_start=3,
         line_end=4,
         text_sha256=_SHA_B,
+        source_format="manual",
+        structural_unit_id="line-3",
+        structural_locator="line:3",
     )
 
 
@@ -87,6 +90,9 @@ def test_invalid_source_range_fails_closed() -> None:
             line_start=0,
             line_end=1,
             text_sha256=_SHA_B,
+            source_format="manual",
+            structural_unit_id="line-1",
+            structural_locator="line:1",
         )
 
 
@@ -95,6 +101,12 @@ def test_source_evidence_rejects_blank_or_unbounded_references() -> None:
         replace(_evidence(), source_ref="   ")
     with pytest.raises(ValueError, match="bounded length"):
         replace(_evidence(), source_ref="x" * 2049)
+    with pytest.raises(ValueError, match="structural identity"):
+        replace(_evidence(), structural_unit_id=" ")
+    with pytest.raises(ValueError, match="structural locator"):
+        replace(_evidence(), structural_locator=" ")
+    with pytest.raises(ValueError, match="structural identity exceeds"):
+        replace(_evidence(), structural_locator="x" * 257)
 
 
 def test_link_requires_both_endpoints() -> None:

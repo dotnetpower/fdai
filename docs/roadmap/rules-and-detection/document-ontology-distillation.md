@@ -22,8 +22,9 @@ revision.
 >
 > **Implementation status (2026-08-03):** D0-D4 contracts, claim inventory, strict proposal
 > compilation, deterministic gates, review packages, lifecycle plans, and frozen-corpus scoring are
-> implemented. D5 promotion assessment is implemented as evidence-only evaluation; no live-shadow
-> evidence or automatic promotion is claimed.
+> implemented. D4b adds the canonical `DocumentEnvelope` provenance bridge, structured Office and
+> PDF locators, OCR fallback, and cross-format conformance. D5 promotion assessment remains
+> evidence-only; no live-shadow evidence or automatic promotion is claimed.
 
 ## Design at a glance
 
@@ -120,6 +121,34 @@ Exact stable-id matches may resolve automatically. Alias and fuzzy matches requi
 scoring evidence, one unique winner above configured thresholds, and no conflicting exact match.
 Ambiguity always produces `review_required`.
 
+## Envelope provenance bridge
+
+Ontology distillation consumes the safety-checked `DocumentEnvelope`; it never reparses uploaded
+bytes. The bridge emits one normalized manual line per non-empty structural unit and records the
+source format, unit id, and locator for that line. Claim evidence, proposal evidence, review-package
+digests, and replay digests all retain that tuple, so a citation cannot drift to another paragraph,
+shape, table cell, page block, or speaker note.
+
+Locators use a deterministic grammar and 1-based ordinals:
+
+- **DOCX:** `docx/paragraph:{n}`, `docx/heading:{level}:{n}`, or
+  `docx/table:{table}/row:{row}/cell:{cell}`.
+- **PPTX:** `pptx/slide:{slide}/shape:{shape}`, a `/table:{table}/row:{row}/cell:{cell}` suffix,
+  or `pptx/slide:{slide}/notes:{paragraph}`.
+- **PDF:** `pdf/page:{page}/block:{block}` for native text and
+  `pdf/page:{page}/ocr:{block}` for OCR fallback.
+
+Each PDF page selects exactly one evidence path. Native text wins when present; otherwise the
+injected page OCR provider must return bounded cited blocks. Missing OCR, encrypted input, parser
+damage, unsupported compression, page/count limits, or extracted-character limits fail closed and
+produce no review package. OCR is evidence extraction only and receives no executor identity.
+
+The frozen synthetic corpus expresses the same operational claims as Markdown, DOCX, PPTX, native
+text PDF, and scanned PDF. Conformance compares normalized claims, proposals, and graph operations
+while allowing only source-format and locator fields to differ. Release requires 100% critical
+claim accounting, zero semantic or citation errors, zero normalized graph differences, at least
+0.98 critical-claim recall and entity/link precision, and replay-stable digests for every format.
+
 ## Verification gates
 
 The verifier evaluates one proposal without calling an executor or mutating a source.
@@ -212,11 +241,12 @@ identities always require accountable review.
 | D2 | Grounding, semantic, identity, authority, conflict, and coverage gates | adversarial and ambiguity fixtures reach only deny or review |
 | D3 | Incremental revision, deletion, ACL, supersession, and rollback planning | outage cannot create mass deletion; replay restores exact revisions |
 | D4 | Review package and evaluation report | reviewers see graph diff, source evidence, gate receipts, and unresolved claims |
+| D4b | Envelope provenance and cross-format extraction | structured locators survive review; normalized graph diffs match across the synthetic corpus |
 | D5 | Shadow measurement and limited promotion evidence | statistical and zero-violation gates pass without widening authority |
 
 ## Hardening record
 
-Thirteen adversarial rounds covered the complete proposal-only path:
+Twenty-three adversarial rounds covered the proposal-only path and envelope follow-up:
 
 | Round | Focus | Result |
 |-------|-------|--------|
@@ -233,6 +263,7 @@ Thirteen adversarial rounds covered the complete proposal-only path:
 | 11 | reconciliation isolation | proposal-bound receipts and restored current graph revision |
 | 12 | boundary formats | ontology release digest, RFC 3339 UTC evidence, bounded references |
 | 13 | executable closure | 156 focused tests, 90.62% branch coverage, Ruff and strict mypy pass |
+| 14-23 | envelope and format hardening | locator identity, Office/PDF/OCR fail-closed parsing, semantic equivalence, replay, bounds, and E2E; 238 focused tests and 90.63% branch coverage |
 
 No verified Medium, High, or Critical finding remains. Residual Low risk is limited to conservative
 heuristic coverage for complex layout or language forms, downstream enforcement of the carried

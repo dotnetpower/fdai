@@ -9,9 +9,7 @@ import re
 import zipfile
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Literal
 from uuid import UUID
-from xml.etree import ElementTree
 
 from fdai.shared.contracts import (
     DocumentEnvelope,
@@ -28,11 +26,14 @@ from fdai.shared.providers.document_ingestion import (
     StoredObjectInfo,
     UploadGrant,
 )
+from fdai.shared.providers.local.document_structure import (
+    extract_ooxml,
+    extract_pdf_text,
+    normalize_pdf_ocr_units,
+    validated_zip_members,
+)
 
 _MAX_PARSE_BYTES = 32 * 1024 * 1024
-_MAX_ZIP_MEMBERS = 2048
-_MAX_EXPANDED_BYTES = 64 * 1024 * 1024
-_MAX_COMPRESSION_RATIO = 100
 _OLE_SIGNATURE = bytes.fromhex("d0cf11e0a1b11ae1")
 _PDF_ENCRYPT = re.compile(rb"/Encrypt\b")
 _TEXT_EXTENSIONS = frozenset(
@@ -180,7 +181,15 @@ class StandardLibraryDocumentExtractor:
                 if line
             )
         elif observed == "ooxml":
-            units = _extract_ooxml(content)
+            units = extract_ooxml(content)
+        elif observed == "pdf":
+            units = extract_pdf_text(content)
+            if not units:
+                if self._image_ocr is None:
+                    raise ValueError("scanned PDF extraction requires an OCR provider")
+                units = normalize_pdf_ocr_units(
+                    await self._image_ocr.extract(version=version, content=content)
+                )
         elif observed == "image":
             units = (
                 await self._image_ocr.extract(version=version, content=content)
@@ -189,6 +198,7 @@ class StandardLibraryDocumentExtractor:
             )
         else:
             raise ValueError("no safe standard-library extractor is available for this format")
+        _validate_unit_kinds(observed, units)
         return DocumentEnvelope(
             document_id=version.document_id,
             version_id=version.version_id,
@@ -202,8 +212,19 @@ class StandardLibraryDocumentExtractor:
             access_descriptor_ref=version.access.reference,
             units=units,
             extractor_name="stdlib-safe",
-            extractor_version="1.0.0",
+            extractor_version="1.1.0",
         )
+
+
+def _validate_unit_kinds(observed_format: str, units: tuple[StructuralUnit, ...]) -> None:
+    expected = {
+        "text": frozenset({"text"}),
+        "ooxml": frozenset({"paragraph", "table", "slide", "sheet"}),
+        "pdf": frozenset({"page"}),
+        "image": frozenset({"page"}),
+    }.get(observed_format)
+    if expected is None or any(unit.kind not in expected for unit in units):
+        raise ValueError("extracted structural unit kind does not match the observed format")
 
 
 def _image_media_type(content: bytes) -> str | None:
@@ -229,7 +250,7 @@ async def _read_bounded(chunks: AsyncIterator[bytes]) -> bytes:
 
 def _inspect_zip(content: bytes, suffix: str) -> ProtectionInspection:
     with zipfile.ZipFile(io.BytesIO(content)) as archive:
-        infos = _validated_members(archive)
+        infos = validated_zip_members(archive)
         names = {item.filename.lower() for item in infos}
         if any(item.flag_bits & 0x1 for item in infos) or {
             "encryptioninfo",
@@ -260,57 +281,6 @@ def _inspect_zip(content: bytes, suffix: str) -> ProtectionInspection:
         "application/zip",
         reason_code="archives_disabled",
     )
-
-
-def _validated_members(archive: zipfile.ZipFile) -> tuple[zipfile.ZipInfo, ...]:
-    infos = tuple(archive.infolist())
-    if len(infos) > _MAX_ZIP_MEMBERS:
-        raise ValueError("container member count exceeds the parser budget")
-    expanded = sum(item.file_size for item in infos)
-    compressed = max(1, sum(item.compress_size for item in infos))
-    if expanded > _MAX_EXPANDED_BYTES or expanded / compressed > _MAX_COMPRESSION_RATIO:
-        raise ValueError("container expansion exceeds the parser budget")
-    for item in infos:
-        path = Path(item.filename)
-        if path.is_absolute() or ".." in path.parts:
-            raise ValueError("container contains an unsafe member path")
-    return infos
-
-
-def _extract_ooxml(content: bytes) -> tuple[StructuralUnit, ...]:
-    units: list[StructuralUnit] = []
-    with zipfile.ZipFile(io.BytesIO(content)) as archive:
-        infos = _validated_members(archive)
-        selected = sorted(
-            item.filename
-            for item in infos
-            if (
-                item.filename == "word/document.xml"
-                or item.filename.startswith("ppt/slides/slide")
-                or item.filename == "xl/sharedStrings.xml"
-                or item.filename.startswith("xl/worksheets/sheet")
-            )
-            and item.filename.endswith(".xml")
-        )
-        for index, name in enumerate(selected, start=1):
-            xml = archive.read(name)
-            if b"<!DOCTYPE" in xml.upper() or b"<!ENTITY" in xml.upper():
-                raise ValueError("OOXML member contains a prohibited declaration")
-            # Declarations are rejected above and member/byte budgets are enforced.
-            root = ElementTree.fromstring(xml)  # noqa: S314
-            text = " ".join(part.strip() for part in root.itertext() if part.strip())
-            if text:
-                kind: Literal["paragraph", "slide", "sheet"]
-                if name.startswith("ppt/"):
-                    kind = "slide"
-                elif name.startswith("xl/"):
-                    kind = "sheet"
-                else:
-                    kind = "paragraph"
-                units.append(
-                    StructuralUnit(unit_id=f"unit-{index}", kind=kind, locator=name, text=text)
-                )
-    return tuple(units)
 
 
 def _looks_like_text(content: bytes) -> bool:

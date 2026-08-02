@@ -86,6 +86,9 @@ class SourceEvidence:
     line_start: int
     line_end: int
     text_sha256: str
+    source_format: str
+    structural_unit_id: str
+    structural_locator: str
 
     def __post_init__(self) -> None:
         if (
@@ -98,6 +101,16 @@ class SourceEvidence:
             raise ValueError("source evidence reference exceeds the bounded length")
         if len(self.document_revision) > 512:
             raise ValueError("source evidence revision exceeds the bounded length")
+        if not self.source_format.strip() or not self.structural_unit_id.strip():
+            raise ValueError("source evidence structural identity MUST be non-empty")
+        if not self.structural_locator.strip():
+            raise ValueError("source evidence structural locator MUST be non-empty")
+        if (
+            len(self.source_format) > 64
+            or len(self.structural_unit_id) > 128
+            or len(self.structural_locator) > 256
+        ):
+            raise ValueError("source evidence structural identity exceeds the bounded length")
         _require_digest(self.content_sha256, "content_sha256")
         _require_digest(self.text_sha256, "text_sha256")
         if self.line_start < 1 or self.line_end < self.line_start:
@@ -308,6 +321,9 @@ def _proposal_payload(proposal: OntologyChangeProposal) -> dict[str, object]:
             "line_start": proposal.evidence.line_start,
             "line_end": proposal.evidence.line_end,
             "text_sha256": proposal.evidence.text_sha256,
+            "source_format": proposal.evidence.source_format,
+            "structural_unit_id": proposal.evidence.structural_unit_id,
+            "structural_locator": proposal.evidence.structural_locator,
         },
         "entity_resolution": {
             "selected_identity": proposal.entity_resolution.selected_identity,

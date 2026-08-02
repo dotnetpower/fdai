@@ -297,6 +297,7 @@ customer-connector parts are fork seams with abstaining defaults.
 | Coverage diff | `analyze_coverage` | `rule_catalog/pipeline/distill/coverage.py` |
 | Compile seam | `Distiller` (abstaining default extracts nothing) | `shared/providers/distiller.py` |
 | Ontology claim inventory | `inventory_claims`, `reconcile_claims` | `rule_catalog/pipeline/distill/ontology_claims.py` |
+| Envelope provenance and format equivalence | `manual_document_from_envelope`, normalized claim/proposal/graph digests | `rule_catalog/pipeline/distill/ontology_ingestion.py`, `ontology_evaluation.py` |
 | Ontology proposal + verifier | strict compiler, authority/identity/evidence gates, review package | `rule_catalog/pipeline/distill/ontology_*.py` |
 | Orchestrator + CLI | `build_distillation_plan`, `distill_cli` | `rule_catalog/pipeline/distill/orchestrator.py`, `distill_cli.py` |
 | Source parser id | `manual-distill` source-manifest parser | `rule_catalog/schema/source_manifest.schema.json` |

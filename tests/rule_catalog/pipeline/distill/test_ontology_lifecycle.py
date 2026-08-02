@@ -36,7 +36,18 @@ from fdai.rule_catalog.pipeline.distill.ontology_models import (
 
 
 def _verified() -> VerifiedOntologyProposal:
-    evidence = SourceEvidence("doc:a", "a", "rev-1", "a" * 64, 1, 1, "b" * 64)
+    evidence = SourceEvidence(
+        "doc:a",
+        "a",
+        "rev-1",
+        "a" * 64,
+        1,
+        1,
+        "b" * 64,
+        "manual",
+        "line-1",
+        "line:1",
+    )
     proposal = OntologyChangeProposal(
         proposal_id="odp-1",
         extraction_run_id="run-1",

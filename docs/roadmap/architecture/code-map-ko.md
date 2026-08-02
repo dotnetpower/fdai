@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 32d472b5872ecff302a9108b41831337ec0cf34f
+translation_source_sha: 04df74033b6f4c47da5fd2e1eb3bd90e7243cd03
 translation_revised: 2026-08-03
 ---
 # 코드 맵
@@ -271,7 +271,7 @@ agent는 owned advisory topic을 publish하기 전에 이 canonical Event를 con
 | [src/fdai/composition/wire_trajectory.py](../../../src/fdai/composition/wire_trajectory.py) | 기본 container에서 feature를 활성화하지 않고 authorization-first source join, dataset metadata, quarantine export, read-only administration을 bind. |
 | [src/fdai/composition/wire_execution_backends.py](../../../src/fdai/composition/wire_execution_backends.py) | Server-selected profile을 validate하고 required backend 및 durable ledger를 bind하며 profile은 기본적으로 enable하지 않습니다. |
 | [src/fdai/rule_catalog/](../../../src/fdai/rule_catalog/) | Rule, Best Practice, governance artifact 및 나머지 `rule-catalog/` YAML 트리의 strict loader. |
-| [src/fdai/rule_catalog/pipeline/distill/](../../../src/fdai/rule_catalog/pipeline/distill/) | Build-time manual compilation과 claim inventory, review-only ontology proposal, authority/identity/evidence gate, lifecycle plan 및 frozen-corpus promotion evidence. |
+| [src/fdai/rule_catalog/pipeline/distill/](../../../src/fdai/rule_catalog/pipeline/distill/) | Build-time manual compilation, `DocumentEnvelope` provenance bridge, normalized cross-format graph 비교, review-only ontology proposal, evidence gate 및 lifecycle/evaluation plan. |
 | [rule-catalog/](../../../rule-catalog/) | Rule, Best Practice, policy, rule-set 및 action-type 카탈로그 (데이터). |
 
 ## 개발자 엔트리 포인트와 슬래시 커맨드

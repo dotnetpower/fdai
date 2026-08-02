@@ -87,7 +87,7 @@ fdai/
 │   │   ├── providers/          # CSP-neutral cloud provider interfaces, including OperatingModelProvider (adapters implement them)
 │   │   │                       #   event_bus.py, secret_provider.py, state_store.py, execution_backend.py,
 │   │   │                       #   workload_identity.py, inventory.py, log_query.py, trace_query.py, incident_platform.py, behavior_knowledge.py, programmatic_pipeline.py + LLM / channel / RBAC seams
-│   │   │                       # `providers/local/` = process-local transport adapters (`LocalEventBus` with per-group in-flight leases and independent group/publisher progress, bounded `LocalSseSink`) plus explicit offline helpers (`EnvSecretProvider`, `LocalWorkloadIdentity`, `FileFixtureInventory`);
+│   │   │                       # `providers/local/` = process-local transport adapters plus bounded document format adapters (`document_structure.py` for OOXML, `document_pdf.py` for PDF/OCR) and explicit offline helpers;
 │   │   │                       # `providers/testing/` = in-memory fakes used across the test suite (never bound in prod)
 │   │   ├── streaming/          # `SseBroadcaster` + `StagePublisher`: relay EventBus topics → SSE channels
 │   │   ├── telemetry/          # structured logging, tracing, metric helpers
@@ -119,7 +119,7 @@ fdai/
 │   ├── rule_catalog/          # rule-catalog PIPELINE code
 │   │   ├── schema/             # rule, Best Practice, governance, and ontology schemas + validation
 │   │   ├── sources/            # per-source collectors (WAF, CIS, OPA, IaC scanners, ...)
-│   │   ├── pipeline/           # watch -> collect -> shadow/regression; distill adds grounded review-only ontology proposals and evidence gates
+│   │   ├── pipeline/           # watch -> collect -> shadow/regression; distill adds the DocumentEnvelope provenance bridge, cross-format equivalence, and review-only ontology gates
 │   │   └── codegen/            # authoring helpers (`new_action_type`, `new_object_type`) - generate scaffolds, never mutate the live catalog
 │   ├── agents/                # pantheon runtime - 15 named agents, typed topics, v2 conversation charters, and bounded T1/T2 deliberation; see [agent-pantheon.md](../agents/agent-pantheon.md)
 │   ├── evaluation/            # public EvaluationHost implementation, capability attenuation, workspace policy, artifact custody, and typed ingress

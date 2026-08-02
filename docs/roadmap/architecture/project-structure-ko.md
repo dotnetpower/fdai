@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a1f4674bb003c59d805293feed8ef3e39cef905c
+translation_source_sha: 23f746c05f4dac580972379d6aa01be7226f1030
 translation_revised: 2026-08-03
 ---
 
@@ -92,7 +92,7 @@ fdai/
 │   │   ├── providers/          # OperatingModelProvider를 포함한 CSP-중립 클라우드 프로바이더 인터페이스 (어댑터가 구현)
 │   │   │                       #   event_bus.py, secret_provider.py, state_store.py, execution_backend.py,
 │   │   │                       #   workload_identity.py, inventory.py, log_query.py, trace_query.py, incident_platform.py, behavior_knowledge.py, programmatic_pipeline.py + LLM / 채널 / RBAC seam
-│   │   │                       # `providers/local/` = group별 in-flight lease와 독립적인 group/publisher 진행을 보장하는 process-local transport adapter (`LocalEventBus`, bounded `LocalSseSink`)와 명시적 offline helper (`EnvSecretProvider`, `LocalWorkloadIdentity`, `FileFixtureInventory`);
+│   │   │                       # `providers/local/` = process-local transport adapter, bounded document format adapter(OOXML `document_structure.py`, PDF/OCR `document_pdf.py`) 및 명시적 offline helper;
 │   │   │                       # `providers/testing/` = 테스트 스위트 전반에서 쓰이는 인-메모리 페이크 (prod 에서는 바인딩 안 됨)
 │   │   ├── streaming/          # `SseBroadcaster` + `StagePublisher`: EventBus 토픽을 SSE 채널로 릴레이
 │   │   ├── telemetry/          # 구조화 로깅, 트레이싱, 메트릭 헬퍼
@@ -124,7 +124,7 @@ fdai/
 │   ├── rule_catalog/          # rule-catalog 파이프라인 코드
 │   │   ├── schema/             # 룰, Best Practice, governance 및 온톨로지 스키마 + 검증
 │   │   ├── sources/            # 소스별 컬렉터 (WAF, CIS, OPA, IaC scanners, ...)
-│   │   ├── pipeline/           # watch -> collect -> shadow/regression; distill은 grounded review-only ontology proposal과 evidence gate 추가
+│   │   ├── pipeline/           # watch -> collect -> shadow/regression; distill은 DocumentEnvelope provenance bridge, cross-format equivalence 및 review-only ontology gate 추가
 │   │   └── codegen/            # 저작 헬퍼 (`new_action_type`, `new_object_type`) - 스캐폴드 생성만, 라이브 카탈로그 변경 안 함
 │   ├── agents/                # 판테온 런타임 - 15개 agent, typed topic, v2 conversation charter 및 bounded T1/T2 deliberation; [agent-pantheon-ko.md](../agents/agent-pantheon-ko.md) 참조
 │   ├── evaluation/            # public EvaluationHost 구현, capability attenuation, workspace policy, artifact custody 및 typed ingress

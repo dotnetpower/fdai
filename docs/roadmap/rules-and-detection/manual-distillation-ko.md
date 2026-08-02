@@ -1,7 +1,7 @@
 ---
 title: 매뉴얼 증류(Manual Distillation)
 translation_of: manual-distillation.md
-translation_source_sha: b510334feba12e2aa8461b7fafec0c0712b22e17
+translation_source_sha: 230d4a93154e52e537e0226338092b73fdb66a95
 translation_revised: 2026-08-03
 ---
 
@@ -265,6 +265,7 @@ abstaining 기본값을 갖는 fork seam이다.
 | Coverage diff | `analyze_coverage` | `rule_catalog/pipeline/distill/coverage.py` |
 | Compile seam | `Distiller` (abstaining 기본값은 아무것도 추출 안 함) | `shared/providers/distiller.py` |
 | Ontology claim inventory | `inventory_claims`, `reconcile_claims` | `rule_catalog/pipeline/distill/ontology_claims.py` |
+| Envelope provenance 및 format equivalence | `manual_document_from_envelope`, normalized claim/proposal/graph digest | `rule_catalog/pipeline/distill/ontology_ingestion.py`, `ontology_evaluation.py` |
 | Ontology proposal + verifier | strict compiler, authority/identity/evidence gate, review package | `rule_catalog/pipeline/distill/ontology_*.py` |
 | 오케스트레이터 + CLI | `build_distillation_plan`, `distill_cli` | `rule_catalog/pipeline/distill/orchestrator.py`, `distill_cli.py` |
 | Source parser id | `manual-distill` source manifest parser | `rule_catalog/schema/source_manifest.schema.json` |

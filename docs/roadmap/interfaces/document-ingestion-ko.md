@@ -1,8 +1,8 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: d8b8822491364ae5fcbeeb69f032924c1aef17b7
-translation_revised: 2026-08-02
+translation_source_sha: c49e427dee8a5c9375ffcf8b791db6fcab33c986
+translation_revised: 2026-08-03
 ---
 # 문서 인제스트와 Drop Zone
 
@@ -203,9 +203,9 @@ form에서 받지 않습니다. Fork가 password 입력을 지원하려면 별�
 그 응답을 렌더링합니다. Fork는 ingestion state machine을 변경하지 않고 extractor를 추가할
 수 있습니다.
 
-현재 upstream production capability는 `text`, `ooxml`, `image-metadata`, `pdf-detect-only`입니다.
-아래 표는 provider가 추가될 때 지켜야 할 target handling policy이며, 실제 지원 여부와 limit은
-항상 `GET /ingestion/capabilities` 응답이 권위입니다.
+Upstream capability는 `text`, `ooxml`, `image-metadata`, `pdf-text`를 게시합니다. Production은 OCR
+provider가 bind된 경우에만 `pdf-ocr`을 추가합니다. 실제 지원 여부와 limit은 항상
+`GET /ingestion/capabilities` 응답이 권위입니다.
 
 | Family | Examples | Provider-enabled handling policy |
 |--------|----------|-------------------|
@@ -366,13 +366,15 @@ migration하지 않습니다.
 - source hash, media type, observed format, size, parent/child link
 - uploader/source identity, collection, purpose, provenance
 - classification, sensitivity label, `ProtectionState`, access descriptor reference
-- page/slide/sheet/cell/time-range locator가 있는 ordered structural unit
+- line, DOCX paragraph/heading/table-cell, PPTX slide/shape/table-cell/speaker-note 및 PDF
+  page/block/OCR locator가 있는 ordered structural unit
 - inline binary object가 아닌 extracted text와 asset reference
 - extractor name/version, warning, loss indicator, processing metric
 - retention, legal hold, deletion lineage, superseded-version reference
 
-Knowledge indexing과 manual distillation은 이 envelope를 소비합니다. Raw upload를 각각 별도로
-parse하지 않으므로 protection, citation, deletion behavior를 일관되게 유지할 수 있습니다.
+Knowledge indexing과 manual distillation은 이 envelope를 소비합니다. Ontology provenance bridge는
+비어 있지 않은 unit을 normalized line 하나로 mapping하고 unit id와 locator를 claim/proposal evidence에
+전달하며 raw upload를 다시 parse하지 않습니다.
 
 일반 document index는 각 structural unit을 독립적으로 분할합니다. 기본값은 chunk당 `1200`자와
 `150`자 overlap이며 paragraph, line, sentence, word boundary 순서로 경계를 우선합니다. 모든
@@ -547,7 +549,8 @@ rights-reconciliation lag, orphaned partial upload, indexing lag, deletion lag, 
 ## 구현 경계와 rollout
 
 Upstream 구현은 이제 contract, fail-closed lifecycle, 전용 ASGI gateway, console drop zone,
-streaming browser hash, local direct-upload adapter, 안전한 text/OOXML extractor, protection
+streaming browser hash, local direct-upload adapter, 안전한 text, structured Office, bounded
+text-PDF extractor, protection
 signature detection, structure-aware chunking, ADLS Gen2 source/artifact store, PostgreSQL
 metadata, governed pgvector index, Azure OpenAI embedding, Event Hubs Kafka processing, ClamAV
 scanning, test adapter, deletion lineage를 제공합니다. Deployment는 Purview/RMS, OCR,
@@ -557,7 +560,7 @@ rich format이 필요할 때 dependency injection으로 provider를 교체할 �
 |-------|---------------|
 | Contract and metadata | 제공됨: `DocumentEnvelope`, state machine, capability discovery, access provider, metadata/activity seam, console visibility notice |
 | Safe text | 일반 구현 제공됨: gateway streaming upload, quarantine lifecycle, fail-closed scanner seam, UTF-8/OOXML extraction, structure-aware overlapping chunk, local embedding retrieval, 원자적 pgvector version 교체/삭제, access-filtered search, deletion. Upstream scanner는 production provider를 bind할 때까지 abstain합니다. |
-| Layout | 일부 제공됨: OOXML structure와 PDF/protection detection을 제공합니다. Layout-aware PDF extraction, OCR, preview에는 승인된 provider가 필요합니다. |
+| Layout | 일반 구현 제공됨: DOCX paragraph/heading/table cell, PPTX slide/shape/table cell/speaker note 및 bounded native PDF page block. Scanned PDF는 OCR seam이 bind된 경우에만 사용하며 unsupported filter/font map, malformed input 및 OCR 부재는 fail closed합니다. Preview는 provider 후속 작업입니다. |
 | Channel evidence | 일반 구현 제공됨: bounded opaque Slack/Teams metadata, credential-fetcher seam, byte/hash verification, 전체 protected ingestion, reject-before-tool gating, citation-only `doc:` ref. PNG/JPEG/GIF/WebP signature는 metadata-only envelope를 만들며 OCR 및 vendor credential composition은 provider binding으로 남습니다. |
 | Protection | 일부 제공됨: PDF/Office/container encryption과 의심스러운 rights metadata를 감지하고 hold합니다. Purview/RMS adapter, delegated authorization, revocation reconciliation은 fork binding으로 남습니다. |
 | Connector and scale | 일부 제공됨: scoped upload session, streaming hash, ADLS, durable PostgreSQL metadata, bounded parser budget을 제공합니다. Block-resumable direct upload, connector delta sync, 측정된 capacity target은 후속 작업입니다. |

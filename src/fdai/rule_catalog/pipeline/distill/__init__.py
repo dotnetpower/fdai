@@ -20,6 +20,11 @@ from fdai.rule_catalog.pipeline.distill.ontology_evaluation import (
     ChangeRiskClass,
     assess_low_risk_promotion,
     evaluate_review_package,
+    normalize_review_package,
+)
+from fdai.rule_catalog.pipeline.distill.ontology_ingestion import (
+    EnvelopeOntologyReviewConsumer,
+    manual_document_from_envelope,
 )
 from fdai.rule_catalog.pipeline.distill.ontology_lifecycle import (
     build_projection_plan,
@@ -35,6 +40,7 @@ __all__ = [
     "analyze_coverage",
     "assess_low_risk_promotion",
     "ChangeRiskClass",
+    "EnvelopeOntologyReviewConsumer",
     "build_ontology_review_package",
     "build_ontology_review_view",
     "build_projection_plan",
@@ -42,6 +48,8 @@ __all__ = [
     "document_content_digest",
     "evaluate_review_package",
     "inventory_claims",
+    "manual_document_from_envelope",
+    "normalize_review_package",
     "plan_access_revocation",
     "plan_source_retirement",
     "reconcile_claims",

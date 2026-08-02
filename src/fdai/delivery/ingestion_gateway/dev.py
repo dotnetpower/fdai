@@ -155,7 +155,7 @@ def app() -> Starlette:
         metadata = InMemoryDocumentMetadataStore()
         document_index = InMemoryEmbeddingDocumentIndex(embedder=embedder)
     capabilities = IngestionCapabilities(
-        supported_formats=("text", "ooxml", "image-metadata", "pdf-detect-only"),
+        supported_formats=("text", "ooxml", "image-metadata", "pdf-text"),
         storage_modes=tuple(SourceStorageMode),
         max_file_size=25 * 1024 * 1024,
         max_batch_count=10,
