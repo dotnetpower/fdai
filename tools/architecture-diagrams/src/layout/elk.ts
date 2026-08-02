@@ -348,13 +348,21 @@ function applyDirectNodeLayouts(
     if (!group || !children.length) continue;
     if (groupSpec.layout === "row") {
       const contentHeight = Math.max(...children.map((node) => node.height));
+      const naturalWidth =
+        left * 2 +
+        children.reduce((total, node) => total + node.width, 0) +
+        gap * (children.length - 1);
+      const targetWidth = Math.max(naturalWidth, groupSpec.width ?? 0);
+      const rowGap = children.length > 1
+        ? gap + (targetWidth - naturalWidth) / (children.length - 1)
+        : 0;
       let x = group.x + left;
       for (const child of children) {
         child.x = x;
         child.y = group.y + top + (contentHeight - child.height) / 2;
-        x += child.width + gap;
+        x += child.width + rowGap;
       }
-      group.width = x - gap - group.x + left;
+      group.width = targetWidth;
       group.height = top + contentHeight + bottom;
       continue;
     }
@@ -365,8 +373,24 @@ function applyDirectNodeLayouts(
       child.y = y;
       y += child.height + gap;
     }
-    group.width = left + contentWidth + left;
+    group.width = Math.max(left + contentWidth + left, groupSpec.width ?? 0);
     group.height = y - gap - group.y + bottom;
+  }
+}
+
+function applyHorizontalAlignments(
+  spec: DiagramSpec,
+  groups: Map<string, PositionedShape>,
+  nodes: Map<string, PositionedShape>,
+): void {
+  for (const groupSpec of spec.groups.filter(
+    (group) => group.alignWith && !group.placement,
+  )) {
+    const group = groups.get(groupSpec.id);
+    const alignment = groups.get(groupSpec.alignWith!);
+    if (!group || !alignment) continue;
+    const nextX = alignment.x + (alignment.width - group.width) / 2;
+    moveGroupTree(spec, group.id, nextX - group.x, 0, groups, nodes);
   }
 }
 
@@ -377,6 +401,24 @@ function applyGroupPlacements(
 ): number {
   let bottom = 0;
   const touchedParents = new Set<string>();
+  for (const groupSpec of spec.groups.filter(
+    (group) => group.placement === "top" && group.parent,
+  )) {
+    const group = groups.get(groupSpec.id);
+    const parent = groups.get(groupSpec.parent!);
+    if (!group || !parent) continue;
+    const nextX = parent.x + 28;
+    const nextY = parent.y + 49;
+    moveGroupTree(
+      spec,
+      group.id,
+      nextX - group.x,
+      nextY - group.y,
+      groups,
+      nodes,
+    );
+    touchedParents.add(parent.id);
+  }
   for (const groupSpec of spec.groups.filter(
     (group) => group.placement === "below" && group.parent,
   )) {
@@ -712,6 +754,58 @@ function orthogonalHorizontalRouteSection(
   };
 }
 
+function orthogonalTrunkRouteSection(
+  edgeId: string,
+  source: PositionedShape,
+  target: PositionedShape,
+): ElkEdgeSection {
+  const targetIsBelow = target.y >= source.y;
+  const startPoint = {
+    x: source.x + source.width / 2,
+    y: targetIsBelow ? source.y + source.height : source.y,
+  };
+  const endPoint = {
+    x: target.x + target.width / 2,
+    y: targetIsBelow ? target.y : target.y + target.height,
+  };
+  const trunkY = (startPoint.y + endPoint.y) / 2;
+  return {
+    id: `${edgeId}-orthogonal-trunk-route`,
+    startPoint,
+    bendPoints: [
+      { x: startPoint.x, y: trunkY },
+      { x: endPoint.x, y: trunkY },
+    ],
+    endPoint,
+  };
+}
+
+function orthogonalTopRouteSection(
+  edgeId: string,
+  source: PositionedShape,
+  target: PositionedShape,
+  laneIndex: number,
+): ElkEdgeSection {
+  const laneY = -8 - laneIndex * 28;
+  const startPoint = {
+    x: source.x + source.width / 2,
+    y: source.y,
+  };
+  const endPoint = {
+    x: target.x + target.width / 2,
+    y: target.y,
+  };
+  return {
+    id: `${edgeId}-orthogonal-top-route`,
+    startPoint,
+    bendPoints: [
+      { x: startPoint.x, y: laneY },
+      { x: endPoint.x, y: laneY },
+    ],
+    endPoint,
+  };
+}
+
 function orthogonalAboveRouteSection(
   edgeId: string,
   source: PositionedShape,
@@ -885,6 +979,11 @@ function applyExplicitRoutes(
     horizontalLaneByEdge.set(edge.id, lane);
     horizontalLaneCountByTargetGroup.set(targetGroup, lane + 1);
   }
+  const topLaneByEdge = new Map(
+    spec.edges
+      .filter((edge) => edge.route === "orthogonal-top")
+      .map((edge, index) => [edge.id, index]),
+  );
   return edges.map((edge) => {
     const specEdge = spec.edges.find((candidate) => candidate.id === edge.id);
     if (
@@ -893,6 +992,8 @@ function applyExplicitRoutes(
         specEdge.route !== "curve" &&
       specEdge.route !== "orthogonal" &&
         specEdge.route !== "orthogonal-horizontal" &&
+      specEdge.route !== "orthogonal-trunk" &&
+      specEdge.route !== "orthogonal-top" &&
         specEdge.route !== "orthogonal-above" &&
         specEdge.route !== "orthogonal-right")
     ) {
@@ -901,7 +1002,16 @@ function applyExplicitRoutes(
     const source = nodes.get(endpointNodeId(specEdge.from));
     const target = nodes.get(endpointNodeId(specEdge.to));
     if (!source || !target) return edge;
-    const section = specEdge.route === "orthogonal-horizontal"
+    const section = specEdge.route === "orthogonal-trunk"
+      ? orthogonalTrunkRouteSection(edge.id, source, target)
+      : specEdge.route === "orthogonal-top"
+        ? orthogonalTopRouteSection(
+            edge.id,
+            source,
+            target,
+            topLaneByEdge.get(edge.id) ?? 0,
+          )
+      : specEdge.route === "orthogonal-horizontal"
       ? orthogonalHorizontalRouteSection(
           edge.id,
           source,
@@ -942,6 +1052,8 @@ function applyExplicitRoutes(
       specEdge.route === "orthogonal-horizontal"
         ? rightRouteLabelPosition(section, label.width ?? 0, label.height ?? 0)
         : specEdge.route === "orthogonal" ||
+      specEdge.route === "orthogonal-trunk" ||
+      specEdge.route === "orthogonal-top" ||
       specEdge.route === "orthogonal-above"
         ? routeLabelPosition(section, label.width ?? 0, label.height ?? 0)
         : {
@@ -1004,6 +1116,7 @@ export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
     edges,
   );
   applyDirectNodeLayouts(spec, groups, nodes);
+  applyHorizontalAlignments(spec, groups, nodes);
   const placementBottom = applyGroupPlacements(spec, groups, nodes);
   const rootFlow = applyRootGroupFlow(spec, groups, nodes);
   const explicitRoutes = applyExplicitRoutes(spec, edges, nodes);

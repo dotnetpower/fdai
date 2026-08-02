@@ -101,8 +101,9 @@
         "description": { "$ref": "#/definitions/localizedText" },
         "direction": { "enum": ["RIGHT", "DOWN"] },
         "layout": { "enum": ["flow", "row", "column", "free"] },
-        "placement": { "enum": ["below", "right"] },
-        "alignWith": { "$ref": "#/definitions/id" }
+        "placement": { "enum": ["top", "below", "right"] },
+        "alignWith": { "$ref": "#/definitions/id" },
+        "width": { "type": "integer", "minimum": 152, "maximum": 1200 }
       }
     },
     "port": {
@@ -149,7 +150,7 @@
         "kind": { "enum": ["request", "event", "approval", "mutation", "audit", "rollback", "read", "write"] },
         "label": { "$ref": "#/definitions/localizedText" },
         "protocol": { "type": "string", "minLength": 1 },
-        "route": { "enum": ["diagonal", "curve", "orthogonal", "orthogonal-horizontal", "orthogonal-above", "orthogonal-right"] },
+        "route": { "enum": ["diagonal", "curve", "orthogonal", "orthogonal-horizontal", "orthogonal-trunk", "orthogonal-top", "orthogonal-above", "orthogonal-right"] },
         "step": { "type": "integer", "minimum": 1, "maximum": 99 }
       }
     },

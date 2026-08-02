@@ -55,7 +55,10 @@
     svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"]:hover > rect,
     svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"]:focus > rect,
     svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"].is-active > rect { fill: #ffffff; stroke: var(--fdai-diagram-azure, #0078d4); stroke-width: 1.5; }
-    svg[data-profile="azure-reference"] .node-label { font-size: 12px; font-weight: 600; }
+    svg[data-profile="azure-reference"] .group-label { fill: #3b3a39; font-weight: 650; }
+    svg[data-profile="azure-reference"] .node-label { font-size: 13px; font-weight: 650; fill: #323130; }
+    svg[data-profile="azure-reference"] .edge-label-text,
+    svg[data-profile="azure-reference"] .legend-item text { fill: #484644; font-weight: 650; }
   </style>
   <rect class="diagram-background" width="1830" height="1425" fill="var(--fdai-diagram-canvas, #faf9f8)"/>
   <text class="diagram-title" x="48" y="45">FDAI 시스템 아키텍처</text>

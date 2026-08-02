@@ -291,9 +291,9 @@
       "step": 2
     },
     {
-      "id": "event-pe-to-backend",
-      "from": "event-hubs-pe",
-      "to": "event-hubs",
+      "id": "event-hubs-to-pe",
+      "from": "event-hubs",
+      "to": "event-hubs-pe",
       "kind": "event",
       "label": {
         "en": "Kafka private link",
@@ -316,14 +316,11 @@
       "label": null
     },
     {
-      "id": "registry-pe-to-service",
-      "from": "registry-pe",
-      "to": "container-registry",
+      "id": "registry-to-pe",
+      "from": "container-registry",
+      "to": "registry-pe",
       "kind": "read",
-      "label": {
-        "en": "Signed image",
-        "ko": "서명 image"
-      }
+      "label": null
     },
     {
       "id": "registry-pe-to-core",
@@ -352,8 +349,8 @@
       "to": "openai-pe",
       "kind": "request",
       "label": {
-        "en": "Verified T2 request",
-        "ko": "검증된 T2 요청"
+        "en": "Private data plane",
+        "ko": "Private data plane"
       },
       "step": 4
     },
@@ -410,7 +407,7 @@
       "to": "git-delivery",
       "kind": "mutation",
       "label": null,
-      "step": 6
+      "step": 7
     }
   ]
 }

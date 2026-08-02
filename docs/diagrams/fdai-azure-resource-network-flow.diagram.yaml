@@ -36,6 +36,7 @@ groups:
     presentation: boundary
     label: { en: FDAI virtual network, ko: FDAI virtual network }
     direction: DOWN
+    placement: top
   - id: container-apps-subnet
     parent: fdai-vnet
     kind: subnet
@@ -43,26 +44,34 @@ groups:
     label: { en: Container Apps infrastructure subnet, ko: Container Apps infrastructure subnet }
     direction: RIGHT
     layout: row
+    alignWith: private-endpoint-subnet
+    width: 548
   - id: private-endpoint-subnet
     parent: fdai-vnet
     kind: subnet
     presentation: band
     label: { en: Private endpoint subnet, ko: Private endpoint subnet }
     direction: RIGHT
+    layout: row
+    width: 548
   - id: postgres-subnet
     parent: fdai-vnet
     kind: subnet
     presentation: band
     label: { en: PostgreSQL delegated subnet, ko: PostgreSQL delegated subnet }
     direction: RIGHT
+    layout: row
+    width: 200
   - id: private-service-backends
     parent: azure-region
     kind: layer
     presentation: panel
     label: { en: Private services, ko: Private service }
     direction: RIGHT
+    layout: row
     placement: below
     alignWith: private-endpoint-subnet
+    width: 548
   - id: platform-services
     parent: azure-region
     kind: layer
@@ -222,9 +231,9 @@ edges:
     kind: request
     route: orthogonal-horizontal
     step: 2
-  - id: event-pe-to-backend
-    from: event-hubs-pe
-    to: event-hubs
+  - id: event-hubs-to-pe
+    from: event-hubs
+    to: event-hubs-pe
     kind: event
     route: orthogonal
     step: 3
@@ -237,12 +246,11 @@ edges:
     from: operator-api
     to: event-hubs-pe
     kind: event
-  - id: registry-pe-to-service
-    from: registry-pe
-    to: container-registry
+  - id: registry-to-pe
+    from: container-registry
+    to: registry-pe
     kind: read
     route: orthogonal
-    label: { en: Signed image, ko: 서명 image }
   - id: registry-pe-to-core
     from: registry-pe
     to: core-runtime
@@ -251,6 +259,7 @@ edges:
     from: core-runtime
     to: key-vault-pe
     kind: read
+    route: orthogonal-trunk
   - id: key-vault-pe-to-service
     from: key-vault-pe
     to: key-vault
@@ -260,8 +269,9 @@ edges:
     from: core-runtime
     to: openai-pe
     kind: request
+    route: orthogonal-trunk
     step: 4
-    label: { en: Verified T2 request, ko: 검증된 T2 요청 }
+    label: { en: Private data plane, ko: Private data plane }
   - id: openai-pe-to-service
     from: openai-pe
     to: azure-openai
@@ -291,14 +301,14 @@ edges:
     from: core-runtime
     to: teams-approval
     kind: approval
-    route: orthogonal-right
+    route: orthogonal-top
     step: 6
   - id: core-to-git
     from: core-runtime
     to: git-delivery
     kind: mutation
-    route: orthogonal-right
-    step: 6
+    route: orthogonal-top
+    step: 7
 legend:
   - kind: event
     label: { en: Kafka event flow, ko: Kafka event flow }

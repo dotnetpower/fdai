@@ -60,6 +60,14 @@ test("Azure resource network flow routes every compound edge", async () => {
     const group = layout.groups.get(groupId)!;
     assert.ok(group.width > group.height, `${groupId} must be wider than tall`);
   }
+  const gridGroups = [
+    layout.groups.get("container-apps-subnet")!,
+    layout.groups.get("private-endpoint-subnet")!,
+    layout.groups.get("private-service-backends")!,
+  ];
+  assert.ok(Math.max(...gridGroups.map((group) => group.x)) - Math.min(...gridGroups.map((group) => group.x)) <= 1);
+  assert.ok(Math.max(...gridGroups.map((group) => group.width)) - Math.min(...gridGroups.map((group) => group.width)) <= 1);
+  assert.ok(layout.groups.get("postgres-subnet")!.width >= 200);
   const containerApps = layout.groups.get("container-apps-subnet")!;
   const privateEndpoints = layout.groups.get("private-endpoint-subnet")!;
   const privateServices = layout.groups.get("private-service-backends")!;
@@ -88,6 +96,8 @@ test("Azure resource network flow routes every compound edge", async () => {
   const vnet = layout.groups.get("fdai-vnet")!;
   const platformServices = layout.groups.get("platform-services")!;
   assert.ok(vnet.x + vnet.width < platformServices.x);
+  assert.ok(vnet.y - azureRegion.y >= 49);
+  assert.ok(vnet.y - azureRegion.y <= 50);
   assert.ok(privateServices.y - (vnet.y + vnet.height) >= 24);
   assert.ok(privateServices.y - (vnet.y + vnet.height) <= 32);
   const operatorNodes = spec.nodes
@@ -125,9 +135,17 @@ test("Azure resource network flow routes every compound edge", async () => {
   );
   const resourceGraphBends = resourceGraphEdge?.sections?.[0]?.bendPoints ?? [];
   assert.ok(resourceGraphBends.length <= 2);
+  const eventHubsEdge = spec.edges.find((edge) => edge.id === "event-hubs-to-pe")!;
+  assert.equal(eventHubsEdge.from, "event-hubs");
+  assert.equal(eventHubsEdge.to, "event-hubs-pe");
+  const registryEdge = spec.edges.find((edge) => edge.id === "registry-to-pe")!;
+  assert.equal(registryEdge.from, "container-registry");
+  assert.equal(registryEdge.to, "registry-pe");
   const gitSection = layout.edges.find(
     (candidate) => candidate.id === "core-to-git",
   )?.sections?.[0];
-  assert.ok(gitSection?.bendPoints?.length === 3);
-  assert.ok(gitSection.bendPoints[0]!.x > gitSection.startPoint.x);
+  assert.ok(gitSection?.bendPoints?.length === 2);
+  assert.ok(gitSection.bendPoints[0]!.y < gitSection.startPoint.y);
+  assert.equal(spec.edges.find((edge) => edge.id === "core-to-teams")!.step, 6);
+  assert.equal(spec.edges.find((edge) => edge.id === "core-to-git")!.step, 7);
 });
