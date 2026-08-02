@@ -375,15 +375,22 @@ function applyDirectLayouts(
     };
     if (groupSpec.layout === "row") {
       const contentHeight = Math.max(...children.map((node) => node.height));
-      const naturalWidth =
-        left * 2 +
+      const contentWidth =
         children.reduce((total, node) => total + node.width, 0) +
         childGap * (children.length - 1);
+      const naturalWidth =
+        left * 2 + contentWidth;
       const targetWidth = Math.max(naturalWidth, groupSpec.width ?? 0);
-      const rowGap = children.length > 1
+      const justify = groupSpec.justify ?? "space-between";
+      const rowGap = justify === "space-between" && children.length > 1
         ? childGap + (targetWidth - naturalWidth) / (children.length - 1)
-        : 0;
+        : childGap;
       let x = group.x + left;
+      if (justify === "center") {
+        x = group.x + (targetWidth - contentWidth) / 2;
+      } else if (justify === "start") {
+        x = group.x + left;
+      }
       for (const child of children) {
         moveChild(
           child,
@@ -519,8 +526,9 @@ function applyGroupPlacements(
           alignment.y + alignment.height,
           (containingAlignment?.y ?? alignment.y) +
             (containingAlignment?.height ?? alignment.height),
-        ) + 24
-      : Math.max(parent.y + 52, ...siblingBottoms) + 24;
+        ) + (groupSpec.placementGap ?? 24)
+      : Math.max(parent.y + 52, ...siblingBottoms) +
+        (groupSpec.placementGap ?? 24);
     const nextX = alignment
       ? alignment.x + (alignment.width - group.width) / 2
       : parent.x + (parent.width - group.width) / 2;
@@ -794,14 +802,16 @@ function orthogonalTrunkRouteSection(
   source: PositionedShape,
   target: PositionedShape,
   lane = 0,
+  sourceOffset = 0,
+  targetOffset = 0,
 ): ElkEdgeSection {
   const targetIsBelow = target.y >= source.y;
   const startPoint = {
-    x: source.x + source.width / 2,
+    x: source.x + source.width / 2 + sourceOffset,
     y: targetIsBelow ? source.y + source.height : source.y,
   };
   const endPoint = {
-    x: target.x + target.width / 2,
+    x: target.x + target.width / 2 + targetOffset,
     y: targetIsBelow ? target.y : target.y + target.height,
   };
   const direction = targetIsBelow ? 1 : -1;
@@ -815,6 +825,57 @@ function orthogonalTrunkRouteSection(
     ],
     endPoint,
   };
+}
+
+function trunkAnchorOffsets(
+  spec: DiagramSpec,
+  nodes: Map<string, PositionedShape>,
+): Map<string, { source: number; target: number }> {
+  const offsets = new Map<string, { source: number; target: number }>();
+  const connections = new Map<
+    string,
+    Array<{ edgeId: string; endpoint: "source" | "target"; otherX: number }>
+  >();
+  for (const edge of spec.edges.filter(
+    (candidate) => candidate.route === "orthogonal-trunk",
+  )) {
+    const sourceId = endpointNodeId(edge.from);
+    const targetId = endpointNodeId(edge.to);
+    const source = nodes.get(sourceId);
+    const target = nodes.get(targetId);
+    if (!source || !target) continue;
+    const targetIsBelow = target.y >= source.y;
+    for (const connection of [
+      {
+        key: `${sourceId}:${targetIsBelow ? "bottom" : "top"}`,
+        endpoint: "source" as const,
+        otherX: target.x + target.width / 2,
+      },
+      {
+        key: `${targetId}:${targetIsBelow ? "top" : "bottom"}`,
+        endpoint: "target" as const,
+        otherX: source.x + source.width / 2,
+      },
+    ]) {
+      const entries = connections.get(connection.key) ?? [];
+      entries.push({ edgeId: edge.id, ...connection });
+      connections.set(connection.key, entries);
+    }
+  }
+  for (const [key, entries] of connections) {
+    if (entries.length < 2) continue;
+    const node = nodes.get(key.split(":", 1)[0]!);
+    if (!node) continue;
+    entries.sort((left, right) => left.otherX - right.otherX);
+    const span = Math.min(node.width - 24, (entries.length - 1) * 14);
+    entries.forEach((entry, index) => {
+      const offset = -span / 2 + (span * index) / (entries.length - 1);
+      const edgeOffsets = offsets.get(entry.edgeId) ?? { source: 0, target: 0 };
+      edgeOffsets[entry.endpoint] = offset;
+      offsets.set(entry.edgeId, edgeOffsets);
+    });
+  }
+  return offsets;
 }
 
 function orthogonalTopRouteSection(
@@ -986,16 +1047,34 @@ function rightRouteLabelPosition(
   };
 }
 
+function routeLaneGroup(spec: DiagramSpec, endpoint: string): string {
+  const immediateParent = elementParent(spec, endpointNodeId(endpoint));
+  let topGroup = immediateParent;
+  while (elementParent(spec, topGroup) !== "root") {
+    topGroup = elementParent(spec, topGroup);
+  }
+  const topKind = spec.groups.find((group) => group.id === topGroup)?.kind;
+  return topKind === "cloud" || topKind === "region"
+    ? immediateParent
+    : topGroup;
+}
+
 function applyExplicitRoutes(
   spec: DiagramSpec,
   edges: ElkExtendedEdge[],
   nodes: Map<string, PositionedShape>,
 ): ElkExtendedEdge[] {
-  const aboveLaneByEdge = new Map(
-    spec.edges
-      .filter((edge) => edge.route === "orthogonal-above")
-      .map((edge, index) => [edge.id, index]),
-  );
+  const trunkOffsets = trunkAnchorOffsets(spec, nodes);
+  const aboveLaneByEdge = new Map<string, number>();
+  const aboveLaneCountByTargetGroup = new Map<string, number>();
+  for (const edge of spec.edges.filter(
+    (candidate) => candidate.route === "orthogonal-above",
+  )) {
+    const targetGroup = routeLaneGroup(spec, edge.to);
+    const lane = aboveLaneCountByTargetGroup.get(targetGroup) ?? 0;
+    aboveLaneByEdge.set(edge.id, lane);
+    aboveLaneCountByTargetGroup.set(targetGroup, lane + 1);
+  }
   const rightLaneByEdge = new Map<string, number>();
   const rightLaneCountByTargetGroup = new Map<string, number>();
   for (const edge of spec.edges.filter(
@@ -1045,6 +1124,8 @@ function applyExplicitRoutes(
           source,
           target,
           specEdge.lane ?? 0,
+          trunkOffsets.get(edge.id)?.source ?? 0,
+          trunkOffsets.get(edge.id)?.target ?? 0,
         )
       : specEdge.route === "orthogonal-top"
         ? orthogonalTopRouteSection(

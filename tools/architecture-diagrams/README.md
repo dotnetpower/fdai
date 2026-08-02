@@ -75,6 +75,8 @@ values instead of pixel-level styling:
   or groups need a stable presentation independent of cross-group edges.
 - Set `gap` on an explicit row or column when routing corridors need more room
   than the compact profile's default spacing.
+- Set `justify: center` or `justify: start` when a fixed-width row shouldn't
+  spread a small child set across all available space.
 - Set icon-bearing nodes to `presentation: icon` when the official product icon
   should carry the visual hierarchy. FDAI-owned runtime components remain cards.
 - Set `step` on an edge to render a numbered flow badge separately from its
@@ -88,8 +90,9 @@ connectors improve flow without turning the diagram into an ambiguous free-form
 graph.
 
 Supporting groups can opt into `placement: top`, `below`, or `right` to form a
-stable region composition. Add `alignWith: <group-id>` when that band should
-share the horizontal center of a nested reference group.
+stable region composition. Set `placementGap` to control the gap to the aligned
+surface. Add `alignWith: <group-id>` when that band should share the horizontal
+center of a nested reference group.
 Individual cross-layer edges can opt into an explicit route; compilation rejects
 a route when it crosses an unrelated node. All other edges retain ELK routing
 and bounded corner rounding.

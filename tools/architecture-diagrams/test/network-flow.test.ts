@@ -78,7 +78,6 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.match(svg, /data-node-id="operator-console"/);
   assert.doesNotMatch(svg, /data-node-id="operator-cli"/);
   for (const groupId of [
-    "gateway-subnet",
     "container-apps-subnet",
     "private-endpoint-subnet",
     "private-service-backends",
@@ -105,25 +104,37 @@ test("Azure resource network flow routes every compound edge", async () => {
   const gatewaySubnet = layout.groups.get("gateway-subnet")!;
   const privateEndpoints = layout.groups.get("private-endpoint-subnet")!;
   const privateServices = layout.groups.get("private-service-backends")!;
-  assert.ok(gatewaySubnet.width <= 320);
+  assert.equal(gatewaySubnet.width, 184);
+  assert.ok(gatewaySubnet.height > gatewaySubnet.width);
   assert.ok(
     Math.abs(
       gatewaySubnet.x + gatewaySubnet.width / 2 -
       privateEndpoints.x - privateEndpoints.width / 2,
     ) <= 1,
   );
-  const gatewayChildren = ["application-gateway", "waf-policy"].map(
+  const gatewayChildren = ["waf-policy", "application-gateway"].map(
     (id) => layout.nodes.get(id)!,
   );
-  assert.ok(
-    gatewayChildren[1]!.x -
-      (gatewayChildren[0]!.x + gatewayChildren[0]!.width) <= 56,
+  assert.equal(
+    gatewayChildren[1]!.y -
+      gatewayChildren[0]!.y -
+      gatewayChildren[0]!.height,
+    16,
   );
+  assert.equal(
+    gatewayChildren[0]!.x + gatewayChildren[0]!.width / 2,
+    gatewayChildren[1]!.x + gatewayChildren[1]!.width / 2,
+  );
+  const wafEdge = layout.edges.find(
+    (candidate) => candidate.id === "waf-to-gateway",
+  )!;
+  assert.equal(wafEdge.sections?.[0]?.bendPoints?.length ?? 0, 0);
   assert.ok(gatewaySubnet.y + gatewaySubnet.height < containerApps.y);
   assert.ok(containerApps.y + containerApps.height < privateEndpoints.y);
   assert.equal(containerApps.y - gatewaySubnet.y - gatewaySubnet.height, 132);
   assert.equal(privateEndpoints.y - containerApps.y - containerApps.height, 132);
   assert.ok(privateEndpoints.y + privateEndpoints.height < privateServices.y);
+  assert.ok(privateServices.y - privateEndpoints.y - privateEndpoints.height >= 64);
   const operatorAccess = layout.groups.get("operator-access")!;
   const azureRegion = layout.groups.get("azure-region")!;
   const governedDelivery = layout.groups.get("governed-delivery")!;
@@ -156,8 +167,7 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.ok(vnet.x + vnet.width < platformServices.x);
   assert.ok(vnet.y - azureRegion.y >= 49);
   assert.ok(vnet.y - azureRegion.y <= 50);
-  assert.ok(privateServices.y - (vnet.y + vnet.height) >= 24);
-  assert.ok(privateServices.y - (vnet.y + vnet.height) <= 32);
+  assert.equal(privateServices.y - (vnet.y + vnet.height), 48);
   const operatorNodes = spec.nodes
     .filter((node) => node.parent === "operator-access")
     .map((node) => layout.nodes.get(node.id)!);
@@ -190,6 +200,10 @@ test("Azure resource network flow routes every compound edge", async () => {
   ].map((id) => layout.nodes.get(id)!);
   for (let index = 1; index < orderedContainerApps.length; index += 1) {
     assert.ok(orderedContainerApps[index - 1]!.x < orderedContainerApps[index]!.x);
+    const gap = orderedContainerApps[index]!.x -
+      orderedContainerApps[index - 1]!.x -
+      orderedContainerApps[index - 1]!.width;
+    assert.equal(gap, 48);
   }
   const platformNodes = spec.nodes
     .filter((node) => node.parent === "platform-services")
@@ -205,16 +219,24 @@ test("Azure resource network flow routes every compound edge", async () => {
     ["key-vault-pe", "key-vault"],
     ["openai-pe", "azure-openai"],
     ["foundry-pe", "microsoft-foundry"],
+    ["postgres-pe", "postgres"],
   ] as const) {
     const endpoint = layout.nodes.get(endpointId)!;
     const service = layout.nodes.get(serviceId)!;
     const endpointCenter = endpoint.x + endpoint.width / 2;
     const serviceCenter = service.x + service.width / 2;
     assert.ok(
-      Math.abs(endpointCenter - serviceCenter) <= 96,
+      Math.abs(endpointCenter - serviceCenter) <= 1,
       `${endpointId} must align with ${serviceId}`,
     );
   }
+  const storageCenter = layout.nodes.get("document-storage")!.x +
+    layout.nodes.get("document-storage")!.width / 2;
+  const blobCenter = layout.nodes.get("document-blob-pe")!.x +
+    layout.nodes.get("document-blob-pe")!.width / 2;
+  const dfsCenter = layout.nodes.get("document-dfs-pe")!.x +
+    layout.nodes.get("document-dfs-pe")!.width / 2;
+  assert.ok(Math.abs(storageCenter - (blobCenter + dfsCenter) / 2) <= 1);
   const resourceGraphEdge = layout.edges.find(
     (candidate) => candidate.id === "core-to-resource-graph",
   );
@@ -234,6 +256,20 @@ test("Azure resource network flow routes every compound edge", async () => {
     const bends = edge.sections?.[0]?.bendPoints ?? [];
     assert.ok(bends.length <= 2, `${edgeId} has ${bends.length} bends`);
   }
+  const coreTrunkAnchors = spec.edges
+    .filter(
+      (edge) =>
+        edge.route === "orthogonal-trunk" &&
+        (edge.from === "core-runtime" || edge.to === "core-runtime"),
+    )
+    .map((edge) => {
+      const section = layout.edges.find((candidate) => candidate.id === edge.id)!
+        .sections![0]!;
+      return edge.from === "core-runtime"
+        ? section.startPoint.x
+        : section.endPoint.x;
+    });
+  assert.equal(new Set(coreTrunkAnchors).size, coreTrunkAnchors.length);
   const eventHubsEdge = spec.edges.find((edge) => edge.id === "event-hubs-to-pe")!;
   assert.equal(eventHubsEdge.from, "event-hubs");
   assert.equal(eventHubsEdge.to, "event-hubs-pe");
@@ -243,8 +279,20 @@ test("Azure resource network flow routes every compound edge", async () => {
   const gitSection = layout.edges.find(
     (candidate) => candidate.id === "core-to-github",
   )?.sections?.[0];
+  const teamsSection = layout.edges.find(
+    (candidate) => candidate.id === "core-to-teams",
+  )?.sections?.[0];
   assert.ok(gitSection?.bendPoints?.length === 4);
+  assert.ok(teamsSection?.bendPoints?.length === 4);
   assert.ok(gitSection.bendPoints[1]!.y < gitSection.startPoint.y);
+  assert.ok(gitSection.bendPoints[1]!.y > 40);
+  assert.ok(teamsSection.bendPoints[1]!.y > 40);
+  assert.equal(
+    Math.abs(
+      gitSection.bendPoints[1]!.y - teamsSection.bendPoints[1]!.y,
+    ),
+    28,
+  );
   assert.equal(spec.edges.find((edge) => edge.id === "core-to-teams")!.step, 6);
   assert.equal(spec.edges.find((edge) => edge.id === "core-to-github")!.step, 7);
   assert.match(

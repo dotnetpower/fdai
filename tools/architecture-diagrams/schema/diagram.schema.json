@@ -108,7 +108,9 @@
         "direction": { "enum": ["RIGHT", "DOWN"] },
         "layout": { "enum": ["flow", "row", "column", "free"] },
         "gap": { "type": "integer", "minimum": 8, "maximum": 240 },
+        "justify": { "enum": ["start", "center", "space-between"] },
         "placement": { "enum": ["top", "below", "right"] },
+        "placementGap": { "type": "integer", "minimum": 8, "maximum": 240 },
         "alignWith": { "$ref": "#/definitions/id" },
         "width": { "type": "integer", "minimum": 152, "maximum": 1200 }
       }

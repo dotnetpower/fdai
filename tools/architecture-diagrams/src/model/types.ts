@@ -18,7 +18,9 @@ export interface DiagramGroup {
   direction?: Direction;
   layout?: "flow" | "row" | "column" | "free";
   gap?: number;
+  justify?: "start" | "center" | "space-between";
   placement?: "top" | "below" | "right";
+  placementGap?: number;
   alignWith?: string;
   width?: number;
 }

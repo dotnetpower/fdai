@@ -46,10 +46,10 @@ groups:
     kind: subnet
     presentation: band
     label: { en: Application Gateway subnet, ko: Application Gateway subnet }
-    direction: RIGHT
-    layout: row
+    direction: DOWN
+    layout: column
     alignWith: private-endpoint-subnet
-    width: 320
+    width: 184
   - id: container-apps-subnet
     parent: fdai-vnet
     kind: subnet
@@ -57,8 +57,10 @@ groups:
     label: { en: Container Apps subnet, ko: Container Apps subnet }
     direction: RIGHT
     layout: row
+    gap: 48
+    justify: center
     alignWith: private-endpoint-subnet
-    width: 960
+    width: 948
   - id: private-endpoint-subnet
     parent: fdai-vnet
     kind: subnet
@@ -66,7 +68,7 @@ groups:
     label: { en: Private endpoint subnet, ko: Private endpoint subnet }
     direction: RIGHT
     layout: row
-    width: 960
+    width: 948
   - id: private-service-backends
     parent: azure-region
     kind: layer
@@ -75,8 +77,9 @@ groups:
     direction: RIGHT
     layout: row
     placement: below
+    placementGap: 48
     alignWith: private-endpoint-subnet
-    width: 960
+    width: 948
   - id: platform-services
     parent: azure-region
     kind: layer
@@ -84,6 +87,7 @@ groups:
     label: { en: Platform services, ko: Platform service }
     direction: DOWN
     layout: column
+    gap: 24
     placement: right
     alignWith: fdai-vnet
   - id: governed-delivery
@@ -92,6 +96,7 @@ groups:
     label: { en: Delivery channels, ko: 전달 채널 }
     direction: DOWN
     layout: column
+    gap: 24
   - id: git-providers
     parent: governed-delivery
     kind: layer
@@ -134,13 +139,6 @@ nodes:
     icon: container-apps
     label: { en: Operator API, ko: Operator API }
     description: { en: Separate read and command transport identities with no executor permission, ko: Executor 권한 없이 분리된 read 및 command transport identity }
-  - id: application-gateway
-    parent: gateway-subnet
-    kind: azure-service
-    icon: application-gateway
-    presentation: icon
-    label: { en: Application Gateway, ko: Application Gateway }
-    description: { en: Private ingress for operator and ingestion requests, ko: 운영자 및 ingestion 요청을 위한 private ingress }
   - id: waf-policy
     parent: gateway-subnet
     kind: azure-service
@@ -148,6 +146,13 @@ nodes:
     presentation: icon
     label: { en: WAF policy, ko: WAF policy }
     description: { en: Managed protection attached to Application Gateway, ko: Application Gateway에 연결된 managed protection }
+  - id: application-gateway
+    parent: gateway-subnet
+    kind: azure-service
+    icon: application-gateway
+    presentation: icon
+    label: { en: Application Gateway, ko: Application Gateway }
+    description: { en: Private ingress for operator and ingestion requests, ko: 운영자 및 ingestion 요청을 위한 private ingress }
   - id: scheduled-jobs
     parent: container-apps-subnet
     kind: process
@@ -228,6 +233,7 @@ nodes:
     kind: azure-service
     icon: event-hubs
     presentation: icon
+    width: 100
     label: { en: Event Hubs, ko: Event Hubs }
     description: { en: "Kafka :9093 topics, control topics, replay, and dead-letter streams", ko: "Kafka :9093 topic, control topic, replay 및 dead-letter stream" }
   - id: container-registry
@@ -235,6 +241,7 @@ nodes:
     kind: azure-service
     icon: container-registry
     presentation: icon
+    width: 100
     label: { en: Container Registry, ko: Container Registry }
     description: { en: Signed images pinned by digest, ko: Digest로 고정된 서명 image }
   - id: key-vault
@@ -242,6 +249,7 @@ nodes:
     kind: azure-service
     icon: key-vault
     presentation: icon
+    width: 100
     label: { en: Key Vault, ko: Key Vault }
     description: { en: Native Container Apps secret references, ko: Container Apps native secret 참조 }
   - id: azure-openai
@@ -249,6 +257,7 @@ nodes:
     kind: azure-service
     icon: azure-openai
     presentation: icon
+    width: 100
     label: { en: Azure OpenAI, ko: Azure OpenAI }
     description: { en: Optional governed T2 model capabilities, ko: 선택적인 통제된 T2 model capability }
   - id: microsoft-foundry
@@ -256,6 +265,7 @@ nodes:
     kind: azure-service
     icon: ai-foundry
     presentation: icon
+    width: 100
     label: { en: Microsoft Foundry, ko: Microsoft Foundry }
     description: { en: "Governed model, evaluation, and agent project plane", ko: "통제된 model, evaluation 및 agent project plane" }
   - id: postgres
@@ -263,6 +273,7 @@ nodes:
     kind: azure-service
     icon: postgresql
     presentation: icon
+    width: 100
     label: { en: PostgreSQL, ko: PostgreSQL }
     description: { en: "State, append-only audit, operator memory, and pgvector", ko: "상태, 추가 전용 감사, operator memory 및 pgvector" }
   - id: document-storage
@@ -270,6 +281,7 @@ nodes:
     kind: store
     icon: storage-account
     presentation: icon
+    width: 216
     label: { en: ADLS Gen2 (optional), ko: ADLS Gen2 (optional) }
     description: { en: "Quarantine, governed source, and derived filesystems", ko: "Quarantine, governed source 및 derived filesystem" }
   - id: workload-identities
@@ -364,7 +376,7 @@ edges:
     from: waf-policy
     to: application-gateway
     kind: read
-    route: orthogonal-horizontal
+    route: orthogonal
   - id: gateway-to-api
     from: application-gateway
     to: operator-api
