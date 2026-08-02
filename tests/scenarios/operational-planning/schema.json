@@ -7,7 +7,7 @@
   "properties": {
     "schema_version": {"const": "1.0.0"},
     "scenario_set_version": {"const": "v2026.08-planning"},
-    "status": {"const": "complete"},
+    "status": {"enum": ["partial", "complete"]},
     "scenarios": {
       "type": "array",
       "minItems": 9,
@@ -15,7 +15,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "dimension", "expected", "test_ref"],
+        "required": ["id", "dimension", "evidence_status", "expected", "test_ref"],
         "properties": {
           "id": {"type": "string", "pattern": "^planning\\.[a-z0-9._-]+$"},
           "dimension": {
@@ -31,6 +31,7 @@
               "a3e_non_applicability"
             ]
           },
+          "evidence_status": {"enum": ["verified", "proxy"]},
           "expected": {"type": "string", "minLength": 1, "maxLength": 200},
           "test_ref": {
             "type": "string",

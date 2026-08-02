@@ -26,7 +26,8 @@ central planner or another authority surface.
 > adapter, exact selected-option MutationPlan compilation, and independent ResponseOutcome closure.
 > P6 adds a strict, read-only Planning Room projection inside the existing Process detail route.
 > P7 adds a durable Process recorder, a shadow-only planning Workflow, a nine-dimension frozen
-> scenario pack, deterministic constitutional constraint checks, and conditional production
+> scenario manifest with seven verified dimensions and two explicit release-evidence proxies,
+> deterministic constitutional constraint checks, and conditional production
 > runtime binding. The runtime binds planning only when the exact ontology release, operational
 > context, Process store, active effect-model reader, and causal verifier are available. Staging
 > proof and shadow measurement remain release evidence, not missing runtime behavior.

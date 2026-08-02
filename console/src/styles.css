@@ -13250,6 +13250,7 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
 .planning-candidate-table table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
 .planning-candidate-table th,
 .planning-candidate-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+.planning-candidate-table td { overflow-wrap: anywhere; }
 .planning-candidate-table th { color: var(--fg-muted); font-size: 0.68rem; text-transform: uppercase; }
 .planning-candidate-table td small { display: block; margin-top: 4px; color: var(--fg-muted); }
 .planning-pending { margin: 0; }

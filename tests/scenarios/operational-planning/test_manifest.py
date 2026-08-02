@@ -17,6 +17,21 @@ def test_operational_planning_manifest_is_complete_and_schema_valid() -> None:
     Draft202012Validator(SCHEMA).validate(MANIFEST)
     dimensions = [scenario["dimension"] for scenario in MANIFEST["scenarios"]]
     assert len(dimensions) == len(set(dimensions)) == 9
+    evidence_statuses = [scenario["evidence_status"] for scenario in MANIFEST["scenarios"]]
+    assert (MANIFEST["status"] == "complete") is all(
+        status == "verified" for status in evidence_statuses
+    )
+
+
+def test_operational_planning_manifest_exposes_release_evidence_gaps() -> None:
+    proxies = {
+        scenario["dimension"]
+        for scenario in MANIFEST["scenarios"]
+        if scenario["evidence_status"] == "proxy"
+    }
+
+    assert MANIFEST["status"] == "partial"
+    assert proxies == {"partial_failure_recovery", "a3e_non_applicability"}
 
 
 def test_operational_planning_scenarios_reference_executable_tests() -> None:

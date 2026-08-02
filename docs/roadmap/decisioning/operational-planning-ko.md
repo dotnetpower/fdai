@@ -1,6 +1,6 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: de453b4d00038913e0bfc6a42883d3afe33e0c62
+translation_source_sha: c66e65494977e52d4706ab3e75c139301c1381b2
 translation_revised: 2026-08-03
 ---
 # 운영 계획
@@ -25,8 +25,9 @@ DecisionCase, ActionOption, typed ontology function, Assurance Twin을 재사용
 > 실행하고 timeout 또는 malformed output을 unscorable로 처리합니다. P5는 read-only Twin adapter,
 > exact selected-option MutationPlan compilation, independent ResponseOutcome closure를 추가합니다.
 > P6는 기존 Process detail route 안에 strict read-only Planning Room projection을 추가합니다.
-> P7은 durable Process recorder, shadow-only planning Workflow, 9개 차원의 frozen scenario pack,
-> deterministic constitutional constraint check, conditional production runtime binding을
+> P7은 durable Process recorder, shadow-only planning Workflow, verified dimension 7개와 명시적인
+> release-evidence proxy 2개를 가진 9개 차원의 frozen scenario manifest, deterministic
+> constitutional constraint check, conditional production runtime binding을
 > 추가합니다. Runtime은 exact ontology release, operational context, Process store, active
 > effect-model reader, causal verifier가 모두 있을 때만 planning을 bind합니다. Staging proof와
 > shadow measurement는 누락된 runtime behavior가 아니라 release evidence로 남습니다.
