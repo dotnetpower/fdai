@@ -881,7 +881,6 @@
       "paths": [
         "docs/roadmap/interfaces/human-agent-assignment*.md",
         "src/fdai/core/human_assignment/**",
-        "src/fdai/core/hil_resume/escalation_supervisor.py",
         "src/fdai/core/rbac/access_request.py",
         "src/fdai/shared/providers/human_access.py",
         "src/fdai/shared/providers/human_identity.py",
@@ -893,8 +892,7 @@
         "src/fdai/runtime/human_access.py",
         "console/src/routes/settings-iam*",
         "rule-catalog/action-types/ops.assignment-role-*",
-        "tests/**/*human_assignment*",
-        "tests/core/hil_resume/test_escalation_supervisor.py"
+        "tests/**/*human_assignment*"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",

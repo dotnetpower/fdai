@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: b09d2b74b96237346a4cc92418870bb9dd8cd5bf
+translation_source_sha: 08024030c713b83f35c8ebb84f4d65ef121da163
 translation_revised: 2026-08-01
 ---
 
@@ -253,10 +253,16 @@ Catalog backfill은 다음 상태로 완료되었습니다:
   failover 시 `cost_impact_monthly` 선언 MUST.
 - `ops.switch-t2-proposer-route` - Heimdall이 요청 내 모든 후보의 실패를 확인한 뒤 T2 proposer 역할 하나를 검증된 secondary route로 전환합니다.
   Shadow-first를 유지하고 사람 승인을 요구하며 전환 후 검증이 실패하면 이전 route를 복원합니다.
-- `ops.apply-human-access`는 검토된 역할 그룹 부여를 계획하고, `ops.revoke-human-access`는 대체
-  담당 범위를 기다리며 제거를 보류합니다. 둘 다 별도 승격 전까지 관찰 모드를 유지합니다.
-- `ops.publish-change-summary`는 제한된 resource-group 변경 요약을 렌더링합니다. 짝을 이루는
-  `ChangeSummary` ObjectType과 `summarizes` LinkType은 [downstream fork 예제](../fork-and-sequencing/downstream-fork-example-vertical-ko.md)의 copy-ready scaffold입니다.
+- `ops.apply-human-access` - 검토된 FDAI 역할 그룹 멤버 자격 부여를 계획합니다. Direct adapter는
+  별도 승격 전까지 관찰 모드를 유지합니다.
+- `ops.revoke-human-access` - 검토된 대체 담당 범위 케이스가 준비될 때까지 역할 그룹 멤버 자격
+  제거를 보류합니다.
+- `ops.publish-change-summary` - resource-group 에 대해 정해진 시간
+  범위의 변경 이력을 rendered Markdown 요약으로 만들어 delivery adapter 에
+  전달. Non-Resource 비즈니스-오브젝트 flow 의 reference 예제; 짝을 이루는
+  ObjectType `ChangeSummary` 와 LinkType `summarizes` 가 copy-ready
+  scaffold ([downstream-fork-example-vertical-ko.md](../fork-and-sequencing/downstream-fork-example-vertical-ko.md)
+  참조).
 - `ops.start-vm` / `ops.deallocate-vm` - development operations gateway를 통해 Azure VM 하나를
   시작하거나 deallocate합니다. 둘 다 shadow-first를 유지하며 shipped T0 ceiling에서 사람 승인을
   요구합니다.

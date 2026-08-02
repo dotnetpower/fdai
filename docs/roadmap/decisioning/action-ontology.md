@@ -256,10 +256,15 @@ Operator-requested runtime actions. Shipped Day 1:
   MUST declare `cost_impact_monthly` when failover targets a larger tier.
 - `ops.switch-t2-proposer-route` - switch one T2 proposer role to a verified secondary route after Heimdall confirms every in-request candidate failed.
   It stays shadow-first, requires human approval, and restores the prior route when post-switch verification fails.
-- `ops.apply-human-access` plans a reviewed role-group grant; `ops.revoke-human-access` holds a
-  removal for replacement coverage. Both remain observation-only until separate promotion.
-- `ops.publish-change-summary` renders a bounded resource-group change summary. Its paired
-  `ChangeSummary` ObjectType and `summarizes` LinkType are the copy-ready scaffold in
+- `ops.apply-human-access` - plan one reviewed FDAI role-group membership grant. The direct
+  adapter remains in observation mode until a separate promotion.
+- `ops.revoke-human-access` - hold one role-group membership removal until a reviewed replacement-
+  coverage case is available.
+- `ops.publish-change-summary` - render a rendered Markdown change
+  summary for a resource-group over a bounded time window and hand it
+  to the delivery adapter. Reference example of a non-Resource
+  business-object flow; the paired ObjectType `ChangeSummary` and
+  LinkType `summarizes` are the copy-ready scaffold in
   [downstream-fork-example-vertical.md](../fork-and-sequencing/downstream-fork-example-vertical.md).
 - `ops.start-vm` / `ops.deallocate-vm` - start or deallocate one Azure VM through the
   development operations gateway. Both remain shadow-first and require human approval at the
