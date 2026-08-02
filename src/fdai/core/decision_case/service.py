@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from datetime import datetime
 from math import isfinite
 
@@ -33,16 +34,17 @@ def build_decision_case(
     logic_release_digest: str | None = None,
 ) -> DecisionCase:
     """Build one replay-stable case from an operational context snapshot."""
-
+    canonical_baseline = tuple(sorted(no_action_effects, key=_effect_sort_key))
+    canonical_options = tuple(
+        sorted((_canonical_option(option) for option in options), key=lambda item: item.option_id)
+    )
     material = {
         "context": context.snapshot_id,
         "correlation": correlation_id,
         "evidence": sorted(set(evidence_refs)),
         "logic_release_digest": logic_release_digest,
-        "no_action_effects": [_effect_material(effect) for effect in no_action_effects],
-        "options": [
-            _option_material(option) for option in sorted(options, key=lambda item: item.option_id)
-        ],
+        "no_action_effects": [_effect_material(effect) for effect in canonical_baseline],
+        "options": [_option_material(option) for option in canonical_options],
         "process_id": process_id,
         "protected_objective_ids": sorted(set(protected_objective_ids)),
     }
@@ -54,8 +56,8 @@ def build_decision_case(
         correlation_id=correlation_id,
         context_snapshot_id=context.snapshot_id,
         created_at=created_at,
-        no_action_effects=tuple(no_action_effects),
-        options=tuple(options),
+        no_action_effects=canonical_baseline,
+        options=canonical_options,
         protected_objective_ids=tuple(sorted(set(protected_objective_ids))),
         active_constraint_ids=context.constraint_ids,
         evidence_refs=tuple(sorted(set(evidence_refs))),
@@ -164,13 +166,31 @@ def _effect_material(effect: ObjectiveEffect) -> dict[str, object]:
     }
 
 
+def _effect_sort_key(effect: ObjectiveEffect) -> tuple[str, str]:
+    return effect.objective_id, effect.metric
+
+
+def _canonical_option(option: ActionOption) -> ActionOption:
+    return replace(
+        option,
+        effects=tuple(sorted(option.effects, key=_effect_sort_key)),
+        evidence_refs=tuple(sorted(set(option.evidence_refs))),
+        violated_constraint_ids=tuple(sorted(set(option.violated_constraint_ids))),
+        proposing_agents=tuple(sorted(set(option.proposing_agents))),
+        logic_receipt_refs=tuple(sorted(set(option.logic_receipt_refs))),
+        simulation_receipt_refs=tuple(sorted(set(option.simulation_receipt_refs))),
+        constraint_evaluation_refs=tuple(sorted(set(option.constraint_evaluation_refs))),
+        assumptions=tuple(sorted(set(option.assumptions))),
+    )
+
+
 def _option_material(option: ActionOption) -> dict[str, object]:
     return {
         "option_id": option.option_id,
         "action_type": option.action_type,
         "effects": [_effect_material(effect) for effect in option.effects],
-        "evidence_refs": sorted(set(option.evidence_refs)),
-        "violated_constraint_ids": sorted(set(option.violated_constraint_ids)),
+        "evidence_refs": list(option.evidence_refs),
+        "violated_constraint_ids": list(option.violated_constraint_ids),
         "proposing_agents": list(option.proposing_agents),
         "logic_receipt_refs": list(option.logic_receipt_refs),
         "simulation_receipt_refs": list(option.simulation_receipt_refs),

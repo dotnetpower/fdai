@@ -91,9 +91,7 @@ def build_operational_plan(request: PlanningRequest) -> OperationalPlan:
                 disposition,
                 (),
             )
-    ordered_assessments = tuple(
-        assessments[candidate.candidate_id] for candidate in request.candidates
-    )
+    ordered_assessments = tuple(assessments[candidate_id] for candidate_id in sorted(assessments))
     material = {
         "process_id": request.process_id,
         "case_id": decision_case.case_id,

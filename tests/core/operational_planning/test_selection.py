@@ -170,6 +170,27 @@ def test_plan_and_decision_identity_cover_receipts() -> None:
     assert revised.decision_case.case_id != first.decision_case.case_id
 
 
+def test_plan_is_canonical_across_candidate_and_receipt_order() -> None:
+    capacity = _candidate("capacity", 0.8, -0.2)
+    cost = _candidate("cost", 0.6, 0.7)
+    reversed_capacity = PlanCandidate(
+        capacity.candidate_id,
+        capacity.action_type,
+        tuple(reversed(capacity.effects)),
+        capacity.contributions,
+        capacity.constraints,
+        capacity.simulations,
+        tuple(reversed(capacity.evidence_refs)),
+    )
+
+    first = build_operational_plan(_request((capacity, cost)))
+    reordered = build_operational_plan(_request((cost, reversed_capacity)))
+
+    assert reordered.plan_id == first.plan_id
+    assert reordered.decision_case == first.decision_case
+    assert reordered.assessments == first.assessments
+
+
 def test_candidate_limit_fails_closed_instead_of_truncating() -> None:
     candidates = tuple(_candidate(f"candidate-{index}", 0.8, -0.2) for index in range(33))
 
