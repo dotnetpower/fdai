@@ -202,6 +202,8 @@ nodes:
   - id: document-storage
     parent: private-service-backends
     kind: store
+    icon: storage-account
+    presentation: icon
     label: { en: ADLS Gen2 Storage Account (optional), ko: ADLS Gen2 Storage Account (optional) }
     description: { en: "Quarantine, governed source, and derived filesystems", ko: "Quarantine, governed source 및 derived filesystem" }
   - id: workload-identities

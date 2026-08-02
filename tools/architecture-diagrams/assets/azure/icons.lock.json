@@ -55,6 +55,11 @@
       "productName": "Azure Resource Graph",
       "sha256": "6e9262653086bd4e83184ba6abb2e8b39a29e676107540c1fcfa41b4c8c0db37"
     },
+    "storage-account": {
+      "file": "storage-account.svg",
+      "productName": "Storage Accounts",
+      "sha256": "7190d3bb14ce30ce74bd0af873915830fe821e8c5f6ef6f3149e6f7cfb2aa4f7"
+    },
     "static-web-app": {
       "file": "static-web-app.svg",
       "productName": "Azure Static Web Apps",

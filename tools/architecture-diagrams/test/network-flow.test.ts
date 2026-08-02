@@ -51,6 +51,10 @@ test("Azure resource network flow routes every compound edge", async () => {
     spec.nodes.find((node) => node.id === "document-storage")!.label.en,
     "ADLS Gen2 Storage Account (optional)",
   );
+  assert.equal(
+    spec.nodes.find((node) => node.id === "document-storage")!.icon,
+    "storage-account",
+  );
   assert.match(svg, /data-node-id="operator-console"/);
   assert.doesNotMatch(svg, /data-node-id="operator-cli"/);
   for (const groupId of [
