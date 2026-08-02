@@ -330,9 +330,9 @@
       "step": 2
     },
     {
-      "id": "event-hubs-to-pe",
-      "from": "event-hubs",
-      "to": "event-hubs-pe",
+      "id": "event-pe-to-backend",
+      "from": "event-hubs-pe",
+      "to": "event-hubs",
       "kind": "event",
       "label": {
         "en": "Kafka private link",
@@ -352,15 +352,12 @@
       "from": "operator-api",
       "to": "event-hubs-pe",
       "kind": "event",
-      "label": {
-        "en": "Typed proposal",
-        "ko": "Typed proposal"
-      }
+      "label": null
     },
     {
-      "id": "registry-to-pe",
-      "from": "container-registry",
-      "to": "registry-pe",
+      "id": "registry-pe-to-service",
+      "from": "registry-pe",
+      "to": "container-registry",
       "kind": "read",
       "label": {
         "en": "Signed image",
@@ -379,11 +376,7 @@
       "from": "core-runtime",
       "to": "key-vault-pe",
       "kind": "read",
-      "label": {
-        "en": "Native secret resolution",
-        "ko": "Native secret resolution"
-      },
-      "step": 4
+      "label": null
     },
     {
       "id": "key-vault-pe-to-service",
@@ -443,20 +436,14 @@
       "from": "core-runtime",
       "to": "monitor",
       "kind": "audit",
-      "label": {
-        "en": "Telemetry",
-        "ko": "Telemetry"
-      }
+      "label": null
     },
     {
       "id": "core-to-teams",
       "from": "core-runtime",
       "to": "teams-approval",
       "kind": "approval",
-      "label": {
-        "en": "Approval request",
-        "ko": "승인 요청"
-      },
+      "label": null,
       "step": 6
     },
     {
@@ -464,10 +451,7 @@
       "from": "core-runtime",
       "to": "git-delivery",
       "kind": "mutation",
-      "label": {
-        "en": "Governed change",
-        "ko": "통제된 변경"
-      },
+      "label": null,
       "step": 6
     }
   ]

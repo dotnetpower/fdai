@@ -68,6 +68,15 @@ test("rejects an edge with an unknown endpoint", () => {
   assert.throws(() => validateDiagram(diagram), /Unknown edge endpoint 'missing'/);
 });
 
+test("rejects an unknown group alignment reference", () => {
+  const diagram = parseDiagram(minimalDiagram);
+  diagram.groups[0]!.alignWith = "missing";
+  assert.throws(
+    () => validateDiagram(diagram),
+    /Unknown alignment group 'missing' on 'control-plane'/,
+  );
+});
+
 test("allows an edge to target a group boundary", () => {
   const diagram = parseDiagram(minimalDiagram);
   diagram.edges[0]!.to = "control-plane";

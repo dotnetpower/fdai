@@ -100,7 +100,8 @@
         "description": { "$ref": "#/definitions/localizedText" },
         "direction": { "enum": ["RIGHT", "DOWN"] },
         "layout": { "enum": ["flow", "row", "column", "free"] },
-        "placement": { "enum": ["below"] }
+        "placement": { "enum": ["below"] },
+        "alignWith": { "$ref": "#/definitions/id" }
       }
     },
     "port": {
@@ -147,7 +148,7 @@
         "kind": { "enum": ["request", "event", "approval", "mutation", "audit", "rollback", "read", "write"] },
         "label": { "$ref": "#/definitions/localizedText" },
         "protocol": { "type": "string", "minLength": 1 },
-        "route": { "enum": ["diagonal", "curve", "orthogonal", "orthogonal-above"] },
+        "route": { "enum": ["diagonal", "curve", "orthogonal", "orthogonal-above", "orthogonal-right"] },
         "step": { "type": "integer", "minimum": 1, "maximum": 99 }
       }
     },

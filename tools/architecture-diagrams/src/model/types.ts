@@ -18,6 +18,7 @@ export interface DiagramGroup {
   direction?: Direction;
   layout?: "flow" | "row" | "column" | "free";
   placement?: "below";
+  alignWith?: string;
 }
 
 export interface DiagramPort {
@@ -55,7 +56,12 @@ export interface DiagramEdge {
   kind: EdgeKind;
   label?: LocalizedText;
   protocol?: string;
-  route?: "diagonal" | "curve" | "orthogonal" | "orthogonal-above";
+  route?:
+    | "diagonal"
+    | "curve"
+    | "orthogonal"
+    | "orthogonal-above"
+    | "orthogonal-right";
   step?: number;
 }
 

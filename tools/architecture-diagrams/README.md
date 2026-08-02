@@ -78,9 +78,11 @@ connectors improve flow without turning the diagram into an ambiguous free-form
 graph.
 
 Supporting groups can opt into `placement: below` to form a lower band instead
-of consuming another horizontal root column. Individual cross-layer edges can
-opt into `route: diagonal`; compilation rejects a diagonal when it crosses an
-unrelated node. All other edges retain ELK routing and bounded corner rounding.
+of consuming another horizontal root column. Add `alignWith: <group-id>` when
+that band should share the horizontal center of a nested reference group.
+Individual cross-layer edges can opt into an explicit route; compilation rejects
+a route when it crosses an unrelated node. All other edges retain ELK routing
+and bounded corner rounding.
 
 The validator rejects unknown keys, duplicate ids, missing locales, unknown
 parents, edges that reference missing elements, and port references that don't

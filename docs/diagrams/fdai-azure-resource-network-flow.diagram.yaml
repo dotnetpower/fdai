@@ -14,7 +14,7 @@ locales:
 canvas:
   width: 1600
   height: 1120
-  direction: RIGHT
+  direction: DOWN
   padding: 24
   profile: azure-reference
 groups:
@@ -58,12 +58,15 @@ groups:
     presentation: panel
     label: { en: Private services, ko: Private service }
     direction: RIGHT
+    placement: below
+    alignWith: private-endpoint-subnet
   - id: platform-services
     parent: azure-region
     kind: layer
     presentation: panel
     label: { en: Azure platform services, ko: Azure platform service }
     direction: RIGHT
+    placement: below
   - id: governed-delivery
     kind: layer
     presentation: panel
@@ -221,99 +224,94 @@ edges:
     from: operator-console
     to: operator-api
     kind: request
+    route: orthogonal-right
     step: 2
     label: { en: HTTPS request, ko: HTTPS 요청 }
   - id: cli-to-api
     from: operator-cli
     to: operator-api
     kind: request
+    route: orthogonal-right
     step: 2
     label: { en: HTTPS and SSE, ko: HTTPS 및 SSE }
-  - id: event-hubs-to-pe
-    from: event-hubs
-    to: event-hubs-pe
+  - id: event-pe-to-backend
+    from: event-hubs-pe
+    to: event-hubs
     kind: event
+    route: orthogonal
     step: 3
     label: { en: Kafka private link, ko: Kafka private link }
   - id: event-pe-to-core
     from: event-hubs-pe
     to: core-runtime
     kind: event
-    route: orthogonal
   - id: api-to-event-pe
     from: operator-api
     to: event-hubs-pe
     kind: event
-    route: orthogonal
-    label: { en: Typed proposal, ko: Typed proposal }
-  - id: registry-to-pe
-    from: container-registry
-    to: registry-pe
+  - id: registry-pe-to-service
+    from: registry-pe
+    to: container-registry
     kind: read
+    route: orthogonal
     label: { en: Signed image, ko: 서명 image }
   - id: registry-pe-to-core
     from: registry-pe
     to: core-runtime
     kind: read
-    route: orthogonal
   - id: core-to-key-vault-pe
     from: core-runtime
     to: key-vault-pe
     kind: read
-    route: orthogonal
-    step: 4
-    label: { en: Native secret resolution, ko: Native secret resolution }
   - id: key-vault-pe-to-service
     from: key-vault-pe
     to: key-vault
     kind: read
+    route: orthogonal
   - id: core-to-openai-pe
     from: core-runtime
     to: openai-pe
     kind: request
-    route: orthogonal
     step: 4
     label: { en: Verified T2 request, ko: 검증된 T2 요청 }
   - id: openai-pe-to-service
     from: openai-pe
     to: azure-openai
     kind: request
+    route: orthogonal
   - id: core-to-postgres
     from: core-runtime
     to: postgres
     kind: audit
-    route: orthogonal
     step: 5
     label: { en: State and audit, ko: 상태 및 감사 }
   - id: api-to-postgres
     from: operator-api
     to: postgres
     kind: read
-    route: orthogonal
   - id: core-to-resource-graph
     from: core-runtime
     to: resource-graph
     kind: read
-    route: orthogonal-above
+    route: orthogonal-right
     label: { en: Azure control-plane inventory read, ko: Azure control-plane inventory 조회 }
   - id: core-to-monitor
     from: core-runtime
     to: monitor
     kind: audit
-    label: { en: Telemetry, ko: Telemetry }
+    route: orthogonal-right
   - id: core-to-teams
     from: core-runtime
     to: teams-approval
     kind: approval
+    route: orthogonal-right
     step: 6
-    label: { en: Approval request, ko: 승인 요청 }
   - id: core-to-git
     from: core-runtime
     to: git-delivery
     kind: mutation
-    route: orthogonal-above
+    route: orthogonal-right
     step: 6
-    label: { en: Governed change, ko: 통제된 변경 }
 legend:
   - kind: event
     label: { en: Kafka event flow, ko: Kafka event flow }
