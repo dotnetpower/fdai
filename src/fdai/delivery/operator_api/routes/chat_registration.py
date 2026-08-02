@@ -17,6 +17,7 @@ from fdai.core.conversation.answer_preferences import ResponsePreferenceProfile
 from fdai.core.conversation_assurance import ConversationPolicyRuntime
 from fdai.core.skills import RuntimeSkillDisclosure
 from fdai.core.user_context_projection import UserContextOntologyProjector
+from fdai.delivery.handover_events import HandoverAvailabilityPublisher
 from fdai.delivery.operator_api.read_model import ConsoleReadModel
 from fdai.delivery.operator_api.routes.busy_input import make_busy_input_routes
 from fdai.delivery.operator_api.routes.busy_input_runtime import BusyInputRuntime
@@ -126,7 +127,7 @@ def append_chat_routes(
     user_context_ontology_projector: UserContextOntologyProjector | None = None,
     model_settings: object | None = None,
     console_action: object | None = None,
-    handover_availability_publisher: object | None = None,
+    handover_availability_publisher: HandoverAvailabilityPublisher | None = None,
     authorize: Callable[[Request], Awaitable[str]],
     read_model: ConsoleReadModel,
     core_paths: Collection[str],

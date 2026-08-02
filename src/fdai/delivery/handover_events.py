@@ -4,8 +4,13 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
+from typing import Protocol
 
 from fdai.shared.providers.event_bus import EventBus, PublishReceipt
+
+
+class HandoverAvailabilityPublisher(Protocol):
+    async def publish(self, *, subject_ref: str, session_id: str) -> PublishReceipt: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,4 +46,4 @@ def _digest(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
-__all__ = ["EventBusHandoverAvailabilityPublisher"]
+__all__ = ["EventBusHandoverAvailabilityPublisher", "HandoverAvailabilityPublisher"]

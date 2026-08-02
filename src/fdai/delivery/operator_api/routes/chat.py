@@ -27,6 +27,7 @@ from fdai.core.conversation_assurance import ConversationPolicyRuntime
 from fdai.core.metering import InvocationScope, with_invocation_scope
 from fdai.core.python_task.grounded_code import extract_grounded_code
 from fdai.core.user_context_projection import UserContextOntologyProjector
+from fdai.delivery.handover_events import HandoverAvailabilityPublisher
 from fdai.delivery.operator_api.routes.chat_answer_planning import (
     AnswerPlanningDelegate,
     cancel_planning,
@@ -286,7 +287,7 @@ def make_chat_route(
     document_evidence_resolver: ChatDocumentEvidenceResolver | None = None,
     turn_planner: TurnPlanner | IntentGraphPlanner | None = None,
     turn_tools: tuple[TurnTool, ...] | Callable[[], tuple[TurnTool, ...]] = (),
-    handover_availability_publisher: object | None = None,
+    handover_availability_publisher: HandoverAvailabilityPublisher | None = None,
     history_policy: ChatHistoryPolicy = DEFAULT_CHAT_HISTORY_POLICY,
     path: str = DEFAULT_ROUTE_PATH,
     max_body_bytes: int = DEFAULT_MAX_CHAT_BODY_BYTES,
