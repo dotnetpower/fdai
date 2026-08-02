@@ -251,7 +251,7 @@ async def test_consult_t2_without_grounding_rules_skips_proposer(tmp_path: Path)
 
 
 @pytest.mark.asyncio
-async def test_consult_t2_proposed_logs_shadow_only(tmp_path: Path) -> None:
+async def test_consult_t2_without_risk_gate_records_hil_hold(tmp_path: Path) -> None:
     audit = InMemoryStateStore()
     tier = T2Tier(proposer=_Proposer(_candidate()), quality_gate=_FakeGate(QualityOutcome.ELIGIBLE))
     loop = _make_loop(t2_engine=tier, audit=audit, tmp_path=tmp_path)
@@ -266,10 +266,10 @@ async def test_consult_t2_proposed_logs_shadow_only(tmp_path: Path) -> None:
         correlation_id=str(event.event_id),
     )
     assert result is not None
-    assert result.outcome is ControlLoopOutcome.T2_PROPOSED_LOGGED
+    assert result.outcome is ControlLoopOutcome.HIL
     assert result.tier == "t2"
-    # Shadow-only: nothing executed, so the audit decision stays abstain.
-    assert result.decision == "abstain"
+    assert result.decision == "hil"
+    assert result.reason == "t2_risk_gate_unavailable"
     assert result.execution_results == ()
     assert result.t2_decision is not None
     assert result.t2_decision.outcome is T2Outcome.PROPOSED
@@ -286,6 +286,13 @@ async def test_consult_t2_proposed_logs_shadow_only(tmp_path: Path) -> None:
     assert row["t2_outcome"] == "proposed"
     assert row["t2_candidate"]["action_type"] == "remediate.tag-add"
     assert row["t2_quality"]["outcome"] == "eligible"
+    holds = [
+        item["entry"]
+        for item in audit.audit_entries
+        if item["entry"].get("action_kind") == "control_loop.t2_routing_hold"
+    ]
+    assert len(holds) == 1
+    assert holds[0]["reason"] == "t2_risk_gate_unavailable"
 
 
 @pytest.mark.asyncio

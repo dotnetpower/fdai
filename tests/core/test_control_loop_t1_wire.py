@@ -139,9 +139,7 @@ def _make_loop(
     )
 
 
-async def test_verified_t1_reuse_routes_through_unified_risk_gate(tmp_path: Path) -> None:
-    audit = InMemoryStateStore()
-    loop = _make_loop(t1_engine=None, audit=audit, tmp_path=tmp_path)
+def _configure_t1_routing(loop: ControlLoop) -> None:
     action_types = load_action_type_catalog(
         Path(__file__).resolve().parents[2] / "rule-catalog" / "action-types",
         schema_registry=PackageResourceSchemaRegistry(),
@@ -152,6 +150,12 @@ async def test_verified_t1_reuse_routes_through_unified_risk_gate(tmp_path: Path
     loop._rules_by_id = {  # type: ignore[assignment]  # noqa: SLF001
         "r1": SimpleNamespace(id="r1", remediates="remediate.tag-add")
     }
+
+
+async def test_verified_t1_reuse_routes_through_unified_risk_gate(tmp_path: Path) -> None:
+    audit = InMemoryStateStore()
+    loop = _make_loop(t1_engine=None, audit=audit, tmp_path=tmp_path)
+    _configure_t1_routing(loop)
     loop._risk_table = SimpleNamespace()  # type: ignore[assignment]  # noqa: SLF001
     loop._risk_gate = SimpleNamespace()  # type: ignore[assignment]  # noqa: SLF001
     risk_decision = SimpleNamespace(
@@ -201,6 +205,49 @@ async def test_verified_t1_reuse_routes_through_unified_risk_gate(tmp_path: Path
     action = evaluate.await_args.kwargs["action"]
     assert action.action_type == "remediate.tag-add"
     assert action.target_resource_ref == "res-01"
+
+
+async def test_verified_t1_reuse_without_risk_gate_records_hil_hold(tmp_path: Path) -> None:
+    audit = InMemoryStateStore()
+    loop = _make_loop(t1_engine=None, audit=audit, tmp_path=tmp_path)
+    _configure_t1_routing(loop)
+    event = EventIngest(validator=_validator()).ingest(_event_dict("evt-t1-hold"))
+    assert event is not None
+    learned = LearnedAction(
+        signature="sig-hold",
+        rule_id="r1",
+        action_type="remediate.tag-add",
+        params={},
+        incident_id="incident-1",
+        success_rate=0.99,
+        reuse_count=50,
+    )
+    t1 = T1Decision(
+        outcome=T1Outcome.REUSED,
+        event_id=str(event.event_id),
+        threshold=0.8,
+        best_match=SimilarityMatch(action=learned, score=0.95),
+        current_reuse_verification=_current_verification(),
+    )
+
+    result = await loop._route_t1_reuse(  # noqa: SLF001 - focused routing contract
+        event=event,
+        decision=RoutingDecision(tier=RoutingTier.T1, resource_type="compute.vm.novel"),
+        t1=t1,
+        cs_decision=None,
+        event_id=str(event.event_id),
+        correlation_id=str(event.event_id),
+    )
+
+    assert result is not None
+    assert result.outcome is ControlLoopOutcome.HIL
+    assert result.reason == "t1_risk_gate_unavailable"
+    holds = [
+        item["entry"]
+        for item in audit.audit_entries
+        if item["entry"].get("action_kind") == "control_loop.t1_routing_hold"
+    ]
+    assert len(holds) == 1
 
 
 async def test_unverified_t1_reuse_never_reaches_risk_gate(tmp_path: Path) -> None:

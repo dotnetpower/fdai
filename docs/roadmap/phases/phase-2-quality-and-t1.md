@@ -19,6 +19,8 @@ are **targets to validate**, not guarantees ([goals-and-metrics.md](../architect
 > execution authorization plus the unified risk gate; legacy reuse without that receipt remains
 > an inert shadow log. A quality-gate-eligible T2 candidate follows the same authorization-before-
 > risk order, so a prohibited or unresolved execution profile never reaches risk evaluation.
+> Missing risk authority or a missing cited rule produces an explicit audited HIL hold rather
+> than a generic shadow outcome.
 > The percentages and Exit Criteria below are targets,
 > not claims of current attainment.
 

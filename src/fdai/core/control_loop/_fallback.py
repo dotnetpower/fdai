@@ -122,6 +122,46 @@ class ControlLoopFallbackMixin:
                 exc_info=True,
             )
 
+    async def _routing_hold(
+        self,
+        *,
+        event: Event,
+        decision: RoutingDecision,
+        tier: str,
+        reason: str,
+        citing_rule_ids: tuple[str, ...],
+        cs_decision: ChangeSafetyDecision | None,
+        t1_decision: T1Decision | None = None,
+        t2_decision: T2Decision | None = None,
+    ) -> ControlLoopResult:
+        await self._audit_store.append_audit_entry(
+            {
+                "event_id": str(event.event_id),
+                "correlation_id": event.correlation_id or str(event.event_id),
+                "idempotency_key": event.idempotency_key,
+                "actor": "fdai.core.control_loop",
+                "producer_principal": "Forseti",
+                "action_kind": f"control_loop.{tier}_routing_hold",
+                "mode": Mode.SHADOW.value,
+                "decision": "hil",
+                "reason": reason,
+                "citing_rule_ids": list(citing_rule_ids),
+                "recorded_at": datetime.now(tz=UTC).isoformat(),
+            }
+        )
+        return ControlLoopResult(
+            outcome=ControlLoopOutcome.HIL,
+            tier=tier,
+            decision="hil",
+            resource_type=decision.resource_type,
+            citing_rule_ids=citing_rule_ids,
+            reason=reason,
+            event_id=str(event.event_id),
+            change_safety_decision=cs_decision,
+            t1_decision=t1_decision,
+            t2_decision=t2_decision,
+        )
+
     async def _evaluate_fallback_tiers(
         self,
         *,
@@ -316,7 +356,15 @@ class ControlLoopFallbackMixin:
 
         unified = await self._evaluate_and_audit(event=event, action=action, rule=rule)
         if unified is None:
-            return None
+            return await self._routing_hold(
+                event=event,
+                decision=decision,
+                tier="t1",
+                reason="t1_risk_gate_unavailable",
+                citing_rule_ids=(learned.rule_id,),
+                cs_decision=cs_decision,
+                t1_decision=t1,
+            )
         if unified.is_auto or unified.requires_hil:
             action = action.model_copy(update={"mode": unified.gate.effective_mode})
         await self._emit_stage(
@@ -501,8 +549,19 @@ class ControlLoopFallbackMixin:
         correlation_id: str,
     ) -> ControlLoopResult | None:
         candidate = t2.candidate
-        if candidate is None or self._risk_table is None or self._risk_gate is None:
+        if candidate is None:
             return None
+        if self._risk_table is None or self._risk_gate is None:
+            return await self._routing_hold(
+                event=event,
+                decision=decision,
+                tier="t2",
+                reason="t2_risk_gate_unavailable",
+                citing_rule_ids=candidate.cited_rule_ids,
+                cs_decision=cs_decision,
+                t1_decision=t1_decision,
+                t2_decision=t2,
+            )
         rule = next(
             (
                 self._rules_by_id[rule_id]
@@ -512,7 +571,16 @@ class ControlLoopFallbackMixin:
             None,
         )
         if rule is None:
-            return None
+            return await self._routing_hold(
+                event=event,
+                decision=decision,
+                tier="t2",
+                reason="t2_cited_rule_unavailable",
+                citing_rule_ids=candidate.cited_rule_ids,
+                cs_decision=cs_decision,
+                t1_decision=t1_decision,
+                t2_decision=t2,
+            )
         try:
             action = self._action_builder.build_from_candidate(event=event, candidate=candidate)
         except ActionBuildError as exc:
@@ -564,7 +632,16 @@ class ControlLoopFallbackMixin:
 
         unified = await self._evaluate_and_audit(event=event, action=action, rule=rule)
         if unified is None:
-            return None
+            return await self._routing_hold(
+                event=event,
+                decision=decision,
+                tier="t2",
+                reason="t2_risk_gate_unavailable",
+                citing_rule_ids=candidate.cited_rule_ids,
+                cs_decision=cs_decision,
+                t1_decision=t1_decision,
+                t2_decision=t2,
+            )
         await self._emit_stage(
             event_id=event_id,
             correlation_id=correlation_id,
