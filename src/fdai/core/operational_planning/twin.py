@@ -58,7 +58,7 @@ class AssuranceTwinPlanningSimulator:
         predicted: list[ObjectiveEffect] = []
         evidence_refs: list[str] = []
         requires_review = False
-        for effect in effects:
+        for effect in sorted(effects, key=lambda item: (item.objective_id, item.metric)):
             active = await self._model_reader.get(
                 status=EffectModelStatus.ACTIVE,
                 action_type_id=action_type,
@@ -122,8 +122,9 @@ class AssuranceTwinPlanningSimulator:
                     observation_window_seconds=effect.observation_window_seconds,
                 )
             )
+        finalized_evidence = tuple(sorted({ref for ref in evidence_refs if ref}))
         identity = hashlib.sha256(
-            f"{context.snapshot_id}:{candidate_id}:{action_type}:{evidence_refs}".encode()
+            f"{context.snapshot_id}:{candidate_id}:{action_type}:{finalized_evidence}".encode()
         ).hexdigest()
         return SimulationReceipt(
             receipt_id=f"simulation:{identity}",
@@ -133,7 +134,7 @@ class AssuranceTwinPlanningSimulator:
             status=SimulationStatus.SUCCEEDED,
             started_at=started_at,
             completed_at=self._clock(),
-            evidence_refs=tuple(ref for ref in dict.fromkeys(evidence_refs) if ref),
+            evidence_refs=finalized_evidence,
             predicted_effects=tuple(predicted),
             requires_review=requires_review,
             reason="model_divergence" if requires_review else "simulation_completed",

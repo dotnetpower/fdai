@@ -102,6 +102,15 @@ class _Models:
         return self.active if status is EffectModelStatus.ACTIVE else self.challenger
 
 
+class _MetricModels:
+    def __init__(self, active_by_metric: dict[str, EffectModel]) -> None:
+        self._active_by_metric = active_by_metric
+
+    async def get(self, *, status, action_type_id, metric):
+        assert action_type_id == "ops.scale-out"
+        return self._active_by_metric.get(metric) if status is EffectModelStatus.ACTIVE else None
+
+
 class _Verifier:
     def verify(self, model: EffectModel) -> bool:
         return model.evidence_grade in {
@@ -152,6 +161,44 @@ async def test_twin_simulation_without_verified_active_model_is_unscorable() -> 
 
     assert receipt.status is SimulationStatus.UNSCORABLE
     assert receipt.requires_review is True
+
+
+async def test_twin_simulation_is_canonical_across_effect_order() -> None:
+    reliability = ObjectiveEffect("reliability", 0.8, 0.9, "availability", 0.9, 1.0, 300)
+    cost = ObjectiveEffect("cost", -0.2, 0.8, "usd", 10.0, 20.0, 300)
+    models = _MetricModels(
+        {
+            "availability": _model(EffectModelStatus.ACTIVE),
+            "usd": replace(
+                _model(EffectModelStatus.ACTIVE),
+                model_id="model-active-usd",
+                metric="usd",
+                bias_correction=-1.0,
+            ),
+        }
+    )
+    simulator = AssuranceTwinPlanningSimulator(
+        model_reader=models,
+        causal_evidence_verifier=_Verifier(),
+        clock=lambda: NOW,
+    )
+
+    first = await simulator.simulate(
+        context=_context(),
+        candidate_id="capacity:scale_up",
+        action_type="ops.scale-out",
+        effects=(reliability, cost),
+        observed_at=NOW,
+    )
+    reordered = await simulator.simulate(
+        context=_context(),
+        candidate_id="capacity:scale_up",
+        action_type="ops.scale-out",
+        effects=(cost, reliability),
+        observed_at=NOW,
+    )
+
+    assert reordered == first
 
 
 def _plan_and_release() -> tuple[OperationalPlan, OntologyObjectRecord, object]:
