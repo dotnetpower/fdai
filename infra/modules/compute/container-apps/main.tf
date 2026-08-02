@@ -300,6 +300,41 @@ resource "azurerm_container_app" "core" {
         value = var.executor_identity_client_id
       }
 
+      env {
+        name  = "FDAI_CHANGE_MI_CLIENT_ID"
+        value = var.change_identity_client_id
+      }
+
+      env {
+        name  = "FDAI_RESILIENCE_MI_CLIENT_ID"
+        value = var.resilience_identity_client_id
+      }
+
+      env {
+        name  = "FDAI_FINOPS_MI_CLIENT_ID"
+        value = var.finops_identity_client_id
+      }
+
+      env {
+        name  = "T1_SIMILARITY_THRESHOLD"
+        value = tostring(var.t1_similarity_threshold)
+      }
+
+      env {
+        name  = "T1_MIN_SUCCESS_RATE"
+        value = tostring(var.t1_min_success_rate)
+      }
+
+      env {
+        name  = "QUALITY_GATE_CONFIDENCE_THRESHOLD"
+        value = tostring(var.quality_gate_confidence_threshold)
+      }
+
+      env {
+        name  = "QUALITY_GATE_QUORUM"
+        value = tostring(var.quality_gate_quorum)
+      }
+
       dynamic "env" {
         for_each = nonsensitive(var.state_store_dsn_secret_id) == "" ? toset([]) : toset(["1"])
         content {

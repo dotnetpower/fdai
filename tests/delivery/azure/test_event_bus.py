@@ -268,6 +268,45 @@ async def test_publish_failure_discards_cached_producer_for_retry(
 
 
 @pytest.mark.asyncio
+async def test_dead_letter_uses_canonical_redrive_envelope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sent: dict[str, object] = {}
+
+    class _RecordingProducer:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        async def start(self) -> None:
+            return None
+
+        async def stop(self) -> None:
+            return None
+
+        async def send_and_wait(self, topic: str, **kwargs: object) -> object:
+            sent["topic"] = topic
+            sent.update(kwargs)
+            return SimpleNamespace(topic=topic, partition=0, offset=1)
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaProducer", _RecordingProducer)
+    bus = EventHubsKafkaBus(identity=_StaticIdentity(), config=_cfg())
+
+    await bus.dead_letter(
+        "aw.control.events",
+        "event-1",
+        {"event_id": "event-1"},
+        reason="handler error",
+    )
+
+    assert sent["topic"] == "aw.control.events.dlq"
+    assert json.loads(sent["value"]) == {
+        "original_topic": "aw.control.events",
+        "payload": {"event_id": "event-1"},
+        "reason": "handler error",
+    }
+
+
+@pytest.mark.asyncio
 async def test_producer_receives_event_hubs_safe_connection_windows(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -55,6 +55,41 @@ variable "executor_identity_client_id" {
   type        = string
 }
 
+variable "change_identity_client_id" {
+  description = "Client id of the attached Change Safety execution identity."
+  type        = string
+}
+
+variable "resilience_identity_client_id" {
+  description = "Client id of the attached Resilience execution identity."
+  type        = string
+}
+
+variable "finops_identity_client_id" {
+  description = "Client id of the attached Cost Governance execution identity."
+  type        = string
+}
+
+variable "t1_similarity_threshold" {
+  description = "Cosine-similarity floor for T1 reuse."
+  type        = number
+}
+
+variable "t1_min_success_rate" {
+  description = "Historical-success floor for T1 reuse."
+  type        = number
+}
+
+variable "quality_gate_confidence_threshold" {
+  description = "Aggregate confidence floor for T2 quality gating."
+  type        = number
+}
+
+variable "quality_gate_quorum" {
+  description = "Minimum independent-model agreement quorum."
+  type        = number
+}
+
 variable "inventory_identity_id" {
   description = "Dedicated read-only user-assigned MI resource id for inventory discovery."
   type        = string

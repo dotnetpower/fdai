@@ -59,6 +59,30 @@ async def test_non_multiplexed_topic_passes_through() -> None:
     assert (await anext(bus.subscribe("aw.change.events", "core"))).topic == ("aw.change.events")
 
 
+async def test_multiplexed_dead_letter_round_trip_preserves_logical_topic() -> None:
+    raw = InMemoryEventBus()
+    bus = MultiplexedEventBus(
+        bus=raw,
+        logical_topics=frozenset({"object.verdict"}),
+        physical_topic="objects",
+    )
+
+    await bus.dead_letter(
+        "object.verdict",
+        "correlation-1",
+        {"risk_verdict": "auto"},
+        reason="handler error",
+    )
+    envelope = await anext(bus.subscribe("object.verdict.dlq", "redrive"))
+
+    assert envelope.topic == "object.verdict.dlq"
+    assert envelope.payload == {
+        "original_topic": "object.verdict",
+        "reason": "handler error",
+        "payload": {"risk_verdict": "auto"},
+    }
+
+
 async def test_close_delegates_to_underlying_broker() -> None:
     raw = _ClosableInMemoryEventBus()
     bus = MultiplexedEventBus(

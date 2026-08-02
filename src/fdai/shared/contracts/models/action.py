@@ -49,6 +49,7 @@ class Action(_Base):
     citing_rules: Annotated[list[str], Field(min_length=1)]
     created_at: datetime
     action_type_ref: OntologyTypeRef | None = None
+    executor_identity_ref: Annotated[str, Field(min_length=1)] | None = None
 
     @model_validator(mode="after")
     def _stop_condition_shorthand_matches_contract(self) -> Action:

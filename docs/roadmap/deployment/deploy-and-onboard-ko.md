@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 2c1d42e74f148be71a71abb11c87df0e64e19dd4
+translation_source_sha: 3b863894cffeedfe511c792b6674da1f7052678b
 translation_revised: 2026-08-02
 ---
 
@@ -489,6 +489,7 @@ promotion 및 test-only key는 editable surface에 포함되지 않습니다.
 | `FDAI_CASE_HISTORY_CONTAINER_URL` / `FDAI_CASE_HISTORY_MI_CLIENT_ID` / `FDAI_CASE_HISTORY_RETENTION_DAYS` / `FDAI_CASE_HISTORY_DELETION_DAYS` / `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS` | env | upstream / deployment | Immutable case revision용 private Blob container URL, 전용 attached UAMI client id, active-retention/deletion-due offset 및 제한된 Muninn retention cadence입니다. Terraform은 storage와 identity binding을 파생하고 deletion이 retention보다 이르지 않게 검증하며, startup은 전용 identity id가 없거나 executor identity와 같으면 실패합니다. Public/key-auth fallback은 사용하지 않습니다. Retention tick 기본값은 `86400`입니다. |
 | `FDAI_OPERATOR_MEMORY_DSN` | KV ref | upstream | HIL 승인 operator memory 용 Postgres DSN. day-zero 는 `FDAI_STATE_STORE_DSN` 과 동일 소스 (단일 Flexible Server); deployment는 core를 건드리지 않고 나중에 분리할 수 있습니다. |
 | `FDAI_T1_PATTERN_LIBRARY_DSN` | KV ref | upstream | pgvector 기반 T1 패턴 라이브러리 용 Postgres DSN. day-zero 동일 소스, 동일 배선. |
+| `FDAI_CHANGE_MI_CLIENT_ID` / `FDAI_RESILIENCE_MI_CLIENT_ID` / `FDAI_FINOPS_MI_CLIENT_ID` | env | deployment | Core app에 attach된 세 vertical별 user-assigned managed identity의 client id입니다. Delivery principal 식별에만 사용하며, execution authorization과 fork 소유 action whitelist가 선택된 identity의 실행 가능 여부를 계속 결정합니다. |
 | `FDAI_INVENTORY_DSN` | KV ref | upstream | Scheduled inventory collector가 immutable candidate를 stage하고 active graph를 atomic promotion하는 데만 사용하는 PostgreSQL DSN. |
 | `FDAI_INVENTORY_SCOPES` / `FDAI_INVENTORY_RESOURCE_TYPES` | env | deployment | 쉼표로 구분한 subscription scope와 선택적 CSP-중립 resource-type subset. 빈 scope는 시작을 차단합니다. |
 | `FDAI_INVENTORY_SOURCES` | env | upstream | Ordered fallback list. 기본값은 `arg,arm`입니다. `declarative`는 fixture path와 SHA-256이 모두 있을 때만 허용합니다. |
@@ -499,6 +500,8 @@ promotion 및 test-only key는 editable surface에 포함되지 않습니다.
 | `KAFKA_TOPIC_DLQ_SUFFIX` | env | deployment | dead-letter suffix (기본 `.dlq`) |
 | `LLM_MODE` | env | deployment | 명시적 test/mock용 `local-fake` 또는 authoritative profile용 `azure`. Environment는 binding을 선택하지 않습니다. [dev-and-deploy-parity-ko.md § Parity 컨트랙트](dev-and-deploy-parity-ko.md#parity-컨트랙트-must) 참조. |
 | `LLM_RESOLVED_MODELS_PATH` | KV ref | deployment | `LLM_MODE=azure` 시 필수; 부트스트랩 resolver가 쓴 `resolved-models.json`을 가리킴 |
+| `T1_SIMILARITY_THRESHOLD` / `T1_MIN_SUCCESS_RATE` | env | deployment | Learned-action reuse 전 similarity와 historical success에 적용하는 검증된 `[0,1]` 하한입니다. 기본값은 `0.8`, `0.9`입니다. |
+| `QUALITY_GATE_CONFIDENCE_THRESHOLD` / `QUALITY_GATE_QUORUM` | env | deployment | T2에 적용하는 검증된 confidence 하한과 independent-model agreement quorum입니다. 기본값은 `0.7`, `2`이며 quorum은 2보다 작을 수 없습니다. |
 | `RULE_CATALOG_REF` | env | deployment | 카탈로그 스냅샷 git ref |
 | `AUTONOMY_MODE_DEFAULT` | env | deployment | **반드시** `shadow` 기본값 |
 | `FDAI_LOG_LEVEL` | env | upstream | 코어 앱의 Python 로거 레벨 (`DEBUG` / `INFO` / `WARNING` / `ERROR`). 기본 `INFO`. |
@@ -518,7 +521,7 @@ promotion 및 test-only key는 editable surface에 포함되지 않습니다.
 | `FDAI_MEASUREMENT_MODE` | env | upstream | `infra/modules/measurement-runners/`의 Container Apps Job entry point를 선택합니다. `baseline`은 고정된 scenario regression measurement를 실행하고 `growth`는 검토된 outcome을 pattern-growth intake로 전달합니다. Action authority는 promotion 및 risk gate가 독립적으로 관리합니다. |
 | `FDAI_DIRECT_API_FAKE` | env | test-only / dev-local | `1`이면 executor direct-API 경로를 in-memory shadow fake로 바꿉니다. Automated test는 명시적으로 설정하고, `prepare-local-runtime-env.sh`는 operations gateway를 찾지 못할 때만 - Terraform state에도 없고 resource group의 live Azure CLI probe(`func-*-devgw-*`와 해당 App Service Authentication audience)로도 복구되지 않을 때 - interactive local dev에서 이를 자동 주입하여 live backend 없이도 `execution_path: direct_api` dispatch를 유지합니다. `FDAI_DEV_OPERATIONS_GATEWAY_URL`과 상호 배타적입니다. |
 | `FDAI_TOOL_CALL_FAKE` | env | test-only | Automated test에서 executor tool-call 경로를 `RecordingToolExecutor`로 바꿉니다. Interactive local startup은 executor를 연결하지 않습니다. |
-| `FDAI_WORKFLOW_SHADOW` | env | upstream | `1`이면 event-triggered catalog Workflow를 non-mutating shadow mode로 활성화합니다. Azure core app은 기본 설정입니다. |
+| `FDAI_WORKFLOW_SHADOW` | env | upstream | Event-triggered catalog Workflow는 기본적으로 non-mutating shadow mode로 실행됩니다. 명시적 maintenance disable에만 `0`, `false`, `no`, `off`를 설정합니다. |
 | `FDAI_WORKFLOW_ENFORCE_ALLOWLIST` | env | deployment / local | Owner가 `mode=enforce`로 시작할 수 있는 Workflow 이름의 comma-separated 목록입니다. Event Hubs command transport가 필요하며 action step은 일반 promotion/risk/HIL/executor 경로로 재진입합니다. |
 | `KAFKA_TOPIC_EVENTS` / `FDAI_STAGE_TOPIC` | env | upstream / local | Deployed runtime과 Azure-backed interactive transport가 공유하는 event 및 stage topic입니다. Kafka bootstrap과 event topic이 모두 없으면 interactive local은 `aw.events`와 bounded local EventBus/SSE adapter를 사용합니다. |
 | `FDAI_IRP_ENABLED` / `FDAI_IRP_BUDGET_SECONDS` | env | upstream | alert-shaped event를 budgeted investigation -> typed proposal 경로로 처리합니다. proposal은 표준 risk/HIL/executor loop에 재진입합니다. |

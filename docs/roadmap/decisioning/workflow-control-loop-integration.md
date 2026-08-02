@@ -53,13 +53,13 @@ resource + timestamp taken from the Event). An event matching no Workflow starts
 nothing.
 
 The coordinator is wired into the [`ControlLoop`](../../../src/fdai/core/control_loop/orchestrator.py)
-as an **opt-in, fail-safe side-consumer**: when `FDAI_WORKFLOW_SHADOW` is truthy
-and the catalog ships a Workflow, the entry point assembles it (from the loaded
+as an **enabled-by-default, fail-safe side-consumer**: when the catalog ships a Workflow,
+the entry point assembles it (from the loaded
 Workflow catalog, the RBAC group mapping, and the notification matrix) and every
 ingested event also fires its matched Workflows. It adds audit rows only - it
 never changes routing, the risk decision, or the return path, and a coordinator
-failure is logged and swallowed. Upstream default is off, so the control loop
-behaves exactly as before unless a deployment opts in.
+failure is logged and swallowed. `FDAI_WORKFLOW_SHADOW=0|false|no|off` is the explicit
+maintenance disable; unset keeps non-mutating observation active.
 
 ### 4.2 Guard evaluation (seam)
 

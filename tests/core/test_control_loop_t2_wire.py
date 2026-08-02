@@ -16,8 +16,10 @@ Minimal by design: the T2 tier itself is unit-tested in
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -35,13 +37,24 @@ from fdai.core.quality_gate.gate import (
     QualityOutcome,
 )
 from fdai.core.tiers.t0_deterministic import RuleIndex, T0Engine
-from fdai.core.tiers.t2_reasoning import T2Outcome, T2ProposalContext, T2Tier
+from fdai.core.tiers.t2_reasoning import (
+    T2Decision,
+    T2Outcome,
+    T2ProposalContext,
+    T2Tier,
+)
 from fdai.core.trust_router import RoutingDecision, RoutingTier, TrustRouter
+from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.shared.contracts.models import Event, Mode, Rule
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.contracts.validation import (
     JsonSchemaContractValidator,
     JsonSchemaEventValidator,
+)
+from fdai.shared.providers.execution_authorization import (
+    ExecutionAuthorizationRequest,
+    ExecutionAuthorizationResult,
+    ExecutionAuthorizationStatus,
 )
 from fdai.shared.providers.stage_publisher import StageName, StagePhase
 from fdai.shared.providers.testing import RecordingStagePublisher
@@ -238,7 +251,7 @@ async def test_consult_t2_without_grounding_rules_skips_proposer(tmp_path: Path)
 
 
 @pytest.mark.asyncio
-async def test_consult_t2_proposed_logs_shadow_only(tmp_path: Path) -> None:
+async def test_consult_t2_without_risk_gate_records_hil_hold(tmp_path: Path) -> None:
     audit = InMemoryStateStore()
     tier = T2Tier(proposer=_Proposer(_candidate()), quality_gate=_FakeGate(QualityOutcome.ELIGIBLE))
     loop = _make_loop(t2_engine=tier, audit=audit, tmp_path=tmp_path)
@@ -253,10 +266,10 @@ async def test_consult_t2_proposed_logs_shadow_only(tmp_path: Path) -> None:
         correlation_id=str(event.event_id),
     )
     assert result is not None
-    assert result.outcome is ControlLoopOutcome.T2_PROPOSED_LOGGED
+    assert result.outcome is ControlLoopOutcome.HIL
     assert result.tier == "t2"
-    # Shadow-only: nothing executed, so the audit decision stays abstain.
-    assert result.decision == "abstain"
+    assert result.decision == "hil"
+    assert result.reason == "t2_risk_gate_unavailable"
     assert result.execution_results == ()
     assert result.t2_decision is not None
     assert result.t2_decision.outcome is T2Outcome.PROPOSED
@@ -273,6 +286,13 @@ async def test_consult_t2_proposed_logs_shadow_only(tmp_path: Path) -> None:
     assert row["t2_outcome"] == "proposed"
     assert row["t2_candidate"]["action_type"] == "remediate.tag-add"
     assert row["t2_quality"]["outcome"] == "eligible"
+    holds = [
+        item["entry"]
+        for item in audit.audit_entries
+        if item["entry"].get("action_kind") == "control_loop.t2_routing_hold"
+    ]
+    assert len(holds) == 1
+    assert holds[0]["reason"] == "t2_risk_gate_unavailable"
 
 
 @pytest.mark.asyncio
@@ -320,6 +340,68 @@ async def test_consult_t2_routed_result_emits_terminal_audit_stage(
     assert terminal[0].detail["outcome"] == ControlLoopOutcome.HIL.value
     assert terminal[0].detail["decision"] == "hil"
     assert terminal[0].detail["mode"] == Mode.SHADOW.value
+
+
+@pytest.mark.asyncio
+async def test_t2_candidate_requires_execution_authorization(tmp_path: Path) -> None:
+    audit = InMemoryStateStore()
+    loop = _make_loop(t2_engine=None, audit=audit, tmp_path=tmp_path)
+    action_types = load_action_type_catalog(
+        Path(__file__).resolve().parents[2] / "rule-catalog" / "action-types",
+        schema_registry=PackageResourceSchemaRegistry(),
+    )
+    loop._action_builder = ActionBuilder(  # noqa: SLF001 - composition assertion
+        action_types_by_name={item.name: item for item in action_types}
+    )
+
+    class _ProhibitedAuthorization:
+        def __init__(self) -> None:
+            self.requests: list[ExecutionAuthorizationRequest] = []
+
+        async def evaluate(
+            self, request: ExecutionAuthorizationRequest
+        ) -> ExecutionAuthorizationResult:
+            self.requests.append(request)
+            return ExecutionAuthorizationResult(
+                status=ExecutionAuthorizationStatus.PROHIBITED,
+                decision_digest="digest",
+                evaluator_ref="test-authorization",
+                reason_codes=("policy_prohibited",),
+            )
+
+    authorization = _ProhibitedAuthorization()
+    loop._execution_authorization_evaluator = authorization  # noqa: SLF001
+    loop._risk_table = object()  # type: ignore[assignment]  # noqa: SLF001
+    loop._risk_gate = object()  # type: ignore[assignment]  # noqa: SLF001
+    risk = AsyncMock(side_effect=AssertionError("risk gate MUST NOT run"))
+    loop._evaluate_and_audit = risk  # type: ignore[method-assign]
+    event = await _ingest("evt-t2-authorization")
+    candidate = replace(_candidate(), params={})
+    t2 = T2Decision(
+        outcome=T2Outcome.PROPOSED,
+        candidate=candidate,
+        quality_decision=QualityDecision(
+            outcome=QualityOutcome.ELIGIBLE,
+            candidate=candidate,
+        ),
+        reason="eligible",
+    )
+
+    result = await loop._route_t2_candidate(  # noqa: SLF001 - focused routing contract
+        event=event,
+        decision=_routing(),
+        t2=t2,
+        cs_decision=None,
+        t1_decision=None,
+        event_id=str(event.event_id),
+        correlation_id=str(event.event_id),
+    )
+
+    assert result is not None
+    assert result.outcome is ControlLoopOutcome.DENIED
+    assert result.reason == "execution_authorization:prohibited"
+    assert len(authorization.requests) == 1
+    risk.assert_not_awaited()
 
 
 @pytest.mark.asyncio

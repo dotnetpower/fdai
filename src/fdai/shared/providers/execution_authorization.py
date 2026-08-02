@@ -125,6 +125,7 @@ class ExecutionAuthorizationResult:
     decision_digest: str
     evaluator_ref: str
     reason_codes: tuple[str, ...]
+    executor_identity_ref: str | None = None
     audit_context: Mapping[str, object] = field(default_factory=dict)
     grant_proposals: tuple[ExecutionAccessGrantProposal, ...] = ()
 
@@ -135,6 +136,12 @@ class ExecutionAuthorizationResult:
             or not self.reason_codes
         ):
             raise ValueError("execution authorization result evidence MUST be non-empty")
+        if self.status is ExecutionAuthorizationStatus.AUTHORIZED and (
+            self.executor_identity_ref is None or not self.executor_identity_ref.strip()
+        ):
+            raise ValueError("authorized execution MUST identify one executor identity")
+        if self.executor_identity_ref is not None and not self.executor_identity_ref.strip():
+            raise ValueError("executor_identity_ref MUST be non-empty when present")
         if self.status is ExecutionAuthorizationStatus.GRANT_REQUIRED and not self.grant_proposals:
             raise ValueError("grant_required authorization MUST carry grant proposals")
         if self.status is not ExecutionAuthorizationStatus.GRANT_REQUIRED and self.grant_proposals:

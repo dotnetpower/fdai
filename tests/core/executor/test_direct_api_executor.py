@@ -174,6 +174,15 @@ class TestHappyPath:
         assert request.action_type_name == "ops.restart-service"
 
     @pytest.mark.asyncio
+    async def test_authorized_executor_identity_reaches_request_metadata(self) -> None:
+        exec_, adapter, _ = _executor()
+        action = _action().model_copy(update={"executor_identity_ref": "identity/change"})
+
+        await exec_.execute(action=action)
+
+        assert adapter.records[0].metadata["executor_identity_ref"] == "identity/change"
+
+    @pytest.mark.asyncio
     async def test_structured_stop_conditions_reach_adapter_and_audit(self) -> None:
         conditions = (
             ActionStopCondition(

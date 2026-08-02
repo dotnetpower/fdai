@@ -90,8 +90,12 @@ same code path serve every target.
   deploy or mixed-version replicas from silently failing to decode - old and new
   producers/consumers stay interoperable.
 - **DLQ** = a Kafka **dead-letter topic** with a naming convention (e.g. `<topic>.dlq`)
-  plus a redrive worker; providers that offer native DLQ (Event Hubs does not) MUST be
-  ignored in favor of the topic convention so behavior is uniform.
+  plus a redrive worker. Every provider writes the same JSON envelope with
+  `original_topic`, `reason`, and the original object under `payload`; transport headers are
+  not part of the redrive contract. Providers that offer native DLQ (Event Hubs does not) MUST
+  be ignored in favor of the topic convention so behavior is uniform. A multiplexing adapter
+  maps logical DLQ subscriptions onto the physical DLQ and restores the logical topic before
+  redrive.
 - **Ordering** is preserved by partition key (per-resource key ⇒ per-resource ordering).
   Any provider-specific ordering primitive (Service Bus sessions, FIFO groups) MUST NOT
   leak into core.

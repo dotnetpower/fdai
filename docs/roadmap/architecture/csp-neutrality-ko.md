@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 9dfc7273c78b190201d01ea002fe40fea951d2ad
+translation_source_sha: 98ae05a556388cac12eab39c2537fe787300f28b
 translation_revised: 2026-08-02
 ---
 
@@ -89,8 +89,11 @@ seam):
   `items` 내부 중첩 변경도 포함)를 거부한다. 이로써 rolling deploy 나 혼합 버전 replica 가 조용히
   디코딩 실패하는 것을 막아 - 구/신 producer/consumer 가 상호운용을 유지한다.
 - **DLQ** = 명명 규약을 따르는 Kafka **dead-letter topic** (예: `<topic>.dlq`) + redrive
-  워커; native DLQ 를 제공하는 프로바이더 (Event Hubs 는 제공 안함) 도 동작을 균일하게
-  유지하기 위해 **무시** 하고 topic 규약 사용.
+  워커. 모든 provider는 `original_topic`, `reason`, 원본 객체를 담은 `payload`로 구성된
+  동일한 JSON envelope를 기록하며 transport header는 redrive 계약에 포함되지 않습니다.
+  Native DLQ를 제공하는 provider(Event Hubs는 제공하지 않음)도 동작을 균일하게 유지하기
+  위해 topic 규약을 사용하고 native DLQ는 무시합니다. Multiplexing adapter는 logical DLQ
+  subscription을 physical DLQ로 매핑하고 redrive 전에 logical topic을 복원합니다.
 - **순서** 는 partition key 로 보장 (per-resource key ⇒ per-resource ordering).
   프로바이더 특이 순서 프리미티브 (Service Bus sessions, FIFO groups) 는 코어로 흘러선 안됨.
 - **멱등성** 은 이벤트의 앱 수준 idempotency key 로 강제하지 프로바이더의 "exactly-once"

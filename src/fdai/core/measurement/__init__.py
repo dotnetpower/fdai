@@ -49,6 +49,7 @@ from fdai.core.measurement.operational_promotion import (
 from fdai.core.measurement.operational_promotion_runner import (
     OperationalPromotionEvidenceSource,
     OperationalPromotionMeasurementRunner,
+    OperationalPromotionReceiptSink,
     OperationalPromotionRunResult,
 )
 
@@ -63,6 +64,7 @@ __all__ = [
     "OperationalPromotionMeasurementRunner",
     "OperationalPromotionPolicy",
     "OperationalPromotionReceipt",
+    "OperationalPromotionReceiptSink",
     "OperationalPromotionRecord",
     "OperationalPromotionRunResult",
     "OperationalPromotionUnitVerifier",

@@ -3,6 +3,20 @@ output "environment_id" {
   value       = azurerm_container_app_environment.primary.id
 }
 
+output "attached_identity_ids" {
+  description = "User-assigned identity resource ids attached to the core Container App."
+  value       = azurerm_container_app.core.identity[0].identity_ids
+}
+
+output "vertical_identity_client_ids" {
+  description = "Vertical identity client ids exposed to the core runtime."
+  value = {
+    change     = var.change_identity_client_id
+    resilience = var.resilience_identity_client_id
+    finops     = var.finops_identity_client_id
+  }
+}
+
 output "core_app_id" {
   description = "Core Container App resource id."
   value       = azurerm_container_app.core.id

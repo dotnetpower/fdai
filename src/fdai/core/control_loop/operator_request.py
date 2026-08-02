@@ -59,6 +59,12 @@ class OperatorRequestHost(Protocol):
 
     async def _dispatch_action(self, *, action: Action, rule: Rule) -> ExecutionResultType: ...
 
+    def _bind_authorized_identity(
+        self,
+        action: Action,
+        authorization: ExecutionAuthorizationResult | None,
+    ) -> Action: ...
+
     async def _request_hil_approval(
         self,
         *,
@@ -133,6 +139,7 @@ async def process_operator_request(
             ControlLoopOutcome.DENIED if denied else ControlLoopOutcome.HIL,
             "deny" if denied else "hil",
         )
+    action = host._bind_authorized_identity(action, authorization)
 
     unified = await host._evaluate_and_audit(event=event, action=action, rule=rule)
     if unified is None:

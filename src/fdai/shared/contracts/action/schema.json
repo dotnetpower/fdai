@@ -57,6 +57,11 @@
       },
       "description": "Exact ActionType declaration and ontology release used to build the action."
     },
+    "executor_identity_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Provider-neutral execution identity selected by the authorization decision."
+    },
     "target_resource_ref": {
       "type": "string",
       "description": "Ontology Resource id the action targets."

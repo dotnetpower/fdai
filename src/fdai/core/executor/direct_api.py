@@ -182,6 +182,10 @@ def _direct_api_fingerprint(action: Action) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _dedupe_key(action: Action) -> str:
+    return f"{action.idempotency_key}::{action.mode.value}"
+
+
 class DirectApiShadowExecutor:
     """The dispatch surface for the ``direct_api`` execution path (P1)."""
 
@@ -242,7 +246,8 @@ class DirectApiShadowExecutor:
         # authoritative check inside the lock, but a re-delivery that
         # this process saw before short-circuits without acquiring the
         # lock at all.
-        cached = self._dedupe.get(action.idempotency_key)
+        cache_key = _dedupe_key(action)
+        cached = self._dedupe.get(cache_key)
         if cached is not None:
             return await self._deduplicated_or_conflict(action=action, cached=cached)
 
@@ -250,7 +255,7 @@ class DirectApiShadowExecutor:
             await locks.enter_async_context(
                 self._resource_lock.acquire(_idempotency_lock_key(action.idempotency_key))
             )
-            cached = self._dedupe.get(action.idempotency_key)
+            cached = self._dedupe.get(cache_key)
             if cached is not None:
                 return await self._deduplicated_or_conflict(action=action, cached=cached)
             await locks.enter_async_context(
@@ -263,14 +268,18 @@ class DirectApiShadowExecutor:
             if self._idempotency is not None:
                 stored = await self._idempotency.seen(action.idempotency_key)
                 if stored is not None:
-                    result = _da_result_from_payload(stored)
-                    resolved = await self._deduplicated_or_conflict(
-                        action=action,
-                        cached=result,
+                    stored_result = _da_result_from_payload(stored)
+                    legacy_shadow = (
+                        action.mode is Mode.ENFORCE and stored_result.mode is Mode.SHADOW
                     )
-                    if resolved is result:
-                        self._remember(action.idempotency_key, result)
-                    return resolved
+                    if not legacy_shadow:
+                        resolved = await self._deduplicated_or_conflict(
+                            action=action,
+                            cached=stored_result,
+                        )
+                        if resolved is stored_result:
+                            self._remember(cache_key, stored_result)
+                        return resolved
 
             blast_reason = self._check_blast_radius(action)
             if blast_reason is not None:
@@ -408,6 +417,7 @@ class DirectApiShadowExecutor:
             audit_context={
                 "resource_ref": action.target_resource_ref,
                 "action_type": action.action_type,
+                "executor_identity_ref": action.executor_identity_ref,
                 "operation": action.operation.value,
                 "blast_radius_scope": action.blast_radius.scope.value,
                 "idempotency_fingerprint": _direct_api_fingerprint(action),
@@ -422,11 +432,16 @@ class DirectApiShadowExecutor:
         # audit trail on the retry.
         await self._write_audit(action=action, result=result)
         if remember:
-            self._remember(action.idempotency_key, result)
+            self._remember(_dedupe_key(action), result)
         # Durable dedup: record only mutating outcomes so a post-restart
         # retry does not re-hit the substrate. After the audit write for
         # the same reason _remember is.
-        if remember and self._idempotency is not None and outcome in _DA_MUTATION_OUTCOMES:
+        if (
+            remember
+            and action.mode is Mode.ENFORCE
+            and self._idempotency is not None
+            and outcome in _DA_MUTATION_OUTCOMES
+        ):
             await self._idempotency.record(action.idempotency_key, _da_result_to_payload(result))
         return result
 
@@ -482,6 +497,14 @@ def _build_direct_api_request(action: Action) -> DirectApiRequest:
     rollback_ref = action.rollback_ref.kind.value
     if rollback_reference:
         rollback_ref = f"{rollback_ref}:{rollback_reference}"
+    metadata = {
+        "audit_ref": f"action:{action.action_id}",
+        "stop_condition": action.stop_condition,
+        "rollback_ref": rollback_ref,
+        "max_resources": str(action.blast_radius.count or 1),
+    }
+    if action.executor_identity_ref is not None:
+        metadata["executor_identity_ref"] = action.executor_identity_ref
     return DirectApiRequest(
         action_id=action.action_id,
         idempotency_key=action.idempotency_key,
@@ -492,12 +515,7 @@ def _build_direct_api_request(action: Action) -> DirectApiRequest:
         labels=(("enforce",) if action.mode is Mode.ENFORCE else ("shadow",)),
         mode=action.mode,
         stop_conditions=tuple(action.stop_conditions),
-        metadata={
-            "audit_ref": f"action:{action.action_id}",
-            "stop_condition": action.stop_condition,
-            "rollback_ref": rollback_ref,
-            "max_resources": str(action.blast_radius.count or 1),
-        },
+        metadata=metadata,
     )
 
 

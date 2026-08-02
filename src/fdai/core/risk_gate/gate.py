@@ -297,6 +297,7 @@ class RiskGateConfig:
     max_affected_resources: int = 10
     max_rate_per_minute: int = 30
     max_precondition_age_seconds: int = 900
+    hil_authority_action_types: frozenset[str] = frozenset({"governance.promote-action-type"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -327,6 +328,8 @@ class RiskGate:
             raise ValueError("max_rate_per_minute MUST be >= 1")
         if cfg.max_precondition_age_seconds < 0:
             raise ValueError("max_precondition_age_seconds MUST be >= 0")
+        if any(not item or item != item.strip() for item in cfg.hil_authority_action_types):
+            raise ValueError("hil_authority_action_types MUST contain canonical ids")
         self._registry = registry
         self._config = cfg
         self._exemptions = exemption_registry or empty_exemption_registry()
@@ -468,8 +471,13 @@ class RiskGate:
         # a hard reason (an autonomous auto in shadow contradicts itself),
         # recorded BEFORE the upstream-abstain check so a shadow-mode
         # action never masquerades as a soft ABSTAIN.
-        effective_mode = self._registry.mode_of(action_type.name)
-        if effective_mode is not Mode.ENFORCE:
+        authority_mutation = action_type.name in self._config.hil_authority_action_types
+        effective_mode = (
+            Mode.ENFORCE if authority_mutation else self._registry.mode_of(action_type.name)
+        )
+        if authority_mutation:
+            reasons.append("authority_mutation_requires_hil")
+        elif effective_mode is not Mode.ENFORCE:
             reasons.append("action_type_in_shadow_mode")
 
         # 6. Upstream abstain → ABSTAIN when nothing else already forced HIL.

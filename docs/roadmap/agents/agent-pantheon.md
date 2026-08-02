@@ -149,6 +149,12 @@ Odin resolves the conflict with the deterministic **multi-objective**
 - **Constitutional eligibility comes first.** Forseti and the risk gate remove options that violate safety, security, identity, data-integrity, recovery, or service-objective constraints. Odin
   receives only eligible options; no score can compensate for a failed hard constraint.
 
+- Conflicts composed entirely of the three initial execution verticals first use the fixed
+  safety precedence `resilience_safety_hold > resilience > change_safety > cost`. This policy
+  is the Pantheon adapter over the shared `PrecedenceResolver`; impact magnitude cannot trade
+  away an active recovery or change-safety hold. Unknown, duplicate, security, or capacity
+  domains fall through to the weighted arbiter below.
+
 - Each domain has a configured **weight** (derived from the priority order
   `resilience > security > change_safety > cost > capacity` by default;
   fork config overrides). The score is `weight * impact`. Weights may be
