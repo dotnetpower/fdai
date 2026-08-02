@@ -17,10 +17,11 @@ central planner or another authority surface.
 > Read-only conversational deliberation may explain the same evidence, but its text never advances
 > a Process or changes a DecisionCase.
 >
-> **Implementation status:** P1 function identity is implemented. Canonical ontology releases pin
-> function declarations, and authorized invocation emits replay-stable receipts. The semantic
-> decision path, specialist arbitration, Process journal, sandbox profiles, and Dynamic simulation
-> still exist separately until P2-P7 connect them into one operational-planning workflow.
+> **Implementation status:** P1-P2 core contracts are implemented. Canonical releases pin function
+> declarations; authorized invocation emits replay-stable receipts; operational planning applies
+> hard constraints before Pareto pruning and weighted selection; and ordered planning phases append
+> to the existing Process journal without changing its snapshot. P3-P7 still need to connect
+> sandbox execution, agent event choreography, governed execution, the Console, and live proof.
 
 ## Design at a glance
 

@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a56afc788299b99c874210cc39decf9567d8ecbf
-translation_revised: 2026-08-02
+translation_source_sha: fa8a62d46cf79803cb8345209c14bee8ee1bebaa
+translation_revised: 2026-08-03
 ---
 
 # 프로젝트 구조
@@ -47,6 +47,7 @@ fdai/
 │   │   ├── working_context/    # 턴당 경계 프롬프트 조립: 불변 selection policy + 필수 validator + shadow evidence/replay + planner/orchestrator fold + summarizer/retriever seam
 │   │   ├── operational_context/ # atomic owned-subgraph replacement와 typed evidence path, effective-time/provenance projection, source-freshness receipt, fail-closed truncation을 포함하는 time-consistent snapshot
 │   │   ├── decision_case/      # protected-objective option, deterministic selection, response closure
+│   │   ├── operational_planning/ # hard-constraint eligibility, Pareto pruning, Process planning phase, replay-stable plan identity. Execution authority 없음
 │   │   ├── operational_learning/ # sealed-case classification, fingerprint/action cohort gate, immutable citation, inert candidate mapping
 │   │   ├── quality_gate/       # mixed-model 교차 검사, verifier, grounding; 실패한 fan-out은 sibling을 cancel+drain (T2 방어)
 │   │   ├── rca/                # 루트 원인 분석 (T0 deterministic + seam 뒤의 T2 reasoner; grounding-gated)

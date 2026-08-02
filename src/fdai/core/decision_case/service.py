@@ -29,6 +29,8 @@ def build_decision_case(
     options: Sequence[ActionOption],
     protected_objective_ids: Sequence[str],
     evidence_refs: Sequence[str],
+    process_id: str | None = None,
+    logic_release_digest: str | None = None,
 ) -> DecisionCase:
     """Build one replay-stable case from an operational context snapshot."""
 
@@ -36,7 +38,13 @@ def build_decision_case(
         "context": context.snapshot_id,
         "correlation": correlation_id,
         "evidence": sorted(set(evidence_refs)),
-        "options": sorted(option.option_id for option in options),
+        "logic_release_digest": logic_release_digest,
+        "no_action_effects": [_effect_material(effect) for effect in no_action_effects],
+        "options": [
+            _option_material(option) for option in sorted(options, key=lambda item: item.option_id)
+        ],
+        "process_id": process_id,
+        "protected_objective_ids": sorted(set(protected_objective_ids)),
     }
     case_id = hashlib.sha256(
         json.dumps(material, separators=(",", ":"), sort_keys=True).encode()
@@ -51,6 +59,8 @@ def build_decision_case(
         protected_objective_ids=tuple(sorted(set(protected_objective_ids))),
         active_constraint_ids=context.constraint_ids,
         evidence_refs=tuple(sorted(set(evidence_refs))),
+        process_id=process_id,
+        logic_release_digest=logic_release_digest,
     )
 
 
@@ -140,6 +150,33 @@ def _validated_weights(value: Mapping[str, float]) -> dict[str, float]:
             raise ValueError("objective weights MUST be named, finite, and >= 0")
         weights[objective_id] = numeric
     return weights
+
+
+def _effect_material(effect: ObjectiveEffect) -> dict[str, object]:
+    return {
+        "objective_id": effect.objective_id,
+        "utility": effect.utility,
+        "confidence": effect.confidence,
+        "metric": effect.metric,
+        "expected_min": effect.expected_min,
+        "expected_max": effect.expected_max,
+        "observation_window_seconds": effect.observation_window_seconds,
+    }
+
+
+def _option_material(option: ActionOption) -> dict[str, object]:
+    return {
+        "option_id": option.option_id,
+        "action_type": option.action_type,
+        "effects": [_effect_material(effect) for effect in option.effects],
+        "evidence_refs": sorted(set(option.evidence_refs)),
+        "violated_constraint_ids": sorted(set(option.violated_constraint_ids)),
+        "proposing_agents": list(option.proposing_agents),
+        "logic_receipt_refs": list(option.logic_receipt_refs),
+        "simulation_receipt_refs": list(option.simulation_receipt_refs),
+        "constraint_evaluation_refs": list(option.constraint_evaluation_refs),
+        "assumptions": list(option.assumptions),
+    }
 
 
 __all__ = ["build_decision_case", "close_decision", "select_action_option"]

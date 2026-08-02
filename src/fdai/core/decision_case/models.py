@@ -40,6 +40,11 @@ class ActionOption:
     effects: tuple[ObjectiveEffect, ...]
     evidence_refs: tuple[str, ...]
     violated_constraint_ids: tuple[str, ...] = ()
+    proposing_agents: tuple[str, ...] = ()
+    logic_receipt_refs: tuple[str, ...] = ()
+    simulation_receipt_refs: tuple[str, ...] = ()
+    constraint_evaluation_refs: tuple[str, ...] = ()
+    assumptions: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.option_id or not self.effects or not self.evidence_refs:
@@ -62,6 +67,8 @@ class DecisionCase:
     protected_objective_ids: tuple[str, ...]
     active_constraint_ids: tuple[str, ...]
     evidence_refs: tuple[str, ...]
+    process_id: str | None = None
+    logic_release_digest: str | None = None
 
     def __post_init__(self) -> None:
         if not all((self.case_id, self.correlation_id, self.context_snapshot_id)):

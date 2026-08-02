@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c4aebd42bcf7c5800205789b84ae1febedb026c1
-translation_revised: 2026-08-02
+translation_source_sha: 095acda5baf1507887b3e0f3cebda3f7d0644bbd
+translation_revised: 2026-08-03
 ---
 # 코드 맵
 
@@ -89,6 +89,7 @@ shared 패키지를 커버한다.
 | working_context | 턴당 프롬프트 조립, invariant validation, capability-gated policy lifecycle, bounded shadow 비교 및 approved-fixture replay ([설계](../decisioning/context-selection-policy-ko.md)) | [src/fdai/core/working_context/](../../../src/fdai/core/working_context/) | [tests/core/working_context/](../../../tests/core/working_context/) |
 | operational_context | Typed evidence path, effective-time 및 provenance projection, source-freshness receipt, fail-closed truncation, atomic provider-owned subgraph replacement 및 stale deletion을 포함하는 replay-stable snapshot ([설계](operating-ontology-ko.md)) | [src/fdai/core/operational_context/](../../../src/fdai/core/operational_context/), [shared/providers/operating_model.py](../../../src/fdai/shared/providers/operating_model.py), [delivery/operating_model/](../../../src/fdai/delivery/operating_model/), [runtime/operating_model.py](../../../src/fdai/runtime/operating_model.py) | [tests/core/operational_context/](../../../tests/core/operational_context/), [tests/delivery/operating_model/](../../../tests/delivery/operating_model/), [test_operating_model.py](../../../tests/runtime/test_operating_model.py) |
 | decision_case | Protected-objective selection, Forseti/Odin/Thor/Var propagation, `ResponseOutcome` closure를 공유하는 reliability, ARB, cost option | [src/fdai/core/decision_case/](../../../src/fdai/core/decision_case/) | [tests/core/decision_case/](../../../tests/core/decision_case/), [test_decision_case_e2e.py](../../../tests/agents/test_decision_case_e2e.py) |
+| operational_planning | Immutable specialist contribution, hard-constraint eligibility, bounded Pareto pruning, exact logic/simulation receipt lineage 및 ordered Process child phase입니다. Planning은 A0로 유지되며 execution authority를 부여하지 않습니다 ([설계](../decisioning/operational-planning-ko.md)) | [src/fdai/core/operational_planning/](../../../src/fdai/core/operational_planning/) | [tests/core/operational_planning/](../../../tests/core/operational_planning/) |
 | operational_learning | Sealed operational case를 classify하고 하나의 fingerprint 및 ActionType과 balanced verified-success/negative-control evidence를 요구하며 immutable revision을 인용합니다. 기존 consensus 및 rate limit을 거쳐 deduplicate된 inert Norns mapping만 emit하고 raw response outcome은 hold합니다. | [src/fdai/core/operational_learning/](../../../src/fdai/core/operational_learning/) | [tests/core/operational_learning/](../../../tests/core/operational_learning/), [test_norns_operating_pattern.py](../../../tests/agents/test_norns_operating_pattern.py), [test_operating_pattern_learning_e2e.py](../../../tests/agents/test_operating_pattern_learning_e2e.py) |
 | prompts | catalog-as-code 프롬프트 컴포저 | [src/fdai/core/prompts/](../../../src/fdai/core/prompts/) | [tests/core/](../../../tests/core/) |
 | skills | Progressive disclosure, governed bundle, durable approved-source quarantine ([bundle 설계](../decisioning/governed-skill-bundles-ko.md), [source 설계](../interfaces/skill-source-management-ko.md)) | [src/fdai/core/skills/](../../../src/fdai/core/skills/) 및 [src/fdai/core/supply_chain/](../../../src/fdai/core/supply_chain/) | [tests/core/skills/](../../../tests/core/skills/), [tests/core/supply_chain/](../../../tests/core/supply_chain/), [tests/persistence/](../../../tests/persistence/) |

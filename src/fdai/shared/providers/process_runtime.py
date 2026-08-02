@@ -40,6 +40,7 @@ class ProcessEventKind(StrEnum):
     STEP_STARTED = "step.started"
     STEP_WAITING = "step.waiting"
     EVIDENCE_ATTACHED = "evidence.attached"
+    PLANNING_PHASE_RECORDED = "planning.phase.recorded"
     APPROVAL_REQUESTED = "approval.requested"
     APPROVAL_RECORDED = "approval.recorded"
     DECISION_RECORDED = "decision.recorded"
