@@ -4,7 +4,7 @@ description: FDAI의 15개 에이전트 조직이 이벤트 기반 컨트롤 플
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: 0eb6616d50b7e30315faca92a584c7300013041b
+translation_source_sha: 5ad06f817e5c04ed21ca2a26b3235e4dc92fc9cc
 translation_revised: 2026-08-02
 ---
 
@@ -51,6 +51,20 @@ FDAI는 느슨하게 결합된 5개 레이어로 이루어집니다. 레이어�
 이 다이어그램은 특정 tenant의 resource name이 아니라 parameterized Terraform 배포를
 나타냅니다. Azure OpenAI와 일부 private endpoint는 선택 사항입니다. 사람 App Role과
 권한 있는 executor managed identity는 모든 profile에서 분리됩니다.
+
+## Azure resource network flow
+
+각 연결을 Azure resource 수준에서 추적하려면 이 보기를 사용하세요. Container Apps
+infrastructure subnet, private endpoint subnet 및 PostgreSQL delegated subnet을 분리하고,
+각 private endpoint를 해당 managed service backend에 연결합니다.
+
+<fdai-architecture-diagram manifest="../../diagrams/generated/fdai-azure-resource-network-flow.manifest.json" locale="ko" style="display:block">
+  <img src="../../diagrams/generated/fdai-azure-resource-network-flow.ko.svg" alt="운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Console을 엽니다. Console은 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API를 호출합니다. Azure Event Hubs, Container Registry, Key Vault 및 Azure OpenAI는 private endpoint subnet의 전용 private endpoint를 통해 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행되고 Azure Database for PostgreSQL은 delegated subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Teams는 사람 승인을 전달하고 Git은 통제된 수정 pull request를 받습니다." loading="lazy" style="display:block;width:100%;height:auto" />
+</fdai-architecture-diagram>
+
+Azure Resource Graph 조회와 observability 쓰기는 Azure control-plane 및 telemetry contract를
+사용하므로 private data-plane 경로 밖에 표시합니다. Terraform 배포가 소유하지 않는
+Application Gateway, WAF 또는 load balancer는 baseline에 추가하지 않습니다.
 
 ## 5개 아키텍처 레이어
 

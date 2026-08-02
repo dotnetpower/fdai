@@ -51,6 +51,21 @@ resource names. Azure OpenAI and some private endpoints remain optional. Human
 App Roles and the privileged executor managed identity stay separate in every
 profile.
 
+## Azure resource network flow
+
+Use this view to trace each connection at the Azure resource level. It separates
+the Container Apps infrastructure subnet, private endpoint subnet, and PostgreSQL
+delegated subnet, then maps each private endpoint to its managed service backend.
+
+<fdai-architecture-diagram manifest="../diagrams/generated/fdai-azure-resource-network-flow.manifest.json" locale="en" style="display:block">
+  <img src="../diagrams/generated/fdai-azure-resource-network-flow.en.svg" alt="An operator signs in through Microsoft Entra ID and opens the FDAI Console on Azure Static Web Apps. The console calls the separately identified Operator API in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, and Azure OpenAI connect through dedicated private endpoints in the private endpoint subnet. The FDAI core and Container Apps Jobs run in the Container Apps subnet, while Azure Database for PostgreSQL runs in its delegated subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, Teams carries human approval, and Git receives governed remediation pull requests." loading="lazy" style="display:block;width:100%;height:auto" />
+</fdai-architecture-diagram>
+
+Azure Resource Graph reads and observability writes are shown outside the
+private data-plane path because they use Azure control-plane and telemetry
+contracts. The baseline does not add an Application Gateway, WAF, or load
+balancer that the Terraform deployment does not own.
+
 ## The five architecture layers
 
 | Layer | Responsibility | Primary boundary |
