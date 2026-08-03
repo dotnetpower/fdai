@@ -62,6 +62,17 @@
       "minLength": 1,
       "description": "Provider-neutral execution identity selected by the authorization decision."
     },
+    "workflow_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["process_id", "step_id", "proposal_ref"],
+      "properties": {
+        "process_id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "step_id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "proposal_ref": {"type": "string", "minLength": 1, "maxLength": 512}
+      },
+      "description": "Workflow Process lineage. It is not part of ActionType params."
+    },
     "target_resource_ref": {
       "type": "string",
       "description": "Ontology Resource id the action targets."

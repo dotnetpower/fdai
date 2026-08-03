@@ -30,6 +30,14 @@ class BlastRadius(_Base):
     rate_per_minute: int | None = Field(default=None, ge=1)
 
 
+class WorkflowActionRef(_Base):
+    """Workflow Process lineage, separate from ActionType arguments."""
+
+    process_id: Annotated[str, Field(min_length=1, max_length=200)]
+    step_id: Annotated[str, Field(min_length=1, max_length=200)]
+    proposal_ref: Annotated[str, Field(min_length=1, max_length=512)]
+
+
 class Action(_Base):
     """Autonomous action proposed by a tier, subject to the risk gate."""
 
@@ -50,6 +58,7 @@ class Action(_Base):
     created_at: datetime
     action_type_ref: OntologyTypeRef | None = None
     executor_identity_ref: Annotated[str, Field(min_length=1)] | None = None
+    workflow_action: WorkflowActionRef | None = None
 
     @model_validator(mode="after")
     def _stop_condition_shorthand_matches_contract(self) -> Action:
@@ -68,4 +77,4 @@ class Action(_Base):
         return self
 
 
-__all__ = ["Action", "BlastRadius", "RollbackRef"]
+__all__ = ["Action", "BlastRadius", "RollbackRef", "WorkflowActionRef"]

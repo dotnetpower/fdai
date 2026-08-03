@@ -48,6 +48,7 @@ from fdai.shared.contracts.models import (
     RollbackRef,
     Rule,
     TriggerKind,
+    WorkflowActionRef,
 )
 from fdai.shared.ontology.release import build_ontology_release
 
@@ -240,6 +241,7 @@ class ActionBuilder:
             event_idempotency_key=event.idempotency_key,
             action_type_name=action_type_name,
         )
+        workflow_action = _workflow_action_ref(event)
         return (
             Action(
                 schema_version="1.0.0",
@@ -258,6 +260,7 @@ class ActionBuilder:
                 citing_rules=[rule.id],
                 created_at=datetime.now(tz=UTC),
                 action_type_ref=self._action_type_ref(action_type),
+                workflow_action=workflow_action,
             ),
             rule,
         )
@@ -384,6 +387,19 @@ def _build_action_id(idempotency_key: str) -> Any:
 def _build_operator_idempotency_key(*, event_idempotency_key: str, action_type_name: str) -> str:
     digest = hashlib.sha256(f"{event_idempotency_key}\n{action_type_name}".encode()).hexdigest()
     return f"operator:{digest}"
+
+
+def _workflow_action_ref(event: Event) -> WorkflowActionRef | None:
+    raw = event.payload.get("workflow_action")
+    if raw is None:
+        return None
+    try:
+        reference = WorkflowActionRef.model_validate(raw)
+    except ValueError as exc:
+        raise ActionBuildError("workflow_action is malformed") from exc
+    if reference.proposal_ref != event.idempotency_key:
+        raise ActionBuildError("workflow_action.proposal_ref MUST match event idempotency_key")
+    return reference
 
 
 __all__ = ["ActionBuildError", "ActionBuilder"]

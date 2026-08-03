@@ -40,6 +40,7 @@ from fdai.core.risk_gate.preconditions import (
     PreconditionEvaluator,
 )
 from fdai.core.risk_gate.risk_table import RiskTable
+from fdai.core.workflow.workflow_runtime import WorkflowOutcomeRecorder
 from fdai.rule_catalog.schema.assignment import (
     Assignment,
     AssignmentResolution,
@@ -89,6 +90,7 @@ class ControlLoopExecutionMixin:
     _mscp_effect_observer: IndependentEffectObserver | None
     _mscp_expected_effect_provider: ExpectedEffectProvider | None
     _response_outcome_sink: Callable[[ResponseOutcome], Awaitable[None]] | None
+    _workflow_outcome_recorder: WorkflowOutcomeRecorder | None
     _promotion_state_refresher: Callable[[str], Awaitable[None]] | None
     _precondition_evaluator: PreconditionEvaluator
     _risk_gate: RiskGate | None
@@ -408,6 +410,22 @@ class ControlLoopExecutionMixin:
             except Exception:  # noqa: BLE001 - learning relay never changes executor result
                 _LOGGER.warning(
                     "response_outcome_relay_failed",
+                    extra={"action_type": action.action_type},
+                    exc_info=True,
+                )
+        if self._workflow_outcome_recorder is not None:
+            try:
+                await self._workflow_outcome_recorder.record(
+                    action=action,
+                    execution_outcome=result.outcome.value,
+                    execution_receipt_ref=(
+                        getattr(result, "receipt_ref", None) or getattr(result, "pr_ref", None)
+                    ),
+                    response_outcome=response_outcome,
+                )
+            except Exception:  # noqa: BLE001 - missing receipt holds the Process
+                _LOGGER.warning(
+                    "workflow_outcome_record_failed",
                     extra={"action_type": action.action_type},
                     exc_info=True,
                 )

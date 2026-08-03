@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: c1ece71e9e55dbafaa595ec124450126c586effe
+translation_source_sha: ddb68173ceaa8da97e9c9593ca6d55a03f02411d
 translation_revised: 2026-08-04
 ---
 
@@ -230,6 +230,13 @@ resume합니다. Proposal reference는 dispatch만 입증합니다. `WorkflowOut
 compensation receipt를 독립적으로 검증해야 forward step이 완료되거나 Process가 `compensated`가
 됩니다. Evidence가 없거나 거부되거나 malformed이면 waiting 상태를 유지하거나
 `recovery_incomplete`로 끝나며 success가 되지 않습니다.
+
+Upstream headless runtime과 production Operator API는 shared durable state store에
+`StateStoreWorkflowOutcomeLedger`를 bind합니다. Control loop는 enforce Action과
+`ResponseOutcome`의 실행 identity가 일치할 때만 immutable receipt를 기록하며, success receipt에는
+독립적으로 검증된 effect evidence도 필요합니다. Resolver는 proposal reference, Process, step으로
+receipt를 읽으므로 resume 시 caller가 제공한 status나 receipt context를 신뢰하지 않습니다. Shadow,
+unknown, missing, mismatched, unscorable outcome은 Process를 진행시킬 수 없습니다.
 
 ## 6. 거버넌스
 

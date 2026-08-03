@@ -123,6 +123,11 @@ def test_operator_proposal_normalizes_to_deterministic_event() -> None:
             "target_resource_ref": "resource:compute/vm/gpu-worker",
             "reason": "Run the governed GPU health task.",
         },
+        "workflow_action": {
+            "process_id": "process-1",
+            "step_id": "run-task",
+            "proposal_ref": "operator-1::run-1",
+        },
     }
 
     first = EventIngest(validator=_validator()).ingest(proposal)
@@ -133,6 +138,7 @@ def test_operator_proposal_normalizes_to_deterministic_event() -> None:
     assert first.source == "operator_console"
     assert first.resource_ref == proposal["resource_id"]
     assert first.payload["operator_request"]["params"] == proposal["params"]
+    assert first.payload["workflow_action"] == proposal["workflow_action"]
 
 
 @pytest.mark.parametrize("resource_id", ("", "   "))

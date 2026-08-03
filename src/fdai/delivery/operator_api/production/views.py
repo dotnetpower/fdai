@@ -14,6 +14,7 @@ from fdai.core.reporting.datasources import AuditReader
 from fdai.core.views import ViewEngine, load_view_catalog, load_workflow_app_catalog
 from fdai.core.workflow.approval import WorkflowApprovalPlanner
 from fdai.core.workflow.orchestrator import WorkflowOrchestrator
+from fdai.core.workflow.outcome_verification import StateStoreWorkflowOutcomeLedger
 from fdai.delivery.operator_api.postgres_read_model import PostgresConsoleReadModel
 from fdai.delivery.operator_api.routes.process_views import ProcessViewsConfig
 from fdai.delivery.operator_api.routes.reporting import ReportingConfig
@@ -121,6 +122,13 @@ def _build_dynamic_views(
         view_workflows={spec.id: spec.applies_to.workflow_ref for spec in view_specs},
     )
     action_types_by_name = {action_type.name: action_type for action_type in action_types}
+    workflow_state_store = PostgresStateStore(
+        config=PostgresStateStoreConfig(
+            dsn=dsn,
+            statement_timeout_ms=statement_timeout_ms,
+            connect_timeout_s=connect_timeout_s,
+        )
+    )
     workflow_execution = WorkflowExecutionConfig(
         workflows=tuple(workflows),
         orchestrator=WorkflowOrchestrator(
@@ -130,18 +138,13 @@ def _build_dynamic_views(
                 matrix=load_matrix_from_yaml(_REPO_ROOT / "config" / "notifications-matrix.yaml"),
             ),
             action_types=action_types_by_name,
-            audit_store=PostgresStateStore(
-                config=PostgresStateStoreConfig(
-                    dsn=dsn,
-                    statement_timeout_ms=statement_timeout_ms,
-                    connect_timeout_s=connect_timeout_s,
-                )
-            ),
+            audit_store=workflow_state_store,
             process_store=process_store,
             guard_evaluator=ArchitectureReviewProductionGateEvaluator(
                 manifest_path=_REPO_ROOT / "config" / "architecture-review.yaml",
                 repo_root=_REPO_ROOT,
             ),
+            outcome_verifier=StateStoreWorkflowOutcomeLedger(workflow_state_store),
         ),
     )
     workflow_authoring = WorkflowAuthoringConfig(

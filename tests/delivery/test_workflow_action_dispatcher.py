@@ -33,4 +33,9 @@ async def test_dispatch_publishes_idempotent_operator_request() -> None:
     assert envelope.payload["event_type"] == "operator_request"
     assert envelope.payload["correlation_id"] == "corr-1"
     assert envelope.payload["initiator_principal"] == "operator-1"
-    assert envelope.payload["params"]["process_id"] == "process-1"
+    assert envelope.payload["params"] == {"reason": "health probe failed"}
+    assert envelope.payload["workflow_action"] == {
+        "process_id": "process-1",
+        "step_id": "restart",
+        "proposal_ref": reference,
+    }

@@ -20,6 +20,7 @@ from fdai.core.workflow.orchestrator import (
     WorkflowOrchestrator,
     derive_process_id,
 )
+from fdai.core.workflow.workflow_runtime import WorkflowVerifiedOutcome
 from fdai.shared.contracts.models import (
     Autonomy,
     CeilingByTier,
@@ -221,6 +222,14 @@ class _AcceptingOutcomeVerifier:
         return True
 
 
+class _ResolvingOutcomeVerifier(_AcceptingOutcomeVerifier):
+    async def resolve(self, **kwargs: str) -> WorkflowVerifiedOutcome:
+        return WorkflowVerifiedOutcome(
+            outcome="succeeded",
+            receipt_ref=f"receipt:{kwargs['step_id']}",
+        )
+
+
 def _compensated_workflow() -> Workflow:
     return Workflow(
         schema_version="1.0.0",
@@ -308,6 +317,56 @@ async def test_enforce_action_step_republishes_through_dispatcher() -> None:
         if row["entry"]["action_kind"].startswith("workflow.")
     ]
     assert all(entry["mode"] == "enforce" for entry in workflow_entries)
+
+
+async def test_enforce_action_steps_resume_from_durable_outcomes_without_context() -> None:
+    audit = InMemoryStateStore()
+    dispatcher = _RecordingActionDispatcher()
+    verifier = _ResolvingOutcomeVerifier()
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=InMemoryProcessRuntimeStore(),
+        action_dispatcher=dispatcher,
+        outcome_verifier=verifier,
+    )
+    context = {"requester.principal": "operator-1"}
+
+    first = await orchestrator.run(
+        _workflow(),
+        target_resource_id="res-1",
+        trigger_ts=_TRIGGER_TS,
+        context=context,
+        mode=Mode.ENFORCE,
+    )
+    second = await orchestrator.run(
+        _workflow(),
+        target_resource_id="res-1",
+        trigger_ts=_TRIGGER_TS,
+        context=context,
+        mode=Mode.ENFORCE,
+    )
+    completed = await orchestrator.run(
+        _workflow(),
+        target_resource_id="res-1",
+        trigger_ts=_TRIGGER_TS,
+        context=context,
+        mode=Mode.ENFORCE,
+    )
+
+    assert first.status is ProcessStatus.WAITING
+    assert second.status is ProcessStatus.WAITING
+    assert completed.status is ProcessStatus.SUCCEEDED
+    assert len(dispatcher.calls) == 2
+    assert [call["receipt_ref"] for call in verifier.calls] == [
+        "receipt:auto_step",
+        "receipt:gated_step",
+    ]
 
 
 async def test_enforce_action_step_fails_without_dispatcher() -> None:

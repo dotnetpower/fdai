@@ -90,6 +90,7 @@ def _loop(
     expected_effect_provider: Any = None,
     effect_observer: Any = None,
     response_outcome_sink: Any = None,
+    workflow_outcome_recorder: Any = None,
 ) -> ControlLoop:
     return ControlLoop(
         event_ingest=MagicMock(),
@@ -102,6 +103,7 @@ def _loop(
         mscp_expected_effect_provider=expected_effect_provider,
         mscp_effect_observer=effect_observer,
         response_outcome_sink=response_outcome_sink,
+        workflow_outcome_recorder=workflow_outcome_recorder,
     )
 
 
@@ -162,6 +164,16 @@ async def test_bound_profile_predicts_before_dispatch_and_observes_after() -> No
         order.append("relay")
         assert outcome.label.value == "verified"
 
+    recorder = MagicMock()
+
+    async def record(**kwargs: Any) -> str:
+        order.append("record")
+        assert kwargs["response_outcome"].label.value == "verified"
+        assert kwargs["execution_outcome"] == "published"
+        return "workflow-outcome:example"
+
+    recorder.record = AsyncMock(side_effect=record)
+
     executor = MagicMock()
     executor.execute = AsyncMock(side_effect=execute)
     audit = InMemoryStateStore()
@@ -171,13 +183,15 @@ async def test_bound_profile_predicts_before_dispatch_and_observes_after() -> No
         expected_effect_provider=predict,
         effect_observer=observe,
         response_outcome_sink=relay,
+        workflow_outcome_recorder=recorder,
     )
 
     result = await loop._dispatch_action(action=_action(), rule=_rule())
     entries = _audit_payloads(audit)
 
     assert result.outcome is ExecutorOutcome.PUBLISHED
-    assert order == ["predict", "execute", "observe", "relay"]
+    assert order == ["predict", "execute", "observe", "relay", "record"]
+    recorder.record.assert_awaited_once()
     assert len(entries) == 2
     effect_entry = _entry(entries, "effect_verification.shadow")
     assert effect_entry["verification_status"] == "verified"

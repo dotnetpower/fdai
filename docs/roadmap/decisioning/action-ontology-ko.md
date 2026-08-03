@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 888e070f55853581f165d60010f34be3dc2ad14a
-translation_revised: 2026-08-03
+translation_source_sha: 4653c4d35f4abb0cdca5f3d74bf5f489b7b62e27
+translation_revised: 2026-08-04
 ---
 
 # Action 온톨로지
@@ -186,6 +186,11 @@ Precondition 매개 변수는 자유 형식 레이블이 아니라 타입이 지
 Runtime `Action` record는 `threshold`, `window_seconds`, `seconds`, `count`를 포함한 전체 ordered `stop_conditions` list를 보존합니다.
 Compatibility shorthand인 `stop_condition`은 첫 structured condition의 `kind`와 같아야 합니다. Action JSON Schema는 비어 있지 않은 structured list를 요구하며
 direct-API 및 tool-call request와 audit entry는 같은 list를 flatten하지 않고 전달합니다.
+
+Workflow에서 시작된 runtime `Action`은 정확한 `process_id`, `step_id`, dispatch `proposal_ref`를
+포함하는 `workflow_action`도 전달할 수 있습니다. 이 lineage는 ActionType argument가 아니라
+Action metadata이므로 strict `argument_schema` 검증은 그대로 유지됩니다. Proposal reference는
+dispatch만 입증하며 Process가 진행하려면 독립적인 outcome receipt가 필요합니다.
 
 Catalog backfill은 다음 상태로 완료되었습니다:
 

@@ -11,6 +11,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 from fdai.core.runbook.models import RunbookStep, RunbookStepOutcome, RunbookStepResult
 from fdai.core.workflow.approval import ApprovalPlan
+from fdai.shared.contracts.models import Action, ResponseOutcome
 from fdai.shared.providers.browser_evidence import BrowserEvidenceReceipt
 from fdai.shared.providers.process_runtime import ProcessStatus
 
@@ -72,6 +73,47 @@ class WorkflowOutcomeVerifier(Protocol):
         outcome: str,
         receipt_ref: str,
     ) -> bool: ...
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowVerifiedOutcome:
+    """One authoritative workflow outcome resolved from durable evidence."""
+
+    outcome: str
+    receipt_ref: str
+
+    def __post_init__(self) -> None:
+        if self.outcome not in {"succeeded", "failed"}:
+            raise ValueError("workflow outcome MUST be succeeded or failed")
+        if not self.receipt_ref:
+            raise ValueError("workflow outcome receipt_ref MUST be non-empty")
+
+
+@runtime_checkable
+class WorkflowOutcomeResolver(WorkflowOutcomeVerifier, Protocol):
+    """Resolve authoritative workflow evidence without caller-supplied claims."""
+
+    async def resolve(
+        self,
+        *,
+        process_id: str,
+        step_id: str,
+        proposal_ref: str,
+    ) -> WorkflowVerifiedOutcome | None: ...
+
+
+@runtime_checkable
+class WorkflowOutcomeRecorder(Protocol):
+    """Persist a terminal workflow action outcome from execution evidence."""
+
+    async def record(
+        self,
+        *,
+        action: Action,
+        execution_outcome: str,
+        execution_receipt_ref: str | None,
+        response_outcome: ResponseOutcome,
+    ) -> str | None: ...
 
 
 @runtime_checkable

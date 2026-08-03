@@ -79,6 +79,7 @@ from fdai.core.trust_router import TrustRouter
 from fdai.core.workflow import (
     ProcessOntologyProjector,
     ProjectingProcessRuntimeStore,
+    StateStoreWorkflowOutcomeLedger,
     WorkflowApprovalPlanner,
     WorkflowOrchestrator,
     WorkflowTriggerCoordinator,
@@ -140,6 +141,7 @@ def _build_workflow_coordinator(
     audit_store: Any,
     process_store: Any | None = None,
     ontology_store: Any | None = None,
+    outcome_verifier: StateStoreWorkflowOutcomeLedger | None = None,
 ) -> WorkflowTriggerCoordinator | None:
     """Assemble the shadow workflow coordinator, enabled by default and fail-safe.
 
@@ -201,6 +203,7 @@ def _build_workflow_coordinator(
             manifest_path=catalog_root.parent / "config" / "architecture-review.yaml",
             repo_root=catalog_root.parent,
         ),
+        outcome_verifier=outcome_verifier,
     )
     _LOGGER.info("workflow_coordinator_enabled", extra={"workflows": len(workflows)})
     return WorkflowTriggerCoordinator(
@@ -610,6 +613,7 @@ def _build_control_loop(
         )
 
     process_runtime_store = _build_process_store()
+    workflow_outcome_ledger = StateStoreWorkflowOutcomeLedger(audit_store)
     return ControlLoop(
         event_ingest=event_ingest,
         trust_router=trust_router,
@@ -637,6 +641,7 @@ def _build_control_loop(
             audit_store=audit_store,
             process_store=process_runtime_store,
             ontology_store=ontology_instance_store,
+            outcome_verifier=workflow_outcome_ledger,
         ),
         process_runtime_store=process_runtime_store,
         governance_assignments=governance_catalog.assignments,
@@ -650,6 +655,7 @@ def _build_control_loop(
         mscp_expected_effect_provider=container.mscp_expected_effect_provider,
         mscp_effect_observer=container.mscp_effect_observer,
         response_outcome_sink=response_outcome_sink,
+        workflow_outcome_recorder=workflow_outcome_ledger,
         ontology_instance_store=ontology_instance_store,
         execution_authorization_evaluator=container.execution_authorization_evaluator,
         execution_access_grant_sink=container.execution_access_grant_sink,

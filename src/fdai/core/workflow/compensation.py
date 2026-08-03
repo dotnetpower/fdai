@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from fdai.core.runbook.models import RunbookStep
 from fdai.core.workflow.workflow_runtime import (
     WorkflowActionDispatcher,
+    WorkflowOutcomeResolver,
     WorkflowOutcomeVerifier,
     event_id,
 )
@@ -137,15 +138,6 @@ class WorkflowCompensationCoordinator:
         for intent in intents:
             step_id = str(intent.payload["compensates_step_id"])
             status = context.get(f"compensation.{step_id}.status")
-            if status is None:
-                return CompensationResult(current)
-            if status not in {"verified", "failed"}:
-                failed = await self._fail(
-                    current,
-                    reason="compensation_status_invalid",
-                    payload={"failed_step_id": step_id},
-                )
-                return CompensationResult(failed, recovery_incomplete=True)
             receipt_ref = context.get(f"compensation.{step_id}.receipt_ref", "").strip()
             dispatch_event = dispatched_by_step.get(step_id)
             proposal_ref = (
@@ -153,19 +145,47 @@ class WorkflowCompensationCoordinator:
                 if dispatch_event is not None
                 else ""
             )
-            if not receipt_ref or not proposal_ref or self._outcome_verifier is None:
+            if not proposal_ref or self._outcome_verifier is None:
                 failed = await self._fail(
                     current,
                     reason="compensation_unscorable",
                     payload={"failed_step_id": step_id},
                 )
                 return CompensationResult(failed, recovery_incomplete=True)
+            outcome = "succeeded" if status == "verified" else "failed"
             try:
+                if isinstance(self._outcome_verifier, WorkflowOutcomeResolver):
+                    resolved = await self._outcome_verifier.resolve(
+                        process_id=current.process_id,
+                        step_id=f"compensate_{step_id}",
+                        proposal_ref=proposal_ref,
+                    )
+                    if resolved is None:
+                        return CompensationResult(current)
+                    outcome = resolved.outcome
+                    receipt_ref = resolved.receipt_ref
+                else:
+                    if status is None:
+                        return CompensationResult(current)
+                    if status not in {"verified", "failed"}:
+                        failed = await self._fail(
+                            current,
+                            reason="compensation_status_invalid",
+                            payload={"failed_step_id": step_id},
+                        )
+                        return CompensationResult(failed, recovery_incomplete=True)
+                    if not receipt_ref:
+                        failed = await self._fail(
+                            current,
+                            reason="compensation_unscorable",
+                            payload={"failed_step_id": step_id},
+                        )
+                        return CompensationResult(failed, recovery_incomplete=True)
                 accepted = await self._outcome_verifier.verify(
                     process_id=current.process_id,
                     step_id=f"compensate_{step_id}",
                     proposal_ref=proposal_ref,
-                    outcome="succeeded" if status == "verified" else "failed",
+                    outcome=outcome,
                     receipt_ref=receipt_ref,
                 )
             except Exception:  # noqa: BLE001 - verifier outage is recovery-incomplete
@@ -177,7 +197,7 @@ class WorkflowCompensationCoordinator:
                     payload={"failed_step_id": step_id},
                 )
                 return CompensationResult(failed, recovery_incomplete=True)
-            if status == "failed":
+            if outcome == "failed":
                 failed = await self._fail(
                     current,
                     reason="compensation_failed",

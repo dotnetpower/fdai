@@ -289,7 +289,7 @@ def test_owner_may_start_allowlisted_enforce_workflow() -> None:
 
     assert response.status_code == 200
     assert response.json()["process"]["mode"] == "enforce"
-    assert response.json()["step_results"][0]["reason"] == "action_proposal_dispatched"
+    assert response.json()["step_results"][0]["reason"] == "waiting_for_action_outcome"
 
 
 def test_enforce_workflow_requires_owner_and_allowlist() -> None:

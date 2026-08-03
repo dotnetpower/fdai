@@ -13,6 +13,7 @@ from fdai.core.workflow.workflow_runtime import (
     WorkflowActionDispatcher,
     WorkflowEvidenceDispatcher,
     WorkflowGuardEvaluator,
+    WorkflowOutcomeResolver,
     WorkflowOutcomeVerifier,
     approval_decisions,
     event_id,
@@ -215,28 +216,43 @@ class ShadowWorkflowStepExecutor:
             ),
             None,
         )
-        status = self._context.get(f"action.{step.id}.status")
         if dispatch_event is not None:
-            if status not in {"verified", "failed"}:
-                return step_result(
-                    step,
-                    RunbookStepOutcome.WAITING,
-                    "waiting_for_action_outcome",
-                )
-            receipt_ref = self._context.get(f"action.{step.id}.receipt_ref", "").strip()
             proposal_ref = str(dispatch_event.payload.get("proposal_ref") or "").strip()
-            if not receipt_ref or not proposal_ref or self._outcome_verifier is None:
+            if not proposal_ref or self._outcome_verifier is None:
                 return step_result(
                     step,
                     RunbookStepOutcome.WAITING,
                     "waiting_for_action_outcome_verifier",
                 )
+            status = self._context.get(f"action.{step.id}.status")
+            receipt_ref = self._context.get(f"action.{step.id}.receipt_ref", "").strip()
+            outcome = "succeeded" if status == "verified" else "failed"
             try:
+                if isinstance(self._outcome_verifier, WorkflowOutcomeResolver):
+                    resolved = await self._outcome_verifier.resolve(
+                        process_id=self._process_id,
+                        step_id=step.id,
+                        proposal_ref=proposal_ref,
+                    )
+                    if resolved is None:
+                        return step_result(
+                            step,
+                            RunbookStepOutcome.WAITING,
+                            "waiting_for_action_outcome",
+                        )
+                    outcome = resolved.outcome
+                    receipt_ref = resolved.receipt_ref
+                elif status not in {"verified", "failed"} or not receipt_ref:
+                    return step_result(
+                        step,
+                        RunbookStepOutcome.WAITING,
+                        "waiting_for_action_outcome",
+                    )
                 accepted = await self._outcome_verifier.verify(
                     process_id=self._process_id,
                     step_id=step.id,
                     proposal_ref=proposal_ref,
-                    outcome="succeeded" if status == "verified" else "failed",
+                    outcome=outcome,
                     receipt_ref=receipt_ref,
                 )
             except Exception:  # noqa: BLE001 - verifier outage holds the Process
@@ -247,9 +263,9 @@ class ShadowWorkflowStepExecutor:
                     RunbookStepOutcome.WAITING,
                     "waiting_for_action_outcome_verifier",
                 )
-            if status == "failed":
+            if outcome == "failed":
                 return step_result(step, RunbookStepOutcome.FAILURE, "action_failed")
-            if status == "verified":
+            if outcome == "succeeded":
                 return step_result(step, RunbookStepOutcome.SUCCESS, "action_effect_verified")
             return step_result(step, RunbookStepOutcome.WAITING, "waiting_for_action_outcome")
         if self._action_dispatcher is None:

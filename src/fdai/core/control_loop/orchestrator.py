@@ -41,6 +41,7 @@ from fdai.core.tiers.t2_reasoning import T2Tier
 from fdai.core.trust_router import TrustRouter
 from fdai.core.verticals.change_safety.detector import ChangeSafetyDetector
 from fdai.core.workflow.coordinator import WorkflowTriggerCoordinator
+from fdai.core.workflow.workflow_runtime import WorkflowOutcomeRecorder
 from fdai.rule_catalog.schema.assignment import Assignment
 from fdai.shared.contracts.models import (
     Event,
@@ -116,6 +117,7 @@ class ControlLoop(
         mscp_expected_effect_provider: ExpectedEffectProvider | None = None,
         mscp_effect_observer: IndependentEffectObserver | None = None,
         response_outcome_sink: Callable[[ResponseOutcome], Awaitable[None]] | None = None,
+        workflow_outcome_recorder: WorkflowOutcomeRecorder | None = None,
         ontology_instance_store: OntologyInstanceStore | None = None,
         execution_authorization_evaluator: ExecutionAuthorizationEvaluator | None = None,
         execution_access_grant_sink: ExecutionAccessGrantSink | None = None,
@@ -153,6 +155,7 @@ class ControlLoop(
         self._mscp_expected_effect_provider = mscp_expected_effect_provider
         self._mscp_effect_observer = mscp_effect_observer
         self._response_outcome_sink = response_outcome_sink
+        self._workflow_outcome_recorder = workflow_outcome_recorder
         self._ontology_instance_store = ontology_instance_store
         self._execution_authorization_evaluator = execution_authorization_evaluator
         self._execution_access_grant_sink = execution_access_grant_sink

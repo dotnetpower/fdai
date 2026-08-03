@@ -287,7 +287,11 @@ def test_build_from_candidate_rejects_invalid_arguments() -> None:
         builder.build_from_candidate(event=_event(), candidate=candidate)
 
 
-def _operator_event(*, extra_params: dict | None = None) -> Event:
+def _operator_event(
+    *,
+    extra_params: dict | None = None,
+    workflow_action: dict[str, str] | None = None,
+) -> Event:
     target = "resource:compute/vm/gpu-worker"
     params = {
         "artifact_ref": "python-task:gpu.health@1.0.0#" + "a" * 64,
@@ -309,7 +313,8 @@ def _operator_event(*, extra_params: dict | None = None) -> Event:
                     "initiator_principal": "operator-1",
                     "action_type": "tool.run-python-on-vm",
                     "params": params,
-                }
+                },
+                **({"workflow_action": workflow_action} if workflow_action else {}),
             },
             "detected_at": "2026-07-15T00:00:00Z",
             "ingested_at": "2026-07-15T00:00:00Z",
@@ -328,6 +333,24 @@ def test_build_from_operator_request_preserves_valid_arguments() -> None:
     assert action.target_resource_ref == action.params["target_resource_ref"]
     assert action.mode is Mode.SHADOW
     assert action.citing_rules == [rule.id]
+
+
+def test_build_from_operator_request_preserves_workflow_lineage_outside_params() -> None:
+    action_type = _shipped_action_types()["tool.run-python-on-vm"]
+    builder = ActionBuilder(action_types_by_name={action_type.name: action_type})  # type: ignore[attr-defined]
+    workflow_action = {
+        "process_id": "process-1",
+        "step_id": "run-task",
+        "proposal_ref": "operator-1::run-1",
+    }
+
+    action, _rule = builder.build_from_operator_request(
+        event=_operator_event(workflow_action=workflow_action)
+    )
+
+    assert action.workflow_action is not None
+    assert action.workflow_action.model_dump() == workflow_action
+    assert "process_id" not in action.params
 
 
 def test_build_from_operator_request_rejects_non_schema_arguments() -> None:

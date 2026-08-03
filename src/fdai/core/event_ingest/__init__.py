@@ -119,6 +119,7 @@ def _normalize_operator_proposal(raw: Mapping[str, Any]) -> dict[str, Any]:
     initiator = value.get("initiator_principal")
     action_type = value.get("action_type")
     params = value.get("params")
+    workflow_action = value.get("workflow_action")
     if not isinstance(idempotency_key, str) or not idempotency_key:
         return value
     if not isinstance(initiator, str) or not initiator:
@@ -126,6 +127,11 @@ def _normalize_operator_proposal(raw: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(action_type, str) or not action_type:
         return value
     if not isinstance(params, Mapping):
+        return value
+    if workflow_action is not None and not _valid_workflow_action(
+        workflow_action,
+        idempotency_key=idempotency_key,
+    ):
         return value
     at = datetime.now(tz=UTC)
     event_id = uuid5(NAMESPACE_URL, f"fdai.operator-request://{idempotency_key}")
@@ -146,6 +152,11 @@ def _normalize_operator_proposal(raw: Mapping[str, Any]) -> dict[str, Any]:
                 "params": dict(params),
             },
             **(
+                {"workflow_action": dict(workflow_action)}
+                if isinstance(workflow_action, Mapping)
+                else {}
+            ),
+            **(
                 {"scheduled_task": dict(value["scheduled_task"])}
                 if isinstance(value.get("scheduled_task"), Mapping)
                 else {}
@@ -160,3 +171,12 @@ def _normalize_operator_proposal(raw: Mapping[str, Any]) -> dict[str, Any]:
         "ingested_at": at.isoformat(),
         "mode": "shadow",
     }
+
+
+def _valid_workflow_action(value: object, *, idempotency_key: str) -> bool:
+    if not isinstance(value, Mapping) or set(value) != {"process_id", "step_id", "proposal_ref"}:
+        return False
+    if any(not isinstance(value[field], str) or not value[field] for field in value):
+        return False
+    proposal_ref = value.get("proposal_ref")
+    return isinstance(proposal_ref, str) and proposal_ref == idempotency_key

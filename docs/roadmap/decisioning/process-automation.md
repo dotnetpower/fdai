@@ -236,6 +236,14 @@ must independently validate each action and compensation receipt before a forwar
 the Process becomes `compensated`. Missing, rejected, or malformed evidence remains waiting or
 closes as `recovery_incomplete`; it never becomes success.
 
+The upstream headless runtime and production Operator API bind
+`StateStoreWorkflowOutcomeLedger` to the shared durable state store. The control loop records an
+immutable receipt only for an enforce Action whose execution identity matches its
+`ResponseOutcome`; a successful receipt additionally requires independently verified effect
+evidence. The resolver reads that receipt by proposal reference, Process, and step, so resume does
+not trust caller-supplied status or receipt context. Shadow, unknown, missing, mismatched, or
+unscorable outcomes cannot advance the Process.
+
 ## 6. Governance
 
 - **Shadow-first.** Every workflow ships `default_mode: shadow`: it judges and

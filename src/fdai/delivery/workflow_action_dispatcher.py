@@ -45,10 +45,11 @@ class EventBusWorkflowActionDispatcher:
                 "action_type": step.action_type,
                 "resource_id": target_resource_id,
                 "event_type": "operator_request",
-                "params": {
-                    **params,
+                "params": dict(params),
+                "workflow_action": {
                     "process_id": process_id,
-                    "workflow_step_id": step.id,
+                    "step_id": step.id,
+                    "proposal_ref": idempotency_key,
                 },
             },
         )

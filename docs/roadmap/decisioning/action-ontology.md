@@ -190,6 +190,11 @@ Runtime `Action` records preserve the complete ordered `stop_conditions` list, i
 The compatibility shorthand `stop_condition` must equal the first structured condition's `kind`. The Action JSON Schema requires a non-empty structured list;
 direct-API and tool-call requests plus audit entries carry that list without flattening it.
 
+A workflow-originated runtime `Action` may also carry `workflow_action` with the exact `process_id`,
+`step_id`, and dispatch `proposal_ref`. This lineage is Action metadata, not an ActionType argument,
+so strict `argument_schema` validation remains unchanged. The proposal reference proves dispatch
+only; an independent outcome receipt is still required before the Process advances.
+
 The catalog backfill has completed with:
 
 - `trigger_kind.kind = rule_violation`

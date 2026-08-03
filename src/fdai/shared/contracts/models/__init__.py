@@ -46,7 +46,7 @@ unchanged; there is no need to import from the submodules directly.
 from __future__ import annotations
 
 from ._base import ContractBase, IdempotencyKey, SemVer, _Base
-from .action import Action, BlastRadius, RollbackRef
+from .action import Action, BlastRadius, RollbackRef, WorkflowActionRef
 from .best_practice import (
     BestPractice,
     BestPracticeRequirement,
@@ -246,6 +246,7 @@ __all__ = [
     "SubmissionCriterion",
     "SubmissionCriterionKind",
     "Workflow",
+    "WorkflowActionRef",
     "WorkflowStep",
     "WorkflowTrigger",
     "DocumentEnvelope",

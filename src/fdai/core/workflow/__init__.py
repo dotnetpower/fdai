@@ -26,12 +26,16 @@ from .orchestrator import (
     derive_process_id,
     process_state_key,
 )
+from .outcome_verification import StateStoreWorkflowOutcomeLedger
 from .projection import ProcessOntologyProjector, ProjectingProcessRuntimeStore
 from .trigger_index import WorkflowTriggerIndex
 from .workflow_runtime import (
     WorkflowActionDispatcher,
     WorkflowEvidenceDispatcher,
+    WorkflowOutcomeRecorder,
+    WorkflowOutcomeResolver,
     WorkflowOutcomeVerifier,
+    WorkflowVerifiedOutcome,
 )
 
 __all__ = [
@@ -44,11 +48,15 @@ __all__ = [
     "ProjectingProcessRuntimeStore",
     "ShadowWorkflowStepExecutor",
     "StepApproval",
+    "StateStoreWorkflowOutcomeLedger",
     "WorkflowApprovalPlanner",
     "WorkflowGuardEvaluator",
     "WorkflowActionDispatcher",
     "WorkflowEvidenceDispatcher",
+    "WorkflowOutcomeRecorder",
+    "WorkflowOutcomeResolver",
     "WorkflowOutcomeVerifier",
+    "WorkflowVerifiedOutcome",
     "WorkflowOrchestrator",
     "WorkflowTriggerCoordinator",
     "WorkflowTriggerIndex",
