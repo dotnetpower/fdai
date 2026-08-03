@@ -352,17 +352,25 @@ def test_trace_dependency_and_database_questions_use_server_templates() -> None:
     cohorts = {
         "trace_waterfall": (
             "가장 느린 분산 추적에서 병목 구간을 찾아줘.",
+            "최장 지연 분산 trace의 가장 느린 span을 알려줘.",
+            "가장 느린 추적을 선택해서 병목 span과 근거를 보여줘.",
             "Show the slowest distributed trace and identify its bottleneck span.",
+            "Find the highest-latency trace and point out the span causing the delay.",
             "Which span is the bottleneck in the longest trace?",
         ),
         "dependency_latency": (
             "어떤 종속 서비스가 응답 지연을 만들었어?",
+            "응답 시간 증가에 가장 크게 기여한 downstream 서비스는 뭐야?",
+            "지연을 유발한 종속성 경로를 근거와 함께 알려줘.",
             "Which downstream dependency contributed most to latency?",
+            "Identify the dependent service with the largest latency contribution.",
+            "What downstream call is the strongest supported source of delay?",
             "응답이 느려진 데 가장 크게 기여한 다운스트림을 찾아줘.",
         ),
         "database_slow_calls": (
             "데이터베이스 CPU 상승과 관련된 느린 쿼리를 찾아줘.",
             "Which database query best explains the CPU spike?",
+            "What query evidence best accounts for the observed CPU spike?",
             "Find the slow database calls associated with elevated CPU.",
         ),
     }
@@ -391,8 +399,9 @@ def test_trace_dependency_and_database_questions_use_server_templates() -> None:
                     assert payload["verification"]["reason_code"] == "log_query_bounded"
                     assert intent.replace("_", "-") in payload["answer"]
 
-    assert len(provider.calls) == 6
+    assert len(provider.calls) == 13
     assert len({call["query"] for call in provider.calls}) == 2
+    assert all(";" not in str(call["query"]) for call in provider.calls)
     assert {call["window"] for call in provider.calls} == {"PT1H"}
     assert {call["max_rows"] for call in provider.calls} == {20}
     assert not needs_subscription_health("Which database query best explains the CPU spike?")

@@ -55,34 +55,43 @@ _REPRESENTATIVE_LOGS_QUERY: Final = (
     "| order by TimeGenerated desc"
 )
 _TRACE_WATERFALL: Final = re.compile(
-    r"\b(?:distributed\s+trace|trace).{0,48}(?:slowest|longest|bottleneck|span)\b|"
-    r"\b(?:slowest|longest|bottleneck|span).{0,48}(?:distributed\s+trace|trace)\b|"
-    r"분산\s*추적.{0,32}(?:느린|병목|구간)|(?:느린|병목).{0,32}분산\s*추적",
+    r"\b(?:distributed\s+trace|trace).{0,48}"
+    r"(?:slowest|longest|highest[-\s]latency|bottleneck|span)\b|"
+    r"\b(?:slowest|longest|highest[-\s]latency|bottleneck|span).{0,48}"
+    r"(?:distributed\s+trace|trace)\b|"
+    r"분산\s*(?:추적|trace).{0,32}(?:느린|병목|구간|span)|"
+    r"(?:느린|병목|최장\s*지연).{0,32}분산\s*(?:추적|trace)|"
+    r"(?:가장\s*)?느린\s*추적.{0,32}(?:병목|span)",
     re.IGNORECASE,
 )
 _DEPENDENCY_LATENCY: Final = re.compile(
-    r"\b(?:dependency|downstream).{0,48}(?:latency|slow|contribut)\w*\b|"
-    r"\b(?:latency|slow).{0,48}(?:dependency|downstream)\b|"
-    r"(?:종속\s*서비스|다운스트림).{0,40}(?:응답\s*지연|느려|기여)|"
-    r"(?:응답\s*지연|느려).{0,40}(?:종속\s*서비스|다운스트림)",
+    r"\b(?:dependency|dependent\s+service|downstream(?:\s+call)?).{0,48}"
+    r"(?:latency|slow|delay|source|contribut)\w*\b|"
+    r"\b(?:latency|slow|delay).{0,48}"
+    r"(?:dependency|dependent\s+service|downstream(?:\s+call)?)\b|"
+    r"(?:종속\s*서비스|종속성(?:\s*경로)?|다운스트림|downstream\s*서비스).{0,40}"
+    r"(?:응답\s*(?:지연|시간\s*증가)|느려|기여|지연)|"
+    r"(?:응답\s*(?:지연|시간\s*증가)|느려|지연|기여).{0,40}"
+    r"(?:종속\s*서비스|종속성(?:\s*경로)?|다운스트림|downstream\s*서비스)",
     re.IGNORECASE,
 )
 _DATABASE_SLOW_CALLS: Final = re.compile(
     r"\b(?:database|db|sql).{0,56}(?:query|queries|call|cpu|slow)\b|"
     r"\b(?:slow|cpu).{0,56}(?:database|db|sql).{0,24}(?:query|queries|calls?)\b|"
+    r"\bquery\s+evidence\b.{0,56}\bcpu\s+spike\b|"
     r"(?:데이터베이스|DB|SQL).{0,40}(?:CPU|느린\s*쿼리|쿼리)",
     re.IGNORECASE,
 )
 _TRACE_WATERFALL_QUERY: Final = (
-    "let spans = union "
+    "union "
     "(AppRequests | project TimeGenerated, OperationId, SpanId=Id, ParentId, "
     'SpanType="request", Name, Target="", DurationMs), '
     "(AppDependencies | project TimeGenerated, OperationId, SpanId=Id, ParentId, "
-    'SpanType="dependency", Name, Target, DurationMs);\n'
-    "let slowest_trace = spans | summarize trace_duration_ms=sum(DurationMs) by OperationId "
-    "| top 1 by trace_duration_ms desc | project OperationId;\n"
-    "spans | where OperationId in (slowest_trace)\n"
-    "| top 20 by DurationMs desc"
+    'SpanType="dependency", Name, Target, DurationMs)\n'
+    "| summarize trace_duration_ms=sum(DurationMs), "
+    "arg_max(DurationMs, TimeGenerated, SpanId, ParentId, SpanType, Name, Target) "
+    "by OperationId\n"
+    "| top 1 by trace_duration_ms desc"
 )
 _DEPENDENCY_LATENCY_QUERY: Final = (
     "AppDependencies\n"
