@@ -240,6 +240,9 @@ from fdai.delivery.operator_api.routes.chat_route_common import (
     assurance_policy_summary,
 )
 from fdai.delivery.operator_api.routes.chat_screen_data import render_screen_data_answer
+from fdai.delivery.operator_api.routes.chat_source_failure_context import (
+    response_source_failure_context,
+)
 from fdai.delivery.operator_api.routes.chat_stream import (
     DEFAULT_STREAM_PATH,
     make_chat_stream_route,
@@ -1052,6 +1055,12 @@ def make_chat_route(
         )
         if resource_result_context is not None:
             enriched["resource_result_context"] = resource_result_context
+        source_failure_context = response_source_failure_context(
+            view_context,
+            verification_status=verification.status,
+        )
+        if source_failure_context is not None:
+            enriched["source_failure_context"] = source_failure_context
         selected_freshness = response_evidence_freshness_context(view_context, freshness_context)
         if selected_freshness is not None:
             enriched["evidence_freshness_context"] = selected_freshness.to_dict()

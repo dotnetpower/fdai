@@ -11,7 +11,11 @@ from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolve
 from fdai.delivery.operator_api.routes.data_sources import ReadDataSourceStatus
 
 _READ_SOURCE_INTENT: Final = re.compile(
-    r"\b(?:read|data|evidence)[\s_-]+sources?\b|데이터\s*소스|근거\s*소스",
+    r"\b(?:read|data|evidence)[\s_-]+sources?\b|"
+    r"\b(?:unavailable|failed|missing|required)[\s_-]+sources?\b|"
+    r"\bsources?[\s_-]+(?:availability|status)\b|"
+    r"데이터\s*(?:소스|원본)|근거\s*(?:소스|원본)|"
+    r"(?:사용할\s*수\s*없는|실패한|누락된)\s*(?:데이터\s*)?원본",
     re.IGNORECASE,
 )
 _SOURCE_CODE_INTENT: Final = re.compile(
@@ -218,9 +222,16 @@ def _source_lines(sources: list[Mapping[str, Any]], *, korean: bool) -> list[str
         durable_label = "unknown" if durable is None else str(bool(durable)).lower()
         raw_routes = source.get("routes")
         routes = ", ".join(str(item) for item in raw_routes) if isinstance(raw_routes, list) else ""
-        lines.append(
+        detail = (
             f"- {key}: {availability}; source {provider}; durable {durable_label}; routes {routes}"
         )
+        reason = source.get("reason")
+        observed_at = source.get("last_observed_at")
+        if isinstance(reason, str) and reason:
+            detail += f"; reason {reason}"
+        if isinstance(observed_at, str) and observed_at:
+            detail += f"; last observed {observed_at}"
+        lines.append(detail)
     return lines
 
 

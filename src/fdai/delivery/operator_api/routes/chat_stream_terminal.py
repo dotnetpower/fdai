@@ -20,6 +20,9 @@ from fdai.delivery.operator_api.routes.chat_resource_result_context import (
     response_resource_result_context,
 )
 from fdai.delivery.operator_api.routes.chat_route_common import assurance_policy_summary
+from fdai.delivery.operator_api.routes.chat_source_failure_context import (
+    response_source_failure_context,
+)
 from fdai.delivery.operator_api.routes.chat_verification import AnswerVerification
 
 TurnTimingPhase = Literal[
@@ -212,6 +215,12 @@ def build_done_payload(
     )
     if resource_result_context is not None:
         payload["resource_result_context"] = resource_result_context
+    source_failure_context = response_source_failure_context(
+        enriched_context,
+        verification_status=verification.status,
+    )
+    if source_failure_context is not None:
+        payload["source_failure_context"] = source_failure_context
     if freshness_context is not None:
         payload["evidence_freshness_context"] = freshness_context.to_dict()
     if model_trace is not None:

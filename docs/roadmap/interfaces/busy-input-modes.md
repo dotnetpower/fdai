@@ -197,6 +197,9 @@ An ordinal follow-up selects from that stored order, then re-queries the exact n
 resource group with fresh inventory evidence. An ambiguity follow-up renders only equal-name
 candidates from a complete result set. A short, truncated, malformed, or non-unique requery remains
 unavailable instead of borrowing screen state or guessing.
+A verified read-source manifest with unavailable or unknown entries stores a versioned
+source-failure receipt. Partial-source follow-ups separate available source facts from exact gaps,
+including reason and last observation when present, and never substitute another authority.
 
 ## Queue behavior
 

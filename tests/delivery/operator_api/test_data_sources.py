@@ -384,8 +384,16 @@ def test_data_source_manifest_is_authenticated_and_sorted(
     assert [item["key"] for item in response.json()["sources"]] == ["audit", "models"]
 
 
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "db 에는 어떤 데이터가 있어?",
+        "현재 사용할 수 없는 데이터 원본과 확인 가능한 사실을 분리해서 보여줘.",
+    ),
+)
 def test_database_content_question_uses_read_source_manifest(
     monkeypatch: pytest.MonkeyPatch,
+    prompt: str,
 ) -> None:
     monkeypatch.setenv("FDAI_OPERATOR_API_DEV_MODE", "1")
     backend = RecordingBackend()
@@ -428,7 +436,7 @@ def test_database_content_question_uses_read_source_manifest(
 
     response = TestClient(app).post(
         "/chat",
-        json={"prompt": "db 에는 어떤 데이터가 있어?", "view_context": {}},
+        json={"prompt": prompt, "view_context": {}},
     )
 
     assert response.status_code == 200
@@ -441,17 +449,22 @@ def test_database_content_question_uses_read_source_manifest(
     assert "empty-local-memory" in answer
     assert "unavailable" in answer
     assert "/audit" in answer
+    source_failure_context = cast(dict[str, object], payload["source_failure_context"])
+    gaps = cast(list[dict[str, object]], source_failure_context["gaps"])
+    assert gaps[0]["key"] == "operational-state"
+    assert gaps[0]["reason"] == "Authoritative operational state is not connected."
     assert "테이블이나 행을 직접 조회한 결과는 아닙니다" in answer
 
     stream_response = TestClient(app).post(
         "/chat/stream",
-        json={"prompt": "db 에는 어떤 데이터가 있어?", "view_context": {}},
+        json={"prompt": prompt, "view_context": {}},
     )
     done = _done_event(stream_response.text)
     done_verification = cast(dict[str, object], done["verification"])
     assert done["answer"] == answer
     assert done_verification["authority"] == "server_read_source_manifest"
     assert done_verification["reason_code"] == "read_source_manifest_grounded"
+    assert done["source_failure_context"] == source_failure_context
     assert backend.calls == 0
 
 

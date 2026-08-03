@@ -18,6 +18,10 @@ from fdai.delivery.operator_api.routes.chat_resource_result_context import (
     ordinal_inventory_arguments,
     parse_resource_result_context,
 )
+from fdai.delivery.operator_api.routes.chat_source_failure_context import (
+    parse_source_failure_context,
+    source_failure_evidence_refs,
+)
 from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
 from fdai.shared.providers.user_context import (
     ConversationHistoryStore,
@@ -121,6 +125,7 @@ class VerifiedPriorContext:
     reason_code: str | None = None
     resource_context: Mapping[str, str] | None = None
     resource_result_context: Mapping[str, Any] | None = None
+    source_failure_context: Mapping[str, Any] | None = None
     evidence_freshness_context: Mapping[str, object] | None = None
     truncated: bool = False
 
@@ -140,6 +145,11 @@ class VerifiedPriorContext:
             "resource_result_context": (
                 dict(self.resource_result_context)
                 if self.resource_result_context is not None
+                else None
+            ),
+            "source_failure_context": (
+                dict(self.source_failure_context)
+                if self.source_failure_context is not None
                 else None
             ),
             "evidence_freshness_context": (
@@ -229,6 +239,7 @@ async def load_verified_prior_context(
         resource_result_context = parse_resource_result_context(
             payload.get("resource_result_context")
         )
+        source_failure_context = parse_source_failure_context(payload.get("source_failure_context"))
         try:
             freshness = parse_evidence_freshness_context(payload.get("evidence_freshness_context"))
         except ValueError:
@@ -245,6 +256,7 @@ async def load_verified_prior_context(
             reason_code=reason_code,
             resource_context=resource_context,
             resource_result_context=resource_result_context,
+            source_failure_context=source_failure_context,
             evidence_freshness_context=(freshness.to_dict() if freshness is not None else None),
             truncated=len(turn.content) > len(answer),
         )
@@ -346,7 +358,9 @@ class ConversationContextChatTools:
             return self._resolve_ambiguity(context=context)
         if intent is ConversationContextIntent.REFORMAT and status != "unverified":
             result_status = "matched"
-        elif intent is ConversationContextIntent.PARTIAL_SOURCE and status == "unverified":
+        elif intent is ConversationContextIntent.PARTIAL_SOURCE and (
+            status == "unverified" or isinstance(context.get("source_failure_context"), Mapping)
+        ):
             result_status = "matched"
         else:
             required = _required_context_result(prompt)
@@ -357,6 +371,14 @@ class ConversationContextChatTools:
                 "status": "abstain",
                 "result": required,
             }
+        evidence_refs = tuple(
+            dict.fromkeys(
+                (
+                    *_bounded_evidence_refs(context.get("evidence_refs")),
+                    *source_failure_evidence_refs(context.get("source_failure_context")),
+                )
+            )
+        )
         return {
             "tool": "query_conversation_context",
             "authority": "server_conversation_context",
@@ -367,8 +389,9 @@ class ConversationContextChatTools:
                 "prior_status": status,
                 "prior_authority": context.get("authority"),
                 "prior_answer": answer,
-                "evidence_refs": list(_bounded_evidence_refs(context.get("evidence_refs"))),
+                "evidence_refs": list(evidence_refs),
                 "reason_code": context.get("reason_code"),
+                "source_failure_context": context.get("source_failure_context"),
                 "truncated": context.get("truncated") is True,
             },
         }
@@ -556,6 +579,42 @@ def _render_prior_answer_table(result: Mapping[str, Any], *, korean: bool) -> st
 
 
 def _render_source_failure(result: Mapping[str, Any], *, korean: bool) -> str:
+    source_context = parse_source_failure_context(result.get("source_failure_context"))
+    if source_context is not None:
+        sources = source_context["sources"]
+        gaps = source_context["gaps"]
+        available = [
+            source
+            for source in sources
+            if isinstance(source, Mapping) and source.get("availability") == "available"
+        ]
+        lines = [
+            (
+                "확인된 source manifest의 사실과 한계입니다."
+                if korean
+                else "These are the confirmed source-manifest facts and limits."
+            )
+        ]
+        for source in available:
+            lines.append(
+                f"- {'확인됨' if korean else 'Confirmed'}: {source.get('key')} - "
+                f"{source.get('source')} ({source.get('availability')})"
+            )
+        for gap in gaps:
+            if not isinstance(gap, Mapping):
+                continue
+            reason = gap.get("reason") or "source_unavailable"
+            observed = gap.get("last_observed_at") or "unknown"
+            lines.append(
+                f"- {'한계' if korean else 'Limit'}: {gap.get('key')} - {gap.get('source')} "
+                f"({gap.get('availability')}); reason {reason}; last observed {observed}"
+            )
+        lines.append(
+            "누락된 source를 다른 authority로 대체하지 않았습니다."
+            if korean
+            else "The missing source was not replaced with another authority."
+        )
+        return "\n".join(lines)
     reason = str(result.get("reason_code") or "source_unavailable")
     refs = ", ".join(_bounded_evidence_refs(result.get("evidence_refs"))) or "none"
     return (
@@ -611,6 +670,8 @@ def _render_ambiguity_candidates(result: Mapping[str, Any], *, korean: bool) -> 
 
 def _context_kind(context: Mapping[str, Any]) -> str:
     if context.get("status") == "unverified":
+        return "source_failure_receipt"
+    if isinstance(context.get("source_failure_context"), Mapping):
         return "source_failure_receipt"
     if isinstance(context.get("resource_result_context"), Mapping):
         return "prior_result_set"

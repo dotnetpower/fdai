@@ -245,6 +245,7 @@ async def _seed_assistant_turn(
     evidence_refs: tuple[str, ...] = (),
     resource_context: dict[str, str] | None = None,
     resource_result_context: dict[str, object] | None = None,
+    source_failure_context: dict[str, object] | None = None,
 ) -> None:
     now = datetime.now(UTC)
     await store.create_conversation(
@@ -271,6 +272,11 @@ async def _seed_assistant_turn(
         **(
             {"resource_result_context": resource_result_context}
             if resource_result_context is not None
+            else {}
+        ),
+        **(
+            {"source_failure_context": source_failure_context}
+            if source_failure_context is not None
             else {}
         ),
     }
@@ -458,6 +464,71 @@ def test_ambiguity_followup_renders_equal_name_candidates() -> None:
     assert "rg-one" in payload["answer"]
     assert "rg-two" in payload["answer"]
     assert "unique-app" not in payload["answer"]
+    assert backend.calls == 0
+
+
+def test_partial_source_followup_consumes_verified_manifest_gap() -> None:
+    store = InMemoryConversationHistoryStore()
+    session_id = "context-source-manifest"
+    source_context: dict[str, object] = {
+        "schema_version": 1,
+        "authority": "server_read_source_manifest",
+        "truncated": False,
+        "sources": [
+            {
+                "key": "audit",
+                "source": "postgres-audit",
+                "availability": "available",
+            },
+            {
+                "key": "inventory",
+                "source": "azure-resource-graph",
+                "availability": "unavailable",
+                "reason": "reader_unauthorized",
+                "last_observed_at": "2026-07-20T09:00:00Z",
+            },
+        ],
+        "gaps": [
+            {
+                "key": "inventory",
+                "source": "azure-resource-graph",
+                "availability": "unavailable",
+                "reason": "reader_unauthorized",
+                "last_observed_at": "2026-07-20T09:00:00Z",
+            }
+        ],
+    }
+    asyncio.run(
+        _seed_assistant_turn(
+            store,
+            session_id=session_id,
+            answer="One source is unavailable.",
+            status="verified",
+            authority="server_read_source_manifest",
+            evidence_refs=("read-source:inventory",),
+            source_failure_context=source_context,
+        )
+    )
+    client, backend = _context_client(store, production_chain=True)
+
+    with client:
+        payload = client.post(
+            "/chat",
+            json={
+                "prompt": (
+                    "Do not substitute another authority for the missing source; "
+                    "state facts and limits separately."
+                ),
+                "session_id": session_id,
+            },
+        ).json()
+
+    assert payload["verification"]["authority"] == "server_conversation_context"
+    assert payload["verification"]["status"] in {"verified", "corrected"}
+    assert "Confirmed: audit" in payload["answer"]
+    assert "Limit: inventory" in payload["answer"]
+    assert "reader_unauthorized" in payload["answer"]
+    assert "not replaced with another authority" in payload["answer"]
     assert backend.calls == 0
 
 

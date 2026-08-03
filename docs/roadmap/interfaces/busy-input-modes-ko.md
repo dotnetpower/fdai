@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: b6ef1acde74dd4c7a023ad5c35c299d8ed078214
+translation_source_sha: 530dbbebc635746b558b6fa03b49ada6a891c8c0
 translation_revised: 2026-08-04
 ---
 
@@ -197,6 +197,9 @@ Ordinal follow-up은 저장된 순서에서 selector를 선택한 다음 exact n
 inventory evidence로 다시 query합니다. Ambiguity follow-up은 complete result set의 equal-name
 candidate만 렌더링합니다. 짧거나 truncated 또는 malformed인 set과 non-unique requery는 screen state를
 가져오거나 추측하지 않고 unavailable 상태를 유지합니다.
+Unavailable 또는 unknown entry가 있는 verified read-source manifest는 versioned source-failure
+receipt를 저장합니다. Partial-source follow-up은 available source fact와 exact gap을 분리하고 reason과
+last observation이 있으면 함께 표시하며 다른 authority로 대체하지 않습니다.
 
 ## Queue 동작
 
