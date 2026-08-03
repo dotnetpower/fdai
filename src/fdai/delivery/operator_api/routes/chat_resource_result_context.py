@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import unicodedata
 from collections.abc import Mapping
 from typing import Any, Final
 
@@ -56,8 +57,10 @@ def response_resource_result_context(
         sort_keys=True,
     )
     matched_count = result.get("matched_count")
-    truncated = result.get("truncated") is True or (
-        isinstance(matched_count, int) and matched_count > len(projected)
+    truncated = (
+        result.get("truncated") is True
+        or len(projected) != len(resources)
+        or (isinstance(matched_count, int) and matched_count > len(projected))
     )
     return {
         "schema_version": _SCHEMA_VERSION,
@@ -175,18 +178,43 @@ def ambiguous_resource_candidates(
     resources = context["resources"]
     if not isinstance(resources, list):
         return (), "prior_result_set_invalid"
-    groups: dict[str, list[dict[str, str]]] = {}
+    groups: dict[str, dict[tuple[str, str, str], dict[str, str]]] = {}
     for resource in resources:
         if not isinstance(resource, dict):
             return (), "prior_result_set_invalid"
-        groups.setdefault(resource["name"].casefold(), []).append(resource)
+        identity = _candidate_identity(resource)
+        group = groups.setdefault(identity[0], {})
+        existing = group.get(identity)
+        if existing is not None:
+            if _candidate_fingerprint(existing) != _candidate_fingerprint(resource):
+                return (), "ambiguous_candidate_identity_conflict"
+            continue
+        group[identity] = resource
     candidates = tuple(
-        dict(resource)
+        dict(groups[name][identity])
         for name in sorted(groups)
         if len(groups[name]) > 1
-        for resource in groups[name]
+        for identity in sorted(groups[name])
     )
     return candidates, None if candidates else "no_equal_name_candidates"
+
+
+def _candidate_identity(resource: Mapping[str, str]) -> tuple[str, str, str]:
+    return (
+        _normalize_identity_value(resource["name"]),
+        _normalize_identity_value(resource["resource_type"]),
+        _normalize_identity_value(resource.get("resource_group", "")),
+    )
+
+
+def _candidate_fingerprint(resource: Mapping[str, str]) -> tuple[str, ...]:
+    return tuple(
+        _normalize_identity_value(resource.get(key, "")) for key in sorted(_RESOURCE_FIELDS)
+    )
+
+
+def _normalize_identity_value(value: str) -> str:
+    return unicodedata.normalize("NFKC", value).strip().casefold()
 
 
 def _project_resource(raw: object) -> dict[str, str] | None:

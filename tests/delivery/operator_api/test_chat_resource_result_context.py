@@ -86,6 +86,45 @@ def test_replay_context_rejects_partial_or_unknown_shapes() -> None:
     assert parse_resource_result_context(malformed) is None
 
 
+def test_projection_marks_omitted_resource_rows_as_truncated() -> None:
+    view_context = _view_context()
+    tool = view_context["_tool_evidence"]
+    assert isinstance(tool, dict)
+    result = tool["result"]
+    assert isinstance(result, dict)
+    result["matched_count"] = None
+    result["resources"] = [
+        {
+            "name": f"app-{index}",
+            "type": "compute.app",
+            "resource_group": "rg-example",
+        }
+        for index in range(41)
+    ]
+
+    context = response_resource_result_context(view_context, verification_status="verified")
+
+    assert context is not None
+    assert len(context["resources"]) == 40
+    assert context["truncated"] is True
+
+
+def test_projection_marks_malformed_resource_omission_as_truncated() -> None:
+    view_context = _view_context()
+    tool = view_context["_tool_evidence"]
+    assert isinstance(tool, dict)
+    result = tool["result"]
+    assert isinstance(result, dict)
+    result["matched_count"] = None
+    result["resources"] = [*result["resources"], {"name": "missing-type"}]
+
+    context = response_resource_result_context(view_context, verification_status="verified")
+
+    assert context is not None
+    assert len(context["resources"]) == 2
+    assert context["truncated"] is True
+
+
 def test_ordinal_query_reselects_second_resource_with_exact_predicates() -> None:
     context = response_resource_result_context(_view_context(), verification_status="verified")
 
@@ -131,3 +170,76 @@ def test_ambiguity_returns_only_equal_name_candidates() -> None:
 
     assert reason is None
     assert [candidate["resource_group"] for candidate in candidates] == ["rg-one", "rg-two"]
+
+
+def test_ambiguity_deduplicates_resource_identity_and_orders_candidates() -> None:
+    context = response_resource_result_context(_view_context(), verification_status="verified")
+    assert context is not None
+    context["resources"] = [
+        {
+            "name": "shared-app",
+            "resource_type": "compute.app",
+            "resource_group": "rg-two",
+        },
+        {
+            "name": "SHARED-APP",
+            "resource_type": "compute.app",
+            "resource_group": "rg-one",
+        },
+        {
+            "name": "shared-app",
+            "resource_type": "compute.app",
+            "resource_group": "rg-two",
+        },
+    ]
+
+    candidates, reason = ambiguous_resource_candidates(context)
+
+    assert reason is None
+    assert [candidate["resource_group"] for candidate in candidates] == ["rg-one", "rg-two"]
+
+
+def test_ambiguity_rejects_conflicting_duplicate_identity() -> None:
+    context = response_resource_result_context(_view_context(), verification_status="verified")
+    assert context is not None
+    context["resources"] = [
+        {
+            "name": "shared-app",
+            "resource_type": "compute.app",
+            "resource_group": "rg-one",
+            "status": "running",
+        },
+        {
+            "name": "SHARED-APP",
+            "resource_type": "COMPUTE.APP",
+            "resource_group": "RG-ONE",
+            "status": "stopped",
+        },
+    ]
+
+    assert ambiguous_resource_candidates(context) == (
+        (),
+        "ambiguous_candidate_identity_conflict",
+    )
+
+
+def test_ambiguity_groups_nfkc_equivalent_names() -> None:
+    context = response_resource_result_context(_view_context(), verification_status="verified")
+    assert context is not None
+    context["resources"] = [
+        {
+            "name": "café-app",
+            "resource_type": "compute.app",
+            "resource_group": "rg-one",
+        },
+        {
+            "name": "cafe\u0301-app",
+            "resource_type": "compute.app",
+            "resource_group": "rg-two",
+        },
+    ]
+
+    candidates, reason = ambiguous_resource_candidates(context)
+
+    assert reason is None
+    assert len(candidates) == 2
