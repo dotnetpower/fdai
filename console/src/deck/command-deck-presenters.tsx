@@ -107,6 +107,43 @@ function agentIconUrl(name: string): string {
   return `url("${base}agent-icons/${name.toLowerCase()}.svg")`;
 }
 
+interface BackendTooltipCandidateView {
+  readonly deployment: string;
+  readonly p50: string;
+  readonly p95: string;
+  readonly samples: number;
+  readonly selected: boolean;
+}
+
+export interface BackendTooltipView {
+  readonly mode: string;
+  readonly endpoint: string | null;
+  readonly router: {
+    readonly deployment: string;
+    readonly reason: string;
+    readonly candidates: readonly BackendTooltipCandidateView[];
+  } | null;
+}
+
+export function backendTooltipView(health: BackendHealth): BackendTooltipView {
+  const router = health.router;
+  return {
+    mode: health.mode,
+    endpoint: health.endpoint,
+    router: router ? {
+      deployment: router.chose,
+      reason: router.reason.trim(),
+      candidates: router.candidates.map((candidate) => ({
+        deployment: candidate.deployment,
+        p50: candidate.p50_ms === null ? "-" : `${Math.round(candidate.p50_ms)}ms`,
+        p95: candidate.p95_ms === null ? "-" : `${Math.round(candidate.p95_ms)}ms`,
+        samples: candidate.samples,
+        selected: candidate.deployment === router.chose,
+      })),
+    } : null,
+  };
+}
+
 export function routerTooltip(router: RouterSnapshot | undefined): string | undefined {
   if (!router) return undefined;
   const lines = router.candidates.map((candidate) => {
@@ -130,6 +167,43 @@ export function backendTooltip(health: BackendHealth): string {
   });
   const routed = routerTooltip(health.router);
   return routed ? `${base}\n${routed}` : base;
+}
+
+function BackendTooltipContent({ health }: { readonly health: BackendHealth }) {
+  const view = backendTooltipView(health);
+  return (
+    <span class="deck-backend-tooltip">
+      <span class="deck-backend-tooltip-context">
+        <span>{t("deck.tooltip.chatMode", { mode: "", endpoint: "" }).trim()}</span>
+        <strong>{view.mode}</strong>
+      </span>
+      {view.endpoint ? <code class="deck-backend-tooltip-endpoint">{view.endpoint}</code> : null}
+      {view.router ? (
+        <span class="deck-backend-tooltip-router">
+          <span class="deck-backend-tooltip-choice">
+            <span>auto-router</span>
+            <strong>{view.router.deployment}</strong>
+            {view.router.reason ? <small>{view.router.reason}</small> : null}
+          </span>
+          <span class="deck-backend-tooltip-candidates">
+            {view.router.candidates.map((candidate) => (
+              <span
+                key={candidate.deployment}
+                class={`deck-backend-tooltip-candidate${candidate.selected ? " is-selected" : ""}`}
+                aria-current={candidate.selected ? "true" : undefined}
+              >
+                <span class="deck-backend-tooltip-marker" aria-hidden="true" />
+                <code>{candidate.deployment}</code>
+                <span><small>p50</small>{candidate.p50}</span>
+                <span><small>p95</small>{candidate.p95}</span>
+                <span><small>n</small>{candidate.samples}</span>
+              </span>
+            ))}
+          </span>
+        </span>
+      ) : null}
+    </span>
+  );
 }
 
 export function DeckLayoutIcon({ mode }: { readonly mode: DeckLayoutMode }) {
@@ -468,7 +542,7 @@ export function BackendBadge({
   if (health.available) {
     const label = t("deck.backend.connected");
     return (
-      <Tooltip content={backendTooltip(health)}>
+      <Tooltip content={<BackendTooltipContent health={health} />} variant="backend">
         <span class={`deck-backend deck-backend-${placement} deck-backend-ready`}>
           <span class="deck-backend-dot" />
           <span class="deck-backend-label">{label}</span>

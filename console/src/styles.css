@@ -798,6 +798,105 @@ body.deck-open { overflow: hidden; }
   white-space: pre-line;
   pointer-events: none;
 }
+.app-tooltip[data-variant="backend"] {
+  width: min(390px, calc(100vw - 48px));
+  max-width: calc(100vw - 32px);
+  padding: 10px;
+  white-space: normal;
+}
+.deck-backend-tooltip,
+.deck-backend-tooltip-router,
+.deck-backend-tooltip-candidates {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.deck-backend-tooltip-context,
+.deck-backend-tooltip-choice {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+.deck-backend-tooltip-context > span,
+.deck-backend-tooltip-choice > span {
+  color: var(--fg-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+.deck-backend-tooltip-context strong,
+.deck-backend-tooltip-choice strong {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.deck-backend-tooltip-choice small {
+  margin-left: auto;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--accent) 10%, var(--bg));
+  color: var(--fg-muted);
+  font-size: 10px;
+}
+.deck-backend-tooltip-endpoint {
+  display: block;
+  padding: 6px 8px;
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--fg-muted);
+  font-size: 10.5px;
+  overflow-wrap: anywhere;
+}
+.deck-backend-tooltip-router {
+  padding: 8px;
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--bg) 72%, transparent);
+}
+.deck-backend-tooltip-candidate {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 7px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--fg-muted);
+}
+.deck-backend-tooltip-candidate.is-selected {
+  border-color: color-mix(in oklab, var(--tier-t0, #4dab7a) 36%, var(--border));
+  background: color-mix(in oklab, var(--tier-t0, #4dab7a) 9%, var(--bg-elevated));
+  color: var(--fg);
+}
+.deck-backend-tooltip-marker {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.deck-backend-tooltip-candidate.is-selected .deck-backend-tooltip-marker {
+  background: var(--tier-t0, #4dab7a);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--tier-t0, #4dab7a) 18%, transparent);
+}
+.deck-backend-tooltip-candidate code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: inherit;
+  font-size: 10.5px;
+  font-weight: 650;
+}
+.deck-backend-tooltip-candidate > span:not(.deck-backend-tooltip-marker) {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 3px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.deck-backend-tooltip-candidate small {
+  color: var(--fg-muted);
+  font-size: 9px;
+}
 .app-tooltip[data-side="top"] {
   --tooltip-enter-y: 4px;
   transform-origin: 50% 100%;

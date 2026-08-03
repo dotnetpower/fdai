@@ -44,4 +44,12 @@ describe("shared Tooltip contract", () => {
       /\.app-tooltip\s*\{[^}]*max-width:\s*min\(320px, calc\(100vw - 32px\)\);[^}]*overflow-wrap:\s*anywhere;[^}]*white-space:\s*pre-line;/,
     );
   });
+
+  test("supports a wider structured backend status variant", () => {
+    expect(source).toContain('readonly variant?: "backend";');
+    expect(source).toContain("data-variant={variant}");
+    expect(styles).toMatch(
+      /\.app-tooltip\[data-variant="backend"\]\s*\{[^}]*width:\s*min\(390px, calc\(100vw - 48px\)\);[^}]*white-space:\s*normal;/,
+    );
+  });
 });

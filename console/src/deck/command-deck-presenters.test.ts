@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   backendTooltip,
+  backendTooltipView,
   hasOverflowingText,
   routerTooltip,
 } from "./command-deck-presenters";
@@ -45,17 +46,30 @@ describe("backend connection tooltip", () => {
   });
 
   it("fills endpoint and candidate placeholders without leaking template tokens", () => {
-    const content = backendTooltip({
+    const health = {
       available: true,
       mode: "azure-ad-routed",
       model: "narrator-fast",
       endpoint: "https://chat.example.com",
       router,
-    });
+    } as const;
+    const content = backendTooltip(health);
 
     expect(content.split("\n")).toHaveLength(4);
     expect(content).toContain("chat mode azure-ad-routed · https://chat.example.com");
     expect(content).not.toMatch(/\{(?:endpoint|candidates)\}/);
+    expect(backendTooltipView(health)).toEqual({
+      mode: "azure-ad-routed",
+      endpoint: "https://chat.example.com",
+      router: {
+        deployment: "narrator-fast",
+        reason: "latency",
+        candidates: [
+          { deployment: "narrator-fast", p50: "1149ms", p95: "1390ms", samples: 2, selected: true },
+          { deployment: "narrator-safe", p50: "5507ms", p95: "6086ms", samples: 2, selected: false },
+        ],
+      },
+    });
   });
 
   it("omits empty reason parentheses without inventing a reason", () => {

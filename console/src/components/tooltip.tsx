@@ -29,6 +29,7 @@ interface TooltipProps {
   readonly placement?: Placement;
   readonly delay?: number;
   readonly sideOffset?: number;
+  readonly variant?: "backend";
 }
 
 export function Tooltip(props: TooltipProps) {
@@ -44,6 +45,7 @@ function ActiveTooltip({
   placement = "top",
   delay = TOOLTIP_DELAY_MS,
   sideOffset = 4,
+  variant,
 }: TooltipProps & { readonly content: ComponentChildren }) {
   const id = useId();
   const anchorRef = useRef<HTMLSpanElement | null>(null);
@@ -180,6 +182,7 @@ function ActiveTooltip({
               class="app-tooltip"
               data-state={state}
               data-side={side}
+              data-variant={variant}
               style={{
                 left: `${position.x}px`,
                 top: `${position.y}px`,
