@@ -221,6 +221,10 @@ Use `runtime-public` from a public runtime network and `deploy-runner` from the 
 Use `custom` plus one or more manifests for APIM, ACR data endpoints, storage, Key Vault, or any
 deployment-specific route that isn't represented by an environment variable.
 
+Environment-discovered endpoint values must be an origin or `host:port`. A trailing root `/` is
+accepted, but a non-root path, query, fragment, or user information is invalid because the checker
+probes only DNS and TCP reachability and must not silently test a different target.
+
 ```json
 {
    "schema_version": "fdai.network-connectivity-manifest.v1",

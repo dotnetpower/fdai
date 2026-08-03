@@ -1,8 +1,8 @@
 ---
 title: 네트워크 연결 매트릭스
 translation_of: network-connectivity-matrix.md
-translation_source_sha: 0385e61d471339c894027efa0d80b27f15b37eab
-translation_revised: 2026-08-02
+translation_source_sha: 338997ab719a8cf218613be027e7b29a9b843b26
+translation_revised: 2026-08-03
 ---
 # 네트워크 연결 매트릭스
 
@@ -228,6 +228,10 @@ python3 scripts/deployment/azure/check-network-connectivity.py \
 Public runtime network에서는 `runtime-public`, deployment host에서는 `deploy-runner`를 사용하세요.
 Environment variable로 표현되지 않는 APIM, ACR data endpoint, storage, Key Vault 또는
 deployment별 route에는 `custom`과 하나 이상의 manifest를 사용하세요.
+
+Environment에서 찾은 endpoint 값은 origin 또는 `host:port` 형식이어야 합니다. 마지막 root `/`는
+허용하지만, root가 아닌 path, query, fragment 또는 user information은 잘못된 입력입니다. Checker는
+DNS와 TCP reachability만 검사하므로 다른 target을 조용히 검사해서는 안 됩니다.
 
 ```json
 {

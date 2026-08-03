@@ -50,6 +50,31 @@ def test_private_runtime_discovers_required_and_optional_endpoints(
     assert by_id["identity"].expected_ip == "public"
 
 
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "https://models.example.com/openai/deployments/model",
+        "https://models.example.com?api-version=2026-01-01",
+        "https://models.example.com#deployment",
+        "models.example.com/openai/deployments/model",
+    ],
+)
+def test_discovered_endpoint_rejects_non_origin_url(
+    connectivity_module: ModuleType,
+    endpoint: str,
+) -> None:
+    with pytest.raises(connectivity_module.ConnectivityInputError, match="origin"):
+        connectivity_module.build_checks(
+            "runtime-private",
+            {
+                "KAFKA_BOOTSTRAP_SERVERS": "events.example.com:9093",
+                "POSTGRES_HOST": "db.example.com",
+                "FDAI_LLM_ENDPOINT": endpoint,
+            },
+            (),
+        )
+
+
 def test_private_dns_mismatch_produces_split_dns_action(
     connectivity_module: ModuleType,
 ) -> None:

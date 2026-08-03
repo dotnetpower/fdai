@@ -195,6 +195,8 @@ def _parse_target(value: str, default_port: int) -> tuple[str, int]:
         port = parsed.port or default_port
     except ValueError as exc:
         raise ConnectivityInputError("endpoint contains an invalid port") from exc
+    if parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
+        raise ConnectivityInputError("endpoint MUST be an origin without path, query, or fragment")
     host = parsed.hostname or ""
     if parsed.username or parsed.password or not _valid_host(host):
         raise ConnectivityInputError("endpoint MUST contain a DNS name or IP address")
