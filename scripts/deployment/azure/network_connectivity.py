@@ -192,9 +192,12 @@ def _checks_from_value(
 def _parse_target(value: str, default_port: int) -> tuple[str, int]:
     parsed = urlsplit(value if "://" in value else f"//{value}")
     try:
-        port = parsed.port or default_port
+        configured_port = parsed.port
     except ValueError as exc:
         raise ConnectivityInputError("endpoint contains an invalid port") from exc
+    port = default_port if configured_port is None else configured_port
+    if not 1 <= port <= 65535:
+        raise ConnectivityInputError("endpoint contains an invalid port")
     if parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
         raise ConnectivityInputError("endpoint MUST be an origin without path, query, or fragment")
     host = parsed.hostname or ""

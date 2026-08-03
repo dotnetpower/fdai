@@ -223,7 +223,8 @@ deployment-specific route that isn't represented by an environment variable.
 
 Environment-discovered endpoint values must be an origin or `host:port`. A trailing root `/` is
 accepted, but a non-root path, query, fragment, or user information is invalid because the checker
-probes only DNS and TCP reachability and must not silently test a different target.
+probes only DNS and TCP reachability and must not silently test a different target. An explicit
+port must be in `[1, 65535]`; port `0` is invalid and isn't replaced by the profile default.
 
 ```json
 {
