@@ -8,7 +8,6 @@ import type {
   IntentGraphMetadata,
   InvestigationActivity,
 } from "./backend";
-import { buildExecutionTimeline } from "./conversation-execution-timeline";
 import type { ConversationTrajectory } from "./conversation-trajectory";
 import { ConversationExecutionTimelineView } from "./conversation-execution-timeline-view";
 import {
@@ -22,6 +21,7 @@ import {
   type TrajectoryPhase,
   type TrajectoryPhaseState,
 } from "./conversation-trajectory-presentation";
+import { InvestigationTimeline } from "./investigation-timeline";
 import { JsonCodeBlock } from "./json-code-block";
 import { ModelTraceWaterfall } from "./model-trace-waterfall";
 
@@ -32,7 +32,6 @@ export function ConversationTrajectoryView({
   readonly trajectory: ConversationTrajectory;
   readonly showModelTrace: boolean;
 }) {
-  const [open, setOpen] = useState(false);
   const { answer, activities, branches } = trajectory;
   const milestones = trajectory.milestones;
   const evidenceRefs = uniqueStrings([
@@ -40,9 +39,13 @@ export function ConversationTrajectoryView({
     ...(answer.verification?.evidence_refs ?? []),
   ]);
   const presentation = buildTrajectoryPresentation(trajectory);
-  const observedEventCount = buildExecutionTimeline(trajectory, {
-    includeModelCalls: showModelTrace,
-  }).length;
+  const [open, setOpen] = useState(presentation.workProgress === "timeline");
+  const queryCount = activities.filter(
+    (activity) => activity.execution?.inputKind === "query",
+  ).length;
+  const commandCount = activities.filter(
+    (activity) => activity.execution?.inputKind === "command",
+  ).length;
   const omittedDetailCount = answer.trajectoryDetail
     ? Object.values(answer.trajectoryDetail.omitted).reduce((total, count) => total + count, 0)
     : 0;
@@ -56,11 +59,24 @@ export function ConversationTrajectoryView({
   const startedAt = firstValidTimestamp(trajectory.startedAt, trajectory.question.at);
   const completedAt = firstValidTimestamp(trajectory.completedAt, trajectory.answer.at);
 
+  if (presentation.workProgress === "none") return null;
+  if (presentation.workProgress === "compact") {
+    if (trajectory.observedTurns.length > 0) return null;
+    return (
+      <div class="deck-trajectory-cluster is-compact">
+        <InvestigationTimeline activities={activities} branches={branches} running={false} />
+      </div>
+    );
+  }
+
   return (
-    <div class="deck-trajectory-cluster">
+    <div class="deck-trajectory-cluster is-timeline">
       <div class="deck-trajectory-results" aria-label={t("deck.trajectory.title")}>
         <span data-state="observed">
-          {t("deck.trajectory.observedEventCount", { count: observedEventCount })}
+          {t("deck.trajectory.activitySummary", {
+            queries: queryCount,
+            commands: commandCount,
+          })}
         </span>
         <span data-state={presentation.phaseStates.evidence}>
           {t("deck.trajectory.evidenceSummary", {
@@ -75,7 +91,11 @@ export function ConversationTrajectoryView({
           </span>
         ) : null}
       </div>
-      <details class="deck-trajectory" onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <details
+        class="deck-trajectory"
+        open={open}
+        onToggle={(event) => setOpen(event.currentTarget.open)}
+      >
       <summary class="deck-trajectory-summary">
         <span class="deck-trajectory-title">
           <span class="deck-trajectory-glyph" aria-hidden="true" />
@@ -97,7 +117,9 @@ export function ConversationTrajectoryView({
         <span class="deck-trajectory-duration">
           {trajectory.durationMs === undefined
             ? t("deck.trajectory.sequenceOnly")
-            : formatDuration(trajectory.durationMs)}
+            : t("deck.trajectory.endToEndDuration", {
+                duration: formatDuration(trajectory.durationMs),
+              })}
         </span>
         <span class="deck-trajectory-chevron" aria-hidden="true" />
         <span class="deck-trajectory-question">

@@ -503,6 +503,11 @@ def _tool_execution_progress_event(
             "scope": "server-owned",
         },
     }
+    labels = {
+        "query_inventory": "Queried Azure inventory",
+        "query_subscription_health": "Checked subscription health",
+        "query_t2_recovery": "Read T2 recovery state",
+    }
     if not isinstance(tool, str) or (tool not in queries and tool != "query_inventory"):
         return None
     result = evidence.get("result")
@@ -549,7 +554,8 @@ def _tool_execution_progress_event(
         "activity_id": f"{tool}-execution",
         "kind": "read.execution",
         "status": "completed" if completed else "unavailable",
-        "label": "Inspect server-owned read evidence",
+        "label": labels[tool],
+        "detail": _tool_execution_detail(summary),
         "completed": 1 if completed else 0,
         "total": 1,
         "authority": str(evidence.get("authority") or "server_read_model"),
@@ -557,6 +563,19 @@ def _tool_execution_progress_event(
         "execution": execution,
     }
     return event
+
+
+def _tool_execution_detail(summary: Mapping[str, object]) -> str:
+    for key, singular, plural in (
+        ("matched_count", "matching resource", "matching resources"),
+        ("resource_count", "resource", "resources"),
+        ("total_resources", "resource inspected", "resources inspected"),
+        ("metric_checked", "metric checked", "metrics checked"),
+    ):
+        value = summary.get(key)
+        if isinstance(value, int):
+            return f"{value} {singular if value == 1 else plural}"
+    return f"Status: {str(summary.get('status') or 'unavailable').replace('_', ' ')}"
 
 
 def _is_explicit_tool_command(prompt: str) -> bool:

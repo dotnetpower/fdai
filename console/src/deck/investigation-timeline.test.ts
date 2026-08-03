@@ -139,13 +139,15 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('class={`deck-investigation is-settled is-${tone}`}');
     expect(component).toContain('class={`deck-investigation-badge is-${tone}`}');
     expect(component).toContain('class="deck-investigation-elapsed muted"');
+    expect(component).toContain('"deck.investigation.sourceSummaryOne"');
+    expect(component).toContain('"deck.investigation.toolDuration"');
+    expect(component).toContain('"deck.investigation.readOnly"');
     expect(component).toContain("deck-branch-badge");
     expect(component).toContain('"is-query" : "is-tool"');
     expect(component).toContain('activity.execution.inputKind === "query" ? "QUERY" : "TOOL"');
     expect(component).toContain('t("deck.investigation.copyQuery")');
     expect(component).toContain("formatJsonValue(evidence.command)");
     expect(component).toContain('data-format={formattedOutput.isJson ? "json" : "text"}');
-    expect(component).toContain('t("deck.investigation.sourceSummary"');
     expect(styles).toContain("@keyframes deck-investigation-rise");
     expect(presenter).toContain('turn.source === "investigation"');
     expect(presenter).toContain("{isDeck && !isInvestigationFlow ? (");
@@ -159,6 +161,7 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toContain(".deck-turn.is-investigation-flow::before");
     expect(retrieval).toContain('class="deck-turn-head deck-rt-agent-head"');
     expect(retrieval).toContain('class="deck-turn-source"');
+    expect(retrieval).toContain('<details class="deck-rt-sources">');
     expect(view).toContain("showPreparingAnswer");
     expect(view).toContain("inFlight && !finalAnswerPresent");
     expect(view).toContain("index === activeOperatorIndex");
@@ -184,7 +187,10 @@ describe("upsertEvidenceBranch", () => {
     expect(trajectory).toContain('t("deck.trajectory.runRecord")');
     expect(trajectory).toContain('class="deck-trajectory-results"');
     expect(trajectory).toContain('class="deck-trajectory-signals"');
-    expect(trajectory).toContain("buildExecutionTimeline(trajectory");
+    expect(trajectory).toContain('useState(presentation.workProgress === "timeline")');
+    expect(trajectory).toContain('if (presentation.workProgress === "compact")');
+    expect(trajectory).toContain("if (trajectory.observedTurns.length > 0) return null;");
+    expect(trajectory).toContain("open={open}");
     expect(trajectory).toContain("function phaseMark(");
     expect(trajectory).toContain('class="deck-trajectory-records"');
     expect(trajectory).toContain('t("deck.trajectory.checks")');

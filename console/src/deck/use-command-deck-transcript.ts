@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks"
 import { matchingTurnIndexes } from "./command-deck-session";
 import type { Turn } from "./command-deck-presenters";
 import type { ConversationSummary } from "./conversation-sessions";
-import { isNearBottom } from "./scroll-stick";
+import { isNearBottom, revealTargetScrollTop } from "./scroll-stick";
 import { serializeTurns, transcriptKeyFor } from "./transcript-store";
 import { sessionStore } from "./use-command-deck-sessions";
 
@@ -30,6 +30,7 @@ export function useCommandDeckTranscript({
   const [stuck, setStuck] = useState(true);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const scrollFrameRef = useRef<number | null>(null);
+  const anchoredUntilRef = useRef(0);
 
   const lastTurnLength = turns.length > 0
     ? (turns[turns.length - 1]?.text.length ?? 0)
@@ -55,6 +56,10 @@ export function useCommandDeckTranscript({
   const onTranscriptScroll = useCallback(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
+    if (performance.now() < anchoredUntilRef.current) {
+      setStuck(false);
+      return;
+    }
     setStuck(isNearBottom(
       scroller.scrollTop,
       scroller.scrollHeight,
@@ -99,6 +104,23 @@ export function useCommandDeckTranscript({
     });
   }, []);
 
+  const revealCompletedWork = useCallback((turnId: string) => {
+    anchoredUntilRef.current = performance.now() + 1000;
+    setStuck(false);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const scroller = scrollerRef.current;
+        const target = document.getElementById(`deck-turn-${turnId}`);
+        if (!scroller || !target || !scroller.contains(target)) return;
+        scroller.scrollTop = revealTargetScrollTop(
+          scroller.scrollTop,
+          scroller.getBoundingClientRect().top,
+          target.getBoundingClientRect().top,
+        );
+      });
+    });
+  }, []);
+
   const searchMatches = useMemo(
     () => matchingTurnIndexes(turns, searchQuery),
     [searchQuery, turns],
@@ -133,6 +155,7 @@ export function useCommandDeckTranscript({
     moveSearch,
     onTranscriptScroll,
     pinTranscriptToLatest,
+    revealCompletedWork,
     scrollerRef,
     searchMatches,
     searchQuery,

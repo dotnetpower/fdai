@@ -25,3 +25,12 @@ export function isNearBottom(
   const distanceFromBottom = scrollHeight - clientHeight - scrollTop;
   return distanceFromBottom <= threshold;
 }
+
+export function revealTargetScrollTop(
+  currentScrollTop: number,
+  scrollerTop: number,
+  targetTop: number,
+  padding: number = 12,
+): number {
+  return Math.max(0, currentScrollTop + targetTop - scrollerTop - padding);
+}

@@ -62,6 +62,7 @@ interface UseCommandDeckSubmitOptions {
   readonly updateConversationIndex: (summary: ConversationSummary) => void;
   readonly focusInput: () => void;
   readonly pinTranscriptToLatest: () => void;
+  readonly revealCompletedWork: (turnId: string) => void;
 }
 
 function shortTime(): string {
@@ -99,6 +100,7 @@ export function useCommandDeckSubmit({
   updateConversationIndex,
   focusInput,
   pinTranscriptToLatest,
+  revealCompletedWork,
 }: UseCommandDeckSubmitOptions) {
   return useCallback(async (raw: string) => {
     const text = raw.trim();
@@ -492,7 +494,8 @@ export function useCommandDeckSubmit({
           turnsRef.current = next;
           return next;
         });
-        pinTranscriptToLatest();
+        const firstActivityTurnId = activityTurnIds.values().next().value;
+        revealCompletedWork(firstActivityTurnId ?? deckId);
       }
     } finally {
       if (isCurrent()) {
@@ -523,5 +526,6 @@ export function useCommandDeckSubmit({
     conversations,
     updateConversationIndex,
     pinTranscriptToLatest,
+    revealCompletedWork,
   ]);
 }

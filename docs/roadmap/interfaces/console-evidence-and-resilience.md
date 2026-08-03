@@ -203,14 +203,26 @@ provider payloads, and validation results remain unchanged.
 
 ## Observed conversation trajectory
 
-Each completed Command Deck question exposes one collapsed observed trajectory. Its status overview distinguishes completed, corrected, degraded, failed, unverified, running, and unobserved phases; record presence isn't success.
-Recorded event, evidence, reference, and verification counts appear as compact result chips. The collapsed run-record summary retains a bounded
-one-line copy of the operator prompt, and expanding the record scrolls only the transcript while the composer remains visible at the Deck boundary. The expanded view leads with the six-phase rail,
+Each Command Deck question selects the smallest presentation supported by observed work. A turn with
+no activity, handoff, or background task shows only the answer. One successful terminal read uses a
+compact investigation row and doesn't repeat a run record below the answer. Multiple activities,
+milestones, retries, failures, handoffs, commands, or file changes use an expanded timeline by
+default. A durable background task uses a detached task summary. Restored compact turns reconstruct
+the observed row from durable detail, while live turns retain the row already shown in causal order.
+
+The status overview distinguishes completed, corrected, degraded, failed, unverified, running, and
+unobserved phases; record presence isn't success. Result chips report observed query and command
+counts, evidence completion, references, and verification rather than internal event totals. The
+run-record summary retains a bounded one-line copy of the operator prompt, and changing its disclosure
+scrolls only the transcript while the composer remains visible at the Deck boundary. The expanded
+view leads with the six-phase rail,
 expandable observed-event timeline, and provenance signals, while timing windows, decision context, phase records, and coverage gaps remain in one
 collapsed execution-details disclosure.
 The preparing-answer surface remains between the operator turn and observed work until final answer
-streaming starts. The transcript disables browser scroll anchoring, keeps extra bottom space, and
-pins only the latest edge so streaming layout changes don't move the visible reading position.
+streaming starts. Raw current-screen records stay in a collapsed source disclosure. The transcript
+disables browser scroll anchoring, keeps extra bottom space, and follows the latest edge only while
+work streams. On terminal completion it anchors the first observed work group below the transcript
+edge, so execution outcome and answer start remain visible while the final answer lays out.
 Untimed plan and collaboration metadata stays in decision context, while only observed input, evidence and tools, model calls, verification, and delivery use the timeline.
 Answer text is at least 14 px, main disclosures are 44 px high, and content reflows without loss at 200% text resize and 320 CSS pixels.
 The transcript uses 15 px text, trajectory headings use 13 px, event labels use 12 px, controls use

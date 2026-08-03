@@ -258,7 +258,9 @@ function ActivitySummary({
         {activity.detail ? <small>{activity.detail}</small> : null}
       </span>
       <span class="deck-investigation-meta muted">
-        {progress ?? statusLabel(activity.status)}
+        {activity.execution?.inputKind === "query"
+          ? `${t("deck.investigation.readOnly")} · ${progress ?? statusLabel(activity.status)}`
+          : progress ?? statusLabel(activity.status)}
       </span>
     </div>
   );
@@ -278,7 +280,9 @@ export function InvestigationTimeline({
   const tone = investigationTone(activities, branches);
   const visibleBranches = unrepresentedEvidenceBranches(branches, activities);
   const summary = branches.length > 0
-    ? t("deck.investigation.sourceSummary", { count: branches.length })
+    ? t(branches.length === 1
+      ? "deck.investigation.sourceSummaryOne"
+      : "deck.investigation.sourceSummaryMany", { count: branches.length })
     : t("deck.investigation.executionDetails", { count: activities.length });
   const body = (
     <div class="deck-investigation-body">
@@ -362,7 +366,11 @@ export function InvestigationTimeline({
             {statusLabel(tone)}
           </span>
           {finalDurationMs > 0 ? (
-            <span class="deck-investigation-meta muted">{formatDuration(finalDurationMs)}</span>
+            <span class="deck-investigation-meta muted">
+              {t("deck.investigation.toolDuration", {
+                duration: formatDuration(finalDurationMs),
+              })}
+            </span>
           ) : null}
         </header>
         {body}

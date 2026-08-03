@@ -1894,6 +1894,8 @@ def test_stopped_db_stream_overrides_semantic_web_plan(
     assert '"branch_kind": "agent"' not in response.text
     activity = _stream_event(response.text, "activity")
     assert activity is not None
+    assert activity["label"] == "Queried Azure inventory"
+    assert activity["detail"] == ("2 matching resources" if includes_sql else "1 matching resource")
     execution = activity["execution"]
     assert execution["tool"] == "FDAI inventory"
     assert execution["input_kind"] == "query"

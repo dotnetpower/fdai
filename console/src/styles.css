@@ -616,8 +616,7 @@ a:hover {
   text-decoration: none;
 }
 .brand-lockup:hover { color: var(--fg); }
-.brand-logo { width: 26px; height: 26px; display: block; flex: 0 0 auto; }
-.brand-wordmark { font-size: 13px; font-weight: 760; letter-spacing: 0.055em; }
+.brand-logo { width: 76px; height: 42px; object-fit: contain; display: block; flex: 0 0 auto; }
 .brand-separator { width: 1px; height: 16px; margin-left: 2px; background: var(--border); }
 .brand-product { color: var(--fg-muted); font-size: 12px; font-weight: 560; }
 
@@ -6027,7 +6026,14 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-body.has-conversations { grid-template-columns: 210px minmax(0, 1fr); }
 .deck-body.has-digest { grid-template-columns: minmax(0, 1fr) 280px; }
 .deck-body.has-conversations.has-digest { grid-template-columns: 210px minmax(0, 1fr) 280px; }
-.deck-transcript-column { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.deck-transcript-column {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  container-name: deck-transcript;
+  container-type: inline-size;
+}
 .deck-transcript-tools { min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 6px 20px; border-bottom: 1px solid var(--border); background: var(--bg-elevated); }
 .deck-overlay-mode-workspace .deck-transcript-tools {
   width: min(100%, 900px);
@@ -6622,6 +6628,30 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-model-trace-lanes time { grid-column: 2; }
   .deck-model-trace-duration { grid-column: 3; grid-row: 1; }
   .deck-model-trace-detail { padding-left: 0; }
+}
+@container deck-transcript (max-width: 620px) {
+  .deck-trajectory-summary { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .deck-trajectory-stats {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+  .deck-trajectory-duration { white-space: normal; }
+  .deck-trajectory-phase-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 10px; }
+  .deck-trajectory-context-grid, .deck-execution-facts { grid-template-columns: 1fr; }
+  .deck-trajectory-signals { grid-template-columns: 1fr; gap: 8px; }
+  .deck-trajectory-signals > div { padding: 0; border-left: 0; }
+  .deck-execution-timeline > ol > li > details > summary {
+    grid-template-columns: 58px minmax(0, 1fr) auto 9px;
+    padding: 7px 0;
+  }
+  .deck-execution-track { grid-column: 1 / -1; width: 100%; }
+  .deck-execution-duration { grid-column: 2; text-align: left; }
+  .deck-execution-outcome { grid-column: 3; grid-row: 1; }
+  .deck-execution-chevron { grid-column: 4; grid-row: 1; }
+  .deck-execution-detail { margin-left: 0; }
 }
 .deck-transcript {
   overflow-y: auto;
@@ -7616,6 +7646,22 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   letter-spacing: 0.05em;
   font-weight: 700;
   margin: 4px 0 6px;
+  min-height: 30px;
+  cursor: pointer;
+  list-style: none;
+}
+.deck-rt-sources-label::-webkit-details-marker { display: none; }
+.deck-rt-sources-label::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-left: 4px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+}
+.deck-rt-sources[open] .deck-rt-sources-label::after {
+  transform: rotate(225deg) translate(-1px, -1px);
 }
 /* Slot window: only ~3 cards show; the track rolls upward as sources
  * arrive, with top/bottom fade masks for the slot-machine feel. */

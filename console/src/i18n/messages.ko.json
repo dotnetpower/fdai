@@ -2135,7 +2135,8 @@
       "cancelled": "취소됨",
       "finished": "종료",
       "branches": "근거 브랜치",
-      "sourceSummary": "근거 {count}개",
+      "sourceSummaryOne": "근거 1개",
+      "sourceSummaryMany": "근거 {count}개",
       "executionDetails": "실행 상세 정보 ({count})",
       "kind": {
         "tool": "도구 근거",
@@ -2154,7 +2155,9 @@
       "timestamps": "타임스탬프",
       "startedAt": "시작",
       "completedAt": "완료",
-      "duration": "소요 시간"
+      "duration": "소요 시간",
+      "toolDuration": "도구 실행 {duration}",
+      "readOnly": "읽기 전용"
     },
     "trajectory": {
       "runRecord": "실행 기록",
@@ -2203,6 +2206,8 @@
       "executionTimeline": "관측된 실행 타임라인",
       "executionDetails": "실행 상세",
       "observedEventCount": "관측 이벤트 {count}건",
+      "activitySummary": "읽기 쿼리 {queries}건 / 명령 {commands}건",
+      "endToEndDuration": "전체 처리 {duration}",
       "executionKind": {
         "turn": "대화",
         "phase": "단계",
