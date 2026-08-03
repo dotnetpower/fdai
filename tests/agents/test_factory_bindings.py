@@ -14,6 +14,7 @@ def test_configured_forseti_preserves_baseline_instance() -> None:
             action_semantics=None,
             operational_context=None,
             operational_planner=None,
+            change_assessor=None,
         )
         is None
     )
@@ -27,6 +28,7 @@ def test_configured_forseti_accepts_planning_binding() -> None:
         action_semantics=None,
         operational_context=None,
         operational_planner=planner,
+        change_assessor=None,
     )
 
     assert isinstance(agent, Forseti)

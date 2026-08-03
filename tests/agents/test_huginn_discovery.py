@@ -17,6 +17,7 @@ def _canonical_event() -> dict[str, Any]:
         "correlation_id": "inventory:resource-1",
         "source": "azure_event_grid.resource_change",
         "event_type": "inventory.resource_changed",
+        "occurred_at": "2026-07-18T01:02:03+00:00",
         "resource_ref": "resource-1",
         "payload": {
             "signal_kind": "azure.activity_log",

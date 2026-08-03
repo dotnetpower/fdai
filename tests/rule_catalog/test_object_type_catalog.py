@@ -98,6 +98,7 @@ def test_shipped_object_types_load() -> None:
         "BusinessService",
         "CausalHypothesis",
         "Change",
+        "ChangeWindow",
         "CostObjective",
         "DecisionCase",
         "Environment",
