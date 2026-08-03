@@ -11,6 +11,8 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from uuid import UUID
 
+import pypdf
+
 from fdai.shared.contracts import (
     DocumentEnvelope,
     DocumentVersion,
@@ -159,7 +161,7 @@ class SignatureProtectionInspector:
 
 
 class StandardLibraryDocumentExtractor:
-    """Safely extract bounded UTF-8 text and modern OOXML without active content."""
+    """Extract bounded local text, Office, PDF, and OCR evidence without active content."""
 
     def __init__(self, *, image_ocr: ImageOcrProvider | None = None) -> None:
         self._image_ocr = image_ocr
@@ -203,8 +205,8 @@ class StandardLibraryDocumentExtractor:
             protection_state=version.protection_state,
             access_descriptor_ref=version.access.reference,
             units=units,
-            extractor_name="stdlib-safe",
-            extractor_version="1.1.0",
+            extractor_name="pypdf" if observed == "pdf" else "stdlib-safe",
+            extractor_version=pypdf.__version__ if observed == "pdf" else "1.1.0",
         )
 
 

@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 16cacf62358be8707ca5a74163ecc853e807bbc5
+translation_source_sha: 7d663cb2ed6f7a5ef6d4a9baf22a471163fe05d2
 translation_revised: 2026-08-03
 ---
 # 문서 온톨로지 증류
@@ -152,6 +152,9 @@ injected page OCR provider가 bounded cited block을 반환해야 합니다. OCR
 damage, unsupported compression, page/count limit 또는 extracted-character limit 초과는 fail closed하며
 review package를 만들지 않습니다. OCR은 evidence extraction만 수행하며 executor identity를 받지
 않습니다.
+Native parsing은 strict mode의 `pypdf`를 사용하고 `pdf/page:{page}/block:{block}` locator를
+유지합니다. Byte, page, object, unit 및 character ceiling은 FDAI가 소유하는 boundary로 유지하며,
+library error는 document content를 포함하지 않도록 normalize합니다.
 
 Frozen synthetic corpus는 같은 operational claim을 Markdown, DOCX, PPTX, native text PDF 및 scanned
 PDF로 표현합니다. Conformance는 source-format과 locator field만 다를 수 있도록 허용하고 normalized

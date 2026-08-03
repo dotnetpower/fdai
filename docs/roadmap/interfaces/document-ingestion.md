@@ -541,7 +541,7 @@ rights-reconciliation lag, orphaned partial uploads, indexing lag, deletion lag,
 
 The upstream implementation now ships the contracts, fail-closed lifecycle, dedicated ASGI
 gateway, console drop zone, streaming browser hash, local direct-upload adapter, safe text,
-structured Office, and bounded text-PDF extractors, protection signature detection, structure-aware chunking, ADLS Gen2 source and artifact
+structured Office, and bounded strict-pypdf text extraction, protection signature detection, structure-aware chunking, ADLS Gen2 source and artifact
 stores, PostgreSQL metadata, a governed pgvector index, Azure OpenAI embeddings, Event Hubs Kafka
 processing, ClamAV scanning, test adapters, and deletion lineage. Deployments can replace
 providers through dependency injection when they require Purview/RMS, OCR, or richer formats.
@@ -550,7 +550,7 @@ providers through dependency injection when they require Purview/RMS, OCR, or ri
 |-------|-----------------|
 | Contract and metadata | Shipped: `DocumentEnvelope`, state machine, capability discovery, access provider, metadata/activity seams, and console visibility notice. |
 | Safe text | Shipped generically: gateway streaming upload, quarantine lifecycle, fail-closed scanner seam, UTF-8/OOXML extraction, structure-aware overlapping chunks, local embedding retrieval, atomic pgvector version replacement/deletion, access-filtered search, and deletion. The upstream scanner abstains until a production provider is bound. |
-| Layout | Shipped generically: DOCX paragraph/heading/table cells, PPTX slide/shape/table cells/speaker notes, and bounded native PDF page blocks. Scanned PDF uses the existing OCR seam only when bound; unsupported filters/font maps, malformed input, and missing OCR fail closed. Previews remain provider work. |
+| Layout | Shipped generically: DOCX paragraph/heading/table cells, PPTX slide/shape/table cells/speaker notes, and strict `pypdf` native PDF page blocks. PDF parsing rejects encryption and enforces independent byte, page, object, unit, and extracted-character ceilings. Parser failures expose one sanitized error without document content. Scanned PDF uses the existing OCR seam only when bound. Previews remain provider work. |
 | Channel evidence | Shipped generically: bounded opaque Slack/Teams metadata, credential-fetcher seam, byte/hash verification, full protected ingestion, reject-before-tool gating, and citation-only `doc:` refs. PNG/JPEG/GIF/WebP signatures produce metadata-only envelopes; OCR and vendor credential composition remain provider bindings. |
 | Protection | Partial: PDF/Office/container encryption and suspicious rights metadata are detected and held. A Purview/RMS adapter, delegated authorization, and revocation reconciliation remain fork bindings. |
 | Connector and scale | Partial: scoped upload sessions, streaming hashes, ADLS, durable PostgreSQL metadata, and bounded parser budgets ship. Block-resumable direct upload, connector delta sync, and measured capacity targets remain follow-up work. |

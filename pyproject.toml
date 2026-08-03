@@ -59,6 +59,9 @@ dependencies = [
     # maps so Markdown paragraphs, headings, lists, tables, and code do not
     # degrade into unrelated physical-line chunks.
     "markdown-it-py>=4,<5",
+    # D4c document distillation - strict PDF parsing supports modern xref and
+    # object streams while FDAI retains page, object, unit, and character budgets.
+    "pypdf>=6,<7",
     # W3 - HTTP client for provider adapters (Azure Resource Graph REST).
     # Async by default; `core/` never imports it - only adapters under
     # `delivery/<csp>/` do. Pinned per docs/roadmap/architecture/csp-neutrality.md § 5.

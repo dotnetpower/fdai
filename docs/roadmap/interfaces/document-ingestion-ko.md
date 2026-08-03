@@ -1,7 +1,7 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: c49e427dee8a5c9375ffcf8b791db6fcab33c986
+translation_source_sha: ed1f2def2232e388d94d61fd7d6dd6cd9e6eee46
 translation_revised: 2026-08-03
 ---
 # 문서 인제스트와 Drop Zone
@@ -550,7 +550,7 @@ rights-reconciliation lag, orphaned partial upload, indexing lag, deletion lag, 
 
 Upstream 구현은 이제 contract, fail-closed lifecycle, 전용 ASGI gateway, console drop zone,
 streaming browser hash, local direct-upload adapter, 안전한 text, structured Office, bounded
-text-PDF extractor, protection
+strict-pypdf text extractor, protection
 signature detection, structure-aware chunking, ADLS Gen2 source/artifact store, PostgreSQL
 metadata, governed pgvector index, Azure OpenAI embedding, Event Hubs Kafka processing, ClamAV
 scanning, test adapter, deletion lineage를 제공합니다. Deployment는 Purview/RMS, OCR,
@@ -560,7 +560,7 @@ rich format이 필요할 때 dependency injection으로 provider를 교체할 �
 |-------|---------------|
 | Contract and metadata | 제공됨: `DocumentEnvelope`, state machine, capability discovery, access provider, metadata/activity seam, console visibility notice |
 | Safe text | 일반 구현 제공됨: gateway streaming upload, quarantine lifecycle, fail-closed scanner seam, UTF-8/OOXML extraction, structure-aware overlapping chunk, local embedding retrieval, 원자적 pgvector version 교체/삭제, access-filtered search, deletion. Upstream scanner는 production provider를 bind할 때까지 abstain합니다. |
-| Layout | 일반 구현 제공됨: DOCX paragraph/heading/table cell, PPTX slide/shape/table cell/speaker note 및 bounded native PDF page block. Scanned PDF는 OCR seam이 bind된 경우에만 사용하며 unsupported filter/font map, malformed input 및 OCR 부재는 fail closed합니다. Preview는 provider 후속 작업입니다. |
+| Layout | 일반 구현 제공됨: DOCX paragraph/heading/table cell, PPTX slide/shape/table cell/speaker note 및 strict `pypdf` native PDF page block. PDF parsing은 encryption을 거부하고 byte, page, object, unit 및 extracted-character ceiling을 독립적으로 적용합니다. Parser failure는 document content 없이 sanitized error 하나만 노출합니다. Scanned PDF는 OCR seam이 bind된 경우에만 사용합니다. Preview는 provider 후속 작업입니다. |
 | Channel evidence | 일반 구현 제공됨: bounded opaque Slack/Teams metadata, credential-fetcher seam, byte/hash verification, 전체 protected ingestion, reject-before-tool gating, citation-only `doc:` ref. PNG/JPEG/GIF/WebP signature는 metadata-only envelope를 만들며 OCR 및 vendor credential composition은 provider binding으로 남습니다. |
 | Protection | 일부 제공됨: PDF/Office/container encryption과 의심스러운 rights metadata를 감지하고 hold합니다. Purview/RMS adapter, delegated authorization, revocation reconciliation은 fork binding으로 남습니다. |
 | Connector and scale | 일부 제공됨: scoped upload session, streaming hash, ADLS, durable PostgreSQL metadata, bounded parser budget을 제공합니다. Block-resumable direct upload, connector delta sync, 측정된 capacity target은 후속 작업입니다. |

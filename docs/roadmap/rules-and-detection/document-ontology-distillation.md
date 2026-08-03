@@ -150,6 +150,9 @@ Each PDF page selects exactly one evidence path. Native text wins when present; 
 injected page OCR provider must return bounded cited blocks. Missing OCR, encrypted input, parser
 damage, unsupported compression, page/count limits, or extracted-character limits fail closed and
 produce no review package. OCR is evidence extraction only and receives no executor identity.
+Native parsing uses `pypdf` in strict mode and retains `pdf/page:{page}/block:{block}` locators.
+Byte, page, object, unit, and character ceilings remain FDAI-owned boundaries, and library errors
+are normalized without including document content.
 
 The frozen synthetic corpus expresses the same operational claims as Markdown, DOCX, PPTX, native
 text PDF, and scanned PDF. Conformance compares normalized claims, proposals, and graph operations

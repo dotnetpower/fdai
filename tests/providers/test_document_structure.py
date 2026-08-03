@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import io
 import zipfile
-import zlib
 
 import pytest
+from pypdf import PdfWriter
+from pypdf.errors import PdfReadError
+from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from fdai.shared.contracts import StructuralUnit
 from fdai.shared.providers.local import document_pdf, document_structure
@@ -69,12 +71,57 @@ def test_pptx_extracts_every_table_within_one_shape() -> None:
     ]
 
 
-def test_pdf_rejects_unproven_font_mapping_and_deep_page_tree() -> None:
-    with pytest.raises(ValueError, match="font character map"):
-        extract_pdf_text(_pdf(stream=b"BT (\x80) Tj ET"))
+def test_pdf_extracts_generated_fixture_and_rejects_encryption() -> None:
+    units = extract_pdf_text(_generated_pdf("Generated operations manual"))
+    assert [unit.locator for unit in units] == ["pdf/page:1/block:1"]
+    assert [unit.text for unit in units] == ["Generated operations manual"]
 
-    with pytest.raises(ValueError, match="depth budget"):
-        extract_pdf_text(_deep_pdf(depth=130))
+    with pytest.raises(ValueError, match="encrypted"):
+        extract_pdf_text(_generated_pdf("restricted", password="secret"))
+
+
+def test_pdf_uses_strict_reader_and_sanitizes_parser_errors(monkeypatch) -> None:
+    real_reader = document_pdf.PdfReader
+
+    def strict_reader(stream, *, strict):
+        assert strict is True
+        return real_reader(stream, strict=strict)
+
+    monkeypatch.setattr(document_pdf, "PdfReader", strict_reader)
+    assert extract_pdf_text(_generated_pdf("strict"))[0].text == "strict"
+
+    def broken_reader(stream, *, strict):
+        del stream, strict
+        raise PdfReadError("private document fragment")
+
+    monkeypatch.setattr(document_pdf, "PdfReader", broken_reader)
+    with pytest.raises(ValueError) as captured:
+        extract_pdf_text(b"%PDF-1.7\nprivate document fragment\n%%EOF")
+    assert str(captured.value) == "PDF parsing or text extraction failed"
+    assert "private document fragment" not in str(captured.value)
+
+
+def test_pdf_native_extraction_enforces_every_budget(monkeypatch) -> None:
+    content = _generated_pdf("bounded text")
+    limits = (
+        ("_MAX_PDF_BYTES", 1, "bytes"),
+        ("_MAX_PDF_PAGES", 0, "page count"),
+        ("_MAX_PDF_OBJECTS", 0, "object count"),
+        ("_MAX_UNITS", 0, "extracted text"),
+        ("_MAX_CHARACTERS", 1, "extracted text"),
+    )
+    for attribute, value, message in limits:
+        with monkeypatch.context() as context:
+            context.setattr(document_pdf, attribute, value)
+            with pytest.raises(ValueError, match=message):
+                extract_pdf_text(content)
+
+
+def test_pdf_text_blocks_preserve_page_local_order() -> None:
+    assert document_pdf._page_text_blocks(" first line\n\nsecond   line ") == (
+        "first line",
+        "second line",
+    )
 
 
 def test_pdf_ocr_rejects_duplicate_or_reordered_citations() -> None:
@@ -109,64 +156,6 @@ def test_pdf_ocr_validates_locator_empty_output_and_budget(monkeypatch) -> None:
     monkeypatch.setattr(document_pdf, "_MAX_CHARACTERS", 1)
     with pytest.raises(ValueError, match="parser budget"):
         normalize_pdf_ocr_units(valid)
-
-
-def test_pdf_stream_filter_and_expansion_guards(monkeypatch) -> None:
-    assert document_pdf._pdf_stream(b"<<>> stream\nraw\nendstream") == b"raw"
-    assert document_pdf._pdf_stream(b"<<>>\rstream\rraw\rendstream") == b"raw"
-    assert document_pdf._object_type(b"<< /Label (stream error) /Type /Page >>") == b"Page"
-    compressed = zlib.compress(b"decoded")
-    flate = b"<< /Filter /FlateDecode >> stream\n" + compressed + b"\nendstream"
-    assert document_pdf._pdf_stream(flate) == b"decoded"
-    with pytest.raises(ValueError, match="unsupported filter"):
-        document_pdf._pdf_stream(b"<< /Filter /ASCII85Decode >> stream\nx\nendstream")
-    with pytest.raises(ValueError, match="corrupt"):
-        document_pdf._pdf_stream(b"<< /Filter /FlateDecode >> stream\nbad\nendstream")
-    with pytest.raises(ValueError, match="malformed"):
-        document_pdf._pdf_stream(b"<<>>")
-    monkeypatch.setattr(document_pdf, "_MAX_EXPANDED_BYTES", 1)
-    with pytest.raises(ValueError, match="expansion"):
-        document_pdf._pdf_stream(flate)
-
-
-def test_pdf_string_decoding_is_bounded_and_explicit() -> None:
-    assert document_pdf._pdf_text_fragments(b"<4869> Tj") == ("Hi",)
-    assert document_pdf._pdf_text_fragments(b"(a\\050b\\051) Tj") == ("a(b)",)
-    assert document_pdf._decode_pdf_text(b"\xfe\xff\x00H\x00i") == "Hi"
-    with pytest.raises(ValueError, match="incomplete"):
-        document_pdf._pdf_text_fragments(b"<48")
-    with pytest.raises(ValueError, match="invalid"):
-        document_pdf._pdf_text_fragments(b"<zz>")
-    with pytest.raises(ValueError, match="incomplete"):
-        document_pdf._pdf_text_fragments(b"(open")
-    with pytest.raises(ValueError, match="UTF-16"):
-        document_pdf._decode_pdf_text(b"\xfe\xff\x00")
-
-
-def test_pdf_page_tree_and_document_shape_fail_closed(monkeypatch) -> None:
-    page = b"<< /Type /Page >>"
-    assert document_pdf._pdf_page_refs(
-        {(1, 0): b"<< /Type /Pages /Kids [2 0 R] >>", (2, 0): page},
-        (1, 0),
-    ) == ((2, 0),)
-    with pytest.raises(ValueError, match="missing object"):
-        document_pdf._pdf_page_refs({(1, 0): b"<< /Type /Pages /Kids [2 0 R] >>"}, (1, 0))
-    with pytest.raises(ValueError, match="cycle"):
-        document_pdf._pdf_page_refs(
-            {(1, 0): b"<< /Type /Pages /Kids [1 0 R] >>"},
-            (1, 0),
-        )
-    with pytest.raises(ValueError, match="malformed"):
-        document_pdf._pdf_page_refs({(1, 0): b"<< /Type /Other >>"}, (1, 0))
-    with pytest.raises(ValueError, match="incomplete"):
-        extract_pdf_text(b"not-pdf")
-    with pytest.raises(ValueError, match="object count"):
-        extract_pdf_text(b"%PDF-1.7\n%%EOF")
-    with pytest.raises(ValueError, match="page tree is missing"):
-        extract_pdf_text(b"%PDF-1.7\n1 0 obj << /Type /Other >> endobj\n%%EOF")
-    monkeypatch.setattr(document_pdf, "_MAX_PDF_PAGES", 0)
-    with pytest.raises(ValueError, match="page count"):
-        extract_pdf_text(_pdf(stream=b"BT (text) Tj ET"))
 
 
 def test_ooxml_rejects_unsafe_members_and_declarations(monkeypatch) -> None:
@@ -204,29 +193,24 @@ def _ooxml(parts: dict[str, bytes]) -> bytes:
     return output.getvalue()
 
 
-def _pdf(*, stream: bytes) -> bytes:
-    objects = (
-        b"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
-        b"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
-        b"3 0 obj << /Type /Page /Parent 2 0 R /Contents 4 0 R >> endobj",
-        b"4 0 obj << /Length "
-        + str(len(stream)).encode()
-        + b" >> stream\n"
-        + stream
-        + b"\nendstream endobj",
+def _generated_pdf(text: str, *, password: str | None = None) -> bytes:
+    output = io.BytesIO()
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=612, height=792)
+    font = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Font"),
+            NameObject("/Subtype"): NameObject("/Type1"),
+            NameObject("/BaseFont"): NameObject("/Helvetica"),
+        }
     )
-    return b"%PDF-1.7\n" + b"\n".join(objects) + b"\n%%EOF\n"
-
-
-def _deep_pdf(*, depth: int) -> bytes:
-    objects = [b"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj"]
-    for object_number in range(2, depth + 2):
-        child = object_number + 1
-        objects.append(
-            f"{object_number} 0 obj << /Type /Pages /Kids [{child} 0 R] /Count 1 >> endobj".encode()
-        )
-    page_number = depth + 2
-    objects.append(
-        f"{page_number} 0 obj << /Type /Page /Parent {page_number - 1} 0 R >> endobj".encode()
+    page[NameObject("/Resources")] = DictionaryObject(
+        {NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)})}
     )
-    return b"%PDF-1.7\n" + b"\n".join(objects) + b"\n%%EOF\n"
+    stream = DecodedStreamObject()
+    stream.set_data(f"BT /F1 12 Tf 72 720 Td ({text}) Tj ET".encode("ascii"))
+    page[NameObject("/Contents")] = writer._add_object(stream)
+    if password is not None:
+        writer.encrypt(password)
+    writer.write(output)
+    return output.getvalue()
