@@ -1,18 +1,38 @@
 # Existing decomposition debt tracked by issue #14; growth above each exact cap is blocked.
-885 src/fdai/agents/forseti.py
+1010 src/fdai/agents/forseti.py
+# Norns learner orchestration awaits the agent-family decomposition tracked by issue #14.
+806 src/fdai/agents/norns.py
+# HIL resume coordination awaits the approval-lifecycle decomposition tracked by issue #14.
+937 src/fdai/core/hil_resume/coordinator.py
 # Azure read-investigation transport remains bounded by its current pre-split size.
 849 src/fdai/delivery/azure/read_investigation/rest_transport.py
+# Subscription health composition awaits the Azure evidence-family decomposition tracked by issue #14.
+1336 src/fdai/delivery/azure/subscription_health.py
 # Local Operator API composition factory awaits the app-shape decomposition tracked by issue #14.
-819 src/fdai/delivery/operator_api/dev/factory.py
+945 src/fdai/delivery/operator_api/dev/factory.py
 # Production Operator API composition factory awaits the app-shape decomposition tracked by issue #14.
-807 src/fdai/delivery/operator_api/production/factory.py
+953 src/fdai/delivery/operator_api/production/factory.py
+# Chat route coordination awaits the route-family decomposition tracked by issue #14.
+1147 src/fdai/delivery/operator_api/routes/chat.py
+# Conversation context awaits the route-family decomposition tracked by issue #14.
+804 src/fdai/delivery/operator_api/routes/chat_conversation_context.py
 # Evidence enrichment route awaits the route-family decomposition tracked by issue #14.
-874 src/fdai/delivery/operator_api/routes/chat_evidence_enrichment.py
+1059 src/fdai/delivery/operator_api/routes/chat_evidence_enrichment.py
+# Inventory chat routing awaits the route-family decomposition tracked by issue #14.
+1229 src/fdai/delivery/operator_api/routes/chat_inventory.py
 # Streaming route awaits the route-family decomposition tracked by issue #14.
-841 src/fdai/delivery/operator_api/routes/chat_stream.py
+1216 src/fdai/delivery/operator_api/routes/chat_stream.py
+# Subscription health chat routing awaits the route-family decomposition tracked by issue #14.
+1630 src/fdai/delivery/operator_api/routes/chat_subscription_health.py
 # Verification route awaits the route-family decomposition tracked by issue #14.
-952 src/fdai/delivery/operator_api/routes/chat_verification.py
+1308 src/fdai/delivery/operator_api/routes/chat_verification.py
+# Console action delivery awaits the route-family decomposition tracked by issue #14.
+812 src/fdai/delivery/operator_api/routes/console_action.py
+# Model settings routing awaits the route-family decomposition tracked by issue #14.
+840 src/fdai/delivery/operator_api/routes/model_settings.py
+# Read-investigation response routing awaits the route-family decomposition tracked by issue #14.
+854 src/fdai/delivery/operator_api/routes/read_investigation_responder.py
 # Deployment CLI command dispatch awaits the command-family decomposition tracked by issue #14.
-860 src/fdai/deployment_cli/cli.py
+864 src/fdai/deployment_cli/cli.py
 # Runtime bootstrap wiring awaits the composition-family decomposition tracked by issue #14.
-900 src/fdai/runtime/bootstrap.py
+1026 src/fdai/runtime/bootstrap.py
