@@ -1202,6 +1202,9 @@ def test_build_control_loop_wires_rca_and_correlator(
     assert loop._t1_engine is not None
     assert loop._t2_engine is not None
     assert loop._inventory_age_provider is None
+    from fdai.core.risk_gate import GovernedPreconditionEvaluator
+
+    assert isinstance(loop._precondition_evaluator, GovernedPreconditionEvaluator)
 
 
 def test_build_control_loop_uses_configured_tier_thresholds(app_config: AppConfig) -> None:

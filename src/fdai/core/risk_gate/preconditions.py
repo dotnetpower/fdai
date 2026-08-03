@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol, runtime_checkable
 
 from fdai.shared.contracts.models import (
@@ -38,6 +39,25 @@ class PreconditionEvaluator(Protocol):
         action: Action,
         action_type: OntologyActionType,
     ) -> tuple[PreconditionEvaluation, ...]: ...
+
+
+@runtime_checkable
+class OpenActionEvidenceProvider(Protocol):
+    """Read whether another open action conflicts on the logical target."""
+
+    async def has_conflict(
+        self,
+        *,
+        target_ref: str,
+        excluding_idempotency_key: str,
+    ) -> bool: ...
+
+
+@runtime_checkable
+class ChangeWindowEvidenceProvider(Protocol):
+    """Read whether an approved change window covers the target and time."""
+
+    async def is_active(self, *, target_ref: str, at: datetime) -> bool: ...
 
 
 class EventPreconditionEvaluator:
@@ -94,8 +114,70 @@ class EventPreconditionEvaluator:
         return tuple(evaluations)
 
 
+class GovernedPreconditionEvaluator:
+    """Combine event evidence with optional authoritative state providers."""
+
+    def __init__(
+        self,
+        *,
+        event_evaluator: EventPreconditionEvaluator | None = None,
+        open_actions: OpenActionEvidenceProvider | None = None,
+        change_windows: ChangeWindowEvidenceProvider | None = None,
+    ) -> None:
+        self._event_evaluator = event_evaluator or EventPreconditionEvaluator()
+        self._open_actions = open_actions
+        self._change_windows = change_windows
+
+    async def evaluate(
+        self,
+        *,
+        event: Event,
+        action: Action,
+        action_type: OntologyActionType,
+    ) -> tuple[PreconditionEvaluation, ...]:
+        evaluations = {
+            item.condition_index: item
+            for item in await self._event_evaluator.evaluate(
+                event=event,
+                action=action,
+                action_type=action_type,
+            )
+        }
+        for index, precondition in enumerate(action_type.preconditions):
+            if (
+                precondition.kind is PreconditionKind.NO_CONFLICTING_OPEN_ACTION_ON_RESOURCE
+                and self._open_actions is not None
+            ):
+                conflict = await self._open_actions.has_conflict(
+                    target_ref=action.target_resource_ref,
+                    excluding_idempotency_key=action.idempotency_key,
+                )
+                evaluations[index] = PreconditionEvaluation(
+                    condition_index=index,
+                    kind=precondition.kind,
+                    satisfied=not conflict,
+                )
+            elif (
+                precondition.kind is PreconditionKind.MAINTENANCE_WINDOW_ACTIVE
+                and self._change_windows is not None
+            ):
+                active = await self._change_windows.is_active(
+                    target_ref=action.target_resource_ref,
+                    at=event.detected_at,
+                )
+                evaluations[index] = PreconditionEvaluation(
+                    condition_index=index,
+                    kind=precondition.kind,
+                    satisfied=active,
+                )
+        return tuple(evaluations[index] for index in sorted(evaluations))
+
+
 __all__ = [
     "EventPreconditionEvaluator",
+    "ChangeWindowEvidenceProvider",
+    "GovernedPreconditionEvaluator",
+    "OpenActionEvidenceProvider",
     "PreconditionEvaluation",
     "PreconditionEvaluator",
 ]

@@ -24,6 +24,10 @@ from fdai.core.risk_gate.gate import (
     RiskGateConfig,
     duration_since,
 )
+from fdai.core.risk_gate.ontology_preconditions import (
+    OntologyChangeWindowEvidenceProvider,
+    OntologyOpenActionEvidenceProvider,
+)
 from fdai.core.risk_gate.precedence import (
     CandidateAction,
     PrecedenceDecision,
@@ -32,7 +36,10 @@ from fdai.core.risk_gate.precedence import (
     Vertical,
 )
 from fdai.core.risk_gate.preconditions import (
+    ChangeWindowEvidenceProvider,
     EventPreconditionEvaluator,
+    GovernedPreconditionEvaluator,
+    OpenActionEvidenceProvider,
     PreconditionEvaluation,
     PreconditionEvaluator,
 )
@@ -41,7 +48,12 @@ __all__ = [
     "ActionModeRecord",
     "ActionPromotionRegistry",
     "CandidateAction",
+    "ChangeWindowEvidenceProvider",
     "EventPreconditionEvaluator",
+    "GovernedPreconditionEvaluator",
+    "OntologyChangeWindowEvidenceProvider",
+    "OntologyOpenActionEvidenceProvider",
+    "OpenActionEvidenceProvider",
     "OperationalPromotionReceiptVerifier",
     "PersistedPromotionAuthorityVerifier",
     "PrecedenceDecision",

@@ -54,7 +54,12 @@ from fdai.core.rca import (
     TelemetryEvidenceGatherer,
     TemporalCausalityAnalyzer,
 )
-from fdai.core.risk_gate import ActionPromotionRegistry, RiskGate
+from fdai.core.risk_gate import (
+    ActionPromotionRegistry,
+    GovernedPreconditionEvaluator,
+    OntologyChangeWindowEvidenceProvider,
+    RiskGate,
+)
 from fdai.core.risk_gate.risk_table import load_risk_table
 from fdai.core.stewardship import (
     Duty,
@@ -566,6 +571,13 @@ def _build_control_loop(
         if ontology_object_types and ontology_link_types
         else None
     )
+    precondition_evaluator = (
+        GovernedPreconditionEvaluator(
+            change_windows=OntologyChangeWindowEvidenceProvider(ontology_instance_store),
+        )
+        if ontology_instance_store is not None
+        else None
+    )
     if causal_runtime_coordinator is None and container.temporal_causal_evidence_provider:
         if (
             container.temporal_causality_config is None
@@ -626,6 +638,7 @@ def _build_control_loop(
         governance_assignments=governance_catalog.assignments,
         inventory_age_provider=_build_inventory_age_provider(),
         inventory_context_provider=_build_inventory_context_provider(),
+        precondition_evaluator=precondition_evaluator,
         promotion_state_refresher=promotion_state_refresher,
         stage_publisher=stage_publisher,
         kill_switch=kill_switch,
