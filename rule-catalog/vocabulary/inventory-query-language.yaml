@@ -1,5 +1,5 @@
 schema_version: "1.1.0"
-version: "1.1.18"
+version: "1.1.19"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -35,7 +35,7 @@ query_kinds:
   count:
     terms: [how many, count, 몇 개, 개수]
   inventory_coverage:
-    terms: [inventory types did you check, inventory types checked, skipped inventory types, failed inventory types, checked skipped or failed, 확인한 인벤토리 유형, 건너뛴 인벤토리 유형, 읽기 실패한 인벤토리 유형]
+    terms: [inventory types did you check, inventory types checked, skipped inventory types, failed inventory types, checked skipped or failed, checked skipped and failed-to-read groups, resource types were inspected omitted or unavailable, 확인한 인벤토리 유형, 건너뛴 인벤토리 유형, 읽기 실패한 인벤토리 유형]
   state_coverage:
     terms: [resource types with unavailable state, resource types whose state cannot be determined, types with unknown state, 상태를 확인할 수 없는 리소스 유형, 상태 확인 불가 리소스 유형, 상태 미확인 유형]
   types:

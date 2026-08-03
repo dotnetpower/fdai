@@ -161,12 +161,20 @@ def compile_inventory_query(
             projection=_projection(prompt, language=lexical),
         )
 
-    statuses = _status_values(
-        prompt,
-        resources,
-        resource_types=resource_types,
-        language=lexical,
-        resolver=resource_type_resolver,
+    coverage_kind = kind in {
+        InventoryQueryKind.INVENTORY_COVERAGE,
+        InventoryQueryKind.STATE_COVERAGE,
+    }
+    statuses = (
+        ()
+        if coverage_kind
+        else _status_values(
+            prompt,
+            resources,
+            resource_types=resource_types,
+            language=lexical,
+            resolver=resource_type_resolver,
+        )
     )
     if statuses:
         predicates.append(_in_or_eq(InventoryField.STATUS, statuses))
@@ -182,11 +190,15 @@ def compile_inventory_query(
         and not lexical.has(registry.signals, "unfiltered", prompt)
     ):
         return None
-    status_groups = inventory_query_status_groups(
-        prompt,
-        resource_types=resource_types,
-        language=lexical,
-        resolver=resource_type_resolver,
+    status_groups = (
+        ()
+        if coverage_kind
+        else inventory_query_status_groups(
+            prompt,
+            resource_types=resource_types,
+            language=lexical,
+            resolver=resource_type_resolver,
+        )
     )
     grouping = _grouping(prompt, language=lexical)
     if grouping is InventoryQueryGrouping.NONE and len(status_groups) > 1:
@@ -226,6 +238,12 @@ def inventory_query_evidence_authorities(
 
     lexical = language or default_inventory_query_language_resolver()
     if not is_inventory_question(prompt, resolver=resolver, language=lexical):
+        return ()
+    matched_kinds = set(lexical.matched_ids(lexical.registry.query_kinds, prompt))
+    if matched_kinds & {
+        InventoryQueryKind.INVENTORY_COVERAGE.value,
+        InventoryQueryKind.STATE_COVERAGE.value,
+    }:
         return ()
     return tuple(
         dict.fromkeys(

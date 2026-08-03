@@ -8,6 +8,7 @@ import yaml
 
 from fdai.delivery.operator_api.routes.chat_inventory_compiler import (
     compile_inventory_query,
+    inventory_query_evidence_authorities,
     is_inventory_question,
 )
 from fdai.delivery.operator_api.routes.chat_inventory_query import (
@@ -383,6 +384,20 @@ def test_cache_service_health_question_selects_both_cache_provider_types() -> No
         by_field = {predicate.field: predicate.value for predicate in query.predicates}
         assert by_field[InventoryField.RESOURCE_TYPE] == ("cache", "redis-enterprise")
         assert by_field[InventoryField.STATUS] == "unavailable"
+
+
+def test_inventory_coverage_cohort_ignores_status_words() -> None:
+    for prompt in (
+        "What inventory types did you check, skip, or fail to read?",
+        "Separate inventory types into checked, skipped, and failed-to-read groups.",
+        "Which resource types were inspected, omitted, or unavailable to the inventory reader?",
+    ):
+        query = compile_inventory_query(prompt)
+
+        assert query is not None
+        assert query.kind is InventoryQueryKind.INVENTORY_COVERAGE
+        assert all(predicate.field is not InventoryField.STATUS for predicate in query.predicates)
+        assert inventory_query_evidence_authorities(prompt) == ()
 
 
 def test_app_service_question_separates_not_running_and_not_ready() -> None:
