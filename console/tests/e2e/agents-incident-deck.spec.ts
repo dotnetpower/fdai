@@ -92,9 +92,29 @@ async function installOperatorApiFixture(
     if (path === "/chat/health") {
       await json(route, {
         available: true,
-        mode: "test",
-        model: "narrator-test",
-        endpoint: null,
+        mode: "azure-ad-routed",
+        model: "narrator-fast",
+        endpoint: "https://chat.example.com",
+        router: {
+          chose: "narrator-fast",
+          reason: "latency",
+          candidates: [
+            {
+              deployment: "narrator-fast",
+              p50_ms: 1149,
+              p95_ms: 1390,
+              samples: 2,
+              history_ms: [1149, 1390],
+            },
+            {
+              deployment: "narrator-safe",
+              p50_ms: 5507,
+              p95_ms: 6086,
+              samples: 2,
+              history_ms: [5507, 6086],
+            },
+          ],
+        },
       });
       return;
     }
@@ -228,6 +248,18 @@ test("defaults to the right dock and restores the last display mode", async ({ p
   await page.getByRole("button", { name: "Open command deck" }).click();
   let deck = page.getByRole("complementary", { name: "Command deck" });
   await expect(deck).toHaveClass(/deck-overlay-mode-dock/);
+  await deck.getByRole("button", { name: "Full workspace" }).click();
+  const tooltipWorkspace = page.getByRole("dialog", { name: "Command deck" });
+  await tooltipWorkspace.locator(".deck-backend-header").focus();
+  const backendTooltip = page.locator('.app-tooltip[data-state="instant-open"]', {
+    hasText: "chat mode azure-ad-routed",
+  });
+  await expect(backendTooltip).toContainText("chat mode azure-ad-routed");
+  await expect(backendTooltip).not.toContainText("{endpoint}");
+  await expect(backendTooltip).not.toContainText("{candidates}");
+  expect((await backendTooltip.innerText()).split("\n")).toHaveLength(4);
+  await tooltipWorkspace.getByRole("button", { name: "Dock right" }).click();
+  deck = page.getByRole("complementary", { name: "Command deck" });
   await expect(deck.getByRole("button", { name: "Dock right" })).toHaveAttribute(
     "aria-pressed",
     "true",

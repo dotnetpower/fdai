@@ -793,6 +793,7 @@ body.deck-open { overflow: hidden; }
   font-weight: 500;
   line-height: 1.4;
   text-align: left;
+  white-space: pre-line;
   pointer-events: none;
 }
 .app-tooltip[data-side="top"] {

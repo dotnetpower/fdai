@@ -107,7 +107,7 @@ function agentIconUrl(name: string): string {
   return `url("${base}agent-icons/${name.toLowerCase()}.svg")`;
 }
 
-function routerTooltip(router: RouterSnapshot | undefined): string | undefined {
+export function routerTooltip(router: RouterSnapshot | undefined): string | undefined {
   if (!router) return undefined;
   const lines = router.candidates.map((candidate) => {
     const p50 = candidate.p50_ms === null ? "-" : `${Math.round(candidate.p50_ms)}ms`;
@@ -115,7 +115,21 @@ function routerTooltip(router: RouterSnapshot | undefined): string | undefined {
     const marker = candidate.deployment === router.chose ? "* " : "  ";
     return `${marker}${candidate.deployment} · p50 ${p50} · p95 ${p95} · n=${candidate.samples}`;
   });
-  return `${t("deck.tooltip.routerChoice", { reason: router.reason, deployment: router.chose })}\n${lines.join("\n")}`;
+  const choice = t("deck.tooltip.routerChoice", {
+    reason: router.reason,
+    deployment: router.chose,
+    candidates: lines.join("\n"),
+  });
+  return router.reason.trim() ? choice : choice.replace(" ()", "").replace("()", "");
+}
+
+export function backendTooltip(health: BackendHealth): string {
+  const base = t("deck.tooltip.chatMode", {
+    mode: health.mode,
+    endpoint: health.endpoint ? ` · ${health.endpoint}` : "",
+  });
+  const routed = routerTooltip(health.router);
+  return routed ? `${base}\n${routed}` : base;
 }
 
 export function DeckLayoutIcon({ mode }: { readonly mode: DeckLayoutMode }) {
@@ -446,14 +460,9 @@ export function BackendBadge({
     );
   }
   if (health.available) {
-    const routed = health.router;
     const label = t("deck.backend.connected");
-      const base = `${t("deck.tooltip.chatMode", { mode: health.mode })}${
-      health.endpoint ? ` · ${health.endpoint}` : ""
-    }`;
-    const tooltip = routed ? `${base}\n${routerTooltip(routed) ?? ""}` : base;
     return (
-      <Tooltip content={tooltip}>
+      <Tooltip content={backendTooltip(health)}>
         <span class={`deck-backend deck-backend-${placement} deck-backend-ready`}>
           <span class="deck-backend-dot" />
           <span class="deck-backend-label">{label}</span>

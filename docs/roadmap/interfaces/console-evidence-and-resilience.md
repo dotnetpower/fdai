@@ -18,7 +18,7 @@ Reselecting the already active same-screen conversation is focus-only; it does n
 Selecting an inactive conversation records only a browser-local read acknowledgement and does not change its activity timestamp, so the history order remains stable. A conversation title is bold
 only while its observed activity is newer than its persisted read timestamp; selecting it clears
 that cue without moving the row. Only newer server activity advances the ordering timestamp.
-When a conversation title is visually truncated, pointer hover shows the complete label through the shared console tooltip. A title that fits does not show a redundant tooltip.
+When a conversation title is visually truncated, pointer hover shows the complete label through the shared console tooltip. A title that fits does not show a redundant tooltip. The connected-backend tooltip preserves separate mode, endpoint, route-choice, and candidate lines, fills every localized placeholder, and wraps long endpoint or deployment tokens within its viewport bound.
 An agent-card Ask action always opens a new empty agent conversation with a unique user-scoped key. The new summary carries the selected agent immediately, so the first submit sends the same agent
 target to the Operator API. Existing agent conversations are preserved as separate history entries and
 are restored only when the operator selects one explicitly.
