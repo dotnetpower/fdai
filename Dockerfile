@@ -44,7 +44,7 @@ ENV UV_LINK_MODE=copy \
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends build-essential zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
-RUN pip install --no-cache-dir uv==0.4.30
+RUN pip install --no-cache-dir uv==0.11.32
 COPY --from=opa-builder /go/bin/opa /usr/local/bin/opa
 
 WORKDIR /app
