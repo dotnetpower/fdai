@@ -133,6 +133,64 @@ class WorkflowOutcomeRecorder(Protocol):
     ) -> str | None: ...
 
 
+@dataclass(frozen=True, slots=True)
+class WorkflowApprovalDecision:
+    """One durable Var decision bound to an exact Process approval step."""
+
+    principal: str
+    decision: str
+    receipt_ref: str
+
+    def __post_init__(self) -> None:
+        if not self.principal or self.decision not in {"approved", "rejected"}:
+            raise ValueError("workflow approval decision is malformed")
+        if not self.receipt_ref:
+            raise ValueError("workflow approval receipt_ref MUST be non-empty")
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowApprovalSnapshot:
+    """Durable request and decision evidence for one approval step."""
+
+    process_id: str
+    step_id: str
+    requester_principal: str
+    revision: int
+    requested_at: datetime
+    expires_at: datetime | None
+    decisions: tuple[WorkflowApprovalDecision, ...] = ()
+    timed_out: bool = False
+
+
+@runtime_checkable
+class WorkflowApprovalProvider(Protocol):
+    """Persist and resolve workflow approval evidence without granting authority."""
+
+    async def ensure_requested(
+        self,
+        *,
+        process_id: str,
+        step_id: str,
+        correlation_id: str,
+        target_resource_id: str,
+        requester_principal: str,
+        required_role: str,
+        quorum: int,
+        no_self_approval: bool,
+        timeout_seconds: int | None,
+        requested_at: datetime,
+    ) -> WorkflowApprovalSnapshot: ...
+
+    async def mark_timed_out(
+        self,
+        *,
+        process_id: str,
+        step_id: str,
+        expected_revision: int,
+        timed_out_at: datetime,
+    ) -> bool: ...
+
+
 @runtime_checkable
 class WorkflowEvidenceDispatcher(Protocol):
     """Submit one credential-free browser evidence request."""

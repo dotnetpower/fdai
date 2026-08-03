@@ -11,6 +11,7 @@ from fdai.core.workflow.approval import StepApproval
 from fdai.core.workflow.workflow_runtime import (
     ACTOR,
     WorkflowActionDispatcher,
+    WorkflowApprovalProvider,
     WorkflowContextualGuardEvaluator,
     WorkflowEvidenceDispatcher,
     WorkflowGuardEvaluator,
@@ -51,6 +52,7 @@ class ShadowWorkflowStepExecutor:
         "_process_id",
         "_action_types",
         "_action_dispatcher",
+        "_approval_provider",
         "_evidence_dispatcher",
         "_audit",
         "_approvals",
@@ -72,6 +74,7 @@ class ShadowWorkflowStepExecutor:
         process_id: str,
         action_types: Mapping[str, OntologyActionType],
         action_dispatcher: WorkflowActionDispatcher | None = None,
+        approval_provider: WorkflowApprovalProvider | None = None,
         evidence_dispatcher: WorkflowEvidenceDispatcher | None = None,
         audit_store: StateStore,
         approvals: Mapping[str, StepApproval],
@@ -89,6 +92,7 @@ class ShadowWorkflowStepExecutor:
         self._process_id = process_id
         self._action_types = action_types
         self._action_dispatcher = action_dispatcher
+        self._approval_provider = approval_provider
         self._evidence_dispatcher = evidence_dispatcher
         self._audit = audit_store
         self._approvals = approvals
@@ -373,30 +377,9 @@ class ShadowWorkflowStepExecutor:
                 "wait_signal_received" if satisfied else f"waiting_for:{step.wait_for}",
             )
         if step.kind is WorkflowStepKind.APPROVAL:
-            if self._timed_out(step):
-                return step_result(step, RunbookStepOutcome.FAILURE, "approval_timed_out")
-            decisions = approval_decisions(self._context, step.id)
-            if not decisions:
-                return step_result(step, RunbookStepOutcome.WAITING, "waiting_for_approval")
-            # Normalised before counting. Azure UPNs and object ids are
-            # case-insensitive, so raw keys let the same operator satisfy a
-            # quorum twice under two spellings, and let a requester's own
-            # approval count despite no_self_approval.
-            requester = _normalized_principal(self._context.get("requester.principal"))
-            approved_by = {
-                approver
-                for approver in (
-                    _normalized_principal(principal)
-                    for principal, decision in decisions.items()
-                    if decision == "approved"
-                )
-                if approver and not (step.no_self_approval and approver == requester)
-            }
-            if len(approved_by) >= step.quorum:
-                return step_result(step, RunbookStepOutcome.SUCCESS, "approval_recorded")
-            if any(decision == "rejected" for decision in decisions.values()):
-                return step_result(step, RunbookStepOutcome.FAILURE, "approval_rejected")
-            return step_result(step, RunbookStepOutcome.WAITING, "waiting_for_approval_quorum")
+            if self._mode is Mode.ENFORCE:
+                return await self._durable_approval_result(step)
+            return self._simulated_approval_result(step)
         if step.kind is WorkflowStepKind.DECISION:
             outcome = self._context.get(f"decision.{step.id}")
             if outcome is None:
@@ -413,6 +396,102 @@ class ShadowWorkflowStepExecutor:
                 "gate_passed" if guard_passed else "gate_blocked",
             )
         return step_result(step, RunbookStepOutcome.FAILURE, "unsupported_step_kind")
+
+    def _simulated_approval_result(self, step: RunbookStep) -> RunbookStepResult:
+        if self._timed_out(step):
+            return step_result(step, RunbookStepOutcome.FAILURE, "approval_timed_out")
+        return self._approval_result(
+            step,
+            decisions=approval_decisions(self._context, step.id),
+            requester=self._context.get("requester.principal"),
+        )
+
+    async def _durable_approval_result(self, step: RunbookStep) -> RunbookStepResult:
+        provider = self._approval_provider
+        requester = _normalized_principal(self._context.get("requester.principal"))
+        approval = self._approvals.get(step.id)
+        if provider is None:
+            return step_result(
+                step,
+                RunbookStepOutcome.FAILURE,
+                "approval_provider_not_configured",
+            )
+        if not requester:
+            return step_result(
+                step,
+                RunbookStepOutcome.FAILURE,
+                "approval_requester_unavailable",
+            )
+        try:
+            snapshot = await provider.ensure_requested(
+                process_id=self._process_id,
+                step_id=step.id,
+                correlation_id=self._snapshot.correlation_id,
+                target_resource_id=self._target_resource_id,
+                requester_principal=requester,
+                required_role=(
+                    approval.required_role.value
+                    if approval is not None and approval.required_role is not None
+                    else "approver"
+                ),
+                quorum=step.quorum,
+                no_self_approval=step.no_self_approval,
+                timeout_seconds=step.timeout_seconds,
+                requested_at=self._now,
+            )
+        except Exception:  # noqa: BLE001 - approval evidence failure blocks execution
+            return step_result(
+                step,
+                RunbookStepOutcome.FAILURE,
+                "approval_evidence_unavailable",
+            )
+        if snapshot.timed_out or (
+            snapshot.expires_at is not None and self._now >= snapshot.expires_at
+        ):
+            try:
+                await provider.mark_timed_out(
+                    process_id=self._process_id,
+                    step_id=step.id,
+                    expected_revision=snapshot.revision,
+                    timed_out_at=self._now,
+                )
+            except Exception:  # noqa: BLE001 - timeout persistence still fails closed
+                return step_result(
+                    step,
+                    RunbookStepOutcome.FAILURE,
+                    "approval_evidence_unavailable",
+                )
+            return step_result(step, RunbookStepOutcome.FAILURE, "approval_timed_out")
+        return self._approval_result(
+            step,
+            decisions={decision.principal: decision.decision for decision in snapshot.decisions},
+            requester=snapshot.requester_principal,
+        )
+
+    @staticmethod
+    def _approval_result(
+        step: RunbookStep,
+        *,
+        decisions: Mapping[str, str],
+        requester: object,
+    ) -> RunbookStepResult:
+        if not decisions:
+            return step_result(step, RunbookStepOutcome.WAITING, "waiting_for_approval")
+        requester_normalized = _normalized_principal(requester)
+        approved_by = {
+            approver
+            for approver in (
+                _normalized_principal(principal)
+                for principal, decision in decisions.items()
+                if decision == "approved"
+            )
+            if approver and not (step.no_self_approval and approver == requester_normalized)
+        }
+        if len(approved_by) >= step.quorum:
+            return step_result(step, RunbookStepOutcome.SUCCESS, "approval_recorded")
+        if any(decision == "rejected" for decision in decisions.values()):
+            return step_result(step, RunbookStepOutcome.FAILURE, "approval_rejected")
+        return step_result(step, RunbookStepOutcome.WAITING, "waiting_for_approval_quorum")
 
     async def _dispatch_evidence(self, step: RunbookStep) -> RunbookStepResult:
         if self._evidence_dispatcher is None:

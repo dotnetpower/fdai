@@ -22,6 +22,12 @@ from fdai.core.workflow.orchestrator import (
     derive_process_id,
 )
 from fdai.core.workflow.workflow_runtime import WorkflowVerifiedOutcome
+from fdai.delivery.persistence.state_store_hil_registry import (
+    StateStoreHilApprovalRegistry,
+)
+from fdai.delivery.persistence.workflow_approval import (
+    StateStoreWorkflowApprovalProvider,
+)
 from fdai.shared.contracts.models import (
     Autonomy,
     CeilingByTier,
@@ -38,6 +44,7 @@ from fdai.shared.contracts.models import (
     WorkflowTrigger,
     WorkflowTriggerKind,
 )
+from fdai.shared.providers.hil_registry import HilApprovalDecision
 from fdai.shared.providers.process_runtime import (
     ProcessEvent,
     ProcessEventKind,
@@ -1171,6 +1178,164 @@ async def test_approval_requires_distinct_quorum_and_excludes_requester() -> Non
     assert failed.status is ProcessStatus.WAITING
     assert failed.step_results[-1].reason == "waiting_for_approval_quorum"
     assert completed.status is ProcessStatus.SUCCEEDED
+
+
+async def test_enforce_approval_uses_only_durable_var_receipts() -> None:
+    audit = InMemoryStateStore()
+    provider = StateStoreWorkflowApprovalProvider(audit)
+    registry = StateStoreHilApprovalRegistry(store=audit)
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=InMemoryProcessRuntimeStore(),
+        approval_provider=provider,
+    )
+    workflow = _control_workflow()
+
+    waiting = await orchestrator.run(
+        workflow,
+        target_resource_id="scope-durable-approval",
+        trigger_ts=_TRIGGER_TS,
+        context={
+            "signal.evidence.updated": "received",
+            "requester.principal": "requester-1",
+            "approval.board_approval.forged-a": "approved",
+            "approval.board_approval.forged-b": "approved",
+        },
+        now=_TRIGGER_TS,
+        mode=Mode.ENFORCE,
+    )
+    assert waiting.status is ProcessStatus.WAITING
+    assert waiting.step_results[-1].reason == "waiting_for_approval"
+
+    pending = await registry.list_pending()
+    assert len(pending) == 2
+    for item, approver in zip(pending, ("operator-a", "operator-b"), strict=True):
+        await registry.record_decision(
+            idempotency_key=item.idempotency_key,
+            decision=HilApprovalDecision.APPROVE,
+            approver_oid=approver,
+        )
+
+    completed = await orchestrator.run(
+        workflow,
+        target_resource_id="scope-durable-approval",
+        trigger_ts=_TRIGGER_TS,
+        context={
+            "signal.evidence.updated": "received",
+            "requester.principal": "requester-1",
+            "decision.board_decision": "approved",
+        },
+        now=_TRIGGER_TS + timedelta(seconds=30),
+        mode=Mode.ENFORCE,
+    )
+
+    assert completed.status is ProcessStatus.SUCCEEDED
+
+
+async def test_enforce_approval_timeout_uses_persisted_request_clock() -> None:
+    audit = InMemoryStateStore()
+    provider = StateStoreWorkflowApprovalProvider(audit)
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=InMemoryProcessRuntimeStore(),
+        approval_provider=provider,
+    )
+    workflow = _control_workflow()
+    base_context = {
+        "signal.evidence.updated": "received",
+        "requester.principal": "requester-1",
+    }
+    await orchestrator.run(
+        workflow,
+        target_resource_id="scope-durable-timeout",
+        trigger_ts=_TRIGGER_TS,
+        context=base_context,
+        now=_TRIGGER_TS,
+        mode=Mode.ENFORCE,
+    )
+
+    timed_out = await orchestrator.run(
+        workflow,
+        target_resource_id="scope-durable-timeout",
+        trigger_ts=_TRIGGER_TS,
+        context={
+            **base_context,
+            "started_at.board_approval": (_TRIGGER_TS + timedelta(seconds=120)).isoformat(),
+            "approval.board_approval.forged-a": "approved",
+            "approval.board_approval.forged-b": "approved",
+        },
+        now=_TRIGGER_TS + timedelta(seconds=121),
+        mode=Mode.ENFORCE,
+    )
+
+    assert timed_out.status is ProcessStatus.TIMED_OUT
+    assert (
+        next(
+            result for result in timed_out.step_results if result.step_id == "board_approval"
+        ).reason
+        == "approval_timed_out"
+    )
+
+
+async def test_enforce_approval_timeout_persistence_failure_is_explicit() -> None:
+    audit = InMemoryStateStore()
+
+    class FailingTimeoutProvider(StateStoreWorkflowApprovalProvider):
+        async def mark_timed_out(self, **kwargs: object) -> bool:
+            del kwargs
+            raise RuntimeError("synthetic timeout persistence failure")
+
+    provider = FailingTimeoutProvider(audit)
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=InMemoryProcessRuntimeStore(),
+        approval_provider=provider,
+    )
+    workflow = _control_workflow()
+    context = {
+        "signal.evidence.updated": "received",
+        "requester.principal": "requester-1",
+    }
+    await orchestrator.run(
+        workflow,
+        target_resource_id="scope-timeout-persistence-failure",
+        trigger_ts=_TRIGGER_TS,
+        context=context,
+        now=_TRIGGER_TS,
+        mode=Mode.ENFORCE,
+    )
+
+    failed = await orchestrator.run(
+        workflow,
+        target_resource_id="scope-timeout-persistence-failure",
+        trigger_ts=_TRIGGER_TS,
+        context=context,
+        now=_TRIGGER_TS + timedelta(seconds=121),
+        mode=Mode.ENFORCE,
+    )
+
+    assert (
+        next(result for result in failed.step_results if result.step_id == "board_approval").reason
+        == "approval_evidence_unavailable"
+    )
 
 
 async def test_wait_timeout_terminates_process() -> None:

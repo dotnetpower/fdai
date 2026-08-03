@@ -21,6 +21,7 @@ from fdai.core.workflow.workflow_runtime import (
 from fdai.core.workflow.workflow_runtime import (
     ProcessRun,
     WorkflowActionDispatcher,
+    WorkflowApprovalProvider,
     WorkflowContextualGuardEvaluator,
     WorkflowEvidenceDispatcher,
     WorkflowGuardEvaluator,
@@ -65,6 +66,7 @@ class WorkflowOrchestrator:
         "_planner",
         "_action_types",
         "_action_dispatcher",
+        "_approval_provider",
         "_evidence_dispatcher",
         "_audit",
         "_guard_evaluator",
@@ -81,12 +83,14 @@ class WorkflowOrchestrator:
         process_store: ProcessRuntimeStore,
         guard_evaluator: (WorkflowGuardEvaluator | WorkflowContextualGuardEvaluator | None) = None,
         action_dispatcher: WorkflowActionDispatcher | None = None,
+        approval_provider: WorkflowApprovalProvider | None = None,
         evidence_dispatcher: WorkflowEvidenceDispatcher | None = None,
         outcome_verifier: WorkflowOutcomeVerifier | None = None,
     ) -> None:
         self._planner = planner
         self._action_types = action_types
         self._action_dispatcher = action_dispatcher
+        self._approval_provider = approval_provider
         self._evidence_dispatcher = evidence_dispatcher
         self._audit = audit_store
         self._guard_evaluator = guard_evaluator
@@ -105,6 +109,7 @@ class WorkflowOrchestrator:
             process_store=self._process_store,
             guard_evaluator=self._guard_evaluator,
             action_dispatcher=dispatcher,
+            approval_provider=self._approval_provider,
             evidence_dispatcher=self._evidence_dispatcher,
             outcome_verifier=self._outcome_verifier,
         )
@@ -121,6 +126,7 @@ class WorkflowOrchestrator:
             process_store=self._process_store,
             guard_evaluator=self._guard_evaluator,
             action_dispatcher=self._action_dispatcher,
+            approval_provider=self._approval_provider,
             evidence_dispatcher=dispatcher,
             outcome_verifier=self._outcome_verifier,
         )
@@ -257,6 +263,7 @@ class WorkflowOrchestrator:
             process_id=process_id,
             action_types=self._action_types,
             action_dispatcher=self._action_dispatcher,
+            approval_provider=self._approval_provider,
             evidence_dispatcher=self._evidence_dispatcher,
             audit_store=self._audit,
             approvals=approvals,

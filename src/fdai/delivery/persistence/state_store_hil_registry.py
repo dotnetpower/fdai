@@ -156,6 +156,7 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
             receipt_ref=receipt_ref,
             already_recorded=False,
             justification=justification,
+            delivered=pending.metadata.get("decision_route") == "workflow",
         )
         await self._store.write_state(
             _decision_key(idempotency_key),
@@ -167,11 +168,12 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
                 "decided_at": receipt.decided_at.isoformat(),
                 "receipt_ref": receipt.receipt_ref,
                 "justification": receipt.justification,
-                "delivered": False,
+                "delivered": receipt.delivered,
                 "delivery_attempts": 0,
                 "delivery_abandoned": False,
                 "last_delivery_error": "",
-                "delivery_state": "pending",
+                "delivery_state": "delivered" if receipt.delivered else "pending",
+                "decision_route": pending.metadata.get("decision_route", "action"),
             },
         )
         return receipt
@@ -387,13 +389,21 @@ def _pending_from_park(park: Mapping[str, object] | None) -> HilPendingItem | No
         action_id=str(action.get("action_id") or ""),
         action_kind=str(park.get("action_type") or action.get("action_type") or ""),
         target_resource_ref=str(action.get("target_resource_ref") or ""),
-        reason="Approval required by the risk gate.",
+        reason=str(park.get("reason") or "Approval required by the risk gate."),
         submitter_oid=str(park.get("submitter_oid") or ""),
         citing_rule_ids=tuple(str(value) for value in citing_rules),
         requested_at=requested_at,
         correlation_id=str(park.get("correlation_id") or "") or None,
         mutation_target=mutation_target,
+        metadata=_metadata_from_park(park),
     )
+
+
+def _metadata_from_park(park: Mapping[str, object]) -> Mapping[str, str]:
+    raw = park.get("metadata")
+    if not isinstance(raw, Mapping):
+        return {}
+    return {str(key): str(value) for key, value in raw.items()}
 
 
 def _receipt_from_mapping(
