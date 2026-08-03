@@ -18,6 +18,7 @@ from fdai.delivery.operator_api.routes.chat_conversation_context import (
 )
 from fdai.delivery.operator_api.routes.chat_current_time import CurrentTimeChatTools
 from fdai.delivery.operator_api.routes.chat_history import replay_metadata
+from fdai.delivery.operator_api.routes.chat_inventory import InventoryChatTools
 from fdai.delivery.operator_api.routes.chat_subscription_health import (
     SubscriptionHealthChatTools,
     needs_subscription_health_context,
@@ -58,6 +59,23 @@ class KnowledgeContext:
                 "intent": str(intent),
             },
         }
+
+
+def _resource_result_context(
+    resources: list[dict[str, str]], *, truncated: bool = False
+) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "authority": "server_inventory_graph",
+        "source": "azure-resource-graph",
+        "snapshot_at": "2026-07-20T10:00:00Z",
+        "freshness": "fresh",
+        "scope": "subscription",
+        "query_digest": "a" * 64,
+        "evidence_ref": "inventory:azure-resource-graph@2026-07-20T10:00:00Z",
+        "truncated": truncated,
+        "resources": resources,
+    }
 
 
 async def _allow(request: Request) -> str:
@@ -274,21 +292,12 @@ async def _seed_assistant_turn(
 
 def test_loads_durable_server_owned_resource_result_context() -> None:
     store = InMemoryConversationHistoryStore()
-    result_context: dict[str, object] = {
-        "schema_version": 1,
-        "authority": "server_inventory_graph",
-        "source": "azure-resource-graph",
-        "snapshot_at": "2026-07-20T10:00:00Z",
-        "freshness": "fresh",
-        "scope": "subscription",
-        "query_digest": "a" * 64,
-        "evidence_ref": "inventory:azure-resource-graph@2026-07-20T10:00:00Z",
-        "truncated": False,
-        "resources": [
+    result_context = _resource_result_context(
+        [
             {"name": "app-one", "resource_type": "compute.app", "status": "running"},
             {"name": "app-two", "resource_type": "compute.app", "status": "stopped"},
-        ],
-    }
+        ]
+    )
     asyncio.run(
         _seed_assistant_turn(
             store,
@@ -310,6 +319,146 @@ def test_loads_durable_server_owned_resource_result_context() -> None:
 
     assert loaded is not None
     assert loaded.resource_result_context == result_context
+
+
+def test_ordinal_followup_requeries_exact_second_resource() -> None:
+    async def provider(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int | None = None,
+    ) -> dict[str, object]:
+        del scope, depth, link_types, root, limit
+        return {
+            "resources": [
+                {
+                    "id": "resource-one",
+                    "name": "app-one",
+                    "type": "compute.app",
+                    "resource_group": "rg-example",
+                    "location": "koreacentral",
+                    "status": "running",
+                },
+                {
+                    "id": "resource-two",
+                    "name": "app-two",
+                    "type": "compute.app",
+                    "resource_group": "rg-example",
+                    "location": "koreacentral",
+                    "status": "stopped",
+                },
+            ],
+            "links": [],
+            "snapshot_at": "2026-07-20T10:05:00Z",
+            "freshness": "fresh",
+            "source": "azure-resource-graph",
+            "truncated": False,
+        }
+
+    store = InMemoryConversationHistoryStore()
+    session_id = "context-ordinal-resource"
+    asyncio.run(
+        _seed_assistant_turn(
+            store,
+            session_id=session_id,
+            answer="Two resources were observed.",
+            status="verified",
+            authority="server_inventory_graph",
+            evidence_refs=("inventory:prior",),
+            resource_result_context=_resource_result_context(
+                [
+                    {
+                        "name": "app-one",
+                        "resource_type": "compute.app",
+                        "resource_group": "rg-example",
+                    },
+                    {
+                        "name": "app-two",
+                        "resource_type": "compute.app",
+                        "resource_group": "rg-example",
+                    },
+                ]
+            ),
+        )
+    )
+    backend = Backend()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=ConversationContextChatTools(
+                    inventory_context=InventoryChatTools(provider)
+                ),
+                conversation_history_store=store,
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat",
+        json={
+            "prompt": "Recheck the second resource from the previous result.",
+            "session_id": session_id,
+        },
+    )
+
+    payload = response.json()
+    assert payload["verification"]["authority"] == "server_inventory_graph"
+    assert payload["verification"]["status"] in {"verified", "corrected"}
+    assert "app-two" in payload["answer"]
+    assert "app-one" not in payload["answer"]
+    assert backend.calls == 0
+
+
+def test_ambiguity_followup_renders_equal_name_candidates() -> None:
+    store = InMemoryConversationHistoryStore()
+    session_id = "context-ambiguous-resource"
+    asyncio.run(
+        _seed_assistant_turn(
+            store,
+            session_id=session_id,
+            answer="Three resources were observed.",
+            status="verified",
+            authority="server_inventory_graph",
+            evidence_refs=("inventory:prior",),
+            resource_result_context=_resource_result_context(
+                [
+                    {
+                        "name": "shared-app",
+                        "resource_type": "compute.app",
+                        "resource_group": "rg-one",
+                    },
+                    {
+                        "name": "SHARED-APP",
+                        "resource_type": "compute.app",
+                        "resource_group": "rg-two",
+                    },
+                    {"name": "unique-app", "resource_type": "compute.app"},
+                ]
+            ),
+        )
+    )
+    client, backend = _context_client(store, production_chain=True)
+
+    with client:
+        payload = client.post(
+            "/chat",
+            json={
+                "prompt": "Ask me to choose when multiple resources match equally.",
+                "session_id": session_id,
+            },
+        ).json()
+
+    assert payload["verification"]["authority"] == "server_conversation_context"
+    assert payload["verification"]["status"] in {"verified", "corrected"}
+    assert "shared-app" in payload["answer"]
+    assert "rg-one" in payload["answer"]
+    assert "rg-two" in payload["answer"]
+    assert "unique-app" not in payload["answer"]
+    assert backend.calls == 0
 
 
 def _context_client(

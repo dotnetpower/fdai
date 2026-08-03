@@ -14,6 +14,8 @@ from fdai.delivery.operator_api.routes.chat_freshness_context import (
 )
 from fdai.delivery.operator_api.routes.chat_history import completed_replay_payload
 from fdai.delivery.operator_api.routes.chat_resource_result_context import (
+    ambiguous_resource_candidates,
+    ordinal_inventory_arguments,
     parse_resource_result_context,
 )
 from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
@@ -92,6 +94,17 @@ _KNOWLEDGE_INTENTS: Final = frozenset(
         ConversationContextIntent.LEARNING,
     }
 )
+_REQUIRED_CONTEXTS: Final[dict[ConversationContextIntent, tuple[str, ...]]] = {
+    ConversationContextIntent.CANCEL_INVESTIGATION: ("active_investigation",),
+    ConversationContextIntent.RUNBOOK: ("selected_incident_or_resource", "runbook_source"),
+    ConversationContextIntent.KNOWLEDGE_SOURCES: ("knowledge_source_receipt",),
+    ConversationContextIntent.MEMORY: ("prior_verified_answer", "memory_consent"),
+    ConversationContextIntent.LEARNING: ("selected_incident", "reviewed_lesson"),
+    ConversationContextIntent.ORDINAL_RESOURCE: ("prior_result_set",),
+    ConversationContextIntent.AMBIGUITY: ("ambiguous_candidate_set",),
+    ConversationContextIntent.REFORMAT: ("prior_verified_answer",),
+    ConversationContextIntent.PARTIAL_SOURCE: ("source_failure_receipt",),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,6 +258,7 @@ class ConversationContextChatTools:
     contextual_predicate: Callable[[str], bool] | None = None
     contextual_routes: tuple[tuple[Callable[[str], bool], Any], ...] = ()
     knowledge_context: Any = None
+    inventory_context: Any = None
 
     async def resolve(self, prompt: str, *, principal_id: str) -> dict[str, Any] | None:
         if not needs_conversation_context(prompt):
@@ -323,6 +337,13 @@ class ConversationContextChatTools:
             )
             if isinstance(resolved, Mapping):
                 return dict(resolved)
+        if intent is ConversationContextIntent.ORDINAL_RESOURCE:
+            return await self._resolve_ordinal_resource(
+                principal_id=principal_id,
+                context=context,
+            )
+        if intent is ConversationContextIntent.AMBIGUITY:
+            return self._resolve_ambiguity(context=context)
         if intent is ConversationContextIntent.REFORMAT and status != "unverified":
             result_status = "matched"
         elif intent is ConversationContextIntent.PARTIAL_SOURCE and status == "unverified":
@@ -352,6 +373,91 @@ class ConversationContextChatTools:
             },
         }
 
+    async def _resolve_ordinal_resource(
+        self,
+        *,
+        principal_id: str,
+        context: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        arguments, reason = ordinal_inventory_arguments(context.get("resource_result_context"))
+        if arguments is None or self.inventory_context is None:
+            return _context_unavailable(
+                ConversationContextIntent.ORDINAL_RESOURCE,
+                reason or "inventory_context_unavailable",
+                context,
+            )
+        try:
+            resolved = await self.inventory_context.resolve_planned(
+                "query_inventory",
+                arguments,
+                principal_id=principal_id,
+            )
+        except ValueError:
+            return _context_unavailable(
+                ConversationContextIntent.ORDINAL_RESOURCE,
+                "ordinal_query_rejected",
+                context,
+            )
+        except Exception:  # noqa: BLE001 - provider failure becomes a typed read hold
+            return _context_unavailable(
+                ConversationContextIntent.ORDINAL_RESOURCE,
+                "ordinal_query_unavailable",
+                context,
+            )
+        if not isinstance(resolved, Mapping):
+            return _context_unavailable(
+                ConversationContextIntent.ORDINAL_RESOURCE,
+                "ordinal_query_unavailable",
+                context,
+            )
+        result = resolved.get("result")
+        resources = result.get("resources") if isinstance(result, Mapping) else None
+        if (
+            isinstance(result, Mapping)
+            and result.get("status") == "matched"
+            and isinstance(resources, list)
+            and len(resources) != 1
+        ):
+            return _context_unavailable(
+                ConversationContextIntent.ORDINAL_RESOURCE,
+                "ordinal_requery_not_unique",
+                context,
+            )
+        return dict(resolved)
+
+    def _resolve_ambiguity(self, *, context: Mapping[str, Any]) -> dict[str, Any]:
+        candidates, reason = ambiguous_resource_candidates(context.get("resource_result_context"))
+        if reason not in {None, "no_equal_name_candidates"}:
+            return _context_unavailable(
+                ConversationContextIntent.AMBIGUITY,
+                reason or "ambiguous_candidate_set_unavailable",
+                context,
+            )
+        result_context = context.get("resource_result_context")
+        evidence_ref = (
+            result_context.get("evidence_ref") if isinstance(result_context, Mapping) else None
+        )
+        refs = tuple(
+            dict.fromkeys(
+                (
+                    *_bounded_evidence_refs(context.get("evidence_refs")),
+                    *((evidence_ref,) if isinstance(evidence_ref, str) else ()),
+                )
+            )
+        )
+        return {
+            "tool": "query_conversation_context",
+            "authority": "server_conversation_context",
+            "status": "ok",
+            "result": {
+                "status": "matched",
+                "intent": ConversationContextIntent.AMBIGUITY.value,
+                "reason_code": reason,
+                "candidates": [dict(candidate) for candidate in candidates],
+                "evidence_refs": list(refs),
+            },
+        }
+
 
 def render_conversation_context_answer(
     evidence: Mapping[str, Any], *, locale: str | None
@@ -368,6 +474,8 @@ def render_conversation_context_answer(
             return _render_prior_answer_table(result, korean=korean)
         if intent == ConversationContextIntent.PARTIAL_SOURCE.value:
             return _render_source_failure(result, korean=korean)
+        if intent == ConversationContextIntent.AMBIGUITY.value:
+            return _render_ambiguity_candidates(result, korean=korean)
     required = result.get("required_context")
     context_label = (
         ", ".join(str(item) for item in required)
@@ -396,23 +504,33 @@ def conversation_context_evidence_refs(evidence: Mapping[str, Any]) -> tuple[str
 
 def _required_context_result(prompt: str) -> dict[str, Any]:
     intent = classify_conversation_context_intent(prompt)
-    requirements = {
-        ConversationContextIntent.CANCEL_INVESTIGATION: ["active_investigation"],
-        ConversationContextIntent.RUNBOOK: ["selected_incident_or_resource", "runbook_source"],
-        ConversationContextIntent.KNOWLEDGE_SOURCES: ["knowledge_source_receipt"],
-        ConversationContextIntent.MEMORY: ["prior_verified_answer", "memory_consent"],
-        ConversationContextIntent.LEARNING: ["selected_incident", "reviewed_lesson"],
-        ConversationContextIntent.ORDINAL_RESOURCE: ["prior_result_set"],
-        ConversationContextIntent.AMBIGUITY: ["ambiguous_candidate_set"],
-        ConversationContextIntent.REFORMAT: ["prior_verified_answer"],
-        ConversationContextIntent.PARTIAL_SOURCE: ["source_failure_receipt"],
-    }
-    required_context = requirements[intent] if intent is not None else ["verified_prior_context"]
+    required_context = (
+        list(_REQUIRED_CONTEXTS[intent]) if intent is not None else ["verified_prior_context"]
+    )
     return {
         "status": "unavailable",
         "reason": "prior_context_required",
         "intent": intent.value if intent is not None else "unknown",
         "required_context": required_context,
+    }
+
+
+def _context_unavailable(
+    intent: ConversationContextIntent,
+    reason: str,
+    context: Mapping[str, Any],
+) -> dict[str, Any]:
+    return {
+        "tool": "query_conversation_context",
+        "authority": "server_conversation_context",
+        "status": "abstain",
+        "result": {
+            "status": "unavailable",
+            "reason": reason,
+            "intent": intent.value,
+            "required_context": list(_REQUIRED_CONTEXTS[intent]),
+            "evidence_refs": list(_bounded_evidence_refs(context.get("evidence_refs"))),
+        },
     }
 
 
@@ -451,9 +569,51 @@ def _render_source_failure(result: Mapping[str, Any], *, korean: bool) -> str:
     )
 
 
+def _render_ambiguity_candidates(result: Mapping[str, Any], *, korean: bool) -> str:
+    candidates = result.get("candidates")
+    if not isinstance(candidates, list) or not candidates:
+        return (
+            "이전 complete result set에서 동일 이름 후보를 찾지 못했습니다. 후보를 추측하거나 "
+            "다른 화면에서 가져오지 않았습니다."
+            if korean
+            else (
+                "No equal-name candidates were found in the prior complete result set. No "
+                "candidate was guessed or borrowed from another screen."
+            )
+        )
+    headers = (
+        ("이름", "유형", "리소스 그룹", "위치", "상태")
+        if korean
+        else ("Name", "Type", "Resource group", "Location", "Status")
+    )
+    lines = [
+        f"| {' | '.join(headers)} |",
+        "|---|---|---|---|---|",
+    ]
+    for candidate in candidates:
+        if not isinstance(candidate, Mapping):
+            continue
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_cell(candidate.get(key) or "-")
+                for key in ("name", "resource_type", "resource_group", "location", "status")
+            )
+            + " |"
+        )
+    instruction = (
+        "확인할 후보를 이름, 유형, 리소스 그룹으로 선택해 주세요."
+        if korean
+        else "Choose the candidate by name, type, and resource group."
+    )
+    return f"{instruction}\n\n" + "\n".join(lines)
+
+
 def _context_kind(context: Mapping[str, Any]) -> str:
     if context.get("status") == "unverified":
         return "source_failure_receipt"
+    if isinstance(context.get("resource_result_context"), Mapping):
+        return "prior_result_set"
     if isinstance(context.get("resource_context"), Mapping):
         return "selected_resource"
     return "prior_verified_answer"

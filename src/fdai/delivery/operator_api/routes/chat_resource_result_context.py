@@ -118,6 +118,77 @@ def parse_resource_result_context(raw: object) -> dict[str, Any] | None:
     }
 
 
+def ordinal_inventory_arguments(
+    raw: object, *, ordinal: int = 2
+) -> tuple[dict[str, object] | None, str | None]:
+    """Build one exact fresh query from a complete ordered result set."""
+
+    context = parse_resource_result_context(raw)
+    if context is None:
+        return None, "exact_prior_result_set_required"
+    if context["truncated"] is True:
+        return None, "prior_result_set_truncated"
+    resources = context["resources"]
+    if not isinstance(resources, list) or not 1 <= ordinal <= len(resources):
+        return None, "prior_result_set_ordinal_unavailable"
+    resource = resources[ordinal - 1]
+    if not isinstance(resource, Mapping):
+        return None, "prior_result_set_invalid"
+    predicates: list[dict[str, object]] = [
+        {"field": "name", "operator": "eq", "value": resource["name"]},
+        {
+            "field": "resource_type",
+            "operator": "eq",
+            "value": resource["resource_type"],
+        },
+    ]
+    resource_group = resource.get("resource_group")
+    if isinstance(resource_group, str):
+        predicates.append({"field": "resource_group", "operator": "eq", "value": resource_group})
+    return (
+        {
+            "source": "current",
+            "kind": "list",
+            "predicates": predicates,
+            "lookback_seconds": None,
+            "scope": context["scope"],
+            "group_by": "none",
+            "projection": "details",
+            "require_fresh": True,
+            "include_workloads": False,
+            "require_state_history": False,
+        },
+        None,
+    )
+
+
+def ambiguous_resource_candidates(
+    raw: object,
+) -> tuple[tuple[dict[str, str], ...], str | None]:
+    """Return only equal-name candidates from one complete result set."""
+
+    context = parse_resource_result_context(raw)
+    if context is None:
+        return (), "exact_prior_result_set_required"
+    if context["truncated"] is True:
+        return (), "prior_result_set_truncated"
+    resources = context["resources"]
+    if not isinstance(resources, list):
+        return (), "prior_result_set_invalid"
+    groups: dict[str, list[dict[str, str]]] = {}
+    for resource in resources:
+        if not isinstance(resource, dict):
+            return (), "prior_result_set_invalid"
+        groups.setdefault(resource["name"].casefold(), []).append(resource)
+    candidates = tuple(
+        dict(resource)
+        for name in sorted(groups)
+        if len(groups[name]) > 1
+        for resource in groups[name]
+    )
+    return candidates, None if candidates else "no_equal_name_candidates"
+
+
 def _project_resource(raw: object) -> dict[str, str] | None:
     if not isinstance(raw, Mapping):
         return None
@@ -137,4 +208,9 @@ def _bounded_text(raw: object) -> str | None:
     return raw if isinstance(raw, str) and 0 < len(raw) <= _MAX_TEXT else None
 
 
-__all__ = ["parse_resource_result_context", "response_resource_result_context"]
+__all__ = [
+    "ambiguous_resource_candidates",
+    "ordinal_inventory_arguments",
+    "parse_resource_result_context",
+    "response_resource_result_context",
+]

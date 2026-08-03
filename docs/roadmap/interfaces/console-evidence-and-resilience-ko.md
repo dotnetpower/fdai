@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: aab0a0954893d59b8c977044a2040e06266dbd80
-translation_revised: 2026-08-03
+translation_source_sha: 7ba268217b1a182859a82c24858db0e63bad3243
+translation_revised: 2026-08-04
 ---
 
 # 콘솔 근거 및 복원력
@@ -36,6 +36,7 @@ Active cached conversation을 제거하면 current-route default(legacy `screen`
 않고 새 current-route default를 만듭니다.
 않고 새 current-route default를 만듭니다. Context-dependent cancellation, runbook, knowledge, memory, learning, ordinal-resource, ambiguity, reformatting 및 partial-source 질문에는 verified prior conversation record가 필요합니다. 서버는 principal-scoped `ConversationHistoryStore`의 최신 사용 가능한 assistant replay에서 active investigation, selected resource, prior answer 또는 source-failure receipt를 재구성합니다. Browser transcript는 이 authority를 만들 수 없으며 fresh conversation은 unavailable 상태를 유지합니다. Verified 또는 corrected prior turn 이후 `KnowledgeContextChatTools`는 unique trusted runbook 하나를 load하거나 enabled source의 authorization 및 refresh state를 보고하거나 해당 principal만 볼 수 있는 explicit-consent memory를 표시합니다. Exact assistant-turn review가 materialized memory 또는 runtime-skill proposal을 가리킬 때만 learning을 reusable로 보고합니다. Draft와 ambiguous runbook은 empty로, provider failure는 unavailable로 유지하며 ordinary chat은 memory 또는 review state를 쓰지 않습니다. 완료된 continuation은 durable assistant turn과 content-addressed source receipt를 인용합니다.
 Verified fresh inventory answer는 server-owned replay metadata에 bounded `resource_result_context`를 포함할 수 있습니다. Raw resource ID를 포함하지 않고 browser context에서는 수락하지 않으며 source, snapshot, scope, query digest, freshness, truncation 및 이후 deterministic follow-up에 사용할 최대 40개의 ordered selector를 보존합니다.
+Ordinal follow-up은 선택한 위치를 exact fresh inventory predicate로 다시 검증합니다. Ambiguity follow-up은 complete prior result set의 equal-name candidate만 표시합니다. Incomplete context는 unavailable 상태를 유지하며 current-screen 또는 narrator output으로 fallback할 수 없습니다.
 Full-workspace Command Deck session은 transcript만 열린 content column으로 시작합니다. Operator는 transcript toolbar에서 filter 가능한 대화 이력 또는 현재 화면 digest를 열 수 있습니다. Browser 또는
 History는 stable cursor 순서로 durable summary를 한 번에 100건씩 load합니다. 100건에 도달하면 count를
 `100+`로 표시하고 history scroll 경계에 가까워지면 다음 100건을 load합니다. Transcript body는 선택할

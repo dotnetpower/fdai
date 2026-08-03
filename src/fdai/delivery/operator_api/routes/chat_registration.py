@@ -226,6 +226,7 @@ def append_chat_routes(
     tools = ConversationContextChatTools(
         fallback=current_time_tools,
         knowledge_context=knowledge_context,
+        inventory_context=inventory_chat_tools,
         contextual_routes=(
             (needs_action_context, action_context_tools),
             (needs_subscription_health_context, subscription_health_tools),

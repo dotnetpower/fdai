@@ -2,8 +2,8 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 83ffcfb0edb02837d8406b410acf618593dfb82a
-translation_revised: 2026-08-03
+translation_source_sha: 6387b197f8155754d1e959d1c0ca4d681f4b7974
+translation_revised: 2026-08-04
 ---
 
 # 처리 중인 Conversation 입력 모드
@@ -192,6 +192,10 @@ skill lifecycle write로 바꾸지 않습니다.
 Verified fresh inventory answer는 최대 40개의 bounded selector로 구성된 versioned result set도 유지할 수
 있습니다. Replay는 source, snapshot, scope, query digest, freshness 및 truncation을 저장하지만 raw
 resource ID는 저장하지 않습니다. Client는 이 result set을 제공하거나 확장할 수 없습니다.
+Ordinal follow-up은 저장된 순서에서 selector를 선택한 다음 exact name, type 및 resource group을 fresh
+inventory evidence로 다시 query합니다. Ambiguity follow-up은 complete result set의 equal-name
+candidate만 렌더링합니다. 짧거나 truncated 또는 malformed인 set과 non-unique requery는 screen state를
+가져오거나 추측하지 않고 unavailable 상태를 유지합니다.
 
 ## Queue 동작
 

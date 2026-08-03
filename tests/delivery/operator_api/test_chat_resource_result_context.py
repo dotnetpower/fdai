@@ -1,4 +1,6 @@
 from fdai.delivery.operator_api.routes.chat_resource_result_context import (
+    ambiguous_resource_candidates,
+    ordinal_inventory_arguments,
     parse_resource_result_context,
     response_resource_result_context,
 )
@@ -82,3 +84,50 @@ def test_replay_context_rejects_partial_or_unknown_shapes() -> None:
     assert parse_resource_result_context({**context, "schema_version": 2}) is None
     malformed = {**context, "resources": [context["resources"][0], {}]}
     assert parse_resource_result_context(malformed) is None
+
+
+def test_ordinal_query_reselects_second_resource_with_exact_predicates() -> None:
+    context = response_resource_result_context(_view_context(), verification_status="verified")
+
+    arguments, reason = ordinal_inventory_arguments(context)
+
+    assert reason is None
+    assert arguments is not None
+    assert arguments["require_fresh"] is True
+    assert arguments["predicates"] == [
+        {"field": "name", "operator": "eq", "value": "app-two"},
+        {"field": "resource_type", "operator": "eq", "value": "compute.app"},
+        {"field": "resource_group", "operator": "eq", "value": "rg-example"},
+    ]
+
+
+def test_ordinal_and_ambiguity_reject_truncated_result_set() -> None:
+    context = response_resource_result_context(_view_context(), verification_status="verified")
+    assert context is not None
+    context["truncated"] = True
+
+    assert ordinal_inventory_arguments(context) == (None, "prior_result_set_truncated")
+    assert ambiguous_resource_candidates(context) == ((), "prior_result_set_truncated")
+
+
+def test_ambiguity_returns_only_equal_name_candidates() -> None:
+    context = response_resource_result_context(_view_context(), verification_status="verified")
+    assert context is not None
+    context["resources"] = [
+        {
+            "name": "shared-app",
+            "resource_type": "compute.app",
+            "resource_group": "rg-one",
+        },
+        {
+            "name": "SHARED-APP",
+            "resource_type": "compute.app",
+            "resource_group": "rg-two",
+        },
+        {"name": "unique-app", "resource_type": "compute.app"},
+    ]
+
+    candidates, reason = ambiguous_resource_candidates(context)
+
+    assert reason is None
+    assert [candidate["resource_group"] for candidate in candidates] == ["rg-one", "rg-two"]

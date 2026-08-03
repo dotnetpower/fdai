@@ -192,6 +192,10 @@ review, proposal, approval, or skill lifecycle write.
 A verified fresh inventory answer can also retain a versioned result set of at most 40 bounded
 selectors. The replay stores source, snapshot, scope, query digest, freshness, and truncation, but
 not raw resource IDs. A client cannot supply or widen this result set.
+An ordinal follow-up selects from that stored order, then re-queries the exact name, type, and
+resource group with fresh inventory evidence. An ambiguity follow-up renders only equal-name
+candidates from a complete result set. A short, truncated, malformed, or non-unique requery remains
+unavailable instead of borrowing screen state or guessing.
 
 ## Queue behavior
 
