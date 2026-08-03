@@ -17,7 +17,7 @@
 import { useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { useTransientFlag } from "../hooks/use-transient-flag";
-import { t } from "../i18n";
+import { t, tForLocale } from "../i18n";
 import type {
   ActionDraft,
   AnswerPlanningMetadata,
@@ -85,6 +85,9 @@ export function GroundedReply({
   const [draftState, setDraftState] = useState<"idle" | "submitting" | "done" | "cancelled">("idle");
   const [draftResult, setDraftResult] = useState<string | null>(null);
   const cites = relevantCitations(citations ?? [], text);
+  const renderedText = incidentCandidates && incidentCandidates.length > 0
+    ? incidentCandidateAnswerLead(text)
+    : text;
   const evidenceReferences = cites.every((citation) =>
     citation.label.startsWith("evidence."));
   const sources = buildSources(verification, cites);
@@ -185,7 +188,7 @@ export function GroundedReply({
           </span>
         ) : null}
         <RichContent
-          text={text}
+          text={renderedText}
           streaming={streaming}
           suppressCode={!streaming && (codeArtifacts?.length ?? 0) > 0}
           citeMarks={marks}
@@ -410,7 +413,9 @@ export function incidentCandidateDeckDetail(candidate: IncidentCandidate): DeckO
   return {
     sessionKey: `incident:${candidate.correlationId}`,
     sessionLabel: candidate.title,
-    prompt: t("deck.incidentCandidates.prompt"),
+    newConversation: true,
+    prompt: tForLocale(candidate.locale, "deck.incidentCandidates.prompt"),
+    submitPrompt: true,
     binding: {
       kind: "incident",
       incidentId: candidate.incidentId,
@@ -420,13 +425,23 @@ export function incidentCandidateDeckDetail(candidate: IncidentCandidate): DeckO
   };
 }
 
+export function incidentCandidateAnswerLead(text: string): string {
+  const lines = text.split("\n");
+  const firstCandidate = lines.findIndex((line) => /^\s*-\s+/.test(line));
+  return firstCandidate > 0 ? lines.slice(0, firstCandidate).join("\n").trimEnd() : text;
+}
+
 function IncidentCandidatePicker({ candidates }: {
   readonly candidates: readonly IncidentCandidate[];
 }) {
+  const locale = candidates[0]?.locale ?? "en";
   return (
-    <section class="deck-incident-candidates" aria-label={t("deck.incidentCandidates.title")}>
-      <strong>{t("deck.incidentCandidates.title")}</strong>
-      <p>{t("deck.incidentCandidates.hint")}</p>
+    <section
+      class="deck-incident-candidates"
+      aria-label={tForLocale(locale, "deck.incidentCandidates.title")}
+    >
+      <strong>{tForLocale(locale, "deck.incidentCandidates.title")}</strong>
+      <p>{tForLocale(locale, "deck.incidentCandidates.hint")}</p>
       <ul>
         {candidates.map((candidate) => (
           <li key={`${candidate.incidentId}:${candidate.correlationId}`}>

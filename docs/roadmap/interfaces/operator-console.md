@@ -19,8 +19,9 @@ That selector is a presentation hint only; the server re-resolves the durable in
 evidence before answering, and the browser never auto-submits a turn.
 When an incident question matches several records equally, the terminal answer includes bounded
 candidate buttons rather than relying on a plain-text instruction. A button opens the candidate's
-exact incident conversation and prepares a localized investigation draft; the operator still sends
-the turn explicitly.
+exact incident conversation and immediately submits the localized read-only investigation turn.
+The click is the operator's explicit request; an automatic active-incident stream open still never
+submits a turn.
 This doc covers the **pull direction** - the operator asks, simulates,
 approves - across every channel the notification doc already ships adapters
 for. Push and pull share the same channel credentials and the same audit

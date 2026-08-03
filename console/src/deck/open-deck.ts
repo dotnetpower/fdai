@@ -27,6 +27,8 @@ export interface IncidentConversationBinding {
 export interface DeckOpenDetail {
   /** Optional draft to seed the deck input with (the operator still sends it). */
   readonly prompt?: string;
+  /** Submit `prompt` after switching context. Reserved for explicit read-selection clicks. */
+  readonly submitPrompt?: boolean;
   /**
    * Optional context note injected as the deck's opening message. Unlike
    * `prompt` (a draft the operator edits/sends), this lands as a grounding

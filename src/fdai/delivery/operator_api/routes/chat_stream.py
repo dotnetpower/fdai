@@ -1084,6 +1084,7 @@ def make_chat_stream_route(
                     started=started,
                     delegation=delegation,
                     enriched_context=enriched_context,
+                    response_locale=response_locale,
                     answer_plan=answer_plan,
                     answer_planning=answer_planning,
                     quality=quality,

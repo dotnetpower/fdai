@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: b8953fc765e1d8fd7fb97f756b127cc5af990606
+translation_source_sha: 2ac04b71ec386f08be05f9d35c501bf2111bef56
 translation_revised: 2026-08-04
 ---
 
@@ -398,9 +398,10 @@ membership 또는 absence claim을 바꿀 수 없습니다.
 `ambiguous` terminal answer는 최대 5개의 server-validated incident candidate를 포함한 versioned
 artifact도 전달합니다. Web client는 candidate별로 title, severity, status, last-updated time 및
 incident id가 표시된 button을 렌더링하므로 중복 title도 구분할 수 있습니다. Button을 선택하면
-exact incident-bound conversation을 열고 localized investigation
-question을 composer에 준비합니다. 질문은 자동 제출하지 않습니다. 누락되거나 malformed, oversized
-또는 unverified인 candidate artifact는 button을 렌더링하지 않으며 binding을 만들 수 없습니다.
+exact incident-bound conversation을 열고 localized read-only investigation question을 즉시
+제출합니다. 명시적인 click이 operator 요청이며 managed resource를 변경하지 않습니다. 누락되거나
+malformed, oversized 또는 unverified인 candidate artifact는 button을 렌더링하지 않으며 binding을
+만들 수 없습니다.
 `latest`, `recent`, `최신` 같은 generic recency 단어만으로는 incident authority를 만들지 않습니다.
 Operational lookup에는 incident, issue, outage, failure, problem 또는 cause 의미가 명시적으로 함께
 있어야 합니다. 따라서 public software version 또는 release 질문은 deterministic "no matching incident"

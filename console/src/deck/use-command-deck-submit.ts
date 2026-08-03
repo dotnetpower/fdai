@@ -49,7 +49,6 @@ interface MutableValueRef<T> {
 interface UseCommandDeckSubmitOptions {
   readonly snapshot: ViewSnapshot | null;
   readonly pending: boolean;
-  readonly turns: readonly Turn[];
   readonly conversations: readonly ConversationSummary[];
   readonly sessionKeyRef: MutableValueRef<string>;
   readonly turnsRef: MutableValueRef<readonly Turn[]>;
@@ -87,7 +86,6 @@ function currentPathname(): string {
 export function useCommandDeckSubmit({
   snapshot,
   pending,
-  turns,
   conversations,
   sessionKeyRef,
   turnsRef,
@@ -141,7 +139,8 @@ export function useCommandDeckSubmit({
     };
     const activeSummary = conversations.find((item) => item.key === originSessionKey);
     const sessionSummary = activeSummary ?? sessionMetadataRef.current.get(originSessionKey);
-    const hasOperatorTurn = turnsRef.current.some((turn) => turn.role === "operator");
+    const priorTurns = turnsRef.current;
+    const hasOperatorTurn = priorTurns.some((turn) => turn.role === "operator");
     updateConversationIndex({
       key: originSessionKey,
       label:
@@ -157,7 +156,7 @@ export function useCommandDeckSubmit({
       lastReadAt: activityAt,
     });
     setTurns((current) => [...current, operatorTurn]);
-    turnsRef.current = [...turnsRef.current, operatorTurn];
+    turnsRef.current = [...priorTurns, operatorTurn];
     setDraft("");
     historyRef.current = recordHistory(historyRef.current, text);
     setPending(true);
@@ -165,7 +164,7 @@ export function useCommandDeckSubmit({
     setSrStatus(t("deck.announcement.retrieving"));
     setInFlight(true);
 
-    const history = backendHistoryForTurns(turns);
+    const history = backendHistoryForTurns(priorTurns);
     const deckId = newId();
     let activityTurnId = newId();
     const activityTurnIds = new Set<string>();
@@ -581,7 +580,6 @@ export function useCommandDeckSubmit({
     snapshot,
     focusInput,
     pending,
-    turns,
     conversations,
     updateConversationIndex,
     pinTranscriptToLatest,

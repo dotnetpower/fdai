@@ -387,6 +387,7 @@ export interface IncidentCandidate {
   readonly severity: string;
   readonly status: "open" | "in_progress" | "resolved";
   readonly lastUpdatedAt: string;
+  readonly locale: "en" | "ko";
 }
 
 export type ProgressiveAnswer = Answer & {

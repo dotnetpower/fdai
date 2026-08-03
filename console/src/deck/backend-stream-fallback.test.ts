@@ -390,6 +390,7 @@ describe("askBackendStream fallback typewriter", () => {
   test("returns verified incident candidates from SSE and JSON terminal payloads", async () => {
     const incidentCandidates = {
       schema_version: 1,
+      locale: "ko",
       candidates: [{
         incident_id: "INC-1",
         correlation_id: "corr-1",
@@ -411,6 +412,7 @@ describe("askBackendStream fallback typewriter", () => {
     expect(streamed.incidentCandidates?.[0]).toMatchObject({
       incidentId: "INC-1",
       correlationId: "corr-1",
+      locale: "ko",
     });
 
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({

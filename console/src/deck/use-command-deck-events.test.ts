@@ -7,6 +7,10 @@ const source = readFileSync(
   fileURLToPath(new URL("./use-command-deck-events.ts", import.meta.url)),
   "utf8",
 );
+const submitSource = readFileSync(
+  fileURLToPath(new URL("./use-command-deck-submit.ts", import.meta.url)),
+  "utf8",
+);
 
 describe("Command Deck composer sizing", () => {
   it("uses one bounded layout-aware textarea resize effect", () => {
@@ -79,5 +83,16 @@ describe("shouldDeferDeckOpen", () => {
     expect(shouldDeferDeckOpen({ onlyWhenIdle: true }, false, "draft")).toBe(true);
     expect(shouldDeferDeckOpen({ onlyWhenIdle: true }, false, "  ")).toBe(false);
     expect(shouldDeferDeckOpen({}, true, "draft")).toBe(false);
+  });
+
+  it("submits only an explicitly marked context prompt", () => {
+    expect(source).toContain("detail?.submitPrompt === true");
+    expect(source).toContain("submitPrompt(seed)");
+  });
+
+  it("builds backend history from the selected session before appending the prompt", () => {
+    expect(submitSource).toContain("const priorTurns = turnsRef.current");
+    expect(submitSource).toContain("backendHistoryForTurns(priorTurns)");
+    expect(submitSource).not.toContain("backendHistoryForTurns(turnsRef.current)");
   });
 });

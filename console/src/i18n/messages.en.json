@@ -1888,7 +1888,7 @@
   "deck": {
     "incidentCandidates": {
       "title": "Choose an incident",
-      "hint": "Select one incident, then send the prepared investigation question.",
+      "hint": "Select an incident to continue the investigation.",
       "prompt": "Investigate the root cause of this incident."
     },
     "answerPlan": {

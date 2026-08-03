@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 5e4c19271a04d4f76d8d76c2fbe1a707065695ef
+translation_source_sha: 8efc2ed49a5e54946f4176062b47d06d92a6ff07
 translation_revised: 2026-08-04
 ---
 
@@ -157,8 +157,8 @@ route를 유지하고, queued next turn은 자신의 content를 분류합니다.
 입력은 operator에게 incident 하나를 선택하도록 요청하지 않고 bounded matching set을 결정론적으로
 렌더링합니다. Cause analysis처럼 incident 하나가 필요한 질문은 ambiguous-selection 동작을 유지합니다.
 Terminal payload는 initial turn과 같은 bounded incident-candidate artifact를 유지합니다. Button 선택은
-준비된 draft가 있는 별도의 exact incident-bound conversation을 시작하며 완료된 turn을 mutate,
-interrupt 또는 steer하지 않습니다.
+별도의 exact incident-bound conversation을 시작하고 localized read-only investigation turn을 즉시
+제출합니다. 명시적인 선택은 완료된 turn을 mutate, interrupt 또는 steer하지 않습니다.
 일반적인 service-outage 질문은 initial 또는 queued turn에서 server-scoped subscription-health read를
 결정론적으로 선택합니다. Steer rerun은 해당 read authority를 유지하며 configured subscription 또는
 resource-group allowlist를 operator text로 바꿀 수 없습니다.

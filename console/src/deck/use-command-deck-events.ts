@@ -42,6 +42,7 @@ interface EventsOptions {
   readonly setDraft: (value: string) => void;
   readonly setSearchQuery: (value: string) => void;
   readonly setSrStatus: (value: string) => void;
+  readonly submitPrompt: (text: string) => void;
   readonly updateConversationIndex: (summary: ConversationSummary) => void;
   readonly cancelActiveRequest: () => "stream" | "action" | null;
   readonly closeDeck: () => void;
@@ -130,6 +131,7 @@ export function useCommandDeckEvents(options: EventsOptions) {
     setDraft,
     setSearchQuery,
     setSrStatus,
+    submitPrompt,
     updateConversationIndex,
     cancelActiveRequest,
     closeDeck,
@@ -292,8 +294,12 @@ export function useCommandDeckEvents(options: EventsOptions) {
       }
       const seed = typeof detail?.prompt === "string" ? detail.prompt : "";
       if (seed) {
-        setDraft(seed);
-        historyRef.current = recordHistory(historyRef.current, seed);
+        if (detail?.submitPrompt === true) {
+          submitPrompt(seed);
+        } else {
+          setDraft(seed);
+          historyRef.current = recordHistory(historyRef.current, seed);
+        }
       }
       openDeck();
     };
@@ -310,6 +316,7 @@ export function useCommandDeckEvents(options: EventsOptions) {
     openDeck,
     sessionKeyRef,
     setDraft,
+    submitPrompt,
     streamContextTurn,
     switchSession,
     turnsRef,

@@ -402,9 +402,10 @@ scope, supported cause, collection membership, or absence claim. A source with
 An `ambiguous` terminal answer also carries a versioned artifact with at most five server-validated
 incident candidates. The Web client renders one button per candidate with title, severity, status,
 last-updated time, and incident id so duplicate titles remain distinguishable. Selecting a button
-opens an exact incident-bound conversation and prepares a localized
-investigation question in the composer. It never auto-submits the question. Missing, malformed,
-oversized, or unverified candidate artifacts render no buttons and cannot create a binding.
+opens an exact incident-bound conversation and immediately submits a localized read-only
+investigation question. The explicit click is the operator request; it doesn't mutate a managed
+resource. Missing, malformed, oversized, or unverified candidate artifacts render no buttons and
+cannot create a binding.
 Generic recency words such as `latest`, `recent`, or `최신` do not create incident authority by
 themselves. Operational lookup also requires explicit incident, issue, outage, failure, problem, or
 cause semantics. A public software version or release question therefore remains eligible for the
