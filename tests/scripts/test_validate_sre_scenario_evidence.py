@@ -184,6 +184,7 @@ def test_partial_scenario_preserves_cleanup_residuals(validator: ModuleType) -> 
     scenario["status"] = "partial"
     cleanup = scenario["cleanup"]
     assert isinstance(cleanup, dict)
+    cleanup["status"] = "incomplete"
     cleanup["residuals"] = ["Current replica state requires reconciliation"]
     summary["passed"] = 13
     summary["partial"] = 1

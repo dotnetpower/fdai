@@ -195,8 +195,8 @@ def _validate_scenario(scenario_id: str, value: object, errors: list[str]) -> st
     cleanup = _mapping(scenario.get("cleanup"), f"{field}.cleanup", errors)
     if cleanup is not None:
         cleanup_status = cleanup.get("status")
-        if cleanup_status not in ("verified", "not-applicable"):
-            errors.append(f"{field}.cleanup.status MUST be verified or not-applicable")
+        if cleanup_status not in ("verified", "incomplete", "not-applicable"):
+            errors.append(f"{field}.cleanup.status MUST be verified, incomplete, or not-applicable")
         if (
             status == "passed"
             and scenario_id not in ("S13", "S14")
