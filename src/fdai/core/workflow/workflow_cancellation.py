@@ -57,6 +57,7 @@ class WorkflowCancellationCoordinator:
         requested_at: datetime,
     ) -> ProcessSnapshot:
         events = await self._process_store.events(snapshot.process_id)
+        attempt = max((event.attempt for event in events), default=1)
         if _cancellation_request(events) is not None:
             return snapshot
         if snapshot.status is ProcessStatus.CANCELLED:
@@ -85,6 +86,7 @@ class WorkflowCancellationCoordinator:
                 "action_kind": "workflow.process.cancellation-requested",
                 "process_id": snapshot.process_id,
                 "step_id": snapshot.current_step,
+                "attempt": attempt,
                 "recorded_at": requested_at.isoformat(),
             }
         )
@@ -101,6 +103,7 @@ class WorkflowCancellationCoordinator:
                 recorded_at=requested_at,
                 correlation_id=snapshot.correlation_id,
                 step_id=snapshot.current_step or None,
+                attempt=attempt,
                 payload={"actor_oid": actor},
             ),
         )
@@ -186,6 +189,7 @@ class WorkflowCancellationCoordinator:
             process_id=request.process_id,
             step_id=request.step_id,
             cancelled_at=datetime.now(tz=UTC),
+            attempt=request.attempt,
         )
         if not closed:
             raise WorkflowCancellationError(

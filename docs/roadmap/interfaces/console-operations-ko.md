@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 96daf26133030f84ff1c1fc8f5989759985e0263
+translation_source_sha: dfefbaecc53f891bf4b548c07765a2184fd12dfe
 translation_revised: 2026-08-04
 ---
 
@@ -219,6 +219,9 @@ Contributor는 shadow를 retry할 수 있고 enforce는 새 forward work를 시�
 workflow allowlist가 필요합니다. Server는 명시적인 effect-free reason이 있고 dispatch, approval,
 cancellation, compensation evidence가 없는 `failed` attempt만 수락합니다. 다른 failure는 typed
 recovery conflict를 반환합니다. `max_retry_attempts`는 server-owned이며 기본값은 3입니다.
+Approval rejection은 모든 sibling quorum slot을 닫습니다. `approval_rejected` 또는
+`approval_timed_out` retry는 distinct approval id를 가진 새 attempt를 만들며 prior decision은 새
+quorum을 충족하지 않습니다.
 
 ### 요청 검사
 

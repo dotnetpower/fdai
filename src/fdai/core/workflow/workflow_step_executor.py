@@ -472,6 +472,7 @@ class ShadowWorkflowStepExecutor:
                 no_self_approval=step.no_self_approval,
                 timeout_seconds=step.timeout_seconds,
                 requested_at=self._now,
+                attempt=self._attempt,
             )
         except Exception:  # noqa: BLE001 - approval evidence failure blocks execution
             return step_result(
@@ -494,6 +495,7 @@ class ShadowWorkflowStepExecutor:
                     step_id=step.id,
                     expected_revision=snapshot.revision,
                     timed_out_at=self._now,
+                    attempt=self._attempt,
                 )
             except Exception:  # noqa: BLE001 - timeout persistence still fails closed
                 return step_result(

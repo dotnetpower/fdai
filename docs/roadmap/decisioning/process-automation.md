@@ -302,6 +302,14 @@ dispatch event and returns `retry_requires_recovery`. Shadow retry requires Cont
 retry requires Owner and the current enforce allowlist. The server-owned attempt limit defaults to
 3 and cannot be raised by the caller.
 
+Workflow approval state and HIL slot identity bind Process, step, and attempt. Attempt 1 retains
+the legacy key for existing durable records; later attempts use distinct keys. One rejection makes
+the complete quorum attempt terminal and closes every sibling slot, so a late approval cannot race
+the rejection. A bounded retry after `approval_rejected` or `approval_timed_out` creates only fresh
+slots for the new attempt. The terminal workflow CAS remains authoritative if sibling park closure
+is interrupted, so the queue hides stale slots and the next provider read heals them. Cancellation
+and timeout close the exact attempt.
+
 Workflow audit uses each ActionType's `x-fdai-redact` paths. Redacted fields render as
 `[REDACTED]` and never enter the Process journal. Because the workflow runtime has no secret
 custody provider, an enforce action whose resolved params include a redacted field fails before

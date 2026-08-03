@@ -1369,6 +1369,35 @@ def _control_workflow() -> Workflow:
     )
 
 
+def _approval_workflow(*, name: str, timeout_seconds: int = 300) -> Workflow:
+    return Workflow(
+        schema_version="1.0.0",
+        name=name,
+        version="1.0.0",
+        trigger=WorkflowTrigger(
+            kind=WorkflowTriggerKind.SIGNAL,
+            signal_type="change.request.submitted",
+        ),
+        default_mode=Mode.SHADOW,
+        promotion_gate=PromotionGate(
+            min_shadow_days=14,
+            min_samples=100,
+            min_accuracy=0.95,
+            max_policy_escapes=0,
+        ),
+        steps=[
+            WorkflowStep(
+                id="owner_approval",
+                kind=WorkflowStepKind.APPROVAL,
+                approval_role=CeilingRole.OWNER,
+                quorum=2,
+                no_self_approval=True,
+                timeout_seconds=timeout_seconds,
+            )
+        ],
+    )
+
+
 async def test_control_workflow_waits_and_resumes_same_process() -> None:
     audit = InMemoryStateStore()
     process_store = InMemoryProcessRuntimeStore()
@@ -1696,6 +1725,126 @@ async def test_waiting_approval_cancellation_closes_var_slots() -> None:
         for event in await process_store.events(waiting.process_id)
         if event.kind is ProcessEventKind.PROCESS_CANCELLED
     ] == [ProcessEventKind.PROCESS_CANCELLED]
+
+
+async def test_rejected_approval_retries_with_fresh_attempt_slots() -> None:
+    audit = InMemoryStateStore()
+    process_store = InMemoryProcessRuntimeStore()
+    provider = StateStoreWorkflowApprovalProvider(audit)
+    registry = StateStoreHilApprovalRegistry(store=audit)
+    workflow = _approval_workflow(name="approval-rerequest")
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=process_store,
+        approval_provider=provider,
+    )
+    waiting = await orchestrator.run(
+        workflow,
+        target_resource_id="approval-rerequest-target",
+        trigger_ts=_TRIGGER_TS,
+        context={"requester.principal": "requester-1"},
+        now=_TRIGGER_TS,
+        mode=Mode.ENFORCE,
+    )
+    first_slot = (await registry.list_pending())[0]
+    await registry.record_decision(
+        idempotency_key=first_slot.idempotency_key,
+        decision=HilApprovalDecision.REJECT,
+        approver_oid="owner-a",
+    )
+    rejected = await orchestrator.resume(
+        process_id=waiting.process_id,
+        workflow=workflow,
+        now=_TRIGGER_TS + timedelta(seconds=10),
+    )
+
+    retried = await orchestrator.retry(
+        process_id=waiting.process_id,
+        workflows={workflow.name: workflow},
+        actor_oid="owner-retry",
+        now=_TRIGGER_TS + timedelta(seconds=20),
+    )
+    second_slots = await registry.list_pending()
+
+    assert rejected.status is ProcessStatus.FAILED
+    assert retried.status is ProcessStatus.WAITING
+    assert len(second_slots) == 2
+    assert all(item.metadata["attempt"] == "2" for item in second_slots)
+    assert all(item.approval_id != first_slot.approval_id for item in second_slots)
+
+    for item, approver in zip(second_slots, ("owner-b", "owner-c"), strict=True):
+        await registry.record_decision(
+            idempotency_key=item.idempotency_key,
+            decision=HilApprovalDecision.APPROVE,
+            approver_oid=approver,
+        )
+    completed = await orchestrator.retry(
+        process_id=waiting.process_id,
+        workflows={workflow.name: workflow},
+        actor_oid="owner-retry",
+        now=_TRIGGER_TS + timedelta(seconds=30),
+    )
+    assert completed.status is ProcessStatus.SUCCEEDED
+
+
+async def test_timed_out_approval_retries_with_fresh_attempt_slots() -> None:
+    audit = InMemoryStateStore()
+    process_store = InMemoryProcessRuntimeStore()
+    provider = StateStoreWorkflowApprovalProvider(audit)
+    registry = StateStoreHilApprovalRegistry(store=audit)
+    workflow = _approval_workflow(name="approval-timeout-rerequest", timeout_seconds=10)
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=process_store,
+        approval_provider=provider,
+    )
+    waiting = await orchestrator.run(
+        workflow,
+        target_resource_id="approval-timeout-target",
+        trigger_ts=_TRIGGER_TS,
+        context={"requester.principal": "requester-1"},
+        now=_TRIGGER_TS,
+        mode=Mode.ENFORCE,
+    )
+    timed_out = await orchestrator.resume(
+        process_id=waiting.process_id,
+        workflow=workflow,
+        now=_TRIGGER_TS + timedelta(seconds=11),
+    )
+
+    retried = await orchestrator.retry(
+        process_id=waiting.process_id,
+        workflows={workflow.name: workflow},
+        actor_oid="owner-retry",
+        now=_TRIGGER_TS + timedelta(seconds=12),
+    )
+    pending = await registry.list_pending()
+
+    assert timed_out.status is ProcessStatus.TIMED_OUT
+    assert retried.status is ProcessStatus.WAITING
+    assert len(pending) == 2
+    assert all(item.metadata["attempt"] == "2" for item in pending)
+
+    cancelled = await orchestrator.cancel(
+        process_id=waiting.process_id,
+        workflows={workflow.name: workflow},
+        actor_oid="owner-retry",
+        now=_TRIGGER_TS + timedelta(seconds=13),
+    )
+    assert cancelled.status is ProcessStatus.CANCELLED
+    assert await registry.list_pending() == ()
 
 
 async def test_waiting_action_cancellation_reconciles_then_compensates() -> None:

@@ -49,6 +49,8 @@ verified applied steps. Compensation intent is committed before typed dispatch, 
 compensation receipts close the Process as `compensated`. A missing dispatcher, verifier, receipt,
 or failed guard holds or fails the Process closed. Control-only workflows such as ARB persist real approval and decision
 transitions without gaining resource mutation authority.
+Approval requests are attempt-scoped. A reject closes the complete quorum attempt; retry after
+reject or timeout creates fresh Var slots and preserves attempt 1 durable-key compatibility.
 
 The event entry is the
 [`WorkflowTriggerCoordinator`](../../../src/fdai/core/workflow/coordinator.py): an

@@ -20,7 +20,12 @@ from fdai.shared.providers.testing.state_store import InMemoryStateStore
 _NOW = datetime(2026, 8, 3, 12, 0, tzinfo=UTC)
 
 
-async def _request(provider: StateStoreWorkflowApprovalProvider, *, at: datetime = _NOW):
+async def _request(
+    provider: StateStoreWorkflowApprovalProvider,
+    *,
+    at: datetime = _NOW,
+    attempt: int = 1,
+):
     return await provider.ensure_requested(
         process_id="process-1",
         step_id="board_approval",
@@ -32,6 +37,7 @@ async def _request(provider: StateStoreWorkflowApprovalProvider, *, at: datetime
         no_self_approval=True,
         timeout_seconds=120,
         requested_at=at,
+        attempt=attempt,
     )
 
 
@@ -156,6 +162,85 @@ async def test_workflow_approval_rejects_duplicate_principal_across_slots() -> N
         "operator-a",
         "operator-b",
     }
+
+
+async def test_workflow_approval_rejection_closes_every_quorum_slot() -> None:
+    store = InMemoryStateStore()
+    provider = StateStoreWorkflowApprovalProvider(store)
+    registry = StateStoreHilApprovalRegistry(store=store)
+    await _request(provider)
+    first, second = await registry.list_pending()
+
+    await registry.record_decision(
+        idempotency_key=first.idempotency_key,
+        decision=HilApprovalDecision.REJECT,
+        approver_oid="operator-a",
+    )
+
+    assert await registry.list_pending() == ()
+    snapshot = await _request(provider, at=_NOW + timedelta(seconds=30))
+    assert snapshot.decisions[0].decision == "rejected"
+    with pytest.raises(HilItemNotFoundError):
+        await registry.record_decision(
+            idempotency_key=second.idempotency_key,
+            decision=HilApprovalDecision.APPROVE,
+            approver_oid="operator-b",
+        )
+
+    second_attempt = await _request(
+        provider,
+        at=_NOW + timedelta(seconds=40),
+        attempt=2,
+    )
+    assert second_attempt.attempt == 2
+    assert second_attempt.decisions == ()
+    assert len(await registry.list_pending()) == 2
+
+
+async def test_workflow_rejection_survives_sibling_slot_projection_failure() -> None:
+    class SlotProjectionFailingStore(InMemoryStateStore):
+        fail_slot_projection = True
+
+        async def compare_and_set_state_with_audit(
+            self,
+            key: str,
+            value: dict[str, object],
+            *,
+            expected_revision: int,
+            audit_entry: dict[str, object],
+        ) -> bool:
+            if (
+                self.fail_slot_projection
+                and key.startswith("hil_park:")
+                and audit_entry.get("action_kind") == "workflow.approval.slot_rejected"
+            ):
+                self.fail_slot_projection = False
+                return False
+            return await super().compare_and_set_state_with_audit(
+                key,
+                value,
+                expected_revision=expected_revision,
+                audit_entry=audit_entry,
+            )
+
+    store = SlotProjectionFailingStore()
+    provider = StateStoreWorkflowApprovalProvider(store)
+    registry = StateStoreHilApprovalRegistry(store=store)
+    await _request(provider)
+    first = (await registry.list_pending())[0]
+
+    with pytest.raises(RuntimeError, match="left a pending slot"):
+        await registry.record_decision(
+            idempotency_key=first.idempotency_key,
+            decision=HilApprovalDecision.REJECT,
+            approver_oid="operator-a",
+        )
+
+    assert await registry.list_pending() == ()
+    await _request(provider, at=_NOW + timedelta(seconds=30))
+    parks, _ = await store.read_state_page("hil_park:", limit=10, offset=0)
+    assert {park["status"] for park in parks} == {"resolved"}
+    assert {park["decision"] for park in parks} == {"reject"}
 
 
 async def test_workflow_decision_survives_receipt_projection_failure() -> None:

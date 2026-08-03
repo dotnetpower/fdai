@@ -18,7 +18,9 @@ from fdai.shared.providers.state_store import StateStore
 _EFFECT_FREE_FAILURE_REASONS = frozenset(
     {
         "approval_provider_not_configured",
+        "approval_rejected",
         "approval_requester_unavailable",
+        "approval_timed_out",
         "enforce_action_dispatcher_not_configured",
         "gate_blocked",
         "guard_blocked_enforce",
@@ -76,13 +78,18 @@ class WorkflowRetryCoordinator:
                 attempt=active_retry.attempt,
                 replayed=True,
             )
-        if snapshot.status is not ProcessStatus.FAILED:
+        if snapshot.status not in {ProcessStatus.FAILED, ProcessStatus.TIMED_OUT}:
             raise WorkflowRetryError(
                 "process_not_retryable",
                 f"Process in {snapshot.status.value!r} state cannot start a retry",
             )
         terminal = next(
-            (event for event in reversed(events) if event.kind is ProcessEventKind.PROCESS_FAILED),
+            (
+                event
+                for event in reversed(events)
+                if event.kind
+                in {ProcessEventKind.PROCESS_FAILED, ProcessEventKind.PROCESS_TIMED_OUT}
+            ),
             None,
         )
         if terminal is None:
@@ -99,7 +106,6 @@ class WorkflowRetryCoordinator:
         attempt_events = tuple(event for event in events if event.attempt == failed_attempt)
         blocked = {
             ProcessEventKind.ACTION_DISPATCHED,
-            ProcessEventKind.APPROVAL_REQUESTED,
             ProcessEventKind.COMPENSATION_STARTED,
             ProcessEventKind.COMPENSATION_DISPATCHED,
             ProcessEventKind.PROCESS_CANCELLATION_REQUESTED,
@@ -113,7 +119,8 @@ class WorkflowRetryCoordinator:
             (
                 event
                 for event in reversed(attempt_events)
-                if event.kind is ProcessEventKind.STEP_FAILED and event.step_id is not None
+                if event.kind in {ProcessEventKind.STEP_FAILED, ProcessEventKind.PROCESS_TIMED_OUT}
+                and event.step_id is not None
             ),
             None,
         )
@@ -123,6 +130,17 @@ class WorkflowRetryCoordinator:
                 "Failed Process has no retryable step failure evidence",
             )
         failure_reason = str(failed_step.payload.get("reason") or "")
+        has_approval_request = any(
+            event.kind is ProcessEventKind.APPROVAL_REQUESTED for event in attempt_events
+        )
+        if has_approval_request and failure_reason not in {
+            "approval_rejected",
+            "approval_timed_out",
+        }:
+            raise WorkflowRetryError(
+                "retry_requires_recovery",
+                "Approval evidence is not a terminal rejection or timeout",
+            )
         if failure_reason not in _EFFECT_FREE_FAILURE_REASONS:
             raise WorkflowRetryError(
                 "retry_requires_recovery",

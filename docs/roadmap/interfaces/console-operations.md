@@ -222,6 +222,9 @@ can retry shadow, while enforce requires Owner and the current workflow allowlis
 start new forward work. The server admits only a `failed` attempt with an explicit effect-free
 reason and no dispatch, approval, cancellation, or compensation evidence. Other failures return a
 typed recovery conflict. `max_retry_attempts` is server-owned and defaults to 3.
+An approval rejection closes every sibling quorum slot. Retrying `approval_rejected` or
+`approval_timed_out` creates a new attempt with distinct approval ids; no prior decision satisfies
+the new quorum.
 
 ### Request checks
 

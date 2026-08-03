@@ -39,21 +39,25 @@ class StateStoreWorkflowApprovalProvider:
         no_self_approval: bool,
         timeout_seconds: int | None,
         requested_at: Any,
+        attempt: int = 1,
     ) -> WorkflowApprovalSnapshot:
         if not process_id or not step_id or not requester_principal:
             raise ValueError("workflow approval identity fields MUST be non-empty")
         if quorum < 1 or timeout_seconds is not None and timeout_seconds < 1:
             raise ValueError("workflow approval bounds MUST be positive")
-        key = _state_key(process_id, step_id)
+        if attempt < 1:
+            raise ValueError("workflow approval attempt MUST be >= 1")
+        key = _state_key(process_id, step_id, attempt)
         expires_at = (
             requested_at + timedelta(seconds=timeout_seconds)
             if timeout_seconds is not None
             else None
         )
-        slots = tuple(_slot(process_id, step_id, index) for index in range(quorum))
+        slots = tuple(_slot(process_id, step_id, attempt, index) for index in range(quorum))
         record: dict[str, object] = {
             "process_id": process_id,
             "step_id": step_id,
+            "attempt": attempt,
             "correlation_id": correlation_id,
             "target_resource_id": target_resource_id,
             "requester_principal": requester_principal,
@@ -86,6 +90,13 @@ class StateStoreWorkflowApprovalProvider:
             raise RuntimeError("workflow approval request conflicts with durable state")
         if stored.get("state") == "pending":
             await self._ensure_parks(stored)
+        elif stored.get("state") == "rejected":
+            await self._close_parks(
+                stored,
+                decision="reject",
+                resolved_at=_rejected_at(stored),
+                action_kind="workflow.approval.slot_rejected",
+            )
         return await self._snapshot(stored)
 
     async def mark_timed_out(
@@ -95,10 +106,11 @@ class StateStoreWorkflowApprovalProvider:
         step_id: str,
         expected_revision: int,
         timed_out_at: Any,
+        attempt: int = 1,
     ) -> bool:
-        key = _state_key(process_id, step_id)
+        key = _state_key(process_id, step_id, attempt)
         record = await self.store.read_state(key)
-        if record is None or not _lineage_matches(record, process_id, step_id):
+        if record is None or not _lineage_matches(record, process_id, step_id, attempt):
             return False
         if record.get("state") == "timed_out":
             await self._close_parks(
@@ -141,13 +153,14 @@ class StateStoreWorkflowApprovalProvider:
         process_id: str,
         step_id: str,
         cancelled_at: Any,
+        attempt: int = 1,
     ) -> bool:
-        key = _state_key(process_id, step_id)
+        key = _state_key(process_id, step_id, attempt)
         for _ in range(8):
             record = await self.store.read_state(key)
             if record is None:
                 return False
-            if not _lineage_matches(record, process_id, step_id):
+            if not _lineage_matches(record, process_id, step_id, attempt):
                 return False
             state = record.get("state")
             if state == "cancelled":
@@ -263,6 +276,7 @@ class StateStoreWorkflowApprovalProvider:
             expires_at=(
                 _datetime(record["expires_at"]) if record.get("expires_at") is not None else None
             ),
+            attempt=int(record.get("attempt", 1)),
             decisions=tuple(decisions),
             timed_out=record.get("state") == "timed_out",
             cancelled=record.get("state") == "cancelled",
@@ -303,13 +317,19 @@ class StateStoreWorkflowApprovalProvider:
             )
 
 
-def _state_key(process_id: str, step_id: str) -> str:
-    digest = hashlib.sha256(f"{process_id}\0{step_id}".encode()).hexdigest()
+def _state_key(process_id: str, step_id: str, attempt: int = 1) -> str:
+    identity = f"{process_id}\0{step_id}"
+    if attempt > 1:
+        identity += f"\0{attempt}"
+    digest = hashlib.sha256(identity.encode()).hexdigest()
     return f"{_STATE_PREFIX}{digest}"
 
 
-def _slot(process_id: str, step_id: str, index: int) -> dict[str, object]:
-    digest = hashlib.sha256(f"{process_id}\0{step_id}\0{index}".encode()).hexdigest()
+def _slot(process_id: str, step_id: str, attempt: int, index: int) -> dict[str, object]:
+    identity = f"{process_id}\0{step_id}"
+    if attempt > 1:
+        identity += f"\0{attempt}"
+    digest = hashlib.sha256(f"{identity}\0{index}".encode()).hexdigest()
     return {
         "index": index,
         "approval_id": f"workflow-approval:{digest}",
@@ -340,11 +360,20 @@ def _request_matches(stored: Any, expected: dict[str, object]) -> bool:
         "timeout_seconds",
         "slots",
     )
-    return all(stored.get(field) == expected[field] for field in fields)
+    expected_attempt = expected.get("attempt")
+    return (
+        isinstance(expected_attempt, int)
+        and all(stored.get(field) == expected[field] for field in fields)
+        and int(stored.get("attempt", 1)) == expected_attempt
+    )
 
 
-def _lineage_matches(record: Any, process_id: str, step_id: str) -> bool:
-    return bool(record.get("process_id") == process_id and record.get("step_id") == step_id)
+def _lineage_matches(record: Any, process_id: str, step_id: str, attempt: int) -> bool:
+    return bool(
+        record.get("process_id") == process_id
+        and record.get("step_id") == step_id
+        and int(record.get("attempt", 1)) == attempt
+    )
 
 
 def _park_record(
@@ -381,10 +410,12 @@ def _park_record(
             "decision_route": "workflow",
             "process_id": str(record["process_id"]),
             "step_id": str(record["step_id"]),
+            "attempt": str(record.get("attempt", 1)),
             "required_role": str(record["required_role"]),
             "workflow_state_key": _state_key(
                 str(record["process_id"]),
                 str(record["step_id"]),
+                int(record.get("attempt", 1)),
             ),
         },
     }
@@ -396,6 +427,16 @@ def _datetime(value: object) -> Any:
     if not isinstance(value, str):
         raise RuntimeError("workflow approval timestamp is malformed")
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _rejected_at(record: Any) -> Any:
+    raw_claims = record.get("decision_claims", {})
+    if not isinstance(raw_claims, dict):
+        raise RuntimeError("workflow approval decision claims are malformed")
+    for claim in raw_claims.values():
+        if isinstance(claim, dict) and claim.get("decision") == "rejected":
+            return _datetime(claim.get("decided_at"))
+    raise RuntimeError("rejected workflow approval has no rejection claim")
 
 
 __all__ = ["StateStoreWorkflowApprovalProvider"]

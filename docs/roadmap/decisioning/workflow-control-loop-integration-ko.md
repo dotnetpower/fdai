@@ -1,7 +1,7 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: 482c3b5e489cb31e5a4b489655d6f0b0ed411a1c
+translation_source_sha: 19e34d0d9e53b02a55a56c1207a9cd39e045d147
 translation_revised: 2026-08-04
 ---
 
@@ -52,6 +52,8 @@ Compensation intent는 typed dispatch 전에 commit되고, 검증된 compensatio
 `compensated`로 닫습니다. Dispatcher, verifier, receipt가 없거나 guard가 실패하면 Process는
 hold 또는 fail-closed됩니다. ARB 같은 control-only workflow는 resource
 mutation authority 없이 실제 approval 및 decision transition을 저장할 수 있습니다.
+Approval request는 attempt-scoped입니다. Reject는 complete quorum attempt를 닫고 reject 또는 timeout
+뒤 retry는 fresh Var slot을 만들며 attempt 1 durable-key compatibility를 유지합니다.
 
 이벤트 진입점은
 [`WorkflowTriggerCoordinator`](../../../src/fdai/core/workflow/coordinator.py) 다:

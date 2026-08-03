@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: bfcd1839955e7e377bf304c6fc3c9485f9b755c1
+translation_source_sha: 1d4922424f48e2599d9f32ab48527fa79549ac3c
 translation_revised: 2026-08-04
 ---
 
@@ -295,6 +295,14 @@ approval, cancellation, compensation evidence가 없어야 합니다. Dispatcher
 event가 없어도 ambiguous하므로 `retry_requires_recovery`를 반환합니다. Shadow retry에는
 Contributor가 필요하고 enforce retry에는 Owner와 현재 enforce allowlist가 필요합니다. Server-owned
 attempt limit의 기본값은 3이며 caller가 높일 수 없습니다.
+
+Workflow approval state와 HIL slot identity는 Process, step, attempt에 binding됩니다. Attempt 1은
+기존 durable record를 위해 legacy key를 유지하고 이후 attempt는 distinct key를 사용합니다. 한 명의
+rejection은 전체 quorum attempt를 terminal로 만들고 모든 sibling slot을 닫으므로 late approval이
+rejection과 경쟁할 수 없습니다. `approval_rejected` 또는 `approval_timed_out` 뒤 bounded retry는 새
+attempt용 fresh slot만 만듭니다. Sibling park closure가 중단되어도 terminal workflow CAS가
+authoritative하므로 queue는 stale slot을 숨기고 다음 provider read가 이를 복구합니다. Cancellation과
+timeout도 exact attempt를 닫습니다.
 
 Workflow audit는 각 ActionType의 `x-fdai-redact` path를 사용합니다. Redacted field는
 `[REDACTED]`로 표시되며 Process journal에 들어가지 않습니다. Workflow runtime에는 secret custody
