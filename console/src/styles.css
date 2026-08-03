@@ -6032,10 +6032,19 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-overlay-mode-dock .deck-body,
 .deck-overlay-mode-dock .deck-body.has-conversations,
 .deck-overlay-mode-dock .deck-body.has-digest { grid-template-columns: minmax(0, 1fr); }
-.deck-overlay-mode-floating .deck-conversations,
 .deck-overlay-mode-floating .deck-digest,
-.deck-overlay-mode-dock .deck-conversations,
 .deck-overlay-mode-dock .deck-digest { display: none; }
+.deck-overlay-mode-floating .deck-body,
+.deck-overlay-mode-dock .deck-body { position: relative; }
+.deck-overlay-mode-floating .deck-conversations,
+.deck-overlay-mode-dock .deck-conversations {
+  position: absolute;
+  z-index: 4;
+  inset: 42px auto 0 0;
+  width: min(300px, 82%);
+  box-sizing: border-box;
+  box-shadow: 8px 0 22px rgb(15 23 42 / 18%);
+}
 .deck-overlay-mode-floating .deck-transcript-inner,
 .deck-overlay-mode-dock .deck-transcript-inner { padding: 18px 14px 10px; }
 .deck-overlay-mode-floating .deck-input-row,
@@ -9107,7 +9116,16 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-overlay-mode-workspace .deck-btn-primary,
 .deck-overlay-mode-workspace .deck-btn-stop { min-width: 93px; }
 .deck-overlay-mode-floating .deck-transcript-tools,
-.deck-overlay-mode-dock .deck-transcript-tools { display: none; }
+.deck-overlay-mode-dock .deck-transcript-tools {
+  position: relative;
+  z-index: 5;
+  min-height: 36px;
+  padding: 3px 12px;
+}
+.deck-overlay-mode-floating .deck-transcript-tools > button:first-child,
+.deck-overlay-mode-dock .deck-transcript-tools > button:first-child,
+.deck-overlay-mode-floating .deck-panel-toggle-context,
+.deck-overlay-mode-dock .deck-panel-toggle-context { display: none; }
 /* Slash-command hint palette - floats just above the composer, never inside
  * the input grid so it cannot disturb the textarea / actions layout. */
 .deck-slash-palette {
