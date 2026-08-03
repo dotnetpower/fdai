@@ -43,6 +43,10 @@ from fdai.delivery.azure.llm.judge import (
     AzureOpenAIJudgeModel,
     AzureOpenAIJudgeModelConfig,
 )
+from fdai.delivery.azure.llm.ontology_council import (
+    AzureOpenAIOntologyCouncilModel,
+    AzureOpenAIOntologyCouncilModelConfig,
+)
 from fdai.delivery.azure.llm.proposer import (
     AzureOpenAIProposer,
     AzureOpenAIProposerConfig,
@@ -65,6 +69,8 @@ __all__ = [
     "AzureOpenAIEmbeddingModelConfig",
     "AzureOpenAIJudgeModel",
     "AzureOpenAIJudgeModelConfig",
+    "AzureOpenAIOntologyCouncilModel",
+    "AzureOpenAIOntologyCouncilModelConfig",
     "AzureOpenAIProposer",
     "AzureOpenAIProposerConfig",
     "AzureOpenAIRcaModel",
