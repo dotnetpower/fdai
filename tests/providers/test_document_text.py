@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
+import pytest
+
+from fdai.shared.providers.local.document_limits import DEFAULT_DOCUMENT_PARSER_POLICY
 from fdai.shared.providers.local.document_text import extract_structured_text
 
 
@@ -76,3 +81,36 @@ def test_plain_text_keeps_original_line_locators() -> None:
     units = extract_structured_text(b"first\n\nthird\n", source_name="notes.txt")
 
     assert [unit.locator for unit in units] == ["line:1", "line:3"]
+
+
+def test_markdown_rejects_excessive_token_count_and_nesting() -> None:
+    token_policy = replace(DEFAULT_DOCUMENT_PARSER_POLICY, max_markdown_tokens=2)
+    with pytest.raises(ValueError, match="Markdown token count exceeds the parser budget"):
+        extract_structured_text(
+            b"# heading\n\nparagraph\n",
+            source_name="runbook.md",
+            policy=token_policy,
+        )
+
+    nesting_policy = replace(DEFAULT_DOCUMENT_PARSER_POLICY, max_markdown_nesting=2)
+    with pytest.raises(ValueError, match="Markdown nesting exceeds the parser budget"):
+        extract_structured_text(
+            b"> > > deeply nested\n",
+            source_name="runbook.md",
+            policy=nesting_policy,
+        )
+
+
+def test_sgml_rejects_excessive_nesting_and_unclosed_blocks() -> None:
+    nesting_policy = replace(DEFAULT_DOCUMENT_PARSER_POLICY, max_sgml_nesting=2)
+    with pytest.raises(ValueError, match="SGML nesting exceeds the parser budget"):
+        extract_structured_text(
+            b"<para><para><para>deep</para></para></para>",
+            source_name="manual.sgml",
+            policy=nesting_policy,
+        )
+    with pytest.raises(ValueError, match="unclosed structural block"):
+        extract_structured_text(
+            b"<chapter><para>private source fragment",
+            source_name="manual.sgml",
+        )

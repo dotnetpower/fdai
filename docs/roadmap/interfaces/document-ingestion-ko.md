@@ -1,7 +1,7 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: 32160d7bcb32669a95e5be3b3396d049898d8275
+translation_source_sha: 8cb4affddc9b6a243cce89d97c5a4bc3e18be190
 translation_revised: 2026-08-03
 ---
 # 문서 인제스트와 Drop Zone
@@ -263,6 +263,13 @@ File size, expanded bytes, page count, archive depth, member count, OCR pixels, 
 processing time, extracted-character count에는 각각 독립적인 configurable budget을 적용합니다.
 예약된 storage와 processing budget에 맞을 때만 대용량 source를 수락합니다. 압축 파일의 작은
 upload size로 expanded-content limit을 우회할 수 없습니다.
+
+Local reference extractor는 input, output, parser nesting, container expansion, XML member, PDF object와
+content stream 및 OCR output에 hard ceiling이 있는 immutable `DocumentParserPolicy`를 사용합니다.
+Deployment는 parser code를 변경하지 않고 더 엄격한 policy를 inject할 수 있습니다. Budget/parser failure는
+source text가 없는 sanitized category를 반환합니다. Retained `pypdf` library는 개별 decode buffer가 allocation되기
+전에 해당 decode를 중단할 수 없으므로 production PDF extraction은 isolated worker에서도 실행하는 것이
+좋습니다. Decode 전 raw-byte check와 직후 decoded-byte check는 defense in depth로 유지됩니다.
 
 Upstream에는 하나의 hard-coded maximum을 두지 않습니다. Fork는 storage quota, extractor
 capability, worker memory, cost policy, 측정된 throughput을 기반으로 limit을 게시합니다. 기존

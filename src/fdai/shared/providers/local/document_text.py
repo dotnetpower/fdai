@@ -12,26 +12,38 @@ from markdown_it import MarkdownIt
 from markdown_it.token import Token
 
 from fdai.shared.contracts import StructuralUnit
+from fdai.shared.providers.local.document_limits import (
+    DEFAULT_DOCUMENT_PARSER_POLICY,
+    DocumentParserPolicy,
+)
 
 _MARKDOWN_EXTENSIONS = frozenset({".md", ".markdown"})
 _SGML_EXTENSIONS = frozenset({".sgml", ".html", ".htm"})
 _SHORTCODE = re.compile(r"^\s*\{\{[%<].*[>%]\}\}\s*$")
 _INLINE_SHORTCODE = re.compile(r"\{\{[%<].*?[>%]\}\}")
-_MAX_UNITS = 20_000
-_MAX_CHARACTERS = 5_000_000
 
 
-def extract_structured_text(content: bytes, *, source_name: str) -> tuple[StructuralUnit, ...]:
+def extract_structured_text(
+    content: bytes,
+    *,
+    source_name: str,
+    policy: DocumentParserPolicy = DEFAULT_DOCUMENT_PARSER_POLICY,
+) -> tuple[StructuralUnit, ...]:
     """Extract bounded source-aware units from one UTF-8 text document."""
-    text = content.decode("utf-8-sig")
+    if len(content) > policy.max_input_bytes:
+        raise ValueError("text input bytes exceed the parser budget")
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise ValueError("text content is not valid UTF-8") from exc
     suffix = Path(source_name).suffix.lower()
     if suffix in _MARKDOWN_EXTENSIONS:
-        units = _extract_markdown(text)
+        units = _extract_markdown(text, policy=policy)
     elif suffix in _SGML_EXTENSIONS:
-        units = _extract_sgml(text)
+        units = _extract_sgml(text, policy=policy)
     else:
         units = _extract_lines(text)
-    _validate_budget(units)
+    _validate_budget(units, policy=policy)
     return units
 
 
@@ -48,10 +60,18 @@ def _extract_lines(text: str) -> tuple[StructuralUnit, ...]:
     )
 
 
-def _extract_markdown(text: str) -> tuple[StructuralUnit, ...]:
+def _extract_markdown(
+    text: str,
+    *,
+    policy: DocumentParserPolicy,
+) -> tuple[StructuralUnit, ...]:
     parser = MarkdownIt("commonmark", options_update={"html": False, "linkify": False})
     parser.enable("table")
     tokens = parser.parse(text)
+    if len(tokens) > policy.max_markdown_tokens:
+        raise ValueError("Markdown token count exceeds the parser budget")
+    if max((token.level for token in tokens), default=0) > policy.max_markdown_nesting:
+        raise ValueError("Markdown nesting exceeds the parser budget")
     source_lines = text.splitlines()
     frontmatter_end = _frontmatter_end(text)
     units: list[StructuralUnit] = []
@@ -212,16 +232,19 @@ class _SgmlParser(HTMLParser):
         {"title", "para", "listitem", "entry", "programlisting", "screen", "synopsis"}
     )
 
-    def __init__(self) -> None:
+    def __init__(self, *, max_nesting: int) -> None:
         super().__init__(convert_charrefs=True)
         self.units: list[StructuralUnit] = []
         self._captures: list[_SgmlCapture] = []
         self._counts: dict[str, int] = {}
+        self._max_nesting = max_nesting
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         del attrs
         if tag not in self._BLOCK_TAGS:
             return
+        if len(self._captures) >= self._max_nesting:
+            raise ValueError("SGML nesting exceeds the parser budget")
         ordinal = self._counts.get(tag, 0) + 1
         self._counts[tag] = ordinal
         self._captures.append(_SgmlCapture(tag, ordinal, self.getpos()[0]))
@@ -251,8 +274,12 @@ class _SgmlParser(HTMLParser):
             self._captures[-1].parts.append(data)
 
 
-def _extract_sgml(text: str) -> tuple[StructuralUnit, ...]:
-    parser = _SgmlParser()
+def _extract_sgml(
+    text: str,
+    *,
+    policy: DocumentParserPolicy,
+) -> tuple[StructuralUnit, ...]:
+    parser = _SgmlParser(max_nesting=policy.max_sgml_nesting)
     parser.feed(text)
     parser.close()
     if parser._captures:
@@ -260,10 +287,14 @@ def _extract_sgml(text: str) -> tuple[StructuralUnit, ...]:
     return tuple(parser.units)
 
 
-def _validate_budget(units: tuple[StructuralUnit, ...]) -> None:
-    if len(units) > _MAX_UNITS:
+def _validate_budget(
+    units: tuple[StructuralUnit, ...],
+    *,
+    policy: DocumentParserPolicy,
+) -> None:
+    if len(units) > policy.max_units:
         raise ValueError("text structural unit count exceeds the parser budget")
-    if sum(len(unit.text) for unit in units) > _MAX_CHARACTERS:
+    if sum(len(unit.text) for unit in units) > policy.max_text_characters:
         raise ValueError("text extracted characters exceed the parser budget")
 
 

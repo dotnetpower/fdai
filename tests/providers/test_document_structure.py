@@ -4,14 +4,22 @@ from __future__ import annotations
 
 import io
 import zipfile
+import zlib
+from dataclasses import replace
 
 import pytest
 from pypdf import PdfWriter
 from pypdf.errors import PdfReadError
-from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
+from pypdf.generic import (
+    DecodedStreamObject,
+    DictionaryObject,
+    EncodedStreamObject,
+    NameObject,
+)
 
 from fdai.shared.contracts import StructuralUnit
 from fdai.shared.providers.local import document_pdf, document_structure
+from fdai.shared.providers.local.document_limits import DEFAULT_DOCUMENT_PARSER_POLICY
 from fdai.shared.providers.local.document_structure import (
     extract_ooxml,
     extract_pdf_text,
@@ -165,20 +173,47 @@ def test_pdf_uses_strict_reader_and_sanitizes_parser_errors(monkeypatch) -> None
     assert "private document fragment" not in str(captured.value)
 
 
-def test_pdf_native_extraction_enforces_every_budget(monkeypatch) -> None:
-    content = _generated_pdf("bounded text")
+def test_pdf_native_extraction_enforces_every_budget() -> None:
+    content = _generated_pdf("bounded text", page_count=2)
     limits = (
-        ("_MAX_PDF_BYTES", 1, "bytes"),
-        ("_MAX_PDF_PAGES", 0, "page count"),
-        ("_MAX_PDF_OBJECTS", 0, "object count"),
-        ("_MAX_UNITS", 0, "extracted text"),
-        ("_MAX_CHARACTERS", 1, "extracted text"),
+        ("max_input_bytes", 1, "bytes"),
+        ("max_pdf_pages", 1, "page count"),
+        ("max_pdf_objects", 1, "object count"),
+        ("max_pdf_units", 1, "extracted text"),
+        ("max_pdf_characters", 1, "extracted text"),
     )
     for attribute, value, message in limits:
-        with monkeypatch.context() as context:
-            context.setattr(document_pdf, attribute, value)
-            with pytest.raises(ValueError, match=message):
-                extract_pdf_text(content)
+        with pytest.raises(ValueError, match=message):
+            extract_pdf_text(
+                content,
+                policy=replace(DEFAULT_DOCUMENT_PARSER_POLICY, **{attribute: value}),
+            )
+
+
+def test_pdf_enforces_decoded_content_stream_budget() -> None:
+    content = _compressed_pdf("bounded " * 200)
+    policy = replace(
+        DEFAULT_DOCUMENT_PARSER_POLICY,
+        max_pdf_raw_stream_bytes=1024,
+        max_pdf_decoded_stream_bytes=64,
+    )
+
+    with pytest.raises(ValueError, match="decoded content stream"):
+        extract_pdf_text(content, policy=policy)
+
+
+def test_pdf_policy_enforces_page_and_object_budgets() -> None:
+    content = _generated_pdf("bounded text", page_count=2)
+    with pytest.raises(ValueError, match="page count"):
+        extract_pdf_text(
+            content,
+            policy=replace(DEFAULT_DOCUMENT_PARSER_POLICY, max_pdf_pages=1),
+        )
+    with pytest.raises(ValueError, match="object count"):
+        extract_pdf_text(
+            content,
+            policy=replace(DEFAULT_DOCUMENT_PARSER_POLICY, max_pdf_objects=1),
+        )
 
 
 def test_pdf_text_blocks_preserve_page_local_order() -> None:
@@ -211,7 +246,7 @@ def test_pdf_ocr_rejects_duplicate_or_reordered_citations() -> None:
         normalize_pdf_ocr_units(reordered_blocks)
 
 
-def test_pdf_ocr_validates_locator_empty_output_and_budget(monkeypatch) -> None:
+def test_pdf_ocr_validates_locator_empty_output_and_budget() -> None:
     valid = (
         StructuralUnit(unit_id="unit-1", kind="page", locator="pdf/page:2/ocr:7", text="  text  "),
     )
@@ -224,12 +259,14 @@ def test_pdf_ocr_validates_locator_empty_output_and_budget(monkeypatch) -> None:
         normalize_pdf_ocr_units(
             (StructuralUnit(unit_id="empty", kind="page", locator="page:1:line:1", text=" "),)
         )
-    monkeypatch.setattr(document_pdf, "_MAX_CHARACTERS", 1)
     with pytest.raises(ValueError, match="parser budget"):
-        normalize_pdf_ocr_units(valid)
+        normalize_pdf_ocr_units(
+            valid,
+            policy=replace(DEFAULT_DOCUMENT_PARSER_POLICY, max_ocr_characters=1),
+        )
 
 
-def test_ooxml_rejects_unsafe_members_and_declarations(monkeypatch) -> None:
+def test_ooxml_rejects_unsafe_members_and_declarations() -> None:
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w") as archive:
         archive.writestr("../escape", "x")
@@ -237,12 +274,32 @@ def test_ooxml_rejects_unsafe_members_and_declarations(monkeypatch) -> None:
         with pytest.raises(ValueError, match="unsafe member"):
             document_structure.validated_zip_members(archive)
 
-    monkeypatch.setattr(document_structure, "_MAX_ZIP_MEMBERS", 0)
-    with zipfile.ZipFile(io.BytesIO(_ooxml({}))) as archive:
+    package = _ooxml({"word/document.xml": b"<w:document xmlns:w='urn:w'/>"})
+    with zipfile.ZipFile(io.BytesIO(package)) as archive:
         with pytest.raises(ValueError, match="member count"):
-            document_structure.validated_zip_members(archive)
+            document_structure.validated_zip_members(
+                archive,
+                policy=replace(DEFAULT_DOCUMENT_PARSER_POLICY, max_ooxml_members=1),
+            )
     with pytest.raises(ValueError, match="prohibited declaration"):
         document_structure._xml_root(b"<!DOCTYPE x><x/>")
+
+
+def test_ooxml_rejects_xml_member_size_and_depth() -> None:
+    member_policy = replace(DEFAULT_DOCUMENT_PARSER_POLICY, max_ooxml_xml_member_bytes=32)
+    with pytest.raises(ValueError, match="XML member exceeds the parser budget"):
+        extract_ooxml(
+            _ooxml({"word/document.xml": b"<w:document xmlns:w='urn:w'><w:body/></w:document>"}),
+            policy=member_policy,
+        )
+
+    nested = (
+        b"<w:document xmlns:w='urn:w'><w:body><a><b><c><w:p>"
+        b"<w:r><w:t>deep</w:t></w:r></w:p></c></b></a></w:body></w:document>"
+    )
+    depth_policy = replace(DEFAULT_DOCUMENT_PARSER_POLICY, max_ooxml_xml_depth=4)
+    with pytest.raises(ValueError, match="XML depth exceeds the parser budget"):
+        extract_ooxml(_ooxml({"word/document.xml": nested}), policy=depth_policy)
 
 
 def test_ooxml_missing_structure_and_sheet_fallback() -> None:
@@ -264,7 +321,37 @@ def _ooxml(parts: dict[str, bytes]) -> bytes:
     return output.getvalue()
 
 
-def _generated_pdf(text: str, *, password: str | None = None) -> bytes:
+def _generated_pdf(
+    text: str,
+    *,
+    password: str | None = None,
+    page_count: int = 1,
+) -> bytes:
+    output = io.BytesIO()
+    writer = PdfWriter()
+    font = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Font"),
+            NameObject("/Subtype"): NameObject("/Type1"),
+            NameObject("/BaseFont"): NameObject("/Helvetica"),
+        }
+    )
+    font_reference = writer._add_object(font)
+    for _ in range(page_count):
+        page = writer.add_blank_page(width=612, height=792)
+        page[NameObject("/Resources")] = DictionaryObject(
+            {NameObject("/Font"): DictionaryObject({NameObject("/F1"): font_reference})}
+        )
+        stream = DecodedStreamObject()
+        stream.set_data(f"BT /F1 12 Tf 72 720 Td ({text}) Tj ET".encode("ascii"))
+        page[NameObject("/Contents")] = writer._add_object(stream)
+    if password is not None:
+        writer.encrypt(password)
+    writer.write(output)
+    return output.getvalue()
+
+
+def _compressed_pdf(text: str) -> bytes:
     output = io.BytesIO()
     writer = PdfWriter()
     page = writer.add_blank_page(width=612, height=792)
@@ -278,10 +365,10 @@ def _generated_pdf(text: str, *, password: str | None = None) -> bytes:
     page[NameObject("/Resources")] = DictionaryObject(
         {NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)})}
     )
-    stream = DecodedStreamObject()
-    stream.set_data(f"BT /F1 12 Tf 72 720 Td ({text}) Tj ET".encode("ascii"))
+    operations = f"BT /F1 12 Tf 72 720 Td ({text}) Tj ET".encode("ascii")
+    stream = EncodedStreamObject()
+    stream._data = zlib.compress(operations)
+    stream[NameObject("/Filter")] = NameObject("/FlateDecode")
     page[NameObject("/Contents")] = writer._add_object(stream)
-    if password is not None:
-        writer.encrypt(password)
     writer.write(output)
     return output.getvalue()

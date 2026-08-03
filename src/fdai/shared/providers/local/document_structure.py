@@ -10,14 +10,15 @@ from typing import Literal
 from xml.etree import ElementTree
 
 from fdai.shared.contracts import StructuralUnit
+from fdai.shared.providers.local.document_limits import (
+    DEFAULT_DOCUMENT_PARSER_POLICY,
+    DocumentParserPolicy,
+)
 from fdai.shared.providers.local.document_pdf import (
     extract_pdf_text,
     normalize_pdf_ocr_units,
 )
 
-_MAX_ZIP_MEMBERS = 2048
-_MAX_EXPANDED_BYTES = 64 * 1024 * 1024
-_MAX_COMPRESSION_RATIO = 100
 _HEADING_STYLE = re.compile(r"heading\s*([1-9])", re.IGNORECASE)
 _SLIDE_NUMBER = re.compile(r"slide(\d+)\.xml$")
 _NOTES_NUMBER = re.compile(r"notesSlide(\d+)\.xml$")
@@ -25,12 +26,18 @@ _SHEET_NUMBER = re.compile(r"sheet(\d+)\.xml$")
 _CELL_ADDRESS = re.compile(r"[A-Z]{1,3}[1-9]\d{0,6}")
 
 
-def extract_ooxml(content: bytes) -> tuple[StructuralUnit, ...]:
+def extract_ooxml(
+    content: bytes,
+    *,
+    policy: DocumentParserPolicy = DEFAULT_DOCUMENT_PARSER_POLICY,
+) -> tuple[StructuralUnit, ...]:
     """Extract cited structural units from one bounded OOXML package."""
+    if len(content) > policy.max_input_bytes:
+        raise ValueError("OOXML input bytes exceed the parser budget")
     with zipfile.ZipFile(io.BytesIO(content)) as archive:
-        names = {item.filename for item in validated_zip_members(archive)}
+        names = {item.filename for item in validated_zip_members(archive, policy=policy)}
         if "word/document.xml" in names:
-            return _extract_docx(_xml_root(archive.read("word/document.xml")))
+            return _extract_docx(_xml_member_root(archive, "word/document.xml", policy))
         slide_names = sorted(
             (name for name in names if _SLIDE_NUMBER.search(name)),
             key=_numbered_part,
@@ -39,7 +46,7 @@ def extract_ooxml(content: bytes) -> tuple[StructuralUnit, ...]:
             note_names = {
                 _numbered_part(name): name for name in names if _NOTES_NUMBER.search(name)
             }
-            return _extract_pptx(archive, slide_names, note_names)
+            return _extract_pptx(archive, slide_names, note_names, policy=policy)
         sheet_names = sorted(
             (
                 name
@@ -52,16 +59,24 @@ def extract_ooxml(content: bytes) -> tuple[StructuralUnit, ...]:
             archive,
             sheet_names,
             shared_strings_name="xl/sharedStrings.xml" if "xl/sharedStrings.xml" in names else None,
+            policy=policy,
         )
 
 
-def validated_zip_members(archive: zipfile.ZipFile) -> tuple[zipfile.ZipInfo, ...]:
+def validated_zip_members(
+    archive: zipfile.ZipFile,
+    *,
+    policy: DocumentParserPolicy = DEFAULT_DOCUMENT_PARSER_POLICY,
+) -> tuple[zipfile.ZipInfo, ...]:
     infos = tuple(archive.infolist())
-    if len(infos) > _MAX_ZIP_MEMBERS:
+    if len(infos) > policy.max_ooxml_members:
         raise ValueError("container member count exceeds the parser budget")
     expanded = sum(item.file_size for item in infos)
     compressed = max(1, sum(item.compress_size for item in infos))
-    if expanded > _MAX_EXPANDED_BYTES or expanded / compressed > _MAX_COMPRESSION_RATIO:
+    if (
+        expanded > policy.max_ooxml_expanded_bytes
+        or expanded / compressed > policy.max_ooxml_compression_ratio
+    ):
         raise ValueError("container expansion exceeds the parser budget")
     for item in infos:
         path = Path(item.filename)
@@ -132,10 +147,12 @@ def _extract_pptx(
     archive: zipfile.ZipFile,
     slide_names: list[str],
     note_names: dict[int, str],
+    *,
+    policy: DocumentParserPolicy,
 ) -> tuple[StructuralUnit, ...]:
     units: list[StructuralUnit] = []
     for slide_number, slide_name in enumerate(slide_names, start=1):
-        root = _xml_root(archive.read(slide_name))
+        root = _xml_member_root(archive, slide_name, policy)
         shape_tree = next((item for item in root.iter() if _local_name(item.tag) == "spTree"), None)
         if shape_tree is None:
             raise ValueError("PPTX slide shape tree is missing")
@@ -178,7 +195,7 @@ def _extract_pptx(
                 )
         note_name = note_names.get(_numbered_part(slide_name))
         if note_name is not None:
-            note_root = _xml_root(archive.read(note_name))
+            note_root = _xml_member_root(archive, note_name, policy)
             note_number = 0
             for paragraph in (item for item in note_root.iter() if _local_name(item.tag) == "p"):
                 text = _element_text(paragraph)
@@ -238,11 +255,12 @@ def _extract_xlsx(
     sheet_names: list[str],
     *,
     shared_strings_name: str | None,
+    policy: DocumentParserPolicy,
 ) -> tuple[StructuralUnit, ...]:
     shared_strings = (
         tuple(
             _element_text(item)
-            for item in _xml_root(archive.read(shared_strings_name))
+            for item in _xml_member_root(archive, shared_strings_name, policy)
             if _local_name(item.tag) == "si"
         )
         if shared_strings_name is not None
@@ -252,7 +270,7 @@ def _extract_xlsx(
     seen_addresses: set[tuple[int, str]] = set()
     for name in sheet_names:
         sheet_number = _numbered_sheet(name)
-        root = _xml_root(archive.read(name))
+        root = _xml_member_root(archive, name, policy)
         cells = tuple(item for item in root.iter() if _local_name(item.tag) == "c")
         if not cells:
             text = _element_text(root)
@@ -312,10 +330,49 @@ def _heading_context(active_headings: dict[int, int]) -> str:
     return f"/context:{headings}"
 
 
-def _xml_root(xml: bytes) -> ElementTree.Element:
+class _DepthLimitedTreeBuilder(ElementTree.TreeBuilder):
+    def __init__(self, *, max_depth: int) -> None:
+        super().__init__()
+        self._max_depth = max_depth
+        self._depth = 0
+
+    def start(self, tag: str, attrs: dict[str, str]) -> ElementTree.Element:
+        self._depth += 1
+        if self._depth > self._max_depth:
+            raise ValueError("OOXML XML depth exceeds the parser budget")
+        return super().start(tag, attrs)
+
+    def end(self, tag: str) -> ElementTree.Element:
+        element = super().end(tag)
+        self._depth -= 1
+        return element
+
+
+def _xml_member_root(
+    archive: zipfile.ZipFile,
+    name: str,
+    policy: DocumentParserPolicy,
+) -> ElementTree.Element:
+    info = archive.getinfo(name)
+    if info.file_size > policy.max_ooxml_xml_member_bytes:
+        raise ValueError("OOXML XML member exceeds the parser budget")
+    return _xml_root(archive.read(name), policy=policy)
+
+
+def _xml_root(
+    xml: bytes,
+    *,
+    policy: DocumentParserPolicy = DEFAULT_DOCUMENT_PARSER_POLICY,
+) -> ElementTree.Element:
+    if len(xml) > policy.max_ooxml_xml_member_bytes:
+        raise ValueError("OOXML XML member exceeds the parser budget")
     if b"<!DOCTYPE" in xml.upper() or b"<!ENTITY" in xml.upper():
         raise ValueError("OOXML member contains a prohibited declaration")
-    return ElementTree.fromstring(xml)  # noqa: S314
+    parser = ElementTree.XMLParser(  # noqa: S314 - declarations rejected; depth bounded
+        target=_DepthLimitedTreeBuilder(max_depth=policy.max_ooxml_xml_depth)
+    )
+    parser.feed(xml)
+    return parser.close()
 
 
 def _element_text(element: ElementTree.Element) -> str:

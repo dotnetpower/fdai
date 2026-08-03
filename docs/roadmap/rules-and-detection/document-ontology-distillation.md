@@ -243,6 +243,26 @@ reports extraction available only when the descriptor targets the current confor
 every required partition passed. This resolution changes availability only. It cannot enable the
 feature, change review-only mode, or grant execution authority.
 
+`DocumentParserPolicy` is one immutable, injectable set of hard ceilings for local parsing. It
+limits input bytes, structural units, extracted characters, Markdown tokens and nesting, SGML block
+nesting, OOXML member count, expanded bytes, compression ratio, XML member bytes and depth, PDF
+pages, objects, raw and decoded content-stream bytes, and OCR pages, units, and characters. The
+standard inspector and extractor share the policy. Azure OCR has equivalent immutable source,
+response, page, line, and character limits. Duplicate or reordered OCR citations fail closed.
+
+OOXML rejects document type and entity declarations and parses XML through a depth-limited tree
+builder. SGML parsing does not resolve external entities. Parser and policy errors use bounded
+category messages and never include source text. Markdown, SGML, XML, PDF, and OCR adversarial
+fixtures verify the ceilings and sanitized outcomes.
+
+Native PDF extraction remains on strict `pypdf`; FDAI does not implement a PDF decoder. FDAI sums
+compressed raw content-stream bytes before requesting decoded data and enforces a decoded-byte
+ceiling immediately after each `pypdf` decode, followed by page, object, unit, and character
+ceilings. `pypdf` does not expose an in-process callback that can stop decompression at an exact
+decoded-byte threshold before allocation. This residual means production extraction of untrusted
+PDFs should run in an isolated worker with independent memory, CPU, and wall-time limits. The
+in-process checks remain defense in depth, not a replacement for isolation.
+
 The ten remediation rounds for D4c cover structure, claim semantics, PDF, Office/OCR provenance,
 identity resolution, coverage and release gates, public-corpus replay, provider conformance,
 resource/security bounds, and a final independent critique. Each round adds a falsifying fixture

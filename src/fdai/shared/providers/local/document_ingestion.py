@@ -28,6 +28,10 @@ from fdai.shared.providers.document_ingestion import (
     StoredObjectInfo,
     UploadGrant,
 )
+from fdai.shared.providers.local.document_limits import (
+    DEFAULT_DOCUMENT_PARSER_POLICY,
+    DocumentParserPolicy,
+)
 from fdai.shared.providers.local.document_structure import (
     extract_ooxml,
     extract_pdf_text,
@@ -36,7 +40,6 @@ from fdai.shared.providers.local.document_structure import (
 )
 from fdai.shared.providers.local.document_text import extract_structured_text
 
-_MAX_PARSE_BYTES = 32 * 1024 * 1024
 _OLE_SIGNATURE = bytes.fromhex("d0cf11e0a1b11ae1")
 _PDF_ENCRYPT = re.compile(rb"/Encrypt\b")
 _TEXT_EXTENSIONS = frozenset(
@@ -112,10 +115,17 @@ class UnavailableMalwareScanner:
 class SignatureProtectionInspector:
     """Classify common text, OOXML, PDF, encryption, and unknown signatures."""
 
+    def __init__(
+        self,
+        *,
+        policy: DocumentParserPolicy = DEFAULT_DOCUMENT_PARSER_POLICY,
+    ) -> None:
+        self._policy = policy
+
     async def inspect(
         self, *, source_name: str, media_type_hint: str, chunks: AsyncIterator[bytes]
     ) -> ProtectionInspection:
-        content = await _read_bounded(chunks)
+        content = await _read_bounded(chunks, max_bytes=self._policy.max_input_bytes)
         suffix = Path(source_name).suffix.lower()
         if content.startswith(b"%PDF-"):
             state = (
@@ -137,7 +147,7 @@ class SignatureProtectionInspector:
                 reason_code="office_password_encrypted",
             )
         if content.startswith(b"PK\x03\x04"):
-            return _inspect_zip(content, suffix)
+            return _inspect_zip(content, suffix, policy=self._policy)
         image_type = _image_media_type(content)
         if image_type is not None:
             return ProtectionInspection(
@@ -163,26 +173,37 @@ class SignatureProtectionInspector:
 class StandardLibraryDocumentExtractor:
     """Extract bounded local text, Office, PDF, and OCR evidence without active content."""
 
-    def __init__(self, *, image_ocr: ImageOcrProvider | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        image_ocr: ImageOcrProvider | None = None,
+        policy: DocumentParserPolicy = DEFAULT_DOCUMENT_PARSER_POLICY,
+    ) -> None:
         self._image_ocr = image_ocr
+        self._policy = policy
 
     async def extract(
         self, *, version: DocumentVersion, chunks: AsyncIterator[bytes]
     ) -> DocumentEnvelope:
-        content = await _read_bounded(chunks)
+        content = await _read_bounded(chunks, max_bytes=self._policy.max_input_bytes)
         observed = version.observed_format or "unknown"
         if observed == "text":
             _decode_text(content)
-            units = extract_structured_text(content, source_name=version.source_name)
+            units = extract_structured_text(
+                content,
+                source_name=version.source_name,
+                policy=self._policy,
+            )
         elif observed == "ooxml":
-            units = extract_ooxml(content)
+            units = extract_ooxml(content, policy=self._policy)
         elif observed == "pdf":
-            units = extract_pdf_text(content)
+            units = extract_pdf_text(content, policy=self._policy)
             if not units:
                 if self._image_ocr is None:
                     raise ValueError("scanned PDF extraction requires an OCR provider")
                 units = normalize_pdf_ocr_units(
-                    await self._image_ocr.extract(version=version, content=content)
+                    await self._image_ocr.extract(version=version, content=content),
+                    policy=self._policy,
                 )
         elif observed == "image":
             units = (
@@ -233,18 +254,23 @@ def _image_media_type(content: bytes) -> str | None:
     return None
 
 
-async def _read_bounded(chunks: AsyncIterator[bytes]) -> bytes:
+async def _read_bounded(chunks: AsyncIterator[bytes], *, max_bytes: int) -> bytes:
     content = bytearray()
     async for chunk in chunks:
         content.extend(chunk)
-        if len(content) > _MAX_PARSE_BYTES:
+        if len(content) > max_bytes:
             raise ValueError("document exceeds the local parser byte budget")
     return bytes(content)
 
 
-def _inspect_zip(content: bytes, suffix: str) -> ProtectionInspection:
+def _inspect_zip(
+    content: bytes,
+    suffix: str,
+    *,
+    policy: DocumentParserPolicy,
+) -> ProtectionInspection:
     with zipfile.ZipFile(io.BytesIO(content)) as archive:
-        infos = validated_zip_members(archive)
+        infos = validated_zip_members(archive, policy=policy)
         names = {item.filename.lower() for item in infos}
         if any(item.flag_bits & 0x1 for item in infos) or {
             "encryptioninfo",

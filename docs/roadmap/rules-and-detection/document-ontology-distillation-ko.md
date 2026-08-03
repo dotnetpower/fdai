@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 80ce3c12763366865066328d2793ec42ea02f14c
+translation_source_sha: a89938e515aa0bb7c39dbbc17ee7b76b2a6d74fb
 translation_revised: 2026-08-03
 ---
 # 문서 온톨로지 증류
@@ -242,6 +242,26 @@ Descriptor가 없는 binding은 unavailable로 resolve하고, `AbstainingDistill
 conformance contract를 대상으로 하고 필요한 모든 partition이 통과한 경우에만 extraction available을
 보고합니다. 이 resolution은 availability만 변경합니다. Feature를 enable하거나 review-only mode를
 변경하거나 실행 권한을 부여할 수 없습니다.
+
+`DocumentParserPolicy`는 local parsing을 위한 하나의 immutable, injectable hard ceiling 집합입니다.
+Input byte, structural unit, extracted character, Markdown token/nesting, SGML block nesting, OOXML
+member count, expanded byte, compression ratio, XML member byte/depth, PDF page, object, raw/decoded
+content-stream byte 및 OCR page/unit/character를 제한합니다. Standard inspector와 extractor는 같은 policy를
+공유합니다. Azure OCR은 이에 대응하는 immutable source, response, page, line 및 character limit를
+사용합니다. Duplicate 또는 reordered OCR citation은 fail closed합니다.
+
+OOXML은 document type과 entity declaration을 거부하고 depth-limited tree builder로 XML을 parse합니다.
+SGML parsing은 external entity를 resolve하지 않습니다. Parser/policy error는 bounded category message를
+사용하고 source text를 포함하지 않습니다. Markdown, SGML, XML, PDF 및 OCR adversarial fixture가 ceiling과
+sanitized outcome을 검증합니다.
+
+Native PDF extraction은 strict `pypdf`를 유지하며 FDAI는 PDF decoder를 직접 구현하지 않습니다. FDAI는
+decoded data를 요청하기 전에 compressed raw content-stream byte를 합산하고 각 `pypdf` decode 직후
+decoded-byte ceiling을 적용한 다음 page, object, unit 및 character ceiling을 적용합니다. `pypdf`는 allocation
+전에 정확한 decoded-byte threshold에서 decompression을 멈출 수 있는 in-process callback을 제공하지
+않습니다. 이 residual 때문에 production에서 untrusted PDF를 추출할 때는 독립적인 memory, CPU 및 wall-time
+limit가 있는 isolated worker를 사용하는 것이 좋습니다. In-process check는 defense in depth이며 isolation을
+대체하지 않습니다.
 
 D4c의 10개 remediation round는 structure, claim semantic, PDF, Office/OCR provenance, identity
 resolution, coverage/release gate, public-corpus replay, provider conformance, resource/security bound

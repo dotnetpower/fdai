@@ -261,6 +261,14 @@ processing time, and extracted-character count all have independently configured
 source is accepted only when its reserved storage and processing budget fit. A compressed file's
 small upload size never bypasses expanded-content limits.
 
+The local reference extractor uses an immutable `DocumentParserPolicy` with hard ceilings for
+input, output, parser nesting, container expansion, XML members, PDF objects and content streams,
+and OCR output. Deployments can inject a stricter policy without changing parser code. Budget and
+parser failures return sanitized categories without source text. Production PDF extraction should
+also run in an isolated worker because the retained `pypdf` library cannot interrupt an individual
+decode before its decoded buffer has been allocated; raw-byte checks before decode and decoded-byte
+checks immediately afterward remain defense in depth.
+
 There is no single upstream hard-coded maximum. A fork publishes limits based on storage quota,
 extractor capability, worker memory, cost policy, and measured throughput. The existing lightweight
 loaders remain suitable for small local text files; production large-file ingestion uses this
