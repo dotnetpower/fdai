@@ -28,6 +28,20 @@ def validator() -> ModuleType:
 
 def _scenario(status: str = "passed") -> dict[str, object]:
     recovery_status = "not-applicable" if status == "not-applicable" else "verified"
+    receipt = {
+        "summary": "Expected state observed",
+        "authority_class": "synthetic-test",
+        "source_identity": "test-observer",
+        "scope": "one synthetic target",
+        "purpose": "contract regression",
+        "query_version": "test-v1",
+        "event_time": "2026-01-01T00:00:30Z",
+        "recorded_at": "2026-01-01T00:00:31Z",
+        "freshness": "current for test window",
+        "completeness": "complete synthetic fixture",
+        "provenance_digest": "a" * 64,
+        "synthetic": True,
+    }
     return {
         "status": status,
         "target": "synthetic-target",
@@ -35,9 +49,13 @@ def _scenario(status: str = "passed") -> dict[str, object]:
             "start": "2026-01-01T00:00:00Z",
             "end": "2026-01-01T00:01:00Z",
         },
-        "injection_evidence": {"summary": "Bounded action observed", "source": "test"},
-        "detection_evidence": {"summary": "Expected signal observed", "source": "test"},
-        "root_cause": {"summary": "Synthetic cause", "source": "test"},
+        "injection_evidence": {**receipt, "summary": "Bounded action observed"},
+        "detection_evidence": {**receipt, "summary": "Expected signal observed"},
+        "root_cause": {
+            "summary": "Synthetic cause",
+            "confidence": "high",
+            "alternatives": [],
+        },
         "measurements": [
             {
                 "name": "sample",
@@ -48,9 +66,9 @@ def _scenario(status: str = "passed") -> dict[str, object]:
             }
         ],
         "recovery_evidence": {
+            **receipt,
             "status": recovery_status,
             "summary": "Terminal state observed",
-            "source": "test",
         },
         "safety": {
             "approval": "Synthetic approval",
@@ -147,3 +165,23 @@ def test_cleanup_and_unsupported_claims_fail_closed(validator: ModuleType) -> No
     errors = validator.validate(ledger)
     assert "scenarios.S9.cleanup.residuals MUST be empty" in errors
     assert "scenarios.S9.unsupported_claims MUST be empty" in errors
+
+
+def test_decision_evidence_requires_replayable_provenance(validator: ModuleType) -> None:
+    ledger = _ledger()
+    scenarios = ledger["scenarios"]
+    assert isinstance(scenarios, dict)
+    scenario = scenarios["S1"]
+    assert isinstance(scenario, dict)
+    evidence = scenario["detection_evidence"]
+    assert isinstance(evidence, dict)
+    del evidence["source_identity"]
+    evidence["provenance_digest"] = "not-a-digest"
+    evidence["synthetic"] = "false"
+    errors = validator.validate(ledger)
+    assert "scenarios.S1.detection_evidence.source_identity MUST be non-empty text" in errors
+    assert (
+        "scenarios.S1.detection_evidence.provenance_digest MUST be a lowercase SHA-256 digest"
+        in errors
+    )
+    assert "scenarios.S1.detection_evidence.synthetic MUST be a boolean" in errors

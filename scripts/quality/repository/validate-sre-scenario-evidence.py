@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
@@ -14,6 +15,16 @@ from typing import Any
 SCENARIO_IDS = tuple(f"S{index}" for index in range(1, 15))
 VERDICTS = ("passed", "partial", "blocked", "failed", "not-applicable")
 RECOVERY_STATUSES = ("verified", "not-run", "not-applicable")
+RECEIPT_TEXT_FIELDS = (
+    "authority_class",
+    "source_identity",
+    "scope",
+    "purpose",
+    "query_version",
+    "freshness",
+    "completeness",
+)
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
 def _mapping(value: object, field: str, errors: list[str]) -> Mapping[str, Any] | None:
@@ -42,6 +53,27 @@ def _utc_timestamp(value: object, field: str, errors: list[str]) -> datetime | N
         errors.append(f"{field} MUST use UTC")
         return None
     return parsed
+
+
+def _validate_evidence_receipt(
+    value: object,
+    field: str,
+    errors: list[str],
+) -> Mapping[str, Any] | None:
+    receipt = _mapping(value, field, errors)
+    if receipt is None:
+        return None
+    _nonempty_text(receipt.get("summary"), f"{field}.summary", errors)
+    for key in RECEIPT_TEXT_FIELDS:
+        _nonempty_text(receipt.get(key), f"{field}.{key}", errors)
+    _utc_timestamp(receipt.get("event_time"), f"{field}.event_time", errors)
+    _utc_timestamp(receipt.get("recorded_at"), f"{field}.recorded_at", errors)
+    digest = receipt.get("provenance_digest")
+    if not isinstance(digest, str) or _SHA256.fullmatch(digest) is None:
+        errors.append(f"{field}.provenance_digest MUST be a lowercase SHA-256 digest")
+    if not isinstance(receipt.get("synthetic"), bool):
+        errors.append(f"{field}.synthetic MUST be a boolean")
+    return receipt
 
 
 def _validate_measurements(value: object, scenario_id: str, errors: list[str]) -> None:
@@ -84,23 +116,34 @@ def _validate_scenario(scenario_id: str, value: object, errors: list[str]) -> st
         if start is not None and end is not None and end < start:
             errors.append(f"{field}.time_window.end MUST not precede start")
 
-    for evidence_name in ("injection_evidence", "detection_evidence", "root_cause"):
-        evidence = _mapping(scenario.get(evidence_name), f"{field}.{evidence_name}", errors)
-        if evidence is not None:
-            _nonempty_text(evidence.get("summary"), f"{field}.{evidence_name}.summary", errors)
-            _nonempty_text(evidence.get("source"), f"{field}.{evidence_name}.source", errors)
+    for evidence_name in ("injection_evidence", "detection_evidence"):
+        _validate_evidence_receipt(
+            scenario.get(evidence_name),
+            f"{field}.{evidence_name}",
+            errors,
+        )
+
+    root_cause = _mapping(scenario.get("root_cause"), f"{field}.root_cause", errors)
+    if root_cause is not None:
+        _nonempty_text(root_cause.get("summary"), f"{field}.root_cause.summary", errors)
+        if root_cause.get("confidence") not in ("high", "medium", "low", "unknown"):
+            errors.append(f"{field}.root_cause.confidence MUST be high, medium, low, or unknown")
+        if not isinstance(root_cause.get("alternatives"), list):
+            errors.append(f"{field}.root_cause.alternatives MUST be an array")
 
     _validate_measurements(scenario.get("measurements"), scenario_id, errors)
 
-    recovery = _mapping(scenario.get("recovery_evidence"), f"{field}.recovery_evidence", errors)
+    recovery = _validate_evidence_receipt(
+        scenario.get("recovery_evidence"),
+        f"{field}.recovery_evidence",
+        errors,
+    )
     if recovery is not None:
         recovery_status = recovery.get("status")
         if recovery_status not in RECOVERY_STATUSES:
             errors.append(
                 f"{field}.recovery_evidence.status MUST be one of: {', '.join(RECOVERY_STATUSES)}"
             )
-        _nonempty_text(recovery.get("summary"), f"{field}.recovery_evidence.summary", errors)
-        _nonempty_text(recovery.get("source"), f"{field}.recovery_evidence.source", errors)
         if status == "passed" and recovery_status not in ("verified", "not-applicable"):
             errors.append(f"{field} MUST NOT be passed without terminal recovery evidence")
 
