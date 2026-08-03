@@ -31,9 +31,6 @@ _PROPOSAL_KEYS = frozenset(
     }
 )
 _LINK_KEYS = frozenset({"from_identity", "to_identity"})
-_IDENTITY_KEYS = frozenset(
-    {"publisher", "family", "version", "deployment", "binding", "fault_domain"}
-)
 _SEMANTIC_KEYS = frozenset(
     {"numbers", "units", "comparators", "negated", "effective_from", "effective_to"}
 )
@@ -50,10 +47,8 @@ def parse_council_vote(content: str, identity: CouncilModelIdentity) -> CouncilV
             allowed |= _PROPOSAL_KEYS
             if parsed.get("target_kind") == CouncilTargetKind.LINK.value:
                 allowed |= _LINK_KEYS
-        if set(parsed) - {"model_identity"} != allowed:
+        if set(parsed) != allowed:
             raise ValueError
-        if "model_identity" in parsed:
-            _validate_ignored_identity(parsed["model_identity"])
         claim_id = _required_string(parsed, "claim_id")
         citation_digest = _required_string(parsed, "citation_digest")
         if disposition is not CouncilDisposition.PROPOSE:
@@ -149,13 +144,6 @@ def _nullable_string(value: object) -> str | None:
     if type(value) is not str or not value or len(value) > 64:
         raise ValueError
     return value
-
-
-def _validate_ignored_identity(value: object) -> None:
-    if not isinstance(value, Mapping) or set(value) != _IDENTITY_KEYS:
-        raise ValueError
-    if any(type(item) is not str or not item or len(item) > 200 for item in value.values()):
-        raise ValueError
 
 
 def _required_string(value: Mapping[str, object], key: str) -> str:

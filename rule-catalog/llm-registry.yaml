@@ -105,6 +105,30 @@ models:
     capacity_tpm: 50000
     invocation: on_novel_case
 
+  # Review-only D4d ontology extraction council. These slots intentionally
+  # use three OpenAI model families and make no mixed-publisher claim. Runtime
+  # endpoint bindings pin exact versions and fault-domain provenance.
+  t2.ontology.council.alpha:
+    preferences:
+      - {publisher: OpenAI, family: gpt-5.6-sol}
+    sku: GlobalStandard
+    capacity_tpm: 50000
+    invocation: on_novel_case
+
+  t2.ontology.council.beta:
+    preferences:
+      - {publisher: OpenAI, family: gpt-5.5}
+    sku: GlobalStandard
+    capacity_tpm: 50000
+    invocation: on_novel_case
+
+  t2.ontology.council.gamma:
+    preferences:
+      - {publisher: OpenAI, family: gpt-5.4}
+    sku: GlobalStandard
+    capacity_tpm: 100000
+    invocation: on_novel_case
+
   # Rubric judge for the hallucination filter (docs/roadmap/
   # hallucination-rubric-gate.md). Scores a T2 candidate's reasoning
   # against fixed criteria. Distinct-publisher preference (Anthropic

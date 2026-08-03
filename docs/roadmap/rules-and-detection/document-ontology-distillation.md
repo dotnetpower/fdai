@@ -271,11 +271,23 @@ before its implementation is accepted.
 
 ## T2 ontology model council
 
-D4d binds an ontology-aware `Distiller` only when at least two independently versioned T2 model
-families are available. Critical claims use three blind ballots. A model never sees another vote
-until every required blind ballot has closed, preventing one answer from anchoring the others.
-The council is an internal Norns candidate-generation stage, not a new agent, authority channel, or
-execution path.
+D4d binds an ontology-aware `Distiller` only when all three capability slots are available:
+`t2.ontology.council.alpha`, `t2.ontology.council.beta`, and
+`t2.ontology.council.gamma`. They resolve to three distinct OpenAI model families. This is a
+single-publisher extraction council, not a mixed-publisher council, and it does not satisfy or
+weaken the mixed-publisher quality gate for execution T2. Critical claims use three blind ballots.
+A model never sees another vote until every required blind ballot has closed, preventing one answer
+from anchoring the others. The council is an internal Norns candidate-generation stage, not a new
+agent, authority channel, or execution path.
+
+Runtime binding requires all three resolved capabilities and all three structured-output endpoint
+bindings together. Each endpoint binding pins an exact non-null model version, deployment, Entra
+authentication, route, API style, and verified resource-reference digest. That digest becomes the
+model identity's fault domain; equal digests reveal a shared account or gateway fault domain and
+therefore correlated infrastructure risk. Zero council records preserve the default abstaining
+distiller for backward compatibility. Any partial, `hil-only`, mismatched, unversioned, non-Entra,
+or otherwise invalid council configuration makes ontology extraction unavailable and fails startup
+binding. It never borrows the execution T2 pool or degrades the existing execution quality gate.
 
 Each model receives the same immutable claim packet:
 

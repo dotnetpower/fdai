@@ -246,6 +246,27 @@ async def test_compose_against_shipped_catalog_matches_base_body() -> None:
 
 
 @pytest.mark.asyncio
+async def test_ontology_council_roles_compose_identical_required_prompt() -> None:
+    repo_root = Path(__file__).resolve().parents[3]
+    composer = DefaultPromptComposer(registry=FileSystemPromptRegistry(repo_root / "rule-catalog"))
+
+    prompts = tuple(
+        [
+            await composer.compose(capability_id=capability_id)
+            for capability_id in (
+                "t2.ontology.council.alpha",
+                "t2.ontology.council.beta",
+                "t2.ontology.council.gamma",
+            )
+        ]
+    )
+
+    assert len({prompt.system_text for prompt in prompts}) == 1
+    assert len({prompt.layer_manifest for prompt in prompts}) == 1
+    assert prompts[0].layer_manifest[0].id == "t2-ontology-council"
+
+
+@pytest.mark.asyncio
 async def test_compose_skips_shadow_packs_by_default(tmp_path: Path) -> None:
     _write_schema(tmp_path)
     _write_prompt(tmp_path, "base", "hello.v1.yaml", _base("t2.reasoner.primary", "BASE"))

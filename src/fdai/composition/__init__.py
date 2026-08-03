@@ -90,7 +90,7 @@ from . import wire_capabilities as _wire_capabilities  # noqa: E402
 from ._helpers import Container, LlmBindings, LlmBindingsUnavailableError  # noqa: E402
 
 install_capability_bundle = _wire_capabilities.install_capability_bundle
-
+from .wire_distiller import bind_azure_ontology_distiller  # noqa: E402
 from .wire_execution_authorization import bind_execution_authorization  # noqa: E402
 from .wire_execution_backends import (  # noqa: E402 - public composition facade
     bind_execution_backends,
@@ -386,6 +386,7 @@ __all__ = [
     "bind_execution_authorization",
     "bind_execution_backends",
     "bind_azure_llm_bindings",
+    "bind_azure_ontology_distiller",
     "bind_azure_operational_evidence",
     "bind_azure_devops_change_feed",
     "bind_github_change_feed",

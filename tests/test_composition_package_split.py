@@ -25,6 +25,7 @@ _EXPECTED_FILES = frozenset(
         "__init__.py",
         "_helpers.py",
         "wire_llm.py",
+        "wire_distiller.py",
         "wire_azure.py",
         # Binds strict promoted-inventory, current safety, temporal metric,
         # Dynamic branch, and effect-model providers without adding authority.
@@ -66,6 +67,7 @@ _PUBLIC_NAMES = (
     "AzureWireOverrides",
     "wire_azure_container",
     "bind_azure_llm_bindings",
+    "bind_azure_ontology_distiller",
     "bind_azure_operational_evidence",
     "bind_azure_monitor_logs",
     "bind_azure_inventory",
@@ -90,6 +92,7 @@ _ALL_MEMBERS = (
     "AzureWireOverrides",
     "wire_azure_container",
     "bind_azure_llm_bindings",
+    "bind_azure_ontology_distiller",
     "bind_azure_operational_evidence",
     "load_pricing_table",
     "install_capability_bundle",
@@ -225,6 +228,7 @@ def test_wire_files_do_not_import_each_other() -> None:
     # All other cross-wire imports are forbidden.
     allowed = {
         ("wire_azure.py", "wire_llm.py"),
+        ("wire_azure.py", "wire_distiller.py"),
         ("wire_azure.py", "wire_metric_provider.py"),
         ("wire_azure.py", "wire_observation_providers.py"),
     }

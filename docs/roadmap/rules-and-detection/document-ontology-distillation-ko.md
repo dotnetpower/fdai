@@ -1,7 +1,7 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: bfc2888918c23cfdb70f39b1c1d9b5c6ac76b9b1
-translation_revised: 2026-08-03
+translation_source_sha: 1ca2141694b2efc9c30b0b7818f1251b449a6b09
+translation_revised: 2026-08-04
 ---
 # 문서 온톨로지 증류
 
@@ -272,11 +272,23 @@ resolution, coverage/release gate, public-corpus replay, provider conformance, r
 
 ## T2 온톨로지 모델 위원회
 
-D4d는 독립적으로 versioning된 T2 model family가 두 개 이상 available일 때만 ontology-aware
-`Distiller`를 binding합니다. Critical claim은 blind ballot 세 개를 사용합니다. 필요한 blind ballot이
-모두 끝나기 전에는 어떤 model도 다른 vote를 볼 수 없으므로 한 답이 다른 model을 anchoring하지
-못합니다. Council은 Norns 내부 candidate-generation stage이며 새 agent, authority channel 또는
-execution path가 아닙니다.
+D4d는 `t2.ontology.council.alpha`, `t2.ontology.council.beta`,
+`t2.ontology.council.gamma` capability slot 세 개가 모두 available일 때만 ontology-aware
+`Distiller`를 binding합니다. 세 slot은 서로 다른 OpenAI model family로 resolve됩니다. 이는
+single-publisher extraction council이며 mixed-publisher council이 아닙니다. Execution T2의
+mixed-publisher quality gate를 충족하거나 완화하지 않습니다. Critical claim은 blind ballot 세 개를
+사용합니다. 필요한 blind ballot이 모두 끝나기 전에는 어떤 model도 다른 vote를 볼 수 없으므로 한
+답이 다른 model을 anchoring하지 못합니다. Council은 Norns 내부 candidate-generation stage이며 새
+agent, authority channel 또는 execution path가 아닙니다.
+
+Runtime binding에는 resolved capability 세 개와 structured-output endpoint binding 세 개가 모두
+필요합니다. 각 endpoint binding은 null이 아닌 exact model version, deployment, Entra authentication,
+route, API style 및 검증된 resource-reference digest를 고정합니다. 이 digest가 model identity의 fault
+domain이 됩니다. Digest가 같으면 account 또는 gateway fault domain을 공유하므로 infrastructure risk가
+correlated되었음을 나타냅니다. Council record가 하나도 없으면 backward compatibility를 위해 기본
+abstaining distiller를 유지합니다. Partial, `hil-only`, mismatched, unversioned, non-Entra 또는 그 밖의
+invalid council configuration은 ontology extraction을 unavailable로 만들고 startup binding을
+실패시킵니다. Execution T2 pool을 빌려 쓰거나 기존 execution quality gate를 degrade하지 않습니다.
 
 각 model은 다음 immutable claim packet을 동일하게 받습니다.
 

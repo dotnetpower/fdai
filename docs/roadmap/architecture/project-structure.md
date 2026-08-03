@@ -420,9 +420,9 @@ clean (see the fork model in
   **not** re-exported from public sub-packages; they must be imported directly from their
   submodule, and only by a composition root, so `core/` cannot depend on a concrete by
   accident.
-- **Config-driven binding**: which implementation binds to which interface is selected by
-  configuration, so a fork overrides a binding by supplying its own package + config, not by
-  patching core. Invalid or missing bindings **fail fast** at startup (Configuration Model).
+- **Config-driven binding**: configuration selects each implementation. `composition/wire_distiller.py`
+  atomically binds the review-only `Distiller` from three exact-version endpoints and one replay-identical
+  prompt; zero council records preserve abstention and partial records fail startup without changing execution T2.
 - **Default implementations upstream**: the main repo provides working generic defaults for
   every seam so it runs standalone; a fork replaces only the seams it needs.
 - **Current T1 reuse evidence**: `CurrentReuseVerifier` collects fresh resource, topology,

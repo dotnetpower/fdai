@@ -60,6 +60,50 @@ def test_upstream_registry_file_loads_clean() -> None:
     }
     assert registry.models["t1.web_search"].preferences[0].family == "gpt-4.1-nano"
     assert registry.models["t1.web_search"].sku is Sku.GLOBAL_STANDARD
+    council = {
+        name: registry.models[name]
+        for name in (
+            "t2.ontology.council.alpha",
+            "t2.ontology.council.beta",
+            "t2.ontology.council.gamma",
+        )
+    }
+    assert {
+        name: (
+            slot.preferences[0].publisher,
+            slot.preferences[0].family,
+            slot.sku,
+            slot.capacity_tpm,
+            slot.invocation,
+            slot.tool_calling_required,
+        )
+        for name, slot in council.items()
+    } == {
+        "t2.ontology.council.alpha": (
+            "OpenAI",
+            "gpt-5.6-sol",
+            Sku.GLOBAL_STANDARD,
+            50_000,
+            "on_novel_case",
+            False,
+        ),
+        "t2.ontology.council.beta": (
+            "OpenAI",
+            "gpt-5.5",
+            Sku.GLOBAL_STANDARD,
+            50_000,
+            "on_novel_case",
+            False,
+        ),
+        "t2.ontology.council.gamma": (
+            "OpenAI",
+            "gpt-5.4",
+            Sku.GLOBAL_STANDARD,
+            100_000,
+            "on_novel_case",
+            False,
+        ),
+    }
     assert {
         name: registry.models[name].capacity_tpm
         for name in (
@@ -72,6 +116,9 @@ def test_upstream_registry_file_loads_clean() -> None:
             "t2.critic",
             "t2.rca",
             "t2.rubric.judge",
+            "t2.ontology.council.alpha",
+            "t2.ontology.council.beta",
+            "t2.ontology.council.gamma",
         )
     } == {
         "t1.embedding": 200_000,
@@ -83,6 +130,9 @@ def test_upstream_registry_file_loads_clean() -> None:
         "t2.critic": 50_000,
         "t2.rca": 50_000,
         "t2.rubric.judge": 50_000,
+        "t2.ontology.council.alpha": 50_000,
+        "t2.ontology.council.beta": 50_000,
+        "t2.ontology.council.gamma": 100_000,
     }
 
 

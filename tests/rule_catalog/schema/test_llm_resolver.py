@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 import pytest
 
-from fdai.rule_catalog.schema.llm_registry import load_llm_registry_from_mapping
+from fdai.rule_catalog.schema.llm_registry import (
+    load_llm_registry_from_mapping,
+    load_llm_registry_from_yaml,
+)
 from fdai.rule_catalog.schema.llm_resolver import (
     CapabilityStatus,
     CatalogQuery,
@@ -23,6 +27,7 @@ from fdai.rule_catalog.schema.llm_resolver import (
 _SUB = "00000000-0000-0000-0000-000000000000"
 _OID = "00000000-0000-0000-0000-000000000001"
 _REGION = "koreacentral"
+_UPSTREAM_REGISTRY = Path(__file__).resolve().parents[3] / "rule-catalog" / "llm-registry.yaml"
 
 
 def _registry(overrides: Mapping[str, Any] | None = None):  # type: ignore[no-untyped-def]
@@ -146,6 +151,51 @@ def test_resolve_maps_every_capability_when_all_gates_pass() -> None:
     }
     for c in result.capabilities:
         assert c.status is CapabilityStatus.RESOLVED
+
+
+def test_resolve_maps_ontology_council_slots_without_weakening_reasoner_invariant() -> None:
+    council_families = {"gpt-5.6-sol", "gpt-5.5", "gpt-5.4"}
+    quota = _DictQuota(
+        {
+            ("OpenAI", "text-embedding-3-small"): 200_000,
+            ("OpenAI", "gpt-5.4-mini"): 200_000,
+            ("OpenAI", "gpt-4.1-nano"): 100_000,
+            ("OpenAI", "gpt-4o"): 100_000,
+            ("Anthropic", "claude-opus-4"): 100_000,
+            ("OpenAI", "gpt-5.6-sol"): 50_000,
+            ("OpenAI", "gpt-5.5"): 50_000,
+            ("OpenAI", "gpt-5.4"): 100_000,
+        }
+    )
+
+    result = resolve(
+        registry=load_llm_registry_from_yaml(_UPSTREAM_REGISTRY),
+        region=_REGION,
+        subscription_id=_SUB,
+        deployer_object_id=_OID,
+        catalog=_StaticCatalog(
+            {
+                "text-embedding-3-small",
+                "gpt-5.4-mini",
+                "gpt-4.1-nano",
+                "gpt-4o",
+                "claude-opus-4",
+            }
+            | council_families
+        ),
+        permission=_AlwaysPermissionQuery(True),
+        quota=quota,
+    )
+
+    by_name = {capability.name: capability for capability in result.capabilities}
+    for name in (
+        "t2.ontology.council.alpha",
+        "t2.ontology.council.beta",
+        "t2.ontology.council.gamma",
+    ):
+        assert by_name[name].status is CapabilityStatus.RESOLVED
+    assert by_name["t2.reasoner.primary"].publisher == "OpenAI"
+    assert by_name["t2.reasoner.secondary"].publisher == "Anthropic"
 
 
 # ---------------------------------------------------------------------------

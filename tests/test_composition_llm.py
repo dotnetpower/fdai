@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -185,6 +186,63 @@ def _resolved_models_json() -> str:
   ]
 }
 """
+
+
+def _resolved_models_json_with_council(*, count: int = 3) -> str:
+    payload = json.loads(_resolved_models_json())
+    council = (
+        ("t2.ontology.council.alpha", "gpt-5.6-sol", 50_000),
+        ("t2.ontology.council.beta", "gpt-5.5", 50_000),
+        ("t2.ontology.council.gamma", "gpt-5.4", 100_000),
+    )[:count]
+    payload["capabilities"].extend(
+        {
+            "name": capability,
+            "status": "resolved",
+            "publisher": "OpenAI",
+            "family": family,
+            "sku": "GlobalStandard",
+            "capacity_tpm": capacity,
+            "invocation": "on_novel_case",
+            "reasons": [],
+        }
+        for capability, family, capacity in council
+    )
+    payload["endpoint_bindings"] = [
+        {
+            "binding_id": capability.replace(".", "-") + "-binding",
+            "capability": capability,
+            "provider_kind": "azure-openai",
+            "route_kind": "direct",
+            "api_style": "azure-openai",
+            "endpoint_ref": capability.replace(".", "-"),
+            "deployment": capability.replace(".", "-"),
+            "api_version": "2024-12-01-preview",
+            "auth": {
+                "kind": "entra",
+                "audience": "https://cognitiveservices.azure.com/.default",
+            },
+            "model": {
+                "publisher": "OpenAI",
+                "family": family,
+                "version": "2026-08-01",
+            },
+            "capacity": {"unit": "tpm", "value": capacity},
+            "features": {
+                "streaming": False,
+                "embeddings": False,
+                "structured_output": True,
+                "tool_calling": False,
+            },
+            "discovery": {
+                "source": "azure-management",
+                "resource_ref_digest": "a" * 64,
+                "verified_at": "2026-08-03T00:00:00+00:00",
+            },
+        }
+        for capability, family, capacity in council
+    ]
+    return json.dumps(payload)
 
 
 def test_azure_mode_container_is_unbound_until_finalized(tmp_path: Path) -> None:
@@ -992,6 +1050,93 @@ async def test_wire_azure_container_attaches_full_stack(tmp_path: Path) -> None:
     bindings = finalized.require_llm_bindings()
     assert bindings.embedding_model is not None
     assert len(bindings.cross_check_models) == 2
+
+
+async def test_wire_azure_container_binds_complete_ontology_council(tmp_path: Path) -> None:
+    from fdai.composition import AzureWireOverrides, wire_azure_container
+    from fdai.core.operator_memory import InMemoryOperatorMemoryStore
+    from fdai.rule_catalog.pipeline.distill.ontology_council import OntologyCouncilDistiller
+
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json_with_council(), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+
+    finalized = await wire_azure_container(
+        container,
+        http_client=http,
+        identity=_StaticIdentity(),
+        overrides=AzureWireOverrides(
+            endpoint="https://legacy.example.com",
+            catalog_root=_SHIPPED_CATALOG_ROOT,
+            operator_memory_store=InMemoryOperatorMemoryStore(),
+            model_endpoint_resolver=lambda endpoint_ref: f"https://{endpoint_ref}.example.com",
+        ),
+    )
+
+    assert isinstance(finalized.distiller, OntologyCouncilDistiller)
+    assert {model.identity.family for model in finalized.distiller._models} == {
+        "gpt-5.6-sol",
+        "gpt-5.5",
+        "gpt-5.4",
+    }
+
+
+async def test_wire_azure_container_missing_council_prompt_preserves_legacy_abstention(
+    tmp_path: Path,
+) -> None:
+    from fdai.composition import AzureWireOverrides, wire_azure_container
+    from fdai.core.operator_memory import InMemoryOperatorMemoryStore
+    from fdai.shared.providers.distiller import AbstainingDistiller
+
+    catalog = tmp_path / "catalog"
+    shutil.copytree(_SHIPPED_CATALOG_ROOT / "prompts", catalog / "prompts")
+    (catalog / "prompts" / "base" / "t2-ontology-council.v1.yaml").unlink()
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json(), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+
+    finalized = await wire_azure_container(
+        container,
+        http_client=http,
+        identity=_StaticIdentity(),
+        overrides=AzureWireOverrides(
+            endpoint="https://legacy.example.com",
+            catalog_root=catalog,
+            operator_memory_store=InMemoryOperatorMemoryStore(),
+        ),
+    )
+
+    assert isinstance(finalized.distiller, AbstainingDistiller)
+
+
+async def test_wire_azure_container_partial_council_without_prompt_fails_closed(
+    tmp_path: Path,
+) -> None:
+    from fdai.composition import AzureWireOverrides, wire_azure_container
+    from fdai.core.operator_memory import InMemoryOperatorMemoryStore
+
+    catalog = tmp_path / "catalog"
+    shutil.copytree(_SHIPPED_CATALOG_ROOT / "prompts", catalog / "prompts")
+    (catalog / "prompts" / "base" / "t2-ontology-council.v1.yaml").unlink()
+    resolved = tmp_path / "resolved-models.json"
+    resolved.write_text(_resolved_models_json_with_council(count=1), encoding="utf-8")
+    container = default_container(_config(mode=LlmMode.AZURE, resolved_path=str(resolved)))
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _r: httpx.Response(200)))
+
+    with pytest.raises(LlmBindingsUnavailableError, match="requires its catalog prompt"):
+        await wire_azure_container(
+            container,
+            http_client=http,
+            identity=_StaticIdentity(),
+            overrides=AzureWireOverrides(
+                endpoint="https://legacy.example.com",
+                catalog_root=catalog,
+                operator_memory_store=InMemoryOperatorMemoryStore(),
+                model_endpoint_resolver=lambda endpoint_ref: f"https://{endpoint_ref}.example.com",
+            ),
+        )
 
 
 async def test_wire_azure_container_forwards_model_endpoint_resolver(tmp_path: Path) -> None:

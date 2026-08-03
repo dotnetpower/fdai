@@ -326,7 +326,7 @@ async def test_openai_v1_uses_model_body_and_configured_audience() -> None:
     assert workload_identity.audiences == ["api://model-gateway"]
 
 
-async def test_configured_model_identity_wins_over_output_attempt() -> None:
+async def test_output_model_identity_is_rejected() -> None:
     packet = _packet()
     output = _object_vote(packet)
     output["model_identity"] = {
@@ -343,10 +343,8 @@ async def test_configured_model_identity_wins_over_output_attempt() -> None:
         model = AzureOpenAIOntologyCouncilModel(
             identity=_Identity(), http_client=client, config=_config()
         )
-        vote = await model.blind_vote(packet)
-
-    assert vote.model_identity is model.identity
-    assert vote.model_identity.publisher == "example-publisher"
+        with pytest.raises(CouncilContextGapError, match="response content is invalid"):
+            await model.blind_vote(packet)
 
 
 async def test_public_model_identity_is_immutable() -> None:

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 01a06b61920fbc6969c62523ec4f6811ad41d0c4
+translation_source_sha: 99da006ed3d13e6297b4ac51bc9c892ec29ea873
 translation_revised: 2026-08-04
 ---
 
@@ -407,9 +407,9 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
   구체 어댑터 클래스(예: `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`)
   는 public 서브-패키지에서 re-export **되지 않습니다**; 해당 서브모듈에서 직접, 그리고
   조립 루트에서만 import 되어야 하므로 `core/` 가 실수로 구체에 의존할 수 없습니다.
-- **Config-기반 바인딩**: 어떤 구현이 어떤 인터페이스에 바인딩되는지는 설정으로 선택됩니다.
-  포크는 core를 패치하지 않고 자신의 패키지 + 설정을 공급함으로써 바인딩을 오버라이드합니다.
-  잘못되거나 누락된 바인딩은 시작 시 **fail fast** 합니다(Configuration Model).
+- **Config-기반 바인딩**: 설정이 각 구현을 선택합니다. `composition/wire_distiller.py`는 exact-version
+  endpoint 세 개와 replay-identical prompt 하나로 review-only `Distiller`를 atomic하게 bind합니다.
+  Council record가 없으면 abstention을 유지하고 partial record는 execution T2 변경 없이 startup을 실패시킵니다.
 - **상류의 기본 구현**: 메인 저장소는 모든 seam에 대해 동작하는 범용 기본 구현을 제공하여
   독립 실행 가능합니다. 포크는 필요한 seam만 교체합니다.
 - **현재 T1 reuse evidence**: `CurrentReuseVerifier`는 immutable operational case를 위해 fresh

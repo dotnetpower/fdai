@@ -185,6 +185,9 @@ def bind_azure_llm_bindings(
         "t2.rca",
         "t2.reasoner.primary",
         "t2.reasoner.secondary",
+        "t2.ontology.council.alpha",
+        "t2.ontology.council.beta",
+        "t2.ontology.council.gamma",
     }
     unsupported_bindings = sorted(set(endpoint_bindings) - supported_binding_capabilities)
     if unsupported_bindings:

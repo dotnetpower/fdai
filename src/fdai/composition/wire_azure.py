@@ -1,9 +1,4 @@
-"""Azure fork-wire container extracted from the former composition module.
-
-Contains the declarative :class:`AzureWireOverrides` and the
-:func:`wire_azure_container` helper that combines fork overrides with
-the upstream defaults and Azure LLM bindings.
-"""
+"""Azure fork-wire overrides and full-container composition binding."""
 
 from __future__ import annotations
 
@@ -25,6 +20,7 @@ if TYPE_CHECKING:
     from ..delivery.azure.metric_logs import MetricKqlTemplate
 
 from ._helpers import Container
+from .wire_distiller import bind_azure_ontology_distiller_from_catalog as _bind_distiller
 from .wire_llm import bind_azure_llm_bindings
 from .wire_metric_provider import attach_metric_provider
 
@@ -376,9 +372,12 @@ async def wire_azure_container(
         pricing=pricing,
         model_health_sink=overrides.model_health_sink,
     )
+    container_with_distiller = await _bind_distiller(
+        container_with_llm, identity, http_client, composer, overrides, pricing
+    )
 
     container_with_metrics = attach_metric_provider(
-        container_with_llm,
+        container_with_distiller,
         identity=identity,
         http_client=http_client,
         monitor_workspace_id=overrides.monitor_workspace_id,
