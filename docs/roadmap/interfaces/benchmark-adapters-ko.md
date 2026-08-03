@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: d9dd3c5b4d49d67414204e21e6a919ab67af0498
+translation_source_sha: f96673dbd179fec00ce902a5622472868ffd2965
 translation_revised: 2026-08-04
 ---
 
@@ -199,6 +199,13 @@ Present, external, ambiguous, unhealthy, mismatched 또는 truncated evidence는
 SREGym은 별도 observe-only `observe.kubernetes.dependencies` capability를 통해 completed inventory
 join을 요청합니다. Readiness는 실행 전에 이 capability를 probe하며 unavailable 또는 truncated
 inventory는 absence finding을 생성할 수 없습니다.
+
+실패한 Kubernetes admission event는 bounded webhook TLS, timeout, unavailable 또는 Pod Security
+rejection code로 분류됩니다. 분류에는 failed event reason이 필요합니다. Informational text,
+malformed webhook identity 및 인식되지 않은 message는 분류하지 않습니다. 인식된 admission
+failure의 projected event는 raw message 대신 structured code와 bounded identity 또는 Pod Security
+field만 보존합니다. 따라서 admission response가 echoed secret 또는 검토되지 않은 값을
+deterministic finding으로 전달하지 못합니다.
 
 공유 Kubernetes package에는 hold-only admission resource-drift reducer가 있습니다. Exact core/v1
 Pod CREATE rule을 가진 complete selector-free, namespace-unscoped

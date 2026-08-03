@@ -195,6 +195,13 @@ SREGym requests the completed inventory join through the separate observe-only
 `observe.kubernetes.dependencies` capability. Readiness probes this capability before a run; an
 unavailable or truncated inventory cannot produce an absence finding.
 
+Failed Kubernetes admission events are classified into bounded webhook TLS, timeout,
+unavailable, or Pod Security rejection codes. Classification requires a failed event reason;
+informational text, malformed webhook identities, and unrecognized messages remain unclassified.
+For a recognized admission failure, the projected event retains only the structured code and
+bounded identity or Pod Security fields, not the raw message. This prevents an admission response
+from carrying an echoed secret or unreviewed value into deterministic findings.
+
 The shared Kubernetes package has a hold-only admission resource-drift reducer. It reports a
 candidate-only correlation between normalized request or limit drift and one complete
 selector-free, namespace-unscoped MutatingWebhookConfiguration with an exact core/v1 Pod CREATE

@@ -512,6 +512,63 @@ async def test_events_are_bounded_and_namespace_scope_fails_closed(tmp_path: Pat
         await client.inventory(_task("other-app"))
 
 
+@pytest.mark.parametrize(
+    ("message", "expected_code", "expected_webhook"),
+    [
+        (
+            'failed calling webhook "policy.example.io": tls: failed to verify certificate: '
+            "x509: certificate signed by unknown authority",
+            "admission_webhook_tls_failure",
+            "policy.example.io",
+        ),
+        (
+            'failed calling webhook "policy.example.io": context deadline exceeded',
+            "admission_webhook_timeout",
+            "policy.example.io",
+        ),
+        (
+            'pods "api-1" is forbidden: violates PodSecurity "restricted:latest": '
+            "allowPrivilegeEscalation != false",
+            "pod_security_admission_rejected",
+            None,
+        ),
+    ],
+)
+async def test_events_structure_admission_failures_without_raw_message(
+    tmp_path: Path,
+    message: str,
+    expected_code: str,
+    expected_webhook: str | None,
+) -> None:
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text("synthetic", encoding="utf-8")
+
+    async def run(command: tuple[str, ...]) -> bytes:
+        del command
+        return json.dumps(
+            {
+                "items": [
+                    {
+                        "metadata": {"name": "event-1", "namespace": "example-app"},
+                        "type": "Warning",
+                        "reason": "FailedCreate",
+                        "message": message,
+                        "count": 1,
+                        "involvedObject": {"kind": "ReplicaSet", "name": "api-1"},
+                    }
+                ]
+            }
+        ).encode()
+
+    evidence = await KubectlEvidenceClient(config=_config(kubeconfig), run=run).events(_task())
+
+    event = evidence["events"][0]
+    assert event["code"] == expected_code
+    assert event.get("webhook_name") == expected_webhook
+    assert "message" not in event
+    assert message not in json.dumps(evidence)
+
+
 async def test_invalid_or_oversized_kubectl_payload_is_rejected(tmp_path: Path) -> None:
     kubeconfig = tmp_path / "config"
     kubeconfig.write_text("synthetic", encoding="utf-8")

@@ -180,6 +180,20 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_admission_event_classification",
+      "source_commits": [
+        "3ddb7d30b80f3efa778dfa17ee1bb09a2662dae0"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

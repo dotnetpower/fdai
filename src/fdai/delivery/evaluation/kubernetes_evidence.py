@@ -12,6 +12,7 @@ from typing import Any, Final
 
 from fdai_evaluation_sdk import EvaluationTask
 
+from fdai.delivery.kubernetes.admission_events import classify_admission_failure
 from fdai.delivery.kubernetes.capacity import project_pod_resource_requests
 from fdai.delivery.kubernetes.quantity import cpu_millicores, memory_bytes, parse_quantity
 from fdai.evaluation.evidence import EvaluationEvidenceProvider
@@ -720,12 +721,13 @@ def _project_event(item: Mapping[str, Any]) -> dict[str, Any] | None:
     involved_uid = involved.get("uid")
     if isinstance(involved_uid, str) and involved_uid:
         regarding["uid"] = involved_uid[:128]
-    return {
+    reason = _text(item.get("reason"), 256)
+    message = _text(item.get("message"), 1_024)
+    projection: dict[str, Any] = {
         "name": name,
         "namespace": namespace,
         "type": _text(item.get("type"), 64),
-        "reason": _text(item.get("reason"), 256),
-        "message": _text(item.get("message"), 1_024),
+        "reason": reason,
         "count": _count(item.get("count")),
         "last_seen": _text(
             item.get("eventTime") or item.get("lastTimestamp") or metadata.get("creationTimestamp"),
@@ -733,6 +735,18 @@ def _project_event(item: Mapping[str, Any]) -> dict[str, Any] | None:
         ),
         "regarding": regarding,
     }
+    admission_failure = classify_admission_failure(reason=reason, message=message)
+    if admission_failure is None:
+        projection["message"] = message
+        return projection
+    projection["code"] = admission_failure.code
+    if admission_failure.webhook_name:
+        projection["webhook_name"] = admission_failure.webhook_name
+    if admission_failure.pod_security_profile:
+        projection["pod_security_profile"] = admission_failure.pod_security_profile
+        projection["pod_security_version"] = admission_failure.pod_security_version
+        projection["pod_security_violations"] = list(admission_failure.pod_security_violations)
+    return projection
 
 
 def _project_pod_metric(item: Mapping[str, Any]) -> dict[str, Any] | None:
