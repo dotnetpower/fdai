@@ -42,6 +42,8 @@ _MAX_TURN_TIMING_PHASES: Final[int] = 8
 _TURN_TIMING_PHASES: Final[frozenset[str]] = frozenset(
     {"semantic_plan", "evidence", "generation", "quality_review", "verification"}
 )
+_MAX_INCIDENT_CANDIDATES: Final[int] = 5
+_MAX_INCIDENT_FIELD_CHARS: Final[int] = 512
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,6 +148,47 @@ def verification_events(
     return tuple(events), revision
 
 
+def response_incident_candidates(
+    enriched_context: Mapping[str, Any],
+    *,
+    verification: AnswerVerification,
+) -> dict[str, Any] | None:
+    if verification.reason_code != "ambiguous_incident":
+        return None
+    evidence = enriched_context.get("_operational_evidence")
+    if not isinstance(evidence, Mapping) or evidence.get("status") != "ambiguous":
+        return None
+    raw_candidates = evidence.get("candidates")
+    if not isinstance(raw_candidates, list):
+        return None
+    candidates: list[dict[str, str]] = []
+    for raw in raw_candidates[:_MAX_INCIDENT_CANDIDATES]:
+        if not isinstance(raw, Mapping):
+            return None
+        projected: dict[str, str] = {}
+        for field_name in (
+            "incident_id",
+            "correlation_id",
+            "title",
+            "severity",
+            "status",
+            "last_updated_at",
+        ):
+            value = raw.get(field_name)
+            if not isinstance(value, str) or not value.strip():
+                return None
+            normalized = value.strip()
+            if len(normalized) > _MAX_INCIDENT_FIELD_CHARS or any(
+                character in normalized for character in ("\x00", "\r", "\n")
+            ):
+                return None
+            projected[field_name] = normalized
+        candidates.append(projected)
+    if not candidates:
+        return None
+    return {"schema_version": 1, "candidates": candidates}
+
+
 def build_done_payload(
     *,
     verification: AnswerVerification,
@@ -203,6 +246,12 @@ def build_done_payload(
             artifact.to_dict() for artifact in extract_grounded_code(verification.answer)
         ],
     }
+    incident_candidates = response_incident_candidates(
+        enriched_context,
+        verification=verification,
+    )
+    if incident_candidates is not None:
+        payload["incident_candidates"] = incident_candidates
     if isinstance(enriched_context.get("_intent_graph"), Mapping):
         payload["intent_graph"] = dict(enriched_context["_intent_graph"])
     if isinstance(enriched_context.get("_intent_graph_evidence"), Mapping):

@@ -3,6 +3,7 @@ import type {
   AnswerPlanningContributionMetadata,
   AnswerPlanningMetadata,
   GroundedCodeArtifact,
+  IncidentCandidate,
   ModelTrace,
   ModelTraceCall,
   TurnTiming,
@@ -38,6 +39,50 @@ const TURN_TIMING_STATUSES = [
   "failed",
   "unverified",
 ] as const;
+const INCIDENT_STATUSES = new Set(["open", "in_progress", "resolved"]);
+const MAX_INCIDENT_CANDIDATES = 5;
+const MAX_INCIDENT_FIELD_CHARS = 512;
+
+export function parseIncidentCandidates(raw: unknown): IncidentCandidate[] {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return [];
+  const artifact = raw as Record<string, unknown>;
+  if (artifact.schema_version !== 1 || !Array.isArray(artifact.candidates)) return [];
+  if (artifact.candidates.length === 0 || artifact.candidates.length > MAX_INCIDENT_CANDIDATES) {
+    return [];
+  }
+  const candidates: IncidentCandidate[] = [];
+  for (const item of artifact.candidates) {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) return [];
+    const candidate = item as Record<string, unknown>;
+    const incidentId = boundedCandidateField(candidate.incident_id);
+    const correlationId = boundedCandidateField(candidate.correlation_id);
+    const title = boundedCandidateField(candidate.title);
+    const severity = boundedCandidateField(candidate.severity);
+    const status = boundedCandidateField(candidate.status);
+    const lastUpdatedAt = boundedCandidateField(candidate.last_updated_at);
+    if (!incidentId || !correlationId || !title || !severity || !status ||
+      !lastUpdatedAt || !Number.isFinite(Date.parse(lastUpdatedAt)) ||
+      !INCIDENT_STATUSES.has(status)) return [];
+    candidates.push({
+      incidentId,
+      correlationId,
+      title,
+      severity,
+      status: status as IncidentCandidate["status"],
+      lastUpdatedAt,
+    });
+  }
+  return candidates;
+}
+
+function boundedCandidateField(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized.length > 0 && normalized.length <= MAX_INCIDENT_FIELD_CHARS &&
+    !/[\u0000-\u001F\u007F]/.test(normalized)
+    ? normalized
+    : null;
+}
 
 export function parseTurnTiming(raw: unknown): TurnTiming | undefined {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;

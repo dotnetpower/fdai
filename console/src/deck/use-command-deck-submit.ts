@@ -525,6 +525,9 @@ export function useCommandDeckSubmit({
                   ...(reply.answerPlanning ? { answerPlanning: reply.answerPlanning } : {}),
                   ...(reply.delegation ? { delegation: reply.delegation } : {}),
                   ...(reply.codeArtifacts ? { codeArtifacts: reply.codeArtifacts } : {}),
+                  ...(reply.incidentCandidates
+                    ? { incidentCandidates: reply.incidentCandidates }
+                    : {}),
                   ...(reply.actionDraft ? { actionDraft: reply.actionDraft } : {}),
                   ...(reply.modelTrace ? { modelTrace: reply.modelTrace } : {}),
                   ...(reply.turnTiming ? { turnTiming: reply.turnTiming } : {}),

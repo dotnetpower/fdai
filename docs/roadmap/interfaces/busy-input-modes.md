@@ -154,6 +154,9 @@ They also retain intent scope. A steer rerun keeps the active turn's structured 
 follow-up deterministically renders the bounded matching set without asking the operator to select
 one incident. A question that requires one incident, such as cause analysis, keeps the
 ambiguous-selection behavior.
+Its terminal payload retains the same bounded incident-candidate artifact as an initial turn. A
+button selection starts a separate exact incident-bound conversation with a prepared draft; it
+doesn't mutate, interrupt, or steer the completed turn.
 A general service-outage question deterministically selects the server-scoped subscription-health
 read on its initial or queued turn. A steer rerun retains that read authority and cannot replace its
 configured subscription or resource-group allowlist with operator text.

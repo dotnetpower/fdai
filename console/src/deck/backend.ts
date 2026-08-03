@@ -35,6 +35,7 @@ import {
   parseAnswerPlan,
   parseAnswerPlanning,
   parseGroundedCodeArtifacts,
+  parseIncidentCandidates,
   parseModelTrace,
   parseTurnTiming,
 } from "./backend-parsers";
@@ -54,6 +55,7 @@ export {
   parseAnswerPlan,
   parseAnswerPlanning,
   parseGroundedCodeArtifacts,
+  parseIncidentCandidates,
   parseModelTrace,
   parseTurnTiming,
 } from "./backend-parsers";
@@ -179,6 +181,7 @@ export async function askBackend(
       ? (payload as Record<string, unknown>).code_artifacts
       : undefined,
   );
+  const incidentCandidates = parseIncidentCandidates(payloadRecord?.incident_candidates);
   const resourceContext = parseResourceContext(
     typeof payload === "object" && payload !== null
       ? (payload as Record<string, unknown>).resource_context
@@ -248,6 +251,7 @@ export async function askBackend(
     ...(answerPlan ? { answerPlan } : {}),
     ...(answerPlanning ? { answerPlanning } : {}),
     ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
+    ...(incidentCandidates.length > 0 ? { incidentCandidates } : {}),
     ...(resourceContext ? { resourceContext } : {}),
     ...(evidenceFreshnessContext ? { evidenceFreshnessContext } : {}),
     ...(modelTrace ? { modelTrace } : {}),

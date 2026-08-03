@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 26baa9b60fbcbbd5c676bcca71cb18c7ec76a5c3
+translation_source_sha: b8953fc765e1d8fd7fb97f756b127cc5af990606
 translation_revised: 2026-08-04
 ---
 
@@ -395,6 +395,12 @@ set을 즉시 렌더링합니다. Model prose는 선택된 incident, search scop
 membership 또는 absence claim을 바꿀 수 없습니다.
 `availability=unavailable`인 source는 `reachable=true`를 보고하지 않으며 구성되지 않았거나 probe하지
 않은 source는 `reachable=null`을 사용합니다. 명시적인 latest-incident summary는 collection을 반환하지 않고 server read model에서 가장 최근 incident 하나를 선택합니다. Root cause, timeline, hypothesis, similar incident, impact, next action, consumed evidence, uncertainty 및 deep investigation 질문에는 incident 하나가 필요합니다. Bound incident가 없으면 generic analysis wording은 operator가 선택할 bounded candidate를 반환하며 current-screen, repository, agent 또는 public-web evidence를 빌리지 않습니다.
+`ambiguous` terminal answer는 최대 5개의 server-validated incident candidate를 포함한 versioned
+artifact도 전달합니다. Web client는 candidate별로 title, severity, status, last-updated time 및
+incident id가 표시된 button을 렌더링하므로 중복 title도 구분할 수 있습니다. Button을 선택하면
+exact incident-bound conversation을 열고 localized investigation
+question을 composer에 준비합니다. 질문은 자동 제출하지 않습니다. 누락되거나 malformed, oversized
+또는 unverified인 candidate artifact는 button을 렌더링하지 않으며 binding을 만들 수 없습니다.
 `latest`, `recent`, `최신` 같은 generic recency 단어만으로는 incident authority를 만들지 않습니다.
 Operational lookup에는 incident, issue, outage, failure, problem 또는 cause 의미가 명시적으로 함께
 있어야 합니다. 따라서 public software version 또는 release 질문은 deterministic "no matching incident"

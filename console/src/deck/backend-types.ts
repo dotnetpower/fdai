@@ -380,6 +380,15 @@ export interface IntentGraphEvidence {
   }[];
 }
 
+export interface IncidentCandidate {
+  readonly incidentId: string;
+  readonly correlationId: string;
+  readonly title: string;
+  readonly severity: string;
+  readonly status: "open" | "in_progress" | "resolved";
+  readonly lastUpdatedAt: string;
+}
+
 export type ProgressiveAnswer = Answer & {
   readonly source: string;
   readonly router?: RouterSnapshot;
@@ -398,6 +407,7 @@ export type ProgressiveAnswer = Answer & {
   readonly intentGraph?: IntentGraphMetadata;
   readonly intentGraphEvidence?: IntentGraphEvidence;
   readonly evidenceMode?: IntentEvidenceMode;
+  readonly incidentCandidates?: readonly IncidentCandidate[];
 };
 
 export interface BackendHealth {

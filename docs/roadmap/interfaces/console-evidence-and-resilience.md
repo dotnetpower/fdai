@@ -399,6 +399,12 @@ requiring a single incident selection. Model prose cannot change the selected in
 scope, supported cause, collection membership, or absence claim. A source with
 `availability=unavailable` never reports `reachable=true`; unconfigured or unprobed sources use
 `reachable=null`. An explicit latest-incident summary selects the single most recent server-read-model incident instead of returning a collection. Root cause, timeline, hypotheses, similar incidents, impact, next action, consumed evidence, uncertainty, and deep-investigation questions require one incident. Without a bound incident, generic analysis wording returns bounded candidates for operator selection and never borrows current-screen, repository, agent, or public-web evidence.
+An `ambiguous` terminal answer also carries a versioned artifact with at most five server-validated
+incident candidates. The Web client renders one button per candidate with title, severity, status,
+last-updated time, and incident id so duplicate titles remain distinguishable. Selecting a button
+opens an exact incident-bound conversation and prepares a localized
+investigation question in the composer. It never auto-submits the question. Missing, malformed,
+oversized, or unverified candidate artifacts render no buttons and cannot create a binding.
 Generic recency words such as `latest`, `recent`, or `최신` do not create incident authority by
 themselves. Operational lookup also requires explicit incident, issue, outage, failure, problem, or
 cause semantics. A public software version or release question therefore remains eligible for the

@@ -16,6 +16,7 @@ import {
   parseAnswerPlan,
   parseAnswerPlanning,
   parseGroundedCodeArtifacts,
+  parseIncidentCandidates,
   parseModelTrace,
   parseTurnTiming,
   type AnswerPlanMetadata,
@@ -25,6 +26,7 @@ import {
   type EvidenceBranch,
   type GroundedCodeArtifact,
   type InvestigationActivity,
+  type IncidentCandidate,
   type ModelTrace,
   type TurnTiming,
   type TrajectoryDetail,
@@ -95,6 +97,7 @@ export interface PersistedTurn {
   readonly answerPlanning?: AnswerPlanningMetadata;
   readonly delegation?: DelegationMetadata;
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
+  readonly incidentCandidates?: readonly IncidentCandidate[];
   readonly modelTrace?: ModelTrace;
   readonly turnTiming?: TurnTiming;
   readonly trajectoryDetail?: TrajectoryDetail;
@@ -138,6 +141,17 @@ export function serializeTurns(
       const answerPlanning = parseAnswerPlanning(t.answerPlanning);
       const delegation = parseDelegation(t.delegation);
       const codeArtifacts = parseGroundedCodeArtifacts(t.codeArtifacts);
+      const incidentCandidates = parseIncidentCandidates({
+        schema_version: 1,
+        candidates: t.incidentCandidates?.map((candidate) => ({
+          incident_id: candidate.incidentId,
+          correlation_id: candidate.correlationId,
+          title: candidate.title,
+          severity: candidate.severity,
+          status: candidate.status,
+          last_updated_at: candidate.lastUpdatedAt,
+        })) ?? [],
+      });
       const modelTrace = parseModelTrace(t.modelTrace);
       const turnTiming = parseTurnTiming(t.turnTiming);
       const trajectoryDetail = parseTrajectoryDetail(t.trajectoryDetail);
@@ -164,6 +178,7 @@ export function serializeTurns(
         ...(answerPlanning ? { answerPlanning } : {}),
         ...(delegation ? { delegation } : {}),
         ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
+        ...(incidentCandidates.length > 0 ? { incidentCandidates } : {}),
         ...(modelTrace ? { modelTrace } : {}),
         ...(turnTiming ? { turnTiming } : {}),
         ...(trajectoryDetail ? { trajectoryDetail } : {}),
@@ -205,6 +220,23 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
     const answerPlanning = parseAnswerPlanning(rec.answerPlanning);
     const delegation = parseDelegation(rec.delegation);
     const codeArtifacts = parseGroundedCodeArtifacts(rec.codeArtifacts);
+    const incidentCandidates = parseIncidentCandidates({
+      schema_version: 1,
+      candidates: Array.isArray(rec.incidentCandidates)
+        ? rec.incidentCandidates.map((candidate) => {
+            if (typeof candidate !== "object" || candidate === null) return candidate;
+            const item = candidate as Record<string, unknown>;
+            return {
+              incident_id: item.incidentId,
+              correlation_id: item.correlationId,
+              title: item.title,
+              severity: item.severity,
+              status: item.status,
+              last_updated_at: item.lastUpdatedAt,
+            };
+          })
+        : [],
+    });
     const modelTrace = parseModelTrace(rec.modelTrace);
     const turnTiming = parseTurnTiming(rec.turnTiming);
     const trajectoryDetail = parseTrajectoryDetail(rec.trajectoryDetail);
@@ -237,6 +269,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
       ...(answerPlanning ? { answerPlanning } : {}),
       ...(delegation ? { delegation } : {}),
       ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
+      ...(incidentCandidates.length > 0 ? { incidentCandidates } : {}),
       ...(modelTrace ? { modelTrace } : {}),
       ...(turnTiming ? { turnTiming } : {}),
       ...(trajectoryDetail ? { trajectoryDetail } : {}),

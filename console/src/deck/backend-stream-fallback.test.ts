@@ -387,6 +387,41 @@ describe("askBackendStream fallback typewriter", () => {
     expect(reply.resourceContext).toEqual(resourceContext);
   });
 
+  test("returns verified incident candidates from SSE and JSON terminal payloads", async () => {
+    const incidentCandidates = {
+      schema_version: 1,
+      candidates: [{
+        incident_id: "INC-1",
+        correlation_id: "corr-1",
+        title: "Pod restart",
+        severity: "high",
+        status: "open",
+        last_updated_at: "2026-08-04T00:01:00Z",
+      }],
+    };
+    const body = `event: done\ndata: ${JSON.stringify({
+      answer: "Choose an incident.",
+      model: "evidence-verifier",
+      incident_candidates: incidentCandidates,
+    })}\n\n`;
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+
+    const streamed = await mod.askBackendStream("q", snap(), [], { onToken: () => undefined });
+    expect(streamed.incidentCandidates?.[0]).toMatchObject({
+      incidentId: "INC-1",
+      correlationId: "corr-1",
+    });
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      answer: "Choose an incident.",
+      model: "evidence-verifier",
+      incident_candidates: incidentCandidates,
+    }), { status: 200 })));
+    const json = await mod.askBackend("q", snap(), []);
+    expect(json.incidentCandidates?.[0]?.title).toBe("Pod restart");
+  });
+
   test("SSE transport prefers a valid artifact and rejects an invalid one", async () => {
     const artifact = {
       schema_version: 1,

@@ -1,3 +1,46 @@
+.deck-incident-candidates {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+}
+
+.deck-incident-candidates > p {
+  margin: 0;
+  color: var(--fg-muted);
+}
+
+.deck-incident-candidates ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.deck-incident-candidates button {
+  display: grid;
+  width: 100%;
+  gap: 3px;
+  padding: 9px 10px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.deck-incident-candidates button:hover {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 6%, var(--bg));
+}
+
+.deck-incident-candidates small {
+  color: var(--fg-muted);
+}
 .deck-answer-plan {
   display: flex;
   flex-wrap: wrap;

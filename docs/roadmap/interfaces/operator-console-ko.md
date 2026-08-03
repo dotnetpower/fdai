@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: e80023fa9a895dc2744d02169ad0e166bd58a757
+translation_source_sha: 2d87c974262bc70ddc6d5c96f1fee6a3c8705c90
 translation_revised: 2026-08-04
 ---
 
@@ -19,6 +19,9 @@ Settings > Integrations에서는 합성 placeholder로 production incident-open 
 인증된 active-incident stream은 idle Command Deck을 incident selector와 함께 열 수 있습니다. 이
 selector는 presentation hint일 뿐입니다. Server는 답변 전에 durable incident와 evidence를 다시
 resolve하며 browser는 turn을 자동 제출하지 않습니다.
+Incident 질문이 여러 record와 같은 정도로 일치하면 terminal answer는 plain-text 안내 대신 bounded
+candidate button을 포함합니다. Button은 해당 candidate의 exact incident conversation을 열고 localized
+investigation draft를 준비합니다. Operator가 turn을 명시적으로 전송하는 동작은 유지합니다.
 
 이 문서는 **pull 방향**, 즉 오퍼레이터가 묻고 시뮬레이션하고 승인하는 경로를 다룹니다.
 Push와 pull은 같은 채널 credential과 audit 계약을 공유하지만 서로 다른 통합

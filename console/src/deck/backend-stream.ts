@@ -24,6 +24,7 @@ import {
   parseAnswerPlan,
   parseAnswerPlanning,
   parseGroundedCodeArtifacts,
+  parseIncidentCandidates,
   parseModelTrace,
   parseTurnTiming,
 } from "./backend-parsers";
@@ -411,6 +412,7 @@ export async function askBackendStream(
   const answerPlanning = parseAnswerPlanning(done.answer_planning);
   const actionDraft = parseActionDraft(done.action_draft);
   const codeArtifacts = parseGroundedCodeArtifacts(done.code_artifacts);
+  const incidentCandidates = parseIncidentCandidates(done.incident_candidates);
   const resourceContext = parseResourceContext(done.resource_context);
   const evidenceFreshnessContext = parseEvidenceFreshnessContext(
     done.evidence_freshness_context,
@@ -440,6 +442,7 @@ export async function askBackendStream(
     ...(answerPlan ? { answerPlan } : {}),
     ...(answerPlanning ? { answerPlanning } : {}),
     ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
+    ...(incidentCandidates.length > 0 ? { incidentCandidates } : {}),
     ...(confirmedSegment ? { confirmed: confirmedSegment } : {}),
     ...(actionDraft ? { actionDraft } : {}),
     ...(resourceContext ? { resourceContext } : {}),

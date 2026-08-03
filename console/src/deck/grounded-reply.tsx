@@ -25,10 +25,12 @@ import type {
   AnswerVerification,
   DelegationMetadata,
   GroundedCodeArtifact,
+  IncidentCandidate,
   VerificationProgress,
 } from "./backend";
 import { confirmActionDraft, renderActionResult } from "./backend";
 import { RichContent } from "./rich-content";
+import { openDeckWithContext, type DeckOpenDetail } from "./open-deck";
 import { relevantCitations, type Citation } from "./citations";
 import { unverifiedDetailLabel, verificationPrimaryLabel } from "./verification-presentation";
 import {
@@ -55,6 +57,7 @@ export function GroundedReply({
   answerPlanning,
   delegation,
   codeArtifacts,
+  incidentCandidates,
   actionDraft,
   onRegenerate,
 }: {
@@ -70,6 +73,7 @@ export function GroundedReply({
   readonly answerPlanning: AnswerPlanningMetadata | undefined;
   readonly delegation: DelegationMetadata | undefined;
   readonly codeArtifacts: readonly GroundedCodeArtifact[] | undefined;
+  readonly incidentCandidates: readonly IncidentCandidate[] | undefined;
   readonly actionDraft: ActionDraft | undefined;
   /** Re-run the operator question that produced this reply, if known. */
   readonly onRegenerate?: () => void;
@@ -231,6 +235,10 @@ export function GroundedReply({
 
       {!streaming && codeArtifacts && codeArtifacts.length > 0 ? (
         <CodeEvidence artifacts={codeArtifacts} />
+      ) : null}
+
+      {!streaming && incidentCandidates && incidentCandidates.length > 0 ? (
+        <IncidentCandidatePicker candidates={incidentCandidates} />
       ) : null}
 
       {verificationProgress && !verification ? (
@@ -395,6 +403,47 @@ export function GroundedReply({
         </div>
       ) : null}
     </div>
+  );
+}
+
+export function incidentCandidateDeckDetail(candidate: IncidentCandidate): DeckOpenDetail {
+  return {
+    sessionKey: `incident:${candidate.correlationId}`,
+    sessionLabel: candidate.title,
+    prompt: t("deck.incidentCandidates.prompt"),
+    binding: {
+      kind: "incident",
+      incidentId: candidate.incidentId,
+      correlationId: candidate.correlationId,
+    },
+    onlyWhenIdle: true,
+  };
+}
+
+function IncidentCandidatePicker({ candidates }: {
+  readonly candidates: readonly IncidentCandidate[];
+}) {
+  return (
+    <section class="deck-incident-candidates" aria-label={t("deck.incidentCandidates.title")}>
+      <strong>{t("deck.incidentCandidates.title")}</strong>
+      <p>{t("deck.incidentCandidates.hint")}</p>
+      <ul>
+        {candidates.map((candidate) => (
+          <li key={`${candidate.incidentId}:${candidate.correlationId}`}>
+            <button
+              type="button"
+              onClick={() => openDeckWithContext(incidentCandidateDeckDetail(candidate))}
+            >
+              <span>{candidate.title}</span>
+              <small>
+                {candidate.severity} / {candidate.status} / {candidate.lastUpdatedAt}
+              </small>
+              <code>{candidate.incidentId}</code>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

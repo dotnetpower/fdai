@@ -17,6 +17,10 @@ placeholders. That GET-only preview does not send mail or grant approval or exec
 The authenticated active-incident stream can open an idle Command Deck with an incident selector.
 That selector is a presentation hint only; the server re-resolves the durable incident and its
 evidence before answering, and the browser never auto-submits a turn.
+When an incident question matches several records equally, the terminal answer includes bounded
+candidate buttons rather than relying on a plain-text instruction. A button opens the candidate's
+exact incident conversation and prepares a localized investigation draft; the operator still sends
+the turn explicitly.
 This doc covers the **pull direction** - the operator asks, simulates,
 approves - across every channel the notification doc already ships adapters
 for. Push and pull share the same channel credentials and the same audit

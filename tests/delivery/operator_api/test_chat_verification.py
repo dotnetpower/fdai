@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unicodedata
 
+from fdai.delivery.operator_api.routes.chat_stream_terminal import response_incident_candidates
 from fdai.delivery.operator_api.routes.chat_verification import _changed, verify_answer
 
 
@@ -676,6 +677,39 @@ def test_workload_detection_separation_is_localized_in_korean() -> None:
     assert "연관된 member event: 5건" in result.answer
     assert "감지된 증상과 대상만 확인하며 원인을 증명하지 않습니다" in result.answer
     assert "알림 전달 문제" in result.answer
+
+
+def test_ambiguous_incident_candidates_emit_bounded_selection_artifact() -> None:
+    candidates = [
+        {
+            "incident_id": "INC-1",
+            "correlation_id": "corr-1",
+            "title": "Pod restart",
+            "severity": "high",
+            "status": "open",
+            "last_updated_at": "2026-08-04T00:01:00Z",
+        },
+        {
+            "incident_id": "INC-2",
+            "correlation_id": "corr-2",
+            "title": "Memory pressure",
+            "severity": "medium",
+            "status": "in_progress",
+            "last_updated_at": "2026-08-04T00:02:00Z",
+        },
+    ]
+    verification = verify_answer(
+        "Choose one.",
+        _context({"status": "ambiguous", "candidates": candidates}),
+        locale="en",
+    )
+
+    artifact = response_incident_candidates(
+        {"_operational_evidence": {"status": "ambiguous", "candidates": candidates}},
+        verification=verification,
+    )
+
+    assert artifact == {"schema_version": 1, "candidates": candidates}
 
 
 def test_unavailable_state_is_explicitly_unverified() -> None:
