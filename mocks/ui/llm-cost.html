@@ -56,12 +56,27 @@
     .lc-model-pill.is-openai   { background: rgba(94,130,89,.12);  color: var(--cs-sage); }
     .lc-model-pill.is-anthropic { background: rgba(123,108,156,.12); color: var(--cs-plum); }
     .lc-model-pill.is-embed    { background: rgba(79,132,126,.12); color: var(--cs-teal); }
+    .lc-ledger { margin-top: 24px; }
+    .lc-section-head { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; margin-bottom: 10px; }
+    .lc-section-head h3 { margin: 0 0 4px; font-size: 15px; }
+    .lc-section-head p { margin: 0; }
+    .lc-section-head a { flex: 0 0 auto; font-size: 12.5px; }
+    .lc-ledger-note { margin: 0 0 10px; font-size: 12px; color: var(--cs-text-soft); }
+    .lc-ledger .cs-table-wrap { max-width: 100%; overflow-x: auto; }
+    .lc-ledger-table { min-width: 1120px; }
+    .lc-ledger-table td { white-space: nowrap; }
+    .lc-ledger-table td.capability, .lc-ledger-table td.correlation { font-family: var(--cs-mono); font-size: 12px; }
+    .lc-scope { display: inline-flex; align-items: center; gap: 6px; }
+    .lc-scope::before { width: 7px; height: 7px; content: ""; border-radius: 50%; background: var(--cs-steel); }
+    .lc-scope.is-chat::before { background: var(--cs-terracotta); }
     @media (max-width: 620px) {
       .cs-readonly-banner { display: block; }
       .cs-readonly-banner strong { display: block; margin-bottom: 5px; }
       .lc-chart-head { display: block; }
       .lc-chart-total { margin-top: 8px; }
       .lc-chart-days { margin-left: 34px; }
+      .lc-section-head { display: block; }
+      .lc-section-head a { display: inline-block; margin-top: 8px; }
     }
   </style>
 </head>
@@ -194,6 +209,102 @@
         </tbody>
       </table>
     </div>
+
+    <section class="lc-ledger" aria-labelledby="invocation-ledger-title">
+      <div class="lc-section-head">
+        <div>
+          <h3 id="invocation-ledger-title">Invocation ledger</h3>
+          <p class="cs-desc">Recent measured calls with correlation-scoped audit evidence.</p>
+        </div>
+        <a href="audit.html">View usage audit</a>
+      </div>
+      <p class="lc-ledger-note">Showing the latest 6 of 1,842 measured calls.</p>
+      <div class="cs-table-wrap">
+        <table class="cs-table lc-table lc-ledger-table">
+          <thead>
+            <tr>
+              <th style="text-align:left">Timestamp</th>
+              <th style="text-align:left">Workload</th>
+              <th style="text-align:left">Model</th>
+              <th style="text-align:left">Capability</th>
+              <th style="text-align:left">Tier / mode</th>
+              <th class="num">Input</th>
+              <th class="num">Output</th>
+              <th class="num">Total tokens</th>
+              <th style="text-align:left">Correlation ID</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><time datetime="2026-08-04T14:32:01Z">Aug 4, 2026, 14:32:01 UTC</time></td>
+              <td><span class="lc-scope">Control plane</span></td>
+              <td><code>gpt-4o</code></td>
+              <td class="capability">t2.reasoner.primary</td>
+              <td><span class="cs-tier t2">T2</span> / enforce</td>
+              <td class="num">100</td>
+              <td class="num">21</td>
+              <td class="num">121</td>
+              <td class="correlation"><a href="audit.html?correlation=run-cross-check-0142">run-cross-check-0142</a></td>
+            </tr>
+            <tr>
+              <td><time datetime="2026-08-04T14:31:58Z">Aug 4, 2026, 14:31:58 UTC</time></td>
+              <td><span class="lc-scope">Control plane</span></td>
+              <td><code>text-embedding-3-small</code></td>
+              <td class="capability">t1.embedding</td>
+              <td><span class="cs-tier t1">T1</span> / enforce</td>
+              <td class="num">5</td>
+              <td class="num">0</td>
+              <td class="num">5</td>
+              <td class="correlation"><a href="audit.html?correlation=run-embedding-0141">run-embedding-0141</a></td>
+            </tr>
+            <tr>
+              <td><time datetime="2026-08-04T14:30:44Z">Aug 4, 2026, 14:30:44 UTC</time></td>
+              <td><span class="lc-scope is-chat">Operator chat</span></td>
+              <td><code>gpt-4.1-mini</code></td>
+              <td class="capability">t1.narrator</td>
+              <td><span class="cs-tier t1">T1</span> / enforce</td>
+              <td class="num">545</td>
+              <td class="num">24</td>
+              <td class="num">569</td>
+              <td class="correlation"><a href="audit.html?correlation=chat-incident-0087">chat-incident-0087</a></td>
+            </tr>
+            <tr>
+              <td><time datetime="2026-08-04T14:28:19Z">Aug 4, 2026, 14:28:19 UTC</time></td>
+              <td><span class="lc-scope">Control plane</span></td>
+              <td><code>gpt-5-mini</code></td>
+              <td class="capability">t1.judge</td>
+              <td><span class="cs-tier t1">T1</span> / shadow</td>
+              <td class="num">544</td>
+              <td class="num">700</td>
+              <td class="num">1,244</td>
+              <td class="correlation"><a href="audit.html?correlation=shadow-judge-0314">shadow-judge-0314</a></td>
+            </tr>
+            <tr>
+              <td><time datetime="2026-08-04T14:25:03Z">Aug 4, 2026, 14:25:03 UTC</time></td>
+              <td><span class="lc-scope is-chat">Operator chat</span></td>
+              <td><code>gpt-4o-mini</code></td>
+              <td class="capability">t1.narrator</td>
+              <td><span class="cs-tier t1">T1</span> / enforce</td>
+              <td class="num">612</td>
+              <td class="num">36</td>
+              <td class="num">648</td>
+              <td class="correlation"><a href="audit.html?correlation=chat-change-0062">chat-change-0062</a></td>
+            </tr>
+            <tr>
+              <td><time datetime="2026-08-04T14:21:47Z">Aug 4, 2026, 14:21:47 UTC</time></td>
+              <td><span class="lc-scope">Control plane</span></td>
+              <td><code>claude-opus-4</code></td>
+              <td class="capability">t2.reasoner.cross-check</td>
+              <td><span class="cs-tier t2">T2</span> / enforce</td>
+              <td class="num">312</td>
+              <td class="num">27</td>
+              <td class="num">339</td>
+              <td class="correlation"><a href="audit.html?correlation=run-cross-check-0139">run-cross-check-0139</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
     <p class="cs-muted" style="font-size:12.5px; margin-top:12px;">
       Every total is derived from provider usage records and can be traced to its correlation audit.
