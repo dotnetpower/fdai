@@ -56,7 +56,11 @@ class RecordingBackend:
 async def test_topology_questions_require_exact_resource_selectors() -> None:
     prompts = (
         "애플리케이션에서 데이터베이스까지 의존 관계를 보여줘.",
+        "선택한 앱에서 DB까지 연결된 dependency 경로를 그려줘.",
+        "애플리케이션과 데이터베이스 사이의 의존 리소스를 방향과 함께 보여줘.",
         "Map the dependencies from the application to its database.",
+        "Trace the directed dependency path between the selected app and database.",
+        "Show the resource relationships connecting this application to its database.",
         "앱에서 데이터베이스까지 실제로 통신할 수 있어?",
         "Can the application reach the database end to end?",
         "이 네트워크 보안 그룹이 허용하는 인바운드 포트는 뭐야?",
