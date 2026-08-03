@@ -539,7 +539,7 @@ class OperatorApiConfig:
     See :mod:`fdai.delivery.operator_api.workflow_authoring`."""
 
     workflow_execution: Any = None
-    """Opt-in Contributor-gated ``POST /workflows/run`` shadow command."""
+    """Opt-in governed Workflow start, exact resume, and safe cancel commands."""
     workflow_definitions: Any = None
     """Opt-in principal-scoped WorkflowDefinition and WorkflowBinding routes."""
     user_context: Any = None

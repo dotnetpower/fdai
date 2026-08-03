@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: f0e6d8a4ca82da7ae5660fb1d342982f9eab574b
+translation_source_sha: 4d28c6000a01440c741e1772d9f496071f0a0a44
 translation_revised: 2026-08-04
 ---
 
@@ -325,12 +325,12 @@ alphanumeric 및 hyphen identifier를 설정할 수 있습니다. 생성된 core
 이 instance를 사용하고 deployed Operator API replica는 runtime hostname을 사용합니다. 따라서 각
 console stream은 다른 developer 또는 replica와 partition을 나누지 않고 모든 frame을 수신합니다.
 
-Workflow definition은 deployment와 같은 enforce allowlist를 사용하며 각 ActionType은
-authoritative promotion 및 risk gate의 적용을 받습니다. Enforce workflow에는 계속 Azure event
-transport와 workflow approval evidence를 공유하는 durable local database가 필요합니다. Thor는
-developer credential을 받지 않으며 privileged execution은 deployed Managed Identity runtime에
-남습니다. Scenario replay, seeded audit row, recording executor, VM-task fake, synthetic
-scheduler/cost data, scope template 및 blast-radius fixture는 pytest 전용입니다.
+Workflow definition은 deployment enforce allowlist를 사용하며 ActionType은 promotion 및 risk gate를 유지합니다.
+Enforce에는 Azure event transport와 workflow approval evidence를 공유하는 durable database가 필요합니다.
+두 profile은 동일한 durable Process state에서 body 없는 exact resume 및 safe cancellation을 제공합니다.
+같은 Contributor 또는 Owner App Role을 검사하고 idle을 가정하지 않고 running cancellation을 차단합니다.
+Thor는 developer credential을 받지 않으며 execution은 deployed Managed Identity runtime에 남습니다.
+Scenario replay, recording executor, VM-task fake, synthetic data 및 scope fixture는 pytest 전용입니다.
 
 FDAI Azure PostgreSQL, Event Hubs, runtime, executor resource가 없으면 해당 surface는 runtime
 claim 없이 unavailable 또는 empty로 표시됩니다. Repository catalog와 schema는 observed runtime

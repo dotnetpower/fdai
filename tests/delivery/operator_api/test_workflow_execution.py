@@ -23,6 +23,7 @@ from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes.process_views import ProcessViewsConfig
 from fdai.delivery.operator_api.routes.workflow_execution import (
     WorkflowExecutionConfig,
+    make_workflow_cancel_route,
     make_workflow_resume_route,
     make_workflow_run_route,
 )
@@ -154,7 +155,12 @@ def _client(
     return TestClient(app)
 
 
-def _enforce_client(*, role: Role, enforce_workflows: frozenset[str]) -> TestClient:
+def _enforce_client(
+    *,
+    role: Role,
+    enforce_workflows: frozenset[str],
+    cancel_enforce_workflows: frozenset[str] | None = None,
+) -> TestClient:
     action = OntologyActionType(
         schema_version="1.0.0",
         name="ops.inspect",
@@ -212,6 +218,13 @@ def _enforce_client(*, role: Role, enforce_workflows: frozenset[str]) -> TestCli
         orchestrator=orchestrator,
         enforce_workflows=enforce_workflows,
     )
+    cancel_config = WorkflowExecutionConfig(
+        workflows=(_workflow(),),
+        orchestrator=orchestrator,
+        enforce_workflows=(
+            enforce_workflows if cancel_enforce_workflows is None else cancel_enforce_workflows
+        ),
+    )
     return TestClient(
         Starlette(
             routes=[
@@ -221,6 +234,10 @@ def _enforce_client(*, role: Role, enforce_workflows: frozenset[str]) -> TestCli
                 ),
                 make_workflow_resume_route(
                     config=config,
+                    authorize_principal=authorize,
+                ),
+                make_workflow_cancel_route(
+                    config=cancel_config,
                     authorize_principal=authorize,
                 ),
             ]
@@ -364,6 +381,57 @@ def test_enforce_resume_rechecks_owner_role() -> None:
     )
 
     assert response.status_code == 403
+
+
+def test_enforce_cancel_rechecks_owner_role_and_accepts_no_inputs() -> None:
+    client = _enforce_client(
+        role=Role.OWNER,
+        enforce_workflows=frozenset({"sample-flow"}),
+    )
+    started = client.post(
+        "/workflows/run",
+        json={
+            "workflow": "sample-flow",
+            "target_resource_id": "resource-1",
+            "trigger_ts": _TRIGGER_TS.isoformat(),
+            "mode": "enforce",
+        },
+    )
+    cancel_path = started.json()["links"]["cancel"]
+
+    forbidden = client.post(
+        cancel_path,
+        headers={"x-test-role": Role.CONTRIBUTOR.value},
+    )
+    body_rejected = client.post(cancel_path, json={})
+    accepted = client.post(cancel_path)
+
+    assert forbidden.status_code == 403
+    assert body_rejected.status_code == 400
+    assert accepted.status_code == 200
+    assert accepted.json()["process"]["status"] == "waiting"
+
+
+def test_enforce_allowlist_removal_does_not_block_cancellation() -> None:
+    client = _enforce_client(
+        role=Role.OWNER,
+        enforce_workflows=frozenset({"sample-flow"}),
+        cancel_enforce_workflows=frozenset(),
+    )
+    started = client.post(
+        "/workflows/run",
+        json={
+            "workflow": "sample-flow",
+            "target_resource_id": "resource-1",
+            "trigger_ts": _TRIGGER_TS.isoformat(),
+            "mode": "enforce",
+        },
+    )
+
+    response = client.post(started.json()["links"]["cancel"])
+
+    assert response.status_code == 200
+    assert response.json()["process"]["status"] == "waiting"
 
 
 def test_shadow_command_rejects_unknown_workflow_and_bad_context() -> None:

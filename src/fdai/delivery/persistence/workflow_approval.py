@@ -84,7 +84,8 @@ class StateStoreWorkflowApprovalProvider:
         stored = record if created else await self.store.read_state(key)
         if stored is None or not _request_matches(stored, record):
             raise RuntimeError("workflow approval request conflicts with durable state")
-        await self._ensure_parks(stored)
+        if stored.get("state") == "pending":
+            await self._ensure_parks(stored)
         return await self._snapshot(stored)
 
     async def mark_timed_out(
@@ -100,7 +101,12 @@ class StateStoreWorkflowApprovalProvider:
         if record is None or not _lineage_matches(record, process_id, step_id):
             return False
         if record.get("state") == "timed_out":
-            await self._close_parks(record, timed_out_at=timed_out_at)
+            await self._close_parks(
+                record,
+                decision="timeout",
+                resolved_at=timed_out_at,
+                action_kind="workflow.approval.slot_timed_out",
+            )
             return True
         updated = {
             **dict(record),
@@ -121,8 +127,70 @@ class StateStoreWorkflowApprovalProvider:
             },
         )
         if changed:
-            await self._close_parks(updated, timed_out_at=timed_out_at)
+            await self._close_parks(
+                updated,
+                decision="timeout",
+                resolved_at=timed_out_at,
+                action_kind="workflow.approval.slot_timed_out",
+            )
         return changed
+
+    async def cancel_pending(
+        self,
+        *,
+        process_id: str,
+        step_id: str,
+        cancelled_at: Any,
+    ) -> bool:
+        key = _state_key(process_id, step_id)
+        for _ in range(8):
+            record = await self.store.read_state(key)
+            if record is None:
+                return False
+            if not _lineage_matches(record, process_id, step_id):
+                return False
+            state = record.get("state")
+            if state == "cancelled":
+                await self._close_parks(
+                    record,
+                    decision="cancel",
+                    resolved_at=cancelled_at,
+                    action_kind="workflow.approval.slot_cancelled",
+                )
+                return True
+            if state == "timed_out":
+                return True
+            if state != "pending":
+                return False
+            revision = int(record.get("revision", 0))
+            updated = {
+                **dict(record),
+                "state": "cancelled",
+                "cancelled_at": cancelled_at.isoformat(),
+                "revision": revision + 1,
+            }
+            changed = await self.store.compare_and_set_state_with_audit(
+                key,
+                updated,
+                expected_revision=revision,
+                audit_entry={
+                    "actor": "Var",
+                    "action_kind": "workflow.approval.cancelled",
+                    "process_id": process_id,
+                    "step_id": step_id,
+                    "cancelled_at": cancelled_at.isoformat(),
+                },
+            )
+            if not changed:
+                continue
+            await self._close_parks(
+                updated,
+                decision="cancel",
+                resolved_at=cancelled_at,
+                action_kind="workflow.approval.slot_cancelled",
+            )
+            return True
+        return False
 
     async def _ensure_parks(self, record: Any) -> None:
         slots = _slots(record)
@@ -197,9 +265,17 @@ class StateStoreWorkflowApprovalProvider:
             ),
             decisions=tuple(decisions),
             timed_out=record.get("state") == "timed_out",
+            cancelled=record.get("state") == "cancelled",
         )
 
-    async def _close_parks(self, record: Any, *, timed_out_at: Any) -> None:
+    async def _close_parks(
+        self,
+        record: Any,
+        *,
+        decision: str,
+        resolved_at: Any,
+        action_kind: str,
+    ) -> None:
         for slot in _slots(record):
             key = f"{_PARK_PREFIX}{slot['approval_id']}"
             parked = await self.store.read_state(key)
@@ -211,18 +287,18 @@ class StateStoreWorkflowApprovalProvider:
                 {
                     **dict(parked),
                     "status": "resolved",
-                    "decision": "timeout",
-                    "resolved_at": timed_out_at.isoformat(),
+                    "decision": decision,
+                    "resolved_at": resolved_at.isoformat(),
                     "revision": revision + 1,
                 },
                 expected_revision=revision,
                 audit_entry={
                     "actor": "Var",
-                    "action_kind": "workflow.approval.slot_timed_out",
+                    "action_kind": action_kind,
                     "approval_id": slot["approval_id"],
                     "process_id": record["process_id"],
                     "step_id": record["step_id"],
-                    "timed_out_at": timed_out_at.isoformat(),
+                    "resolved_at": resolved_at.isoformat(),
                 },
             )
 

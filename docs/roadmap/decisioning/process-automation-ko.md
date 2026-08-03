@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: dda14f17c470a41d8eef90e1cdad556c986a3350
+translation_source_sha: b9201e8c0a99d28751aed345077e1848a9e94ebd
 translation_revised: 2026-08-04
 ---
 
@@ -273,6 +273,16 @@ correlation, trigger, mode, safe context를 재사용합니다. Contributor는 s
 있습니다. Enforce Process에는 계속 Owner와 현재 workflow enforce allowlist가 필요합니다. Evidence가
 missing, legacy, malformed, redacted, version-mismatched 또는 identity-mismatched 상태이면 typed conflict를
 반환하고 step을 dispatch하지 않습니다.
+
+`POST /workflows/{process_id}/cancel`도 request body를 허용하지 않으며 같은 durable envelope를
+resolve합니다. Contributor는 shadow Process를 cancel할 수 있고 enforce Process에는 Owner가
+필요합니다. 이 command는 Process가 `pending` 또는 `waiting`일 때만
+`process.cancellation-requested`를 기록합니다. `running` Process는 in-flight dispatcher가 idle이라고
+가정할 수 없으므로 `process_not_at_safe_boundary`를 반환합니다. Waiting action은 먼저 authoritative
+outcome을 reconcile합니다. Executor는 모든 새 step을 차단하고 verified applied step은 기존 reverse
+compensation path로 진입합니다. Waiting approval은 durable Var state와 모든 HIL slot을 닫으므로 늦은
+approval이 cancelled Process를 되살릴 수 없습니다. Applied step이 없는 cancellation은 `cancelled`로
+종료하고 applied step 이후 verified recovery는 `compensated`로 종료합니다.
 
 Workflow audit는 각 ActionType의 `x-fdai-redact` path를 사용합니다. Redacted field는
 `[REDACTED]`로 표시되며 Process journal에 들어가지 않습니다. Workflow runtime에는 secret custody

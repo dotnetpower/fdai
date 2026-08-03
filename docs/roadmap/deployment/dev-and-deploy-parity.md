@@ -321,12 +321,12 @@ characters when it needs a stable explicit name. Generated core, Pantheon, and O
 that instance, while deployed Operator API replicas use their runtime hostname. Each console stream
 therefore receives every frame instead of sharing partitions with another developer or replica.
 
-Workflow definitions use the same enforce allowlist as deployment, while each ActionType remains
-subject to its authoritative promotion and risk gates. Enforce workflows still require Azure event
-transport and a durable local database shared with workflow approval evidence. Thor does not receive
-the developer's credential: privileged execution remains in the deployed Managed Identity runtime.
-Scenario replay, seeded audit rows, recording executors, VM-task fakes, synthetic scheduler/cost
-data, scope templates, and blast-radius fixtures remain pytest-only.
+Workflow definitions use the deployment enforce allowlist; ActionTypes retain promotion and risk gates.
+Enforce requires Azure event transport and a durable database shared with workflow approval evidence.
+Both profiles expose body-free exact resume and safe cancellation over the same durable Process state,
+repeat Contributor or Owner App Role checks, and reject running cancellation instead of assuming idle.
+Thor never receives the developer credential; execution stays in the deployed Managed Identity runtime.
+Scenario replay, recording executors, VM-task fakes, synthetic data, and scope fixtures stay pytest-only.
 
 When FDAI's Azure PostgreSQL, Event Hubs, runtime, or executor resources are absent, the associated
 surfaces are unavailable or empty with no runtime claim. Repository catalogs and schemas remain

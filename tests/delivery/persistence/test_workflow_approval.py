@@ -13,6 +13,7 @@ from fdai.delivery.persistence.workflow_approval import (
 from fdai.shared.providers.hil_registry import (
     HilApprovalDecision,
     HilDuplicateApproverError,
+    HilItemNotFoundError,
 )
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
@@ -87,6 +88,41 @@ async def test_workflow_approval_timeout_is_persisted_and_closes_pending_slots()
     assert timed_out.timed_out
     assert timed_out.revision == 2
     assert await registry.list_pending() == ()
+
+
+async def test_workflow_approval_cancellation_closes_slots_and_rejects_late_decisions() -> None:
+    store = InMemoryStateStore()
+    provider = StateStoreWorkflowApprovalProvider(store)
+    registry = StateStoreHilApprovalRegistry(store=store)
+    snapshot = await _request(provider)
+    pending = await registry.list_pending()
+
+    assert await provider.cancel_pending(
+        process_id=snapshot.process_id,
+        step_id=snapshot.step_id,
+        cancelled_at=_NOW + timedelta(seconds=30),
+    )
+
+    cancelled = await _request(provider, at=_NOW + timedelta(seconds=40))
+    assert cancelled.cancelled
+    assert cancelled.revision == 2
+    assert await registry.list_pending() == ()
+    with pytest.raises(HilItemNotFoundError):
+        await registry.record_decision(
+            idempotency_key=pending[0].idempotency_key,
+            decision=HilApprovalDecision.APPROVE,
+            approver_oid="operator-a",
+        )
+
+
+async def test_workflow_approval_cancellation_fails_when_authoritative_state_is_missing() -> None:
+    provider = StateStoreWorkflowApprovalProvider(InMemoryStateStore())
+
+    assert not await provider.cancel_pending(
+        process_id="missing-process",
+        step_id="missing-approval",
+        cancelled_at=_NOW,
+    )
 
 
 async def test_workflow_approval_rejects_duplicate_principal_across_slots() -> None:

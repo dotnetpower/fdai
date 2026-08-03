@@ -160,6 +160,7 @@ class WorkflowApprovalSnapshot:
     expires_at: datetime | None
     decisions: tuple[WorkflowApprovalDecision, ...] = ()
     timed_out: bool = False
+    cancelled: bool = False
 
 
 @runtime_checkable
@@ -188,6 +189,14 @@ class WorkflowApprovalProvider(Protocol):
         step_id: str,
         expected_revision: int,
         timed_out_at: datetime,
+    ) -> bool: ...
+
+    async def cancel_pending(
+        self,
+        *,
+        process_id: str,
+        step_id: str,
+        cancelled_at: datetime,
     ) -> bool: ...
 
 

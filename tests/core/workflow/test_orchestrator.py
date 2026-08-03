@@ -20,6 +20,7 @@ from fdai.core.workflow.automation_hold import StateStoreAutomationHoldLedger
 from fdai.core.workflow.orchestrator import (
     ProcessStatus,
     ShadowWorkflowStepExecutor,
+    WorkflowCancellationError,
     WorkflowOrchestrator,
     derive_process_id,
 )
@@ -1322,6 +1323,270 @@ async def test_enforce_approval_resumes_from_exact_process_id() -> None:
     assert resumed.status is ProcessStatus.SUCCEEDED
     created = (await process_store.events(waiting.process_id))[0]
     assert created.payload["resume"]["context"] == {"requester.principal": "requester-1"}
+
+
+async def test_waiting_approval_cancellation_closes_var_slots() -> None:
+    audit = InMemoryStateStore()
+    process_store = InMemoryProcessRuntimeStore()
+    provider = StateStoreWorkflowApprovalProvider(audit)
+    registry = StateStoreHilApprovalRegistry(store=audit)
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=process_store,
+        approval_provider=provider,
+    )
+    workflow = Workflow(
+        schema_version="1.0.0",
+        name="cancel-approval",
+        version="1.0.0",
+        trigger=WorkflowTrigger(
+            kind=WorkflowTriggerKind.SIGNAL,
+            signal_type="change.request.submitted",
+        ),
+        default_mode=Mode.SHADOW,
+        promotion_gate=PromotionGate(
+            min_shadow_days=14,
+            min_samples=100,
+            min_accuracy=0.95,
+            max_policy_escapes=0,
+        ),
+        steps=[
+            WorkflowStep(
+                id="owner_approval",
+                kind=WorkflowStepKind.APPROVAL,
+                approval_role=CeilingRole.OWNER,
+                quorum=2,
+                no_self_approval=True,
+                timeout_seconds=300,
+            )
+        ],
+    )
+    waiting = await orchestrator.run(
+        workflow,
+        target_resource_id="scope-cancel",
+        trigger_ts=_TRIGGER_TS,
+        context={"requester.principal": "requester-1"},
+        now=_TRIGGER_TS,
+        mode=Mode.ENFORCE,
+    )
+    assert waiting.status is ProcessStatus.WAITING
+    assert len(await registry.list_pending()) == 2
+
+    cancelled = await orchestrator.cancel(
+        process_id=waiting.process_id,
+        workflows={workflow.name: workflow},
+        actor_oid="owner-1",
+        now=_TRIGGER_TS + timedelta(seconds=30),
+    )
+
+    assert cancelled.status is ProcessStatus.CANCELLED
+    assert await registry.list_pending() == ()
+    events = await process_store.events(waiting.process_id)
+    assert [event.kind for event in events[-2:]] == [
+        ProcessEventKind.PROCESS_CANCELLATION_REQUESTED,
+        ProcessEventKind.PROCESS_CANCELLED,
+    ]
+
+    replayed = await orchestrator.cancel(
+        process_id=waiting.process_id,
+        workflows={workflow.name: workflow},
+        actor_oid="owner-1",
+        now=_TRIGGER_TS + timedelta(seconds=40),
+    )
+    assert replayed.status is ProcessStatus.CANCELLED
+    assert [
+        event.kind
+        for event in await process_store.events(waiting.process_id)
+        if event.kind is ProcessEventKind.PROCESS_CANCELLED
+    ] == [ProcessEventKind.PROCESS_CANCELLED]
+
+
+async def test_waiting_action_cancellation_reconciles_then_compensates() -> None:
+    audit = InMemoryStateStore()
+    process_store = InMemoryProcessRuntimeStore()
+    dispatcher = _RecordingActionDispatcher()
+    verifier = _ResolvingOutcomeVerifier()
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=process_store,
+        action_dispatcher=dispatcher,
+        outcome_verifier=verifier,
+    )
+    workflow = _compensated_workflow()
+    waiting = await orchestrator.run(
+        workflow,
+        target_resource_id="scope-cancel-action",
+        trigger_ts=_TRIGGER_TS,
+        context={"requester.principal": "requester-1"},
+        mode=Mode.ENFORCE,
+    )
+    assert waiting.status is ProcessStatus.WAITING
+
+    cancelling = await orchestrator.cancel(
+        process_id=waiting.process_id,
+        workflows={workflow.name: workflow},
+        actor_oid="owner-1",
+        now=_TRIGGER_TS + timedelta(seconds=30),
+    )
+
+    assert cancelling.status is ProcessStatus.COMPENSATING
+    assert [call["step"].id for call in dispatcher.calls] == [
+        "apply_first",
+        "compensate_apply_first",
+    ]
+    events = await process_store.events(waiting.process_id)
+    assert not any(
+        event.kind is ProcessEventKind.ACTION_DISPATCHED and event.step_id == "apply_second"
+        for event in events
+    )
+
+    compensated = await orchestrator.cancel(
+        process_id=waiting.process_id,
+        workflows={workflow.name: workflow},
+        actor_oid="owner-1",
+        now=_TRIGGER_TS + timedelta(seconds=40),
+    )
+    replayed = await orchestrator.cancel(
+        process_id=waiting.process_id,
+        workflows={workflow.name: workflow},
+        actor_oid="owner-1",
+        now=_TRIGGER_TS + timedelta(seconds=50),
+    )
+
+    assert compensated.status is ProcessStatus.COMPENSATED
+    assert replayed.status is ProcessStatus.COMPENSATED
+    assert [call["step"].id for call in dispatcher.calls] == [
+        "apply_first",
+        "compensate_apply_first",
+    ]
+
+
+async def test_running_process_cancellation_requires_safe_boundary() -> None:
+    process_store = InMemoryProcessRuntimeStore()
+    workflow = _workflow()
+    process_id = derive_process_id(
+        workflow_name=workflow.name,
+        target_resource_id="scope-running",
+        trigger_ts=_TRIGGER_TS,
+    )
+    await process_store.create(
+        snapshot=ProcessSnapshot(
+            process_id=process_id,
+            workflow_ref=workflow.name,
+            workflow_version=str(workflow.version),
+            status=ProcessStatus.RUNNING,
+            current_step="auto_step",
+            target_resource_id="scope-running",
+            started_at=_TRIGGER_TS,
+            updated_at=_TRIGGER_TS,
+            correlation_id="correlation-running",
+        ),
+        event=ProcessEvent(
+            event_id="running-created-event",
+            process_id=process_id,
+            kind=ProcessEventKind.PROCESS_CREATED,
+            idempotency_key="running-created-key",
+            recorded_at=_TRIGGER_TS,
+            correlation_id="correlation-running",
+            payload={
+                "resume": {
+                    "trigger_ts": _TRIGGER_TS.isoformat(),
+                    "mode": Mode.ENFORCE.value,
+                    "context": {"requester.principal": "requester-1"},
+                    "context_complete": True,
+                }
+            },
+        ),
+    )
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=InMemoryStateStore(),
+        process_store=process_store,
+    )
+
+    with pytest.raises(WorkflowCancellationError, match="safe boundary") as error:
+        await orchestrator.cancel(
+            process_id=process_id,
+            workflows={workflow.name: workflow},
+            actor_oid="owner-1",
+        )
+
+    assert error.value.kind == "process_not_at_safe_boundary"
+
+
+async def test_pending_process_cancels_before_approval_state_exists() -> None:
+    process_store = InMemoryProcessRuntimeStore()
+    workflow = _control_workflow()
+    process_id = derive_process_id(
+        workflow_name=workflow.name,
+        target_resource_id="scope-pending",
+        trigger_ts=_TRIGGER_TS,
+    )
+    await process_store.create(
+        snapshot=ProcessSnapshot(
+            process_id=process_id,
+            workflow_ref=workflow.name,
+            workflow_version=str(workflow.version),
+            status=ProcessStatus.PENDING,
+            current_step="",
+            target_resource_id="scope-pending",
+            started_at=_TRIGGER_TS,
+            updated_at=_TRIGGER_TS,
+            correlation_id="correlation-pending",
+        ),
+        event=ProcessEvent(
+            event_id="pending-created-event",
+            process_id=process_id,
+            kind=ProcessEventKind.PROCESS_CREATED,
+            idempotency_key="pending-created-key",
+            recorded_at=_TRIGGER_TS,
+            correlation_id="correlation-pending",
+            payload={
+                "resume": {
+                    "trigger_ts": _TRIGGER_TS.isoformat(),
+                    "mode": Mode.ENFORCE.value,
+                    "context": {"requester.principal": "requester-1"},
+                    "context_complete": True,
+                }
+            },
+        ),
+    )
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=InMemoryStateStore(),
+        process_store=process_store,
+        approval_provider=StateStoreWorkflowApprovalProvider(InMemoryStateStore()),
+    )
+
+    cancelled = await orchestrator.cancel(
+        process_id=process_id,
+        workflows={workflow.name: workflow},
+        actor_oid="owner-1",
+    )
+
+    assert cancelled.status is ProcessStatus.CANCELLED
 
 
 async def test_resume_rejects_workflow_version_drift() -> None:

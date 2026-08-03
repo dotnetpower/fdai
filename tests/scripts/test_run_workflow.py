@@ -36,11 +36,39 @@ def test_resume_builds_body_free_exact_process_request() -> None:
     assert "Content-type" not in request.headers
 
 
+def test_cancel_builds_body_free_exact_process_request() -> None:
+    module = _load_script()
+    parser = module._parser()
+    args = parser.parse_args(["--cancel-process-id", "process-123"])
+
+    request = module._request(args, parser)
+
+    assert request.full_url == "http://127.0.0.1:8000/workflows/process-123/cancel"
+    assert request.method == "POST"
+    assert request.data is None
+
+
 def test_resume_rejects_new_run_inputs() -> None:
     module = _load_script()
     parser = module._parser()
     args = parser.parse_args(
         ["sample-flow", "--target", "resource-1", "--resume-process-id", "process-123"]
+    )
+
+    with pytest.raises(SystemExit):
+        module._request(args, parser)
+
+
+def test_resume_and_cancel_are_mutually_exclusive() -> None:
+    module = _load_script()
+    parser = module._parser()
+    args = parser.parse_args(
+        [
+            "--resume-process-id",
+            "process-123",
+            "--cancel-process-id",
+            "process-123",
+        ]
     )
 
     with pytest.raises(SystemExit):

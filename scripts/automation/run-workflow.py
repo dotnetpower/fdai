@@ -29,6 +29,10 @@ def _parser() -> argparse.ArgumentParser:
         help="Resume one durable Process without resupplying its workflow inputs.",
     )
     parser.add_argument(
+        "--cancel-process-id",
+        help="Cancel one durable Process at its current safe boundary.",
+    )
+    parser.add_argument(
         "--api-url",
         default=os.environ.get("FDAI_OPERATOR_API_URL", DEFAULT_API_URL),
         help="FDAI API base URL (default: %(default)s).",
@@ -74,10 +78,20 @@ def _request(args: argparse.Namespace, parser: argparse.ArgumentParser) -> Reque
     headers = {"Accept": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    if args.resume_process_id is not None:
-        process_id = args.resume_process_id.strip()
+    if args.resume_process_id is not None and args.cancel_process_id is not None:
+        parser.error("--resume-process-id and --cancel-process-id are mutually exclusive")
+    process_command = (
+        (args.resume_process_id, "resume")
+        if args.resume_process_id is not None
+        else (args.cancel_process_id, "cancel")
+        if args.cancel_process_id is not None
+        else None
+    )
+    if process_command is not None:
+        raw_process_id, command = process_command
+        process_id = raw_process_id.strip()
         if not PROCESS_ID_PATTERN.fullmatch(process_id):
-            parser.error("--resume-process-id MUST be a URL-safe Process id")
+            parser.error(f"--{command}-process-id MUST be a URL-safe Process id")
         if any(
             (
                 args.workflow,
@@ -87,9 +101,9 @@ def _request(args: argparse.Namespace, parser: argparse.ArgumentParser) -> Reque
                 args.correlation_id,
             )
         ):
-            parser.error("--resume-process-id cannot be combined with new-run inputs")
+            parser.error(f"--{command}-process-id cannot be combined with new-run inputs")
         return Request(  # noqa: S310 - scheme and authority validated above
-            f"{api_url}/workflows/{process_id}/resume",
+            f"{api_url}/workflows/{process_id}/{command}",
             headers=headers,
             method="POST",
         )

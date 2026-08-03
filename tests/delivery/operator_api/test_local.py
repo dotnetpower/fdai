@@ -1019,6 +1019,8 @@ class TestLocalAzureCliHarness:
         assert "/kpi/llm-cost" in paths
         assert "/system/data-sources" in paths
         assert "/workflows/run" in paths
+        assert "/workflows/{process_id}/resume" in paths
+        assert "/workflows/{process_id}/cancel" in paths
         assert "/views/process" in paths
         assert "/arb/status" in paths
         assert "/agents/stream" in paths

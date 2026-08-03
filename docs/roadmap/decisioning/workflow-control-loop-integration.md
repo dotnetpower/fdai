@@ -135,17 +135,25 @@ uv run python scripts/automation/run-workflow.py architecture-review \
 
 uv run python scripts/automation/run-workflow.py \
   --resume-process-id <process-id-from-start-response>
+
+uv run python scripts/automation/run-workflow.py \
+  --cancel-process-id <process-id-from-start-response>
 ```
 
 The response includes the Process id and links to its snapshot, journal, and
 console route. `POST /workflows/{process_id}/resume` and the CLI
 `--resume-process-id` mode send no body. The server reloads the original target,
 trigger, mode, correlation, and audit-safe parameter context from the Process
-journal, then repeats current role and enforce-allowlist checks. Production
-compositions opt in by injecting `WorkflowExecutionConfig`; leaving it unset
-registers neither command route. The SPA does not call these endpoints. CLI and
-ChatOps are the command channels, and the console remains a read-only status
-surface.
+journal, then repeats current role and enforce-allowlist checks.
+`POST /workflows/{process_id}/cancel` and CLI `--cancel-process-id` also send no
+body. They accept only a pending or waiting safe boundary, require Owner for an
+enforce Process, close pending approval slots, and reconcile any outstanding
+action outcome before cancellation or compensation. A running Process returns a
+typed conflict rather than assuming that an in-flight dispatcher is idle.
+Production compositions opt in by injecting `WorkflowExecutionConfig`; leaving
+it unset registers none of the command routes. The SPA does not call these
+endpoints. CLI and ChatOps are the command channels, and the console remains a
+read-only status surface.
 
 ### 4.5 Governed Python tasks and cron schedules
 

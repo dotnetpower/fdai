@@ -162,6 +162,8 @@ def test_build_prod_app_returns_starlette_app() -> None:
     assert "/workflows/validate" in paths
     assert "/workflows/catalog" in paths
     assert "/workflows/run" in paths
+    assert "/workflows/{process_id}/resume" in paths
+    assert "/workflows/{process_id}/cancel" in paths
     assert "/capabilities" in paths
     assert "/skills" in paths
     assert "/onboarding" in paths

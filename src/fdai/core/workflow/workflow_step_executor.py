@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 
 from fdai.core.runbook.models import RunbookStep, RunbookStepOutcome, RunbookStepResult
 from fdai.core.workflow.approval import StepApproval
+from fdai.core.workflow.workflow_cancellation import cancellation_blocks_new_step
 from fdai.core.workflow.workflow_runtime import (
     ACTOR,
     WorkflowActionDispatcher,
@@ -108,6 +109,16 @@ class ShadowWorkflowStepExecutor:
         self._target_resource_id = target_resource_id or snapshot.target_resource_id
 
     async def execute(self, *, runbook_id: str, step: RunbookStep) -> RunbookStepResult:
+        if await cancellation_blocks_new_step(
+            process_store=self._process_store,
+            process_id=self._process_id,
+            step_id=step.id,
+        ):
+            return step_result(
+                step,
+                RunbookStepOutcome.FAILURE,
+                "process_cancellation_requested",
+            )
         self._snapshot = await self._transition(
             kind=ProcessEventKind.STEP_STARTED,
             status=ProcessStatus.RUNNING,
@@ -449,6 +460,12 @@ class ShadowWorkflowStepExecutor:
                 step,
                 RunbookStepOutcome.FAILURE,
                 "approval_evidence_unavailable",
+            )
+        if snapshot.cancelled:
+            return step_result(
+                step,
+                RunbookStepOutcome.FAILURE,
+                "process_cancellation_requested",
             )
         if snapshot.timed_out or (
             snapshot.expires_at is not None and self._now >= snapshot.expires_at

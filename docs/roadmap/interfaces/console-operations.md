@@ -214,6 +214,8 @@ server accepts the command only from a durable `pending` or `waiting` boundary, 
 and cancellation intent, closes pending human-approval slots, reconciles an already-dispatched
 action, and then cancels or compensates through the workflow owner. A `running` Process returns a
 typed `409 process_not_at_safe_boundary` instead of guessing that dispatch is idle.
+Local and deployed Operator API factories register start, exact resume, and safe cancellation from
+the same `WorkflowExecutionConfig`; route inventory tests prevent either profile from omitting one.
 
 ### Request checks
 

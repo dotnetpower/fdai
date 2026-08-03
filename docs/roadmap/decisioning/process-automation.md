@@ -280,6 +280,16 @@ resume a shadow Process. An enforce Process still requires Owner and the current
 allowlist. Missing, legacy, malformed, redacted, version-mismatched, or identity-mismatched evidence
 returns a typed conflict and dispatches no step.
 
+`POST /workflows/{process_id}/cancel` also accepts no request body and resolves the same durable
+envelope. A Contributor can cancel a shadow Process; an enforce Process requires Owner. The
+command records `process.cancellation-requested` only when the Process is `pending` or `waiting`.
+A `running` Process returns `process_not_at_safe_boundary` because an in-flight dispatcher cannot
+be assumed idle. A waiting action first reconciles its authoritative outcome. The executor blocks
+every new step, and any verified applied steps enter the existing reverse compensation path. A
+waiting approval closes its durable Var state and every HIL slot, so a late approval cannot revive
+the cancelled Process. Cancellation with no applied step closes as `cancelled`; verified recovery
+after an applied step closes as `compensated`.
+
 Workflow audit uses each ActionType's `x-fdai-redact` paths. Redacted fields render as
 `[REDACTED]` and never enter the Process journal. Because the workflow runtime has no secret
 custody provider, an enforce action whose resolved params include a redacted field fails before
