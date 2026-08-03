@@ -83,10 +83,10 @@
       "source_commits": [
         "d974e2b835f7176387bbc2ad146f833ab5936b99"
       ],
-      "status": "operationalized",
+      "status": "semantic_generalized",
       "benchmark_measured": true,
       "semantic_generalized": true,
-      "operationalized": true,
+      "operationalized": false,
       "provider_validated": false,
       "action_validated": false,
       "outcome_validated": false,
@@ -178,7 +178,7 @@
       "id": "model_escalation",
       "title": "Ontology-first model escalation and wire compatibility",
       "disposition": "superseded_verify",
-      "status": "in_progress",
+      "status": "absorbed",
       "dependencies": ["diagnostics_foundation"],
       "safety_boundary": "Escalation is configuration-driven, audited, and never raises execution authority.",
       "commits": [
