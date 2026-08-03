@@ -188,7 +188,7 @@ jobs:
           save-cache: false
 
       - name: Install dependencies
-        run: uv sync --extra dev --extra azure-mcp --frozen
+        run: uv sync --extra dev --frozen
 
       - name: Check line-precise behavior citations
         run: >-
@@ -668,7 +668,7 @@ jobs:
           save-cache: false
 
       - name: Install dependencies
-        run: uv sync --extra dev --frozen
+        run: uv sync --extra dev --extra azure-mcp --frozen
 
       - name: Run alembic upgrade head
         run: uv run alembic upgrade head
