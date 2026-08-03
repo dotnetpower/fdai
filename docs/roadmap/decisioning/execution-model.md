@@ -4,23 +4,15 @@ title: Execution Model
 
 # Execution Model
 
-How FDAI decides **whether** and **how** to run an action. This
-document is authoritative for the unified RiskGate, the way the
-authoritative [risk-classification.md](risk-classification.md) first-match
-table combines with the **six-axis** ActionType ceiling, the four
-executor paths (PR-native / direct API / PR-manual / tool call), the live-blast probe
-combinator, and the safety invariants a live change must satisfy.
+How FDAI decides **whether** and **how** to run an action. This document is authoritative for the
+unified RiskGate, the way the authoritative [risk-classification.md](risk-classification.md) first-match table combines with the **six-axis** ActionType ceiling, the four executor paths (PR-native / direct API / PR-manual / tool call), the live-blast probe combinator, and the safety invariants a live change must satisfy.
 
-> Decision-engine relationship (authoritative): FDAI has **one**
-> decision, produced by combining **two** inputs. The
-> [risk-classification.md](risk-classification.md) first-match table is the
+> Decision-engine relationship (authoritative): FDAI has **one** decision, produced by combining **two** inputs. The [risk-classification.md](risk-classification.md) first-match table is the
 > **authoritative baseline** - it consumes the finding feature vector
 > (`policy_violation`, `destructive`, `irreversible`, `data_plane_touched`,
 > `cost_impact_monthly`, `verifier_confidence`, `blast_radius`,
 > `environment`) and returns `auto | hil | deny` plus a `quorum`. The
-> six-axis ceiling in this document consumes the ActionType + runtime
-> context (tier, ActionType ceiling, static/live blast, role, env) and
-> returns a per-dispatch ceiling. The RiskGate returns the **minimum** of
+> six-axis ceiling in this document consumes the ActionType + runtime context (tier, ActionType ceiling, static/live blast, role, env) and returns a per-dispatch ceiling. The RiskGate returns the **minimum** of
 > the two; neither can raise autonomy above the other. The table is not
 > replaced by the matrix - the matrix is an additional, never-raising
 > constraint layered on top of it.

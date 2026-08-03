@@ -1,21 +1,18 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: d055319a7af59d007264112e51d02b62e79bd75b
-translation_revised: 2026-08-02
+translation_source_sha: 0fb0c877eddd8c23e59aa3394f0b3cd3bea84679
+translation_revised: 2026-08-03
 ---
 
 # Runtime Parity - Authoritative Local Development 및 Test Fixture
 
-**목표**: 자동화 테스트는 결정론적이고 secret-free 상태를 유지하며, interactive local
-Console은 운영자의 실제 Azure 개발 환경만 표시합니다. Azure 배포에서는 계속 **배포자의
-Azure 권한과 리전 카탈로그가 어떤 LLM과 기타 리소스를 프로비저닝할지 결정**합니다.
+**목표**: 자동화 테스트는 결정론적이고 secret-free 상태를 유지하며, interactive local Console은
+운영자의 실제 Azure 개발 환경만 표시합니다. Azure 배포에서는 계속 **배포자의 Azure 권한과 리전 카탈로그가 어떤 LLM과 기타 리소스를 프로비저닝할지 결정**합니다.
 세 명제가 동시에 참입니다:
 
-- **자동화 테스트 truth**: pytest와 committed mock은 결정론적 fake를 사용할 수 있습니다.
-  명시적 test-fixture builder를 사용하며 Azure 관측 상태로 표현하지 않습니다.
-- **Full-stack local truth**: `Console Web: Full Stack`은 deployment와 같은 App Role 검사를
-  적용하는 browser Entra sign-in을 사용합니다. Server의 Azure CLI session은 Azure development
+- **자동화 테스트 truth**: pytest와 committed mock은 결정론적 fake를 사용할 수 있습니다. 명시적 test-fixture builder를 사용하며 Azure 관측 상태로 표현하지 않습니다.
+- **Full-stack local truth**: `Console Web: Full Stack`은 deployment와 같은 App Role 검사를 적용하는 browser Entra sign-in을 사용합니다. Server의 Azure CLI session은 Azure development
   data plane provider credential만 제공합니다. Inventory, model availability, agent activity,
   Process state, promotion evidence, audit data는 authoritative provider에서만 표시합니다.
   Source가 없으면 unavailable 또는 명시적 empty로 표시하며 생성 예제로 대체하지 않습니다.

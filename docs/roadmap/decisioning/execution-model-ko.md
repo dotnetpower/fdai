@@ -1,28 +1,21 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 9378faa11abd0b392f551e4034edddb090805a60
-translation_revised: 2026-08-02
+translation_source_sha: 9a91f9ea576b399b6af49915bcbf2c7e370a73be
+translation_revised: 2026-08-03
 ---
 
 # Execution 모델
 
-FDAI 이 액션 실행 **여부** 와 **방법** 을 결정하는 방식. 이 문서는
-통합 RiskGate, 권위적 [risk-classification.md](risk-classification-ko.md)
-first-match 표가 **6-axis** ActionType ceiling 과 결합하는 방식, 4개의
-executor 경로 (PR-native / direct API / PR-manual / tool call), live-blast probe
-combinator, 그리고 live 변경이 만족해야 하는 safety invariant 를
-권위적으로 정의한다.
+FDAI 이 액션 실행 **여부** 와 **방법** 을 결정하는 방식. 이 문서는 통합 RiskGate, 권위적
+[risk-classification.md](risk-classification-ko.md) first-match 표가 **6-axis** ActionType ceiling 과 결합하는 방식, 4개의 executor 경로 (PR-native / direct API / PR-manual / tool call), live-blast probe combinator, 그리고 live 변경이 만족해야 하는 safety invariant 를 권위적으로 정의한다.
 
-> 결정-엔진 관계 (권위적): FDAI 은 **하나의** 결정을 가지며, 그것은
-> **두** 입력을 결합해 생성된다. [risk-classification.md](risk-classification-ko.md)
+> 결정-엔진 관계 (권위적): FDAI 은 **하나의** 결정을 가지며, 그것은 **두** 입력을 결합해 생성된다. [risk-classification.md](risk-classification-ko.md)
 > first-match 표가 **권위적 baseline** - finding feature vector
 > (`policy_violation`, `destructive`, `irreversible`, `data_plane_touched`,
 > `cost_impact_monthly`, `verifier_confidence`, `blast_radius`,
 > `environment`) 를 소비해 `auto | hil | deny` 와 `quorum` 을 반환. 이
-> 문서의 6-axis ceiling 은 ActionType + 런타임 컨텍스트 (tier, ActionType
-> ceiling, static/live blast, role, env) 를 소비해 dispatch 별 ceiling 을
-> 반환. RiskGate 는 둘의 **minimum** 을 반환; 어느 쪽도 상대보다 autonomy
+> 문서의 6-axis ceiling 은 ActionType + 런타임 컨텍스트 (tier, ActionType ceiling, static/live blast, role, env) 를 소비해 dispatch 별 ceiling 을 반환. RiskGate 는 둘의 **minimum** 을 반환; 어느 쪽도 상대보다 autonomy
 > 를 raise 못 함. 표는 매트릭스로 대체되지 않음 - 매트릭스는 그 위에
 > layer 된, 절대 raise 안 하는 추가 제약이다.
 

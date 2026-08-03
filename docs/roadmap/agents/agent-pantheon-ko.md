@@ -1,30 +1,26 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: c7d1b10922c18840b03fd5c532c2241fb0d5b023
-translation_revised: 2026-08-02
+translation_source_sha: 9d5c318f44dcb96641ea95cded2b52e06fcf8f92
+translation_revised: 2026-08-03
 ---
 
 # 에이전트 판테온
 
-FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations runtime을 소유합니다.
-에이전트는 schema-checked event로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다.
+FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations runtime을 소유합니다. 에이전트는 schema-checked event로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다.
 운영 온톨로지는 typed meaning과 bounded context를 제공하며 actor, authority 또는 executor가 아닙니다.
 판테온은 upstream에서 정의되고 fork는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
 
-> **범위:** 판테온은 고객-무관이다. 아래에 언급된 모든 에이전트 이름, object
-> type, action 은 generic 이다. 고객별 바인딩은 fork 에서 관리
+> **범위:** 판테온은 고객-무관이다. 아래에 언급된 모든 에이전트 이름, object type, action 은 generic 이다. 고객별 바인딩은 fork 에서 관리
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 >
-> **구현 초점:** Azure 가 유일한 구현 타깃이다; 판테온은
-> [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)
+> **구현 초점:** Azure 가 유일한 구현 타깃이다; 판테온은 [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)
 > 에 이미 선언된 Kafka wire (Event Hubs `:9093`) 를 사용한다
 > ([Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must)).
 
 이 문서의 소비자:
 
-- 이벤트 기반 코어는 §4 와 §6 의 agent / topic ownership 테이블을 읽고
-  schema-validated pub/sub 를 wire 한다.
+- 이벤트 기반 코어는 §4 와 §6 의 agent / topic ownership 테이블을 읽고 schema-validated pub/sub 를 wire 한다.
 - 오퍼레이터 콘솔 ([operator-console.md](../interfaces/operator-console-ko.md)) 은 §6.3 과
   §6.5 를 읽고 자연어 질문을 per-user context 로 primary agent 에 라우팅한다.
 - 룰-카탈로그와 executor ([action-ontology.md](../decisioning/action-ontology-ko.md),

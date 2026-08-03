@@ -4,43 +4,33 @@ title: Console Evidence and Resilience
 
 # Console Evidence and Resilience
 
-This document owns the operator console contracts for evidence provenance, localization,
-stream recovery, durable replay, and Architecture-map resilience. The conversational tool and
+This document owns the operator console contracts for evidence provenance, localization, stream recovery, durable replay, and Architecture-map resilience. The conversational tool and
 RBAC contract remains in [operator-console.md](operator-console.md).
 
 ## Navigation context
 
-Selecting an Activity Bar domain opens its Explorer and navigates to the first visible panel under
-the operator's local order and visibility preferences. This navigation remains active when the
+Selecting an Activity Bar domain opens its Explorer and navigates to the first visible panel under the operator's local order and visibility preferences. This navigation remains active when the
 Command Deck is closed or floating; a full-workspace Deck closes before the route changes.
-Selecting a cached conversation from another screen is the bounded exception: the console navigates
-to that conversation's origin while suppressing only the synchronous conversation-owned route
+Selecting a cached conversation from another screen is the bounded exception: the console navigates to that conversation's origin while suppressing only the synchronous conversation-owned route
 event, then activates its transcript. The Deck remains open without a transient default-session
 switch or close/reopen focus cycle. Same-screen and agent conversations switch without navigation.
-Reselecting the already active same-screen conversation is focus-only; it does not reload the
-sessionStorage transcript over newer in-memory turns.
-Selecting an inactive conversation records only a browser-local read acknowledgement and does not
-change its activity timestamp, so the history order remains stable. A conversation title is bold
+Reselecting the already active same-screen conversation is focus-only; it does not reload the sessionStorage transcript over newer in-memory turns.
+Selecting an inactive conversation records only a browser-local read acknowledgement and does not change its activity timestamp, so the history order remains stable. A conversation title is bold
 only while its observed activity is newer than its persisted read timestamp; selecting it clears
 that cue without moving the row. Only newer server activity advances the ordering timestamp.
-When a conversation title is visually truncated, pointer hover shows the complete label through
-the shared console tooltip. A title that fits does not show a redundant tooltip.
-An agent-card Ask action always opens a new empty agent conversation with a unique user-scoped key.
-The new summary carries the selected agent immediately, so the first submit sends the same agent
+When a conversation title is visually truncated, pointer hover shows the complete label through the shared console tooltip. A title that fits does not show a redundant tooltip.
+An agent-card Ask action always opens a new empty agent conversation with a unique user-scoped key. The new summary carries the selected agent immediately, so the first submit sends the same agent
 target to the Operator API. Existing agent conversations are preserved as separate history entries and
 are restored only when the operator selects one explicitly.
-Removing the active cached conversation selects only a current-route default (including the legacy
-`screen` key) or current-route thread. If neither exists, the console creates a new current-route
+Removing the active cached conversation selects only a current-route default (including the legacy `screen` key) or current-route thread. If neither exists, the console creates a new current-route
 default instead of activating an unrelated-route or agent transcript.
 
-Full-workspace Command Deck sessions start with the transcript as the only open content column.
-The operator can open filtered conversation history or the current-screen digest from the transcript
+Full-workspace Command Deck sessions start with the transcript as the only open content column. The operator can open filtered conversation history or the current-screen digest from the transcript
 toolbar. A transcript restored from browser or durable history shows a resumed-session marker until
 the operator starts a new conversation. The composer retains a compact route, grounded-record count,
 and snapshot-age line even while the digest is closed.
 
-The shared page title renders the domain and panel labels when they differ, including
-`Overview / Dashboard`. A domain root whose panel title repeats the domain label and a standalone
+The shared page title renders the domain and panel labels when they differ, including `Overview / Dashboard`. A domain root whose panel title repeats the domain label and a standalone
 utility keep a single title.
 
 The shared top bar renders the Cloud Aperture mark in its canonical source blue. Console themes

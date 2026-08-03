@@ -4,39 +4,29 @@ title: Action Ontology
 
 # Action Ontology
 
-Every FDAI action - whether a rule-fired remediation or an operator-
-requested ops task - is one instance of an **`ActionType`** entry in the
-shipped ontology. This document is authoritative for the schema, the
-trigger axis (`rule_violation` vs `operator_request`), the tier and role
-ceilings, the live-probe reference, and the **fork-override seams** that
-let a customer redefine any of these without editing `core/`.
+Every FDAI action - whether a rule-fired remediation or an operator-requested ops task - is one
+instance of an **`ActionType`** entry in the shipped ontology. This document is authoritative for the schema, the trigger axis (`rule_violation` vs `operator_request`), the tier and role ceilings, the live-probe reference, and the **fork-override seams** that let a customer redefine any of these without editing `core/`.
 
 Consumers of this ontology:
 
-- The T0Engine + ActionBuilder ([phase-1](../phases/phase-1-rule-catalog-t0.md))
-  reads `rollback_contract`, `preconditions`, `stop_conditions`, and
-  `blast_radius` when building a rule-fired action.
+- The T0Engine + ActionBuilder ([phase-1](../phases/phase-1-rule-catalog-t0.md)) reads
+  `rollback_contract`, `preconditions`, `stop_conditions`, and `blast_radius` when building a rule-fired action.
 - The unified RiskGate + Executor ([execution-model.md](execution-model.md))
-  reads the tier ceiling, min-role, live-probe reference, and execution
-  path to decide **whether** and **how** to run.
+  reads the tier ceiling, min-role, live-probe reference, and execution path to decide **whether** and **how** to run.
 - The operator-console narrator ([operator-console.md](../interfaces/operator-console.md))
-  reads `trigger_kind`, `description`, and `argument_schema` when
-  suggesting or executing an ops-flavoured tool call.
+  reads `trigger_kind`, `description`, and `argument_schema` when suggesting or executing an ops-flavoured tool call.
 
-Because a single ontology feeds all three, adding a new remediation or a
-new ops verb is one YAML file - no branching in the engine, no new
-executor.
+Because a single ontology feeds all three, adding a new remediation or a new ops verb is one YAML
+file - no branching in the engine, no new executor.
 
-> Customer-agnostic: every ActionType name, parameter, and blast-radius
-> value below is a placeholder or example. A fork adds / overrides
+> Customer-agnostic: every ActionType name, parameter, and blast-radius value below is a placeholder or example. A fork adds / overrides
 > entries via config
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
 ## 1. One ontology, two triggers
 
-The original ActionType set was rule-fired remediation only. The current catalog
-contains remediation, ops, governance, and tool entries under the same schema. Operator
-console pull-direction (§4 of
+The original ActionType set was rule-fired remediation only. The current catalog contains
+remediation, ops, governance, and tool entries under the same schema. Operator console pull-direction (§4 of
 [operator-console.md](../interfaces/operator-console.md)) needs actions that are
 triggered by an **operator's chat request** rather than a rule fire:
 "restart this pod", "scale out", "flush the cache". These share the same

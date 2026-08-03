@@ -4,25 +4,19 @@ title: Agent Pantheon
 
 # Agent Pantheon
 
-FDAI's fixed organization of 15 named agents owns the cloud-operations runtime. Agents observe,
-judge, plan, approve, execute, verify, recover, audit, and learn through schema-checked events. The
-operating ontology supports them with typed meaning and bounded context; it is not the runtime actor,
-decision authority, or executor. The pantheon is defined once upstream - forks configure it but
-never add or rename agents.
+FDAI's fixed organization of 15 named agents owns the cloud-operations runtime. Agents observe, judge,
+plan, approve, execute, verify, recover, audit, and learn through schema-checked events. The operating ontology supports them with typed meaning and bounded context; it is not the runtime actor, decision authority, or executor. The pantheon is defined once upstream - forks configure it but never add or rename agents.
 
-> **Scope:** the pantheon is customer-agnostic. Every agent name, object
-> type, and action referenced below is generic. Per-customer bindings live
+> **Scope:** the pantheon is customer-agnostic. Every agent name, object type, and action referenced below is generic. Per-customer bindings live
 > in a fork ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 >
-> **Implementation focus:** Azure is the only implemented target; the pantheon
-> talks to the Kafka wire (Event Hubs on `:9093`) already declared in
+> **Implementation focus:** Azure is the only implemented target; the pantheon talks to the Kafka wire (Event Hubs on `:9093`) already declared in
 > [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)
 > ([Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must)).
 
 Consumers of this document:
 
-- The event-driven core reads the agent and topic ownership tables in
-  §4 and §6 to wire schema-validated pub/sub.
+- The event-driven core reads the agent and topic ownership tables in §4 and §6 to wire schema-validated pub/sub.
 - The Operator Console ([operator-console.md](../interfaces/operator-console.md)) reads §6.3
   and §6.5 to route natural-language questions to the correct primary agent
   with per-user context.

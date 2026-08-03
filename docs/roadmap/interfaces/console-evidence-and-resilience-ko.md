@@ -1,48 +1,39 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: eba589769a896b62abcf6142eb28f0597eb8f18d
+translation_source_sha: 81449ed87a2cd9958528bed51272e5596362ee3f
 translation_revised: 2026-08-03
 ---
 
 # 콘솔 근거 및 복원력
 
-이 문서는 operator console의 evidence provenance, localization, stream recovery, durable replay
-및 Architecture map resilience 계약을 소유합니다. 대화형 tool 및 RBAC 계약은
+이 문서는 operator console의 evidence provenance, localization, stream recovery, durable replay 및 Architecture map resilience 계약을 소유합니다. 대화형 tool 및 RBAC 계약은
 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
 
 ## 탐색 컨텍스트
 
-Activity Bar 영역을 선택하면 Explorer가 열리고 운영자의 로컬 순서 및 표시 설정에 따라 첫 번째
-visible 패널로 이동합니다. Command Deck이 닫혀 있거나 floating 상태여도 이 탐색은 동작하며,
+Activity Bar 영역을 선택하면 Explorer가 열리고 운영자의 로컬 순서 및 표시 설정에 따라 첫 번째 visible 패널로 이동합니다. Command Deck이 닫혀 있거나 floating 상태여도 이 탐색은 동작하며,
 full-workspace Deck은 route가 변경되기 전에 닫힙니다.
-다른 화면의 cached conversation 선택은 bounded exception입니다. Console은 conversation origin으로
-이동할 때 conversation-owned synchronous route event만 suppress한 뒤 transcript를 활성화합니다.
+다른 화면의 cached conversation 선택은 bounded exception입니다. Console은 conversation origin으로 이동할 때 conversation-owned synchronous route event만 suppress한 뒤 transcript를 활성화합니다.
 Transient default-session switch 또는 close/reopen focus cycle 없이 Deck을 열린 상태로 유지합니다.
 Same-screen 및 agent conversation은 navigation 없이 전환합니다.
-이미 active인 same-screen conversation을 다시 선택하면 focus만 복원하며 최신 in-memory turn 위에
-sessionStorage transcript를 다시 로드하지 않습니다.
+이미 active인 same-screen conversation을 다시 선택하면 focus만 복원하며 최신 in-memory turn 위에 sessionStorage transcript를 다시 로드하지 않습니다.
 비활성 conversation을 선택하면 browser-local 읽음 확인만 기록하고 activity timestamp는 변경하지
 않으므로 history 순서가 유지됩니다. Conversation 제목은 관찰된 activity가 저장된 read timestamp보다
 최신인 동안에만 굵게 표시됩니다. 선택하면 행을 이동하지 않고 이 표시를 해제하며, 더 새로운 server
 activity만 ordering timestamp를 갱신합니다.
-Conversation 제목이 시각적으로 잘리면 pointer hover에서 공용 console tooltip으로 전체 label을
-표시합니다. 제목이 영역 안에 모두 표시되면 중복 tooltip을 표시하지 않습니다.
-Agent card의 Ask action은 항상 unique user-scoped key를 가진 비어 있는 새 agent conversation을
-엽니다. 새 summary는 선택한 agent를 즉시 보유하므로 첫 submit부터 같은 agent target을 Operator API에
+Conversation 제목이 시각적으로 잘리면 pointer hover에서 공용 console tooltip으로 전체 label을 표시합니다. 제목이 영역 안에 모두 표시되면 중복 tooltip을 표시하지 않습니다.
+Agent card의 Ask action은 항상 unique user-scoped key를 가진 비어 있는 새 agent conversation을 엽니다. 새 summary는 선택한 agent를 즉시 보유하므로 첫 submit부터 같은 agent target을 Operator API에
 전달합니다. 기존 agent conversation은 별도 history entry로 보존하며 operator가 명시적으로 선택할
 때만 복원합니다.
-Active cached conversation을 제거하면 current-route default(legacy `screen` key 포함) 또는
-current-route thread만 선택합니다. 둘 다 없으면 unrelated-route 또는 agent transcript를 활성화하지
+Active cached conversation을 제거하면 current-route default(legacy `screen` key 포함) 또는 current-route thread만 선택합니다. 둘 다 없으면 unrelated-route 또는 agent transcript를 활성화하지
 않고 새 current-route default를 만듭니다.
 
-Full-workspace Command Deck session은 transcript만 열린 content column으로 시작합니다. Operator는
-transcript toolbar에서 filter 가능한 대화 이력 또는 현재 화면 digest를 열 수 있습니다. Browser 또는
+Full-workspace Command Deck session은 transcript만 열린 content column으로 시작합니다. Operator는 transcript toolbar에서 filter 가능한 대화 이력 또는 현재 화면 digest를 열 수 있습니다. Browser 또는
 durable history에서 복원된 transcript는 새 대화를 시작할 때까지 resumed-session marker를 표시합니다.
 Digest가 닫혀 있어도 composer는 compact route, 근거 record 수 및 snapshot-age line을 유지합니다.
 
-공통 페이지 제목은 영역과 패널 레이블이 다를 때 `전체 현황 / Dashboard`를 포함해 둘을 함께
-렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립 utility는 단일 제목을 유지합니다.
+공통 페이지 제목은 영역과 패널 레이블이 다를 때 `전체 현황 / Dashboard`를 포함해 둘을 함께 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립 utility는 단일 제목을 유지합니다.
 
 공통 상단 표시줄은 Cloud Aperture 마크를 원본의 브랜드 파란색으로 렌더링합니다. 콘솔 테마는
 브랜드 마크의 채도를 낮추거나 색을 변경하지 않습니다.

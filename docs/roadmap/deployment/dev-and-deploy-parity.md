@@ -3,15 +3,11 @@ title: Runtime Parity - Authoritative Local Development and Test Fixtures
 ---
 # Runtime Parity - Authoritative Local Development and Test Fixtures
 
-**Goal**: automated tests remain deterministic and secret-free, while every interactive local
-Console session shows the operator's actual Azure development environment. Azure deployment
-still uses the **deployer's Azure permissions + region catalog to decide which LLM and other
-resources are provisioned**. Three truths hold at the same time:
+**Goal**: automated tests remain deterministic and secret-free, while every interactive local Console
+session shows the operator's actual Azure development environment. Azure deployment still uses the **deployer's Azure permissions + region catalog to decide which LLM and other resources are provisioned**. Three truths hold at the same time:
 
-- **Automated-test truth**: pytest and committed mocks may bind deterministic fakes. They use an
-  explicit test-fixture builder and never represent observed Azure state.
-- **Full-stack local truth**: `Console Web: Full Stack` uses browser Entra sign-in with the same
-  App Role checks as deployment. The server's Azure CLI session supplies provider credentials for
+- **Automated-test truth**: pytest and committed mocks may bind deterministic fakes. They use an explicit test-fixture builder and never represent observed Azure state.
+- **Full-stack local truth**: `Console Web: Full Stack` uses browser Entra sign-in with the same App Role checks as deployment. The server's Azure CLI session supplies provider credentials for
   the Azure development data plane only. Inventory, model availability, agent activity, Process
   state, promotion evidence, and audit data appear only from authoritative providers. Missing
   sources render unavailable or explicitly empty; the Console never substitutes generated examples.

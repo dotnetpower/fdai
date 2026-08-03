@@ -1,43 +1,33 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: b65cdc7aad50d685279a62c41e4e54d637242a68
+translation_source_sha: 888e070f55853581f165d60010f34be3dc2ad14a
 translation_revised: 2026-08-03
 ---
 
 # Action 온톨로지
 
-FDAI 의 모든 액션 - 룰이 발화시킨 remediation 이든 오퍼레이터가
-요청한 ops task 든 - 는 shipped 온톨로지의 **`ActionType`** entry 하나의
-instance 이다. 이 문서는 스키마, 트리거 축 (`rule_violation` vs
-`operator_request`), tier 및 role 상한, live-probe 참조, 그리고 `core/`
-편집 없이 고객이 재정의 가능하게 하는 **fork-override seam** 을 권위적으로
-정의한다.
+FDAI 의 모든 액션 - 룰이 발화시킨 remediation 이든 오퍼레이터가 요청한 ops task 든 - 는 shipped
+온톨로지의 **`ActionType`** entry 하나의 instance 이다. 이 문서는 스키마, 트리거 축 (`rule_violation` vs `operator_request`), tier 및 role 상한, live-probe 참조, 그리고 `core/` 편집 없이 고객이 재정의 가능하게 하는 **fork-override seam** 을 권위적으로 정의한다.
 
 이 온톨로지의 소비자:
 
 - T0Engine + ActionBuilder ([phase-1](../phases/phase-1-rule-catalog-t0-ko.md))
-  는 룰이 발화시킨 액션을 빌드할 때 `rollback_contract`,
-  `preconditions`, `stop_conditions`, `blast_radius` 를 read.
+  는 룰이 발화시킨 액션을 빌드할 때 `rollback_contract`, `preconditions`, `stop_conditions`, `blast_radius` 를 read.
 - 통합 RiskGate + Executor ([execution-model.md](execution-model-ko.md))
-  는 실행 **여부** 와 **방법** 을 결정할 때 tier 상한, min-role,
-  live-probe 참조, execution path 를 read.
+  는 실행 **여부** 와 **방법** 을 결정할 때 tier 상한, min-role, live-probe 참조, execution path 를 read.
 - 오퍼레이터 콘솔 narrator ([operator-console.md](../interfaces/operator-console-ko.md))
-  는 ops-flavoured tool call 을 제안하거나 실행할 때 `trigger_kind`,
-  `description`, `argument_schema` 를 read.
+  는 ops-flavoured tool call 을 제안하거나 실행할 때 `trigger_kind`, `description`, `argument_schema` 를 read.
 
-단일 온톨로지가 세 곳 모두를 feed 하기 때문에, 새 remediation 또는 새 ops
-verb 추가는 YAML 파일 하나 - 엔진에 branching 없음, 새 executor 없음.
+단일 온톨로지가 세 곳 모두를 feed 하기 때문에, 새 remediation 또는 새 ops verb 추가는 YAML 파일 하나 - 엔진에 branching 없음, 새 executor 없음.
 
-> 고객-무관: 아래의 모든 ActionType 이름, 파라미터, blast-radius 값은
-> placeholder 또는 예시. Fork 가 config 로 entry 추가/재정의
+> 고객-무관: 아래의 모든 ActionType 이름, 파라미터, blast-radius 값은 placeholder 또는 예시. Fork 가 config 로 entry 추가/재정의
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
 ## 1. 하나의 온톨로지, 두 트리거
 
-초기 ActionType 집합은 룰이 발화시킨 remediation만 포함했습니다. 현재 catalog는
-같은 schema 아래 remediation, ops, governance, tool entry를 포함합니다. 오퍼레이터
-콘솔 pull-방향 ([operator-console.md](../interfaces/operator-console-ko.md) §4) 는 룰
+초기 ActionType 집합은 룰이 발화시킨 remediation만 포함했습니다. 현재 catalog는 같은 schema 아래
+remediation, ops, governance, tool entry를 포함합니다. 오퍼레이터 콘솔 pull-방향 ([operator-console.md](../interfaces/operator-console-ko.md) §4) 는 룰
 발화가 아니라 **오퍼레이터의 chat 요청** 으로 트리거되는 액션이 필요:
 "이 pod 재시작", "scale out", "cache flush". 이들은 같은 safety envelope
 를 공유하지만 다른 trigger surface 를 가진다.
