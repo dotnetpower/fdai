@@ -186,6 +186,12 @@ finding. SREGym requests this join through the separate observe-only
 reason, exit code, and finish time for crash diagnosis. Raw logs and traces remain structured
 unavailable evidence until separate providers are bound.
 
+The shared Kubernetes package also contains a hold-only endpoint dependency reducer. It emits a
+missing-Service finding only for a complete same-namespace projection with an exact short
+`host:port` environment reference, an absent Service, and one healthy same-name backend declaring
+the referenced port. Present, external, ambiguous, unhealthy, mismatched, or truncated evidence
+produces no finding. Provider wiring remains a separate absorption step.
+
 On deterministic hold for review, the existing grounded RCA path receives the task objective and
 bounded evidence. Its hypothesis is preserved in the typed `ControlLoopResult` and rendered as the
 submission summary. The runner blocks before a benchmark starts when the RCA reasoner is absent;

@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: fac9d7ec91f16c333791573b0d0c15201d10236e
+translation_source_sha: 745e1d1931abe38bc57f1bdfe4ed24d3fef2749f
 translation_revised: 2026-08-04
 ---
 
@@ -190,6 +190,12 @@ observe-only `observe.kubernetes.capacity` capability를 통해 이 join을 요�
 진단을 위해 제한된 직전 종료 reason, exit code 및 종료 시각도
 보존합니다. Raw logs 및 traces는 별도 provider가 bind될 때까지 structured unavailable evidence로
 유지됩니다.
+
+공유 Kubernetes package에는 hold-only endpoint dependency reducer도 있습니다. Complete
+same-namespace projection, exact short `host:port` environment reference, absent Service 및 referenced
+port를 선언한 healthy same-name backend가 모두 있을 때만 missing-Service finding을 생성합니다.
+Present, external, ambiguous, unhealthy, mismatched 또는 truncated evidence는 finding을 생성하지
+않습니다. Provider wiring은 별도 absorption 단계로 유지됩니다.
 
 Deterministic 판단 보류 시 기존 grounded RCA path가 task objective와 bounded evidence를 받습니다.
 Hypothesis는 typed `ControlLoopResult`에 보존되고 submission summary로 render됩니다. RCA reasoner가

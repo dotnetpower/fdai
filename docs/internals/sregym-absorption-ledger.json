@@ -120,6 +120,22 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_missing_dependency_reducer",
+      "source_commits": [
+        "a2ff0cce59d2f298b6366416a571411ca0849cc4",
+        "adb792a9f9e363bf3721f0284df3b5cfd118f80f",
+        "6b51980ee079f10ebf9bdb1c6184c1e2fda33f6a"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [
@@ -329,7 +345,7 @@
       "id": "ontology_shadow_pilots",
       "title": "Provider-neutral dependency and capacity proof mechanisms",
       "disposition": "test_only_absorption",
-      "status": "queued",
+      "status": "in_progress",
       "dependencies": ["advanced_diagnostics", "runtime_operationalization"],
       "safety_boundary": "Ontology validates identity, unit, relationship, and evidence eligibility but never senses, judges, approves, executes, or promotes.",
       "commits": [
