@@ -16,6 +16,30 @@
     .lc-card { padding: 18px 20px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); }
     .lc-card h3 { margin: 0 0 4px; font-size: 15px; }
     .lc-card .cs-desc { margin: 0 0 12px; }
+    .lc-card-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+    .lc-card-head a, .lc-chart-meta a { font-size: 12px; white-space: nowrap; }
+    .lc-chart-meta { display: flex; gap: 16px; align-items: flex-start; text-align: right; }
+
+    /* Global measured-usage range. */
+    .lc-range-bar { position: relative; display: flex; justify-content: space-between; gap: 24px; align-items: center; padding: 14px 0; margin-bottom: 18px; border-bottom: 1px solid var(--cs-hairline); }
+    .lc-range-copy { display: grid; gap: 2px; min-width: 0; }
+    .lc-range-copy strong { font-size: 13px; }
+    .lc-range-copy span { color: var(--cs-text-soft); font-size: 12px; font-variant-numeric: tabular-nums; }
+    .lc-range-controls { position: relative; display: flex; align-items: center; gap: 10px; }
+    .lc-segmented { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-shade); }
+    .lc-range-option { min-width: 48px; padding: 6px 10px; border: 0; border-radius: 4px; background: transparent; color: var(--cs-text-soft); font: inherit; font-size: 12px; cursor: pointer; }
+    .lc-range-option:hover { color: var(--cs-text); background: rgba(255,255,255,.55); }
+    .lc-range-option.is-active { color: var(--cs-text); background: var(--cs-card); box-shadow: 0 1px 3px rgba(30,45,60,.12); font-weight: 600; }
+    .lc-timezone { color: var(--cs-text-soft); font-size: 11px; font-weight: 600; }
+    .lc-range-popover { position: absolute; z-index: 4; top: calc(100% + 8px); right: 0; width: min(360px, calc(100vw - 48px)); padding: 16px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); box-shadow: var(--cs-shadow); }
+    .lc-range-popover[hidden] { display: none; }
+    .lc-date-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .lc-date-field { display: grid; gap: 5px; color: var(--cs-text-soft); font-size: 11.5px; }
+    .lc-date-field input { min-width: 0; padding: 8px 9px; border: 1px solid var(--cs-hairline); border-radius: 4px; background: var(--cs-card); color: var(--cs-text); font: inherit; font-size: 12px; }
+    .lc-range-error { min-height: 16px; margin: 8px 0 0; color: var(--cs-dusty-red); font-size: 11.5px; }
+    .lc-range-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+    .lc-range-action { padding: 7px 12px; border: 1px solid var(--cs-hairline); border-radius: 4px; background: var(--cs-card); color: var(--cs-text); font: inherit; font-size: 12px; cursor: pointer; }
+    .lc-range-action.is-primary { border-color: var(--cs-steel); background: var(--cs-steel); color: white; }
 
     /* Measured input/output composition. */
     .lc-token-mix { display: flex; height: 12px; margin: 18px 0 16px; overflow: hidden; border-radius: 4px; background: var(--cs-shade); }
@@ -69,14 +93,31 @@
     .lc-scope { display: inline-flex; align-items: center; gap: 6px; }
     .lc-scope::before { width: 7px; height: 7px; content: ""; border-radius: 50%; background: var(--cs-steel); }
     .lc-scope.is-chat::before { background: var(--cs-terracotta); }
+    .lc-model-usage { margin-top: 2px; }
+    .lc-rollups { margin-top: 22px; border-top: 1px solid var(--cs-hairline); border-bottom: 1px solid var(--cs-hairline); }
+    .lc-rollups summary { padding: 13px 2px; color: var(--cs-text); font-size: 13px; font-weight: 600; cursor: pointer; }
+    .lc-rollup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; padding: 4px 0 18px; }
+    .lc-rollup-grid section { min-width: 0; }
+    .lc-rollup-grid section:last-child { grid-column: 1 / -1; }
+    .lc-rollup-grid h3 { margin: 0 0 8px; font-size: 13px; }
+    .lc-rollup-grid .cs-table { min-width: 440px; font-size: 12px; }
+    .lc-rollup-grid .cs-table-wrap { max-width: 100%; overflow-x: auto; }
     @media (max-width: 620px) {
       .cs-readonly-banner { display: block; }
       .cs-readonly-banner strong { display: block; margin-bottom: 5px; }
+      .lc-range-bar { display: block; }
+      .lc-range-controls { justify-content: space-between; margin-top: 10px; }
+      .lc-segmented { flex: 1; }
+      .lc-range-option { flex: 1; min-width: 0; padding-inline: 6px; }
+      .lc-range-popover { right: -1px; }
       .lc-chart-head { display: block; }
+      .lc-chart-meta { justify-content: space-between; margin-top: 8px; text-align: left; }
       .lc-chart-total { margin-top: 8px; }
       .lc-chart-days { margin-left: 34px; }
       .lc-section-head { display: block; }
       .lc-section-head a { display: inline-block; margin-top: 8px; }
+      .lc-rollup-grid { grid-template-columns: 1fr; }
+      .lc-rollup-grid section:last-child { grid-column: auto; }
     }
   </style>
 </head>
@@ -93,58 +134,90 @@
       calls and tokens from the metering stream without inferring spend from usage.
     </div>
 
+    <section class="lc-range-bar" aria-label="Usage date range">
+      <div class="lc-range-copy">
+        <strong>Date range</strong>
+        <span id="active-range" aria-live="polite">Jul 29 - Aug 4, 2026</span>
+      </div>
+      <div class="lc-range-controls">
+        <div class="lc-segmented" role="group" aria-label="Date range presets">
+          <button class="lc-range-option" type="button" data-range="24h">24h</button>
+          <button class="lc-range-option is-active" type="button" data-range="7d" aria-pressed="true">7d</button>
+          <button class="lc-range-option" type="button" data-range="30d">30d</button>
+          <button class="lc-range-option" type="button" data-range="custom">Custom</button>
+        </div>
+        <span class="lc-timezone">UTC</span>
+        <div class="lc-range-popover" id="custom-range" hidden>
+          <div class="lc-date-fields">
+            <label class="lc-date-field">Start date<input id="range-start" type="date" value="2026-07-29" min="2026-05-07" max="2026-08-04" /></label>
+            <label class="lc-date-field">End date<input id="range-end" type="date" value="2026-08-04" min="2026-05-07" max="2026-08-04" /></label>
+          </div>
+          <p class="lc-range-error" id="range-error" role="alert"></p>
+          <div class="lc-range-actions">
+            <button class="lc-range-action" id="range-cancel" type="button">Cancel</button>
+            <button class="lc-range-action is-primary" id="range-apply" type="button">Apply</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <div class="cs-notice is-soft cs-mb-24" role="status" aria-label="Usage evidence">
       <span class="cs-notice-icon" aria-hidden="true">i</span>
-      <div class="cs-notice-content"><h4>Measured usage</h4><p>Source: metering &middot; 1,842 invocation records &middot; latest invocation 2026-08-04 14:32 UTC</p></div>
+      <div class="cs-notice-content"><h4>Measured usage</h4><p id="usage-evidence">Source: metering &middot; 1,842 invocation records &middot; latest invocation 2026-08-04 14:32 UTC</p></div>
     </div>
 
     <!-- KPI strip -->
     <div class="lc-strip">
       <div class="cs-card cs-kpi">
         <span class="cs-kpi-label">LLM calls</span>
-        <span class="cs-kpi-value">1,842</span>
+        <span class="cs-kpi-value" id="kpi-calls">1,842</span>
         <span class="cs-kpi-foot">measured invocations</span>
       </div>
       <div class="cs-card cs-kpi">
         <span class="cs-kpi-label">Total tokens</span>
-        <span class="cs-kpi-value">1.26M</span>
+        <span class="cs-kpi-value" id="kpi-total">1.26M</span>
         <span class="cs-kpi-foot">input + output</span>
       </div>
       <div class="cs-card cs-kpi">
         <span class="cs-kpi-label">Chat token share</span>
-        <span class="cs-kpi-value">27%</span>
-        <span class="cs-kpi-foot">340k chat tokens</span>
+        <span class="cs-kpi-value" id="kpi-chat-share">27%</span>
+        <span class="cs-kpi-foot" id="kpi-chat-tokens">340k chat tokens</span>
       </div>
       <div class="cs-card cs-kpi">
         <span class="cs-kpi-label">Latest invocation</span>
-        <span class="cs-kpi-value" style="font-size:20px;">14:32 UTC</span>
-        <span class="cs-kpi-foot">Aug 4, 2026</span>
+        <span class="cs-kpi-value" id="kpi-latest-time" style="font-size:20px;">14:32 UTC</span>
+        <span class="cs-kpi-foot" id="kpi-latest-date">Aug 4, 2026</span>
       </div>
     </div>
 
     <div class="lc-two">
       <!-- Token composition -->
       <div class="lc-card">
-        <h3>Token composition</h3>
-        <p class="cs-desc">Input and output tokens measured across all provider calls.</p>
+        <div class="lc-card-head">
+          <div><h3>Token composition</h3><p class="cs-desc">Input and output tokens measured across all provider calls.</p></div>
+          <a href="audit.html">View evidence</a>
+        </div>
         <div class="lc-token-mix" aria-label="Input tokens 91.8%, output tokens 8.2%">
           <span class="is-input"></span><span class="is-output"></span>
         </div>
         <div class="lc-token-row">
           <span class="lc-token-kind"><i style="background:var(--cs-steel)"></i>Input tokens</span>
-          <strong>1,158,000</strong><small>91.8%</small>
+          <strong id="input-tokens">1,158,000</strong><small id="input-share">91.8%</small>
         </div>
         <div class="lc-token-row">
           <span class="lc-token-kind"><i style="background:var(--cs-terracotta)"></i>Output tokens</span>
-          <strong>102,000</strong><small>8.2%</small>
+          <strong id="output-tokens">102,000</strong><small id="output-share">8.2%</small>
         </div>
       </div>
 
       <!-- Interactive daily token trend -->
       <div class="lc-card">
         <div class="lc-chart-head">
-          <div><h3>7-day token trend</h3><p class="cs-desc">Daily measured input and output tokens.</p></div>
-          <div class="lc-chart-total">7-day total<strong>1.26M</strong></div>
+          <div><h3 id="trend-title">7-day token trend</h3><p class="cs-desc" id="trend-subtitle">Daily measured input and output tokens.</p></div>
+          <div class="lc-chart-meta">
+            <a href="audit.html">View evidence</a>
+            <div class="lc-chart-total"><span id="trend-total-label">7-day total</span><strong id="trend-total">1.26M</strong></div>
+          </div>
         </div>
         <div class="lc-chart-wrap" id="token-trend">
           <svg class="lc-chart" viewBox="0 0 640 190" role="img" aria-label="Daily measured token usage from July 29 to August 4">
@@ -155,19 +228,27 @@
             <g id="token-points"></g>
           </svg>
           <div class="lc-tooltip" id="token-tooltip" role="status" aria-live="polite"></div>
-          <div class="lc-chart-days" aria-hidden="true"><span>Jul 29</span><span>Jul 30</span><span>Jul 31</span><span>Aug 1</span><span>Aug 2</span><span>Aug 3</span><span>Aug 4</span></div>
+          <div class="lc-chart-days" id="trend-labels" aria-hidden="true"><span>Jul 29</span><span>Jul 30</span><span>Jul 31</span><span>Aug 1</span><span>Aug 2</span><span>Aug 3</span><span>Aug 4</span></div>
         </div>
       </div>
     </div>
 
     <!-- Per-model table -->
-    <div class="cs-table-wrap">
+    <section class="lc-model-usage" aria-labelledby="usage-by-model-title">
+      <div class="lc-section-head">
+        <div>
+          <h3 id="usage-by-model-title">Usage by model</h3>
+          <p class="cs-desc">Measured provider tokens attributed to each configured model.</p>
+        </div>
+        <a href="audit.html">View usage audit</a>
+      </div>
+      <div class="cs-table-wrap">
       <table class="cs-table lc-table">
         <thead>
           <tr>
             <th style="text-align:left">Model</th>
             <th style="text-align:left">Role</th>
-            <th class="num">Calls (24h)</th>
+            <th class="num">Calls</th>
             <th class="num">Input tok</th>
             <th class="num">Output tok</th>
             <th class="num">Total tok</th>
@@ -177,38 +258,39 @@
           <tr>
             <td><span class="lc-model-cell"><code>gpt-4o</code> <span class="lc-model-pill is-openai">OpenAI</span></span></td>
             <td>T2 reasoner &middot; primary</td>
-            <td class="num">184</td>
-            <td class="num">312k</td>
-            <td class="num">28k</td>
-            <td class="num">340k</td>
+            <td class="num model-calls" data-base="184">184</td>
+            <td class="num model-input" data-base="312000">312,000</td>
+            <td class="num model-output" data-base="28000">28,000</td>
+            <td class="num model-total">340,000</td>
           </tr>
           <tr>
             <td><span class="lc-model-cell"><code>claude-opus-4</code> <span class="lc-model-pill is-anthropic">Anthropic</span></span></td>
             <td>T2 reasoner &middot; cross-check</td>
-            <td class="num">184</td>
-            <td class="num">312k</td>
-            <td class="num">27k</td>
-            <td class="num">339k</td>
+            <td class="num model-calls" data-base="184">184</td>
+            <td class="num model-input" data-base="312000">312,000</td>
+            <td class="num model-output" data-base="27000">27,000</td>
+            <td class="num model-total">339,000</td>
           </tr>
           <tr>
             <td><span class="lc-model-cell"><code>text-embedding-3-small</code> <span class="lc-model-pill is-embed">embed</span></span></td>
             <td>T1 similarity &middot; per event + per rule</td>
-            <td class="num">1,432</td>
-            <td class="num">460k</td>
-            <td class="num">-</td>
-            <td class="num">460k</td>
+            <td class="num model-calls" data-base="1432">1,432</td>
+            <td class="num model-input" data-base="460000">460,000</td>
+            <td class="num model-output" data-base="0">0</td>
+            <td class="num model-total">460,000</td>
           </tr>
           <tr>
             <td><span class="lc-model-cell"><code>gpt-4.1</code> <span class="lc-model-pill is-openai">OpenAI</span></span></td>
             <td>Off-path learner &middot; Norns</td>
-            <td class="num">42</td>
-            <td class="num">74k</td>
-            <td class="num">47k</td>
-            <td class="num">121k</td>
+            <td class="num model-calls" data-base="42">42</td>
+            <td class="num model-input" data-base="74000">74,000</td>
+            <td class="num model-output" data-base="47000">47,000</td>
+            <td class="num model-total">121,000</td>
           </tr>
         </tbody>
       </table>
-    </div>
+      </div>
+    </section>
 
     <section class="lc-ledger" aria-labelledby="invocation-ledger-title">
       <div class="lc-section-head">
@@ -218,7 +300,7 @@
         </div>
         <a href="audit.html">View usage audit</a>
       </div>
-      <p class="lc-ledger-note">Showing the latest 6 of 1,842 measured calls.</p>
+      <p class="lc-ledger-note" id="ledger-note">Showing the latest 6 of 1,842 measured calls.</p>
       <div class="cs-table-wrap">
         <table class="cs-table lc-table lc-ledger-table">
           <thead>
@@ -236,7 +318,7 @@
           </thead>
           <tbody>
             <tr>
-              <td><time datetime="2026-08-04T14:32:01Z">Aug 4, 2026, 14:32:01 UTC</time></td>
+              <td><time data-offset="0" datetime="2026-08-04T14:32:01Z">Aug 4, 2026, 14:32:01 UTC</time></td>
               <td><span class="lc-scope">Control plane</span></td>
               <td><code>gpt-4o</code></td>
               <td class="capability">t2.reasoner.primary</td>
@@ -247,7 +329,7 @@
               <td class="correlation"><a href="audit.html?correlation=run-cross-check-0142">run-cross-check-0142</a></td>
             </tr>
             <tr>
-              <td><time datetime="2026-08-04T14:31:58Z">Aug 4, 2026, 14:31:58 UTC</time></td>
+              <td><time data-offset="3" datetime="2026-08-04T14:31:58Z">Aug 4, 2026, 14:31:58 UTC</time></td>
               <td><span class="lc-scope">Control plane</span></td>
               <td><code>text-embedding-3-small</code></td>
               <td class="capability">t1.embedding</td>
@@ -258,7 +340,7 @@
               <td class="correlation"><a href="audit.html?correlation=run-embedding-0141">run-embedding-0141</a></td>
             </tr>
             <tr>
-              <td><time datetime="2026-08-04T14:30:44Z">Aug 4, 2026, 14:30:44 UTC</time></td>
+              <td><time data-offset="77" datetime="2026-08-04T14:30:44Z">Aug 4, 2026, 14:30:44 UTC</time></td>
               <td><span class="lc-scope is-chat">Operator chat</span></td>
               <td><code>gpt-4.1-mini</code></td>
               <td class="capability">t1.narrator</td>
@@ -269,7 +351,7 @@
               <td class="correlation"><a href="audit.html?correlation=chat-incident-0087">chat-incident-0087</a></td>
             </tr>
             <tr>
-              <td><time datetime="2026-08-04T14:28:19Z">Aug 4, 2026, 14:28:19 UTC</time></td>
+              <td><time data-offset="222" datetime="2026-08-04T14:28:19Z">Aug 4, 2026, 14:28:19 UTC</time></td>
               <td><span class="lc-scope">Control plane</span></td>
               <td><code>gpt-5-mini</code></td>
               <td class="capability">t1.judge</td>
@@ -280,7 +362,7 @@
               <td class="correlation"><a href="audit.html?correlation=shadow-judge-0314">shadow-judge-0314</a></td>
             </tr>
             <tr>
-              <td><time datetime="2026-08-04T14:25:03Z">Aug 4, 2026, 14:25:03 UTC</time></td>
+              <td><time data-offset="418" datetime="2026-08-04T14:25:03Z">Aug 4, 2026, 14:25:03 UTC</time></td>
               <td><span class="lc-scope is-chat">Operator chat</span></td>
               <td><code>gpt-4o-mini</code></td>
               <td class="capability">t1.narrator</td>
@@ -291,7 +373,7 @@
               <td class="correlation"><a href="audit.html?correlation=chat-change-0062">chat-change-0062</a></td>
             </tr>
             <tr>
-              <td><time datetime="2026-08-04T14:21:47Z">Aug 4, 2026, 14:21:47 UTC</time></td>
+              <td><time data-offset="614" datetime="2026-08-04T14:21:47Z">Aug 4, 2026, 14:21:47 UTC</time></td>
               <td><span class="lc-scope">Control plane</span></td>
               <td><code>claude-opus-4</code></td>
               <td class="capability">t2.reasoner.cross-check</td>
@@ -306,12 +388,49 @@
       </div>
     </section>
 
+    <details class="lc-rollups">
+      <summary>Additional measured rollups</summary>
+      <div class="lc-rollup-grid">
+        <section aria-labelledby="workload-rollup-title">
+          <h3 id="workload-rollup-title">Usage by workload</h3>
+          <div class="cs-table-wrap"><table class="cs-table lc-table">
+            <thead><tr><th>Workload</th><th class="num">Calls</th><th class="num">Input</th><th class="num">Output</th><th class="num">Total</th></tr></thead>
+            <tbody>
+              <tr class="rollup-workload"><td>Control plane</td><td class="num calls"></td><td class="num input"></td><td class="num output"></td><td class="num total"></td></tr>
+              <tr class="rollup-workload"><td>Operator chat</td><td class="num calls"></td><td class="num input"></td><td class="num output"></td><td class="num total"></td></tr>
+            </tbody>
+          </table></div>
+        </section>
+        <section aria-labelledby="mode-rollup-title">
+          <h3 id="mode-rollup-title">Shadow vs enforce</h3>
+          <div class="cs-table-wrap"><table class="cs-table lc-table">
+            <thead><tr><th>Mode</th><th class="num">Calls</th><th class="num">Input</th><th class="num">Output</th><th class="num">Total</th></tr></thead>
+            <tbody>
+              <tr class="rollup-mode"><td>Enforce</td><td class="num calls"></td><td class="num input"></td><td class="num output"></td><td class="num total"></td></tr>
+              <tr class="rollup-mode"><td>Shadow</td><td class="num calls"></td><td class="num input"></td><td class="num output"></td><td class="num total"></td></tr>
+            </tbody>
+          </table></div>
+        </section>
+        <section aria-labelledby="chat-model-rollup-title">
+          <h3 id="chat-model-rollup-title">Chat usage by model</h3>
+          <div class="cs-table-wrap"><table class="cs-table lc-table">
+            <thead><tr><th>Model</th><th class="num">Calls</th><th class="num">Input</th><th class="num">Output</th><th class="num">Total</th></tr></thead>
+            <tbody>
+              <tr class="rollup-chat"><td><code>gpt-4.1-mini</code></td><td class="num calls"></td><td class="num input"></td><td class="num output"></td><td class="num total"></td></tr>
+              <tr class="rollup-chat"><td><code>gpt-4o-mini</code></td><td class="num calls"></td><td class="num input"></td><td class="num output"></td><td class="num total"></td></tr>
+            </tbody>
+          </table></div>
+        </section>
+      </div>
+    </details>
+
     <p class="cs-muted" style="font-size:12.5px; margin-top:12px;">
       Every total is derived from provider usage records and can be traced to its correlation audit.
     </p>
   </main>
   <script>
-    const trend = [
+    (() => {
+    const sevenDayTrend = [
       { date: "Jul 29, 2026", input: 148000, output: 12000 },
       { date: "Jul 30, 2026", input: 172000, output: 16000 },
       { date: "Jul 31, 2026", input: 184000, output: 17000 },
@@ -320,6 +439,31 @@
       { date: "Aug 3, 2026", input: 156000, output: 13000 },
       { date: "Aug 4, 2026", input: 201000, output: 19000 },
     ];
+    const twentyFourHourTrend = [
+      { date: "Aug 4, 02:00 UTC", short: "02:00", input: 20000, output: 1500 },
+      { date: "Aug 4, 06:00 UTC", short: "06:00", input: 24000, output: 2000 },
+      { date: "Aug 4, 10:00 UTC", short: "10:00", input: 31000, output: 2400 },
+      { date: "Aug 4, 14:00 UTC", short: "14:00", input: 27000, output: 2100 },
+      { date: "Aug 4, 18:00 UTC", short: "18:00", input: 33000, output: 2700 },
+      { date: "Aug 4, 22:00 UTC", short: "22:00", input: 33000, output: 3300 },
+    ];
+    const isoDate = (date) => date.toISOString().slice(0, 10);
+    const displayDate = (date) => new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(date);
+    const buildDailyTrend = (start, dayCount) => Array.from({ length: dayCount }, (_, index) => {
+      const date = new Date(`${start}T00:00:00Z`);
+      date.setUTCDate(date.getUTCDate() + index);
+      return {
+        date: `${displayDate(date)}, ${date.getUTCFullYear()}`,
+        short: displayDate(date),
+        input: 128000 + ((index * 37000) % 78000),
+        output: 10000 + ((index * 7000) % 11000),
+      };
+    });
+    const presets = {
+      "24h": { label: "Aug 3, 14:00 - Aug 4, 14:00, 2026", title: "24-hour token trend", subtitle: "Measured input and output tokens by four-hour interval.", totalLabel: "24-hour total", calls: 263, chatShare: .28, latestDate: "Aug 4, 2026", endDate: "2026-08-04", trend: twentyFourHourTrend },
+      "7d": { label: "Jul 29 - Aug 4, 2026", title: "7-day token trend", subtitle: "Daily measured input and output tokens.", totalLabel: "7-day total", calls: 1842, chatShare: .27, latestDate: "Aug 4, 2026", endDate: "2026-08-04", trend: sevenDayTrend },
+      "30d": { label: "Jul 6 - Aug 4, 2026", title: "30-day token trend", subtitle: "Daily measured input and output tokens.", totalLabel: "30-day total", calls: 7934, chatShare: .27, latestDate: "Aug 4, 2026", endDate: "2026-08-04", trend: buildDailyTrend("2026-07-06", 30) },
+    };
     const svgNamespace = "http://www.w3.org/2000/svg";
     const chart = document.querySelector(".lc-chart");
     const grid = document.getElementById("token-grid");
@@ -330,32 +474,19 @@
     const right = 626;
     const chartTop = 12;
     const bottom = 166;
-    const maximum = 240000;
     const number = new Intl.NumberFormat("en-US");
-    const compact = new Intl.NumberFormat("en-US", { notation: "compact" });
-    const x = (index) => left + (index / (trend.length - 1)) * (right - left);
-    const y = (value) => bottom - (value / maximum) * (bottom - chartTop);
-
-    [0, 80000, 160000, 240000].forEach((value) => {
-      const line = document.createElementNS(svgNamespace, "line");
-      line.setAttribute("class", "grid");
-      line.setAttribute("x1", left);
-      line.setAttribute("x2", right);
-      line.setAttribute("y1", y(value));
-      line.setAttribute("y2", y(value));
-      grid.appendChild(line);
-      const label = document.createElementNS(svgNamespace, "text");
-      label.setAttribute("class", "axis-label");
-      label.setAttribute("x", left - 8);
-      label.setAttribute("y", y(value) + 3);
-      label.setAttribute("text-anchor", "end");
-      label.textContent = compact.format(value);
-      grid.appendChild(label);
-    });
-
-    const coordinates = trend.map((item, index) => [x(index), y(item.input + item.output)]);
-    document.getElementById("token-line").setAttribute("d", coordinates.map(([pointX, pointY], index) => `${index ? "L" : "M"}${pointX} ${pointY}`).join(" "));
-    document.getElementById("token-area").setAttribute("d", `M${left} ${bottom} ${coordinates.map(([pointX, pointY]) => `L${pointX} ${pointY}`).join(" ")} L${right} ${bottom} Z`);
+    const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 });
+    let activeTrend = sevenDayTrend;
+    let activeMaximum = 240000;
+    const x = (index) => left + (index / Math.max(1, activeTrend.length - 1)) * (right - left);
+    const y = (value) => bottom - (value / activeMaximum) * (bottom - chartTop);
+    const niceStep = (maximum) => {
+      const rough = maximum / 3;
+      const power = 10 ** Math.floor(Math.log10(rough));
+      const normalized = rough / power;
+      const factor = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+      return factor * power;
+    };
 
     const hideTooltip = () => {
       tooltip.classList.remove("is-visible");
@@ -376,13 +507,41 @@
       pointsGroup.querySelectorAll(".point").forEach((candidate) => candidate.classList.toggle("is-active", candidate === point));
     };
 
-    trend.forEach((item, index) => {
+    const renderTrend = (trend) => {
+      activeTrend = trend;
+      const highest = Math.max(...trend.map((item) => item.input + item.output));
+      const step = niceStep(highest);
+      activeMaximum = step * 3;
+      grid.replaceChildren();
+      pointsGroup.replaceChildren();
+      hideTooltip();
+      [0, step, step * 2, step * 3].forEach((value) => {
+        const line = document.createElementNS(svgNamespace, "line");
+        line.setAttribute("class", "grid");
+        line.setAttribute("x1", left);
+        line.setAttribute("x2", right);
+        line.setAttribute("y1", y(value));
+        line.setAttribute("y2", y(value));
+        grid.appendChild(line);
+        const label = document.createElementNS(svgNamespace, "text");
+        label.setAttribute("class", "axis-label");
+        label.setAttribute("x", left - 8);
+        label.setAttribute("y", y(value) + 3);
+        label.setAttribute("text-anchor", "end");
+        label.textContent = compact.format(value);
+        grid.appendChild(label);
+      });
+      const coordinates = trend.map((item, index) => [x(index), y(item.input + item.output)]);
+      document.getElementById("token-line").setAttribute("d", coordinates.map(([pointX, pointY], index) => `${index ? "L" : "M"}${pointX} ${pointY}`).join(" "));
+      document.getElementById("token-area").setAttribute("d", `M${left} ${bottom} ${coordinates.map(([pointX, pointY]) => `L${pointX} ${pointY}`).join(" ")} L${right} ${bottom} Z`);
+      const hitRadius = Math.max(6, Math.min(18, (right - left) / (trend.length * 2)));
+      trend.forEach((item, index) => {
       const total = item.input + item.output;
       const hit = document.createElementNS(svgNamespace, "circle");
       hit.setAttribute("class", "hit");
       hit.setAttribute("cx", x(index));
       hit.setAttribute("cy", y(total));
-      hit.setAttribute("r", 18);
+      hit.setAttribute("r", hitRadius);
       hit.setAttribute("tabindex", "0");
       hit.setAttribute("role", "button");
       hit.setAttribute("aria-label", `${item.date}: ${number.format(total)} total tokens`);
@@ -396,7 +555,153 @@
       hit.addEventListener("mouseleave", hideTooltip);
       hit.addEventListener("blur", hideTooltip);
       pointsGroup.append(hit, point);
+      });
+      const labelCount = Math.min(7, trend.length);
+      const labelIndexes = Array.from({ length: labelCount }, (_, index) => Math.round((index / Math.max(1, labelCount - 1)) * (trend.length - 1)));
+      const labels = document.getElementById("trend-labels");
+      labels.style.gridTemplateColumns = `repeat(${labelCount}, 1fr)`;
+      labels.replaceChildren(...labelIndexes.map((index) => {
+        const label = document.createElement("span");
+        label.textContent = trend[index].short ?? trend[index].date.replace(", 2026", "");
+        return label;
+      }));
+    };
+
+    const sum = (trend, key) => trend.reduce((total, item) => total + item[key], 0);
+    const allocate = (total, weights) => {
+      const weightTotal = weights.reduce((value, weight) => value + weight, 0);
+      let allocated = 0;
+      return weights.map((weight, index) => {
+        const value = index === weights.length - 1 ? total - allocated : Math.round((total * weight) / weightTotal);
+        allocated += value;
+        return value;
+      });
+    };
+    const updateModelUsage = (calls, input, output) => {
+      const callCells = [...document.querySelectorAll(".model-calls")];
+      const inputCells = [...document.querySelectorAll(".model-input")];
+      const outputCells = [...document.querySelectorAll(".model-output")];
+      const totalCells = [...document.querySelectorAll(".model-total")];
+      const callValues = allocate(calls, callCells.map((cell) => Number(cell.dataset.base)));
+      const inputValues = allocate(input, inputCells.map((cell) => Number(cell.dataset.base)));
+      const outputValues = allocate(output, outputCells.map((cell) => Number(cell.dataset.base)));
+      callCells.forEach((cell, index) => { cell.textContent = number.format(callValues[index]); });
+      inputCells.forEach((cell, index) => { cell.textContent = number.format(inputValues[index]); });
+      outputCells.forEach((cell, index) => { cell.textContent = number.format(outputValues[index]); });
+      totalCells.forEach((cell, index) => { cell.textContent = number.format(inputValues[index] + outputValues[index]); });
+    };
+    const updateRollup = (selector, weights, calls, input, output) => {
+      const rows = [...document.querySelectorAll(selector)];
+      const callValues = allocate(calls, weights);
+      const inputValues = allocate(input, weights);
+      const outputValues = allocate(output, weights);
+      rows.forEach((row, index) => {
+        row.querySelector(".calls").textContent = number.format(callValues[index]);
+        row.querySelector(".input").textContent = number.format(inputValues[index]);
+        row.querySelector(".output").textContent = number.format(outputValues[index]);
+        row.querySelector(".total").textContent = number.format(inputValues[index] + outputValues[index]);
+      });
+    };
+    const updateLedgerTimes = (endDate) => {
+      const latest = new Date(`${endDate}T14:32:01Z`);
+      const formatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "UTC" });
+      document.querySelectorAll(".lc-ledger time").forEach((element) => {
+        const occurredAt = new Date(latest.getTime() - (Number(element.dataset.offset) * 1000));
+        element.dateTime = occurredAt.toISOString();
+        element.textContent = `${formatter.format(occurredAt)} UTC`;
+      });
+    };
+    const updateRange = (rangeKey, range) => {
+      const inputTotal = sum(range.trend, "input");
+      const outputTotal = sum(range.trend, "output");
+      const total = inputTotal + outputTotal;
+      const inputShare = (inputTotal / total) * 100;
+      const outputShare = 100 - inputShare;
+      const chatTokens = Math.round(total * range.chatShare);
+      document.getElementById("active-range").textContent = range.label;
+      document.getElementById("usage-evidence").textContent = `Source: metering · ${number.format(range.calls)} invocation records · latest invocation ${range.latestDate} 14:32 UTC`;
+      document.getElementById("kpi-calls").textContent = number.format(range.calls);
+      document.getElementById("kpi-total").textContent = compact.format(total);
+      document.getElementById("kpi-chat-share").textContent = `${Math.round(range.chatShare * 100)}%`;
+      document.getElementById("kpi-chat-tokens").textContent = `${compact.format(chatTokens)} chat tokens`;
+      document.getElementById("kpi-latest-date").textContent = range.latestDate;
+      document.getElementById("input-tokens").textContent = number.format(inputTotal);
+      document.getElementById("output-tokens").textContent = number.format(outputTotal);
+      document.getElementById("input-share").textContent = `${inputShare.toFixed(1)}%`;
+      document.getElementById("output-share").textContent = `${outputShare.toFixed(1)}%`;
+      document.querySelector(".lc-token-mix .is-input").style.flex = inputTotal;
+      document.querySelector(".lc-token-mix .is-output").style.flex = outputTotal;
+      document.getElementById("trend-title").textContent = range.title;
+      document.getElementById("trend-subtitle").textContent = range.subtitle;
+      document.getElementById("trend-total-label").textContent = range.totalLabel;
+      document.getElementById("trend-total").textContent = compact.format(total);
+      document.getElementById("ledger-note").textContent = `Showing the latest 6 of ${number.format(range.calls)} measured calls.`;
+      updateModelUsage(range.calls, inputTotal, outputTotal);
+      updateLedgerTimes(range.endDate);
+      updateRollup(".rollup-workload", [1 - range.chatShare, range.chatShare], range.calls, inputTotal, outputTotal);
+      updateRollup(".rollup-mode", [.91, .09], range.calls, inputTotal, outputTotal);
+      updateRollup(".rollup-chat", [.62, .38], Math.round(range.calls * range.chatShare), Math.round(inputTotal * range.chatShare), Math.round(outputTotal * range.chatShare));
+      chart.setAttribute("aria-label", `${range.title} for ${range.label}`);
+      renderTrend(range.trend);
+      document.querySelectorAll(".lc-range-option").forEach((button) => {
+        const active = button.dataset.range === rangeKey;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-pressed", String(active));
+      });
+    };
+
+    const customPopover = document.getElementById("custom-range");
+    const startInput = document.getElementById("range-start");
+    const endInput = document.getElementById("range-end");
+    const rangeError = document.getElementById("range-error");
+    const closeCustomRange = () => { customPopover.hidden = true; rangeError.textContent = ""; };
+    document.querySelectorAll(".lc-range-option").forEach((button) => button.addEventListener("click", () => {
+      const rangeKey = button.dataset.range;
+      if (rangeKey === "custom") {
+        customPopover.hidden = false;
+        startInput.focus();
+        return;
+      }
+      closeCustomRange();
+      updateRange(rangeKey, presets[rangeKey]);
+      const url = new URL(location.href);
+      url.searchParams.set("range", rangeKey);
+      url.searchParams.delete("from");
+      url.searchParams.delete("to");
+      history.replaceState(null, "", url);
+    }));
+    document.getElementById("range-cancel").addEventListener("click", closeCustomRange);
+    document.getElementById("range-apply").addEventListener("click", () => {
+      const start = new Date(`${startInput.value}T00:00:00Z`);
+      const end = new Date(`${endInput.value}T00:00:00Z`);
+      const dayCount = Math.round((end - start) / 86400000) + 1;
+      if (!startInput.value || !endInput.value || dayCount < 1 || dayCount > 90) {
+        rangeError.textContent = "Choose a valid range of 1 to 90 days.";
+        return;
+      }
+      const trend = buildDailyTrend(isoDate(start), dayCount);
+      const label = `${displayDate(start)} - ${displayDate(end)}, ${end.getUTCFullYear()}`;
+      const total = sum(trend, "input") + sum(trend, "output");
+      updateRange("custom", { label, title: `${dayCount}-day token trend`, subtitle: "Daily measured input and output tokens.", totalLabel: `${dayCount}-day total`, calls: Math.max(1, Math.round(total / 684)), chatShare: .27, latestDate: `${displayDate(end)}, ${end.getUTCFullYear()}`, endDate: endInput.value, trend });
+      closeCustomRange();
+      const url = new URL(location.href);
+      url.searchParams.delete("range");
+      url.searchParams.set("from", startInput.value);
+      url.searchParams.set("to", endInput.value);
+      history.replaceState(null, "", url);
     });
+    document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeCustomRange(); });
+    const initialParams = new URL(location.href).searchParams;
+    const initialRange = initialParams.get("range");
+    const initialFrom = initialParams.get("from");
+    const initialTo = initialParams.get("to");
+    if (initialFrom && initialTo) {
+      startInput.value = initialFrom;
+      endInput.value = initialTo;
+      document.getElementById("range-apply").click();
+    } else if (initialRange && presets[initialRange]) updateRange(initialRange, presets[initialRange]);
+    else updateRange("7d", presets["7d"]);
+    })();
   </script>
 </body>
 </html>
