@@ -121,7 +121,10 @@ def test_durable_usage_followup_returns_chart_without_health_or_model_fallback(
     assert payload["verification"]["reason_code"] == "llm_usage_grounded"
     assert payload["answer_plan"]["format"] == "chart"
     assert payload["analysis_context"]["lookback_days"] == 7
+    assert payload["chart_artifact"]["schema_version"] == 1
+    assert payload["chart_artifact"]["evidence_refs"] == payload["verification"]["evidence_refs"]
     chart = json.loads(payload["answer"].split("```chart\n", 1)[1].split("\n```", 1)[0])
+    assert {key: payload["chart_artifact"][key] for key in chart} == chart
     assert chart["type"] == "line"
     assert [point["label"] for point in chart["data"]] == [
         item.strftime("%Y-%m-%d") for item in observed

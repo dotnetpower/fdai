@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 141e47bd6ef7a05847e0e0994cb5f21711c68383
+translation_source_sha: 6c8232d997caa358c4b22765dae25266b8532abb
 translation_revised: 2026-08-04
 ---
 
@@ -201,7 +201,7 @@ Unavailable 또는 unknown entry가 있는 verified read-source manifest는 vers
 receipt를 저장합니다. Partial-source follow-up은 available source fact와 exact gap을 분리하고 reason과
 last observation이 있으면 함께 표시하며 다른 authority로 대체하지 않습니다.
 Queued analytical refinement는 verified server-issued `analysis_context`만 재사용할 수 있습니다. 구현된 LLM usage anchor는 token measure, grouping 및 bounded lookback을 보존합니다.
-기간, grouping 또는 chart만 바꾸는 follow-up은 측정된 metering record를 다시 읽습니다. Anchor가 없거나 client가 제공한 경우 context-required hold를 반환하며 subscription health 또는 inventory로 넓히지 않습니다.
+기간, grouping 또는 chart만 바꾸는 follow-up은 측정된 metering record를 다시 읽습니다. Verified chart는 evidence reference가 포함된 `chart_artifact` v1을 전달하고 fenced chart text는 compatibility fallback으로 유지합니다. Anchor가 없거나 client가 제공한 경우 context-required hold를 반환하며 subscription health 또는 inventory로 넓히지 않습니다.
 
 ## Queue 동작
 

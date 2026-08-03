@@ -236,8 +236,7 @@ the observed row from durable detail, while live turns retain the row already sh
 Every completed answer keeps its trajectory summary and bounded original operator prompt visible.
 Internal AnswerPlan intent and detail labels don't appear above the answer. They remain available in
 the Run record decision context, while the answer leads with operator-facing content and verified
-evidence. Model-assisted format selection changes only the validated presentation shape; the
-browser still receives canonical Markdown or fenced chart data from the deterministic verifier.
+evidence. Model-assisted format selection changes only the validated presentation shape. A verified chart returns a bounded `chart_artifact` v1 with evidence references, and the transport validates and renders it before answer text; canonical fenced chart data remains the compatibility fallback.
 
 The status overview distinguishes completed, corrected, degraded, failed, unverified, running, and
 unobserved phases; record presence isn't success. Result chips report observed query and command

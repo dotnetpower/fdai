@@ -169,6 +169,7 @@ from fdai.delivery.operator_api.routes.chat_llm_usage import (
 )
 from fdai.delivery.operator_api.routes.chat_llm_usage_rendering import (
     response_llm_usage_analysis_context,
+    response_llm_usage_chart_artifact,
 )
 from fdai.delivery.operator_api.routes.chat_log_query import (
     needs_log_query,
@@ -1077,6 +1078,14 @@ def make_chat_route(
         )
         if analysis_context is not None:
             enriched["analysis_context"] = analysis_context
+        chart_artifact = response_llm_usage_chart_artifact(
+            view_context,
+            verification_status=verification.status,
+            answer_format=answer_plan.format.value,
+            locale=response_locale,
+        )
+        if chart_artifact is not None:
+            enriched["chart_artifact"] = chart_artifact
         selected_freshness = response_evidence_freshness_context(view_context, freshness_context)
         if selected_freshness is not None:
             enriched["evidence_freshness_context"] = selected_freshness.to_dict()

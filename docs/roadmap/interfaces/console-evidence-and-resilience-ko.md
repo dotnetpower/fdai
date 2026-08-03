@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: adf00d15ebe5a472ecb7730341d02e5e0917f03c
+translation_source_sha: 7a12ae1c27661e89413dc3bd258bd52c12b61718
 translation_revised: 2026-08-04
 ---
 
@@ -233,9 +233,7 @@ background task는 detached task summary를 사용합니다. 복원된 compact t
 observed row를 재구성하고 live turn은 인과 순서로 이미 표시한 row를 유지합니다. 완료된 모든 answer는
 trajectory summary와 bounded original operator prompt를 표시합니다. Internal AnswerPlan intent 및
 detail label은 answer 위에 표시하지 않습니다. Run record decision context에는 유지하며 answer는
-operator-facing content와 verified evidence로 바로 시작합니다. Model-assisted format selection은
-validation된 presentation shape만 변경하고 browser는 계속 deterministic verifier가 만든 canonical
-Markdown 또는 fenced chart data를 받습니다.
+operator-facing content와 verified evidence로 바로 시작합니다. Model-assisted format selection은 validation된 presentation shape만 변경합니다. Verified chart는 evidence reference가 포함된 bounded `chart_artifact` v1을 반환하며 transport는 answer text보다 먼저 이를 검증하고 렌더링합니다. Canonical fenced chart data는 compatibility fallback으로 유지합니다.
 
 상태 개요는 완료, 수정 후 완료, 일부 저하, 실패, 검증 미완료, 진행 중 및 관측되지 않음을 구분하며
 record 존재를 성공으로 표시하지 않습니다. Result chip은 내부 event total 대신 관측된 query와

@@ -201,7 +201,7 @@ A verified read-source manifest with unavailable or unknown entries stores a ver
 source-failure receipt. Partial-source follow-ups separate available source facts from exact gaps,
 including reason and last observation when present, and never substitute another authority.
 A queued analytical refinement can reuse only a verified server-issued `analysis_context`. The implemented LLM usage anchor preserves the token measure, grouping, and bounded lookback.
-A period, grouping, or chart-only follow-up re-reads measured metering records; a missing or client-supplied anchor returns a context-required hold and never widens to subscription health or inventory.
+A period, grouping, or chart-only follow-up re-reads measured metering records. A verified chart carries a `chart_artifact` v1 with evidence references, while fenced chart text remains the compatibility fallback. A missing or client-supplied anchor returns a context-required hold and never widens to subscription health or inventory.
 
 ## Queue behavior
 

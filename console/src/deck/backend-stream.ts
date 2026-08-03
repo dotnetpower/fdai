@@ -38,6 +38,7 @@ import type {
 import type { ViewSnapshot } from "./context";
 import { parseTrajectoryDetail } from "./trajectory-detail";
 import { parseIntentGraph, parseIntentGraphEvidence } from "./intent-graph";
+import { chartArtifactText } from "./rich-parse";
 
 export const fallbackTypewriter = { intervalMs: 12 };
 export const streamBurstPacer = { intervalMs: 16 };
@@ -396,7 +397,8 @@ export async function askBackendStream(
   if (confirmedSegment !== undefined) callbacks.onConfirmed?.(confirmedSegment);
 
   const done: Record<string, unknown> = doneData ?? {};
-  const finalText = typeof done.answer === "string" && done.answer ? done.answer : answerText;
+  const finalText = chartArtifactText(done.chart_artifact) ??
+    (typeof done.answer === "string" && done.answer ? done.answer : answerText);
   if (finalText === "") return fallback("upstream returned empty completion");
   const model = typeof done.model === "string" ? done.model : "llm";
   const latencyMs = typeof done.latency_ms === "number" && Number.isFinite(done.latency_ms)

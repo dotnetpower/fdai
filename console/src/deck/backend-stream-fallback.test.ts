@@ -387,6 +387,50 @@ describe("askBackendStream fallback typewriter", () => {
     expect(reply.resourceContext).toEqual(resourceContext);
   });
 
+  test("SSE transport prefers a valid artifact and rejects an invalid one", async () => {
+    const artifact = {
+      schema_version: 1,
+      type: "line",
+      data: [{ label: "2026-08-03", value: 150 }],
+      evidence_refs: ["metering:llm-usage@example"],
+    };
+    const validBody = `event: done\ndata: ${JSON.stringify({
+      answer: "fallback text",
+      model: "evidence-verifier",
+      chart_artifact: artifact,
+    })}\n\n`;
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(validBody, { status: 200 })));
+    const mod = await import("./backend");
+    const valid = await mod.askBackendStream("q", snap(), [], { onToken: () => undefined });
+    expect(valid.text).toContain("```chart");
+
+    const invalidBody = `event: done\ndata: ${JSON.stringify({
+      answer: "safe fallback text",
+      model: "evidence-verifier",
+      chart_artifact: { ...artifact, evidence_refs: [] },
+    })}\n\n`;
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(invalidBody, { status: 200 })));
+    const invalid = await mod.askBackendStream("q", snap(), [], { onToken: () => undefined });
+    expect(invalid.text).toBe("safe fallback text");
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      answer: "untrusted chart text",
+      model: "evidence-verifier",
+      chart_artifact: artifact,
+    }), { status: 200 })));
+    const jsonReply = await mod.askBackend("q", snap(), []);
+    expect(jsonReply.text).toContain("```chart");
+    expect(jsonReply.text).not.toContain("untrusted chart text");
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      answer: "safe malformed fallback",
+      model: "evidence-verifier",
+      chart_artifact: { ...artifact, data: [{ label: "x", value: "150" }] },
+    }), { status: 200 })));
+    const malformed = await mod.askBackend("q", snap(), []);
+    expect(malformed.text).toBe("safe malformed fallback");
+  });
+
   test("returns bounded trajectory detail from the terminal event", async () => {
     const body = `event: done\ndata: ${JSON.stringify({
       answer: "Inventory complete.",

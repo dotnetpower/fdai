@@ -29,6 +29,30 @@ def response_llm_usage_analysis_context(
     return parse_llm_usage_analysis_context(evidence.get("analysis_context"))
 
 
+def response_llm_usage_chart_artifact(
+    view_context: Mapping[str, Any],
+    *,
+    verification_status: str,
+    answer_format: str,
+    locale: str | None,
+) -> dict[str, object] | None:
+    """Project one versioned chart artifact from verified usage evidence."""
+
+    if verification_status not in {"verified", "corrected"} or answer_format != "chart":
+        return None
+    evidence = view_context.get("_tool_evidence")
+    if not isinstance(evidence, Mapping) or evidence.get("tool") != "query_llm_usage":
+        return None
+    result = evidence.get("result")
+    if not isinstance(result, Mapping) or result.get("status") != "matched":
+        return None
+    spec = _chart_spec(result, korean=bool(locale and locale.casefold().startswith("ko")))
+    refs = llm_usage_evidence_refs(evidence)
+    if spec is None or not refs:
+        return None
+    return {"schema_version": 1, **spec, "evidence_refs": list(refs)}
+
+
 def llm_usage_evidence_refs(evidence: Mapping[str, Any]) -> tuple[str, ...]:
     result = evidence.get("result")
     if not isinstance(result, Mapping):
@@ -80,12 +104,9 @@ def render_llm_usage_answer(
             else f"No measured LLM calls were recorded from {window_start} to {window_end}."
         )
     if answer_format == "chart" and rows:
-        chart = {
-            "type": "line" if result.get("group_by") == "day" else "bar",
-            "title": "일별 LLM 토큰 사용량" if korean else "LLM token usage",
-            "unit": "tokens",
-            "data": [{"label": str(row["key"]), "value": int(row["total_tokens"])} for row in rows],
-        }
+        chart = _chart_spec(result, korean=korean)
+        if chart is None:
+            return None
         return f"```chart\n{json.dumps(chart, ensure_ascii=False, separators=(',', ':'))}\n```"
     if answer_format == "table" and rows:
         headers = (
@@ -130,8 +151,21 @@ def _valid_usage_row(value: object) -> bool:
     )
 
 
+def _chart_spec(result: Mapping[str, Any], *, korean: bool) -> dict[str, object] | None:
+    rows = result.get("rows")
+    if not isinstance(rows, list) or not rows or not all(_valid_usage_row(row) for row in rows):
+        return None
+    return {
+        "type": "line" if result.get("group_by") == "day" else "bar",
+        "title": "일별 LLM 토큰 사용량" if korean else "LLM token usage",
+        "unit": "tokens",
+        "data": [{"label": str(row["key"]), "value": int(row["total_tokens"])} for row in rows],
+    }
+
+
 __all__ = [
     "llm_usage_evidence_refs",
     "render_llm_usage_answer",
     "response_llm_usage_analysis_context",
+    "response_llm_usage_chart_artifact",
 ]

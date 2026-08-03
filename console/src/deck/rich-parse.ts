@@ -60,25 +60,39 @@ function splitCells(line: string): string[] {
   return inner.split("|").map((c) => c.trim());
 }
 
-function parseChart(raw: string): ChartSpec | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  if (typeof parsed !== "object" || parsed === null) return null;
+function parseChartValue(parsed: unknown, strict: boolean): ChartSpec | null {
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
   const o = parsed as Record<string, unknown>;
   if ((o.type !== "bar" && o.type !== "line") || !Array.isArray(o.data)) return null;
+  if (o.data.length === 0 || o.data.length > 100) return null;
+  if (o.title !== undefined && (typeof o.title !== "string" || o.title.length > 256)) return null;
+  if (o.unit !== undefined && (typeof o.unit !== "string" || o.unit.length > 32)) return null;
   const data: ChartDatum[] = [];
-  for (const d of o.data) {
-    if (d && typeof d === "object") {
-      const r = d as Record<string, unknown>;
-      if (typeof r.label === "string" && typeof r.value === "number" && Number.isFinite(r.value)) {
-        const color = typeof r.color === "string" && SAFE_HEX.test(r.color) ? r.color : undefined;
-        data.push({ label: r.label, value: r.value, ...(color ? { color } : {}) });
-      }
+  for (const datum of o.data) {
+    if (!datum || typeof datum !== "object" || Array.isArray(datum)) {
+      if (strict) return null;
+      continue;
     }
+    const row = datum as Record<string, unknown>;
+    const valid = typeof row.label === "string" &&
+      row.label.length > 0 && row.label.length <= 128 &&
+      typeof row.value === "number" && Number.isFinite(row.value);
+    if (!valid) {
+      if (strict) return null;
+      continue;
+    }
+    if (strict && Object.keys(row).some((key) => !["label", "value", "color"].includes(key))) {
+      return null;
+    }
+    const color = typeof row.color === "string" && SAFE_HEX.test(row.color)
+      ? row.color
+      : undefined;
+    if (strict && row.color !== undefined && color === undefined) return null;
+    data.push({
+      label: row.label as string,
+      value: row.value as number,
+      ...(color ? { color } : {}),
+    });
   }
   if (data.length === 0) return null;
   return {
@@ -87,6 +101,31 @@ function parseChart(raw: string): ChartSpec | null {
     ...(typeof o.title === "string" ? { title: o.title } : {}),
     ...(typeof o.unit === "string" ? { unit: o.unit } : {}),
   };
+}
+
+function parseChart(raw: string): ChartSpec | null {
+  try {
+    return parseChartValue(JSON.parse(raw), false);
+  } catch {
+    return null;
+  }
+}
+
+export function chartArtifactText(raw: unknown): string | null {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+  const artifact = raw as Record<string, unknown>;
+  const expected = ["schema_version", "type", "title", "unit", "data", "evidence_refs"];
+  if (Object.keys(artifact).some((key) => !expected.includes(key))) return null;
+  if (artifact.schema_version !== 1 || !Array.isArray(artifact.evidence_refs)) return null;
+  if (
+    artifact.evidence_refs.length === 0 ||
+    artifact.evidence_refs.length > 8 ||
+    !artifact.evidence_refs.every((ref) =>
+      typeof ref === "string" && ref.startsWith("metering:") && ref.length <= 1024
+    )
+  ) return null;
+  const spec = parseChartValue(artifact, true);
+  return spec === null ? null : `\`\`\`chart\n${JSON.stringify(spec)}\n\`\`\``;
 }
 
 /** Parse a raw answer into renderable segments. Pure and defensive. */
