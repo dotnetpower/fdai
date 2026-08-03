@@ -90,6 +90,26 @@ def test_discovered_endpoint_rejects_explicit_zero_port(
         )
 
 
+@pytest.mark.parametrize(
+    "endpoint",
+    ["https://models.example.com:", "models.example.com:"],
+)
+def test_discovered_endpoint_rejects_empty_explicit_port(
+    connectivity_module: ModuleType,
+    endpoint: str,
+) -> None:
+    with pytest.raises(connectivity_module.ConnectivityInputError, match="port"):
+        connectivity_module.build_checks(
+            "runtime-private",
+            {
+                "KAFKA_BOOTSTRAP_SERVERS": "events.example.com:9093",
+                "POSTGRES_HOST": "db.example.com",
+                "FDAI_LLM_ENDPOINT": endpoint,
+            },
+            (),
+        )
+
+
 def test_private_dns_mismatch_produces_split_dns_action(
     connectivity_module: ModuleType,
 ) -> None:

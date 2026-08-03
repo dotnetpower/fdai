@@ -1,7 +1,7 @@
 ---
 title: 네트워크 연결 매트릭스
 translation_of: network-connectivity-matrix.md
-translation_source_sha: 40a179d80252c2a1ee150b748b83d5fd0405f785
+translation_source_sha: fc0b68206a9471f64842e26d0d0a75887032d966
 translation_revised: 2026-08-03
 ---
 # 네트워크 연결 매트릭스
@@ -232,7 +232,8 @@ deployment별 route에는 `custom`과 하나 이상의 manifest를 사용하세�
 Environment에서 찾은 endpoint 값은 origin 또는 `host:port` 형식이어야 합니다. 마지막 root `/`는
 허용하지만, root가 아닌 path, query, fragment 또는 user information은 잘못된 입력입니다. Checker는
 DNS와 TCP reachability만 검사하므로 다른 target을 조용히 검사해서는 안 됩니다. 명시적 port는
-`[1, 65535]` 범위여야 합니다. Port `0`은 잘못된 입력이며 profile 기본값으로 대체하지 않습니다.
+`[1, 65535]` 범위여야 합니다. 빈 port 또는 port `0`은 잘못된 입력이며 profile 기본값으로
+대체하지 않습니다.
 
 ```json
 {
