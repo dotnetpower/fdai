@@ -15,6 +15,7 @@ coverage_args=(
 
 coverage_paths=(
   tests/core
+  tests/quality_gate
   tests/pipeline
   tests/scenarios
   tests/verticals

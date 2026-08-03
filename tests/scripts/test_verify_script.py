@@ -45,6 +45,10 @@ def test_verification_entrypoints_prepend_current_checkout_source() -> None:
     assert contract in _PYTHON_TESTS.read_text(encoding="utf-8")
 
 
+def test_safety_core_coverage_includes_dedicated_quality_gate_tests() -> None:
+    assert "tests/quality_gate" in _PYTHON_TESTS.read_text(encoding="utf-8")
+
+
 def test_python_test_runner_prefers_current_checkout_at_runtime(tmp_path: Path) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
