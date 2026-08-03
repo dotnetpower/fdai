@@ -682,7 +682,7 @@ def test_workload_detection_separation_is_localized_in_korean() -> None:
 def test_ambiguous_incident_candidates_emit_bounded_selection_artifact() -> None:
     candidates = [
         {
-            "incident_id": "INC-1",
+            "incident_id": None,
             "correlation_id": "corr-1",
             "title": "Pod restart",
             "severity": "high",
@@ -709,7 +709,13 @@ def test_ambiguous_incident_candidates_emit_bounded_selection_artifact() -> None
         verification=verification,
     )
 
-    assert artifact == {"schema_version": 1, "candidates": candidates}
+    assert artifact == {
+        "schema_version": 1,
+        "candidates": [
+            {**candidates[0], "incident_id": "INC-corr-1"},
+            candidates[1],
+        ],
+    }
 
 
 def test_unavailable_state_is_explicitly_unverified() -> None:

@@ -165,28 +165,44 @@ def response_incident_candidates(
     for raw in raw_candidates[:_MAX_INCIDENT_CANDIDATES]:
         if not isinstance(raw, Mapping):
             return None
-        projected: dict[str, str] = {}
+        correlation_id = _incident_candidate_field(raw.get("correlation_id"))
+        if correlation_id is None:
+            return None
+        raw_incident_id = raw.get("incident_id")
+        incident_id = _incident_candidate_field(raw_incident_id)
+        if raw_incident_id is None:
+            incident_id = _incident_candidate_field(f"INC-{correlation_id}")
+        if incident_id is None:
+            return None
+        projected = {
+            "incident_id": incident_id,
+            "correlation_id": correlation_id,
+        }
         for field_name in (
-            "incident_id",
-            "correlation_id",
             "title",
             "severity",
             "status",
             "last_updated_at",
         ):
-            value = raw.get(field_name)
-            if not isinstance(value, str) or not value.strip():
-                return None
-            normalized = value.strip()
-            if len(normalized) > _MAX_INCIDENT_FIELD_CHARS or any(
-                character in normalized for character in ("\x00", "\r", "\n")
-            ):
+            normalized = _incident_candidate_field(raw.get(field_name))
+            if normalized is None:
                 return None
             projected[field_name] = normalized
         candidates.append(projected)
     if not candidates:
         return None
     return {"schema_version": 1, "candidates": candidates}
+
+
+def _incident_candidate_field(value: Any) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    normalized = value.strip()
+    if len(normalized) > _MAX_INCIDENT_FIELD_CHARS or any(
+        character in normalized for character in ("\x00", "\r", "\n")
+    ):
+        return None
+    return normalized
 
 
 def build_done_payload(
