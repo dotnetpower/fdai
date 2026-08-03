@@ -56,6 +56,8 @@ def test_analysis_followup_detection_does_not_capture_explicit_other_domains() -
     assert not is_llm_usage_followup("데이터베이스 통계를 일주일간 보여줘")
     assert not is_llm_usage_followup("오류율을 그래프로 보여줘")
     assert not is_llm_usage_followup("Show the latency as a chart")
+    assert not is_llm_usage_followup("compare the two requested datasets")
+    assert is_llm_usage_followup("지난주와 비교해줘")
 
 
 @pytest.mark.parametrize("stream", [False, True])

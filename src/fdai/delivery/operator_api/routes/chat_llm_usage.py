@@ -30,13 +30,13 @@ _EXPLICIT_USAGE: Final = re.compile(
 )
 _FOLLOWUP_CUE: Final = re.compile(
     r"\b(?:last|past|previous|prior|this)\s+(?:day|week|month)|"
-    r"\b(?:daily|weekly|monthly|hourly|again|only|compare|versus|trend|"
+    r"\b(?:daily|weekly|monthly|hourly|again|only|trend|"
     r"chart|graph|table|export|download|group(?:ed)?\s+by)\b|"
     r"(?:오늘|어제|최근|지난|이번).{0,12}(?:일|주|주간|달|월|개월)|"
     r"(?:일주일|한\s*주|하루|한\s*달|한\s*개월)|"
     r"(?:그래프|차트|표|테이블)(?:로|으로)?|"
     r"(?:모델|범위|모드|날짜|일자|월|대화|채팅)별|"
-    r"(?:다시|그거|그것|같은\s*방식|비교|추이|내보내기|다운로드|만\s*(?:보여|알려))",
+    r"(?:다시|그거|그것|같은\s*방식|추이|내보내기|다운로드|만\s*(?:보여|알려))",
     re.IGNORECASE,
 )
 _EXPLICIT_OTHER_SUBJECT: Final = re.compile(
