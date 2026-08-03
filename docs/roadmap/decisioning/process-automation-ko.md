@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: a31f13e46cee0c29f58fd9f5810729a072f5c205
+translation_source_sha: bfcd1839955e7e377bf304c6fc3c9485f9b755c1
 translation_revised: 2026-08-04
 ---
 
@@ -288,6 +288,13 @@ Action dispatch 및 step journal identity는 명시적인 positive `attempt`를 
 default는 `1`입니다. `STEP_STARTED`, `ACTION_DISPATCHED`, branch, waiting, completion, failure,
 terminal, audit id는 attempt를 포함하고 `WorkflowActionDispatcher`는 typed proposal idempotency
 key에 이를 사용합니다. 따라서 두 attempt가 하나의 event 또는 proposal로 합쳐지지 않습니다.
+
+`POST /workflows/{process_id}/retry`는 `failed` 상태에서만 새 attempt를 시작하며 body를 받지
+않습니다. Failed attempt에는 allowlist에 포함된 local failure reason이 있어야 하며 action dispatch,
+approval, cancellation, compensation evidence가 없어야 합니다. Dispatcher exception은 local dispatch
+event가 없어도 ambiguous하므로 `retry_requires_recovery`를 반환합니다. Shadow retry에는
+Contributor가 필요하고 enforce retry에는 Owner와 현재 enforce allowlist가 필요합니다. Server-owned
+attempt limit의 기본값은 3이며 caller가 높일 수 없습니다.
 
 Workflow audit는 각 ActionType의 `x-fdai-redact` path를 사용합니다. Redacted field는
 `[REDACTED]`로 표시되며 Process journal에 들어가지 않습니다. Workflow runtime에는 secret custody

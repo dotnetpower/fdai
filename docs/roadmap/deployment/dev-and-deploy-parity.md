@@ -323,8 +323,8 @@ therefore receives every frame instead of sharing partitions with another develo
 
 Workflow definitions use the deployment enforce allowlist; ActionTypes retain promotion and risk gates.
 Enforce requires Azure event transport and a durable database shared with workflow approval evidence.
-Both profiles expose body-free exact resume and safe cancellation over the same durable Process state,
-repeat Contributor or Owner App Role checks, and reject running cancellation instead of assuming idle.
+Both expose body-free resume, safe cancel, and bounded effect-free retry over durable Process state.
+They repeat App Role and allowlist checks, share the attempt cap, and reject unsafe retry or cancel.
 Thor never receives the developer credential; execution stays in the deployed Managed Identity runtime.
 Scenario replay, recording executors, VM-task fakes, synthetic data, and scope fixtures stay pytest-only.
 

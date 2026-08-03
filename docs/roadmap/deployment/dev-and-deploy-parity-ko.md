@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 4d28c6000a01440c741e1772d9f496071f0a0a44
+translation_source_sha: 89e350f08810b86067d0c7470edd234a640c407a
 translation_revised: 2026-08-04
 ---
 
@@ -327,8 +327,8 @@ console stream은 다른 developer 또는 replica와 partition을 나누지 않�
 
 Workflow definition은 deployment enforce allowlist를 사용하며 ActionType은 promotion 및 risk gate를 유지합니다.
 Enforce에는 Azure event transport와 workflow approval evidence를 공유하는 durable database가 필요합니다.
-두 profile은 동일한 durable Process state에서 body 없는 exact resume 및 safe cancellation을 제공합니다.
-같은 Contributor 또는 Owner App Role을 검사하고 idle을 가정하지 않고 running cancellation을 차단합니다.
+두 profile은 durable Process state에서 body 없는 resume, safe cancel, effect-free retry를 제공합니다.
+App Role 및 allowlist를 다시 검사하고 attempt cap을 공유하며 unsafe retry 또는 cancel을 차단합니다.
 Thor는 developer credential을 받지 않으며 execution은 deployed Managed Identity runtime에 남습니다.
 Scenario replay, recording executor, VM-task fake, synthetic data 및 scope fixture는 pytest 전용입니다.
 

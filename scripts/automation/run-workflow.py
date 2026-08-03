@@ -33,6 +33,10 @@ def _parser() -> argparse.ArgumentParser:
         help="Cancel one durable Process at its current safe boundary.",
     )
     parser.add_argument(
+        "--retry-process-id",
+        help="Retry one effect-free failed Process with server-owned limits.",
+    )
+    parser.add_argument(
         "--api-url",
         default=os.environ.get("FDAI_OPERATOR_API_URL", DEFAULT_API_URL),
         help="FDAI API base URL (default: %(default)s).",
@@ -78,15 +82,18 @@ def _request(args: argparse.Namespace, parser: argparse.ArgumentParser) -> Reque
     headers = {"Accept": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    if args.resume_process_id is not None and args.cancel_process_id is not None:
-        parser.error("--resume-process-id and --cancel-process-id are mutually exclusive")
-    process_command = (
-        (args.resume_process_id, "resume")
-        if args.resume_process_id is not None
-        else (args.cancel_process_id, "cancel")
-        if args.cancel_process_id is not None
-        else None
+    process_commands = tuple(
+        (value, command)
+        for value, command in (
+            (args.resume_process_id, "resume"),
+            (args.cancel_process_id, "cancel"),
+            (args.retry_process_id, "retry"),
+        )
+        if value is not None
     )
+    if len(process_commands) > 1:
+        parser.error("Process resume, cancel, and retry commands are mutually exclusive")
+    process_command = process_commands[0] if process_commands else None
     if process_command is not None:
         raw_process_id, command = process_command
         process_id = raw_process_id.strip()

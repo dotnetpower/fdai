@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 7f5a001d58ddf5de490f7cacd907f9cd2c450619
+translation_source_sha: 96daf26133030f84ff1c1fc8f5989759985e0263
 translation_revised: 2026-08-04
 ---
 
@@ -212,7 +212,13 @@ cancellation intent를 기록합니다. Pending human-approval slot을 닫고 �
 reconcile한 뒤 workflow owner를 통해 cancel 또는 compensate합니다. `running` Process는 dispatch가
 idle이라고 추측하지 않고 typed `409 process_not_at_safe_boundary`를 반환합니다.
 Local 및 deployed Operator API factory는 같은 `WorkflowExecutionConfig`에서 start, exact resume,
-safe cancellation을 등록하며 route inventory test는 한 profile에서 하나를 누락하지 못하게 합니다.
+safe cancellation, bounded retry를 등록하며 route inventory test는 누락을 차단합니다.
+
+Bounded Process retry는 request body 없이 `POST /workflows/{process_id}/retry`를 사용합니다.
+Contributor는 shadow를 retry할 수 있고 enforce는 새 forward work를 시작할 수 있으므로 Owner와 현재
+workflow allowlist가 필요합니다. Server는 명시적인 effect-free reason이 있고 dispatch, approval,
+cancellation, compensation evidence가 없는 `failed` attempt만 수락합니다. 다른 failure는 typed
+recovery conflict를 반환합니다. `max_retry_attempts`는 server-owned이며 기본값은 3입니다.
 
 ### 요청 검사
 

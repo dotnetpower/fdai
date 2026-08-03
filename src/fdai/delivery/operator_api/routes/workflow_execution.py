@@ -25,12 +25,14 @@ from fdai.core.rbac.roles import Capability, Role, has_capability
 from fdai.core.workflow.orchestrator import ProcessRun, WorkflowOrchestrator
 from fdai.core.workflow.workflow_cancellation import WorkflowCancellationError
 from fdai.core.workflow.workflow_resume import WorkflowResumeError
+from fdai.core.workflow.workflow_retry import WorkflowRetryError
 from fdai.shared.contracts.models import Mode, Workflow
 from fdai.shared.providers.process_runtime import PROCESS_ID_PATTERN
 
 DEFAULT_RUN_PATH: Final[str] = "/workflows/run"
 DEFAULT_RESUME_PATH: Final[str] = "/workflows/{process_id}/resume"
 DEFAULT_CANCEL_PATH: Final[str] = "/workflows/{process_id}/cancel"
+DEFAULT_RETRY_PATH: Final[str] = "/workflows/{process_id}/retry"
 DEFAULT_MAX_BODY_BYTES: Final[int] = 32_000
 MAX_CONTEXT_ENTRIES: Final[int] = 100
 MAX_CONTEXT_VALUE_CHARS: Final[int] = 2_000
@@ -58,6 +60,8 @@ class WorkflowExecutionConfig:
     path: str = DEFAULT_RUN_PATH
     resume_path: str = DEFAULT_RESUME_PATH
     cancel_path: str = DEFAULT_CANCEL_PATH
+    retry_path: str = DEFAULT_RETRY_PATH
+    max_retry_attempts: int = 3
     enforce_workflows: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
@@ -67,8 +71,12 @@ class WorkflowExecutionConfig:
             raise ValueError("workflow resume path MUST contain one '{process_id}' parameter")
         if not self.cancel_path.startswith("/") or self.cancel_path.count("{process_id}") != 1:
             raise ValueError("workflow cancel path MUST contain one '{process_id}' parameter")
-        if len({self.path, self.resume_path, self.cancel_path}) != 3:
+        if not self.retry_path.startswith("/") or self.retry_path.count("{process_id}") != 1:
+            raise ValueError("workflow retry path MUST contain one '{process_id}' parameter")
+        if len({self.path, self.resume_path, self.cancel_path, self.retry_path}) != 4:
             raise ValueError("workflow command paths MUST differ")
+        if self.max_retry_attempts < 1:
+            raise ValueError("max_retry_attempts MUST be >= 1")
         names = [workflow.name for workflow in self.workflows]
         if len(names) != len(set(names)):
             raise ValueError("workflow execution catalog names MUST be unique")
@@ -244,7 +252,62 @@ def make_workflow_cancel_route(
     return Route(config.cancel_path, handler, methods=["POST"])
 
 
-def _workflow_error(exc: WorkflowCancellationError | WorkflowResumeError) -> JSONResponse:
+def make_workflow_retry_route(
+    *,
+    config: WorkflowExecutionConfig,
+    authorize_principal: AuthorizePrincipal,
+) -> Route:
+    """Return exact retry admission for an effect-free failed Process."""
+    workflows = {workflow.name: workflow for workflow in config.workflows}
+
+    async def handler(request: Request) -> JSONResponse:
+        principal = await authorize_principal(request)
+        if not has_capability(principal.roles, _RUN_CAPABILITY):
+            raise HTTPException(
+                status_code=403,
+                detail=f"workflow retry requires capability {_RUN_CAPABILITY.value!r}",
+            )
+        if await request.body():
+            raise HTTPException(status_code=400, detail="workflow retry request MUST have no body")
+        process_id = request.path_params["process_id"]
+        if not PROCESS_ID_PATTERN.fullmatch(process_id):
+            raise HTTPException(status_code=400, detail="process_id is malformed")
+        try:
+            envelope = await config.orchestrator.resume_metadata(
+                process_id=process_id,
+                workflows=workflows,
+            )
+        except WorkflowResumeError as exc:
+            return _workflow_error(exc)
+        if envelope.mode is Mode.ENFORCE:
+            if Role.OWNER not in principal.roles:
+                raise HTTPException(status_code=403, detail="enforce workflow retry requires Owner")
+            if envelope.workflow_ref not in config.enforce_workflows:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"workflow {envelope.workflow_ref!r} is not enabled for enforce runs",
+                )
+        try:
+            run = await config.orchestrator.retry(
+                process_id=process_id,
+                workflows=workflows,
+                actor_oid=principal.oid,
+                max_attempts=config.max_retry_attempts,
+            )
+        except (WorkflowResumeError, WorkflowRetryError) as exc:
+            return _workflow_error(exc)
+        return _run_response(
+            run=run,
+            target_resource_id=envelope.target_resource_id,
+            trigger_ts=envelope.trigger_ts,
+        )
+
+    return Route(config.retry_path, handler, methods=["POST"])
+
+
+def _workflow_error(
+    exc: WorkflowCancellationError | WorkflowResumeError | WorkflowRetryError,
+) -> JSONResponse:
     status = 404 if exc.kind == "process_not_found" else 409
     return JSONResponse(
         {"error": {"status": status, "kind": exc.kind, "message": str(exc)}},
@@ -285,6 +348,7 @@ def _run_response(
                 "console": f"/processes/{run.process_id}",
                 "resume": f"/workflows/{run.process_id}/resume",
                 "cancel": f"/workflows/{run.process_id}/cancel",
+                "retry": f"/workflows/{run.process_id}/retry",
             },
         }
     )
@@ -301,7 +365,7 @@ def append_workflow_run_route(
     """Append the optional route after fail-fast path collision checks."""
     if config is None:
         return
-    for path in (config.path, config.resume_path, config.cancel_path):
+    for path in (config.path, config.resume_path, config.cancel_path, config.retry_path):
         if path in core_paths:
             raise ValueError(f"workflow execution path {path!r} collides with a core route")
         if path in panel_paths:
@@ -315,6 +379,12 @@ def append_workflow_run_route(
     )
     routes.append(
         make_workflow_cancel_route(
+            config=config,
+            authorize_principal=authorize_principal,
+        )
+    )
+    routes.append(
+        make_workflow_retry_route(
             config=config,
             authorize_principal=authorize_principal,
         )
@@ -412,10 +482,12 @@ def _context(value: object) -> dict[str, str]:
 __all__ = [
     "DEFAULT_RUN_PATH",
     "DEFAULT_CANCEL_PATH",
+    "DEFAULT_RETRY_PATH",
     "DEFAULT_RESUME_PATH",
     "WorkflowExecutionConfig",
     "append_workflow_run_route",
     "make_workflow_run_route",
     "make_workflow_cancel_route",
+    "make_workflow_retry_route",
     "make_workflow_resume_route",
 ]

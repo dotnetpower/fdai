@@ -25,6 +25,7 @@ from fdai.delivery.operator_api.routes.workflow_execution import (
     WorkflowExecutionConfig,
     make_workflow_cancel_route,
     make_workflow_resume_route,
+    make_workflow_retry_route,
     make_workflow_run_route,
 )
 from fdai.shared.contracts.models import (
@@ -160,6 +161,8 @@ def _enforce_client(
     role: Role,
     enforce_workflows: frozenset[str],
     cancel_enforce_workflows: frozenset[str] | None = None,
+    retry_enforce_workflows: frozenset[str] | None = None,
+    with_dispatcher: bool = True,
 ) -> TestClient:
     action = OntologyActionType(
         schema_version="1.0.0",
@@ -206,7 +209,7 @@ def _enforce_client(
         action_types=actions,
         audit_store=InMemoryStateStore(),
         process_store=InMemoryProcessRuntimeStore(),
-        action_dispatcher=_Dispatcher(),
+        action_dispatcher=_Dispatcher() if with_dispatcher else None,
     )
 
     async def authorize(request):  # type: ignore[no-untyped-def]
@@ -225,6 +228,13 @@ def _enforce_client(
             enforce_workflows if cancel_enforce_workflows is None else cancel_enforce_workflows
         ),
     )
+    retry_config = WorkflowExecutionConfig(
+        workflows=(_workflow(),),
+        orchestrator=orchestrator,
+        enforce_workflows=(
+            enforce_workflows if retry_enforce_workflows is None else retry_enforce_workflows
+        ),
+    )
     return TestClient(
         Starlette(
             routes=[
@@ -238,6 +248,10 @@ def _enforce_client(
                 ),
                 make_workflow_cancel_route(
                     config=cancel_config,
+                    authorize_principal=authorize,
+                ),
+                make_workflow_retry_route(
+                    config=retry_config,
                     authorize_principal=authorize,
                 ),
             ]
@@ -432,6 +446,59 @@ def test_enforce_allowlist_removal_does_not_block_cancellation() -> None:
 
     assert response.status_code == 200
     assert response.json()["process"]["status"] == "waiting"
+
+
+def test_enforce_retry_rechecks_owner_and_current_allowlist() -> None:
+    client = _enforce_client(
+        role=Role.OWNER,
+        enforce_workflows=frozenset({"sample-flow"}),
+        with_dispatcher=False,
+    )
+    started = client.post(
+        "/workflows/run",
+        json={
+            "workflow": "sample-flow",
+            "target_resource_id": "resource-1",
+            "trigger_ts": _TRIGGER_TS.isoformat(),
+            "mode": "enforce",
+        },
+    )
+    retry_path = started.json()["links"]["retry"]
+
+    forbidden = client.post(
+        retry_path,
+        headers={"x-test-role": Role.CONTRIBUTOR.value},
+    )
+    body_rejected = client.post(retry_path, json={})
+    accepted = client.post(retry_path)
+
+    assert started.json()["process"]["status"] == "failed"
+    assert forbidden.status_code == 403
+    assert body_rejected.status_code == 400
+    assert accepted.status_code == 200
+    assert accepted.json()["process"]["status"] == "failed"
+
+
+def test_enforce_allowlist_removal_blocks_retry() -> None:
+    client = _enforce_client(
+        role=Role.OWNER,
+        enforce_workflows=frozenset({"sample-flow"}),
+        retry_enforce_workflows=frozenset(),
+        with_dispatcher=False,
+    )
+    started = client.post(
+        "/workflows/run",
+        json={
+            "workflow": "sample-flow",
+            "target_resource_id": "resource-1",
+            "trigger_ts": _TRIGGER_TS.isoformat(),
+            "mode": "enforce",
+        },
+    )
+
+    response = client.post(started.json()["links"]["retry"])
+
+    assert response.status_code == 409
 
 
 def test_shadow_command_rejects_unknown_workflow_and_bad_context() -> None:

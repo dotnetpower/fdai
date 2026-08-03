@@ -140,6 +140,9 @@ uv run python scripts/automation/run-workflow.py \
 
 uv run python scripts/automation/run-workflow.py \
   --cancel-process-id <process-id-from-start-response>
+
+uv run python scripts/automation/run-workflow.py \
+  --retry-process-id <process-id-from-start-response>
 ```
 
 The response includes the Process id and links to its snapshot, journal, and
@@ -152,6 +155,9 @@ body. They accept only a pending or waiting safe boundary, require Owner for an
 enforce Process, close pending approval slots, and reconcile any outstanding
 action outcome before cancellation or compensation. A running Process returns a
 typed conflict rather than assuming that an in-flight dispatcher is idle.
+`POST /workflows/{process_id}/retry` and CLI `--retry-process-id` admit only an
+effect-free failed attempt, repeat current enforce authority, and enforce the
+server-owned attempt cap. Ambiguous dispatch failure remains recovery work.
 Production compositions opt in by injecting `WorkflowExecutionConfig`; leaving
 it unset registers none of the command routes. The SPA does not call these
 endpoints. CLI and ChatOps are the command channels, and the console remains a

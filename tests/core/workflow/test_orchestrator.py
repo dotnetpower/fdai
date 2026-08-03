@@ -22,6 +22,7 @@ from fdai.core.workflow.orchestrator import (
     ShadowWorkflowStepExecutor,
     WorkflowCancellationError,
     WorkflowOrchestrator,
+    WorkflowRetryError,
     derive_process_id,
 )
 from fdai.core.workflow.workflow_resume import WorkflowResumeError
@@ -398,6 +399,241 @@ async def test_enforce_action_step_fails_without_dispatcher() -> None:
 
     assert run.status is ProcessStatus.FAILED
     assert run.step_results[0].reason == "enforce_action_dispatcher_not_configured"
+
+
+async def test_effect_free_failure_retries_with_distinct_attempt_identity() -> None:
+    audit = InMemoryStateStore()
+    process_store = InMemoryProcessRuntimeStore()
+    workflow = _workflow()
+    initial = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=process_store,
+    )
+    failed = await initial.run(
+        workflow,
+        target_resource_id="retry-target",
+        trigger_ts=_TRIGGER_TS,
+        context={"requester.principal": "operator-1"},
+        mode=Mode.ENFORCE,
+    )
+    dispatcher = _RecordingActionDispatcher()
+    retrying = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=process_store,
+        action_dispatcher=dispatcher,
+        outcome_verifier=_ResolvingOutcomeVerifier(),
+    )
+
+    retried = await retrying.retry(
+        process_id=failed.process_id,
+        workflows={workflow.name: workflow},
+        actor_oid="owner-1",
+        now=_TRIGGER_TS + timedelta(seconds=30),
+    )
+
+    assert failed.status is ProcessStatus.FAILED
+    assert retried.status is ProcessStatus.WAITING
+    assert dispatcher.calls[0]["attempt"] == 2
+    events = await process_store.events(failed.process_id)
+    retry_event = next(
+        event for event in events if event.kind is ProcessEventKind.PROCESS_RETRY_REQUESTED
+    )
+    dispatch_event = next(
+        event
+        for event in events
+        if event.kind is ProcessEventKind.ACTION_DISPATCHED and event.attempt == 2
+    )
+    assert retry_event.attempt == 2
+    assert dispatch_event.payload["proposal_ref"] == "proposal-1"
+    assert ":attempt:2:" in dispatch_event.idempotency_key
+
+
+async def test_retry_rejects_failed_attempt_with_dispatch_evidence() -> None:
+    audit = InMemoryStateStore()
+    process_store = InMemoryProcessRuntimeStore()
+    dispatcher = _RecordingActionDispatcher()
+    workflow = _workflow()
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=process_store,
+        action_dispatcher=dispatcher,
+    )
+    waiting = await orchestrator.run(
+        workflow,
+        target_resource_id="retry-blocked-target",
+        trigger_ts=_TRIGGER_TS,
+        context={"requester.principal": "operator-1"},
+        mode=Mode.ENFORCE,
+    )
+    snapshot = await process_store.get(waiting.process_id)
+    assert snapshot is not None
+    await process_store.transition(
+        process_id=waiting.process_id,
+        expected_revision=snapshot.revision,
+        status=ProcessStatus.FAILED,
+        current_step="",
+        event=ProcessEvent(
+            event_id="retry-blocked-terminal",
+            process_id=waiting.process_id,
+            kind=ProcessEventKind.PROCESS_FAILED,
+            idempotency_key=f"{waiting.process_id}:attempt:1:forced-terminal",
+            recorded_at=_TRIGGER_TS + timedelta(seconds=10),
+            correlation_id=snapshot.correlation_id,
+            attempt=1,
+            payload={"reason": "synthetic_terminal_failure"},
+        ),
+    )
+
+    with pytest.raises(WorkflowRetryError, match="dispatch") as error:
+        await orchestrator.retry(
+            process_id=waiting.process_id,
+            workflows={workflow.name: workflow},
+            actor_oid="owner-1",
+        )
+
+    assert error.value.kind == "retry_requires_recovery"
+
+
+async def test_retry_rejects_ambiguous_dispatch_failure_without_local_receipt() -> None:
+    audit = InMemoryStateStore()
+    process_store = InMemoryProcessRuntimeStore()
+    workflow = _workflow()
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=process_store,
+        action_dispatcher=_FailingActionDispatcher(fail_step="auto_step"),
+    )
+    failed = await orchestrator.run(
+        workflow,
+        target_resource_id="retry-ambiguous-target",
+        trigger_ts=_TRIGGER_TS,
+        context={"requester.principal": "operator-1"},
+        mode=Mode.ENFORCE,
+    )
+
+    with pytest.raises(WorkflowRetryError, match="effect-free") as error:
+        await orchestrator.retry(
+            process_id=failed.process_id,
+            workflows={workflow.name: workflow},
+            actor_oid="owner-1",
+        )
+
+    assert failed.status is ProcessStatus.FAILED
+    assert error.value.kind == "retry_requires_recovery"
+
+
+async def test_retry_rejects_terminal_attempt_limit() -> None:
+    process_store = InMemoryProcessRuntimeStore()
+    workflow = _workflow()
+    process_id = derive_process_id(
+        workflow_name=workflow.name,
+        target_resource_id="retry-limit-target",
+        trigger_ts=_TRIGGER_TS,
+    )
+    snapshot, _ = await process_store.create(
+        snapshot=ProcessSnapshot(
+            process_id=process_id,
+            workflow_ref=workflow.name,
+            workflow_version=str(workflow.version),
+            status=ProcessStatus.FAILED,
+            current_step="",
+            target_resource_id="retry-limit-target",
+            started_at=_TRIGGER_TS,
+            updated_at=_TRIGGER_TS,
+            correlation_id="retry-limit-correlation",
+        ),
+        event=ProcessEvent(
+            event_id="retry-limit-created",
+            process_id=process_id,
+            kind=ProcessEventKind.PROCESS_CREATED,
+            idempotency_key="retry-limit-created-key",
+            recorded_at=_TRIGGER_TS,
+            correlation_id="retry-limit-correlation",
+            payload={
+                "resume": {
+                    "trigger_ts": _TRIGGER_TS.isoformat(),
+                    "mode": Mode.SHADOW.value,
+                    "context": {},
+                    "context_complete": True,
+                }
+            },
+        ),
+    )
+    snapshot = await process_store.transition(
+        process_id=process_id,
+        expected_revision=snapshot.revision,
+        status=ProcessStatus.RUNNING,
+        current_step="auto_step",
+        event=ProcessEvent(
+            event_id="retry-limit-step-failed",
+            process_id=process_id,
+            kind=ProcessEventKind.STEP_FAILED,
+            idempotency_key="retry-limit-step-failed-key",
+            recorded_at=_TRIGGER_TS,
+            correlation_id="retry-limit-correlation",
+            step_id="auto_step",
+            attempt=3,
+        ),
+    )
+    await process_store.transition(
+        process_id=process_id,
+        expected_revision=snapshot.revision,
+        status=ProcessStatus.FAILED,
+        current_step="",
+        event=ProcessEvent(
+            event_id="retry-limit-terminal",
+            process_id=process_id,
+            kind=ProcessEventKind.PROCESS_FAILED,
+            idempotency_key="retry-limit-terminal-key",
+            recorded_at=_TRIGGER_TS,
+            correlation_id="retry-limit-correlation",
+            attempt=3,
+        ),
+    )
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=InMemoryStateStore(),
+        process_store=process_store,
+    )
+
+    with pytest.raises(WorkflowRetryError, match="limit") as error:
+        await orchestrator.retry(
+            process_id=process_id,
+            workflows={workflow.name: workflow},
+            actor_oid="owner-1",
+            max_attempts=3,
+        )
+
+    assert error.value.kind == "retry_attempt_limit"
 
 
 async def test_enforce_action_rejects_sensitive_params_without_persisting_value() -> None:

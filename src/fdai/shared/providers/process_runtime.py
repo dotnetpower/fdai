@@ -57,6 +57,7 @@ class ProcessEventKind(StrEnum):
     PROCESS_FAILED = "process.failed"
     PROCESS_CANCELLATION_REQUESTED = "process.cancellation-requested"
     PROCESS_CANCELLED = "process.cancelled"
+    PROCESS_RETRY_REQUESTED = "process.retry-requested"
     PROCESS_TIMED_OUT = "process.timed_out"
 
 

@@ -48,6 +48,18 @@ def test_cancel_builds_body_free_exact_process_request() -> None:
     assert request.data is None
 
 
+def test_retry_builds_body_free_exact_process_request() -> None:
+    module = _load_script()
+    parser = module._parser()
+    args = parser.parse_args(["--retry-process-id", "process-123"])
+
+    request = module._request(args, parser)
+
+    assert request.full_url == "http://127.0.0.1:8000/workflows/process-123/retry"
+    assert request.method == "POST"
+    assert request.data is None
+
+
 def test_resume_rejects_new_run_inputs() -> None:
     module = _load_script()
     parser = module._parser()
@@ -67,6 +79,8 @@ def test_resume_and_cancel_are_mutually_exclusive() -> None:
             "--resume-process-id",
             "process-123",
             "--cancel-process-id",
+            "process-123",
+            "--retry-process-id",
             "process-123",
         ]
     )

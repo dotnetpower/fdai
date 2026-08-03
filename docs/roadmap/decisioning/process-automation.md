@@ -295,6 +295,13 @@ compatibility default. `STEP_STARTED`, `ACTION_DISPATCHED`, branch, waiting, com
 terminal, and audit ids include that attempt, and `WorkflowActionDispatcher` uses it in the typed
 proposal idempotency key. Two attempts therefore cannot collapse into one event or proposal.
 
+`POST /workflows/{process_id}/retry` starts a new attempt only from `failed` and accepts no body.
+The failed attempt must have an allowlisted local failure reason and no action dispatch, approval,
+cancellation, or compensation evidence. A dispatcher exception is ambiguous even without a local
+dispatch event and returns `retry_requires_recovery`. Shadow retry requires Contributor; enforce
+retry requires Owner and the current enforce allowlist. The server-owned attempt limit defaults to
+3 and cannot be raised by the caller.
+
 Workflow audit uses each ActionType's `x-fdai-redact` paths. Redacted fields render as
 `[REDACTED]` and never enter the Process journal. Because the workflow runtime has no secret
 custody provider, an enforce action whose resolved params include a redacted field fails before

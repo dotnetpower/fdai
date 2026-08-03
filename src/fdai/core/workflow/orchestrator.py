@@ -25,6 +25,7 @@ from fdai.core.workflow.workflow_resume import (
     build_resume_payload,
     load_resume_envelope,
 )
+from fdai.core.workflow.workflow_retry import WorkflowRetryCoordinator, WorkflowRetryError
 from fdai.core.workflow.workflow_runtime import (
     ACTOR as _ACTOR,
 )
@@ -244,6 +245,39 @@ class WorkflowOrchestrator:
             raise WorkflowCancellationError(
                 "process_revision_conflict",
                 "Process changed concurrently with cancellation",
+            ) from exc
+
+    async def retry(
+        self,
+        *,
+        process_id: str,
+        workflows: Mapping[str, Workflow],
+        actor_oid: str,
+        now: datetime | None = None,
+        max_attempts: int = 3,
+    ) -> ProcessRun:
+        """Start or resume one effect-free failed Process attempt."""
+        envelope = await self.resume_metadata(process_id=process_id, workflows=workflows)
+        workflow = workflows[envelope.workflow_ref]
+        snapshot = await self._process_store.get(process_id)
+        if snapshot is None:  # pragma: no cover - resume metadata already proved it
+            raise WorkflowRetryError("process_not_found", f"unknown Process {process_id!r}")
+        retry = WorkflowRetryCoordinator(
+            process_store=self._process_store,
+            audit_store=self._audit,
+        )
+        try:
+            await retry.request(
+                snapshot=snapshot,
+                actor_oid=actor_oid,
+                requested_at=now or datetime.now(tz=UTC),
+                max_attempts=max_attempts,
+            )
+            return await self.resume(process_id=process_id, workflow=workflow, now=now)
+        except ProcessRevisionConflictError as exc:
+            raise WorkflowRetryError(
+                "process_revision_conflict",
+                "Process changed concurrently with retry",
             ) from exc
 
     async def run(
@@ -550,6 +584,7 @@ __all__ = [
     "WorkflowCancellationError",
     "WorkflowResumeEnvelope",
     "WorkflowResumeError",
+    "WorkflowRetryError",
     "derive_process_id",
     "process_state_key",
 ]

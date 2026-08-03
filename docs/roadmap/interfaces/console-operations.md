@@ -214,8 +214,14 @@ server accepts the command only from a durable `pending` or `waiting` boundary, 
 and cancellation intent, closes pending human-approval slots, reconciles an already-dispatched
 action, and then cancels or compensates through the workflow owner. A `running` Process returns a
 typed `409 process_not_at_safe_boundary` instead of guessing that dispatch is idle.
-Local and deployed Operator API factories register start, exact resume, and safe cancellation from
-the same `WorkflowExecutionConfig`; route inventory tests prevent either profile from omitting one.
+Local and deployed Operator API factories register start, exact resume, safe cancellation, and
+bounded retry from the same `WorkflowExecutionConfig`; route inventory tests prevent omissions.
+
+Bounded Process retry uses `POST /workflows/{process_id}/retry` with no request body. Contributor
+can retry shadow, while enforce requires Owner and the current workflow allowlist because retry can
+start new forward work. The server admits only a `failed` attempt with an explicit effect-free
+reason and no dispatch, approval, cancellation, or compensation evidence. Other failures return a
+typed recovery conflict. `max_retry_attempts` is server-owned and defaults to 3.
 
 ### Request checks
 
