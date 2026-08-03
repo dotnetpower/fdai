@@ -48,9 +48,44 @@ def test_docx_locators_preserve_empty_paragraph_ordinals() -> None:
     assert [unit.locator for unit in units] == ["docx/paragraph:2", "docx/heading:2:2"]
 
 
+def test_docx_preserves_nested_heading_context_and_table_roles() -> None:
+    xml = b"""<w:document xmlns:w='urn:w'><w:body>
+            <w:p><w:pPr><w:pStyle w:val='Heading1'/></w:pPr><w:r><w:t>Operations</w:t></w:r></w:p>
+            <w:p><w:pPr><w:pStyle w:val='Heading2'/></w:pPr><w:r><w:t>Backup</w:t></w:r></w:p>
+            <w:p><w:r><w:t>Verify the snapshot.</w:t></w:r></w:p>
+            <w:tbl>
+                <w:tr><w:trPr><w:tblHeader/></w:trPr><w:tc><w:p><w:r><w:t>Step</w:t></w:r></w:p></w:tc></w:tr>
+                <w:tr><w:tc><w:p><w:r><w:t>Restore</w:t></w:r></w:p></w:tc></w:tr>
+            </w:tbl>
+        </w:body></w:document>"""
+
+    units = extract_ooxml(_ooxml({"word/document.xml": xml}))
+
+    assert units[2].locator == ("docx/paragraph:3/context:heading:1:1/heading:2:1")
+    assert [unit.table_cell_role for unit in units[3:]] == ["header", "body"]
+
+
+def test_pptx_preserves_multiple_paragraphs_per_shape() -> None:
+    slide = b"""<p:sld xmlns:p='urn:p' xmlns:a='urn:a'><p:cSld><p:spTree><p:sp>
+            <p:txBody>
+                <a:p><a:r><a:t>First paragraph</a:t></a:r></a:p>
+                <a:p><a:r><a:t>Second paragraph</a:t></a:r></a:p>
+            </p:txBody>
+        </p:sp></p:spTree></p:cSld></p:sld>"""
+
+    units = extract_ooxml(_ooxml({"ppt/slides/slide1.xml": slide}))
+
+    assert [unit.text for unit in units] == ["First paragraph", "Second paragraph"]
+    assert [unit.locator for unit in units] == [
+        "pptx/slide:1/shape:1/paragraph:1",
+        "pptx/slide:1/shape:1/paragraph:2",
+    ]
+
+
 def test_pptx_extracts_every_table_within_one_shape() -> None:
     table = (
-        b"<a:tbl><a:tr><a:tc><a:txBody><a:p><a:r><a:t>{text}</a:t></a:r></a:p>"
+        b"<a:tbl><a:tblPr firstRow='1'/><a:tr><a:tc><a:txBody>"
+        b"<a:p><a:r><a:t>{text}</a:t></a:r></a:p>"
         b"</a:txBody></a:tc></a:tr></a:tbl>"
     )
     slide = (
@@ -69,6 +104,35 @@ def test_pptx_extracts_every_table_within_one_shape() -> None:
         "pptx/slide:1/shape:1/table:1/row:1/cell:1",
         "pptx/slide:1/shape:1/table:2/row:1/cell:1",
     ]
+    assert [unit.table_cell_role for unit in units] == ["header", "header"]
+
+
+def test_xlsx_preserves_cell_addresses_shared_strings_and_roles() -> None:
+    shared = b"""<sst xmlns='urn:x'><si><t>Header</t></si><si><t>Body</t></si></sst>"""
+    sheet = (
+        b"<worksheet xmlns='urn:x'><sheetData>"
+        b"<row r='1'><c r='B1' t='s'><v>0</v></c></row>"
+        b"<row r='2'><c r='B2' t='s'><v>1</v></c>"
+        b"<c r='C2' t='inlineStr'><is><t>Inline</t></is></c></row>"
+        b"</sheetData></worksheet>"
+    )
+
+    units = extract_ooxml(
+        _ooxml(
+            {
+                "xl/sharedStrings.xml": shared,
+                "xl/worksheets/sheet2.xml": sheet,
+            }
+        )
+    )
+
+    assert [unit.locator for unit in units] == [
+        "xlsx/sheet:2/cell:B1",
+        "xlsx/sheet:2/cell:B2",
+        "xlsx/sheet:2/cell:C2",
+    ]
+    assert [unit.text for unit in units] == ["Header", "Body", "Inline"]
+    assert [unit.table_cell_role for unit in units] == [None, None, None]
 
 
 def test_pdf_extracts_generated_fixture_and_rejects_encryption() -> None:
@@ -139,12 +203,19 @@ def test_pdf_ocr_rejects_duplicate_or_reordered_citations() -> None:
     with pytest.raises(ValueError, match="ordered by page"):
         normalize_pdf_ocr_units(reordered)
 
+    reordered_blocks = (
+        StructuralUnit(unit_id="unit-2", kind="page", locator="page:1:line:2", text="second"),
+        StructuralUnit(unit_id="unit-1", kind="page", locator="page:1:line:1", text="first"),
+    )
+    with pytest.raises(ValueError, match="ordered by page and block"):
+        normalize_pdf_ocr_units(reordered_blocks)
+
 
 def test_pdf_ocr_validates_locator_empty_output_and_budget(monkeypatch) -> None:
     valid = (
         StructuralUnit(unit_id="unit-1", kind="page", locator="pdf/page:2/ocr:7", text="  text  "),
     )
-    assert normalize_pdf_ocr_units(valid)[0].locator == "pdf/page:2/ocr:1"
+    assert normalize_pdf_ocr_units(valid)[0].locator == "pdf/page:2/ocr:7"
     with pytest.raises(ValueError, match="positive page"):
         normalize_pdf_ocr_units(
             (StructuralUnit(unit_id="bad", kind="page", locator="page:0:line:1", text="x"),)

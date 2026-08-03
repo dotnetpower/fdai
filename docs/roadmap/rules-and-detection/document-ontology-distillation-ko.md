@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 7d663cb2ed6f7a5ef6d4a9baf22a471163fe05d2
+translation_source_sha: 8a9f4eb65a78f9c54d2572f762fea4434bc8508b
 translation_revised: 2026-08-03
 ---
 # 문서 온톨로지 증류
@@ -141,11 +141,21 @@ table cell, page block 또는 speaker note로 이동할 수 없습니다.
 Locator는 deterministic grammar와 1-based ordinal을 사용합니다.
 
 - **DOCX:** `docx/paragraph:{n}`, `docx/heading:{level}:{n}` 또는
-  `docx/table:{table}/row:{row}/cell:{cell}`
-- **PPTX:** `pptx/slide:{slide}/shape:{shape}`, `/table:{table}/row:{row}/cell:{cell}` suffix
-  또는 `pptx/slide:{slide}/notes:{paragraph}`
+  `docx/table:{table}/row:{row}/cell:{cell}`. Heading 아래 paragraph content에는
+  `/context:heading:{level}:{ordinal}` ancestry suffix를 추가합니다.
+- **PPTX:** `pptx/slide:{slide}/shape:{shape}`, multi-paragraph shape의 optional
+  `/paragraph:{paragraph}` suffix, `/table:{table}/row:{row}/cell:{cell}` suffix 또는
+  `pptx/slide:{slide}/notes:{paragraph}`. Single-paragraph shape locator는 변경하지 않습니다.
+- **XLSX:** `xlsx/sheet:{sheet}/cell:{address}`는 source cell address를 보존하고 bounded
+  shared-string reference를 resolve합니다.
 - **PDF:** native text는 `pdf/page:{page}/block:{block}`, OCR fallback은
   `pdf/page:{page}/ocr:{block}`
+
+`StructuralUnit.table_cell_role`은 optional이며 하위 호환됩니다. DOCX와 PPTX cell은 OOXML table
+metadata가 header row를 선언한 경우에만 `header`를 사용하고 다른 table row는 `body`를 사용합니다.
+Worksheet cell address만으로 header semantic을 증명할 수 없으므로 XLSX cell에서는 이 field를
+설정하지 않습니다. PDF OCR은 provider의 positive page/block ordinal을 보존하고 locator를
+canonicalize하기 전에 duplicate, reorder 또는 output-budget overflow를 거부합니다.
 
 각 PDF page는 evidence path를 정확히 하나만 선택합니다. Native text가 있으면 이를 사용하고, 없으면
 injected page OCR provider가 bounded cited block을 반환해야 합니다. OCR 부재, encrypted input, parser

@@ -217,6 +217,36 @@ async def test_ocr_rejects_duplicate_page_locators() -> None:
         await ocr.extract(version=_version(), content=b"data")
 
 
+async def test_ocr_rejects_reordered_provider_pages() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            return httpx.Response(
+                202,
+                headers={"operation-location": "https://ocr.example.com/operations/1"},
+            )
+        return httpx.Response(
+            200,
+            json={
+                "status": "succeeded",
+                "analyzeResult": {
+                    "pages": [
+                        {"pageNumber": 2, "lines": [{"content": "second"}]},
+                        {"pageNumber": 1, "lines": [{"content": "first"}]},
+                    ]
+                },
+            },
+        )
+
+    ocr = AzureDocumentIntelligenceOcr(
+        config=AzureDocumentOcrConfig(endpoint="https://ocr.example.com"),
+        identity=_Identity(),
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+
+    with pytest.raises(AzureDocumentOcrError, match="ordered"):
+        await ocr.extract(version=_version(), content=b"data")
+
+
 async def test_ocr_enforces_total_operation_deadline() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST":

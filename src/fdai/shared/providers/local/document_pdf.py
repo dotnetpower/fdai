@@ -85,25 +85,22 @@ def _page_text_blocks(text: str) -> tuple[str, ...]:
 def normalize_pdf_ocr_units(units: Iterable[StructuralUnit]) -> tuple[StructuralUnit, ...]:
     """Validate OCR page citations and convert them to canonical PDF locators."""
     normalized: list[StructuralUnit] = []
-    per_page: dict[int, int] = {}
     seen_unit_ids: set[str] = set()
     seen_locators: set[str] = set()
-    previous_page = 0
+    previous_position = (0, 0)
     total_characters = 0
     for unit in units:
         if unit.unit_id in seen_unit_ids or unit.locator in seen_locators:
             raise ValueError("PDF OCR units MUST have unique identities and locators")
         seen_unit_ids.add(unit.unit_id)
         seen_locators.add(unit.locator)
-        page_number = _ocr_page_number(unit.locator)
-        if page_number < previous_page:
-            raise ValueError("PDF OCR units MUST be ordered by page")
-        previous_page = page_number
+        page_number, block_number = _ocr_position(unit.locator)
+        if (page_number, block_number) <= previous_position:
+            raise ValueError("PDF OCR units MUST be ordered by page and block")
+        previous_position = (page_number, block_number)
         text = " ".join(unit.text.split())
         if not text:
             continue
-        per_page[page_number] = per_page.get(page_number, 0) + 1
-        block_number = per_page[page_number]
         total_characters += len(text)
         if len(normalized) >= _MAX_UNITS or total_characters > _MAX_CHARACTERS:
             raise ValueError("PDF OCR output exceeds the parser budget")
@@ -120,14 +117,17 @@ def normalize_pdf_ocr_units(units: Iterable[StructuralUnit]) -> tuple[Structural
     return tuple(normalized)
 
 
-def _ocr_page_number(locator: str) -> int:
+def _ocr_position(locator: str) -> tuple[int, int]:
     match = re.fullmatch(
         r"(?:pdf/)?page:(\d+)(?:/(?:ocr|block):(\d+)|:line:(\d+))",
         locator,
     )
     if match is None or int(match.group(1)) < 1:
         raise ValueError("PDF OCR unit locator MUST identify a positive page and block")
-    return int(match.group(1))
+    block_number = int(match.group(2) or match.group(3) or 0)
+    if block_number < 1:
+        raise ValueError("PDF OCR unit locator MUST identify a positive page and block")
+    return int(match.group(1)), block_number
 
 
 __all__ = ["extract_pdf_text", "normalize_pdf_ocr_units"]

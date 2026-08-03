@@ -1,7 +1,7 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: ed1f2def2232e388d94d61fd7d6dd6cd9e6eee46
+translation_source_sha: 32160d7bcb32669a95e5be3b3396d049898d8275
 translation_revised: 2026-08-03
 ---
 # 문서 인제스트와 Drop Zone
@@ -366,8 +366,9 @@ migration하지 않습니다.
 - source hash, media type, observed format, size, parent/child link
 - uploader/source identity, collection, purpose, provenance
 - classification, sensitivity label, `ProtectionState`, access descriptor reference
-- line, DOCX paragraph/heading/table-cell, PPTX slide/shape/table-cell/speaker-note 및 PDF
-  page/block/OCR locator가 있는 ordered structural unit
+- line, DOCX paragraph/heading-context/table-cell, PPTX slide/shape/paragraph/table-cell/speaker-note,
+  XLSX cell-address 및 PDF page/block/OCR locator가 있는 ordered structural unit. 명시적으로 선언된
+  Office table role은 optional `table_cell_role` field를 사용합니다.
 - inline binary object가 아닌 extracted text와 asset reference
 - extractor name/version, warning, loss indicator, processing metric
 - retention, legal hold, deletion lineage, superseded-version reference

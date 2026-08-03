@@ -125,6 +125,7 @@ class StructuralUnit(_Base):
     kind: Literal["text", "paragraph", "table", "slide", "sheet", "page"]
     locator: Annotated[str, Field(min_length=1, max_length=256)]
     text: str
+    table_cell_role: Literal["header", "body"] | None = None
 
 
 class DocumentSourceSpan(_Base):

@@ -140,11 +140,21 @@ shape, table cell, page block, or speaker note.
 Locators use a deterministic grammar and 1-based ordinals:
 
 - **DOCX:** `docx/paragraph:{n}`, `docx/heading:{level}:{n}`, or
-  `docx/table:{table}/row:{row}/cell:{cell}`.
-- **PPTX:** `pptx/slide:{slide}/shape:{shape}`, a `/table:{table}/row:{row}/cell:{cell}` suffix,
-  or `pptx/slide:{slide}/notes:{paragraph}`.
+  `docx/table:{table}/row:{row}/cell:{cell}`. Paragraph content under headings adds a
+  `/context:heading:{level}:{ordinal}` ancestry suffix.
+- **PPTX:** `pptx/slide:{slide}/shape:{shape}`, an optional `/paragraph:{paragraph}` suffix for
+  multi-paragraph shapes, a `/table:{table}/row:{row}/cell:{cell}` suffix, or
+  `pptx/slide:{slide}/notes:{paragraph}`. Single-paragraph shape locators remain unchanged.
+- **XLSX:** `xlsx/sheet:{sheet}/cell:{address}` preserves the source cell address and resolves
+  bounded shared-string references.
 - **PDF:** `pdf/page:{page}/block:{block}` for native text and
   `pdf/page:{page}/ocr:{block}` for OCR fallback.
+
+`StructuralUnit.table_cell_role` is optional and backward compatible. DOCX and PPTX cells use
+`header` only when their OOXML table metadata declares a header row; other table rows use `body`.
+XLSX cells leave the field unset because a worksheet cell address alone does not prove header
+semantics. PDF OCR preserves the provider's positive page/block ordinal and rejects duplicates,
+reordering, or output-budget overflow before canonicalizing the locator.
 
 Each PDF page selects exactly one evidence path. Native text wins when present; otherwise the
 injected page OCR provider must return bounded cited blocks. Missing OCR, encrypted input, parser

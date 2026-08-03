@@ -361,8 +361,9 @@ Every extractor produces a versioned `DocumentEnvelope` rather than writing dire
 - source hash, media type, observed format, size, and parent/child links;
 - uploader/source identity, collection, purpose, and provenance;
 - classification, sensitivity label, `ProtectionState`, and access descriptor reference;
-- ordered structural units with line, DOCX paragraph/heading/table-cell, PPTX
-  slide/shape/table-cell/speaker-note, and PDF page/block/OCR locators;
+- ordered structural units with line, DOCX paragraph/heading-context/table-cell, PPTX
+  slide/shape/paragraph/table-cell/speaker-note, XLSX cell-address, and PDF page/block/OCR
+  locators; explicitly declared Office table roles use the optional `table_cell_role` field;
 - extracted text and asset references, not inline binary objects;
 - extractor name/version, warnings, loss indicators, and processing metrics;
 - retention, legal hold, deletion lineage, and superseded-version reference.

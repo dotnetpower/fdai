@@ -185,6 +185,7 @@ class AzureDocumentIntelligenceOcr:
         units: list[StructuralUnit] = []
         total_characters = 0
         seen_page_numbers: set[int] = set()
+        previous_page_number = 0
         for page_index, page in enumerate(pages, start=1):
             if not isinstance(page, dict):
                 raise AzureDocumentOcrError("OCR page is malformed")
@@ -193,7 +194,10 @@ class AzureDocumentIntelligenceOcr:
                 page_number = page_index
             if page_number in seen_page_numbers:
                 raise AzureDocumentOcrError("OCR result has duplicate page numbers")
+            if page_number < previous_page_number:
+                raise AzureDocumentOcrError("OCR result pages MUST be ordered")
             seen_page_numbers.add(page_number)
+            previous_page_number = page_number
             lines = page.get("lines")
             if not isinstance(lines, list):
                 raise AzureDocumentOcrError("OCR page has no lines")
