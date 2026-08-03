@@ -24,20 +24,22 @@ its deterministic safety checks.
 
 ## Reference architecture
 
-Use the reference view to identify product layers and authority boundaries before
-tracing an individual event. Connected operational systems and governed outcomes
-surround the FDAI control plane. Inside it, operator surfaces, the agent runtime,
-the governed control flow, model and tool capabilities, knowledge and evidence,
-and the Azure platform foundation remain distinct layers.
+Use the reference view to identify system scope, authority boundaries, and
+governed dependencies before tracing an individual event. The headless control
+plane contains typed event choreography and the control stages owned by the 15
+agents. Model providers, tools, policy and query engines, knowledge, evidence,
+and the Azure deployment foundation remain outside that inner boundary.
 
 <fdai-architecture-diagram manifest="../diagrams/generated/fdai-reference-architecture.manifest.json" locale="en" style="display:block">
-  <img src="../diagrams/generated/fdai-reference-architecture.en.svg" alt="Connected Azure resources, telemetry, repositories, and enterprise connectors send signals into FDAI. Operators use the Web Console, CLI, and ChatOps surfaces. The fixed pantheon of 15 independently runnable agents coordinates only through a schema-validated event bus. Events pass through ingest, trust routing, deterministic or grounded decision tiers, verification and safety checks, and the privileged executor. Microsoft Foundry, Azure OpenAI, provider tools, the operating ontology, governed catalogs, and PostgreSQL provide model, tool, knowledge, and evidence capabilities. Azure Container Apps, Microsoft Entra ID, managed identities, Key Vault, and Azure Monitor form the platform foundation. Governed outcomes include human approval, remediation pull requests, bounded direct actions, and audit replay." loading="eager" style="display:block;width:100%;height:auto" />
+  <img src="../diagrams/generated/fdai-reference-architecture.en.svg" alt="Connected Azure resources, telemetry, repositories, and enterprise connectors publish typed signals into the headless FDAI control plane. Operators use the Web Console, CLI, and ChatOps interfaces. Fifteen independently runnable agents own every control stage and coordinate through a schema-validated event bus. Events pass through ingest and trust routing into T0 deterministic rules, T1 verified reuse, or T2 grounded reasoning. T2 alone passes a mixed-model quality gate before all tiers enter the common risk and authority gate. High-impact work requests independent human authority, and the resulting typed approval event re-enters the agent runtime instead of calling the executor directly. Eligible work reaches the privileged executor and produces remediation pull requests or bounded direct actions; ineligible work is held, denied, or closed as a no-op. Microsoft Foundry, Azure OpenAI, provider tools, OPA and Rego policy evaluation, IQL inventory queries, the operating ontology, governed catalogs, and PostgreSQL provide governed capabilities outside the headless control-plane boundary. Azure Container Apps, Microsoft Entra ID, managed identities, Key Vault, and Azure Monitor form the deployment foundation. Every terminal result is attributable and replayable." loading="eager" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 The collective pantheon mark represents the fixed 15-agent organization, not a
-sixteenth agent. Layer connectors show governed relationships at product level.
-Use the system overview for one-event control flow and the Azure views for
-deployment and resource-level connections.
+sixteenth agent. T2 alone uses the quality gate; every tier uses the common risk
+and authority gate. Human approval returns as a typed event instead of calling
+the executor directly. OPA and Rego evaluate deterministic policy, while IQL
+performs bounded inventory queries. Use the system overview for one-event flow
+and the Azure views for deployment and resource-level connections.
 
 ## Design at a glance
 

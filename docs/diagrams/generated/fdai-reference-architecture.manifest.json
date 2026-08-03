@@ -1,17 +1,17 @@
 {
   "id": "fdai-reference-architecture",
-  "version": 1,
+  "version": 2,
   "updated": "2026-08-03",
   "locales": {
     "en": {
       "title": "FDAI reference architecture",
-      "description": "Logical product layers, governed control boundaries, Azure platform services, and connected operational systems for FDAI.",
-      "alt": "Connected Azure resources, telemetry, repositories, and enterprise connectors send signals into FDAI. Operators use the Web Console, CLI, and ChatOps surfaces. The fixed pantheon of 15 independently runnable agents coordinates only through a schema-validated event bus. Events pass through ingest, trust routing, deterministic or grounded decision tiers, verification and safety checks, and the privileged executor. Microsoft Foundry, Azure OpenAI, provider tools, the operating ontology, governed catalogs, and PostgreSQL provide model, tool, knowledge, and evidence capabilities. Azure Container Apps, Microsoft Entra ID, managed identities, Key Vault, and Azure Monitor form the platform foundation. Governed outcomes include human approval, remediation pull requests, bounded direct actions, and audit replay."
+      "description": "Agent-owned control stages, separated authority gates, governed dependencies, and outcomes for FDAI autonomous cloud operations.",
+      "alt": "Connected Azure resources, telemetry, repositories, and enterprise connectors publish typed signals into the headless FDAI control plane. Operators use the Web Console, CLI, and ChatOps interfaces. Fifteen independently runnable agents own every control stage and coordinate through a schema-validated event bus. Events pass through ingest and trust routing into T0 deterministic rules, T1 verified reuse, or T2 grounded reasoning. T2 alone passes a mixed-model quality gate before all tiers enter the common risk and authority gate. High-impact work requests independent human authority, and the resulting typed approval event re-enters the agent runtime instead of calling the executor directly. Eligible work reaches the privileged executor and produces remediation pull requests or bounded direct actions; ineligible work is held, denied, or closed as a no-op. Microsoft Foundry, Azure OpenAI, provider tools, OPA and Rego policy evaluation, IQL inventory queries, the operating ontology, governed catalogs, and PostgreSQL provide governed capabilities outside the headless control-plane boundary. Azure Container Apps, Microsoft Entra ID, managed identities, Key Vault, and Azure Monitor form the deployment foundation. Every terminal result is attributable and replayable."
     },
     "ko": {
       "title": "FDAI 참조 아키텍처",
-      "description": "FDAI의 논리적 제품 계층, 통제 경계, Azure platform service 및 연결된 운영 시스템입니다.",
-      "alt": "연결된 Azure resource, telemetry, repository 및 enterprise connector가 FDAI로 signal을 보냅니다. 운영자는 Web Console, CLI 및 ChatOps surface를 사용합니다. 고정된 15개 독립 실행 agent는 schema-validated event bus로만 협업합니다. Event는 ingest, trust routing, deterministic 또는 grounded decision tier, verification 및 safety check, privileged executor를 통과합니다. Microsoft Foundry, Azure OpenAI, provider tool, operating ontology, governed catalog 및 PostgreSQL이 model, tool, knowledge 및 evidence capability를 제공합니다. Azure Container Apps, Microsoft Entra ID, managed identity, Key Vault 및 Azure Monitor가 platform foundation을 구성합니다. 통제된 결과에는 사람 승인, remediation pull request, 범위가 제한된 direct action 및 audit replay가 포함됩니다."
+      "description": "FDAI 자율 cloud operation을 위한 agent 소유 제어 단계, 분리된 권한 gate, 통제된 의존 서비스 및 결과입니다.",
+      "alt": "연결된 Azure resource, telemetry, repository 및 enterprise connector가 typed signal을 headless FDAI control plane에 publish합니다. 운영자는 Web Console, CLI 및 ChatOps interface를 사용합니다. 15개 독립 실행 agent가 모든 제어 단계를 소유하고 schema-validated event bus로 협업합니다. Event는 ingest와 trust routing을 거쳐 T0 deterministic rule, T1 verified reuse 또는 T2 grounded reasoning으로 전달됩니다. T2만 mixed-model quality gate를 통과한 뒤 모든 tier가 공통 risk 및 authority gate로 들어갑니다. 영향이 큰 작업은 독립적인 사람 권한을 요청하고, typed approval event는 executor를 직접 호출하지 않고 agent runtime으로 다시 들어갑니다. 실행 가능한 작업은 privileged executor에 도달하여 remediation pull request 또는 범위가 제한된 direct action을 생성합니다. 실행할 수 없는 작업은 hold, deny 또는 no-op으로 종료됩니다. Microsoft Foundry, Azure OpenAI, provider tool, OPA 및 Rego policy evaluation, IQL inventory query, operating ontology, governed catalog 및 PostgreSQL은 headless control-plane 경계 밖에서 통제된 capability를 제공합니다. Azure Container Apps, Microsoft Entra ID, managed identity, Key Vault 및 Azure Monitor는 deployment foundation을 구성합니다. 모든 terminal result는 추적하고 replay할 수 있습니다."
     }
   },
   "assets": {
@@ -80,7 +80,7 @@
       },
       "description": {
         "en": "Read projections and submit bounded requests",
-        "ko": "Projection 조회 및 범위가 제한된 request 제출"
+        "ko": "조회 projection 확인 및 범위가 제한된 request 제출"
       }
     },
     {
@@ -104,7 +104,7 @@
       },
       "description": {
         "en": "Teams, Slack, and notification adapters",
-        "ko": "Teams, Slack 및 notification adapter"
+        "ko": "Teams, Slack 및 알림 adapter"
       }
     },
     {
@@ -123,12 +123,12 @@
       "id": "agent-pantheon",
       "kind": "process",
       "label": {
-        "en": "15 independent agents",
-        "ko": "15개 독립 agent"
+        "en": "15 agents own every stage",
+        "ko": "15개 agent가 모든 단계를 소유"
       },
       "description": {
         "en": "Single-writer ownership for observation, judgment, approval, execution, recovery, audit, and learning",
-        "ko": "관찰, 판단, 승인, 실행, 복구, 감사 및 학습의 single-writer ownership"
+        "ko": "관찰, 판단, 승인, 실행, 복구, 감사 및 학습에 대한 single-writer ownership"
       }
     },
     {
@@ -159,24 +159,36 @@
       "id": "decision-tiers",
       "kind": "process",
       "label": {
-        "en": "T0 / T1 / T2 decision",
+        "en": "T0 / T1 / T2 decisions",
         "ko": "T0 / T1 / T2 결정"
       },
       "description": {
-        "en": "Rules, evidence reuse, or grounded reasoning",
-        "ko": "Rule, evidence reuse 또는 grounded reasoning"
+        "en": "T0 rules, T1 verified reuse, or T2 grounded reasoning",
+        "ko": "T0 rule, T1 verified reuse 또는 T2 grounded reasoning"
       }
     },
     {
-      "id": "safety-check",
+      "id": "t2-quality-gate",
       "kind": "decision",
       "label": {
-        "en": "Verification and safety check",
-        "ko": "근거 및 안전성 검토"
+        "en": "T2-only quality gate",
+        "ko": "T2 전용 quality gate"
       },
       "description": {
-        "en": "Evidence, policy, risk, authority, and dry-run gates",
-        "ko": "Evidence, policy, risk, authority 및 dry-run gate"
+        "en": "Mixed-model agreement, grounding, and deterministic verification",
+        "ko": "Mixed-model agreement, grounding 및 deterministic verification"
+      }
+    },
+    {
+      "id": "risk-authority-gate",
+      "kind": "decision",
+      "label": {
+        "en": "Risk and authority gate",
+        "ko": "Risk 및 authority gate"
+      },
+      "description": {
+        "en": "Policy, ActionType ceiling, impact scope, approval, and safeguards",
+        "ko": "Policy, ActionType ceiling, 영향 범위, 승인 및 safeguard"
       }
     },
     {
@@ -228,27 +240,27 @@
       }
     },
     {
-      "id": "operating-ontology",
-      "kind": "store",
+      "id": "policy-query-engine",
+      "kind": "decision",
       "label": {
-        "en": "Operating ontology",
-        "ko": "Operating ontology"
+        "en": "OPA / Rego + IQL",
+        "ko": "OPA / Rego + IQL"
       },
       "description": {
-        "en": "Objects, relationships, state, objectives, actions, and evidence",
-        "ko": "Object, relationship, state, objective, action 및 evidence"
+        "en": "Deterministic policy evaluation and bounded inventory queries",
+        "ko": "결정론적 policy 평가 및 범위가 제한된 inventory query"
       }
     },
     {
-      "id": "governed-catalogs",
+      "id": "ontology-catalogs",
       "kind": "store",
       "label": {
-        "en": "Governed catalogs",
-        "ko": "통제된 catalog"
+        "en": "Ontology and catalogs",
+        "ko": "Ontology 및 catalog"
       },
       "description": {
-        "en": "Rules, policies, ActionTypes, workflows, and promotion evidence",
-        "ko": "Rule, policy, ActionType, workflow 및 promotion evidence"
+        "en": "Objects, evidence, rules, ActionTypes, workflows, and promotion records",
+        "ko": "Object, evidence, rule, ActionType, workflow 및 promotion record"
       }
     },
     {
@@ -327,12 +339,12 @@
       "id": "human-approval",
       "kind": "external",
       "label": {
-        "en": "Human approval",
-        "ko": "사람 승인"
+        "en": "Independent human authority",
+        "ko": "독립적인 사람 권한"
       },
       "description": {
-        "en": "Separate approver identity for high-impact work",
-        "ko": "영향이 큰 작업을 위한 분리된 approver identity"
+        "en": "Current approval or valid bounded standing authorization",
+        "ko": "현재 승인 또는 유효하고 범위가 제한된 standing authorization"
       }
     },
     {
@@ -360,6 +372,18 @@
       }
     },
     {
+      "id": "held-outcome",
+      "kind": "service",
+      "label": {
+        "en": "Held, denied, or no-op",
+        "ko": "Hold, deny 또는 no-op"
+      },
+      "description": {
+        "en": "No mutation when evidence, policy, or authority is insufficient",
+        "ko": "Evidence, policy 또는 authority가 부족하면 변경하지 않음"
+      }
+    },
+    {
       "id": "audit-replay",
       "kind": "service",
       "label": {
@@ -376,14 +400,14 @@
     {
       "id": "environment-to-runtime",
       "from": "connected-environment",
-      "to": "typed-event-bus",
+      "to": "event-choreography",
       "kind": "event",
       "label": null
     },
     {
       "id": "operators-to-runtime",
       "from": "operator-surfaces",
-      "to": "agent-runtime",
+      "to": "event-choreography",
       "kind": "request",
       "label": null
     },
@@ -416,44 +440,54 @@
       "label": null
     },
     {
-      "id": "decision-to-safety",
+      "id": "decision-to-quality",
       "from": "decision-tiers",
-      "to": "safety-check",
+      "to": "t2-quality-gate",
       "kind": "request",
       "label": null
     },
     {
-      "id": "safety-to-executor",
-      "from": "safety-check",
+      "id": "decision-to-risk",
+      "from": "decision-tiers",
+      "to": "risk-authority-gate",
+      "kind": "request",
+      "label": {
+        "en": "T0 / T1",
+        "ko": "T0 / T1"
+      }
+    },
+    {
+      "id": "quality-to-risk",
+      "from": "t2-quality-gate",
+      "to": "risk-authority-gate",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "risk-to-executor",
+      "from": "risk-authority-gate",
       "to": "privileged-executor",
       "kind": "mutation",
       "label": null
     },
     {
-      "id": "models-to-control",
-      "from": "models-and-tools",
+      "id": "capabilities-to-control",
+      "from": "governed-capabilities",
       "to": "governed-control",
       "kind": "read",
       "label": null
     },
     {
-      "id": "knowledge-to-control",
-      "from": "knowledge-and-evidence",
-      "to": "governed-control",
-      "kind": "read",
-      "label": null
-    },
-    {
-      "id": "safety-to-approval",
+      "id": "risk-to-approval",
       "from": "governed-control",
       "to": "human-approval",
       "kind": "approval",
       "label": null
     },
     {
-      "id": "approval-to-executor",
+      "id": "approval-to-runtime",
       "from": "human-approval",
-      "to": "privileged-executor",
+      "to": "event-choreography",
       "kind": "approval",
       "label": null
     },
@@ -472,9 +506,16 @@
       "label": null
     },
     {
+      "id": "risk-to-held",
+      "from": "governed-control",
+      "to": "held-outcome",
+      "kind": "request",
+      "label": null
+    },
+    {
       "id": "control-to-evidence",
       "from": "governed-control",
-      "to": "knowledge-and-evidence",
+      "to": "evidence-store",
       "kind": "audit",
       "label": null
     },
