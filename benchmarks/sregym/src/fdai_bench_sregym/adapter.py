@@ -38,6 +38,7 @@ _CAPABILITIES: Final[tuple[Capability, ...]] = tuple(
     for capability_id in (
         "observe.kubernetes.inventory",
         "observe.kubernetes.events",
+        "observe.kubernetes.nodes",
         "observe.metrics.query",
         "observe.logs.query",
         "observe.traces.query",

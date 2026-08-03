@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 192200884718b0ed524b4f01b0bbf2918c74990d
+translation_source_sha: 461cb19d3ef6cea8eeb3293ec658c6ecc080aac1
 translation_revised: 2026-08-04
 ---
 
@@ -173,9 +173,12 @@ runtime은 benchmark package를 import하지 않고 선택된 `EvaluationAdapter
 SREGym package는 이 group에 `sregym`을 등록합니다.
 
 현재 live SREGym composition은 explicit kubeconfig와 context를 통해 exact-namespace Kubernetes
-inventory 및 event evidence를 제공합니다. Kubectl adapter는 fixed read-only command, no shell,
-최대 30초 timeout, output 및 item limit을 사용합니다. Diagnostic projection은 Secret object와
-검토되지 않은 field를 제외합니다. 위임된 identity가 target namespace의 `metrics.k8s.io` pod를
+inventory 및 event evidence와 explicit cluster-scoped Node capacity evidence를 제공합니다. Node
+evidence는 별도 observe-only capability입니다. Node identity, readiness, schedulability 및 검증된
+CPU와 memory allocatable quantity만 projection하고 address, label 및 extended resource는 제외합니다.
+Kubectl adapter는 fixed read-only command, no shell, 최대 30초 timeout, output 및 item limit을
+사용합니다. Diagnostic projection은 Secret object와 검토되지 않은 field를 제외합니다. 위임된
+identity가 target namespace의 `metrics.k8s.io` pod를
 읽을 수 있으면 adapter는 `observe.metrics.query`를 통해 정규화된 container CPU 및 memory 사용량을
 projection합니다. Quantity normalization은 operational Kubernetes delivery package가 소유하므로
 evaluation, runtime evidence, capacity 및 quota 진단은 동일한 exact base-unit 의미를 사용합니다.
@@ -198,9 +201,9 @@ fdai-evaluation-runner check --adapter sregym
 `FDAI_EVALUATION_KUBECONFIG`, `FDAI_EVALUATION_KUBERNETES_CONTEXT`,
 `FDAI_EVALUATION_KUBERNETES_CLUSTER` 및 comma-separated exact namespace allowlist인
 `FDAI_EVALUATION_KUBERNETES_NAMESPACES`를 구성합니다. Readiness는 installed-adapter discovery,
-live Kubernetes inventory access, 두 Kubernetes evidence provider, pod metrics access 및 configured
-grounded RCA reasoner를 요구합니다. 실행 전에 allowlist에 포함된 모든 namespace에서 inventory,
-events 및 `metrics.k8s.io`를 probe합니다. 또한 synthetic citation-bounded RCA request를 한 번
+live Kubernetes inventory, event 및 Node evidence access, pod metrics access 및 configured grounded
+RCA reasoner를 요구합니다. 실행 전에 allowlist에 포함된 모든 namespace에서 inventory, events,
+Nodes 및 `metrics.k8s.io`를 probe합니다. 또한 synthetic citation-bounded RCA request를 한 번
 전송하므로 stale 또는 missing model deployment는 ready로 표시되지 않습니다. 모든 check를 통과해도
 host authority는 관찰 모드로 유지됩니다.
 

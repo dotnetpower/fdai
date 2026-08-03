@@ -12,7 +12,7 @@ from typing import Any, Final
 
 from fdai_evaluation_sdk import EvaluationTask
 
-from fdai.delivery.kubernetes.quantity import cpu_millicores, memory_bytes
+from fdai.delivery.kubernetes.quantity import cpu_millicores, memory_bytes, parse_quantity
 from fdai.evaluation.evidence import EvaluationEvidenceProvider
 
 CommandRunner = Callable[[tuple[str, ...]], Awaitable[bytes]]
@@ -113,6 +113,21 @@ class KubectlEvidenceClient:
             "truncated": len(items) > len(selected),
         }
 
+    async def nodes(self, task: EvaluationTask) -> Mapping[str, Any]:
+        self._namespace(task)
+        payload = await self._get_cluster_json("nodes")
+        items = _items(payload)
+        selected = items[: self._config.max_items]
+        return {
+            "cluster": self._config.cluster_name,
+            "nodes": [
+                projection
+                for item in selected
+                if isinstance(item, Mapping) and (projection := _project_node(item)) is not None
+            ],
+            "truncated": len(items) > len(selected),
+        }
+
     def _namespace(self, task: EvaluationTask) -> str:
         if task.target.kind != "kubernetes.namespace":
             raise ValueError("kubectl evidence requires a kubernetes.namespace target")
@@ -150,6 +165,21 @@ class KubectlEvidenceClient:
             "get",
             "--raw",
             path,
+            f"--request-timeout={self._config.timeout_seconds:g}s",
+        )
+        return await self._run_json(command)
+
+    async def _get_cluster_json(self, resources: str) -> Mapping[str, Any]:
+        command = (
+            "kubectl",
+            "--kubeconfig",
+            str(self._config.kubeconfig),
+            "--context",
+            self._config.context,
+            "get",
+            resources,
+            "--output",
+            "json",
             f"--request-timeout={self._config.timeout_seconds:g}s",
         )
         return await self._run_json(command)
@@ -228,6 +258,14 @@ class KubectlPodMetricEvidenceProvider:
         return await self.client.pod_metrics(task)
 
 
+@dataclass(frozen=True, slots=True)
+class KubectlNodeEvidenceProvider:
+    client: KubectlEvidenceClient
+
+    async def collect(self, task: EvaluationTask) -> Mapping[str, Any]:
+        return await self.client.nodes(task)
+
+
 def kubernetes_evidence_providers(
     client: KubectlEvidenceClient,
 ) -> Mapping[str, EvaluationEvidenceProvider]:
@@ -236,6 +274,7 @@ def kubernetes_evidence_providers(
     return {
         "observe.kubernetes.inventory": KubectlInventoryEvidenceProvider(client),
         "observe.kubernetes.events": KubectlEventEvidenceProvider(client),
+        "observe.kubernetes.nodes": KubectlNodeEvidenceProvider(client),
         "observe.metrics.query": KubectlPodMetricEvidenceProvider(client),
     }
 
@@ -395,6 +434,44 @@ def _project_container_metric(value: Mapping[str, Any]) -> dict[str, Any] | None
     }
 
 
+def _project_node(item: Mapping[str, Any]) -> dict[str, Any] | None:
+    metadata = item.get("metadata")
+    spec = item.get("spec")
+    status = item.get("status")
+    if not isinstance(metadata, Mapping) or not isinstance(status, Mapping):
+        return None
+    name = metadata.get("name")
+    if not isinstance(name, str):
+        return None
+    allocatable = status.get("allocatable")
+    allocatable_values = allocatable if isinstance(allocatable, Mapping) else {}
+    projected_allocatable = {
+        resource_name: raw_value[:64]
+        for resource_name in ("cpu", "memory")
+        if isinstance((raw_value := allocatable_values.get(resource_name)), str)
+        and (quantity := parse_quantity(raw_value)) is not None
+        and quantity >= 0
+    }
+    return {
+        "name": name,
+        "ready": _node_ready(status.get("conditions")),
+        "unschedulable": isinstance(spec, Mapping) and spec.get("unschedulable") is True,
+        "allocatable": projected_allocatable,
+        "allocatable_projection_complete": set(projected_allocatable) == {"cpu", "memory"},
+    }
+
+
+def _node_ready(value: object) -> bool:
+    if not isinstance(value, list):
+        return False
+    return any(
+        isinstance(condition, Mapping)
+        and condition.get("type") == "Ready"
+        and condition.get("status") == "True"
+        for condition in value
+    )
+
+
 def _valid_namespace(value: str) -> bool:
     return 1 <= len(value) <= 253 and _DNS_SUBDOMAIN.fullmatch(value) is not None
 
@@ -419,6 +496,7 @@ __all__ = [
     "KubectlEvidenceClient",
     "KubectlEvidenceConfig",
     "KubectlInventoryEvidenceProvider",
+    "KubectlNodeEvidenceProvider",
     "KubectlPodMetricEvidenceProvider",
     "kubernetes_evidence_providers",
 ]

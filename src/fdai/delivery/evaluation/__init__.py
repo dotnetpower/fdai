@@ -5,6 +5,7 @@ from fdai.delivery.evaluation.kubernetes_evidence import (
     KubectlEvidenceClient,
     KubectlEvidenceConfig,
     KubectlInventoryEvidenceProvider,
+    KubectlNodeEvidenceProvider,
     kubernetes_evidence_providers,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "KubectlEvidenceClient",
     "KubectlEvidenceConfig",
     "KubectlInventoryEvidenceProvider",
+    "KubectlNodeEvidenceProvider",
     "kubernetes_evidence_providers",
 ]

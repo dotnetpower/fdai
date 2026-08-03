@@ -22,6 +22,7 @@ from fdai.evaluation.host import (
 _SREGYM_CAPABILITIES = {
     "observe.kubernetes.inventory": SideEffectClass.OBSERVE,
     "observe.kubernetes.events": SideEffectClass.OBSERVE,
+    "observe.kubernetes.nodes": SideEffectClass.OBSERVE,
     "observe.metrics.query": SideEffectClass.OBSERVE,
     "observe.logs.query": SideEffectClass.OBSERVE,
     "observe.traces.query": SideEffectClass.OBSERVE,
@@ -36,6 +37,7 @@ class EvaluationRuntimeReadiness:
     rca_reasoner_ready: bool
     kubernetes_inventory_ready: bool
     kubernetes_events_ready: bool
+    kubernetes_nodes_ready: bool
     shadow_only: bool = True
 
     @property
@@ -44,6 +46,7 @@ class EvaluationRuntimeReadiness:
             self.rca_reasoner_ready
             and self.kubernetes_inventory_ready
             and self.kubernetes_events_ready
+            and self.kubernetes_nodes_ready
             and self.shadow_only
         )
 
@@ -95,6 +98,7 @@ def sregym_evaluation_readiness(
         rca_reasoner_ready=rca_reasoner is not None,
         kubernetes_inventory_ready="observe.kubernetes.inventory" in providers,
         kubernetes_events_ready="observe.kubernetes.events" in providers,
+        kubernetes_nodes_ready="observe.kubernetes.nodes" in providers,
     )
 
 
@@ -109,6 +113,7 @@ def readiness_payload(readiness: EvaluationRuntimeReadiness) -> dict[str, Any]:
             "rca_reasoner": readiness.rca_reasoner_ready,
             "kubernetes_inventory": readiness.kubernetes_inventory_ready,
             "kubernetes_events": readiness.kubernetes_events_ready,
+            "kubernetes_nodes": readiness.kubernetes_nodes_ready,
         },
     }
 

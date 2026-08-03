@@ -108,6 +108,7 @@ async def _probe_kubernetes_evidence(
     checks = {
         "kubernetes_inventory_live_probe": True,
         "kubernetes_events_live_probe": True,
+        "kubernetes_nodes_live_probe": True,
         "kubernetes_metrics_live_probe": True,
     }
     first_error_type: str | None = None
@@ -116,6 +117,7 @@ async def _probe_kubernetes_evidence(
         probes = (
             ("kubernetes_inventory_live_probe", evidence_client.inventory),
             ("kubernetes_events_live_probe", evidence_client.events),
+            ("kubernetes_nodes_live_probe", evidence_client.nodes),
             ("kubernetes_metrics_live_probe", evidence_client.pod_metrics),
         )
         for check_name, probe in probes:

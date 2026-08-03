@@ -168,9 +168,12 @@ generic runtime loads the selected `EvaluationAdapter` contract without importin
 package. The SREGym package registers `sregym` in that group.
 
 The current live SREGym composition provides exact-namespace Kubernetes inventory and event
-evidence through an explicit kubeconfig and context. The kubectl adapter uses fixed read-only
-commands, no shell, a 30-second maximum timeout, output and item limits, and a diagnostic projection
-that excludes Secret objects and unreviewed fields. When the delegated identity can read
+evidence plus explicit cluster-scoped Node capacity evidence through an explicit kubeconfig and
+context. Node evidence is a separate observe-only capability. It projects only Node identity,
+readiness, schedulability, and validated CPU and memory allocatable quantities; it excludes
+addresses, labels, and extended resources. The kubectl adapter uses fixed read-only commands, no
+shell, a 30-second maximum timeout, output and item limits, and a diagnostic projection that
+excludes Secret objects and unreviewed fields. When the delegated identity can read
 `metrics.k8s.io` pods in the target namespace, the adapter projects normalized container CPU and
 memory usage through `observe.metrics.query`. Quantity normalization is owned by the operational
 Kubernetes delivery package, so evaluation, runtime evidence, capacity, and quota diagnostics use
@@ -194,8 +197,8 @@ fdai-evaluation-runner check --adapter sregym
 Configure `FDAI_EVALUATION_KUBECONFIG`, `FDAI_EVALUATION_KUBERNETES_CONTEXT`,
 `FDAI_EVALUATION_KUBERNETES_CLUSTER`, and the comma-separated exact namespace allowlist in
 `FDAI_EVALUATION_KUBERNETES_NAMESPACES`. Readiness requires installed-adapter discovery, live
-Kubernetes inventory access, both Kubernetes evidence providers, pod metrics access, and a
-configured grounded RCA reasoner. It probes inventory, events, and `metrics.k8s.io` for every
+Kubernetes inventory, event, and Node evidence access, pod metrics access, and a configured
+grounded RCA reasoner. It probes inventory, events, Nodes, and `metrics.k8s.io` for every
 allowlisted namespace before a run. It also sends one synthetic citation-bounded RCA request so a
 stale or missing model deployment cannot report ready. The host authority remains observation mode
 even when all checks pass.

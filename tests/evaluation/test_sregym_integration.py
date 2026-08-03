@@ -77,6 +77,7 @@ async def test_sregym_runs_and_cleans_up_through_public_host() -> None:
         for capability_id in (
             "observe.kubernetes.inventory",
             "observe.kubernetes.events",
+            "observe.kubernetes.nodes",
             "observe.metrics.query",
             "observe.logs.query",
             "observe.traces.query",

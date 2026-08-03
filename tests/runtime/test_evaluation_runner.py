@@ -52,6 +52,7 @@ def test_sregym_host_readiness_requires_grounded_rca_reasoner(tmp_path: Path) ->
         "rca_reasoner": False,
         "kubernetes_inventory": True,
         "kubernetes_events": True,
+        "kubernetes_nodes": True,
     }
 
     _, ready = build_sregym_evaluation_host(

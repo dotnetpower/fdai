@@ -189,6 +189,79 @@ async def test_pod_metrics_are_namespace_scoped_and_normalized(tmp_path: Path) -
     }
 
 
+async def test_nodes_use_cluster_scope_and_project_only_capacity_facts(tmp_path: Path) -> None:
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text("synthetic", encoding="utf-8")
+    commands: list[tuple[str, ...]] = []
+
+    async def run(command: tuple[str, ...]) -> bytes:
+        commands.append(command)
+        return json.dumps(
+            {
+                "items": [
+                    {
+                        "kind": "Node",
+                        "metadata": {
+                            "name": "worker-a",
+                            "labels": {"private.example/owner": "must-not-project"},
+                        },
+                        "spec": {"unschedulable": False},
+                        "status": {
+                            "addresses": [{"address": "192.0.2.10"}],
+                            "allocatable": {
+                                "cpu": "4",
+                                "memory": "8Gi",
+                                "private.example/device": "2",
+                            },
+                            "conditions": [{"type": "Ready", "status": "True"}],
+                        },
+                    },
+                    {
+                        "kind": "Node",
+                        "metadata": {"name": "worker-b"},
+                        "spec": {"unschedulable": True},
+                        "status": {
+                            "allocatable": {"cpu": "invalid", "memory": "16Gi"},
+                            "conditions": [{"type": "Ready", "status": "False"}],
+                        },
+                    },
+                ]
+            }
+        ).encode()
+
+    client = KubectlEvidenceClient(config=_config(kubeconfig), run=run)
+    evidence = await client.nodes(_task())
+
+    assert "--namespace" not in commands[0]
+    assert commands[0][-5:] == (
+        "get",
+        "nodes",
+        "--output",
+        "json",
+        "--request-timeout=15s",
+    )
+    assert evidence == {
+        "cluster": "example-cluster",
+        "nodes": [
+            {
+                "name": "worker-a",
+                "ready": True,
+                "unschedulable": False,
+                "allocatable": {"cpu": "4", "memory": "8Gi"},
+                "allocatable_projection_complete": True,
+            },
+            {
+                "name": "worker-b",
+                "ready": False,
+                "unschedulable": True,
+                "allocatable": {"memory": "16Gi"},
+                "allocatable_projection_complete": False,
+            },
+        ],
+        "truncated": False,
+    }
+
+
 async def test_events_are_bounded_and_namespace_scope_fails_closed(tmp_path: Path) -> None:
     kubeconfig = tmp_path / "config"
     kubeconfig.write_text("synthetic", encoding="utf-8")
