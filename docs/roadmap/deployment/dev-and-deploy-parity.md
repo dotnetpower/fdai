@@ -154,14 +154,13 @@ metadata was changed by another worktree therefore cannot launch stale FDAI sour
 
 ### Workspace context hygiene
 
-The committed VS Code settings exclude dependency trees, caches, generated reports, local runtime
-state, secrets, Terraform state, scratch outputs, and gitignored self-improvement worktrees
-(`.improve/`) from Explorer, search, or file watching as appropriate. These exclusions reduce
-editor load and keep generated or local artifacts out of default workspace-search context; the
-`.improve/` exclusion also prevents duplicate Problems-panel entries when multiple worktree copies
-of the same source file exist on disk. They are discovery preferences only: you can still open an
-excluded path for an explicit task, and no exclusion selects an evidence profile, authentication
-mode, action lifecycle, or runtime adapter. Source, tests, and owning design docs remain searchable.
+VS Code excludes dependencies, caches, generated reports, local state, secrets, Terraform state,
+scratch output, and `.improve/` from Explorer, search, and file watching. This reduces editor load,
+keeps local artifacts out of workspace search, and prevents duplicate Problems entries from
+worktree copies. These are discovery preferences: excluded paths remain explicitly accessible and
+do not change evidence, identity, authority, or runtime adapters. Source, tests, and owning design
+docs remain searchable. Terraform indexing skips verified non-Terraform directory names and
+preserves every directory containing a tracked `.tf` file.
 
 The workspace associates only `.github/workflows/deploy-dev.yml` with the plain YAML language
 mode. The GitHub Actions extension can report unresolved-action and dynamic `GITHUB_ENV` context

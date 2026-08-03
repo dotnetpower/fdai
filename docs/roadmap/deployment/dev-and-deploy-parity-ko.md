@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 6c812b8ad5abca34c36b887519b57afba9f1058e
+translation_source_sha: c1430814b43f9f9154e18d88b3d7d8fe6e860a07
 translation_revised: 2026-08-03
 ---
 
@@ -157,14 +157,12 @@ metadata를 변경해도 오래된 FDAI source를 시작할 수 없습니다.
 
 ### Workspace context 정리
 
-커밋된 VS Code 설정은 dependency tree, cache, 생성된 report, local runtime state, secret,
-Terraform state, 임시 output, 그리고 gitignore 처리된 self-improvement worktree(`.improve/`)를
-용도에 따라 Explorer, search 또는 file watching에서 제외합니다. 이 제외는 editor 부하를 줄이고
-생성되거나 로컬에만 있는 artifact가 기본 workspace search context에 포함되지 않게 하며,
-`.improve/` 제외는 동일한 source 파일의 worktree 복사본이 여러 개 있을 때 Problems 패널에
-중복 항목이 뜨는 것도 막아줍니다. 탐색 기본값일 뿐이므로 명시적 작업에서는 제외된 경로를
-직접 열 수 있습니다. 어떤 제외도 evidence profile, authentication mode, action lifecycle 또는
-runtime adapter를 선택하지 않습니다. Source, test 및 담당 design doc은 계속 검색할 수 있습니다.
+VS Code 설정은 dependency, cache, 생성된 report, local state, secret, Terraform state, 임시 output 및
+`.improve/`를 Explorer, search, file watching에서 제외합니다. 이 설정은 editor 부하와 worktree
+copy로 인한 Problems 중복을 줄입니다. 이는 탐색 기본값이므로 제외된 경로를 직접 열 수 있으며
+evidence, identity, authority 또는 runtime adapter에는 영향을 주지 않습니다. Source, test 및 담당
+design doc은 계속 검색할 수 있습니다. Terraform indexing은 검증된 non-Terraform directory name을
+건너뛰고 tracked `.tf` file이 있는 모든 directory를 보존합니다.
 
 Workspace는 `.github/workflows/deploy-dev.yml` 하나만 plain YAML language mode에 연결합니다.
 GitHub Actions extension은 참조한 action tag가 존재하고 다음 step에서 `GITHUB_ENV` 값을 사용할 수
