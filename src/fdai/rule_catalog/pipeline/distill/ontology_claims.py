@@ -8,6 +8,7 @@ silently disappear from coverage measurement.
 from __future__ import annotations
 
 import hashlib
+import html
 import re
 from collections.abc import Mapping, Sequence
 
@@ -23,26 +24,40 @@ from fdai.shared.providers.distiller import DistilledCandidate, ManualDocument
 
 _FENCE_RE = re.compile(r"^(?P<marker>`{3,}|~{3,})")
 _SENTENCE = re.compile(r"(?<=[.!?])\s+")
+_INLINE_TAG = re.compile(r"</?[A-Za-z][^>]*>")
+_INLINE_SHORTCODE = re.compile(r"\{\{[%<].*?[>%]\}\}")
+_INLINE_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 _NORMATIVE = re.compile(
-    r"\b(?:must|must\s+not|shall|required|prohibited|forbidden|should|may\s+not)\b|"
-    r"(?:해야|필수|금지|않아야)",
+    r"\b(?:must|must\s+not|shall|required|prohibited|forbidden|unsupported|"
+    r"should|should\s+not|may\s+not|need(?:s)?\s+to|do\s+not|does\s+not|doesn't)\b|"
+    r"(?:해야|필수|금지|않아야|마세요|하지\s*마|이어야|여야)",
     re.IGNORECASE,
 )
 _THRESHOLD = re.compile(
     r"(?:>=|<=|==|!=|>|<|\bat\s+least\b|\bat\s+most\b|\bmore\s+than\b|"
     r"\bless\s+than\b|\babove\b|\bbelow\b|\bwithin\b).*?\d|"
-    r"\b\d+(?:\.\d+)?\s*(?:%|ms|s|m|h|gb|tb|usd)(?!\w)",
+    r"\bbetween\s+\d+(?:\.\d+)?\s+and\s+\d+(?:\.\d+)?\b|"
+    r"\b\d+(?:\.\d+)?\s*(?:%|ms|s|m|h|gb|tb|usd)(?!\w)|"
+    r"\d+\s*개에서\s*\d+\s*개\s*사이",
     re.IGNORECASE,
 )
 _RELATIONSHIP = re.compile(
-    r"\b(?:depends\s+on|runs\s+on|implemented\s+by|owned\s+by|delivered\s+by|"
+    r"\b(?:depends?\s+on|runs\s+on|implemented\s+by|owned\s+by|delivered\s+by|"
     r"contains|requires|uses|governed\s+by)\b|(?:의존|소유|담당|구현)",
     re.IGNORECASE,
 )
 _PROCEDURE = re.compile(
     r"\b(?:restart|rollback|roll\s+back|failover|fail\s+over|scale|restore|notify|"
-    r"escalate|stop|deploy|drain|rotate|reconcile)\b|"
-    r"(?:재시작|롤백|복구|배포|확장|축소|중지|에스컬레이션)",
+    r"escalate|stop|deploy|drain|rotate|reconcile|back(?:ed)?\s+up|"
+    r"need(?:s)?\s+to\s+(?:look|check|verify))\b|"
+    r"(?:재시작|다시\s*시작|롤백|복구|백업|배포|확장|축소|중지|에스컬레이션)",
+    re.IGNORECASE,
+)
+_IMPERATIVE = re.compile(
+    r"^(?:(?:first|then|next)\s*,?\s*|before\b[^,]{0,160},\s*)?"
+    r"(?:look\b|check\b|verify\b|upgrade\b|back\s+up\b|restart\b|restore\b|"
+    r"deploy\b|drain\b|scale\b|stop\b)|"
+    r"^(?:먼저\s*)?(?:확인|검증|점검|백업|재시작|복구|배포)",
     re.IGNORECASE,
 )
 _TELEMETRY = re.compile(
@@ -101,11 +116,14 @@ def inventory_claims(document: ManualDocument) -> tuple[ClaimUnit, ...]:
         if fence_marker is not None or not stripped or stripped.startswith("#"):
             continue
 
-        semantic_line = _LIST_PREFIX.sub("", stripped)
+        semantic_line = _semantic_text(_LIST_PREFIX.sub("", stripped))
+        if not semantic_line:
+            continue
         for unit_ordinal, text in enumerate(_split_claim_units(semantic_line), start=1):
-            kind = _claim_kind(text)
-            if kind is None:
+            signals = _claim_signals(text)
+            if not signals:
                 continue
+            kind = signals[0]
             authority = _authority_class(text, kind)
             text_sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
             claim_material = "\0".join(
@@ -145,7 +163,18 @@ def inventory_claims(document: ManualDocument) -> tuple[ClaimUnit, ...]:
                         ClaimKind.RELATIONSHIP,
                         ClaimKind.PROCEDURE,
                     }
+                    or any(
+                        signal
+                        in {
+                            ClaimKind.NORMATIVE,
+                            ClaimKind.THRESHOLD,
+                            ClaimKind.RELATIONSHIP,
+                            ClaimKind.PROCEDURE,
+                        }
+                        for signal in signals
+                    )
                     or authority is AuthorityClass.EXECUTION_AUTHORITY,
+                    signals=signals,
                 )
             )
 
@@ -219,7 +248,9 @@ def claim_text_records(
             continue
         if fence_marker is not None or not stripped or stripped.startswith("#"):
             continue
-        by_line[line_number] = list(_split_claim_units(_LIST_PREFIX.sub("", stripped)))
+        semantic_line = _semantic_text(_LIST_PREFIX.sub("", stripped))
+        if semantic_line:
+            by_line[line_number] = list(_split_claim_units(semantic_line))
 
     records: list[tuple[str, str]] = []
     for claim in claims:
@@ -239,22 +270,24 @@ def _split_claim_units(line: str) -> tuple[str, ...]:
     return tuple(unit.strip() for unit in _SENTENCE.split(line) if unit.strip())
 
 
-def _claim_kind(text: str) -> ClaimKind | None:
-    if _HISTORY.search(text):
-        return ClaimKind.HISTORY
-    if _THRESHOLD.search(text):
-        return ClaimKind.THRESHOLD
-    if _NORMATIVE.search(text):
-        return ClaimKind.NORMATIVE
-    if _RELATIONSHIP.search(text):
-        return ClaimKind.RELATIONSHIP
-    if _PROCEDURE.search(text):
-        return ClaimKind.PROCEDURE
-    if _TELEMETRY.search(text):
-        return ClaimKind.OBSERVATION
-    if _ENTITY.search(text):
-        return ClaimKind.ENTITY
-    return None
+def _semantic_text(text: str) -> str:
+    without_comments = _INLINE_COMMENT.sub(" ", text)
+    without_shortcodes = _INLINE_SHORTCODE.sub(" ", without_comments)
+    without_tags = _INLINE_TAG.sub(" ", without_shortcodes)
+    return " ".join(html.unescape(without_tags).split())
+
+
+def _claim_signals(text: str) -> tuple[ClaimKind, ...]:
+    matchers = (
+        (ClaimKind.HISTORY, _HISTORY.search(text)),
+        (ClaimKind.THRESHOLD, _THRESHOLD.search(text)),
+        (ClaimKind.NORMATIVE, _NORMATIVE.search(text)),
+        (ClaimKind.RELATIONSHIP, _RELATIONSHIP.search(text)),
+        (ClaimKind.PROCEDURE, _PROCEDURE.search(text) or _IMPERATIVE.search(text)),
+        (ClaimKind.OBSERVATION, _TELEMETRY.search(text)),
+        (ClaimKind.ENTITY, _ENTITY.search(text)),
+    )
+    return tuple(kind for kind, match in matchers if match is not None)
 
 
 def _authority_class(text: str, kind: ClaimKind) -> AuthorityClass:

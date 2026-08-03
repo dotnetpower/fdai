@@ -6,6 +6,7 @@ import hashlib
 from datetime import UTC, datetime
 from uuid import UUID
 
+from fdai.rule_catalog.pipeline.distill.ontology_claims import claim_text_records
 from fdai.rule_catalog.pipeline.distill.ontology_evaluation import (
     ExpectedOntologyFact,
     evaluate_review_package,
@@ -70,6 +71,7 @@ class _GoldenOcr:
 
 class _GoldenDistiller:
     async def distill(self, document: ManualDocument) -> DistillationResult:
+        lines = document.text.splitlines()
         bodies = (
             {
                 "operation": "update",
@@ -121,7 +123,14 @@ class _GoldenDistiller:
                     candidate_id=f"candidate-{index + 1}",
                     source_ref=document.source_ref,
                     source_section="Synthetic corpus",
-                    source_lines=(index + 1, index + 1),
+                    source_lines=(
+                        next(
+                            line_number
+                            for line_number, line in enumerate(lines, start=1)
+                            if CLAIMS[index] in line
+                        ),
+                    )
+                    * 2,
                     content_sha=document.content_sha,
                     body=body,
                 )
@@ -230,7 +239,7 @@ def _context(source_ref: str) -> VerificationContext:
 
 def _citation_errors(package, document: ManualDocument) -> int:
     provenance = {item.line_number: item for item in document.line_provenance}
-    lines = document.text.splitlines()
+    claim_text = dict(claim_text_records(document, package.claims))
     errors = 0
     for claim in package.claims:
         evidence = claim.evidence
@@ -242,7 +251,7 @@ def _citation_errors(package, document: ManualDocument) -> int:
             item.source_format != evidence.source_format
             or item.unit_id != evidence.structural_unit_id
             or item.locator != evidence.structural_locator
-            or hashlib.sha256(lines[evidence.line_start - 1].encode()).hexdigest()
+            or hashlib.sha256(claim_text[claim.claim_id].encode()).hexdigest()
             != evidence.text_sha256
         ):
             errors += 1

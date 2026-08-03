@@ -12,6 +12,8 @@ from uuid import UUID
 
 import pytest
 from pydantic import ValidationError
+from pypdf import PdfWriter
+from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from fdai.core.document_ingestion import (
     CreateUploadRequest,
@@ -544,6 +546,8 @@ async def test_text_pdf_preserves_page_and_block_locators() -> None:
     assert version.state is DocumentState.READY
     assert envelope.units[0].locator == "pdf/page:1/block:1"
     assert envelope.units[0].text == "Checkout service is owned by Platform team."
+    assert envelope.extractor_name == "pypdf"
+    assert envelope.extractor_version.startswith("6.")
 
 
 async def test_scanned_pdf_uses_ocr_provider_and_canonical_locator() -> None:
@@ -693,22 +697,22 @@ def _pptx() -> bytes:
 
 
 def _pdf(text_stream: bytes | None) -> bytes:
-    page = b"<< /Type /Page /Parent 2 0 R"
-    objects = [
-        b"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
-        b"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
-    ]
-    if text_stream is None:
-        objects.append(b"3 0 obj " + page + b" >> endobj")
-    else:
-        objects.extend(
-            (
-                b"3 0 obj " + page + b" /Contents 4 0 R >> endobj",
-                b"4 0 obj << /Length "
-                + str(len(text_stream)).encode()
-                + b" >> stream\n"
-                + text_stream
-                + b"\nendstream endobj",
-            )
+    output = io.BytesIO()
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=612, height=792)
+    if text_stream is not None:
+        font = DictionaryObject(
+            {
+                NameObject("/Type"): NameObject("/Font"),
+                NameObject("/Subtype"): NameObject("/Type1"),
+                NameObject("/BaseFont"): NameObject("/Helvetica"),
+            }
         )
-    return b"%PDF-1.7\n" + b"\n".join(objects) + b"\n%%EOF\n"
+        page[NameObject("/Resources")] = DictionaryObject(
+            {NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)})}
+        )
+        contents = DecodedStreamObject()
+        contents.set_data(text_stream.replace(b"BT ", b"BT /F1 12 Tf 72 720 Td ", 1))
+        page[NameObject("/Contents")] = writer._add_object(contents)
+    writer.write(output)
+    return output.getvalue()

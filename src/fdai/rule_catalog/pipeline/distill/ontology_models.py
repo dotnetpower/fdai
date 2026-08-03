@@ -124,9 +124,16 @@ class ClaimUnit:
     authority: AuthorityClass
     evidence: SourceEvidence
     critical: bool
+    signals: tuple[ClaimKind, ...] = ()
 
     def __post_init__(self) -> None:
         _require_identifier(self.claim_id, "claim_id")
+        if not self.signals:
+            object.__setattr__(self, "signals", (self.kind,))
+        if self.kind not in self.signals:
+            raise ValueError("primary claim kind MUST be present in claim signals")
+        if len(self.signals) != len(set(self.signals)):
+            raise ValueError("claim signals MUST be unique")
 
 
 @dataclass(frozen=True, slots=True)
@@ -216,7 +223,10 @@ class OntologyChangeProposal:
         _require_identifier(self.candidate_id, "candidate_id")
         _require_identifier(self.claim_id, "claim_id")
         _require_identifier(self.target_type, "target_type")
-        _require_identifier(self.target_identity, "target_identity")
+        if self.entity_resolution.selected_identity is None:
+            _require_unresolved_reference(self.target_identity, "target_identity")
+        else:
+            _require_identifier(self.target_identity, "target_identity")
         _require_digest(self.ontology_release, "ontology_release")
         _require_identifier(self.expected_graph_revision, "expected_graph_revision")
         names = [item.name for item in self.properties]
@@ -347,6 +357,15 @@ def _require_digest(value: str, field_name: str) -> None:
 def _require_identifier(value: str, field_name: str) -> None:
     if _IDENTIFIER.fullmatch(value) is None:
         raise ValueError(f"invalid {field_name}: {value!r}")
+
+
+def _require_unresolved_reference(value: str, field_name: str) -> None:
+    if (
+        not value.strip()
+        or len(value) > 200
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
+    ):
+        raise ValueError(f"invalid unresolved {field_name}")
 
 
 __all__ = [

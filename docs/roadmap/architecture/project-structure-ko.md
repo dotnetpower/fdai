@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d0a7aa45fb8f03ee97b6612c827b644469a23339
+translation_source_sha: 2254adabf67f5b36b889cb12f4ff17ea4ce061bf
 translation_revised: 2026-08-03
 ---
 
@@ -90,10 +90,10 @@ fdai/
 │   │   │   ├── ontology/       # object/link/action 스키마; ObjectType은 lifecycle 기준 + provenance 선언 가능
 │   │   │   └── workflow/       # workflow/schema.json (프로세스 자동화 카탈로그)
 │   │   ├── ontology/           # 런타임 온톨로지 헬퍼 (ACL, 감사 purposes, purpose taxonomy)
-│   │   ├── providers/          # OperatingModelProvider를 포함한 CSP-중립 클라우드 프로바이더 인터페이스 (어댑터가 구현)
+│   │   ├── providers/          # OperatingModelProvider, 하위 호환 Distiller 및 optional versioned conformance descriptor를 포함한 CSP-중립 클라우드 provider interface (adapter가 구현)
 │   │   │                       #   event_bus.py, secret_provider.py, state_store.py, execution_backend.py,
 │   │   │                       #   workload_identity.py, inventory.py, log_query.py, trace_query.py, incident_platform.py, behavior_knowledge.py, programmatic_pipeline.py + LLM / 채널 / RBAC seam
-│   │   │                       # `providers/local/` = process-local transport adapter, bounded document format adapter(OOXML `document_structure.py`, PDF/OCR `document_pdf.py`) 및 명시적 offline helper;
+│   │   │                       # `providers/local/` = process-local transport adapter, bounded document format adapter(immutable ceiling `document_limits.py`, Markdown/SGML `document_text.py`, OOXML `document_structure.py`, pypdf/OCR `document_pdf.py`) 및 명시적 offline helper;
 │   │   │                       # `providers/testing/` = 테스트 스위트 전반에서 쓰이는 인-메모리 페이크 (prod 에서는 바인딩 안 됨)
 │   │   ├── streaming/          # `SseBroadcaster` + `StagePublisher`: EventBus 토픽을 SSE 채널로 릴레이
 │   │   ├── telemetry/          # 구조화 로깅, 트레이싱, 메트릭 헬퍼

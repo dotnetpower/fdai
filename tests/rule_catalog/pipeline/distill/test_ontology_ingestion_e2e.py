@@ -132,7 +132,7 @@ async def test_upload_extraction_builds_replay_stable_ontology_review_package() 
     package = sink.packages[0]
     assert package.summary.total_claims == 1
     assert package.summary.mapped_claims == 1
-    assert package.claims[0].evidence.structural_locator == "line:1"
+    assert package.claims[0].evidence.structural_locator == ("markdown/paragraph:1/lines:1-1")
     assert package.proposals[0].proposal.evidence == package.claims[0].evidence
 
     await consumer.consume(session=session, envelope=envelope)

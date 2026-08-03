@@ -5,11 +5,21 @@ from __future__ import annotations
 import io
 import zipfile
 import zlib
+from dataclasses import replace
 
 import pytest
+from pypdf import PdfWriter
+from pypdf.errors import PdfReadError
+from pypdf.generic import (
+    DecodedStreamObject,
+    DictionaryObject,
+    EncodedStreamObject,
+    NameObject,
+)
 
 from fdai.shared.contracts import StructuralUnit
 from fdai.shared.providers.local import document_pdf, document_structure
+from fdai.shared.providers.local.document_limits import DEFAULT_DOCUMENT_PARSER_POLICY
 from fdai.shared.providers.local.document_structure import (
     extract_ooxml,
     extract_pdf_text,
@@ -46,9 +56,44 @@ def test_docx_locators_preserve_empty_paragraph_ordinals() -> None:
     assert [unit.locator for unit in units] == ["docx/paragraph:2", "docx/heading:2:2"]
 
 
+def test_docx_preserves_nested_heading_context_and_table_roles() -> None:
+    xml = b"""<w:document xmlns:w='urn:w'><w:body>
+            <w:p><w:pPr><w:pStyle w:val='Heading1'/></w:pPr><w:r><w:t>Operations</w:t></w:r></w:p>
+            <w:p><w:pPr><w:pStyle w:val='Heading2'/></w:pPr><w:r><w:t>Backup</w:t></w:r></w:p>
+            <w:p><w:r><w:t>Verify the snapshot.</w:t></w:r></w:p>
+            <w:tbl>
+                <w:tr><w:trPr><w:tblHeader/></w:trPr><w:tc><w:p><w:r><w:t>Step</w:t></w:r></w:p></w:tc></w:tr>
+                <w:tr><w:tc><w:p><w:r><w:t>Restore</w:t></w:r></w:p></w:tc></w:tr>
+            </w:tbl>
+        </w:body></w:document>"""
+
+    units = extract_ooxml(_ooxml({"word/document.xml": xml}))
+
+    assert units[2].locator == ("docx/paragraph:3/context:heading:1:1/heading:2:1")
+    assert [unit.table_cell_role for unit in units[3:]] == ["header", "body"]
+
+
+def test_pptx_preserves_multiple_paragraphs_per_shape() -> None:
+    slide = b"""<p:sld xmlns:p='urn:p' xmlns:a='urn:a'><p:cSld><p:spTree><p:sp>
+            <p:txBody>
+                <a:p><a:r><a:t>First paragraph</a:t></a:r></a:p>
+                <a:p><a:r><a:t>Second paragraph</a:t></a:r></a:p>
+            </p:txBody>
+        </p:sp></p:spTree></p:cSld></p:sld>"""
+
+    units = extract_ooxml(_ooxml({"ppt/slides/slide1.xml": slide}))
+
+    assert [unit.text for unit in units] == ["First paragraph", "Second paragraph"]
+    assert [unit.locator for unit in units] == [
+        "pptx/slide:1/shape:1/paragraph:1",
+        "pptx/slide:1/shape:1/paragraph:2",
+    ]
+
+
 def test_pptx_extracts_every_table_within_one_shape() -> None:
     table = (
-        b"<a:tbl><a:tr><a:tc><a:txBody><a:p><a:r><a:t>{text}</a:t></a:r></a:p>"
+        b"<a:tbl><a:tblPr firstRow='1'/><a:tr><a:tc><a:txBody>"
+        b"<a:p><a:r><a:t>{text}</a:t></a:r></a:p>"
         b"</a:txBody></a:tc></a:tr></a:tbl>"
     )
     slide = (
@@ -67,14 +112,115 @@ def test_pptx_extracts_every_table_within_one_shape() -> None:
         "pptx/slide:1/shape:1/table:1/row:1/cell:1",
         "pptx/slide:1/shape:1/table:2/row:1/cell:1",
     ]
+    assert [unit.table_cell_role for unit in units] == ["header", "header"]
 
 
-def test_pdf_rejects_unproven_font_mapping_and_deep_page_tree() -> None:
-    with pytest.raises(ValueError, match="font character map"):
-        extract_pdf_text(_pdf(stream=b"BT (\x80) Tj ET"))
+def test_xlsx_preserves_cell_addresses_shared_strings_and_roles() -> None:
+    shared = b"""<sst xmlns='urn:x'><si><t>Header</t></si><si><t>Body</t></si></sst>"""
+    sheet = (
+        b"<worksheet xmlns='urn:x'><sheetData>"
+        b"<row r='1'><c r='B1' t='s'><v>0</v></c></row>"
+        b"<row r='2'><c r='B2' t='s'><v>1</v></c>"
+        b"<c r='C2' t='inlineStr'><is><t>Inline</t></is></c></row>"
+        b"</sheetData></worksheet>"
+    )
 
-    with pytest.raises(ValueError, match="depth budget"):
-        extract_pdf_text(_deep_pdf(depth=130))
+    units = extract_ooxml(
+        _ooxml(
+            {
+                "xl/sharedStrings.xml": shared,
+                "xl/worksheets/sheet2.xml": sheet,
+            }
+        )
+    )
+
+    assert [unit.locator for unit in units] == [
+        "xlsx/sheet:2/cell:B1",
+        "xlsx/sheet:2/cell:B2",
+        "xlsx/sheet:2/cell:C2",
+    ]
+    assert [unit.text for unit in units] == ["Header", "Body", "Inline"]
+    assert [unit.table_cell_role for unit in units] == [None, None, None]
+
+
+def test_pdf_extracts_generated_fixture_and_rejects_encryption() -> None:
+    units = extract_pdf_text(_generated_pdf("Generated operations manual"))
+    assert [unit.locator for unit in units] == ["pdf/page:1/block:1"]
+    assert [unit.text for unit in units] == ["Generated operations manual"]
+
+    with pytest.raises(ValueError, match="encrypted"):
+        extract_pdf_text(_generated_pdf("restricted", password="secret"))
+
+
+def test_pdf_uses_strict_reader_and_sanitizes_parser_errors(monkeypatch) -> None:
+    real_reader = document_pdf.PdfReader
+
+    def strict_reader(stream, *, strict):
+        assert strict is True
+        return real_reader(stream, strict=strict)
+
+    monkeypatch.setattr(document_pdf, "PdfReader", strict_reader)
+    assert extract_pdf_text(_generated_pdf("strict"))[0].text == "strict"
+
+    def broken_reader(stream, *, strict):
+        del stream, strict
+        raise PdfReadError("private document fragment")
+
+    monkeypatch.setattr(document_pdf, "PdfReader", broken_reader)
+    with pytest.raises(ValueError) as captured:
+        extract_pdf_text(b"%PDF-1.7\nprivate document fragment\n%%EOF")
+    assert str(captured.value) == "PDF parsing or text extraction failed"
+    assert "private document fragment" not in str(captured.value)
+
+
+def test_pdf_native_extraction_enforces_every_budget() -> None:
+    content = _generated_pdf("bounded text", page_count=2)
+    limits = (
+        ("max_input_bytes", 1, "bytes"),
+        ("max_pdf_pages", 1, "page count"),
+        ("max_pdf_objects", 1, "object count"),
+        ("max_pdf_units", 1, "extracted text"),
+        ("max_pdf_characters", 1, "extracted text"),
+    )
+    for attribute, value, message in limits:
+        with pytest.raises(ValueError, match=message):
+            extract_pdf_text(
+                content,
+                policy=replace(DEFAULT_DOCUMENT_PARSER_POLICY, **{attribute: value}),
+            )
+
+
+def test_pdf_enforces_decoded_content_stream_budget() -> None:
+    content = _compressed_pdf("bounded " * 200)
+    policy = replace(
+        DEFAULT_DOCUMENT_PARSER_POLICY,
+        max_pdf_raw_stream_bytes=1024,
+        max_pdf_decoded_stream_bytes=64,
+    )
+
+    with pytest.raises(ValueError, match="decoded content stream"):
+        extract_pdf_text(content, policy=policy)
+
+
+def test_pdf_policy_enforces_page_and_object_budgets() -> None:
+    content = _generated_pdf("bounded text", page_count=2)
+    with pytest.raises(ValueError, match="page count"):
+        extract_pdf_text(
+            content,
+            policy=replace(DEFAULT_DOCUMENT_PARSER_POLICY, max_pdf_pages=1),
+        )
+    with pytest.raises(ValueError, match="object count"):
+        extract_pdf_text(
+            content,
+            policy=replace(DEFAULT_DOCUMENT_PARSER_POLICY, max_pdf_objects=1),
+        )
+
+
+def test_pdf_text_blocks_preserve_page_local_order() -> None:
+    assert document_pdf._page_text_blocks(" first line\n\nsecond   line ") == (
+        "first line",
+        "second line",
+    )
 
 
 def test_pdf_ocr_rejects_duplicate_or_reordered_citations() -> None:
@@ -92,12 +238,19 @@ def test_pdf_ocr_rejects_duplicate_or_reordered_citations() -> None:
     with pytest.raises(ValueError, match="ordered by page"):
         normalize_pdf_ocr_units(reordered)
 
+    reordered_blocks = (
+        StructuralUnit(unit_id="unit-2", kind="page", locator="page:1:line:2", text="second"),
+        StructuralUnit(unit_id="unit-1", kind="page", locator="page:1:line:1", text="first"),
+    )
+    with pytest.raises(ValueError, match="ordered by page and block"):
+        normalize_pdf_ocr_units(reordered_blocks)
 
-def test_pdf_ocr_validates_locator_empty_output_and_budget(monkeypatch) -> None:
+
+def test_pdf_ocr_validates_locator_empty_output_and_budget() -> None:
     valid = (
         StructuralUnit(unit_id="unit-1", kind="page", locator="pdf/page:2/ocr:7", text="  text  "),
     )
-    assert normalize_pdf_ocr_units(valid)[0].locator == "pdf/page:2/ocr:1"
+    assert normalize_pdf_ocr_units(valid)[0].locator == "pdf/page:2/ocr:7"
     with pytest.raises(ValueError, match="positive page"):
         normalize_pdf_ocr_units(
             (StructuralUnit(unit_id="bad", kind="page", locator="page:0:line:1", text="x"),)
@@ -106,70 +259,14 @@ def test_pdf_ocr_validates_locator_empty_output_and_budget(monkeypatch) -> None:
         normalize_pdf_ocr_units(
             (StructuralUnit(unit_id="empty", kind="page", locator="page:1:line:1", text=" "),)
         )
-    monkeypatch.setattr(document_pdf, "_MAX_CHARACTERS", 1)
     with pytest.raises(ValueError, match="parser budget"):
-        normalize_pdf_ocr_units(valid)
-
-
-def test_pdf_stream_filter_and_expansion_guards(monkeypatch) -> None:
-    assert document_pdf._pdf_stream(b"<<>> stream\nraw\nendstream") == b"raw"
-    assert document_pdf._pdf_stream(b"<<>>\rstream\rraw\rendstream") == b"raw"
-    assert document_pdf._object_type(b"<< /Label (stream error) /Type /Page >>") == b"Page"
-    compressed = zlib.compress(b"decoded")
-    flate = b"<< /Filter /FlateDecode >> stream\n" + compressed + b"\nendstream"
-    assert document_pdf._pdf_stream(flate) == b"decoded"
-    with pytest.raises(ValueError, match="unsupported filter"):
-        document_pdf._pdf_stream(b"<< /Filter /ASCII85Decode >> stream\nx\nendstream")
-    with pytest.raises(ValueError, match="corrupt"):
-        document_pdf._pdf_stream(b"<< /Filter /FlateDecode >> stream\nbad\nendstream")
-    with pytest.raises(ValueError, match="malformed"):
-        document_pdf._pdf_stream(b"<<>>")
-    monkeypatch.setattr(document_pdf, "_MAX_EXPANDED_BYTES", 1)
-    with pytest.raises(ValueError, match="expansion"):
-        document_pdf._pdf_stream(flate)
-
-
-def test_pdf_string_decoding_is_bounded_and_explicit() -> None:
-    assert document_pdf._pdf_text_fragments(b"<4869> Tj") == ("Hi",)
-    assert document_pdf._pdf_text_fragments(b"(a\\050b\\051) Tj") == ("a(b)",)
-    assert document_pdf._decode_pdf_text(b"\xfe\xff\x00H\x00i") == "Hi"
-    with pytest.raises(ValueError, match="incomplete"):
-        document_pdf._pdf_text_fragments(b"<48")
-    with pytest.raises(ValueError, match="invalid"):
-        document_pdf._pdf_text_fragments(b"<zz>")
-    with pytest.raises(ValueError, match="incomplete"):
-        document_pdf._pdf_text_fragments(b"(open")
-    with pytest.raises(ValueError, match="UTF-16"):
-        document_pdf._decode_pdf_text(b"\xfe\xff\x00")
-
-
-def test_pdf_page_tree_and_document_shape_fail_closed(monkeypatch) -> None:
-    page = b"<< /Type /Page >>"
-    assert document_pdf._pdf_page_refs(
-        {(1, 0): b"<< /Type /Pages /Kids [2 0 R] >>", (2, 0): page},
-        (1, 0),
-    ) == ((2, 0),)
-    with pytest.raises(ValueError, match="missing object"):
-        document_pdf._pdf_page_refs({(1, 0): b"<< /Type /Pages /Kids [2 0 R] >>"}, (1, 0))
-    with pytest.raises(ValueError, match="cycle"):
-        document_pdf._pdf_page_refs(
-            {(1, 0): b"<< /Type /Pages /Kids [1 0 R] >>"},
-            (1, 0),
+        normalize_pdf_ocr_units(
+            valid,
+            policy=replace(DEFAULT_DOCUMENT_PARSER_POLICY, max_ocr_characters=1),
         )
-    with pytest.raises(ValueError, match="malformed"):
-        document_pdf._pdf_page_refs({(1, 0): b"<< /Type /Other >>"}, (1, 0))
-    with pytest.raises(ValueError, match="incomplete"):
-        extract_pdf_text(b"not-pdf")
-    with pytest.raises(ValueError, match="object count"):
-        extract_pdf_text(b"%PDF-1.7\n%%EOF")
-    with pytest.raises(ValueError, match="page tree is missing"):
-        extract_pdf_text(b"%PDF-1.7\n1 0 obj << /Type /Other >> endobj\n%%EOF")
-    monkeypatch.setattr(document_pdf, "_MAX_PDF_PAGES", 0)
-    with pytest.raises(ValueError, match="page count"):
-        extract_pdf_text(_pdf(stream=b"BT (text) Tj ET"))
 
 
-def test_ooxml_rejects_unsafe_members_and_declarations(monkeypatch) -> None:
+def test_ooxml_rejects_unsafe_members_and_declarations() -> None:
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w") as archive:
         archive.writestr("../escape", "x")
@@ -177,12 +274,32 @@ def test_ooxml_rejects_unsafe_members_and_declarations(monkeypatch) -> None:
         with pytest.raises(ValueError, match="unsafe member"):
             document_structure.validated_zip_members(archive)
 
-    monkeypatch.setattr(document_structure, "_MAX_ZIP_MEMBERS", 0)
-    with zipfile.ZipFile(io.BytesIO(_ooxml({}))) as archive:
+    package = _ooxml({"word/document.xml": b"<w:document xmlns:w='urn:w'/>"})
+    with zipfile.ZipFile(io.BytesIO(package)) as archive:
         with pytest.raises(ValueError, match="member count"):
-            document_structure.validated_zip_members(archive)
+            document_structure.validated_zip_members(
+                archive,
+                policy=replace(DEFAULT_DOCUMENT_PARSER_POLICY, max_ooxml_members=1),
+            )
     with pytest.raises(ValueError, match="prohibited declaration"):
         document_structure._xml_root(b"<!DOCTYPE x><x/>")
+
+
+def test_ooxml_rejects_xml_member_size_and_depth() -> None:
+    member_policy = replace(DEFAULT_DOCUMENT_PARSER_POLICY, max_ooxml_xml_member_bytes=32)
+    with pytest.raises(ValueError, match="XML member exceeds the parser budget"):
+        extract_ooxml(
+            _ooxml({"word/document.xml": b"<w:document xmlns:w='urn:w'><w:body/></w:document>"}),
+            policy=member_policy,
+        )
+
+    nested = (
+        b"<w:document xmlns:w='urn:w'><w:body><a><b><c><w:p>"
+        b"<w:r><w:t>deep</w:t></w:r></w:p></c></b></a></w:body></w:document>"
+    )
+    depth_policy = replace(DEFAULT_DOCUMENT_PARSER_POLICY, max_ooxml_xml_depth=4)
+    with pytest.raises(ValueError, match="XML depth exceeds the parser budget"):
+        extract_ooxml(_ooxml({"word/document.xml": nested}), policy=depth_policy)
 
 
 def test_ooxml_missing_structure_and_sheet_fallback() -> None:
@@ -204,29 +321,54 @@ def _ooxml(parts: dict[str, bytes]) -> bytes:
     return output.getvalue()
 
 
-def _pdf(*, stream: bytes) -> bytes:
-    objects = (
-        b"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
-        b"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
-        b"3 0 obj << /Type /Page /Parent 2 0 R /Contents 4 0 R >> endobj",
-        b"4 0 obj << /Length "
-        + str(len(stream)).encode()
-        + b" >> stream\n"
-        + stream
-        + b"\nendstream endobj",
+def _generated_pdf(
+    text: str,
+    *,
+    password: str | None = None,
+    page_count: int = 1,
+) -> bytes:
+    output = io.BytesIO()
+    writer = PdfWriter()
+    font = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Font"),
+            NameObject("/Subtype"): NameObject("/Type1"),
+            NameObject("/BaseFont"): NameObject("/Helvetica"),
+        }
     )
-    return b"%PDF-1.7\n" + b"\n".join(objects) + b"\n%%EOF\n"
-
-
-def _deep_pdf(*, depth: int) -> bytes:
-    objects = [b"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj"]
-    for object_number in range(2, depth + 2):
-        child = object_number + 1
-        objects.append(
-            f"{object_number} 0 obj << /Type /Pages /Kids [{child} 0 R] /Count 1 >> endobj".encode()
+    font_reference = writer._add_object(font)
+    for _ in range(page_count):
+        page = writer.add_blank_page(width=612, height=792)
+        page[NameObject("/Resources")] = DictionaryObject(
+            {NameObject("/Font"): DictionaryObject({NameObject("/F1"): font_reference})}
         )
-    page_number = depth + 2
-    objects.append(
-        f"{page_number} 0 obj << /Type /Page /Parent {page_number - 1} 0 R >> endobj".encode()
+        stream = DecodedStreamObject()
+        stream.set_data(f"BT /F1 12 Tf 72 720 Td ({text}) Tj ET".encode("ascii"))
+        page[NameObject("/Contents")] = writer._add_object(stream)
+    if password is not None:
+        writer.encrypt(password)
+    writer.write(output)
+    return output.getvalue()
+
+
+def _compressed_pdf(text: str) -> bytes:
+    output = io.BytesIO()
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=612, height=792)
+    font = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Font"),
+            NameObject("/Subtype"): NameObject("/Type1"),
+            NameObject("/BaseFont"): NameObject("/Helvetica"),
+        }
     )
-    return b"%PDF-1.7\n" + b"\n".join(objects) + b"\n%%EOF\n"
+    page[NameObject("/Resources")] = DictionaryObject(
+        {NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)})}
+    )
+    operations = f"BT /F1 12 Tf 72 720 Td ({text}) Tj ET".encode("ascii")
+    stream = EncodedStreamObject()
+    stream._data = zlib.compress(operations)
+    stream[NameObject("/Filter")] = NameObject("/FlateDecode")
+    page[NameObject("/Contents")] = writer._add_object(stream)
+    writer.write(output)
+    return output.getvalue()

@@ -23,8 +23,10 @@ revision.
 > **Implementation status (2026-08-03):** D0-D4 contracts, claim inventory, strict proposal
 > compilation, deterministic gates, review packages, lifecycle plans, and frozen-corpus scoring are
 > implemented. D4b adds the canonical `DocumentEnvelope` provenance bridge, structured Office and
-> PDF locators, OCR fallback, and cross-format conformance. D5 promotion assessment remains
-> evidence-only; no live-shadow evidence or automatic promotion is claimed.
+> PDF locators, OCR fallback, and synthetic cross-format conformance. D4c adds real-document
+> parsing, provider conformance, and annotated public-corpus evaluation. D4b results do not prove
+> production extraction quality. D5 promotion assessment remains evidence-only; no live-shadow
+> evidence or automatic promotion is claimed.
 
 ## Design at a glance
 
@@ -88,6 +90,12 @@ Duplicate claim ids, missing dispositions, overlapping contradictory disposition
 references to unknown claims fail validation. Structural heuristics and a model-backed detector may
 both propose claims, but the deterministic ledger performs the completeness accounting.
 
+For backward compatibility, each claim retains one primary `ClaimKind` in `kind` and records every
+detected semantic class in the ordered `signals` tuple. The inventory recognizes bounded English
+and Korean normative, relationship, threshold, and imperative forms. It preserves sentence
+boundaries around technical versions and URLs, and removes tags, comments, and source shortcodes
+before classification so markup cannot become claim text.
+
 ## Authority classes
 
 The source authority controls which proposal operations are eligible.
@@ -117,9 +125,13 @@ return schema-constrained data and treat source text as untrusted data, not inst
 5. Return a bounded ambiguous set when no unique identity exists; never invent an instance id.
 6. Propose an inert schema change when no existing type can represent a supported claim.
 
-Exact stable-id matches may resolve automatically. Alias and fuzzy matches require deterministic
-scoring evidence, one unique winner above configured thresholds, and no conflicting exact match.
-Ambiguity always produces `review_required`.
+Exact stable-id matches take precedence and resolve automatically. A configured alias resolves only
+when it maps to one known entity in `VerificationContext`; the proposal binds that canonical
+identity and records `method: alias`. An alias that maps to multiple entities retains the sorted,
+bounded candidate set and produces `review_required`. An unknown add also remains review-only.
+Update, remove, and supersede operations require one exact or unique-alias identity. Fuzzy matching
+never auto-resolves an identity and remains future review-only candidate discovery. Resolution
+method and candidates participate in the content-addressed proposal identity.
 
 ## Envelope provenance bridge
 
@@ -132,22 +144,129 @@ shape, table cell, page block, or speaker note.
 Locators use a deterministic grammar and 1-based ordinals:
 
 - **DOCX:** `docx/paragraph:{n}`, `docx/heading:{level}:{n}`, or
-  `docx/table:{table}/row:{row}/cell:{cell}`.
-- **PPTX:** `pptx/slide:{slide}/shape:{shape}`, a `/table:{table}/row:{row}/cell:{cell}` suffix,
-  or `pptx/slide:{slide}/notes:{paragraph}`.
+  `docx/table:{table}/row:{row}/cell:{cell}`. Paragraph content under headings adds a
+  `/context:heading:{level}:{ordinal}` ancestry suffix.
+- **PPTX:** `pptx/slide:{slide}/shape:{shape}`, an optional `/paragraph:{paragraph}` suffix for
+  multi-paragraph shapes, a `/table:{table}/row:{row}/cell:{cell}` suffix, or
+  `pptx/slide:{slide}/notes:{paragraph}`. Single-paragraph shape locators remain unchanged.
+- **XLSX:** `xlsx/sheet:{sheet}/cell:{address}` preserves the source cell address and resolves
+  bounded shared-string references.
 - **PDF:** `pdf/page:{page}/block:{block}` for native text and
   `pdf/page:{page}/ocr:{block}` for OCR fallback.
+
+`StructuralUnit.table_cell_role` is optional and backward compatible. DOCX and PPTX cells use
+`header` only when their OOXML table metadata declares a header row; other table rows use `body`.
+XLSX cells leave the field unset because a worksheet cell address alone does not prove header
+semantics. PDF OCR preserves the provider's positive page/block ordinal and rejects duplicates,
+reordering, or output-budget overflow before canonicalizing the locator.
 
 Each PDF page selects exactly one evidence path. Native text wins when present; otherwise the
 injected page OCR provider must return bounded cited blocks. Missing OCR, encrypted input, parser
 damage, unsupported compression, page/count limits, or extracted-character limits fail closed and
 produce no review package. OCR is evidence extraction only and receives no executor identity.
+Native parsing uses `pypdf` in strict mode and retains `pdf/page:{page}/block:{block}` locators.
+Byte, page, object, unit, and character ceilings remain FDAI-owned boundaries, and library errors
+are normalized without including document content.
 
 The frozen synthetic corpus expresses the same operational claims as Markdown, DOCX, PPTX, native
 text PDF, and scanned PDF. Conformance compares normalized claims, proposals, and graph operations
 while allowing only source-format and locator fields to differ. Release requires 100% critical
 claim accounting, zero semantic or citation errors, zero normalized graph differences, at least
 0.98 critical-claim recall and entity/link precision, and replay-stable digests for every format.
+
+## Real-corpus quality contract
+
+Synthetic fixtures prove deterministic contracts and citation transport. They do not measure how
+well an extractor or model handles independently authored manuals. D4c therefore keeps safety and
+quality evidence separate:
+
+- **Structure:** Markdown, HTML-like source, Office, native PDF, and OCR inputs produce bounded
+  paragraph, heading, list, table, slide, page, or code units. Markup does not become claim text.
+- **Provider:** The upstream default may abstain safely, but a deployment cannot report ontology
+  extraction as available until its bound `Distiller` passes the same corpus contract.
+- **Corpus:** A versioned manifest pins public source URLs, content digests, licenses, format,
+  language, annotated critical claims, and expected object or link projections. Source text stays
+  outside the package and repository unless its license permits redistribution.
+- **Metrics:** Reports distinguish detected-claim accounting from mapped-claim recall, entity/link
+  precision, citation accuracy, abstention, parser rejection, latency, and cost. A deterministic
+  replay of zero candidates is safe but does not count as extraction success.
+- **Release:** Every required format and language partition meets the thresholds independently.
+  An aggregate score cannot hide an unsupported PDF parser, an unbound provider, or a weak Korean
+  partition.
+
+`ontology_corpus_gate.py` records integer evidence before deriving rates. Each required
+`(source_format, language)` partition keeps case and extraction-success counts, detected and
+accounted claims, expected and mapped critical claims, predicted and correct entity/link facts,
+citation errors, parser rejections, provider abstentions, replay mismatches, semantic errors, and
+latency/cost observations. Missing denominators remain visible; a zero-candidate abstention has a
+zero extraction-success rate even when its deterministic replay is stable.
+
+The release assessment uses three decisions:
+
+| Decision | Meaning |
+|----------|---------|
+| `pass` | Every required partition meets the exact configured thresholds and has latency and cost evidence. |
+| `review` | Evidence is missing, extraction abstained, parsing rejected input, or a coverage threshold was not met. |
+| `deny` | Extracted output contains a citation, replay, semantic, entity, or link error. |
+
+Reason codes retain the partition key, such as
+`pdf:ko:critical_recall_below_threshold`; overall `deny` takes precedence over `review`, and
+`review` takes precedence over `pass`. This gate is evidence-only and review-only. A passing result
+does not grant execution authority, promote an ontology change, or alter a capability mode.
+
+The public-corpus harness reads a machine manifest under `tests/evaluation/`. Each source entry
+pins a stable id, HTTPS URL, SHA-256, license id and license source, format, language, source byte
+and line counts, plus at least two critical source-line hashes with expected claim signals. Source
+bodies stay outside the repository. The caller chooses a temporary or cache directory.
+
+`scripts/evaluation/document_ontology_public_corpus.py` accepts only the exact source host
+allowlist, disables redirects, verifies the final URL, enforces timeout and byte ceilings, and
+checks the pinned byte count and SHA-256 before caching. It then runs protection inspection,
+standard extraction, the envelope provenance bridge, and claim inventory. Reports contain only
+ids, digests, counts, status codes, and partition metadata. They never include source or claim
+text. Tests inject a local fetcher and use no network. The default report records the provider as
+`unbound`, counts an abstention, and records zero extraction successes; a stable empty replay does
+not change that result.
+
+Provider conformance uses prepared `ConformanceCase` values with one explicit
+`VerificationContext` and annotated ontology facts. The evaluator invokes the bound `Distiller`
+twice for each case, measures both calls through an injected monotonic clock, builds real review
+packages, and compares candidate counts, abstention reason, critical recall, entity/link precision,
+citation and semantic errors, and replay digests. Tests inject cost evidence separately; an absent
+cost measurement remains missing evidence rather than an inferred zero-cost success.
+
+Bindings can implement the optional `DescribedDistiller` Protocol to return a versioned
+`DistillerCapabilityDescriptor`. The original `Distiller` Protocol remains backward compatible.
+An undescribed binding resolves as unavailable, and `AbstainingDistiller` identifies itself as
+abstaining with `provider_unbound`. The pure `resolve_ontology_extraction_capability()` function
+reports extraction available only when the descriptor targets the current conformance contract and
+every required partition passed. This resolution changes availability only. It cannot enable the
+feature, change review-only mode, or grant execution authority.
+
+`DocumentParserPolicy` is one immutable, injectable set of hard ceilings for local parsing. It
+limits input bytes, structural units, extracted characters, Markdown tokens and nesting, SGML block
+nesting, OOXML member count, expanded bytes, compression ratio, XML member bytes and depth, PDF
+pages, objects, raw and decoded content-stream bytes, and OCR pages, units, and characters. The
+standard inspector and extractor share the policy. Azure OCR has equivalent immutable source,
+response, page, line, and character limits. Duplicate or reordered OCR citations fail closed.
+
+OOXML rejects document type and entity declarations and parses XML through a depth-limited tree
+builder. SGML parsing does not resolve external entities. Parser and policy errors use bounded
+category messages and never include source text. Markdown, SGML, XML, PDF, and OCR adversarial
+fixtures verify the ceilings and sanitized outcomes.
+
+Native PDF extraction remains on strict `pypdf`; FDAI does not implement a PDF decoder. FDAI sums
+compressed raw content-stream bytes before requesting decoded data and enforces a decoded-byte
+ceiling immediately after each `pypdf` decode, followed by page, object, unit, and character
+ceilings. `pypdf` does not expose an in-process callback that can stop decompression at an exact
+decoded-byte threshold before allocation. This residual means production extraction of untrusted
+PDFs should run in an isolated worker with independent memory, CPU, and wall-time limits. The
+in-process checks remain defense in depth, not a replacement for isolation.
+
+The ten remediation rounds for D4c cover structure, claim semantics, PDF, Office/OCR provenance,
+identity resolution, coverage and release gates, public-corpus replay, provider conformance,
+resource/security bounds, and a final independent critique. Each round adds a falsifying fixture
+before its implementation is accepted.
 
 ## Verification gates
 
@@ -242,11 +361,13 @@ identities always require accountable review.
 | D3 | Incremental revision, deletion, ACL, supersession, and rollback planning | outage cannot create mass deletion; replay restores exact revisions |
 | D4 | Review package and evaluation report | reviewers see graph diff, source evidence, gate receipts, and unresolved claims |
 | D4b | Envelope provenance and cross-format extraction | structured locators survive review; normalized graph diffs match across the synthetic corpus |
+| D4c | Real-corpus extraction quality | required format/language partitions pass provider conformance and annotated-corpus gates |
 | D5 | Shadow measurement and limited promotion evidence | statistical and zero-violation gates pass without widening authority |
 
 ## Hardening record
 
-Twenty-three adversarial rounds covered the proposal-only path and envelope follow-up:
+Thirty-three adversarial rounds cover the proposal path, envelope bridge, and real-corpus
+follow-up:
 
 | Round | Focus | Result |
 |-------|-------|--------|
@@ -264,11 +385,24 @@ Twenty-three adversarial rounds covered the proposal-only path and envelope foll
 | 12 | boundary formats | ontology release digest, RFC 3339 UTC evidence, bounded references |
 | 13 | executable closure | 156 focused tests, 90.62% branch coverage, Ruff and strict mypy pass |
 | 14-23 | envelope and format hardening | locator identity, Office/PDF/OCR fail-closed parsing, semantic equivalence, replay, bounds, and E2E; 238 focused tests and 90.63% branch coverage |
+| 24 | structured text | Markdown and SGML block parsing reduced public-corpus units from 6190 to 1299, markup units from 2084 to 21, and fragmented boundaries from 2112 to 169 |
+| 25 | claim semantics | multi-signal normative, threshold, relationship, and procedure inventory reached 22/22 annotated public claims |
+| 26 | production PDF | strict `pypdf` supports xref and object streams under page, object, stream, unit, and character ceilings |
+| 27 | Office and OCR provenance | heading context, slide paragraphs, table roles, XLSX cells, and exact OCR page/block locators survive extraction |
+| 28 | entity resolution | exact and unique configured aliases resolve; unknown, type-mismatched, and ambiguous aliases remain bounded and unselected |
+| 29 | partition gates | zero-candidate, zero-citation, zero-prediction, missing-format, weak-language, semantic, citation, and replay evidence cannot pass vacuously |
+| 30 | public corpus | 11 HTTPS sources are pinned by SHA-256, license, format, language, size, and 22 content-free annotations; source bodies remain outside the repository |
+| 31 | provider conformance | real bindings are invoked twice per case and measured by partition; an unavailable or abstaining binding cannot report extraction available |
+| 32 | parser security | shared limits cover input, nesting, XML, archive, PDF, OCR, units, and characters; errors remain content-free |
+| 33 | independent closure | three adversarial audits closed bounded alias, cache, SGML depth, vacuous gate, memory normalization, and fixture escaping findings; 22/22 annotations, zero parser rejection, zero replay mismatch, 372 focused tests, and 93.51% branch coverage |
 
-No verified Medium, High, or Critical finding remains. Residual Low risk is limited to conservative
-heuristic coverage for complex layout or language forms, downstream enforcement of the carried
-access-policy reference, and missing live-shadow promotion evidence. These conditions keep the
-capability in review-only mode and cannot raise authority.
+The D4c mechanism and public inventory corpus now close with no verified Medium-or-higher finding.
+The upstream `AbstainingDistiller` still yields zero candidates for all 11 manuals, so ontology
+extraction availability remains false until a bound provider passes the conformance corpus. The
+checked-in public corpus currently covers English Markdown and SGML. Required PDF, Office, OCR,
+and Korean provider partitions still need licensed or synthetic annotations before a deployment
+can claim those partitions. Untrusted PDF decompression also retains the documented isolated-worker
+requirement. These residuals keep the capability review-only and cannot raise authority.
 
 ## Verification matrix
 

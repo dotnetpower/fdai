@@ -31,6 +31,8 @@ class AzureDocumentOcrConfig:
     max_polls: int = 60
     max_lines: int = 5000
     max_characters: int = 1_000_000
+    max_pages: int = 1000
+    max_source_bytes: int = 32 * 1024 * 1024
     max_response_bytes: int = 4_000_000
 
     def __post_init__(self) -> None:
@@ -56,6 +58,8 @@ class AzureDocumentOcrConfig:
             or self.max_polls < 1
             or self.max_lines < 1
             or self.max_characters < 1
+            or self.max_pages < 1
+            or self.max_source_bytes < 1
             or self.max_response_bytes < 1
         ):
             raise ValueError("OCR limits MUST be positive")
@@ -95,6 +99,8 @@ class AzureDocumentIntelligenceOcr:
     ) -> tuple[StructuralUnit, ...]:
         if not content:
             raise AzureDocumentOcrError("OCR source is empty")
+        if len(content) > self._config.max_source_bytes:
+            raise AzureDocumentOcrError("OCR source exceeded configured bounds")
         try:
             token = await self._identity.get_token(self._config.audience)
         except Exception as exc:  # noqa: BLE001 - identity details stay behind the adapter
@@ -182,9 +188,12 @@ class AzureDocumentIntelligenceOcr:
         pages = analyze_result.get("pages") if isinstance(analyze_result, dict) else None
         if not isinstance(pages, list):
             raise AzureDocumentOcrError("OCR result has no pages")
+        if len(pages) > self._config.max_pages:
+            raise AzureDocumentOcrError("OCR page count exceeded configured bounds")
         units: list[StructuralUnit] = []
         total_characters = 0
         seen_page_numbers: set[int] = set()
+        previous_page_number = 0
         for page_index, page in enumerate(pages, start=1):
             if not isinstance(page, dict):
                 raise AzureDocumentOcrError("OCR page is malformed")
@@ -193,7 +202,10 @@ class AzureDocumentIntelligenceOcr:
                 page_number = page_index
             if page_number in seen_page_numbers:
                 raise AzureDocumentOcrError("OCR result has duplicate page numbers")
+            if page_number < previous_page_number:
+                raise AzureDocumentOcrError("OCR result pages MUST be ordered")
             seen_page_numbers.add(page_number)
+            previous_page_number = page_number
             lines = page.get("lines")
             if not isinstance(lines, list):
                 raise AzureDocumentOcrError("OCR page has no lines")
