@@ -90,6 +90,20 @@ async def test_requester_cannot_approve_own_grant() -> None:
         )
 
 
+async def test_decision_rejects_stale_caller_revision() -> None:
+    service, request = await _submitted()
+    with pytest.raises(AccessGrantRequestConflictError, match="revision changed"):
+        await service.decide(
+            request_id=request.request_id,
+            reviewer_ref="owner-1",
+            reviewer_roles=frozenset({"owner"}),
+            decision=AccessGrantDecision.APPROVE,
+            reason="Bounded operation reviewed.",
+            decided_at=NOW + timedelta(minutes=1),
+            expected_revision=request.revision + 1,
+        )
+
+
 async def test_apply_requires_approved_exact_plan() -> None:
     service, request = await _submitted()
     await service.decide(

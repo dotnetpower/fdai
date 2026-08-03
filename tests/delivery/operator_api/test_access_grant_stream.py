@@ -88,7 +88,7 @@ def test_stream_route_rejects_invalid_configuration() -> None:
         make_access_grant_stream_route(service=service, authorize=authorize, path="bad")
 
 
-def test_operator_api_registers_access_grant_stream_as_get_only(
+def test_operator_api_registers_access_grant_stream_and_review_methods(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("FDAI_OPERATOR_API_DEV_MODE", "1")
@@ -117,3 +117,9 @@ def test_operator_api_registers_access_grant_stream_as_get_only(
         if isinstance(item, Route) and item.path == "/access-grants/stream"
     )
     assert route.methods == {"GET", "HEAD"}
+    decision_route = next(
+        item
+        for item in app.routes
+        if isinstance(item, Route) and item.path == "/access-grants/{request_id:str}/decision"
+    )
+    assert decision_route.methods == {"POST"}

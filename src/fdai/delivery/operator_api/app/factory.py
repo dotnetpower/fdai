@@ -93,6 +93,7 @@ _CORE_ROUTE_PATHS: frozenset[str] = frozenset(
         "/iam/assignments",
         "/iam/assignment-cases",
         "/access-grants/stream",
+        "/access-grants/{request_id:str}/decision",
         "/me/context",
         "/me/preferences",
         "/me/memories",
@@ -344,12 +345,21 @@ def build_app(
         )
 
     if resolved_config.execution_access_grants is not None:
+        from fdai.delivery.operator_api.routes.access_grant_decision import (
+            make_access_grant_decision_route,
+        )
         from fdai.delivery.operator_api.routes.access_grant_stream import (
             make_access_grant_stream_route,
         )
 
         routes.append(
             make_access_grant_stream_route(
+                service=resolved_config.execution_access_grants,
+                authorize=_authorize_principal,
+            )
+        )
+        routes.append(
+            make_access_grant_decision_route(
                 service=resolved_config.execution_access_grants,
                 authorize=_authorize_principal,
             )

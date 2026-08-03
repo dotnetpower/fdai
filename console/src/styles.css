@@ -730,6 +730,115 @@ a:hover {
   font-weight: 700;
 }
 
+.access-grant-attention-wrap {
+  position: relative;
+}
+
+.access-grant-review {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(420px, calc(100vw - 24px));
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+  color: var(--fg);
+}
+
+.access-grant-review header,
+.access-grant-review header > div,
+.access-grant-review label,
+.access-grant-review-receipt {
+  display: grid;
+  gap: 6px;
+}
+
+.access-grant-review header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  margin-bottom: 14px;
+}
+
+.access-grant-review header span,
+.access-grant-review-receipt span {
+  color: var(--fg-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.access-grant-review select,
+.access-grant-review textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 8px;
+}
+
+.access-grant-review textarea {
+  min-height: 82px;
+  resize: vertical;
+}
+
+.access-grant-review dl {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.access-grant-review dl > div {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.access-grant-review dt {
+  color: var(--fg-muted);
+}
+
+.access-grant-review dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.access-grant-review-receipt {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.access-grant-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+@media (max-width: 640px) {
+  .access-grant-review {
+    position: fixed;
+    top: var(--header-height);
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-height: calc(100vh - var(--header-height) - 12px);
+    overflow-y: auto;
+  }
+
+  .access-grant-review dl > div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
 .theme-toggle {
   display: inline-flex;
   align-items: center;

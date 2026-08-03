@@ -295,7 +295,10 @@ class AccessGrantRequestService:
         decision: AccessGrantDecision,
         reason: str,
         decided_at: datetime,
+        expected_revision: int | None = None,
     ) -> AccessGrantRequest:
+        if expected_revision is not None and expected_revision < 0:
+            raise AccessGrantRequestError("access grant expected revision MUST be non-negative")
         for _attempt in range(_MAX_DECISION_CAS_ATTEMPTS):
             try:
                 return await self._decide_once(
@@ -305,6 +308,7 @@ class AccessGrantRequestService:
                     decision=decision,
                     reason=reason,
                     decided_at=decided_at,
+                    expected_revision=expected_revision,
                 )
             except AccessGrantRequestConflictError as exc:
                 if "revision changed" not in str(exc):
@@ -322,13 +326,19 @@ class AccessGrantRequestService:
         decision: AccessGrantDecision,
         reason: str,
         decided_at: datetime,
+        expected_revision: int | None,
     ) -> AccessGrantRequest:
         request = await self._load(request_id)
+        if expected_revision is not None and request.revision != expected_revision:
+            raise AccessGrantRequestConflictError("access grant request revision changed")
         if request.status is not AccessGrantRequestStatus.PENDING:
             raise AccessGrantRequestConflictError("access grant request is not pending")
         if reviewer_ref.casefold() == request.requester_ref.casefold():
             raise AccessGrantRequestPermissionError("access grant requests cannot be self-approved")
-        if not reviewer_roles.intersection(request.approver_roles):
+        normalized_reviewer_roles = {role.casefold() for role in reviewer_roles}
+        if not normalized_reviewer_roles.intersection(
+            role.casefold() for role in request.approver_roles
+        ):
             raise AccessGrantRequestPermissionError("reviewer lacks an approved access-grant role")
         if not reason.strip():
             raise AccessGrantRequestError("access grant review reason MUST be non-empty")

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 11ad8c73a2f713406e72bc49ad857f2122c3155c
+translation_source_sha: 7d0a7d2b0abc61780088d82aaed11bc7e265cf1a
 translation_revised: 2026-08-04
 ---
 
@@ -19,7 +19,8 @@ translation_revised: 2026-08-04
 > onboarding, bounded investigation은 별도 도메인 view로 제공됩니다. Console action dispatch는
 > broker publish 전에 payload를 포함한 receipt를 저장하고 restart 뒤 pending delivery를 복구합니다.
 > Workflow approval은 callback과 conversation tool 경계 모두에서 durable role과 서로 다른 quorum을
-> 검사합니다. Federated Tasks view, cross-domain projection metadata 및 나머지 route hardening은 제안 상태입니다.
+> 검사합니다. Pending access-grant review는 권한을 적용하지 않은 채 App Role, 자기 승인 방지, expiry,
+> quorum 및 exact revision을 검사합니다. Federated Tasks view, cross-domain projection metadata 및 나머지 route hardening은 제안 상태입니다.
 
 ## 설계 요약
 
@@ -94,9 +95,10 @@ topic을 추가하지 않습니다. 각 source가 자체 schema, revision, lifec
 Browser에 표시할 pending access request가 있으면 인증된 GET-only stream이 principal의 App Role로
 durable record를 filter합니다. Tab과 Command Deck이 idle 상태이면 console은 capability, scope 및
 expiry가 포함된 request-scoped conversation을 엽니다. 진행 중인 작업, 전송하지 않은 draft 또는 hidden
-tab이 있으면 conversation을 바꾸지 않고 visible badge를 유지합니다. Conversation은 context만
-제공하며 approval, protected deployment, fresh access verification 및 revocation은 authorization
-workflow에 남습니다.
+tab이 있으면 conversation을 바꾸지 않고 visible badge를 유지합니다. Badge를 열면 적격 principal이
+필수 사유를 입력하고 정확한 projection revision을 승인하거나 거부할 수 있습니다. Receipt는 review가
+권한을 적용하지 않으며 새로운 probe가 여전히 필요하다고 알립니다. Protected deployment, fresh access
+verification 및 revocation은 authorization workflow의 별도 단계로 남습니다.
 
 인증된 `GET /incidents/stream` route는 durable incident read model에서 최대 50개의 active incident를
 project합니다. 새 active incident가 관찰되면 tab과 Command Deck이 idle 상태일 때 incident에 연결된
@@ -201,6 +203,14 @@ durable Process snapshot과 creation evidence를 다시 읽습니다. 모든 res
 capability가 필요합니다. Enforce Process의 source lifecycle을 workflow runtime이 진행하기 전에
 route가 Owner와 현재 enforce allowlist를 다시 확인합니다. 알 수 없는 Process id는 `404`를
 반환하고 incomplete 또는 inconsistent resume evidence는 typed `409` conflict를 반환합니다.
+
+안전한 Process cancellation은 request body 없이 `POST /workflows/{process_id}/cancel`을
+사용합니다. Contributor는 shadow work를 cancel할 수 있고 enforce Process에는 Owner가 필요합니다.
+Enforce allowlist entry를 제거해도 cancellation은 새 forward work를 시작할 수 없으므로 차단되지
+않습니다. Server는 durable `pending` 또는 `waiting` boundary에서만 command를 수락하고 actor와
+cancellation intent를 기록합니다. Pending human-approval slot을 닫고 이미 dispatch된 action을
+reconcile한 뒤 workflow owner를 통해 cancel 또는 compensate합니다. `running` Process는 dispatch가
+idle이라고 추측하지 않고 typed `409 process_not_at_safe_boundary`를 반환합니다.
 
 ### 요청 검사
 

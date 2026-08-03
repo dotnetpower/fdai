@@ -16,7 +16,8 @@ second execution authority.
 > runs, provisioning, onboarding, and bounded investigations are shipped as separate domain views.
 > Console action dispatch persists payload-bearing receipts before broker publication and recovers
 > pending delivery after restart. Workflow approvals enforce their durable role and distinct quorum
-> at both callback and conversation-tool boundaries. The federated Tasks view, cross-domain
+> at both callback and conversation-tool boundaries. Pending access-grant review enforces App Role,
+> no-self-approval, expiry, quorum, and exact revision without applying permission. The federated Tasks view, cross-domain
 > projection metadata, and hardening of the remaining domain routes are proposed.
 
 ## Design at a glance
@@ -93,8 +94,10 @@ table, or new approval topic. Each source keeps its own schema, revision, lifecy
 For a browser-visible pending access request, an authenticated GET-only stream filters the durable
 records by the principal's App Roles. When the tab and Command Deck are idle, the console opens a
 request-scoped conversation with the capability, scope, and expiry. Active work, an unsent draft,
-or a hidden tab keeps a visible badge instead of switching conversations. The conversation provides
-context only; approval, protected deployment, fresh access verification, and revocation remain in
+or a hidden tab keeps a visible badge instead of switching conversations. The badge opens a review
+panel where an eligible principal can approve or reject the exact projected revision with a required
+reason. The receipt says that review does not apply permission and that a fresh probe remains
+required. Protected deployment, fresh access verification, and revocation remain separate steps in
 the authorization workflow.
 
 The authenticated `GET /incidents/stream` route projects up to 50 active incidents from the durable
@@ -203,6 +206,14 @@ target, trigger, mode, correlation, or context from the caller. Contributor capa
 for every resume. The route repeats Owner and current enforce-allowlist checks for an enforce
 Process before it lets the workflow runtime advance the source lifecycle. Unknown Process ids
 return `404`; incomplete or inconsistent resume evidence returns a typed `409` conflict.
+
+Safe Process cancellation uses `POST /workflows/{process_id}/cancel` with no request body.
+Contributor can cancel shadow work, while an enforce Process requires Owner. Removing an enforce
+allowlist entry doesn't block cancellation because cancellation cannot start new forward work. The
+server accepts the command only from a durable `pending` or `waiting` boundary, records the actor
+and cancellation intent, closes pending human-approval slots, reconciles an already-dispatched
+action, and then cancels or compensates through the workflow owner. A `running` Process returns a
+typed `409 process_not_at_safe_boundary` instead of guessing that dispatch is idle.
 
 ### Request checks
 

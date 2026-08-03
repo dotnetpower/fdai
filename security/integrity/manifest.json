@@ -269,7 +269,7 @@
     "src/fdai/core/execution_authorization/decision_set.py": "f3d51f1c67d50c88d8eeaec0e03aaeb9791bb4748e9ed3181e9e3a8d9b06f3d1",
     "src/fdai/core/execution_authorization/evaluator.py": "90e94e726270c368fc5f369325429855364fbc4346d7787e0c525de4927da74f",
     "src/fdai/core/execution_authorization/grant_planning.py": "e15ded43f38f60a3a4f58ebcf74ebfdee72282c7534f3f66a531bb39172d4b69",
-    "src/fdai/core/execution_authorization/grant_request.py": "1a13b523d6edad4828809653845b8925067d982249e6c25671114680c4e3312e",
+    "src/fdai/core/execution_authorization/grant_request.py": "f87f401f174de10710f156bfd3439469722b2101c2dbf50af8b49fdf01d71d55",
     "src/fdai/core/execution_authorization/models.py": "5cca7c5c5476499a543b74ae4073d383487799aa26ea5f3919abbcadec423cb6",
     "src/fdai/core/execution_authorization/observation.py": "fb4d3f4d9a4ca9f19f2a600a8ebb7d3d17c598fcae0b0682060e4cf6bcc9b1f7",
     "src/fdai/core/execution_authorization/resolver.py": "07b05bc1d7b00fc26b2d03da817b847f95feec1cf25de01ff2296917208f4ab1",
@@ -944,7 +944,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-03T21:35:46Z",
+  "generated_at": "2026-08-03T22:15:04Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
