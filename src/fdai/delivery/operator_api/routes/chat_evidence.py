@@ -22,6 +22,7 @@ from fdai.delivery.operator_api.routes.chat_incident_dossier import (
     IncidentDossierIntent,
     classify_incident_dossier_intent,
 )
+from fdai.delivery.operator_api.routes.chat_topology_intent import is_topology_question
 from fdai.delivery.operator_api.routes.rca_projection import project_rca
 
 _LOG = logging.getLogger(__name__)
@@ -220,6 +221,9 @@ def needs_operational_evidence(
     That route requires recency, incident, outage, failure, or cause language
     before it leaves the current-screen authority.
     """
+
+    if is_topology_question(prompt):
+        return False
 
     operational = bool(
         (

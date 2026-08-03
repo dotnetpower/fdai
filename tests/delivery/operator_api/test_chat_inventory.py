@@ -65,10 +65,17 @@ async def test_topology_questions_require_exact_resource_selectors() -> None:
         "Can the application reach the database end to end?",
         "이 네트워크 보안 그룹이 허용하는 인바운드 포트는 뭐야?",
         "Which inbound ports are allowed by this network security group?",
+        "선택한 NSG의 허용 inbound rule과 포트를 보여줘.",
+        "이 네트워크 보안 그룹에서 인바운드로 열려 있는 포트를 알려줘.",
+        "What inbound traffic does this network security group permit?",
         "이 가상 네트워크의 피어링 상태와 제한을 알려줘.",
         "Show this virtual network's peerings, direction, and configuration limits.",
+        "What networks are peered with this VNet, and what configuration constraints apply?",
         "이 데이터베이스가 실패하면 어떤 서비스가 영향을 받아?",
         "What is the bounded impact scope if this database fails?",
+        "선택한 DB 장애의 bounded impact scope를 dependency 기준으로 보여줘.",
+        "이 데이터베이스에 의존해 영향받을 수 있는 서비스를 알려줘.",
+        "Which dependent resources could be affected by a failure of this database?",
         "Trace the path from an app to a database.",
         "List the blast radius of the selected database.",
         "Show inbound rules for that NSG.",
@@ -147,6 +154,47 @@ class StructuredPresentationBackend(RecordingBackend):
 
 async def _allow(request: Request) -> str:
     return "reader"
+
+
+def test_topology_hold_skips_planner_and_narrator_json_and_sse() -> None:
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> object:
+            raise AssertionError("topology hold must skip semantic planning")
+
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        del args, kwargs
+        raise AssertionError("topology hold must skip inventory provider")
+
+    backend = RecordingBackend()
+    tools = InventoryChatTools(provider)
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=tools,
+                turn_planner=Planner(),  # type: ignore[arg-type]
+            ),
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=tools,
+                turn_planner=Planner(),  # type: ignore[arg-type]
+            ),
+        ]
+    )
+    body = {"prompt": "Which dependent resources could be affected by a failure of this database?"}
+
+    with TestClient(app) as client:
+        direct = client.post("/chat", json=body)
+        streamed = client.post("/chat/stream", json=body)
+
+    payload = direct.json()
+    done = _inventory_done_event(streamed.text)
+    assert done is not None
+    assert payload["verification"]["authority"] == "server_inventory_graph"
+    assert done["verification"] == payload["verification"]
+    assert backend.calls == 0
 
 
 def _resource(

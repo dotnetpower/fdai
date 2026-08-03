@@ -254,6 +254,7 @@ from fdai.delivery.operator_api.routes.chat_subscription_health import (
     needs_subscription_health_context,
 )
 from fdai.delivery.operator_api.routes.chat_system_health import render_system_health_answer
+from fdai.delivery.operator_api.routes.chat_topology_intent import is_topology_question
 from fdai.delivery.operator_api.routes.chat_turn_plan import (
     TurnPlanner,
     TurnTool,
@@ -524,6 +525,7 @@ def make_chat_route(
             or inventory_screen_scope_resolution is not None
             or inventory_scope_followup
             or selector_hold is not None
+            or is_topology_question(evidence_prompt)
             or compile_inventory_query(evidence_prompt) is not None
             or needs_subscription_health(evidence_prompt)
             or needs_log_query(evidence_prompt)

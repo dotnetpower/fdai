@@ -65,6 +65,19 @@ OPERATIONAL_WEAKNESS_CASES = (
     OperationalWeaknessCase("show Azure resources", False),
 )
 
+
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "선택한 DB 장애의 bounded impact scope를 dependency 기준으로 보여줘.",
+        "이 데이터베이스에 의존해 영향받을 수 있는 서비스를 알려줘.",
+        "Which dependent resources could be affected by a failure of this database?",
+    ),
+)
+def test_topology_failure_language_does_not_route_to_incident_evidence(prompt: str) -> None:
+    assert needs_operational_evidence(prompt) is False
+
+
 OPERATIONAL_RUBRIC_NAMES = (
     "intent-classification",
     "resolver-selection",

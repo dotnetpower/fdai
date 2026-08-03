@@ -157,6 +157,7 @@ from fdai.delivery.operator_api.routes.chat_stream_terminal import (
 )
 from fdai.delivery.operator_api.routes.chat_subscription_health import needs_subscription_health
 from fdai.delivery.operator_api.routes.chat_system_health import render_system_health_answer
+from fdai.delivery.operator_api.routes.chat_topology_intent import is_topology_question
 from fdai.delivery.operator_api.routes.chat_trajectory_detail import (
     TrajectoryDetailCollector,
     trajectory_detail_budget,
@@ -306,6 +307,7 @@ def make_chat_stream_route(
             or prepared.inventory_screen_scope
             or prepared.inventory_scope_followup
             or "_read_investigation_context_hold" in view_context
+            or is_topology_question(evidence_prompt)
             or compile_inventory_query(evidence_prompt) is not None
             or needs_subscription_health(evidence_prompt)
             or needs_log_query(evidence_prompt)
