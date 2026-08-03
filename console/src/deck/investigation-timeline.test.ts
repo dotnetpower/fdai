@@ -240,6 +240,24 @@ describe("upsertEvidenceBranch", () => {
     );
     expect(styles).toMatch(/\.deck-investigation-summary\s*\{[^}]*min-height:\s*44px/);
     expect(styles).toMatch(
+      /\.deck-investigation-kind-badge\s*\{[^}]*min-width:\s*46px;[^}]*font-size:\s*11px/,
+    );
+    expect(styles).toMatch(
+      /\.deck-investigation-copy small,[\s\S]*?\.deck-investigation-meta\s*\{[^}]*font-size:\s*11px/,
+    );
+    expect(styles).toMatch(
+      /\.deck-investigation-copy-command\s*\{[^}]*width:\s*32px;[^}]*height:\s*32px/,
+    );
+    expect(styles).toContain(".deck-investigation-copy-command:focus-visible {");
+    expect(styles).toContain(".deck-investigation-item-disclosure > summary:focus-visible {");
+    expect(styles).toContain(".deck-execution-timeline > ol > li > details > summary:focus-visible {");
+    expect(styles).toMatch(
+      /@container deck-transcript \(max-width: 820px\)[\s\S]*?\.deck-execution-facts\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/,
+    );
+    expect(styles).toMatch(
+      /@container deck-transcript \(max-width: 620px\)[\s\S]*?\.deck-execution-label\s*\{[^}]*white-space:\s*normal/,
+    );
+    expect(styles).toMatch(
       /\.deck-investigation-item\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent/,
     );
     expect(styles).toMatch(

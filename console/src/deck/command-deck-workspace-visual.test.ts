@@ -35,6 +35,8 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toContain("font-size: 12px;\n}");
     expect(styles).toContain(".deck-btn:focus-visible,");
     expect(styles).toContain("outline: 2px solid var(--accent);");
+    expect(styles).toContain(".deck-conversation-select:focus-visible {");
+    expect(styles).toContain(".deck-input:focus-visible {");
   });
 
   test("reflows execution details from the deck container width", () => {
