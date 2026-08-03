@@ -101,6 +101,33 @@ async def _probe_rca(reasoner: RcaReasoner | None) -> bool:
     return hypothesis is not None and hypothesis.grounded
 
 
+async def _probe_kubernetes_evidence(
+    evidence_client: KubectlEvidenceClient,
+    namespaces: frozenset[str],
+) -> tuple[dict[str, bool], str | None]:
+    checks = {
+        "kubernetes_inventory_live_probe": True,
+        "kubernetes_events_live_probe": True,
+        "kubernetes_metrics_live_probe": True,
+    }
+    first_error_type: str | None = None
+    for namespace in sorted(namespaces):
+        task = _probe_task(namespace)
+        probes = (
+            ("kubernetes_inventory_live_probe", evidence_client.inventory),
+            ("kubernetes_events_live_probe", evidence_client.events),
+            ("kubernetes_metrics_live_probe", evidence_client.pod_metrics),
+        )
+        for check_name, probe in probes:
+            try:
+                await probe(task)
+            except Exception as exc:  # noqa: BLE001 - readiness emits only the error type
+                checks[check_name] = False
+                if first_error_type is None:
+                    first_error_type = type(exc).__name__
+    return checks, first_error_type
+
+
 async def _run(command: str, adapter_name: str, environ: Mapping[str, str]) -> int:
     adapter = load_evaluation_adapter(adapter_name)
     kubernetes_config = _kubernetes_config(environ)
@@ -123,20 +150,17 @@ async def _run(command: str, adapter_name: str, environ: Mapping[str, str]) -> i
             evidence_client=evidence_client,
             rca_reasoner=rca_reasoner,
         )
-        probe_error: str | None = None
-        for namespace in sorted(kubernetes_config.allowed_namespaces):
-            try:
-                await evidence_client.inventory(_probe_task(namespace))
-            except Exception as exc:  # noqa: BLE001 - report typed readiness, no raw detail
-                probe_error = type(exc).__name__
-                break
+        kubernetes_checks, probe_error = await _probe_kubernetes_evidence(
+            evidence_client,
+            kubernetes_config.allowed_namespaces,
+        )
         rca_live = await _probe_rca(rca_reasoner)
         payload = dict(readiness_payload(readiness))
         checks = dict(payload["checks"])
-        checks["kubernetes_live_probe"] = probe_error is None
+        checks.update(kubernetes_checks)
         checks["rca_live_probe"] = rca_live
         payload["checks"] = checks
-        payload["ready"] = readiness.ready and probe_error is None and rca_live
+        payload["ready"] = readiness.ready and all(kubernetes_checks.values()) and rca_live
         if probe_error is not None:
             payload["reason_code"] = "kubernetes_evidence_probe_failed"
             payload["error_type"] = probe_error

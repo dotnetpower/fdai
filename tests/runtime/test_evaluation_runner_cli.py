@@ -9,6 +9,7 @@ import pytest
 from fdai.core.rca import RcaTier, RootCauseHypothesis
 from fdai.runtime.evaluation_runner_cli import (
     _kubernetes_config,
+    _probe_kubernetes_evidence,
     _probe_rca,
     _requires_llm_binding,
     main,
@@ -63,3 +64,30 @@ async def test_rca_probe_requires_grounded_live_hypothesis() -> None:
     assert await _probe_rca(_Reasoner()) is True
     assert await _probe_rca(_AbstainingReasoner()) is False
     assert await _probe_rca(None) is False
+
+
+async def test_kubernetes_probe_reports_missing_metrics_permission() -> None:
+    class _Client:
+        async def inventory(self, task):  # type: ignore[no-untyped-def]
+            assert task.target.value == "example-app"
+            return {}
+
+        async def events(self, task):  # type: ignore[no-untyped-def]
+            assert task.target.value == "example-app"
+            return {}
+
+        async def pod_metrics(self, task):  # type: ignore[no-untyped-def]
+            assert task.target.value == "example-app"
+            raise RuntimeError("forbidden")
+
+    checks, error_type = await _probe_kubernetes_evidence(
+        _Client(),  # type: ignore[arg-type]
+        frozenset({"example-app"}),
+    )
+
+    assert checks == {
+        "kubernetes_inventory_live_probe": True,
+        "kubernetes_events_live_probe": True,
+        "kubernetes_metrics_live_probe": False,
+    }
+    assert error_type == "RuntimeError"

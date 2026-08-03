@@ -192,10 +192,11 @@ fdai-evaluation-runner check --adapter sregym
 Configure `FDAI_EVALUATION_KUBECONFIG`, `FDAI_EVALUATION_KUBERNETES_CONTEXT`,
 `FDAI_EVALUATION_KUBERNETES_CLUSTER`, and the comma-separated exact namespace allowlist in
 `FDAI_EVALUATION_KUBERNETES_NAMESPACES`. Readiness requires installed-adapter discovery, live
-Kubernetes inventory access, both Kubernetes evidence providers, and a configured grounded RCA
-reasoner. It also sends one synthetic citation-bounded RCA request so a stale or missing model
-deployment cannot report ready. The host authority remains observation mode even when all checks
-pass.
+Kubernetes inventory access, both Kubernetes evidence providers, pod metrics access, and a
+configured grounded RCA reasoner. It probes inventory, events, and `metrics.k8s.io` for every
+allowlisted namespace before a run. It also sends one synthetic citation-bounded RCA request so a
+stale or missing model deployment cannot report ready. The host authority remains observation mode
+even when all checks pass.
 
 When the subscription has no spare quota for a capability-specific deployment, endpoint discovery
 can bind `t2.rca` to an existing verified deployment in the same account. The generated binding

@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 21d7d68c0f202e595d95f6174d45bc8e1782d957
+translation_source_sha: 7ff6e001539ae4c917f09d270f7014e668cca56e
 translation_revised: 2026-08-04
 ---
 
@@ -196,10 +196,11 @@ fdai-evaluation-runner check --adapter sregym
 `FDAI_EVALUATION_KUBECONFIG`, `FDAI_EVALUATION_KUBERNETES_CONTEXT`,
 `FDAI_EVALUATION_KUBERNETES_CLUSTER` 및 comma-separated exact namespace allowlist인
 `FDAI_EVALUATION_KUBERNETES_NAMESPACES`를 구성합니다. Readiness는 installed-adapter discovery,
-live Kubernetes inventory access, 두 Kubernetes evidence provider 및 configured grounded RCA
-reasoner를 요구합니다. 또한 synthetic citation-bounded RCA request를 한 번 전송하므로 stale 또는
-missing model deployment는 ready로 표시되지 않습니다. 모든 check를 통과해도 host authority는
-관찰 모드로 유지됩니다.
+live Kubernetes inventory access, 두 Kubernetes evidence provider, pod metrics access 및 configured
+grounded RCA reasoner를 요구합니다. 실행 전에 allowlist에 포함된 모든 namespace에서 inventory,
+events 및 `metrics.k8s.io`를 probe합니다. 또한 synthetic citation-bounded RCA request를 한 번
+전송하므로 stale 또는 missing model deployment는 ready로 표시되지 않습니다. 모든 check를 통과해도
+host authority는 관찰 모드로 유지됩니다.
 
 Subscription에 capability-specific deployment를 추가할 quota가 없으면 endpoint discovery가
 `t2.rca`를 같은 account의 기존 verified deployment에 bind할 수 있습니다. 생성된 binding은 URL 대신
