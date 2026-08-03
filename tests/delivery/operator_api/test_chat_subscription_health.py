@@ -425,6 +425,11 @@ def test_generic_service_outage_question_uses_subscription_health() -> None:
     assert needs_subscription_health("서비스 장애 나고 있는게 있어?")
     assert needs_subscription_health("현재 Azure 플랫폼 장애의 영향을 받는 리소스가 있어?")
     assert needs_subscription_health("Is any managed resource affected by an active Azure outage?")
+    assert needs_subscription_health("이 상태가 Azure 플랫폼 영향인지 고객 시작 변경인지 구분해줘.")
+    assert needs_subscription_health(
+        "Distinguish Azure platform impact from changes initiated by the customer."
+    )
+    assert not needs_subscription_health("Restart resources affected by an active Azure outage.")
 
 
 def test_platform_health_skips_semantic_turn_planner() -> None:
@@ -1495,22 +1500,30 @@ def test_resource_health_history_uses_typed_lookback_and_chronological_order() -
         ]
     )
 
+    prompts = (
+        "지난 24시간의 리소스 상태 이벤트를 시간순으로 보여줘.",
+        "최근 하루 동안 발생한 Resource Health 이벤트를 순서대로 정리해줘.",
+        "지난 24시간의 리소스 상태 변경 이력을 타임라인으로 보여줘.",
+        "Show the managed resources' health events during the previous day.",
+    )
     with TestClient(app) as client:
-        response = client.post(
-            "/chat",
-            json={
-                "prompt": "지난 24시간의 리소스 상태 이벤트를 시간순으로 보여줘.",
-                "view_context": {},
-            },
-        )
+        responses = [
+            client.post("/chat", json={"prompt": prompt, "view_context": {}}) for prompt in prompts
+        ]
 
-    answer = response.json()["answer"]
-    resource_context = response.json()["resource_context"]
-    assert calls == [86_400]
-    assert answer.index("vm-earlier") < answer.index("database-later")
-    assert "지난 24시간의 리소스 상태 이벤트 2개" in answer
-    assert "customer-initiated 1건" in answer
-    assert "platform-initiated 1건" in answer
+    assert calls == [86_400] * len(prompts)
+    for response in responses:
+        answer = response.json()["answer"]
+        assert answer.index("vm-earlier") < answer.index("database-later")
+    for response in responses[:3]:
+        answer = response.json()["answer"]
+        assert "customer-initiated 1건" in answer
+        assert "platform-initiated 1건" in answer
+    english_answer = responses[-1].json()["answer"]
+    assert "customer-initiated 1" in english_answer
+    assert "platform-initiated 1" in english_answer
+    assert "지난 24시간의 리소스 상태 이벤트 2개" in responses[0].json()["answer"]
+    resource_context = responses[-1].json()["resource_context"]
     assert resource_context == {
         "name": "database-later",
         "resource_type": "microsoft.dbforpostgresql.flexibleservers",

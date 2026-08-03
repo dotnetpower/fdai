@@ -1,5 +1,5 @@
 schema_version: "1.1.0"
-version: "1.1.21"
+version: "1.1.23"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -20,9 +20,9 @@ signals:
   workload:
     terms: [deployment, deployments, deploying, pod, pods, node, nodes, node pool, node pools, workload, workloads, running apps, 배포, 파드, 노드, 노드 풀, 워크로드, 실행 중인 앱]
   platform_health:
-    terms: [azure outage, azure incident, platform outage, platform incident, platform issue, platform issues, platform problem, platform problems, platform-initiated impact, platform initiated impact, service outage, service incident, affected by an azure outage, affected by a platform outage, Azure 플랫폼 장애, Azure 서비스 장애, 플랫폼 장애, 플랫폼 문제, 서비스 장애]
+    terms: [azure outage, azure incident, platform outage, platform incident, platform issue, platform issues, platform problem, platform problems, platform-initiated impact, platform initiated impact, azure platform impact, changes initiated by the customer, customer-initiated changes, service outage, service incident, affected by an azure outage, affected by a platform outage, Azure 플랫폼 장애, Azure 서비스 장애, Azure 플랫폼 영향, Azure 플랫폼 영향인지, 고객 시작 변경, 고객 시작 변경인지, 플랫폼 장애, 플랫폼 문제, 서비스 장애]
   health_history:
-    terms: [resource health events, resource status events, health event history, resource health history, 리소스 상태 이벤트, 리소스 헬스 이벤트, 상태 이벤트 이력, 리소스 상태 이력]
+    terms: [resource health events, resource status events, health events during the previous day, managed resources health events, managed resources' health events, health event history, resource health history, Resource Health 이벤트, 리소스 상태 이벤트, 리소스 헬스 이벤트, 리소스 상태 변경 이력, 상태 이벤트 이력, 리소스 상태 이력]
   continuation:
     terms: [also, as well, together, too, did you check, did you skip, fail to read, 도 함께, 함께, 도 알려줘]
   active_view_resource_group:

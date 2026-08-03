@@ -44,6 +44,11 @@ _MUTATION: Final = re.compile(
     r"|생성|삭제|재시작|스케일|변경|수정|복구",
     re.IGNORECASE,
 )
+_STRONG_MUTATION: Final = re.compile(
+    r"\b(?:create|delete|restart|scale|update|remediate|fix)\b"
+    r"|생성|삭제|재시작|스케일|수정|복구",
+    re.IGNORECASE,
+)
 _SUBSCRIPTION_CONTEXT: Final = re.compile(
     r"\b(?:(?:current|active|which|what)\s+(?:azure\s+)?subscription|"
     r"(?:azure\s+)?subscription\s+(?:name|id|details|information))\b"
@@ -627,14 +632,15 @@ def needs_subscription_health(prompt: str) -> bool:
     if is_specific_inventory_question(prompt):
         return False
     language = default_inventory_query_language_resolver()
-    asks_for_health = (
-        language.has(language.registry.signals, "platform_health", prompt)
-        or language.has(language.registry.signals, "health_history", prompt)
-        or bool(
-            (_SCOPE.search(prompt) and _HEALTH.search(prompt)) or _SERVICE_HEALTH.search(prompt)
-        )
+    catalog_health_read = language.has(
+        language.registry.signals, "platform_health", prompt
+    ) or language.has(language.registry.signals, "health_history", prompt)
+    if catalog_health_read:
+        return not _STRONG_MUTATION.search(prompt)
+    asks_for_health = (_SCOPE.search(prompt) and _HEALTH.search(prompt)) or _SERVICE_HEALTH.search(
+        prompt
     )
-    return asks_for_health and not _MUTATION.search(prompt)
+    return bool(asks_for_health) and not _MUTATION.search(prompt)
 
 
 def needs_subscription_health_context(prompt: str) -> bool:
