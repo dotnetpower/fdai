@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 3584d3ac4a85484dad030a6468f1b9c2caf53fa0
+translation_source_sha: 83cc9df5e7c9e5fb88fbe45a72023b99ab66a65e
 translation_revised: 2026-08-04
 ---
 
@@ -401,6 +401,12 @@ HIL로 라우팅)을 반환하며, 다음 하드닝 불변식을 지킨다:
   임계값(self-consistency 샘플러가 흔들리는 proposer를 보고하면 nominal agreement
   에서도 escalate). ActionType별 `never`/`always` 리스트로 튜닝하며 deny가 allow
   우선.
+
+Resolved model family는 deployment alias와 별도로 각 T2 adapter에 전달됩니다. GPT-5 및 o-series
+chat family는 `max_completion_tokens`를 보내고 custom `temperature`를 생략합니다. Classic chat
+family는 `max_tokens`와 `temperature`를 유지합니다. 이 규칙은 primary latency-pool member를 포함한
+RCA, proposer 및 cross-check request에 동일하게 적용되므로 friendly deployment alias가 잘못된 wire
+field를 선택할 수 없습니다.
 
 ### Narrator Latency Routing (T1 전용)
 

@@ -106,6 +106,20 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "reasoning_model_completion_compatibility",
+      "source_commits": [
+        "77140bf66b521618e44adba0fae2e4d7c9c55811"
+      ],
+      "status": "operationalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": true,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

@@ -428,6 +428,12 @@ unresolved case to HIL), under these hardening invariants:
   even on nominal agreement). A per-ActionType `never`/`always` list tunes it, deny
   winning over allow.
 
+Resolved model family is passed separately from the deployment alias to each T2 adapter. GPT-5
+and o-series chat families send `max_completion_tokens` and omit custom `temperature`; classic
+chat families retain `max_tokens` and `temperature`. This applies consistently to RCA, proposer,
+and cross-check requests, including primary latency-pool members, so a friendly deployment alias
+cannot select the wrong wire fields.
+
 ### Narrator Latency Routing (T1-Only)
 
 The console chat backend (`fdai.delivery.operator_api.chat.LatencyRoutedChatBackend`)

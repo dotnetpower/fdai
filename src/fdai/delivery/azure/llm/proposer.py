@@ -12,6 +12,7 @@ import httpx
 from fdai.core.metering.emitter import MeteringEmitter
 from fdai.core.quality_gate.gate import QualityCandidate
 from fdai.core.tiers.t2_reasoning import T2ProposalContext
+from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.gateway_evidence import record_gateway_route_evidence
 from fdai.delivery.azure.llm.latency_routed_cross_check import ModelHealthTransitionSink
 from fdai.delivery.azure.llm.request_target import (
@@ -35,6 +36,7 @@ class AzureOpenAIProposerConfig:
     api_version: str = "2024-06-01"
     temperature: float = 0.0
     max_tokens: int = 512
+    model_family: str | None = None
     timeout_seconds: float = 30.0
     api_style: ModelApiStyle = ModelApiStyle.AZURE_OPENAI
     auth_audience: str = COGNITIVE_SERVICES_SCOPE
@@ -88,9 +90,12 @@ class AzureOpenAIProposer:
                 {"role": "system", "content": self._config.system_prompt},
                 {"role": "user", "content": _build_user_prompt(context)},
             ],
-            "temperature": self._config.temperature,
-            "max_tokens": self._config.max_tokens,
             "response_format": {"type": "json_object"},
+            **completion_body_params(
+                self._config.model_family or self._config.deployment,
+                temperature=self._config.temperature,
+                max_tokens=self._config.max_tokens,
+            ),
         }
         if request.model_body_field is not None:
             body["model"] = request.model_body_field
