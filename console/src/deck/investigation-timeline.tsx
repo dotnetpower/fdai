@@ -263,7 +263,7 @@ function ActivitySummary({
   return (
     <div class={`deck-investigation-summary${activity.execution ? " has-kind-badge" : ""}`}>
       <span class="deck-investigation-state" aria-hidden="true">
-        {statusMark(activity.status)}
+        <span class="deck-marker-glyph">{statusMark(activity.status)}</span>
       </span>
       {activity.execution ? (
         <span
@@ -354,7 +354,7 @@ export function InvestigationTimeline({
               </span>
               <span class={`deck-branch-status is-${branch.status}`}>
                 <span class="deck-investigation-state" aria-hidden="true">
-                  {branchStatusMark(branch.status)}
+                  <span class="deck-marker-glyph">{branchStatusMark(branch.status)}</span>
                 </span>
                 <span class="deck-investigation-meta muted">
                   {branch.durationMs !== undefined
@@ -406,7 +406,9 @@ export function InvestigationTimeline({
     <>
       {showStartNote && startCopy ? (
         <div class="deck-progress-note deck-progress-note-derived" role="status">
-          <span class="deck-progress-note-mark" aria-hidden="true">01</span>
+          <span class="deck-progress-note-mark" aria-hidden="true">
+            <span class="deck-marker-glyph">01</span>
+          </span>
           <div class="deck-progress-note-body">
             <strong>{t("deck.investigation.startingWork")}</strong>
             <p>{startCopy}</p>
@@ -422,7 +424,9 @@ export function InvestigationTimeline({
             <span class="deck-investigation-spinner" aria-hidden="true" />
           ) : (
             <span class="deck-investigation-state" aria-hidden="true">
-              {tone === "completed" ? "\u2713" : tone === "failed" ? "\u00d7" : tone === "partial" ? "~" : "!"}
+              <span class="deck-marker-glyph">
+                {tone === "completed" ? "\u2713" : tone === "failed" ? "\u00d7" : tone === "partial" ? "~" : "!"}
+              </span>
             </span>
           )}
           <span class="deck-investigation-session-copy">

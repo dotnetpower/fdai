@@ -137,6 +137,7 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('open={activity.status === "running" ||');
     expect(presenter).toContain("showStartNote={investigationFlowStart}");
     expect(component).toContain('class="deck-progress-note deck-progress-note-derived"');
+    expect(component).toContain('class="deck-marker-glyph"');
     expect(component).toContain("<InvestigationNextSkeleton />");
     expect(component).toContain('open={status === "running"}');
     expect(component).toContain('aria-label={t("deck.investigation.branches")}');
@@ -165,6 +166,8 @@ describe("upsertEvidenceBranch", () => {
     expect(presenter).toContain('isActivity ? " deck-turn-activity"');
     expect(styles).toContain(".deck-progress-note {");
     expect(styles).toContain(".deck-turn.is-investigation-flow::before");
+    expect(styles).toContain(".deck-marker-glyph {");
+    expect(styles).toContain(".deck-progress-note-mark > .deck-marker-glyph");
     expect(styles).toContain(".deck-execution-axis {");
     expect(styles).toContain("repeating-linear-gradient(to right");
     expect(retrieval).toContain('class="deck-turn-head deck-rt-agent-head"');

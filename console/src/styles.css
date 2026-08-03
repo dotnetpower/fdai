@@ -7058,6 +7058,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   font: 700 8px/1 var(--font-mono);
   box-shadow: 0 0 0 3px var(--bg-elevated);
 }
+.deck-marker-glyph {
+  display: block;
+  line-height: 1;
+  text-align: center;
+}
+.deck-progress-note-mark > .deck-marker-glyph { transform: translateY(.5px); }
 .deck-progress-note-body > strong {
   display: block;
   margin-bottom: 3px;
@@ -7502,6 +7508,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   color: var(--fg-muted);
   font-size: 11px;
   font-weight: 800;
+  line-height: 1;
 }
 .deck-investigation-item.is-running .deck-investigation-state,
 .deck-investigation-item.is-pending .deck-investigation-state {
