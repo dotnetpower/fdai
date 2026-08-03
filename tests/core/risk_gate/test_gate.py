@@ -144,6 +144,20 @@ def test_action_in_shadow_mode_returns_hil() -> None:
     assert "action_type_in_shadow_mode" in decision.reasons
 
 
+def test_target_automation_hold_denies_before_human_approval() -> None:
+    registry = ActionPromotionRegistry(allow_legacy_metrics=True)
+    gate = RiskGate(registry=registry)
+    decision = gate.evaluate(
+        action=_action(),
+        rule=_shipped_rules_by_id()["object-storage.owner-tag.required"],
+        action_type=_shipped_action_types()["remediate.tag-add"],
+        automation_hold_engaged=True,
+    )
+
+    assert decision.outcome is RiskDecisionOutcome.DENY
+    assert decision.reasons == ("target_automation_hold_active",)
+
+
 def test_promotion_authority_bootstrap_is_enforce_but_never_auto() -> None:
     registry = ActionPromotionRegistry()
     gate = RiskGate(registry=registry)

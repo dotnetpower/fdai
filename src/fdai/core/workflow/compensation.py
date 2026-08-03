@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from fdai.core.runbook.models import RunbookStep
+from fdai.core.workflow.automation_hold import StateStoreAutomationHoldLedger
 from fdai.core.workflow.workflow_runtime import (
     WorkflowActionDispatcher,
     WorkflowOutcomeResolver,
@@ -44,6 +45,7 @@ class WorkflowCompensationCoordinator:
         self._audit_store = audit_store
         self._dispatcher = dispatcher
         self._outcome_verifier = outcome_verifier
+        self._automation_holds = StateStoreAutomationHoldLedger(audit_store)
 
     async def start(
         self,
@@ -333,6 +335,11 @@ class WorkflowCompensationCoordinator:
         payload: Mapping[str, object] | None = None,
     ) -> ProcessSnapshot:
         failure_payload = {"reason": reason, "recovery_incomplete": True, **dict(payload or {})}
+        await self._automation_holds.issue(
+            target_ref=snapshot.target_resource_id,
+            process_id=snapshot.process_id,
+            reason=reason,
+        )
         failed = await self._process_store.transition(
             process_id=snapshot.process_id,
             expected_revision=snapshot.revision,

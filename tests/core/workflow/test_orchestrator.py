@@ -14,6 +14,7 @@ from fdai.core.notifications.matrix import load_matrix_from_mapping
 from fdai.core.rbac.resolver import GroupMapping
 from fdai.core.runbook.models import RunbookStep, RunbookStepOutcome
 from fdai.core.workflow.approval import WorkflowApprovalPlanner
+from fdai.core.workflow.automation_hold import StateStoreAutomationHoldLedger
 from fdai.core.workflow.orchestrator import (
     ProcessStatus,
     ShadowWorkflowStepExecutor,
@@ -509,6 +510,11 @@ async def test_compensation_failure_closes_process_as_recovery_incomplete() -> N
     events = await process_store.events(failed.process_id)
     assert events[-1].kind is ProcessEventKind.PROCESS_FAILED
     assert events[-1].payload["recovery_incomplete"] is True
+    assert await StateStoreAutomationHoldLedger(audit).is_held(target_ref="res-2")
+    assert any(
+        row["entry"]["action_kind"] == "workflow.automation_hold.issued"
+        for row in audit.audit_entries
+    )
 
 
 async def test_action_outcome_context_cannot_advance_without_verifier() -> None:

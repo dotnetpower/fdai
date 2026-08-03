@@ -60,6 +60,13 @@ class ChangeWindowEvidenceProvider(Protocol):
     async def is_active(self, *, target_ref: str, at: datetime) -> bool: ...
 
 
+@runtime_checkable
+class AutomationHoldReader(Protocol):
+    """Read whether incomplete recovery blocks ordinary target automation."""
+
+    async def is_held(self, *, target_ref: str) -> bool: ...
+
+
 class EventPreconditionEvaluator:
     """Evaluate conditions grounded in the event's resource snapshot."""
 
@@ -174,6 +181,7 @@ class GovernedPreconditionEvaluator:
 
 
 __all__ = [
+    "AutomationHoldReader",
     "EventPreconditionEvaluator",
     "ChangeWindowEvidenceProvider",
     "GovernedPreconditionEvaluator",

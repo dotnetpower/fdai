@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: ddb68173ceaa8da97e9c9593ca6d55a03f02411d
+translation_source_sha: 111f0201634466b28c2590d0ad3977f5a78b9a81
 translation_revised: 2026-08-04
 ---
 
@@ -237,6 +237,12 @@ Upstream headless runtime과 production Operator API는 shared durable state sto
 독립적으로 검증된 effect evidence도 필요합니다. Resolver는 proposal reference, Process, step으로
 receipt를 읽으므로 resume 시 caller가 제공한 status나 receipt context를 신뢰하지 않습니다. Shadow,
 unknown, missing, mismatched, unscorable outcome은 Process를 진행시킬 수 없습니다.
+
+`StateStoreAutomationHoldLedger`는 recovery-incomplete Process가 종료되기 전에 target digest 기반
+hold를 기록합니다. Headless control loop는 모든 ordinary Action 전에 이 hold를 읽고 RiskGate는
+`deny`를 반환합니다. Hold read가 실패하거나 malformed여도 deny합니다. Read path는 이 mutation
+gate를 사용하지 않습니다. 별도로 승인된 Vidar recovery bypass와 검증된 hold release는 아직
+구현되지 않았으므로 현재 runtime은 held target의 모든 mutation을 보수적으로 차단합니다.
 
 ## 6. 거버넌스
 

@@ -342,6 +342,7 @@ class RiskGate:
         action_type: OntologyActionType,
         inventory_age_seconds: int | None = None,
         precondition_evaluations: Sequence[PreconditionEvaluation] = (),
+        automation_hold_engaged: bool = False,
         upstream_signal: Literal["deny", "abstain"] | None = None,
     ) -> RiskDecision:
         """Return a :class:`RiskDecision` for the proposed action.
@@ -360,6 +361,14 @@ class RiskGate:
         # not have to change when that lands.
         del rule
         reasons: list[str] = []
+
+        if automation_hold_engaged:
+            return RiskDecision(
+                outcome=RiskDecisionOutcome.DENY,
+                action_id=str(action.action_id),
+                effective_mode=self._registry.mode_of(action_type.name),
+                reasons=("target_automation_hold_active",),
+            )
 
         # 0. Upstream deny short-circuits (T2 verifier explicit reject).
         if upstream_signal == "deny":

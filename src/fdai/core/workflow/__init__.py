@@ -15,6 +15,7 @@ from .approval import (
     StepApproval,
     WorkflowApprovalPlanner,
 )
+from .automation_hold import StateStoreAutomationHoldLedger
 from .compiler import CompiledWorkflow, compile_workflow
 from .coordinator import WorkflowTriggerCoordinator
 from .orchestrator import (
@@ -48,6 +49,7 @@ __all__ = [
     "ProjectingProcessRuntimeStore",
     "ShadowWorkflowStepExecutor",
     "StepApproval",
+    "StateStoreAutomationHoldLedger",
     "StateStoreWorkflowOutcomeLedger",
     "WorkflowApprovalPlanner",
     "WorkflowGuardEvaluator",

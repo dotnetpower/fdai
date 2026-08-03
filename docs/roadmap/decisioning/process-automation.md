@@ -244,6 +244,13 @@ evidence. The resolver reads that receipt by proposal reference, Process, and st
 not trust caller-supplied status or receipt context. Shadow, unknown, missing, mismatched, or
 unscorable outcomes cannot advance the Process.
 
+`StateStoreAutomationHoldLedger` now writes a target-digested hold before a
+recovery-incomplete Process closes. The headless control loop reads that hold before every ordinary
+Action and the RiskGate returns `deny`; a failed or malformed hold read also denies. Read paths do
+not use this mutation gate. A separately approved Vidar recovery bypass and verified hold release
+remain to be implemented, so the current runtime conservatively blocks every mutation on a held
+target.
+
 ## 6. Governance
 
 - **Shadow-first.** Every workflow ships `default_mode: shadow`: it judges and

@@ -36,6 +36,7 @@ from fdai.core.risk_gate.precedence import (
     Vertical,
 )
 from fdai.core.risk_gate.preconditions import (
+    AutomationHoldReader,
     ChangeWindowEvidenceProvider,
     EventPreconditionEvaluator,
     GovernedPreconditionEvaluator,
@@ -47,6 +48,7 @@ from fdai.core.risk_gate.preconditions import (
 __all__ = [
     "ActionModeRecord",
     "ActionPromotionRegistry",
+    "AutomationHoldReader",
     "CandidateAction",
     "ChangeWindowEvidenceProvider",
     "EventPreconditionEvaluator",

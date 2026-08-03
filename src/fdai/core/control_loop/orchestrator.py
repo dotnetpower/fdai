@@ -31,6 +31,7 @@ from fdai.core.notifications.router import NotificationRouter
 from fdai.core.rca import CausalRuntimeCoordinator, IncidentMemberSource, RcaCoordinator
 from fdai.core.risk_gate.gate import RiskGate
 from fdai.core.risk_gate.preconditions import (
+    AutomationHoldReader,
     EventPreconditionEvaluator,
     PreconditionEvaluator,
 )
@@ -113,6 +114,7 @@ class ControlLoop(
             Callable[[str], Awaitable[Mapping[str, Any] | None]] | None
         ) = None,
         precondition_evaluator: PreconditionEvaluator | None = None,
+        automation_hold_reader: AutomationHoldReader | None = None,
         promotion_state_refresher: Callable[[str], Awaitable[None]] | None = None,
         mscp_expected_effect_provider: ExpectedEffectProvider | None = None,
         mscp_effect_observer: IndependentEffectObserver | None = None,
@@ -151,6 +153,7 @@ class ControlLoop(
         self._inventory_age_provider = inventory_age_provider
         self._inventory_context_provider = inventory_context_provider
         self._precondition_evaluator = precondition_evaluator or EventPreconditionEvaluator()
+        self._automation_hold_reader = automation_hold_reader
         self._promotion_state_refresher = promotion_state_refresher
         self._mscp_expected_effect_provider = mscp_expected_effect_provider
         self._mscp_effect_observer = mscp_effect_observer

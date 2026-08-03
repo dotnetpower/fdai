@@ -79,6 +79,7 @@ from fdai.core.trust_router import TrustRouter
 from fdai.core.workflow import (
     ProcessOntologyProjector,
     ProjectingProcessRuntimeStore,
+    StateStoreAutomationHoldLedger,
     StateStoreWorkflowOutcomeLedger,
     WorkflowApprovalPlanner,
     WorkflowOrchestrator,
@@ -614,6 +615,7 @@ def _build_control_loop(
 
     process_runtime_store = _build_process_store()
     workflow_outcome_ledger = StateStoreWorkflowOutcomeLedger(audit_store)
+    workflow_automation_holds = StateStoreAutomationHoldLedger(audit_store)
     return ControlLoop(
         event_ingest=event_ingest,
         trust_router=trust_router,
@@ -648,6 +650,7 @@ def _build_control_loop(
         inventory_age_provider=_build_inventory_age_provider(),
         inventory_context_provider=_build_inventory_context_provider(),
         precondition_evaluator=precondition_evaluator,
+        automation_hold_reader=workflow_automation_holds,
         promotion_state_refresher=promotion_state_refresher,
         stage_publisher=stage_publisher,
         kill_switch=kill_switch,

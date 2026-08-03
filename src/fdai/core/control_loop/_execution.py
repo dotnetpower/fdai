@@ -36,6 +36,7 @@ from fdai.core.mscp_profile import (
 from fdai.core.risk_gate.evaluator import UnifiedRiskDecision
 from fdai.core.risk_gate.gate import RiskGate
 from fdai.core.risk_gate.preconditions import (
+    AutomationHoldReader,
     PreconditionEvaluation,
     PreconditionEvaluator,
 )
@@ -93,6 +94,7 @@ class ControlLoopExecutionMixin:
     _workflow_outcome_recorder: WorkflowOutcomeRecorder | None
     _promotion_state_refresher: Callable[[str], Awaitable[None]] | None
     _precondition_evaluator: PreconditionEvaluator
+    _automation_hold_reader: AutomationHoldReader | None
     _risk_gate: RiskGate | None
     _risk_table: RiskTable | None
     _tool_executor: ToolCallShadowExecutor | None
@@ -481,6 +483,19 @@ class ControlLoopExecutionMixin:
                     exc_info=True,
                 )
         precondition_evaluations: tuple[PreconditionEvaluation, ...] = ()
+        automation_hold_engaged = False
+        if self._automation_hold_reader is not None:
+            try:
+                automation_hold_engaged = await self._automation_hold_reader.is_held(
+                    target_ref=action.target_resource_ref
+                )
+            except Exception:  # noqa: BLE001 - unreadable hold state denies execution
+                automation_hold_engaged = True
+                _LOGGER.warning(
+                    "automation_hold_lookup_failed",
+                    extra={"action_type": action.action_type},
+                    exc_info=True,
+                )
         try:
             precondition_evaluations = await self._precondition_evaluator.evaluate(
                 event=event,
@@ -506,6 +521,7 @@ class ControlLoopExecutionMixin:
                 kill_switch_engaged=kill_switch_engaged,
                 inventory_age_seconds=inventory_age_seconds,
                 precondition_evaluations=precondition_evaluations,
+                automation_hold_engaged=automation_hold_engaged,
             )
             entry = _unified_audit_dict(event=event, action=action, unified=unified)
             entry["recorded_at"] = datetime.now(tz=UTC).isoformat()
