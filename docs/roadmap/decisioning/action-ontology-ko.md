@@ -7,8 +7,7 @@ translation_revised: 2026-08-03
 
 # Action 온톨로지
 
-FDAI 의 모든 액션 - 룰이 발화시킨 remediation 이든 오퍼레이터가 요청한 ops task 든 - 는 shipped
-온톨로지의 **`ActionType`** entry 하나의 instance 이다. 이 문서는 스키마, 트리거 축 (`rule_violation` vs `operator_request`), tier 및 role 상한, live-probe 참조, 그리고 `core/` 편집 없이 고객이 재정의 가능하게 하는 **fork-override seam** 을 권위적으로 정의한다.
+FDAI 의 모든 액션 - 룰이 발화시킨 remediation 이든 오퍼레이터가 요청한 ops task 든 - 는 shipped 온톨로지의 **`ActionType`** entry 하나의 instance 이다. 이 문서는 스키마, 트리거 축 (`rule_violation` vs `operator_request`), tier 및 role 상한, live-probe 참조, 그리고 `core/` 편집 없이 고객이 재정의 가능하게 하는 **fork-override seam** 을 권위적으로 정의한다.
 
 이 온톨로지의 소비자:
 

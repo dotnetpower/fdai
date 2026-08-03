@@ -7,9 +7,7 @@ translation_revised: 2026-08-03
 
 # 에이전트 판테온
 
-FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations runtime을 소유합니다. 에이전트는 schema-checked event로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다.
-운영 온톨로지는 typed meaning과 bounded context를 제공하며 actor, authority 또는 executor가 아닙니다.
-판테온은 upstream에서 정의되고 fork는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
+FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations runtime을 소유합니다. 에이전트는 schema-checked event로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 typed meaning과 bounded context를 제공하며 actor, authority 또는 executor가 아닙니다. 판테온은 upstream에서 정의되고 fork는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
 
 > **범위:** 판테온은 고객-무관이다. 아래에 언급된 모든 에이전트 이름, object type, action 은 generic 이다. 고객별 바인딩은 fork 에서 관리
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).

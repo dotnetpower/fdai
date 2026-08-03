@@ -7,8 +7,7 @@ translation_revised: 2026-08-03
 
 # Runtime Parity - Authoritative Local Development 및 Test Fixture
 
-**목표**: 자동화 테스트는 결정론적이고 secret-free 상태를 유지하며, interactive local Console은
-운영자의 실제 Azure 개발 환경만 표시합니다. Azure 배포에서는 계속 **배포자의 Azure 권한과 리전 카탈로그가 어떤 LLM과 기타 리소스를 프로비저닝할지 결정**합니다.
+**목표**: 자동화 테스트는 결정론적이고 secret-free 상태를 유지하며, interactive local Console은 운영자의 실제 Azure 개발 환경만 표시합니다. Azure 배포에서는 계속 **배포자의 Azure 권한과 리전 카탈로그가 어떤 LLM과 기타 리소스를 프로비저닝할지 결정**합니다.
 세 명제가 동시에 참입니다:
 
 - **자동화 테스트 truth**: pytest와 committed mock은 결정론적 fake를 사용할 수 있습니다. 명시적 test-fixture builder를 사용하며 Azure 관측 상태로 표현하지 않습니다.

@@ -1,14 +1,13 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 9a91f9ea576b399b6af49915bcbf2c7e370a73be
+translation_source_sha: ac32e300d20095f9e3b114d883cc33eea323a2ac
 translation_revised: 2026-08-03
 ---
 
 # Execution 모델
 
-FDAI 이 액션 실행 **여부** 와 **방법** 을 결정하는 방식. 이 문서는 통합 RiskGate, 권위적
-[risk-classification.md](risk-classification-ko.md) first-match 표가 **6-axis** ActionType ceiling 과 결합하는 방식, 4개의 executor 경로 (PR-native / direct API / PR-manual / tool call), live-blast probe combinator, 그리고 live 변경이 만족해야 하는 safety invariant 를 권위적으로 정의한다.
+FDAI 이 액션 실행 **여부** 와 **방법** 을 결정하는 방식. 이 문서는 통합 RiskGate, 권위적 [risk-classification.md](risk-classification-ko.md) first-match 표가 **6-axis** ActionType ceiling 과 결합하는 방식, 4개의 executor 경로 (PR-native / direct API / PR-manual / tool call), live-blast probe combinator, 그리고 live 변경이 만족해야 하는 safety invariant 를 권위적으로 정의한다.
 
 > 결정-엔진 관계 (권위적): FDAI 은 **하나의** 결정을 가지며, 그것은 **두** 입력을 결합해 생성된다. [risk-classification.md](risk-classification-ko.md)
 > first-match 표가 **권위적 baseline** - finding feature vector

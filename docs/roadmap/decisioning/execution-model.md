@@ -4,8 +4,7 @@ title: Execution Model
 
 # Execution Model
 
-How FDAI decides **whether** and **how** to run an action. This document is authoritative for the
-unified RiskGate, the way the authoritative [risk-classification.md](risk-classification.md) first-match table combines with the **six-axis** ActionType ceiling, the four executor paths (PR-native / direct API / PR-manual / tool call), the live-blast probe combinator, and the safety invariants a live change must satisfy.
+How FDAI decides **whether** and **how** to run an action. This document is authoritative for the unified RiskGate, the way the authoritative [risk-classification.md](risk-classification.md) first-match table combines with the **six-axis** ActionType ceiling, the four executor paths (PR-native / direct API / PR-manual / tool call), the live-blast probe combinator, and the safety invariants a live change must satisfy.
 
 > Decision-engine relationship (authoritative): FDAI has **one** decision, produced by combining **two** inputs. The [risk-classification.md](risk-classification.md) first-match table is the
 > **authoritative baseline** - it consumes the finding feature vector
