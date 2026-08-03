@@ -68,8 +68,8 @@ _HEALTH_COVERAGE: Final = re.compile(
     re.IGNORECASE,
 )
 _CPU_DIAGNOSIS: Final = re.compile(
-    r"\bcpu\b.{0,48}\b(?:spike|spikes|spiked|abnormal|high|surge|usage|utilization)\b|"
-    r"\b(?:spike|spikes|abnormal|high)\b.{0,48}\bcpu\b|"
+    r"\bcpu\b.{0,48}\b(?:spike|spikes|spiked|abnormal|unusual|high|surge|usage|utilization)\b|"
+    r"\b(?:spike|spikes|abnormal|unusual|high)\b.{0,48}\bcpu\b|"
     r"CPU.{0,32}(?:급증|비정상|상승|사용률|튀|튄)",
     re.IGNORECASE,
 )

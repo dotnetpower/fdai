@@ -223,6 +223,8 @@ def test_health_coverage_language_routes_deterministically(prompt: str) -> None:
     (
         "지난 한 시간 동안 CPU가 급증한 리소스를 찾아줘.",
         "Which resources had abnormal CPU in the last hour?",
+        "Find managed resources with unusual CPU activity during the past 60 minutes.",
+        "Show resources whose CPU spiked in the previous hour.",
         "Find resources with CPU spikes over the past hour.",
         "CPU 튄 리소스 뭐야?",
     ),
