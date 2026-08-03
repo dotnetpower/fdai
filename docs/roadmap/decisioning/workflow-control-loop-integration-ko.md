@@ -1,7 +1,7 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: 8351d1c3cb20d68a329d155541ab79b3f3ace7a6
+translation_source_sha: 4f57898529b959a55dd024e035cf7a34b6c202ba
 translation_revised: 2026-08-04
 ---
 
@@ -119,13 +119,13 @@ Projection delivery 는 durable retry outbox 를 사용합니다.
 
 ### 4.4 수동 shadow 또는 enforce 명령
 
-프로덕션 signal 을 기다리지 않고 카탈로그 Workflow 를 시작하거나 재개하려면
-Contributor 권한이 필요한 선택적 `POST /workflows/run` 명령을 사용할 수 있습니다.
-이 route 는 catalog workflow 이름, target resource id, RFC 3339 trigger timestamp,
-bounded string context 및 `mode`를 받습니다. Contributor는 shadow를 실행할 수 있습니다.
-Enforce에는 Owner와 deployment `FDAI_WORKFLOW_ENFORCE_ALLOWLIST` entry가 필요합니다.
-Action step은 일반 typed pipeline으로 다시 게시되며 workflow가 executor를 직접 호출하지
-않습니다.
+프로덕션 signal 을 기다리지 않고 카탈로그 Workflow 를 시작하려면 Contributor 권한이
+필요한 선택적 `POST /workflows/run` 명령을 사용할 수 있습니다. 이 route 는 catalog
+workflow 이름, target resource id, RFC 3339 trigger timestamp, bounded
+parameter-substitution context 및 `mode`를 받습니다. Contributor는 shadow를 실행할 수
+있습니다. Enforce에는 Owner와 deployment `FDAI_WORKFLOW_ENFORCE_ALLOWLIST` entry가
+필요합니다. Action step은 일반 typed pipeline으로 다시 게시되며 workflow가 executor를
+직접 호출하지 않습니다.
 
 로컬 dev composition 은 명령과 Processes read route 를 동일한
 `ProcessRuntimeStore` 에 연결합니다. 다음 CLI wrapper 로 실행해 볼 수 있습니다.
@@ -136,15 +136,18 @@ FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1 uv run uvicorn \
 
 uv run python scripts/automation/run-workflow.py architecture-review \
   --target fdai-control-plane
+
+uv run python scripts/automation/run-workflow.py \
+  --resume-process-id <process-id-from-start-response>
 ```
 
-응답에는 Process id 와 snapshot, journal, console route 링크가 포함됩니다. 같은
-`trigger_ts` 와 target 을 다시 사용하면 safe-to-retry (idempotent) Process 를
-재개합니다. 따라서 중복 실행을 만들지 않고 wait, approval, decision context 를
-전달할 수 있습니다. Production composition 은 `WorkflowExecutionConfig` 를 주입해
-opt-in 합니다. 설정하지 않으면 command route 가 등록되지 않습니다. SPA 는 이
-endpoint 를 호출하지 않습니다. CLI 와 ChatOps 가 command channel 이고 console 은
-read-only 상태 표면으로 유지됩니다.
+응답에는 Process id 와 snapshot, journal, console route 링크가 포함됩니다.
+`POST /workflows/{process_id}/resume`과 CLI `--resume-process-id` mode는 body를 보내지
+않습니다. Server는 Process journal에서 original target, trigger, mode, correlation,
+audit-safe parameter context를 다시 읽고 현재 role과 enforce allowlist를 다시 확인합니다.
+Production composition은 `WorkflowExecutionConfig`를 주입해 opt-in 합니다. 설정하지 않으면
+두 command route 모두 등록되지 않습니다. SPA는 이 endpoint를 호출하지 않습니다. CLI와
+ChatOps가 command channel이고 console은 read-only 상태 표면으로 유지됩니다.
 
 ### 4.5 Governed Python task 및 cron schedule
 

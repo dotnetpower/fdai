@@ -115,10 +115,10 @@ unavailable while preserving every projection intent for recovery.
 
 ### 4.4 Manual shadow or enforce command
 
-You can start or resume a catalog Workflow without waiting for its production
-signal by calling the optional Contributor-gated `POST /workflows/run` command.
-The route accepts a catalog workflow name, target resource id, RFC 3339 trigger
-timestamp, bounded string context, and `mode`. Contributor can run shadow.
+You can start a catalog Workflow without waiting for its production signal by
+calling the optional Contributor-gated `POST /workflows/run` command. The route
+accepts a catalog workflow name, target resource id, RFC 3339 trigger timestamp,
+bounded parameter-substitution context, and `mode`. Contributor can run shadow.
 Enforce requires Owner and a deployment `FDAI_WORKFLOW_ENFORCE_ALLOWLIST` entry.
 Action steps republish to the normal typed pipeline; the workflow never calls an
 executor directly.
@@ -132,15 +132,20 @@ FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1 uv run uvicorn \
 
 uv run python scripts/automation/run-workflow.py architecture-review \
   --target fdai-control-plane
+
+uv run python scripts/automation/run-workflow.py \
+  --resume-process-id <process-id-from-start-response>
 ```
 
 The response includes the Process id and links to its snapshot, journal, and
-console route. Reusing the same `trigger_ts` and target resumes the same
-safe-to-retry (idempotent) Process, which supports wait, approval, and decision
-context without creating a duplicate run. Production compositions opt in by
-injecting `WorkflowExecutionConfig`; leaving it unset registers no command
-route. The SPA does not call this endpoint. CLI and ChatOps are the command
-channels, and the console remains a read-only status surface.
+console route. `POST /workflows/{process_id}/resume` and the CLI
+`--resume-process-id` mode send no body. The server reloads the original target,
+trigger, mode, correlation, and audit-safe parameter context from the Process
+journal, then repeats current role and enforce-allowlist checks. Production
+compositions opt in by injecting `WorkflowExecutionConfig`; leaving it unset
+registers neither command route. The SPA does not call these endpoints. CLI and
+ChatOps are the command channels, and the console remains a read-only status
+surface.
 
 ### 4.5 Governed Python tasks and cron schedules
 
