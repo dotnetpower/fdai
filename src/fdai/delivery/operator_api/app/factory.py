@@ -91,6 +91,7 @@ _CORE_ROUTE_PATHS: frozenset[str] = frozenset(
         "/iam/access-requests/self",
         "/iam/assignments",
         "/iam/assignment-cases",
+        "/access-grants/stream",
         "/me/context",
         "/me/preferences",
         "/me/memories",
@@ -328,6 +329,18 @@ def build_app(
             stewardship_map=resolved_config.stewardship_map,
             identity_provider=resolved_config.iam_identity_provider,
             role_group_ids=dict(resolved_config.iam_role_group_ids),
+        )
+
+    if resolved_config.execution_access_grants is not None:
+        from fdai.delivery.operator_api.routes.access_grant_stream import (
+            make_access_grant_stream_route,
+        )
+
+        routes.append(
+            make_access_grant_stream_route(
+                service=resolved_config.execution_access_grants,
+                authorize=_authorize_principal,
+            )
         )
 
     append_local_auth_route(routes, profile=local_cli_profile)

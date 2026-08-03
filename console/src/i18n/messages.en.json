@@ -23,6 +23,13 @@
     "failedTitle": "FDAI operation failed",
     "failedBody": "Open the Console to review the failure evidence."
   },
+  "accessGrants": {
+    "badge": "Access needed {count}",
+    "open": "Open {count} pending access request(s)",
+    "sessionLabel": "Access request",
+    "briefing": "FDAI detected an operational issue, but investigation is blocked because {capability} access is unavailable for {scope}.",
+    "context": "A time-bound, least-privilege request is pending for {capability} on {scope}. It expires at {expires}. This conversation cannot grant or apply access; independent approval and a fresh access probe remain required."
+  },
   "shared": {
     "loading": "Loading...",
     "loadingResource": "Loading {resource}...",

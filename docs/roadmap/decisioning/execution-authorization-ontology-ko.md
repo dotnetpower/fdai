@@ -1,7 +1,7 @@
 ---
 translation_of: execution-authorization-ontology.md
-translation_source_sha: a723bf9dc926117bd7057d37bfe736951b0fc6c5
-translation_revised: 2026-08-02
+translation_source_sha: b1264b2c12018ba1856904a801d85824c1a77ecd
+translation_revised: 2026-08-04
 ---
 # 실행 권한 부여 온톨로지
 
@@ -19,8 +19,9 @@ provider mapping, effective-access evidence, 기존 위험 및 사람 승인 결
 
 > **구현 상태(2026-07-31):** Strict requirement 및 assignment loader, resolver-backed evaluator,
 > hierarchical scope resolver, effective-access probe assembly, exact-plan grant validation,
-> composition binder가 구현되어 있습니다. 배포 환경은 context, identity, permission mapping, probe,
-> 선택적 grant adapter를 바인딩하여 gate를 활성화합니다.
+> composition binder 및 role-filtered pending-grant browser projection이 구현되어 있습니다. 배포
+> 환경은 context, identity, permission mapping, probe, 선택적 grant adapter를 바인딩하여 gate를
+> 활성화합니다.
 
 ## 설계 개요
 
@@ -289,6 +290,12 @@ revocation은 선택적 cleanup이 아니라 완료 조건입니다. 각 grant�
 `expires_at`, optional `revoked_at` 및 immutable revocation receipt를 기록합니다. Pre-dispatch
 evaluation은 `status=active`, validity interval 및 fresh effective-access observation을 요구합니다.
 Revocation은 pending action을 즉시 차단합니다.
+
+Operator API는 App Role과 request의 approver role이 교차하는 인증된 browser principal에게 redacted
+pending projection을 stream할 수 있습니다. Projection에는 request, correlation, capability, scope,
+mode, timestamp, quorum, status 및 revision이 포함됩니다. Requester, executor identity, provider
+mapping, decision 및 apply-plan digest는 제외됩니다. Browser projection은 idle conversation을 열 수
+있지만 grant를 approve, apply, verify 또는 revoke할 수 없습니다.
 
 ## Runtime failure classification
 

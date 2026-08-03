@@ -50,6 +50,8 @@ export interface DeckOpenDetail {
   readonly targetAgent?: string;
   /** Structured, untrusted selection hint that the server must verify against its read model. */
   readonly binding?: IncidentConversationBinding;
+  /** Refuse automatic session switching while a turn or unsent draft is active. */
+  readonly onlyWhenIdle?: boolean;
 }
 
 /**
@@ -72,9 +74,12 @@ export function openDeckWithPrompt(prompt?: string): void {
  * No-op outside a browser. Still read-only: it opens a primed question box,
  * it never auto-submits or executes anything.
  */
-export function openDeckWithContext(detail: DeckOpenDetail): void {
-  if (typeof window === "undefined" || typeof CustomEvent === "undefined") return;
-  window.dispatchEvent(new CustomEvent<DeckOpenDetail>(DECK_OPEN_EVENT, { detail }));
+export function openDeckWithContext(detail: DeckOpenDetail): boolean {
+  if (typeof window === "undefined" || typeof CustomEvent === "undefined") return false;
+  return window.dispatchEvent(new CustomEvent<DeckOpenDetail>(DECK_OPEN_EVENT, {
+    detail,
+    cancelable: true,
+  }));
 }
 
 /**

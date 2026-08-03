@@ -73,6 +73,7 @@ from fdai.core.conversation_assurance import (
     ConversationAssuranceLifecycleCoordinator,
     PromotionConfig,
 )
+from fdai.core.execution_authorization import AccessGrantRequestService
 from fdai.core.human_assignment import AssignmentCaseService, HandoverGoalService
 from fdai.core.metering.budget import InMemoryBudgetLedger, ModelBudget
 from fdai.core.rbac.access_request import AccessRequestService
@@ -804,6 +805,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         inventory_activity_provider=inventory_activity_provider,
         subscription_health_provider=subscription_health_provider,
         detection_readiness_reader=state_store,
+        execution_access_grants=AccessGrantRequestService(store=state_store),
         t2_recovery_reader=state_store,
         best_practice_controls=load_best_practice_reference(_REPO_ROOT),
         mcsb_catalogs=load_mcsb_reference(_REPO_ROOT),

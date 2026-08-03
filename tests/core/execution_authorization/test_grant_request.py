@@ -313,3 +313,53 @@ async def test_concurrent_distinct_approvals_complete_quorum() -> None:
         AccessGrantRequestStatus.APPROVED,
     }
     assert results[-1].approved_by == ("owner-1", "owner-2")
+
+
+async def test_pending_requests_are_filtered_by_reviewer_role_and_expiry() -> None:
+    service, owner_request = await _submitted()
+    approver_request = await service.submit(
+        idempotency_key="grant-approver",
+        original_action_id="action-approver",
+        authorization_decision_digest="decision-approver",
+        requirement_id="requirement.metrics-read",
+        capability_id="kubernetes.metrics.read",
+        execution_profile="observation-reader",
+        executor_identity_ref="identity/reader",
+        scope_ref="scope://example/cluster/namespace/example-app",
+        grant_mode="time_bound",
+        mapping_digest="mapping-metrics-v1",
+        plan_digest="plan-metrics-v1",
+        requester_ref="heimdall",
+        requested_at=NOW,
+        expires_at=NOW + timedelta(minutes=10),
+        quorum=1,
+        approver_roles=frozenset({"approver"}),
+    )
+
+    visible = await service.list_pending_for_roles(
+        reviewer_ref="reviewer-1",
+        reviewer_roles=frozenset({"Approver"}),
+        now=NOW + timedelta(minutes=1),
+        limit=10,
+    )
+
+    assert visible == (approver_request,)
+    assert owner_request not in visible
+    assert (
+        await service.list_pending_for_roles(
+            reviewer_ref="reviewer-1",
+            reviewer_roles=frozenset({"Approver"}),
+            now=NOW + timedelta(minutes=11),
+            limit=10,
+        )
+        == ()
+    )
+    assert (
+        await service.list_pending_for_roles(
+            reviewer_ref="heimdall",
+            reviewer_roles=frozenset({"Approver"}),
+            now=NOW + timedelta(minutes=1),
+            limit=10,
+        )
+        == ()
+    )

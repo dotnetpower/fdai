@@ -82,12 +82,19 @@ Operations reuses existing objects and links:
 | Governed review | `Process -> runs_review -> ReviewCase -> resolved_by -> Decision` | Shows review state, prior decisions, evidence, and the next accountable owner. |
 | Human approval | `ReviewCase -> has_approval -> Approval` and action-bound approvals | Shows quorum, no-self-approval state, deadline, and evidence. |
 | Workflow run | `WorkflowDefinition`, `WorkflowBinding`, and `Process` | Shows immutable definition, current step, revision, target, and compensation state. |
-| Access change | `AccessGrantRequest` | Shows the immutable request and its existing authorization lifecycle. |
+| Access change | `AccessGrantRequest` | Streams eligible pending requests and shows the immutable authorization lifecycle without applying access. |
 | Execution follow-up | `ActionRun`, rollback, and audit references | Shows outcome and recovery state without an execute-again shortcut. |
 | Ownership handover | Operational-readiness `Process`, `ReviewCase`, `Approval`, and `Decision` | Reuses the existing handover workflow; Saga remains the auditor. |
 
 Do not add a generic `WorkItem`, `OperationRequest`, duplicate `Approval`, universal mutable status
 table, or new approval topic. Each source keeps its own schema, revision, lifecycle, and owner.
+
+For a browser-visible pending access request, an authenticated GET-only stream filters the durable
+records by the principal's App Roles. When the tab and Command Deck are idle, the console opens a
+request-scoped conversation with the capability, scope, and expiry. Active work, an unsent draft,
+or a hidden tab keeps a visible badge instead of switching conversations. The conversation provides
+context only; approval, protected deployment, fresh access verification, and revocation remain in
+the authorization workflow.
 
 ### Operations task view
 

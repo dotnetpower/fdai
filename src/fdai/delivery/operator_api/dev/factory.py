@@ -45,6 +45,7 @@ from fdai.core.audit.what_if_replay import WhatIfEvaluator  # noqa: E402
 from fdai.core.conversation_assurance import (  # noqa: E402
     InMemoryConversationAssuranceLedger,
 )
+from fdai.core.execution_authorization import AccessGrantRequestService  # noqa: E402
 from fdai.core.human_assignment import AssignmentCaseService  # noqa: E402
 from fdai.core.measurement.promotion_gate import (  # noqa: E402
     InMemoryShadowVerdictSource,
@@ -864,6 +865,7 @@ def build_local_app(
                 else None
             ),
             iam_access=AccessRequestService(store=assignment_store),
+            execution_access_grants=AccessGrantRequestService(store=assignment_store),
             iam_directory=iam.directory,
             iam_role_group_ids=iam.role_group_ids,
             human_assignments=AssignmentCaseService(store=assignment_store),

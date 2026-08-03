@@ -23,6 +23,13 @@
     "failedTitle": "FDAI 운영 실패",
     "failedBody": "콘솔에서 실패 근거를 검토하세요."
   },
+  "accessGrants": {
+    "badge": "권한 필요 {count}",
+    "open": "대기 중인 권한 요청 {count}건 열기",
+    "sessionLabel": "권한 요청",
+    "briefing": "FDAI가 운영 문제를 감지했지만 {scope}의 {capability} 권한이 없어 조사가 중단되었습니다.",
+    "context": "{scope}의 {capability}에 대한 시간 제한 최소 권한 요청이 대기 중입니다. 만료 시각은 {expires}입니다. 이 대화는 권한을 부여하거나 적용할 수 없으며, 독립 승인과 새로운 접근 확인이 필요합니다."
+  },
   "shared": {
     "loading": "불러오는 중...",
     "loadingResource": "{resource} 불러오는 중...",

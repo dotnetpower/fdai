@@ -18,8 +18,9 @@ risk and human-approval decision.
 
 > **Implementation status (2026-07-31):** The strict requirement and assignment loaders,
 > resolver-backed evaluator, hierarchical scope resolver, effective-access probe assembly,
-> exact-plan grant validation, and composition binder are implemented. A deployment enables the
-> gate by binding its context, identity, permission mapping, probe, and optional grant adapters.
+> exact-plan grant validation, composition binder, and role-filtered pending-grant browser
+> projection are implemented. A deployment enables the gate by binding its context, identity,
+> permission mapping, probe, and optional grant adapters.
 
 ## Design at a glance
 
@@ -288,6 +289,12 @@ approval. Each grant records `status`, `valid_from`, `expires_at`, optional `rev
 immutable revocation receipt. Pre-dispatch evaluation requires `status=active`, checks the validity
 interval, and obtains a fresh effective-access observation. Revocation blocks pending actions
 immediately. Expiry and revocation are part of completion, not optional cleanup.
+
+The Operator API can stream a redacted pending projection to authenticated browser principals whose
+App Roles intersect the request's approver roles. The projection contains the request, correlation,
+capability, scope, mode, timestamps, quorum, status, and revision. It omits requester, executor
+identity, provider mapping, decision, and apply-plan digests. The browser projection can open an
+idle conversation, but it cannot approve, apply, verify, or revoke the grant.
 
 ## Runtime failure classification
 

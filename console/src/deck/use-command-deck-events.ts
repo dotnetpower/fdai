@@ -100,6 +100,14 @@ export function resolveDeckOpenSession(
   };
 }
 
+export function shouldDeferDeckOpen(
+  detail: DeckOpenDetail | undefined,
+  inFlight: boolean,
+  draft: string,
+): boolean {
+  return detail?.onlyWhenIdle === true && (inFlight || draft.trim().length > 0);
+}
+
 export function useCommandDeckEvents(options: EventsOptions) {
   const {
     open,
@@ -247,6 +255,10 @@ export function useCommandDeckEvents(options: EventsOptions) {
   useEffect(() => {
     const onOpenDeck = (event: Event) => {
       const detail = (event as CustomEvent<DeckOpenDetail>).detail;
+      if (shouldDeferDeckOpen(detail, inFlightRef.current, draft)) {
+        event.preventDefault();
+        return;
+      }
       const note = typeof detail?.contextNote === "string" ? detail.contextNote.trim() : "";
       const briefing = typeof detail?.openingBriefing === "string"
         ? detail.openingBriefing.trim()
@@ -287,7 +299,9 @@ export function useCommandDeckEvents(options: EventsOptions) {
     window.addEventListener(DECK_OPEN_EVENT, onOpenDeck);
     return () => window.removeEventListener(DECK_OPEN_EVENT, onOpenDeck);
   }, [
+    draft,
     historyRef,
+    inFlightRef,
     openDeck,
     sessionKeyRef,
     setDraft,

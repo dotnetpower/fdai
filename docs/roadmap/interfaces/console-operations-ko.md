@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 7cccc89e03a77ca0b03d266d168c4b3749a1dce1
-translation_revised: 2026-08-03
+translation_source_sha: 9aaaddaa0a3685548fb1f6c31f58ccaa959ea6fd
+translation_revised: 2026-08-04
 ---
 
 # 콘솔 운영
@@ -83,12 +83,19 @@ Operations는 기존 object와 link를 재사용합니다.
 | Governed review | `Process -> runs_review -> ReviewCase -> resolved_by -> Decision` | Review 상태, 이전 decision, evidence, 다음 책임 owner를 보여줍니다. |
 | 사람 승인 | `ReviewCase -> has_approval -> Approval`과 action-bound approval | Quorum, 자기 승인 방지 상태, deadline, evidence를 보여줍니다. |
 | Workflow run | `WorkflowDefinition`, `WorkflowBinding`, `Process` | Immutable definition, current step, revision, target, compensation 상태를 보여줍니다. |
-| Access 변경 | `AccessGrantRequest` | Immutable request와 기존 authorization lifecycle을 보여줍니다. |
+| Access 변경 | `AccessGrantRequest` | 적격한 pending request를 stream하고 access를 적용하지 않은 채 immutable authorization lifecycle을 보여줍니다. |
 | Execution follow-up | `ActionRun`, rollback, audit reference | Execute-again 바로 가기 없이 결과와 recovery 상태를 보여줍니다. |
 | 담당자 인수인계 | Operational-readiness `Process`, `ReviewCase`, `Approval`, `Decision` | 기존 handover workflow를 재사용하며 Saga는 auditor로 유지됩니다. |
 
 Generic `WorkItem`, `OperationRequest`, 중복 `Approval`, 범용 mutable status table 또는 새 approval
 topic을 추가하지 않습니다. 각 source가 자체 schema, revision, lifecycle, owner를 유지합니다.
+
+Browser에 표시할 pending access request가 있으면 인증된 GET-only stream이 principal의 App Role로
+durable record를 filter합니다. Tab과 Command Deck이 idle 상태이면 console은 capability, scope 및
+expiry가 포함된 request-scoped conversation을 엽니다. 진행 중인 작업, 전송하지 않은 draft 또는 hidden
+tab이 있으면 conversation을 바꾸지 않고 visible badge를 유지합니다. Conversation은 context만
+제공하며 approval, protected deployment, fresh access verification 및 revocation은 authorization
+workflow에 남습니다.
 
 ### Operations task view
 

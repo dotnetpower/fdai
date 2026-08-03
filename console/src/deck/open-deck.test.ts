@@ -56,6 +56,13 @@ describe("openDeckWithPrompt", () => {
 });
 
 describe("openDeckWithContext", () => {
+  it("reports when an idle-only open request is deferred", () => {
+    vi.stubGlobal("CustomEvent", FakeCustomEvent);
+    vi.stubGlobal("window", { dispatchEvent: () => false });
+
+    expect(openDeckWithContext({ onlyWhenIdle: true })).toBe(false);
+  });
+
   it("dispatches a fresh agent-conversation request", () => {
     const dispatched: FakeCustomEvent<Record<string, unknown>>[] = [];
     vi.stubGlobal("CustomEvent", FakeCustomEvent);

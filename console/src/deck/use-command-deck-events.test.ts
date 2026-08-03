@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { resolveDeckOpenSession } from "./use-command-deck-events";
+import { resolveDeckOpenSession, shouldDeferDeckOpen } from "./use-command-deck-events";
 
 const source = readFileSync(
   fileURLToPath(new URL("./use-command-deck-events.ts", import.meta.url)),
@@ -70,5 +70,14 @@ describe("resolveDeckOpenSession", () => {
       kind: "screen-thread",
       hydrateDurable: false,
     });
+  });
+});
+
+describe("shouldDeferDeckOpen", () => {
+  it("defers an automatic access request for active work or an unsent draft", () => {
+    expect(shouldDeferDeckOpen({ onlyWhenIdle: true }, true, "")).toBe(true);
+    expect(shouldDeferDeckOpen({ onlyWhenIdle: true }, false, "draft")).toBe(true);
+    expect(shouldDeferDeckOpen({ onlyWhenIdle: true }, false, "  ")).toBe(false);
+    expect(shouldDeferDeckOpen({}, true, "draft")).toBe(false);
   });
 });

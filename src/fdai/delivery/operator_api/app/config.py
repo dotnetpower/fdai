@@ -473,6 +473,12 @@ class OperatorApiConfig:
     """
 
     iam_access: Any = None  # Governed IAM projections and request commands.
+    execution_access_grants: Any = None
+    """Optional durable execution access-grant projection.
+
+    When configured, the Operator API exposes authenticated GET-only browser
+    streaming for pending requests. The surface never applies or verifies a grant.
+    """
     iam_directory: Any = None  # Cloud-neutral Owner search and roster provider.
     iam_identity_provider: str = "entra"  # Provider stamped on new requests.
     iam_role_group_ids: Mapping[str, str] = field(default_factory=dict)  # Role groups.

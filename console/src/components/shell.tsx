@@ -13,6 +13,7 @@ import {
 } from "../preferences";
 import { panelPath } from "../router";
 import { BrowserNotificationControl } from "./browser-notification-control";
+import { AccessGrantAttention } from "./access-grant-attention";
 import { NavigationShell } from "./navigation-shell";
 import { NavigationTitleProvider } from "./navigation-title";
 
@@ -64,6 +65,10 @@ export function Shell({ activePanelId, auth, client, children, onExitLocalSessio
           <span class="brand-product">{t("shell.console")}</span>
         </a>
         <div class="principal">
+          <AccessGrantAttention
+            client={client}
+            principalId={auth.account?.homeAccountId ?? null}
+          />
           <BrowserNotificationControl
             client={client}
             principalId={auth.account?.homeAccountId ?? null}

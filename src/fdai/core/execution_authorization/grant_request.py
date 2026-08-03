@@ -14,6 +14,7 @@ from fdai.shared.providers.state_store import StateStore
 
 _STATE_PREFIX = "execution-authorization:grant-request:"
 _MAX_DECISION_CAS_ATTEMPTS = 4
+_MAX_PROJECTION_SCAN = 1_000
 
 
 class AccessGrantRequestStatus(StrEnum):
@@ -141,6 +142,42 @@ class AccessGrantRequest:
 @dataclass(frozen=True, slots=True)
 class AccessGrantRequestService:
     store: StateStore
+
+    async def list_pending_for_roles(
+        self,
+        *,
+        reviewer_ref: str,
+        reviewer_roles: frozenset[str],
+        now: datetime,
+        limit: int = 50,
+    ) -> tuple[AccessGrantRequest, ...]:
+        if not reviewer_ref.strip():
+            raise AccessGrantRequestError("access grant reviewer reference MUST be non-empty")
+        if now.tzinfo is None:
+            raise AccessGrantRequestError("access grant projection time MUST be timezone-aware")
+        if not 1 <= limit <= 100:
+            raise AccessGrantRequestError("access grant projection limit MUST be between 1 and 100")
+        normalized_roles = {role.casefold() for role in reviewer_roles}
+        if not normalized_roles:
+            return ()
+        values = await self.store.read_states(_STATE_PREFIX, limit=_MAX_PROJECTION_SCAN)
+        visible: list[AccessGrantRequest] = []
+        for value in values:
+            request = AccessGrantRequest.from_dict(dict(value))
+            if request.status is not AccessGrantRequestStatus.PENDING:
+                continue
+            if request.expires_at <= now:
+                continue
+            if request.requester_ref.casefold() == reviewer_ref.casefold():
+                continue
+            if not normalized_roles.intersection(
+                role.casefold() for role in request.approver_roles
+            ):
+                continue
+            visible.append(request)
+            if len(visible) == limit:
+                break
+        return tuple(visible)
 
     async def submit_grant(self, proposal: ExecutionAccessGrantProposal) -> str:
         request = await self.submit(

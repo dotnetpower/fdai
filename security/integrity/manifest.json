@@ -268,7 +268,7 @@
     "src/fdai/core/execution_authorization/decision_set.py": "f3d51f1c67d50c88d8eeaec0e03aaeb9791bb4748e9ed3181e9e3a8d9b06f3d1",
     "src/fdai/core/execution_authorization/evaluator.py": "90e94e726270c368fc5f369325429855364fbc4346d7787e0c525de4927da74f",
     "src/fdai/core/execution_authorization/grant_planning.py": "e15ded43f38f60a3a4f58ebcf74ebfdee72282c7534f3f66a531bb39172d4b69",
-    "src/fdai/core/execution_authorization/grant_request.py": "011cda2e912a9b363544c8ece086561d28f38a0293ceb5d51bfd97d8bfc8c822",
+    "src/fdai/core/execution_authorization/grant_request.py": "1a13b523d6edad4828809653845b8925067d982249e6c25671114680c4e3312e",
     "src/fdai/core/execution_authorization/models.py": "5cca7c5c5476499a543b74ae4073d383487799aa26ea5f3919abbcadec423cb6",
     "src/fdai/core/execution_authorization/observation.py": "fb4d3f4d9a4ca9f19f2a600a8ebb7d3d17c598fcae0b0682060e4cf6bcc9b1f7",
     "src/fdai/core/execution_authorization/resolver.py": "07b05bc1d7b00fc26b2d03da817b847f95feec1cf25de01ff2296917208f4ab1",
@@ -354,8 +354,8 @@
     "src/fdai/core/learning/serialization.py": "87fb65d478334e9b8d5043b09926bafe4aa377c0960638f1b3718aa58c33f278",
     "src/fdai/core/learning/service.py": "92aa600827f8ff52a7efab373fdcd06eff7649a5a4a842129e58440d58dad2bf",
     "src/fdai/core/licensing/__init__.py": "2106b8bf7740fa7b85bf18f1939841a7b0f16873f1a38858cd61b8871eaaba64",
-    "src/fdai/core/licensing/entitlement.py": "f52b6d70800de2c31336269fae0dbcf648085321de0dc4e10f9b5b0eb28abe54",
-    "src/fdai/core/licensing/token.py": "0da06ae917d68b4ccc4c853a37d9301380bd67c9eafbfb4f84cb3c77152c9bc6",
+    "src/fdai/core/licensing/entitlement.py": "1aff17a4227c5727a457930f7c37b77899a2069cebd05a01fc9cb42fbd4f2422",
+    "src/fdai/core/licensing/token.py": "fa4db18bd28eca3802f79597ea0bc32bb327210ef9fdeeab56e15ba3f371898b",
     "src/fdai/core/measurement/__init__.py": "e84e4b8389f9152c07b93dfe9bb9cdeab572f62f013cf308b09e079e4d29c92d",
     "src/fdai/core/measurement/dora.py": "75c027f9dec9a92190a6f2bb3999afaae611b6085beaeea468b2faddd825b7e3",
     "src/fdai/core/measurement/latency_budget.py": "9ca0f9540a3f4b938871835c12202a8c808f40cad3ce1b0a4b9e3907951cc28f",
@@ -932,7 +932,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-03T14:09:08Z",
+  "generated_at": "2026-08-03T16:55:06Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
