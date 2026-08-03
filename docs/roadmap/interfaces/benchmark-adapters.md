@@ -195,6 +195,13 @@ SREGym requests the completed inventory join through the separate observe-only
 `observe.kubernetes.dependencies` capability. Readiness probes this capability before a run; an
 unavailable or truncated inventory cannot produce an absence finding.
 
+The shared Kubernetes package has a hold-only admission resource-drift reducer. It attributes
+normalized request or limit drift only when one complete selector-free, namespace-unscoped
+MutatingWebhookConfiguration can create Pods and complete workload selectors match complete Pod
+labels. Multiple or scoped mutators, semantically equivalent quantities, or incomplete evidence
+produce no finding. This strengthens the source campaign behavior, which treated any single
+mutator as causal without proving namespace scope.
+
 On deterministic hold for review, the existing grounded RCA path receives the task objective and
 bounded evidence. Its hypothesis is preserved in the typed `ControlLoopResult` and rendered as the
 submission summary. The runner blocks before a benchmark starts when the RCA reasoner is absent;

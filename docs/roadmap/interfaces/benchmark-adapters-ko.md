@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 4f7e6e043a321b422cb93cd835ee946c6e9dc378
+translation_source_sha: 99ffd9785884a40ffbab1716f961ad3d71b66620
 translation_revised: 2026-08-04
 ---
 
@@ -199,6 +199,13 @@ Present, external, ambiguous, unhealthy, mismatched 또는 truncated evidence는
 SREGym은 별도 observe-only `observe.kubernetes.dependencies` capability를 통해 completed inventory
 join을 요청합니다. Readiness는 실행 전에 이 capability를 probe하며 unavailable 또는 truncated
 inventory는 absence finding을 생성할 수 없습니다.
+
+공유 Kubernetes package에는 hold-only admission resource-drift reducer가 있습니다. Complete
+selector-free, namespace-unscoped MutatingWebhookConfiguration 하나가 Pod를 생성할 수 있고 complete
+workload selector가 complete Pod label과 일치할 때만 normalized request 또는 limit drift를
+귀속합니다. 여러 mutator 또는 scoped mutator, semantically equivalent quantity, incomplete evidence는
+finding을 생성하지 않습니다. 이는 namespace scope를 증명하지 않고 mutator 하나를 causal로 취급하던
+source campaign 동작을 강화합니다.
 
 Deterministic 판단 보류 시 기존 grounded RCA path가 task objective와 bounded evidence를 받습니다.
 Hypothesis는 typed `ControlLoopResult`에 보존되고 submission summary로 render됩니다. RCA reasoner가
