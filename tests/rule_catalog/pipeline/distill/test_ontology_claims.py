@@ -8,6 +8,7 @@ import pytest
 
 from fdai.rule_catalog.pipeline.distill.ontology_claims import (
     claim_text_records,
+    document_content_digest,
     inventory_claims,
     reconcile_claims,
 )
@@ -94,6 +95,31 @@ def test_reconcile_rejects_duplicate_candidate_identity() -> None:
         reconcile_claims(inventory_claims(document), [candidate, candidate])
 
 
+def test_reconcile_rejects_unknown_exact_candidate_and_claim_ids() -> None:
+    document = _document("Checkout depends on Orders.")
+    claims = inventory_claims(document)
+    candidate = DistilledCandidate(
+        kind=CandidateKind.ONTOLOGY_LINK,
+        candidate_id="candidate-1",
+        source_ref=document.source_ref,
+        source_section="Service",
+        source_lines=(1, 1),
+    )
+
+    with pytest.raises(ValueError, match="known candidates"):
+        reconcile_claims(
+            claims,
+            [candidate],
+            exact_candidate_claims={"missing": claims[0].claim_id},
+        )
+    with pytest.raises(ValueError, match="known claims"):
+        reconcile_claims(
+            claims,
+            [candidate],
+            exact_candidate_claims={"candidate-1": "claim-missing"},
+        )
+
+
 def test_mismatched_document_digest_fails_closed() -> None:
     document = ManualDocument(
         doc_id="runbook",
@@ -103,6 +129,26 @@ def test_mismatched_document_digest_fails_closed() -> None:
     )
     with pytest.raises(ValueError, match="MUST match"):
         inventory_claims(document)
+
+
+def test_document_digest_accepts_omitted_hash_and_rejects_invalid_format() -> None:
+    text = "Checkout depends on Orders."
+    without_hash = ManualDocument(
+        doc_id="runbook",
+        text=text,
+        source_ref="doc:runbook",
+        content_sha="",
+    )
+    invalid_hash = ManualDocument(
+        doc_id="runbook",
+        text=text,
+        source_ref="doc:runbook",
+        content_sha="A" * 64,
+    )
+
+    assert document_content_digest(without_hash) == hashlib.sha256(text.encode()).hexdigest()
+    with pytest.raises(ValueError, match="lowercase SHA-256"):
+        document_content_digest(invalid_hash)
 
 
 def test_provider_observation_and_korean_claims_are_classified() -> None:
@@ -200,6 +246,24 @@ def test_markup_only_units_are_not_claims_but_inline_emphasis_is_semantic() -> N
     inline_document = _document("<!-- overview --> Check the current revision.")
     inline_claims = inventory_claims(inline_document)
     assert claim_text_records(inline_document, inline_claims)[0][1] == "Check the current revision."
+
+
+def test_claim_text_reconstruction_rejects_changed_source_text() -> None:
+    original = _document("Checkout depends on Orders.")
+    changed = _document("Checkout depends on Inventory.")
+
+    with pytest.raises(ValueError, match="MUST remain reconstructable"):
+        claim_text_records(changed, inventory_claims(original))
+
+
+def test_singular_dependency_phrase_is_a_relationship() -> None:
+    claims = inventory_claims(
+        _document("The readiness probe does not depend on the liveness probe.")
+    )
+
+    assert len(claims) == 1
+    assert ClaimKind.NORMATIVE in claims[0].signals
+    assert ClaimKind.RELATIONSHIP in claims[0].signals
 
 
 def test_exact_candidate_mapping_does_not_cover_sibling_claim() -> None:

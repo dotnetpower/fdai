@@ -75,6 +75,7 @@ def extract_pdf_text(
     except (
         PyPdfError,
         AttributeError,
+        MemoryError,
         OSError,
         RecursionError,
         TypeError,

@@ -366,7 +366,8 @@ identities always require accountable review.
 
 ## Hardening record
 
-Twenty-three adversarial rounds covered the proposal-only path and envelope follow-up:
+Thirty-three adversarial rounds cover the proposal path, envelope bridge, and real-corpus
+follow-up:
 
 | Round | Focus | Result |
 |-------|-------|--------|
@@ -384,11 +385,24 @@ Twenty-three adversarial rounds covered the proposal-only path and envelope foll
 | 12 | boundary formats | ontology release digest, RFC 3339 UTC evidence, bounded references |
 | 13 | executable closure | 156 focused tests, 90.62% branch coverage, Ruff and strict mypy pass |
 | 14-23 | envelope and format hardening | locator identity, Office/PDF/OCR fail-closed parsing, semantic equivalence, replay, bounds, and E2E; 238 focused tests and 90.63% branch coverage |
+| 24 | structured text | Markdown and SGML block parsing reduced public-corpus units from 6190 to 1299, markup units from 2084 to 21, and fragmented boundaries from 2112 to 169 |
+| 25 | claim semantics | multi-signal normative, threshold, relationship, and procedure inventory reached 22/22 annotated public claims |
+| 26 | production PDF | strict `pypdf` supports xref and object streams under page, object, stream, unit, and character ceilings |
+| 27 | Office and OCR provenance | heading context, slide paragraphs, table roles, XLSX cells, and exact OCR page/block locators survive extraction |
+| 28 | entity resolution | exact and unique configured aliases resolve; unknown, type-mismatched, and ambiguous aliases remain bounded and unselected |
+| 29 | partition gates | zero-candidate, zero-citation, zero-prediction, missing-format, weak-language, semantic, citation, and replay evidence cannot pass vacuously |
+| 30 | public corpus | 11 HTTPS sources are pinned by SHA-256, license, format, language, size, and 22 content-free annotations; source bodies remain outside the repository |
+| 31 | provider conformance | real bindings are invoked twice per case and measured by partition; an unavailable or abstaining binding cannot report extraction available |
+| 32 | parser security | shared limits cover input, nesting, XML, archive, PDF, OCR, units, and characters; errors remain content-free |
+| 33 | independent closure | three adversarial audits closed bounded alias, cache, SGML depth, vacuous gate, memory normalization, and fixture escaping findings; 22/22 annotations, zero parser rejection, zero replay mismatch, 372 focused tests, and 93.51% branch coverage |
 
-The 23 rounds above close the synthetic proposal and provenance scope. They do not close real-world
-parser, provider, language, or corpus-quality findings. D4c remains review-only until its ten
-real-corpus rounds pass; this distinction prevents a safety result from being presented as an
-extraction-quality result.
+The D4c mechanism and public inventory corpus now close with no verified Medium-or-higher finding.
+The upstream `AbstainingDistiller` still yields zero candidates for all 11 manuals, so ontology
+extraction availability remains false until a bound provider passes the conformance corpus. The
+checked-in public corpus currently covers English Markdown and SGML. Required PDF, Office, OCR,
+and Korean provider partitions still need licensed or synthetic annotations before a deployment
+can claim those partitions. Untrusted PDF decompression also retains the documented isolated-worker
+requirement. These residuals keep the capability review-only and cannot raise authority.
 
 ## Verification matrix
 

@@ -280,7 +280,7 @@ def test_builder_keeps_ambiguous_alias_and_unknown_add_for_review() -> None:
     assert update_identity.reason_codes == ("existing_target_not_found",)
 
 
-def test_alias_type_mismatch_is_denied_without_inventing_identity() -> None:
+def test_alias_type_mismatch_requires_review_without_inventing_identity() -> None:
     body = dict(_candidate().body)
     body["target_identity"] = "Checkout Service"
     context = _context(
@@ -290,7 +290,7 @@ def test_alias_type_mismatch_is_denied_without_inventing_identity() -> None:
     claim = inventory_claims(_document())[0]
     verified = verify_ontology_proposal(proposal, claim, context)
     identity = next(receipt for receipt in verified.receipts if receipt.gate == "identity")
-    assert proposal.target_identity == "owner:platform"
-    assert proposal.entity_resolution.method == "alias"
-    assert identity.outcome is GateOutcome.DENY
-    assert identity.reason_codes == ("target_type_mismatch",)
+    assert proposal.target_identity == "Checkout Service"
+    assert proposal.entity_resolution.method == "unresolved"
+    assert identity.outcome is GateOutcome.REVIEW
+    assert identity.reason_codes == ("existing_target_not_found",)

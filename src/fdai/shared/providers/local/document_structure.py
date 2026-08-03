@@ -356,7 +356,11 @@ def _xml_member_root(
     info = archive.getinfo(name)
     if info.file_size > policy.max_ooxml_xml_member_bytes:
         raise ValueError("OOXML XML member exceeds the parser budget")
-    return _xml_root(archive.read(name), policy=policy)
+    with archive.open(info) as member:
+        content = member.read(policy.max_ooxml_xml_member_bytes + 1)
+    if len(content) > policy.max_ooxml_xml_member_bytes:
+        raise ValueError("OOXML XML member exceeds the parser budget")
+    return _xml_root(content, policy=policy)
 
 
 def _xml_root(

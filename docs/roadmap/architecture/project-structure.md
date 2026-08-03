@@ -88,7 +88,7 @@ fdai/
 │   │   ├── providers/          # CSP-neutral cloud provider interfaces, including OperatingModelProvider and the backward-compatible Distiller plus optional versioned conformance descriptor (adapters implement them)
 │   │   │                       #   event_bus.py, secret_provider.py, state_store.py, execution_backend.py,
 │   │   │                       #   workload_identity.py, inventory.py, log_query.py, trace_query.py, incident_platform.py, behavior_knowledge.py, programmatic_pipeline.py + LLM / channel / RBAC seams
-│   │   │                       # `providers/local/` = process-local transport adapters plus bounded document format adapters (`document_limits.py` immutable ceilings, `document_structure.py` for OOXML, `document_pdf.py` for pypdf/OCR) and explicit offline helpers;
+│   │   │                       # `providers/local/` = process-local transport adapters plus bounded document format adapters (`document_limits.py` immutable ceilings, `document_text.py` for Markdown/SGML, `document_structure.py` for OOXML, `document_pdf.py` for pypdf/OCR) and explicit offline helpers;
 │   │   │                       # `providers/testing/` = in-memory fakes used across the test suite (never bound in prod)
 │   │   ├── streaming/          # `SseBroadcaster` + `StagePublisher`: relay EventBus topics → SSE channels
 │   │   ├── telemetry/          # structured logging, tracing, metric helpers

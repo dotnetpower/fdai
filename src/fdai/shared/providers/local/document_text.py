@@ -238,18 +238,21 @@ class _SgmlParser(HTMLParser):
         self._captures: list[_SgmlCapture] = []
         self._counts: dict[str, int] = {}
         self._max_nesting = max_nesting
+        self._tag_depth = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         del attrs
+        self._tag_depth += 1
+        if self._tag_depth > self._max_nesting:
+            raise ValueError("SGML nesting exceeds the parser budget")
         if tag not in self._BLOCK_TAGS:
             return
-        if len(self._captures) >= self._max_nesting:
-            raise ValueError("SGML nesting exceeds the parser budget")
         ordinal = self._counts.get(tag, 0) + 1
         self._counts[tag] = ordinal
         self._captures.append(_SgmlCapture(tag, ordinal, self.getpos()[0]))
 
     def handle_endtag(self, tag: str) -> None:
+        self._tag_depth = max(0, self._tag_depth - 1)
         if not self._captures or self._captures[-1].tag != tag:
             return
         capture = self._captures.pop()
@@ -268,6 +271,10 @@ class _SgmlParser(HTMLParser):
                 text=text,
             )
         )
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.handle_starttag(tag, attrs)
+        self.handle_endtag(tag)
 
     def handle_data(self, data: str) -> None:
         if self._captures:

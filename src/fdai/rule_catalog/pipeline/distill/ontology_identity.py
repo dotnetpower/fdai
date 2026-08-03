@@ -61,8 +61,8 @@ def resolve_entity_identity(
     """Resolve an exact id or one unique configured alias without fuzzy matching."""
     if len(aliases) > _MAX_ALIASES:
         raise ValueError("entity alias count exceeds the bounded limit")
-    entity_ids = {entity.identity for entity in entities}
-    if request.supplied_identity in entity_ids:
+    entity_types = {entity.identity: entity.object_type for entity in entities}
+    if request.supplied_identity in entity_types:
         return EntityResolution(
             selected_identity=request.supplied_identity,
             candidates=(request.supplied_identity,),
@@ -72,7 +72,12 @@ def resolve_entity_identity(
     normalized = _normalize_alias(request.supplied_identity)
     candidates = tuple(
         sorted(
-            {record.identity for record in aliases if _normalize_alias(record.alias) == normalized}
+            {
+                record.identity
+                for record in aliases
+                if _normalize_alias(record.alias) == normalized
+                and entity_types.get(record.identity) == request.target_type
+            }
         )
     )
     if len(candidates) == 1:
@@ -82,7 +87,10 @@ def resolve_entity_identity(
             method="alias",
         )
     if candidates:
-        return EntityResolution(candidates=candidates, method="ambiguous_alias")
+        return EntityResolution(
+            candidates=candidates[:32],
+            method=("ambiguous_alias" if len(candidates) <= 32 else "ambiguous_alias_truncated"),
+        )
     return EntityResolution(method="unresolved")
 
 

@@ -82,6 +82,8 @@ class PartitionEvidence:
             raise ValueError("corpus evidence counts MUST be non-negative integers")
         if self.case_count < 1:
             raise ValueError("corpus partition case_count MUST be positive")
+        if self.expected_critical_claim_count < 1:
+            raise ValueError("corpus partition MUST contain expected critical claims")
         bounded_counts = (
             (self.extraction_success_count, self.case_count, "extraction success count"),
             (
@@ -223,6 +225,12 @@ def _assess_partition(
     deny_reasons: list[str] = []
     if evidence.extraction_success_count == 0:
         review_reasons.append("no_extraction_success")
+    if evidence.extraction_success_count and evidence.citation_count == 0:
+        review_reasons.append("no_citations")
+    if evidence.extraction_success_count and not (
+        evidence.predicted_entity_count or evidence.predicted_link_count
+    ):
+        review_reasons.append("no_ontology_predictions")
     if metrics.detected_claim_accounting < policy.min_detected_claim_accounting:
         review_reasons.append("detected_claim_accounting_below_threshold")
     if metrics.mapped_critical_recall < policy.min_mapped_critical_recall:
@@ -294,6 +302,8 @@ def _metrics(evidence: PartitionEvidence) -> PartitionMetrics:
 def _ordered_reasons(review_reasons: list[str], deny_reasons: list[str]) -> tuple[str, ...]:
     reason_order = (
         "no_extraction_success",
+        "no_citations",
+        "no_ontology_predictions",
         "detected_claim_accounting_below_threshold",
         "critical_recall_below_threshold",
         "entity_precision_below_threshold",

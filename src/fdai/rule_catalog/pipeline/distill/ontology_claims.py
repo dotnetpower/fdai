@@ -42,7 +42,7 @@ _THRESHOLD = re.compile(
     re.IGNORECASE,
 )
 _RELATIONSHIP = re.compile(
-    r"\b(?:depends\s+on|runs\s+on|implemented\s+by|owned\s+by|delivered\s+by|"
+    r"\b(?:depends?\s+on|runs\s+on|implemented\s+by|owned\s+by|delivered\s+by|"
     r"contains|requires|uses|governed\s+by)\b|(?:의존|소유|담당|구현)",
     re.IGNORECASE,
 )

@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: a89938e515aa0bb7c39dbbc17ee7b76b2a6d74fb
+translation_source_sha: 6524fd338ded248cf29e37b728b4c4690a895148
 translation_revised: 2026-08-03
 ---
 # 문서 온톨로지 증류
@@ -367,7 +367,7 @@ policy, workflow, ActionType, permission, autonomy, schema change, conflict 및 
 
 ## 하드닝 기록
 
-23개의 adversarial round가 proposal-only path와 envelope 후속 구현을 검토했습니다.
+33개의 adversarial round가 proposal path, envelope bridge 및 실제 corpus 후속 구현을 검토했습니다.
 
 | Round | Focus | Result |
 |-------|-------|--------|
@@ -385,10 +385,24 @@ policy, workflow, ActionType, permission, autonomy, schema change, conflict 및 
 | 12 | boundary format | ontology release digest, RFC 3339 UTC evidence, bounded reference |
 | 13 | executable closure | focused test 156개, branch coverage 90.62%, Ruff 및 strict mypy 통과 |
 | 14-23 | envelope 및 format hardening | locator identity, Office/PDF/OCR fail-closed parsing, semantic equivalence, replay, bound 및 E2E. Focused test 238개와 branch coverage 90.63% 통과 |
+| 24 | structured text | Markdown/SGML block parsing으로 public-corpus unit을 6190개에서 1299개, markup unit을 2084개에서 21개, fragmented boundary를 2112개에서 169개로 줄임 |
+| 25 | claim semantic | multi-signal normative, threshold, relationship 및 procedure inventory가 annotated public claim 22/22를 검출함 |
+| 26 | production PDF | strict `pypdf`가 page, object, stream, unit 및 character ceiling 아래에서 xref와 object stream을 지원함 |
+| 27 | Office 및 OCR provenance | heading context, slide paragraph, table role, XLSX cell 및 exact OCR page/block locator가 extraction을 통과함 |
+| 28 | entity resolution | exact/unique configured alias만 resolve하며 unknown, type mismatch 및 ambiguous alias는 bounded unselected 상태로 남음 |
+| 29 | partition gate | zero-candidate, zero-citation, zero-prediction, missing-format, weak-language, semantic, citation 및 replay evidence가 vacuous pass할 수 없음 |
+| 30 | public corpus | HTTPS source 11개를 SHA-256, license, format, language, size 및 content-free annotation 22개로 고정하고 source body는 repository 밖에 유지함 |
+| 31 | provider conformance | 실제 binding을 case마다 두 번 호출하고 partition별로 측정하며 unavailable/abstaining binding은 extraction available을 보고할 수 없음 |
+| 32 | parser security | shared limit가 input, nesting, XML, archive, PDF, OCR, unit 및 character를 제한하고 error는 content-free 상태를 유지함 |
+| 33 | independent closure | 독립 adversarial audit 3개로 bounded alias, cache, SGML depth, vacuous gate, memory normalization 및 fixture escaping finding을 닫음. Annotation 22/22, parser rejection 0, replay mismatch 0, focused test 372개 및 branch coverage 93.51% 통과 |
 
-위 23개 round는 synthetic proposal 및 provenance scope를 닫습니다. Real-world parser, provider,
-language 또는 corpus-quality finding을 닫지는 않습니다. D4c의 10개 real-corpus round가 통과할 때까지
-review-only를 유지합니다. 이 구분으로 safety 결과를 extraction-quality 결과처럼 제시하지 않습니다.
+D4c mechanism과 public inventory corpus는 검증된 Medium 이상 finding 없이 닫혔습니다. Upstream
+`AbstainingDistiller`는 11개 manual 모두에서 candidate 0개를 반환하므로 binding된 provider가
+conformance corpus를 통과할 때까지 ontology extraction availability는 false입니다. Checked-in public
+corpus는 현재 English Markdown과 SGML을 다룹니다. Deployment가 PDF, Office, OCR 및 Korean provider
+partition을 지원한다고 주장하려면 licensed 또는 synthetic annotation이 더 필요합니다. Untrusted PDF
+decompression에는 문서화된 isolated-worker requirement도 남습니다. 이 residual은 capability를
+review-only로 유지하며 authority를 높일 수 없습니다.
 
 ## 검증 매트릭스
 

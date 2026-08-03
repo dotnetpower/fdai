@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 from dataclasses import replace
 
+import pytest
+
 from fdai.rule_catalog.pipeline.distill.ontology_claims import inventory_claims
 from fdai.rule_catalog.pipeline.distill.ontology_conformance import (
     ConformanceCase,
@@ -292,3 +294,53 @@ def test_capability_resolution_requires_matching_passed_contract() -> None:
 
     assert availability.available is False
     assert availability.reason_code == "conformance_not_passed"
+
+
+def test_conformance_case_rejects_invalid_identity_and_expected_facts() -> None:
+    case = _case()
+
+    with pytest.raises(ValueError, match="id MUST be bounded"):
+        replace(case, case_id=" ")
+    with pytest.raises(ValueError, match="expected facts MUST be non-empty"):
+        replace(case, expected_facts=())
+    with pytest.raises(ValueError, match="expected facts MUST be unique"):
+        replace(case, expected_facts=(_expected(), _expected()))
+
+
+async def test_conformance_requires_non_empty_unique_cases() -> None:
+    provider = StaticDistiller((_candidate(),))
+
+    with pytest.raises(ValueError, match="cases MUST be non-empty"):
+        await evaluate_distiller_conformance(
+            provider,
+            cases=(),
+            required_partitions=(_PARTITION,),
+            monotonic=StepClock(),
+        )
+    with pytest.raises(ValueError, match="case ids MUST be unique"):
+        await evaluate_distiller_conformance(
+            provider,
+            cases=(_case(), _case()),
+            required_partitions=(_PARTITION,),
+            monotonic=StepClock(),
+        )
+
+
+async def test_conformance_rejects_non_monotonic_clock_and_negative_cost() -> None:
+    clock_values = iter((2.0, 1.0))
+    with pytest.raises(ValueError, match="clock MUST be finite and monotonic"):
+        await evaluate_distiller_conformance(
+            StaticDistiller((_candidate(),)),
+            cases=(_case(),),
+            required_partitions=(_PARTITION,),
+            monotonic=lambda: next(clock_values),
+        )
+
+    with pytest.raises(ValueError, match="cost MUST be a non-negative integer"):
+        await evaluate_distiller_conformance(
+            StaticDistiller((_candidate(),)),
+            cases=(_case(),),
+            required_partitions=(_PARTITION,),
+            monotonic=StepClock(),
+            cost_microunits=lambda case, result: -1,
+        )

@@ -162,7 +162,11 @@ async def evaluate_distiller_conformance(
             for case in cases
         ]
     )
-    evidence = tuple(_partition_evidence(partition, results) for partition in required_partitions)
+    evidence = tuple(
+        _partition_evidence(partition, results)
+        for partition in required_partitions
+        if any(item.partition == partition for item in results)
+    )
     return DistillerConformanceReport(
         descriptor=descriptor,
         case_results=results,
@@ -342,30 +346,6 @@ def _partition_evidence(
     results: Sequence[ConformanceCaseResult],
 ) -> PartitionEvidence:
     selected = tuple(item for item in results if item.partition == partition)
-    if not selected:
-        return PartitionEvidence(
-            partition=partition,
-            case_count=1,
-            extraction_success_count=0,
-            detected_claim_count=0,
-            accounted_detected_claim_count=0,
-            expected_critical_claim_count=0,
-            mapped_critical_claim_count=0,
-            predicted_entity_count=0,
-            correct_entity_count=0,
-            predicted_link_count=0,
-            correct_link_count=0,
-            citation_count=0,
-            citation_error_count=0,
-            parser_rejection_count=1,
-            provider_abstention_count=0,
-            replay_mismatch_count=0,
-            semantic_error_count=0,
-            latency_observation_count=0,
-            latency_total_ms=0.0,
-            cost_observation_count=0,
-            cost_total_microunits=0,
-        )
     return PartitionEvidence(
         partition=partition,
         case_count=len(selected),

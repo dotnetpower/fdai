@@ -6,7 +6,10 @@ from dataclasses import replace
 
 import pytest
 
-from fdai.shared.providers.local.document_limits import DEFAULT_DOCUMENT_PARSER_POLICY
+from fdai.shared.providers.local.document_limits import (
+    DEFAULT_DOCUMENT_PARSER_POLICY,
+    DocumentParserPolicy,
+)
 from fdai.shared.providers.local.document_text import extract_structured_text
 
 
@@ -83,6 +86,22 @@ def test_plain_text_keeps_original_line_locators() -> None:
     assert [unit.locator for unit in units] == ["line:1", "line:3"]
 
 
+@pytest.mark.parametrize("max_input_bytes", [0, 1.5, True])
+def test_document_parser_policy_rejects_invalid_integer_limits(
+    max_input_bytes: object,
+) -> None:
+    with pytest.raises(ValueError, match="integer limits MUST be positive"):
+        DocumentParserPolicy(max_input_bytes=max_input_bytes)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("compression_ratio", [0.99, float("inf"), float("nan")])
+def test_document_parser_policy_rejects_invalid_compression_ratio(
+    compression_ratio: float,
+) -> None:
+    with pytest.raises(ValueError, match="compression ratio MUST be finite"):
+        DocumentParserPolicy(max_ooxml_compression_ratio=compression_ratio)
+
+
 def test_markdown_rejects_excessive_token_count_and_nesting() -> None:
     token_policy = replace(DEFAULT_DOCUMENT_PARSER_POLICY, max_markdown_tokens=2)
     with pytest.raises(ValueError, match="Markdown token count exceeds the parser budget"):
@@ -113,4 +132,11 @@ def test_sgml_rejects_excessive_nesting_and_unclosed_blocks() -> None:
         extract_structured_text(
             b"<chapter><para>private source fragment",
             source_name="manual.sgml",
+        )
+
+    with pytest.raises(ValueError, match="SGML nesting exceeds the parser budget"):
+        extract_structured_text(
+            b"<div><div><div><para>deep</para></div></div></div>",
+            source_name="manual.sgml",
+            policy=nesting_policy,
         )

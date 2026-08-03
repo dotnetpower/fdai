@@ -391,6 +391,11 @@ def _load_source(
         raise ValueError(f"{source.source_id} source exceeds the configured byte limit")
     path = cache_dir / (source.source_id + _FORMAT_SUFFIX[source.source_format])
     if path.is_file():
+        if path.is_symlink():
+            raise ValueError(f"{source.source_id} cached source MUST NOT be a symbolic link")
+        cached_size = path.stat().st_size
+        if cached_size != source.source_bytes or cached_size > max_bytes:
+            raise ValueError(f"{source.source_id} cached source byte count mismatch")
         return path.read_bytes()
     fetched = fetcher.fetch(source.url, timeout_seconds=timeout_seconds, max_bytes=max_bytes)
     if fetched.final_url != source.url:

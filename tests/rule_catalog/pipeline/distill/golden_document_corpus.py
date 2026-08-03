@@ -93,7 +93,8 @@ def _pdf(*, scanned: bool) -> bytes:
         for index, claim in enumerate(CLAIMS):
             if index:
                 operations.append("0 -18 Td")
-            operations.append(f"({claim}) Tj")
+            escaped = claim.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+            operations.append(f"({escaped}) Tj")
         operations.append("ET")
         stream = DecodedStreamObject()
         stream.set_data(" ".join(operations).encode("ascii"))

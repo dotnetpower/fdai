@@ -61,7 +61,7 @@
         {
           "locator": "line:13",
           "text_sha256": "049047514e51b39bf77328d2b5e06402634cf5e0f8b2e9fb8ae4776604f6a41d",
-          "expected_claim_signals": ["threshold"]
+          "expected_claim_signals": ["normative"]
         },
         {
           "locator": "line:45",
@@ -112,7 +112,7 @@
         {
           "locator": "line:182",
           "text_sha256": "f4b1cc424ff50a3c450c5b4a54a3c0ad15a97fedb960d440f10217b7fc00ac51",
-          "expected_claim_signals": ["normative", "observation"]
+          "expected_claim_signals": ["normative", "procedure"]
         }
       ]
     },
