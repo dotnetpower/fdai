@@ -93,7 +93,13 @@ from fdai.delivery.operator_api.routes.chat_verification_rendering import (
     mappings as _mappings,
 )
 from fdai.delivery.operator_api.routes.chat_verification_rendering import (
+    notification_delivery_lines as _notification_delivery_lines,
+)
+from fdai.delivery.operator_api.routes.chat_verification_rendering import (
     optional_text as _optional_text,
+)
+from fdai.delivery.operator_api.routes.chat_verification_rendering import (
+    recorded_detection_lines as _recorded_detection_lines,
 )
 from fdai.delivery.operator_api.routes.chat_verification_rendering import (
     recorded_failure_lines as _recorded_failure_lines,
@@ -1008,26 +1014,83 @@ def verify_answer(
         )
         return _result(_changed(provisional, answer), answer, "grounded_rca", tuple(refs))
 
+    detection_lines, detection_refs = _recorded_detection_lines(evidence, korean=korean)
     failure_lines, failure_refs = _recorded_failure_lines(evidence)
+    delivery_lines, delivery_refs = _notification_delivery_lines(evidence)
+    detection_section = (
+        ("\n감지된 workload 상태:\n" if korean else "\nDetected workload condition:\n")
+        + "\n".join(detection_lines)
+        if detection_lines
+        else ""
+    )
+    delivery_section = (
+        ("\n\n알림 전달 문제:\n" if korean else "\n\nNotification delivery issue:\n")
+        + "\n".join(delivery_lines)
+        if delivery_lines
+        else ""
+    )
     if failure_lines:
-        refs.extend(failure_refs)
+        refs.extend((*detection_refs, *failure_refs, *delivery_refs))
         recorded_failures = "\n".join(failure_lines)
         answer = (
             f"{correlation} ({title})의 상태는 {incident_status}이며 "
             f"{recorded_at}에 마지막으로 "
-            "갱신되었습니다. citation을 갖춘 grounded "
+            f"갱신되었습니다.{detection_section}\n\ncitation을 갖춘 grounded "
             "root cause는 기록되지 않았지만, "
-            "감사 로그에 다음 실패 "
+            "workload 감사 로그에 다음 실패 "
             "이유가 기록되어 있습니다:\n"
             f"{recorded_failures}\n이 내용은 관찰된 "
             "실패 이유이며 완전한 RCA는 "
-            "아닙니다."
+            f"아닙니다.{delivery_section}"
             f"{activity_suffix}"
             if korean
             else f"{correlation} ({title}) is {incident_status} and was last updated at "
-            f"{recorded_at}. No citation-grounded root cause is recorded, but the audit log "
+            f"{recorded_at}.{detection_section}\n\nNo citation-grounded root cause is recorded, "
+            "but the workload audit log "
             f"records this failure reason:\n{recorded_failures}\nThis is an observed failure "
-            f"reason, not a complete RCA.{activity_suffix}"
+            f"reason, not a complete RCA.{delivery_section}{activity_suffix}"
+        )
+        return _result(
+            _changed(provisional, answer),
+            answer,
+            "recorded_failure_reason",
+            tuple(refs),
+        )
+
+    if detection_lines:
+        refs.extend((*detection_refs, *delivery_refs))
+        answer = (
+            f"{correlation} ({title})의 상태는 {incident_status}이며 "
+            f"{recorded_at}에 마지막으로 갱신되었습니다.{detection_section}\n\n"
+            "이 근거는 감지된 증상과 대상만 확인하며 원인을 증명하지 않습니다. "
+            "citation을 갖춘 grounded root cause는 아직 기록되지 않았습니다."
+            f"{delivery_section}{activity_suffix}"
+            if korean
+            else f"{correlation} ({title}) is {incident_status} and was last updated at "
+            f"{recorded_at}.{detection_section}\n\nThis evidence confirms the detected condition "
+            "and target, not its cause. No citation-grounded root cause is recorded yet."
+            f"{delivery_section}{activity_suffix}"
+        )
+        return _result(
+            _changed(provisional, answer),
+            answer,
+            "detected_condition_without_rca",
+            tuple(refs),
+        )
+
+    if delivery_lines:
+        refs.extend(delivery_refs)
+        recorded_failures = "\n".join(delivery_lines)
+        answer = (
+            f"{correlation} ({title})의 상태는 {incident_status}이며 "
+            f"{recorded_at}에 마지막으로 갱신되었습니다. 감사 로그에 다음 알림 전달 "
+            f"실패가 기록되어 있습니다:\n{recorded_failures}\n이 내용은 관찰된 전달 실패이며 "
+            f"완전한 RCA는 아닙니다.{activity_suffix}"
+            if korean
+            else f"{correlation} ({title}) is {incident_status} and was last updated at "
+            f"{recorded_at}. The audit log records this notification delivery failure:\n"
+            f"{recorded_failures}\nThis is an observed delivery failure, not a complete RCA."
+            f"{activity_suffix}"
         )
         return _result(
             _changed(provisional, answer),

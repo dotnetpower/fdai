@@ -11,10 +11,11 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
-from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.operator_api.read_model import AuditItem, InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
 from fdai.delivery.operator_api.routes.chat_evidence import (
     OperationalEvidenceResolver,
+    _compact_audit,
     _is_memory_incident_text,
     needs_operational_evidence,
 )
@@ -64,6 +65,39 @@ OPERATIONAL_WEAKNESS_CASES = (
     OperationalWeaknessCase("restart the database", False),
     OperationalWeaknessCase("show Azure resources", False),
 )
+
+
+def test_compact_incident_open_projects_bounded_detection_facts() -> None:
+    item = AuditItem(
+        seq=41,
+        event_id="00000000-0000-0000-0000-000000000001",
+        correlation_id="corr-restart",
+        actor="Heimdall",
+        action_kind="incident.open",
+        mode="shadow",
+        entry={
+            "correlation_keys": [
+                "correlation:episode-1",
+                "resource:kubernetes://example/namespace/example-app",
+                "signal:kubernetes.pod_restart_detected",
+            ],
+            "member_event_ids": [
+                "00000000-0000-0000-0000-000000000001",
+                "00000000-0000-0000-0000-000000000002",
+            ],
+        },
+        entry_hash="hash-41",
+        previous_hash="hash-40",
+        recorded_at="2026-08-04T00:01:00+00:00",
+    )
+
+    projected = _compact_audit(item)
+
+    assert projected["fields"] == {
+        "detected_resource": "kubernetes://example/namespace/example-app",
+        "detected_signal": "kubernetes.pod_restart_detected",
+        "member_event_count": 2,
+    }
 
 
 @pytest.mark.parametrize(

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 8d94b051976df9bd852ea24b45fcb44766a30608
+translation_source_sha: 26baa9b60fbcbbd5c676bcca71cb18c7ec76a5c3
 translation_revised: 2026-08-04
 ---
 
@@ -419,9 +419,13 @@ Trace route는 error render 중에도 `correlation_id`, `load_status` 및 값이
 evidence를 반환하기 전에 권한이 적용된 read model에서 다시 확인합니다.
 Trace는 연관된 감사 행을 순서대로 유지하고 파이프라인 단계가 없는 활동을 `stage: null`로
 표현하며 마지막으로 이름이 기록된 단계에서 `terminal_stage`를 도출합니다.
-Citation이 있는 grounded RCA가 없으면 deterministic verification은 해당 audit evidence에 기록된
-failure 또는 escalation reason을 인용할 수 있지만, 완전한 root-cause 결론이 아니라 observation으로
-표시합니다.
+Citation이 있는 grounded RCA가 없으면 deterministic verification은 durable `incident.open` record의
+bounded detection fact를 먼저 렌더링합니다. 여기에는 signal, target resource 및 연관된 member-event
+count가 포함됩니다. 이 fact는 관찰된 상태를 확인하지만 원인을 증명하지 않습니다. Workload failure
+reason은 별도 section에 유지합니다. `notification.*` failure는 notification delivery 아래에만 표시하며
+workload failure 또는 root-cause evidence가 되지 않습니다. Notification이 주제인 incident는 delivery
+failure를 먼저 표시할 수 있습니다. 모든 path는 기록된 failure를 완전한 root-cause 결론이 아니라
+observation으로 표시합니다.
 
 각 manifest route에는 owner가 하나만 있습니다. SPA는 query와 fragment를 제거하고 path-segment
 경계에서 exact path 또는 descendant를 match한 뒤 가장 긴 owner를 선택합니다. 비슷한 prefix는

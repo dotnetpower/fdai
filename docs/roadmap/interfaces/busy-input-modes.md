@@ -142,6 +142,9 @@ Queued and steered follow-ups retain the active incident conversation binding an
 identity; a rerun never reverts to fuzzy incident selection. An explicit handoff returns to Bragi.
 An exact selected-incident turn keeps its direct correlation-filtered lookup and doesn't start
 unrelated inventory, agent, or public-web branches during a rerun.
+Its deterministic answer keeps detected workload conditions, workload failure reasons, and
+notification delivery failures in separate sections. A rerun never promotes a delivery failure
+into workload or root-cause evidence.
 They also preserve an English or Korean current-screen explanation intent and its 120-word
 walkthrough bound; steer guidance cannot expand that turn into an unbounded snapshot recital.
 They preserve Bragi's current-screen data scope as well. A steer rerun cannot widen a screen fact

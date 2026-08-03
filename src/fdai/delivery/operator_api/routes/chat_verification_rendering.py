@@ -43,6 +43,8 @@ def recorded_failure_lines(evidence: Mapping[str, Any]) -> tuple[list[str], list
     failure_values = {"abstain", "deny", "error", "failed", "failure", "route_unresolved"}
     for item in mappings(evidence.get("audit_evidence")):
         action_kind = text(item.get("action_kind"), "recorded.failure")
+        if action_kind.casefold().startswith("notification."):
+            continue
         fields = item.get("fields")
         if not isinstance(fields, Mapping):
             continue
@@ -63,6 +65,65 @@ def recorded_failure_lines(evidence: Mapping[str, Any]) -> tuple[list[str], list
         if len(lines) >= 5:
             break
     return lines, refs
+
+
+def notification_delivery_lines(evidence: Mapping[str, Any]) -> tuple[list[str], list[str]]:
+    lines: list[str] = []
+    refs: list[str] = []
+    failure_values = {"error", "failed", "failure", "route_unresolved"}
+    for item in mappings(evidence.get("audit_evidence")):
+        action_kind = text(item.get("action_kind"), "")
+        if not action_kind.casefold().startswith("notification."):
+            continue
+        fields = item.get("fields")
+        if not isinstance(fields, Mapping):
+            continue
+        reason = optional_text(fields.get("reason"))
+        outcomes = {str(fields.get(key) or "").casefold() for key in ("outcome", "status")}
+        if reason is None or (
+            outcomes.isdisjoint(failure_values) and "escalation" not in action_kind
+        ):
+            continue
+        lines.append(f"- {action_kind}: {reason}")
+        seq = item.get("seq")
+        if isinstance(seq, int) and seq >= 0:
+            refs.append(f"audit:{seq}")
+        if len(lines) >= 5:
+            break
+    return lines, refs
+
+
+def recorded_detection_lines(
+    evidence: Mapping[str, Any], *, korean: bool
+) -> tuple[list[str], list[str]]:
+    for item in mappings(evidence.get("audit_evidence")):
+        if item.get("action_kind") != "incident.open":
+            continue
+        fields = item.get("fields")
+        if not isinstance(fields, Mapping):
+            continue
+        signal = optional_text(fields.get("detected_signal"))
+        resource = optional_text(fields.get("detected_resource"))
+        member_count = integer(fields.get("member_event_count"))
+        lines: list[str] = []
+        if signal is not None:
+            lines.append(f"- 감지 신호: {signal}" if korean else f"- Detected signal: {signal}")
+        if resource is not None:
+            lines.append(
+                f"- 대상 리소스: {resource}" if korean else f"- Target resource: {resource}"
+            )
+        if member_count is not None:
+            lines.append(
+                f"- 연관된 member event: {member_count}건"
+                if korean
+                else f"- Correlated member events: {member_count}"
+            )
+        if not lines:
+            return [], []
+        seq = item.get("seq")
+        refs = [f"audit:{seq}"] if isinstance(seq, int) and seq >= 0 else []
+        return lines, refs
+    return [], []
 
 
 def agent_activity_lines(evidence: Mapping[str, Any], *, korean: bool) -> list[str]:

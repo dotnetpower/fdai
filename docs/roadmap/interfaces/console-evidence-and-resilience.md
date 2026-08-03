@@ -425,9 +425,13 @@ present, including during an error render. The server may use that correlation o
 hint and rechecks it against the authorized read model before returning operational evidence.
 Trace keeps correlated audit rows in sequence order, represents activity without a pipeline stage
 as `stage: null`, and derives `terminal_stage` from the last named stage.
-When no citation-grounded RCA exists, deterministic verification may quote a recorded failure or
-escalation reason from that audit evidence, but labels it as an observation rather than a complete
-root-cause conclusion.
+When no citation-grounded RCA exists, deterministic verification first renders bounded detection
+facts from the durable `incident.open` record: signal, target resource, and correlated member-event
+count. These facts confirm the observed condition, not its cause. Workload failure reasons remain a
+separate section. `notification.*` failures render only under notification delivery and never
+become workload failure or root-cause evidence. A notification-focused incident can still lead
+with its delivery failure. Every path labels recorded failures as observations rather than a
+complete root-cause conclusion.
 
 Each manifest route has one owner. The SPA strips query and fragment components, matches exact
 paths or descendants on a path-segment boundary, and selects the longest owner. Similar prefixes do

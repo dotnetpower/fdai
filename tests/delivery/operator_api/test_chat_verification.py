@@ -589,6 +589,95 @@ def test_matched_without_rca_surfaces_recorded_failure_reason() -> None:
     assert result.evidence_refs == ("incident:corr-notification", "audit:31")
 
 
+def test_workload_detection_separates_notification_delivery_failure() -> None:
+    result = verify_answer(
+        "Check this incident.",
+        _context(
+            {
+                "status": "matched",
+                "selected_incident": {
+                    "correlation_id": "corr-restart",
+                    "title": "Kubernetes pod restart detected - Resource example-app",
+                    "status": "open",
+                    "last_updated_at": "2026-08-04T00:01:00Z",
+                },
+                "grounded_hypotheses": [],
+                "audit_evidence": [
+                    {
+                        "seq": 41,
+                        "action_kind": "incident.open",
+                        "fields": {
+                            "detected_signal": "kubernetes.pod_restart_detected",
+                            "detected_resource": "kubernetes://example/namespace/example-app",
+                            "member_event_count": 5,
+                        },
+                    },
+                    {
+                        "seq": 42,
+                        "action_kind": "notification.escalation",
+                        "fields": {"reason": "no registered delivery channel is available"},
+                    },
+                ],
+            }
+        ),
+        locale="en",
+    )
+
+    assert result.status == "corrected"
+    assert result.reason_code == "detected_condition_without_rca"
+    assert "Detected workload condition" in result.answer
+    assert "kubernetes.pod_restart_detected" in result.answer
+    assert "Correlated member events: 5" in result.answer
+    assert "confirms the detected condition and target, not its cause" in result.answer
+    assert "Notification delivery issue" in result.answer
+    assert result.evidence_refs == (
+        "incident:corr-restart",
+        "audit:41",
+        "audit:42",
+    )
+
+
+def test_workload_detection_separation_is_localized_in_korean() -> None:
+    result = verify_answer(
+        "이 인시던트를 확인해봐.",
+        _context(
+            {
+                "status": "matched",
+                "selected_incident": {
+                    "correlation_id": "corr-restart",
+                    "title": "Kubernetes pod restart detected - Resource example-app",
+                    "status": "open",
+                    "last_updated_at": "2026-08-04T00:01:00Z",
+                },
+                "grounded_hypotheses": [],
+                "audit_evidence": [
+                    {
+                        "seq": 41,
+                        "action_kind": "incident.open",
+                        "fields": {
+                            "detected_signal": "kubernetes.pod_restart_detected",
+                            "detected_resource": "kubernetes://example/namespace/example-app",
+                            "member_event_count": 5,
+                        },
+                    },
+                    {
+                        "seq": 42,
+                        "action_kind": "notification.escalation",
+                        "fields": {"reason": "no registered delivery channel is available"},
+                    },
+                ],
+            }
+        ),
+        locale="ko",
+    )
+
+    assert result.reason_code == "detected_condition_without_rca"
+    assert "감지된 workload 상태" in result.answer
+    assert "연관된 member event: 5건" in result.answer
+    assert "감지된 증상과 대상만 확인하며 원인을 증명하지 않습니다" in result.answer
+    assert "알림 전달 문제" in result.answer
+
+
 def test_unavailable_state_is_explicitly_unverified() -> None:
     result = verify_answer(
         "Everything is healthy.",

@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 1e2b923b6227aa4ad560266f3964f9784bacbffd
+translation_source_sha: 7680efae441679d01aa8fb59ad5936bae2d46667
 translation_revised: 2026-08-04
 ---
 
@@ -145,6 +145,9 @@ Queued 및 steered follow-up은 active incident conversation binding과 conversa
 유지하며 rerun은 fuzzy incident selection으로 돌아가지 않습니다. 명시적 handoff는 Bragi로 돌아갑니다.
 Exact selected-incident turn은 direct correlation-filtered lookup을 유지하며 rerun 중 관련 없는
 inventory, agent 또는 public-web branch를 시작하지 않습니다.
+결정론적 answer는 감지된 workload 상태, workload failure reason 및 notification delivery failure를
+별도 section으로 유지합니다. Rerun은 delivery failure를 workload 또는 root-cause evidence로
+승격하지 않습니다.
 영어 또는 한국어 current-screen explanation intent와 120단어 walkthrough bound도 유지합니다. Steer
 guidance는 해당 turn을 제한 없는 snapshot 반복으로 확장할 수 없습니다.
 Bragi가 선택한 current-screen data scope도 유지합니다. Steer rerun은 screen fact 질문을 inventory,

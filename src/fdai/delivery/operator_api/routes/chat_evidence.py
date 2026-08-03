@@ -278,6 +278,19 @@ def _compact_audit(item: AuditItem) -> dict[str, Any]:
             fields[key] = normalized[:1_024]
         else:
             fields[key] = value
+    if item.action_kind == "incident.open":
+        correlation_keys = item.entry.get("correlation_keys")
+        if isinstance(correlation_keys, list):
+            for value in correlation_keys:
+                if not isinstance(value, str):
+                    continue
+                if value.startswith("signal:"):
+                    fields["detected_signal"] = value.removeprefix("signal:")[:1_024]
+                elif value.startswith("resource:"):
+                    fields["detected_resource"] = value.removeprefix("resource:")[:1_024]
+        member_event_ids = item.entry.get("member_event_ids")
+        if isinstance(member_event_ids, list):
+            fields["member_event_count"] = len(member_event_ids)
     return {
         "seq": item.seq,
         "recorded_at": item.recorded_at,
