@@ -33,8 +33,8 @@ and snapshot-age line even while the digest is closed.
 The shared page title renders the domain and panel labels when they differ, including `Overview / Dashboard`. A domain root whose panel title repeats the domain label and a standalone
 utility keep a single title.
 
-The shared top bar renders the Cloud Aperture mark in its canonical source blue. Console themes
-don't desaturate or recolor the brand mark.
+The shared top bar renders the supplied FDAI logo in its original source colors. Console themes
+don't desaturate or recolor the brand asset.
 
 Live follows the same shared title contract as `Operations / Live`. Its observation controls stay
 in the shared header actions area and wrap below the title on narrow viewports, so Freeze, source,

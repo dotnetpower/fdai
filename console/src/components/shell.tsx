@@ -56,10 +56,9 @@ export function Shell({ activePanelId, auth, client, children, onExitLocalSessio
         <a class="brand-lockup" href={panelPath("dashboard")} aria-label={t("shell.home")}>
           <img
             class="brand-logo"
-            src={`${import.meta.env.BASE_URL}brand/concepts/fdai-cloud-aperture.svg`}
+            src={`${import.meta.env.BASE_URL}brand/fdai-logo.png`}
             alt=""
           />
-          <span class="brand-wordmark">FDAI</span>
           <span class="brand-separator" aria-hidden="true" />
           <span class="brand-product">{t("shell.console")}</span>
         </a>
