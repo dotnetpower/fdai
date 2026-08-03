@@ -115,12 +115,11 @@ flowchart TD
   required `input_kind` contract. Inventory, subscription-health, and read-investigation activity
   uses `query`: it renders the verifier-accepted typed query, authority, snapshot provenance, and
   bounded result projection without inventing Azure CLI argv or an exit code. Web labels a validated
-  inventory query as `IQL`. When the inventory adapter supplies a strict redacted execution receipt,
-  following investigation rows show `AZ CLI` and `ARG` for each command that produced the snapshot.
-  The receipt is built from the executed argv with subscription and pagination tokens replaced by
-  placeholders; it isn't reconstructed from IQL. The rows state that the commands ran during
-  snapshot refresh, while IQL filtered that snapshot for the current turn. A missing or invalid
-  receipt produces no provider-command row.
+  inventory query as `IQL`; source and result disclosures each close. A strict bounded execution
+  receipt uses one terminal icon for Azure CLI and ARG commands. It shows the authenticated
+  subscription id, generic argv, count, and at most ten allowlisted preview rows while redacting
+  pagination tokens. Rows identify snapshot-refresh work while IQL filters that snapshot. The browser
+  never reconstructs a command from IQL; a missing or invalid receipt produces no provider row.
   Other server queries retain `QUERY`, and only a provider receipt that records a process invocation
   uses `command`. Slack, Teams, and durable replay preserve the query/command distinction.
   A narrator milestone settles the preceding activity group before the next group begins. Web shows

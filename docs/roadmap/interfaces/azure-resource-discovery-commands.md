@@ -19,9 +19,9 @@ bounded read-investigation design without allowing the narrator to invent comman
 >
 > **Implementation status:** Catalog-owned resource `query_terms`, category terms, and deterministic
 > `InventoryQuery` compilation are implemented for the selective inventory path. Interactive local
-> records the exact executed Azure CLI argv with scope and pagination values redacted, and displays
-> the resulting Azure CLI/ARG commands
-> separately from the current turn's IQL. Azure Resource Graph and local CLI projection also separate
+> records a strict bounded snapshot receipt. The authenticated subscription id, exact generic Azure
+> CLI argv, result count, and up to ten allowlisted preview rows are displayed separately from the
+> current turn's IQL; pagination tokens remain redacted. Azure Resource Graph and local CLI projection also separate
 > shared ARM types with reviewed Azure `kind` tokens. The broader
 > `DiscoveryIntent`, `DiscoveryQueryPlan`, provider profiles, unmapped-resource preservation,
 > centralized fallback, and `CommandExplanation` remain target design.
@@ -162,10 +162,11 @@ by canonical provider reference while preserving per-plan completeness and fresh
 - a statement when the server used REST or inventory and the shown CLI is only an equivalent
   reproduction command.
 
-The renderer quotes only catalog-owned syntax and separately validated scalar values. It never
-renders access tokens, tenant ids, live subscription ids, raw resource ids, shell operators,
-environment assignments, or provider error text. The raw argv used by the server remains outside
-the SPA and narrator context.
+The future `CommandExplanation` renderer quotes only catalog-owned syntax and separately validated
+scalar values. It doesn't render access tokens, tenant ids, live subscription ids, raw resource ids,
+shell operators, environment assignments, or provider error text. The current generic snapshot
+receipt is narrower: the authenticated console can show its subscription id and executed generic
+argv, but still omits pagination tokens, credentials, raw resource ids, and provider errors.
 
 ## Backend selection
 

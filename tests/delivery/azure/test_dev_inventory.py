@@ -375,6 +375,7 @@ class TestFullSnapshot:
         assert receipt is not None
         assert receipt["backend"] == "azure_resource_graph"
         assert receipt["page_count"] == 1
+        assert receipt["subscription_id"] == "sub-example"
         commands = receipt["commands"]
         assert isinstance(commands, list)
         assert shlex.split(commands[0]["command"]) == [
@@ -384,15 +385,21 @@ class TestFullSnapshot:
             "--output",
             "json",
             "--subscription",
-            "<subscription-id>",
+            "sub-example",
         ]
         graph_argv = next(argv for argv in executed_commands if argv[1:3] == ["graph", "query"])
-        redacted_graph_argv = [
-            "<subscription-id>" if argument == "sub-example" else argument
-            for argument in graph_argv
-        ]
-        assert shlex.split(commands[1]["command"]) == redacted_graph_argv
-        assert "sub-example" not in commands[1]["command"]
+        assert shlex.split(commands[1]["command"]) == graph_argv
+        assert commands[0]["result"] == {
+            "count": 1,
+            "preview": [{"name": "rg-example"}],
+            "truncated": False,
+        }
+        assert commands[1]["result"]["count"] == 3
+        assert commands[1]["result"]["preview"][0] == {
+            "name": "lb-example",
+            "type": "Microsoft.Network/loadBalancers",
+            "resource_group": "rg-example",
+        }
 
         resource_batch, final = batches
         assert {record.type for record in resource_batch.resources} == {

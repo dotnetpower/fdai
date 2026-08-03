@@ -277,10 +277,10 @@ observed output, AnswerPlan, redacted model request and response, verification r
 delivery receipt. A lane without that payload type still shows status, start, completion, and its
 available facts rather than an empty panel. The answer lane records delivery metadata and does not
 repeat the answer body.
-Inventory execution displays the canonical turn query as an `IQL` activity. Separate following
-activities display the exact redacted argv receipts as `AZ CLI` or `ARG` rows in received order.
-These rows describe the snapshot refresh and don't claim that the provider command ran again for
-the current question. The browser never derives provider commands from IQL or source names. Valid object or array JSON in provider messages, action arguments, commands, and outputs uses indented syntax highlighting and copy; malformed or plain text stays unchanged. The terminal replay payload retains final ID-deduplicated branch, activity, milestone, and redacted execution detail under a 64 KiB aggregate cap, truncates each history output at 32 KiB, and reports truncation and omission counts, so durable history and the live turn use the same strict parser and trajectory view. Unavailable or timed-out
+Inventory execution displays the canonical turn query as an `IQL` activity. Following activities use one terminal icon for exact bounded Azure CLI or ARG receipts. They show the
+authenticated subscription id, generic argv, count, and at most ten allowlisted preview rows while
+redacting pagination tokens, credentials, raw resource ids, and provider errors. IQL source and
+result toggle independently; rows describe snapshot refresh without claiming rerun, and the browser never derives commands from IQL or source names. Valid object or array JSON in provider messages, action arguments, commands, and outputs uses indented syntax highlighting and copy; malformed or plain text stays unchanged. The terminal replay payload retains final ID-deduplicated branch, activity, milestone, and redacted execution detail under a 64 KiB aggregate cap, truncates each history output at 32 KiB, and reports truncation and omission counts, so durable history and the live turn use the same strict parser and trajectory view. Unavailable or timed-out
 evidence is an attempt, not completed evidence, and unverified work never receives completed styling. Missing activity stays in an observation-coverage disclosure and proves no absence. Exact-answer
 durable replay uses the same bounded browser parsers. The server buffers model tokens until the provider's terminal content-policy decision is known; a block exposes no partial token or assistant answer, records only a content-free receipt, and produces the same deterministic fallback for SSE and JSON `422`, while logs retain only stage and aggregate counts. An explicit provider refusal, truncated completion, malformed stream frame, or stream without a verified terminal signal never becomes an assistant answer.
 

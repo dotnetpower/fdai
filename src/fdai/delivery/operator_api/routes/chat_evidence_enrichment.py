@@ -642,6 +642,7 @@ def _inventory_provider_progress_events(
         return ()
     snapshot_at = str(result.get("snapshot_at") or "snapshot time unavailable")
     backend = str(provider["backend"])
+    subscription_id = provider.get("subscription_id")
     events: list[dict[str, object]] = []
     for index, command in enumerate(provider["commands"]):
         label = str(command["label"])
@@ -659,7 +660,11 @@ def _inventory_provider_progress_events(
                     if is_arg
                     else "Listed Azure resources"
                 ),
-                "detail": f"Snapshot source observed at {snapshot_at}",
+                "detail": (
+                    f"Subscription {subscription_id} - snapshot source observed at {snapshot_at}"
+                    if isinstance(subscription_id, str)
+                    else f"Snapshot source observed at {snapshot_at}"
+                ),
                 "completed": 1,
                 "total": 1,
                 "authority": backend,
@@ -669,6 +674,18 @@ def _inventory_provider_progress_events(
                     "command": str(command["command"]),
                     "input_kind": "command",
                     "redacted": True,
+                    **(
+                        {
+                            "output": json.dumps(command["result"], ensure_ascii=False, indent=2),
+                            **(
+                                {"output_truncated": True}
+                                if command["result"].get("truncated") is True
+                                else {}
+                            ),
+                        }
+                        if isinstance(command.get("result"), Mapping)
+                        else {}
+                    ),
                 },
             }
         )

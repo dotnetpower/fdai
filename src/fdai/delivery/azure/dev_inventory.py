@@ -71,6 +71,8 @@ _AZ_TIMEOUT_SECONDS: Final[float] = 30.0
 _MAX_PROPS_BYTES: Final[int] = 64 * 1024
 _ARG_PAGE_SIZE: Final[int] = 1000
 _ARG_MAX_PAGES: Final[int] = 32
+_RECEIPT_PREVIEW_LIMIT: Final[int] = 10
+_RECEIPT_VALUE_CHARS: Final[int] = 512
 _ARG_RESOURCES_QUERY: Final[str] = (
     "Resources | project id, type, name, location, kind, sku, tags, properties, "
     "resourceGroup, subscriptionId"
@@ -157,7 +159,11 @@ class AzureCliInventory:
     _last_discovery_backend: str | None = field(default=None, init=False, repr=False)
     _last_discovery_page_count: int = field(default=0, init=False, repr=False)
     _last_group_command: str | None = field(default=None, init=False, repr=False)
+    _last_group_result: Mapping[str, Any] | None = field(default=None, init=False, repr=False)
     _last_resource_commands: tuple[str, ...] = field(default=(), init=False, repr=False)
+    _last_resource_results: tuple[Mapping[str, Any], ...] = field(
+        default=(), init=False, repr=False
+    )
     """Optional isolated Azure CLI profile directory.
 
     ``None`` removes an inherited ``AZURE_CONFIG_DIR`` so local discovery uses
@@ -181,12 +187,17 @@ class AzureCliInventory:
         return self._emit()
 
     def query_receipt(self) -> Mapping[str, Any] | None:
-        """Return the redacted commands that produced the latest complete snapshot."""
+        """Return bounded commands and results for the latest complete snapshot."""
 
         backend = self._last_discovery_backend
         if backend is None:
             return None
-        if self._last_group_command is None or not self._last_resource_commands:
+        if (
+            self._last_group_command is None
+            or self._last_group_result is None
+            or not self._last_resource_commands
+            or len(self._last_resource_commands) != len(self._last_resource_results)
+        ):
             return None
         return {
             "transport": "azure_cli",
@@ -194,19 +205,26 @@ class AzureCliInventory:
             "executed": True,
             "redacted": True,
             "page_count": self._last_discovery_page_count,
+            **({"subscription_id": self.subscription_id} if self.subscription_id else {}),
             "commands": [
                 {
                     "label": "resource_groups",
                     "language": "azure_cli",
                     "command": self._last_group_command,
+                    "result": self._last_group_result,
                 },
                 *(
                     {
                         "label": "resources",
                         "language": "azure_cli",
                         "command": command,
+                        "result": result,
                     }
-                    for command in self._last_resource_commands
+                    for command, result in zip(
+                        self._last_resource_commands,
+                        self._last_resource_results,
+                        strict=True,
+                    )
                 ),
             ],
         }
@@ -268,7 +286,9 @@ class AzureCliInventory:
 
     async def _fetch_all_registered(self) -> InventoryBatch:
         self._last_group_command = None
+        self._last_group_result = None
         self._last_resource_commands = ()
+        self._last_resource_results = ()
         group_args = [self.executable, "group", "list", "--output", "json"]
         resource_args = [self.executable, "resource", "list", "--output", "json"]
         if self.subscription_id:
@@ -278,10 +298,8 @@ class AzureCliInventory:
             self._fetch_rows(group_args, "resource-group"),
             self._fetch_registered_rows(resource_args),
         )
-        self._last_group_command = _redacted_argv(
-            group_args,
-            subscription_id=self.subscription_id,
-        )
+        self._last_group_command = _receipt_argv(group_args)
+        self._last_group_result = _provider_result_preview(groups)
         rows_by_type: dict[str, list[dict[str, Any]]] = {"resource-group": list(groups)}
         for row in resource_rows:
             resource_type = self._resolve_registered_type(row)
@@ -318,6 +336,7 @@ class AzureCliInventory:
         self._last_discovery_backend = None
         self._last_discovery_page_count = 0
         self._last_resource_commands = ()
+        self._last_resource_results = ()
         try:
             return await self._fetch_arg_rows()
         except AzureCliInventoryError as exc:
@@ -328,14 +347,14 @@ class AzureCliInventory:
             rows = await self._fetch_rows(fallback_args, "registered resources")
             self._last_discovery_backend = "azure_resource_manager"
             self._last_discovery_page_count = 1
-            self._last_resource_commands = (
-                _redacted_argv(fallback_args, subscription_id=self.subscription_id),
-            )
+            self._last_resource_commands = (_receipt_argv(fallback_args),)
+            self._last_resource_results = (_provider_result_preview(rows),)
             return rows
 
     async def _fetch_arg_rows(self) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
         executed_commands: list[str] = []
+        executed_results: list[Mapping[str, Any]] = []
         skip_token: str | None = None
         for _page in range(_ARG_MAX_PAGES):
             argv = [
@@ -360,14 +379,9 @@ class AzureCliInventory:
                 raise AzureCliInventoryError("az graph returned non-JSON") from exc
             if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
                 raise AzureCliInventoryError("az graph returned an invalid page")
-            executed_commands.append(
-                _redacted_argv(
-                    argv,
-                    subscription_id=self.subscription_id,
-                    skip_token=skip_token,
-                )
-            )
+            executed_commands.append(_receipt_argv(argv, skip_token=skip_token))
             page_rows = [row for row in payload["data"] if isinstance(row, dict)]
+            executed_results.append(_provider_result_preview(page_rows))
             rows.extend(page_rows)
             raw_skip_token = payload.get("skip_token") or payload.get("$skipToken")
             skip_token = raw_skip_token if isinstance(raw_skip_token, str) else None
@@ -375,6 +389,7 @@ class AzureCliInventory:
                 self._last_discovery_backend = "azure_resource_graph"
                 self._last_discovery_page_count = _page + 1
                 self._last_resource_commands = tuple(executed_commands)
+                self._last_resource_results = tuple(executed_results)
                 return rows
         raise AzureCliInventoryError("az graph pagination exceeded the page limit")
 
@@ -512,23 +527,40 @@ def _run_az(
     return proc
 
 
-def _redacted_argv(
+def _receipt_argv(
     argv: Sequence[str],
     *,
-    subscription_id: str | None,
     skip_token: str | None = None,
 ) -> str:
     redacted = [
-        (
-            "<subscription-id>"
-            if subscription_id is not None and argument == subscription_id
-            else "<skip-token>"
-            if skip_token is not None and argument == skip_token
-            else argument
-        )
+        ("<skip-token>" if skip_token is not None and argument == skip_token else argument)
         for argument in argv
     ]
     return shlex.join(redacted)
+
+
+def _provider_result_preview(rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any]:
+    preview: list[dict[str, str]] = []
+    for row in rows[:_RECEIPT_PREVIEW_LIMIT]:
+        item: dict[str, str] = {}
+        for output_key, source_key in (
+            ("name", "name"),
+            ("type", "type"),
+            ("resource_group", "resourceGroup"),
+            ("location", "location"),
+        ):
+            value = row.get(source_key)
+            if isinstance(value, str) and value:
+                item[output_key] = value[:_RECEIPT_VALUE_CHARS]
+        status = resource_operational_status(row)
+        if status:
+            item["status"] = status[:_RECEIPT_VALUE_CHARS]
+        preview.append(item)
+    return {
+        "count": len(rows),
+        "preview": preview,
+        "truncated": len(rows) > len(preview),
+    }
 
 
 def _record_from_az_row(*, row: dict[str, Any], resource_type: str, now_iso: str) -> ResourceRecord:

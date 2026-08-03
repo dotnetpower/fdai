@@ -150,6 +150,15 @@ function CopyIcon({ copied }: { readonly copied: boolean }) {
   );
 }
 
+function TerminalIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true">
+      <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="1.5" stroke="currentColor" />
+      <path d="m4.25 6 2 2-2 2M8.25 10h3.25" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  );
+}
+
 function ExecutionEvidence({
   evidence,
   status,
@@ -168,7 +177,7 @@ function ExecutionEvidence({
   const copyLabel = evidence.inputKind === "query"
     ? t("deck.investigation.copyQuery")
     : t("deck.investigation.copyCommand");
-  const outputLabel = evidence.inputKind === "query"
+  const outputLabel = evidence.inputKind === "query" || providerUsesTerminal(evidence)
     ? t("deck.investigation.queryResult")
     : t("deck.investigation.outputLogs");
   const inventoryDisplay = evidence.inputKind === "query"
@@ -201,14 +210,23 @@ function ExecutionEvidence({
           </button>
         </Tooltip>
       </header>
-      <pre class="deck-investigation-command">
-        <code data-format={formattedCommand.isJson ? "json" : "text"}>
-          {evidence.inputKind === "query" ? null : (
+      {evidence.inputKind === "query" ? (
+        <details class="deck-investigation-disclosure deck-investigation-command-disclosure" open={status === "running"}>
+          <summary>{kindLabel}</summary>
+          <pre class="deck-investigation-command">
+            <code data-format={formattedCommand.isJson ? "json" : "text"}>
+              {formattedCommand.text}
+            </code>
+          </pre>
+        </details>
+      ) : (
+        <pre class="deck-investigation-command">
+          <code data-format={formattedCommand.isJson ? "json" : "text"}>
             <span class="deck-investigation-prompt" aria-hidden="true">$ </span>
-          )}
-          {formattedCommand.text}
-        </code>
-      </pre>
+            {formattedCommand.text}
+          </code>
+        </pre>
+      )}
       <div class="deck-investigation-result">
         <span class={`deck-investigation-result-status is-${status}`}>
           {statusLabel(status)}
@@ -267,6 +285,12 @@ function ActivitySummary({
   const inventoryDisplay = activity.execution?.inputKind === "query"
     ? inventoryExecutionDisplay(activity.execution.command)
     : undefined;
+  const kindLabel = activity.execution
+    ? executionKindLabel(activity.execution, inventoryDisplay !== undefined)
+    : "";
+  const terminalActivity = activity.execution
+    ? providerUsesTerminal(activity.execution)
+    : false;
   return (
     <div class={`deck-investigation-summary${activity.execution ? " has-kind-badge" : ""}`}>
       <span class="deck-investigation-state" aria-hidden="true">
@@ -274,10 +298,11 @@ function ActivitySummary({
       </span>
       {activity.execution ? (
         <span
-          class={`deck-investigation-kind-badge ${activity.execution.inputKind === "query" ? "is-query" : "is-tool"}`}
-          aria-hidden="true"
+          class={`deck-investigation-kind-badge ${activity.execution.inputKind === "query" ? "is-query" : "is-tool"}${terminalActivity ? " is-terminal" : ""}`}
+          aria-hidden={terminalActivity ? undefined : "true"}
+          aria-label={terminalActivity ? kindLabel : undefined}
         >
-          {executionKindLabel(activity.execution, inventoryDisplay !== undefined)}
+          {terminalActivity ? <TerminalIcon /> : kindLabel}
         </span>
       ) : null}
       <span class="deck-investigation-copy">
@@ -305,6 +330,12 @@ function executionKindLabel(
   if (evidence.tool.includes("Azure Resource Graph")) return "ARG";
   if (evidence.tool === "Azure CLI") return "AZ CLI";
   return "TOOL";
+}
+
+function providerUsesTerminal(evidence: InvestigationExecutionEvidence): boolean {
+  return evidence.inputKind === "command" && (
+    evidence.tool === "Azure CLI" || evidence.tool.includes("Azure Resource Graph")
+  );
 }
 
 export function InvestigationTimeline({

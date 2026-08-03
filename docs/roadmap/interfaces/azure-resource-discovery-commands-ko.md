@@ -1,6 +1,6 @@
 ---
 translation_of: azure-resource-discovery-commands.md
-translation_source_sha: 3cd6bbbfe4d4a153caa19c8180dc69a218d38d9f
+translation_source_sha: 0cc67d43b47d8c3eaa4cc7ed759a66fc5f9525d7
 translation_revised: 2026-08-03
 ---
 
@@ -20,8 +20,9 @@ translation_revised: 2026-08-03
 >
 > **구현 상태:** 선택적 inventory 경로를 위한 catalog 소유 resource `query_terms`, category term 및
 > deterministic `InventoryQuery` compilation은 구현되었습니다. Interactive local은 cached snapshot을
-> 만든 exact Azure CLI argv에서 scope와 pagination value를 redaction해 기록하고, Azure CLI/ARG
-> command를 현재 turn의 IQL과 분리해 표시합니다. Azure Resource
+> 만든 strict bounded receipt를 기록합니다. 인증된 subscription id, exact generic Azure CLI argv,
+> result count 및 allowlist된 preview row 최대 10개를 현재 turn의 IQL과 분리해 표시하며 pagination
+> token은 계속 redaction합니다. Azure Resource
 > Graph와 local CLI projection도 검토된 Azure `kind` token으로 공유 ARM type을 구분합니다. 더 넓은
 > `DiscoveryIntent`, `DiscoveryQueryPlan`, provider profile, unmapped resource 보존, centralized
 > fallback 및 `CommandExplanation`은 목표 설계로 남아 있습니다.
@@ -161,9 +162,11 @@ completeness와 freshness를 보존하면서 canonical provider reference로 병
 - Redaction 및 substitution 지침입니다.
 - 서버가 REST 또는 inventory를 사용했으며 표시된 CLI는 동등한 재현 명령일 뿐인 경우의 설명입니다.
 
-Renderer는 catalog-owned syntax와 별도로 검증된 scalar value만 인용합니다. Access token, tenant id,
-실제 subscription id, raw resource id, shell operator, environment assignment 또는 provider error
-text는 렌더링하지 않습니다. 서버가 사용한 raw argv는 SPA 및 narrator context 밖에 유지합니다.
+향후 `CommandExplanation` renderer는 catalog-owned syntax와 별도로 검증된 scalar value만 인용합니다.
+Access token, tenant id, 실제 subscription id, raw resource id, shell operator, environment assignment
+또는 provider error text는 렌더링하지 않습니다. 현재 generic snapshot receipt는 더 좁은 예외로,
+인증된 console에 subscription id와 실행된 generic argv를 표시하지만 pagination token, credential,
+raw resource id 및 provider error는 계속 생략합니다.
 
 ## Backend 선택
 
