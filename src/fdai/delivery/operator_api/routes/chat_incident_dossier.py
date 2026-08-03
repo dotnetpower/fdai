@@ -60,7 +60,10 @@ _UNKNOWNS: Final = re.compile(
     re.IGNORECASE,
 )
 _DEEP_INVESTIGATION: Final = re.compile(
-    r"\b(?:deep investigation|evidence phase)\b|깊이\s*조사|진행\s*단계",
+    r"\b(?:bounded\s+)?(?:deep\s+)?investigation(?:을|를)?\b|"
+    r"\bevidence\s+phase(?:을|를)?\b|"
+    r"\bevidence\s+collected.{0,24}(?:each\s+stage|phase)\b|"
+    r"깊이\s*조사|진행\s*단계",
     re.IGNORECASE,
 )
 

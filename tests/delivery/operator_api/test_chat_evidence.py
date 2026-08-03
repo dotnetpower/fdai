@@ -908,6 +908,27 @@ async def test_q073_q078_dossier_requires_incident_selection(prompt: str) -> Non
     assert len(evidence["candidates"]) == 2
 
 
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "bounded deep investigation을 시작하고 각 evidence phase를 보여줘.",
+        "Run a bounded investigation and report the evidence collected at each stage.",
+    ),
+)
+async def test_q079_q080_dossier_requires_incident_selection(prompt: str) -> None:
+    assert classify_incident_dossier_intent(prompt) is IncidentDossierIntent.DEEP_INVESTIGATION
+    assert needs_operational_evidence(prompt) is True
+    model = InMemoryConsoleReadModel()
+    _seed_memory_incident(model, "corr-memory-a")
+    _seed_memory_incident(model, "corr-memory-b")
+
+    evidence = await OperationalEvidenceResolver(model).resolve(prompt)
+
+    assert evidence is not None
+    assert evidence["status"] == "ambiguous"
+    assert len(evidence["candidates"]) == 2
+
+
 async def test_exact_incident_binding_wins_over_equal_topic_matches() -> None:
     class RecordingReadModel(InMemoryConsoleReadModel):
         incident_queries: list[dict[str, Any]]
