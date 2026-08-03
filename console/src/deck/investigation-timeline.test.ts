@@ -168,6 +168,7 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toContain(".deck-turn.is-investigation-flow::before");
     expect(styles).toContain(".deck-marker-glyph {");
     expect(styles).toContain(".deck-progress-note-mark > .deck-marker-glyph");
+    expect(styles).toMatch(/\.deck-progress-note-mark\s*\{[^}]*color:\s*var\(--accent\);/);
     expect(styles).toContain(".deck-execution-axis {");
     expect(styles).toContain("repeating-linear-gradient(to right");
     expect(retrieval).toContain('class="deck-turn-head deck-rt-agent-head"');

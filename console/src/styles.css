@@ -7054,7 +7054,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   border: 1px solid color-mix(in oklab, var(--accent) 45%, var(--border));
   border-radius: 50%;
   background: var(--bg-elevated);
-  color: var(--accent-strong);
+  color: var(--accent);
   font: 700 8px/1 var(--font-mono);
   box-shadow: 0 0 0 3px var(--bg-elevated);
 }

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 39f3445293f61c29f9e9920aff882300ccb54430
+translation_source_sha: 4154fb6f84a8a1bbad5530a8b242f964e6ff0728
 translation_revised: 2026-08-03
 ---
 
@@ -230,7 +230,8 @@ browser가 progress를 중복하거나 만들어내지 않습니다. 현재 step
 한 operator 질문의 progress, observed activity 및 terminal answer는 인과 record를 각각 유지하지만 하나의
 visible agent header와 연결된 flow 아래에 표시합니다. Terminal answer는 같은 agent 또는 두 번째 source
 badge를 반복하지 않습니다. Numbered progress와 status glyph는 shared vertical rail을 이동하지 않고
-고정된 circle marker 안에서 optical center에 맞춥니다. Transcript는
+고정된 circle marker 안에서 optical center에 맞춥니다. Numbered glyph는 더 어두운 body-text navy가
+아니라 progress label과 같은 저채도 blue accent를 사용합니다. Transcript는
 browser scroll anchoring을 끄고 하단 공간을 추가하며 work가 streaming 중일 때만 latest edge를
 따라갑니다. Terminal completion에서는 첫 observed work group을 transcript edge 아래에 고정해 final
 answer layout이 완료되는 동안 execution outcome과 answer 시작을 함께 표시합니다. Timing이 없는 plan과 collaboration metadata는 decision context에 두고, 관측된 input, evidence

@@ -234,7 +234,8 @@ current-screen records stay in a collapsed source disclosure. Progress, observed
 terminal answer for one operator question retain separate causal records but render under one
 visible agent header and one connected flow. The terminal answer doesn't repeat the same agent or
 open a second source badge. Numbered progress and status glyphs are optically centered inside their
-fixed circular markers without moving the shared vertical rail. The transcript
+fixed circular markers without moving the shared vertical rail. The numbered glyph uses the same
+restrained blue accent as the progress label instead of the darker body-text navy. The transcript
 disables browser scroll anchoring, keeps extra bottom space, and follows the latest edge only while
 work streams. On terminal completion it anchors the first observed work group below the transcript
 edge, so execution outcome and answer start remain visible while the final answer lays out.
