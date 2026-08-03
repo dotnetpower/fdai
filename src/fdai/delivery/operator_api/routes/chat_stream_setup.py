@@ -41,7 +41,7 @@ from fdai.delivery.operator_api.routes.chat_inventory_followup import (
 from fdai.delivery.operator_api.routes.chat_log_query import needs_log_query_context
 from fdai.delivery.operator_api.routes.chat_resource_context import (
     contextualize_resource_followup,
-    missing_resource_selector_evidence,
+    missing_read_investigation_context_evidence,
     parse_resource_context,
 )
 from fdai.delivery.operator_api.routes.chat_route_common import (
@@ -228,7 +228,7 @@ async def prepare_chat_stream_request(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    selector_hold = missing_resource_selector_evidence(clean_prompt, resource_context)
+    selector_hold = missing_read_investigation_context_evidence(clean_prompt, resource_context)
     if selector_hold is not None:
         view_context["_read_investigation_context_hold"] = selector_hold
     evidence_prompt, resource_followup = contextualize_resource_followup(

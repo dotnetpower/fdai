@@ -42,8 +42,10 @@ _LATEST_CHANGE_FOLLOWUP: Final = re.compile(
     re.IGNORECASE,
 )
 _PRE_INCIDENT_FOLLOWUP: Final = re.compile(
-    r"(?:before|prior to).{0,24}(?:incident|outage)|(?:incident|outage).{0,24}(?:before|prior)|"
-    r"(?:장애|인시던트).{0,20}(?:직전|이전)|(?:직전|이전).{0,20}(?:장애|인시던트)",
+    r"(?:before|prior to|preceding).{0,48}(?:incident|outage)|"
+    r"(?:incident|outage).{0,48}(?:before|prior|preceding)|"
+    r"(?:장애|인시던트).{0,20}(?:직전|이전|전에|전의)|"
+    r"(?:직전|이전|전에|전의).{0,20}(?:장애|인시던트)",
     re.IGNORECASE,
 )
 _READ_AVAILABILITY_FOLLOWUP: Final = re.compile(
@@ -155,19 +157,22 @@ def contextualize_resource_followup(
     return f"{name} 변경 이력: {prompt}", True
 
 
-def missing_resource_selector_evidence(
+def missing_read_investigation_context_evidence(
     prompt: str,
     resource_context: Mapping[str, str] | None,
 ) -> dict[str, Any] | None:
-    """Return a typed hold when one read intent lacks an exact resource selector."""
+    """Return a typed hold when one read intent lacks its exact context."""
 
+    if resource_context is not None:
+        return None
+    preincident = _PRE_INCIDENT_FOLLOWUP.search(prompt) is not None
     intent = classify_read_investigation_intent(prompt)
-    if (
-        resource_context is not None
-        or intent not in _SELECTOR_REQUIRED_INTENTS
-        or resource_name_from_question(prompt) is not None
+    if not preincident and (
+        intent not in _SELECTOR_REQUIRED_INTENTS or resource_name_from_question(prompt) is not None
     ):
         return None
+    required_context = "selected_incident" if preincident else "selected_resource"
+    intent_name = "pre_incident_investigation" if preincident else "resource_investigation"
     return {
         "tool": "query_conversation_context",
         "authority": "server_conversation_context",
@@ -175,8 +180,8 @@ def missing_resource_selector_evidence(
         "result": {
             "status": "unavailable",
             "reason": "prior_context_required",
-            "intent": "resource_investigation",
-            "required_context": ["selected_resource"],
+            "intent": intent_name,
+            "required_context": [required_context],
         },
     }
 

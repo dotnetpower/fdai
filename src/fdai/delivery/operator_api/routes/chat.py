@@ -213,7 +213,7 @@ from fdai.delivery.operator_api.routes.chat_prompt import (
 from fdai.delivery.operator_api.routes.chat_prompt_ontology import _with_ontology_storage_contract
 from fdai.delivery.operator_api.routes.chat_resource_context import (
     contextualize_resource_followup,
-    missing_resource_selector_evidence,
+    missing_read_investigation_context_evidence,
     parse_resource_context,
     resource_followup_verification,
     response_resource_context,
@@ -483,7 +483,7 @@ def make_chat_route(
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        selector_hold = missing_resource_selector_evidence(clean_prompt, resource_context)
+        selector_hold = missing_read_investigation_context_evidence(clean_prompt, resource_context)
         if selector_hold is not None:
             view_context["_read_investigation_context_hold"] = selector_hold
         freshness_answer = render_evidence_freshness_answer(
