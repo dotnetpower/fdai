@@ -42,6 +42,7 @@ async function installOperatorApiFixture(
   options: {
     readonly answer?: string;
     readonly executionTimeline?: boolean;
+    readonly modelTrace?: boolean;
   } = {},
 ): Promise<{
   readonly chatBody: () => Record<string, unknown> | null;
@@ -164,6 +165,37 @@ async function installOperatorApiFixture(
           answer,
           model: "narrator-test",
           source: "evidence:corrected",
+          ...(options.modelTrace ? {
+            model_trace: {
+              schema_version: 1,
+              redacted: true,
+              omitted_calls: 0,
+              calls: [{
+                call_id: "call-1",
+                kind: "answer-stream",
+                model: "narrator-test",
+                status: "completed",
+                started_at: "2026-07-22T00:01:00Z",
+                completed_at: "2026-07-22T00:01:02Z",
+                duration_ms: 2000,
+                request: {
+                  messages: [
+                    { role: "system", content: "Safety layer" },
+                    { role: "system", content: '{"policy":{"status":"ready"}}' },
+                    { role: "user", content: "List resource groups" },
+                  ],
+                  sha256: "a".repeat(64),
+                },
+                response: {
+                  role: "assistant",
+                  content: answer,
+                  sha256: "b".repeat(64),
+                },
+                usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+                redactions: [],
+              }],
+            },
+          } : {}),
           verification: {
             status: "corrected",
             authority: "server_read_model",
@@ -224,7 +256,10 @@ test("defaults to the right dock and restores the last display mode", async ({ p
 });
 
 test("keeps a mock-aligned execution timeline in full workspace", async ({ page }) => {
-  await installOperatorApiFixture(page, { executionTimeline: true });
+  await page.addInitScript(() => {
+    localStorage.setItem("fdai:console:show-model-trace", "true");
+  });
+  await installOperatorApiFixture(page, { executionTimeline: true, modelTrace: true });
   await page.goto(
     `/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`,
   );
@@ -261,6 +296,18 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
     "List resource groups",
   );
   await expect(prompt).toBeVisible();
+  const modelTrace = runRecord.locator(".deck-model-trace");
+  await expect(modelTrace).toBeVisible();
+  await modelTrace.locator(".deck-model-trace-lanes > li > details > summary").click();
+  await expect(modelTrace.locator(".deck-model-trace-messages li > span", {
+    hasText: /^system$/i,
+  })).toHaveCount(1);
+  await expect(modelTrace.locator(".deck-model-trace-messages li > span", {
+    hasText: /^user$/i,
+  })).toHaveCount(1);
+  const groupedSystem = modelTrace.locator(".deck-model-trace-message-content").first();
+  await expect(groupedSystem).toContainText('"policy": {');
+  await expect(groupedSystem).toContainText('"status": "ready"');
 
   const metrics = await workspace.evaluate((root) => {
     const transcript = root.querySelector<HTMLElement>(".deck-transcript");
@@ -268,6 +315,7 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
     const composer = root.querySelector<HTMLElement>(".deck-input-row");
     const code = command?.querySelector<HTMLElement>("code");
     const output = root.querySelector<HTMLElement>(".deck-investigation-output");
+    const modelMessage = root.querySelector<HTMLElement>(".deck-model-trace-message-content");
     const rootBounds = root.getBoundingClientRect();
     const composerBounds = composer?.getBoundingClientRect();
     return {
@@ -290,6 +338,7 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
       codeBackground: code ? getComputedStyle(code).backgroundColor : "",
       commandScrollbar: command ? getComputedStyle(command).scrollbarColor : "",
       outputScrollbar: output ? getComputedStyle(output).scrollbarColor : "",
+      modelMessageScrollbar: modelMessage ? getComputedStyle(modelMessage).scrollbarColor : "",
     };
   });
   if (metrics.viewportWidth >= 900) {
@@ -305,6 +354,7 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   expect(metrics.codeBackground).toBe("rgba(0, 0, 0, 0)");
   expect(metrics.commandScrollbar).not.toBe("auto");
   expect(metrics.outputScrollbar).not.toBe("auto");
+  expect(metrics.modelMessageScrollbar).not.toBe("auto");
 });
 
 test("keeps responsive table labels visual-only at 320px", async ({ page }) => {

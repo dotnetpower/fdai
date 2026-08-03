@@ -6504,7 +6504,17 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-model-trace-messages { margin: 0; padding: 0; list-style: none; }
 .deck-model-trace-messages li { margin-top: 7px; }
 .deck-model-trace-messages li > span { display: inline-block; margin-bottom: 4px; padding: 3px 6px; border-radius: 3px; background: var(--bg-elevated); color: var(--fg-muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; }
-.deck-model-trace-messages pre, .deck-model-trace-response pre { max-height: 360px; overflow: auto; margin: 0; padding: 10px; border-radius: 5px; background: #101820; color: #e7edf2; font-size: .8125rem; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.deck-model-trace-messages pre, .deck-model-trace-response pre { max-height: 360px; overflow: auto; margin: 0; padding: 10px; border-radius: 5px; background: #101820; color: #e7edf2; font-size: .8125rem; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; color-scheme: dark; scrollbar-color: #68737e #101820; scrollbar-width: thin; }
+.deck-model-trace-messages pre::-webkit-scrollbar,
+.deck-model-trace-response pre::-webkit-scrollbar { width: 10px; height: 10px; }
+.deck-model-trace-messages pre::-webkit-scrollbar-track,
+.deck-model-trace-response pre::-webkit-scrollbar-track { background: #101820; }
+.deck-model-trace-messages pre::-webkit-scrollbar-thumb,
+.deck-model-trace-response pre::-webkit-scrollbar-thumb { border: 2px solid #101820; border-radius: 8px; background: #68737e; }
+.deck-model-trace-messages pre::-webkit-scrollbar-thumb:hover,
+.deck-model-trace-response pre::-webkit-scrollbar-thumb:hover { background: #87929d; }
+.deck-model-trace-messages pre::-webkit-scrollbar-corner,
+.deck-model-trace-response pre::-webkit-scrollbar-corner { background: #101820; }
 .deck-model-trace-response { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--border); }
 .deck-model-trace-response h5 { margin: 0 0 6px; font-size: .875rem; }
 .deck-model-trace-missing { margin: 8px 0 0; color: var(--warning); font-size: .875rem; }

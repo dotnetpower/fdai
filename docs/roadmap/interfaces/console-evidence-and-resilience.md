@@ -229,8 +229,8 @@ and verification phases. One UTC anchor plus monotonic elapsed time produces obs
 Model provider tracing is a browser-local Settings opt-in that defaults off. When enabled, the
 request-local collector records up to eight actual model calls for that question, including turn
 planning, reruns, answer generation, and quality review. The Waterfall uses provider-call timing;
-each disclosure shows the role-ordered redacted message copy, assistant content, token usage,
-exact-content SHA-256, and redaction counts. Credentials, tenant or resource identifiers, URLs,
+each disclosure preserves the recorded message array and request SHA while grouping consecutive
+system layers under one `SYSTEM` heading. JSON bodies are pretty-printed, and bounded request and response blocks use theme-matched scrollbars. The disclosure also shows assistant content, token usage, exact-content SHA-256, and redaction counts. Credentials, tenant or resource identifiers, URLs,
 email, IP addresses, inline images, hidden reasoning, headers, and provider internals aren't
 retained. Turning the setting off stops capture, hides stored traces, and removes the trace from an
 idempotent replay response without repeating the provider call.

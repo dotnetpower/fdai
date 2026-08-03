@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 891a36fd2b6029d7796765f0ecb8095c5853fc4e
+translation_source_sha: cfbe44cf2372049bebc3bb33b18506c928079ba8
 translation_revised: 2026-08-03
 ---
 
@@ -235,8 +235,8 @@ completion 및 duration을 만듭니다. Interrupt는 timing을 저장하지 않
 Model provider tracing은 기본값이 꺼진 browser-local Settings opt-in입니다. 활성화하면 request-local
 collector가 turn planning, rerun, answer generation 및 quality review를 포함하여 해당 질문의 실제 model
 call을 최대 8개 기록합니다. Waterfall은 provider-call timing을 사용하며, 각 disclosure는 role 순서의
-redacted message copy, assistant content, token usage, exact-content SHA-256 및 redaction count를
-표시합니다. Credential, tenant 또는 resource identifier, URL, email, IP address, inline image,
+기록된 message array와 request SHA를 보존하면서 연속 system layer를 하나의 `SYSTEM` heading으로 묶습니다.
+JSON body는 pretty-print하고 bounded request 및 response block에는 theme에 맞는 scrollbar를 적용합니다. Disclosure는 assistant content, token usage, exact-content SHA-256 및 redaction count도 표시합니다. Credential, tenant 또는 resource identifier, URL, email, IP address, inline image,
 hidden reasoning, header 및 provider 내부 정보는 저장하지 않습니다. 설정을 끄면 캡처를 중지하고
 저장된 trace를 숨기며 provider call을 반복하지 않고 idempotent replay response에서 trace를 제거합니다.
 
