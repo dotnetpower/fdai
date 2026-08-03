@@ -1028,12 +1028,11 @@ def make_chat_route(
         latency_ms = int((time.monotonic() - started) * 1000)
         answer_planning = await planning_metadata(planning_task)
         enriched: dict[str, Any] = dict(reply)
+        enriched.setdefault("source", None)
         delegation = _delegation_summary(view_context)
-        if delegation is not None:
-            enriched["delegation"] = delegation
+        enriched["delegation"] = delegation
         web_search = _web_search_summary(view_context)
-        if web_search is not None:
-            enriched["web_search"] = web_search
+        enriched["web_search"] = web_search
         enriched["latency_ms"] = latency_ms
         enriched["history_context"] = history_metadata
         enriched["answer_plan"] = answer_plan.to_dict()
@@ -1046,8 +1045,7 @@ def make_chat_route(
         policy_summary = assurance_policy_summary(view_context)
         if policy_summary is not None:
             enriched["conversation_policy"] = policy_summary
-        if answer_planning is not None:
-            enriched["answer_planning"] = answer_planning
+        enriched["answer_planning"] = answer_planning
         selected_resource = response_resource_context(view_context, resource_context)
         if selected_resource is not None:
             enriched["resource_context"] = selected_resource

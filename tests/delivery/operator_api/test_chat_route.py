@@ -1958,6 +1958,27 @@ class TestChatRouteInputCaps:
         assert backend.calls == 0
 
 
+def test_json_and_sse_terminal_payloads_share_nullable_fields_and_verification() -> None:
+    json_backend = _RecordingBackend(model="narrator-mini", delay_ms=0)
+    stream_backend = _RecordingBackend(model="narrator-mini", delay_ms=0)
+    json_response = TestClient(
+        Starlette(routes=[make_chat_route(backend=json_backend, authorize=_allow)])
+    ).post("/chat", json={"prompt": "Summarize this request."})
+    stream_response = TestClient(
+        Starlette(routes=[make_chat_stream_route(backend=stream_backend, authorize=_allow)])
+    ).post("/chat/stream", json={"prompt": "Summarize this request."})
+
+    json_payload = json_response.json()
+    stream_payload = next(
+        payload for name, payload in _parse_sse(stream_response.text) if name == "done"
+    )
+
+    for field in ("source", "delegation", "web_search", "answer_planning"):
+        assert field in json_payload
+        assert json_payload[field] == stream_payload[field]
+    assert json_payload["verification"] == stream_payload["verification"]
+
+
 class TestChatStreamEvidence:
     def test_stream_opt_in_returns_redacted_actual_model_trace(self) -> None:
         identity = _RecordingIdentity()
