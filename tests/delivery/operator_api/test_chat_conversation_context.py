@@ -199,6 +199,53 @@ def test_campaign_context_variants_classify_exactly(
         assert classify_conversation_context_intent(prompt) is expected
 
 
+@pytest.mark.parametrize(
+    ("expected", "prompts"),
+    (
+        (
+            ConversationContextIntent.ORDINAL_RESOURCE,
+            (
+                "From the prior resource list, recheck the second item.",
+                "이전 리소스 목록에서 상태를 다시 확인할 두 번째 항목을 골라줘.",
+                "prior resource list의 두 번째 항목을 다시 확인해줘.",
+            ),
+        ),
+        (
+            ConversationContextIntent.AMBIGUITY,
+            (
+                "Ask for a selection among the equally named resource candidates.",
+                "When resource candidates share a name, do not guess.",
+                "후보 리소스들의 이름이 동일하면 선택지를 먼저 보여줘.",
+            ),
+        ),
+        (
+            ConversationContextIntent.PARTIAL_SOURCE,
+            (
+                "방금 source 하나가 실패했으니 확인된 사실과 한계를 나눠줘.",
+                "State the confirmed facts and limits for the source that failed.",
+                "unavailable인 source가 하나라면 known facts와 limits를 분리해줘.",
+            ),
+        ),
+    ),
+)
+def test_context_paraphrase_cohorts_classify_exactly(
+    expected: ConversationContextIntent, prompts: tuple[str, str, str]
+) -> None:
+    assert all(classify_conversation_context_intent(prompt) is expected for prompt in prompts)
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "이 source의 성능이 좋지 않아.",
+        "두 번째 부서의 예산을 보여줘.",
+        "기억력이 중요해.",
+    ),
+)
+def test_context_paraphrase_matching_avoids_unrelated_phrases(prompt: str) -> None:
+    assert classify_conversation_context_intent(prompt) is None
+
+
 @pytest.mark.parametrize("stream", [False, True])
 def test_client_cannot_inject_verified_prior_context(stream: bool) -> None:
     backend = Backend()

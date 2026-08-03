@@ -67,13 +67,28 @@ _REFORMAT: Final = re.compile(
     r".{0,48}(?:표|형식)",
     re.IGNORECASE,
 )
+_ORDINAL_REFERENCE: Final = re.compile(
+    r"\b(?:second\s+(?:resource|item)|item\s+two)\b|"
+    r"\b(?:prior|previous)\s+resource\s+(?:list|result).{0,48}"
+    r"(?:second\s+(?:resource|item)|item\s+two)|"
+    r"(?:이전\s*리소스\s*목록|prior\s+resource\s+list).{0,48}두\s*번째\s*항목|"
+    r"두\s*번째(?:로\s*말한)?\s*(?:리소스|항목)",
+    re.IGNORECASE,
+)
+_AMBIGUITY_REFERENCE: Final = re.compile(
+    r"\b(?:equally\s+named\s+resource\s+candidates|resource\s+candidates.{0,24}"
+    r"share\s+(?:a|the\s+same)\s+name)\b|"
+    r"후보\s*리소스.{0,24}이름.{0,12}동일",
+    re.IGNORECASE,
+)
 _PARTIAL_SOURCE: Final = re.compile(
     r"\b(?:one\s+source\s+is\s+unavailable|supported\s+facts\s+and\s+explicit\s+limits|"
     r"failed\s+source|separate\s+known\s+facts|required\s+source\s+fails|"
     r"verified\s+facts.{0,48}evidence\s+gaps|missing\s+source.{0,48}"
-    r"(?:facts|limits))\b|"
+    r"(?:facts|limits)|source\s+(?:that\s+)?(?:failed|is\s+unavailable))\b|"
     r"(?:데이터\s*원본이\s*실패|확인된\s*사실.{0,20}한계|실패한\s*원본|"
-    r"실패한\s+source|일부\s*원본이\s+unavailable)",
+    r"실패한\s+source|일부\s*원본이\s+unavailable|"
+    r"source.{0,16}(?:실패|unavailable)|unavailable.{0,12}source)",
     re.IGNORECASE,
 )
 
@@ -162,7 +177,12 @@ class VerifiedPriorContext:
 
 
 def needs_conversation_context(prompt: str) -> bool:
-    return bool(_CONTEXT_REQUIRED.search(prompt))
+    return bool(
+        _CONTEXT_REQUIRED.search(prompt)
+        or _ORDINAL_REFERENCE.search(prompt)
+        or _AMBIGUITY_REFERENCE.search(prompt)
+        or _PARTIAL_SOURCE.search(prompt)
+    )
 
 
 def classify_conversation_context_intent(prompt: str) -> ConversationContextIntent | None:
@@ -183,7 +203,7 @@ def classify_conversation_context_intent(prompt: str) -> ConversationContextInte
         return ConversationContextIntent.MEMORY
     if "lesson" in normalized or "학습" in prompt:
         return ConversationContextIntent.LEARNING
-    if "second resource" in normalized or "item two" in normalized or "두 번째" in prompt:
+    if _ORDINAL_REFERENCE.search(prompt):
         return ConversationContextIntent.ORDINAL_RESOURCE
     return ConversationContextIntent.AMBIGUITY
 
