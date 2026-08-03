@@ -194,6 +194,20 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_custom_owner_evidence",
+      "source_commits": [
+        "89742e1f6dc376e6ccca0baa1633c3e46a565fe8"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

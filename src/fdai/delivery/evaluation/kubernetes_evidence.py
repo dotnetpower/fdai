@@ -14,6 +14,7 @@ from fdai_evaluation_sdk import EvaluationTask
 
 from fdai.delivery.kubernetes.admission_events import classify_admission_failure
 from fdai.delivery.kubernetes.capacity import project_pod_resource_requests
+from fdai.delivery.kubernetes.owners import CustomOwnerQuery, project_custom_owner
 from fdai.delivery.kubernetes.quantity import cpu_millicores, memory_bytes, parse_quantity
 from fdai.evaluation.evidence import EvaluationEvidenceProvider
 
@@ -146,6 +147,15 @@ class KubectlEvidenceClient:
             "truncated": len(items) > len(selected),
         }
 
+    async def custom_owner(
+        self,
+        task: EvaluationTask,
+        query: CustomOwnerQuery,
+    ) -> Mapping[str, Any] | None:
+        namespace = self._namespace(task)
+        payload = await self._get_json(namespace, query.resource)
+        return project_custom_owner(payload, namespace=namespace, query=query)
+
     async def capacity(self, task: EvaluationTask) -> Mapping[str, Any]:
         from fdai.delivery.evaluation.kubernetes_capacity import KubectlCapacityEvidenceProvider
 
@@ -160,6 +170,11 @@ class KubectlEvidenceClient:
         from fdai.delivery.evaluation.kubernetes_admission import KubectlAdmissionEvidenceProvider
 
         return await KubectlAdmissionEvidenceProvider(self).collect(task)
+
+    async def owners(self, task: EvaluationTask) -> Mapping[str, Any]:
+        from fdai.delivery.evaluation.kubernetes_owners import KubectlOwnerEvidenceProvider
+
+        return await KubectlOwnerEvidenceProvider(self).collect(task)
 
     def _namespace(self, task: EvaluationTask) -> str:
         if task.target.kind != "kubernetes.namespace":
@@ -307,6 +322,7 @@ def kubernetes_evidence_providers(
     from fdai.delivery.evaluation.kubernetes_admission import KubectlAdmissionEvidenceProvider
     from fdai.delivery.evaluation.kubernetes_capacity import KubectlCapacityEvidenceProvider
     from fdai.delivery.evaluation.kubernetes_dependency import KubectlDependencyEvidenceProvider
+    from fdai.delivery.evaluation.kubernetes_owners import KubectlOwnerEvidenceProvider
 
     return {
         "observe.kubernetes.admission": KubectlAdmissionEvidenceProvider(client),
@@ -315,6 +331,7 @@ def kubernetes_evidence_providers(
         "observe.kubernetes.inventory": KubectlInventoryEvidenceProvider(client),
         "observe.kubernetes.events": KubectlEventEvidenceProvider(client),
         "observe.kubernetes.nodes": KubectlNodeEvidenceProvider(client),
+        "observe.kubernetes.owners": KubectlOwnerEvidenceProvider(client),
         "observe.metrics.query": KubectlPodMetricEvidenceProvider(client),
     }
 
@@ -336,6 +353,12 @@ def _project_resource(item: Mapping[str, Any]) -> dict[str, Any] | None:
     if not isinstance(name, str) or not isinstance(namespace, str):
         return None
     projected: dict[str, Any] = {"kind": kind, "name": name, "namespace": namespace}
+    if "ownerReferences" in metadata:
+        owner_references, owner_references_complete = _project_owner_references(
+            metadata.get("ownerReferences")
+        )
+        projected["owner_reference_projection_complete"] = owner_references_complete
+        projected["owner_references"] = owner_references
     spec = item.get("spec")
     status = item.get("status")
     spec_values = spec if isinstance(spec, Mapping) else {}
@@ -436,6 +459,36 @@ def _project_container_status(value: Mapping[str, Any]) -> dict[str, Any]:
             "finished_at": _text(last_termination.get("finishedAt"), 64),
         }
     return projection
+
+
+def _project_owner_references(value: object) -> tuple[list[dict[str, str]], bool]:
+    if value is None:
+        return [], True
+    if not isinstance(value, list):
+        return [], False
+    selected = value[:8]
+    references = [
+        projection
+        for reference in selected
+        if isinstance(reference, Mapping)
+        and (projection := _project_owner_reference(reference)) is not None
+    ]
+    return references, len(value) <= 8 and len(references) == len(value)
+
+
+def _project_owner_reference(value: Mapping[str, Any]) -> dict[str, str] | None:
+    api_version = value.get("apiVersion")
+    kind = value.get("kind")
+    name = value.get("name")
+    uid = value.get("uid")
+    if not all(isinstance(item, str) and item for item in (api_version, kind, name, uid)):
+        return None
+    return {
+        "api_version": str(api_version)[:128],
+        "kind": str(kind)[:128],
+        "name": str(name)[:253],
+        "uid": str(uid)[:128],
+    }
 
 
 def _project_pod_template(value: object) -> dict[str, Any] | None:

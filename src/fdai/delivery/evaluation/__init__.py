@@ -11,6 +11,7 @@ from fdai.delivery.evaluation.kubernetes_evidence import (
     KubectlNodeEvidenceProvider,
     kubernetes_evidence_providers,
 )
+from fdai.delivery.evaluation.kubernetes_owners import KubectlOwnerEvidenceProvider
 
 __all__ = [
     "KubectlAdmissionEvidenceProvider",
@@ -21,5 +22,6 @@ __all__ = [
     "KubectlEvidenceConfig",
     "KubectlInventoryEvidenceProvider",
     "KubectlNodeEvidenceProvider",
+    "KubectlOwnerEvidenceProvider",
     "kubernetes_evidence_providers",
 ]

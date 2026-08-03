@@ -10,6 +10,7 @@ import pytest
 from fdai_evaluation_sdk import EvaluationTask, ResourceLimits, TargetRef
 
 from fdai.delivery.evaluation import KubectlEvidenceClient, KubectlEvidenceConfig
+from fdai.delivery.kubernetes.owners import CustomOwnerQuery
 
 _NOW = datetime(2026, 7, 29, 12, 0, tzinfo=UTC)
 
@@ -245,6 +246,97 @@ async def test_inventory_projects_pod_request_semantics_and_uid(tmp_path: Path) 
         "memory_base_units": "2147483648",
     }
     assert "must-not-project" not in json.dumps(evidence)
+
+
+async def test_inventory_projects_bounded_immutable_owner_references(tmp_path: Path) -> None:
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text("synthetic", encoding="utf-8")
+
+    async def run(command: tuple[str, ...]) -> bytes:
+        del command
+        return json.dumps(
+            {
+                "items": [
+                    {
+                        "kind": "Deployment",
+                        "metadata": {
+                            "name": "api",
+                            "namespace": "example-app",
+                            "ownerReferences": [
+                                {
+                                    "apiVersion": "database.example.io/v1",
+                                    "kind": "Database",
+                                    "name": "catalog",
+                                    "uid": "owner-uid",
+                                    "controller": True,
+                                    "blockOwnerDeletion": True,
+                                }
+                            ],
+                        },
+                        "spec": {"replicas": 1},
+                        "status": {"readyReplicas": 1},
+                    }
+                ]
+            }
+        ).encode()
+
+    evidence = await KubectlEvidenceClient(config=_config(kubeconfig), run=run).inventory(_task())
+
+    resource = evidence["resources"][0]
+    assert resource["owner_reference_projection_complete"] is True
+    assert resource["owner_references"] == [
+        {
+            "api_version": "database.example.io/v1",
+            "kind": "Database",
+            "name": "catalog",
+            "uid": "owner-uid",
+        }
+    ]
+    assert "blockOwnerDeletion" not in json.dumps(evidence)
+
+
+async def test_custom_owner_lookup_is_exact_namespaced_and_uid_grounded(
+    tmp_path: Path,
+) -> None:
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text("synthetic", encoding="utf-8")
+    commands: list[tuple[str, ...]] = []
+
+    async def run(command: tuple[str, ...]) -> bytes:
+        commands.append(command)
+        return json.dumps(
+            {
+                "apiVersion": "database.example.io/v1",
+                "kind": "Database",
+                "metadata": {
+                    "name": "catalog",
+                    "namespace": "example-app",
+                    "uid": "owner-uid",
+                    "resourceVersion": "7",
+                    "generation": 3,
+                },
+                "spec": {"password": "must-not-project"},
+                "status": {"conditions": []},
+            }
+        ).encode()
+
+    client = KubectlEvidenceClient(config=_config(kubeconfig), run=run)
+    owner = await client.custom_owner(
+        _task(),
+        CustomOwnerQuery("database.database.example.io/catalog", "owner-uid"),
+    )
+
+    assert commands[0][-5:] == (
+        "get",
+        "database.database.example.io/catalog",
+        "--output",
+        "json",
+        "--request-timeout=15s",
+    )
+    assert "--namespace" in commands[0]
+    assert owner is not None
+    assert owner["uid"] == "owner-uid"
+    assert "must-not-project" not in json.dumps(owner)
 
 
 async def test_inventory_projects_only_reviewed_workload_endpoint_structure(

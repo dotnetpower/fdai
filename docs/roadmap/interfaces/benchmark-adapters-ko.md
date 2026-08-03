@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: f96673dbd179fec00ce902a5622472868ffd2965
+translation_source_sha: 70c51ff438c9945598552cbd2cd7a7b77fc878e8
 translation_revised: 2026-08-04
 ---
 
@@ -206,6 +206,13 @@ malformed webhook identity 및 인식되지 않은 message는 분류하지 않�
 failure의 projected event는 raw message 대신 structured code와 bounded identity 또는 Pod Security
 field만 보존합니다. 따라서 admission response가 echoed secret 또는 검토되지 않은 값을
 deterministic finding으로 전달하지 못합니다.
+
+Observe-only `observe.kubernetes.owners` capability는 bounded namespace inventory에서 최대 8개
+custom owner reference를 따라갑니다. 각 lookup은 owner reference UID를 보존하며 반환된 custom
+resource의 API group, kind, name, namespace 및 immutable UID가 모두 일치할 때만 허용합니다.
+Recreated name, cross-namespace owner, invalid reference, lookup failure 및 omitted owner는 evidence를
+incomplete로 만들고 partial owner set을 노출하지 않습니다. Projection은 bounded identity,
+generation, deletion 및 condition field만 보존하며 임의 custom resource spec string은 제외합니다.
 
 공유 Kubernetes package에는 hold-only admission resource-drift reducer가 있습니다. Exact core/v1
 Pod CREATE rule을 가진 complete selector-free, namespace-unscoped

@@ -202,6 +202,14 @@ For a recognized admission failure, the projected event retains only the structu
 bounded identity or Pod Security fields, not the raw message. This prevents an admission response
 from carrying an echoed secret or unreviewed value into deterministic findings.
 
+The observe-only `observe.kubernetes.owners` capability follows at most eight custom owner
+references from the bounded namespace inventory. Every lookup preserves the owner reference UID
+and accepts the returned custom resource only when API group, kind, name, namespace, and immutable
+UID all match. Recreated names, cross-namespace owners, invalid references, lookup failures, and
+omitted owners make the evidence incomplete and expose no partial owner set. The projection keeps
+bounded identity, generation, deletion, and condition fields; arbitrary custom resource spec
+strings are excluded.
+
 The shared Kubernetes package has a hold-only admission resource-drift reducer. It reports a
 candidate-only correlation between normalized request or limit drift and one complete
 selector-free, namespace-unscoped MutatingWebhookConfiguration with an exact core/v1 Pod CREATE
