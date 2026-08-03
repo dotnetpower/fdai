@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
+import os
 import stat
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import ModuleType
 
@@ -107,3 +110,77 @@ def test_rejects_symlink_output(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="symlink"):
         module.append_result(link, module.CampaignResult.from_mapping(_record()))
+
+
+def test_retries_short_append_without_corrupting_jsonl(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load_module()
+    path = tmp_path / "results.jsonl"
+    real_write = os.write
+    calls = 0
+
+    def short_write(descriptor: int, payload: bytes) -> int:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return real_write(descriptor, payload[: len(payload) // 2])
+        return real_write(descriptor, payload)
+
+    monkeypatch.setattr(module.os, "write", short_write)
+    module.append_result(path, module.CampaignResult.from_mapping(_record()))
+
+    assert json.loads(path.read_text(encoding="utf-8"))["qid"] == "Q113"
+    assert calls == 2
+
+
+def test_rolls_back_partial_append_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _load_module()
+    path = tmp_path / "results.jsonl"
+    path.write_text('{"existing":true}\n', encoding="utf-8")
+    original = path.read_bytes()
+    real_write = os.write
+    calls = 0
+
+    def failing_write(descriptor: int, payload: bytes) -> int:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return real_write(descriptor, payload[: len(payload) // 2])
+        raise OSError("simulated disk failure")
+
+    monkeypatch.setattr(module.os, "write", failing_write)
+
+    with pytest.raises(OSError, match="simulated disk failure"):
+        module.append_result(path, module.CampaignResult.from_mapping(_record()))
+
+    assert path.read_bytes() == original
+
+
+def test_concurrent_appends_remain_complete_json_lines(tmp_path: Path) -> None:
+    module = _load_module()
+    path = tmp_path / "results.jsonl"
+
+    def append(index: int) -> None:
+        module.append_result(
+            path,
+            module.CampaignResult.from_mapping(_record(run_id=f"run-{index}", variant="cohort")),
+        )
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        tuple(pool.map(append, range(32)))
+
+    payloads = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    assert len(payloads) == 32
+    assert {payload["run_id"] for payload in payloads} == {f"run-{index}" for index in range(32)}
+
+
+def test_rejects_oversized_stdin_record_before_json_decode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+    stream = io.TextIOWrapper(io.BytesIO(b" " * (module._MAX_INPUT_BYTES + 1)))
+    monkeypatch.setattr(module.sys, "stdin", stream)
+
+    with pytest.raises(ValueError, match="input line exceeds"):
+        module.main([])

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 import re
@@ -22,6 +23,7 @@ _VARIANTS: Final = frozenset({"original", "A", "B", "cohort"})
 _MODES: Final = frozenset({"fresh", "positive"})
 _STATUSES: Final = frozenset({"verified", "consistent", "corrected", "unverified"})
 _MAX_TEXT: Final = 256
+_MAX_INPUT_BYTES: Final = 1_000_000
 _FIELDS: Final = frozenset(
     {
         "run_id",
@@ -141,10 +143,28 @@ def append_result(path: Path, result: CampaignResult) -> None:
         line = json.dumps(
             result.to_dict(), ensure_ascii=True, separators=(",", ":"), sort_keys=True
         )
-        os.write(descriptor, f"{line}\n".encode())
-        os.fsync(descriptor)
+        _append_bytes(descriptor, f"{line}\n".encode())
     finally:
         os.close(descriptor)
+
+
+def _append_bytes(descriptor: int, payload: bytes) -> None:
+    fcntl.flock(descriptor, fcntl.LOCK_EX)
+    original_size = os.lseek(descriptor, 0, os.SEEK_END)
+    try:
+        remaining = memoryview(payload)
+        while remaining:
+            written = os.write(descriptor, remaining)
+            if written <= 0:
+                raise OSError("campaign result append made no progress")
+            remaining = remaining[written:]
+        os.fsync(descriptor)
+    except BaseException:
+        os.ftruncate(descriptor, original_size)
+        os.fsync(descriptor)
+        raise
+    finally:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
 
 
 def _text(raw: object) -> str:
@@ -172,7 +192,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     appended = 0
-    for line in sys.stdin:
+    stream = sys.stdin.buffer
+    while line := stream.readline(_MAX_INPUT_BYTES + 1):
+        if len(line) > _MAX_INPUT_BYTES:
+            raise ValueError("campaign result input line exceeds the byte limit")
         if not line.strip():
             continue
         raw: Any = json.loads(line)
