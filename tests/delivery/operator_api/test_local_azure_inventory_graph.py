@@ -71,6 +71,24 @@ class _Inventory:
             yield InventoryBatch()
 
 
+class _InventoryWithReceipt(_Inventory):
+    def query_receipt(self) -> dict[str, object]:
+        return {
+            "transport": "azure_cli",
+            "backend": "azure_resource_graph",
+            "executed": True,
+            "redacted": True,
+            "page_count": 1,
+            "commands": [
+                {
+                    "label": "resources",
+                    "language": "azure_cli",
+                    "command": "az graph query --subscriptions <subscription-id>",
+                }
+            ],
+        }
+
+
 class _InventoryAfterFinal(_Inventory):
     async def full_snapshot(self, since: str | None = None):  # type: ignore[no-untyped-def]
         async for batch in super().full_snapshot(since):
@@ -308,6 +326,27 @@ def test_projects_contains_graph_without_provider_refs_and_caches() -> None:
             "type": "contains",
         },
     ]
+
+
+def test_preserves_validated_redacted_provider_execution_receipt() -> None:
+    provider = AzureCliInventoryGraphProvider(inventory=_InventoryWithReceipt())
+
+    graph = asyncio.run(provider(None, 4, ("contains",)))
+
+    assert graph["provider_execution"] == {
+        "transport": "azure_cli",
+        "backend": "azure_resource_graph",
+        "executed": True,
+        "redacted": True,
+        "page_count": 1,
+        "commands": [
+            {
+                "label": "resources",
+                "language": "azure_cli",
+                "command": "az graph query --subscriptions <subscription-id>",
+            }
+        ],
+    }
 
 
 def test_projects_normalized_aks_operational_status() -> None:

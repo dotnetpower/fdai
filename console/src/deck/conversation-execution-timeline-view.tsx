@@ -6,7 +6,9 @@ import {
   executionTimelineWindow,
   type ExecutionTimelineFact,
   type ExecutionTimelineItem,
+  type ExecutionTimelineRecord,
 } from "./conversation-execution-timeline";
+import { formatJsonValue } from "./json-code-block";
 
 export function ConversationExecutionTimelineView({
   trajectory,
@@ -78,6 +80,16 @@ export function ConversationExecutionTimelineView({
                     </div>
                   ))}
                 </dl>
+                {item.details.records && item.details.records.length > 0 ? (
+                  <div class="deck-execution-records">
+                    {item.details.records.map((record) => (
+                      <ExecutionRecord
+                        key={`${record.key}-${record.value}`}
+                        record={record}
+                      />
+                    ))}
+                  </div>
+                ) : null}
                 {item.details.evidenceRefs.length > 0 ? (
                   <div class="deck-execution-references">
                     <strong>{t("deck.trajectory.references")}</strong>
@@ -93,6 +105,16 @@ export function ConversationExecutionTimelineView({
           </li>
         ))}
       </ol>
+    </section>
+  );
+}
+
+function ExecutionRecord({ record }: { readonly record: ExecutionTimelineRecord }) {
+  const formatted = formatJsonValue(record.value);
+  return (
+    <section class="deck-execution-record">
+      <strong>{t(`deck.trajectory.detailRecord.${record.key}`)}</strong>
+      <pre><code data-format={formatted.isJson ? "json" : "text"}>{formatted.text}</code></pre>
     </section>
   );
 }

@@ -34,6 +34,23 @@ export interface ExecutionTimelineDetails {
   readonly summary?: string;
   readonly facts: readonly ExecutionTimelineFact[];
   readonly evidenceRefs: readonly string[];
+  readonly records?: readonly ExecutionTimelineRecord[];
+}
+
+export type ExecutionTimelineRecordKey =
+  | "command"
+  | "delivery"
+  | "input"
+  | "output"
+  | "plan"
+  | "query"
+  | "request"
+  | "response"
+  | "verification";
+
+export interface ExecutionTimelineRecord {
+  readonly key: ExecutionTimelineRecordKey;
+  readonly value: string;
 }
 
 export interface ExecutionTimelineItem {
@@ -133,6 +150,7 @@ function rawItems(
       summary: trajectory.question.text,
       facts: [{ key: "source", value: "operator" }],
       evidenceRefs: [],
+      records: [{ key: "input", value: trajectory.question.text }],
     }));
   }
   for (const phase of trajectory.answer.turnTiming?.phases ?? []) {
@@ -176,6 +194,15 @@ function rawItems(
           ...(activity.agent ? [{ key: "agent" as const, value: activity.agent }] : []),
         ],
         evidenceRefs: [],
+        records: [
+          {
+            key: execution.inputKind === "query" ? "query" : "command",
+            value: execution.command,
+          },
+          ...(execution.output === undefined
+            ? []
+            : [{ key: "output" as const, value: execution.output }]),
+        ],
       },
     });
   }
@@ -224,6 +251,12 @@ function rawItems(
             },
           ],
           evidenceRefs: [],
+          records: [
+            { key: "request", value: JSON.stringify(call.request.messages, null, 2) },
+            ...(call.response
+              ? [{ key: "response" as const, value: JSON.stringify(call.response, null, 2) }]
+              : []),
+          ],
         },
       });
     }
@@ -236,6 +269,9 @@ function rawItems(
       ...(trajectory.answer.turnTiming?.phases.map((phase) => phase.completed_at) ?? []),
     ]) ?? trajectory.completedAt;
     items.push(pointItem("turn-answer", "answer", "terminal", answerAt, {
+      summary: trajectory.answer.verification
+        ? `verification: ${trajectory.answer.verification.status}`
+        : `source: ${source}`,
       facts: [
         { key: "source", value: source },
         ...(trajectory.answer.agent
@@ -243,6 +279,16 @@ function rawItems(
           : []),
       ],
       evidenceRefs: trajectory.answer.verification?.evidence_refs ?? [],
+      records: [{
+        key: "delivery",
+        value: JSON.stringify({
+          source,
+          agent: trajectory.answer.agent ?? null,
+          verification_status: trajectory.answer.verification?.status ?? null,
+          citation_count: trajectory.answer.citations?.length ?? 0,
+          follow_up_count: trajectory.answer.followUps?.length ?? 0,
+        }, null, 2),
+      }],
     }));
   }
   return items;
@@ -320,6 +366,9 @@ function phaseDetails(
       evidenceRefs: answer.answerPlanning?.contributions.flatMap(
         (contribution) => contribution.evidence_refs,
       ) ?? [],
+      ...(answer.answerPlan
+        ? { records: [{ key: "plan" as const, value: JSON.stringify(answer.answerPlan, null, 2) }] }
+        : {}),
     };
   }
   if (phase === "evidence") {
@@ -346,6 +395,9 @@ function phaseDetails(
         },
       ],
       evidenceRefs: [],
+      ...(answer.answerPlan
+        ? { records: [{ key: "plan" as const, value: JSON.stringify(answer.answerPlan, null, 2) }] }
+        : {}),
     };
   }
   if (phase === "quality_review" || phase === "verification") {
@@ -364,6 +416,14 @@ function phaseDetails(
           ]
         : [],
       evidenceRefs: verification?.evidence_refs ?? [],
+      ...(verification
+        ? {
+            records: [{
+              key: "verification" as const,
+              value: JSON.stringify(verification, null, 2),
+            }],
+          }
+        : {}),
     };
   }
   return { facts: [], evidenceRefs: [] };

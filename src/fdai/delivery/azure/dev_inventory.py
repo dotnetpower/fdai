@@ -70,6 +70,10 @@ _AZ_TIMEOUT_SECONDS: Final[float] = 30.0
 _MAX_PROPS_BYTES: Final[int] = 64 * 1024
 _ARG_PAGE_SIZE: Final[int] = 1000
 _ARG_MAX_PAGES: Final[int] = 32
+_ARG_RESOURCES_QUERY: Final[str] = (
+    "Resources | project id, type, name, location, kind, sku, tags, properties, "
+    "resourceGroup, subscriptionId"
+)
 _UNCLASSIFIED_RESOURCE_TYPE: Final[str] = "unclassified-resource"
 _LOGGER = logging.getLogger(__name__)
 
@@ -149,6 +153,8 @@ class AzureCliInventory:
     executable: str = "az"
     azure_config_dir: str | None = None
     _arm_to_neutral: Mapping[str, str] = field(init=False, repr=False)
+    _last_discovery_backend: str | None = field(default=None, init=False, repr=False)
+    _last_discovery_page_count: int = field(default=0, init=False, repr=False)
     """Optional isolated Azure CLI profile directory.
 
     ``None`` removes an inherited ``AZURE_CONFIG_DIR`` so local discovery uses
@@ -170,6 +176,34 @@ class AzureCliInventory:
     def full_snapshot(self, since: str | None = None) -> AsyncIterator[InventoryBatch]:
         del since  # az CLI does not honour a since filter here.
         return self._emit()
+
+    def query_receipt(self) -> Mapping[str, Any] | None:
+        """Return the redacted commands that produced the latest complete snapshot."""
+
+        backend = self._last_discovery_backend
+        if backend is None:
+            return None
+        scope_args = " --subscription <subscription-id>" if self.subscription_id else ""
+        group_command = f"az group list --output json{scope_args}"
+        if backend == "azure_resource_graph":
+            graph_scope = " --subscriptions <subscription-id>" if self.subscription_id else ""
+            resource_command = (
+                f'az graph query --graph-query "{_ARG_RESOURCES_QUERY}" '
+                f"--first {_ARG_PAGE_SIZE} --output json{graph_scope}"
+            )
+        else:
+            resource_command = f"az resource list --output json{scope_args}"
+        return {
+            "transport": "azure_cli",
+            "backend": backend,
+            "executed": True,
+            "redacted": True,
+            "page_count": self._last_discovery_page_count,
+            "commands": [
+                {"label": "resource_groups", "language": "azure_cli", "command": group_command},
+                {"label": "resources", "language": "azure_cli", "command": resource_command},
+            ],
+        }
 
     def delta(self, cursor: str) -> AsyncIterator[InventoryBatch]:
         del cursor
@@ -269,6 +303,8 @@ class AzureCliInventory:
         self,
         fallback_args: Sequence[str],
     ) -> list[dict[str, Any]]:
+        self._last_discovery_backend = None
+        self._last_discovery_page_count = 0
         try:
             return await self._fetch_arg_rows()
         except AzureCliInventoryError as exc:
@@ -276,13 +312,12 @@ class AzureCliInventory:
                 "azure_cli_inventory_arg_fallback",
                 extra={"error_type": type(exc).__name__},
             )
-            return await self._fetch_rows(fallback_args, "registered resources")
+            rows = await self._fetch_rows(fallback_args, "registered resources")
+            self._last_discovery_backend = "azure_resource_manager"
+            self._last_discovery_page_count = 1
+            return rows
 
     async def _fetch_arg_rows(self) -> list[dict[str, Any]]:
-        query = (
-            "Resources | project id, type, name, location, kind, sku, tags, properties, "
-            "resourceGroup, subscriptionId"
-        )
         rows: list[dict[str, Any]] = []
         skip_token: str | None = None
         for _page in range(_ARG_MAX_PAGES):
@@ -291,7 +326,7 @@ class AzureCliInventory:
                 "graph",
                 "query",
                 "--graph-query",
-                query,
+                _ARG_RESOURCES_QUERY,
                 "--first",
                 str(_ARG_PAGE_SIZE),
                 "--output",
@@ -313,6 +348,8 @@ class AzureCliInventory:
             raw_skip_token = payload.get("skip_token") or payload.get("$skipToken")
             skip_token = raw_skip_token if isinstance(raw_skip_token, str) else None
             if not page_rows or not skip_token:
+                self._last_discovery_backend = "azure_resource_graph"
+                self._last_discovery_page_count = _page + 1
                 return rows
         raise AzureCliInventoryError("az graph pagination exceeded the page limit")
 

@@ -6631,6 +6631,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-execution-facts > div { min-width: 0; }
 .deck-execution-facts dt { margin-bottom: 2px; color: var(--fg-muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; }
 .deck-execution-facts dd { margin: 0; overflow-wrap: anywhere; color: var(--fg); font-size: .8125rem; line-height: 1.4; }
+.deck-execution-records { display: grid; gap: 8px; margin-top: 10px; }
+.deck-execution-record { min-width: 0; }
+.deck-execution-record > strong { display: block; margin-bottom: 4px; color: var(--fg-muted); font-size: 11px; text-transform: uppercase; }
+.deck-execution-record pre { max-height: 240px; margin: 0; overflow: auto; padding: 9px 10px; border-radius: 4px; background: #1f2428; color: #d7dde3; font: 10.5px/1.55 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; color-scheme: dark; scrollbar-color: #68737e #1f2428; scrollbar-width: thin; }
+.deck-execution-record code { color: inherit; background: transparent; }
 .deck-execution-facts time { color: inherit; font-size: inherit; }
 .deck-execution-references { margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--border); }
 .deck-execution-references > strong { color: var(--fg-muted); font-size: .75rem; text-transform: uppercase; }
@@ -7747,6 +7752,15 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   color: inherit;
   background: transparent;
 }
+.deck-investigation-provider { margin: 0 10px 10px; padding-top: 10px; border-top: 1px solid color-mix(in oklab, #fff 16%, transparent); }
+.deck-investigation-provider > header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 9px; margin-bottom: 4px; color: #f3f5f7; }
+.deck-investigation-provider > header strong { font-size: 12px; }
+.deck-investigation-provider > header span,
+.deck-investigation-provider > header small { color: #aeb7c0; font-size: 11px; }
+.deck-investigation-provider > p { margin: 0 0 9px; color: #aeb7c0; font-size: 11px; line-height: 1.45; }
+.deck-investigation-provider > div + div { margin-top: 8px; }
+.deck-investigation-provider > div > span { display: block; margin-bottom: 4px; color: #c9d0d7; font-size: 11px; font-weight: 700; }
+.deck-investigation-provider .deck-investigation-command { margin: 0; }
 .deck-investigation-result {
   display: flex;
   align-items: center;

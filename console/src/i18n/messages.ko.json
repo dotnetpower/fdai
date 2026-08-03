@@ -2173,8 +2173,19 @@
       "executionEvidence": "관찰된 실행 근거",
       "redacted": "민감한 값 정제됨",
       "copyCommand": "명령 복사",
-      "copyQuery": "쿼리 복사",
+      "copyQuery": "IQL 복사",
       "queryResult": "쿼리 결과",
+      "providerExecution": "Provider 실행",
+      "providerExecutionHint": "이 redacted 명령으로 inventory snapshot을 만들었습니다. 이번 질문은 위 IQL로 해당 snapshot을 필터링했습니다.",
+      "providerPages": "{count}페이지",
+      "providerBackend": {
+        "azure_resource_graph": "Azure CLI를 통한 Azure Resource Graph",
+        "azure_resource_manager": "Azure CLI를 통한 Azure Resource Manager"
+      },
+      "providerCommand": {
+        "resource_groups": "리소스 그룹 검색",
+        "resources": "리소스 검색"
+      },
       "exitCode": "종료 코드 {code}",
       "outputLogs": "출력 로그",
       "truncated": "잘린 미리보기",
@@ -2269,6 +2280,17 @@
         "source": "출처",
         "tool": "도구",
         "usage": "사용량"
+      },
+      "detailRecord": {
+        "command": "실행 명령",
+        "delivery": "전달 receipt",
+        "input": "운영자 입력",
+        "output": "관찰된 출력",
+        "plan": "답변 계획",
+        "query": "IQL 또는 typed query",
+        "request": "모델 요청",
+        "response": "모델 응답",
+        "verification": "검증 receipt"
       },
       "pointInTime": "시점",
       "observationCoverage": "관측 범위 (공백 {count}개)",

@@ -111,6 +111,13 @@ describe("buildExecutionTimeline", () => {
         { key: "redactions", value: "0" },
       ],
       evidenceRefs: [],
+      records: [
+        { key: "request", value: "[]" },
+        {
+          key: "response",
+          value: JSON.stringify(input.answer.modelTrace?.calls[0]?.response, null, 2),
+        },
+      ],
     });
     expect(items.at(-1)?.leftPct).toBeLessThan(100);
     expect(executionTimelineWindow(items)).toEqual({
@@ -223,6 +230,9 @@ describe("buildExecutionTimeline", () => {
         facts: [
           { key: "tool", value: "query_inventory" },
           { key: "authority", value: "server_inventory_graph" },
+        ],
+        records: [
+          { key: "query", value: "{}" },
         ],
       },
     });

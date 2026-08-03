@@ -18,8 +18,10 @@ bounded read-investigation design without allowing the narrator to invent comman
 > completeness.
 >
 > **Implementation status:** Catalog-owned resource `query_terms`, category terms, and deterministic
-> `InventoryQuery` compilation are implemented for the selective inventory path. Azure Resource Graph
-> and local CLI projection also separate shared ARM types with reviewed Azure `kind` tokens. The broader
+> `InventoryQuery` compilation are implemented for the selective inventory path. Interactive local
+> records the redacted Azure CLI/ARG commands that produced its cached snapshot and displays them
+> separately from the current turn's IQL. Azure Resource Graph and local CLI projection also separate
+> shared ARM types with reviewed Azure `kind` tokens. The broader
 > `DiscoveryIntent`, `DiscoveryQueryPlan`, provider profiles, unmapped-resource preservation,
 > centralized fallback, and `CommandExplanation` remain target design.
 
@@ -64,8 +66,9 @@ The baseline does not satisfy comprehensive discovery:
   of being returned as unmapped observations.
 - **One mapping is insufficient:** Discovery can require another ARG table, several ARM types,
   parent expansion, a dedicated CLI extension, or a versioned REST endpoint.
-- **The query and explanation surfaces are narrow:** Provider type, tags, scope kind, management
-  group, KQL, CLI prerequisites, fallback reasons, and command explanations are absent.
+- **The query and explanation surfaces are narrow:** Interactive local exposes only its actual
+  generic snapshot-refresh receipt. Provider type, tags, scope kind, management group, CLI
+  prerequisites, per-plan fallback reasons, and cross-provider command explanations remain absent.
 - **ARG and ARM are partial:** Specialized ARG tables, provider-specific details, tenant directory
   objects, and data-plane objects require different typed plans and identities.
 

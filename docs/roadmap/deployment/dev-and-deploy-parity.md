@@ -209,8 +209,10 @@ only rooted requests require the extended keywords. Relationship-filter count an
 bounded before provider dispatch. The read route rejects malformed resources, unknown or dangling
 relationships, duplicate resource ids, invalid truncation metadata, and oversized provider output.
 Both profiles preserve observed operational state, including nested AKS `powerState.code`, instead
-of replacing it with provisioning state. The local reader migrates a valid v8 AKS cache in memory
-so the first question doesn't wait for a full Azure refresh, then writes later snapshots as v9.
+of replacing it with provisioning state. Local cache envelope v13 records a strict redacted receipt
+for the Azure CLI/ARG commands that produced the snapshot. Older envelopes refresh before they can
+expose provider execution detail. A Command Deck inventory turn applies IQL to that snapshot; it
+doesn't claim that the provider commands ran again for the question.
 Rooted output uses the requested resource cap and matching edge cap; named views keep the existing
 5,000-resource and 40,000-link response ceilings.
 Both profiles expose the same truncation reason vocabulary: resource, adjacent-edge,

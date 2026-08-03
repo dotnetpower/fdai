@@ -9,6 +9,7 @@ import type {
   InvestigationExecutionEvidence,
 } from "./backend";
 import { formatJsonValue } from "./json-code-block";
+import { inventoryExecutionDisplay } from "./inventory-execution-display";
 
 export function upsertEvidenceBranch(
   branches: readonly EvidenceBranch[],
@@ -170,12 +171,15 @@ function ExecutionEvidence({
   const outputLabel = evidence.inputKind === "query"
     ? t("deck.investigation.queryResult")
     : t("deck.investigation.outputLogs");
-  const formattedCommand = formatJsonValue(evidence.command);
+  const inventoryDisplay = evidence.inputKind === "query"
+    ? inventoryExecutionDisplay(evidence.command)
+    : undefined;
+  const formattedCommand = formatJsonValue(inventoryDisplay?.iql ?? evidence.command);
   const formattedOutput = evidence.output === undefined
     ? undefined
     : formatJsonValue(evidence.output);
   const hasTimestamps = evidence.startedAt || evidence.completedAt || evidence.durationMs !== undefined;
-  const kindLabel = evidence.inputKind === "query" ? "QUERY" : "COMMAND";
+  const kindLabel = inventoryDisplay ? "IQL" : evidence.inputKind === "query" ? "QUERY" : "COMMAND";
   const safetyLabel = evidence.inputKind === "query"
     ? t("deck.investigation.readOnly")
     : authority ?? t("deck.investigation.redacted");
@@ -205,6 +209,29 @@ function ExecutionEvidence({
           {formattedCommand.text}
         </code>
       </pre>
+      {inventoryDisplay?.provider ? (
+        <section class="deck-investigation-provider">
+          <header>
+            <strong>{t("deck.investigation.providerExecution")}</strong>
+            <span>{t(`deck.investigation.providerBackend.${inventoryDisplay.provider.backend}`)}</span>
+            <small>{t("deck.investigation.providerPages", {
+              count: inventoryDisplay.provider.pageCount,
+            })}</small>
+          </header>
+          <p>{t("deck.investigation.providerExecutionHint")}</p>
+          {inventoryDisplay.provider.commands.map((providerCommand) => (
+            <div key={`${providerCommand.label}-${providerCommand.command}`}>
+              <span>{t(`deck.investigation.providerCommand.${providerCommand.label}`)}</span>
+              <pre class="deck-investigation-command">
+                <code data-format="text">
+                  <span class="deck-investigation-prompt" aria-hidden="true">$ </span>
+                  {providerCommand.command}
+                </code>
+              </pre>
+            </div>
+          ))}
+        </section>
+      ) : null}
       <div class="deck-investigation-result">
         <span class={`deck-investigation-result-status is-${status}`}>
           {statusLabel(status)}
@@ -260,6 +287,9 @@ function ActivitySummary({
   const meta = activity.execution?.durationMs !== undefined
     ? formatDuration(activity.execution.durationMs)
     : progress ?? statusLabel(activity.status);
+  const inventoryDisplay = activity.execution?.inputKind === "query"
+    ? inventoryExecutionDisplay(activity.execution.command)
+    : undefined;
   return (
     <div class={`deck-investigation-summary${activity.execution ? " has-kind-badge" : ""}`}>
       <span class="deck-investigation-state" aria-hidden="true">
@@ -270,7 +300,7 @@ function ActivitySummary({
           class={`deck-investigation-kind-badge ${activity.execution.inputKind === "query" ? "is-query" : "is-tool"}`}
           aria-hidden="true"
         >
-          {activity.execution.inputKind === "query" ? "QUERY" : "TOOL"}
+          {inventoryDisplay ? "IQL" : activity.execution.inputKind === "query" ? "QUERY" : "TOOL"}
         </span>
       ) : null}
       <span class="deck-investigation-copy">

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 06e5d7b2f84a4c0a0b0ab22b0cde1e5890b2ed0c
+translation_source_sha: eb3e1bf2391574cbac3feffa2f4fe6a5ec5e9df7
 translation_revised: 2026-08-03
 ---
 
@@ -267,7 +267,12 @@ cell을 줄바꿈합니다.
 상세 화면은 bounded recorded metadata를 표시하지만 answer body를 반복하지 않습니다. 펼친 각 timeline
 event는 evidence summary와 reference, plan intent와 format, answer source와 model-call count,
 verification authority와 check 또는 model request와 response metadata처럼 source record에 있는
-상세를 표시합니다. Inventory execution은 canonical turn query를 `IQL`로 표시합니다. Strict redacted
+상세를 표시합니다. 적용 가능한 각 lane에는 recorded-payload block이 표시됩니다. 여기에는 operator
+input, IQL 또는 command와 observed output, AnswerPlan, redacted model request와 response,
+verification receipt 및 terminal delivery receipt가 포함됩니다. 해당 payload type이 없는 lane도 빈
+panel 대신 status, start, completion 및 사용 가능한 fact를 표시합니다. Answer lane은 delivery
+metadata를 기록하며 answer body를 반복하지 않습니다.
+Inventory execution은 canonical turn query를 `IQL`로 표시합니다. Strict redacted
 provider receipt는 실제 snapshot-refresh backend 및 Azure CLI 명령으로 그 아래에 표시하며 live scope
 value는 placeholder로 바꿉니다. Browser는 IQL 또는 source name에서 provider command를 파생하지
 않습니다. Provider message, action argument, command 및 output의 유효한 object 또는 array JSON은 indentation, syntax highlighting 및

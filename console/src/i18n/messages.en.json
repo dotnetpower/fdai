@@ -2173,8 +2173,19 @@
       "executionEvidence": "Observed execution evidence",
       "redacted": "Sensitive values redacted",
       "copyCommand": "Copy command",
-      "copyQuery": "Copy query",
+      "copyQuery": "Copy IQL",
       "queryResult": "Query result",
+      "providerExecution": "Provider execution",
+      "providerExecutionHint": "These redacted commands produced the inventory snapshot. This question filtered that snapshot with the IQL shown above.",
+      "providerPages": "{count} page(s)",
+      "providerBackend": {
+        "azure_resource_graph": "Azure Resource Graph through Azure CLI",
+        "azure_resource_manager": "Azure Resource Manager through Azure CLI"
+      },
+      "providerCommand": {
+        "resource_groups": "Resource-group discovery",
+        "resources": "Resource discovery"
+      },
       "exitCode": "Exit code {code}",
       "outputLogs": "Output logs",
       "truncated": "Truncated preview",
@@ -2269,6 +2280,17 @@
         "source": "Source",
         "tool": "Tool",
         "usage": "Usage"
+      },
+      "detailRecord": {
+        "command": "Executed command",
+        "delivery": "Delivery receipt",
+        "input": "Operator input",
+        "output": "Observed output",
+        "plan": "Answer plan",
+        "query": "IQL or typed query",
+        "request": "Model request",
+        "response": "Model response",
+        "verification": "Verification receipt"
       },
       "pointInTime": "point in time",
       "observationCoverage": "Observation coverage ({count} gaps)",

@@ -25,11 +25,14 @@ from fdai.delivery.inventory_cache_invalidation import (
 from fdai.delivery.operator_api.routes.inventory_graph_bounds import (
     project_bounded_inventory_neighborhood,
 )
+from fdai.delivery.operator_api.routes.inventory_provider_execution import (
+    project_inventory_provider_execution,
+)
 from fdai.shared.providers.inventory import Inventory, LinkRecord, ResourceRecord
 
 _ROOT_ID = "azure-subscription"
 _LOGGER = logging.getLogger(__name__)
-_CACHE_VERSION: Final[int] = 12
+_CACHE_VERSION: Final[int] = 13
 _MAX_CACHE_BYTES: Final[int] = 5_000_000
 _MAX_CLOCK_SKEW_SECONDS: Final[int] = 300
 _ALLOWED_LINK_TYPES: Final[frozenset[str]] = frozenset({"contains", "attached_to", "depends_on"})
@@ -156,6 +159,7 @@ class AzureCliInventoryGraphProvider:
                 discovered_links=discovered_links,
                 max_resources=self.max_resources,
                 cursor=cursor,
+                provider_execution=_inventory_query_receipt(self.inventory),
             )
             if not _valid_cached_graph(graph, self.max_resources):
                 raise RuntimeError("local Azure inventory projected an invalid graph")
@@ -510,12 +514,28 @@ def _has_parent_cycle(resource_ids: set[str], parent_by_id: Mapping[str, str]) -
     return False
 
 
+def _inventory_query_receipt(inventory: Inventory) -> Mapping[str, Any] | None:
+    receipt_fn = getattr(inventory, "query_receipt", None)
+    if not callable(receipt_fn):
+        return None
+    try:
+        receipt = receipt_fn()
+    except (TypeError, ValueError) as exc:
+        _LOGGER.warning(
+            "azure_cli_inventory_query_receipt_invalid",
+            extra={"error_type": type(exc).__name__},
+        )
+        return None
+    return project_inventory_provider_execution(receipt)
+
+
 def _project_graph(
     records: list[ResourceRecord],
     *,
     discovered_links: list[LinkRecord],
     max_resources: int,
     cursor: str | None,
+    provider_execution: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     ordered = sorted(
         records,
@@ -644,6 +664,7 @@ def _project_graph(
         "snapshot_at": datetime.now(UTC).isoformat(),
         "freshness": "fresh",
         "source": "azure-cli-local",
+        **({"provider_execution": dict(provider_execution)} if provider_execution else {}),
         "resources": resources,
         "links": links,
         "truncated": truncated or dropped_links > 0,

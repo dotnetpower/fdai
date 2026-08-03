@@ -153,9 +153,10 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('"deck.investigation.readOnly"');
     expect(component).toContain("deck-branch-badge");
     expect(component).toContain('"is-query" : "is-tool"');
-    expect(component).toContain('activity.execution.inputKind === "query" ? "QUERY" : "TOOL"');
+    expect(component).toContain('inventoryDisplay ? "IQL"');
+    expect(component).toContain('t("deck.investigation.providerExecution")');
     expect(component).toContain('t("deck.investigation.copyQuery")');
-    expect(component).toContain("formatJsonValue(evidence.command)");
+    expect(component).toContain("formatJsonValue(inventoryDisplay?.iql ?? evidence.command)");
     expect(component).toContain('data-format={formattedOutput.isJson ? "json" : "text"}');
     expect(styles).toContain("@keyframes deck-investigation-rise");
     expect(presenter).toContain('turn.source === "investigation"');

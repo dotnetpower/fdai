@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 80c05ea98961806b10b9ee3c16f722fc3b0c45fd
+translation_source_sha: 6c812b8ad5abca34c36b887519b57afba9f1058e
 translation_revised: 2026-08-03
 ---
 
@@ -214,8 +214,10 @@ keyword를 요구합니다. Relationship-filter count와 text length는 provider
 제한합니다. Read route는 malformed resource, unknown 또는 dangling relationship, duplicate
 resource id, invalid truncation metadata, oversized provider output을 차단합니다. 두 profile은
 nested AKS `powerState.code`를 포함한 observed operational state를 provisioning state로 대체하지
-않고 보존합니다. Local reader는 valid v8 AKS cache를 memory에서 migrate하여 첫 질문이 전체 Azure
-refresh를 기다리지 않게 하고 이후 snapshot은 v9로 기록합니다. Rooted output은
+않고 보존합니다. Local cache envelope v13은 snapshot을 만든 Azure CLI/ARG 명령의 strict redacted
+receipt를 기록합니다. 이전 envelope은 provider execution detail을 노출하기 전에 refresh합니다.
+Command Deck inventory turn은 해당 snapshot에 IQL을 적용하며 질문마다 provider command를 다시
+실행했다고 주장하지 않습니다. Rooted output은
 요청된 resource cap과 이에 대응하는 edge cap을 사용하고, named view는 기존
 5,000-resource 및 40,000-link response ceiling을 유지합니다.
 두 profile은 resource, adjacent-edge, internal-edge, source cap으로 구성된 같은 truncation

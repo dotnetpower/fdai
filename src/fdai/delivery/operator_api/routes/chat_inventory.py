@@ -37,6 +37,9 @@ from fdai.delivery.operator_api.routes.chat_inventory_query import (
 from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
 from fdai.delivery.operator_api.routes.chat_turn_plan import TurnTool
 from fdai.delivery.operator_api.routes.inventory_graph import InventoryGraphProvider
+from fdai.delivery.operator_api.routes.inventory_provider_execution import (
+    project_inventory_provider_execution,
+)
 
 _MAX_RESOURCES = 40
 _MAX_LINKS = 40
@@ -285,12 +288,14 @@ def _project_verified_inventory_result(
     if query.source is InventoryQuerySource.ACTIVITY:
         return project_inventory_activity(query, activity, managed)
     if graph.get("unavailable_reason"):
+        provider_execution = project_inventory_provider_execution(graph.get("provider_execution"))
         return {
             "status": "unavailable",
             "reason": str(graph["unavailable_reason"]),
             "query_source": query.source.value,
             "query": query.to_dict(),
             "freshness": _optional_text(graph.get("freshness")),
+            **({"provider_execution": provider_execution} if provider_execution else {}),
         }
     matched = [item for item in managed if inventory_query_matches(query, item)]
     provider_type_summary = query.kind is InventoryQueryKind.TYPES and not query.predicates
@@ -336,6 +341,7 @@ def _project_verified_inventory_result(
     group_filter = _single_predicate_value(query, InventoryField.RESOURCE_GROUP)
     name_filter = _single_predicate_value(query, InventoryField.NAME)
     workload_query = query.include_workloads and "kubernetes-cluster" in requested_types
+    provider_execution = project_inventory_provider_execution(graph.get("provider_execution"))
     return {
         "status": "partial" if workload_query else "matched",
         "query_source": query.source.value,
@@ -395,6 +401,7 @@ def _project_verified_inventory_result(
         "snapshot_at": _optional_text(graph.get("snapshot_at")),
         "freshness": _optional_text(graph.get("freshness")),
         "source": _optional_text(graph.get("source")),
+        **({"provider_execution": provider_execution} if provider_execution else {}),
         "active_view": _optional_text(graph.get("active_view")) or "provider-default",
         "truncated": bool(graph.get("truncated")),
         "total_resources": len(managed),
@@ -757,6 +764,7 @@ def inventory_execution_query(evidence: Mapping[str, Any]) -> str:
         if value is not None
     }
     projection: dict[str, object] = {
+        "query_language": "IQL",
         "operation": "query_inventory",
         "authority": str(evidence.get("authority") or "server_inventory_graph"),
         "query": query,
@@ -767,6 +775,9 @@ def inventory_execution_query(evidence: Mapping[str, Any]) -> str:
         },
         "snapshot": snapshot,
     }
+    provider_execution = project_inventory_provider_execution(safe_result.get("provider_execution"))
+    if provider_execution is not None:
+        projection["provider_execution"] = provider_execution
     return json.dumps(projection, ensure_ascii=False, indent=2, sort_keys=True)
 
 

@@ -1,7 +1,7 @@
 ---
 translation_of: azure-resource-discovery-commands.md
-translation_source_sha: 4de87ba730e5bfcbbeba7c3cad955c2eb08fd614
-translation_revised: 2026-08-01
+translation_source_sha: 8248b4996369c0b686aefe9db6dcc1999bc1c7b2
+translation_revised: 2026-08-03
 ---
 
 # Azure 리소스 검색 명령 커버리지
@@ -19,8 +19,9 @@ translation_revised: 2026-08-01
 > 보고하며 tenant 전체를 완전히 검색했다고 주장하지 않습니다.
 >
 > **구현 상태:** 선택적 inventory 경로를 위한 catalog 소유 resource `query_terms`, category term 및
-> deterministic `InventoryQuery` compilation은 구현되었습니다. Azure Resource Graph와 local CLI
-> projection도 검토된 Azure `kind` token으로 공유 ARM type을 구분합니다. 더 넓은
+> deterministic `InventoryQuery` compilation은 구현되었습니다. Interactive local은 cached snapshot을
+> 만든 redacted Azure CLI/ARG 명령을 기록하고 현재 turn의 IQL과 분리해 표시합니다. Azure Resource
+> Graph와 local CLI projection도 검토된 Azure `kind` token으로 공유 ARM type을 구분합니다. 더 넓은
 > `DiscoveryIntent`, `DiscoveryQueryPlan`, provider profile, unmapped resource 보존, centralized
 > fallback 및 `CommandExplanation`은 목표 설계로 남아 있습니다.
 
@@ -65,8 +66,9 @@ ARG row에 일치하는 `kind`가 있어야 하며, discriminator가 없는 sour
   유형만 의도적으로 포함됩니다. 알 수 없는 Azure 유형은 미매핑 관찰로 반환되지 않고 제외됩니다.
 - **하나의 매핑으로 부족함:** 검색에는 다른 ARG table, 여러 ARM 유형, parent 확장, 전용 CLI
   extension 또는 버전이 지정된 REST endpoint가 필요할 수 있습니다.
-- **Query와 설명 표면이 좁음:** Provider type, tag, scope kind, management group, KQL, CLI 필수
-  조건, 대체 이유 및 명령 설명이 없습니다.
+- **Query와 설명 표면이 좁음:** Interactive local은 실제 generic snapshot-refresh receipt만
+  제공합니다. Provider type, tag, scope kind, management group, CLI prerequisite, plan별 fallback
+  reason 및 cross-provider command explanation은 아직 없습니다.
 - **ARG와 ARM은 부분적임:** 특수 ARG table, provider별 detail, tenant directory 개체 및
   data-plane 개체에는 서로 다른 형식화된 계획과 identity가 필요합니다.
 

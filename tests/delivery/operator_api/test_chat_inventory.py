@@ -780,9 +780,51 @@ async def test_inventory_execution_evidence_preserves_the_verified_query(prompt:
     projected = json.loads(inventory_execution_query(evidence))
 
     assert projected["authority"] == "server_inventory_graph"
+    assert projected["query_language"] == "IQL"
     assert projected["query"] == evidence["result"]["query"]
     assert projected["snapshot"]["source"] == "azure-resource-graph"
     assert not inventory_execution_query(evidence).lstrip().startswith("az ")
+
+
+async def test_inventory_execution_evidence_includes_only_actual_redacted_provider_receipt() -> (
+    None
+):
+    async def provider_with_receipt(*args: object, **kwargs: object) -> dict[str, Any]:
+        graph = await _provider(*args, **kwargs)
+        return {
+            **graph,
+            "provider_execution": {
+                "transport": "azure_cli",
+                "backend": "azure_resource_graph",
+                "executed": True,
+                "redacted": True,
+                "page_count": 1,
+                "commands": [
+                    {
+                        "label": "resources",
+                        "language": "azure_cli",
+                        "command": "az graph query --subscriptions <subscription-id>",
+                    }
+                ],
+            },
+        }
+
+    evidence = await InventoryChatTools(provider_with_receipt).resolve(
+        "중지된 VM은?",
+        principal_id="reader",
+    )
+    assert evidence is not None
+
+    projected = json.loads(inventory_execution_query(evidence))
+
+    assert projected["provider_execution"]["backend"] == "azure_resource_graph"
+    assert projected["provider_execution"]["commands"] == [
+        {
+            "label": "resources",
+            "language": "azure_cli",
+            "command": "az graph query --subscriptions <subscription-id>",
+        }
+    ]
 
 
 async def test_activity_execution_evidence_preserves_lookback_and_predicates() -> None:

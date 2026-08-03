@@ -271,7 +271,13 @@ finish synchronously. Cells wrap on narrow screens instead of widening the trans
 Detail includes bounded recorded metadata but doesn't repeat the answer body. Each expanded timeline
 event shows the available source-record detail, including evidence summaries and references, plan
 intent and format, answer source and model-call count, verification authority and checks, or model
-request and response metadata. Inventory execution displays the canonical turn query as `IQL`. A
+request and response metadata. A recorded-payload block appears for every applicable lane:
+operator input, IQL or command plus
+observed output, AnswerPlan, redacted model request and response, verification receipt, and terminal
+delivery receipt. A lane without that payload type still shows status, start, completion, and its
+available facts rather than an empty panel. The answer lane records delivery metadata and does not
+repeat the answer body.
+Inventory execution displays the canonical turn query as `IQL`. A
 strict redacted provider receipt appears below it as the actual snapshot-refresh backend and Azure
 CLI commands, with live scope values replaced by placeholders. The browser never derives provider
 commands from IQL or source names. Valid object or array JSON in provider messages, action arguments, commands, and outputs uses indented syntax highlighting and copy; malformed or plain text stays unchanged. The terminal replay payload retains final ID-deduplicated branch, activity, milestone, and redacted execution detail under a 64 KiB aggregate cap, truncates each history output at 32 KiB, and reports truncation and omission counts, so durable history and the live turn use the same strict parser and trajectory view. Unavailable or timed-out

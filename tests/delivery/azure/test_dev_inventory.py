@@ -367,6 +367,15 @@ class TestFullSnapshot:
         ):
             batches = asyncio.run(_drain(inventory))
 
+        receipt = inventory.query_receipt()
+        assert receipt is not None
+        assert receipt["backend"] == "azure_resource_graph"
+        assert receipt["page_count"] == 1
+        commands = receipt["commands"]
+        assert isinstance(commands, list)
+        assert "az group list" in commands[0]["command"]
+        assert "az graph query" in commands[1]["command"]
+
         resource_batch, final = batches
         assert {record.type for record in resource_batch.resources} == {
             "resource-group",
@@ -444,6 +453,12 @@ class TestFullSnapshot:
             "network.public-ip",
         }
         assert "azure_cli_inventory_arg_fallback" in caplog.text
+        receipt = inventory.query_receipt()
+        assert receipt is not None
+        assert receipt["backend"] == "azure_resource_manager"
+        commands = receipt["commands"]
+        assert isinstance(commands, list)
+        assert "az resource list" in commands[1]["command"]
 
     def test_discover_all_uses_arg_vm_power_state_without_vm_details(self) -> None:
         vm_id = (
