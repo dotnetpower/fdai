@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
 
 import pytest
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.testclient import TestClient
 
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
 from fdai.delivery.operator_api.routes.chat_evidence import (
     OperationalEvidenceResolver,
     _is_memory_incident_text,
@@ -20,6 +25,7 @@ from fdai.delivery.operator_api.routes.chat_incident_dossier import (
     IncidentDossierIntent,
     classify_incident_dossier_intent,
 )
+from fdai.delivery.operator_api.routes.chat_route_common import _uses_evidence_fast_path
 from fdai.delivery.operator_api.routes.chat_verification import verify_answer
 
 
@@ -81,6 +87,124 @@ OPERATIONAL_RUBRIC_NAMES = (
     "telemetry-reference",
     "no-unsupported-guess",
 )
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "가장 최근 인시던트를 핵심만 요약해줘.",
+        "최근 인시던트의 상태와 핵심 영향을 짧게 정리해줘.",
+        "최신 인시던트를 중요한 사실만 포함해서 요약해줘.",
+        "Summarize the latest incident, impact, status, and outcome.",
+        "Give a concise summary of the newest incident with impact, current state, and result.",
+        "What happened in the latest incident, who was affected, and how did it end?",
+        "이 인시던트의 검증된 근본 원인은 뭐야?",
+        "선택한 인시던트에서 근거로 확인된 root cause를 알려줘.",
+        "citation으로 검증된 인시던트 원인이 있으면 보여줘.",
+        "What is the strongest supported root cause for this incident?",
+        "Which root-cause hypothesis has the strongest evidence for the selected incident?",
+        "State the best-supported cause, or say that no grounded cause is confirmed.",
+    ),
+)
+def test_q061_q064_incident_language_requires_operational_evidence(prompt: str) -> None:
+    assert needs_operational_evidence(prompt) is True
+
+
+def test_matched_operational_evidence_uses_deterministic_fast_path() -> None:
+    assert (
+        _uses_evidence_fast_path(
+            {
+                "_operational_evidence": {
+                    "authority": "server_read_model",
+                    "status": "matched",
+                    "grounded_hypotheses": [{"cause": "bounded cause"}],
+                }
+            }
+        )
+        is True
+    )
+
+
+def test_operational_incident_turn_skips_planner_and_narrator_json_and_sse() -> None:
+    class Backend:
+        async def answer(self, **_kwargs: object) -> dict[str, str]:
+            raise AssertionError("operational evidence must skip narrator generation")
+
+        async def answer_stream(self, **_kwargs: object):  # type: ignore[no-untyped-def]
+            raise AssertionError("operational evidence must skip narrator generation")
+            yield {}
+
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> object:
+            raise AssertionError("operational evidence must skip semantic planning")
+
+    class Resolver:
+        async def resolve(self, prompt: str, *, conversation_context=None):  # type: ignore[no-untyped-def]
+            del prompt, conversation_context
+            return {
+                "authority": "server_read_model",
+                "status": "ambiguous",
+                "candidates": [
+                    {
+                        "correlation_id": "corr-a",
+                        "title": "Candidate A",
+                        "status": "open",
+                        "severity": "high",
+                        "last_updated_at": "2026-08-03T00:00:00Z",
+                        "involved_agents": [],
+                    },
+                    {
+                        "correlation_id": "corr-b",
+                        "title": "Candidate B",
+                        "status": "open",
+                        "severity": "high",
+                        "last_updated_at": "2026-08-03T00:01:00Z",
+                        "involved_agents": [],
+                    },
+                ],
+                "reason": "multiple incidents matched; ask the operator to choose one",
+            }
+
+    async def allow(request: Request) -> str:
+        del request
+        return "reader"
+
+    backend = Backend()
+    resolver = Resolver()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=allow,
+                evidence_resolver=resolver,  # type: ignore[arg-type]
+                turn_planner=Planner(),  # type: ignore[arg-type]
+            ),
+            make_chat_stream_route(
+                backend=backend,
+                authorize=allow,
+                evidence_resolver=resolver,  # type: ignore[arg-type]
+                turn_planner=Planner(),  # type: ignore[arg-type]
+            ),
+        ]
+    )
+
+    with TestClient(app) as client:
+        direct = client.post(
+            "/chat",
+            json={"prompt": "What is the strongest supported root cause for this incident?"},
+        )
+        streamed = client.post(
+            "/chat/stream",
+            json={"prompt": "What is the strongest supported root cause for this incident?"},
+        )
+
+    done = next(
+        json.loads(block.split("data: ", maxsplit=1)[1])
+        for block in streamed.text.split("\n\n")
+        if block.startswith("event: done\n")
+    )
+    assert direct.json()["verification"]["authority"] == "server_read_model"
+    assert done["verification"] == direct.json()["verification"]
 
 
 def _seed_memory_incident(
@@ -674,6 +798,52 @@ async def test_generic_timeline_language_requires_incident_selection() -> None:
     assert root_cause is not None
     assert root_cause["status"] == "ambiguous"
     assert len(root_cause["candidates"]) == 2
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "이 인시던트의 검증된 근본 원인은 뭐야?",
+        "선택한 인시던트에서 근거로 확인된 root cause를 알려줘.",
+        "citation으로 검증된 인시던트 원인이 있으면 보여줘.",
+        "What is the strongest supported root cause for this incident?",
+        "Which root-cause hypothesis has the strongest evidence for the selected incident?",
+        "State the best-supported cause, or say that no grounded cause is confirmed.",
+    ),
+)
+async def test_q063_q064_requires_selection_across_unequal_scores(prompt: str) -> None:
+    model = InMemoryConsoleReadModel()
+    _seed_memory_incident(model, "corr-memory-a")
+    _seed_memory_incident(model, "corr-memory-b")
+
+    evidence = await OperationalEvidenceResolver(model).resolve(prompt)
+
+    assert evidence is not None
+    assert evidence["status"] == "ambiguous"
+    assert len(evidence["candidates"]) == 2
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "경고부터 복구까지 타임라인을 보여줘.",
+        "첫 신호에서 복구 완료까지 인시던트 단계를 시간순으로 정리해줘.",
+        "탐지, 판단, 조치, 복구 이벤트를 순서대로 보여줘.",
+        "Build an ordered timeline from first signal through recovery.",
+        "Show the incident chronology from detection to final recovery.",
+        "List each observed incident phase in time order, ending with recovery.",
+    ),
+)
+async def test_q065_q066_timeline_requires_incident_selection(prompt: str) -> None:
+    model = InMemoryConsoleReadModel()
+    _seed_memory_incident(model, "corr-memory-a")
+    _seed_memory_incident(model, "corr-memory-b")
+
+    evidence = await OperationalEvidenceResolver(model).resolve(prompt)
+
+    assert evidence is not None
+    assert evidence["status"] == "ambiguous"
+    assert len(evidence["candidates"]) == 2
 
 
 async def test_exact_incident_binding_wins_over_equal_topic_matches() -> None:

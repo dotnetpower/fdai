@@ -62,6 +62,16 @@ _INCIDENT_ANALYSIS_INTENT: Final = re.compile(
     r"(?:결론.{0,24}(?:근거|증거)|(?:근거|증거).{0,24}결론)",
     re.IGNORECASE,
 )
+_INCIDENT_SELECTION_REQUIRED: Final = re.compile(
+    r"\b(?:root cause|best[- ]supported cause|grounded cause|causal\s+hypotheses|"
+    r"incident\s+(?:timeline|chronology)|timeline.{0,32}(?:recovery|incident)|"
+    r"incident\s+phase.{0,32}time\s+order)\b|"
+    r"(?:인시던트).{0,32}(?:원인|근본\s*원인|타임라인|가설)|"
+    r"(?:검증된|근거로\s*확인된|citation으로\s*검증된).{0,32}(?:원인|root cause)|"
+    r"(?:경고|첫\s*신호|탐지).{0,32}(?:복구|타임라인|시간순)|"
+    r"(?:원인\s*가설|가능한\s*원인).{0,32}(?:순위|근거|반증)",
+    re.IGNORECASE,
+)
 _WORD: Final = re.compile(r"[a-z][a-z0-9_-]{2,}", re.IGNORECASE)
 _STOP_WORDS: Final = frozenset(
     {
@@ -213,7 +223,9 @@ def needs_operational_evidence(
 
     operational = bool(
         (_OPERATIONAL_INTENT.search(prompt) or _INCIDENT_ANALYSIS_INTENT.search(prompt))
-        and not _CURRENT_SCREEN_ONLY.search(prompt)
+        and (
+            not _CURRENT_SCREEN_ONLY.search(prompt) or _EXPLICIT_OPERATIONAL_CONTEXT.search(prompt)
+        )
     )
     if not operational:
         return False
@@ -440,10 +452,11 @@ class OperationalEvidenceResolver:
                 )
             return matched
 
+        selection_required = _INCIDENT_SELECTION_REQUIRED.search(prompt) is not None
         candidates: list[tuple[int, int, IncidentSummary, Sequence[AuditItem]]] = []
         for index, (incident, audit_page) in enumerate(zip(page.items, audits, strict=True)):
             score = _score(terms, _search_text(incident, audit_page.items))
-            if not terms or score > 0:
+            if selection_required or not terms or score > 0:
                 candidates.append((score, index, incident, audit_page.items))
 
         if not candidates:
@@ -457,6 +470,14 @@ class OperationalEvidenceResolver:
 
         candidates.sort(key=lambda item: (-item[0], item[1]))
         recent_requested = bool(_RECENCY_INTENT.search(prompt))
+        if selection_required and len(candidates) > 1:
+            return {
+                "authority": "server_read_model",
+                "status": "ambiguous",
+                "topic_terms": list(terms),
+                "candidates": [_incident_dict(item[2]) for item in candidates[:5]],
+                "reason": "multiple incidents matched; ask the operator to choose one",
+            }
         if _SUMMARY_INTENT.search(prompt) and not recent_requested:
             return {
                 "authority": "server_read_model",

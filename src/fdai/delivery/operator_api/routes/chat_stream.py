@@ -60,6 +60,7 @@ from fdai.delivery.operator_api.routes.chat_document_evidence import (
     merge_document_verification,
     with_document_evidence,
 )
+from fdai.delivery.operator_api.routes.chat_evidence import needs_operational_evidence
 from fdai.delivery.operator_api.routes.chat_evidence_enrichment import (
     AgentChatDelegate,
     ChatBehaviorEvidenceResolver,
@@ -310,6 +311,7 @@ def make_chat_stream_route(
             or needs_log_query(evidence_prompt)
             or needs_action_context(evidence_prompt)
             or needs_conversation_context(evidence_prompt)
+            or needs_operational_evidence(evidence_prompt, view_context)
             or needs_current_time(evidence_prompt)
             or (freshness_context is not None and needs_evidence_freshness_context(clean_prompt))
         )

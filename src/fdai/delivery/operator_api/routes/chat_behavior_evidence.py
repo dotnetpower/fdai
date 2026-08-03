@@ -61,13 +61,22 @@ _BARE_DEFINITION_INTENT = re.compile(
     r"|^\s*(?:issue|incident)(?:의)?\s*(?:뜻|의미|정의)(?:은|는|이|가)?\s*\??\s*$",
     re.IGNORECASE,
 )
+_RUNTIME_INCIDENT_ANALYSIS = re.compile(
+    r"\b(?:root[- ]cause|causal\s+hypoth(?:esis|eses)|best[- ]supported\s+cause|"
+    r"grounded\s+cause)\b|"
+    r"(?:인시던트).{0,32}(?:원인|근본\s*원인|가설)|"
+    r"(?:검증된|근거로\s*확인된|citation으로\s*검증된).{0,32}(?:원인|root cause)",
+    re.IGNORECASE,
+)
 
 
 def is_behavior_question(prompt: str) -> bool:
     """Return whether the prompt asks about an indexed system behavior."""
     if (
-        _OPERATIONAL_STATE_INTENT.search(prompt) and not _CONTRACT_OVERRIDE_SUBJECT.search(prompt)
-    ) or _BARE_DEFINITION_INTENT.search(prompt):
+        (_OPERATIONAL_STATE_INTENT.search(prompt) and not _CONTRACT_OVERRIDE_SUBJECT.search(prompt))
+        or _BARE_DEFINITION_INTENT.search(prompt)
+        or _RUNTIME_INCIDENT_ANALYSIS.search(prompt)
+    ):
         return False
     return bool(
         _BEHAVIOR_SUBJECT.search(prompt) and (_BEHAVIOR_INTENT.search(prompt) or "?" in prompt)

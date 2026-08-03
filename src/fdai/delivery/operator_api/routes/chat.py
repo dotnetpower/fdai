@@ -529,6 +529,7 @@ def make_chat_route(
             or needs_log_query(evidence_prompt)
             or needs_action_context(evidence_prompt)
             or needs_conversation_context(evidence_prompt)
+            or needs_operational_evidence(evidence_prompt, view_context)
             or needs_current_time(evidence_prompt)
             or freshness_answer is not None
         )

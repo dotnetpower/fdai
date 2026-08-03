@@ -183,12 +183,7 @@ def _uses_evidence_fast_path(view_context: Mapping[str, Any]) -> bool:
     }:
         return True
     raw = view_context.get("_operational_evidence")
-    if not isinstance(raw, Mapping):
-        return False
-    if raw.get("status") != "matched":
-        return True
-    hypotheses = raw.get("grounded_hypotheses")
-    return not isinstance(hypotheses, list) or len(hypotheses) == 0
+    return isinstance(raw, Mapping)
 
 
 AuthorizeFn = Callable[[Request], Awaitable[str]]

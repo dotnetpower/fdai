@@ -89,6 +89,11 @@ BEHAVIOR_WEAKNESS_CASES = (
     BehaviorWeaknessCase("why is this incident open?", False),
     BehaviorWeaknessCase("what is an Issue?", False),
     BehaviorWeaknessCase("show recent incidents", False),
+    BehaviorWeaknessCase("What is the strongest supported root cause for this incident?", False),
+    BehaviorWeaknessCase(
+        "Which root-cause hypothesis has the strongest evidence for the selected incident?",
+        False,
+    ),
     BehaviorWeaknessCase("restart the database", False),
     BehaviorWeaknessCase("db 에는 어떤 데이터가 있어?", False, korean=True),
     BehaviorWeaknessCase("show Azure resources", False),
