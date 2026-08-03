@@ -624,6 +624,23 @@ variable "console_region" {
   }
 }
 
+variable "enable_design_mocks" {
+  description = "Provision the isolated Azure Static Web App for the allowlisted design-review artifact."
+  type        = bool
+  default     = false
+}
+
+variable "design_mocks_region" {
+  description = "Region for the design-mocks Static Web App. This is decoupled from var.region because Static Web Apps is not available in every region."
+  type        = string
+  default     = "eastasia"
+
+  validation {
+    condition     = contains(["westus2", "centralus", "eastus2", "westeurope", "eastasia"], var.design_mocks_region)
+    error_message = "design_mocks_region must be an Azure Static Web Apps region: westus2, centralus, eastus2, westeurope, eastasia."
+  }
+}
+
 # ---------------------------------------------------------------------------
 # Operator console Operator API (layer 3 backend) - Azure Container App serving
 # `fdai.delivery.operator_api.prod:app`. Default off so the day-zero deploy stays

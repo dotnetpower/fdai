@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 3b863894cffeedfe511c792b6674da1f7052678b
-translation_revised: 2026-08-02
+translation_source_sha: 7b35d005622418d9e0cbd2d487065dc392a342d6
+translation_revised: 2026-08-03
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
@@ -360,6 +360,15 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
   Operator API command identity는 proposal/HIL decision을 send하고 stage topic을 receive합니다.
   Document ingestion은 `aw.pipeline.stages`로 제한됩니다.
 - **Static Web Apps (Free tier, opt-in)** - `enable_console=true`일 때 읽기 전용 콘솔을 호스팅합니다.
+- **Design-mocks Static Web App (Free tier, opt-in)** - `enable_design_mocks=true`일 때 격리된
+  정적 디자인 검토 아티팩트를 호스팅합니다. 아티팩트 빌더는 `index.html`, `mocks/`,
+  `examples/`, 공유 agent icon에서 허용된 브라우저 자산만 복사합니다. Static Web Apps
+  인증은 익명 요청을 Microsoft Entra ID로 리디렉션하고 초대된 `reviewer` 역할 구성원만
+  허용합니다. 보호된 exact-apply workflow는 Terraform 소유 리소스에서 배포 토큰을 읽고
+  마스킹한 다음 허용 목록 아티팩트를 게시하고 인증 리디렉션을 확인합니다. 토큰은 커밋하거나
+  repository secret으로 저장하지 않습니다. 이 경로는 `module.design_mocks`만 대상으로 하며,
+  해당 모듈 외부의 리소스 변경이 계획되면 차단하고 core canary와 다른 runtime reconcile을
+  건너뜁니다.
 - **Workload identity federation** - CI/CD 단명 OIDC 토큰; 리소스 아님, 비용 없음.
 
 ### Document ingestion 배포

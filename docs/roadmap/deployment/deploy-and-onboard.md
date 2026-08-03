@@ -358,6 +358,15 @@ Additional identity, channel, and console elements are deployment-owned or opt-i
   topic. Document ingestion is limited to `aw.pipeline.stages`.
 - **Static Web Apps (Free tier, opt-in)** - hosts the read-only console when
   `enable_console=true`.
+- **Design-mocks Static Web App (Free tier, opt-in)** - hosts the isolated static design-review
+  artifact when `enable_design_mocks=true`. The artifact builder copies only allowlisted browser
+  assets from `index.html`, `mocks/`, `examples/`, and the shared agent icons. Static Web Apps
+  authentication redirects anonymous requests to Microsoft Entra ID and admits only invited
+  members of the `reviewer` role. The protected exact-apply workflow reads the deployment token
+  from the Terraform-owned resource, masks it, publishes the allowlisted artifact, and verifies
+  the authentication redirect. This path targets only `module.design_mocks`, rejects any planned
+  resource change outside that module, and skips core canary and other runtime reconciliation.
+  The token is never committed or stored as a repository secret.
 - **Workload identity federation** - CI/CD short-lived OIDC tokens; not a resource, no cost.
 
 ### Document ingestion deployment

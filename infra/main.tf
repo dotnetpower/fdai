@@ -48,6 +48,14 @@ locals {
   region_suffix = var.region_short == "" ? "" : "-${var.region_short}"
   full_suffix   = "${local.env_suffix}${local.region_suffix}"
 
+  static_web_app_region_shorts = {
+    westus2    = "wus2"
+    centralus  = "cus"
+    eastus2    = "eus2"
+    westeurope = "weu"
+    eastasia   = "ea"
+  }
+
   # ACR names cannot contain hyphens (5-50, alphanumeric only).
   # Strip hyphens from the composed suffix.
   acr_suffix = replace(local.full_suffix, "-", "")
@@ -1734,6 +1742,22 @@ module "console" {
   location            = var.console_region
   resource_group_name = module.resource_group.name
   tags                = local.tags
+}
+
+# -----------------------------------------------------------------------
+# Design mocks (opt-in) - isolated Azure Static Web App hosting only the
+# allowlisted static design-review artifact. It has no API or runtime identity.
+# -----------------------------------------------------------------------
+module "design_mocks" {
+  count  = var.enable_design_mocks ? 1 : 0
+  source = "./modules/design-mocks/static-web-app"
+
+  name                = "stapp-${var.workload}-design-mocks${local.env_suffix}-${local.static_web_app_region_shorts[var.design_mocks_region]}"
+  location            = var.design_mocks_region
+  resource_group_name = module.resource_group.name
+  tags = merge(local.tags, {
+    "fdai:component" = "design-mocks"
+  })
 }
 
 # -----------------------------------------------------------------------
