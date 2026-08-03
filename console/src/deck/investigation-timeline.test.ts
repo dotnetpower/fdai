@@ -188,8 +188,9 @@ describe("upsertEvidenceBranch", () => {
     expect(trajectory).toContain('class="deck-trajectory-results"');
     expect(trajectory).toContain('class="deck-trajectory-signals"');
     expect(trajectory).toContain('useState(presentation.workProgress === "timeline")');
-    expect(trajectory).toContain('if (presentation.workProgress === "compact")');
-    expect(trajectory).toContain("if (trajectory.observedTurns.length > 0) return null;");
+    expect(trajectory).toContain("trajectory.question.text");
+    expect(trajectory).not.toContain('if (presentation.workProgress === "none") return null;');
+    expect(trajectory).not.toContain('if (presentation.workProgress === "compact")');
     expect(trajectory).toContain("open={open}");
     expect(trajectory).toContain("function phaseMark(");
     expect(trajectory).toContain('class="deck-trajectory-records"');
@@ -201,6 +202,9 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toContain(".deck-overlay-mode-workspace .deck-transcript-tools {");
     expect(styles).toContain(".deck-trajectory-goal-status.is-skipped");
     expect(styles).toContain(".deck-trajectory-title-copy");
+    expect(styles).toMatch(
+      /\.deck-trajectory-question strong\s*\{[^}]*overflow-wrap:\s*anywhere;[^}]*white-space:\s*normal;/,
+    );
     expect(styles).toMatch(
       /\.deck-body\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/,
     );

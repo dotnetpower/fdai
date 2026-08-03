@@ -21,7 +21,6 @@ import {
   type TrajectoryPhase,
   type TrajectoryPhaseState,
 } from "./conversation-trajectory-presentation";
-import { InvestigationTimeline } from "./investigation-timeline";
 import { JsonCodeBlock } from "./json-code-block";
 import { ModelTraceWaterfall } from "./model-trace-waterfall";
 
@@ -59,18 +58,8 @@ export function ConversationTrajectoryView({
   const startedAt = firstValidTimestamp(trajectory.startedAt, trajectory.question.at);
   const completedAt = firstValidTimestamp(trajectory.completedAt, trajectory.answer.at);
 
-  if (presentation.workProgress === "none") return null;
-  if (presentation.workProgress === "compact") {
-    if (trajectory.observedTurns.length > 0) return null;
-    return (
-      <div class="deck-trajectory-cluster is-compact">
-        <InvestigationTimeline activities={activities} branches={branches} running={false} />
-      </div>
-    );
-  }
-
   return (
-    <div class="deck-trajectory-cluster is-timeline">
+    <div class={`deck-trajectory-cluster is-${presentation.workProgress}`}>
       <div class="deck-trajectory-results" aria-label={t("deck.trajectory.title")}>
         <span data-state="observed">
           {t("deck.trajectory.activitySummary", {

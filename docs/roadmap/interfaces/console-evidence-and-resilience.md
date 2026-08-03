@@ -204,16 +204,17 @@ provider payloads, and validation results remain unchanged.
 ## Observed conversation trajectory
 
 Each Command Deck question selects the smallest presentation supported by observed work. A turn with
-no activity, handoff, or background task shows only the answer. One successful terminal read uses a
-compact investigation row and doesn't repeat a run record below the answer. Multiple activities,
+no activity, handoff, or background task keeps a collapsed run record. One successful terminal read
+uses a compact investigation row and a collapsed run record. Multiple activities,
 milestones, retries, failures, handoffs, commands, or file changes use an expanded timeline by
 default. A durable background task uses a detached task summary. Restored compact turns reconstruct
 the observed row from durable detail, while live turns retain the row already shown in causal order.
+Every completed answer keeps its trajectory summary and bounded original operator prompt visible.
 
 The status overview distinguishes completed, corrected, degraded, failed, unverified, running, and
 unobserved phases; record presence isn't success. Result chips report observed query and command
 counts, evidence completion, references, and verification rather than internal event totals. The
-run-record summary retains a bounded one-line copy of the operator prompt, and changing its disclosure
+run-record summary retains the complete bounded operator prompt and wraps it on narrow layouts. Changing its disclosure
 scrolls only the transcript while the composer remains visible at the Deck boundary. The expanded
 view leads with the six-phase rail,
 expandable observed-event timeline, and provenance signals, while timing windows, decision context, phase records, and coverage gaps remain in one

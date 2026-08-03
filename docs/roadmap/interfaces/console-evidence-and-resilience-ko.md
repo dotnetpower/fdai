@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 0e989c1dcdd1c694691bd53e51617b288fe7e6b1
+translation_source_sha: bfb4e9be5808142f2c650f8ae67e00f856e0d409
 translation_revised: 2026-08-03
 ---
 
@@ -203,16 +203,17 @@ provider payload 및 validation result는 변경하지 않습니다.
 ## 관찰된 대화 트래젝터리
 
 각 Command Deck 질문은 관측된 작업이 뒷받침하는 가장 작은 presentation을 선택합니다. Activity,
-handoff 또는 background task가 없는 turn은 answer만 표시합니다. 성공한 단일 terminal read는 compact
-investigation row를 사용하고 answer 아래에 run record를 반복하지 않습니다. 여러 activity, milestone,
+handoff 또는 background task가 없는 turn도 접힌 run record를 유지합니다. 성공한 단일 terminal read는
+compact investigation row와 접힌 run record를 함께 사용합니다. 여러 activity, milestone,
 retry, failure, handoff, command 또는 file change가 있으면 timeline을 기본으로 펼칩니다. Durable
 background task는 detached task summary를 사용합니다. 복원된 compact turn은 durable detail에서
-observed row를 재구성하고 live turn은 인과 순서로 이미 표시한 row를 유지합니다.
+observed row를 재구성하고 live turn은 인과 순서로 이미 표시한 row를 유지합니다. 완료된 모든 answer는
+trajectory summary와 bounded original operator prompt를 표시합니다.
 
 상태 개요는 완료, 수정 후 완료, 일부 저하, 실패, 검증 미완료, 진행 중 및 관측되지 않음을 구분하며
 record 존재를 성공으로 표시하지 않습니다. Result chip은 내부 event total 대신 관측된 query와
 command count, evidence completion, reference 및 verification을 표시합니다. Run-record summary는
-operator prompt를 bounded 한 줄로 유지합니다. Disclosure를 변경하면 transcript만 scroll하고 composer는
+complete bounded operator prompt를 유지하고 좁은 layout에서는 줄바꿈합니다. Disclosure를 변경하면 transcript만 scroll하고 composer는
 Deck 경계에 계속 표시됩니다. 펼친 view는 6단계 rail, 펼칠 수 있는 observed-event timeline 및 provenance signal을 먼저 표시하고,
 timing window, decision context, phase record 및 coverage gap은 하나의 접힌 execution-details disclosure에
 유지합니다. Preparing-answer surface는 final answer streaming이 시작될 때까지 operator turn과 observed
