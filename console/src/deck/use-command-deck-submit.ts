@@ -29,6 +29,7 @@ import {
   shouldFlushStreamPaintSynchronously,
   terminalRevealChunks,
 } from "./stream-paint";
+import { completedWorkRevealTarget } from "./scroll-stick";
 import { backendHistoryForTurns } from "./turn-history";
 
 const MIN_PREPARING_VISIBLE_MS = 420;
@@ -67,7 +68,7 @@ interface UseCommandDeckSubmitOptions {
   readonly updateConversationIndex: (summary: ConversationSummary) => void;
   readonly focusInput: () => void;
   readonly pinTranscriptToLatest: () => void;
-  readonly revealCompletedWork: (turnId: string) => void;
+  readonly revealCompletedWork: (turnId: string, childSelector?: string) => void;
 }
 
 function shortTime(): string {
@@ -548,7 +549,12 @@ export function useCommandDeckSubmit({
           return next;
         });
         const firstActivityTurnId = activityTurnIds.values().next().value;
-        revealCompletedWork(firstActivityTurnId ?? deckId);
+        const revealTarget = completedWorkRevealTarget(
+          deckId,
+          firstActivityTurnId,
+          (reply.incidentCandidates?.length ?? 0) > 0,
+        );
+        revealCompletedWork(revealTarget.turnId, revealTarget.childSelector);
       }
     } finally {
       if (isCurrent()) {

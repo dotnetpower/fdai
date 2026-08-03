@@ -34,3 +34,22 @@ export function revealTargetScrollTop(
 ): number {
   return Math.max(0, currentScrollTop + targetTop - scrollerTop - padding);
 }
+
+export interface CompletedWorkRevealTarget {
+  readonly turnId: string;
+  readonly childSelector?: string;
+}
+
+export function completedWorkRevealTarget(
+  deckTurnId: string,
+  firstActivityTurnId: string | undefined,
+  hasIncidentCandidates: boolean,
+): CompletedWorkRevealTarget {
+  if (hasIncidentCandidates) {
+    return {
+      turnId: deckTurnId,
+      childSelector: ".deck-incident-candidates",
+    };
+  }
+  return { turnId: firstActivityTurnId ?? deckTurnId };
+}

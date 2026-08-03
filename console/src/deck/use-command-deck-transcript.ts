@@ -104,13 +104,19 @@ export function useCommandDeckTranscript({
     });
   }, []);
 
-  const revealCompletedWork = useCallback((turnId: string) => {
+  const revealCompletedWork = useCallback((
+    turnId: string,
+    childSelector?: string,
+  ) => {
     anchoredUntilRef.current = performance.now() + 1000;
     setStuck(false);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const scroller = scrollerRef.current;
-        const target = document.getElementById(`deck-turn-${turnId}`);
+        const turn = document.getElementById(`deck-turn-${turnId}`);
+        const target = childSelector
+          ? turn?.querySelector<HTMLElement>(childSelector) ?? turn
+          : turn;
         if (!scroller || !target || !scroller.contains(target)) return;
         scroller.scrollTop = revealTargetScrollTop(
           scroller.scrollTop,

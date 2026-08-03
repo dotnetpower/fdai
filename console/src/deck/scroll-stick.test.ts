@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
+  completedWorkRevealTarget,
   isNearBottom,
   revealTargetScrollTop,
   STICK_THRESHOLD_PX,
@@ -56,5 +57,20 @@ describe("revealTargetScrollTop", () => {
 
     expect(answerStart).toBeGreaterThan(-1);
     expect(terminalUpdate).toBeGreaterThan(answerStart);
+  });
+});
+
+describe("completedWorkRevealTarget", () => {
+  it("reveals incident choices instead of anchoring the investigation start", () => {
+    expect(completedWorkRevealTarget("deck-answer", "activity-start", true)).toEqual({
+      turnId: "deck-answer",
+      childSelector: ".deck-incident-candidates",
+    });
+  });
+
+  it("preserves the investigation anchor for ordinary replies", () => {
+    expect(completedWorkRevealTarget("deck-answer", "activity-start", false)).toEqual({
+      turnId: "activity-start",
+    });
   });
 });
