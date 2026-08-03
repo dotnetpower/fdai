@@ -30,6 +30,13 @@
     "briefing": "FDAI가 운영 문제를 감지했지만 {scope}의 {capability} 권한이 없어 조사가 중단되었습니다.",
     "context": "{scope}의 {capability}에 대한 시간 제한 최소 권한 요청이 대기 중입니다. 만료 시각은 {expires}입니다. 이 대화는 권한을 부여하거나 적용할 수 없으며, 독립 승인과 새로운 접근 확인이 필요합니다."
   },
+  "incidentAttention": {
+    "badge": "인시던트 {count}",
+    "open": "활성 인시던트 대화 {count}건 열기",
+    "sessionLabel": "인시던트 {ticket}",
+    "briefing": "FDAI가 {severity} 운영 인시던트를 감지했습니다: {title}",
+    "context": "런타임 감지 결과 인시던트 {ticket}이 열렸으며 상관관계 ID는 {correlation}입니다. 근본 원인이나 복구를 판단하기 전에 인시던트 근거를 확인하세요."
+  },
   "shared": {
     "loading": "불러오는 중...",
     "loadingResource": "{resource} 불러오는 중...",

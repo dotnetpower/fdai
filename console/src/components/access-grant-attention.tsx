@@ -1,6 +1,11 @@
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
-import { openDeckWithContext, type DeckOpenDetail } from "../deck/open-deck";
+import {
+  DECK_OPEN_READY_EVENT,
+  isDeckOpenListenerReady,
+  openDeckWithContext,
+  type DeckOpenDetail,
+} from "../deck/open-deck";
 import {
   useAccessGrantStream,
   type AccessGrantRequestProjection,
@@ -35,15 +40,22 @@ export function AccessGrantAttention({ client, principalId }: Props) {
     enabled: Boolean(principalId),
     getAuthorizationHeader: client.authorizationHeader,
   });
+  const [deckReady, setDeckReady] = useState(isDeckOpenListenerReady);
   const opened = useRef(new Set<string>());
   const first = requests[0];
 
   useEffect(() => {
-    if (!first || opened.current.has(first.request_id) || document.hidden) return;
+    const markReady = () => setDeckReady(true);
+    window.addEventListener(DECK_OPEN_READY_EVENT, markReady);
+    return () => window.removeEventListener(DECK_OPEN_READY_EVENT, markReady);
+  }, []);
+
+  useEffect(() => {
+    if (!deckReady || !first || opened.current.has(first.request_id) || document.hidden) return;
     if (openDeckWithContext(accessGrantDeckDetail(first))) {
       opened.current.add(first.request_id);
     }
-  }, [first]);
+  }, [deckReady, first]);
 
   if (!first) return null;
   return (

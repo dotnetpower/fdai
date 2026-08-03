@@ -14,6 +14,7 @@ import {
 import { panelPath } from "../router";
 import { BrowserNotificationControl } from "./browser-notification-control";
 import { AccessGrantAttention } from "./access-grant-attention";
+import { IncidentAttention } from "./incident-attention";
 import { NavigationShell } from "./navigation-shell";
 import { NavigationTitleProvider } from "./navigation-title";
 
@@ -65,6 +66,7 @@ export function Shell({ activePanelId, auth, client, children, onExitLocalSessio
           <span class="brand-product">{t("shell.console")}</span>
         </a>
         <div class="principal">
+          <IncidentAttention client={client} />
           <AccessGrantAttention
             client={client}
             principalId={auth.account?.homeAccountId ?? null}

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 9aaaddaa0a3685548fb1f6c31f58ccaa959ea6fd
+translation_source_sha: c137f41e0f1644d21742121939615690323d7467
 translation_revised: 2026-08-04
 ---
 
@@ -96,6 +96,13 @@ expiry가 포함된 request-scoped conversation을 엽니다. 진행 중인 작�
 tab이 있으면 conversation을 바꾸지 않고 visible badge를 유지합니다. Conversation은 context만
 제공하며 approval, protected deployment, fresh access verification 및 revocation은 authorization
 workflow에 남습니다.
+
+인증된 `GET /incidents/stream` route는 durable incident read model에서 최대 50개의 active incident를
+project합니다. 새 active incident가 관찰되면 tab과 Command Deck이 idle 상태일 때 incident에 연결된
+conversation을 시작합니다. 진행 중인 작업, 전송하지 않은 draft 또는 hidden tab이 있으면
+active-incident badge를 대신 유지합니다. Reconnect는 일시적인 agent-activity frame에 의존하지 않고
+durable state에서 snapshot을 다시 만듭니다. Browser는 incident와 correlation selector만 보내며,
+server는 답변의 근거로 사용하기 전에 해당 binding을 다시 resolve합니다.
 
 ### Operations task view
 

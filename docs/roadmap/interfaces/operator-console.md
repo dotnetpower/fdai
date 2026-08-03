@@ -14,6 +14,9 @@ defined in [console-operations.md](console-operations.md), and the SPA lives und
 [project-structure.md § console/](../architecture/project-structure.md#console-static-web-app); evidence provenance, stream recovery, localization, and Architecture-map resilience are owned by [console-evidence-and-resilience.md](console-evidence-and-resilience.md). The Ontology map renders one generated catalog knowledge graph from `rule-catalog` and `PANTHEON_SPECS`; it doesn't read Architecture or runtime inventory.
 Settings > Integrations can preview the production incident-open email renderer with synthetic
 placeholders. That GET-only preview does not send mail or grant approval or execution authority.
+The authenticated active-incident stream can open an idle Command Deck with an incident selector.
+That selector is a presentation hint only; the server re-resolves the durable incident and its
+evidence before answering, and the browser never auto-submits a turn.
 This doc covers the **pull direction** - the operator asks, simulates,
 approves - across every channel the notification doc already ships adapters
 for. Push and pull share the same channel credentials and the same audit

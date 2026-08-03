@@ -79,6 +79,7 @@ _CORE_ROUTE_PATHS: frozenset[str] = frozenset(
         "/kpi",
         "/hil-queue",
         "/incidents",
+        "/incidents/stream",
         "/rca",
         "/healthz",
         "/system/kill-switch",
@@ -281,6 +282,17 @@ def build_app(
     )
 
     routes.append(make_notification_template_route(authorize=_authorize))
+
+    from fdai.delivery.operator_api.routes.incident_attention_stream import (
+        make_incident_attention_stream_route,
+    )
+
+    routes.append(
+        make_incident_attention_stream_route(
+            read_model=read_model,
+            authorize=_authorize,
+        )
+    )
 
     if resolved_config.conversation_assurance_ledger is not None:
         from fdai.delivery.operator_api.routes.conversation_assurance import (

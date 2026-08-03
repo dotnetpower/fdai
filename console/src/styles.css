@@ -679,7 +679,8 @@ a:hover {
   opacity: 0.62;
 }
 
-.topbar .principal .access-grant-attention {
+.topbar .principal .access-grant-attention,
+.topbar .principal .incident-attention {
   border-color: color-mix(in oklab, var(--warning) 55%, var(--border));
   background: color-mix(in oklab, var(--warning) 10%, var(--bg-elevated));
   color: var(--warning);

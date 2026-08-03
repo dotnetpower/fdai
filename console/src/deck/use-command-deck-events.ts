@@ -6,6 +6,7 @@ import { DEFAULT_NARRATOR } from "./command-deck-presenters";
 import { record as recordHistory, type DraftHistory } from "./draft-history";
 import {
   DECK_OPEN_EVENT,
+  setDeckOpenListenerReady,
   installWorkspaceDeckNavigationHandler,
   type DeckOpenDetail,
   type IncidentConversationBinding,
@@ -297,7 +298,11 @@ export function useCommandDeckEvents(options: EventsOptions) {
       openDeck();
     };
     window.addEventListener(DECK_OPEN_EVENT, onOpenDeck);
-    return () => window.removeEventListener(DECK_OPEN_EVENT, onOpenDeck);
+    setDeckOpenListenerReady(true);
+    return () => {
+      setDeckOpenListenerReady(false);
+      window.removeEventListener(DECK_OPEN_EVENT, onOpenDeck);
+    };
   }, [
     draft,
     historyRef,

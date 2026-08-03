@@ -11,6 +11,7 @@
 
 /** The window event name the CommandDeck listens for. */
 export const DECK_OPEN_EVENT = "fdai:deck:open";
+export const DECK_OPEN_READY_EVENT = "fdai:deck:open-ready";
 
 /** Cancelable request used by Activity Bar group navigation. */
 export const DECK_WORKSPACE_NAVIGATION_EVENT = "fdai:deck:workspace-navigation";
@@ -54,6 +55,19 @@ export interface DeckOpenDetail {
   readonly onlyWhenIdle?: boolean;
 }
 
+let deckOpenListenerReady = false;
+
+export function isDeckOpenListenerReady(): boolean {
+  return deckOpenListenerReady;
+}
+
+export function setDeckOpenListenerReady(ready: boolean): void {
+  deckOpenListenerReady = ready;
+  if (ready && typeof window !== "undefined" && typeof Event !== "undefined") {
+    window.dispatchEvent(new Event(DECK_OPEN_READY_EVENT));
+  }
+}
+
 /**
  * Raise the Command Deck, optionally seeding its input with `prompt`.
  *
@@ -76,6 +90,7 @@ export function openDeckWithPrompt(prompt?: string): void {
  */
 export function openDeckWithContext(detail: DeckOpenDetail): boolean {
   if (typeof window === "undefined" || typeof CustomEvent === "undefined") return false;
+  if (!deckOpenListenerReady) return false;
   return window.dispatchEvent(new CustomEvent<DeckOpenDetail>(DECK_OPEN_EVENT, {
     detail,
     cancelable: true,

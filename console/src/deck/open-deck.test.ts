@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DECK_OPEN_EVENT,
+  isDeckOpenListenerReady,
   DECK_WORKSPACE_NAVIGATION_EVENT,
   installWorkspaceDeckNavigationHandler,
   openDeckWithContext,
   openDeckWithPrompt,
   requestWorkspaceDeckCloseForNavigation,
+  setDeckOpenListenerReady,
 } from "./open-deck";
 
 class FakeCustomEvent<T> {
@@ -18,6 +20,7 @@ class FakeCustomEvent<T> {
 }
 
 afterEach(() => {
+  setDeckOpenListenerReady(false);
   vi.unstubAllGlobals();
 });
 
@@ -56,15 +59,27 @@ describe("openDeckWithPrompt", () => {
 });
 
 describe("openDeckWithContext", () => {
+  it("defers until the lazy Command Deck listener is ready", () => {
+    const dispatch = vi.fn();
+    vi.stubGlobal("CustomEvent", FakeCustomEvent);
+    vi.stubGlobal("window", { dispatchEvent: dispatch });
+
+    expect(isDeckOpenListenerReady()).toBe(false);
+    expect(openDeckWithContext({ onlyWhenIdle: true })).toBe(false);
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
   it("reports when an idle-only open request is deferred", () => {
     vi.stubGlobal("CustomEvent", FakeCustomEvent);
     vi.stubGlobal("window", { dispatchEvent: () => false });
+    setDeckOpenListenerReady(true);
 
     expect(openDeckWithContext({ onlyWhenIdle: true })).toBe(false);
   });
 
   it("dispatches a fresh agent-conversation request", () => {
     const dispatched: FakeCustomEvent<Record<string, unknown>>[] = [];
+    setDeckOpenListenerReady(true);
     vi.stubGlobal("CustomEvent", FakeCustomEvent);
     vi.stubGlobal("window", {
       dispatchEvent: (event: FakeCustomEvent<Record<string, unknown>>) =>
@@ -88,6 +103,7 @@ describe("openDeckWithContext", () => {
 
   it("dispatches a structured incident binding", () => {
     const dispatched: FakeCustomEvent<Record<string, unknown>>[] = [];
+    setDeckOpenListenerReady(true);
     vi.stubGlobal("CustomEvent", FakeCustomEvent);
     vi.stubGlobal("window", {
       dispatchEvent: (event: FakeCustomEvent<Record<string, unknown>>) =>

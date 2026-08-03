@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 19570380eb6bc5fc34f5e13cfd5d28cc1aa46e9a
-translation_revised: 2026-08-03
+translation_source_sha: 064066b263be3bb8ee54b911c733043e3f02c7b9
+translation_revised: 2026-08-04
 ---
 
 # FDAI Console 대화
@@ -16,6 +16,9 @@ Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](cha
 [project-structure.md § console/](../architecture/project-structure-ko.md#console-static-web-app)에 있습니다. Evidence provenance, stream recovery, localization 및 Architecture map resilience는 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. 온톨로지 맵은 `rule-catalog`와 `PANTHEON_SPECS`에서 생성된 하나의 카탈로그 지식 그래프를 렌더링하며 Architecture 또는 런타임 인벤토리를 읽지 않습니다.
 Settings > Integrations에서는 합성 placeholder로 production incident-open email renderer를 미리 볼 수
 있습니다. 이 GET-only preview는 email을 보내거나 승인 또는 실행 권한을 부여하지 않습니다.
+인증된 active-incident stream은 idle Command Deck을 incident selector와 함께 열 수 있습니다. 이
+selector는 presentation hint일 뿐입니다. Server는 답변 전에 durable incident와 evidence를 다시
+resolve하며 browser는 turn을 자동 제출하지 않습니다.
 
 이 문서는 **pull 방향**, 즉 오퍼레이터가 묻고 시뮬레이션하고 승인하는 경로를 다룹니다.
 Push와 pull은 같은 채널 credential과 audit 계약을 공유하지만 서로 다른 통합

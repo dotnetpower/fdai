@@ -96,6 +96,13 @@ or a hidden tab keeps a visible badge instead of switching conversations. The co
 context only; approval, protected deployment, fresh access verification, and revocation remain in
 the authorization workflow.
 
+The authenticated `GET /incidents/stream` route projects up to 50 active incidents from the durable
+incident read model. A newly observed active incident starts an incident-bound conversation when
+the tab and Command Deck are idle. Active work, an unsent draft, or a hidden tab keeps an
+active-incident badge instead. Reconnect rebuilds the snapshot from durable state instead of
+depending on a transient agent-activity frame. The browser sends only the incident and correlation
+selectors; the server re-resolves that binding before it can support an answer.
+
 ### Operations task view
 
 The Tasks view is a presentation-level federation, not an ontology object or system of record. It
