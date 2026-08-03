@@ -237,6 +237,9 @@ browser still receives canonical Markdown or fenced chart data from the determin
 The status overview distinguishes completed, corrected, degraded, failed, unverified, running, and
 unobserved phases; record presence isn't success. Result chips report observed query and command
 counts, evidence completion, references, and verification rather than internal event totals. The
+serialized `unverified` status remains stable for replay. Its primary Console label is derived from
+the bounded reason code as Context required, Source unavailable, Invalid query, or Unsupported
+claim, while technical detail retains the canonical status and raw reason code. The
 run-record summary retains the complete bounded operator prompt and wraps it on narrow layouts. Changing its disclosure
 scrolls only the transcript while the composer remains visible at the Deck boundary. The expanded
 view leads with the six-phase rail,

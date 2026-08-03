@@ -2060,6 +2060,10 @@
         "verified": "검증됨",
         "consistent": "근거와 일치",
         "corrected": "수정됨",
+        "contextRequired": "Context 필요",
+        "sourceUnavailable": "Source 사용 불가",
+        "invalidQuery": "Query 검증 실패",
+        "unsupportedClaim": "근거 없는 claim",
         "unverified": "검증되지 않음"
       },
       "verificationLabel": {
@@ -2072,6 +2076,10 @@
         "corrected": "근거 검증 후 수정됨{claims}",
         "consistent": "{scope}와 일치{claims}",
         "consistentNoClaims": "{scope}와 일치하지만 구조화된 claim은 없음",
+        "contextRequired": "필요한 conversation context가 없습니다{claims}",
+        "sourceUnavailable": "Authoritative source를 사용할 수 없습니다{claims}",
+        "invalidQuery": "Read query가 strict validation을 통과하지 못했습니다{claims}",
+        "unsupportedClaim": "하나 이상의 claim을 근거로 뒷받침할 수 없습니다{claims}",
         "unverified": "검증을 완료하지 못함{claims}",
         "scope": {
           "currentScreen": "현재 화면",

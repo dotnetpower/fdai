@@ -30,6 +30,7 @@ import type {
 import { confirmActionDraft, renderActionResult } from "./backend";
 import { RichContent } from "./rich-content";
 import { relevantCitations, type Citation } from "./citations";
+import { unverifiedDetailLabel, verificationPrimaryLabel } from "./verification-presentation";
 import {
   buildSources,
   citationMarks,
@@ -418,7 +419,7 @@ function shortVerificationStatus(
     case "corrected":
       return t("deck.grounded.verificationStatus.corrected");
     case "unverified":
-      return t("deck.grounded.verificationStatus.unverified");
+      return verificationPrimaryLabel(verification);
   }
 }
 
@@ -588,6 +589,6 @@ export function verificationLabel(verification: AnswerVerification): string {
           })
         : t("deck.grounded.verificationLabel.consistentNoClaims", { scope: evidenceScope });
     case "unverified":
-      return t("deck.grounded.verificationLabel.unverified", { claims: claimSummary });
+      return unverifiedDetailLabel(verification, claimSummary);
   }
 }

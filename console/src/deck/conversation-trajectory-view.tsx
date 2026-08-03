@@ -15,6 +15,7 @@ import {
   TrajectoryCoverage,
   TrajectoryDecisionContext,
 } from "./conversation-trajectory-decision-context";
+import { verificationPrimaryLabel } from "./verification-presentation";
 import {
   buildTrajectoryPresentation,
   TRAJECTORY_PHASES,
@@ -299,12 +300,13 @@ function VerificationPhase({ trajectory, index, state }: {
 }) {
   const verification = trajectory.answer.verification;
   if (!verification) return null;
+  const statusLabel = verificationPrimaryLabel(verification);
   return (
     <TrajectoryPhase index={index} phase="verification" state={state}
       heading={t("deck.trajectory.phase.verification")}
-      summary={`${t(`deck.grounded.verificationStatus.${verification.status}`)} / ${verification.checks_completed}/${verification.checks_total}`}>
+      summary={`${statusLabel} / ${verification.checks_completed}/${verification.checks_total}`}>
       <dl class="deck-trajectory-facts">
-        <dt>{t("deck.trajectory.status")}</dt><dd>{t(`deck.grounded.verificationStatus.${verification.status}`)}</dd>
+        <dt>{t("deck.trajectory.status")}</dt><dd>{statusLabel}</dd>
         <dt>{t("deck.trajectory.checks")}</dt><dd>{verification.checks_completed}/{verification.checks_total}</dd>
       </dl>
       <details class="deck-trajectory-nested">

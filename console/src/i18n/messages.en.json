@@ -2060,6 +2060,10 @@
         "verified": "Verified",
         "consistent": "Consistent",
         "corrected": "Corrected",
+        "contextRequired": "Context required",
+        "sourceUnavailable": "Source unavailable",
+        "invalidQuery": "Invalid query",
+        "unsupportedClaim": "Unsupported claim",
         "unverified": "Unverified"
       },
       "verificationLabel": {
@@ -2072,6 +2076,10 @@
         "corrected": "Corrected after evidence verification{claims}",
         "consistent": "Consistent with {scope}{claims}",
         "consistentNoClaims": "Consistent with {scope} (no structured claims)",
+        "contextRequired": "Required conversation context is missing{claims}",
+        "sourceUnavailable": "An authoritative source is unavailable{claims}",
+        "invalidQuery": "The read query failed strict validation{claims}",
+        "unsupportedClaim": "One or more claims are not supported by evidence{claims}",
         "unverified": "Verification could not be completed{claims}",
         "scope": {
           "currentScreen": "the current screen",

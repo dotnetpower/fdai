@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 3d5a80b3420e2a6349446e0665f696ec0e1193b5
+translation_source_sha: ad85cb612fda10f3970e9639f71db5f014db0a48
 translation_revised: 2026-08-04
 ---
 
@@ -234,7 +234,10 @@ Markdown 또는 fenced chart data를 받습니다.
 
 상태 개요는 완료, 수정 후 완료, 일부 저하, 실패, 검증 미완료, 진행 중 및 관측되지 않음을 구분하며
 record 존재를 성공으로 표시하지 않습니다. Result chip은 내부 event total 대신 관측된 query와
-command count, evidence completion, reference 및 verification을 표시합니다. Run-record summary는
+command count, evidence completion, reference 및 verification을 표시합니다. Serialized `unverified`
+status는 replay를 위해 그대로 유지합니다. Primary Console label은 bounded reason code에 따라 Context
+필요, Source 사용 불가, Query 검증 실패 또는 근거 없는 claim으로 표시하고 technical detail에는
+canonical status와 raw reason code를 유지합니다. Run-record summary는
 complete bounded operator prompt를 유지하고 좁은 layout에서는 줄바꿈합니다. Disclosure를 변경하면 transcript만 scroll하고 composer는
 Deck 경계에 계속 표시됩니다. 펼친 view는 6단계 rail, 펼칠 수 있는 observed-event timeline 및 provenance signal을 먼저 표시하고,
 timing window, decision context, phase record 및 coverage gap은 하나의 접힌 execution-details disclosure에
