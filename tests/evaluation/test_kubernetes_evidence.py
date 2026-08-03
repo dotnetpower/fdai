@@ -189,6 +189,64 @@ async def test_pod_metrics_are_namespace_scoped_and_normalized(tmp_path: Path) -
     }
 
 
+async def test_inventory_projects_pod_request_semantics_and_uid(tmp_path: Path) -> None:
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text("synthetic", encoding="utf-8")
+
+    async def run(command: tuple[str, ...]) -> bytes:
+        del command
+        return json.dumps(
+            {
+                "items": [
+                    {
+                        "kind": "Pod",
+                        "metadata": {
+                            "name": "worker-a",
+                            "namespace": "example-app",
+                            "uid": "pod-uid",
+                        },
+                        "spec": {
+                            "containers": [
+                                {
+                                    "name": "main",
+                                    "image": "must-not-project",
+                                    "resources": {"requests": {"cpu": "750m", "memory": "2Gi"}},
+                                }
+                            ],
+                            "initContainers": [
+                                {
+                                    "name": "init",
+                                    "resources": {"requests": {"cpu": "1", "memory": "1Gi"}},
+                                }
+                            ],
+                        },
+                        "status": {"phase": "Pending", "containerStatuses": []},
+                    }
+                ]
+            }
+        ).encode()
+
+    evidence = await KubectlEvidenceClient(config=_config(kubeconfig), run=run).inventory(_task())
+
+    assert evidence["resources"][0]["uid"] == "pod-uid"
+    assert evidence["resources"][0]["resource_requests"] == {
+        "projection_complete": True,
+        "source_paths": {
+            "cpu": [
+                "/spec/containers/0/resources/requests/cpu",
+                "/spec/initContainers/0/resources/requests/cpu",
+            ],
+            "memory": [
+                "/spec/containers/0/resources/requests/memory",
+                "/spec/initContainers/0/resources/requests/memory",
+            ],
+        },
+        "cpu_base_units": "1",
+        "memory_base_units": "2147483648",
+    }
+    assert "must-not-project" not in json.dumps(evidence)
+
+
 async def test_nodes_use_cluster_scope_and_project_only_capacity_facts(tmp_path: Path) -> None:
     kubeconfig = tmp_path / "config"
     kubeconfig.write_text("synthetic", encoding="utf-8")

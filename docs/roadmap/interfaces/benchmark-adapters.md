@@ -177,7 +177,11 @@ excludes Secret objects and unreviewed fields. When the delegated identity can r
 `metrics.k8s.io` pods in the target namespace, the adapter projects normalized container CPU and
 memory usage through `observe.metrics.query`. Quantity normalization is owned by the operational
 Kubernetes delivery package, so evaluation, runtime evidence, capacity, and quota diagnostics use
-the same exact base-unit semantics. Pod status also retains bounded prior termination
+the same exact base-unit semantics. Pod inventory projects immutable UID and aggregate CPU and
+memory requests with reviewed source paths, without retaining image or command literals. A shared
+hold-only reducer emits a capacity finding only when an exact FailedScheduling Pod UID and complete
+eligible Node ceilings agree. Truncated, stale, conflicting, or incomplete evidence produces no
+finding. Pod status also retains bounded prior termination
 reason, exit code, and finish time for crash diagnosis. Raw logs and traces remain structured
 unavailable evidence until separate providers are bound.
 

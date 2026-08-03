@@ -12,6 +12,7 @@ from typing import Any, Final
 
 from fdai_evaluation_sdk import EvaluationTask
 
+from fdai.delivery.kubernetes.capacity import project_pod_resource_requests
 from fdai.delivery.kubernetes.quantity import cpu_millicores, memory_bytes, parse_quantity
 from fdai.evaluation.evidence import EvaluationEvidenceProvider
 
@@ -326,6 +327,12 @@ def _project_resource(item: Mapping[str, Any]) -> dict[str, Any] | None:
                 if isinstance(value, Mapping)
             ],
         )
+        uid = metadata.get("uid")
+        if isinstance(uid, str) and uid:
+            projected["uid"] = uid[:128]
+        resource_requests = project_pod_resource_requests(spec_values)
+        if resource_requests is not None:
+            projected["resource_requests"] = resource_requests
     elif kind == "Service":
         selector = spec_values.get("selector")
         projected.update(
@@ -383,6 +390,13 @@ def _project_event(item: Mapping[str, Any]) -> dict[str, Any] | None:
     namespace = metadata.get("namespace")
     if not isinstance(name, str) or not isinstance(namespace, str):
         return None
+    regarding = {
+        "kind": _text(involved.get("kind"), 128),
+        "name": _text(involved.get("name"), 253),
+    }
+    involved_uid = involved.get("uid")
+    if isinstance(involved_uid, str) and involved_uid:
+        regarding["uid"] = involved_uid[:128]
     return {
         "name": name,
         "namespace": namespace,
@@ -394,10 +408,7 @@ def _project_event(item: Mapping[str, Any]) -> dict[str, Any] | None:
             item.get("eventTime") or item.get("lastTimestamp") or metadata.get("creationTimestamp"),
             64,
         ),
-        "regarding": {
-            "kind": _text(involved.get("kind"), 128),
-            "name": _text(involved.get("name"), 253),
-        },
+        "regarding": regarding,
     }
 
 

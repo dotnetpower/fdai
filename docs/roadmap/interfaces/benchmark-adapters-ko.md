@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 461cb19d3ef6cea8eeb3293ec658c6ecc080aac1
+translation_source_sha: 2546a1a8c7e27013f3296a27c7d5543cfc366299
 translation_revised: 2026-08-04
 ---
 
@@ -182,7 +182,11 @@ identity가 target namespace의 `metrics.k8s.io` pod를
 읽을 수 있으면 adapter는 `observe.metrics.query`를 통해 정규화된 container CPU 및 memory 사용량을
 projection합니다. Quantity normalization은 operational Kubernetes delivery package가 소유하므로
 evaluation, runtime evidence, capacity 및 quota 진단은 동일한 exact base-unit 의미를 사용합니다.
-Pod status는 crash 진단을 위해 제한된 직전 종료 reason, exit code 및 종료 시각도
+Pod inventory는 image 또는 command literal을 보존하지 않고 immutable UID와 aggregate CPU/memory
+request 및 검토된 source path를 projection합니다. 공유 hold-only reducer는 exact FailedScheduling
+Pod UID와 complete eligible Node ceiling이 일치할 때만 capacity finding을 생성합니다. Truncated,
+stale, conflicting 또는 incomplete evidence는 finding을 생성하지 않습니다. Pod status는 crash
+진단을 위해 제한된 직전 종료 reason, exit code 및 종료 시각도
 보존합니다. Raw logs 및 traces는 별도 provider가 bind될 때까지 structured unavailable evidence로
 유지됩니다.
 

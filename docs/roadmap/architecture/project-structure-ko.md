@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: e6b45f36bc4a5502d3b1e9685a10a8e3245501c2
+translation_source_sha: 4996deb8c39e8bb511059862a969c6e12f280e2f
 translation_revised: 2026-08-04
 ---
 
@@ -116,7 +116,7 @@ fdai/
 │   │   ├── programmatic_pipeline/ # local isolated child runner; Azure strict submission adapter는 delivery/azure 아래 유지
 │   │   ├── browser/             # 선택적 isolated async Playwright evidence capture; GET/HEAD 전용, page handle 없음
 │   │   ├── trajectory/         # deterministic JSONL streaming export, quarantine, atomic partial-file cleanup
-│   │   ├── kubernetes/         # evaluation 및 runtime evidence가 공유하는 exact resource-quantity normalization과 bounded Node capacity projection을 포함하는 operational Kubernetes 의미
+│   │   ├── kubernetes/         # evaluation 및 runtime evidence가 공유하는 exact quantity, bounded Pod request/Node capacity projection 및 hold-only request-versus-ceiling finding
 │   │   ├── chaos/              # `Chaos` runbook 단계가 enforce로 갈 때 쓰는 라이브 카오스 주입 어댑터: `live_injectors.py` (CSP-중립 프리미티브 fan-out) + `chaos_mesh.py` (Chaos Mesh CRD) + `mysql_load.py` (MySQL 벤치마크 부하)
 │   │   ├── remediation/        # 직접 API 리메디에이션용 구체 `DirectApiExecutor` (`live_direct_api.py`); Protocol 은 `shared/providers/`에 있음
 │   │   ├── operator_api/           # 얇은 ASGI - `main.py`가 principal 범위 complete-history 및 read-only knowledge-context 조립과 IAM 옆의 Owner 전용 관찰 assignment case를 포함한 route module을 조립. GET route는 bounded state를 projection하고 POST command route는 governed record 또는 typed proposal을 제출하며 privileged executor 또는 human-access provisioner를 직접 호출하지 않음
