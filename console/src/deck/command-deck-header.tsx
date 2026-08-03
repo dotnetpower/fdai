@@ -159,9 +159,11 @@ export function CommandDeckHeader({
           </button>
         </Tooltip>
       </div>
-      <button type="button" class="deck-close" onClick={onClose} aria-label={t("deck.close")}>
-        ×
-      </button>
+      <Tooltip content={t("deck.close")}>
+        <button type="button" class="deck-close" onClick={onClose} aria-label={t("deck.close")}>
+          ×
+        </button>
+      </Tooltip>
     </div>
   );
 }

@@ -15,6 +15,7 @@ import {
   mergeConversationActivity,
   parseConversationIndex,
   screenConversationKey,
+  screenConversationSummary,
   serverConversationSummary,
   serializeConversationIndex,
   upsertConversation,
@@ -228,12 +229,12 @@ describe("user and route conversation ownership", () => {
 });
 
 describe("conversationTitle", () => {
-  it("normalizes whitespace and truncates long first prompts", () => {
+  it("normalizes whitespace and preserves long first prompts", () => {
     expect(conversationTitle("  Explain   this incident  ")).toBe("Explain this incident");
-    expect(conversationTitle("abcdefghij", 8)).toBe("abcde...");
+    expect(conversationTitle("abcdefghij")).toBe("abcdefghij");
   });
 
-  it("titles a user-scoped manual thread from its first prompt", () => {
+  it("titles screen conversations from their first prompt", () => {
     const manual: ConversationSummary = {
       ...GENERAL,
       key: "user:abc123:conversation:1",
@@ -246,7 +247,22 @@ describe("conversationTitle", () => {
     expect(conversationLabelForPrompt(manual, "Second prompt", true))
       .toBe("New conversation");
     expect(conversationLabelForPrompt(GENERAL, "Explain approvals", false))
-      .toBe("General");
+      .toBe("Explain approvals");
+  });
+
+  it("keeps a first-question title when screen route metadata refreshes", () => {
+    const titled = { ...GENERAL, label: "Why are approvals waiting?" };
+
+    expect(screenConversationSummary(
+      titled.key,
+      titled.originPath,
+      "Overview renamed",
+      titled.updatedAt,
+      titled,
+    )).toMatchObject({
+      label: "Why are approvals waiting?",
+      originLabel: "Overview renamed",
+    });
   });
 });
 

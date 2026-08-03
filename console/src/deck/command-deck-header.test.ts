@@ -15,4 +15,9 @@ describe("Command Deck header layout", () => {
     expect(styles).toContain('grid-template-areas: "title new controls close";');
     expect(styles).toContain(".deck-header-new-slot {\n  grid-area: new;\n  display: none;");
   });
+
+  test("uses the shared localized tooltip for the close control", () => {
+    expect(source).toContain('<Tooltip content={t("deck.close")}>');
+    expect(source).toContain('class="deck-close" onClick={onClose} aria-label={t("deck.close")}');
+  });
 });

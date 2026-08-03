@@ -147,9 +147,9 @@ export function useCommandDeckEvents(options: EventsOptions) {
     const existing = conversations.find((item) => item.key === key);
     if (
       existing?.kind !== "screen-default" ||
-      (existing.label === routeLabel && existing.originLabel === routeLabel)
+      existing.originLabel === routeLabel
     ) return;
-    updateConversationIndex({ ...existing, label: routeLabel, originLabel: routeLabel });
+    updateConversationIndex({ ...existing, originLabel: routeLabel });
   }, [conversations, routeLabel, updateConversationIndex, userScope]);
 
   useEffect(() => {

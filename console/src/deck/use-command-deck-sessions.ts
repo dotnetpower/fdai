@@ -7,8 +7,8 @@ import { resetComposerAttachments } from "./composer-attachment-store";
 import {
   conversationIndexKeyFor,
   conversationFallbackForRoute,
+  conversationLabelForPrompt,
   conversationPath,
-  conversationTitle,
   markConversationRead,
   manualConversationSummary,
   mergeConversationActivity,
@@ -60,15 +60,19 @@ export function useCommandDeckSessionState(
     const store = sessionStore();
     const restored = store ? parseConversationIndex(store.getItem(indexKey)) : [];
     const previous = restored.find((item) => item.key === initialScreenSession);
+    const summary = screenConversationSummary(
+      initialScreenSession,
+      currentPathname(),
+      initialRouteLabel,
+      new Date().toISOString(),
+      previous,
+    );
+    const firstOperator = turns.find((turn) => turn.role === "operator");
     return upsertConversation(
       restored,
-      screenConversationSummary(
-        initialScreenSession,
-        currentPathname(),
-        initialRouteLabel,
-        new Date().toISOString(),
-        previous,
-      ),
+      firstOperator
+        ? { ...summary, label: conversationLabelForPrompt(summary, firstOperator.text, false) }
+        : summary,
     );
   });
   const turnsRef = useRef<readonly Turn[]>(turns);
@@ -221,7 +225,7 @@ export function useCommandDeckSessionController({
       if (summary?.restoredFromServer && firstOperator) {
         const titled = {
           ...summary,
-          label: conversationTitle(firstOperator.content),
+          label: conversationLabelForPrompt(summary, firstOperator.content, false),
           restoredFromServer: false,
         };
         sessionMetadataRef.current.set(key, titled);
@@ -297,8 +301,12 @@ export function useCommandDeckSessionController({
       createdAt: now,
       updatedAt: now,
     };
-    const labeledSummary = existing?.kind === "screen-default" && conversationLabel
-      ? { ...baseSummary, label: conversationLabel, originLabel: conversationLabel }
+    const firstOperator = next.find((turn) => turn.role === "operator");
+    const labeledSummary = firstOperator
+      ? {
+          ...baseSummary,
+          label: conversationLabelForPrompt(baseSummary, firstOperator.text, false),
+        }
       : baseSummary;
     const summary = binding ? { ...labeledSummary, binding } : labeledSummary;
     sessionMetadataRef.current.set(key, summary);

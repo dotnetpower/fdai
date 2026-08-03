@@ -105,7 +105,7 @@ export function screenConversationSummary(
 ): ConversationSummary {
   return {
     key,
-    label: routeLabel,
+    label: previous && previous.label !== previous.originLabel ? previous.label : routeLabel,
     kind: "screen-default",
     originPath: conversationPath(pathname),
     originLabel: routeLabel,
@@ -338,11 +338,9 @@ export function serializeConversationIndex(
   return JSON.stringify(conversations);
 }
 
-/** Build a concise title from the first operator turn. */
-export function conversationTitle(prompt: string, maxLength: number = 44): string {
-  const normalized = prompt.trim().replace(/\s+/g, " ");
-  if (normalized.length <= maxLength) return normalized;
-  return `${normalized.slice(0, Math.max(1, maxLength - 3)).trimEnd()}...`;
+/** Normalize the first operator turn while preserving it for overflow tooltips. */
+export function conversationTitle(prompt: string): string {
+  return prompt.trim().replace(/\s+/g, " ");
 }
 
 export function conversationLabelForPrompt(
@@ -351,9 +349,7 @@ export function conversationLabelForPrompt(
   hasOperatorTurn: boolean,
 ): string {
   if (summary.agent) return summary.agent;
-  if (summary.kind === "screen-thread" && !hasOperatorTurn) {
-    return conversationTitle(prompt);
-  }
+  if (!hasOperatorTurn) return conversationTitle(prompt);
   return summary.label;
 }
 
