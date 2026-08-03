@@ -7,17 +7,18 @@ import re
 from fdai.shared.providers.read_investigation import ReadInvestigationIntent
 
 _GUEST = re.compile(
-    r"(?:guest|os|operating system|event log|syslog|inside the vm|"
+    r"(?:guest|os|operating system|event log|syslog|inside the vm|inside the virtual machine|"
     r"게스트|운영체제|운영 체제|이벤트 로그|시스템 로그|가상 머신 내부).{0,32}"
     r"(?:shutdown|shut down|shut.{0,24}down|power off|stop|종료|정지|중지|꺼진)|"
     r"(?:shutdown|shut down|종료).{0,32}"
-    r"(?:guest|os|operating system|event log|syslog|게스트|운영체제|운영 체제)",
+    r"(?:guest|os|operating system|virtual machine|event log|syslog|게스트|운영체제|운영 체제)",
     re.IGNORECASE,
 )
 _ATTRIBUTION = re.compile(
     r"\bwho\b.{0,48}\b(?:stop|stopped|deallocate|deallocated|change|changed|restart|delete)d?\b|"
     r"\b(?:actor|caller|initiator|principal)\b|"
-    r"누가.{0,48}(?:중지|정지|종료|할당 해제|변경|재시작|삭제)|"
+    r"누가.{0,48}(?:중지|정지|종료|멈추|멈췄|할당 해제|변경|재시작|삭제)|"
+    r"(?:중지|정지|종료|변경).{0,32}(?:주체)|"
     r"(?:행위자|호출자|작업자|변경 주체)",
     re.IGNORECASE,
 )

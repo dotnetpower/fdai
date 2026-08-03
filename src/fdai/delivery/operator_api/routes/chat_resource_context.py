@@ -7,7 +7,10 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Final, TypeGuard
 
-from fdai.core.read_investigation.routing import classify_read_investigation_intent
+from fdai.core.read_investigation.routing import (
+    classify_read_investigation_intent,
+    resource_name_from_question,
+)
 from fdai.delivery.operator_api.routes.chat_verification import AnswerVerification
 from fdai.shared.providers.read_investigation import ReadInvestigationIntent
 
@@ -16,6 +19,13 @@ _RESOURCE_TYPE: Final = re.compile(r"^[a-z0-9][a-z0-9_.-]{1,127}$")
 _RESOURCE_GROUP: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.()-]{1,127}$")
 _EVENT_STATUS: Final = re.compile(r"^[A-Za-z][A-Za-z0-9 _.-]{1,63}$")
 _EVIDENCE_REF_PREFIXES: Final = ("inventory:", "subscription-health:")
+_SELECTOR_REQUIRED_INTENTS: Final = frozenset(
+    {
+        ReadInvestigationIntent.CHANGE_ATTRIBUTION,
+        ReadInvestigationIntent.RESOURCE_CHANGE_HISTORY,
+        ReadInvestigationIntent.GUEST_SHUTDOWN,
+    }
+)
 _HISTORY_FOLLOWUP: Final = re.compile(
     r"\b(?:since when|when did|when was|how long|history)\b|"
     r"언제부터|언제.{0,20}(?:중지|정지|변경)|얼마나 오래|이력",
@@ -143,6 +153,32 @@ def contextualize_resource_followup(
     if guest_shutdown:
         return f"{name} guest shutdown: {prompt}", True
     return f"{name} 변경 이력: {prompt}", True
+
+
+def missing_resource_selector_evidence(
+    prompt: str,
+    resource_context: Mapping[str, str] | None,
+) -> dict[str, Any] | None:
+    """Return a typed hold when one read intent lacks an exact resource selector."""
+
+    intent = classify_read_investigation_intent(prompt)
+    if (
+        resource_context is not None
+        or intent not in _SELECTOR_REQUIRED_INTENTS
+        or resource_name_from_question(prompt) is not None
+    ):
+        return None
+    return {
+        "tool": "query_conversation_context",
+        "authority": "server_conversation_context",
+        "status": "abstain",
+        "result": {
+            "status": "unavailable",
+            "reason": "prior_context_required",
+            "intent": "resource_investigation",
+            "required_context": ["selected_resource"],
+        },
+    }
 
 
 def response_resource_context(

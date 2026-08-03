@@ -304,6 +304,7 @@ def make_chat_stream_route(
             )
             or prepared.inventory_screen_scope
             or prepared.inventory_scope_followup
+            or "_read_investigation_context_hold" in view_context
             or compile_inventory_query(evidence_prompt) is not None
             or needs_subscription_health(evidence_prompt)
             or needs_log_query(evidence_prompt)

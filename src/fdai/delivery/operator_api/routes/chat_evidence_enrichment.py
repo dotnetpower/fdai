@@ -444,6 +444,10 @@ async def _with_tool_evidence(
     verified_prior_context = enriched.pop("_verified_prior_context", None)
     enriched.pop("_tool_evidence", None)
     enriched.pop("_current_screen_tool", None)
+    selector_hold = enriched.pop("_read_investigation_context_hold", None)
+    if isinstance(selector_hold, Mapping):
+        enriched["_tool_evidence"] = dict(selector_hold)
+        return enriched
     scope_hold = inventory_screen_scope_unavailable_evidence(
         enriched.get("_inventory_screen_scope")
     )

@@ -2862,6 +2862,62 @@ def test_guest_shutdown_followup_uses_resource_context_exclusively(prompt: str) 
     assert backend.calls == 0
 
 
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "누가 이 리소스를 중지했어?",
+        "이 리소스의 중지 작업을 시작한 주체는 누구야?",
+        "누가 또는 어떤 자동화가 이 리소스를 멈췄는지 알려줘.",
+        "Who changed this resource most recently, and what did they do?",
+        "Identify the latest actor who changed this resource and the operation performed.",
+        "What was the most recent change to this resource, and who initiated it?",
+        "운영 체제가 내부에서 종료된 흔적이 있어?",
+        "게스트 OS 안에서 종료가 시작됐다는 근거가 있나?",
+        "이 리소스가 운영 체제 내부 명령으로 종료됐는지 확인해줘.",
+        "Was the shutdown initiated inside the guest operating system?",
+        "Is there evidence that the guest OS initiated the shutdown?",
+        "Determine whether the shutdown came from inside the virtual machine.",
+    ),
+)
+def test_resource_investigation_cohort_requires_exact_selector(prompt: str) -> None:
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            raise AssertionError("selector hold must skip semantic planning")
+
+    class ToolResolver:
+        async def resolve(self, prompt: str, *, principal_id: str) -> None:
+            del prompt, principal_id
+            raise AssertionError("selector hold must skip tool resolution")
+
+    backend = RecordingBackend()
+    routes = [
+        make_chat_route(
+            backend=backend,
+            authorize=_allow,
+            tool_resolver=ToolResolver(),  # type: ignore[arg-type]
+            turn_planner=Planner(),  # type: ignore[arg-type]
+        ),
+        make_chat_stream_route(
+            backend=backend,
+            authorize=_allow,
+            tool_resolver=ToolResolver(),  # type: ignore[arg-type]
+            turn_planner=Planner(),  # type: ignore[arg-type]
+        ),
+    ]
+
+    with TestClient(Starlette(routes=routes)) as client:
+        response = client.post("/chat", json={"prompt": prompt, "view_context": {}})
+        stream = client.post("/chat/stream", json={"prompt": prompt, "view_context": {}})
+
+    payload = response.json()
+    done = _inventory_done_event(stream.text)
+    assert done is not None
+    assert payload["verification"]["authority"] == "server_conversation_context"
+    assert payload["verification"]["reason_code"] == "prior_context_required"
+    assert done["verification"] == payload["verification"]
+    assert backend.calls == 0
+
+
 def test_resource_followup_accepts_bounded_queued_handoff() -> None:
     verification = resource_followup_verification(
         {
