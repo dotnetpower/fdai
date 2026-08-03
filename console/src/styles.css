@@ -8766,10 +8766,6 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-overlay-mode-workspace .deck-btn-primary,
 .deck-overlay-mode-workspace .deck-btn-stop { min-width: 93px; }
-.deck-composer-scope { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--fg-muted); font-size: 12px; }
-.deck-composer-scope strong { overflow: hidden; color: var(--fg); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.deck-composer-scope > span::before { content: "\00b7"; margin-right: 8px; }
-.deck-composer-scope .deck-context-freshness { margin-left: auto; }
 .deck-overlay-mode-floating .deck-transcript-tools,
 .deck-overlay-mode-dock .deck-transcript-tools { display: none; }
 /* Slash-command hint palette - floats just above the composer, never inside
@@ -9230,8 +9226,6 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-overlay-mode-workspace .deck-btn-primary,
   .deck-overlay-mode-workspace .deck-btn-stop { min-width: 0; }
   .deck-input-actions { grid-column: 1 / -1; }
-  .deck-composer-scope { flex-wrap: wrap; }
-  .deck-composer-scope .deck-context-freshness { width: 100%; margin-left: 0; }
   .deck-input-actions { justify-content: flex-end; }
   .deck-btn { min-height: 40px; }
 }

@@ -22,6 +22,14 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).not.toContain(".deck-body { min-width: 0; grid-template-columns: 200px minmax(0, 1fr); }");
   });
 
+  test("keeps route and freshness metadata out of the composer", () => {
+    expect(source).not.toContain('class="deck-composer-scope"');
+    expect(styles).not.toContain(".deck-composer-scope");
+    expect(source).toContain("<CommandDeckHeader");
+    expect(source).toContain("routeLabel={routeLabel}");
+    expect(source).toContain('class="deck-digest-header"');
+  });
+
   test("keeps readable metadata at 12px and keyboard focus visible", () => {
     expect(styles).toContain(".deck-turn-time,\n.deck-code-lang,");
     expect(styles).toContain("font-size: 12px;\n}");

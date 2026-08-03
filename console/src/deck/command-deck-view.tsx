@@ -369,11 +369,6 @@ export function CommandDeckView({
                   ))}
                 </ul>
               ) : null}
-              <div class="deck-composer-scope">
-                <strong>{routeLabel}</strong>
-                <span>{t("deck.groundedRecords", { count: recordCount })}</span>
-                {snapshot ? <ContextFreshnessIndicator capturedAt={snapshot.capturedAt} /> : null}
-              </div>
               <ComposerAttachments />
               <textarea
                 ref={inputRef}

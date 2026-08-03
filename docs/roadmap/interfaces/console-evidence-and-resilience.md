@@ -27,8 +27,8 @@ default instead of activating an unrelated-route or agent transcript.
 
 Full-workspace Command Deck sessions start with the transcript as the only open content column. The operator can open filtered conversation history or the current-screen digest from the transcript
 toolbar. A transcript restored from browser or durable history shows a resumed-session marker until
-the operator starts a new conversation. The composer retains a compact route, grounded-record count,
-and snapshot-age line even while the digest is closed.
+the operator starts a new conversation. The Deck header owns the route; Digest owns record count,
+snapshot age, and stale refresh; the composer keeps attachments, question entry, and send or stop.
 
 The shared page title renders the domain and panel labels when they differ, including `Overview / Dashboard`. A domain root whose panel title repeats the domain label and a standalone
 utility keep a single title.
@@ -271,7 +271,10 @@ finish synchronously. Cells wrap on narrow screens instead of widening the trans
 Detail includes bounded recorded metadata but doesn't repeat the answer body. Each expanded timeline
 event shows the available source-record detail, including evidence summaries and references, plan
 intent and format, answer source and model-call count, verification authority and checks, or model
-request and response metadata. Valid object or array JSON in provider messages, action arguments, commands, and outputs uses indented syntax highlighting and copy; malformed or plain text stays unchanged. The terminal replay payload retains final ID-deduplicated branch, activity, milestone, and redacted execution detail under a 64 KiB aggregate cap, truncates each history output at 32 KiB, and reports truncation and omission counts, so durable history and the live turn use the same strict parser and trajectory view. Unavailable or timed-out
+request and response metadata. Inventory execution displays the canonical turn query as `IQL`. A
+strict redacted provider receipt appears below it as the actual snapshot-refresh backend and Azure
+CLI commands, with live scope values replaced by placeholders. The browser never derives provider
+commands from IQL or source names. Valid object or array JSON in provider messages, action arguments, commands, and outputs uses indented syntax highlighting and copy; malformed or plain text stays unchanged. The terminal replay payload retains final ID-deduplicated branch, activity, milestone, and redacted execution detail under a 64 KiB aggregate cap, truncates each history output at 32 KiB, and reports truncation and omission counts, so durable history and the live turn use the same strict parser and trajectory view. Unavailable or timed-out
 evidence is an attempt, not completed evidence, and unverified work never receives completed styling. Missing activity stays in an observation-coverage disclosure and proves no absence. Exact-answer
 durable replay uses the same bounded browser parsers. The server buffers model tokens until the provider's terminal content-policy decision is known; a block exposes no partial token or assistant answer, records only a content-free receipt, and produces the same deterministic fallback for SSE and JSON `422`, while logs retain only stage and aggregate counts. An explicit provider refusal, truncated completion, malformed stream frame, or stream without a verified terminal signal never becomes an assistant answer.
 

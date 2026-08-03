@@ -114,9 +114,13 @@ flowchart TD
   Observed activity distinguishes actual process commands from canonical server queries with a
   required `input_kind` contract. Inventory, subscription-health, and read-investigation activity
   uses `query`: it renders the verifier-accepted typed query, authority, snapshot provenance, and
-  bounded result projection without inventing Azure CLI argv or an exit code. Only a provider receipt
-  that records a process invocation uses `command`. Web labels these rows `QUERY`; Slack and Teams
-  use the same Query label, and durable replay preserves the distinction.
+  bounded result projection without inventing Azure CLI argv or an exit code. Web labels a validated
+  inventory query as `IQL`. When the inventory adapter supplies a strict redacted execution receipt,
+  the same disclosure separately shows the Azure CLI and ARG commands that produced the snapshot.
+  It states that those commands ran during snapshot refresh, while the displayed IQL filtered that
+  snapshot for the current turn. A missing or invalid receipt produces no provider-command block.
+  Other server queries retain `QUERY`, and only a provider receipt that records a process invocation
+  uses `command`. Slack, Teams, and durable replay preserve the query/command distinction.
   A narrator milestone settles the preceding activity group before the next group begins. Web shows
   the milestone as a compact progress note, opens only the current group, and restores completed
   groups in causal order. Slack and Teams edit the same cumulative redacted activity projection.
@@ -130,11 +134,11 @@ flowchart TD
   the final accountable-agent answer. Renderers distinguish producer-side partial evidence with
   `[UPSTREAM OUTPUT TRUNCATED]` from vendor-limit clipping with `[CHANNEL OUTPUT TRUNCATED]`.
   Full-workspace web chat opens transcript-first. Conversation history and the current-screen
-  digest are explicit toolbar panels rather than permanent columns, while the composer always
-  shows the active route, grounded-record count, and snapshot age. A restored transcript is marked
-  with its last recorded time and a visible new-conversation action. Markdown tables render every
-  bounded answer row without internal scroll or expansion controls. On narrow screens, cells reflow
-  into visual header-and-value rows while preserving native table semantics for assistive technology.
+  digest are toolbar panels rather than permanent columns. The Deck header shows the active route;
+  the Digest toggle and header own record count, snapshot age, and stale refresh. The composer keeps
+  only attachments, question entry, and send or stop. A restored transcript shows its last recorded
+  time and a new-conversation action. Tables render every bounded row without internal scrolling or
+  expansion controls. On narrow screens, cells reflow while preserving native table semantics.
 - **Layer 2 (Coordinator)** owns intent classification, RBAC gating, tool
   dispatch, verifier re-check, and session bookkeeping. Core translation uses the `Narrator`
   Protocol. A narrator that also implements `GroundedAnswerNarrator` receives a completed

@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 88d2ea95b305cda9d4b274830a16ca866c9b8006
+translation_source_sha: 422937ac46c95d139caa6ec4a4536eb092b9e1b6
 translation_revised: 2026-08-03
 ---
 
@@ -114,9 +114,13 @@ flowchart TD
   Observed activity는 required `input_kind` contract로 실제 process command와 canonical server query를
   구분합니다. Inventory, subscription-health 및 read-investigation activity는 `query`를 사용합니다.
   Verifier가 승인한 typed query, authority, snapshot provenance 및 bounded result projection을 렌더링하며
-  Azure CLI argv 또는 exit code를 만들지 않습니다. Process invocation을 기록한 provider receipt만
-  `command`를 사용합니다. Web은 해당 row를 `QUERY`로 표시하고 Slack 및 Teams도 같은 Query label을
-  사용하며 durable replay가 이 구분을 보존합니다.
+  Azure CLI argv 또는 exit code를 만들지 않습니다. Web은 validation된 inventory query를 `IQL`로
+  표시합니다. Inventory adapter가 strict redacted execution receipt를 제공하면 같은 disclosure에서
+  snapshot을 만든 Azure CLI 및 ARG 명령을 별도로 표시합니다. 해당 명령은 snapshot refresh 중에
+  실행되었고 현재 turn에서는 표시된 IQL로 그 snapshot을 필터링했음을 명시합니다. Receipt가 없거나
+  유효하지 않으면 provider-command block을 만들지 않습니다. 다른 server query는 `QUERY`를 유지하고
+  process invocation을 기록한 provider receipt만 `command`를 사용합니다. Slack, Teams 및 durable
+  replay는 query/command 구분을 보존합니다.
   Narrator milestone은 다음 group이 시작되기 전에 앞선 activity group을 settled 상태로 바꿉니다.
   Web은 milestone을 compact progress note로 표시하고 현재 group만 펼치며 completed group을 causal
   order로 복원합니다. Slack과 Teams는 같은 cumulative redacted activity projection을 수정합니다.
@@ -129,10 +133,10 @@ flowchart TD
   `[UPSTREAM OUTPUT TRUNCATED]`로, vendor-limit clipping을 `[CHANNEL OUTPUT TRUNCATED]`로
   구분합니다.
   Full-workspace 웹 채팅은 transcript 중심으로 열립니다. 대화 이력과 현재 화면 digest는 항상
-  표시되는 열이 아니라 명시적인 toolbar panel이며, composer는 활성 route, 근거 record 수 및
-  snapshot age를 항상 표시합니다. 복원된 transcript에는 마지막 기록 시각과 새 대화 작업을
-  표시합니다. Markdown table은 내부 scroll이나 expansion control 없이 모든 bounded answer 행을 transcript flow에 렌더링합니다.
-  좁은 화면에서는 native table semantics를 assistive technology용으로 유지하면서 cell을 시각적 header-value 행으로 reflow합니다.
+  표시되는 열이 아니라 toolbar panel입니다. Deck header는 활성 route를 표시하고, Digest toggle과
+  header는 근거 record 수, snapshot age 및 오래된 context 새로고침을 담당합니다. Composer에는
+  attachment, 질문 입력 및 보내기 또는 중지만 유지합니다. 복원된 transcript에는 마지막 기록 시각과
+  새 대화 작업을 표시합니다. 좁은 화면에서도 Markdown table은 native table semantics를 유지합니다.
 - **Layer 2 (Coordinator)**는 intent classification, RBAC gating, tool
   dispatch, verifier re-check, 세션 bookkeeping을 소유합니다. Core translator는 `Narrator`
   Protocol을 사용합니다. `GroundedAnswerNarrator`도 구현하는 narrator는 완료된 성공

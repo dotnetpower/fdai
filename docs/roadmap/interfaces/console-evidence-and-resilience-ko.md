@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 7772a09c766a08ed76dc5be91ee477c99eb5e1bd
+translation_source_sha: 06e5d7b2f84a4c0a0b0ab22b0cde1e5890b2ed0c
 translation_revised: 2026-08-03
 ---
 
@@ -31,7 +31,7 @@ Active cached conversation을 제거하면 current-route default(legacy `screen`
 
 Full-workspace Command Deck session은 transcript만 열린 content column으로 시작합니다. Operator는 transcript toolbar에서 filter 가능한 대화 이력 또는 현재 화면 digest를 열 수 있습니다. Browser 또는
 durable history에서 복원된 transcript는 새 대화를 시작할 때까지 resumed-session marker를 표시합니다.
-Digest가 닫혀 있어도 composer는 compact route, 근거 record 수 및 snapshot-age line을 유지합니다.
+Deck header는 route를, Digest는 record 수, snapshot age 및 오래된 context 새로고침을 담당하며, Composer에는 attachment, 질문 입력 및 보내기 또는 중지만 유지합니다.
 
 공통 페이지 제목은 영역과 패널 레이블이 다를 때 `전체 현황 / Dashboard`를 포함해 둘을 함께 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립 utility는 단일 제목을 유지합니다.
 
@@ -267,7 +267,10 @@ cell을 줄바꿈합니다.
 상세 화면은 bounded recorded metadata를 표시하지만 answer body를 반복하지 않습니다. 펼친 각 timeline
 event는 evidence summary와 reference, plan intent와 format, answer source와 model-call count,
 verification authority와 check 또는 model request와 response metadata처럼 source record에 있는
-상세를 표시합니다. Provider message, action argument, command 및 output의 유효한 object 또는 array JSON은 indentation, syntax highlighting 및
+상세를 표시합니다. Inventory execution은 canonical turn query를 `IQL`로 표시합니다. Strict redacted
+provider receipt는 실제 snapshot-refresh backend 및 Azure CLI 명령으로 그 아래에 표시하며 live scope
+value는 placeholder로 바꿉니다. Browser는 IQL 또는 source name에서 provider command를 파생하지
+않습니다. Provider message, action argument, command 및 output의 유효한 object 또는 array JSON은 indentation, syntax highlighting 및
 copy를 제공하며 malformed 또는 plain text는 변경하지 않습니다. Terminal replay payload는 ID별 최종
 branch, activity, milestone 및 redacted execution detail을 총 64 KiB 이하로 보존하고 history output을
 항목당 32 KiB에서 truncate하며 truncation 및 omission count를 표시합니다. 따라서 durable history와
