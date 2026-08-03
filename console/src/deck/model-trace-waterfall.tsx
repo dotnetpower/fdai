@@ -16,6 +16,17 @@ export interface ModelTraceMessageGroup {
   readonly contents: readonly string[];
 }
 
+export type ModelTracePresentationState = "disabled" | "not-captured" | "no-calls" | "calls";
+
+export function modelTracePresentationState(
+  trace?: ModelTrace,
+  captureEnabled = true,
+): ModelTracePresentationState {
+  if (!captureEnabled) return "disabled";
+  if (!trace) return "not-captured";
+  return trace.calls.length === 0 ? "no-calls" : "calls";
+}
+
 export function groupModelTraceMessages(
   messages: readonly ModelTraceMessage[],
 ): readonly ModelTraceMessageGroup[] {
@@ -70,15 +81,30 @@ export function buildModelTraceBars(trace: ModelTrace): readonly ModelTraceBar[]
   });
 }
 
-export function ModelTraceWaterfall({ trace }: { readonly trace?: ModelTrace }) {
-  if (!trace) {
+export function ModelTraceWaterfall({
+  trace,
+  captureEnabled = true,
+}: {
+  readonly trace?: ModelTrace;
+  readonly captureEnabled?: boolean;
+}) {
+  const presentationState = modelTracePresentationState(trace, captureEnabled);
+  if (presentationState === "disabled" || presentationState === "not-captured") {
     return (
       <section class="deck-model-trace is-empty" aria-label={t("deck.modelTrace.title")}>
         <header><h4>{t("deck.modelTrace.title")}</h4></header>
-        <p>{t("deck.modelTrace.notCaptured")}</p>
+        {presentationState === "disabled" ? (
+          <div class="deck-model-trace-empty-state" role="note">
+            <strong>{t("deck.modelTrace.captureDisabledTitle")}</strong>
+            <p>{t("deck.modelTrace.captureDisabledDetail")}</p>
+          </div>
+        ) : (
+          <p>{t("deck.modelTrace.notCaptured")}</p>
+        )}
       </section>
     );
   }
+  if (!trace) return null;
   const bars = buildModelTraceBars(trace);
   return (
     <section class="deck-model-trace" aria-label={t("deck.modelTrace.title")}>
@@ -94,6 +120,12 @@ export function ModelTraceWaterfall({ trace }: { readonly trace?: ModelTrace }) 
           {t("deck.modelTrace.omitted", { count: trace.omitted_calls })}
         </p>
       ) : null}
+      {presentationState === "no-calls" ? (
+        <div class="deck-model-trace-empty-state" role="note">
+          <strong>{t("deck.modelTrace.noCallsTitle")}</strong>
+          <p>{t("deck.modelTrace.noCallsDetail")}</p>
+        </div>
+      ) : (
       <ol class="deck-model-trace-lanes">
         {bars.map(({ call, leftPct, widthPct }, index) => (
           <li key={call.call_id} data-status={call.status}>
@@ -152,6 +184,7 @@ export function ModelTraceWaterfall({ trace }: { readonly trace?: ModelTrace }) 
           </li>
         ))}
       </ol>
+      )}
     </section>
   );
 }

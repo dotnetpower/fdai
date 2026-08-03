@@ -7,6 +7,7 @@ import {
   buildModelTraceBars,
   formatModelTraceMessageGroup,
   groupModelTraceMessages,
+  modelTracePresentationState,
 } from "./model-trace-waterfall";
 
 const SHA = "a".repeat(64);
@@ -57,6 +58,21 @@ describe("buildModelTraceBars", () => {
     };
 
     expect(buildModelTraceBars(trace)[0]?.widthPct).toBe(2.5);
+  });
+
+  it("distinguishes an observed zero-call deterministic turn from disabled capture", () => {
+    const trace: ModelTrace = {
+      schema_version: 1,
+      redacted: true,
+      omitted_calls: 0,
+      calls: [],
+    };
+
+    expect(modelTracePresentationState(undefined, false)).toBe("disabled");
+    expect(modelTracePresentationState()).toBe("not-captured");
+    expect(modelTracePresentationState(trace)).toBe("no-calls");
+    expect(modelTracePresentationState({ ...trace, calls: [call("one", "2026-07-31T01:00:00Z", null)] }))
+      .toBe("calls");
   });
 
   it("groups consecutive system layers without changing later message roles", () => {

@@ -95,6 +95,20 @@ describe("buildExecutionTimeline", () => {
     expect(items.find((item) => item.kind === "evidence")?.state).toBe("degraded");
     expect(items.find((item) => item.kind === "phase")?.state).toBe("unverified");
     expect(items.find((item) => item.kind === "model")?.widthPct).toBeCloseTo(38.1, 1);
+    expect(items.find((item) => item.kind === "evidence")?.details).toEqual({
+      summary: "Web evidence unavailable",
+      facts: [],
+      evidenceRefs: [],
+    });
+    expect(items.find((item) => item.kind === "model")?.details).toEqual({
+      facts: [
+        { key: "model", value: "test-model" },
+        { key: "requestMessages", value: "0" },
+        { key: "response", value: "recorded" },
+        { key: "redactions", value: "0" },
+      ],
+      evidenceRefs: [],
+    });
     expect(items.at(-1)?.leftPct).toBeLessThan(100);
 
     const hidden = buildExecutionTimeline(input, { includeModelCalls: false });
@@ -107,5 +121,63 @@ describe("buildExecutionTimeline", () => {
     delete (input as { completedAt?: string }).completedAt;
 
     expect(buildExecutionTimeline(input)).toEqual([]);
+  });
+
+  it("does not infer zero model calls when trace capture is absent", () => {
+    const input = trajectory({
+      turnTiming: {
+        schema_version: 1,
+        started_at: "2026-07-31T07:00:00Z",
+        completed_at: "2026-07-31T07:00:05Z",
+        duration_ms: 5000,
+        phases: [{
+          phase: "generation",
+          status: "completed",
+          started_at: "2026-07-31T07:00:03Z",
+          completed_at: "2026-07-31T07:00:04Z",
+          duration_ms: 1000,
+        }],
+      },
+    });
+
+    expect(buildExecutionTimeline(input).find((item) => item.label === "generation")?.details)
+      .toEqual({
+        facts: [
+          { key: "source", value: "recorded" },
+          { key: "modelCalls", value: "notRecorded" },
+        ],
+        evidenceRefs: [],
+      });
+  });
+
+  it("hides a recorded model-call count when trace presentation is disabled", () => {
+    const input = trajectory({
+      modelTrace: {
+        schema_version: 1,
+        redacted: true,
+        omitted_calls: 0,
+        calls: [],
+      },
+      turnTiming: {
+        schema_version: 1,
+        started_at: "2026-07-31T07:00:00Z",
+        completed_at: "2026-07-31T07:00:05Z",
+        duration_ms: 5000,
+        phases: [{
+          phase: "generation",
+          status: "completed",
+          started_at: "2026-07-31T07:00:03Z",
+          completed_at: "2026-07-31T07:00:04Z",
+          duration_ms: 1000,
+        }],
+      },
+    });
+
+    const visible = buildExecutionTimeline(input).find((item) => item.label === "generation");
+    const hidden = buildExecutionTimeline(input, { includeModelCalls: false })
+      .find((item) => item.label === "generation");
+
+    expect(visible?.details.facts.at(-1)?.value).toBe("0");
+    expect(hidden?.details.facts.at(-1)?.value).toBe("notRecorded");
   });
 });
