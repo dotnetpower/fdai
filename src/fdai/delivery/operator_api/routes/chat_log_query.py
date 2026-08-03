@@ -106,8 +106,10 @@ _POD_DIAGNOSIS: Final = re.compile(
     re.IGNORECASE,
 )
 _CAPACITY_DIAGNOSIS: Final = re.compile(
-    r"\bcapacity\b.{0,64}\b(?:traffic|load|trend|handle|enough)\b|"
-    r"\b(?:traffic|load)\b.{0,64}\b(?:capacity|handle|enough)\b|"
+    r"\bcapacity\b.{0,64}\b(?:traffic|load|demand|trend|handle|enough|headroom)\b|"
+    r"\b(?:traffic|load|demand|trend|headroom)\b.{0,64}"
+    r"\b(?:capacity|handle|enough|headroom)\b|"
+    r"\bheadroom\b.{0,48}\b(?:demand|load|traffic)\s+trend\b|"
     r"(?:용량|capacity).{0,48}(?:트래픽|부하|증가|감당|충분)",
     re.IGNORECASE,
 )
@@ -115,11 +117,12 @@ _BOUNDED_ERROR_QUERY: Final = re.compile(
     r"\b(?:run|execute).{0,40}(?:bounded|read-only|safe).{0,32}(?:query|kql)"
     r".{0,32}errors?\b|"
     r"\b(?:run|execute).{0,40}(?:query|kql).{0,32}errors?\b|"
-    r"(?:오류|에러).{0,32}(?:안전한\s*)?KQL.{0,20}(?:실행|찾)",
+    r"\bquery\b.{0,32}\berrors?\b.{0,64}\b(?:15[- ]minute|no\s+write)\b|"
+    r"(?:오류|에러).{0,32}(?:안전한\s*)?(?:KQL|로그\s*쿼리).{0,20}(?:실행|찾)",
     re.IGNORECASE,
 )
 _CHAT_WINDOW: Final = re.compile(
-    r"(?P<value>[1-9][0-9]{0,2})\s*(?P<unit>minutes?|mins?|hours?|hrs?|분|시간)",
+    r"(?P<value>[1-9][0-9]{0,2})\s*-?\s*(?P<unit>minutes?|mins?|hours?|hrs?|분|시간)",
     re.IGNORECASE,
 )
 _REDACTION_PATTERNS: Final = (

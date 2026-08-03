@@ -430,6 +430,7 @@ def test_pod_and_capacity_questions_hold_without_required_authority() -> None:
             "현재 용량으로 트래픽 증가를 감당할 수 있어?",
             "Does this service have enough capacity for the observed load trend?",
             "Can current capacity handle the rising traffic?",
+            "Assess whether this service has sufficient headroom for the observed demand trend.",
         ),
     }
     backend = RecordingBackend()
@@ -463,6 +464,8 @@ def test_bounded_error_query_questions_use_server_log_template() -> None:
         "지난 15분의 오류를 찾는 안전한 KQL을 실행해줘.",
         "Run a bounded read-only query for errors from the last 15 minutes.",
         "Execute safe KQL for errors observed in the past 15 minutes.",
+        "변경 없이 지난 15분의 오류를 확인하는 안전한 로그 쿼리를 실행해줘.",
+        "Query recent errors with a 15-minute window and no write operations.",
     )
     backend = RecordingBackend()
     provider = RecordingLogProvider()

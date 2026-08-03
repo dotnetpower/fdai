@@ -103,8 +103,10 @@ _POD_DIAGNOSIS: Final = re.compile(
     re.IGNORECASE,
 )
 _CAPACITY_DIAGNOSIS: Final = re.compile(
-    r"\b(?:capacity).{0,64}(?:traffic|load|trend|handle|enough)\b|"
-    r"\b(?:traffic|load).{0,64}(?:capacity|handle|enough)\b|"
+    r"\b(?:capacity).{0,64}(?:traffic|load|demand|trend|handle|enough|headroom)\b|"
+    r"\b(?:traffic|load|demand|trend|headroom).{0,64}"
+    r"(?:capacity|handle|enough|headroom)\b|"
+    r"\bheadroom\b.{0,48}\b(?:demand|load|traffic)\s+trend\b|"
     r"(?:용량|capacity).{0,48}(?:트래픽|부하|증가|감당|충분)",
     re.IGNORECASE,
 )
