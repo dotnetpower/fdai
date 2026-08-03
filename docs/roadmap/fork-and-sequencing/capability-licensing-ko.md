@@ -1,7 +1,7 @@
 ---
 title: Capability 라이선싱
 translation_of: capability-licensing.md
-translation_source_sha: 0f8223026b35afafc9ff4b1af559601bdfce4060
+translation_source_sha: 46db70b1f7f3383893cade0b030ad0bd84cf2c46
 translation_revised: 2026-08-03
 ---
 # Capability 라이선싱
@@ -97,6 +97,7 @@ License의 유효한 표기는 정확히 하나입니다. 대부분의 표준 �
 부분집합으로 저하됩니다. 그래서 license가 만료된 운영자도 관찰은 계속하고 조치만 못 합니다.
 검증기 자체가 실행되지 못하는 경우도 포함합니다. 손상된 packaged public key는 crash가 아니라
 `untrusted`로 해석됩니다. 바로 그때가 런타임이 살아 있어야 진단이 가능한 시점이기 때문입니다.
+운영자에게 보이는 reason은 일반 문구를 유지하고 verifier exception 세부 내용을 되풀이하지 않습니다.
 
 | 상태 | 원인 | 가용성 |
 |------|------|--------|

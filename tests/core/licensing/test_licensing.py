@@ -330,7 +330,7 @@ class _FailingVerifier:
     """A verifier holding a corrupt public key, which is how a bad key behaves."""
 
     def verify(self, document: bytes, signature: bytes) -> bool:
-        raise ValueError("public key is malformed")
+        raise ValueError("backend diagnostic must not escape")
 
 
 def test_a_verifier_that_cannot_run_degrades_instead_of_crashing() -> None:
@@ -347,7 +347,8 @@ def test_a_verifier_that_cannot_run_degrades_instead_of_crashing() -> None:
     assert entitlement.status is LicenseStatus.UNTRUSTED
     assert entitlement.available_capability_ids == {"cost.metering"}
     assert entitlement.reason is not None
-    assert "could not be checked" in entitlement.reason
+    assert entitlement.reason == "license signature could not be checked"
+    assert "backend diagnostic" not in entitlement.reason
 
 
 def test_a_valid_license_never_sees_less_than_an_expired_one() -> None:

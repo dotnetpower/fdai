@@ -99,7 +99,7 @@ Resolution fails toward safety. Every unhappy path degrades to the read-only sub
 rather than raising, so an operator with an expired license can still observe while unable to act.
 This includes a verifier that cannot run at all: a corrupt packaged public key resolves to
 `untrusted`, never to a crash, because that is precisely when a runtime has to stay up to be
-diagnosed.
+diagnosed. The operator-facing reason stays generic and never echoes verifier exception details.
 
 | Status | Cause | Availability |
 |--------|-------|--------------|

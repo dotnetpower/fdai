@@ -104,11 +104,11 @@ def resolve_entitlement(
         return _degraded(catalog, LicenseStatus.UNTRUSTED, f"license token is malformed: {exc}")
     try:
         verified = verifier.verify(document, signature)
-    except Exception as exc:  # noqa: BLE001 - a broken verifier degrades, it never crashes the runtime
+    except Exception:  # noqa: BLE001 - a broken verifier degrades, it never crashes the runtime
         return _degraded(
             catalog,
             LicenseStatus.UNTRUSTED,
-            f"license signature could not be checked: {exc}",
+            "license signature could not be checked",
         )
     if not verified:
         return _degraded(
