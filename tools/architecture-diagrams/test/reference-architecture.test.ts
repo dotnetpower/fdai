@@ -19,7 +19,7 @@ test("FDAI reference architecture renders every governed relationship", async ()
   const svg = await renderSvg(spec, layout, "en");
   const koSvg = await renderSvg(spec, layout, "ko");
 
-  assert.equal(spec.version, 3);
+  assert.equal(spec.version, 4);
   assert.equal(spec.kind, "context");
   assert.deepEqual(spec.formats, ["svg"]);
   assert.equal(layout.edges.length, spec.edges.length);
@@ -88,6 +88,31 @@ test("FDAI reference architecture renders every governed relationship", async ()
     spec.nodes.find((node) => node.id === "human-approval")?.parent,
     "human-authority",
   );
+  const genericIconByNode = new Map([
+    ["enterprise-connectors", "lucide-cable"],
+    ["operator-cli", "lucide-terminal"],
+    ["event-ingest", "lucide-inbox"],
+    ["trust-router", "lucide-route"],
+    ["decision-tiers", "lucide-git-branch"],
+    ["t2-quality-gate", "lucide-badge-check"],
+    ["risk-authority-gate", "lucide-shield-check"],
+    ["privileged-executor", "lucide-play"],
+    ["provider-tools", "lucide-wrench"],
+    ["policy-query-engine", "lucide-search-check"],
+    ["ontology-catalogs", "lucide-book-open"],
+    ["held-outcome", "lucide-circle-pause"],
+    ["governed-changes", "lucide-file-check"],
+    ["audit-replay", "lucide-refresh-ccw"],
+  ]);
+  assert.equal(spec.nodes.filter((node) => !node.icon).length, 0);
+  for (const [nodeId, icon] of genericIconByNode) {
+    assert.equal(spec.nodes.find((node) => node.id === nodeId)?.icon, icon);
+  }
+  for (const nodeId of genericIconByNode.keys()) {
+    const start = svg.indexOf(`data-node-id="${nodeId}"`);
+    const end = svg.indexOf('<g class="diagram-node', start + 1);
+    assert.match(svg.slice(start, end >= 0 ? end : undefined), /<image /);
+  }
   assert.deepEqual(
     spec.groups.filter((group) => !group.parent).map((group) => group.id),
     ["connected-environment", "fdai-platform", "governed-outcomes", "human-authority"],

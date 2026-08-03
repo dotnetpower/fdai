@@ -7,6 +7,23 @@ import type {
   ElkLabel,
   ElkPoint,
 } from "elkjs/lib/elk-api.js";
+import {
+  BadgeCheck,
+  BookOpen,
+  Cable,
+  CirclePause,
+  FileCheck,
+  GitBranch,
+  Inbox,
+  Play,
+  RefreshCcw,
+  Route,
+  SearchCheck,
+  ShieldCheck,
+  Terminal,
+  Wrench,
+  type IconNode,
+} from "lucide";
 
 import type { DiagramLayout, PositionedShape } from "../layout/elk.js";
 import { cubicCurve } from "../layout/curve.js";
@@ -87,6 +104,22 @@ const pantheonIconManifest = JSON.parse(
 const pantheonIconById = new Map(
   pantheonIconManifest.agents.map((agent) => [agent.name.toLowerCase(), agent]),
 );
+const lucideIconById = new Map<string, IconNode>([
+  ["lucide-badge-check", BadgeCheck],
+  ["lucide-book-open", BookOpen],
+  ["lucide-cable", Cable],
+  ["lucide-circle-pause", CirclePause],
+  ["lucide-file-check", FileCheck],
+  ["lucide-git-branch", GitBranch],
+  ["lucide-inbox", Inbox],
+  ["lucide-play", Play],
+  ["lucide-refresh-ccw", RefreshCcw],
+  ["lucide-route", Route],
+  ["lucide-search-check", SearchCheck],
+  ["lucide-shield-check", ShieldCheck],
+  ["lucide-terminal", Terminal],
+  ["lucide-wrench", Wrench],
+]);
 
 async function loadIconCatalog(name: string): Promise<{
   directory: string;
@@ -110,6 +143,23 @@ function escapeXml(value: string): string {
     .replaceAll("'", "&apos;");
 }
 
+function lucideIconDataUri(icon: string): string | undefined {
+  if (!icon.startsWith("lucide-")) return undefined;
+  const iconNode = lucideIconById.get(icon);
+  if (!iconNode) throw new Error(`Unknown diagram icon '${icon}'`);
+  const body = iconNode
+    .map(([tag, attributes]) => {
+      const serialized = Object.entries(attributes)
+        .filter(([name]) => name !== "key")
+        .map(([name, value]) => ` ${name}="${escapeXml(String(value))}"`)
+        .join("");
+      return `<${tag}${serialized}/>`;
+    })
+    .join("");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#44688e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+}
+
 function textLines(
   lines: string[],
   x: number,
@@ -128,6 +178,8 @@ function textLines(
 
 async function iconDataUri(icon: string | undefined): Promise<string | undefined> {
   if (!icon) return undefined;
+  const lucideIcon = lucideIconDataUri(icon);
+  if (lucideIcon) return lucideIcon;
   const catalog = iconCatalogs.find(({ lock }) => lock.icons[icon]);
   if (!catalog) throw new Error(`Unknown diagram icon '${icon}'`);
   const entry = catalog.lock.icons[icon];

@@ -53,9 +53,11 @@ Each `.diagram.yaml` file contains:
   logical layer boundaries.
 - Nodes with stable ASCII ids and localized labels.
 - Agent nodes use their named glyph from the canonical
-  `console/public/agent-icons/manifest.json` pantheon set. Non-agent nodes
-  without an explicit product icon render as text-only cards rather than
-  profile initials.
+  `console/public/agent-icons/manifest.json` pantheon set. Actual Azure and
+  third-party products use only the verified product catalogs. FDAI-owned
+  concepts may use a statically allowlisted `lucide-*` line glyph; unsupported
+  names fail compilation. Nodes without an icon remain text-only cards rather
+  than profile initials.
 - A non-agent node that represents the complete fixed runtime can set
   `icon: agent-pantheon`. This collective mark doesn't create a sixteenth agent.
 - Single-direction edges with an explicit semantic kind.
@@ -125,6 +127,11 @@ operational signals, the FDAI control plane, and human or delivery surfaces.
 Only use an official Azure icon for an actual Azure service. Keep the product
 name adjacent to the icon. Don't crop, rotate, recolor, distort, or use an Azure
 icon to represent an FDAI component.
+
+FDAI-owned concepts may use the statically imported Lucide glyphs allowlisted in
+the renderer. The package pins Lucide through `package-lock.json`; Lucide is
+distributed under the ISC license, with Feather-derived portions under MIT. See
+the installed package `LICENSE` and <https://lucide.dev/license>.
 
 The compiler verifies every vendored icon against `assets/azure/icons.lock.json`.
 Builds don't download assets from the network. When updating the official icon

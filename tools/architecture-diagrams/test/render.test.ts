@@ -28,6 +28,7 @@ nodes:
   - id: processor
     parent: core
     kind: process
+    icon: lucide-inbox
     label: { en: Processor, ko: Processor }
   - id: thor
     parent: core
@@ -86,7 +87,15 @@ test("lays out nested groups and renders accessible SVG", async () => {
   assert.match(thorSvg, /aria-label="Thor \(Responder\)"/);
   assert.match(thorSvg, /#f5a623/);
   assert.doesNotMatch(thorSvg, /currentColor/);
-  for (const id of ["source", "processor", "sink"]) {
+  const processorIcon = nodeMarkup("processor").match(
+    /href="data:image\/svg\+xml;base64,([^"]+)"/,
+  );
+  assert.ok(processorIcon);
+  const processorSvg = Buffer.from(processorIcon[1]!, "base64").toString("utf8");
+  assert.match(processorSvg, /stroke="#44688e"/);
+  assert.match(processorSvg, /<path [^>]*\/>/);
+  assert.doesNotMatch(processorSvg, /\bkey=/);
+  for (const id of ["source", "sink"]) {
     assert.doesNotMatch(nodeMarkup(id), /class="(?:agent|generic)-icon"|<image /);
   }
   assert.match(svg, /marker-end="url\(#arrow-event\)"/);
@@ -113,10 +122,16 @@ test("rejects an agent node outside the fixed pantheon", async () => {
   );
 });
 
+test("rejects a generic icon outside the static Lucide allowlist", async () => {
+  const spec = parseDiagram(source.replace("icon: lucide-inbox", "icon: lucide-not-allowed"));
+  const layout = await layoutDiagram(spec);
+  await assert.rejects(renderSvg(spec, layout, "en"), /Unknown diagram icon 'lucide-not-allowed'/);
+});
+
 test("renders the collective pantheon mark without creating a sixteenth agent", async () => {
   const spec = parseDiagram(source.replace(
-    "    kind: process\n    label: { en: Processor, ko: Processor }",
-    "    kind: process\n    icon: agent-pantheon\n    label: { en: Processor, ko: Processor }",
+    "    icon: lucide-inbox",
+    "    icon: agent-pantheon",
   ));
   const layout = await layoutDiagram(spec);
   const svg = await renderSvg(spec, layout, "en");
