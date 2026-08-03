@@ -419,6 +419,85 @@ def test_ordinal_followup_requeries_exact_second_resource() -> None:
     assert backend.calls == 0
 
 
+@pytest.mark.parametrize(
+    ("inventory_result", "expected_reason"),
+    (
+        (
+            {"status": "matched", "resources": [], "truncated": False},
+            "ordinal_resource_no_longer_observed",
+        ),
+        (
+            {
+                "status": "matched",
+                "resources": [{"name": "app-two"}, {"name": "app-two"}],
+                "truncated": False,
+            },
+            "ordinal_requery_not_unique",
+        ),
+        (
+            {
+                "status": "matched",
+                "resources": [{"name": "app-two"}],
+                "truncated": True,
+            },
+            "ordinal_requery_truncated",
+        ),
+        (
+            {"status": "matched", "resources": {"name": "app-two"}},
+            "ordinal_query_invalid_result",
+        ),
+    ),
+)
+async def test_ordinal_requery_holds_for_unusable_results(
+    inventory_result: dict[str, object], expected_reason: str
+) -> None:
+    class InventoryContext:
+        async def resolve_planned(
+            self,
+            tool_name: str,
+            arguments: Mapping[str, object],
+            *,
+            principal_id: str,
+        ) -> dict[str, object]:
+            del tool_name, arguments, principal_id
+            return {
+                "tool": "query_inventory",
+                "authority": "server_inventory_graph",
+                "result": inventory_result,
+            }
+
+    resolved = await ConversationContextChatTools(
+        inventory_context=InventoryContext()
+    ).resolve_with_context(
+        "Recheck the second resource from the previous result.",
+        principal_id="reader",
+        context={
+            "status": "verified",
+            "authority": "server_inventory_graph",
+            "answer": "Two resources were observed.",
+            "evidence_refs": ["inventory:prior"],
+            "resource_result_context": _resource_result_context(
+                [
+                    {
+                        "name": "app-one",
+                        "resource_type": "compute.app",
+                        "resource_group": "rg-example",
+                    },
+                    {
+                        "name": "app-two",
+                        "resource_type": "compute.app",
+                        "resource_group": "rg-example",
+                    },
+                ]
+            ),
+        },
+    )
+
+    assert resolved is not None
+    assert resolved["status"] == "abstain"
+    assert resolved["result"]["reason"] == expected_reason
+
+
 def test_ambiguity_followup_renders_equal_name_candidates() -> None:
     store = InMemoryConversationHistoryStore()
     session_id = "context-ambiguous-resource"
@@ -670,7 +749,9 @@ def test_reports_prior_source_failure_without_substituting_another_authority() -
 
 def test_metric_comparison_uses_durable_incident_anchor_through_production_chain() -> None:
     class Provider:
-        async def __call__(self, lookback_seconds: int, *, progress_observer: object = None):
+        async def __call__(
+            self, lookback_seconds: int, *, progress_observer: object = None
+        ) -> Mapping[str, object]:
             raise AssertionError("broad query must not run")
 
         async def query_metric_comparison(

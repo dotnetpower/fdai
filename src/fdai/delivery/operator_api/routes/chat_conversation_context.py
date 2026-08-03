@@ -434,16 +434,37 @@ class ConversationContextChatTools:
                 context,
             )
         result = resolved.get("result")
-        resources = result.get("resources") if isinstance(result, Mapping) else None
-        if (
-            isinstance(result, Mapping)
-            and result.get("status") == "matched"
-            and isinstance(resources, list)
-            and len(resources) != 1
-        ):
+        if not isinstance(result, Mapping):
+            return _context_unavailable(
+                ConversationContextIntent.ORDINAL_RESOURCE,
+                "ordinal_query_invalid_result",
+                context,
+            )
+        if result.get("status") != "matched":
+            return dict(resolved)
+        resources = result.get("resources")
+        if not isinstance(resources, list):
+            return _context_unavailable(
+                ConversationContextIntent.ORDINAL_RESOURCE,
+                "ordinal_query_invalid_result",
+                context,
+            )
+        if not resources:
+            return _context_unavailable(
+                ConversationContextIntent.ORDINAL_RESOURCE,
+                "ordinal_resource_no_longer_observed",
+                context,
+            )
+        if len(resources) > 1:
             return _context_unavailable(
                 ConversationContextIntent.ORDINAL_RESOURCE,
                 "ordinal_requery_not_unique",
+                context,
+            )
+        if result.get("truncated") is True:
+            return _context_unavailable(
+                ConversationContextIntent.ORDINAL_RESOURCE,
+                "ordinal_requery_truncated",
                 context,
             )
         return dict(resolved)
