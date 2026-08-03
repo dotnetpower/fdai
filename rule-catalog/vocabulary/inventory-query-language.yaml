@@ -1,5 +1,5 @@
 schema_version: "1.1.0"
-version: "1.1.20"
+version: "1.1.21"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -56,7 +56,7 @@ scopes:
   subscription:
     terms: [subscription, subscription wide, subscription scope, in subscription, in the subscription, from subscription, from the subscription, across subscription, across the subscription, entire subscription, whole subscription, 구독, 우리 구독, 우리구독, 구독 범위, 구독 전체, 전체 구독, 전체 구독 범위]
   active_view:
-    terms: [this view, current view, this screen, current screen, this group, this resource group, 현재 보기, 현재 화면, 지금 화면, 이 화면, 이 그룹, 이 리소스 그룹]
+    terms: [this view, current view, this screen, current screen, this group, current group, this resource group, 현재 보기, 현재 화면, 지금 화면, 이 화면, 이 그룹, 이 리소스 그룹, 지금 보고 있는]
 states:
   stopped:
     terms: [stopped, powered off, 중지, 중지된, 중지됨, 정지, 정지된]

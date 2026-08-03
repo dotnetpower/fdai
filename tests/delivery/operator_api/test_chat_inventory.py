@@ -1391,6 +1391,28 @@ def test_this_group_contextualizes_selected_resource_details() -> None:
     ]
 
 
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "현재 화면의 리소스 그룹에 어떤 서비스가 있어?",
+        "지금 보고 있는 리소스 그룹의 서비스 목록을 보여줘.",
+        "현재 화면에 선택된 리소스 그룹에는 어떤 리소스 유형이 있나?",
+        "List resources in this group with type, region, and state.",
+        "Show this group's resources with their type, location, and current state.",
+        "For the current group, list each resource's name, type, region, and status.",
+    ),
+)
+def test_current_group_cohort_requires_selected_architecture_group(prompt: str) -> None:
+    unchanged, contextualized = contextualize_inventory_screen_scope(
+        prompt,
+        {"routeId": "architecture", "records": {}},
+    )
+
+    assert unchanged == prompt
+    assert contextualized is not None
+    assert contextualized.status is InventoryScreenScopeStatus.UNAVAILABLE
+
+
 def test_continuation_contextualizes_selected_state_coverage() -> None:
     prompt, contextualized = contextualize_inventory_screen_scope(
         "상태를 확인할 수 없는 리소스 유형도 함께 알려줘.",
