@@ -42,10 +42,22 @@ _FOLLOWUP_CUE: Final = re.compile(
 _EXPLICIT_OTHER_SUBJECT: Final = re.compile(
     r"\b(?:vm|virtual\s+machine|database|postgres|sql|resource|subscription|"
     r"incident|service\s+health|resource\s+health|cpu|memory|storage|network|"
-    r"deployment|pod|cluster|aks|container\s+app|cost|spend|billing)\b|"
+    r"deployment|pod|cluster|aks|container\s+app|cost|spend|billing|error\s+rate|"
+    r"latency|availability|throughput|request\s+count|success\s+rate|failure\s+rate)\b|"
     r"(?:가상\s*머신|데이터베이스|리소스|구독|인시던트|서비스\s*상태|"
     r"리소스\s*상태|CPU|메모리|스토리지|네트워크|배포|파드|클러스터|AKS|"
-    r"컨테이너\s*앱|비용|지출|청구)",
+    r"컨테이너\s*앱|비용|지출|청구|오류율|에러율|지연|가용성|처리량|요청\s*수|"
+    r"성공률|실패율|장애\s*수|인시던트\s*수)",
+    re.IGNORECASE,
+)
+_UNSUPPORTED_REFINEMENT: Final = re.compile(
+    r"\b(?:compare|comparison|versus|vs\.?|export|download|csv|json)\b|"
+    r"(?:비교|대비|내보내기|다운로드|CSV|JSON)",
+    re.IGNORECASE,
+)
+_NUMBERED_WINDOW: Final = re.compile(
+    r"\b(?:last|past|previous|recent)\s+(\d{1,3})\s*(days?|weeks?|months?)\b|"
+    r"(?:최근|지난)\s*(\d{1,3})\s*(일|주|주간|개월|달)",
     re.IGNORECASE,
 )
 _SEVEN_DAYS: Final = re.compile(
@@ -62,7 +74,7 @@ _GROUP_MODEL: Final = re.compile(r"\b(?:by\s+model|per\s+model)\b|모델별", re
 _GROUP_SCOPE: Final = re.compile(r"\b(?:by\s+scope|per\s+scope)\b|범위별", re.IGNORECASE)
 _GROUP_MODE: Final = re.compile(r"\b(?:by\s+mode|per\s+mode)\b|모드별", re.IGNORECASE)
 _CHAT_ONLY: Final = re.compile(
-    r"\b(?:chat|conversation)\s+only\b|(?:채팅|대화)(?:만|\s*사용량)",
+    r"\b(?:chat|conversation)\s+only\b|(?:채팅|대화)(?:\s*만|.{0,12}사용량)",
     re.IGNORECASE,
 )
 _GROUPERS: Final = {
@@ -102,6 +114,7 @@ def parse_llm_usage_analysis_context(value: object) -> dict[str, object] | None:
         "measure",
         "group_by",
         "lookback_days",
+        "usage_scope",
     }
     if set(value) != expected:
         return None
@@ -117,6 +130,7 @@ def parse_llm_usage_analysis_context(value: object) -> dict[str, object] | None:
         or not isinstance(lookback_days, int)
         or isinstance(lookback_days, bool)
         or not 1 <= lookback_days <= _MAX_LOOKBACK_DAYS
+        or value.get("usage_scope") not in {None, InvocationScope.OPERATOR_CHAT.value}
     ):
         return None
     return {key: value[key] for key in expected}
@@ -181,7 +195,11 @@ class LlmUsageChatTools:
             if self.fallback is None:
                 return None
             return await self.fallback.resolve(prompt, principal_id=principal_id)
-        return await self._query(_query_from_prompt(prompt))
+        try:
+            query = _query_from_prompt(prompt)
+        except ValueError:
+            return _invalid_query_evidence("lookback_out_of_range")
+        return await self._query(query)
 
     async def resolve_planned(
         self,
@@ -220,9 +238,17 @@ class LlmUsageChatTools:
     ) -> dict[str, Any] | None:
         del principal_id
         anchor = _analysis_anchor(context)
-        if anchor is None or not is_llm_usage_followup(prompt):
+        if (
+            anchor is None
+            or not is_llm_usage_followup(prompt)
+            or _UNSUPPORTED_REFINEMENT.search(prompt)
+        ):
             return None
-        return await self._query(_refine_query(prompt, anchor))
+        try:
+            query = _refine_query(prompt, anchor)
+        except ValueError:
+            return None
+        return await self._query(query)
 
     async def _query(self, query: LlmUsageQuery) -> dict[str, Any]:
         observed_at = self.now().astimezone(UTC)
@@ -275,7 +301,12 @@ def _refine_query(prompt: str, anchor: Mapping[str, object]) -> LlmUsageQuery:
             prompt,
             default=(prior_days if isinstance(prior_days, int) else 30),
         ),
-        usage_scope=(InvocationScope.OPERATOR_CHAT.value if _CHAT_ONLY.search(prompt) else None),
+        usage_scope=(
+            InvocationScope.OPERATOR_CHAT.value
+            if _CHAT_ONLY.search(prompt)
+            or anchor.get("usage_scope") == InvocationScope.OPERATOR_CHAT.value
+            else None
+        ),
     )
 
 
@@ -290,6 +321,27 @@ def _group_by(prompt: str, *, default: str = "day") -> str:
 
 
 def _lookback_days(prompt: str, *, default: int) -> int:
+    numbered = _NUMBERED_WINDOW.search(prompt)
+    if numbered is not None:
+        count = int(numbered.group(1) or numbered.group(3))
+        unit = (numbered.group(2) or numbered.group(4) or "day").casefold()
+        multiplier = (
+            30
+            if unit in {"month", "months", "개월", "달"}
+            else 7
+            if unit
+            in {
+                "week",
+                "weeks",
+                "주",
+                "주간",
+            }
+            else 1
+        )
+        days = count * multiplier
+        if not 1 <= days <= _MAX_LOOKBACK_DAYS:
+            raise ValueError("LLM usage lookback is out of range")
+        return days
     if _SEVEN_DAYS.search(prompt):
         return 7
     if _THIRTY_DAYS.search(prompt):
@@ -305,6 +357,15 @@ def _analysis_context(query: LlmUsageQuery) -> dict[str, object]:
         "measure": "total_tokens",
         "group_by": query.group_by,
         "lookback_days": query.lookback_days,
+        "usage_scope": query.usage_scope,
+    }
+
+
+def _invalid_query_evidence(reason: str) -> dict[str, Any]:
+    return {
+        "tool": "query_llm_usage",
+        "authority": "server_metering",
+        "result": {"status": "unavailable", "reason": reason, "evidence_refs": []},
     }
 
 

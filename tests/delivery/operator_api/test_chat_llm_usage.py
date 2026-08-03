@@ -30,7 +30,11 @@ class _Backend:
 
 
 def _invocation(
-    *, occurred_at: datetime, prompt_tokens: int, completion_tokens: int
+    *,
+    occurred_at: datetime,
+    prompt_tokens: int,
+    completion_tokens: int,
+    scope: InvocationScope = InvocationScope.OPERATOR_CHAT,
 ) -> LlmInvocation:
     return LlmInvocation(
         occurred_at=occurred_at,
@@ -40,7 +44,7 @@ def _invocation(
         tier="T1",
         mode=InvocationMode.ENFORCE,
         usage=TokenUsage(prompt_tokens, completion_tokens),
-        usage_scope=InvocationScope.OPERATOR_CHAT,
+        usage_scope=scope,
     )
 
 
@@ -50,6 +54,8 @@ def test_analysis_followup_detection_does_not_capture_explicit_other_domains() -
     assert is_llm_usage_followup("모델별로 다시 보여줘")
     assert not is_llm_usage_followup("VM 상태를 그래프로 보여줘")
     assert not is_llm_usage_followup("데이터베이스 통계를 일주일간 보여줘")
+    assert not is_llm_usage_followup("오류율을 그래프로 보여줘")
+    assert not is_llm_usage_followup("Show the latency as a chart")
 
 
 @pytest.mark.parametrize("stream", [False, True])
@@ -69,6 +75,15 @@ def test_durable_usage_followup_returns_chart_without_health_or_model_fallback(
                 completion_tokens=20,
             ),
         )
+    _record_sync(
+        reader,
+        _invocation(
+            occurred_at=observed[-1],
+            prompt_tokens=1_000,
+            completion_tokens=0,
+            scope=InvocationScope.CONTROL_PLANE,
+        ),
+    )
     backend = _Backend()
     app = build_app(
         authenticator=_authenticator(),
@@ -87,11 +102,12 @@ def test_durable_usage_followup_returns_chart_without_health_or_model_fallback(
             json={
                 "request_id": "usage-first",
                 "session_id": "usage-session",
-                "prompt": "토큰 사용량에 대해서 알려줘",
+                "prompt": "채팅 토큰 사용량에 대해서 알려줘",
                 "view_context": {"_locale": "ko"},
             },
         ).json()
         assert first["verification"]["authority"] == "server_metering"
+        assert first["analysis_context"]["usage_scope"] == "operator_chat"
 
         response = client.post(
             "/chat/stream" if stream else "/chat",
@@ -115,6 +131,27 @@ def test_durable_usage_followup_returns_chart_without_health_or_model_fallback(
                 },
             },
         ).json()
+        regrouped = client.post(
+            "/chat",
+            json={
+                "request_id": f"usage-regrouped-{stream}",
+                "session_id": "usage-session",
+                "prompt": "최근 2주를 모델별 표로 다시 보여줘",
+                "view_context": {"_locale": "ko"},
+            },
+        ).json()
+        unsupported = [
+            client.post(
+                "/chat",
+                json={
+                    "request_id": f"usage-unsupported-{index}-{stream}",
+                    "session_id": "usage-session",
+                    "prompt": prompt,
+                    "view_context": {"_locale": "ko"},
+                },
+            ).json()
+            for index, prompt in enumerate(("지난주와 비교해줘", "CSV로 다운로드해줘"))
+        ]
 
     payload = _done_payload(response.text) if stream else response.json()
     assert payload["verification"]["authority"] == "server_metering"
@@ -125,6 +162,14 @@ def test_durable_usage_followup_returns_chart_without_health_or_model_fallback(
     assert payload["chart_artifact"]["evidence_refs"] == payload["verification"]["evidence_refs"]
     chart = json.loads(payload["answer"].split("```chart\n", 1)[1].split("\n```", 1)[0])
     assert {key: payload["chart_artifact"][key] for key in chart} == chart
+    assert sum(point["value"] for point in chart["data"]) == 510
+    assert regrouped["answer_plan"]["format"] == "table"
+    assert regrouped["analysis_context"]["lookback_days"] == 14
+    assert regrouped["analysis_context"]["group_by"] == "model"
+    assert "| example-model | 3 | 450 | 60 | 510 |" in regrouped["answer"]
+    assert all(
+        item["verification"]["authority"] == "server_conversation_context" for item in unsupported
+    )
     assert chart["type"] == "line"
     assert [point["label"] for point in chart["data"]] == [
         item.strftime("%Y-%m-%d") for item in observed
