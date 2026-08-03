@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 0383e7cc070ca68a85bdcb4af74d5ddd30f5db92
+translation_source_sha: 7772a09c766a08ed76dc5be91ee477c99eb5e1bd
 translation_revised: 2026-08-03
 ---
 
@@ -225,9 +225,11 @@ command count, evidence completion, reference 및 verification을 표시합니�
 complete bounded operator prompt를 유지하고 좁은 layout에서는 줄바꿈합니다. Disclosure를 변경하면 transcript만 scroll하고 composer는
 Deck 경계에 계속 표시됩니다. 펼친 view는 6단계 rail, 펼칠 수 있는 observed-event timeline 및 provenance signal을 먼저 표시하고,
 timing window, decision context, phase record 및 coverage gap은 하나의 접힌 execution-details disclosure에
-유지합니다. Preparing-answer surface는 final answer streaming이 시작될 때까지 operator turn과 observed
-work 사이에 유지되며 현재 presentation을 그대로 사용합니다. 이후 observed work는 execution mock의
-progress note, session, connected step 및 dark command detail 계층을 따릅니다. 단독 activity의 starting
+유지합니다. Preparing-answer surface는 observed activity와 evidence branch가 terminal state에 도달할
+때까지 operator turn과 observed work 사이에 유지됩니다. 더 일찍 도착한 answer token은 browser paint
+queue에 유지합니다. Activity shell을 settled로 바꾸는 render에서 answer를 함께 추가하므로 running
+investigation skeleton과 answer content가 동시에 나타나지 않습니다. 이후 observed work는 execution
+mock의 progress note, session, connected step 및 dark command detail 계층을 따릅니다. 단독 activity의 starting
 note는 수신한 해당 activity에서만 가져옵니다. Milestone을 수신한 경우에는 milestone이 note가 되므로
 browser가 progress를 중복하거나 만들어내지 않습니다. 현재 step만 자동으로 펼치고 완료된 step shell은
 유지하며 raw output과 timestamp는 접습니다. Raw current-screen record는 접힌 source disclosure에 유지합니다.
@@ -241,10 +243,14 @@ browser scroll anchoring을 끄고 하단 공간을 추가하며 work가 streami
 answer layout이 완료되는 동안 execution outcome과 answer 시작을 함께 표시합니다. Timing이 없는 plan과 collaboration metadata는 decision context에 두고, 관측된 input, evidence
 및 tool, model call, verification 및 delivery만 timeline에 표시합니다.
 모든 waterfall lane은 label이 있는 하나의 start-to-completion scale과 quarter-window tick을 사용합니다.
-Phase envelope은 저채도 blue, evidence work는 green, model work는 plum, point-in-time turn record는
-neutral gray로 표시합니다. Terminal answer는 마지막 recorded timing completion보다 앞에 배치하지
-않으므로 answer-record timestamp가 이르더라도 generation과 verification이 delivery 뒤에 나타나지
-않습니다. Lane baseline과 tick은 completion progress bar와 구분됩니다.
+내부 causal rail은 row를 연결하고 dashed segment는 설명되지 않은 빈 공간 대신 recorded interval
+사이의 측정된 시간을 표시합니다. Complete timestamp가 있는 execution activity는 연결된 generic
+evidence branch를 대체하며 observed label, tool, authority 및 detail을 유지합니다. Phase envelope은
+저채도 blue, evidence work는 green, model work는 plum, point-in-time turn record는 neutral gray circle로
+표시합니다. Input marker는 해당 turn에서 관측된 가장 이른 timestamp에 고정하고 terminal answer는
+마지막 recorded timing completion보다 앞에 배치하지 않습니다. 따라서 browser와 server의 clock
+skew가 evidence를 input 앞에 두거나 generation과 verification을 delivery 뒤에 두지 못합니다. Lane
+baseline과 tick은 completion progress bar와 구분됩니다.
 Answer text는 14 px 이상이고,
 main disclosure 높이는 44 px이며, 200% text resize와 320 CSS pixel에서 content loss 없이 reflow합니다.
 Transcript text는 15 px, trajectory heading은 13 px, event label은 12 px, control은 13 px을 사용하며

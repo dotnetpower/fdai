@@ -37,9 +37,24 @@ export function ConversationExecutionTimelineView({
             <details>
               <summary>
                 <span class="deck-execution-kind">{t(`deck.trajectory.executionKind.${item.kind}`)}</span>
-                <strong class="deck-execution-label">{executionLabel(item)}</strong>
-                <span class="deck-execution-track" aria-hidden="true">
-                  <span style={{ left: `${item.leftPct}%`, width: `${item.widthPct}%` }} />
+                <span class="deck-execution-label-wrap">
+                  <span class="deck-execution-flow-mark" aria-hidden="true" />
+                  <strong class="deck-execution-label">{executionLabel(item)}</strong>
+                </span>
+                <span
+                  class={`deck-execution-track${item.durationMs === 0 ? " is-point" : ""}`}
+                  aria-hidden="true"
+                >
+                  {item.gapWidthPct > 0 ? (
+                    <span
+                      class="deck-execution-gap"
+                      style={{ left: `${item.gapLeftPct}%`, width: `${item.gapWidthPct}%` }}
+                    />
+                  ) : null}
+                  <span
+                    class="deck-execution-bar"
+                    style={{ left: `${item.leftPct}%`, width: `${item.widthPct}%` }}
+                  />
                 </span>
                 <span class="deck-execution-duration">{formatDuration(item.durationMs)}</span>
                 <span class="deck-execution-outcome">{phaseStateLabel(item.state)}</span>
@@ -95,6 +110,7 @@ function executionFactValue(fact: ExecutionTimelineFact): string {
 }
 
 function executionLabel(item: ExecutionTimelineItem): string {
+  if (item.displayLabel) return item.displayLabel;
   if (item.kind === "turn") return t(`deck.trajectory.phase.${item.label}`);
   if (item.kind === "phase") return t(`deck.trajectory.timingPhase.${item.label}`);
   if (item.kind === "evidence") return t(`deck.investigation.kind.${item.label}`);

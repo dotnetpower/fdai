@@ -12,6 +12,7 @@ import { takeComposerAttachments } from "./composer-attachment-store";
 import { DEFAULT_NARRATOR, type Turn } from "./command-deck-presenters";
 import { upsertEvidenceBranch, upsertInvestigationActivity } from "./investigation-timeline";
 import {
+  investigationTurnsAreSettled,
   settleInvestigationTurn,
   settleInvestigationTurns,
 } from "./investigation-turn-state";
@@ -188,6 +189,9 @@ export function useCommandDeckSubmit({
       let revealTimer: number | null = null;
       let paintFrame: number | null = null;
       const paintQueue: string[] = [];
+      let terminalReplyReady = false;
+      const observedWorkSettled = () => terminalReplyReady ||
+        investigationTurnsAreSettled(turnsRef.current, activityTurnIds);
       const scheduleStreamPaint = () => {
         if (!started || paintFrame !== null || paintQueue.length === 0 || !isCurrent()) return;
         paintFrame = requestAnimationFrame(() => {
@@ -205,14 +209,15 @@ export function useCommandDeckSubmit({
         });
       };
       const ensureTurn = () => {
-        if (started || !isCurrent()) return;
+        if (started || !isCurrent() || !observedWorkSettled()) return;
         started = true;
         setPending(false);
         setRetrievalProgress(null);
         setSrStatus(t("deck.announcement.answering"));
         setTurns((current) => {
+          const settledCurrent = settleInvestigationTurns(current, activityTurnIds);
           const next: readonly Turn[] = [
-            ...current,
+            ...settledCurrent,
             {
               id: deckId,
               role: "deck",
@@ -232,7 +237,7 @@ export function useCommandDeckSubmit({
         pinTranscriptToLatest();
       };
       const revealWhenReady = () => {
-        if (started || revealTimer !== null || !isCurrent()) return;
+        if (started || revealTimer !== null || !isCurrent() || !observedWorkSettled()) return;
         const remaining = MIN_PREPARING_VISIBLE_MS - (Date.now() - preparingStartedAt);
         if (remaining <= 0) {
           ensureTurn();
@@ -316,6 +321,7 @@ export function useCommandDeckSubmit({
               turnsRef.current = next;
               return next;
             });
+            revealWhenReady();
             pinTranscriptToLatest();
           },
           onBranch: (branch: EvidenceBranch) => {
@@ -355,6 +361,7 @@ export function useCommandDeckSubmit({
               turnsRef.current = next;
               return next;
             });
+            revealWhenReady();
             pinTranscriptToLatest();
           },
           onMilestone: (milestone: InvestigationMilestone) => {
@@ -454,6 +461,7 @@ export function useCommandDeckSubmit({
         if (paintFrame !== null) cancelAnimationFrame(paintFrame);
         throw error;
       }
+      terminalReplyReady = true;
       if (!started && isCurrent()) {
         const remaining = MIN_PREPARING_VISIBLE_MS - (Date.now() - preparingStartedAt);
         if (remaining > 0) {

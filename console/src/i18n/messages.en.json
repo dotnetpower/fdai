@@ -2267,6 +2267,7 @@
         "requestMessages": "Request messages",
         "response": "Response",
         "source": "Source",
+        "tool": "Tool",
         "usage": "Usage"
       },
       "pointInTime": "point in time",

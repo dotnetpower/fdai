@@ -158,6 +158,73 @@ describe("buildExecutionTimeline", () => {
       kind: "turn",
       label: "answer",
       startedAt: "2026-07-31T07:00:05Z",
+      gapWidthPct: 0,
+    });
+  });
+
+  it("keeps input first when the server timing clock precedes the browser record", () => {
+    const input = trajectory({
+      turnTiming: {
+        schema_version: 1,
+        started_at: "2026-07-31T06:59:59.500Z",
+        completed_at: "2026-07-31T07:00:05Z",
+        duration_ms: 5500,
+        phases: [{
+          phase: "evidence",
+          status: "completed",
+          started_at: "2026-07-31T06:59:59.500Z",
+          completed_at: "2026-07-31T07:00:03Z",
+          duration_ms: 3500,
+        }],
+      },
+    });
+
+    const items = buildExecutionTimeline(input);
+
+    expect(items.slice(0, 2).map((item) => item.label)).toEqual(["input", "evidence"]);
+    expect(items[0]?.startedAt).toBe("2026-07-31T06:59:59.500Z");
+  });
+
+  it("connects recorded timing gaps and prefers the observed activity over its branch", () => {
+    const input = trajectory({}, {
+      activities: [{
+        activityId: "inventory",
+        branchId: "web",
+        kind: "inventory.query",
+        status: "completed",
+        label: "Queried inventory",
+        detail: "9 matching resources",
+        completed: 1,
+        total: 1,
+        authority: "server_inventory_graph",
+        execution: {
+          tool: "query_inventory",
+          command: "{}",
+          inputKind: "query",
+          redacted: true,
+          startedAt: "2026-07-31T07:00:01Z",
+          completedAt: "2026-07-31T07:00:03Z",
+          durationMs: 2000,
+        },
+      }],
+    });
+
+    const items = buildExecutionTimeline(input);
+    const evidence = items.find((item) => item.kind === "evidence");
+
+    expect(items.filter((item) => item.kind === "evidence")).toHaveLength(1);
+    expect(evidence).toMatchObject({
+      id: "activity-inventory",
+      displayLabel: "Queried inventory",
+      gapLeftPct: 0,
+      gapWidthPct: 20,
+      details: {
+        summary: "9 matching resources",
+        facts: [
+          { key: "tool", value: "query_inventory" },
+          { key: "authority", value: "server_inventory_graph" },
+        ],
+      },
     });
   });
 

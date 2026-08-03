@@ -22,6 +22,7 @@ export type ExecutionTimelineFactKey =
   | "requestMessages"
   | "response"
   | "source"
+  | "tool"
   | "usage";
 
 export interface ExecutionTimelineFact {
@@ -46,6 +47,9 @@ export interface ExecutionTimelineItem {
   readonly durationMs: number;
   readonly leftPct: number;
   readonly widthPct: number;
+  readonly gapLeftPct: number;
+  readonly gapWidthPct: number;
+  readonly displayLabel?: string;
   readonly details: ExecutionTimelineDetails;
 }
 
@@ -55,7 +59,10 @@ export interface ExecutionTimelineWindow {
   readonly durationMs: number;
 }
 
-interface RawTimelineItem extends Omit<ExecutionTimelineItem, "leftPct" | "widthPct"> {}
+interface RawTimelineItem extends Omit<
+  ExecutionTimelineItem,
+  "leftPct" | "widthPct" | "gapLeftPct" | "gapWidthPct"
+> {}
 
 export function buildExecutionTimeline(
   trajectory: ConversationTrajectory,
@@ -69,15 +76,24 @@ export function buildExecutionTimeline(
   const endMs = Math.max(...items.map((item) => Date.parse(item.completedAt)));
   const actualSpanMs = Math.max(0, endMs - startMs);
   const denominator = actualSpanMs > 0 ? actualSpanMs : SINGLETON_SPAN_MS;
+  let coveredUntilMs = startMs;
   return items.map((item) => {
     const itemStart = Date.parse(item.startedAt);
+    const itemEnd = Date.parse(item.completedAt);
     const rawLeft = ((itemStart - startMs) / denominator) * 100;
     const leftPct = Math.min(rawLeft, 100 - MIN_BAR_PCT);
     const rawWidth = (item.durationMs / denominator) * 100;
+    const gapStartMs = coveredUntilMs;
+    const gapDurationMs = Math.max(0, itemStart - gapStartMs);
+    const gapLeftPct = ((gapStartMs - startMs) / denominator) * 100;
+    const gapWidthPct = (gapDurationMs / denominator) * 100;
+    coveredUntilMs = Math.max(coveredUntilMs, itemEnd);
     return {
       ...item,
       leftPct,
       widthPct: Math.min(Math.max(rawWidth, MIN_BAR_PCT), 100 - leftPct),
+      gapLeftPct,
+      gapWidthPct,
     };
   });
 }
@@ -104,8 +120,16 @@ function rawItems(
   includeModelCalls: boolean,
 ): RawTimelineItem[] {
   const items: RawTimelineItem[] = [];
-  if (trajectory.startedAt) {
-    items.push(pointItem("turn-input", "input", "operator", trajectory.startedAt, {
+  const inputAt = earliestTimestamp([
+    trajectory.startedAt,
+    trajectory.answer.turnTiming?.started_at,
+    ...(trajectory.answer.turnTiming?.phases.map((phase) => phase.started_at) ?? []),
+    ...trajectory.activities.map((activity) => activity.execution?.startedAt),
+    ...trajectory.branches.map((branch) => branch.startedAt),
+    ...(trajectory.answer.modelTrace?.calls.map((call) => call.started_at) ?? []),
+  ]);
+  if (inputAt) {
+    items.push(pointItem("turn-input", "input", "operator", inputAt, {
       summary: trajectory.question.text,
       facts: [{ key: "source", value: "operator" }],
       evidenceRefs: [],
@@ -124,8 +148,39 @@ function rawItems(
       details: phaseDetails(trajectory, phase.phase, includeModelCalls),
     });
   }
+  const representedBranchIds = new Set<string>();
+  for (const activity of trajectory.activities) {
+    const execution = activity.execution;
+    if (!execution?.startedAt || !execution.completedAt) continue;
+    if (activity.branchId) representedBranchIds.add(activity.branchId);
+    items.push({
+      id: `activity-${activity.activityId}`,
+      kind: "evidence",
+      label: execution.inputKind === "query" ? "query" : "tool",
+      displayLabel: activity.label,
+      detail: activity.status,
+      state: branchState(activity.status),
+      startedAt: execution.startedAt,
+      completedAt: execution.completedAt,
+      durationMs: execution.durationMs ?? Math.max(
+        0,
+        Date.parse(execution.completedAt) - Date.parse(execution.startedAt),
+      ),
+      details: {
+        ...(activity.detail ? { summary: activity.detail } : {}),
+        facts: [
+          { key: "tool", value: execution.tool },
+          ...(activity.authority
+            ? [{ key: "authority" as const, value: activity.authority }]
+            : []),
+          ...(activity.agent ? [{ key: "agent" as const, value: activity.agent }] : []),
+        ],
+        evidenceRefs: [],
+      },
+    });
+  }
   for (const branch of trajectory.branches) {
-    if (!branch.completedAt) continue;
+    if (!branch.completedAt || representedBranchIds.has(branch.branchId)) continue;
     items.push({
       id: `evidence-${branch.branchId}`,
       kind: "evidence",
@@ -198,6 +253,14 @@ function latestTimestamp(values: readonly (string | undefined)[]): string | unde
     if (!value || !Number.isFinite(Date.parse(value))) return latest;
     if (!latest || Date.parse(value) > Date.parse(latest)) return value;
     return latest;
+  }, undefined);
+}
+
+function earliestTimestamp(values: readonly (string | undefined)[]): string | undefined {
+  return values.reduce<string | undefined>((earliest, value) => {
+    if (!value || !Number.isFinite(Date.parse(value))) return earliest;
+    if (!earliest || Date.parse(value) < Date.parse(earliest)) return value;
+    return earliest;
   }, undefined);
 }
 

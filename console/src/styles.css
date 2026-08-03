@@ -6490,6 +6490,13 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-execution-kind { justify-self: start; padding: 3px 6px; border-radius: 3px; background: var(--bg-elevated); color: var(--fg-muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; }
 .deck-execution-timeline li[data-kind="evidence"] .deck-execution-kind { background: color-mix(in oklab, var(--success) 10%, var(--bg-elevated)); color: var(--success); }
 .deck-execution-timeline li[data-kind="model"] .deck-execution-kind { background: color-mix(in oklab, var(--accent) 10%, var(--bg-elevated)); color: var(--accent); }
+.deck-execution-label-wrap { position: relative; min-width: 0; display: flex; align-items: center; gap: 9px; align-self: stretch; }
+.deck-execution-label-wrap::after { content: ""; position: absolute; z-index: 0; left: 3px; top: calc(50% + 4px); bottom: -23px; width: 1px; background: color-mix(in oklab, var(--fg-muted) 42%, transparent); }
+.deck-execution-timeline > ol > li:last-child .deck-execution-label-wrap::after { display: none; }
+.deck-execution-flow-mark { position: relative; z-index: 1; flex: 0 0 auto; width: 7px; height: 7px; border: 2px solid var(--bg); border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 50%, var(--border)); }
+.deck-execution-timeline li[data-kind="turn"] .deck-execution-flow-mark { background: var(--fg-muted); box-shadow: 0 0 0 1px color-mix(in oklab, var(--fg-muted) 55%, var(--border)); }
+.deck-execution-timeline li[data-kind="evidence"] .deck-execution-flow-mark { background: var(--success); box-shadow: 0 0 0 1px color-mix(in oklab, var(--success) 55%, var(--border)); }
+.deck-execution-timeline li[data-kind="model"] .deck-execution-flow-mark { background: var(--cs-plum); box-shadow: 0 0 0 1px color-mix(in oklab, var(--cs-plum) 55%, var(--border)); }
 .deck-execution-label { min-width: 0; overflow: hidden; font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .deck-execution-track {
   position: relative;
@@ -6499,14 +6506,16 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     repeating-linear-gradient(to right, color-mix(in oklab, var(--border) 82%, transparent) 0 1px, transparent 1px 25%),
     linear-gradient(to bottom, transparent 3px, color-mix(in oklab, var(--border) 88%, transparent) 3px 4px, transparent 4px);
 }
-.deck-execution-track > span { position: absolute; top: 2px; bottom: 2px; min-width: 3px; border-radius: 1px; background: var(--accent); }
-.deck-execution-timeline li[data-kind="turn"] .deck-execution-track > span { background: var(--fg-muted); }
-.deck-execution-timeline li[data-kind="evidence"] .deck-execution-track > span { background: var(--success); }
-.deck-execution-timeline li[data-kind="model"] .deck-execution-track > span { background: var(--cs-plum); }
-.deck-execution-timeline li[data-state="corrected"] .deck-execution-track > span,
-.deck-execution-timeline li[data-state="degraded"] .deck-execution-track > span,
-.deck-execution-timeline li[data-state="unverified"] .deck-execution-track > span { background: var(--warning); }
-.deck-execution-timeline li[data-state="failed"] .deck-execution-track > span { background: var(--danger); }
+.deck-execution-bar { position: absolute; top: 2px; bottom: 2px; min-width: 3px; border-radius: 1px; background: var(--accent); }
+.deck-execution-gap { position: absolute; top: 3px; height: 2px; background: repeating-linear-gradient(to right, var(--fg-muted) 0 3px, transparent 3px 6px); opacity: .5; }
+.deck-execution-track.is-point .deck-execution-bar { top: 1px; bottom: auto; width: 6px !important; height: 6px; min-width: 6px; border-radius: 50%; transform: translateX(-3px); }
+.deck-execution-timeline li[data-kind="turn"] .deck-execution-bar { background: var(--fg-muted); }
+.deck-execution-timeline li[data-kind="evidence"] .deck-execution-bar { background: var(--success); }
+.deck-execution-timeline li[data-kind="model"] .deck-execution-bar { background: var(--cs-plum); }
+.deck-execution-timeline li[data-state="corrected"] .deck-execution-bar,
+.deck-execution-timeline li[data-state="degraded"] .deck-execution-bar,
+.deck-execution-timeline li[data-state="unverified"] .deck-execution-bar { background: var(--warning); }
+.deck-execution-timeline li[data-state="failed"] .deck-execution-bar { background: var(--danger); }
 .deck-execution-duration { color: var(--fg-muted); font-size: 11px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .deck-execution-outcome { color: var(--fg-muted); font-size: 11px; font-weight: 700; text-align: right; }
 .deck-execution-timeline li[data-state="completed"] .deck-execution-outcome { color: var(--success); }

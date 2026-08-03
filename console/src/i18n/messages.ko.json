@@ -2267,6 +2267,7 @@
         "requestMessages": "요청 메시지",
         "response": "응답",
         "source": "출처",
+        "tool": "도구",
         "usage": "사용량"
       },
       "pointInTime": "시점",

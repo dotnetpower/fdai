@@ -228,9 +228,11 @@ scrolls only the transcript while the composer remains visible at the Deck bound
 view leads with the six-phase rail,
 expandable observed-event timeline, and provenance signals, while timing windows, decision context, phase records, and coverage gaps remain in one
 collapsed execution-details disclosure.
-The preparing-answer surface remains between the operator turn and observed work until final answer
-streaming starts and keeps its existing presentation. Observed work then follows the execution mock's
-progress-note, session, connected-step, and dark command-detail hierarchy. A standalone activity
+The preparing-answer surface remains between the operator turn and observed work until observed
+activity and evidence branches reach a terminal state. Answer tokens that arrive earlier stay in the
+browser paint queue. The activity shell becomes settled in the same render that adds the answer, so
+a running investigation skeleton and answer content never appear together. Observed work follows the
+execution mock's progress-note, session, connected-step, and dark command-detail hierarchy. A standalone activity
 derives its starting note only from that received activity. A milestone remains the note when one was
 received, so the browser doesn't duplicate or invent progress. Only the current step opens
 automatically; completed step shells remain visible while raw output and timestamps fold. Raw
@@ -244,12 +246,16 @@ disables browser scroll anchoring, keeps extra bottom space, and follows the lat
 work streams. On terminal completion it anchors the first observed work group below the transcript
 edge, so execution outcome and answer start remain visible while the final answer lays out.
 Untimed plan and collaboration metadata stays in decision context, while only observed input, evidence and tools, model calls, verification, and delivery use the timeline.
-Every waterfall lane uses one labeled start-to-completion scale with quarter-window ticks. Phase
-envelopes use restrained blue, evidence work uses green, model work uses plum, and point-in-time
-turn records use neutral gray. The terminal answer is placed no earlier than the final recorded
-timing completion, so generation and verification never appear after delivery because of an
-earlier answer-record timestamp. The lane baseline and ticks remain distinct from a completion
-progress bar.
+Every waterfall lane uses one labeled start-to-completion scale with quarter-window ticks. An
+internal causal rail connects the rows, and a dashed segment identifies measured time between
+recorded intervals instead of leaving an unexplained blank. An execution activity with complete
+timestamps replaces its linked generic evidence branch and keeps its observed label, tool,
+authority, and detail. Phase envelopes use restrained blue, evidence work uses green, model work
+uses plum, and point-in-time turn records use neutral gray circles. The input marker anchors to the
+earliest timestamp observed for the turn, and the terminal answer anchors no earlier than the final
+recorded timing completion. Browser and server clock skew therefore cannot place evidence before
+input or generation and verification after delivery. The lane baseline and ticks remain distinct
+from a completion progress bar.
 Answer text is at least 14 px, main disclosures are 44 px high, and content reflows without loss at 200% text resize and 320 CSS pixels.
 The transcript uses 15 px text, trajectory headings use 13 px, event labels use 12 px, controls use
 13 px, and compact trajectory metadata never drops below 11 px. A published screen snapshot becomes visibly stale

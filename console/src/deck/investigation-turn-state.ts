@@ -50,3 +50,15 @@ export function settleInvestigationTurns(
     ? { ...turn, streaming: false, terminal: true }
     : turn);
 }
+
+export function investigationTurnsAreSettled(
+  turns: readonly Turn[],
+  turnIds: ReadonlySet<string>,
+): boolean {
+  const observedTurns = turns.filter((turn) => turnIds.has(turn.id));
+  return observedTurns.length === turnIds.size && observedTurns.every((turn) =>
+    (turn.activities ?? []).every((activity) =>
+      activity.status !== "pending" && activity.status !== "running") &&
+    (turn.branches ?? []).every((branch) =>
+      branch.status !== "pending" && branch.status !== "running"));
+}

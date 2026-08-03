@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import type { InvestigationActivity } from "./backend";
 import type { Turn } from "./command-deck-presenters";
 import {
   investigationFlowPosition,
+  investigationTurnsAreSettled,
   settleInvestigationTurn,
   settleInvestigationTurns,
 } from "./investigation-turn-state";
@@ -94,5 +96,29 @@ describe("investigation turn state", () => {
     expect(settled[0]).toMatchObject({ streaming: false, terminal: true });
     expect(settled[1]).toBe(message);
     expect(settled[2]).toMatchObject({ streaming: false, terminal: true });
+  });
+
+  it("holds answer reveal until every observed activity and branch is terminal", () => {
+    const runningActivity: InvestigationActivity = {
+      activityId: "inventory",
+      kind: "inventory.query",
+      status: "running",
+      label: "Query inventory",
+      completed: 0,
+      total: 1,
+    };
+    const running: Turn = {
+      ...activityTurn("phase-1"),
+      activities: [runningActivity],
+    };
+    const settled: Turn = {
+      ...running,
+      activities: [{ ...runningActivity, status: "completed", completed: 1 }],
+    };
+
+    expect(investigationTurnsAreSettled([running], new Set([running.id]))).toBe(false);
+    expect(investigationTurnsAreSettled([settled], new Set([settled.id]))).toBe(true);
+    expect(investigationTurnsAreSettled([], new Set([running.id]))).toBe(false);
+    expect(investigationTurnsAreSettled([], new Set())).toBe(true);
   });
 });
