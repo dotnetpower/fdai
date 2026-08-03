@@ -21,11 +21,10 @@ def test_design_mocks_rejects_every_other_deployment_target() -> None:
 
 def test_design_mocks_publishes_only_the_allowlisted_artifact() -> None:
     assert "build_design_mocks_artifact.py tmp/design-mocks-dist" in _WORKFLOW
-    assert (
-        "uses: Azure/static-web-apps-deploy@4d27395796ac319302594769cfe812bd207490b1"
-    ) in _WORKFLOW
-    assert "app_location: tmp/design-mocks-dist" in _WORKFLOW
-    assert "skip_app_build: true" in _WORKFLOW
+    assert "Azure/static-web-apps-deploy@" not in _WORKFLOW
+    assert "SWA_CLI_DEPLOYMENT_TOKEN: ${{ steps.design_mocks_token.outputs.token }}" in _WORKFLOW
+    assert "npx --yes @azure/static-web-apps-cli@2.0.10 deploy" in _WORKFLOW
+    assert "tmp/design-mocks-dist --env production" in _WORKFLOW
 
 
 def test_design_mocks_verifies_the_authentication_redirect() -> None:

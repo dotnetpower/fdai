@@ -1214,14 +1214,12 @@ jobs:
 
       - name: Publish design-mocks static artifact
         if: ${{ inputs.apply && inputs.deploy_design_mocks }}
-        uses: Azure/static-web-apps-deploy@4d27395796ac319302594769cfe812bd207490b1
-        with:
-          azure_static_web_apps_api_token: ${{ steps.design_mocks_token.outputs.token }}
-          action: upload
-          app_location: tmp/design-mocks-dist
-          output_location: ""
-          skip_app_build: true
-          skip_api_build: true
+        working-directory: ${{ github.workspace }}
+        env:
+          SWA_CLI_DEPLOYMENT_TOKEN: ${{ steps.design_mocks_token.outputs.token }}
+        run: |
+          npx --yes @azure/static-web-apps-cli@2.0.10 deploy \
+            tmp/design-mocks-dist --env production
 
       - name: Verify design-mocks authentication boundary
         if: ${{ inputs.apply && inputs.deploy_design_mocks }}

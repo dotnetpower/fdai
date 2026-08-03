@@ -363,10 +363,12 @@ Additional identity, channel, and console elements are deployment-owned or opt-i
   assets from `index.html`, `mocks/`, `examples/`, and the shared agent icons. Static Web Apps
   authentication redirects anonymous requests to Microsoft Entra ID and admits only invited
   members of the `reviewer` role. The protected exact-apply workflow reads the deployment token
-  from the Terraform-owned resource, masks it, publishes the allowlisted artifact, and verifies
-  the authentication redirect. This path targets only `module.design_mocks`, rejects any planned
-  resource change outside that module, and skips core canary and other runtime reconciliation.
-  The token is never committed or stored as a repository secret.
+  from the Terraform-owned resource, masks it, and passes it only through the
+  `SWA_CLI_DEPLOYMENT_TOKEN` environment variable to an exact-version Static Web Apps CLI. The
+  workflow publishes the allowlisted artifact and verifies the authentication redirect. This path
+  targets only `module.design_mocks`, rejects any planned resource change outside that module, and
+  skips core canary and other runtime reconciliation. The token is never committed or stored as a
+  repository secret.
 - **Workload identity federation** - CI/CD short-lived OIDC tokens; not a resource, no cost.
 
 ### Document ingestion deployment

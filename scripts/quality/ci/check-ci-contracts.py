@@ -27,7 +27,6 @@ RUNNER_ENTRY_POINTS = (
 )
 REQUIRED_ACTION_REFS = {
     "Azure/functions-action": "v1.5.6",
-    "Azure/static-web-apps-deploy": "4d27395796ac319302594769cfe812bd207490b1",
     "actions/attest": "v4.2.0",
     "actions/checkout": "v7.0.1",
     "actions/configure-pages": "v6.0.0",
