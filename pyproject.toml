@@ -96,7 +96,7 @@ dependencies = [
     "pyjwt[crypto]>=2.10,<3",
     "croniter>=6,<7",
     "azure-storage-file-datalake>=12.25,<13",
-    "aiohttp>=3.13,<4",
+    "aiohttp>=3.14.2,<4",
     "opentelemetry-exporter-otlp-proto-grpc>=1.29,<2",
 ]
 
