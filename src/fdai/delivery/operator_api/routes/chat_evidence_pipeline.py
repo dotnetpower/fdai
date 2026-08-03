@@ -174,6 +174,7 @@ async def resolve_parallel_chat_evidence(
     )
     deterministic_tool_turn = (
         deterministic_inventory_turn
+        or "_read_investigation_context_hold" in base_context
         or needs_subscription_health(prompt)
         or needs_log_query(prompt)
         or needs_action_context(prompt)

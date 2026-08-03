@@ -2895,18 +2895,30 @@ def test_resource_investigation_cohort_requires_exact_selector(prompt: str) -> N
             del prompt, principal_id
             raise AssertionError("selector hold must skip tool resolution")
 
+    class OperationalResolver:
+        async def resolve(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError("selector hold must skip operational evidence")
+
+    class AgentDelegate:
+        async def delegate(self, **_kwargs: object) -> None:
+            raise AssertionError("selector hold must skip agent evidence")
+
     backend = RecordingBackend()
     routes = [
         make_chat_route(
             backend=backend,
             authorize=_allow,
             tool_resolver=ToolResolver(),  # type: ignore[arg-type]
+            evidence_resolver=OperationalResolver(),  # type: ignore[arg-type]
+            agent_delegate=AgentDelegate(),  # type: ignore[arg-type]
             turn_planner=Planner(),  # type: ignore[arg-type]
         ),
         make_chat_stream_route(
             backend=backend,
             authorize=_allow,
             tool_resolver=ToolResolver(),  # type: ignore[arg-type]
+            evidence_resolver=OperationalResolver(),  # type: ignore[arg-type]
+            agent_delegate=AgentDelegate(),  # type: ignore[arg-type]
             turn_planner=Planner(),  # type: ignore[arg-type]
         ),
     ]
