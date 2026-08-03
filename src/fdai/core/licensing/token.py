@@ -137,7 +137,10 @@ def parse_license_token(token: str) -> tuple[LicenseClaims, bytes, bytes]:
     signature = _b64decode(parts[1], "signature")
     if len(signature) != _SIGNATURE_BYTES:
         raise LicenseTokenError("license signature MUST be 64 bytes")
-    return _claims_from_document(document), document, signature
+    claims = _claims_from_document(document)
+    if claims.canonical_document() != document:
+        raise LicenseTokenError("license document is not canonically encoded")
+    return claims, document, signature
 
 
 def _claims_from_document(document: bytes) -> LicenseClaims:

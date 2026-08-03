@@ -129,6 +129,13 @@ def test_outer_whitespace_is_not_a_second_spelling_of_the_same_token(filler: str
             parse_license_token(variant)
 
 
+def test_semantically_equivalent_document_must_use_canonical_json_bytes() -> None:
+    document = json.dumps(json.loads(_claims().canonical_document()), indent=2).encode("utf-8")
+
+    with pytest.raises(LicenseTokenError, match="document is not canonically encoded"):
+        parse_license_token(encode_license_token(document, _SIGNATURE))
+
+
 def test_unknown_document_fields_are_rejected() -> None:
     """An unknown field could carry an entitlement the runtime ignores."""
     document = json.loads(_claims().canonical_document())

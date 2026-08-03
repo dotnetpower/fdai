@@ -1,7 +1,7 @@
 ---
 title: Capability 라이선싱
 translation_of: capability-licensing.md
-translation_source_sha: 7139dc70bd45f6e5e448b90455bc41d4a4ec6f88
+translation_source_sha: 0f8223026b35afafc9ff4b1af559601bdfce4060
 translation_revised: 2026-08-03
 ---
 # Capability 라이선싱
@@ -83,7 +83,9 @@ License의 유효한 표기는 정확히 하나입니다. 대부분의 표준 �
 밖 문자를 조용히 버립니다. 그래서 어느 세그먼트에든 공백을 끼워 넣어도 같은 서명 바이트로
 디코딩되어 signature가 그대로 유효합니다. License 하나에 서로 다른 token 문자열이 무한히 생기는
 셈입니다. 세그먼트는 패딩 없는 base64url 알파벳과 일치해야 하고, 디코딩된 바이트는 도착한
-세그먼트로 다시 인코딩되어야 합니다.
+세그먼트로 다시 인코딩되어야 합니다. 디코딩된 document도 도착한 canonical JSON byte와 정확히
+같게 다시 serialize되어야 합니다. 공백, key 순서, list 순서, timestamp 표기가 다른 동등한 JSON은
+거부합니다.
 
 이는 지금 있는 것보다 앞으로 만들 것에 관한 문제입니다. Revocation, 재사용 탐지, 감사 상관관계는
 모두 token을 키로 삼습니다. 각각이 고유하지 않은 식별자 위에 세워지게 됩니다. 앞뒤 공백도 다른

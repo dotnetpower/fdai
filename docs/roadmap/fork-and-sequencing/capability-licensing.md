@@ -85,7 +85,8 @@ A license has exactly one valid spelling. Base64 decoding in most standard libra
 characters outside the alphabet, so whitespace inserted into either segment would decode to the same
 signed bytes and keep the signature valid - one license, unlimited distinct token strings. Segments
 MUST match the unpadded base64url alphabet, and the decoded bytes MUST re-encode to the segment that
-arrived.
+arrived. The decoded document must also reserialize to the exact canonical JSON bytes that arrived;
+equivalent JSON with different whitespace, key order, list order, or timestamp spelling is rejected.
 
 This matters for what gets built later rather than for what exists today. Revocation, reuse
 detection, and audit correlation all key on the token; each would be built on an identifier that is
