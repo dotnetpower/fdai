@@ -21,10 +21,12 @@ from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolve
 _ACTION_CONTEXT: Final = re.compile(
     r"\b(?:propos(?:e|al)|mitigation|impact\s+limit|stop\s+condition|dry\s+run|rollback|"
     r"human\s+approval|who\s+may\s+approve|execute\s+the\s+approved|mitigation\s+outcome|"
+    r"approval\s+requirement|approver\s+role|who\s+can\s+approve|separate\s+from\s+execution|"
     r"recovery\s+criteria|retrying\s+this\s+action|approved\s+action.{0,24}retried|"
     r"duplicate\s+change|duplication|action\s+receipt)\b|"
-    r"(?:완화\s*방안|영향\s*범위|중지\s*조건|롤백|사람\s*승인|승인자|승인된\s*완화|"
-    r"작업\s*후|해결됐|중복\s*변경|실행\s*요청)",
+    r"(?:완화\s*(?:방안|제안)|영향\s*범위|중지\s*조건|롤백|사람\s*승인|승인자|"
+    r"승인\s*(?:필요성|역할)|실행\s*주체|승인된\s*완화|작업\s*후|해결됐|"
+    r"중복\s*변경|실행\s*요청)",
     re.IGNORECASE,
 )
 _EXPLICIT_ACTION_DRAFT: Final = re.compile(

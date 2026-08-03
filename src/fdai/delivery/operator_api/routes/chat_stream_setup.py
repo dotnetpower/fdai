@@ -10,6 +10,7 @@ from starlette.requests import Request
 
 from fdai.core.conversation.answer_plan import AnswerPlan, build_answer_plan
 from fdai.core.conversation.answer_preferences import ResponsePreferenceProfile
+from fdai.delivery.operator_api.routes.chat_action_context import needs_action_context
 from fdai.delivery.operator_api.routes.chat_backend_common import (
     ChatContentPolicyError,
     _reject_direct_override,
@@ -229,7 +230,11 @@ async def prepare_chat_stream_request(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    selector_hold = missing_read_investigation_context_evidence(clean_prompt, resource_context)
+    selector_hold = (
+        None
+        if needs_action_context(clean_prompt)
+        else missing_read_investigation_context_evidence(clean_prompt, resource_context)
+    )
     if selector_hold is None:
         selector_hold = missing_evidence_freshness_context_evidence(
             clean_prompt,

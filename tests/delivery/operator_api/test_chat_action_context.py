@@ -30,9 +30,13 @@ async def _allow(request: Request) -> str:
 def test_action_lifecycle_questions_require_exact_context() -> None:
     prompts = (
         "실행하지 말고 안전한 완화 방안만 제안해줘.",
+        "실행 없이 검토 가능한 안전한 완화 제안을 보여줘.",
         "Propose a mitigation without executing any change.",
         "Show the proposal's impact limit, stop condition, dry run, and rollback.",
         "Why does this action require human approval, and who may approve it?",
+        "승인 필요성, 승인 역할, 실행 주체를 분리해서 알려줘.",
+        "Explain the approval requirement and the authorized approver role for this action.",
+        "Who can approve this change, and why must approval remain separate from execution?",
         "Execute the approved mitigation and stream its governed progress.",
         "Verify the mitigation outcome against explicit recovery criteria.",
         "Prove that retrying this action will not create a duplicate change.",

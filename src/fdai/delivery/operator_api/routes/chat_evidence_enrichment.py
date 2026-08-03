@@ -168,7 +168,7 @@ async def _with_behavior_evidence(
 
     enriched = dict(view_context)
     enriched.pop("_behavior_evidence", None)
-    if resolver is None or "_screen_scope" in enriched:
+    if resolver is None or "_screen_scope" in enriched or needs_action_context(prompt):
         return enriched
     evidence = await resolver.resolve(prompt)
     if evidence is not None:
