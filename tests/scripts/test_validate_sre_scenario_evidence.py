@@ -170,8 +170,24 @@ def test_cleanup_and_unsupported_claims_fail_closed(validator: ModuleType) -> No
     cleanup["residuals"] = ["worker"]
     scenario["unsupported_claims"] = ["Unverified success"]
     errors = validator.validate(ledger)
-    assert "scenarios.S9.cleanup.residuals MUST be empty" in errors
+    assert "scenarios.S9.cleanup.residuals MUST be empty for passed status" in errors
     assert "scenarios.S9.unsupported_claims MUST be empty" in errors
+
+
+def test_partial_scenario_preserves_cleanup_residuals(validator: ModuleType) -> None:
+    ledger = _ledger()
+    scenarios = ledger["scenarios"]
+    summary = ledger["summary"]
+    assert isinstance(scenarios, dict) and isinstance(summary, dict)
+    scenario = scenarios["S11"]
+    assert isinstance(scenario, dict)
+    scenario["status"] = "partial"
+    cleanup = scenario["cleanup"]
+    assert isinstance(cleanup, dict)
+    cleanup["residuals"] = ["Current replica state requires reconciliation"]
+    summary["passed"] = 13
+    summary["partial"] = 1
+    assert validator.validate(ledger) == []
 
 
 def test_decision_evidence_requires_replayable_provenance(validator: ModuleType) -> None:

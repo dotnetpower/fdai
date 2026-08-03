@@ -206,8 +206,8 @@ def _validate_scenario(scenario_id: str, value: object, errors: list[str]) -> st
         residuals = cleanup.get("residuals")
         if not isinstance(residuals, list):
             errors.append(f"{field}.cleanup.residuals MUST be an array")
-        elif residuals:
-            errors.append(f"{field}.cleanup.residuals MUST be empty")
+        elif status == "passed" and residuals:
+            errors.append(f"{field}.cleanup.residuals MUST be empty for passed status")
 
     claims = scenario.get("unsupported_claims")
     if not isinstance(claims, list):
