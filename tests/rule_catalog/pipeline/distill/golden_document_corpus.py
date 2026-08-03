@@ -6,6 +6,9 @@ import io
 import zipfile
 from dataclasses import dataclass
 
+from pypdf import PdfWriter
+from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
+
 CLAIMS = (
     "Checkout service is owned by Platform team.",
     "Checkout service depends on Billing service.",
@@ -72,25 +75,31 @@ def _pptx() -> bytes:
 
 
 def _pdf(*, scanned: bool) -> bytes:
-    objects = [
-        b"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
-        b"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
-    ]
-    if scanned:
-        objects.append(b"3 0 obj << /Type /Page /Parent 2 0 R >> endobj")
-    else:
-        stream = b"\n".join(b"BT (" + claim.encode() + b") Tj ET" for claim in CLAIMS)
-        objects.extend(
-            (
-                b"3 0 obj << /Type /Page /Parent 2 0 R /Contents 4 0 R >> endobj",
-                b"4 0 obj << /Length "
-                + str(len(stream)).encode()
-                + b" >> stream\n"
-                + stream
-                + b"\nendstream endobj",
-            )
+    output = io.BytesIO()
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=612, height=792)
+    if not scanned:
+        font = DictionaryObject(
+            {
+                NameObject("/Type"): NameObject("/Font"),
+                NameObject("/Subtype"): NameObject("/Type1"),
+                NameObject("/BaseFont"): NameObject("/Helvetica"),
+            }
         )
-    return b"%PDF-1.7\n" + b"\n".join(objects) + b"\n%%EOF\n"
+        page[NameObject("/Resources")] = DictionaryObject(
+            {NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)})}
+        )
+        operations = ["BT /F1 12 Tf 72 720 Td"]
+        for index, claim in enumerate(CLAIMS):
+            if index:
+                operations.append("0 -18 Td")
+            operations.append(f"({claim}) Tj")
+        operations.append("ET")
+        stream = DecodedStreamObject()
+        stream.set_data(" ".join(operations).encode("ascii"))
+        page[NameObject("/Contents")] = writer._add_object(stream)
+    writer.write(output)
+    return output.getvalue()
 
 
 def _ooxml(parts: dict[str, bytes]) -> bytes:
