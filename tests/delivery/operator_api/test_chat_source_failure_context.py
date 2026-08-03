@@ -92,6 +92,62 @@ def test_unverified_or_malformed_manifest_does_not_create_receipt() -> None:
     assert parse_source_failure_context({"schema_version": 1, "sources": []}) is None
 
 
+def test_receipt_rejects_gap_outside_source_manifest() -> None:
+    context = response_source_failure_context(_view_context(), verification_status="verified")
+    assert context is not None
+    context["gaps"] = [
+        {
+            "key": "metrics",
+            "source": "azure-monitor",
+            "availability": "unavailable",
+            "reason": "source_unavailable",
+        }
+    ]
+
+    assert parse_source_failure_context(context) is None
+    assert source_failure_evidence_refs(context) == ()
+
+
+def test_receipt_rejects_missing_gap_for_unavailable_source() -> None:
+    context = response_source_failure_context(_view_context(), verification_status="verified")
+    assert context is not None
+    context["gaps"] = []
+
+    assert parse_source_failure_context(context) is None
+
+
+def test_receipt_rejects_gap_with_forged_observation_details() -> None:
+    context = response_source_failure_context(_view_context(), verification_status="verified")
+    assert context is not None
+    gap = context["gaps"][0]
+    assert isinstance(gap, dict)
+    gap["reason"] = "provider_timeout"
+    gap["last_observed_at"] = "2026-07-20T08:00:00Z"
+
+    assert parse_source_failure_context(context) is None
+
+
+def test_receipt_rejects_unavailable_source_without_reason() -> None:
+    context = response_source_failure_context(_view_context(), verification_status="verified")
+    assert context is not None
+    for collection in (context["sources"], context["gaps"]):
+        item = collection[-1]
+        assert isinstance(item, dict)
+        item.pop("reason")
+
+    assert parse_source_failure_context(context) is None
+
+
+def test_receipt_rejects_duplicate_source_key() -> None:
+    context = response_source_failure_context(_view_context(), verification_status="verified")
+    assert context is not None
+    duplicate = dict(context["sources"][0])
+    duplicate["source"] = "another-audit-source"
+    context["sources"].append(duplicate)
+
+    assert parse_source_failure_context(context) is None
+
+
 def test_manifest_answer_includes_unavailable_reason_and_observation() -> None:
     evidence = _view_context()["_tool_evidence"]
     assert isinstance(evidence, dict)

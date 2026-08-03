@@ -69,7 +69,9 @@ def parse_source_failure_context(raw: object) -> dict[str, Any] | None:
         return None
     projected_sources = tuple(item for item in sources if item is not None)
     projected_gaps = tuple(item for item in gaps if item is not None)
-    if any(item["availability"] == "available" for item in projected_gaps):
+    source_keys = tuple(item["key"] for item in projected_sources)
+    expected_gaps = tuple(item for item in projected_sources if item["availability"] != "available")
+    if len(set(source_keys)) != len(source_keys) or projected_gaps != expected_gaps:
         return None
     return {
         "schema_version": _SCHEMA_VERSION,
@@ -119,6 +121,8 @@ def _project_source(raw: object) -> dict[str, Any] | None:
         value = _bounded_text(raw.get(field))
         if value is not None:
             projected[field] = value
+    if availability == "unavailable" and "reason" not in projected:
+        return None
     for field in ("configured", "reachable", "authoritative", "durable", "synthetic"):
         value = raw.get(field)
         if isinstance(value, bool) or value is None:
