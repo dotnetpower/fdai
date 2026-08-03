@@ -247,9 +247,13 @@ unscorable outcomes cannot advance the Process.
 `StateStoreAutomationHoldLedger` now writes a target-digested hold before a
 recovery-incomplete Process closes. The headless control loop reads that hold before every ordinary
 Action and the RiskGate returns `deny`; a failed or malformed hold read also denies. Read paths do
-not use this mutation gate. A separately approved Vidar recovery bypass and verified hold release
-remain to be implemented, so the current runtime conservatively blocks every mutation on a held
-target.
+not use this mutation gate. Only a `compensate_*` Action whose workflow lineage matches the Process
+that owns the active hold may re-enter the ordinary safety and authorization pipeline, and the
+RiskGate caps that recovery at human approval. Every compensation outcome still requires independent
+effect evidence. After all receipts verify, the coordinator releases the matching hold with a
+revision compare-and-set before it records `status=compensated`; a release conflict or persistence
+failure closes as `recovery_incomplete`. Released holds can be reissued for a later Process, and an
+older Process cannot release the newer hold.
 
 `ChangeWindowWorkflowGuardEvaluator` resolves `gate_ref: change-window.active` with the exact
 Process target and evaluation time. It delegates other refs to the existing guard evaluator, so

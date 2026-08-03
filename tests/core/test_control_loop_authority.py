@@ -31,6 +31,7 @@ from fdai.shared.contracts.models import (
     PromotionGate,
     RollbackKind,
     Rule,
+    WorkflowActionRef,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -353,6 +354,64 @@ async def test_control_loop_automation_hold_lookup_failure_is_deny(
     assert unified is not None
     assert unified.gate.outcome is RiskDecisionOutcome.DENY
     assert unified.gate.reasons == ("target_automation_hold_active",)
+    audit_store.append_audit_entry.assert_awaited_once()
+
+
+async def test_control_loop_matching_hold_recovery_is_hil(
+    valid_event: dict[str, Any],
+    valid_action: dict[str, Any],
+    valid_rule: dict[str, Any],
+    valid_ontology_action_type: dict[str, Any],
+) -> None:
+    class RecoveryHoldReader:
+        async def is_held(self, *, target_ref: str) -> bool:
+            assert target_ref
+            return True
+
+        async def recovery_eligible(
+            self,
+            *,
+            target_ref: str,
+            process_id: str,
+            step_id: str,
+        ) -> bool:
+            assert target_ref
+            return process_id == "process-1" and step_id == "compensate_apply"
+
+    action_type = OntologyActionType.model_validate(valid_ontology_action_type)
+    event = Event.model_validate(valid_event)
+    action = Action.model_validate(valid_action).model_copy(
+        update={
+            "action_type": action_type.name,
+            "workflow_action": WorkflowActionRef(
+                process_id="process-1",
+                step_id="compensate_apply",
+                proposal_ref="proposal:compensate_apply",
+            ),
+        }
+    )
+    rule = Rule.model_validate(valid_rule).model_copy(update={"remediates": action_type.name})
+    audit_store = MagicMock()
+    audit_store.append_audit_entry = AsyncMock()
+    loop = ControlLoop(
+        event_ingest=MagicMock(),
+        trust_router=MagicMock(),
+        t0_engine=MagicMock(),
+        action_builder=MagicMock(),
+        executor=MagicMock(),
+        audit_store=audit_store,
+        rules_by_id={rule.id: rule},
+        risk_table=load_risk_table(TABLE_PATH),
+        action_types_by_name={action_type.name: action_type},
+        risk_gate=RiskGate(registry=ActionPromotionRegistry(allow_legacy_metrics=True)),
+        automation_hold_reader=RecoveryHoldReader(),
+    )
+
+    unified = await loop._evaluate_and_audit(event=event, action=action, rule=rule)
+
+    assert unified is not None
+    assert unified.gate.outcome is RiskDecisionOutcome.HIL
+    assert "target_automation_hold_recovery_requires_hil" in unified.gate.reasons
     audit_store.append_audit_entry.assert_awaited_once()
 
 

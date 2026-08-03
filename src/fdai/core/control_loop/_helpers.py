@@ -169,6 +169,7 @@ def evaluate_unified(
     inventory_age_seconds: int | None = None,
     precondition_evaluations: Sequence[PreconditionEvaluation] = (),
     automation_hold_engaged: bool = False,
+    automation_hold_recovery: bool = False,
 ) -> UnifiedRiskDecision:
     """Run the runtime-Action gate and the policy-ceiling authority and
     combine them into a single :class:`UnifiedRiskDecision` (canonical-level
@@ -187,6 +188,7 @@ def evaluate_unified(
         inventory_age_seconds=inventory_age_seconds,
         precondition_evaluations=precondition_evaluations,
         automation_hold_engaged=automation_hold_engaged,
+        automation_hold_recovery=automation_hold_recovery,
     )
     authority = _compute_authority(
         event=event,

@@ -67,6 +67,19 @@ class AutomationHoldReader(Protocol):
     async def is_held(self, *, target_ref: str) -> bool: ...
 
 
+@runtime_checkable
+class AutomationHoldRecoveryReader(AutomationHoldReader, Protocol):
+    """Check whether an exact held-Process compensation may request HIL."""
+
+    async def recovery_eligible(
+        self,
+        *,
+        target_ref: str,
+        process_id: str,
+        step_id: str,
+    ) -> bool: ...
+
+
 class EventPreconditionEvaluator:
     """Evaluate conditions grounded in the event's resource snapshot."""
 

@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 06f35861ef10bde564001d79ab98b9fea980ca73
+translation_source_sha: 618d3f542203cf80c088f886e27ce73954f89b06
 translation_revised: 2026-08-04
 ---
 
@@ -241,8 +241,13 @@ unknown, missing, mismatched, unscorable outcome은 Process를 진행시킬 수 
 `StateStoreAutomationHoldLedger`는 recovery-incomplete Process가 종료되기 전에 target digest 기반
 hold를 기록합니다. Headless control loop는 모든 ordinary Action 전에 이 hold를 읽고 RiskGate는
 `deny`를 반환합니다. Hold read가 실패하거나 malformed여도 deny합니다. Read path는 이 mutation
-gate를 사용하지 않습니다. 별도로 승인된 Vidar recovery bypass와 검증된 hold release는 아직
-구현되지 않았으므로 현재 runtime은 held target의 모든 mutation을 보수적으로 차단합니다.
+gate를 사용하지 않습니다. Active hold를 소유한 Process와 workflow lineage가 일치하는
+`compensate_*` Action만 일반 safety 및 authorization pipeline에 다시 진입할 수 있으며 RiskGate는
+이 recovery를 사람 승인으로 제한합니다. 모든 compensation outcome에는 계속 독립적인 effect
+evidence가 필요합니다. 모든 receipt를 검증한 뒤 coordinator는 `status=compensated`를 기록하기 전에
+revision compare-and-set으로 일치하는 hold를 release합니다. Release conflict 또는 persistence
+failure는 `recovery_incomplete`로 종료합니다. Released hold는 이후 Process를 위해 다시 발행할 수
+있으며 이전 Process는 새 hold를 release할 수 없습니다.
 
 `ChangeWindowWorkflowGuardEvaluator`는 정확한 Process target과 evaluation time으로
 `gate_ref: change-window.active`를 resolve합니다. 다른 ref는 기존 guard evaluator에 delegate하므로

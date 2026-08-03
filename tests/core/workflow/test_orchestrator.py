@@ -509,6 +509,12 @@ async def test_enforce_failure_dispatches_reverse_compensation_and_waits_for_rec
     ]
     assert len(dispatched) == 1
     assert dispatched[0].payload["proposal_ref"] == "proposal:compensate_apply_first"
+    holds = StateStoreAutomationHoldLedger(audit)
+    await holds.issue(
+        target_ref="res-1",
+        process_id=recovering.process_id,
+        reason="prior_recovery_failure",
+    )
 
     completed = await orchestrator.run(
         _compensated_workflow(),
@@ -528,6 +534,72 @@ async def test_enforce_failure_dispatches_reverse_compensation_and_waits_for_rec
     assert final_events[-1].kind is ProcessEventKind.COMPENSATION_COMPLETED
     assert final_events[-1].payload["receipt_refs"] == ["receipt:rollback:1"]
     assert verifier.calls[-1]["outcome"] == "succeeded"
+    assert not await holds.is_held(target_ref="res-1")
+    assert any(
+        row["entry"]["action_kind"] == "workflow.automation_hold.released"
+        for row in audit.audit_entries
+    )
+
+
+async def test_verified_compensation_cannot_release_another_process_hold() -> None:
+    audit = InMemoryStateStore()
+    process_store = InMemoryProcessRuntimeStore()
+    workflow = _compensated_workflow()
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=process_store,
+        action_dispatcher=_FailingActionDispatcher(fail_step="apply_second"),
+        outcome_verifier=_AcceptingOutcomeVerifier(),
+    )
+    await orchestrator.run(
+        workflow,
+        target_resource_id="res-held",
+        trigger_ts=_TRIGGER_TS,
+        context={"requester.principal": "operator-1"},
+        mode=Mode.ENFORCE,
+    )
+    compensating = await orchestrator.run(
+        workflow,
+        target_resource_id="res-held",
+        trigger_ts=_TRIGGER_TS,
+        context={
+            "requester.principal": "operator-1",
+            "action.apply_first.status": "verified",
+            "action.apply_first.receipt_ref": "receipt:apply:1",
+        },
+        mode=Mode.ENFORCE,
+    )
+    holds = StateStoreAutomationHoldLedger(audit)
+    await holds.issue(
+        target_ref="res-held",
+        process_id="another-process",
+        reason="another_recovery_failure",
+    )
+
+    failed = await orchestrator.run(
+        workflow,
+        target_resource_id="res-held",
+        trigger_ts=_TRIGGER_TS,
+        context={
+            "requester.principal": "operator-1",
+            "compensation.apply_first.status": "verified",
+            "compensation.apply_first.receipt_ref": "receipt:rollback:1",
+        },
+        mode=Mode.ENFORCE,
+    )
+
+    assert failed.process_id == compensating.process_id
+    assert failed.status is ProcessStatus.FAILED
+    assert await holds.is_held(target_ref="res-held")
+    events = await process_store.events(failed.process_id)
+    assert events[-1].payload["reason"] == "automation_hold_release_failed"
+    assert events[-1].payload["recovery_incomplete"] is True
 
 
 async def test_compensation_failure_closes_process_as_recovery_incomplete() -> None:

@@ -343,6 +343,7 @@ class RiskGate:
         inventory_age_seconds: int | None = None,
         precondition_evaluations: Sequence[PreconditionEvaluation] = (),
         automation_hold_engaged: bool = False,
+        automation_hold_recovery: bool = False,
         upstream_signal: Literal["deny", "abstain"] | None = None,
     ) -> RiskDecision:
         """Return a :class:`RiskDecision` for the proposed action.
@@ -362,7 +363,8 @@ class RiskGate:
         del rule
         reasons: list[str] = []
 
-        if automation_hold_engaged:
+        recovery_path = automation_hold_engaged and automation_hold_recovery
+        if automation_hold_engaged and not recovery_path:
             return RiskDecision(
                 outcome=RiskDecisionOutcome.DENY,
                 action_id=str(action.action_id),
@@ -378,6 +380,9 @@ class RiskGate:
                 effective_mode=self._registry.mode_of(action_type.name),
                 reasons=("upstream_verifier_deny",),
             )
+
+        if recovery_path:
+            reasons.append("target_automation_hold_recovery_requires_hil")
 
         # 0.5. Human override (Exemption). An active exemption on the
         # cited rule + target scope suppresses execution but NEVER hides

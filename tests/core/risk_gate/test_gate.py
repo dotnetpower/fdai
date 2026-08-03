@@ -158,6 +158,23 @@ def test_target_automation_hold_denies_before_human_approval() -> None:
     assert decision.reasons == ("target_automation_hold_active",)
 
 
+def test_matching_hold_recovery_is_capped_at_human_approval() -> None:
+    action_type = _shipped_action_types()["remediate.tag-add"]
+    gate = RiskGate(registry=_enforced_registry("remediate.tag-add"))
+    decision = gate.evaluate(
+        action=_action(),
+        rule=_shipped_rules_by_id()["object-storage.owner-tag.required"],
+        action_type=action_type,
+        inventory_age_seconds=60,
+        precondition_evaluations=_satisfied_preconditions(action_type),
+        automation_hold_engaged=True,
+        automation_hold_recovery=True,
+    )
+
+    assert decision.outcome is RiskDecisionOutcome.HIL
+    assert decision.reasons == ("target_automation_hold_recovery_requires_hil",)
+
+
 def test_promotion_authority_bootstrap_is_enforce_but_never_auto() -> None:
     registry = ActionPromotionRegistry()
     gate = RiskGate(registry=registry)

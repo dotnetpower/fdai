@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -227,6 +229,27 @@ class WorkflowCompensationCoordinator:
                 return CompensationResult(failed, recovery_incomplete=True)
             receipt_refs.append(receipt_ref)
 
+        if await self._automation_holds.is_held(target_ref=current.target_resource_id):
+            recovery_receipt_ref = _recovery_receipt_ref(
+                process_id=current.process_id,
+                receipt_refs=receipt_refs,
+            )
+            try:
+                released = await self._automation_holds.release_verified(
+                    target_ref=current.target_resource_id,
+                    process_id=current.process_id,
+                    recovery_receipt_ref=recovery_receipt_ref,
+                )
+            except Exception:  # noqa: BLE001 - release persistence fails recovery closed
+                released = False
+            if not released:
+                failed = await self._fail(
+                    current,
+                    reason="automation_hold_release_failed",
+                    payload={"recovery_receipt_ref": recovery_receipt_ref},
+                )
+                return CompensationResult(failed, recovery_incomplete=True)
+
         completed = await self._process_store.transition(
             process_id=current.process_id,
             expected_revision=current.revision,
@@ -405,6 +428,16 @@ class WorkflowCompensationCoordinator:
                 "recorded_at": datetime.now(tz=UTC).isoformat(),
             }
         )
+
+
+def _recovery_receipt_ref(*, process_id: str, receipt_refs: list[str]) -> str:
+    canonical = json.dumps(
+        {"process_id": process_id, "receipt_refs": receipt_refs},
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return f"workflow-recovery:{hashlib.sha256(canonical.encode()).hexdigest()}"
 
 
 __all__ = ["CompensationResult", "WorkflowCompensationCoordinator"]
