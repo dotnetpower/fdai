@@ -32,6 +32,7 @@ from fdai.shared.providers.local.document_structure import (
     normalize_pdf_ocr_units,
     validated_zip_members,
 )
+from fdai.shared.providers.local.document_text import extract_structured_text
 
 _MAX_PARSE_BYTES = 32 * 1024 * 1024
 _OLE_SIGNATURE = bytes.fromhex("d0cf11e0a1b11ae1")
@@ -169,17 +170,8 @@ class StandardLibraryDocumentExtractor:
         content = await _read_bounded(chunks)
         observed = version.observed_format or "unknown"
         if observed == "text":
-            text = _decode_text(content)
-            units = tuple(
-                StructuralUnit(
-                    unit_id=f"line-{line_number}",
-                    kind="text",
-                    locator=f"line:{line_number}",
-                    text=line,
-                )
-                for line_number, line in enumerate(text.splitlines(), start=1)
-                if line
-            )
+            _decode_text(content)
+            units = extract_structured_text(content, source_name=version.source_name)
         elif observed == "ooxml":
             units = extract_ooxml(content)
         elif observed == "pdf":
@@ -218,7 +210,7 @@ class StandardLibraryDocumentExtractor:
 
 def _validate_unit_kinds(observed_format: str, units: tuple[StructuralUnit, ...]) -> None:
     expected = {
-        "text": frozenset({"text"}),
+        "text": frozenset({"text", "paragraph", "table"}),
         "ooxml": frozenset({"paragraph", "table", "slide", "sheet"}),
         "pdf": frozenset({"page"}),
         "image": frozenset({"page"}),

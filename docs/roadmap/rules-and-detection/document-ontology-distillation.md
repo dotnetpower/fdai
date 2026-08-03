@@ -23,8 +23,10 @@ revision.
 > **Implementation status (2026-08-03):** D0-D4 contracts, claim inventory, strict proposal
 > compilation, deterministic gates, review packages, lifecycle plans, and frozen-corpus scoring are
 > implemented. D4b adds the canonical `DocumentEnvelope` provenance bridge, structured Office and
-> PDF locators, OCR fallback, and cross-format conformance. D5 promotion assessment remains
-> evidence-only; no live-shadow evidence or automatic promotion is claimed.
+> PDF locators, OCR fallback, and synthetic cross-format conformance. D4c adds real-document
+> parsing, provider conformance, and annotated public-corpus evaluation. D4b results do not prove
+> production extraction quality. D5 promotion assessment remains evidence-only; no live-shadow
+> evidence or automatic promotion is claimed.
 
 ## Design at a glance
 
@@ -149,6 +151,31 @@ while allowing only source-format and locator fields to differ. Release requires
 claim accounting, zero semantic or citation errors, zero normalized graph differences, at least
 0.98 critical-claim recall and entity/link precision, and replay-stable digests for every format.
 
+## Real-corpus quality contract
+
+Synthetic fixtures prove deterministic contracts and citation transport. They do not measure how
+well an extractor or model handles independently authored manuals. D4c therefore keeps safety and
+quality evidence separate:
+
+- **Structure:** Markdown, HTML-like source, Office, native PDF, and OCR inputs produce bounded
+  paragraph, heading, list, table, slide, page, or code units. Markup does not become claim text.
+- **Provider:** The upstream default may abstain safely, but a deployment cannot report ontology
+  extraction as available until its bound `Distiller` passes the same corpus contract.
+- **Corpus:** A versioned manifest pins public source URLs, content digests, licenses, format,
+  language, annotated critical claims, and expected object or link projections. Source text stays
+  outside the package and repository unless its license permits redistribution.
+- **Metrics:** Reports distinguish detected-claim accounting from mapped-claim recall, entity/link
+  precision, citation accuracy, abstention, parser rejection, latency, and cost. A deterministic
+  replay of zero candidates is safe but does not count as extraction success.
+- **Release:** Every required format and language partition meets the thresholds independently.
+  An aggregate score cannot hide an unsupported PDF parser, an unbound provider, or a weak Korean
+  partition.
+
+The ten remediation rounds for D4c cover structure, claim semantics, PDF, Office/OCR provenance,
+identity resolution, coverage and release gates, public-corpus replay, provider conformance,
+resource/security bounds, and a final independent critique. Each round adds a falsifying fixture
+before its implementation is accepted.
+
 ## Verification gates
 
 The verifier evaluates one proposal without calling an executor or mutating a source.
@@ -242,6 +269,7 @@ identities always require accountable review.
 | D3 | Incremental revision, deletion, ACL, supersession, and rollback planning | outage cannot create mass deletion; replay restores exact revisions |
 | D4 | Review package and evaluation report | reviewers see graph diff, source evidence, gate receipts, and unresolved claims |
 | D4b | Envelope provenance and cross-format extraction | structured locators survive review; normalized graph diffs match across the synthetic corpus |
+| D4c | Real-corpus extraction quality | required format/language partitions pass provider conformance and annotated-corpus gates |
 | D5 | Shadow measurement and limited promotion evidence | statistical and zero-violation gates pass without widening authority |
 
 ## Hardening record
@@ -265,10 +293,10 @@ Twenty-three adversarial rounds covered the proposal-only path and envelope foll
 | 13 | executable closure | 156 focused tests, 90.62% branch coverage, Ruff and strict mypy pass |
 | 14-23 | envelope and format hardening | locator identity, Office/PDF/OCR fail-closed parsing, semantic equivalence, replay, bounds, and E2E; 238 focused tests and 90.63% branch coverage |
 
-No verified Medium, High, or Critical finding remains. Residual Low risk is limited to conservative
-heuristic coverage for complex layout or language forms, downstream enforcement of the carried
-access-policy reference, and missing live-shadow promotion evidence. These conditions keep the
-capability in review-only mode and cannot raise authority.
+The 23 rounds above close the synthetic proposal and provenance scope. They do not close real-world
+parser, provider, language, or corpus-quality findings. D4c remains review-only until its ten
+real-corpus rounds pass; this distinction prevents a safety result from being presented as an
+extraction-quality result.
 
 ## Verification matrix
 

@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 5824e4d9f261054b49646807b45d41dc184cde72
+translation_source_sha: 07724129247325bac89780cddf54f12d7e02ce59
 translation_revised: 2026-08-03
 ---
 # 문서 온톨로지 증류
@@ -24,7 +24,9 @@ translation_revised: 2026-08-03
 > **구현 상태(2026-08-03):** D0-D4 contract, claim inventory, strict proposal compilation,
 > deterministic gate, review package, lifecycle plan 및 frozen-corpus scoring을 구현했습니다. D4b는
 > canonical `DocumentEnvelope` provenance bridge, 구조화된 Office/PDF locator, OCR fallback 및
-> cross-format conformance를 추가합니다. D5 promotion assessment는 evidence-only이며 live-shadow
+> synthetic cross-format conformance를 추가합니다. D4c는 real-document parsing, provider
+> conformance 및 annotated public-corpus evaluation을 추가합니다. D4b 결과만으로 production
+> extraction 품질을 증명하지 않습니다. D5 promotion assessment는 evidence-only이며 live-shadow
 > evidence 또는 automatic promotion을 달성했다고 주장하지 않습니다.
 
 ## 한눈에 보는 설계
@@ -151,6 +153,30 @@ claim, proposal 및 graph operation을 비교합니다. Release에는 critical c
 또는 citation error 0건, normalized graph difference 0건, critical-claim recall과 entity/link precision
 각 0.98 이상 및 모든 format의 replay-stable digest가 필요합니다.
 
+## 실제 corpus 품질 계약
+
+Synthetic fixture는 deterministic contract와 citation 전달을 증명합니다. 독립적으로 작성된 운영
+매뉴얼을 extractor 또는 model이 얼마나 잘 처리하는지는 측정하지 못합니다. 따라서 D4c는 safety와
+quality evidence를 분리합니다.
+
+- **구조:** Markdown, HTML-like source, Office, native PDF 및 OCR input은 bounded paragraph,
+  heading, list, table, slide, page 또는 code unit을 만듭니다. Markup은 claim text가 되지 않습니다.
+- **Provider:** Upstream default는 안전하게 abstain할 수 있지만, binding된 `Distiller`가 동일 corpus
+  contract를 통과하기 전에는 deployment가 ontology extraction을 available로 보고할 수 없습니다.
+- **Corpus:** Versioned manifest는 public source URL, content digest, license, format, language,
+  annotated critical claim 및 expected object/link projection을 고정합니다. License가 재배포를
+  허용하지 않으면 source text는 package와 repository 밖에 둡니다.
+- **Metric:** Report는 detected-claim accounting과 mapped-claim recall, entity/link precision,
+  citation accuracy, abstention, parser rejection, latency 및 cost를 구분합니다. Candidate 0개의
+  deterministic replay는 안전하지만 extraction 성공으로 계산하지 않습니다.
+- **Release:** 필요한 format/language partition이 각각 threshold를 통과합니다. Aggregate score로
+  unsupported PDF parser, unbound provider 또는 weak Korean partition을 숨길 수 없습니다.
+
+D4c의 10개 remediation round는 structure, claim semantic, PDF, Office/OCR provenance, identity
+resolution, coverage/release gate, public-corpus replay, provider conformance, resource/security bound
+및 final independent critique를 다룹니다. 각 round는 구현을 수락하기 전에 falsifying fixture를
+추가합니다.
+
 ## 검증 gate
 
 Verifier는 executor를 호출하거나 source를 변경하지 않고 proposal 하나를 평가합니다.
@@ -245,6 +271,7 @@ policy, workflow, ActionType, permission, autonomy, schema change, conflict 및 
 | D3 | Incremental revision, deletion, ACL, supersession 및 rollback planning | outage가 mass deletion을 만들 수 없고 replay가 exact revision을 복원함 |
 | D4 | Review package 및 evaluation report | reviewer가 graph diff, source evidence, gate receipt 및 unresolved claim을 확인함 |
 | D4b | Envelope provenance 및 cross-format extraction | 구조화된 locator가 review까지 보존되고 synthetic corpus의 normalized graph diff가 일치함 |
+| D4c | 실제 corpus extraction 품질 | 필요한 format/language partition이 provider conformance와 annotated-corpus gate를 통과함 |
 | D5 | Shadow measurement 및 limited promotion evidence | authority를 넓히지 않고 statistical 및 zero-violation gate를 통과함 |
 
 ## 하드닝 기록
@@ -268,10 +295,9 @@ policy, workflow, ActionType, permission, autonomy, schema change, conflict 및 
 | 13 | executable closure | focused test 156개, branch coverage 90.62%, Ruff 및 strict mypy 통과 |
 | 14-23 | envelope 및 format hardening | locator identity, Office/PDF/OCR fail-closed parsing, semantic equivalence, replay, bound 및 E2E. Focused test 238개와 branch coverage 90.63% 통과 |
 
-검증된 Medium, High 또는 Critical finding은 남아 있지 않습니다. Residual Low risk는 complex layout
-또는 language form에 대한 conservative heuristic coverage, carried access-policy reference의 downstream
-enforcement 및 아직 없는 live-shadow promotion evidence로 제한됩니다. 이 조건에서는 capability가
-review-only mode를 유지하며 authority를 높일 수 없습니다.
+위 23개 round는 synthetic proposal 및 provenance scope를 닫습니다. Real-world parser, provider,
+language 또는 corpus-quality finding을 닫지는 않습니다. D4c의 10개 real-corpus round가 통과할 때까지
+review-only를 유지합니다. 이 구분으로 safety 결과를 extraction-quality 결과처럼 제시하지 않습니다.
 
 ## 검증 매트릭스
 
