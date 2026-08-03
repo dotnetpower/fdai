@@ -35,13 +35,13 @@ _FAILED_REQUESTS_QUERY: Final = (
 _SIGNATURE_TIMELINE: Final = re.compile(
     r"\b(?:error|signature)\b.{0,64}\b(?:first|latest|recently|occur|appear)\b|"
     r"\b(?:first|latest|recently|occur|appear)\b.{0,64}\b(?:error|signature)\b|"
-    r"(?:오류|에러|시그니처).{0,48}(?:처음|최초|마지막|최신)",
+    r"(?:오류|에러|시그니처).{0,48}(?:첫|처음|최초|마지막|최신)",
     re.IGNORECASE,
 )
 _RELATED_LOGS: Final = re.compile(r"\brelated\s+logs?\b|관련\s*로그", re.IGNORECASE)
 _REPRESENTATIVE_LOGS: Final = re.compile(
     r"\b(?:logs?).{0,40}(?:examples?|samples?)\b|"
-    r"\b(?:representative|samples?).{0,40}(?:logs?)\b|"
+    r"\b(?:representative|examples?|samples?).{0,40}(?:logs?)\b|"
     r"(?:오류|에러)?.{0,16}로그.{0,16}(?:예시|샘플)",
     re.IGNORECASE,
 )

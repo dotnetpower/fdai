@@ -253,6 +253,7 @@ def test_failed_request_questions_use_one_server_owned_log_template() -> None:
 def test_signature_timeline_without_exact_signature_requests_clarification() -> None:
     prompts = (
         "이 오류가 처음 나타난 로그 시점은 언제야?",
+        "이 오류 패턴의 첫 로그 발생 시간을 찾아줘.",
         "When did this error signature first and most recently appear?",
         "이 에러의 최초와 최신 로그 시각을 찾아줘.",
         "Find the first and latest occurrence of this error.",
@@ -310,6 +311,8 @@ def test_representative_log_questions_use_redacted_server_template() -> None:
 
     prompts = (
         "Show bounded representative logs with sensitive fields redacted.",
+        "Return a small set of representative log rows with secrets removed.",
+        "Provide redacted examples of the relevant logs without exposing sensitive values.",
         "최근 오류 로그 샘플을 민감정보 제거해서 보여줘.",
         "Give me a small sanitized sample of recent error logs.",
     )
