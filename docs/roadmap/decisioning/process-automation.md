@@ -229,12 +229,12 @@ reverses it. The compensation contract is:
   affected targets. Only reads and separately approved Vidar recovery may cross that hold. A
   verified full compensation may use `status=compensated`; no partial outcome becomes `succeeded`.
 
-In P1 the runner executes the linear sequence plus the single `on_failure`
-branch; the declared `compensated_by` mapping is validated at load and exposed
-by the compiler but is dispatched by the process orchestrator that lands with
-the risk-gate integration. This is the same declared-versus-live boundary the
-action ontology uses ([action-ontology.md § 12.1](action-ontology.md)): a
-declared-but-not-yet-dispatched field is inert by construction and cannot act.
+The process orchestrator now dispatches declared compensation through typed ingress. It writes a
+compensation intent before dispatch, records the proposal reference separately, and resumes the
+same Process after a crash. A proposal reference proves dispatch only. `WorkflowOutcomeVerifier`
+must independently validate each action and compensation receipt before a forward step completes or
+the Process becomes `compensated`. Missing, rejected, or malformed evidence remains waiting or
+closes as `recovery_incomplete`; it never becomes success.
 
 ## 6. Governance
 

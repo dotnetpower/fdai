@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from fdai.core.runbook.models import RunbookStepOutcome
 from fdai.core.runbook.runner import RunbookRunner
 from fdai.core.workflow.approval import WorkflowApprovalPlanner
+from fdai.core.workflow.compensation import WorkflowCompensationCoordinator
 from fdai.core.workflow.compiler import compile_workflow
 from fdai.core.workflow.workflow_runtime import (
     ACTOR as _ACTOR,
@@ -22,6 +23,7 @@ from fdai.core.workflow.workflow_runtime import (
     WorkflowActionDispatcher,
     WorkflowEvidenceDispatcher,
     WorkflowGuardEvaluator,
+    WorkflowOutcomeVerifier,
     derive_process_id,
     process_state_key,  # noqa: F401 - compatibility import
 )
@@ -65,6 +67,7 @@ class WorkflowOrchestrator:
         "_evidence_dispatcher",
         "_audit",
         "_guard_evaluator",
+        "_outcome_verifier",
         "_process_store",
     )
 
@@ -78,6 +81,7 @@ class WorkflowOrchestrator:
         guard_evaluator: WorkflowGuardEvaluator | None = None,
         action_dispatcher: WorkflowActionDispatcher | None = None,
         evidence_dispatcher: WorkflowEvidenceDispatcher | None = None,
+        outcome_verifier: WorkflowOutcomeVerifier | None = None,
     ) -> None:
         self._planner = planner
         self._action_types = action_types
@@ -85,6 +89,7 @@ class WorkflowOrchestrator:
         self._evidence_dispatcher = evidence_dispatcher
         self._audit = audit_store
         self._guard_evaluator = guard_evaluator
+        self._outcome_verifier = outcome_verifier
         self._process_store = process_store
 
     def with_action_dispatcher(
@@ -100,6 +105,7 @@ class WorkflowOrchestrator:
             guard_evaluator=self._guard_evaluator,
             action_dispatcher=dispatcher,
             evidence_dispatcher=self._evidence_dispatcher,
+            outcome_verifier=self._outcome_verifier,
         )
 
     def with_evidence_dispatcher(
@@ -115,6 +121,7 @@ class WorkflowOrchestrator:
             guard_evaluator=self._guard_evaluator,
             action_dispatcher=self._action_dispatcher,
             evidence_dispatcher=dispatcher,
+            outcome_verifier=self._outcome_verifier,
         )
 
     async def run(
@@ -166,6 +173,28 @@ class WorkflowOrchestrator:
                 process_id=process_id,
                 workflow_name=workflow.name,
                 status=snapshot.status,
+                step_results=(),
+                approval_plan=plan,
+                replayed=True,
+                mode=mode.value,
+            )
+
+        compensation = WorkflowCompensationCoordinator(
+            process_store=self._process_store,
+            audit_store=self._audit,
+            dispatcher=self._action_dispatcher,
+            outcome_verifier=self._outcome_verifier,
+        )
+        if snapshot.status is ProcessStatus.COMPENSATING:
+            recovery = await compensation.resume(
+                snapshot=snapshot,
+                target_resource_id=target_resource_id,
+                context=context or {},
+            )
+            return ProcessRun(
+                process_id=process_id,
+                workflow_name=workflow.name,
+                status=recovery.snapshot.status,
                 step_results=(),
                 approval_plan=plan,
                 replayed=True,
@@ -232,6 +261,7 @@ class WorkflowOrchestrator:
             approvals=approvals,
             guards=guards,
             guard_evaluator=self._guard_evaluator,
+            outcome_verifier=self._outcome_verifier,
             params=resolved_params,
             process_store=self._process_store,
             snapshot=snapshot,
@@ -276,6 +306,23 @@ class WorkflowOrchestrator:
             if current.status is ProcessStatus.TIMED_OUT
             else ProcessStatus.FAILED
         )
+        if status in {ProcessStatus.FAILED, ProcessStatus.TIMED_OUT}:
+            started_recovery = await compensation.start(
+                snapshot=current,
+                compensations=compiled.compensations,
+                target_resource_id=target_resource_id,
+                context=context or {},
+            )
+            if started_recovery is not None:
+                return ProcessRun(
+                    process_id=process_id,
+                    workflow_name=workflow.name,
+                    status=started_recovery.snapshot.status,
+                    step_results=result.step_results,
+                    approval_plan=plan,
+                    replayed=not created,
+                    mode=mode.value,
+                )
         if status is ProcessStatus.TIMED_OUT:
             return ProcessRun(
                 process_id=process_id,

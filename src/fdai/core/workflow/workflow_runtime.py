@@ -60,6 +60,21 @@ class WorkflowActionDispatcher(Protocol):
 
 
 @runtime_checkable
+class WorkflowOutcomeVerifier(Protocol):
+    """Verify one action outcome against an authoritative effect receipt."""
+
+    async def verify(
+        self,
+        *,
+        process_id: str,
+        step_id: str,
+        proposal_ref: str,
+        outcome: str,
+        receipt_ref: str,
+    ) -> bool: ...
+
+
+@runtime_checkable
 class WorkflowEvidenceDispatcher(Protocol):
     """Submit one credential-free browser evidence request."""
 

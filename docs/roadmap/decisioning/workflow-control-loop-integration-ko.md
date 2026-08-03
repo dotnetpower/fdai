@@ -1,8 +1,8 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: bdebfd2293ff7b47ce1573e457c530262715f4ef
-translation_revised: 2026-08-02
+translation_source_sha: 8351d1c3cb20d68a329d155541ab79b3f3ace7a6
+translation_revised: 2026-08-04
 ---
 
 # Workflow Control-Loop Integration
@@ -43,7 +43,12 @@ optimistic revision 을 검사하면서 snapshot 갱신과 typed `ProcessEvent` 
 contract 를 구현합니다. 명시적 enforce 실행은 `WorkflowActionDispatcher`를 사용합니다.
 각 action step은 idempotent `operator_request`를 typed ingress로 다시 게시하므로
 ActionType promotion, risk, HIL, Thor execution을 계속 통과합니다. Dispatcher가 없거나
-guard가 실패하면 Process는 fail-closed됩니다. ARB 같은 control-only workflow는 resource
+Process는 `action.dispatched`를 기록한 뒤 주입된 `WorkflowOutcomeVerifier`가 authoritative effect
+receipt를 검증할 때까지 기다립니다. Command context만으로 success를 주장할 수 없습니다. 이후
+step이 실패하면 journal에 기록된 independently verified applied step을 역순으로 보상합니다.
+Compensation intent는 typed dispatch 전에 commit되고, 검증된 compensation receipt만 Process를
+`compensated`로 닫습니다. Dispatcher, verifier, receipt가 없거나 guard가 실패하면 Process는
+hold 또는 fail-closed됩니다. ARB 같은 control-only workflow는 resource
 mutation authority 없이 실제 approval 및 decision transition을 저장할 수 있습니다.
 
 이벤트 진입점은

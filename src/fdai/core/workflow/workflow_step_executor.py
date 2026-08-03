@@ -13,6 +13,7 @@ from fdai.core.workflow.workflow_runtime import (
     WorkflowActionDispatcher,
     WorkflowEvidenceDispatcher,
     WorkflowGuardEvaluator,
+    WorkflowOutcomeVerifier,
     approval_decisions,
     event_id,
     step_result,
@@ -52,6 +53,7 @@ class ShadowWorkflowStepExecutor:
         "_approvals",
         "_guards",
         "_guard_evaluator",
+        "_outcome_verifier",
         "_params",
         "_process_store",
         "_snapshot",
@@ -72,6 +74,7 @@ class ShadowWorkflowStepExecutor:
         approvals: Mapping[str, StepApproval],
         guards: Mapping[str, str] | None = None,
         guard_evaluator: WorkflowGuardEvaluator | None = None,
+        outcome_verifier: WorkflowOutcomeVerifier | None = None,
         params: Mapping[str, Mapping[str, object]] | None = None,
         process_store: ProcessRuntimeStore,
         snapshot: ProcessSnapshot,
@@ -88,6 +91,7 @@ class ShadowWorkflowStepExecutor:
         self._approvals = approvals
         self._guards = guards or {}
         self._guard_evaluator = guard_evaluator
+        self._outcome_verifier = outcome_verifier
         self._params = params or {}
         self._process_store = process_store
         self._snapshot = snapshot
@@ -202,6 +206,52 @@ class ShadowWorkflowStepExecutor:
         return result
 
     async def _dispatch_action(self, step: RunbookStep) -> RunbookStepResult:
+        events = await self._process_store.events(self._process_id)
+        dispatch_event = next(
+            (
+                event
+                for event in events
+                if event.kind is ProcessEventKind.ACTION_DISPATCHED and event.step_id == step.id
+            ),
+            None,
+        )
+        status = self._context.get(f"action.{step.id}.status")
+        if dispatch_event is not None:
+            if status not in {"verified", "failed"}:
+                return step_result(
+                    step,
+                    RunbookStepOutcome.WAITING,
+                    "waiting_for_action_outcome",
+                )
+            receipt_ref = self._context.get(f"action.{step.id}.receipt_ref", "").strip()
+            proposal_ref = str(dispatch_event.payload.get("proposal_ref") or "").strip()
+            if not receipt_ref or not proposal_ref or self._outcome_verifier is None:
+                return step_result(
+                    step,
+                    RunbookStepOutcome.WAITING,
+                    "waiting_for_action_outcome_verifier",
+                )
+            try:
+                accepted = await self._outcome_verifier.verify(
+                    process_id=self._process_id,
+                    step_id=step.id,
+                    proposal_ref=proposal_ref,
+                    outcome="succeeded" if status == "verified" else "failed",
+                    receipt_ref=receipt_ref,
+                )
+            except Exception:  # noqa: BLE001 - verifier outage holds the Process
+                accepted = False
+            if not accepted:
+                return step_result(
+                    step,
+                    RunbookStepOutcome.WAITING,
+                    "waiting_for_action_outcome_verifier",
+                )
+            if status == "failed":
+                return step_result(step, RunbookStepOutcome.FAILURE, "action_failed")
+            if status == "verified":
+                return step_result(step, RunbookStepOutcome.SUCCESS, "action_effect_verified")
+            return step_result(step, RunbookStepOutcome.WAITING, "waiting_for_action_outcome")
         if self._action_dispatcher is None:
             return step_result(
                 step,
@@ -209,7 +259,7 @@ class ShadowWorkflowStepExecutor:
                 "enforce_action_dispatcher_not_configured",
             )
         try:
-            await self._action_dispatcher.dispatch(
+            proposal_ref = await self._action_dispatcher.dispatch(
                 process_id=self._process_id,
                 correlation_id=self._snapshot.correlation_id,
                 step=step,
@@ -223,7 +273,25 @@ class ShadowWorkflowStepExecutor:
                 RunbookStepOutcome.FAILURE,
                 f"action_dispatch_failed:{type(exc).__name__}",
             )
-        return step_result(step, RunbookStepOutcome.SUCCESS, "action_proposal_dispatched")
+        if not proposal_ref.strip():
+            return step_result(
+                step,
+                RunbookStepOutcome.FAILURE,
+                "action_dispatch_returned_no_reference",
+            )
+        await self._process_store.append_event(
+            ProcessEvent(
+                event_id=event_id(self._process_id, f"step:{step.id}:action-dispatched"),
+                process_id=self._process_id,
+                kind=ProcessEventKind.ACTION_DISPATCHED,
+                idempotency_key=f"{self._process_id}:step:{step.id}:action-dispatched",
+                recorded_at=datetime.now(tz=UTC),
+                correlation_id=self._snapshot.correlation_id,
+                step_id=step.id,
+                payload={"proposal_ref": proposal_ref, "action_type": step.action_type},
+            )
+        )
+        return step_result(step, RunbookStepOutcome.WAITING, "waiting_for_action_outcome")
 
     async def _control_result(
         self,

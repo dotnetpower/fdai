@@ -1,8 +1,8 @@
 ---
 title: 고객 워크플로 자동화 제공 계획
 translation_of: customer-workflow-automation-plan.md
-translation_source_sha: 1e07756d0f2352d44b39bd8aef9a5ddc8cf02200
-translation_revised: 2026-07-28
+translation_source_sha: 5c5d917f2d14dccb1041def9311ea88142d74a53
+translation_revised: 2026-08-04
 ---
 
 # 고객 워크플로 자동화 제공 계획
@@ -69,6 +69,7 @@ flowchart LR
 | 정의 검증 및 private draft | 구현됨 | 지금 action step 과 primitive parameter 를 직접 편집하고 탭 draft 를 복구하여 프로세스를 모델링하고 검토할 수 있습니다. Draft는 실행할 수 없습니다. |
 | Signal 및 schedule 트리거 | 구현됨 | 정규화된 이벤트나 일정에서 관찰 실행을 시작할 수 있습니다. |
 | Process snapshot 및 append-only journal | 구현됨 | 실행을 검사하고 결정론적으로 식별할 수 있습니다. |
+| 검증된 action progress 및 compensation | Core runtime에 구현됨 | Proposal dispatch, authoritative outcome verification, reverse compensation, recovery-incomplete closure를 별도 journal state로 기록합니다. Deployment는 실제 `WorkflowOutcomeVerifier`를 bind해야 합니다. |
 | `WAIT`, `APPROVAL`, `DECISION`, `PARALLEL`, `GATE` 실행 | 런타임에 구현됨 | Builder 지원과 종단간 운영자 전환은 추가 완성이 필요합니다. |
 | 읽기 전용 `EVIDENCE` 실행 | Browser evidence에 구현됨 | 별도 evidence dispatcher를 사용하고 shadow-only로 유지되며 action authority 없이 fail-closed됩니다. |
 | Enforce 워크플로 명령 | Owner 및 allowlist로 제한됨 | 작업 스텝이 형식화된 `operator_request` 이벤트를 게시합니다. 직접 변경 권한은 아닙니다. |

@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 1ecdfeb4f339709528efe1478efd26a42ae40943
-translation_revised: 2026-08-03
+translation_source_sha: c1ece71e9e55dbafaa595ec124450126c586effe
+translation_revised: 2026-08-04
 ---
 
 # 프로세스 자동화(Process Automation)
@@ -224,11 +224,12 @@ role-group mapping이 구성된 경우에만 허용 목록 기반 Entra adapter�
   Read와 별도로 승인된 Vidar recovery만 hold를 통과할 수 있습니다. 검증된 full compensation은
   `status=compensated`를 사용할 수 있지만 partial outcome은 `succeeded`가 될 수 없습니다.
 
-P1 에서 러너는 선형 시퀀스 + 단일 `on_failure` 분기를 실행한다; 선언된
-`compensated_by` 매핑은 로드 시 검증되고 컴파일러가 노출하지만, risk-gate 통합과
-함께 도착하는 process orchestrator 가 dispatch 한다. 이는 action 온톨로지가 쓰는
-declared-versus-live 경계와 동일하다 ([action-ontology.md § 12.1](action-ontology-ko.md)):
-선언됐지만 아직 dispatch 되지 않은 필드는 구성상 inert 이며 행동할 수 없다.
+Process orchestrator는 이제 선언된 compensation을 typed ingress로 dispatch합니다. Dispatch 전에
+compensation intent를 기록하고 proposal reference를 별도 보존하며 crash 후에도 같은 Process를
+resume합니다. Proposal reference는 dispatch만 입증합니다. `WorkflowOutcomeVerifier`가 각 action과
+compensation receipt를 독립적으로 검증해야 forward step이 완료되거나 Process가 `compensated`가
+됩니다. Evidence가 없거나 거부되거나 malformed이면 waiting 상태를 유지하거나
+`recovery_incomplete`로 끝나며 success가 되지 않습니다.
 
 ## 6. 거버넌스
 

@@ -199,9 +199,56 @@ class _RecordingActionDispatcher:
         return "proposal-1"
 
 
+class _FailingActionDispatcher(_RecordingActionDispatcher):
+    def __init__(self, *, fail_step: str) -> None:
+        super().__init__()
+        self.fail_step = fail_step
+
+    async def dispatch(self, **kwargs: object) -> str:
+        self.calls.append(dict(kwargs))
+        step = kwargs["step"]
+        if isinstance(step, RunbookStep) and step.id == self.fail_step:
+            raise RuntimeError("synthetic failure")
+        return f"proposal:{step.id}" if isinstance(step, RunbookStep) else "proposal"
+
+
+class _AcceptingOutcomeVerifier:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, str]] = []
+
+    async def verify(self, **kwargs: str) -> bool:
+        self.calls.append(dict(kwargs))
+        return True
+
+
+def _compensated_workflow() -> Workflow:
+    return Workflow(
+        schema_version="1.0.0",
+        name="compensated-flow",
+        version="1.0.0",
+        trigger=WorkflowTrigger(kind=WorkflowTriggerKind.SIGNAL, signal_type="iac.plan"),
+        default_mode=Mode.SHADOW,
+        promotion_gate=PromotionGate(
+            min_shadow_days=21,
+            min_samples=40,
+            min_accuracy=0.98,
+            max_policy_escapes=0,
+        ),
+        steps=[
+            WorkflowStep(
+                id="apply_first",
+                action_type_ref="remediate.auto",
+                compensated_by="ops.gated",
+            ),
+            WorkflowStep(id="apply_second", action_type_ref="remediate.auto"),
+        ],
+    )
+
+
 async def test_enforce_action_step_republishes_through_dispatcher() -> None:
     audit = InMemoryStateStore()
     dispatcher = _RecordingActionDispatcher()
+    verifier = _AcceptingOutcomeVerifier()
     planner = WorkflowApprovalPlanner(
         action_types=_ACTION_TYPES,
         group_mapping=_group_mapping(),
@@ -213,20 +260,48 @@ async def test_enforce_action_step_republishes_through_dispatcher() -> None:
         audit_store=audit,
         process_store=InMemoryProcessRuntimeStore(),
         action_dispatcher=dispatcher,
+        outcome_verifier=verifier,
     )
 
-    run = await orchestrator.run(
+    first_wait = await orchestrator.run(
         _workflow(),
         target_resource_id="res-1",
         trigger_ts=_TRIGGER_TS,
         context={"requester.principal": "operator-1"},
         mode=Mode.ENFORCE,
     )
+    second_wait = await orchestrator.run(
+        _workflow(),
+        target_resource_id="res-1",
+        trigger_ts=_TRIGGER_TS,
+        context={
+            "requester.principal": "operator-1",
+            "action.auto_step.status": "verified",
+            "action.auto_step.receipt_ref": "receipt:auto",
+        },
+        mode=Mode.ENFORCE,
+    )
+    run = await orchestrator.run(
+        _workflow(),
+        target_resource_id="res-1",
+        trigger_ts=_TRIGGER_TS,
+        context={
+            "requester.principal": "operator-1",
+            "action.auto_step.status": "verified",
+            "action.auto_step.receipt_ref": "receipt:auto",
+            "action.gated_step.status": "verified",
+            "action.gated_step.receipt_ref": "receipt:gated",
+        },
+        mode=Mode.ENFORCE,
+    )
 
+    assert first_wait.status is ProcessStatus.WAITING
+    assert second_wait.status is ProcessStatus.WAITING
     assert run.status is ProcessStatus.SUCCEEDED
     assert run.mode == "enforce"
     assert len(dispatcher.calls) == 2
-    assert all(result.reason == "action_proposal_dispatched" for result in run.step_results)
+    assert run.step_results[-1].reason == "action_effect_verified"
+    assert [call["outcome"] for call in verifier.calls] == ["succeeded", "succeeded"]
     workflow_entries = [
         row["entry"]
         for row in audit.audit_entries
@@ -247,6 +322,231 @@ async def test_enforce_action_step_fails_without_dispatcher() -> None:
 
     assert run.status is ProcessStatus.FAILED
     assert run.step_results[0].reason == "enforce_action_dispatcher_not_configured"
+
+
+async def test_enforce_failure_dispatches_reverse_compensation_and_waits_for_receipt() -> None:
+    audit = InMemoryStateStore()
+    process_store = InMemoryProcessRuntimeStore()
+    dispatcher = _FailingActionDispatcher(fail_step="apply_second")
+    verifier = _AcceptingOutcomeVerifier()
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=process_store,
+        action_dispatcher=dispatcher,
+        outcome_verifier=verifier,
+    )
+
+    first_wait = await orchestrator.run(
+        _compensated_workflow(),
+        target_resource_id="res-1",
+        trigger_ts=_TRIGGER_TS,
+        context={"requester.principal": "operator-1"},
+        mode=Mode.ENFORCE,
+    )
+    recovering = await orchestrator.run(
+        _compensated_workflow(),
+        target_resource_id="res-1",
+        trigger_ts=_TRIGGER_TS,
+        context={
+            "requester.principal": "operator-1",
+            "action.apply_first.status": "verified",
+            "action.apply_first.receipt_ref": "receipt:apply:1",
+        },
+        mode=Mode.ENFORCE,
+    )
+    assert first_wait.status is ProcessStatus.WAITING
+    assert recovering.status is ProcessStatus.COMPENSATING
+    assert [call["step"].id for call in dispatcher.calls] == [
+        "apply_first",
+        "apply_second",
+        "compensate_apply_first",
+    ]
+    events = await process_store.events(recovering.process_id)
+    compensation = [
+        event for event in events if event.kind is ProcessEventKind.COMPENSATION_STARTED
+    ]
+    assert len(compensation) == 1
+    assert compensation[0].payload["compensates_step_id"] == "apply_first"
+    dispatched = [
+        event for event in events if event.kind is ProcessEventKind.COMPENSATION_DISPATCHED
+    ]
+    assert len(dispatched) == 1
+    assert dispatched[0].payload["proposal_ref"] == "proposal:compensate_apply_first"
+
+    completed = await orchestrator.run(
+        _compensated_workflow(),
+        target_resource_id="res-1",
+        trigger_ts=_TRIGGER_TS,
+        context={
+            "requester.principal": "operator-1",
+            "compensation.apply_first.status": "verified",
+            "compensation.apply_first.receipt_ref": "receipt:rollback:1",
+        },
+        mode=Mode.ENFORCE,
+    )
+
+    assert completed.status is ProcessStatus.COMPENSATED
+    assert len(dispatcher.calls) == 3
+    final_events = await process_store.events(completed.process_id)
+    assert final_events[-1].kind is ProcessEventKind.COMPENSATION_COMPLETED
+    assert final_events[-1].payload["receipt_refs"] == ["receipt:rollback:1"]
+    assert verifier.calls[-1]["outcome"] == "succeeded"
+
+
+async def test_compensation_failure_closes_process_as_recovery_incomplete() -> None:
+    audit = InMemoryStateStore()
+    process_store = InMemoryProcessRuntimeStore()
+    verifier = _AcceptingOutcomeVerifier()
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=process_store,
+        action_dispatcher=_FailingActionDispatcher(fail_step="apply_second"),
+        outcome_verifier=verifier,
+    )
+    workflow = _compensated_workflow()
+    await orchestrator.run(
+        workflow,
+        target_resource_id="res-2",
+        trigger_ts=_TRIGGER_TS,
+        context={"requester.principal": "operator-1"},
+        mode=Mode.ENFORCE,
+    )
+    await orchestrator.run(
+        workflow,
+        target_resource_id="res-2",
+        trigger_ts=_TRIGGER_TS,
+        context={
+            "requester.principal": "operator-1",
+            "action.apply_first.status": "verified",
+            "action.apply_first.receipt_ref": "receipt:apply:1",
+        },
+        mode=Mode.ENFORCE,
+    )
+    failed = await orchestrator.run(
+        workflow,
+        target_resource_id="res-2",
+        trigger_ts=_TRIGGER_TS,
+        context={
+            "requester.principal": "operator-1",
+            "compensation.apply_first.status": "failed",
+            "compensation.apply_first.receipt_ref": "receipt:rollback:failed",
+        },
+        mode=Mode.ENFORCE,
+    )
+
+    assert failed.status is ProcessStatus.FAILED
+    events = await process_store.events(failed.process_id)
+    assert events[-1].kind is ProcessEventKind.PROCESS_FAILED
+    assert events[-1].payload["recovery_incomplete"] is True
+
+
+async def test_action_outcome_context_cannot_advance_without_verifier() -> None:
+    audit = InMemoryStateStore()
+    dispatcher = _RecordingActionDispatcher()
+    planner = WorkflowApprovalPlanner(
+        action_types=_ACTION_TYPES,
+        group_mapping=_group_mapping(),
+        matrix=_matrix(),
+    )
+    orchestrator = WorkflowOrchestrator(
+        planner=planner,
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=InMemoryProcessRuntimeStore(),
+        action_dispatcher=dispatcher,
+    )
+    await orchestrator.run(
+        _workflow(),
+        target_resource_id="res-unverified",
+        trigger_ts=_TRIGGER_TS,
+        context={"requester.principal": "operator-1"},
+        mode=Mode.ENFORCE,
+    )
+
+    held = await orchestrator.run(
+        _workflow(),
+        target_resource_id="res-unverified",
+        trigger_ts=_TRIGGER_TS,
+        context={
+            "requester.principal": "operator-1",
+            "action.auto_step.status": "verified",
+            "action.auto_step.receipt_ref": "forged-receipt",
+        },
+        mode=Mode.ENFORCE,
+    )
+
+    assert held.status is ProcessStatus.WAITING
+    assert held.step_results[-1].reason == "waiting_for_action_outcome_verifier"
+
+
+async def test_compensating_snapshot_without_intent_fails_closed() -> None:
+    audit = InMemoryStateStore()
+    process_store = InMemoryProcessRuntimeStore()
+    workflow = _compensated_workflow()
+    process_id = derive_process_id(
+        workflow_name=workflow.name,
+        target_resource_id="res-corrupt",
+        trigger_ts=_TRIGGER_TS,
+    )
+    snapshot, _ = await process_store.create(
+        snapshot=ProcessSnapshot(
+            process_id=process_id,
+            workflow_ref=workflow.name,
+            workflow_version=str(workflow.version),
+            status=ProcessStatus.COMPENSATING,
+            current_step="compensate_missing",
+            target_resource_id="res-corrupt",
+            started_at=_TRIGGER_TS,
+            updated_at=_TRIGGER_TS,
+            correlation_id="corr-corrupt",
+        ),
+        event=ProcessEvent(
+            event_id="event-corrupt",
+            process_id=process_id,
+            kind=ProcessEventKind.PROCESS_CREATED,
+            idempotency_key=f"{process_id}:created",
+            recorded_at=_TRIGGER_TS,
+            correlation_id="corr-corrupt",
+        ),
+    )
+    assert snapshot.status is ProcessStatus.COMPENSATING
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=process_store,
+        action_dispatcher=_RecordingActionDispatcher(),
+        outcome_verifier=_AcceptingOutcomeVerifier(),
+    )
+
+    failed = await orchestrator.run(
+        workflow,
+        target_resource_id="res-corrupt",
+        trigger_ts=_TRIGGER_TS,
+        context={"requester.principal": "operator-1"},
+        correlation_id="corr-corrupt",
+        mode=Mode.ENFORCE,
+    )
+
+    assert failed.status is ProcessStatus.FAILED
+    events = await process_store.events(process_id)
+    assert events[-1].payload["reason"] == "compensation_intent_missing"
 
 
 async def test_gated_step_carries_approver_assignment_into_audit() -> None:

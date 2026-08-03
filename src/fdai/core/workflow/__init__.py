@@ -28,7 +28,11 @@ from .orchestrator import (
 )
 from .projection import ProcessOntologyProjector, ProjectingProcessRuntimeStore
 from .trigger_index import WorkflowTriggerIndex
-from .workflow_runtime import WorkflowActionDispatcher, WorkflowEvidenceDispatcher
+from .workflow_runtime import (
+    WorkflowActionDispatcher,
+    WorkflowEvidenceDispatcher,
+    WorkflowOutcomeVerifier,
+)
 
 __all__ = [
     "ApprovalPlan",
@@ -44,6 +48,7 @@ __all__ = [
     "WorkflowGuardEvaluator",
     "WorkflowActionDispatcher",
     "WorkflowEvidenceDispatcher",
+    "WorkflowOutcomeVerifier",
     "WorkflowOrchestrator",
     "WorkflowTriggerCoordinator",
     "WorkflowTriggerIndex",
