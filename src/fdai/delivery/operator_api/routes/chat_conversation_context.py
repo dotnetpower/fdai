@@ -29,14 +29,20 @@ _CONTEXT_REQUIRED: Final = re.compile(
     r"investigation|interrupt\s+the\s+active\s+investigation|applicable\s+runbook|"
     r"reviewed\s+runbook|trusted\s+runbook|governed\s+runbook|knowledge\s+sources|"
     r"enabled\s+knowledge\s+sources?|reviewed\s+knowledge\s+sources?|"
-    r"durable\s+memory|reusable\s+lesson|second\s+resource|previous\s+result|multiple\s+"
+    r"durable\s+memory|explicitly\s+confirm\s+memory|reusable\s+lesson|"
+    r"(?:reviewed|materialized)\s+lesson|second\s+resource|"
+    r"item\s+two.{0,32}prior\s+resource\s+list|previous\s+result|multiple\s+"
     r"resources\s+match|same\s+verified\s+answer|same\s+evidence|one\s+source\s+is\s+"
     r"unavailable|supported\s+facts\s+and\s+explicit\s+limits|prior\s+evidence|"
     r"failed\s+source|cancel\s+that\s+investigation)\b|"
     r"(?:진행\s*중인\s*조사|active\s+investigation(?:을|를)?|현재\s*대화\s*조사|"
     r"관련된\s*런북|검토\s*완료\s*런북|trusted\s+runbook(?:이|을|를)?|지식\s*원본|"
     r"enabled\s+knowledge\s+source.{0,32}(?:승인\s*상태|last\s*refresh)|"
-    r"학습한\s*내용|두\s*번째로\s*말한\s*리소스|이름이\s*같은\s*리소스|같은\s*근거|"
+    r"해결\s*방법을\s*기억|해결책을\s*기억|memory(?:로|에)?\s*저장|"
+    r"검토.{0,16}(?:lesson|레슨)|materialized(?:된)?\s*학습|"
+    r"학습.{0,24}(?:내용|reuse|재사용)|두\s*번째로\s*말한\s*리소스|"
+    r"(?:이전\s*목록의|방금\s*답변에서)\s*두\s*번째\s*(?:리소스|항목)|"
+    r"이름이\s*같은\s*리소스|같은\s*근거|"
     r"데이터\s*원본이\s*실패)",
     re.IGNORECASE,
 )
@@ -136,7 +142,7 @@ def classify_conversation_context_intent(prompt: str) -> ConversationContextInte
         return ConversationContextIntent.MEMORY
     if "lesson" in normalized or "학습" in prompt:
         return ConversationContextIntent.LEARNING
-    if "second resource" in normalized or "두 번째" in prompt:
+    if "second resource" in normalized or "item two" in normalized or "두 번째" in prompt:
         return ConversationContextIntent.ORDINAL_RESOURCE
     return ConversationContextIntent.AMBIGUITY
 
