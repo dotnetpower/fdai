@@ -149,3 +149,12 @@ def test_ci_installs_and_audits_the_frozen_runtime_workspace() -> None:
     assert "uv export --format requirements.txt --frozen --no-dev" in audit_job
     assert "--no-emit-workspace --output-file audit-requirements.txt" in audit_job
     assert "inputs: audit-requirements.txt" in audit_job
+
+
+def test_container_scan_blocks_actionable_vulnerabilities() -> None:
+    workflow = (
+        Path(__file__).resolve().parents[2] / ".github" / "workflows" / "container-supply-chain.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "--severity HIGH,CRITICAL" in workflow
+    assert "--ignore-unfixed" in workflow
