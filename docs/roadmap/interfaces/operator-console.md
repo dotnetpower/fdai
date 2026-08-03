@@ -185,7 +185,7 @@ flowchart TD
   validates the complete plan for installed-tool membership, RBAC, distinct commands, and
   `side_effect_class=read` before the first call. Invalid plans execute nothing. Valid reads run
   serially, retain one tool-call/result pair per step, aggregate evidence references, and use the
-  same grounded presentation pass. A failed read stops the remaining plan and skips synthesis.
+  same grounded presentation pass. A failed or unavailable read stops the remaining plan, skips synthesis, and returns a deterministic unverified hold instead of empty-screen or narrator output.
   Before synthesis, the aggregator compares high-signal `state`, `status`, `verdict`, `mode`,
   `health`, and `outcome` fields only when two tools name the same `resource_id`, `scope_ref`, or
   `id`. Different values produce a structured conflict, preserve both evidence sets, change the
@@ -233,12 +233,10 @@ flowchart TD
   - resolves current-time questions from an injected aware clock and principal IANA timezone;
     deterministic verification emits the exact timestamp and an explicit UTC fallback.
 - [`src/fdai/delivery/operator_api/routes/`](../../../src/fdai/delivery/operator_api/routes)
-  - `chat_stream_setup.py` owns authenticated request, evidence, history, and answer-plan validation;
-    `chat_stream_terminal.py` owns pure terminal verification-frame and replay-payload assembly;
-    `chat_trajectory_detail.py` owns bounded final progress projection for durable trajectory replay.
-  - `chat_vision_prompt.py` projects validated inline images into narrator content, and
-    `chat_verification_text.py` owns Unicode normalization and answer-text integrity checks;
-    `chat_verification_rendering.py` owns bounded incident and agent-activity prose rendering.
+  - `chat_stream_setup.py` owns authenticated request, evidence, history, and answer-plan validation; `chat_stream_terminal.py` owns pure terminal verification-frame and replay-payload assembly; `chat_trajectory_detail.py` owns bounded final progress projection for durable trajectory replay.
+  - `chat_knowledge_context.py` reads exact prior-turn runbooks, source freshness, consented memory,
+    and materialized learning without writing state; `chat_vision_prompt.py` projects validated images;
+    `chat_verification_text.py` and `chat_verification_rendering.py` own terminal integrity and prose.
 
 English and Korean presentation literals in these layers are authored as NFC UTF-8. The repository
 gate rejects escaped Hangul prose and matching tokens, with exact rationale-bearing exceptions only
@@ -364,6 +362,8 @@ Two clarifications on the write set:
 | `query_deployments(window)` | Git + ARM deployment-history join. | Reader | new `DeploymentHistoryAdapter` |
 | `correlate_incident(incident_id)` | Multi-signal correlation over ingest events + audit + inventory + logs + metrics for one incident id. | Reader | Above three + `event_ingest` |
 
+`query_log` accepts explicit bounded KQL and three natural-language diagnostic shapes through server-owned templates. Failed-request summaries group `AppRequests` by operation and result code without claiming that the grouping proves root cause. Error-signature timelines and related-log requests require an exact signature or selected context; missing context returns a clarification without calling the provider or narrator. Representative error samples use a fixed multi-table template, cap the requested window at 24 hours, and redact secret assignments, bearer values, resource identifiers, GUIDs, email addresses, URLs, and IP addresses before rendering any cell. Additional fixed templates rank spans in the slowest observed distributed trace, aggregate dependency latency, and list slow database dependency calls. These results do not by themselves prove root cause, causal contribution, or that a database call explains a CPU increase. Natural-language requests to run bounded read-only error KQL use a server-owned error template and preserve an explicit English or Korean minute/hour window, capped at 24 hours. Prompt text never becomes executable KQL. When the workspace provider is not configured, the same tool returns a typed unavailable result and does not fall through to current-screen, incident, web, or narrator evidence.
+Context-free questions about a proposal, approval, execution, outcome verification, retry, or idempotency use a deterministic action-context hold. The operator must supply an exact ActionType, target resource, proposal, approval, or action receipt before the Console can verify lifecycle claims. Current-screen, repository, incident, and narrator evidence never substitute for that governed record, and the hold performs no mutation or model call.
 The Month-1 additions bring the console close to a multi-signal
 incident-response experience, but they still surface
 **already-correlated** results; the correlator lives in Layer 1, not

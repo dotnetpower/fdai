@@ -1876,10 +1876,13 @@ class TestChatRouteLatencySurface:
         )
 
         assert response.status_code == 200
-        assert backend.view_context is not None
-        assert backend.view_context["_tool_evidence"]["result"]["event_count"] == 42
-        assert "_operational_evidence" not in backend.view_context
-        assert "_agent_evidence" not in backend.view_context
+        payload = response.json()
+        assert backend.view_context is None
+        assert payload["model"] == "evidence-verifier"
+        assert payload["verification"]["authority"] == "server_read_model"
+        assert payload["verification"]["reason_code"] == "read_model_get_kpi_grounded"
+        assert "42" in payload["answer"]
+        assert "999" not in payload["answer"]
         assert delegate.calls == []
 
     def test_current_screen_precedes_same_domain_read_tool(self) -> None:

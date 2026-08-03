@@ -1,8 +1,8 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 211138b8ddbd221c559da8c80d8cd3770c7ae5ca
-translation_revised: 2026-08-02
+translation_source_sha: 273ddefddd7a73637e7d62ec452d307506fea8b4
+translation_revised: 2026-08-03
 ---
 
 # 계층형 대화 계획
@@ -111,6 +111,31 @@ Web result는 untrusted evidence입니다. Sanitization, approved domain, retrie
 설명하며 citation을 날조하지 않습니다. 이 fallback은 validated goal에 fresh evidence가 필요하지 않은
 경우에만 허용됩니다. Raw chain-of-thought는 저장하거나 표시하지 않습니다. Bragi는 간결한 conclusion,
 evidence, assumption, comparison basis, limitation, uncertainty를 제공합니다.
+
+### 컨텍스트 기반 운영 근거 결합
+
+후속 진단은 검증된 durable turn의 server-owned resource 및 event context만 재사용합니다. Metric 비교는
+기록된 event 전후의 동일한 bounded window를 조회합니다. Database, pod 및 capacity 진단은 정확한
+resource가 선택된 후에만 고정 KQL template을 사용하며, 그렇지 않으면 해당 resource를 요청합니다.
+오류율과 control-plane change 결합은 시간 차이를 보고하고 시간적 일치를 원인 증명으로 표현하지
+않습니다. Row 누락, limit 누락, truncation 또는 unavailable provider는 positive finding이 아니라
+명시적인 제한으로 유지됩니다.
+
+선택된 incident 질문은 server evidence envelope에 analysis intent를 보존합니다. 하나의 bounded audit 및
+RCA projection이 ordered timeline, citation이 있는 hypothesis 순위, 측정된 impact, 기록된 response
+decision, 사용된 evidence reference, unknown 및 investigation progress를 렌더링합니다. Timeline 순서는
+원인 증명이 아닙니다. Similar incident는 공유 domain signal과 explicit successful recovery receipt를
+요구합니다. Provider failure는 검증된 empty result와 구분됩니다. Response decision은 read-only이며 실행
+권한을 부여하지 않고, investigation progress에는 durable run identifier가 필요합니다.
+
+Incident-analysis turn에서는 durable 또는 exact screen-selected incident context가 관련 없는 semantic
+plan보다 우선합니다. 관련 없는 deterministic tool, explicit public-web 요청 또는 concrete action draft는
+요청한 authority를 유지하며, context가 intent를 대신하지 않습니다. Audit value는 evidence envelope에 들어가기 전에
+normalize되고 cap이 적용되며, cap이 적용되면 `truncated`가 설정됩니다. Evidence reference는 실제로 사용한
+positive audit sequence 또는 citation을 정확히 가리킵니다. RCA confidence는 `0`부터 `1`까지의 finite
+probability일 때만 표시합니다. Freshness follow-up은 이전 durable assistant turn의 server-generated
+freshness receipt를 복원합니다. Browser가 제공한 freshness object는 server evidence authority를 얻지
+못합니다.
 
 ## Task DAG 컴파일
 

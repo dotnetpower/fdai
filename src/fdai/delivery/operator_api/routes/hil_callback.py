@@ -236,6 +236,12 @@ def make_hil_callback_route(
             )
         except HilCallbackError as exc:
             return _error(exc.status_code, exc.kind, str(exc))
+        if not _approver_can_approve_hil(payload):
+            return _error(
+                403,
+                "capability_forbidden",
+                "approver lacks the approve-runtime-hil capability",
+            )
 
         # Coordinator (park and resume) path takes precedence: an action
         # the control loop routed to HIL is parked in the StateStore, not
@@ -367,15 +373,9 @@ def _approver_can_approve_hil(payload: _CallbackBody) -> bool:
     """Whether the approver holds ``Capability.APPROVE_RUNTIME_HIL``.
 
     The callback is HMAC-authenticated, so the push channel's asserted
-    ``actor_roles`` are trusted (signed with the shared secret, not
-    client-forgeable). When the channel supplies roles, the capability is
-    enforced here as defense in depth; a channel that omits them is trusted
-    to surface approve controls only to authorized approvers, so the
-    coordinator's ``approver_can_approve_hil`` defaults to ``True`` (blank
-    roles). No-self-approval and the HMAC gate still apply either way.
+    ``actor_roles`` are signed with the shared secret. Missing, unknown, or
+    insufficient roles grant no approval authority.
     """
-    if not payload.actor_roles:
-        return True
     resolved: set[Role] = set()
     for token in payload.actor_roles:
         try:
@@ -509,17 +509,9 @@ def _compute_hmac(*, secret: str, timestamp: str, approval_id: str, payload: byt
 
 
 async def _find_pending_by_approval_id(registry: HilApprovalRegistry, approval_id: str) -> Any:
-    """Locate the pending item whose ``approval_id`` matches.
+    """Locate one pending item by its authoritative approval identity."""
 
-    The registry's read surface is keyed by ``idempotency_key``, so we
-    scan the pending list. The list is Approver-bounded (`limit=50` by
-    default) and typically small.
-    """
-
-    for item in await registry.list_pending(limit=200):
-        if item.approval_id == approval_id:
-            return item
-    return None
+    return await registry.get_pending_by_approval_id(approval_id)
 
 
 async def _deliver_recorded_decision(

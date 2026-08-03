@@ -26,6 +26,7 @@ import {
   extractString,
   parseAnswerVerification,
   parseDelegation,
+  parseEvidenceFreshnessContext,
   parseRouter,
   parseResourceContext,
   tokenSuffix,
@@ -178,6 +179,11 @@ export async function askBackend(
       ? (payload as Record<string, unknown>).resource_context
       : undefined,
   );
+  const evidenceFreshnessContext = parseEvidenceFreshnessContext(
+    typeof payload === "object" && payload !== null
+      ? (payload as Record<string, unknown>).evidence_freshness_context
+      : undefined,
+  );
   const modelTrace = parseModelTrace(
     typeof payload === "object" && payload !== null
       ? (payload as Record<string, unknown>).model_trace
@@ -238,6 +244,7 @@ export async function askBackend(
     ...(answerPlanning ? { answerPlanning } : {}),
     ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
     ...(resourceContext ? { resourceContext } : {}),
+    ...(evidenceFreshnessContext ? { evidenceFreshnessContext } : {}),
     ...(modelTrace ? { modelTrace } : {}),
     ...(turnTiming ? { turnTiming } : {}),
     ...(trajectoryDetail ? { trajectoryDetail } : {}),

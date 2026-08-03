@@ -35,6 +35,7 @@ from fdai.delivery.operator_api.routes.chat_inventory_query import (
     normalize_inventory_value,
 )
 from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
+from fdai.delivery.operator_api.routes.chat_topology_intent import is_topology_question
 from fdai.delivery.operator_api.routes.chat_turn_plan import TurnTool
 from fdai.delivery.operator_api.routes.inventory_graph import InventoryGraphProvider
 from fdai.delivery.operator_api.routes.inventory_provider_execution import (
@@ -98,6 +99,15 @@ class InventoryChatTools:
     ) -> dict[str, Any] | None:
         if not needs_inventory_evidence(prompt):
             return await self._fallback(prompt, principal_id=principal_id)
+        if is_topology_question(prompt):
+            return {
+                "tool": "query_inventory",
+                "authority": "server_inventory_graph",
+                "result": {
+                    "status": "unavailable",
+                    "reason": "topology_selector_required",
+                },
+            }
         try:
             graph = await self._graph_for_scope(inventory_query_scope(prompt))
             safe_payload = _safe_inventory_payload(graph)
@@ -107,7 +117,14 @@ class InventoryChatTools:
             managed = [item for item in resources if item["type"] != "subscription"]
             query = compile_inventory_query(prompt, resources=managed)
             if query is None:
-                return await self._fallback(prompt, principal_id=principal_id)
+                return {
+                    "tool": "query_inventory",
+                    "authority": "server_inventory_graph",
+                    "result": {
+                        "status": "unavailable",
+                        "reason": "inventory_query_not_compiled",
+                    },
+                }
             if query.require_fresh and graph.get("freshness") != "fresh":
                 graph = await self._graph_for_query(query, graph=graph)
                 safe_payload = _safe_inventory_payload(graph)
@@ -247,7 +264,7 @@ class InventoryChatTools:
 def needs_inventory_evidence(prompt: str) -> bool:
     """Return whether a question asks for observed Azure resource inventory."""
 
-    return is_inventory_question(prompt)
+    return is_topology_question(prompt) or is_inventory_question(prompt)
 
 
 def _project_inventory_result(
@@ -485,6 +502,24 @@ def render_inventory_answer(
     if result.get("query_source") == InventoryQuerySource.ACTIVITY.value:
         return render_inventory_activity(result, korean=korean)
     if result.get("status") not in {"matched", "partial"}:
+        if result.get("reason") == "topology_selector_required":
+            return (
+                "Topology 조회에는 정확한 source와 target resource name 또는 선택된 network "
+                "resource가 필요합니다. 대상을 지정한 뒤 다시 시도하세요."
+                if korean
+                else (
+                    "Topology queries require exact source and target resource names or a "
+                    "selected network resource. Specify the resources and try again."
+                )
+            )
+        if result.get("reason") == "active_view_resource_group_unavailable":
+            return (
+                "현재 Architecture 화면에서 선택된 리소스 그룹을 확인할 수 없습니다. "
+                "리소스 그룹을 선택하거나 이름을 지정한 뒤 다시 시도하세요."
+                if korean
+                else "No resource group is selected on the current Architecture screen. "
+                "Select a resource group or specify its name, then try again."
+            )
         return (
             "Azure 인벤토리 근거를 조회할 수 없어 리소스 상태를 확정하지 않았습니다."
             if korean
@@ -739,6 +774,23 @@ def render_inventory_answer(
     if truncated:
         lines.append("The inventory snapshot is truncated, so additional resources may exist.")
     return "\n".join(lines)
+
+
+def inventory_screen_scope_unavailable_evidence(
+    scope_context: object,
+) -> dict[str, Any] | None:
+    """Return a typed hold when active-view inventory scope has no trusted selector."""
+
+    if not isinstance(scope_context, Mapping) or scope_context.get("status") != "unavailable":
+        return None
+    return {
+        "tool": "query_inventory",
+        "authority": "server_inventory_graph",
+        "result": {
+            "status": "unavailable",
+            "reason": "active_view_resource_group_unavailable",
+        },
+    }
 
 
 def inventory_execution_query(evidence: Mapping[str, Any]) -> str:
@@ -1173,6 +1225,7 @@ __all__ = [
     "KubernetesWorkloadProvider",
     "inventory_evidence_refs",
     "inventory_execution_query",
+    "inventory_screen_scope_unavailable_evidence",
     "needs_inventory_evidence",
     "partial_inventory_findings_are_grounded",
     "render_inventory_answer",

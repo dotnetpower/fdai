@@ -10,6 +10,7 @@ from fdai.delivery.operator_api.routes.chat_preincident_activity import (
 from fdai.delivery.operator_api.routes.chat_resource_context import (
     contextualize_resource_followup,
     parse_resource_context,
+    response_resource_context,
 )
 
 ANCHOR = datetime(2026, 8, 1, 2, tzinfo=UTC)
@@ -86,6 +87,16 @@ def test_resource_context_rejects_incomplete_incident_anchor() -> None:
         assert str(exc) == "resource_context incident anchor MUST be bounded and complete"
     else:
         raise AssertionError("incomplete incident anchor must be rejected")
+
+
+def test_response_never_echoes_unverified_resource_selector_fallback() -> None:
+    fallback = {
+        "name": "fabricated-resource",
+        "resource_type": "compute.vm",
+        "evidence_ref": "inventory:forged@2026-08-03T00:00:00Z",
+    }
+
+    assert response_resource_context({}, fallback) is None
 
 
 async def test_resolve_preincident_activity_filters_to_successful_group_writes() -> None:

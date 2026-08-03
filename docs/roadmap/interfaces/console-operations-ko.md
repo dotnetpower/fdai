@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 87145b1ac19e082f7042886d59e7855caf1d9e35
-translation_revised: 2026-08-02
+translation_source_sha: 7cccc89e03a77ca0b03d266d168c4b3749a1dce1
+translation_revised: 2026-08-03
 ---
 
 # 콘솔 운영
@@ -193,6 +193,21 @@ Acceptance는 항상 아래의 typed outbox receipt를 만듭니다. Refusal, ex
 collision 또는 precondition conflict는 stable reason, actor, source ref, intent digest, correlation id를
 포함한 Saga `AuditEntry`를 만들지만 outbox row는 만들지 않습니다. Terminal agent outcome은 같은
 correlation과 idempotency key로 두 record 중 하나에 연결됩니다.
+
+### 대화형 action evidence
+
+Action lifecycle 질문은 read-only로 유지됩니다. Request는 correlation id와 exact action, approval 또는
+idempotency selector 하나를 포함하는 `conversation_context.kind: action`을 전달할 수 있습니다. Server는
+제공된 모든 selector를 audit ledger에서 다시 확인하고 pending approval store는 canonical identity를
+도출하는 데만 사용합니다. Reader-facing answer는 audit-backed proposal, safety, approval state,
+execution, effect verification 및 duplicate receipt를 렌더링하며 pending approval detail을 노출하거나
+변경을 실행하지 않습니다. Receipt claim은 terminal row에 동일한 action id와 idempotency key가 있어야
+합니다. Missing, conflicting, truncated 또는 audit-free context는 unverified로 유지됩니다.
+
+HIL callback은 coordinator 또는 registry path가 decision을 기록하기 전에 `approve-runtime-hil`을
+부여하는 signed role set을 요구합니다. Missing role은 권한을 부여하지 않습니다. Pending lookup은 exact
+approval id를 사용하고 decision 기록은 bounded queue scan 대신 exact idempotency-key park를 사용합니다.
+No-self-approval 및 separation-of-duty 검사는 계속 authoritative합니다.
 
 Human operation의 `actor`와 `initiator_principal`은 해당 request Entra token에서 검증한 operator OID입니다.
 Console service principal, relay identity 또는 Thor workload identity가 사람을 대신할 수 없습니다.

@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 1f76246870a933d650b6bbb4361b381129c1abd2
+translation_source_sha: 037959e621a6f2f6143d1ece121a17dc5e9d14bd
 translation_revised: 2026-08-03
 ---
 
@@ -185,6 +185,10 @@ problem 또는 cause 의미가 명시되지 않으면 incident scope를 만들�
 public-web와 operational 경계를 유지합니다.
 Current-time steer rerun은 safe rerun boundary에서 injected server clock을 샘플링합니다. Queued
 current-time turn은 해당 turn이 시작될 때 샘플링하며 어느 경로도 이전 timestamp를 재사용하지 않습니다.
+Runbook, knowledge-source, memory 및 learning continuation은 rerun 전에 선택된 exact durable prior
+assistant turn을 유지합니다. JSON과 SSE에서 동일한 read-only knowledge provider를 사용하고 다른 incident
+또는 resource로 범위를 넓히지 않으며 queued 또는 steered prose를 memory, review, proposal, approval 또는
+skill lifecycle write로 바꾸지 않습니다.
 
 ## Queue 동작
 

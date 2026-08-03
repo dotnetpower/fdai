@@ -66,6 +66,15 @@ class InMemoryHilApprovalRegistry(HilApprovalRegistry):
     async def get_pending(self, idempotency_key: str) -> HilPendingItem | None:
         return self._pending.get(idempotency_key)
 
+    async def get_pending_by_approval_id(
+        self,
+        approval_id: str,
+    ) -> HilPendingItem | None:
+        return next(
+            (item for item in self._pending.values() if item.approval_id == approval_id),
+            None,
+        )
+
     async def get_decision_by_approval_id(
         self,
         approval_id: str,

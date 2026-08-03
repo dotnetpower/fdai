@@ -10,6 +10,7 @@ from fdai.delivery.azure.read_investigation.cli_transport import (
     AzureReadCliError,
 )
 from fdai.delivery.azure.read_investigation.gateway_transport import (
+    AzureOperationsGatewayNetworkReachabilityProvider,
     AzureOperationsGatewayReadConfig,
     AzureOperationsGatewayReadError,
     AzureOperationsGatewayReadTransport,
@@ -41,6 +42,7 @@ __all__ = [
     "AzureReadCliConfig",
     "AzureReadCliError",
     "AzureReadInvestigationProvider",
+    "AzureOperationsGatewayNetworkReachabilityProvider",
     "AzureOperationsGatewayReadConfig",
     "AzureOperationsGatewayReadError",
     "AzureOperationsGatewayReadTransport",

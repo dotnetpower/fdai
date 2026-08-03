@@ -15,6 +15,7 @@ from fdai.core.read_investigation import (
 )
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.read_investigation import (
+    AzureOperationsGatewayNetworkReachabilityProvider,
     AzureOperationsGatewayReadConfig,
     AzureOperationsGatewayReadTransport,
     AzureReadInvestigationProvider,
@@ -48,6 +49,7 @@ class LocalReadInvestigationWiring:
     subscription_health_provider: AzureSubscriptionHealthProvider
     inventory_activity_provider: InventoryActivityProvider
     read_transport: AzureReadTransport
+    network_reachability_provider: AzureOperationsGatewayNetworkReachabilityProvider | None
     http_client: httpx.AsyncClient
     mcp_client: ManagedMcpClient | None = None
 
@@ -107,8 +109,9 @@ def build_local_read_investigation(
     if bool(gateway_url) != bool(gateway_audience):
         raise ValueError("operations gateway URL and audience MUST be configured together")
     transport: AzureReadTransport = direct_transport
+    gateway_transport: AzureOperationsGatewayReadTransport | None = None
     if gateway_url:
-        transport = AzureOperationsGatewayReadTransport(
+        gateway_transport = AzureOperationsGatewayReadTransport(
             config=AzureOperationsGatewayReadConfig(
                 base_url=gateway_url,
                 audience=gateway_audience,
@@ -119,6 +122,18 @@ def build_local_read_investigation(
             identity=identity,
             http_client=http_client,
         )
+        transport = gateway_transport
+    reachability_probe_alias = environ.get("FDAI_NETWORK_REACHABILITY_PROBE_ALIAS", "").strip()
+    if reachability_probe_alias and gateway_transport is None:
+        raise ValueError("network reachability probe requires the operations gateway")
+    network_reachability_provider = (
+        AzureOperationsGatewayNetworkReachabilityProvider(
+            transport=gateway_transport,
+            probe_alias=reachability_probe_alias,
+        )
+        if gateway_transport is not None and reachability_probe_alias
+        else None
+    )
     latency_store = StateStoreReadLatencyProfileStore(store=state_store)
     mcp_wiring = build_azure_mcp_read_wiring(
         fallback=transport,
@@ -172,6 +187,7 @@ def build_local_read_investigation(
         ),
         inventory_activity_provider=inventory_activity_provider,
         read_transport=transport,
+        network_reachability_provider=network_reachability_provider,
         http_client=http_client,
         mcp_client=mcp_wiring.client,
     )

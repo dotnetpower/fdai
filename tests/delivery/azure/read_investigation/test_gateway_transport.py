@@ -8,7 +8,9 @@ import httpx
 import pytest
 
 from fdai.delivery.azure.read_investigation import (
+    AzureOperationsGatewayNetworkReachabilityProvider,
     AzureOperationsGatewayReadConfig,
+    AzureOperationsGatewayReadError,
     AzureOperationsGatewayReadTransport,
     AzureRow,
 )
@@ -164,6 +166,93 @@ async def test_gateway_transport_queries_registered_nsg_operation() -> None:
             "priority": 200,
         },
     )
+
+
+async def test_gateway_transport_runs_registered_private_probe_by_alias() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "operation_id": "azure.private.http.probe",
+                "status": "succeeded",
+                "result": {
+                    "probe": "app-to-database",
+                    "probe_contract": "application_database_dependency",
+                    "dependency": "database",
+                    "reachable": True,
+                    "http_status": 200,
+                },
+            },
+        )
+
+    identity = _Identity()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        transport = AzureOperationsGatewayReadTransport(
+            config=AzureOperationsGatewayReadConfig(
+                base_url="https://gateway.example.com",
+                audience="api-application-id",
+                subscription_id="sub-example",
+                resource_groups=("rg-example",),
+            ),
+            delegate=_Delegate(),
+            identity=identity,
+            http_client=client,
+            clock=lambda: _NOW,
+        )
+        row = await transport.probe_private_endpoint("app-to-database")
+
+    assert requests[0].url.path == "/api/v1/operations/azure.private.http.probe"
+    assert json.loads(requests[0].content) == {"probe": "app-to-database"}
+    assert row == {
+        "observed_at": _NOW.isoformat(),
+        "probe_alias": "app-to-database",
+        "probe_contract": "application_database_dependency",
+        "dependency": "database",
+        "reachable": True,
+        "http_status": 200,
+    }
+
+
+async def test_reachability_provider_rejects_generic_http_probe_receipt() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "operation_id": "azure.private.http.probe",
+                "status": "succeeded",
+                "result": {
+                    "probe": "service",
+                    "probe_contract": "http_status",
+                    "reachable": True,
+                    "http_status": 200,
+                },
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        transport = AzureOperationsGatewayReadTransport(
+            config=AzureOperationsGatewayReadConfig(
+                base_url="https://gateway.example.com",
+                audience="api-application-id",
+                subscription_id="sub-example",
+                resource_groups=("rg-example",),
+            ),
+            delegate=_Delegate(),
+            identity=_Identity(),
+            http_client=client,
+        )
+        provider = AzureOperationsGatewayNetworkReachabilityProvider(
+            transport=transport,
+            probe_alias="service",
+        )
+        with pytest.raises(
+            AzureOperationsGatewayReadError,
+            match="application database dependency receipt",
+        ):
+            await provider.query_reachability()
 
 
 async def test_gateway_transport_rejects_scope_before_http() -> None:

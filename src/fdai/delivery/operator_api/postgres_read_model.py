@@ -154,9 +154,23 @@ class PostgresConsoleReadModel(ConsoleReadModel):
                     WITH unambiguous_events AS (
                         SELECT event_id FROM audit_log GROUP BY event_id
                         HAVING COUNT(DISTINCT correlation_id)
-                            FILTER (WHERE correlation_id IS NOT NULL) = 1
+                                                        FILTER (
+                                                                WHERE correlation_id IS NOT NULL
+                                                                      AND LOWER(
+                                                                          BTRIM(correlation_id)
+                                                                      ) NOT IN (
+                                                                          '', 'none', 'null'
+                                                                      )
+                                                        ) = 1
                            AND MIN(correlation_id)
-                            FILTER (WHERE correlation_id IS NOT NULL) = %(correlation_id)s::text
+                                                        FILTER (
+                                                                WHERE correlation_id IS NOT NULL
+                                                                      AND LOWER(
+                                                                          BTRIM(correlation_id)
+                                                                      ) NOT IN (
+                                                                          '', 'none', 'null'
+                                                                      )
+                                                        ) = %(correlation_id)s::text
                     )
                     SELECT seq, event_id, correlation_id, actor, action_kind,
                            mode, entry, previous_hash, entry_hash, created_at
@@ -176,6 +190,18 @@ class PostgresConsoleReadModel(ConsoleReadModel):
                            OR action_kind = %(action_kind)s::text)
                        AND (%(outcome)s::text IS NULL
                            OR entry->>'outcome' = %(outcome)s::text)
+                       AND (%(action_id)s::text IS NULL OR COALESCE(
+                           entry->>'action_id',
+                           entry#>>'{action,action_id}',
+                           entry#>>'{proposal,action_id}',
+                           entry#>>'{receipt,action_id}'
+                       ) = %(action_id)s::text)
+                       AND (%(idempotency_key)s::text IS NULL OR COALESCE(
+                           entry->>'idempotency_key',
+                           entry#>>'{action,idempotency_key}',
+                           entry#>>'{proposal,idempotency_key}',
+                           entry#>>'{receipt,idempotency_key}'
+                       ) = %(idempotency_key)s::text)
                        AND (%(vertical)s::text IS NULL OR REPLACE(LOWER(COALESCE(
                             entry->>'vertical', entry->>'category', ''
                        )), '_', '-') = %(vertical)s::text)
@@ -198,6 +224,8 @@ class PostgresConsoleReadModel(ConsoleReadModel):
                         "tier": active.tier,
                         "action_kind": active.action_kind,
                         "outcome": active.outcome,
+                        "action_id": active.action_id,
+                        "idempotency_key": active.idempotency_key,
                         "vertical": (
                             active.vertical.replace("_", "-").lower()
                             if active.vertical is not None
@@ -338,6 +366,21 @@ class PostgresConsoleReadModel(ConsoleReadModel):
                       FROM state_kv
                      WHERE key LIKE %s
                        AND value->>'status' = %s
+                       AND jsonb_typeof(value->'approval_id') = 'string'
+                       AND jsonb_typeof(value->'parked_at') = 'string'
+                                             AND COALESCE(value->>'approval_id', '') <> ''
+                                             AND COALESCE(value->>'parked_at', '') <> ''
+                                             AND COALESCE(
+                                                     value->>'idempotency_key',
+                                                     value#>>'{action,idempotency_key}',
+                                                     ''
+                                             ) <> ''
+                                               AND (
+                                                   jsonb_typeof(value->'idempotency_key') = 'string'
+                                                   OR jsonb_typeof(
+                                                       value#>'{action,idempotency_key}'
+                                                   ) = 'string'
+                                               )
                                              AND (
                                                  value#>>'{approval_context,expires_at}' IS NULL
                                                  OR (
@@ -391,8 +434,12 @@ class PostgresConsoleReadModel(ConsoleReadModel):
                                ' ',
                                value->>'approval_id',
                                value->>'correlation_id',
+                               value->>'idempotency_key',
                                value->>'action_type',
                                value->>'rule_id',
+                               value#>>'{action,action_type}',
+                               value#>>'{action,action_id}',
+                               value#>>'{action,idempotency_key}',
                                value#>>'{action,event_id}',
                                value#>>'{action,target_resource_ref}',
                                value#>>'{approval_context,reasons}',
@@ -428,8 +475,9 @@ class PostgresConsoleReadModel(ConsoleReadModel):
         items: list[HilQueueItem] = []
         for row in rows:
             item = row_to_hil_queue_item(row)
-            if item is not None:
-                items.append(item)
+            if item is None:
+                raise RuntimeError("PostgreSQL HIL queue row failed validated projection")
+            items.append(item)
         total = int(rows[0]["total_count"]) if rows else 0
         return HilQueuePage(items=tuple(items), total=total)
 

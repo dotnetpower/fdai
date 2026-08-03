@@ -20,6 +20,10 @@ _CURRENT_TIME: Final = re.compile(
 )
 
 
+def needs_current_time(prompt: str) -> bool:
+    return _CURRENT_TIME.search(prompt) is not None
+
+
 @dataclass(frozen=True, slots=True)
 class CurrentTimeChatTools:
     """Resolve current time from an injected clock and principal timezone."""
@@ -34,7 +38,7 @@ class CurrentTimeChatTools:
         *,
         principal_id: str,
     ) -> dict[str, Any] | None:
-        if not _CURRENT_TIME.search(prompt):
+        if not needs_current_time(prompt):
             if self.fallback is None:
                 return None
             return await self.fallback.resolve(prompt, principal_id=principal_id)
@@ -102,5 +106,6 @@ def current_time_evidence_refs(evidence: Mapping[str, Any]) -> tuple[str, ...]:
 __all__ = [
     "CurrentTimeChatTools",
     "current_time_evidence_refs",
+    "needs_current_time",
     "render_current_time_answer",
 ]

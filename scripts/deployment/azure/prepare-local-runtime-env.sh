@@ -102,6 +102,7 @@ operational_bootstrap="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw ev
 topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_topics)"
 operational_topics_json="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -json event_bus_operational_topics 2>/dev/null || printf '[]')"
 resource_group="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw resource_group_name)"
+monitor_workspace_customer_id="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw log_workspace_customer_id 2>/dev/null || true)"
 dev_operations_gateway_url="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw dev_operations_gateway_url 2>/dev/null || true)"
 dev_operations_gateway_audience="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw dev_operations_gateway_audience 2>/dev/null || true)"
 executor_identity_resource_id="$($TERRAFORM_BIN -chdir="$REPO_ROOT/infra" output -raw executor_identity_resource_id)"
@@ -117,6 +118,24 @@ if [[ "${subscription_id,,}" != "${deployment_subscription_id,,}" ]]; then
   exit 1
 fi
 region="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" group show --name "$resource_group" --query location -o tsv)"
+
+if [[ -z "$monitor_workspace_customer_id" ]]; then
+  workspace_customer_ids="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" monitor log-analytics workspace list \
+    --resource-group "$resource_group" --query "[].customerId" -o tsv 2>/dev/null || true)"
+  workspace_count="$(printf '%s\n' "$workspace_customer_ids" | awk 'NF {count += 1} END {print count + 0}')"
+  if [[ "$workspace_count" == "1" ]]; then
+    monitor_workspace_customer_id="$(printf '%s\n' "$workspace_customer_ids" | awk 'NF {print; exit}')"
+    echo "Log Analytics workspace detected via Azure CLI; Terraform state does not surface its customer id" >&2
+  elif [[ "$workspace_count" -gt 1 ]]; then
+    echo "multiple Log Analytics workspaces exist in the applied resource group" >&2
+    exit 1
+  fi
+fi
+if [[ -n "$monitor_workspace_customer_id" &&
+  ! "$monitor_workspace_customer_id" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]]; then
+  echo "Log Analytics workspace customer id is invalid" >&2
+  exit 1
+fi
 
 # When Terraform state does not surface the operations gateway (for example a
 # targeted apply provisioned it out of band, or this working tree reads a
@@ -187,7 +206,7 @@ umask 077
 temp_env="$(mktemp "${OUTPUT_ENV}.XXXXXX")"
 trap 'rm -f "$temp_env"' EXIT
 
-grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REGION|KAFKA_BOOTSTRAP_SERVERS|KAFKA_TOPIC_EVENTS|POSTGRES_HOST|POSTGRES_DATABASE|RUNTIME_ENV|AUTONOMY_MODE_DEFAULT|LLM_MODE|LLM_RESOLVED_MODELS_PATH|FDAI_LLM_ENDPOINT|FDAI_WEB_SEARCH_ENABLED|FDAI_DATABASE_URL|FDAI_STATE_STORE_DSN|FDAI_METERING_DSN|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS|FDAI_STAGE_TOPIC|FDAI_PANTHEON_OBJECT_TOPIC|FDAI_CANARY_TOPIC|FDAI_INVENTORY_RAW_TOPIC|FDAI_HIL_DECISION_TOPIC|FDAI_START_CONSUMER|FDAI_START_PANTHEON|FDAI_RUNTIME_LOCAL_AZURE_CLI|FDAI_CORE_CONSUMER_GROUP_ID|FDAI_PANTHEON_CONSUMER_GROUP_PREFIX|FDAI_OPERATOR_API_CONSUMER_INSTANCE|FDAI_AZURE_READER_SUBSCRIPTION_ID|FDAI_AZURE_READER_RESOURCE_GROUPS|FDAI_DEV_OPERATIONS_GATEWAY_URL|FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE|FDAI_DIRECT_API_FAKE)=' "$SOURCE_ENV" > "$temp_env" || true
+grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REGION|KAFKA_BOOTSTRAP_SERVERS|KAFKA_TOPIC_EVENTS|POSTGRES_HOST|POSTGRES_DATABASE|RUNTIME_ENV|AUTONOMY_MODE_DEFAULT|LLM_MODE|LLM_RESOLVED_MODELS_PATH|FDAI_LLM_ENDPOINT|FDAI_WEB_SEARCH_ENABLED|FDAI_DATABASE_URL|FDAI_STATE_STORE_DSN|FDAI_METERING_DSN|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS|FDAI_STAGE_TOPIC|FDAI_PANTHEON_OBJECT_TOPIC|FDAI_CANARY_TOPIC|FDAI_INVENTORY_RAW_TOPIC|FDAI_HIL_DECISION_TOPIC|FDAI_START_CONSUMER|FDAI_START_PANTHEON|FDAI_RUNTIME_LOCAL_AZURE_CLI|FDAI_CORE_CONSUMER_GROUP_ID|FDAI_PANTHEON_CONSUMER_GROUP_PREFIX|FDAI_OPERATOR_API_CONSUMER_INSTANCE|FDAI_AZURE_READER_SUBSCRIPTION_ID|FDAI_AZURE_READER_RESOURCE_GROUPS|FDAI_MONITOR_WORKSPACE_ID|FDAI_DEV_OPERATIONS_GATEWAY_URL|FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE|FDAI_DIRECT_API_FAKE)=' "$SOURCE_ENV" > "$temp_env" || true
 {
   printf 'AZURE_TENANT_ID=%s\n' "$tenant_id"
   printf 'AZURE_SUBSCRIPTION_ID=%s\n' "$subscription_id"
@@ -234,6 +253,9 @@ grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REG
   printf 'FDAI_OPERATOR_API_CONSUMER_INSTANCE=fdai-local-%s-operator-api\n' "$local_consumer_instance"
   printf 'FDAI_AZURE_READER_SUBSCRIPTION_ID=%s\n' "$subscription_id"
   printf 'FDAI_AZURE_READER_RESOURCE_GROUPS=%s\n' "$resource_group"
+  if [[ -n "$monitor_workspace_customer_id" ]]; then
+    printf 'FDAI_MONITOR_WORKSPACE_ID=%s\n' "$monitor_workspace_customer_id"
+  fi
   if [[ -n "$dev_operations_gateway_url" ]]; then
     printf 'FDAI_DEV_OPERATIONS_GATEWAY_URL=%s\n' "$dev_operations_gateway_url"
     printf 'FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=%s\n' "$dev_operations_gateway_audience"

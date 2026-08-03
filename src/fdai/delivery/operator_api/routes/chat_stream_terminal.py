@@ -12,6 +12,7 @@ from fdai.core.conversation.answer_plan import AnswerPlan
 from fdai.core.python_task.grounded_code import extract_grounded_code
 from fdai.delivery.operator_api.routes.chat_answer_quality import AnswerQualityResult
 from fdai.delivery.operator_api.routes.chat_evidence_enrichment import _web_search_summary
+from fdai.delivery.operator_api.routes.chat_freshness_context import EvidenceFreshnessContext
 from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
     public_intent_graph_evidence,
 )
@@ -147,6 +148,7 @@ def build_done_payload(
     screen_answer: str | None,
     concept_answer: str | None,
     resource_answer: str | None,
+    freshness_answer: str | None,
     started: float,
     delegation: Mapping[str, Any] | None,
     enriched_context: Mapping[str, Any],
@@ -154,6 +156,7 @@ def build_done_payload(
     answer_planning: Mapping[str, Any] | None,
     quality: AnswerQualityResult | None,
     resource_context: Mapping[str, str] | None,
+    freshness_context: EvidenceFreshnessContext | None,
     model_trace: Mapping[str, Any] | None,
     turn_timing: Mapping[str, Any] | None,
     trajectory_detail: Mapping[str, Any] | None,
@@ -161,6 +164,8 @@ def build_done_payload(
     source = None
     if resource_answer is not None:
         source = "evidence:read-investigation"
+    elif freshness_answer is not None:
+        source = "evidence:freshness"
     elif evidence_fast_path:
         source = f"evidence:{verification.status}"
     elif ontology_answer is not None:
@@ -198,6 +203,8 @@ def build_done_payload(
         payload["answer_quality"] = quality.to_dict()
     if resource_context is not None:
         payload["resource_context"] = dict(resource_context)
+    if freshness_context is not None:
+        payload["evidence_freshness_context"] = freshness_context.to_dict()
     if model_trace is not None:
         payload["model_trace"] = dict(model_trace)
     if turn_timing is not None:

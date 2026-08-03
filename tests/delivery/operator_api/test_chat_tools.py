@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 from fdai.delivery.operator_api.read_model import HilQueueItem, InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes.chat_tools import ReadModelChatTools
+from fdai.delivery.operator_api.routes.chat_verification import verify_answer
 from fdai.shared.providers import (
     ConversationRecord,
     ConversationTurnRecord,
@@ -55,7 +56,17 @@ def test_resolves_kpi_hil_and_audit_from_read_model() -> None:
 
     assert kpi is not None and kpi["result"]["event_count"] == 1
     assert hil is not None and hil["result"]["total"] == 1
-    assert audit is not None and audit["result"]["items"][0]["actor"] == "Thor"
+    assert hil["result"] == {"total": 1, "details_redacted": True}
+    assert audit is not None and audit["result"]["items"][0]["action_kind"] == (
+        "ops.restart-service"
+    )
+    assert "entry" not in audit["result"]["items"][0]
+
+    for evidence in (kpi, hil, audit):
+        verified = verify_answer("provisional", {"_tool_evidence": evidence}, locale="en")
+        assert verified.authority == "server_read_model"
+        assert verified.status == "corrected"
+        assert verified.evidence_refs
 
 
 def test_unmatched_question_does_not_call_a_tool() -> None:

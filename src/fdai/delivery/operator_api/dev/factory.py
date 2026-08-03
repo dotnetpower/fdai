@@ -146,6 +146,9 @@ from fdai.delivery.operator_api.entra_verifier import (  # noqa: E402
 from fdai.delivery.operator_api.main import OperatorApiConfig, build_app  # noqa: E402
 from fdai.delivery.operator_api.postgres_read_model import PostgresConsoleReadModel  # noqa: E402
 from fdai.delivery.operator_api.production.config import build_prod_read_model  # noqa: E402
+from fdai.delivery.operator_api.production.knowledge_context import (  # noqa: E402
+    build_production_knowledge_context,
+)
 from fdai.delivery.operator_api.production.panels import build_production_panels  # noqa: E402
 from fdai.delivery.operator_api.production.persistence import (  # noqa: E402
     build_production_persistence,
@@ -164,6 +167,9 @@ from fdai.delivery.operator_api.routes.arb_status import (  # noqa: E402
 )
 from fdai.delivery.operator_api.routes.chat_agent_delegate import (  # noqa: E402
     PantheonChatDelegate,
+)
+from fdai.delivery.operator_api.routes.chat_knowledge_context import (  # noqa: E402
+    KnowledgeContextChatTools,
 )
 from fdai.delivery.operator_api.routes.conversation_assurance_intake import (  # noqa: E402
     ConversationAssurancePostTurnSubmitter,
@@ -663,6 +669,22 @@ def build_local_app(
 
         log_query_shutdown_callbacks = (close_log_query_http,)
     skill_disclosure = empty_runtime_skill_disclosure()
+    knowledge_context = (
+        build_production_knowledge_context(
+            dsn=cast(PostgresConsoleReadModel, read_model)._config.dsn,
+            statement_timeout_ms=cast(
+                PostgresConsoleReadModel, read_model
+            )._config.statement_timeout_ms,
+            connect_timeout_s=cast(PostgresConsoleReadModel, read_model)._config.connect_timeout_s,
+            skill_disclosure=skill_disclosure,
+            user_memories=user_context.memories,
+        )
+        if local_database_configured and not test_fixtures
+        else KnowledgeContextChatTools(
+            skill_disclosure=skill_disclosure,
+            user_memories=user_context.memories,
+        )
+    )
     arb_status_panels = (
         (
             ArchitectureReviewStatusPanel(
@@ -782,6 +804,11 @@ def build_local_app(
                 else None
             ),
             log_query_provider=log_query_provider,
+            network_reachability_provider=(
+                local_read_investigation.network_reachability_provider
+                if local_read_investigation is not None
+                else None
+            ),
             best_practice_controls=tuple(best_practice_controls),
             mcsb_catalogs=load_mcsb_reference(_REPO_ROOT),
             rule_catalog_rules=tuple(rule_catalog_rules),
@@ -817,6 +844,7 @@ def build_local_app(
             what_if_evaluators=what_if_evaluators if test_fixtures else {},
             chat=models.backend,
             skill_disclosure=skill_disclosure,
+            knowledge_context=knowledge_context,
             chat_web_search=models.web_search,
             chat_probe_interval_seconds=_chat_probe_interval_seconds(),
             chat_agent_delegate=(

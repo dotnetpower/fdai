@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: 2e7f58b224fe88c0671094eabe8bdc4fdea8a942
-translation_revised: 2026-08-02
+translation_source_sha: 0899ad872d9da3ee23887a2345b1e5cb83854221
+translation_revised: 2026-08-03
 ---
 
 # Operator Console - Narrator, DI Seams, and Session Model
@@ -332,7 +332,7 @@ class ConversationSession:
 - **Post-turn review**: 두 conversation turn이 저장된 뒤 chat route는 bounded envelope를 non-blocking queue에
   제출합니다. Bragi가 `object.turn`에 발행하고 Norns가 response latency 밖에서 결정론적 eligibility와 선택적
   mixed-family review를 수행합니다. Reader가 볼 수 있는 `post-turn-reviews` panel은 GET-only이며 proposal body나
-  approval control 없이 durable status, evidence reference, proposal state와 aggregate acceptance를 제공합니다.
+  approval control 없이 durable status, evidence reference, proposal state와 aggregate acceptance를 제공합니다. Materialized operator-memory proposal은 retained entry에 대한 restrictive foreign key를 가지며 conversation reuse도 exact entry가 active 상태이고 여전히 해당 proposal을 인용하는지 다시 확인합니다.
 - **보존 및 projection 정리**: 스케줄러는 90일이 지난 비활성 대화와 오래된
   briefing run을 삭제하고 명시된 expiry 시각에 memory fact를 삭제한다. 각
   PostgreSQL source 삭제는 해당 ontology object id를 같은 transaction에서

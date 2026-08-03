@@ -187,6 +187,27 @@ class AzureOperationsGatewayReadTransport:
             rows.append({"_truncated": True})
         return tuple(rows)
 
+    async def probe_private_endpoint(self, alias: str) -> AzureRow:
+        """Run one server-registered private endpoint probe by bounded alias."""
+
+        _validate_probe_alias(alias)
+        result = await self._invoke("azure.private.http.probe", {"probe": alias})
+        reachable = result.get("reachable")
+        http_status = result.get("http_status")
+        if not isinstance(reachable, bool) or not isinstance(http_status, int):
+            raise AzureOperationsGatewayReadError("gateway private probe result was incomplete")
+        row: dict[str, object] = {
+            "observed_at": self._clock().isoformat(),
+            "probe_alias": alias,
+            "reachable": reachable,
+            "http_status": http_status,
+        }
+        for key in ("probe_contract", "dependency"):
+            value = result.get(key)
+            if isinstance(value, str):
+                row[key] = value[:64]
+        return row
+
     async def _invoke(
         self, operation_id: str, payload: Mapping[str, object]
     ) -> Mapping[str, object]:
@@ -251,11 +272,43 @@ class AzureOperationsGatewayReadTransport:
         return segments[3], segments[7]
 
 
+@dataclass(frozen=True, slots=True)
+class AzureOperationsGatewayNetworkReachabilityProvider:
+    """Bind one composition-owned probe alias to active reachability reads."""
+
+    transport: AzureOperationsGatewayReadTransport
+    probe_alias: str
+
+    def __post_init__(self) -> None:
+        _validate_probe_alias(self.probe_alias)
+
+    async def query_reachability(self) -> Mapping[str, object]:
+        row = await self.transport.probe_private_endpoint(self.probe_alias)
+        if (
+            row.get("probe_contract") != "application_database_dependency"
+            or row.get("dependency") != "database"
+        ):
+            raise AzureOperationsGatewayReadError(
+                "gateway probe did not provide an application database dependency receipt"
+            )
+        return {
+            "status": "matched",
+            "source": "operations-gateway-active-probe",
+            **row,
+        }
+
+
+def _validate_probe_alias(alias: str) -> None:
+    if not alias or len(alias) > 128 or not alias.replace("-", "").replace("_", "").isalnum():
+        raise ValueError("private probe alias MUST be a bounded identifier")
+
+
 def _text(value: object, maximum: int) -> str:
     return value[:maximum] if isinstance(value, str) else ""
 
 
 __all__ = [
+    "AzureOperationsGatewayNetworkReachabilityProvider",
     "AzureOperationsGatewayReadConfig",
     "AzureOperationsGatewayReadError",
     "AzureOperationsGatewayReadTransport",

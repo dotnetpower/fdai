@@ -198,6 +198,28 @@ class TestListAudit:
 
         assert [item.action_kind for item in page.items] == ["at-boundary"]
 
+    async def test_exact_action_and_idempotency_filters_match_flat_and_nested(self) -> None:
+        model = InMemoryConsoleReadModel()
+        model.record_audit_entry(
+            {**_entry(action_kind="flat"), "action_id": "action-1", "idempotency_key": "key-1"}
+        )
+        model.record_audit_entry(
+            {
+                **_entry(action_kind="nested"),
+                "action": {"action_id": "action-2", "idempotency_key": "key-2"},
+            }
+        )
+
+        flat = await model.list_audit(
+            filters=AuditQueryFilters(action_id="action-1", idempotency_key="key-1")
+        )
+        nested = await model.list_audit(
+            filters=AuditQueryFilters(action_id="action-2", idempotency_key="key-2")
+        )
+
+        assert [item.action_kind for item in flat.items] == ["flat"]
+        assert [item.action_kind for item in nested.items] == ["nested"]
+
 
 class TestDashboardMetrics:
     async def test_empty_snapshot(self) -> None:

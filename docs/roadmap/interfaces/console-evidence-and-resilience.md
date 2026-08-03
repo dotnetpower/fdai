@@ -24,7 +24,7 @@ target to the Operator API. Existing agent conversations are preserved as separa
 are restored only when the operator selects one explicitly.
 Removing the active cached conversation selects only a current-route default (including the legacy `screen` key) or current-route thread. If neither exists, the console creates a new current-route
 default instead of activating an unrelated-route or agent transcript.
-
+default instead of activating an unrelated-route or agent transcript. Context-dependent cancellation, runbook, knowledge, memory, learning, ordinal-resource, ambiguity, reformatting, and partial-source questions require a verified prior conversation record. The server reconstructs the active investigation, selected resource, prior answer, or source-failure receipt from the latest usable assistant replay in the principal-scoped `ConversationHistoryStore`. The browser transcript cannot mint this authority, and a fresh conversation stays unavailable. After a verified or corrected prior turn, `KnowledgeContextChatTools` can load one unique trusted runbook, report enabled source authorization and refresh state, or show explicit-consent memory visible only to that principal. It reports learning as reusable only when the exact assistant-turn review points to a materialized memory or runtime-skill proposal. Drafts and ambiguous runbooks stay empty, provider failures stay unavailable, and ordinary chat never writes memory or review state. Every completed continuation cites the durable assistant turn and content-addressed source receipts.
 Full-workspace Command Deck sessions start with the transcript as the only open content column. The operator can open filtered conversation history or the current-screen digest from the transcript
 toolbar. A transcript restored from browser or durable history shows a resumed-session marker until
 the operator starts a new conversation. The Deck header owns the route; Digest owns record count,
@@ -377,12 +377,12 @@ For a collection summary request, `summary` renders the bounded matching set imm
 requiring a single incident selection. Model prose cannot change the selected incident, search
 scope, supported cause, collection membership, or absence claim. A source with
 `availability=unavailable` never reports `reachable=true`; unconfigured or unprobed sources use
-`reachable=null`.
+`reachable=null`. An explicit latest-incident summary selects the single most recent server-read-model incident instead of returning a collection. Root cause, timeline, hypotheses, similar incidents, impact, next action, consumed evidence, uncertainty, and deep-investigation questions require one incident. Without a bound incident, generic analysis wording returns bounded candidates for operator selection and never borrows current-screen, repository, agent, or public-web evidence.
 Generic recency words such as `latest`, `recent`, or `최신` do not create incident authority by
 themselves. Operational lookup also requires explicit incident, issue, outage, failure, problem, or
 cause semantics. A public software version or release question therefore remains eligible for the
 bounded public-web path instead of producing a deterministic "no matching incident" answer.
-Current-screen data scope takes precedence over inventory, incident, agent, and web enrichment.
+Current-screen data scope takes precedence over inventory, incident, agent, and web enrichment. Topology, end-to-end reachability, inbound network policy, peering, and failure impact-scope questions require exact source and target resource names or one server-validated selected network resource. Context-free references return a deterministic clarification before the inventory provider runs; current-screen links, resource-group membership, or incident evidence never become proof of connectivity or impact scope.
 The Trace correlation is an incident selection hint only when the question explicitly carries
 incident, failure, problem, or cause semantics; ordinary stage and actor fields remain screen facts.
 Supported current-screen values and explicit absence answers are rendered by Bragi T0 without a

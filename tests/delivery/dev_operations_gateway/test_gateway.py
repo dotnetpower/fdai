@@ -418,6 +418,50 @@ async def test_private_probe_never_follows_redirects() -> None:
     assert result["status"] == "succeeded"
 
 
+async def test_application_dependency_probe_requires_typed_database_receipt() -> None:
+    config = _config()
+    config = GatewayConfig(
+        subscription_id=config.subscription_id,
+        resource_groups=config.resource_groups,
+        contributor_group_id=config.contributor_group_id,
+        executor_principal_id=config.executor_principal_id,
+        reader_identity_client_id=config.reader_identity_client_id,
+        executor_identity_client_id=config.executor_identity_client_id,
+        idempotency_container_url=config.idempotency_container_url,
+        private_probes={
+            "service": PrivateProbe(
+                url="https://service.example.com/health/database",
+                audience="api-application-id",
+                result_contract="application_database_dependency",
+            )
+        },
+        mutations_enabled=config.mutations_enabled,
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda _request: httpx.Response(
+                200,
+                json={"dependency": "cache", "reachable": True},
+            )
+        )
+    ) as client:
+        gateway = OperationsGateway(
+            config=config,
+            reader_token_provider=_Tokens(),
+            executor_token_provider=_Tokens(),
+            http_client=client,
+        )
+        with pytest.raises(GatewayError) as error:
+            await gateway.invoke(
+                "azure.private.http.probe",
+                {"probe": "service"},
+                GatewayPrincipal("principal-user", frozenset({"group-contributor"})),
+            )
+
+    assert error.value.status_code == 502
+    assert error.value.code == "probe_response_invalid"
+
+
 async def test_read_operation_rejects_unexpected_arm_202() -> None:
     status_url = (
         "https://management.azure.com/subscriptions/sub-example/providers/"

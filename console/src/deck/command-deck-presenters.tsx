@@ -10,6 +10,7 @@ import {
   type DelegationMetadata,
   type ConfirmedAnswerSegment,
   type EvidenceBranch,
+  type EvidenceFreshnessContext,
   type GroundedCodeArtifact,
   type InvestigationActivity,
   type IntentGraphEvidence,
@@ -65,6 +66,7 @@ export interface Turn {
   readonly turnTiming?: TurnTiming;
   readonly trajectoryDetail?: TrajectoryDetail;
   readonly resourceContext?: ResourceContext;
+  readonly evidenceFreshnessContext?: EvidenceFreshnessContext;
   readonly intentGraph?: IntentGraphMetadata;
   readonly intentGraphEvidence?: IntentGraphEvidence;
   readonly evidenceMode?: IntentEvidenceMode;

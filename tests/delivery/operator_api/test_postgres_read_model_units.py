@@ -299,13 +299,16 @@ def test_row_to_hil_queue_item_returns_none_on_missing_idempotency_key() -> None
     assert row_to_hil_queue_item(row) is None
 
 
-def test_row_to_hil_queue_item_falls_back_action_event_id_placeholder() -> None:
+def test_row_to_hil_queue_item_rejects_missing_action_event_id() -> None:
     row = _park()
     row["value"]["action"] = {"idempotency_key": "idem-1"}  # type: ignore[union-attr]
-    item = row_to_hil_queue_item(row)
-    assert item is not None
-    assert item.event_id == "00000000-0000-0000-0000-000000000000"
-    assert item.action_kind == "compute.restart_vmss"  # falls back to top-level action_type
+    assert row_to_hil_queue_item(row) is None
+
+
+def test_row_to_hil_queue_item_rejects_malformed_action_event_id() -> None:
+    row = _park()
+    row["value"]["action"]["event_id"] = "not-a-uuid"  # type: ignore[index]
+    assert row_to_hil_queue_item(row) is None
 
 
 def test_row_to_hil_queue_item_returns_none_on_invalid_json_string() -> None:

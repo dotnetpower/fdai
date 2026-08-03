@@ -24,6 +24,7 @@ from fdai.delivery.operator_api.routes.chat_inventory import (
 )
 from fdai.delivery.operator_api.routes.chat_inventory_compiler import compile_inventory_query
 from fdai.delivery.operator_api.routes.chat_inventory_followup import (
+    InventoryScreenScopeStatus,
     contextualize_inventory_scope_followup,
     contextualize_inventory_screen_scope,
 )
@@ -32,7 +33,10 @@ from fdai.delivery.operator_api.routes.chat_inventory_query import (
     InventoryQueryKind,
     InventoryQueryScope,
 )
-from fdai.delivery.operator_api.routes.chat_resource_context import resource_followup_answer
+from fdai.delivery.operator_api.routes.chat_resource_context import (
+    resource_followup_answer,
+    resource_followup_verification,
+)
 from fdai.delivery.operator_api.routes.chat_subscription_health import SubscriptionHealthChatTools
 from fdai.delivery.operator_api.routes.chat_turn_plan import parse_turn_plan
 from fdai.delivery.operator_api.routes.chat_verification import verify_answer
@@ -47,6 +51,83 @@ class RecordingBackend:
     async def answer(self, **kwargs: object) -> dict[str, str]:
         self.calls += 1
         return {"answer": "fallback", "model": "test"}
+
+
+async def test_topology_questions_require_exact_resource_selectors() -> None:
+    prompts = (
+        "애플리케이션에서 데이터베이스까지 의존 관계를 보여줘.",
+        "Map the dependencies from the application to its database.",
+        "앱에서 데이터베이스까지 실제로 통신할 수 있어?",
+        "Can the application reach the database end to end?",
+        "이 네트워크 보안 그룹이 허용하는 인바운드 포트는 뭐야?",
+        "Which inbound ports are allowed by this network security group?",
+        "이 가상 네트워크의 피어링 상태와 제한을 알려줘.",
+        "Show this virtual network's peerings, direction, and configuration limits.",
+        "이 데이터베이스가 실패하면 어떤 서비스가 영향을 받아?",
+        "What is the bounded impact scope if this database fails?",
+        "Trace the path from an app to a database.",
+        "List the blast radius of the selected database.",
+        "Show inbound rules for that NSG.",
+    )
+    calls = 0
+
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        nonlocal calls
+        del args, kwargs
+        calls += 1
+        return {}
+
+    tools = InventoryChatTools(provider)
+    for prompt in prompts:
+        evidence = await tools.resolve(prompt, principal_id="reader")
+        assert evidence is not None
+        assert evidence["authority"] == "server_inventory_graph"
+        assert evidence["result"]["reason"] == "topology_selector_required"
+        answer = render_inventory_answer(evidence, locale="ko" if "이" in prompt else "en")
+        assert answer is not None
+        assert "exact" in answer or "정확한" in answer
+
+    assert calls == 0
+
+
+async def test_recognized_inventory_intent_does_not_fall_back_when_query_is_incomplete() -> None:
+    class RejectFallback:
+        async def resolve(self, prompt: str, *, principal_id: str) -> None:
+            del prompt, principal_id
+            raise AssertionError("recognized inventory intent must not fall back")
+
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        del args, kwargs
+        return {
+            "resources": [
+                _resource(
+                    "resource-1",
+                    "compute.vm",
+                    "example-vm",
+                    group="example-group",
+                    location="example-region",
+                )
+            ],
+            "links": [],
+            "freshness": "fresh",
+        }
+
+    evidence = await InventoryChatTools(
+        provider,
+        fallback=RejectFallback(),
+    ).resolve(
+        "List resources in this group with type, region, and state.",
+        principal_id="reader",
+    )
+
+    assert evidence == {
+        "tool": "query_inventory",
+        "authority": "server_inventory_graph",
+        "result": {
+            "status": "unavailable",
+            "reason": "inventory_query_not_compiled",
+        },
+    }
 
 
 class StructuredPresentationBackend(RecordingBackend):
@@ -1261,7 +1342,8 @@ def test_architecture_selection_contextualizes_current_screen_inventory() -> Non
         },
     )
 
-    assert contextualized is True
+    assert contextualized is not None
+    assert contextualized.status is InventoryScreenScopeStatus.RESOLVED
     query = compile_inventory_query(
         prompt,
         resources=(
@@ -1292,7 +1374,8 @@ def test_this_group_contextualizes_selected_resource_details() -> None:
         },
     )
 
-    assert contextualized is True
+    assert contextualized is not None
+    assert contextualized.status is InventoryScreenScopeStatus.RESOLVED
     query = compile_inventory_query(
         prompt,
         resources=(
@@ -1326,7 +1409,8 @@ def test_continuation_contextualizes_selected_state_coverage() -> None:
         },
     )
 
-    assert contextualized is True
+    assert contextualized is not None
+    assert contextualized.status is InventoryScreenScopeStatus.RESOLVED
     query = compile_inventory_query(
         prompt,
         resources=(
@@ -1356,7 +1440,8 @@ def test_inventory_coverage_continuation_keeps_selected_group() -> None:
         },
     )
 
-    assert contextualized is True
+    assert contextualized is not None
+    assert contextualized.status is InventoryScreenScopeStatus.RESOLVED
     query = compile_inventory_query(
         prompt,
         resources=(
@@ -1435,6 +1520,86 @@ def test_selected_architecture_group_routes_to_verified_service_types() -> None:
     assert done["answer"] == answer
     assert "operational evidence unavailable" not in stream.text
     assert operational.calls == 0
+    assert backend.calls == 0
+
+
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    (
+        ("현재 화면의 리소스 그룹에 어떤 서비스가 있어?", "리소스 그룹을 선택"),
+        ("이 화면에서 선택한 리소스 그룹의 서비스 목록을 보여줘.", "리소스 그룹을 선택"),
+        ("Show services in the resource group selected on this screen.", "Select a resource group"),
+        ("지금 화면에서 보고 있는 그룹엔 뭐가 있어?", "리소스 그룹을 선택"),
+    ),
+)
+def test_current_screen_group_without_selection_holds_for_scope(
+    prompt: str,
+    expected: str,
+) -> None:
+    provider_calls = 0
+    agent_calls = 0
+
+    class AgentDelegate:
+        async def delegate(
+            self,
+            *,
+            prompt: str,
+            user_id: str,
+            session_id: str,
+        ) -> dict[str, Any] | None:
+            nonlocal agent_calls
+            del prompt, user_id, session_id
+            agent_calls += 1
+            return None
+
+    async def provider(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
+    ) -> dict[str, Any]:
+        nonlocal provider_calls
+        provider_calls += 1
+        return await _projected_provider(scope, depth, link_types, root=root, limit=limit)
+
+    backend = RecordingBackend()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                agent_delegate=AgentDelegate(),
+                tool_resolver=InventoryChatTools(provider),
+            ),
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_allow,
+                agent_delegate=AgentDelegate(),
+                tool_resolver=InventoryChatTools(provider),
+            ),
+        ]
+    )
+    body = {
+        "prompt": prompt,
+        "view_context": {"routeId": "architecture", "records": {}},
+    }
+
+    with TestClient(app) as client:
+        response = client.post("/chat", json=body)
+        stream = client.post("/chat/stream", json=body)
+
+    payload = response.json()
+    done = _inventory_done_event(stream.text)
+    assert response.status_code == 200
+    assert done is not None
+    assert expected in payload["answer"]
+    assert done["answer"] == payload["answer"]
+    assert payload["verification"]["status"] == "unverified"
+    assert payload["verification"]["reason_code"] == "inventory_evidence_unavailable"
+    assert provider_calls == 0
+    assert agent_calls == 0
     assert backend.calls == 0
 
 
@@ -2449,6 +2614,377 @@ def test_resource_followup_stream_returns_missing_anchor_without_narrator() -> N
     assert done["source"] == "evidence:read-investigation"
     assert done["verification"]["status"] == "unverified"
     assert done["verification"]["reason_code"] == "incident_anchor_unavailable"
+    assert backend.calls == 0
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "누가 이 리소스를 중지했어?",
+        "이 리소스를 중지한 주체와 작업 시각을 알려줘.",
+        "Who stopped this resource?",
+        "이거 누가 껐어?",
+    ),
+)
+def test_resource_attribution_unavailable_is_exclusive_and_terminal(prompt: str) -> None:
+    delegated: list[str] = []
+
+    class ToolResolver:
+        async def resolve(self, prompt: str, *, principal_id: str) -> None:
+            del prompt, principal_id
+            raise AssertionError("resource follow-up must not run an inventory tool")
+
+    class OperationalResolver:
+        async def resolve(
+            self,
+            prompt: str,
+            *,
+            conversation_context: dict[str, str] | None = None,
+        ) -> None:
+            del prompt, conversation_context
+            raise AssertionError("resource follow-up must not run operational lookup")
+
+    class WebResolver:
+        async def resolve(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError("resource follow-up must not search public web")
+
+        async def resolve_planned(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError("resource follow-up must not use a web plan")
+
+    class AgentDelegate:
+        async def delegate(
+            self,
+            *,
+            prompt: str,
+            user_id: str,
+            session_id: str,
+        ) -> dict[str, Any]:
+            del user_id, session_id
+            delegated.append(prompt)
+            return {
+                "primary_agent": "Heimdall",
+                "answer": "The selected resource is unavailable in the configured read scope.",
+                "facts": {
+                    "status": "none",
+                    "intent": "change_attribution",
+                    "resource_name": "postgres-data",
+                    "reason": "resource_not_found",
+                    "evidence_refs": [],
+                },
+                "contributors": [],
+                "contributor_answers": [],
+                "trace_ref": "read-investigation",
+            }
+
+    backend = RecordingBackend()
+    agent = AgentDelegate()
+    routes = [
+        make_chat_route(
+            backend=backend,
+            authorize=_allow,
+            tool_resolver=ToolResolver(),  # type: ignore[arg-type]
+            evidence_resolver=OperationalResolver(),  # type: ignore[arg-type]
+            agent_delegate=agent,  # type: ignore[arg-type]
+            web_search_resolver=WebResolver(),  # type: ignore[arg-type]
+        ),
+        make_chat_stream_route(
+            backend=backend,
+            authorize=_allow,
+            tool_resolver=ToolResolver(),  # type: ignore[arg-type]
+            evidence_resolver=OperationalResolver(),  # type: ignore[arg-type]
+            agent_delegate=agent,  # type: ignore[arg-type]
+            web_search_resolver=WebResolver(),  # type: ignore[arg-type]
+        ),
+    ]
+    body = {
+        "prompt": prompt,
+        "resource_context": {
+            "name": "postgres-data",
+            "resource_type": "postgresql-server",
+            "evidence_ref": "subscription-health:resource-health@2026-08-02T08:00:00Z",
+        },
+        "view_context": {},
+    }
+
+    with TestClient(Starlette(routes=routes)) as client:
+        response = client.post("/chat", json=body)
+        stream = client.post("/chat/stream", json=body)
+
+    payload = response.json()
+    done = _inventory_done_event(stream.text)
+    assert response.status_code == 200
+    assert done is not None
+    assert payload["answer"] == "The selected resource is unavailable in the configured read scope."
+    assert done["answer"] == payload["answer"]
+    assert payload["verification"]["status"] == "unverified"
+    assert payload["verification"]["authority"] == "server_read_investigation"
+    assert payload["verification"]["reason_code"] == "resource_history_unavailable"
+    assert done["verification"] == payload["verification"]
+    assert len(delegated) == 2
+    assert backend.calls == 0
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "운영 체제가 내부에서 종료된 흔적이 있어?",
+        "Was the shutdown initiated inside the guest operating system?",
+        "이 리소스의 게스트 OS에서 종료 이벤트가 발생했는지 확인해줘.",
+        "Did the guest OS shut this resource down?",
+        "이거 OS 안에서 꺼진 거야?",
+    ),
+)
+def test_guest_shutdown_followup_uses_resource_context_exclusively(prompt: str) -> None:
+    delegated: list[str] = []
+
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            raise AssertionError("guest shutdown follow-up must not invoke semantic planning")
+
+    class ToolResolver:
+        async def resolve(self, prompt: str, *, principal_id: str) -> None:
+            del prompt, principal_id
+            raise AssertionError("guest shutdown follow-up must not run an inventory tool")
+
+    class OperationalResolver:
+        async def resolve(
+            self,
+            prompt: str,
+            *,
+            conversation_context: dict[str, str] | None = None,
+        ) -> None:
+            del prompt, conversation_context
+            raise AssertionError("guest shutdown follow-up must not run operational lookup")
+
+    class WebResolver:
+        async def resolve(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError("guest shutdown follow-up must not search public web")
+
+        async def resolve_planned(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError("guest shutdown follow-up must not use a web plan")
+
+    class AgentDelegate:
+        async def delegate(
+            self,
+            *,
+            prompt: str,
+            user_id: str,
+            session_id: str,
+        ) -> dict[str, Any]:
+            del user_id, session_id
+            delegated.append(prompt)
+            return {
+                "primary_agent": "Heimdall",
+                "answer": "Guest shutdown requires a durable task, but no submitter is configured.",
+                "facts": {
+                    "status": "handoff_required",
+                    "mode": "detached",
+                    "intent": "guest_shutdown",
+                    "resource_name": "vm-primary",
+                    "estimated_upper_ms": 45_000,
+                },
+                "contributors": [],
+                "contributor_answers": [],
+                "trace_ref": "read-investigation",
+            }
+
+    backend = RecordingBackend()
+    agent = AgentDelegate()
+    routes = [
+        make_chat_route(
+            backend=backend,
+            authorize=_allow,
+            tool_resolver=ToolResolver(),  # type: ignore[arg-type]
+            evidence_resolver=OperationalResolver(),  # type: ignore[arg-type]
+            agent_delegate=agent,  # type: ignore[arg-type]
+            web_search_resolver=WebResolver(),  # type: ignore[arg-type]
+            turn_planner=Planner(),  # type: ignore[arg-type]
+        ),
+        make_chat_stream_route(
+            backend=backend,
+            authorize=_allow,
+            tool_resolver=ToolResolver(),  # type: ignore[arg-type]
+            evidence_resolver=OperationalResolver(),  # type: ignore[arg-type]
+            agent_delegate=agent,  # type: ignore[arg-type]
+            web_search_resolver=WebResolver(),  # type: ignore[arg-type]
+            turn_planner=Planner(),  # type: ignore[arg-type]
+        ),
+    ]
+    body = {
+        "prompt": prompt,
+        "resource_context": {
+            "name": "vm-primary",
+            "resource_type": "microsoft.compute.virtualmachines",
+            "evidence_ref": "subscription-health:resource-health@2026-08-02T08:00:00Z",
+        },
+        "view_context": {},
+    }
+
+    with TestClient(Starlette(routes=routes)) as client:
+        response = client.post("/chat", json=body)
+        stream = client.post("/chat/stream", json=body)
+
+    payload = response.json()
+    done = _inventory_done_event(stream.text)
+    assert response.status_code == 200
+    assert done is not None
+    assert payload["answer"] == (
+        "Guest shutdown requires a durable task, but no submitter is configured."
+    )
+    assert done["answer"] == payload["answer"]
+    assert payload["verification"]["status"] == "unverified"
+    assert payload["verification"]["authority"] == "server_read_investigation"
+    assert payload["verification"]["reason_code"] == "background_task_unavailable"
+    assert done["verification"] == payload["verification"]
+    assert all(item.startswith("vm-primary guest shutdown: ") for item in delegated)
+    assert len(delegated) == 2
+    assert backend.calls == 0
+
+
+def test_resource_followup_accepts_bounded_queued_handoff() -> None:
+    verification = resource_followup_verification(
+        {
+            "_agent_evidence": {
+                "primary_agent": "Heimdall",
+                "answer": "The investigation was queued.",
+                "facts": {
+                    "status": "queued",
+                    "resource_name": "vm-primary",
+                    "task_id": "task-guest-shutdown",
+                    "message_id": "read-message:sha256:guest-shutdown-test",
+                },
+            }
+        },
+        {
+            "name": "vm-primary",
+            "resource_type": "microsoft.compute.virtualmachines",
+            "evidence_ref": "subscription-health:resource-health@2026-08-02T08:00:00Z",
+        },
+    )
+
+    assert verification is not None
+    assert verification.status == "unverified"
+    assert verification.reason_code == "background_task_queued"
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "왜 이 리소스 상태를 읽을 수 없어?",
+        "이 리소스의 읽기 권한이나 범위 제한을 설명해줘.",
+        "Why is this health evidence unavailable?",
+        "뭐가 권한 때문에 막힌 거야?",
+    ),
+)
+def test_read_availability_followup_uses_resource_context_exclusively(prompt: str) -> None:
+    delegated: list[str] = []
+
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            raise AssertionError("read availability follow-up must not invoke semantic planning")
+
+    class ToolResolver:
+        async def resolve(self, prompt: str, *, principal_id: str) -> None:
+            del prompt, principal_id
+            raise AssertionError("read availability follow-up must not run an inventory tool")
+
+    class OperationalResolver:
+        async def resolve(
+            self,
+            prompt: str,
+            *,
+            conversation_context: dict[str, str] | None = None,
+        ) -> None:
+            del prompt, conversation_context
+            raise AssertionError("read availability follow-up must not run operational lookup")
+
+    class WebResolver:
+        async def resolve(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError("read availability follow-up must not search public web")
+
+        async def resolve_planned(self, *_args: object, **_kwargs: object) -> None:
+            raise AssertionError("read availability follow-up must not use a web plan")
+
+    class AgentDelegate:
+        async def delegate(
+            self,
+            *,
+            prompt: str,
+            user_id: str,
+            session_id: str,
+        ) -> dict[str, Any]:
+            del user_id, session_id
+            delegated.append(prompt)
+            return {
+                "primary_agent": "Heimdall",
+                "answer": (
+                    "The state read was unavailable; scope and authorization remain distinct."
+                ),
+                "facts": {
+                    "status": "unavailable",
+                    "intent": "resource_state",
+                    "resource_name": "vm-primary",
+                    "read_availability_explanation": True,
+                    "evidence_sources": ["azure.resource_state"],
+                    "evidence_refs": [],
+                },
+                "contributors": [],
+                "contributor_answers": [],
+                "trace_ref": "read-investigation",
+            }
+
+    backend = RecordingBackend()
+    agent = AgentDelegate()
+    routes = [
+        make_chat_route(
+            backend=backend,
+            authorize=_allow,
+            tool_resolver=ToolResolver(),  # type: ignore[arg-type]
+            evidence_resolver=OperationalResolver(),  # type: ignore[arg-type]
+            agent_delegate=agent,  # type: ignore[arg-type]
+            web_search_resolver=WebResolver(),  # type: ignore[arg-type]
+            turn_planner=Planner(),  # type: ignore[arg-type]
+        ),
+        make_chat_stream_route(
+            backend=backend,
+            authorize=_allow,
+            tool_resolver=ToolResolver(),  # type: ignore[arg-type]
+            evidence_resolver=OperationalResolver(),  # type: ignore[arg-type]
+            agent_delegate=agent,  # type: ignore[arg-type]
+            web_search_resolver=WebResolver(),  # type: ignore[arg-type]
+            turn_planner=Planner(),  # type: ignore[arg-type]
+        ),
+    ]
+    body = {
+        "prompt": prompt,
+        "resource_context": {
+            "name": "vm-primary",
+            "resource_type": "microsoft.compute.virtualmachines",
+            "evidence_ref": "subscription-health:resource-health@2026-08-02T08:00:00Z",
+        },
+        "view_context": {},
+    }
+
+    with TestClient(Starlette(routes=routes)) as client:
+        response = client.post("/chat", json=body)
+        stream = client.post("/chat/stream", json=body)
+
+    payload = response.json()
+    done = _inventory_done_event(stream.text)
+    assert response.status_code == 200
+    assert done is not None
+    assert payload["answer"] == (
+        "The state read was unavailable; scope and authorization remain distinct."
+    )
+    assert done["answer"] == payload["answer"]
+    assert payload["verification"]["status"] == "unverified"
+    assert payload["verification"]["authority"] == "server_read_investigation"
+    assert payload["verification"]["reason_code"] == "read_authority_unavailable"
+    assert done["verification"] == payload["verification"]
+    assert all(
+        item.startswith("vm-primary current state: explain read availability") for item in delegated
+    )
+    assert len(delegated) == 2
     assert backend.calls == 0
 
 

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: eb3e1bf2391574cbac3feffa2f4fe6a5ec5e9df7
+translation_source_sha: 4f9af324461c4e6bbce807c024c00bfec1e94e31
 translation_revised: 2026-08-03
 ---
 
@@ -28,7 +28,7 @@ Agent card의 Ask action은 항상 unique user-scoped key를 가진 비어 있�
 때만 복원합니다.
 Active cached conversation을 제거하면 current-route default(legacy `screen` key 포함) 또는 current-route thread만 선택합니다. 둘 다 없으면 unrelated-route 또는 agent transcript를 활성화하지
 않고 새 current-route default를 만듭니다.
-
+않고 새 current-route default를 만듭니다. Context-dependent cancellation, runbook, knowledge, memory, learning, ordinal-resource, ambiguity, reformatting 및 partial-source 질문에는 verified prior conversation record가 필요합니다. 서버는 principal-scoped `ConversationHistoryStore`의 최신 사용 가능한 assistant replay에서 active investigation, selected resource, prior answer 또는 source-failure receipt를 재구성합니다. Browser transcript는 이 authority를 만들 수 없으며 fresh conversation은 unavailable 상태를 유지합니다. Verified 또는 corrected prior turn 이후 `KnowledgeContextChatTools`는 unique trusted runbook 하나를 load하거나 enabled source의 authorization 및 refresh state를 보고하거나 해당 principal만 볼 수 있는 explicit-consent memory를 표시합니다. Exact assistant-turn review가 materialized memory 또는 runtime-skill proposal을 가리킬 때만 learning을 reusable로 보고합니다. Draft와 ambiguous runbook은 empty로, provider failure는 unavailable로 유지하며 ordinary chat은 memory 또는 review state를 쓰지 않습니다. 완료된 continuation은 durable assistant turn과 content-addressed source receipt를 인용합니다.
 Full-workspace Command Deck session은 transcript만 열린 content column으로 시작합니다. Operator는 transcript toolbar에서 filter 가능한 대화 이력 또는 현재 화면 digest를 열 수 있습니다. Browser 또는
 durable history에서 복원된 transcript는 새 대화를 시작할 때까지 resumed-session marker를 표시합니다.
 Deck header는 route를, Digest는 record 수, snapshot age 및 오래된 context 새로고침을 담당하며, Composer에는 attachment, 질문 입력 및 보내기 또는 중지만 유지합니다.
@@ -375,12 +375,12 @@ Collection summary 요청에서 `summary`는 incident 하나를 선택하도록 
 set을 즉시 렌더링합니다. Model prose는 선택된 incident, search scope, 지원되는 cause, collection
 membership 또는 absence claim을 바꿀 수 없습니다.
 `availability=unavailable`인 source는 `reachable=true`를 보고하지 않으며 구성되지 않았거나 probe하지
-않은 source는 `reachable=null`을 사용합니다.
+않은 source는 `reachable=null`을 사용합니다. 명시적인 latest-incident summary는 collection을 반환하지 않고 server read model에서 가장 최근 incident 하나를 선택합니다. Root cause, timeline, hypothesis, similar incident, impact, next action, consumed evidence, uncertainty 및 deep investigation 질문에는 incident 하나가 필요합니다. Bound incident가 없으면 generic analysis wording은 operator가 선택할 bounded candidate를 반환하며 current-screen, repository, agent 또는 public-web evidence를 빌리지 않습니다.
 `latest`, `recent`, `최신` 같은 generic recency 단어만으로는 incident authority를 만들지 않습니다.
 Operational lookup에는 incident, issue, outage, failure, problem 또는 cause 의미가 명시적으로 함께
 있어야 합니다. 따라서 public software version 또는 release 질문은 deterministic "no matching incident"
 답변 대신 bounded public-web path 대상으로 유지됩니다.
-Current-screen data scope는 inventory, incident, agent 및 web enrichment보다 우선합니다. Trace
+Current-screen data scope는 inventory, incident, agent 및 web enrichment보다 우선합니다. Topology, end-to-end reachability, inbound network policy, peering 및 failure impact-scope 질문에는 exact source/target resource name 또는 server-validated selected network resource 하나가 필요합니다. Context-free reference는 inventory provider 실행 전에 deterministic clarification을 반환합니다. Current-screen link, resource-group membership 또는 incident evidence는 connectivity나 impact scope의 근거가 되지 않습니다. Trace
 correlation은 질문에 incident, failure, problem 또는 cause 의미가 명시된 경우에만 incident selection
 hint로 사용하며 일반 stage 및 actor field는 screen fact로 유지합니다.
 지원되는 current-screen value와 명시적 absence answer는 model 호출 없이 Bragi T0가 렌더링합니다.

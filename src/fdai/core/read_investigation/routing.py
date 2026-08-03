@@ -9,8 +9,9 @@ from fdai.shared.providers.read_investigation import ReadInvestigationIntent
 _GUEST = re.compile(
     r"(?:guest|os|operating system|event log|syslog|inside the vm|"
     r"게스트|운영체제|운영 체제|이벤트 로그|시스템 로그|가상 머신 내부).{0,32}"
-    r"(?:shutdown|shut down|power off|stop|종료|정지|중지)|"
-    r"(?:shutdown|shut down|종료).{0,32}(?:event log|syslog|게스트|운영체제|운영 체제)",
+    r"(?:shutdown|shut down|shut.{0,24}down|power off|stop|종료|정지|중지|꺼진)|"
+    r"(?:shutdown|shut down|종료).{0,32}"
+    r"(?:guest|os|operating system|event log|syslog|게스트|운영체제|운영 체제)",
     re.IGNORECASE,
 )
 _ATTRIBUTION = re.compile(

@@ -24,6 +24,7 @@ from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes.hil_callback import (
     HilCallbackConfig,
+    _find_pending_by_approval_id,
     make_hil_callback_route,
 )
 from fdai.shared.contracts.models import (
@@ -53,6 +54,31 @@ from fdai.shared.providers.testing import (
 )
 from fdai.shared.providers.testing.hil_channel import InMemoryHilChannel
 from fdai.shared.providers.testing.hil_registry import InMemoryHilApprovalRegistry
+
+
+async def test_pending_approval_lookup_is_not_limited_to_first_two_hundred() -> None:
+    registry = InMemoryHilApprovalRegistry()
+    items = tuple(
+        HilPendingItem(
+            idempotency_key=f"key-{index}",
+            approval_id=f"approval-{index}",
+            event_id=f"event-{index}",
+            action_id=f"action-{index}",
+            action_kind="ops.restart-service",
+            target_resource_ref=f"service/{index}",
+            reason="Approval required.",
+            submitter_oid="submitter",
+            requested_at=datetime(2026, 8, 3, tzinfo=UTC) + timedelta(seconds=index),
+        )
+        for index in range(250)
+    )
+    registry.seed(items)
+
+    found = await _find_pending_by_approval_id(registry, "approval-0")
+
+    assert found is not None
+    assert found.idempotency_key == "key-0"
+
 
 SECRET = "shared-secret-for-tests"
 _DEFAULT_PUBLISHER = object()
@@ -132,6 +158,7 @@ def _post_decision(
         {
             "decision": decision,
             "actor_oid": actor_oid,
+            "actor_roles": ["Approver"],
             "justification": "Reviewed by the on-call approver.",
         }
     ).encode()
@@ -216,12 +243,14 @@ def test_approve_records_decision_via_registry() -> None:
     app = _build_app_with_callback(registry)
     client = TestClient(app)
 
-    body_payload = {
-        "decision": "approve",
-        "actor_oid": "user-approver",
-        "justification": "reviewed and approved by on-call",
-    }
-    body = json.dumps(body_payload).encode()
+    body = json.dumps(
+        {
+            "decision": "approve",
+            "actor_oid": "user-approver",
+            "actor_roles": ["Approver"],
+            "justification": "reviewed and approved by on-call",
+        }
+    ).encode()
     timestamp = datetime.now(UTC).isoformat()
     headers = {
         "x-fdai-timestamp": timestamp,
@@ -250,6 +279,7 @@ def test_decision_publisher_receives_durable_receipt() -> None:
         {
             "decision": "approve",
             "actor_oid": "user-approver",
+            "actor_roles": ["Approver"],
             "justification": "Reviewed by the on-call approver.",
         }
     ).encode()
@@ -281,6 +311,7 @@ def test_decision_publish_failure_returns_retryable_503() -> None:
         {
             "decision": "approve",
             "actor_oid": "user-approver",
+            "actor_roles": ["Approver"],
             "justification": "Reviewed by the on-call approver.",
         }
     ).encode()
@@ -467,6 +498,7 @@ def test_second_call_after_resolution_returns_404() -> None:
         {
             "decision": "approve",
             "actor_oid": "user-approver",
+            "actor_roles": ["Approver"],
             "justification": "reviewed and approved by on-call",
         }
     ).encode()
@@ -733,6 +765,7 @@ def test_self_approval_is_403() -> None:
         {
             "decision": "approve",
             "actor_oid": "same-user",  # equals submitter_oid -> refused
+            "actor_roles": ["Approver"],
             "justification": "reviewed and approved by on-call",
         }
     ).encode()
@@ -767,7 +800,12 @@ def test_unknown_approval_id_is_404() -> None:
     app = _build_app_with_callback(registry)
     client = TestClient(app)
     body = json.dumps(
-        {"decision": "approve", "actor_oid": "u", "justification": "reviewed and approved"}
+        {
+            "decision": "approve",
+            "actor_oid": "u",
+            "actor_roles": ["Approver"],
+            "justification": "reviewed and approved",
+        }
     ).encode()
     timestamp = datetime.now(UTC).isoformat()
     response = client.post(
@@ -874,7 +912,7 @@ def _post(
     decision: str = "approve",
     actor_oid: str = "alice@example.com",
     justification: str = "reviewed on-call",
-    actor_roles: list[str] | None = None,
+    actor_roles: tuple[str, ...] | list[str] | None = ("Approver",),
 ) -> object:
     payload: dict[str, object] = {
         "decision": decision,
@@ -882,7 +920,7 @@ def _post(
         "justification": justification,
     }
     if actor_roles is not None:
-        payload["actor_roles"] = actor_roles
+        payload["actor_roles"] = list(actor_roles)
     body = json.dumps(payload).encode()
     timestamp = datetime.now(UTC).isoformat()
     return client.post(
@@ -956,6 +994,28 @@ def test_callback_no_park_falls_through_to_registry() -> None:
     assert body["decision"] == "approve"
     # Registry path records the decision; it does not itself execute.
     assert publisher.records == ()
+
+
+@pytest.mark.parametrize("actor_roles", (None, ["Reader"]))
+def test_registry_callback_requires_explicit_approver_capability(
+    actor_roles: list[str] | None,
+) -> None:
+    registry = InMemoryHilApprovalRegistry()
+    registry.seed([_pending(approval_id="appr-role", submitter_oid="user-sub")])
+    app = _build_app_with_callback(registry)
+    client = TestClient(app)
+
+    response = _post(
+        client,
+        "appr-role",
+        decision="approve",
+        actor_oid="user-approver",
+        actor_roles=actor_roles,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["kind"] == "capability_forbidden"
+    assert asyncio.run(registry.get_decision_by_approval_id("appr-role")) is None
 
 
 def test_callback_delegated_approval_via_coordinator() -> None:

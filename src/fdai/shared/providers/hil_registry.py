@@ -238,6 +238,11 @@ class HilApprovalRegistry(Protocol):
 
     async def get_pending(self, idempotency_key: str) -> HilPendingItem | None: ...
 
+    async def get_pending_by_approval_id(
+        self,
+        approval_id: str,
+    ) -> HilPendingItem | None: ...
+
     async def get_decision_by_approval_id(
         self,
         approval_id: str,

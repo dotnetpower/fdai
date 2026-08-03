@@ -102,9 +102,24 @@ type, and inventory evidence reference. Command Deck echoes that context on a la
 as "Since when has it been stopped?" The echoed value is a selector hint, not evidence authority:
 the server validates it and resolves the exact resource again inside its configured subscription
 and resource-group scope. A missing, ambiguous, or mismatched resolution cannot produce a grounded
-history answer. Resource history and attribution use a bounded 30-day lookback. For a stopped
-resource, Heimdall reports the latest successful Stop, Power Off, or Deallocate Activity Log event
-and states that the current stopped state is confirmed from at least that timestamp.
+history answer. The contextual turn starts only the Heimdall read branch; inventory, operational,
+public-web, and narrator fallbacks cannot replace its result. Matching `none`, `unavailable`, and
+`ambiguous` Heimdall results remain terminal unverified answers with their scope or selection
+limitation. Resource history and attribution use a bounded 30-day lookback. For a stopped resource,
+Heimdall reports the latest successful Stop, Power Off, or Deallocate Activity Log event and states
+that the current stopped state is confirmed from at least that timestamp.
+Guest shutdown follow-ups reuse the same validated resource selector and exclusive Heimdall branch.
+The deterministic intent accepts English and Korean subject-first, reverse-order, and colloquial
+forms; it never asks the narrator to recover a missing resource name from conversation prose.
+A successful detached handoff returns the bounded task reference as a terminal unverified queued
+answer. Observed execution marks the handoff complete and reports `status=queued`; it does not
+mislabel accepted durable work as unavailable or send it through the narrator.
+When no detached submitter is configured, `handoff_required` remains a terminal unverified
+capability limitation with no task reference and no narrator fallback.
+Read-availability follow-ups also reuse the validated selector and exclusive Heimdall branch. The
+typed result distinguishes a readable control-plane state, no observed state record, and unavailable
+scope or reader/provider authority. It never infers authorization denial from an empty result or
+asks the narrator to choose between scope and permission causes.
 
 When Resource Health history selects one resource with a degraded, unavailable, or unknown
 availability event, the terminal context may additionally carry that event's resource group,
@@ -151,6 +166,15 @@ names that medium or another explicit web context.
 Two or more requested state groups automatically produce a status-grouped answer. When a broad
 group overlaps a more specific requested group, the specific group owns that provider value so one
 resource is not repeated across sections.
+The compiler may retain observed provider-specific state values, but every disjoint requested group
+must remain represented in the executable predicate. If observation-based narrowing would remove a
+group entirely, the compiler adds that group's canonical catalog values before evidence retrieval.
+Korean state terms and grammatical suffixes remain catalog data, including colloquial nominal and
+adnominal forms, so the deterministic route does not depend on prompt-specific parser branches.
+An active-view inventory request requires one bounded resource group selected on the Architecture
+screen. A missing, malformed, or non-group selection returns a deterministic unavailable result
+without querying inventory, starting another evidence branch, or calling the narrator; the operator
+must select or name the group.
 AKS questions that name nodes require Kubernetes workload evidence. Cluster inventory can ground a
 stopped or otherwise unhealthy cluster finding, but missing node readiness remains an explicit
 coverage gap and cannot produce a healthy-node conclusion.
@@ -213,10 +237,17 @@ verification, and command execution; setup work cannot multiply the announced co
 When `FDAI_DEV_OPERATIONS_GATEWAY_URL` and its separately emitted
 `FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE` are both configured, interactive local wraps the REST
 transport with a read-only gateway transport. Exact resource resolution still supplies the
-subscription and resource-group-bound reference. Only `azure.network.nsg.read` and
-`azure.network.peering.read` are exposed by this wrapper. It rejects widened resource references
+subscription and resource-group-bound reference. The wrapper exposes `azure.network.nsg.read`,
+`azure.network.peering.read`, and `azure.private.http.probe`. Active application-to-database
+reachability is available only when `FDAI_NETWORK_REACHABILITY_PROBE_ALIAS` names an alias already
+registered in the gateway's `FDAI_DEV_GATEWAY_PRIVATE_PROBES_JSON` with
+`result_contract: application_database_dependency`. That authenticated application-owned endpoint
+must return bounded JSON containing `dependency: database` and a Boolean `reachable`; a generic
+HTTP status probe is not application-to-database evidence. The browser and model cannot supply a
+URL, host, subscription, resource group, or alias. The wrapper rejects widened resource references
 before HTTP, streams responses under a fixed byte cap, and reports gateway failure as unavailable
-instead of silently falling back to direct ARM.
+instead of silently falling back to direct ARM. NSG and peering configuration alone never proves
+end-to-end reachability.
 
 ### Subscription scope identity
 
@@ -270,6 +301,31 @@ an Azure platform incident, but the actor remains unknown until Activity Log evi
 Historical reads don't fall back to the current ARM availability endpoint. They preserve the exact
 lookback, chronological order, three-way cause counts, partial source failures, and truncation, so a
 current status cannot be presented as a historical event.
+Health-coverage questions query Resource Health, Service Health, and representative metrics under
+the same server scope. They report unavailable and unsupported counts separately, and don't label a
+provider-unavailable result as authorization or scope unless the provider proves that cause.
+Broad CPU spike questions also use this server-owned metric path before semantic or screen
+interpretation. Unsupported or unavailable metric coverage remains visible and cannot become a
+generic CPU definition or a claim that no spike occurred.
+Broad memory-pressure questions follow the same path. The typed query records the diagnostic metric
+family, and rendering excludes observations from other metric families while retaining the sweep's
+unavailable, unsupported, and truncation limits.
+Before/after metric comparisons require one verified incident anchor and two separately bounded
+windows. Without that anchor, the deterministic tool returns unavailable without running a
+point-in-time metric sweep or borrowing repository, screen, or incident-roster evidence.
+Error-rate/change correlation requires an error-rate metric window and bounded deployment or
+configuration activity under one shared scope. Until a provider supplies that join, the
+deterministic route returns unavailable and never verifies a current-screen limitation as a
+correlation result.
+Pod restart and throttling diagnosis requires an exact pod name or a server-validated selected pod
+context. A context-free reference such as "this pod" returns a clarification without querying the
+subscription sweep. Capacity sufficiency requires a provider that joins observed load trends with
+resource limits; until that provider is configured, the route returns unavailable without
+substituting point-in-time health or current-screen evidence.
+Each terminal tool answer can return a bounded freshness context with source, observation time,
+query-window lower bound, status, and truncation. The Console validates and retains only the latest
+assistant-issued context. Oldest or stale-evidence follow-ups render it deterministically and state
+that the window boundary may differ from the oldest returned record.
 For an explicit status collection, the terminal answer renders every requested catalog state in
 request order, including a grounded empty group, and lists only findings whose normalized state
 belongs to that group. A concrete family query prefilters `Resources` and `HealthResources` by the

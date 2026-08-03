@@ -52,11 +52,15 @@ from fdai.delivery.operator_api.routes.chat_inventory import (
     InventoryChatTools,
     KubernetesWorkloadProvider,
 )
-from fdai.delivery.operator_api.routes.chat_log_query import LogQueryChatTools
+from fdai.delivery.operator_api.routes.chat_log_query import (
+    LogQueryChatTools,
+    needs_log_query_context,
+)
 from fdai.delivery.operator_api.routes.chat_skills import RuntimeSkillChatTools
 from fdai.delivery.operator_api.routes.chat_subscription_health import (
     SubscriptionHealthChatTools,
     SubscriptionHealthProvider,
+    needs_subscription_health_context,
 )
 from fdai.delivery.operator_api.routes.chat_system_health import SystemHealthChatTools
 from fdai.delivery.operator_api.routes.chat_tools import ReadModelChatTools
@@ -105,6 +109,7 @@ def append_chat_routes(
     *,
     backend: ChatBackend | None,
     skill_disclosure: RuntimeSkillDisclosure | None = None,
+    knowledge_context: Any = None,
     busy_input_runtime: BusyInputRuntime | None = None,
     progress_metrics: ConversationProgressMetrics | None = None,
     agent_delegate: AgentChatDelegate | None,
@@ -120,6 +125,7 @@ def append_chat_routes(
     t2_recovery_reader: Any = None,
     subscription_health_provider: SubscriptionHealthProvider | None = None,
     log_query_provider: Any = None,
+    network_reachability_provider: Any = None,
     data_sources: tuple[ReadDataSourceStatus, ...] = (),
     answer_preference_store: UserPreferenceStore | None = None,
     post_turn_review_submitter: PostTurnReviewSubmitter | None = None,
@@ -146,11 +152,7 @@ def append_chat_routes(
     evidence = OperationalEvidenceResolver(read_model)
     behavior = RepositoryBehaviorEvidenceResolver(Path.cwd())
     read_tools = ReadModelChatTools(read_model, conversation_search)
-    log_tools = (
-        read_tools
-        if log_query_provider is None
-        else LogQueryChatTools(log_query_provider, fallback=read_tools)
-    )
+    log_tools = LogQueryChatTools(log_query_provider, fallback=read_tools)
     inventory_chat_tools = (
         None
         if inventory_graph_provider is None
@@ -168,14 +170,23 @@ def append_chat_routes(
         else SubscriptionHealthChatTools(
             subscription_health_provider,
             fallback=inventory_tools,
+            log_query_provider=log_query_provider,
         )
     )
+    from fdai.delivery.operator_api.routes.chat_network_reachability import (
+        NetworkReachabilityChatTools,
+    )
+
+    network_reachability_tools = NetworkReachabilityChatTools(
+        network_reachability_provider,
+        fallback=subscription_health_tools,
+    )
     detection_readiness_tools = (
-        subscription_health_tools
+        network_reachability_tools
         if detection_readiness_reader is None
         else DetectionReadinessChatTools(
             detection_readiness_reader,
-            fallback=subscription_health_tools,
+            fallback=network_reachability_tools,
         )
     )
     from fdai.delivery.operator_api.routes.chat_t2_recovery import T2RecoveryChatTools
@@ -195,9 +206,37 @@ def append_chat_routes(
         read_model,
         data_source_tools,
     )
-    tools = CurrentTimeChatTools(
-        preferences=answer_preference_store,
+    from fdai.delivery.operator_api.routes.chat_action_context import (
+        ActionContextChatTools,
+        needs_action_context,
+    )
+
+    action_context_tools = ActionContextChatTools(
+        read_model=read_model,
         fallback=system_health_tools,
+    )
+    from fdai.delivery.operator_api.routes.chat_conversation_context import (
+        ConversationContextChatTools,
+    )
+
+    current_time_tools = CurrentTimeChatTools(
+        preferences=answer_preference_store,
+        fallback=action_context_tools,
+    )
+    tools = ConversationContextChatTools(
+        fallback=current_time_tools,
+        knowledge_context=knowledge_context,
+        contextual_routes=(
+            (needs_action_context, action_context_tools),
+            (needs_subscription_health_context, subscription_health_tools),
+            (needs_log_query_context, log_tools),
+        ),
+        contextual_fallback=(
+            subscription_health_tools
+            if isinstance(subscription_health_tools, SubscriptionHealthChatTools)
+            else None
+        ),
+        contextual_predicate=needs_subscription_health_context,
     )
     turn_planner = (
         BackendIntentGraphPlanner(backend)

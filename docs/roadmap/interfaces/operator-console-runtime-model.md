@@ -345,7 +345,7 @@ class ConversationSession:
 - **Post-turn review**: after both conversation turns are persisted, the chat route submits a bounded
   envelope to a non-blocking queue. Bragi publishes it on `object.turn`; Norns performs deterministic
   eligibility and optional mixed-family review outside response latency. The Reader-visible `post-turn-reviews`
-  panel is GET-only and exposes durable status, evidence references, proposal state, and aggregate acceptance without proposal bodies or approval controls.
+  panel is GET-only and exposes durable status, evidence references, proposal state, and aggregate acceptance without proposal bodies or approval controls. A materialized operator-memory proposal has a restrictive foreign key to its retained entry; conversation reuse also rechecks that exact entry is active and still cites the proposal.
 - **Retention and projection cleanup**: the scheduler removes inactive
   conversations and old briefing runs after 90 days and removes memory facts
   at their explicit expiry. Each PostgreSQL source deletion atomically queues

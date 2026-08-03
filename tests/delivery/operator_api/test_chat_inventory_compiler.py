@@ -279,14 +279,24 @@ def test_korean_deallocated_vm_question_preserves_type_and_state() -> None:
     assert by_field[InventoryField.STATUS] == "vm deallocated"
 
 
-def test_multiple_vm_states_group_without_overlapping_deallocated_values() -> None:
-    query = compile_inventory_query(
+@pytest.mark.parametrize(
+    "prompt",
+    [
         "Which virtual machines are running, stopped, or deallocated?",
-        resources=_RESOURCES,
-    )
+        "Group all virtual machines by running, stopped, and deallocated state.",
+        "실행 중, 중지됨, 할당 해제 상태별로 가상 머신을 보여줘.",
+        "VM들 지금 켜짐, 중지, 할당 해제별로 나눠줘.",
+    ],
+)
+def test_multiple_vm_states_preserve_unobserved_predicates_without_overlap(prompt: str) -> None:
+    query = compile_inventory_query(prompt, resources=_RESOURCES)
 
     assert query is not None
     assert query.group_by is InventoryQueryGrouping.STATUS
+    status = next(
+        predicate for predicate in query.predicates if predicate.field is InventoryField.STATUS
+    )
+    assert status.value == ("vm deallocated", "vm running", "stopped")
     assert [(group.id, group.values) for group in query.status_groups] == [
         ("stopped", ("stopped",)),
         ("deallocated", ("deallocated",)),

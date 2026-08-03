@@ -397,6 +397,16 @@ def _status_values(
             status for status in observed if status.rsplit(" ", 1)[-1] in requested
         )
         matched.extend(requested if preserve else observed_group or requested)
+    represented = {status.rsplit(" ", 1)[-1] for status in matched}
+    for group in inventory_query_status_groups(
+        prompt,
+        resource_types=resource_types,
+        resolver=resolver,
+        language=language,
+    ):
+        if represented.isdisjoint(group.values):
+            matched.extend(group.values)
+            represented.update(group.values)
     matched.extend(
         status for status in sorted(observed) if language.contains_any(prompt, (status,))
     )

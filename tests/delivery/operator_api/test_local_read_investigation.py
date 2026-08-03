@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import pytest
+
 from fdai.core.read_investigation import InMemoryReadInvestigationRunStore
-from fdai.delivery.azure.read_investigation import AzureOperationsGatewayReadTransport
+from fdai.delivery.azure.read_investigation import (
+    AzureOperationsGatewayNetworkReachabilityProvider,
+    AzureOperationsGatewayReadTransport,
+)
 from fdai.delivery.azure.subscription_health import AzureSubscriptionHealthScope
 from fdai.delivery.operator_api.dev.read_investigation import build_local_read_investigation
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -53,5 +58,41 @@ async def test_local_read_investigation_binds_configured_operations_gateway() ->
     assert wiring is not None
     try:
         assert isinstance(wiring.read_transport, AzureOperationsGatewayReadTransport)
+        assert wiring.network_reachability_provider is None
     finally:
         await wiring.close()
+
+
+async def test_local_read_investigation_binds_registered_reachability_probe() -> None:
+    wiring = build_local_read_investigation(
+        state_store=InMemoryStateStore(),
+        run_store=InMemoryReadInvestigationRunStore(),
+        environ={
+            "FDAI_AZURE_READER_SUBSCRIPTION_ID": "sub-example",
+            "FDAI_AZURE_READER_RESOURCE_GROUPS": "rg-example",
+            "FDAI_DEV_OPERATIONS_GATEWAY_URL": "https://gateway.example.com",
+            "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE": "api-application-id",
+            "FDAI_NETWORK_REACHABILITY_PROBE_ALIAS": "app-to-database",
+        },
+    )
+    assert wiring is not None
+    try:
+        assert isinstance(
+            wiring.network_reachability_provider,
+            AzureOperationsGatewayNetworkReachabilityProvider,
+        )
+    finally:
+        await wiring.close()
+
+
+async def test_local_read_investigation_rejects_probe_without_gateway() -> None:
+    with pytest.raises(ValueError, match="requires the operations gateway"):
+        build_local_read_investigation(
+            state_store=InMemoryStateStore(),
+            run_store=InMemoryReadInvestigationRunStore(),
+            environ={
+                "FDAI_AZURE_READER_SUBSCRIPTION_ID": "sub-example",
+                "FDAI_AZURE_READER_RESOURCE_GROUPS": "rg-example",
+                "FDAI_NETWORK_REACHABILITY_PROBE_ALIAS": "app-to-database",
+            },
+        )

@@ -9,6 +9,15 @@ from fdai.core.read_investigation.routing import (
     classify_read_investigation_intent,
     resource_name_from_question,
 )
+from fdai.delivery.operator_api.routes.chat_action_context import (
+    is_explicit_action_draft_request,
+    needs_action_context,
+)
+from fdai.delivery.operator_api.routes.chat_conversation_context import (
+    needs_conversation_context,
+)
+from fdai.delivery.operator_api.routes.chat_current_time import needs_current_time
+from fdai.delivery.operator_api.routes.chat_evidence import needs_operational_evidence
 from fdai.delivery.operator_api.routes.chat_evidence_branches import (
     BranchProgressObserver,
     EvidenceBranchKind,
@@ -36,9 +45,51 @@ from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
 )
 from fdai.delivery.operator_api.routes.chat_inventory import needs_inventory_evidence
 from fdai.delivery.operator_api.routes.chat_inventory_compiler import compile_inventory_query
+from fdai.delivery.operator_api.routes.chat_log_query import needs_log_query
 from fdai.delivery.operator_api.routes.chat_preincident_activity import parse_preincident_activity
 from fdai.delivery.operator_api.routes.chat_subscription_health import needs_subscription_health
 from fdai.delivery.operator_api.routes.chat_web_search_intent import classify_search_intent
+
+
+def has_bound_incident_context(context: Mapping[str, str] | None) -> bool:
+    return bool(
+        context is not None
+        and context.get("kind") == "incident"
+        and isinstance(context.get("incident_id"), str)
+        and bool(context["incident_id"].strip())
+        and isinstance(context.get("correlation_id"), str)
+        and bool(context["correlation_id"].strip())
+    )
+
+
+def _explicit_web_requested(prompt: str) -> bool:
+    reason = classify_search_intent(prompt).reason
+    return reason in {"explicit_web_search", "explicit_web_context", "explicit_search_request"}
+
+
+def has_bound_incident_analysis_context(
+    prompt: str,
+    view_context: Mapping[str, Any],
+    context: Mapping[str, str] | None,
+) -> bool:
+    return bool(
+        has_bound_incident_context(context)
+        and not is_explicit_action_draft_request(prompt)
+        and not _explicit_web_requested(prompt)
+    )
+
+
+def has_screen_incident_analysis_context(
+    prompt: str,
+    view_context: Mapping[str, Any],
+) -> bool:
+    return bool(
+        _screen_incident_context(prompt, view_context) is not None
+        and not needs_action_context(prompt)
+        and not needs_current_time(prompt)
+        and not is_explicit_action_draft_request(prompt)
+        and not _explicit_web_requested(prompt)
+    )
 
 
 async def resolve_parallel_chat_evidence(
@@ -121,17 +172,47 @@ async def resolve_parallel_chat_evidence(
     deterministic_inventory_turn = (
         needs_inventory_evidence(prompt) and not explicit_web_search and not read_investigation
     )
-    deterministic_tool_turn = deterministic_inventory_turn or needs_subscription_health(prompt)
+    deterministic_tool_turn = (
+        deterministic_inventory_turn
+        or needs_subscription_health(prompt)
+        or needs_log_query(prompt)
+        or needs_action_context(prompt)
+        or needs_conversation_context(prompt)
+        or needs_current_time(prompt)
+    )
+    inventory_screen_scope = "_inventory_screen_scope" in base_context
+    resource_followup = "_resource_followup" in base_context
     selected_incident_turn = (
         not preincident_read
-        and _screen_incident_context(prompt, base_context) is not None
+        and has_screen_incident_analysis_context(prompt, base_context)
         and not _is_explicit_tool_command(prompt)
     )
+    bound_incident_turn = (
+        has_bound_incident_analysis_context(prompt, base_context, conversation_context)
+        and not deterministic_tool_turn
+    )
+    incident_analysis = (
+        selected_incident_turn
+        or bound_incident_turn
+        or bool(
+            needs_operational_evidence(prompt, base_context)
+            and not deterministic_tool_turn
+            and not is_explicit_action_draft_request(prompt)
+            and not explicit_web_search
+        )
+    )
+    incident_context_turn = (
+        selected_incident_turn or bound_incident_turn
+    ) and not explicit_web_search
     selected_agent = _selected_agent(prompt, conversation_context, target_agent)
-    parallel_agent = not deterministic_tool_turn and (
-        planned_agent is not None
-        or selected_agent is not None
-        or (not has_semantic_plan and read_investigation)
+    parallel_agent = resource_followup or (
+        not inventory_screen_scope
+        and not deterministic_tool_turn
+        and (
+            planned_agent is not None
+            or selected_agent is not None
+            or (not has_semantic_plan and read_investigation)
+        )
     )
     parallel_web = (
         web_search_resolver is not None
@@ -140,13 +221,17 @@ async def resolve_parallel_chat_evidence(
         and web_requested
         and "_behavior_evidence" not in base_context
         and "_screen_scope" not in base_context
+        and not inventory_screen_scope
+        and not resource_followup
+        and not incident_context_turn
     )
 
     if (
         planned_direct_read
         and planned_tool_resolver is not None
-        and not selected_incident_turn
+        and not incident_context_turn
         and not preincident_read
+        and not resource_followup
         and (not deterministic_tool_turn or planned_inventory)
     ):
         selected_tool_name = cast(str, planned_tool_name)
@@ -159,9 +244,20 @@ async def resolve_parallel_chat_evidence(
                     dict(base_context),
                     tool_resolver,
                     principal_id=user_id,
+                    conversation_context=conversation_context,
                     progress_observer=observe,
                 )
-                if "_tool_evidence" in deterministic:
+                deterministic_evidence = deterministic.get("_tool_evidence")
+                deterministic_result = (
+                    deterministic_evidence.get("result")
+                    if isinstance(deterministic_evidence, Mapping)
+                    else None
+                )
+                lexical_abstained = bool(
+                    isinstance(deterministic_result, Mapping)
+                    and deterministic_result.get("reason") == "inventory_query_not_compiled"
+                )
+                if "_tool_evidence" in deterministic and not lexical_abstained:
                     return deterministic
             resolved = await planned_tool_resolver.resolve_planned(
                 selected_tool_name,
@@ -183,8 +279,9 @@ async def resolve_parallel_chat_evidence(
     elif (
         (not has_semantic_plan or deterministic_tool_turn)
         and tool_resolver is not None
-        and not selected_incident_turn
+        and not incident_context_turn
         and not preincident_read
+        and not resource_followup
     ):
 
         async def resolve_tool(observe: BranchProgressObserver) -> dict[str, Any]:
@@ -193,6 +290,7 @@ async def resolve_parallel_chat_evidence(
                 dict(base_context),
                 tool_resolver,
                 principal_id=user_id,
+                conversation_context=conversation_context,
                 progress_observer=observe,
             )
 
@@ -205,11 +303,12 @@ async def resolve_parallel_chat_evidence(
         )
 
     if (
-        (not has_semantic_plan or selected_incident_turn)
+        (not has_semantic_plan or incident_context_turn)
         and evidence_resolver is not None
-        and (selected_incident_turn or not deterministic_tool_turn)
+        and incident_analysis
         and not preincident_read
         and "_inventory_screen_scope" not in base_context
+        and not resource_followup
     ):
 
         async def resolve_operational(observe: BranchProgressObserver) -> dict[str, Any]:
@@ -298,7 +397,13 @@ async def resolve_parallel_chat_evidence(
         allow_agent_web=web_requested,
     )
 
-    if not parallel_agent and not selected_incident_turn and not deterministic_tool_turn:
+    if (
+        not inventory_screen_scope
+        and not resource_followup
+        and not parallel_agent
+        and not incident_context_turn
+        and not deterministic_tool_turn
+    ):
 
         async def resolve_dependent_agent(observe: BranchProgressObserver) -> dict[str, Any]:
             return await _with_agent_evidence(
@@ -336,7 +441,7 @@ async def resolve_parallel_chat_evidence(
     if (
         not parallel_web
         and web_search_resolver is not None
-        and not selected_incident_turn
+        and not incident_context_turn
         and not deterministic_tool_turn
         and not preincident_read
         and selected_agent is None

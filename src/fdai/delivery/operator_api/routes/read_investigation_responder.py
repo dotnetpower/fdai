@@ -47,6 +47,7 @@ from fdai.shared.providers.read_investigation import (
 
 _HISTORY_LOOKBACK_SECONDS = 30 * 24 * 3_600
 _LATEST_CHANGE_SUFFIX = "change history: show the most recent successful operation"
+_READ_AVAILABILITY_MARKER = "current state: explain read availability"
 
 
 class ReadInvestigationDirectExecutor(Protocol):
@@ -177,13 +178,15 @@ class HeimdallReadInvestigationResponder:
                 },
             }
         result = execution.result
+        explain_read_availability = _READ_AVAILABILITY_MARKER in question
         answer = _render_answer(
             resource_name=resource_name,
             intent=intent,
             outcome=result.outcome.value,
             evidence=result.evidence,
-            korean=_is_korean(question),
+            korean=_is_korean(question) or question.endswith("locale=ko"),
             latest_change_only=question.endswith(_LATEST_CHANGE_SUFFIX),
+            explain_read_availability=explain_read_availability,
         )
         return {
             "answer": answer,
@@ -193,6 +196,7 @@ class HeimdallReadInvestigationResponder:
                 "intent": intent.value,
                 "resource_name": resource_name,
                 "replayed": execution.replayed,
+                "read_availability_explanation": explain_read_availability,
                 "evidence_refs": result.evidence_refs,
                 "evidence_sources": tuple(item.authority for item in result.evidence),
                 "records": tuple(
@@ -216,8 +220,52 @@ def _render_answer(
     evidence: tuple[ReadEvidenceEnvelope, ...],
     korean: bool,
     latest_change_only: bool,
+    explain_read_availability: bool,
 ) -> str:
     records = tuple(record for envelope in evidence for record in envelope.records)
+    if explain_read_availability:
+        authorities = tuple(dict.fromkeys(envelope.authority for envelope in evidence))
+        authority_label = ", ".join(authorities) if authorities else "resource resolution"
+        states = tuple(
+            dict.fromkeys(record.state for record in records if record.state is not None)
+        )
+        state_label = ", ".join(states) if states else "no state record"
+        if outcome == "matched":
+            if korean:
+                return (
+                    f"{resource_name}의 Azure 제어 평면 상태는 읽을 수 있습니다: {state_label}. "
+                    "이 상태 조회에서는 범위 또는 권한 실패가 발생하지 않았습니다. 게스트 운영 "
+                    "체제 내부 이벤트는 별도의 guest log 근거가 필요합니다."
+                )
+            return (
+                f"The Azure control-plane state for {resource_name} is readable: "
+                f"{state_label}. This state read did not encounter a scope or authorization "
+                "failure. Guest operating-system events require separate guest-log evidence."
+            )
+        if outcome == "none":
+            if korean:
+                return (
+                    f"{resource_name}의 {authority_label} 조회는 완료했지만 상태 레코드를 찾지 "
+                    "못했습니다. 이는 관찰 범위의 근거 공백이며 권한 거부를 증명하지는 "
+                    "않습니다. 게스트 운영 체제 이벤트는 별도의 guest log 근거가 필요합니다."
+                )
+            return (
+                f"The {authority_label} query for {resource_name} completed but returned no "
+                "state record. This is an evidence gap in the observed scope, not proof of an "
+                "authorization denial. Guest operating-system events require separate guest-log "
+                "evidence."
+            )
+        if korean:
+            return (
+                f"{resource_name}의 상태 조회를 완료하지 못했습니다. 확인 불가능한 근거 범위는 "
+                f"{authority_label}입니다. 서버가 허용한 범위 밖이거나 reader/provider 권한을 "
+                "사용할 수 없는 경우이며, 이 결과만으로 둘 중 하나를 추측하지 않습니다."
+            )
+        return (
+            f"The state read for {resource_name} was unavailable at {authority_label}. The "
+            "resource can be outside the server-owned scope, or reader/provider authorization "
+            "can be unavailable; this result does not guess between those causes."
+        )
     if intent is ReadInvestigationIntent.NETWORK_SECURITY and records:
         allowed = [
             record
@@ -700,7 +748,7 @@ def _read_execution_activity(
     raw_status = facts.get("status")
     evidence_status = (
         str(raw_status)
-        if raw_status in {"matched", "ambiguous", "none", "unavailable"}
+        if raw_status in {"matched", "ambiguous", "none", "queued", "unavailable"}
         else "unavailable"
     )
     execution_status = (

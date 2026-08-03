@@ -73,6 +73,7 @@ def append_auxiliary_routes(
         routes,
         backend=config.chat,
         skill_disclosure=config.skill_disclosure,
+        knowledge_context=config.knowledge_context,
         busy_input_runtime=config.busy_input_runtime,
         progress_metrics=config.conversation_progress_metrics,
         agent_delegate=config.chat_agent_delegate,
@@ -88,6 +89,7 @@ def append_auxiliary_routes(
         t2_recovery_reader=config.t2_recovery_reader,
         subscription_health_provider=config.subscription_health_provider,
         log_query_provider=config.log_query_provider,
+        network_reachability_provider=config.network_reachability_provider,
         data_sources=config.data_sources,
         answer_preference_store=(
             config.user_context.preferences if config.user_context is not None else None

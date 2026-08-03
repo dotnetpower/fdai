@@ -196,6 +196,21 @@ idempotency collision, or precondition conflict creates a Saga `AuditEntry` with
 actor, source ref, intent digest, and correlation id but no outbox row. Terminal agent outcomes
 link back to either record through the same correlation and idempotency key.
 
+### Conversational action evidence
+
+Action lifecycle questions remain read-only. The request may carry `conversation_context.kind:
+action` with a correlation id and one exact action, approval, or idempotency selector. The server
+re-resolves every supplied selector against the audit ledger and uses the pending approval store
+only to derive canonical identities. Reader-facing answers render audit-backed proposal, safety,
+approval state, execution, effect verification, and duplicate receipts; they never expose pending
+approval detail or execute a change. Receipt claims require the same action id and idempotency key
+on the terminal row. Missing, conflicting, truncated, or audit-free context remains unverified.
+
+The HIL callback requires a signed role set that grants `approve-runtime-hil` before either the
+coordinator or registry path records a decision. Missing roles grant no authority. Pending lookup
+uses the exact approval id, and decision recording uses the exact idempotency-key park instead of a
+bounded queue scan. The no-self-approval and separation-of-duty checks remain authoritative.
+
 For a human operation, `actor` and `initiator_principal` are the verified operator OID from that
 request's Entra token. A console service principal, relay identity, or Thor workload identity cannot
 stand in for the human. Machine-initiated requests use a separate domain route and workload

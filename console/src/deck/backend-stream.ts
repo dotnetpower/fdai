@@ -11,6 +11,7 @@ import {
   parseEvidenceBranch,
   parseAnswerVerification,
   parseDelegation,
+  parseEvidenceFreshnessContext,
   parseInvestigationActivity,
   parseInvestigationMilestone,
   parseRetrievalSourcePreviews,
@@ -409,6 +410,9 @@ export async function askBackendStream(
   const actionDraft = parseActionDraft(done.action_draft);
   const codeArtifacts = parseGroundedCodeArtifacts(done.code_artifacts);
   const resourceContext = parseResourceContext(done.resource_context);
+  const evidenceFreshnessContext = parseEvidenceFreshnessContext(
+    done.evidence_freshness_context,
+  );
   const modelTrace = parseModelTrace(done.model_trace);
   const turnTiming = parseTurnTiming(done.turn_timing);
   const trajectoryDetail = parseTrajectoryDetail(done.trajectory_detail);
@@ -437,6 +441,7 @@ export async function askBackendStream(
     ...(confirmedSegment ? { confirmed: confirmedSegment } : {}),
     ...(actionDraft ? { actionDraft } : {}),
     ...(resourceContext ? { resourceContext } : {}),
+    ...(evidenceFreshnessContext ? { evidenceFreshnessContext } : {}),
     ...(modelTrace ? { modelTrace } : {}),
     ...(turnTiming ? { turnTiming } : {}),
     ...(trajectoryDetail ? { trajectoryDetail } : {}),

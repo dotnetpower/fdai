@@ -26,7 +26,7 @@ variable "enable_dev_operations_gateway" {
 }
 
 variable "dev_operations_gateway_private_probes_json" {
-  description = "Server-owned private probe aliases as JSON. Values contain HTTPS url and managed-identity audience."
+  description = "Server-owned private probe aliases as JSON. Values contain HTTPS url, managed-identity audience, and optional result_contract."
   type        = string
   default     = "{}"
 

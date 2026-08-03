@@ -62,6 +62,18 @@ def test_migration_chain_is_linear() -> None:
             assert parent in revisions, f"{rev}: parent {parent} not found"
 
 
+def test_materialized_operator_memory_proposal_has_foreign_key() -> None:
+    migration = (MIGRATIONS_DIR / "20260803_0070_operator_memory_proposal_fk.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'down_revision: str | None = "20260801_0069"' in migration
+    assert "FOREIGN KEY (materialized_entry_id)" in migration
+    assert "REFERENCES operator_memory(id)" in migration
+    assert "ON DELETE RESTRICT" in migration
+    assert "VALIDATE CONSTRAINT" in migration
+
+
 @pytest.mark.parametrize("path", MIGRATION_FILES)
 def test_migration_uses_raw_sql_only(path: Path) -> None:
     """Migrations MUST NOT import SQLAlchemy ORM types (Column, Table, MetaData)."""

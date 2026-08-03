@@ -4,6 +4,7 @@ import type {
   AnswerPlanningMetadata,
   AnswerVerification,
   DelegationMetadata,
+  EvidenceFreshnessContext,
   GroundedCodeArtifact,
   ModelTrace,
   TurnTiming,
@@ -22,6 +23,7 @@ import {
 import {
   parseAnswerVerification,
   parseDelegation,
+  parseEvidenceFreshnessContext,
   parseResourceContext,
   parseRouter,
 } from "./backend-normalizers";
@@ -49,6 +51,7 @@ export interface RestoredTurn {
   readonly turnTiming?: TurnTiming;
   readonly trajectoryDetail?: TrajectoryDetail;
   readonly resourceContext?: ResourceContext;
+  readonly evidenceFreshnessContext?: EvidenceFreshnessContext;
 }
 
 export type DeckLayoutMode = "floating" | "dock" | "workspace";
@@ -80,6 +83,9 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
   const turnTiming = parseTurnTiming(replay?.turn_timing);
   const trajectoryDetail = parseTrajectoryDetail(replay?.trajectory_detail);
   const resourceContext = parseResourceContext(replay?.resource_context);
+  const evidenceFreshnessContext = parseEvidenceFreshnessContext(
+    replay?.evidence_freshness_context,
+  );
   const source = turn.metadata.source ?? replaySource(replay) ??
     (turn.role === "assistant" ? "history" : undefined);
   const agent = turn.metadata.agent ?? delegation?.primary_agent;
@@ -102,6 +108,7 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
     ...(turnTiming ? { turnTiming } : {}),
     ...(trajectoryDetail ? { trajectoryDetail } : {}),
     ...(resourceContext ? { resourceContext } : {}),
+    ...(evidenceFreshnessContext ? { evidenceFreshnessContext } : {}),
   };
 }
 

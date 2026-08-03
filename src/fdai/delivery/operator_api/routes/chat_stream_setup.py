@@ -14,9 +14,18 @@ from fdai.delivery.operator_api.routes.chat_backend_common import (
     ChatContentPolicyError,
     _reject_direct_override,
 )
+from fdai.delivery.operator_api.routes.chat_conversation_context import (
+    load_verified_prior_context,
+    needs_conversation_context,
+)
 from fdai.delivery.operator_api.routes.chat_document_evidence import (
     ChatDocumentEvidenceResolver,
     resolve_document_refs,
+)
+from fdai.delivery.operator_api.routes.chat_freshness_context import (
+    EvidenceFreshnessContext,
+    needs_evidence_freshness_context,
+    parse_evidence_freshness_context,
 )
 from fdai.delivery.operator_api.routes.chat_history import content_policy_replay_stage
 from fdai.delivery.operator_api.routes.chat_history_context import (
@@ -29,6 +38,7 @@ from fdai.delivery.operator_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
     contextualize_inventory_screen_scope,
 )
+from fdai.delivery.operator_api.routes.chat_log_query import needs_log_query_context
 from fdai.delivery.operator_api.routes.chat_resource_context import (
     contextualize_resource_followup,
     parse_resource_context,
@@ -43,6 +53,9 @@ from fdai.delivery.operator_api.routes.chat_route_common import (
     _target_agent,
 )
 from fdai.delivery.operator_api.routes.chat_stream_request import read_chat_stream_body
+from fdai.delivery.operator_api.routes.chat_subscription_health import (
+    needs_subscription_health_context,
+)
 from fdai.delivery.operator_api.routes.chat_vision_evidence import parse_vision_attachments
 from fdai.shared.providers.document_ingestion import DocumentAccessDeniedError
 from fdai.shared.providers.user_context import (
@@ -68,6 +81,7 @@ class PreparedChatStreamRequest:
     clean_prompt: str
     evidence_prompt: str
     resource_context: dict[str, str] | None
+    freshness_context: EvidenceFreshnessContext | None
     resource_followup: bool
     inventory_screen_scope: bool
     inventory_scope_followup: bool
@@ -158,6 +172,8 @@ async def prepare_chat_stream_request(
     view_context.pop("_attachments", None)
     view_context.pop("_model_trace", None)
     view_context.pop("_inventory_screen_scope", None)
+    view_context.pop("_resource_followup", None)
+    view_context.pop("_verified_prior_context", None)
     include_model_trace = body.get("include_model_trace", False)
     if not isinstance(include_model_trace, bool):
         raise HTTPException(status_code=400, detail="include_model_trace MUST be a boolean")
@@ -190,24 +206,43 @@ async def prepare_chat_stream_request(
         policy=history_policy,
     )
     history = list(history_result.messages)
+    prior_context = None
+    if (
+        needs_conversation_context(clean_prompt)
+        or needs_subscription_health_context(clean_prompt)
+        or needs_log_query_context(clean_prompt)
+        or needs_evidence_freshness_context(clean_prompt)
+    ):
+        prior_context = await load_verified_prior_context(
+            store=conversation_history_store,
+            principal_id=user_id,
+            conversation_id=session_id,
+        )
+        if prior_context is not None:
+            view_context["_verified_prior_context"] = prior_context.to_dict()
     try:
         resource_context = parse_resource_context(body.get("resource_context"))
+        freshness_context = parse_evidence_freshness_context(
+            prior_context.evidence_freshness_context if prior_context is not None else None
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     evidence_prompt, resource_followup = contextualize_resource_followup(
         clean_prompt,
         resource_context,
     )
+    if resource_followup:
+        view_context["_resource_followup"] = {"authority": "selector_hint"}
     evidence_prompt, inventory_scope_followup = contextualize_inventory_scope_followup(
         evidence_prompt,
         history,
     )
-    evidence_prompt, inventory_screen_scope = contextualize_inventory_screen_scope(
+    evidence_prompt, inventory_screen_scope_resolution = contextualize_inventory_screen_scope(
         evidence_prompt,
         view_context,
     )
-    if inventory_screen_scope:
-        view_context["_inventory_screen_scope"] = {"authority": "selector_hint"}
+    if inventory_screen_scope_resolution is not None:
+        view_context["_inventory_screen_scope"] = inventory_screen_scope_resolution.to_context()
     answer_plan = build_answer_plan(
         evidence_prompt,
         route_id=str(view_context.get("routeId") or "") or None,
@@ -223,8 +258,9 @@ async def prepare_chat_stream_request(
         clean_prompt=clean_prompt,
         evidence_prompt=evidence_prompt,
         resource_context=resource_context,
+        freshness_context=freshness_context,
         resource_followup=resource_followup,
-        inventory_screen_scope=inventory_screen_scope,
+        inventory_screen_scope=inventory_screen_scope_resolution is not None,
         inventory_scope_followup=inventory_scope_followup,
         view_context=view_context,
         conversation_context=conversation_context,

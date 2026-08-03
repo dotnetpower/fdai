@@ -146,6 +146,265 @@ async def test_planned_subscription_health_uses_typed_server_scope_arguments() -
     }
 
 
+def test_health_authorization_coverage_uses_all_health_sources() -> None:
+    class Provider:
+        async def query_health(
+            self,
+            lookback_seconds: int,
+            *,
+            include_metrics: bool,
+            include_service_health: bool = False,
+            progress_observer: Any = None,
+        ) -> dict[str, Any]:
+            del progress_observer
+            assert lookback_seconds == 3_600
+            assert include_metrics is True
+            assert include_service_health is True
+            return {
+                "status": "matched",
+                "source": "azure-resource-graph+resource-health+service-health+metrics",
+                "observed_at": "2026-08-01T07:00:00Z",
+                "resource_count": 12,
+                "resource_health_unavailable": 0,
+                "service_health_requested": True,
+                "service_health_unavailable": 0,
+                "metrics_requested": True,
+                "metric_checked": 4,
+                "metric_unavailable": 0,
+                "unsupported_metric_resources": 8,
+                "truncated": False,
+                "findings": [],
+            }
+
+    backend = _Backend()
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(Provider()),  # type: ignore[arg-type]
+            )
+        ]
+    )
+    response = TestClient(app).post(
+        "/chat",
+        json={
+            "prompt": "Which health checks were blocked by authorization or scope?",
+            "view_context": {},
+        },
+    )
+    payload = response.json()
+    assert response.status_code == 200
+    assert "No health check was observed as unavailable" in payload["answer"]
+    assert "Resource Health unavailable scopes: 0" in payload["answer"]
+    assert "Directory identity lookups and CLI tooling are outside" in payload["answer"]
+    assert payload["verification"]["authority"] == "server_subscription_health"
+    assert payload["evidence_freshness_context"]["window_start"] == "2026-08-01T06:00:00Z"
+    assert backend.calls == 0
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "Which health checks were blocked by authorization or scope?",
+        "상태 점검 중 권한이나 범위 때문에 조회하지 못한 것은 뭐야?",
+        "Which health evidence was unavailable because of permission or scope?",
+        "뭐가 권한 때문에 막힌 상태 점검이야?",
+    ),
+)
+def test_health_coverage_language_routes_deterministically(prompt: str) -> None:
+    assert needs_subscription_health(prompt) is True
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "지난 한 시간 동안 CPU가 급증한 리소스를 찾아줘.",
+        "Which resources had abnormal CPU in the last hour?",
+        "Find resources with CPU spikes over the past hour.",
+        "CPU 튄 리소스 뭐야?",
+    ),
+)
+def test_cpu_diagnosis_language_routes_deterministically(prompt: str) -> None:
+    assert needs_subscription_health(prompt) is True
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "메모리 부족 징후와 영향을 받은 서비스를 보여줘.",
+        "Which services show memory pressure?",
+        "Find resources with low memory in the last hour.",
+        "메모리 모자란 서비스 뭐야?",
+    ),
+)
+def test_memory_diagnosis_language_routes_deterministically(prompt: str) -> None:
+    assert needs_subscription_health(prompt) is True
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "Compare memory pressure before and after the incident.",
+        "How did memory pressure change from before to after the incident?",
+        "인시던트 전후 메모리 압박을 비교해줘.",
+        "장애 앞뒤로 메모리 얼마나 달라졌어?",
+    ),
+)
+def test_before_after_memory_comparison_requires_incident_anchor(prompt: str) -> None:
+    calls = 0
+
+    async def provider(*args: object, **kwargs: object) -> dict[str, Any]:
+        nonlocal calls
+        del args, kwargs
+        calls += 1
+        return {"status": "matched"}
+
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=_Backend(),
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(provider),
+            )
+        ]
+    )
+    payload = (
+        TestClient(app)
+        .post(
+            "/chat",
+            json={"prompt": prompt, "view_context": {}},
+        )
+        .json()
+    )
+    assert payload["verification"]["status"] == "unverified"
+    assert "incident" in payload["answer"].casefold() or "인시던트" in payload["answer"]
+    assert calls == 0
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "오류율이 오른 시점과 가장 관련 있는 변경은 뭐야?",
+        "Correlate the error-rate spike with deployments and configuration changes.",
+        "오류율 급증과 배포 변경의 연관성을 확인해줘.",
+        "Which deployment best correlates with the error-rate increase?",
+        "에러 늘어난 때랑 설정 변경이 겹쳐?",
+    ),
+)
+def test_error_change_correlation_reports_missing_join_authority(prompt: str) -> None:
+    calls = 0
+
+    async def provider(*args: object, **kwargs: object) -> dict[str, Any]:
+        nonlocal calls
+        del args, kwargs
+        calls += 1
+        return {"status": "matched"}
+
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=_Backend(),
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(provider),
+            )
+        ]
+    )
+    payload = (
+        TestClient(app)
+        .post(
+            "/chat",
+            json={"prompt": prompt, "view_context": {}},
+        )
+        .json()
+    )
+    assert payload["verification"]["status"] == "unverified"
+    assert "correlation" in payload["answer"].casefold() or "상관관계" in payload["answer"]
+    assert calls == 0
+
+
+def test_incomplete_matched_health_evidence_normalizes_to_unverified() -> None:
+    class Provider:
+        async def query_health(self, *args: object, **kwargs: object) -> dict[str, Any]:
+            del args, kwargs
+            return {
+                "status": "matched",
+                "source": "azure-monitor-metrics",
+                "observed_at": "2026-08-02T09:00:00Z",
+                "resource_count": 10,
+                "metric_checked": 3,
+                "metric_unavailable": 2,
+                "unsupported_metric_resources": 5,
+                "truncated": True,
+                "findings": [],
+            }
+
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=_Backend(),
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(Provider()),  # type: ignore[arg-type]
+            )
+        ]
+    )
+    payload = (
+        TestClient(app)
+        .post(
+            "/chat",
+            json={"prompt": "Which resources had abnormal CPU in the last hour?"},
+        )
+        .json()
+    )
+    assert payload["verification"]["status"] == "unverified"
+    assert "requested states" not in payload["answer"]
+
+
+async def test_memory_diagnosis_renders_only_memory_observations() -> None:
+    async def provider(*args: object, **kwargs: object) -> dict[str, Any]:
+        del args, kwargs
+        return {
+            "status": "partial",
+            "source": "azure-monitor-metrics",
+            "observed_at": "2026-08-02T09:00:00Z",
+            "resource_count": 10,
+            "metric_checked": 2,
+            "metric_unavailable": 1,
+            "unsupported_metric_resources": 7,
+            "truncated": False,
+            "metric_observations": [
+                {
+                    "resource_name": "cache-example",
+                    "metric": "usedmemorypercentage",
+                    "value": 91.0,
+                    "threshold": 90.0,
+                    "comparison": "gt",
+                    "anomalous": True,
+                },
+                {
+                    "resource_name": "vm-example",
+                    "metric": "Percentage CPU",
+                    "value": 95.0,
+                    "threshold": 90.0,
+                    "comparison": "gt",
+                    "anomalous": True,
+                },
+            ],
+            "findings": [],
+        }
+
+    evidence = await SubscriptionHealthChatTools(provider).resolve(
+        "메모리 부족 징후와 영향을 받은 서비스를 보여줘.",
+        principal_id="reader",
+    )
+    assert evidence is not None
+    answer = render_subscription_health_answer(evidence, locale="ko")
+    assert answer is not None
+    assert "memory 메트릭 관측 1개" in answer
+    assert "cache-example: usedmemorypercentage=91.0" in answer
+    assert "Percentage CPU" not in answer
+
+
 async def test_planned_subscription_health_rejects_unknown_arguments() -> None:
     tools = SubscriptionHealthChatTools(_SubscriptionProvider())
 
@@ -1266,3 +1525,144 @@ def test_subscription_health_stream_emits_activity_and_milestones() -> None:
     assert '"redacted": true' in body
     assert '"message_id": "subscription-inventory-completed"' in body
     assert backend.calls == 0
+
+
+async def test_metric_comparison_requires_anchor_and_renders_provider_result() -> None:
+    calls: list[tuple[str, str, int]] = []
+
+    class Provider:
+        async def __call__(
+            self,
+            lookback_seconds: int,
+            *,
+            progress_observer: Any = None,
+        ) -> Mapping[str, Any]:
+            raise AssertionError("broad health query must not run")
+
+        async def query_metric_comparison(
+            self,
+            *,
+            anchor_at: str,
+            metric_family: str,
+            window_seconds: int,
+            progress_observer: Any = None,
+        ) -> Mapping[str, Any]:
+            calls.append((anchor_at, metric_family, window_seconds))
+            return {
+                "status": "matched",
+                "source": "azure-monitor-metrics-comparison",
+                "observed_at": "2026-07-22T06:00:00Z",
+                "anchor_at": anchor_at,
+                "metric_family": metric_family,
+                "metric_checked": 1,
+                "metric_unavailable": 0,
+                "unsupported_metric_resources": 0,
+                "metric_comparisons": [
+                    {
+                        "resource_name": "cache-app",
+                        "metric": "usedmemorypercentage",
+                        "before_value": 40.0,
+                        "after_value": 70.0,
+                        "delta": 30.0,
+                    }
+                ],
+                "truncated": False,
+            }
+
+    tools = SubscriptionHealthChatTools(Provider())
+    prompt = "Compare memory pressure before and after the incident."
+    held = await tools.resolve_with_context(prompt, principal_id="reader", context=None)
+    assert held is not None
+    assert held["result"]["reason"] == "incident_anchor_unavailable"
+    assert calls == []
+
+    evidence = await tools.resolve_with_context(
+        prompt,
+        principal_id="reader",
+        context={
+            "resource_context": {
+                "name": "cache-app",
+                "resource_type": "cache.redis",
+                "evidence_ref": "inventory:cache-app",
+                "event_at": "2026-07-22T05:00:00Z",
+            }
+        },
+    )
+    assert evidence is not None
+    assert calls == [("2026-07-22T05:00:00Z", "memory", 3_600)]
+    answer = render_subscription_health_answer(evidence, locale="en")
+    assert answer is not None
+    assert "before 40" in answer
+    assert "after 70" in answer
+    assert "does not by itself prove cause" in answer
+
+
+async def test_error_change_join_reports_nearest_change_without_claiming_cause() -> None:
+    class HealthProvider:
+        async def __call__(
+            self,
+            lookback_seconds: int,
+            *,
+            progress_observer: Any = None,
+        ) -> Mapping[str, Any]:
+            raise AssertionError("broad health query must not run")
+
+    class LogProvider:
+        async def query_log(
+            self,
+            *,
+            query: str,
+            window: str,
+            max_rows: int = 100,
+        ) -> Any:
+            assert "AppRequests" in query
+            assert "AzureActivity" in query
+            assert "ResourceGroup =~ 'rg-example'" in query
+            assert window == "PT2H"
+            assert max_rows == 100
+            from fdai.shared.providers.observation import LogQueryResult
+
+            return LogQueryResult(
+                rows=(
+                    {
+                        "TimeGenerated": "2026-07-22T05:05:00Z",
+                        "evidence_kind": "error_rate",
+                        "request_count": 100,
+                        "error_count": 30,
+                    },
+                    {
+                        "TimeGenerated": "2026-07-22T05:03:00Z",
+                        "evidence_kind": "change",
+                        "OperationNameValue": "Microsoft.Web/sites/write",
+                        "ResourceGroup": "rg-example",
+                    },
+                )
+            )
+
+    tools = SubscriptionHealthChatTools(
+        HealthProvider(),
+        log_query_provider=LogProvider(),
+    )
+    evidence = await tools.resolve_with_context(
+        "Correlate the error-rate spike with deployments and configuration changes.",
+        principal_id="reader",
+        context={
+            "resource_context": {
+                "name": "app-example",
+                "resource_type": "app.service",
+                "evidence_ref": "inventory:app-example",
+                "resource_group": "rg-example",
+                "event_at": "2026-07-22T05:00:00Z",
+            }
+        },
+    )
+
+    assert evidence is not None
+    result = evidence["result"]
+    assert result["status"] == "matched"
+    assert result["nearest_change"]["distance_seconds"] == 120
+    answer = render_subscription_health_answer(evidence, locale="en")
+    assert answer is not None
+    assert "30 error(s) out of 100" in answer
+    assert "Microsoft.Web/sites/write" in answer
+    assert "temporal association, not proof of cause" in answer

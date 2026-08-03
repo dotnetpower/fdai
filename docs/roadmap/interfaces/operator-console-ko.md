@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 422937ac46c95d139caa6ec4a4536eb092b9e1b6
+translation_source_sha: 618f2ee37b3c7b0ef7cceea10ed095d95052c489
 translation_revised: 2026-08-03
 ---
 
@@ -180,7 +180,7 @@ flowchart TD
   parsing하고 complete plan의 installed-tool membership, RBAC, command distinctness 및
   `side_effect_class=read`를 검증합니다. Invalid plan은 아무것도 실행하지 않습니다. Valid read는
   serial로 실행하고 step별 tool-call/result pair와 evidence reference를 보존한 뒤 같은 grounded
-  presentation pass를 사용합니다. Read 하나가 실패하면 remaining plan을 중단하고 synthesis를 skip합니다.
+  presentation pass를 사용합니다. Read 하나가 실패하거나 unavailable이면 remaining plan을 중단하고 synthesis를 skip하며 empty-screen 또는 narrator output 대신 deterministic unverified hold를 반환합니다.
   Synthesis 전에 aggregator는 두 tool이 같은 `resource_id`, `scope_ref` 또는 `id`를 명시할 때만
   high-signal `state`, `status`, `verdict`, `mode`, `health`, `outcome` field를 비교합니다. 값이 다르면
   structured conflict와 양쪽 evidence를 보존하고 aggregate를 `abstain`으로 바꾼 뒤 model rendering을
@@ -227,12 +227,10 @@ flowchart TD
   - injected aware clock과 principal IANA timezone에서 current-time 질문을 resolve합니다. Deterministic
     verification은 exact timestamp와 명시적 UTC fallback을 emit합니다.
 - [`src/fdai/delivery/operator_api/routes/`](../../../src/fdai/delivery/operator_api/routes)
-  - `chat_stream_setup.py`는 authenticated request, evidence, history, answer-plan validation을,
-    `chat_stream_terminal.py`는 pure terminal verification-frame 및 replay-payload assembly를 소유하고,
-    `chat_trajectory_detail.py`는 durable trajectory replay용 bounded final progress projection을 소유합니다.
-  - `chat_vision_prompt.py`는 검증된 inline image를 narrator content로 projection하고,
-    `chat_verification_text.py`는 Unicode normalization과 answer-text integrity 검사를,
-    `chat_verification_rendering.py`는 bounded incident 및 agent-activity prose rendering을 소유합니다.
+  - `chat_stream_setup.py`는 authenticated request, evidence, history, answer-plan validation을, `chat_stream_terminal.py`는 pure terminal verification-frame 및 replay-payload assembly를 소유하고, `chat_trajectory_detail.py`는 durable trajectory replay용 bounded final progress projection을 소유합니다.
+  - `chat_knowledge_context.py`는 state write 없이 exact prior-turn runbook, source freshness, consented memory,
+    materialized learning을 읽고, `chat_vision_prompt.py`는 검증된 image를 projection하며,
+    `chat_verification_text.py`와 `chat_verification_rendering.py`는 terminal integrity와 prose를 소유합니다.
 
 이 layer의 영어 및 한국어 presentation literal은 NFC UTF-8로 작성합니다. Repository gate는 escape된
 Hangul prose와 matching token을 차단하며, code-point behavior에는 정확한 rationale이 있는 예외만
@@ -357,6 +355,8 @@ write 집합에 대한 두 명확화:
 | `query_deployments(window)` | Git + ARM deployment-history join. | Reader | 신규 `DeploymentHistoryAdapter` |
 | `correlate_incident(incident_id)` | 하나의 incident id에 대해 ingest event + audit + inventory + log + metric을 multi-signal correlate. | Reader | 위 셋 + `event_ingest` |
 
+`query_log`는 명시적인 bounded KQL과 세 가지 자연어 진단 형태를 server-owned template으로 처리합니다. 실패 요청 요약은 `AppRequests`를 작업과 결과 코드별로 그룹화하지만, 이 그룹이 근본 원인을 증명한다고 주장하지 않습니다. 오류 시그니처 시간 범위와 관련 로그 요청에는 정확한 시그니처 또는 선택된 context가 필요합니다. context가 없으면 provider나 narrator를 호출하지 않고 확인 질문을 반환합니다. 대표 오류 샘플은 고정 multi-table template을 사용하고, 요청 window를 24시간으로 제한하며, cell을 렌더링하기 전에 secret assignment, bearer 값, resource identifier, GUID, 이메일 주소, URL, IP 주소를 제거합니다. 추가 고정 template은 가장 느린 관측 분산 추적의 span을 순위화하고, dependency latency를 집계하며, 느린 database dependency call을 나열합니다. 이 결과만으로 근본 원인, 인과적 기여 또는 database call이 CPU 상승을 설명한다는 결론을 증명하지는 않습니다. Bounded read-only error KQL을 실행하라는 자연어 요청은 server-owned error template을 사용하고, 명시적인 영어 또는 한국어 minute/hour window를 24시간 상한으로 유지합니다. Prompt text는 실행 가능한 KQL이 되지 않습니다. workspace provider가 구성되지 않은 경우에도 같은 tool이 typed unavailable 결과를 반환하며, current-screen, incident, web 또는 narrator evidence로 fallback하지 않습니다.
+Proposal, approval, execution, outcome verification, retry 또는 idempotency에 대한 context-free 질문은 deterministic action-context hold를 사용합니다. Lifecycle claim을 검증하기 전에 exact ActionType, target resource, proposal, approval 또는 action receipt를 제공해야 합니다. Current-screen, repository, incident 및 narrator evidence는 governed record를 대체하지 않으며, 이 hold는 mutation이나 model call을 수행하지 않습니다.
 Month-1 추가는 콘솔을 multi-signal 인시덴트 대응 경험에 가깝게
 만들어 주지만, 여전히 **이미 correlate 된** 결과를 surface;
 correlator는 Layer 1에 살고, narrator 안에 살지 않는다.

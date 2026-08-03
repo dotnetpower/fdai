@@ -28,6 +28,10 @@ from fdai.core.metering import InvocationScope, with_invocation_scope
 from fdai.core.python_task.grounded_code import extract_grounded_code
 from fdai.core.user_context_projection import UserContextOntologyProjector
 from fdai.delivery.handover_events import HandoverAvailabilityPublisher
+from fdai.delivery.operator_api.routes.chat_action_context import (
+    is_explicit_action_draft_request,
+    needs_action_context,
+)
 from fdai.delivery.operator_api.routes.chat_answer_planning import (
     AnswerPlanningDelegate,
     cancel_planning,
@@ -84,12 +88,18 @@ from fdai.delivery.operator_api.routes.chat_busy_input import (
 from fdai.delivery.operator_api.routes.chat_content_policy import (
     answer_with_content_policy_recovery,
 )
+from fdai.delivery.operator_api.routes.chat_conversation_context import (
+    load_verified_prior_context,
+    needs_conversation_context,
+)
+from fdai.delivery.operator_api.routes.chat_current_time import needs_current_time
 from fdai.delivery.operator_api.routes.chat_document_evidence import (
     ChatDocumentEvidenceResolver,
     merge_document_verification,
     resolve_document_refs,
     with_document_evidence,
 )
+from fdai.delivery.operator_api.routes.chat_evidence import needs_operational_evidence
 from fdai.delivery.operator_api.routes.chat_evidence_enrichment import (
     AgentChatDelegate,
     ChatBehaviorEvidenceResolver,
@@ -100,6 +110,7 @@ from fdai.delivery.operator_api.routes.chat_evidence_enrichment import (
     _delegation_summary,
     _explicit_agent_requested,
     _retrieval_source_previews,
+    _screen_incident_context,
     _tool_matches_current_route,
     _web_search_summary,
     _with_agent_evidence,
@@ -110,7 +121,16 @@ from fdai.delivery.operator_api.routes.chat_evidence_enrichment import (
     _with_web_evidence,
 )
 from fdai.delivery.operator_api.routes.chat_evidence_pipeline import (
+    has_bound_incident_analysis_context,
+    has_screen_incident_analysis_context,
     resolve_parallel_chat_evidence,
+)
+from fdai.delivery.operator_api.routes.chat_freshness_context import (
+    freshness_evidence_refs,
+    needs_evidence_freshness_context,
+    parse_evidence_freshness_context,
+    render_evidence_freshness_answer,
+    response_evidence_freshness_context,
 )
 from fdai.delivery.operator_api.routes.chat_history import (
     append_assistant_turn,
@@ -141,6 +161,10 @@ from fdai.delivery.operator_api.routes.chat_inventory_compiler import compile_in
 from fdai.delivery.operator_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
     contextualize_inventory_screen_scope,
+)
+from fdai.delivery.operator_api.routes.chat_log_query import (
+    needs_log_query,
+    needs_log_query_context,
 )
 from fdai.delivery.operator_api.routes.chat_presentation import (
     adapt_answer_plan_for_presentation,
@@ -223,14 +247,17 @@ from fdai.delivery.operator_api.routes.chat_stream_protocol import (
     _sse_heartbeat,
     _with_sse_heartbeats,
 )
-from fdai.delivery.operator_api.routes.chat_subscription_health import needs_subscription_health
+from fdai.delivery.operator_api.routes.chat_subscription_health import (
+    needs_subscription_health,
+    needs_subscription_health_context,
+)
 from fdai.delivery.operator_api.routes.chat_system_health import render_system_health_answer
 from fdai.delivery.operator_api.routes.chat_turn_plan import (
     TurnPlanner,
     TurnTool,
     apply_turn_plan_to_answer_plan,
 )
-from fdai.delivery.operator_api.routes.chat_verification import verify_answer
+from fdai.delivery.operator_api.routes.chat_verification import AnswerVerification, verify_answer
 from fdai.delivery.operator_api.routes.chat_vision_evidence import parse_vision_attachments
 from fdai.delivery.operator_api.routes.post_turn_review import (
     PostTurnReviewSubmission,
@@ -360,6 +387,8 @@ def make_chat_route(
         view_context.pop("_answer_plan", None)
         view_context.pop("_turn_plan", None)
         view_context.pop("_inventory_screen_scope", None)
+        view_context.pop("_resource_followup", None)
+        view_context.pop("_verified_prior_context", None)
         # `_attachments` is a server-owned, validated field: never trust a
         # client-supplied one, then set it from the parsed inline images.
         view_context.pop("_attachments", None)
@@ -432,30 +461,65 @@ def make_chat_route(
             )
             history = list(history_result.messages)
             history_metadata = history_result.metadata()
+        prior_context = None
+        if (
+            needs_conversation_context(clean_prompt)
+            or needs_subscription_health_context(clean_prompt)
+            or needs_log_query_context(clean_prompt)
+            or needs_evidence_freshness_context(clean_prompt)
+        ):
+            prior_context = await load_verified_prior_context(
+                store=conversation_history_store,
+                principal_id=user_id,
+                conversation_id=session_id,
+            )
+            if prior_context is not None:
+                view_context["_verified_prior_context"] = prior_context.to_dict()
         try:
             resource_context = parse_resource_context(body.get("resource_context"))
+            freshness_context = parse_evidence_freshness_context(
+                prior_context.evidence_freshness_context if prior_context is not None else None
+            )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        freshness_answer = render_evidence_freshness_answer(
+            clean_prompt,
+            freshness_context,
+            locale=_response_locale(clean_prompt, view_context),
+        )
         evidence_prompt, resource_followup = contextualize_resource_followup(
             clean_prompt,
             resource_context,
         )
+        if resource_followup:
+            view_context["_resource_followup"] = {"authority": "selector_hint"}
         evidence_prompt, inventory_scope_followup = contextualize_inventory_scope_followup(
             evidence_prompt,
             history,
         )
-        evidence_prompt, inventory_screen_scope = contextualize_inventory_screen_scope(
+        evidence_prompt, inventory_screen_scope_resolution = contextualize_inventory_screen_scope(
             evidence_prompt,
             view_context,
         )
-        if inventory_screen_scope:
-            view_context["_inventory_screen_scope"] = {"authority": "selector_hint"}
+        if inventory_screen_scope_resolution is not None:
+            view_context["_inventory_screen_scope"] = inventory_screen_scope_resolution.to_context()
         deterministic_followup = (
             resource_followup
-            or inventory_screen_scope
+            or (
+                has_bound_incident_analysis_context(
+                    clean_prompt, view_context, conversation_context
+                )
+                or has_screen_incident_analysis_context(clean_prompt, view_context)
+            )
+            or inventory_screen_scope_resolution is not None
             or inventory_scope_followup
             or compile_inventory_query(evidence_prompt) is not None
             or (turn_planner is None and needs_subscription_health(evidence_prompt))
+            or needs_log_query(evidence_prompt)
+            or needs_action_context(evidence_prompt)
+            or needs_conversation_context(evidence_prompt)
+            or needs_current_time(evidence_prompt)
+            or freshness_answer is not None
         )
         answer_plan = build_answer_plan(
             evidence_prompt,
@@ -680,6 +744,19 @@ def make_chat_route(
                 if resource_followup
                 else None
             )
+            freshness_verification = (
+                AnswerVerification(
+                    status="verified",
+                    answer=freshness_answer,
+                    authority="server_evidence_freshness",
+                    checks_completed=1,
+                    checks_total=1,
+                    evidence_refs=freshness_evidence_refs(freshness_context),
+                    reason_code="evidence_freshness_grounded",
+                )
+                if freshness_answer is not None and freshness_context is not None
+                else None
+            )
             if _uses_evidence_fast_path(view_context):
                 with (
                     with_correlation(_metering_correlation_id(user_id, session_id)),
@@ -696,7 +773,15 @@ def make_chat_route(
                     )
                 view_context["_answer_plan"] = answer_plan.to_dict()
             reply: dict[str, Any]
-            if contextual_verification is not None:
+            if freshness_verification is not None:
+                verification = freshness_verification
+                reply = {
+                    "answer": verification.answer,
+                    "model": "evidence-freshness",
+                    "source": "evidence:freshness",
+                    "verification": verification.to_dict(),
+                }
+            elif contextual_verification is not None:
                 verification = contextual_verification
                 reply = {
                     "answer": verification.answer,
@@ -938,6 +1023,9 @@ def make_chat_route(
         selected_resource = response_resource_context(view_context, resource_context)
         if selected_resource is not None:
             enriched["resource_context"] = selected_resource
+        selected_freshness = response_evidence_freshness_context(view_context, freshness_context)
+        if selected_freshness is not None:
+            enriched["evidence_freshness_context"] = selected_freshness.to_dict()
         enriched["code_artifacts"] = [
             artifact.to_dict() for artifact in extract_grounded_code(verification.answer)
         ]

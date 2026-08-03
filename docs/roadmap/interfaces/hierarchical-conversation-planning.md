@@ -110,6 +110,32 @@ validated goal doesn't require fresh evidence. Raw chain-of-thought is not persi
 Bragi presents a concise conclusion, evidence, assumptions, comparison basis, limitations, and
 uncertainty.
 
+### Contextual operational joins
+
+Follow-up diagnostics reuse only server-owned resource and event context from a verified durable
+turn. Metric comparisons query equal bounded windows before and after the recorded event. Database,
+pod, and capacity diagnostics use fixed KQL templates only after an exact resource has been selected;
+otherwise the route asks for that resource. Error-rate and control-plane change joins report temporal
+distance and never describe temporal alignment as proof of cause. Missing rows, missing limits,
+truncation, or an unavailable provider remain explicit limits rather than positive findings.
+
+Selected-incident questions preserve their analysis intent in the server evidence envelope. One
+bounded audit and RCA projection renders the ordered timeline, cited hypothesis ranking, measured
+impact, recorded response decision, consumed evidence references, unknowns, and investigation
+progress. Timeline order is not causal proof. Similar incidents require a shared domain signal and
+an explicit successful recovery receipt. Provider failure remains distinct from a verified empty
+result. A response decision is read-only and grants no execution authority, and investigation
+progress requires a durable run identifier.
+
+For an incident-analysis turn, durable or exact screen-selected incident context overrides an
+unrelated semantic plan. An unrelated deterministic tool, explicit public-web request, or concrete
+action draft keeps its requested authority; context never substitutes for intent. Audit values are normalized and capped
+before entering the evidence envelope; any cap sets `truncated`. Evidence references identify the
+exact positive audit sequence or citation consumed. RCA confidence is displayed only as a finite
+probability from `0` through `1`. Freshness follow-ups restore the server-generated freshness
+receipt from the prior durable assistant turn. A browser-supplied freshness object never gains
+server evidence authority.
+
 ## Task DAG compilation
 
 The deterministic compiler converts validated read goals into bounded tasks. Independent tasks run

@@ -7,7 +7,9 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Final, TypeGuard
 
+from fdai.core.read_investigation.routing import classify_read_investigation_intent
 from fdai.delivery.operator_api.routes.chat_verification import AnswerVerification
+from fdai.shared.providers.read_investigation import ReadInvestigationIntent
 
 _RESOURCE_NAME: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.()-]{1,127}$")
 _RESOURCE_TYPE: Final = re.compile(r"^[a-z0-9][a-z0-9_.-]{1,127}$")
@@ -19,7 +21,10 @@ _HISTORY_FOLLOWUP: Final = re.compile(
     r"언제부터|언제.{0,20}(?:중지|정지|변경)|얼마나 오래|이력",
     re.IGNORECASE,
 )
-_ATTRIBUTION_FOLLOWUP: Final = re.compile(r"\bwho\b|누가|변경 주체", re.IGNORECASE)
+_ATTRIBUTION_FOLLOWUP: Final = re.compile(
+    r"\bwho\b|누가|(?:변경|작업|중지).{0,8}주체",
+    re.IGNORECASE,
+)
 _LATEST_CHANGE_FOLLOWUP: Final = re.compile(
     r"\b(?:most recent|latest)\b.{0,32}\b(?:change|operation)\b|"
     r"\bwho\b.{0,32}\bchanged\b.{0,32}\bmost recently\b|"
@@ -29,6 +34,13 @@ _LATEST_CHANGE_FOLLOWUP: Final = re.compile(
 _PRE_INCIDENT_FOLLOWUP: Final = re.compile(
     r"(?:before|prior to).{0,24}(?:incident|outage)|(?:incident|outage).{0,24}(?:before|prior)|"
     r"(?:장애|인시던트).{0,20}(?:직전|이전)|(?:직전|이전).{0,20}(?:장애|인시던트)",
+    re.IGNORECASE,
+)
+_READ_AVAILABILITY_FOLLOWUP: Final = re.compile(
+    r"\bwhy\b.{0,48}(?:(?:cannot|can't|couldn't|unable).{0,32}(?:read|access)"
+    r".{0,32}(?:state|status)|(?:health evidence).{0,24}unavailable)|"
+    r"왜.{0,32}(?:리소스|자원).{0,24}상태.{0,24}(?:읽을 수 없|조회할 수 없)|"
+    r"(?:이 리소스.{0,24})?(?:읽기 권한|권한|범위).{0,24}(?:제한|막힌|설명)",
     re.IGNORECASE,
 )
 
@@ -93,10 +105,15 @@ def contextualize_resource_followup(
 ) -> tuple[str, bool]:
     """Bind an elliptical history question to the prior verified resource selector."""
 
+    guest_shutdown = (
+        classify_read_investigation_intent(prompt) is ReadInvestigationIntent.GUEST_SHUTDOWN
+    )
     if resource_context is None or not (
         _HISTORY_FOLLOWUP.search(prompt)
         or _ATTRIBUTION_FOLLOWUP.search(prompt)
         or _PRE_INCIDENT_FOLLOWUP.search(prompt)
+        or _READ_AVAILABILITY_FOLLOWUP.search(prompt)
+        or guest_shutdown
     ):
         return prompt, False
     name = resource_context["name"]
@@ -120,6 +137,11 @@ def contextualize_resource_followup(
         return f"{name} change history: show the most recent successful operation", True
     if _ATTRIBUTION_FOLLOWUP.search(prompt):
         return f"누가 {name}을 중지하거나 변경했어? {prompt}", True
+    if _READ_AVAILABILITY_FOLLOWUP.search(prompt):
+        locale = "ko" if re.search(r"[가-힣]", prompt) else "en"
+        return f"{name} current state: explain read availability locale={locale}", True
+    if guest_shutdown:
+        return f"{name} guest shutdown: {prompt}", True
     return f"{name} 변경 이력: {prompt}", True
 
 
@@ -209,7 +231,9 @@ def response_resource_context(
                         return parse_resource_context(candidate)
                     except ValueError:
                         return None
-    return dict(fallback) if fallback is not None else None
+    if fallback is not None and resource_followup_answer(view_context, fallback) is not None:
+        return dict(fallback)
+    return None
 
 
 def _valid_timestamp(value: str) -> bool:
@@ -271,6 +295,75 @@ def resource_followup_verification(
             evidence_refs=(),
             reason_code="incident_anchor_unavailable",
         )
+    if facts.get("status") == "queued":
+        task_id = facts.get("task_id")
+        message_id = facts.get("message_id")
+        if (
+            not isinstance(task_id, str)
+            or not 1 <= len(task_id) <= 256
+            or not isinstance(message_id, str)
+            or not message_id.startswith("read-message:sha256:")
+            or len(message_id) > 256
+        ):
+            return None
+        return AnswerVerification(
+            status="unverified",
+            answer=answer,
+            authority="server_read_investigation",
+            checks_completed=0,
+            checks_total=1,
+            evidence_refs=(),
+            reason_code="background_task_queued",
+        )
+    if facts.get("status") == "handoff_required":
+        if facts.get("mode") != "detached" or not isinstance(facts.get("estimated_upper_ms"), int):
+            return None
+        return AnswerVerification(
+            status="unverified",
+            answer=answer,
+            authority="server_read_investigation",
+            checks_completed=0,
+            checks_total=1,
+            evidence_refs=(),
+            reason_code="background_task_unavailable",
+        )
+    if (
+        facts.get("status") in {"none", "unavailable"}
+        and facts.get("intent") == "resource_state"
+        and facts.get("read_availability_explanation") is True
+    ):
+        sources = facts.get("evidence_sources")
+        if not isinstance(sources, (list, tuple)) or any(
+            not isinstance(source, str) or not 1 <= len(source) <= 256 for source in sources
+        ):
+            return None
+        return AnswerVerification(
+            status="unverified",
+            answer=answer,
+            authority="server_read_investigation",
+            checks_completed=0,
+            checks_total=max(1, len(sources)),
+            evidence_refs=(),
+            reason_code=(
+                "read_state_not_observed"
+                if facts.get("status") == "none"
+                else "read_authority_unavailable"
+            ),
+        )
+    if facts.get("status") in {"none", "unavailable", "ambiguous"}:
+        return AnswerVerification(
+            status="unverified",
+            answer=answer,
+            authority="server_read_investigation",
+            checks_completed=0,
+            checks_total=1,
+            evidence_refs=(),
+            reason_code=(
+                "resource_history_ambiguous"
+                if facts.get("status") == "ambiguous"
+                else "resource_history_unavailable"
+            ),
+        )
     if facts.get("status") != "matched":
         return None
     raw_refs = facts.get("evidence_refs")
@@ -286,7 +379,11 @@ def resource_followup_verification(
         checks_completed=len(evidence_refs),
         checks_total=len(evidence_refs),
         evidence_refs=evidence_refs,
-        reason_code="resource_history_grounded",
+        reason_code=(
+            "read_availability_grounded"
+            if facts.get("read_availability_explanation") is True
+            else "resource_history_grounded"
+        ),
     )
 
 

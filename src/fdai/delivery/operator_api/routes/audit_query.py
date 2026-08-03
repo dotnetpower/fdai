@@ -30,6 +30,8 @@ def parse_audit_filters(params: Mapping[str, str]) -> AuditQueryFilters:
         raise AuditQueryError("tier MUST be t0, t1, or t2")
     action_kind = _optional(params, "action")
     outcome = _optional(params, "outcome")
+    action_id = _optional(params, "action_id")
+    idempotency_key = _optional(params, "idempotency_key")
     vertical = _optional(params, "vertical")
     window = _optional(params, "window")
     window_days = None
@@ -47,6 +49,8 @@ def parse_audit_filters(params: Mapping[str, str]) -> AuditQueryFilters:
         tier=tier,
         action_kind=action_kind,
         outcome=outcome,
+        action_id=action_id,
+        idempotency_key=idempotency_key,
         vertical=vertical.replace("_", "-").lower() if vertical is not None else None,
         window_days=window_days,
         from_seq=from_seq,

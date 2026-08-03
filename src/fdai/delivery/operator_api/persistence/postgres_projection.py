@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from typing import Any
+from uuid import UUID
 
 from fdai.delivery.operator_api.read_model import (
     KPI_AUDIT_SAMPLE_LIMIT,
@@ -74,7 +75,11 @@ def row_to_hil_queue_item(row: Mapping[str, Any]) -> HilQueueItem | None:
         return None
     event_id = action.get("event_id")
     if not isinstance(event_id, str) or not event_id:
-        event_id = "00000000-0000-0000-0000-000000000000"
+        return None
+    try:
+        UUID(event_id)
+    except ValueError:
+        return None
     action_type = parked.get("action_type") or action.get("action_type")
     rule_id = parked.get("rule_id")
     context_raw = parked.get("approval_context")

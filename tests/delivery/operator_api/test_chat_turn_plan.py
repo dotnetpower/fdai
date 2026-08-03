@@ -543,18 +543,72 @@ def test_chat_routes_execute_hierarchical_intent_graph(stream: bool) -> None:
     assert response.status_code == 200
     assert planner.calls == 1
     assert resolver.calls == 2
-    assert backend.context["_intent_graph"]["schema_version"] == 2
-    ledger = backend.context["_intent_graph_evidence"]
-    assert ledger["status"] == "completed"
-    assert [goal["goal_id"] for goal in ledger["goals"]] == ["incidents", "kpi"]
-    assert ledger["goals"][0]["evidence"]["result"]["secret_detail"] == "server-context-only"
-    assert "_agent_evidence" not in backend.context
+    assert backend.calls == 0
+    assert backend.context == {}
     payload = response.text if stream else json.dumps(response.json())
+    assert '"schema_version": 2' in payload or '"schema_version":2' in payload
+    assert '"status": "completed"' in payload or '"status":"completed"' in payload
+    assert '"goal_id": "incidents"' in payload or '"goal_id":"incidents"' in payload
+    assert '"goal_id": "kpi"' in payload or '"goal_id":"kpi"' in payload
     assert '"intent_graph"' in payload
     assert '"intent_graph_evidence"' in payload
     assert '"evidence_mode":"mixed_grounded"' in payload.replace(" ", "")
     assert '"evidence_refs"' in payload
     assert "server-context-only" not in payload
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_unavailable_intent_graph_cannot_become_empty_screen_answer(stream: bool) -> None:
+    class UnavailableResolver:
+        async def resolve_planned(
+            self,
+            tool_name: str,
+            arguments: Mapping[str, object],
+            *,
+            principal_id: str,
+        ) -> None:
+            del tool_name, arguments, principal_id
+            return None
+
+    backend = _AnswerBackend()
+    tools = (
+        TurnTool("list_incidents", "Read incidents.", "read", {"type": "object"}),
+        TurnTool("get_kpi", "Read KPI values.", "read", {"type": "object"}),
+    )
+    planner = _GraphPlanner(tools)
+    route = (
+        make_chat_stream_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=tools,
+            planned_tool_resolver=UnavailableResolver(),
+        )
+        if stream
+        else make_chat_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=tools,
+            planned_tool_resolver=UnavailableResolver(),
+        )
+    )
+
+    response = TestClient(Starlette(routes=[route])).post(
+        "/chat/stream" if stream else "/chat",
+        json={
+            "prompt": "List resources in this group with type, region, and state.",
+            "view_context": {},
+        },
+    )
+
+    assert response.status_code == 200
+    assert backend.calls == 0
+    payload = response.text if stream else json.dumps(response.json())
+    assert "server_intent_graph" in payload
+    assert "intent_graph_unavailable" in payload
+    assert "client_snapshot" not in payload
+    assert "No resources are shown" not in payload
 
 
 @pytest.mark.parametrize("stream", [False, True])
@@ -721,6 +775,215 @@ def test_chat_write_plan_returns_draft_without_calling_answer_backend(stream: bo
     payload = response.text if stream else json.dumps(response.json())
     assert '"action_type":"ops.restart-service"' in payload.replace(" ", "")
     assert '"resource_id":"svc-1"' in payload.replace(" ", "")
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_bound_incident_context_skips_confirmation_draft_before_evidence(stream: bool) -> None:
+    backend = _AnswerBackend()
+    planner = _Planner(
+        parse_turn_plan(
+            _plan(
+                kind="action_draft",
+                action_type="ops.restart-service",
+                arguments={"resource_id": "svc-1"},
+            )
+        )
+    )
+
+    class OperationalResolver:
+        async def resolve(
+            self,
+            prompt: str,
+            *,
+            conversation_context: Mapping[str, str] | None = None,
+        ) -> Mapping[str, object]:
+            del prompt
+            assert conversation_context == {
+                "kind": "incident",
+                "incident_id": "incident-1",
+                "correlation_id": "corr-incident",
+            }
+            return {
+                "authority": "server_read_model",
+                "status": "matched",
+                "incident_query_intent": "unknowns",
+                "selected_incident": {"correlation_id": "corr-incident"},
+                "grounded_hypotheses": [],
+                "audit_evidence": [],
+            }
+
+    route = (
+        make_chat_stream_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            evidence_resolver=OperationalResolver(),
+        )
+        if stream
+        else make_chat_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            evidence_resolver=OperationalResolver(),
+        )
+    )
+    response = TestClient(Starlette(routes=[route])).post(
+        "/chat/stream" if stream else "/chat",
+        json={
+            "prompt": "What remains unknown?",
+            "conversation_context": {
+                "kind": "incident",
+                "incident_id": "incident-1",
+                "correlation_id": "corr-incident",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert planner.calls == 0
+    assert backend.calls == 0
+    payload = response.text if stream else json.dumps(response.json())
+    assert '"action_draft"' not in payload
+    assert '"authority":"server_read_model"' in payload.replace(" ", "")
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_screen_selected_incident_skips_confirmation_draft_before_evidence(
+    stream: bool,
+) -> None:
+    backend = _AnswerBackend()
+    planner = _Planner(
+        parse_turn_plan(
+            _plan(
+                kind="action_draft",
+                action_type="ops.restart-service",
+                arguments={"resource_id": "svc-1"},
+            )
+        )
+    )
+
+    class OperationalResolver:
+        async def resolve(
+            self,
+            prompt: str,
+            *,
+            conversation_context: Mapping[str, str] | None = None,
+        ) -> Mapping[str, object]:
+            del prompt
+            assert conversation_context == {
+                "kind": "incident",
+                "incident_id": "incident-1",
+                "correlation_id": "corr-incident",
+            }
+            return {
+                "authority": "server_read_model",
+                "status": "matched",
+                "incident_query_intent": "unknowns",
+                "selected_incident": {"correlation_id": "corr-incident"},
+                "grounded_hypotheses": [],
+                "audit_evidence": [],
+            }
+
+    route = (
+        make_chat_stream_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            evidence_resolver=OperationalResolver(),
+        )
+        if stream
+        else make_chat_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            evidence_resolver=OperationalResolver(),
+        )
+    )
+    response = TestClient(Starlette(routes=[route])).post(
+        "/chat/stream" if stream else "/chat",
+        json={
+            "prompt": "What remains unknown for this selected incident?",
+            "view_context": {
+                "routeId": "incidents",
+                "records": {
+                    "selected_incident": [
+                        {
+                            "incident_id": "incident-1",
+                            "correlation_id": "corr-incident",
+                            "title": "Selected incident",
+                        }
+                    ]
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert planner.calls == 0
+    assert backend.calls == 0
+    payload = response.text if stream else json.dumps(response.json())
+    assert '"action_draft"' not in payload
+    assert '"authority":"server_read_model"' in payload.replace(" ", "")
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_screen_incident_context_keeps_explicit_action_draft_available(stream: bool) -> None:
+    backend = _AnswerBackend()
+    planner = _Planner(
+        parse_turn_plan(
+            _plan(
+                kind="action_draft",
+                action_type="ops.restart-service",
+                arguments={"resource_id": "svc-1"},
+            )
+        )
+    )
+    action_tool = TurnTool(
+        name="ops.restart-service",
+        description="Draft a restart.",
+        side_effect_class="write",
+        argument_schema={"type": "object"},
+    )
+    route = (
+        make_chat_stream_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=(action_tool,),
+        )
+        if stream
+        else make_chat_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=(action_tool,),
+        )
+    )
+    response = TestClient(Starlette(routes=[route])).post(
+        "/chat/stream" if stream else "/chat",
+        json={
+            "prompt": "Draft a restart action for this selected incident.",
+            "view_context": {
+                "routeId": "incidents",
+                "records": {
+                    "selected_incident": [
+                        {
+                            "incident_id": "incident-1",
+                            "correlation_id": "corr-incident",
+                            "title": "Selected incident",
+                        }
+                    ]
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert planner.calls == 1
+    assert backend.calls == 0
+    payload = response.text if stream else json.dumps(response.json())
+    assert '"action_draft"' in payload
+    assert '"action_type":"ops.restart-service"' in payload.replace(" ", "")
 
 
 @pytest.mark.asyncio

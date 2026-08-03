@@ -259,7 +259,7 @@ plane token from the current Azure CLI context; deployment uses the dedicated Op
 identity selected by `FDAI_MI_CLIENT_ID`. The workspace is server-configured and cannot be changed
 by the browser. If the workspace, identity, permission, or telemetry is unavailable, the query
 holds as unavailable without a fixture or model fallback.
-
+Local preparation reads the workspace customer GUID from the applied Terraform `log_workspace_customer_id` output. If an older or targeted state does not expose that output, it lists workspaces only inside the applied resource group and accepts the fallback only when exactly one workspace exists. Zero workspaces leave the provider unavailable, and multiple workspaces stop preparation instead of choosing one implicitly. Regeneration removes any stale local workspace id.
 The local runtime environment generator also supplies the applied subscription and resource group
 to the bounded Azure read-investigation adapter. When Terraform emits both the optional development
 operations gateway URL and its Easy Auth audience, NSG and VNet peering questions use the local

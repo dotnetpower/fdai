@@ -266,6 +266,93 @@ class AzureSubscriptionHealthProvider:
             progress_observer=progress_observer,
         )
 
+    async def query_metric_comparison(
+        self,
+        *,
+        anchor_at: str,
+        metric_family: str,
+        window_seconds: int,
+        progress_observer: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None,
+    ) -> dict[str, Any]:
+        """Compare the same bounded metric targets before and after an incident anchor."""
+
+        if metric_family not in {"cpu", "memory"}:
+            raise ValueError("metric comparison family MUST be cpu or memory")
+        if not 300 <= window_seconds <= 86_400:
+            raise ValueError("metric comparison window MUST be in [300, 86400]")
+        try:
+            anchor = datetime.fromisoformat(anchor_at.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError("metric comparison anchor MUST be RFC3339") from exc
+        if anchor.tzinfo is None:
+            raise ValueError("metric comparison anchor MUST be timezone-aware")
+        anchor = anchor.astimezone(UTC)
+        token = await self._identity.get_token(_MANAGEMENT_AUDIENCE)
+        headers = {"Authorization": f"Bearer {token.token}", "Content-Type": "application/json"}
+        resources = await self._arg(headers, self._resource_query((), {}))
+        safe_resources = [item for item in resources if _valid_resource(item)][
+            : self._config.max_resources
+        ]
+        supported = [
+            item
+            for item in safe_resources
+            if (probe := self._probe_by_type.get(str(item["type"]).casefold())) is not None
+            and metric_family in probe.metric_name.casefold()
+        ]
+        truncated = len(supported) > self._config.max_metric_resources
+        targets = supported[: self._config.max_metric_resources]
+        semaphore = asyncio.Semaphore(self._config.max_concurrent_queries)
+        before_start = anchor - timedelta(seconds=window_seconds)
+        after_end = anchor + timedelta(seconds=window_seconds)
+
+        async def compare(resource: Mapping[str, Any]) -> dict[str, Any]:
+            async with semaphore:
+                probe = self._probe_by_type[str(resource["type"]).casefold()]
+                before, after = await asyncio.gather(
+                    self._metric_between(headers, resource, probe, before_start, anchor),
+                    self._metric_between(headers, resource, probe, anchor, after_end),
+                )
+                return {
+                    "resource_name": resource["name"],
+                    "resource_type": resource["type"],
+                    "resource_group": resource["resourceGroup"],
+                    "metric": probe.metric_name,
+                    "before_value": before["value"],
+                    "after_value": after["value"],
+                    "delta": float(after["value"]) - float(before["value"]),
+                    "before_points": len(before["points"]),
+                    "after_points": len(after["points"]),
+                }
+
+        await _emit(
+            progress_observer,
+            kind="metrics.querying",
+            status="running",
+            label="Comparing incident metric windows",
+            completed=0,
+            total=len(targets) * 2,
+        )
+        comparisons: list[dict[str, Any]] = []
+        unavailable = 0
+        for task in asyncio.as_completed([asyncio.create_task(compare(item)) for item in targets]):
+            try:
+                comparisons.append(await task)
+            except Exception:  # noqa: BLE001 - one target degrades comparison coverage
+                unavailable += 1
+        return {
+            "status": "partial" if unavailable or truncated else "matched",
+            "source": "azure-monitor-metrics-comparison",
+            "observed_at": datetime.now(tz=UTC).isoformat(),
+            "anchor_at": _utc_z(anchor),
+            "window_seconds": window_seconds,
+            "metric_family": metric_family,
+            "metric_checked": len(comparisons),
+            "metric_unavailable": unavailable,
+            "unsupported_metric_resources": len(safe_resources) - len(supported),
+            "metric_comparisons": comparisons,
+            "truncated": truncated,
+        }
+
     async def _query(
         self,
         lookback_seconds: int,
@@ -668,9 +755,19 @@ class AzureSubscriptionHealthProvider:
         probe: MetricProbeSpec,
         lookback_seconds: int,
     ) -> dict[str, Any]:
-        resource_id = str(resource["id"])
         until = datetime.now(tz=UTC)
         since = until - timedelta(seconds=lookback_seconds)
+        return await self._metric_between(headers, resource, probe, since, until)
+
+    async def _metric_between(
+        self,
+        headers: Mapping[str, str],
+        resource: Mapping[str, Any],
+        probe: MetricProbeSpec,
+        since: datetime,
+        until: datetime,
+    ) -> dict[str, Any]:
+        resource_id = str(resource["id"])
         response = await self._http.get(
             f"{self._config.endpoint.rstrip('/')}{quote(resource_id, safe='/')}"
             "/providers/Microsoft.Insights/metrics",
@@ -686,7 +783,9 @@ class AzureSubscriptionHealthProvider:
         )
         if response.status_code >= 400 or len(response.content) > self._config.max_response_bytes:
             raise RuntimeError("Azure Monitor metric query unavailable")
-        value = _metric_value(response.json(), probe.aggregation.casefold())
+        points = _metric_points(response.json(), probe.aggregation.casefold())
+        values = [float(point["value"]) for point in points]
+        value = min(values) if probe.aggregation.casefold() == "minimum" else max(values)
         anomalous = value > probe.threshold if probe.comparison == "gt" else value < probe.threshold
         return {
             "kind": "metric",
@@ -699,6 +798,7 @@ class AzureSubscriptionHealthProvider:
             "threshold": probe.threshold,
             "comparison": probe.comparison,
             "anomalous": anomalous,
+            "points": points,
         }
 
     def _rows(self, response: httpx.Response, source: str) -> list[Mapping[str, Any]]:
@@ -1191,20 +1291,26 @@ def _resource_state_findings(
     return findings
 
 
-def _metric_value(payload: Any, aggregation: str) -> float:
+def _metric_points(payload: Any, aggregation: str) -> list[dict[str, Any]]:
     values = payload.get("value") if isinstance(payload, Mapping) else None
     if not isinstance(values, list) or not values:
         raise RuntimeError("Azure Monitor metric response is invalid")
-    points: list[float] = []
+    points: list[dict[str, Any]] = []
     for series in values[0].get("timeseries", []) if isinstance(values[0], Mapping) else []:
         if not isinstance(series, Mapping):
             continue
         for datum in series.get("data", []):
             if isinstance(datum, Mapping) and isinstance(datum.get(aggregation), int | float):
-                points.append(float(datum[aggregation]))
+                timestamp = datum.get("timeStamp") or datum.get("timestamp")
+                points.append(
+                    {
+                        "timestamp": timestamp if isinstance(timestamp, str) else "",
+                        "value": float(datum[aggregation]),
+                    }
+                )
     if not points:
         raise RuntimeError("Azure Monitor metric has no observed points")
-    return min(points) if aggregation == "minimum" else max(points)
+    return points
 
 
 def _utc_z(value: datetime) -> str:

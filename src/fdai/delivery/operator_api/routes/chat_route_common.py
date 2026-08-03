@@ -43,17 +43,40 @@ def _conversation_context(body: Mapping[str, Any]) -> dict[str, str] | None:
         return None
     if not isinstance(raw, Mapping):
         raise HTTPException(status_code=400, detail="conversation_context MUST be an object")
-    if raw.get("kind") != "incident":
-        raise HTTPException(status_code=400, detail="conversation_context kind MUST be incident")
-    context: dict[str, str] = {"kind": "incident"}
-    for field in ("incident_id", "correlation_id"):
+    kind = raw.get("kind")
+    if kind not in {"incident", "action"}:
+        raise HTTPException(
+            status_code=400,
+            detail="conversation_context kind MUST be incident or action",
+        )
+    context: dict[str, str] = {"kind": kind}
+    required_fields = ("incident_id", "correlation_id") if kind == "incident" else ()
+    optional_fields = (
+        ()
+        if kind == "incident"
+        else ("action_id", "approval_id", "idempotency_key", "correlation_id")
+    )
+    for field in (*required_fields, *optional_fields):
         value = raw.get(field)
+        if field in optional_fields and value is None:
+            continue
         if not isinstance(value, str) or not value.strip():
             raise HTTPException(status_code=400, detail=f"{field} MUST be a non-empty string")
         normalized = value.strip()
         if len(normalized) > 256:
             raise HTTPException(status_code=400, detail=f"{field} exceeds cap (256)")
         context[field] = normalized
+    if kind == "action":
+        if not any(field in context for field in ("action_id", "approval_id", "idempotency_key")):
+            raise HTTPException(
+                status_code=400,
+                detail="action conversation_context requires an exact selector",
+            )
+        if "correlation_id" not in context:
+            raise HTTPException(
+                status_code=400,
+                detail="action conversation_context requires correlation_id",
+            )
     selected_agent = raw.get("selected_agent")
     if selected_agent is not None:
         if not isinstance(selected_agent, str) or selected_agent not in PANTHEON_NAMES:
@@ -137,13 +160,24 @@ def _uses_evidence_fast_path(view_context: Mapping[str, Any]) -> bool:
 
     if isinstance(view_context.get("_behavior_evidence"), Mapping):
         return True
+    graph_evidence = view_context.get("_intent_graph_evidence")
+    if isinstance(graph_evidence, Mapping) and graph_evidence.get("status") != "completed":
+        return True
     tool = view_context.get("_tool_evidence")
     if isinstance(tool, Mapping) and tool.get("tool") in {
         "describe_read_sources",
         "get_current_time",
+        "get_kpi",
+        "list_hil",
+        "list_incidents",
+        "query_action_context",
+        "query_audit",
+        "query_conversation_context",
         "query_inventory",
+        "query_knowledge_context",
         "query_detection_readiness",
         "query_log",
+        "query_network_reachability",
         "query_subscription_scope",
         "query_subscription_health",
     }:

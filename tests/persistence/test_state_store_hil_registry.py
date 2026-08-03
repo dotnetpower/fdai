@@ -115,3 +115,49 @@ async def test_registry_records_idempotent_decision_and_rejects_conflict() -> No
             decision=HilApprovalDecision.REJECT,
             approver_oid="approver-2",
         )
+
+
+@pytest.mark.asyncio
+async def test_record_decision_uses_exact_park_when_pending_index_is_stale() -> None:
+    store = InMemoryStateStore()
+    await _seed(store)
+    await store.write_state("hil_pending:index", {"approval_ids": []})
+    registry = StateStoreHilApprovalRegistry(store=store)
+    key = "event-1::rule-1::resource-1"
+
+    assert await registry.list_pending() == ()
+    pending = await registry.get_pending_by_approval_id("approval-1")
+    assert pending is not None
+    receipt = await registry.record_decision(
+        idempotency_key=key,
+        decision=HilApprovalDecision.APPROVE,
+        approver_oid="approver-1",
+    )
+
+    assert receipt.approval_id == "approval-1"
+    assert receipt.idempotency_key == key
+
+
+@pytest.mark.asyncio
+async def test_list_undelivered_recovers_legacy_row_without_delivery_state() -> None:
+    store = InMemoryStateStore()
+    await store.write_state(
+        "hil_decision:legacy-key",
+        {
+            "approval_id": "approval-legacy",
+            "idempotency_key": "legacy-key",
+            "decision": "approve",
+            "approver_oid": "approver-1",
+            "decided_at": "2026-08-03T00:00:00Z",
+            "receipt_ref": "hil-receipt:legacy",
+            "delivered": False,
+            "delivery_attempts": 0,
+        },
+    )
+    registry = StateStoreHilApprovalRegistry(store=store)
+
+    pending = await registry.list_undelivered()
+
+    assert len(pending) == 1
+    assert pending[0].idempotency_key == "legacy-key"
+    assert pending[0].delivered is False

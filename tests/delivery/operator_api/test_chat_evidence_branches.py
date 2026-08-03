@@ -364,20 +364,10 @@ def test_merge_selected_incident_replaces_implicit_inventory_evidence() -> None:
     }
 
 
-async def test_chat_pipeline_overlaps_tool_and_operational_resolvers() -> None:
-    started: set[str] = set()
-    both_started = asyncio.Event()
-
-    async def rendezvous(name: str) -> None:
-        started.add(name)
-        if len(started) == 2:
-            both_started.set()
-        await asyncio.wait_for(both_started.wait(), timeout=0.2)
-
+async def test_chat_pipeline_tool_intent_skips_operational_resolver() -> None:
     class ToolResolver:
         async def resolve(self, prompt: str, *, principal_id: str):
             del prompt, principal_id
-            await rendezvous("tool")
             return {"tool": "query_inventory", "result": {"count": 1}}
 
     class OperationalResolver:
@@ -388,8 +378,7 @@ async def test_chat_pipeline_overlaps_tool_and_operational_resolvers() -> None:
             conversation_context: Mapping[str, str] | None = None,
         ):
             del prompt, conversation_context
-            await rendezvous("operational")
-            return {"status": "matched", "incident_id": "INC-example"}
+            raise AssertionError("explicit tool intent must not query incident evidence")
 
     async def observe(_event: Mapping[str, Any]) -> None:
         return None
@@ -409,7 +398,6 @@ async def test_chat_pipeline_overlaps_tool_and_operational_resolvers() -> None:
         progress_observer=observe,
     )
 
-    assert started == {"tool", "operational"}
     assert merged["_tool_evidence"]["tool"] == "query_inventory"
     assert "_operational_evidence" not in merged
 
@@ -473,6 +461,65 @@ async def test_subscription_health_overrides_semantic_web_plan() -> None:
 
     assert calls == ["tool"]
     assert merged["_tool_evidence"]["tool"] == "query_subscription_health"
+    assert "_web_evidence" not in merged
+
+
+async def test_log_query_overrides_semantic_web_and_operational_evidence() -> None:
+    calls: list[str] = []
+
+    class ToolResolver:
+        async def resolve(self, prompt: str, *, principal_id: str):
+            del principal_id
+            calls.append("tool")
+            return {
+                "tool": "query_log",
+                "authority": "server_log_query",
+                "result": {"status": "matched", "prompt": prompt},
+            }
+
+    class OperationalResolver:
+        async def resolve(
+            self,
+            prompt: str,
+            *,
+            conversation_context: Mapping[str, str] | None = None,
+        ):
+            del prompt, conversation_context
+            raise AssertionError("deterministic log intent must not query incident evidence")
+
+    class WebResolver:
+        async def resolve(self, prompt: str, view_context: Mapping[str, Any]):
+            del prompt, view_context
+            raise AssertionError("deterministic log intent must not search the public web")
+
+    async def observe(_event: Mapping[str, Any]) -> None:
+        return None
+
+    merged = await resolve_parallel_chat_evidence(
+        request_id="request-failed-requests",
+        prompt="Find failed requests in the last 30 minutes and group them by cause.",
+        view_context={
+            "_screen_scope": {"route_id": "architecture"},
+            "_turn_plan": {
+                "kind": "read_tool",
+                "tool_name": "web_search",
+                "arguments": {"query": "failed requests"},
+            },
+        },
+        user_id="reader",
+        session_id="session-1",
+        conversation_context=None,
+        target_agent=None,
+        tool_resolver=ToolResolver(),
+        evidence_resolver=OperationalResolver(),
+        agent_delegate=None,
+        web_search_resolver=WebResolver(),  # type: ignore[arg-type]
+        progress_observer=observe,
+    )
+
+    assert calls == ["tool"]
+    assert merged["_tool_evidence"]["tool"] == "query_log"
+    assert "_operational_evidence" not in merged
     assert "_web_evidence" not in merged
 
 
@@ -589,6 +636,253 @@ async def test_chat_pipeline_prefers_referenced_selected_incident() -> None:
     assert {event["branch_kind"] for event in events if event.get("event") == "branch"} == {
         "operational"
     }
+
+
+async def test_explicit_inventory_read_wins_over_generic_incident_pronoun() -> None:
+    class ToolResolver:
+        async def resolve(self, prompt: str, *, principal_id: str):
+            del prompt, principal_id
+            return {
+                "tool": "query_inventory",
+                "authority": "server_inventory_graph",
+                "result": {"status": "matched", "resources": []},
+            }
+
+    class OperationalResolver:
+        async def resolve(
+            self,
+            prompt: str,
+            *,
+            conversation_context: Mapping[str, str] | None = None,
+        ):
+            del prompt, conversation_context
+            raise AssertionError("explicit inventory read must not query incident evidence")
+
+    async def observe(_event: Mapping[str, Any]) -> None:
+        return None
+
+    merged = await resolve_parallel_chat_evidence(
+        request_id="request-inventory-over-incident-pronoun",
+        prompt="이거 기준으로 Azure 리소스 inventory 보여줘",
+        view_context={
+            "routeId": "incidents",
+            "records": {
+                "selected_incident": [
+                    {
+                        "incident_id": "incident-1",
+                        "correlation_id": "corr-selected",
+                        "title": "Memory pressure",
+                    }
+                ]
+            },
+        },
+        user_id="reader",
+        session_id="session-1",
+        conversation_context=None,
+        target_agent=None,
+        tool_resolver=ToolResolver(),
+        evidence_resolver=OperationalResolver(),
+        agent_delegate=None,
+        web_search_resolver=None,
+        progress_observer=observe,
+    )
+
+    assert merged["_tool_evidence"]["tool"] == "query_inventory"
+    assert "_operational_evidence" not in merged
+
+
+async def test_bound_incident_context_overrides_semantic_web_plan() -> None:
+    class OperationalResolver:
+        async def resolve(
+            self,
+            prompt: str,
+            *,
+            conversation_context: Mapping[str, str] | None = None,
+        ):
+            del prompt
+            assert conversation_context == {
+                "kind": "incident",
+                "incident_id": "incident-1",
+                "correlation_id": "corr-selected",
+            }
+            return {
+                "status": "matched",
+                "selected_incident": {"correlation_id": "corr-selected"},
+            }
+
+    class WebResolver:
+        async def resolve_planned(self, *args: object, **kwargs: object):
+            del args, kwargs
+            raise AssertionError("bound incident context must not use semantic web plan")
+
+        async def resolve(self, *args: object, **kwargs: object):
+            del args, kwargs
+            raise AssertionError("bound incident context must not use web fallback")
+
+    async def observe(_event: Mapping[str, Any]) -> None:
+        return None
+
+    merged = await resolve_parallel_chat_evidence(
+        request_id="request-bound-incident-over-web-plan",
+        prompt="What remains unknown?",
+        view_context={
+            "routeId": "overview",
+            "_turn_plan": {
+                "kind": "read_tool",
+                "tool_name": "web_search",
+                "arguments": {"query": "incident unknowns"},
+            },
+        },
+        user_id="reader",
+        session_id="session-1",
+        conversation_context={
+            "kind": "incident",
+            "incident_id": "incident-1",
+            "correlation_id": "corr-selected",
+        },
+        target_agent=None,
+        tool_resolver=None,
+        evidence_resolver=OperationalResolver(),
+        agent_delegate=None,
+        web_search_resolver=WebResolver(),  # type: ignore[arg-type]
+        progress_observer=observe,
+    )
+
+    assert merged["_operational_evidence"]["selected_incident"]["correlation_id"] == (
+        "corr-selected"
+    )
+    assert "_web_evidence" not in merged
+
+
+async def test_bound_incident_context_does_not_override_unrelated_time_tool() -> None:
+    operational_calls = 0
+
+    class ToolResolver:
+        async def resolve(self, prompt: str, *, principal_id: str):
+            del prompt, principal_id
+            return {
+                "tool": "get_current_time",
+                "authority": "server_clock",
+                "result": {"status": "matched", "observed_at": "2026-08-03T00:00:00Z"},
+            }
+
+    class OperationalResolver:
+        async def resolve(
+            self,
+            prompt: str,
+            *,
+            conversation_context: Mapping[str, str] | None = None,
+        ):
+            nonlocal operational_calls
+            del prompt, conversation_context
+            operational_calls += 1
+            return {
+                "status": "matched",
+                "selected_incident": {"correlation_id": "corr-selected"},
+            }
+
+    async def observe(_event: Mapping[str, Any]) -> None:
+        return None
+
+    merged = await resolve_parallel_chat_evidence(
+        request_id="request-time-over-bound-incident",
+        prompt="What time is it now for this incident?",
+        view_context={},
+        user_id="reader",
+        session_id="session-1",
+        conversation_context={
+            "kind": "incident",
+            "incident_id": "incident-1",
+            "correlation_id": "corr-selected",
+        },
+        target_agent=None,
+        tool_resolver=ToolResolver(),
+        evidence_resolver=OperationalResolver(),
+        agent_delegate=None,
+        web_search_resolver=None,
+        progress_observer=observe,
+    )
+
+    assert merged["_tool_evidence"]["authority"] == "server_clock"
+    assert "_operational_evidence" not in merged
+    assert operational_calls == 0
+
+
+@pytest.mark.parametrize(
+    ("prompt", "tool", "authority"),
+    (
+        (
+            "Execute the approved mitigation for this incident.",
+            "query_action_context",
+            "server_action_context",
+        ),
+        (
+            "What time is it now for this incident?",
+            "get_current_time",
+            "server_clock",
+        ),
+    ),
+)
+async def test_screen_incident_context_does_not_override_deterministic_authority(
+    prompt: str,
+    tool: str,
+    authority: str,
+) -> None:
+    operational_calls = 0
+
+    class ToolResolver:
+        async def resolve(self, prompt: str, *, principal_id: str):
+            del prompt, principal_id
+            return {"tool": tool, "authority": authority, "result": {"status": "matched"}}
+
+    class OperationalResolver:
+        async def resolve(
+            self,
+            prompt: str,
+            *,
+            conversation_context: Mapping[str, str] | None = None,
+        ):
+            nonlocal operational_calls
+            del prompt, conversation_context
+            operational_calls += 1
+            return {
+                "status": "matched",
+                "selected_incident": {"correlation_id": "corr-selected"},
+            }
+
+    async def observe(_event: Mapping[str, Any]) -> None:
+        return None
+
+    merged = await resolve_parallel_chat_evidence(
+        request_id=f"request-{tool}-over-screen-incident",
+        prompt=prompt,
+        view_context={
+            "routeId": "incidents",
+            "records": {
+                "selected_incident": [
+                    {
+                        "incident_id": "incident-1",
+                        "correlation_id": "corr-selected",
+                        "title": "Selected incident",
+                    }
+                ]
+            },
+        },
+        user_id="reader",
+        session_id="session-1",
+        conversation_context=None,
+        target_agent=None,
+        tool_resolver=ToolResolver(),
+        evidence_resolver=OperationalResolver(),
+        agent_delegate=None,
+        web_search_resolver=None,
+        progress_observer=observe,
+    )
+
+    assert merged["_tool_evidence"]["tool"] == tool
+    assert merged["_tool_evidence"]["authority"] == authority
+    assert "_operational_evidence" not in merged
+    assert operational_calls == 0
 
 
 async def test_chat_pipeline_prefers_local_aks_inventory_over_planned_web() -> None:

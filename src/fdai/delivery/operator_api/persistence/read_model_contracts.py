@@ -66,6 +66,8 @@ class AuditQueryFilters:
     tier: str | None = None
     action_kind: str | None = None
     outcome: str | None = None
+    action_id: str | None = None
+    idempotency_key: str | None = None
     vertical: str | None = None
     window_days: int | None = None
     recorded_at_from: datetime | None = None

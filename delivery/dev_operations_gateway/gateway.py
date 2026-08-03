@@ -64,6 +64,7 @@ class _ArmSubmission:
 class PrivateProbe:
     url: str
     audience: str
+    result_contract: str = "http_status"
 
     def __post_init__(self) -> None:
         parsed = urlparse(self.url)
@@ -91,6 +92,8 @@ class PrivateProbe:
             or any(character in self.audience for character in ("\x00", "\r", "\n"))
         ):
             raise ValueError("private probe audience MUST be bounded")
+        if self.result_contract not in {"http_status", "application_database_dependency"}:
+            raise ValueError("private probe result_contract is unsupported")
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,6 +132,7 @@ class GatewayConfig:
             probes[alias] = PrivateProbe(
                 url=str(item.get("url", "")),
                 audience=str(item.get("audience", "")),
+                result_contract=str(item.get("result_contract", "http_status")),
             )
         idempotency_container_url = values.get(
             "FDAI_DEV_GATEWAY_IDEMPOTENCY_CONTAINER_URL", ""
@@ -657,9 +661,42 @@ class OperationsGateway:
             timeout=10.0,
             follow_redirects=False,
         )
+        if probe.result_contract == "application_database_dependency":
+            if len(response.content) > 16_384:
+                raise GatewayError(
+                    502,
+                    "probe_response_too_large",
+                    "private probe response exceeded cap",
+                )
+            try:
+                receipt = response.json()
+            except ValueError as exc:
+                raise GatewayError(
+                    502,
+                    "probe_response_invalid",
+                    "private dependency probe response was not JSON",
+                ) from exc
+            if (
+                not isinstance(receipt, Mapping)
+                or receipt.get("dependency") != "database"
+                or not isinstance(receipt.get("reachable"), bool)
+            ):
+                raise GatewayError(
+                    502,
+                    "probe_response_invalid",
+                    "private dependency probe receipt was invalid",
+                )
+            return {
+                "probe": alias,
+                "probe_contract": probe.result_contract,
+                "dependency": "database",
+                "reachable": receipt["reachable"] is True and 200 <= response.status_code < 300,
+                "http_status": response.status_code,
+            }
         return {
             "probe": alias,
-            "reachable": response.status_code < 500,
+            "probe_contract": probe.result_contract,
+            "reachable": 200 <= response.status_code < 300,
             "http_status": response.status_code,
         }
 

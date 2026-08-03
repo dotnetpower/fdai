@@ -244,6 +244,10 @@ class OperatorApiConfig:
     ``query_log`` Command Deck commands. The provider owns workspace scope and
     identity; browser input can supply only KQL, an ISO duration, and a row cap."""
 
+    network_reachability_provider: Any = None
+    """Optional server-bound active application-to-database reachability probe.
+    The provider accepts no browser scope, endpoint, host, or probe alias."""
+
     scope_source: Any = None
     """Opt-in effective-scope view: a
     :class:`~fdai.delivery.operator_api.routes.scope.ScopeSource`. When set,
@@ -378,6 +382,13 @@ class OperatorApiConfig:
     approve/revoke commands under ``/api/v1/skill-sources``. The console uses
     only the GET routes; POST commands require server-derived Approver/Owner
     authority and never expose an executor identity."""
+
+    knowledge_context: Any = None
+    """Optional read-only knowledge, memory, and retained-learning projection.
+
+    It reads approved skill/source and principal-scoped stores only after the
+    chat route reconstructs an exact durable prior turn. It never creates a
+    memory, proposal, review, approval, or runtime skill."""
 
     busy_input_runtime: BusyInputRuntime | None = None
     """Optional durable queue, interrupt, and steer runtime for chat turns.

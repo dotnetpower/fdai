@@ -185,6 +185,10 @@ without explicit incident, issue, outage, failure, problem, or cause semantics. 
 that original public-web versus operational boundary.
 A current-time steer rerun samples the injected server clock at the safe rerun boundary. A queued
 current-time turn samples it when that turn begins; neither path reuses an earlier timestamp.
+Runbook, knowledge-source, memory, and learning continuations keep the exact durable prior assistant
+turn selected before the rerun. They use the same read-only knowledge provider on JSON and SSE,
+never widen to another incident or resource, and never turn queued or steered prose into a memory,
+review, proposal, approval, or skill lifecycle write.
 
 ## Queue behavior
 

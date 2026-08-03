@@ -177,6 +177,20 @@ async def test_chat_delegate_executes_measured_fast_read_as_heimdall() -> None:
     assert executor.calls == 1
 
 
+async def test_chat_delegate_explains_read_availability_from_typed_evidence() -> None:
+    executor = _Executor()
+    result = await _delegate(executor).delegate(
+        prompt="vm-01 current state: explain read availability locale=en",
+        user_id="principal-one",
+        session_id="session-one",
+    )
+
+    assert result is not None
+    assert _facts(result)["read_availability_explanation"] is True
+    assert "Azure control-plane state for vm-01 is readable" in _answer(result)
+    assert "did not encounter a scope or authorization failure" in _answer(result)
+
+
 async def test_chat_delegate_replays_same_direct_read_without_provider_recall() -> None:
     executor = _Executor()
     delegate = _delegate(executor)
@@ -264,6 +278,45 @@ async def test_chat_delegate_streams_activities_and_milestones() -> None:
     assert execution["redacted"] is True
     assert execution["output"] == '{"evidence_ref_count":1,"status":"matched"}'
     assert execution["exit_code"] is None
+
+
+async def test_chat_delegate_reports_queued_guest_handoff_as_completed_activity() -> None:
+    events: list[dict[str, object]] = []
+
+    async def responder(
+        question: str,
+        context: dict[str, str],
+        *,
+        progress_observer: Any = None,
+    ) -> dict[str, object]:
+        del question, context, progress_observer
+        return {
+            "answer": "The guest shutdown investigation was queued as a durable task.",
+            "facts": {
+                "status": "queued",
+                "intent": "guest_shutdown",
+                "resource_name": "vm-01",
+                "task_id": "task-guest-shutdown",
+                "message_id": "read-message:sha256:guest-shutdown-test",
+            },
+        }
+
+    async def observe(event: Any) -> None:
+        events.append(dict(event))
+
+    delegate = HeimdallReadInvestigationChatDelegate(responder=responder)  # type: ignore[arg-type]
+    result = await delegate.delegate_with_progress(
+        prompt="Find guest OS shutdown events for vm-01.",
+        user_id="principal-one",
+        session_id="session-one",
+        progress_observer=observe,
+    )
+
+    assert result is not None
+    execution_event = events[-1]
+    assert execution_event["status"] == "completed"
+    execution = cast(dict[str, Any], execution_event["execution"])
+    assert execution["output"] == '{"evidence_ref_count":0,"status":"queued"}'
 
 
 async def test_chat_delegate_executes_measured_attribution_read() -> None:

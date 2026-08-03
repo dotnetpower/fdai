@@ -35,6 +35,14 @@ function latestResourceContext(history: readonly BackendTurn[]) {
   return undefined;
 }
 
+function latestEvidenceFreshnessContext(history: readonly BackendTurn[]) {
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const turn = history[index];
+    if (turn?.role === "assistant") return turn.evidenceFreshnessContext;
+  }
+  return undefined;
+}
+
 export function createBackendRequestPayload(
   prompt: string,
   snapshot: ViewSnapshot | null,
@@ -48,6 +56,7 @@ export function createBackendRequestPayload(
   const includeModelTrace = readConsolePreferences().showModelTrace;
   const normalizedBinding = normalizeIncidentBinding(binding);
   const resourceContext = latestResourceContext(history);
+  const evidenceFreshnessContext = latestEvidenceFreshnessContext(history);
   return {
     ...(requestId === undefined ? {} : { request_id: requestId }),
     ...(includeModelTrace ? { include_model_trace: true } : {}),
@@ -55,6 +64,9 @@ export function createBackendRequestPayload(
     session_id: sessionId,
     ...(targetAgent ? { target_agent: targetAgent } : {}),
     ...(resourceContext ? { resource_context: resourceContext } : {}),
+    ...(evidenceFreshnessContext
+      ? { evidence_freshness_context: evidenceFreshnessContext }
+      : {}),
     ...(attachments && attachments.length > 0
       ? {
           attachments: attachments.map((attachment) => ({

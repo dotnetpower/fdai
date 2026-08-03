@@ -96,6 +96,9 @@ from fdai.delivery.operator_api.production.config import (
 )
 from fdai.delivery.operator_api.production.data_sources import build_production_data_sources
 from fdai.delivery.operator_api.production.identity import build_production_identity
+from fdai.delivery.operator_api.production.knowledge_context import (
+    build_production_knowledge_context,
+)
 from fdai.delivery.operator_api.production.onboarding import build_production_onboarding
 from fdai.delivery.operator_api.production.panels import build_production_panels
 from fdai.delivery.operator_api.production.persistence import build_production_persistence
@@ -271,6 +274,14 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         connect_timeout_s=read_model._config.connect_timeout_s,
         secrets=EnvSecretProvider(env=env, prefix=""),
         refresh_runtime=skill_runtime.startup,
+    )
+    knowledge_context = build_production_knowledge_context(
+        dsn=read_model._config.dsn,
+        statement_timeout_ms=read_model._config.statement_timeout_ms,
+        connect_timeout_s=read_model._config.connect_timeout_s,
+        skill_disclosure=skill_runtime.disclosure,
+        skill_sources=skill_sources.routes,
+        user_memories=user_context.memories,
     )
     runtime = build_production_runtime(
         env=env,
@@ -822,6 +833,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         chat_agent_delegate=remote_agent_delegate or read_investigation_chat_delegate,
         skill_disclosure=skill_runtime.disclosure,
         skill_sources=skill_sources.routes,
+        knowledge_context=knowledge_context,
         busy_input_runtime=busy_input_runtime,
         conversation_delivery_store=conversation_delivery_store,
         chat_web_search=chat_web_search,

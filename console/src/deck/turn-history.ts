@@ -9,5 +9,8 @@ export function backendHistoryForTurns(turns: readonly Turn[]): BackendTurn[] {
       role: turn.role === "operator" ? "user" : "assistant",
       content: turn.groundingText ?? turn.text,
       ...(turn.resourceContext ? { resourceContext: turn.resourceContext } : {}),
+      ...(turn.evidenceFreshnessContext
+        ? { evidenceFreshnessContext: turn.evidenceFreshnessContext }
+        : {}),
     }));
 }

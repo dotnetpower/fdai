@@ -20,6 +20,9 @@ from fdai.core.conversation.busy_input_coordinator import BusyInputCoordinator
 from fdai.core.conversation_assurance import ConversationPolicyRuntime
 from fdai.core.metering import InvocationScope, with_invocation_scope
 from fdai.core.user_context_projection import UserContextOntologyProjector
+from fdai.delivery.operator_api.routes.chat_action_context import (
+    needs_action_context,
+)
 from fdai.delivery.operator_api.routes.chat_answer_planning import (
     AnswerPlanningDelegate,
     cancel_planning,
@@ -48,6 +51,10 @@ from fdai.delivery.operator_api.routes.chat_content_policy import (
     answer_with_content_policy_recovery,
     collect_stream_with_content_policy_recovery,
 )
+from fdai.delivery.operator_api.routes.chat_conversation_context import (
+    needs_conversation_context,
+)
+from fdai.delivery.operator_api.routes.chat_current_time import needs_current_time
 from fdai.delivery.operator_api.routes.chat_document_evidence import (
     ChatDocumentEvidenceResolver,
     merge_document_verification,
@@ -66,7 +73,15 @@ from fdai.delivery.operator_api.routes.chat_evidence_enrichment import (
     _with_screen_scope,
 )
 from fdai.delivery.operator_api.routes.chat_evidence_pipeline import (
+    has_bound_incident_analysis_context,
+    has_screen_incident_analysis_context,
     resolve_parallel_chat_evidence,
+)
+from fdai.delivery.operator_api.routes.chat_freshness_context import (
+    freshness_evidence_refs,
+    needs_evidence_freshness_context,
+    render_evidence_freshness_answer,
+    response_evidence_freshness_context,
 )
 from fdai.delivery.operator_api.routes.chat_history import (
     append_assistant_turn,
@@ -89,6 +104,7 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
     planner_context_envelope,
 )
 from fdai.delivery.operator_api.routes.chat_inventory_compiler import compile_inventory_query
+from fdai.delivery.operator_api.routes.chat_log_query import needs_log_query
 from fdai.delivery.operator_api.routes.chat_model_trace import (
     activate_model_trace,
     deactivate_model_trace,
@@ -149,7 +165,7 @@ from fdai.delivery.operator_api.routes.chat_turn_plan import (
     TurnTool,
     apply_turn_plan_to_answer_plan,
 )
-from fdai.delivery.operator_api.routes.chat_verification import verify_answer
+from fdai.delivery.operator_api.routes.chat_verification import AnswerVerification, verify_answer
 from fdai.delivery.operator_api.routes.chat_vision_evidence import (
     vision_source_previews,
 )
@@ -274,16 +290,28 @@ def make_chat_stream_route(
         clean_prompt = prepared.clean_prompt
         evidence_prompt = prepared.evidence_prompt
         resource_context = prepared.resource_context
+        freshness_context = prepared.freshness_context
+        conversation_context = prepared.conversation_context
+        view_context = prepared.view_context
         resource_followup = prepared.resource_followup
         deterministic_followup = (
             resource_followup
+            or (
+                has_bound_incident_analysis_context(
+                    clean_prompt, view_context, conversation_context
+                )
+                or has_screen_incident_analysis_context(clean_prompt, view_context)
+            )
             or prepared.inventory_screen_scope
             or prepared.inventory_scope_followup
             or compile_inventory_query(evidence_prompt) is not None
             or (turn_planner is None and needs_subscription_health(evidence_prompt))
+            or needs_log_query(evidence_prompt)
+            or needs_action_context(evidence_prompt)
+            or needs_conversation_context(evidence_prompt)
+            or needs_current_time(evidence_prompt)
+            or (freshness_context is not None and needs_evidence_freshness_context(clean_prompt))
         )
-        view_context = prepared.view_context
-        conversation_context = prepared.conversation_context
         target_agent = prepared.target_agent
         history = prepared.history
         history_metadata = prepared.history_metadata
@@ -609,6 +637,11 @@ def make_chat_stream_route(
                 has_operational_evidence = "_operational_evidence" in enriched_context
                 evidence_fast_path = _uses_evidence_fast_path(enriched_context)
                 response_locale = _response_locale(clean_prompt, enriched_context)
+                freshness_answer = render_evidence_freshness_answer(
+                    clean_prompt,
+                    freshness_context,
+                    locale=response_locale,
+                )
                 health_answer = render_system_health_answer(
                     enriched_context,
                     locale=response_locale,
@@ -636,6 +669,19 @@ def make_chat_stream_route(
                 contextual_answer = (
                     contextual_verification.answer if contextual_verification is not None else None
                 )
+                freshness_verification = (
+                    AnswerVerification(
+                        status="verified",
+                        answer=freshness_answer,
+                        authority="server_evidence_freshness",
+                        checks_completed=1,
+                        checks_total=1,
+                        evidence_refs=freshness_evidence_refs(freshness_context),
+                        reason_code="evidence_freshness_grounded",
+                    )
+                    if freshness_answer is not None and freshness_context is not None
+                    else None
+                )
                 if vision_previews:
                     yield frame(
                         "status",
@@ -660,7 +706,11 @@ def make_chat_stream_route(
                             else "Evidence ready; drafting answer"
                         ),
                         "authority": (
-                            "server_read_model"
+                            "server_intent_graph"
+                            if isinstance(enriched_context.get("_intent_graph_evidence"), Mapping)
+                            and enriched_context["_intent_graph_evidence"].get("status")
+                            != "completed"
+                            else "server_read_model"
                             if has_operational_evidence or health_answer is not None
                             else "client_snapshot"
                         ),
@@ -703,7 +753,12 @@ def make_chat_stream_route(
                 terminal_model: Any = None
                 terminal_router: Any = None
                 terminal_usage: Any = None
-                if contextual_answer is not None:
+                if freshness_answer is not None:
+                    provisional_answer = freshness_answer
+                    terminal_model = "evidence-freshness"
+                    for chunk in _chunk_answer_for_stream(provisional_answer):
+                        yield frame("token", {"delta": chunk})
+                elif contextual_answer is not None:
                     provisional_answer = contextual_answer
                     terminal_model = "heimdall-read-investigation"
                     for chunk in _chunk_answer_for_stream(provisional_answer):
@@ -946,7 +1001,9 @@ def make_chat_stream_route(
 
                 verification_timing = turn_timing.begin("verification")
                 verification = (
-                    contextual_verification
+                    freshness_verification
+                    if freshness_verification is not None
+                    else contextual_verification
                     if contextual_verification is not None
                     else verify_quality_result(
                         quality,
@@ -1009,6 +1066,7 @@ def make_chat_stream_route(
                     screen_answer=screen_answer,
                     concept_answer=concept_answer,
                     resource_answer=contextual_answer,
+                    freshness_answer=freshness_answer,
                     started=started,
                     delegation=delegation,
                     enriched_context=enriched_context,
@@ -1018,6 +1076,10 @@ def make_chat_stream_route(
                     resource_context=response_resource_context(
                         enriched_context,
                         resource_context,
+                    ),
+                    freshness_context=response_evidence_freshness_context(
+                        enriched_context,
+                        freshness_context,
                     ),
                     model_trace=snapshot_model_trace(model_trace_scope.collector),
                     turn_timing=turn_timing.snapshot(),

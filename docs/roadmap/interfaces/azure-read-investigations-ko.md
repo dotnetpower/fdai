@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 9fdd3490d5379e9ad33756637822d23fd53e3526
-translation_revised: 2026-08-02
+translation_source_sha: 0ba617c793169d7fdaea9f667b623bb3b9baa507
+translation_revised: 2026-08-03
 ---
 
 # Azure 읽기 조사
@@ -102,9 +102,24 @@ evidence reference를 포함할 수 있습니다. Command Deck은 "언제부터 
 질문에 이 context를 다시 보냅니다. 다시 보낸 값은 selector hint일 뿐 evidence authority가 아닙니다.
 Server는 이 값을 검증하고 configured subscription 및 resource-group scope 안에서 exact resource를
 다시 resolve합니다. Resolution이 없거나 ambiguous하거나 일치하지 않으면 grounded history 답변을
-생성할 수 없습니다. Resource history 및 attribution은 bounded 30일 lookback을 사용합니다. 중지된
-resource에 대해 Heimdall은 최근 성공한 Stop, Power Off 또는 Deallocate Activity Log event를 보고하고,
-현재 중지 상태가 적어도 해당 timestamp부터 이어졌다고 명시합니다.
+생성할 수 없습니다. Contextual turn은 Heimdall read branch만 시작하며 inventory, operational,
+public-web 및 narrator fallback이 결과를 대체할 수 없습니다. 일치하는 `none`, `unavailable` 및
+`ambiguous` Heimdall 결과는 scope 또는 selection limitation과 함께
+terminal unverified 답변으로 유지됩니다. Resource history 및 attribution은 bounded 30일 lookback을
+사용합니다. 중지된 resource에 대해 Heimdall은 최근 성공한 Stop, Power Off 또는 Deallocate Activity
+Log event를 보고하고, 현재 중지 상태가 적어도 해당 timestamp부터 이어졌다고 명시합니다.
+Guest shutdown follow-up은 동일한 validated resource selector와 exclusive Heimdall branch를
+재사용합니다. Deterministic intent는 영어와 한국어의 subject-first, reverse-order 및 colloquial form을
+수락하며 narrator가 conversation prose에서 누락된 resource name을 복구하도록 하지 않습니다.
+성공한 detached handoff는 bounded task reference를 terminal unverified queued 답변으로 반환합니다.
+Observed execution은 handoff를 completed로 표시하고 `status=queued`를 보고합니다. 수락된 durable work를
+unavailable로 잘못 표시하거나 narrator로 보내지 않습니다.
+Detached submitter가 구성되지 않으면 `handoff_required`는 task reference와 narrator fallback이 없는
+terminal unverified capability limitation으로 유지됩니다.
+Read-availability follow-up도 validated selector와 exclusive Heimdall branch를 재사용합니다. Typed
+result는 readable control-plane state, observed state record 부재 및 unavailable scope 또는
+reader/provider authority를 구분합니다. Empty result에서 authorization denial을 추론하거나 narrator가
+scope와 permission cause 중 하나를 선택하도록 하지 않습니다.
 
 Resource Health history가 degraded, unavailable 또는 unknown availability event가 있는 resource
 하나를 선택하면 terminal context에 해당 event의 resource group, timestamp 및 status도 포함할 수
@@ -148,6 +163,15 @@ context를 지정한 경우에만 public web이 우선합니다.
 두 개 이상의 state group을 요청하면 status-grouped answer를 자동으로 생성합니다. Broad group이 더
 구체적인 requested group과 겹치면 구체적인 group이 해당 provider value를 소유하므로 한 resource가
 여러 section에 반복되지 않습니다.
+Compiler는 관측된 provider-specific state value를 유지할 수 있지만, 서로 겹치지 않는 모든 requested
+group은 executable predicate에 남아 있어야 합니다. Observation-based narrowing으로 group 전체가
+제거되는 경우 evidence retrieval 전에 해당 group의 canonical catalog value를 추가합니다.
+한국어 state term과 문법 suffix는 구어체 명사형과 관형형을 포함해 catalog data로 유지합니다. 따라서
+deterministic route는 prompt-specific parser branch에 의존하지 않습니다.
+Active-view inventory 요청에는 Architecture 화면에서 선택된 bounded resource group 하나가 필요합니다.
+선택이 없거나 malformed이거나 resource group이 아니면 inventory query, 다른 evidence branch 또는
+narrator 호출 없이 deterministic unavailable 결과를 반환하며, operator가 group을 선택하거나 이름을
+지정해야 합니다.
 Node를 명시한 AKS 질문에는 Kubernetes workload evidence가 필요합니다. Cluster inventory는 stopped
 또는 다른 unhealthy cluster finding을 ground할 수 있지만, node readiness가 없으면 이를 명시적인
 coverage gap으로 유지하며 healthy-node 결론을 생성할 수 없습니다.
@@ -209,10 +233,16 @@ cumulative deadline이며 setup work가 안내된 command budget을 배수로 �
 `FDAI_DEV_OPERATIONS_GATEWAY_URL`과 별도로 출력되는
 `FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE`가 모두 구성되면 interactive local은 REST transport를
 read-only gateway transport로 감쌉니다. Exact resource resolution이 subscription 및
-resource-group-bound reference를 계속 제공합니다. 이 wrapper는 `azure.network.nsg.read`와
-`azure.network.peering.read`만 노출합니다. HTTP 전에 확장된 resource reference를 차단하고 고정 byte
-cap 안에서 response를 stream하며 gateway 실패 시 direct ARM으로 조용히 fallback하지 않고
-unavailable을 보고합니다.
+resource-group-bound reference를 계속 제공합니다. 이 wrapper는 `azure.network.nsg.read`,
+`azure.network.peering.read` 및 `azure.private.http.probe`를 노출합니다. Active application-to-database
+reachability는 `FDAI_NETWORK_REACHABILITY_PROBE_ALIAS`가 gateway의
+`FDAI_DEV_GATEWAY_PRIVATE_PROBES_JSON`에 `result_contract: application_database_dependency`로 이미
+등록된 alias를 가리킬 때만 사용할 수 있습니다. 이 authenticated application-owned endpoint는
+`dependency: database`와 Boolean `reachable`을 포함하는 bounded JSON을 반환해야 합니다. Generic HTTP
+status probe는 application-to-database evidence가 아닙니다. Browser와 model은 URL, host, subscription,
+resource group 또는 alias를 제공할 수 없습니다. HTTP 전에 확장된 resource reference를 차단하고 고정
+byte cap 안에서 response를 stream하며 gateway 실패 시 direct ARM으로 조용히 fallback하지 않고
+unavailable을 보고합니다. NSG 및 peering 구성만으로는 end-to-end reachability를 증명하지 않습니다.
 
 ### Subscription scope identity
 
@@ -266,6 +296,30 @@ Customer-initiated Resource Health state는 Azure platform incident가 아니라
 Historical read는 current ARM availability endpoint로 fallback하지 않습니다. Exact lookback,
 chronological order, three-way cause count, partial source failure 및 truncation을 보존하므로 current
 status를 historical event로 표시하지 않습니다.
+Health-coverage 질문은 동일한 server scope에서 Resource Health, Service Health 및 representative
+metric을 query합니다. Unavailable 및 unsupported count를 분리해 보고하며 provider가 원인을 증명하지
+않으면 provider-unavailable 결과를 authorization 또는 scope로 표시하지 않습니다.
+Broad CPU spike 질문도 semantic 또는 screen interpretation 전에 이 server-owned metric path를
+사용합니다. Unsupported 또는 unavailable metric coverage는 계속 표시되며 generic CPU definition이나
+spike가 없었다는 claim으로 바뀔 수 없습니다.
+Broad memory-pressure 질문도 동일한 path를 사용합니다. Typed query는 diagnostic metric family를
+기록하고 renderer는 다른 metric family의 observation을 제외하면서 sweep의 unavailable, unsupported 및
+truncation limitation을 유지합니다.
+Before/after metric comparison에는 verified incident anchor 하나와 별도로 bounded된 window 두 개가
+필요합니다. Anchor가 없으면 deterministic tool은 point-in-time metric sweep을 실행하거나 repository,
+screen 또는 incident-roster evidence를 빌리지 않고 unavailable을 반환합니다.
+Error-rate/change correlation에는 하나의 shared scope 아래에서 error-rate metric window와 bounded
+deployment 또는 configuration activity가 필요합니다. Provider가 해당 join을 제공할 때까지 deterministic
+route는 unavailable을 반환하고 current-screen limitation을 correlation result로 verified 처리하지 않습니다.
+Pod restart와 throttling diagnosis에는 exact pod name 또는 server-validated selected pod context가
+필요합니다. "this pod"와 같은 context-free reference는 subscription sweep을 실행하지 않고 clarification을
+반환합니다. Capacity sufficiency에는 observed load trend와 resource limit을 join하는 provider가 필요합니다.
+해당 provider가 구성될 때까지 route는 point-in-time health나 current-screen evidence를 대체하지 않고
+unavailable을 반환합니다.
+각 terminal tool 답변은 source, observation time, query-window lower bound, status 및 truncation이
+포함된 bounded freshness context를 반환할 수 있습니다. Console은 최신 assistant-issued context만
+검증하고 유지합니다. Oldest 또는 stale-evidence follow-up은 이를 deterministic하게 렌더링하고 window
+boundary가 가장 오래된 returned record와 다를 수 있음을 명시합니다.
 명시적인 status collection의 terminal answer는 근거 있는 empty group을 포함하여 요청된 모든 catalog
 state를 request 순서로 렌더링하고, normalized state가 해당 group에 속하는 finding만 나열합니다.
 구체적인 family query는 catalog의 provider type, Azure kind token 및 requested availability state로

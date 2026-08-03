@@ -47,6 +47,13 @@ def audit_item_matches(item: AuditItem, filters: AuditQueryFilters) -> bool:
         return False
     if filters.outcome is not None and str(entry.get("outcome", "")) != filters.outcome:
         return False
+    if filters.action_id is not None and audit_entry_value(entry, "action_id") != filters.action_id:
+        return False
+    if (
+        filters.idempotency_key is not None
+        and audit_entry_value(entry, "idempotency_key") != filters.idempotency_key
+    ):
+        return False
     if filters.vertical is not None:
         vertical = entry.get("vertical", entry.get("category"))
         if normalized_filter_value(vertical) != normalized_filter_value(filters.vertical):
@@ -68,6 +75,18 @@ def audit_item_matches(item: AuditItem, filters: AuditQueryFilters) -> bool:
     return True
 
 
+def audit_entry_value(entry: Mapping[str, Any], key: str) -> str | None:
+    value = entry.get(key)
+    if isinstance(value, str):
+        return value
+    for nested_key in ("action", "proposal", "receipt"):
+        nested = entry.get(nested_key)
+        value = nested.get(key) if isinstance(nested, Mapping) else None
+        if isinstance(value, str):
+            return value
+    return None
+
+
 def hil_item_pending(item: HilQueueItem, *, now: datetime) -> bool:
     if item.ttl_expires_at is None:
         return True
@@ -82,6 +101,8 @@ def hil_search_text(item: HilQueueItem) -> str:
     return " ".join(
         (
             item.approval_id,
+            item.action_id,
+            item.idempotency_key,
             item.action_kind,
             item.target_resource_ref,
             item.event_id,

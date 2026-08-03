@@ -59,10 +59,27 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
         return tuple(items[: max(1, limit)])
 
     async def get_pending(self, idempotency_key: str) -> HilPendingItem | None:
-        for item in await self.list_pending(limit=10_000):
-            if item.idempotency_key == idempotency_key:
-                return item
-        return None
+        park = await self._store.find_state(
+            _PARK_PREFIX,
+            field="idempotency_key",
+            value=idempotency_key,
+        )
+        item = _pending_from_park(park)
+        if item is None:
+            return None
+        decision = await self._store.read_state(_decision_key(item.idempotency_key))
+        return item if decision is None else None
+
+    async def get_pending_by_approval_id(
+        self,
+        approval_id: str,
+    ) -> HilPendingItem | None:
+        park = await self._store.read_state(_park_key(approval_id))
+        item = _pending_from_park(park)
+        if item is None:
+            return None
+        decision = await self._store.read_state(_decision_key(item.idempotency_key))
+        return item if decision is None else None
 
     async def get_decision_by_approval_id(
         self,
@@ -80,13 +97,25 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
         return _receipt_from_mapping(stored, already_recorded=True)
 
     async def list_undelivered(self, *, limit: int = 100) -> Sequence[HilDecisionReceipt]:
-        stored, _total = await self._store.read_state_page(
-            _DECISION_PREFIX,
-            limit=max(1, limit),
-            field="delivery_state",
-            value="pending",
-        )
-        return tuple(_receipt_from_mapping(value, already_recorded=True) for value in stored)
+        cap = max(1, limit)
+        offset = 0
+        receipts: list[HilDecisionReceipt] = []
+        while len(receipts) < cap:
+            stored, total = await self._store.read_state_page(
+                _DECISION_PREFIX,
+                limit=min(100, cap),
+                offset=offset,
+            )
+            for value in stored:
+                receipt = _receipt_from_mapping(value, already_recorded=True)
+                if not receipt.delivered and not receipt.delivery_abandoned:
+                    receipts.append(receipt)
+                    if len(receipts) == cap:
+                        break
+            offset += len(stored)
+            if not stored or offset >= total:
+                break
+        return tuple(receipts)
 
     async def record_decision(
         self,

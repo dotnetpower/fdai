@@ -21,6 +21,12 @@ from fdai.shared.providers.read_investigation import ReadInvestigationIntent
         ("플랫폼 장애나 호스트 장애였어?", ReadInvestigationIntent.PLATFORM_HEALTH),
         ("Find an OS shutdown in the event log", ReadInvestigationIntent.GUEST_SHUTDOWN),
         ("게스트 운영체제 종료 이벤트를 찾아줘", ReadInvestigationIntent.GUEST_SHUTDOWN),
+        (
+            "Was the shutdown initiated inside the guest operating system?",
+            ReadInvestigationIntent.GUEST_SHUTDOWN,
+        ),
+        ("Did the guest OS shut this resource down?", ReadInvestigationIntent.GUEST_SHUTDOWN),
+        ("이거 OS 안에서 꺼진 거야?", ReadInvestigationIntent.GUEST_SHUTDOWN),
         ("What is the current VM state?", ReadInvestigationIntent.RESOURCE_STATE),
         ("가상 머신 현재 상태는?", ReadInvestigationIntent.RESOURCE_STATE),
         ("Which ports are open on nsg-app?", ReadInvestigationIntent.NETWORK_SECURITY),

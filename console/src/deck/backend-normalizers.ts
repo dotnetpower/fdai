@@ -6,6 +6,7 @@ import type {
   AtomicAnswerClaim,
   AtomicClaimStatus,
   DelegationMetadata,
+  EvidenceFreshnessContext,
   ConfirmedAnswerSegment,
   EvidenceBranch,
   EvidenceBranchKind,
@@ -62,6 +63,32 @@ export function parseResourceContext(raw: unknown): ResourceContext | undefined 
       event_at: record.event_at as string,
       event_status: record.event_status as string,
     } : {}),
+  };
+}
+
+export function parseEvidenceFreshnessContext(
+  raw: unknown,
+): EvidenceFreshnessContext | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const record = raw as Record<string, unknown>;
+  if (
+    typeof record.source !== "string" ||
+    record.source.length === 0 ||
+    record.source.length > 512 ||
+    typeof record.observed_at !== "string" ||
+    !Number.isFinite(Date.parse(record.observed_at)) ||
+    typeof record.window_start !== "string" ||
+    !Number.isFinite(Date.parse(record.window_start)) ||
+    Date.parse(record.window_start) > Date.parse(record.observed_at) ||
+    !["matched", "partial", "none", "unavailable"].includes(String(record.status)) ||
+    typeof record.truncated !== "boolean"
+  ) return undefined;
+  return {
+    source: record.source,
+    observed_at: record.observed_at,
+    window_start: record.window_start,
+    status: record.status as EvidenceFreshnessContext["status"],
+    truncated: record.truncated,
   };
 }
 

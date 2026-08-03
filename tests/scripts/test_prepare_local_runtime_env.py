@@ -68,6 +68,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_HIL_DECISION_TOPIC=stale.hil\n"
         "FDAI_AZURE_READER_SUBSCRIPTION_ID=stale-subscription\n"
         "FDAI_AZURE_READER_RESOURCE_GROUPS=stale-group\n"
+        "FDAI_MONITOR_WORKSPACE_ID=stale-workspace\n"
         "FDAI_DEV_OPERATIONS_GATEWAY_URL=https://stale.example.com\n"
         "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=stale-audience\n"
         "FDAI_WEB_SEARCH_ENABLED=1\n"
@@ -89,6 +90,8 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         '  printf \'["aw.control.canary","aw.control.canary.dlq","aw.inventory.raw"]\'\n'
         'elif [[ "$*" == *"output -raw resource_group_name"* ]]; then\n'
         "  printf 'rg-example'\n"
+        'elif [[ "$*" == *"output -raw log_workspace_customer_id"* ]]; then\n'
+        "  printf '00000000-0000-0000-0000-000000000003'\n"
         'elif [[ "$*" == *"output -raw dev_operations_gateway_url"* ]]; then\n'
         "  printf 'https://gateway.example.com'\n"
         'elif [[ "$*" == *"output -raw dev_operations_gateway_audience"* ]]; then\n'
@@ -170,10 +173,76 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_OPERATOR_API_CONSUMER_INSTANCE=fdai-local-developer-a-operator-api",
         "FDAI_AZURE_READER_SUBSCRIPTION_ID=00000000-0000-0000-0000-000000000001",
         "FDAI_AZURE_READER_RESOURCE_GROUPS=rg-example",
+        "FDAI_MONITOR_WORKSPACE_ID=00000000-0000-0000-0000-000000000003",
         "FDAI_DEV_OPERATIONS_GATEWAY_URL=https://gateway.example.com",
         "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=api-application-id",
     ]
     assert stat.S_IMODE(output.stat().st_mode) == 0o600
+
+
+def test_detects_single_log_workspace_when_terraform_state_omits_customer_id(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    (repo / "console").mkdir(parents=True)
+    (repo / "infra").mkdir()
+    (repo / ".venv/bin").mkdir(parents=True)
+    (repo / ".venv/bin/python").symlink_to(Path(os.sys.executable))
+    (repo / "console/.env.local").write_text("VITE_DEV_MODE=0\n", encoding="utf-8")
+    terraform = tmp_path / "terraform"
+    terraform.write_text(
+        "#!/usr/bin/env bash\n"
+        'if [[ "$*" == *"output -raw event_bus_kafka_bootstrap"* ]]; then\n'
+        "  printf 'example.servicebus.windows.net:9093'\n"
+        'elif [[ "$*" == *"output -json event_bus_topics"* ]]; then\n'
+        "  printf '[\"aw.change.events\"]'\n"
+        'elif [[ "$*" == *"output -raw resource_group_name"* ]]; then\n'
+        "  printf 'rg-example'\n"
+        'elif [[ "$*" == *"output -raw executor_identity_resource_id"* ]]; then\n'
+        f"  printf '{_EXECUTOR_RESOURCE_ID}'\n"
+        "else\n"
+        "  exit 2\n"
+        "fi\n",
+        encoding="utf-8",
+    )
+    terraform.chmod(0o755)
+    az = tmp_path / "az"
+    az.write_text(
+        "#!/usr/bin/env bash\n"
+        'if [[ "$*" == *"account show --query id"* ]]; then\n'
+        "  printf '00000000-0000-0000-0000-000000000001'\n"
+        'elif [[ "$*" == *"account show --query tenantId"* ]]; then\n'
+        "  printf '00000000-0000-0000-0000-000000000002'\n"
+        'elif [[ "$*" == *"group show"* ]]; then\n'
+        "  printf 'example-region'\n"
+        'elif [[ "$*" == *"monitor log-analytics workspace list"* ]]; then\n'
+        "  printf '00000000-0000-0000-0000-000000000003'\n"
+        "else\n"
+        "  exit 2\n"
+        "fi\n",
+        encoding="utf-8",
+    )
+    az.chmod(0o755)
+    output = repo / ".fdai/local-runtime.env"
+
+    completed = subprocess.run(  # noqa: S603 - test-controlled binaries
+        [_BASH, str(_SCRIPT), str(output)],
+        check=True,
+        cwd=_REPO_ROOT,
+        env={
+            **os.environ,
+            "FDAI_REPO_ROOT": str(repo),
+            "FDAI_TERRAFORM_BIN": str(terraform),
+            "FDAI_AZ_BIN": str(az),
+            "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-workspace",
+        },
+        capture_output=True,
+        text=True,
+    )
+
+    rendered = output.read_text(encoding="utf-8")
+    assert "FDAI_MONITOR_WORKSPACE_ID=00000000-0000-0000-0000-000000000003" in rendered
+    assert "workspace detected via Azure CLI" in completed.stderr
 
 
 def test_rejects_resolved_models_without_core_endpoint_before_provider_access(

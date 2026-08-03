@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: c1430814b43f9f9154e18d88b3d7d8fe6e860a07
+translation_source_sha: 46569887a70ff70ae68c8937266f545a1c556986
 translation_revised: 2026-08-03
 ---
 
@@ -262,7 +262,7 @@ context에서 data plane token을 얻고 deployment는 `FDAI_MI_CLIENT_ID`가 �
 managed identity를 사용합니다. Workspace는 server config로 정하며 browser가 변경할 수 없습니다.
 Workspace, identity, permission 또는 telemetry를 사용할 수 없으면 fixture나 model fallback 없이
 unavailable로 보류합니다.
-
+Local 준비는 applied Terraform의 `log_workspace_customer_id` output에서 workspace customer GUID를 읽습니다. 이전 state 또는 targeted state가 해당 output을 노출하지 않으면 applied resource group 안의 workspace만 나열하고 정확히 하나가 있을 때만 fallback을 수락합니다. Workspace가 0개이면 provider를 unavailable로 유지하고 여러 개이면 암시적으로 하나를 선택하지 않고 준비를 중지합니다. 재생성할 때 stale local workspace id는 제거합니다.
 Local runtime environment generator는 applied subscription 및 resource group도 bounded Azure
 read-investigation adapter에 제공합니다. Terraform이 optional development operations gateway URL과
 Easy Auth audience를 모두 출력하면 NSG 및 VNet peering 질문은 local Azure CLI identity로 gateway의

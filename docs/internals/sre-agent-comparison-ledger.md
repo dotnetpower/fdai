@@ -966,6 +966,22 @@ Question generation uses these contracts to vary wording without changing the in
 | Azure SRE Agent | 4 | 4 | 4 | 3 | 3 | 4 | 4 | 26/28 |
 | FDAI | 4 | 3 | 4 | 4 | 4 | 3 | 4 | 26/28 |
 
+### RUN-0039: Q001-Q120 full FDAI live execution
+
+| Field | Value |
+|-------|-------|
+| Question IDs | `Q001-Q120` |
+| Executed | `2026-08-03` |
+| Runtime | Azure-backed ephemeral Operator API at integration head `e3b313aa6` |
+| Receipt policy | Local append-only ledger, mode `0600`; Q016-Q120 retain answer digest and length, not answer bodies. |
+| Coverage | 120 of 120 question IDs have a latest successful HTTP receipt. |
+| Modern verification | Q016-Q120: 34 verified and 71 explicit fail-closed results. Q001-Q015 retain the earlier legacy receipt shape. |
+| Fail-closed groups | Prior context required (18), exact action context required (12), log query unavailable (14), subscription evidence partial or unavailable (16), inventory evidence unavailable (8), network probe unavailable (2), intent graph unavailable (1). |
+| Transient recovery | Nine initial HTTP 502 provider/runtime failures passed on one bounded retry; no latest receipt remains failed. |
+| Live-found defect | Q018 treated an unavailable active-view inventory plan as a complete empty client snapshot. Commits `f8833cd97` and `e3b313aa6` now hold unavailable intent graphs and uncompiled inventory intents under server authority. |
+| Validation | Central receipts cover the complete integration range. The final changed suites passed 12968 tests for the batch, then 2501 and 2502 focused tests for the two live-found fixes; strict mypy and every fast gate passed. |
+| Independent review | Eleven knowledge hardening rounds plus final code and live-matrix certification concluded: `No Medium+ findings remain.` |
+
 ## Question catalog
 
 The catalog contains 120 stable seeds. `compared` means at least one immutable run exists;
@@ -1005,96 +1021,96 @@ existing seed.
 | Q028 | en | Change attribution | Who changed this resource most recently, and what did they do? | `CHANGE` | compared |
 | Q029 | ko | Change history | 장애 직전에 발생한 배포와 설정 변경을 찾아줘. | `CHANGE` | compared |
 | Q030 | en | Change history | Build a change timeline for the hour before the incident. | `CHANGE` | compared |
-| Q031 | ko | Guest activity | 운영 체제가 내부에서 종료된 흔적이 있어? | `CHANGE` | queued |
-| Q032 | en | Guest activity | Was the shutdown initiated inside the guest operating system? | `CHANGE` | queued |
-| Q033 | ko | Authorization | 왜 이 리소스 상태를 읽을 수 없어? | `FAILURE` | queued |
-| Q034 | en | Authorization | Which health checks were blocked by authorization or scope? | `FAILURE` | queued |
-| Q035 | ko | Freshness | 지금 답변에 사용한 가장 오래된 데이터는 언제 것이야? | `FAILURE` | queued |
-| Q036 | en | Freshness | Which evidence is stale, and how does that limit the conclusion? | `FAILURE` | queued |
-| Q037 | ko | Metrics | 지난 한 시간 동안 CPU가 급증한 리소스를 찾아줘. | `DIAG` | queued |
-| Q038 | en | Metrics | Which resources had abnormal CPU in the last hour? | `DIAG` | queued |
-| Q039 | ko | Metrics | 메모리 부족 징후와 영향을 받은 서비스를 보여줘. | `DIAG` | queued |
-| Q040 | en | Metrics | Compare memory pressure before and after the incident. | `DIAG` | queued |
-| Q041 | ko | Metrics | 오류율이 오른 시점과 가장 관련 있는 변경은 뭐야? | `DIAG` | queued |
-| Q042 | en | Metrics | Correlate the error-rate spike with deployments and configuration changes. | `DIAG` | queued |
-| Q043 | ko | Logs | 최근 30분의 실패 요청을 원인별로 요약해줘. | `DIAG` | queued |
-| Q044 | en | Logs | Find failed requests in the last 30 minutes and group them by cause. | `DIAG` | queued |
-| Q045 | ko | Logs | 이 오류가 처음 나타난 로그 시점은 언제야? | `DIAG` | queued |
-| Q046 | en | Logs | When did this error signature first and most recently appear? | `DIAG` | queued |
-| Q047 | ko | Logs | 민감한 값을 노출하지 말고 관련 로그 예시를 보여줘. | `DIAG` | queued |
-| Q048 | en | Logs | Show bounded representative logs with sensitive fields redacted. | `DIAG` | queued |
-| Q049 | ko | Traces | 가장 느린 분산 추적에서 병목 구간을 찾아줘. | `DIAG` | queued |
-| Q050 | en | Traces | Show the slowest distributed trace and identify its bottleneck span. | `DIAG` | queued |
-| Q051 | ko | Dependencies | 어떤 종속 서비스가 응답 지연을 만들었어? | `DIAG` | queued |
-| Q052 | en | Dependencies | Which downstream dependency contributed most to latency? | `DIAG` | queued |
-| Q053 | ko | Database diagnosis | 데이터베이스 CPU 상승과 관련된 느린 쿼리를 찾아줘. | `DIAG` | queued |
-| Q054 | en | Database diagnosis | Which database query best explains the CPU spike? | `DIAG` | queued |
-| Q055 | ko | Kubernetes diagnosis | 이 파드가 반복해서 재시작하는 이유가 뭐야? | `DIAG` | queued |
-| Q056 | en | Kubernetes diagnosis | Why is this pod restarting or being throttled? | `DIAG` | queued |
-| Q057 | ko | Capacity | 현재 용량으로 트래픽 증가를 감당할 수 있어? | `DIAG` | queued |
-| Q058 | en | Capacity | Does this service have enough capacity for the observed load trend? | `DIAG` | queued |
-| Q059 | ko | Query execution | 지난 15분의 오류를 찾는 안전한 KQL을 실행해줘. | `DIAG` | queued |
-| Q060 | en | Query execution | Run a bounded read-only query for errors from the last 15 minutes. | `DIAG` | queued |
-| Q061 | ko | Incident summary | 가장 최근 인시던트를 핵심만 요약해줘. | `DIAG` | queued |
-| Q062 | en | Incident summary | Summarize the latest incident, impact, status, and outcome. | `DIAG` | queued |
-| Q063 | ko | Root cause | 이 인시던트의 검증된 근본 원인은 뭐야? | `DIAG` | queued |
-| Q064 | en | Root cause | What is the strongest supported root cause for this incident? | `DIAG` | queued |
-| Q065 | ko | Incident timeline | 경고부터 복구까지 타임라인을 보여줘. | `DIAG` | queued |
-| Q066 | en | Incident timeline | Build an ordered timeline from first signal through recovery. | `DIAG` | queued |
-| Q067 | ko | Hypotheses | 가능한 원인을 근거와 반증까지 포함해 순위를 매겨줘. | `DIAG` | queued |
-| Q068 | en | Hypotheses | Rank the causal hypotheses with supporting and contradictory evidence. | `DIAG` | queued |
-| Q069 | ko | Similar incidents | 이전에도 같은 문제가 있었고 무엇이 효과가 있었어? | `KNOWLEDGE` | queued |
-| Q070 | en | Similar incidents | Has this happened before, and which prior recovery actually worked? | `KNOWLEDGE` | queued |
-| Q071 | ko | Impact | 이 장애가 사용자와 서비스 수준 목표에 미친 영향은 뭐야? | `DIAG` | queued |
-| Q072 | en | Impact | Quantify the customer and service-level impact of this incident. | `DIAG` | queued |
-| Q073 | ko | Next action | 지금 가장 먼저 확인하거나 완화해야 할 것은 뭐야? | `DIAG` | queued |
-| Q074 | en | Next action | What is the safest highest-value next step? | `DIAG` | queued |
-| Q075 | ko | Evidence | 그 결론을 뒷받침하는 증거만 보여줘. | `DIAG` | queued |
-| Q076 | en | Evidence | Show only the evidence consumed by the conclusion. | `DIAG` | queued |
-| Q077 | ko | Uncertainty | 아직 확인하지 못한 부분과 필요한 추가 증거는 뭐야? | `FAILURE` | queued |
-| Q078 | en | Uncertainty | What remains unknown, and which evidence would resolve it? | `FAILURE` | queued |
-| Q079 | ko | Deep investigation | 이 문제를 깊이 조사하고 진행 단계를 알려줘. | `DIAG` | queued |
-| Q080 | en | Deep investigation | Start a bounded deep investigation and report each evidence phase. | `DIAG` | queued |
-| Q081 | ko | Topology | 애플리케이션에서 데이터베이스까지 의존 관계를 보여줘. | `TOPOLOGY` | queued |
-| Q082 | en | Topology | Map the dependencies from the application to its database. | `TOPOLOGY` | queued |
-| Q083 | ko | Network path | 앱에서 데이터베이스까지 실제로 통신할 수 있어? | `TOPOLOGY` | queued |
-| Q084 | en | Network path | Can the application reach the database end to end? | `TOPOLOGY` | queued |
-| Q085 | ko | Network policy | 이 네트워크 보안 그룹이 허용하는 인바운드 포트는 뭐야? | `TOPOLOGY` | queued |
-| Q086 | en | Network policy | Which inbound ports are allowed by this network security group? | `TOPOLOGY` | queued |
-| Q087 | ko | Peering | 이 가상 네트워크의 피어링 상태와 제한을 알려줘. | `TOPOLOGY` | queued |
-| Q088 | en | Peering | Show this virtual network's peerings, direction, and configuration limits. | `TOPOLOGY` | queued |
-| Q089 | ko | Blast radius | 이 데이터베이스가 실패하면 어떤 서비스가 영향을 받아? | `TOPOLOGY` | queued |
-| Q090 | en | Blast radius | What is the bounded impact scope if this database fails? | `TOPOLOGY` | queued |
-| Q091 | ko | Proposal | 실행하지 말고 안전한 완화 방안만 제안해줘. | `PROPOSE` | queued |
-| Q092 | en | Proposal | Propose a mitigation without executing any change. | `PROPOSE` | queued |
-| Q093 | ko | Proposal safety | 제안의 영향 범위, 중지 조건, 롤백 방법을 보여줘. | `PROPOSE` | queued |
-| Q094 | en | Proposal safety | Show the proposal's impact limit, stop condition, dry run, and rollback. | `PROPOSE` | queued |
-| Q095 | ko | Approval | 이 변경에 사람 승인이 필요한 이유와 승인자를 알려줘. | `PROPOSE` | queued |
-| Q096 | en | Approval | Why does this action require human approval, and who may approve it? | `PROPOSE` | queued |
-| Q097 | ko | Execution | 승인된 완화 작업을 실행하고 진행 상황을 보여줘. | `EXECUTE` | queued |
-| Q098 | en | Execution | Execute the approved mitigation and stream its governed progress. | `EXECUTE` | queued |
-| Q099 | ko | Execution verification | 작업 후 문제가 해결됐는지 어떤 기준으로 확인했어? | `EXECUTE` | queued |
-| Q100 | en | Execution verification | Verify the mitigation outcome against explicit recovery criteria. | `EXECUTE` | queued |
-| Q101 | ko | Idempotency | 같은 실행 요청을 다시 보내도 중복 변경이 생기지 않아? | `EXECUTE` | queued |
-| Q102 | en | Idempotency | Prove that retrying this action will not create a duplicate change. | `EXECUTE` | queued |
-| Q103 | ko | Cancellation | 진행 중인 조사를 취소하고 중단된 범위를 알려줘. | `CONTEXT` | queued |
-| Q104 | en | Cancellation | Cancel the active investigation and confirm what work stopped. | `CONTEXT` | queued |
-| Q105 | ko | Knowledge | 이 문제와 관련된 런북 내용을 출처와 함께 알려줘. | `KNOWLEDGE` | queued |
-| Q106 | en | Knowledge | What does the applicable runbook recommend, with source citations? | `KNOWLEDGE` | queued |
-| Q107 | ko | Knowledge freshness | 연결된 지식 원본과 마지막 갱신 시점을 보여줘. | `KNOWLEDGE` | queued |
-| Q108 | en | Knowledge freshness | Which knowledge sources are connected, authorized, and fresh? | `KNOWLEDGE` | queued |
-| Q109 | ko | Memory | 이 해결 방법을 기억할 때 무엇을 저장하고 누가 볼 수 있어? | `KNOWLEDGE` | queued |
-| Q110 | en | Memory | What would be stored as durable memory, with consent and provenance? | `KNOWLEDGE` | queued |
-| Q111 | ko | Learning | 이 인시던트에서 학습한 내용과 재사용 조건은 뭐야? | `KNOWLEDGE` | queued |
-| Q112 | en | Learning | What reusable lesson was learned, reviewed, and retained? | `KNOWLEDGE` | queued |
-| Q113 | ko | Multi-turn | 아까 두 번째로 말한 리소스 상태를 다시 확인해줘. | `CONTEXT` | queued |
-| Q114 | en | Multi-turn | Recheck the second resource from the previous result. | `CONTEXT` | queued |
-| Q115 | ko | Ambiguity | 이름이 같은 리소스 중 어떤 것을 말하는지 먼저 물어봐. | `CONTEXT` | queued |
-| Q116 | en | Ambiguity | Ask me to choose when multiple resources match equally. | `CONTEXT` | queued |
-| Q117 | ko | Localization | 같은 근거를 유지하면서 한국어 표로 간단히 답해줘. | `FORMAT` | queued |
-| Q118 | en | Presentation | Give the same verified answer as a concise table. | `FORMAT` | queued |
-| Q119 | ko | Failure honesty | 한 데이터 원본이 실패해도 확인된 사실과 한계를 구분해줘. | `FAILURE` | queued |
-| Q120 | en | Failure honesty | Answer with supported facts and explicit limits when one source is unavailable. | `FAILURE` | queued |
+| Q031 | ko | Guest activity | 운영 체제가 내부에서 종료된 흔적이 있어? | `CHANGE` | compared |
+| Q032 | en | Guest activity | Was the shutdown initiated inside the guest operating system? | `CHANGE` | compared |
+| Q033 | ko | Authorization | 왜 이 리소스 상태를 읽을 수 없어? | `FAILURE` | compared |
+| Q034 | en | Authorization | Which health checks were blocked by authorization or scope? | `FAILURE` | compared |
+| Q035 | ko | Freshness | 지금 답변에 사용한 가장 오래된 데이터는 언제 것이야? | `FAILURE` | compared |
+| Q036 | en | Freshness | Which evidence is stale, and how does that limit the conclusion? | `FAILURE` | compared |
+| Q037 | ko | Metrics | 지난 한 시간 동안 CPU가 급증한 리소스를 찾아줘. | `DIAG` | compared |
+| Q038 | en | Metrics | Which resources had abnormal CPU in the last hour? | `DIAG` | compared |
+| Q039 | ko | Metrics | 메모리 부족 징후와 영향을 받은 서비스를 보여줘. | `DIAG` | compared |
+| Q040 | en | Metrics | Compare memory pressure before and after the incident. | `DIAG` | compared |
+| Q041 | ko | Metrics | 오류율이 오른 시점과 가장 관련 있는 변경은 뭐야? | `DIAG` | compared |
+| Q042 | en | Metrics | Correlate the error-rate spike with deployments and configuration changes. | `DIAG` | compared |
+| Q043 | ko | Logs | 최근 30분의 실패 요청을 원인별로 요약해줘. | `DIAG` | compared |
+| Q044 | en | Logs | Find failed requests in the last 30 minutes and group them by cause. | `DIAG` | compared |
+| Q045 | ko | Logs | 이 오류가 처음 나타난 로그 시점은 언제야? | `DIAG` | compared |
+| Q046 | en | Logs | When did this error signature first and most recently appear? | `DIAG` | compared |
+| Q047 | ko | Logs | 민감한 값을 노출하지 말고 관련 로그 예시를 보여줘. | `DIAG` | compared |
+| Q048 | en | Logs | Show bounded representative logs with sensitive fields redacted. | `DIAG` | compared |
+| Q049 | ko | Traces | 가장 느린 분산 추적에서 병목 구간을 찾아줘. | `DIAG` | compared |
+| Q050 | en | Traces | Show the slowest distributed trace and identify its bottleneck span. | `DIAG` | compared |
+| Q051 | ko | Dependencies | 어떤 종속 서비스가 응답 지연을 만들었어? | `DIAG` | compared |
+| Q052 | en | Dependencies | Which downstream dependency contributed most to latency? | `DIAG` | compared |
+| Q053 | ko | Database diagnosis | 데이터베이스 CPU 상승과 관련된 느린 쿼리를 찾아줘. | `DIAG` | compared |
+| Q054 | en | Database diagnosis | Which database query best explains the CPU spike? | `DIAG` | compared |
+| Q055 | ko | Kubernetes diagnosis | 이 파드가 반복해서 재시작하는 이유가 뭐야? | `DIAG` | compared |
+| Q056 | en | Kubernetes diagnosis | Why is this pod restarting or being throttled? | `DIAG` | compared |
+| Q057 | ko | Capacity | 현재 용량으로 트래픽 증가를 감당할 수 있어? | `DIAG` | compared |
+| Q058 | en | Capacity | Does this service have enough capacity for the observed load trend? | `DIAG` | compared |
+| Q059 | ko | Query execution | 지난 15분의 오류를 찾는 안전한 KQL을 실행해줘. | `DIAG` | compared |
+| Q060 | en | Query execution | Run a bounded read-only query for errors from the last 15 minutes. | `DIAG` | compared |
+| Q061 | ko | Incident summary | 가장 최근 인시던트를 핵심만 요약해줘. | `DIAG` | compared |
+| Q062 | en | Incident summary | Summarize the latest incident, impact, status, and outcome. | `DIAG` | compared |
+| Q063 | ko | Root cause | 이 인시던트의 검증된 근본 원인은 뭐야? | `DIAG` | compared |
+| Q064 | en | Root cause | What is the strongest supported root cause for this incident? | `DIAG` | compared |
+| Q065 | ko | Incident timeline | 경고부터 복구까지 타임라인을 보여줘. | `DIAG` | compared |
+| Q066 | en | Incident timeline | Build an ordered timeline from first signal through recovery. | `DIAG` | compared |
+| Q067 | ko | Hypotheses | 가능한 원인을 근거와 반증까지 포함해 순위를 매겨줘. | `DIAG` | compared |
+| Q068 | en | Hypotheses | Rank the causal hypotheses with supporting and contradictory evidence. | `DIAG` | compared |
+| Q069 | ko | Similar incidents | 이전에도 같은 문제가 있었고 무엇이 효과가 있었어? | `KNOWLEDGE` | compared |
+| Q070 | en | Similar incidents | Has this happened before, and which prior recovery actually worked? | `KNOWLEDGE` | compared |
+| Q071 | ko | Impact | 이 장애가 사용자와 서비스 수준 목표에 미친 영향은 뭐야? | `DIAG` | compared |
+| Q072 | en | Impact | Quantify the customer and service-level impact of this incident. | `DIAG` | compared |
+| Q073 | ko | Next action | 지금 가장 먼저 확인하거나 완화해야 할 것은 뭐야? | `DIAG` | compared |
+| Q074 | en | Next action | What is the safest highest-value next step? | `DIAG` | compared |
+| Q075 | ko | Evidence | 그 결론을 뒷받침하는 증거만 보여줘. | `DIAG` | compared |
+| Q076 | en | Evidence | Show only the evidence consumed by the conclusion. | `DIAG` | compared |
+| Q077 | ko | Uncertainty | 아직 확인하지 못한 부분과 필요한 추가 증거는 뭐야? | `FAILURE` | compared |
+| Q078 | en | Uncertainty | What remains unknown, and which evidence would resolve it? | `FAILURE` | compared |
+| Q079 | ko | Deep investigation | 이 문제를 깊이 조사하고 진행 단계를 알려줘. | `DIAG` | compared |
+| Q080 | en | Deep investigation | Start a bounded deep investigation and report each evidence phase. | `DIAG` | compared |
+| Q081 | ko | Topology | 애플리케이션에서 데이터베이스까지 의존 관계를 보여줘. | `TOPOLOGY` | compared |
+| Q082 | en | Topology | Map the dependencies from the application to its database. | `TOPOLOGY` | compared |
+| Q083 | ko | Network path | 앱에서 데이터베이스까지 실제로 통신할 수 있어? | `TOPOLOGY` | compared |
+| Q084 | en | Network path | Can the application reach the database end to end? | `TOPOLOGY` | compared |
+| Q085 | ko | Network policy | 이 네트워크 보안 그룹이 허용하는 인바운드 포트는 뭐야? | `TOPOLOGY` | compared |
+| Q086 | en | Network policy | Which inbound ports are allowed by this network security group? | `TOPOLOGY` | compared |
+| Q087 | ko | Peering | 이 가상 네트워크의 피어링 상태와 제한을 알려줘. | `TOPOLOGY` | compared |
+| Q088 | en | Peering | Show this virtual network's peerings, direction, and configuration limits. | `TOPOLOGY` | compared |
+| Q089 | ko | Blast radius | 이 데이터베이스가 실패하면 어떤 서비스가 영향을 받아? | `TOPOLOGY` | compared |
+| Q090 | en | Blast radius | What is the bounded impact scope if this database fails? | `TOPOLOGY` | compared |
+| Q091 | ko | Proposal | 실행하지 말고 안전한 완화 방안만 제안해줘. | `PROPOSE` | compared |
+| Q092 | en | Proposal | Propose a mitigation without executing any change. | `PROPOSE` | compared |
+| Q093 | ko | Proposal safety | 제안의 영향 범위, 중지 조건, 롤백 방법을 보여줘. | `PROPOSE` | compared |
+| Q094 | en | Proposal safety | Show the proposal's impact limit, stop condition, dry run, and rollback. | `PROPOSE` | compared |
+| Q095 | ko | Approval | 이 변경에 사람 승인이 필요한 이유와 승인자를 알려줘. | `PROPOSE` | compared |
+| Q096 | en | Approval | Why does this action require human approval, and who may approve it? | `PROPOSE` | compared |
+| Q097 | ko | Execution | 승인된 완화 작업을 실행하고 진행 상황을 보여줘. | `EXECUTE` | compared |
+| Q098 | en | Execution | Execute the approved mitigation and stream its governed progress. | `EXECUTE` | compared |
+| Q099 | ko | Execution verification | 작업 후 문제가 해결됐는지 어떤 기준으로 확인했어? | `EXECUTE` | compared |
+| Q100 | en | Execution verification | Verify the mitigation outcome against explicit recovery criteria. | `EXECUTE` | compared |
+| Q101 | ko | Idempotency | 같은 실행 요청을 다시 보내도 중복 변경이 생기지 않아? | `EXECUTE` | compared |
+| Q102 | en | Idempotency | Prove that retrying this action will not create a duplicate change. | `EXECUTE` | compared |
+| Q103 | ko | Cancellation | 진행 중인 조사를 취소하고 중단된 범위를 알려줘. | `CONTEXT` | compared |
+| Q104 | en | Cancellation | Cancel the active investigation and confirm what work stopped. | `CONTEXT` | compared |
+| Q105 | ko | Knowledge | 이 문제와 관련된 런북 내용을 출처와 함께 알려줘. | `KNOWLEDGE` | compared |
+| Q106 | en | Knowledge | What does the applicable runbook recommend, with source citations? | `KNOWLEDGE` | compared |
+| Q107 | ko | Knowledge freshness | 연결된 지식 원본과 마지막 갱신 시점을 보여줘. | `KNOWLEDGE` | compared |
+| Q108 | en | Knowledge freshness | Which knowledge sources are connected, authorized, and fresh? | `KNOWLEDGE` | compared |
+| Q109 | ko | Memory | 이 해결 방법을 기억할 때 무엇을 저장하고 누가 볼 수 있어? | `KNOWLEDGE` | compared |
+| Q110 | en | Memory | What would be stored as durable memory, with consent and provenance? | `KNOWLEDGE` | compared |
+| Q111 | ko | Learning | 이 인시던트에서 학습한 내용과 재사용 조건은 뭐야? | `KNOWLEDGE` | compared |
+| Q112 | en | Learning | What reusable lesson was learned, reviewed, and retained? | `KNOWLEDGE` | compared |
+| Q113 | ko | Multi-turn | 아까 두 번째로 말한 리소스 상태를 다시 확인해줘. | `CONTEXT` | compared |
+| Q114 | en | Multi-turn | Recheck the second resource from the previous result. | `CONTEXT` | compared |
+| Q115 | ko | Ambiguity | 이름이 같은 리소스 중 어떤 것을 말하는지 먼저 물어봐. | `CONTEXT` | compared |
+| Q116 | en | Ambiguity | Ask me to choose when multiple resources match equally. | `CONTEXT` | compared |
+| Q117 | ko | Localization | 같은 근거를 유지하면서 한국어 표로 간단히 답해줘. | `FORMAT` | compared |
+| Q118 | en | Presentation | Give the same verified answer as a concise table. | `FORMAT` | compared |
+| Q119 | ko | Failure honesty | 한 데이터 원본이 실패해도 확인된 사실과 한계를 구분해줘. | `FAILURE` | compared |
+| Q120 | en | Failure honesty | Answer with supported facts and explicit limits when one source is unavailable. | `FAILURE` | compared |
 
 ## Comparison sequence
 
@@ -1113,6 +1129,7 @@ moving on. The recommended order is:
 
 | To learn about | Read |
 |----------------|------|
+| Manual browser retest prompts for Q001-Q120 | [Browser Session Test Prompts](browser-session-test-prompts-q001-q120.md) |
 | Existing 56-scenario response analysis | [Azure SRE Agent vs FDAI Chat Response Gap Analysis](sre-agent-chat-response-gap-analysis.md) |
 | Continuous answer evaluation and promotion | [Conversation Assurance](../roadmap/decisioning/conversation-assurance.md) |
 | Local nonduplicate question workflow | [Conversational assurance skill](../../.github/skills/conversational-assurance/SKILL.md) |

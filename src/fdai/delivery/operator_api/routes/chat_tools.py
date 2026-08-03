@@ -137,7 +137,7 @@ class ReadModelChatTools:
             return {
                 "tool": tool_name,
                 "authority": "server_read_model",
-                "result": hil_page.to_dict(),
+                "result": _safe_hil_page(hil_page.to_dict()),
             }
         if tool_name == "query_audit":
             _reject_unknown_arguments(arguments, {"limit"})
@@ -145,7 +145,7 @@ class ReadModelChatTools:
             return {
                 "tool": tool_name,
                 "authority": "server_read_model",
-                "result": audit_page.to_dict(),
+                "result": _safe_audit_page(audit_page.to_dict()),
             }
         if tool_name == "get_kpi":
             _reject_unknown_arguments(arguments, set())
@@ -153,7 +153,7 @@ class ReadModelChatTools:
             return {
                 "tool": tool_name,
                 "authority": "server_read_model",
-                "result": metrics.to_dict(),
+                "result": _safe_kpi(metrics.to_dict()),
             }
         if tool_name == "search_conversations" and self.conversation_search is not None:
             _reject_unknown_arguments(arguments, {"query"})
@@ -208,14 +208,14 @@ class ReadModelChatTools:
             return {
                 "tool": "list_hil",
                 "authority": "server_read_model",
-                "result": hil_page.to_dict(),
+                "result": _safe_hil_page(hil_page.to_dict()),
             }
         if _AUDIT.search(prompt):
             audit_page = await self.read_model.list_audit(limit=20)
             return {
                 "tool": "query_audit",
                 "authority": "server_read_model",
-                "result": audit_page.to_dict(),
+                "result": _safe_audit_page(audit_page.to_dict()),
             }
         if _INCIDENTS.search(prompt):
             incident_page = await self.read_model.list_incidents(
@@ -231,9 +231,115 @@ class ReadModelChatTools:
             return {
                 "tool": "get_kpi",
                 "authority": "server_read_model",
-                "result": metrics.to_dict(),
+                "result": _safe_kpi(metrics.to_dict()),
             }
         return None
+
+
+def render_read_model_answer(evidence: Mapping[str, Any], *, locale: str | None) -> str | None:
+    tool = evidence.get("tool")
+    result = evidence.get("result")
+    if not isinstance(tool, str) or not isinstance(result, Mapping):
+        return None
+    korean = bool(locale and locale.casefold().startswith("ko"))
+    if tool == "list_hil":
+        total = _integer(result.get("total"))
+        return (
+            f"현재 pending 사람 승인은 {total}개입니다. 세부 내용은 Approver 권한 "
+            "surface에서만 확인할 수 있습니다."
+            if korean
+            else (
+                f"There are {total} pending human approval(s). Details are available only "
+                "on an Approver-authorized surface."
+            )
+        )
+    if tool == "query_audit":
+        items = [item for item in result.get("items", []) if isinstance(item, Mapping)]
+        heading = "최근 bounded audit 기록:" if korean else "Recent bounded audit records:"
+        lines = [
+            f"- {_integer(item.get('seq'))}: {_text(item.get('action_kind'))}, "
+            f"{_text(item.get('mode'))}, {_text(item.get('recorded_at'))}"
+            for item in items[:20]
+        ]
+        return f"{heading}\n" + ("\n".join(lines) if lines else "- none")
+    if tool == "list_incidents":
+        items = [item for item in result.get("items", []) if isinstance(item, Mapping)]
+        heading = "최근 incident 요약:" if korean else "Recent incident summaries:"
+        lines = [
+            f"- {_text(item.get('correlation_id'))}: {_text(item.get('title'))}, "
+            f"{_text(item.get('status'))}, {_text(item.get('severity'))}"
+            for item in items[:20]
+        ]
+        return f"{heading}\n" + ("\n".join(lines) if lines else "- none")
+    if tool == "get_kpi":
+        events = _integer(result.get("event_count"))
+        pending = _integer(result.get("hil_pending"))
+        shadow = result.get("shadow_share")
+        enforce = result.get("enforce_share")
+        return (
+            f"현재 event는 {events}개, pending 사람 승인은 {pending}개, shadow share는 "
+            f"{shadow}, enforce share는 {enforce}입니다."
+            if korean
+            else (
+                f"Current events: {events}; pending human approvals: {pending}; "
+                f"shadow share: {shadow}; enforce share: {enforce}."
+            )
+        )
+    return None
+
+
+def read_model_evidence_refs(evidence: Mapping[str, Any]) -> tuple[str, ...]:
+    tool = evidence.get("tool")
+    result = evidence.get("result")
+    if not isinstance(tool, str) or not isinstance(result, Mapping):
+        return ()
+    if tool == "query_audit":
+        return tuple(
+            f"audit:{_text(item.get('correlation_id'))}:{_integer(item.get('seq'))}"
+            for item in result.get("items", [])
+            if isinstance(item, Mapping) and _integer(item.get("seq")) > 0
+        )
+    if tool == "list_incidents":
+        return tuple(
+            f"incident:{_text(item.get('correlation_id'))}"
+            for item in result.get("items", [])
+            if isinstance(item, Mapping) and _text(item.get("correlation_id")) != "unknown"
+        )
+    return (f"read-model:{tool}",)
+
+
+def _safe_hil_page(payload: Mapping[str, Any]) -> dict[str, Any]:
+    return {"total": _integer(payload.get("total")), "details_redacted": True}
+
+
+def _safe_audit_page(payload: Mapping[str, Any]) -> dict[str, Any]:
+    items = [item for item in payload.get("items", []) if isinstance(item, Mapping)]
+    return {
+        "items": [
+            {
+                "seq": item.get("seq"),
+                "correlation_id": item.get("correlation_id"),
+                "action_kind": item.get("action_kind"),
+                "mode": item.get("mode"),
+                "recorded_at": item.get("recorded_at"),
+            }
+            for item in items[:20]
+        ],
+        "next_cursor": payload.get("next_cursor"),
+    }
+
+
+def _safe_kpi(payload: Mapping[str, Any]) -> dict[str, Any]:
+    keys = ("event_count", "shadow_share", "enforce_share", "hil_pending", "last_recorded_at")
+    return {key: payload.get(key) for key in keys}
+
+
+def _integer(value: object) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
+def _text(value: object) -> str:
+    return " ".join(value.split())[:512] if isinstance(value, str) and value.strip() else "unknown"
 
 
 def _limit_schema() -> dict[str, object]:
@@ -265,4 +371,4 @@ def _incident_status(
     return cast(Literal["active", "resolved", "all"], value)
 
 
-__all__ = ["ReadModelChatTools"]
+__all__ = ["ReadModelChatTools", "read_model_evidence_refs", "render_read_model_answer"]

@@ -4,6 +4,7 @@ export interface BackendTurn {
   readonly role: "user" | "assistant";
   readonly content: string;
   readonly resourceContext?: ResourceContext;
+  readonly evidenceFreshnessContext?: EvidenceFreshnessContext;
 }
 
 export interface ResourceContext {
@@ -13,6 +14,14 @@ export interface ResourceContext {
   readonly resource_group?: string;
   readonly event_at?: string;
   readonly event_status?: string;
+}
+
+export interface EvidenceFreshnessContext {
+  readonly source: string;
+  readonly observed_at: string;
+  readonly window_start: string;
+  readonly status: "matched" | "partial" | "none" | "unavailable";
+  readonly truncated: boolean;
 }
 
 export interface RouterCandidate {
@@ -382,6 +391,7 @@ export type ProgressiveAnswer = Answer & {
   readonly confirmed?: ConfirmedAnswerSegment;
   readonly actionDraft?: ActionDraft;
   readonly resourceContext?: ResourceContext;
+  readonly evidenceFreshnessContext?: EvidenceFreshnessContext;
   readonly modelTrace?: ModelTrace;
   readonly turnTiming?: TurnTiming;
   readonly trajectoryDetail?: TrajectoryDetail;

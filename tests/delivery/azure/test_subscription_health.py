@@ -11,6 +11,7 @@ from fdai.delivery.azure.subscription_health import (
     AzureSubscriptionHealthConfig,
     AzureSubscriptionHealthProvider,
     AzureSubscriptionHealthScope,
+    MetricProbeSpec,
 )
 from fdai.shared.providers.workload_identity import IdentityToken, WorkloadIdentity
 
@@ -809,3 +810,67 @@ async def test_subscription_health_prefilters_shared_arm_type_by_kind() -> None:
 
     assert result["status"] == "matched"
     assert result["resource_count"] == 0
+
+
+async def test_metric_comparison_queries_same_resource_before_and_after_anchor() -> None:
+    metric_calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal metric_calls
+        if request.method == "POST":
+            return httpx.Response(200, json={"data": [_resource_rows()[0]]})
+        metric_calls += 1
+        value = 40.0 if metric_calls == 1 else 70.0
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "timeseries": [
+                            {
+                                "data": [
+                                    {
+                                        "timeStamp": "2026-07-22T04:30:00Z",
+                                        "maximum": value,
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = AzureSubscriptionHealthProvider(
+            config=AzureSubscriptionHealthConfig(
+                subscription_id="subscription-example",
+                resource_groups=("rg-example",),
+                metric_probes=(
+                    MetricProbeSpec(
+                        "microsoft.compute/virtualmachines",
+                        "memory_percent",
+                        "Maximum",
+                        "gt",
+                        90.0,
+                    ),
+                ),
+            ),
+            identity=_Identity(),
+            http_client=client,
+        )
+        result = await provider.query_metric_comparison(
+            anchor_at="2026-07-22T05:00:00Z",
+            metric_family="memory",
+            window_seconds=3_600,
+        )
+
+    assert metric_calls == 2
+    assert result["status"] == "matched"
+    assert result["metric_checked"] == 1
+    comparison = result["metric_comparisons"][0]
+    assert comparison["before_value"] == 40.0
+    assert comparison["after_value"] == 70.0
+    assert comparison["delta"] == 30.0
+    assert comparison["before_points"] == 1
+    assert comparison["after_points"] == 1

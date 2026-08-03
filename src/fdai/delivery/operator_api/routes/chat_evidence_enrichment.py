@@ -17,6 +17,10 @@ from fdai.core.read_investigation import (
     resource_name_from_question,
 )
 from fdai.delivery.agent_introspection_bus import addressed_agent
+from fdai.delivery.operator_api.routes.chat_action_context import needs_action_context
+from fdai.delivery.operator_api.routes.chat_conversation_context import (
+    needs_conversation_context,
+)
 from fdai.delivery.operator_api.routes.chat_data_sources import needs_read_source_evidence
 from fdai.delivery.operator_api.routes.chat_evidence import needs_operational_evidence
 from fdai.delivery.operator_api.routes.chat_evidence_branches import (
@@ -27,8 +31,10 @@ from fdai.delivery.operator_api.routes.chat_evidence_branches import (
 from fdai.delivery.operator_api.routes.chat_execution_output import inventory_execution_output
 from fdai.delivery.operator_api.routes.chat_inventory import (
     inventory_execution_query,
+    inventory_screen_scope_unavailable_evidence,
     needs_inventory_evidence,
 )
+from fdai.delivery.operator_api.routes.chat_log_query import needs_log_query
 from fdai.delivery.operator_api.routes.chat_preincident_activity import parse_preincident_activity
 from fdai.delivery.operator_api.routes.chat_prompt import (
     _AGENT_NAME_TOKEN,
@@ -121,6 +127,13 @@ _VIEW_EXPLANATION_INTENT = re.compile(
 _SELECTED_INCIDENT_REFERENCE = re.compile(
     r"\b(?:this|that|selected)\s+(?:incident|one)\b|\bwhat about (?:this|it)\b"
     r"|이\s*인시던트|선택한\s*인시던트|이거|이건|이게|얘는",
+    re.IGNORECASE,
+)
+_EXPLICIT_INVENTORY_READ = re.compile(
+    r"\b(?:show|list|display|find|query)\b.{0,48}\b(?:inventory|resources?)\b|"
+    r"\b(?:inventory|resources?)\b.{0,48}\b(?:show|list|display|find|query)\b|"
+    r"(?:인벤토리|inventory|리소스).{0,32}(?:보여|목록|조회)|"
+    r"(?:보여|목록|조회).{0,32}(?:인벤토리|inventory|리소스)",
     re.IGNORECASE,
 )
 _EXPLICIT_TOOL_VERBS = frozenset(schema.verb for schema in default_tool_schemas())
@@ -234,6 +247,8 @@ def _screen_incident_context(
 
     route = str(view_context.get("routeId") or "").lower()
     if route == "incidents":
+        if _EXPLICIT_INVENTORY_READ.search(prompt):
+            return None
         records = view_context.get("records")
         selected = records.get("selected_incident") if isinstance(records, Mapping) else None
         incident = selected[0] if isinstance(selected, list) and len(selected) == 1 else None
@@ -417,16 +432,27 @@ async def _with_tool_evidence(
     resolver: ChatToolResolver | None,
     *,
     principal_id: str,
+    conversation_context: Mapping[str, str] | None = None,
     progress_observer: AgentProgressObserver | None = None,
 ) -> dict[str, Any]:
     """Replace client-supplied tool output with a server-owned result."""
 
     enriched = dict(view_context)
+    verified_prior_context = enriched.pop("_verified_prior_context", None)
     enriched.pop("_tool_evidence", None)
     enriched.pop("_current_screen_tool", None)
+    scope_hold = inventory_screen_scope_unavailable_evidence(
+        enriched.get("_inventory_screen_scope")
+    )
+    if scope_hold is not None:
+        enriched["_tool_evidence"] = scope_hold
+        return enriched
     explicit_command = _is_explicit_tool_command(prompt)
     inventory_question = needs_inventory_evidence(prompt)
     subscription_health_question = needs_subscription_health(prompt)
+    log_question = needs_log_query(prompt)
+    action_context_question = needs_action_context(prompt)
+    conversation_context_question = needs_conversation_context(prompt)
     read_source_question = needs_read_source_evidence(prompt)
     t2_recovery_question = needs_t2_recovery_evidence(prompt)
     if (
@@ -436,6 +462,9 @@ async def _with_tool_evidence(
             and not explicit_command
             and not inventory_question
             and not subscription_health_question
+            and not log_question
+            and not action_context_question
+            and not conversation_context_question
             and not read_source_question
             and not t2_recovery_question
         )
@@ -443,6 +472,9 @@ async def _with_tool_evidence(
             not explicit_command
             and not inventory_question
             and not subscription_health_question
+            and not log_question
+            and not action_context_question
+            and not conversation_context_question
             and not read_source_question
             and not t2_recovery_question
             and ("_behavior_evidence" in enriched or "_operational_evidence" in enriched)
@@ -452,15 +484,28 @@ async def _with_tool_evidence(
     started_at = datetime.now(UTC)
     started = time.monotonic()
     progressive = getattr(resolver, "resolve_with_progress", None)
-    evidence = (
-        await progressive(
+    contextual = getattr(resolver, "resolve_with_context", None)
+    contextual_input: Mapping[str, Any] | None = (
+        conversation_context
+        if conversation_context is not None and conversation_context.get("kind") == "action"
+        else verified_prior_context
+        if isinstance(verified_prior_context, Mapping)
+        else None
+    )
+    if callable(contextual) and contextual_input is not None:
+        evidence = await contextual(
+            prompt,
+            principal_id=principal_id,
+            context=contextual_input,
+        )
+    elif progress_observer is not None and callable(progressive):
+        evidence = await progressive(
             prompt,
             principal_id=principal_id,
             progress_observer=progress_observer,
         )
-        if progress_observer is not None and callable(progressive)
-        else await resolver.resolve(prompt, principal_id=principal_id)
-    )
+    else:
+        evidence = await resolver.resolve(prompt, principal_id=principal_id)
     if evidence is not None and progress_observer is not None:
         execution_event = _tool_execution_progress_event(
             evidence,
