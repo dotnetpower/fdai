@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 6ae40e1625034bd4095032bc1c2d35ddecb48483
+translation_source_sha: 2955bf190c4a72487b433082e61df59bb7934291
 translation_revised: 2026-08-03
 ---
 
@@ -233,7 +233,13 @@ badge를 반복하지 않습니다. Transcript는
 browser scroll anchoring을 끄고 하단 공간을 추가하며 work가 streaming 중일 때만 latest edge를
 따라갑니다. Terminal completion에서는 첫 observed work group을 transcript edge 아래에 고정해 final
 answer layout이 완료되는 동안 execution outcome과 answer 시작을 함께 표시합니다. Timing이 없는 plan과 collaboration metadata는 decision context에 두고, 관측된 input, evidence
-및 tool, model call, verification 및 delivery만 timeline에 표시합니다. Answer text는 14 px 이상이고,
+및 tool, model call, verification 및 delivery만 timeline에 표시합니다.
+모든 waterfall lane은 label이 있는 하나의 start-to-completion scale과 quarter-window tick을 사용합니다.
+Phase envelope은 저채도 blue, evidence work는 green, model work는 plum, point-in-time turn record는
+neutral gray로 표시합니다. Terminal answer는 마지막 recorded timing completion보다 앞에 배치하지
+않으므로 answer-record timestamp가 이르더라도 generation과 verification이 delivery 뒤에 나타나지
+않습니다. Lane baseline과 tick은 completion progress bar와 구분됩니다.
+Answer text는 14 px 이상이고,
 main disclosure 높이는 44 px이며, 200% text resize와 320 CSS pixel에서 content loss 없이 reflow합니다.
 Transcript text는 15 px, trajectory heading은 13 px, event label은 12 px, control은 13 px을 사용하며
 compact trajectory metadata는 11 px 아래로 내려가지 않습니다. 게시된 screen snapshot은 5분 후 visibly stale 상태가 되고

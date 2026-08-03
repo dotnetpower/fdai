@@ -6461,6 +6461,26 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-execution-timeline > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
 .deck-execution-timeline > header h4 { margin: 0; font-size: .9375rem; }
 .deck-execution-timeline > header span { color: var(--fg-muted); font-size: .8125rem; }
+.deck-execution-axis {
+  min-height: 24px;
+  display: grid;
+  grid-template-columns: 62px minmax(120px, .95fr) minmax(100px, 1.45fr) 58px 70px 9px;
+  align-items: end;
+  gap: 7px;
+  color: var(--fg-muted);
+  font: 10px/1.2 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.deck-execution-axis-range {
+  grid-column: 3;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 6px;
+  min-width: 0;
+}
+.deck-execution-axis-range > span { text-align: center; }
+.deck-execution-axis-range time { white-space: nowrap; }
 .deck-execution-timeline > ol { display: block; margin: 0; padding: 0; list-style: none; color: var(--fg); }
 .deck-execution-timeline > ol > li { border-top: 1px solid color-mix(in oklab, var(--border) 72%, transparent); }
 .deck-execution-timeline > ol > li:first-child { border-top: 0; }
@@ -6471,10 +6491,18 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-execution-timeline li[data-kind="evidence"] .deck-execution-kind { background: color-mix(in oklab, var(--success) 10%, var(--bg-elevated)); color: var(--success); }
 .deck-execution-timeline li[data-kind="model"] .deck-execution-kind { background: color-mix(in oklab, var(--accent) 10%, var(--bg-elevated)); color: var(--accent); }
 .deck-execution-label { min-width: 0; overflow: hidden; font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
-.deck-execution-track { position: relative; height: 6px; overflow: hidden; border-radius: 3px; background: color-mix(in oklab, var(--border) 72%, transparent); }
-.deck-execution-track > span { position: absolute; top: 1px; bottom: 1px; min-width: 3px; border-radius: 2px; background: var(--accent); }
+.deck-execution-track {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(to right, color-mix(in oklab, var(--border) 82%, transparent) 0 1px, transparent 1px 25%),
+    linear-gradient(to bottom, transparent 3px, color-mix(in oklab, var(--border) 88%, transparent) 3px 4px, transparent 4px);
+}
+.deck-execution-track > span { position: absolute; top: 2px; bottom: 2px; min-width: 3px; border-radius: 1px; background: var(--accent); }
+.deck-execution-timeline li[data-kind="turn"] .deck-execution-track > span { background: var(--fg-muted); }
 .deck-execution-timeline li[data-kind="evidence"] .deck-execution-track > span { background: var(--success); }
-.deck-execution-timeline li[data-kind="model"] .deck-execution-track > span { background: var(--accent); }
+.deck-execution-timeline li[data-kind="model"] .deck-execution-track > span { background: var(--cs-plum); }
 .deck-execution-timeline li[data-state="corrected"] .deck-execution-track > span,
 .deck-execution-timeline li[data-state="degraded"] .deck-execution-track > span,
 .deck-execution-timeline li[data-state="unverified"] .deck-execution-track > span { background: var(--warning); }
@@ -6631,6 +6659,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-trajectory-signals { grid-template-columns: 1fr; gap: 8px; }
   .deck-trajectory-signals > div { padding: 0; border-left: 0; }
   .deck-execution-timeline > ol > li > details > summary { grid-template-columns: 64px minmax(0, 1fr) auto 9px; padding: 7px 0; }
+  .deck-execution-axis { display: block; min-height: 22px; }
+  .deck-execution-axis-range { display: grid; }
   .deck-execution-track { grid-column: 1 / -1; width: 100%; }
   .deck-execution-duration { grid-column: 2; }
   .deck-execution-outcome { grid-column: 3; grid-row: 1; }
@@ -6666,6 +6696,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     grid-template-columns: 58px minmax(0, 1fr) auto 9px;
     padding: 7px 0;
   }
+  .deck-execution-axis { display: block; min-height: 22px; }
+  .deck-execution-axis-range { display: grid; }
   .deck-execution-track { grid-column: 1 / -1; width: 100%; }
   .deck-execution-duration { grid-column: 2; text-align: left; }
   .deck-execution-outcome { grid-column: 3; grid-row: 1; }
@@ -7008,7 +7040,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: color-mix(in oklab, var(--accent) 3%, var(--bg-elevated));
+  background: color-mix(in oklab, var(--accent) 2%, var(--bg-elevated));
 }
 .deck-progress-note-mark {
   position: relative;
@@ -7029,7 +7061,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-progress-note-body > strong {
   display: block;
   margin-bottom: 3px;
-  color: var(--accent-strong);
+  color: var(--accent);
   font-size: 9.5px;
   font-weight: 800;
   letter-spacing: .05em;
@@ -7171,9 +7203,9 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   text-transform: uppercase;
 }
 .deck-investigation-badge.is-completed {
-  border-color: color-mix(in oklab, var(--tier-t0, #4dab7a) 28%, var(--border));
-  background: color-mix(in oklab, var(--tier-t0, #4dab7a) 9%, var(--bg-elevated));
-  color: var(--tier-t0, #237a4b);
+  border-color: color-mix(in oklab, var(--success) 28%, var(--border));
+  background: color-mix(in oklab, var(--success) 8%, var(--bg-elevated));
+  color: var(--success);
 }
 .deck-investigation-badge.is-running {
   border-color: color-mix(in oklab, var(--accent) 32%, var(--border));
@@ -7352,8 +7384,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   animation: deck-investigation-enter 0.18s ease both;
 }
 .deck-investigation.is-settled.is-completed .deck-investigation-head > .deck-investigation-state {
-  background: color-mix(in oklab, var(--tier-t0, #4dab7a) 18%, transparent);
-  color: var(--tier-t0, #237a4b);
+  box-sizing: border-box;
+  border: 1px solid color-mix(in oklab, var(--success) 52%, var(--border));
+  background: var(--bg-elevated);
+  color: var(--success);
+  box-shadow: 0 0 0 3px var(--bg-elevated);
 }
 .deck-investigation.is-settled.is-unavailable .deck-investigation-head > .deck-investigation-state {
   background: color-mix(in oklab, var(--warning, #a76b12) 16%, transparent);
@@ -7452,8 +7487,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   letter-spacing: 0.02em;
 }
 .deck-investigation-kind-badge.is-query {
-  background: color-mix(in oklab, var(--info, #2563a9) 16%, transparent);
-  color: var(--info, #2563a9);
+  background: color-mix(in oklab, var(--accent) 10%, transparent);
+  color: var(--accent);
 }
 .deck-investigation-state {
   position: relative;
@@ -7477,8 +7512,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   animation: deck-rt-rot 0.8s linear infinite;
 }
 .deck-investigation-item.is-completed .deck-investigation-state {
-  background: color-mix(in oklab, var(--tier-t0, #4dab7a) 18%, transparent);
-  color: var(--tier-t0, #237a4b);
+  background: var(--success);
+  color: var(--bg-elevated);
 }
 .deck-investigation-item.is-unavailable .deck-investigation-state {
   background: color-mix(in oklab, var(--warning, #a76b12) 16%, transparent);

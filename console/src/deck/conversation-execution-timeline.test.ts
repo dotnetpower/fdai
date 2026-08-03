@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { Turn } from "./command-deck-presenters";
 import type { ConversationTrajectory } from "./conversation-trajectory";
-import { buildExecutionTimeline } from "./conversation-execution-timeline";
+import {
+  buildExecutionTimeline,
+  executionTimelineWindow,
+} from "./conversation-execution-timeline";
 
 const question: Turn = {
   id: "question",
@@ -94,7 +97,7 @@ describe("buildExecutionTimeline", () => {
     ]);
     expect(items.find((item) => item.kind === "evidence")?.state).toBe("degraded");
     expect(items.find((item) => item.kind === "phase")?.state).toBe("unverified");
-    expect(items.find((item) => item.kind === "model")?.widthPct).toBeCloseTo(38.1, 1);
+    expect(items.find((item) => item.kind === "model")?.widthPct).toBeCloseTo(40, 1);
     expect(items.find((item) => item.kind === "evidence")?.details).toEqual({
       summary: "Web evidence unavailable",
       facts: [],
@@ -110,6 +113,11 @@ describe("buildExecutionTimeline", () => {
       evidenceRefs: [],
     });
     expect(items.at(-1)?.leftPct).toBeLessThan(100);
+    expect(executionTimelineWindow(items)).toEqual({
+      startedAt: "2026-07-31T07:00:00Z",
+      completedAt: "2026-07-31T07:00:05Z",
+      durationMs: 5000,
+    });
 
     const hidden = buildExecutionTimeline(input, { includeModelCalls: false });
     expect(hidden.every((item) => item.kind !== "model")).toBe(true);
@@ -121,6 +129,36 @@ describe("buildExecutionTimeline", () => {
     delete (input as { completedAt?: string }).completedAt;
 
     expect(buildExecutionTimeline(input)).toEqual([]);
+  });
+
+  it("places answer delivery after the final recorded timing phase", () => {
+    const input = trajectory({
+      recordedAt: "2026-07-31T07:00:04Z",
+      turnTiming: {
+        schema_version: 1,
+        started_at: "2026-07-31T07:00:00Z",
+        completed_at: "2026-07-31T07:00:05Z",
+        duration_ms: 5000,
+        phases: [{
+          phase: "verification",
+          status: "completed",
+          started_at: "2026-07-31T07:00:04.500Z",
+          completed_at: "2026-07-31T07:00:05Z",
+          duration_ms: 500,
+        }],
+      },
+    }, {
+      completedAt: "2026-07-31T07:00:04Z",
+    });
+
+    const items = buildExecutionTimeline(input);
+
+    expect(items.map((item) => item.label).slice(-2)).toEqual(["verification", "answer"]);
+    expect(items.at(-1)).toMatchObject({
+      kind: "turn",
+      label: "answer",
+      startedAt: "2026-07-31T07:00:05Z",
+    });
   });
 
   it("does not infer zero model calls when trace capture is absent", () => {

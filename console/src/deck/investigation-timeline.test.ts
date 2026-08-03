@@ -165,6 +165,8 @@ describe("upsertEvidenceBranch", () => {
     expect(presenter).toContain('isActivity ? " deck-turn-activity"');
     expect(styles).toContain(".deck-progress-note {");
     expect(styles).toContain(".deck-turn.is-investigation-flow::before");
+    expect(styles).toContain(".deck-execution-axis {");
+    expect(styles).toContain("repeating-linear-gradient(to right");
     expect(retrieval).toContain('class="deck-turn-head deck-rt-agent-head"');
     expect(retrieval).toContain('class="deck-turn-source"');
     expect(retrieval).toContain('<details class="deck-rt-sources">');

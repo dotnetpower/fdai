@@ -3,6 +3,7 @@ import type { ConversationTrajectory } from "./conversation-trajectory";
 import { phaseStateLabel } from "./conversation-trajectory-decision-context";
 import {
   buildExecutionTimeline,
+  executionTimelineWindow,
   type ExecutionTimelineFact,
   type ExecutionTimelineItem,
 } from "./conversation-execution-timeline";
@@ -16,12 +17,20 @@ export function ConversationExecutionTimelineView({
 }) {
   const items = buildExecutionTimeline(trajectory, { includeModelCalls });
   if (items.length === 0) return null;
+  const window = executionTimelineWindow(items)!;
   return (
     <section class="deck-execution-timeline" aria-labelledby={`execution-timeline-${trajectory.answer.id}`}>
       <header>
         <h4 id={`execution-timeline-${trajectory.answer.id}`}>{t("deck.trajectory.executionTimeline")}</h4>
         <span>{t("deck.trajectory.observedEventCount", { count: items.length })}</span>
       </header>
+      <div class="deck-execution-axis" aria-hidden="true">
+        <div class="deck-execution-axis-range">
+          <time>{formatAxisClock(window.startedAt)}</time>
+          <span>{formatDuration(window.durationMs)}</span>
+          <time>{formatAxisClock(window.completedAt)}</time>
+        </div>
+      </div>
       <ol>
         {items.map((item) => (
           <li key={item.id} data-kind={item.kind} data-state={item.state}>
@@ -104,6 +113,14 @@ function formatClock(value: string): string {
     minute: "2-digit",
     second: "2-digit",
     fractionalSecondDigits: 3,
+  });
+}
+
+function formatAxisClock(value: string): string {
+  return new Date(value).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
   });
 }
 

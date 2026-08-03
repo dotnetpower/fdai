@@ -49,6 +49,12 @@ export interface ExecutionTimelineItem {
   readonly details: ExecutionTimelineDetails;
 }
 
+export interface ExecutionTimelineWindow {
+  readonly startedAt: string;
+  readonly completedAt: string;
+  readonly durationMs: number;
+}
+
 interface RawTimelineItem extends Omit<ExecutionTimelineItem, "leftPct" | "widthPct"> {}
 
 export function buildExecutionTimeline(
@@ -62,18 +68,35 @@ export function buildExecutionTimeline(
   const startMs = Math.min(...items.map((item) => Date.parse(item.startedAt)));
   const endMs = Math.max(...items.map((item) => Date.parse(item.completedAt)));
   const actualSpanMs = Math.max(0, endMs - startMs);
-  const tailMs = actualSpanMs > 0 ? actualSpanMs * 0.05 : SINGLETON_SPAN_MS;
-  const denominator = actualSpanMs + tailMs;
+  const denominator = actualSpanMs > 0 ? actualSpanMs : SINGLETON_SPAN_MS;
   return items.map((item) => {
     const itemStart = Date.parse(item.startedAt);
-    const leftPct = ((itemStart - startMs) / denominator) * 100;
+    const rawLeft = ((itemStart - startMs) / denominator) * 100;
+    const leftPct = Math.min(rawLeft, 100 - MIN_BAR_PCT);
     const rawWidth = (item.durationMs / denominator) * 100;
     return {
       ...item,
       leftPct,
-      widthPct: Math.min(Math.max(rawWidth, MIN_BAR_PCT), Math.max(MIN_BAR_PCT, 100 - leftPct)),
+      widthPct: Math.min(Math.max(rawWidth, MIN_BAR_PCT), 100 - leftPct),
     };
   });
+}
+
+export function executionTimelineWindow(
+  items: readonly ExecutionTimelineItem[],
+): ExecutionTimelineWindow | undefined {
+  if (items.length === 0) return undefined;
+  const startedAt = items.reduce((earliest, item) =>
+    Date.parse(item.startedAt) < Date.parse(earliest) ? item.startedAt : earliest,
+  items[0]!.startedAt);
+  const completedAt = items.reduce((latest, item) =>
+    Date.parse(item.completedAt) > Date.parse(latest) ? item.completedAt : latest,
+  items[0]!.completedAt);
+  return {
+    startedAt,
+    completedAt,
+    durationMs: Math.max(0, Date.parse(completedAt) - Date.parse(startedAt)),
+  };
 }
 
 function rawItems(
@@ -152,7 +175,12 @@ function rawItems(
   }
   if (trajectory.completedAt) {
     const source = trajectory.answer.source ?? trajectory.answer.agent ?? "recorded";
-    items.push(pointItem("turn-answer", "answer", "terminal", trajectory.completedAt, {
+    const answerAt = latestTimestamp([
+      trajectory.completedAt,
+      trajectory.answer.turnTiming?.completed_at,
+      ...(trajectory.answer.turnTiming?.phases.map((phase) => phase.completed_at) ?? []),
+    ]) ?? trajectory.completedAt;
+    items.push(pointItem("turn-answer", "answer", "terminal", answerAt, {
       facts: [
         { key: "source", value: source },
         ...(trajectory.answer.agent
@@ -163,6 +191,14 @@ function rawItems(
     }));
   }
   return items;
+}
+
+function latestTimestamp(values: readonly (string | undefined)[]): string | undefined {
+  return values.reduce<string | undefined>((latest, value) => {
+    if (!value || !Number.isFinite(Date.parse(value))) return latest;
+    if (!latest || Date.parse(value) > Date.parse(latest)) return value;
+    return latest;
+  }, undefined);
 }
 
 function pointItem(

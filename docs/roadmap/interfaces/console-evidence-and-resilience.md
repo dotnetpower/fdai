@@ -238,6 +238,12 @@ disables browser scroll anchoring, keeps extra bottom space, and follows the lat
 work streams. On terminal completion it anchors the first observed work group below the transcript
 edge, so execution outcome and answer start remain visible while the final answer lays out.
 Untimed plan and collaboration metadata stays in decision context, while only observed input, evidence and tools, model calls, verification, and delivery use the timeline.
+Every waterfall lane uses one labeled start-to-completion scale with quarter-window ticks. Phase
+envelopes use restrained blue, evidence work uses green, model work uses plum, and point-in-time
+turn records use neutral gray. The terminal answer is placed no earlier than the final recorded
+timing completion, so generation and verification never appear after delivery because of an
+earlier answer-record timestamp. The lane baseline and ticks remain distinct from a completion
+progress bar.
 Answer text is at least 14 px, main disclosures are 44 px high, and content reflows without loss at 200% text resize and 320 CSS pixels.
 The transcript uses 15 px text, trajectory headings use 13 px, event labels use 12 px, controls use
 13 px, and compact trajectory metadata never drops below 11 px. A published screen snapshot becomes visibly stale
