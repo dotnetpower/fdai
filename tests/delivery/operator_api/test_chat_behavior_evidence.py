@@ -94,6 +94,10 @@ BEHAVIOR_WEAKNESS_CASES = (
         "Which root-cause hypothesis has the strongest evidence for the selected incident?",
         False,
     ),
+    BehaviorWeaknessCase(
+        "What measured customer impact and SLO impact did the incident cause?",
+        False,
+    ),
     BehaviorWeaknessCase("restart the database", False),
     BehaviorWeaknessCase("db 에는 어떤 데이터가 있어?", False, korean=True),
     BehaviorWeaknessCase("show Azure resources", False),

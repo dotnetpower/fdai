@@ -222,7 +222,11 @@ def needs_operational_evidence(
     """
 
     operational = bool(
-        (_OPERATIONAL_INTENT.search(prompt) or _INCIDENT_ANALYSIS_INTENT.search(prompt))
+        (
+            _OPERATIONAL_INTENT.search(prompt)
+            or _INCIDENT_ANALYSIS_INTENT.search(prompt)
+            or classify_incident_dossier_intent(prompt) is not None
+        )
         and (
             not _CURRENT_SCREEN_ONLY.search(prompt) or _EXPLICIT_OPERATIONAL_CONTEXT.search(prompt)
         )
@@ -452,7 +456,9 @@ class OperationalEvidenceResolver:
                 )
             return matched
 
-        selection_required = _INCIDENT_SELECTION_REQUIRED.search(prompt) is not None
+        selection_required = (
+            dossier_intent is not None or _INCIDENT_SELECTION_REQUIRED.search(prompt) is not None
+        )
         candidates: list[tuple[int, int, IncidentSummary, Sequence[AuditItem]]] = []
         for index, (incident, audit_page) in enumerate(zip(page.items, audits, strict=True)):
             score = _score(terms, _search_text(incident, audit_page.items))

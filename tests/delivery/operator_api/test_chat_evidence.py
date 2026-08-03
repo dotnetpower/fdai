@@ -125,7 +125,15 @@ def test_matched_operational_evidence_uses_deterministic_fast_path() -> None:
     )
 
 
-def test_operational_incident_turn_skips_planner_and_narrator_json_and_sse() -> None:
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "What is the strongest supported root cause for this incident?",
+        "비슷한 과거 인시던트와 실제로 성공한 복구 방법을 찾아줘.",
+        "Find similar resolved incidents and identify the recovery with verified success.",
+    ),
+)
+def test_operational_incident_turn_skips_planner_and_narrator_json_and_sse(prompt: str) -> None:
     class Backend:
         async def answer(self, **_kwargs: object) -> dict[str, str]:
             raise AssertionError("operational evidence must skip narrator generation")
@@ -191,11 +199,11 @@ def test_operational_incident_turn_skips_planner_and_narrator_json_and_sse() -> 
     with TestClient(app) as client:
         direct = client.post(
             "/chat",
-            json={"prompt": "What is the strongest supported root cause for this incident?"},
+            json={"prompt": prompt},
         )
         streamed = client.post(
             "/chat/stream",
-            json={"prompt": "What is the strongest supported root cause for this incident?"},
+            json={"prompt": prompt},
         )
 
     done = next(
@@ -835,6 +843,31 @@ async def test_q063_q064_requires_selection_across_unequal_scores(prompt: str) -
     ),
 )
 async def test_q065_q066_timeline_requires_incident_selection(prompt: str) -> None:
+    model = InMemoryConsoleReadModel()
+    _seed_memory_incident(model, "corr-memory-a")
+    _seed_memory_incident(model, "corr-memory-b")
+
+    evidence = await OperationalEvidenceResolver(model).resolve(prompt)
+
+    assert evidence is not None
+    assert evidence["status"] == "ambiguous"
+    assert len(evidence["candidates"]) == 2
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "Order the possible causes by evidence strength and include counter-evidence.",
+        "비슷한 과거 인시던트와 실제로 성공한 복구 방법을 찾아줘.",
+        "Find similar resolved incidents and identify the recovery with verified success.",
+        "선택한 인시던트의 고객 영향과 SLO 영향을 근거로 설명해줘.",
+        "What measured customer impact and SLO impact did the incident cause?",
+        "Summarize the incident's service impact using only observed quantities.",
+    ),
+)
+async def test_q067_q072_dossier_requires_incident_selection(prompt: str) -> None:
+    assert classify_incident_dossier_intent(prompt) is not None
+    assert needs_operational_evidence(prompt) is True
     model = InMemoryConsoleReadModel()
     _seed_memory_incident(model, "corr-memory-a")
     _seed_memory_incident(model, "corr-memory-b")

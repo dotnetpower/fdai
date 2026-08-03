@@ -158,7 +158,7 @@ async def resolve_parallel_chat_evidence(
     planned_inventory = planned_tool_name == "query_inventory"
     planned_direct_read = planned_read and planned_agent is None and not planned_web
     search_intent = classify_search_intent(prompt)
-    web_requested = planned_web if has_semantic_plan else search_intent.route == "web"
+    operational_read = needs_operational_evidence(prompt, base_context)
     preincident_read = parse_preincident_activity(prompt) is not None
     read_investigation = preincident_read or (
         classify_read_investigation_intent(prompt) is not None
@@ -168,7 +168,14 @@ async def resolve_parallel_chat_evidence(
     explicit_web_search = search_intent.reason in {
         "explicit_web_search",
         "explicit_web_context",
-    } or (search_intent.reason == "explicit_search_request" and not complete_inventory_query)
+    } or (
+        search_intent.reason == "explicit_search_request"
+        and not complete_inventory_query
+        and not operational_read
+    )
+    web_requested = (planned_web if has_semantic_plan else search_intent.route == "web") and (
+        explicit_web_search or not operational_read
+    )
     deterministic_inventory_turn = (
         needs_inventory_evidence(prompt) and not explicit_web_search and not read_investigation
     )
@@ -196,7 +203,7 @@ async def resolve_parallel_chat_evidence(
         selected_incident_turn
         or bound_incident_turn
         or bool(
-            needs_operational_evidence(prompt, base_context)
+            operational_read
             and not deterministic_tool_turn
             and not is_explicit_action_draft_request(prompt)
             and not explicit_web_search

@@ -14,19 +14,24 @@ _TIMELINE: Final = re.compile(
     re.IGNORECASE,
 )
 _HYPOTHESES: Final = re.compile(
-    r"\b(?:rank|causal hypotheses|supporting and contradictory evidence)\b|"
-    r"가설|반증|순위를\s*매",
+    r"\b(?:rank|causal hypotheses|incident hypotheses|possible causes|evidence strength|"
+    r"supporting and contradictory evidence|counter-evidence)\b|"
+    r"(?:원인\s*가설|가능한\s*원인|가설|반증|순위를\s*매|우선순위)",
     re.IGNORECASE,
 )
 _SIMILAR: Final = re.compile(
-    r"\b(?:happened before|similar incidents?|prior recovery|earlier incident)\b|"
-    r"이전에도|이전\s*인시던트|같은 문제|이전 복구",
+    r"\b(?:happened before|similar(?: resolved)? incidents?|prior recovery|earlier incident|"
+    r"past incident|proven action)\b|"
+    r"이전에도|이전\s*인시던트|같은 문제|이전 복구|비슷한\s*과거\s*인시던트|"
+    r"유사한\s*사례|성공한\s*복구|검증된\s*조치",
     re.IGNORECASE,
 )
 _IMPACT: Final = re.compile(
-    r"\b(?:customer|service-level|slo)\s+(?:and\s+)?impact\b|"
-    r"\bquantify.{0,32}impact\b|사용자.{0,24}(?:영향|서비스 수준 목표)|"
-    r"서비스\s*수준\s*목표.{0,24}영향",
+    r"\b(?:customer|service|service-level|slo)\s+(?:and\s+)?impact\b|"
+    r"\b(?:measured|observed|quantif(?:y|ied)).{0,48}impact\b|"
+    r"\bincident.{0,32}(?:customer|service|service-level|slo)\s+impact\b|"
+    r"(?:사용자|고객|서비스|서비스\s*수준\s*목표|SLO).{0,32}영향|"
+    r"영향.{0,32}(?:사용자|고객|서비스|서비스\s*수준\s*목표|SLO)",
     re.IGNORECASE,
 )
 _NEXT_ACTION: Final = re.compile(

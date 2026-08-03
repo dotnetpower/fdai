@@ -14,6 +14,9 @@ from fdai.delivery.behavior_knowledge.seeds import (
     build_seed_behavior_specs,
 )
 from fdai.delivery.behavior_knowledge.source_freshness import GitTrackedSourceValidator
+from fdai.delivery.operator_api.routes.chat_incident_dossier import (
+    classify_incident_dossier_intent,
+)
 from fdai.shared.providers.behavior_knowledge import BehaviorKnowledgeIndex, BehaviorSpec
 
 _BEHAVIOR_SUBJECT = re.compile(
@@ -72,6 +75,8 @@ _RUNTIME_INCIDENT_ANALYSIS = re.compile(
 
 def is_behavior_question(prompt: str) -> bool:
     """Return whether the prompt asks about an indexed system behavior."""
+    if classify_incident_dossier_intent(prompt) is not None:
+        return False
     if (
         (_OPERATIONAL_STATE_INTENT.search(prompt) and not _CONTRACT_OVERRIDE_SUBJECT.search(prompt))
         or _BARE_DEFINITION_INTENT.search(prompt)
