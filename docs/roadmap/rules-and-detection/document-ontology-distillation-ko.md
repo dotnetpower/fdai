@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 0440ed428cf805443fa1c80f3b209274f913dd76
+translation_source_sha: d7b668ef6b9d6cf6a56d419abf0d91cb32a77452
 translation_revised: 2026-08-03
 ---
 # 문서 온톨로지 증류
@@ -194,6 +194,26 @@ quality evidence를 분리합니다.
   deterministic replay는 안전하지만 extraction 성공으로 계산하지 않습니다.
 - **Release:** 필요한 format/language partition이 각각 threshold를 통과합니다. Aggregate score로
   unsupported PDF parser, unbound provider 또는 weak Korean partition을 숨길 수 없습니다.
+
+`ontology_corpus_gate.py`는 rate를 계산하기 전에 integer evidence를 기록합니다. 필요한 각
+`(source_format, language)` partition은 case와 extraction-success count, detected/accounted claim,
+expected/mapped critical claim, predicted/correct entity/link fact, citation error, parser rejection,
+provider abstention, replay mismatch, semantic error 및 latency/cost observation을 유지합니다. 누락된
+denominator는 그대로 드러납니다. Candidate 0개의 abstention은 deterministic replay가 stable해도
+extraction-success rate가 0입니다.
+
+Release assessment는 세 가지 decision을 사용합니다.
+
+| Decision | 의미 |
+|----------|------|
+| `pass` | 필요한 모든 partition이 구성된 정확한 threshold를 충족하고 latency와 cost evidence를 가집니다. |
+| `review` | Evidence가 누락되거나, extraction이 abstain하거나, parser가 input을 거부하거나, coverage threshold를 충족하지 못했습니다. |
+| `deny` | 추출된 output에 citation, replay, semantic, entity 또는 link error가 있습니다. |
+
+Reason code는 `pdf:ko:critical_recall_below_threshold`와 같이 partition key를 유지합니다. 전체
+assessment에서는 `deny`가 `review`보다 우선하고 `review`가 `pass`보다 우선합니다. 이 gate는
+evidence-only이자 review-only입니다. 통과 결과는 실행 권한을 부여하거나 ontology change를 promote하거나
+capability mode를 변경하지 않습니다.
 
 D4c의 10개 remediation round는 structure, claim semantic, PDF, Office/OCR provenance, identity
 resolution, coverage/release gate, public-corpus replay, provider conformance, resource/security bound

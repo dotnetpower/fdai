@@ -194,6 +194,26 @@ quality evidence separate:
   An aggregate score cannot hide an unsupported PDF parser, an unbound provider, or a weak Korean
   partition.
 
+`ontology_corpus_gate.py` records integer evidence before deriving rates. Each required
+`(source_format, language)` partition keeps case and extraction-success counts, detected and
+accounted claims, expected and mapped critical claims, predicted and correct entity/link facts,
+citation errors, parser rejections, provider abstentions, replay mismatches, semantic errors, and
+latency/cost observations. Missing denominators remain visible; a zero-candidate abstention has a
+zero extraction-success rate even when its deterministic replay is stable.
+
+The release assessment uses three decisions:
+
+| Decision | Meaning |
+|----------|---------|
+| `pass` | Every required partition meets the exact configured thresholds and has latency and cost evidence. |
+| `review` | Evidence is missing, extraction abstained, parsing rejected input, or a coverage threshold was not met. |
+| `deny` | Extracted output contains a citation, replay, semantic, entity, or link error. |
+
+Reason codes retain the partition key, such as
+`pdf:ko:critical_recall_below_threshold`; overall `deny` takes precedence over `review`, and
+`review` takes precedence over `pass`. This gate is evidence-only and review-only. A passing result
+does not grant execution authority, promote an ontology change, or alter a capability mode.
+
 The ten remediation rounds for D4c cover structure, claim semantics, PDF, Office/OCR provenance,
 identity resolution, coverage and release gates, public-corpus replay, provider conformance,
 resource/security bounds, and a final independent critique. Each round adds a falsifying fixture
