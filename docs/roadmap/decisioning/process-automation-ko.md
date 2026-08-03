@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: d0f2e4080f82443681c8d1421c7a27b9b3d82768
+translation_source_sha: fc22ffae48731c46e1fc7cec5bee3ce3bf2b0e24
 translation_revised: 2026-08-04
 ---
 
@@ -289,12 +289,14 @@ default는 `1`입니다. `STEP_STARTED`, `ACTION_DISPATCHED`, branch, waiting, c
 terminal, audit id는 attempt를 포함하고 `WorkflowActionDispatcher`는 typed proposal idempotency
 key에 이를 사용합니다. 따라서 두 attempt가 하나의 event 또는 proposal로 합쳐지지 않습니다.
 
-`POST /workflows/{process_id}/retry`는 `failed` 상태에서만 새 attempt를 시작하며 body를 받지
-않습니다. Failed attempt에는 allowlist에 포함된 local failure reason이 있어야 하며 action dispatch,
-approval, cancellation, compensation evidence가 없어야 합니다. Dispatcher exception은 local dispatch
-event가 없어도 ambiguous하므로 `retry_requires_recovery`를 반환합니다. Shadow retry에는
-Contributor가 필요하고 enforce retry에는 Owner와 현재 enforce allowlist가 필요합니다. Server-owned
-attempt limit의 기본값은 3이며 caller가 높일 수 없습니다.
+`POST /workflows/{process_id}/retry`는 `failed` 상태에서 새 attempt를 시작하거나 terminal reason이
+`approval_timed_out`인 경우에만 `timed_out` 상태에서 시작하며 body를 받지 않습니다. Terminal
+attempt에는 allowlist에 포함된 effect-free reason이 있어야 하며 action dispatch, cancellation,
+compensation evidence가 없어야 합니다. Approval evidence는 terminal `approval_rejected` 또는
+`approval_timed_out`에만 허용됩니다. Dispatcher exception은 local dispatch event가 없어도
+ambiguous하므로 `retry_requires_recovery`를 반환합니다. Shadow retry에는 Contributor가 필요하고
+enforce retry에는 Owner와 현재 enforce allowlist가 필요합니다. Server-owned attempt limit의
+기본값은 3이며 caller가 높일 수 없습니다.
 
 Workflow approval state와 HIL slot identity는 Process, step, attempt에 binding됩니다. Attempt 1은
 기존 durable record를 위해 legacy key를 유지하고 이후 attempt는 distinct key를 사용합니다. 한 명의

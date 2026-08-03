@@ -34,7 +34,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--retry-process-id",
-        help="Retry one effect-free failed Process with server-owned limits.",
+        help="Retry one effect-free failed or approval-timed-out Process.",
     )
     parser.add_argument(
         "--api-url",

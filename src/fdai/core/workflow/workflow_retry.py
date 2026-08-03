@@ -1,4 +1,4 @@
-"""Attempt-aware retry admission for effect-free failed Workflow Processes."""
+"""Attempt-aware retry admission for effect-free terminal Workflow attempts."""
 
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ class WorkflowRetryRequest:
 
 
 class WorkflowRetryCoordinator:
-    """Admit only a failed attempt that has no authority-bearing side effects."""
+    """Admit only a retryable terminal attempt without authority-bearing effects."""
 
     def __init__(
         self,
@@ -95,7 +95,7 @@ class WorkflowRetryCoordinator:
         if terminal is None:
             raise WorkflowRetryError(
                 "retry_evidence_unavailable",
-                "Failed Process has no terminal failure evidence",
+                "Process has no terminal failure or timeout evidence",
             )
         failed_attempt = terminal.attempt
         if failed_attempt >= max_attempts:
@@ -127,7 +127,7 @@ class WorkflowRetryCoordinator:
         if failed_step is None:
             raise WorkflowRetryError(
                 "retry_evidence_unavailable",
-                "Failed Process has no retryable step failure evidence",
+                "Process has no retryable step failure or timeout evidence",
             )
         failure_reason = str(failed_step.payload.get("reason") or "")
         has_approval_request = any(

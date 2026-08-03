@@ -1,7 +1,7 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: e03e61e0b789c71338abd99f515e417336df7510
+translation_source_sha: 3ea982bf06a5e01383b7577924f34dca690dac42
 translation_revised: 2026-08-04
 ---
 
@@ -162,8 +162,9 @@ Pending 또는 waiting safe boundary만 수락하고 enforce Process에는 Owner
 approval slot을 닫습니다. Outstanding action outcome을 reconcile한 뒤 cancellation 또는
 compensation을 진행합니다. Running Process는 in-flight dispatcher가 idle이라고 가정하지 않고 typed
 conflict를 반환합니다. `POST /workflows/{process_id}/retry`와 CLI `--retry-process-id`는 effect-free
-failed attempt만 수락하고 현재 enforce authority를 다시 검사하며 server-owned attempt cap을
-적용합니다. Ambiguous dispatch failure는 recovery work로 유지합니다. Production composition은
+failed attempt 또는 terminal approval timeout만 수락하고 현재 enforce authority를 다시 검사하며
+server-owned attempt cap을 적용합니다. Ambiguous dispatch failure는 recovery work로 유지합니다.
+Production composition은
 `WorkflowExecutionConfig`를 주입해 opt-in 합니다.
 설정하지 않으면 command route가 등록되지 않습니다. SPA는 이 endpoint를 호출하지 않습니다. CLI와
 ChatOps가 command channel이고 console은 read-only 상태 표면으로 유지됩니다.

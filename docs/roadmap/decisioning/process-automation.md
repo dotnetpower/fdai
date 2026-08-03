@@ -295,12 +295,14 @@ compatibility default. `STEP_STARTED`, `ACTION_DISPATCHED`, branch, waiting, com
 terminal, and audit ids include that attempt, and `WorkflowActionDispatcher` uses it in the typed
 proposal idempotency key. Two attempts therefore cannot collapse into one event or proposal.
 
-`POST /workflows/{process_id}/retry` starts a new attempt only from `failed` and accepts no body.
-The failed attempt must have an allowlisted local failure reason and no action dispatch, approval,
-cancellation, or compensation evidence. A dispatcher exception is ambiguous even without a local
-dispatch event and returns `retry_requires_recovery`. Shadow retry requires Contributor; enforce
-retry requires Owner and the current enforce allowlist. The server-owned attempt limit defaults to
-3 and cannot be raised by the caller.
+`POST /workflows/{process_id}/retry` starts a new attempt from `failed`, or from `timed_out` only
+when the terminal reason is `approval_timed_out`, and accepts no body. The terminal attempt must
+have an allowlisted effect-free reason and no action dispatch, cancellation, or compensation
+evidence. Approval evidence is admitted only for terminal `approval_rejected` or
+`approval_timed_out`. A dispatcher exception is ambiguous even without a local dispatch event and
+returns `retry_requires_recovery`. Shadow retry requires Contributor; enforce retry requires Owner
+and the current enforce allowlist. The server-owned attempt limit defaults to 3 and cannot be
+raised by the caller.
 
 Workflow approval state and HIL slot identity bind Process, step, and attempt. Attempt 1 retains
 the legacy key for existing durable records; later attempts use distinct keys. One rejection makes
