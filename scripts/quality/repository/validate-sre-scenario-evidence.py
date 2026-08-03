@@ -66,8 +66,10 @@ def _validate_evidence_receipt(
     _nonempty_text(receipt.get("summary"), f"{field}.summary", errors)
     for key in RECEIPT_TEXT_FIELDS:
         _nonempty_text(receipt.get(key), f"{field}.{key}", errors)
-    _utc_timestamp(receipt.get("event_time"), f"{field}.event_time", errors)
-    _utc_timestamp(receipt.get("recorded_at"), f"{field}.recorded_at", errors)
+    event_time = _utc_timestamp(receipt.get("event_time"), f"{field}.event_time", errors)
+    recorded_at = _utc_timestamp(receipt.get("recorded_at"), f"{field}.recorded_at", errors)
+    if event_time is not None and recorded_at is not None and recorded_at < event_time:
+        errors.append(f"{field}.recorded_at MUST not precede event_time")
     digest = receipt.get("provenance_digest")
     if not isinstance(digest, str) or _SHA256.fullmatch(digest) is None:
         errors.append(f"{field}.provenance_digest MUST be a lowercase SHA-256 digest")
@@ -76,7 +78,14 @@ def _validate_evidence_receipt(
     return receipt
 
 
-def _validate_measurements(value: object, scenario_id: str, errors: list[str]) -> None:
+def _validate_measurements(
+    value: object,
+    scenario_id: str,
+    errors: list[str],
+    *,
+    window_start: datetime | None,
+    window_end: datetime | None,
+) -> None:
     field = f"scenarios.{scenario_id}.measurements"
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)) or not value:
         errors.append(f"{field} MUST contain at least one observed measurement")
@@ -94,7 +103,18 @@ def _validate_measurements(value: object, scenario_id: str, errors: list[str]) -
                     errors.append(f"{field}[{index}].value MUST be numeric or non-empty text")
             else:
                 _nonempty_text(item, f"{field}[{index}].{key}", errors)
-        _utc_timestamp(measurement.get("observed_at"), f"{field}[{index}].observed_at", errors)
+        observed_at = _utc_timestamp(
+            measurement.get("observed_at"),
+            f"{field}[{index}].observed_at",
+            errors,
+        )
+        if (
+            observed_at is not None
+            and window_start is not None
+            and window_end is not None
+            and not window_start <= observed_at <= window_end
+        ):
+            errors.append(f"{field}[{index}].observed_at MUST be inside the scenario time_window")
 
 
 def _validate_scenario(scenario_id: str, value: object, errors: list[str]) -> str | None:
@@ -109,6 +129,8 @@ def _validate_scenario(scenario_id: str, value: object, errors: list[str]) -> st
         status = None
     _nonempty_text(scenario.get("target"), f"{field}.target", errors)
 
+    start: datetime | None = None
+    end: datetime | None = None
     window = _mapping(scenario.get("time_window"), f"{field}.time_window", errors)
     if window is not None:
         start = _utc_timestamp(window.get("start"), f"{field}.time_window.start", errors)
@@ -116,12 +138,15 @@ def _validate_scenario(scenario_id: str, value: object, errors: list[str]) -> st
         if start is not None and end is not None and end < start:
             errors.append(f"{field}.time_window.end MUST not precede start")
 
+    evidence_receipts: list[Mapping[str, Any]] = []
     for evidence_name in ("injection_evidence", "detection_evidence"):
-        _validate_evidence_receipt(
+        receipt = _validate_evidence_receipt(
             scenario.get(evidence_name),
             f"{field}.{evidence_name}",
             errors,
         )
+        if receipt is not None:
+            evidence_receipts.append(receipt)
 
     root_cause = _mapping(scenario.get("root_cause"), f"{field}.root_cause", errors)
     if root_cause is not None:
@@ -131,7 +156,13 @@ def _validate_scenario(scenario_id: str, value: object, errors: list[str]) -> st
         if not isinstance(root_cause.get("alternatives"), list):
             errors.append(f"{field}.root_cause.alternatives MUST be an array")
 
-    _validate_measurements(scenario.get("measurements"), scenario_id, errors)
+    _validate_measurements(
+        scenario.get("measurements"),
+        scenario_id,
+        errors,
+        window_start=start,
+        window_end=end,
+    )
 
     recovery = _validate_evidence_receipt(
         scenario.get("recovery_evidence"),
@@ -139,13 +170,22 @@ def _validate_scenario(scenario_id: str, value: object, errors: list[str]) -> st
         errors,
     )
     if recovery is not None:
+        evidence_receipts.append(recovery)
         recovery_status = recovery.get("status")
         if recovery_status not in RECOVERY_STATUSES:
             errors.append(
                 f"{field}.recovery_evidence.status MUST be one of: {', '.join(RECOVERY_STATUSES)}"
             )
-        if status == "passed" and recovery_status not in ("verified", "not-applicable"):
-            errors.append(f"{field} MUST NOT be passed without terminal recovery evidence")
+        expected_recovery = "not-applicable" if scenario_id in ("S13", "S14") else "verified"
+        if status == "passed" and recovery_status != expected_recovery:
+            errors.append(
+                f"{field} passed status requires recovery_evidence.status={expected_recovery}"
+            )
+
+    if status == "passed" and any(
+        receipt.get("synthetic") is True for receipt in evidence_receipts
+    ):
+        errors.append(f"{field} MUST NOT be passed using synthetic decision evidence")
 
     safety = _mapping(scenario.get("safety"), f"{field}.safety", errors)
     if safety is not None:
@@ -157,6 +197,12 @@ def _validate_scenario(scenario_id: str, value: object, errors: list[str]) -> st
         cleanup_status = cleanup.get("status")
         if cleanup_status not in ("verified", "not-applicable"):
             errors.append(f"{field}.cleanup.status MUST be verified or not-applicable")
+        if (
+            status == "passed"
+            and scenario_id not in ("S13", "S14")
+            and cleanup_status != "verified"
+        ):
+            errors.append(f"{field} passed fault status requires cleanup.status=verified")
         residuals = cleanup.get("residuals")
         if not isinstance(residuals, list):
             errors.append(f"{field}.cleanup.residuals MUST be an array")

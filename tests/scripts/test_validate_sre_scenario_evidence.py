@@ -40,7 +40,7 @@ def _scenario(status: str = "passed") -> dict[str, object]:
         "freshness": "current for test window",
         "completeness": "complete synthetic fixture",
         "provenance_digest": "a" * 64,
-        "synthetic": True,
+        "synthetic": False,
     }
     return {
         "status": status,
@@ -82,6 +82,13 @@ def _scenario(status: str = "passed") -> dict[str, object]:
 
 
 def _ledger() -> dict[str, object]:
+    scenarios = {f"S{index}": _scenario() for index in range(1, 15)}
+    for scenario_id in ("S13", "S14"):
+        recovery = scenarios[scenario_id]["recovery_evidence"]
+        cleanup = scenarios[scenario_id]["cleanup"]
+        assert isinstance(recovery, dict) and isinstance(cleanup, dict)
+        recovery["status"] = "not-applicable"
+        cleanup["status"] = "not-applicable"
     return {
         "schema_version": 1,
         "generated_at": "2026-01-01T00:02:00Z",
@@ -92,7 +99,7 @@ def _ledger() -> dict[str, object]:
             "failed": 0,
             "not-applicable": 0,
         },
-        "scenarios": {f"S{index}": _scenario() for index in range(1, 15)},
+        "scenarios": scenarios,
     }
 
 
@@ -133,7 +140,7 @@ def test_passed_requires_terminal_recovery(validator: ModuleType) -> None:
     assert isinstance(recovery, dict)
     recovery["status"] = "not-run"
     errors = validator.validate(ledger)
-    assert "scenarios.S5 MUST NOT be passed without terminal recovery evidence" in errors
+    assert "scenarios.S5 passed status requires recovery_evidence.status=verified" in errors
 
 
 def test_summary_and_time_order_are_reconciled(validator: ModuleType) -> None:
@@ -185,3 +192,57 @@ def test_decision_evidence_requires_replayable_provenance(validator: ModuleType)
         in errors
     )
     assert "scenarios.S1.detection_evidence.synthetic MUST be a boolean" in errors
+
+
+def test_synthetic_evidence_cannot_close_passed_live_scenario(validator: ModuleType) -> None:
+    ledger = _ledger()
+    scenarios = ledger["scenarios"]
+    assert isinstance(scenarios, dict)
+    scenario = scenarios["S1"]
+    assert isinstance(scenario, dict)
+    evidence = scenario["detection_evidence"]
+    assert isinstance(evidence, dict)
+    evidence["synthetic"] = True
+    errors = validator.validate(ledger)
+    assert "scenarios.S1 MUST NOT be passed using synthetic decision evidence" in errors
+
+
+def test_only_non_fault_scenarios_allow_inapplicable_recovery(validator: ModuleType) -> None:
+    ledger = _ledger()
+    scenarios = ledger["scenarios"]
+    assert isinstance(scenarios, dict)
+    fault = scenarios["S1"]
+    non_fault = scenarios["S13"]
+    assert isinstance(fault, dict) and isinstance(non_fault, dict)
+    fault_recovery = fault["recovery_evidence"]
+    non_fault_recovery = non_fault["recovery_evidence"]
+    assert isinstance(fault_recovery, dict) and isinstance(non_fault_recovery, dict)
+    fault_recovery["status"] = "not-applicable"
+    non_fault_recovery["status"] = "not-applicable"
+    non_fault_cleanup = non_fault["cleanup"]
+    assert isinstance(non_fault_cleanup, dict)
+    non_fault_cleanup["status"] = "not-applicable"
+    errors = validator.validate(ledger)
+    assert "scenarios.S1 passed status requires recovery_evidence.status=verified" in errors
+    assert not any(error.startswith("scenarios.S13") for error in errors)
+
+
+def test_receipt_and_measurement_chronology_is_ordered(validator: ModuleType) -> None:
+    ledger = _ledger()
+    scenarios = ledger["scenarios"]
+    assert isinstance(scenarios, dict)
+    scenario = scenarios["S3"]
+    assert isinstance(scenario, dict)
+    evidence = scenario["detection_evidence"]
+    measurements = scenario["measurements"]
+    assert isinstance(evidence, dict) and isinstance(measurements, list)
+    evidence["event_time"] = "2026-01-01T00:00:45Z"
+    evidence["recorded_at"] = "2026-01-01T00:00:44Z"
+    measurement = measurements[0]
+    assert isinstance(measurement, dict)
+    measurement["observed_at"] = "2025-12-31T23:59:59Z"
+    errors = validator.validate(ledger)
+    assert "scenarios.S3.detection_evidence.recorded_at MUST not precede event_time" in errors
+    assert (
+        "scenarios.S3.measurements[0].observed_at MUST be inside the scenario time_window" in errors
+    )
