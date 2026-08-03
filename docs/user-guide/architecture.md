@@ -22,6 +22,23 @@ its deterministic safety checks.
 > contract, so the core never imports an Azure SDK and you can move to another
 > host without rewriting decision logic.
 
+## Reference architecture
+
+Use the reference view to identify product layers and authority boundaries before
+tracing an individual event. Connected operational systems and governed outcomes
+surround the FDAI control plane. Inside it, operator surfaces, the agent runtime,
+the governed control flow, model and tool capabilities, knowledge and evidence,
+and the Azure platform foundation remain distinct layers.
+
+<fdai-architecture-diagram manifest="../diagrams/generated/fdai-reference-architecture.manifest.json" locale="en" style="display:block">
+  <img src="../diagrams/generated/fdai-reference-architecture.en.svg" alt="Connected Azure resources, telemetry, repositories, and enterprise connectors send signals into FDAI. Operators use the Web Console, CLI, and ChatOps surfaces. The fixed pantheon of 15 independently runnable agents coordinates only through a schema-validated event bus. Events pass through ingest, trust routing, deterministic or grounded decision tiers, verification and safety checks, and the privileged executor. Microsoft Foundry, Azure OpenAI, provider tools, the operating ontology, governed catalogs, and PostgreSQL provide model, tool, knowledge, and evidence capabilities. Azure Container Apps, Microsoft Entra ID, managed identities, Key Vault, and Azure Monitor form the platform foundation. Governed outcomes include human approval, remediation pull requests, bounded direct actions, and audit replay." loading="eager" style="display:block;width:100%;height:auto" />
+</fdai-architecture-diagram>
+
+The collective pantheon mark represents the fixed 15-agent organization, not a
+sixteenth agent. Layer connectors show governed relationships at product level.
+Use the system overview for one-event control flow and the Azure views for
+deployment and resource-level connections.
+
 ## Design at a glance
 
 FDAI has five loosely coupled layers. They share typed events, versioned

@@ -1,0 +1,489 @@
+{
+  "id": "fdai-reference-architecture",
+  "version": 1,
+  "updated": "2026-08-03",
+  "locales": {
+    "en": {
+      "title": "FDAI reference architecture",
+      "description": "Logical product layers, governed control boundaries, Azure platform services, and connected operational systems for FDAI.",
+      "alt": "Connected Azure resources, telemetry, repositories, and enterprise connectors send signals into FDAI. Operators use the Web Console, CLI, and ChatOps surfaces. The fixed pantheon of 15 independently runnable agents coordinates only through a schema-validated event bus. Events pass through ingest, trust routing, deterministic or grounded decision tiers, verification and safety checks, and the privileged executor. Microsoft Foundry, Azure OpenAI, provider tools, the operating ontology, governed catalogs, and PostgreSQL provide model, tool, knowledge, and evidence capabilities. Azure Container Apps, Microsoft Entra ID, managed identities, Key Vault, and Azure Monitor form the platform foundation. Governed outcomes include human approval, remediation pull requests, bounded direct actions, and audit replay."
+    },
+    "ko": {
+      "title": "FDAI 참조 아키텍처",
+      "description": "FDAI의 논리적 제품 계층, 통제 경계, Azure platform service 및 연결된 운영 시스템입니다.",
+      "alt": "연결된 Azure resource, telemetry, repository 및 enterprise connector가 FDAI로 signal을 보냅니다. 운영자는 Web Console, CLI 및 ChatOps surface를 사용합니다. 고정된 15개 독립 실행 agent는 schema-validated event bus로만 협업합니다. Event는 ingest, trust routing, deterministic 또는 grounded decision tier, verification 및 safety check, privileged executor를 통과합니다. Microsoft Foundry, Azure OpenAI, provider tool, operating ontology, governed catalog 및 PostgreSQL이 model, tool, knowledge 및 evidence capability를 제공합니다. Azure Container Apps, Microsoft Entra ID, managed identity, Key Vault 및 Azure Monitor가 platform foundation을 구성합니다. 통제된 결과에는 사람 승인, remediation pull request, 범위가 제한된 direct action 및 audit replay가 포함됩니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-reference-architecture.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-reference-architecture.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "azure-estate",
+      "kind": "azure-service",
+      "label": {
+        "en": "Azure resources",
+        "ko": "Azure resource"
+      },
+      "description": {
+        "en": "Subscription and resource inventory",
+        "ko": "Subscription 및 resource inventory"
+      }
+    },
+    {
+      "id": "operational-telemetry",
+      "kind": "azure-service",
+      "label": {
+        "en": "Operational telemetry",
+        "ko": "운영 telemetry"
+      },
+      "description": {
+        "en": "Metrics, logs, traces, alerts, and changes",
+        "ko": "Metric, log, trace, alert 및 change"
+      }
+    },
+    {
+      "id": "delivery-repositories",
+      "kind": "external",
+      "label": {
+        "en": "Source repositories",
+        "ko": "Source repository"
+      },
+      "description": {
+        "en": "Infrastructure, application, policy, and catalog changes",
+        "ko": "Infrastructure, application, policy 및 catalog change"
+      }
+    },
+    {
+      "id": "enterprise-connectors",
+      "kind": "external",
+      "label": {
+        "en": "Documents and connectors",
+        "ko": "Document 및 connector"
+      },
+      "description": {
+        "en": "Authenticated enterprise sources and governed uploads",
+        "ko": "인증된 enterprise source 및 통제된 upload"
+      }
+    },
+    {
+      "id": "web-console",
+      "kind": "azure-service",
+      "label": {
+        "en": "FDAI Web Console",
+        "ko": "FDAI Web Console"
+      },
+      "description": {
+        "en": "Read projections and submit bounded requests",
+        "ko": "Projection 조회 및 범위가 제한된 request 제출"
+      }
+    },
+    {
+      "id": "operator-cli",
+      "kind": "process",
+      "label": {
+        "en": "FDAI CLI",
+        "ko": "FDAI CLI"
+      },
+      "description": {
+        "en": "Scriptable operator access through the Operator API",
+        "ko": "Operator API를 통한 scriptable 운영자 접근"
+      }
+    },
+    {
+      "id": "chatops-surfaces",
+      "kind": "external",
+      "label": {
+        "en": "ChatOps",
+        "ko": "ChatOps"
+      },
+      "description": {
+        "en": "Teams, Slack, and notification adapters",
+        "ko": "Teams, Slack 및 notification adapter"
+      }
+    },
+    {
+      "id": "typed-event-bus",
+      "kind": "azure-service",
+      "label": {
+        "en": "Schema-validated event bus",
+        "ko": "Schema-validated event bus"
+      },
+      "description": {
+        "en": "Pub/sub, retry, isolation, dead-letter, and replay",
+        "ko": "Pub/sub, retry, isolation, dead-letter 및 replay"
+      }
+    },
+    {
+      "id": "agent-pantheon",
+      "kind": "process",
+      "label": {
+        "en": "15 independent agents",
+        "ko": "15개 독립 agent"
+      },
+      "description": {
+        "en": "Single-writer ownership for observation, judgment, approval, execution, recovery, audit, and learning",
+        "ko": "관찰, 판단, 승인, 실행, 복구, 감사 및 학습의 single-writer ownership"
+      }
+    },
+    {
+      "id": "event-ingest",
+      "kind": "process",
+      "label": {
+        "en": "Event ingest",
+        "ko": "Event ingest"
+      },
+      "description": {
+        "en": "Validate, normalize, deduplicate, and correlate",
+        "ko": "검증, 정규화, 중복 제거 및 correlation"
+      }
+    },
+    {
+      "id": "trust-router",
+      "kind": "decision",
+      "label": {
+        "en": "Trust router",
+        "ko": "결정 수준 선택"
+      },
+      "description": {
+        "en": "Select the lowest competent tier",
+        "ko": "결정 가능한 가장 낮은 tier 선택"
+      }
+    },
+    {
+      "id": "decision-tiers",
+      "kind": "process",
+      "label": {
+        "en": "T0 / T1 / T2 decision",
+        "ko": "T0 / T1 / T2 결정"
+      },
+      "description": {
+        "en": "Rules, evidence reuse, or grounded reasoning",
+        "ko": "Rule, evidence reuse 또는 grounded reasoning"
+      }
+    },
+    {
+      "id": "safety-check",
+      "kind": "decision",
+      "label": {
+        "en": "Verification and safety check",
+        "ko": "근거 및 안전성 검토"
+      },
+      "description": {
+        "en": "Evidence, policy, risk, authority, and dry-run gates",
+        "ko": "Evidence, policy, risk, authority 및 dry-run gate"
+      }
+    },
+    {
+      "id": "privileged-executor",
+      "kind": "process",
+      "label": {
+        "en": "Privileged executor",
+        "ko": "권한 있는 executor"
+      },
+      "description": {
+        "en": "Bounded action with lock and rollback",
+        "ko": "Lock 및 rollback을 갖춘 범위 제한 action"
+      }
+    },
+    {
+      "id": "microsoft-foundry",
+      "kind": "azure-service",
+      "label": {
+        "en": "Microsoft Foundry",
+        "ko": "Microsoft Foundry"
+      },
+      "description": {
+        "en": "Model, evaluation, and agent project plane",
+        "ko": "Model, evaluation 및 agent project plane"
+      }
+    },
+    {
+      "id": "azure-openai",
+      "kind": "azure-service",
+      "label": {
+        "en": "Azure OpenAI",
+        "ko": "Azure OpenAI"
+      },
+      "description": {
+        "en": "Optional governed T2 capabilities",
+        "ko": "선택적인 통제된 T2 capability"
+      }
+    },
+    {
+      "id": "provider-tools",
+      "kind": "service",
+      "label": {
+        "en": "Provider tools and MCP",
+        "ko": "Provider tool 및 MCP"
+      },
+      "description": {
+        "en": "Registered read and action adapters behind typed contracts",
+        "ko": "Typed contract 뒤에 등록된 read 및 action adapter"
+      }
+    },
+    {
+      "id": "operating-ontology",
+      "kind": "store",
+      "label": {
+        "en": "Operating ontology",
+        "ko": "Operating ontology"
+      },
+      "description": {
+        "en": "Objects, relationships, state, objectives, actions, and evidence",
+        "ko": "Object, relationship, state, objective, action 및 evidence"
+      }
+    },
+    {
+      "id": "governed-catalogs",
+      "kind": "store",
+      "label": {
+        "en": "Governed catalogs",
+        "ko": "통제된 catalog"
+      },
+      "description": {
+        "en": "Rules, policies, ActionTypes, workflows, and promotion evidence",
+        "ko": "Rule, policy, ActionType, workflow 및 promotion evidence"
+      }
+    },
+    {
+      "id": "evidence-store",
+      "kind": "azure-service",
+      "label": {
+        "en": "PostgreSQL and pgvector",
+        "ko": "PostgreSQL 및 pgvector"
+      },
+      "description": {
+        "en": "State, append-only audit, evidence, and context",
+        "ko": "State, append-only audit, evidence 및 context"
+      }
+    },
+    {
+      "id": "container-apps",
+      "kind": "azure-service",
+      "label": {
+        "en": "Container Apps",
+        "ko": "Container Apps"
+      },
+      "description": {
+        "en": "Runtime and scheduled jobs",
+        "ko": "Runtime 및 scheduled job"
+      }
+    },
+    {
+      "id": "entra-id",
+      "kind": "azure-service",
+      "label": {
+        "en": "Microsoft Entra ID",
+        "ko": "Microsoft Entra ID"
+      },
+      "description": {
+        "en": "Human authentication and App Roles",
+        "ko": "사람 인증 및 App Role"
+      }
+    },
+    {
+      "id": "managed-identities",
+      "kind": "azure-service",
+      "label": {
+        "en": "Managed identities",
+        "ko": "Managed identity"
+      },
+      "description": {
+        "en": "Separated workload authority",
+        "ko": "분리된 workload authority"
+      }
+    },
+    {
+      "id": "key-vault",
+      "kind": "azure-service",
+      "label": {
+        "en": "Key Vault",
+        "ko": "Key Vault"
+      },
+      "description": {
+        "en": "Secret references and connection material",
+        "ko": "Secret reference 및 connection material"
+      }
+    },
+    {
+      "id": "azure-monitor",
+      "kind": "azure-service",
+      "label": {
+        "en": "Azure Monitor",
+        "ko": "Azure Monitor"
+      },
+      "description": {
+        "en": "Traces, metrics, logs, and alerts",
+        "ko": "Trace, metric, log 및 alert"
+      }
+    },
+    {
+      "id": "human-approval",
+      "kind": "external",
+      "label": {
+        "en": "Human approval",
+        "ko": "사람 승인"
+      },
+      "description": {
+        "en": "Separate approver identity for high-impact work",
+        "ko": "영향이 큰 작업을 위한 분리된 approver identity"
+      }
+    },
+    {
+      "id": "remediation-pr",
+      "kind": "external",
+      "label": {
+        "en": "Remediation pull requests",
+        "ko": "수정 pull request"
+      },
+      "description": {
+        "en": "Reviewable and reversible change delivery",
+        "ko": "검토 및 되돌리기가 가능한 변경 전달"
+      }
+    },
+    {
+      "id": "governed-actions",
+      "kind": "service",
+      "label": {
+        "en": "Bounded direct actions",
+        "ko": "범위가 제한된 direct action"
+      },
+      "description": {
+        "en": "Registered provider calls with all action safeguards",
+        "ko": "모든 action safeguard를 갖춘 등록 provider call"
+      }
+    },
+    {
+      "id": "audit-replay",
+      "kind": "service",
+      "label": {
+        "en": "Audit and replay",
+        "ko": "Audit 및 replay"
+      },
+      "description": {
+        "en": "Attributable terminal evidence and deterministic reconstruction",
+        "ko": "추적 가능한 terminal evidence 및 deterministic reconstruction"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "environment-to-runtime",
+      "from": "connected-environment",
+      "to": "typed-event-bus",
+      "kind": "event",
+      "label": null
+    },
+    {
+      "id": "operators-to-runtime",
+      "from": "operator-surfaces",
+      "to": "agent-runtime",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "bus-to-agents",
+      "from": "typed-event-bus",
+      "to": "agent-pantheon",
+      "kind": "event",
+      "label": null
+    },
+    {
+      "id": "bus-to-ingest",
+      "from": "typed-event-bus",
+      "to": "event-ingest",
+      "kind": "event",
+      "label": null
+    },
+    {
+      "id": "ingest-to-router",
+      "from": "event-ingest",
+      "to": "trust-router",
+      "kind": "event",
+      "label": null
+    },
+    {
+      "id": "router-to-decision",
+      "from": "trust-router",
+      "to": "decision-tiers",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "decision-to-safety",
+      "from": "decision-tiers",
+      "to": "safety-check",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "safety-to-executor",
+      "from": "safety-check",
+      "to": "privileged-executor",
+      "kind": "mutation",
+      "label": null
+    },
+    {
+      "id": "models-to-control",
+      "from": "models-and-tools",
+      "to": "governed-control",
+      "kind": "read",
+      "label": null
+    },
+    {
+      "id": "knowledge-to-control",
+      "from": "knowledge-and-evidence",
+      "to": "governed-control",
+      "kind": "read",
+      "label": null
+    },
+    {
+      "id": "safety-to-approval",
+      "from": "governed-control",
+      "to": "human-approval",
+      "kind": "approval",
+      "label": null
+    },
+    {
+      "id": "approval-to-executor",
+      "from": "human-approval",
+      "to": "privileged-executor",
+      "kind": "approval",
+      "label": null
+    },
+    {
+      "id": "executor-to-pr",
+      "from": "privileged-executor",
+      "to": "remediation-pr",
+      "kind": "mutation",
+      "label": null
+    },
+    {
+      "id": "executor-to-actions",
+      "from": "privileged-executor",
+      "to": "governed-actions",
+      "kind": "mutation",
+      "label": null
+    },
+    {
+      "id": "control-to-evidence",
+      "from": "governed-control",
+      "to": "knowledge-and-evidence",
+      "kind": "audit",
+      "label": null
+    },
+    {
+      "id": "evidence-to-replay",
+      "from": "evidence-store",
+      "to": "audit-replay",
+      "kind": "read",
+      "label": null
+    }
+  ]
+}

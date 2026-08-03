@@ -1,0 +1,397 @@
+id: fdai-reference-architecture
+version: 1
+kind: context
+formats: [svg]
+updated: 2026-08-03
+locales:
+  en:
+    title: FDAI reference architecture
+    description: Logical product layers, governed control boundaries, Azure platform services, and connected operational systems for FDAI.
+    alt: Connected Azure resources, telemetry, repositories, and enterprise connectors send signals into FDAI. Operators use the Web Console, CLI, and ChatOps surfaces. The fixed pantheon of 15 independently runnable agents coordinates only through a schema-validated event bus. Events pass through ingest, trust routing, deterministic or grounded decision tiers, verification and safety checks, and the privileged executor. Microsoft Foundry, Azure OpenAI, provider tools, the operating ontology, governed catalogs, and PostgreSQL provide model, tool, knowledge, and evidence capabilities. Azure Container Apps, Microsoft Entra ID, managed identities, Key Vault, and Azure Monitor form the platform foundation. Governed outcomes include human approval, remediation pull requests, bounded direct actions, and audit replay.
+  ko:
+    title: FDAI 참조 아키텍처
+    description: FDAI의 논리적 제품 계층, 통제 경계, Azure platform service 및 연결된 운영 시스템입니다.
+    alt: 연결된 Azure resource, telemetry, repository 및 enterprise connector가 FDAI로 signal을 보냅니다. 운영자는 Web Console, CLI 및 ChatOps surface를 사용합니다. 고정된 15개 독립 실행 agent는 schema-validated event bus로만 협업합니다. Event는 ingest, trust routing, deterministic 또는 grounded decision tier, verification 및 safety check, privileged executor를 통과합니다. Microsoft Foundry, Azure OpenAI, provider tool, operating ontology, governed catalog 및 PostgreSQL이 model, tool, knowledge 및 evidence capability를 제공합니다. Azure Container Apps, Microsoft Entra ID, managed identity, Key Vault 및 Azure Monitor가 platform foundation을 구성합니다. 통제된 결과에는 사람 승인, remediation pull request, 범위가 제한된 direct action 및 audit replay가 포함됩니다.
+canvas:
+  width: 1900
+  height: 1280
+  direction: RIGHT
+  rootLayout: row
+  padding: 24
+  profile: azure-reference
+groups:
+  - id: connected-environment
+    kind: layer
+    presentation: panel
+    label: { en: Connected environment, ko: 연결된 운영 환경 }
+    description: { en: Signals and governed source material, ko: Signal 및 통제된 source material }
+    direction: DOWN
+    layout: column
+    gap: 48
+    width: 240
+  - id: fdai-platform
+    kind: system
+    presentation: boundary
+    label: { en: FDAI control plane, ko: FDAI control plane }
+    description: { en: Evidence-governed autonomous cloud operations, ko: 근거로 통제되는 자율 cloud operation }
+    direction: DOWN
+    layout: column
+    gap: 64
+    width: 1120
+  - id: operator-surfaces
+    parent: fdai-platform
+    kind: layer
+    presentation: band
+    label: { en: Operator surfaces, ko: 운영자 surface }
+    direction: RIGHT
+    layout: row
+    gap: 64
+    justify: center
+    width: 1040
+  - id: agent-runtime
+    parent: fdai-platform
+    kind: layer
+    presentation: panel
+    label: { en: Agent-driven runtime, ko: Agent-driven runtime }
+    description: { en: Independent workers with typed event choreography, ko: Typed event choreography를 사용하는 독립 worker }
+    direction: RIGHT
+    layout: row
+    gap: 96
+    justify: center
+    width: 1040
+  - id: governed-control
+    parent: fdai-platform
+    kind: layer
+    presentation: band
+    label: { en: Governed control flow, ko: 통제된 control flow }
+    direction: RIGHT
+    layout: row
+    gap: 24
+    justify: center
+    width: 1040
+  - id: models-and-tools
+    parent: fdai-platform
+    kind: layer
+    presentation: band
+    label: { en: Models and tools, ko: Model 및 tool }
+    direction: RIGHT
+    layout: row
+    gap: 64
+    justify: center
+    width: 1040
+  - id: knowledge-and-evidence
+    parent: fdai-platform
+    kind: layer
+    presentation: band
+    label: { en: Governed knowledge and evidence, ko: 통제된 knowledge 및 evidence }
+    direction: RIGHT
+    layout: row
+    gap: 48
+    justify: center
+    width: 1040
+  - id: azure-foundation
+    parent: fdai-platform
+    kind: layer
+    presentation: panel
+    label: { en: Azure platform foundation, ko: Azure platform foundation }
+    direction: RIGHT
+    layout: row
+    gap: 40
+    justify: center
+    width: 1040
+  - id: governed-outcomes
+    kind: layer
+    presentation: panel
+    label: { en: Governed outcomes, ko: 통제된 결과 }
+    description: { en: Approval-aware delivery and replay, ko: 승인을 반영하는 delivery 및 replay }
+    direction: DOWN
+    layout: column
+    gap: 48
+    width: 264
+nodes:
+  - id: azure-estate
+    parent: connected-environment
+    kind: azure-service
+    icon: resource-graph
+    presentation: icon
+    label: { en: Azure resources, ko: Azure resource }
+    description: { en: Subscription and resource inventory, ko: Subscription 및 resource inventory }
+  - id: operational-telemetry
+    parent: connected-environment
+    kind: azure-service
+    icon: monitor
+    presentation: icon
+    label: { en: Operational telemetry, ko: 운영 telemetry }
+    description: { en: "Metrics, logs, traces, alerts, and changes", ko: "Metric, log, trace, alert 및 change" }
+  - id: delivery-repositories
+    parent: connected-environment
+    kind: external
+    icon: github
+    presentation: icon
+    label: { en: Source repositories, ko: Source repository }
+    description: { en: "Infrastructure, application, policy, and catalog changes", ko: "Infrastructure, application, policy 및 catalog change" }
+  - id: enterprise-connectors
+    parent: connected-environment
+    kind: external
+    label: { en: Documents and connectors, ko: Document 및 connector }
+    description: { en: Authenticated enterprise sources and governed uploads, ko: 인증된 enterprise source 및 통제된 upload }
+  - id: web-console
+    parent: operator-surfaces
+    kind: azure-service
+    icon: static-web-app
+    presentation: icon
+    label: { en: FDAI Web Console, ko: FDAI Web Console }
+    description: { en: Read projections and submit bounded requests, ko: Projection 조회 및 범위가 제한된 request 제출 }
+  - id: operator-cli
+    parent: operator-surfaces
+    kind: process
+    label: { en: FDAI CLI, ko: FDAI CLI }
+    description: { en: Scriptable operator access through the Operator API, ko: Operator API를 통한 scriptable 운영자 접근 }
+  - id: chatops-surfaces
+    parent: operator-surfaces
+    kind: external
+    icon: teams
+    presentation: icon
+    label: { en: ChatOps, ko: ChatOps }
+    description: { en: "Teams, Slack, and notification adapters", ko: "Teams, Slack 및 notification adapter" }
+  - id: typed-event-bus
+    parent: agent-runtime
+    kind: azure-service
+    icon: event-hubs
+    presentation: icon
+    label: { en: Schema-validated event bus, ko: Schema-validated event bus }
+    description: { en: "Pub/sub, retry, isolation, dead-letter, and replay", ko: "Pub/sub, retry, isolation, dead-letter 및 replay" }
+    width: 260
+  - id: agent-pantheon
+    parent: agent-runtime
+    kind: process
+    icon: agent-pantheon
+    label: { en: 15 independent agents, ko: 15개 독립 agent }
+    description: { en: "Single-writer ownership for observation, judgment, approval, execution, recovery, audit, and learning", ko: "관찰, 판단, 승인, 실행, 복구, 감사 및 학습의 single-writer ownership" }
+    width: 300
+  - id: event-ingest
+    parent: governed-control
+    kind: process
+    label: { en: Event ingest, ko: Event ingest }
+    description: { en: "Validate, normalize, deduplicate, and correlate", ko: "검증, 정규화, 중복 제거 및 correlation" }
+    width: 168
+  - id: trust-router
+    parent: governed-control
+    kind: decision
+    label: { en: Trust router, ko: 결정 수준 선택 }
+    description: { en: Select the lowest competent tier, ko: 결정 가능한 가장 낮은 tier 선택 }
+    width: 168
+  - id: decision-tiers
+    parent: governed-control
+    kind: process
+    label: { en: T0 / T1 / T2 decision, ko: T0 / T1 / T2 결정 }
+    description: { en: "Rules, evidence reuse, or grounded reasoning", ko: "Rule, evidence reuse 또는 grounded reasoning" }
+    width: 184
+  - id: safety-check
+    parent: governed-control
+    kind: decision
+    label: { en: Verification and safety check, ko: 근거 및 안전성 검토 }
+    description: { en: "Evidence, policy, risk, authority, and dry-run gates", ko: "Evidence, policy, risk, authority 및 dry-run gate" }
+    width: 184
+  - id: privileged-executor
+    parent: governed-control
+    kind: process
+    label: { en: Privileged executor, ko: 권한 있는 executor }
+    description: { en: Bounded action with lock and rollback, ko: Lock 및 rollback을 갖춘 범위 제한 action }
+    width: 168
+    ports:
+      - id: approval-in
+        side: EAST
+  - id: microsoft-foundry
+    parent: models-and-tools
+    kind: azure-service
+    icon: ai-foundry
+    presentation: icon
+    label: { en: Microsoft Foundry, ko: Microsoft Foundry }
+    description: { en: "Model, evaluation, and agent project plane", ko: "Model, evaluation 및 agent project plane" }
+  - id: azure-openai
+    parent: models-and-tools
+    kind: azure-service
+    icon: azure-openai
+    presentation: icon
+    label: { en: Azure OpenAI, ko: Azure OpenAI }
+    description: { en: Optional governed T2 capabilities, ko: 선택적인 통제된 T2 capability }
+  - id: provider-tools
+    parent: models-and-tools
+    kind: service
+    label: { en: Provider tools and MCP, ko: Provider tool 및 MCP }
+    description: { en: Registered read and action adapters behind typed contracts, ko: Typed contract 뒤에 등록된 read 및 action adapter }
+    width: 248
+  - id: operating-ontology
+    parent: knowledge-and-evidence
+    kind: store
+    label: { en: Operating ontology, ko: Operating ontology }
+    description: { en: "Objects, relationships, state, objectives, actions, and evidence", ko: "Object, relationship, state, objective, action 및 evidence" }
+    width: 248
+  - id: governed-catalogs
+    parent: knowledge-and-evidence
+    kind: store
+    label: { en: Governed catalogs, ko: 통제된 catalog }
+    description: { en: "Rules, policies, ActionTypes, workflows, and promotion evidence", ko: "Rule, policy, ActionType, workflow 및 promotion evidence" }
+    width: 264
+  - id: evidence-store
+    parent: knowledge-and-evidence
+    kind: azure-service
+    icon: postgresql
+    presentation: icon
+    label: { en: PostgreSQL and pgvector, ko: PostgreSQL 및 pgvector }
+    description: { en: "State, append-only audit, evidence, and context", ko: "State, append-only audit, evidence 및 context" }
+    width: 240
+  - id: container-apps
+    parent: azure-foundation
+    kind: azure-service
+    icon: container-apps
+    presentation: icon
+    label: { en: Container Apps, ko: Container Apps }
+    description: { en: Runtime and scheduled jobs, ko: Runtime 및 scheduled job }
+  - id: entra-id
+    parent: azure-foundation
+    kind: azure-service
+    icon: entra-id
+    presentation: icon
+    label: { en: Microsoft Entra ID, ko: Microsoft Entra ID }
+    description: { en: Human authentication and App Roles, ko: 사람 인증 및 App Role }
+  - id: managed-identities
+    parent: azure-foundation
+    kind: azure-service
+    icon: managed-identity
+    presentation: icon
+    label: { en: Managed identities, ko: Managed identity }
+    description: { en: Separated workload authority, ko: 분리된 workload authority }
+  - id: key-vault
+    parent: azure-foundation
+    kind: azure-service
+    icon: key-vault
+    presentation: icon
+    label: { en: Key Vault, ko: Key Vault }
+    description: { en: Secret references and connection material, ko: Secret reference 및 connection material }
+  - id: azure-monitor
+    parent: azure-foundation
+    kind: azure-service
+    icon: monitor
+    presentation: icon
+    label: { en: Azure Monitor, ko: Azure Monitor }
+    description: { en: "Traces, metrics, logs, and alerts", ko: "Trace, metric, log 및 alert" }
+  - id: human-approval
+    parent: governed-outcomes
+    kind: external
+    icon: teams
+    presentation: icon
+    label: { en: Human approval, ko: 사람 승인 }
+    description: { en: Separate approver identity for high-impact work, ko: 영향이 큰 작업을 위한 분리된 approver identity }
+    ports:
+      - id: decision-in
+        side: WEST
+      - id: approval-out
+        side: WEST
+  - id: remediation-pr
+    parent: governed-outcomes
+    kind: external
+    icon: github
+    presentation: icon
+    label: { en: Remediation pull requests, ko: 수정 pull request }
+    description: { en: Reviewable and reversible change delivery, ko: 검토 및 되돌리기가 가능한 변경 전달 }
+  - id: governed-actions
+    parent: governed-outcomes
+    kind: service
+    label: { en: Bounded direct actions, ko: 범위가 제한된 direct action }
+    description: { en: Registered provider calls with all action safeguards, ko: 모든 action safeguard를 갖춘 등록 provider call }
+  - id: audit-replay
+    parent: governed-outcomes
+    kind: service
+    label: { en: Audit and replay, ko: Audit 및 replay }
+    description: { en: Attributable terminal evidence and deterministic reconstruction, ko: 추적 가능한 terminal evidence 및 deterministic reconstruction }
+edges:
+  - id: environment-to-runtime
+    from: connected-environment
+    to: typed-event-bus
+    kind: event
+    route: orthogonal-shortest
+  - id: operators-to-runtime
+    from: operator-surfaces
+    to: agent-runtime
+    kind: request
+    route: orthogonal
+  - id: bus-to-agents
+    from: typed-event-bus
+    to: agent-pantheon
+    kind: event
+  - id: bus-to-ingest
+    from: typed-event-bus
+    to: event-ingest
+    kind: event
+    route: orthogonal-trunk
+  - id: ingest-to-router
+    from: event-ingest
+    to: trust-router
+    kind: event
+  - id: router-to-decision
+    from: trust-router
+    to: decision-tiers
+    kind: request
+  - id: decision-to-safety
+    from: decision-tiers
+    to: safety-check
+    kind: request
+  - id: safety-to-executor
+    from: safety-check
+    to: privileged-executor
+    kind: mutation
+  - id: models-to-control
+    from: models-and-tools
+    to: governed-control
+    kind: read
+    route: orthogonal
+  - id: knowledge-to-control
+    from: knowledge-and-evidence
+    to: governed-control
+    kind: read
+    route: orthogonal-right
+  - id: safety-to-approval
+    from: governed-control
+    to: human-approval:decision-in
+    kind: approval
+    route: orthogonal-shortest
+  - id: approval-to-executor
+    from: human-approval:approval-out
+    to: privileged-executor:approval-in
+    kind: approval
+    route: orthogonal-shortest
+  - id: executor-to-pr
+    from: privileged-executor
+    to: remediation-pr
+    kind: mutation
+    route: orthogonal-shortest
+  - id: executor-to-actions
+    from: privileged-executor
+    to: governed-actions
+    kind: mutation
+    route: orthogonal-shortest
+  - id: control-to-evidence
+    from: governed-control
+    to: knowledge-and-evidence
+    kind: audit
+    route: orthogonal-trunk
+  - id: evidence-to-replay
+    from: evidence-store
+    to: audit-replay
+    kind: read
+    route: orthogonal-shortest
+legend:
+  - kind: event
+    label: { en: Typed asynchronous event, ko: Typed 비동기 event }
+  - kind: request
+    label: { en: Governed request, ko: 통제된 request }
+  - kind: read
+    label: { en: Evidence or capability read, ko: Evidence 또는 capability read }
+  - kind: approval
+    label: { en: Human approval, ko: 사람 승인 }
+  - kind: mutation
+    label: { en: Governed change, ko: 통제된 변경 }
+  - kind: audit
+    label: { en: Append-only audit, ko: Append-only audit }

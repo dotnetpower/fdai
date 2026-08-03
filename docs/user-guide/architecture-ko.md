@@ -4,7 +4,7 @@ description: FDAI의 15개 에이전트 조직이 이벤트 기반 컨트롤 플
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: f624349cfc782559746ca41da5796b14202543d2
+translation_source_sha: 941513f757a96de6e2d02978f0e99e5955e71bbe
 translation_revised: 2026-08-03
 ---
 
@@ -18,11 +18,24 @@ request로 도착하고, 승인은 채팅에서 이루어집니다.
 15개로 고정된 에이전트 조직이 이 책임 분담을 명확하게 만듭니다. 각 에이전트는 컨트롤
 플레인 안에서 타입이 정의된 객체와 생애주기 역할을 소유합니다. 에이전트는 컨트롤 루프
 위에 소유권을 더할 뿐입니다. 컨트롤 루프를 대신하지도, 결정론적 안전성 검토를 건너뛰지도
-않습니다.
 
 > 구현 대상은 Azure입니다. 모든 클라우드 호출은 provider 계약을 거치므로 core는 Azure
 > SDK를 직접 가져오지 않고, 나중에 다른 호스트로 옮겨도 판단 로직을 다시 쓸 필요가
 > 없습니다.
+
+translation_source_sha: 941513f757a96de6e2d02978f0e99e5955e71bbe
+
+연결된 운영 시스템과 통제된 결과가 FDAI control plane을 둘러쌉니다. 내부에서는 운영자
+surface, agent runtime, 통제된 control flow, model 및 tool capability, knowledge 및
+evidence, Azure platform foundation이 서로 다른 레이어로 유지됩니다.
+
+<fdai-architecture-diagram manifest="../../diagrams/generated/fdai-reference-architecture.manifest.json" locale="ko" style="display:block">
+  <img src="../../diagrams/generated/fdai-reference-architecture.ko.svg" alt="연결된 Azure resource, telemetry, repository 및 enterprise connector가 FDAI로 signal을 보냅니다. 운영자는 Web Console, CLI 및 ChatOps surface를 사용합니다. 고정된 15개 독립 실행 agent는 schema-validated event bus로만 협업합니다. Event는 ingest, trust routing, deterministic 또는 grounded decision tier, verification 및 safety check, privileged executor를 통과합니다. Microsoft Foundry, Azure OpenAI, provider tool, operating ontology, governed catalog 및 PostgreSQL이 model, tool, knowledge 및 evidence capability를 제공합니다. Azure Container Apps, Microsoft Entra ID, managed identity, Key Vault 및 Azure Monitor가 platform foundation을 구성합니다. 통제된 결과에는 사람 승인, remediation pull request, 범위가 제한된 direct action 및 audit replay가 포함됩니다." loading="eager" style="display:block;width:100%;height:auto" />
+</fdai-architecture-diagram>
+
+Pantheon 통합 표시는 고정된 15개 agent 조직을 나타내며 16번째 agent가 아닙니다. 레이어
+연결선은 제품 수준의 통제된 관계를 보여 줍니다. 단일 event control flow는 전체 구조를,
+배포 및 resource 수준 연결은 Azure 보기를 사용하여 확인하세요.
 
 ## 전체 구조
 
