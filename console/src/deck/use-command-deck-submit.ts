@@ -23,7 +23,11 @@ import {
 } from "./conversation-sessions";
 import type { ViewSnapshot } from "./context";
 import { record as recordHistory, type DraftHistory } from "./draft-history";
-import { drainStreamPaint } from "./stream-paint";
+import {
+  drainStreamPaint,
+  shouldFlushStreamPaintSynchronously,
+  terminalRevealChunks,
+} from "./stream-paint";
 import { backendHistoryForTurns } from "./turn-history";
 
 const MIN_PREPARING_VISIBLE_MS = 420;
@@ -177,6 +181,7 @@ export function useCommandDeckSubmit({
     };
     try {
       let started = false;
+      let receivedToken = false;
       let visibleAcc = "";
       let pendingRevision = 0;
       const preparingStartedAt = Date.now();
@@ -249,6 +254,7 @@ export function useCommandDeckSubmit({
             : {}),
           onToken: (delta) => {
             if (!isCurrent()) return;
+            receivedToken = true;
             paintQueue.push(delta);
             revealWhenReady();
             if (!started) return;
@@ -409,11 +415,21 @@ export function useCommandDeckSubmit({
           },
           onConfirmed: (segment: ConfirmedAnswerSegment) => {
             if (!isCurrent()) return;
-            visibleAcc = segment.text;
-            paintQueue.length = 0;
             pendingRevision = Math.max(pendingRevision, segment.revision);
             revealWhenReady();
             if (!started) return;
+            if (!receivedToken) {
+              setTurns((current) => {
+                const next = current.map((turn) => turn.id === deckId
+                  ? { ...turn, revision: segment.revision, confirmed: segment }
+                  : turn);
+                turnsRef.current = next;
+                return next;
+              });
+              return;
+            }
+            visibleAcc = segment.text;
+            paintQueue.length = 0;
             if (paintFrame !== null) {
               cancelAnimationFrame(paintFrame);
               paintFrame = null;
@@ -454,6 +470,28 @@ export function useCommandDeckSubmit({
       }
       paintQueue.length = 0;
       ensureTurn();
+      if (!receivedToken && reply.text.length > 0 && isCurrent()) {
+        const terminalQueue = terminalRevealChunks(reply.text);
+        if (shouldFlushStreamPaintSynchronously(
+          document.visibilityState,
+          document.hasFocus(),
+        )) {
+          visibleAcc = reply.text;
+        } else {
+          visibleAcc = "";
+          while (terminalQueue.length > 0 && isCurrent()) {
+            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+            visibleAcc += drainStreamPaint(terminalQueue);
+            setTurns((current) => {
+              const next = current.map((turn) => turn.id === deckId
+                ? { ...turn, text: visibleAcc }
+                : turn);
+              turnsRef.current = next;
+              return next;
+            });
+          }
+        }
+      }
       if (isCurrent()) {
         setTurns((current) => {
           const next = current.map((turn) => {

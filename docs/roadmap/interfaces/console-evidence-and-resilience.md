@@ -238,7 +238,9 @@ Markdown tables render progressively. A completed header and separator create th
 the first body row arrives, and each completed row appends without replacing the table. Incomplete
 header, separator, and row syntax stays hidden rather than appearing as raw Markdown. Every bounded
 answer row remains in the transcript flow without an internal vertical scroll region or row-expansion
-control. Cells wrap on narrow screens instead of widening the transcript.
+control. A foreground terminal-only deterministic answer uses the same visual paint queue, so its
+canonical table also reveals monotonically from zero rows to the complete row count. Background tabs
+finish synchronously. Cells wrap on narrow screens instead of widening the transcript.
 
 Detail includes bounded recorded metadata but doesn't repeat the answer body. Valid object or array JSON in provider messages, action arguments, commands, and outputs uses indented syntax highlighting and copy; malformed or plain text stays unchanged. The terminal replay payload retains final ID-deduplicated branch, activity, milestone, and redacted execution detail under a 64 KiB aggregate cap, truncates each history output at 32 KiB, and reports truncation and omission counts, so durable history and the live turn use the same strict parser and trajectory view. Unavailable or timed-out
 evidence is an attempt, not completed evidence, and unverified work never receives completed styling. Missing activity stays in an observation-coverage disclosure and proves no absence. Exact-answer

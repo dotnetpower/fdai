@@ -257,6 +257,9 @@ function ActivitySummary({
   const progress = activity.completed !== null && activity.total !== null
     ? `${activity.completed}/${activity.total}`
     : null;
+  const meta = activity.execution?.durationMs !== undefined
+    ? formatDuration(activity.execution.durationMs)
+    : progress ?? statusLabel(activity.status);
   return (
     <div class={`deck-investigation-summary${activity.execution ? " has-kind-badge" : ""}`}>
       <span class="deck-investigation-state" aria-hidden="true">
@@ -280,9 +283,7 @@ function ActivitySummary({
         {activity.detail ? <small>{activity.detail}</small> : null}
       </span>
       <span class="deck-investigation-meta muted">
-        {activity.execution?.inputKind === "query"
-          ? `${t("deck.investigation.readOnly")} · ${progress ?? statusLabel(activity.status)}`
-          : progress ?? statusLabel(activity.status)}
+        {meta}
       </span>
     </div>
   );
@@ -309,7 +310,12 @@ export function InvestigationTimeline({
   ).length + visibleBranches.filter((branch) =>
     !["pending", "running"].includes(branch.status),
   ).length;
-  const startCopy = activities[0]?.detail ?? activities[0]?.label ?? visibleBranches[0]?.summary;
+  const firstActivity = activities[0];
+  const startCopy = firstActivity?.execution
+    ? t(firstActivity.execution.inputKind === "query"
+      ? "deck.investigation.startingQuery"
+      : "deck.investigation.startingCommand", { tool: firstActivity.execution.tool })
+    : visibleBranches[0]?.summary ?? firstActivity?.label;
   const allObservedCallsSettled = callCount > 0 && completedCallCount === callCount;
   const phaseTitle = t(running
     ? "deck.investigation.runningTitle"
@@ -366,7 +372,7 @@ export function InvestigationTimeline({
             {t("deck.investigation.executionDetails", { count: activities.length })}
           </summary>
           <ol class="deck-investigation-list">
-            {activities.map((activity) => {
+            {activities.map((activity, index) => {
               return (
                 <li
                   key={activity.activityId}
@@ -375,7 +381,8 @@ export function InvestigationTimeline({
                   {activity.execution ? (
                     <details
                       class="deck-investigation-item-disclosure"
-                      open={activity.status === "running"}
+                      open={activity.status === "running" ||
+                        (running && index === activities.length - 1)}
                     >
                       <summary><ActivitySummary activity={activity} /></summary>
                       <ExecutionEvidence
@@ -420,14 +427,11 @@ export function InvestigationTimeline({
           )}
           <span class="deck-investigation-session-copy">
             <strong>{phaseTitle}</strong>
-            <small>{callSummary}</small>
+            <small>{callSummary} · {formatDuration(running ? elapsedMs : finalDurationMs)}</small>
           </span>
           <span class="deck-investigation-session-summary muted">{summary}</span>
           <span class={`deck-investigation-badge is-${running ? "running" : tone}`}>
             {statusLabel(running ? "running" : tone)}
-          </span>
-          <span class="deck-investigation-elapsed muted" aria-hidden="true">
-            {formatDuration(running ? elapsedMs : finalDurationMs)}
           </span>
         </header>
         {body}

@@ -7131,6 +7131,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-investigation-session-copy > strong { font-size: 12.5px; font-weight: 700; }
 .deck-investigation-session-copy > small,
 .deck-investigation-session-summary { font-size: 11px; }
+.deck-investigation-session-copy > small { color: var(--fg-muted); white-space: nowrap; }
 .deck-investigation-session-summary { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .deck-investigation-head > span {
   font-size: 11px;
@@ -7505,6 +7506,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-investigation-meta {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  font-family: var(--font-mono);
 }
 .deck-investigation-execution {
   margin: 2px 0 5px 8px;

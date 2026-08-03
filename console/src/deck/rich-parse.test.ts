@@ -188,6 +188,24 @@ describe("parseStreamingAnswer - progressive tables", () => {
       text: "Observed resources:",
     }]);
   });
+
+  it("does not flicker a row when an intermediate cell pipe arrives", () => {
+    const prefix = "| Resource | Type | State |\n| --- | --- | --- |\n| api | web | Running |";
+
+    expect(parseStreamingAnswer(`${prefix}\n| worker | Stopped |`)).toEqual([{
+      kind: "table",
+      headers: ["Resource", "Type", "State"],
+      rows: [["api", "web", "Running"]],
+    }]);
+    expect(parseStreamingAnswer(`${prefix}\n| worker | job | Stopped |`)).toEqual([{
+      kind: "table",
+      headers: ["Resource", "Type", "State"],
+      rows: [
+        ["api", "web", "Running"],
+        ["worker", "job", "Stopped"],
+      ],
+    }]);
+  });
 });
 
 describe("parseAnswer - code", () => {

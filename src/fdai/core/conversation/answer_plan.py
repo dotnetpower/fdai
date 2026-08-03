@@ -258,7 +258,10 @@ _INTENT_PATTERNS: Final[tuple[tuple[AnswerIntent, re.Pattern[str]], ...]] = (
 _MODIFIERS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
     ("brief", re.compile(r"\b(briefly|short answer|concise)\b|결론만|짧게", re.I)),
     ("deep", re.compile(r"\b(in detail|deep dive|thoroughly)\b|자세히|심층적으로", re.I)),
-    ("table", re.compile(r"\b(as a table|table format)\b|표로|비교표", re.I)),
+    (
+        "table",
+        re.compile(r"\b(as a table|table format)\b|표로|비교표|테이블(?:로|\s*형식으로)?", re.I),
+    ),
     (
         "chart",
         re.compile(

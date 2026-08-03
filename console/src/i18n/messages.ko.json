@@ -2130,6 +2130,8 @@
       "pending": "대기 중",
       "running": "진행 중",
       "startingWork": "작업 시작",
+      "startingQuery": "{tool}를 읽기 전용 권한으로 조회합니다.",
+      "startingCommand": "{tool}를 실행하고 제한된 출력을 관찰합니다.",
       "progressUpdate": "진행 상황",
       "completed": "완료",
       "partial": "일부 완료",

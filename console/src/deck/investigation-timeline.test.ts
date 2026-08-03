@@ -134,7 +134,7 @@ describe("upsertEvidenceBranch", () => {
 
     expect(component).toContain('<details class="deck-investigation-activity-disclosure" open>');
     expect(component).toContain('class="deck-investigation-item-disclosure"');
-    expect(component).toContain('open={activity.status === "running"}');
+    expect(component).toContain('open={activity.status === "running" ||');
     expect(presenter).toContain("showStartNote={investigationFlowStart}");
     expect(component).toContain('class="deck-progress-note deck-progress-note-derived"');
     expect(component).toContain("<InvestigationNextSkeleton />");
@@ -142,7 +142,10 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('aria-label={t("deck.investigation.branches")}');
     expect(component).toContain('running ? "is-running" : `is-settled is-${tone}`');
     expect(component).toContain('is-${running ? "running" : tone}');
-    expect(component).toContain('class="deck-investigation-elapsed muted"');
+    expect(component).toContain('"deck.investigation.startingQuery"');
+    expect(component).toContain('"deck.investigation.startingCommand"');
+    expect(presenter).toContain("!isInvestigationFlow || investigationFlowStart");
+    expect(presenter).toContain("!isInvestigationFlow ? (");
     expect(component).toContain('"deck.investigation.sourceSummaryOne"');
     expect(component).toContain('"deck.investigation.callCompletedOne"');
     expect(component).toContain('"deck.investigation.callsCompletedMany"');
@@ -155,13 +158,11 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('data-format={formattedOutput.isJson ? "json" : "text"}');
     expect(styles).toContain("@keyframes deck-investigation-rise");
     expect(presenter).toContain('turn.source === "investigation"');
-    expect(presenter).toContain("{isDeck && !isInvestigationFlow ? (");
     expect(presenter).toContain('class="deck-progress-note" role="status"');
     expect(presenter).toContain('class="deck-progress-note-body"');
     expect(presenter).toContain('"deck.investigation.startingWork"');
     expect(presenter).toContain("is-investigation-flow");
     expect(presenter).toContain('isActivity ? " deck-turn-activity"');
-    expect(presenter).toContain("isDeck && !isInvestigationFlow");
     expect(styles).toContain(".deck-progress-note {");
     expect(styles).toContain(".deck-turn.is-investigation-flow::before");
     expect(retrieval).toContain('class="deck-turn-head deck-rt-agent-head"');

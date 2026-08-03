@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: f7b869edadd3552ef87d22196dad58a7a8e1cbd5
+translation_source_sha: 5dee600169529a5377656635ac3743673ee2438d
 translation_revised: 2026-08-03
 ---
 
@@ -233,8 +233,10 @@ compact trajectory metadata는 11 px 아래로 내려가지 않습니다. 게시
 table은 점진적으로 렌더링합니다. 완성된 header와 separator가 첫 body row보다 먼저 table shell을 만들고,
 완성된 각 row는 table을 교체하지 않고 누적됩니다. 완성되지 않은 header, separator 및 row syntax는 raw
 Markdown으로 표시하지 않습니다. 모든 bounded answer row는 transcript flow에 유지하며 내부 vertical
-scroll region이나 row expansion control을 사용하지 않습니다. Narrow screen에서는 transcript 폭을 늘리지
-않고 cell을 줄바꿈합니다.
+scroll region이나 row expansion control을 사용하지 않습니다. Foreground의 terminal-only deterministic
+answer도 같은 visual paint queue를 사용하므로 canonical table row가 0건에서 전체 건수까지 단조롭게
+증가합니다. Background tab은 동기적으로 완료합니다. Narrow screen에서는 transcript 폭을 늘리지 않고
+cell을 줄바꿈합니다.
 
 상세 화면은 bounded recorded metadata를 표시하지만 answer body를 반복하지 않습니다. Provider message,
 action argument, command 및 output의 유효한 object 또는 array JSON은 indentation, syntax highlighting 및

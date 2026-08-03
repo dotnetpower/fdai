@@ -227,16 +227,32 @@ export function parseStreamingAnswer(text: string): Segment[] {
   const tail = lines[lastIndex] ?? "";
   const beforeTail = lines[lastIndex - 1] ?? "";
   const tableStarted = hasTableStart(lines.slice(0, lastIndex));
+  const headerCellCount = streamingTableHeaderCellCount(lines.slice(0, lastIndex));
   const tableStartsAtTail = TABLE_ROW.test(beforeTail) &&
-    TABLE_ROW.test(tail) && TABLE_SEP.test(tail);
+    TABLE_ROW.test(tail) && TABLE_SEP.test(tail) &&
+    splitCells(beforeTail).length === splitCells(tail).length;
 
   if (!tableStartsAtTail && tail.trimStart().startsWith("|") && !TABLE_ROW.test(tail)) {
     lines.pop();
     if (!tableStarted && TABLE_ROW.test(beforeTail)) lines.pop();
   } else if (!tableStartsAtTail && TABLE_ROW.test(tail) && !tableStarted) {
     lines.pop();
+  } else if (tableStarted && TABLE_ROW.test(tail) &&
+      headerCellCount !== null && splitCells(tail).length !== headerCellCount) {
+    lines.pop();
   }
   return parseAnswer(lines.join("\n"));
+}
+
+function streamingTableHeaderCellCount(lines: readonly string[]): number | null {
+  for (let index = lines.length - 2; index >= 0; index -= 1) {
+    const header = lines[index] ?? "";
+    const separator = lines[index + 1] ?? "";
+    if (TABLE_ROW.test(header) && TABLE_SEP.test(separator)) {
+      return splitCells(header).length;
+    }
+  }
+  return null;
 }
 
 function hasTableStart(lines: readonly string[]): boolean {

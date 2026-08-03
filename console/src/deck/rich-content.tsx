@@ -467,7 +467,7 @@ export function RichContent({
   const marks = streaming ? undefined : citeMarks;
   const lastIsText = segments[segments.length - 1]?.kind === "text";
   return (
-    <div class="deck-rich">
+    <div class={`deck-rich${streaming ? " is-streaming" : ""}`}>
       {segments.map((seg, i) => {
         const isLast = i === segments.length - 1;
         if (seg.kind === "text") {

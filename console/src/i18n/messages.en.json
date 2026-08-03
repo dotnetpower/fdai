@@ -2130,6 +2130,8 @@
       "pending": "Pending",
       "running": "In progress",
       "startingWork": "Starting work",
+      "startingQuery": "Querying {tool} with read-only authority.",
+      "startingCommand": "Running {tool} and observing its bounded output.",
       "progressUpdate": "Progress update",
       "completed": "Completed",
       "partial": "Partial",

@@ -350,7 +350,7 @@ export function TurnBubble({
       id={`deck-turn-${turn.id}`}
       class={`deck-turn deck-turn-${turn.role}${isActivity ? " deck-turn-activity" : ""}${turn.source === "context" ? " is-context" : ""}${turn.streaming ? " is-streaming" : ""}${searchMatch ? " is-search-match" : ""}${activeSearchMatch ? " is-active-search-match" : ""}${isInvestigationFlow ? " is-investigation-flow" : ""}${investigationFlowStart ? " is-flow-start" : ""}${investigationFlowEnd ? " is-flow-end" : ""}`}
     >
-      {isDeck && !isInvestigationFlow ? (
+      {isDeck && (!isInvestigationFlow || investigationFlowStart) ? (
         <header class="deck-turn-head">
           <span class="deck-turn-role deck-turn-agent">
             <span
@@ -363,7 +363,9 @@ export function TurnBubble({
             />
             {replyAgentLabel(turn.agent ?? DEFAULT_NARRATOR, turn.delegation)}
           </span>
-          {turn.source && !isProgressMessage && !isActivity ? (
+          {isInvestigationFlow ? (
+            <span class="deck-turn-source">{t("deck.investigation.title")}</span>
+          ) : turn.source ? (
             <Tooltip content={routerTooltip(turn.router) ?? t("deck.tooltip.replySource")}>
               <span class="deck-turn-source">{turn.source}</span>
             </Tooltip>
@@ -436,9 +438,11 @@ export function TurnBubble({
           showModelTrace={showModelTrace}
         />
       ) : null}
-      <div class="deck-turn-foot">
-        <span class="deck-turn-time muted">{turn.at}</span>
-      </div>
+      {!isInvestigationFlow ? (
+        <div class="deck-turn-foot">
+          <span class="deck-turn-time muted">{turn.at}</span>
+        </div>
+      ) : null}
     </article>
   );
 }
