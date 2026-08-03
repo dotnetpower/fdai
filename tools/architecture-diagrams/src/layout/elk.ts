@@ -1230,7 +1230,7 @@ function applyExplicitRoutes(
   )) {
     const targetGroup = routeLaneGroup(spec, edge.to);
     const lane = aboveLaneCountByTargetGroup.get(targetGroup) ?? 0;
-    aboveLaneByEdge.set(edge.id, lane);
+    aboveLaneByEdge.set(edge.id, lane + (edge.lane ?? 0));
     aboveLaneCountByTargetGroup.set(targetGroup, lane + 1);
   }
   const rightLaneByEdge = new Map<string, number>();

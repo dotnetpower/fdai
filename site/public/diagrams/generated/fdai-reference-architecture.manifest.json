@@ -1,6 +1,6 @@
 {
   "id": "fdai-reference-architecture",
-  "version": 2,
+  "version": 3,
   "updated": "2026-08-03",
   "locales": {
     "en": {
@@ -348,30 +348,6 @@
       }
     },
     {
-      "id": "remediation-pr",
-      "kind": "external",
-      "label": {
-        "en": "Remediation pull requests",
-        "ko": "수정 pull request"
-      },
-      "description": {
-        "en": "Reviewable and reversible change delivery",
-        "ko": "검토 및 되돌리기가 가능한 변경 전달"
-      }
-    },
-    {
-      "id": "governed-actions",
-      "kind": "service",
-      "label": {
-        "en": "Bounded direct actions",
-        "ko": "범위가 제한된 direct action"
-      },
-      "description": {
-        "en": "Registered provider calls with all action safeguards",
-        "ko": "모든 action safeguard를 갖춘 등록 provider call"
-      }
-    },
-    {
       "id": "held-outcome",
       "kind": "service",
       "label": {
@@ -381,6 +357,18 @@
       "description": {
         "en": "No mutation when evidence, policy, or authority is insufficient",
         "ko": "Evidence, policy 또는 authority가 부족하면 변경하지 않음"
+      }
+    },
+    {
+      "id": "governed-changes",
+      "kind": "service",
+      "label": {
+        "en": "Governed changes",
+        "ko": "통제된 변경"
+      },
+      "description": {
+        "en": "Remediation pull request or bounded direct action",
+        "ko": "수정 pull request 또는 범위가 제한된 direct action"
       }
     },
     {
@@ -479,7 +467,7 @@
     },
     {
       "id": "risk-to-approval",
-      "from": "governed-control",
+      "from": "risk-authority-gate",
       "to": "human-approval",
       "kind": "approval",
       "label": null
@@ -492,16 +480,9 @@
       "label": null
     },
     {
-      "id": "executor-to-pr",
+      "id": "executor-to-outcomes",
       "from": "privileged-executor",
-      "to": "remediation-pr",
-      "kind": "mutation",
-      "label": null
-    },
-    {
-      "id": "executor-to-actions",
-      "from": "privileged-executor",
-      "to": "governed-actions",
+      "to": "governed-changes",
       "kind": "mutation",
       "label": null
     },

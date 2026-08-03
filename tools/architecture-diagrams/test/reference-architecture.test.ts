@@ -19,10 +19,11 @@ test("FDAI reference architecture renders every governed relationship", async ()
   const svg = await renderSvg(spec, layout, "en");
   const koSvg = await renderSvg(spec, layout, "ko");
 
-  assert.equal(spec.version, 2);
+  assert.equal(spec.version, 3);
   assert.equal(spec.kind, "context");
   assert.deepEqual(spec.formats, ["svg"]);
   assert.equal(layout.edges.length, spec.edges.length);
+  assert.equal(spec.edges.length, 17);
   assert.ok(layout.edges.every((edge) => (edge.sections?.length ?? 0) > 0));
   assert.deepEqual(layoutIntegrityErrors(spec, layout), []);
   assert.equal([...svg.matchAll(/data-edge-id=/g)].length, spec.edges.length);
@@ -59,6 +60,7 @@ test("FDAI reference architecture renders every governed relationship", async ()
     "policy-query-engine",
     "evidence-store",
     "held-outcome",
+    "governed-changes",
   ]) {
     assert.match(svg, new RegExp(`data-node-id="${nodeId}"`));
   }
@@ -86,6 +88,10 @@ test("FDAI reference architecture renders every governed relationship", async ()
     spec.nodes.find((node) => node.id === "human-approval")?.parent,
     "human-authority",
   );
+  assert.deepEqual(
+    spec.groups.filter((group) => !group.parent).map((group) => group.id),
+    ["connected-environment", "fdai-platform", "governed-outcomes", "human-authority"],
+  );
 
   const edges = new Map(spec.edges.map((edge) => [edge.id, edge]));
   assert.deepEqual(
@@ -112,6 +118,26 @@ test("FDAI reference architecture renders every governed relationship", async ()
     ),
     false,
   );
+
+  const approvalLanes = ["risk-to-approval", "approval-to-runtime"].map(
+    (edgeId) => {
+      const section = layout.edges.find((edge) => edge.id === edgeId)?.sections?.[0];
+      assert.ok(section?.bendPoints?.length);
+      return Math.min(...section.bendPoints.map((point) => point.y));
+    },
+  );
+  assert.equal(Math.abs(approvalLanes[0]! - approvalLanes[1]!), 28);
+  assert.deepEqual(
+    [edges.get("executor-to-outcomes")?.from, edges.get("executor-to-outcomes")?.to],
+    ["privileged-executor", "governed-changes"],
+  );
+  assert.equal(edges.get("executor-to-outcomes")?.route, "orthogonal-shortest");
+  assert.deepEqual(
+    [edges.get("risk-to-held")?.from, edges.get("risk-to-held")?.to],
+    ["governed-control", "held-outcome"],
+  );
+  assert.equal(edges.has("executor-to-pr"), false);
+  assert.equal(edges.has("executor-to-actions"), false);
 
   assert.equal(spec.nodes.filter((node) => node.kind === "agent").length, 0);
   assert.equal(

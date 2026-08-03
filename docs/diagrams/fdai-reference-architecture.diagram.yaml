@@ -1,5 +1,5 @@
 id: fdai-reference-architecture
-version: 2
+version: 3
 kind: context
 formats: [svg]
 updated: 2026-08-03
@@ -96,15 +96,6 @@ groups:
     gap: 32
     justify: center
     width: 1160
-  - id: human-authority
-    kind: layer
-    presentation: panel
-    label: { en: Human authority, ko: 사람 권한 }
-    description: { en: Independent approval or valid standing authorization, ko: 독립적인 승인 또는 유효한 standing authorization }
-    direction: DOWN
-    layout: column
-    gap: 32
-    width: 200
   - id: governed-outcomes
     kind: layer
     presentation: panel
@@ -114,6 +105,15 @@ groups:
     layout: column
     gap: 32
     width: 230
+  - id: human-authority
+    kind: layer
+    presentation: panel
+    label: { en: Human authority, ko: 사람 권한 }
+    description: { en: Independent approval or valid standing authorization, ko: 독립적인 승인 또는 유효한 standing authorization }
+    direction: DOWN
+    layout: column
+    gap: 32
+    width: 200
 nodes:
   - id: azure-estate
     parent: connected-environment
@@ -293,23 +293,16 @@ nodes:
     presentation: icon
     label: { en: Independent human authority, ko: 독립적인 사람 권한 }
     description: { en: Current approval or valid bounded standing authorization, ko: 현재 승인 또는 유효하고 범위가 제한된 standing authorization }
-  - id: remediation-pr
-    parent: governed-outcomes
-    kind: external
-    icon: github
-    presentation: icon
-    label: { en: Remediation pull requests, ko: 수정 pull request }
-    description: { en: Reviewable and reversible change delivery, ko: 검토 및 되돌리기가 가능한 변경 전달 }
-  - id: governed-actions
-    parent: governed-outcomes
-    kind: service
-    label: { en: Bounded direct actions, ko: 범위가 제한된 direct action }
-    description: { en: Registered provider calls with all action safeguards, ko: 모든 action safeguard를 갖춘 등록 provider call }
   - id: held-outcome
     parent: governed-outcomes
     kind: service
     label: { en: "Held, denied, or no-op", ko: "Hold, deny 또는 no-op" }
     description: { en: "No mutation when evidence, policy, or authority is insufficient", ko: "Evidence, policy 또는 authority가 부족하면 변경하지 않음" }
+  - id: governed-changes
+    parent: governed-outcomes
+    kind: service
+    label: { en: Governed changes, ko: 통제된 변경 }
+    description: { en: Remediation pull request or bounded direct action, ko: 수정 pull request 또는 범위가 제한된 direct action }
   - id: audit-replay
     parent: governed-outcomes
     kind: service
@@ -366,25 +359,21 @@ edges:
     kind: read
     route: orthogonal
   - id: risk-to-approval
-    from: governed-control
+    from: risk-authority-gate
     to: human-approval
     kind: approval
-    route: orthogonal-shortest
+    route: orthogonal-above
   - id: approval-to-runtime
     from: human-approval
     to: event-choreography
     kind: approval
     route: orthogonal-above
-  - id: executor-to-pr
+    lane: 1
+  - id: executor-to-outcomes
     from: privileged-executor
-    to: remediation-pr
+    to: governed-changes
     kind: mutation
-    route: orthogonal-above
-  - id: executor-to-actions
-    from: privileged-executor
-    to: governed-actions
-    kind: mutation
-    route: orthogonal-above
+    route: orthogonal-shortest
   - id: risk-to-held
     from: governed-control
     to: held-outcome
