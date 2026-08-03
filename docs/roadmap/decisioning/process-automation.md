@@ -269,6 +269,17 @@ replaces `requester.principal` with the authenticated operator and rejects calle
 `wait.*` keys. Those namespaces are server-owned Process evidence. A public request cannot create
 approval quorum, action success, recovery, or control-step progress.
 
+Every new `process.created` event carries the minimal server-owned envelope needed to resume that
+exact Process. It records the original trigger time and mode, `requester.principal`, and only the
+context keys referenced by workflow parameter templates. Values used by an `x-fdai-redact`
+argument are omitted and mark the envelope incomplete, which blocks resume rather than persisting a
+secret. `POST /workflows/{process_id}/resume` accepts no request body. The route reloads the Process
+snapshot and creation event, verifies the workflow name and version plus the derived Process id,
+and then reuses the original target, correlation, trigger, mode, and safe context. A Contributor can
+resume a shadow Process. An enforce Process still requires Owner and the current workflow enforce
+allowlist. Missing, legacy, malformed, redacted, version-mismatched, or identity-mismatched evidence
+returns a typed conflict and dispatches no step.
+
 Workflow audit uses each ActionType's `x-fdai-redact` paths. Redacted fields render as
 `[REDACTED]` and never enter the Process journal. Because the workflow runtime has no secret
 custody provider, an enforce action whose resolved params include a redacted field fails before

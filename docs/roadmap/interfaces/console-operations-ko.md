@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 7daaf84bf4c98c02b45e5f858bb621f9975a9f04
+translation_source_sha: 11ad8c73a2f713406e72bc49ad857f2122c3155c
 translation_revised: 2026-08-04
 ---
 
@@ -194,6 +194,13 @@ Workflow run context도 같은 boundary를 따릅니다. Route는 requester를 a
 교체하고 parameter-substitution value만 허용합니다. Approval, action outcome, compensation,
 decision, parallel, requester, wait namespace는 server-owned Process evidence 전용이며 HTTP input에서
 거부됩니다.
+
+정확한 Process resume은 request body 없이 `POST /workflows/{process_id}/resume`을 사용합니다.
+Operator API는 caller에게서 workflow, target, trigger, mode, correlation 또는 context를 받는 대신
+durable Process snapshot과 creation evidence를 다시 읽습니다. 모든 resume에는 Contributor
+capability가 필요합니다. Enforce Process의 source lifecycle을 workflow runtime이 진행하기 전에
+route가 Owner와 현재 enforce allowlist를 다시 확인합니다. 알 수 없는 Process id는 `404`를
+반환하고 incomplete 또는 inconsistent resume evidence는 typed `409` conflict를 반환합니다.
 
 ### 요청 검사
 

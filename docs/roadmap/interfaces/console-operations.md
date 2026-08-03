@@ -197,6 +197,13 @@ authenticated principal and accepts only parameter-substitution values. Approval
 compensation, decision, parallel, requester, and wait namespaces are reserved for server-owned
 Process evidence and are rejected from HTTP input.
 
+Exact Process resume uses `POST /workflows/{process_id}/resume` with no request body. The Operator
+API reloads the durable Process snapshot and creation evidence instead of accepting workflow,
+target, trigger, mode, correlation, or context from the caller. Contributor capability is required
+for every resume. The route repeats Owner and current enforce-allowlist checks for an enforce
+Process before it lets the workflow runtime advance the source lifecycle. Unknown Process ids
+return `404`; incomplete or inconsistent resume evidence returns a typed `409` conflict.
+
 ### Request checks
 
 Every domain route repeats the checks appropriate to its source:

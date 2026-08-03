@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 325ef947dff6a5486042ab5f7860ae1aa847f373
+translation_source_sha: dda14f17c470a41d8eef90e1cdad556c986a3350
 translation_revised: 2026-08-04
 ---
 
@@ -262,6 +262,17 @@ Public workflow run route는 declared parameter substitution에만 context를 �
 `action.*`, `compensation.*`, `decision.*`, `parallel.*`, `requester.*`, `wait.*` key는
 거부합니다. 이 namespace는 server-owned Process evidence입니다. Public request는 approval quorum,
 action success, recovery 또는 control-step progress를 만들 수 없습니다.
+
+새 `process.created` event는 해당 Process를 정확히 resume하는 데 필요한 최소 server-owned
+envelope를 포함합니다. Original trigger time과 mode, `requester.principal`, workflow parameter
+template에서 참조한 context key만 기록합니다. `x-fdai-redact` argument에 사용되는 값은 제외하고
+envelope를 incomplete로 표시하므로 secret을 저장하는 대신 resume을 차단합니다.
+`POST /workflows/{process_id}/resume`은 request body를 허용하지 않습니다. Route는 Process snapshot과
+creation event를 다시 읽고 workflow name 및 version과 derived Process id를 검증한 뒤 original target,
+correlation, trigger, mode, safe context를 재사용합니다. Contributor는 shadow Process를 resume할 수
+있습니다. Enforce Process에는 계속 Owner와 현재 workflow enforce allowlist가 필요합니다. Evidence가
+missing, legacy, malformed, redacted, version-mismatched 또는 identity-mismatched 상태이면 typed conflict를
+반환하고 step을 dispatch하지 않습니다.
 
 Workflow audit는 각 ActionType의 `x-fdai-redact` path를 사용합니다. Redacted field는
 `[REDACTED]`로 표시되며 Process journal에 들어가지 않습니다. Workflow runtime에는 secret custody

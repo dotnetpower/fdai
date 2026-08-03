@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import NoReturn, cast
 
 import pytest
 from starlette.applications import Starlette
@@ -15,12 +16,14 @@ from fdai.core.reporting.models import RenderedReport
 from fdai.core.views import ViewEngine
 from fdai.core.workflow.approval import WorkflowApprovalPlanner
 from fdai.core.workflow.orchestrator import WorkflowOrchestrator
+from fdai.core.workflow.workflow_resume import WorkflowResumeError
 from fdai.delivery.operator_api.auth import build_authenticator
 from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes.process_views import ProcessViewsConfig
 from fdai.delivery.operator_api.routes.workflow_execution import (
     WorkflowExecutionConfig,
+    make_workflow_resume_route,
     make_workflow_run_route,
 )
 from fdai.shared.contracts.models import (
@@ -200,18 +203,29 @@ def _enforce_client(*, role: Role, enforce_workflows: frozenset[str]) -> TestCli
         action_dispatcher=_Dispatcher(),
     )
 
-    async def authorize(_request):  # type: ignore[no-untyped-def]
-        return Principal(oid="operator", roles=frozenset({role}))
+    async def authorize(request):  # type: ignore[no-untyped-def]
+        request_role = Role(request.headers.get("x-test-role", role.value))
+        return Principal(oid="operator", roles=frozenset({request_role}))
 
-    route = make_workflow_run_route(
-        config=WorkflowExecutionConfig(
-            workflows=(_workflow(),),
-            orchestrator=orchestrator,
-            enforce_workflows=enforce_workflows,
-        ),
-        authorize_principal=authorize,
+    config = WorkflowExecutionConfig(
+        workflows=(_workflow(),),
+        orchestrator=orchestrator,
+        enforce_workflows=enforce_workflows,
     )
-    return TestClient(Starlette(routes=[route]))
+    return TestClient(
+        Starlette(
+            routes=[
+                make_workflow_run_route(
+                    config=config,
+                    authorize_principal=authorize,
+                ),
+                make_workflow_resume_route(
+                    config=config,
+                    authorize_principal=authorize,
+                ),
+            ]
+        )
+    )
 
 
 def test_shadow_command_creates_process_visible_through_journal() -> None:
@@ -249,6 +263,107 @@ def test_shadow_command_is_idempotent_for_same_trigger() -> None:
 
     assert first.json()["process"]["id"] == second.json()["process"]["id"]
     assert second.json()["process"]["replayed"] is True
+
+
+def test_shadow_process_resumes_by_exact_process_id() -> None:
+    client = _client()
+    started = client.post(
+        "/workflows/run",
+        json={
+            "workflow": "sample-flow",
+            "target_resource_id": "resource-1",
+            "trigger_ts": _TRIGGER_TS.isoformat(),
+        },
+    )
+
+    resumed = client.post(started.json()["links"]["resume"])
+
+    assert resumed.status_code == 200
+    assert resumed.json()["process"]["id"] == started.json()["process"]["id"]
+    assert resumed.json()["process"]["replayed"] is True
+
+
+def test_resume_rejects_unknown_process() -> None:
+    client = _client()
+
+    response = client.post("/workflows/missing-process/resume")
+
+    assert response.status_code == 404
+    assert response.json()["error"]["kind"] == "process_not_found"
+
+
+@pytest.mark.parametrize(
+    "kind",
+    (
+        "resume_evidence_unavailable",
+        "resume_context_redacted",
+        "resume_evidence_malformed",
+        "workflow_version_mismatch",
+        "process_identity_mismatch",
+    ),
+)
+def test_resume_returns_typed_conflict_for_invalid_durable_evidence(kind: str) -> None:
+    class _FailingResumeOrchestrator:
+        async def resume_metadata(self, **_kwargs: object) -> NoReturn:
+            raise WorkflowResumeError(kind, "resume evidence rejected")
+
+    async def authorize(_request):  # type: ignore[no-untyped-def]
+        return Principal(oid="operator", roles=frozenset({Role.CONTRIBUTOR}))
+
+    route = make_workflow_resume_route(
+        config=WorkflowExecutionConfig(
+            workflows=(_workflow(),),
+            orchestrator=cast(WorkflowOrchestrator, _FailingResumeOrchestrator()),
+        ),
+        authorize_principal=authorize,
+    )
+
+    response = TestClient(Starlette(routes=[route])).post("/workflows/test-process/resume")
+
+    assert response.status_code == 409
+    assert response.json()["error"]["kind"] == kind
+
+
+def test_resume_rejects_caller_supplied_workflow_inputs() -> None:
+    client = _client()
+    started = client.post(
+        "/workflows/run",
+        json={
+            "workflow": "sample-flow",
+            "target_resource_id": "resource-1",
+            "trigger_ts": _TRIGGER_TS.isoformat(),
+        },
+    )
+
+    response = client.post(
+        started.json()["links"]["resume"],
+        json={"mode": "enforce"},
+    )
+
+    assert response.status_code == 400
+
+
+def test_enforce_resume_rechecks_owner_role() -> None:
+    client = _enforce_client(
+        role=Role.OWNER,
+        enforce_workflows=frozenset({"sample-flow"}),
+    )
+    started = client.post(
+        "/workflows/run",
+        json={
+            "workflow": "sample-flow",
+            "target_resource_id": "resource-1",
+            "trigger_ts": _TRIGGER_TS.isoformat(),
+            "mode": "enforce",
+        },
+    )
+
+    response = client.post(
+        started.json()["links"]["resume"],
+        headers={"x-test-role": Role.CONTRIBUTOR.value},
+    )
+
+    assert response.status_code == 403
 
 
 def test_shadow_command_rejects_unknown_workflow_and_bad_context() -> None:

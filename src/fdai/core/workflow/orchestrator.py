@@ -15,6 +15,12 @@ from fdai.core.runbook.runner import RunbookRunner
 from fdai.core.workflow.approval import WorkflowApprovalPlanner
 from fdai.core.workflow.compensation import WorkflowCompensationCoordinator
 from fdai.core.workflow.compiler import compile_workflow
+from fdai.core.workflow.workflow_resume import (
+    WorkflowResumeEnvelope,
+    WorkflowResumeError,
+    build_resume_payload,
+    load_resume_envelope,
+)
 from fdai.core.workflow.workflow_runtime import (
     ACTOR as _ACTOR,
 )
@@ -131,6 +137,71 @@ class WorkflowOrchestrator:
             outcome_verifier=self._outcome_verifier,
         )
 
+    async def resume_metadata(
+        self,
+        *,
+        process_id: str,
+        workflows: Mapping[str, Workflow],
+    ) -> WorkflowResumeEnvelope:
+        """Resolve exact server-owned inputs for one Process resume."""
+        snapshot = await self._process_store.get(process_id)
+        if snapshot is None:
+            raise WorkflowResumeError("process_not_found", f"unknown Process {process_id!r}")
+        workflow = workflows.get(snapshot.workflow_ref)
+        if workflow is None:
+            raise WorkflowResumeError(
+                "workflow_catalog_missing",
+                f"Process workflow {snapshot.workflow_ref!r} is not loaded",
+            )
+        events = await self._process_store.events(process_id)
+        created = next(
+            (event for event in events if event.kind is ProcessEventKind.PROCESS_CREATED),
+            None,
+        )
+        if created is None:
+            raise WorkflowResumeError(
+                "resume_evidence_unavailable",
+                "Process creation evidence is unavailable",
+            )
+        envelope = load_resume_envelope(
+            workflow=workflow,
+            snapshot=snapshot,
+            created_event=created,
+        )
+        expected_id = derive_process_id(
+            workflow_name=envelope.workflow_ref,
+            target_resource_id=envelope.target_resource_id,
+            trigger_ts=envelope.trigger_ts,
+        )
+        if expected_id != process_id:
+            raise WorkflowResumeError(
+                "process_identity_mismatch",
+                "Process id does not match its durable resume evidence",
+            )
+        return envelope
+
+    async def resume(
+        self,
+        *,
+        process_id: str,
+        workflow: Workflow,
+        now: datetime | None = None,
+    ) -> ProcessRun:
+        """Resume one Process using only its durable creation evidence."""
+        envelope = await self.resume_metadata(
+            process_id=process_id,
+            workflows={workflow.name: workflow},
+        )
+        return await self.run(
+            workflow,
+            target_resource_id=envelope.target_resource_id,
+            trigger_ts=envelope.trigger_ts,
+            context=envelope.context,
+            correlation_id=envelope.correlation_id,
+            now=now,
+            mode=envelope.mode,
+        )
+
     async def run(
         self,
         workflow: Workflow,
@@ -172,7 +243,17 @@ class WorkflowOrchestrator:
                 idempotency_key=f"{process_id}:created",
                 recorded_at=started_at,
                 correlation_id=resolved_correlation_id,
-                payload={"workflow_ref": workflow.name, "workflow_version": str(workflow.version)},
+                payload={
+                    "workflow_ref": workflow.name,
+                    "workflow_version": str(workflow.version),
+                    "resume": build_resume_payload(
+                        workflow=workflow,
+                        action_types=self._action_types,
+                        trigger_ts=trigger_ts,
+                        mode=mode,
+                        context=context or {},
+                    ),
+                },
             ),
         )
         if not created and snapshot.status.terminal:
@@ -379,6 +460,8 @@ __all__ = [
     "ShadowWorkflowStepExecutor",
     "WorkflowGuardEvaluator",
     "WorkflowOrchestrator",
+    "WorkflowResumeEnvelope",
+    "WorkflowResumeError",
     "derive_process_id",
     "process_state_key",
 ]

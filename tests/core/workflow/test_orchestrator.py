@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from fdai.core.notifications.matrix import load_matrix_from_mapping
 from fdai.core.rbac.resolver import GroupMapping
 from fdai.core.runbook.models import RunbookStep, RunbookStepOutcome
@@ -21,6 +23,7 @@ from fdai.core.workflow.orchestrator import (
     WorkflowOrchestrator,
     derive_process_id,
 )
+from fdai.core.workflow.workflow_resume import WorkflowResumeError
 from fdai.core.workflow.workflow_runtime import WorkflowVerifiedOutcome
 from fdai.delivery.persistence.state_store_hil_registry import (
     StateStoreHilApprovalRegistry,
@@ -421,6 +424,7 @@ async def test_enforce_action_rejects_sensitive_params_without_persisting_value(
     )
     audit = InMemoryStateStore()
     dispatcher = _RecordingActionDispatcher()
+    process_store = InMemoryProcessRuntimeStore()
     orchestrator = WorkflowOrchestrator(
         planner=WorkflowApprovalPlanner(
             action_types={action_type.name: action_type},
@@ -429,7 +433,7 @@ async def test_enforce_action_rejects_sensitive_params_without_persisting_value(
         ),
         action_types={action_type.name: action_type},
         audit_store=audit,
-        process_store=InMemoryProcessRuntimeStore(),
+        process_store=process_store,
         action_dispatcher=dispatcher,
     )
 
@@ -448,6 +452,12 @@ async def test_enforce_action_rejects_sensitive_params_without_persisting_value(
     assert run.step_results[0].reason == "workflow_sensitive_params_unsupported"
     assert dispatcher.calls == []
     assert "sensitive-value" not in str(audit.audit_entries)
+    created = (await process_store.events(run.process_id))[0]
+    assert created.payload["resume"]["context_complete"] is False
+    assert "sensitive-value" not in str(created.payload)
+    with pytest.raises(WorkflowResumeError, match="redacted") as error:
+        await orchestrator.resume(process_id=run.process_id, workflow=workflow)
+    assert error.value.kind == "resume_context_redacted"
     step_audit = next(
         row["entry"]
         for row in audit.audit_entries
@@ -1240,6 +1250,154 @@ async def test_enforce_approval_uses_only_durable_var_receipts() -> None:
     events = await process_store.events(completed.process_id)
     recorded = next(event for event in events if event.kind is ProcessEventKind.APPROVAL_RECORDED)
     assert recorded.payload["decision"] == "approved"
+
+
+async def test_enforce_approval_resumes_from_exact_process_id() -> None:
+    audit = InMemoryStateStore()
+    process_store = InMemoryProcessRuntimeStore()
+    provider = StateStoreWorkflowApprovalProvider(audit)
+    registry = StateStoreHilApprovalRegistry(store=audit)
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=process_store,
+        approval_provider=provider,
+    )
+    workflow = Workflow(
+        schema_version="1.0.0",
+        name="approval-only",
+        version="1.0.0",
+        trigger=WorkflowTrigger(
+            kind=WorkflowTriggerKind.SIGNAL,
+            signal_type="change.request.submitted",
+        ),
+        default_mode=Mode.SHADOW,
+        promotion_gate=PromotionGate(
+            min_shadow_days=14,
+            min_samples=100,
+            min_accuracy=0.95,
+            max_policy_escapes=0,
+        ),
+        steps=[
+            WorkflowStep(
+                id="owner_approval",
+                kind=WorkflowStepKind.APPROVAL,
+                approval_role=CeilingRole.OWNER,
+                quorum=2,
+                no_self_approval=True,
+                timeout_seconds=300,
+            )
+        ],
+    )
+    waiting = await orchestrator.run(
+        workflow,
+        target_resource_id="scope-resume",
+        trigger_ts=_TRIGGER_TS,
+        context={"requester.principal": "requester-1", "unused": "not-persisted"},
+        now=_TRIGGER_TS,
+        mode=Mode.ENFORCE,
+    )
+    for item, approver in zip(
+        await registry.list_pending(),
+        ("owner-a", "owner-b"),
+        strict=True,
+    ):
+        await registry.record_decision(
+            idempotency_key=item.idempotency_key,
+            decision=HilApprovalDecision.APPROVE,
+            approver_oid=approver,
+        )
+
+    resumed = await orchestrator.resume(
+        process_id=waiting.process_id,
+        workflow=workflow,
+        now=_TRIGGER_TS + timedelta(seconds=30),
+    )
+
+    assert resumed.status is ProcessStatus.SUCCEEDED
+    created = (await process_store.events(waiting.process_id))[0]
+    assert created.payload["resume"]["context"] == {"requester.principal": "requester-1"}
+
+
+async def test_resume_rejects_workflow_version_drift() -> None:
+    audit = InMemoryStateStore()
+    process_store = InMemoryProcessRuntimeStore()
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=process_store,
+    )
+    workflow = _workflow()
+    run = await orchestrator.run(
+        workflow,
+        target_resource_id="scope-version-drift",
+        trigger_ts=_TRIGGER_TS,
+    )
+    changed = Workflow.model_validate({**workflow.model_dump(mode="json"), "version": "2.0.0"})
+
+    with pytest.raises(WorkflowResumeError, match="catalog version") as error:
+        await orchestrator.resume(process_id=run.process_id, workflow=changed)
+
+    assert error.value.kind == "workflow_version_mismatch"
+
+
+async def test_resume_rejects_process_identity_mismatch() -> None:
+    process_store = InMemoryProcessRuntimeStore()
+    workflow = _workflow()
+    await process_store.create(
+        snapshot=ProcessSnapshot(
+            process_id="forged-process-id",
+            workflow_ref=workflow.name,
+            workflow_version=str(workflow.version),
+            status=ProcessStatus.WAITING,
+            current_step="auto_step",
+            target_resource_id="scope-identity",
+            started_at=_TRIGGER_TS,
+            updated_at=_TRIGGER_TS,
+            correlation_id="correlation-identity",
+        ),
+        event=ProcessEvent(
+            event_id="forged-created-event",
+            process_id="forged-process-id",
+            kind=ProcessEventKind.PROCESS_CREATED,
+            idempotency_key="forged-created-key",
+            recorded_at=_TRIGGER_TS,
+            correlation_id="correlation-identity",
+            payload={
+                "resume": {
+                    "trigger_ts": _TRIGGER_TS.isoformat(),
+                    "mode": Mode.SHADOW.value,
+                    "context": {},
+                    "context_complete": True,
+                }
+            },
+        ),
+    )
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=InMemoryStateStore(),
+        process_store=process_store,
+    )
+
+    with pytest.raises(WorkflowResumeError, match="does not match") as error:
+        await orchestrator.resume(process_id="forged-process-id", workflow=workflow)
+
+    assert error.value.kind == "process_identity_mismatch"
 
 
 async def test_enforce_approval_timeout_uses_persisted_request_clock() -> None:
