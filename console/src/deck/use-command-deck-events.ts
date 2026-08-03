@@ -139,7 +139,7 @@ export function useCommandDeckEvents(options: EventsOptions) {
     const next = Math.min(element.scrollHeight, maxHeight);
     element.style.height = `${next}px`;
     element.style.overflowY = element.scrollHeight > maxHeight ? "auto" : "hidden";
-  }, [draft, inputRef, open]);
+  }, [draft, inputRef, layoutMode, open]);
 
   useEffect(() => {
     if (!routeLabel) return;
@@ -347,13 +347,6 @@ export function useCommandDeckEvents(options: EventsOptions) {
     document.addEventListener("focusin", onFocusIn);
     return () => document.removeEventListener("focusin", onFocusIn);
   }, [inputRef, layoutMode, open, overlayRef]);
-
-  useEffect(() => {
-    const element = inputRef.current;
-    if (!element) return;
-    element.style.height = "auto";
-    element.style.height = `${element.scrollHeight}px`;
-  }, [draft, inputRef, open]);
 
   return { openGeneralDeck };
 }

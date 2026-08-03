@@ -1,5 +1,20 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { resolveDeckOpenSession } from "./use-command-deck-events";
+
+const source = readFileSync(
+  fileURLToPath(new URL("./use-command-deck-events.ts", import.meta.url)),
+  "utf8",
+);
+
+describe("Command Deck composer sizing", () => {
+  it("uses one bounded layout-aware textarea resize effect", () => {
+    expect(source.match(/element\.style\.height = "auto"/g)).toHaveLength(1);
+    expect(source).toContain("}, [draft, inputRef, layoutMode, open]);");
+    expect(source).toContain("Math.min(element.scrollHeight, maxHeight)");
+  });
+});
 
 describe("resolveDeckOpenSession", () => {
   it("creates a fresh agent-bound session for every agent-card Ask", () => {
