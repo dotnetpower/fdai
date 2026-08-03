@@ -1,8 +1,11 @@
+---
+title: Operational Planning Hardening Evidence
+---
 # Operational Planning Hardening Evidence
 
-This memo records the implementation and adversarial review evidence for operational planning. It
-separates implemented shadow behavior from release evidence that would be required before any
-enforcement promotion.
+This document records the implementation and adversarial review evidence for operational planning.
+It separates implemented shadow behavior from the release evidence required before enforcement
+promotion.
 
 > **Scope:** The review covers typed logic assets, deterministic selection, specialist evidence,
 > sandbox and twin simulation, durable Process recording, execution handoff, the Planning Room,
@@ -17,7 +20,7 @@ enforcement promotion.
 The campaign used one rule throughout: a finding counted only when it was reproducible against the
 implemented contract. Confirmed Medium-or-higher findings received a focused regression test and a
 separate hardening commit. Findings that confused proposal evidence with execution authority were
-rejected rather than converted into unnecessary code.
+rejected instead of producing unnecessary code.
 
 ## Implementation evidence
 
@@ -29,7 +32,7 @@ rejected rather than converted into unnecessary code.
 | Simulation | Reviewed programmatic pipelines and active/challenger twin models produce typed receipts. Missing, malformed, stale, or divergent evidence holds the plan. |
 | Durability | Existing Workflow and Process snapshots plus append-only child events record planning phases with idempotent replay. |
 | Execution handoff | A selected option compiles to a proposal-only MutationPlan with exact target and release identity. Risk, approval, execution, recovery, and audit remain separate. |
-| Effect closure | The selected option, MutationPlan, and ResponseOutcome prediction id must form one exact chain before success can close. |
+| Effect closure | The selected option, MutationPlan, and ResponseOutcome prediction id form one exact chain before success can close. |
 | Product surface | The existing Process route exposes a strict read-only Planning Room projection. It adds no mutation route or executor identity. |
 | Runtime operation | Startup logs availability, enablement, shadow mode, reason, and missing prerequisites from one immutable capability status. |
 
@@ -79,5 +82,13 @@ status, shadow mode, ordinary risk path, and zero policy-escape requirement rema
 
 Focused validation covered the complete operational-planning subsystem, frozen manifest, runtime
 bootstrap status, strict Python typing, Console model tests, full Console typecheck and build,
-translation freshness, punctuation, and diff hygiene. Central integration validation remains the
-merge-boundary authority for the combined commit range.
+translation freshness, punctuation, and diff hygiene. Central integration validation passed the
+combined implementation and hardening range before merge to `main`.
+
+## Related docs
+
+| To learn about | Read |
+|----------------|------|
+| Operational planning design | [Operational Planning](operational-planning.md) |
+| Agent ownership and arbitration | [Agent Pantheon](../agents/agent-pantheon.md) |
+| Read-only graph simulation | [Assurance Twin](../operations/assurance-twin.md) |

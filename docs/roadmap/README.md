@@ -132,6 +132,7 @@ Read the reference docs first, then the phases in order.
 | 23b | [process-automation.md](decisioning/process-automation.md) | machine-readable counterpart to agent-workflows.md: the Workflow catalog schema (catalog-as-code under `rule-catalog/workflows/`), the `Process` ObjectType + `targets` / `advances` LinkTypes, the compile-to-Runbook control-loop wiring, saga compensation, and shadow-first governance. A business process is an ordered list of `ActionType` steps the trust-router dispatches one at a time |
 | 23c | [customer-workflow-automation-plan.md](decisioning/customer-workflow-automation-plan.md) | delivery plan for adopting organizations: readiness baseline, six rollout waves, customer adapter boundaries, approval and recovery work, behavior simulation, promotion evidence, verification matrix, and production completion criteria |
 | 23d | [operational-planning.md](decisioning/operational-planning.md) | event-driven specialist planning over immutable context, versioned logic assets, bounded sandbox and twin simulation, hard constraints, arbitration, governed execution, effect closure, and Planning Room projection |
+| 23e | [operational-planning-hardening.md](decisioning/operational-planning-hardening.md) | implementation evidence, 12 adversarial hardening rounds, live shadow proof, residual Low release risks, and merge-boundary verification for operational planning |
 
 ### Prompt subsystem
 

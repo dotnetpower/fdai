@@ -1,6 +1,6 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: 5fed29d813cc92cf727672303e4e7bd4a6fcbe5b
+translation_source_sha: 0cc98dd369120e6bb38ee8f921b98d158f70189a
 translation_revised: 2026-08-03
 ---
 # 운영 계획
@@ -280,4 +280,4 @@ Frozen scenario pack에는 다음이 포함됩니다.
 | Action eligibility 및 execution | [Execution Model](execution-model-ko.md) |
 | 읽기 전용 graph simulation | [Assurance Twin](../operations/assurance-twin-ko.md) |
 | Agent ownership 및 arbitration | [Agent Pantheon](../agents/agent-pantheon-ko.md) |
-| 12개 라운드 구현 검토 | [Operational planning hardening evidence](../../internals/operational-planning-hardening.md) |
+| 12개 라운드 구현 검토 | [운영 계획 하드닝 근거](operational-planning-hardening-ko.md) |
