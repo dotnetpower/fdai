@@ -129,6 +129,11 @@ class KubectlEvidenceClient:
             "truncated": len(items) > len(selected),
         }
 
+    async def capacity(self, task: EvaluationTask) -> Mapping[str, Any]:
+        from fdai.delivery.evaluation.kubernetes_capacity import KubectlCapacityEvidenceProvider
+
+        return await KubectlCapacityEvidenceProvider(self).collect(task)
+
     def _namespace(self, task: EvaluationTask) -> str:
         if task.target.kind != "kubernetes.namespace":
             raise ValueError("kubectl evidence requires a kubernetes.namespace target")
@@ -272,7 +277,10 @@ def kubernetes_evidence_providers(
 ) -> Mapping[str, EvaluationEvidenceProvider]:
     """Return provider bindings for the supported semantic capabilities."""
 
+    from fdai.delivery.evaluation.kubernetes_capacity import KubectlCapacityEvidenceProvider
+
     return {
+        "observe.kubernetes.capacity": KubectlCapacityEvidenceProvider(client),
         "observe.kubernetes.inventory": KubectlInventoryEvidenceProvider(client),
         "observe.kubernetes.events": KubectlEventEvidenceProvider(client),
         "observe.kubernetes.nodes": KubectlNodeEvidenceProvider(client),

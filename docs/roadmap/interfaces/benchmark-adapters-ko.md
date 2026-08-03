@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 2546a1a8c7e27013f3296a27c7d5543cfc366299
+translation_source_sha: fac9d7ec91f16c333791573b0d0c15201d10236e
 translation_revised: 2026-08-04
 ---
 
@@ -185,7 +185,8 @@ evaluation, runtime evidence, capacity 및 quota 진단은 동일한 exact base-
 Pod inventory는 image 또는 command literal을 보존하지 않고 immutable UID와 aggregate CPU/memory
 request 및 검토된 source path를 projection합니다. 공유 hold-only reducer는 exact FailedScheduling
 Pod UID와 complete eligible Node ceiling이 일치할 때만 capacity finding을 생성합니다. Truncated,
-stale, conflicting 또는 incomplete evidence는 finding을 생성하지 않습니다. Pod status는 crash
+stale, conflicting 또는 incomplete evidence는 finding을 생성하지 않습니다. SREGym은 별도
+observe-only `observe.kubernetes.capacity` capability를 통해 이 join을 요청합니다. Pod status는 crash
 진단을 위해 제한된 직전 종료 reason, exit code 및 종료 시각도
 보존합니다. Raw logs 및 traces는 별도 provider가 bind될 때까지 structured unavailable evidence로
 유지됩니다.
@@ -207,7 +208,7 @@ fdai-evaluation-runner check --adapter sregym
 `FDAI_EVALUATION_KUBERNETES_NAMESPACES`를 구성합니다. Readiness는 installed-adapter discovery,
 live Kubernetes inventory, event 및 Node evidence access, pod metrics access 및 configured grounded
 RCA reasoner를 요구합니다. 실행 전에 allowlist에 포함된 모든 namespace에서 inventory, events,
-Nodes 및 `metrics.k8s.io`를 probe합니다. 또한 synthetic citation-bounded RCA request를 한 번
+Nodes, capacity join 및 `metrics.k8s.io`를 probe합니다. 또한 synthetic citation-bounded RCA request를 한 번
 전송하므로 stale 또는 missing model deployment는 ready로 표시되지 않습니다. 모든 check를 통과해도
 host authority는 관찰 모드로 유지됩니다.
 

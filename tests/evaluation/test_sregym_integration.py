@@ -75,6 +75,7 @@ async def test_sregym_runs_and_cleans_up_through_public_host() -> None:
     capability_catalog = {
         capability_id: SideEffectClass.OBSERVE
         for capability_id in (
+            "observe.kubernetes.capacity",
             "observe.kubernetes.inventory",
             "observe.kubernetes.events",
             "observe.kubernetes.nodes",

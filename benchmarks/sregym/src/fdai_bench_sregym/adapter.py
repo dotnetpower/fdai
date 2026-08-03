@@ -36,6 +36,7 @@ _DEFAULT_MAX_RESPONSE_BYTES: Final[int] = 1_000_000
 _CAPABILITIES: Final[tuple[Capability, ...]] = tuple(
     Capability(capability_id=capability_id, side_effect_class=SideEffectClass.OBSERVE)
     for capability_id in (
+        "observe.kubernetes.capacity",
         "observe.kubernetes.inventory",
         "observe.kubernetes.events",
         "observe.kubernetes.nodes",

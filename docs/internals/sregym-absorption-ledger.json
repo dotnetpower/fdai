@@ -62,6 +62,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_capacity_evaluation_provider",
+      "source_commits": [
+        "d974e2b835f7176387bbc2ad146f833ab5936b99",
+        "69bc5005ce5ed1fe5a05a29793087de4d85c795d"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

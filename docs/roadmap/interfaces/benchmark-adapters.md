@@ -181,7 +181,8 @@ the same exact base-unit semantics. Pod inventory projects immutable UID and agg
 memory requests with reviewed source paths, without retaining image or command literals. A shared
 hold-only reducer emits a capacity finding only when an exact FailedScheduling Pod UID and complete
 eligible Node ceilings agree. Truncated, stale, conflicting, or incomplete evidence produces no
-finding. Pod status also retains bounded prior termination
+finding. SREGym requests this join through the separate observe-only
+`observe.kubernetes.capacity` capability. Pod status also retains bounded prior termination
 reason, exit code, and finish time for crash diagnosis. Raw logs and traces remain structured
 unavailable evidence until separate providers are bound.
 
@@ -202,7 +203,7 @@ Configure `FDAI_EVALUATION_KUBECONFIG`, `FDAI_EVALUATION_KUBERNETES_CONTEXT`,
 `FDAI_EVALUATION_KUBERNETES_CLUSTER`, and the comma-separated exact namespace allowlist in
 `FDAI_EVALUATION_KUBERNETES_NAMESPACES`. Readiness requires installed-adapter discovery, live
 Kubernetes inventory, event, and Node evidence access, pod metrics access, and a configured
-grounded RCA reasoner. It probes inventory, events, Nodes, and `metrics.k8s.io` for every
+grounded RCA reasoner. It probes inventory, events, Nodes, the capacity join, and `metrics.k8s.io` for every
 allowlisted namespace before a run. It also sends one synthetic citation-bounded RCA request so a
 stale or missing model deployment cannot report ready. The host authority remains observation mode
 even when all checks pass.
