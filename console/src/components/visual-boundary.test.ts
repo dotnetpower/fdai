@@ -15,8 +15,9 @@ const approvalRoute = readFileSync(
 );
 
 describe("console visual boundary", () => {
-  test("keeps the PNG brand logo in its source color", () => {
+  test("keeps the RGBA PNG brand logo in its source color", () => {
     expect(brandLogo.subarray(1, 4).toString("ascii")).toBe("PNG");
+    expect(brandLogo[25]).toBe(6);
     expect(styles).not.toMatch(/\.brand-logo\s*\{[^}]*filter:\s*grayscale/);
   });
 
