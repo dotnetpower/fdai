@@ -400,6 +400,36 @@ def test_inventory_coverage_cohort_ignores_status_words() -> None:
         assert inventory_query_evidence_authorities(prompt) == ()
 
 
+@pytest.mark.parametrize(
+    ("prompt", "expected_kind"),
+    (
+        ("이 구독에서 관리 중인 리소스를 유형별로 요약해줘.", InventoryQueryKind.TYPES),
+        ("현재 구독의 관리 리소스를 종류별 개수로 정리해줘.", InventoryQueryKind.TYPES),
+        ("이 구독에 있는 리소스를 유형 기준으로 요약해줘.", InventoryQueryKind.TYPES),
+        (
+            "How many resources and resource groups are in the managed scope?",
+            InventoryQueryKind.SCOPE_COUNTS,
+        ),
+        (
+            "Count the resources and resource groups in the current managed scope.",
+            InventoryQueryKind.SCOPE_COUNTS,
+        ),
+        (
+            "What are the total resource and resource-group counts for this managed scope?",
+            InventoryQueryKind.SCOPE_COUNTS,
+        ),
+    ),
+)
+def test_inventory_summary_and_scope_count_cohorts_keep_specific_kind(
+    prompt: str,
+    expected_kind: InventoryQueryKind,
+) -> None:
+    query = compile_inventory_query(prompt)
+
+    assert query is not None
+    assert query.kind is expected_kind
+
+
 def test_app_service_question_separates_not_running_and_not_ready() -> None:
     query = compile_inventory_query(
         "실행 중이 아니거나 준비되지 않은 앱 서비스를 보여줘.",

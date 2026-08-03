@@ -1,5 +1,5 @@
 schema_version: "1.1.0"
-version: "1.1.19"
+version: "1.1.20"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -31,7 +31,7 @@ signals:
     terms: [what resources exist, what azure assets exist, resource inventory, inventory list, azure resources, azure inventory, Azure 리소스 뭐 있어, Azure 인벤토리 목록]
 query_kinds:
   scope_counts:
-    terms: [resources and resource groups, resource and resource group counts, resource count and resource group count, 리소스와 리소스 그룹 수, 리소스와 리소스 그룹 개수]
+    terms: [resources and resource groups, resource and resource group counts, resource count and resource group count, total resource and resource-group counts, 리소스와 리소스 그룹 수, 리소스와 리소스 그룹 개수]
   count:
     terms: [how many, count, 몇 개, 개수]
   inventory_coverage:
@@ -39,7 +39,7 @@ query_kinds:
   state_coverage:
     terms: [resource types with unavailable state, resource types whose state cannot be determined, types with unknown state, 상태를 확인할 수 없는 리소스 유형, 상태 확인 불가 리소스 유형, 상태 미확인 유형]
   types:
-    terms: [resource type, resource types, types exist, inventory summary, which services, what services, by type, by types, by resource type, by resource types, 리소스 종류, 리소스 유형, 어떤 서비스, 종류별, 유형별, 형식별, 인벤토리 요약]
+    terms: [resource type, resource types, types exist, inventory summary, which services, what services, by type, by types, by resource type, by resource types, 리소스 종류, 리소스 유형, 어떤 서비스, 종류별, 유형별, 유형 기준, 형식별, 인벤토리 요약]
   relationships:
     terms: [depend, dependency, attached, connected, relationship, 의존, 연결, 붙어, 관계]
 groupings:

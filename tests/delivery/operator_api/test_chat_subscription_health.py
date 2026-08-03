@@ -545,10 +545,13 @@ def test_resource_health_state_cohort_renders_requested_zero_groups() -> None:
 
 
 def test_specific_subscription_inventory_question_skips_health_sweep() -> None:
-    prompt = "지금 구독에서 중지된 디비가 있는지 확인해봐"
+    prompts = (
+        "지금 구독에서 중지된 디비가 있는지 확인해봐",
+        "현재 구독의 관리 리소스를 종류별 개수로 정리해줘.",
+    )
 
-    assert not needs_subscription_health(prompt)
-    assert not needs_subscription_context(prompt)
+    assert all(not needs_subscription_health(prompt) for prompt in prompts)
+    assert all(not needs_subscription_context(prompt) for prompt in prompts)
 
 
 def test_specific_storage_health_question_uses_filtered_subscription_health() -> None:

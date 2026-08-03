@@ -669,8 +669,10 @@ def _diagnostic_metric(prompt: str) -> str | None:
 
 
 def needs_subscription_context(prompt: str) -> bool:
+    language = default_inventory_query_language_resolver()
     return (
         bool(_SUBSCRIPTION_CONTEXT.search(prompt))
+        and not language.has(language.registry.signals, "resource_subject", prompt)
         and not is_specific_inventory_question(prompt)
         and not needs_subscription_health(prompt)
     )

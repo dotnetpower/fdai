@@ -325,7 +325,15 @@ def _kind(
     language: InventoryQueryLanguageResolver,
 ) -> InventoryQueryKind:
     matched = language.matched_ids(language.registry.query_kinds, prompt)
-    for candidate in InventoryQueryKind:
+    priority = (
+        InventoryQueryKind.SCOPE_COUNTS,
+        InventoryQueryKind.INVENTORY_COVERAGE,
+        InventoryQueryKind.STATE_COVERAGE,
+        InventoryQueryKind.RELATIONSHIPS,
+        InventoryQueryKind.TYPES,
+        InventoryQueryKind.COUNT,
+    )
+    for candidate in priority:
         if candidate.value in matched and not (
             candidate is InventoryQueryKind.RELATIONSHIPS
             and source is InventoryQuerySource.ACTIVITY
