@@ -1,6 +1,6 @@
 ---
 translation_of: azure-resource-discovery-commands.md
-translation_source_sha: 8248b4996369c0b686aefe9db6dcc1999bc1c7b2
+translation_source_sha: 3cd6bbbfe4d4a153caa19c8180dc69a218d38d9f
 translation_revised: 2026-08-03
 ---
 
@@ -20,7 +20,8 @@ translation_revised: 2026-08-03
 >
 > **구현 상태:** 선택적 inventory 경로를 위한 catalog 소유 resource `query_terms`, category term 및
 > deterministic `InventoryQuery` compilation은 구현되었습니다. Interactive local은 cached snapshot을
-> 만든 redacted Azure CLI/ARG 명령을 기록하고 현재 turn의 IQL과 분리해 표시합니다. Azure Resource
+> 만든 exact Azure CLI argv에서 scope와 pagination value를 redaction해 기록하고, Azure CLI/ARG
+> command를 현재 turn의 IQL과 분리해 표시합니다. Azure Resource
 > Graph와 local CLI projection도 검토된 Azure `kind` token으로 공유 ARM type을 구분합니다. 더 넓은
 > `DiscoveryIntent`, `DiscoveryQueryPlan`, provider profile, unmapped resource 보존, centralized
 > fallback 및 `CommandExplanation`은 목표 설계로 남아 있습니다.

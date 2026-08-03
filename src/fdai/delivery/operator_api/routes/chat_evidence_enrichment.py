@@ -43,6 +43,9 @@ from fdai.delivery.operator_api.routes.chat_prompt import (
 )
 from fdai.delivery.operator_api.routes.chat_subscription_health import needs_subscription_health
 from fdai.delivery.operator_api.routes.chat_t2_recovery import needs_t2_recovery_evidence
+from fdai.delivery.operator_api.routes.inventory_provider_execution import (
+    project_inventory_provider_execution,
+)
 
 
 class OperationalEvidenceResolverProtocol(Protocol):
@@ -507,12 +510,12 @@ async def _with_tool_evidence(
     else:
         evidence = await resolver.resolve(prompt, principal_id=principal_id)
     if evidence is not None and progress_observer is not None:
-        execution_event = _tool_execution_progress_event(
+        execution_events = _tool_execution_progress_events(
             evidence,
             started_at=started_at,
             duration_ms=max(0, round((time.monotonic() - started) * 1_000)),
         )
-        if execution_event is not None:
+        for execution_event in execution_events:
             await progress_observer(execution_event)
     if evidence is not None:
         if explicit_command or evidence.get("tool") in {
@@ -549,7 +552,7 @@ def _tool_execution_progress_event(
         },
     }
     labels = {
-        "query_inventory": "Queried Azure inventory",
+        "query_inventory": "Applied inventory query",
         "query_subscription_health": "Checked subscription health",
         "query_t2_recovery": "Read T2 recovery state",
     }
@@ -578,7 +581,7 @@ def _tool_execution_progress_event(
     )
     completed_at = datetime.now(UTC)
     execution: dict[str, object] = {
-        "tool": "FDAI inventory" if tool == "query_inventory" else "FDAI server read",
+        "tool": "FDAI IQL" if tool == "query_inventory" else "FDAI server read",
         "command": (
             inventory_execution_query(evidence)
             if tool == "query_inventory"
@@ -608,6 +611,68 @@ def _tool_execution_progress_event(
         "execution": execution,
     }
     return event
+
+
+def _tool_execution_progress_events(
+    evidence: Mapping[str, Any],
+    *,
+    started_at: datetime,
+    duration_ms: int,
+) -> tuple[dict[str, object], ...]:
+    primary = _tool_execution_progress_event(
+        evidence,
+        started_at=started_at,
+        duration_ms=duration_ms,
+    )
+    if primary is None:
+        return ()
+    if evidence.get("tool") != "query_inventory":
+        return (primary,)
+    return (primary, *_inventory_provider_progress_events(evidence))
+
+
+def _inventory_provider_progress_events(
+    evidence: Mapping[str, Any],
+) -> tuple[dict[str, object], ...]:
+    result = evidence.get("result")
+    if not isinstance(result, Mapping):
+        return ()
+    provider = project_inventory_provider_execution(result.get("provider_execution"))
+    if provider is None:
+        return ()
+    snapshot_at = str(result.get("snapshot_at") or "snapshot time unavailable")
+    backend = str(provider["backend"])
+    events: list[dict[str, object]] = []
+    for index, command in enumerate(provider["commands"]):
+        label = str(command["label"])
+        is_arg = label == "resources" and backend == "azure_resource_graph"
+        events.append(
+            {
+                "event": "activity",
+                "activity_id": f"query_inventory-provider-{index}",
+                "kind": "read.provider",
+                "status": "completed",
+                "label": (
+                    "Listed Azure resource groups"
+                    if label == "resource_groups"
+                    else "Queried Azure Resource Graph"
+                    if is_arg
+                    else "Listed Azure resources"
+                ),
+                "detail": f"Snapshot source observed at {snapshot_at}",
+                "completed": 1,
+                "total": 1,
+                "authority": backend,
+                "observed_at": snapshot_at,
+                "execution": {
+                    "tool": "Azure Resource Graph via Azure CLI" if is_arg else "Azure CLI",
+                    "command": str(command["command"]),
+                    "input_kind": "command",
+                    "redacted": True,
+                },
+            }
+        )
+    return tuple(events)
 
 
 def _tool_execution_detail(summary: Mapping[str, object]) -> str:

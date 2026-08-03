@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 4f9af324461c4e6bbce807c024c00bfec1e94e31
+translation_source_sha: 7f715743074edd651ad4a823ceb206803e75e5c9
 translation_revised: 2026-08-03
 ---
 
@@ -272,10 +272,10 @@ input, IQL 또는 command와 observed output, AnswerPlan, redacted model request
 verification receipt 및 terminal delivery receipt가 포함됩니다. 해당 payload type이 없는 lane도 빈
 panel 대신 status, start, completion 및 사용 가능한 fact를 표시합니다. Answer lane은 delivery
 metadata를 기록하며 answer body를 반복하지 않습니다.
-Inventory execution은 canonical turn query를 `IQL`로 표시합니다. Strict redacted
-provider receipt는 실제 snapshot-refresh backend 및 Azure CLI 명령으로 그 아래에 표시하며 live scope
-value는 placeholder로 바꿉니다. Browser는 IQL 또는 source name에서 provider command를 파생하지
-않습니다. Provider message, action argument, command 및 output의 유효한 object 또는 array JSON은 indentation, syntax highlighting 및
+Inventory execution은 canonical turn query를 `IQL` activity로 표시합니다. 이어지는 별도 activity는
+수신 순서대로 exact redacted argv receipt를 `AZ CLI` 또는 `ARG` row로 표시합니다. 이 row는 snapshot
+refresh를 설명하며 현재 질문에서 provider command를 다시 실행했다고 주장하지 않습니다. Browser는
+IQL 또는 source name에서 provider command를 파생하지 않습니다. Provider message, action argument, command 및 output의 유효한 object 또는 array JSON은 indentation, syntax highlighting 및
 copy를 제공하며 malformed 또는 plain text는 변경하지 않습니다. Terminal replay payload는 ID별 최종
 branch, activity, milestone 및 redacted execution detail을 총 64 KiB 이하로 보존하고 history output을
 항목당 32 KiB에서 truncate하며 truncation 및 omission count를 표시합니다. 따라서 durable history와

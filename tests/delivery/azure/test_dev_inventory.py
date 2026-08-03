@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shlex
 import subprocess
 from pathlib import Path
 from unittest.mock import patch
@@ -342,9 +343,12 @@ class TestFullSnapshot:
                 "network.public-ip": "Microsoft.Network/publicIPAddresses",
             },
             discover_all=True,
+            subscription_id="sub-example",
         )
+        executed_commands: list[list[str]] = []
 
         def _discover_all_response(argv, **_kwargs):  # type: ignore[no-untyped-def]
+            executed_commands.append(list(argv))
             command = tuple(argv[1:3])
             if command == ("group", "list"):
                 return _completed(group_payload)
@@ -373,8 +377,22 @@ class TestFullSnapshot:
         assert receipt["page_count"] == 1
         commands = receipt["commands"]
         assert isinstance(commands, list)
-        assert "az group list" in commands[0]["command"]
-        assert "az graph query" in commands[1]["command"]
+        assert shlex.split(commands[0]["command"]) == [
+            "az",
+            "group",
+            "list",
+            "--output",
+            "json",
+            "--subscription",
+            "<subscription-id>",
+        ]
+        graph_argv = next(argv for argv in executed_commands if argv[1:3] == ["graph", "query"])
+        redacted_graph_argv = [
+            "<subscription-id>" if argument == "sub-example" else argument
+            for argument in graph_argv
+        ]
+        assert shlex.split(commands[1]["command"]) == redacted_graph_argv
+        assert "sub-example" not in commands[1]["command"]
 
         resource_batch, final = batches
         assert {record.type for record in resource_batch.resources} == {
@@ -429,8 +447,10 @@ class TestFullSnapshot:
             },
             discover_all=True,
         )
+        executed_commands: list[list[str]] = []
 
         def _fallback_response(argv, **_kwargs):  # type: ignore[no-untyped-def]
+            executed_commands.append(list(argv))
             command = tuple(argv[1:3])
             if command == ("group", "list"):
                 return _completed(group_payload)
@@ -458,7 +478,10 @@ class TestFullSnapshot:
         assert receipt["backend"] == "azure_resource_manager"
         commands = receipt["commands"]
         assert isinstance(commands, list)
-        assert "az resource list" in commands[1]["command"]
+        resource_argv = next(
+            argv for argv in executed_commands if argv[1:3] == ["resource", "list"]
+        )
+        assert shlex.split(commands[1]["command"]) == resource_argv
 
     def test_discover_all_uses_arg_vm_power_state_without_vm_details(self) -> None:
         vm_id = (

@@ -179,7 +179,7 @@ function ExecutionEvidence({
     ? undefined
     : formatJsonValue(evidence.output);
   const hasTimestamps = evidence.startedAt || evidence.completedAt || evidence.durationMs !== undefined;
-  const kindLabel = inventoryDisplay ? "IQL" : evidence.inputKind === "query" ? "QUERY" : "COMMAND";
+  const kindLabel = executionKindLabel(evidence, inventoryDisplay !== undefined);
   const safetyLabel = evidence.inputKind === "query"
     ? t("deck.investigation.readOnly")
     : authority ?? t("deck.investigation.redacted");
@@ -209,29 +209,6 @@ function ExecutionEvidence({
           {formattedCommand.text}
         </code>
       </pre>
-      {inventoryDisplay?.provider ? (
-        <section class="deck-investigation-provider">
-          <header>
-            <strong>{t("deck.investigation.providerExecution")}</strong>
-            <span>{t(`deck.investigation.providerBackend.${inventoryDisplay.provider.backend}`)}</span>
-            <small>{t("deck.investigation.providerPages", {
-              count: inventoryDisplay.provider.pageCount,
-            })}</small>
-          </header>
-          <p>{t("deck.investigation.providerExecutionHint")}</p>
-          {inventoryDisplay.provider.commands.map((providerCommand) => (
-            <div key={`${providerCommand.label}-${providerCommand.command}`}>
-              <span>{t(`deck.investigation.providerCommand.${providerCommand.label}`)}</span>
-              <pre class="deck-investigation-command">
-                <code data-format="text">
-                  <span class="deck-investigation-prompt" aria-hidden="true">$ </span>
-                  {providerCommand.command}
-                </code>
-              </pre>
-            </div>
-          ))}
-        </section>
-      ) : null}
       <div class="deck-investigation-result">
         <span class={`deck-investigation-result-status is-${status}`}>
           {statusLabel(status)}
@@ -300,7 +277,7 @@ function ActivitySummary({
           class={`deck-investigation-kind-badge ${activity.execution.inputKind === "query" ? "is-query" : "is-tool"}`}
           aria-hidden="true"
         >
-          {inventoryDisplay ? "IQL" : activity.execution.inputKind === "query" ? "QUERY" : "TOOL"}
+          {executionKindLabel(activity.execution, inventoryDisplay !== undefined)}
         </span>
       ) : null}
       <span class="deck-investigation-copy">
@@ -317,6 +294,17 @@ function ActivitySummary({
       </span>
     </div>
   );
+}
+
+function executionKindLabel(
+  evidence: InvestigationExecutionEvidence,
+  inventoryQuery: boolean,
+): string {
+  if (inventoryQuery) return "IQL";
+  if (evidence.inputKind === "query") return "QUERY";
+  if (evidence.tool.includes("Azure Resource Graph")) return "ARG";
+  if (evidence.tool === "Azure CLI") return "AZ CLI";
+  return "TOOL";
 }
 
 export function InvestigationTimeline({

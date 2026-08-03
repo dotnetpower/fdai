@@ -2175,17 +2175,6 @@
       "copyCommand": "명령 복사",
       "copyQuery": "IQL 복사",
       "queryResult": "쿼리 결과",
-      "providerExecution": "Provider 실행",
-      "providerExecutionHint": "이 redacted 명령으로 inventory snapshot을 만들었습니다. 이번 질문은 위 IQL로 해당 snapshot을 필터링했습니다.",
-      "providerPages": "{count}페이지",
-      "providerBackend": {
-        "azure_resource_graph": "Azure CLI를 통한 Azure Resource Graph",
-        "azure_resource_manager": "Azure CLI를 통한 Azure Resource Manager"
-      },
-      "providerCommand": {
-        "resource_groups": "리소스 그룹 검색",
-        "resources": "리소스 검색"
-      },
       "exitCode": "종료 코드 {code}",
       "outputLogs": "출력 로그",
       "truncated": "잘린 미리보기",

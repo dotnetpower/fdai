@@ -12,6 +12,7 @@ from fdai.agents import PantheonRuntime
 from fdai.delivery.operator_api.routes.chat_agent_delegate import PantheonChatDelegate
 from fdai.delivery.operator_api.routes.chat_evidence_enrichment import (
     _tool_execution_progress_event,
+    _tool_execution_progress_events,
     _with_agent_evidence,
     _with_operational_evidence,
     _with_screen_scope,
@@ -87,6 +88,55 @@ def test_inventory_execution_progress_truncates_collections_as_valid_json() -> N
     assert len(output) <= 64 * 1024
     assert parsed["omitted"]["resources"] > 0
     assert execution["output_truncated"] is True
+
+
+def test_inventory_progress_separates_iql_and_actual_provider_commands() -> None:
+    events = _tool_execution_progress_events(
+        {
+            "tool": "query_inventory",
+            "authority": "server_inventory_graph",
+            "result": {
+                "status": "matched",
+                "matched_count": 9,
+                "snapshot_at": "2026-08-03T09:30:00+00:00",
+                "provider_execution": {
+                    "transport": "azure_cli",
+                    "backend": "azure_resource_graph",
+                    "executed": True,
+                    "redacted": True,
+                    "page_count": 1,
+                    "commands": [
+                        {
+                            "label": "resource_groups",
+                            "language": "azure_cli",
+                            "command": "az group list --output json",
+                        },
+                        {
+                            "label": "resources",
+                            "language": "azure_cli",
+                            "command": "az graph query --graph-query Resources --output json",
+                        },
+                    ],
+                },
+            },
+        },
+        started_at=datetime(2026, 8, 3, tzinfo=UTC),
+        duration_ms=12,
+    )
+
+    assert [event["label"] for event in events] == [
+        "Applied inventory query",
+        "Listed Azure resource groups",
+        "Queried Azure Resource Graph",
+    ]
+    assert [event["execution"]["tool"] for event in events] == [  # type: ignore[index]
+        "FDAI IQL",
+        "Azure CLI",
+        "Azure Resource Graph via Azure CLI",
+    ]
+    assert events[0]["execution"]["input_kind"] == "query"  # type: ignore[index]
+    assert events[1]["execution"]["input_kind"] == "command"  # type: ignore[index]
+    assert events[2]["execution"]["command"].startswith("az graph query")  # type: ignore[index,union-attr]
 
 
 class _LegacyResolver:

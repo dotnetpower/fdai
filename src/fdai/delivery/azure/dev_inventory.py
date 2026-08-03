@@ -39,6 +39,7 @@ import asyncio
 import json
 import logging
 import os
+import shlex
 import subprocess
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -155,6 +156,8 @@ class AzureCliInventory:
     _arm_to_neutral: Mapping[str, str] = field(init=False, repr=False)
     _last_discovery_backend: str | None = field(default=None, init=False, repr=False)
     _last_discovery_page_count: int = field(default=0, init=False, repr=False)
+    _last_group_command: str | None = field(default=None, init=False, repr=False)
+    _last_resource_commands: tuple[str, ...] = field(default=(), init=False, repr=False)
     """Optional isolated Azure CLI profile directory.
 
     ``None`` removes an inherited ``AZURE_CONFIG_DIR`` so local discovery uses
@@ -183,16 +186,8 @@ class AzureCliInventory:
         backend = self._last_discovery_backend
         if backend is None:
             return None
-        scope_args = " --subscription <subscription-id>" if self.subscription_id else ""
-        group_command = f"az group list --output json{scope_args}"
-        if backend == "azure_resource_graph":
-            graph_scope = " --subscriptions <subscription-id>" if self.subscription_id else ""
-            resource_command = (
-                f'az graph query --graph-query "{_ARG_RESOURCES_QUERY}" '
-                f"--first {_ARG_PAGE_SIZE} --output json{graph_scope}"
-            )
-        else:
-            resource_command = f"az resource list --output json{scope_args}"
+        if self._last_group_command is None or not self._last_resource_commands:
+            return None
         return {
             "transport": "azure_cli",
             "backend": backend,
@@ -200,8 +195,19 @@ class AzureCliInventory:
             "redacted": True,
             "page_count": self._last_discovery_page_count,
             "commands": [
-                {"label": "resource_groups", "language": "azure_cli", "command": group_command},
-                {"label": "resources", "language": "azure_cli", "command": resource_command},
+                {
+                    "label": "resource_groups",
+                    "language": "azure_cli",
+                    "command": self._last_group_command,
+                },
+                *(
+                    {
+                        "label": "resources",
+                        "language": "azure_cli",
+                        "command": command,
+                    }
+                    for command in self._last_resource_commands
+                ),
             ],
         }
 
@@ -261,6 +267,8 @@ class AzureCliInventory:
         return self._project_rows(rows, resource_type)
 
     async def _fetch_all_registered(self) -> InventoryBatch:
+        self._last_group_command = None
+        self._last_resource_commands = ()
         group_args = [self.executable, "group", "list", "--output", "json"]
         resource_args = [self.executable, "resource", "list", "--output", "json"]
         if self.subscription_id:
@@ -269,6 +277,10 @@ class AzureCliInventory:
         groups, resource_rows = await asyncio.gather(
             self._fetch_rows(group_args, "resource-group"),
             self._fetch_registered_rows(resource_args),
+        )
+        self._last_group_command = _redacted_argv(
+            group_args,
+            subscription_id=self.subscription_id,
         )
         rows_by_type: dict[str, list[dict[str, Any]]] = {"resource-group": list(groups)}
         for row in resource_rows:
@@ -305,6 +317,7 @@ class AzureCliInventory:
     ) -> list[dict[str, Any]]:
         self._last_discovery_backend = None
         self._last_discovery_page_count = 0
+        self._last_resource_commands = ()
         try:
             return await self._fetch_arg_rows()
         except AzureCliInventoryError as exc:
@@ -315,10 +328,14 @@ class AzureCliInventory:
             rows = await self._fetch_rows(fallback_args, "registered resources")
             self._last_discovery_backend = "azure_resource_manager"
             self._last_discovery_page_count = 1
+            self._last_resource_commands = (
+                _redacted_argv(fallback_args, subscription_id=self.subscription_id),
+            )
             return rows
 
     async def _fetch_arg_rows(self) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
+        executed_commands: list[str] = []
         skip_token: str | None = None
         for _page in range(_ARG_MAX_PAGES):
             argv = [
@@ -343,6 +360,13 @@ class AzureCliInventory:
                 raise AzureCliInventoryError("az graph returned non-JSON") from exc
             if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
                 raise AzureCliInventoryError("az graph returned an invalid page")
+            executed_commands.append(
+                _redacted_argv(
+                    argv,
+                    subscription_id=self.subscription_id,
+                    skip_token=skip_token,
+                )
+            )
             page_rows = [row for row in payload["data"] if isinstance(row, dict)]
             rows.extend(page_rows)
             raw_skip_token = payload.get("skip_token") or payload.get("$skipToken")
@@ -350,6 +374,7 @@ class AzureCliInventory:
             if not page_rows or not skip_token:
                 self._last_discovery_backend = "azure_resource_graph"
                 self._last_discovery_page_count = _page + 1
+                self._last_resource_commands = tuple(executed_commands)
                 return rows
         raise AzureCliInventoryError("az graph pagination exceeded the page limit")
 
@@ -485,6 +510,25 @@ def _run_az(
             f"{stderr[:400] if stderr else '(no stderr)'}"
         )
     return proc
+
+
+def _redacted_argv(
+    argv: Sequence[str],
+    *,
+    subscription_id: str | None,
+    skip_token: str | None = None,
+) -> str:
+    redacted = [
+        (
+            "<subscription-id>"
+            if subscription_id is not None and argument == subscription_id
+            else "<skip-token>"
+            if skip_token is not None and argument == skip_token
+            else argument
+        )
+        for argument in argv
+    ]
+    return shlex.join(redacted)
 
 
 def _record_from_az_row(*, row: dict[str, Any], resource_type: str, now_iso: str) -> ResourceRecord:
