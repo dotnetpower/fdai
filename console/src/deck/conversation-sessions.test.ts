@@ -71,6 +71,21 @@ describe("conversation index", () => {
     expect(upsertConversation(conversations, conversations[2]!, 2).map((item) => item.key))
       .toEqual(["conversation:2", "screen"]);
   });
+
+  it("does not truncate durable navigation at the former 24-entry limit", () => {
+    const conversations = Array.from({ length: 30 }, (_, index): ConversationSummary => ({
+      ...GENERAL,
+      key: `conversation:${index}`,
+      label: `Conversation ${index}`,
+      updatedAt: new Date(Date.parse(GENERAL.updatedAt) + index * 1000).toISOString(),
+    }));
+    const indexed = conversations.reduce<ConversationSummary[]>(
+      (current, conversation) => upsertConversation(current, conversation),
+      [],
+    );
+
+    expect(indexed).toHaveLength(30);
+  });
 });
 
 describe("conversationGroups", () => {

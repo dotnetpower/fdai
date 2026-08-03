@@ -13,7 +13,7 @@ import type { ConversationSummaryPayload } from "../user-context-client";
 
 export const CONVERSATION_INDEX_KEY = "fdai.deck.conversations.v1";
 export const GENERAL_CONVERSATION_KEY = "screen";
-const DEFAULT_MAX_CONVERSATIONS = 24;
+export const MAX_CONVERSATION_INDEX_ENTRIES = 1000;
 const PANTHEON_AGENT_NAMES = new Set(PANTHEON.map((agent) => agent.name));
 
 function newId(): string {
@@ -319,7 +319,7 @@ export function conversationFallbackForRoute(
 export function upsertConversation(
   conversations: readonly ConversationSummary[],
   summary: ConversationSummary,
-  maxConversations: number = DEFAULT_MAX_CONVERSATIONS,
+  maxConversations: number = MAX_CONVERSATION_INDEX_ENTRIES,
 ): ConversationSummary[] {
   if (maxConversations <= 0) return [];
   const ordered = [summary, ...conversations.filter((item) => item.key !== summary.key)]

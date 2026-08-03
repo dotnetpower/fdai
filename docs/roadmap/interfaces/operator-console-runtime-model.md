@@ -382,7 +382,8 @@ class ConversationSession:
   This browser index is navigation state only. Each user-scoped conversation key is also its stable
   server conversation id. On a cache miss, the Command Deck reloads principal-scoped turns from the
   server and mirrors them back into browser-local storage. At authenticated startup, it also merges
-  the server's principal-scoped conversation list into the browser index. A legacy conversation with
+  up to 1,000 server-owned conversation metadata records into the browser index; transcript bodies
+  still load only when selected. A legacy conversation with
   an earlier random id remains selectable and restores its title from the first operator turn when
   opened. A floating Deck remains open across route navigation and
   live screen re-renders. In full-workspace mode, an Activity Bar group closes it and

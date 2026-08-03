@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: 0899ad872d9da3ee23887a2345b1e5cb83854221
+translation_source_sha: a930031bc0f7648d3e6f4dbdcab34d8fa8e20e2b
 translation_revised: 2026-08-03
 ---
 
@@ -366,8 +366,8 @@ class ConversationSession:
   Incident-bound conversation은 명시적으로 재개할 수 있도록 stable incident identity를 유지합니다.
   이 browser index는 탐색 상태일 뿐이다. 각 user-scoped conversation key는 stable server
   conversation id로도 사용됩니다. Cache miss 시 Command Deck은 principal 범위 turn을 server에서
-  다시 로드하고 browser-local storage에 mirror한다. 인증된 startup에서는 server의 principal 범위
-  conversation 목록도 browser index에 병합합니다. 이전 random id를 사용하는 legacy conversation도
+  다시 로드하고 browser-local storage에 mirror한다. 인증된 startup에서는 server 소유 conversation
+  metadata를 최대 1,000건까지 browser index에 병합하며 transcript body는 선택할 때만 로드합니다. 이전 random id를 사용하는 legacy conversation도
   계속 선택할 수 있고, 열 때 첫 operator turn에서 제목을 복원합니다.
   Floating Deck은 route 탐색과 live 화면 re-render 중에도 유지된다.
   Full-workspace에서 Activity Bar group을 선택하면 Deck을 닫고 해당 group의 첫 visible

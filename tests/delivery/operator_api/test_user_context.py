@@ -44,8 +44,10 @@ from fdai.shared.providers.user_context import (
 NOW = datetime(2026, 7, 16, 7, 0, tzinfo=UTC)
 
 
-def _client() -> TestClient:
-    conversations = InMemoryConversationHistoryStore()
+def _client(
+    conversations: InMemoryConversationHistoryStore | None = None,
+) -> TestClient:
+    conversations = conversations or InMemoryConversationHistoryStore()
     preferences = InMemoryUserPreferenceStore()
     memories = InMemoryUserMemoryStore()
     policies = InMemoryConversationPolicyStore()
@@ -73,6 +75,30 @@ def _client() -> TestClient:
 
     app = Starlette(routes=list(make_user_context_routes(config=config, authorize=authorize)))
     return TestClient(app)
+
+
+def test_context_returns_more_than_fifty_durable_conversations() -> None:
+    conversations = InMemoryConversationHistoryStore()
+
+    async def seed() -> None:
+        for index in range(60):
+            observed_at = NOW + timedelta(seconds=index)
+            await conversations.create_conversation(
+                ConversationRecord(
+                    f"conversation-{index}",
+                    "principal-a",
+                    "web",
+                    observed_at,
+                    observed_at,
+                )
+            )
+
+    asyncio.run(seed())
+
+    response = _client(conversations).get("/me/context")
+
+    assert response.status_code == 200
+    assert len(response.json()["conversations"]) == 60
 
 
 def test_preference_ignores_client_principal_and_persists_timezone() -> None:

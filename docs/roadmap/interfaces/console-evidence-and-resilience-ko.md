@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: dd9fbaf49b0d861046fd4ebb3e0d7f40de388069
+translation_source_sha: d3cb06c9839eec781b5c07ec11dcacd3c7955f4a
 translation_revised: 2026-08-03
 ---
 
@@ -30,7 +30,7 @@ Active cached conversation을 제거하면 current-route default(legacy `screen`
 않고 새 current-route default를 만듭니다.
 않고 새 current-route default를 만듭니다. Context-dependent cancellation, runbook, knowledge, memory, learning, ordinal-resource, ambiguity, reformatting 및 partial-source 질문에는 verified prior conversation record가 필요합니다. 서버는 principal-scoped `ConversationHistoryStore`의 최신 사용 가능한 assistant replay에서 active investigation, selected resource, prior answer 또는 source-failure receipt를 재구성합니다. Browser transcript는 이 authority를 만들 수 없으며 fresh conversation은 unavailable 상태를 유지합니다. Verified 또는 corrected prior turn 이후 `KnowledgeContextChatTools`는 unique trusted runbook 하나를 load하거나 enabled source의 authorization 및 refresh state를 보고하거나 해당 principal만 볼 수 있는 explicit-consent memory를 표시합니다. Exact assistant-turn review가 materialized memory 또는 runtime-skill proposal을 가리킬 때만 learning을 reusable로 보고합니다. Draft와 ambiguous runbook은 empty로, provider failure는 unavailable로 유지하며 ordinary chat은 memory 또는 review state를 쓰지 않습니다. 완료된 continuation은 durable assistant turn과 content-addressed source receipt를 인용합니다.
 Full-workspace Command Deck session은 transcript만 열린 content column으로 시작합니다. Operator는 transcript toolbar에서 filter 가능한 대화 이력 또는 현재 화면 digest를 열 수 있습니다. Browser 또는
-durable history에서 복원된 transcript는 새 대화를 시작할 때까지 resumed-session marker를 표시합니다.
+History count는 24-row browser cache가 아니라 durable conversation metadata 최대 1,000건을 반영하며 transcript body는 선택할 때 hydrate합니다. Browser 또는 durable history에서 복원된 transcript는 새 대화를 시작할 때까지 resumed-session marker를 표시합니다.
 Deck header는 route를, Digest는 record 수, snapshot age 및 오래된 context 새로고침을 담당하며, Composer에는 attachment, 질문 입력 및 보내기 또는 중지만 유지합니다.
 
 공통 페이지 제목은 영역과 패널 레이블이 다를 때 `전체 현황 / Dashboard`를 포함해 둘을 함께 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립 utility는 단일 제목을 유지합니다.

@@ -57,6 +57,8 @@ from fdai.shared.providers.user_context import (
     UserPreferenceStore,
 )
 
+_CONVERSATION_CONTEXT_LIMIT = 1000
+
 AuthorizeFn = Callable[[Request], Awaitable[str]]
 
 
@@ -110,7 +112,7 @@ def make_user_context_routes(
         subscriptions = await config.subscriptions.list_for_principal(principal_id=principal_id)
         runs = await config.runs.list_for_principal(principal_id=principal_id, limit=50)
         conversations = await config.conversations.list_conversations(
-            principal_id=principal_id, limit=50
+            principal_id=principal_id, limit=_CONVERSATION_CONTEXT_LIMIT
         )
         latest_operator_turns = await config.conversations.latest_operator_turn_ids(
             principal_id=principal_id,
