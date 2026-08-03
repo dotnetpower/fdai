@@ -9,6 +9,10 @@ function payload() {
     subscriptions: [],
     briefing_runs: [],
     conversations: [],
+    conversation_page: {
+      has_more: false,
+      next_cursor: null,
+    },
     scheduled_continuations: [{
       anchor_id: "scheduled-anchor-example",
       task_id: "task-1",
