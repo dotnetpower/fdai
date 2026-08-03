@@ -9,6 +9,7 @@ import pytest
 from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
+from fdai.core.conversation.answer_plan import AnswerIntent
 from fdai.core.rbac.resolver import GroupMapping, RoleResolver
 from fdai.delivery.operator_api.app.config import OperatorApiConfig
 from fdai.delivery.operator_api.auth import UnsafeClaimsExtractor, build_authenticator
@@ -18,6 +19,12 @@ from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes.chat_data_sources import DataSourceChatTools
 from fdai.delivery.operator_api.routes.chat_evidence_pipeline import (
     resolve_parallel_chat_evidence,
+)
+from fdai.delivery.operator_api.routes.chat_intent_graph import (
+    ActionPosture,
+    EvidenceMode,
+    IntentGoal,
+    IntentGraph,
 )
 from fdai.delivery.operator_api.routes.data_sources import (
     ReadDataSourceStatus,
@@ -439,6 +446,57 @@ async def test_source_manifest_precedes_conflicting_semantic_read_plan() -> None
         agent_delegate=None,
         web_search_resolver=None,
         progress_observer=_observe,
+    )
+
+    evidence = cast(dict[str, object], result["_tool_evidence"])
+    assert evidence["tool"] == "describe_read_sources"
+    assert evidence["authority"] == "server_read_source_manifest"
+
+
+async def test_source_manifest_precedes_conflicting_intent_graph() -> None:
+    prompt = "현재 사용할 수 없는 데이터 원본과 확인 가능한 사실을 분리해서 보여줘."
+    result = await resolve_parallel_chat_evidence(
+        request_id="source-graph-precedence",
+        prompt=prompt,
+        view_context={},
+        user_id="reader",
+        session_id="source-graph-precedence",
+        conversation_context=None,
+        target_agent=None,
+        tool_resolver=DataSourceChatTools(
+            (
+                _source(
+                    key="operational-state",
+                    availability="unavailable",
+                    reason="not connected",
+                ),
+            )
+        ),
+        planned_tool_resolver=PlannedAuditTools(),
+        evidence_resolver=None,
+        agent_delegate=None,
+        web_search_resolver=None,
+        progress_observer=_observe,
+        intent_graph=IntentGraph(
+            schema_version=2,
+            goals=(
+                IntentGoal(
+                    goal_id="audit",
+                    intent=AnswerIntent.LIST,
+                    capability="query_audit",
+                    arguments={},
+                    depends_on=(),
+                    evidence_mode=EvidenceMode.OPERATIONAL,
+                    freshness_required=False,
+                    confidence=1.0,
+                    alternatives=(),
+                    side_effect_class="read",
+                ),
+            ),
+            clarification=None,
+            confidence=1.0,
+            action_posture=ActionPosture.ADVISE_ONLY,
+        ),
     )
 
     evidence = cast(dict[str, object], result["_tool_evidence"])

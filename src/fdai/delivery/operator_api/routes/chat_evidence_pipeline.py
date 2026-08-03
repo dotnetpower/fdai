@@ -122,7 +122,7 @@ async def resolve_parallel_chat_evidence(
         "_web_evidence",
     ):
         base_context.pop(key, None)
-    if intent_graph is not None:
+    if intent_graph is not None and not needs_read_source_evidence(prompt):
         return await resolve_intent_graph_evidence(
             request_id=request_id,
             prompt=prompt,
