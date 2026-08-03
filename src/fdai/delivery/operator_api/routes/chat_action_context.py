@@ -22,11 +22,17 @@ _ACTION_CONTEXT: Final = re.compile(
     r"\b(?:propos(?:e|al)|mitigation|impact\s+limit|stop\s+condition|dry\s+run|rollback|"
     r"human\s+approval|who\s+may\s+approve|execute\s+the\s+approved|mitigation\s+outcome|"
     r"approval\s+requirement|approver\s+role|who\s+can\s+approve|separate\s+from\s+execution|"
+    r"governed\s+(?:execution\s+)?progress|approved\s+action.{0,40}(?:progress|lifecycle)|"
+    r"action\s+context.{0,40}(?:execution\s+status|lifecycle)|terminal\s+post-check|"
+    r"effect\s+verification|post-change\s+recovery\s+checks?|idempotency\s+(?:key|receipt)|"
+    r"selected\s+action.{0,40}(?:idempotency|retry|second\s+mutation)|"
+    r"this\s+action.{0,40}(?:retry|second\s+mutation)|"
     r"recovery\s+criteria|retrying\s+this\s+action|approved\s+action.{0,24}retried|"
-    r"duplicate\s+change|duplication|action\s+receipt)\b|"
+    r"duplicate\s+change|duplication|action\s+receipt)(?![A-Za-z0-9_])|"
     r"(?:완화\s*(?:방안|제안)|영향\s*범위|중지\s*조건|롤백|사람\s*승인|승인자|"
     r"승인\s*(?:필요성|역할)|실행\s*주체|승인된\s*완화|작업\s*후|해결됐|"
-    r"중복\s*변경|실행\s*요청)",
+    r"중복\s*변경|실행\s*요청|실행\s*상태|두\s*번\s*적용|재시도\s*중복|"
+    r"성공.{0,24}(?:판단|근거))",
     re.IGNORECASE,
 )
 _EXPLICIT_ACTION_DRAFT: Final = re.compile(
@@ -50,13 +56,14 @@ _EXECUTION: Final = re.compile(
     re.IGNORECASE,
 )
 _VERIFICATION: Final = re.compile(
-    r"\b(?:mitigation\s+outcome|recovery\s+criteria|action\s+receipt|verify)\b|"
+    r"\b(?:mitigation\s+outcome|recovery\s+criteria|action\s+receipt|effect\s+verification|"
+    r"terminal\s+post-check|post-change\s+recovery\s+checks?|verify)(?![A-Za-z0-9_])|"
     r"(?:작업\s*후|해결됐|복구\s*기준|action\s*receipt)",
     re.IGNORECASE,
 )
 _IDEMPOTENCY: Final = re.compile(
-    r"\b(?:retry|retrying|duplicate|duplication|idempotenc)\w*\b|"
-    r"(?:재시도|중복\s*변경|중복)",
+    r"\b(?:retry|retrying|duplicate|duplication|idempotenc|second\s+mutation)\w*\b|"
+    r"(?:재시도|중복\s*변경|중복|두\s*번\s*적용)",
     re.IGNORECASE,
 )
 

@@ -38,8 +38,21 @@ def test_action_lifecycle_questions_require_exact_context() -> None:
         "Explain the approval requirement and the authorized approver role for this action.",
         "Who can approve this change, and why must approval remain separate from execution?",
         "Execute the approved mitigation and stream its governed progress.",
+        "exact approved action이 있다면 governed progress를 보여줘. 새 실행은 만들지 마.",
+        "승인된 action context의 실행 상태를 단계별로 확인해줘.",
+        (
+            "For the exact approved action, show governed execution progress without creating "
+            "a new action."
+        ),
         "Verify the mitigation outcome against explicit recovery criteria.",
+        "선택한 action의 terminal post-check와 recovery criteria를 보여줘.",
+        "완화 작업 성공을 판단한 effect verification 근거를 알려줘.",
+        "Show whether the selected action passed its post-change recovery checks.",
         "Prove that retrying this action will not create a duplicate change.",
+        "선택한 action의 idempotency key가 재시도 중복을 막는지 보여줘.",
+        "이 작업을 retry해도 두 번 적용되지 않는 근거를 알려줘.",
+        "Show the idempotency receipt that suppresses duplicate execution for this action.",
+        "How does the selected action prevent a second mutation when the request is retried?",
         "Describe a safe recovery proposal without applying it.",
         "Can this approved action be retried without duplication?",
         "Which action receipt proves the mitigation recovered the service?",
