@@ -1,7 +1,7 @@
 ---
 title: 네트워크 연결 매트릭스
 translation_of: network-connectivity-matrix.md
-translation_source_sha: fc0b68206a9471f64842e26d0d0a75887032d966
+translation_source_sha: b031e97a8daa4bff761029a4f50f6b7601d775b1
 translation_revised: 2026-08-03
 ---
 # 네트워크 연결 매트릭스
@@ -233,7 +233,8 @@ Environment에서 찾은 endpoint 값은 origin 또는 `host:port` 형식이어�
 허용하지만, root가 아닌 path, query, fragment 또는 user information은 잘못된 입력입니다. Checker는
 DNS와 TCP reachability만 검사하므로 다른 target을 조용히 검사해서는 안 됩니다. 명시적 port는
 `[1, 65535]` 범위여야 합니다. 빈 port 또는 port `0`은 잘못된 입력이며 profile 기본값으로
-대체하지 않습니다.
+대체하지 않습니다. 잘못된 URL은 exit code `2`의 invalid input으로 보고하며 parser 세부 정보가
+처리되지 않은 failure로 노출되지 않습니다.
 
 ```json
 {

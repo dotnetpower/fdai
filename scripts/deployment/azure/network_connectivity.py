@@ -190,7 +190,10 @@ def _checks_from_value(
 
 
 def _parse_target(value: str, default_port: int) -> tuple[str, int]:
-    parsed = urlsplit(value if "://" in value else f"//{value}")
+    try:
+        parsed = urlsplit(value if "://" in value else f"//{value}")
+    except ValueError as exc:
+        raise ConnectivityInputError("endpoint contains an invalid URL") from exc
     if parsed.netloc.endswith(":"):
         raise ConnectivityInputError("endpoint contains an invalid port")
     try:

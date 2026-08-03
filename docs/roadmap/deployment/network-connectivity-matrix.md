@@ -225,7 +225,8 @@ Environment-discovered endpoint values must be an origin or `host:port`. A trail
 accepted, but a non-root path, query, fragment, or user information is invalid because the checker
 probes only DNS and TCP reachability and must not silently test a different target. An explicit
 port must be in `[1, 65535]`; an empty port or port `0` is invalid and isn't replaced by the
-profile default.
+profile default. A malformed URL is reported as invalid input with exit code `2`; parser details
+don't escape as an unhandled failure.
 
 ```json
 {
