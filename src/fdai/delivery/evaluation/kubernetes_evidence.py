@@ -7,6 +7,7 @@ import json
 import re
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Final
 
@@ -19,6 +20,25 @@ _DNS_SUBDOMAIN: Final = re.compile(
     r"^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?(?:\.[a-z0-9](?:[-a-z0-9]*[a-z0-9])?)*$"
 )
 _INVENTORY_RESOURCES: Final = "deployments,statefulsets,daemonsets,pods,services,endpoints"
+_CPU_QUANTITY: Final = re.compile(r"^(?P<value>[0-9]+(?:\.[0-9]+)?)(?P<unit>n|u|m)?$")
+_MEMORY_QUANTITY: Final = re.compile(
+    r"^(?P<value>[0-9]+(?:\.[0-9]+)?)(?P<unit>Ki|Mi|Gi|Ti|Pi|Ei)?$"
+)
+_CPU_TO_MILLICORES: Final = {
+    "n": Decimal("0.000001"),
+    "u": Decimal("0.001"),
+    "m": Decimal("1"),
+    "": Decimal("1000"),
+}
+_MEMORY_TO_BYTES: Final = {
+    "Ki": 1_024,
+    "Mi": 1_048_576,
+    "Gi": 1_073_741_824,
+    "Ti": 1_099_511_627_776,
+    "Pi": 1_125_899_906_842_624,
+    "Ei": 1_152_921_504_606_846_976,
+    "": 1,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +114,24 @@ class KubectlEvidenceClient:
             "truncated": len(items) > len(selected),
         }
 
+    async def pod_metrics(self, task: EvaluationTask) -> Mapping[str, Any]:
+        namespace = self._namespace(task)
+        path = f"/apis/metrics.k8s.io/v1beta1/namespaces/{namespace}/pods"
+        payload = await self._get_raw_json(namespace, path)
+        items = _items(payload)
+        selected = items[: self._config.max_items]
+        return {
+            "cluster": self._config.cluster_name,
+            "namespace": namespace,
+            "pods": [
+                projection
+                for item in selected
+                if isinstance(item, Mapping)
+                and (projection := _project_pod_metric(item)) is not None
+            ],
+            "truncated": len(items) > len(selected),
+        }
+
     def _namespace(self, task: EvaluationTask) -> str:
         if task.target.kind != "kubernetes.namespace":
             raise ValueError("kubectl evidence requires a kubernetes.namespace target")
@@ -117,6 +155,25 @@ class KubectlEvidenceClient:
             "json",
             f"--request-timeout={self._config.timeout_seconds:g}s",
         )
+        return await self._run_json(command)
+
+    async def _get_raw_json(self, namespace: str, path: str) -> Mapping[str, Any]:
+        command = (
+            "kubectl",
+            "--kubeconfig",
+            str(self._config.kubeconfig),
+            "--context",
+            self._config.context,
+            "--namespace",
+            namespace,
+            "get",
+            "--raw",
+            path,
+            f"--request-timeout={self._config.timeout_seconds:g}s",
+        )
+        return await self._run_json(command)
+
+    async def _run_json(self, command: tuple[str, ...]) -> Mapping[str, Any]:
         raw = await self._run(command)
         if len(raw) > self._config.max_output_bytes:
             raise RuntimeError("kubectl evidence response exceeded the configured limit")
@@ -182,6 +239,14 @@ class KubectlEventEvidenceProvider:
         return await self.client.events(task)
 
 
+@dataclass(frozen=True, slots=True)
+class KubectlPodMetricEvidenceProvider:
+    client: KubectlEvidenceClient
+
+    async def collect(self, task: EvaluationTask) -> Mapping[str, Any]:
+        return await self.client.pod_metrics(task)
+
+
 def kubernetes_evidence_providers(
     client: KubectlEvidenceClient,
 ) -> Mapping[str, EvaluationEvidenceProvider]:
@@ -190,6 +255,7 @@ def kubernetes_evidence_providers(
     return {
         "observe.kubernetes.inventory": KubectlInventoryEvidenceProvider(client),
         "observe.kubernetes.events": KubectlEventEvidenceProvider(client),
+        "observe.metrics.query": KubectlPodMetricEvidenceProvider(client),
     }
 
 
@@ -269,13 +335,23 @@ def _project_container_status(value: Mapping[str, Any]) -> dict[str, Any]:
     )
     detail = state_values.get(state_name)
     detail_values = detail if isinstance(detail, Mapping) else {}
-    return {
+    projection: dict[str, Any] = {
         "name": _text(value.get("name"), 253),
         "ready": value.get("ready") is True,
         "restarts": _count(value.get("restartCount")),
         "state": state_name,
         "reason": _text(detail_values.get("reason"), 256),
     }
+    last_state = value.get("lastState")
+    last_state_values = last_state if isinstance(last_state, Mapping) else {}
+    last_termination = last_state_values.get("terminated")
+    if isinstance(last_termination, Mapping):
+        projection["last_termination"] = {
+            "reason": _text(last_termination.get("reason"), 256),
+            "exit_code": _count(last_termination.get("exitCode")),
+            "finished_at": _text(last_termination.get("finishedAt"), 64),
+        }
+    return projection
 
 
 def _project_event(item: Mapping[str, Any]) -> dict[str, Any] | None:
@@ -305,6 +381,61 @@ def _project_event(item: Mapping[str, Any]) -> dict[str, Any] | None:
     }
 
 
+def _project_pod_metric(item: Mapping[str, Any]) -> dict[str, Any] | None:
+    metadata = item.get("metadata")
+    containers = item.get("containers")
+    if not isinstance(metadata, Mapping) or not isinstance(containers, list):
+        return None
+    name = metadata.get("name")
+    namespace = metadata.get("namespace")
+    if not isinstance(name, str) or not isinstance(namespace, str):
+        return None
+    return {
+        "name": name,
+        "namespace": namespace,
+        "containers": [
+            projection
+            for value in containers
+            if isinstance(value, Mapping)
+            and (projection := _project_container_metric(value)) is not None
+        ],
+    }
+
+
+def _project_container_metric(value: Mapping[str, Any]) -> dict[str, Any] | None:
+    name = value.get("name")
+    usage = value.get("usage")
+    if not isinstance(name, str) or not isinstance(usage, Mapping):
+        return None
+    return {
+        "name": name,
+        "cpu_millicores": _cpu_millicores(usage.get("cpu")),
+        "memory_bytes": _memory_bytes(usage.get("memory")),
+    }
+
+
+def _cpu_millicores(value: object) -> float:
+    match = _CPU_QUANTITY.fullmatch(value) if isinstance(value, str) else None
+    if match is None:
+        raise RuntimeError("kubectl returned an invalid Kubernetes CPU quantity")
+    try:
+        quantity = Decimal(match.group("value")) * _CPU_TO_MILLICORES[match.group("unit") or ""]
+    except (InvalidOperation, KeyError) as exc:
+        raise RuntimeError("kubectl returned an invalid Kubernetes CPU quantity") from exc
+    return float(quantity)
+
+
+def _memory_bytes(value: object) -> int:
+    match = _MEMORY_QUANTITY.fullmatch(value) if isinstance(value, str) else None
+    if match is None:
+        raise RuntimeError("kubectl returned an invalid Kubernetes memory quantity")
+    try:
+        quantity = Decimal(match.group("value")) * _MEMORY_TO_BYTES[match.group("unit") or ""]
+    except (InvalidOperation, KeyError) as exc:
+        raise RuntimeError("kubectl returned an invalid Kubernetes memory quantity") from exc
+    return int(quantity)
+
+
 def _valid_namespace(value: str) -> bool:
     return 1 <= len(value) <= 253 and _DNS_SUBDOMAIN.fullmatch(value) is not None
 
@@ -329,5 +460,6 @@ __all__ = [
     "KubectlEvidenceClient",
     "KubectlEvidenceConfig",
     "KubectlInventoryEvidenceProvider",
+    "KubectlPodMetricEvidenceProvider",
     "kubernetes_evidence_providers",
 ]

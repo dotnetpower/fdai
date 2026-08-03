@@ -67,6 +67,13 @@ async def test_inventory_uses_explicit_context_and_projects_diagnostic_fields(
                                     "ready": False,
                                     "restartCount": 3,
                                     "state": {"waiting": {"reason": "CrashLoopBackOff"}},
+                                    "lastState": {
+                                        "terminated": {
+                                            "reason": "Error",
+                                            "exitCode": 137,
+                                            "finishedAt": "2026-07-29T11:59:50Z",
+                                        }
+                                    },
                                 }
                             ],
                         },
@@ -107,12 +114,79 @@ async def test_inventory_uses_explicit_context_and_projects_diagnostic_fields(
                     "restarts": 3,
                     "state": "waiting",
                     "reason": "CrashLoopBackOff",
+                    "last_termination": {
+                        "reason": "Error",
+                        "exit_code": 137,
+                        "finished_at": "2026-07-29T11:59:50Z",
+                    },
                 }
             ],
         }
     ]
     assert "not-exposed" not in json.dumps(evidence)
     assert "must-not-escape" not in json.dumps(evidence)
+
+
+async def test_pod_metrics_are_namespace_scoped_and_normalized(tmp_path: Path) -> None:
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text("synthetic", encoding="utf-8")
+    commands: list[tuple[str, ...]] = []
+
+    async def run(command: tuple[str, ...]) -> bytes:
+        commands.append(command)
+        return json.dumps(
+            {
+                "items": [
+                    {
+                        "metadata": {"name": "sub-agent-1", "namespace": "example-app"},
+                        "containers": [
+                            {
+                                "name": "agent",
+                                "usage": {"cpu": "925m", "memory": "128Mi"},
+                            },
+                            {
+                                "name": "proxy",
+                                "usage": {"cpu": "250000n", "memory": "1024Ki"},
+                            },
+                        ],
+                    }
+                ]
+            }
+        ).encode()
+
+    client = KubectlEvidenceClient(config=_config(kubeconfig), run=run)
+    evidence = await client.pod_metrics(_task())
+
+    assert commands == [
+        (
+            "kubectl",
+            "--kubeconfig",
+            str(kubeconfig),
+            "--context",
+            "example-context",
+            "--namespace",
+            "example-app",
+            "get",
+            "--raw",
+            "/apis/metrics.k8s.io/v1beta1/namespaces/example-app/pods",
+            "--request-timeout=15s",
+        )
+    ]
+    assert evidence == {
+        "cluster": "example-cluster",
+        "namespace": "example-app",
+        "pods": [
+            {
+                "name": "sub-agent-1",
+                "namespace": "example-app",
+                "containers": [
+                    {"name": "agent", "cpu_millicores": 925.0, "memory_bytes": 134_217_728},
+                    {"name": "proxy", "cpu_millicores": 0.25, "memory_bytes": 1_048_576},
+                ],
+            }
+        ],
+        "truncated": False,
+    }
 
 
 async def test_events_are_bounded_and_namespace_scope_fails_closed(tmp_path: Path) -> None:

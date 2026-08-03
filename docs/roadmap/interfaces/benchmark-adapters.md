@@ -170,8 +170,11 @@ package. The SREGym package registers `sregym` in that group.
 The current live SREGym composition provides exact-namespace Kubernetes inventory and event
 evidence through an explicit kubeconfig and context. The kubectl adapter uses fixed read-only
 commands, no shell, a 30-second maximum timeout, output and item limits, and a diagnostic projection
-that excludes Secret objects and unreviewed fields. Metrics, logs, and traces remain structured
-unavailable evidence until their providers are bound.
+that excludes Secret objects and unreviewed fields. When the delegated identity can read
+`metrics.k8s.io` pods in the target namespace, the adapter projects normalized container CPU and
+memory usage through `observe.metrics.query`. Pod status also retains bounded prior termination
+reason, exit code, and finish time for crash diagnosis. Raw logs and traces remain structured
+unavailable evidence until separate providers are bound.
 
 On deterministic hold for review, the existing grounded RCA path receives the task objective and
 bounded evidence. Its hypothesis is preserved in the typed `ControlLoopResult` and rendered as the
