@@ -13,6 +13,7 @@ from fdai.shared.providers.distiller import (
     DistilledCandidate,
     Distiller,
     ManualDocument,
+    ManualLineProvenance,
 )
 
 
@@ -77,4 +78,28 @@ def test_candidate_kind_values() -> None:
         "workflow",
         "action_type",
         "policy",
+        "ontology_object",
+        "ontology_link",
     }
+
+
+def test_manual_line_provenance_rejects_invalid_identity_and_range() -> None:
+    with pytest.raises(ValueError, match="positive"):
+        ManualLineProvenance(0, "pdf", "unit-1", "pdf/page:1/block:1")
+    with pytest.raises(ValueError, match="non-empty"):
+        ManualLineProvenance(1, " ", "unit-1", "pdf/page:1/block:1")
+    with pytest.raises(ValueError, match="bounded length"):
+        ManualLineProvenance(1, "pdf", "u" * 129, "pdf/page:1/block:1")
+
+
+def test_manual_document_rejects_duplicate_or_out_of_range_provenance() -> None:
+    provenance = ManualLineProvenance(1, "pdf", "unit-1", "pdf/page:1/block:1")
+    with pytest.raises(ValueError, match="unique line"):
+        ManualDocument("d", "line", "doc:d", line_provenance=(provenance, provenance))
+    with pytest.raises(ValueError, match="existing line"):
+        ManualDocument(
+            "d",
+            "line",
+            "doc:d",
+            line_provenance=(ManualLineProvenance(2, "pdf", "unit-2", "page:2"),),
+        )

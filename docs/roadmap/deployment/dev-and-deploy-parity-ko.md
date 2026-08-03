@@ -1,21 +1,17 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: d055319a7af59d007264112e51d02b62e79bd75b
-translation_revised: 2026-08-02
+translation_source_sha: 80c05ea98961806b10b9ee3c16f722fc3b0c45fd
+translation_revised: 2026-08-03
 ---
 
 # Runtime Parity - Authoritative Local Development 및 Test Fixture
 
-**목표**: 자동화 테스트는 결정론적이고 secret-free 상태를 유지하며, interactive local
-Console은 운영자의 실제 Azure 개발 환경만 표시합니다. Azure 배포에서는 계속 **배포자의
-Azure 권한과 리전 카탈로그가 어떤 LLM과 기타 리소스를 프로비저닝할지 결정**합니다.
+**목표**: 자동화 테스트는 결정론적이고 secret-free 상태를 유지하며, interactive local Console은 운영자의 실제 Azure 개발 환경만 표시합니다. Azure 배포에서는 계속 **배포자의 Azure 권한과 리전 카탈로그가 어떤 LLM과 기타 리소스를 프로비저닝할지 결정**합니다.
 세 명제가 동시에 참입니다:
 
-- **자동화 테스트 truth**: pytest와 committed mock은 결정론적 fake를 사용할 수 있습니다.
-  명시적 test-fixture builder를 사용하며 Azure 관측 상태로 표현하지 않습니다.
-- **Full-stack local truth**: `Console Web: Full Stack`은 deployment와 같은 App Role 검사를
-  적용하는 browser Entra sign-in을 사용합니다. Server의 Azure CLI session은 Azure development
+- **자동화 테스트 truth**: pytest와 committed mock은 결정론적 fake를 사용할 수 있습니다. 명시적 test-fixture builder를 사용하며 Azure 관측 상태로 표현하지 않습니다.
+- **Full-stack local truth**: `Console Web: Full Stack`은 deployment와 같은 App Role 검사를 적용하는 browser Entra sign-in을 사용합니다. Server의 Azure CLI session은 Azure development
   data plane provider credential만 제공합니다. Inventory, model availability, agent activity,
   Process state, promotion evidence, audit data는 authoritative provider에서만 표시합니다.
   Source가 없으면 unavailable 또는 명시적 empty로 표시하며 생성 예제로 대체하지 않습니다.
@@ -406,7 +402,7 @@ traffic에 들어가지 않습니다.
 
 | 서브시스템 | 상태 | 갭 |
 |-----------|------|-----|
-| Azure Resource Graph inventory | Production은 promoted PostgreSQL snapshot과 Huginn의 real-time delta overlay를 읽습니다. | Full-stack local은 읽기 전용 `AzureCliInventory`를 통해 등록된 모든 Azure ARM type을 매핑하고 relationship을 위해 bounded `az graph query` property를 우선 사용하며 VM state를 보강합니다. Snapshot은 subscription 및 Azure CLI profile fingerprint로 격리한 `.fdai/cache/inventory`에 저장하고 synthetic opt-out은 거부합니다. |
+| Azure Resource Graph inventory | Production은 promoted PostgreSQL snapshot과 Huginn의 real-time delta overlay를 읽습니다. | Full-stack local은 읽기 전용 `AzureCliInventory`를 통해 등록된 모든 Azure ARM type을 매핑하고 relationship과 VM power state에 bounded `az graph query` property를 사용하므로 별도 `az vm list --show-details`를 호출하지 않습니다. Snapshot은 subscription 및 Azure CLI profile fingerprint로 격리한 `.fdai/cache/inventory`에 저장하고 synthetic opt-out은 거부합니다. |
 | Azure Monitor Logs KQL | Production과 local adapter가 `AzureLogAnalyticsQueryProvider`를 공유합니다. | Server-owned `FDAI_MONITOR_WORKSPACE_ID`가 필요하며 명시적 `query_log`는 unavailable일 때 fail closed합니다. |
 | Managed Identity 토큰 (`WorkloadIdentity`) | Deployed adapter 존재 | interactive local은 deployed executor로 publish하며 fixture test만 local issuer 사용 |
 | Governed execution backend | Provider-neutral Protocol, profile registry, durable PostgreSQL ledger, bubblewrap/VM adapter, Azure Container Apps Job adapter가 존재합니다. | Profile은 기본적으로 disabled이고 local interactive에는 executor binding이 없으며 promotion 전에 live Azure Job evidence가 필요합니다. |
@@ -414,9 +410,7 @@ traffic에 들어가지 않습니다.
 | Key Vault secret provider (`SecretProvider`) | deployment가 Key Vault reference 주입 | interactive adapter는 environment reference 사용, fixture value는 test 전용 |
 | GitOps PR publisher | 실제 GitHub adapter 존재 | interactive execution은 configured adapter 사용, recording publisher는 test 전용 |
 Local inventory cache는 final fence에 도달한 scan만 promote하고 atomic replace로 기록합니다.
-Fresh cache는 Operator API restart 이후에도 즉시 반환됩니다. 만료되었거나 Huginn이 invalidate한 cache는
-`cache.status=refreshing`인 `stale` 상태로 즉시 반환되고, background Azure CLI scan이 이를 원자적으로
-교체합니다. Provision된 `aw.inventory.raw` topic을 `FDAI_INVENTORY_RAW_TOPIC`으로 구성하면 수락된
+Operator API startup은 readiness를 차단하지 않고 persistent cache를 load해 stale 또는 missing refresh를 schedule하며 shutdown은 해당 task를 cancel하고 drain합니다. Fresh cache는 restart 이후 즉시 반환되고 fresh-required query는 warmup이 아직 실행 중일 때만 기다립니다. 만료되었거나 Huginn이 invalidate한 cache는 `cache.status=refreshing`인 `stale` 상태로 즉시 반환되고 background Azure CLI scan이 이를 원자적으로 교체합니다. Provision된 `aw.inventory.raw` topic을 `FDAI_INVENTORY_RAW_TOPIC`으로 구성하면 수락된
 write/delete event가 durable projection 이후 local cache를 invalidate합니다. 해당 auxiliary-topic
 binding이 없는 stack은 TTL refresh로 수렴합니다. Resource type 또는 relationship을 추가하는 inventory
 projection change는 cache envelope schema revision을 올리므로, 이전 complete snapshot을 stale semantic과

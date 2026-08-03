@@ -28,7 +28,7 @@ from __future__ import annotations
 import logging
 import os
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
@@ -235,9 +235,20 @@ _LOCAL_ACTION_TOPIC = "aw.events"
 # an index off by one made _REPO_ROOT resolve to src/ and every catalog-backed
 # route (ontology, rules, promotion-gates, workflows) 404 with empty catalogs.
 _REPO_ROOT = Path(__file__).resolve().parents[5]
+_LifecycleCallback = Callable[[], Awaitable[None]]
 
 # One seed audit row: (agent, tier, action_kind, outcome, finished_hhmmss,
 # correlation, summary, detail, work_ms, inputs, outputs).
+
+
+def _inventory_lifecycle_callbacks(
+    provider: Any,
+) -> tuple[tuple[_LifecycleCallback, ...], tuple[_LifecycleCallback, ...]]:
+    warmup = getattr(provider, "start_warmup", None)
+    close = getattr(provider, "close", None)
+    startup = (cast(_LifecycleCallback, warmup),) if callable(warmup) else ()
+    shutdown = (cast(_LifecycleCallback, close),) if callable(close) else ()
+    return startup, shutdown
 
 
 def _build_local_metering(
@@ -720,6 +731,10 @@ def build_local_app(
         durable=persistence is not None,
     )
     assignment_store = persistence.state_store if persistence is not None else models.settings.store
+    inventory_graph_provider = _build_inventory_graph_provider()
+    inventory_startup_callbacks, inventory_shutdown_callbacks = _inventory_lifecycle_callbacks(
+        inventory_graph_provider
+    )
     application = build_app(
         authenticator=authenticator,
         read_model=read_model,
@@ -750,7 +765,7 @@ def build_local_app(
             model_settings=models.settings,
             runtime_settings=runtime_settings,
             workflow_definitions=workflow_definitions,
-            inventory_graph_provider=_build_inventory_graph_provider(),
+            inventory_graph_provider=inventory_graph_provider,
             inventory_activity_provider=(
                 local_read_investigation.inventory_activity_provider
                 if local_read_investigation is not None
@@ -831,7 +846,8 @@ def build_local_app(
             python_tasks=runtime.python_tasks if runtime is not None else None,
             reporting=reporting,
             process_views=process_views,
-            startup_callbacks=(
+            startup_callbacks=inventory_startup_callbacks
+            + (
                 (postgres_read_model.verify_connection,)
                 if local_database_configured and not test_fixtures
                 else ()
@@ -847,7 +863,8 @@ def build_local_app(
                 if runtime is not None and runtime.operator_runtime is not None
                 else ()
             ),
-            shutdown_callbacks=((runtime.stop_pantheon_runtime,) if runtime is not None else ())
+            shutdown_callbacks=inventory_shutdown_callbacks
+            + ((runtime.stop_pantheon_runtime,) if runtime is not None else ())
             + ((remote_agent_delegate.stop,) if remote_agent_delegate is not None else ())
             + ((post_turn_review_queue.close,) if post_turn_review_queue is not None else ())
             + (assurance_submitter.close,)
@@ -885,6 +902,7 @@ __all__ = [
     "_build_chat_backend",
     "_build_chat_web_search",
     "_build_inventory_graph_provider",
+    "_inventory_lifecycle_callbacks",
     "_build_live_stream_config",
     "_build_stewardship_map",
     "_chat_probe_interval_seconds",

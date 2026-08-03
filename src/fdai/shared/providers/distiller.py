@@ -45,6 +45,27 @@ class CandidateKind(StrEnum):
     WORKFLOW = "workflow"
     ACTION_TYPE = "action_type"
     POLICY = "policy"
+    ONTOLOGY_OBJECT = "ontology_object"
+    ONTOLOGY_LINK = "ontology_link"
+
+
+@dataclass(frozen=True, slots=True)
+class ManualLineProvenance:
+    """Structural source locator for one normalized manual line."""
+
+    line_number: int
+    source_format: str
+    unit_id: str
+    locator: str
+
+    def __post_init__(self) -> None:
+        if self.line_number < 1:
+            raise ValueError("manual provenance line_number MUST be positive")
+        values = (self.source_format, self.unit_id, self.locator)
+        if any(not value.strip() for value in values):
+            raise ValueError("manual provenance identity fields MUST be non-empty")
+        if len(self.source_format) > 64 or len(self.unit_id) > 128 or len(self.locator) > 256:
+            raise ValueError("manual provenance identity exceeds the bounded length")
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +84,15 @@ class ManualDocument:
     source_ref: str
     content_sha: str = ""
     metadata: Mapping[str, str] = field(default_factory=dict)
+    line_provenance: tuple[ManualLineProvenance, ...] = ()
+
+    def __post_init__(self) -> None:
+        line_numbers = [item.line_number for item in self.line_provenance]
+        if len(line_numbers) != len(set(line_numbers)):
+            raise ValueError("manual line provenance MUST contain unique line numbers")
+        line_count = len(self.text.splitlines())
+        if any(line_number > line_count for line_number in line_numbers):
+            raise ValueError("manual line provenance MUST reference an existing line")
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,4 +197,5 @@ __all__ = [
     "DistilledCandidate",
     "Distiller",
     "ManualDocument",
+    "ManualLineProvenance",
 ]

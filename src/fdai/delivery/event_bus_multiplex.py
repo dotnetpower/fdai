@@ -52,6 +52,29 @@ class MultiplexedEventBus:
         await self.bus.dead_letter(self.physical_topic, key, enriched, reason)
 
     async def _subscribe(self, topic: str, group_id: str) -> AsyncIterator[EventEnvelope]:
+        logical_dlq_source = topic.removesuffix(".dlq") if topic.endswith(".dlq") else None
+        if logical_dlq_source in self.logical_topics:
+            topic_hash = hashlib.sha256(topic.encode("utf-8")).hexdigest()[:12]
+            routed_group = f"{group_id}.{topic_hash}"
+            physical_dlq = f"{self.physical_topic}.dlq"
+            async for envelope in self.bus.subscribe(physical_dlq, routed_group):
+                wrapped = dict(envelope.payload)
+                original = wrapped.get("payload")
+                if not isinstance(original, Mapping):
+                    continue
+                logical_payload = dict(original)
+                if logical_payload.get(_LOGICAL_TOPIC_FIELD) != logical_dlq_source:
+                    continue
+                logical_payload.pop(_LOGICAL_TOPIC_FIELD, None)
+                wrapped["original_topic"] = logical_dlq_source
+                wrapped["payload"] = logical_payload
+                yield EventEnvelope(
+                    topic=topic,
+                    key=envelope.key,
+                    payload=wrapped,
+                    offset=envelope.offset,
+                )
+            return
         if topic not in self.logical_topics:
             async for envelope in self.bus.subscribe(topic, group_id):
                 yield envelope

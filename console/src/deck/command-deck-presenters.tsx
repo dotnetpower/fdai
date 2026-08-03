@@ -107,7 +107,7 @@ function agentIconUrl(name: string): string {
   return `url("${base}agent-icons/${name.toLowerCase()}.svg")`;
 }
 
-function routerTooltip(router: RouterSnapshot | undefined): string | undefined {
+export function routerTooltip(router: RouterSnapshot | undefined): string | undefined {
   if (!router) return undefined;
   const lines = router.candidates.map((candidate) => {
     const p50 = candidate.p50_ms === null ? "-" : `${Math.round(candidate.p50_ms)}ms`;
@@ -115,7 +115,21 @@ function routerTooltip(router: RouterSnapshot | undefined): string | undefined {
     const marker = candidate.deployment === router.chose ? "* " : "  ";
     return `${marker}${candidate.deployment} · p50 ${p50} · p95 ${p95} · n=${candidate.samples}`;
   });
-  return `${t("deck.tooltip.routerChoice", { reason: router.reason, deployment: router.chose })}\n${lines.join("\n")}`;
+  const choice = t("deck.tooltip.routerChoice", {
+    reason: router.reason,
+    deployment: router.chose,
+    candidates: lines.join("\n"),
+  });
+  return router.reason.trim() ? choice : choice.replace(" ()", "").replace("()", "");
+}
+
+export function backendTooltip(health: BackendHealth): string {
+  const base = t("deck.tooltip.chatMode", {
+    mode: health.mode,
+    endpoint: health.endpoint ? ` · ${health.endpoint}` : "",
+  });
+  const routed = routerTooltip(health.router);
+  return routed ? `${base}\n${routed}` : base;
 }
 
 export function DeckLayoutIcon({ mode }: { readonly mode: DeckLayoutMode }) {
@@ -336,7 +350,7 @@ export function TurnBubble({
       id={`deck-turn-${turn.id}`}
       class={`deck-turn deck-turn-${turn.role}${isActivity ? " deck-turn-activity" : ""}${turn.source === "context" ? " is-context" : ""}${turn.streaming ? " is-streaming" : ""}${searchMatch ? " is-search-match" : ""}${activeSearchMatch ? " is-active-search-match" : ""}${isInvestigationFlow ? " is-investigation-flow" : ""}${investigationFlowStart ? " is-flow-start" : ""}${investigationFlowEnd ? " is-flow-end" : ""}`}
     >
-      {isDeck && !isInvestigationFlow ? (
+      {isDeck && (!isInvestigationFlow || investigationFlowStart) ? (
         <header class="deck-turn-head">
           <span class="deck-turn-role deck-turn-agent">
             <span
@@ -349,7 +363,9 @@ export function TurnBubble({
             />
             {replyAgentLabel(turn.agent ?? DEFAULT_NARRATOR, turn.delegation)}
           </span>
-          {turn.source && !isProgressMessage && !isActivity ? (
+          {isInvestigationFlow ? (
+            <span class="deck-turn-source">{t("deck.investigation.title")}</span>
+          ) : turn.source ? (
             <Tooltip content={routerTooltip(turn.router) ?? t("deck.tooltip.replySource")}>
               <span class="deck-turn-source">{turn.source}</span>
             </Tooltip>
@@ -361,6 +377,7 @@ export function TurnBubble({
           activities={turn.activities ?? []}
           branches={turn.branches ?? []}
           running={turn.streaming === true}
+          showStartNote={investigationFlowStart}
         />
       ) : isProgressMessage ? (
         <div class="deck-progress-note" role="status">
@@ -421,9 +438,11 @@ export function TurnBubble({
           showModelTrace={showModelTrace}
         />
       ) : null}
-      <div class="deck-turn-foot">
-        <span class="deck-turn-time muted">{turn.at}</span>
-      </div>
+      {!isInvestigationFlow ? (
+        <div class="deck-turn-foot">
+          <span class="deck-turn-time muted">{turn.at}</span>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -446,14 +465,9 @@ export function BackendBadge({
     );
   }
   if (health.available) {
-    const routed = health.router;
     const label = t("deck.backend.connected");
-      const base = `${t("deck.tooltip.chatMode", { mode: health.mode })}${
-      health.endpoint ? ` · ${health.endpoint}` : ""
-    }`;
-    const tooltip = routed ? `${base}\n${routerTooltip(routed) ?? ""}` : base;
     return (
-      <Tooltip content={tooltip}>
+      <Tooltip content={backendTooltip(health)}>
         <span class={`deck-backend deck-backend-${placement} deck-backend-ready`}>
           <span class="deck-backend-dot" />
           <span class="deck-backend-label">{label}</span>

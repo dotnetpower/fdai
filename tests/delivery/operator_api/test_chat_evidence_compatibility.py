@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import patch
 
@@ -9,6 +11,7 @@ import pytest
 from fdai.agents import PantheonRuntime
 from fdai.delivery.operator_api.routes.chat_agent_delegate import PantheonChatDelegate
 from fdai.delivery.operator_api.routes.chat_evidence_enrichment import (
+    _tool_execution_progress_event,
     _with_agent_evidence,
     _with_operational_evidence,
     _with_screen_scope,
@@ -21,6 +24,69 @@ CONTEXT = {
     "incident_id": "INC-1",
     "correlation_id": "corr-1",
 }
+
+
+def test_inventory_execution_progress_retains_bounded_detailed_json() -> None:
+    event = _tool_execution_progress_event(
+        {
+            "tool": "query_inventory",
+            "authority": "server_inventory_graph",
+            "result": {
+                "status": "matched",
+                "matched_count": 1,
+                "total_resources": 2,
+                "matched_status_counts": {"running": 1},
+                "resources": [
+                    {
+                        "name": "vm-example",
+                        "type": "virtual-machine",
+                        "status": "running",
+                    }
+                ],
+                "source": "inventory-example",
+            },
+        },
+        started_at=datetime(2026, 8, 3, tzinfo=UTC),
+        duration_ms=12,
+    )
+
+    assert event is not None
+    execution = event["execution"]
+    assert isinstance(execution, dict)
+    output = execution["output"]
+    assert isinstance(output, str)
+    assert "\n" in output
+    assert json.loads(output)["resources"] == [
+        {"name": "vm-example", "status": "running", "type": "virtual-machine"}
+    ]
+    assert "output_truncated" not in execution
+
+
+def test_inventory_execution_progress_truncates_collections_as_valid_json() -> None:
+    event = _tool_execution_progress_event(
+        {
+            "tool": "query_inventory",
+            "result": {
+                "status": "matched",
+                "matched_count": 40,
+                "resources": [
+                    {"name": f"resource-{index}", "detail": "x" * 4096} for index in range(40)
+                ],
+            },
+        },
+        started_at=datetime(2026, 8, 3, tzinfo=UTC),
+        duration_ms=12,
+    )
+
+    assert event is not None
+    execution = event["execution"]
+    assert isinstance(execution, dict)
+    output = execution["output"]
+    assert isinstance(output, str)
+    parsed = json.loads(output)
+    assert len(output) <= 64 * 1024
+    assert parsed["omitted"]["resources"] > 0
+    assert execution["output_truncated"] is True
 
 
 class _LegacyResolver:

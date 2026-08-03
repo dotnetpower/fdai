@@ -24,6 +24,7 @@ from fdai.delivery.operator_api.routes.chat_evidence_branches import (
     EvidenceBranchResult,
     EvidenceBranchStatus,
 )
+from fdai.delivery.operator_api.routes.chat_execution_output import inventory_execution_output
 from fdai.delivery.operator_api.routes.chat_inventory import (
     inventory_execution_query,
     needs_inventory_evidence,
@@ -502,6 +503,11 @@ def _tool_execution_progress_event(
             "scope": "server-owned",
         },
     }
+    labels = {
+        "query_inventory": "Queried Azure inventory",
+        "query_subscription_health": "Checked subscription health",
+        "query_t2_recovery": "Read T2 recovery state",
+    }
     if not isinstance(tool, str) or (tool not in queries and tool != "query_inventory"):
         return None
     result = evidence.get("result")
@@ -520,33 +526,56 @@ def _tool_execution_progress_event(
         value = result.get(key)
         if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
             summary[key] = value
+    output, output_truncated = (
+        inventory_execution_output(result)
+        if tool == "query_inventory"
+        else (json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True), False)
+    )
     completed_at = datetime.now(UTC)
-    return {
+    execution: dict[str, object] = {
+        "tool": "FDAI inventory" if tool == "query_inventory" else "FDAI server read",
+        "command": (
+            inventory_execution_query(evidence)
+            if tool == "query_inventory"
+            else json.dumps(queries[tool], indent=2, sort_keys=True)
+        ),
+        "input_kind": "query",
+        "redacted": True,
+        "output": output,
+        "exit_code": None,
+        "started_at": started_at.isoformat(),
+        "completed_at": completed_at.isoformat(),
+        "duration_ms": duration_ms,
+    }
+    if output_truncated:
+        execution["output_truncated"] = True
+    event: dict[str, object] = {
         "event": "activity",
         "activity_id": f"{tool}-execution",
         "kind": "read.execution",
         "status": "completed" if completed else "unavailable",
-        "label": "Inspect server-owned read evidence",
+        "label": labels[tool],
+        "detail": _tool_execution_detail(summary),
         "completed": 1 if completed else 0,
         "total": 1,
         "authority": str(evidence.get("authority") or "server_read_model"),
         "observed_at": completed_at.isoformat(),
-        "execution": {
-            "tool": "FDAI inventory" if tool == "query_inventory" else "FDAI server read",
-            "command": (
-                inventory_execution_query(evidence)
-                if tool == "query_inventory"
-                else json.dumps(queries[tool], indent=2, sort_keys=True)
-            ),
-            "input_kind": "query",
-            "redacted": True,
-            "output": json.dumps(summary, sort_keys=True, separators=(",", ":")),
-            "exit_code": None,
-            "started_at": started_at.isoformat(),
-            "completed_at": completed_at.isoformat(),
-            "duration_ms": duration_ms,
-        },
+        "execution": execution,
     }
+    return event
+
+
+def _tool_execution_detail(summary: Mapping[str, object]) -> str:
+    for key, singular, plural in (
+        ("matched_count", "matching resource", "matching resources"),
+        ("resource_count", "resource", "resources"),
+        ("total_resources", "resource inspected", "resources inspected"),
+        ("metric_checked", "metric checked", "metrics checked"),
+    ):
+        value = summary.get(key)
+        if isinstance(value, int):
+            return f"{value} {singular if value == 1 else plural}"
+    return f"Status: {str(summary.get('status') or 'unavailable').replace('_', ' ')}"
 
 
 def _is_explicit_tool_command(prompt: str) -> bool:

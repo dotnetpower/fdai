@@ -216,6 +216,11 @@ request to the pure resolver. It performs this sequence in stable requirement-id
   resolver.
 6. Reduce all requirement decisions conservatively. Only all-`AUTHORIZED` results enter the risk
   gate.
+  Authorized requirements MUST resolve to exactly one `executor_identity_ref`; zero or multiple
+  identities fail closed before risk evaluation. The ref is copied to the typed Action and every
+  executor audit. DirectApiRequest metadata uses it to select the bound workload identity without
+  core knowing a provider client id; PR-native metadata preserves attribution but does not replace
+  the separately authorized Git publisher identity.
 7. For `GRANT_REQUIRED`, validate every missing requirement and scope against the combined
   decision digest, allowed grant mode, maximum duration, quorum, and approver-role floor before
   submitting one canonically ordered proposal per pair.

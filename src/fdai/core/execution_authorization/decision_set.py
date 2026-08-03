@@ -98,6 +98,13 @@ def build_result(
     evaluator_ref: str,
     grant_proposals: tuple[ExecutionAccessGrantProposal, ...] = (),
 ) -> ExecutionAuthorizationResult:
+    identity_refs = {
+        outcome.identity_binding.identity_ref
+        for outcome in outcomes
+        if outcome.identity_binding is not None
+    }
+    if status is ExecutionAuthorizationStatus.AUTHORIZED and len(identity_refs) != 1:
+        raise ValueError("authorized requirements MUST resolve one executor identity")
     digest = combined_digest(
         request=request,
         context=context,
@@ -120,6 +127,7 @@ def build_result(
         decision_digest=digest,
         evaluator_ref=evaluator_ref,
         reason_codes=reasons or ("authorization_requirements_satisfied",),
+        executor_identity_ref=(next(iter(identity_refs)) if len(identity_refs) == 1 else None),
         audit_context={
             "inventory_generation": context.inventory_generation,
             "requirements": [

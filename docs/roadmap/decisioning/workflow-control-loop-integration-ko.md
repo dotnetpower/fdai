@@ -1,7 +1,7 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: 2aaa7d7bd36a70e6cd8f96bcbefd51896a5aaf3f
+translation_source_sha: bdebfd2293ff7b47ce1573e457c530262715f4ef
 translation_revised: 2026-08-02
 ---
 
@@ -53,13 +53,14 @@ mutation authority 없이 실제 approval 및 decision transition을 저장할 �
 매칭된 모든 Workflow 는 shadow 로 실행된다 (name 순서, 리소스 + 타임스탬프는
 Event 에서). 어떤 Workflow 도 매칭하지 않는 이벤트는 아무것도 시작하지 않는다.
 
-코디네이터는 [`ControlLoop`](../../../src/fdai/core/control_loop/orchestrator.py) 에 **opt-in,
-fail-safe side-consumer** 로 배선된다: `FDAI_WORKFLOW_SHADOW` 가 truthy 이고
-카탈로그가 Workflow 를 실으면, 엔트리 포인트가 (로드된 Workflow 카탈로그, RBAC
+코디네이터는 [`ControlLoop`](../../../src/fdai/core/control_loop/orchestrator.py) 에 **기본 활성,
+fail-safe side-consumer** 로 배선된다. 카탈로그가 Workflow 를 실으면 엔트리 포인트가
+(로드된 Workflow 카탈로그, RBAC
 그룹 매핑, notification matrix 로) 조립하고 모든 ingested 이벤트가 매칭된
 Workflow 를 발화시킨다. audit row 만 추가한다 - routing, risk 결정, return 경로를
-절대 바꾸지 않으며, 코디네이터 실패는 로깅되고 swallow 된다. upstream 기본은
-off 이므로, 배포가 opt-in 하지 않는 한 컨트롤 루프는 이전과 똑같이 동작한다.
+절대 바꾸지 않으며, 코디네이터 실패는 로깅되고 swallow 된다.
+`FDAI_WORKFLOW_SHADOW=0|false|no|off`는 명시적 maintenance disable이며, 미설정은
+non-mutating observation을 활성 상태로 유지한다.
 
 ### 4.2 Guard 평가 (seam)
 

@@ -301,6 +301,17 @@ async def test_dry_run_receipt_is_deterministic_and_input_sensitive() -> None:
     assert changed_publisher.records[0].metadata["dry_run_receipt"] != first_receipt
 
 
+@pytest.mark.asyncio
+async def test_pr_native_preserves_authorized_identity_in_evidence() -> None:
+    executor, publisher, audit = _executor()
+    action = _action().model_copy(update={"executor_identity_ref": "identity/change"})
+
+    await executor.execute(action=action, rule=_rule())
+
+    assert publisher.records[0].metadata["executor_identity_ref"] == "identity/change"
+    assert audit.audit_entries[0]["entry"]["executor_identity_ref"] == "identity/change"
+
+
 # ---------------------------------------------------------------------------
 # Shadow-mode invariant (property)
 # ---------------------------------------------------------------------------

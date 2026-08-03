@@ -9,6 +9,7 @@ import pytest
 
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
+from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
 from fdai.agents.forseti import Forseti
 from fdai.agents.freyr import Freyr
 from fdai.agents.njord import Njord
@@ -93,6 +94,40 @@ def test_odin_resolves_conflict_by_priority() -> None:
     # cost outranks capacity in the default priority order.
     assert decision.winning_domain == "cost"
     assert decision.losing_domains == ("capacity",)
+
+
+def test_odin_uses_fixed_precedence_for_initial_verticals() -> None:
+    odin = Odin(vertical_precedence=InitialVerticalPrecedence())
+
+    decision = asyncio.run(
+        odin.arbitrate(
+            {
+                "correlation_id": "initial-verticals",
+                "domains_in_conflict": ["cost", "change_safety", "resilience"],
+                "impacts": {"cost": 1.0, "change_safety": 1.0, "resilience": 0.01},
+            }
+        )
+    )
+
+    assert decision.winning_domain == "resilience"
+    assert decision.reason == "initial_vertical_precedence"
+    assert decision.escalate_hil is False
+
+
+def test_fixed_precedence_defers_non_initial_domain_to_weighted_arbiter() -> None:
+    odin = Odin(vertical_precedence=InitialVerticalPrecedence())
+
+    decision = asyncio.run(
+        odin.arbitrate(
+            {
+                "correlation_id": "capacity-cost",
+                "domains_in_conflict": ["capacity", "cost"],
+            }
+        )
+    )
+
+    assert decision.winning_domain == "cost"
+    assert decision.reason != "initial_vertical_precedence"
 
 
 def test_forseti_records_arbitration_decision() -> None:

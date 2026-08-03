@@ -1,43 +1,32 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: b09d2b74b96237346a4cc92418870bb9dd8cd5bf
-translation_revised: 2026-08-01
+translation_source_sha: 888e070f55853581f165d60010f34be3dc2ad14a
+translation_revised: 2026-08-03
 ---
 
 # Action 온톨로지
 
-FDAI 의 모든 액션 - 룰이 발화시킨 remediation 이든 오퍼레이터가
-요청한 ops task 든 - 는 shipped 온톨로지의 **`ActionType`** entry 하나의
-instance 이다. 이 문서는 스키마, 트리거 축 (`rule_violation` vs
-`operator_request`), tier 및 role 상한, live-probe 참조, 그리고 `core/`
-편집 없이 고객이 재정의 가능하게 하는 **fork-override seam** 을 권위적으로
-정의한다.
+FDAI 의 모든 액션 - 룰이 발화시킨 remediation 이든 오퍼레이터가 요청한 ops task 든 - 는 shipped 온톨로지의 **`ActionType`** entry 하나의 instance 이다. 이 문서는 스키마, 트리거 축 (`rule_violation` vs `operator_request`), tier 및 role 상한, live-probe 참조, 그리고 `core/` 편집 없이 고객이 재정의 가능하게 하는 **fork-override seam** 을 권위적으로 정의한다.
 
 이 온톨로지의 소비자:
 
 - T0Engine + ActionBuilder ([phase-1](../phases/phase-1-rule-catalog-t0-ko.md))
-  는 룰이 발화시킨 액션을 빌드할 때 `rollback_contract`,
-  `preconditions`, `stop_conditions`, `blast_radius` 를 read.
+  는 룰이 발화시킨 액션을 빌드할 때 `rollback_contract`, `preconditions`, `stop_conditions`, `blast_radius` 를 read.
 - 통합 RiskGate + Executor ([execution-model.md](execution-model-ko.md))
-  는 실행 **여부** 와 **방법** 을 결정할 때 tier 상한, min-role,
-  live-probe 참조, execution path 를 read.
+  는 실행 **여부** 와 **방법** 을 결정할 때 tier 상한, min-role, live-probe 참조, execution path 를 read.
 - 오퍼레이터 콘솔 narrator ([operator-console.md](../interfaces/operator-console-ko.md))
-  는 ops-flavoured tool call 을 제안하거나 실행할 때 `trigger_kind`,
-  `description`, `argument_schema` 를 read.
+  는 ops-flavoured tool call 을 제안하거나 실행할 때 `trigger_kind`, `description`, `argument_schema` 를 read.
 
-단일 온톨로지가 세 곳 모두를 feed 하기 때문에, 새 remediation 또는 새 ops
-verb 추가는 YAML 파일 하나 - 엔진에 branching 없음, 새 executor 없음.
+단일 온톨로지가 세 곳 모두를 feed 하기 때문에, 새 remediation 또는 새 ops verb 추가는 YAML 파일 하나 - 엔진에 branching 없음, 새 executor 없음.
 
-> 고객-무관: 아래의 모든 ActionType 이름, 파라미터, blast-radius 값은
-> placeholder 또는 예시. Fork 가 config 로 entry 추가/재정의
+> 고객-무관: 아래의 모든 ActionType 이름, 파라미터, blast-radius 값은 placeholder 또는 예시. Fork 가 config 로 entry 추가/재정의
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
 ## 1. 하나의 온톨로지, 두 트리거
 
-초기 ActionType 집합은 룰이 발화시킨 remediation만 포함했습니다. 현재 catalog는
-같은 schema 아래 remediation, ops, governance, tool entry를 포함합니다. 오퍼레이터
-콘솔 pull-방향 ([operator-console.md](../interfaces/operator-console-ko.md) §4) 는 룰
+초기 ActionType 집합은 룰이 발화시킨 remediation만 포함했습니다. 현재 catalog는 같은 schema 아래
+remediation, ops, governance, tool entry를 포함합니다. 오퍼레이터 콘솔 pull-방향 ([operator-console.md](../interfaces/operator-console-ko.md) §4) 는 룰
 발화가 아니라 **오퍼레이터의 chat 요청** 으로 트리거되는 액션이 필요:
 "이 pod 재시작", "scale out", "cache flush". 이들은 같은 safety envelope
 를 공유하지만 다른 trigger surface 를 가진다.
@@ -253,10 +242,16 @@ Catalog backfill은 다음 상태로 완료되었습니다:
   failover 시 `cost_impact_monthly` 선언 MUST.
 - `ops.switch-t2-proposer-route` - Heimdall이 요청 내 모든 후보의 실패를 확인한 뒤 T2 proposer 역할 하나를 검증된 secondary route로 전환합니다.
   Shadow-first를 유지하고 사람 승인을 요구하며 전환 후 검증이 실패하면 이전 route를 복원합니다.
-- `ops.apply-human-access`는 검토된 역할 그룹 부여를 계획하고, `ops.revoke-human-access`는 대체
-  담당 범위를 기다리며 제거를 보류합니다. 둘 다 별도 승격 전까지 관찰 모드를 유지합니다.
-- `ops.publish-change-summary`는 제한된 resource-group 변경 요약을 렌더링합니다. 짝을 이루는
-  `ChangeSummary` ObjectType과 `summarizes` LinkType은 [downstream fork 예제](../fork-and-sequencing/downstream-fork-example-vertical-ko.md)의 copy-ready scaffold입니다.
+- `ops.apply-human-access` - 검토된 FDAI 역할 그룹 멤버 자격 부여를 계획합니다. Direct adapter는
+  별도 승격 전까지 관찰 모드를 유지합니다.
+- `ops.revoke-human-access` - 검토된 대체 담당 범위 케이스가 준비될 때까지 역할 그룹 멤버 자격
+  제거를 보류합니다.
+- `ops.publish-change-summary` - resource-group 에 대해 정해진 시간
+  범위의 변경 이력을 rendered Markdown 요약으로 만들어 delivery adapter 에
+  전달. Non-Resource 비즈니스-오브젝트 flow 의 reference 예제; 짝을 이루는
+  ObjectType `ChangeSummary` 와 LinkType `summarizes` 가 copy-ready
+  scaffold ([downstream-fork-example-vertical-ko.md](../fork-and-sequencing/downstream-fork-example-vertical-ko.md)
+  참조).
 - `ops.start-vm` / `ops.deallocate-vm` - development operations gateway를 통해 Azure VM 하나를
   시작하거나 deallocate합니다. 둘 다 shadow-first를 유지하며 shipped T0 ceiling에서 사람 승인을
   요구합니다.
@@ -284,10 +279,12 @@ landing 해야 하는 compliance-heavy 환경에서 `pr_manual` 을 강제 MAY.
 (나머지 셋은 P2 에서 land 될 PR-native writer 대기 중인
 catalog-as-code artifact):
 
-- `governance.promote-action-type` - 하나의 ActionType 의 `default_mode`
-  를 shadow → enforce 로 flip (해당 ActionType 의 `promotion_gate` 로
-  bounded).
-  **Dispatcher: not yet implemented (P2 backlog).**
+- `governance.promote-action-type` - 하나의 ActionType에 대한 exact durable
+  operational-promotion receipt를 runtime mode registry에 적용합니다. Catalog의 ActionType은
+  변경하지 않으며 receipt는 `promotion_gate`, exact code/catalog revision, scenario set,
+  evidence digest 및 Owner HIL로 제한됩니다.
+  **Dispatcher shipped:** Thor 뒤의 `OperationalPromotionDirectApiExecutor`. Shadow는 mutation
+  없이 검증하며 HIL-only authority bootstrap만 enforce mode를 제공합니다.
 - `governance.retire-rule` - enforce 집합에서 룰 제거 (shadow-only 또는
   full retire).
   **Dispatcher: not yet implemented (P2 backlog).**
@@ -301,8 +298,11 @@ catalog-as-code artifact):
   **Dispatcher shipped**:
   [`src/fdai/core/risk_gate/override_writer.py`](../../../src/fdai/core/risk_gate/override_writer.py).
 
-Governance 액션은 항상 `execution_path: pr_native` 사용 - catalog-as-code
-변경이고 reviewed diff 로 landing MUST.
+Governance action은 catalog-as-code 변경이므로 `execution_path: pr_native`를 사용하고 reviewed
+diff로 landing해야 합니다. 닫힌 예외는 하나뿐입니다. `governance.promote-action-type`은 Owner
+HIL과 exact-receipt verification 이후 durable runtime mode registry만 변경하기 위해
+`direct_api`를 사용하며 catalog data나 managed substrate는 변경하지 않습니다. 다른 governance
+action은 이 예외를 사용할 수 없습니다.
 
 ### 3.4 `tool.*`
 

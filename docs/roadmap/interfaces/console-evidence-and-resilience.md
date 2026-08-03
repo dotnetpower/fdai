@@ -4,47 +4,37 @@ title: Console Evidence and Resilience
 
 # Console Evidence and Resilience
 
-This document owns the operator console contracts for evidence provenance, localization,
-stream recovery, durable replay, and Architecture-map resilience. The conversational tool and
+This document owns the operator console contracts for evidence provenance, localization, stream recovery, durable replay, and Architecture-map resilience. The conversational tool and
 RBAC contract remains in [operator-console.md](operator-console.md).
 
 ## Navigation context
 
-Selecting an Activity Bar domain opens its Explorer and navigates to the first visible panel under
-the operator's local order and visibility preferences. This navigation remains active when the
+Selecting an Activity Bar domain opens its Explorer and navigates to the first visible panel under the operator's local order and visibility preferences. This navigation remains active when the
 Command Deck is closed or floating; a full-workspace Deck closes before the route changes.
-Selecting a cached conversation from another screen is the bounded exception: the console navigates
-to that conversation's origin while suppressing only the synchronous conversation-owned route
+Selecting a cached conversation from another screen is the bounded exception: the console navigates to that conversation's origin while suppressing only the synchronous conversation-owned route
 event, then activates its transcript. The Deck remains open without a transient default-session
 switch or close/reopen focus cycle. Same-screen and agent conversations switch without navigation.
-Reselecting the already active same-screen conversation is focus-only; it does not reload the
-sessionStorage transcript over newer in-memory turns.
-Selecting an inactive conversation records only a browser-local read acknowledgement and does not
-change its activity timestamp, so the history order remains stable. A conversation title is bold
+Reselecting the already active same-screen conversation is focus-only; it does not reload the sessionStorage transcript over newer in-memory turns.
+Selecting an inactive conversation records only a browser-local read acknowledgement and does not change its activity timestamp, so the history order remains stable. A conversation title is bold
 only while its observed activity is newer than its persisted read timestamp; selecting it clears
 that cue without moving the row. Only newer server activity advances the ordering timestamp.
-When a conversation title is visually truncated, pointer hover shows the complete label through
-the shared console tooltip. A title that fits does not show a redundant tooltip.
-An agent-card Ask action always opens a new empty agent conversation with a unique user-scoped key.
-The new summary carries the selected agent immediately, so the first submit sends the same agent
+When a conversation title is visually truncated, pointer hover shows the complete label through the shared console tooltip. A title that fits does not show a redundant tooltip. The connected-backend tooltip preserves separate mode, endpoint, route-choice, and candidate lines, fills every localized placeholder, and wraps long endpoint or deployment tokens within its viewport bound.
+An agent-card Ask action always opens a new empty agent conversation with a unique user-scoped key. The new summary carries the selected agent immediately, so the first submit sends the same agent
 target to the Operator API. Existing agent conversations are preserved as separate history entries and
 are restored only when the operator selects one explicitly.
-Removing the active cached conversation selects only a current-route default (including the legacy
-`screen` key) or current-route thread. If neither exists, the console creates a new current-route
+Removing the active cached conversation selects only a current-route default (including the legacy `screen` key) or current-route thread. If neither exists, the console creates a new current-route
 default instead of activating an unrelated-route or agent transcript.
 
-Full-workspace Command Deck sessions start with the transcript as the only open content column.
-The operator can open filtered conversation history or the current-screen digest from the transcript
+Full-workspace Command Deck sessions start with the transcript as the only open content column. The operator can open filtered conversation history or the current-screen digest from the transcript
 toolbar. A transcript restored from browser or durable history shows a resumed-session marker until
 the operator starts a new conversation. The composer retains a compact route, grounded-record count,
 and snapshot-age line even while the digest is closed.
 
-The shared page title renders the domain and panel labels when they differ, including
-`Overview / Dashboard`. A domain root whose panel title repeats the domain label and a standalone
+The shared page title renders the domain and panel labels when they differ, including `Overview / Dashboard`. A domain root whose panel title repeats the domain label and a standalone
 utility keep a single title.
 
-The shared top bar renders the Cloud Aperture mark in its canonical source blue. Console themes
-don't desaturate or recolor the brand mark.
+The shared top bar renders the icon-only FDAI mark in its original source colors beside the
+`FDAI Console` wordmark. Console themes don't desaturate or recolor the brand asset.
 
 Live follows the same shared title contract as `Operations / Live`. Its observation controls stay
 in the shared header actions area and wrap below the title on narrow viewports, so Freeze, source,
@@ -218,21 +208,44 @@ provider payloads, and validation results remain unchanged.
 
 ## Observed conversation trajectory
 
-Each completed Command Deck question exposes one collapsed observed trajectory. Its status overview distinguishes completed, corrected, degraded, failed, unverified, running, and unobserved phases; record presence isn't success.
-Recorded event, evidence, reference, and verification counts appear as compact result chips. The
-expanded view leads with the six-phase rail, expandable observed-event timeline, and provenance
-signals, while timing windows, decision context, phase records, and coverage gaps remain in one
+Each Command Deck question selects the smallest presentation supported by observed work. A turn with
+no activity, handoff, or background task keeps a collapsed run record. One successful terminal read
+uses a compact investigation row and a collapsed run record. Multiple activities,
+milestones, retries, failures, handoffs, commands, or file changes use an expanded timeline by
+default. A durable background task uses a detached task summary. Restored compact turns reconstruct
+the observed row from durable detail, while live turns retain the row already shown in causal order.
+Every completed answer keeps its trajectory summary and bounded original operator prompt visible.
+
+The status overview distinguishes completed, corrected, degraded, failed, unverified, running, and
+unobserved phases; record presence isn't success. Result chips report observed query and command
+counts, evidence completion, references, and verification rather than internal event totals. The
+run-record summary retains the complete bounded operator prompt and wraps it on narrow layouts. Changing its disclosure
+scrolls only the transcript while the composer remains visible at the Deck boundary. The expanded
+view leads with the six-phase rail,
+expandable observed-event timeline, and provenance signals, while timing windows, decision context, phase records, and coverage gaps remain in one
 collapsed execution-details disclosure.
 The preparing-answer surface remains between the operator turn and observed work until final answer
-streaming starts. The transcript disables browser scroll anchoring, keeps extra bottom space, and
-pins only the latest edge so streaming layout changes don't move the visible reading position.
+streaming starts and keeps its existing presentation. Observed work then follows the execution mock's
+progress-note, session, connected-step, and dark command-detail hierarchy. A standalone activity
+derives its starting note only from that received activity. A milestone remains the note when one was
+received, so the browser doesn't duplicate or invent progress. Only the current step opens
+automatically; completed step shells remain visible while raw output and timestamps fold. Raw
+current-screen records stay in a collapsed source disclosure. The transcript
+disables browser scroll anchoring, keeps extra bottom space, and follows the latest edge only while
+work streams. On terminal completion it anchors the first observed work group below the transcript
+edge, so execution outcome and answer start remain visible while the final answer lays out.
 Untimed plan and collaboration metadata stays in decision context, while only observed input, evidence and tools, model calls, verification, and delivery use the timeline.
 Answer text is at least 14 px, main disclosures are 44 px high, and content reflows without loss at 200% text resize and 320 CSS pixels.
 The transcript uses 15 px text, trajectory headings use 13 px, event labels use 12 px, controls use
 13 px, and compact trajectory metadata never drops below 11 px. A published screen snapshot becomes visibly stale
 after five minutes and offers an explicit page refresh; a bare clock never implies current evidence.
-Markdown tables render every bounded answer row in the transcript flow without an internal vertical
-scroll region or row-expansion control. Cells wrap on narrow screens instead of widening the transcript.
+Markdown tables render progressively. A completed header and separator create the table shell before
+the first body row arrives, and each completed row appends without replacing the table. Incomplete
+header, separator, and row syntax stays hidden rather than appearing as raw Markdown. Every bounded
+answer row remains in the transcript flow without an internal vertical scroll region or row-expansion
+control. A foreground terminal-only deterministic answer uses the same visual paint queue, so its
+canonical table also reveals monotonically from zero rows to the complete row count. Background tabs
+finish synchronously. Cells wrap on narrow screens instead of widening the transcript.
 
 Detail includes bounded recorded metadata but doesn't repeat the answer body. Valid object or array JSON in provider messages, action arguments, commands, and outputs uses indented syntax highlighting and copy; malformed or plain text stays unchanged. The terminal replay payload retains final ID-deduplicated branch, activity, milestone, and redacted execution detail under a 64 KiB aggregate cap, truncates each history output at 32 KiB, and reports truncation and omission counts, so durable history and the live turn use the same strict parser and trajectory view. Unavailable or timed-out
 evidence is an attempt, not completed evidence, and unverified work never receives completed styling. Missing activity stays in an observation-coverage disclosure and proves no absence. Exact-answer
@@ -244,8 +257,8 @@ and verification phases. One UTC anchor plus monotonic elapsed time produces obs
 Model provider tracing is a browser-local Settings opt-in that defaults off. When enabled, the
 request-local collector records up to eight actual model calls for that question, including turn
 planning, reruns, answer generation, and quality review. The Waterfall uses provider-call timing;
-each disclosure shows the role-ordered redacted message copy, assistant content, token usage,
-exact-content SHA-256, and redaction counts. Credentials, tenant or resource identifiers, URLs,
+each disclosure preserves the recorded message array and request SHA while grouping consecutive
+system layers under one `SYSTEM` heading. JSON bodies are pretty-printed, and bounded request and response blocks use theme-matched scrollbars. The disclosure also shows assistant content, token usage, exact-content SHA-256, and redaction counts. Credentials, tenant or resource identifiers, URLs,
 email, IP addresses, inline images, hidden reasoning, headers, and provider internals aren't
 retained. Turning the setting off stops capture, hides stored traces, and removes the trace from an
 idempotent replay response without repeating the provider call.
@@ -469,11 +482,9 @@ removes credentials and sensitive identifiers before emission and sets `redacted
 drops input evidence without that attestation. `input_kind=command` requires a recorded process
 invocation and may carry an exit code. `input_kind=query` carries the canonical typed server query,
 never a reconstructed provider command, and cannot carry an exit code. An accepted activity shows
-the matching `TOOL` or `QUERY` badge, tool label, authority, and completion state. Command output or
-query results and timestamps stay collapsed by default. Intermediate progress detail and milestones
-use an opaque resource placeholder rather than the parsed resource name. Input is limited to 16 KiB
-and the result preview to 64 KiB;
-truncation is explicit. Activity and retrieval labels are limited to 512 characters, detail and
+the matching `TOOL` or `QUERY` badge, tool label, authority, and completion state. Command output,
+query results, and timestamps stay collapsed by default. Valid object or array JSON is pretty-printed
+inside bounded code surfaces with theme-matched scrollbars. Inventory results retain the verifier-accepted detailed projection, including matched resources, counts, coverage, and snapshot provenance. Input is limited to 16 KiB and the result preview to 64 KiB; oversized collection tails are omitted with explicit counts so output remains valid JSON. Activity and retrieval labels are limited to 512 characters, detail and
 milestone text to 16 KiB, and contradictory completed/total progress is rejected.
 The browser can copy the displayed command or query but can't run or retry it. This evidence remains a
 read-only observation of work performed by an authorized runtime, not proof that the console owns

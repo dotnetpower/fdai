@@ -136,6 +136,16 @@ class TestHappyPath:
         assert entry["execution_path"] == "tool_call"
         assert entry["outcome"] == "dispatched"
         assert entry["mode"] == "shadow"
+
+    @pytest.mark.asyncio
+    async def test_audit_preserves_authorized_executor_identity(self) -> None:
+        executor, _, audit = _executor()
+        action = _action().model_copy(update={"executor_identity_ref": "identity/finops"})
+
+        await executor.execute(action=action)
+
+        entry = _unwrap(list(audit.audit_entries)[0])
+        assert entry["executor_identity_ref"] == "identity/finops"
         assert entry["tool_ref"] == "document:reports/resilience/2026-07"
 
     @pytest.mark.asyncio

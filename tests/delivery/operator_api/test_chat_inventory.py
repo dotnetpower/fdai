@@ -1894,6 +1894,8 @@ def test_stopped_db_stream_overrides_semantic_web_plan(
     assert '"branch_kind": "agent"' not in response.text
     activity = _stream_event(response.text, "activity")
     assert activity is not None
+    assert activity["label"] == "Queried Azure inventory"
+    assert activity["detail"] == ("2 matching resources" if includes_sql else "1 matching resource")
     execution = activity["execution"]
     assert execution["tool"] == "FDAI inventory"
     assert execution["input_kind"] == "query"
@@ -2005,7 +2007,11 @@ def test_subscription_stopped_db_ignores_invalid_semantic_lookback_plan() -> Non
     execution = activity["execution"]
     assert isinstance(execution, dict)
     output = json.loads(execution["output"])
-    assert output == {"matched_count": 1, "status": "matched", "total_resources": 13}
+    assert output["matched_count"] == 1
+    assert output["status"] == "matched"
+    assert output["total_resources"] == 13
+    assert any(resource.get("name") == "postgres-data" for resource in output["resources"])
+    assert all("id" not in resource for resource in output["resources"])
     assert backend.calls == 0
 
 

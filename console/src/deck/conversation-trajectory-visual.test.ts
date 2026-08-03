@@ -3,6 +3,10 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
+const source = readFileSync(
+  fileURLToPath(new URL("./conversation-trajectory-view.tsx", import.meta.url)),
+  "utf8",
+);
 
 describe("observed trajectory typography", () => {
   test("keeps primary detail text readable and subordinate to the transcript", () => {
@@ -16,5 +20,12 @@ describe("observed trajectory typography", () => {
     expect(styles).toContain("--deck-font-body: 12px;");
     expect(styles).toContain("--deck-font-small: 11px;");
     expect(styles).toContain("--deck-font-label: 11px;");
+  });
+
+  test("keeps the operator prompt visible in the run record summary", () => {
+    expect(source).toContain('class="deck-trajectory-question"');
+    expect(source).toContain("{trajectory.question.text}");
+    expect(styles).toContain(".deck-trajectory-question { grid-column: 1 / -1;");
+    expect(styles).toContain("text-overflow: ellipsis; white-space: nowrap;");
   });
 });

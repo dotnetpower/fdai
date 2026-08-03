@@ -1,6 +1,6 @@
 import { t } from "../i18n";
-import type { ModelTrace, ModelTraceCall } from "./backend";
-import { JsonCodeBlock } from "./json-code-block";
+import type { ModelTrace, ModelTraceCall, ModelTraceMessage } from "./backend";
+import { formatJsonValue, JsonCodeBlock } from "./json-code-block";
 
 const MIN_BAR_PCT = 2.5;
 const SINGLETON_SPAN_MS = 1000;
@@ -9,6 +9,40 @@ export interface ModelTraceBar {
   readonly call: ModelTraceCall;
   readonly leftPct: number;
   readonly widthPct: number;
+}
+
+export interface ModelTraceMessageGroup {
+  readonly role: ModelTraceMessage["role"];
+  readonly contents: readonly string[];
+}
+
+export function groupModelTraceMessages(
+  messages: readonly ModelTraceMessage[],
+): readonly ModelTraceMessageGroup[] {
+  const groups: ModelTraceMessageGroup[] = [];
+  for (const message of messages) {
+    const previous = groups.at(-1);
+    if (message.role === "system" && previous?.role === "system") {
+      groups[groups.length - 1] = {
+        role: "system",
+        contents: [...previous.contents, message.content],
+      };
+    } else {
+      groups.push({ role: message.role, contents: [message.content] });
+    }
+  }
+  return groups;
+}
+
+export function formatModelTraceMessageGroup(group: ModelTraceMessageGroup): {
+  readonly text: string;
+  readonly format: "json" | "text";
+} {
+  const formatted = group.contents.map(formatJsonValue);
+  return {
+    text: formatted.map((item) => item.text).join("\n\n"),
+    format: formatted.length === 1 && formatted[0]?.isJson ? "json" : "text",
+  };
 }
 
 export function buildModelTraceBars(trace: ModelTrace): readonly ModelTraceBar[] {
@@ -81,10 +115,10 @@ export function ModelTraceWaterfall({ trace }: { readonly trace?: ModelTrace }) 
               <div class="deck-model-trace-detail">
                 <TraceHash label={t("deck.modelTrace.requestHash")} value={call.request.sha256} />
                 <ol class="deck-model-trace-messages">
-                  {call.request.messages.map((message, messageIndex) => (
-                    <li key={`${call.call_id}-request-${messageIndex}`}>
-                      <span>{message.role}</span>
-                      <JsonCodeBlock value={message.content} />
+                  {groupModelTraceMessages(call.request.messages).map((group, groupIndex) => (
+                    <li key={`${call.call_id}-request-${groupIndex}`}>
+                      <span>{group.role}</span>
+                      <TraceMessageContent group={group} />
                     </li>
                   ))}
                 </ol>
@@ -119,6 +153,15 @@ export function ModelTraceWaterfall({ trace }: { readonly trace?: ModelTrace }) 
         ))}
       </ol>
     </section>
+  );
+}
+
+function TraceMessageContent({ group }: { readonly group: ModelTraceMessageGroup }) {
+  const formatted = formatModelTraceMessageGroup(group);
+  return (
+    <pre class="deck-model-trace-message-content" data-format={formatted.format}>
+      <code>{formatted.text}</code>
+    </pre>
   );
 }
 

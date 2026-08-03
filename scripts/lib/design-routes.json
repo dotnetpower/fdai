@@ -119,6 +119,38 @@
       ]
     },
     {
+      "id": "document-ontology-distillation",
+      "paths": [
+        "docs/roadmap/rules-and-detection/document-ontology-distillation*.md",
+        "src/fdai/rule_catalog/pipeline/distill/ontology_*.py",
+        "tests/rule_catalog/pipeline/distill/test_ontology_*.py"
+      ],
+      "optional_paths": [
+        "src/fdai/rule_catalog/pipeline/distill/orchestrator.py",
+        "src/fdai/rule_catalog/pipeline/distill/__init__.py",
+        "src/fdai/shared/providers/distiller.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/rules-and-detection/manual-distillation.md",
+        "docs/roadmap/rules-and-detection/document-ontology-distillation.md",
+        "docs/roadmap/architecture/operating-ontology.md",
+        "docs/roadmap/architecture/operating-ontology-platform.md",
+        "docs/roadmap/interfaces/document-ingestion-agent-ownership.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/rules-and-detection/document-ontology-distillation.md",
+        "docs/roadmap/rules-and-detection/manual-distillation.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/rule_catalog/pipeline/distill",
+        "uv run ruff check src/fdai/rule_catalog/pipeline/distill src/fdai/shared/providers/distiller.py tests/rule_catalog/pipeline/distill",
+        "uv run mypy --strict src/fdai/rule_catalog/pipeline/distill"
+      ]
+    },
+    {
       "id": "operating-ontology",
       "paths": [
         "docs/roadmap/architecture/operating-ontology*.md",
@@ -849,7 +881,6 @@
       "paths": [
         "docs/roadmap/interfaces/human-agent-assignment*.md",
         "src/fdai/core/human_assignment/**",
-        "src/fdai/core/hil_resume/escalation_supervisor.py",
         "src/fdai/core/rbac/access_request.py",
         "src/fdai/shared/providers/human_access.py",
         "src/fdai/shared/providers/human_identity.py",
@@ -861,8 +892,7 @@
         "src/fdai/runtime/human_access.py",
         "console/src/routes/settings-iam*",
         "rule-catalog/action-types/ops.assignment-role-*",
-        "tests/**/*human_assignment*",
-        "tests/core/hil_resume/test_escalation_supervisor.py"
+        "tests/**/*human_assignment*"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",

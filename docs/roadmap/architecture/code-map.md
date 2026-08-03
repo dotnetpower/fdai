@@ -267,6 +267,7 @@ domain agents consume those canonical Events before publishing their owned advis
 | [src/fdai/composition/wire_trajectory.py](../../../src/fdai/composition/wire_trajectory.py) | Binds authorization-first source joins, dataset metadata, quarantine export, and read-only administration without enabling the feature in the default container. |
 | [src/fdai/composition/wire_execution_backends.py](../../../src/fdai/composition/wire_execution_backends.py) | Validates server-selected profiles and binds required backends plus the durable ledger without enabling profiles by default. |
 | [src/fdai/rule_catalog/](../../../src/fdai/rule_catalog/) | Strict loaders for rules, Best Practices, governance artifacts, and the remaining `rule-catalog/` YAML tree. |
+| [src/fdai/rule_catalog/pipeline/distill/](../../../src/fdai/rule_catalog/pipeline/distill/) | Build-time manual compilation plus the `DocumentEnvelope` provenance bridge, normalized cross-format graph comparison, review-only ontology proposals, evidence gates, and lifecycle/evaluation plans. |
 | [rule-catalog/](../../../rule-catalog/) | The rule, Best Practice, policy, rule-set, and action-type catalog (data). |
 
 ## Developer entry points and slash commands

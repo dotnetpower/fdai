@@ -3,15 +3,11 @@ title: Runtime Parity - Authoritative Local Development and Test Fixtures
 ---
 # Runtime Parity - Authoritative Local Development and Test Fixtures
 
-**Goal**: automated tests remain deterministic and secret-free, while every interactive local
-Console session shows the operator's actual Azure development environment. Azure deployment
-still uses the **deployer's Azure permissions + region catalog to decide which LLM and other
-resources are provisioned**. Three truths hold at the same time:
+**Goal**: automated tests remain deterministic and secret-free, while every interactive local Console
+session shows the operator's actual Azure development environment. Azure deployment still uses the **deployer's Azure permissions + region catalog to decide which LLM and other resources are provisioned**. Three truths hold at the same time:
 
-- **Automated-test truth**: pytest and committed mocks may bind deterministic fakes. They use an
-  explicit test-fixture builder and never represent observed Azure state.
-- **Full-stack local truth**: `Console Web: Full Stack` uses browser Entra sign-in with the same
-  App Role checks as deployment. The server's Azure CLI session supplies provider credentials for
+- **Automated-test truth**: pytest and committed mocks may bind deterministic fakes. They use an explicit test-fixture builder and never represent observed Azure state.
+- **Full-stack local truth**: `Console Web: Full Stack` uses browser Entra sign-in with the same App Role checks as deployment. The server's Azure CLI session supplies provider credentials for
   the Azure development data plane only. Inventory, model availability, agent activity, Process
   state, promotion evidence, and audit data appear only from authoritative providers. Missing
   sources render unavailable or explicitly empty; the Console never substitutes generated examples.
@@ -400,7 +396,7 @@ domain routing. Embedding is a conversational fallback only and never enters typ
 
 | Subsystem | Status | Gap |
 |-----------|--------|-----|
-| Azure Resource Graph inventory | Production reads the promoted PostgreSQL snapshot plus Huginn's real-time delta overlay | Full-stack local maps every registered Azure ARM type through read-only `AzureCliInventory`, prefers bounded `az graph query` properties for relationships, enriches VM state, and stores a `.fdai/cache/inventory` snapshot isolated by subscription and Azure CLI profile fingerprint; synthetic opt-out is rejected |
+| Azure Resource Graph inventory | Production reads the promoted PostgreSQL snapshot plus Huginn's real-time delta overlay | Full-stack local maps every registered Azure ARM type through read-only `AzureCliInventory`, uses bounded `az graph query` properties for relationships and VM power state without a separate `az vm list --show-details`, and stores a `.fdai/cache/inventory` snapshot isolated by subscription and Azure CLI profile fingerprint; synthetic opt-out is rejected |
 | Azure Monitor Logs KQL | Production and local adapters share `AzureLogAnalyticsQueryProvider` | Requires server-owned `FDAI_MONITOR_WORKSPACE_ID`; explicit `query_log` fails closed when unavailable |
 | Managed Identity token (`WorkloadIdentity`) | Deployed adapter exists | interactive local publishes to the deployed executor; fixture tests may use a local issuer |
 | Governed execution backend | Provider-neutral Protocol, profile registry, durable PostgreSQL ledger, bubblewrap/VM adapters, and Azure Container Apps Job adapter exist | profiles are disabled by default; local interactive has no executor binding, and live Azure Job evidence remains required before promotion |
@@ -408,9 +404,7 @@ domain routing. Embedding is a conversational fallback only and never enters typ
 | Key Vault secret provider (`SecretProvider`) | deployment injects Key Vault references | interactive adapters use environment references; fixture values remain test-only |
 | GitOps PR publisher | Real GitHub adapter exists | interactive execution uses the configured adapter; recording publishers are test-only |
 The local inventory cache promotes only scans that reach the final fence and writes them by atomic
-replace. A fresh cache returns immediately across Operator API restarts. An expired or Huginn-invalidated
-cache returns immediately as `stale` with `cache.status=refreshing`, then a background Azure CLI scan
-atomically replaces it. When a provisioned `aw.inventory.raw` topic is configured through
+replace. Operator API startup loads the persistent cache and schedules a stale or missing refresh without blocking readiness; shutdown cancels and drains that task. A fresh cache returns immediately across restarts. A fresh-required query waits only when warmup is still running. An expired or Huginn-invalidated cache returns immediately as `stale` with `cache.status=refreshing`, then a background Azure CLI scan atomically replaces it. When a provisioned `aw.inventory.raw` topic is configured through
 `FDAI_INVENTORY_RAW_TOPIC`, accepted write/delete events invalidate the local cache after durable
 projection. A stack without that auxiliary-topic binding converges through TTL refresh.
 Inventory projection changes that add resource types or relationships increment the cache envelope

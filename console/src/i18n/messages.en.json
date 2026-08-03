@@ -2141,9 +2141,16 @@
     "investigation": {
       "label": "Investigation activity",
       "title": "Investigation",
+      "runningTitle": "Executing observed work",
+      "completedTitle": "Observed work completed",
+      "callProgress": "call {current} of {total}",
+      "callCompletedOne": "1 call",
+      "callsCompletedMany": "{count} calls",
       "pending": "Pending",
       "running": "In progress",
       "startingWork": "Starting work",
+      "startingQuery": "Querying {tool} with read-only authority.",
+      "startingCommand": "Running {tool} and observing its bounded output.",
       "progressUpdate": "Progress update",
       "completed": "Completed",
       "partial": "Partial",
@@ -2154,7 +2161,8 @@
       "cancelled": "Cancelled",
       "finished": "Finished",
       "branches": "Evidence branches",
-      "sourceSummary": "{count} sources",
+      "sourceSummaryOne": "1 source",
+      "sourceSummaryMany": "{count} sources",
       "executionDetails": "Execution details ({count})",
       "kind": {
         "tool": "Tool evidence",
@@ -2173,7 +2181,9 @@
       "timestamps": "Timestamps",
       "startedAt": "Started",
       "completedAt": "Completed",
-      "duration": "Duration"
+      "duration": "Duration",
+      "toolDuration": "Tool {duration}",
+      "readOnly": "Read-only"
     },
     "trajectory": {
       "runRecord": "Run record",
@@ -2222,6 +2232,8 @@
       "executionTimeline": "Observed execution timeline",
       "executionDetails": "Execution details",
       "observedEventCount": "{count} observed events",
+      "activitySummary": "{queries} read queries / {commands} commands",
+      "endToEndDuration": "End-to-end {duration}",
       "executionKind": {
         "turn": "Turn",
         "phase": "Phase",

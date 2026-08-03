@@ -214,6 +214,7 @@ async def test_allowed_probe_reaches_authorized_result() -> None:
 
     assert result.status is ExecutionAuthorizationStatus.AUTHORIZED
     assert result.can_enter_risk_gate
+    assert result.executor_identity_ref == "executor-ref"
     assert result.grant_proposals == ()
     assert (context_provider.calls, identity_resolver.calls, mapper.calls, probe.calls) == (
         1,

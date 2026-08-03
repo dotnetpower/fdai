@@ -478,11 +478,15 @@ fdaictl release rollback \
 `fdaictl deploy plan` submits a plan-only workflow and currently returns the workflow run id and
 URL. It requires the same environment config to pass `doctor`, reads the GitHub credential only
 from `FDAI_GITHUB_TOKEN`, and sends `apply=false`, the environment, exact commit, and a SHA-256
-deployment-context fingerprint. Console, Operator API, development gateway, and document-ingestion
-flags are included in that fingerprint and sent to both plan and apply. A changed flag invalidates
-the plan. Tenant, subscription, backend, and runner identifiers aren't sent in the dispatch body.
-The workflow validates the bounded request id, context digest, and exact checked-out commit before
-planning.
+deployment-context fingerprint. Console, design mocks, Operator API, development gateway, and
+document-ingestion flags are included in that fingerprint and sent to both plan and apply. A
+changed flag invalidates the plan. Tenant, subscription, backend, and runner identifiers aren't
+sent in the dispatch body. The workflow validates the bounded request id, context digest, and
+exact checked-out commit before planning.
+
+`--deploy-design-mocks` is a dev-only, exclusive target. It cannot be combined with another
+deployment feature flag. The runner targets only `module.design_mocks` and rejects a plan that
+contains any resource change outside the design-mocks Static Web App.
 
 ```bash
 FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy plan \
@@ -490,8 +494,7 @@ FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy plan \
   --repository <owner>/<repository> \
   --bundle-digest <sha256> \
   --commit-sha <git-sha> \
-  --deploy-console \
-  --deploy-operator-api \
+  --deploy-design-mocks \
   --output json
 ```
 

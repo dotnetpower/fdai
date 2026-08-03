@@ -287,16 +287,17 @@ class EventHubsKafkaBus(EventBus):
             "dead_lettering",
             extra={"topic": topic, "dlq": dlq, "reason": reason, "key": key},
         )
-        # Reason rides on a header so downstream tooling can filter without
-        # rewriting the payload - the payload MUST arrive at the DLQ as-is
-        # per csp-neutrality.md § 1.
+        dlq_payload = {
+            "original_topic": topic,
+            "reason": reason,
+            "payload": dict(payload),
+        }
         producer = await self._get_producer()
         try:
             await producer.send_and_wait(
                 dlq,
-                value=_encode(payload),
+                value=_encode(dlq_payload),
                 key=key.encode("utf-8"),
-                headers=[("dlq_reason", reason.encode("utf-8"))],
             )
         except BaseException:
             await self._discard_failed_producer(producer, operation="dead_letter")

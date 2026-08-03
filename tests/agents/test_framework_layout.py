@@ -178,6 +178,24 @@ def test_no_framework_file_exceeds_800_loc() -> None:
     )
 
 
+def test_factory_constructs_each_agent_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fdai.agents._framework import factory
+
+    calls = 0
+
+    def construct():  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        return factory.Odin()
+
+    monkeypatch.setattr(factory, "_CLASSES", (construct,))
+
+    instances = factory.instantiate_pantheon()
+
+    assert set(instances) == {"Odin"}
+    assert calls == 1
+
+
 # ---------------------------------------------------------------------------
 # H4: framework __init__ docstring pins the design intent so a well-meaning
 # refactor cannot silently rewrite it away.

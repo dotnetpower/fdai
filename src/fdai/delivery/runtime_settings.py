@@ -334,7 +334,6 @@ class RuntimeSettingsService:
         autonomy_default = self.env.get("AUTONOMY_MODE_DEFAULT", "shadow").strip().lower()
         autonomy_status = autonomy_default if autonomy_default == "shadow" else "invalid"
         false_values = {"0", "false", "no", "off"}
-        workflow_values = {"1", "true", "yes", "on"}
         return {
             "environment": environment,
             "state_store_durable": self.durable,
@@ -343,7 +342,7 @@ class RuntimeSettingsService:
                 self.env.get("FDAI_START_PANTHEON", "").strip().casefold() not in false_values
             ),
             "workflow_observation_enabled": (
-                self.env.get("FDAI_WORKFLOW_SHADOW", "").strip().casefold() in workflow_values
+                self.env.get("FDAI_WORKFLOW_SHADOW", "").strip().casefold() not in false_values
             ),
             "primary_transport_configured": bool(
                 self.env.get("KAFKA_BOOTSTRAP_SERVERS", "").strip()

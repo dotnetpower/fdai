@@ -1,28 +1,20 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 894bfc1f2751fc8a781420c0f60576c46d8903e5
-translation_revised: 2026-08-02
+translation_source_sha: ac32e300d20095f9e3b114d883cc33eea323a2ac
+translation_revised: 2026-08-03
 ---
 
 # Execution 모델
 
-FDAI 이 액션 실행 **여부** 와 **방법** 을 결정하는 방식. 이 문서는
-통합 RiskGate, 권위적 [risk-classification.md](risk-classification-ko.md)
-first-match 표가 **6-axis** ActionType ceiling 과 결합하는 방식, 4개의
-executor 경로 (PR-native / direct API / PR-manual / tool call), live-blast probe
-combinator, 그리고 live 변경이 만족해야 하는 safety invariant 를
-권위적으로 정의한다.
+FDAI 이 액션 실행 **여부** 와 **방법** 을 결정하는 방식. 이 문서는 통합 RiskGate, 권위적 [risk-classification.md](risk-classification-ko.md) first-match 표가 **6-axis** ActionType ceiling 과 결합하는 방식, 4개의 executor 경로 (PR-native / direct API / PR-manual / tool call), live-blast probe combinator, 그리고 live 변경이 만족해야 하는 safety invariant 를 권위적으로 정의한다.
 
-> 결정-엔진 관계 (권위적): FDAI 은 **하나의** 결정을 가지며, 그것은
-> **두** 입력을 결합해 생성된다. [risk-classification.md](risk-classification-ko.md)
+> 결정-엔진 관계 (권위적): FDAI 은 **하나의** 결정을 가지며, 그것은 **두** 입력을 결합해 생성된다. [risk-classification.md](risk-classification-ko.md)
 > first-match 표가 **권위적 baseline** - finding feature vector
 > (`policy_violation`, `destructive`, `irreversible`, `data_plane_touched`,
 > `cost_impact_monthly`, `verifier_confidence`, `blast_radius`,
 > `environment`) 를 소비해 `auto | hil | deny` 와 `quorum` 을 반환. 이
-> 문서의 6-axis ceiling 은 ActionType + 런타임 컨텍스트 (tier, ActionType
-> ceiling, static/live blast, role, env) 를 소비해 dispatch 별 ceiling 을
-> 반환. RiskGate 는 둘의 **minimum** 을 반환; 어느 쪽도 상대보다 autonomy
+> 문서의 6-axis ceiling 은 ActionType + 런타임 컨텍스트 (tier, ActionType ceiling, static/live blast, role, env) 를 소비해 dispatch 별 ceiling 을 반환. RiskGate 는 둘의 **minimum** 을 반환; 어느 쪽도 상대보다 autonomy
 > 를 raise 못 함. 표는 매트릭스로 대체되지 않음 - 매트릭스는 그 위에
 > layer 된, 절대 raise 안 하는 추가 제약이다.
 
@@ -465,6 +457,10 @@ Best for: configuration 변경, IaC patch, 카탈로그 업데이트, governance
   idempotency key 사용 (기존 invariant
   [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md));
   retry 된 call 이 double-apply MUST NOT.
+- Shadow observation은 durable mutation ledger를 채우지 않습니다. Process-local cache는
+  idempotency key와 mode를 함께 사용하므로, 이후 검토된 promotion은 같은 action을 enforce
+  mode로 실행할 수 있습니다. Legacy shadow ledger row는 이 shadow-to-enforce 전환에서만
+  무시되며 enforce mutation receipt는 계속 authoritative하여 payload collision을 거부합니다.
 - **Upstream Azure gateway binding** - development operations gateway URL과 Easy Auth audience가
   모두 구성되면 headless runtime은 enforce-capable `AzureGatewayDirectApiExecutor`를 bind합니다.
   이 adapter는 `ops.start-vm`, `ops.deallocate-vm`, `ops.upsert-network-rule`,

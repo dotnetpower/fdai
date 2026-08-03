@@ -38,4 +38,10 @@ describe("shared Tooltip contract", () => {
     expect(styles).toContain("@media (prefers-reduced-motion: reduce)");
     expect(styles).toContain(".app-tooltip { animation: none !important; }");
   });
+
+  test("preserves authored line breaks while wrapping long tokens", () => {
+    expect(styles).toMatch(
+      /\.app-tooltip\s*\{[^}]*max-width:\s*min\(320px, calc\(100vw - 32px\)\);[^}]*overflow-wrap:\s*anywhere;[^}]*white-space:\s*pre-line;/,
+    );
+  });
 });

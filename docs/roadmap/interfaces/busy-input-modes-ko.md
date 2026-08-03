@@ -2,8 +2,8 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 8205ecd5d25145e00cc550e712d662dcba1a6536
-translation_revised: 2026-08-02
+translation_source_sha: 1f76246870a933d650b6bbb4361b381129c1abd2
+translation_revised: 2026-08-03
 ---
 
 # 처리 중인 Conversation 입력 모드
@@ -162,6 +162,8 @@ Deterministic local inventory intent는 semantic plan이 public web을 선택했
 inventory branch를 유지하고 agent 또는 public-web branch를 시작하지 않습니다. 명시적인 web-search
 표현만 예외입니다. Observed activity는 verifier가 승인한 전체 inventory query를 rerun과 durable
 replay에서 유지합니다. Query로 표시하며 provider-specific command text로 재구성하지 않습니다.
+Result는 명시적인 collection omission count를 포함하는 유효한 JSON으로 bounded, redacted detailed
+projection을 유지합니다.
 명시적인 subscription-scoped inventory 질문은 새로운 server-owned cross-screen
 read이므로 관련 없는 current-screen fact가 이를 대체하거나 차단할 수 없습니다. Status facet은 선택된
 resource type 범위에 유지되므로 AKS 질문이 VM status를

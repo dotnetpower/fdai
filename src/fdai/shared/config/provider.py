@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
+from math import isfinite
 from typing import Any, Protocol, runtime_checkable
 
 from .errors import ConfigError, ConfigIssue
@@ -58,7 +59,24 @@ _ENV_VAR_MAP: tuple[tuple[str, tuple[str, ...], bool], ...] = (
     ("AUTONOMY_MODE_DEFAULT", ("runtime", "autonomy_mode_default"), False),
     ("LLM_MODE", ("llm", "mode"), False),
     ("LLM_RESOLVED_MODELS_PATH", ("llm", "resolved_models_path"), False),
+    ("T1_SIMILARITY_THRESHOLD", ("llm", "t1_similarity_threshold"), False),
+    ("T1_MIN_SUCCESS_RATE", ("llm", "t1_min_success_rate"), False),
+    (
+        "QUALITY_GATE_CONFIDENCE_THRESHOLD",
+        ("llm", "quality_gate_confidence_threshold"),
+        False,
+    ),
+    ("QUALITY_GATE_QUORUM", ("llm", "quality_gate_quorum"), False),
 )
+
+_FLOAT_ENV_VARS = frozenset(
+    {
+        "T1_SIMILARITY_THRESHOLD",
+        "T1_MIN_SUCCESS_RATE",
+        "QUALITY_GATE_CONFIDENCE_THRESHOLD",
+    }
+)
+_INT_ENV_VARS = frozenset({"QUALITY_GATE_QUORUM"})
 
 
 class EnvVarConfigProvider:
@@ -76,23 +94,49 @@ class EnvVarConfigProvider:
 
     def get(self) -> AppConfig:
         raw: dict[str, Any] = {"schema_version": "1.0.0"}
-        missing: list[ConfigIssue] = []
+        issues: list[ConfigIssue] = []
 
         for env_var, path, required in _ENV_VAR_MAP:
             value = self._env.get(env_var)
             if value is None:
                 if required:
-                    missing.append(ConfigIssue(key=env_var, message="required env var is unset"))
+                    issues.append(ConfigIssue(key=env_var, message="required env var is unset"))
                 continue
-            _assign(raw, path, value)
+            try:
+                parsed = _parse_env_value(env_var, value)
+            except ValueError as exc:
+                issues.append(ConfigIssue(key=env_var, message=str(exc)))
+                continue
+            _assign(raw, path, parsed)
 
-        if missing:
-            raise ConfigError(missing)
+        if issues:
+            raise ConfigError(issues)
+
+        llm = raw.get("llm")
+        if isinstance(llm, dict):
+            llm.setdefault("mode", "local-fake")
 
         return load_from_mapping(raw)
 
 
-def _assign(target: dict[str, Any], path: tuple[str, ...], value: str) -> None:
+def _parse_env_value(env_var: str, value: str) -> object:
+    if env_var in _FLOAT_ENV_VARS:
+        try:
+            parsed = float(value)
+        except ValueError as exc:
+            raise ValueError("must be a finite decimal number") from exc
+        if not isfinite(parsed):
+            raise ValueError("must be a finite decimal number")
+        return parsed
+    if env_var in _INT_ENV_VARS:
+        try:
+            return int(value)
+        except ValueError as exc:
+            raise ValueError("must be an integer") from exc
+    return value
+
+
+def _assign(target: dict[str, Any], path: tuple[str, ...], value: object) -> None:
     """Nested-dict assignment for ``('kafka', 'topic_events')``-style paths."""
     cursor = target
     for key in path[:-1]:

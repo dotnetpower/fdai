@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Sequence
 
 import pytest
 
 from fdai.rule_catalog.pipeline.distill.freshness import snapshot_of
+from fdai.rule_catalog.pipeline.distill.ontology_models import AuthorityClass
+from fdai.rule_catalog.pipeline.distill.ontology_verify import (
+    EntityRecord,
+    SourceAuthorityPolicy,
+    VerificationContext,
+)
 from fdai.rule_catalog.pipeline.distill.orchestrator import build_distillation_plan
 from fdai.rule_catalog.pipeline.distill.triage import TriagePolicy
 from fdai.shared.providers.distiller import (
@@ -67,6 +74,27 @@ class OneRuleDistiller:
         return DistillationResult(candidates=(cand,), coverage=CoverageReport(total=1, covered=1))
 
 
+class OneOntologyDistiller:
+    async def distill(self, document: ManualDocument) -> DistillationResult:
+        candidate = DistilledCandidate(
+            kind=CandidateKind.ONTOLOGY_OBJECT,
+            candidate_id=f"ontology-{document.doc_id}",
+            source_ref=document.source_ref,
+            source_section="Ownership",
+            source_lines=(1, 1),
+            content_sha=hashlib.sha256(document.text.encode()).hexdigest(),
+            body={
+                "operation": "update",
+                "target_type": "BusinessService",
+                "target_identity": "service:checkout",
+                "authority": "declared_intent",
+                "source_assertion": "Checkout service is owned by Platform team.",
+                "properties": {"owner_ref": "team:platform"},
+            },
+        )
+        return DistillationResult(candidates=(candidate,))
+
+
 def _cand(doc_id: str, *, labels: tuple[str, ...] = (), sha: str | None = None) -> ManualCandidate:
     return ManualCandidate(
         doc_id=doc_id,
@@ -77,7 +105,12 @@ def _cand(doc_id: str, *, labels: tuple[str, ...] = (), sha: str | None = None) 
 
 
 def _doc(doc_id: str, text: str = "Restart the pod.") -> ManualDocument:
-    return ManualDocument(doc_id=doc_id, text=text, source_ref=f"drop://{doc_id}")
+    return ManualDocument(
+        doc_id=doc_id,
+        text=text,
+        source_ref=f"drop://{doc_id}",
+        metadata={"access_policy_ref": f"access:{doc_id}"},
+    )
 
 
 async def test_duplicate_source_ref_fails_closed() -> None:
@@ -308,3 +341,58 @@ async def test_exact_duplicates_are_filtered() -> None:
     # One survivor distilled, the other dropped as an exact duplicate.
     assert len(plan.distilled) == 1
     assert any(f.reason == "exact duplicate" for f in plan.filtered)
+
+
+def _ontology_context() -> VerificationContext:
+    return VerificationContext(
+        ontology_release="a" * 64,
+        current_graph_revision="graph-1",
+        object_types=frozenset({"BusinessService"}),
+        links=(),
+        entities=(EntityRecord("service:checkout", "BusinessService"),),
+        source_policies=(
+            SourceAuthorityPolicy(
+                "drop://service-map",
+                frozenset({AuthorityClass.DECLARED_INTENT}),
+                10,
+            ),
+        ),
+        claim_text=(),
+    )
+
+
+async def test_ontology_candidates_require_verification_context() -> None:
+    candidate = _cand("service-map", labels=("proc",))
+    document = _doc("service-map", "Checkout service is owned by Platform team.")
+    with pytest.raises(ValueError, match="require a VerificationContext"):
+        await build_distillation_plan(
+            source=FakeSource([candidate], {"service-map": document}),
+            classifier=LabelClassifier(),
+            distiller=OneOntologyDistiller(),
+        )
+
+
+async def test_orchestrator_returns_ontology_review_package() -> None:
+    candidate = _cand("service-map", labels=("proc",))
+    document = _doc("service-map", "Checkout service is owned by Platform team.")
+    plan = await build_distillation_plan(
+        source=FakeSource([candidate], {"service-map": document}),
+        classifier=LabelClassifier(),
+        distiller=OneOntologyDistiller(),
+        ontology_context=_ontology_context(),
+        extraction_run_id="run-1",
+    )
+    review = plan.distilled[0].ontology_review
+    assert review is not None
+    assert review.summary.proposals == 1
+    assert review.summary.review_proposals == 1
+
+
+async def test_context_requires_extraction_run_identity() -> None:
+    with pytest.raises(ValueError, match="extraction_run_id"):
+        await build_distillation_plan(
+            source=FakeSource([], {}),
+            classifier=LabelClassifier(),
+            distiller=OneRuleDistiller(),
+            ontology_context=_ontology_context(),
+        )

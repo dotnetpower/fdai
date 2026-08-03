@@ -4,8 +4,7 @@ import { describe, expect, test } from "vitest";
 
 const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
 const brandLogo = readFileSync(
-  fileURLToPath(new URL("../../public/brand/concepts/fdai-cloud-aperture.svg", import.meta.url)),
-  "utf8",
+  fileURLToPath(new URL("../../public/brand/fdai-logo.png", import.meta.url)),
 );
 const contentSurfaceStyles = styles
   .replace(/\.ontology-graph-key i\s*\{[^}]*\}/g, "")
@@ -16,8 +15,9 @@ const approvalRoute = readFileSync(
 );
 
 describe("console visual boundary", () => {
-  test("keeps the brand logo in its source color", () => {
-    expect(brandLogo).toContain('fill="#2B7FE0"');
+  test("keeps the RGBA PNG brand logo in its source color", () => {
+    expect(brandLogo.subarray(1, 4).toString("ascii")).toBe("PNG");
+    expect(brandLogo[25]).toBe(6);
     expect(styles).not.toMatch(/\.brand-logo\s*\{[^}]*filter:\s*grayscale/);
   });
 

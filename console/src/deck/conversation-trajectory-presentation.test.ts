@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { Turn } from "./command-deck-presenters";
 import type { ConversationTrajectory } from "./conversation-trajectory";
-import { buildTrajectoryPresentation } from "./conversation-trajectory-presentation";
+import {
+  buildTrajectoryPresentation,
+  workProgressPresentation,
+} from "./conversation-trajectory-presentation";
 
 function trajectory(
   answer: Partial<Turn>,
@@ -20,6 +23,53 @@ function trajectory(
 }
 
 describe("buildTrajectoryPresentation", () => {
+  it("selects the smallest sufficient work-progress presentation", () => {
+    expect(workProgressPresentation(trajectory({}))).toBe("none");
+
+    const compact = trajectory({}, { activities: [{
+      activityId: "inventory-query",
+      branchId: "inventory",
+      kind: "read.execution",
+      status: "completed",
+      label: "Queried inventory",
+      completed: 1,
+      total: 1,
+      execution: {
+        tool: "inventory",
+        command: '{"query":"status"}',
+        inputKind: "query",
+        redacted: true,
+      },
+    }], branches: [{
+      branchId: "inventory",
+      kind: "tool",
+      parentBranchId: null,
+      status: "completed",
+      summary: "Inventory evidence ready",
+      startedAt: "2026-07-31T07:00:00Z",
+      completedAt: "2026-07-31T07:00:01Z",
+      durationMs: 1000,
+      evidenceRefs: ["inventory:snapshot"],
+    }] });
+    expect(workProgressPresentation(compact)).toBe("compact");
+
+    expect(workProgressPresentation({
+      ...compact,
+      milestones: [{ messageId: "progress-1", text: "Inventory confirmed" }],
+    })).toBe("timeline");
+    expect(workProgressPresentation({
+      ...compact,
+      activities: [...compact.activities, {
+        activityId: "verification",
+        kind: "tool",
+        status: "completed",
+        label: "Ran focused checks",
+        completed: 1,
+        total: 1,
+      }],
+    })).toBe("timeline");
+  });
+
   it("does not present unavailable evidence or unverified checks as completed", () => {
     const input = trajectory({
       verification: {

@@ -88,6 +88,24 @@ def test_local_metering_keeps_fixture_profile_in_memory() -> None:
     assert isinstance(metering, InMemoryMeteringSink)
 
 
+def test_inventory_lifecycle_callbacks_include_supported_hooks() -> None:
+    calls: list[str] = []
+
+    class Provider:
+        async def start_warmup(self) -> None:
+            calls.append("warmup")
+
+        async def close(self) -> None:
+            calls.append("close")
+
+    startup, shutdown = _local_factory._inventory_lifecycle_callbacks(Provider())
+
+    asyncio.run(startup[0]())
+    asyncio.run(shutdown[0]())
+
+    assert calls == ["warmup", "close"]
+
+
 def _unsigned_token(claims: dict[str, object]) -> str:
     header = base64.urlsafe_b64encode(b'{"alg":"none"}').rstrip(b"=").decode()
     payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=").decode()

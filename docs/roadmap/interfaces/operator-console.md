@@ -114,7 +114,7 @@ flowchart TD
   Observed activity distinguishes actual process commands from canonical server queries with a
   required `input_kind` contract. Inventory, subscription-health, and read-investigation activity
   uses `query`: it renders the verifier-accepted typed query, authority, snapshot provenance, and
-  bounded result summary without inventing Azure CLI argv or an exit code. Only a provider receipt
+  bounded result projection without inventing Azure CLI argv or an exit code. Only a provider receipt
   that records a process invocation uses `command`. Web labels these rows `QUERY`; Slack and Teams
   use the same Query label, and durable replay preserves the distinction.
   A narrator milestone settles the preceding activity group before the next group begins. Web shows

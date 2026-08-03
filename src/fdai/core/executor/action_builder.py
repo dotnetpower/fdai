@@ -33,6 +33,7 @@ from jsonschema import Draft202012Validator
 
 from fdai.core.quality_gate.gate import QualityCandidate
 from fdai.core.tiers.t0_deterministic.models import Finding
+from fdai.core.tiers.t1_lightweight import LearnedAction
 from fdai.shared.contracts.models import (
     Action,
     BlastRadius,
@@ -127,24 +128,7 @@ class ActionBuilder:
             )
         if not candidate.cited_rule_ids:
             raise ActionBuildError("candidate MUST cite at least one catalog rule")
-        if action_type.argument_schema is None:
-            if candidate.params:
-                raise ActionBuildError(
-                    f"ActionType {action_type.name!r} declares no argument_schema; "
-                    "candidate params MUST be empty"
-                )
-        else:
-            errors = sorted(
-                Draft202012Validator(action_type.argument_schema).iter_errors(candidate.params),
-                key=lambda error: list(error.absolute_path),
-            )
-            if errors:
-                first = errors[0]
-                path = ".".join(str(part) for part in first.absolute_path) or "<root>"
-                raise ActionBuildError(
-                    f"candidate params violate {action_type.name!r} argument_schema "
-                    f"at {path}: {first.message}"
-                )
+        _validate_action_params(action_type, candidate.params, source="candidate")
 
         idempotency_key = (
             f"{event.idempotency_key}::t2::{candidate.action_type}::{candidate.target_resource_ref}"
@@ -167,6 +151,40 @@ class ActionBuilder:
             blast_radius=_derive_blast_radius(action_type),
             mode=Mode.SHADOW,
             citing_rules=list(candidate.cited_rule_ids),
+            created_at=datetime.now(tz=UTC),
+            action_type_ref=self._action_type_ref(action_type),
+        )
+
+    def build_from_learned_action(
+        self,
+        *,
+        event: Event,
+        learned: LearnedAction,
+        target_resource_ref: str,
+    ) -> Action:
+        """Build a shadow Action from a current-evidence-verified T1 reuse."""
+        action_type = self.action_types_by_name.get(learned.action_type)
+        if action_type is None:
+            raise ActionBuildError(f"learned action_type {learned.action_type!r} is not registered")
+        if not target_resource_ref:
+            raise ActionBuildError("learned action target_resource_ref MUST be non-empty")
+        _validate_action_params(action_type, learned.params, source="learned action")
+        idempotency_key = f"{event.idempotency_key}::t1::{learned.signature}::{target_resource_ref}"
+        return Action(
+            schema_version="1.0.0",
+            action_id=_build_action_id(idempotency_key),
+            idempotency_key=idempotency_key,
+            event_id=event.event_id,
+            action_type=action_type.name,
+            target_resource_ref=target_resource_ref,
+            operation=action_type.operation,
+            params=dict(learned.params),
+            stop_condition=_derive_stop_condition(action_type),
+            stop_conditions=list(action_type.stop_conditions),
+            rollback_ref=RollbackRef(kind=action_type.rollback_contract, reference=None),
+            blast_radius=_derive_blast_radius(action_type),
+            mode=Mode.SHADOW,
+            citing_rules=[learned.rule_id],
             created_at=datetime.now(tz=UTC),
             action_type_ref=self._action_type_ref(action_type),
         )
@@ -278,6 +296,34 @@ def _operator_request_rule(action_type: OntologyActionType, resource_type: str) 
             },
         }
     )
+
+
+def _validate_action_params(
+    action_type: OntologyActionType,
+    params: dict[str, Any] | Any,
+    *,
+    source: str,
+) -> None:
+    if not isinstance(params, dict):
+        raise ActionBuildError(f"{source} params MUST be an object")
+    if action_type.argument_schema is None:
+        if params:
+            raise ActionBuildError(
+                f"ActionType {action_type.name!r} declares no argument_schema; "
+                f"{source} params MUST be empty"
+            )
+        return
+    errors = sorted(
+        Draft202012Validator(action_type.argument_schema).iter_errors(params),
+        key=lambda error: list(error.absolute_path),
+    )
+    if errors:
+        first = errors[0]
+        path = ".".join(str(part) for part in first.absolute_path) or "<root>"
+        raise ActionBuildError(
+            f"{source} params violate {action_type.name!r} argument_schema "
+            f"at {path}: {first.message}"
+        )
 
 
 def _derive_stop_condition(action_type: OntologyActionType) -> str:

@@ -4,23 +4,14 @@ title: Execution Model
 
 # Execution Model
 
-How FDAI decides **whether** and **how** to run an action. This
-document is authoritative for the unified RiskGate, the way the
-authoritative [risk-classification.md](risk-classification.md) first-match
-table combines with the **six-axis** ActionType ceiling, the four
-executor paths (PR-native / direct API / PR-manual / tool call), the live-blast probe
-combinator, and the safety invariants a live change must satisfy.
+How FDAI decides **whether** and **how** to run an action. This document is authoritative for the unified RiskGate, the way the authoritative [risk-classification.md](risk-classification.md) first-match table combines with the **six-axis** ActionType ceiling, the four executor paths (PR-native / direct API / PR-manual / tool call), the live-blast probe combinator, and the safety invariants a live change must satisfy.
 
-> Decision-engine relationship (authoritative): FDAI has **one**
-> decision, produced by combining **two** inputs. The
-> [risk-classification.md](risk-classification.md) first-match table is the
+> Decision-engine relationship (authoritative): FDAI has **one** decision, produced by combining **two** inputs. The [risk-classification.md](risk-classification.md) first-match table is the
 > **authoritative baseline** - it consumes the finding feature vector
 > (`policy_violation`, `destructive`, `irreversible`, `data_plane_touched`,
 > `cost_impact_monthly`, `verifier_confidence`, `blast_radius`,
 > `environment`) and returns `auto | hil | deny` plus a `quorum`. The
-> six-axis ceiling in this document consumes the ActionType + runtime
-> context (tier, ActionType ceiling, static/live blast, role, env) and
-> returns a per-dispatch ceiling. The RiskGate returns the **minimum** of
+> six-axis ceiling in this document consumes the ActionType + runtime context (tier, ActionType ceiling, static/live blast, role, env) and returns a per-dispatch ceiling. The RiskGate returns the **minimum** of
 > the two; neither can raise autonomy above the other. The table is not
 > replaced by the matrix - the matrix is an additional, never-raising
 > constraint layered on top of it.
@@ -475,6 +466,10 @@ Best for: configuration changes, IaC patches, catalog updates, governance change
   stable idempotency key (existing invariant in
   [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md));
   a retried call MUST NOT double-apply.
+- Shadow observations never populate the durable mutation ledger. The process-local cache is
+  keyed by both idempotency key and mode, so a later reviewed promotion can execute the same
+  action in enforce mode; legacy shadow ledger rows are ignored only for that shadow-to-enforce
+  transition. Enforce mutation receipts remain authoritative and still reject payload collisions.
 - **Upstream Azure gateway binding** - when the development operations gateway URL and Easy Auth
   audience are both configured, the headless runtime binds an enforce-capable
   `AzureGatewayDirectApiExecutor`. It supports only `ops.start-vm`, `ops.deallocate-vm`,

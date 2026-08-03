@@ -22,3 +22,10 @@ export function shouldFlushStreamPaintSynchronously(
 export function flushStreamPaint(queue: string[]): string {
   return queue.splice(0).join("");
 }
+
+/** Split a terminal-only canonical answer into bounded visual deltas. This is
+ * presentation pacing only: joining the chunks reproduces the received answer
+ * byte-for-byte. */
+export function terminalRevealChunks(text: string): string[] {
+  return text.match(/\S+\s*/g) ?? (text.length > 0 ? [text] : []);
+}

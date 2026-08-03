@@ -28,6 +28,10 @@ class OperationalPromotionEvidenceSource(Protocol):
     ) -> OperationalPromotionBatch: ...
 
 
+class OperationalPromotionReceiptSink(Protocol):
+    async def save(self, receipt: OperationalPromotionReceipt) -> None: ...
+
+
 @dataclass(frozen=True, slots=True)
 class OperationalPromotionRunResult:
     action_type_name: str
@@ -44,6 +48,7 @@ class OperationalPromotionMeasurementRunner:
         source: OperationalPromotionEvidenceSource,
         evaluator: OperationalPromotionEvaluator,
         audit_store: StateStore,
+        receipt_sink: OperationalPromotionReceiptSink | None = None,
         fdai_revision: str,
         scenario_set_version: str,
     ) -> None:
@@ -52,6 +57,7 @@ class OperationalPromotionMeasurementRunner:
         self._source = source
         self._evaluator = evaluator
         self._audit_store = audit_store
+        self._receipt_sink = receipt_sink
         self._revision = fdai_revision
         self._scenario = scenario_set_version
 
@@ -137,6 +143,30 @@ class OperationalPromotionMeasurementRunner:
                     },
                 ),
             )
+            if self._receipt_sink is not None:
+                try:
+                    await self._receipt_sink.save(receipt)
+                except Exception as exc:  # noqa: BLE001 - durable handoff fails closed
+                    reason = f"receipt_store_failed:{type(exc).__name__}"
+                    await self._persist_once(
+                        action_type_name=action_type.name,
+                        evidence_digest=receipt.evidence_digest,
+                        entry=self._audit_entry(
+                            action_type_name=action_type.name,
+                            ready=False,
+                            evidence_digest=receipt.evidence_digest,
+                            gaps=(reason,),
+                            metrics={},
+                        ),
+                    )
+                    results.append(
+                        OperationalPromotionRunResult(
+                            action_type_name=action_type.name,
+                            receipt=None,
+                            aborted_reason=reason,
+                        )
+                    )
+                    continue
             results.append(
                 OperationalPromotionRunResult(
                     action_type_name=action_type.name,
@@ -204,6 +234,7 @@ class OperationalPromotionMeasurementRunner:
 
 __all__ = [
     "OperationalPromotionEvidenceSource",
+    "OperationalPromotionReceiptSink",
     "OperationalPromotionMeasurementRunner",
     "OperationalPromotionRunResult",
 ]

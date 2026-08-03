@@ -221,6 +221,16 @@ output "console_static_web_app_id" {
   value       = length(module.console) > 0 ? module.console[0].static_web_app_id : ""
 }
 
+output "design_mocks_default_hostname" {
+  description = "Design-mocks Static Web App default hostname. Empty string when enable_design_mocks = false."
+  value       = length(module.design_mocks) > 0 ? module.design_mocks[0].default_hostname : ""
+}
+
+output "design_mocks_static_web_app_id" {
+  description = "Design-mocks Static Web App resource id. Empty string when enable_design_mocks = false."
+  value       = length(module.design_mocks) > 0 ? module.design_mocks[0].static_web_app_id : ""
+}
+
 output "operator_api_fqdn" {
   description = "Console Operator API Container App ingress FQDN (empty string when enable_operator_api = false). Wire into the console build as VITE_OPERATOR_API_BASE_URL=https://<fqdn>."
   value       = length(module.operator_api) > 0 ? module.operator_api[0].fqdn : ""

@@ -1,8 +1,8 @@
 """Control-loop wiring for the shadow workflow coordinator.
 
-Covers ``fdai.__main__._build_workflow_coordinator``: the opt-in gate
-(FDAI_WORKFLOW_SHADOW) and that the assembled coordinator fires the shipped
-Workflows off a matching Event.
+Covers ``fdai.__main__._build_workflow_coordinator``: shadow observation is
+enabled by default, ``FDAI_WORKFLOW_SHADOW=0`` disables it, and the assembled
+coordinator fires the shipped Workflows off a matching Event.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ def _load() -> tuple[Path, dict, tuple]:
     return root, {a.name: a for a in action_types}, workflows
 
 
-def test_disabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_enabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("FDAI_WORKFLOW_SHADOW", raising=False)
     root, atbn, workflows = _load()
     coord = _build_workflow_coordinator(
@@ -49,11 +49,11 @@ def test_disabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
         action_types_by_name=atbn,
         audit_store=InMemoryStateStore(),
     )
-    assert coord is None
+    assert coord is not None
 
 
-def test_enabled_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("FDAI_WORKFLOW_SHADOW", "1")
+def test_explicit_disable_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FDAI_WORKFLOW_SHADOW", "0")
     root, atbn, workflows = _load()
     coord = _build_workflow_coordinator(
         catalog_root=root,
@@ -61,7 +61,7 @@ def test_enabled_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
         action_types_by_name=atbn,
         audit_store=InMemoryStateStore(),
     )
-    assert coord is not None
+    assert coord is None
 
 
 def test_empty_workflows_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:

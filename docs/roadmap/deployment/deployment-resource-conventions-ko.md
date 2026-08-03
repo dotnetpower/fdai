@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 277d42b675cf4b481faf689a3673b8e01b4cb08c
-translation_revised: 2026-08-01
+translation_source_sha: f831cea98f703a37015e0f0f1c2ed5d1a40b382d
+translation_revised: 2026-08-03
 ---
 # 배포 리소스 규약
 
@@ -54,7 +54,7 @@ upstream distribution 외부에 두는 데 사용하세요.
 | Foundry account (`AIServices`) | `aif-` | 2-64; 영숫자 + 하이픈 | `aif-fdai-search` |
 | Foundry account project | `proj-` | 2-64; 영숫자 + 하이픈 | `proj-fdai-search` |
 | Azure Bot (HIL Adaptive Cards) | `bot-` | 2-64 | `bot-fdai` |
-| Static Web App (read-only console) | `stapp-` | 2-40 | `stapp-fdai` |
+| Static Web App | `stapp-` | 2-40 | `stapp-fdai`, `stapp-fdai-design-mocks-dev-ea` |
 
 ### 길이 안전 규칙
 
@@ -63,6 +63,10 @@ upstream distribution 외부에 두는 데 사용하세요.
   `crfdaidevkrc01`처럼 연속된 소문자 영숫자 문자열을 사용합니다.
 - **Storage account**는 최대 24자의 소문자 영숫자를 사용합니다. Document storage는
   전역 고유성을 위해 subscription + environment에서 파생한 안정적인 6자 해시를 추가합니다.
+- **Static Web Apps는 호스팅 region 접미사를 사용합니다.** Design-mocks 리소스는
+  `design-mocks` component와 Static Web Apps region을 포함합니다. 예를 들면
+  `stapp-fdai-design-mocks-dev-ea`입니다. Static Web Apps는 모든 Azure region에서 제공되지
+  않으므로 이 region은 control-plane region과 다를 수 있습니다.
 - env/region/instance를 추가한 합법적 이름이 문자 제한을 넘으면 해당 리소스 종류에만
   문서화된 짧은 이름 `aip`를 `fdai` 대신 사용합니다. 전체 이름이 제한 안에 있으면
   `aip`를 사용하지 않습니다.

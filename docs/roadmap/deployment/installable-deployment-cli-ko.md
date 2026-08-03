@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: b6c6006c42799b8b829c93d0f67e42ab3071b457
-translation_revised: 2026-08-02
+translation_source_sha: 433a4f9602873a437820affba353174a3a3a9149
+translation_revised: 2026-08-03
 ---
 # 설치형 배포 CLI
 
@@ -479,11 +479,15 @@ fdaictl release rollback \
 `fdaictl deploy plan`은 plan-only workflow를 제출하고 현재 workflow run id와 URL을 반환합니다.
 같은 environment config가 `doctor`를 통과해야 하고 GitHub credential은
 `FDAI_GITHUB_TOKEN`에서만 읽습니다. Dispatch body에는 `apply=false`, environment, exact commit,
-SHA-256 deployment-context fingerprint를 전달합니다. Console, Operator API, development gateway,
-document-ingestion flag는 fingerprint에 포함되며 plan과 apply에 동일하게 전달됩니다. Flag가
-달라지면 plan은 무효입니다. Tenant, subscription, backend, runner identifier는 전달하지
-않습니다. Workflow는 plan 전에 bounded request id, context digest, exact checked-out commit을
-검증합니다.
+SHA-256 deployment-context fingerprint를 전달합니다. Console, design mocks, Operator API,
+development gateway, document-ingestion flag는 fingerprint에 포함되며 plan과 apply에 동일하게
+전달됩니다. Flag가 달라지면 plan은 무효입니다. Tenant, subscription, backend, runner
+identifier는 전달하지 않습니다. Workflow는 plan 전에 bounded request id, context digest,
+exact checked-out commit을 검증합니다.
+
+`--deploy-design-mocks`는 dev 전용의 단독 target입니다. 다른 deployment feature flag와 함께
+사용할 수 없습니다. Runner는 `module.design_mocks`만 대상으로 하며, design-mocks Static Web
+App 외부의 리소스 변경이 plan에 포함되면 차단합니다.
 
 ```bash
 FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy plan \
@@ -491,8 +495,7 @@ FDAI_GITHUB_TOKEN=<installation-token> fdaictl deploy plan \
   --repository <owner>/<repository> \
   --bundle-digest <sha256> \
   --commit-sha <git-sha> \
-  --deploy-console \
-  --deploy-operator-api \
+  --deploy-design-mocks \
   --output json
 ```
 

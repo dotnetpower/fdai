@@ -27,6 +27,7 @@ from fdai.shared.contracts import (
     MalwareVerdict,
     ProtectionState,
     SourceStorageMode,
+    StructuralUnit,
 )
 from fdai.shared.providers.document_ingestion import (
     DirectUploadStore,
@@ -135,6 +136,7 @@ def _dependencies(
     malware: MalwareVerdict = MalwareVerdict.CLEAN,
     objects: InMemoryDocumentObjectStore | None = None,
     artifacts: DocumentArtifactStore | None = None,
+    extractor=None,
     indexing_stage_timeout_seconds: float = 90.0,
 ):
     access = InMemoryDocumentAccessProvider(
@@ -162,7 +164,7 @@ def _dependencies(
         objects=objects,
         malware=StaticMalwareScanner(malware),
         protection=SignatureProtectionInspector(),
-        extractor=StandardLibraryDocumentExtractor(),
+        extractor=extractor or StandardLibraryDocumentExtractor(),
         artifacts=artifacts,
         index=index,
         activity=activity,
@@ -482,14 +484,148 @@ async def test_encrypted_pdf_is_held_before_extraction() -> None:
 
 
 async def test_safe_docx_extracts_text_without_executing_content() -> None:
-    content = _docx(b"<w:document xmlns:w='urn:w'><w:body><w:t>Hello</w:t></w:body></w:document>")
+    content = _docx(
+        b"<w:document xmlns:w='urn:w'><w:body><w:p><w:r><w:t>Hello</w:t>"
+        b"</w:r></w:p></w:body></w:document>"
+    )
     service, worker, _, _, artifacts, _, _ = _dependencies()
     session = await _upload(service, content, name="guide.docx")
     version = await worker.process(session.upload_id)
     envelope = artifacts.envelopes[(session.document_id, session.version_id)]
     assert version.state is DocumentState.READY
     assert envelope.units[0].text == "Hello"
-    assert envelope.units[0].locator == "word/document.xml"
+    assert envelope.units[0].locator == "docx/paragraph:1"
+
+
+async def test_docx_preserves_heading_and_table_cell_locators() -> None:
+    content = _docx(
+        b"<w:document xmlns:w='urn:w'><w:body>"
+        b"<w:p><w:pPr><w:pStyle w:val='Heading2'/></w:pPr><w:r><w:t>Ownership</w:t>"
+        b"</w:r></w:p><w:tbl><w:tr><w:tc><w:p><w:r>"
+        b"<w:t>Checkout service is owned by Platform team.</w:t>"
+        b"</w:r></w:p></w:tc></w:tr></w:tbl></w:body></w:document>"
+    )
+    service, worker, _, _, artifacts, _, _ = _dependencies()
+    session = await _upload(service, content, name="guide.docx")
+
+    version = await worker.process(session.upload_id)
+    envelope = artifacts.envelopes[(session.document_id, session.version_id)]
+
+    assert version.state is DocumentState.READY
+    assert [unit.locator for unit in envelope.units] == [
+        "docx/heading:2:1",
+        "docx/table:1/row:1/cell:1",
+    ]
+
+
+async def test_pptx_preserves_shape_table_and_speaker_note_locators() -> None:
+    service, worker, _, _, artifacts, _, _ = _dependencies()
+    session = await _upload(service, _pptx(), name="guide.pptx")
+
+    version = await worker.process(session.upload_id)
+    envelope = artifacts.envelopes[(session.document_id, session.version_id)]
+
+    assert version.state is DocumentState.READY
+    assert [unit.locator for unit in envelope.units] == [
+        "pptx/slide:1/shape:1",
+        "pptx/slide:1/shape:2/table:1/row:1/cell:1",
+        "pptx/slide:1/notes:1",
+    ]
+
+
+async def test_text_pdf_preserves_page_and_block_locators() -> None:
+    content = _pdf(b"BT (Checkout service is owned by Platform team.) Tj ET")
+    service, worker, _, _, artifacts, _, _ = _dependencies()
+    session = await _upload(service, content, name="guide.pdf")
+
+    version = await worker.process(session.upload_id)
+    envelope = artifacts.envelopes[(session.document_id, session.version_id)]
+
+    assert version.state is DocumentState.READY
+    assert envelope.units[0].locator == "pdf/page:1/block:1"
+    assert envelope.units[0].text == "Checkout service is owned by Platform team."
+
+
+async def test_scanned_pdf_uses_ocr_provider_and_canonical_locator() -> None:
+    class _Ocr:
+        async def extract(self, *, version, content):
+            assert version.media_type == "application/pdf"
+            assert content.startswith(b"%PDF-")
+            return (
+                StructuralUnit(
+                    unit_id="provider-line-1",
+                    kind="page",
+                    locator="page:1:line:1",
+                    text="Checkout service is owned by Platform team.",
+                ),
+            )
+
+    extractor = StandardLibraryDocumentExtractor(image_ocr=_Ocr())
+    service, worker, _, _, artifacts, _, _ = _dependencies(extractor=extractor)
+    session = await _upload(service, _pdf(None), name="scan.pdf")
+
+    version = await worker.process(session.upload_id)
+    envelope = artifacts.envelopes[(session.document_id, session.version_id)]
+
+    assert version.state is DocumentState.READY
+    assert envelope.units[0].unit_id == "pdf-page-1-ocr-1"
+    assert envelope.units[0].locator == "pdf/page:1/ocr:1"
+
+
+@pytest.mark.parametrize(
+    "case",
+    ("scanned", "corrupt"),
+)
+async def test_pdf_without_trustworthy_extraction_fails_closed(case: str) -> None:
+    content = _pdf(None) if case == "scanned" else b"%PDF-1.7\nmissing-page-tree\n%%EOF\n"
+    service, worker, _, _, artifacts, index, _ = _dependencies()
+    session = await _upload(service, content, name="manual.pdf")
+
+    version = await worker.process(session.upload_id)
+
+    assert version.state is DocumentState.FAILED
+    assert version.failure_code == "extraction_failed"
+    assert not artifacts.envelopes
+    assert not index.envelopes
+
+
+async def test_ocr_unit_kind_mismatch_fails_closed() -> None:
+    class _WrongKindOcr:
+        async def extract(self, *, version, content):
+            return (
+                StructuralUnit(
+                    unit_id="wrong-kind",
+                    kind="text",
+                    locator="line:1",
+                    text="untrusted",
+                ),
+            )
+
+    extractor = StandardLibraryDocumentExtractor(image_ocr=_WrongKindOcr())
+    service, worker, _, _, artifacts, index, _ = _dependencies(extractor=extractor)
+    session = await _upload(
+        service,
+        b"\x89PNG\r\n\x1a\nsynthetic",
+        name="scan.png",
+    )
+
+    version = await worker.process(session.upload_id)
+
+    assert version.state is DocumentState.FAILED
+    assert not artifacts.envelopes
+    assert not index.envelopes
+
+
+async def test_upload_size_ceiling_rejects_before_session_creation() -> None:
+    service, _, _, _, _, _, _ = _dependencies()
+    request = replace(
+        _request(b"x"),
+        expected_size=1024 * 1024 + 1,
+        expected_sha256="0" * 64,
+    )
+
+    with pytest.raises(ValueError, match="size"):
+        await service.create_upload(actor_id="uploader", request=request)
 
 
 async def test_replacement_moves_active_pointer_only_after_ready() -> None:
@@ -535,3 +671,44 @@ def _docx(document_xml: bytes) -> bytes:
         archive.writestr("[Content_Types].xml", "<Types/>")
         archive.writestr("word/document.xml", document_xml)
     return output.getvalue()
+
+
+def _pptx() -> bytes:
+    slide = b"""<p:sld xmlns:p='urn:p' xmlns:a='urn:a'><p:cSld><p:spTree>
+      <p:nvGrpSpPr/><p:grpSpPr/>
+      <p:sp><p:txBody><a:p><a:r><a:t>Checkout service</a:t></a:r></a:p></p:txBody></p:sp>
+      <p:graphicFrame><a:graphic><a:graphicData><a:tbl><a:tr><a:tc><a:txBody>
+      <a:p><a:r><a:t>Checkout service is owned by Platform team.</a:t></a:r></a:p>
+      </a:txBody></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>
+    </p:spTree></p:cSld></p:sld>"""
+    notes = b"""<p:notes xmlns:p='urn:p' xmlns:a='urn:a'><p:cSld><p:spTree><p:sp>
+      <p:txBody><a:p><a:r><a:t>Rollback requires approval.</a:t></a:r></a:p></p:txBody>
+    </p:sp></p:spTree></p:cSld></p:notes>"""
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("[Content_Types].xml", "<Types/>")
+        archive.writestr("ppt/slides/slide1.xml", slide)
+        archive.writestr("ppt/notesSlides/notesSlide1.xml", notes)
+    return output.getvalue()
+
+
+def _pdf(text_stream: bytes | None) -> bytes:
+    page = b"<< /Type /Page /Parent 2 0 R"
+    objects = [
+        b"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
+        b"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
+    ]
+    if text_stream is None:
+        objects.append(b"3 0 obj " + page + b" >> endobj")
+    else:
+        objects.extend(
+            (
+                b"3 0 obj " + page + b" /Contents 4 0 R >> endobj",
+                b"4 0 obj << /Length "
+                + str(len(text_stream)).encode()
+                + b" >> stream\n"
+                + text_stream
+                + b"\nendstream endobj",
+            )
+        )
+    return b"%PDF-1.7\n" + b"\n".join(objects) + b"\n%%EOF\n"

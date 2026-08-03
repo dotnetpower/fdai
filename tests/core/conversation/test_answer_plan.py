@@ -81,6 +81,22 @@ def test_korean_deep_table_and_technical_modifiers() -> None:
     assert plan.max_words == 650
 
 
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        "DB 목록을 테이블로 보여줘",
+        "DB 목록을 테이블 형식으로 보여줘",
+        "DB 목록을 표로 보여줘",
+    ],
+)
+def test_korean_table_synonyms_preserve_inventory_subject(prompt: str) -> None:
+    plan = build_answer_plan(prompt)
+
+    assert plan.format is AnswerFormat.TABLE
+    assert plan.explicit_overrides == ("table",)
+    assert "DB 목록" in plan.subject
+
+
 @pytest.mark.parametrize("prompt", ["리소스를 그래프로 보여줘", "Show resources as a chart"])
 def test_explicit_chart_modifier_selects_chart_format(prompt: str) -> None:
     plan = build_answer_plan(prompt)

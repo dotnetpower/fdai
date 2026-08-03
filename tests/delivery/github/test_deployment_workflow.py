@@ -41,6 +41,7 @@ def _context() -> DeploymentPlanContext:
         backend_ref="backend:dev",
         runner_ref="runner:private",
         deploy_console=True,
+        deploy_design_mocks=False,
         deploy_operator_api=True,
         deploy_dev_operations_gateway=True,
         deploy_document_ingestion=True,
@@ -73,6 +74,7 @@ async def test_submit_plan_dispatches_hashed_plan_only_context() -> None:
         assert parsed["inputs"]["apply"] is False
         assert parsed["inputs"]["commit_sha"] == "b" * 40
         assert parsed["inputs"]["deploy_console"] is True
+        assert parsed["inputs"]["deploy_design_mocks"] is False
         assert parsed["inputs"]["deploy_operator_api"] is True
         assert parsed["inputs"]["deploy_dev_operations_gateway"] is True
         assert parsed["inputs"]["deploy_document_ingestion"] is True
@@ -117,6 +119,7 @@ async def test_submit_apply_dispatches_exact_opaque_plan_context() -> None:
         assert payload["inputs"]["plan_digest"] == "c" * 64
         assert payload["inputs"]["request_id"].startswith("apply-")
         assert payload["inputs"]["deploy_console"] is True
+        assert payload["inputs"]["deploy_design_mocks"] is False
         assert payload["inputs"]["deploy_operator_api"] is True
         assert payload["inputs"]["deploy_dev_operations_gateway"] is True
         assert payload["inputs"]["deploy_document_ingestion"] is True

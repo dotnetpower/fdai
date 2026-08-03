@@ -14,7 +14,17 @@ are **targets to validate**, not guarantees ([goals-and-metrics.md](../architect
 > promotion registry, risk gate, and their deterministic tests are implemented. Composition from
 > a production source watcher through GitHub PR delivery, measured T1 and auto-resolution exit
 > evidence against the P0 baseline, the Assurance Twin model-backed natural-language compiler,
-> and discovery-loop binding are incomplete. The percentages and Exit Criteria below are targets,
+> and discovery-loop binding are incomplete. A T1 reuse with current case, topology, owner,
+> policy, dry-run, idempotency, and rollback evidence now becomes a typed Action and passes
+> execution authorization plus the unified risk gate; legacy reuse without that receipt remains
+> an inert shadow log. A quality-gate-eligible T2 candidate follows the same authorization-before-
+> risk order, so a prohibited or unresolved execution profile never reaches risk evaluation.
+> Missing risk authority or a missing cited rule produces an explicit audited HIL hold rather
+> than a generic shadow outcome.
+> Ready operational-promotion receipts have an immutable exact-key StateStore adapter that writes
+> state and audit atomically. Measurement still never promotes: an approved Thor-owned governance
+> action must consume the exact stored receipt in the promotion path.
+> The percentages and Exit Criteria below are targets,
 > not claims of current attainment.
 
 ## Deliverables

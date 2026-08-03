@@ -42,6 +42,7 @@ async function installOperatorApiFixture(
   options: {
     readonly answer?: string;
     readonly executionTimeline?: boolean;
+    readonly modelTrace?: boolean;
   } = {},
 ): Promise<{
   readonly chatBody: () => Record<string, unknown> | null;
@@ -91,9 +92,29 @@ async function installOperatorApiFixture(
     if (path === "/chat/health") {
       await json(route, {
         available: true,
-        mode: "test",
-        model: "narrator-test",
-        endpoint: null,
+        mode: "azure-ad-routed",
+        model: "narrator-fast",
+        endpoint: "https://chat.example.com",
+        router: {
+          chose: "narrator-fast",
+          reason: "latency",
+          candidates: [
+            {
+              deployment: "narrator-fast",
+              p50_ms: 1149,
+              p95_ms: 1390,
+              samples: 2,
+              history_ms: [1149, 1390],
+            },
+            {
+              deployment: "narrator-safe",
+              p50_ms: 5507,
+              p95_ms: 6086,
+              samples: 2,
+              history_ms: [5507, 6086],
+            },
+          ],
+        },
       });
       return;
     }
@@ -140,7 +161,15 @@ async function installOperatorApiFixture(
             }, null, 2),
             input_kind: "query",
             redacted: true,
-            output: "7 resource groups",
+            output: JSON.stringify({
+              status: "matched",
+              matched_count: 1,
+              resources: [{
+                name: "vm-example",
+                type: "virtual-machine",
+                status: "running",
+              }],
+            }),
             output_truncated: false,
             exit_code: null,
             started_at: "2026-07-22T00:01:00Z",
@@ -156,6 +185,37 @@ async function installOperatorApiFixture(
           answer,
           model: "narrator-test",
           source: "evidence:corrected",
+          ...(options.modelTrace ? {
+            model_trace: {
+              schema_version: 1,
+              redacted: true,
+              omitted_calls: 0,
+              calls: [{
+                call_id: "call-1",
+                kind: "answer-stream",
+                model: "narrator-test",
+                status: "completed",
+                started_at: "2026-07-22T00:01:00Z",
+                completed_at: "2026-07-22T00:01:02Z",
+                duration_ms: 2000,
+                request: {
+                  messages: [
+                    { role: "system", content: "Safety layer" },
+                    { role: "system", content: '{"policy":{"status":"ready"}}' },
+                    { role: "user", content: "List resource groups" },
+                  ],
+                  sha256: "a".repeat(64),
+                },
+                response: {
+                  role: "assistant",
+                  content: answer,
+                  sha256: "b".repeat(64),
+                },
+                usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+                redactions: [],
+              }],
+            },
+          } : {}),
           verification: {
             status: "corrected",
             authority: "server_read_model",
@@ -188,6 +248,18 @@ test("defaults to the right dock and restores the last display mode", async ({ p
   await page.getByRole("button", { name: "Open command deck" }).click();
   let deck = page.getByRole("complementary", { name: "Command deck" });
   await expect(deck).toHaveClass(/deck-overlay-mode-dock/);
+  await deck.getByRole("button", { name: "Full workspace" }).click();
+  const tooltipWorkspace = page.getByRole("dialog", { name: "Command deck" });
+  await tooltipWorkspace.locator(".deck-backend-header").focus();
+  const backendTooltip = page.locator('.app-tooltip[data-state="instant-open"]', {
+    hasText: "chat mode azure-ad-routed",
+  });
+  await expect(backendTooltip).toContainText("chat mode azure-ad-routed");
+  await expect(backendTooltip).not.toContainText("{endpoint}");
+  await expect(backendTooltip).not.toContainText("{candidates}");
+  expect((await backendTooltip.innerText()).split("\n")).toHaveLength(4);
+  await tooltipWorkspace.getByRole("button", { name: "Dock right" }).click();
+  deck = page.getByRole("complementary", { name: "Command deck" });
   await expect(deck.getByRole("button", { name: "Dock right" })).toHaveAttribute(
     "aria-pressed",
     "true",
@@ -216,7 +288,10 @@ test("defaults to the right dock and restores the last display mode", async ({ p
 });
 
 test("keeps a mock-aligned execution timeline in full workspace", async ({ page }) => {
-  await installOperatorApiFixture(page, { executionTimeline: true });
+  await page.addInitScript(() => {
+    localStorage.setItem("fdai:console:show-model-trace", "true");
+  });
+  await installOperatorApiFixture(page, { executionTimeline: true, modelTrace: true });
   await page.goto(
     `/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`,
   );
@@ -238,14 +313,49 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await expect(investigation.locator(".deck-branch-item")).toHaveCount(0);
   await expect(investigation.locator(".deck-investigation-item")).toHaveCount(1);
   await expect(investigation.locator(".deck-investigation-kind-badge")).toHaveText("QUERY");
+  await investigation.locator(".deck-investigation-item-disclosure > summary").click();
+  const queryResult = investigation.locator(".deck-investigation-disclosure").first();
+  await queryResult.locator(":scope > summary").click();
+  const queryResultCode = queryResult.locator(".deck-investigation-output code");
+  await expect(queryResultCode).toHaveAttribute("data-format", "json");
+  await expect(queryResultCode).toContainText('"resources": [');
+  await expect(queryResultCode).toContainText('"name": "vm-example"');
+
+  const runRecord = workspace.locator(".deck-trajectory");
+  await runRecord.locator(":scope > summary").click();
+  await expect(runRecord).toHaveAttribute("open", "");
+  await expect(runRecord.locator(".deck-trajectory-question strong")).toHaveText(
+    "List resource groups",
+  );
+  await expect(prompt).toBeVisible();
+  const modelTrace = runRecord.locator(".deck-model-trace");
+  await expect(modelTrace).toBeVisible();
+  await modelTrace.locator(".deck-model-trace-lanes > li > details > summary").click();
+  await expect(modelTrace.locator(".deck-model-trace-messages li > span", {
+    hasText: /^system$/i,
+  })).toHaveCount(1);
+  await expect(modelTrace.locator(".deck-model-trace-messages li > span", {
+    hasText: /^user$/i,
+  })).toHaveCount(1);
+  const groupedSystem = modelTrace.locator(".deck-model-trace-message-content").first();
+  await expect(groupedSystem).toContainText('"policy": {');
+  await expect(groupedSystem).toContainText('"status": "ready"');
 
   const metrics = await workspace.evaluate((root) => {
     const transcript = root.querySelector<HTMLElement>(".deck-transcript");
     const command = root.querySelector<HTMLElement>(".deck-investigation-command");
+    const composer = root.querySelector<HTMLElement>(".deck-input-row");
     const code = command?.querySelector<HTMLElement>("code");
+    const output = root.querySelector<HTMLElement>(".deck-investigation-output");
+    const modelMessage = root.querySelector<HTMLElement>(".deck-model-trace-message-content");
+    const rootBounds = root.getBoundingClientRect();
+    const composerBounds = composer?.getBoundingClientRect();
     return {
       viewportWidth: window.innerWidth,
       transcriptWidth: transcript?.clientWidth ?? 0,
+      transcriptScrolls: transcript
+        ? transcript.scrollHeight > transcript.clientHeight
+        : false,
       bodyOverflow: document.body.scrollWidth > document.body.clientWidth,
       investigationOverflow: (() => {
         const investigation = root.querySelector<HTMLElement>(".deck-investigation");
@@ -253,8 +363,14 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
           ? investigation.scrollWidth > investigation.clientWidth
           : true;
       })(),
+      composerInsideDeck: composerBounds
+        ? composerBounds.top >= rootBounds.top && composerBounds.bottom <= rootBounds.bottom
+        : false,
       commandBackground: command ? getComputedStyle(command).backgroundColor : "",
       codeBackground: code ? getComputedStyle(code).backgroundColor : "",
+      commandScrollbar: command ? getComputedStyle(command).scrollbarColor : "",
+      outputScrollbar: output ? getComputedStyle(output).scrollbarColor : "",
+      modelMessageScrollbar: modelMessage ? getComputedStyle(modelMessage).scrollbarColor : "",
     };
   });
   if (metrics.viewportWidth >= 900) {
@@ -262,10 +378,15 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   } else {
     expect(metrics.transcriptWidth).toBeGreaterThanOrEqual(metrics.viewportWidth - 1);
   }
+  expect(metrics.transcriptScrolls).toBe(true);
   expect(metrics.bodyOverflow).toBe(false);
   expect(metrics.investigationOverflow).toBe(false);
+  expect(metrics.composerInsideDeck).toBe(true);
   expect(metrics.commandBackground).toBe("rgb(31, 36, 40)");
   expect(metrics.codeBackground).toBe("rgba(0, 0, 0, 0)");
+  expect(metrics.commandScrollbar).not.toBe("auto");
+  expect(metrics.outputScrollbar).not.toBe("auto");
+  expect(metrics.modelMessageScrollbar).not.toBe("auto");
 });
 
 test("keeps responsive table labels visual-only at 320px", async ({ page }) => {

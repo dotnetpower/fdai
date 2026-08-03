@@ -1,51 +1,42 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 0759f57aed7268d38d0bfcb93f292efb2deda6a7
+translation_source_sha: 619ff081b00fa79ee853b021cca9c80c5e3b19ca
 translation_revised: 2026-08-03
 ---
 
 # 콘솔 근거 및 복원력
 
-이 문서는 operator console의 evidence provenance, localization, stream recovery, durable replay
-및 Architecture map resilience 계약을 소유합니다. 대화형 tool 및 RBAC 계약은
+이 문서는 operator console의 evidence provenance, localization, stream recovery, durable replay 및 Architecture map resilience 계약을 소유합니다. 대화형 tool 및 RBAC 계약은
 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
 
 ## 탐색 컨텍스트
 
-Activity Bar 영역을 선택하면 Explorer가 열리고 운영자의 로컬 순서 및 표시 설정에 따라 첫 번째
-visible 패널로 이동합니다. Command Deck이 닫혀 있거나 floating 상태여도 이 탐색은 동작하며,
+Activity Bar 영역을 선택하면 Explorer가 열리고 운영자의 로컬 순서 및 표시 설정에 따라 첫 번째 visible 패널로 이동합니다. Command Deck이 닫혀 있거나 floating 상태여도 이 탐색은 동작하며,
 full-workspace Deck은 route가 변경되기 전에 닫힙니다.
-다른 화면의 cached conversation 선택은 bounded exception입니다. Console은 conversation origin으로
-이동할 때 conversation-owned synchronous route event만 suppress한 뒤 transcript를 활성화합니다.
+다른 화면의 cached conversation 선택은 bounded exception입니다. Console은 conversation origin으로 이동할 때 conversation-owned synchronous route event만 suppress한 뒤 transcript를 활성화합니다.
 Transient default-session switch 또는 close/reopen focus cycle 없이 Deck을 열린 상태로 유지합니다.
 Same-screen 및 agent conversation은 navigation 없이 전환합니다.
-이미 active인 same-screen conversation을 다시 선택하면 focus만 복원하며 최신 in-memory turn 위에
-sessionStorage transcript를 다시 로드하지 않습니다.
+이미 active인 same-screen conversation을 다시 선택하면 focus만 복원하며 최신 in-memory turn 위에 sessionStorage transcript를 다시 로드하지 않습니다.
 비활성 conversation을 선택하면 browser-local 읽음 확인만 기록하고 activity timestamp는 변경하지
 않으므로 history 순서가 유지됩니다. Conversation 제목은 관찰된 activity가 저장된 read timestamp보다
 최신인 동안에만 굵게 표시됩니다. 선택하면 행을 이동하지 않고 이 표시를 해제하며, 더 새로운 server
 activity만 ordering timestamp를 갱신합니다.
-Conversation 제목이 시각적으로 잘리면 pointer hover에서 공용 console tooltip으로 전체 label을
-표시합니다. 제목이 영역 안에 모두 표시되면 중복 tooltip을 표시하지 않습니다.
-Agent card의 Ask action은 항상 unique user-scoped key를 가진 비어 있는 새 agent conversation을
-엽니다. 새 summary는 선택한 agent를 즉시 보유하므로 첫 submit부터 같은 agent target을 Operator API에
+Conversation 제목이 시각적으로 잘리면 pointer hover에서 공용 console tooltip으로 전체 label을 표시합니다. 제목이 영역 안에 모두 표시되면 중복 tooltip을 표시하지 않습니다. 연결된 backend tooltip은 mode, endpoint, route choice 및 candidate를 별도 줄로 유지하고 localized placeholder를 모두 채우며 긴 endpoint 또는 deployment token을 viewport 경계 안에서 줄바꿈합니다.
+Agent card의 Ask action은 항상 unique user-scoped key를 가진 비어 있는 새 agent conversation을 엽니다. 새 summary는 선택한 agent를 즉시 보유하므로 첫 submit부터 같은 agent target을 Operator API에
 전달합니다. 기존 agent conversation은 별도 history entry로 보존하며 operator가 명시적으로 선택할
 때만 복원합니다.
-Active cached conversation을 제거하면 current-route default(legacy `screen` key 포함) 또는
-current-route thread만 선택합니다. 둘 다 없으면 unrelated-route 또는 agent transcript를 활성화하지
+Active cached conversation을 제거하면 current-route default(legacy `screen` key 포함) 또는 current-route thread만 선택합니다. 둘 다 없으면 unrelated-route 또는 agent transcript를 활성화하지
 않고 새 current-route default를 만듭니다.
 
-Full-workspace Command Deck session은 transcript만 열린 content column으로 시작합니다. Operator는
-transcript toolbar에서 filter 가능한 대화 이력 또는 현재 화면 digest를 열 수 있습니다. Browser 또는
+Full-workspace Command Deck session은 transcript만 열린 content column으로 시작합니다. Operator는 transcript toolbar에서 filter 가능한 대화 이력 또는 현재 화면 digest를 열 수 있습니다. Browser 또는
 durable history에서 복원된 transcript는 새 대화를 시작할 때까지 resumed-session marker를 표시합니다.
 Digest가 닫혀 있어도 composer는 compact route, 근거 record 수 및 snapshot-age line을 유지합니다.
 
-공통 페이지 제목은 영역과 패널 레이블이 다를 때 `전체 현황 / Dashboard`를 포함해 둘을 함께
-렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립 utility는 단일 제목을 유지합니다.
+공통 페이지 제목은 영역과 패널 레이블이 다를 때 `전체 현황 / Dashboard`를 포함해 둘을 함께 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립 utility는 단일 제목을 유지합니다.
 
-공통 상단 표시줄은 Cloud Aperture 마크를 원본의 브랜드 파란색으로 렌더링합니다. 콘솔 테마는
-브랜드 마크의 채도를 낮추거나 색을 변경하지 않습니다.
+공통 상단 표시줄은 아이콘 전용 FDAI 마크를 원본 색상으로 렌더링하고 옆에 `FDAI Console`
+워드마크를 표시합니다. 콘솔 테마는 브랜드 자산의 채도를 낮추거나 색을 변경하지 않습니다.
 
 Live도 `운영 / 실시간`과 같은 공통 title 계약을 따릅니다. 관찰 control은 공통 header actions
 영역에 유지되고 좁은 viewport에서는 제목 아래로 줄바꿈되어 화면 고정, source, window 및 connection
@@ -216,21 +207,41 @@ provider payload 및 validation result는 변경하지 않습니다.
 
 ## 관찰된 대화 트래젝터리
 
-완료된 각 Command Deck 질문은 접힌 observed trajectory를 표시합니다. 상태 개요는 완료, 수정 후 완료,
-일부 저하, 실패, 검증 미완료, 진행 중 및 관측되지 않음을 구분하며 record 존재를 성공으로 표시하지
-않습니다. 기록된 event, evidence, reference 및 verification count는 compact result chip으로 표시합니다.
-펼친 view는 6단계 rail, 펼칠 수 있는 observed-event timeline 및 provenance signal을 먼저 표시하고,
+각 Command Deck 질문은 관측된 작업이 뒷받침하는 가장 작은 presentation을 선택합니다. Activity,
+handoff 또는 background task가 없는 turn도 접힌 run record를 유지합니다. 성공한 단일 terminal read는
+compact investigation row와 접힌 run record를 함께 사용합니다. 여러 activity, milestone,
+retry, failure, handoff, command 또는 file change가 있으면 timeline을 기본으로 펼칩니다. Durable
+background task는 detached task summary를 사용합니다. 복원된 compact turn은 durable detail에서
+observed row를 재구성하고 live turn은 인과 순서로 이미 표시한 row를 유지합니다. 완료된 모든 answer는
+trajectory summary와 bounded original operator prompt를 표시합니다.
+
+상태 개요는 완료, 수정 후 완료, 일부 저하, 실패, 검증 미완료, 진행 중 및 관측되지 않음을 구분하며
+record 존재를 성공으로 표시하지 않습니다. Result chip은 내부 event total 대신 관측된 query와
+command count, evidence completion, reference 및 verification을 표시합니다. Run-record summary는
+complete bounded operator prompt를 유지하고 좁은 layout에서는 줄바꿈합니다. Disclosure를 변경하면 transcript만 scroll하고 composer는
+Deck 경계에 계속 표시됩니다. 펼친 view는 6단계 rail, 펼칠 수 있는 observed-event timeline 및 provenance signal을 먼저 표시하고,
 timing window, decision context, phase record 및 coverage gap은 하나의 접힌 execution-details disclosure에
 유지합니다. Preparing-answer surface는 final answer streaming이 시작될 때까지 operator turn과 observed
-work 사이에 유지됩니다. Transcript는 browser scroll anchoring을 끄고 하단 공간을 추가하며 latest edge만
-고정해 streaming layout 변경이 현재 읽기 위치를 움직이지 않게 합니다. Timing이 없는 plan과 collaboration metadata는 decision context에 두고, 관측된 input, evidence
+work 사이에 유지되며 현재 presentation을 그대로 사용합니다. 이후 observed work는 execution mock의
+progress note, session, connected step 및 dark command detail 계층을 따릅니다. 단독 activity의 starting
+note는 수신한 해당 activity에서만 가져옵니다. Milestone을 수신한 경우에는 milestone이 note가 되므로
+browser가 progress를 중복하거나 만들어내지 않습니다. 현재 step만 자동으로 펼치고 완료된 step shell은
+유지하며 raw output과 timestamp는 접습니다. Raw current-screen record는 접힌 source disclosure에 유지합니다. Transcript는
+browser scroll anchoring을 끄고 하단 공간을 추가하며 work가 streaming 중일 때만 latest edge를
+따라갑니다. Terminal completion에서는 첫 observed work group을 transcript edge 아래에 고정해 final
+answer layout이 완료되는 동안 execution outcome과 answer 시작을 함께 표시합니다. Timing이 없는 plan과 collaboration metadata는 decision context에 두고, 관측된 input, evidence
 및 tool, model call, verification 및 delivery만 timeline에 표시합니다. Answer text는 14 px 이상이고,
 main disclosure 높이는 44 px이며, 200% text resize와 320 CSS pixel에서 content loss 없이 reflow합니다.
 Transcript text는 15 px, trajectory heading은 13 px, event label은 12 px, control은 13 px을 사용하며
 compact trajectory metadata는 11 px 아래로 내려가지 않습니다. 게시된 screen snapshot은 5분 후 visibly stale 상태가 되고
 명시적인 page refresh를 제공합니다. Bare clock은 current evidence를 의미하지 않습니다. Markdown
-table은 bounded answer row를 transcript flow에 모두 렌더링하며 내부 vertical scroll region이나 row
-expansion control을 사용하지 않습니다. Narrow screen에서는 transcript 폭을 늘리지 않고 cell을 줄바꿈합니다.
+table은 점진적으로 렌더링합니다. 완성된 header와 separator가 첫 body row보다 먼저 table shell을 만들고,
+완성된 각 row는 table을 교체하지 않고 누적됩니다. 완성되지 않은 header, separator 및 row syntax는 raw
+Markdown으로 표시하지 않습니다. 모든 bounded answer row는 transcript flow에 유지하며 내부 vertical
+scroll region이나 row expansion control을 사용하지 않습니다. Foreground의 terminal-only deterministic
+answer도 같은 visual paint queue를 사용하므로 canonical table row가 0건에서 전체 건수까지 단조롭게
+증가합니다. Background tab은 동기적으로 완료합니다. Narrow screen에서는 transcript 폭을 늘리지 않고
+cell을 줄바꿈합니다.
 
 상세 화면은 bounded recorded metadata를 표시하지만 answer body를 반복하지 않습니다. Provider message,
 action argument, command 및 output의 유효한 object 또는 array JSON은 indentation, syntax highlighting 및
@@ -249,8 +260,8 @@ completion 및 duration을 만듭니다. Interrupt는 timing을 저장하지 않
 Model provider tracing은 기본값이 꺼진 browser-local Settings opt-in입니다. 활성화하면 request-local
 collector가 turn planning, rerun, answer generation 및 quality review를 포함하여 해당 질문의 실제 model
 call을 최대 8개 기록합니다. Waterfall은 provider-call timing을 사용하며, 각 disclosure는 role 순서의
-redacted message copy, assistant content, token usage, exact-content SHA-256 및 redaction count를
-표시합니다. Credential, tenant 또는 resource identifier, URL, email, IP address, inline image,
+기록된 message array와 request SHA를 보존하면서 연속 system layer를 하나의 `SYSTEM` heading으로 묶습니다.
+JSON body는 pretty-print하고 bounded request 및 response block에는 theme에 맞는 scrollbar를 적용합니다. Disclosure는 assistant content, token usage, exact-content SHA-256 및 redaction count도 표시합니다. Credential, tenant 또는 resource identifier, URL, email, IP address, inline image,
 hidden reasoning, header 및 provider 내부 정보는 저장하지 않습니다. 설정을 끄면 캡처를 중지하고
 저장된 trace를 숨기며 provider call을 반복하지 않고 idempotent replay response에서 trace를 제거합니다.
 
@@ -468,10 +479,8 @@ emit 전에 credential과 민감한 identifier를 제거하고 `redacted=true`�
 없는 input evidence를 폐기합니다. `input_kind=command`는 기록된 process invocation이 필요하며 exit
 code를 포함할 수 있습니다. `input_kind=query`는 canonical typed server query를 전달하고 reconstructed
 provider command를 만들지 않으며 exit code를 포함할 수 없습니다. 허용된 activity는 일치하는 `TOOL`
-또는 `QUERY` badge, tool label, authority 및 완료 상태를 표시합니다. Command output 또는 query result와
-timestamp는 기본적으로 접힌 상태를 유지합니다. Intermediate progress detail과 milestone은 parsed
-resource name 대신 opaque resource placeholder를 사용합니다. Input은 16 KiB, result preview는 64 KiB로 제한되며 잘림 여부를
-명시합니다. Activity 및 retrieval label은 512자, detail 및 milestone text는 16 KiB로 제한되며
+또는 `QUERY` badge, tool label, authority 및 완료 상태를 표시합니다. Command output, query result 및 timestamp는 기본적으로 접힌 상태를 유지합니다. 유효한 object 또는 array JSON은 theme에 맞는 scrollbar가 적용된 bounded code surface에서 pretty-print됩니다.
+Inventory result는 일치한 resource, count, coverage 및 snapshot provenance를 포함하는 verifier-accepted detailed projection을 유지합니다. Input은 16 KiB, result preview는 64 KiB로 제한됩니다. 크기를 초과하는 collection tail은 omission count와 함께 제거해 output을 유효한 JSON으로 유지합니다. Activity 및 retrieval label은 512자, detail 및 milestone text는 16 KiB로 제한되며
 completed/total progress가 모순되면 거부합니다. Browser는
 표시된 command 또는 query를 복사할 수 있지만 실행하거나 다시 시도할 수 없습니다. 이 evidence는 권한 있는
 runtime이 수행한 work를 read-only로 관찰한 것이며, console이 executor identity 또는 임시 권한을

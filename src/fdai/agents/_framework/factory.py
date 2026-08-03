@@ -10,6 +10,7 @@ from collections.abc import Callable
 
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
 from fdai.agents.bragi import Bragi
 from fdai.agents.forseti import Forseti
 from fdai.agents.freyr import Freyr
@@ -36,7 +37,7 @@ PlanningCoordinator = SpecialistPlanningCoordinator
 # defaults so tests can instantiate the pantheon without wiring
 # backends.
 _CLASSES: tuple[Callable[[], Agent], ...] = (
-    Odin,
+    lambda: Odin(vertical_precedence=InitialVerticalPrecedence()),
     Thor,
     Forseti,
     Huginn,
@@ -56,7 +57,11 @@ _CLASSES: tuple[Callable[[], Agent], ...] = (
 
 def instantiate_pantheon() -> dict[str, Agent]:
     """Instantiate all 15 pantheon agents and return them keyed by name."""
-    return {cls().spec.name: cls() for cls in _CLASSES}
+    instances: dict[str, Agent] = {}
+    for construct in _CLASSES:
+        agent = construct()
+        instances[agent.spec.name] = agent
+    return instances
 
 
 def configured_forseti(

@@ -137,6 +137,34 @@ _AUXILIARY_KAFKA_BOOTSTRAP_ENV = "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS"
 _RUNTIME_LOGICAL_TOPICS = (
     OWNED_OBJECT_TOPICS | AGENT_INTROSPECTION_TOPICS | frozenset({_TRANSITION_TOPIC})
 )
+_VERTICAL_IDENTITY_ENV = {
+    "identity/change": "FDAI_CHANGE_MI_CLIENT_ID",
+    "identity/resilience": "FDAI_RESILIENCE_MI_CLIENT_ID",
+    "identity/finops": "FDAI_FINOPS_MI_CLIENT_ID",
+}
+
+
+def _build_vertical_execution_identities(
+    *,
+    http_client: httpx.AsyncClient | None,
+) -> dict[str, WorkloadIdentity]:
+    configured = {
+        identity_ref: env_var
+        for identity_ref, env_var in _VERTICAL_IDENTITY_ENV.items()
+        if os.environ.get(env_var, "").strip()
+    }
+    if not configured:
+        return {}
+    if http_client is None:
+        raise RuntimeError("vertical execution identities require an HTTP client")
+    return {
+        identity_ref: _build_runtime_workload_identity(
+            http_client,
+            client_id_env=env_var,
+            require_client_id=True,
+        )
+        for identity_ref, env_var in configured.items()
+    }
 
 
 async def _run() -> int:
@@ -168,6 +196,9 @@ async def _run() -> int:
         )
         gateway_requested = bool(os.environ.get("FDAI_DEV_OPERATIONS_GATEWAY_URL", "").strip())
         case_history_requested = bool(os.environ.get("FDAI_CASE_HISTORY_CONTAINER_URL", "").strip())
+        vertical_execution_requested = any(
+            os.environ.get(env_var, "").strip() for env_var in _VERTICAL_IDENTITY_ENV.values()
+        )
         if case_history_requested:
             _case_history_identity_client_id(os.environ)
         if (
@@ -175,6 +206,7 @@ async def _run() -> int:
             or telemetry_requested
             or gateway_requested
             or case_history_requested
+            or vertical_execution_requested
         ):
             http_client = _new_http_client()
             identity = _build_runtime_workload_identity(http_client)
@@ -370,6 +402,9 @@ async def _run() -> int:
                 tool_receipt_observer=_observe_tool_receipt,
                 symptom_index=runtime_symptom_index,
                 identity=identity,
+                execution_identities=_build_vertical_execution_identities(
+                    http_client=http_client,
+                ),
                 response_outcome_sink=_relay_response_outcome,
                 human_access_enabled=runtime_values["human_access.enabled"] is True,
             )

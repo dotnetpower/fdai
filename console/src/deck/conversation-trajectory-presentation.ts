@@ -20,7 +20,10 @@ export type TrajectoryPhaseState =
   | "unverified"
   | "not_observed";
 
+export type WorkProgressPresentation = "none" | "compact" | "timeline";
+
 export interface TrajectoryPresentation {
+  readonly workProgress: WorkProgressPresentation;
   readonly phaseStates: Readonly<Record<TrajectoryPhase, TrajectoryPhaseState>>;
   readonly modelCallCount: number;
   readonly modelCallCountIsLowerBound: boolean;
@@ -41,6 +44,7 @@ export function buildTrajectoryPresentation(
   const recordedModelCalls = trajectory.answer.modelTrace?.calls.length ?? 0;
   const modelBacked = trajectory.answer.source?.startsWith("llm:") === true;
   return {
+    workProgress: workProgressPresentation(trajectory),
     phaseStates: {
       input: "completed",
       plan: trajectory.answer.answerPlan ? "completed" : "not_observed",
@@ -55,6 +59,27 @@ export function buildTrajectoryPresentation(
     evidenceCompletedCount: evidenceStatuses.filter((status) => status === "completed").length,
     evidenceReferenceCount: evidenceReferences.size,
   };
+}
+
+export function workProgressPresentation(
+  trajectory: ConversationTrajectory,
+): WorkProgressPresentation {
+  const representedBranchIds = new Set(
+    trajectory.activities.flatMap((activity) =>
+      activity.execution && activity.branchId ? [activity.branchId] : []),
+  );
+  const unrepresentedBranchCount = trajectory.branches.filter(
+    (branch) => !representedBranchIds.has(branch.branchId),
+  ).length;
+  const observedCount = trajectory.activities.length + unrepresentedBranchCount;
+  if (observedCount === 0 && trajectory.milestones.length === 0) return "none";
+
+  const activity = trajectory.activities[0];
+  const compactRead = observedCount === 1 &&
+    trajectory.milestones.length === 0 &&
+    activity?.status === "completed" &&
+    activity.execution?.inputKind === "query";
+  return compactRead ? "compact" : "timeline";
 }
 
 function collaborationState(trajectory: ConversationTrajectory): TrajectoryPhaseState {

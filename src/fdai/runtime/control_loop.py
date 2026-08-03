@@ -42,6 +42,7 @@ from fdai.core.notifications.matrix import load_matrix_from_yaml
 from fdai.core.quality_gate import (
     HashedRuleEmbeddingIndex,
     QualityGate,
+    QualityGateConfig,
     RagGroundingSource,
     RuleBasedVerifier,
 )
@@ -67,7 +68,7 @@ from fdai.core.tiers.t0_deterministic.opa_evaluator import (
     MissingOpaBinaryError,
     OpaRegoEvaluator,
 )
-from fdai.core.tiers.t1_lightweight import CurrentReuseVerifier, T1Tier
+from fdai.core.tiers.t1_lightweight import CurrentReuseVerifier, T1Config, T1Tier
 from fdai.core.tiers.t2_reasoning import T2Tier
 from fdai.core.trust_router import TrustRouter
 from fdai.core.workflow import (
@@ -132,16 +133,21 @@ def _build_workflow_coordinator(
     process_store: Any | None = None,
     ontology_store: Any | None = None,
 ) -> WorkflowTriggerCoordinator | None:
-    """Assemble the shadow workflow coordinator, opt-in and fail-safe.
+    """Assemble the shadow workflow coordinator, enabled by default and fail-safe.
 
-    Disabled unless ``FDAI_WORKFLOW_SHADOW`` is truthy AND the catalog ships at
-    least one Workflow. Any load error (missing / malformed rbac-groups or
+    Disabled only when ``FDAI_WORKFLOW_SHADOW`` is explicitly false or the catalog
+    ships no Workflow. Any load error (missing / malformed rbac-groups or
     notifications matrix) logs and returns ``None`` so workflow wiring never
-    fails boot or perturbs the control loop; upstream default is off.
+    fails boot or perturbs the control loop.
     """
     if not workflows:
         return None
-    if os.environ.get("FDAI_WORKFLOW_SHADOW", "").lower() not in ("1", "true", "yes", "on"):
+    if os.environ.get("FDAI_WORKFLOW_SHADOW", "").strip().casefold() in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }:
         return None
     config_dir = catalog_root.parent / "config"
     rbac_file = config_dir / "rbac-groups.yaml"
@@ -256,6 +262,7 @@ def _build_control_loop(
     causal_runtime_coordinator: CausalRuntimeCoordinator | None = None,
     dynamic_runtime_coordinator: DynamicRuntimeCoordinator | None = None,
     human_access_enabled: bool = True,
+    execution_identities: Mapping[str, WorkloadIdentity] | None = None,
 ) -> ControlLoop:
     """Load rule / action / policy catalogs and wire the P1 control loop.
 
@@ -392,6 +399,10 @@ def _build_control_loop(
         embedding_model=llm_bindings.embedding_model,
         pattern_library=_build_pattern_library(),
         current_reuse_verifier=(current_reuse_verifier or container.current_reuse_verifier),
+        config=T1Config(
+            similarity_threshold=container.config.llm.t1_similarity_threshold,
+            min_success_rate=container.config.llm.t1_min_success_rate,
+        ),
     )
     rules_by_id = {rule.id: rule for rule in rules}
     quality_gate = QualityGate(
@@ -402,6 +413,10 @@ def _build_control_loop(
             embedding_index=HashedRuleEmbeddingIndex(),
         ),
         rubric_evaluator=llm_bindings.rubric_evaluator,
+        config=QualityGateConfig(
+            confidence_threshold=container.config.llm.quality_gate_confidence_threshold,
+            require_cross_check_quorum=container.config.llm.quality_gate_quorum,
+        ),
     )
     t2 = T2Tier(
         proposer=llm_bindings.require_t2_proposer(),
@@ -422,6 +437,9 @@ def _build_control_loop(
         http_client=http_client,
         identity=identity,
         human_access_enabled=human_access_enabled,
+        promotion_registry=promotion_registry,
+        action_types_by_name=action_types_by_name,
+        execution_identities=execution_identities,
     )
     tool_executor = _build_tool_executor(
         audit_store=audit_store,

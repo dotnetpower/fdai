@@ -4,6 +4,7 @@ import {
   flushStreamPaint,
   shouldFlushStreamPaintSynchronously,
   streamPaintBatchSize,
+  terminalRevealChunks,
 } from "./stream-paint";
 
 describe("stream paint batching", () => {
@@ -44,5 +45,13 @@ describe("stream paint batching", () => {
 
     expect(flushStreamPaint(queue)).toBe("first second.");
     expect(queue).toEqual([]);
+  });
+
+  it("chunks terminal-only tables without changing their canonical text", () => {
+    const text = "| Name | State |\n| --- | --- |\n| api | Running |";
+    const chunks = terminalRevealChunks(text);
+
+    expect(chunks.length).toBeGreaterThan(4);
+    expect(chunks.join("")).toBe(text);
   });
 });

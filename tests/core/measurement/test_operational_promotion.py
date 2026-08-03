@@ -571,11 +571,20 @@ class _Source:
 
 
 async def test_measurement_runner_audits_receipt_without_promoting() -> None:
+    class _ReceiptSink:
+        def __init__(self) -> None:
+            self.receipts = []
+
+        async def save(self, receipt):  # type: ignore[no-untyped-def]
+            self.receipts.append(receipt)
+
     audit = InMemoryStateStore()
+    sink = _ReceiptSink()
     runner = OperationalPromotionMeasurementRunner(
         source=_Source(),
         evaluator=_evaluator(),
         audit_store=audit,
+        receipt_sink=sink,
         fdai_revision=_REVISION,
         scenario_set_version=_SCENARIO,
     )
@@ -589,9 +598,11 @@ async def test_measurement_runner_audits_receipt_without_promoting() -> None:
     assert entry["mode"] == "shadow"
     assert entry["ready"] is True
     assert entry["evidence_digest"] == result.receipt.evidence_digest
+    assert sink.receipts == [result.receipt]
 
     await runner.run((_action(),))
     assert len(audit.audit_entries) == 1
+    assert sink.receipts == [result.receipt, result.receipt]
 
 
 async def test_measurement_runner_audits_source_failure_as_not_ready() -> None:
@@ -609,6 +620,29 @@ async def test_measurement_runner_audits_source_failure_as_not_ready() -> None:
     assert result.receipt is None
     assert result.aborted_reason == "evidence_load_failed:RuntimeError"
     assert audit.audit_entries[0]["entry"]["ready"] is False
+
+
+async def test_measurement_runner_fails_closed_when_receipt_store_fails() -> None:
+    class _FailingReceiptSink:
+        async def save(self, receipt):  # type: ignore[no-untyped-def]
+            del receipt
+            raise RuntimeError("receipt store unavailable")
+
+    audit = InMemoryStateStore()
+    runner = OperationalPromotionMeasurementRunner(
+        source=_Source(),
+        evaluator=_evaluator(),
+        audit_store=audit,
+        receipt_sink=_FailingReceiptSink(),
+        fdai_revision=_REVISION,
+        scenario_set_version=_SCENARIO,
+    )
+
+    (result,) = await runner.run((_action(),))
+
+    assert result.receipt is None
+    assert result.aborted_reason == "receipt_store_failed:RuntimeError"
+    assert [entry["entry"]["ready"] for entry in audit.audit_entries] == [True, False]
 
 
 async def test_measurement_runner_distinguishes_evaluation_failure() -> None:

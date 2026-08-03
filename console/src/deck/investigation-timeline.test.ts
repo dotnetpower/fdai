@@ -134,29 +134,40 @@ describe("upsertEvidenceBranch", () => {
 
     expect(component).toContain('<details class="deck-investigation-activity-disclosure" open>');
     expect(component).toContain('class="deck-investigation-item-disclosure"');
-    expect(component).toContain('open={activity.status === "running"}');
+    expect(component).toContain('open={activity.status === "running" ||');
+    expect(presenter).toContain("showStartNote={investigationFlowStart}");
+    expect(component).toContain('class="deck-progress-note deck-progress-note-derived"');
+    expect(component).toContain("<InvestigationNextSkeleton />");
+    expect(component).toContain('open={status === "running"}');
     expect(component).toContain('aria-label={t("deck.investigation.branches")}');
-    expect(component).toContain('class={`deck-investigation is-settled is-${tone}`}');
-    expect(component).toContain('class={`deck-investigation-badge is-${tone}`}');
-    expect(component).toContain('class="deck-investigation-elapsed muted"');
+    expect(component).toContain('running ? "is-running" : `is-settled is-${tone}`');
+    expect(component).toContain('is-${running ? "running" : tone}');
+    expect(component).toContain('"deck.investigation.startingQuery"');
+    expect(component).toContain('"deck.investigation.startingCommand"');
+    expect(presenter).toContain("!isInvestigationFlow || investigationFlowStart");
+    expect(presenter).toContain("!isInvestigationFlow ? (");
+    expect(component).toContain('"deck.investigation.sourceSummaryOne"');
+    expect(component).toContain('"deck.investigation.callCompletedOne"');
+    expect(component).toContain('"deck.investigation.callsCompletedMany"');
+    expect(component).toContain('"deck.investigation.readOnly"');
     expect(component).toContain("deck-branch-badge");
     expect(component).toContain('"is-query" : "is-tool"');
     expect(component).toContain('activity.execution.inputKind === "query" ? "QUERY" : "TOOL"');
     expect(component).toContain('t("deck.investigation.copyQuery")');
-    expect(component).toContain('t("deck.investigation.sourceSummary"');
+    expect(component).toContain("formatJsonValue(evidence.command)");
+    expect(component).toContain('data-format={formattedOutput.isJson ? "json" : "text"}');
     expect(styles).toContain("@keyframes deck-investigation-rise");
     expect(presenter).toContain('turn.source === "investigation"');
-    expect(presenter).toContain("{isDeck && !isInvestigationFlow ? (");
     expect(presenter).toContain('class="deck-progress-note" role="status"');
     expect(presenter).toContain('class="deck-progress-note-body"');
     expect(presenter).toContain('"deck.investigation.startingWork"');
     expect(presenter).toContain("is-investigation-flow");
     expect(presenter).toContain('isActivity ? " deck-turn-activity"');
-    expect(presenter).toContain("isDeck && !isInvestigationFlow");
     expect(styles).toContain(".deck-progress-note {");
     expect(styles).toContain(".deck-turn.is-investigation-flow::before");
     expect(retrieval).toContain('class="deck-turn-head deck-rt-agent-head"');
     expect(retrieval).toContain('class="deck-turn-source"');
+    expect(retrieval).toContain('<details class="deck-rt-sources">');
     expect(view).toContain("showPreparingAnswer");
     expect(view).toContain("inFlight && !finalAnswerPresent");
     expect(view).toContain("index === activeOperatorIndex");
@@ -165,8 +176,7 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toContain("overflow-anchor: none;");
     expect(styles).toContain("padding: 16px 42px 88px;");
     expect(styles).toContain(".deck-table-wrap { max-height: none; overflow: visible; }");
-    expect(richContent).toContain("if (streaming) {");
-    expect(richContent).toContain("<TextBlock text={text} caret />");
+    expect(richContent).toContain("streaming ? parseStreamingAnswer(text) : parseAnswer(text)");
     expect(richContent).toContain("{rows.map((row, r) => (");
     expect(richContent).toContain('<th key={i} scope="col">');
     expect(richContent).toContain('class="deck-table-cell-label" aria-hidden="true"');
@@ -182,7 +192,11 @@ describe("upsertEvidenceBranch", () => {
     expect(trajectory).toContain('t("deck.trajectory.runRecord")');
     expect(trajectory).toContain('class="deck-trajectory-results"');
     expect(trajectory).toContain('class="deck-trajectory-signals"');
-    expect(trajectory).toContain("buildExecutionTimeline(trajectory");
+    expect(trajectory).toContain('useState(presentation.workProgress === "timeline")');
+    expect(trajectory).toContain("trajectory.question.text");
+    expect(trajectory).not.toContain('if (presentation.workProgress === "none") return null;');
+    expect(trajectory).not.toContain('if (presentation.workProgress === "compact")');
+    expect(trajectory).toContain("open={open}");
     expect(trajectory).toContain("function phaseMark(");
     expect(trajectory).toContain('class="deck-trajectory-records"');
     expect(trajectory).toContain('t("deck.trajectory.checks")');
@@ -194,6 +208,9 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toContain(".deck-trajectory-goal-status.is-skipped");
     expect(styles).toContain(".deck-trajectory-title-copy");
     expect(styles).toMatch(
+      /\.deck-trajectory-question strong\s*\{[^}]*overflow-wrap:\s*anywhere;[^}]*white-space:\s*normal;/,
+    );
+    expect(styles).toMatch(
       /\.deck-body\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/,
     );
     expect(styles).toMatch(
@@ -202,7 +219,16 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toMatch(
       /\.deck-investigation-command,[\s\S]*?\.deck-investigation-output\s*\{[^}]*background:\s*#1f2428/,
     );
+    expect(styles).toContain("scrollbar-color: #68737e #1f2428;");
+    expect(styles).toContain(".deck-investigation-command::-webkit-scrollbar-thumb,");
     expect(styles).toContain(".deck-investigation-item-disclosure > summary::after");
+    expect(styles).toContain("--font-sans:");
+    expect(styles).toContain("--font-mono:");
+    expect(styles).toContain(".deck-investigation-list::before");
+    expect(styles).toContain(".deck-branch-list::before");
+    expect(styles).toMatch(
+      /@container deck-transcript \(max-width: 620px\)[\s\S]*?\.deck-table tbody tr/,
+    );
     expect(styles).toMatch(/\.deck-investigation-summary\s*\{[^}]*min-height:\s*44px/);
     expect(styles).toMatch(
       /\.deck-investigation-item\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent/,

@@ -200,11 +200,11 @@ export function RetrievalTrace({
         </ol>
 
         {sourceCount > 0 ? (
-          <div class="deck-rt-sources">
-          <div class="deck-rt-sources-label muted">
+          <details class="deck-rt-sources">
+          <summary class="deck-rt-sources-label muted">
             <span>{t("deck.retrieval.readingSources")}</span>
             <span>{Math.min(shown, sourceCount)}/{sourceCount}</span>
-          </div>
+          </summary>
           <div class="deck-rt-slot">
             <ul
               class="deck-rt-strip"
@@ -221,7 +221,7 @@ export function RetrievalTrace({
               ))}
             </ul>
           </div>
-          </div>
+          </details>
         ) : null}
       </section>
     </article>

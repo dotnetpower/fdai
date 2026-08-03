@@ -52,7 +52,7 @@ placement (none today).
 | Foundry account (`AIServices`) | `aif-` | 2-64; alphanumerics + hyphens | `aif-fdai-search` |
 | Foundry account project | `proj-` | 2-64; alphanumerics + hyphens | `proj-fdai-search` |
 | Azure Bot (HIL Adaptive Cards) | `bot-` | 2-64 | `bot-fdai` |
-| Static Web App (read-only console) | `stapp-` | 2-40 | `stapp-fdai` |
+| Static Web App | `stapp-` | 2-40 | `stapp-fdai`, `stapp-fdai-design-mocks-dev-ea` |
 
 ### Length-safety rules
 
@@ -61,6 +61,10 @@ placement (none today).
   continuous lowercase alphanumeric string (e.g. `crfdaidevkrc01`).
 - **Storage accounts** use at most 24 lowercase alphanumeric characters. Document storage
   adds a stable six-character hash derived from subscription + environment for global uniqueness.
+- **Static Web Apps use their hosting region suffix.** The design-mocks resource includes the
+  `design-mocks` component and the Static Web Apps region, for example
+  `stapp-fdai-design-mocks-dev-ea`. This region can differ from the control-plane region because
+  Static Web Apps is not available in every Azure region.
 - If a legal name exceeds the character limit after adding env/region/instance, use the
   documented short-name `aip` in place of `fdai` - and only for that resource kind.
   Do not sprinkle `aip` where the full name still fits.

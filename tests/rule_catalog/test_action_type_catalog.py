@@ -484,10 +484,8 @@ def test_no_extra_governance_action_type_undocumented() -> None:
     )
 
 
-def test_every_governance_action_type_is_pr_native() -> None:
-    """action-ontology.md 3.3: 'Governance actions always use
-    execution_path: pr_native - they are catalog-as-code changes and
-    MUST land as a reviewed diff.'"""
+def test_governance_action_execution_paths_match_authority_contract() -> None:
+    """Governance is PR-native except the exact HIL-only runtime promotion."""
 
     from fdai.shared.contracts.models import ExecutionPath
 
@@ -495,10 +493,12 @@ def test_every_governance_action_type_is_pr_native() -> None:
     for action in catalog:
         if not action.name.startswith("governance."):
             continue
-        assert action.execution_path is ExecutionPath.PR_NATIVE, (
-            f"{action.name}: governance actions MUST declare "
-            f"execution_path: pr_native (got {action.execution_path!r})"
+        expected = (
+            ExecutionPath.DIRECT_API
+            if action.name == "governance.promote-action-type"
+            else ExecutionPath.PR_NATIVE
         )
+        assert action.execution_path is expected
 
 
 def test_no_shipped_action_type_uses_pr_manual() -> None:

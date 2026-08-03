@@ -57,6 +57,7 @@ statement and routes each fragment to the matching slot:
 | Judgement criteria, thresholds, "must not" conditions | **Rule / policy** | [rule-catalog catalog](rule-catalog-collection.md), OPA/Rego |
 | Ordered procedure (restart / scale / roll back) | **Workflow** (runbook-as-code) | [rule-catalog/workflows](../../../rule-catalog/workflows/) |
 | A single thing that mutates state | **ActionType** (with `rollback_contract`) | rule-catalog action-types |
+| Service, owner, objective, or dependency statement | **Ontology object / link proposal** | [document ontology distillation](document-ontology-distillation.md) |
 | Deployment procedure, environment spec | **IaC + policy-as-code** | Terraform + deployment gate |
 
 Each fragment normalizes to the same schema the rest of the catalog uses and shares
@@ -295,6 +296,9 @@ customer-connector parts are fork seams with abstaining defaults.
 | Freshness + deletion | `diff_snapshot`, `plan_retirements` (tombstone) | `rule_catalog/pipeline/distill/freshness.py` |
 | Coverage diff | `analyze_coverage` | `rule_catalog/pipeline/distill/coverage.py` |
 | Compile seam | `Distiller` (abstaining default extracts nothing) | `shared/providers/distiller.py` |
+| Ontology claim inventory | `inventory_claims`, `reconcile_claims` | `rule_catalog/pipeline/distill/ontology_claims.py` |
+| Envelope provenance and format equivalence | `manual_document_from_envelope`, normalized claim/proposal/graph digests | `rule_catalog/pipeline/distill/ontology_ingestion.py`, `ontology_evaluation.py` |
+| Ontology proposal + verifier | strict compiler, authority/identity/evidence gates, review package | `rule_catalog/pipeline/distill/ontology_*.py` |
 | Orchestrator + CLI | `build_distillation_plan`, `distill_cli` | `rule_catalog/pipeline/distill/orchestrator.py`, `distill_cli.py` |
 | Source parser id | `manual-distill` source-manifest parser | `rule_catalog/schema/source_manifest.schema.json` |
 | Container wiring | `distiller`, default `AbstainingDistiller` | `composition/` |
@@ -333,5 +337,6 @@ LLM-backed implementations and any siloed-source connector via the seam recipe i
 | Where rules come from and their YAML shape | [rule-catalog-collection.md](rule-catalog-collection.md) |
 | Authoring, scoping, exemption, promotion | [rule-governance.md](rule-governance.md) |
 | Runbook-as-code workflow schema | [rule-catalog/workflows](../../../rule-catalog/workflows/) |
+| Evidence-backed ontology change proposals | [document-ontology-distillation.md](document-ontology-distillation.md) |
 | The continuous quality + T1 pipeline | [phase-2-quality-and-t1.md](../phases/phase-2-quality-and-t1.md) |
 | Where customer manuals and rules live | [downstream-fork-guide.md](../fork-and-sequencing/downstream-fork-guide.md) |

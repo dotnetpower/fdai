@@ -48,6 +48,14 @@ locals {
   region_suffix = var.region_short == "" ? "" : "-${var.region_short}"
   full_suffix   = "${local.env_suffix}${local.region_suffix}"
 
+  static_web_app_region_shorts = {
+    westus2    = "wus2"
+    centralus  = "cus"
+    eastus2    = "eus2"
+    westeurope = "weu"
+    eastasia   = "ea"
+  }
+
   # ACR names cannot contain hyphens (5-50, alphanumeric only).
   # Strip hyphens from the composed suffix.
   acr_suffix = replace(local.full_suffix, "-", "")
@@ -1330,26 +1338,38 @@ resource "azurerm_key_vault_secret" "pattern_library_dsn" {
 # Compute - Container Apps env + core app + out-of-band job.
 # -----------------------------------------------------------------------
 module "compute" {
-  source                       = "./modules/compute/container-apps"
-  env_name                     = "cae-${var.workload}${local.full_suffix}"
-  core_app_name                = "ca-${var.workload}${local.full_suffix}-core"
-  oob_job_name                 = "caj-${var.workload}${local.full_suffix}-oob"
-  rule_watcher_job_name        = "caj-${var.workload}${local.full_suffix}-watcher"
-  location                     = var.region
-  resource_group_name          = module.resource_group.name
-  log_workspace_id             = module.log_analytics.workspace_id
-  executor_identity_id         = module.identity.resource_id
-  executor_identity_client_id  = module.identity.client_id
-  inventory_identity_id        = module.inventory_identity.resource_id
-  inventory_identity_client_id = module.inventory_identity.client_id
-  inventory_raw_topic          = local.inventory_raw_topic
-  canary_identity_id           = module.canary_identity.resource_id
-  canary_identity_client_id    = module.canary_identity.client_id
-  canary_topic                 = local.canary_topic
-  canary_cron_expression       = var.canary_cron_expression
-  image                        = var.core_image
-  max_replicas                 = var.max_replicas
+  source                            = "./modules/compute/container-apps"
+  env_name                          = "cae-${var.workload}${local.full_suffix}"
+  core_app_name                     = "ca-${var.workload}${local.full_suffix}-core"
+  oob_job_name                      = "caj-${var.workload}${local.full_suffix}-oob"
+  rule_watcher_job_name             = "caj-${var.workload}${local.full_suffix}-watcher"
+  location                          = var.region
+  resource_group_name               = module.resource_group.name
+  log_workspace_id                  = module.log_analytics.workspace_id
+  executor_identity_id              = module.identity.resource_id
+  executor_identity_client_id       = module.identity.client_id
+  change_identity_client_id         = module.identity_change.client_id
+  resilience_identity_client_id     = module.identity_resilience.client_id
+  finops_identity_client_id         = module.identity_finops.client_id
+  t1_similarity_threshold           = var.t1_similarity_threshold
+  t1_min_success_rate               = var.t1_min_success_rate
+  quality_gate_confidence_threshold = var.quality_gate_confidence_threshold
+  quality_gate_quorum               = var.quality_gate_quorum
+  inventory_identity_id             = module.inventory_identity.resource_id
+  inventory_identity_client_id      = module.inventory_identity.client_id
+  inventory_raw_topic               = local.inventory_raw_topic
+  canary_identity_id                = module.canary_identity.resource_id
+  canary_identity_client_id         = module.canary_identity.client_id
+  canary_topic                      = local.canary_topic
+  canary_cron_expression            = var.canary_cron_expression
+  image                             = var.core_image
+  max_replicas                      = var.max_replicas
   extra_identity_ids = concat(
+    [
+      module.identity_change.resource_id,
+      module.identity_resilience.resource_id,
+      module.identity_finops.resource_id,
+    ],
     var.enable_email_notifications ? [module.notification_identity[0].resource_id] : [],
     var.enable_case_history ? [module.case_history_identity[0].resource_id] : [],
   )
@@ -1659,16 +1679,20 @@ module "measurement_runners" {
   scenario_set_version         = var.measurement_scenario_set_version
   state_store_dsn_secret_id    = azurerm_key_vault_secret.state_store_dsn.id
   environment = merge({
-    AZURE_TENANT_ID         = data.azurerm_client_config.current.tenant_id
-    AZURE_SUBSCRIPTION_ID   = data.azurerm_client_config.current.subscription_id
-    AZURE_REGION            = var.region
-    AZURE_RESOURCE_GROUP    = module.resource_group.name
-    KAFKA_BOOTSTRAP_SERVERS = module.event_bus.kafka_bootstrap
-    KAFKA_TOPIC_EVENTS      = local.event_topics[0]
-    POSTGRES_HOST           = module.state_store.fqdn
-    POSTGRES_DATABASE       = module.state_store.database_name
-    RUNTIME_ENV             = local.env_label == "day-zero" ? "dev" : local.env_label
-    FDAI_MI_CLIENT_ID       = module.identity.client_id
+    AZURE_TENANT_ID                   = data.azurerm_client_config.current.tenant_id
+    AZURE_SUBSCRIPTION_ID             = data.azurerm_client_config.current.subscription_id
+    AZURE_REGION                      = var.region
+    AZURE_RESOURCE_GROUP              = module.resource_group.name
+    KAFKA_BOOTSTRAP_SERVERS           = module.event_bus.kafka_bootstrap
+    KAFKA_TOPIC_EVENTS                = local.event_topics[0]
+    POSTGRES_HOST                     = module.state_store.fqdn
+    POSTGRES_DATABASE                 = module.state_store.database_name
+    RUNTIME_ENV                       = local.env_label == "day-zero" ? "dev" : local.env_label
+    FDAI_MI_CLIENT_ID                 = module.identity.client_id
+    T1_SIMILARITY_THRESHOLD           = tostring(var.t1_similarity_threshold)
+    T1_MIN_SUCCESS_RATE               = tostring(var.t1_min_success_rate)
+    QUALITY_GATE_CONFIDENCE_THRESHOLD = tostring(var.quality_gate_confidence_threshold)
+    QUALITY_GATE_QUORUM               = tostring(var.quality_gate_quorum)
     }, var.enable_llm ? {
     LLM_MODE                 = "azure"
     LLM_RESOLVED_MODELS_PATH = "/app/resolved-models.json"
@@ -1718,6 +1742,22 @@ module "console" {
   location            = var.console_region
   resource_group_name = module.resource_group.name
   tags                = local.tags
+}
+
+# -----------------------------------------------------------------------
+# Design mocks (opt-in) - isolated Azure Static Web App hosting only the
+# allowlisted static design-review artifact. It has no API or runtime identity.
+# -----------------------------------------------------------------------
+module "design_mocks" {
+  count  = var.enable_design_mocks ? 1 : 0
+  source = "./modules/design-mocks/static-web-app"
+
+  name                = "stapp-${var.workload}-design-mocks${local.env_suffix}-${local.static_web_app_region_shorts[var.design_mocks_region]}"
+  location            = var.design_mocks_region
+  resource_group_name = module.resource_group.name
+  tags = merge(local.tags, {
+    "fdai:component" = "design-mocks"
+  })
 }
 
 # -----------------------------------------------------------------------

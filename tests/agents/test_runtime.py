@@ -772,3 +772,21 @@ def test_hard_dependency_health_error_forces_sticky_shadow(
     assert thor.health()["shadow_forced"] is True
     assert health["hard_dependency_failures"] == {"Saga:health": "error"}
     assert health["effective_enforce"] is False
+
+
+def test_runtime_binds_initial_vertical_precedence_to_odin() -> None:
+    runtime, _ = _build()
+    odin = runtime.agents["Odin"]
+
+    decision = asyncio.run(
+        odin.arbitrate(  # type: ignore[attr-defined]
+            {
+                "correlation_id": "runtime-precedence",
+                "domains_in_conflict": ["cost", "change_safety"],
+                "impacts": {"cost": 1.0, "change_safety": 0.01},
+            }
+        )
+    )
+
+    assert decision.winning_domain == "change_safety"
+    assert decision.reason == "initial_vertical_precedence"

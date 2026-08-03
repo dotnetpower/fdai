@@ -56,7 +56,8 @@ class RecordingDirectApiExecutor(DirectApiExecutor):
             )
 
         # Idempotency: prior successful ledger hit wins.
-        prior = self._by_key.get(request.idempotency_key)
+        ledger_key = f"{request.idempotency_key}::{request.mode.value}"
+        prior = self._by_key.get(ledger_key)
         if prior is not None and prior.outcome in (
             DirectApiOutcome.SUCCEEDED,
             DirectApiOutcome.ALREADY_APPLIED,
@@ -80,7 +81,7 @@ class RecordingDirectApiExecutor(DirectApiExecutor):
             # Only cache SUCCESS-like outcomes so a subsequent retry can
             # try again cleanly.
             if forced.outcome is DirectApiOutcome.SUCCEEDED:
-                self._by_key[request.idempotency_key] = forced
+                self._by_key[ledger_key] = forced
             return forced
 
         # Default happy-path.
@@ -90,7 +91,7 @@ class RecordingDirectApiExecutor(DirectApiExecutor):
             receipt_ref=receipt_ref,
             detail=f"recorded direct-api call for {request.action_type_name}",
         )
-        self._by_key[request.idempotency_key] = receipt
+        self._by_key[ledger_key] = receipt
         self._records.append(request)
         return receipt
 
@@ -109,13 +110,19 @@ class RecordingDirectApiExecutor(DirectApiExecutor):
                 return record
         return None
 
-    def seed_outcome(self, idempotency_key: str, receipt: DirectApiReceipt) -> None:
+    def seed_outcome(
+        self,
+        idempotency_key: str,
+        receipt: DirectApiReceipt,
+        *,
+        mode: Mode = Mode.SHADOW,
+    ) -> None:
         """Pre-seed the ledger so the next execute short-circuits.
 
         Used by tests that want to prove idempotency without first
         driving a full happy-path call.
         """
-        self._by_key[idempotency_key] = receipt
+        self._by_key[f"{idempotency_key}::{mode.value}"] = receipt
 
     def next_error(self, exc: Exception) -> None:
         """Raise ``exc`` on the very next :meth:`execute` call."""

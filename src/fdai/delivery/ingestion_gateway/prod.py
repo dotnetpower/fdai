@@ -202,7 +202,13 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     )
     access = ClaimsDocumentAccessProvider()
     capabilities = IngestionCapabilities(
-        supported_formats=("text", "ooxml", "image-metadata", "pdf-detect-only"),
+        supported_formats=(
+            "text",
+            "ooxml",
+            "image-metadata",
+            "pdf-text",
+            *(("pdf-ocr",) if image_ocr is not None else ()),
+        ),
         storage_modes=tuple(SourceStorageMode),
         max_file_size=_positive_int(env, "FDAI_DOCUMENT_MAX_FILE_SIZE", 25 * 1024 * 1024),
         max_batch_count=_positive_int(env, "FDAI_DOCUMENT_MAX_BATCH_COUNT", 10),

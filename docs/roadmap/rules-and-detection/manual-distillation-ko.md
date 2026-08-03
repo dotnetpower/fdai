@@ -1,8 +1,8 @@
 ---
 title: 매뉴얼 증류(Manual Distillation)
 translation_of: manual-distillation.md
-translation_source_sha: 21716c40de966968c4496928d0b3608e49836938
-translation_revised: 2026-08-01
+translation_source_sha: 230d4a93154e52e537e0226338092b73fdb66a95
+translation_revised: 2026-08-03
 ---
 
 # 매뉴얼 증류(Manual Distillation)
@@ -54,6 +54,7 @@ RAG는 매뉴얼 질문에 런타임에 답한다: 쿼리를 임베딩하고, �
 | 판단 기준, 임계값, "~하면 안 됨" 조건 | **Rule / policy** | [rule-catalog catalog](rule-catalog-collection-ko.md), OPA/Rego |
 | 순서 있는 절차 (재시작 / 스케일 / 롤백) | **Workflow** (runbook-as-code) | [rule-catalog/workflows](../../../rule-catalog/workflows/) |
 | 상태를 바꾸는 단일 행동 | **ActionType** (`rollback_contract` 포함) | rule-catalog action-types |
+| Service, owner, objective 또는 dependency 진술 | **Ontology object / link proposal** | [문서 온톨로지 증류](document-ontology-distillation-ko.md) |
 | 배포 절차, 환경 규격 | **IaC + policy-as-code** | Terraform + 배포 게이트 |
 
 각 fragment는 카탈로그 나머지가 쓰는 동일 스키마로 정규화되고 하나의 `provenance`
@@ -263,6 +264,9 @@ abstaining 기본값을 갖는 fork seam이다.
 | Freshness + 삭제 | `diff_snapshot`, `plan_retirements` (tombstone) | `rule_catalog/pipeline/distill/freshness.py` |
 | Coverage diff | `analyze_coverage` | `rule_catalog/pipeline/distill/coverage.py` |
 | Compile seam | `Distiller` (abstaining 기본값은 아무것도 추출 안 함) | `shared/providers/distiller.py` |
+| Ontology claim inventory | `inventory_claims`, `reconcile_claims` | `rule_catalog/pipeline/distill/ontology_claims.py` |
+| Envelope provenance 및 format equivalence | `manual_document_from_envelope`, normalized claim/proposal/graph digest | `rule_catalog/pipeline/distill/ontology_ingestion.py`, `ontology_evaluation.py` |
+| Ontology proposal + verifier | strict compiler, authority/identity/evidence gate, review package | `rule_catalog/pipeline/distill/ontology_*.py` |
 | 오케스트레이터 + CLI | `build_distillation_plan`, `distill_cli` | `rule_catalog/pipeline/distill/orchestrator.py`, `distill_cli.py` |
 | Source parser id | `manual-distill` source manifest parser | `rule_catalog/schema/source_manifest.schema.json` |
 | Container 배선 | `distiller`, 기본값 `AbstainingDistiller` | `composition/` |
@@ -299,5 +303,6 @@ seam은 upstream에서 abstaining으로 유지되므로(모델 미배포), 미�
 | 규칙이 어디서 오고 YAML 형상은 무엇인가 | [rule-catalog-collection-ko.md](rule-catalog-collection-ko.md) |
 | 저작, 스코핑, 예외, 승격 | [rule-governance-ko.md](rule-governance-ko.md) |
 | Runbook-as-code 워크플로우 스키마 | [rule-catalog/workflows](../../../rule-catalog/workflows/) |
+| 근거 기반 ontology 변경 proposal | [document-ontology-distillation-ko.md](document-ontology-distillation-ko.md) |
 | 지속 품질 + T1 파이프라인 | [phase-2-quality-and-t1-ko.md](../phases/phase-2-quality-and-t1-ko.md) |
 | 고객 매뉴얼과 규칙이 사는 곳 | [downstream-fork-guide-ko.md](../fork-and-sequencing/downstream-fork-guide-ko.md) |

@@ -70,6 +70,10 @@ on:
         description: "Provision the operator console Static Web App (enable_console)."
         type: boolean
         default: false
+      deploy_design_mocks:
+        description: "Provision and publish the authenticated design-mocks Static Web App."
+        type: boolean
+        default: false
       deploy_operator_api:
         description: "Provision the console Operator API Container App + migration job (enable_operator_api)."
         type: boolean
@@ -126,9 +130,10 @@ jobs:
       TF_VAR_enable_private_networking: "true"
       TF_VAR_enable_private_postgres: ${{ inputs.environment == 'prod' }}
       TF_VAR_enable_console: ${{ inputs.deploy_console }}
+      TF_VAR_enable_design_mocks: ${{ inputs.deploy_design_mocks }}
       TF_VAR_enable_operator_api: ${{ inputs.deploy_operator_api }}
       TF_VAR_enable_dev_operations_gateway: ${{ inputs.environment == 'dev' && inputs.deploy_dev_operations_gateway }}
-      TF_CLI_ARGS_plan: ${{ inputs.deploy_dev_operations_gateway && '-target=azurerm_function_app_flex_consumption.dev_gateway[0] -target=module.compute.azurerm_container_app.core -target=module.compute.azurerm_container_app_job.canary[0] -target=module.compute.azurerm_container_app_job.inventory[0] -target=module.operator_api[0] -target=module.ingestion_gateway[0] -target=azurerm_role_assignment.inventory_eventhubs_raw_sender -target=azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0]' || '' }}
+      TF_CLI_ARGS_plan: ${{ inputs.deploy_design_mocks && '-target=module.design_mocks' || inputs.deploy_dev_operations_gateway && '-target=azurerm_function_app_flex_consumption.dev_gateway[0] -target=module.compute.azurerm_container_app.core -target=module.compute.azurerm_container_app_job.canary[0] -target=module.compute.azurerm_container_app_job.inventory[0] -target=module.operator_api[0] -target=module.ingestion_gateway[0] -target=azurerm_role_assignment.inventory_eventhubs_raw_sender -target=azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0]' || '' }}
       TF_VAR_dev_operations_gateway_private_probes_json: "${{ vars.DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON || '{}' }}"
       TF_VAR_enable_document_ingestion: ${{ inputs.deploy_document_ingestion }}
       TF_VAR_enable_llm: ${{ inputs.deploy_document_ingestion || vars.ENABLE_LLM == 'true' || vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
@@ -189,6 +194,28 @@ jobs:
         uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}
+
+      - name: Validate design-mocks-only request
+        if: ${{ inputs.deploy_design_mocks }}
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          DEPLOY_CONSOLE: ${{ inputs.deploy_console }}
+          DEPLOY_OPERATOR_API: ${{ inputs.deploy_operator_api }}
+          DEPLOY_DEV_OPERATIONS_GATEWAY: ${{ inputs.deploy_dev_operations_gateway }}
+          DEPLOY_DOCUMENT_INGESTION: ${{ inputs.deploy_document_ingestion }}
+        run: |
+          set -euo pipefail
+          if [[ "$TARGET_ENVIRONMENT" != "dev" ]]; then
+            echo "design-mocks deployment is restricted to the dev environment." >&2
+            exit 1
+          fi
+          if [[ "$DEPLOY_CONSOLE" == "true" \
+            || "$DEPLOY_OPERATOR_API" == "true" \
+            || "$DEPLOY_DEV_OPERATIONS_GATEWAY" == "true" \
+            || "$DEPLOY_DOCUMENT_INGESTION" == "true" ]]; then
+            echo "deploy_design_mocks cannot be combined with another deployment target." >&2
+            exit 1
+          fi
 
       - name: Validate remote plan request
         if: ${{ !inputs.apply && inputs.request_id != '' }}
@@ -339,6 +366,7 @@ jobs:
             -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
 
       - name: Adopt existing Azure resources
+        if: ${{ !inputs.deploy_design_mocks }}
         run: |
           set -euo pipefail
           rg="rg-fdai-${TF_VAR_env}-${TF_VAR_region_short}"
@@ -552,6 +580,34 @@ jobs:
       - name: Terraform plan
         if: ${{ !inputs.apply }}
         run: terraform plan -input=false -lock-timeout=300s -out=dev.plan
+
+      - name: Enforce design-mocks-only Terraform plan
+        if: ${{ !inputs.apply && inputs.deploy_design_mocks }}
+        run: |
+          set -euo pipefail
+          terraform show -json dev.plan > design-mocks-plan.json
+          trap 'rm -f design-mocks-plan.json' EXIT
+          python3 - <<'PY'
+          import json
+
+          with open("design-mocks-plan.json", encoding="utf-8") as stream:
+            plan = json.load(stream)
+          allowed = {
+              "module.design_mocks[0].azurerm_static_web_app.design_mocks",
+          }
+          changed = {
+              str(change.get("address", "unknown"))
+              for change in plan.get("resource_changes", [])
+              if change.get("change", {}).get("actions", []) not in (["no-op"], ["read"])
+          }
+          unexpected = sorted(changed.difference(allowed))
+          if unexpected:
+            print("Design-mocks-only plan contains changes outside the Static Web App:")
+            for address in unexpected:
+              print(f"- {address}")
+            raise SystemExit(1)
+          print(f"Design-mocks-only plan accepted: {sorted(changed)}")
+          PY
 
       - name: Reject destructive protected plan
         if: ${{ !inputs.apply && inputs.request_id != '' }}
@@ -991,7 +1047,7 @@ jobs:
           fi
 
       - name: Reconcile Foundry web-search agent
-        if: ${{ inputs.apply && vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
+        if: ${{ inputs.apply && !inputs.deploy_design_mocks && vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
         env:
           WEB_SEARCH_ALLOWED_DOMAINS_JSON: "${{ vars.OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}"
         run: |
@@ -1131,6 +1187,68 @@ jobs:
             --spa-client-id "$ENTRA_CONSOLE_SPA_CLIENT_ID" \
             --origin "https://$hostname"
 
+      - name: Build allowlisted design-mocks artifact
+        if: ${{ inputs.apply && inputs.deploy_design_mocks }}
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/deployment/azure/build_design_mocks_artifact.py tmp/design-mocks-dist
+
+      - name: Read design-mocks deployment token
+        if: ${{ inputs.apply && inputs.deploy_design_mocks }}
+        id: design_mocks_token
+        run: |
+          set -euo pipefail
+          resource_id="$(terraform output -raw design_mocks_static_web_app_id)"
+          if [[ -z "$resource_id" ]]; then
+            echo "design-mocks Static Web App id is unavailable after apply." >&2
+            exit 1
+          fi
+          token="$(az rest --method post \
+            --url "https://management.azure.com${resource_id}/listSecrets?api-version=2023-12-01" \
+            --query properties.apiKey -o tsv)"
+          if [[ -z "$token" ]]; then
+            echo "design-mocks deployment token is unavailable." >&2
+            exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      - name: Publish design-mocks static artifact
+        if: ${{ inputs.apply && inputs.deploy_design_mocks }}
+        working-directory: ${{ github.workspace }}
+        env:
+          SWA_CLI_DEPLOYMENT_TOKEN: ${{ steps.design_mocks_token.outputs.token }}
+        run: |
+          npx --yes @azure/static-web-apps-cli@2.0.10 deploy \
+            tmp/design-mocks-dist --env production
+
+      - name: Verify design-mocks authentication boundary
+        if: ${{ inputs.apply && inputs.deploy_design_mocks }}
+        run: |
+          set -euo pipefail
+          hostname="$(terraform output -raw design_mocks_default_hostname)"
+          if [[ -z "$hostname" ]]; then
+            echo "design-mocks hostname is unavailable after deployment." >&2
+            exit 1
+          fi
+          authenticated=false
+          for _ in $(seq 1 12); do
+            headers="$(mktemp)"
+            status="$(curl --silent --show-error --dump-header "$headers" \
+              --output /dev/null --connect-timeout 5 --max-time 10 \
+              --write-out '%{http_code}' "https://$hostname/" || true)"
+            if [[ "$status" == "302" ]] && grep -qi '^location:.*[.]auth/login/aad' "$headers"; then
+              authenticated=true
+              rm -f "$headers"
+              break
+            fi
+            rm -f "$headers"
+          done
+          if [[ "$authenticated" != "true" ]]; then
+            echo "design-mocks site did not enforce the Entra authentication redirect." >&2
+            exit 1
+          fi
+          echo "Design mocks: https://$hostname" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Run schema migration
         if: ${{ inputs.apply && (inputs.deploy_operator_api || inputs.deploy_document_ingestion) }}
         run: |
@@ -1200,7 +1318,7 @@ jobs:
           done
 
       - name: Run canary publisher smoke
-        if: ${{ inputs.apply }}
+        if: ${{ inputs.apply && !inputs.deploy_design_mocks }}
         run: |
           set -euo pipefail
           rg="$(terraform output -raw resource_group_name)"

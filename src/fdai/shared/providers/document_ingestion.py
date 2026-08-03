@@ -174,7 +174,7 @@ class DocumentExtractor(Protocol):
 
 @runtime_checkable
 class ImageOcrProvider(Protocol):
-    """Extract bounded, cited text units from one image source."""
+    """Extract bounded, cited text units from one image or scanned PDF source."""
 
     async def extract(
         self,

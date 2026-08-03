@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 9b9dff68e152da5716bc1661fe4e1d6005a2c27c
+translation_source_sha: 51eb00305f8fecb916d0356f85df4d4752760c9d
 translation_revised: 2026-08-03
 ---
 
@@ -113,7 +113,7 @@ flowchart TD
   Web Investigation은 수신한 branch frame만 elapsed time, typed badge 및 staggered status row로 animate합니다. Terminal investigation은 final answer 옆에 session header와 observed step을 계속 표시하며 redacted command output과 timestamp만 disclosure에 접어 둡니다. Observed execution step과 연결된 source branch는 별도 row로 반복하지 않고 해당 step에 한 번만 표시합니다. Full workspace는 desktop transcript에 최소 760 px을 확보하고 mobile viewport에서는 horizontal overflow 없이 전체 폭을 사용합니다. Phase marker, 15 px conversation scale, 하나의 dark command/code surface로 production hierarchy를 execution mock과 맞춥니다. Browser는 작업을 replay하거나 progress를 invent하지 않습니다.
   Observed activity는 required `input_kind` contract로 실제 process command와 canonical server query를
   구분합니다. Inventory, subscription-health 및 read-investigation activity는 `query`를 사용합니다.
-  Verifier가 승인한 typed query, authority, snapshot provenance 및 bounded result summary를 렌더링하며
+  Verifier가 승인한 typed query, authority, snapshot provenance 및 bounded result projection을 렌더링하며
   Azure CLI argv 또는 exit code를 만들지 않습니다. Process invocation을 기록한 provider receipt만
   `command`를 사용합니다. Web은 해당 row를 `QUERY`로 표시하고 Slack 및 Teams도 같은 Query label을
   사용하며 durable replay가 이 구분을 보존합니다.

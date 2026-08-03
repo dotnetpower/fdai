@@ -359,6 +359,7 @@ class ToolCallShadowExecutor:
                 "tool_ref": action.target_resource_ref,
                 "action_type": action.action_type,
                 "operation": action.operation.value,
+                "executor_identity_ref": action.executor_identity_ref,
                 "blast_radius_scope": action.blast_radius.scope.value,
             },
         )
@@ -403,6 +404,7 @@ class ToolCallShadowExecutor:
             "reason": result.reason,
             "tool_ref": action.target_resource_ref,
             "operation": action.operation.value,
+            "executor_identity_ref": action.executor_identity_ref,
             "rollback_kind": action.rollback_ref.kind.value,
             "rollback_reference": action.rollback_ref.reference,
             "stop_condition": action.stop_condition,

@@ -85,6 +85,7 @@ def test_context_digest_binds_every_feature_flag() -> None:
     baseline = deployment_context_digest(_context())
 
     assert baseline != deployment_context_digest(replace(_context(), deploy_console=True))
+    assert baseline != deployment_context_digest(replace(_context(), deploy_design_mocks=True))
     assert baseline != deployment_context_digest(replace(_context(), deploy_operator_api=True))
     assert baseline != deployment_context_digest(
         replace(_context(), deploy_dev_operations_gateway=True)
@@ -92,6 +93,11 @@ def test_context_digest_binds_every_feature_flag() -> None:
     assert baseline != deployment_context_digest(
         replace(_context(), deploy_document_ingestion=True)
     )
+
+
+def test_design_mocks_context_rejects_other_targets() -> None:
+    with pytest.raises(ValueError, match="cannot be combined"):
+        replace(_context(), deploy_design_mocks=True, deploy_console=True)
 
 
 def test_apply_guard_accepts_matching_digest_only_metadata() -> None:

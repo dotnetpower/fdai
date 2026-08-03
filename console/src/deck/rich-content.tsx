@@ -32,6 +32,7 @@ import {
   injectCiteMarks,
   parseAnswer,
   parseInline,
+  parseStreamingAnswer,
   type ChartDatum,
   type ChartSpec,
   type InlineCiteMark,
@@ -459,21 +460,14 @@ export function RichContent({
    *  while streaming, to avoid chips flickering mid-token). */
   readonly citeMarks?: readonly InlineCiteMark[] | undefined;
 }) {
-  if (streaming) {
-    return (
-      <div class="deck-rich is-streaming">
-        <TextBlock text={text} caret />
-      </div>
-    );
-  }
-  const segments = parseAnswer(text);
+  const segments = streaming ? parseStreamingAnswer(text) : parseAnswer(text);
   if (segments.length === 0) {
     return streaming ? <span class="deck-gr-caret" aria-hidden="true" /> : null;
   }
   const marks = streaming ? undefined : citeMarks;
   const lastIsText = segments[segments.length - 1]?.kind === "text";
   return (
-    <div class="deck-rich">
+    <div class={`deck-rich${streaming ? " is-streaming" : ""}`}>
       {segments.map((seg, i) => {
         const isLast = i === segments.length - 1;
         if (seg.kind === "text") {

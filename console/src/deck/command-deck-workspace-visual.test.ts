@@ -28,4 +28,10 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toContain(".deck-btn:focus-visible,");
     expect(styles).toContain("outline: 2px solid var(--accent);");
   });
+
+  test("reflows execution details from the deck container width", () => {
+    expect(styles).toContain("container-name: deck-transcript;");
+    expect(styles).toContain("@container deck-transcript (max-width: 620px)");
+    expect(styles).toContain("grid-template-columns: 58px minmax(0, 1fr) auto 9px;");
+  });
 });

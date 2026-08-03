@@ -182,6 +182,46 @@ variable "enable_llm" {
   default     = false
 }
 
+variable "t1_similarity_threshold" {
+  description = "Cosine-similarity floor for T1 learned-action reuse."
+  type        = number
+  default     = 0.8
+  validation {
+    condition     = var.t1_similarity_threshold >= 0 && var.t1_similarity_threshold <= 1
+    error_message = "t1_similarity_threshold must be between 0 and 1."
+  }
+}
+
+variable "t1_min_success_rate" {
+  description = "Historical-success floor for T1 learned-action reuse."
+  type        = number
+  default     = 0.9
+  validation {
+    condition     = var.t1_min_success_rate >= 0 && var.t1_min_success_rate <= 1
+    error_message = "t1_min_success_rate must be between 0 and 1."
+  }
+}
+
+variable "quality_gate_confidence_threshold" {
+  description = "Aggregate deterministic confidence floor for the T2 quality gate."
+  type        = number
+  default     = 0.7
+  validation {
+    condition     = var.quality_gate_confidence_threshold >= 0 && var.quality_gate_confidence_threshold <= 1
+    error_message = "quality_gate_confidence_threshold must be between 0 and 1."
+  }
+}
+
+variable "quality_gate_quorum" {
+  description = "Minimum number of agreeing independent cross-check models."
+  type        = number
+  default     = 2
+  validation {
+    condition     = var.quality_gate_quorum >= 2 && floor(var.quality_gate_quorum) == var.quality_gate_quorum
+    error_message = "quality_gate_quorum must be an integer greater than or equal to 2."
+  }
+}
+
 variable "resolved_capabilities" {
   description = "Resolved LLM capabilities produced by the bootstrap resolver (fdai.rule_catalog.schema.llm_resolver_cli). Entries with status='hil-only' MUST be filtered out before being passed here."
   type = list(object({
@@ -581,6 +621,23 @@ variable "console_region" {
   validation {
     condition     = contains(["westus2", "centralus", "eastus2", "westeurope", "eastasia"], var.console_region)
     error_message = "console_region must be an Azure Static Web Apps region: westus2, centralus, eastus2, westeurope, eastasia."
+  }
+}
+
+variable "enable_design_mocks" {
+  description = "Provision the isolated Azure Static Web App for the allowlisted design-review artifact."
+  type        = bool
+  default     = false
+}
+
+variable "design_mocks_region" {
+  description = "Region for the design-mocks Static Web App. This is decoupled from var.region because Static Web Apps is not available in every region."
+  type        = string
+  default     = "eastasia"
+
+  validation {
+    condition     = contains(["westus2", "centralus", "eastus2", "westeurope", "eastasia"], var.design_mocks_region)
+    error_message = "design_mocks_region must be an Azure Static Web Apps region: westus2, centralus, eastus2, westeurope, eastasia."
   }
 }
 

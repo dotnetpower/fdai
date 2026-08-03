@@ -36,6 +36,8 @@ def test_dev_gateway_serves_direct_upload_capabilities(
     assert payload["direct_upload"] is True
     assert payload["max_batch_count"] == 10
     assert "text" in payload["supported_formats"]
+    assert "pdf-text" in payload["supported_formats"]
+    assert "pdf-ocr" not in payload["supported_formats"]
 
 
 def test_dev_gateway_accepts_explicit_cors_origins(

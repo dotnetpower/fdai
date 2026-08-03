@@ -161,7 +161,8 @@ selected public web. This includes colloquial database state filters such as `st
 retain the server-owned inventory branch and don't start agent or public-web branches. Explicit
 web-search wording is the only exception. The observed activity carries the complete verifier-
 accepted inventory query through rerun and durable replay. It is labeled as a query and never
-reconstructed as provider-specific command text. An explicit
+reconstructed as provider-specific command text. Its result retains the bounded, redacted detailed
+projection as valid JSON, including explicit collection omission counts. An explicit
 subscription-scoped inventory question is a
 new server-owned cross-screen read, so unrelated current-screen facts cannot replace or block it.
 Status facets remain scoped to the selected resource

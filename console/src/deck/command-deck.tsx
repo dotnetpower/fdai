@@ -132,6 +132,7 @@ export function CommandDeck() {
     moveSearch,
     onTranscriptScroll,
     pinTranscriptToLatest,
+    revealCompletedWork,
     scrollerRef,
     searchMatches,
     searchQuery,
@@ -241,6 +242,7 @@ export function CommandDeck() {
     updateConversationIndex,
     focusInput,
     pinTranscriptToLatest,
+    revealCompletedWork,
   });
 
   const clearTurns = useCallback(() => {
