@@ -89,7 +89,8 @@ arrived.
 
 This matters for what gets built later rather than for what exists today. Revocation, reuse
 detection, and audit correlation all key on the token; each would be built on an identifier that is
-not unique.
+not unique. Leading or trailing whitespace is also a different spelling and is rejected rather than
+trimmed before parsing.
 
 ## Resolution and degradation
 

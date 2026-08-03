@@ -1,8 +1,8 @@
 ---
 title: Capability 라이선싱
 translation_of: capability-licensing.md
-translation_source_sha: 8dc4c70159a21aa49c0d323d7c80097768955cc5
-translation_revised: 2026-07-27
+translation_source_sha: 7139dc70bd45f6e5e448b90455bc41d4a4ec6f88
+translation_revised: 2026-08-03
 ---
 # Capability 라이선싱
 
@@ -86,7 +86,8 @@ License의 유효한 표기는 정확히 하나입니다. 대부분의 표준 �
 세그먼트로 다시 인코딩되어야 합니다.
 
 이는 지금 있는 것보다 앞으로 만들 것에 관한 문제입니다. Revocation, 재사용 탐지, 감사 상관관계는
-모두 token을 키로 삼습니다. 각각이 고유하지 않은 식별자 위에 세워지게 됩니다.
+모두 token을 키로 삼습니다. 각각이 고유하지 않은 식별자 위에 세워지게 됩니다. 앞뒤 공백도 다른
+표기로 취급하며, parsing 전에 잘라내는 대신 거부합니다.
 
 ## 해석과 저하
 

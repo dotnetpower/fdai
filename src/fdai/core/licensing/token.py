@@ -130,7 +130,7 @@ def parse_license_token(token: str) -> tuple[LicenseClaims, bytes, bytes]:
     """
     if not token or len(token) > _MAX_TOKEN_CHARS:
         raise LicenseTokenError("license token is empty or exceeds the supported length")
-    parts = token.strip().split(".")
+    parts = token.split(".")
     if len(parts) != 2:
         raise LicenseTokenError("license token MUST be document.signature")
     document = _b64decode(parts[0], "document")

@@ -120,6 +120,15 @@ def test_malformed_tokens_are_rejected(token: str) -> None:
         parse_license_token(token)
 
 
+@pytest.mark.parametrize("filler", [" ", "\n", "\t", "\r\n"])
+def test_outer_whitespace_is_not_a_second_spelling_of_the_same_token(filler: str) -> None:
+    token = _token(_claims())
+
+    for variant in (f"{filler}{token}", f"{token}{filler}"):
+        with pytest.raises(LicenseTokenError, match="base64url"):
+            parse_license_token(variant)
+
+
 def test_unknown_document_fields_are_rejected() -> None:
     """An unknown field could carry an entitlement the runtime ignores."""
     document = json.loads(_claims().canonical_document())
