@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 037959e621a6f2f6143d1ece121a17dc5e9d14bd
+translation_source_sha: 83ffcfb0edb02837d8406b410acf618593dfb82a
 translation_revised: 2026-08-03
 ---
 
@@ -189,6 +189,9 @@ Runbook, knowledge-source, memory 및 learning continuation은 rerun 전에 선�
 assistant turn을 유지합니다. JSON과 SSE에서 동일한 read-only knowledge provider를 사용하고 다른 incident
 또는 resource로 범위를 넓히지 않으며 queued 또는 steered prose를 memory, review, proposal, approval 또는
 skill lifecycle write로 바꾸지 않습니다.
+Verified fresh inventory answer는 최대 40개의 bounded selector로 구성된 versioned result set도 유지할 수
+있습니다. Replay는 source, snapshot, scope, query digest, freshness 및 truncation을 저장하지만 raw
+resource ID는 저장하지 않습니다. Client는 이 result set을 제공하거나 확장할 수 없습니다.
 
 ## Queue 동작
 

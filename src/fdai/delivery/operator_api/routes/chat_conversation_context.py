@@ -13,6 +13,9 @@ from fdai.delivery.operator_api.routes.chat_freshness_context import (
     parse_evidence_freshness_context,
 )
 from fdai.delivery.operator_api.routes.chat_history import completed_replay_payload
+from fdai.delivery.operator_api.routes.chat_resource_result_context import (
+    parse_resource_result_context,
+)
 from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
 from fdai.shared.providers.user_context import (
     ConversationHistoryStore,
@@ -104,6 +107,7 @@ class VerifiedPriorContext:
     evidence_refs: tuple[str, ...]
     reason_code: str | None = None
     resource_context: Mapping[str, str] | None = None
+    resource_result_context: Mapping[str, Any] | None = None
     evidence_freshness_context: Mapping[str, object] | None = None
     truncated: bool = False
 
@@ -119,6 +123,11 @@ class VerifiedPriorContext:
             "reason_code": self.reason_code,
             "resource_context": (
                 dict(self.resource_context) if self.resource_context is not None else None
+            ),
+            "resource_result_context": (
+                dict(self.resource_result_context)
+                if self.resource_result_context is not None
+                else None
             ),
             "evidence_freshness_context": (
                 dict(self.evidence_freshness_context)
@@ -204,6 +213,9 @@ async def load_verified_prior_context(
             )
         )
         resource_context = _bounded_resource_context(payload.get("resource_context"))
+        resource_result_context = parse_resource_result_context(
+            payload.get("resource_result_context")
+        )
         try:
             freshness = parse_evidence_freshness_context(payload.get("evidence_freshness_context"))
         except ValueError:
@@ -219,6 +231,7 @@ async def load_verified_prior_context(
             evidence_refs=evidence_refs,
             reason_code=reason_code,
             resource_context=resource_context,
+            resource_result_context=resource_result_context,
             evidence_freshness_context=(freshness.to_dict() if freshness is not None else None),
             truncated=len(turn.content) > len(answer),
         )

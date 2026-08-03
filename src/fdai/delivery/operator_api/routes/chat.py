@@ -219,6 +219,9 @@ from fdai.delivery.operator_api.routes.chat_resource_context import (
     resource_followup_verification,
     response_resource_context,
 )
+from fdai.delivery.operator_api.routes.chat_resource_result_context import (
+    response_resource_result_context,
+)
 from fdai.delivery.operator_api.routes.chat_route_common import (
     DEFAULT_MAX_CHAT_BODY_BYTES,
     DEFAULT_MAX_SESSION_ID_CHARS,
@@ -1043,6 +1046,12 @@ def make_chat_route(
         selected_resource = response_resource_context(view_context, resource_context)
         if selected_resource is not None:
             enriched["resource_context"] = selected_resource
+        resource_result_context = response_resource_result_context(
+            view_context,
+            verification_status=verification.status,
+        )
+        if resource_result_context is not None:
+            enriched["resource_result_context"] = resource_result_context
         selected_freshness = response_evidence_freshness_context(view_context, freshness_context)
         if selected_freshness is not None:
             enriched["evidence_freshness_context"] = selected_freshness.to_dict()

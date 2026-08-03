@@ -1,0 +1,84 @@
+from fdai.delivery.operator_api.routes.chat_resource_result_context import (
+    parse_resource_result_context,
+    response_resource_result_context,
+)
+
+
+def _view_context(*, freshness: str = "fresh") -> dict[str, object]:
+    return {
+        "_tool_evidence": {
+            "tool": "query_inventory",
+            "authority": "server_inventory_graph",
+            "result": {
+                "status": "matched",
+                "source": "azure-resource-graph",
+                "snapshot_at": "2026-07-20T10:00:00Z",
+                "freshness": freshness,
+                "matched_count": 2,
+                "truncated": False,
+                "query": {
+                    "source": "current",
+                    "kind": "list",
+                    "predicates": [],
+                    "scope": "subscription",
+                },
+                "resources": [
+                    {
+                        "id": "/subscriptions/example/resourceGroups/rg-example/providers/a/one",
+                        "name": "app-one",
+                        "type": "compute.app",
+                        "resource_group": "rg-example",
+                        "location": "koreacentral",
+                        "status": "running",
+                    },
+                    {
+                        "id": "/subscriptions/example/resourceGroups/rg-example/providers/a/two",
+                        "name": "app-two",
+                        "type": "compute.app",
+                        "resource_group": "rg-example",
+                        "location": "koreacentral",
+                        "status": "stopped",
+                    },
+                ],
+            },
+        }
+    }
+
+
+def test_verified_fresh_inventory_projects_bounded_replay_context() -> None:
+    context = response_resource_result_context(_view_context(), verification_status="verified")
+
+    assert context is not None
+    assert context["schema_version"] == 1
+    assert context["scope"] == "subscription"
+    assert len(context["query_digest"]) == 64
+    assert context["resources"][1] == {
+        "name": "app-two",
+        "resource_type": "compute.app",
+        "resource_group": "rg-example",
+        "location": "koreacentral",
+        "status": "stopped",
+    }
+    assert "subscriptions" not in str(context)
+    assert parse_resource_result_context(context) == context
+
+
+def test_unverified_or_stale_inventory_does_not_create_replay_context() -> None:
+    assert (
+        response_resource_result_context(_view_context(), verification_status="unverified") is None
+    )
+    assert (
+        response_resource_result_context(
+            _view_context(freshness="stale"), verification_status="verified"
+        )
+        is None
+    )
+
+
+def test_replay_context_rejects_partial_or_unknown_shapes() -> None:
+    context = response_resource_result_context(_view_context(), verification_status="verified")
+    assert context is not None
+
+    assert parse_resource_result_context({**context, "schema_version": 2}) is None
+    malformed = {**context, "resources": [context["resources"][0], {}]}
+    assert parse_resource_result_context(malformed) is None

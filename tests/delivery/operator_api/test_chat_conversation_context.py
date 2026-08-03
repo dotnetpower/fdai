@@ -14,6 +14,7 @@ from fdai.delivery.operator_api.routes.chat_conversation_context import (
     ConversationContextChatTools,
     ConversationContextIntent,
     classify_conversation_context_intent,
+    load_verified_prior_context,
 )
 from fdai.delivery.operator_api.routes.chat_current_time import CurrentTimeChatTools
 from fdai.delivery.operator_api.routes.chat_history import replay_metadata
@@ -225,6 +226,7 @@ async def _seed_assistant_turn(
     reason_code: str | None = None,
     evidence_refs: tuple[str, ...] = (),
     resource_context: dict[str, str] | None = None,
+    resource_result_context: dict[str, object] | None = None,
 ) -> None:
     now = datetime.now(UTC)
     await store.create_conversation(
@@ -248,6 +250,11 @@ async def _seed_assistant_turn(
             "reason_code": reason_code,
         },
         **({"resource_context": resource_context} if resource_context is not None else {}),
+        **(
+            {"resource_result_context": resource_result_context}
+            if resource_result_context is not None
+            else {}
+        ),
     }
     await store.append_turn(
         ConversationTurnRecord(
@@ -263,6 +270,46 @@ async def _seed_assistant_turn(
         ),
         allocate_index=True,
     )
+
+
+def test_loads_durable_server_owned_resource_result_context() -> None:
+    store = InMemoryConversationHistoryStore()
+    result_context: dict[str, object] = {
+        "schema_version": 1,
+        "authority": "server_inventory_graph",
+        "source": "azure-resource-graph",
+        "snapshot_at": "2026-07-20T10:00:00Z",
+        "freshness": "fresh",
+        "scope": "subscription",
+        "query_digest": "a" * 64,
+        "evidence_ref": "inventory:azure-resource-graph@2026-07-20T10:00:00Z",
+        "truncated": False,
+        "resources": [
+            {"name": "app-one", "resource_type": "compute.app", "status": "running"},
+            {"name": "app-two", "resource_type": "compute.app", "status": "stopped"},
+        ],
+    }
+    asyncio.run(
+        _seed_assistant_turn(
+            store,
+            session_id="context-result-set",
+            answer="Two resources were observed.",
+            status="verified",
+            authority="server_inventory_graph",
+            resource_result_context=result_context,
+        )
+    )
+
+    loaded = asyncio.run(
+        load_verified_prior_context(
+            store=store,
+            principal_id="reader",
+            conversation_id="context-result-set",
+        )
+    )
+
+    assert loaded is not None
+    assert loaded.resource_result_context == result_context
 
 
 def _context_client(

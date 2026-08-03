@@ -16,6 +16,9 @@ from fdai.delivery.operator_api.routes.chat_freshness_context import EvidenceFre
 from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
     public_intent_graph_evidence,
 )
+from fdai.delivery.operator_api.routes.chat_resource_result_context import (
+    response_resource_result_context,
+)
 from fdai.delivery.operator_api.routes.chat_route_common import assurance_policy_summary
 from fdai.delivery.operator_api.routes.chat_verification import AnswerVerification
 
@@ -203,6 +206,12 @@ def build_done_payload(
         payload["answer_quality"] = quality.to_dict()
     if resource_context is not None:
         payload["resource_context"] = dict(resource_context)
+    resource_result_context = response_resource_result_context(
+        enriched_context,
+        verification_status=verification.status,
+    )
+    if resource_result_context is not None:
+        payload["resource_result_context"] = resource_result_context
     if freshness_context is not None:
         payload["evidence_freshness_context"] = freshness_context.to_dict()
     if model_trace is not None:

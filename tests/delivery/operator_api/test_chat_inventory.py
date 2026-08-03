@@ -2563,6 +2563,11 @@ def test_managed_scope_inventory_skips_semantic_planner(stream: bool, prompt: st
     assert payload is not None
     assert payload["verification"]["authority"] == "server_inventory_graph"
     assert payload["verification"]["reason_code"] == "inventory_snapshot_grounded"
+    result_context = payload["resource_result_context"]
+    assert result_context["schema_version"] == 1
+    assert result_context["freshness"] == "fresh"
+    assert len(result_context["resources"]) >= 2
+    assert all("id" not in resource for resource in result_context["resources"])
 
 
 def test_resource_followup_reuses_verified_selector_without_planner_or_web() -> None:
