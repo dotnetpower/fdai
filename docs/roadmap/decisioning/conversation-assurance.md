@@ -256,6 +256,12 @@ subscription-safe scope, intent, agent, locale, policy version, rubric version, 
 English and Korean use the same scenario intents and thresholds. A locale gap outside its configured
 confidence interval blocks promotion.
 
+Manual and browser campaign runs append one bounded local JSONL result per QID, variant, and fresh
+or positive mode through `scripts/quality/conversation-assurance-ledger.py`. Each record stores the
+expected and actual authority, status, optional reason, checks, model-call count, commit, and
+timezone-aware timestamp. It derives `passed` and `unexpected_unverified`, stores no prompt or
+environment identifier, rejects symlink outputs, and keeps the ignored output file at mode `0600`.
+
 ## Related docs
 
 | To learn about | Read |

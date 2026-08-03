@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: a78c9333eca9a459c8842c5f1350b385b53236c2
-translation_revised: 2026-07-31
+translation_source_sha: 26215e5467e9c942cae8692f0c18260be4ad749d
+translation_revised: 2026-08-04
 ---
 # 대화 품질 보증
 
@@ -249,6 +249,12 @@ p95 지연, 승격 및 롤백을 보고합니다.
 
 영어와 한국어에는 같은 시나리오 intent와 임계값을 적용합니다. 구성된 신뢰 구간 밖의 locale
 격차는 승격을 차단합니다.
+
+Manual 및 browser campaign run은 `scripts/quality/conversation-assurance-ledger.py`를 통해 QID,
+variant 및 fresh 또는 positive mode별 bounded local JSONL result 하나를 append합니다. 각 record는
+expected 및 actual authority, status, optional reason, check, model-call count, commit 및 timezone-aware
+timestamp를 저장합니다. `passed`와 `unexpected_unverified`를 derive하고 prompt 또는 environment
+identifier는 저장하지 않으며 symlink output을 거부하고 ignored output file을 mode `0600`으로 유지합니다.
 
 ## 관련 문서
 
