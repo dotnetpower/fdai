@@ -11,8 +11,10 @@ from fdai.core.rbac.resolver import GroupMapping
 from fdai.core.report_feed import ReportFeed
 from fdai.core.reporting.composition import default_reporting_engine
 from fdai.core.reporting.datasources import AuditReader
+from fdai.core.risk_gate import OntologyChangeWindowEvidenceProvider
 from fdai.core.views import ViewEngine, load_view_catalog, load_workflow_app_catalog
 from fdai.core.workflow.approval import WorkflowApprovalPlanner
+from fdai.core.workflow.gate_resolver import ChangeWindowWorkflowGuardEvaluator
 from fdai.core.workflow.orchestrator import WorkflowOrchestrator
 from fdai.core.workflow.outcome_verification import StateStoreWorkflowOutcomeLedger
 from fdai.delivery.operator_api.postgres_read_model import PostgresConsoleReadModel
@@ -129,6 +131,13 @@ def _build_dynamic_views(
             connect_timeout_s=connect_timeout_s,
         )
     )
+    workflow_guard = ChangeWindowWorkflowGuardEvaluator(
+        change_windows=OntologyChangeWindowEvidenceProvider(ontology_store),
+        fallback=ArchitectureReviewProductionGateEvaluator(
+            manifest_path=_REPO_ROOT / "config" / "architecture-review.yaml",
+            repo_root=_REPO_ROOT,
+        ),
+    )
     workflow_execution = WorkflowExecutionConfig(
         workflows=tuple(workflows),
         orchestrator=WorkflowOrchestrator(
@@ -140,10 +149,7 @@ def _build_dynamic_views(
             action_types=action_types_by_name,
             audit_store=workflow_state_store,
             process_store=process_store,
-            guard_evaluator=ArchitectureReviewProductionGateEvaluator(
-                manifest_path=_REPO_ROOT / "config" / "architecture-review.yaml",
-                repo_root=_REPO_ROOT,
-            ),
+            guard_evaluator=workflow_guard,
             outcome_verifier=StateStoreWorkflowOutcomeLedger(workflow_state_store),
         ),
     )

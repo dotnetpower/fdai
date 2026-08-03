@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 111f0201634466b28c2590d0ad3977f5a78b9a81
+translation_source_sha: 18015e862b22c38a3ae9e04cae29f81d5af5dee5
 translation_revised: 2026-08-04
 ---
 
@@ -243,6 +243,20 @@ hold를 기록합니다. Headless control loop는 모든 ordinary Action 전에 
 `deny`를 반환합니다. Hold read가 실패하거나 malformed여도 deny합니다. Read path는 이 mutation
 gate를 사용하지 않습니다. 별도로 승인된 Vidar recovery bypass와 검증된 hold release는 아직
 구현되지 않았으므로 현재 runtime은 held target의 모든 mutation을 보수적으로 차단합니다.
+
+`ChangeWindowWorkflowGuardEvaluator`는 정확한 Process target과 evaluation time으로
+`gate_ref: change-window.active`를 resolve합니다. 다른 ref는 기존 guard evaluator에 delegate하므로
+architecture-review production gate는 그대로 유지됩니다. Shipped `planned-vm-start-change`
+workflow는 active window, Owner quorum, `ops.start-vm`, 독립 outcome verification, change summary,
+`ops.deallocate-vm` compensation의 재사용 가능한 전체 pattern을 보여 줍니다. Versioned workflow
+design이 이 ActionType들을 pin하며 runtime에서 arbitrary mutation을 선택하는 방식은 의도적으로
+지원하지 않습니다.
+
+Public workflow run route는 declared parameter substitution에만 context를 사용합니다.
+`requester.principal`은 항상 authenticated operator로 교체하고 caller가 제공한 `approval.*`,
+`action.*`, `compensation.*`, `decision.*`, `parallel.*`, `requester.*`, `wait.*` key는
+거부합니다. 이 namespace는 server-owned Process evidence입니다. Public request는 approval quorum,
+action success, recovery 또는 control-step progress를 만들 수 없습니다.
 
 ## 6. 거버넌스
 

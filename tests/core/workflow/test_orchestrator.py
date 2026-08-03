@@ -249,6 +249,11 @@ def _compensated_workflow() -> Workflow:
                 id="apply_first",
                 action_type_ref="remediate.auto",
                 compensated_by="ops.gated",
+                params={
+                    "resource_group": "example-rg",
+                    "vm_name": "example-vm",
+                    "reason": "Apply the planned example change.",
+                },
             ),
             WorkflowStep(id="apply_second", action_type_ref="remediate.auto"),
         ],
@@ -427,6 +432,11 @@ async def test_enforce_failure_dispatches_reverse_compensation_and_waits_for_rec
         "apply_second",
         "compensate_apply_first",
     ]
+    assert dispatcher.calls[2]["params"] == {
+        "resource_group": "example-rg",
+        "vm_name": "example-vm",
+        "reason": "Apply the planned example change.",
+    }
     events = await process_store.events(recovering.process_id)
     compensation = [
         event for event in events if event.kind is ProcessEventKind.COMPENSATION_STARTED

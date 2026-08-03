@@ -31,6 +31,15 @@ MAX_CONTEXT_ENTRIES: Final[int] = 100
 MAX_CONTEXT_VALUE_CHARS: Final[int] = 2_000
 MAX_IDENTIFIER_CHARS: Final[int] = 200
 _RUN_CAPABILITY: Final[Capability] = Capability.AUTHOR_DRAFT_PR
+_RESERVED_CONTEXT_PREFIXES: Final[tuple[str, ...]] = (
+    "action.",
+    "approval.",
+    "compensation.",
+    "decision.",
+    "parallel.",
+    "requester.",
+    "wait.",
+)
 
 AuthorizePrincipal = Callable[[Request], Awaitable[Principal]]
 
@@ -103,7 +112,7 @@ def make_workflow_run_route(
             max_chars=MAX_IDENTIFIER_CHARS,
         )
         context = _context(raw.get("context"))
-        context.setdefault("requester.principal", principal.oid)
+        context["requester.principal"] = principal.oid
 
         run = await config.orchestrator.run(
             workflow,
@@ -242,6 +251,11 @@ def _context(value: object) -> dict[str, str]:
             )
         if len(key) > MAX_IDENTIFIER_CHARS or len(item) > MAX_CONTEXT_VALUE_CHARS:
             raise HTTPException(status_code=400, detail="context key or value is too long")
+        if key.startswith(_RESERVED_CONTEXT_PREFIXES):
+            raise HTTPException(
+                status_code=400,
+                detail=f"context key {key!r} is reserved for server-owned workflow state",
+            )
         normalized[key] = item
     return normalized
 

@@ -1,0 +1,42 @@
+schema_version: "1.0.0"
+name: planned-vm-start-change
+version: "1.0.0"
+description: >-
+  Start one planned virtual machine inside an active change window, with
+  independent approval, outcome verification, summary, and compensation.
+trigger:
+  kind: signal
+  signal_type: change.request.submitted
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 21
+  min_samples: 40
+  min_accuracy: 0.98
+  max_policy_escapes: 0
+steps:
+  - id: change_window
+    kind: gate
+    gate_ref: change-window.active
+  - id: change_approval
+    kind: approval
+    approval_role: owner
+    quorum: 2
+    no_self_approval: true
+    timeout_seconds: 3600
+  - id: start_vm
+    kind: action
+    action_type_ref: ops.start-vm
+    compensated_by: ops.deallocate-vm
+    params:
+      resource_group: "${change.resource_group}"
+      vm_name: "${change.vm_name}"
+      reason: "${change.reason}"
+  - id: publish_summary
+    kind: action
+    action_type_ref: ops.publish-change-summary
+    params:
+      target_resource_ref: "${event.resource_ref}"
+      window_hours: 24
+anti_scope: >-
+  This workflow does not select an arbitrary ActionType, bypass a freeze or
+  quiet window, self-approve, or treat proposal dispatch as execution success.

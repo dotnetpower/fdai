@@ -18,6 +18,7 @@ from .approval import (
 from .automation_hold import StateStoreAutomationHoldLedger
 from .compiler import CompiledWorkflow, compile_workflow
 from .coordinator import WorkflowTriggerCoordinator
+from .gate_resolver import CHANGE_WINDOW_GATE_REF, ChangeWindowWorkflowGuardEvaluator
 from .orchestrator import (
     ProcessRun,
     ProcessStatus,
@@ -32,6 +33,7 @@ from .projection import ProcessOntologyProjector, ProjectingProcessRuntimeStore
 from .trigger_index import WorkflowTriggerIndex
 from .workflow_runtime import (
     WorkflowActionDispatcher,
+    WorkflowContextualGuardEvaluator,
     WorkflowEvidenceDispatcher,
     WorkflowOutcomeRecorder,
     WorkflowOutcomeResolver,
@@ -43,6 +45,8 @@ __all__ = [
     "ApprovalPlan",
     "ApprovalPlanError",
     "CompiledWorkflow",
+    "CHANGE_WINDOW_GATE_REF",
+    "ChangeWindowWorkflowGuardEvaluator",
     "ProcessRun",
     "ProcessStatus",
     "ProcessOntologyProjector",
@@ -54,6 +58,7 @@ __all__ = [
     "WorkflowApprovalPlanner",
     "WorkflowGuardEvaluator",
     "WorkflowActionDispatcher",
+    "WorkflowContextualGuardEvaluator",
     "WorkflowEvidenceDispatcher",
     "WorkflowOutcomeRecorder",
     "WorkflowOutcomeResolver",

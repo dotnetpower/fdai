@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 
 from fdai.core.runbook.models import RunbookStep
 from fdai.shared.providers.event_bus import EventBus
+
+_UNRESOLVED_TEMPLATE = re.compile(r"\$\{[^{}]+\}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +36,15 @@ class EventBusWorkflowActionDispatcher:
         requester = context.get("requester.principal", "").strip()
         if not requester:
             raise ValueError("enforce workflow action requires requester.principal")
+        unresolved = sorted(
+            key
+            for key, value in params.items()
+            if isinstance(value, str) and _UNRESOLVED_TEMPLATE.search(value)
+        )
+        if unresolved:
+            raise ValueError(
+                "workflow action has unresolved parameter templates: " + ", ".join(unresolved)
+            )
         idempotency_key = f"{process_id}:step:{step.id}:attempt:1"
         await self.event_bus.publish(
             self.topic,

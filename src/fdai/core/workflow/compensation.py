@@ -65,6 +65,11 @@ class WorkflowCompensationCoordinator:
         )
         if not applied:
             return None
+        dispatched_actions = {
+            event.step_id: event
+            for event in events
+            if event.kind is ProcessEventKind.ACTION_DISPATCHED and event.step_id is not None
+        }
         missing = tuple(step_id for step_id in applied if step_id not in compensations)
         if missing:
             failed = await self._fail(
@@ -76,15 +81,27 @@ class WorkflowCompensationCoordinator:
 
         current = snapshot
         for step_id in reversed(applied):
+            dispatch_event = dispatched_actions.get(step_id)
+            raw_params = dispatch_event.payload.get("params") if dispatch_event else None
+            if not isinstance(raw_params, Mapping):
+                failed = await self._fail(
+                    current,
+                    reason="compensation_params_missing",
+                    payload={"failed_step_id": step_id},
+                )
+                return CompensationResult(failed, recovery_incomplete=True)
+            compensation_params = dict(raw_params)
             current = await self._record_intent(
                 current,
                 step_id=step_id,
                 compensation_action_type=compensations[step_id],
+                compensation_params=compensation_params,
             )
             dispatched = await self._dispatch_intent(
                 current,
                 step_id=step_id,
                 compensation_action_type=compensations[step_id],
+                compensation_params=compensation_params,
                 target_resource_id=target_resource_id,
                 context=context,
             )
@@ -121,7 +138,8 @@ class WorkflowCompensationCoordinator:
         for intent in intents:
             step_id = str(intent.payload.get("compensates_step_id") or "")
             action_type = str(intent.payload.get("action_type") or "")
-            if not step_id or not action_type:
+            raw_params = intent.payload.get("params")
+            if not step_id or not action_type or not isinstance(raw_params, Mapping):
                 failed = await self._fail(current, reason="malformed_compensation_intent")
                 return CompensationResult(failed, recovery_incomplete=True)
             if step_id not in dispatched_steps:
@@ -129,6 +147,7 @@ class WorkflowCompensationCoordinator:
                     current,
                     step_id=step_id,
                     compensation_action_type=action_type,
+                    compensation_params=dict(raw_params),
                     target_resource_id=target_resource_id,
                     context=context,
                 )
@@ -237,6 +256,7 @@ class WorkflowCompensationCoordinator:
         *,
         step_id: str,
         compensation_action_type: str,
+        compensation_params: Mapping[str, object],
     ) -> ProcessSnapshot:
         compensation_step_id = f"compensate_{step_id}"
         await self._audit(
@@ -247,6 +267,7 @@ class WorkflowCompensationCoordinator:
                 "step_id": compensation_step_id,
                 "compensates_step_id": step_id,
                 "action_type": compensation_action_type,
+                "params": dict(compensation_params),
             },
         )
         return await self._process_store.transition(
@@ -265,6 +286,7 @@ class WorkflowCompensationCoordinator:
                 payload={
                     "compensates_step_id": step_id,
                     "action_type": compensation_action_type,
+                    "params": dict(compensation_params),
                 },
             ),
         )
@@ -275,6 +297,7 @@ class WorkflowCompensationCoordinator:
         *,
         step_id: str,
         compensation_action_type: str,
+        compensation_params: Mapping[str, object],
         target_resource_id: str,
         context: Mapping[str, str],
     ) -> CompensationResult:
@@ -284,7 +307,7 @@ class WorkflowCompensationCoordinator:
         compensation_step = RunbookStep(
             id=f"compensate_{step_id}",
             action_type=compensation_action_type,
-            params={"compensates_step_id": step_id},
+            params=dict(compensation_params),
         )
         try:
             proposal_ref = await self._dispatcher.dispatch(

@@ -191,6 +191,11 @@ The untrusted flat ingress also carries `initiator_principal`, `action_type`, `p
 route creates this flat record. `fdai.core.event_ingest` alone validates and normalizes it before
 Huginn republishes the owned `Event`. The nested shape is not accepted at an external boundary.
 
+Workflow run context follows the same boundary. The route overwrites the requester with the
+authenticated principal and accepts only parameter-substitution values. Approval, action outcome,
+compensation, decision, parallel, requester, and wait namespaces are reserved for server-owned
+Process evidence and are rejected from HTTP input.
+
 ### Request checks
 
 Every domain route repeats the checks appropriate to its source:

@@ -251,6 +251,20 @@ not use this mutation gate. A separately approved Vidar recovery bypass and veri
 remain to be implemented, so the current runtime conservatively blocks every mutation on a held
 target.
 
+`ChangeWindowWorkflowGuardEvaluator` resolves `gate_ref: change-window.active` with the exact
+Process target and evaluation time. It delegates other refs to the existing guard evaluator, so
+the architecture-review production gate remains unchanged. The shipped
+`planned-vm-start-change` workflow demonstrates the complete reusable pattern: active window,
+Owner quorum, `ops.start-vm`, independent outcome verification, change summary, and
+`ops.deallocate-vm` compensation. It pins those ActionTypes by versioned workflow design; runtime
+selection of an arbitrary mutation is intentionally unsupported.
+
+The public workflow run route accepts context only for declared parameter substitution. It always
+replaces `requester.principal` with the authenticated operator and rejects caller-supplied
+`approval.*`, `action.*`, `compensation.*`, `decision.*`, `parallel.*`, `requester.*`, and
+`wait.*` keys. Those namespaces are server-owned Process evidence. A public request cannot create
+approval quorum, action success, recovery, or control-step progress.
+
 ## 6. Governance
 
 - **Shadow-first.** Every workflow ships `default_mode: shadow`: it judges and

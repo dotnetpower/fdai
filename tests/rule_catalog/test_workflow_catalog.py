@@ -73,7 +73,30 @@ def test_shipped_workflows_load() -> None:
         action_type_names=_action_type_names(),
     )
     names = workflow_names(catalog)
-    assert {"cost-aware-remediation", "predictive-scale", "dr-failover-drill"} <= names
+    assert {
+        "cost-aware-remediation",
+        "predictive-scale",
+        "dr-failover-drill",
+        "planned-vm-start-change",
+    } <= names
+
+
+def test_planned_vm_change_pins_window_approval_and_compensation() -> None:
+    catalog = load_workflow_catalog(
+        WORKFLOWS_ROOT,
+        schema_registry=_registry(),
+        action_type_names=_action_type_names(),
+    )
+    workflow = next(item for item in catalog if item.name == "planned-vm-start-change")
+
+    assert workflow.default_mode is Mode.SHADOW
+    assert workflow.steps[0].gate_ref == "change-window.active"
+    assert workflow.steps[1].kind is WorkflowStepKind.APPROVAL
+    assert workflow.steps[1].quorum == 2
+    assert workflow.steps[1].no_self_approval is True
+    assert workflow.steps[2].action_type_ref == "ops.start-vm"
+    assert workflow.steps[2].compensated_by == "ops.deallocate-vm"
+    assert workflow.steps[3].action_type_ref == "ops.publish-change-summary"
 
 
 def test_every_shipped_workflow_defaults_to_shadow() -> None:

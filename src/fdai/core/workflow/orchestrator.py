@@ -21,6 +21,7 @@ from fdai.core.workflow.workflow_runtime import (
 from fdai.core.workflow.workflow_runtime import (
     ProcessRun,
     WorkflowActionDispatcher,
+    WorkflowContextualGuardEvaluator,
     WorkflowEvidenceDispatcher,
     WorkflowGuardEvaluator,
     WorkflowOutcomeVerifier,
@@ -78,7 +79,7 @@ class WorkflowOrchestrator:
         action_types: Mapping[str, OntologyActionType],
         audit_store: StateStore,
         process_store: ProcessRuntimeStore,
-        guard_evaluator: WorkflowGuardEvaluator | None = None,
+        guard_evaluator: (WorkflowGuardEvaluator | WorkflowContextualGuardEvaluator | None) = None,
         action_dispatcher: WorkflowActionDispatcher | None = None,
         evidence_dispatcher: WorkflowEvidenceDispatcher | None = None,
         outcome_verifier: WorkflowOutcomeVerifier | None = None,

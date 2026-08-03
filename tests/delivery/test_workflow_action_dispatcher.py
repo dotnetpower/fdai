@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from fdai.core.runbook.models import RunbookStep
 from fdai.delivery.workflow_action_dispatcher import EventBusWorkflowActionDispatcher
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
@@ -39,3 +41,20 @@ async def test_dispatch_publishes_idempotent_operator_request() -> None:
         "step_id": "restart",
         "proposal_ref": reference,
     }
+
+
+async def test_dispatch_rejects_unresolved_parameter_template() -> None:
+    bus = InMemoryEventBus()
+    dispatcher = EventBusWorkflowActionDispatcher(event_bus=bus, topic="events")
+
+    with pytest.raises(ValueError, match="unresolved parameter templates: reason"):
+        await dispatcher.dispatch(
+            process_id="process-1",
+            correlation_id="corr-1",
+            step=RunbookStep(id="restart", action_type="ops.restart-service"),
+            target_resource_id="service-1",
+            params={"reason": "${change.reason}"},
+            context={"requester.principal": "operator-1"},
+        )
+
+    assert await _drain(bus) == []

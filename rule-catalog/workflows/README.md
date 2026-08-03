@@ -21,3 +21,6 @@ plus a trigger, a promotion gate, and a default mode.
 - Steps are dispatched one at a time through the same control loop
   (`ActionType` -> risk-gate -> executor -> audit); there is no side
   channel and no direct executor call.
+- `gate_ref: change-window.active` reads the target's reviewed `ChangeWindow`
+  at the Process evaluation time. Missing, frozen, quiet, malformed, or
+  truncated evidence blocks the gate.

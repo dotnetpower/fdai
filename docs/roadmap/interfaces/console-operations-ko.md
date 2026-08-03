@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: c137f41e0f1644d21742121939615690323d7467
+translation_source_sha: daeac51b784cc6105421cc983de24618cbcae9cf
 translation_revised: 2026-08-04
 ---
 
@@ -188,6 +188,11 @@ Untrusted flat ingress는 `initiator_principal`, `action_type`, `params`, `resou
 `idempotency_key`도 포함하며 unknown field를 차단합니다. Request route가 이 flat record를 만들고
 `fdai.core.event_ingest`만 이를 검증하고 normalize한 뒤 Huginn이 owned `Event`를 republish합니다. External
 boundary는 nested shape를 수락하지 않습니다.
+
+Workflow run context도 같은 boundary를 따릅니다. Route는 requester를 authenticated principal로
+교체하고 parameter-substitution value만 허용합니다. Approval, action outcome, compensation,
+decision, parallel, requester, wait namespace는 server-owned Process evidence 전용이며 HTTP input에서
+거부됩니다.
 
 ### 요청 검사
 

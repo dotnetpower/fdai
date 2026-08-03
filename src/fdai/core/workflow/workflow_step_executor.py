@@ -11,6 +11,7 @@ from fdai.core.workflow.approval import StepApproval
 from fdai.core.workflow.workflow_runtime import (
     ACTOR,
     WorkflowActionDispatcher,
+    WorkflowContextualGuardEvaluator,
     WorkflowEvidenceDispatcher,
     WorkflowGuardEvaluator,
     WorkflowOutcomeResolver,
@@ -74,7 +75,7 @@ class ShadowWorkflowStepExecutor:
         audit_store: StateStore,
         approvals: Mapping[str, StepApproval],
         guards: Mapping[str, str] | None = None,
-        guard_evaluator: WorkflowGuardEvaluator | None = None,
+        guard_evaluator: (WorkflowGuardEvaluator | WorkflowContextualGuardEvaluator | None) = None,
         outcome_verifier: WorkflowOutcomeVerifier | None = None,
         params: Mapping[str, Mapping[str, object]] | None = None,
         process_store: ProcessRuntimeStore,
@@ -117,9 +118,20 @@ class ShadowWorkflowStepExecutor:
         guard_passed: bool | None = None
         if guard_ref is not None and self._guard_evaluator is not None:
             guard_evaluated = True
-            guard_passed = await self._guard_evaluator.evaluate(
-                rule_id=guard_ref, step_id=step.id, process_id=self._process_id
-            )
+            if isinstance(self._guard_evaluator, WorkflowContextualGuardEvaluator):
+                guard_passed = await self._guard_evaluator.evaluate_context(
+                    rule_id=guard_ref,
+                    step_id=step.id,
+                    process_id=self._process_id,
+                    target_resource_id=self._target_resource_id,
+                    at=self._now,
+                )
+            else:
+                guard_passed = await self._guard_evaluator.evaluate(
+                    rule_id=guard_ref,
+                    step_id=step.id,
+                    process_id=self._process_id,
+                )
 
         await self._audit.append_audit_entry(
             {
@@ -304,7 +316,11 @@ class ShadowWorkflowStepExecutor:
                 recorded_at=datetime.now(tz=UTC),
                 correlation_id=self._snapshot.correlation_id,
                 step_id=step.id,
-                payload={"proposal_ref": proposal_ref, "action_type": step.action_type},
+                payload={
+                    "proposal_ref": proposal_ref,
+                    "action_type": step.action_type,
+                    "params": dict(self._params.get(step.id, {})),
+                },
             )
         )
         return step_result(step, RunbookStepOutcome.WAITING, "waiting_for_action_outcome")

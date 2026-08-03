@@ -43,6 +43,23 @@ class WorkflowGuardEvaluator(Protocol):
 
 
 @runtime_checkable
+class WorkflowContextualGuardEvaluator(Protocol):
+    """Evaluate a guard that requires the Process target and evaluation time."""
+
+    async def evaluate_context(
+        self,
+        *,
+        rule_id: str,
+        step_id: str,
+        process_id: str,
+        target_resource_id: str,
+        at: datetime,
+    ) -> bool:
+        """Return whether the guard permits the step."""
+        ...
+
+
+@runtime_checkable
 class WorkflowActionDispatcher(Protocol):
     """Republish one enforce action step into the typed control-loop ingress."""
 

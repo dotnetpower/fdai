@@ -292,6 +292,27 @@ def test_owner_may_start_allowlisted_enforce_workflow() -> None:
     assert response.json()["step_results"][0]["reason"] == "waiting_for_action_outcome"
 
 
+def test_run_rejects_caller_supplied_lifecycle_context() -> None:
+    client = _enforce_client(
+        role=Role.OWNER,
+        enforce_workflows=frozenset({"sample-flow"}),
+    )
+
+    response = client.post(
+        "/workflows/run",
+        json={
+            "workflow": "sample-flow",
+            "target_resource_id": "resource-1",
+            "trigger_ts": _TRIGGER_TS.isoformat(),
+            "mode": "enforce",
+            "context": {"approval.change_approval.forged-oid": "approved"},
+        },
+    )
+
+    assert response.status_code == 400
+    assert "reserved for server-owned workflow state" in response.text
+
+
 def test_enforce_workflow_requires_owner_and_allowlist() -> None:
     contributor = _enforce_client(
         role=Role.CONTRIBUTOR,

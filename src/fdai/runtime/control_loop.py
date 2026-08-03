@@ -77,6 +77,7 @@ from fdai.core.tiers.t1_lightweight import CurrentReuseVerifier, T1Config, T1Tie
 from fdai.core.tiers.t2_reasoning import T2Tier
 from fdai.core.trust_router import TrustRouter
 from fdai.core.workflow import (
+    ChangeWindowWorkflowGuardEvaluator,
     ProcessOntologyProjector,
     ProjectingProcessRuntimeStore,
     StateStoreAutomationHoldLedger,
@@ -195,15 +196,24 @@ def _build_workflow_coordinator(
                 domain_projectors=domain_projectors,
             ),
         )
+    architecture_guard = ArchitectureReviewProductionGateEvaluator(
+        manifest_path=catalog_root.parent / "config" / "architecture-review.yaml",
+        repo_root=catalog_root.parent,
+    )
+    guard_evaluator = (
+        ChangeWindowWorkflowGuardEvaluator(
+            change_windows=OntologyChangeWindowEvidenceProvider(ontology_store),
+            fallback=architecture_guard,
+        )
+        if ontology_store is not None
+        else architecture_guard
+    )
     orchestrator = WorkflowOrchestrator(
         planner=planner,
         action_types=action_types_by_name,
         audit_store=audit_store,
         process_store=runtime_store,
-        guard_evaluator=ArchitectureReviewProductionGateEvaluator(
-            manifest_path=catalog_root.parent / "config" / "architecture-review.yaml",
-            repo_root=catalog_root.parent,
-        ),
+        guard_evaluator=guard_evaluator,
         outcome_verifier=outcome_verifier,
     )
     _LOGGER.info("workflow_coordinator_enabled", extra={"workflows": len(workflows)})
