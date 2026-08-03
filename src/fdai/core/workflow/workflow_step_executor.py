@@ -21,6 +21,7 @@ from fdai.core.workflow.workflow_runtime import (
     step_result,
     truthy,
 )
+from fdai.rule_catalog.schema.action_type import argument_schema_redaction_paths
 from fdai.shared.contracts.models import Mode, OntologyActionType, WorkflowStepKind
 from fdai.shared.providers.process_runtime import (
     ProcessEvent,
@@ -113,6 +114,8 @@ class ShadowWorkflowStepExecutor:
         approval = self._approvals.get(step.id)
         known = step.kind is not WorkflowStepKind.ACTION or step.action_type in self._action_types
         guard_ref = self._guards.get(step.id)
+        step_params = dict(self._params.get(step.id, {}))
+        redacted_params, redacted_paths = self._redacted_params(step, step_params)
 
         guard_evaluated = False
         guard_passed: bool | None = None
@@ -154,7 +157,8 @@ class ShadowWorkflowStepExecutor:
                 "guard_rule_ref": guard_ref,
                 "guard_evaluated": guard_evaluated,
                 "guard_passed": guard_passed,
-                "params": dict(self._params.get(step.id, {})),
+                "params": redacted_params,
+                "params_redacted": sorted(redacted_paths),
                 "recorded_at": datetime.now(tz=UTC).isoformat(),
             }
         )
@@ -183,7 +187,14 @@ class ShadowWorkflowStepExecutor:
                 ),
             )
         elif step.kind is WorkflowStepKind.ACTION and self._mode is Mode.ENFORCE:
-            result = await self._dispatch_action(step)
+            if redacted_paths:
+                result = step_result(
+                    step,
+                    RunbookStepOutcome.FAILURE,
+                    "workflow_sensitive_params_unsupported",
+                )
+            else:
+                result = await self._dispatch_action(step)
         else:
             result = step_result(step, RunbookStepOutcome.SUCCESS, "shadow_judge_and_log")
 
@@ -217,6 +228,20 @@ class ShadowWorkflowStepExecutor:
             payload=event_payload,
         )
         return result
+
+    def _redacted_params(
+        self,
+        step: RunbookStep,
+        params: Mapping[str, object],
+    ) -> tuple[dict[str, object], frozenset[str]]:
+        action_type = self._action_types.get(step.action_type)
+        if action_type is None:
+            return dict(params), frozenset()
+        configured = argument_schema_redaction_paths(action_type)
+        present = frozenset(path for path in configured if path in params)
+        return {
+            key: "[REDACTED]" if key in present else value for key, value in params.items()
+        }, present
 
     async def _dispatch_action(self, step: RunbookStep) -> RunbookStepResult:
         events = await self._process_store.events(self._process_id)

@@ -389,6 +389,67 @@ async def test_enforce_action_step_fails_without_dispatcher() -> None:
     assert run.step_results[0].reason == "enforce_action_dispatcher_not_configured"
 
 
+async def test_enforce_action_rejects_sensitive_params_without_persisting_value() -> None:
+    action_type = _ACTION_TYPES["remediate.auto"].model_copy(
+        update={
+            "argument_schema": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "credential": {"type": "string", "x-fdai-redact": True},
+                },
+            }
+        }
+    )
+    workflow = _workflow().model_copy(
+        update={
+            "steps": [
+                WorkflowStep(
+                    id="sensitive",
+                    action_type_ref=action_type.name,
+                    params={"credential": "${secret.value}"},
+                )
+            ]
+        }
+    )
+    audit = InMemoryStateStore()
+    dispatcher = _RecordingActionDispatcher()
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types={action_type.name: action_type},
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types={action_type.name: action_type},
+        audit_store=audit,
+        process_store=InMemoryProcessRuntimeStore(),
+        action_dispatcher=dispatcher,
+    )
+
+    run = await orchestrator.run(
+        workflow,
+        target_resource_id="res-1",
+        trigger_ts=_TRIGGER_TS,
+        context={
+            "requester.principal": "operator-1",
+            "secret.value": "sensitive-value",
+        },
+        mode=Mode.ENFORCE,
+    )
+
+    assert run.status is ProcessStatus.FAILED
+    assert run.step_results[0].reason == "workflow_sensitive_params_unsupported"
+    assert dispatcher.calls == []
+    assert "sensitive-value" not in str(audit.audit_entries)
+    step_audit = next(
+        row["entry"]
+        for row in audit.audit_entries
+        if row["entry"].get("action_kind") == "workflow.step"
+    )
+    assert step_audit["params"] == {"credential": "[REDACTED]"}
+    assert step_audit["params_redacted"] == ["credential"]
+
+
 async def test_enforce_failure_dispatches_reverse_compensation_and_waits_for_receipt() -> None:
     audit = InMemoryStateStore()
     process_store = InMemoryProcessRuntimeStore()

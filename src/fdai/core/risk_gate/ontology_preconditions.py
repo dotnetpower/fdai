@@ -15,8 +15,8 @@ _TERMINAL_ACTION_STATUSES = frozenset(
         "succeeded",
     }
 )
-_EFFECTIVE_WINDOW_STATUSES = frozenset({"active", "approved"})
-_ALLOWING_WINDOW_KINDS = frozenset({"emergency", "maintenance"})
+_EFFECTIVE_WINDOW_STATUSES = frozenset({"active", "reviewed"})
+_ALLOWING_WINDOW_KINDS = frozenset({"allow", "emergency", "maintenance"})
 _BLOCKING_WINDOW_KINDS = frozenset({"freeze", "quiet"})
 
 

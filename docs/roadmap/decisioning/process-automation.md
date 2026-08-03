@@ -265,6 +265,16 @@ replaces `requester.principal` with the authenticated operator and rejects calle
 `wait.*` keys. Those namespaces are server-owned Process evidence. A public request cannot create
 approval quorum, action success, recovery, or control-step progress.
 
+Workflow audit uses each ActionType's `x-fdai-redact` paths. Redacted fields render as
+`[REDACTED]` and never enter the Process journal. Because the workflow runtime has no secret
+custody provider, an enforce action whose resolved params include a redacted field fails before
+typed dispatch. Secret-bearing workflow steps remain unavailable until a dedicated custody seam
+can supply the value without persisting it in audit or replay state.
+
+ChangeWindow evaluation follows the ontology vocabulary: `reviewed` and `active` are effective
+statuses; `allow`, `maintenance`, and `emergency` permit the gate; `freeze` and `quiet` block it.
+Malformed, out-of-range, or truncated evidence remains blocked.
+
 ## 6. Governance
 
 - **Shadow-first.** Every workflow ships `default_mode: shadow`: it judges and

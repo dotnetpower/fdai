@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 18015e862b22c38a3ae9e04cae29f81d5af5dee5
+translation_source_sha: 06f35861ef10bde564001d79ab98b9fea980ca73
 translation_revised: 2026-08-04
 ---
 
@@ -257,6 +257,16 @@ Public workflow run route는 declared parameter substitution에만 context를 �
 `action.*`, `compensation.*`, `decision.*`, `parallel.*`, `requester.*`, `wait.*` key는
 거부합니다. 이 namespace는 server-owned Process evidence입니다. Public request는 approval quorum,
 action success, recovery 또는 control-step progress를 만들 수 없습니다.
+
+Workflow audit는 각 ActionType의 `x-fdai-redact` path를 사용합니다. Redacted field는
+`[REDACTED]`로 표시되며 Process journal에 들어가지 않습니다. Workflow runtime에는 secret custody
+provider가 없으므로 resolved params에 redacted field가 있는 enforce action은 typed dispatch 전에
+실패합니다. Secret-bearing workflow step은 값을 audit 또는 replay state에 저장하지 않고 공급할
+전용 custody seam이 생길 때까지 unavailable 상태를 유지합니다.
+
+ChangeWindow 평가는 ontology vocabulary를 따릅니다. `reviewed`와 `active`는 effective status이고
+`allow`, `maintenance`, `emergency`는 gate를 허용하며 `freeze`, `quiet`는 차단합니다. Malformed,
+out-of-range, truncated evidence는 계속 차단됩니다.
 
 ## 6. 거버넌스
 
