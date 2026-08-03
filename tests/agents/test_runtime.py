@@ -35,6 +35,7 @@ from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.chaos.symptom_index import build_from_entries
+from fdai.core.impact_analysis import ChangeAssessmentService
 from fdai.core.learning import PostTurnReviewInput, review_input_to_mapping
 from fdai.core.operational_planning import SpecialistPlanningCoordinator
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
@@ -61,6 +62,20 @@ def test_build_injects_operational_planner_into_forseti() -> None:
     forseti = runtime.agents["Forseti"]
     assert isinstance(forseti, Forseti)
     assert forseti._operational_planner is planner
+
+
+def test_build_injects_change_assessor_into_forseti() -> None:
+    assessor = cast(ChangeAssessmentService, object())
+
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        change_assessor=assessor,
+    )
+
+    forseti = runtime.agents["Forseti"]
+    assert isinstance(forseti, Forseti)
+    assert forseti._change_assessor is assessor
 
 
 def test_build_instantiates_all_fifteen_agents() -> None:

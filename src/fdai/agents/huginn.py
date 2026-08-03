@@ -99,7 +99,7 @@ def _change_projection(
         return None
 
     def value(name: str, *fallbacks: object) -> object | None:
-        candidate = change.get(name) if change is not None else None
+        candidate: object | None = change.get(name) if change is not None else None
         if candidate is not None:
             return candidate
         return next((item for item in fallbacks if item is not None), None)
@@ -298,6 +298,8 @@ class Huginn(Agent):
             canonical_payload=canonical_payload,
             event_payload=payload,
         )
+        if change_projection is not None:
+            payload["normalized_change"] = dict(change_projection)
         # Measurable behaviour: the sensing layer's ingest / dedup rates, so a
         # scenario can see an ingress flood (the flooding concern one layer up
         # from the judge). Recorded on the decision to emit, before publish.

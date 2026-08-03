@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: deb1493b11caf49e9a3e3aee6df9e64748c8d29e
+translation_source_sha: 9780e73fcc7b7264b5f6781f09224845bd709bc0
 translation_revised: 2026-08-04
 ---
 
@@ -30,6 +30,9 @@ translation_revised: 2026-08-04
 > Workflow inventory는 executable trace ref를 포함하고 KPI report는 measured value와 unavailable evidence를 구분하며, 모든 agent는 injected degradation drill을 가집니다.
 > Huginn은 normalized planned 및 observed change를 `object.change`로 publish하고 Muninn은
 > execution authority를 추가하지 않은 채 immutable content-addressed revision을 보존합니다.
+> Causal Event는 같은 Change evidence를 포함하고 Forseti의 bounded assessment는 authority를
+> 유지하거나 낮출 수만 있습니다. Graph freshness가 authoritative해질 때까지 planned change는
+> 사람 검토 상태로 유지됩니다.
 ## 1. 이 문서가 존재하는 이유
 
 판테온 문서 ([agent-pantheon.md](agent-pantheon-ko.md)) 는 15개 에이전트 계약을

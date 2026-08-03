@@ -26,6 +26,7 @@ from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
 from fdai.agents.var import Var
 from fdai.agents.vidar import Vidar
+from fdai.core.impact_analysis import ChangeAssessmentService
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_planning import SpecialistPlanningCoordinator
 
@@ -70,11 +71,18 @@ def configured_forseti(
     action_semantics: ActionSemanticsCatalog | None,
     operational_context: OperationalContextMaterializer | None,
     operational_planner: SpecialistPlanningCoordinator | None,
+    change_assessor: ChangeAssessmentService | None,
 ) -> Forseti | None:
     """Build Forseti only when composition supplies an optional binding."""
     if all(
         value is None
-        for value in (rbac, action_semantics, operational_context, operational_planner)
+        for value in (
+            rbac,
+            action_semantics,
+            operational_context,
+            operational_planner,
+            change_assessor,
+        )
     ):
         return None
     return Forseti(
@@ -82,6 +90,7 @@ def configured_forseti(
         action_semantics=action_semantics,
         operational_context=operational_context,
         operational_planner=operational_planner,
+        change_assessor=change_assessor,
     )
 
 

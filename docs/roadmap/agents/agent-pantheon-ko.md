@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: b9dd2e59af287ab46151032e770dd5e6215a0838
+translation_source_sha: 7f2466b850949cf19fecb002c30dec286129b463
 translation_revised: 2026-08-04
 ---
 
@@ -261,7 +261,12 @@ update, delete signal은 canonical Event Hubs Kafka ingress로 들어오며 Hugi
 정규화하고 dedup 및 correlate한 뒤 `Event`로 publish합니다. Azure 전용 parsing,
 Authoritative event time이 있는 IaC plan, release request, provider activity는
 `object.change`도 생성하며 Muninn은 decision context를 위해 immutable content-addressed
-revision을 보존합니다. 이 projection은 action authority를 제공하지 않습니다. Azure 전용 parsing,
+revision을 보존합니다. Huginn은 동일한 normalized Change evidence를 causal `object.event`에도
+포함하므로 Forseti는 cross-topic 도착 순서에 의존하지 않습니다. Forseti는 ordinary rule judgment
+전에 planned change를 bounded impact analysis로 평가하고 assessment를 Verdict와 DecisionCase
+evidence에 보존합니다. Assessment가 없거나 stale, failed, review-required이면 사람 승인을
+요구합니다. Observed change는 context로만 유지되며 현재 runtime에는 planned change를 auto-clear할
+graph-freshness authority가 없습니다. 이 projection은 action authority를 제공하지 않습니다. Azure 전용 parsing,
 point enrichment, durable inventory projection은 주입된 delivery 책임으로 유지합니다.
 Huginn은 Azure SDK를 import하거나 inventory database를 직접 쓰지 않습니다. Scheduled
 Inventory sync job은 누락된 signal을 완전한 ARG/ARM snapshot으로 복구하는 주기적

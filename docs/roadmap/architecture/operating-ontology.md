@@ -25,7 +25,11 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > typed evidence paths, revisions, effective time, provenance, and complete freshness receipts.
 > Change management adds planned-change evidence to `Change`, a reviewed `ChangeWindow`, and typed
 > links from target and decision through impact, process, outcome, and recovery. These declarations
-> are semantic evidence only and grant no approval or execution authority.
+> are semantic evidence only and grant no approval or execution authority. Huginn now carries the
+> same normalized Change on its causal Event and owner topic. Forseti computes a bounded
+> `ChangeAssessment`, preserves it on Verdict and DecisionCase evidence, and requires human review
+> for stale, incomplete, failed, or review-required assessment. The runtime currently supplies no
+> graph-freshness authority, so planned changes cannot auto-clear this gate.
 
 ## Design at a glance
 

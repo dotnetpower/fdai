@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol
 
 from fdai.agents._framework.action_semantics import (
     ActionSemanticsCatalog,
@@ -32,6 +32,7 @@ from fdai.agents._framework.introspection import (
 from fdai.agents._framework.pantheon import _FORSETI
 from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
 from fdai.core.decision_case import DomainDecisionCoordinator, DomainDecisionProjection
+from fdai.core.impact_analysis import ChangeAssessment
 from fdai.core.operational_context import OperationalContextMaterializer, SourceFreshness
 from fdai.core.operational_planning import (
     SpecialistPlanningCoordinator,
@@ -83,6 +84,16 @@ _MAX_RESOURCES = 10_000
 _DecisionProjection = DomainDecisionProjection | SpecialistPlanningProjection
 
 
+class _ChangeAssessor(Protocol):
+    async def assess(
+        self,
+        change: Mapping[str, Any],
+        *,
+        graph_fresh: bool,
+        unresolved_conflicts: tuple[str, ...] = (),
+    ) -> ChangeAssessment: ...
+
+
 class Forseti(Agent):
     """Wave-3 Forseti: rule match + risk verdict + RBAC + SecurityEvent."""
 
@@ -95,6 +106,7 @@ class Forseti(Agent):
         operational_context: OperationalContextMaterializer | None = None,
         decision_coordinator: DomainDecisionCoordinator | None = None,
         operational_planner: SpecialistPlanningCoordinator | None = None,
+        change_assessor: _ChangeAssessor | None = None,
     ) -> None:
         super().__init__(spec=_FORSETI)
         self.bus = bus
@@ -103,6 +115,7 @@ class Forseti(Agent):
         self._operational_context = operational_context
         self._decision_coordinator = decision_coordinator or DomainDecisionCoordinator()
         self._operational_planner = operational_planner
+        self._change_assessor = change_assessor
         # Latest arbitration winner per correlation id (populated when Odin
         # resolves a cross-vertical conflict Forseti raised).
         self.arbitrations: dict[str, str] = {}
@@ -128,6 +141,9 @@ class Forseti(Agent):
         self._domain_impact: BoundedLruDict[str, dict[str, float]] = BoundedLruDict(_MAX_RESOURCES)
         self._domain_observed_at: BoundedLruDict[str, str] = BoundedLruDict(_MAX_RESOURCES)
         self._pending_decision_cases: BoundedLruDict[str, _DecisionProjection] = BoundedLruDict(
+            _MAX_RESOURCES
+        )
+        self._pending_change_assessments: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
             _MAX_RESOURCES
         )
         self._detection_readiness: BoundedLruDict[str, dict[str, str]] = BoundedLruDict(
@@ -165,6 +181,8 @@ class Forseti(Agent):
                 await self.judge_document_safety(payload)
             return
         if topic in ("object.event", "object.anomaly", "object.drift", "object.forecast"):
+            if topic == "object.event":
+                await self._attach_change_assessment(payload)
             await self.maybe_request_arbitration(payload)
             await self.judge(payload)
         elif topic == "object.cost-anomaly":
@@ -173,6 +191,28 @@ class Forseti(Agent):
             await self._ingest_domain_signal("capacity", payload)
         elif topic == "object.arbitration-decision":
             await self._record_arbitration(payload)
+
+    async def _attach_change_assessment(self, event: dict[str, Any]) -> None:
+        change = event.get("normalized_change")
+        if not isinstance(change, Mapping) or change.get("intent_kind") != "planned":
+            return
+        if self._change_assessor is None:
+            event["change_assessment_status"] = "unavailable"
+            event["human_approval_required"] = True
+            self.record_behavior("change_assessment:unavailable")
+            return
+        try:
+            assessment = await self._change_assessor.assess(change, graph_fresh=False)
+        except Exception:  # noqa: BLE001 - missing impact evidence lowers authority
+            event["change_assessment_status"] = "failed"
+            event["human_approval_required"] = True
+            self.record_behavior("change_assessment:failed")
+            return
+        event["change_assessment_status"] = "review" if assessment.review_required else "clear"
+        event["change_assessment"] = assessment.to_mapping()
+        if assessment.review_required:
+            event["human_approval_required"] = True
+        self.record_behavior(f"change_assessment:{event['change_assessment_status']}")
 
     def _record_detection_readiness(self, payload: dict[str, Any]) -> None:
         resource_id = str(payload.get("resource_id") or "")
@@ -219,6 +259,7 @@ class Forseti(Agent):
             advice=normalized,
             correlation_id=correlation_id,
             observed_at=str(event.get("detected_at") or ""),
+            change_assessment=_change_assessment_mapping(event),
         )
 
     async def _ingest_domain_signal(
@@ -278,6 +319,7 @@ class Forseti(Agent):
         correlation_id: str,
         impacts: dict[str, float] | None = None,
         observed_at: str = "",
+        change_assessment: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if not correlation_id or not str(resource_id or ""):
             raise ValueError("arbitration request identities MUST be non-empty")
@@ -297,8 +339,10 @@ class Forseti(Agent):
             observed_at=observed_at,
         )
         if projection is not None:
-            request["decision_case"] = projection.to_mapping()
+            request["decision_case"] = _decision_case_mapping(projection, change_assessment)
             self._pending_decision_cases.set(correlation_id, projection)
+            if change_assessment is not None:
+                self._pending_change_assessments.set(correlation_id, change_assessment)
         self._arbitration_resources.set(correlation_id, str(resource_id))
         # Decision semantics: the judge decided to raise arbitration. Recorded
         # independent of a bus (delivery is measured by the bus metrics, not
@@ -324,12 +368,16 @@ class Forseti(Agent):
         if decision.get("escalate_hil") is True:
             await self._escalate_arbitration(correlation_id, decision)
             return
-        projection = self._pending_decision_cases.pop(correlation_id, None)
+        projection = self._pending_decision_cases.get(correlation_id)
         if projection is None:
             if self._arbitration_resources.get(correlation_id) is not None:
                 await self._escalate_arbitration(correlation_id, decision)
             return
         if projection.selection.requires_human_approval:
+            await self._escalate_arbitration(correlation_id, decision)
+            return
+        change_assessment = self._pending_change_assessments.get(correlation_id)
+        if change_assessment is not None and change_assessment.get("review_required") is True:
             await self._escalate_arbitration(correlation_id, decision)
             return
         winning_domain = str(decision.get("winning_domain") or "")
@@ -399,6 +447,7 @@ class Forseti(Agent):
         projection: _DecisionProjection,
         action_type: str,
     ) -> None:
+        self._pending_decision_cases.pop(correlation_id, None)
         risk_verdict = _RISK_VERDICT.get(action_type, "hil")
         verdict = {
             "producer_principal": "Forseti",
@@ -413,7 +462,10 @@ class Forseti(Agent):
                 "losing_domains": decision.get("losing_domains") or [],
                 "margin": decision.get("margin"),
             },
-            "decision_case": projection.to_mapping(),
+            "decision_case": _decision_case_mapping(
+                projection,
+                self._pending_change_assessments.pop(correlation_id, None),
+            ),
             "quorum_required": quorum_for(action_type, self._action_semantics),
             "rollback_contract": rollback_contract_for(action_type, self._action_semantics),
             "initiator_principal": None,
@@ -451,6 +503,7 @@ class Forseti(Agent):
             "margin": decision.get("margin"),
         }
         projection = self._pending_decision_cases.pop(correlation_id, None)
+        change_assessment = self._pending_change_assessments.pop(correlation_id, None)
         winning_option = (
             projection.option_for_domain(winning_domain) if projection is not None else None
         )
@@ -473,7 +526,11 @@ class Forseti(Agent):
             "risk_verdict": "hil",
             "reason": "arbitration_unresolved",
             "arbitration": grounding,
-            "decision_case": projection.to_mapping() if projection is not None else None,
+            "decision_case": (
+                _decision_case_mapping(projection, change_assessment)
+                if projection is not None
+                else None
+            ),
             "quorum_required": quorum_for(action_type, self._action_semantics),
             "rollback_contract": rollback_contract_for(action_type, self._action_semantics),
             "initiator_principal": None,
@@ -598,6 +655,7 @@ class Forseti(Agent):
                 "quorum_required": 1,
                 "initiator_principal": event.get("initiator_principal"),
             }
+            _copy_change_assessment(event, verdict)
             if self.bus is not None:
                 await self.bus.publish("Forseti", "object.verdict", verdict)
             return verdict
@@ -721,6 +779,7 @@ class Forseti(Agent):
             # approver principal downstream can enforce no-self-approval.
             "initiator_principal": event.get("initiator_principal"),
         }
+        _copy_change_assessment(event, verdict)
         await self._attach_operational_context(event, verdict)
         # Measurable behaviour records the final verdict after every
         # never-raising context ceiling has been applied.
@@ -859,6 +918,30 @@ class Forseti(Agent):
 
 
 __all__ = ["Forseti"]
+
+
+def _copy_change_assessment(event: Mapping[str, Any], verdict: dict[str, Any]) -> None:
+    status = event.get("change_assessment_status")
+    if isinstance(status, str):
+        verdict["change_assessment_status"] = status
+    assessment = event.get("change_assessment")
+    if isinstance(assessment, Mapping):
+        verdict["change_assessment"] = dict(assessment)
+
+
+def _change_assessment_mapping(event: Mapping[str, Any]) -> dict[str, Any] | None:
+    assessment = event.get("change_assessment")
+    return dict(assessment) if isinstance(assessment, Mapping) else None
+
+
+def _decision_case_mapping(
+    projection: _DecisionProjection,
+    change_assessment: Mapping[str, Any] | None,
+) -> dict[str, object]:
+    mapping = projection.to_mapping()
+    if change_assessment is not None:
+        mapping["change_assessment"] = dict(change_assessment)
+    return mapping
 
 
 def _is_conflict(advice: dict[str, str]) -> bool:

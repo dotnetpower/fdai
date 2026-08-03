@@ -27,7 +27,9 @@ in [coding-conventions.instructions.md](../../../.github/instructions/coding-con
 > coverage from `tests/agents/test_wave2_governance.py` through `test_wave8_kpi_degradation.py`.
 > Workflows carry executable trace refs, KPI reports distinguish measured values from unavailable evidence, and every agent has an injected degradation drill.
 > Huginn also publishes normalized planned and observed changes on `object.change`, and Muninn
-> retains immutable content-addressed revisions without adding execution authority.
+> retains immutable content-addressed revisions without adding execution authority. The causal
+> Event carries the same Change evidence, and Forseti's bounded assessment can only preserve or
+> lower authority. Planned changes remain in human review until graph freshness is authoritative.
 ## 1. Why this doc exists
 
 The pantheon doc ([agent-pantheon.md](agent-pantheon.md)) defines the

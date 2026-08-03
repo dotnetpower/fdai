@@ -10,6 +10,7 @@ from fdai.agents.forseti import Forseti
 from fdai.agents.odin import Odin
 from fdai.agents.thor import Thor
 from fdai.agents.var import Var
+from fdai.core.impact_analysis import ChangeAssessmentService, ImpactAnalyzer
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_planning import (
     ConstraintEvaluation,
@@ -181,6 +182,51 @@ async def test_specialist_conflict_reaches_objective_aware_hil_verdict(
     assert ticket.decision_case["options"][0]["effects"]
     if hil_margin == 1.0:
         assert verdicts[-1].payload["reason"] == "arbitration_unresolved"
+
+
+async def test_planned_change_assessment_lowers_arbitrated_decision_case() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    store = await _context_store()
+    forseti = Forseti(
+        bus=bus,
+        operational_context=OperationalContextMaterializer(store=store),
+        change_assessor=ChangeAssessmentService(analyzer=ImpactAnalyzer(store=store)),
+    )
+    odin = Odin(bus=bus, hil_margin=0.0)
+    bus.subscribe("object.arbitration-request", "Odin", odin.on_typed_message)
+    bus.subscribe("object.arbitration-decision", "Forseti", forseti.on_typed_message)
+
+    await forseti.on_typed_message(
+        "object.event",
+        {
+            "correlation_id": "change-correlation",
+            "idempotency_key": "change-event",
+            "resource_id": "resource-example",
+            "event_type": "restart_needed",
+            "detected_at": AT,
+            "domain_advice": {"cost": "scale_down", "capacity": "scale_up"},
+            "normalized_change": {
+                "id": "change-1",
+                "correlation_id": "change-correlation",
+                "intent_kind": "planned",
+                "target_ref": "resource-example",
+                "occurred_at": AT,
+                "desired_state_digest": "sha256:desired",
+                "plan_receipt_ref": "plan:1",
+            },
+        },
+    )
+
+    request_case = bus.messages_on("object.arbitration-request")[-1].payload["decision_case"]
+    assert request_case["change_assessment"]["review_required"] is True
+    assert "graph_stale" in request_case["change_assessment"]["reasons"]
+    case_verdict = next(
+        message.payload
+        for message in bus.messages_on("object.verdict")
+        if message.payload.get("decision_case") is not None
+    )
+    assert case_verdict["risk_verdict"] == "hil"
+    assert case_verdict["decision_case"]["change_assessment"]["review_required"] is True
 
 
 async def test_malformed_semantic_case_cannot_reach_human_approval() -> None:

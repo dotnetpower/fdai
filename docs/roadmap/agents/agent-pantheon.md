@@ -281,7 +281,12 @@ create, update, and delete signals enter through the canonical Event Hubs Kafka
 ingress and Huginn normalizes, deduplicates, correlates, and publishes them as
 `Event`. IaC plans, release requests, and provider activity with authoritative event time also
 produce `object.change`; Muninn retains immutable content-addressed revisions for decision context.
-This projection grants no action authority. Azure-specific parsing, point enrichment, and durable inventory
+Huginn places the same normalized Change evidence on the causal `object.event`, so Forseti does not
+depend on cross-topic arrival order. Forseti evaluates planned changes with bounded impact analysis
+before its ordinary rule judgment and carries the assessment into Verdict and DecisionCase evidence.
+Missing, stale, failed, or review-required assessment forces human approval. Observed changes remain
+context only, and the current runtime supplies no graph-freshness authority that could auto-clear a
+planned change. This projection grants no action authority. Azure-specific parsing, point enrichment, and durable inventory
 projection remain injected delivery responsibilities; Huginn never imports an
 Azure SDK or writes the inventory database directly. The scheduled Inventory
 sync job remains the periodic reconciliation backstop that repairs missed

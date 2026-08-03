@@ -78,6 +78,7 @@ from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
 from fdai.core.detection.forecast_episode import ForecastEpisodeStore
 from fdai.core.detection.forecast_evaluation import ForecastEpisodeEvaluator
+from fdai.core.impact_analysis import ChangeAssessmentService
 from fdai.core.learning import PostTurnReviewCoordinator
 from fdai.core.metering.budget import BudgetLedger, ModelBudget
 from fdai.core.metering.pricing import PricingTable
@@ -151,6 +152,7 @@ class PantheonRuntime:
         case_history_analyzer: CaseHistoryAnalyzer | None = None,
         operational_context_materializer: OperationalContextMaterializer | None = None,
         operational_planner: factory.PlanningCoordinator | None = None,
+        change_assessor: ChangeAssessmentService | None = None,
         catalog_review: CatalogReviewBindings | None = None,
         case_history_retention: CaseHistoryRetentionService | None = None,
         forecast_evaluator: ForecastEpisodeEvaluator | None = None,
@@ -280,6 +282,7 @@ class PantheonRuntime:
             action_semantics=action_semantics,
             operational_context=operational_context_materializer,
             operational_planner=operational_planner,
+            change_assessor=change_assessor,
         )
         if forseti is not None:
             instantiated["Forseti"] = forseti

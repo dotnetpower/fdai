@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 4bbee41cdab0deac226093c1ca930cbf4196086f
+translation_source_sha: c4fc6ad297b00f038340fe419f2918c14cffd3fe
 translation_revised: 2026-08-04
 ---
 # FDAI 운영 온톨로지
@@ -29,7 +29,11 @@ cloud-operations 개념을 소유하고 deployment는 observed instance와 inten
 > evidence path, revision, effective time, provenance, complete freshness receipt를 보존합니다.
 > 변경관리는 `Change`에 planned-change evidence를 추가하고, reviewed `ChangeWindow`와 target 및
 > decision에서 impact, process, outcome, recovery까지 이어지는 typed link를 제공합니다. 이러한
-> declaration은 semantic evidence일 뿐 승인 또는 실행 권한을 제공하지 않습니다.
+> declaration은 semantic evidence일 뿐 승인 또는 실행 권한을 제공하지 않습니다. Huginn은 같은
+> normalized Change를 causal Event와 owner topic에 포함합니다. Forseti는 bounded
+> `ChangeAssessment`를 계산해 Verdict와 DecisionCase evidence에 보존하고, stale, incomplete,
+> failed 또는 review-required assessment에는 사람 검토를 요구합니다. 현재 runtime에는
+> graph-freshness authority가 없으므로 planned change는 이 gate를 auto-clear할 수 없습니다.
 
 ## 한눈에 보는 설계
 

@@ -24,6 +24,7 @@ from fdai.composition import (
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.chaos.symptom_index import build_from_promoted
 from fdai.core.control_loop import ControlLoop
+from fdai.core.impact_analysis import ChangeAssessmentService, ImpactAnalyzer
 from fdai.core.learning import PostTurnProposalModel, RuleHintSubmitter
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_planning import (
@@ -666,6 +667,13 @@ async def _run() -> int:
                     ),
                     operational_context_materializer=operational_context_materializer,
                     operational_planner=operational_planner,
+                    change_assessor=(
+                        ChangeAssessmentService(
+                            analyzer=ImpactAnalyzer(store=control_loop.ontology_instance_store)
+                        )
+                        if control_loop.ontology_instance_store is not None
+                        else None
+                    ),
                     case_history_retention=(
                         case_history_runtime.retention if case_history_runtime is not None else None
                     ),
