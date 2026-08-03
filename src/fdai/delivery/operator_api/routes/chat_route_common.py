@@ -177,6 +177,7 @@ def _uses_evidence_fast_path(view_context: Mapping[str, Any]) -> bool:
         "query_knowledge_context",
         "query_detection_readiness",
         "query_log",
+        "query_llm_usage",
         "query_network_reachability",
         "query_subscription_scope",
         "query_subscription_health",

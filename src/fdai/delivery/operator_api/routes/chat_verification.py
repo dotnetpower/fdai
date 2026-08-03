@@ -50,6 +50,10 @@ from fdai.delivery.operator_api.routes.chat_knowledge_context import (
     knowledge_context_evidence_refs,
     render_knowledge_context_answer,
 )
+from fdai.delivery.operator_api.routes.chat_llm_usage_rendering import (
+    llm_usage_evidence_refs,
+    render_llm_usage_answer,
+)
 from fdai.delivery.operator_api.routes.chat_log_query import (
     log_query_evidence_refs,
     render_log_query_answer,
@@ -321,6 +325,39 @@ def verify_answer(
             checks_completed=0,
             checks_total=1,
             reason_code="prior_context_required",
+        )
+
+    if isinstance(tool, Mapping) and tool.get("tool") == "query_llm_usage":
+        answer_plan = view_context.get("_answer_plan")
+        usage_format = (
+            str(answer_plan.get("format")) if isinstance(answer_plan, Mapping) else "prose"
+        )
+        usage_answer = render_llm_usage_answer(
+            tool,
+            locale=locale,
+            answer_format=usage_format,
+        )
+        usage_refs = llm_usage_evidence_refs(tool)
+        result = tool.get("result")
+        state = result.get("status") if isinstance(result, Mapping) else None
+        if usage_answer is None or state not in {"matched", "none"} or not usage_refs:
+            return AnswerVerification(
+                status="unverified",
+                answer="Measured LLM usage evidence could not be rendered.",
+                authority="server_metering",
+                checks_completed=0,
+                checks_total=1,
+                evidence_refs=usage_refs,
+                reason_code="llm_usage_evidence_invalid",
+            )
+        return AnswerVerification(
+            status=_changed(provisional, usage_answer),
+            answer=usage_answer,
+            authority="server_metering",
+            checks_completed=1,
+            checks_total=1,
+            evidence_refs=usage_refs,
+            reason_code="llm_usage_grounded",
         )
 
     if isinstance(tool, Mapping) and tool.get("tool") == "query_knowledge_context":

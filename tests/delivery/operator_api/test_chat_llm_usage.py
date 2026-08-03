@@ -1,0 +1,158 @@
+"""Deterministic LLM usage chat evidence and follow-up continuity."""
+
+import json
+from datetime import UTC, datetime, timedelta
+
+import pytest
+from starlette.testclient import TestClient
+
+from fdai.core.metering.records import InvocationMode, InvocationScope, LlmInvocation
+from fdai.core.metering.sink import InMemoryMeteringSink
+from fdai.core.metering.usage import TokenUsage
+from fdai.core.rbac.resolver import GroupMapping, RoleResolver
+from fdai.delivery.operator_api.auth import UnsafeClaimsExtractor, build_authenticator
+from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
+from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.operator_api.routes.chat_llm_usage import (
+    is_llm_usage_followup,
+    needs_llm_usage,
+)
+from fdai.shared.providers.testing.user_context import InMemoryConversationHistoryStore
+
+
+class _Backend:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def answer(self, **_kwargs: object) -> dict[str, str]:
+        self.calls += 1
+        return {"answer": "model fallback", "model": "test"}
+
+
+def _invocation(
+    *, occurred_at: datetime, prompt_tokens: int, completion_tokens: int
+) -> LlmInvocation:
+    return LlmInvocation(
+        occurred_at=occurred_at,
+        correlation_id="chat-example",
+        capability_id="t1.judge",
+        model_key="example-model",
+        tier="T1",
+        mode=InvocationMode.ENFORCE,
+        usage=TokenUsage(prompt_tokens, completion_tokens),
+        usage_scope=InvocationScope.OPERATOR_CHAT,
+    )
+
+
+def test_analysis_followup_detection_does_not_capture_explicit_other_domains() -> None:
+    assert needs_llm_usage("토큰 사용량에 대해서 알려줘")
+    assert is_llm_usage_followup("일주일간 통계를 그래프로 보여줘")
+    assert is_llm_usage_followup("모델별로 다시 보여줘")
+    assert not is_llm_usage_followup("VM 상태를 그래프로 보여줘")
+    assert not is_llm_usage_followup("데이터베이스 통계를 일주일간 보여줘")
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_durable_usage_followup_returns_chart_without_health_or_model_fallback(
+    stream: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FDAI_OPERATOR_API_DEV_MODE", "1")
+    reader = InMemoryMeteringSink()
+    now = datetime.now(UTC)
+    observed = tuple(now - timedelta(days=days) for days in (3, 2, 1))
+    for occurred_at, tokens in zip(observed, (100, 150, 200), strict=True):
+        _record_sync(
+            reader,
+            _invocation(
+                occurred_at=occurred_at,
+                prompt_tokens=tokens,
+                completion_tokens=20,
+            ),
+        )
+    backend = _Backend()
+    app = build_app(
+        authenticator=_authenticator(),
+        read_model=InMemoryConsoleReadModel(),
+        config=OperatorApiConfig(
+            dev_mode=True,
+            chat=backend,
+            llm_usage_reader=reader,
+            conversation_history_store=InMemoryConversationHistoryStore(),
+        ),
+    )
+
+    with TestClient(app) as client:
+        first = client.post(
+            "/chat",
+            json={
+                "request_id": "usage-first",
+                "session_id": "usage-session",
+                "prompt": "토큰 사용량에 대해서 알려줘",
+                "view_context": {"_locale": "ko"},
+            },
+        ).json()
+        assert first["verification"]["authority"] == "server_metering"
+
+        response = client.post(
+            "/chat/stream" if stream else "/chat",
+            json={
+                "request_id": "usage-followup-stream" if stream else "usage-followup-json",
+                "session_id": "usage-session",
+                "prompt": "일주일간 통계를 그래프로 보여줘",
+                "view_context": {"_locale": "ko"},
+            },
+        )
+        no_anchor = client.post(
+            "/chat",
+            json={
+                "request_id": f"usage-no-anchor-{stream}",
+                "session_id": "fresh-session",
+                "prompt": "일주일간 통계를 그래프로 보여줘",
+                "analysis_context": {"domain": "llm_usage"},
+                "view_context": {
+                    "_locale": "ko",
+                    "_verified_prior_context": {"status": "verified"},
+                },
+            },
+        ).json()
+
+    payload = _done_payload(response.text) if stream else response.json()
+    assert payload["verification"]["authority"] == "server_metering"
+    assert payload["verification"]["reason_code"] == "llm_usage_grounded"
+    assert payload["answer_plan"]["format"] == "chart"
+    assert payload["analysis_context"]["lookback_days"] == 7
+    chart = json.loads(payload["answer"].split("```chart\n", 1)[1].split("\n```", 1)[0])
+    assert chart["type"] == "line"
+    assert [point["label"] for point in chart["data"]] == [
+        item.strftime("%Y-%m-%d") for item in observed
+    ]
+    assert no_anchor["verification"]["authority"] == "server_conversation_context"
+    assert no_anchor["verification"]["reason_code"] == "prior_context_required"
+    assert backend.calls == 0
+
+
+def _authenticator():  # type: ignore[no-untyped-def]
+    return build_authenticator(
+        verifier=UnsafeClaimsExtractor(),
+        resolver=RoleResolver(
+            group_mapping=GroupMapping(
+                reader_group_id="reader-group",
+                contributor_group_id="contributor-group",
+                approver_group_id="approver-group",
+                owner_group_id="owner-group",
+                break_glass_group_id="break-glass-group",
+            )
+        ),
+    )
+
+
+def _record_sync(reader: InMemoryMeteringSink, invocation: LlmInvocation) -> None:
+    import asyncio
+
+    asyncio.run(reader.record(invocation))
+
+
+def _done_payload(text: str) -> dict[str, object]:
+    lines = text.splitlines()
+    done_index = lines.index("event: done")
+    return json.loads(lines[done_index + 1].removeprefix("data: "))

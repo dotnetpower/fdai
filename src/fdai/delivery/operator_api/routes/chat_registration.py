@@ -52,6 +52,10 @@ from fdai.delivery.operator_api.routes.chat_inventory import (
     InventoryChatTools,
     KubernetesWorkloadProvider,
 )
+from fdai.delivery.operator_api.routes.chat_llm_usage import (
+    LlmUsageChatTools,
+    is_llm_usage_followup,
+)
 from fdai.delivery.operator_api.routes.chat_log_query import (
     LogQueryChatTools,
     needs_log_query_context,
@@ -118,6 +122,7 @@ def append_chat_routes(
     conversation_assurance_runtime: ConversationPolicyRuntime | None = None,
     conversation_history_store: ConversationHistoryStore | None = None,
     conversation_search: ConversationSearch | None = None,
+    llm_usage_reader: Any = None,
     inventory_graph_provider: InventoryGraphProvider | None = None,
     inventory_activity_provider: InventoryActivityProvider | None = None,
     kubernetes_workload_provider: KubernetesWorkloadProvider | None = None,
@@ -223,8 +228,17 @@ def append_chat_routes(
         preferences=answer_preference_store,
         fallback=action_context_tools,
     )
+    llm_usage_tools = (
+        current_time_tools
+        if llm_usage_reader is None
+        else LlmUsageChatTools(llm_usage_reader, fallback=current_time_tools)
+    )
     tools = ConversationContextChatTools(
-        fallback=current_time_tools,
+        fallback=llm_usage_tools,
+        analysis_context=(
+            llm_usage_tools if isinstance(llm_usage_tools, LlmUsageChatTools) else None
+        ),
+        analysis_predicate=(is_llm_usage_followup if llm_usage_reader is not None else None),
         knowledge_context=knowledge_context,
         inventory_context=inventory_chat_tools,
         contextual_routes=(
@@ -247,6 +261,7 @@ def append_chat_routes(
     action_names = getattr(console_action, "action_type_names", ())
     read_capabilities = (
         *read_tools.turn_tools(),
+        *(llm_usage_tools.turn_tools() if isinstance(llm_usage_tools, LlmUsageChatTools) else ()),
         *(inventory_chat_tools.turn_tools() if inventory_chat_tools is not None else ()),
         *(
             subscription_health_tools.turn_tools()
@@ -291,6 +306,7 @@ def append_chat_routes(
     capability_registry = ConversationCapabilityRegistry(capabilities)
     planned_tools = _PlannedToolChain(
         *((subscription_health_tools,) if subscription_health_provider is not None else ()),
+        *((llm_usage_tools,) if isinstance(llm_usage_tools, LlmUsageChatTools) else ()),
         read_tools,
         *((inventory_chat_tools,) if inventory_chat_tools is not None else ()),
     )

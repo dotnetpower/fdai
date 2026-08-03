@@ -82,6 +82,7 @@ def append_auxiliary_routes(
         conversation_assurance_runtime=config.conversation_assurance_runtime,
         conversation_history_store=config.conversation_history_store,
         conversation_search=config.conversation_search,
+        llm_usage_reader=config.llm_usage_reader,
         inventory_graph_provider=config.inventory_graph_provider,
         inventory_activity_provider=config.inventory_activity_provider,
         kubernetes_workload_provider=config.kubernetes_workload_provider,

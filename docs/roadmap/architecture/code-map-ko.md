@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 84fddaae177c563f824f0870762418083065bdc7
+translation_source_sha: 2117fd0b6091fe7bf504e9d047edcd8c3ffeb0b8
 translation_revised: 2026-08-04
 ---
 # 코드 맵
@@ -135,6 +135,9 @@ Inventory scope-only follow-up은
 분리되어 있습니다. 이 helper는 최신 user inventory intent만 재사용하며 `chat.py`와
 `chat_stream.py`는 동일한 deterministic planning bypass와 subscription-root provider scope를
 적용합니다.
+
+측정된 LLM usage와 server-owned analytical continuation은 [`chat_llm_usage.py`](../../../src/fdai/delivery/operator_api/routes/chat_llm_usage.py)에 있습니다. Resolver는 `MeteringReader`를 읽고 terminal verification 이후에만 bounded `analysis_context`를 발급하며 browser history를 신뢰하지 않고 기간, grouping 또는 presentation refinement를 다시 실행합니다.
+Focused coverage는 [`test_chat_llm_usage.py`](../../../tests/delivery/operator_api/test_chat_llm_usage.py)에 있습니다.
 
 Presentation intent는
 [`answer_plan.py`](../../../src/fdai/core/conversation/answer_plan.py)에서 typed contract로

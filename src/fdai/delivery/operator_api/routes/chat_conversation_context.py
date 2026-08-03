@@ -13,6 +13,9 @@ from fdai.delivery.operator_api.routes.chat_freshness_context import (
     parse_evidence_freshness_context,
 )
 from fdai.delivery.operator_api.routes.chat_history import completed_replay_payload
+from fdai.delivery.operator_api.routes.chat_llm_usage import (
+    parse_llm_usage_analysis_context,
+)
 from fdai.delivery.operator_api.routes.chat_resource_result_context import (
     ambiguous_resource_candidates,
     ordinal_inventory_arguments,
@@ -142,6 +145,7 @@ class VerifiedPriorContext:
     resource_result_context: Mapping[str, Any] | None = None
     source_failure_context: Mapping[str, Any] | None = None
     evidence_freshness_context: Mapping[str, object] | None = None
+    analysis_context: Mapping[str, object] | None = None
     truncated: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -171,6 +175,9 @@ class VerifiedPriorContext:
                 dict(self.evidence_freshness_context)
                 if self.evidence_freshness_context is not None
                 else None
+            ),
+            "analysis_context": (
+                dict(self.analysis_context) if self.analysis_context is not None else None
             ),
             "truncated": self.truncated,
         }
@@ -264,6 +271,7 @@ async def load_verified_prior_context(
             freshness = parse_evidence_freshness_context(payload.get("evidence_freshness_context"))
         except ValueError:
             freshness = None
+        analysis_context = parse_llm_usage_analysis_context(payload.get("analysis_context"))
         answer = turn.content[:_MAX_CONTEXT_ANSWER_CHARS]
         return VerifiedPriorContext(
             principal_id=principal_id,
@@ -278,6 +286,7 @@ async def load_verified_prior_context(
             resource_result_context=resource_result_context,
             source_failure_context=source_failure_context,
             evidence_freshness_context=(freshness.to_dict() if freshness is not None else None),
+            analysis_context=analysis_context,
             truncated=len(turn.content) > len(answer),
         )
     return None
@@ -286,6 +295,8 @@ async def load_verified_prior_context(
 @dataclass(frozen=True, slots=True)
 class ConversationContextChatTools:
     fallback: ChatToolResolver | None = None
+    analysis_context: Any = None
+    analysis_predicate: Callable[[str], bool] | None = None
     contextual_fallback: Any = None
     contextual_predicate: Callable[[str], bool] | None = None
     contextual_routes: tuple[tuple[Callable[[str], bool], Any], ...] = ()
@@ -293,6 +304,8 @@ class ConversationContextChatTools:
     inventory_context: Any = None
 
     async def resolve(self, prompt: str, *, principal_id: str) -> dict[str, Any] | None:
+        if self.analysis_predicate is not None and self.analysis_predicate(prompt):
+            return _analysis_context_required()
         if not needs_conversation_context(prompt):
             if self.fallback is None:
                 return None
@@ -311,6 +324,17 @@ class ConversationContextChatTools:
         principal_id: str,
         context: Mapping[str, Any] | None,
     ) -> dict[str, Any] | None:
+        if self.analysis_predicate is not None and self.analysis_predicate(prompt):
+            contextual = getattr(self.analysis_context, "resolve_with_context", None)
+            if callable(contextual):
+                resolved = await contextual(
+                    prompt,
+                    principal_id=principal_id,
+                    context=context,
+                )
+                if isinstance(resolved, Mapping):
+                    return dict(resolved)
+            return _analysis_context_required()
         intent = classify_conversation_context_intent(prompt)
         if intent is None:
             for predicate, resolver in self.contextual_routes:
@@ -576,6 +600,20 @@ def _required_context_result(prompt: str) -> dict[str, Any]:
         "reason": "prior_context_required",
         "intent": intent.value if intent is not None else "unknown",
         "required_context": required_context,
+    }
+
+
+def _analysis_context_required() -> dict[str, Any]:
+    return {
+        "tool": "query_conversation_context",
+        "authority": "server_conversation_context",
+        "status": "abstain",
+        "result": {
+            "status": "unavailable",
+            "reason": "prior_context_required",
+            "intent": "analysis_refinement",
+            "required_context": ["prior_analysis_context"],
+        },
     }
 
 

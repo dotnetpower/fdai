@@ -16,6 +16,9 @@ from fdai.delivery.operator_api.routes.chat_freshness_context import EvidenceFre
 from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
     public_intent_graph_evidence,
 )
+from fdai.delivery.operator_api.routes.chat_llm_usage_rendering import (
+    response_llm_usage_analysis_context,
+)
 from fdai.delivery.operator_api.routes.chat_resource_result_context import (
     response_resource_result_context,
 )
@@ -221,6 +224,12 @@ def build_done_payload(
     )
     if source_failure_context is not None:
         payload["source_failure_context"] = source_failure_context
+    analysis_context = response_llm_usage_analysis_context(
+        enriched_context,
+        verification_status=verification.status,
+    )
+    if analysis_context is not None:
+        payload["analysis_context"] = analysis_context
     if freshness_context is not None:
         payload["evidence_freshness_context"] = freshness_context.to_dict()
     if model_trace is not None:

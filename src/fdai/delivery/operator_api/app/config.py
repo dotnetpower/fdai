@@ -368,6 +368,14 @@ class OperatorApiConfig:
     unregistered (the FE deck then falls back to its built-in deterministic
     answerer)."""
 
+    llm_usage_reader: Any = None
+    """Optional measured LLM invocation reader shared by the Cost panel and chat.
+
+    When configured, chat exposes the read-only ``query_llm_usage`` capability.
+    The reader supplies measured token records only and grants no billing,
+    approval, policy, or execution authority.
+    """
+
     chat_document_evidence: Any = None
     """Optional resolver for immutable, already-ingested web-chat document
     references. The chat route never accepts file bytes or download URLs."""

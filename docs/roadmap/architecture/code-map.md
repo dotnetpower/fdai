@@ -133,6 +133,9 @@ Inventory scope-only follow-ups are isolated in
 The helper reuses only the latest user inventory intent, while `chat.py` and `chat_stream.py` apply
 the same deterministic planning bypass and subscription-root provider scope.
 
+Measured LLM usage and its server-owned analytical continuation live in [`chat_llm_usage.py`](../../../src/fdai/delivery/operator_api/routes/chat_llm_usage.py). The resolver reads `MeteringReader`, emits a bounded `analysis_context` only after terminal verification, and re-runs a period, grouping, or presentation refinement without trusting browser history.
+Focused coverage lives in [`test_chat_llm_usage.py`](../../../tests/delivery/operator_api/test_chat_llm_usage.py).
+
 Presentation intent is typed in
 [`answer_plan.py`](../../../src/fdai/core/conversation/answer_plan.py). Explicit table and chart
 formats and strict shape-only model selection in

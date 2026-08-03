@@ -526,6 +526,7 @@ async def _with_tool_evidence(
             "describe_read_sources",
             "get_current_time",
             "query_inventory",
+            "query_llm_usage",
             "query_subscription_health",
             "query_t2_recovery",
         }:
@@ -546,6 +547,10 @@ def _tool_execution_progress_event(
 ) -> dict[str, object] | None:
     tool = evidence.get("tool")
     queries = {
+        "query_llm_usage": {
+            "operation": "query_llm_usage",
+            "arguments": evidence.get("analysis_context"),
+        },
         "query_subscription_health": {
             "operation": "query_subscription_health",
             "scope": "server-owned",
@@ -557,6 +562,7 @@ def _tool_execution_progress_event(
     }
     labels = {
         "query_inventory": "Applied inventory query",
+        "query_llm_usage": "Read measured LLM usage",
         "query_subscription_health": "Checked subscription health",
         "query_t2_recovery": "Read T2 recovery state",
     }

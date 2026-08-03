@@ -844,6 +844,7 @@ def build_local_app(
             what_if_reader=trace_reader if test_fixtures else None,
             what_if_evaluators=what_if_evaluators if test_fixtures else {},
             chat=models.backend,
+            llm_usage_reader=metering,
             skill_disclosure=skill_disclosure,
             knowledge_context=knowledge_context,
             chat_web_search=models.web_search,

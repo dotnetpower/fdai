@@ -40,6 +40,7 @@ from fdai.delivery.operator_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
     contextualize_inventory_screen_scope,
 )
+from fdai.delivery.operator_api.routes.chat_llm_usage import is_llm_usage_followup
 from fdai.delivery.operator_api.routes.chat_log_query import needs_log_query_context
 from fdai.delivery.operator_api.routes.chat_resource_context import (
     contextualize_resource_followup,
@@ -212,6 +213,7 @@ async def prepare_chat_stream_request(
     prior_context = None
     if (
         needs_conversation_context(clean_prompt)
+        or is_llm_usage_followup(clean_prompt)
         or needs_subscription_health_context(clean_prompt)
         or needs_log_query_context(clean_prompt)
         or needs_evidence_freshness_context(clean_prompt)

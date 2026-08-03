@@ -163,6 +163,13 @@ from fdai.delivery.operator_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
     contextualize_inventory_screen_scope,
 )
+from fdai.delivery.operator_api.routes.chat_llm_usage import (
+    is_llm_usage_followup,
+    needs_llm_usage,
+)
+from fdai.delivery.operator_api.routes.chat_llm_usage_rendering import (
+    response_llm_usage_analysis_context,
+)
 from fdai.delivery.operator_api.routes.chat_log_query import (
     needs_log_query,
     needs_log_query_context,
@@ -473,6 +480,7 @@ def make_chat_route(
         prior_context = None
         if (
             needs_conversation_context(clean_prompt)
+            or is_llm_usage_followup(clean_prompt)
             or needs_subscription_health_context(clean_prompt)
             or needs_log_query_context(clean_prompt)
             or needs_evidence_freshness_context(clean_prompt)
@@ -543,6 +551,8 @@ def make_chat_route(
             or needs_log_query(evidence_prompt)
             or needs_action_context(evidence_prompt)
             or needs_conversation_context(evidence_prompt)
+            or needs_llm_usage(evidence_prompt)
+            or is_llm_usage_followup(evidence_prompt)
             or needs_operational_evidence(evidence_prompt, view_context)
             or needs_current_time(evidence_prompt)
             or freshness_answer is not None
@@ -1061,6 +1071,12 @@ def make_chat_route(
         )
         if source_failure_context is not None:
             enriched["source_failure_context"] = source_failure_context
+        analysis_context = response_llm_usage_analysis_context(
+            view_context,
+            verification_status=verification.status,
+        )
+        if analysis_context is not None:
+            enriched["analysis_context"] = analysis_context
         selected_freshness = response_evidence_freshness_context(view_context, freshness_context)
         if selected_freshness is not None:
             enriched["evidence_freshness_context"] = selected_freshness.to_dict()

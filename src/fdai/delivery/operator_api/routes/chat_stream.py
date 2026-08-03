@@ -106,6 +106,10 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
     planner_context_envelope,
 )
 from fdai.delivery.operator_api.routes.chat_inventory_compiler import compile_inventory_query
+from fdai.delivery.operator_api.routes.chat_llm_usage import (
+    is_llm_usage_followup,
+    needs_llm_usage,
+)
 from fdai.delivery.operator_api.routes.chat_log_query import needs_log_query
 from fdai.delivery.operator_api.routes.chat_model_trace import (
     activate_model_trace,
@@ -314,6 +318,8 @@ def make_chat_stream_route(
             or needs_log_query(evidence_prompt)
             or needs_action_context(evidence_prompt)
             or needs_conversation_context(evidence_prompt)
+            or needs_llm_usage(evidence_prompt)
+            or is_llm_usage_followup(evidence_prompt)
             or needs_operational_evidence(evidence_prompt, view_context)
             or needs_current_time(evidence_prompt)
             or (freshness_context is not None and needs_evidence_freshness_context(clean_prompt))

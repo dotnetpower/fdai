@@ -368,6 +368,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     assurance_evaluators: tuple[ConversationAssuranceEvaluator, ...] = ()
     chat = None
     chat_web_search = None
+    metering_sink = None
     resolved_models_path = env.get(_env.RESOLVED_MODELS_ENV, "").strip()
     narrator_api_key_configured = all(
         env.get(name, "").strip()
@@ -823,6 +824,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         runtime_settings=runtime_settings,
         python_tasks=python_tasks,
         chat=chat,
+        llm_usage_reader=metering_sink,
         chat_document_evidence=UploaderDocumentEvidenceResolver(
             metadata=PostgresDocumentMetadataStore(
                 config=PostgresDocumentMetadataStoreConfig(
