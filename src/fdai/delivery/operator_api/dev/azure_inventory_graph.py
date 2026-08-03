@@ -196,6 +196,36 @@ class AzureCliInventoryGraphProvider:
         if task is not None:
             await task
 
+    async def start_warmup(self) -> None:
+        """Load persistent state and start refresh without blocking startup."""
+
+        await self._load_persistent_cache()
+        invalidated = await asyncio.to_thread(self._cache_invalidated)
+        cache_fresh = (
+            self._cached is not None
+            and not invalidated
+            and monotonic() - self._cached_at < self.cache_ttl_seconds
+        )
+        if cache_fresh:
+            _LOGGER.info("azure_cli_inventory_warmup_cache_hit")
+            return
+        self._schedule_refresh()
+        _LOGGER.info(
+            "azure_cli_inventory_warmup_scheduled",
+            extra={"cache_present": self._cached is not None, "invalidated": invalidated},
+        )
+
+    async def close(self) -> None:
+        """Cancel and drain a background refresh during ASGI shutdown."""
+
+        task = self._refresh_task
+        self._refresh_task = None
+        if task is None:
+            return
+        if not task.done():
+            task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+
     async def _load_persistent_cache(self) -> None:
         if self._persistent_loaded:
             return

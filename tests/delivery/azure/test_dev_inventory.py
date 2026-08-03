@@ -445,6 +445,60 @@ class TestFullSnapshot:
         }
         assert "azure_cli_inventory_arg_fallback" in caplog.text
 
+    def test_discover_all_uses_arg_vm_power_state_without_vm_details(self) -> None:
+        vm_id = (
+            "/subscriptions/00000000-0000-0000-0000-000000000000/"
+            "resourceGroups/rg-example/providers/Microsoft.Compute/virtualMachines/vm-example"
+        )
+        inventory = AzureCliInventory(
+            resource_types=("compute.vm",),
+            azure_arm_types={"compute.vm": "Microsoft.Compute/virtualMachines"},
+            discover_all=True,
+        )
+        commands: list[tuple[str, str]] = []
+
+        def _response(argv, **_kwargs):  # type: ignore[no-untyped-def]
+            command = tuple(argv[1:3])
+            commands.append(command)
+            if command == ("group", "list"):
+                return _completed("[]")
+            if command == ("graph", "query"):
+                return _completed(
+                    json.dumps(
+                        {
+                            "data": [
+                                {
+                                    "id": vm_id,
+                                    "type": "Microsoft.Compute/virtualMachines",
+                                    "name": "vm-example",
+                                    "resourceGroup": "rg-example",
+                                    "properties": {
+                                        "provisioningState": "Succeeded",
+                                        "extended": {
+                                            "instanceView": {
+                                                "powerState": {"code": "PowerState/running"}
+                                            }
+                                        },
+                                    },
+                                }
+                            ],
+                            "skip_token": None,
+                        }
+                    )
+                )
+            raise AssertionError(f"unexpected Azure CLI command: {argv}")
+
+        with patch(
+            "fdai.delivery.azure.dev_inventory.subprocess.run",
+            side_effect=_response,
+        ):
+            batches = asyncio.run(_drain(inventory))
+
+        vm = batches[0].resources[0]
+        assert vm.props["status"] == "PowerState/running"
+        assert vm.props["powerState"] == "PowerState/running"
+        assert ("vm", "list") not in commands
+
     def test_discover_all_rejects_ambiguous_rows_from_arg_fallback(self) -> None:
         registry = _resource_types()
         inventory = AzureCliInventory(

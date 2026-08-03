@@ -1059,3 +1059,44 @@ def test_concurrent_first_requests_share_persistent_load(
 
     asyncio.run(_run())
     assert inventory.calls == 0
+
+
+def test_start_warmup_does_not_block_on_missing_cache() -> None:
+    provider = AzureCliInventoryGraphProvider(inventory=_HangingInventory())
+
+    async def _run() -> None:
+        await asyncio.wait_for(provider.start_warmup(), timeout=0.1)
+        assert provider._refresh_task is not None
+        await provider.close()
+        assert provider._refresh_task is None
+
+    asyncio.run(_run())
+
+
+def test_start_warmup_reuses_fresh_persistent_cache(tmp_path: Path) -> None:
+    cache_path, identity = inventory_cache_path(
+        repo_root=tmp_path,
+        subscription_id="subscription-example",
+        azure_config_dir=None,
+    )
+    asyncio.run(
+        AzureCliInventoryGraphProvider(
+            inventory=_Inventory(),
+            cache_path=cache_path,
+            cache_identity=identity,
+        )(None, 4, ("contains",))
+    )
+    inventory = _Inventory()
+    provider = AzureCliInventoryGraphProvider(
+        inventory=inventory,
+        cache_path=cache_path,
+        cache_identity=identity,
+    )
+
+    async def _run() -> None:
+        await provider.start_warmup()
+        await provider.wait_for_refresh()
+        await provider.close()
+
+    asyncio.run(_run())
+    assert inventory.calls == 0

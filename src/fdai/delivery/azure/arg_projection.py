@@ -65,10 +65,15 @@ def resource_operational_status(row: Mapping[str, Any]) -> str | None:
 
     properties = row.get("properties")
     nested = properties if isinstance(properties, Mapping) else {}
+    extended = nested.get("extended")
+    extended_properties = extended if isinstance(extended, Mapping) else {}
+    instance_view = extended_properties.get("instanceView")
+    instance_view_properties = instance_view if isinstance(instance_view, Mapping) else {}
     for value in (
         row.get("powerState"),
         row.get("state"),
         nested.get("powerState"),
+        instance_view_properties.get("powerState"),
         nested.get("state"),
         nested.get("status"),
         nested.get("userVisibleState"),

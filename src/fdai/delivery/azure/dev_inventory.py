@@ -229,20 +229,13 @@ class AzureCliInventory:
     async def _fetch_all_registered(self) -> InventoryBatch:
         group_args = [self.executable, "group", "list", "--output", "json"]
         resource_args = [self.executable, "resource", "list", "--output", "json"]
-        vm_args = [self.executable, "vm", "list", "--show-details", "--output", "json"]
         if self.subscription_id:
-            for argv in (group_args, resource_args, vm_args):
+            for argv in (group_args, resource_args):
                 argv.extend(("--subscription", self.subscription_id))
-        groups, resource_rows, vm_rows = await asyncio.gather(
+        groups, resource_rows = await asyncio.gather(
             self._fetch_rows(group_args, "resource-group"),
             self._fetch_registered_rows(resource_args),
-            self._fetch_rows(vm_args, "compute.vm"),
         )
-        vm_by_id = {
-            str(row.get("id") or "").casefold(): row
-            for row in vm_rows
-            if isinstance(row.get("id"), str)
-        }
         rows_by_type: dict[str, list[dict[str, Any]]] = {"resource-group": list(groups)}
         for row in resource_rows:
             resource_type = self._resolve_registered_type(row)
@@ -255,8 +248,6 @@ class AzureCliInventory:
                 continue
             if resource_type == "resource-group":
                 continue
-            if resource_type == "compute.vm":
-                row = {**row, **vm_by_id.get(str(row.get("id") or "").casefold(), {})}
             rows_by_type.setdefault(resource_type, []).append(row)
 
         records: list[ResourceRecord] = []
@@ -487,7 +478,7 @@ def _record_from_az_row(*, row: dict[str, Any], resource_type: str, now_iso: str
         props["provisioningState"] = provisioning_state
     if status := resource_operational_status(row):
         props["status"] = status
-        if resource_type == "postgresql-server":
+        if resource_type in {"compute.vm", "postgresql-server"}:
             props["powerState"] = status
     # Carry the owning resource-group so a console read can scope by it
     # (parity with the production ARG adapter, which projects `resourceGroup`).
