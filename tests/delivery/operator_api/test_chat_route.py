@@ -1315,10 +1315,12 @@ class TestChatRouteLatencySurface:
         )
 
         assert response.status_code == 200
-        assert backend.view_context is not None
-        evidence = backend.view_context["_operational_evidence"]
-        assert evidence["authority"] == "server_read_model"
-        assert evidence["selected_incident"]["correlation_id"] == "corr-server"
+        assert backend.calls == 0
+        payload = response.json()
+        assert payload["source"] == "evidence:verified"
+        assert payload["verification"]["authority"] == "server_read_model"
+        assert "corr-server" in payload["answer"]
+        assert "corr-forged" not in payload["answer"]
 
     def test_client_evidence_is_removed_when_lookup_is_not_needed(self) -> None:
         backend = _RecordingBackend(model="gpt-x", delay_ms=0)
@@ -2096,10 +2098,12 @@ class TestChatStreamEvidence:
 
         assert response.status_code == 200
         assert "event: done" in response.text
-        assert backend.view_context is not None
-        evidence = backend.view_context["_operational_evidence"]
-        assert evidence["selected_incident"]["correlation_id"] == "corr-server"
+        assert backend.calls == 0
         events = _parse_sse(response.text)
+        done = next(payload for name, payload in events if name == "done")
+        assert done["source"] == "evidence:verified"
+        assert done["verification"]["authority"] == "server_read_model"
+        assert "corr-server" in done["answer"]
         generating = next(
             payload
             for name, payload in events
@@ -2149,31 +2153,27 @@ class TestChatStreamEvidence:
             "provisional",
             "verification",
             "verification",
-            "revision",
             "confirmed",
             "done",
         ]
         payloads = [payload for _, payload in events]
         assert [payload["seq"] for payload in payloads] == list(range(1, len(payloads) + 1))
         assert {payload["request_id"] for payload in payloads} == {"req-1"}
-        revision = payloads[-3]
         confirmed = payloads[-2]
         done = payloads[-1]
-        assert revision["revision"] == 1
-        assert revision["status"] == "corrected"
-        assert confirmed["revision"] == 1
-        assert confirmed["text"] == revision["answer"]
-        assert confirmed["replace_start"] == 0
-        assert confirmed["replace_end"] > 0
-        assert done["revision"] == 1
-        assert done["answer"] == revision["answer"]
-        assert done["verification"]["status"] == "corrected"
+        assert confirmed["revision"] == 0
+        assert confirmed["status"] == "verified"
+        assert confirmed["text"] == done["answer"]
+        assert "replace_start" not in confirmed
+        assert "replace_end" not in confirmed
+        assert done["revision"] == 0
+        assert done["verification"]["status"] == "verified"
         assert done["turn_timing"]["schema_version"] == 1
         timing_by_phase = {item["phase"]: item for item in done["turn_timing"]["phases"]}
         assert timing_by_phase["evidence"]["status"] == "degraded"
         assert timing_by_phase["generation"]["status"] == "completed"
-        assert timing_by_phase["quality_review"]["status"] == "completed"
-        assert timing_by_phase["verification"]["status"] == "corrected"
+        assert "quality_review" not in timing_by_phase
+        assert timing_by_phase["verification"]["status"] == "completed"
         assert all(item["duration_ms"] >= 0 for item in timing_by_phase.values())
         assert done["trajectory_detail"]["schema_version"] == 1
         assert done["trajectory_detail"]["branches"]

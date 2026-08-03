@@ -492,7 +492,7 @@ def test_chat_routes_attach_shadow_semantic_plan(stream: bool) -> None:
     app = Starlette(routes=[route])
     path = "/chat/stream" if stream else "/chat"
 
-    response = TestClient(app).post(path, json={"prompt": "Incident 는 자동으로 생성되나?"})
+    response = TestClient(app).post(path, json={"prompt": "Explain two design options."})
 
     assert response.status_code == 200
     assert planner.calls == 1
@@ -537,7 +537,7 @@ def test_chat_routes_execute_hierarchical_intent_graph(stream: bool) -> None:
 
     response = TestClient(Starlette(routes=[route])).post(
         "/chat/stream" if stream else "/chat",
-        json={"prompt": "show incidents and compare the KPI"},
+        json={"prompt": "compare the two requested datasets"},
     )
 
     assert response.status_code == 200

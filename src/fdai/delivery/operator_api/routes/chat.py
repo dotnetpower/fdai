@@ -577,7 +577,9 @@ def make_chat_route(
         try:
             operator_turn = None
             semantic_plan = None
-            if turn_planner is not None and not deterministic_followup:
+            if turn_planner is not None and (
+                not deterministic_followup or is_explicit_action_draft_request(clean_prompt)
+            ):
                 try:
                     semantic_plan = await plan_semantic_turn(
                         turn_planner,

@@ -21,6 +21,7 @@ from fdai.core.conversation_assurance import ConversationPolicyRuntime
 from fdai.core.metering import InvocationScope, with_invocation_scope
 from fdai.core.user_context_projection import UserContextOntologyProjector
 from fdai.delivery.operator_api.routes.chat_action_context import (
+    is_explicit_action_draft_request,
     needs_action_context,
 )
 from fdai.delivery.operator_api.routes.chat_answer_planning import (
@@ -436,7 +437,9 @@ def make_chat_stream_route(
                     yield frame("done", completed_payload)
                     return
                 semantic_plan = None
-                if turn_planner is not None and not deterministic_followup:
+                if turn_planner is not None and (
+                    not deterministic_followup or is_explicit_action_draft_request(clean_prompt)
+                ):
                     semantic_plan_timing = turn_timing.begin("semantic_plan")
                     try:
                         semantic_plan = await plan_semantic_turn(

@@ -59,7 +59,7 @@ CASES = (
         "abstain",
     ),
     ArchitectureCase(
-        "근거 citation이 없는 T2 proposal은 다음 단계로 갈 수 있어?",
+        "T2 결과는 어떤 검증을 통과해야 해?",
         "architecture.t2-quality-gate",
         "implemented",
         "grounding 부재",
