@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 5dee600169529a5377656635ac3743673ee2438d
+translation_source_sha: aca486e839a3508f3185bff2dc1a42db54ba8462
 translation_revised: 2026-08-03
 ---
 
@@ -238,8 +238,10 @@ answer도 같은 visual paint queue를 사용하므로 canonical table row가 0�
 증가합니다. Background tab은 동기적으로 완료합니다. Narrow screen에서는 transcript 폭을 늘리지 않고
 cell을 줄바꿈합니다.
 
-상세 화면은 bounded recorded metadata를 표시하지만 answer body를 반복하지 않습니다. Provider message,
-action argument, command 및 output의 유효한 object 또는 array JSON은 indentation, syntax highlighting 및
+상세 화면은 bounded recorded metadata를 표시하지만 answer body를 반복하지 않습니다. 펼친 각 timeline
+event는 evidence summary와 reference, plan intent와 format, answer source와 model-call count,
+verification authority와 check 또는 model request와 response metadata처럼 source record에 있는
+상세를 표시합니다. Provider message, action argument, command 및 output의 유효한 object 또는 array JSON은 indentation, syntax highlighting 및
 copy를 제공하며 malformed 또는 plain text는 변경하지 않습니다. Terminal replay payload는 ID별 최종
 branch, activity, milestone 및 redacted execution detail을 총 64 KiB 이하로 보존하고 history output을
 항목당 32 KiB에서 truncate하며 truncation 및 omission count를 표시합니다. 따라서 durable history와
@@ -254,11 +256,14 @@ completion 및 duration을 만듭니다. Interrupt는 timing을 저장하지 않
 
 Model provider tracing은 기본값이 꺼진 browser-local Settings opt-in입니다. 활성화하면 request-local
 collector가 turn planning, rerun, answer generation 및 quality review를 포함하여 해당 질문의 실제 model
-call을 최대 8개 기록합니다. Waterfall은 provider-call timing을 사용하며, 각 disclosure는 role 순서의
+call을 최대 8개 기록합니다. Waterfall은 provider-call timing을 사용합니다. 기록된 call이 0건이면
+deterministic path에서 provider lane이 필요하지 않았음을 Waterfall 안에 표시합니다. Trace가 캡처되지
+않은 turn은 명시적인 unavailable state를 표시합니다. 캡처 설정이 꺼져 있어도 panel은 Settings opt-in
+안내와 함께 표시하지만 저장된 trace data는 계속 숨깁니다. 각 disclosure는 role 순서의
 기록된 message array와 request SHA를 보존하면서 연속 system layer를 하나의 `SYSTEM` heading으로 묶습니다.
 JSON body는 pretty-print하고 bounded request 및 response block에는 theme에 맞는 scrollbar를 적용합니다. Disclosure는 assistant content, token usage, exact-content SHA-256 및 redaction count도 표시합니다. Credential, tenant 또는 resource identifier, URL, email, IP address, inline image,
 hidden reasoning, header 및 provider 내부 정보는 저장하지 않습니다. 설정을 끄면 캡처를 중지하고
-저장된 trace를 숨기며 provider call을 반복하지 않고 idempotent replay response에서 trace를 제거합니다.
+저장된 trace data를 숨기며 provider call을 반복하지 않고 idempotent replay response에서 trace를 제거합니다.
 
 이 principal-scoped view는 authorization-first offline review artifact인
 [관리형 trajectory dataset](governed-trajectory-datasets-ko.md)과 구분됩니다. Hidden reasoning, raw

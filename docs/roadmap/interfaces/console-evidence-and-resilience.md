@@ -242,7 +242,10 @@ control. A foreground terminal-only deterministic answer uses the same visual pa
 canonical table also reveals monotonically from zero rows to the complete row count. Background tabs
 finish synchronously. Cells wrap on narrow screens instead of widening the transcript.
 
-Detail includes bounded recorded metadata but doesn't repeat the answer body. Valid object or array JSON in provider messages, action arguments, commands, and outputs uses indented syntax highlighting and copy; malformed or plain text stays unchanged. The terminal replay payload retains final ID-deduplicated branch, activity, milestone, and redacted execution detail under a 64 KiB aggregate cap, truncates each history output at 32 KiB, and reports truncation and omission counts, so durable history and the live turn use the same strict parser and trajectory view. Unavailable or timed-out
+Detail includes bounded recorded metadata but doesn't repeat the answer body. Each expanded timeline
+event shows the available source-record detail, including evidence summaries and references, plan
+intent and format, answer source and model-call count, verification authority and checks, or model
+request and response metadata. Valid object or array JSON in provider messages, action arguments, commands, and outputs uses indented syntax highlighting and copy; malformed or plain text stays unchanged. The terminal replay payload retains final ID-deduplicated branch, activity, milestone, and redacted execution detail under a 64 KiB aggregate cap, truncates each history output at 32 KiB, and reports truncation and omission counts, so durable history and the live turn use the same strict parser and trajectory view. Unavailable or timed-out
 evidence is an attempt, not completed evidence, and unverified work never receives completed styling. Missing activity stays in an observation-coverage disclosure and proves no absence. Exact-answer
 durable replay uses the same bounded browser parsers. The server buffers model tokens until the provider's terminal content-policy decision is known; a block exposes no partial token or assistant answer, records only a content-free receipt, and produces the same deterministic fallback for SSE and JSON `422`, while logs retain only stage and aggregate counts. An explicit provider refusal, truncated completion, malformed stream frame, or stream without a verified terminal signal never becomes an assistant answer.
 
@@ -252,10 +255,13 @@ and verification phases. One UTC anchor plus monotonic elapsed time produces obs
 Model provider tracing is a browser-local Settings opt-in that defaults off. When enabled, the
 request-local collector records up to eight actual model calls for that question, including turn
 planning, reruns, answer generation, and quality review. The Waterfall uses provider-call timing;
-each disclosure preserves the recorded message array and request SHA while grouping consecutive
+an enabled trace with zero calls remains visible and explains that the deterministic path needed no
+provider lane. When capture is off, the panel remains visible with a Settings opt-in notice while
+stored trace data stays hidden. A turn without captured trace uses the same explicit unavailable state.
+Each disclosure preserves the recorded message array and request SHA while grouping consecutive
 system layers under one `SYSTEM` heading. JSON bodies are pretty-printed, and bounded request and response blocks use theme-matched scrollbars. The disclosure also shows assistant content, token usage, exact-content SHA-256, and redaction counts. Credentials, tenant or resource identifiers, URLs,
 email, IP addresses, inline images, hidden reasoning, headers, and provider internals aren't
-retained. Turning the setting off stops capture, hides stored traces, and removes the trace from an
+retained. Turning the setting off stops capture, hides stored trace data, and removes the trace from an
 idempotent replay response without repeating the provider call.
 
 This principal-scoped view is distinct from [governed trajectory datasets](governed-trajectory-datasets.md),

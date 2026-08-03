@@ -3,6 +3,7 @@ import type { ConversationTrajectory } from "./conversation-trajectory";
 import { phaseStateLabel } from "./conversation-trajectory-decision-context";
 import {
   buildExecutionTimeline,
+  type ExecutionTimelineFact,
   type ExecutionTimelineItem,
 } from "./conversation-execution-timeline";
 
@@ -36,11 +37,33 @@ export function ConversationExecutionTimelineView({
                 <span class="deck-execution-chevron" aria-hidden="true" />
               </summary>
               <div class="deck-execution-detail">
+                {item.details.summary ? (
+                  <p class="deck-execution-summary">
+                    <span>{t("deck.trajectory.observedDetail")}</span>
+                    {item.details.summary}
+                  </p>
+                ) : null}
                 <dl class="deck-execution-facts">
                   <div><dt>{t("deck.trajectory.status")}</dt><dd>{executionDetail(item)}</dd></div>
                   <div><dt>{t("deck.investigation.startedAt")}</dt><dd><time dateTime={item.startedAt}>{formatClock(item.startedAt)}</time></dd></div>
                   <div><dt>{t("deck.investigation.completedAt")}</dt><dd><time dateTime={item.completedAt}>{formatClock(item.completedAt)}</time></dd></div>
+                  {item.details.facts.map((fact) => (
+                    <div key={`${fact.key}-${fact.value}`}>
+                      <dt>{executionFactLabel(fact)}</dt>
+                      <dd>{executionFactValue(fact)}</dd>
+                    </div>
+                  ))}
                 </dl>
+                {item.details.evidenceRefs.length > 0 ? (
+                  <div class="deck-execution-references">
+                    <strong>{t("deck.trajectory.references")}</strong>
+                    <ul>
+                      {item.details.evidenceRefs.map((reference) => (
+                        <li key={reference}><code>{reference}</code></li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
             </details>
           </li>
@@ -48,6 +71,18 @@ export function ConversationExecutionTimelineView({
       </ol>
     </section>
   );
+}
+
+function executionFactLabel(fact: ExecutionTimelineFact): string {
+  return t(`deck.trajectory.detailFact.${fact.key}`);
+}
+
+function executionFactValue(fact: ExecutionTimelineFact): string {
+  if ((fact.key === "response" || fact.key === "modelCalls") &&
+      (fact.value === "recorded" || fact.value === "notRecorded")) {
+    return t(`deck.trajectory.${fact.value}`);
+  }
+  return fact.value;
 }
 
 function executionLabel(item: ExecutionTimelineItem): string {

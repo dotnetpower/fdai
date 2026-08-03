@@ -94,7 +94,11 @@ export function ConversationTrajectoryView({
           </span>
         </span>
         <span class="deck-trajectory-stats">
-          {t("deck.trajectory.summary", {
+          {t(!showModelTrace
+            ? "deck.trajectory.summaryTraceOff"
+            : answer.modelTrace
+              ? "deck.trajectory.summary"
+              : "deck.trajectory.summaryTraceMissing", {
             models: presentation.modelCallCountIsLowerBound
               ? `${presentation.modelCallCount}+`
               : presentation.modelCallCount,
@@ -121,9 +125,10 @@ export function ConversationTrajectoryView({
           <PhaseStrip phaseStates={presentation.phaseStates} />
           <ConversationExecutionTimelineView trajectory={trajectory}
             includeModelCalls={showModelTrace} />
-          {showModelTrace ? (
-            <ModelTraceWaterfall {...(answer.modelTrace ? { trace: answer.modelTrace } : {})} />
-          ) : null}
+          <ModelTraceWaterfall
+            captureEnabled={showModelTrace}
+            {...(showModelTrace && answer.modelTrace ? { trace: answer.modelTrace } : {})}
+          />
           <dl class="deck-trajectory-signals">
             <div data-state={presentation.phaseStates.evidence}>
               <dt>{t("deck.trajectory.phase.evidence")}</dt>
