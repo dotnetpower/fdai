@@ -91,12 +91,18 @@ def _inventory_context() -> dict[str, object]:
 
 async def test_structured_model_selects_supported_chart_without_receiving_row_values() -> None:
     backend = _StructuredBackend({"format": "chart"})
+    context = _inventory_context()
+    evidence = context["_tool_evidence"]
+    assert isinstance(evidence, dict)
+    result = evidence["result"]
+    assert isinstance(result, dict)
+    result["query_kind"] = "types"
 
     selected = await adapt_answer_plan_for_presentation(
         backend=backend,
         prompt="DB 종류별 분포를 보기 좋게 보여줘",
         plan=_plan(),
-        view_context=_inventory_context(),
+        view_context=context,
     )
 
     assert selected.format is AnswerFormat.CHART
@@ -107,8 +113,8 @@ async def test_structured_model_selects_supported_chart_without_receiving_row_va
     assert "record_count" in str(call["user_content"])
 
 
-async def test_invalid_model_format_falls_back_to_table_for_comparable_rows() -> None:
-    backend = _StructuredBackend({"format": "unsupported"})
+async def test_model_selects_table_for_comparable_rows() -> None:
+    backend = _StructuredBackend({"format": "table"})
 
     selected = await adapt_answer_plan_for_presentation(
         backend=backend,
@@ -118,6 +124,21 @@ async def test_invalid_model_format_falls_back_to_table_for_comparable_rows() ->
     )
 
     assert selected.format is AnswerFormat.TABLE
+    assert len(backend.calls) == 1
+
+
+async def test_model_cannot_select_bullets_for_comparable_rows() -> None:
+    backend = _StructuredBackend({"format": "bullets"})
+
+    selected = await adapt_answer_plan_for_presentation(
+        backend=backend,
+        prompt="FDAI가 사용하는 DB가 뭐야?",
+        plan=_plan(),
+        view_context=_inventory_context(),
+    )
+
+    assert selected.format is AnswerFormat.TABLE
+    assert len(backend.calls) == 1
 
 
 async def test_explicit_format_override_skips_model_selection() -> None:

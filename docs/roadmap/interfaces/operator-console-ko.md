@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: ec8f9ef68ddecbe89088ebcc6858ead62c1900d8
+translation_source_sha: 88d2ea95b305cda9d4b274830a16ca866c9b8006
 translation_revised: 2026-08-03
 ---
 
@@ -144,9 +144,12 @@ flowchart TD
   backend seam이므로 deployment가 provider를 바인딩할 수 있습니다.
   `AnswerPlan.format`은 `table`과 `chart`를 first-class presentation contract로 취급합니다. 명시적인
   request format 또는 저장된 response preference가 우선합니다. 그렇지 않으면 inventory evidence가
-  준비된 뒤 bounded structured model call이 record count, available column, category count 및 query
-  kind만 포함한 shape profile에서 `table`, `chart`, `bullets` 중 하나를 선택할 수 있습니다. Row value는
-  받지 않으며 content를 추가할 수 없습니다. Strict schema는 다른 key와 format을 거부합니다.
+  준비된 뒤 bounded structured model call이 record count, available column, category count, query
+  kind 및 operator request에서 presentation shape를 판단합니다. Comparable row는 `table` 또는 `chart`만
+  허용하며 bullet은 이 shape의 valid model choice가 아닙니다. Category summary는 `chart` 또는
+  `bullets`를 허용합니다. Model은 row value를 받지 않으며 content를 추가할 수 없습니다. Strict
+  schema는 다른 key와 format을 거부합니다. Deterministic evidence selection과 verification은 T0에
+  유지하고 model은 presentation만 판단합니다.
   Deterministic inventory verifier는 immutable evidence에서 완전한 Markdown table, fenced `chart` JSON
   또는 bullet을 렌더링합니다. Model 실패 또는 invalid proposal은 여러 comparable record를 table로
   fallback하므로 presentation 실패가 evidence를 제거하거나 answer를 차단하지 않습니다.

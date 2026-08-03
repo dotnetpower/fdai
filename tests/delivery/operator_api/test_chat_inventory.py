@@ -263,7 +263,7 @@ async def test_inventory_table_format_is_rendered_deterministically() -> None:
     assert "- 리소스 rg-app" not in verification.answer
 
 
-def test_stream_uses_structured_model_selection_for_inventory_table() -> None:
+def test_stream_uses_model_selected_table_for_comparable_inventory_rows() -> None:
     backend = StructuredPresentationBackend("table")
     app = Starlette(
         routes=[

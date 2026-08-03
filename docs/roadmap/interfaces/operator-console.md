@@ -147,9 +147,12 @@ flowchart TD
   can bind providers.
   `AnswerPlan.format` treats `table` and `chart` as first-class presentation contracts. An explicit
   request format or saved response preference wins. Otherwise, after inventory evidence resolves,
-  a bounded structured model call may select only `table`, `chart`, or `bullets` from a shape
-  profile containing record count, available columns, category count, and query kind. It receives
-  no row values and cannot add content. The strict schema rejects other keys and formats. The
+  a bounded structured model call judges the presentation shape from record count, available
+  columns, category count, query kind, and the operator request. Comparable rows permit only
+  `table` or `chart`; bullets aren't a valid model choice for that shape. Category summaries permit
+  `chart` or `bullets`. The model receives no row values and cannot add content. The strict schema
+  rejects other keys and formats. Deterministic evidence selection and verification remain T0;
+  the model judges presentation only. The
   deterministic inventory verifier then renders the complete Markdown table, fenced `chart` JSON,
   or bullets from immutable evidence. Model failure or an invalid proposal falls back to a table
   for multiple comparable records, so presentation failure never removes evidence or blocks the
