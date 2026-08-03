@@ -5867,7 +5867,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-overlay-mode-floating .deck-backend-header,
 .deck-overlay-mode-dock .deck-backend-header { display: none; }
 .deck-overlay-mode-floating .deck-body,
-.deck-overlay-mode-dock .deck-body { grid-template-columns: minmax(0, 1fr); }
+.deck-overlay-mode-floating .deck-body.has-conversations,
+.deck-overlay-mode-floating .deck-body.has-digest,
+.deck-overlay-mode-dock .deck-body,
+.deck-overlay-mode-dock .deck-body.has-conversations,
+.deck-overlay-mode-dock .deck-body.has-digest { grid-template-columns: minmax(0, 1fr); }
 .deck-overlay-mode-floating .deck-conversations,
 .deck-overlay-mode-floating .deck-digest,
 .deck-overlay-mode-dock .deck-conversations,

@@ -22,6 +22,13 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).not.toContain(".deck-body { min-width: 0; grid-template-columns: 200px minmax(0, 1fr); }");
   });
 
+  test("does not retain hidden workspace panel columns after a layout change", () => {
+    expect(styles).toContain(".deck-overlay-mode-floating .deck-body.has-conversations,");
+    expect(styles).toContain(".deck-overlay-mode-floating .deck-body.has-digest,");
+    expect(styles).toContain(".deck-overlay-mode-dock .deck-body.has-conversations,");
+    expect(styles).toContain(".deck-overlay-mode-dock .deck-body.has-digest { grid-template-columns: minmax(0, 1fr); }");
+  });
+
   test("keeps route and freshness metadata out of the composer", () => {
     expect(source).not.toContain('class="deck-composer-scope"');
     expect(styles).not.toContain(".deck-composer-scope");
