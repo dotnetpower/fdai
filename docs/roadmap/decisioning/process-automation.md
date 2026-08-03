@@ -322,16 +322,17 @@ Given a `Workflow`, the planner produces a deterministic, read-only
   Card / Block Kit, HMAC-signed, fail-closed). Email is a send-only alert lane,
   not an A1 approval back-channel.
 
-The plan supplies the role and channel assignment. At runtime, an approval step
-parks the Process, records `approval.requested`, validates distinct principals and
-no-self-approval, and resumes only after its declared quorum. Distinctness is decided on
-normalised identities - Azure UPNs and object ids are case-insensitive - so one operator
-cannot fill a quorum under two spellings, nor approve a step they requested. A decision step accepts
-only one of its catalog-declared outcomes and records `decision.recorded`. The
-specific on-call OID and pushed channel card remain integrations of
+The plan supplies the role and channel assignment. In enforcement mode, the approval provider
+parks one HIL slot per quorum member in the shared durable StateStore. A revision compare-and-set
+records the exact Process, step, required role, normalized principal, decision, receipt, and time
+with a Var audit entry before the receipt projection. Both the signed callback and `approve_hil`
+recheck the required role and no-self-approval. One case-insensitive principal cannot claim two
+slots. The Process can resume from the authoritative decision even when receipt projection is
+interrupted. The headless runtime and production Operator API bind this provider; interactive local
+enforcement also requires its durable database and Azure event transport. The specific on-call OID
+and channel card remain integrations of
 [`HilResumeCoordinator`](../../../src/fdai/core/hil_resume/coordinator.py) and
-[`OnCallResolver`](../../../src/fdai/core/oncall/resolver.py); the workflow runtime
-does not create a second approval authority.
+[`OnCallResolver`](../../../src/fdai/core/oncall/resolver.py); no second approval authority is added.
 
 ## 7. Loader and CI validation
 

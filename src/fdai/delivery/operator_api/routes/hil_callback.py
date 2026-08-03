@@ -61,6 +61,7 @@ from fdai.shared.providers.hil_registry import (
     HilApprovalDecision,
     HilApprovalRegistry,
     HilDecisionReceipt,
+    HilDuplicateApproverError,
     HilItemAlreadyResolvedError,
     HilItemNotFoundError,
     HilRegistryError,
@@ -288,6 +289,17 @@ def make_hil_callback_route(
                     "self_approval_forbidden",
                     "no_self_approval - actor_oid equals submitter_oid",
                 )
+            if pending.metadata.get("decision_route") == "workflow" and not (
+                _approver_meets_required_role(
+                    payload,
+                    pending.metadata.get("required_role", ""),
+                )
+            ):
+                return _error(
+                    403,
+                    "role_forbidden",
+                    "approver does not satisfy the workflow approval role",
+                )
 
             try:
                 receipt = await registry.record_decision(
@@ -301,6 +313,8 @@ def make_hil_callback_route(
                 return _error(404, "not_found", str(exc))
             except HilItemAlreadyResolvedError as exc:
                 return _error(409, "already_resolved", str(exc))
+            except HilDuplicateApproverError as exc:
+                return _error(409, "duplicate_approver", str(exc))
             except HilRegistryError as exc:
                 return _error(500, "registry_error", str(exc))
 
@@ -376,6 +390,10 @@ def _approver_can_approve_hil(payload: _CallbackBody) -> bool:
     ``actor_roles`` are signed with the shared secret. Missing, unknown, or
     insufficient roles grant no approval authority.
     """
+    return has_capability(_resolved_actor_roles(payload), Capability.APPROVE_RUNTIME_HIL)
+
+
+def _resolved_actor_roles(payload: _CallbackBody) -> frozenset[Role]:
     resolved: set[Role] = set()
     for token in payload.actor_roles:
         try:
@@ -383,7 +401,24 @@ def _approver_can_approve_hil(payload: _CallbackBody) -> bool:
         except ValueError:
             # An unknown role token grants nothing (fail closed on that token).
             continue
-    return has_capability(resolved, Capability.APPROVE_RUNTIME_HIL)
+    return frozenset(resolved)
+
+
+def _approver_meets_required_role(payload: _CallbackBody, required_role: str) -> bool:
+    rank = {
+        Role.READER: 0,
+        Role.CONTRIBUTOR: 1,
+        Role.APPROVER: 2,
+        Role.OWNER: 3,
+    }
+    try:
+        required = Role(required_role)
+    except ValueError:
+        return False
+    required_rank = rank.get(required)
+    if required_rank is None:
+        return False
+    return any(rank.get(role, -1) >= required_rank for role in _resolved_actor_roles(payload))
 
 
 async def _authenticate_and_parse(

@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from typing import Any, Literal
 
 from fdai.core.conversation._write_audit import AuditWriter
-from fdai.core.conversation.session import Principal, Role
+from fdai.core.conversation.session import Principal, Role, principal_has_role_at_least
 from fdai.core.conversation.tools import SideEffectClass, ToolResult, _optional_str
 from fdai.shared.providers.hil_registry import (
     HilApprovalDecision,
@@ -105,7 +105,25 @@ class ApproveHilTool:
                 status="error",
                 preview=f"approve_hil: no pending item for idempotency_key={idempotency_key!r}",
             )
-        if self.known_action_kinds and item.action_kind not in self.known_action_kinds:
+        workflow_required_role = _workflow_required_role(item)
+        if item.metadata.get("decision_route") == "workflow" and workflow_required_role is None:
+            return ToolResult(
+                status="error",
+                preview="approve_hil: workflow approval metadata is malformed",
+            )
+        if workflow_required_role is not None and not principal_has_role_at_least(
+            principal.role,
+            workflow_required_role,
+        ):
+            return ToolResult(
+                status="error",
+                preview="approve_hil: approver does not satisfy the workflow approval role",
+            )
+        if (
+            self.known_action_kinds
+            and item.action_kind not in self.known_action_kinds
+            and workflow_required_role is None
+        ):
             return ToolResult(
                 status="error",
                 preview=(
@@ -209,4 +227,20 @@ def _project_pending_item(item: HilPendingItem) -> dict[str, Any]:
         "requested_at": item.requested_at.isoformat() if item.requested_at else None,
         "correlation_id": item.correlation_id,
         "mutation_target": item.mutation_target.value if item.mutation_target else None,
+        "required_role": item.metadata.get("required_role"),
     }
+
+
+def _workflow_required_role(item: HilPendingItem) -> Role | None:
+    if (
+        item.action_kind != "workflow.approval"
+        or item.metadata.get("decision_route") != "workflow"
+        or not item.metadata.get("process_id")
+        or not item.metadata.get("step_id")
+    ):
+        return None
+    try:
+        required_role = Role(item.metadata.get("required_role", "").casefold())
+    except ValueError:
+        return None
+    return required_role if required_role is not Role.BREAK_GLASS else None

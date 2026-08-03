@@ -209,9 +209,14 @@ class ShadowWorkflowStepExecutor:
             "step_kind": step.kind.value,
         }
         if step.kind is WorkflowStepKind.APPROVAL:
+            approval_decision = {
+                "approval_recorded": "approved",
+                "approval_rejected": "rejected",
+                "approval_timed_out": "timed_out",
+            }.get(result.reason or "", self._context.get(f"approval.{step.id}", "pending"))
             event_payload.update(
                 {
-                    "decision": self._context.get(f"approval.{step.id}", "pending"),
+                    "decision": approval_decision,
                     "required_role": (
                         approval.required_role.value
                         if approval is not None and approval.required_role is not None

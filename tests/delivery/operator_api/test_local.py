@@ -813,6 +813,18 @@ class TestLocalEntraLoginHarness:
         with pytest.raises(RuntimeError, match="requires local Azure event transport"):
             _local.app()
 
+    def test_azure_transport_rejects_enforce_allowlist_without_durable_database(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._enable(monkeypatch)
+        monkeypatch.delenv(_START_PANTHEON_ENV, raising=False)
+        monkeypatch.setenv(_KAFKA_BOOTSTRAP_ENV, "example.servicebus.windows.net:9093")
+        monkeypatch.setenv(_KAFKA_EVENT_TOPIC_ENV, "aw.change.events")
+        monkeypatch.setenv("FDAI_WORKFLOW_ENFORCE_ALLOWLIST", "architecture-review")
+
+        with pytest.raises(RuntimeError, match="requires a durable local database"):
+            _local.app()
+
     def test_unauthenticated_request_is_401_not_dev_anon(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

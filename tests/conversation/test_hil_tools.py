@@ -258,6 +258,48 @@ class TestApproveHilHappyPath:
         assert entry["decision"] == "reject"
         assert entry["justification"] == "risk too high"
 
+    def test_workflow_approval_requires_declared_role(self) -> None:
+        item = _item(
+            action_kind="workflow.approval",
+            metadata={
+                "decision_route": "workflow",
+                "process_id": "process-1",
+                "step_id": "approval-1",
+                "required_role": "Owner",
+            },
+        )
+        reg = _build_registry([item])
+        tool, _ = _build_approve_tool(reg)
+
+        refused = tool.call(
+            arguments={"idempotency_key": "ik-1", "decision": "approve"},
+            principal=_principal(role=Role.APPROVER),
+        )
+        accepted = tool.call(
+            arguments={"idempotency_key": "ik-1", "decision": "approve"},
+            principal=_principal(role=Role.OWNER),
+        )
+
+        assert refused.status == "error"
+        assert accepted.status == "ok"
+        assert len(reg.resolved) == 1
+
+    def test_malformed_workflow_approval_metadata_fails_closed(self) -> None:
+        item = _item(
+            action_kind="workflow.approval",
+            metadata={"decision_route": "workflow"},
+        )
+        reg = _build_registry([item])
+        tool, _ = _build_approve_tool(reg)
+
+        result = tool.call(
+            arguments={"idempotency_key": "ik-1", "decision": "approve"},
+            principal=_principal(role=Role.OWNER),
+        )
+
+        assert result.status == "error"
+        assert reg.resolved == ()
+
     def test_replay_with_same_decision_returns_already_recorded(self) -> None:
         """Mid-flight replay: the caller retries after a transient audit
         write failure. get_pending is bypassed by re-seeding so the tool

@@ -1184,6 +1184,7 @@ async def test_enforce_approval_uses_only_durable_var_receipts() -> None:
     audit = InMemoryStateStore()
     provider = StateStoreWorkflowApprovalProvider(audit)
     registry = StateStoreHilApprovalRegistry(store=audit)
+    process_store = InMemoryProcessRuntimeStore()
     orchestrator = WorkflowOrchestrator(
         planner=WorkflowApprovalPlanner(
             action_types=_ACTION_TYPES,
@@ -1192,7 +1193,7 @@ async def test_enforce_approval_uses_only_durable_var_receipts() -> None:
         ),
         action_types=_ACTION_TYPES,
         audit_store=audit,
-        process_store=InMemoryProcessRuntimeStore(),
+        process_store=process_store,
         approval_provider=provider,
     )
     workflow = _control_workflow()
@@ -1236,6 +1237,9 @@ async def test_enforce_approval_uses_only_durable_var_receipts() -> None:
     )
 
     assert completed.status is ProcessStatus.SUCCEEDED
+    events = await process_store.events(completed.process_id)
+    recorded = next(event for event in events if event.kind is ProcessEventKind.APPROVAL_RECORDED)
+    assert recorded.payload["decision"] == "approved"
 
 
 async def test_enforce_approval_timeout_uses_persisted_request_clock() -> None:

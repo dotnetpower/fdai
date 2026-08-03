@@ -323,9 +323,10 @@ therefore receives every frame instead of sharing partitions with another develo
 
 Workflow definitions use the same enforce allowlist as deployment, while each ActionType remains
 subject to its authoritative promotion and risk gates. Enforce workflows still require Azure event
-transport. Thor does not receive the developer's credential: privileged execution remains in the
-deployed Managed Identity runtime. Scenario replay, seeded audit rows, recording executors, VM-task
-fakes, synthetic scheduler/cost data, scope templates, and blast-radius fixtures remain pytest-only.
+transport and a durable local database shared with workflow approval evidence. Thor does not receive
+the developer's credential: privileged execution remains in the deployed Managed Identity runtime.
+Scenario replay, seeded audit rows, recording executors, VM-task fakes, synthetic scheduler/cost
+data, scope templates, and blast-radius fixtures remain pytest-only.
 
 When FDAI's Azure PostgreSQL, Event Hubs, runtime, or executor resources are absent, the associated
 surfaces are unavailable or empty with no runtime claim. Repository catalogs and schemas remain

@@ -515,6 +515,8 @@ def build_local_app(
     remote_agent_delegate = None
     if enforce_workflows and command_transport is not None and command_transport.kind != "azure":
         raise RuntimeError("FDAI_WORKFLOW_ENFORCE_ALLOWLIST requires local Azure event transport")
+    if enforce_workflows and persistence is None and not test_fixtures:
+        raise RuntimeError("FDAI_WORKFLOW_ENFORCE_ALLOWLIST requires a durable local database")
     if workflow_execution is not None and command_transport is not None:
         workflow_execution = replace(
             workflow_execution,

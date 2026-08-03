@@ -148,7 +148,22 @@ class StateStoreWorkflowApprovalProvider:
 
     async def _snapshot(self, record: Any) -> WorkflowApprovalSnapshot:
         decisions: list[WorkflowApprovalDecision] = []
+        raw_claims = record.get("decision_claims", {})
+        if not isinstance(raw_claims, dict):
+            raise RuntimeError("workflow approval decision claims are malformed")
         for slot in _slots(record):
+            claim = raw_claims.get(slot["idempotency_key"])
+            if claim is not None:
+                if not isinstance(claim, dict):
+                    raise RuntimeError("workflow approval decision claim is malformed")
+                decisions.append(
+                    WorkflowApprovalDecision(
+                        principal=str(claim.get("principal") or ""),
+                        decision=str(claim.get("decision") or ""),
+                        receipt_ref=str(claim.get("receipt_ref") or ""),
+                    )
+                )
+                continue
             stored = await self.store.read_state(f"{_DECISION_PREFIX}{slot['idempotency_key']}")
             if stored is None:
                 continue
@@ -290,6 +305,11 @@ def _park_record(
             "decision_route": "workflow",
             "process_id": str(record["process_id"]),
             "step_id": str(record["step_id"]),
+            "required_role": str(record["required_role"]),
+            "workflow_state_key": _state_key(
+                str(record["process_id"]),
+                str(record["step_id"]),
+            ),
         },
     }
 

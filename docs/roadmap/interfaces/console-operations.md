@@ -14,9 +14,10 @@ second execution authority.
 >
 > **Implementation status:** The Operations navigation, incidents, approvals, processes, scheduler
 > runs, provisioning, onboarding, and bounded investigations are shipped as separate domain views.
-> Console action dispatch now persists payload-bearing receipts before broker publication and
-> recovers pending delivery after restart. The federated Tasks view, cross-domain projection
-> metadata, and hardening of the remaining domain routes are proposed.
+> Console action dispatch persists payload-bearing receipts before broker publication and recovers
+> pending delivery after restart. Workflow approvals enforce their durable role and distinct quorum
+> at both callback and conversation-tool boundaries. The federated Tasks view, cross-domain
+> projection metadata, and hardening of the remaining domain routes are proposed.
 
 ## Design at a glance
 

@@ -47,7 +47,7 @@ from fdai.shared.contracts.models import (
     Severity,
     StopConditionKind,
 )
-from fdai.shared.providers.hil_registry import HilPendingItem
+from fdai.shared.providers.hil_registry import HilDuplicateApproverError, HilPendingItem
 from fdai.shared.providers.testing import (
     InMemoryStateStore,
     RecordingRemediationPrPublisher,
@@ -109,6 +109,7 @@ def _pending(
     approval_id: str = "appr-1",
     idempotency_key: str = "idem-1",
     submitter_oid: str = "user-submitter",
+    metadata: dict[str, str] | None = None,
 ) -> HilPendingItem:
     return HilPendingItem(
         idempotency_key=idempotency_key,
@@ -119,6 +120,7 @@ def _pending(
         target_resource_ref="rg/vm-a",
         reason="short",
         submitter_oid=submitter_oid,
+        metadata=metadata or {},
     )
 
 
@@ -153,12 +155,13 @@ def _post_decision(
     *,
     actor_oid: str,
     decision: str = "approve",
+    actor_roles: list[str] | None = None,
 ) -> Response:
     body = json.dumps(
         {
             "decision": decision,
             "actor_oid": actor_oid,
-            "actor_roles": ["Approver"],
+            "actor_roles": actor_roles or ["Approver"],
             "justification": "Reviewed by the on-call approver.",
         }
     ).encode()
@@ -172,6 +175,39 @@ def _post_decision(
             "content-type": "application/json",
         },
     )
+
+
+def test_workflow_approval_enforces_required_role() -> None:
+    registry = InMemoryHilApprovalRegistry()
+    registry.seed(
+        [
+            _pending(
+                metadata={
+                    "decision_route": "workflow",
+                    "required_role": "Owner",
+                }
+            )
+        ]
+    )
+    client = TestClient(_build_app_with_callback(registry))
+
+    refused = _post_decision(client, actor_oid="approver", actor_roles=["Approver"])
+    accepted = _post_decision(client, actor_oid="owner", actor_roles=["Owner"])
+
+    assert refused.status_code == 403
+    assert refused.json()["error"]["kind"] == "role_forbidden"
+    assert accepted.status_code == 200
+
+
+def test_workflow_approval_without_required_role_fails_closed() -> None:
+    registry = InMemoryHilApprovalRegistry()
+    registry.seed([_pending(metadata={"decision_route": "workflow"})])
+    client = TestClient(_build_app_with_callback(registry))
+
+    response = _post_decision(client, actor_oid="owner", actor_roles=["Owner"])
+
+    assert response.status_code == 403
+    assert response.json()["error"]["kind"] == "role_forbidden"
 
 
 # ---------------------------------------------------------------------------
@@ -485,6 +521,18 @@ def test_same_decision_replay_from_different_actor_is_conflict() -> None:
 
     assert replay.status_code == 409
     assert replay.json()["error"]["kind"] == "already_resolved"
+
+
+def test_duplicate_workflow_approver_returns_conflict() -> None:
+    registry = InMemoryHilApprovalRegistry()
+    registry.seed([_pending()])
+    registry.next_error(HilDuplicateApproverError("idem-1"))
+    client = TestClient(_build_app_with_callback(registry))
+
+    response = _post_decision(client, actor_oid="user-approver")
+
+    assert response.status_code == 409
+    assert response.json()["error"]["kind"] == "duplicate_approver"
 
 
 def test_second_call_after_resolution_returns_404() -> None:

@@ -14,6 +14,7 @@ from uuid import uuid4
 import pytest
 
 from fdai.__main__ import _build_workflow_coordinator, _resolve_catalog_root
+from fdai.delivery.persistence.workflow_approval import StateStoreWorkflowApprovalProvider
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
 from fdai.shared.contracts.models import Event, Mode
@@ -50,6 +51,7 @@ def test_enabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
         audit_store=InMemoryStateStore(),
     )
     assert coord is not None
+    assert isinstance(coord._orchestrator._approval_provider, StateStoreWorkflowApprovalProvider)
 
 
 def test_explicit_disable_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:

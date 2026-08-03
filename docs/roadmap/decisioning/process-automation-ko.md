@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 618d3f542203cf80c088f886e27ce73954f89b06
+translation_source_sha: 325ef947dff6a5486042ab5f7860ae1aa847f373
 translation_revised: 2026-08-04
 ---
 
@@ -313,14 +313,18 @@ HIL 로 라우팅되는 워크플로 스텝은 "누가 승인하고, 어떻게 �
   (Adaptive Card / Block Kit, HMAC 서명, fail-closed). email 은 send-only alert
   레인이지 A1 승인 back-channel 이 아니다.
 
-플랜은 role 및 channel assignment 를 제공합니다. 런타임에서 approval step 은
-Process 를 park 하고 `approval.requested` 를 기록하며, 서로 다른 principal 과
-no-self-approval 을 검증하고 선언된 quorum 뒤에만 resume 합니다. 서로 다름은 정규화된 identity 로 판정합니다. Azure UPN 과 object id 는 대소문자를 구분하지 않으므로, 한 운영자가 두 표기로 quorum 을 채우거나 자신이 요청한 step 을 승인할 수 없습니다. Decision step 은
-catalog 에 선언된 outcome 중 하나만 허용하고 `decision.recorded` 를 기록합니다.
-구체 on-call OID 와 channel card push 는 기존
+플랜은 role 및 channel assignment를 제공합니다. 적용 모드에서는 approval provider가
+공유 durable StateStore에 quorum 인원별 HIL slot을 park합니다. Revision compare-and-set은
+receipt projection보다 먼저 정확한 Process, step, required role, 정규화된 principal,
+decision, receipt, time을 Var audit entry와 함께 기록합니다. 서명된 callback과
+`approve_hil`은 required role 및 no-self-approval을 다시 검사합니다. 대소문자를 구분하지
+않는 동일 principal은 두 slot을 claim할 수 없습니다. Receipt projection이 중단되어도
+Process는 authoritative decision에서 resume할 수 있습니다. Headless runtime과 production
+Operator API가 이 provider를 bind하며 interactive local 적용 모드는 durable database와
+Azure event transport도 요구합니다. 구체적인 on-call OID와 channel card는 기존
 [`HilResumeCoordinator`](../../../src/fdai/core/hil_resume/coordinator.py) 및
-[`OnCallResolver`](../../../src/fdai/core/oncall/resolver.py) integration 으로 남습니다.
-Workflow runtime 은 두 번째 approval authority 를 만들지 않습니다.
+[`OnCallResolver`](../../../src/fdai/core/oncall/resolver.py) integration으로 남으며 두 번째
+approval authority는 추가되지 않습니다.
 
 ## 7. 로더와 CI 검증
 

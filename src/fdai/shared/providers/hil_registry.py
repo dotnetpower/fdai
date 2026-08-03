@@ -212,6 +212,19 @@ class HilItemAlreadyResolvedError(HilRegistryError):
         )
 
 
+class HilDuplicateApproverError(HilRegistryError):
+    """Raised when one principal attempts to occupy two quorum slots."""
+
+    def __init__(self, idempotency_key: str) -> None:
+        super().__init__(
+            kind="duplicate_approver",
+            message=(
+                "workflow approval principal already decided another quorum slot; "
+                f"cannot decide {idempotency_key!r}"
+            ),
+        )
+
+
 @runtime_checkable
 class HilApprovalRegistry(Protocol):
     """Authoritative store for pending HIL items + recorded decisions.
@@ -374,6 +387,7 @@ __all__ = [
     "HilApprovalDecision",
     "HilApprovalRegistry",
     "HilDecisionReceipt",
+    "HilDuplicateApproverError",
     "HilItemAlreadyResolvedError",
     "HilItemNotFoundError",
     "HilPendingItem",

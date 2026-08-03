@@ -90,6 +90,9 @@ from fdai.core.workflow import (
 from fdai.delivery.persistence.state_store_preconditions import (
     StateStoreOpenActionEvidenceProvider,
 )
+from fdai.delivery.persistence.workflow_approval import (
+    StateStoreWorkflowApprovalProvider,
+)
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.governance_catalog import load_governance_catalog
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
@@ -214,6 +217,7 @@ def _build_workflow_coordinator(
         audit_store=audit_store,
         process_store=runtime_store,
         guard_evaluator=guard_evaluator,
+        approval_provider=StateStoreWorkflowApprovalProvider(audit_store),
         outcome_verifier=outcome_verifier,
     )
     _LOGGER.info("workflow_coordinator_enabled", extra={"workflows": len(workflows)})

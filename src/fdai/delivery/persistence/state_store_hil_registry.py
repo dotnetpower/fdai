@@ -15,6 +15,7 @@ from fdai.shared.providers.hil_registry import (
     HilApprovalDecision,
     HilApprovalRegistry,
     HilDecisionReceipt,
+    HilDuplicateApproverError,
     HilItemAlreadyResolvedError,
     HilItemNotFoundError,
     HilPendingItem,
@@ -34,21 +35,26 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
         self._store = store
 
     async def list_pending(self, *, limit: int = 50) -> Sequence[HilPendingItem]:
-        index = await self._store.read_state(_INDEX_KEY) or {}
-        approval_ids = index.get("approval_ids", [])
-        if not isinstance(approval_ids, list):
-            return ()
+        cap = max(1, limit)
+        offset = 0
         items: list[HilPendingItem] = []
-        for approval_id in approval_ids:
-            if not isinstance(approval_id, str):
-                continue
-            park = await self._store.read_state(_park_key(approval_id))
-            item = _pending_from_park(park)
-            if item is None:
-                continue
-            decision = await self._store.read_state(_decision_key(item.idempotency_key))
-            if decision is None:
-                items.append(item)
+        while len(items) < cap:
+            parks, total = await self._store.read_state_page(
+                _PARK_PREFIX,
+                limit=min(100, cap),
+                offset=offset,
+            )
+            for park in parks:
+                item = _pending_from_park(park)
+                if item is None:
+                    continue
+                if not await self._item_is_decided(item):
+                    items.append(item)
+                    if len(items) == cap:
+                        break
+            offset += len(parks)
+            if not parks or offset >= total:
+                break
         items.sort(
             key=lambda item: (
                 item.requested_at or datetime.min.replace(tzinfo=UTC),
@@ -56,7 +62,7 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
             ),
             reverse=True,
         )
-        return tuple(items[: max(1, limit)])
+        return tuple(items[:cap])
 
     async def get_pending(self, idempotency_key: str) -> HilPendingItem | None:
         park = await self._store.find_state(
@@ -67,8 +73,7 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
         item = _pending_from_park(park)
         if item is None:
             return None
-        decision = await self._store.read_state(_decision_key(item.idempotency_key))
-        return item if decision is None else None
+        return None if await self._item_is_decided(item) else item
 
     async def get_pending_by_approval_id(
         self,
@@ -78,8 +83,7 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
         item = _pending_from_park(park)
         if item is None:
             return None
-        decision = await self._store.read_state(_decision_key(item.idempotency_key))
-        return item if decision is None else None
+        return None if await self._item_is_decided(item) else item
 
     async def get_decision_by_approval_id(
         self,
@@ -93,8 +97,39 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
             return None
         stored = await self._store.read_state(_decision_key(idempotency_key))
         if stored is None:
-            return None
+            item = _pending_from_park(park)
+            claim = await self._workflow_claim(item) if item is not None else None
+            return _receipt_from_workflow_claim(item, claim) if item is not None and claim else None
         return _receipt_from_mapping(stored, already_recorded=True)
+
+    async def _item_is_decided(self, item: HilPendingItem) -> bool:
+        if await self._workflow_claim(item) is not None:
+            return True
+        return await self._store.read_state(_decision_key(item.idempotency_key)) is not None
+
+    async def _workflow_claim(self, item: HilPendingItem) -> Mapping[str, object] | None:
+        if item.metadata.get("decision_route") != "workflow":
+            return None
+        state_key = item.metadata.get("workflow_state_key", "")
+        if not state_key:
+            process_id = item.metadata.get("process_id", "")
+            step_id = item.metadata.get("step_id", "")
+            if process_id and step_id:
+                state_key = _workflow_state_key(process_id, step_id)
+        if not state_key:
+            raise RuntimeError("workflow approval claim metadata is malformed")
+        record = await self._store.read_state(state_key)
+        if record is None:
+            raise RuntimeError("workflow approval state is unavailable")
+        raw_claims = record.get("decision_claims", {})
+        if not isinstance(raw_claims, Mapping):
+            raise RuntimeError("workflow approval decision claims are malformed")
+        claim = raw_claims.get(item.idempotency_key)
+        if claim is None:
+            return None
+        if not isinstance(claim, Mapping):
+            raise RuntimeError("workflow approval decision claim is malformed")
+        return claim
 
     async def list_undelivered(self, *, limit: int = 100) -> Sequence[HilDecisionReceipt]:
         cap = max(1, limit)
@@ -136,7 +171,12 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
                 )
             return prior
 
-        pending = await self.get_pending(idempotency_key)
+        parked = await self._store.find_state(
+            _PARK_PREFIX,
+            field="idempotency_key",
+            value=idempotency_key,
+        )
+        pending = _pending_from_park(parked)
         if pending is None:
             raise HilItemNotFoundError(idempotency_key)
 
@@ -147,36 +187,158 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
                 f"{idempotency_key}:{decision.value}:{approver_oid}".encode()
             ).hexdigest()
         )
-        receipt = HilDecisionReceipt(
-            approval_id=pending.approval_id,
-            idempotency_key=idempotency_key,
+        claim, claim_created = await self._claim_workflow_principal(
+            pending=pending,
             decision=decision,
             approver_oid=approver_oid,
-            decided_at=now,
-            receipt_ref=receipt_ref,
-            already_recorded=False,
             justification=justification,
-            delivered=pending.metadata.get("decision_route") == "workflow",
+            receipt_ref=receipt_ref,
+            claimed_at=now,
         )
-        await self._store.write_state(
+        receipt = (
+            _receipt_from_workflow_claim(pending, claim, already_recorded=not claim_created)
+            if claim is not None
+            else HilDecisionReceipt(
+                approval_id=pending.approval_id,
+                idempotency_key=idempotency_key,
+                decision=decision,
+                approver_oid=approver_oid,
+                decided_at=now,
+                receipt_ref=receipt_ref,
+                already_recorded=False,
+                justification=justification,
+                delivered=False,
+            )
+        )
+        stored_receipt = {
+            "approval_id": receipt.approval_id,
+            "idempotency_key": receipt.idempotency_key,
+            "decision": receipt.decision.value,
+            "approver_oid": receipt.approver_oid,
+            "decided_at": receipt.decided_at.isoformat(),
+            "receipt_ref": receipt.receipt_ref,
+            "justification": receipt.justification,
+            "delivered": receipt.delivered,
+            "delivery_attempts": 0,
+            "delivery_abandoned": False,
+            "last_delivery_error": "",
+            "delivery_state": "delivered" if receipt.delivered else "pending",
+            "decision_route": pending.metadata.get("decision_route", "action"),
+        }
+        created = await self._store.write_state_with_audit_if_absent(
             _decision_key(idempotency_key),
+            stored_receipt,
             {
+                "actor": "Var",
+                "action_kind": "workflow.approval.receipt_projected"
+                if receipt.delivered
+                else "hil.decision.recorded",
                 "approval_id": receipt.approval_id,
                 "idempotency_key": receipt.idempotency_key,
                 "decision": receipt.decision.value,
                 "approver_oid": receipt.approver_oid,
                 "decided_at": receipt.decided_at.isoformat(),
                 "receipt_ref": receipt.receipt_ref,
-                "justification": receipt.justification,
-                "delivered": receipt.delivered,
-                "delivery_attempts": 0,
-                "delivery_abandoned": False,
-                "last_delivery_error": "",
-                "delivery_state": "delivered" if receipt.delivered else "pending",
-                "decision_route": pending.metadata.get("decision_route", "action"),
+                "process_id": pending.metadata.get("process_id"),
+                "step_id": pending.metadata.get("step_id"),
+                "required_role": pending.metadata.get("required_role"),
             },
         )
+        if not created:
+            existing = await self._store.read_state(_decision_key(idempotency_key))
+            if existing is None:  # pragma: no cover - atomic store invariant
+                raise RuntimeError("HIL decision disappeared after a concurrent write")
+            prior = _receipt_from_mapping(existing, already_recorded=True)
+            if (
+                prior.decision is not decision
+                or prior.approver_oid.strip().casefold() != approver_oid.strip().casefold()
+            ):
+                raise HilItemAlreadyResolvedError(
+                    idempotency_key,
+                    prior_decision=prior.decision.value,
+                )
+            return prior
         return receipt
+
+    async def _claim_workflow_principal(
+        self,
+        *,
+        pending: HilPendingItem,
+        decision: HilApprovalDecision,
+        approver_oid: str,
+        justification: str,
+        receipt_ref: str,
+        claimed_at: datetime,
+    ) -> tuple[Mapping[str, object] | None, bool]:
+        if pending.metadata.get("decision_route") != "workflow":
+            return None, False
+        state_key = pending.metadata.get("workflow_state_key", "")
+        if not state_key:
+            process_id = pending.metadata.get("process_id", "")
+            step_id = pending.metadata.get("step_id", "")
+            if process_id and step_id:
+                state_key = _workflow_state_key(process_id, step_id)
+        principal = approver_oid.strip().casefold()
+        if not state_key or not principal:
+            raise RuntimeError("workflow approval claim metadata is malformed")
+        for _ in range(8):
+            record = await self._store.read_state(state_key)
+            if record is None or record.get("state") != "pending":
+                raise HilItemNotFoundError(pending.idempotency_key)
+            revision = int(record.get("revision", 0))
+            raw_claims = record.get("decision_claims", {})
+            if not isinstance(raw_claims, Mapping):
+                raise RuntimeError("workflow approval decision claims are malformed")
+            claims = {str(key): value for key, value in raw_claims.items()}
+            prior_claim = claims.get(pending.idempotency_key)
+            if prior_claim is not None:
+                if not isinstance(prior_claim, Mapping):
+                    raise RuntimeError("workflow approval decision claim is malformed")
+                if prior_claim.get("principal") == principal and prior_claim.get("decision") == (
+                    "approved" if decision is HilApprovalDecision.APPROVE else "rejected"
+                ):
+                    return prior_claim, False
+                raise HilItemAlreadyResolvedError(
+                    pending.idempotency_key,
+                    prior_decision=str(prior_claim.get("decision") or "claimed"),
+                )
+            if any(
+                isinstance(value, Mapping) and value.get("principal") == principal
+                for value in claims.values()
+            ):
+                raise HilDuplicateApproverError(pending.idempotency_key)
+            claim = {
+                "principal": principal,
+                "decision": ("approved" if decision is HilApprovalDecision.APPROVE else "rejected"),
+                "receipt_ref": receipt_ref,
+                "decided_at": claimed_at.isoformat(),
+                "justification": justification,
+            }
+            updated = {
+                **dict(record),
+                "decision_claims": {**claims, pending.idempotency_key: claim},
+                "revision": revision + 1,
+            }
+            claimed = await self._store.compare_and_set_state_with_audit(
+                state_key,
+                updated,
+                expected_revision=revision,
+                audit_entry={
+                    "actor": "Var",
+                    "action_kind": "workflow.approval.decided",
+                    "approval_id": pending.approval_id,
+                    "idempotency_key": pending.idempotency_key,
+                    "approver_oid": principal,
+                    "decision": claim["decision"],
+                    "receipt_ref": receipt_ref,
+                    "process_id": pending.metadata.get("process_id"),
+                    "step_id": pending.metadata.get("step_id"),
+                    "claimed_at": claimed_at.isoformat(),
+                },
+            )
+            if claimed:
+                return claim, True
+        raise RuntimeError("workflow approval claim exceeded its concurrency retry bound")
 
     async def record_delivery_attempt(
         self,
@@ -229,73 +391,13 @@ class PostgresHilApprovalRegistry(StateStoreHilApprovalRegistry):
         justification: str = "",
         decided_at: datetime | None = None,
     ) -> HilDecisionReceipt:
-        pending = await self.get_pending(idempotency_key)
-        now = decided_at or datetime.now(tz=UTC)
-        approval_id = pending.approval_id if pending is not None else ""
-        receipt_ref = (
-            "hil-receipt:"
-            + hashlib.sha256(
-                f"{idempotency_key}:{decision.value}:{approver_oid}".encode()
-            ).hexdigest()
+        return await super().record_decision(
+            idempotency_key=idempotency_key,
+            decision=decision,
+            approver_oid=approver_oid,
+            justification=justification,
+            decided_at=decided_at,
         )
-        payload = {
-            "approval_id": approval_id,
-            "idempotency_key": idempotency_key,
-            "decision": decision.value,
-            "approver_oid": approver_oid,
-            "decided_at": now.isoformat(),
-            "receipt_ref": receipt_ref,
-            "justification": justification,
-            "delivered": False,
-            "delivery_attempts": 0,
-            "delivery_abandoned": False,
-            "last_delivery_error": "",
-            "delivery_state": "pending",
-        }
-        key = _decision_key(idempotency_key)
-        async with await psycopg.AsyncConnection.connect(
-            self._dsn,
-            row_factory=dict_row,
-            connect_timeout=self._connect_timeout_s,
-        ) as conn:
-            async with conn.transaction():
-                await conn.execute(
-                    "SELECT set_config('statement_timeout', %s, true)",
-                    (str(self._statement_timeout_ms),),
-                )
-                inserted = await conn.execute(
-                    "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb) "
-                    "ON CONFLICT (key) DO NOTHING",
-                    (key, json.dumps(payload)),
-                )
-                row_payload: Mapping[str, object]
-                if inserted.rowcount == 1:
-                    if pending is None:
-                        raise HilItemNotFoundError(idempotency_key)
-                    row_payload = payload
-                else:
-                    cursor = await conn.execute(
-                        "SELECT value FROM state_kv WHERE key = %s FOR UPDATE",
-                        (key,),
-                    )
-                    row = await cursor.fetchone()
-                    if row is None:  # pragma: no cover - transaction invariant
-                        raise RuntimeError("HIL decision row disappeared during conflict read")
-                    value = row["value"]
-                    if not isinstance(value, Mapping):
-                        raise RuntimeError("stored HIL decision is not a JSON object")
-                    row_payload = value
-
-        prior = _receipt_from_mapping(
-            row_payload,
-            already_recorded=inserted.rowcount != 1,
-        )
-        if prior.decision is not decision:
-            raise HilItemAlreadyResolvedError(
-                idempotency_key,
-                prior_decision=prior.decision.value,
-            )
-        return prior
 
     async def record_delivery_attempt(
         self,
@@ -355,6 +457,11 @@ def _park_key(approval_id: str) -> str:
 
 def _decision_key(idempotency_key: str) -> str:
     return f"{_DECISION_PREFIX}{idempotency_key}"
+
+
+def _workflow_state_key(process_id: str, step_id: str) -> str:
+    digest = hashlib.sha256(f"{process_id}\0{step_id}".encode()).hexdigest()
+    return f"workflow:approval:{digest}"
 
 
 def _pending_from_park(park: Mapping[str, object] | None) -> HilPendingItem | None:
@@ -427,6 +534,35 @@ def _receipt_from_mapping(
             value.get("delivery_abandoned") is True or value.get("delivery_state") == "abandoned"
         ),
         last_delivery_error=str(value.get("last_delivery_error") or ""),
+    )
+
+
+def _receipt_from_workflow_claim(
+    item: HilPendingItem,
+    claim: Mapping[str, object],
+    *,
+    already_recorded: bool = True,
+) -> HilDecisionReceipt:
+    decided_at = claim.get("decided_at")
+    if not isinstance(decided_at, str):
+        raise RuntimeError("workflow approval decision claim is missing decided_at")
+    decision = str(claim.get("decision") or "")
+    return HilDecisionReceipt(
+        approval_id=item.approval_id,
+        idempotency_key=item.idempotency_key,
+        decision=(
+            HilApprovalDecision.APPROVE
+            if decision == "approved"
+            else HilApprovalDecision.REJECT
+            if decision == "rejected"
+            else HilApprovalDecision(decision)
+        ),
+        approver_oid=str(claim.get("principal") or ""),
+        decided_at=datetime.fromisoformat(decided_at.replace("Z", "+00:00")),
+        receipt_ref=str(claim.get("receipt_ref") or ""),
+        already_recorded=already_recorded,
+        justification=str(claim.get("justification") or ""),
+        delivered=True,
     )
 
 

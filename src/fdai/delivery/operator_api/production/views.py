@@ -36,6 +36,7 @@ from fdai.delivery.persistence.postgres_process_runtime import (
     PostgresProcessRuntimeStore,
     PostgresProcessRuntimeStoreConfig,
 )
+from fdai.delivery.persistence.workflow_approval import StateStoreWorkflowApprovalProvider
 from fdai.delivery.reporting import install_pdf_format_if_available
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
@@ -150,6 +151,7 @@ def _build_dynamic_views(
             audit_store=workflow_state_store,
             process_store=process_store,
             guard_evaluator=workflow_guard,
+            approval_provider=StateStoreWorkflowApprovalProvider(workflow_state_store),
             outcome_verifier=StateStoreWorkflowOutcomeLedger(workflow_state_store),
         ),
     )

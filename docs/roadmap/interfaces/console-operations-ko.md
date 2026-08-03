@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: daeac51b784cc6105421cc983de24618cbcae9cf
+translation_source_sha: 7daaf84bf4c98c02b45e5f858bb621f9975a9f04
 translation_revised: 2026-08-04
 ---
 
@@ -18,7 +18,8 @@ translation_revised: 2026-08-04
 > **구현 상태:** Operations 탐색, incident, approval, process, scheduler run, provisioning,
 > onboarding, bounded investigation은 별도 도메인 view로 제공됩니다. Console action dispatch는
 > broker publish 전에 payload를 포함한 receipt를 저장하고 restart 뒤 pending delivery를 복구합니다.
-> Federated Tasks view, cross-domain projection metadata, 나머지 domain route hardening은 제안 상태입니다.
+> Workflow approval은 callback과 conversation tool 경계 모두에서 durable role과 서로 다른 quorum을
+> 검사합니다. Federated Tasks view, cross-domain projection metadata 및 나머지 route hardening은 제안 상태입니다.
 
 ## 설계 요약
 

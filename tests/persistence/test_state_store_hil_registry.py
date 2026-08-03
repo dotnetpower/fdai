@@ -86,6 +86,13 @@ async def test_registry_records_idempotent_decision_and_rejects_conflict() -> No
     assert recovered is not None
     assert recovered.idempotency_key == key
     assert recovered.delivered is False
+    decision_audits = [
+        row["entry"]
+        for row in store.audit_entries
+        if row["entry"].get("action_kind") == "hil.decision.recorded"
+    ]
+    assert len(decision_audits) == 1
+    assert decision_audits[0]["actor"] == "Var"
 
     undelivered = await registry.list_undelivered()
     assert tuple(item.idempotency_key for item in undelivered) == (key,)
@@ -125,7 +132,8 @@ async def test_record_decision_uses_exact_park_when_pending_index_is_stale() -> 
     registry = StateStoreHilApprovalRegistry(store=store)
     key = "event-1::rule-1::resource-1"
 
-    assert await registry.list_pending() == ()
+    listed = await registry.list_pending()
+    assert tuple(item.approval_id for item in listed) == ("approval-1",)
     pending = await registry.get_pending_by_approval_id("approval-1")
     assert pending is not None
     receipt = await registry.record_decision(
