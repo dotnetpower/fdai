@@ -27,6 +27,8 @@ def test_resource_drift_finding_is_metamorphic(
     findings = mutating_webhook_resource_drift_findings(resources, evidence_complete=True)
 
     assert len(findings) == 1
+    assert findings[0]["reason"] == "pod_resource_drift_with_global_mutator_candidate"
+    assert findings[0]["causality"] == "candidate_only"
     assert findings[0]["resource"]["name"] == "resource-defaulting"
     assert findings[0]["drifts"] == [
         {"workload": workload_name, "pod": pod_name, "containers": ["main"]}
@@ -47,6 +49,32 @@ def test_resource_drift_abstains_for_scoped_mutator() -> None:
     resources = _resources("shop", "api", "api-1")
     webhook = resources[0]["webhooks"][0]  # type: ignore[index]
     webhook["namespace_selector"] = {"matchLabels": {"team": "a"}}
+
+    assert not mutating_webhook_resource_drift_findings(resources, evidence_complete=True)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("operations", ["UPDATE"]),
+        ("api_groups", ["apps"]),
+        ("api_versions", ["v2"]),
+        ("resources", ["pods/status"]),
+        ("scope", "Cluster"),
+    ],
+)
+def test_resource_drift_requires_exact_pod_create_rule(field: str, value: object) -> None:
+    resources = _resources("shop", "api", "api-1")
+    rule = resources[0]["webhooks"][0]["rules"][0]  # type: ignore[index]
+    rule[field] = value
+
+    assert not mutating_webhook_resource_drift_findings(resources, evidence_complete=True)
+
+
+def test_resource_drift_abstains_for_conditional_mutator() -> None:
+    resources = _resources("shop", "api", "api-1")
+    webhook = resources[0]["webhooks"][0]  # type: ignore[index]
+    webhook["match_conditions"] = [{"name": "only-some-pods"}]
 
     assert not mutating_webhook_resource_drift_findings(resources, evidence_complete=True)
 
@@ -86,7 +114,17 @@ def _resources(namespace: str, workload_name: str, pod_name: str) -> list[dict[s
                     "projection_complete": True,
                     "object_selector": {},
                     "namespace_selector": {},
-                    "rules": [{"operations": ["CREATE"], "resources": ["pods"]}],
+                    "match_conditions": [],
+                    "rules": [
+                        {
+                            "projection_complete": True,
+                            "operations": ["CREATE"],
+                            "api_groups": [""],
+                            "api_versions": ["v1"],
+                            "resources": ["pods"],
+                            "scope": "Namespaced",
+                        }
+                    ],
                 }
             ],
         },
@@ -103,6 +141,7 @@ def _resources(namespace: str, workload_name: str, pod_name: str) -> list[dict[s
                 "containers": [
                     {
                         "name": "main",
+                        "resource_projection_complete": True,
                         "resources": {
                             "requests": {"memory": "128Mi"},
                             "limits": {"memory": "256Mi"},
@@ -124,6 +163,7 @@ def _resources(namespace: str, workload_name: str, pod_name: str) -> list[dict[s
                 "containers": [
                     {
                         "name": "main",
+                        "resource_projection_complete": True,
                         "resources": {
                             "requests": {"memory": "16Mi"},
                             "limits": {"memory": "16Mi"},

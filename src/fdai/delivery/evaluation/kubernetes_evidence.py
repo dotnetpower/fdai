@@ -129,6 +129,22 @@ class KubectlEvidenceClient:
             "truncated": len(items) > len(selected),
         }
 
+    async def admission_configurations(self, task: EvaluationTask) -> Mapping[str, Any]:
+        self._namespace(task)
+        payload = await self._get_cluster_json("mutatingwebhookconfigurations")
+        items = _items(payload)
+        selected = items[: self._config.max_items]
+        return {
+            "cluster": self._config.cluster_name,
+            "resources": [
+                projection
+                for item in selected
+                if isinstance(item, Mapping)
+                and (projection := _project_mutating_webhook_configuration(item)) is not None
+            ],
+            "truncated": len(items) > len(selected),
+        }
+
     async def capacity(self, task: EvaluationTask) -> Mapping[str, Any]:
         from fdai.delivery.evaluation.kubernetes_capacity import KubectlCapacityEvidenceProvider
 
@@ -138,6 +154,11 @@ class KubectlEvidenceClient:
         from fdai.delivery.evaluation.kubernetes_dependency import KubectlDependencyEvidenceProvider
 
         return await KubectlDependencyEvidenceProvider(self).collect(task)
+
+    async def admission(self, task: EvaluationTask) -> Mapping[str, Any]:
+        from fdai.delivery.evaluation.kubernetes_admission import KubectlAdmissionEvidenceProvider
+
+        return await KubectlAdmissionEvidenceProvider(self).collect(task)
 
     def _namespace(self, task: EvaluationTask) -> str:
         if task.target.kind != "kubernetes.namespace":
@@ -282,10 +303,12 @@ def kubernetes_evidence_providers(
 ) -> Mapping[str, EvaluationEvidenceProvider]:
     """Return provider bindings for the supported semantic capabilities."""
 
+    from fdai.delivery.evaluation.kubernetes_admission import KubectlAdmissionEvidenceProvider
     from fdai.delivery.evaluation.kubernetes_capacity import KubectlCapacityEvidenceProvider
     from fdai.delivery.evaluation.kubernetes_dependency import KubectlDependencyEvidenceProvider
 
     return {
+        "observe.kubernetes.admission": KubectlAdmissionEvidenceProvider(client),
         "observe.kubernetes.capacity": KubectlCapacityEvidenceProvider(client),
         "observe.kubernetes.dependencies": KubectlDependencyEvidenceProvider(client),
         "observe.kubernetes.inventory": KubectlInventoryEvidenceProvider(client),
@@ -326,6 +349,9 @@ def _project_resource(item: Mapping[str, Any]) -> dict[str, Any] | None:
         template = _project_pod_template(spec_values.get("template"))
         if template is not None:
             projected["pod_template"] = template
+        selector = _project_label_selector(spec_values.get("selector"))
+        if selector is not None:
+            projected["selector"] = selector
     elif kind == "DaemonSet":
         projected.update(
             desired=_count(status_values.get("desiredNumberScheduled")),
@@ -335,6 +361,9 @@ def _project_resource(item: Mapping[str, Any]) -> dict[str, Any] | None:
         template = _project_pod_template(spec_values.get("template"))
         if template is not None:
             projected["pod_template"] = template
+        selector = _project_label_selector(spec_values.get("selector"))
+        if selector is not None:
+            projected["selector"] = selector
     elif kind == "Pod":
         statuses = status_values.get("containerStatuses")
         container_statuses = statuses if isinstance(statuses, list) else []
@@ -354,6 +383,12 @@ def _project_resource(item: Mapping[str, Any]) -> dict[str, Any] | None:
         resource_requests = project_pod_resource_requests(spec_values)
         if resource_requests is not None:
             projected["resource_requests"] = resource_requests
+        pod_spec = _project_pod_resource_spec(spec_values)
+        if pod_spec is not None:
+            projected["pod_spec"] = pod_spec
+            labels = _project_labels(metadata.get("labels"))
+            if labels is not None:
+                projected["labels"] = labels
     elif kind == "Service":
         selector = spec_values.get("selector")
         projected.update(
@@ -438,8 +473,11 @@ def _project_template_container(value: Mapping[str, Any]) -> dict[str, Any]:
         for item in env_values[:128]
         if isinstance(item, Mapping) and (projection := _project_endpoint_env(item)) is not None
     ]
+    resources = _project_container_resources(value.get("resources"))
     return {
         "name": _text(value.get("name"), 253),
+        "resource_projection_complete": resources is not None,
+        "resources": resources or {},
         "port_projection_complete": isinstance(raw_ports, list)
         and len(raw_ports) <= 32
         and len(ports) == len(raw_ports),
@@ -447,6 +485,203 @@ def _project_template_container(value: Mapping[str, Any]) -> dict[str, Any]:
         "env_projection_complete": isinstance(raw_env, list) and len(raw_env) <= 128,
         "env": env,
     }
+
+
+def _project_pod_resource_spec(value: Mapping[str, Any]) -> dict[str, Any] | None:
+    raw_containers = value.get("containers")
+    if not isinstance(raw_containers, list):
+        return None
+    selected = raw_containers[:32]
+    containers = [
+        projection
+        for item in selected
+        if isinstance(item, Mapping)
+        and (projection := _project_resource_container(item)) is not None
+    ]
+    return {
+        "projection_complete": len(raw_containers) <= 32 and len(containers) == len(raw_containers),
+        "containers": containers,
+    }
+
+
+def _project_resource_container(value: Mapping[str, Any]) -> dict[str, Any] | None:
+    name = value.get("name")
+    resources = _project_container_resources(value.get("resources"))
+    if not isinstance(name, str) or not name or resources is None:
+        return None
+    return {
+        "name": name[:253],
+        "resource_projection_complete": True,
+        "resources": resources,
+    }
+
+
+def _project_container_resources(value: object) -> dict[str, dict[str, str]] | None:
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping):
+        return None
+    projected: dict[str, dict[str, str]] = {}
+    for section in ("requests", "limits"):
+        raw_section = value.get(section)
+        if raw_section is None:
+            continue
+        if not isinstance(raw_section, Mapping):
+            return None
+        section_values: dict[str, str] = {}
+        for resource_name in ("cpu", "memory"):
+            raw_quantity = raw_section.get(resource_name)
+            if raw_quantity is None:
+                continue
+            if (
+                not isinstance(raw_quantity, str)
+                or len(raw_quantity) > 64
+                or (quantity := parse_quantity(raw_quantity)) is None
+                or quantity < 0
+            ):
+                return None
+            section_values[resource_name] = raw_quantity
+        if section_values:
+            projected[section] = section_values
+    return projected
+
+
+def _project_label_selector(value: object) -> dict[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+    raw_labels = value.get("matchLabels")
+    labels = raw_labels if isinstance(raw_labels, Mapping) else {}
+    expressions = value.get("matchExpressions")
+    projection_complete = (
+        (raw_labels is None or isinstance(raw_labels, Mapping))
+        and len(labels) <= 64
+        and all(
+            isinstance(key, str)
+            and isinstance(label_value, str)
+            and len(key) <= 253
+            and len(label_value) <= 63
+            for key, label_value in labels.items()
+        )
+        and (expressions is None or expressions == [])
+    )
+    return {
+        "projection_complete": projection_complete,
+        "match_labels": dict(labels) if projection_complete else {},
+    }
+
+
+def _project_labels(value: object) -> dict[str, Any] | None:
+    if value is None:
+        return {"projection_complete": True, "values": {}}
+    if not isinstance(value, Mapping):
+        return None
+    projection_complete = len(value) <= 64 and all(
+        isinstance(key, str)
+        and isinstance(label_value, str)
+        and len(key) <= 253
+        and len(label_value) <= 63
+        for key, label_value in value.items()
+    )
+    return {
+        "projection_complete": projection_complete,
+        "values": dict(value) if projection_complete else {},
+    }
+
+
+def _project_mutating_webhook_configuration(
+    item: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    metadata = item.get("metadata")
+    webhooks = item.get("webhooks")
+    if not isinstance(metadata, Mapping) or not isinstance(webhooks, list):
+        return None
+    name = metadata.get("name")
+    if not isinstance(name, str) or not name:
+        return None
+    selected = webhooks[:32]
+    projected_webhooks = [
+        projection
+        for webhook in selected
+        if isinstance(webhook, Mapping)
+        and (projection := _project_mutating_webhook(webhook)) is not None
+    ]
+    return {
+        "kind": "MutatingWebhookConfiguration",
+        "name": name[:253],
+        "namespace": "",
+        "projection_complete": len(webhooks) <= 32 and len(projected_webhooks) == len(webhooks),
+        "webhooks": projected_webhooks,
+    }
+
+
+def _project_mutating_webhook(value: Mapping[str, Any]) -> dict[str, Any] | None:
+    name = value.get("name")
+    rules = value.get("rules")
+    object_selector = _project_selector_presence(value.get("objectSelector"))
+    namespace_selector = _project_selector_presence(value.get("namespaceSelector"))
+    match_conditions = value.get("matchConditions")
+    if (
+        not isinstance(name, str)
+        or not isinstance(rules, list)
+        or object_selector is None
+        or namespace_selector is None
+        or (match_conditions is not None and not isinstance(match_conditions, list))
+    ):
+        return None
+    selected_rules = rules[:32]
+    projected_rules = [
+        projection
+        for rule in selected_rules
+        if isinstance(rule, Mapping) and (projection := _project_admission_rule(rule)) is not None
+    ]
+    condition_values = match_conditions if isinstance(match_conditions, list) else []
+    return {
+        "name": name[:253],
+        "projection_complete": len(rules) <= 32
+        and len(projected_rules) == len(rules)
+        and len(condition_values) <= 32
+        and all(isinstance(condition, Mapping) for condition in condition_values),
+        "object_selector": object_selector,
+        "namespace_selector": namespace_selector,
+        "match_conditions": [{} for _ in condition_values[:32]],
+        "rules": projected_rules,
+    }
+
+
+def _project_selector_presence(value: object) -> dict[str, bool] | None:
+    if value is None or value == {}:
+        return {}
+    return {"present": True} if isinstance(value, Mapping) else None
+
+
+def _project_admission_rule(value: Mapping[str, Any]) -> dict[str, Any] | None:
+    operations = _bounded_strings(value.get("operations"), 16)
+    api_groups = _bounded_strings(value.get("apiGroups"), 16)
+    api_versions = _bounded_strings(value.get("apiVersions"), 16)
+    resources = _bounded_strings(value.get("resources"), 32)
+    scope = value.get("scope")
+    if any(item is None for item in (operations, api_groups, api_versions, resources)) or not (
+        scope is None or isinstance(scope, str)
+    ):
+        return None
+    return {
+        "projection_complete": True,
+        "operations": operations,
+        "api_groups": api_groups,
+        "api_versions": api_versions,
+        "resources": resources,
+        "scope": scope or "",
+    }
+
+
+def _bounded_strings(value: object, limit: int) -> list[str] | None:
+    if not isinstance(value, list) or len(value) > limit:
+        return None
+    return (
+        [item for item in value if isinstance(item, str)]
+        if all(isinstance(item, str) and len(item) <= 253 for item in value)
+        else None
+    )
 
 
 def _project_endpoint_env(value: Mapping[str, Any]) -> dict[str, str] | None:

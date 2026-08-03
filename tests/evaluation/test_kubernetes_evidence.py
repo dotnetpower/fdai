@@ -299,6 +299,8 @@ async def test_inventory_projects_only_reviewed_workload_endpoint_structure(
         "containers": [
             {
                 "name": "frontend",
+                "resource_projection_complete": True,
+                "resources": {},
                 "port_projection_complete": True,
                 "ports": [{"port": 8080}],
                 "env_projection_complete": True,
@@ -387,6 +389,92 @@ async def test_nodes_use_cluster_scope_and_project_only_capacity_facts(tmp_path:
         ],
         "truncated": False,
     }
+
+
+async def test_admission_configurations_are_cluster_scoped_and_bounded(tmp_path: Path) -> None:
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text("synthetic", encoding="utf-8")
+    commands: list[tuple[str, ...]] = []
+
+    async def run(command: tuple[str, ...]) -> bytes:
+        commands.append(command)
+        return json.dumps(
+            {
+                "items": [
+                    {
+                        "metadata": {
+                            "name": "resource-defaulting",
+                            "labels": {"private.example/owner": "must-not-project"},
+                        },
+                        "webhooks": [
+                            {
+                                "name": "mutate.example.com",
+                                "clientConfig": {
+                                    "url": "https://must-not-project.example.com",
+                                    "caBundle": "must-not-project",
+                                },
+                                "objectSelector": {},
+                                "namespaceSelector": {},
+                                "matchConditions": [],
+                                "rules": [
+                                    {
+                                        "operations": ["CREATE"],
+                                        "apiGroups": [""],
+                                        "apiVersions": ["v1"],
+                                        "resources": ["pods"],
+                                        "scope": "Namespaced",
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            }
+        ).encode()
+
+    client = KubectlEvidenceClient(config=_config(kubeconfig), run=run)
+    evidence = await client.admission_configurations(_task())
+
+    assert "--namespace" not in commands[0]
+    assert commands[0][-5:] == (
+        "get",
+        "mutatingwebhookconfigurations",
+        "--output",
+        "json",
+        "--request-timeout=15s",
+    )
+    assert evidence == {
+        "cluster": "example-cluster",
+        "resources": [
+            {
+                "kind": "MutatingWebhookConfiguration",
+                "name": "resource-defaulting",
+                "namespace": "",
+                "projection_complete": True,
+                "webhooks": [
+                    {
+                        "name": "mutate.example.com",
+                        "projection_complete": True,
+                        "object_selector": {},
+                        "namespace_selector": {},
+                        "match_conditions": [],
+                        "rules": [
+                            {
+                                "projection_complete": True,
+                                "operations": ["CREATE"],
+                                "api_groups": [""],
+                                "api_versions": ["v1"],
+                                "resources": ["pods"],
+                                "scope": "Namespaced",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+        "truncated": False,
+    }
+    assert "must-not-project" not in json.dumps(evidence)
 
 
 async def test_events_are_bounded_and_namespace_scope_fails_closed(tmp_path: Path) -> None:

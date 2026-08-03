@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 99ffd9785884a40ffbab1716f961ad3d71b66620
+translation_source_sha: d9dd3c5b4d49d67414204e21e6a919ab67af0498
 translation_revised: 2026-08-04
 ---
 
@@ -195,17 +195,21 @@ observe-only `observe.kubernetes.capacity` capability를 통해 이 join을 요�
 same-namespace projection, exact short `host:port` environment reference, absent Service 및 referenced
 port를 선언한 healthy same-name backend가 모두 있을 때만 missing-Service finding을 생성합니다.
 Present, external, ambiguous, unhealthy, mismatched 또는 truncated evidence는 finding을 생성하지
-않습니다. Provider wiring은 별도 absorption 단계로 유지됩니다.
+않습니다.
 SREGym은 별도 observe-only `observe.kubernetes.dependencies` capability를 통해 completed inventory
 join을 요청합니다. Readiness는 실행 전에 이 capability를 probe하며 unavailable 또는 truncated
 inventory는 absence finding을 생성할 수 없습니다.
 
-공유 Kubernetes package에는 hold-only admission resource-drift reducer가 있습니다. Complete
-selector-free, namespace-unscoped MutatingWebhookConfiguration 하나가 Pod를 생성할 수 있고 complete
-workload selector가 complete Pod label과 일치할 때만 normalized request 또는 limit drift를
-귀속합니다. 여러 mutator 또는 scoped mutator, semantically equivalent quantity, incomplete evidence는
-finding을 생성하지 않습니다. 이는 namespace scope를 증명하지 않고 mutator 하나를 causal로 취급하던
-source campaign 동작을 강화합니다.
+공유 Kubernetes package에는 hold-only admission resource-drift reducer가 있습니다. Exact core/v1
+Pod CREATE rule을 가진 complete selector-free, namespace-unscoped
+MutatingWebhookConfiguration 하나와 normalized request 또는 limit drift 사이의 candidate-only
+correlation을 보고합니다. Complete workload selector도 complete Pod label과 일치해야 합니다.
+Reducer는 webhook이 drift를 일으켰다고 주장하지 않습니다. 여러 mutator, conditional mutator,
+scoped mutator, incompatible mutator, semantically equivalent quantity 및 incomplete evidence는
+finding을 생성하지 않습니다. 별도 observe-only `observe.kubernetes.admission` capability는 bounded
+namespace inventory와 bounded cluster-scoped webhook projection을 join합니다. Webhook URL, CA bundle
+및 검토되지 않은 field는 projection하지 않습니다. 이는 namespace scope 또는 rule applicability를
+증명하지 않고 mutator 하나를 causal로 취급하던 source campaign 동작을 강화합니다.
 
 Deterministic 판단 보류 시 기존 grounded RCA path가 task objective와 bounded evidence를 받습니다.
 Hypothesis는 typed `ControlLoopResult`에 보존되고 submission summary로 render됩니다. RCA reasoner가

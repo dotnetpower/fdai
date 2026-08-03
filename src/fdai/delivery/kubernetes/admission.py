@@ -16,7 +16,7 @@ def mutating_webhook_resource_drift_findings(
     *,
     evidence_complete: bool,
 ) -> tuple[dict[str, Any], ...]:
-    """Attribute Pod resource drift only to one unscoped global Pod mutator."""
+    """Report resource drift correlated with one unscoped global Pod mutator candidate."""
 
     if not evidence_complete:
         return ()
@@ -81,7 +81,8 @@ def mutating_webhook_resource_drift_findings(
         return ()
     return (
         {
-            "reason": "mutating_webhook_rewrites_pod_resources",
+            "reason": "pod_resource_drift_with_global_mutator_candidate",
+            "causality": "candidate_only",
             "resource": {
                 "kind": "MutatingWebhookConfiguration",
                 "name": str(configuration.get("name") or "")[:253],
@@ -98,12 +99,29 @@ def mutating_webhook_resource_drift_findings(
 def _eligible_global_pod_mutator(webhook: Mapping[str, Any]) -> bool:
     if webhook.get("projection_complete") is not True:
         return False
-    if webhook.get("object_selector") or webhook.get("namespace_selector"):
+    if (
+        webhook.get("object_selector")
+        or webhook.get("namespace_selector")
+        or webhook.get("match_conditions")
+    ):
         return False
-    return any(
-        "CREATE" in _strings(rule.get("operations"))
-        and any(resource in {"pods", "pods/*"} for resource in _strings(rule.get("resources")))
-        for rule in _mappings(webhook.get("rules"))
+    return any(_eligible_pod_create_rule(rule) for rule in _mappings(webhook.get("rules")))
+
+
+def _eligible_pod_create_rule(rule: Mapping[str, Any]) -> bool:
+    if rule.get("projection_complete") is not True:
+        return False
+    operations = _strings(rule.get("operations"))
+    api_groups = _strings(rule.get("api_groups"))
+    api_versions = _strings(rule.get("api_versions"))
+    resources = _strings(rule.get("resources"))
+    scope = rule.get("scope")
+    return (
+        ("CREATE" in operations or "*" in operations)
+        and ("" in api_groups or "*" in api_groups)
+        and ("v1" in api_versions or "*" in api_versions)
+        and ("pods" in resources or "*" in resources)
+        and scope in {None, "", "*", "Namespaced"}
     )
 
 
@@ -115,7 +133,11 @@ def _container_resources(value: object) -> dict[str, tuple[tuple[str, str, str],
     for container in containers:
         name = container.get("name")
         resources = container.get("resources")
-        if not isinstance(name, str) or not isinstance(resources, Mapping):
+        if (
+            not isinstance(name, str)
+            or container.get("resource_projection_complete") is not True
+            or not isinstance(resources, Mapping)
+        ):
             return None
         normalized = _normalized_resources(resources)
         if normalized is None or name in projected:
