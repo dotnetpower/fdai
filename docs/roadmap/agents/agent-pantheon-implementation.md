@@ -694,7 +694,11 @@ Configurable + observable seams:
   restart cannot lose track of an in-progress mutation or drop a
   per-resource lock. Terminal runs are deleted, so only in-flight work
   is restored. Upstream default is in-memory (shadow); a fork injects
-  the durable store alongside the durable `Saga`.
+  the durable store alongside the durable `Saga`. Forseti preserves the
+  action idempotency key on every Verdict, and Thor stores it separately
+  from each lifecycle event key. The runtime reads this active index through
+  `StateStoreOpenActionEvidenceProvider`; missing or malformed indexed rows
+  report a conflict, so incomplete persistence cannot raise autonomy.
 - **Shadow observation.** A dedicated observer consumer group tallies
   the pantheon's would-be decisions (verdict risk split + ActionRun
   terminal states) into `shadow_decisions`, surfaced by `health()` -

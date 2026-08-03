@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 7360daf004079d569e836c0b2ed0246bae299b5e
+translation_source_sha: deb1493b11caf49e9a3e3aee6df9e64748c8d29e
 translation_revised: 2026-08-04
 ---
 
@@ -667,7 +667,11 @@ judge-and-log 만 하고 P1 루프와 이중 실행하지 않는다. enforce 로
   이 시작 시 이를 rehydrate 하므로 enforce 모드 재시작이 진행 중 mutation
   추적이나 per-resource 락을 잃지 않는다. terminal 상태는 삭제되어
   진행 중인 작업만 복원된다. upstream 기본은 in-memory(shadow); fork 는
-  durable `Saga` 와 함께 durable store 를 주입한다.
+  durable `Saga` 와 함께 durable store 를 주입한다. Forseti는 모든 Verdict에
+  action idempotency key를 보존하고 Thor는 각 lifecycle event key와 구분해 저장합니다.
+  Runtime은 `StateStoreOpenActionEvidenceProvider`를 통해 이 active index를 읽습니다.
+  Indexed row가 없거나 malformed이면 conflict로 처리하므로 불완전한 persistence가
+  autonomy를 높일 수 없습니다.
 - **shadow 관측.** 전용 observer consumer group 이 판테온이 내릴 결정
   (verdict risk 분포 + ActionRun terminal state)을 `shadow_decisions` 로
   집계하고 `health()` 가 표면화한다 - "shadow before enforce" 에 필요한

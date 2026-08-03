@@ -94,6 +94,7 @@ The org chart is reporting lines. The relationship diagram is data flow.
 Sensing and specialists feed Forseti. Action verdicts feed Thor for dispatch to
 Vidar (recovery), Var (human approval), or execution; document-ingestion verdicts
 return to the ingestion plane and Thor ignores them. Var and Saga preserve the stable idempotency key through document HIL; production binds Saga to the durable StateStore for gated decisions and terminal states;
+Forseti also preserves each action's stable idempotency key on its Verdict, while Thor stores it on the durable `ActionRun` separately from the per-state event key.
 Norns proposes to Mimir, and Odin arbitrates conflicts before judgment.
 
 ```mermaid

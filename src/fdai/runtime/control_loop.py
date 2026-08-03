@@ -84,6 +84,9 @@ from fdai.core.workflow import (
     WorkflowTriggerCoordinator,
     WorkflowTriggerIndex,
 )
+from fdai.delivery.persistence.state_store_preconditions import (
+    StateStoreOpenActionEvidenceProvider,
+)
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.governance_catalog import load_governance_catalog
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
@@ -573,6 +576,7 @@ def _build_control_loop(
     )
     precondition_evaluator = (
         GovernedPreconditionEvaluator(
+            open_actions=StateStoreOpenActionEvidenceProvider(audit_store),
             change_windows=OntologyChangeWindowEvidenceProvider(ontology_instance_store),
         )
         if ontology_instance_store is not None

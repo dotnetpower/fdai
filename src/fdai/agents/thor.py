@@ -68,6 +68,7 @@ class ActionRun:
     resource_id: str | None
     state: ActionRunState
     verdict: str  # auto | hil | deny
+    idempotency_key: str = ""
     params: dict[str, Any] = field(default_factory=dict)
     shadow_mode: bool = False
     quorum_required: int = 1
@@ -90,6 +91,7 @@ class ActionRun:
             "resource_id": self.resource_id,
             "state": self.state.value,
             "verdict": self.verdict,
+            "idempotency_key": self.idempotency_key,
             "params": deepcopy(self.params),
             "shadow_mode": self.shadow_mode,
             "quorum_required": self.quorum_required,
@@ -109,6 +111,7 @@ class ActionRun:
             resource_id=data.get("resource_id"),
             state=ActionRunState(data["state"]),
             verdict=str(data["verdict"]),
+            idempotency_key=str(data.get("idempotency_key") or data["correlation_id"]),
             params=deepcopy(dict(data.get("params") or {})),
             shadow_mode=bool(data.get("shadow_mode", False)),
             quorum_required=int(data.get("quorum_required", 1)),
@@ -295,6 +298,7 @@ class Thor(Agent):
             resource_id=resource_id,
             state=ActionRunState.VERDICTED,
             verdict=risk_verdict,
+            idempotency_key=str(verdict.get("idempotency_key") or correlation),
             params=params,
             shadow_mode=shadow_mode,
             quorum_required=quorum_required,
@@ -466,6 +470,7 @@ class Thor(Agent):
             "producer_principal": "Thor",
             "correlation_id": run.correlation_id,
             "idempotency_key": f"{run.correlation_id}:{run.state.value}",
+            "action_idempotency_key": run.idempotency_key,
             "action_type": run.action_type,
             "resource_id": run.resource_id,
             "state": run.state.value,

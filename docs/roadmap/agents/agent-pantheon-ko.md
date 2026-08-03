@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: f92fc3da04a66095c3ed8d51eed51da86008334c
+translation_source_sha: b9dd2e59af287ab46151032e770dd5e6215a0838
 translation_revised: 2026-08-04
 ---
 
@@ -95,6 +95,7 @@ Forseti에 신호를 전달합니다. Action verdict는 Thor가 Vidar (recovery)
 또는 실행으로 dispatch합니다. Document-ingestion verdict는 ingestion plane으로 돌아가며
 Thor는 이를 무시합니다. Var와 Saga는 문서 HIL에서 stable idempotency key를 보존합니다.
 Production은 gated decision과 terminal 상태를 위해 Saga를 durable StateStore에 bind합니다.
+Forseti는 각 action의 stable idempotency key를 Verdict에 보존하고, Thor는 per-state event key와 구분해 durable `ActionRun`에 저장합니다.
 Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 
 ```mermaid

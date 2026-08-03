@@ -195,6 +195,9 @@ from fdai.delivery.persistence.state_store_hil_registry import (
 from fdai.delivery.persistence.state_store_operational_promotion import (
     StateStoreOperationalPromotionReceiptStore,
 )
+from fdai.delivery.persistence.state_store_preconditions import (
+    StateStoreOpenActionEvidenceProvider,
+)
 
 __all__ = [
     "PgVectorPatternLibrary",
@@ -291,6 +294,7 @@ __all__ = [
     "PostgresHilApprovalRegistry",
     "StateStoreHilApprovalRegistry",
     "StateStoreActionPromotionRegistry",
+    "StateStoreOpenActionEvidenceProvider",
     "StateStoreOperationalPromotionReceiptStore",
     "add_pending_approval",
 ]

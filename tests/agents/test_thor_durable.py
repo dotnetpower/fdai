@@ -38,6 +38,7 @@ def test_action_run_dict_round_trip() -> None:
         resource_id="r",
         state=ActionRunState.EXECUTING,
         verdict="auto",
+        idempotency_key="action-1",
         shadow_mode=True,
         outcome="x",
     )
@@ -48,6 +49,7 @@ def test_action_run_dict_round_trip() -> None:
     assert back.history == run.history
     assert back.shadow_mode is True
     assert back.outcome == "x"
+    assert back.idempotency_key == "action-1"
 
 
 def test_thor_deletes_terminal_run_from_store() -> None:
@@ -120,6 +122,7 @@ def test_statestore_action_run_store_round_trip() -> None:
     assert len(active) == 1
     assert active[0].correlation_id == "c"
     assert active[0].state == ActionRunState.EXECUTING
+    assert active[0].idempotency_key == "c"
 
     asyncio.run(store.delete("c"))
     assert asyncio.run(store.load_active()) == []

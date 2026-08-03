@@ -403,6 +403,7 @@ class Forseti(Agent):
         verdict = {
             "producer_principal": "Forseti",
             "correlation_id": correlation_id,
+            "idempotency_key": correlation_id,
             "resource_id": self._arbitration_resources.get(correlation_id) or "",
             "action_type": action_type,
             "risk_verdict": risk_verdict,
@@ -464,6 +465,7 @@ class Forseti(Agent):
         verdict = {
             "producer_principal": "Forseti",
             "correlation_id": correlation_id,
+            "idempotency_key": correlation_id,
             "resource_id": self._arbitration_resources.get(correlation_id) or "",
             # Odin's winner is the concrete recommendation under review; the
             # complete DecisionCase keeps every alternative visible.
@@ -584,6 +586,7 @@ class Forseti(Agent):
             verdict = {
                 "producer_principal": "Forseti",
                 "correlation_id": correlation_id,
+                "idempotency_key": str(event.get("idempotency_key") or correlation_id),
                 "resource_id": resource_id,
                 # No concrete ActionType maps; a human decides what (if
                 # anything) to do. Empty string (not None) so Thor's ``str()``
@@ -694,6 +697,9 @@ class Forseti(Agent):
         verdict = {
             "producer_principal": "Forseti",
             "correlation_id": event.get("correlation_id", ""),
+            "idempotency_key": str(
+                event.get("idempotency_key") or event.get("correlation_id") or ""
+            ),
             "resource_id": event.get("resource_id"),
             "action_type": action_type,
             "risk_verdict": risk_verdict,

@@ -362,6 +362,7 @@ def test_forseti_emits_verdict_auto_on_rule_match() -> None:
                 "event_type": "public_network_enabled",
                 "resource_id": "sa-1",
                 "correlation_id": "c",
+                "idempotency_key": "event-1",
             },
         )
     )
@@ -369,6 +370,7 @@ def test_forseti_emits_verdict_auto_on_rule_match() -> None:
     assert len(verdicts) == 1
     assert verdicts[0].payload["risk_verdict"] == "auto"
     assert verdicts[0].payload["action_type"] == "remediate.disable-public-access"
+    assert verdicts[0].payload["idempotency_key"] == "event-1"
 
 
 def test_forseti_emits_document_admission_without_action_type() -> None:
@@ -845,6 +847,7 @@ def test_thor_auto_verdict_executes_and_publishes_action_runs() -> None:
                 "action_type": "ops.restart-service",
                 "risk_verdict": "auto",
                 "resource_id": "vm-1",
+                "idempotency_key": "action-1",
             }
         )
     )
@@ -857,6 +860,7 @@ def test_thor_auto_verdict_executes_and_publishes_action_runs() -> None:
     assert [m.payload["idempotency_key"] for m in action_runs] == [
         f"c:{state}" for state in states_seen
     ]
+    assert {m.payload["action_idempotency_key"] for m in action_runs} == {"action-1"}
 
 
 def test_thor_ignores_document_admission_verdict() -> None:

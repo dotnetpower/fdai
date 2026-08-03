@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 6561b25473f53af7e01ca15f5fe3c79722c58dc8
+translation_source_sha: 01a06b61920fbc6969c62523ec4f6811ad41d0c4
 translation_revised: 2026-08-04
 ---
 
@@ -521,7 +521,7 @@ phase 는 `core/` 를 편집하지 않고 composition root 에서 새 구현을 
 | Cloud provider | provider client | (위 여덟 seam을 사용) | reference/generic Azure 어댑터 | 특정 CSP 어댑터 |
 | **Schema source** | `SchemaRegistry` (원시 JSON Schema 로더) | - | `PackageResourceSchemaRegistry` (패키지 내장 스키마) | 원격 schema-registry 어댑터; content hash 로 핀된 스냅샷 |
 | **Boundary validation** | `ContractValidator` / `EventValidator` (fail-closed 입력 검사) | - | `JsonSchemaContractValidator` + `JsonSchemaEventValidator` (draft-2020-12) | 포크가 `core/` 편집 없이 도메인 특이 체크(예: 소스 allowlist) 추가 가능 |
-| **Action precondition evidence** | `core/risk_gate/preconditions.py`의 `PreconditionEvaluator`; RiskGate가 consume하는 indexed `PreconditionEvaluation` record | - | `GovernedPreconditionEvaluator`가 canonical event evidence와 bounded `ChangeWindow` ontology query를 결합합니다. `OntologyOpenActionEvidenceProvider`는 authoritative `ActionRun` projection에 사용할 수 있지만 그 projection이 마련될 때까지 binding하지 않습니다. Provider가 없으면 condition은 unresolved 상태로 남고, 잘린 action 결과는 conflict로 처리하며, 잘리거나 malformed인 window는 inactive 상태로 유지합니다. | 모든 condition index와 evidence가 authority를 유지하거나 낮추기만 한다는 규칙을 보존하면서 read-only ontology projection을 교체합니다. |
+| **Action precondition evidence** | `core/risk_gate/preconditions.py`의 `PreconditionEvaluator`; RiskGate가 consume하는 indexed `PreconditionEvaluation` record | - | `GovernedPreconditionEvaluator`가 canonical event evidence를 결합하고, `StateStoreOpenActionEvidenceProvider`가 Thor의 durable active-run index를 읽으며, `OntologyChangeWindowEvidenceProvider`가 bounded window query를 수행합니다. Active row가 없거나 malformed이면 conflict로 처리하고, provider가 없으면 condition은 unresolved 상태로 남기며, 잘리거나 malformed인 window는 inactive 상태로 유지합니다. | 모든 condition index와 evidence가 authority를 유지하거나 낮추기만 한다는 규칙을 보존하면서 read-only state projection을 교체합니다. |
 | **관리형 trajectory dataset** | `shared/providers/trajectory.py`의 immutable audit / conversation / tool / approval / outcome snapshot Protocol, `TrajectoryAccessAuthorizer`, `TrajectoryDatasetStore`; `core/trajectory/`의 `TrajectoryJoinService`, `TrajectoryDatasetAdminService` | - | Deny-by-default allowlist authorizer, in-memory metadata store, deterministic JSONL exporter, PostgreSQL metadata/quarantine adapter, Owner-only GET projection, offline validator | authorization-before-materialization, bounded excerpt, checksum, retention/legal hold, reviewed-only Norns intake를 유지하며 policy-backed scope authorization과 immutable source reader를 주입 ([설계](../interfaces/governed-trajectory-datasets-ko.md)) |
 | Rule / policy source | rule-catalog + `policies/` 로더 | - | 번들된 범용 규칙 | 고객 규칙 세트 / 임계값 |
 | **Capability bundle runtime** | `core/capability_catalog/`의 `CapabilityRuntime` + `CapabilityBundle` 및 trust-verified `ExtensionManager`; `core/tools/`의 additive `StaticToolRegistry` / `CompositeToolRegistry`; `composition/`의 `install_capability_bundle(...)` | - | fork binding이 없는 기본 discovery catalog, extension은 disabled 상태로 설치 | review된 reasoning-tool metadata와 provider를 추가하거나 capability를 기존 `ActionType` / `Workflow`에 binding; duplicate id, digest, trust, compatibility, manifest parity, 모든 reference를 activation 전에 검증 |
