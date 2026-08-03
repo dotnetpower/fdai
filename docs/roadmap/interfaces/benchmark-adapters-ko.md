@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 745e1d1931abe38bc57f1bdfe4ed24d3fef2749f
+translation_source_sha: 4f7e6e043a321b422cb93cd835ee946c6e9dc378
 translation_revised: 2026-08-04
 ---
 
@@ -196,6 +196,9 @@ same-namespace projection, exact short `host:port` environment reference, absent
 port를 선언한 healthy same-name backend가 모두 있을 때만 missing-Service finding을 생성합니다.
 Present, external, ambiguous, unhealthy, mismatched 또는 truncated evidence는 finding을 생성하지
 않습니다. Provider wiring은 별도 absorption 단계로 유지됩니다.
+SREGym은 별도 observe-only `observe.kubernetes.dependencies` capability를 통해 completed inventory
+join을 요청합니다. Readiness는 실행 전에 이 capability를 probe하며 unavailable 또는 truncated
+inventory는 absence finding을 생성할 수 없습니다.
 
 Deterministic 판단 보류 시 기존 grounded RCA path가 task objective와 bounded evidence를 받습니다.
 Hypothesis는 typed `ControlLoopResult`에 보존되고 submission summary로 render됩니다. RCA reasoner가

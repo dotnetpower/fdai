@@ -247,6 +247,75 @@ async def test_inventory_projects_pod_request_semantics_and_uid(tmp_path: Path) 
     assert "must-not-project" not in json.dumps(evidence)
 
 
+async def test_inventory_projects_only_reviewed_workload_endpoint_structure(
+    tmp_path: Path,
+) -> None:
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text("synthetic", encoding="utf-8")
+
+    async def run(command: tuple[str, ...]) -> bytes:
+        del command
+        return json.dumps(
+            {
+                "items": [
+                    {
+                        "kind": "Deployment",
+                        "metadata": {"name": "frontend", "namespace": "example-app"},
+                        "spec": {
+                            "replicas": 2,
+                            "template": {
+                                "spec": {
+                                    "containers": [
+                                        {
+                                            "name": "frontend",
+                                            "image": "must-not-project",
+                                            "command": ["must-not-project"],
+                                            "ports": [{"containerPort": 8080}],
+                                            "env": [
+                                                {"name": "BACKEND", "value": "catalog:8080"},
+                                                {"name": "TOKEN", "value": "must-not-project"},
+                                                {
+                                                    "name": "SECRET",
+                                                    "valueFrom": {
+                                                        "secretKeyRef": {"name": "secret"}
+                                                    },
+                                                },
+                                            ],
+                                        }
+                                    ]
+                                }
+                            },
+                        },
+                        "status": {"readyReplicas": 2},
+                    }
+                ]
+            }
+        ).encode()
+
+    evidence = await KubectlEvidenceClient(config=_config(kubeconfig), run=run).inventory(_task())
+
+    assert evidence["resources"][0]["pod_template"] == {
+        "projection_complete": True,
+        "containers": [
+            {
+                "name": "frontend",
+                "port_projection_complete": True,
+                "ports": [{"port": 8080}],
+                "env_projection_complete": True,
+                "env": [
+                    {
+                        "name": "BACKEND",
+                        "endpoint_host": "catalog",
+                        "endpoint_port": "8080",
+                    }
+                ],
+            }
+        ],
+    }
+    assert "must-not-project" not in json.dumps(evidence)
+    assert "secret" not in json.dumps(evidence).casefold()
+
+
 async def test_nodes_use_cluster_scope_and_project_only_capacity_facts(tmp_path: Path) -> None:
     kubeconfig = tmp_path / "config"
     kubeconfig.write_text("synthetic", encoding="utf-8")

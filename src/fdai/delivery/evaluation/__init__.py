@@ -1,6 +1,7 @@
 """Concrete delivery adapters for the public evaluation host."""
 
 from fdai.delivery.evaluation.kubernetes_capacity import KubectlCapacityEvidenceProvider
+from fdai.delivery.evaluation.kubernetes_dependency import KubectlDependencyEvidenceProvider
 from fdai.delivery.evaluation.kubernetes_evidence import (
     KubectlEventEvidenceProvider,
     KubectlEvidenceClient,
@@ -12,6 +13,7 @@ from fdai.delivery.evaluation.kubernetes_evidence import (
 
 __all__ = [
     "KubectlCapacityEvidenceProvider",
+    "KubectlDependencyEvidenceProvider",
     "KubectlEventEvidenceProvider",
     "KubectlEvidenceClient",
     "KubectlEvidenceConfig",

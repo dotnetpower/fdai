@@ -134,6 +134,11 @@ class KubectlEvidenceClient:
 
         return await KubectlCapacityEvidenceProvider(self).collect(task)
 
+    async def dependencies(self, task: EvaluationTask) -> Mapping[str, Any]:
+        from fdai.delivery.evaluation.kubernetes_dependency import KubectlDependencyEvidenceProvider
+
+        return await KubectlDependencyEvidenceProvider(self).collect(task)
+
     def _namespace(self, task: EvaluationTask) -> str:
         if task.target.kind != "kubernetes.namespace":
             raise ValueError("kubectl evidence requires a kubernetes.namespace target")
@@ -278,9 +283,11 @@ def kubernetes_evidence_providers(
     """Return provider bindings for the supported semantic capabilities."""
 
     from fdai.delivery.evaluation.kubernetes_capacity import KubectlCapacityEvidenceProvider
+    from fdai.delivery.evaluation.kubernetes_dependency import KubectlDependencyEvidenceProvider
 
     return {
         "observe.kubernetes.capacity": KubectlCapacityEvidenceProvider(client),
+        "observe.kubernetes.dependencies": KubectlDependencyEvidenceProvider(client),
         "observe.kubernetes.inventory": KubectlInventoryEvidenceProvider(client),
         "observe.kubernetes.events": KubectlEventEvidenceProvider(client),
         "observe.kubernetes.nodes": KubectlNodeEvidenceProvider(client),
@@ -316,12 +323,18 @@ def _project_resource(item: Mapping[str, Any]) -> dict[str, Any] | None:
             available=_count(status_values.get("availableReplicas")),
             updated=_count(status_values.get("updatedReplicas")),
         )
+        template = _project_pod_template(spec_values.get("template"))
+        if template is not None:
+            projected["pod_template"] = template
     elif kind == "DaemonSet":
         projected.update(
             desired=_count(status_values.get("desiredNumberScheduled")),
             ready=_count(status_values.get("numberReady")),
             unavailable=_count(status_values.get("numberUnavailable")),
         )
+        template = _project_pod_template(spec_values.get("template"))
+        if template is not None:
+            projected["pod_template"] = template
     elif kind == "Pod":
         statuses = status_values.get("containerStatuses")
         container_statuses = statuses if isinstance(statuses, list) else []
@@ -387,6 +400,73 @@ def _project_container_status(value: Mapping[str, Any]) -> dict[str, Any]:
             "finished_at": _text(last_termination.get("finishedAt"), 64),
         }
     return projection
+
+
+def _project_pod_template(value: object) -> dict[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+    spec = value.get("spec")
+    if not isinstance(spec, Mapping):
+        return None
+    raw_containers = spec.get("containers")
+    if not isinstance(raw_containers, list) or len(raw_containers) > 32:
+        return {"projection_complete": False, "containers": []}
+    containers = [
+        _project_template_container(item) for item in raw_containers if isinstance(item, Mapping)
+    ]
+    return {
+        "projection_complete": len(containers) == len(raw_containers),
+        "containers": containers,
+    }
+
+
+def _project_template_container(value: Mapping[str, Any]) -> dict[str, Any]:
+    raw_ports = value.get("ports")
+    port_values = raw_ports if isinstance(raw_ports, list) else []
+    ports = [
+        {"port": port}
+        for item in port_values[:32]
+        if isinstance(item, Mapping)
+        and isinstance((port := item.get("containerPort")), int)
+        and not isinstance(port, bool)
+        and 1 <= port <= 65_535
+    ]
+    raw_env = value.get("env")
+    env_values = raw_env if isinstance(raw_env, list) else []
+    env = [
+        projection
+        for item in env_values[:128]
+        if isinstance(item, Mapping) and (projection := _project_endpoint_env(item)) is not None
+    ]
+    return {
+        "name": _text(value.get("name"), 253),
+        "port_projection_complete": isinstance(raw_ports, list)
+        and len(raw_ports) <= 32
+        and len(ports) == len(raw_ports),
+        "ports": ports,
+        "env_projection_complete": isinstance(raw_env, list) and len(raw_env) <= 128,
+        "env": env,
+    }
+
+
+def _project_endpoint_env(value: Mapping[str, Any]) -> dict[str, str] | None:
+    name = value.get("name")
+    literal = value.get("value")
+    if not isinstance(name, str) or not isinstance(literal, str):
+        return None
+    host, separator, port = literal.rpartition(":")
+    if (
+        separator != ":"
+        or not _DNS_SUBDOMAIN.fullmatch(host)
+        or not port.isdigit()
+        or not 1 <= int(port) <= 65_535
+    ):
+        return None
+    return {
+        "name": name[:253],
+        "endpoint_host": host,
+        "endpoint_port": port,
+    }
 
 
 def _project_event(item: Mapping[str, Any]) -> dict[str, Any] | None:

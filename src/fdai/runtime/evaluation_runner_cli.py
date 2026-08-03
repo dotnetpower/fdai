@@ -107,6 +107,7 @@ async def _probe_kubernetes_evidence(
 ) -> tuple[dict[str, bool], str | None]:
     checks = {
         "kubernetes_capacity_live_probe": True,
+        "kubernetes_dependencies_live_probe": True,
         "kubernetes_inventory_live_probe": True,
         "kubernetes_events_live_probe": True,
         "kubernetes_nodes_live_probe": True,
@@ -117,6 +118,7 @@ async def _probe_kubernetes_evidence(
         task = _probe_task(namespace)
         probes = (
             ("kubernetes_capacity_live_probe", evidence_client.capacity),
+            ("kubernetes_dependencies_live_probe", evidence_client.dependencies),
             ("kubernetes_inventory_live_probe", evidence_client.inventory),
             ("kubernetes_events_live_probe", evidence_client.events),
             ("kubernetes_nodes_live_probe", evidence_client.nodes),

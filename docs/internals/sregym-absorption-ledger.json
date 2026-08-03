@@ -136,6 +136,22 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_dependency_evaluation_provider",
+      "source_commits": [
+        "a2ff0cce59d2f298b6366416a571411ca0849cc4",
+        "adb792a9f9e363bf3721f0284df3b5cfd118f80f",
+        "6b51980ee079f10ebf9bdb1c6184c1e2fda33f6a"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [
