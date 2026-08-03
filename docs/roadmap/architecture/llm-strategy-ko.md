@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 64fa28ce6c1476727a96ee2e38fd7fefb964f5ee
-translation_revised: 2026-08-02
+translation_source_sha: 3584d3ac4a85484dad030a6468f1b9c2caf53fa0
+translation_revised: 2026-08-04
 ---
 
 # LLM 전략(LLM Strategy)
@@ -375,6 +375,12 @@ escalated 모델을 실제 호출하는 것은 다음 enforce 스텝. `on_self_c
 `action_stability` 신호를 읽는다 - gate는 모델을 직접 샘플링하지 않는다(샘플러의
 "cascade 트리거는 composition 관심사" 계약).
 
+어떤 trigger도 ladder를 오르기 전에 검증된 ontology, rule 또는 deterministic-evidence 개선의 trusted
+count가 필요합니다. 기본 minimum은 10입니다. Count는 model candidate가 아니라 orchestration에서 오며,
+count와 configured minimum 모두 `escalation_metadata`에 기록됩니다. Count가 없으면 0으로 기본 설정되어
+`ontology_improvement_budget_remaining`으로 안전하게 중단됩니다. Durable case-history orchestration이
+count를 공급하고 별도 promotion이 invocation을 활성화할 때까지 shadow observation으로 유지됩니다.
+
 ladder rung(`EscalationTier`)은 레지스트리 capability와 일대일:
 `PRIMARY` -> `SECONDARY` -> `ESCALATED`. `decide_escalation`은 `ESCALATE`
 (다음 더 강한 reasoner를 tiebreaker로 소비) 또는 `STOP`(호출자가 미해결 케이스를
@@ -388,6 +394,8 @@ HIL로 라우팅)을 반환하며, 다음 하드닝 불변식을 지킨다:
   하지 않은 fork)는 `STOP`을 반환하며, precedence에서 deny-list보다 위.
 - **Cost-bounded.** 한 번의 호출은 최대 한 rung만 오르고 `ESCALATED` 천장을
   넘지 않는다; `enabled=False`는 cost spike용 killswitch.
+- **Ontology-first.** Configured trigger가 있어도 trusted validated-improvement count가
+  `minimum_ontology_improvement_attempts`에 도달하기 전에는 중단됩니다.
 - **Triggers.** `cross_check_disagreement`(주 트리거, 레지스트리의
   `invocation: on_disagreement` 반영) + 선택적 `on_self_consistency_below`
   임계값(self-consistency 샘플러가 흔들리는 proposer를 보고하면 nominal agreement

@@ -91,6 +91,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "ontology_first_model_escalation_budget",
+      "source_commits": [
+        "c94c07200f3c891d6ae74c07dc4343d2f38892f9",
+        "7cfbea0299bdf7924ab7d18ee639043697033f7c"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [
@@ -117,7 +132,7 @@
       "id": "model_escalation",
       "title": "Ontology-first model escalation and wire compatibility",
       "disposition": "superseded_verify",
-      "status": "queued",
+      "status": "in_progress",
       "dependencies": ["diagnostics_foundation"],
       "safety_boundary": "Escalation is configuration-driven, audited, and never raises execution authority.",
       "commits": [

@@ -9,11 +9,12 @@ capability the registry documents (``rule-catalog/llm-registry.yaml``,
 ``invocation: on_disagreement``) is provisioned but never invoked.
 
 This module is the missing policy: given a cross-check disagreement (or a
-weak self-consistency signal), decide whether to spend the escalated
-(Opus / o1-class) reasoner as a tiebreaking third opinion before falling
-back to HIL. It mirrors :mod:`fdai.core.quality_gate.debate_router`
-exactly - a frozen config + a stateless, deterministic function - so the
-policy is testable and auditable on its own.
+weak self-consistency signal), decide whether validated ontology-first
+improvements have been exhausted before spending the escalated reasoner
+as a tiebreaking third opinion. It mirrors
+:mod:`fdai.core.quality_gate.debate_router` exactly - a frozen config + a
+stateless, deterministic function - so the policy is testable and
+auditable on its own.
 :class:`~fdai.core.quality_gate.gate.QualityGate` records the decision in
 **shadow** (``QualityDecision.escalation_route`` / ``escalation_reason``)
 when a config is wired; actually invoking the escalated model is the next
@@ -105,7 +106,8 @@ class EscalationLadderConfig:
     agreed. ``None`` leaves stability out of the decision.
 
     ``always_for_action_types`` forces escalation for a per-ActionType
-    allowlist regardless of the signals (a fork's high-severity set).
+    allowlist regardless of the model signals after the ontology-improvement
+    minimum is satisfied (a fork's high-severity set).
     ``never_for_action_types`` is the counterpart denylist for cheap
     idempotent actions where a frontier round-trip is not worth it.
     Denylist wins over allowlist (a defect a fork catches at review time
@@ -115,6 +117,7 @@ class EscalationLadderConfig:
     enabled: bool = True
     on_cross_check_disagreement: bool = True
     on_self_consistency_below: float | None = None
+    minimum_ontology_improvement_attempts: int = 10
     always_for_action_types: tuple[str, ...] = ()
     never_for_action_types: tuple[str, ...] = ()
 
@@ -126,6 +129,12 @@ class EscalationLadderConfig:
                 "on_self_consistency_below MUST be in [0.0, 1.0] or None; "
                 f"got {self.on_self_consistency_below!r}"
             )
+        if (
+            not isinstance(self.minimum_ontology_improvement_attempts, int)
+            or isinstance(self.minimum_ontology_improvement_attempts, bool)
+            or self.minimum_ontology_improvement_attempts < 1
+        ):
+            raise ValueError("minimum_ontology_improvement_attempts MUST be an integer >= 1")
         overlap = set(self.always_for_action_types) & set(self.never_for_action_types)
         if overlap:
             raise ValueError(
@@ -158,6 +167,7 @@ _REASON_DISABLED: Final[str] = "disabled"
 _REASON_MODEL_UNAVAILABLE: Final[str] = "escalated_model_unavailable"
 _REASON_AT_CEILING: Final[str] = "at_ceiling"
 _REASON_NEVER_LIST: Final[str] = "never_list"
+_REASON_ONTOLOGY_BUDGET: Final[str] = "ontology_improvement_budget_remaining"
 _REASON_ALWAYS_LIST: Final[str] = "always_list"
 _REASON_DISAGREEMENT: Final[str] = "cross_check_disagreement"
 _REASON_LOW_STABILITY: Final[str] = "low_self_consistency"
@@ -183,6 +193,7 @@ def decide_escalation(
     escalated_available: bool,
     current_tier: EscalationTier = EscalationTier.SECONDARY,
     self_consistency: float | None = None,
+    ontology_improvement_attempts: int = 0,
     config: EscalationLadderConfig | None = None,
 ) -> EscalationDecision:
     """Return the escalation verdict for one T2 event.
@@ -201,21 +212,32 @@ def decide_escalation(
        ``at_ceiling`` (cost bound - no infinite climb).
     4. ``action_type`` in ``never_for_action_types`` -> STOP, reason
        ``never_list`` (denylist wins over allowlist).
-    5. ``action_type`` in ``always_for_action_types`` -> ESCALATE, reason
-       ``always_list``.
-    6. ``cross_check_disagreed`` AND ``on_cross_check_disagreement`` ->
-       ESCALATE, reason ``cross_check_disagreement`` (primary trigger).
-    7. ``self_consistency`` below ``on_self_consistency_below`` (when set)
-       -> ESCALATE, reason ``low_self_consistency`` (instability trigger).
-    8. Fallback -> STOP, reason ``default_stop``.
+     5. Resolve an escalation trigger from the ActionType allowlist,
+         cross-check disagreement, or low self-consistency. No trigger ->
+         STOP, reason ``default_stop``.
+     6. Fewer validated ontology improvements than
+         ``minimum_ontology_improvement_attempts`` -> STOP, reason
+         ``ontology_improvement_budget_remaining``.
+     7. Otherwise -> ESCALATE with the resolved trigger reason.
 
     Climbing the ladder never resolves the disagreement on its own: the
     escalated model's proposal re-enters the quality gate and the
     deterministic verifier remains the sole grant of execution
     eligibility.
     """
+    if (
+        not isinstance(ontology_improvement_attempts, int)
+        or isinstance(ontology_improvement_attempts, bool)
+        or ontology_improvement_attempts < 0
+    ):
+        raise ValueError("ontology_improvement_attempts MUST be an integer >= 0")
+
     cfg = config or EscalationLadderConfig()
     action_type = candidate.action_type
+    improvement_metadata = {
+        "ontology_improvement_attempts": str(ontology_improvement_attempts),
+        "minimum_ontology_improvement_attempts": str(cfg.minimum_ontology_improvement_attempts),
+    }
 
     def _stop(reason: str) -> EscalationDecision:
         return EscalationDecision(
@@ -224,6 +246,7 @@ def decide_escalation(
             action_type=action_type,
             from_tier=current_tier,
             to_tier=None,
+            metadata=improvement_metadata,
         )
 
     if not escalated_available:
@@ -245,19 +268,25 @@ def decide_escalation(
             action_type=action_type,
             from_tier=current_tier,
             to_tier=to_tier,
+            metadata=improvement_metadata,
         )
 
+    trigger_reason: str | None = None
     if action_type in cfg.always_for_action_types:
-        return _escalate(_REASON_ALWAYS_LIST)
-    if cross_check_disagreed and cfg.on_cross_check_disagreement:
-        return _escalate(_REASON_DISAGREEMENT)
-    if (
+        trigger_reason = _REASON_ALWAYS_LIST
+    elif cross_check_disagreed and cfg.on_cross_check_disagreement:
+        trigger_reason = _REASON_DISAGREEMENT
+    elif (
         cfg.on_self_consistency_below is not None
         and self_consistency is not None
         and self_consistency < cfg.on_self_consistency_below
     ):
-        return _escalate(_REASON_LOW_STABILITY)
-    return _stop(_REASON_DEFAULT_STOP)
+        trigger_reason = _REASON_LOW_STABILITY
+    if trigger_reason is None:
+        return _stop(_REASON_DEFAULT_STOP)
+    if ontology_improvement_attempts < cfg.minimum_ontology_improvement_attempts:
+        return _stop(_REASON_ONTOLOGY_BUDGET)
+    return _escalate(trigger_reason)
 
 
 def escalation_decision_audit_fields(decision: EscalationDecision) -> dict[str, Any]:

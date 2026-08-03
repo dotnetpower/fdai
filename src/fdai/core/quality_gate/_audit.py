@@ -68,6 +68,8 @@ def quality_decision_audit_fields(
     if decision.escalation_route is not None:
         fields["escalation_route"] = decision.escalation_route
         fields["escalation_reason"] = decision.escalation_reason
+        if decision.escalation_metadata:
+            fields["escalation_metadata"] = dict(decision.escalation_metadata)
     if decision.self_consistency is not None:
         fields["self_consistency"] = decision.self_consistency
     return fields

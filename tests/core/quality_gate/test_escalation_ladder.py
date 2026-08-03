@@ -43,6 +43,13 @@ class TestEscalationLadderConfig:
         cfg = EscalationLadderConfig(on_self_consistency_below=None)
         assert cfg.on_self_consistency_below is None
 
+    @pytest.mark.parametrize("value", [0, -1, True, 1.5])
+    def test_rejects_invalid_ontology_improvement_minimum(self, value: object) -> None:
+        with pytest.raises(ValueError, match="minimum_ontology_improvement_attempts"):
+            EscalationLadderConfig(
+                minimum_ontology_improvement_attempts=value  # type: ignore[arg-type]
+            )
+
 
 class TestFailClosed:
     def test_unavailable_escalated_model_stops(self) -> None:
@@ -83,6 +90,7 @@ class TestCostBound:
             candidate=_candidate(),
             cross_check_disagreed=True,
             escalated_available=True,
+            ontology_improvement_attempts=10,
             current_tier=EscalationTier.SECONDARY,
         )
         assert d.route is EscalationRoute.ESCALATE
@@ -94,17 +102,33 @@ class TestCostBound:
             candidate=_candidate(),
             cross_check_disagreed=True,
             escalated_available=True,
+            ontology_improvement_attempts=10,
             current_tier=EscalationTier.PRIMARY,
         )
         assert d.to_tier is EscalationTier.SECONDARY  # one rung, never leapfrog
 
 
 class TestTriggers:
+    def test_disagreement_waits_for_ontology_improvement_budget(self) -> None:
+        d = decide_escalation(
+            candidate=_candidate(),
+            cross_check_disagreed=True,
+            escalated_available=True,
+            ontology_improvement_attempts=9,
+        )
+        assert d.route is EscalationRoute.STOP
+        assert d.reason == "ontology_improvement_budget_remaining"
+        assert d.metadata == {
+            "ontology_improvement_attempts": "9",
+            "minimum_ontology_improvement_attempts": "10",
+        }
+
     def test_disagreement_escalates(self) -> None:
         d = decide_escalation(
             candidate=_candidate(),
             cross_check_disagreed=True,
             escalated_available=True,
+            ontology_improvement_attempts=10,
         )
         assert d.route is EscalationRoute.ESCALATE
         assert d.reason == "cross_check_disagreement"
@@ -125,6 +149,7 @@ class TestTriggers:
             cross_check_disagreed=False,
             escalated_available=True,
             self_consistency=0.4,
+            ontology_improvement_attempts=10,
             config=EscalationLadderConfig(on_self_consistency_below=0.6),
         )
         assert d.route is EscalationRoute.ESCALATE
@@ -157,6 +182,7 @@ class TestAllowDenyLists:
             candidate=_candidate("remediate.delete-resource"),
             cross_check_disagreed=False,
             escalated_available=True,
+            ontology_improvement_attempts=10,
             config=EscalationLadderConfig(always_for_action_types=("remediate.delete-resource",)),
         )
         assert d.route is EscalationRoute.ESCALATE
@@ -188,6 +214,7 @@ def test_decision_is_deterministic() -> None:
         candidate=_candidate(),
         cross_check_disagreed=True,
         escalated_available=True,
+        ontology_improvement_attempts=10,
     )
     first = decide_escalation(**kwargs)  # type: ignore[arg-type]
     second = decide_escalation(**kwargs)  # type: ignore[arg-type]
@@ -200,6 +227,7 @@ class TestAuditFields:
             candidate=_candidate("remediate.enable-encryption"),
             cross_check_disagreed=True,
             escalated_available=True,
+            ontology_improvement_attempts=10,
         )
         fields = escalation_decision_audit_fields(d)
         assert fields == {
@@ -208,6 +236,10 @@ class TestAuditFields:
             "escalation_action_type": "remediate.enable-encryption",
             "escalation_from_tier": "SECONDARY",
             "escalation_to_tier": "ESCALATED",
+            "escalation_metadata": {
+                "ontology_improvement_attempts": "10",
+                "minimum_ontology_improvement_attempts": "10",
+            },
         }
 
     def test_stop_audit_fields_null_to_tier(self) -> None:

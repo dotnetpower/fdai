@@ -215,6 +215,13 @@ class QualityDecision:
     ``escalated_model_unavailable``, ``default_stop``) recorded alongside
     :attr:`escalation_route`. ``None`` when the ladder is not wired."""
 
+    escalation_metadata: Mapping[str, str] = field(default_factory=dict)
+    """Trusted structured inputs used by the escalation policy.
+
+    The ontology-improvement attempt count and configured minimum are
+    supplied by orchestration, never copied from the untrusted candidate.
+    """
+
     self_consistency: float | None = None
     """Action-stability in ``[0.0, 1.0]`` the escalation ladder read for
     this decision - the ``on_self_consistency_below`` trigger's input. It is
@@ -357,7 +364,12 @@ class QualityGate:
         self._escalation_ladder_config = escalation_ladder_config
         self._escalated_available = escalated_available
 
-    async def evaluate(self, candidate: QualityCandidate) -> QualityDecision:
+    async def evaluate(
+        self,
+        candidate: QualityCandidate,
+        *,
+        ontology_improvement_attempts: int = 0,
+    ) -> QualityDecision:
         """Return the gate outcome for one candidate action.
 
         Ordering: verifier → grounding → cross-check → threshold. A hard
@@ -440,6 +452,7 @@ class QualityGate:
         # a later, separately reviewed step (the debate delta-2b sequence).
         escalation_route: str | None = None
         escalation_reason: str | None = None
+        escalation_metadata: Mapping[str, str] = {}
         self_consistency: float | None = None
         if self._escalation_ladder_config is not None:
             from fdai.core.quality_gate.escalation_ladder import decide_escalation
@@ -459,10 +472,12 @@ class QualityGate:
                 ),
                 escalated_available=self._escalated_available,
                 self_consistency=self_consistency,
+                ontology_improvement_attempts=ontology_improvement_attempts,
                 config=self._escalation_ladder_config,
             )
             escalation_route = escalation_decision.route.value
             escalation_reason = escalation_decision.reason
+            escalation_metadata = escalation_decision.metadata
 
         # 3c. Rubric evaluation (hallucination filter). Runs after the
         # cross-check so it only spends judge tokens on candidates the
@@ -577,6 +592,7 @@ class QualityGate:
             rubric_shadow=rubric_shadow if self._rubric_evaluator is not None else False,
             escalation_route=escalation_route,
             escalation_reason=escalation_reason,
+            escalation_metadata=escalation_metadata,
             self_consistency=self_consistency,
         )
 

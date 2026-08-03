@@ -124,7 +124,7 @@ async def test_eligible_when_all_gates_pass() -> None:
         cross_check_models=(MatchTypeCrossCheckModel(), MatchTypeCrossCheckModel()),
         grounding=_grounding(),
     )
-    decision = await gate.evaluate(_candidate())
+    decision = await gate.evaluate(_candidate(), ontology_improvement_attempts=10)
     assert decision.outcome is QualityOutcome.ELIGIBLE
     assert decision.reasons == ()
     assert decision.grounded_rule_ids == ("r.known",)
@@ -391,11 +391,12 @@ async def test_escalation_shadow_records_escalate_on_disagreement() -> None:
         escalation_ladder_config=EscalationLadderConfig(),
         escalated_available=True,
     )
-    decision = await gate.evaluate(_candidate())
+    decision = await gate.evaluate(_candidate(), ontology_improvement_attempts=10)
     # Outcome is UNCHANGED by the shadow ladder - still a disagreement.
     assert decision.outcome is QualityOutcome.DISAGREE
     assert decision.escalation_route == "escalate"
     assert decision.escalation_reason == "cross_check_disagreement"
+    assert decision.escalation_metadata["ontology_improvement_attempts"] == "10"
     # Shadow MUST NOT leak into reasons (that would flip the outcome).
     assert not any(r.startswith("escalation") for r in decision.reasons)
 
@@ -414,6 +415,25 @@ async def test_escalation_shadow_fail_closed_when_model_unavailable() -> None:
 
 
 @pytest.mark.asyncio
+async def test_escalation_shadow_waits_for_ontology_budget() -> None:
+    from fdai.core.quality_gate import EscalationLadderConfig
+
+    gate = _disagree_gate(
+        escalation_ladder_config=EscalationLadderConfig(),
+        escalated_available=True,
+    )
+    decision = await gate.evaluate(_candidate())
+
+    assert decision.outcome is QualityOutcome.DISAGREE
+    assert decision.escalation_route == "stop"
+    assert decision.escalation_reason == "ontology_improvement_budget_remaining"
+    assert decision.escalation_metadata == {
+        "ontology_improvement_attempts": "0",
+        "minimum_ontology_improvement_attempts": "10",
+    }
+
+
+@pytest.mark.asyncio
 async def test_escalation_not_recorded_when_ladder_not_wired() -> None:
     gate = _disagree_gate()
     decision = await gate.evaluate(_candidate())
@@ -428,10 +448,14 @@ async def test_escalation_audit_fields_present_only_when_wired() -> None:
     wired = _disagree_gate(
         escalation_ladder_config=EscalationLadderConfig(), escalated_available=True
     )
-    d1 = await wired.evaluate(_candidate())
+    d1 = await wired.evaluate(_candidate(), ontology_improvement_attempts=10)
     fields1 = quality_decision_audit_fields(d1)
     assert fields1["escalation_route"] == "escalate"
     assert fields1["escalation_reason"] == "cross_check_disagreement"
+    assert fields1["escalation_metadata"] == {
+        "ontology_improvement_attempts": "10",
+        "minimum_ontology_improvement_attempts": "10",
+    }
 
     unwired = _disagree_gate()
     d2 = await unwired.evaluate(_candidate())
@@ -457,7 +481,7 @@ async def test_escalation_low_self_consistency_trigger_on_agreement() -> None:
     candidate = _candidate(
         confidence={"retrieval": 0.9, "verifier_margin": 0.9, "action_stability": 0.4}
     )
-    decision = await gate.evaluate(candidate)
+    decision = await gate.evaluate(candidate, ontology_improvement_attempts=10)
     # Agreement -> not a disagreement outcome; shadow escalation does not flip it.
     assert decision.outcome is QualityOutcome.ELIGIBLE
     assert decision.self_consistency == 0.4
