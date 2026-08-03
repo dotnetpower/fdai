@@ -762,7 +762,7 @@
     "src/fdai/core/workflow/workflow_resume.py": "7ac4aa7699a7f24f70a511e479e79df26062ab39df1d1a9f39dc68d538626d4d",
     "src/fdai/core/workflow/workflow_retry.py": "4f7913e8f29f60575a4d05a0e63083847c43f61857604fa7c3c4562b85397df2",
     "src/fdai/core/workflow/workflow_runtime.py": "978b4687022992e148514208b3ba7bab83033b7cbb36edb021bd6ab0d95e7c30",
-    "src/fdai/core/workflow/workflow_step_executor.py": "3b741474fe1d3dd7b00c996cd602c461eafc4e100dc7701e5af65ba3c6f945fe",
+    "src/fdai/core/workflow/workflow_step_executor.py": "a481d9efea10f1995bd37e3f72d59d2c359484c3ef5bf70d026b69264f2ce1d0",
     "src/fdai/core/working_context/__init__.py": "86f8d29533bd81340310e3626081ecf27436472ba48b491f26873c05058e0b68",
     "src/fdai/core/working_context/composer.py": "5760043f2cb3d1ea255067360972db247763ed96490b458aee6ac13cf92467c7",
     "src/fdai/core/working_context/evidence.py": "745c2d26e6740db256a4d5ec72c5e5abc6a226da49ffe9494a12f61ad27ed89f",
@@ -946,7 +946,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-03T23:26:54Z",
+  "generated_at": "2026-08-03T23:37:48Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

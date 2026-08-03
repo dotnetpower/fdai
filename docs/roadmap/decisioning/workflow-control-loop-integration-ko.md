@@ -1,7 +1,7 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: 19e34d0d9e53b02a55a56c1207a9cd39e045d147
+translation_source_sha: e03e61e0b789c71338abd99f515e417336df7510
 translation_revised: 2026-08-04
 ---
 
@@ -98,6 +98,8 @@ waiting 상태를 유지합니다. Applied step이 없는 wait 및 approval time
 진입합니다. Parallel branch는 동시에 실행되고 parent snapshot revision을 두고 경쟁하지 않는
 child event를 기록하지만 failure는 새 branch dispatch를 freeze하고 applied receipt를 join한 뒤
 reverse-dependency compensation을 시작합니다.
+Approval timeout은 revision CAS에서 이긴 뒤에만 Process를 종료합니다. Concurrent decision이 먼저
+이기면 같은 attempt에서 다시 읽은 해당 decision이 authoritative 상태를 유지합니다.
 
 Ontology graph 는 source of truth 가 아니라 read model 입니다. 각 event 가 commit 된
 후 `ProcessOntologyProjector` 가 현재 `Process` object 와 `targets` link 를

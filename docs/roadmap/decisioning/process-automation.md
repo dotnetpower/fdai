@@ -308,7 +308,10 @@ the complete quorum attempt terminal and closes every sibling slot, so a late ap
 the rejection. A bounded retry after `approval_rejected` or `approval_timed_out` creates only fresh
 slots for the new attempt. The terminal workflow CAS remains authoritative if sibling park closure
 is interrupted, so the queue hides stale slots and the next provider read heals them. Cancellation
-and timeout close the exact attempt.
+and timeout close the exact attempt. A timeout becomes terminal only when its revision CAS wins.
+If an approval decision changes the revision first, the executor rereads that attempt and follows
+the authoritative quorum, rejection, cancellation, or timeout state instead of closing from a
+stale expiry snapshot.
 
 Workflow audit uses each ActionType's `x-fdai-redact` paths. Redacted fields render as
 `[REDACTED]` and never enter the Process journal. Because the workflow runtime has no secret

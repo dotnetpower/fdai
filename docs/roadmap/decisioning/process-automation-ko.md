@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 1d4922424f48e2599d9f32ab48527fa79549ac3c
+translation_source_sha: d0f2e4080f82443681c8d1421c7a27b9b3d82768
 translation_revised: 2026-08-04
 ---
 
@@ -302,7 +302,10 @@ rejection은 전체 quorum attempt를 terminal로 만들고 모든 sibling slot�
 rejection과 경쟁할 수 없습니다. `approval_rejected` 또는 `approval_timed_out` 뒤 bounded retry는 새
 attempt용 fresh slot만 만듭니다. Sibling park closure가 중단되어도 terminal workflow CAS가
 authoritative하므로 queue는 stale slot을 숨기고 다음 provider read가 이를 복구합니다. Cancellation과
-timeout도 exact attempt를 닫습니다.
+timeout도 exact attempt를 닫습니다. Timeout은 revision CAS에서 이긴 경우에만 terminal이 됩니다.
+Approval decision이 먼저 revision을 변경하면 executor는 해당 attempt를 다시 읽고 stale expiry
+snapshot으로 종료하는 대신 authoritative quorum, rejection, cancellation 또는 timeout state를
+따릅니다.
 
 Workflow audit는 각 ActionType의 `x-fdai-redact` path를 사용합니다. Redacted field는
 `[REDACTED]`로 표시되며 Process journal에 들어가지 않습니다. Workflow runtime에는 secret custody

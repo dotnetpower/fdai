@@ -13,6 +13,7 @@ from fdai.core.workflow.workflow_runtime import (
     ACTOR,
     WorkflowActionDispatcher,
     WorkflowApprovalProvider,
+    WorkflowApprovalSnapshot,
     WorkflowContextualGuardEvaluator,
     WorkflowEvidenceDispatcher,
     WorkflowGuardEvaluator,
@@ -457,22 +458,11 @@ class ShadowWorkflowStepExecutor:
                 "approval_requester_unavailable",
             )
         try:
-            snapshot = await provider.ensure_requested(
-                process_id=self._process_id,
-                step_id=step.id,
-                correlation_id=self._snapshot.correlation_id,
-                target_resource_id=self._target_resource_id,
-                requester_principal=requester,
-                required_role=(
-                    approval.required_role.value
-                    if approval is not None and approval.required_role is not None
-                    else "approver"
-                ),
-                quorum=step.quorum,
-                no_self_approval=step.no_self_approval,
-                timeout_seconds=step.timeout_seconds,
-                requested_at=self._now,
-                attempt=self._attempt,
+            snapshot = await self._ensure_approval_requested(
+                step=step,
+                approval=approval,
+                provider=provider,
+                requester=requester,
             )
         except Exception:  # noqa: BLE001 - approval evidence failure blocks execution
             return step_result(
@@ -490,24 +480,64 @@ class ShadowWorkflowStepExecutor:
             snapshot.expires_at is not None and self._now >= snapshot.expires_at
         ):
             try:
-                await provider.mark_timed_out(
+                changed = await provider.mark_timed_out(
                     process_id=self._process_id,
                     step_id=step.id,
                     expected_revision=snapshot.revision,
                     timed_out_at=self._now,
                     attempt=self._attempt,
                 )
+                if not changed:
+                    snapshot = await self._ensure_approval_requested(
+                        step=step,
+                        approval=approval,
+                        provider=provider,
+                        requester=requester,
+                    )
             except Exception:  # noqa: BLE001 - timeout persistence still fails closed
                 return step_result(
                     step,
                     RunbookStepOutcome.FAILURE,
                     "approval_evidence_unavailable",
                 )
-            return step_result(step, RunbookStepOutcome.FAILURE, "approval_timed_out")
+            if changed or snapshot.timed_out:
+                return step_result(step, RunbookStepOutcome.FAILURE, "approval_timed_out")
+            if snapshot.cancelled:
+                return step_result(
+                    step,
+                    RunbookStepOutcome.FAILURE,
+                    "process_cancellation_requested",
+                )
         return self._approval_result(
             step,
             decisions={decision.principal: decision.decision for decision in snapshot.decisions},
             requester=snapshot.requester_principal,
+        )
+
+    async def _ensure_approval_requested(
+        self,
+        *,
+        step: RunbookStep,
+        approval: StepApproval | None,
+        provider: WorkflowApprovalProvider,
+        requester: str,
+    ) -> WorkflowApprovalSnapshot:
+        return await provider.ensure_requested(
+            process_id=self._process_id,
+            step_id=step.id,
+            correlation_id=self._snapshot.correlation_id,
+            target_resource_id=self._target_resource_id,
+            requester_principal=requester,
+            required_role=(
+                approval.required_role.value
+                if approval is not None and approval.required_role is not None
+                else "approver"
+            ),
+            quorum=step.quorum,
+            no_self_approval=step.no_self_approval,
+            timeout_seconds=step.timeout_seconds,
+            requested_at=self._now,
+            attempt=self._attempt,
         )
 
     @staticmethod

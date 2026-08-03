@@ -2205,6 +2205,53 @@ async def test_enforce_approval_timeout_persistence_failure_is_explicit() -> Non
     )
 
 
+async def test_enforce_approval_timeout_reconciles_concurrent_quorum() -> None:
+    audit = InMemoryStateStore()
+    registry = StateStoreHilApprovalRegistry(store=audit)
+
+    class ApprovalWinsTimeoutProvider(StateStoreWorkflowApprovalProvider):
+        async def mark_timed_out(self, **kwargs: object) -> bool:
+            pending = await registry.list_pending()
+            for item, approver in zip(pending, ("owner-a", "owner-b"), strict=True):
+                await registry.record_decision(
+                    idempotency_key=item.idempotency_key,
+                    decision=HilApprovalDecision.APPROVE,
+                    approver_oid=approver,
+                )
+            return await super().mark_timed_out(**kwargs)
+
+    provider = ApprovalWinsTimeoutProvider(audit)
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=InMemoryProcessRuntimeStore(),
+        approval_provider=provider,
+    )
+    workflow = _approval_workflow(name="approval-timeout-race", timeout_seconds=10)
+    waiting = await orchestrator.run(
+        workflow,
+        target_resource_id="scope-timeout-race",
+        trigger_ts=_TRIGGER_TS,
+        context={"requester.principal": "requester-1"},
+        now=_TRIGGER_TS,
+        mode=Mode.ENFORCE,
+    )
+
+    completed = await orchestrator.resume(
+        process_id=waiting.process_id,
+        workflow=workflow,
+        now=_TRIGGER_TS + timedelta(seconds=11),
+    )
+
+    assert completed.status is ProcessStatus.SUCCEEDED
+    assert await registry.list_pending() == ()
+
+
 async def test_wait_timeout_terminates_process() -> None:
     audit = InMemoryStateStore()
     orchestrator = _orchestrator(audit)
