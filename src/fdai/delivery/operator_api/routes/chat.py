@@ -514,7 +514,7 @@ def make_chat_route(
             or inventory_screen_scope_resolution is not None
             or inventory_scope_followup
             or compile_inventory_query(evidence_prompt) is not None
-            or (turn_planner is None and needs_subscription_health(evidence_prompt))
+            or needs_subscription_health(evidence_prompt)
             or needs_log_query(evidence_prompt)
             or needs_action_context(evidence_prompt)
             or needs_conversation_context(evidence_prompt)

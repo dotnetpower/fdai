@@ -716,6 +716,81 @@ async def test_cache_pressure_query_renders_normal_memory_observation() -> None:
     assert "threshold gt 90.0 (within threshold)" in answer
 
 
+def test_cache_down_or_pressure_query_keeps_filtered_provider_scope() -> None:
+    calls: list[tuple[tuple[str, ...], tuple[str, ...], bool]] = []
+    planner_calls = 0
+
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            nonlocal planner_calls
+            planner_calls += 1
+            raise AssertionError("deterministic health must skip semantic planning")
+
+    class FilteredProvider:
+        async def __call__(
+            self,
+            lookback_seconds: int,
+            *,
+            progress_observer: Any = None,
+        ) -> dict[str, Any]:
+            raise AssertionError("cache query must not widen to the subscription")
+
+        async def query_resource_types(
+            self,
+            lookback_seconds: int,
+            *,
+            resource_types: tuple[str, ...],
+            kind_tokens_by_resource_type: Mapping[str, tuple[str, ...]],
+            availability_states: tuple[str, ...],
+            include_metrics: bool,
+            progress_observer: Any = None,
+        ) -> dict[str, Any]:
+            del kind_tokens_by_resource_type, progress_observer
+            assert lookback_seconds == 3_600
+            calls.append((resource_types, availability_states, include_metrics))
+            return {
+                "status": "matched",
+                "source": "azure-resource-graph+resource-health+azure-monitor-metrics",
+                "observed_at": "2026-08-01T04:10:00Z",
+                "resource_count": 1,
+                "resource_health_unavailable": 0,
+                "metrics_requested": True,
+                "metric_checked": 1,
+                "metric_unavailable": 0,
+                "unsupported_metric_resources": 0,
+                "metric_observations": [],
+                "truncated": False,
+                "findings": [],
+            }
+
+    backend = _Backend()
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(FilteredProvider()),
+                turn_planner=Planner(),
+            )
+        ]
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/chat/stream",
+            json={
+                "prompt": "Check whether any cache is down or experiencing high memory pressure.",
+                "view_context": {},
+            },
+        )
+
+    assert response.status_code == 200
+    assert planner_calls == 0
+    assert calls == [(("Microsoft.Cache/redis",), (), True)]
+    assert "server_subscription_health" in response.text
+    assert backend.calls == 0
+
+
 async def test_app_service_not_running_or_ready_query_preserves_zero_groups() -> None:
     class FilteredProvider:
         async def __call__(
