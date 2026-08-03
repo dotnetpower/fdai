@@ -405,7 +405,6 @@ export function TurnBubble({
           verification={turn.verification}
           confirmed={turn.confirmed}
           verificationProgress={turn.verificationProgress}
-          answerPlan={turn.answerPlan}
           answerPlanning={turn.answerPlanning}
           delegation={turn.delegation}
           codeArtifacts={turn.codeArtifacts}

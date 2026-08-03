@@ -94,6 +94,9 @@ from fdai.delivery.operator_api.routes.chat_model_trace import (
     deactivate_model_trace,
     snapshot_model_trace,
 )
+from fdai.delivery.operator_api.routes.chat_presentation import (
+    adapt_answer_plan_for_presentation,
+)
 from fdai.delivery.operator_api.routes.chat_prompt import (
     _concept_answer,
     _ontology_browse_answer,
@@ -669,6 +672,31 @@ def make_chat_stream_route(
                 )
 
                 generation_timing = turn_timing.begin("generation")
+                if evidence_fast_path:
+
+                    async def presentation_source() -> AsyncIterator[dict[str, Any]]:
+                        selected_plan = await adapt_answer_plan_for_presentation(
+                            backend=backend,
+                            prompt=clean_prompt,
+                            plan=answer_plan,
+                            view_context=enriched_context,
+                        )
+                        yield {"answer_plan": selected_plan}
+
+                    presentation_events = _with_sse_heartbeats(
+                        presentation_source(), interval=DEFAULT_STREAM_HEARTBEAT_S
+                    )
+                    async for presentation_event in interruptible_events(
+                        presentation_events,
+                        active_turn=active_turn,
+                    ):
+                        if presentation_event is None:
+                            yield _sse_heartbeat()
+                            continue
+                        selected_plan = presentation_event.get("answer_plan")
+                        if isinstance(selected_plan, type(answer_plan)):
+                            answer_plan = selected_plan
+                    enriched_context["_answer_plan"] = answer_plan.to_dict()
                 stream = getattr(backend, "answer_stream", None)
                 provisional_answer = ""
                 model_generated = False

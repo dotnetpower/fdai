@@ -142,6 +142,9 @@ from fdai.delivery.operator_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
     contextualize_inventory_screen_scope,
 )
+from fdai.delivery.operator_api.routes.chat_presentation import (
+    adapt_answer_plan_for_presentation,
+)
 from fdai.delivery.operator_api.routes.chat_prompt import (
     _AGENT_EVIDENCE_DIRECTIVE,
     _AGENT_NAME_TOKEN,
@@ -677,6 +680,21 @@ def make_chat_route(
                 if resource_followup
                 else None
             )
+            if _uses_evidence_fast_path(view_context):
+                with (
+                    with_correlation(_metering_correlation_id(user_id, session_id)),
+                    with_invocation_scope(InvocationScope.OPERATOR_CHAT),
+                ):
+                    answer_plan = await await_with_interrupt(
+                        adapt_answer_plan_for_presentation(
+                            backend=backend,
+                            prompt=clean_prompt,
+                            plan=answer_plan,
+                            view_context=view_context,
+                        ),
+                        active_turn=active_turn,
+                    )
+                view_context["_answer_plan"] = answer_plan.to_dict()
             reply: dict[str, Any]
             if contextual_verification is not None:
                 verification = contextual_verification

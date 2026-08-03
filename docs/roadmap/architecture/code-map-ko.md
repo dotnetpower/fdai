@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 8c6bec6ed11f2c580a6fe3ce8235248cf71610c1
+translation_source_sha: 631586b20157d572f4c2f7ec65572e46bde38cc6
 translation_revised: 2026-08-03
 ---
 # 코드 맵
@@ -137,7 +137,9 @@ Inventory scope-only follow-up은
 
 Presentation intent는
 [`answer_plan.py`](../../../src/fdai/core/conversation/answer_plan.py)에서 typed contract로
-관리합니다. 명시적인 table 및 chart format은 `chat_verification.py`를 거쳐 deterministic
+관리합니다. 명시적인 table 및 chart format과
+[`chat_presentation.py`](../../../src/fdai/delivery/operator_api/routes/chat_presentation.py)의
+strict shape-only model selection은 `chat_verification.py`를 거쳐 deterministic
 inventory rendering에 전달됩니다. `chat_evidence_enrichment.py`는 내부 inventory read를
 provider command를 만들지 않고 verifier가 승인한 typed query 및 snapshot provenance를
 channel-neutral query activity row로 projection합니다.

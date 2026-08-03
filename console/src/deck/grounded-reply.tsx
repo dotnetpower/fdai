@@ -20,7 +20,6 @@ import { useTransientFlag } from "../hooks/use-transient-flag";
 import { t } from "../i18n";
 import type {
   ActionDraft,
-  AnswerPlanMetadata,
   AnswerPlanningMetadata,
   ConfirmedAnswerSegment,
   AnswerVerification,
@@ -52,7 +51,6 @@ export function GroundedReply({
   verification,
   confirmed,
   verificationProgress,
-  answerPlan,
   answerPlanning,
   delegation,
   codeArtifacts,
@@ -68,7 +66,6 @@ export function GroundedReply({
   readonly verification: AnswerVerification | undefined;
   readonly confirmed: ConfirmedAnswerSegment | undefined;
   readonly verificationProgress: VerificationProgress | undefined;
-  readonly answerPlan: AnswerPlanMetadata | undefined;
   readonly answerPlanning: AnswerPlanningMetadata | undefined;
   readonly delegation: DelegationMetadata | undefined;
   readonly codeArtifacts: readonly GroundedCodeArtifact[] | undefined;
@@ -153,21 +150,6 @@ export function GroundedReply({
 
   return (
     <div class="deck-gr">
-      {answerPlan ? (
-        <Tooltip content={t(`deck.answerPlan.format.${answerPlan.format}`)}>
-          <div class="deck-answer-plan">
-            <span>{t(`deck.answerPlan.intent.${answerPlan.intent}`)}</span>
-            <span aria-hidden="true">·</span>
-            <span>{t(`deck.answerPlan.detail.${answerPlan.detail_level}`)}</span>
-            {answerPlan.preference_applied ? (
-              <>
-                <span aria-hidden="true">·</span>
-                <span>{t("deck.answerPlan.preferenceApplied")}</span>
-              </>
-            ) : null}
-          </div>
-        </Tooltip>
-      ) : null}
       {answerPlanning && successfulPlanningAgents.length > 0 ? (
         <div class="deck-answer-plan">
           <span>

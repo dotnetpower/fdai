@@ -35,6 +35,19 @@ def test_non_python_code_is_grounded_but_not_claimed_as_validated() -> None:
     assert artifacts[0].validation_status == "not_checked"
 
 
+def test_chart_presentation_fence_is_not_duplicated_as_code_evidence() -> None:
+    answer = (
+        '```chart\n{"type":"bar","data":[{"label":"db","value":2}]}\n```\n'
+        "```python\nprint('still code')\n```"
+    )
+
+    artifacts = extract_grounded_code(answer)
+
+    assert len(artifacts) == 1
+    assert artifacts[0].language == "python"
+    assert artifacts[0].content == "print('still code')\n"
+
+
 def test_skips_oversized_artifacts_and_caps_count() -> None:
     policy = GroundedCodePolicy(
         max_artifacts=1,

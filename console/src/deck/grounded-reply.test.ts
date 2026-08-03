@@ -88,5 +88,7 @@ describe("grounded reply presentation", () => {
     );
     expect(component).toContain('const showAnswerState = answerState !== "complete";');
     expect(component).toContain("{showAnswerState ? (");
+    expect(component).not.toContain("deck.answerPlan.intent");
+    expect(component).not.toContain("deck.answerPlan.detail");
   });
 });

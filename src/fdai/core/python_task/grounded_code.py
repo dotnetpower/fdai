@@ -14,6 +14,7 @@ _FENCE = re.compile(
     re.MULTILINE | re.DOTALL,
 )
 _PYTHON_LANGUAGES = frozenset({"py", "python", "python3"})
+_PRESENTATION_LANGUAGES = frozenset({"chart"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +69,9 @@ def extract_grounded_code(
     for match in _FENCE.finditer(answer):
         if len(artifacts) >= resolved.max_artifacts:
             break
+        language = match.group("language").lower() or "text"
+        if language in _PRESENTATION_LANGUAGES:
+            continue
         content = match.group("content")
         encoded_bytes = len(content.encode("utf-8"))
         if encoded_bytes > resolved.max_artifact_bytes:
@@ -75,7 +79,6 @@ def extract_grounded_code(
         if total_bytes + encoded_bytes > resolved.max_total_bytes:
             break
         total_bytes += encoded_bytes
-        language = match.group("language").lower() or "text"
         digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
         status, detail = _validate(language, content)
         artifacts.append(

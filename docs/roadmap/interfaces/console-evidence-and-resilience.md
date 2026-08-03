@@ -215,6 +215,10 @@ milestones, retries, failures, handoffs, commands, or file changes use an expand
 default. A durable background task uses a detached task summary. Restored compact turns reconstruct
 the observed row from durable detail, while live turns retain the row already shown in causal order.
 Every completed answer keeps its trajectory summary and bounded original operator prompt visible.
+Internal AnswerPlan intent and detail labels don't appear above the answer. They remain available in
+the Run record decision context, while the answer leads with operator-facing content and verified
+evidence. Model-assisted format selection changes only the validated presentation shape; the
+browser still receives canonical Markdown or fenced chart data from the deterministic verifier.
 
 The status overview distinguishes completed, corrected, degraded, failed, unverified, running, and
 unobserved phases; record presence isn't success. Result chips report observed query and command

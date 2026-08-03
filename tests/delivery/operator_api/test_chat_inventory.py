@@ -49,6 +49,17 @@ class RecordingBackend:
         return {"answer": "fallback", "model": "test"}
 
 
+class StructuredPresentationBackend(RecordingBackend):
+    def __init__(self, selected_format: str) -> None:
+        super().__init__()
+        self.selected_format = selected_format
+        self.structured_calls = 0
+
+    async def complete_structured(self, **_kwargs: object) -> dict[str, str]:
+        self.structured_calls += 1
+        return {"format": self.selected_format}
+
+
 async def _allow(request: Request) -> str:
     return "reader"
 
@@ -250,6 +261,70 @@ async def test_inventory_table_format_is_rendered_deterministically() -> None:
     assert "| rg-app | - | unknown |" in verification.answer
     assert "| 형식 |" not in verification.answer
     assert "- 리소스 rg-app" not in verification.answer
+
+
+def test_stream_uses_structured_model_selection_for_inventory_table() -> None:
+    backend = StructuredPresentationBackend("table")
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=InventoryChatTools(_provider),
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat/stream",
+        json={
+            "request_id": "req-adaptive-presentation",
+            "prompt": "현재 구독에서 사용하는 데이터베이스가 뭐야?",
+            "view_context": {"_locale": "ko"},
+        },
+    )
+
+    done = _inventory_done_event(response.text)
+    assert done is not None
+    assert done["answer_plan"]["format"] == "table"
+    assert "| 이름 | 형식 | 상태 | 위치 | 리소스 그룹 |" in done["answer"]
+    assert backend.structured_calls == 1
+    assert backend.calls == 0
+
+
+def test_stream_uses_structured_model_selection_for_inventory_chart() -> None:
+    backend = StructuredPresentationBackend("chart")
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=InventoryChatTools(_provider),
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat/stream",
+        json={
+            "request_id": "req-adaptive-chart",
+            "prompt": "현재 구독 데이터베이스 종류별 분포를 보기 좋게 보여줘",
+            "view_context": {"_locale": "ko"},
+        },
+    )
+
+    done = _inventory_done_event(response.text)
+    assert done is not None
+    assert done["answer_plan"]["format"] == "chart"
+    chart_body = done["answer"].split("```chart\n", 1)[1].split("\n```", 1)[0]
+    chart = json.loads(chart_body)
+    assert chart["type"] == "bar"
+    assert {item["label"] for item in chart["data"]} == {
+        "postgresql-server",
+        "sql-database",
+    }
+    assert backend.structured_calls == 1
+    assert backend.calls == 0
 
 
 def test_compound_korean_resource_group_request_keeps_subject_and_scope() -> None:
@@ -1354,8 +1429,8 @@ def test_selected_group_details_include_type_region_and_state() -> None:
     done = _inventory_done_event(stream.text)
     assert done is not None
     answer = done["answer"]
-    assert "Resource postgres-data: postgresql-server, stopped, koreacentral" in answer
-    assert "Resource sql-app: sql-database, unknown, koreacentral" in answer
+    assert "| postgres-data | postgresql-server | stopped | koreacentral | rg-data |" in answer
+    assert "| sql-app | sql-database | unknown | koreacentral | rg-data |" in answer
     assert "derived-subnet" not in answer
     assert "resource-group" not in answer
     assert backend.calls == 0

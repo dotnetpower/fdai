@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 4154fb6f84a8a1bbad5530a8b242f964e6ff0728
+translation_source_sha: 0383e7cc070ca68a85bdcb4af74d5ddd30f5db92
 translation_revised: 2026-08-03
 ---
 
@@ -213,7 +213,11 @@ compact investigation row와 접힌 run record를 함께 사용합니다. 여러
 retry, failure, handoff, command 또는 file change가 있으면 timeline을 기본으로 펼칩니다. Durable
 background task는 detached task summary를 사용합니다. 복원된 compact turn은 durable detail에서
 observed row를 재구성하고 live turn은 인과 순서로 이미 표시한 row를 유지합니다. 완료된 모든 answer는
-trajectory summary와 bounded original operator prompt를 표시합니다.
+trajectory summary와 bounded original operator prompt를 표시합니다. Internal AnswerPlan intent 및
+detail label은 answer 위에 표시하지 않습니다. Run record decision context에는 유지하며 answer는
+operator-facing content와 verified evidence로 바로 시작합니다. Model-assisted format selection은
+validation된 presentation shape만 변경하고 browser는 계속 deterministic verifier가 만든 canonical
+Markdown 또는 fenced chart data를 받습니다.
 
 상태 개요는 완료, 수정 후 완료, 일부 저하, 실패, 검증 미완료, 진행 중 및 관측되지 않음을 구분하며
 record 존재를 성공으로 표시하지 않습니다. Result chip은 내부 event total 대신 관측된 query와

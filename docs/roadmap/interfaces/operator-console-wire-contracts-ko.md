@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 3ee9afdc90b04cedde808a637bdeb2df05e8a798
-translation_revised: 2026-08-02
+translation_source_sha: fe7a111a92326f3dab601d70170e8969e3664237
+translation_revised: 2026-08-03
 ---
 
 # Operator Console - Data and Wire Contracts
@@ -189,7 +189,9 @@ Command Deck 의 최종 답변에 fenced code block 이 있으면 Operator API �
 제한된 `GroundedCodeArtifact` 로 추출합니다. Artifact 는 code, language, SHA-256
 reference, static validation 결과를 포함합니다. Python block 은 import 하거나
 실행하지 않고 parse 및 compile 합니다. 다른 언어는 검증되었다고 표시하지 않고
-`not_checked` 로 표시합니다.
+`not_checked` 로 표시합니다. Fenced `chart` block은 rich-answer chart component가 렌더링하는
+presentation data이므로 `GroundedCodeArtifact` 추출에서 제외하며 **코드 근거** 아래에 두 번째로
+표시하지 않습니다.
 
 Console 은 기본적으로 code 를 **코드 근거** 아래에 접어서 표시합니다. Disclosure
 를 펼치면 그라운딩된 정확한 content, artifact reference, syntax validation 통과

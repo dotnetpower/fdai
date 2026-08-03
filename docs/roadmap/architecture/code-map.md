@@ -134,7 +134,9 @@ the same deterministic planning bypass and subscription-root provider scope.
 
 Presentation intent is typed in
 [`answer_plan.py`](../../../src/fdai/core/conversation/answer_plan.py). Explicit table and chart
-formats flow through `chat_verification.py` into deterministic inventory rendering, while
+formats and strict shape-only model selection in
+[`chat_presentation.py`](../../../src/fdai/delivery/operator_api/routes/chat_presentation.py) flow
+through `chat_verification.py` into deterministic inventory rendering, while
 `chat_evidence_enrichment.py` projects the verifier-accepted typed query and snapshot provenance
 into a channel-neutral query activity row without fabricating provider commands.
 

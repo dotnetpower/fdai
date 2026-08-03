@@ -190,7 +190,9 @@ When a terminal Command Deck answer contains a fenced code block, the Operator A
 extracts it as a bounded `GroundedCodeArtifact`. The artifact carries the code,
 language, SHA-256 reference, and a static validation result. Python blocks are
 parsed and compiled without importing or executing them. Other languages are
-marked `not_checked` rather than presented as validated.
+marked `not_checked` rather than presented as validated. A fenced `chart` block is presentation
+data rendered by the rich-answer chart component, so it is excluded from `GroundedCodeArtifact`
+extraction and doesn't appear a second time under **Code evidence**.
 
 The console keeps code collapsed under **Code evidence** by default. Expanding
 the disclosure shows the exact grounded content, its artifact reference, and
