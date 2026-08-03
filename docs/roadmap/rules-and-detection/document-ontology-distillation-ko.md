@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 529976302cc36e9c78a86fc71dbee0bf6dab0543
+translation_source_sha: 80ce3c12763366865066328d2793ec42ea02f14c
 translation_revised: 2026-08-03
 ---
 # 문서 온톨로지 증류
@@ -227,6 +227,21 @@ bridge 및 claim inventory를 실행합니다. Report에는 id, digest, count, s
 포함되며 source 또는 claim text를 포함하지 않습니다. Test는 local fetcher를 inject하며 network를 사용하지
 않습니다. Default report는 provider를 `unbound`로 기록하고 abstention 1건과 extraction success 0건을
 계상합니다. Stable empty replay는 이 결과를 바꾸지 않습니다.
+
+Provider conformance는 하나의 명시적 `VerificationContext`와 annotated ontology fact가 포함된 prepared
+`ConformanceCase`를 사용합니다. Evaluator는 각 case에서 binding된 `Distiller`를 두 번 호출하고 injected
+monotonic clock으로 두 호출을 측정하며, 실제 review package를 만들고 candidate count, abstention reason,
+critical recall, entity/link precision, citation/semantic error 및 replay digest를 비교합니다. Test는 cost
+evidence를 별도로 inject합니다. Cost measurement 부재는 추론된 zero-cost success가 아니라 missing
+evidence로 남습니다.
+
+Binding은 optional `DescribedDistiller` Protocol을 구현하여 versioned
+`DistillerCapabilityDescriptor`를 반환할 수 있습니다. 기존 `Distiller` Protocol은 하위 호환됩니다.
+Descriptor가 없는 binding은 unavailable로 resolve하고, `AbstainingDistiller`는 `provider_unbound` reason과
+함께 abstaining으로 식별됩니다. Pure `resolve_ontology_extraction_capability()` 함수는 descriptor가 현재
+conformance contract를 대상으로 하고 필요한 모든 partition이 통과한 경우에만 extraction available을
+보고합니다. 이 resolution은 availability만 변경합니다. Feature를 enable하거나 review-only mode를
+변경하거나 실행 권한을 부여할 수 없습니다.
 
 D4c의 10개 remediation round는 structure, claim semantic, PDF, Office/OCR provenance, identity
 resolution, coverage/release gate, public-corpus replay, provider conformance, resource/security bound

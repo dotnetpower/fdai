@@ -49,6 +49,36 @@ class CandidateKind(StrEnum):
     ONTOLOGY_LINK = "ontology_link"
 
 
+class DistillerAvailability(StrEnum):
+    """Binding readiness independent from enablement or execution authority."""
+
+    AVAILABLE = "available"
+    UNAVAILABLE = "unavailable"
+    ABSTAINING = "abstaining"
+
+
+@dataclass(frozen=True, slots=True)
+class DistillerCapabilityDescriptor:
+    """Versioned identity and readiness of one Distiller binding."""
+
+    binding_id: str
+    binding_version: str
+    contract_version: str
+    availability: DistillerAvailability
+    reason_code: str | None = None
+
+    def __post_init__(self) -> None:
+        values = (self.binding_id, self.binding_version, self.contract_version)
+        if any(not value.strip() or len(value) > 128 for value in values):
+            raise ValueError("distiller capability identity MUST be bounded and non-empty")
+        if self.availability is not DistillerAvailability.AVAILABLE and not self.reason_code:
+            raise ValueError("unavailable Distiller capability MUST include a reason code")
+        if self.reason_code is not None and (
+            not self.reason_code.strip() or len(self.reason_code) > 128
+        ):
+            raise ValueError("distiller capability reason code MUST be bounded and non-empty")
+
+
 @dataclass(frozen=True, slots=True)
 class ManualLineProvenance:
     """Structural source locator for one normalized manual line."""
@@ -176,6 +206,28 @@ class Distiller(Protocol):
         ...
 
 
+@runtime_checkable
+class DescribedDistiller(Protocol):
+    """Optional descriptor surface; the existing Distiller Protocol stays unchanged."""
+
+    def distiller_capability(self) -> DistillerCapabilityDescriptor:
+        """Return immutable binding identity and readiness."""
+        ...
+
+
+def describe_distiller(distiller: Distiller) -> DistillerCapabilityDescriptor:
+    """Describe a binding without treating an undescribed provider as available."""
+    if isinstance(distiller, DescribedDistiller):
+        return distiller.distiller_capability()
+    return DistillerCapabilityDescriptor(
+        binding_id=type(distiller).__name__,
+        binding_version="unknown",
+        contract_version="ontology-distiller-conformance.v1",
+        availability=DistillerAvailability.UNAVAILABLE,
+        reason_code="descriptor_unavailable",
+    )
+
+
 class AbstainingDistiller:
     """Upstream default - extracts nothing and returns an empty result.
 
@@ -187,15 +239,28 @@ class AbstainingDistiller:
     async def distill(self, document: ManualDocument) -> DistillationResult:  # noqa: ARG002
         return DistillationResult()
 
+    def distiller_capability(self) -> DistillerCapabilityDescriptor:
+        return DistillerCapabilityDescriptor(
+            binding_id="upstream-abstaining-distiller",
+            binding_version="1.0.0",
+            contract_version="ontology-distiller-conformance.v1",
+            availability=DistillerAvailability.ABSTAINING,
+            reason_code="provider_unbound",
+        )
+
 
 __all__ = [
     "AbstainingDistiller",
     "CandidateKind",
     "CoverageGap",
     "CoverageReport",
+    "DescribedDistiller",
     "DistillationResult",
     "DistilledCandidate",
     "Distiller",
+    "DistillerAvailability",
+    "DistillerCapabilityDescriptor",
     "ManualDocument",
     "ManualLineProvenance",
+    "describe_distiller",
 ]

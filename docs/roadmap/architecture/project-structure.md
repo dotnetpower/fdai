@@ -85,7 +85,7 @@ fdai/
 │   │   │   ├── ontology/       # object/link/action schemas; ObjectType may declare lifecycle criteria + provenance
 │   │   │   └── workflow/       # workflow/schema.json (process-automation catalog)
 │   │   ├── ontology/           # runtime ontology helpers (ACL, audit purposes, purpose taxonomy)
-│   │   ├── providers/          # CSP-neutral cloud provider interfaces, including OperatingModelProvider (adapters implement them)
+│   │   ├── providers/          # CSP-neutral cloud provider interfaces, including OperatingModelProvider and the backward-compatible Distiller plus optional versioned conformance descriptor (adapters implement them)
 │   │   │                       #   event_bus.py, secret_provider.py, state_store.py, execution_backend.py,
 │   │   │                       #   workload_identity.py, inventory.py, log_query.py, trace_query.py, incident_platform.py, behavior_knowledge.py, programmatic_pipeline.py + LLM / channel / RBAC seams
 │   │   │                       # `providers/local/` = process-local transport adapters plus bounded document format adapters (`document_structure.py` for OOXML, `document_pdf.py` for PDF/OCR) and explicit offline helpers;

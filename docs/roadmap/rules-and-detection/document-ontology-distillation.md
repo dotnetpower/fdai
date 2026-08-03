@@ -228,6 +228,21 @@ text. Tests inject a local fetcher and use no network. The default report record
 `unbound`, counts an abstention, and records zero extraction successes; a stable empty replay does
 not change that result.
 
+Provider conformance uses prepared `ConformanceCase` values with one explicit
+`VerificationContext` and annotated ontology facts. The evaluator invokes the bound `Distiller`
+twice for each case, measures both calls through an injected monotonic clock, builds real review
+packages, and compares candidate counts, abstention reason, critical recall, entity/link precision,
+citation and semantic errors, and replay digests. Tests inject cost evidence separately; an absent
+cost measurement remains missing evidence rather than an inferred zero-cost success.
+
+Bindings can implement the optional `DescribedDistiller` Protocol to return a versioned
+`DistillerCapabilityDescriptor`. The original `Distiller` Protocol remains backward compatible.
+An undescribed binding resolves as unavailable, and `AbstainingDistiller` identifies itself as
+abstaining with `provider_unbound`. The pure `resolve_ontology_extraction_capability()` function
+reports extraction available only when the descriptor targets the current conformance contract and
+every required partition passed. This resolution changes availability only. It cannot enable the
+feature, change review-only mode, or grant execution authority.
+
 The ten remediation rounds for D4c cover structure, claim semantics, PDF, Office/OCR provenance,
 identity resolution, coverage and release gates, public-corpus replay, provider conformance,
 resource/security bounds, and a final independent critique. Each round adds a falsifying fixture
