@@ -2883,6 +2883,9 @@ def test_guest_shutdown_followup_uses_resource_context_exclusively(prompt: str) 
         "Was the shutdown initiated inside the guest operating system?",
         "Is there evidence that the guest OS initiated the shutdown?",
         "Determine whether the shutdown came from inside the virtual machine.",
+        "왜 이 리소스 상태를 읽을 수 없어?",
+        "이 리소스 상태 조회가 불가능한 이유를 알려줘.",
+        "권한, 범위, 원본 중 무엇 때문에 상태를 읽지 못했어?",
     ),
 )
 def test_resource_investigation_cohort_requires_exact_selector(prompt: str) -> None:

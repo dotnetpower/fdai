@@ -279,7 +279,7 @@ async def resolve_parallel_chat_evidence(
         )
     elif (
         (not has_semantic_plan or deterministic_tool_turn)
-        and tool_resolver is not None
+        and (tool_resolver is not None or "_read_investigation_context_hold" in base_context)
         and not incident_context_turn
         and not preincident_read
         and not resource_followup

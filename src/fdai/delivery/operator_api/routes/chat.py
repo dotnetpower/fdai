@@ -127,6 +127,7 @@ from fdai.delivery.operator_api.routes.chat_evidence_pipeline import (
 )
 from fdai.delivery.operator_api.routes.chat_freshness_context import (
     freshness_evidence_refs,
+    missing_evidence_freshness_context_evidence,
     needs_evidence_freshness_context,
     parse_evidence_freshness_context,
     render_evidence_freshness_answer,
@@ -484,6 +485,11 @@ def make_chat_route(
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         selector_hold = missing_read_investigation_context_evidence(clean_prompt, resource_context)
+        if selector_hold is None:
+            selector_hold = missing_evidence_freshness_context_evidence(
+                clean_prompt,
+                freshness_context,
+            )
         if selector_hold is not None:
             view_context["_read_investigation_context_hold"] = selector_hold
         freshness_answer = render_evidence_freshness_answer(

@@ -59,6 +59,9 @@ _SUBSCRIPTION_CONTEXT: Final = re.compile(
 _HEALTH_COVERAGE: Final = re.compile(
     r"\b(?:health checks?|health evidence)\b.{0,64}"
     r"\b(?:authorization|permission|scope|blocked|unavailable)\b|"
+    r"\b(?:authorization|permission|scope)\b.{0,48}"
+    r"\b(?:block(?:ed|ing)?|limits?|unavailable)\b.{0,48}"
+    r"\b(?:health checks?|health evidence)\b|"
     r"(?:상태|헬스|건강|근거).{0,20}(?:점검|확인|읽기|조회).{0,48}"
     r"(?:권한|범위|차단|막힌|조회 불가)|"
     r"(?:권한|범위).{0,24}(?:차단|막힌|조회 불가).{0,24}(?:상태|헬스|건강).{0,12}점검",

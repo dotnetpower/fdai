@@ -325,7 +325,9 @@ substituting point-in-time health or current-screen evidence.
 Each terminal tool answer can return a bounded freshness context with source, observation time,
 query-window lower bound, status, and truncation. The Console validates and retains only the latest
 assistant-issued context. Oldest or stale-evidence follow-ups render it deterministically and state
-that the window boundary may differ from the oldest returned record.
+that the window boundary may differ from the oldest returned record. Without a verified prior
+freshness receipt, the follow-up returns a terminal unavailable result and doesn't substitute
+current-screen or narrator output.
 For an explicit status collection, the terminal answer renders every requested catalog state in
 request order, including a grounded empty group, and lists only findings whose normalized state
 belongs to that group. A concrete family query prefilters `Resources` and `HealthResources` by the

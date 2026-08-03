@@ -51,7 +51,9 @@ _PRE_INCIDENT_FOLLOWUP: Final = re.compile(
 _READ_AVAILABILITY_FOLLOWUP: Final = re.compile(
     r"\bwhy\b.{0,48}(?:(?:cannot|can't|couldn't|unable).{0,32}(?:read|access)"
     r".{0,32}(?:state|status)|(?:health evidence).{0,24}unavailable)|"
-    r"왜.{0,32}(?:리소스|자원).{0,24}상태.{0,24}(?:읽을 수 없|조회할 수 없)|"
+    r"(?:리소스|자원).{0,24}상태.{0,24}"
+    r"(?:읽을 수 없|조회할 수 없|조회가 불가능)|"
+    r"(?:권한|범위|원본).{0,32}상태.{0,24}(?:읽지 못|읽을 수 없|조회하지 못|조회할 수 없)|"
     r"(?:이 리소스.{0,24})?(?:읽기 권한|권한|범위).{0,24}(?:제한|막힌|설명)",
     re.IGNORECASE,
 )
@@ -166,13 +168,25 @@ def missing_read_investigation_context_evidence(
     if resource_context is not None:
         return None
     preincident = _PRE_INCIDENT_FOLLOWUP.search(prompt) is not None
+    read_availability = _READ_AVAILABILITY_FOLLOWUP.search(prompt) is not None
     intent = classify_read_investigation_intent(prompt)
-    if not preincident and (
-        intent not in _SELECTOR_REQUIRED_INTENTS or resource_name_from_question(prompt) is not None
+    if (
+        not preincident
+        and not read_availability
+        and (
+            intent not in _SELECTOR_REQUIRED_INTENTS
+            or resource_name_from_question(prompt) is not None
+        )
     ):
         return None
     required_context = "selected_incident" if preincident else "selected_resource"
-    intent_name = "pre_incident_investigation" if preincident else "resource_investigation"
+    intent_name = (
+        "pre_incident_investigation"
+        if preincident
+        else "read_availability"
+        if read_availability
+        else "resource_investigation"
+    )
     return {
         "tool": "query_conversation_context",
         "authority": "server_conversation_context",

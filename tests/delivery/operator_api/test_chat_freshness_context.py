@@ -161,6 +161,40 @@ def test_client_freshness_context_cannot_gain_server_authority() -> None:
     )
     assert response.status_code == 200
     payload = response.json()
-    assert payload["verification"]["authority"] != "server_evidence_freshness"
+    assert payload["verification"]["authority"] == "server_conversation_context"
+    assert payload["verification"]["reason_code"] == "prior_context_required"
     assert "evidence_freshness_context" not in payload
-    assert backend.calls == 1
+    assert backend.calls == 0
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "지금 답변에 사용한 가장 오래된 데이터는 언제 것이야?",
+        "이번 답변의 근거 중 가장 오래된 관측 시각을 알려줘.",
+        "사용한 데이터 원본 가운데 제일 오래된 것은 언제 갱신됐어?",
+        "Which evidence is stale, and how does that limit the conclusion?",
+        "Identify stale evidence and explain the resulting limits on the answer.",
+        "What data is out of date, and which conclusions can no longer be confirmed?",
+    ),
+)
+def test_freshness_followup_without_prior_receipt_holds_json_and_stream(prompt: str) -> None:
+    backend = Backend()
+    app = Starlette(
+        routes=[
+            make_chat_route(backend=backend, authorize=allow),
+            make_chat_stream_route(backend=backend, authorize=allow),
+        ]
+    )
+
+    with TestClient(app) as client:
+        direct = client.post("/chat", json={"prompt": prompt, "view_context": {}})
+        streamed = client.post("/chat/stream", json={"prompt": prompt, "view_context": {}})
+
+    payload = direct.json()
+    done = done_payload(streamed.text)
+    assert "freshness_receipt" in payload["answer"]
+    assert payload["verification"]["authority"] == "server_conversation_context"
+    assert payload["verification"]["reason_code"] == "prior_context_required"
+    assert done["verification"] == payload["verification"]
+    assert backend.calls == 0

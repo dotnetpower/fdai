@@ -9,9 +9,13 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 
 _FRESHNESS_FOLLOWUP: Final = re.compile(
-    r"\b(?:oldest|earliest|stale)\b.{0,64}\b(?:data|evidence|observation)\b|"
+    r"\b(?:oldest|earliest|stale|out of date)\b.{0,64}"
+    r"\b(?:data|evidence|observation|source)\b|"
+    r"\b(?:data|evidence|observation|source)\b.{0,64}"
+    r"\b(?:oldest|earliest|stale|out of date)\b|"
     r"\bwhich evidence is stale\b|"
-    r"(?:가장\s*오래된|제일\s*오래된|가장\s*이른).{0,32}(?:데이터|근거|관찰)",
+    r"(?:가장\s*오래된|제일\s*오래된|가장\s*이른).{0,32}(?:데이터|근거|관찰|원본)|"
+    r"(?:데이터|근거|관찰|원본).{0,40}(?:가장|제일)\s*오래된",
     re.IGNORECASE,
 )
 _MAX_SOURCE_CHARS: Final = 512
@@ -74,6 +78,25 @@ def parse_evidence_freshness_context(raw: object) -> EvidenceFreshnessContext | 
 
 def needs_evidence_freshness_context(prompt: str) -> bool:
     return _FRESHNESS_FOLLOWUP.search(prompt) is not None
+
+
+def missing_evidence_freshness_context_evidence(
+    prompt: str,
+    context: EvidenceFreshnessContext | None,
+) -> dict[str, Any] | None:
+    if context is not None or not needs_evidence_freshness_context(prompt):
+        return None
+    return {
+        "tool": "query_conversation_context",
+        "authority": "server_conversation_context",
+        "status": "abstain",
+        "result": {
+            "status": "unavailable",
+            "reason": "prior_context_required",
+            "intent": "evidence_freshness",
+            "required_context": ["freshness_receipt"],
+        },
+    }
 
 
 def response_evidence_freshness_context(

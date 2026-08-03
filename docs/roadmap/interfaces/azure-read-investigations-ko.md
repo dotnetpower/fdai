@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 0ba617c793169d7fdaea9f667b623bb3b9baa507
+translation_source_sha: 50f9730dd60d5cc2e838e163c2860e6388cf55e0
 translation_revised: 2026-08-03
 ---
 
@@ -319,7 +319,9 @@ unavailable을 반환합니다.
 각 terminal tool 답변은 source, observation time, query-window lower bound, status 및 truncation이
 포함된 bounded freshness context를 반환할 수 있습니다. Console은 최신 assistant-issued context만
 검증하고 유지합니다. Oldest 또는 stale-evidence follow-up은 이를 deterministic하게 렌더링하고 window
-boundary가 가장 오래된 returned record와 다를 수 있음을 명시합니다.
+boundary가 가장 오래된 returned record와 다를 수 있음을 명시합니다. 검증된 이전 freshness receipt가
+없으면 follow-up은 terminal unavailable result를 반환하며 current-screen 또는 narrator output으로
+대체하지 않습니다.
 명시적인 status collection의 terminal answer는 근거 있는 empty group을 포함하여 요청된 모든 catalog
 state를 request 순서로 렌더링하고, normalized state가 해당 group에 속하는 finding만 나열합니다.
 구체적인 family query는 catalog의 provider type, Azure kind token 및 requested availability state로

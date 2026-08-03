@@ -207,6 +207,8 @@ def test_health_authorization_coverage_uses_all_health_sources() -> None:
     "prompt",
     (
         "Which health checks were blocked by authorization or scope?",
+        "What authorization or scope limits blocked the health evidence reads?",
+        "List health checks that could not run because of permissions or scope.",
         "상태 점검 중 권한이나 범위 때문에 조회하지 못한 것은 뭐야?",
         "Which health evidence was unavailable because of permission or scope?",
         "뭐가 권한 때문에 막힌 상태 점검이야?",

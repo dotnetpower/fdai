@@ -24,6 +24,7 @@ from fdai.delivery.operator_api.routes.chat_document_evidence import (
 )
 from fdai.delivery.operator_api.routes.chat_freshness_context import (
     EvidenceFreshnessContext,
+    missing_evidence_freshness_context_evidence,
     needs_evidence_freshness_context,
     parse_evidence_freshness_context,
 )
@@ -229,6 +230,11 @@ async def prepare_chat_stream_request(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     selector_hold = missing_read_investigation_context_evidence(clean_prompt, resource_context)
+    if selector_hold is None:
+        selector_hold = missing_evidence_freshness_context_evidence(
+            clean_prompt,
+            freshness_context,
+        )
     if selector_hold is not None:
         view_context["_read_investigation_context_hold"] = selector_hold
     evidence_prompt, resource_followup = contextualize_resource_followup(
