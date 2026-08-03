@@ -12,6 +12,8 @@ from starlette.testclient import TestClient
 from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
 from fdai.delivery.operator_api.routes.chat_conversation_context import (
     ConversationContextChatTools,
+    ConversationContextIntent,
+    classify_conversation_context_intent,
 )
 from fdai.delivery.operator_api.routes.chat_current_time import CurrentTimeChatTools
 from fdai.delivery.operator_api.routes.chat_history import replay_metadata
@@ -93,9 +95,25 @@ def test_context_dependent_questions_hold_without_prior_context() -> None:
         "Recheck the second resource from the previous result.",
         "Refresh the state of item two in the prior resource list.",
         "Use the previous result set and verify the second resource again.",
+        "이름이 같은 리소스 중 어떤 것을 말하는지 먼저 물어봐.",
+        "동일 이름 후보가 여러 개면 추측하지 말고 선택을 요청해줘.",
+        "리소스 이름이 모호하면 후보를 보여주고 내가 고르게 해줘.",
         "Ask me to choose when multiple resources match equally.",
+        "If several resources have the same match score, request an explicit selection.",
+        "Do not guess between equal resource candidates; show them and ask me to choose.",
+        "같은 근거를 유지하면서 한국어 표로 간단히 답해줘.",
+        "이전 verified answer의 evidence를 바꾸지 말고 한국어 표로 정리해줘.",
+        "같은 citation을 사용해서 직전 답변을 짧은 한국어 표로 바꿔줘.",
         "Give the same verified answer as a concise table.",
+        "Reformat the prior verified answer as a short table without changing evidence.",
+        "Keep the same evidence and present the previous answer in a concise table.",
+        "한 데이터 원본이 실패해도 확인된 사실과 한계를 구분해줘.",
+        "실패한 source를 다른 근거로 대체하지 말고 known facts와 limits를 나눠줘.",
+        "일부 원본이 unavailable일 때 확인된 내용과 미확정 내용을 분리해줘.",
         "Answer with supported facts and explicit limits when one source is unavailable.",
+        "Separate verified facts from evidence gaps when a required source fails.",
+        "Do not substitute another authority for the missing source; state facts and limits "
+        "separately.",
         "Format the prior evidence as a Korean table.",
         "Separate known facts from the failed source in that answer.",
         "Cancel that investigation and report its stopped phases.",
@@ -114,6 +132,52 @@ def test_context_dependent_questions_hold_without_prior_context() -> None:
             assert payload["verification"]["authority"] == "server_conversation_context"
             assert payload["verification"]["status"] == "unverified"
     assert backend.calls == 0
+
+
+@pytest.mark.parametrize(
+    ("expected", "prompts"),
+    (
+        (
+            ConversationContextIntent.AMBIGUITY,
+            (
+                "이름이 같은 리소스 중 어떤 것을 말하는지 먼저 물어봐.",
+                "동일 이름 후보가 여러 개면 추측하지 말고 선택을 요청해줘.",
+                "리소스 이름이 모호하면 후보를 보여주고 내가 고르게 해줘.",
+                "Ask me to choose when multiple resources match equally.",
+                "If several resources have the same match score, request an explicit selection.",
+                "Do not guess between equal resource candidates; show them and ask me to choose.",
+            ),
+        ),
+        (
+            ConversationContextIntent.REFORMAT,
+            (
+                "같은 근거를 유지하면서 한국어 표로 간단히 답해줘.",
+                "이전 verified answer의 evidence를 바꾸지 말고 한국어 표로 정리해줘.",
+                "같은 citation을 사용해서 직전 답변을 짧은 한국어 표로 바꿔줘.",
+                "Give the same verified answer as a concise table.",
+                "Reformat the prior verified answer as a short table without changing evidence.",
+                "Keep the same evidence and present the previous answer in a concise table.",
+            ),
+        ),
+        (
+            ConversationContextIntent.PARTIAL_SOURCE,
+            (
+                "한 데이터 원본이 실패해도 확인된 사실과 한계를 구분해줘.",
+                "실패한 source를 다른 근거로 대체하지 말고 known facts와 limits를 나눠줘.",
+                "일부 원본이 unavailable일 때 확인된 내용과 미확정 내용을 분리해줘.",
+                "Answer with supported facts and explicit limits when one source is unavailable.",
+                "Separate verified facts from evidence gaps when a required source fails.",
+                "Do not substitute another authority for the missing source; state facts and "
+                "limits separately.",
+            ),
+        ),
+    ),
+)
+def test_campaign_context_variants_classify_exactly(
+    expected: ConversationContextIntent, prompts: tuple[str, ...]
+) -> None:
+    for prompt in prompts:
+        assert classify_conversation_context_intent(prompt) is expected
 
 
 @pytest.mark.parametrize("stream", [False, True])

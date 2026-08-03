@@ -32,9 +32,12 @@ _CONTEXT_REQUIRED: Final = re.compile(
     r"durable\s+memory|explicitly\s+confirm\s+memory|reusable\s+lesson|"
     r"(?:reviewed|materialized)\s+lesson|second\s+resource|"
     r"item\s+two.{0,32}prior\s+resource\s+list|previous\s+result|multiple\s+"
-    r"resources\s+match|same\s+verified\s+answer|same\s+evidence|one\s+source\s+is\s+"
+    r"resources\s+match|same\s+match\s+score|equal\s+resource\s+candidates|"
+    r"same\s+verified\s+answer|prior\s+verified\s+answer|same\s+evidence|"
+    r"one\s+source\s+is\s+"
     r"unavailable|supported\s+facts\s+and\s+explicit\s+limits|prior\s+evidence|"
-    r"failed\s+source|cancel\s+that\s+investigation)\b|"
+    r"failed\s+source|required\s+source\s+fails|missing\s+source|"
+    r"cancel\s+that\s+investigation)\b|"
     r"(?:진행\s*중인\s*조사|active\s+investigation(?:을|를)?|현재\s*대화\s*조사|"
     r"관련된\s*런북|검토\s*완료\s*런북|trusted\s+runbook(?:이|을|를)?|지식\s*원본|"
     r"enabled\s+knowledge\s+source.{0,32}(?:승인\s*상태|last\s*refresh)|"
@@ -42,20 +45,26 @@ _CONTEXT_REQUIRED: Final = re.compile(
     r"검토.{0,16}(?:lesson|레슨)|materialized(?:된)?\s*학습|"
     r"학습.{0,24}(?:내용|reuse|재사용)|두\s*번째로\s*말한\s*리소스|"
     r"(?:이전\s*목록의|방금\s*답변에서)\s*두\s*번째\s*(?:리소스|항목)|"
-    r"이름이\s*같은\s*리소스|같은\s*근거|"
-    r"데이터\s*원본이\s*실패)",
+    r"이름이\s*같은\s*리소스|동일\s*이름\s*후보|리소스\s*이름이\s*모호|"
+    r"같은\s*근거|이전\s+verified\s+answer|같은\s+citation|"
+    r"데이터\s*원본이\s*실패|실패한\s+source|일부\s*원본이\s+unavailable)",
     re.IGNORECASE,
 )
 
 _REFORMAT: Final = re.compile(
-    r"\b(?:same\s+(?:verified\s+)?answer|same\s+evidence|prior\s+evidence).{0,48}"
-    r"(?:table|format)\b|(?:같은\s*근거|이전\s*근거).{0,32}(?:표|형식)",
+    r"\b(?:same\s+(?:verified\s+)?answer|same\s+evidence|prior\s+(?:verified\s+)?"
+    r"answer|prior\s+evidence).{0,48}(?:table|format)\b|"
+    r"(?:같은\s*근거|이전\s*근거|이전\s+verified\s+answer|같은\s+citation)"
+    r".{0,48}(?:표|형식)",
     re.IGNORECASE,
 )
 _PARTIAL_SOURCE: Final = re.compile(
     r"\b(?:one\s+source\s+is\s+unavailable|supported\s+facts\s+and\s+explicit\s+limits|"
-    r"failed\s+source|separate\s+known\s+facts)\b|"
-    r"(?:데이터\s*원본이\s*실패|확인된\s*사실.{0,20}한계|실패한\s*원본)",
+    r"failed\s+source|separate\s+known\s+facts|required\s+source\s+fails|"
+    r"verified\s+facts.{0,48}evidence\s+gaps|missing\s+source.{0,48}"
+    r"(?:facts|limits))\b|"
+    r"(?:데이터\s*원본이\s*실패|확인된\s*사실.{0,20}한계|실패한\s*원본|"
+    r"실패한\s+source|일부\s*원본이\s+unavailable)",
     re.IGNORECASE,
 )
 
