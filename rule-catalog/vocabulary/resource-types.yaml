@@ -27,13 +27,16 @@
 #
 # All values are English, secret-free, and customer-agnostic.
 schema_version: "1.0.0"
-version: "0.3.4"
+version: "0.3.5"
 category_query_terms:
   database: [database, databases, db, dbs, 데이터베이스, 디비]
 query_groups:
   - id: function-container-applications
     terms: [function or container applications, function and container applications]
     members: [compute.function, compute.container-app]
+  - id: cache-services
+    terms: [cache, caches, cache service, cache services]
+    members: [cache, redis-enterprise]
 types:
   # ── compute ───────────────────────────────────────────────────────────
   - id: compute.vm

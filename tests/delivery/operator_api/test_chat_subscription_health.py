@@ -786,7 +786,13 @@ def test_cache_down_or_pressure_query_keeps_filtered_provider_scope() -> None:
 
     assert response.status_code == 200
     assert planner_calls == 0
-    assert calls == [(("Microsoft.Cache/redis",), (), True)]
+    assert calls == [
+        (
+            ("Microsoft.Cache/redis", "Microsoft.Cache/redisEnterprise"),
+            ("unavailable",),
+            True,
+        )
+    ]
     assert "server_subscription_health" in response.text
     assert backend.calls == 0
 

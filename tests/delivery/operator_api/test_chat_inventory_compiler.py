@@ -373,14 +373,16 @@ def test_storage_health_question_preserves_unavailable_and_degraded_states() -> 
 
 
 def test_cache_service_health_question_selects_both_cache_provider_types() -> None:
-    query = compile_inventory_query(
+    for prompt in (
         "Are any cache services unavailable or under memory pressure?",
-    )
+        "Check whether any cache is down or experiencing high memory pressure.",
+    ):
+        query = compile_inventory_query(prompt)
 
-    assert query is not None
-    by_field = {predicate.field: predicate.value for predicate in query.predicates}
-    assert by_field[InventoryField.RESOURCE_TYPE] == ("cache", "redis-enterprise")
-    assert by_field[InventoryField.STATUS] == "unavailable"
+        assert query is not None
+        by_field = {predicate.field: predicate.value for predicate in query.predicates}
+        assert by_field[InventoryField.RESOURCE_TYPE] == ("cache", "redis-enterprise")
+        assert by_field[InventoryField.STATUS] == "unavailable"
 
 
 def test_app_service_question_separates_not_running_and_not_ready() -> None:
