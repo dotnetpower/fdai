@@ -34,6 +34,8 @@
     .in-status-dot.is-open { background: var(--cs-dusty-red); }
     .in-status-dot.is-progress { background: var(--cs-terracotta); }
     .in-status-dot.is-resolved { background: var(--cs-sage); }
+    .in-roster-foot { padding: 11px 14px; border-top: 1px solid var(--cs-hairline); color: var(--cs-text-soft); font-size: 11.5px; }
+    .in-roster-foot button { width: 100%; padding: 7px 10px; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-navy); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
 
     .in-detail { border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); overflow: hidden; }
     .in-detail[hidden] { display: none; }
@@ -48,6 +50,35 @@
     .in-links { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 22px; border-bottom: 1px solid var(--cs-hairline); background: #fff; }
     .in-links a { padding: 5px 10px; border: 1px solid var(--cs-hairline); border-radius: 7px; color: var(--cs-steel); font-size: 12px; font-weight: 600; }
     .in-links a:hover { background: var(--cs-shade); text-decoration: none; }
+
+    .in-current-state, .in-evidence-views { padding: 19px 22px; border-bottom: 1px solid var(--cs-hairline); }
+    .in-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+    .in-section-label { display: block; margin-bottom: 4px; color: var(--cs-text-soft); font-size: 10.5px; font-weight: 700; text-transform: uppercase; }
+    .in-section-head h3, .in-evidence-views h3 { margin: 0; font-size: 15px; }
+    .in-current-state > p, .in-evidence-views > p { margin: 8px 0 13px; color: var(--cs-text-soft); font-size: 12.5px; }
+    .in-current-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+    .in-current-facts div { padding: 9px 10px; border-radius: var(--cs-radius-sm); background: var(--cs-shade); }
+    .in-current-facts dt { color: var(--cs-text-soft); font-size: 10px; text-transform: uppercase; }
+    .in-current-facts dd { margin: 3px 0 0; color: var(--cs-text); font-size: 12px; font-weight: 600; }
+    .in-next-step { display: flex; gap: 8px; margin-top: 11px; padding: 10px 12px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); font-size: 12px; }
+    .in-next-step span { color: var(--cs-text-soft); }
+
+    .in-additional { margin-top: 12px; border-top: 1px solid var(--cs-hairline); }
+    .in-additional summary { padding: 11px 0 0; color: var(--cs-steel); font-size: 12px; font-weight: 700; cursor: pointer; }
+    .in-additional dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 11px 0 0; }
+    .in-additional div { min-width: 0; }
+    .in-additional dt { color: var(--cs-text-soft); font-size: 10px; text-transform: uppercase; }
+    .in-additional dd { margin: 2px 0 0; color: var(--cs-text); font-size: 11.5px; overflow-wrap: anywhere; }
+
+    .in-view-list { display: flex; flex-direction: column; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); overflow: hidden; }
+    .in-view-row { display: grid; grid-template-columns: minmax(120px, .65fr) minmax(220px, 1.6fr) auto; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--cs-hairline); color: inherit; }
+    .in-view-row:last-child { border-bottom: 0; }
+    .in-view-row:hover { background: var(--cs-shade); text-decoration: none; }
+    .in-view-row span { color: var(--cs-text-soft); font-size: 11.5px; }
+    .in-view-row em { color: var(--cs-steel); font-size: 11px; font-style: normal; font-weight: 700; }
+    .in-view-row.is-unavailable { background: var(--cs-shade); color: var(--cs-text-soft); }
+    .in-view-row.is-unavailable em { color: var(--cs-text-soft); }
+    .in-evidence-scope { display: block; margin-top: 9px; color: var(--cs-text-soft); font-size: 10.5px; overflow-wrap: anywhere; }
 
     .in-history { padding: 19px 22px 23px; }
     .in-history-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
@@ -75,11 +106,12 @@
       .in-incident:nth-child(odd) { border-right: 1px solid var(--cs-hairline); }
     }
     @media (max-width: 620px) {
-      .in-summary, .in-roster-list, .in-detail-meta { grid-template-columns: 1fr; }
+      .in-summary, .in-roster-list, .in-detail-meta, .in-current-facts, .in-additional dl { grid-template-columns: 1fr; }
       .in-filter-note { width: 100%; margin-left: 0; }
       .in-incident:nth-child(odd) { border-right: 0; }
-      .in-detail-head, .in-history { padding-left: 16px; padding-right: 16px; }
+      .in-detail-head, .in-current-state, .in-evidence-views, .in-history { padding-left: 16px; padding-right: 16px; }
       .in-links { padding-left: 16px; padding-right: 16px; }
+      .in-view-row { grid-template-columns: 1fr; gap: 3px; }
     }
   </style>
 </head>
@@ -136,7 +168,7 @@
       <section class="in-roster" aria-labelledby="incident-roster-title">
         <div class="in-roster-head">
           <h2 id="incident-roster-title">Incident roster</h2>
-          <span class="cs-muted" style="font-size:11.5px">last update 09:52</span>
+          <span class="cs-muted" style="font-size:11.5px">4 loaded</span>
         </div>
         <div class="in-roster-list">
           <button class="in-incident is-selected" type="button" data-incident="inc-api-latency" data-status="active" aria-pressed="true">
@@ -164,6 +196,7 @@
             </span>
           </button>
         </div>
+        <div class="in-roster-foot" id="incident-roster-foot"><button type="button" id="incident-load-more">Load more incidents</button></div>
       </section>
 
       <section>
@@ -177,19 +210,51 @@
             <p class="in-detail-lead">Latency breached the service threshold within two minutes of a
               configuration revision. The action is contained; rollback verification is running.</p>
             <div class="in-detail-meta">
-              <div class="in-meta"><span>Correlation id</span><strong class="cs-mono">inc-01J2-API-LATENCY</strong></div>
               <div class="in-meta"><span>Opened</span><strong>2026-07-15 09:48:12Z</strong></div>
               <div class="in-meta"><span>Last updated</span><strong>2026-07-15 09:52:31Z</strong></div>
-              <div class="in-meta"><span>Disposition</span><strong>rollback verifying</strong></div>
+              <div class="in-meta"><span>History</span><strong>6 records</strong></div>
+              <div class="in-meta"><span>Latest mode</span><strong>Enforce mode - changes permitted</strong></div>
             </div>
+            <details class="in-additional">
+              <summary>Additional evidence</summary>
+              <dl>
+                <div><dt>Correlation id</dt><dd class="cs-mono">inc-01J2-API-LATENCY</dd></div>
+                <div><dt>Incident id</dt><dd class="cs-mono">INC-240715-01</dd></div>
+                <div><dt>Ticket id</dt><dd class="cs-mono">OPS-1842</dd></div>
+                <div><dt>Current disposition</dt><dd>rollback verifying</dd></div>
+                <div><dt>Current decision</dt><dd>Automatic</dd></div>
+                <div><dt>Vertical</dt><dd>Change Safety</dd></div>
+                <div><dt>Status source</dt><dd class="cs-mono">incident.transition</dd></div>
+                <div><dt>Involved agents</dt><dd>Huginn, Forseti, Thor, Vidar</dd></div>
+              </dl>
+            </details>
           </header>
-          <nav class="in-links" aria-label="Incident evidence links">
-            <a href="rca.html?correlation=inc-01J2-API-LATENCY">Open RCA</a>
-            <a href="rule-trace.html">Open trace</a>
-            <a href="audit.html">Open audit</a>
-          </nav>
+          <section class="in-current-state" aria-labelledby="current-state-title">
+            <div class="in-section-head">
+              <div><span class="in-section-label">Current situation</span><h3 id="current-state-title">Response in progress</h3></div>
+              <span class="cs-status wait">in progress</span>
+            </div>
+            <p>A governed response has started and has not reached a terminal outcome yet.</p>
+            <dl class="in-current-facts">
+              <div><dt>Lifecycle</dt><dd>In progress</dd></div>
+              <div><dt>Response decision</dt><dd>Automatic</dd></div>
+              <div><dt>Change authority</dt><dd>Enforce mode - changes permitted</dd></div>
+            </dl>
+            <div class="in-next-step"><strong>Recommended next step</strong><span>Monitor the latest activity until verification completes or the response is held for review.</span></div>
+          </section>
+          <section class="in-evidence-views" aria-labelledby="evidence-views-title">
+            <h3 id="evidence-views-title">Available evidence</h3>
+            <p>Only views backed by recorded evidence are enabled. Unavailable analysis is not inferred from generic activity.</p>
+            <div class="in-view-list">
+              <a class="in-view-row" href="audit.html"><strong>All audit records</strong><span>Browse all 6 recorded events and their raw evidence fields.</span><em>Open</em></a>
+              <a class="in-view-row" href="rule-trace.html"><strong>Technical activity</strong><span>Inspect 6 ordered events, including correlation and notification routing.</span><em>Open</em></a>
+              <a class="in-view-row" href="rca.html?correlation=inc-01J2-API-LATENCY"><strong>Root-cause analysis</strong><span>Review recorded, evidence-backed cause hypotheses and citations.</span><em>Open</em></a>
+              <a class="in-view-row" href="rca-report.html?correlation=inc-01J2-API-LATENCY"><strong>RCA dossier</strong><span>Open the full incident and root-cause evidence package.</span><em>Open</em></a>
+            </div>
+            <span class="in-evidence-scope">Evidence scope: inc-01J2-API-LATENCY</span>
+          </section>
           <div class="in-history">
-            <div class="in-history-title"><h3>Remediation history</h3><span>6 records &middot; newest first</span></div>
+            <div class="in-history-title"><h3>Incident activity</h3><span>4 of 6 records &middot; newest first &middot; open audit to continue</span></div>
             <div class="in-timeline">
               <div class="in-event is-audit">
                 <div class="in-event-row"><span class="in-event-title">Rollback verification started</span><span class="cs-tag">Vidar</span><time class="in-event-time">09:52:31</time></div>
@@ -220,29 +285,45 @@
             <div class="in-detail-title-row"><h2>Point-in-time recovery disabled</h2><span class="cs-risk high">high</span><span class="cs-status wait">approval required</span></div>
             <p class="in-detail-lead">A resilience rule detected missing recovery protection. The proposed remediation is grounded and waiting for two distinct approvers.</p>
             <div class="in-detail-meta">
-              <div class="in-meta"><span>Correlation id</span><strong class="cs-mono">inc-01J2-PITR-OFF</strong></div>
               <div class="in-meta"><span>Opened</span><strong>2026-07-15 09:44:55Z</strong></div>
               <div class="in-meta"><span>Last updated</span><strong>2026-07-15 09:51:08Z</strong></div>
-              <div class="in-meta"><span>Disposition</span><strong>hil pending</strong></div>
+              <div class="in-meta"><span>History</span><strong>4 records</strong></div>
+              <div class="in-meta"><span>Latest mode</span><strong>Enforce mode - approval required</strong></div>
             </div>
+            <details class="in-additional"><summary>Additional evidence</summary><dl>
+              <div><dt>Correlation id</dt><dd class="cs-mono">inc-01J2-PITR-OFF</dd></div><div><dt>Incident id</dt><dd class="cs-mono">INC-240715-02</dd></div>
+              <div><dt>Ticket id</dt><dd class="cs-mono">OPS-1843</dd></div><div><dt>Current disposition</dt><dd>human approval pending</dd></div>
+              <div><dt>Current decision</dt><dd>Human approval</dd></div><div><dt>Vertical</dt><dd>Resilience</dd></div>
+              <div><dt>Status source</dt><dd class="cs-mono">hil.requested</dd></div><div><dt>Involved agents</dt><dd>Huginn, Forseti, Var</dd></div>
+            </dl></details>
           </header>
-          <nav class="in-links" aria-label="Incident evidence links"><a href="rca.html?correlation=inc-01J2-PITR-OFF">Open RCA</a><a href="rule-trace.html">Open trace</a><a href="audit.html">Open audit</a></nav>
-          <div class="in-history"><div class="in-history-title"><h3>Remediation history</h3><span>4 records</span></div><div class="in-timeline">
+          <section class="in-current-state"><div class="in-section-head"><div><span class="in-section-label">Current situation</span><h3>Approval required</h3></div><span class="cs-status wait">held for review</span></div><p>The response decision requires independent human approval before any change can proceed.</p><dl class="in-current-facts"><div><dt>Lifecycle</dt><dd>Open</dd></div><div><dt>Response decision</dt><dd>Human approval</dd></div><div><dt>Change authority</dt><dd>Enforce mode - approval required</dd></div></dl><div class="in-next-step"><strong>Recommended next step</strong><span>Review the grounded proposal in the authenticated approval channel.</span></div></section>
+          <section class="in-evidence-views"><h3>Available evidence</h3><p>Only views backed by recorded evidence are enabled. Unavailable analysis is not inferred from generic activity.</p><div class="in-view-list">
+            <a class="in-view-row" href="audit.html"><strong>All audit records</strong><span>Browse all 4 recorded events and their raw evidence fields.</span><em>Open</em></a><a class="in-view-row" href="rule-trace.html"><strong>Technical activity</strong><span>Inspect 4 ordered events and the approval route.</span><em>Open</em></a>
+            <div class="in-view-row is-unavailable" aria-disabled="true"><strong>Root-cause analysis</strong><span>No evidence-backed cause analysis has been recorded.</span><em>Unavailable</em></div><div class="in-view-row is-unavailable" aria-disabled="true"><strong>RCA dossier</strong><span>A report becomes available after recorded RCA evidence exists.</span><em>Unavailable</em></div>
+          </div><span class="in-evidence-scope">Evidence scope: inc-01J2-PITR-OFF</span></section>
+          <div class="in-history"><div class="in-history-title"><h3>Incident activity</h3><span>2 of 4 records &middot; newest first &middot; open audit to continue</span></div><div class="in-timeline">
             <div class="in-event is-hil"><div class="in-event-row"><span class="in-event-title">Approval requested</span><span class="cs-tag">Var</span><time class="in-event-time">09:51:08</time></div><p class="in-event-note">Two-person approval is required before the remediation pull request can merge.</p><div class="in-event-facts"><span>verdict hil</span><span>mode enforce</span><span>rollback pr_revert</span></div></div>
             <div class="in-event"><div class="in-event-row"><span class="in-event-title">Incident opened</span><span class="cs-tag">Huginn</span><time class="in-event-time">09:44:55</time></div><p class="in-event-note">The finding was correlated with the recovery policy evaluation.</p></div>
           </div></div>
         </article>
 
         <article class="in-detail" data-incident-detail="inc-cost-spike" hidden>
-          <header class="in-detail-head"><div class="in-detail-title-row"><h2>Unexpected compute cost increase</h2><span class="cs-risk medium">medium</span><span class="cs-status idle">investigating</span></div><p class="in-detail-lead">Spend increased above the seven-day baseline. Njord is correlating usage and pricing changes in shadow mode.</p><div class="in-detail-meta"><div class="in-meta"><span>Correlation id</span><strong class="cs-mono">inc-01J2-COST-SPIKE</strong></div><div class="in-meta"><span>Opened</span><strong>2026-07-15 09:35:02Z</strong></div><div class="in-meta"><span>Last updated</span><strong>2026-07-15 09:50:26Z</strong></div><div class="in-meta"><span>Disposition</span><strong>analysis running</strong></div></div></header>
-          <nav class="in-links" aria-label="Incident evidence links"><a href="rca.html?correlation=inc-01J2-COST-SPIKE">Open RCA</a><a href="rule-trace.html">Open trace</a><a href="audit.html">Open audit</a></nav>
-          <div class="in-history"><div class="in-history-title"><h3>Remediation history</h3><span>3 records</span></div><div class="in-timeline"><div class="in-event"><div class="in-event-row"><span class="in-event-title">Cost hypothesis entered shadow evaluation</span><span class="cs-tag">Njord</span><time class="in-event-time">09:50:26</time></div><p class="in-event-note">No action is eligible until usage attribution and pricing evidence agree.</p><div class="in-event-facts"><span>mode shadow</span><span>verdict pending</span></div></div></div></div>
+          <header class="in-detail-head"><div class="in-detail-title-row"><h2>Unexpected compute cost increase</h2><span class="cs-risk medium">medium</span><span class="cs-status idle">investigating</span></div><p class="in-detail-lead">Spend increased above the seven-day baseline. Njord is correlating usage and pricing changes in shadow mode.</p><div class="in-detail-meta"><div class="in-meta"><span>Opened</span><strong>2026-07-15 09:35:02Z</strong></div><div class="in-meta"><span>Last updated</span><strong>2026-07-15 09:50:26Z</strong></div><div class="in-meta"><span>History</span><strong>3 records</strong></div><div class="in-meta"><span>Latest mode</span><strong>Shadow mode - no changes applied</strong></div></div><details class="in-additional"><summary>Additional evidence</summary><dl>
+            <div><dt>Correlation id</dt><dd class="cs-mono">inc-01J2-COST-SPIKE</dd></div><div><dt>Incident id</dt><dd class="cs-mono">INC-240715-03</dd></div><div><dt>Ticket id</dt><dd>None</dd></div><div><dt>Current disposition</dt><dd>analysis running</dd></div><div><dt>Current decision</dt><dd>Not recorded</dd></div><div><dt>Vertical</dt><dd>Cost Governance</dd></div><div><dt>Status source</dt><dd class="cs-mono">incident.open</dd></div><div><dt>Involved agents</dt><dd>Huginn, Njord</dd></div>
+          </dl></details></header>
+          <section class="in-current-state"><div class="in-section-head"><div><span class="in-section-label">Current situation</span><h3>Correlated activity only</h3></div><span class="cs-status idle">investigating</span></div><p>Technical activity is recorded, but no response decision or root-cause conclusion exists yet.</p><dl class="in-current-facts"><div><dt>Lifecycle</dt><dd>In progress</dd></div><div><dt>Response decision</dt><dd>Not recorded</dd></div><div><dt>Change authority</dt><dd>Shadow mode - no changes applied</dd></div></dl><div class="in-next-step"><strong>Recommended next step</strong><span>Wait for usage attribution and pricing evidence to agree before proposing an action.</span></div></section>
+          <section class="in-evidence-views"><h3>Available evidence</h3><p>Only views backed by recorded evidence are enabled. Unavailable analysis is not inferred from generic activity.</p><div class="in-view-list"><a class="in-view-row" href="audit.html"><strong>All audit records</strong><span>Browse all 3 recorded events and their raw evidence fields.</span><em>Open</em></a><a class="in-view-row" href="rule-trace.html"><strong>Technical activity</strong><span>Inspect 3 ordered cost-attribution events.</span><em>Open</em></a><div class="in-view-row is-unavailable" aria-disabled="true"><strong>Root-cause analysis</strong><span>No evidence-backed cause analysis has been recorded.</span><em>Unavailable</em></div><div class="in-view-row is-unavailable" aria-disabled="true"><strong>RCA dossier</strong><span>A report becomes available after recorded RCA evidence exists.</span><em>Unavailable</em></div></div><span class="in-evidence-scope">Evidence scope: inc-01J2-COST-SPIKE</span></section>
+          <div class="in-history"><div class="in-history-title"><h3>Incident activity</h3><span>1 of 3 records &middot; newest first &middot; open audit to continue</span></div><div class="in-timeline"><div class="in-event"><div class="in-event-row"><span class="in-event-title">Cost hypothesis entered shadow evaluation</span><span class="cs-tag">Njord</span><time class="in-event-time">09:50:26</time></div><p class="in-event-note">No action is eligible until usage attribution and pricing evidence agree.</p><div class="in-event-facts"><span>mode shadow</span><span>verdict pending</span></div></div></div></div>
         </article>
 
         <article class="in-detail" data-incident-detail="inc-secret-expiry" hidden>
-          <header class="in-detail-head"><div class="in-detail-title-row"><h2>Workload secret nearing expiry</h2><span class="cs-risk high">high</span><span class="cs-status ok">resolved</span></div><p class="in-detail-lead">The secret reference was rotated through a remediation pull request and post-change health checks passed.</p><div class="in-detail-meta"><div class="in-meta"><span>Correlation id</span><strong class="cs-mono">inc-01J2-SECRET-EXP</strong></div><div class="in-meta"><span>Opened</span><strong>2026-07-15 08:41:16Z</strong></div><div class="in-meta"><span>Resolved</span><strong>2026-07-15 09:10:43Z</strong></div><div class="in-meta"><span>Disposition</span><strong>remediated</strong></div></div></header>
-          <nav class="in-links" aria-label="Incident evidence links"><a href="rca.html?correlation=inc-01J2-SECRET-EXP">Open RCA</a><a href="rule-trace.html">Open trace</a><a href="audit.html">Open audit</a></nav>
-          <div class="in-history"><div class="in-history-title"><h3>Remediation history</h3><span>7 records</span></div><div class="in-timeline"><div class="in-event is-auto"><div class="in-event-row"><span class="in-event-title">Incident resolved</span><span class="cs-tag">Saga</span><time class="in-event-time">09:10:43</time></div><p class="in-event-note">Rotation, rollout, and health verification completed with no rollback.</p><div class="in-event-facts"><span>verdict auto</span><span>mode enforce</span><span>audit sealed</span></div></div></div></div>
+          <header class="in-detail-head"><div class="in-detail-title-row"><h2>Workload secret nearing expiry</h2><span class="cs-risk high">high</span><span class="cs-status ok">resolved</span></div><p class="in-detail-lead">The secret reference was rotated through a remediation pull request and post-change health checks passed.</p><div class="in-detail-meta"><div class="in-meta"><span>Opened</span><strong>2026-07-15 08:41:16Z</strong></div><div class="in-meta"><span>Last updated</span><strong>2026-07-15 09:10:43Z</strong></div><div class="in-meta"><span>History</span><strong>7 records</strong></div><div class="in-meta"><span>Latest mode</span><strong>Enforce mode - changes permitted</strong></div></div><details class="in-additional"><summary>Additional evidence</summary><dl>
+            <div><dt>Correlation id</dt><dd class="cs-mono">inc-01J2-SECRET-EXP</dd></div><div><dt>Incident id</dt><dd class="cs-mono">INC-240715-04</dd></div><div><dt>Ticket id</dt><dd class="cs-mono">OPS-1838</dd></div><div><dt>Current disposition</dt><dd>remediated</dd></div><div><dt>Current decision</dt><dd>Automatic</dd></div><div><dt>Vertical</dt><dd>Change Safety</dd></div><div><dt>Status source</dt><dd class="cs-mono">incident.transition</dd></div><div><dt>Involved agents</dt><dd>Huginn, Forseti, Thor, Saga</dd></div>
+          </dl></details></header>
+          <section class="in-current-state"><div class="in-section-head"><div><span class="in-section-label">Current situation</span><h3>Incident resolved</h3></div><span class="cs-status ok">resolved</span></div><p>The recorded response reached a terminal outcome and independent health verification passed.</p><dl class="in-current-facts"><div><dt>Lifecycle</dt><dd>Resolved</dd></div><div><dt>Response decision</dt><dd>Automatic</dd></div><div><dt>Change authority</dt><dd>Enforce mode - changes permitted</dd></div></dl><div class="in-next-step"><strong>Recommended next step</strong><span>Review the final evidence package and monitor for recurrence.</span></div></section>
+          <section class="in-evidence-views"><h3>Available evidence</h3><p>Only views backed by recorded evidence are enabled. Unavailable analysis is not inferred from generic activity.</p><div class="in-view-list"><a class="in-view-row" href="audit.html"><strong>All audit records</strong><span>Browse all 7 recorded events and their raw evidence fields.</span><em>Open</em></a><a class="in-view-row" href="rule-trace.html"><strong>Technical activity</strong><span>Inspect 7 ordered events through verification.</span><em>Open</em></a><a class="in-view-row" href="rca.html?correlation=inc-01J2-SECRET-EXP"><strong>Root-cause analysis</strong><span>Review recorded, evidence-backed cause hypotheses and citations.</span><em>Open</em></a><a class="in-view-row" href="rca-report.html?correlation=inc-01J2-SECRET-EXP"><strong>RCA dossier</strong><span>Open the full incident and root-cause evidence package.</span><em>Open</em></a></div><span class="in-evidence-scope">Evidence scope: inc-01J2-SECRET-EXP</span></section>
+          <div class="in-history"><div class="in-history-title"><h3>Incident activity</h3><span>1 of 7 records &middot; newest first &middot; open audit to continue</span></div><div class="in-timeline"><div class="in-event is-auto"><div class="in-event-row"><span class="in-event-title">Incident resolved</span><span class="cs-tag">Saga</span><time class="in-event-time">09:10:43</time></div><p class="in-event-note">Rotation, rollout, and health verification completed with no rollback.</p><div class="in-event-facts"><span>verdict auto</span><span>mode enforce</span><span>audit sealed</span></div></div></div></div>
         </article>
       </section>
     </div>
@@ -254,6 +335,8 @@
       var incidentButtons = Array.from(document.querySelectorAll("[data-incident]"));
       var detailPanels = Array.from(document.querySelectorAll("[data-incident-detail]"));
       var count = document.getElementById("incident-count");
+      var loadMore = document.getElementById("incident-load-more");
+      var rosterFoot = document.getElementById("incident-roster-foot");
 
       function selectIncident(id) {
         incidentButtons.forEach(function (button) {
@@ -286,6 +369,11 @@
       });
       filterButtons.forEach(function (button) {
         button.addEventListener("click", function () { applyFilter(button.dataset.incidentFilter); });
+      });
+      loadMore.addEventListener("click", function () {
+        loadMore.disabled = true;
+        loadMore.textContent = "Loading...";
+        window.setTimeout(function () { rosterFoot.textContent = "End of incident list."; }, 350);
       });
     })();
   </script>
