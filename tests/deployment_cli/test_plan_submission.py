@@ -89,6 +89,7 @@ async def test_submit_returns_only_opaque_workflow_metadata(tmp_path: Path) -> N
     def handle(request: httpx.Request) -> httpx.Response:
         inputs = json.loads(request.read())["inputs"]
         assert inputs["deploy_console"] is True
+        assert inputs["deploy_design_mocks"] is False
         assert inputs["deploy_operator_api"] is True
         assert inputs["deploy_dev_operations_gateway"] is True
         assert inputs["deploy_document_ingestion"] is True
@@ -126,6 +127,42 @@ async def test_submit_returns_only_opaque_workflow_metadata(tmp_path: Path) -> N
         "workflow_url",
     }
     assert "00000000-0000-0000-0000-000000000001" not in payload
+
+
+async def test_submit_design_mocks_is_an_exclusive_dev_target(tmp_path: Path) -> None:
+    path = tmp_path / "environment.json"
+    _write_environment(path)
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        inputs = json.loads(request.read())["inputs"]
+        assert inputs["deploy_design_mocks"] is True
+        assert inputs["deploy_console"] is False
+        assert inputs["deploy_operator_api"] is False
+        assert inputs["deploy_dev_operations_gateway"] is False
+        assert inputs["deploy_document_ingestion"] is False
+        return httpx.Response(
+            200,
+            json={
+                "workflow_run_id": 789,
+                "html_url": "https://github.com/example/fdai/actions/runs/789",
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+        result = await submit_github_plan(
+            config_path=path,
+            repository="example/fdai",
+            workflow_id="deploy-dev.yml",
+            ref="main",
+            bundle_digest="a" * 64,
+            commit_sha="b" * 40,
+            doctor_report=_doctor(ready=True),
+            deploy_design_mocks=True,
+            environ={"FDAI_GITHUB_TOKEN": "test-token"},
+            http_client=client,
+        )
+
+    assert result.submission_id == "789"
 
 
 async def test_missing_token_is_sanitized(tmp_path: Path) -> None:

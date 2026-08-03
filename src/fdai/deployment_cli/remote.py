@@ -36,6 +36,7 @@ class DeploymentPlanContext:
     backend_ref: str
     runner_ref: str
     deploy_console: bool = False
+    deploy_design_mocks: bool = False
     deploy_operator_api: bool = False
     deploy_dev_operations_gateway: bool = False
     deploy_document_ingestion: bool = False
@@ -51,6 +52,17 @@ class DeploymentPlanContext:
             raise ValueError("backend_ref and runner_ref MUST be non-empty")
         if self.deploy_dev_operations_gateway and self.environment != "dev":
             raise ValueError("the development operations gateway is dev-only")
+        if self.deploy_design_mocks and self.environment != "dev":
+            raise ValueError("design-mocks deployment is dev-only")
+        if self.deploy_design_mocks and any(
+            (
+                self.deploy_console,
+                self.deploy_operator_api,
+                self.deploy_dev_operations_gateway,
+                self.deploy_document_ingestion,
+            )
+        ):
+            raise ValueError("design-mocks deployment cannot be combined with another target")
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +165,7 @@ def deployment_context_digest(context: DeploymentPlanContext) -> str:
         "bundle_digest": context.bundle_digest,
         "commit_sha": context.commit_sha,
         "deploy_console": context.deploy_console,
+        "deploy_design_mocks": context.deploy_design_mocks,
         "deploy_dev_operations_gateway": context.deploy_dev_operations_gateway,
         "deploy_document_ingestion": context.deploy_document_ingestion,
         "deploy_operator_api": context.deploy_operator_api,
