@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: e9315844990995b359b4a81380b379f106eb8b62
+translation_source_sha: f7b869edadd3552ef87d22196dad58a7a8e1cbd5
 translation_revised: 2026-08-03
 ---
 
@@ -35,8 +35,8 @@ Digest가 닫혀 있어도 composer는 compact route, 근거 record 수 및 snap
 
 공통 페이지 제목은 영역과 패널 레이블이 다를 때 `전체 현황 / Dashboard`를 포함해 둘을 함께 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립 utility는 단일 제목을 유지합니다.
 
-공통 상단 표시줄은 제공된 FDAI 로고를 원본 색상으로 렌더링합니다. 콘솔 테마는 브랜드 자산의
-채도를 낮추거나 색을 변경하지 않습니다.
+공통 상단 표시줄은 아이콘 전용 FDAI 마크를 원본 색상으로 렌더링하고 옆에 `FDAI Console`
+워드마크를 표시합니다. 콘솔 테마는 브랜드 자산의 채도를 낮추거나 색을 변경하지 않습니다.
 
 Live도 `운영 / 실시간`과 같은 공통 title 계약을 따릅니다. 관찰 control은 공통 header actions
 영역에 유지되고 좁은 viewport에서는 제목 아래로 줄바꿈되어 화면 고정, source, window 및 connection

@@ -59,6 +59,7 @@ export function Shell({ activePanelId, auth, client, children, onExitLocalSessio
             src={`${import.meta.env.BASE_URL}brand/fdai-logo.png`}
             alt=""
           />
+          <span class="brand-wordmark">FDAI</span>
           <span class="brand-separator" aria-hidden="true" />
           <span class="brand-product">{t("shell.console")}</span>
         </a>
