@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -14,6 +15,10 @@ from fdai.delivery.operator_api.auth import UnsafeClaimsExtractor, build_authent
 from fdai.delivery.operator_api.dev.data_sources import build_local_data_sources
 from fdai.delivery.operator_api.main import build_app
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.operator_api.routes.chat_data_sources import DataSourceChatTools
+from fdai.delivery.operator_api.routes.chat_evidence_pipeline import (
+    resolve_parallel_chat_evidence,
+)
 from fdai.delivery.operator_api.routes.data_sources import (
     ReadDataSourceStatus,
     make_data_sources_route,
@@ -27,6 +32,26 @@ class RecordingBackend:
     async def answer(self, **kwargs: object) -> dict[str, str]:
         self.calls += 1
         return {"answer": "fallback", "model": "test"}
+
+
+class PlannedAuditTools:
+    async def resolve_planned(
+        self,
+        tool_name: str,
+        arguments: Mapping[str, object],
+        *,
+        principal_id: str,
+    ) -> Mapping[str, Any] | None:
+        del tool_name, arguments, principal_id
+        return {
+            "tool": "query_audit",
+            "authority": "server_read_model",
+            "result": {"status": "matched", "records": []},
+        }
+
+
+async def _observe(_event: Mapping[str, Any]) -> None:
+    return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -382,6 +407,43 @@ def test_data_source_manifest_is_authenticated_and_sorted(
 
     assert response.status_code == 200
     assert [item["key"] for item in response.json()["sources"]] == ["audit", "models"]
+
+
+async def test_source_manifest_precedes_conflicting_semantic_read_plan() -> None:
+    prompt = "현재 사용할 수 없는 데이터 원본과 확인 가능한 사실을 분리해서 보여줘."
+    result = await resolve_parallel_chat_evidence(
+        request_id="source-precedence",
+        prompt=prompt,
+        view_context={
+            "_turn_plan": {
+                "kind": "read_tool",
+                "tool_name": "query_audit",
+                "arguments": {},
+            }
+        },
+        user_id="reader",
+        session_id="source-precedence",
+        conversation_context=None,
+        target_agent=None,
+        tool_resolver=DataSourceChatTools(
+            (
+                _source(
+                    key="operational-state",
+                    availability="unavailable",
+                    reason="not connected",
+                ),
+            )
+        ),
+        planned_tool_resolver=PlannedAuditTools(),
+        evidence_resolver=None,
+        agent_delegate=None,
+        web_search_resolver=None,
+        progress_observer=_observe,
+    )
+
+    evidence = cast(dict[str, object], result["_tool_evidence"])
+    assert evidence["tool"] == "describe_read_sources"
+    assert evidence["authority"] == "server_read_source_manifest"
 
 
 @pytest.mark.parametrize(

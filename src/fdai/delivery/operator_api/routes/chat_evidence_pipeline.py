@@ -17,6 +17,7 @@ from fdai.delivery.operator_api.routes.chat_conversation_context import (
     needs_conversation_context,
 )
 from fdai.delivery.operator_api.routes.chat_current_time import needs_current_time
+from fdai.delivery.operator_api.routes.chat_data_sources import needs_read_source_evidence
 from fdai.delivery.operator_api.routes.chat_evidence import needs_operational_evidence
 from fdai.delivery.operator_api.routes.chat_evidence_branches import (
     BranchProgressObserver,
@@ -187,6 +188,7 @@ async def resolve_parallel_chat_evidence(
         or needs_action_context(prompt)
         or needs_conversation_context(prompt)
         or needs_current_time(prompt)
+        or needs_read_source_evidence(prompt)
     )
     inventory_screen_scope = "_inventory_screen_scope" in base_context
     resource_followup = "_resource_followup" in base_context
