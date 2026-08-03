@@ -80,6 +80,7 @@ def test_action_roles_are_global_and_not_redeclared_by_action_types() -> None:
     assert {"ActionRun", "ActionAttempt"} <= owned_by_agent["Thor"]
     assert "AuditEntry" in owned_by_agent["Saga"]
     assert "Rollback" in owned_by_agent["Vidar"]
+    assert "Change" in owned_by_agent["Huginn"]
 
     schema = json.loads(ACTION_TYPE_SCHEMA.read_text(encoding="utf-8"))
     assert schema["additionalProperties"] is False

@@ -170,7 +170,7 @@ _HUGINN = AgentSpec(
     name="Huginn",
     layer=Layer.PIPELINE,
     reports_to="Forseti",
-    owns=("Event",),
+    owns=("Event", "Change"),
     conversation=conversation_charter(
         "Huginn",
         "Explain ingress health and resource discovery intake.",
@@ -493,6 +493,7 @@ _MUNINN = AgentSpec(
         "object.drift",
         "object.forecast-outcome",
         "object.event",
+        "object.change",
     ),
     question_domains=(
         "current_state",

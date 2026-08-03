@@ -58,6 +58,7 @@ OWNED_OBJECT_TOPICS: frozenset[str] = frozenset(
     {
         # Sensing
         "object.event",
+        "object.change",
         "object.anomaly",
         "object.drift",
         "object.forecast",

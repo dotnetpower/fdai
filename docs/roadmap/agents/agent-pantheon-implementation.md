@@ -22,10 +22,12 @@ in [coding-conventions.instructions.md](../../../.github/instructions/coding-con
 > adapters follow the layout in
 > [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md).
 
-> **Implementation status (2026-07-31):** W0-W8 are implemented. The sections preserve rollout
+> **Implementation status (2026-08-04):** W0-W8 are implemented. The sections preserve rollout
 > order and acceptance intent. Shared machinery lives under `src/fdai/agents/_framework/`, with
 > coverage from `tests/agents/test_wave2_governance.py` through `test_wave8_kpi_degradation.py`.
 > Workflows carry executable trace refs, KPI reports distinguish measured values from unavailable evidence, and every agent has an injected degradation drill.
+> Huginn also publishes normalized planned and observed changes on `object.change`, and Muninn
+> retains immutable content-addressed revisions without adding execution authority.
 ## 1. Why this doc exists
 
 The pantheon doc ([agent-pantheon.md](agent-pantheon.md)) defines the
@@ -237,11 +239,13 @@ Forseti reasons; Norns closes the discovery loop.
 
 **Scope**
 
-- **Huginn (`src/fdai/agents/huginn.py`)** - own the real-time resource
+- **Huginn (`src/fdai/agents/huginn.py`)** - own the real-time resource and change
   discovery ingress. Subscription-scoped Azure write/delete events arrive on
   the raw Event Hub through managed-identity Event Grid delivery, a runtime
   normalizer republishes canonical Events, and Huginn deduplicates, invokes the
-  injected durable inventory projector, then publishes `object.event`. The
+  injected durable inventory projector, then publishes `object.event`. Change-bearing IaC,
+  release, and provider-activity events additionally publish `object.change`; Muninn stores
+  immutable revisions for context and replay. The
   six-hour Inventory sync job remains the full ARG/ARM reconciliation path.
 - **Heimdall (`src/fdai/agents/heimdall.py`)** - discovery freshness/coverage
   assurance plus anomaly detector

@@ -109,6 +109,36 @@ class Muninn(Agent):
             "case_history.retention_due"
         ):
             await self._apply_case_history_retention(payload)
+        elif topic == "object.change":
+            self._materialize_change(payload)
+
+    def _materialize_change(self, payload: dict[str, Any]) -> None:
+        if payload.get("producer_principal") != "Huginn":
+            self.record_behavior("change:invalid_producer")
+            return
+        change_id = str(payload.get("id") or "").strip()
+        if not change_id:
+            self.record_behavior("change:invalid_payload")
+            return
+        canonical = {
+            key: value
+            for key, value in payload.items()
+            if key not in {"envelope_schema_version", "schema_version"}
+        }
+        digest = hashlib.sha256(
+            json.dumps(canonical, separators=(",", ":"), sort_keys=True).encode()
+        ).hexdigest()
+        revision_key = f"{change_id}:{digest}"
+        if self.state_store.get("change_revisions", revision_key) is not None:
+            self.record_behavior("change:duplicate")
+            return
+        self.state_store.put("change_revisions", revision_key, canonical)
+        self.state_store.put(
+            "changes",
+            change_id,
+            {"revision_key": revision_key, "digest": digest, "change": canonical},
+        )
+        self.record_behavior("change:stored")
 
     def _hold_response_outcome(self, payload: dict[str, Any]) -> None:
         attributes = payload.get("attributes")

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable, Mapping
+from datetime import datetime
 from typing import Any
 
 from fdai.agents._framework.base import Agent
@@ -73,6 +74,100 @@ def _bound_json(value: Any, *, depth: int = 0) -> Any:
     if isinstance(value, list | tuple):
         return [_bound_json(item, depth=depth + 1) for item in value[:_MAX_ATTR_KEYS]]
     return str(value)[:_MAX_FIELD_CHARS]
+
+
+def _change_projection(
+    *,
+    raw: Mapping[str, Any],
+    canonical_payload: Mapping[str, Any],
+    event_payload: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    declared = raw.get("change") or canonical_payload.get("change")
+    change = declared if isinstance(declared, Mapping) else None
+    signal_kind = canonical_payload.get("signal_kind")
+    event_type = str(event_payload["event_type"])
+    inferred_activity = signal_kind == "azure.activity_log"
+    inferred_planned = event_type in {
+        "change.requested",
+        "change.planned",
+        "deployment.requested",
+        "iac.plan",
+        "iac.pull_request",
+        "release.ready",
+    }
+    if change is None and not inferred_activity and not inferred_planned:
+        return None
+
+    def value(name: str, *fallbacks: object) -> object | None:
+        candidate = change.get(name) if change is not None else None
+        if candidate is not None:
+            return candidate
+        return next((item for item in fallbacks if item is not None), None)
+
+    occurred_at = str(
+        value(
+            "occurred_at",
+            raw.get("occurred_at"),
+            raw.get("detected_at"),
+            raw.get("created_at"),
+        )
+        or ""
+    )
+    try:
+        parsed_at = datetime.fromisoformat(occurred_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("change occurred_at MUST be RFC 3339") from exc
+    if parsed_at.tzinfo is None:
+        raise ValueError("change occurred_at MUST be timezone-aware")
+
+    target_ref = str(value("target_ref", event_payload.get("resource_id")) or "").strip()
+    if not target_ref:
+        raise ValueError("change target_ref MUST be non-empty")
+    actor = canonical_payload.get("actor")
+    actor_ref = value(
+        "actor_ref",
+        raw.get("initiator_principal"),
+        actor.get("principal_id") if isinstance(actor, Mapping) else actor,
+        raw.get("source"),
+    )
+    actor_ref = str(actor_ref or "").strip()
+    if not actor_ref:
+        raise ValueError("change actor_ref MUST be non-empty")
+
+    change_id = str(value("id", event_payload.get("event_id")) or "").strip()
+    if not change_id:
+        raise ValueError("change id MUST be non-empty")
+    default_status = "observed" if inferred_activity else "planned"
+    default_intent = "detected" if inferred_activity else "planned"
+    projection: dict[str, Any] = {
+        "producer_principal": "Huginn",
+        "correlation_id": event_payload["correlation_id"],
+        "idempotency_key": f"change:{event_payload['idempotency_key']}",
+        "id": change_id[:_MAX_FIELD_CHARS],
+        "change_kind": str(value("change_kind", event_type) or "")[:_MAX_FIELD_CHARS],
+        "source_kind": str(value("source_kind", event_payload.get("source")) or "")[
+            :_MAX_FIELD_CHARS
+        ],
+        "intent_kind": str(value("intent_kind", default_intent) or "")[:_MAX_FIELD_CHARS],
+        "target_ref": target_ref[:_MAX_FIELD_CHARS],
+        "actor_ref": actor_ref[:_MAX_FIELD_CHARS],
+        "status": str(value("status", default_status) or "")[:_MAX_FIELD_CHARS],
+        "occurred_at": parsed_at.isoformat(),
+        "evidence_ref": str(value("evidence_ref", f"event:{event_payload['event_id']}") or "")[
+            :_MAX_FIELD_CHARS
+        ],
+    }
+    for field in (
+        "desired_state_digest",
+        "plan_receipt_ref",
+        "window_ref",
+        "incident_ref",
+        "process_ref",
+    ):
+        optional = value(field)
+        if optional is not None and str(optional).strip():
+            projection[field] = str(optional)[:_MAX_FIELD_CHARS]
+    return projection
 
 
 class Huginn(Agent):
@@ -198,6 +293,11 @@ class Huginn(Agent):
                 if value is not None:
                     payload[passthrough] = _bound(value)
             payload["operator_initiated"] = raw.get("operator_initiated") is True
+        change_projection = _change_projection(
+            raw=raw,
+            canonical_payload=canonical_payload,
+            event_payload=payload,
+        )
         # Measurable behaviour: the sensing layer's ingest / dedup rates, so a
         # scenario can see an ingress flood (the flooding concern one layer up
         # from the judge). Recorded on the decision to emit, before publish.
@@ -211,6 +311,8 @@ class Huginn(Agent):
                 raise
         if self.bus is not None:
             await self.bus.publish("Huginn", "object.event", payload)
+            if change_projection is not None:
+                await self.bus.publish("Huginn", "object.change", change_projection)
         self._seen_keys[key] = None
         if len(self._seen_keys) > self._dedup_capacity:
             self._seen_keys.popitem(last=False)

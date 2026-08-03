@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: ffe0b1862495734f2f62000f4f52892fe8f290e0
-translation_revised: 2026-08-02
+translation_source_sha: 7360daf004079d569e836c0b2ed0246bae299b5e
+translation_revised: 2026-08-04
 ---
 
 # 에이전트 판테온 구현 계획
@@ -24,10 +24,12 @@ translation_revised: 2026-08-02
 > [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)
 > 의 배치를 따른다.
 
-> **구현 상태 (2026-07-31):** W0-W8은 구현되었습니다. 아래 섹션은 rollout 순서와 acceptance 의도를 보존합니다.
+> **구현 상태 (2026-08-04):** W0-W8은 구현되었습니다. 아래 섹션은 rollout 순서와 acceptance 의도를 보존합니다.
 > 공유 구성 요소는 `src/fdai/agents/_framework/`에 있고, wave coverage는
 > `tests/agents/test_wave2_governance.py`부터 `test_wave8_kpi_degradation.py`까지입니다.
 > Workflow inventory는 executable trace ref를 포함하고 KPI report는 measured value와 unavailable evidence를 구분하며, 모든 agent는 injected degradation drill을 가집니다.
+> Huginn은 normalized planned 및 observed change를 `object.change`로 publish하고 Muninn은
+> execution authority를 추가하지 않은 채 immutable content-addressed revision을 보존합니다.
 ## 1. 이 문서가 존재하는 이유
 
 판테온 문서 ([agent-pantheon.md](agent-pantheon-ko.md)) 는 15개 에이전트 계약을
@@ -232,11 +234,13 @@ discovery loop 를 닫는다.
 
 **Scope**
 
-- **Huginn (`src/fdai/agents/huginn.py`)** - 실시간 resource discovery
+- **Huginn (`src/fdai/agents/huginn.py`)** - 실시간 resource 및 change discovery
   ingress를 소유합니다. Subscription scope의 Azure write/delete event는 managed identity
   Event Grid delivery를 통해 raw Event Hub로 들어오고, runtime normalizer가 canonical
   Event로 다시 publish합니다. Huginn은 dedup 후 주입된 durable inventory projector를
-  호출하고 `object.event`를 publish합니다. 6시간 Inventory sync job은 full ARG/ARM
+  호출하고 `object.event`를 publish합니다. Change-bearing IaC, release, provider-activity
+  event는 `object.change`도 publish하고 Muninn은 context 및 replay를 위해 immutable revision을
+  저장합니다. 6시간 Inventory sync job은 full ARG/ARM
   reconciliation 경로로 유지됩니다.
 - **Heimdall (`src/fdai/agents/heimdall.py`)** - discovery freshness/coverage
   assurance와 anomaly detector

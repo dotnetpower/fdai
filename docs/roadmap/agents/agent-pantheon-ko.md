@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 59d021fd40c32e1e8a326b002d3a3604f8358740
-translation_revised: 2026-08-03
+translation_source_sha: f92fc3da04a66095c3ed8d51eed51da86008334c
+translation_revised: 2026-08-04
 ---
 
 # 에이전트 판테온
@@ -227,7 +227,7 @@ operations / interface), `3` = governance staff.
 | Odin | Master Planner | 3 | ArbitrationDecision | arbitrate_domain_conflict | no |
 | Thor | Responder | 2 | ActionRun, ActionAttempt | (dispatch 만; 직접 소유 없음 - §7.1) | no |
 | Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest | verdict 생성; optional context는 autonomy를 낮출 수만 있음; executor 역할 없음 | yes (T2 abstain 시만) |
-| Huginn | Event Collector / 실시간 Resource Discovery | 2 | Event | ingest_event | no |
+| Huginn | Event Collector / 실시간 Resource Discovery | 2 | Event, Change | ingest_event, normalize_change | no |
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome | detect_anomaly, detect_drift, forecast, close_forecast_outcome, notify_admin_privilege_violation | no |
 | Vidar | Recovery | 2 | Rollback | perform_rollback, dr_failover | no |
 | Var | Approver | 2 | Approval | approve_action, reject_action | no |
@@ -255,9 +255,12 @@ Production control-plane composition은 durable registry를 먼저 rehydrate하�
 pantheon이 enabled일 때 이 hook을 bind합니다. Operator API는 Heimdall을 impersonate하지
 않습니다.
 
-Huginn은 실시간 resource discovery의 논리적 소유자입니다. Azure resource create,
+Huginn은 실시간 resource discovery와 normalized `Change` record의 논리적 소유자입니다. Azure resource create,
 update, delete signal은 canonical Event Hubs Kafka ingress로 들어오며 Huginn이 이를
 정규화하고 dedup 및 correlate한 뒤 `Event`로 publish합니다. Azure 전용 parsing,
+Authoritative event time이 있는 IaC plan, release request, provider activity는
+`object.change`도 생성하며 Muninn은 decision context를 위해 immutable content-addressed
+revision을 보존합니다. 이 projection은 action authority를 제공하지 않습니다. Azure 전용 parsing,
 point enrichment, durable inventory projection은 주입된 delivery 책임으로 유지합니다.
 Huginn은 Azure SDK를 import하거나 inventory database를 직접 쓰지 않습니다. Scheduled
 Inventory sync job은 누락된 signal을 완전한 ARG/ARM snapshot으로 복구하는 주기적
@@ -280,14 +283,14 @@ self-improvement. **X**-agent 는 [agent-workflows.md](agent-workflows-ko.md)
 | Odin | 주간 portfolio 리뷰, priority-policy 튜닝 | Forseti signal 에 arbitrate_domain_conflict | portfolio outcome score self-audit | 7 (Agent health), 2 (Predictive scale) tie-break |
 | Thor | execution-path health check, retry-strategy 캐시 warmup | verdict dispatch, rollback trigger, rate-limit 강제 | high-risk action pre-flight simulation | 1 (Cost-aware remediation), 2 (Predictive scale), 11 (Readiness), 12 (Scheduled Python) |
 | Forseti | rule-cache 리프레시, retrospective what-if batch, verdict coherence self-test | 이벤트 판단 (T0/T1/T2), domain_conflict emit, SecurityEvent emit | novelty drift 감지 (T0 vs T2 mix) | 1, 2, 5 (Security escalation), 8 (Judgment coherence), 11, 12 |
-| Huginn | source health check, discovery cursor/backpressure check, dedup window 유지 | resource create/update/delete Event 정규화 + dedup + correlate + publish | 적응형 스키마 학습 (T1 clustering, off-path) | 모든 워크플로우에 feed |
+| Huginn | source health check, discovery cursor/backpressure check, dedup window 유지 | Event 및 normalized Change 정규화 + dedup + correlate + publish | 적응형 스키마 학습 (T1 clustering, off-path) | 모든 워크플로우에 feed |
 | Heimdall | anomaly baseline 업데이트, forecast 리프레시, discovery freshness/coverage probe, T2 proposer health receipt reduction, external-actor 리스트 리프레시, agent-health probe | anomaly detect, drift detect, terminal proposer exhaustion correlate, discovery degradation correlate, SecurityEvent correlate, notify_admin | multi-signal 다신호 상관 | 1, 2, 3 (DR drill), 5, 7 (Agent health), 9 (Rollback rehearsal) |
 | Vidar | rollback-path 검증, DR readiness score, recovery-time SLI | perform_rollback, dr_failover | rollback rehearsal (shadow) | 3, 9 |
 | Var | approval SLA 모니터, approver 가용성 tracking | HIL 카드 제시, quorum 강제, timeout / escalation | approval provenance 기록 | 4 (Override -> Discovery), 5, 11, 12 |
 | Bragi | 만료 세션 정리, UserPreference index 리프레시 | NL routing, multi-agent aggregation, NL 렌더링 | intent classifier 재학습 (T1, off-path) | 7, 10 (Retrospective what-if), 12 |
 | Saga | audit-chain 무결성 self-check, issue-close scan, fingerprint index compaction | append AuditEntry, escalate_to_github_issue, replay for reconstruction | audit chain tamper 감지 | 모든 워크플로우 (audit) |
 | Mimir | rule-source 폴링, regression suite, deprecation cycle | rule promote / revoke, cache-invalidation broadcast | freshness-score, stale-rule 감지 | 4, 6 (Handoff -> Capability), 8, 11 |
-| Muninn | 스냅샷 rotation, RAG index rebuild, cache eviction, case-history retention | Forseti 를 위한 context fetch, Bragi 를 위한 state query, retention tick 적용 | trending-query pre-warm, ontology cross-check | 판단을 touch 하는 모든 워크플로우 지원 |
+| Muninn | 스냅샷 rotation, RAG index rebuild, cache eviction, case-history retention | Forseti 를 위한 context fetch, immutable Change revision 저장, Bragi 를 위한 state query, retention tick 적용 | trending-query pre-warm, ontology cross-check | 판단을 touch 하는 모든 워크플로우 지원 |
 | Norns | 시간당 배치 audit 분석, 스트리밍 pattern extraction | pattern signal, RuleCandidate publish, close_issue signal | 모델 성능 drift 감지 | 4, 6, 8 (Judgment coherence), 10 |
 | Njord | cost ingestion (daily), budget 모니터, cost forecasting | bounded cost sample -> anomaly, budget breach alert, cost-advisor query | RI / SP 최적화 proposal | 1, 2 |
 | Freyr | utilization 샘플링, capacity forecasting, sizing 분석 | bounded utilization sample -> forecast, scale proposal, capacity advisor query | 다차원 capacity (CPU + IOPS + net + mem) | 2, 3 |
@@ -423,6 +426,7 @@ Dead-letter write는 제한된 backoff 후 consumer를 재시작합니다. 오�
 | Topic | Publisher | Primary subscribers |
 |-------|-----------|---------------------|
 | object.event | Huginn | Heimdall, Muninn(retention tick), Njord/Freyr/Loki(bounded specialist signal) |
+| object.change | Huginn | Muninn (immutable change revision) |
 | object.anomaly, object.drift, object.forecast | Heimdall | Forseti; Muninn은 감지 준비도 drift만 읽음 |
 | object.forecast-outcome | Heimdall | Saga, Muninn |
 | object.security-event | Forseti | Heimdall (correlation), Saga |

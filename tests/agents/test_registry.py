@@ -115,6 +115,7 @@ def test_registry_lookup_owner_of_object_type() -> None:
     assert reg.owner_of_object_type("Rollback") == "Vidar"
     assert reg.owner_of_object_type("AuditEntry") == "Saga"
     assert reg.owner_of_object_type("Rule") == "Mimir"
+    assert reg.owner_of_object_type("Change") == "Huginn"
 
 
 def test_registry_lookup_owner_of_topic() -> None:
@@ -122,6 +123,7 @@ def test_registry_lookup_owner_of_topic() -> None:
     assert reg.owner_of_topic("object.action-run") == "Thor"
     assert reg.owner_of_topic("object.verdict") == "Forseti"
     assert reg.owner_of_topic("object.audit-entry") == "Saga"
+    assert reg.owner_of_topic("object.change") == "Huginn"
 
 
 def test_publish_authorization_accepts_owner() -> None:
