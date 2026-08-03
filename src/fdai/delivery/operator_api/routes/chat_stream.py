@@ -1181,8 +1181,18 @@ def make_chat_stream_route(
                     },
                 )
             except HTTPException as exc:
+                _LOG.warning(
+                    "chat stream HTTP failure",
+                    extra={"request_id": request_id, "status_code": exc.status_code},
+                )
                 await cleanup()
-                yield frame("error", {"detail": str(exc.detail)})
+                yield frame(
+                    "error",
+                    {
+                        "code": "chat_stream_failed",
+                        "detail": "chat stream failed",
+                    },
+                )
             except Exception as exc:  # noqa: BLE001 - surface as a stream error, never 500 mid-stream
                 _LOG.warning("chat stream failed: %s", type(exc).__name__, exc_info=True)
                 await cleanup()

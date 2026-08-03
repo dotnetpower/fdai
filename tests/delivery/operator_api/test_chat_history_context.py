@@ -868,7 +868,10 @@ def test_stream_upstream_failure_discards_buffered_tokens() -> None:
 
         async def answer_stream(self, **_kwargs: object) -> object:
             yield {"type": "token", "delta": "must-not-leak"}
-            raise HTTPException(status_code=502, detail="incomplete upstream stream")
+            raise HTTPException(
+                status_code=502,
+                detail="upstream failed at https://internal.example/token-secret",
+            )
 
     response = TestClient(
         Starlette(routes=[make_chat_stream_route(backend=Backend(), authorize=_allow)])
@@ -879,7 +882,10 @@ def test_stream_upstream_failure_discards_buffered_tokens() -> None:
 
     assert response.status_code == 200
     assert "event: error" in response.text
-    assert "incomplete upstream stream" in response.text
+    assert '"code": "chat_stream_failed"' in response.text
+    assert '"detail": "chat stream failed"' in response.text
+    assert "internal.example" not in response.text
+    assert "token-secret" not in response.text
     assert "must-not-leak" not in response.text
     assert "event: done" not in response.text
 
