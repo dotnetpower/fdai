@@ -2519,6 +2519,52 @@ def test_complete_resource_group_table_skips_semantic_planner(stream: bool) -> N
     assert payload["verification"]["authority"] == "server_inventory_graph"
 
 
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "현재 관리 범위의 리소스를 이름, 유형, 상태와 함께 보여줘.",
+        "Show resources in managed scope with their current state.",
+    ),
+)
+def test_managed_scope_inventory_skips_semantic_planner(stream: bool, prompt: str) -> None:
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            raise AssertionError("complete managed-scope query must not invoke semantic planning")
+
+    tools = InventoryChatTools(_provider)
+    route = (
+        make_chat_stream_route(
+            backend=RecordingBackend(),
+            authorize=_allow,
+            tool_resolver=tools,
+            planned_tool_resolver=tools,
+            turn_planner=Planner(),  # type: ignore[arg-type]
+            turn_tools=tools.turn_tools(),
+        )
+        if stream
+        else make_chat_route(
+            backend=RecordingBackend(),
+            authorize=_allow,
+            tool_resolver=tools,
+            planned_tool_resolver=tools,
+            turn_planner=Planner(),  # type: ignore[arg-type]
+            turn_tools=tools.turn_tools(),
+        )
+    )
+
+    response = TestClient(Starlette(routes=[route])).post(
+        "/chat/stream" if stream else "/chat",
+        json={"prompt": prompt, "view_context": {}},
+    )
+
+    assert response.status_code == 200
+    payload = _inventory_done_event(response.text) if stream else response.json()
+    assert payload is not None
+    assert payload["verification"]["authority"] == "server_inventory_graph"
+    assert payload["verification"]["reason_code"] == "inventory_snapshot_grounded"
+
+
 def test_resource_followup_reuses_verified_selector_without_planner_or_web() -> None:
     delegated: list[str] = []
 
