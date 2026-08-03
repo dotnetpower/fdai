@@ -36,17 +36,27 @@ _IMPACT: Final = re.compile(
 )
 _NEXT_ACTION: Final = re.compile(
     r"\b(?:safest|highest-value)\s+next\s+step\b|"
-    r"가장\s*먼저.{0,24}(?:확인|완화)|다음\s*(?:단계|조치)",
+    r"\bnext\s+action.{0,48}(?:best\s+value|lowest\s+(?:supported\s+)?risk)\b|"
+    r"\b(?:checked|mitigated).{0,24}first.{0,32}(?:current\s+evidence|given)\b|"
+    r"가장\s*먼저.{0,24}(?:확인|완화)|다음\s*(?:단계|조치)|"
+    r"우선\s*확인.{0,24}(?:완화|순서)|안전한\s*완화\s*순서",
     re.IGNORECASE,
 )
 _CONSUMED_EVIDENCE: Final = re.compile(
     r"\b(?:evidence consumed by the conclusion|show only the evidence)\b|"
-    r"결론.{0,24}(?:근거|증거).{0,12}(?:만|보여)|(?:근거|증거)만\s*보여",
+    r"\b(?:evidence references|observed facts).{0,48}"
+    r"(?:prior conclusion|previous answer|supported)\b|"
+    r"결론.{0,32}(?:근거|증거|evidence).{0,16}(?:만|보여|나열|사용)|"
+    r"(?:근거|증거|evidence)만\s*(?:보여|나열)|"
+    r"이전\s*결론.{0,32}(?:사용된|evidence)",
     re.IGNORECASE,
 )
 _UNKNOWNS: Final = re.compile(
     r"\b(?:remains unknown|unresolved unknowns|evidence needed to decide)\b|"
-    r"확인하지\s*못한|필요한\s*추가\s*(?:근거|증거)|미확인",
+    r"\b(?:unresolved questions|conclusions?\s+(?:are\s+)?still uncertain)\b|"
+    r"\b(?:additional evidence|what data).{0,32}(?:needed|confirm|resolve)\b|"
+    r"확인하지\s*못한|필요한\s*추가\s*(?:근거|증거)|미확인|미확정|"
+    r"(?:unknown).{0,32}(?:원본|확인)|(?:해결할|추가)\s*evidence",
     re.IGNORECASE,
 )
 _DEEP_INVESTIGATION: Final = re.compile(

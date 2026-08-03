@@ -879,6 +879,35 @@ async def test_q067_q072_dossier_requires_incident_selection(prompt: str) -> Non
     assert len(evidence["candidates"]) == 2
 
 
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "지금 우선 확인할 항목과 안전한 완화 순서를 알려줘.",
+        "Recommend the next action with the best value and lowest supported risk.",
+        "What should be checked or mitigated first, given the current evidence?",
+        "이전 결론에 실제로 사용된 evidence만 나열해줘.",
+        "List the exact evidence references used for the prior conclusion and nothing else.",
+        "Return only the observed facts that supported the previous answer.",
+        "현재 결론에서 미확정인 사항과 이를 해결할 evidence를 알려줘.",
+        "무엇이 아직 unknown이고 어떤 원본을 더 확인해야 해?",
+        "Separate unresolved questions from the additional evidence needed for each one.",
+        "Which conclusions are still uncertain, and what data would confirm them?",
+    ),
+)
+async def test_q073_q078_dossier_requires_incident_selection(prompt: str) -> None:
+    assert classify_incident_dossier_intent(prompt) is not None
+    assert needs_operational_evidence(prompt) is True
+    model = InMemoryConsoleReadModel()
+    _seed_memory_incident(model, "corr-memory-a")
+    _seed_memory_incident(model, "corr-memory-b")
+
+    evidence = await OperationalEvidenceResolver(model).resolve(prompt)
+
+    assert evidence is not None
+    assert evidence["status"] == "ambiguous"
+    assert len(evidence["candidates"]) == 2
+
+
 async def test_exact_incident_binding_wins_over_equal_topic_matches() -> None:
     class RecordingReadModel(InMemoryConsoleReadModel):
         incident_queries: list[dict[str, Any]]
