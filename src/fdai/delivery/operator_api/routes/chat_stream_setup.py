@@ -232,7 +232,7 @@ async def prepare_chat_stream_request(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     selector_hold = (
         None
-        if needs_action_context(clean_prompt)
+        if needs_action_context(clean_prompt) or needs_subscription_health_context(clean_prompt)
         else missing_read_investigation_context_evidence(clean_prompt, resource_context)
     )
     if selector_hold is None:

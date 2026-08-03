@@ -64,8 +64,17 @@ async def _allow(request: Request) -> str:
 def test_context_dependent_questions_hold_without_prior_context() -> None:
     prompts = (
         "Cancel the active investigation and confirm what work stopped.",
+        "active investigation을 중단하고 어떤 phase가 취소됐는지 보여줘.",
+        "현재 대화 조사를 취소하되 action이나 approval은 변경하지 마.",
+        "Stop the current conversational investigation and list the cancelled phases.",
+        "Interrupt the active investigation only, then report what was and was not cancelled.",
         "What does the applicable runbook recommend, with source citations?",
+        "선택한 문제에 적용 가능한 검토 완료 런북과 source를 보여줘.",
+        "현재 context에 맞는 trusted runbook이 있으면 citation과 함께 알려줘.",
+        "Load the reviewed runbook that applies here and cite its trusted source.",
+        "Which governed runbook matches this context, and what does it recommend?",
         "Which knowledge sources are connected, authorized, and fresh?",
+        "enabled knowledge source별 승인 상태와 last refresh를 알려줘.",
         "What would be stored as durable memory, with consent and provenance?",
         "What reusable lesson was learned, reviewed, and retained?",
         "Recheck the second resource from the previous result.",

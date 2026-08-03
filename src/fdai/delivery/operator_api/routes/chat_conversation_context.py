@@ -25,12 +25,17 @@ _MAX_EVIDENCE_REFS = 64
 _MAX_REF_CHARS = 1_024
 
 _CONTEXT_REQUIRED: Final = re.compile(
-    r"\b(?:cancel\s+the\s+active\s+investigation|applicable\s+runbook|knowledge\s+sources|"
+    r"\b(?:cancel\s+the\s+active\s+investigation|stop\s+the\s+current\s+conversational\s+"
+    r"investigation|interrupt\s+the\s+active\s+investigation|applicable\s+runbook|"
+    r"reviewed\s+runbook|trusted\s+runbook|governed\s+runbook|knowledge\s+sources|"
+    r"enabled\s+knowledge\s+sources?|reviewed\s+knowledge\s+sources?|"
     r"durable\s+memory|reusable\s+lesson|second\s+resource|previous\s+result|multiple\s+"
     r"resources\s+match|same\s+verified\s+answer|same\s+evidence|one\s+source\s+is\s+"
     r"unavailable|supported\s+facts\s+and\s+explicit\s+limits|prior\s+evidence|"
     r"failed\s+source|cancel\s+that\s+investigation)\b|"
-    r"(?:진행\s*중인\s*조사|관련된\s*런북|지식\s*원본|해결\s*방법을\s*기억|"
+    r"(?:진행\s*중인\s*조사|active\s+investigation(?:을|를)?|현재\s*대화\s*조사|"
+    r"관련된\s*런북|검토\s*완료\s*런북|trusted\s+runbook(?:이|을|를)?|지식\s*원본|"
+    r"enabled\s+knowledge\s+source.{0,32}(?:승인\s*상태|last\s*refresh)|"
     r"학습한\s*내용|두\s*번째로\s*말한\s*리소스|이름이\s*같은\s*리소스|같은\s*근거|"
     r"데이터\s*원본이\s*실패)",
     re.IGNORECASE,
