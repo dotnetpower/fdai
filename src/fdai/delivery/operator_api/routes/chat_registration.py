@@ -40,6 +40,7 @@ from fdai.delivery.operator_api.routes.chat_capability_registry import (
     ConversationCapability,
     ConversationCapabilityRegistry,
     static_capabilities,
+    validate_panel_chat_bindings,
 )
 from fdai.delivery.operator_api.routes.chat_current_time import CurrentTimeChatTools
 from fdai.delivery.operator_api.routes.chat_data_sources import DataSourceChatTools
@@ -141,6 +142,7 @@ def append_chat_routes(
     handover_availability_publisher: HandoverAvailabilityPublisher | None = None,
     authorize: Callable[[Request], Awaitable[str]],
     read_model: ConsoleReadModel,
+    panels: Collection[Any] = (),
     core_paths: Collection[str],
     panel_paths: Collection[str],
     logger: logging.Logger,
@@ -304,6 +306,7 @@ def append_chat_routes(
             )
         )
     capability_registry = ConversationCapabilityRegistry(capabilities)
+    validate_panel_chat_bindings(tuple(panels), capability_registry.registered_tools())
     planned_tools = _PlannedToolChain(
         *((subscription_health_tools,) if subscription_health_provider is not None else ()),
         *((llm_usage_tools,) if isinstance(llm_usage_tools, LlmUsageChatTools) else ()),

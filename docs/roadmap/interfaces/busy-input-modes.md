@@ -200,7 +200,7 @@ unavailable instead of borrowing screen state or guessing.
 A verified read-source manifest with unavailable or unknown entries stores a versioned
 source-failure receipt. Partial-source follow-ups separate available source facts from exact gaps,
 including reason and last observation when present, and never substitute another authority.
-A queued analytical refinement can reuse only a verified server-issued `analysis_context`. The implemented LLM usage anchor preserves the token measure, grouping, `usage_scope`, and a numeric 1-90 day lookback, including bounded week and month conversion.
+A queued analytical refinement can reuse only a verified server-issued `analysis_context`. The implemented LLM usage anchor preserves the token measure, grouping, `usage_scope`, and a numeric 1-90 day lookback, including bounded week and month conversion. A panel that declares `conversation_tool` requires that registered capability whenever chat is enabled; a mismatch blocks startup.
 A period, grouping, table, or chart-only follow-up re-reads measured metering records. A verified chart carries a `chart_artifact` v1 with evidence references, while fenced chart text remains the compatibility fallback. Comparison, export, missing-anchor, and client-supplied-anchor requests return a context-required hold and never widen to subscription health or inventory.
 
 ## Queue behavior

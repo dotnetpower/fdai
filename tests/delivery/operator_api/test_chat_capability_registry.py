@@ -3,6 +3,7 @@ from __future__ import annotations
 from fdai.delivery.operator_api.routes.chat_capability_registry import (
     ConversationCapability,
     ConversationCapabilityRegistry,
+    validate_panel_chat_bindings,
 )
 from fdai.delivery.operator_api.routes.chat_turn_plan import TurnTool
 
@@ -69,3 +70,18 @@ def test_registry_keeps_enabled_separate_from_available() -> None:
     assert registry.visible_tools() == ()
     enabled = True
     assert [tool.name for tool in registry.visible_tools()] == ["web_search"]
+
+
+def test_declared_panel_chat_binding_requires_registered_tool() -> None:
+    class Panel:
+        name = "llm-cost"
+        conversation_tool = "query_llm_usage"
+
+    validate_panel_chat_bindings((Panel(), object()), (_tool("query_llm_usage"),))
+
+    try:
+        validate_panel_chat_bindings((Panel(),), (_tool("query_inventory"),))
+    except ValueError as exc:
+        assert str(exc) == "panel 'llm-cost' requires chat capability 'query_llm_usage'"
+    else:
+        raise AssertionError("missing declared panel chat capability must fail closed")

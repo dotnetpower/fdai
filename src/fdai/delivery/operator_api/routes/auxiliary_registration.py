@@ -103,6 +103,7 @@ def append_auxiliary_routes(
         handover_availability_publisher=config.handover_availability_publisher,
         authorize=authorize,
         read_model=read_model,
+        panels=config.extra_panels,
         core_paths=core_paths,
         panel_paths=seen_panel_paths,
         logger=logger,

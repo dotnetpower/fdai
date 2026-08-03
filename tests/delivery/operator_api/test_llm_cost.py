@@ -201,6 +201,7 @@ def test_panel_metadata() -> None:
     panel = LlmCostPanel(InMemoryMeteringSink())
     assert panel.path == "/kpi/llm-cost"
     assert panel.name == "llm-cost"
+    assert panel.conversation_tool == "query_llm_usage"
 
 
 async def test_empty_metering_has_no_latest_invocation() -> None:
@@ -246,3 +247,29 @@ def test_build_app_serves_llm_cost_route(dev_env: None) -> None:
 
     # Read-only invariant: no mutating verb on the panel route.
     assert client.post("/kpi/llm-cost").status_code == 405
+
+
+def test_chat_enabled_cost_panel_requires_usage_capability(dev_env: None) -> None:
+    del dev_env
+
+    class Backend:
+        async def answer(self, **_kwargs: object) -> dict[str, str]:
+            return {"answer": "unused", "model": "test"}
+
+    authenticator = build_authenticator(
+        verifier=UnsafeClaimsExtractor(),
+        resolver=RoleResolver(group_mapping=_mapping()),
+    )
+    with pytest.raises(
+        ValueError,
+        match="panel 'llm-cost' requires chat capability 'query_llm_usage'",
+    ):
+        build_app(
+            authenticator=authenticator,
+            read_model=InMemoryConsoleReadModel(),
+            config=OperatorApiConfig(
+                dev_mode=True,
+                chat=Backend(),
+                extra_panels=(LlmCostPanel(InMemoryMeteringSink()),),
+            ),
+        )

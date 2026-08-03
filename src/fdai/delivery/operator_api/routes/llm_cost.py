@@ -118,6 +118,10 @@ class LlmCostPanel:
     def name(self) -> str:
         return "llm-cost"
 
+    @property
+    def conversation_tool(self) -> str:
+        return "query_llm_usage"
+
     async def render(self, *, params: Mapping[str, str]) -> Mapping[str, Any]:
         """Return measured token usage rollups and invocation facts.
 

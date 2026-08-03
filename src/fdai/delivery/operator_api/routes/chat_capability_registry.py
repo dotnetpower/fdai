@@ -34,6 +34,11 @@ class ConversationCapabilityRegistry:
             if capability.enabled() and capability.available()
         )
 
+    def registered_tools(self) -> tuple[TurnTool, ...]:
+        """Return every declared tool regardless of request-time availability."""
+
+        return tuple(capability.tool for capability in self._capabilities)
+
     def status(self) -> tuple[dict[str, object], ...]:
         return tuple(
             {
@@ -65,8 +70,27 @@ def static_capabilities(
     )
 
 
+def validate_panel_chat_bindings(
+    panels: Sequence[object],
+    tools: Sequence[TurnTool],
+) -> None:
+    """Fail when a panel declares a conversational companion that is absent."""
+
+    tool_names = {tool.name for tool in tools}
+    for panel in panels:
+        tool_name = getattr(panel, "conversation_tool", None)
+        if tool_name is None:
+            continue
+        panel_name = getattr(panel, "name", None)
+        if not isinstance(panel_name, str) or not panel_name or not isinstance(tool_name, str):
+            raise ValueError("panel conversation binding is invalid")
+        if tool_name not in tool_names:
+            raise ValueError(f"panel {panel_name!r} requires chat capability {tool_name!r}")
+
+
 __all__ = [
     "ConversationCapability",
     "ConversationCapabilityRegistry",
     "static_capabilities",
+    "validate_panel_chat_bindings",
 ]
