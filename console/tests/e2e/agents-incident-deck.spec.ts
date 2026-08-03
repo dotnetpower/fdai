@@ -239,13 +239,27 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await expect(investigation.locator(".deck-investigation-item")).toHaveCount(1);
   await expect(investigation.locator(".deck-investigation-kind-badge")).toHaveText("QUERY");
 
+  const runRecord = workspace.locator(".deck-trajectory");
+  await runRecord.locator(":scope > summary").click();
+  await expect(runRecord).toHaveAttribute("open", "");
+  await expect(runRecord.locator(".deck-trajectory-question strong")).toHaveText(
+    "List resource groups",
+  );
+  await expect(prompt).toBeVisible();
+
   const metrics = await workspace.evaluate((root) => {
     const transcript = root.querySelector<HTMLElement>(".deck-transcript");
     const command = root.querySelector<HTMLElement>(".deck-investigation-command");
+    const composer = root.querySelector<HTMLElement>(".deck-input-row");
     const code = command?.querySelector<HTMLElement>("code");
+    const rootBounds = root.getBoundingClientRect();
+    const composerBounds = composer?.getBoundingClientRect();
     return {
       viewportWidth: window.innerWidth,
       transcriptWidth: transcript?.clientWidth ?? 0,
+      transcriptScrolls: transcript
+        ? transcript.scrollHeight > transcript.clientHeight
+        : false,
       bodyOverflow: document.body.scrollWidth > document.body.clientWidth,
       investigationOverflow: (() => {
         const investigation = root.querySelector<HTMLElement>(".deck-investigation");
@@ -253,6 +267,9 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
           ? investigation.scrollWidth > investigation.clientWidth
           : true;
       })(),
+      composerInsideDeck: composerBounds
+        ? composerBounds.top >= rootBounds.top && composerBounds.bottom <= rootBounds.bottom
+        : false,
       commandBackground: command ? getComputedStyle(command).backgroundColor : "",
       codeBackground: code ? getComputedStyle(code).backgroundColor : "",
     };
@@ -262,8 +279,10 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   } else {
     expect(metrics.transcriptWidth).toBeGreaterThanOrEqual(metrics.viewportWidth - 1);
   }
+  expect(metrics.transcriptScrolls).toBe(true);
   expect(metrics.bodyOverflow).toBe(false);
   expect(metrics.investigationOverflow).toBe(false);
+  expect(metrics.composerInsideDeck).toBe(true);
   expect(metrics.commandBackground).toBe("rgb(31, 36, 40)");
   expect(metrics.codeBackground).toBe("rgba(0, 0, 0, 0)");
 });

@@ -6299,6 +6299,9 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-trajectory-stats { min-width: 0; overflow: hidden; color: var(--fg-muted); font-size: .875rem; text-overflow: ellipsis; white-space: nowrap; }
 .deck-trajectory-duration { color: var(--fg-muted); font-size: .8125rem; font-variant-numeric: tabular-nums; }
 .deck-trajectory-chevron { width: 7px; height: 7px; border-right: 1.5px solid var(--fg-muted); border-bottom: 1.5px solid var(--fg-muted); transform: rotate(45deg) translateY(-2px); transition: transform .16s ease; }
+.deck-trajectory-question { grid-column: 1 / -1; min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+.deck-trajectory-question small { flex: 0 0 auto; color: var(--fg-muted); font-size: var(--deck-font-small); font-weight: 750; text-transform: uppercase; }
+.deck-trajectory-question strong { min-width: 0; overflow: hidden; color: var(--fg); font-size: var(--deck-font-body); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .deck-trajectory[open] .deck-trajectory-chevron { transform: rotate(225deg) translate(-1px, -1px); }
 .deck-trajectory-body { padding: 13px 12px 11px; border-top: 1px solid var(--border); background: var(--bg); }
 .deck-trajectory-phase-strip {

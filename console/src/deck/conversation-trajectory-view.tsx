@@ -100,6 +100,10 @@ export function ConversationTrajectoryView({
             : formatDuration(trajectory.durationMs)}
         </span>
         <span class="deck-trajectory-chevron" aria-hidden="true" />
+        <span class="deck-trajectory-question">
+          <small>{t("deck.trajectory.phase.input")}</small>
+          <strong>{trajectory.question.text}</strong>
+        </span>
       </summary>
       {open ? (
         <div class="deck-trajectory-body">

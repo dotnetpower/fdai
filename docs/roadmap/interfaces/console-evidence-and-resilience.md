@@ -204,9 +204,9 @@ provider payloads, and validation results remain unchanged.
 ## Observed conversation trajectory
 
 Each completed Command Deck question exposes one collapsed observed trajectory. Its status overview distinguishes completed, corrected, degraded, failed, unverified, running, and unobserved phases; record presence isn't success.
-Recorded event, evidence, reference, and verification counts appear as compact result chips. The
-expanded view leads with the six-phase rail, expandable observed-event timeline, and provenance
-signals, while timing windows, decision context, phase records, and coverage gaps remain in one
+Recorded event, evidence, reference, and verification counts appear as compact result chips. The collapsed run-record summary retains a bounded
+one-line copy of the operator prompt, and expanding the record scrolls only the transcript while the composer remains visible at the Deck boundary. The expanded view leads with the six-phase rail,
+expandable observed-event timeline, and provenance signals, while timing windows, decision context, phase records, and coverage gaps remain in one
 collapsed execution-details disclosure.
 The preparing-answer surface remains between the operator turn and observed work until final answer
 streaming starts. The transcript disables browser scroll anchoring, keeps extra bottom space, and

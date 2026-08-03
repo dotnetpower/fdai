@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 81449ed87a2cd9958528bed51272e5596362ee3f
+translation_source_sha: 101c4a877d4740c95ec018fcd23165d274ae8551
 translation_revised: 2026-08-03
 ---
 
@@ -204,8 +204,8 @@ provider payload 및 validation result는 변경하지 않습니다.
 
 완료된 각 Command Deck 질문은 접힌 observed trajectory를 표시합니다. 상태 개요는 완료, 수정 후 완료,
 일부 저하, 실패, 검증 미완료, 진행 중 및 관측되지 않음을 구분하며 record 존재를 성공으로 표시하지
-않습니다. 기록된 event, evidence, reference 및 verification count는 compact result chip으로 표시합니다.
-펼친 view는 6단계 rail, 펼칠 수 있는 observed-event timeline 및 provenance signal을 먼저 표시하고,
+않습니다. 기록된 event, evidence, reference 및 verification count는 compact result chip으로 표시하며, 접힌 run-record summary는 operator prompt를 bounded 한 줄로 유지합니다.
+Record를 펼치면 transcript만 scroll하고 composer는 Deck 경계에 계속 표시됩니다. 펼친 view는 6단계 rail, 펼칠 수 있는 observed-event timeline 및 provenance signal을 먼저 표시하고,
 timing window, decision context, phase record 및 coverage gap은 하나의 접힌 execution-details disclosure에
 유지합니다. Preparing-answer surface는 final answer streaming이 시작될 때까지 operator turn과 observed
 work 사이에 유지됩니다. Transcript는 browser scroll anchoring을 끄고 하단 공간을 추가하며 latest edge만
