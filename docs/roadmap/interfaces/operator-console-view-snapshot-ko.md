@@ -1,8 +1,8 @@
 ---
 title: Operator Console - View Snapshot Contract
 translation_of: operator-console-view-snapshot.md
-translation_source_sha: b1964ff4e0ad2f9a9871fee7b5ff04662bfc24d7
-translation_revised: 2026-07-24
+translation_source_sha: 220b43ce0ff443bc8198f2891cbb9888292733e7
+translation_revised: 2026-08-03
 ---
 
 # Operator Console - View Snapshot Contract
@@ -123,7 +123,7 @@ pending surface를 streaming answer로 전환합니다. 두 surface는 같은 �
 사용하며 짧은 entry motion과 staggered source row로 갑작스러운 layout jump를
 줄입니다. 이 구간에 수신된 text는 adaptive visual queue로 들어가며 backlog에 따라
 display frame마다 이미 pacing된 delta 1-3개를 drain합니다. 첫 paint에서 전체
-buffer를 한 번에 표시하지 않습니다. Answer가 처음 표시될 때와 terminal revision이
+buffer를 한 번에 표시하지 않습니다. Terminal-only answer는 token을 최대 30개 chunk로 묶어 visual reveal을 약 300 ms로 제한하며 server 완료 시각이 execution timing의 기준입니다. Answer가 처음 표시될 때와 terminal revision이
 render될 때 transcript는 preparation 중 operator가 위로 scroll했더라도 최신
 content로 이동합니다. 완료된 reply는 manifest entry를 독립 source가 아니라
 evidence reference로 표시합니다. Unsupported 문장을 제거하고 재검증을 통과한

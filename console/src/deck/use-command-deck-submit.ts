@@ -461,6 +461,7 @@ export function useCommandDeckSubmit({
         if (paintFrame !== null) cancelAnimationFrame(paintFrame);
         throw error;
       }
+      const terminalRecordedAt = reply.turnTiming?.completed_at ?? new Date().toISOString();
       terminalReplyReady = true;
       if (!started && isCurrent()) {
         const remaining = MIN_PREPARING_VISIBLE_MS - (Date.now() - preparingStartedAt);
@@ -510,7 +511,7 @@ export function useCommandDeckSubmit({
               ? {
                   ...turn,
                   text: reply.text,
-                  recordedAt: new Date().toISOString(),
+                  recordedAt: terminalRecordedAt,
                   streaming: false,
                   terminal: reply.source !== "stopped" && !reply.source.startsWith("partial"),
                   citations: reply.citations,

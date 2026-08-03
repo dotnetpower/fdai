@@ -378,6 +378,7 @@ class TestFullSnapshot:
         assert receipt["subscription_id"] == "sub-example"
         commands = receipt["commands"]
         assert isinstance(commands, list)
+        assert all(isinstance(command["duration_ms"], int) for command in commands)
         assert shlex.split(commands[0]["command"]) == [
             "az",
             "group",

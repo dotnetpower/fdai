@@ -169,6 +169,33 @@ describe("buildExecutionTimeline", () => {
     });
   });
 
+  it("does not render browser paint pacing as an observed execution gap", () => {
+    const input = trajectory({
+      recordedAt: "2026-07-31T07:00:07Z",
+      turnTiming: {
+        schema_version: 1,
+        started_at: "2026-07-31T07:00:00Z",
+        completed_at: "2026-07-31T07:00:05Z",
+        duration_ms: 5000,
+        phases: [{
+          phase: "verification",
+          status: "completed",
+          started_at: "2026-07-31T07:00:04Z",
+          completed_at: "2026-07-31T07:00:05Z",
+          duration_ms: 1000,
+        }],
+      },
+    }, { completedAt: "2026-07-31T07:00:07Z" });
+
+    const answer = buildExecutionTimeline(input).at(-1);
+
+    expect(answer).toMatchObject({
+      label: "answer",
+      startedAt: "2026-07-31T07:00:05Z",
+      gapWidthPct: 0,
+    });
+  });
+
   it("keeps input first when the server timing clock precedes the browser record", () => {
     const input = trajectory({
       turnTiming: {

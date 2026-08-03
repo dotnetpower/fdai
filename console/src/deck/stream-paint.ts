@@ -27,5 +27,11 @@ export function flushStreamPaint(queue: string[]): string {
  * presentation pacing only: joining the chunks reproduces the received answer
  * byte-for-byte. */
 export function terminalRevealChunks(text: string): string[] {
-  return text.match(/\S+\s*/g) ?? (text.length > 0 ? [text] : []);
+  const tokens = text.match(/\S+\s*/g) ?? (text.length > 0 ? [text] : []);
+  const tokensPerChunk = Math.max(1, Math.ceil(tokens.length / 30));
+  const chunks: string[] = [];
+  for (let index = 0; index < tokens.length; index += tokensPerChunk) {
+    chunks.push(tokens.slice(index, index + tokensPerChunk).join(""));
+  }
+  return chunks;
 }

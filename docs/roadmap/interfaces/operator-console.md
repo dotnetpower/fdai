@@ -117,8 +117,8 @@ flowchart TD
   bounded result projection without inventing Azure CLI argv or an exit code. Web labels a validated
   inventory query as `IQL`; source and result disclosures each close. A strict bounded execution
   receipt uses one terminal icon for Azure CLI and ARG commands. It shows the authenticated
-  subscription id, generic argv, count, and at most ten allowlisted preview rows while redacting
-  pagination tokens. Rows identify snapshot-refresh work while IQL filters that snapshot. The browser
+  subscription id, generic argv, measured command duration, count, and at most ten allowlisted
+  preview rows while redacting pagination tokens. Rows identify snapshot-refresh work while IQL filters that snapshot. The browser
   never reconstructs a command from IQL; a missing or invalid receipt produces no provider row.
   Other server queries retain `QUERY`, and only a provider receipt that records a process invocation
   uses `command`. Slack, Teams, and durable replay preserve the query/command distinction.

@@ -17,6 +17,7 @@ def test_projects_subscription_scope_and_bounded_command_result() -> None:
                     "label": "resources",
                     "language": "azure_cli",
                     "command": "az graph query --subscriptions subscription-example",
+                    "duration_ms": 321,
                     "result": {
                         "count": 1,
                         "preview": [{"name": "resource-example", "type": "example/type"}],
@@ -29,6 +30,7 @@ def test_projects_subscription_scope_and_bounded_command_result() -> None:
 
     assert projected is not None
     assert projected["subscription_id"] == "subscription-example"
+    assert projected["commands"][0]["duration_ms"] == 321
     assert projected["commands"][0]["result"]["preview"] == [
         {"name": "resource-example", "type": "example/type"}
     ]

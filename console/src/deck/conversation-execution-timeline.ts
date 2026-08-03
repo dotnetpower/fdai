@@ -263,11 +263,11 @@ function rawItems(
   }
   if (trajectory.completedAt) {
     const source = trajectory.answer.source ?? trajectory.answer.agent ?? "recorded";
-    const answerAt = latestTimestamp([
-      trajectory.completedAt,
+    const serverAnswerAt = latestTimestamp([
       trajectory.answer.turnTiming?.completed_at,
       ...(trajectory.answer.turnTiming?.phases.map((phase) => phase.completed_at) ?? []),
-    ]) ?? trajectory.completedAt;
+    ]);
+    const answerAt = serverAnswerAt ?? trajectory.completedAt;
     items.push(pointItem("turn-answer", "answer", "terminal", answerAt, {
       summary: trajectory.answer.verification
         ? `verification: ${trajectory.answer.verification.status}`

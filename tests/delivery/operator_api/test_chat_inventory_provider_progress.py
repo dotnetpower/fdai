@@ -23,6 +23,7 @@ def test_provider_progress_exposes_subscription_command_and_bounded_result() -> 
                             "label": "resources",
                             "language": "azure_cli",
                             "command": "az graph query --subscriptions subscription-example",
+                            "duration_ms": 321,
                             "result": {
                                 "count": 1,
                                 "preview": [{"name": "resource-example", "type": "example/type"}],
@@ -41,6 +42,7 @@ def test_provider_progress_exposes_subscription_command_and_bounded_result() -> 
     execution = event["execution"]
     assert isinstance(execution, dict)
     assert "subscription-example" in execution["command"]
+    assert execution["duration_ms"] == 321
     assert json.loads(execution["output"]) == {
         "count": 1,
         "preview": [{"name": "resource-example", "type": "example/type"}],

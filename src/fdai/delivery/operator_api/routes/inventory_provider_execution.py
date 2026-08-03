@@ -41,12 +41,21 @@ def project_inventory_provider_execution(value: object) -> dict[str, Any] | None
         label = command.get("label")
         language = command.get("language")
         text = command.get("command")
+        duration_ms = command.get("duration_ms")
         if (
             label not in {"resource_groups", "resources"}
             or language != "azure_cli"
             or not isinstance(text, str)
             or not 1 <= len(text) <= 4096
             or "\n" in text
+            or (
+                duration_ms is not None
+                and (
+                    not isinstance(duration_ms, int)
+                    or isinstance(duration_ms, bool)
+                    or not 0 <= duration_ms <= 60_000
+                )
+            )
         ):
             return None
         result = _project_provider_result(command.get("result"))
@@ -57,6 +66,7 @@ def project_inventory_provider_execution(value: object) -> dict[str, Any] | None
                 "label": label,
                 "language": language,
                 "command": text,
+                **({"duration_ms": duration_ms} if duration_ms is not None else {}),
                 **({"result": result} if result is not None else {}),
             }
         )

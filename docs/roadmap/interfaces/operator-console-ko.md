@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 8823f636fd9d06e5e1115e2e636243075c820fa1
+translation_source_sha: 19570380eb6bc5fc34f5e13cfd5d28cc1aa46e9a
 translation_revised: 2026-08-03
 ---
 
@@ -116,8 +116,8 @@ flowchart TD
   Verifier가 승인한 typed query, authority, snapshot provenance 및 bounded result projection을 렌더링하며
   Azure CLI argv 또는 exit code를 만들지 않습니다. Web은 validation된 inventory query를 `IQL`로
   표시하며 source와 result disclosure를 각각 닫습니다. Strict bounded receipt는 Azure CLI와 ARG에
-  같은 terminal icon을 사용하고 인증된 subscription id, generic argv, count 및 allowlist된 preview
-  row 최대 10개를 표시하면서 pagination token은 redaction합니다. Row는 snapshot-refresh 작업을
+  같은 terminal icon을 사용하고 인증된 subscription id, generic argv, 측정된 command duration, count
+  및 allowlist된 preview row 최대 10개를 표시하면서 pagination token은 redaction합니다. Row는 snapshot-refresh 작업을
   식별하며 Browser는 IQL에서 command를 재구성하지 않습니다. 유효한 receipt가 없으면 provider row도
   만들지 않습니다. 다른 server query는 `QUERY`를 유지하고
   process invocation을 기록한 provider receipt만 `command`를 사용합니다. Slack, Teams 및 durable

@@ -675,6 +675,11 @@ def _inventory_provider_progress_events(
                     "input_kind": "command",
                     "redacted": True,
                     **(
+                        {"duration_ms": command["duration_ms"]}
+                        if isinstance(command.get("duration_ms"), int)
+                        else {}
+                    ),
+                    **(
                         {
                             "output": json.dumps(command["result"], ensure_ascii=False, indent=2),
                             **(

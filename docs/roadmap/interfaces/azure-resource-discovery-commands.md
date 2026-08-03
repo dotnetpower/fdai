@@ -20,7 +20,7 @@ bounded read-investigation design without allowing the narrator to invent comman
 > **Implementation status:** Catalog-owned resource `query_terms`, category terms, and deterministic
 > `InventoryQuery` compilation are implemented for the selective inventory path. Interactive local
 > records a strict bounded snapshot receipt. The authenticated subscription id, exact generic Azure
-> CLI argv, result count, and up to ten allowlisted preview rows are displayed separately from the
+> CLI argv, measured command duration, result count, and up to ten allowlisted preview rows are displayed separately from the
 > current turn's IQL; pagination tokens remain redacted. Azure Resource Graph and local CLI projection also separate
 > shared ARM types with reviewed Azure `kind` tokens. The broader
 > `DiscoveryIntent`, `DiscoveryQueryPlan`, provider profiles, unmapped-resource preservation,

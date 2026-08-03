@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: ce8e1f32990b55ebf8fbad08e9d0f908b93f5c92
+translation_source_sha: dd9fbaf49b0d861046fd4ebb3e0d7f40de388069
 translation_revised: 2026-08-03
 ---
 
@@ -274,9 +274,9 @@ panel 대신 status, start, completion 및 사용 가능한 fact를 표시합니
 metadata를 기록하며 answer body를 반복하지 않습니다.
 Inventory execution은 canonical turn query를 `IQL` activity로 표시합니다. 이어지는 별도 activity는
 exact bounded Azure CLI 또는 ARG receipt를 같은 terminal icon으로 표시합니다. 인증된 subscription id,
-generic argv, count 및 allowlist된 preview row 최대 10개는 표시하지만 pagination token, credential,
+generic argv, 측정된 command duration, count 및 allowlist된 preview row 최대 10개는 표시하지만 pagination token, credential,
 raw resource id 및 provider error는 redaction합니다. IQL source와 result는 각각 토글되며 row는 snapshot refresh를 설명하지만 command 재실행을 주장하지 않습니다. Browser는 IQL 또는 source name에서 command를 파생하지 않습니다. Provider message, action argument, command 및 output의 유효한 object 또는 array JSON은 indentation, syntax highlighting 및
-copy를 제공하며 malformed 또는 plain text는 변경하지 않습니다. Terminal replay payload는 ID별 최종
+copy를 제공하며 malformed 또는 plain text는 변경하지 않습니다. Terminal-only visual reveal은 최대 30개 chunk로 제한하고 answer lane은 paint 완료가 아닌 server 완료 시각을 사용하므로 presentation pacing을 execution gap으로 표시하지 않습니다. Terminal replay payload는 ID별 최종
 branch, activity, milestone 및 redacted execution detail을 총 64 KiB 이하로 보존하고 history output을
 항목당 32 KiB에서 truncate하며 truncation 및 omission count를 표시합니다. 따라서 durable history와
 live turn이 같은 strict parser 및 trajectory view를 사용합니다. Unavailable 또는

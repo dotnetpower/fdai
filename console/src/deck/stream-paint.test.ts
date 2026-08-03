@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   drainStreamPaint,
@@ -6,6 +8,11 @@ import {
   streamPaintBatchSize,
   terminalRevealChunks,
 } from "./stream-paint";
+
+const submitSource = readFileSync(
+  fileURLToPath(new URL("./use-command-deck-submit.ts", import.meta.url)),
+  "utf8",
+);
 
 describe("stream paint batching", () => {
   it("uses a bounded adaptive batch per display frame", () => {
@@ -53,5 +60,29 @@ describe("stream paint batching", () => {
 
     expect(chunks.length).toBeGreaterThan(4);
     expect(chunks.join("")).toBe(text);
+  });
+
+  it("bounds a long terminal-only reveal to roughly 300 ms of display frames", () => {
+    const text = Array.from({ length: 300 }, (_, index) => `word-${index} `).join("");
+    const chunks = terminalRevealChunks(text);
+    const queue = [...chunks];
+    let frames = 0;
+    while (queue.length > 0) {
+      drainStreamPaint(queue);
+      frames += 1;
+    }
+
+    expect(chunks).toHaveLength(30);
+    expect(frames).toBeLessThanOrEqual(18);
+    expect(chunks.join("")).toBe(text);
+  });
+
+  it("records terminal receipt before visual replay completes", () => {
+    const receiptIndex = submitSource.indexOf("const terminalRecordedAt =");
+    const revealIndex = submitSource.indexOf("const terminalQueue = terminalRevealChunks");
+
+    expect(receiptIndex).toBeGreaterThan(0);
+    expect(revealIndex).toBeGreaterThan(receiptIndex);
+    expect(submitSource).toContain("recordedAt: terminalRecordedAt");
   });
 });

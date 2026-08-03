@@ -122,7 +122,7 @@ surface into the streaming answer. The two surfaces share width and alignment,
 with short entry motion and staggered source rows. Text received during that
 interval enters an adaptive visual queue that drains one to three paced deltas
 per display frame according to backlog; it is never dumped as one large first
-paint. When the answer first appears and when its terminal revision renders,
+paint. A terminal-only answer groups tokens into at most 30 chunks so visual reveal stays near 300 ms; server completion time remains authoritative for execution timing. When the answer first appears and when its terminal revision renders,
 the transcript moves to the newest content even if the operator scrolled upward
 during preparation. The completed reply labels manifest entries as evidence
 references, not as independent sources. A bounded correction that removes

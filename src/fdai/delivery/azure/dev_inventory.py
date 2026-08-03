@@ -41,6 +41,7 @@ import logging
 import os
 import shlex
 import subprocess
+import time
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -159,8 +160,10 @@ class AzureCliInventory:
     _last_discovery_backend: str | None = field(default=None, init=False, repr=False)
     _last_discovery_page_count: int = field(default=0, init=False, repr=False)
     _last_group_command: str | None = field(default=None, init=False, repr=False)
+    _last_group_duration_ms: int | None = field(default=None, init=False, repr=False)
     _last_group_result: Mapping[str, Any] | None = field(default=None, init=False, repr=False)
     _last_resource_commands: tuple[str, ...] = field(default=(), init=False, repr=False)
+    _last_resource_durations_ms: tuple[int, ...] = field(default=(), init=False, repr=False)
     _last_resource_results: tuple[Mapping[str, Any], ...] = field(
         default=(), init=False, repr=False
     )
@@ -194,8 +197,10 @@ class AzureCliInventory:
             return None
         if (
             self._last_group_command is None
+            or self._last_group_duration_ms is None
             or self._last_group_result is None
             or not self._last_resource_commands
+            or len(self._last_resource_commands) != len(self._last_resource_durations_ms)
             or len(self._last_resource_commands) != len(self._last_resource_results)
         ):
             return None
@@ -211,6 +216,7 @@ class AzureCliInventory:
                     "label": "resource_groups",
                     "language": "azure_cli",
                     "command": self._last_group_command,
+                    "duration_ms": self._last_group_duration_ms,
                     "result": self._last_group_result,
                 },
                 *(
@@ -218,10 +224,12 @@ class AzureCliInventory:
                         "label": "resources",
                         "language": "azure_cli",
                         "command": command,
+                        "duration_ms": duration_ms,
                         "result": result,
                     }
-                    for command, result in zip(
+                    for command, duration_ms, result in zip(
                         self._last_resource_commands,
+                        self._last_resource_durations_ms,
                         self._last_resource_results,
                         strict=True,
                     )
@@ -286,19 +294,23 @@ class AzureCliInventory:
 
     async def _fetch_all_registered(self) -> InventoryBatch:
         self._last_group_command = None
+        self._last_group_duration_ms = None
         self._last_group_result = None
         self._last_resource_commands = ()
+        self._last_resource_durations_ms = ()
         self._last_resource_results = ()
         group_args = [self.executable, "group", "list", "--output", "json"]
         resource_args = [self.executable, "resource", "list", "--output", "json"]
         if self.subscription_id:
             for argv in (group_args, resource_args):
                 argv.extend(("--subscription", self.subscription_id))
-        groups, resource_rows = await asyncio.gather(
-            self._fetch_rows(group_args, "resource-group"),
+        group_result, resource_rows = await asyncio.gather(
+            self._fetch_rows_timed(group_args, "resource-group"),
             self._fetch_registered_rows(resource_args),
         )
+        groups, group_duration_ms = group_result
         self._last_group_command = _receipt_argv(group_args)
+        self._last_group_duration_ms = group_duration_ms
         self._last_group_result = _provider_result_preview(groups)
         rows_by_type: dict[str, list[dict[str, Any]]] = {"resource-group": list(groups)}
         for row in resource_rows:
@@ -336,6 +348,7 @@ class AzureCliInventory:
         self._last_discovery_backend = None
         self._last_discovery_page_count = 0
         self._last_resource_commands = ()
+        self._last_resource_durations_ms = ()
         self._last_resource_results = ()
         try:
             return await self._fetch_arg_rows()
@@ -344,16 +357,18 @@ class AzureCliInventory:
                 "azure_cli_inventory_arg_fallback",
                 extra={"error_type": type(exc).__name__},
             )
-            rows = await self._fetch_rows(fallback_args, "registered resources")
+            rows, duration_ms = await self._fetch_rows_timed(fallback_args, "registered resources")
             self._last_discovery_backend = "azure_resource_manager"
             self._last_discovery_page_count = 1
             self._last_resource_commands = (_receipt_argv(fallback_args),)
+            self._last_resource_durations_ms = (duration_ms,)
             self._last_resource_results = (_provider_result_preview(rows),)
             return rows
 
     async def _fetch_arg_rows(self) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
         executed_commands: list[str] = []
+        executed_durations_ms: list[int] = []
         executed_results: list[Mapping[str, Any]] = []
         skip_token: str | None = None
         for _page in range(_ARG_MAX_PAGES):
@@ -372,7 +387,9 @@ class AzureCliInventory:
                 argv.extend(("--subscriptions", self.subscription_id))
             if skip_token:
                 argv.extend(("--skip-token", skip_token))
+            started = time.monotonic()
             proc = await asyncio.to_thread(_run_az, argv, self.azure_config_dir)
+            executed_durations_ms.append(max(0, round((time.monotonic() - started) * 1_000)))
             try:
                 payload = json.loads(proc.stdout or "{}")
             except json.JSONDecodeError as exc:
@@ -389,6 +406,7 @@ class AzureCliInventory:
                 self._last_discovery_backend = "azure_resource_graph"
                 self._last_discovery_page_count = _page + 1
                 self._last_resource_commands = tuple(executed_commands)
+                self._last_resource_durations_ms = tuple(executed_durations_ms)
                 self._last_resource_results = tuple(executed_results)
                 return rows
         raise AzureCliInventoryError("az graph pagination exceeded the page limit")
@@ -406,6 +424,15 @@ class AzureCliInventory:
         if not isinstance(payload, list):
             raise AzureCliInventoryError(f"az CLI returned non-list JSON for {resource_type}")
         return [row for row in payload if isinstance(row, dict)]
+
+    async def _fetch_rows_timed(
+        self,
+        argv: Sequence[str],
+        resource_type: str,
+    ) -> tuple[list[dict[str, Any]], int]:
+        started = time.monotonic()
+        rows = await self._fetch_rows(argv, resource_type)
+        return rows, max(0, round((time.monotonic() - started) * 1_000))
 
     def _project_rows(
         self,
