@@ -125,9 +125,13 @@ return schema-constrained data and treat source text as untrusted data, not inst
 5. Return a bounded ambiguous set when no unique identity exists; never invent an instance id.
 6. Propose an inert schema change when no existing type can represent a supported claim.
 
-Exact stable-id matches may resolve automatically. Alias and fuzzy matches require deterministic
-scoring evidence, one unique winner above configured thresholds, and no conflicting exact match.
-Ambiguity always produces `review_required`.
+Exact stable-id matches take precedence and resolve automatically. A configured alias resolves only
+when it maps to one known entity in `VerificationContext`; the proposal binds that canonical
+identity and records `method: alias`. An alias that maps to multiple entities retains the sorted,
+bounded candidate set and produces `review_required`. An unknown add also remains review-only.
+Update, remove, and supersede operations require one exact or unique-alias identity. Fuzzy matching
+never auto-resolves an identity and remains future review-only candidate discovery. Resolution
+method and candidates participate in the content-addressed proposal identity.
 
 ## Envelope provenance bridge
 

@@ -7,6 +7,7 @@ from dataclasses import replace
 
 import pytest
 
+from fdai.rule_catalog.pipeline.distill.ontology_identity import EntityAliasRecord
 from fdai.rule_catalog.pipeline.distill.ontology_models import AuthorityClass, ProposalState
 from fdai.rule_catalog.pipeline.distill.ontology_review import build_ontology_review_package
 from fdai.rule_catalog.pipeline.distill.ontology_verify import (
@@ -89,6 +90,28 @@ def test_package_is_replay_stable_and_contains_no_source_text() -> None:
     assert package.summary.mapped_claims == 1
     assert package.proposals[0].state is ProposalState.REVIEW_REQUIRED
     assert "Checkout service" not in repr(package)
+
+
+def test_review_package_binds_unique_configured_alias() -> None:
+    candidate = _candidate()
+    body = dict(candidate.body)
+    body["target_identity"] = "Checkout Service"
+    candidate = replace(candidate, body=body)
+    context = replace(
+        _context(),
+        aliases=(EntityAliasRecord("Checkout Service", "service:checkout"),),
+    )
+
+    package = build_ontology_review_package(
+        document=_document(),
+        result=DistillationResult(candidates=(candidate,)),
+        context=context,
+        extraction_run_id="run-1",
+    )
+
+    proposal = package.proposals[0].proposal
+    assert proposal.target_identity == "service:checkout"
+    assert proposal.entity_resolution.method == "alias"
 
 
 def test_invalid_candidate_leaves_claim_unresolved() -> None:

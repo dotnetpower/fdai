@@ -6,6 +6,10 @@ import hashlib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
+from fdai.rule_catalog.pipeline.distill.ontology_identity import (
+    EntityResolutionRequest,
+    resolve_entity_identity,
+)
 from fdai.rule_catalog.pipeline.distill.ontology_models import (
     AuthorityClass,
     ClaimUnit,
@@ -17,6 +21,8 @@ from fdai.rule_catalog.pipeline.distill.ontology_models import (
     stable_digest,
 )
 from fdai.shared.providers.distiller import CandidateKind, DistilledCandidate
+
+from .ontology_verify import VerificationContext
 
 _COMMON_KEYS = frozenset(
     {
@@ -52,6 +58,7 @@ def build_ontology_proposals(
     extraction_run_id: str,
     ontology_release: str,
     expected_graph_revision: str,
+    verification_context: VerificationContext | None = None,
 ) -> ProposalBuildResult:
     """Convert ontology candidates into immutable proposal contracts.
 
@@ -83,6 +90,7 @@ def build_ontology_proposals(
                 extraction_run_id=extraction_run_id,
                 ontology_release=ontology_release,
                 expected_graph_revision=expected_graph_revision,
+                verification_context=verification_context,
             )
         except (KeyError, TypeError, ValueError):
             issues.append(ProposalBuildIssue(candidate.candidate_id, "invalid_candidate_shape"))
@@ -99,6 +107,7 @@ def _build_one(
     extraction_run_id: str,
     ontology_release: str,
     expected_graph_revision: str,
+    verification_context: VerificationContext | None,
 ) -> OntologyChangeProposal:
     body = candidate.body
     target_kind = (
@@ -128,7 +137,7 @@ def _build_one(
 
     operation = OntologyOperation(_require_string(body, "operation"))
     target_type = _require_string(body, "target_type")
-    target_identity = _require_string(body, "target_identity")
+    supplied_target_identity = _require_string(body, "target_identity")
     authority = AuthorityClass(_require_string(body, "authority"))
     properties = _properties(body.get("properties"))
     from_identity = None
@@ -136,6 +145,24 @@ def _build_one(
     if target_kind is OntologyTargetKind.LINK:
         from_identity = _require_string(body, "from_identity")
         to_identity = _require_string(body, "to_identity")
+
+    if target_kind is OntologyTargetKind.OBJECT and verification_context is not None:
+        entity_resolution = resolve_entity_identity(
+            EntityResolutionRequest(
+                supplied_identity=supplied_target_identity,
+                target_type=target_type,
+                operation=operation,
+            ),
+            entities=verification_context.entities,
+            aliases=verification_context.aliases,
+        )
+    else:
+        entity_resolution = EntityResolution(
+            selected_identity=supplied_target_identity,
+            candidates=(supplied_target_identity,),
+            method="unverified",
+        )
+    target_identity = entity_resolution.selected_identity or supplied_target_identity
 
     proposal_material = {
         "source_ref": claim.evidence.source_ref,
@@ -151,6 +178,11 @@ def _build_one(
         "properties": [{"name": item.name, "value": item.value} for item in properties],
         "from_identity": from_identity,
         "to_identity": to_identity,
+        "entity_resolution": {
+            "selected_identity": entity_resolution.selected_identity,
+            "candidates": list(entity_resolution.candidates),
+            "method": entity_resolution.method,
+        },
     }
     proposal_id = "odp-" + stable_digest(proposal_material)
     return OntologyChangeProposal(
@@ -166,11 +198,7 @@ def _build_one(
         expected_graph_revision=expected_graph_revision,
         authority=authority,
         evidence=claim.evidence,
-        entity_resolution=EntityResolution(
-            selected_identity=target_identity,
-            candidates=(target_identity,),
-            method="unverified",
-        ),
+        entity_resolution=entity_resolution,
         properties=properties,
         from_identity=from_identity,
         to_identity=to_identity,

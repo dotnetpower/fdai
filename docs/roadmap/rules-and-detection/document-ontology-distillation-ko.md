@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 8a9f4eb65a78f9c54d2572f762fea4434bc8508b
+translation_source_sha: 0440ed428cf805443fa1c80f3b209274f913dd76
 translation_revised: 2026-08-03
 ---
 # 문서 온톨로지 증류
@@ -126,9 +126,13 @@ data를 반환해야 하며 source text를 instruction이 아닌 untrusted data�
 5. Unique identity가 없으면 bounded ambiguous set을 반환하며 instance id를 만들지 않습니다.
 6. 기존 type으로 supported claim을 표현할 수 없으면 inert schema change를 제안합니다.
 
-Exact stable-id match는 자동으로 resolve할 수 있습니다. Alias와 fuzzy match에는 deterministic scoring
-evidence, configured threshold를 넘는 하나의 unique winner 및 충돌하는 exact match가 없다는 증거가
-필요합니다. Ambiguity는 항상 `review_required`를 생성합니다.
+Exact stable-id match는 우선 적용되며 자동으로 resolve합니다. Configured alias는
+`VerificationContext`에서 알려진 entity 하나에만 mapping될 때 resolve하며 proposal은 해당 canonical
+identity를 bind하고 `method: alias`를 기록합니다. 여러 entity에 mapping되는 alias는 정렬되고 제한된
+candidate set을 유지하며 `review_required`를 생성합니다. Unknown add도 review-only로 유지합니다.
+Update, remove 및 supersede operation에는 exact 또는 unique-alias identity 하나가 필요합니다. Fuzzy
+matching은 identity를 자동 resolve하지 않으며 향후 review-only candidate discovery로 남습니다.
+Resolution method와 candidate는 content-addressed proposal identity에 포함됩니다.
 
 ## Envelope provenance bridge
 

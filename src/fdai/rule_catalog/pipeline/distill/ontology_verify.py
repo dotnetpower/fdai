@@ -8,6 +8,10 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from fdai.rule_catalog.pipeline.distill.ontology_identity import (
+    EntityAliasRecord,
+    EntityRecord,
+)
 from fdai.rule_catalog.pipeline.distill.ontology_models import (
     AuthorityClass,
     ClaimUnit,
@@ -53,16 +57,6 @@ class LinkDeclaration:
     def __post_init__(self) -> None:
         if not self.name or not self.from_type or not self.to_type:
             raise ValueError("link declaration identity and endpoints MUST be non-empty")
-
-
-@dataclass(frozen=True, slots=True)
-class EntityRecord:
-    identity: str
-    object_type: str
-
-    def __post_init__(self) -> None:
-        if not self.identity or not self.object_type:
-            raise ValueError("entity identity and object_type MUST be non-empty")
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,6 +144,7 @@ class VerificationContext:
     claim_text: tuple[tuple[str, str], ...]
     external_evidence: tuple[ExternalEvidenceReceipt, ...] = ()
     existing_facts: tuple[ExistingFact, ...] = ()
+    aliases: tuple[EntityAliasRecord, ...] = ()
 
     def __post_init__(self) -> None:
         if _SHA256.fullmatch(self.ontology_release) is None:
@@ -164,10 +159,19 @@ class VerificationContext:
             raise ValueError("verification link count exceeds the bounded limit")
         if len(self.entities) > 100_000:
             raise ValueError("verification entity count exceeds the bounded limit")
+        if len(self.aliases) > 100_000:
+            raise ValueError("verification entity alias count exceeds the bounded limit")
         if len(self.external_evidence) > 10_000 or len(self.existing_facts) > 100_000:
             raise ValueError("verification evidence count exceeds the bounded limit")
         _require_unique((link.name for link in self.links), "link declarations")
         _require_unique((entity.identity for entity in self.entities), "entity records")
+        _require_unique(
+            (
+                f"{' '.join(alias.alias.split()).casefold()}\0{alias.identity}"
+                for alias in self.aliases
+            ),
+            "entity alias records",
+        )
         _require_unique((policy.source_ref for policy in self.source_policies), "source policies")
         _require_unique((claim_id for claim_id, _ in self.claim_text), "claim text records")
         unknown_entity_types = {
@@ -177,6 +181,9 @@ class VerificationContext:
         }
         if unknown_entity_types:
             raise ValueError("entity records MUST reference declared object types")
+        known_entity_ids = {entity.identity for entity in self.entities}
+        if any(alias.identity not in known_entity_ids for alias in self.aliases):
+            raise ValueError("entity aliases MUST reference known entity identities")
         if any(
             link.from_type not in self.object_types or link.to_type not in self.object_types
             for link in self.links
@@ -286,9 +293,18 @@ def _identity_gate(proposal: OntologyChangeProposal, context: VerificationContex
     entities = {entity.identity: entity.object_type for entity in context.entities}
     reasons: list[str] = []
     outcome = GateOutcome.PASS
-    if proposal.entity_resolution.selected_identity != proposal.target_identity:
-        return _receipt("identity", GateOutcome.DENY, ["resolution_target_mismatch"])
     if proposal.target_kind is OntologyTargetKind.OBJECT:
+        resolution = proposal.entity_resolution
+        if resolution.selected_identity is None:
+            if resolution.candidates:
+                reason = "ambiguous_alias"
+            elif proposal.operation is OntologyOperation.ADD:
+                reason = "new_identity_requires_review"
+            else:
+                reason = "existing_target_not_found"
+            return _receipt("identity", GateOutcome.REVIEW, [reason])
+        if resolution.selected_identity != proposal.target_identity:
+            return _receipt("identity", GateOutcome.DENY, ["resolution_target_mismatch"])
         resolved_type = entities.get(proposal.target_identity)
         if resolved_type is None:
             reason = (
@@ -303,6 +319,9 @@ def _identity_gate(proposal: OntologyChangeProposal, context: VerificationContex
             outcome = GateOutcome.DENY
         elif proposal.operation is OntologyOperation.ADD:
             reasons.append("add_target_already_exists")
+            outcome = GateOutcome.REVIEW
+        elif resolution.method not in {"exact", "alias"}:
+            reasons.append("identity_resolution_unverified")
             outcome = GateOutcome.REVIEW
     else:
         declaration = next(
@@ -459,6 +478,7 @@ def _require_rfc3339_utc(value: str) -> None:
 
 
 __all__ = [
+    "EntityAliasRecord",
     "EntityRecord",
     "ExistingFact",
     "ExternalEvidenceReceipt",

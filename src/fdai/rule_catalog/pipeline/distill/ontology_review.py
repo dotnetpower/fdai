@@ -172,6 +172,7 @@ def build_ontology_review_package(
         extraction_run_id=extraction_run_id,
         ontology_release=context.ontology_release,
         expected_graph_revision=context.current_graph_revision,
+        verification_context=enriched_context,
     )
 
     valid_candidate_ids = {proposal.candidate_id for proposal in built.proposals}
