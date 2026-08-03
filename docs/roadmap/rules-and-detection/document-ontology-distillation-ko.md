@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 07724129247325bac89780cddf54f12d7e02ce59
+translation_source_sha: 16cacf62358be8707ca5a74163ecc853e807bbc5
 translation_revised: 2026-08-03
 ---
 # 문서 온톨로지 증류
@@ -90,6 +90,12 @@ Coverage는 ontology extraction 전에 시작합니다. Claim inventory는 다�
 id, disposition 누락, 서로 모순되는 중복 disposition 및 알 수 없는 claim을 참조하는 candidate는
 검증에 실패합니다. Structural heuristic과 model-backed detector가 모두 claim을 제안할 수 있지만,
 결정론적 ledger가 completeness accounting을 수행합니다.
+
+하위 호환성을 위해 각 claim은 `kind`에 하나의 primary `ClaimKind`를 유지하고, 감지된 모든 semantic
+class를 순서가 있는 `signals` tuple에 기록합니다. Inventory는 제한된 영어와 한국어 normative,
+relationship, threshold 및 imperative 표현을 인식합니다. Technical version과 URL 주변의 sentence
+boundary를 보존하고 classification 전에 tag, comment 및 source shortcode를 제거하므로 markup이 claim
+text가 되지 않습니다.
 
 ## Authority class
 

@@ -124,9 +124,16 @@ class ClaimUnit:
     authority: AuthorityClass
     evidence: SourceEvidence
     critical: bool
+    signals: tuple[ClaimKind, ...] = ()
 
     def __post_init__(self) -> None:
         _require_identifier(self.claim_id, "claim_id")
+        if not self.signals:
+            object.__setattr__(self, "signals", (self.kind,))
+        if self.kind not in self.signals:
+            raise ValueError("primary claim kind MUST be present in claim signals")
+        if len(self.signals) != len(set(self.signals)):
+            raise ValueError("claim signals MUST be unique")
 
 
 @dataclass(frozen=True, slots=True)

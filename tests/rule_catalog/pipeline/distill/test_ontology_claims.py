@@ -7,6 +7,7 @@ import hashlib
 import pytest
 
 from fdai.rule_catalog.pipeline.distill.ontology_claims import (
+    claim_text_records,
     inventory_claims,
     reconcile_claims,
 )
@@ -121,6 +122,84 @@ def test_percent_threshold_and_tilde_fence_handling() -> None:
     )
     assert len(claims) == 1
     assert claims[0].kind is ClaimKind.THRESHOLD
+
+
+@pytest.mark.parametrize(
+    ("text", "kind", "signals"),
+    [
+        (
+            "You need to verify the backup first.",
+            ClaimKind.NORMATIVE,
+            {ClaimKind.NORMATIVE, ClaimKind.PROCEDURE},
+        ),
+        (
+            "Do not restart the primary.",
+            ClaimKind.NORMATIVE,
+            {ClaimKind.NORMATIVE, ClaimKind.PROCEDURE},
+        ),
+        ("The controller does not create the group.", ClaimKind.NORMATIVE, {ClaimKind.NORMATIVE}),
+        ("The probe depends on the service.", ClaimKind.RELATIONSHIP, {ClaimKind.RELATIONSHIP}),
+        ("Keep between 1 and 10 replicas.", ClaimKind.THRESHOLD, {ClaimKind.THRESHOLD}),
+        (
+            "Before upgrading, back up the database first.",
+            ClaimKind.PROCEDURE,
+            {ClaimKind.PROCEDURE},
+        ),
+        ("First, look at the affected container logs.", ClaimKind.PROCEDURE, {ClaimKind.PROCEDURE}),
+        ("Check the current revision.", ClaimKind.PROCEDURE, {ClaimKind.PROCEDURE}),
+        ("Verify the restore point.", ClaimKind.PROCEDURE, {ClaimKind.PROCEDURE}),
+        ("먼저 백업 상태를 확인하세요.", ClaimKind.PROCEDURE, {ClaimKind.PROCEDURE}),
+        (
+            "서비스를 다시 시작하지 마세요.",
+            ClaimKind.NORMATIVE,
+            {ClaimKind.NORMATIVE, ClaimKind.PROCEDURE},
+        ),
+        (
+            "복제본 수는 1개에서 10개 사이여야 합니다.",
+            ClaimKind.THRESHOLD,
+            {ClaimKind.NORMATIVE, ClaimKind.THRESHOLD},
+        ),
+    ],
+)
+def test_inventory_preserves_adversarial_claim_signals(
+    text: str,
+    kind: ClaimKind,
+    signals: set[ClaimKind],
+) -> None:
+    claims = inventory_claims(_document(text))
+    assert len(claims) == 1
+    assert claims[0].kind is kind
+    assert signals.issubset(set(claims[0].signals))
+
+
+def test_sentence_splitting_preserves_versions_urls_and_multiple_claims() -> None:
+    claims = inventory_claims(
+        _document(
+            "Upgrade from v1.29.3 to v1.30.1. Verify https://example.com/v1.2.3/status first."
+        )
+    )
+    assert len(claims) == 2
+    assert all(claim.kind is ClaimKind.PROCEDURE for claim in claims)
+
+
+def test_markup_only_units_are_not_claims_but_inline_emphasis_is_semantic() -> None:
+    claims = inventory_claims(
+        _document(
+            '<sect1 id="backup-1">\n'
+            "{{< caution >}}\n"
+            "The database <emphasis>must</emphasis> be backed up first.\n"
+            "<!-- overview -->\n"
+            "{{< /caution >}}\n"
+            "</sect1>\n"
+        )
+    )
+    assert len(claims) == 1
+    assert claims[0].kind is ClaimKind.NORMATIVE
+    assert ClaimKind.PROCEDURE in claims[0].signals
+
+    inline_document = _document("<!-- overview --> Check the current revision.")
+    inline_claims = inventory_claims(inline_document)
+    assert claim_text_records(inline_document, inline_claims)[0][1] == "Check the current revision."
 
 
 def test_exact_candidate_mapping_does_not_cover_sibling_claim() -> None:

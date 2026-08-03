@@ -90,6 +90,12 @@ Duplicate claim ids, missing dispositions, overlapping contradictory disposition
 references to unknown claims fail validation. Structural heuristics and a model-backed detector may
 both propose claims, but the deterministic ledger performs the completeness accounting.
 
+For backward compatibility, each claim retains one primary `ClaimKind` in `kind` and records every
+detected semantic class in the ordered `signals` tuple. The inventory recognizes bounded English
+and Korean normative, relationship, threshold, and imperative forms. It preserves sentence
+boundaries around technical versions and URLs, and removes tags, comments, and source shortcodes
+before classification so markup cannot become claim text.
+
 ## Authority classes
 
 The source authority controls which proposal operations are eligible.
