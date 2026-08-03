@@ -1,16 +1,23 @@
 schema_version: "1.0.0"
 name: Change
-version: "1.0.0"
+version: "1.1.0"
 key: id
 description: Proposed, active, or completed operational mutation with provenance and affected scope.
 properties:
   id: {type: string, required: true}
   change_kind: {type: string, required: true}
+  source_kind: {type: string, required: false}
+  intent_kind: {type: string, required: false}
   target_ref: {type: string, required: true}
   actor_ref: {type: string, required: true}
   status: {type: string, required: true}
   occurred_at: {type: datetime, required: true}
   evidence_ref: {type: string, required: true}
+  desired_state_digest: {type: string, required: false}
+  plan_receipt_ref: {type: string, required: false}
+  window_ref: {type: string, required: false}
+  incident_ref: {type: string, required: false}
+  process_ref: {type: string, required: false}
 lifecycle:
   owner: Huginn
   creation:
@@ -21,7 +28,7 @@ lifecycle:
   authority_refs: [docs/roadmap/architecture/operating-ontology.md]
 provenance:
   source_url: https://github.com/dotnetpower/fdai
-  resolved_ref: object-type:Change@1.0.0
-  content_hash: sha256:d3b17debaea9d06dcd0b0ef75547a83b67e60df7b7363c4bdb7276b85fca182a
+  resolved_ref: object-type:Change@1.1.0
+  content_hash: sha256:1bb20884e9834e7af66c6155db063271bd6513d5a94a40b46205d3c42917c253
   license: MIT
   retrieved_at: "2026-07-31T00:00:00Z"

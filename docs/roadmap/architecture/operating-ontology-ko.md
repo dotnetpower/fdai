@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 52a8fc2d47574485ea2c3559e020084f4d390f4a
-translation_revised: 2026-08-01
+translation_source_sha: 4bbee41cdab0deac226093c1ca930cbf4196086f
+translation_revised: 2026-08-04
 ---
 # FDAI 운영 온톨로지
 
@@ -23,10 +23,13 @@ cloud-operations 개념을 소유하고 deployment는 observed instance와 inten
 > 오래되거나 충돌하거나 입증되지 않은 context는 unknown으로 남고 bounded evidence recovery,
 > 더 작은 safe plan, no-op 또는 review를 유발합니다. 실행 권한을 제공하지 않습니다.
 >
-> **구현 상태(2026-08-01):** O1-O4는 semantic declaration, immutable context, Forseti ceiling
+> **구현 상태(2026-08-04):** O1-O4는 semantic declaration, immutable context, Forseti ceiling
 > wiring, decision-case selection, response closure, Muninn/Norns learning intake를 구현합니다.
 > `OperatingModelProvider`는 bounded deployment instance를 project하고 context snapshot은 typed
 > evidence path, revision, effective time, provenance, complete freshness receipt를 보존합니다.
+> 변경관리는 `Change`에 planned-change evidence를 추가하고, reviewed `ChangeWindow`와 target 및
+> decision에서 impact, process, outcome, recovery까지 이어지는 typed link를 제공합니다. 이러한
+> declaration은 semantic evidence일 뿐 승인 또는 실행 권한을 제공하지 않습니다.
 
 ## 한눈에 보는 설계
 
@@ -99,6 +102,7 @@ property로 만듭니다. 완전히 domain-agnostic한 model은 service, reliabi
 | `CostObjective` | Currency와 period가 있는 budget, run-rate, unit-cost, variance target입니다. |
 | `ArchitectureConstraint` | ARB와 change assurance가 사용하는 reviewed architecture condition입니다. |
 | `Ownership` | 책임 운영 owner와 escalation reference입니다. |
+| `ChangeWindow` | Bounded scope에 적용하는 reviewed maintenance, freeze, quiet, emergency interval입니다. |
 
 Objective는 free-form metric label이 아닙니다. Kind, unit, target 또는 range, measurement source,
 scope, owner, effective interval, evidence freshness policy를 기록합니다.
@@ -111,7 +115,7 @@ bag에만 정보를 두는 대신 명시적인 time 및 prediction 개념을 추
 | ObjectType | 목적 |
 |------------|------|
 | `Observation` | Event-time cutoff의 정규화된 측정 value와 evidence reference입니다. |
-| `Change` | Affected scope와 provenance가 있는 proposed, in-progress, completed change입니다. |
+| `Change` | Intent, desired-state evidence, affected scope, provenance가 있는 planned, proposed, active, drift-observed, completed change입니다. |
 | `Forecast` | Horizon, interval, confidence, feature cutoff가 있는 versioned projection입니다. |
 | `Experiment` | 관측 episode에 intervention을 줄 수 있는 범위 제한 chaos 또는 validation activity입니다. |
 
@@ -153,6 +157,14 @@ Saga, replay consumer가 같은 사실을 참조하게 하는 immutable semantic
 | `executed_as` | ActionOption -> ActionRun | 선택된 option의 governed execution입니다. |
 | `resulted_in` | ActionRun -> ObservedOutcome | Independent effect closure입니다. |
 | `learned_as` | ObservedOutcome -> Pattern | Reviewed learning projection이며 direct promotion이 아닙니다. |
+| `change_targets_resource` | Change -> Resource | Change가 직접 대상으로 하는 managed resource입니다. |
+| `case_evaluates_change` | DecisionCase -> Change | Change revision을 평가하는 immutable decision context입니다. |
+| `change_instantiates_process` | Change -> Process | Multi-step change를 기록하는 durable Workflow journal입니다. |
+| `change_bounded_by_envelope` | Change -> ImpactEnvelope | 실행 권한을 제공하지 않는 approved impact upper bound입니다. |
+| `change_scheduled_in_window` | Change -> ChangeWindow | 적용되는 maintenance, freeze, quiet, emergency window입니다. |
+| `change_conflicts_with_change` | Change -> Change | Target, objective 또는 effective time이 겹치는 conflict입니다. |
+| `change_resulted_in_outcome` | Change -> ObservedOutcome | 독립적인 post-change effect closure입니다. |
+| `change_recovered_by_plan` | Change -> RecoveryPlan | 준비하거나 적용한 version-pinned recovery path입니다. |
 
 Cardinality, causal direction, temporal ordering, allowed endpoint combination은 각 LinkType
 declaration에 둡니다. 필수 competency question을 지원하지 못하는 relation은 visualization만을
@@ -297,10 +309,12 @@ option과 정확히 일치하는지 확인합니다. Case evidence가 없거나 
 
 ### Architecture review loop
 
-`Change -> graph diff -> ArchitectureConstraint/Objective evaluation -> DecisionCase -> approval`
+`Change -> graph diff -> ChangeWindow/Constraint/Objective evaluation -> DecisionCase -> ImpactEnvelope -> approval -> Process/ActionRun -> ObservedOutcome/RecoveryPlan`
 
 Assurance Twin은 proposed graph를 read-only branch로 simulation합니다. Review는 change를 approve,
 condition, reject, hold할 수 있지만 `ActionType`을 활성화하거나 execution check를 우회할 수 없습니다.
+`Workflow`와 durable `Process`는 multi-step work를 기록합니다. 각 mutation step은 여전히 typed
+ActionType, risk, approval, Thor execution, Heimdall verification, Vidar recovery 경계에 다시 진입합니다.
 
 ### Predictive cost loop
 
@@ -362,7 +376,7 @@ Ontology 품질은 object 수가 아니라 deterministic question으로 측정�
 | O1 - Semantic spine | 구현됨: catalog declaration과 deterministic query fixture입니다. | Catalog-owned runtime writer 없이 loader, provenance, cardinality, versioning, query test가 통과합니다. |
 | O2 - Context projection | 구현됨: immutable `OperationalContextSnapshot`, materializer, runtime store 공유, Forseti ceiling입니다. | Fresh context는 authority를 유지하고 stale, conflicting, unmapped context는 auto를 사람 승인으로 낮춥니다. |
 | O3 - Reliability loop | Core 구현됨: objective-aware decision case, option selection, `ResponseOutcome` closure입니다. | Frozen test가 service -> objective -> option -> action -> effect를 하나의 correlation으로 통과합니다. |
-| O4 - ARB 및 cost loop | Core 구현됨: architecture-constraint exclusion과 protected-objective cost tradeoff입니다. | Cost option이 protected reliability objective를 희생할 수 없습니다. |
+| O4 - ARB 및 cost loop | Core 구현됨: architecture-constraint exclusion, typed change lifecycle declaration, protected-objective cost tradeoff입니다. | Change 및 cost option은 protected reliability objective를 희생하거나 graph에서 authority를 얻을 수 없습니다. |
 | O5 - Governed learning | Operational-learning O2까지 구현됨: strict Huginn case event, Muninn fingerprint cohort, balanced inert Norns candidate입니다. Mimir catalog behavior는 변경하지 않았습니다. | Success-only 및 raw-response cohort를 보류하고 candidate가 immutable revision을 인용하며 outcome은 live catalog declaration을 직접 수정하지 않습니다. |
 
 O0 이후 첫 code slice는 semantic-spine declaration, link constraint, query fixture만 추가하는 것이

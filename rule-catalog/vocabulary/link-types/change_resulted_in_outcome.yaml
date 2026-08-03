@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: change_resulted_in_outcome
+version: "1.0.0"
+from_type: Change
+to_type: ObservedOutcome
+cardinality: one_to_many
+description: Independently observed effect closure associated with a change.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:change_resulted_in_outcome@1.0.0
+  content_hash: sha256:ebe40aa7147a11bf7ea4a39f889cf4da949c2649e7731d629bc065d325eccb79
+  license: MIT
+  retrieved_at: "2026-08-04T00:00:00Z"

@@ -19,10 +19,13 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > conflicting, or unproven context remains explicitly unknown and triggers bounded evidence
 > recovery, a smaller safe plan, no-op, or review. It never supplies permission to execute.
 >
-> **Implementation status (2026-08-01):** O1-O4 implement semantic declarations, immutable context,
+> **Implementation status (2026-08-04):** O1-O4 implement semantic declarations, immutable context,
 > Forseti ceiling wiring, decision-case selection, response closure, and Muninn/Norns learning
 > intake. `OperatingModelProvider` projects bounded deployment instances; context snapshots retain
 > typed evidence paths, revisions, effective time, provenance, and complete freshness receipts.
+> Change management adds planned-change evidence to `Change`, a reviewed `ChangeWindow`, and typed
+> links from target and decision through impact, process, outcome, and recovery. These declarations
+> are semantic evidence only and grant no approval or execution authority.
 
 ## Design at a glance
 
@@ -96,6 +99,7 @@ These objects define the conditions FDAI should preserve.
 | `CostObjective` | Budget, run-rate, unit-cost, or variance target with currency and period. |
 | `ArchitectureConstraint` | Reviewed architecture condition used by ARB and change assurance. |
 | `Ownership` | Accountable operating owner and escalation reference. |
+| `ChangeWindow` | Reviewed maintenance, freeze, quiet, or emergency interval for a bounded scope. |
 
 An objective is not a free-form metric label. It records its kind, unit, target or range,
 measurement source, scope, owner, effective interval, and evidence freshness policy.
@@ -108,7 +112,7 @@ and prediction concepts instead of placing them only in a finding's open `contex
 | ObjectType | Purpose |
 |------------|---------|
 | `Observation` | A normalized measured value and evidence reference at an event-time cutoff. |
-| `Change` | A proposed, in-progress, or completed change with affected scope and provenance. |
+| `Change` | A planned, proposed, active, drift-observed, or completed change with intent, desired-state evidence, affected scope, and provenance. |
 | `Forecast` | A versioned projection with horizon, interval, confidence, and feature cutoff. |
 | `Experiment` | A bounded chaos or validation activity that may intervene in an observed episode. |
 
@@ -150,6 +154,14 @@ The initial relationship set should stay small and query-driven.
 | `executed_as` | ActionOption -> ActionRun | Governed execution of the selected option. |
 | `resulted_in` | ActionRun -> ObservedOutcome | Independent effect closure. |
 | `learned_as` | ObservedOutcome -> Pattern | Reviewed learning projection, never direct promotion. |
+| `change_targets_resource` | Change -> Resource | Direct managed-resource target of the change. |
+| `case_evaluates_change` | DecisionCase -> Change | Immutable decision context that evaluates the change revision. |
+| `change_instantiates_process` | Change -> Process | Durable Workflow journal for a multi-step change. |
+| `change_bounded_by_envelope` | Change -> ImpactEnvelope | Approved impact upper bound, without execution authority. |
+| `change_scheduled_in_window` | Change -> ChangeWindow | Effective maintenance, freeze, quiet, or emergency window. |
+| `change_conflicts_with_change` | Change -> Change | Overlapping target, objective, or effective-time conflict. |
+| `change_resulted_in_outcome` | Change -> ObservedOutcome | Independent post-change effect closure. |
+| `change_recovered_by_plan` | Change -> RecoveryPlan | Prepared or applied version-pinned recovery path. |
 
 Cardinality, causal direction, temporal ordering, and allowed endpoint combinations belong in each
 LinkType declaration. A relation that cannot support a required competency question should not be
@@ -295,11 +307,13 @@ The loop prioritizes service-objective and error-budget risk, not isolated resou
 
 ### Architecture review loop
 
-`Change -> graph diff -> ArchitectureConstraint/Objective evaluation -> DecisionCase -> approval`
+`Change -> graph diff -> ChangeWindow/Constraint/Objective evaluation -> DecisionCase -> ImpactEnvelope -> approval -> Process/ActionRun -> ObservedOutcome/RecoveryPlan`
 
 The Assurance Twin simulates the proposed graph as a read-only branch. A review can approve,
 condition, reject, or hold the change, but it cannot enable an `ActionType` or bypass execution
-checks.
+checks. A `Workflow` and its durable `Process` journal multi-step work; every mutation step still
+re-enters the typed ActionType, risk, approval, Thor execution, Heimdall verification, and Vidar
+recovery boundaries.
 
 ### Predictive cost loop
 
@@ -362,7 +376,7 @@ unknown cases. A new type or link is justified by a failing fixture, then retain
 | O1 - Semantic spine | Implemented: catalog declarations and deterministic query fixtures. | Loader, provenance, cardinality, versioning, and query tests pass with no catalog-owned runtime writer. |
 | O2 - Context projection | Implemented: immutable `OperationalContextSnapshot`, materializer, runtime store sharing, and Forseti ceiling. | Fresh context preserves authority; stale, conflicting, and unmapped context lowers auto to human approval. |
 | O3 - Reliability loop | Implemented core: objective-aware decision case, option selection, and `ResponseOutcome` closure. | Frozen tests traverse service -> objective -> option -> action -> effect with one correlation. |
-| O4 - ARB and cost loops | Implemented core: architecture-constraint exclusion and protected-objective cost tradeoff. | Cost options cannot trade away protected reliability objectives. |
+| O4 - ARB and cost loops | Implemented core: architecture-constraint exclusion, typed change lifecycle declarations, and protected-objective cost tradeoff. | Change and cost options cannot trade away protected reliability objectives or derive authority from the graph. |
 | O5 - Governed learning | Implemented through operational-learning O2: strict Huginn case events, Muninn fingerprint cohorts, and balanced inert Norns candidates. Mimir catalog behavior is unchanged. | Success-only and raw-response cohorts are held; candidates cite immutable revisions; no outcome edits a live catalog declaration directly. |
 
 The first code slice after O0 should add only the semantic-spine declarations, link constraints,

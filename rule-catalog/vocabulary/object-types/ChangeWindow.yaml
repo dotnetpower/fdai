@@ -1,0 +1,28 @@
+schema_version: "1.0.0"
+name: ChangeWindow
+version: "1.0.0"
+key: id
+description: Reviewed effective-time window that allows, freezes, or limits operational changes on a scope.
+properties:
+  id: {type: string, required: true}
+  window_kind: {type: string, required: true}
+  scope_ref: {type: string, required: true}
+  status: {type: string, required: true}
+  effective_from: {type: datetime, required: true}
+  effective_to: {type: datetime, required: true}
+  policy_ref: {type: string, required: true}
+  approval_ref: {type: string, required: false}
+lifecycle:
+  owner: Mimir
+  creation:
+    - code: reviewed_change_window
+      when: A governed policy or operations review accepts a bounded effective-time window.
+      result: Create an immutable change-window revision.
+      source_refs: [docs/roadmap/architecture/operating-ontology.md]
+  authority_refs: [docs/roadmap/architecture/operating-ontology.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:ChangeWindow@1.0.0
+  content_hash: sha256:02ab58701a710070892991c1384d5b6e60fead5774cfebeff87e8df4228b3e84
+  license: MIT
+  retrieved_at: "2026-08-04T00:00:00Z"

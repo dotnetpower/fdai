@@ -59,6 +59,37 @@ def test_shipped_ontology_catalog_contains_operating_semantic_spine() -> None:
     }
 
 
+def test_change_contract_carries_planning_and_lifecycle_evidence() -> None:
+    catalog = load_ontology_catalog(
+        REPO_ROOT / "rule-catalog",
+        schema_registry=PackageResourceSchemaRegistry(),
+        probes_root=REPO_ROOT / "rule-catalog" / "probes",
+    )
+    change = next(item for item in catalog.object_types if item.name == "Change")
+
+    assert change.version == "1.1.0"
+    assert set(change.properties) >= {
+        "source_kind",
+        "intent_kind",
+        "desired_state_digest",
+        "plan_receipt_ref",
+        "window_ref",
+        "incident_ref",
+        "process_ref",
+    }
+    assert {item.name for item in catalog.object_types} >= {"ChangeWindow"}
+    assert {item.name for item in catalog.link_types} >= {
+        "change_targets_resource",
+        "case_evaluates_change",
+        "change_instantiates_process",
+        "change_bounded_by_envelope",
+        "change_scheduled_in_window",
+        "change_conflicts_with_change",
+        "change_resulted_in_outcome",
+        "change_recovered_by_plan",
+    }
+
+
 def test_shipped_ontology_catalog_contains_execution_authorization_kernel() -> None:
     catalog = load_ontology_catalog(
         REPO_ROOT / "rule-catalog",

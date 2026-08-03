@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: change_recovered_by_plan
+version: "1.0.0"
+from_type: Change
+to_type: RecoveryPlan
+cardinality: one_to_many
+description: Version-pinned recovery plan prepared or used for a change.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:change_recovered_by_plan@1.0.0
+  content_hash: sha256:8c6e70c63cdd354a00c9fa94f9f2dc40c223dc23d71b76ad30e11fa7456ef445
+  license: MIT
+  retrieved_at: "2026-08-04T00:00:00Z"

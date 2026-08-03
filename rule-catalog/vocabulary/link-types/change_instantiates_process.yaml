@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: change_instantiates_process
+version: "1.0.0"
+from_type: Change
+to_type: Process
+cardinality: one_to_one
+description: Durable workflow process that plans and journals a change lifecycle.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:change_instantiates_process@1.0.0
+  content_hash: sha256:8d8adbdc4dc002ae4701b5457ef398ffe304c7f0a7f2b272005267bb6ce76a79
+  license: MIT
+  retrieved_at: "2026-08-04T00:00:00Z"
