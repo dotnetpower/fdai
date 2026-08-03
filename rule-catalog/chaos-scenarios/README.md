@@ -104,9 +104,31 @@ bundles belong in CI or release artifacts with a 90-day retention period; the
 tracked summary records their SHA-256 digest when one exists. The catalog gate
 rejects a summary after any scenario body or version changes.
 
+`evidence/sre-agent-s1-s14-validation-summary.json` applies the same retention
+boundary to the S1-S14 live campaign. It keeps scenario IDs, decisions, bounded
+measurements, recovery and cleanup states, provenance digests, and the source
+ledger SHA-256 digest. It omits targets, approval text, source identities,
+residual text, and event payloads. The full ledger and source document remain in
+private external evidence storage.
+
 Generate the current dispatchability summary without a substrate:
 
 ```bash
 python scripts/catalog/run-catalog-scenario.py --dry-run \
   --evidence-summary rule-catalog/chaos-scenarios/evidence/catalog-validation-summary.json
 ```
+
+Generate the tracked S1-S14 summary only after the full private ledger passes
+its replay and evidence checks:
+
+```bash
+.venv/bin/python scripts/quality/repository/validate-sre-scenario-evidence.py \
+  <private-ledger.json> \
+  --summary-output \
+  rule-catalog/chaos-scenarios/evidence/sre-agent-s1-s14-validation-summary.json
+```
+
+The canonical execution path remains
+[`scripts/catalog/run-catalog-scenario.py`](../../scripts/catalog/run-catalog-scenario.py).
+One-off campaign runners under ignored or private paths are investigation
+artifacts, not a second runtime or promotion path.
