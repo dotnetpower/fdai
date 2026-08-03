@@ -6,6 +6,8 @@ import hashlib
 from datetime import UTC, datetime
 from uuid import UUID
 
+import pytest
+
 from fdai.core.document_ingestion import (
     CreateUploadRequest,
     DocumentIngestionService,
@@ -85,6 +87,19 @@ class _Distiller:
         )
 
 
+class _AwareDistiller:
+    def __init__(self) -> None:
+        self.contexts: list[VerificationContext] = []
+
+    async def distill_ontology(
+        self,
+        document: ManualDocument,
+        context: VerificationContext,
+    ) -> DistillationResult:
+        self.contexts.append(context)
+        return await _Distiller().distill(document)
+
+
 class _Sink:
     def __init__(self) -> None:
         self.packages: list[OntologyReviewPackage] = []
@@ -93,10 +108,13 @@ class _Sink:
         self.packages.append(package)
 
 
-async def test_upload_extraction_builds_replay_stable_ontology_review_package() -> None:
+@pytest.mark.parametrize("distiller", (_Distiller(), _AwareDistiller()), ids=("legacy", "aware"))
+async def test_upload_extraction_builds_replay_stable_ontology_review_package(
+    distiller: _Distiller | _AwareDistiller,
+) -> None:
     sink = _Sink()
     consumer = EnvelopeOntologyReviewConsumer(
-        distiller=_Distiller(),
+        distiller=distiller,
         context_provider=_context,
         sink=sink,
     )
@@ -137,6 +155,8 @@ async def test_upload_extraction_builds_replay_stable_ontology_review_package() 
 
     await consumer.consume(session=session, envelope=envelope)
     assert sink.packages[1].package_digest == package.package_digest
+    if isinstance(distiller, _AwareDistiller):
+        assert distiller.contexts == [_context(envelope), _context(envelope)]
 
 
 def _pipeline(consumer: EnvelopeOntologyReviewConsumer):

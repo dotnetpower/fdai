@@ -33,6 +33,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Protocol, runtime_checkable
 
+from fdai.shared.providers.ontology_council_receipt import OntologyCouncilReceipt
+
 
 class CandidateKind(StrEnum):
     """The compiled target a distilled fragment normalizes to.
@@ -191,6 +193,7 @@ class DistillationResult:
 
     candidates: tuple[DistilledCandidate, ...] = ()
     coverage: CoverageReport = field(default_factory=lambda: CoverageReport(total=0, covered=0))
+    council_receipts: tuple[OntologyCouncilReceipt, ...] = ()
 
 
 @runtime_checkable
@@ -215,7 +218,7 @@ class DescribedDistiller(Protocol):
         ...
 
 
-def describe_distiller(distiller: Distiller) -> DistillerCapabilityDescriptor:
+def describe_distiller(distiller: object) -> DistillerCapabilityDescriptor:
     """Describe a binding without treating an undescribed provider as available."""
     if isinstance(distiller, DescribedDistiller):
         return distiller.distiller_capability()

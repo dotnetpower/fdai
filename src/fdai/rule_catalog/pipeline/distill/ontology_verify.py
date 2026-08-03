@@ -46,6 +46,7 @@ _AUTHORITY_PROPERTIES = frozenset(
 )
 _CATALOG_TYPES = frozenset({"ActionType", "Policy", "Rule", "Workflow"})
 _SHA256 = re.compile(r"^[a-f0-9]{64}$")
+_PROPERTY = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +58,23 @@ class LinkDeclaration:
     def __post_init__(self) -> None:
         if not self.name or not self.from_type or not self.to_type:
             raise ValueError("link declaration identity and endpoints MUST be non-empty")
+
+
+@dataclass(frozen=True, slots=True)
+class TypePropertyDeclaration:
+    target_type: str
+    property_names: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.target_type or len(self.target_type) > 200:
+            raise ValueError("type property target MUST be bounded and non-empty")
+        if (
+            len(self.property_names) > 64
+            or self.property_names != tuple(sorted(self.property_names))
+            or len(self.property_names) != len(set(self.property_names))
+            or any(_PROPERTY.fullmatch(name) is None for name in self.property_names)
+        ):
+            raise ValueError("type property names MUST be unique, sorted, and bounded")
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,6 +163,8 @@ class VerificationContext:
     external_evidence: tuple[ExternalEvidenceReceipt, ...] = ()
     existing_facts: tuple[ExistingFact, ...] = ()
     aliases: tuple[EntityAliasRecord, ...] = ()
+    object_properties: tuple[TypePropertyDeclaration, ...] = ()
+    link_properties: tuple[TypePropertyDeclaration, ...] = ()
 
     def __post_init__(self) -> None:
         if _SHA256.fullmatch(self.ontology_release) is None:
@@ -174,6 +194,14 @@ class VerificationContext:
         )
         _require_unique((policy.source_ref for policy in self.source_policies), "source policies")
         _require_unique((claim_id for claim_id, _ in self.claim_text), "claim text records")
+        _require_unique(
+            (item.target_type for item in self.object_properties),
+            "object property declarations",
+        )
+        _require_unique(
+            (item.target_type for item in self.link_properties),
+            "link property declarations",
+        )
         unknown_entity_types = {
             entity.object_type
             for entity in self.entities
@@ -189,6 +217,11 @@ class VerificationContext:
             for link in self.links
         ):
             raise ValueError("link endpoints MUST reference declared object types")
+        if any(item.target_type not in self.object_types for item in self.object_properties):
+            raise ValueError("object properties MUST reference declared object types")
+        link_names = {link.name for link in self.links}
+        if any(item.target_type not in link_names for item in self.link_properties):
+            raise ValueError("link properties MUST reference declared link types")
 
 
 def verify_ontology_proposal(
@@ -484,6 +517,7 @@ __all__ = [
     "ExternalEvidenceReceipt",
     "LinkDeclaration",
     "SourceAuthorityPolicy",
+    "TypePropertyDeclaration",
     "VerificationContext",
     "proposal_fact_key",
     "proposal_value_digest",

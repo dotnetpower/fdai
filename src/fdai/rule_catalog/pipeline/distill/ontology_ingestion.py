@@ -7,6 +7,7 @@ import re
 from collections.abc import Callable
 from typing import Protocol, runtime_checkable
 
+from fdai.rule_catalog.pipeline.distill.ontology_council import OntologyAwareDistiller
 from fdai.rule_catalog.pipeline.distill.ontology_models import stable_digest
 from fdai.rule_catalog.pipeline.distill.ontology_review import (
     OntologyReviewPackage,
@@ -97,7 +98,7 @@ class EnvelopeOntologyReviewConsumer:
     def __init__(
         self,
         *,
-        distiller: Distiller,
+        distiller: Distiller | OntologyAwareDistiller,
         context_provider: Callable[[DocumentEnvelope], VerificationContext],
         sink: OntologyReviewPackageSink,
     ) -> None:
@@ -113,8 +114,11 @@ class EnvelopeOntologyReviewConsumer:
     ) -> tuple[str, ...]:
         del session
         document = manual_document_from_envelope(envelope)
-        result = await self._distiller.distill(document)
         context = self._context_provider(envelope)
+        if isinstance(self._distiller, OntologyAwareDistiller):
+            result = await self._distiller.distill_ontology(document, context)
+        else:
+            result = await self._distiller.distill(document)
         extraction_run_id = "run-" + stable_digest(
             {
                 "document_id": str(envelope.document_id),

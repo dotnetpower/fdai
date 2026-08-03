@@ -16,6 +16,11 @@ from fdai.rule_catalog.pipeline.distill.ontology_claims import (
     inventory_claims,
     reconcile_claims,
 )
+from fdai.rule_catalog.pipeline.distill.ontology_council import (
+    OntologyAwareDistiller,
+    OntologyCouncilDistiller,
+    OntologyCouncilPolicy,
+)
 from fdai.rule_catalog.pipeline.distill.ontology_evaluation import (
     ChangeRiskClass,
     assess_low_risk_promotion,
@@ -50,6 +55,9 @@ __all__ = [
     "inventory_claims",
     "manual_document_from_envelope",
     "normalize_review_package",
+    "OntologyAwareDistiller",
+    "OntologyCouncilDistiller",
+    "OntologyCouncilPolicy",
     "plan_access_revocation",
     "plan_source_retirement",
     "reconcile_claims",

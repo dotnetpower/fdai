@@ -25,8 +25,9 @@ revision.
 > implemented. D4b adds the canonical `DocumentEnvelope` provenance bridge, structured Office and
 > PDF locators, OCR fallback, and synthetic cross-format conformance. D4c adds real-document
 > parsing, provider conformance, and annotated public-corpus evaluation. D4b results do not prove
-> production extraction quality. D5 promotion assessment remains evidence-only; no live-shadow
-> evidence or automatic promotion is claimed.
+> production extraction quality. D4d adds a tool-free T2 ontology model council with blind ballots,
+> deterministic consensus, and bounded disagreement evidence. D5 promotion assessment remains
+> evidence-only; no live-shadow evidence or automatic promotion is claimed.
 
 ## Design at a glance
 
@@ -268,6 +269,48 @@ identity resolution, coverage and release gates, public-corpus replay, provider 
 resource/security bounds, and a final independent critique. Each round adds a falsifying fixture
 before its implementation is accepted.
 
+## T2 ontology model council
+
+D4d binds an ontology-aware `Distiller` only when at least two independently versioned T2 model
+families are available. Critical claims use three blind ballots. A model never sees another vote
+until every required blind ballot has closed, preventing one answer from anchoring the others.
+The council is an internal Norns candidate-generation stage, not a new agent, authority channel, or
+execution path.
+
+Each model receives the same immutable claim packet:
+
+- claim id, exact source assertion, source locator, and content digest;
+- pinned ontology release, allowed object and link declarations, and bounded entity candidates;
+- source authority class and only the properties allowed for the target contract;
+- no tools, web access, operator memory, provider credential, or executor identity.
+
+Votes use a strict schema and one of `propose`, `unsupported`, or `abstain`. A proposal can select
+only an allowed type and an existing exact or configured-alias identity. It cannot invent an id,
+type, link, property name, permission, or external observation. The deterministic reducer compares
+claim, citation, operation, target kind and type, identity, properties, numeric values, units,
+comparators, negation, endpoints, and effective time.
+
+Council outcomes are:
+
+| Outcome | Meaning | Candidate behavior |
+|---------|---------|--------------------|
+| `consensus` | Every required blind vote has the same semantic fingerprint. | Build one inert candidate and run the existing deterministic gates. |
+| `contested` | A majority exists but at least one valid vote differs. | Build no accepted candidate; retain bounded field differences for accountable review. |
+| `unsupported` | Every model says the claim cannot map to the pinned ontology. | Keep the claim visible as `needs_review`; never treat it as covered. |
+| `unresolved` | No quorum, malformed output, timeout, budget exhaustion, or incomplete context. | Keep the claim visible as `needs_review`. |
+
+After blind comparison, disputed claims may enter one field-difference critique round. Each model
+can `keep`, `revise`, or `abstain` and may cite only the original claim. Raw reasoning and hidden
+chain-of-thought are neither requested nor stored. Critical claims require final 3-of-3 exact
+agreement. A 2-of-3 result stays `contested`; no Judge model can convert it into consensus.
+
+`OntologyCouncilReceipt` pins model publisher/family/version, deployment binding, prompt and schema
+digests, ontology release, claim packet digest, initial and revised vote digests, policy, usage,
+latency, outcome, and reason codes. Model failure text and source text never enter the receipt.
+Any model, prompt, schema, ontology, or council-policy change invalidates prior conformance evidence.
+Availability is resolved per format and language partition and remains false when the council is
+unbound, same-family-only, over budget, stale, or below a corpus threshold.
+
 ## Verification gates
 
 The verifier evaluates one proposal without calling an executor or mutating a source.
@@ -362,6 +405,7 @@ identities always require accountable review.
 | D4 | Review package and evaluation report | reviewers see graph diff, source evidence, gate receipts, and unresolved claims |
 | D4b | Envelope provenance and cross-format extraction | structured locators survive review; normalized graph diffs match across the synthetic corpus |
 | D4c | Real-corpus extraction quality | required format/language partitions pass provider conformance and annotated-corpus gates |
+| D4d | T2 ontology model council | blind model votes, deterministic consensus, disagreement evidence, model receipts, and live conformance pass without adding authority |
 | D5 | Shadow measurement and limited promotion evidence | statistical and zero-violation gates pass without widening authority |
 
 ## Hardening record

@@ -167,6 +167,23 @@ class AlternatingDistiller(StaticDistiller):
         return DistillationResult(candidates=(candidate,))
 
 
+class AwareStaticDistiller:
+    def __init__(self) -> None:
+        self.contexts: list[VerificationContext] = []
+
+    def distiller_capability(self) -> DistillerCapabilityDescriptor:
+        return StaticDistiller((_candidate(),)).distiller_capability()
+
+    async def distill_ontology(
+        self,
+        document: ManualDocument,
+        context: VerificationContext,
+    ) -> DistillationResult:
+        assert document == _document()
+        self.contexts.append(context)
+        return DistillationResult(candidates=(_candidate(),))
+
+
 class StepClock:
     def __init__(self) -> None:
         self._values = iter((1.0, 1.005, 2.0, 2.007))
@@ -203,6 +220,20 @@ async def test_passing_provider_records_real_output_latency_and_partition_metric
         reason_code=None,
         conformance_contract="ontology-distiller-conformance.v1",
     )
+
+
+async def test_aware_provider_is_exercised_with_each_case_context() -> None:
+    provider = AwareStaticDistiller()
+    report = await evaluate_distiller_conformance(
+        provider,
+        cases=(_case(),),
+        required_partitions=(_PARTITION,),
+        monotonic=StepClock(),
+        cost_microunits=lambda case, result: 0,
+    )
+
+    assert report.assessment.decision is CorpusGateDecision.PASS
+    assert provider.contexts == [_context(), _context()]
 
 
 async def test_malformed_and_wrong_citation_outputs_deny_conformance() -> None:

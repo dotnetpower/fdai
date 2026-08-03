@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 6524fd338ded248cf29e37b728b4c4690a895148
+translation_source_sha: bfc2888918c23cfdb70f39b1c1d9b5c6ac76b9b1
 translation_revised: 2026-08-03
 ---
 # 문서 온톨로지 증류
@@ -26,8 +26,10 @@ translation_revised: 2026-08-03
 > canonical `DocumentEnvelope` provenance bridge, 구조화된 Office/PDF locator, OCR fallback 및
 > synthetic cross-format conformance를 추가합니다. D4c는 real-document parsing, provider
 > conformance 및 annotated public-corpus evaluation을 추가합니다. D4b 결과만으로 production
-> extraction 품질을 증명하지 않습니다. D5 promotion assessment는 evidence-only이며 live-shadow
-> evidence 또는 automatic promotion을 달성했다고 주장하지 않습니다.
+> extraction 품질을 증명하지 않습니다. D4d는 blind ballot, deterministic consensus 및 bounded
+> disagreement evidence를 사용하는 tool-free T2 ontology model council을 추가합니다. D5 promotion
+> assessment는 evidence-only이며 live-shadow evidence 또는 automatic promotion을 달성했다고
+> 주장하지 않습니다.
 
 ## 한눈에 보는 설계
 
@@ -268,6 +270,48 @@ resolution, coverage/release gate, public-corpus replay, provider conformance, r
 및 final independent critique를 다룹니다. 각 round는 구현을 수락하기 전에 falsifying fixture를
 추가합니다.
 
+## T2 온톨로지 모델 위원회
+
+D4d는 독립적으로 versioning된 T2 model family가 두 개 이상 available일 때만 ontology-aware
+`Distiller`를 binding합니다. Critical claim은 blind ballot 세 개를 사용합니다. 필요한 blind ballot이
+모두 끝나기 전에는 어떤 model도 다른 vote를 볼 수 없으므로 한 답이 다른 model을 anchoring하지
+못합니다. Council은 Norns 내부 candidate-generation stage이며 새 agent, authority channel 또는
+execution path가 아닙니다.
+
+각 model은 다음 immutable claim packet을 동일하게 받습니다.
+
+- claim id, exact source assertion, source locator 및 content digest
+- pinned ontology release, allowed object/link declaration 및 bounded entity candidate
+- source authority class와 target contract에서 허용한 property만 포함한 목록
+- tool, web access, operator memory, provider credential 또는 executor identity 없음
+
+Vote는 strict schema와 `propose`, `unsupported`, `abstain` 중 하나를 사용합니다. Proposal은 allowed
+type과 existing exact/configured-alias identity만 선택할 수 있습니다. Id, type, link, property name,
+permission 또는 external observation을 만들 수 없습니다. Deterministic reducer는 claim, citation,
+operation, target kind/type, identity, property, number, unit, comparator, negation, endpoint 및
+effective time을 비교합니다.
+
+Council outcome은 다음과 같습니다.
+
+| Outcome | 의미 | Candidate 동작 |
+|---------|------|----------------|
+| `consensus` | 필요한 모든 blind vote의 semantic fingerprint가 같음 | Inert candidate 하나를 만들고 기존 deterministic gate 실행 |
+| `contested` | Majority가 있지만 하나 이상의 valid vote가 다름 | Accepted candidate를 만들지 않고 bounded field difference를 review에 보존 |
+| `unsupported` | 모든 model이 pinned ontology에 mapping할 수 없다고 판단함 | Claim을 `needs_review`로 유지하고 covered로 계산하지 않음 |
+| `unresolved` | Quorum 없음, malformed output, timeout, budget exhaustion 또는 incomplete context | Claim을 `needs_review`로 유지함 |
+
+Blind comparison 뒤 disputed claim은 field-difference critique 한 round에 들어갈 수 있습니다. 각
+model은 `keep`, `revise`, `abstain`만 선택하며 original claim만 인용할 수 있습니다. Raw reasoning과
+hidden chain-of-thought는 요청하거나 저장하지 않습니다. Critical claim은 최종 3-of-3 exact agreement가
+필요합니다. 2-of-3 결과는 `contested`로 남으며 Judge model이 consensus로 바꿀 수 없습니다.
+
+`OntologyCouncilReceipt`는 model publisher/family/version, deployment binding, prompt/schema digest,
+ontology release, claim packet digest, initial/revised vote digest, policy, usage, latency, outcome 및
+reason code를 고정합니다. Model failure text와 source text는 receipt에 들어가지 않습니다. Model,
+prompt, schema, ontology 또는 council policy가 바뀌면 이전 conformance evidence는 무효가 됩니다.
+Availability는 format/language partition별로 resolve하며 council unbound, same-family-only, over budget,
+stale 또는 corpus threshold 미달이면 false를 유지합니다.
+
 ## 검증 gate
 
 Verifier는 executor를 호출하거나 source를 변경하지 않고 proposal 하나를 평가합니다.
@@ -363,6 +407,7 @@ policy, workflow, ActionType, permission, autonomy, schema change, conflict 및 
 | D4 | Review package 및 evaluation report | reviewer가 graph diff, source evidence, gate receipt 및 unresolved claim을 확인함 |
 | D4b | Envelope provenance 및 cross-format extraction | 구조화된 locator가 review까지 보존되고 synthetic corpus의 normalized graph diff가 일치함 |
 | D4c | 실제 corpus extraction 품질 | 필요한 format/language partition이 provider conformance와 annotated-corpus gate를 통과함 |
+| D4d | T2 ontology model council | blind model vote, deterministic consensus, disagreement evidence, model receipt 및 live conformance가 authority 추가 없이 통과함 |
 | D5 | Shadow measurement 및 limited promotion evidence | authority를 넓히지 않고 statistical 및 zero-violation gate를 통과함 |
 
 ## 하드닝 기록

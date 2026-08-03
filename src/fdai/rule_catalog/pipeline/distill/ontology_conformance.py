@@ -16,6 +16,7 @@ from fdai.rule_catalog.pipeline.distill.ontology_corpus_gate import (
     PartitionEvidence,
     assess_corpus_gate,
 )
+from fdai.rule_catalog.pipeline.distill.ontology_council import OntologyAwareDistiller
 from fdai.rule_catalog.pipeline.distill.ontology_evaluation import ExpectedOntologyFact
 from fdai.rule_catalog.pipeline.distill.ontology_models import (
     ClaimDisposition,
@@ -135,7 +136,7 @@ class OntologyExtractionAvailability:
 
 
 async def evaluate_distiller_conformance(
-    distiller: Distiller,
+    distiller: Distiller | OntologyAwareDistiller,
     *,
     cases: tuple[ConformanceCase, ...],
     required_partitions: tuple[CorpusPartition, ...],
@@ -207,15 +208,25 @@ def resolve_ontology_extraction_capability(
 
 
 async def _evaluate_case(
-    distiller: Distiller,
+    distiller: Distiller | OntologyAwareDistiller,
     *,
     descriptor: DistillerCapabilityDescriptor,
     case: ConformanceCase,
     monotonic: Callable[[], float],
     cost_microunits: Callable[[ConformanceCase, DistillationResult], int] | None,
 ) -> ConformanceCaseResult:
-    first, first_elapsed = await _timed_distill(distiller, case.document, monotonic)
-    replay, replay_elapsed = await _timed_distill(distiller, case.document, monotonic)
+    first, first_elapsed = await _timed_distill(
+        distiller,
+        case.document,
+        case.verification_context,
+        monotonic,
+    )
+    replay, replay_elapsed = await _timed_distill(
+        distiller,
+        case.document,
+        case.verification_context,
+        monotonic,
+    )
     extraction_run_id = "conformance-" + stable_digest(
         {
             "case_id": case.case_id,
@@ -291,12 +302,16 @@ async def _evaluate_case(
 
 
 async def _timed_distill(
-    distiller: Distiller,
+    distiller: Distiller | OntologyAwareDistiller,
     document: ManualDocument,
+    context: VerificationContext,
     monotonic: Callable[[], float],
 ) -> tuple[DistillationResult, float]:
     started = monotonic()
-    result = await distiller.distill(document)
+    if isinstance(distiller, OntologyAwareDistiller):
+        result = await distiller.distill_ontology(document, context)
+    else:
+        result = await distiller.distill(document)
     ended = monotonic()
     elapsed = ended - started
     if not math.isfinite(started) or not math.isfinite(ended) or elapsed < 0.0:
