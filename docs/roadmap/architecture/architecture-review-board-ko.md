@@ -1,8 +1,8 @@
 ---
 title: Architecture Review Board 패킷
 translation_of: architecture-review-board.md
-translation_source_sha: e8da866548d3889654209ec9edffff8f8d4e3b64
-translation_revised: 2026-08-01
+translation_source_sha: b7fff7f1b6c38d0a71f415972ed95767b2221f7c
+translation_revised: 2026-08-04
 ---
 # Architecture Review Board 패킷
 
@@ -123,7 +123,7 @@ python3 scripts/governance/check-arb-readiness.py --require-production-ready
 | Latency | Tier별 p50/p95/p99와 end-to-end canary | 포크 승인 budget 이내 |
 | Capacity | 지속/burst event rate, partition lag, DB saturation, quota headroom | 손실 없음, bounded lag, saturation point 기록 |
 | Reliability | Service별 RPO/RTO와 business-impact analysis | Numeric objective 승인 |
-| Recovery | Isolated restore와 failover drill | Integrity 및 smoke check 통과, objective 충족 |
+| Recovery | Isolated restore와 regional failover/failback drill | Integrity와 smoke 통과, primary fencing, event recovery 및 failback 검증, objective 충족 |
 | Security | Threat review, private/allow-listed data-flow validation, least-privilege probe | 미해결 critical/high finding 없음 |
 | Privacy | Privacy impact assessment와 data inventory | Privacy owner 승인 |
 | Operations | Signed operational-readiness report, canary, smoke, alert, runbook evidence | 모든 production check 통과 |

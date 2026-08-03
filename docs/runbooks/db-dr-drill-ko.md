@@ -1,8 +1,8 @@
 ---
 title: Deep DB-DR 복원 훈련 런북
 translation_of: db-dr-drill.md
-translation_source_sha: 70ed6dab635f635b412e4f87275c150a4819f293
-translation_revised: 2026-07-16
+translation_source_sha: 6556736ad2eff2228a30f8a44a4288b9b8d1e2eb
+translation_revised: 2026-07-31
 ---
 
 # Deep DB-DR 복원 훈련 런북
@@ -35,6 +35,19 @@ Azure 어댑터
    `FDAI_EXPECTED_SUBSCRIPTION_ID`와 일치하는 서브스크립션을 반환하는지 확인합니다.
 4. 격리 리소스 그룹 이름이 서브스크립션에서 사용 가능하고 원본 리소스 그룹과
    충돌하지 않아야 합니다. 훈련 스크립트가 매 실행마다 새 이름을 생성합니다.
+5. 배포 entry point에서 `DbDrVerifier`에 복원, 무결성, smoke, 감사 어댑터를
+  구성한 후 `verifier.run`을 CLI에 전달합니다. 명시적 runner 없이 upstream
+  `main()`을 호출하면 Azure를 변경하기 전에 종료 코드 `2`로 중단됩니다.
+
+  ```python
+  from fdai.core.verticals.resilience.db_dr_drill_cli import main
+
+  raise SystemExit(main(verifier.run))
+  ```
+6. 주입된 HTTP client는 Azure Resource Manager HTTPS origin을 origin-only `base_url`로
+  사용합니다. Adapter는 동일 origin 또는 root-relative path의 LRO pointer만 허용합니다.
+  Source는 canonical PostgreSQL Flexible Server ARM id이고 target resource-group, server 및
+  region 값은 유효한 Azure path segment이며 restore timestamp는 timezone-aware여야 합니다.
 
 ## 단계
 
@@ -45,8 +58,10 @@ Azure 어댑터
    echo "Restore point: $RESTORE_TIME"
    ```
 
-2. **격리 리소스 그룹 생성.** 병렬 훈련이 충돌하지 않도록 훈련 타임스탬프가
-   포함된 이름을 사용합니다.
+2. **수동 절차용 격리 리소스 그룹 생성.** 병렬 훈련이 충돌하지 않도록 훈련 타임스탬프가
+  포함된 이름을 사용합니다. Automated `AzureDbDrRestoreAdapter`는 `If-None-Match: *`로 이
+  단계를 직접 수행하고 201 ownership result만 허용하며 existing group을 채택하지 않고
+  차단합니다.
 
    ```bash
    DRILL_RG="rg-fdai-dr-drill-$(date +%Y%m%d-%H%M)"
@@ -70,7 +85,8 @@ Azure 어댑터
 4. **서버가 `Ready` 상태가 될 때까지 폴링.** 작은 dev 데이터베이스는 보통
    15-40분 안에 복원이 끝납니다.
    [`AzureDbDrRestoreAdapter`](../../src/fdai/delivery/azure/db_dr_restore.py)는
-   기본 30분 예산 내에서 LRO 엔드포인트를 폴링합니다. 운영자용 등가 명령은
+  기본 30분 예산 내에서 LRO 엔드포인트를 폴링합니다. Budget은 monotonic elapsed time을
+  사용하며 configured sleep interval뿐 아니라 token 및 HTTP latency도 포함합니다. 운영자용 등가 명령은
    다음과 같습니다.
 
    ```bash
@@ -118,7 +134,10 @@ Azure 어댑터
   제거되는지 검증합니다.
 
 7. **정리.** 격리 리소스 그룹을 삭제합니다. 어댑터의 `teardown` 경로는
-   멱등적이므로 404 응답은 '이미 삭제됨'을 의미하며 정상으로 간주합니다.
+  멱등적이므로 404 응답은 '이미 삭제됨'을 의미하며 정상으로 간주합니다. 202 response는 LRO
+  pointer를 제공해야 하고 adapter는 이를 polling한 후 target group이 404를 반환하는지 검증한
+  뒤 cleanup success를 보고합니다. Restore failure 또는 cancellation도 adapter가 직접 만든
+  group만 제거합니다.
 
    ```bash
    az group delete -n "$DRILL_RG" --yes --no-wait
@@ -156,22 +175,34 @@ PITR은 개인정보 또는 보존 삭제 이전의 데이터베이스 상태를
 - 설정된 시간 예산 내에 복원 완료 (상위 기본값 30분).
 - 무결성 리포트에 불일치 0건.
 - 스모크 리포트에 최소 1건의 검사가 있고 모든 검사 통과.
+- 최종 ARM resource id가 요청한 restored server와 정확히 일치하고 유효한 FQDN이 요청한 target
+  server name으로 시작합니다.
 - 격리 리소스 그룹 삭제가 2xx (또는 재시도 후 404)를 반환.
 - 모든 단계가 감사 엔트리를 기록. 훈련은 감사 로그에
   `restore_started` / `restore_ready` / `integrity_passed` /
-  `smoke_passed` / `teardown_complete` 이벤트가 모두 있을 때만 '완료' 상태입니다.
+  `smoke_passed` / `teardown_complete` 이벤트가 모두 있을 때만 '완료' 상태입니다. 모든 phase와
+  teardown record는 결정의 고유 `run_id`를 `correlation_id`로 사용하고 `experiment_id`는
+  계획된 exercise를 계속 식별합니다. Phase idempotency key는 해당 run 안에서 고유해야 합니다.
+
+`verification_passed`는 intermediate result입니다. `teardown_succeeded` 이후에만 final
+`passed` 결정을 기록합니다. Teardown error는 `cleanup_failed`를 만들고 진단을 위해 primary
+verification outcome을 보존하며 CLI에서 nonzero exit를 반환하고 cleanup이 검증될 때까지 leaked
+resource를 owned incident로 유지합니다.
 
 ## 실패 처리
 
 - **복원이 예산 초과** -> 어댑터가 `restore_timeout` 이벤트를 발생시킵니다.
   운영자는 마지막 LRO 상태 URL을 캡처하고 인시던트를 등록합니다. 그래도 정리는
   시도합니다.
+- **Malformed successful LRO response** -> 인식된 string status가 없는 HTTP 200 poll은 implicit
+  running state가 아니라 restore failure입니다. Operation reference를 보존하고 중단합니다.
 - **무결성 불일치** -> 훈련이 안전 측으로 닫히며(fail-closed) 실패 처리됩니다.
   불일치 리포트가 인시던트의 페이로드입니다. 엔지니어가 표본을 확인하기 전까지
   격리 리소스 그룹을 삭제하지 마세요 (hold 태그 추가).
 - **스모크 쿼리 실패** -> 무결성 불일치와 동일하게 처리합니다. 실패한 쿼리와
   응답을 기록합니다.
-- **정리 5xx** -> 선형 backoff로 재시도합니다 (5회, 30초 간격). 그래도
+- **정리 408, 429 또는 5xx** -> bounded linear delay로 재시도합니다(기본 5회, 30초 간격).
+  다른 4xx response는 즉시 실패합니다. 그래도
   실패하면 on-call 담당자를 호출합니다 - 남겨진 격리 리소스 그룹은 비용이
   발생하며 수동 정리가 필요합니다.
 

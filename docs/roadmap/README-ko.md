@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 5d607824a48ccc06c69976080ac4083f958a39f7
-translation_revised: 2026-08-03
+translation_source_sha: b58aac2790f5eac05c5bf3b125a9a673db83510e
+translation_revised: 2026-08-04
 ---
 # FDAI 로드맵
 
@@ -74,6 +74,7 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 11 | [deploy-and-onboard-ko.md](deployment/deploy-and-onboard-ko.md) | 구체적인 Azure 리소스 인벤토리, 부트스트랩 순서, fork vs core 분리 |
 | 11a | [deployment-resource-conventions-ko.md](deployment/deployment-resource-conventions-ko.md) | 결정론적 CAF 리소스 이름, 소유권 태그, 배포 공급 태그 규칙 |
 | 11b | [hyperscale-cell-architecture-ko.md](architecture/hyperscale-cell-architecture-ko.md) | 구독 300개를 위한 확장 청사진: 셀 기반 스트리밍, 정책 기반 fan-in, 2-평면 로깅, ADX 기반 CQRS 감사 인덱싱, 비용 범위, standard/sovereign 프로파일, Container Apps 기본(AKS 연기) |
+| 11c | [control-plane-disaster-recovery-ko.md](deployment/control-plane-disaster-recovery-ko.md) | Active-passive regional recovery profile, fencing, state 및 event recovery, failback, evidence gate |
 | 12 | [startup-and-lifecycle-ko.md](operations/startup-and-lifecycle-ko.md) | 콜드 스타트, day-zero 카탈로그, shadow-first 롤아웃, discovery-loop 킥오프 |
 | 13 | [operating-and-verification-ko.md](operations/operating-and-verification-ko.md) | 자체 헬스 신호, canary 이벤트, 스모크 테스트, 알림 라우팅, 런북 |
 | 20 | [deployment-preflight-ko.md](deployment/deployment-preflight-ko.md) | 배포 가능성과 선행 장애 요인 점검: 프로브 분류, readiness 보고서, 장애 요인과 Terraform 설정의 매핑 |

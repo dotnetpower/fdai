@@ -162,7 +162,7 @@ into a channel-neutral query activity row without fabricating provider commands.
 | mscp_profile | Level-neutral `mscp-operational-v1` provenance, pure effect/cycle/integrity checks, and optional ControlLoop shadow observation ([design](mscp-operational-profile.md)) | [src/fdai/core/mscp_profile/](../../../src/fdai/core/mscp_profile/) | [tests/core/mscp_profile/](../../../tests/core/mscp_profile/) |
 | security | Security-signal producers | [src/fdai/core/security/](../../../src/fdai/core/security/) | [tests/core/security/](../../../tests/core/security/) |
 | platform | Platform-primitive facade | [src/fdai/core/platform/](../../../src/fdai/core/platform/) | [tests/core/](../../../tests/core/) |
-| verticals | Resilience / Change Safety / Cost | [src/fdai/core/verticals/](../../../src/fdai/core/verticals/) | [tests/core/verticals/](../../../tests/core/verticals/) |
+| verticals | Resilience / Change Safety / Cost, including immutable control-plane recovery plans, record codec, epoch-fenced reducer, and durable CAS coordinator with action-bound approval verification ([design](../deployment/control-plane-disaster-recovery.md)) | [src/fdai/core/verticals/](../../../src/fdai/core/verticals/) | [tests/core/verticals/](../../../tests/core/verticals/) |
 
 ## Agent pantheon
 

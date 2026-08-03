@@ -126,6 +126,14 @@ def test_tiny_error_body_cap_is_rejected() -> None:
         )
 
 
+def test_client_without_arm_base_url_is_rejected() -> None:
+    with pytest.raises(ValueError, match="base_url"):
+        AzureDrExperimentAdapter(
+            identity=_identity(),
+            http_client=httpx.AsyncClient(),
+        )
+
+
 # ---------------------------------------------------------------------------
 # Happy path - Chaos Studio synchronous start
 # ---------------------------------------------------------------------------
@@ -161,7 +169,7 @@ async def test_chaos_start_202_captures_lro_status_url() -> None:
             202,
             headers={
                 "Azure-AsyncOperation": (
-                    "https://management.azure.com/subscriptions/xxx/"
+                    "https://mock-arm.local/subscriptions/xxx/"
                     "providers/Microsoft.Chaos/operationResults/op-1?api-version=2024-01-01"
                 )
             },
@@ -181,7 +189,7 @@ async def test_chaos_start_falls_back_to_location_header() -> None:
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             202,
-            headers={"Location": "https://management.azure.com/subscriptions/xxx/operations/op-2"},
+            headers={"Location": "https://mock-arm.local/subscriptions/xxx/operations/op-2"},
         )
 
     async with _client(httpx.MockTransport(handler)) as client:
@@ -201,6 +209,44 @@ async def test_chaos_start_uses_body_name_when_no_id() -> None:
         handle = await adapter.start(_chaos_experiment())
 
     assert handle.run_id == "exec-name-only"
+
+
+async def test_start_rejects_cross_origin_lro_pointer_before_poll() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(
+            202,
+            headers={"Azure-AsyncOperation": "https://attacker.example/steal-token"},
+        )
+
+    async with _client(httpx.MockTransport(handler)) as client:
+        adapter = _adapter(client)
+        with pytest.raises(DrRunnerError, match="configured ARM HTTPS origin"):
+            await adapter.start(_chaos_experiment())
+
+    assert len(seen) == 1
+    assert seen[0].url.host == "mock-arm.local"
+
+
+async def test_start_rejects_unsupported_provider_ref_before_request() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200)
+
+    unsupported = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example/"
+        "providers/Microsoft.Example/widgets/one"
+    )
+    async with _client(httpx.MockTransport(handler)) as client:
+        adapter = _adapter(client)
+        with pytest.raises(DrRunnerError, match="not a supported"):
+            await adapter.start(_chaos_experiment(provider_ref=unsupported))
+
+    assert seen == []
 
 
 async def test_chaos_start_synchronous_200_without_body_uses_provider_ref() -> None:
@@ -317,6 +363,38 @@ async def test_check_reports_running_on_202() -> None:
         status = await adapter.check(handle)
 
     assert status is DrRunStatus.RUNNING
+
+
+async def test_check_rejects_cross_origin_handle_before_request() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"status": "Succeeded"})
+
+    async with _client(httpx.MockTransport(handler)) as client:
+        adapter = _adapter(client)
+        with pytest.raises(DrRunnerError, match="configured ARM HTTPS origin"):
+            await adapter.check(_handle(status_url="https://attacker.example/steal-token"))
+
+    assert seen == []
+
+
+async def test_rollback_rejects_absolute_provider_ref_before_request() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(204)
+
+    async with _client(httpx.MockTransport(handler)) as client:
+        adapter = _adapter(client)
+        with pytest.raises(DrRunnerError, match="provider_ref"):
+            await adapter.rollback(
+                _handle(provider_ref="https://attacker.example/subscriptions/x/experiment")
+            )
+
+    assert seen == []
 
 
 async def test_check_reports_running_on_missing_status_field() -> None:

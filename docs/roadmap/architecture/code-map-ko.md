@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 51f381cf92e69d81063b63e04565d77f6438dfb0
+translation_source_sha: 4c794bad68db36296cce06e0be46740d71464280
 translation_revised: 2026-08-04
 ---
 # 코드 맵
@@ -166,7 +166,7 @@ channel-neutral query activity row로 projection합니다.
 | mscp_profile | 레벨 비종속 `mscp-operational-v1` provenance, 순수 effect/cycle/integrity 검사 및 optional ControlLoop shadow observation ([설계](mscp-operational-profile-ko.md)) | [src/fdai/core/mscp_profile/](../../../src/fdai/core/mscp_profile/) | [tests/core/mscp_profile/](../../../tests/core/mscp_profile/) |
 | security | 보안 시그널 생산자 | [src/fdai/core/security/](../../../src/fdai/core/security/) | [tests/core/security/](../../../tests/core/security/) |
 | platform | 플랫폼 프리미티브 파사드 | [src/fdai/core/platform/](../../../src/fdai/core/platform/) | [tests/core/](../../../tests/core/) |
-| verticals | Resilience / Change Safety / Cost | [src/fdai/core/verticals/](../../../src/fdai/core/verticals/) | [tests/core/verticals/](../../../tests/core/verticals/) |
+| verticals | Immutable control-plane recovery plan, record codec, epoch-fenced reducer 및 action-bound approval verification을 사용하는 durable CAS coordinator를 포함한 Resilience / Change Safety / Cost ([설계](../deployment/control-plane-disaster-recovery-ko.md)) | [src/fdai/core/verticals/](../../../src/fdai/core/verticals/) | [tests/core/verticals/](../../../tests/core/verticals/) |
 
 ## 에이전트 판테온
 

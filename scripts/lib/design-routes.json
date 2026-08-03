@@ -151,6 +151,34 @@
       ]
     },
     {
+      "id": "control-plane-dr",
+      "paths": [
+        "src/fdai/core/verticals/resilience/recovery_plan.py",
+        "src/fdai/shared/providers/control_plane_recovery.py",
+        "tests/**/*recovery_plan*.py",
+        "tests/core/verticals/test_recovery_coordinator.py",
+        "docs/roadmap/deployment/control-plane-disaster-recovery*.md",
+        "docs/runbooks/control-plane-failover*.md"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/deployment/control-plane-disaster-recovery.md",
+        "docs/roadmap/phases/phase-3-integrated-loop.md",
+        "docs/roadmap/architecture/security-and-identity.md",
+        "docs/roadmap/operations/operating-and-verification.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/deployment/control-plane-disaster-recovery.md",
+        "docs/roadmap/deployment/deployment.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/core/verticals/test_recovery_plan.py tests/core/verticals/test_recovery_coordinator.py"
+      ]
+    },
+    {
       "id": "operating-ontology",
       "paths": [
         "docs/roadmap/architecture/operating-ontology*.md",

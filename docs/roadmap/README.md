@@ -77,6 +77,7 @@ Read the reference docs first, then the phases in order.
 | 11 | [deploy-and-onboard.md](deployment/deploy-and-onboard.md) | concrete Azure resource inventory, bootstrap sequence, fork vs core split |
 | 11a | [deployment-resource-conventions.md](deployment/deployment-resource-conventions.md) | deterministic CAF resource names, ownership tags, and deployment-supplied tag rules |
 | 11b | [hyperscale-cell-architecture.md](architecture/hyperscale-cell-architecture.md) | scale-out blueprint for 300 subscriptions: cell-based streaming, policy-driven fan-in, two-plane logging, CQRS audit indexing over ADX, cost envelope, standard/sovereign profiles, Container Apps default (AKS deferred) |
+| 11c | [control-plane-disaster-recovery.md](deployment/control-plane-disaster-recovery.md) | active-passive regional recovery profiles, fencing, state and event recovery, failback, and evidence gates |
 | 12 | [startup-and-lifecycle.md](operations/startup-and-lifecycle.md) | cold start, day-zero catalog, shadow-first rollout, discovery-loop kickoff |
 | 13 | [operating-and-verification.md](operations/operating-and-verification.md) | self-health signals, canary event, smoke tests, alert routing, runbooks |
 | 20 | [deployment-preflight.md](deployment/deployment-preflight.md) | pre-deployment feasibility and blocker collection: probe taxonomy, readiness report, blocker-to-terraform-toggle mapping |

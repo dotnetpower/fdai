@@ -27,6 +27,7 @@ overrides ``sleep`` so LRO tests do not wait a real second.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from datetime import UTC, datetime
 
@@ -74,8 +75,29 @@ def _identity() -> StaticWorkloadIdentity:
     return StaticWorkloadIdentity(audience=_AUDIENCE, token=_TOKEN)
 
 
-def _client(handler: httpx.MockTransport) -> httpx.AsyncClient:
-    return httpx.AsyncClient(transport=handler, base_url="https://mock-arm.local")
+def _client(
+    handler: httpx.MockTransport,
+    *,
+    manage_resource_groups: bool = True,
+) -> httpx.AsyncClient:
+    if not manage_resource_groups:
+        return httpx.AsyncClient(transport=handler, base_url="https://mock-arm.local")
+    owned_groups: set[str] = set()
+
+    def wrapped(request: httpx.Request) -> httpx.Response:
+        is_group = request.url.path.endswith("/resourceGroups/rg-restore-1")
+        if is_group and request.method == "PUT":
+            owned_groups.add(request.url.path)
+            return httpx.Response(201)
+        if is_group and request.method == "DELETE" and request.url.path in owned_groups:
+            owned_groups.remove(request.url.path)
+            return httpx.Response(204)
+        return handler.handle_request(request)
+
+    return httpx.AsyncClient(
+        transport=httpx.MockTransport(wrapped),
+        base_url="https://mock-arm.local",
+    )
 
 
 def _adapter(
@@ -83,12 +105,14 @@ def _adapter(
     *,
     config: AzureDbDrRestoreAdapterConfig | None = None,
     sleep: Callable[[float], object] | None = None,
+    monotonic: Callable[[], float] | None = None,
 ) -> AzureDbDrRestoreAdapter:
     return AzureDbDrRestoreAdapter(
         identity=_identity(),
         http_client=client,
         config=config or AzureDbDrRestoreAdapterConfig(poll_interval_seconds=0),
         sleep=_noop_sleep if sleep is None else sleep,  # type: ignore[arg-type]
+        monotonic=monotonic,
     )
 
 
@@ -163,6 +187,33 @@ def test_tiny_error_body_cap_is_rejected() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "config",
+    [
+        AzureDbDrRestoreAdapterConfig(teardown_retry_attempts=0),
+        AzureDbDrRestoreAdapterConfig(teardown_retry_attempts=11),
+        AzureDbDrRestoreAdapterConfig(teardown_retry_interval_seconds=-1),
+    ],
+)
+def test_invalid_teardown_retry_config_is_rejected(
+    config: AzureDbDrRestoreAdapterConfig,
+) -> None:
+    with pytest.raises(ValueError, match="teardown_retry"):
+        AzureDbDrRestoreAdapter(
+            identity=_identity(),
+            http_client=httpx.AsyncClient(base_url="https://mock-arm.local"),
+            config=config,
+        )
+
+
+def test_client_without_arm_base_url_is_rejected() -> None:
+    with pytest.raises(ValueError, match="base_url"):
+        AzureDbDrRestoreAdapter(
+            identity=_identity(),
+            http_client=httpx.AsyncClient(),
+        )
+
+
 # ---------------------------------------------------------------------------
 # Isolation invariant
 # ---------------------------------------------------------------------------
@@ -179,7 +230,12 @@ async def test_restore_refuses_same_rg_as_source() -> None:
 async def test_restore_refuses_source_ref_without_resource_group() -> None:
     async with _client(httpx.MockTransport(lambda _r: httpx.Response(500))) as client:
         adapter = _adapter(client)
-        cfg = _config(source_ref="/subscriptions/x/providers/Microsoft.Fake/foo/bar")
+        cfg = _config(
+            source_ref=(
+                f"/subscriptions/{_SUB}/providers/Microsoft.DBforPostgreSQL/"
+                "flexibleServers/src-server"
+            )
+        )
         with pytest.raises(DbDrError, match="resourceGroups"):
             await adapter.restore(cfg)
 
@@ -190,6 +246,192 @@ async def test_restore_refuses_source_ref_without_subscription_id() -> None:
         cfg = _config(source_ref="/resourceGroups/rg-x/providers/Microsoft.Fake/foo/bar")
         with pytest.raises(DbDrError, match="subscriptions"):
             await adapter.restore(cfg)
+
+
+async def test_restore_refuses_noncanonical_subscription_id() -> None:
+    source_ref = (
+        "/subscriptions/not-a-uuid/resourceGroups/rg-source/"
+        "providers/Microsoft.DBforPostgreSQL/flexibleServers/src-server"
+    )
+    async with _client(httpx.MockTransport(lambda _r: httpx.Response(500))) as client:
+        adapter = _adapter(client)
+        with pytest.raises(DbDrError, match="subscription id"):
+            await adapter.restore(_config(source_ref=source_ref))
+
+
+async def test_restore_creates_owned_resource_group_before_server() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.method == "PUT":
+            return httpx.Response(201)
+        if request.method == "POST":
+            return httpx.Response(201)
+        return httpx.Response(200, json=_final_body())
+
+    async with _client(
+        httpx.MockTransport(handler),
+        manage_resource_groups=False,
+    ) as client:
+        adapter = _adapter(client)
+        await adapter.restore(_config())
+
+    assert [request.method for request in seen[:2]] == ["PUT", "POST"]
+    create = seen[0]
+    assert create.headers["If-None-Match"] == "*"
+    assert create.url.path.endswith("/resourceGroups/rg-restore-1")
+    body = create.read().decode("utf-8")
+    assert '"managed-by":"fdai"' in body
+    assert '"purpose":"dr-drill"' in body
+
+
+@pytest.mark.parametrize("status", [200, 409, 412])
+async def test_restore_refuses_existing_target_resource_group(status: int) -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(status)
+
+    async with _client(
+        httpx.MockTransport(handler),
+        manage_resource_groups=False,
+    ) as client:
+        adapter = _adapter(client)
+        with pytest.raises(DbDrError, match="ownership was not acquired"):
+            await adapter.restore(_config())
+    assert [request.method for request in seen] == ["PUT"]
+
+
+async def test_restore_failure_cleans_up_owned_resource_group() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.method == "PUT":
+            return httpx.Response(201)
+        if request.method == "POST":
+            return httpx.Response(400, text="bad restore")
+        if request.method == "DELETE":
+            return httpx.Response(204)
+        return httpx.Response(500)
+
+    async with _client(
+        httpx.MockTransport(handler),
+        manage_resource_groups=False,
+    ) as client:
+        adapter = _adapter(client)
+        with pytest.raises(DbDrError, match="HTTP 400"):
+            await adapter.restore(_config())
+    assert [request.method for request in seen] == ["PUT", "POST", "DELETE"]
+
+
+async def test_restore_cancellation_cleans_up_owned_resource_group() -> None:
+    restore_entered = asyncio.Event()
+    release_restore = asyncio.Event()
+    seen: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.method)
+        if request.method == "PUT":
+            return httpx.Response(201)
+        if request.method == "POST":
+            restore_entered.set()
+            await release_restore.wait()
+            return httpx.Response(201)
+        if request.method == "DELETE":
+            return httpx.Response(204)
+        return httpx.Response(500)
+
+    transport = httpx.MockTransport(handler)
+    async with _client(transport, manage_resource_groups=False) as client:
+        adapter = _adapter(client)
+        task = asyncio.create_task(adapter.restore(_config()))
+        await restore_entered.wait()
+        task.cancel()
+        release_restore.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    assert seen == ["PUT", "POST", "DELETE"]
+
+
+async def test_cancellation_during_resource_group_create_waits_for_ownership_then_cleans() -> None:
+    create_entered = asyncio.Event()
+    release_create = asyncio.Event()
+    seen: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.method)
+        if request.method == "PUT":
+            create_entered.set()
+            await release_create.wait()
+            return httpx.Response(201)
+        if request.method == "DELETE":
+            return httpx.Response(204)
+        return httpx.Response(500)
+
+    async with _client(
+        httpx.MockTransport(handler),
+        manage_resource_groups=False,
+    ) as client:
+        adapter = _adapter(client)
+        task = asyncio.create_task(adapter.restore(_config()))
+        await create_entered.wait()
+        task.cancel()
+        release_create.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    assert seen == ["PUT", "DELETE"]
+
+
+async def test_cancelled_existing_group_create_does_not_delete_unowned_group() -> None:
+    create_entered = asyncio.Event()
+    release_create = asyncio.Event()
+    seen: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.method)
+        if request.method == "PUT":
+            create_entered.set()
+            await release_create.wait()
+            return httpx.Response(412)
+        return httpx.Response(500)
+
+    async with _client(
+        httpx.MockTransport(handler),
+        manage_resource_groups=False,
+    ) as client:
+        adapter = _adapter(client)
+        task = asyncio.create_task(adapter.restore(_config()))
+        await create_entered.wait()
+        task.cancel()
+        release_create.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    assert seen == ["PUT"]
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        _config(target_resource_group="rg/escape"),
+        _config(target_server_name="bad/server"),
+        _config(target_location="east us"),
+    ],
+)
+async def test_restore_refuses_path_injection_fields(config: DbRestoreConfig) -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(500)
+
+    async with _client(httpx.MockTransport(handler)) as client:
+        adapter = _adapter(client)
+        with pytest.raises(DbDrError):
+            await adapter.restore(config)
+    assert seen == []
 
 
 # ---------------------------------------------------------------------------
@@ -247,7 +489,7 @@ async def test_point_in_time_is_serialized_as_iso_utc() -> None:
     assert '"pointInTimeUTC":"2026-07-06T12:34:56Z"' in body
 
 
-async def test_naive_point_in_time_is_treated_as_utc() -> None:
+async def test_naive_point_in_time_is_rejected_before_request() -> None:
     seen: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -259,10 +501,9 @@ async def test_naive_point_in_time_is_treated_as_utc() -> None:
     naive = datetime(2026, 7, 6, 12, 34, 56)  # noqa: DTZ001 - deliberate for test
     async with _client(httpx.MockTransport(handler)) as client:
         adapter = _adapter(client)
-        await adapter.restore(_config(point_in_time_utc=naive))
-
-    body = seen[0].read().decode("utf-8")
-    assert '"pointInTimeUTC":"2026-07-06T12:34:56Z"' in body
+        with pytest.raises(DbDrError, match="timezone-aware"):
+            await adapter.restore(_config(point_in_time_utc=naive))
+    assert seen == []
 
 
 # ---------------------------------------------------------------------------
@@ -317,6 +558,25 @@ async def test_lro_uses_location_header_when_no_azure_async_operation() -> None:
 
     assert handle.endpoint == _TARGET_FQDN
     assert any("loc-1" in s for s in seen)
+
+
+async def test_restore_rejects_cross_origin_lro_pointer_before_poll() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(
+            202,
+            headers={"Azure-AsyncOperation": "https://attacker.example/steal-token"},
+        )
+
+    async with _client(httpx.MockTransport(handler)) as client:
+        adapter = _adapter(client)
+        with pytest.raises(DbDrError, match="configured ARM HTTPS origin"):
+            await adapter.restore(_config())
+
+    assert len(seen) == 1
+    assert seen[0].url.host == "mock-arm.local"
 
 
 async def test_lro_treats_202_poll_as_in_progress() -> None:
@@ -416,6 +676,33 @@ async def test_lro_timeout_exceeds_budget_raises() -> None:
             await adapter.restore(_config())
 
 
+async def test_lro_http_delay_consumes_monotonic_budget() -> None:
+    lro_url = "https://mock-arm.local/subscriptions/x/operations/slow-http?api-version=1"
+    now = 0.0
+
+    def clock() -> float:
+        return now
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal now
+        if request.method == "POST":
+            return httpx.Response(202, headers={"Azure-AsyncOperation": lro_url})
+        now = 2.0
+        return httpx.Response(200, json={"status": "InProgress"})
+
+    async with _client(httpx.MockTransport(handler)) as client:
+        adapter = _adapter(
+            client,
+            config=AzureDbDrRestoreAdapterConfig(
+                max_poll_seconds=1,
+                poll_interval_seconds=0,
+            ),
+            monotonic=clock,
+        )
+        with pytest.raises(DbDrError, match="did not complete within"):
+            await adapter.restore(_config())
+
+
 async def test_submit_202_without_status_header_raises() -> None:
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(202)  # no header, no body
@@ -499,6 +786,47 @@ async def test_final_resource_get_missing_id_raises() -> None:
     async with _client(httpx.MockTransport(handler)) as client:
         adapter = _adapter(client)
         with pytest.raises(DbDrError, match="no resource id"):
+            await adapter.restore(_config())
+
+
+async def test_final_resource_get_unexpected_id_raises() -> None:
+    unexpected = _final_body()
+    unexpected["id"] = _TARGET_REF.replace("restored-1", "different-server")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            return httpx.Response(201, json={})
+        return httpx.Response(200, json=unexpected)
+
+    async with _client(httpx.MockTransport(handler)) as client:
+        adapter = _adapter(client)
+        with pytest.raises(DbDrError, match="unexpected resource id"):
+            await adapter.restore(_config())
+
+
+@pytest.mark.parametrize(
+    "fqdn",
+    [
+        "restored-1",
+        "different-server.postgres.database.azure.com",
+        "restored-1.bad label.example",
+        f"restored-1.{('x' * 64)}.example",
+    ],
+)
+async def test_final_resource_get_invalid_or_mismatched_fqdn_raises(fqdn: str) -> None:
+    body = _final_body()
+    properties = body["properties"]
+    assert isinstance(properties, dict)
+    properties["fullyQualifiedDomainName"] = fqdn
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            return httpx.Response(201, json={})
+        return httpx.Response(200, json=body)
+
+    async with _client(httpx.MockTransport(handler)) as client:
+        adapter = _adapter(client)
+        with pytest.raises(DbDrError, match="invalid target FQDN"):
             await adapter.restore(_config())
 
 
@@ -619,7 +947,7 @@ async def test_teardown_deletes_target_resource_group() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(request)
-        return httpx.Response(202)
+        return httpx.Response(204)
 
     async with _client(httpx.MockTransport(handler)) as client:
         adapter = _adapter(client)
@@ -633,7 +961,7 @@ async def test_teardown_deletes_target_resource_group() -> None:
     assert req.headers["Authorization"] == f"Bearer {_TOKEN}"
 
 
-@pytest.mark.parametrize("code", [200, 202, 204, 404])
+@pytest.mark.parametrize("code", [200, 204, 404])
 async def test_teardown_accepts_success_and_not_found(code: int) -> None:
     def handler(_r: httpx.Request) -> httpx.Response:
         return httpx.Response(code)
@@ -641,6 +969,32 @@ async def test_teardown_accepts_success_and_not_found(code: int) -> None:
     async with _client(httpx.MockTransport(handler)) as client:
         adapter = _adapter(client)
         await adapter.teardown(_handle())  # must not raise
+
+
+async def test_teardown_202_polls_lro_and_verifies_resource_group_absent() -> None:
+    status_url = "https://mock-arm.local/subscriptions/x/operations/delete-rg?api-version=1"
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(f"{request.method} {request.url.path}")
+        if request.method == "DELETE":
+            return httpx.Response(202, headers={"Azure-AsyncOperation": status_url})
+        if request.url.path.endswith("/operations/delete-rg"):
+            return httpx.Response(200, json={"status": "Succeeded"})
+        return httpx.Response(404)
+
+    async with _client(httpx.MockTransport(handler)) as client:
+        adapter = _adapter(client)
+        await adapter.teardown(_handle())
+
+    assert [line.split()[0] for line in seen] == ["DELETE", "GET", "GET"]
+
+
+async def test_teardown_202_without_lro_header_fails_closed() -> None:
+    async with _client(httpx.MockTransport(lambda _request: httpx.Response(202))) as client:
+        adapter = _adapter(client)
+        with pytest.raises(DbDrError, match="without an LRO status header"):
+            await adapter.teardown(_handle())
 
 
 async def test_teardown_other_error_raises() -> None:
@@ -651,6 +1005,70 @@ async def test_teardown_other_error_raises() -> None:
         adapter = _adapter(client)
         with pytest.raises(DbDrError, match="HTTP 500"):
             await adapter.teardown(_handle())
+
+
+async def test_teardown_retries_transient_response_until_success() -> None:
+    statuses = iter((500, 429, 204))
+    seen: list[int] = []
+    sleeps: list[float] = []
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        status = next(statuses)
+        seen.append(status)
+        return httpx.Response(status)
+
+    async def record_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    async with _client(httpx.MockTransport(handler)) as client:
+        adapter = _adapter(
+            client,
+            config=AzureDbDrRestoreAdapterConfig(
+                teardown_retry_attempts=5,
+                teardown_retry_interval_seconds=7,
+            ),
+            sleep=record_sleep,
+        )
+        await adapter.teardown(_handle())
+
+    assert seen == [500, 429, 204]
+    assert sleeps == [7, 7]
+
+
+async def test_teardown_exhausts_bounded_transient_retries() -> None:
+    calls = 0
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(503, text="unavailable")
+
+    async with _client(httpx.MockTransport(handler)) as client:
+        adapter = _adapter(
+            client,
+            config=AzureDbDrRestoreAdapterConfig(
+                teardown_retry_attempts=3,
+                teardown_retry_interval_seconds=0,
+            ),
+        )
+        with pytest.raises(DbDrError, match="HTTP 503"):
+            await adapter.teardown(_handle())
+    assert calls == 3
+
+
+async def test_teardown_does_not_retry_non_transient_4xx() -> None:
+    calls = 0
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(403, text="forbidden")
+
+    async with _client(httpx.MockTransport(handler)) as client:
+        adapter = _adapter(client)
+        with pytest.raises(DbDrError, match="HTTP 403"):
+            await adapter.teardown(_handle())
+    assert calls == 1
 
 
 async def test_teardown_transport_error_raises() -> None:
@@ -699,7 +1117,7 @@ async def test_short_error_body_is_not_trimmed() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_lro_poll_empty_body_is_treated_as_in_progress_then_settles() -> None:
+async def test_lro_poll_empty_200_body_fails_closed() -> None:
     lro_url = "https://mock-arm.local/subscriptions/x/operations/emp?api-version=2024-08-01"
     call = 0
 
@@ -709,20 +1127,17 @@ async def test_lro_poll_empty_body_is_treated_as_in_progress_then_settles() -> N
             return httpx.Response(202, headers={"Azure-AsyncOperation": lro_url})
         if request.url.path.endswith("/operations/emp"):
             call += 1
-            if call == 1:
-                # Empty body on a 200 - no state extractable; treat as pending.
-                return httpx.Response(200)
-            return httpx.Response(200, json={"status": "Succeeded"})
+            return httpx.Response(200)
         return httpx.Response(200, json=_final_body())
 
     async with _client(httpx.MockTransport(handler)) as client:
         adapter = _adapter(client)
-        handle = await adapter.restore(_config())
-    assert handle.target_ref == _TARGET_REF
-    assert call == 2
+        with pytest.raises(DbDrError, match="no valid status"):
+            await adapter.restore(_config())
+    assert call == 1
 
 
-async def test_lro_poll_non_json_body_is_treated_as_in_progress() -> None:
+async def test_lro_poll_non_json_200_body_fails_closed() -> None:
     lro_url = "https://mock-arm.local/subscriptions/x/operations/nj?api-version=2024-08-01"
     call = 0
 
@@ -732,18 +1147,17 @@ async def test_lro_poll_non_json_body_is_treated_as_in_progress() -> None:
             return httpx.Response(202, headers={"Azure-AsyncOperation": lro_url})
         if request.url.path.endswith("/operations/nj"):
             call += 1
-            if call == 1:
-                return httpx.Response(200, text="<html>not json</html>")
-            return httpx.Response(200, json={"status": "Succeeded"})
+            return httpx.Response(200, text="<html>not json</html>")
         return httpx.Response(200, json=_final_body())
 
     async with _client(httpx.MockTransport(handler)) as client:
         adapter = _adapter(client)
-        handle = await adapter.restore(_config())
-    assert handle.target_ref == _TARGET_REF
+        with pytest.raises(DbDrError, match="no valid status"):
+            await adapter.restore(_config())
+    assert call == 1
 
 
-async def test_lro_poll_array_body_is_treated_as_in_progress() -> None:
+async def test_lro_poll_array_200_body_fails_closed() -> None:
     lro_url = "https://mock-arm.local/subscriptions/x/operations/arr?api-version=2024-08-01"
     call = 0
 
@@ -753,18 +1167,17 @@ async def test_lro_poll_array_body_is_treated_as_in_progress() -> None:
             return httpx.Response(202, headers={"Azure-AsyncOperation": lro_url})
         if request.url.path.endswith("/operations/arr"):
             call += 1
-            if call == 1:
-                return httpx.Response(200, json=["not", "an", "object"])
-            return httpx.Response(200, json={"status": "Succeeded"})
+            return httpx.Response(200, json=["not", "an", "object"])
         return httpx.Response(200, json=_final_body())
 
     async with _client(httpx.MockTransport(handler)) as client:
         adapter = _adapter(client)
-        handle = await adapter.restore(_config())
-    assert handle.target_ref == _TARGET_REF
+        with pytest.raises(DbDrError, match="no valid status"):
+            await adapter.restore(_config())
+    assert call == 1
 
 
-async def test_lro_poll_body_without_state_field_is_treated_as_in_progress() -> None:
+async def test_lro_poll_200_body_without_state_fails_closed() -> None:
     lro_url = "https://mock-arm.local/subscriptions/x/operations/nostate?api-version=2024-08-01"
     call = 0
 
@@ -774,14 +1187,11 @@ async def test_lro_poll_body_without_state_field_is_treated_as_in_progress() -> 
             return httpx.Response(202, headers={"Azure-AsyncOperation": lro_url})
         if request.url.path.endswith("/operations/nostate"):
             call += 1
-            if call == 1:
-                # Body with no ``status`` and properties.provisioningState of a
-                # non-string type - falls through to the "keep polling" branch.
-                return httpx.Response(200, json={"properties": {"provisioningState": 42}})
-            return httpx.Response(200, json={"status": "Succeeded"})
+            return httpx.Response(200, json={"properties": {"provisioningState": 42}})
         return httpx.Response(200, json=_final_body())
 
     async with _client(httpx.MockTransport(handler)) as client:
         adapter = _adapter(client)
-        handle = await adapter.restore(_config())
-    assert handle.target_ref == _TARGET_REF
+        with pytest.raises(DbDrError, match="no valid status"):
+            await adapter.restore(_config())
+    assert call == 1

@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 7713c4836ecb0a9b67efde3667c7b4715c87b69d
-translation_revised: 2026-08-02
+translation_source_sha: 904d27c79e61ce657ca07f83192283e6c36f88ec
+translation_revised: 2026-08-04
 ---
 
 # 배포(Deployment)
@@ -177,14 +177,16 @@ idempotency, audit entry)을
 
 ## 컨트롤 플레인 재해 복구(Disaster Recovery)
 
-컨트롤 플레인은 다른 것을 remediate하는 것뿐 아니라 자신도 복구해야 합니다.
+컨트롤 플레인은 다른 대상을 remediate하는 것뿐 아니라 자신도 복구해야 합니다. Canonical
+[컨트롤 플레인 재해 복구 설계](control-plane-disaster-recovery-ko.md)는 active-passive profile,
+single-writer recovery epoch, primary fencing, state와 event recovery, failback 및 evidence
+gate를 정의합니다.
 
-- **State/audit 저장소**: **RPO/RTO** 정의된 point-in-time 백업; append-only 감사 로그가
-  진실 원본이며 결정론적 리플레이(judge-only, 재실행하지 않음)에 복원 가능.
-- **Event bus**: 순서 보장 + **dead-letter queue** 에 의존; 복구 시 코어는 이벤트를 드롭하지
-  않고 DLQ에서 재처리 (idempotency key가 이중 적용 방지).
-- **리전/가용성**: IaC가 state + 백업으로부터 대체 리전에 스택을 재프로비저닝 가능; failover는
-  임기응변이 아니라 리허설된 런북.
+Dead-letter queue만으로 regional event recovery를 수행할 수 없습니다. Event Hubs metadata
+disaster recovery는 event data를 복제하지 않으며 PostgreSQL geo-redundant backup은 remote
+point-in-time restore가 아닙니다. 각 production 배포는 명시적 event source, data recovery
+방법, numeric RPO/RTO, traffic strategy 및 측정된 failover/failback drill evidence를
+binding합니다.
 
 ## 관측성, SLO, 알림
 

@@ -47,6 +47,7 @@ class DrExperiment:
     is_production_target: bool = False
     has_rollback_path: bool = False
     stop_conditions: tuple[str, ...] = ()
+    max_duration_seconds: float = 3600.0
 
 
 class ExecutionMode(StrEnum):
@@ -59,6 +60,7 @@ class RunOutcome(StrEnum):
     ISOLATION_VIOLATION = "isolation_violation"
     MISSING_ROLLBACK_PATH = "missing_rollback_path"
     MISSING_STOP_CONDITION = "missing_stop_condition"
+    INVALID_TIME_BOX = "invalid_time_box"
     MISSING_PROVIDER_REF = "missing_provider_ref"
     RUNNER_NOT_CONFIGURED = "runner_not_configured"
     SHADOW_LOGGED = "shadow_logged"

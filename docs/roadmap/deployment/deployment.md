@@ -177,15 +177,15 @@ deployment rollback complements, not replaces, per-action rollback.
 
 ## Control-Plane Disaster Recovery
 
-The control plane must recover itself, not only remediate others.
+The control plane must recover itself, not only remediate others. The canonical
+[control-plane disaster-recovery design](control-plane-disaster-recovery.md) defines the active-
+passive profiles, single-writer recovery epoch, primary fencing, state and event recovery,
+failback, and evidence gates.
 
-- **State/audit store**: point-in-time backups with defined **RPO/RTO**; the append-only audit
-  log is the source of truth and is restorable for deterministic replay (judge-only, never
-  re-executes).
-- **Event bus**: rely on ordering plus **dead-letter queues**; on recovery the core reprocesses
-  from the DLQ (idempotency keys prevent double-apply) rather than dropping events.
-- **Region/availability**: IaC can re-provision the stack in an alternate region from state +
-  backups; failover is a rehearsed runbook, not an ad-hoc action.
+Dead-letter queues alone are not regional event recovery. Event Hubs metadata disaster recovery
+does not replicate event data, and PostgreSQL geo-redundant backup is not remote point-in-time
+restore. Each production deployment binds an explicit event source, data recovery method, numeric
+RPO/RTO, traffic strategy, and measured failover/failback drill evidence.
 
 ## Observability, SLOs, and Alerting
 

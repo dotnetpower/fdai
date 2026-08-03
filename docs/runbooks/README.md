@@ -26,6 +26,7 @@ names, owners, paging integrations, and rollback implementations.
 |-----------|-------------|
 | [Deployment recovery](deployment-recovery.md) | A protected plan, offline kit, or startup-readiness check blocks safe deployment |
 | [Deep DB-DR restore drill](db-dr-drill.md) | PostgreSQL restore evidence must be refreshed |
+| [Control-plane regional failover and failback](control-plane-failover.md) | A regional outage or scheduled full control-plane recovery drill is declared |
 | [Chaos game day](chaos-game-day.md) | A promoted fault scenario is exercised |
 | [Alert tuning](alert-tuning.md) | Noise, misses, or stale routing need measured correction |
 
