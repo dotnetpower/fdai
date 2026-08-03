@@ -28,7 +28,7 @@ signals:
   active_view_resource_group:
     terms: [selected resource group, resource group selected, selected group, 선택한 리소스 그룹, 선택된 리소스 그룹, 보고 있는 그룹]
   unfiltered:
-    terms: [what resources exist, what azure assets exist, resource inventory, inventory list, azure resources, azure inventory, Azure 리소스 뭐 있어, Azure 인벤토리 목록]
+    terms: [what resources exist, what azure assets exist, resource inventory, inventory list, azure resources, azure inventory, managed resources, resources in managed scope, current managed resources, Azure 리소스 뭐 있어, Azure 인벤토리 목록, 관리 범위 리소스, 관리 범위의 리소스, 관리 범위에서, 현재 관리 범위 리소스, 현재 관리 범위에서]
 query_kinds:
   scope_counts:
     terms: [resources and resource groups, resource and resource group counts, resource count and resource group count, total resource and resource-group counts, 리소스와 리소스 그룹 수, 리소스와 리소스 그룹 개수]

@@ -151,6 +151,9 @@ does not require another routing expression. Unmatched modifiers abstain instead
 resources. A semantic planner can propose the same strict shape only after deterministic
 abstention, and the verifier rechecks the complete query before I/O. Imperative changes remain
 action drafts and cannot enter this read path.
+Unfiltered managed-scope list wording is catalog data in both English and Korean. It compiles to a
+fresh subscription-scoped `list` query before semantic planning, even when the operator requests
+only names, types, status, evidence, or one representative resource.
 
 State entries in the inventory language catalog also declare their required evidence authority.
 Ordinary current operational states use promoted inventory. Questions that include degraded or

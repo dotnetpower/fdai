@@ -1528,6 +1528,25 @@ def test_inventory_coverage_continuation_keeps_selected_group() -> None:
     assert all(predicate.field.value != "name" for predicate in query.predicates)
 
 
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "현재 관리 범위의 리소스를 이름, 유형, 상태와 함께 보여줘.",
+        "현재 관리 범위에서 상태가 확인된 리소스를 근거와 함께 하나 보여줘.",
+        "관리 범위 리소스의 이름과 현재 상태를 목록으로 알려줘.",
+        "List current managed resources with name, type, and status.",
+        "Show resources in managed scope with their current state.",
+    ),
+)
+def test_managed_scope_resource_lists_compile_deterministically(prompt: str) -> None:
+    query = compile_inventory_query(prompt)
+
+    assert query is not None
+    assert query.kind.value == "list"
+    assert query.scope.value == "subscription"
+    assert query.require_fresh is True
+
+
 def test_selected_architecture_group_routes_to_verified_service_types() -> None:
     backend = RecordingBackend()
 

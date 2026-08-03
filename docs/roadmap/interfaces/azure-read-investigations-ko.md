@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 50f9730dd60d5cc2e838e163c2860e6388cf55e0
+translation_source_sha: 22ff37ec082cdb67bd42cc0b3a8100ec0a3ddbff
 translation_revised: 2026-08-03
 ---
 
@@ -149,6 +149,9 @@ bounded lookback을 가진 immutable `InventoryQuery` 하나로 compile됩니다
 않은 modifier는 전체 resource로 확장하지 않고 abstain합니다. Semantic planner는 deterministic abstain
 후에만 동일한 strict shape를 제안할 수 있고 verifier가 I/O 전에 query 전체를 다시 확인합니다.
 Imperative change는 action draft로 유지되며 이 read path에 들어갈 수 없습니다.
+Filter가 없는 managed-scope 목록 표현은 영어와 한국어 모두 catalog data로 관리됩니다. Operator가
+이름, 유형, 상태, evidence 또는 대표 resource 하나만 요청하더라도 semantic planning 전에 fresh
+subscription-scoped `list` query로 compile됩니다.
 
 Inventory language catalog의 state entry는 필요한 evidence authority도 선언합니다. 일반적인 current
 operational state는 promoted inventory를 사용합니다. Degraded 또는 unavailable availability 의미를
