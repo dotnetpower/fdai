@@ -10,6 +10,89 @@ from fdai.shared.providers.ontology_council import (
 )
 
 
+def ontology_council_vote_schema() -> dict[str, object]:
+    """Return the strict fixed-field schema accepted by Azure structured output."""
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": [
+            "claim_id",
+            "citation_digest",
+            "disposition",
+            "operation",
+            "target_kind",
+            "target_type",
+            "target_identity",
+            "authority",
+            "properties",
+            "from_identity",
+            "to_identity",
+            "semantics",
+        ],
+        "properties": {
+            "claim_id": {"type": "string"},
+            "citation_digest": {"type": "string"},
+            "disposition": {
+                "type": "string",
+                "enum": ["propose", "unsupported", "abstain"],
+            },
+            "operation": {
+                "type": ["string", "null"],
+                "enum": ["add", "update", "remove", "supersede", None],
+            },
+            "target_kind": {
+                "type": ["string", "null"],
+                "enum": ["object", "link", None],
+            },
+            "target_type": {"type": ["string", "null"]},
+            "target_identity": {"type": ["string", "null"]},
+            "authority": {"type": ["string", "null"]},
+            "properties": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["name", "value"],
+                    "properties": {
+                        "name": {"type": "string"},
+                        "value": {"type": ["string", "number", "boolean", "null"]},
+                    },
+                },
+            },
+            "from_identity": {"type": ["string", "null"]},
+            "to_identity": {"type": ["string", "null"]},
+            "semantics": {
+                "anyOf": [
+                    {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": [
+                            "numbers",
+                            "units",
+                            "comparators",
+                            "negated",
+                            "effective_from",
+                            "effective_to",
+                        ],
+                        "properties": {
+                            "numbers": {"type": "array", "items": {"type": "string"}},
+                            "units": {"type": "array", "items": {"type": "string"}},
+                            "comparators": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                            "negated": {"type": "boolean"},
+                            "effective_from": {"type": ["string", "null"]},
+                            "effective_to": {"type": ["string", "null"]},
+                        },
+                    },
+                    {"type": "null"},
+                ]
+            },
+        },
+    }
+
+
 def serialize_council_user_content(
     packet: CouncilClaimPacket,
     dispute: CouncilDispute | None = None,
@@ -18,10 +101,25 @@ def serialize_council_user_content(
     if dispute is not None:
         payload["dispute"] = {
             "initial_vote_digests": list(dispute.initial_vote_digests),
+            "agreed_fields": [
+                {
+                    "field_name": field.field_name,
+                    "digest": field.alternative.digest,
+                    "value": json.loads(field.alternative.value_json),
+                }
+                for field in dispute.agreed_fields
+            ],
             "differences": [
                 {
                     "field_name": difference.field_name,
                     "value_digests": list(difference.value_digests),
+                    "alternatives": [
+                        {
+                            "digest": alternative.digest,
+                            "value": json.loads(alternative.value_json),
+                        }
+                        for alternative in difference.alternatives
+                    ],
                 }
                 for difference in dispute.differences
             ],
@@ -75,4 +173,8 @@ def _packet_payload(packet: CouncilClaimPacket) -> dict[str, object]:
     }
 
 
-__all__ = ["encode_council_request", "serialize_council_user_content"]
+__all__ = [
+    "encode_council_request",
+    "ontology_council_vote_schema",
+    "serialize_council_user_content",
+]

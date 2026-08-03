@@ -53,7 +53,7 @@ class FakeCouncilModel:
         delay: float = 0.0,
     ) -> None:
         self.identity = CouncilModelIdentity(
-            publisher=f"publisher-{index}",
+            publisher="publisher-one",
             family=f"family-{index}",
             version="1.0.0",
             deployment=f"deployment-{index}",
@@ -191,12 +191,13 @@ def models(
     delays: tuple[float, float, float] = (0.0, 0.0, 0.0),
 ) -> tuple[FakeCouncilModel, FakeCouncilModel, FakeCouncilModel]:
     revisions = revised or factories
+    shared_tracker = tracker or CallTracker()
     return tuple(
         FakeCouncilModel(
             index,
             factories[index - 1],
             revised=revisions[index - 1],
-            tracker=tracker,
+            tracker=shared_tracker,
             delay=delays[index - 1],
         )
         for index in (1, 2, 3)

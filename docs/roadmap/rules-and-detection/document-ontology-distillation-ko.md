@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 1ca2141694b2efc9c30b0b7818f1251b449a6b09
+translation_source_sha: e2684c771a41d3f0b30ab91193b29e8189d20e39
 translation_revised: 2026-08-04
 ---
 # 문서 온톨로지 증류
@@ -297,10 +297,18 @@ invalid council configuration은 ontology extraction을 unavailable로 만들고
 - source authority class와 target contract에서 허용한 property만 포함한 목록
 - tool, web access, operator memory, provider credential 또는 executor identity 없음
 
-Vote는 strict schema와 `propose`, `unsupported`, `abstain` 중 하나를 사용합니다. Proposal은 allowed
-type과 existing exact/configured-alias identity만 선택할 수 있습니다. Id, type, link, property name,
-permission 또는 external observation을 만들 수 없습니다. Deterministic reducer는 claim, citation,
-operation, target kind/type, identity, property, number, unit, comparator, negation, endpoint 및
+Vote는 API-level Azure strict `json_schema`와 고정된 12-field shape를 사용합니다. 모든 field가 항상
+존재합니다. `unsupported`와 `abstain`에서는 proposal field와 semantics가 null이고 `properties`는
+비어 있습니다. `propose`에서는 operation, target kind/type, target identity, authority 및 semantics가
+null이 아니며 object endpoint는 null이고 link endpoint는 null이 아닙니다. Azure-supported schema는
+nullable fixed slot을 허용하고 content-free parser는 schema validation 뒤에 disposition과 endpoint의
+cross-field rule을 적용합니다. Parser는 proposal property와 semantic string array가 각각 sorted,
+unique인지도 검증합니다. Prompt는 claim id와 citation digest를 정확히 echo하고 supplied type,
+identity, endpoint, authority 및 property name만 사용하도록 요구합니다. Proposal은 id, type, link,
+property name, permission 또는 external observation을 만들 수 없습니다.
+Canonical link `target_identity`는 resolved `from_identity`이므로 endpoint 선택이 의미 없는 model
+disagreement를 만들 수 없습니다. Deterministic reducer는 claim,
+citation, operation, target kind/type, identity, property, number, unit, comparator, negation, endpoint 및
 effective time을 비교합니다.
 
 Council outcome은 다음과 같습니다.
@@ -312,15 +320,23 @@ Council outcome은 다음과 같습니다.
 | `unsupported` | 모든 model이 pinned ontology에 mapping할 수 없다고 판단함 | Claim을 `needs_review`로 유지하고 covered로 계산하지 않음 |
 | `unresolved` | Quorum 없음, malformed output, timeout, budget exhaustion 또는 incomplete context | Claim을 `needs_review`로 유지함 |
 
+구성된 blind ballot 세 개가 모두 필요합니다. Model 하나라도 timeout, failure, budget 초과 또는 invalid
+vote를 반환하면 나머지 두 vote가 정확히 일치해도 해당 round는 `unresolved`입니다.
+
 Blind comparison 뒤 disputed claim은 field-difference critique 한 round에 들어갈 수 있습니다. 각
 model은 `keep`, `revise`, `abstain`만 선택하며 original claim만 인용할 수 있습니다. Raw reasoning과
-hidden chain-of-thought는 요청하거나 저장하지 않습니다. Critical claim은 최종 3-of-3 exact agreement가
-필요합니다. 2-of-3 결과는 `contested`로 남으며 Judge model이 consensus로 바꿀 수 없습니다.
+hidden chain-of-thought는 요청하거나 저장하지 않습니다. Critique packet은 disputed field에 대해서만
+canonical digest-verified alternative를 포함하고, 세 blind vote가 이미 합의한 field에는 canonical
+baseline을 포함합니다. Critical claim은 최종 3-of-3 exact agreement가 필요합니다. 2-of-3 결과는
+`contested`로 남으며 Judge model이 consensus로 바꿀 수 없습니다.
 
 `OntologyCouncilReceipt`는 model publisher/family/version, deployment binding, prompt/schema digest,
 ontology release, claim packet digest, initial/revised vote digest, policy, usage, latency, outcome 및
 reason code를 고정합니다. Model failure text와 source text는 receipt에 들어가지 않습니다. Model,
 prompt, schema, ontology 또는 council policy가 바뀌면 이전 conformance evidence는 무효가 됩니다.
+Distiller conformance `binding_version`은 policy와 세 model identity의 deterministic digest이며 policy
+digest에는 prompt와 schema digest가 포함됩니다. 따라서 model, prompt, schema 또는 policy가 바뀌면
+이전 conformance pass를 재사용할 수 없습니다.
 Availability는 format/language partition별로 resolve하며 council unbound, same-family-only, over budget,
 stale 또는 corpus threshold 미달이면 false를 유지합니다.
 
@@ -408,6 +424,10 @@ eligible reviewed proposal, guard violation 0건 및 0.99 이상의 Wilson 95% p
 policy, workflow, ActionType, permission, autonomy, schema change, conflict 및 ambiguous identity는 항상
 책임 있는 검토가 필요합니다.
 
+D4d council consensus는 이 lifecycle 전체에서 inert review-only proposal로 유지됩니다. Conformance
+또는 shadow evidence와 관계없이 graph를 변경하거나 execution authority를 부여하거나 기존
+deterministic verifier와 책임 있는 검토를 우회하지 않습니다.
+
 ## 제공 순서
 
 | Wave | Deliverable | 종료 기준 |
@@ -424,7 +444,8 @@ policy, workflow, ActionType, permission, autonomy, schema change, conflict 및 
 
 ## 하드닝 기록
 
-33개의 adversarial round가 proposal path, envelope bridge 및 실제 corpus 후속 구현을 검토했습니다.
+43개의 adversarial round가 proposal path, envelope bridge, 실제 corpus 후속 구현 및 ontology model
+council을 검토했습니다.
 
 | Round | Focus | Result |
 |-------|-------|--------|
@@ -452,6 +473,7 @@ policy, workflow, ActionType, permission, autonomy, schema change, conflict 및 
 | 31 | provider conformance | 실제 binding을 case마다 두 번 호출하고 partition별로 측정하며 unavailable/abstaining binding은 extraction available을 보고할 수 없음 |
 | 32 | parser security | shared limit가 input, nesting, XML, archive, PDF, OCR, unit 및 character를 제한하고 error는 content-free 상태를 유지함 |
 | 33 | independent closure | 독립 adversarial audit 3개로 bounded alias, cache, SGML depth, vacuous gate, memory normalization 및 fixture escaping finding을 닫음. Annotation 22/22, parser rejection 0, replay mismatch 0, focused test 372개 및 branch coverage 93.51% 통과 |
+| 34-43 | model council closure | partial timeout, stale conformance identity, explicit model/usage receipt, revision failure와 field scope, malformed value, family/publisher independence, compromised identity, digest-verified critique, canonical link target 및 live corpus replay를 검증함. Focused test 290개 및 branch coverage 90.62% 통과 |
 
 D4c mechanism과 public inventory corpus는 검증된 Medium 이상 finding 없이 닫혔습니다. Upstream
 `AbstainingDistiller`는 11개 manual 모두에서 candidate 0개를 반환하므로 binding된 provider가
@@ -460,6 +482,15 @@ corpus는 현재 English Markdown과 SGML을 다룹니다. Deployment가 PDF, Of
 partition을 지원한다고 주장하려면 licensed 또는 synthetic annotation이 더 필요합니다. Untrusted PDF
 decompression에는 문서화된 isolated-worker requirement도 남습니다. 이 residual은 capability를
 review-only로 유지하며 authority를 높일 수 없습니다.
+
+D4d live check는 세 pinned deployment 모두에서 Entra-authenticated strict structured output을
+검증했습니다. Object mapping 2개와 link mapping 2개를 포함한 pinned public Markdown claim 4개를 각각
+두 번 평가했습니다. Cost-optional assessment에서 claim accounting, critical recall, entity precision 및
+link precision은 모두 100%였고 citation, semantic 및 replay error와 abstention은 모두 0건이었습니다.
+모든 proposal은 deterministic review-only 상태를 유지했고 각 invocation의 provider-reported usage를
+기록했습니다. Azure retail pricing에서 이 model version의 verified meter를 제공하지 않았으므로 pricing
+evidence가 생길 때까지 canonical cost-required assessment와 deployment availability는 통과하지 않은
+상태로 유지합니다.
 
 ## 검증 매트릭스
 

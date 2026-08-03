@@ -18,7 +18,9 @@ from fdai.rule_catalog.pipeline.distill.ontology_council_packets import (
 )
 from fdai.rule_catalog.pipeline.distill.ontology_council_reducer import (
     CouncilRoundDecision,
+    council_agreed_fields,
     reduce_council_votes,
+    validate_council_revision,
     validate_council_vote,
 )
 from fdai.rule_catalog.pipeline.distill.ontology_models import ClaimUnit, stable_digest
@@ -42,7 +44,11 @@ from fdai.shared.providers.ontology_council_errors import (
     CouncilBudgetExceededError,
     CouncilContextGapError,
 )
-from fdai.shared.providers.ontology_council_receipt import OntologyCouncilReceipt
+from fdai.shared.providers.ontology_council_receipt import (
+    CouncilInvocationReceipt,
+    CouncilModelReceipt,
+    OntologyCouncilReceipt,
+)
 
 
 @runtime_checkable
@@ -99,7 +105,18 @@ class OntologyCouncilPolicy:
 class _RoundResult:
     votes: tuple[CouncilVote, CouncilVote, CouncilVote] | None
     digests: tuple[str, str, str]
+    invocations: tuple[
+        CouncilInvocationReceipt,
+        CouncilInvocationReceipt,
+        CouncilInvocationReceipt,
+    ]
     reason_codes: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _AttemptResult:
+    result: object
+    latency_ms: float
 
 
 class OntologyCouncilDistiller:
@@ -113,8 +130,10 @@ class OntologyCouncilDistiller:
     ) -> None:
         ordered = tuple(sorted(models, key=lambda model: model.identity.digest))
         identities = tuple(model.identity for model in ordered)
-        if len({(item.publisher, item.family) for item in identities}) != 3:
+        if len({item.family for item in identities}) != 3:
             raise ValueError("ontology council requires three distinct model families")
+        if len({item.publisher for item in identities}) != 1:
+            raise ValueError("ontology council requires a single publisher")
         if len({item.binding for item in identities}) != 3:
             raise ValueError("ontology council requires three unique model bindings")
         self._models = cast(
@@ -126,7 +145,12 @@ class OntologyCouncilDistiller:
     def distiller_capability(self) -> DistillerCapabilityDescriptor:
         return DistillerCapabilityDescriptor(
             binding_id=self._policy.policy_id,
-            binding_version=self._policy.version,
+            binding_version=stable_digest(
+                {
+                    "policy_digest": self._policy.digest,
+                    "model_digests": tuple(model.identity.digest for model in self._models),
+                }
+            ),
             contract_version="ontology-distiller-conformance.v1",
             availability=DistillerAvailability.AVAILABLE,
         )
@@ -193,21 +217,33 @@ class OntologyCouncilDistiller:
             packet_digest=packet.digest,
             initial_vote_digests=initial.digests,
             differences=initial_decision.differences,
+            agreed_fields=council_agreed_fields(initial.votes),
         )
         revised = await self._run_round(packet, dispute=dispute)
         if revised.votes is None:
-            outcome = (
-                CouncilOutcome.CONTESTED
-                if initial_decision.outcome is CouncilOutcome.CONTESTED
-                else CouncilOutcome.UNRESOLVED
-            )
             return None, self._receipt(
                 claim,
                 packet,
                 initial=initial,
                 revised=revised,
-                outcome=outcome,
+                outcome=CouncilOutcome.UNRESOLVED,
                 reason_codes=("revision_failed", *revised.reason_codes),
+                disputed_fields=tuple(item.field_name for item in dispute.differences),
+            )
+        try:
+            validate_council_revision(
+                initial.votes,
+                revised.votes,
+                frozenset(item.field_name for item in dispute.differences),
+            )
+        except ValueError:
+            return None, self._receipt(
+                claim,
+                packet,
+                initial=initial,
+                revised=revised,
+                outcome=CouncilOutcome.UNRESOLVED,
+                reason_codes=("invalid_revision",),
                 disputed_fields=tuple(item.field_name for item in dispute.differences),
             )
         revised_decision = reduce_council_votes(revised.votes)
@@ -227,14 +263,23 @@ class OntologyCouncilDistiller:
         *,
         dispute: CouncilDispute | None,
     ) -> _RoundResult:
-        calls = (self._invoke(model, packet, dispute=dispute) for model in self._models)
-        results = tuple(await asyncio.gather(*calls, return_exceptions=True))
+        calls = (self._invoke_attempt(model, packet, dispute=dispute) for model in self._models)
+        attempts = tuple(await asyncio.gather(*calls))
         votes: list[CouncilVote] = []
         digests: list[str] = []
+        invocations: list[CouncilInvocationReceipt] = []
         reasons: list[str] = []
-        for model, result in zip(self._models, results, strict=True):
-            if isinstance(result, asyncio.CancelledError):
-                raise result
+        for model, attempt in zip(self._models, attempts, strict=True):
+            result = attempt.result
+            usage = result.usage if isinstance(result, CouncilVote) else None
+            invocations.append(
+                CouncilInvocationReceipt(
+                    model_digest=model.identity.digest,
+                    prompt_tokens=usage.prompt_tokens if usage is not None else 0,
+                    completion_tokens=usage.completion_tokens if usage is not None else 0,
+                    latency_ms=attempt.latency_ms,
+                )
+            )
             if isinstance(result, Exception):
                 reason = _exception_reason(result)
                 reasons.append(reason)
@@ -261,12 +306,46 @@ class OntologyCouncilDistiller:
             votes.append(vote)
             digests.append(vote.digest)
         fixed_digests = cast(tuple[str, str, str], tuple(digests))
+        fixed_invocations = cast(
+            tuple[
+                CouncilInvocationReceipt,
+                CouncilInvocationReceipt,
+                CouncilInvocationReceipt,
+            ],
+            tuple(invocations),
+        )
         if reasons:
-            return _RoundResult(None, fixed_digests, tuple(sorted(set(reasons))))
+            return _RoundResult(
+                None,
+                fixed_digests,
+                fixed_invocations,
+                tuple(sorted(set(reasons))),
+            )
         return _RoundResult(
             cast(tuple[CouncilVote, CouncilVote, CouncilVote], tuple(votes)),
             fixed_digests,
+            fixed_invocations,
             (),
+        )
+
+    async def _invoke_attempt(
+        self,
+        model: OntologyCouncilModel,
+        packet: CouncilClaimPacket,
+        *,
+        dispute: CouncilDispute | None,
+    ) -> _AttemptResult:
+        loop = asyncio.get_running_loop()
+        started = loop.time()
+        try:
+            result: object = await self._invoke(model, packet, dispute=dispute)
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            result = error
+        return _AttemptResult(
+            result=result,
+            latency_ms=round((loop.time() - started) * 1000.0, 6),
         )
 
     async def _invoke(
@@ -324,6 +403,24 @@ class OntologyCouncilDistiller:
             claim_digest=stable_digest(claim.claim_id),
             packet_digest=packet.digest,
             policy_digest=self._policy.digest,
+            prompt_digest=self._policy.prompt_digest,
+            schema_digest=self._policy.schema_digest,
+            ontology_release=packet.ontology_release,
+            models=cast(
+                tuple[CouncilModelReceipt, CouncilModelReceipt, CouncilModelReceipt],
+                tuple(
+                    CouncilModelReceipt(
+                        publisher=model.identity.publisher,
+                        family=model.identity.family,
+                        version=model.identity.version,
+                        deployment=model.identity.deployment,
+                        binding=model.identity.binding,
+                        fault_domain=model.identity.fault_domain,
+                        identity_digest=model.identity.digest,
+                    )
+                    for model in self._models
+                ),
+            ),
             model_digests=cast(
                 tuple[str, str, str],
                 tuple(model.identity.digest for model in self._models),
@@ -334,6 +431,8 @@ class OntologyCouncilDistiller:
             outcome=outcome,
             reason_codes=tuple(sorted(set(reason_codes))),
             rounds=2 if revised is not None else 1,
+            initial_invocations=initial.invocations,
+            revised_invocations=revised.invocations if revised is not None else (),
         )
 
     def _budget_receipt(
@@ -348,10 +447,31 @@ class OntologyCouncilDistiller:
                 for model in self._models
             ),
         )
+        invocations = cast(
+            tuple[
+                CouncilInvocationReceipt,
+                CouncilInvocationReceipt,
+                CouncilInvocationReceipt,
+            ],
+            tuple(
+                CouncilInvocationReceipt(
+                    model_digest=model.identity.digest,
+                    prompt_tokens=0,
+                    completion_tokens=0,
+                    latency_ms=0.0,
+                )
+                for model in self._models
+            ),
+        )
         return self._receipt(
             claim,
             packet,
-            initial=_RoundResult(None, attempts, ("claim_budget_exhausted",)),
+            initial=_RoundResult(
+                None,
+                attempts,
+                invocations,
+                ("claim_budget_exhausted",),
+            ),
             outcome=CouncilOutcome.UNRESOLVED,
             reason_codes=("claim_budget_exhausted",),
         )

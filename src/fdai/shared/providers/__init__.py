@@ -205,11 +205,13 @@ from .observation import (
     ObservationError,
 )
 from .ontology_council import (
+    CouncilAgreedField,
     CouncilAlias,
     CouncilClaimPacket,
     CouncilDisposition,
     CouncilDispute,
     CouncilEntity,
+    CouncilFieldAlternative,
     CouncilFieldDifference,
     CouncilLinkDeclaration,
     CouncilModelIdentity,
@@ -218,6 +220,7 @@ from .ontology_council import (
     CouncilProperty,
     CouncilSemanticFields,
     CouncilTargetKind,
+    CouncilTokenUsage,
     CouncilVote,
     OntologyCouncilModel,
 )
@@ -226,7 +229,12 @@ from .ontology_council_errors import (
     CouncilContextGapError,
     CouncilModelError,
 )
-from .ontology_council_receipt import CouncilOutcome, OntologyCouncilReceipt
+from .ontology_council_receipt import (
+    CouncilInvocationReceipt,
+    CouncilModelReceipt,
+    CouncilOutcome,
+    OntologyCouncilReceipt,
+)
 from .ontology_instance import (
     OntologyDirection,
     OntologyGraphSnapshot,
@@ -479,6 +487,7 @@ __all__ = [
     "MalwareScanner",
     "MutationTarget",
     "ObservationError",
+    "CouncilAgreedField",
     "CouncilAlias",
     "CouncilBudgetExceededError",
     "CouncilClaimPacket",
@@ -486,16 +495,20 @@ __all__ = [
     "CouncilDisposition",
     "CouncilDispute",
     "CouncilEntity",
+    "CouncilFieldAlternative",
     "CouncilFieldDifference",
     "CouncilLinkDeclaration",
+    "CouncilInvocationReceipt",
     "CouncilModelError",
     "CouncilModelIdentity",
+    "CouncilModelReceipt",
     "CouncilObjectDeclaration",
     "CouncilOperation",
     "CouncilOutcome",
     "CouncilProperty",
     "CouncilSemanticFields",
     "CouncilTargetKind",
+    "CouncilTokenUsage",
     "CouncilVote",
     "OntologyCouncilModel",
     "OntologyCouncilReceipt",

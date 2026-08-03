@@ -21,12 +21,18 @@ from fdai.delivery.azure.llm.ontology_council import (
     AzureOpenAIOntologyCouncilModel,
     AzureOpenAIOntologyCouncilModelConfig,
 )
+from fdai.delivery.azure.llm.ontology_council_parser import parse_council_vote
+from fdai.delivery.azure.llm.ontology_council_serialization import (
+    ontology_council_vote_schema,
+)
 from fdai.rule_catalog.schema.model_endpoint import ModelApiStyle, ModelRouteKind
 from fdai.shared.providers.ontology_council import (
+    CouncilAgreedField,
     CouncilClaimPacket,
     CouncilDisposition,
     CouncilDispute,
     CouncilEntity,
+    CouncilFieldAlternative,
     CouncilFieldDifference,
     CouncilLinkDeclaration,
     CouncilModelIdentity,
@@ -129,6 +135,8 @@ def _object_vote(packet: CouncilClaimPacket) -> dict[str, object]:
         "target_identity": "service:one",
         "authority": "documented_intent",
         "properties": [{"name": "owner_ref", "value": "team:one"}],
+        "from_identity": None,
+        "to_identity": None,
         "semantics": {
             "numbers": [],
             "units": [],
@@ -137,6 +145,23 @@ def _object_vote(packet: CouncilClaimPacket) -> dict[str, object]:
             "effective_from": None,
             "effective_to": None,
         },
+    }
+
+
+def _nonproposal_vote(packet: CouncilClaimPacket, disposition: str) -> dict[str, object]:
+    return {
+        "claim_id": packet.claim_id,
+        "citation_digest": packet.citation_digest,
+        "disposition": disposition,
+        "operation": None,
+        "target_kind": None,
+        "target_type": None,
+        "target_identity": None,
+        "authority": None,
+        "properties": [],
+        "from_identity": None,
+        "to_identity": None,
+        "semantics": None,
     }
 
 
@@ -220,13 +245,23 @@ async def test_blind_vote_parses_object_proposal_and_sends_tool_free_request() -
     assert vote.disposition is CouncilDisposition.PROPOSE
     assert vote.operation is CouncilOperation.UPDATE
     assert vote.target_kind is CouncilTargetKind.OBJECT
+    assert vote.usage.prompt_tokens == 10
+    assert vote.usage.completion_tokens == 20
     body = json.loads(requests[0].content)
     assert body["max_completion_tokens"] == 2048
-    assert body["response_format"] == {"type": "json_object"}
+    assert body["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "ontology_council_vote",
+            "strict": True,
+            "schema": ontology_council_vote_schema(),
+        },
+    }
     assert "tools" not in body
     assert "tool_choice" not in body
     assert "temperature" not in body
     assert "seed" not in body
+    assert len(requests[0].content) < _config().max_request_bytes
     assert requests[0].url.params["api-version"] == "2024-10-21"
     assert requests[0].headers["Content-Type"] == "application/json"
     assert workload_identity.audiences == ["https://cognitiveservices.azure.com/.default"]
@@ -248,13 +283,7 @@ async def test_blind_vote_parses_link_proposal() -> None:
 @pytest.mark.parametrize("disposition", ["unsupported", "abstain"])
 async def test_blind_vote_parses_non_proposal(disposition: str) -> None:
     packet = _packet()
-    content = json.dumps(
-        {
-            "claim_id": packet.claim_id,
-            "citation_digest": packet.citation_digest,
-            "disposition": disposition,
-        }
-    )
+    content = json.dumps(_nonproposal_vote(packet, disposition))
     async with httpx.AsyncClient(
         transport=httpx.MockTransport(lambda _request: _response(content))
     ) as client:
@@ -267,14 +296,123 @@ async def test_blind_vote_parses_non_proposal(disposition: str) -> None:
     assert vote.properties == ()
 
 
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda vote: vote.update({"from_identity": "service:one", "to_identity": "service:two"}),
+        lambda vote: vote.update(
+            {
+                "target_kind": "link",
+                "target_type": "service_depends_on",
+                "from_identity": None,
+                "to_identity": None,
+            }
+        ),
+        lambda vote: vote.update({"semantics": None}),
+        lambda vote: vote.pop("authority"),
+    ],
+    ids=[
+        "object-carries-endpoints",
+        "link-has-null-endpoints",
+        "proposal-has-null-semantics",
+        "missing-fixed-field",
+    ],
+)
+def test_parser_rejects_fixed_shape_cross_field_violations(
+    mutate: Callable[[dict[str, object]], object],
+) -> None:
+    packet = _packet()
+    vote = _object_vote(packet)
+    mutate(vote)
+    with pytest.raises(ValueError, match="vote schema is invalid"):
+        parse_council_vote(json.dumps(vote), _model_identity())
+
+
+def test_parser_rejects_nonproposal_carrying_proposal_data() -> None:
+    packet = _packet()
+    vote = _nonproposal_vote(packet, "unsupported")
+    vote["operation"] = "add"
+
+    with pytest.raises(ValueError, match="vote schema is invalid"):
+        parse_council_vote(json.dumps(vote), _model_identity())
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda vote: vote.update(
+            {"properties": [{"name": f"field_{index}", "value": index} for index in range(65)]}
+        ),
+        lambda vote: vote.update({"properties": [None]}),
+        lambda vote: vote.update({"properties": [{"name": "owner_ref"}]}),
+        lambda vote: vote.update({"properties": [{"name": "owner_ref", "value": "x" * 4097}]}),
+        lambda vote: vote.update({"properties": [{"name": "owner_ref", "value": 10**19}]}),
+        lambda vote: cast(dict[str, object], vote["semantics"]).update(
+            {"numbers": [str(index) for index in range(65)]}
+        ),
+        lambda vote: cast(dict[str, object], vote["semantics"]).update({"numbers": [1]}),
+        lambda vote: cast(dict[str, object], vote["semantics"]).update({"numbers": [""]}),
+        lambda vote: cast(dict[str, object], vote["semantics"]).update({"numbers": ["1", "1"]}),
+        lambda vote: cast(dict[str, object], vote["semantics"]).update({"effective_from": ""}),
+        lambda vote: cast(dict[str, object], vote["semantics"]).update({"effective_to": 1}),
+        lambda vote: cast(dict[str, object], vote["semantics"]).pop("units"),
+        lambda vote: vote.update({"target_identity": ""}),
+        lambda vote: vote.update({"from_identity": 1}),
+    ],
+)
+def test_parser_rejects_property_and_semantic_bounds(
+    mutate: Callable[[dict[str, object]], object],
+) -> None:
+    vote = _object_vote(_packet())
+    mutate(vote)
+
+    with pytest.raises(ValueError, match="vote schema is invalid"):
+        parse_council_vote(json.dumps(vote), _model_identity())
+
+
+def test_parser_rejects_non_finite_json_constants() -> None:
+    content = json.dumps(_object_vote(_packet())).replace('"team:one"', "NaN")
+
+    with pytest.raises(ValueError, match="vote schema is invalid"):
+        parse_council_vote(content, _model_identity())
+
+
 async def test_revision_sends_same_packet_and_digest_only_dispute() -> None:
     packet = _packet()
     requests: list[httpx.Request] = []
+
+    def alternative(value: object) -> CouncilFieldAlternative:
+        value_json = json.dumps(
+            value,
+            ensure_ascii=True,
+            allow_nan=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        return CouncilFieldAlternative(
+            digest=hashlib.sha256(value_json.encode()).hexdigest(),
+            value_json=value_json,
+        )
+
+    alternatives = tuple(
+        sorted(
+            (alternative(value) for value in ("BusinessService", "Team")),
+            key=lambda item: item.digest,
+        )
+    )
+    agreed_authority = alternative("documented_intent")
     dispute = CouncilDispute(
         claim_id=packet.claim_id,
         packet_digest=packet.digest,
         initial_vote_digests=("1" * 64, "2" * 64, "3" * 64),
-        differences=(CouncilFieldDifference("target_type", ("4" * 64, "5" * 64)),),
+        differences=(
+            CouncilFieldDifference(
+                "target_type",
+                tuple(item.digest for item in alternatives),
+                alternatives,
+            ),
+        ),
+        agreed_fields=(CouncilAgreedField("authority", agreed_authority),),
     )
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -291,9 +429,27 @@ async def test_revision_sends_same_packet_and_digest_only_dispute() -> None:
     blind_user = json.loads(json.loads(requests[0].content)["messages"][1]["content"])
     revision_user = json.loads(json.loads(requests[1].content)["messages"][1]["content"])
     assert revision_user["packet"] == blind_user["packet"]
-    assert set(revision_user["dispute"]) == {"initial_vote_digests", "differences"}
+    assert set(revision_user["dispute"]) == {
+        "initial_vote_digests",
+        "agreed_fields",
+        "differences",
+    }
+    assert revision_user["dispute"]["agreed_fields"] == [
+        {
+            "field_name": "authority",
+            "digest": agreed_authority.digest,
+            "value": "documented_intent",
+        }
+    ]
     assert revision_user["dispute"]["differences"] == [
-        {"field_name": "target_type", "value_digests": ["4" * 64, "5" * 64]}
+        {
+            "field_name": "target_type",
+            "value_digests": [item.digest for item in alternatives],
+            "alternatives": [
+                {"digest": item.digest, "value": json.loads(item.value_json)}
+                for item in alternatives
+            ],
+        }
     ]
     serialized = json.dumps(revision_user)
     assert "raw_vote" not in serialized

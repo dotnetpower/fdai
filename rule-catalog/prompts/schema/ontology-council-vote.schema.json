@@ -1,124 +1,74 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://fdai.dev/schemas/rule-catalog/ontology-council-vote/1.0.0",
-  "title": "Ontology Council Vote",
   "type": "object",
-  "required": ["claim_id", "citation_digest", "disposition"],
   "additionalProperties": false,
+  "required": [
+    "claim_id",
+    "citation_digest",
+    "disposition",
+    "operation",
+    "target_kind",
+    "target_type",
+    "target_identity",
+    "authority",
+    "properties",
+    "from_identity",
+    "to_identity",
+    "semantics"
+  ],
   "properties": {
-    "claim_id": {"$ref": "#/definitions/nonEmptyString"},
-    "citation_digest": {"$ref": "#/definitions/nonEmptyString"},
-    "disposition": {"enum": ["propose", "unsupported", "abstain"]},
-    "operation": {"enum": ["add", "update", "remove", "supersede"]},
-    "target_kind": {"enum": ["object", "link"]},
-    "target_type": {"$ref": "#/definitions/nonEmptyString"},
-    "target_identity": {"$ref": "#/definitions/nonEmptyString"},
-    "authority": {"$ref": "#/definitions/nonEmptyString"},
+    "claim_id": {"type": "string"},
+    "citation_digest": {"type": "string"},
+    "disposition": {
+      "type": "string",
+      "enum": ["propose", "unsupported", "abstain"]
+    },
+    "operation": {
+      "type": ["string", "null"],
+      "enum": ["add", "update", "remove", "supersede", null]
+    },
+    "target_kind": {
+      "type": ["string", "null"],
+      "enum": ["object", "link", null]
+    },
+    "target_type": {"type": ["string", "null"]},
+    "target_identity": {"type": ["string", "null"]},
+    "authority": {"type": ["string", "null"]},
     "properties": {
       "type": "array",
-      "maxItems": 64,
-      "items": {"$ref": "#/definitions/property"}
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "value"],
+        "properties": {
+          "name": {"type": "string"},
+          "value": {"type": ["string", "number", "boolean", "null"]}
+        }
+      }
     },
-    "semantics": {"$ref": "#/definitions/semantics"},
-    "from_identity": {"$ref": "#/definitions/nonEmptyString"},
-    "to_identity": {"$ref": "#/definitions/nonEmptyString"}
-  },
-  "oneOf": [
-    {
-      "properties": {"disposition": {"const": "propose"}},
-      "required": [
-        "operation",
-        "target_kind",
-        "target_type",
-        "target_identity",
-        "authority",
-        "properties",
-        "semantics"
-      ],
-      "oneOf": [
+    "from_identity": {"type": ["string", "null"]},
+    "to_identity": {"type": ["string", "null"]},
+    "semantics": {
+      "anyOf": [
         {
-          "properties": {"target_kind": {"const": "object"}},
-          "not": {
-            "anyOf": [
-              {"required": ["from_identity"]},
-              {"required": ["to_identity"]}
-            ]
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "numbers",
+            "units",
+            "comparators",
+            "negated",
+            "effective_from",
+            "effective_to"
+          ],
+          "properties": {
+            "numbers": {"type": "array", "items": {"type": "string"}},
+            "units": {"type": "array", "items": {"type": "string"}},
+            "comparators": {"type": "array", "items": {"type": "string"}},
+            "negated": {"type": "boolean"},
+            "effective_from": {"type": ["string", "null"]},
+            "effective_to": {"type": ["string", "null"]}
           }
         },
-        {
-          "properties": {"target_kind": {"const": "link"}},
-          "required": ["from_identity", "to_identity"]
-        }
-      ]
-    },
-    {
-      "properties": {"disposition": {"enum": ["unsupported", "abstain"]}},
-      "not": {
-        "anyOf": [
-          {"required": ["operation"]},
-          {"required": ["target_kind"]},
-          {"required": ["target_type"]},
-          {"required": ["target_identity"]},
-          {"required": ["authority"]},
-          {"required": ["properties"]},
-          {"required": ["semantics"]},
-          {"required": ["from_identity"]},
-          {"required": ["to_identity"]}
-        ]
-      }
-    }
-  ],
-  "definitions": {
-    "property": {
-      "type": "object",
-      "required": ["name", "value"],
-      "additionalProperties": false,
-      "properties": {
-        "name": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9_]{0,63}$"
-        },
-        "value": {
-          "anyOf": [
-            {"type": "string", "maxLength": 4096},
-            {"type": "integer", "minimum": -1000000000000000000, "maximum": 1000000000000000000},
-            {"type": "number", "not": {"type": "integer"}},
-            {"type": "boolean"},
-            {"type": "null"}
-          ]
-        }
-      }
-    },
-    "semantics": {
-      "type": "object",
-      "required": [
-        "numbers",
-        "units",
-        "comparators",
-        "negated",
-        "effective_from",
-        "effective_to"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "numbers": {"$ref": "#/definitions/stringArray"},
-        "units": {"$ref": "#/definitions/stringArray"},
-        "comparators": {"$ref": "#/definitions/stringArray"},
-        "negated": {"type": "boolean"},
-        "effective_from": {"$ref": "#/definitions/nullableString"},
-        "effective_to": {"$ref": "#/definitions/nullableString"}
-      }
-    },
-    "stringArray": {
-      "type": "array",
-      "maxItems": 64,
-      "uniqueItems": true,
-      "items": {"type": "string", "minLength": 1, "maxLength": 64}
-    },
-    "nonEmptyString": {"type": "string", "minLength": 1},
-    "nullableString": {
-      "anyOf": [
-        {"type": "string", "minLength": 1, "maxLength": 64},
         {"type": "null"}
       ]
     }

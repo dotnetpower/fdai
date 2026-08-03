@@ -296,11 +296,19 @@ Each model receives the same immutable claim packet:
 - source authority class and only the properties allowed for the target contract;
 - no tools, web access, operator memory, provider credential, or executor identity.
 
-Votes use a strict schema and one of `propose`, `unsupported`, or `abstain`. A proposal can select
-only an allowed type and an existing exact or configured-alias identity. It cannot invent an id,
-type, link, property name, permission, or external observation. The deterministic reducer compares
-claim, citation, operation, target kind and type, identity, properties, numeric values, units,
-comparators, negation, endpoints, and effective time.
+Votes use API-level Azure strict `json_schema` and one fixed 12-field shape. Every field is present.
+For `unsupported` and `abstain`, proposal fields and semantics are null and `properties` is empty.
+For `propose`, operation, target kind and type, target identity, authority, and semantics are
+non-null; object endpoints are null and link endpoints are non-null. The Azure-supported schema
+permits nullable fixed slots, while the content-free parser enforces these disposition and endpoint
+cross-field rules after schema validation. It also requires sorted, unique proposal properties and
+sorted, unique semantic string arrays. The prompt requires exact claim-id and citation-digest echo
+and permits only supplied types, identities, endpoints, authority, and property names. A proposal
+cannot invent an id, type, link, property name, permission, or external observation. The
+canonical link `target_identity` is its resolved `from_identity`, so endpoint choice cannot create
+a meaningless model disagreement. The
+deterministic reducer compares claim, citation, operation, target kind and type, identity,
+properties, numeric values, units, comparators, negation, endpoints, and effective time.
 
 Council outcomes are:
 
@@ -311,15 +319,23 @@ Council outcomes are:
 | `unsupported` | Every model says the claim cannot map to the pinned ontology. | Keep the claim visible as `needs_review`; never treat it as covered. |
 | `unresolved` | No quorum, malformed output, timeout, budget exhaustion, or incomplete context. | Keep the claim visible as `needs_review`. |
 
+All three configured blind ballots are required. If any model times out, fails, exceeds budget, or
+returns an invalid vote, the round is `unresolved` even when the other two votes agree exactly.
+
 After blind comparison, disputed claims may enter one field-difference critique round. Each model
 can `keep`, `revise`, or `abstain` and may cite only the original claim. Raw reasoning and hidden
-chain-of-thought are neither requested nor stored. Critical claims require final 3-of-3 exact
-agreement. A 2-of-3 result stays `contested`; no Judge model can convert it into consensus.
+chain-of-thought are neither requested nor stored. The critique packet contains canonical,
+digest-verified alternatives only for disputed fields and canonical baselines for fields that all
+three blind votes already agreed on. Critical claims require final 3-of-3 exact agreement. A
+2-of-3 result stays `contested`; no Judge model can convert it into consensus.
 
 `OntologyCouncilReceipt` pins model publisher/family/version, deployment binding, prompt and schema
 digests, ontology release, claim packet digest, initial and revised vote digests, policy, usage,
 latency, outcome, and reason codes. Model failure text and source text never enter the receipt.
 Any model, prompt, schema, ontology, or council-policy change invalidates prior conformance evidence.
+The distiller conformance `binding_version` is the deterministic digest of the policy and all three
+model identities, while the policy digest includes the prompt and schema digests. A changed model,
+prompt, schema, or policy therefore cannot reuse an earlier conformance pass.
 Availability is resolved per format and language partition and remains false when the council is
 unbound, same-family-only, over budget, stale, or below a corpus threshold.
 
@@ -406,6 +422,10 @@ and a Wilson 95% precision lower bound of at least 0.99. Ownership, objectives, 
 policies, workflows, ActionTypes, permissions, autonomy, schema changes, conflicts, and ambiguous
 identities always require accountable review.
 
+D4d council consensus remains an inert, review-only proposal throughout this lifecycle. It never
+writes the graph, grants execution authority, or bypasses the existing deterministic verifier and
+accountable review, regardless of conformance or shadow evidence.
+
 ## Delivery sequence
 
 | Wave | Deliverable | Exit criteria |
@@ -422,8 +442,8 @@ identities always require accountable review.
 
 ## Hardening record
 
-Thirty-three adversarial rounds cover the proposal path, envelope bridge, and real-corpus
-follow-up:
+Forty-three adversarial rounds cover the proposal path, envelope bridge, real-corpus follow-up,
+and ontology model council:
 
 | Round | Focus | Result |
 |-------|-------|--------|
@@ -451,6 +471,7 @@ follow-up:
 | 31 | provider conformance | real bindings are invoked twice per case and measured by partition; an unavailable or abstaining binding cannot report extraction available |
 | 32 | parser security | shared limits cover input, nesting, XML, archive, PDF, OCR, units, and characters; errors remain content-free |
 | 33 | independent closure | three adversarial audits closed bounded alias, cache, SGML depth, vacuous gate, memory normalization, and fixture escaping findings; 22/22 annotations, zero parser rejection, zero replay mismatch, 372 focused tests, and 93.51% branch coverage |
+| 34-43 | model council closure | partial timeout, stale conformance identity, explicit model and usage receipts, revision failure and field scope, malformed values, family/publisher independence, compromised identity, digest-verified critique, canonical link targeting, and live corpus replay; 290 focused tests and 90.62% branch coverage |
 
 The D4c mechanism and public inventory corpus now close with no verified Medium-or-higher finding.
 The upstream `AbstainingDistiller` still yields zero candidates for all 11 manuals, so ontology
@@ -459,6 +480,14 @@ checked-in public corpus currently covers English Markdown and SGML. Required PD
 and Korean provider partitions still need licensed or synthetic annotations before a deployment
 can claim those partitions. Untrusted PDF decompression also retains the documented isolated-worker
 requirement. These residuals keep the capability review-only and cannot raise authority.
+
+The D4d live check verified all three pinned deployments with Entra-authenticated strict structured
+output. Four pinned public Markdown claims, including two object and two link mappings, were each
+evaluated twice. The cost-optional assessment recorded 100% claim accounting, critical recall,
+entity precision, and link precision; zero citation, semantic, and replay errors; zero abstentions;
+and deterministic review-only proposals. Provider-reported usage was recorded for every invocation.
+Azure retail pricing did not expose verified meters for these model versions, so the canonical
+cost-required assessment and deployment availability remain unpassed until pricing evidence exists.
 
 ## Verification matrix
 

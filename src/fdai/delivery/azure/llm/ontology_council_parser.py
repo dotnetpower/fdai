@@ -15,12 +15,15 @@ from fdai.shared.providers.ontology_council import (
     CouncilScalar,
     CouncilSemanticFields,
     CouncilTargetKind,
+    CouncilTokenUsage,
     CouncilVote,
 )
 
-_BASE_KEYS = frozenset({"claim_id", "citation_digest", "disposition"})
-_PROPOSAL_KEYS = frozenset(
+_VOTE_KEYS = frozenset(
     {
+        "claim_id",
+        "citation_digest",
+        "disposition",
         "operation",
         "target_kind",
         "target_type",
@@ -28,50 +31,78 @@ _PROPOSAL_KEYS = frozenset(
         "authority",
         "properties",
         "semantics",
+        "from_identity",
+        "to_identity",
     }
 )
-_LINK_KEYS = frozenset({"from_identity", "to_identity"})
 _SEMANTIC_KEYS = frozenset(
     {"numbers", "units", "comparators", "negated", "effective_from", "effective_to"}
 )
 
 
-def parse_council_vote(content: str, identity: CouncilModelIdentity) -> CouncilVote:
+def parse_council_vote(
+    content: str,
+    identity: CouncilModelIdentity,
+    *,
+    usage: CouncilTokenUsage | None = None,
+) -> CouncilVote:
     try:
         parsed = json.loads(content, parse_constant=_reject_json_constant)
         if not isinstance(parsed, dict):
             raise ValueError
         disposition = CouncilDisposition(_required_string(parsed, "disposition"))
-        allowed = _BASE_KEYS
-        if disposition is CouncilDisposition.PROPOSE:
-            allowed |= _PROPOSAL_KEYS
-            if parsed.get("target_kind") == CouncilTargetKind.LINK.value:
-                allowed |= _LINK_KEYS
-        if set(parsed) != allowed:
+        if set(parsed) != _VOTE_KEYS:
             raise ValueError
         claim_id = _required_string(parsed, "claim_id")
         citation_digest = _required_string(parsed, "citation_digest")
         if disposition is not CouncilDisposition.PROPOSE:
+            if (
+                any(
+                    parsed[key] is not None
+                    for key in (
+                        "operation",
+                        "target_kind",
+                        "target_type",
+                        "target_identity",
+                        "authority",
+                        "from_identity",
+                        "to_identity",
+                        "semantics",
+                    )
+                )
+                or parsed["properties"] != []
+            ):
+                raise ValueError
             return CouncilVote(
                 model_identity=identity,
                 claim_id=claim_id,
                 citation_digest=citation_digest,
                 disposition=disposition,
+                usage=usage or CouncilTokenUsage(),
             )
+        target_kind = CouncilTargetKind(_required_string(parsed, "target_kind"))
+        from_identity = _nullable_required_string(parsed, "from_identity")
+        to_identity = _nullable_required_string(parsed, "to_identity")
+        if target_kind is CouncilTargetKind.OBJECT:
+            if from_identity is not None or to_identity is not None:
+                raise ValueError
+        elif from_identity is None or to_identity is None:
+            raise ValueError
         return CouncilVote(
             model_identity=identity,
             claim_id=claim_id,
             citation_digest=citation_digest,
             disposition=disposition,
             operation=CouncilOperation(_required_string(parsed, "operation")),
-            target_kind=CouncilTargetKind(_required_string(parsed, "target_kind")),
+            target_kind=target_kind,
             target_type=_required_string(parsed, "target_type"),
             target_identity=_required_string(parsed, "target_identity"),
             authority=_required_string(parsed, "authority"),
             properties=_parse_properties(parsed["properties"]),
-            from_identity=_optional_required_string(parsed, "from_identity"),
-            to_identity=_optional_required_string(parsed, "to_identity"),
+            from_identity=from_identity,
+            to_identity=to_identity,
             semantics=_parse_semantics(parsed["semantics"]),
+            usage=usage or CouncilTokenUsage(),
         )
     except (KeyError, TypeError, ValueError):
         raise ValueError("ontology council vote schema is invalid") from None
@@ -153,8 +184,8 @@ def _required_string(value: Mapping[str, object], key: str) -> str:
     return result
 
 
-def _optional_required_string(value: Mapping[str, object], key: str) -> str | None:
-    if key not in value:
+def _nullable_required_string(value: Mapping[str, object], key: str) -> str | None:
+    if value[key] is None:
         return None
     return _required_string(value, key)
 

@@ -16,6 +16,7 @@ from fdai.delivery.azure.llm.latency_routed_cross_check import ModelHealthTransi
 from fdai.delivery.azure.llm.ontology_council_parser import parse_council_vote
 from fdai.delivery.azure.llm.ontology_council_serialization import (
     encode_council_request,
+    ontology_council_vote_schema,
     serialize_council_user_content,
 )
 from fdai.delivery.azure.llm.request_target import (
@@ -28,6 +29,7 @@ from fdai.shared.providers.ontology_council import (
     CouncilClaimPacket,
     CouncilDispute,
     CouncilModelIdentity,
+    CouncilTokenUsage,
     CouncilVote,
 )
 from fdai.shared.providers.ontology_council_errors import (
@@ -158,7 +160,14 @@ class AzureOpenAIOntologyCouncilModel:
                 },
             ],
             "max_completion_tokens": self._config.max_completion_tokens,
-            "response_format": {"type": "json_object"},
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "ontology_council_vote",
+                    "strict": True,
+                    "schema": ontology_council_vote_schema(),
+                },
+            },
         }
         if request.model_body_field is not None:
             body["model"] = request.model_body_field
@@ -212,7 +221,14 @@ class AzureOpenAIOntologyCouncilModel:
                 ) from None
             content = _complete_content(envelope)
             try:
-                return parse_council_vote(content, self._model_identity)
+                return parse_council_vote(
+                    content,
+                    self._model_identity,
+                    usage=CouncilTokenUsage(
+                        prompt_tokens=usage.prompt_tokens,
+                        completion_tokens=usage.completion_tokens,
+                    ),
+                )
             except ValueError:
                 raise CouncilContextGapError(
                     "ontology council response content is invalid"

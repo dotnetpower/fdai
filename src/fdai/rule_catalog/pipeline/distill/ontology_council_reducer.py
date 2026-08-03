@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, replace
 
 from fdai.rule_catalog.pipeline.distill.ontology_models import stable_digest
 from fdai.shared.providers.ontology_council import (
+    CouncilAgreedField,
     CouncilClaimPacket,
     CouncilDisposition,
+    CouncilFieldAlternative,
     CouncilFieldDifference,
     CouncilModelIdentity,
     CouncilOutcome,
@@ -80,8 +83,8 @@ def validate_council_vote(
         aliases=aliases,
     )
     target_identity = _resolve_any_identity(vote.target_identity, entity_types, aliases)
-    if target_identity not in {from_identity, to_identity}:
-        raise ValueError("link vote target identity MUST be an existing endpoint identity")
+    if target_identity != from_identity:
+        raise ValueError("link vote target identity MUST equal its canonical from identity")
     if not property_names.issubset(link_declaration.properties):
         raise ValueError("council vote MUST select allowed link properties")
     return replace(
@@ -131,16 +134,77 @@ def reduce_council_votes(
     )
 
 
+def validate_council_revision(
+    initial_votes: tuple[CouncilVote, CouncilVote, CouncilVote],
+    revised_votes: tuple[CouncilVote, CouncilVote, CouncilVote],
+    disputed_fields: frozenset[str],
+) -> None:
+    """Reject revision changes outside the deterministic field-difference set."""
+    for initial, revised in zip(initial_votes, revised_votes, strict=True):
+        if initial.model_identity != revised.model_identity:
+            raise ValueError("revised council vote MUST preserve model identity")
+        initial_payload = _semantic_payload(initial)
+        revised_payload = _semantic_payload(revised)
+        if any(
+            initial_payload[field_name] != revised_payload[field_name]
+            for field_name in initial_payload.keys() - disputed_fields
+        ):
+            raise ValueError("revised council vote MUST change only disputed fields")
+
+
+def council_agreed_fields(
+    votes: tuple[CouncilVote, CouncilVote, CouncilVote],
+) -> tuple[CouncilAgreedField, ...]:
+    payloads = tuple(_semantic_payload(vote) for vote in votes)
+    agreed: list[CouncilAgreedField] = []
+    for field_name in sorted(payloads[0]):
+        values_by_digest = {
+            stable_digest(payload[field_name]): payload[field_name] for payload in payloads
+        }
+        if len(values_by_digest) == 1:
+            digest, value = next(iter(values_by_digest.items()))
+            agreed.append(
+                CouncilAgreedField(
+                    field_name=field_name,
+                    alternative=_field_alternative(digest, value),
+                )
+            )
+    return tuple(agreed)
+
+
 def _field_differences(
     votes: tuple[CouncilVote, CouncilVote, CouncilVote],
 ) -> tuple[CouncilFieldDifference, ...]:
     payloads = tuple(_semantic_payload(vote) for vote in votes)
     differences: list[CouncilFieldDifference] = []
     for name in sorted(payloads[0]):
-        value_digests = tuple(sorted({stable_digest(payload[name]) for payload in payloads}))
+        values_by_digest = {stable_digest(payload[name]): payload[name] for payload in payloads}
+        value_digests = tuple(sorted(values_by_digest))
         if len(value_digests) > 1:
-            differences.append(CouncilFieldDifference(name, value_digests))
+            differences.append(
+                CouncilFieldDifference(
+                    name,
+                    value_digests,
+                    tuple(
+                        _field_alternative(digest, values_by_digest[digest])
+                        for digest in value_digests
+                    ),
+                )
+            )
     return tuple(differences)
+
+
+def _field_alternative(digest: str, value: object) -> CouncilFieldAlternative:
+    return CouncilFieldAlternative(
+        digest=digest,
+        value_json=json.dumps(
+            value,
+            ensure_ascii=True,
+            allow_nan=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ),
+    )
 
 
 def _semantic_payload(vote: CouncilVote) -> dict[str, object]:
@@ -208,6 +272,8 @@ def _normalize_alias(value: str) -> str:
 
 __all__ = [
     "CouncilRoundDecision",
+    "council_agreed_fields",
     "reduce_council_votes",
+    "validate_council_revision",
     "validate_council_vote",
 ]

@@ -200,17 +200,18 @@ def bind_azure_ontology_distiller(
         )
 
     models: list[OntologyCouncilModel] = []
-    family_keys: set[tuple[str, str]] = set()
+    families: set[str] = set()
+    publishers: set[str] = set()
     for capability_id in ONTOLOGY_COUNCIL_CAPABILITIES:
         capability = capabilities[capability_id]
         binding = bindings[capability_id]
         _validate_binding(capability, binding)
-        family_key = (binding.publisher, binding.family)
-        if family_key in family_keys:
+        if binding.family in families:
             raise LlmBindingsUnavailableError(
-                "ontology council endpoint bindings require three distinct publisher/family pairs"
+                "ontology council endpoint bindings require three distinct model families"
             )
-        family_keys.add(family_key)
+        families.add(binding.family)
+        publishers.add(binding.publisher)
         target = _binding_target(binding, endpoint_resolver)
         model_identity = CouncilModelIdentity(
             publisher=binding.publisher,
@@ -246,6 +247,11 @@ def bind_azure_ontology_distiller(
                     gateway_route_sink=model_health_sink,
                 ),
             )
+        )
+
+    if len(publishers) != 1:
+        raise LlmBindingsUnavailableError(
+            "ontology council endpoint bindings require a single publisher"
         )
 
     distiller = OntologyCouncilDistiller(

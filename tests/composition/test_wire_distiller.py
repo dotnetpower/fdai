@@ -229,7 +229,7 @@ def test_hil_only_council_capability_fails_closed() -> None:
             {"auth_kind": ModelAuthKind.API_KEY_REF, "auth_audience": None},
             "Entra auth",
         ),
-        ({"family": "gpt-5.6-sol"}, "distinct publisher/family"),
+        ({"family": "gpt-5.6-sol"}, "distinct model families"),
     ),
 )
 def test_invalid_endpoint_binding_fails_closed(
@@ -252,6 +252,21 @@ def test_family_mismatch_fails_closed() -> None:
 
     with pytest.raises(LlmBindingsUnavailableError, match="does not match"):
         _bind(_resolved(bindings=tuple(bindings)))
+
+
+def test_mixed_publishers_fail_closed() -> None:
+    capabilities = list(_resolved().capabilities)
+    bindings = list(_resolved().endpoint_bindings)
+    capabilities[1] = replace(capabilities[1], publisher="OtherPublisher")
+    bindings[1] = replace(bindings[1], publisher="OtherPublisher")
+
+    with pytest.raises(LlmBindingsUnavailableError, match="single publisher"):
+        _bind(
+            _resolved(
+                capabilities=tuple(capabilities),
+                bindings=tuple(bindings),
+            )
+        )
 
 
 def test_missing_endpoint_resolver_fails_closed() -> None:

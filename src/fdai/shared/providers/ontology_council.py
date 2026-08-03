@@ -83,6 +83,8 @@ class CouncilProperty:
     def __post_init__(self) -> None:
         if _PROPERTY.fullmatch(self.name) is None:
             raise ValueError("council property name MUST use the bounded property syntax")
+        if self.value is not None and type(self.value) not in {str, int, float, bool}:
+            raise ValueError("council property value MUST be a supported scalar")
         if isinstance(self.value, str) and len(self.value) > 4096:
             raise ValueError("council property string MUST be bounded")
         if isinstance(self.value, float) and not math.isfinite(self.value):
@@ -112,6 +114,8 @@ class CouncilSemanticFields:
         ):
             if len(values) > 64 or any(not value or len(value) > 64 for value in values):
                 raise ValueError(f"council semantic {label} MUST be bounded")
+            if values != tuple(sorted(values)) or len(values) != len(set(values)):
+                raise ValueError(f"council semantic {label} MUST be unique and sorted")
         if type(self.negated) is not bool:
             raise ValueError("council semantic negated MUST be a boolean")
         for value in (self.effective_from, self.effective_to):
@@ -161,6 +165,21 @@ class CouncilAlias:
     def __post_init__(self) -> None:
         require_bounded(self.alias, "entity alias", maximum=200)
         require_identifier(self.identity, "alias identity")
+
+
+@dataclass(frozen=True, slots=True)
+class CouncilTokenUsage:
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.prompt_tokens) is not int
+            or type(self.completion_tokens) is not int
+            or self.prompt_tokens < 0
+            or self.completion_tokens < 0
+        ):
+            raise ValueError("council token usage MUST contain non-negative integers")
 
 
 @dataclass(frozen=True, slots=True)
@@ -235,6 +254,11 @@ class CouncilVote:
     from_identity: str | None = None
     to_identity: str | None = None
     semantics: CouncilSemanticFields = field(default_factory=CouncilSemanticFields)
+    usage: CouncilTokenUsage = field(
+        default_factory=CouncilTokenUsage,
+        compare=False,
+        repr=False,
+    )
 
     def __post_init__(self) -> None:
         require_identifier(self.claim_id, "vote claim id")
@@ -279,7 +303,23 @@ class CouncilVote:
 
     @property
     def digest(self) -> str:
-        return _stable_digest(self)
+        return _stable_digest(
+            {
+                "model_identity": self.model_identity,
+                "claim_id": self.claim_id,
+                "citation_digest": self.citation_digest,
+                "disposition": self.disposition,
+                "operation": self.operation,
+                "target_kind": self.target_kind,
+                "target_type": self.target_type,
+                "target_identity": self.target_identity,
+                "authority": self.authority,
+                "properties": self.properties,
+                "from_identity": self.from_identity,
+                "to_identity": self.to_identity,
+                "semantics": self.semantics,
+            }
+        )
 
     @property
     def semantic_fingerprint(self) -> str | None:
@@ -303,9 +343,36 @@ class CouncilVote:
 
 
 @dataclass(frozen=True, slots=True)
+class CouncilFieldAlternative:
+    digest: str
+    value_json: str
+
+    def __post_init__(self) -> None:
+        require_digest(self.digest, "disputed field alternative digest")
+        if not self.value_json or len(self.value_json) > 65_536:
+            raise ValueError("disputed field alternative JSON MUST be bounded")
+        try:
+            value = json.loads(self.value_json, parse_constant=_reject_json_constant)
+        except (TypeError, ValueError):
+            raise ValueError("disputed field alternative JSON MUST be valid") from None
+        canonical = json.dumps(
+            value,
+            ensure_ascii=True,
+            allow_nan=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        if canonical != self.value_json:
+            raise ValueError("disputed field alternative JSON MUST be canonical")
+        if _stable_digest(value) != self.digest:
+            raise ValueError("disputed field alternative digest MUST match its value")
+
+
+@dataclass(frozen=True, slots=True)
 class CouncilFieldDifference:
     field_name: str
     value_digests: tuple[str, ...]
+    alternatives: tuple[CouncilFieldAlternative, ...]
 
     def __post_init__(self) -> None:
         if _PROPERTY.fullmatch(self.field_name) is None:
@@ -315,6 +382,18 @@ class CouncilFieldDifference:
         require_unique(self.value_digests, "disputed field value digests")
         for digest in self.value_digests:
             require_digest(digest, "disputed field value digest")
+        if tuple(item.digest for item in self.alternatives) != self.value_digests:
+            raise ValueError("disputed field alternatives MUST match value digests")
+
+
+@dataclass(frozen=True, slots=True)
+class CouncilAgreedField:
+    field_name: str
+    alternative: CouncilFieldAlternative
+
+    def __post_init__(self) -> None:
+        if _PROPERTY.fullmatch(self.field_name) is None:
+            raise ValueError("agreed field name MUST use the bounded property syntax")
 
 
 @dataclass(frozen=True, slots=True)
@@ -323,6 +402,7 @@ class CouncilDispute:
     packet_digest: str
     initial_vote_digests: tuple[str, str, str]
     differences: tuple[CouncilFieldDifference, ...]
+    agreed_fields: tuple[CouncilAgreedField, ...]
 
     def __post_init__(self) -> None:
         require_identifier(self.claim_id, "dispute claim id")
@@ -334,6 +414,17 @@ class CouncilDispute:
         if not self.differences or len(self.differences) > 32:
             raise ValueError("council dispute MUST contain bounded field differences")
         require_unique((item.field_name for item in self.differences), "disputed fields")
+        if len(self.agreed_fields) > 32:
+            raise ValueError("council dispute agreed fields MUST be bounded")
+        require_unique((item.field_name for item in self.agreed_fields), "agreed fields")
+        if self.agreed_fields != tuple(
+            sorted(self.agreed_fields, key=lambda item: item.field_name)
+        ):
+            raise ValueError("council dispute agreed fields MUST be sorted")
+        if {item.field_name for item in self.agreed_fields} & {
+            item.field_name for item in self.differences
+        }:
+            raise ValueError("council dispute agreed and disputed fields MUST be disjoint")
 
 
 @runtime_checkable
@@ -371,11 +462,17 @@ def _dataclass_payload(value: object) -> dict[str, object]:
     return {name: getattr(value, name) for name in fields}
 
 
+def _reject_json_constant(_value: str) -> None:
+    raise ValueError
+
+
 __all__ = [
+    "CouncilAgreedField",
     "CouncilAlias",
     "CouncilClaimPacket",
     "CouncilDisposition",
     "CouncilDispute",
+    "CouncilFieldAlternative",
     "CouncilFieldDifference",
     "CouncilLinkDeclaration",
     "CouncilModelIdentity",
@@ -386,6 +483,7 @@ __all__ = [
     "CouncilScalar",
     "CouncilSemanticFields",
     "CouncilTargetKind",
+    "CouncilTokenUsage",
     "CouncilVote",
     "OntologyCouncilModel",
 ]
