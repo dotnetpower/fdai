@@ -794,9 +794,15 @@ def merge_evidence_branch_results(
         operational_evidence.get("selected_incident"),
         Mapping,
     )
+    tool_evidence = merged.get("_tool_evidence")
+    source_manifest_tool = (
+        isinstance(tool_evidence, Mapping)
+        and tool_evidence.get("authority") == "server_read_source_manifest"
+    )
     implicit_tool = "_tool_evidence" in merged and not _is_explicit_tool_command(prompt)
     if (
         operational_evidence is not None
+        and not source_manifest_tool
         and not any(key in merged for key in ("_screen_scope", "_behavior_evidence"))
         and "_current_screen_tool" not in merged
         and ("_tool_evidence" not in merged or (selected_operational and implicit_tool))

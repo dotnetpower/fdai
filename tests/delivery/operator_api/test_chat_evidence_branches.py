@@ -364,6 +364,32 @@ def test_merge_selected_incident_replaces_implicit_inventory_evidence() -> None:
     }
 
 
+def test_merge_selected_incident_preserves_source_manifest_evidence() -> None:
+    tool = {
+        "tool": "describe_read_sources",
+        "authority": "server_read_source_manifest",
+        "result": {"status": "matched", "sources": []},
+    }
+    merged = merge_evidence_branch_results(
+        "Which data sources are unavailable?",
+        {"routeId": "incidents"},
+        (
+            _result(EvidenceBranchKind.TOOL, {"_tool_evidence": tool}),
+            _result(
+                EvidenceBranchKind.OPERATIONAL,
+                {
+                    "_operational_evidence": {
+                        "status": "matched",
+                        "selected_incident": {"correlation_id": "corr-selected"},
+                    }
+                },
+            ),
+        ),
+    )
+
+    assert merged == {"routeId": "incidents", "_tool_evidence": tool}
+
+
 async def test_chat_pipeline_tool_intent_skips_operational_resolver() -> None:
     class ToolResolver:
         async def resolve(self, prompt: str, *, principal_id: str):
