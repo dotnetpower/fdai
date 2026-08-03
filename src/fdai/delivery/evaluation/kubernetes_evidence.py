@@ -7,12 +7,12 @@ import json
 import re
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Final
 
 from fdai_evaluation_sdk import EvaluationTask
 
+from fdai.delivery.kubernetes.quantity import cpu_millicores, memory_bytes
 from fdai.evaluation.evidence import EvaluationEvidenceProvider
 
 CommandRunner = Callable[[tuple[str, ...]], Awaitable[bytes]]
@@ -20,25 +20,6 @@ _DNS_SUBDOMAIN: Final = re.compile(
     r"^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?(?:\.[a-z0-9](?:[-a-z0-9]*[a-z0-9])?)*$"
 )
 _INVENTORY_RESOURCES: Final = "deployments,statefulsets,daemonsets,pods,services,endpoints"
-_CPU_QUANTITY: Final = re.compile(r"^(?P<value>[0-9]+(?:\.[0-9]+)?)(?P<unit>n|u|m)?$")
-_MEMORY_QUANTITY: Final = re.compile(
-    r"^(?P<value>[0-9]+(?:\.[0-9]+)?)(?P<unit>Ki|Mi|Gi|Ti|Pi|Ei)?$"
-)
-_CPU_TO_MILLICORES: Final = {
-    "n": Decimal("0.000001"),
-    "u": Decimal("0.001"),
-    "m": Decimal("1"),
-    "": Decimal("1000"),
-}
-_MEMORY_TO_BYTES: Final = {
-    "Ki": 1_024,
-    "Mi": 1_048_576,
-    "Gi": 1_073_741_824,
-    "Ti": 1_099_511_627_776,
-    "Pi": 1_125_899_906_842_624,
-    "Ei": 1_152_921_504_606_846_976,
-    "": 1,
-}
 
 
 @dataclass(frozen=True, slots=True)
@@ -409,31 +390,9 @@ def _project_container_metric(value: Mapping[str, Any]) -> dict[str, Any] | None
         return None
     return {
         "name": name,
-        "cpu_millicores": _cpu_millicores(usage.get("cpu")),
-        "memory_bytes": _memory_bytes(usage.get("memory")),
+        "cpu_millicores": cpu_millicores(usage.get("cpu")),
+        "memory_bytes": memory_bytes(usage.get("memory")),
     }
-
-
-def _cpu_millicores(value: object) -> float:
-    match = _CPU_QUANTITY.fullmatch(value) if isinstance(value, str) else None
-    if match is None:
-        raise RuntimeError("kubectl returned an invalid Kubernetes CPU quantity")
-    try:
-        quantity = Decimal(match.group("value")) * _CPU_TO_MILLICORES[match.group("unit") or ""]
-    except (InvalidOperation, KeyError) as exc:
-        raise RuntimeError("kubectl returned an invalid Kubernetes CPU quantity") from exc
-    return float(quantity)
-
-
-def _memory_bytes(value: object) -> int:
-    match = _MEMORY_QUANTITY.fullmatch(value) if isinstance(value, str) else None
-    if match is None:
-        raise RuntimeError("kubectl returned an invalid Kubernetes memory quantity")
-    try:
-        quantity = Decimal(match.group("value")) * _MEMORY_TO_BYTES[match.group("unit") or ""]
-    except (InvalidOperation, KeyError) as exc:
-        raise RuntimeError("kubectl returned an invalid Kubernetes memory quantity") from exc
-    return int(quantity)
 
 
 def _valid_namespace(value: str) -> bool:

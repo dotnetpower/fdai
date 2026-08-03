@@ -15,12 +15,30 @@
     "outcome_validated",
     "azure_validated"
   ],
+  "absorbed_mechanisms": [
+    {
+      "id": "kubernetes_quantity_normalization",
+      "source_commits": [
+        "3cff0fecec791374ef8c4457f21235e964202410",
+        "69bc5005ce5ed1fe5a05a29793087de4d85c795d",
+        "386fed856292d68a15bf0a1861580a2b8a286aa6"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    }
+  ],
   "groups": [
     {
       "id": "diagnostics_foundation",
       "title": "Bounded Kubernetes diagnostics foundation",
       "disposition": "semantic_port",
-      "status": "queued",
+      "status": "in_progress",
       "dependencies": [],
       "safety_boundary": "Evidence remains bounded, untrusted, namespace-scoped, and unable to grant action authority.",
       "commits": [

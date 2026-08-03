@@ -172,7 +172,9 @@ evidence through an explicit kubeconfig and context. The kubectl adapter uses fi
 commands, no shell, a 30-second maximum timeout, output and item limits, and a diagnostic projection
 that excludes Secret objects and unreviewed fields. When the delegated identity can read
 `metrics.k8s.io` pods in the target namespace, the adapter projects normalized container CPU and
-memory usage through `observe.metrics.query`. Pod status also retains bounded prior termination
+memory usage through `observe.metrics.query`. Quantity normalization is owned by the operational
+Kubernetes delivery package, so evaluation, runtime evidence, capacity, and quota diagnostics use
+the same exact base-unit semantics. Pod status also retains bounded prior termination
 reason, exit code, and finish time for crash diagnosis. Raw logs and traces remain structured
 unavailable evidence until separate providers are bound.
 

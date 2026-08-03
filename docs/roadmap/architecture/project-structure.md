@@ -111,6 +111,7 @@ fdai/
 │   │   ├── programmatic_pipeline/ # local isolated child runner; Azure strict submission adapter remains under delivery/azure
 │   │   ├── browser/             # optional isolated async Playwright evidence capture; GET/HEAD only, no page handle
 │   │   ├── trajectory/         # deterministic JSONL streaming export with quarantine and atomic partial-file cleanup
+│   │   ├── kubernetes/         # shared operational Kubernetes semantics, beginning with exact resource-quantity normalization used by evaluation and runtime evidence
 │   │   ├── chaos/              # live chaos-inject adapters when a `Chaos` runbook step goes enforce: `live_injectors.py` (CSP-neutral primitive fan-out) + `chaos_mesh.py` (Chaos Mesh CRDs) + `mysql_load.py` (MySQL benchmark load)
 │   │   ├── remediation/        # concrete `DirectApiExecutor` for direct-API remediation (`live_direct_api.py`); the Protocol lives in `shared/providers/`
 │   │   ├── operator_api/           # thin ASGI - `main.py` composes route modules, including principal-scoped complete-history and read-only knowledge-context assembly plus Owner-only observation assignment cases beside IAM. GET routes project bounded state; POST commands submit governed records or typed proposals and never call a privileged executor or human-access provisioner directly
