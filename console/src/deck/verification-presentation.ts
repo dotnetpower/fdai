@@ -7,9 +7,21 @@ export type VerificationIssueKind =
   | "invalidQuery"
   | "unsupportedClaim";
 
+const CONTEXT_REQUIRED_REASONS = new Set([
+  "ambiguous_candidate_identity_conflict",
+  "ordinal_requery_not_unique",
+]);
+
+const SOURCE_UNAVAILABLE_REASONS = new Set([
+  "ordinal_query_invalid_result",
+  "ordinal_requery_truncated",
+  "ordinal_resource_no_longer_observed",
+]);
+
 export function verificationIssueKind(reasonCode: string | null): VerificationIssueKind {
   const reason = reasonCode?.toLowerCase() ?? "";
   if (
+    CONTEXT_REQUIRED_REASONS.has(reason) ||
     reason === "prior_context_required" ||
     reason.startsWith("exact_prior_") ||
     reason.startsWith("prior_result_set_") ||
@@ -27,6 +39,7 @@ export function verificationIssueKind(reasonCode: string | null): VerificationIs
     return "invalidQuery";
   }
   if (
+    SOURCE_UNAVAILABLE_REASONS.has(reason) ||
     reason.includes("unavailable") ||
     reason.includes("provider_") ||
     reason.includes("source_")

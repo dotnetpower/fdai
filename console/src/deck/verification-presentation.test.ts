@@ -31,6 +31,16 @@ describe("verification presentation", () => {
     expect(verificationPrimaryLabel(value)).toBe(label);
   });
 
+  it.each([
+    ["ordinal_requery_not_unique", "contextRequired"],
+    ["ambiguous_candidate_identity_conflict", "contextRequired"],
+    ["ordinal_resource_no_longer_observed", "sourceUnavailable"],
+    ["ordinal_requery_truncated", "sourceUnavailable"],
+    ["ordinal_query_invalid_result", "sourceUnavailable"],
+  ] as const)("maps conversation hold %s to %s", (reason, kind) => {
+    expect(verificationIssueKind(reason)).toBe(kind);
+  });
+
   it("keeps a reason-specific detail while preserving unverified machine state", () => {
     const value = verification("prior_result_set_truncated");
     expect(value.status).toBe("unverified");
