@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: d7b668ef6b9d6cf6a56d419abf0d91cb32a77452
+translation_source_sha: 529976302cc36e9c78a86fc71dbee0bf6dab0543
 translation_revised: 2026-08-03
 ---
 # 문서 온톨로지 증류
@@ -214,6 +214,19 @@ Reason code는 `pdf:ko:critical_recall_below_threshold`와 같이 partition key�
 assessment에서는 `deny`가 `review`보다 우선하고 `review`가 `pass`보다 우선합니다. 이 gate는
 evidence-only이자 review-only입니다. 통과 결과는 실행 권한을 부여하거나 ontology change를 promote하거나
 capability mode를 변경하지 않습니다.
+
+Public-corpus harness는 `tests/evaluation/` 아래 machine manifest를 읽습니다. 각 source entry는 stable
+id, HTTPS URL, SHA-256, license id와 license source, format, language, source byte/line count 및 expected
+claim signal이 포함된 critical source-line hash를 두 개 이상 고정합니다. Source body는 repository 밖에
+둡니다. Caller가 temporary 또는 cache directory를 선택합니다.
+
+`scripts/evaluation/document_ontology_public_corpus.py`는 정확한 source host allowlist만 허용하고,
+redirect를 비활성화하며, final URL을 확인하고, timeout/byte ceiling을 적용하고, cache 전에 고정된 byte
+count와 SHA-256을 검사합니다. 그런 다음 protection inspection, standard extraction, envelope provenance
+bridge 및 claim inventory를 실행합니다. Report에는 id, digest, count, status code 및 partition metadata만
+포함되며 source 또는 claim text를 포함하지 않습니다. Test는 local fetcher를 inject하며 network를 사용하지
+않습니다. Default report는 provider를 `unbound`로 기록하고 abstention 1건과 extraction success 0건을
+계상합니다. Stable empty replay는 이 결과를 바꾸지 않습니다.
 
 D4c의 10개 remediation round는 structure, claim semantic, PDF, Office/OCR provenance, identity
 resolution, coverage/release gate, public-corpus replay, provider conformance, resource/security bound

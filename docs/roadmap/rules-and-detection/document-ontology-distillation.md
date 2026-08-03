@@ -214,6 +214,20 @@ Reason codes retain the partition key, such as
 `review` takes precedence over `pass`. This gate is evidence-only and review-only. A passing result
 does not grant execution authority, promote an ontology change, or alter a capability mode.
 
+The public-corpus harness reads a machine manifest under `tests/evaluation/`. Each source entry
+pins a stable id, HTTPS URL, SHA-256, license id and license source, format, language, source byte
+and line counts, plus at least two critical source-line hashes with expected claim signals. Source
+bodies stay outside the repository. The caller chooses a temporary or cache directory.
+
+`scripts/evaluation/document_ontology_public_corpus.py` accepts only the exact source host
+allowlist, disables redirects, verifies the final URL, enforces timeout and byte ceilings, and
+checks the pinned byte count and SHA-256 before caching. It then runs protection inspection,
+standard extraction, the envelope provenance bridge, and claim inventory. Reports contain only
+ids, digests, counts, status codes, and partition metadata. They never include source or claim
+text. Tests inject a local fetcher and use no network. The default report records the provider as
+`unbound`, counts an abstention, and records zero extraction successes; a stable empty replay does
+not change that result.
+
 The ten remediation rounds for D4c cover structure, claim semantics, PDF, Office/OCR provenance,
 identity resolution, coverage and release gates, public-corpus replay, provider conformance,
 resource/security bounds, and a final independent critique. Each round adds a falsifying fixture

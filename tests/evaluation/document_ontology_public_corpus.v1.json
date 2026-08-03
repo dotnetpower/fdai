@@ -1,0 +1,258 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "id": "safely-drain-node",
+      "url": "https://raw.githubusercontent.com/kubernetes/website/main/content/en/docs/tasks/administer-cluster/safely-drain-node.md",
+      "sha256": "1f53a4ee6c6180d3764a82d52d1861531d664e2774118b813787419287f97c69",
+      "license_id": "CC-BY-4.0",
+      "license_source": "https://github.com/kubernetes/website/blob/main/LICENSE",
+      "format": "markdown",
+      "language": "en",
+      "source_line_count": 131,
+      "source_bytes": 5925,
+      "critical_claims": [
+        {
+          "locator": "line:94",
+          "text_sha256": "3f949e6408f067add612a8efdab1d2cf44d6aebc8820c1cc7c78dcf81e8f5d83",
+          "expected_claim_signals": ["normative"]
+        },
+        {
+          "locator": "line:103",
+          "text_sha256": "f47fc05c703ddcd58cf4455bf4b19534a27fa8c31a684297c25b025a89ab9215",
+          "expected_claim_signals": ["normative", "procedure"]
+        }
+      ]
+    },
+    {
+      "id": "reserve-compute-resources",
+      "url": "https://raw.githubusercontent.com/kubernetes/website/main/content/en/docs/tasks/administer-cluster/reserve-compute-resources.md",
+      "sha256": "13a98e226aec6a3daf0252a26bc54e44624daa3ed3dbb5e80d7649bc90fb18e1",
+      "license_id": "CC-BY-4.0",
+      "license_source": "https://github.com/kubernetes/website/blob/main/LICENSE",
+      "format": "markdown",
+      "language": "en",
+      "source_line_count": 244,
+      "source_bytes": 12198,
+      "critical_claims": [
+        {
+          "locator": "line:49",
+          "text_sha256": "313b4738700423803242207813268266741c4ac6ce8bdd1329e1c4f47191d28c",
+          "expected_claim_signals": ["normative"]
+        },
+        {
+          "locator": "line:96",
+          "text_sha256": "b1d9626f561a788523dd0922c490df1a46d311762abe8d207316c342a23e37b4",
+          "expected_claim_signals": ["normative"]
+        }
+      ]
+    },
+    {
+      "id": "cluster-upgrade",
+      "url": "https://raw.githubusercontent.com/kubernetes/website/main/content/en/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade.md",
+      "sha256": "3530451ef69e75414add150826fd2e98f927b16a037617c4e4a13e932a612ffe",
+      "license_id": "CC-BY-4.0",
+      "license_source": "https://github.com/kubernetes/website/blob/main/LICENSE",
+      "format": "markdown",
+      "language": "en",
+      "source_line_count": 368,
+      "source_bytes": 16171,
+      "critical_claims": [
+        {
+          "locator": "line:13",
+          "text_sha256": "049047514e51b39bf77328d2b5e06402634cf5e0f8b2e9fb8ae4776604f6a41d",
+          "expected_claim_signals": ["threshold"]
+        },
+        {
+          "locator": "line:45",
+          "text_sha256": "1a83b93b533a132004caaee0acf750d88a887a94e8e0b2b86eb67fc044dcbe1c",
+          "expected_claim_signals": ["normative"]
+        }
+      ]
+    },
+    {
+      "id": "operating-coordination-store",
+      "url": "https://raw.githubusercontent.com/kubernetes/website/main/content/en/docs/tasks/administer-cluster/configure-upgrade-etcd.md",
+      "sha256": "2dfb67431aa6ab5a30b71310238495a3e425176905a047c0f38bc4230e246f38",
+      "license_id": "CC-BY-4.0",
+      "license_source": "https://github.com/kubernetes/website/blob/main/LICENSE",
+      "format": "markdown",
+      "language": "en",
+      "source_line_count": 499,
+      "source_bytes": 19964,
+      "critical_claims": [
+        {
+          "locator": "line:29",
+          "text_sha256": "88f7949c836c204515e62ecf5f5e9745dd559e01d4ec80b2ffa932a757cd7a5c",
+          "expected_claim_signals": ["normative"]
+        },
+        {
+          "locator": "line:479",
+          "text_sha256": "3378a6cf9bee2f54ad22a0d0ac2b30a4b070bea1af38b536679450c3b0e50b3a",
+          "expected_claim_signals": ["procedure"]
+        }
+      ]
+    },
+    {
+      "id": "resource-metrics-pipeline",
+      "url": "https://raw.githubusercontent.com/kubernetes/website/main/content/en/docs/tasks/debug/debug-cluster/resource-metrics-pipeline.md",
+      "sha256": "8e8ac335293b664cc54475344e444e42e3fe548054658ea7979fa90732e7ef65",
+      "license_id": "CC-BY-4.0",
+      "license_source": "https://github.com/kubernetes/website/blob/main/LICENSE",
+      "format": "markdown",
+      "language": "en",
+      "source_line_count": 249,
+      "source_bytes": 9975,
+      "critical_claims": [
+        {
+          "locator": "line:96",
+          "text_sha256": "6a5264862bdb79641a33bdd529716e7eec4ca62f5d67794ffb71c96274258f29",
+          "expected_claim_signals": ["observation", "entity"]
+        },
+        {
+          "locator": "line:182",
+          "text_sha256": "f4b1cc424ff50a3c450c5b4a54a3c0ad15a97fedb960d440f10217b7fc00ac51",
+          "expected_claim_signals": ["normative", "observation"]
+        }
+      ]
+    },
+    {
+      "id": "debug-running-workload",
+      "url": "https://raw.githubusercontent.com/kubernetes/website/main/content/en/docs/tasks/debug/debug-application/debug-running-pod.md",
+      "sha256": "ec96ce1a6c370020a9162cae98aba5b1a04113365815613ecdb1f658cfa2e08f",
+      "license_id": "CC-BY-4.0",
+      "license_source": "https://github.com/kubernetes/website/blob/main/LICENSE",
+      "format": "markdown",
+      "language": "en",
+      "source_line_count": 825,
+      "source_bytes": 28330,
+      "critical_claims": [
+        {
+          "locator": "line:192",
+          "text_sha256": "90af80cf16b5d56c2e6a102501a30fce6d706e3c026db154168910d300f930c6",
+          "expected_claim_signals": ["procedure"]
+        },
+        {
+          "locator": "line:336",
+          "text_sha256": "c73153d9ee135c1addda23e827a3a428b08afa142f7c33f3d09ee7f7a74f21a9",
+          "expected_claim_signals": ["procedure"]
+        }
+      ]
+    },
+    {
+      "id": "force-delete-stateful-workload",
+      "url": "https://raw.githubusercontent.com/kubernetes/website/main/content/en/docs/tasks/run-application/force-delete-stateful-set-pod.md",
+      "sha256": "694dddb1affd73f84b639b91115eb368a9cd677ddb06c937f8a04214752ef59f",
+      "license_id": "CC-BY-4.0",
+      "license_source": "https://github.com/kubernetes/website/blob/main/LICENSE",
+      "format": "markdown",
+      "language": "en",
+      "source_line_count": 114,
+      "source_bytes": 5144,
+      "critical_claims": [
+        {
+          "locator": "line:34",
+          "text_sha256": "121e4fdb0266dd4e506b4e7069e309e7b7f1045cd65c437deb728568ef765924",
+          "expected_claim_signals": ["normative"]
+        },
+        {
+          "locator": "line:80",
+          "text_sha256": "5d134e106a0c8e53c0437f6b8b2a2b10e2b9180d7854a52a07f0455bc6fea49d",
+          "expected_claim_signals": ["normative"]
+        }
+      ]
+    },
+    {
+      "id": "horizontal-autoscale",
+      "url": "https://raw.githubusercontent.com/kubernetes/website/main/content/en/docs/tasks/run-application/horizontal-pod-autoscale-walkthrough.md",
+      "sha256": "909833d9c50297e8e733c8438c59e0869df1161f084aa702f375592b27d9bd7d",
+      "license_id": "CC-BY-4.0",
+      "license_source": "https://github.com/kubernetes/website/blob/main/LICENSE",
+      "format": "markdown",
+      "language": "en",
+      "source_line_count": 527,
+      "source_bytes": 19430,
+      "critical_claims": [
+        {
+          "locator": "line:87",
+          "text_sha256": "7f770b2b80d1ccc4cf7478f9c2430875651f163b53f2eb2ba5e5ff73a1bf6fb6",
+          "expected_claim_signals": ["threshold"]
+        },
+        {
+          "locator": "line:426",
+          "text_sha256": "b6460937df14291d3f9f9403bd9a5b972bc48d23228e325162034f94f42a9327",
+          "expected_claim_signals": ["relationship", "observation"]
+        }
+      ]
+    },
+    {
+      "id": "health-probes",
+      "url": "https://raw.githubusercontent.com/kubernetes/website/main/content/en/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes.md",
+      "sha256": "158e1b10e7dbd1eb1d7db987d6843583ef3181a6a67e82682e3edd3bdef56038",
+      "license_id": "CC-BY-4.0",
+      "license_source": "https://github.com/kubernetes/website/blob/main/LICENSE",
+      "format": "markdown",
+      "language": "en",
+      "source_line_count": 344,
+      "source_bytes": 12848,
+      "critical_claims": [
+        {
+          "locator": "line:127",
+          "text_sha256": "3b4237d652c87b2e0bc78452e3eb5d394348b18d97f346b0c378f2b86fa470cc",
+          "expected_claim_signals": ["threshold"]
+        },
+        {
+          "locator": "line:312",
+          "text_sha256": "91a963dd61a56266d8503c5d3458fe1f6d3b4441297b4473f9c748b7ed3c0b43",
+          "expected_claim_signals": ["normative", "relationship"]
+        }
+      ]
+    },
+    {
+      "id": "backup-restore",
+      "url": "https://raw.githubusercontent.com/postgres/postgres/master/doc/src/sgml/backup.sgml",
+      "sha256": "cadee6e7b3c2dda08b5234fc148427d0f5db96a2a2e8511fc825daeb431fad26",
+      "license_id": "PostgreSQL",
+      "license_source": "https://www.postgresql.org/about/licence/",
+      "format": "sgml",
+      "language": "en",
+      "source_line_count": 1620,
+      "source_bytes": 76905,
+      "critical_claims": [
+        {
+          "locator": "line:380",
+          "text_sha256": "482d7b38132dbfda9c0329b59c6e7673756f60a1e016b347db0998598ce8151c",
+          "expected_claim_signals": ["normative"]
+        },
+        {
+          "locator": "line:1308",
+          "text_sha256": "6b08955761c014b20c84b14eca10f0ba025d192bba5b6c3014d3d99fe6e1321b",
+          "expected_claim_signals": ["normative"]
+        }
+      ]
+    },
+    {
+      "id": "high-availability",
+      "url": "https://raw.githubusercontent.com/postgres/postgres/master/doc/src/sgml/high-availability.sgml",
+      "sha256": "b2ce081b6ec156f830dc5018782542d1f27ce6fc8a7741e42055d1e8c673b82e",
+      "license_id": "PostgreSQL",
+      "license_source": "https://www.postgresql.org/about/licence/",
+      "format": "sgml",
+      "language": "en",
+      "source_line_count": 2419,
+      "source_bytes": 105423,
+      "critical_claims": [
+        {
+          "locator": "line:587",
+          "text_sha256": "8a238deef09fa9c7f33d6c7846a900a4edcc389688069f38ef36c3f9dafc14f3",
+          "expected_claim_signals": ["normative"]
+        },
+        {
+          "locator": "line:1492",
+          "text_sha256": "dc946bbe75ed363094012a2d90ec282b3d7433ecf9f8260482aabf896f4661c5",
+          "expected_claim_signals": ["normative"]
+        }
+      ]
+    }
+  ]
+}
