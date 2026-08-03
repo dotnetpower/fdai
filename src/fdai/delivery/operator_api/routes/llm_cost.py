@@ -16,9 +16,12 @@ the panel code is identical either way.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fdai.core.metering.aggregate import (
+    UsageSummary,
     invocations_as_mapping,
     summarize_by_conversation,
     summarize_by_day,
@@ -29,8 +32,9 @@ from fdai.core.metering.aggregate import (
     summarize_total,
     usage_summaries_as_mapping,
 )
-from fdai.core.metering.records import InvocationScope
+from fdai.core.metering.records import InvocationScope, LlmInvocation
 from fdai.core.metering.sink import MeteringReader
+from fdai.delivery.operator_api.routes.panels import PanelQueryError
 
 # Query-string values selecting a single grouping; absent -> all groupings.
 _GROUP_DAY = "day"
@@ -42,6 +46,42 @@ _GROUPS: frozenset[str] = frozenset({_GROUP_DAY, _GROUP_MONTH, _GROUP_CONVERSATI
 # evidence surface; conversations keep deterministic correlation ordering.
 _DEFAULT_MAX_CONVERSATIONS: int = 200
 _DEFAULT_MAX_RECORDS: int = 500
+_MAX_RANGE: timedelta = timedelta(days=90)
+_MAX_HOURLY_RANGE: timedelta = timedelta(days=2)
+
+
+def _parse_range(params: Mapping[str, str]) -> tuple[datetime | None, datetime | None]:
+    raw_start = params.get("from")
+    raw_end = params.get("to")
+    if raw_start is None and raw_end is None:
+        return None, None
+    if raw_start is None or raw_end is None:
+        raise PanelQueryError("from and to MUST be supplied together")
+
+    def parse(value: str, name: str) -> datetime:
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise PanelQueryError(f"{name} MUST be an RFC 3339 timestamp") from exc
+        if parsed.tzinfo is None:
+            raise PanelQueryError(f"{name} MUST include a timezone offset")
+        return parsed.astimezone(UTC)
+
+    start = parse(raw_start, "from")
+    end = parse(raw_end, "to")
+    if start >= end:
+        raise PanelQueryError("from MUST be earlier than to")
+    if end - start > _MAX_RANGE:
+        raise PanelQueryError("LLM usage range MUST NOT exceed 90 days")
+    return start, end
+
+
+def _summarize_by_hour(records: tuple[LlmInvocation, ...]) -> tuple[UsageSummary, ...]:
+    grouped: dict[str, list[LlmInvocation]] = {}
+    for record in records:
+        key = record.occurred_at.astimezone(UTC).strftime("%Y-%m-%dT%H:00Z")
+        grouped.setdefault(key, []).append(record)
+    return tuple(replace(summarize_total(grouped[key]), key=key) for key in sorted(grouped))
 
 
 class LlmCostPanel:
@@ -89,7 +129,14 @@ class LlmCostPanel:
         in the dev harness). ``by_conversation`` is capped at
         ``max_conversations`` with a ``by_conversation_truncated`` flag.
         """
+        range_start, range_end = _parse_range(params)
         records = await self._reader.invocations()
+        if range_start is not None and range_end is not None:
+            records = tuple(
+                record
+                for record in records
+                if range_start <= record.occurred_at.astimezone(UTC) < range_end
+            )
         total = summarize_total(records)
         chat_records = tuple(
             record for record in records if record.usage_scope is InvocationScope.OPERATOR_CHAT
@@ -98,6 +145,8 @@ class LlmCostPanel:
         visible_records = recent_records[: self._max_records]
         payload: dict[str, Any] = {
             "source": self._source,
+            "range_start": range_start.isoformat() if range_start is not None else None,
+            "range_end": range_end.isoformat() if range_end is not None else None,
             "latest_occurred_at": (
                 max(record.occurred_at for record in records).isoformat() if records else None
             ),
@@ -121,6 +170,13 @@ class LlmCostPanel:
             "by_model": list(usage_summaries_as_mapping(summarize_by_model(records))),
             "chat_by_model": list(usage_summaries_as_mapping(summarize_by_model(chat_records))),
             "by_mode": list(usage_summaries_as_mapping(summarize_by_mode(records))),
+            "by_hour": list(
+                usage_summaries_as_mapping(_summarize_by_hour(records))
+                if range_start is not None
+                and range_end is not None
+                and range_end - range_start <= _MAX_HOURLY_RANGE
+                else ()
+            ),
             "records": list(invocations_as_mapping(visible_records)),
             "records_truncated": len(visible_records) < len(recent_records),
             "record_count": len(recent_records),

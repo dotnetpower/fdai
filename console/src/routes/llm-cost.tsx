@@ -17,7 +17,17 @@ import { TERMS, composeGlossary } from "../deck/glossary";
 import { getLocale } from "../i18n";
 import { t } from "./i18n/llm-cost";
 import "./llm-cost-alignment.css";
-import { currentRoute, routeHref } from "../router";
+import { currentRoute, replaceRouteState, routeHref } from "../router";
+import { LlmCostRangeControl } from "./llm-cost-range-control";
+import {
+  llmUsageRangeApiParams,
+  llmUsageRangeDays,
+  llmUsageRangeFromSearch,
+  llmUsageRangeLabel,
+  llmUsageRangeSearchParams,
+  type LlmUsageRange,
+} from "./llm-cost-range";
+import { LlmCostTrend } from "./llm-cost-trend";
 import {
   panelArray,
   panelBoolean,
@@ -61,6 +71,8 @@ interface InvocationRecord {
 
 interface Response {
   readonly source: string;
+  readonly range_start: string | null;
+  readonly range_end: string | null;
   readonly latest_occurred_at: string | null;
   readonly invocations: number;
   readonly total: Summary;
@@ -72,6 +84,7 @@ interface Response {
   readonly by_conversation: readonly Summary[];
   readonly by_conversation_truncated: boolean;
   readonly conversation_count: number;
+  readonly by_hour: readonly Summary[];
   readonly by_day: readonly Summary[];
   readonly by_month: readonly Summary[];
   readonly records: readonly InvocationRecord[];
@@ -103,13 +116,20 @@ export function usageTrendPoints(rows: readonly Summary[]): string | null {
 }
 
 export function LlmCostRoute({ client }: Props) {
+  const [range, setRange] = useState<LlmUsageRange>(() =>
+    llmUsageRangeFromSearch(currentRoute().search, new Date())
+  );
   const [state, setState] = useState<AsyncState<Response>>({ status: "loading" });
 
   useEffect(() => {
     let cancelled = false;
+    setState({ status: "loading" });
     (async () => {
       try {
-        const data = decodeLlmCost(await client.panel<unknown>("/kpi/llm-cost"));
+        const data = decodeLlmCost(await client.panel<unknown>(
+          "/kpi/llm-cost",
+          { ...llmUsageRangeApiParams(range) },
+        ));
         if (!cancelled) setState({ status: "ready", data });
       } catch (err) {
         if (!cancelled) {
@@ -128,13 +148,23 @@ export function LlmCostRoute({ client }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [client]);
+  }, [client, range.from, range.to]);
+
+  const changeRange = (next: LlmUsageRange) => {
+    setRange(next);
+    replaceRouteState(routeHref("llm-cost", { params: llmUsageRangeSearchParams(next) }));
+  };
 
   return (
     <div class="stack analytics-route">
       <PageHeader title={t("llmCost.title")} subtitle={t("llmCost.subtitle")} />
+      <div class="llm-cost-boundary">
+        <strong>{t("llmCost.boundaryTitle")}</strong>
+        <span>{t("llmCost.boundaryBody")}</span>
+      </div>
+      <LlmCostRangeControl range={range} onChange={changeRange} />
       <AsyncBoundary state={state} resourceLabel={t("llmCost.title")}>
-        {(data) => <LlmCostBody data={data} />}
+        {(data) => <LlmCostBody data={data} range={range} />}
       </AsyncBoundary>
     </div>
   );
@@ -156,6 +186,8 @@ export function decodeLlmCost(value: unknown): Response {
     .map((item, index) => decodeSummary(item, `LLM cost.${key}[${index}]`));
   return {
     source: panelString(root, "source", "LLM cost"),
+    range_start: panelNullableString(root, "range_start", "LLM cost"),
+    range_end: panelNullableString(root, "range_end", "LLM cost"),
     latest_occurred_at: panelNullableString(root, "latest_occurred_at", "LLM cost"),
     invocations: panelNumber(root, "invocations", "LLM cost"),
     total: decodeSummary(root["total"], "LLM cost.total"),
@@ -167,6 +199,7 @@ export function decodeLlmCost(value: unknown): Response {
     by_conversation: summaries("by_conversation"),
     by_conversation_truncated: panelBoolean(root, "by_conversation_truncated", "LLM cost"),
     conversation_count: panelNumber(root, "conversation_count", "LLM cost"),
+    by_hour: summaries("by_hour"),
     by_day: summaries("by_day"),
     by_month: summaries("by_month"),
     records: panelArray(root["records"], "LLM cost.records").map((item, index) => {
@@ -215,10 +248,10 @@ function _recordColumns(locale: string): readonly Column<InvocationRecord>[] {
   const tokens = (value: number) => value.toLocaleString(locale);
   return [
     { key: "when", header: t("llmCost.column.timestamp"), render: (r) => new Date(r.occurred_at).toLocaleString(locale) },
-    { key: "scope", header: t("llmCost.column.scope"), render: (r) => t(`llmCost.scope.${r.usage_scope}`), cellClass: "mono" },
+    { key: "scope", header: t("llmCost.column.scope"), render: (r) => <span class={`llm-cost-scope${r.usage_scope === "operator_chat" ? " is-chat" : ""}`}>{t(`llmCost.scope.${r.usage_scope}`)}</span>, cellClass: "mono" },
     { key: "model", header: t("llmCost.column.model"), render: (r) => r.model_key, cellClass: "mono" },
     { key: "cap", header: t("llmCost.column.capability"), render: (r) => r.capability_id, cellClass: "mono" },
-    { key: "tier", header: t("llmCost.column.tierMode"), render: (r) => `${r.tier} / ${r.mode}`, cellClass: "mono" },
+    { key: "tier", header: t("llmCost.column.tierMode"), render: (r) => <><span class={`llm-cost-tier is-${r.tier.toLowerCase()}`}>{r.tier}</span> / {r.mode}</>, cellClass: "mono" },
     { key: "input", header: t("llmCost.column.input"), render: (r) => tokens(r.prompt_tokens), cellClass: "num" },
     { key: "output", header: t("llmCost.column.output"), render: (r) => tokens(r.completion_tokens), cellClass: "num" },
     { key: "total", header: t("llmCost.totalTokens"), render: (r) => tokens(r.total_tokens), cellClass: "num" },
@@ -226,8 +259,9 @@ function _recordColumns(locale: string): readonly Column<InvocationRecord>[] {
   ];
 }
 
-function LlmCostBody({ data }: { readonly data: Response }) {
+function LlmCostBody({ data, range }: { readonly data: Response; readonly range: LlmUsageRange }) {
   const locale = getLocale() === "ko" ? "ko-KR" : "en-US";
+  const compact = new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 2 });
   const auditContext = Object.fromEntries(currentRoute().search.entries());
   const auditHref = routeHref("audit", { params: auditContext });
   const latestRecord = data.records[0];
@@ -237,6 +271,10 @@ function LlmCostBody({ data }: { readonly data: Response }) {
       })
     : auditHref;
   const chatShare = tokenShare(data.chat.total_tokens, data.total.total_tokens);
+  const rangeLabel = llmUsageRangeLabel(range, locale);
+  const windowLabel = range.preset === "24h"
+    ? t("llmCost.rangeHours", { count: 24 })
+    : t("llmCost.rangeDays", { count: llmUsageRangeDays(range) });
   usePublishViewContext(
     () => ({
       routeId: "llm-cost",
@@ -253,6 +291,8 @@ function LlmCostBody({ data }: { readonly data: Response }) {
       capturedAt: data.latest_occurred_at ?? new Date().toISOString(),
       facts: [
         { key: "source", value: data.source, group: "summary" },
+        { key: "range_start", value: data.range_start, group: "summary" },
+        { key: "range_end", value: data.range_end, group: "summary" },
         { key: "latest_occurred_at", value: data.latest_occurred_at, group: "summary" },
         { key: "invocations", value: data.invocations, group: "summary" },
         { key: "total_tokens", value: data.total.total_tokens, group: "summary" },
@@ -266,26 +306,23 @@ function LlmCostBody({ data }: { readonly data: Response }) {
         invocations: data.records.map((r) => ({ ...r })),
       },
     }),
-    [data],
+    [data, range.from, range.to],
   );
 
   return (
     <div class="stack llm-cost-view">
-      <div class="llm-cost-boundary">
-        <strong>{t("llmCost.boundaryTitle")}</strong>
-        <span>{t("llmCost.boundaryBody")}</span>
-      </div>
       <div class="analytics-evidence llm-cost-evidence">
         <strong>{t("llmCost.measuredUsage")}</strong>
+        <span>{t("llmCost.rangeEvidence", { range: rangeLabel })}</span>
         <span>{t("llmCost.source")}: {data.source}</span>
         <span>{t("llmCost.measuredCalls", { count: data.record_count.toLocaleString(locale) })}</span>
-        <span>{data.latest_occurred_at ? t("llmCost.asOf", { time: data.latest_occurred_at }) : t("llmCost.noInvocationEvidence")}</span>
+        <span>{data.latest_occurred_at ? t("llmCost.asOf", { time: new Date(data.latest_occurred_at).toLocaleString(locale) }) : t("llmCost.noInvocationEvidence")}</span>
       </div>
       <div class="llm-cost-kpis">
         <KpiGrid>
           <KpiCard href={auditHref} label={t("llmCost.calls")} value={data.invocations.toLocaleString(locale)} hint={`${t("llmCost.source")}: ${data.source}`} />
-          <KpiCard href={auditHref} label={t("llmCost.totalTokens")} value={data.total.total_tokens.toLocaleString(locale)} />
-          <KpiCard href={auditHref} label={t("llmCost.chatShare")} value={chatShare === null ? kpiEvidenceLabel("not-measured") : `${Math.round(chatShare * 100)}%`} evidenceState={chatShare === null ? "not-measured" : "measured"} hint={chatShare === null ? t("llmCost.noInvocationEvidence") : t("llmCost.chatTokensValue", { count: data.chat.total_tokens.toLocaleString(locale) })} />
+          <KpiCard href={auditHref} label={t("llmCost.totalTokens")} value={compact.format(data.total.total_tokens)} hint={data.total.total_tokens.toLocaleString(locale)} />
+          <KpiCard href={auditHref} label={t("llmCost.chatShare")} value={chatShare === null ? kpiEvidenceLabel("not-measured") : `${Math.round(chatShare * 100)}%`} evidenceState={chatShare === null ? "not-measured" : "measured"} hint={chatShare === null ? t("llmCost.noInvocationEvidence") : t("llmCost.chatTokensValue", { count: compact.format(data.chat.total_tokens) })} />
           <KpiCard
             evidenceState={data.latest_occurred_at ? "measured" : "not-measured"}
             href={latestHref}
@@ -297,7 +334,13 @@ function LlmCostBody({ data }: { readonly data: Response }) {
 
       <div class="llm-cost-analysis">
         <TokenComposition data={data} auditHref={auditHref} locale={locale} />
-        <DailyUsageTrend rows={data.by_day} auditHref={auditHref} locale={locale} />
+        <LlmCostTrend
+          rows={range.preset === "24h" ? data.by_hour : data.by_day}
+          auditHref={auditHref}
+          locale={locale}
+          windowLabel={windowLabel}
+          hourly={range.preset === "24h"}
+        />
       </div>
 
       <section class="stack llm-cost-section" id="usage-by-model">
@@ -368,29 +411,6 @@ function TokenComposition({ data, auditHref, locale }: { readonly data: Response
             </span>
           </div>
         </>
-      )}
-    </section>
-  );
-}
-
-function DailyUsageTrend({ rows, auditHref, locale }: { readonly rows: readonly Summary[]; readonly auditHref: string; readonly locale: string }) {
-  const visibleRows = [...rows].sort((left, right) => left.key.localeCompare(right.key)).slice(-7);
-  const points = usageTrendPoints(visibleRows);
-  const values = visibleRows.map((row) => row.total_tokens);
-  return (
-    <section class="llm-cost-panel" aria-labelledby="llm-daily-trend-title">
-      <div class="llm-cost-panel-head">
-        <div><h3 id="llm-daily-trend-title">{t("llmCost.dailyTrend")}</h3><p>{t("llmCost.dailyTrendSubtitle")}</p></div>
-        <a href={auditHref}>{t("llmCost.viewEvidence")}</a>
-      </div>
-      {points === null ? <UnavailableState message={t("llmCost.trendUnavailable")} /> : (
-        <a class="llm-trend-chart" href={auditHref} aria-label={t("llmCost.dailyTrendAria")}>
-          <svg viewBox="0 0 100 38" role="img" aria-hidden="true" preserveAspectRatio="none">
-            <path class="llm-trend-grid" d="M0 8 H100 M0 19 H100 M0 30 H100" />
-            <polyline points={points} fill="none" stroke="currentColor" stroke-width="1.5" />
-          </svg>
-          <span class="llm-trend-range"><span>{visibleRows[0]?.key}</span><strong>{Math.min(...values).toLocaleString(locale)}-{Math.max(...values).toLocaleString(locale)} {t("llmCost.tokensUnit")}</strong><span>{visibleRows.at(-1)?.key}</span></span>
-        </a>
       )}
     </section>
   );

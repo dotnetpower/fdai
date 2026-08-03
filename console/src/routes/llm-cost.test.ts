@@ -22,6 +22,8 @@ describe("LLM usage provenance", () => {
   test("decodes measured usage without exposing cost", () => {
     const decoded = decodeLlmCost({
       source: "metering",
+      range_start: "2026-07-04T00:00:00+00:00",
+      range_end: "2026-07-11T00:00:00+00:00",
       latest_occurred_at: "2026-07-10T09:00:00+00:00",
       invocations: 1,
       total: summary,
@@ -33,6 +35,7 @@ describe("LLM usage provenance", () => {
       by_conversation: [],
       by_conversation_truncated: false,
       conversation_count: 0,
+      by_hour: [],
       by_day: [],
       by_month: [],
       records: [{
@@ -52,6 +55,7 @@ describe("LLM usage provenance", () => {
     });
 
     expect(decoded.latest_occurred_at).toBe("2026-07-10T09:00:00+00:00");
+    expect(decoded.range_start).toBe("2026-07-04T00:00:00+00:00");
     expect(decoded.chat.total_tokens).toBe(15);
     expect(decoded.by_model[0]?.key).toBe("gpt-4.1-mini");
     expect(decoded.total).not.toHaveProperty("cost");

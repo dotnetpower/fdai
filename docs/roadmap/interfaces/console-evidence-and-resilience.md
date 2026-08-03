@@ -185,13 +185,18 @@ Leading indicators compare only reported current and baseline values. Missing va
 unavailable, and simulated values never create an operational pass or failure.
 
 LLM Cost leads with measured calls, tokens, chat share, and latest invocation evidence. Input and
-output composition, the seven-day trend, model attribution, and invocation records are derived only
+output composition, the selected-window trend, model attribution, and invocation records are derived only
 from the metering projection. When price attribution is not connected, the route states that boundary
 and doesn't estimate spend, budgets, per-call prices, or invoice amounts from token volume. Detailed
 workload, mode, day, and month rollups remain available in a secondary disclosure so the primary view
 stays scannable without hiding evidence. Headline KPI labels and values stay left-aligned in a
 balanced four-, two-, or one-column grid, while token-composition counts and shares use common
-right-aligned numeric columns for comparison.
+right-aligned numeric columns for comparison. One global UTC selector provides rolling 24-hour,
+seven-day, 30-day, and custom one-to-90-day windows. The Operator API validates aware RFC 3339
+`from` and `to` values and applies the same inclusive-start, exclusive-end cutoff before computing
+every total, attribution, bucket, and invocation record. The URL preserves the exact cutoff. The
+24-hour view uses hourly buckets; longer windows use daily buckets. A custom display end date is
+inclusive and maps to the next UTC midnight as the exclusive API boundary.
 
 ## Loading presentation
 

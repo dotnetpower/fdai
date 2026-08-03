@@ -13,6 +13,13 @@
   justify-content: stretch;
   min-width: 0;
   min-height: 108px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.llm-cost-kpis .kpi-card:hover,
+.llm-cost-kpis .kpi-card:focus-visible {
+  border-color: color-mix(in oklab, var(--overview-steel) 52%, var(--overview-border));
+  box-shadow: 0 7px 20px rgba(46, 54, 64, 0.09);
 }
 
 .llm-cost-kpis .kpi-card-value {
@@ -25,6 +32,173 @@
   font-size: 17px;
   line-height: 1.25;
   overflow-wrap: anywhere;
+}
+
+.llm-cost-range {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--overview-border);
+}
+
+.llm-cost-range-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.llm-cost-range-copy strong {
+  color: var(--overview-text);
+  font-size: 13px;
+}
+
+.llm-cost-range-copy span {
+  color: var(--overview-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.llm-cost-range-controls {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.llm-cost-segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--overview-border);
+  border-radius: 6px;
+  background: var(--overview-shade);
+}
+
+.llm-cost-range-option {
+  min-width: 48px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--overview-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.llm-cost-range-option:hover,
+.llm-cost-range-option:focus-visible {
+  color: var(--overview-text);
+  background: color-mix(in oklab, var(--overview-card) 82%, var(--overview-shade));
+  outline: none;
+}
+
+.llm-cost-range-option.is-active {
+  color: var(--overview-text);
+  background: var(--overview-card);
+  box-shadow: 0 1px 3px rgba(30, 45, 60, 0.12);
+  font-weight: 650;
+}
+
+.llm-cost-timezone {
+  color: var(--overview-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.llm-cost-range-popover {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(360px, calc(100vw - 48px));
+  padding: 16px;
+  border: 1px solid var(--overview-border);
+  border-radius: 6px;
+  background: var(--overview-card);
+  box-shadow: 0 12px 30px rgba(30, 45, 60, 0.16);
+}
+
+.llm-cost-date-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.llm-cost-date-fields label {
+  display: grid;
+  gap: 5px;
+  color: var(--overview-muted);
+  font-size: 11.5px;
+}
+
+.llm-cost-date-fields input {
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--overview-border);
+  border-radius: 4px;
+  background: var(--overview-card);
+  color: var(--overview-text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.llm-cost-date-fields input:focus-visible {
+  border-color: var(--overview-steel);
+  outline: 2px solid color-mix(in oklab, var(--overview-steel) 22%, transparent);
+  outline-offset: 1px;
+}
+
+.llm-cost-date-fields input[aria-invalid="true"] {
+  border-color: var(--overview-red);
+}
+
+.llm-cost-range-error {
+  min-height: 16px;
+  margin: 8px 0 0;
+  color: var(--overview-red);
+  font-size: 11.5px;
+}
+
+.llm-cost-range-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.llm-cost-range-actions button {
+  padding: 7px 12px;
+  border: 1px solid var(--overview-border);
+  border-radius: 4px;
+  background: var(--overview-card);
+  color: var(--overview-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.llm-cost-range-actions button.is-primary {
+  border-color: var(--overview-steel);
+  background: var(--overview-steel);
+  color: white;
+}
+
+.llm-cost-analysis {
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+  gap: 20px;
+}
+
+.llm-token-mix {
+  height: 12px;
+}
+
+.llm-token-mix .is-output,
+.llm-token-legend i.is-output {
+  background: var(--overview-terracotta);
 }
 
 .llm-token-legend {
@@ -53,6 +227,194 @@
   font-variant-numeric: tabular-nums;
 }
 
+.llm-cost-trend-meta {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  text-align: right;
+}
+
+.llm-cost-trend-meta > span {
+  display: grid;
+  color: var(--overview-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.llm-cost-trend-meta strong {
+  color: var(--overview-text);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.llm-cost-chart-wrap {
+  position: relative;
+  min-height: 218px;
+}
+
+.llm-cost-chart {
+  display: block;
+  width: 100%;
+  height: 190px;
+  overflow: visible;
+}
+
+.llm-cost-chart-grid {
+  stroke: var(--overview-border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.llm-cost-chart-axis {
+  fill: var(--overview-muted);
+  font-size: 10px;
+}
+
+.llm-cost-chart-area {
+  fill: color-mix(in oklab, var(--overview-steel) 11%, transparent);
+}
+
+.llm-cost-chart-line {
+  fill: none;
+  stroke: var(--overview-steel);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.llm-cost-chart-guide {
+  stroke: var(--overview-steel);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.55;
+  vector-effect: non-scaling-stroke;
+}
+
+.llm-cost-chart-hit {
+  fill: transparent;
+  cursor: crosshair;
+  outline: none;
+}
+
+.llm-cost-chart-point {
+  fill: var(--overview-card);
+  stroke: var(--overview-steel);
+  stroke-width: 2;
+  pointer-events: none;
+  transition: r 120ms ease, fill 120ms ease;
+  vector-effect: non-scaling-stroke;
+}
+
+.llm-cost-chart-point.is-active {
+  r: 5;
+  fill: var(--overview-steel);
+}
+
+.llm-cost-chart-tooltip {
+  position: absolute;
+  z-index: 2;
+  min-width: 168px;
+  padding: 10px 12px;
+  border: 1px solid var(--overview-border);
+  border-radius: 6px;
+  background: var(--overview-card);
+  box-shadow: 0 8px 22px rgba(30, 45, 60, 0.15);
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+}
+
+.llm-cost-chart-tooltip strong {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+
+.llm-cost-chart-tooltip span {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--overview-muted);
+  font-size: 11.5px;
+}
+
+.llm-cost-chart-tooltip b {
+  color: var(--overview-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.llm-cost-chart-labels {
+  display: grid;
+  margin: -8px 12px 0 42px;
+  color: var(--overview-muted);
+  font-size: 10.5px;
+  text-align: center;
+}
+
+.llm-cost-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.llm-cost-scope::before {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--overview-steel);
+  content: "";
+}
+
+.llm-cost-scope.is-chat::before {
+  background: var(--overview-terracotta);
+}
+
+.llm-cost-tier {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.llm-cost-tier.is-t1 {
+  color: var(--overview-teal);
+  background: color-mix(in oklab, var(--overview-teal) 12%, transparent);
+}
+
+.llm-cost-tier.is-t2 {
+  color: var(--overview-plum);
+  background: color-mix(in oklab, var(--overview-plum) 12%, transparent);
+}
+
+.llm-cost-section .data-table-wrap,
+.llm-cost-rollups .data-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.llm-cost-section table thead th,
+.llm-cost-rollups table thead th {
+  border-bottom-color: color-mix(in oklab, var(--overview-navy) 64%, var(--overview-border));
+}
+
+.llm-cost-rollups-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.llm-cost-rollups-body section {
+  min-width: 0;
+}
+
+.llm-cost-rollups-body section:first-child {
+  grid-column: 1 / -1;
+}
+
+.llm-cost-rollups-body section + section {
+  padding-top: 0;
+  border-top: 0;
+}
+
 .llm-token-legend small {
   grid-column: auto;
   color: var(--overview-muted);
@@ -67,5 +429,53 @@
 @container (max-width: 420px) {
   .llm-cost-kpis .kpi-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 880px) {
+  .llm-cost-analysis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .llm-cost-range {
+    display: block;
+  }
+
+  .llm-cost-range-controls {
+    justify-content: space-between;
+    margin-top: 10px;
+  }
+
+  .llm-cost-segmented {
+    flex: 1;
+  }
+
+  .llm-cost-range-option {
+    flex: 1;
+    min-width: 0;
+    padding-inline: 6px;
+  }
+
+  .llm-cost-range-popover {
+    right: -1px;
+  }
+
+  .llm-cost-trend-meta {
+    justify-content: space-between;
+    text-align: left;
+  }
+
+  .llm-cost-chart-labels {
+    margin-left: 34px;
+  }
+
+  .llm-cost-rollups-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .llm-cost-rollups-body section:first-child {
+    grid-column: auto;
   }
 }

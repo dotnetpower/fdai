@@ -19,6 +19,7 @@ from fdai.delivery.operator_api.auth import UnsafeClaimsExtractor, build_authent
 from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes.llm_cost import LlmCostPanel
+from fdai.delivery.operator_api.routes.panels import PanelQueryError
 
 _DEV_MODE_ENV = "FDAI_OPERATOR_API_DEV_MODE"
 
@@ -141,6 +142,40 @@ async def test_render_group_filter() -> None:
     assert "by_conversation" not in payload
 
 
+async def test_render_filters_inclusive_start_and_exclusive_end() -> None:
+    panel = LlmCostPanel(await _seeded_sink())
+    payload = await panel.render(
+        params={
+            "from": "2026-07-09T11:00:00Z",
+            "to": "2026-07-10T09:00:00Z",
+        }
+    )
+
+    assert payload["range_start"] == "2026-07-09T11:00:00+00:00"
+    assert payload["range_end"] == "2026-07-10T09:00:00+00:00"
+    assert payload["invocations"] == 1
+    assert payload["total"]["total_tokens"] == 600
+    assert payload["latest_occurred_at"] == "2026-07-09T11:00:00+00:00"
+    assert [row["key"] for row in payload["by_hour"]] == ["2026-07-09T11:00Z"]
+    assert [row["key"] for row in payload["by_day"]] == ["2026-07-09"]
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"from": "2026-07-09T00:00:00Z"},
+        {"from": "2026-07-09T00:00:00", "to": "2026-07-10T00:00:00Z"},
+        {"from": "2026-07-10T00:00:00Z", "to": "2026-07-09T00:00:00Z"},
+        {"from": "2026-01-01T00:00:00Z", "to": "2026-07-10T00:00:00Z"},
+    ],
+)
+async def test_render_rejects_invalid_ranges(params: dict[str, str]) -> None:
+    panel = LlmCostPanel(await _seeded_sink())
+
+    with pytest.raises(PanelQueryError):
+        await panel.render(params=params)
+
+
 async def test_render_unknown_group_falls_back_to_all() -> None:
     panel = LlmCostPanel(await _seeded_sink())
     payload = await panel.render(params={"group": "bogus"})
@@ -207,6 +242,7 @@ def test_build_app_serves_llm_cost_route(dev_env: None) -> None:
     assert body["source"] == "metering"
     assert body["total"]["total_tokens"] == 2650
     assert body["by_month"][0]["key"] == "2026-07"
+    assert client.get("/kpi/llm-cost?from=2026-07-09T00:00:00Z").status_code == 400
 
     # Read-only invariant: no mutating verb on the panel route.
     assert client.post("/kpi/llm-cost").status_code == 405
