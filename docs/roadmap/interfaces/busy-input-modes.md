@@ -100,7 +100,8 @@ interrupt:
 - The active-turn marker is finished in `finally`.
 
 During any active turn, a branch that rejects untrusted planner or provider input with `ValueError`
-settles as `unavailable` and emits one structured info event without a traceback. Unexpected
+settles as `unavailable` with `capability_invalid_arguments` and emits one structured info event
+without a traceback. It does not expose the rejected value or classify it as a provider outage. Unexpected
 exceptions settle as `failed` and retain a warning with a traceback. This distinction does not
 change cancellation authority.
 

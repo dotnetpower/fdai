@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 6387b197f8155754d1e959d1c0ca4d681f4b7974
+translation_source_sha: b6ef1acde74dd4c7a023ad5c35c299d8ed078214
 translation_revised: 2026-08-04
 ---
 
@@ -104,7 +104,8 @@ model call은 conversation-local cancellation event와 경쟁합니다. Interrup
 - Active-turn marker를 `finally`에서 finish합니다.
 
 Active turn 중 신뢰할 수 없는 planner 또는 provider input을 `ValueError`로 수락하지 않는 branch는
-`unavailable`로 종료하고 traceback 없이 구조화된 info event 한 건을 내보냅니다. 예상하지 못한
+`capability_invalid_arguments` reason의 `unavailable`로 종료하고 traceback 없이 구조화된 info event
+한 건을 내보냅니다. 거부된 value를 노출하거나 provider outage로 분류하지 않습니다. 예상하지 못한
 exception은 `failed`로 종료하고 traceback을 포함한 warning을 유지합니다. 이 구분은 cancellation
 authority를 변경하지 않습니다.
 

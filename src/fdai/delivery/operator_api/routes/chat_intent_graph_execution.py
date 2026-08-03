@@ -199,7 +199,7 @@ async def _resolve_goal(
         raise
     except ValueError:
         status = "unavailable"
-        reason = "capability_rejected"
+        reason = "capability_invalid_arguments"
     except Exception:  # noqa: BLE001 - isolate one read-only goal
         status = "failed"
         reason = "capability_failed"

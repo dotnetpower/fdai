@@ -57,6 +57,18 @@ class _BlockingTools:
         return None
 
 
+class _RejectingTools:
+    async def resolve_planned(
+        self,
+        tool_name: str,
+        arguments: Mapping[str, object],
+        *,
+        principal_id: str,
+    ) -> Mapping[str, Any] | None:
+        del tool_name, arguments, principal_id
+        raise ValueError("private planner detail")
+
+
 class _Web:
     async def resolve_planned(
         self,
@@ -224,6 +236,26 @@ async def test_graph_executor_reports_partial_without_dropping_success() -> None
     assert result["_tool_evidence"]["tool"] == "query_health"
     assert ledger["goals"][1]["reason"] == "capability_unavailable"
     assert ledger["goals"][2]["evidence"]["authority"] == "model_knowledge"
+
+
+async def test_graph_executor_classifies_invalid_capability_arguments() -> None:
+    result = await resolve_intent_graph_evidence(
+        request_id="request-invalid",
+        prompt="read with invalid arguments",
+        graph=_graph(_goal("invalid", "query_health")),
+        view_context={},
+        user_id="reader",
+        session_id="session-invalid",
+        planned_tool_resolver=_RejectingTools(),
+        agent_delegate=None,
+        web_search_resolver=None,
+        progress_observer=lambda _event: _completed(),
+    )
+
+    receipt = result["_intent_graph_evidence"]["goals"][0]
+    assert receipt["status"] == "unavailable"
+    assert receipt["reason"] == "capability_invalid_arguments"
+    assert "private planner detail" not in str(receipt)
 
 
 async def test_graph_executor_skips_goal_with_unsuccessful_dependency() -> None:
