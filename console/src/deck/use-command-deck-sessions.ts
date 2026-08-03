@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { t } from "../i18n";
-import { fetchConversationTurns, fetchUserContext } from "../user-context-client";
+import {
+  fetchConversationPage,
+  fetchConversationTurns,
+  fetchUserContext,
+  type ConversationCursorPayload,
+} from "../user-context-client";
 import { restoredTurn, sessionIdFor } from "./command-deck-session";
 import type { Turn } from "./command-deck-presenters";
 import { resetComposerAttachments } from "./composer-attachment-store";
 import {
   conversationIndexKeyFor,
+  CONVERSATION_HISTORY_PAGE_SIZE,
   conversationFallbackForRoute,
   conversationLabelForPrompt,
   conversationPath,
@@ -58,7 +64,9 @@ export function useCommandDeckSessionState(
   });
   const [conversations, setConversations] = useState<readonly ConversationSummary[]>(() => {
     const store = sessionStore();
-    const restored = store ? parseConversationIndex(store.getItem(indexKey)) : [];
+    const restored = store
+      ? parseConversationIndex(store.getItem(indexKey)).slice(0, CONVERSATION_HISTORY_PAGE_SIZE)
+      : [];
     const previous = restored.find((item) => item.key === initialScreenSession);
     const summary = screenConversationSummary(
       initialScreenSession,
@@ -80,6 +88,31 @@ export function useCommandDeckSessionState(
   const sessionMetadataRef = useRef(new Map<string, ConversationSummary>());
   const openingBriefingLoadedRef = useRef(new Set<string>());
   const historyRef = useRef(EMPTY_HISTORY);
+  const [conversationCursor, setConversationCursor] =
+    useState<ConversationCursorPayload | null>(null);
+  const [conversationHasMore, setConversationHasMore] = useState(false);
+  const [conversationPageLoading, setConversationPageLoading] = useState(false);
+  const conversationPageLoadingRef = useRef(false);
+
+  const mergeServerPage = useCallback((records: readonly ConversationSummary[]) => {
+    setConversations((current) => {
+      let next = [...current];
+      for (const summary of records) {
+        const existing = next.find((item) => item.key === summary.key);
+        const merged = existing ? mergeConversationActivity(existing, summary) : summary;
+        const reconciled = merged.key === sessionKeyRef.current
+          ? markConversationRead(merged, merged.updatedAt)
+          : merged;
+        next = upsertConversation(next, reconciled);
+      }
+      try {
+        sessionStore()?.setItem(indexKey, serializeConversationIndex(next));
+      } catch {
+        /* browser cache is best-effort; durable history remains authoritative */
+      }
+      return next;
+    });
+  }, [indexKey]);
 
   useEffect(() => {
     let active = true;
@@ -90,27 +123,9 @@ export function useCommandDeckSessionState(
         const serverConversations = context.conversations.map((record) =>
           serverConversationSummary(record, pathname, initialRouteLabel)
         );
-        setConversations((current) => {
-          let next = [...current];
-          for (const summary of serverConversations) {
-            const existing = next.find((item) => item.key === summary.key);
-            if (!existing) {
-              next = upsertConversation(next, summary);
-              continue;
-            }
-            const merged = mergeConversationActivity(existing, summary);
-            const reconciled = merged.key === sessionKeyRef.current
-              ? markConversationRead(merged, merged.updatedAt)
-              : merged;
-            if (reconciled !== existing) next = upsertConversation(next, reconciled);
-          }
-          try {
-            sessionStore()?.setItem(indexKey, serializeConversationIndex(next));
-          } catch {
-            /* browser cache is best-effort; durable history remains authoritative */
-          }
-          return next;
-        });
+        mergeServerPage(serverConversations);
+        setConversationHasMore(context.conversation_page.has_more);
+        setConversationCursor(context.conversation_page.next_cursor);
       })
       .catch(() => {
         /* The deck remains usable when durable history is unavailable. */
@@ -118,7 +133,29 @@ export function useCommandDeckSessionState(
     return () => {
       active = false;
     };
-  }, [indexKey, initialRouteLabel]);
+  }, [initialRouteLabel, mergeServerPage]);
+
+  const loadMoreConversations = useCallback(async () => {
+    if (!conversationHasMore || conversationCursor === null || conversationPageLoadingRef.current) {
+      return;
+    }
+    conversationPageLoadingRef.current = true;
+    setConversationPageLoading(true);
+    try {
+      const page = await fetchConversationPage(conversationCursor);
+      const pathname = currentPathname();
+      mergeServerPage(page.conversations.map((record) =>
+        serverConversationSummary(record, pathname, initialRouteLabel)
+      ));
+      setConversationHasMore(page.has_more);
+      setConversationCursor(page.next_cursor);
+    } catch {
+      /* Keep the cursor so a later scroll can retry without losing the current page. */
+    } finally {
+      conversationPageLoadingRef.current = false;
+      setConversationPageLoading(false);
+    }
+  }, [conversationCursor, conversationHasMore, initialRouteLabel, mergeServerPage]);
 
   const updateConversationIndex = useCallback(
     (summary: ConversationSummary) => {
@@ -142,6 +179,8 @@ export function useCommandDeckSessionState(
 
   return {
     conversations,
+    conversationHasMore,
+    conversationPageLoading,
     historyRef,
     indexKey,
     openingBriefingLoadedRef,
@@ -156,6 +195,7 @@ export function useCommandDeckSessionState(
     setTurns,
     turns,
     turnsRef,
+    loadMoreConversations,
     updateConversationIndex,
   };
 }
@@ -283,7 +323,7 @@ export function useCommandDeckSessionController({
     sessionKeyRef.current = key;
     turnsRef.current = next;
     setSessionKey(key);
-    setSessionLabel(conversationLabel ?? agent);
+    setSessionLabel(agent);
     setTurns(next);
     if (shouldHydrateServerTurns(hydrate, next.length)) void hydrateDurableTurns(key);
     setSearchQuery("");

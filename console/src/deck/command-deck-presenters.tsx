@@ -26,6 +26,7 @@ import {
 import { replyAgentLabel, type DeckLayoutMode } from "./command-deck-session";
 import {
   conversationHasUnreadActivity,
+  CONVERSATION_HISTORY_PAGE_SIZE,
   conversationGroups,
   isScreenConversationKey,
   type ConversationSummary,
@@ -75,6 +76,19 @@ export interface Turn {
 }
 
 export const DEFAULT_NARRATOR = "Bragi";
+
+export function conversationCountLabel(count: number, hasMore: boolean): string {
+  return count >= CONVERSATION_HISTORY_PAGE_SIZE || hasMore
+    ? `${CONVERSATION_HISTORY_PAGE_SIZE}+`
+    : String(count);
+}
+
+export function shouldLoadMoreConversations(
+  element: Pick<HTMLElement, "clientHeight" | "scrollHeight" | "scrollTop">,
+  hasMore: boolean,
+): boolean {
+  return hasMore && element.scrollHeight - element.scrollTop - element.clientHeight <= 120;
+}
 
 export function hasOverflowingText(
   element: Pick<HTMLElement, "clientWidth" | "scrollWidth">,
@@ -236,14 +250,20 @@ export function ConversationSidebar({
   conversations,
   activeKey,
   currentPath,
+  hasMore,
+  loading,
   onNew,
+  onLoadMore,
   onSelect,
   onRemove,
 }: {
   readonly conversations: readonly ConversationSummary[];
   readonly activeKey: string;
   readonly currentPath: string;
+  readonly hasMore: boolean;
+  readonly loading: boolean;
   readonly onNew: () => void;
+  readonly onLoadMore: () => void;
   readonly onSelect: (conversation: ConversationSummary) => void;
   readonly onRemove: (conversation: ConversationSummary) => void;
 }) {
@@ -255,10 +275,20 @@ export function ConversationSidebar({
     : conversations;
   const groups = conversationGroups(visibleConversations, currentPath);
   return (
-    <aside class="deck-conversations" aria-label={t("deck.conversations")}>
+    <aside
+      class="deck-conversations"
+      aria-label={t("deck.conversations")}
+      aria-busy={loading}
+      onScroll={(event) => {
+        const element = event.currentTarget;
+        if (shouldLoadMoreConversations(element, hasMore)) onLoadMore();
+      }}
+    >
       <div class="deck-conversations-head">
         <span>{t("deck.conversations")}</span>
-        <span class="deck-conversations-count">{conversations.length}</span>
+        <span class="deck-conversations-count">
+          {conversationCountLabel(conversations.length, hasMore)}
+        </span>
       </div>
       <button type="button" class="deck-conversation-new" onClick={onNew}>
         <span aria-hidden="true">+</span>
@@ -305,6 +335,15 @@ export function ConversationSidebar({
             />
           </>
         )}
+        {loading ? (
+          <div
+            class="deck-conversation-load-skeleton"
+            role="status"
+            aria-label={t("deck.loadingConversations")}
+          >
+            <span aria-hidden="true" /><span aria-hidden="true" /><span aria-hidden="true" />
+          </div>
+        ) : null}
       </div>
     </aside>
   );

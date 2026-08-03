@@ -3,9 +3,28 @@ import { describe, expect, it } from "vitest";
 import {
   backendTooltip,
   backendTooltipView,
+  conversationCountLabel,
   hasOverflowingText,
   routerTooltip,
+  shouldLoadMoreConversations,
 } from "./command-deck-presenters";
+
+describe("conversation history paging", () => {
+  it("shows a bounded count while more cursor pages exist", () => {
+    expect(conversationCountLabel(100, true)).toBe("100+");
+    expect(conversationCountLabel(200, true)).toBe("100+");
+    expect(conversationCountLabel(200, false)).toBe("100+");
+    expect(conversationCountLabel(73, false)).toBe("73");
+  });
+
+  it("loads the next page near the scroll boundary only when available", () => {
+    const nearBottom = { clientHeight: 400, scrollHeight: 1000, scrollTop: 500 };
+    const farFromBottom = { clientHeight: 400, scrollHeight: 1000, scrollTop: 300 };
+    expect(shouldLoadMoreConversations(nearBottom, true)).toBe(true);
+    expect(shouldLoadMoreConversations(farFromBottom, true)).toBe(false);
+    expect(shouldLoadMoreConversations(nearBottom, false)).toBe(false);
+  });
+});
 
 describe("conversation title overflow", () => {
   it("enables the full-title tooltip only when the rendered text is truncated", () => {

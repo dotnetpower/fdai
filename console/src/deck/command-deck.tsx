@@ -91,6 +91,8 @@ export function CommandDeck() {
   // transcript so threads never bleed into each other.
   const {
     conversations,
+    conversationHasMore,
+    conversationPageLoading,
     historyRef,
     indexKey,
     openingBriefingLoadedRef,
@@ -105,6 +107,7 @@ export function CommandDeck() {
     setTurns,
     turns,
     turnsRef,
+    loadMoreConversations,
     updateConversationIndex,
   } = useCommandDeckSessionState(userScope, snapshot?.routeLabel ?? currentPathname());
   const [pending, setPending] = useState(false);
@@ -294,6 +297,8 @@ export function CommandDeck() {
       dockWidth={dockWidth}
       srStatus={srStatus}
       conversations={conversations}
+      conversationHasMore={conversationHasMore}
+      conversationPageLoading={conversationPageLoading}
       sessionKey={sessionKey}
       currentPath={currentPathname()}
       turns={turns}
@@ -325,6 +330,7 @@ export function CommandDeck() {
       }}
       onMoveSearch={moveSearch}
       onNewConversation={startNewConversation}
+      onLoadMoreConversations={loadMoreConversations}
       onSelectLayout={selectLayoutMode}
       onRemoveConversation={removeCachedConversation}
       onSelectConversation={(conversation) => {

@@ -281,6 +281,7 @@ describe("durable conversation hydration", () => {
       last_active: "2026-07-14T10:00:00Z",
       status: "active",
       latest_operator_turn_id: "turn-1",
+      first_operator_question: "What changed first?",
     }, "/agent-activity", "Agent activity");
     const stable = serverConversationSummary({
       conversation_id: "screen:abc12345:/overview",
@@ -289,16 +290,19 @@ describe("durable conversation hydration", () => {
       last_active: "2026-07-14T10:00:00Z",
       status: "active",
       latest_operator_turn_id: "turn-2",
+      first_operator_question: "Why are approvals waiting?",
     }, "/agent-activity", "Agent activity");
 
     expect(legacy).toMatchObject({
       key: "legacy-random-id",
+      label: "What changed first?",
       kind: "screen-thread",
       originPath: "/agent-activity",
       restoredFromServer: true,
     });
     expect(stable).toMatchObject({
       key: "screen:abc12345:/overview",
+      label: "Why are approvals waiting?",
       kind: "screen-default",
       originPath: "/overview",
       restoredFromServer: true,

@@ -23,6 +23,11 @@ from fdai.core.scheduler.continuation import (
     scheduled_result_to_typed_fact,
 )
 from fdai.core.user_context_projection import UserContextOntologyProjector
+from fdai.delivery.operator_api.routes.user_context_conversations import (
+    conversation_cursor,
+    load_conversation_page,
+    page_json,
+)
 from fdai.shared.providers.briefing import (
     BriefingConflictError,
     BriefingDeliveryMode,
@@ -56,8 +61,6 @@ from fdai.shared.providers.user_context import (
     UserPreferenceRecord,
     UserPreferenceStore,
 )
-
-_CONVERSATION_CONTEXT_LIMIT = 1000
 
 AuthorizeFn = Callable[[Request], Awaitable[str]]
 
@@ -111,23 +114,10 @@ def make_user_context_routes(
         policies = await config.policies.list_for_principal(principal_id=principal_id)
         subscriptions = await config.subscriptions.list_for_principal(principal_id=principal_id)
         runs = await config.runs.list_for_principal(principal_id=principal_id, limit=50)
-        conversations = await config.conversations.list_conversations(
-            principal_id=principal_id, limit=_CONVERSATION_CONTEXT_LIMIT
-        )
-        latest_operator_turns = await config.conversations.latest_operator_turn_ids(
+        conversation_page_result = await load_conversation_page(
+            store=config.conversations,
             principal_id=principal_id,
-            conversation_ids=tuple(item.conversation_id for item in conversations),
         )
-        conversation_views: list[dict[str, Any]] = []
-        for conversation in conversations:
-            conversation_views.append(
-                {
-                    **_json(conversation),
-                    "latest_operator_turn_id": latest_operator_turns.get(
-                        conversation.conversation_id
-                    ),
-                }
-            )
         continuations = (
             await config.continuations.list_for_principal(
                 principal_id=principal_id,
@@ -144,9 +134,24 @@ def make_user_context_routes(
                 "subscriptions": [_json(item) for item in subscriptions],
                 "briefing_runs": [_json(item) for item in runs],
                 "scheduled_continuations": [_json(item) for item in continuations],
-                "conversations": conversation_views,
+                "conversations": list(conversation_page_result.conversations),
+                "conversation_page": {
+                    "has_more": conversation_page_result.has_more,
+                    "next_cursor": conversation_page_result.next_cursor,
+                },
             }
         )
+
+    async def conversation_page(request: Request) -> Response:
+        principal_id = await authorize(request)
+        before_last_active, before_conversation_id = conversation_cursor(request)
+        page = await load_conversation_page(
+            store=config.conversations,
+            principal_id=principal_id,
+            before_last_active=before_last_active,
+            before_conversation_id=before_conversation_id,
+        )
+        return JSONResponse(page_json(page))
 
     async def put_preference(request: Request) -> Response:
         principal_id = await authorize(request)
@@ -518,6 +523,7 @@ def make_user_context_routes(
 
     return (
         Route("/me/context", context, methods=["GET"]),
+        Route("/me/conversations", conversation_page, methods=["GET"]),
         Route("/me/conversations/search", search_conversations, methods=["GET"]),
         Route(
             "/me/conversations/search/{result_id:str}/context",

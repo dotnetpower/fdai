@@ -77,11 +77,11 @@ def _client(
     return TestClient(app)
 
 
-def test_context_returns_more_than_fifty_durable_conversations() -> None:
+def test_context_pages_durable_conversations_in_hundreds() -> None:
     conversations = InMemoryConversationHistoryStore()
 
     async def seed() -> None:
-        for index in range(60):
+        for index in range(121):
             observed_at = NOW + timedelta(seconds=index)
             await conversations.create_conversation(
                 ConversationRecord(
@@ -98,7 +98,22 @@ def test_context_returns_more_than_fifty_durable_conversations() -> None:
     response = _client(conversations).get("/me/context")
 
     assert response.status_code == 200
-    assert len(response.json()["conversations"]) == 60
+    payload = response.json()
+    assert len(payload["conversations"]) == 100
+    assert payload["conversation_page"]["has_more"] is True
+    cursor = payload["conversation_page"]["next_cursor"]
+
+    next_response = _client(conversations).get(
+        "/me/conversations",
+        params={
+            "before_last_active": cursor["last_active"],
+            "before_conversation_id": cursor["conversation_id"],
+        },
+    )
+
+    assert next_response.status_code == 200
+    assert len(next_response.json()["conversations"]) == 21
+    assert next_response.json()["has_more"] is False
 
 
 def test_preference_ignores_client_principal_and_persists_timezone() -> None:
@@ -452,6 +467,7 @@ def test_conversation_turns_are_principal_scoped_and_deletable() -> None:
     context = scoped.get("/me/context")
     assert context.status_code == 200
     assert context.json()["conversations"][0]["latest_operator_turn_id"] == "turn-1"
+    assert context.json()["conversations"][0]["first_operator_question"] == "Show issues."
     response = scoped.get("/me/conversations/conversation-1/turns")
     assert response.status_code == 200
     assert response.json()["turns"][0]["content"] == "Show issues."

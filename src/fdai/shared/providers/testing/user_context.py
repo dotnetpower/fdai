@@ -41,12 +41,26 @@ class InMemoryConversationHistoryStore:
         return self._conversations.get((principal_id, conversation_id))
 
     async def list_conversations(
-        self, *, principal_id: str, limit: int = 50
+        self,
+        *,
+        principal_id: str,
+        limit: int = 50,
+        before_last_active: datetime | None = None,
+        before_conversation_id: str | None = None,
     ) -> tuple[ConversationRecord, ...]:
         _validate_limit(limit)
+        if (before_last_active is None) != (before_conversation_id is None):
+            raise ValueError("conversation cursor MUST be complete")
         found = [
             record for (owner, _), record in self._conversations.items() if owner == principal_id
         ]
+        if before_last_active is not None and before_conversation_id is not None:
+            found = [
+                record
+                for record in found
+                if (record.last_active, record.conversation_id)
+                < (before_last_active, before_conversation_id)
+            ]
         found.sort(key=lambda item: (item.last_active, item.conversation_id), reverse=True)
         return tuple(found[:limit])
 
@@ -127,6 +141,33 @@ class InMemoryConversationHistoryStore:
                 if current is None or turn.turn_index > current[0]:
                     latest[turn.conversation_id] = (turn.turn_index, turn.turn_id)
         return {conversation_id: value[1] for conversation_id, value in latest.items()}
+
+    async def first_operator_questions(
+        self,
+        *,
+        principal_id: str,
+        conversation_ids: Sequence[str],
+        max_chars: int,
+    ) -> Mapping[str, str]:
+        if max_chars < 4:
+            raise ValueError("max_chars MUST be at least 4")
+        requested = set(conversation_ids)
+        first: dict[str, tuple[int, str]] = {}
+        for turns in self._turns.values():
+            for turn in turns:
+                if (
+                    turn.principal_id != principal_id
+                    or turn.conversation_id not in requested
+                    or turn.role is not ConversationTurnRole.OPERATOR
+                ):
+                    continue
+                current = first.get(turn.conversation_id)
+                if current is None or turn.turn_index < current[0]:
+                    content = " ".join(turn.content.split())
+                    if len(content) > max_chars:
+                        content = f"{content[: max_chars - 3].rstrip()}..."
+                    first[turn.conversation_id] = (turn.turn_index, content)
+        return {conversation_id: value[1] for conversation_id, value in first.items()}
 
     async def delete_conversation(self, *, principal_id: str, conversation_id: str) -> bool:
         key = (principal_id, conversation_id)

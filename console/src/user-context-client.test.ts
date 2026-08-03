@@ -21,6 +21,7 @@ const payload = {
   briefing_runs: [],
   scheduled_continuations: [],
   conversations: [],
+  conversation_page: { has_more: false, next_cursor: null },
 };
 
 describe("user-context decoder", () => {
@@ -28,6 +29,31 @@ describe("user-context decoder", () => {
     const decoded = decodeUserContext(payload);
     expect(decoded.preference?.timezone).toBe("UTC");
     expect(decoded.memories).toEqual([]);
+  });
+
+  it("decodes bounded conversation titles and the next cursor", () => {
+    const decoded = decodeUserContext({
+      ...payload,
+      conversations: [{
+        conversation_id: "conversation-1",
+        channel_id: "web",
+        started_at: "2026-08-03T10:00:00Z",
+        last_active: "2026-08-03T10:01:00Z",
+        status: "active",
+        latest_operator_turn_id: "turn-1",
+        first_operator_question: "What changed first?",
+      }],
+      conversation_page: {
+        has_more: true,
+        next_cursor: {
+          last_active: "2026-08-03T10:01:00Z",
+          conversation_id: "conversation-1",
+        },
+      },
+    });
+
+    expect(decoded.conversations[0]?.first_operator_question).toBe("What changed first?");
+    expect(decoded.conversation_page.next_cursor?.conversation_id).toBe("conversation-1");
   });
 
   it("decodes chart as a saved answer format", () => {

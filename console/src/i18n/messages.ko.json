@@ -1905,6 +1905,7 @@
     "noConversations": "대화를 시작하면 이 탭의 이력에 표시됩니다.",
     "filterConversations": "대화 검색",
     "noConversationMatches": "검색 조건과 일치하는 대화가 없습니다.",
+    "loadingConversations": "대화를 더 불러오는 중",
     "yesterdayAt": "어제 {time}",
     "workspaceTools": "대화 작업공간 도구",
     "resumedConversation": "{time}의 대화를 이어서 표시 중",

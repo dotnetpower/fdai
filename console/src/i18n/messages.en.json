@@ -1905,6 +1905,7 @@
     "noConversations": "Start a conversation to keep it in this tab's history.",
     "filterConversations": "Filter conversations",
     "noConversationMatches": "No conversations match this filter.",
+    "loadingConversations": "Loading more conversations",
     "yesterdayAt": "Yesterday {time}",
     "workspaceTools": "Conversation workspace tools",
     "resumedConversation": "Resumed conversation from {time}",

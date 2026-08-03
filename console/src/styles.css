@@ -6214,6 +6214,14 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-conversation-filter { width: 100%; min-height: 36px; margin-bottom: 10px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--fg); font: inherit; font-size: 12px; }
 .deck-conversation-filter:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .deck-conversation-list { display: flex; flex-direction: column; gap: 4px; }
+.deck-conversation-load-skeleton { display: grid; gap: 8px; padding: 8px 4px; }
+.deck-conversation-load-skeleton span {
+  height: 42px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-subtle) 25%, var(--border) 45%, var(--bg-subtle) 65%);
+  background-size: 240% 100%;
+  animation: deck-next-skeleton-pulse 1.4s ease-in-out infinite;
+}
 .deck-conversation-group {
   display: flex;
   flex-direction: column;
@@ -9428,6 +9436,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-next-skeleton-dot,
   .deck-next-skeleton-line,
   .deck-next-skeleton-pill,
+  .deck-conversation-load-skeleton span,
   .deck-investigation-item-disclosure[open] > .deck-investigation-execution,
   .deck-investigation-spinner,
   .deck-branch-item,

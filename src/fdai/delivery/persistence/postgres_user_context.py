@@ -115,17 +115,33 @@ class PostgresConversationHistoryStore(_PostgresBase):
         return _conversation(row) if row is not None else None
 
     async def list_conversations(
-        self, *, principal_id: str, limit: int = 50
+        self,
+        *,
+        principal_id: str,
+        limit: int = 50,
+        before_last_active: datetime | None = None,
+        before_conversation_id: str | None = None,
     ) -> tuple[ConversationRecord, ...]:
         _limit(limit)
+        if (before_last_active is None) != (before_conversation_id is None):
+            raise ValueError("conversation cursor MUST be complete")
         async with await self._connect() as connection:
             await self._timeout(connection)
-            cursor = await connection.execute(
-                "SELECT principal_id, conversation_id, channel_id, started_at, last_active, status "
-                "FROM conversation_record WHERE principal_id = %s "
-                "ORDER BY last_active DESC, conversation_id DESC LIMIT %s",
-                (principal_id, limit),
-            )
+            if before_last_active is not None and before_conversation_id is not None:
+                cursor = await connection.execute(
+                    "SELECT principal_id, conversation_id, channel_id, started_at, "
+                    "last_active, status FROM conversation_record WHERE principal_id = %s "
+                    "AND (last_active, conversation_id) < (%s, %s) "
+                    "ORDER BY last_active DESC, conversation_id DESC LIMIT %s",
+                    (principal_id, before_last_active, before_conversation_id, limit),
+                )
+            else:
+                cursor = await connection.execute(
+                    "SELECT principal_id, conversation_id, channel_id, started_at, "
+                    "last_active, status FROM conversation_record WHERE principal_id = %s "
+                    "ORDER BY last_active DESC, conversation_id DESC LIMIT %s",
+                    (principal_id, limit),
+                )
             return tuple(_conversation(row) for row in await cursor.fetchall())
 
     async def append_turn(
@@ -297,6 +313,32 @@ class PostgresConversationHistoryStore(_PostgresBase):
             )
             rows = await cursor.fetchall()
         return {str(row["conversation_id"]): str(row["turn_id"]) for row in rows}
+
+    async def first_operator_questions(
+        self,
+        *,
+        principal_id: str,
+        conversation_ids: Sequence[str],
+        max_chars: int,
+    ) -> Mapping[str, str]:
+        if max_chars < 4:
+            raise ValueError("max_chars MUST be at least 4")
+        if not conversation_ids:
+            return {}
+        async with await self._connect() as connection:
+            await self._timeout(connection)
+            cursor = await connection.execute(
+                "SELECT DISTINCT ON (conversation_id) conversation_id, "
+                "CASE WHEN char_length(regexp_replace(btrim(content), '\\s+', ' ', 'g')) > %s "
+                "THEN rtrim(left(regexp_replace(btrim(content), '\\s+', ' ', 'g'), %s)) || '...' "
+                "ELSE regexp_replace(btrim(content), '\\s+', ' ', 'g') END AS content "
+                "FROM conversation_turn WHERE principal_id = %s "
+                "AND conversation_id = ANY(%s) AND role = 'operator' "
+                "ORDER BY conversation_id, turn_index",
+                (max_chars, max_chars - 3, principal_id, list(conversation_ids)),
+            )
+            rows = await cursor.fetchall()
+        return {str(row["conversation_id"]): str(row["content"]) for row in rows}
 
     async def delete_conversation(self, *, principal_id: str, conversation_id: str) -> bool:
         async with await self._connect() as connection, connection.transaction():

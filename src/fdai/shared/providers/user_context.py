@@ -167,7 +167,12 @@ class ConversationHistoryStore(Protocol):
     ) -> ConversationRecord | None: ...
 
     async def list_conversations(
-        self, *, principal_id: str, limit: int = 50
+        self,
+        *,
+        principal_id: str,
+        limit: int = 50,
+        before_last_active: datetime | None = None,
+        before_conversation_id: str | None = None,
     ) -> Sequence[ConversationRecord]: ...
 
     async def append_turn(
@@ -197,6 +202,14 @@ class ConversationHistoryStore(Protocol):
         *,
         principal_id: str,
         conversation_ids: Sequence[str],
+    ) -> Mapping[str, str]: ...
+
+    async def first_operator_questions(
+        self,
+        *,
+        principal_id: str,
+        conversation_ids: Sequence[str],
+        max_chars: int,
     ) -> Mapping[str, str]: ...
 
     async def delete_conversation(self, *, principal_id: str, conversation_id: str) -> bool: ...

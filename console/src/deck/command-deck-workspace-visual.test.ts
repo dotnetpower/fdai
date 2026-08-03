@@ -7,6 +7,10 @@ const source = readFileSync(
   fileURLToPath(new URL("./command-deck-view.tsx", import.meta.url)),
   "utf8",
 );
+const sessions = readFileSync(
+  fileURLToPath(new URL("./use-command-deck-sessions.ts", import.meta.url)),
+  "utf8",
+);
 
 describe("Command Deck workspace hierarchy", () => {
   test("opens transcript-first and adds columns only for requested panels", () => {
@@ -14,6 +18,14 @@ describe("Command Deck workspace hierarchy", () => {
     expect(source).toContain("const [showDigest, setShowDigest] = useState(false);");
     expect(styles).toContain(".deck-body.has-conversations { grid-template-columns: 210px minmax(0, 1fr); }");
     expect(styles).toContain(".deck-body.has-digest { grid-template-columns: minmax(0, 1fr) 280px; }");
+  });
+
+  test("loads conversation history incrementally", () => {
+    expect(source).toContain("hasMore={conversationHasMore}");
+    expect(source).toContain("onLoadMore={onLoadMoreConversations}");
+    expect(source).toContain("conversationCountLabel(conversations.length, conversationHasMore)");
+    expect(sessions).toContain(".slice(0, CONVERSATION_HISTORY_PAGE_SIZE)");
+    expect(sessions).toContain("setSessionLabel(agent);");
   });
 
   test("does not reserve a hidden digest column on narrow screens", () => {

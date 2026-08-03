@@ -19,9 +19,10 @@ Selecting an inactive conversation records only a browser-local read acknowledge
 only while its observed activity is newer than its persisted read timestamp; selecting it clears
 that cue without moving the row. Only newer server activity advances the ordering timestamp.
 For a non-agent conversation, the first operator question becomes the title while the originating
-screen remains separate metadata. The complete normalized question is preserved across browser and
-durable restoration. When the title is visually truncated, pointer hover shows that complete
-question through the shared console tooltip. A title that fits does not show a redundant tooltip.
+screen remains separate metadata. The normalized question is bounded to 512 characters in history
+metadata and preserved across browser and durable restoration. When the title is visually
+truncated, pointer hover shows that bounded question through the shared console tooltip. A title
+that fits does not show a redundant tooltip.
 Layout and close icon controls use the same localized tooltip component. The connected-backend
 tooltip preserves separate mode, endpoint, route-choice, and candidate lines, fills every localized
 placeholder, and wraps long endpoint or deployment tokens within its viewport bound.
@@ -32,9 +33,13 @@ Removing the active cached conversation selects only a current-route default (in
 default instead of activating an unrelated-route or agent transcript.
 default instead of activating an unrelated-route or agent transcript. Context-dependent cancellation, runbook, knowledge, memory, learning, ordinal-resource, ambiguity, reformatting, and partial-source questions require a verified prior conversation record. The server reconstructs the active investigation, selected resource, prior answer, or source-failure receipt from the latest usable assistant replay in the principal-scoped `ConversationHistoryStore`. The browser transcript cannot mint this authority, and a fresh conversation stays unavailable. After a verified or corrected prior turn, `KnowledgeContextChatTools` can load one unique trusted runbook, report enabled source authorization and refresh state, or show explicit-consent memory visible only to that principal. It reports learning as reusable only when the exact assistant-turn review points to a materialized memory or runtime-skill proposal. Drafts and ambiguous runbooks stay empty, provider failures stay unavailable, and ordinary chat never writes memory or review state. Every completed continuation cites the durable assistant turn and content-addressed source receipts.
 Full-workspace Command Deck sessions start with the transcript as the only open content column. The operator can open filtered conversation history or the current-screen digest from the transcript
-toolbar. The history count reflects up to 1,000 durable conversation metadata records, not a 24-row browser cache, while transcript bodies hydrate on selection. A transcript restored from browser or durable history shows a resumed-session marker until
-the operator starts a new conversation. The Deck header owns the route; Digest owns record count,
-snapshot age, and stale refresh; the composer keeps attachments, question entry, and send or stop.
+toolbar. History loads 100 durable summaries at a time in stable cursor order. The count shows
+`100+` after it reaches 100, and nearing the history scroll boundary loads the next 100. Turn
+bodies hydrate only on selection. A transcript restored from browser or durable history shows a
+resumed-session marker until the operator starts a new conversation. The Deck header owns the route
+and optional agent context; it never repeats a non-agent conversation question. Digest owns record
+count, snapshot age, and stale refresh; the composer keeps attachments, question entry, and send or
+stop.
 
 The shared page title renders the domain and panel labels when they differ, including `Overview / Dashboard`. A domain root whose panel title repeats the domain label and a standalone
 utility keep a single title.

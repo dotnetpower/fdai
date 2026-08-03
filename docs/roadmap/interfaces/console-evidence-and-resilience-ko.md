@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 49bc01922f9eb6b5eb39e735531edbee8e14ba5a
+translation_source_sha: 8e8dacf92a31bf57167eb3c6648c1969bdd825fc
 translation_revised: 2026-08-03
 ---
 
@@ -23,9 +23,9 @@ Same-screen 및 agent conversation은 navigation 없이 전환합니다.
 최신인 동안에만 굵게 표시됩니다. 선택하면 행을 이동하지 않고 이 표시를 해제하며, 더 새로운 server
 activity만 ordering timestamp를 갱신합니다.
 Agent 대화가 아닌 경우 첫 operator 질문이 제목이 되고 origin screen은 별도 metadata로 유지됩니다.
-정규화된 전체 질문은 browser 및 durable 복원 후에도 보존됩니다. 제목이 시각적으로 잘리면 pointer
-hover에서 공용 console tooltip으로 전체 질문을 표시합니다. 제목이 영역 안에 모두 표시되면 중복
-tooltip을 표시하지 않습니다. Layout 및 닫기 icon control도 같은 localized tooltip component를
+정규화된 질문은 history metadata에서 512자로 제한되고 browser 및 durable 복원 후에도 보존됩니다.
+제목이 시각적으로 잘리면 pointer hover에서 공용 console tooltip으로 제한된 질문 전체를 표시합니다.
+제목이 영역 안에 모두 표시되면 중복 tooltip을 표시하지 않습니다. Layout 및 닫기 icon control도 같은 localized tooltip component를
 사용합니다. 연결된 backend tooltip은 mode, endpoint, route choice 및 candidate를 별도 줄로 유지하고
 localized placeholder를 모두 채우며 긴 endpoint 또는 deployment token을 viewport 경계 안에서
 줄바꿈합니다.
@@ -36,8 +36,12 @@ Active cached conversation을 제거하면 current-route default(legacy `screen`
 않고 새 current-route default를 만듭니다.
 않고 새 current-route default를 만듭니다. Context-dependent cancellation, runbook, knowledge, memory, learning, ordinal-resource, ambiguity, reformatting 및 partial-source 질문에는 verified prior conversation record가 필요합니다. 서버는 principal-scoped `ConversationHistoryStore`의 최신 사용 가능한 assistant replay에서 active investigation, selected resource, prior answer 또는 source-failure receipt를 재구성합니다. Browser transcript는 이 authority를 만들 수 없으며 fresh conversation은 unavailable 상태를 유지합니다. Verified 또는 corrected prior turn 이후 `KnowledgeContextChatTools`는 unique trusted runbook 하나를 load하거나 enabled source의 authorization 및 refresh state를 보고하거나 해당 principal만 볼 수 있는 explicit-consent memory를 표시합니다. Exact assistant-turn review가 materialized memory 또는 runtime-skill proposal을 가리킬 때만 learning을 reusable로 보고합니다. Draft와 ambiguous runbook은 empty로, provider failure는 unavailable로 유지하며 ordinary chat은 memory 또는 review state를 쓰지 않습니다. 완료된 continuation은 durable assistant turn과 content-addressed source receipt를 인용합니다.
 Full-workspace Command Deck session은 transcript만 열린 content column으로 시작합니다. Operator는 transcript toolbar에서 filter 가능한 대화 이력 또는 현재 화면 digest를 열 수 있습니다. Browser 또는
-History count는 24-row browser cache가 아니라 durable conversation metadata 최대 1,000건을 반영하며 transcript body는 선택할 때 hydrate합니다. Browser 또는 durable history에서 복원된 transcript는 새 대화를 시작할 때까지 resumed-session marker를 표시합니다.
-Deck header는 route를, Digest는 record 수, snapshot age 및 오래된 context 새로고침을 담당하며, Composer에는 attachment, 질문 입력 및 보내기 또는 중지만 유지합니다.
+History는 stable cursor 순서로 durable summary를 한 번에 100건씩 load합니다. 100건에 도달하면 count를
+`100+`로 표시하고 history scroll 경계에 가까워지면 다음 100건을 load합니다. Transcript body는 선택할
+때만 hydrate합니다. Browser 또는 durable history에서 복원된 transcript는 새 대화를 시작할 때까지
+resumed-session marker를 표시합니다. Deck header는 route와 optional agent context만 담당하며 agent
+대화가 아닌 질문은 반복 표시하지 않습니다. Digest는 record 수, snapshot age 및 오래된 context
+새로고침을 담당하며, Composer에는 attachment, 질문 입력 및 보내기 또는 중지만 유지합니다.
 
 공통 페이지 제목은 영역과 패널 레이블이 다를 때 `전체 현황 / Dashboard`를 포함해 둘을 함께 렌더링합니다. 패널 제목이 영역 레이블을 반복하는 영역 루트와 독립 utility는 단일 제목을 유지합니다.
 

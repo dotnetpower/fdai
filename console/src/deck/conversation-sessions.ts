@@ -14,6 +14,7 @@ import type { ConversationSummaryPayload } from "../user-context-client";
 export const CONVERSATION_INDEX_KEY = "fdai.deck.conversations.v1";
 export const GENERAL_CONVERSATION_KEY = "screen";
 export const MAX_CONVERSATION_INDEX_ENTRIES = 1000;
+export const CONVERSATION_HISTORY_PAGE_SIZE = 100;
 const PANTHEON_AGENT_NAMES = new Set(PANTHEON.map((agent) => agent.name));
 
 function newId(): string {
@@ -146,7 +147,7 @@ export function serverConversationSummary(
   );
   return {
     key: record.conversation_id,
-    label: agentName ?? routeLabel,
+    label: agentName ?? record.first_operator_question ?? routeLabel,
     kind: agentName ? "agent" : isScreenConversationKey(record.conversation_id)
       ? "screen-default"
       : "screen-thread",
@@ -239,11 +240,21 @@ export function mergeConversationActivity(
   existing: ConversationSummary,
   observed: ConversationSummary,
 ): ConversationSummary {
-  if (Date.parse(observed.updatedAt) <= Date.parse(existing.updatedAt)) return existing;
+  const observedTitle = observed.restoredFromServer &&
+    observed.label !== observed.originLabel && !observed.agent
+    ? observed.label
+    : null;
+  const hasNewerActivity = Date.parse(observed.updatedAt) > Date.parse(existing.updatedAt);
+  if (!hasNewerActivity && observedTitle === null) return existing;
   return {
     ...existing,
-    updatedAt: observed.updatedAt,
-    lastReadAt: existing.lastReadAt ?? existing.updatedAt,
+    ...(observedTitle !== null ? { label: observedTitle } : {}),
+    ...(hasNewerActivity
+      ? {
+          updatedAt: observed.updatedAt,
+          lastReadAt: existing.lastReadAt ?? existing.updatedAt,
+        }
+      : {}),
   };
 }
 

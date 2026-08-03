@@ -86,6 +86,18 @@ export interface ConversationSummaryPayload {
   readonly last_active: string;
   readonly status: string;
   readonly latest_operator_turn_id: string | null;
+  readonly first_operator_question: string | null;
+}
+
+export interface ConversationCursorPayload {
+  readonly last_active: string;
+  readonly conversation_id: string;
+}
+
+export interface ConversationPagePayload {
+  readonly conversations: readonly ConversationSummaryPayload[];
+  readonly has_more: boolean;
+  readonly next_cursor: ConversationCursorPayload | null;
 }
 
 export interface ConversationTurnPayload {
@@ -141,6 +153,7 @@ export interface UserContextPayload {
   readonly briefing_runs: readonly BriefingRunPayload[];
   readonly scheduled_continuations: readonly ScheduledContinuationPayload[];
   readonly conversations: readonly ConversationSummaryPayload[];
+  readonly conversation_page: Omit<ConversationPagePayload, "conversations">;
 }
 
 export class UserContextRequestError extends Error {
@@ -158,6 +171,16 @@ export function setUserContextAuth(auth: AuthContext | null): void {
 
 export async function fetchUserContext(): Promise<UserContextPayload> {
   return decodeUserContext(await request("/me/context", "GET"));
+}
+
+export async function fetchConversationPage(
+  cursor: ConversationCursorPayload,
+): Promise<ConversationPagePayload> {
+  const params = new URLSearchParams({
+    before_last_active: cursor.last_active,
+    before_conversation_id: cursor.conversation_id,
+  });
+  return decodeConversationPage(await request(`/me/conversations?${params.toString()}`, "GET"));
 }
 
 export async function fetchOpeningBriefing(conversationId: string): Promise<BriefingRunPayload | null> {
@@ -321,6 +344,7 @@ async function request(
 
 export function decodeUserContext(value: unknown): UserContextPayload {
   const root = object(value, "user context");
+  const conversationPage = object(root["conversation_page"], "conversation page");
   return {
     preference: root["preference"] === null
       ? null
@@ -334,6 +358,20 @@ export function decodeUserContext(value: unknown): UserContextPayload {
       "scheduled_continuations",
     ).map(decodeScheduledContinuation),
     conversations: array(root["conversations"], "conversations").map(decodeConversation),
+    conversation_page: {
+      has_more: boolean(conversationPage["has_more"], "conversation page.has_more"),
+      next_cursor: decodeConversationCursor(conversationPage["next_cursor"]),
+    },
+  };
+}
+
+export function decodeConversationPage(value: unknown): ConversationPagePayload {
+  const root = object(value, "conversation page");
+  return {
+    conversations: array(root["conversations"], "conversation page.conversations")
+      .map(decodeConversation),
+    has_more: boolean(root["has_more"], "conversation page.has_more"),
+    next_cursor: decodeConversationCursor(root["next_cursor"]),
   };
 }
 
@@ -575,6 +613,19 @@ function decodeConversation(value: unknown): ConversationSummaryPayload {
       item["latest_operator_turn_id"],
       "conversation.latest_operator_turn_id",
     ),
+    first_operator_question: nullableString(
+      item["first_operator_question"],
+      "conversation.first_operator_question",
+    ),
+  };
+}
+
+function decodeConversationCursor(value: unknown): ConversationCursorPayload | null {
+  if (value === null) return null;
+  const item = object(value, "conversation cursor");
+  return {
+    last_active: dateString(item["last_active"], "conversation cursor.last_active"),
+    conversation_id: string(item["conversation_id"], "conversation cursor.conversation_id"),
   };
 }
 

@@ -7,6 +7,7 @@ import {
 } from "../preferences";
 import type { BackendHealth, VerificationProgress } from "./backend";
 import {
+  conversationCountLabel,
   ConversationSidebar,
   IntroPanel,
   TurnBubble,
@@ -37,6 +38,8 @@ interface CommandDeckViewProps {
   readonly dockWidth: number;
   readonly srStatus: string;
   readonly conversations: readonly ConversationSummary[];
+  readonly conversationHasMore: boolean;
+  readonly conversationPageLoading: boolean;
   readonly sessionKey: string;
   readonly currentPath: string;
   readonly turns: readonly Turn[];
@@ -65,6 +68,7 @@ interface CommandDeckViewProps {
   readonly onSearchInput: (value: string) => void;
   readonly onMoveSearch: (direction: -1 | 1) => void;
   readonly onNewConversation: () => void;
+  readonly onLoadMoreConversations: () => void;
   readonly onSelectLayout: (mode: DeckLayoutMode) => void;
   readonly onRemoveConversation: (conversation: ConversationSummary) => void;
   readonly onSelectConversation: (conversation: ConversationSummary) => void;
@@ -90,6 +94,8 @@ export function CommandDeckView({
   dockWidth,
   srStatus,
   conversations,
+  conversationHasMore,
+  conversationPageLoading,
   sessionKey,
   currentPath,
   turns,
@@ -118,6 +124,7 @@ export function CommandDeckView({
   onSearchInput,
   onMoveSearch,
   onNewConversation,
+  onLoadMoreConversations,
   onSelectLayout,
   onRemoveConversation,
   onSelectConversation,
@@ -227,7 +234,10 @@ export function CommandDeckView({
                 conversations={conversations}
                 activeKey={sessionKey}
                 currentPath={currentPath}
+                hasMore={conversationHasMore}
+                loading={conversationPageLoading}
                 onNew={onNewConversation}
+                onLoadMore={onLoadMoreConversations}
                 onRemove={onRemoveConversation}
                 onSelect={onSelectConversation}
               />
@@ -240,7 +250,9 @@ export function CommandDeckView({
                   aria-pressed={showConversations}
                   onClick={() => setShowConversations((visible) => !visible)}
                 >
-                  {t("deck.conversations")} <span>{conversations.length}</span>
+                  {t("deck.conversations")} <span>
+                    {conversationCountLabel(conversations.length, conversationHasMore)}
+                  </span>
                 </button>
                 <button
                   type="button"
