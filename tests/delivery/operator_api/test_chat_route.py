@@ -805,7 +805,7 @@ class TestChatRouteLatencySurface:
 
         assert body["answer"] == "hello"
         assert body["answer_plan"]["discuss"] == "skip"
-        assert "answer_planning" not in body
+        assert body["answer_planning"] is None
 
     async def test_azure_backend_uses_injected_workload_identity(self) -> None:
         identity = _RecordingIdentity()
