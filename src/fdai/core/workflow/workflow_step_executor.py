@@ -67,6 +67,7 @@ class ShadowWorkflowStepExecutor:
         "_now",
         "_mode",
         "_target_resource_id",
+        "_attempt",
     )
 
     def __init__(
@@ -89,7 +90,10 @@ class ShadowWorkflowStepExecutor:
         now: datetime | None = None,
         mode: Mode = Mode.SHADOW,
         target_resource_id: str = "",
+        attempt: int = 1,
     ) -> None:
+        if attempt < 1:
+            raise ValueError("workflow step attempt MUST be >= 1")
         self._process_id = process_id
         self._action_types = action_types
         self._action_dispatcher = action_dispatcher
@@ -107,6 +111,7 @@ class ShadowWorkflowStepExecutor:
         self._now = now or datetime.now(tz=UTC)
         self._mode = mode
         self._target_resource_id = target_resource_id or snapshot.target_resource_id
+        self._attempt = attempt
 
     async def execute(self, *, runbook_id: str, step: RunbookStep) -> RunbookStepResult:
         if await cancellation_blocks_new_step(
@@ -153,7 +158,10 @@ class ShadowWorkflowStepExecutor:
 
         await self._audit.append_audit_entry(
             {
-                "event_id": event_id(self._process_id, f"step:{step.id}:audit"),
+                "event_id": event_id(
+                    self._process_id,
+                    f"step:{step.id}:attempt:{self._attempt}:audit",
+                ),
                 "correlation_id": self._snapshot.correlation_id,
                 "actor": ACTOR,
                 "action_kind": "workflow.step",
@@ -161,6 +169,7 @@ class ShadowWorkflowStepExecutor:
                 "process_id": self._process_id,
                 "workflow": runbook_id,
                 "step_id": step.id,
+                "attempt": self._attempt,
                 "action_type": step.action_type,
                 "action_known": known,
                 "requires_approval": approval.requires_approval if approval else False,
@@ -269,7 +278,9 @@ class ShadowWorkflowStepExecutor:
             (
                 event
                 for event in events
-                if event.kind is ProcessEventKind.ACTION_DISPATCHED and event.step_id == step.id
+                if event.kind is ProcessEventKind.ACTION_DISPATCHED
+                and event.step_id == step.id
+                and event.attempt == self._attempt
             ),
             None,
         )
@@ -339,6 +350,7 @@ class ShadowWorkflowStepExecutor:
                 target_resource_id=self._target_resource_id,
                 params=self._params.get(step.id, {}),
                 context=self._context,
+                attempt=self._attempt,
             )
         except Exception as exc:  # noqa: BLE001 - dispatcher boundary fails closed
             return step_result(
@@ -354,13 +366,19 @@ class ShadowWorkflowStepExecutor:
             )
         await self._process_store.append_event(
             ProcessEvent(
-                event_id=event_id(self._process_id, f"step:{step.id}:action-dispatched"),
+                event_id=event_id(
+                    self._process_id,
+                    f"step:{step.id}:attempt:{self._attempt}:action-dispatched",
+                ),
                 process_id=self._process_id,
                 kind=ProcessEventKind.ACTION_DISPATCHED,
-                idempotency_key=f"{self._process_id}:step:{step.id}:action-dispatched",
+                idempotency_key=(
+                    f"{self._process_id}:step:{step.id}:attempt:{self._attempt}:action-dispatched"
+                ),
                 recorded_at=datetime.now(tz=UTC),
                 correlation_id=self._snapshot.correlation_id,
                 step_id=step.id,
+                attempt=self._attempt,
                 payload={
                     "proposal_ref": proposal_ref,
                     "action_type": step.action_type,
@@ -587,13 +605,20 @@ class ShadowWorkflowStepExecutor:
         recorded_at: datetime,
     ) -> ProcessEvent:
         return ProcessEvent(
-            event_id=event_id(self._process_id, f"step:{step.id}:branch:{branch}:{suffix}"),
+            event_id=event_id(
+                self._process_id,
+                f"step:{step.id}:attempt:{self._attempt}:branch:{branch}:{suffix}",
+            ),
             process_id=self._process_id,
             kind=kind,
-            idempotency_key=f"{self._process_id}:step:{step.id}:branch:{branch}:{suffix}",
+            idempotency_key=(
+                f"{self._process_id}:step:{step.id}:attempt:{self._attempt}:"
+                f"branch:{branch}:{suffix}"
+            ),
             recorded_at=recorded_at,
             correlation_id=self._snapshot.correlation_id,
             step_id=step.id,
+            attempt=self._attempt,
             payload={"branch": branch},
         )
 
@@ -647,13 +672,19 @@ class ShadowWorkflowStepExecutor:
             status=status,
             current_step=current_step,
             event=ProcessEvent(
-                event_id=event_id(self._process_id, f"step:{step_id}:{suffix}"),
+                event_id=event_id(
+                    self._process_id,
+                    f"step:{step_id}:attempt:{self._attempt}:{suffix}",
+                ),
                 process_id=self._process_id,
                 kind=kind,
-                idempotency_key=f"{self._process_id}:step:{step_id}:attempt:1:{suffix}",
+                idempotency_key=(
+                    f"{self._process_id}:step:{step_id}:attempt:{self._attempt}:{suffix}"
+                ),
                 recorded_at=recorded_at,
                 correlation_id=self._snapshot.correlation_id,
                 step_id=step_id,
+                attempt=self._attempt,
                 payload=payload or {},
             ),
         )

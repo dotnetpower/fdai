@@ -851,6 +851,61 @@ async def test_unknown_action_type_step_fails_closed() -> None:
     assert result.reason == "unknown_action_type"
 
 
+async def test_action_step_attempt_is_recorded_in_dispatch_and_journal() -> None:
+    audit = InMemoryStateStore()
+    process_store = InMemoryProcessRuntimeStore()
+    dispatcher = _RecordingActionDispatcher()
+    snapshot, _ = await process_store.create(
+        snapshot=ProcessSnapshot(
+            process_id="p-attempt",
+            workflow_ref="wf",
+            workflow_version="1.0.0",
+            status=ProcessStatus.PENDING,
+            current_step="",
+            target_resource_id="res-1",
+            started_at=_TRIGGER_TS,
+            updated_at=_TRIGGER_TS,
+            correlation_id="corr-attempt",
+        ),
+        event=ProcessEvent(
+            event_id="event-attempt-create",
+            process_id="p-attempt",
+            kind=ProcessEventKind.PROCESS_CREATED,
+            idempotency_key="p-attempt:create",
+            recorded_at=_TRIGGER_TS,
+            correlation_id="corr-attempt",
+        ),
+    )
+    executor = ShadowWorkflowStepExecutor(
+        process_id="p-attempt",
+        action_types=_ACTION_TYPES,
+        action_dispatcher=dispatcher,
+        audit_store=audit,
+        approvals={},
+        process_store=process_store,
+        snapshot=snapshot,
+        context={"requester.principal": "operator-1"},
+        mode=Mode.ENFORCE,
+        attempt=2,
+    )
+
+    result = await executor.execute(
+        runbook_id="wf",
+        step=RunbookStep(id="apply", action_type="remediate.auto"),
+    )
+
+    assert result.outcome is RunbookStepOutcome.WAITING
+    assert dispatcher.calls[0]["attempt"] == 2
+    events = (await process_store.events("p-attempt"))[1:]
+    assert [event.kind for event in events] == [
+        ProcessEventKind.STEP_STARTED,
+        ProcessEventKind.ACTION_DISPATCHED,
+        ProcessEventKind.STEP_WAITING,
+    ]
+    assert {event.attempt for event in events} == {2}
+    assert all(":attempt:2:" in event.idempotency_key for event in events)
+
+
 class _StubGuard:
     """Deterministic guard evaluator for tests - returns a fixed verdict and
     records the calls it saw."""

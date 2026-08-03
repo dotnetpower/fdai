@@ -40,7 +40,9 @@ in one transaction with optimistic revision checking. In-memory storage implemen
 the same contract for tests and local development. An explicit enforce run uses
 `WorkflowActionDispatcher`: each action step republishes an idempotent
 `operator_request` to typed ingress and still passes ActionType promotion, risk,
-HIL, and Thor execution. The Process records `action.dispatched`, then waits until an injected
+HIL, and Thor execution. Its explicit positive `attempt` defaults to `1` and scopes both the
+proposal idempotency key and every step transition id, so separate attempts cannot deduplicate
+each other. The Process records `action.dispatched`, then waits until an injected
 `WorkflowOutcomeVerifier` validates an authoritative effect receipt. Command context alone cannot
 claim success. A failed later step starts reverse compensation for journaled, independently
 verified applied steps. Compensation intent is committed before typed dispatch, and only verified

@@ -1,7 +1,7 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: 966b19a574866a0f6363f627b8ef3a02cdaa7096
+translation_source_sha: 93b5ebc9f1c6188ccbbe464d9e87c738e9cf6749
 translation_revised: 2026-08-04
 ---
 
@@ -42,7 +42,9 @@ optimistic revision 을 검사하면서 snapshot 갱신과 typed `ProcessEvent` 
 한 transaction 에서 처리합니다. In-memory storage 는 테스트와 로컬 개발에 같은
 contract 를 구현합니다. 명시적 enforce 실행은 `WorkflowActionDispatcher`를 사용합니다.
 각 action step은 idempotent `operator_request`를 typed ingress로 다시 게시하므로
-ActionType promotion, risk, HIL, Thor execution을 계속 통과합니다. Dispatcher가 없거나
+ActionType promotion, risk, HIL, Thor execution을 계속 통과합니다. 명시적인 positive `attempt`는
+`1`이 기본값이며 proposal idempotency key와 모든 step transition id를 scope하므로 서로 다른
+attempt가 deduplicate되지 않습니다. Dispatcher가 없거나
 Process는 `action.dispatched`를 기록한 뒤 주입된 `WorkflowOutcomeVerifier`가 authoritative effect
 receipt를 검증할 때까지 기다립니다. Command context만으로 success를 주장할 수 없습니다. 이후
 step이 실패하면 journal에 기록된 independently verified applied step을 역순으로 보상합니다.

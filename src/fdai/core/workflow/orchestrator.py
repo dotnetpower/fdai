@@ -300,6 +300,8 @@ class WorkflowOrchestrator:
                 },
             ),
         )
+        events = await self._process_store.events(process_id)
+        attempt = max((event.attempt for event in events), default=1)
         compensation = WorkflowCompensationCoordinator(
             process_store=self._process_store,
             audit_store=self._audit,
@@ -390,13 +392,14 @@ class WorkflowOrchestrator:
             status=ProcessStatus.RUNNING,
             current_step=start_step,
             event=ProcessEvent(
-                event_id=_event_id(process_id, "started"),
+                event_id=_event_id(process_id, f"attempt:{attempt}:started"),
                 process_id=process_id,
                 kind=ProcessEventKind.PROCESS_STARTED,
-                idempotency_key=f"{process_id}:started",
+                idempotency_key=f"{process_id}:attempt:{attempt}:started",
                 recorded_at=datetime.now(tz=UTC),
                 correlation_id=resolved_correlation_id,
                 step_id=start_step,
+                attempt=attempt,
             ),
         )
 
@@ -423,16 +426,18 @@ class WorkflowOrchestrator:
             now=now,
             mode=mode,
             target_resource_id=target_resource_id,
+            attempt=attempt,
         )
         runner = RunbookRunner(executor=executor, audit_store=self._audit)
         result = await runner.run(
             compiled.runbook,
             start_step_id=start_step,
             audit_context={
-                "event_id": _event_id(process_id, "terminal-audit"),
+                "event_id": _event_id(process_id, f"attempt:{attempt}:terminal-audit"),
                 "correlation_id": resolved_correlation_id,
                 "process_id": process_id,
                 "mode": mode.value,
+                "attempt": attempt,
             },
         )
 
@@ -515,12 +520,13 @@ class WorkflowOrchestrator:
             status=status,
             current_step="",
             event=ProcessEvent(
-                event_id=_event_id(process_id, "terminal"),
+                event_id=_event_id(process_id, f"attempt:{attempt}:terminal"),
                 process_id=process_id,
                 kind=terminal_kind,
-                idempotency_key=f"{process_id}:terminal",
+                idempotency_key=f"{process_id}:attempt:{attempt}:terminal",
                 recorded_at=datetime.now(tz=UTC),
                 correlation_id=resolved_correlation_id,
+                attempt=attempt,
                 payload={"terminal_outcome": result.terminal_outcome.value},
             ),
         )

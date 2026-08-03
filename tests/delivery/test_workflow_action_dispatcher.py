@@ -58,3 +58,20 @@ async def test_dispatch_rejects_unresolved_parameter_template() -> None:
         )
 
     assert await _drain(bus) == []
+
+
+async def test_dispatch_uses_attempt_in_proposal_identity() -> None:
+    bus = InMemoryEventBus()
+    dispatcher = EventBusWorkflowActionDispatcher(event_bus=bus, topic="events")
+
+    reference = await dispatcher.dispatch(
+        process_id="process-1",
+        correlation_id="corr-1",
+        step=RunbookStep(id="restart", action_type="ops.restart-service"),
+        target_resource_id="service-1",
+        params={},
+        context={"requester.principal": "operator-1"},
+        attempt=2,
+    )
+
+    assert reference == "process-1:step:restart:attempt:2"

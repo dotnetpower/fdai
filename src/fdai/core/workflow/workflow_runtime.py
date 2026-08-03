@@ -72,6 +72,7 @@ class WorkflowActionDispatcher(Protocol):
         target_resource_id: str,
         params: Mapping[str, object],
         context: Mapping[str, str],
+        attempt: int = 1,
     ) -> str:
         """Return the durable proposal or idempotency reference."""
         ...

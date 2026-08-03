@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: b9201e8c0a99d28751aed345077e1848a9e94ebd
+translation_source_sha: a31f13e46cee0c29f58fd9f5810729a072f5c205
 translation_revised: 2026-08-04
 ---
 
@@ -283,6 +283,11 @@ outcome을 reconcile합니다. Executor는 모든 새 step을 차단하고 verif
 compensation path로 진입합니다. Waiting approval은 durable Var state와 모든 HIL slot을 닫으므로 늦은
 approval이 cancelled Process를 되살릴 수 없습니다. Applied step이 없는 cancellation은 `cancelled`로
 종료하고 applied step 이후 verified recovery는 `compensated`로 종료합니다.
+
+Action dispatch 및 step journal identity는 명시적인 positive `attempt`를 포함하며 compatibility
+default는 `1`입니다. `STEP_STARTED`, `ACTION_DISPATCHED`, branch, waiting, completion, failure,
+terminal, audit id는 attempt를 포함하고 `WorkflowActionDispatcher`는 typed proposal idempotency
+key에 이를 사용합니다. 따라서 두 attempt가 하나의 event 또는 proposal로 합쳐지지 않습니다.
 
 Workflow audit는 각 ActionType의 `x-fdai-redact` path를 사용합니다. Redacted field는
 `[REDACTED]`로 표시되며 Process journal에 들어가지 않습니다. Workflow runtime에는 secret custody

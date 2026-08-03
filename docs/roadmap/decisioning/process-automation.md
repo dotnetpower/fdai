@@ -290,6 +290,11 @@ waiting approval closes its durable Var state and every HIL slot, so a late appr
 the cancelled Process. Cancellation with no applied step closes as `cancelled`; verified recovery
 after an applied step closes as `compensated`.
 
+Action dispatch and step journal identity include an explicit positive `attempt`, with `1` as the
+compatibility default. `STEP_STARTED`, `ACTION_DISPATCHED`, branch, waiting, completion, failure,
+terminal, and audit ids include that attempt, and `WorkflowActionDispatcher` uses it in the typed
+proposal idempotency key. Two attempts therefore cannot collapse into one event or proposal.
+
 Workflow audit uses each ActionType's `x-fdai-redact` paths. Redacted fields render as
 `[REDACTED]` and never enter the Process journal. Because the workflow runtime has no secret
 custody provider, an enforce action whose resolved params include a redacted field fails before

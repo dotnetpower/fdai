@@ -32,7 +32,10 @@ class EventBusWorkflowActionDispatcher:
         target_resource_id: str,
         params: Mapping[str, object],
         context: Mapping[str, str],
+        attempt: int = 1,
     ) -> str:
+        if attempt < 1:
+            raise ValueError("workflow action attempt MUST be >= 1")
         requester = context.get("requester.principal", "").strip()
         if not requester:
             raise ValueError("enforce workflow action requires requester.principal")
@@ -45,7 +48,7 @@ class EventBusWorkflowActionDispatcher:
             raise ValueError(
                 "workflow action has unresolved parameter templates: " + ", ".join(unresolved)
             )
-        idempotency_key = f"{process_id}:step:{step.id}:attempt:1"
+        idempotency_key = f"{process_id}:step:{step.id}:attempt:{attempt}"
         await self.event_bus.publish(
             self.topic,
             target_resource_id,
