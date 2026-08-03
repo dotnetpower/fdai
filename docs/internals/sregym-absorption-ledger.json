@@ -77,6 +77,20 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_capacity_operational_hook",
+      "source_commits": [
+        "d974e2b835f7176387bbc2ad146f833ab5936b99"
+      ],
+      "status": "operationalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": true,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

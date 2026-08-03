@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 9780e73fcc7b7264b5f6781f09224845bd709bc0
+translation_source_sha: a50281f564e4c79c828b7517e76c62847f52a2ea
 translation_revised: 2026-08-04
 ---
 
@@ -251,7 +251,9 @@ discovery loop 를 닫는다.
   detector (Muninn snapshot 비교를 통한 declared vs actual state),
   forecast (statistical time-series; ARIMA 또는 exponential smoothing).
   `Anomaly`, `Drift`, `Forecast` 발행. `SecurityEvent` 구독은 W6 로
-  예약. Stale/degraded inventory는 fail closed하며 Heimdall은 reconciliation job을 시작하지 않습니다.
+  예약. 주입된 bounded read-only operational evidence hook은 판단 또는 execution authority를
+  부여하지 않고 authoritative anomaly를 enrich할 수 있습니다. Stale/degraded inventory는 fail
+  closed하며 Heimdall은 reconciliation job을 시작하지 않습니다.
 - **Forseti (`src/fdai/agents/forseti.py`)** - `object.anomaly`,
   `object.drift`, `object.event` 구독. 3-tier trust router 를 로컬 구현:
   Mimir 를 통한 T0 rule match; Muninn 을 통한 T1 similarity; T2 는 W7

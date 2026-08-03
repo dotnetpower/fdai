@@ -268,6 +268,10 @@ Heimdall owns deterministic forecast episode evaluation and closure. Its repeate
 `incident_candidate_hook` after it emits the authoritative anomaly. The hook
 carries the normalized resource, event type, correlation, worst severity, reason
 code, and all burst evidence keys to the composition-owned `IncidentLifecycleWorkflow`.
+Before publishing a threshold anomaly, Heimdall may call an injected bounded read-only
+`operational_evidence_hook`. The hook can attach provider evidence such as a hold-only Kubernetes
+capacity finding, but it cannot decide, approve, or execute. A provider failure is attached as
+structured unavailable evidence and never suppresses the authoritative anomaly.
 One correlation episode repeated inside the rate window forms one anomaly at its worst severity.
 Global/per-resource caps prevent cross-resource eviction. A routine heartbeat,
 healthy probe, or within-threshold observation creates neither a finding nor an

@@ -188,6 +188,36 @@ async def test_runtime_injects_heimdall_incident_candidate_hook() -> None:
     assert candidates[0]["producer_principal"] == "Heimdall"
 
 
+async def test_runtime_injects_heimdall_operational_evidence_hook() -> None:
+    calls: list[str] = []
+
+    async def collect(event: dict[str, object]) -> dict[str, object]:
+        calls.append(str(event["resource_id"]))
+        return {"observe.kubernetes.capacity": {"status": "available"}}
+
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        heimdall_rate_threshold=1,
+        operational_evidence_hook=collect,
+    )
+    heimdall = runtime.agents["Heimdall"]
+    assert isinstance(heimdall, Heimdall)
+
+    await heimdall.on_typed_message(
+        "object.event",
+        {
+            "resource_id": "kubernetes.namespace/example-app",
+            "resource_type": "kubernetes.namespace",
+            "event_type": "scheduling.failure",
+            "correlation_id": "capacity-episode",
+            "idempotency_key": "capacity-1",
+        },
+    )
+
+    assert calls == ["kubernetes.namespace/example-app"]
+
+
 async def test_runtime_injects_configured_heimdall_repeat_policy() -> None:
     candidates: list[dict[str, object]] = []
 

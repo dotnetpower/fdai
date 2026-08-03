@@ -112,6 +112,73 @@ def test_heimdall_emits_anomaly_on_threshold_burst() -> None:
     assert anomalies[0].payload["count_in_window"] == 3
 
 
+def test_heimdall_attaches_bounded_operational_evidence() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+
+    async def collect(event: dict[str, object]) -> dict[str, object]:
+        assert event["resource_id"] == "kubernetes.namespace/example-app"
+        return {
+            "observe.kubernetes.capacity": {
+                "status": "available",
+                "payload": {"findings": [{"decision": "hold"}]},
+            }
+        }
+
+    heimdall = Heimdall(bus=bus, rate_threshold=2, operational_evidence_hook=collect)
+    for index in range(2):
+        asyncio.run(
+            heimdall.on_typed_message(
+                "object.event",
+                {
+                    "resource_id": "kubernetes.namespace/example-app",
+                    "resource_type": "kubernetes.namespace",
+                    "event_type": "scheduling.failure",
+                    "correlation_id": "capacity-episode",
+                    "idempotency_key": f"capacity-{index}",
+                },
+            )
+        )
+
+    anomaly = bus.messages_on("object.anomaly")[0].payload
+    assert anomaly["operational_evidence"] == {
+        "observe.kubernetes.capacity": {
+            "status": "available",
+            "payload": {"findings": [{"decision": "hold"}]},
+        }
+    }
+
+
+def test_heimdall_preserves_anomaly_when_operational_evidence_fails() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+
+    async def fail(event: dict[str, object]) -> dict[str, object]:
+        raise RuntimeError(event["resource_id"])
+
+    heimdall = Heimdall(bus=bus, rate_threshold=1, operational_evidence_hook=fail)
+    asyncio.run(
+        heimdall.on_typed_message(
+            "object.event",
+            {
+                "resource_id": "kubernetes.namespace/example-app",
+                "resource_type": "kubernetes.namespace",
+                "event_type": "scheduling.failure",
+                "correlation_id": "capacity-episode",
+                "idempotency_key": "capacity-1",
+            },
+        )
+    )
+
+    anomaly = bus.messages_on("object.anomaly")[0].payload
+    assert anomaly["operational_evidence"] == {
+        "observe.kubernetes.capacity": {
+            "status": "unavailable",
+            "reason": "provider_error",
+        }
+    }
+
+
 def test_heimdall_no_anomaly_on_mixed_event_types() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)

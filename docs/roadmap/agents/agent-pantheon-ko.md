@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: f5c9d40ae4b1c2603a81535c47e5c02486032349
+translation_source_sha: c1dee0a42a08b551046f66f1004d81fa18bedf03
 translation_revised: 2026-08-04
 ---
 
@@ -248,6 +248,11 @@ Heimdall은 deterministic forecast episode 평가와 closure를 소유합니다.
 `incident_candidate_hook`을 호출할 수 있습니다. 이 hook은 정규화된 resource,
 event type, correlation, worst severity, reason code, 모든 burst evidence key를 composition 소유
 `IncidentLifecycleWorkflow`에 전달합니다. Heimdall은 Incident를 직접 쓰거나 새
+Threshold anomaly를 publish하기 전에 Heimdall은 주입된 bounded read-only
+`operational_evidence_hook`을 호출할 수 있습니다. 이 hook은 hold-only Kubernetes capacity
+finding 같은 provider evidence를 attach할 수 있지만 판단, 승인 또는 실행하지 않습니다. Provider
+failure는 structured unavailable evidence로 attach되며 authoritative anomaly를 억제하지 않습니다.
+Heimdall은 Incident를 직접 쓰거나 새
 object type을 publish하지 않습니다. 한 episode의 반복 Event는 worst severity anomaly 하나를 형성합니다.
 Global/resource cap은 cross-resource eviction을 방지합니다.
 Routine heartbeat, healthy probe, within-threshold observation은 finding이나 Incident를
