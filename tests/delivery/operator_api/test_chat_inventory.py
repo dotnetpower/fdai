@@ -786,9 +786,7 @@ async def test_inventory_execution_evidence_preserves_the_verified_query(prompt:
     assert not inventory_execution_query(evidence).lstrip().startswith("az ")
 
 
-async def test_inventory_execution_evidence_includes_only_actual_redacted_provider_receipt() -> (
-    None
-):
+async def test_inventory_execution_evidence_separates_actual_provider_receipt() -> None:
     async def provider_with_receipt(*args: object, **kwargs: object) -> dict[str, Any]:
         graph = await _provider(*args, **kwargs)
         return {
@@ -817,8 +815,9 @@ async def test_inventory_execution_evidence_includes_only_actual_redacted_provid
 
     projected = json.loads(inventory_execution_query(evidence))
 
-    assert projected["provider_execution"]["backend"] == "azure_resource_graph"
-    assert projected["provider_execution"]["commands"] == [
+    assert "provider_execution" not in projected
+    assert evidence["result"]["provider_execution"]["backend"] == "azure_resource_graph"
+    assert evidence["result"]["provider_execution"]["commands"] == [
         {
             "label": "resources",
             "language": "azure_cli",
@@ -2011,10 +2010,10 @@ def test_stopped_db_stream_overrides_semantic_web_plan(
     assert '"branch_kind": "agent"' not in response.text
     activity = _stream_event(response.text, "activity")
     assert activity is not None
-    assert activity["label"] == "Queried Azure inventory"
+    assert activity["label"] == "Applied inventory query"
     assert activity["detail"] == ("2 matching resources" if includes_sql else "1 matching resource")
     execution = activity["execution"]
-    assert execution["tool"] == "FDAI inventory"
+    assert execution["tool"] == "FDAI IQL"
     assert execution["input_kind"] == "query"
     projected = json.loads(execution["command"])
     assert projected["query"]["source"] == "current"
@@ -2114,7 +2113,7 @@ def test_subscription_stopped_db_ignores_invalid_semantic_lookback_plan() -> Non
     activity = _stream_event(response.text, "activity")
     assert activity is not None
     execution = activity["execution"]
-    assert execution["tool"] == "FDAI inventory"
+    assert execution["tool"] == "FDAI IQL"
     assert execution["input_kind"] == "query"
     assert json.loads(execution["command"])["query"]["source"] == "current"
     assert "query_inventory --scope" not in response.text

@@ -153,8 +153,10 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('"deck.investigation.readOnly"');
     expect(component).toContain("deck-branch-badge");
     expect(component).toContain('"is-query" : "is-tool"');
-    expect(component).toContain('inventoryDisplay ? "IQL"');
-    expect(component).toContain('t("deck.investigation.providerExecution")');
+    expect(component).toContain("executionKindLabel(activity.execution");
+    expect(component).toContain('evidence.tool.includes("Azure Resource Graph")');
+    expect(component).toContain('evidence.tool === "Azure CLI"');
+    expect(component).not.toContain('t("deck.investigation.providerExecution")');
     expect(component).toContain('t("deck.investigation.copyQuery")');
     expect(component).toContain("formatJsonValue(inventoryDisplay?.iql ?? evidence.command)");
     expect(component).toContain('data-format={formattedOutput.isJson ? "json" : "text"}');

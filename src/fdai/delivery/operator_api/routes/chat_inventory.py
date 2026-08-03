@@ -775,9 +775,6 @@ def inventory_execution_query(evidence: Mapping[str, Any]) -> str:
         },
         "snapshot": snapshot,
     }
-    provider_execution = project_inventory_provider_execution(safe_result.get("provider_execution"))
-    if provider_execution is not None:
-        projection["provider_execution"] = provider_execution
     return json.dumps(projection, ensure_ascii=False, indent=2, sort_keys=True)
 
 

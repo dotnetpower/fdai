@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 422937ac46c95d139caa6ec4a4536eb092b9e1b6
+translation_source_sha: c2578926ff4bf13da4531f241f380b5cba1736a9
 translation_revised: 2026-08-03
 ---
 
@@ -115,10 +115,11 @@ flowchart TD
   구분합니다. Inventory, subscription-health 및 read-investigation activity는 `query`를 사용합니다.
   Verifier가 승인한 typed query, authority, snapshot provenance 및 bounded result projection을 렌더링하며
   Azure CLI argv 또는 exit code를 만들지 않습니다. Web은 validation된 inventory query를 `IQL`로
-  표시합니다. Inventory adapter가 strict redacted execution receipt를 제공하면 같은 disclosure에서
-  snapshot을 만든 Azure CLI 및 ARG 명령을 별도로 표시합니다. 해당 명령은 snapshot refresh 중에
-  실행되었고 현재 turn에서는 표시된 IQL로 그 snapshot을 필터링했음을 명시합니다. Receipt가 없거나
-  유효하지 않으면 provider-command block을 만들지 않습니다. 다른 server query는 `QUERY`를 유지하고
+  표시합니다. Inventory adapter가 strict redacted execution receipt를 제공하면 다음 investigation
+  row에서 snapshot을 만든 각 command를 `AZ CLI`와 `ARG`로 표시합니다. Receipt는 실행된 argv에서
+  subscription 및 pagination token만 placeholder로 바꿔 만들며 IQL에서 재구성하지 않습니다. 해당
+  command는 snapshot refresh 중에 실행되었고 현재 turn에서는 IQL로 그 snapshot을 필터링했음을
+  명시합니다. Receipt가 없거나 유효하지 않으면 provider-command row를 만들지 않습니다. 다른 server query는 `QUERY`를 유지하고
   process invocation을 기록한 provider receipt만 `command`를 사용합니다. Slack, Teams 및 durable
   replay는 query/command 구분을 보존합니다.
   Narrator milestone은 다음 group이 시작되기 전에 앞선 activity group을 settled 상태로 바꿉니다.
