@@ -327,6 +327,7 @@ export function TurnBubble({
   searchMatch,
   activeSearchMatch,
   progressIndex,
+  investigationFlowContinuation,
   investigationFlowStart,
   investigationFlowEnd,
 }: {
@@ -338,13 +339,14 @@ export function TurnBubble({
   readonly searchMatch: boolean;
   readonly activeSearchMatch: boolean;
   readonly progressIndex?: number;
+  readonly investigationFlowContinuation: boolean;
   readonly investigationFlowStart: boolean;
   readonly investigationFlowEnd: boolean;
 }) {
   const isDeck = turn.role === "deck";
   const isActivity = turn.kind === "activity";
   const isProgressMessage = turn.kind === "message" && turn.source === "investigation";
-  const isInvestigationFlow = isActivity || isProgressMessage;
+  const isInvestigationFlow = isActivity || isProgressMessage || investigationFlowContinuation;
   return (
     <article
       id={`deck-turn-${turn.id}`}

@@ -230,7 +230,10 @@ progress-note, session, connected-step, and dark command-detail hierarchy. A sta
 derives its starting note only from that received activity. A milestone remains the note when one was
 received, so the browser doesn't duplicate or invent progress. Only the current step opens
 automatically; completed step shells remain visible while raw output and timestamps fold. Raw
-current-screen records stay in a collapsed source disclosure. The transcript
+current-screen records stay in a collapsed source disclosure. Progress, observed activity, and the
+terminal answer for one operator question retain separate causal records but render under one
+visible agent header and one connected flow. The terminal answer doesn't repeat the same agent or
+open a second source badge. The transcript
 disables browser scroll anchoring, keeps extra bottom space, and follows the latest edge only while
 work streams. On terminal completion it anchors the first observed work group below the transcript
 edge, so execution outcome and answer start remain visible while the final answer lays out.

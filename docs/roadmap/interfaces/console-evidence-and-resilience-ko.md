@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: f97f8f724f0f3275735fa97fac95f5359349ada3
+translation_source_sha: 6ae40e1625034bd4095032bc1c2d35ddecb48483
 translation_revised: 2026-08-03
 ---
 
@@ -226,7 +226,10 @@ work 사이에 유지되며 현재 presentation을 그대로 사용합니다. �
 progress note, session, connected step 및 dark command detail 계층을 따릅니다. 단독 activity의 starting
 note는 수신한 해당 activity에서만 가져옵니다. Milestone을 수신한 경우에는 milestone이 note가 되므로
 browser가 progress를 중복하거나 만들어내지 않습니다. 현재 step만 자동으로 펼치고 완료된 step shell은
-유지하며 raw output과 timestamp는 접습니다. Raw current-screen record는 접힌 source disclosure에 유지합니다. Transcript는
+유지하며 raw output과 timestamp는 접습니다. Raw current-screen record는 접힌 source disclosure에 유지합니다.
+한 operator 질문의 progress, observed activity 및 terminal answer는 인과 record를 각각 유지하지만 하나의
+visible agent header와 연결된 flow 아래에 표시합니다. Terminal answer는 같은 agent 또는 두 번째 source
+badge를 반복하지 않습니다. Transcript는
 browser scroll anchoring을 끄고 하단 공간을 추가하며 work가 streaming 중일 때만 latest edge를
 따라갑니다. Terminal completion에서는 첫 observed work group을 transcript edge 아래에 고정해 final
 answer layout이 완료되는 동안 execution outcome과 answer 시작을 함께 표시합니다. Timing이 없는 plan과 collaboration metadata는 decision context에 두고, 관측된 input, evidence
