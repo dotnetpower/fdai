@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: bfb4e9be5808142f2c650f8ae67e00f856e0d409
+translation_source_sha: e9315844990995b359b4a81380b379f106eb8b62
 translation_revised: 2026-08-03
 ---
 
@@ -217,7 +217,11 @@ complete bounded operator prompt를 유지하고 좁은 layout에서는 줄바�
 Deck 경계에 계속 표시됩니다. 펼친 view는 6단계 rail, 펼칠 수 있는 observed-event timeline 및 provenance signal을 먼저 표시하고,
 timing window, decision context, phase record 및 coverage gap은 하나의 접힌 execution-details disclosure에
 유지합니다. Preparing-answer surface는 final answer streaming이 시작될 때까지 operator turn과 observed
-work 사이에 유지됩니다. Raw current-screen record는 접힌 source disclosure에 유지합니다. Transcript는
+work 사이에 유지되며 현재 presentation을 그대로 사용합니다. 이후 observed work는 execution mock의
+progress note, session, connected step 및 dark command detail 계층을 따릅니다. 단독 activity의 starting
+note는 수신한 해당 activity에서만 가져옵니다. Milestone을 수신한 경우에는 milestone이 note가 되므로
+browser가 progress를 중복하거나 만들어내지 않습니다. 현재 step만 자동으로 펼치고 완료된 step shell은
+유지하며 raw output과 timestamp는 접습니다. Raw current-screen record는 접힌 source disclosure에 유지합니다. Transcript는
 browser scroll anchoring을 끄고 하단 공간을 추가하며 work가 streaming 중일 때만 latest edge를
 따라갑니다. Terminal completion에서는 첫 observed work group을 transcript edge 아래에 고정해 final
 answer layout이 완료되는 동안 execution outcome과 answer 시작을 함께 표시합니다. Timing이 없는 plan과 collaboration metadata는 decision context에 두고, 관측된 input, evidence
@@ -226,8 +230,11 @@ main disclosure 높이는 44 px이며, 200% text resize와 320 CSS pixel에서 c
 Transcript text는 15 px, trajectory heading은 13 px, event label은 12 px, control은 13 px을 사용하며
 compact trajectory metadata는 11 px 아래로 내려가지 않습니다. 게시된 screen snapshot은 5분 후 visibly stale 상태가 되고
 명시적인 page refresh를 제공합니다. Bare clock은 current evidence를 의미하지 않습니다. Markdown
-table은 bounded answer row를 transcript flow에 모두 렌더링하며 내부 vertical scroll region이나 row
-expansion control을 사용하지 않습니다. Narrow screen에서는 transcript 폭을 늘리지 않고 cell을 줄바꿈합니다.
+table은 점진적으로 렌더링합니다. 완성된 header와 separator가 첫 body row보다 먼저 table shell을 만들고,
+완성된 각 row는 table을 교체하지 않고 누적됩니다. 완성되지 않은 header, separator 및 row syntax는 raw
+Markdown으로 표시하지 않습니다. 모든 bounded answer row는 transcript flow에 유지하며 내부 vertical
+scroll region이나 row expansion control을 사용하지 않습니다. Narrow screen에서는 transcript 폭을 늘리지
+않고 cell을 줄바꿈합니다.
 
 상세 화면은 bounded recorded metadata를 표시하지만 answer body를 반복하지 않습니다. Provider message,
 action argument, command 및 output의 유효한 object 또는 array JSON은 indentation, syntax highlighting 및

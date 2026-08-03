@@ -135,12 +135,17 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('<details class="deck-investigation-activity-disclosure" open>');
     expect(component).toContain('class="deck-investigation-item-disclosure"');
     expect(component).toContain('open={activity.status === "running"}');
+    expect(presenter).toContain("showStartNote={investigationFlowStart}");
+    expect(component).toContain('class="deck-progress-note deck-progress-note-derived"');
+    expect(component).toContain("<InvestigationNextSkeleton />");
+    expect(component).toContain('open={status === "running"}');
     expect(component).toContain('aria-label={t("deck.investigation.branches")}');
-    expect(component).toContain('class={`deck-investigation is-settled is-${tone}`}');
-    expect(component).toContain('class={`deck-investigation-badge is-${tone}`}');
+    expect(component).toContain('running ? "is-running" : `is-settled is-${tone}`');
+    expect(component).toContain('is-${running ? "running" : tone}');
     expect(component).toContain('class="deck-investigation-elapsed muted"');
     expect(component).toContain('"deck.investigation.sourceSummaryOne"');
-    expect(component).toContain('"deck.investigation.toolDuration"');
+    expect(component).toContain('"deck.investigation.callCompletedOne"');
+    expect(component).toContain('"deck.investigation.callsCompletedMany"');
     expect(component).toContain('"deck.investigation.readOnly"');
     expect(component).toContain("deck-branch-badge");
     expect(component).toContain('"is-query" : "is-tool"');
@@ -170,8 +175,7 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toContain("overflow-anchor: none;");
     expect(styles).toContain("padding: 16px 42px 88px;");
     expect(styles).toContain(".deck-table-wrap { max-height: none; overflow: visible; }");
-    expect(richContent).toContain("if (streaming) {");
-    expect(richContent).toContain("<TextBlock text={text} caret />");
+    expect(richContent).toContain("streaming ? parseStreamingAnswer(text) : parseAnswer(text)");
     expect(richContent).toContain("{rows.map((row, r) => (");
     expect(richContent).toContain('<th key={i} scope="col">');
     expect(richContent).toContain('class="deck-table-cell-label" aria-hidden="true"');
@@ -217,6 +221,13 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toContain("scrollbar-color: #68737e #1f2428;");
     expect(styles).toContain(".deck-investigation-command::-webkit-scrollbar-thumb,");
     expect(styles).toContain(".deck-investigation-item-disclosure > summary::after");
+    expect(styles).toContain("--font-sans:");
+    expect(styles).toContain("--font-mono:");
+    expect(styles).toContain(".deck-investigation-list::before");
+    expect(styles).toContain(".deck-branch-list::before");
+    expect(styles).toMatch(
+      /@container deck-transcript \(max-width: 620px\)[\s\S]*?\.deck-table tbody tr/,
+    );
     expect(styles).toMatch(/\.deck-investigation-summary\s*\{[^}]*min-height:\s*44px/);
     expect(styles).toMatch(
       /\.deck-investigation-item\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent/,

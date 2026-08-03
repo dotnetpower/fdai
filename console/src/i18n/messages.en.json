@@ -2122,6 +2122,11 @@
     "investigation": {
       "label": "Investigation activity",
       "title": "Investigation",
+      "runningTitle": "Executing observed work",
+      "completedTitle": "Observed work completed",
+      "callProgress": "call {current} of {total}",
+      "callCompletedOne": "1 call",
+      "callsCompletedMany": "{count} calls",
       "pending": "Pending",
       "running": "In progress",
       "startingWork": "Starting work",

@@ -375,6 +375,7 @@ export function TurnBubble({
           activities={turn.activities ?? []}
           branches={turn.branches ?? []}
           running={turn.streaming === true}
+          showStartNote={investigationFlowStart}
         />
       ) : isProgressMessage ? (
         <div class="deck-progress-note" role="status">

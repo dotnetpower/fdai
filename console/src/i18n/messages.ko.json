@@ -2122,6 +2122,11 @@
     "investigation": {
       "label": "조사 활동",
       "title": "조사",
+      "runningTitle": "관측된 작업 실행 중",
+      "completedTitle": "관측된 작업 완료",
+      "callProgress": "호출 {current}/{total}",
+      "callCompletedOne": "호출 1건",
+      "callsCompletedMany": "호출 {count}건",
       "pending": "대기 중",
       "running": "진행 중",
       "startingWork": "작업 시작",

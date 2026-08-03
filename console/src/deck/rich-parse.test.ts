@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { injectCiteMarks, parseAnswer, parseInline, type Segment } from "./rich-parse";
+import {
+  injectCiteMarks,
+  parseAnswer,
+  parseInline,
+  parseStreamingAnswer,
+  type Segment,
+} from "./rich-parse";
 
 function kinds(segs: Segment[]): string[] {
   return segs.map((s) => s.kind);
@@ -140,6 +146,47 @@ describe("parseAnswer - tables", () => {
     const md = "| a | b | c |\n| --- | --- | --- |\n| 1 | 2 |";
     const segs = parseAnswer(md);
     expect(segs[0]).toMatchObject({ headers: ["a", "b", "c"], rows: [["1", "2"]] });
+  });
+});
+
+describe("parseStreamingAnswer - progressive tables", () => {
+  it("creates the table shell at the separator and appends only complete rows", () => {
+    expect(parseStreamingAnswer("| Resource | State |")).toEqual([]);
+    expect(parseStreamingAnswer("| Resource | State |\n| ---")).toEqual([]);
+
+    expect(parseStreamingAnswer("| Resource | State |\n| --- | --- |")).toEqual([{
+      kind: "table",
+      headers: ["Resource", "State"],
+      rows: [],
+    }]);
+    expect(parseStreamingAnswer(
+      "| Resource | State |\n| --- | --- |\n| api",
+    )).toEqual([{
+      kind: "table",
+      headers: ["Resource", "State"],
+      rows: [],
+    }]);
+    expect(parseStreamingAnswer(
+      "| Resource | State |\n| --- | --- |\n| api | Running |",
+    )).toEqual([{
+      kind: "table",
+      headers: ["Resource", "State"],
+      rows: [["api", "Running"]],
+    }]);
+    expect(parseStreamingAnswer(
+      "| Resource | State |\n| --- | --- |\n| api | Running |\n| worker",
+    )).toEqual([{
+      kind: "table",
+      headers: ["Resource", "State"],
+      rows: [["api", "Running"]],
+    }]);
+  });
+
+  it("preserves settled prose before pending table syntax", () => {
+    expect(parseStreamingAnswer("Observed resources:\n| Resource | State |")).toEqual([{
+      kind: "text",
+      text: "Observed resources:",
+    }]);
   });
 });
 

@@ -218,6 +218,33 @@ export function parseAnswer(text: string): Segment[] {
   return segments;
 }
 
+/** Parse only the stable prefix of a streaming answer. Completed table
+ * structure renders immediately; an unfinished header, separator, or row stays
+ * hidden until its closing pipe arrives. */
+export function parseStreamingAnswer(text: string): Segment[] {
+  const lines = text.split("\n");
+  const lastIndex = lines.length - 1;
+  const tail = lines[lastIndex] ?? "";
+  const beforeTail = lines[lastIndex - 1] ?? "";
+  const tableStarted = hasTableStart(lines.slice(0, lastIndex));
+  const tableStartsAtTail = TABLE_ROW.test(beforeTail) &&
+    TABLE_ROW.test(tail) && TABLE_SEP.test(tail);
+
+  if (!tableStartsAtTail && tail.trimStart().startsWith("|") && !TABLE_ROW.test(tail)) {
+    lines.pop();
+    if (!tableStarted && TABLE_ROW.test(beforeTail)) lines.pop();
+  } else if (!tableStartsAtTail && TABLE_ROW.test(tail) && !tableStarted) {
+    lines.pop();
+  }
+  return parseAnswer(lines.join("\n"));
+}
+
+function hasTableStart(lines: readonly string[]): boolean {
+  return lines.some((line, index) =>
+    TABLE_ROW.test(line) && TABLE_SEP.test(lines[index + 1] ?? ""),
+  );
+}
+
 /** One inline run within a prose line. The `cite` variant is never produced by
  *  `parseInline`; it is injected afterwards by `injectCiteMarks` to render a
  *  numbered `[n]` grounding chip after a cited value. */

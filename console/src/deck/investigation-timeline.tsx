@@ -88,11 +88,20 @@ function branchKindBadge(kind: EvidenceBranch["kind"]): string {
 }
 
 function formatDuration(durationMs: number): string {
-  return durationMs < 1000 ? `${durationMs} ms` : `${(durationMs / 1000).toFixed(1)} s`;
+  return durationMs < 1000
+    ? `${Math.round(durationMs)} ms`
+    : `${(durationMs / 1000).toFixed(1)} s`;
 }
 
-function terminalDuration(branches: readonly EvidenceBranch[]): number {
-  return Math.max(0, ...branches.map((branch) => branch.durationMs ?? 0));
+function terminalDuration(
+  branches: readonly EvidenceBranch[],
+  activities: readonly InvestigationActivity[],
+): number {
+  return Math.max(
+    0,
+    ...branches.map((branch) => branch.durationMs ?? 0),
+    ...activities.map((activity) => activity.execution?.durationMs ?? 0),
+  );
 }
 
 export function investigationTone(
@@ -166,12 +175,17 @@ function ExecutionEvidence({
     ? undefined
     : formatJsonValue(evidence.output);
   const hasTimestamps = evidence.startedAt || evidence.completedAt || evidence.durationMs !== undefined;
+  const kindLabel = evidence.inputKind === "query" ? "QUERY" : "COMMAND";
+  const safetyLabel = evidence.inputKind === "query"
+    ? t("deck.investigation.readOnly")
+    : authority ?? t("deck.investigation.redacted");
   return (
     <section class="deck-investigation-execution" aria-label={t("deck.investigation.executionEvidence")}>
       <header class="deck-investigation-command-head">
         {agent ? <><strong>{agent}</strong><span aria-hidden="true">-</span></> : null}
-        <span>{evidence.tool}</span>
-        <span class="deck-investigation-redacted">{t("deck.investigation.redacted")}</span>
+        <span class="deck-investigation-command-kind">{kindLabel}</span>
+        <span class="deck-investigation-command-safety">{safetyLabel}</span>
+        <span class="deck-investigation-command-tool">{evidence.tool}</span>
         <Tooltip content={copied ? t("deck.tooltip.copied") : copyLabel}>
           <button
             type="button"
@@ -185,6 +199,9 @@ function ExecutionEvidence({
       </header>
       <pre class="deck-investigation-command">
         <code data-format={formattedCommand.isJson ? "json" : "text"}>
+          {evidence.inputKind === "query" ? null : (
+            <span class="deck-investigation-prompt" aria-hidden="true">$ </span>
+          )}
           {formattedCommand.text}
         </code>
       </pre>
@@ -198,7 +215,7 @@ function ExecutionEvidence({
         {authority ? <span>{authority}</span> : null}
       </div>
       {formattedOutput !== undefined ? (
-        <details class="deck-investigation-disclosure">
+        <details class="deck-investigation-disclosure" open={status === "running"}>
           <summary>
             <span>{outputLabel}</span>
             {evidence.outputTruncated ? (
@@ -254,7 +271,12 @@ function ActivitySummary({
         </span>
       ) : null}
       <span class="deck-investigation-copy">
-        <strong>{activity.label}</strong>
+        <span class="deck-investigation-title-line">
+          <strong>{activity.label}</strong>
+          {activity.status === "running" || activity.status === "pending" ? (
+            <em>{statusLabel(activity.status)}</em>
+          ) : null}
+        </span>
         {activity.detail ? <small>{activity.detail}</small> : null}
       </span>
       <span class="deck-investigation-meta muted">
@@ -270,15 +292,38 @@ export function InvestigationTimeline({
   activities,
   branches,
   running,
+  showStartNote,
 }: {
   readonly activities: readonly InvestigationActivity[];
   readonly branches: readonly EvidenceBranch[];
   readonly running: boolean;
+  readonly showStartNote: boolean;
 }) {
-  const finalDurationMs = terminalDuration(branches);
+  const finalDurationMs = terminalDuration(branches, activities);
   const elapsedMs = useInvestigationElapsed(running, finalDurationMs);
   const tone = investigationTone(activities, branches);
   const visibleBranches = unrepresentedEvidenceBranches(branches, activities);
+  const callCount = activities.length + visibleBranches.length;
+  const completedCallCount = activities.filter((activity) =>
+    ["completed", "unavailable", "failed"].includes(activity.status),
+  ).length + visibleBranches.filter((branch) =>
+    !["pending", "running"].includes(branch.status),
+  ).length;
+  const startCopy = activities[0]?.detail ?? activities[0]?.label ?? visibleBranches[0]?.summary;
+  const allObservedCallsSettled = callCount > 0 && completedCallCount === callCount;
+  const phaseTitle = t(running
+    ? "deck.investigation.runningTitle"
+    : tone === "completed"
+      ? "deck.investigation.completedTitle"
+      : "deck.investigation.title");
+  const callSummary = running
+    ? t("deck.investigation.callProgress", {
+        current: Math.min(callCount, completedCallCount + 1),
+        total: callCount,
+      })
+    : t(callCount === 1
+      ? "deck.investigation.callCompletedOne"
+      : "deck.investigation.callsCompletedMany", { count: callCount });
   const summary = branches.length > 0
     ? t(branches.length === 1
       ? "deck.investigation.sourceSummaryOne"
@@ -350,48 +395,63 @@ export function InvestigationTimeline({
     </div>
   );
 
-  if (!running) {
-    return (
+  return (
+    <>
+      {showStartNote && startCopy ? (
+        <div class="deck-progress-note deck-progress-note-derived" role="status">
+          <span class="deck-progress-note-mark" aria-hidden="true">01</span>
+          <div class="deck-progress-note-body">
+            <strong>{t("deck.investigation.startingWork")}</strong>
+            <p>{startCopy}</p>
+          </div>
+        </div>
+      ) : null}
       <section
-        class={`deck-investigation is-settled is-${tone}`}
+        class={`deck-investigation ${running ? "is-running" : `is-settled is-${tone}`}`}
         aria-label={t("deck.investigation.label")}
       >
         <header class="deck-investigation-head">
-          <span class="deck-investigation-state" aria-hidden="true">
-            {tone === "completed" ? "\u2713" : tone === "failed" ? "\u00d7" : tone === "partial" ? "~" : "!"}
-          </span>
-          <strong>{t("deck.investigation.title")}</strong>
-          <span class="muted">{summary}</span>
-          <span class={`deck-investigation-badge is-${tone}`}>
-            {statusLabel(tone)}
-          </span>
-          {finalDurationMs > 0 ? (
-            <span class="deck-investigation-meta muted">
-              {t("deck.investigation.toolDuration", {
-                duration: formatDuration(finalDurationMs),
-              })}
+          {running ? (
+            <span class="deck-investigation-spinner" aria-hidden="true" />
+          ) : (
+            <span class="deck-investigation-state" aria-hidden="true">
+              {tone === "completed" ? "\u2713" : tone === "failed" ? "\u00d7" : tone === "partial" ? "~" : "!"}
             </span>
-          ) : null}
+          )}
+          <span class="deck-investigation-session-copy">
+            <strong>{phaseTitle}</strong>
+            <small>{callSummary}</small>
+          </span>
+          <span class="deck-investigation-session-summary muted">{summary}</span>
+          <span class={`deck-investigation-badge is-${running ? "running" : tone}`}>
+            {statusLabel(running ? "running" : tone)}
+          </span>
+          <span class="deck-investigation-elapsed muted" aria-hidden="true">
+            {formatDuration(running ? elapsedMs : finalDurationMs)}
+          </span>
         </header>
         {body}
+        {running && allObservedCallsSettled ? <InvestigationNextSkeleton /> : null}
       </section>
-    );
-  }
+    </>
+  );
+}
 
+function InvestigationNextSkeleton() {
   return (
-    <section
-      class="deck-investigation is-running"
-      aria-label={t("deck.investigation.label")}
-    >
-      <header class="deck-investigation-head">
-        <span class="deck-investigation-spinner" aria-hidden="true" />
-        <strong>{t("deck.investigation.title")}</strong>
-        <span class="muted">{summary}</span>
-        <span class="deck-investigation-elapsed muted" aria-hidden="true">
-          {(elapsedMs / 1000).toFixed(1)}s
-        </span>
-      </header>
-      {body}
-    </section>
+    <div class="deck-next-skeleton" aria-hidden="true">
+      <span class="deck-next-skeleton-mark" />
+      <div class="deck-next-skeleton-stack">
+        <div class="deck-next-skeleton-card">
+          <span class="deck-next-skeleton-line is-label" />
+          <span class="deck-next-skeleton-line" />
+        </div>
+        <div class="deck-next-skeleton-session">
+          <span class="deck-next-skeleton-dot" />
+          <span class="deck-next-skeleton-line" />
+          <span class="deck-next-skeleton-pill" />
+        </div>
+      </div>
+    </div>
   );
 }

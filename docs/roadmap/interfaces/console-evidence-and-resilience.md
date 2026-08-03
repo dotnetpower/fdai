@@ -220,7 +220,12 @@ view leads with the six-phase rail,
 expandable observed-event timeline, and provenance signals, while timing windows, decision context, phase records, and coverage gaps remain in one
 collapsed execution-details disclosure.
 The preparing-answer surface remains between the operator turn and observed work until final answer
-streaming starts. Raw current-screen records stay in a collapsed source disclosure. The transcript
+streaming starts and keeps its existing presentation. Observed work then follows the execution mock's
+progress-note, session, connected-step, and dark command-detail hierarchy. A standalone activity
+derives its starting note only from that received activity. A milestone remains the note when one was
+received, so the browser doesn't duplicate or invent progress. Only the current step opens
+automatically; completed step shells remain visible while raw output and timestamps fold. Raw
+current-screen records stay in a collapsed source disclosure. The transcript
 disables browser scroll anchoring, keeps extra bottom space, and follows the latest edge only while
 work streams. On terminal completion it anchors the first observed work group below the transcript
 edge, so execution outcome and answer start remain visible while the final answer lays out.
@@ -229,8 +234,11 @@ Answer text is at least 14 px, main disclosures are 44 px high, and content refl
 The transcript uses 15 px text, trajectory headings use 13 px, event labels use 12 px, controls use
 13 px, and compact trajectory metadata never drops below 11 px. A published screen snapshot becomes visibly stale
 after five minutes and offers an explicit page refresh; a bare clock never implies current evidence.
-Markdown tables render every bounded answer row in the transcript flow without an internal vertical
-scroll region or row-expansion control. Cells wrap on narrow screens instead of widening the transcript.
+Markdown tables render progressively. A completed header and separator create the table shell before
+the first body row arrives, and each completed row appends without replacing the table. Incomplete
+header, separator, and row syntax stays hidden rather than appearing as raw Markdown. Every bounded
+answer row remains in the transcript flow without an internal vertical scroll region or row-expansion
+control. Cells wrap on narrow screens instead of widening the transcript.
 
 Detail includes bounded recorded metadata but doesn't repeat the answer body. Valid object or array JSON in provider messages, action arguments, commands, and outputs uses indented syntax highlighting and copy; malformed or plain text stays unchanged. The terminal replay payload retains final ID-deduplicated branch, activity, milestone, and redacted execution detail under a 64 KiB aggregate cap, truncates each history output at 32 KiB, and reports truncation and omission counts, so durable history and the live turn use the same strict parser and trajectory view. Unavailable or timed-out
 evidence is an attempt, not completed evidence, and unverified work never receives completed styling. Missing activity stays in an observation-coverage disclosure and proves no absence. Exact-answer
