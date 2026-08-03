@@ -293,6 +293,9 @@ class Huginn(Agent):
                 if value is not None:
                     payload[passthrough] = _bound(value)
             payload["operator_initiated"] = raw.get("operator_initiated") is True
+            workflow_action = raw.get("workflow_action")
+            if isinstance(workflow_action, Mapping):
+                payload["workflow_action"] = _bound_json(workflow_action)
         change_projection = _change_projection(
             raw=raw,
             canonical_payload=canonical_payload,

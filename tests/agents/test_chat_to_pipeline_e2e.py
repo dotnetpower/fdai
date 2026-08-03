@@ -243,12 +243,18 @@ def test_operator_request_honors_operator_fields_with_strict_bool() -> None:
                 "action_type": "ops.restart-service",
                 # A forged truthy string must be coerced to a strict bool.
                 "operator_initiated": "false",
+                "workflow_action": {
+                    "process_id": "process-1",
+                    "step_id": "restart",
+                    "proposal_ref": "proposal-1",
+                },
             }
         )
     )
     published = bus.messages_on("object.event")[0].payload
     assert published["action_type"] == "ops.restart-service"
     assert published["operator_initiated"] is False
+    assert published["workflow_action"]["process_id"] == "process-1"
 
 
 def test_forseti_operator_fail_closed_requires_strict_true() -> None:
@@ -270,6 +276,30 @@ def test_forseti_operator_fail_closed_requires_strict_true() -> None:
     verdicts = bus.messages_on("object.verdict")
     assert verdicts[0].payload["risk_verdict"] == "auto"
     assert bus.messages_on("object.security-event") == []
+
+
+def test_forseti_preserves_workflow_lineage_on_verdict() -> None:
+    bus = _bus()
+    forseti = Forseti(bus=bus)
+    workflow_action = {
+        "process_id": "process-1",
+        "step_id": "restart",
+        "proposal_ref": "proposal-1",
+    }
+
+    verdict = asyncio.run(
+        forseti.judge(
+            {
+                "event_type": "operator_request",
+                "action_type": "ops.restart-service",
+                "operator_initiated": False,
+                "correlation_id": "c-workflow",
+                "workflow_action": workflow_action,
+            }
+        )
+    )
+
+    assert verdict["workflow_action"] == workflow_action
 
 
 def test_var_rejects_blank_approver_and_trims_self_approval() -> None:

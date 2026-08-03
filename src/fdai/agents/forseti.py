@@ -779,6 +779,9 @@ class Forseti(Agent):
             # approver principal downstream can enforce no-self-approval.
             "initiator_principal": event.get("initiator_principal"),
         }
+        workflow_action = event.get("workflow_action")
+        if isinstance(workflow_action, Mapping):
+            verdict["workflow_action"] = dict(workflow_action)
         _copy_change_assessment(event, verdict)
         await self._attach_operational_context(event, verdict)
         # Measurable behaviour records the final verdict after every

@@ -41,6 +41,11 @@ def test_action_run_dict_round_trip() -> None:
         idempotency_key="action-1",
         shadow_mode=True,
         outcome="x",
+        workflow_action={
+            "process_id": "process-1",
+            "step_id": "restart",
+            "proposal_ref": "proposal-1",
+        },
     )
     run.transition(ActionRunState.SUCCEEDED)
     back = ActionRun.from_dict(run.to_dict())
@@ -50,6 +55,7 @@ def test_action_run_dict_round_trip() -> None:
     assert back.shadow_mode is True
     assert back.outcome == "x"
     assert back.idempotency_key == "action-1"
+    assert back.workflow_action == run.workflow_action
 
 
 def test_thor_deletes_terminal_run_from_store() -> None:

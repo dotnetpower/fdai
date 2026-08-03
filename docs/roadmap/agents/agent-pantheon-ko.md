@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 7f2466b850949cf19fecb002c30dec286129b463
+translation_source_sha: f5c9d40ae4b1c2603a81535c47e5c02486032349
 translation_revised: 2026-08-04
 ---
 
@@ -96,6 +96,9 @@ Forseti에 신호를 전달합니다. Action verdict는 Thor가 Vidar (recovery)
 Thor는 이를 무시합니다. Var와 Saga는 문서 HIL에서 stable idempotency key를 보존합니다.
 Production은 gated decision과 terminal 상태를 위해 Saga를 durable StateStore에 bind합니다.
 Forseti는 각 action의 stable idempotency key를 Verdict에 보존하고, Thor는 per-state event key와 구분해 durable `ActionRun`에 저장합니다.
+Workflow에서 시작된 operator request의 경우 Huginn은 bounded `workflow_action` lineage도
+보존하고 Forseti는 Verdict에 그대로 전달하며 Thor는 durable `ActionRun`에 저장합니다. 이 lineage는
+attribution 전용이며 quorum이나 execution authority를 바꾸지 않습니다.
 Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 
 ```mermaid

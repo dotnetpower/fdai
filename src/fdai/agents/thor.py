@@ -77,6 +77,7 @@ class ActionRun:
     rollback_contract: str = "state_forward_only"
     rollback_ref: str | None = None
     decision_case: dict[str, Any] | None = None
+    workflow_action: dict[str, str] | None = None
     history: list[ActionRunState] = field(default_factory=list)
 
     def transition(self, new_state: ActionRunState) -> None:
@@ -100,6 +101,7 @@ class ActionRun:
             "rollback_contract": self.rollback_contract,
             "rollback_ref": self.rollback_ref,
             "decision_case": self.decision_case,
+            "workflow_action": deepcopy(self.workflow_action),
             "history": [s.value for s in self.history],
         }
 
@@ -120,6 +122,7 @@ class ActionRun:
             rollback_contract=str(data.get("rollback_contract", "state_forward_only")),
             rollback_ref=data.get("rollback_ref"),
             decision_case=_bounded_decision_case(data.get("decision_case")),
+            workflow_action=_bounded_workflow_action(data.get("workflow_action")),
         )
         run.history = [ActionRunState(s) for s in data.get("history", [])]
         return run
@@ -305,6 +308,7 @@ class Thor(Agent):
             initiator_principal=verdict.get("initiator_principal"),
             rollback_contract=str(verdict.get("rollback_contract", "state_forward_only")),
             decision_case=decision_case,
+            workflow_action=_bounded_workflow_action(verdict.get("workflow_action")),
         )
         self.action_runs[correlation] = run
         if resource_id:
@@ -483,6 +487,7 @@ class Thor(Agent):
             "rollback_contract": run.rollback_contract,
             "rollback_ref": run.rollback_ref,
             "decision_case": run.decision_case,
+            "workflow_action": deepcopy(run.workflow_action),
         }
         await self.bus.publish("Thor", "object.action-run", payload)
 
@@ -583,6 +588,18 @@ def _bounded_decision_case(raw: object) -> dict[str, Any] | None:
     if len(encoded) > 16_384:
         return None
     return dict(raw)
+
+
+def _bounded_workflow_action(raw: object) -> dict[str, str] | None:
+    if not isinstance(raw, Mapping):
+        return None
+    required = {"process_id", "step_id", "proposal_ref"}
+    if set(raw) != required:
+        return None
+    bounded = {key: str(raw[key]).strip() for key in required}
+    if any(not item or len(item) > 512 for item in bounded.values()):
+        return None
+    return bounded
 
 
 def _selected_action_matches(decision_case: Mapping[str, Any], action_type: str) -> bool:
