@@ -83,6 +83,8 @@ export function resolveDeckOpenSession(
     detail.targetAgent !== undefined && targetAgent === null;
   const key = detail?.newConversation === true && targetAgent
     ? newConversationKey(userScope, targetAgent, nonce)
+    : detail?.newConversation === true && detail.binding?.kind === "incident"
+      ? newConversationKey(userScope, null, nonce)
     : requestedKey
       ? userConversationKey(userScope, requestedKey)
       : screenConversationKey(userScope, pathname);

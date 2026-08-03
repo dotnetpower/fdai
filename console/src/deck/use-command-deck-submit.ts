@@ -70,6 +70,14 @@ interface UseCommandDeckSubmitOptions {
   readonly revealCompletedWork: (turnId: string, childSelector?: string) => void;
 }
 
+export function resolveConversationSummary(
+  conversations: readonly ConversationSummary[],
+  metadata: ReadonlyMap<string, ConversationSummary>,
+  key: string,
+): ConversationSummary | undefined {
+  return metadata.get(key) ?? conversations.find((item) => item.key === key);
+}
+
 function shortTime(): string {
   const date = new Date();
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`;
@@ -137,8 +145,11 @@ export function useCommandDeckSubmit({
       at: shortTime(),
       recordedAt: activityAt,
     };
-    const activeSummary = conversations.find((item) => item.key === originSessionKey);
-    const sessionSummary = activeSummary ?? sessionMetadataRef.current.get(originSessionKey);
+    const sessionSummary = resolveConversationSummary(
+      conversations,
+      sessionMetadataRef.current,
+      originSessionKey,
+    );
     const priorTurns = turnsRef.current;
     const hasOperatorTurn = priorTurns.some((turn) => turn.role === "operator");
     updateConversationIndex({
@@ -149,6 +160,7 @@ export function useCommandDeckSubmit({
           : t("deck.general"),
       kind: sessionSummary?.kind ?? "screen-default",
       ...(sessionSummary?.agent ? { agent: sessionSummary.agent } : {}),
+      ...(sessionSummary?.binding ? { binding: sessionSummary.binding } : {}),
       originPath: sessionSummary?.originPath ?? conversationPath(currentPathname()),
       originLabel: sessionSummary?.originLabel ?? snapshot?.routeLabel ?? currentPathname(),
       createdAt: sessionSummary?.createdAt ?? activityAt,
