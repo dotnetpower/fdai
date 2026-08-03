@@ -199,7 +199,7 @@ async def test_list_hil_queue_projects_pending_park_records() -> None:
             "parked_at": parked_at,
         },
     )
-    page = await reader.list_hil_queue(limit=100)
+    page = await reader.list_hil_queue(limit=100, search=idem)
     matching = [item for item in page.items if item.idempotency_key == idem]
     assert len(matching) == 1
     only = matching[0]
@@ -262,7 +262,7 @@ async def test_list_hil_queue_orders_by_instant_across_timezone_offsets() -> Non
     earlier_idem = await _park(offset_tag="earlier-kst", parked_at="2026-01-01T23:00:00+09:00")
     later_idem = await _park(offset_tag="later-utc", parked_at="2026-01-01T15:00:00+00:00")
 
-    page = await reader.list_hil_queue(limit=500)
+    page = await reader.list_hil_queue(limit=500, search=tag)
     ours = [item for item in page.items if item.action_kind == tag]
     assert {item.idempotency_key for item in ours} == {earlier_idem, later_idem}
     idx_later = next(i for i, item in enumerate(ours) if item.idempotency_key == later_idem)
