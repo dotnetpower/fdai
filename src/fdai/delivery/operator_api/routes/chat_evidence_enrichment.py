@@ -24,6 +24,7 @@ from fdai.delivery.operator_api.routes.chat_evidence_branches import (
     EvidenceBranchResult,
     EvidenceBranchStatus,
 )
+from fdai.delivery.operator_api.routes.chat_execution_output import inventory_execution_output
 from fdai.delivery.operator_api.routes.chat_inventory import (
     inventory_execution_query,
     needs_inventory_evidence,
@@ -520,8 +521,30 @@ def _tool_execution_progress_event(
         value = result.get(key)
         if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
             summary[key] = value
+    output, output_truncated = (
+        inventory_execution_output(result)
+        if tool == "query_inventory"
+        else (json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True), False)
+    )
     completed_at = datetime.now(UTC)
-    return {
+    execution: dict[str, object] = {
+        "tool": "FDAI inventory" if tool == "query_inventory" else "FDAI server read",
+        "command": (
+            inventory_execution_query(evidence)
+            if tool == "query_inventory"
+            else json.dumps(queries[tool], indent=2, sort_keys=True)
+        ),
+        "input_kind": "query",
+        "redacted": True,
+        "output": output,
+        "exit_code": None,
+        "started_at": started_at.isoformat(),
+        "completed_at": completed_at.isoformat(),
+        "duration_ms": duration_ms,
+    }
+    if output_truncated:
+        execution["output_truncated"] = True
+    event: dict[str, object] = {
         "event": "activity",
         "activity_id": f"{tool}-execution",
         "kind": "read.execution",
@@ -531,22 +554,9 @@ def _tool_execution_progress_event(
         "total": 1,
         "authority": str(evidence.get("authority") or "server_read_model"),
         "observed_at": completed_at.isoformat(),
-        "execution": {
-            "tool": "FDAI inventory" if tool == "query_inventory" else "FDAI server read",
-            "command": (
-                inventory_execution_query(evidence)
-                if tool == "query_inventory"
-                else json.dumps(queries[tool], indent=2, sort_keys=True)
-            ),
-            "input_kind": "query",
-            "redacted": True,
-            "output": json.dumps(summary, sort_keys=True, separators=(",", ":")),
-            "exit_code": None,
-            "started_at": started_at.isoformat(),
-            "completed_at": completed_at.isoformat(),
-            "duration_ms": duration_ms,
-        },
+        "execution": execution,
     }
+    return event
 
 
 def _is_explicit_tool_command(prompt: str) -> bool:

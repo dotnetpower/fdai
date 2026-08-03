@@ -140,7 +140,15 @@ async function installOperatorApiFixture(
             }, null, 2),
             input_kind: "query",
             redacted: true,
-            output: "7 resource groups",
+            output: JSON.stringify({
+              status: "matched",
+              matched_count: 1,
+              resources: [{
+                name: "vm-example",
+                type: "virtual-machine",
+                status: "running",
+              }],
+            }),
             output_truncated: false,
             exit_code: null,
             started_at: "2026-07-22T00:01:00Z",
@@ -238,6 +246,13 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await expect(investigation.locator(".deck-branch-item")).toHaveCount(0);
   await expect(investigation.locator(".deck-investigation-item")).toHaveCount(1);
   await expect(investigation.locator(".deck-investigation-kind-badge")).toHaveText("QUERY");
+  await investigation.locator(".deck-investigation-item-disclosure > summary").click();
+  const queryResult = investigation.locator(".deck-investigation-disclosure").first();
+  await queryResult.locator(":scope > summary").click();
+  const queryResultCode = queryResult.locator(".deck-investigation-output code");
+  await expect(queryResultCode).toHaveAttribute("data-format", "json");
+  await expect(queryResultCode).toContainText('"resources": [');
+  await expect(queryResultCode).toContainText('"name": "vm-example"');
 
   const runRecord = workspace.locator(".deck-trajectory");
   await runRecord.locator(":scope > summary").click();
@@ -252,6 +267,7 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
     const command = root.querySelector<HTMLElement>(".deck-investigation-command");
     const composer = root.querySelector<HTMLElement>(".deck-input-row");
     const code = command?.querySelector<HTMLElement>("code");
+    const output = root.querySelector<HTMLElement>(".deck-investigation-output");
     const rootBounds = root.getBoundingClientRect();
     const composerBounds = composer?.getBoundingClientRect();
     return {
@@ -272,6 +288,8 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
         : false,
       commandBackground: command ? getComputedStyle(command).backgroundColor : "",
       codeBackground: code ? getComputedStyle(code).backgroundColor : "",
+      commandScrollbar: command ? getComputedStyle(command).scrollbarColor : "",
+      outputScrollbar: output ? getComputedStyle(output).scrollbarColor : "",
     };
   });
   if (metrics.viewportWidth >= 900) {
@@ -285,6 +303,8 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   expect(metrics.composerInsideDeck).toBe(true);
   expect(metrics.commandBackground).toBe("rgb(31, 36, 40)");
   expect(metrics.codeBackground).toBe("rgba(0, 0, 0, 0)");
+  expect(metrics.commandScrollbar).not.toBe("auto");
+  expect(metrics.outputScrollbar).not.toBe("auto");
 });
 
 test("keeps responsive table labels visual-only at 320px", async ({ page }) => {

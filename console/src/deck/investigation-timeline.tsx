@@ -8,6 +8,7 @@ import type {
   InvestigationActivity,
   InvestigationExecutionEvidence,
 } from "./backend";
+import { formatJsonValue } from "./json-code-block";
 
 export function upsertEvidenceBranch(
   branches: readonly EvidenceBranch[],
@@ -160,6 +161,10 @@ function ExecutionEvidence({
   const outputLabel = evidence.inputKind === "query"
     ? t("deck.investigation.queryResult")
     : t("deck.investigation.outputLogs");
+  const formattedCommand = formatJsonValue(evidence.command);
+  const formattedOutput = evidence.output === undefined
+    ? undefined
+    : formatJsonValue(evidence.output);
   const hasTimestamps = evidence.startedAt || evidence.completedAt || evidence.durationMs !== undefined;
   return (
     <section class="deck-investigation-execution" aria-label={t("deck.investigation.executionEvidence")}>
@@ -178,7 +183,11 @@ function ExecutionEvidence({
           </button>
         </Tooltip>
       </header>
-      <pre class="deck-investigation-command"><code>{evidence.command}</code></pre>
+      <pre class="deck-investigation-command">
+        <code data-format={formattedCommand.isJson ? "json" : "text"}>
+          {formattedCommand.text}
+        </code>
+      </pre>
       <div class="deck-investigation-result">
         <span class={`deck-investigation-result-status is-${status}`}>
           {statusLabel(status)}
@@ -188,7 +197,7 @@ function ExecutionEvidence({
         ) : null}
         {authority ? <span>{authority}</span> : null}
       </div>
-      {evidence.output !== undefined ? (
+      {formattedOutput !== undefined ? (
         <details class="deck-investigation-disclosure">
           <summary>
             <span>{outputLabel}</span>
@@ -196,7 +205,11 @@ function ExecutionEvidence({
               <span class="muted">{t("deck.investigation.truncated")}</span>
             ) : null}
           </summary>
-          <pre class="deck-investigation-output"><code>{evidence.output}</code></pre>
+          <pre class="deck-investigation-output">
+            <code data-format={formattedOutput.isJson ? "json" : "text"}>
+              {formattedOutput.text}
+            </code>
+          </pre>
         </details>
       ) : null}
       {hasTimestamps ? (

@@ -143,6 +143,8 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('"is-query" : "is-tool"');
     expect(component).toContain('activity.execution.inputKind === "query" ? "QUERY" : "TOOL"');
     expect(component).toContain('t("deck.investigation.copyQuery")');
+    expect(component).toContain("formatJsonValue(evidence.command)");
+    expect(component).toContain('data-format={formattedOutput.isJson ? "json" : "text"}');
     expect(component).toContain('t("deck.investigation.sourceSummary"');
     expect(styles).toContain("@keyframes deck-investigation-rise");
     expect(presenter).toContain('turn.source === "investigation"');
@@ -202,6 +204,8 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toMatch(
       /\.deck-investigation-command,[\s\S]*?\.deck-investigation-output\s*\{[^}]*background:\s*#1f2428/,
     );
+    expect(styles).toContain("scrollbar-color: #68737e #1f2428;");
+    expect(styles).toContain(".deck-investigation-command::-webkit-scrollbar-thumb,");
     expect(styles).toContain(".deck-investigation-item-disclosure > summary::after");
     expect(styles).toMatch(/\.deck-investigation-summary\s*\{[^}]*min-height:\s*44px/);
     expect(styles).toMatch(

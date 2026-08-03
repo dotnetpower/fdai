@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 101c4a877d4740c95ec018fcd23165d274ae8551
+translation_source_sha: 891a36fd2b6029d7796765f0ecb8095c5853fc4e
 translation_revised: 2026-08-03
 ---
 
@@ -454,10 +454,8 @@ emit 전에 credential과 민감한 identifier를 제거하고 `redacted=true`�
 없는 input evidence를 폐기합니다. `input_kind=command`는 기록된 process invocation이 필요하며 exit
 code를 포함할 수 있습니다. `input_kind=query`는 canonical typed server query를 전달하고 reconstructed
 provider command를 만들지 않으며 exit code를 포함할 수 없습니다. 허용된 activity는 일치하는 `TOOL`
-또는 `QUERY` badge, tool label, authority 및 완료 상태를 표시합니다. Command output 또는 query result와
-timestamp는 기본적으로 접힌 상태를 유지합니다. Intermediate progress detail과 milestone은 parsed
-resource name 대신 opaque resource placeholder를 사용합니다. Input은 16 KiB, result preview는 64 KiB로 제한되며 잘림 여부를
-명시합니다. Activity 및 retrieval label은 512자, detail 및 milestone text는 16 KiB로 제한되며
+또는 `QUERY` badge, tool label, authority 및 완료 상태를 표시합니다. Command output, query result 및 timestamp는 기본적으로 접힌 상태를 유지합니다. 유효한 object 또는 array JSON은 theme에 맞는 scrollbar가 적용된 bounded code surface에서 pretty-print됩니다.
+Inventory result는 일치한 resource, count, coverage 및 snapshot provenance를 포함하는 verifier-accepted detailed projection을 유지합니다. Input은 16 KiB, result preview는 64 KiB로 제한됩니다. 크기를 초과하는 collection tail은 omission count와 함께 제거해 output을 유효한 JSON으로 유지합니다. Activity 및 retrieval label은 512자, detail 및 milestone text는 16 KiB로 제한되며
 completed/total progress가 모순되면 거부합니다. Browser는
 표시된 command 또는 query를 복사할 수 있지만 실행하거나 다시 시도할 수 없습니다. 이 evidence는 권한 있는
 runtime이 수행한 work를 read-only로 관찰한 것이며, console이 executor identity 또는 임시 권한을

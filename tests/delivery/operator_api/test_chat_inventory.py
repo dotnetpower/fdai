@@ -2005,7 +2005,11 @@ def test_subscription_stopped_db_ignores_invalid_semantic_lookback_plan() -> Non
     execution = activity["execution"]
     assert isinstance(execution, dict)
     output = json.loads(execution["output"])
-    assert output == {"matched_count": 1, "status": "matched", "total_resources": 13}
+    assert output["matched_count"] == 1
+    assert output["status"] == "matched"
+    assert output["total_resources"] == 13
+    assert any(resource.get("name") == "postgres-data" for resource in output["resources"])
+    assert all("id" not in resource for resource in output["resources"])
     assert backend.calls == 0
 
 

@@ -7385,7 +7385,24 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   overflow-wrap: anywhere;
   color: #d7dde3;
   background: #1f2428;
+  color-scheme: dark;
+  scrollbar-color: #68737e #1f2428;
+  scrollbar-width: thin;
 }
+.deck-investigation-command::-webkit-scrollbar,
+.deck-investigation-output::-webkit-scrollbar { width: 10px; height: 10px; }
+.deck-investigation-command::-webkit-scrollbar-track,
+.deck-investigation-output::-webkit-scrollbar-track { background: #1f2428; }
+.deck-investigation-command::-webkit-scrollbar-thumb,
+.deck-investigation-output::-webkit-scrollbar-thumb {
+  border: 2px solid #1f2428;
+  border-radius: 8px;
+  background: #68737e;
+}
+.deck-investigation-command::-webkit-scrollbar-thumb:hover,
+.deck-investigation-output::-webkit-scrollbar-thumb:hover { background: #87929d; }
+.deck-investigation-command::-webkit-scrollbar-corner,
+.deck-investigation-output::-webkit-scrollbar-corner { background: #1f2428; }
 .deck-investigation-command code,
 .deck-investigation-output code {
   color: inherit;
