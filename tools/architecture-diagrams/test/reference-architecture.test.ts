@@ -127,6 +127,65 @@ test("FDAI reference architecture renders every governed relationship", async ()
     },
   );
   assert.equal(Math.abs(approvalLanes[0]! - approvalLanes[1]!), 28);
+
+  const directedSegments: Array<{
+    edgeId: string;
+    start: { x: number; y: number };
+    end: { x: number; y: number };
+  }> = [];
+  for (const edge of layout.edges) {
+    const container = edge.container ? layout.groups.get(edge.container) : undefined;
+    const offsetX = container?.x ?? 0;
+    const offsetY = container?.y ?? 0;
+    for (const section of edge.sections ?? []) {
+      const points = [
+        section.startPoint,
+        ...(section.bendPoints ?? []),
+        section.endPoint,
+      ].map((point) => ({ x: point.x + offsetX, y: point.y + offsetY }));
+      for (let index = 1; index < points.length; index += 1) {
+        const start = points[index - 1]!;
+        const end = points[index]!;
+        if (start.x === end.x || start.y === end.y) {
+          directedSegments.push({ edgeId: edge.id, start, end });
+        }
+      }
+    }
+  }
+  const opposingOverlaps: string[] = [];
+  for (let leftIndex = 0; leftIndex < directedSegments.length; leftIndex += 1) {
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < directedSegments.length;
+      rightIndex += 1
+    ) {
+      const left = directedSegments[leftIndex]!;
+      const right = directedSegments[rightIndex]!;
+      if (left.edgeId === right.edgeId) continue;
+      const vertical =
+        left.start.x === left.end.x &&
+        right.start.x === right.end.x &&
+        left.start.x === right.start.x;
+      const horizontal =
+        left.start.y === left.end.y &&
+        right.start.y === right.end.y &&
+        left.start.y === right.start.y;
+      if (!vertical && !horizontal) continue;
+      const [leftStart, leftEnd, rightStart, rightEnd] = vertical
+        ? [left.start.y, left.end.y, right.start.y, right.end.y]
+        : [left.start.x, left.end.x, right.start.x, right.end.x];
+      const overlap =
+        Math.min(Math.max(leftStart, leftEnd), Math.max(rightStart, rightEnd)) -
+        Math.max(Math.min(leftStart, leftEnd), Math.min(rightStart, rightEnd));
+      const opposite =
+        Math.sign(leftEnd - leftStart) !== Math.sign(rightEnd - rightStart);
+      if (overlap > 0 && opposite) {
+        opposingOverlaps.push(`${left.edgeId}<->${right.edgeId}`);
+      }
+    }
+  }
+  assert.deepEqual(opposingOverlaps, []);
+
   assert.deepEqual(
     [edges.get("executor-to-outcomes")?.from, edges.get("executor-to-outcomes")?.to],
     ["privileged-executor", "governed-changes"],

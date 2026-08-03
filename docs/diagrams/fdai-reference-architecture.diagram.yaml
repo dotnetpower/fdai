@@ -383,7 +383,7 @@ edges:
     from: governed-control
     to: evidence-store
     kind: audit
-    route: orthogonal-shortest
+    route: orthogonal-right
   - id: evidence-to-replay
     from: evidence-store
     to: audit-replay
