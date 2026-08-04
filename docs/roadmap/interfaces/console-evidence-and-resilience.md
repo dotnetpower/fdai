@@ -84,6 +84,14 @@ loading skeleton.
 Operations also includes a Configuration baselines route when a server-pinned drift context is available. Its GET-only projection runs a fresh read and shows baseline identity and lifecycle, drift counts, Knowledge citation readiness, topology coverage, stage latency, scheduled-review readiness, and all four safety counters.
 The SPA exposes no activation, schedule creation, approval, mitigation, or resource mutation control. An absent binding renders unavailable, and a malformed response fails strict decoding instead of becoming an inferred zero or healthy state.
 When a durable campaign store is bound, the panel reads its actual state and completed-versus-required run count. No campaign remains explicitly `not-configured`; the browser never invents progress.
+The same read-only projection lists immutable versions in the active baseline's exact scope,
+compares each version with the active baseline deterministically, and shows preserved failed-attempt
+counts. It exposes no activation or resume control. Evidence-run, resume, blueprint review, and
+materialization remain separate authenticated command routes.
+
+Production exposes this panel only after the mounted JSON/DOCX pair, read-only Managed Identity,
+and exact resource-group allowlist validate at startup. The Operator API never receives the
+executor identity for this capability.
 
 The Processes detail route conditionally renders a Planning Room from the same authoritative
 Process journal. Its strict decoder rejects contradictory phase counts, duplicate candidates,

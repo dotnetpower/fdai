@@ -1,7 +1,7 @@
 ---
 translation_of: automation-blueprints.md
-translation_source_sha: 0fe237978dea9c74dec33b6f9b9c8ac935629eb4
-translation_revised: 2026-07-21
+translation_source_sha: 1861c29b174423382916d0b637ed3455177bcf69
+translation_revised: 2026-08-04
 ---
 # Reviewable Automation Blueprints
 
@@ -55,6 +55,11 @@ superset이 필요합니다.
 Materialization은 reviewing principal로 `CreateScheduledTaskCommand`를 호출하며 scheduler store를
 직접 쓰지 않습니다. Stable task ID가 retry idempotency를 제공하고 conflicting content는 실패합니다.
 결과 task는 existing trust/risk path로 shadow-only event를 보냅니다.
+
+Configuration review campaign도 같은 path를 사용합니다. Exact cited run 세 개는 run별 fingerprint와
+zero mutation tool을 가진 disabled, shadow-only candidate를 제출합니다. 별도 Approver 또는 Owner가
+accept한 뒤에만 reviewing principal이 strict weekly task를 materialize할 수 있습니다. Drift evidence는
+scheduler store를 직접 쓰지 않습니다.
 
 ## Text drafting
 
