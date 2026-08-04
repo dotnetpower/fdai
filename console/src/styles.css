@@ -7436,7 +7436,14 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   border-radius: 7px;
   background: var(--bg);
 }
-.deck-turn-attachments span {
+.deck-turn-attachment-placeholder {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 7px;
+  background: var(--skeleton, var(--bg));
+}
+.deck-turn-attachments .deck-turn-attachment-name {
   display: block;
   margin-top: 4px;
   overflow: hidden;

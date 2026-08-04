@@ -139,7 +139,9 @@ flowchart TD
   Full-workspace web chat opens transcript-first. Conversation history and the current-screen
   digest are toolbar panels rather than permanent columns. The Deck header shows the active route;
   the Digest toggle and header own record count, snapshot age, and stale refresh. The composer keeps
-  only attachments, question entry, and send or stop. A restored transcript shows its last recorded
+  only attachments, question entry, and send or stop. Sent images render inside the operator turn.
+  Browser transcript caches retain only image descriptors, while authenticated history reads load
+  bytes from the principal-scoped conversation image repository. A restored transcript shows its last recorded
   time and a new-conversation action. Tables render every bounded row without internal scrolling or
   expansion controls. On narrow screens, cells reflow while preserving native table semantics.
 - **Layer 2 (Coordinator)** owns intent classification, RBAC gating, tool

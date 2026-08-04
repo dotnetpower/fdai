@@ -38,7 +38,9 @@ Verified source-manifest answers also preserve bounded unavailable or unknown en
 Full-workspace Command Deck sessions start with the transcript as the only open content column. An empty transcript keeps situational suggestions and adds localized Resilience, Change Safety, and Cost Governance quick starts without changing tool selection or authority. The transcript toolbar exposes filtered conversation history in workspace, docked, and floating layouts; the narrower layouts open it over the transcript instead of reducing transcript width. The current-screen digest remains a workspace control. The Deck reads the composition-owned data-source manifest once per open surface and shows compact Inventory, Incidents, Audit, Knowledge, and Automation readiness links above the transcript. Missing or non-authoritative sources remain `unknown`; the browser doesn't infer health, expose raw provider details, or replace the manifest with route presence. Loading uses a stable skeleton, and manifest failure links to Diagnostics without blocking conversation history.
 History loads 100 durable summaries at a time in stable cursor order. The count shows
 `100+` after it reaches 100, and nearing the history scroll boundary loads the next 100. Turn
-bodies hydrate only on selection. A transcript restored from browser or durable history shows a
+bodies hydrate only on selection. An operator image is visible in its sent turn. Browser cache
+serialization drops inline bytes and keeps a bounded descriptor; durable restoration fetches the
+binary through the authenticated principal-and-conversation-scoped image route. A transcript restored from browser or durable history shows a
 resumed-session marker until the operator starts a new conversation. The Deck header owns the route
 and optional agent context; it never repeats a non-agent conversation question. Digest owns record
 count, snapshot age, and stale refresh; the composer keeps attachments, question entry, and send or

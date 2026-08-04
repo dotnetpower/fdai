@@ -53,6 +53,9 @@ from fdai.delivery.persistence.postgres_conversation_assurance_policy import (
     PostgresConversationPolicyCandidateStore,
     PostgresConversationPolicyCandidateStoreConfig,
 )
+from fdai.delivery.persistence.postgres_conversation_images import (
+    PostgresConversationImageStore,
+)
 from fdai.delivery.persistence.postgres_conversation_search import (
     PostgresConversationSearch,
 )
@@ -219,6 +222,7 @@ __all__ = [
     "PostgresBriefingRunStore",
     "PostgresBriefingStoreConfig",
     "PostgresBriefingSubscriptionStore",
+    "PostgresConversationImageStore",
     "PostgresChannelPairingStore",
     "PostgresChannelPairingStoreConfig",
     "PostgresChannelIdentityLinkStore",

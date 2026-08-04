@@ -82,6 +82,9 @@ def append_auxiliary_routes(
         conversation_policy_store=config.conversation_policy_store,
         conversation_assurance_runtime=config.conversation_assurance_runtime,
         conversation_history_store=config.conversation_history_store,
+        conversation_image_store=(
+            config.user_context.images if config.user_context is not None else None
+        ),
         conversation_search=config.conversation_search,
         llm_usage_reader=config.llm_usage_reader,
         inventory_graph_provider=config.inventory_graph_provider,

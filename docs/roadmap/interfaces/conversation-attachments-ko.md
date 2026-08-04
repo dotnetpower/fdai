@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: 92bfd24ffb130cbc1d227e86f3c32d4a87d89328
-translation_revised: 2026-08-04
+translation_source_sha: bb7dc475aa73b54c5199fa80f4d471799e5c9733
+translation_revised: 2026-08-05
 title: 대화 첨부파일
 ---
 # 대화 첨부파일
@@ -46,7 +46,7 @@ File source는 channel마다 다릅니다. Safety, storage, purpose, citation, r
 | Protected channel ingestion | Composition 구현됨, deployment binding 대기 | `ProtectedChannelAttachmentIngestor`는 모든 byte를 기존 scan, protection, extraction, indexing 및 access lifecycle로 전달합니다. |
 | Explicit ownership handover | Contract 구현됨, Slack/Teams deployment binding 대기 | Leading `/handover`, `/attach handover` 또는 `인수인계 문서:` directive가 `handover_bootstrap`을 선택합니다. Content와 filename은 purpose를 선택하지 않습니다. |
 | Web chat document references | Backend contract 구현됨 | JSON 및 SSE chat은 immutable document/version id를 최대 8개 받습니다. Production resolver는 현재 principal이 upload한 ready version만 허용합니다. SPA file picker는 product UI 후속 작업입니다. |
-| Web chat inline vision evidence | 구현됨 | Web chat `attachments` field는 bounded inline base64 image를 받습니다(raster allowlist png/jpeg/gif/webp, `data:` URL만, 선언된 media type이 magic byte와 일치해야 함, decode 전 browser source 32 MiB cap, server edge 2048 pixel cap, per-image output cap 및 per-turn count cap). 검증된 image는 read-only evidence로서 해당 turn을 vision 지원 narrator로 escalate하며, 실행 자격을 부여하지 않습니다. Payload file byte를 신뢰하지 않는 channel document-ingestion 경로와는 구분됩니다. |
+| Web chat inline vision evidence | 구현됨 | Web chat `attachments` field는 bounded inline base64 image를 받습니다(raster allowlist png/jpeg/gif/webp, `data:` URL만, 선언된 media type이 magic byte와 일치해야 함, decode 전 browser source 32 MiB cap, server edge 2048 pixel cap, per-image output cap 및 per-turn count cap). 검증된 image는 read-only evidence로서 해당 turn을 vision 지원 narrator로 escalate하며, 실행 자격을 부여하지 않습니다. Operator API는 검증된 byte를 principal 범위 `conversation_image` repository에 저장하고 content-free descriptor만 turn history에 남겨 Console에서 복원할 수 있게 합니다. |
 | Image OCR | 구현됨, opt-in | `ImageOcrProvider`를 standard extractor에 inject합니다. Azure production은 managed identity로 Document Intelligence `prebuilt-read`를 bind할 수 있습니다. |
 
 ## Purpose 및 authorization
@@ -155,6 +155,13 @@ Resolved ref는 server-owned view context와 terminal verification에 들어갑�
 syntax는 400, resolver가 없는 deployment는 501을 반환합니다. Missing, unavailable, held, failed,
 deleted 또는 다른 principal의 version은 document 존재 여부를 노출하지 않도록 동일한 access
 denial을 반환합니다.
+
+Inline vision image는 document ingestion과 분리된 bounded repository를 사용합니다. 저장된 image는
+authenticated principal, conversation 및 opaque image id로 key를 구성합니다. Operator turn에는 id,
+display name 및 검증된 media type만 저장하고 base64 body는 저장하지 않습니다. Console은 인증된
+`GET /me/conversations/{conversation_id}/images/{image_id}`를 통해 history image를 읽고 표시용 browser
+object URL을 만듭니다. 다른 principal, conversation 또는 알 수 없는 id는 모두 같은 `404` response를
+반환합니다. Owning conversation을 삭제하면 해당 image row도 cascade로 삭제됩니다.
 
 ## Image OCR
 

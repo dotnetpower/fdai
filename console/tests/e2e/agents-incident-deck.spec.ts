@@ -481,3 +481,44 @@ test("pins a Var incident through the deck and renders a grounded Bragi answer",
     },
   });
 });
+
+test("renders a sent image inside the operator turn without caching its bytes", async ({
+  page,
+}) => {
+  const fixture = await installOperatorApiFixture(page, { answer: "The image is available." });
+  await page.goto(
+    `/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`,
+  );
+  await page.getByRole("button", { name: "Open command deck" }).click();
+  const deck = page.getByRole("complementary", { name: "Command deck" });
+  await deck.locator('input[type="file"]').setInputFiles({
+    name: "screenshot.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
+  await expect(deck.getByText(/^ready$/i)).toBeVisible();
+  await deck.getByPlaceholder(/Ask anything/i).fill("What is shown?");
+  await deck.getByRole("button", { name: "Send" }).click();
+
+  const sentImage = deck.locator('.deck-turn-operator img[alt="screenshot.png"]');
+  await expect(sentImage).toBeVisible();
+  await expect.poll(() => sentImage.evaluate((image: HTMLImageElement) => image.naturalWidth))
+    .toBeGreaterThan(0);
+  await expect.poll(() => fixture.chatBody()).not.toBeNull();
+  expect(fixture.chatBody()?.attachments).toMatchObject([{
+    id: expect.stringMatching(/^att-/),
+    name: "screenshot.png",
+    media_type: "image/png",
+  }]);
+
+  const cachedTranscript = await page.evaluate(() =>
+    Object.entries(localStorage)
+      .filter(([key]) => key.startsWith("fdai.deck.transcript.v1"))
+      .map(([, value]) => value)
+      .join("\n"));
+  expect(cachedTranscript).not.toContain("data:image/");
+  expect(cachedTranscript).not.toContain("iVBORw0KGgo");
+});

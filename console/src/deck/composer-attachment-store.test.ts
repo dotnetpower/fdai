@@ -15,7 +15,12 @@ import {
 import { createBackendRequestPayload } from "./backend-context";
 
 function att(n: number): ChatAttachment {
-  return { name: `img-${n}.png`, media_type: "image/png", data_url: `data:image/png;base64,AA${n}` };
+  return {
+    id: `attachment-${n}`,
+    name: `img-${n}.png`,
+    media_type: "image/png",
+    data_url: `data:image/png;base64,AA${n}`,
+  };
 }
 
 afterEach(() => clearComposerAttachments());
@@ -145,8 +150,8 @@ describe("createBackendRequestPayload attachments", () => {
       [att(1), att(2)],
     );
     expect(payload.attachments).toEqual([
-      { name: "img-1.png", media_type: "image/png", data_url: "data:image/png;base64,AA1" },
-      { name: "img-2.png", media_type: "image/png", data_url: "data:image/png;base64,AA2" },
+      { id: "attachment-1", name: "img-1.png", media_type: "image/png", data_url: "data:image/png;base64,AA1" },
+      { id: "attachment-2", name: "img-2.png", media_type: "image/png", data_url: "data:image/png;base64,AA2" },
     ]);
   });
 

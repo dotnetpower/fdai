@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 3dc32826d7d1cfc5891d910c45a5ee0e4123b515
-translation_revised: 2026-08-04
+translation_source_sha: f1d2495cfc0b4fe4af8bbaf278363b1e0ed6d577
+translation_revised: 2026-08-05
 ---
 
 # FDAI Console 대화
@@ -138,7 +138,9 @@ flowchart TD
   Full-workspace 웹 채팅은 transcript 중심으로 열립니다. 대화 이력과 현재 화면 digest는 항상
   표시되는 열이 아니라 toolbar panel입니다. Deck header는 활성 route를 표시하고, Digest toggle과
   header는 근거 record 수, snapshot age 및 오래된 context 새로고침을 담당합니다. Composer에는
-  attachment, 질문 입력 및 보내기 또는 중지만 유지합니다. 복원된 transcript에는 마지막 기록 시각과
+  attachment, 질문 입력 및 보내기 또는 중지만 유지합니다. 전송된 image는 operator turn 안에
+  표시됩니다. Browser transcript cache에는 image descriptor만 유지하고 인증된 history read가
+  principal 범위 conversation image repository에서 byte를 load합니다. 복원된 transcript에는 마지막 기록 시각과
   새 대화 작업을 표시합니다. 좁은 화면에서도 Markdown table은 native table semantics를 유지합니다.
 - **Layer 2 (Coordinator)**는 intent classification, RBAC gating, tool
   dispatch, verifier re-check, 세션 bookkeeping을 소유합니다. Core translator는 `Narrator`

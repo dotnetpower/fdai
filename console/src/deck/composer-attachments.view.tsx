@@ -138,6 +138,7 @@ export function ComposerAttachments() {
                   return;
                 }
                 const accepted = stageComposerAttachment(id, {
+                  id,
                   name: normalized.name,
                   media_type: normalizedMedia,
                   data_url: dataUrl,

@@ -23,6 +23,7 @@ from fdai.core.scheduler.continuation import (
     scheduled_result_to_typed_fact,
 )
 from fdai.core.user_context_projection import UserContextOntologyProjector
+from fdai.delivery.conversation_images import ConversationImageStore
 from fdai.delivery.operator_api.routes.user_context_conversations import (
     conversation_cursor,
     load_conversation_page,
@@ -101,6 +102,7 @@ class UserContextRoutesConfig:
     continuations: ScheduledConversationAnchorStore | None = None
     continuation_service: ScheduledContinuationService | None = None
     clock: Callable[[], datetime] = _utc_now
+    images: ConversationImageStore | None = None
 
 
 def make_user_context_routes(
@@ -521,6 +523,26 @@ def make_user_context_routes(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return JSONResponse(_json(anchor))
 
+    async def conversation_image(request: Request) -> Response:
+        principal_id = await authorize(request)
+        if config.images is None:
+            raise HTTPException(status_code=404, detail="conversation image unavailable")
+        image = await config.images.get(
+            principal_id=principal_id,
+            conversation_id=request.path_params["conversation_id"],
+            image_id=request.path_params["image_id"],
+        )
+        if image is None:
+            raise HTTPException(status_code=404, detail="conversation image unavailable")
+        return Response(
+            image.content,
+            media_type=image.media_type,
+            headers={
+                "Cache-Control": "private, no-store",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
+
     return (
         Route("/me/context", context, methods=["GET"]),
         Route("/me/conversations", conversation_page, methods=["GET"]),
@@ -538,6 +560,11 @@ def make_user_context_routes(
         Route(
             "/me/conversations/{conversation_id:str}/turns",
             conversation_turns,
+            methods=["GET"],
+        ),
+        Route(
+            "/me/conversations/{conversation_id:str}/images/{image_id:str}",
+            conversation_image,
             methods=["GET"],
         ),
         Route(

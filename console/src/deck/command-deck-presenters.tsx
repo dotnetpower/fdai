@@ -36,14 +36,17 @@ import {
 import { useViewContext } from "./context";
 import type { ConversationTrajectory } from "./conversation-trajectory";
 import { ConversationTrajectoryView } from "./conversation-trajectory-view";
+import { ConversationTurnAttachments } from "./conversation-turn-attachments";
 import { GroundedReply } from "./grounded-reply";
 import { InvestigationTimeline } from "./investigation-timeline";
 import { introSuggestions } from "./intro-suggestions";
+import type { TurnAttachment } from "./turn-attachments";
 
 export interface Turn {
   readonly id: string;
   readonly role: "operator" | "deck";
   readonly text: string;
+  readonly attachments?: readonly TurnAttachment[];
   readonly recordedAt?: string;
   /** Bounded non-rendered context sent in place of `text` for backend history. */
   readonly groundingText?: string;
@@ -607,6 +610,9 @@ export function TurnBubble({
         />
       ) : (
         <div class="deck-turn-body">
+          {turn.attachments && turn.attachments.length > 0 ? (
+            <ConversationTurnAttachments attachments={turn.attachments} />
+          ) : null}
           {turn.text.split("\n").map((line, index) => (
             <p key={index} class="deck-turn-line">{line}</p>
           ))}

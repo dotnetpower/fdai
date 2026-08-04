@@ -70,6 +70,7 @@ export function createBackendRequestPayload(
     ...(attachments && attachments.length > 0
       ? {
           attachments: attachments.map((attachment) => ({
+            id: attachment.id,
             name: attachment.name,
             media_type: attachment.media_type,
             data_url: attachment.data_url,

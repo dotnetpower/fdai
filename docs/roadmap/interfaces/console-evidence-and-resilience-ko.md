@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: f6022e8c99757eba4c695d9f399eacbd89358365
+translation_source_sha: 2d3d2e1095cef9a76998594499d111fcc1717171
 translation_revised: 2026-08-05
 ---
 
@@ -42,7 +42,9 @@ toolbar는 workspace, docked 및 floating layout에서 filter 가능한 대화 �
 layout에서는 transcript 폭을 줄이지 않고 그 위에 overlay로 엽니다. 현재 화면 digest는 workspace control로 유지됩니다. Deck은 열린 surface마다 composition-owned data-source manifest를 한 번 읽고 transcript 위에 Inventory, Incidents, Audit, Knowledge 및 Automation readiness link를 compact하게 표시합니다. 누락되거나 non-authoritative인 source는 `unknown`으로 유지합니다. Browser는 health를 추론하거나 raw provider detail을 노출하거나 route 존재로 manifest를 대체하지 않습니다. Loading은 stable skeleton을 사용하고 manifest failure는 conversation history를 차단하지 않으면서 Diagnostics로 연결합니다.
 History는 stable cursor 순서로 durable summary를 한 번에 100건씩 load합니다. 100건에 도달하면 count를
 `100+`로 표시하고 history scroll 경계에 가까워지면 다음 100건을 load합니다. Transcript body는 선택할
-때만 hydrate합니다. Browser 또는 durable history에서 복원된 transcript는 새 대화를 시작할 때까지
+때만 hydrate합니다. Operator image는 전송된 turn 안에 표시됩니다. Browser cache serialization은
+inline byte를 제거하고 bounded descriptor만 유지하며, durable restoration은 인증된 principal 및
+conversation 범위 image route를 통해 binary를 fetch합니다. Browser 또는 durable history에서 복원된 transcript는 새 대화를 시작할 때까지
 resumed-session marker를 표시합니다. Deck header는 route와 optional agent context만 담당하며 agent
 대화가 아닌 질문은 반복 표시하지 않습니다. Digest는 record 수, snapshot age 및 오래된 context
 새로고침을 담당하며, Composer에는 attachment, 질문 입력 및 보내기 또는 중지만 유지합니다.

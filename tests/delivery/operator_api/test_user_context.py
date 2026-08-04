@@ -14,6 +14,10 @@ from fdai.core.scheduler.continuation import (
     InMemoryScheduledConversationAnchorStore,
     ScheduledContinuationService,
 )
+from fdai.delivery.conversation_images import (
+    ConversationImage,
+    InMemoryConversationImageStore,
+)
 from fdai.delivery.operator_api.routes.user_context import (
     UserContextRoutesConfig,
     make_user_context_routes,
@@ -46,6 +50,7 @@ NOW = datetime(2026, 7, 16, 7, 0, tzinfo=UTC)
 
 def _client(
     conversations: InMemoryConversationHistoryStore | None = None,
+    images: InMemoryConversationImageStore | None = None,
 ) -> TestClient:
     conversations = conversations or InMemoryConversationHistoryStore()
     preferences = InMemoryUserPreferenceStore()
@@ -68,6 +73,7 @@ def _client(
         subscriptions=subscriptions,
         runs=runs,
         opening_briefing=opening,
+        images=images,
     )
 
     async def authorize(_request: Request) -> str:
@@ -75,6 +81,37 @@ def _client(
 
     app = Starlette(routes=list(make_user_context_routes(config=config, authorize=authorize)))
     return TestClient(app)
+
+
+def test_conversation_image_read_is_conversation_scoped() -> None:
+    images = InMemoryConversationImageStore()
+
+    async def seed() -> None:
+        await images.put(
+            ConversationImage.create(
+                image_id="att-image-1",
+                principal_id="principal-a",
+                conversation_id="conversation-1",
+                request_id="request-1",
+                name="screenshot.png",
+                media_type="image/png",
+                content=b"image-bytes",
+                created_at=NOW,
+            )
+        )
+
+    asyncio.run(seed())
+    client = _client(images=images)
+
+    response = client.get("/me/conversations/conversation-1/images/att-image-1")
+    denied = client.get("/me/conversations/conversation-2/images/att-image-1")
+
+    assert response.status_code == 200
+    assert response.content == b"image-bytes"
+    assert response.headers["content-type"] == "image/png"
+    assert response.headers["cache-control"] == "private, no-store"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert denied.status_code == 404
 
 
 def test_context_pages_durable_conversations_in_hundreds() -> None:

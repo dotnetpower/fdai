@@ -21,6 +21,30 @@ describe("transcriptKeyFor", () => {
 });
 
 describe("serializeTurns", () => {
+  it("persists image descriptors without persisting inline image bytes", () => {
+    const serialized = serializeTurns([{
+      id: "turn-image",
+      role: "operator",
+      text: "What is shown?",
+      at: "10:00:00",
+      attachments: [{
+        id: "att-image-1",
+        name: "screenshot.png",
+        mediaType: "image/png",
+        conversationId: "conversation-1",
+        src: "data:image/png;base64,secret-image-bytes",
+      }],
+    }]);
+
+    expect(serialized).not.toContain("secret-image-bytes");
+    expect(parseTurns(serialized)[0]?.attachments).toEqual([{
+      id: "att-image-1",
+      name: "screenshot.png",
+      mediaType: "image/png",
+      conversationId: "conversation-1",
+    }]);
+  });
+
   it("round-trips completed turns", () => {
     const turns = [
       {

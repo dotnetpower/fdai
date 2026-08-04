@@ -42,7 +42,7 @@ The file source changes by channel. Safety, storage, purpose, citations, retenti
 | Protected channel ingestion | Composition implemented; deployment binding pending | `ProtectedChannelAttachmentIngestor` sends all bytes through the existing scan, protection, extraction, indexing, and access lifecycle. |
 | Explicit ownership handover | Contract implemented; Slack/Teams deployment binding pending | A leading `/handover`, `/attach handover`, or `인수인계 문서:` directive selects `handover_bootstrap`; content and filenames never select it. |
 | Web chat document references | Implemented backend contract | JSON and SSE chat accept up to eight immutable document/version ids. The production resolver permits only ready versions uploaded by the current principal. The SPA file picker remains product UI work. |
-| Web chat inline vision evidence | Implemented | The web chat `attachments` field accepts a bounded set of inline base64 images (raster allowlist png/jpeg/gif/webp, `data:` URLs only, declared media type must match magic bytes, browser source capped at 32 MiB before decode, server edge capped at 2048 pixels, per-image output cap and per-turn count cap). Validated images escalate the turn to a vision-capable narrator as read-only evidence; they never grant execution eligibility. Distinct from the channel document-ingestion path, which still never trusts payload file bytes. |
+| Web chat inline vision evidence | Implemented | The web chat `attachments` field accepts a bounded set of inline base64 images (raster allowlist png/jpeg/gif/webp, `data:` URLs only, declared media type must match magic bytes, browser source capped at 32 MiB before decode, server edge capped at 2048 pixels, per-image output cap and per-turn count cap). Validated images escalate the turn to a vision-capable narrator as read-only evidence; they never grant execution eligibility. The Operator API stores validated bytes in the principal-scoped `conversation_image` repository and keeps content-free descriptors in turn history so the Console can restore them. |
 | Image OCR | Implemented, opt-in | `ImageOcrProvider` is injected into the standard extractor. Azure production can bind Document Intelligence `prebuilt-read` with managed identity. |
 
 ## Purpose and authorization
@@ -147,6 +147,14 @@ fails closed before it reaches view context or verification.
 Resolved refs enter server-owned view context and terminal verification. Invalid UUID syntax returns
 400; a deployment without a resolver returns 501. A missing, unavailable, held, failed, deleted, or
 another principal's version returns the same access denial so document existence is not disclosed.
+
+Inline vision images use a separate bounded repository rather than document ingestion. Each stored
+image is keyed by the authenticated principal, conversation, and opaque image id. The operator turn
+stores only id, display name, and validated media type; it never stores the base64 body. The Console
+reads a historical image through authenticated
+`GET /me/conversations/{conversation_id}/images/{image_id}` and creates a browser object URL for
+display. A different principal, conversation, or unknown id returns the same `404` response. Deleting
+the owning conversation cascades to its image rows.
 
 ## Image OCR
 

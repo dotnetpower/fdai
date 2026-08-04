@@ -15,6 +15,7 @@
 
 /** One send-ready inline image attachment (matches the chat request shape). */
 export interface ChatAttachment {
+  readonly id: string;
   readonly name: string;
   readonly media_type: string;
   readonly data_url: string;

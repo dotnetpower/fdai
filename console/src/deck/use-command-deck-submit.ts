@@ -131,6 +131,7 @@ export function useCommandDeckSubmit({
     // the payload away.
     const attachments = takeComposerAttachments();
     const originSessionKey = sessionKeyRef.current;
+    const conversationId = sessionIdFor(sessionIdsRef.current, originSessionKey);
     const controller = new AbortController();
     const request: ActiveRequest = {
       id: newId(),
@@ -149,6 +150,17 @@ export function useCommandDeckSubmit({
       id: newId(),
       role: "operator",
       text,
+      ...(attachments.length > 0
+        ? {
+            attachments: attachments.map((attachment) => ({
+              id: attachment.id,
+              name: attachment.name,
+              mediaType: attachment.media_type,
+              conversationId,
+              src: attachment.data_url,
+            })),
+          }
+        : {}),
       at: shortTime(),
       recordedAt: activityAt,
     };
@@ -270,7 +282,7 @@ export function useCommandDeckSubmit({
       let reply: Awaited<ReturnType<typeof askBackendStream>>;
       try {
         reply = await askBackendStream(text, snapshot, history, {
-          sessionId: sessionIdFor(sessionIdsRef.current, originSessionKey),
+          sessionId: conversationId,
           ...(sessionSummary?.agent ? { targetAgent: sessionSummary.agent } : {}),
           ...(attachments.length > 0 ? { attachments } : {}),
           ...(sessionSummary?.binding

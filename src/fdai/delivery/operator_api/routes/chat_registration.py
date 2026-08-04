@@ -123,6 +123,7 @@ def append_chat_routes(
     conversation_policy_store: ConversationPolicyStore | None = None,
     conversation_assurance_runtime: ConversationPolicyRuntime | None = None,
     conversation_history_store: ConversationHistoryStore | None = None,
+    conversation_image_store: Any = None,
     conversation_search: ConversationSearch | None = None,
     llm_usage_reader: Any = None,
     inventory_graph_provider: InventoryGraphProvider | None = None,
@@ -340,6 +341,7 @@ def append_chat_routes(
                 conversation_policy_store=conversation_policy_store,
                 conversation_assurance_runtime=conversation_assurance_runtime,
                 conversation_history_store=conversation_history_store,
+                conversation_image_store=conversation_image_store,
                 user_context_ontology_projector=user_context_ontology_projector,
                 model_preference_resolver=(
                     getattr(model_settings, "preferred_model", None)
@@ -369,6 +371,7 @@ def append_chat_routes(
                 conversation_policy_store=conversation_policy_store,
                 conversation_assurance_runtime=conversation_assurance_runtime,
                 conversation_history_store=conversation_history_store,
+                conversation_image_store=conversation_image_store,
                 user_context_ontology_projector=user_context_ontology_projector,
                 model_preference_resolver=(
                     getattr(model_settings, "preferred_model", None)

@@ -82,6 +82,10 @@ Opening the trusted workspace automatically runs `console: prepare local state` 
 the local PostgreSQL and Redpanda containers and applies pending migrations. The committed workspace
 setting allows automatic tasks, and the task's single-instance limit avoids duplicate preparation,
 so no separate task selection is required.
+The same migration creates the principal-scoped `conversation_image` repository in local and
+deployed PostgreSQL. Command Deck history therefore restores sent images through the same
+authenticated Operator API route in both profiles; neither profile stores inline base64 in turn
+metadata or browser transcript caches.
 The compound completes `console: prepare full stack` once before starting any child configuration,
 so PostgreSQL migration, runtime environment generation, and Entra synchronization are not repeated
 by both backend launches. Run that preparation task first when starting the standalone Core Runtime
