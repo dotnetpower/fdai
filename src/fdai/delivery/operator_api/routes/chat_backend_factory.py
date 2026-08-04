@@ -182,8 +182,9 @@ def _resolve_disk_azure_backend(
         if vision_backend is not None:
             routed.bind_vision_backend(vision_backend)
         return routed
-    # 2) Single narrator.
-    return _build_single_azure_backend(
+    # 2) Single narrator. Wrap it only when image dispatch needs the same
+    # capability-aware boundary as the multi-candidate router.
+    single = _build_single_azure_backend(
         data.get("narrator"),
         identity=identity,
         http_client=http_client,
@@ -192,6 +193,31 @@ def _resolve_disk_azure_backend(
         pricing=pricing,
         resolved_model_keys=resolved_model_keys,
     )
+    if single is None:
+        return None
+    vision_backend = _build_candidate_pool(
+        data.get("vision_candidates"),
+        identity=identity,
+        http_client=http_client,
+        max_tokens=max_tokens,
+        turn_timeout_seconds=turn_timeout_seconds,
+        metering_sink=metering_sink,
+        pricing=pricing,
+        resolved_model_keys=resolved_model_keys,
+        vision_capable=True,
+    )
+    narrator = data.get("narrator")
+    if vision_backend is None or not isinstance(narrator, dict):
+        return single
+    deployment = narrator.get("deployment")
+    if not isinstance(deployment, str):
+        return single
+    wrapped = LatencyRoutedChatBackend(
+        candidates=[(deployment, single)],
+        turn_timeout_seconds=turn_timeout_seconds,
+    )
+    wrapped.bind_vision_backend(vision_backend)
+    return wrapped
 
 
 def _build_single_azure_backend(

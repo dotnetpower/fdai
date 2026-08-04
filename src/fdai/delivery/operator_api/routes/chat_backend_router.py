@@ -81,8 +81,8 @@ class LatencyRoutedChatBackend:
         turn_timeout_seconds: float = 30.0,
         vision_capable: bool = False,
     ) -> None:
-        if len(candidates) < 2:
-            raise ValueError("LatencyRoutedChatBackend requires >= 2 candidates")
+        if not candidates:
+            raise ValueError("LatencyRoutedChatBackend requires >= 1 candidate")
         names = [n for n, _ in candidates]
         if len(set(names)) != len(names):
             raise ValueError("LatencyRoutedChatBackend candidate names MUST be unique")

@@ -327,6 +327,9 @@ class ResolvedModels:
 # ---------------------------------------------------------------------------
 
 
+_VIRTUAL_CAPABILITIES = frozenset({"t1.vision"})
+
+
 def resolve(
     *,
     registry: LlmRegistry,
@@ -364,6 +367,8 @@ def resolve(
     # Sort capabilities by name so the output is deterministic regardless
     # of dict iteration order in the source YAML.
     for name in sorted(registry.models):
+        if name in _VIRTUAL_CAPABILITIES:
+            continue
         spec = registry.models[name]
         if not has_perm:
             entries.append(

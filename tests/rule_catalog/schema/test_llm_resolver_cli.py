@@ -128,6 +128,7 @@ def test_cli_populates_narrator_when_endpoint_given(tmp_path: Path) -> None:
     for cand in candidates:
         assert cand in cap_names, f"missing terraform capability for {cand}"
     assert "websearch-gpt-4-1-nano" in cap_names
+    assert "t1.vision" not in cap_names
 
     # The original t1.judge capability is preserved (composition.py depends
     # on it for judge binding); narrator capabilities are additive.

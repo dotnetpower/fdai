@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 4a23cb9baa9a99acbae8a75fb3ef82531a86d531
+translation_source_sha: 5a92d8d9a1e366350c69dcb38fedd84ddc252362
 translation_revised: 2026-08-04
 ---
 
@@ -271,8 +271,8 @@ models:
 
 ### 부트스트랩 Provisioner
 
-`azd up` (또는 등가) 에서 resolver가 레지스트리를 읽고, 대상 리전의 Azure OpenAI / Foundry
-카탈로그를 쿼리하고, **capability당 하나의 deployment** 프로비저닝. Resolved `{capability →
+`azd up` (또는 등가) 에서 resolver가 레지스트리를 읽고 대상 리전의 Azure OpenAI / Foundry 카탈로그를 쿼리하여 **구체 capability당 하나의 deployment** 를 프로비저닝합니다. 가상 `t1.vision`은
+별도 deployment를 만들지 않고 일치하는 narrator deployment를 재사용합니다. Resolved `{capability →
 deployment}` 매핑이 Key Vault에 기록되고 감사됨.
 
 배포자가 `Cognitive Services Contributor` 를 갖지 않을 때, 선호 family가 리전에 없을 때,
@@ -430,7 +430,7 @@ Operator API는 operator traffic과 독립적으로 text 및 multimodal pool을 
 교집합인 `vision_candidates`를 사용하므로 Azure quota를 중복 예약하지 않습니다. 각 pool은 별도
 8-sample latency와 TTFT window를 유지합니다. Startup은 text 후보를 두 번, vision 후보는 bounded 1 px
 image로 probe하고 이후 `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS`(기본 `300`)마다 sample을 추가합니다. 느리거나 incompatible한 후보는 재시작 없이 뒤로 이동하며 vision pool이 없으면 text를 빌리지 않고 image
-turn만 unavailable로 유지합니다.
+turn만 unavailable로 유지합니다. 이 dispatch boundary는 narrator와 vision 후보가 각각 하나만 resolve되어도 적용됩니다.
 ### 사용자별 Narrator 선호 및 TTFT
 
 Settings > Models는 모델 endpoint 또는 자격 증명을 노출하지 않고 해결된 T1/T2

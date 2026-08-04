@@ -148,10 +148,9 @@ class _EmptyStreamingBackend(_EmptyBackend):
 
 
 class TestRouterConstruction:
-    def test_requires_two_or_more_candidates(self) -> None:
-        only = _FixedLatencyBackend(model="only", delay_ms=1)
-        with pytest.raises(ValueError, match=">= 2"):
-            LatencyRoutedChatBackend(candidates=[("only", only)])
+    def test_requires_one_or_more_candidates(self) -> None:
+        with pytest.raises(ValueError, match=">= 1"):
+            LatencyRoutedChatBackend(candidates=[])
 
     def test_rejects_duplicate_names(self) -> None:
         a = _FixedLatencyBackend(model="dup", delay_ms=1)

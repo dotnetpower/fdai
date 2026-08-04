@@ -286,9 +286,9 @@ Rules the registry enforces (MUST, at config load):
 
 ### Bootstrap Provisioner
 
-At `azd up` (or equivalent) the resolver reads the registry, queries the Azure OpenAI /
-Foundry catalog for the target region, and provisions **one deployment per capability**.
-The resolved `{capability → deployment}` mapping is written to Key Vault and audited.
+At `azd up` (or equivalent) the resolver reads the registry, queries the target region's Azure OpenAI / Foundry catalog, and provisions **one deployment per concrete capability**;
+virtual `t1.vision` reuses matching narrator deployments. The resolved `{capability → deployment}`
+mapping is written to Key Vault and audited.
 
 The full **deployer-permission gate table** (what happens when the deployer identity lacks
 `Cognitive Services Contributor`, when a preferred family is missing from the region, when
@@ -459,7 +459,7 @@ deployments and emitted as `vision_candidates`, so Azure quota isn't reserved tw
 its own eight-sample latency and TTFT windows. Startup probes every text candidate twice and every
 vision candidate with a bounded 1 px image; periodic checks add one sample every
 `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS` (default `300`). A slower or incompatible candidate falls
-behind without restart, while a missing vision pool makes image turns unavailable instead of borrowing text.
+behind without restart, while a missing vision pool makes image turns unavailable instead of borrowing text. This dispatch boundary also applies when only one narrator and one vision candidate resolve.
 ### Per-user Narrator Preference and TTFT
 
 Settings > Models projects the resolved T1/T2 capability inventory, bootstrap discovery and
