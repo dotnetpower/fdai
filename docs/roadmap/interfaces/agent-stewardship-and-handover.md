@@ -330,7 +330,8 @@ form:
 - **Projection validation** - the browser accepts only supported integer schema versions,
   non-negative integer counts, and positive timeout and assignment limits. It recomputes aggregate
   counts from the fixed Pantheon map, requires the maintainer floor and non-empty exact subject
-  references, and rejects drift instead of displaying inferred health.
+  references, rejects duplicate real maintainers and duplicate exact steward subjects, and rejects
+  drift instead of displaying inferred health.
 - **Finding validation** - coverage findings use the fixed code and severity vocabulary, reference
   only fixed Pantheon Agents when an Agent is present, and derive the clean state from the absence
   of warning findings. Each code also fixes its severity and whether its scope is one Agent or the

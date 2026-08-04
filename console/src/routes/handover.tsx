@@ -231,11 +231,17 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
   if (
     decoded.map.maintainer_count !== decoded.map.maintainers.length ||
     decoded.map.maintainer_count < 1 ||
-    decoded.map.maintainers.some((maintainer) => maintainer.trim().length === 0)
+    decoded.map.maintainers.some((maintainer) => maintainer.trim().length === 0) ||
+    new Set(decoded.map.maintainers.filter((maintainer) => maintainer !== PLACEHOLDER_OID)).size !==
+      decoded.map.maintainers.filter((maintainer) => maintainer !== PLACEHOLDER_OID).length
   ) {
-    throw panelContractError("stewardship.map maintainers MUST satisfy the non-empty maintainer floor");
+    throw panelContractError("stewardship.map maintainers MUST satisfy the non-empty distinct maintainer floor");
   }
   for (const agent of decoded.map.agents) {
+    const exactSubjects = agent.stewards.map((steward) => `${steward.kind}:${steward.id}`);
+    if (new Set(exactSubjects).size !== exactSubjects.length) {
+      throw panelContractError("stewardship agent stewards MUST contain distinct exact subjects");
+    }
     const accountableUnits = new Set(
       agent.stewards
         .filter((steward) => steward.responsibility === "accountable")
@@ -325,3 +331,4 @@ function stewardshipEnum<const T extends string>(
 }
 
 const STEWARDSHIP_DUTY_VERSION = 2;
+const PLACEHOLDER_OID = "00000000-0000-0000-0000-000000000000";

@@ -64,7 +64,7 @@ describe("Handover projection contract", () => {
 
     const maintainerDrift = stewardshipPayload();
     maintainerDrift.map.maintainer_count = 2;
-    expect(() => decodeStewardship(maintainerDrift)).toThrow(/non-empty maintainer floor/);
+    expect(() => decodeStewardship(maintainerDrift)).toThrow(/distinct maintainer floor/);
   });
 
   test("requires non-empty exact subjects and the maintainer floor", () => {
@@ -76,7 +76,7 @@ describe("Handover projection contract", () => {
 
     const blankMaintainer = stewardshipPayload();
     blankMaintainer.map.maintainers[0] = "   ";
-    expect(() => decodeStewardship(blankMaintainer)).toThrow(/non-empty maintainer floor/);
+    expect(() => decodeStewardship(blankMaintainer)).toThrow(/distinct maintainer floor/);
 
     const blankSteward = stewardshipPayload();
     blankSteward.map.agents[0]!.stewards[0]!.id = "";
@@ -89,6 +89,20 @@ describe("Handover projection contract", () => {
     blankReason.map.agents[0]!.accept_autonomous_reason = " " as never;
     blankReason.coverage.autonomous_agents = 1;
     expect(() => decodeStewardship(blankReason)).toThrow(/autonomy.*alternative/);
+  });
+
+  test("rejects duplicate real maintainers and steward subjects", () => {
+    const duplicateMaintainer = stewardshipPayload();
+    duplicateMaintainer.map.maintainers = ["maintainer-1", "maintainer-1"];
+    duplicateMaintainer.map.maintainer_count = 2;
+    duplicateMaintainer.coverage.maintainer_count = 2;
+    expect(() => decodeStewardship(duplicateMaintainer)).toThrow(/distinct maintainer floor/);
+
+    const duplicateSteward = stewardshipPayload();
+    duplicateSteward.map.agents[0]!.stewards.push({
+      ...duplicateSteward.map.agents[0]!.stewards[0]!,
+    });
+    expect(() => decodeStewardship(duplicateSteward)).toThrow(/distinct exact subjects/);
   });
 
   test("rejects coverage counts that disagree with the map", () => {
