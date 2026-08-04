@@ -3,120 +3,131 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Identity and access - FDAI Console</title>
+  <title>Agent-human dependencies - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
   <style>
-    .cs-settings-page { max-width: 1280px; }
-    .iam-boundary { display: flex; align-items: center; gap: 9px; margin: 18px 0; padding: 10px 12px; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-shade); color: var(--cs-text-soft); font-size: 12px; }
-    .iam-boundary strong { color: var(--cs-text); }
-    .iam-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-block: 1px solid var(--cs-hairline); }
-    .iam-metric { padding: 14px 18px; border-right: 1px solid var(--cs-hairline); }
-    .iam-metric:last-child { border-right: 0; }
-    .iam-metric strong { display: block; font-size: 22px; line-height: 1.1; }
-    .iam-metric span { display: block; margin-top: 4px; color: var(--cs-text-soft); font-size: 11.5px; }
-    .iam-tools { position: relative; z-index: 20; display: grid; grid-template-columns: minmax(280px, 1fr) 170px 170px; gap: 8px; margin: 18px 0 12px; }
-    .iam-search { position: relative; }
-    .iam-search input, .iam-tools select, .iam-scope select { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-card); color: var(--cs-text); font: 13px var(--cs-font); }
-    .iam-search input:focus, .iam-tools select:focus, .iam-scope select:focus { outline: none; border-color: var(--cs-steel); box-shadow: 0 0 0 3px rgba(68,104,142,.12); }
-    .iam-search-menu { position: absolute; top: calc(100% + 5px); right: 0; left: 0; z-index: 30; padding: 4px; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-card); box-shadow: 0 12px 30px rgba(46,54,64,.14); }
-    .iam-search-menu[hidden] { display: none; }
-    .iam-search-option { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 8px 9px; border: 0; border-radius: 5px; background: transparent; color: var(--cs-text); text-align: left; cursor: pointer; }
-    .iam-search-option:hover, .iam-search-option:focus-visible { background: var(--cs-shade); outline: none; }
-    .iam-search-option strong, .iam-search-option small { display: block; }
-    .iam-search-option small { overflow: hidden; margin-top: 2px; color: var(--cs-text-soft); font-size: 10.5px; text-overflow: ellipsis; }
-    .iam-workspace { display: grid; grid-template-columns: minmax(290px, 360px) minmax(0, 1fr); min-height: 650px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); box-shadow: var(--cs-shadow); overflow: hidden; }
-    .iam-roster { border-right: 1px solid var(--cs-hairline); background: var(--cs-bg); }
-    .iam-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 16px 17px 13px; border-bottom: 1px solid var(--cs-hairline); }
-    .iam-panel-head h2 { margin: 0; font-size: 14px; }
-    .iam-panel-head p { margin: 3px 0 0; color: var(--cs-text-soft); font-size: 11px; }
-    .iam-count { padding: 3px 7px; border: 1px solid var(--cs-hairline); border-radius: 10px; color: var(--cs-text-soft); font-size: 10.5px; white-space: nowrap; }
-    .iam-roster-list { display: flex; flex-direction: column; }
-    .iam-person { width: 100%; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 13px 14px; border: 0; border-bottom: 1px solid var(--cs-hairline); background: transparent; color: var(--cs-text); text-align: left; cursor: pointer; }
-    .iam-person:hover { background: var(--cs-card); }
-    .iam-person.is-selected { background: var(--cs-card); box-shadow: inset 3px 0 0 var(--cs-steel); }
-    .iam-avatar { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(68,104,142,.22); border-radius: 7px; background: rgba(68,104,142,.08); color: var(--cs-steel); font-size: 10px; font-weight: 800; }
-    .iam-person-copy { min-width: 0; }
-    .iam-person-copy strong, .iam-person-copy small { display: block; }
-    .iam-person-copy strong { overflow: hidden; font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
-    .iam-person-copy small { overflow: hidden; margin-top: 2px; color: var(--cs-text-soft); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-    .iam-person-meta { text-align: right; }
-    .iam-person-meta strong, .iam-person-meta small { display: block; }
-    .iam-person-meta strong { color: var(--cs-steel); font-size: 10.5px; }
-    .iam-person-meta small { margin-top: 2px; color: var(--cs-text-soft); font-size: 9.5px; }
-    .iam-detail { min-width: 0; }
-    .iam-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 18px 20px 16px; border-bottom: 1px solid var(--cs-hairline); }
-    .iam-identity { display: flex; align-items: flex-start; gap: 11px; min-width: 0; }
-    .iam-identity h2 { margin: 0; font-size: 17px; }
-    .iam-identity p { overflow-wrap: anywhere; margin: 3px 0 0; color: var(--cs-text-soft); font-size: 11px; }
-    .iam-badges { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
-    .iam-badge { display: inline-flex; align-items: center; min-height: 23px; padding: 3px 8px; border: 1px solid var(--cs-hairline); border-radius: 12px; color: var(--cs-text-soft); font-size: 10.5px; white-space: nowrap; }
-    .iam-badge.is-provisioned { border-color: rgba(79,132,126,.3); background: rgba(79,132,126,.08); color: var(--cs-teal); }
-    .iam-detail-body { padding: 0 20px 18px; }
-    .iam-section { padding: 17px 0; border-bottom: 1px solid var(--cs-hairline); }
-    .iam-section:last-child { border-bottom: 0; }
-    .iam-section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-    .iam-section-title h3 { margin: 0; font-size: 12.5px; }
-    .iam-section-title p { margin: 0; color: var(--cs-text-soft); font-size: 10.5px; }
-    .iam-role-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; padding: 4px; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-bg); }
-    .iam-role-option { min-height: 34px; padding: 6px; border: 0; border-radius: 5px; background: transparent; color: var(--cs-text-soft); font: 12px var(--cs-font); cursor: pointer; }
-    .iam-role-option.is-active { background: var(--cs-card); color: var(--cs-text); font-weight: 700; box-shadow: 0 1px 4px rgba(46,54,64,.12); }
-    .iam-duty-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    .iam-duty-table th { padding: 6px 7px; border-bottom: 1px solid var(--cs-hairline); color: var(--cs-text-soft); font-size: 9.5px; font-weight: 700; text-align: center; text-transform: uppercase; }
-    .iam-duty-table th:first-child { width: 34%; text-align: left; }
-    .iam-duty-table td { height: 35px; padding: 4px 7px; border-bottom: 1px solid var(--cs-hairline); font-size: 11.5px; text-align: center; }
-    .iam-duty-table tr:last-child td { border-bottom: 0; }
-    .iam-duty-table td:first-child { text-align: left; }
-    .iam-agent-name { display: flex; align-items: baseline; gap: 6px; }
-    .iam-agent-name small { color: var(--cs-text-soft); font-size: 9px; }
-    .iam-duty-choice { width: 24px; height: 24px; padding: 0; border: 1px solid transparent; border-radius: 50%; background: transparent; color: #aaa6a0; font: 16px var(--cs-font); line-height: 1; cursor: pointer; }
-    .iam-duty-choice:hover { border-color: var(--cs-hairline); background: var(--cs-shade); }
-    .iam-duty-choice.is-active { border-color: rgba(68,104,142,.28); background: rgba(68,104,142,.1); color: var(--cs-steel); }
-    .iam-scope { display: grid; grid-template-columns: 140px minmax(0, 1fr); align-items: center; gap: 12px; margin-top: 12px; }
-    .iam-scope label { font-size: 11px; font-weight: 700; }
-    .iam-review { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-    .iam-review-item { padding: 9px 10px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-bg); }
-    .iam-review-item span, .iam-review-item strong { display: block; }
-    .iam-review-item span { color: var(--cs-text-soft); font-size: 9.5px; text-transform: uppercase; }
-    .iam-review-item strong { margin-top: 3px; font-size: 11.5px; }
-    .iam-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 15px; }
-    .iam-action-status { color: var(--cs-text-soft); font-size: 11px; }
-    .iam-action-buttons { display: flex; gap: 7px; }
-    .iam-button { min-height: 36px; padding: 7px 12px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); color: var(--cs-text); font: 600 11.5px var(--cs-font); cursor: pointer; }
-    .iam-button:hover { background: var(--cs-shade); }
-    .iam-button.is-primary { border-color: var(--cs-navy); background: var(--cs-navy); color: #fff; }
-    .iam-button.is-primary:hover { opacity: .92; }
-    @media (max-width: 900px) {
-      .iam-tools { grid-template-columns: 1fr 1fr; }
-      .iam-search { grid-column: 1 / -1; }
-      .iam-workspace { grid-template-columns: 290px minmax(0, 1fr); }
-      .iam-role-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .iam-review { grid-template-columns: 1fr; }
-    }
-    @media (max-width: 700px) {
-      .iam-summary { grid-template-columns: 1fr; }
-      .iam-metric { border-right: 0; border-bottom: 1px solid var(--cs-hairline); }
-      .iam-metric:last-child { border-bottom: 0; }
-      .iam-tools { grid-template-columns: 1fr; }
-      .iam-search { grid-column: auto; }
-      .iam-workspace { display: block; }
-      .iam-roster { border-right: 0; border-bottom: 1px solid var(--cs-hairline); }
-      .iam-detail-head { flex-direction: column; }
-      .iam-badges { justify-content: flex-start; }
-      .iam-duty-table { min-width: 520px; }
-      .iam-duty-scroll { overflow-x: auto; }
-      .iam-scope { grid-template-columns: 1fr; gap: 5px; }
-      .iam-actions { align-items: stretch; flex-direction: column; }
-      .iam-action-buttons { display: grid; grid-template-columns: 1fr 1fr; }
+    .cs-settings-page { max-width: 1320px; }
+    .ah-boundary { display:flex; gap:9px; margin:18px 0; padding:10px 12px; border:1px solid var(--cs-hairline); border-radius:7px; background:var(--cs-shade); color:var(--cs-text-soft); font-size:12px; }
+    .ah-boundary strong { color:var(--cs-text); white-space:nowrap; }
+    .ah-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); border-block:1px solid var(--cs-hairline); }
+    .ah-metric { padding:14px 18px; border-right:1px solid var(--cs-hairline); }
+    .ah-metric:last-child { border-right:0; }
+    .ah-metric strong,.ah-metric span { display:block; }
+    .ah-metric strong { font-size:22px; }
+    .ah-metric span { margin-top:3px; color:var(--cs-text-soft); font-size:11px; }
+    .ah-tools { display:grid; grid-template-columns:minmax(260px,1fr) 190px 190px; gap:8px; margin:18px 0 12px; }
+    .ah-tools input,.ah-tools select,.ah-textarea { width:100%; border:1px solid var(--cs-hairline); border-radius:7px; background:var(--cs-card); color:var(--cs-text); font:13px var(--cs-font); }
+    .ah-tools input,.ah-tools select { min-height:40px; padding:8px 10px; }
+    .ah-tools input:focus,.ah-tools select:focus,.ah-textarea:focus { outline:0; border-color:var(--cs-steel); box-shadow:0 0 0 3px rgba(68,104,142,.12); }
+    .ah-workspace { display:grid; grid-template-columns:300px minmax(0,1fr); min-height:820px; overflow:hidden; border:1px solid var(--cs-hairline); border-radius:8px; background:var(--cs-card); box-shadow:var(--cs-shadow); }
+    .ah-roster { border-right:1px solid var(--cs-hairline); background:var(--cs-bg); }
+    .ah-panel-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:15px 16px 12px; border-bottom:1px solid var(--cs-hairline); }
+    .ah-panel-head h2,.ah-section-head h3,.ah-title h2 { margin:0; letter-spacing:0; }
+    .ah-panel-head h2 { font-size:14px; }
+    .ah-panel-head p { margin:3px 0 0; color:var(--cs-text-soft); font-size:10px; }
+    .ah-count,.ah-chip { display:inline-flex; align-items:center; min-height:22px; padding:3px 7px; border:1px solid var(--cs-hairline); border-radius:11px; color:var(--cs-text-soft); font-size:10px; white-space:nowrap; }
+    .ah-chip.knowledge { border-color:rgba(68,104,142,.28); background:rgba(68,104,142,.08); color:var(--cs-steel); }
+    .ah-chip.approval { border-color:rgba(188,116,73,.3); background:rgba(188,116,73,.08); color:var(--cs-terracotta); }
+    .ah-chip.ready { border-color:rgba(94,130,89,.28); background:rgba(94,130,89,.08); color:var(--cs-sage); }
+    .ah-chip.gap { border-color:rgba(172,90,90,.28); background:rgba(172,90,90,.07); color:var(--cs-dusty-red); }
+    .ah-agent-list { max-height:756px; overflow-y:auto; }
+    .ah-agent { width:100%; display:grid; grid-template-columns:34px minmax(0,1fr) auto; align-items:center; gap:9px; padding:11px 13px; border:0; border-bottom:1px solid var(--cs-hairline); background:transparent; color:var(--cs-text); text-align:left; cursor:pointer; }
+    .ah-agent:hover { background:var(--cs-card); }
+    .ah-agent.is-selected { background:var(--cs-card); box-shadow:inset 3px 0 0 var(--cs-steel); }
+    .ah-glyph { width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; border:1px solid rgba(68,104,142,.22); border-radius:7px; background:rgba(68,104,142,.08); color:var(--cs-steel); font-size:10px; font-weight:800; }
+    .ah-agent-copy { min-width:0; }
+    .ah-agent-copy strong,.ah-agent-copy small,.ah-agent-progress strong,.ah-agent-progress small { display:block; }
+    .ah-agent-copy strong { font-size:12px; }
+    .ah-agent-copy small { overflow:hidden; margin-top:2px; color:var(--cs-text-soft); font-size:9.5px; text-overflow:ellipsis; white-space:nowrap; }
+    .ah-agent-progress { min-width:38px; text-align:right; }
+    .ah-agent-progress strong { color:var(--cs-steel); font-size:10.5px; }
+    .ah-agent-progress small { color:var(--cs-text-soft); font-size:9px; }
+    .ah-detail { min-width:0; }
+    .ah-detail-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:18px 20px 15px; border-bottom:1px solid var(--cs-hairline); }
+    .ah-title { display:flex; align-items:flex-start; gap:11px; }
+    .ah-title h2 { font-size:18px; }
+    .ah-title p { margin:3px 0 0; color:var(--cs-text-soft); font-size:11px; }
+    .ah-badges { display:flex; justify-content:flex-end; gap:5px; flex-wrap:wrap; }
+    .ah-contract { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border-bottom:1px solid var(--cs-hairline); background:var(--cs-bg); }
+    .ah-contract div { padding:11px 14px; border-right:1px solid var(--cs-hairline); }
+    .ah-contract div:last-child { border-right:0; }
+    .ah-contract span,.ah-contract strong { display:block; }
+    .ah-contract span { color:var(--cs-text-soft); font-size:9px; text-transform:uppercase; }
+    .ah-contract strong { margin-top:3px; font-size:11px; }
+    .ah-detail-grid { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(280px,.8fr); }
+    .ah-main { min-width:0; padding:0 20px 20px; }
+    .ah-side { min-width:0; padding:0 17px 18px; border-left:1px solid var(--cs-hairline); background:var(--cs-bg); }
+    .ah-section { padding:17px 0; border-bottom:1px solid var(--cs-hairline); }
+    .ah-section:last-child { border-bottom:0; }
+    .ah-section-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:10px; }
+    .ah-section-head h3 { font-size:12.5px; }
+    .ah-section-head p { margin:0; color:var(--cs-text-soft); font-size:10px; text-align:right; }
+    .ah-person { display:grid; grid-template-columns:34px minmax(0,1fr) auto; align-items:center; gap:9px; padding:10px 0; border-bottom:1px solid var(--cs-hairline); }
+    .ah-person:last-child { border-bottom:0; }
+    .ah-person strong,.ah-person small { display:block; }
+    .ah-person strong { font-size:11.5px; }
+    .ah-person small { margin-top:2px; color:var(--cs-text-soft); font-size:9.5px; }
+    .ah-person-state { text-align:right; }
+    .ah-person-state strong { color:var(--cs-sage); font-size:10px; }
+    .ah-person-state.limited strong { color:var(--cs-terracotta); }
+    .ah-interview { padding:12px; border:1px solid var(--cs-hairline); border-radius:7px; background:var(--cs-bg); }
+    .ah-interview label { display:block; margin-bottom:5px; font-size:11px; font-weight:700; }
+    .ah-hint { display:block; margin-bottom:8px; color:var(--cs-text-soft); font-size:10px; }
+    .ah-textarea { min-height:76px; resize:vertical; padding:9px 10px; line-height:1.45; }
+    .ah-actions { display:flex; align-items:center; justify-content:flex-end; gap:7px; margin-top:8px; }
+    .ah-button { min-height:34px; padding:6px 11px; border:1px solid var(--cs-hairline); border-radius:6px; background:var(--cs-card); color:var(--cs-text); font:600 11px var(--cs-font); cursor:pointer; }
+    .ah-button:hover { background:var(--cs-shade); }
+    .ah-button.primary { border-color:var(--cs-navy); background:var(--cs-navy); color:#fff; }
+    [hidden] { display:none !important; }
+    .ah-slots { display:flex; gap:5px; flex-wrap:wrap; margin-top:11px; }
+    .ah-slot { padding:5px 7px; border:1px solid rgba(68,104,142,.22); border-radius:5px; background:rgba(68,104,142,.06); font-size:10px; }
+    .ah-slot span { color:var(--cs-text-soft); }
+    .ah-question { margin-top:10px; padding:11px; border-left:3px solid var(--cs-terracotta); background:var(--cs-card); }
+    .ah-question strong { display:block; font-size:11px; }
+    .ah-question p { margin:4px 0 8px; color:var(--cs-text-soft); font-size:10.5px; }
+    .ah-choices { display:flex; gap:5px; flex-wrap:wrap; }
+    .ah-choice { padding:5px 8px; border:1px solid var(--cs-hairline); border-radius:5px; background:var(--cs-bg); color:var(--cs-text); font:10px var(--cs-font); cursor:pointer; }
+    .ah-choice.is-active { border-color:var(--cs-steel); background:rgba(68,104,142,.08); color:var(--cs-steel); font-weight:700; }
+    .ah-match { display:grid; grid-template-columns:minmax(70px,.6fr) minmax(100px,1fr) minmax(0,1.5fr) auto; align-items:center; gap:8px; padding:9px 0; border-bottom:1px solid var(--cs-hairline); font-size:10.5px; }
+    .ah-match:last-child { border-bottom:0; }
+    .ah-match small { color:var(--cs-text-soft); }
+    .ah-confidence { color:var(--cs-steel); font-weight:700; }
+    .ah-progress-value { display:flex; align-items:baseline; gap:6px; }
+    .ah-progress-value strong { font-size:28px; }
+    .ah-progress-value span,.ah-progress-note { color:var(--cs-text-soft); font-size:9.5px; }
+    .ah-progress-track { height:7px; overflow:hidden; margin:8px 0 6px; border-radius:4px; background:#dedbd7; }
+    .ah-progress-fill { height:100%; border-radius:inherit; background:var(--cs-steel); transition:width .18s ease; }
+    .ah-goal { display:grid; grid-template-columns:17px minmax(0,1fr) auto; gap:7px; padding:8px 0; border-bottom:1px solid var(--cs-hairline); }
+    .ah-goal:last-child { border-bottom:0; }
+    .ah-goal-mark { color:var(--cs-sage); font-weight:800; }
+    .ah-goal.open .ah-goal-mark { color:var(--cs-terracotta); }
+    .ah-goal strong,.ah-goal small { display:block; }
+    .ah-goal strong { font-size:10.5px; }
+    .ah-goal small { margin-top:2px; color:var(--cs-text-soft); font-size:9px; }
+    .ah-invitation { padding:12px; border:1px solid var(--cs-hairline); border-radius:7px; background:var(--cs-card); }
+    .ah-invitation-head { display:flex; align-items:center; gap:8px; margin-bottom:9px; }
+    .ah-invitation-head strong,.ah-invitation-head small { display:block; }
+    .ah-invitation-head strong { font-size:11px; }
+    .ah-invitation-head small { font-size:9px; }
+    .ah-invitation p { margin:0; font-size:10.5px; line-height:1.5; }
+    .ah-invitation-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; margin-top:10px; }
+    .ah-invitation-actions button { min-height:30px; padding:4px; border:1px solid var(--cs-hairline); border-radius:5px; background:var(--cs-bg); color:var(--cs-text); font:9.5px var(--cs-font); cursor:pointer; }
+    .ah-status { min-height:28px; padding-top:9px; color:var(--cs-text-soft); font-size:10px; }
+    @media (max-width:1050px) { .ah-workspace{grid-template-columns:270px minmax(0,1fr)} .ah-detail-grid{grid-template-columns:1fr} .ah-side{border-top:1px solid var(--cs-hairline);border-left:0} }
+    @media (max-width:760px) {
+      .ah-summary{grid-template-columns:repeat(2,minmax(0,1fr))} .ah-metric:nth-child(2){border-right:0} .ah-metric:nth-child(-n+2){border-bottom:1px solid var(--cs-hairline)}
+      .ah-tools{grid-template-columns:1fr} .ah-workspace{display:block} .ah-roster{border-right:0;border-bottom:1px solid var(--cs-hairline)} .ah-agent-list{max-height:290px}
+      .ah-detail-head{flex-direction:column} .ah-badges{justify-content:flex-start} .ah-contract{grid-template-columns:1fr} .ah-contract div{border-right:0;border-bottom:1px solid var(--cs-hairline)}
+      .ah-match{grid-template-columns:1fr 1fr} .ah-invitation-actions{grid-template-columns:1fr}
     }
   </style>
 </head>
 <body>
   <main class="cs-container cs-page cs-settings-page">
     <div class="cs-page-header cs-mb-24">
-      <div class="cs-eyebrow">Human access</div>
-      <h1>Identity and access</h1>
-      <p class="cs-lead">Map provisioned people to FDAI access roles and accountable agent duties.</p>
+      <h1><span class="cs-page-domain">Settings</span><span aria-hidden="true"> / </span>Identity and access</h1>
+      <p class="cs-lead">Connect each agent to the human knowledge, approval, and escalation it still needs.</p>
     </div>
 
     <div class="cs-tabs" role="tablist" aria-label="Identity and access views">
@@ -124,220 +135,187 @@
       <button class="cs-tab" type="button" role="tab" aria-selected="false">Users</button>
       <button class="cs-tab" type="button" role="tab" aria-selected="false">Roles</button>
       <button class="cs-tab" type="button" role="tab" aria-selected="false">Requests</button>
-      <button class="cs-tab cs-active" type="button" role="tab" aria-selected="true">Work mappings</button>
+      <button class="cs-tab cs-active" type="button" role="tab" aria-selected="true">Agent dependencies</button>
     </div>
 
-    <div class="iam-boundary" role="note">
-      <strong>Governed mapping</strong>
-      <span>This workspace records intended role and duty mappings. Changes take effect only after independent review.</span>
-    </div>
+    <div class="ah-boundary" role="note"><strong>Agent-led handover</strong><span>RBAC limits eligibility; it does not infer expertise or grant authority. Every proposed relationship requires human confirmation and governed review.</span></div>
 
-    <section class="iam-summary" aria-label="Mapping summary">
-      <div class="iam-metric"><strong>3</strong><span>Provisioned people</span></div>
-      <div class="iam-metric"><strong>1</strong><span>Fully mapped</span></div>
-      <div class="iam-metric"><strong>11</strong><span>Agent coverage gaps</span></div>
+    <section class="ah-summary" aria-label="Agent dependency summary">
+      <div class="ah-metric"><strong id="knowledgeCount">0</strong><span>Need knowledge transfer</span></div>
+      <div class="ah-metric"><strong id="approvalCount">0</strong><span>Approval-route gaps</span></div>
+      <div class="ah-metric"><strong id="autonomousCount">0</strong><span>No direct human contact</span></div>
+      <div class="ah-metric"><strong>64%</strong><span>Verified handover overall</span></div>
     </section>
 
-    <div class="iam-tools">
-      <div class="iam-search">
-        <input id="iamSearch" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="iamSearchResults" autocomplete="off" placeholder="Search a provisioned person by name or email" />
-        <div id="iamSearchResults" class="iam-search-menu" role="listbox" aria-label="Provisioned people" hidden></div>
-      </div>
-      <select id="iamRoleFilter" aria-label="Filter by FDAI role"><option value="all">All roles</option><option>Reader</option><option>Contributor</option><option>Approver</option><option>Owner</option></select>
-      <select id="iamMappingFilter" aria-label="Filter by mapping status"><option value="all">All mapping states</option><option value="full">Fully mapped</option><option value="partial">Partially mapped</option><option value="empty">Needs mapping</option></select>
+    <div class="ah-tools">
+      <input id="agentSearch" type="search" placeholder="Search agent or dependency" aria-label="Search agents" />
+      <select id="needFilter" aria-label="Filter by human dependency"><option value="all">All dependencies</option><option value="knowledge">Knowledge transfer</option><option value="approval">Approval route</option><option value="autonomous">No direct contact</option></select>
+      <select id="stateFilter" aria-label="Filter by handover state"><option value="all">All handover states</option><option value="gap">Needs attention</option><option value="progress">In progress</option><option value="ready">Ready</option></select>
     </div>
 
-    <section class="iam-workspace" aria-label="Human and agent work mapping workspace">
-      <aside class="iam-roster" aria-labelledby="iam-roster-heading">
-        <header class="iam-panel-head">
-          <div><h2 id="iam-roster-heading">People</h2><p>Select a person to inspect or change mappings.</p></div>
-          <span id="iamRosterCount" class="iam-count">3 people</span>
-        </header>
-        <div id="iamRoster" class="iam-roster-list" role="listbox" aria-label="Provisioned people"></div>
+    <section class="ah-workspace" aria-label="Agent-human dependency workspace">
+      <aside class="ah-roster" aria-labelledby="agent-roster-heading">
+        <header class="ah-panel-head"><div><h2 id="agent-roster-heading">Agents</h2><p>Start from the work owner, not the person.</p></div><span id="agentCount" class="ah-count">15 agents</span></header>
+        <div id="agentList" class="ah-agent-list" role="listbox" aria-label="FDAI agents"></div>
       </aside>
 
-      <div class="iam-detail" aria-live="polite">
-        <header class="iam-detail-head">
-          <div class="iam-identity">
-            <span id="iamDetailAvatar" class="iam-avatar">SA</span>
-            <div><h2 id="iamDetailName">System Administrator</h2><p id="iamDetailEmail">admin@example.com</p></div>
-          </div>
-          <div id="iamDetailBadges" class="iam-badges"></div>
+      <article class="ah-detail" aria-live="polite">
+        <header class="ah-detail-head">
+          <div class="ah-title"><span id="agentGlyph" class="ah-glyph">VI</span><div><h2 id="agentName">Vidar</h2><p id="agentRole">Recovery and rollback assurance</p></div></div>
+          <div id="agentBadges" class="ah-badges"></div>
         </header>
-
-        <div class="iam-detail-body">
-          <section class="iam-section" aria-labelledby="iam-role-heading">
-            <div class="iam-section-title"><h3 id="iam-role-heading">FDAI access role</h3><p>Access authority, separate from operational duty.</p></div>
-            <div id="iamRoleOptions" class="iam-role-options" role="radiogroup" aria-label="FDAI access role"></div>
-          </section>
-
-          <section class="iam-section" aria-labelledby="iam-duty-heading">
-            <div class="iam-section-title"><h3 id="iam-duty-heading">Agent duty mapping</h3><p id="iamDutySummary">15 of 15 agents mapped</p></div>
-            <div class="iam-duty-scroll">
-              <table class="iam-duty-table">
-                <thead><tr><th>Agent</th><th>Primary</th><th>Backup</th><th>Escalation</th></tr></thead>
-                <tbody id="iamDutyRows"></tbody>
-              </table>
-            </div>
-            <div class="iam-scope"><label for="iamScope">Responsibility scope</label><select id="iamScope"><option>Entire platform</option><option>Change governance</option><option>Resilience operations</option><option>Cost governance</option></select></div>
-          </section>
-
-          <section class="iam-section" aria-labelledby="iam-review-heading">
-            <div class="iam-section-title"><h3 id="iam-review-heading">Mapping review</h3><p>Review intended responsibility before requesting approval.</p></div>
-            <div class="iam-review">
-              <div class="iam-review-item"><span>Access</span><strong id="iamReviewRole">Owner</strong></div>
-              <div class="iam-review-item"><span>Agent duties</span><strong id="iamReviewDuty">15 primary</strong></div>
-              <div class="iam-review-item"><span>Coverage</span><strong id="iamReviewCoverage">No gaps</strong></div>
-            </div>
-            <div class="iam-actions">
-              <span id="iamActionStatus" class="iam-action-status">Current mapping is verified.</span>
-              <div class="iam-action-buttons">
-                <button id="iamReset" class="iam-button" type="button">Reset</button>
-                <button id="iamRequestReview" class="iam-button is-primary" type="button">Request mapping review</button>
-              </div>
-            </div>
-          </section>
+        <div class="ah-contract" aria-label="Human dependency contract">
+          <div><span>Knowledge source</span><strong id="knowledgeContract">Required</strong></div>
+          <div><span>Approval route</span><strong id="approvalContract">Action-dependent via Var</strong></div>
+          <div><span>Human conversation</span><strong>Bragi-mediated</strong></div>
         </div>
-      </div>
+
+        <div class="ah-detail-grid">
+          <div class="ah-main">
+            <section class="ah-section" aria-labelledby="people-heading">
+              <div class="ah-section-head"><h3 id="people-heading">Human relationships</h3><p>Expertise and authority stay separate.</p></div>
+              <div id="humanRelationships"></div>
+            </section>
+
+            <section class="ah-section" aria-labelledby="interview-heading">
+              <div class="ah-section-head"><h3 id="interview-heading">Describe a person's work</h3><p>Only missing decision-critical slots are asked.</p></div>
+              <div class="ah-interview">
+                <label for="workDescription">What work does Morgan Chen currently own?</label>
+                <span class="ah-hint">Example: Service operator for example.com and senior monitoring responder.</span>
+                <textarea id="workDescription" class="ah-textarea">Operates the checkout service and Kubernetes platform, leads incident recovery, and maintains rollback runbooks.</textarea>
+                <div class="ah-actions"><button id="analyzeWork" class="ah-button primary" type="button">Analyze responsibilities</button></div>
+                <div id="analysisResult" hidden>
+                  <div class="ah-slots" aria-label="Extracted responsibility slots">
+                    <span class="ah-slot"><span>Service</span> Checkout</span><span class="ah-slot"><span>Platform</span> Kubernetes</span><span class="ah-slot"><span>Work</span> Incident recovery</span><span class="ah-slot"><span>Evidence</span> Rollback runbooks</span>
+                  </div>
+                  <div class="ah-question"><strong>One detail is still needed</strong><p>Does Morgan execute recovery, approve recovery, or provide operational knowledge?</p>
+                    <div class="ah-choices"><button class="ah-choice" type="button" data-answer="executes recovery">Executes recovery</button><button class="ah-choice" type="button" data-answer="approves recovery">Approves recovery</button><button class="ah-choice" type="button" data-answer="knowledge source">Knowledge source</button><button class="ah-choice" type="button" data-answer="not sure">Not sure</button></div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="ah-section" aria-labelledby="matches-heading">
+              <div class="ah-section-head"><h3 id="matches-heading">Explainable Agent matches</h3><p>Recommendations cannot change RBAC.</p></div>
+              <div class="ah-match"><strong>Vidar</strong><span>Knowledge source</span><small>Recovery leadership and rollback evidence</small><span class="ah-confidence">94%</span></div>
+              <div class="ah-match"><strong>Thor</strong><span>Procedure source</span><small>Kubernetes execution and rollback steps</small><span class="ah-confidence">82%</span></div>
+              <div class="ah-match"><strong>Heimdall</strong><span>Signal source</span><small>Incident detection context needs confirmation</small><span class="ah-confidence">61%</span></div>
+              <div class="ah-match"><strong>Var</strong><span>Approval candidate</span><small>Blocked: Contributor RBAC is not approval-eligible</small><span class="ah-chip gap">Ineligible</span></div>
+              <div class="ah-actions"><button class="ah-button" type="button">Discard</button><button id="requestReview" class="ah-button primary" type="button">Request mapping review</button></div>
+              <div id="mappingStatus" class="ah-status">No relationship changes have been applied.</div>
+            </section>
+          </div>
+
+          <aside class="ah-side" aria-label="Handover progress and invitation preview">
+            <section class="ah-section" aria-labelledby="progress-heading">
+              <div class="ah-section-head"><h3 id="progress-heading">Verified handover</h3><p id="progressState">In progress</p></div>
+              <div class="ah-progress-value"><strong id="progressValue">72%</strong><span>evidence-weighted</span></div>
+              <div class="ah-progress-track" aria-hidden="true"><div id="progressFill" class="ah-progress-fill" style="width:72%"></div></div>
+              <div class="ah-progress-note">Answers alone do not complete a goal. Evidence must be linked and independently accepted.</div>
+              <div id="handoverGoals"></div>
+            </section>
+
+            <section id="invitationSection" class="ah-section" aria-labelledby="invitation-heading">
+              <div class="ah-section-head"><h3 id="invitation-heading">Next sign-in invitation</h3><p>1 per login · up to 5 min</p></div>
+              <div class="ah-invitation">
+                <div class="ah-invitation-head"><span class="ah-glyph">BR</span><span><strong>Bragi</strong><small id="invitationOwner">Question owned by Vidar</small></span></div>
+                <p id="invitationCopy">Morgan, Vidar still needs the stop conditions for checkout recovery. Answer one question now, attach a runbook, or continue later.</p>
+                <div class="ah-invitation-actions"><button type="button" data-invite="answer">Answer now</button><button type="button" data-invite="upload">Upload document</button><button type="button" data-invite="later">Remind me later</button></div>
+                <div id="invitationStatus" class="ah-status">Suppressed during incidents and approval work.</div>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </article>
     </section>
   </main>
+
   <script>
     const agents = [
-      ["Odin", "Orchestration"], ["Thor", "Execution"], ["Forseti", "Governance"],
-      ["Huginn", "Signals"], ["Heimdall", "Detection"], ["Var", "Approval"],
-      ["Vidar", "Recovery"], ["Bragi", "Communication"], ["Saga", "Audit"],
-      ["Mimir", "Knowledge"], ["Norns", "Forecasting"], ["Muninn", "Learning"],
-      ["Njord", "Cost"], ["Freyr", "Sustainability"], ["Loki", "Testing"]
-    ];
-    const allPrimary = Object.fromEntries(agents.map(([name]) => [name, "primary"]));
-    const initialPeople = [
-      { id: "system-admin", initials: "SA", name: "System Administrator", email: "admin@example.com", role: "Owner", source: "System provisioned", provisioned: true, duties: allPrimary },
-      { id: "morgan-chen", initials: "MC", name: "Morgan Chen", email: "morgan.chen@example.com", role: "Reader", source: "Microsoft Entra", provisioned: false, duties: {} },
-      { id: "alex-kim", initials: "AK", name: "Alex Kim", email: "alex.kim@example.com", role: "Approver", source: "Microsoft Entra", provisioned: false, duties: { Forseti: "backup", Var: "primary", Bragi: "escalation", Saga: "backup" } },
-      { id: "jordan-lee", initials: "JL", name: "Jordan Lee", email: "jordan.lee@example.com", role: "Contributor", source: "Microsoft Entra", provisioned: false, duties: {}, directoryOnly: true }
-    ];
-    const people = structuredClone(initialPeople);
-    const roles = ["Reader", "Contributor", "Approver", "Owner"];
-    const dutyTypes = ["primary", "backup", "escalation"];
-    let selectedId = "system-admin";
+      ["Odin","OD","Orchestration and arbitration","knowledge","progress",64,"Coordination knowledge"],
+      ["Thor","TH","Governed execution","knowledge","progress",78,"Procedure handover"],
+      ["Forseti","FO","Policy and deterministic judgment","knowledge","gap",52,"Policy context gap"],
+      ["Huginn","HU","Signal intake","knowledge","ready",86,"Signal context"],
+      ["Heimdall","HE","Protection and admissibility","knowledge","progress",71,"Security context"],
+      ["Var","VA","Human approval","approval","gap",40,"Approval route gap"],
+      ["Vidar","VI","Recovery and rollback assurance","knowledge","progress",72,"Recovery handover"],
+      ["Bragi","BR","Human communication","autonomous","ready",100,"Mediates conversations"],
+      ["Saga","SA","Audit and replay","autonomous","ready",100,"No direct contact"],
+      ["Mimir","MI","Knowledge structure","knowledge","progress",55,"Domain concepts"],
+      ["Norns","NO","Forecasting and patterns","autonomous","ready",100,"No direct contact"],
+      ["Muninn","MU","Evidence retrieval","knowledge","progress",67,"Document handover"],
+      ["Njord","NJ","Cost governance","knowledge","gap",44,"FinOps owner gap"],
+      ["Freyr","FR","Sustainability","autonomous","ready",100,"No direct contact"],
+      ["Loki","LO","Bounded resilience testing","approval","gap",25,"Experiment approval gap"]
+    ].map(([name,initials,role,need,state,progress,label]) => ({name,initials,role,need,state,progress,label}));
+    let selectedAgent = "Vidar";
+    const list = document.querySelector("#agentList");
+    const search = document.querySelector("#agentSearch");
+    const need = document.querySelector("#needFilter");
+    const state = document.querySelector("#stateFilter");
 
-    const roster = document.querySelector("#iamRoster");
-    const search = document.querySelector("#iamSearch");
-    const searchResults = document.querySelector("#iamSearchResults");
-    const actionStatus = document.querySelector("#iamActionStatus");
-    const roleFilter = document.querySelector("#iamRoleFilter");
-    const mappingFilter = document.querySelector("#iamMappingFilter");
-
-    function selectedPerson() { return people.find((person) => person.id === selectedId); }
-    function mappingCount(person) { return Object.keys(person.duties).length; }
-    function mappingState(person) {
-      const count = mappingCount(person);
-      return count === agents.length ? "full" : count ? "partial" : "empty";
-    }
-    function rosterPeople() {
-      return people.filter((person) => !person.directoryOnly)
-        .filter((person) => roleFilter.value === "all" || person.role === roleFilter.value)
-        .filter((person) => mappingFilter.value === "all" || mappingState(person) === mappingFilter.value);
-    }
-
-    function renderRoster() {
-      const visiblePeople = rosterPeople();
-      document.querySelector("#iamRosterCount").textContent = `${visiblePeople.length} ${visiblePeople.length === 1 ? "person" : "people"}`;
-      roster.innerHTML = visiblePeople.map((person) => {
-        const count = mappingCount(person);
-        const state = count === agents.length ? "Fully mapped" : count ? `${count} mapped` : "Needs mapping";
-        return `<button class="iam-person${person.id === selectedId ? " is-selected" : ""}" type="button" role="option" aria-selected="${person.id === selectedId}" data-person-id="${person.id}">
-          <span class="iam-avatar">${person.initials}</span>
-          <span class="iam-person-copy"><strong>${person.name}</strong><small>${person.role}${person.provisioned ? " · Provisioned" : " · Active"}</small></span>
-          <span class="iam-person-meta"><strong>${count}/15</strong><small>${state}</small></span>
-        </button>`;
-      }).join("") || '<div class="cs-empty"><strong>No matching people</strong>Adjust the role or mapping filter.</div>';
-      roster.querySelectorAll("[data-person-id]").forEach((button) => button.addEventListener("click", () => selectPerson(button.dataset.personId)));
-    }
-
-    function renderDetail() {
-      const person = selectedPerson();
-      document.querySelector("#iamDetailAvatar").textContent = person.initials;
-      document.querySelector("#iamDetailName").textContent = person.name;
-      document.querySelector("#iamDetailEmail").textContent = person.email;
-      document.querySelector("#iamDetailBadges").innerHTML = `${person.provisioned ? '<span class="iam-badge is-provisioned">Provisioned default</span>' : ""}<span class="iam-badge">${person.source}</span><span class="iam-badge">Active</span>`;
-      document.querySelector("#iamRoleOptions").innerHTML = roles.map((role) => `<button class="iam-role-option${person.role === role ? " is-active" : ""}" type="button" role="radio" aria-checked="${person.role === role}" data-role="${role}">${role}</button>`).join("");
-      document.querySelector("#iamRoleOptions").querySelectorAll("[data-role]").forEach((button) => button.addEventListener("click", () => { person.role = button.dataset.role; actionStatus.textContent = "Mapping has unsaved changes."; renderDetail(); }));
-      document.querySelector("#iamDutyRows").innerHTML = agents.map(([agent, purpose]) => `<tr><td><span class="iam-agent-name"><strong>${agent}</strong><small>${purpose}</small></span></td>${dutyTypes.map((duty) => `<td><button class="iam-duty-choice${person.duties[agent] === duty ? " is-active" : ""}" type="button" aria-label="Map ${agent} as ${duty}" aria-pressed="${person.duties[agent] === duty}" data-agent="${agent}" data-duty="${duty}">${person.duties[agent] === duty ? "●" : "○"}</button></td>`).join("")}</tr>`).join("");
-      document.querySelector("#iamDutyRows").querySelectorAll("[data-agent]").forEach((button) => button.addEventListener("click", () => {
-        const { agent, duty } = button.dataset;
-        if (person.duties[agent] === duty) delete person.duties[agent]; else person.duties[agent] = duty;
-        actionStatus.textContent = "Mapping has unsaved changes.";
-        renderRoster();
-        renderDetail();
-      }));
-      const counts = Object.values(person.duties).reduce((result, duty) => ({ ...result, [duty]: (result[duty] || 0) + 1 }), {});
-      const mapped = mappingCount(person);
-      document.querySelector("#iamDutySummary").textContent = `${mapped} of 15 agents mapped`;
-      document.querySelector("#iamReviewRole").textContent = person.role;
-      document.querySelector("#iamReviewDuty").textContent = dutyTypes.filter((duty) => counts[duty]).map((duty) => `${counts[duty]} ${duty}`).join(" · ") || "No duties";
-      document.querySelector("#iamReviewCoverage").textContent = mapped === agents.length ? "No gaps" : `${agents.length - mapped} gaps`;
-    }
-
-    function selectPerson(id) {
-      const person = people.find((candidate) => candidate.id === id);
-      if (person.directoryOnly) person.directoryOnly = false;
-      selectedId = id;
-      search.value = "";
-      searchResults.hidden = true;
-      search.setAttribute("aria-expanded", "false");
-      actionStatus.textContent = mappingCount(person) ? "Current mapping is verified." : "Select a role and one or more agent duties.";
-      renderRoster();
-      renderDetail();
-    }
-
-    function matchingPeople() {
+    function visibleAgents() {
       const query = search.value.trim().toLowerCase();
-      return query.length < 2 ? [] : people.filter((person) => `${person.name} ${person.email}`.toLowerCase().includes(query));
+      return agents.filter((agent) => !query || `${agent.name} ${agent.role} ${agent.label}`.toLowerCase().includes(query))
+        .filter((agent) => need.value === "all" || agent.need === need.value)
+        .filter((agent) => state.value === "all" || agent.state === state.value);
     }
-
-    function selectFirstSearchResult() {
-      const firstMatch = matchingPeople()[0];
-      if (firstMatch) selectPerson(firstMatch.id);
+    function renderAgents() {
+      const visible = visibleAgents();
+      document.querySelector("#agentCount").textContent = `${visible.length} ${visible.length === 1 ? "agent" : "agents"}`;
+      list.innerHTML = visible.map((agent) => `<button class="ah-agent${agent.name === selectedAgent ? " is-selected" : ""}" type="button" role="option" aria-selected="${agent.name === selectedAgent}" data-agent="${agent.name}"><span class="ah-glyph">${agent.initials}</span><span class="ah-agent-copy"><strong>${agent.name}</strong><small>${agent.label}</small></span><span class="ah-agent-progress"><strong>${agent.progress}%</strong><small>${agent.state === "gap" ? "Gap" : agent.state === "ready" ? "Ready" : "Active"}</small></span></button>`).join("") || '<div class="cs-empty"><strong>No matching agents</strong>Adjust the dependency filters.</div>';
+      list.querySelectorAll("[data-agent]").forEach((button) => button.addEventListener("click", () => selectAgent(button.dataset.agent)));
     }
-
-    function renderSearchResults() {
-      const matches = matchingPeople();
-      if (search.value.trim().length < 2) { searchResults.hidden = true; search.setAttribute("aria-expanded", "false"); return; }
-      searchResults.innerHTML = matches.length ? matches.map((person) => `<button class="iam-search-option" type="button" role="option" data-search-person="${person.id}"><span><strong>${person.name}</strong><small>${person.email}</small></span><span class="iam-badge">${person.directoryOnly ? "Add mapping" : person.role}</span></button>`).join("") : '<div class="cs-empty"><strong>No people found</strong>Try a name or email address.</div>';
-      searchResults.hidden = false;
-      search.setAttribute("aria-expanded", "true");
-      searchResults.querySelectorAll("[data-search-person]").forEach((button) => button.addEventListener("click", () => selectPerson(button.dataset.searchPerson)));
+    function selectAgent(name) {
+      selectedAgent = name;
+      const agent = agents.find((candidate) => candidate.name === name);
+      document.querySelector("#agentGlyph").textContent = agent.initials;
+      document.querySelector("#agentName").textContent = agent.name;
+      document.querySelector("#agentRole").textContent = agent.role;
+      document.querySelector("#agentBadges").innerHTML = agent.need === "knowledge" ? '<span class="ah-chip knowledge">Knowledge transfer required</span><span class="ah-chip">Steward mapped</span>' : agent.need === "approval" ? '<span class="ah-chip approval">Human approval path required</span><span class="ah-chip gap">Coverage gap</span>' : '<span class="ah-chip ready">No direct human contact</span><span class="ah-chip">Maintainer fallback</span>';
+      document.querySelector("#knowledgeContract").textContent = agent.need === "knowledge" ? "Required" : agent.need === "approval" ? "Supporting evidence only" : "Not required";
+      document.querySelector("#approvalContract").textContent = agent.need === "approval" ? "Required for eligible actions" : "Action-dependent via Var";
+      document.querySelector("#progressValue").textContent = `${agent.progress}%`;
+      document.querySelector("#progressFill").style.width = `${agent.progress}%`;
+      document.querySelector("#progressState").textContent = agent.state === "gap" ? "Needs attention" : agent.state === "ready" ? "Ready" : "In progress";
+      renderHumanContext(agent);
+      renderAgents();
     }
-
-    search.addEventListener("input", renderSearchResults);
-    search.addEventListener("focus", renderSearchResults);
-    search.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") { searchResults.hidden = true; search.setAttribute("aria-expanded", "false"); }
-      if (event.key === "ArrowDown") { event.preventDefault(); searchResults.querySelector("[data-search-person]")?.focus(); }
-      if (event.key === "Enter") {
-        event.preventDefault();
-        selectFirstSearchResult();
+    function renderHumanContext(agent) {
+      const relationships = document.querySelector("#humanRelationships");
+      const goals = document.querySelector("#handoverGoals");
+      const invitation = document.querySelector("#invitationSection");
+      const goal = (mark, title, detail, progress, open = false) => `<div class="ah-goal${open ? " open" : ""}"><span class="ah-goal-mark">${mark}</span><span><strong>${title}</strong><small>${detail}</small></span><small>${progress}</small></div>`;
+      if (agent.need === "knowledge") {
+        relationships.innerHTML = '<div class="ah-person"><span class="ah-glyph">MC</span><span><strong>Morgan Chen</strong><small>Knowledge source · domain operations</small></span><span class="ah-person-state limited"><strong>Contributor</strong><small>Not approval-eligible</small></span></div><div class="ah-person"><span class="ah-glyph">AK</span><span><strong>Alex Kim</strong><small>Backup escalation · independent reviewer</small></span><span class="ah-person-state"><strong>Approver</strong><small>RBAC eligible</small></span></div>';
+        goals.innerHTML = goal("✓", "Operational scope", "Accepted evidence · 20/20", "100%") + goal("✓", "Known failure modes", "Accepted incident evidence · 20/20", "100%") + goal("✓", "Runbook and rollback", "Linked and reviewed · 18/20", "90%") + goal("◐", "Stop conditions", "Answer captured; evidence needed", "50%", true) + goal("○", "Effect verification", "Not started", "0%", true);
+        invitation.hidden = false;
+        document.querySelector("#invitationOwner").textContent = `Question owned by ${agent.name}`;
+        document.querySelector("#invitationCopy").textContent = `Morgan, ${agent.name} still needs one high-risk operating detail. Answer one question now, attach evidence, or continue later.`;
+      } else if (agent.need === "approval") {
+        relationships.innerHTML = '<div class="ah-person"><span class="ah-glyph">AK</span><span><strong>Alex Kim</strong><small>Primary approval candidate · independently eligible</small></span><span class="ah-person-state"><strong>Approver</strong><small>RBAC eligible</small></span></div><div class="ah-person"><span class="ah-glyph">MC</span><span><strong>Morgan Chen</strong><small>Domain context only · cannot approve</small></span><span class="ah-person-state limited"><strong>Contributor</strong><small>Ineligible</small></span></div>';
+        goals.innerHTML = goal("✓", "Primary approver", "RBAC and identity verified", "100%") + goal("✓", "No-self-approval", "Requester exclusion verified", "100%") + goal("◐", "Backup approver", "Candidate not confirmed", "50%", true) + goal("○", "Escalation route", "Maintainer fallback only", "0%", true) + goal("✓", "Delivery channel", "Active and tested", "100%");
+        invitation.hidden = false;
+        document.querySelector("#invitationOwner").textContent = `Availability check owned by ${agent.name}`;
+        document.querySelector("#invitationCopy").textContent = `Alex, ${agent.name} needs confirmation of the backup approval route. Confirm availability now or continue later.`;
+      } else {
+        relationships.innerHTML = '<div class="ah-person"><span class="ah-glyph">FM</span><span><strong>FDAI Maintainers</strong><small>Final escalation fallback · no routine contact</small></span><span class="ah-person-state"><strong>Owner</strong><small>Fallback only</small></span></div>';
+        goals.innerHTML = goal("✓", "Autonomous operation reason", "Reviewed and accepted", "100%") + goal("✓", "Maintainer fallback", "Two live maintainers", "100%") + goal("✓", "Escalation boundary", "No routine human contact", "100%") + goal("✓", "Review date", "Current", "100%");
+        invitation.hidden = true;
       }
-    }, true);
-    search.addEventListener("keyup", (event) => { if (event.key === "Enter") selectFirstSearchResult(); }, true);
-    search.addEventListener("change", selectFirstSearchResult);
-    searchResults.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") { search.focus(); searchResults.hidden = true; search.setAttribute("aria-expanded", "false"); }
-    });
-    roleFilter.addEventListener("change", renderRoster);
-    mappingFilter.addEventListener("change", renderRoster);
-    document.addEventListener("click", (event) => { if (!event.target.closest(".iam-search")) { searchResults.hidden = true; search.setAttribute("aria-expanded", "false"); } });
-    document.querySelector("#iamReset").addEventListener("click", () => {
-      const index = people.findIndex((person) => person.id === selectedId);
-      people[index] = structuredClone(initialPeople.find((person) => person.id === selectedId));
-      actionStatus.textContent = "Changes reset to the observed mapping.";
-      renderRoster();
-      renderDetail();
-    });
-    document.querySelector("#iamRequestReview").addEventListener("click", () => { actionStatus.textContent = "Mapping review requested. No access changed yet."; });
-    renderRoster();
-    renderDetail();
+    }
+    search.addEventListener("input", renderAgents);
+    need.addEventListener("change", renderAgents);
+    state.addEventListener("change", renderAgents);
+    document.querySelector("#analyzeWork").addEventListener("click", () => { document.querySelector("#analysisResult").hidden = false; document.querySelector("#mappingStatus").textContent = "Four responsibility slots extracted; one clarification remains."; });
+    document.querySelectorAll("[data-answer]").forEach((button) => button.addEventListener("click", () => { document.querySelectorAll("[data-answer]").forEach((choice) => choice.classList.remove("is-active")); button.classList.add("is-active"); document.querySelector("#mappingStatus").textContent = `Clarification captured: ${button.dataset.answer}. Recommendations are ready for review.`; }));
+    document.querySelector("#requestReview").addEventListener("click", () => { document.querySelector("#mappingStatus").textContent = "Mapping review requested. RBAC and stewardship remain unchanged until governed approval."; });
+    document.querySelectorAll("[data-invite]").forEach((button) => button.addEventListener("click", () => { const messages = {answer:"One focused handover question opened.",upload:"Secure evidence upload selected.",later:"Invitation snoozed for 24 hours."}; document.querySelector("#invitationStatus").textContent = messages[button.dataset.invite]; }));
+    document.querySelector("#knowledgeCount").textContent = agents.filter((agent) => agent.need === "knowledge").length;
+    document.querySelector("#approvalCount").textContent = agents.filter((agent) => agent.need === "approval").length;
+    document.querySelector("#autonomousCount").textContent = agents.filter((agent) => agent.need === "autonomous").length;
+    renderAgents();
+    selectAgent(selectedAgent);
   </script>
 </body>
 </html>
