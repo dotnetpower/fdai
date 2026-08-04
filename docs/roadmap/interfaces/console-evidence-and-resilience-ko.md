@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: bc521e7ac0675c7334c2b6c3e089db10ec780b46
+translation_source_sha: 73617deb1bf40924dd16a40ca243fbe164d5ecf7
 translation_revised: 2026-08-04
 ---
 
@@ -209,10 +209,11 @@ screen-reader status가 loading을 알리고 decorative block은 숨깁니다. R
 공통 fallback은 heading, summary-card 및 body-panel placeholder를 사용합니다. 소유 route shape는 더
 정확한 최종 layout을 유지할 때만 이 fallback을 대체합니다.
 
-Vite development server는 CSS hot update를 transform하기 전에 Vite의 race-safe file reader로
-처리합니다. Editor가 큰 CSS 파일을 truncate한 후 다시 쓰는 동안 임시 empty snapshot이 전체
-stylesheet를 대체하는 문제를 방지합니다. 이 guard는 development에서만 적용되며 production CSS
-bundling은 변경하지 않습니다.
+HTML document가 console stylesheet를 direct dependency로 소유하므로 authentication, route,
+component 및 JavaScript hot update 중에도 mount된 SPA의 layout과 theme가 사라지지 않습니다.
+Vite는 같은 document link를 fingerprinted production CSS asset으로 변환합니다. Development에서는
+기존 hot-update guard도 CSS 변경을 transform하기 전에 Vite의 race-safe file reader로 처리하여
+editor의 임시 empty snapshot이 전체 stylesheet를 대체하지 못하게 합니다.
 
 ## Localization 경계
 

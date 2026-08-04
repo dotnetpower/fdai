@@ -211,10 +211,12 @@ motion while the static skeleton remains visible.
 The shared fallback uses heading, summary-card, and body-panel placeholders; an owned route shape
 replaces that fallback only when it preserves a more accurate final layout.
 
-The Vite development server passes CSS hot updates through Vite's race-safe file reader before
-transforming them. This prevents a temporary empty snapshot from replacing the complete stylesheet
-when an editor truncates and rewrites a large CSS file. The guard applies only during development;
-production CSS bundling is unchanged.
+The HTML document owns the console stylesheet as a direct dependency, so authentication, route,
+component, and JavaScript hot updates cannot leave a mounted SPA without its layout and theme.
+Vite transforms the same document link into the fingerprinted production CSS asset. During
+development, the existing hot-update guard also passes CSS changes through Vite's race-safe file
+reader before transformation, preventing an editor's temporary empty snapshot from replacing the
+complete stylesheet.
 
 ## Localization boundary
 
