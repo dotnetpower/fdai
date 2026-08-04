@@ -215,6 +215,12 @@ an exact affected Pod UID, and complete valid `hostPort` and protocol projection
 contains only bounded port facts and reviewed source paths. Name-only, stale, future, malformed,
 ambiguous, or truncated evidence produces no finding; the event does not prove which Node owns the
 conflicting socket.
+Provider-neutral log reduction recognizes reviewed `EADDRINUSE`, `address already in use`, and
+Linux `errno 98` signatures only in bounded records carrying an exact Pod UID, container identity,
+and timestamp inside the five-minute evidence window. It emits a hold-only socket-bind candidate
+with occurrence count and no raw body, address, or port. Missing UID, stale, future, oversized,
+unrecognized, or incomplete records produce no finding. This semantic reducer does not make the
+mechanism operational: a concrete bounded `observe.logs.query` provider remains separate work.
 
 The observe-only `observe.kubernetes.owners` capability follows at most eight custom owner
 references from the bounded namespace inventory. Every lookup preserves the owner reference UID

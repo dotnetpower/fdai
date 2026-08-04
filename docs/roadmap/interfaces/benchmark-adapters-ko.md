@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 4b6be85135732919ab9b7d9a52640043358b8152
+translation_source_sha: 437f3bdb5552e88a79a757d4c71b87818850cdbe
 translation_revised: 2026-08-04
 ---
 
@@ -219,6 +219,12 @@ inventory/event receipt, 5분 evidence window 안의 event, exact affected Pod U
 `hostPort`/protocol projection이 필요합니다. Finding은 bounded port fact와 reviewed source path만
 포함합니다. Name-only, stale, future, malformed, ambiguous 또는 truncated evidence는 finding을
 생성하지 않으며 event만으로 어느 Node가 conflicting socket을 소유하는지 증명하지 않습니다.
+Provider-neutral log reduction은 exact Pod UID, container identity 및 5분 evidence window 안의
+timestamp를 가진 bounded record에서 reviewed `EADDRINUSE`, `address already in use`, Linux `errno
+98` signature만 인식합니다. Raw body, address 또는 port 없이 occurrence count를 포함한 hold-only
+socket-bind candidate를 생성합니다. Missing UID, stale, future, oversized, unrecognized 또는 incomplete
+record는 finding을 생성하지 않습니다. Concrete bounded `observe.logs.query` provider는 별도 작업이므로
+이 semantic reducer만으로 mechanism이 operationalized되지는 않습니다.
 
 Observe-only `observe.kubernetes.owners` capability는 bounded namespace inventory에서 최대 8개
 custom owner reference를 따라갑니다. 각 lookup은 owner reference UID를 보존하며 반환된 custom

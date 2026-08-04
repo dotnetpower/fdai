@@ -342,6 +342,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_application_socket_bind_conflict_candidate",
+      "source_commits": [
+        "221a9b15e5e642fb3444754d0c300452c94dc773"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Added exact Pod UID and container identity, a five-minute trusted cutoff, a one-KiB record bound, raw-body suppression, and candidate-only causality; no concrete log provider is claimed.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [
