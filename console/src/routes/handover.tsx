@@ -25,6 +25,7 @@ type StewardKind = "user" | "group";
 type StewardResponsibility = "accountable" | "informed";
 type StewardDuty = "primary" | "backup" | "escalation";
 type FindingSeverity = "warn" | "info";
+export type IdentityHealthStatus = "not_configured" | "pending" | "unavailable" | "clean" | "warn";
 
 export interface StewardDto {
   readonly kind: StewardKind;
@@ -68,6 +69,11 @@ export interface CoverageDto {
 export interface StewardshipResponse {
   readonly map: MapDto;
   readonly coverage: CoverageDto;
+  readonly identity_health: {
+    readonly status: IdentityHealthStatus;
+    readonly checked_at: string | null;
+    readonly finding_count: number | null;
+  };
 }
 
 interface Props {
@@ -121,6 +127,20 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
   const root = panelRecord(value, "stewardship");
   const map = panelRecord(root["map"], "stewardship.map");
   const coverage = panelRecord(root["coverage"], "stewardship.coverage");
+  const identityHealth = panelRecord(root["identity_health"], "stewardship.identity_health");
+  const identityHealthStatus = stewardshipEnum(
+    identityHealth,
+    "status",
+    ["not_configured", "pending", "unavailable", "clean", "warn"],
+  );
+  const identityCheckedAt = panelNullableString(
+    identityHealth,
+    "checked_at",
+    "stewardship.identity_health",
+  );
+  const identityFindingCount = identityHealth["finding_count"] === undefined
+    ? null
+    : panelNumber(identityHealth, "finding_count", "stewardship.identity_health");
   const decoded: StewardshipResponse = {
     map: {
       version: panelNumber(map, "version", "stewardship.map"),
@@ -171,6 +191,11 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
         };
       }),
     },
+    identity_health: {
+      status: identityHealthStatus,
+      checked_at: identityCheckedAt,
+      finding_count: identityFindingCount,
+    },
   };
   const expectedNames = PANTHEON.map((agent) => agent.name);
   const actualNames = decoded.map.agents.map((agent) => agent.name);
@@ -204,6 +229,18 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
     decoded.coverage.autonomous_agents !== decoded.map.agents.filter((agent) => agent.autonomous).length
   ) {
     throw panelContractError("stewardship.coverage counts MUST match the handover map");
+  }
+  const identityCheckCompleted = identityHealthStatus === "clean" || identityHealthStatus === "warn";
+  const staleIdentityFindings = decoded.coverage.findings.filter((finding) => finding.code === "stale_oid").length;
+  if (
+    identityCheckCompleted !== (identityCheckedAt !== null) ||
+    (identityCheckedAt !== null && !Number.isFinite(Date.parse(identityCheckedAt))) ||
+    (identityCheckCompleted && identityFindingCount !== staleIdentityFindings) ||
+    (!identityCheckCompleted && identityFindingCount !== null) ||
+    (identityHealthStatus === "clean" && staleIdentityFindings !== 0) ||
+    (identityHealthStatus === "warn" && staleIdentityFindings === 0)
+  ) {
+    throw panelContractError("stewardship.identity_health MUST match its completed check evidence");
   }
   return decoded;
 }

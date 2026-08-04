@@ -466,6 +466,16 @@
     "noFindings": "No ownership coverage issues were detected.",
     "approvalRoutesUnavailable": "Approval-route evidence is not connected to this projection. No route or authority is inferred in the browser.",
     "mappingReviewsLoading": "Loading mapping reviews...",
+    "sourceHealth": "Source health",
+    "identityHealth": "Identity verification",
+    "checkedAt": "Last checked",
+    "identityHealthStatus": {
+      "not_configured": "Not configured",
+      "pending": "Check pending",
+      "unavailable": "Check unavailable",
+      "clean": "Verified",
+      "warn": "Review required"
+    },
     "view": {
       "overview": "Overview",
       "human-dependencies": "Human dependencies",

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 9cb4cac81babed70fa0075cc82a6e548a88f7561
+translation_source_sha: cced498dd5ae15793411c6241e7bc24147da93eb
 translation_revised: 2026-08-05
 ---
 
@@ -72,6 +72,9 @@ governed proposal workflow를 다루는 Governance panel이며 `/agent-oversight
 연결될 때까지 unavailable로 명시하며, browser는 ownership data에서 경로를 추론하지 않습니다.
 Stewardship source가 없으면 개요와 사람 의존성만 차단합니다. 독립적인 지식 인수인계, 승인 경로,
 매핑 검토 view는 숨기지 않습니다.
+개요는 `identity_health`에서만 ID source freshness를 표시합니다. 완료된 `clean` 또는 `warn` 확인은
+유효한 `checked_at`과 병합된 `stale_oid` coverage에 맞는 finding count가 필요합니다. 불일치는
+정상 또는 최신 상태로 표시하지 않고 contract error로 처리합니다.
 
 Settings에는 authoritative StateStore를 사용하는 Runtime policies route가 포함됩니다. 이 route는
 secret, endpoint, tenant identifier 또는 workload identity identifier를 노출하지 않고 정제된

@@ -159,6 +159,15 @@ function Overview({ data }: { readonly data: StewardshipResponse }) {
         <KpiCard href={routeHref("handover", { segments: ["human-dependencies"] })} label={t("handover.autonomous")} value={coverage.autonomous_agents} />
         <KpiCard href={routeHref("handover", { segments: ["human-dependencies"] })} label={t("handover.coverage")} value={t(coverage.is_clean ? "handover.clean" : "handover.review")} />
       </KpiGrid>
+      <section class="settings-iam-panel" aria-labelledby="agent-oversight-source-title">
+        <h3 id="agent-oversight-source-title">{t("handover.sourceHealth")}</h3>
+        <dl>
+          <dt>{t("handover.identityHealth")}</dt>
+          <dd>{t(`handover.identityHealthStatus.${data.identity_health.status}`)}</dd>
+          <dt>{t("handover.checkedAt")}</dt>
+          <dd>{data.identity_health.checked_at ?? t("settings.unavailable")}</dd>
+        </dl>
+      </section>
       {maintainerBanner ? <div class={`callout callout--${maintainerBanner.level}`}>{maintainerBanner.text}</div> : null}
       {coverage.findings.length > 0 ? <CoverageFindings data={data} /> : (
         <div class="state-block state-empty">{t("handover.noFindings")}</div>

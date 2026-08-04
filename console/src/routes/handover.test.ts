@@ -31,6 +31,10 @@ function stewardshipPayload() {
         agent: string | null;
       }>,
     },
+    identity_health: {
+      status: "not_configured",
+      checked_at: null,
+    },
   };
 }
 
@@ -102,5 +106,23 @@ describe("Handover projection contract", () => {
       duty: "backup",
     } as never;
     expect(() => decodeStewardship(informedDuty)).toThrow(/informed.*MUST NOT declare duty/);
+  });
+
+  test("rejects identity health that is not backed by completed check evidence", () => {
+    const invalidTimestamp = stewardshipPayload();
+    invalidTimestamp.identity_health = {
+      status: "clean",
+      checked_at: "not-a-timestamp",
+      finding_count: 0,
+    } as never;
+    expect(() => decodeStewardship(invalidTimestamp)).toThrow(/identity_health.*completed check evidence/);
+
+    const mismatchedCount = stewardshipPayload();
+    mismatchedCount.identity_health = {
+      status: "warn",
+      checked_at: "2026-08-05T00:00:00Z",
+      finding_count: 1,
+    } as never;
+    expect(() => decodeStewardship(mismatchedCount)).toThrow(/identity_health.*completed check evidence/);
   });
 });

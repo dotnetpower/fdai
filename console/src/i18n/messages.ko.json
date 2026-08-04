@@ -466,6 +466,16 @@
     "noFindings": "발견된 담당 체계 커버리지 문제가 없습니다.",
     "approvalRoutesUnavailable": "이 프로젝션에는 승인 경로 근거가 연결되지 않았습니다. 브라우저에서 경로나 권한을 추론하지 않습니다.",
     "mappingReviewsLoading": "매핑 검토를 불러오는 중...",
+    "sourceHealth": "소스 상태",
+    "identityHealth": "ID 검증",
+    "checkedAt": "마지막 확인",
+    "identityHealthStatus": {
+      "not_configured": "구성되지 않음",
+      "pending": "확인 대기 중",
+      "unavailable": "확인할 수 없음",
+      "clean": "검증됨",
+      "warn": "검토 필요"
+    },
     "view": {
       "overview": "개요",
       "human-dependencies": "사람 의존성",

@@ -71,6 +71,9 @@ routes remains explicitly unavailable until its own authoritative projection is 
 browser does not infer a route from ownership data. A missing stewardship source blocks only
 Overview and Human dependencies; it does not hide the independent Knowledge handover, Approval
 routes, or Mapping reviews views.
+Overview renders identity-source freshness only from `identity_health`. A completed `clean` or
+`warn` check requires a valid `checked_at` and a finding count that matches merged `stale_oid`
+coverage. Any mismatch is a contract error rather than a healthy or current state.
 
 Settings includes a Runtime policies route backed by the authoritative StateStore. The route shows
 sanitized environment, override, and effective values without exposing secrets, endpoints, tenant
