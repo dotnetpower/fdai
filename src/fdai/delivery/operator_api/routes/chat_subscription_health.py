@@ -27,7 +27,12 @@ from fdai.delivery.operator_api.routes.chat_turn_plan import TurnTool
 from fdai.rule_catalog.schema.inventory_query_language import QueryEvidenceAuthority
 from fdai.shared.providers.observation import LogQueryProvider, ObservationError
 
-_SCOPE: Final = re.compile(r"\b(?:azure\s+)?subscriptions?\b|구독", re.IGNORECASE)
+_SCOPE: Final = re.compile(
+    r"\b(?:azure\s+)?subscriptions?\b|구독"
+    r"|\b(?:configured|allowed|current)\s+(?:azure\s+)?scope\b"
+    r"|구성된\s*범위|허용된\s*범위",
+    re.IGNORECASE,
+)
 _HEALTH: Final = re.compile(
     r"\b(?:health|status|state|anomal(?:y|ies)|issues?|degraded|unavailable|check|inspect)\b"
     r"|상태|이상|장애|문제|점검|확인|비정상",
