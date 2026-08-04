@@ -158,4 +158,34 @@ describe("composer-attachments", () => {
     expect(createBitmap).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
+
+  it("rejects a canvas codec fallback with mismatched bytes", async () => {
+    const close = vi.fn();
+    vi.stubGlobal("createImageBitmap", vi.fn(async () => ({
+      width: 4096,
+      height: 2048,
+      close,
+    })));
+    vi.stubGlobal("document", {
+      createElement: () => ({
+        width: 0,
+        height: 0,
+        getContext: () => ({
+          imageSmoothingEnabled: false,
+          imageSmoothingQuality: "low",
+          drawImage: vi.fn(),
+        }),
+        toBlob: (callback: (blob: Blob) => void) => callback(
+          new Blob([new Uint8Array([1])], { type: "image/png" }),
+        ),
+      }),
+    });
+    const file = new File([new Uint8Array([1])], "photo.jpg", { type: "image/jpeg" });
+
+    await expect(normalizeVisionImage(file)).rejects.toThrow(
+      "image encoder returned image/png for image/webp",
+    );
+    expect(close).toHaveBeenCalledOnce();
+    vi.unstubAllGlobals();
+  });
 });

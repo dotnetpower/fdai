@@ -60,7 +60,15 @@ function canvasBlob(
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(
-      (blob) => blob ? resolve(blob) : reject(new Error("image normalization failed")),
+      (blob) => {
+        if (!blob) {
+          reject(new Error(`image normalization failed for ${mediaType}`));
+        } else if (blob.type.toLowerCase() !== mediaType) {
+          reject(new Error(`image encoder returned ${blob.type || "unknown"} for ${mediaType}`));
+        } else {
+          resolve(blob);
+        }
+      },
       mediaType,
       quality,
     );
