@@ -17,6 +17,8 @@ _RETRYABLE_STATUS_CODES = frozenset({408, 429, 500, 502, 503, 504})
 _DEFAULT_MAX_ATTEMPTS = 3
 _DEFAULT_INITIAL_RETRY_DELAY_SECONDS = 0.5
 _DEFAULT_MAX_RETRY_DELAY_SECONDS = 30.0
+_DEFAULT_MAX_RESPONSE_BYTES = 10_000_000
+_DEFAULT_MAX_TOTAL_RESPONSE_BYTES = 64_000_000
 
 
 class ArgThrottleGate:
@@ -126,7 +128,8 @@ async def fetch_arg_row_pages(
     max_retry_delay_seconds: float = _DEFAULT_MAX_RETRY_DELAY_SECONDS,
     request_headers: Mapping[str, str] | None = None,
     allow_truncated_without_token: bool = False,
-    max_response_bytes: int | None = None,
+    max_response_bytes: int | None = _DEFAULT_MAX_RESPONSE_BYTES,
+    max_total_response_bytes: int | None = _DEFAULT_MAX_TOTAL_RESPONSE_BYTES,
 ) -> tuple[Mapping[str, Any], ...]:
     """Fetch a complete, bounded ARG row set with quota-aware retries."""
     if max_attempts < 1:
@@ -137,6 +140,8 @@ async def fetch_arg_row_pages(
         raise ValueError("max_records MUST be >= 1")
     if max_response_bytes is not None and max_response_bytes < 1:
         raise ValueError("max_response_bytes MUST be >= 1")
+    if max_total_response_bytes is not None and max_total_response_bytes < 1:
+        raise ValueError("max_total_response_bytes MUST be >= 1")
     url = (
         f"{endpoint.rstrip('/')}"
         "/providers/Microsoft.ResourceGraph/resources"
@@ -159,6 +164,7 @@ async def fetch_arg_row_pages(
     collected: list[Mapping[str, Any]] = []
     skip_token: str | None = None
     seen_skip_tokens: set[str] = set()
+    total_response_bytes = 0
     gate = throttle_gate or ArgThrottleGate()
 
     for page in range(max_pages):
@@ -193,6 +199,12 @@ async def fetch_arg_row_pages(
             raise error_type(
                 f"ARG response exceeded {max_response_bytes} bytes for {result_name!r} "
                 f"(page {page})"
+            )
+        total_response_bytes += len(response.content)
+        if max_total_response_bytes is not None and total_response_bytes > max_total_response_bytes:
+            raise error_type(
+                f"ARG responses exceeded {max_total_response_bytes} total bytes for "
+                f"{result_name!r} (page {page})"
             )
 
         try:

@@ -642,6 +642,68 @@ async def test_non_object_data_row_fails_closed() -> None:
 
 
 @pytest.mark.asyncio
+async def test_raw_page_response_byte_cap_fails_closed() -> None:
+    content = json.dumps({"data": [{"value": "bounded"}]}).encode()
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=content)
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        with pytest.raises(ArgQueryError, match="response exceeded"):
+            await arg_transport.fetch_arg_row_pages(
+                identity=_identity(),
+                http_client=client,
+                audience="https://management.azure.com/.default",
+                endpoint="https://management.azure.com",
+                api_version="2022-10-01",
+                subscriptions=("00000000-0000-0000-0000-000000000001",),
+                query="Resources | project id",
+                result_name="byte-cap-test",
+                page_size=1,
+                max_pages=1,
+                timeout_seconds=5.0,
+                error_type=ArgQueryError,
+                max_response_bytes=len(content) - 1,
+            )
+
+
+@pytest.mark.asyncio
+async def test_cumulative_response_byte_cap_fails_closed() -> None:
+    contents = [
+        json.dumps({"data": [{"value": "first"}], "$skipToken": "next"}).encode(),
+        json.dumps({"data": [{"value": "second"}]}).encode(),
+    ]
+    calls = 0
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        content = contents[calls]
+        calls += 1
+        return httpx.Response(200, content=content)
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        with pytest.raises(ArgQueryError, match="responses exceeded"):
+            await arg_transport.fetch_arg_row_pages(
+                identity=_identity(),
+                http_client=client,
+                audience="https://management.azure.com/.default",
+                endpoint="https://management.azure.com",
+                api_version="2022-10-01",
+                subscriptions=("00000000-0000-0000-0000-000000000001",),
+                query="Resources | project id",
+                result_name="total-byte-cap-test",
+                page_size=1,
+                max_pages=2,
+                timeout_seconds=5.0,
+                error_type=ArgQueryError,
+                max_response_bytes=max(map(len, contents)),
+                max_total_response_bytes=sum(map(len, contents)) - 1,
+            )
+
+    assert calls == 2
+
+
+@pytest.mark.asyncio
 async def test_missing_data_field_raises() -> None:
     def _handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"$skipToken": "next"})  # no `data`
