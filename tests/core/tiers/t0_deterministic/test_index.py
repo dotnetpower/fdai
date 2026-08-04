@@ -181,3 +181,23 @@ def test_index_resolves_catalog_signal_types_before_intersection() -> None:
     assert index.rules_for_signal(
         resource_type="compute.vm", signal_type="unmapped.provider.event"
     ) == (configuration,)
+
+
+def test_index_without_signal_registry_preserves_shipped_catch_all_compatibility() -> None:
+    configuration = _make_rule(
+        rule_id="a.configuration",
+        resource_type="compute.vm",
+        severity=Severity.LOW,
+        triggered_by=["resource.configuration.observed"],
+    )
+    metric = _make_rule(
+        rule_id="b.metric",
+        resource_type="compute.vm",
+        severity=Severity.LOW,
+        triggered_by=["resource.metric.observed"],
+    )
+    index = RuleIndex.build((configuration, metric))
+
+    assert index.rules_for_signal(
+        resource_type="compute.vm", signal_type="legacy.synthetic.event"
+    ) == (configuration, metric)

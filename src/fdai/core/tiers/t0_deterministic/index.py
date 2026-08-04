@@ -106,13 +106,15 @@ class RuleIndex:
         with catalog-resolved ``triggered_by`` matches plus legacy ``*`` rules.
         """
         allowed_ids = set(self._by_signal_type.get("*", ()))
-        resolved = (
-            self._signal_types.resolve(signal_type)
-            if self._signal_types is not None
-            else frozenset({signal_type})
-            if signal_type is not None
-            else frozenset()
-        )
+        if self._signal_types is not None:
+            resolved = self._signal_types.resolve(signal_type)
+        elif "*" in self._by_signal_type:
+            resolved = frozenset({signal_type}) if signal_type is not None else frozenset()
+        else:
+            # Compatibility for callers that load the concrete shipped catalog
+            # but have not yet injected SignalTypeRegistry. This preserves the
+            # former wildcard candidate set; OPA remains the verdict authority.
+            resolved = frozenset(self._by_signal_type)
         for resolved_type in resolved:
             allowed_ids.update(self._by_signal_type.get(resolved_type, ()))
         return tuple(rule for rule in self.rules_for_type(resource_type) if rule.id in allowed_ids)

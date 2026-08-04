@@ -50,6 +50,7 @@ def test_shipped_object_types_load() -> None:
         "ResourceType",
         "SignalType",
         "Property",
+        "PolicyArtifact",
         "ChangeSummary",
         # Pantheon (docs/roadmap/agents/agent-pantheon.md)
         "Agent",
