@@ -193,7 +193,7 @@
     "src/fdai/core/conversation/_write_runbook_tool.py": "95354a15932f4a0cdeafa8451766629936eab9cbafff23abba2a509a95209b23",
     "src/fdai/core/conversation/_write_simulation_tool.py": "8ab311b9f2afbfc0464a6031b7da2b89c7687cb2ba7e94924a9cfd7b3ae7b4ed",
     "src/fdai/core/conversation/adapter_health.py": "cde8871557416e5757b4138a2f7272c1eb74c5f04d46f71e18980e4eb7565fe3",
-    "src/fdai/core/conversation/answer_plan.py": "664bbf674c4900931103128350483317667e50f84d4d63ca0669295b417143bb",
+    "src/fdai/core/conversation/answer_plan.py": "582903676321835a726979818345bab7f58561decae823e4c4332896dbabdcf4",
     "src/fdai/core/conversation/answer_planning.py": "a80ac28b96baea5701be63955653daa53d584e9c0be54f964fce056f8cfb1ef4",
     "src/fdai/core/conversation/answer_preferences.py": "9f398dc1f438fde5ec51d97c14cddd815849c34a3a6d7252368ee861d177e041",
     "src/fdai/core/conversation/attachment_directive.py": "7349c3fd7d4aa72b877457ad47ba5ddbbe5490ba3e7d44cd1e86b87399b81c6c",
@@ -970,7 +970,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-04T16:09:27Z",
+  "generated_at": "2026-08-04T23:20:05Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

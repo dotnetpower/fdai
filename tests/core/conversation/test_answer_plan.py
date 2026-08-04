@@ -105,6 +105,26 @@ def test_explicit_chart_modifier_selects_chart_format(prompt: str) -> None:
     assert plan.explicit_overrides == ("chart",)
 
 
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        "Could you plot the past week's measured chat token consumption as a "
+        "daily time-series chart, using current read-only usage evidence?",
+        "Show this as a weekly bar graph, please.",
+        "Plot the trend as a monthly line chart.",
+        "일주일치 사용량을 하루 단위 꺾은선 차트로 보여줘",
+    ],
+)
+def test_chart_modifier_allows_descriptive_words_before_chart_noun(prompt: str) -> None:
+    # A real request rarely says the bare phrase "as a chart" - it usually
+    # qualifies the chart with a cadence/style word ("daily time-series",
+    # "weekly bar", "monthly line"). The modifier must still select CHART.
+    plan = build_answer_plan(prompt)
+
+    assert plan.format is AnswerFormat.CHART
+    assert plan.explicit_overrides == ("chart",)
+
+
 def test_definition_standard_shape_is_not_one_line() -> None:
     plan = build_answer_plan("What is ActionType?")
 
