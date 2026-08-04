@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: cced498dd5ae15793411c6241e7bc24147da93eb
+translation_source_sha: 4101ca5159384c536eb70410a8b9171c2b7a2aa0
 translation_revised: 2026-08-05
 ---
 
@@ -75,6 +75,9 @@ Stewardship source가 없으면 개요와 사람 의존성만 차단합니다. �
 개요는 `identity_health`에서만 ID source freshness를 표시합니다. 완료된 `clean` 또는 `warn` 확인은
 유효한 `checked_at`과 병합된 `stale_oid` coverage에 맞는 finding count가 필요합니다. 불일치는
 정상 또는 최신 상태로 표시하지 않고 contract error로 처리합니다.
+각 agent의 `bus_factor`는 coverage evaluator와 동일하게 distinct accountable `(kind, id)` subject
+unit 수를 사용합니다. Browser는 steward projection에서 이 값을 다시 계산하고 다른 headline 값은
+backup coverage를 과장하지 않도록 거부합니다.
 
 Settings에는 authoritative StateStore를 사용하는 Runtime policies route가 포함됩니다. 이 route는
 secret, endpoint, tenant identifier 또는 workload identity identifier를 노출하지 않고 정제된

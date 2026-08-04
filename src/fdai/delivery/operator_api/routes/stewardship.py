@@ -43,7 +43,7 @@ def _serialize_agent(agent: AgentStewardship) -> dict[str, object]:
         "name": agent.agent_name,
         "autonomous": agent.is_autonomous,
         "accept_autonomous_reason": agent.accept_autonomous_reason,
-        "bus_factor": len(agent.accountable),
+        "bus_factor": len({(subject.kind, subject.id) for subject in agent.accountable}),
         "stewards": [
             {
                 "kind": s.kind.value,

@@ -210,6 +210,14 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
     throw panelContractError("stewardship.map.maintainer_count MUST match maintainers.length");
   }
   for (const agent of decoded.map.agents) {
+    const accountableUnits = new Set(
+      agent.stewards
+        .filter((steward) => steward.responsibility === "accountable")
+        .map((steward) => `${steward.kind}:${steward.id}`),
+    );
+    if (agent.bus_factor !== accountableUnits.size) {
+      throw panelContractError("stewardship agent.bus_factor MUST match distinct accountable subjects");
+    }
     for (const steward of agent.stewards) {
       if (steward.responsibility === "informed" && steward.duty !== null) {
         throw panelContractError("informed stewardship entries MUST NOT declare duty");

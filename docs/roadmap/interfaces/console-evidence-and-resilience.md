@@ -74,6 +74,9 @@ routes, or Mapping reviews views.
 Overview renders identity-source freshness only from `identity_health`. A completed `clean` or
 `warn` check requires a valid `checked_at` and a finding count that matches merged `stale_oid`
 coverage. Any mismatch is a contract error rather than a healthy or current state.
+Each agent's `bus_factor` counts distinct accountable `(kind, id)` subject units, matching the
+coverage evaluator. The browser recomputes that count from the steward projection and rejects a
+different headline value instead of overstating backup coverage.
 
 Settings includes a Runtime policies route backed by the authoritative StateStore. The route shows
 sanitized environment, override, and effective values without exposing secrets, endpoints, tenant

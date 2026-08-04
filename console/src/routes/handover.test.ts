@@ -73,6 +73,12 @@ describe("Handover projection contract", () => {
     expect(() => decodeStewardship(drift)).toThrow(/coverage counts MUST match/);
   });
 
+  test("rejects bus factor that disagrees with distinct accountable subjects", () => {
+    const drift = stewardshipPayload();
+    drift.map.agents[0]!.bus_factor = 2;
+    expect(() => decodeStewardship(drift)).toThrow(/bus_factor.*distinct accountable subjects/);
+  });
+
   test("rejects unknown steward and finding enum values", () => {
     const invalidKind = stewardshipPayload();
     invalidKind.map.agents[0]!.stewards[0]!.kind = "service";
@@ -105,6 +111,7 @@ describe("Handover projection contract", () => {
       responsibility: "informed",
       duty: "backup",
     } as never;
+    informedDuty.map.agents[0]!.bus_factor = 0;
     expect(() => decodeStewardship(informedDuty)).toThrow(/informed.*MUST NOT declare duty/);
   });
 

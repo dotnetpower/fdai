@@ -7,10 +7,17 @@ from pathlib import Path
 import pytest
 from starlette.testclient import TestClient
 
-from fdai.core.stewardship import load_stewardship_from_yaml
+from fdai.core.stewardship import (
+    AgentStewardship,
+    Responsibility,
+    StewardKind,
+    StewardSubject,
+    load_stewardship_from_yaml,
+)
 from fdai.delivery.operator_api.auth import build_authenticator
 from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.operator_api.routes import stewardship as stewardship_route
 
 _CONFIG = Path("config/agent-stewardship.yaml")
 
@@ -63,6 +70,19 @@ def test_stewardship_returns_map_and_coverage() -> None:
     # Coverage report is present with the headline counts.
     assert body["coverage"]["total_agents"] == 15
     assert "is_clean" in body["coverage"]
+
+
+def test_stewardship_bus_factor_counts_distinct_accountable_units() -> None:
+    subject = StewardSubject(
+        kind=StewardKind.GROUP,
+        id="example-team",
+        responsibility=Responsibility.ACCOUNTABLE,
+    )
+    agent = AgentStewardship(agent_name="Odin", stewards=(subject, subject))
+
+    serialized = stewardship_route._serialize_agent(agent)
+
+    assert serialized["bus_factor"] == 1
 
 
 def test_stewardship_marks_autonomous_agent() -> None:
