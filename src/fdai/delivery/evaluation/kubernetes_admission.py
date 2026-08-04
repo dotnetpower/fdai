@@ -11,6 +11,7 @@ from fdai_evaluation_sdk import EvaluationTask
 
 from fdai.delivery.kubernetes.admission import mutating_webhook_resource_drift_findings
 from fdai.delivery.kubernetes.admission_conditions import admission_condition_findings
+from fdai.delivery.kubernetes.pod_security import pod_security_mismatch_findings
 from fdai.delivery.kubernetes.webhook_backend import missing_webhook_backend_findings
 from fdai.delivery.kubernetes.webhook_findings import admission_webhook_failure_findings
 from fdai.delivery.kubernetes.webhook_timeout import cumulative_webhook_timeout_findings
@@ -99,6 +100,12 @@ class KubectlAdmissionEvidenceProvider:
                     _mappings(configurations.get("resources")),
                     service_receipts,
                     evidence_complete=service_evidence_complete,
+                ),
+                *pod_security_mismatch_findings(
+                    resources,
+                    events,
+                    evidence_complete=evidence_complete,
+                    evidence_cutoff=self.clock(),
                 ),
                 *mutating_webhook_resource_drift_findings(
                     resources,

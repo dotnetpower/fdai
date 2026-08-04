@@ -158,6 +158,73 @@ async def test_admission_provider_scopes_targeted_webhook_service_absence(
     assert bool(missing) is (not probe_fails)
 
 
+async def test_admission_provider_correlates_exact_pod_security_owner_chain() -> None:
+    class _PodSecurityClient(_Client):
+        async def inventory(self, task: EvaluationTask) -> Mapping[str, Any]:
+            del task
+            return {
+                "cluster": "example-cluster",
+                "namespace": "example-app",
+                "resources": [
+                    {
+                        "kind": "ReplicaSet",
+                        "namespace": "example-app",
+                        "name": "api-1",
+                        "uid": "rs-uid",
+                        "owner_reference_projection_complete": True,
+                        "owner_references": [
+                            {
+                                "kind": "Deployment",
+                                "name": "api",
+                                "uid": "deployment-uid",
+                                "controller": True,
+                            }
+                        ],
+                    },
+                    {
+                        "kind": "Deployment",
+                        "namespace": "example-app",
+                        "name": "api",
+                        "uid": "deployment-uid",
+                        "desired": 2,
+                        "ready": 1,
+                    },
+                ],
+                "truncated": False,
+            }
+
+        async def events(self, task: EvaluationTask) -> Mapping[str, Any]:
+            del task
+            return {
+                "events": [
+                    {
+                        "name": "admission-1",
+                        "namespace": "example-app",
+                        "code": "pod_security_admission_rejected",
+                        "pod_security_profile": "restricted",
+                        "pod_security_version": "latest",
+                        "pod_security_violations": ["allow_privilege_escalation"],
+                        "last_seen": "2026-08-04T11:59:00Z",
+                        "regarding": {"kind": "ReplicaSet", "name": "api-1", "uid": "rs-uid"},
+                    }
+                ],
+                "truncated": False,
+            }
+
+    evidence = await KubectlAdmissionEvidenceProvider(
+        _PodSecurityClient(),
+        clock=lambda: datetime(2026, 8, 4, 12, 0, tzinfo=UTC),
+    ).collect(None)  # type: ignore[arg-type]
+
+    finding = next(
+        item
+        for item in evidence["findings"]
+        if item["reason"] == "pod_security_restricted_workload_mismatch_candidate"
+    )
+    assert finding["resource"]["uid"] == "deployment-uid"
+    assert finding["decision"] == "hold"
+
+
 async def test_admission_provider_abstains_when_event_query_is_truncated() -> None:
     class _TruncatedEventClient(_Client):
         async def events(self, task: EvaluationTask) -> Mapping[str, Any]:

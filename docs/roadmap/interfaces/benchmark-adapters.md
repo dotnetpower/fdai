@@ -324,6 +324,13 @@ bounded cluster-scoped webhook projection. Webhook URLs, CA bundles, and unrevie
 projected. This strengthens the source campaign behavior, which treated any single mutator as
 causal without proving namespace scope or rule applicability.
 
+Restricted Pod Security admission evidence is correlated only when a recent structured rejection
+names one exact ReplicaSet UID and its complete single-controller reference reaches one exact
+Deployment UID whose desired replicas exceed ready replicas. The finding carries the closed
+reviewed violation vocabulary, profile/version, immutable identities, and no raw message. Unknown,
+stale, future, recreated, ambiguous, healthy, or truncated evidence produces no finding. Diagnosis
+remains candidate-only and does not project or authorize a SecurityContext patch.
+
 On deterministic hold for review, the existing grounded RCA path receives the task objective and
 bounded evidence. Its hypothesis is preserved in the typed `ControlLoopResult` and rendered as the
 submission summary. The runner blocks before a benchmark starts when the RCA reasoner is absent;

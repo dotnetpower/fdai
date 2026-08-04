@@ -464,6 +464,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_pod_security_restricted_mismatch_candidate",
+      "source_commits": [
+        "8764178a248d477d82281e3e83c28966fcea9f56"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Requires a recent structured restricted-profile rejection, exact ReplicaSet and Deployment UIDs, a complete single-controller chain, degraded replica counts, and a closed violation vocabulary; emits only a candidate hold.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: ff38e140553ee6c7c31550b60801efbeb3c0b29d
+translation_source_sha: 6e5a8cfc823e4e6a0ad69a113a4e26824b8e7bfd
 translation_revised: 2026-08-04
 ---
 
@@ -324,6 +324,13 @@ finding을 생성하지 않습니다. 별도 observe-only `observe.kubernetes.ad
 namespace inventory와 bounded cluster-scoped webhook projection을 join합니다. Webhook URL, CA bundle
 및 검토되지 않은 field는 projection하지 않습니다. 이는 namespace scope 또는 rule applicability를
 증명하지 않고 mutator 하나를 causal로 취급하던 source campaign 동작을 강화합니다.
+
+Restricted Pod Security admission evidence는 recent structured rejection이 exact ReplicaSet UID
+하나를 지정하고 complete single-controller reference가 exact Deployment UID 하나에 도달하며 해당
+Deployment의 desired replica가 ready replica보다 많을 때만 correlate합니다. Finding은 closed reviewed
+violation vocabulary, profile/version, immutable identity를 포함하고 raw message는 제외합니다. Unknown,
+stale, future, recreated, ambiguous, healthy 또는 truncated evidence는 finding을 생성하지 않습니다.
+Diagnosis는 candidate-only이며 SecurityContext patch를 projection하거나 authorize하지 않습니다.
 
 Deterministic 판단 보류 시 기존 grounded RCA path가 task objective와 bounded evidence를 받습니다.
 Hypothesis는 typed `ControlLoopResult`에 보존되고 submission summary로 render됩니다. RCA reasoner가
