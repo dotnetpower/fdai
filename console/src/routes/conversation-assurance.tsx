@@ -11,7 +11,7 @@ import {
   type AsyncState,
 } from "../components/ui";
 import { putGovernedJson } from "../governed-command";
-import { routeHref } from "../router";
+import { currentRoute, routeHref } from "../router";
 import {
   decodeAssuranceDetail,
   decodeConversationAssurance,
@@ -44,7 +44,8 @@ export function ConversationAssuranceRoute({
     try {
       const data = decodeConversationAssurance(await client.panel<unknown>("/conversation-assurance"));
       setState({ status: "ready", data });
-      setSelectedId((current) => current ?? data.assessments[0]?.assessment_id ?? null);
+      const requestedTurn = currentRoute().search.get("turn");
+      setSelectedId((current) => selectedAssessmentId(data, requestedTurn, current));
     } catch (error) {
       setState({
         status: isOptionalOperatorApiUnavailable(error) ? "unavailable" : "error",
@@ -70,6 +71,20 @@ export function ConversationAssuranceRoute({
       </AsyncBoundary>
     </div>
   );
+}
+
+export function selectedAssessmentId(
+  data: ConversationAssurancePayload,
+  requestedTurn: string | null,
+  current: string | null,
+): string | null {
+  if (requestedTurn !== null) {
+    return data.assessments.find((item) => item.turn_id === requestedTurn)?.assessment_id ?? null;
+  }
+  if (current !== null && data.assessments.some((item) => item.assessment_id === current)) {
+    return current;
+  }
+  return data.assessments[0]?.assessment_id ?? null;
 }
 
 function AssuranceBody({

@@ -1993,6 +1993,7 @@
       "readFailed": "파일을 읽지 못함"
     },
     "suggestedFollowUps": "추천 후속 질문",
+    "reviewAnswer": "답변 품질 검토",
     "intro": "현재 표시된 타일, KPI, 승인, 감사 행, 프로모션 상태, 영향 범위 또는 온톨로지에 관해 질문하세요. 모든 답변은 오른쪽 스냅샷을 근거로 합니다.",
     "verticalQuickStarts": {
       "label": "운영 영역",

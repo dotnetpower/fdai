@@ -8651,6 +8651,13 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-gr-tool:hover { border-color: var(--fg-muted); color: var(--fg); }
 .deck-gr-tool:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.deck-gr-review {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  box-sizing: border-box;
+  text-decoration: none;
+}
 .deck-gr-icon {
   display: inline-flex;
   align-items: center;

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { setLocale } from "../i18n";
 import type { AnswerVerification } from "./backend";
-import { verificationLabel } from "./grounded-reply";
+import { assuranceHref, verificationLabel } from "./grounded-reply";
 
 function verification(authority: string): AnswerVerification {
   return {
@@ -77,6 +77,10 @@ describe("verificationLabel", () => {
 });
 
 describe("grounded reply presentation", () => {
+  it("links answer review to the exact turn assessment", () => {
+    expect(assuranceHref("turn 1")).toBe("/conversation-assurance?turn=turn+1");
+  });
+
   it("leaves agent ownership to the turn header and hides redundant complete chrome", () => {
     const component = readFileSync(
       fileURLToPath(new URL("./grounded-reply.tsx", import.meta.url)),

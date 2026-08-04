@@ -1993,6 +1993,7 @@
       "readFailed": "could not read file"
     },
     "suggestedFollowUps": "Suggested follow-ups",
+    "reviewAnswer": "Review answer quality",
     "intro": "Ask about anything currently visible - tiles, KPIs, approvals, audit rows, promotion status, impact scope, or ontology. I ground every answer in the snapshot on the right.",
     "verticalQuickStarts": {
       "label": "Operating domains",
