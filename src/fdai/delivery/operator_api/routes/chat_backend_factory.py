@@ -156,6 +156,7 @@ def _resolve_disk_azure_backend(
     if not isinstance(data, dict):
         return None
     resolved_model_keys = _resolved_model_keys(data)
+    vision_candidates = _validated_vision_candidates(data)
     # 1) Multi-candidate router (preferred when present).
     routed = _build_routed_backend(
         data.get("narrator_candidates"),
@@ -169,7 +170,7 @@ def _resolve_disk_azure_backend(
     )
     if routed is not None:
         vision_backend = _build_candidate_pool(
-            data.get("vision_candidates"),
+            vision_candidates,
             identity=identity,
             http_client=http_client,
             max_tokens=max_tokens,
@@ -196,7 +197,7 @@ def _resolve_disk_azure_backend(
     if single is None:
         return None
     vision_backend = _build_candidate_pool(
-        data.get("vision_candidates"),
+        vision_candidates,
         identity=identity,
         http_client=http_client,
         max_tokens=max_tokens,
@@ -263,6 +264,48 @@ def _build_single_azure_backend(
             capability_id=metering_capability_id,
         ),
     )
+
+
+def _candidate_route(entry: Any) -> tuple[str, str, str, str, str] | None:
+    if not isinstance(entry, dict):
+        return None
+    endpoint = entry.get("endpoint")
+    deployment = entry.get("deployment")
+    api_version = entry.get("api_version", "2024-08-01-preview")
+    api_style = entry.get("api_style", ModelApiStyle.AZURE_OPENAI.value)
+    auth_audience = entry.get("auth_audience", COGNITIVE_SERVICES_SCOPE)
+    if not all(
+        isinstance(value, str) and bool(value.strip())
+        for value in (endpoint, deployment, api_version, api_style, auth_audience)
+    ):
+        return None
+    return endpoint, deployment, api_version, api_style, auth_audience
+
+
+def _validated_vision_candidates(data: Mapping[str, Any]) -> list[dict[str, Any]] | None:
+    raw = data.get("vision_candidates")
+    if raw is None:
+        return None
+    if not isinstance(raw, list):
+        return None
+    narrator_raw = data.get("narrator_candidates")
+    narrator_entries = (
+        narrator_raw if isinstance(narrator_raw, list) and narrator_raw else [data.get("narrator")]
+    )
+    narrator_routes = {
+        route[1]: route
+        for entry in narrator_entries
+        if (route := _candidate_route(entry)) is not None
+    }
+    validated: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for entry in raw:
+        route = _candidate_route(entry)
+        if route is None or route[1] in seen or narrator_routes.get(route[1]) != route:
+            return None
+        seen.add(route[1])
+        validated.append(entry)
+    return validated
 
 
 def _build_routed_backend(

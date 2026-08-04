@@ -135,7 +135,7 @@ def test_resolved_artifact_binds_a_separate_vision_pool(tmp_path) -> None:
         json.dumps(
             {
                 "narrator_candidates": [candidate("text-a"), candidate("text-b")],
-                "vision_candidates": [candidate("vision-a"), candidate("vision-b")],
+                "vision_candidates": [candidate("text-a"), candidate("text-b")],
             }
         ),
         encoding="utf-8",
@@ -146,11 +146,11 @@ def test_resolved_artifact_binds_a_separate_vision_pool(tmp_path) -> None:
     assert isinstance(backend, LatencyRoutedChatBackend)
     vision = backend.vision_backend()
     assert isinstance(vision, LatencyRoutedChatBackend)
-    assert vision.candidate_names() == ("vision-a", "vision-b")
+    assert vision.candidate_names() == ("text-a", "text-b")
     descriptor = describe_backend(backend)
     assert descriptor["router"]["vision"] == {
         "available": True,
-        "chose": "vision-a",
+        "chose": "text-a",
         "candidates": vision.stats(),
     }
 
@@ -181,3 +181,28 @@ def test_single_narrator_binds_a_separate_vision_backend(tmp_path) -> None:
     vision = backend.vision_backend()
     assert isinstance(vision, LatencyRoutedChatBackend)
     assert vision.candidate_names() == ("shared-mini",)
+
+
+def test_runtime_rejects_vision_route_that_does_not_reuse_narrator(tmp_path) -> None:
+    endpoint = "https://example.openai.azure.com/"
+    narrator = {
+        "endpoint": endpoint,
+        "deployment": "shared-mini",
+        "api_version": "2024-08-01-preview",
+    }
+    conflicting = {**narrator, "endpoint": "https://other.example.com/"}
+    path = tmp_path / "resolved-models.json"
+    path.write_text(
+        json.dumps(
+            {
+                "narrator_candidates": [narrator, {**narrator, "deployment": "text-b"}],
+                "vision_candidates": [conflicting],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    backend = _resolve_disk_azure_backend({"LLM_RESOLVED_MODELS_PATH": str(path)})
+
+    assert isinstance(backend, LatencyRoutedChatBackend)
+    assert backend.vision_backend() is None
