@@ -5,6 +5,7 @@ import {
   fileExtension,
   fitVisionImageDimensions,
   formatSize,
+  imageMediaType,
   isRightsProtected,
   newAttachmentId,
   normalizeImageDataUrl,
@@ -44,6 +45,12 @@ describe("composer-attachments", () => {
     expect(clipboardImageFiles([
       { kind: "file", type: "IMAGE/PNG", getAsFile: () => null },
     ])).toEqual([]);
+  });
+
+  it("rejects a conflicting declared MIME instead of trusting the extension", () => {
+    expect(imageMediaType({ name: "report.png", type: "application/pdf" })).toBeNull();
+    expect(imageMediaType({ name: "report.png", type: "IMAGE/PNG" })).toBe("image/png");
+    expect(imageMediaType({ name: "report.png", type: "" })).toBe("image/png");
   });
 
   it("classifies files by extension", () => {

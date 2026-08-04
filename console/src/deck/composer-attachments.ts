@@ -60,6 +60,7 @@ const ZIP_EXT = new Set(["zip", "7z", "rar", "tar", "gz", "tgz", "bz2"]);
 const DATA_EXT = new Set(["csv", "json", "yaml", "yml", "tsv", "parquet"]);
 const LOG_EXT = new Set(["log", "txt", "out", "err"]);
 const PLAN_EXT = new Set(["tf", "tfplan", "tfstate", "hcl"]);
+const SENDABLE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
 
 /** OOXML extensions where an OLE (compound-file) header signals RMS / IRM. */
 const OOXML_EXT = new Set(["docx", "docm", "xlsx", "xlsm", "pptx", "pptm"]);
@@ -138,6 +139,19 @@ export function clipboardImageFiles(items: readonly ClipboardFileItem[]): File[]
     if (file) files.push(file);
   }
   return files;
+}
+
+/** Resolve the browser-declared image type, using the extension only when the
+ * browser supplied no MIME type. A conflicting non-image MIME fails closed. */
+export function imageMediaType(file: Pick<File, "name" | "type">): string | null {
+  const declared = file.type.trim().toLowerCase();
+  if (declared) return SENDABLE_IMAGE_TYPES.has(declared) ? declared : null;
+  const ext = fileExtension(file.name);
+  if (ext === "png") return "image/png";
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  if (ext === "gif") return "image/gif";
+  if (ext === "webp") return "image/webp";
+  return null;
 }
 
 /** Fit a raster inside the model-facing pixel bound without upscaling. */

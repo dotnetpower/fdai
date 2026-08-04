@@ -17,6 +17,7 @@ import {
   detectKind,
   fileExtension,
   formatSize,
+  imageMediaType,
   isRightsProtected,
   newAttachmentId,
   normalizeImageDataUrl,
@@ -35,20 +36,6 @@ import {
 } from "./composer-image-normalization";
 
 const OOXML_PROBE = new Set(["docx", "docm", "xlsx", "xlsm", "pptx", "pptm"]);
-
-/** Raster types the vision narrator accepts, mirroring the server allowlist. */
-const SENDABLE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
-
-/** Resolve a sendable image media type from the file, or null when unsupported. */
-function imageMediaType(file: File): string | null {
-  if (SENDABLE_IMAGE_TYPES.has(file.type)) return file.type;
-  const ext = fileExtension(file.name);
-  if (ext === "png") return "image/png";
-  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
-  if (ext === "gif") return "image/gif";
-  if (ext === "webp") return "image/webp";
-  return null;
-}
 
 /** Read a file as a base64 ``data:`` URL for the vision request payload. */
 function fileToDataUrl(file: File): Promise<string> {
