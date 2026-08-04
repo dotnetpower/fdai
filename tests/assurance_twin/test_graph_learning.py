@@ -90,6 +90,19 @@ def test_incomplete_nonindependent_or_censored_observation_is_rejected() -> None
     assert censored.reason == "observation_intervention_censored"
 
 
+def test_graph_challenger_never_drops_observation_deduplication_evidence() -> None:
+    model = replace(
+        _model(EffectModelStatus.CHALLENGER),
+        applied_observation_digests=tuple(f"{index:064x}" for index in range(64)),
+    )
+
+    update = update_graph_challenger(model, _observation(model))
+
+    assert update.accepted is False
+    assert update.reason == "observation_digest_capacity_reached"
+    assert update.model.applied_observation_digests == model.applied_observation_digests
+
+
 async def test_graph_registry_keeps_active_immutable_and_updates_challenger() -> None:
     store = InMemoryStateStore()
     registry = StateStoreGraphEffectModelRegistry(store)

@@ -88,6 +88,8 @@ def update_graph_challenger(
         return GraphChallengerUpdate(model, False, "observation_intervention_censored")
     if observation.recorded_at <= model.learned_through:
         return GraphChallengerUpdate(model, False, "observation_not_after_learning_cutoff")
+    if len(model.applied_observation_digests) >= 64:
+        return GraphChallengerUpdate(model, False, "observation_digest_capacity_reached")
     residual = observation.observed_value - observation.predicted_value
     prediction_error = abs(residual)
     sample_count = model.sample_count + 1
@@ -106,10 +108,7 @@ def update_graph_challenger(
             offset=offset,
             mean_absolute_error=mean_absolute_error,
             interval_radius=max(model.interval_radius, prediction_error),
-            applied_observation_digests=(
-                *model.applied_observation_digests[-63:],
-                observation.digest,
-            ),
+            applied_observation_digests=(*model.applied_observation_digests, observation.digest),
         ),
         True,
         "observation_accepted",
