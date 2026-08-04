@@ -27,15 +27,6 @@ import { t } from "./i18n/evidence";
 /**
  * Scope view. Read-only projection of the effective monitoring and
  * automated-action scope (which subscriptions / resource groups FDAI
-    {
-      key: "topology",
-      header: "Topology",
-      render: (item) => (
-        <a href={architectureHref(undefined, item.resource_group ?? item.subscription)}>
-          Open scope
-        </a>
-      ),
-    },
  * observes and may act on), plus the hard RG-scoped executor IAM
  * boundary. Authoring a scope change never writes from the console: the
  * builder generates a policy-as-code artifact the operator submits as a

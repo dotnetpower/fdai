@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 4101ca5159384c536eb70410a8b9171c2b7a2aa0
+translation_source_sha: 2ec63df09904cb1b395adeff998be19679a5f415
 translation_revised: 2026-08-05
 ---
 
@@ -96,7 +96,7 @@ Operations에는 Muninn의 durable StateSnapshot만 사용하는 감지 준비�
 이 화면은 Heimdall 판정, 6개 근거 차원, 공백, 권한 상한, 원본, 관찰 시각을 표시합니다.
 브라우저는 AKS를 probe하거나 대체 판정을 만들지 않습니다. 각 target은 Architecture resource로,
 promotion 관련 count는 Promotion gates로 연결됩니다. 성공한 HTTP 응답이 strict decoding을
-통과하지 못하면 loading skeleton에 머물지 않고 error를 렌더링합니다.
+통과하지 못하면 해당 route와 Capabilities는 loading skeleton에 머물거나 알 수 없는 autonomy mode를 enforcement로 취급하지 않고 error를 렌더링합니다.
 
 Server-pinned drift context가 있으면 GET-only 구성 기준선 route가 identity, lifecycle, drift, Knowledge citation, topology, latency, 예약 검토, 네 safety counter를 fresh read로 표시합니다.
 Binding 또는 campaign 부재는 unavailable이나 `not-configured`로 보고하며 progress를 만들지 않고 malformed data를 strict하게 거부하며 in-scope immutable version 비교와 failed-attempt count를 읽습니다. SPA는 activation, resume, schedule 생성, 승인, 완화, resource mutation을 노출하지 않고 evidence-run, resume, blueprint review, materialization은 별도 authenticated route를 사용합니다.

@@ -88,5 +88,9 @@ describe("capability catalog provenance", () => {
       ...root,
       capabilities: [{ ...item, side_effect_class: "unknown" }],
     })).toThrow(/side_effect_class is invalid/);
+    expect(() => decodeCapabilities({
+      ...root,
+      capabilities: [{ ...item, default_mode: "observe" }],
+    })).toThrow(/default_mode is invalid/);
   });
 });

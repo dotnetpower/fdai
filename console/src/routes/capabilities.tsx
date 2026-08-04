@@ -24,13 +24,16 @@ const CAPABILITY_SIDE_EFFECT_CLASSES = [
 ] as const;
 type CapabilitySideEffectClass = typeof CAPABILITY_SIDE_EFFECT_CLASSES[number];
 
+const CAPABILITY_MODES = ["shadow", "enforce"] as const;
+type CapabilityMode = typeof CAPABILITY_MODES[number];
+
 interface Capability {
   readonly capability_id: string;
   readonly name: string;
   readonly category: string;
   readonly summary: string;
   readonly side_effect_class: CapabilitySideEffectClass;
-  readonly default_mode: string;
+  readonly default_mode: CapabilityMode;
   readonly required_role: string;
   readonly slide_ref: string | null;
   readonly tags: readonly string[];
@@ -65,7 +68,7 @@ export function decodeCapabilities(value: unknown): CapabilityResponse {
         category: panelNonEmptyString(item, "category", "capability"),
         summary: panelNonEmptyString(item, "summary", "capability"),
         side_effect_class: decodeCapabilitySideEffectClass(item),
-        default_mode: panelNonEmptyString(item, "default_mode", "capability"),
+        default_mode: decodeCapabilityMode(item),
         required_role: panelNonEmptyString(item, "required_role", "capability"),
         slide_ref: panelNullableString(item, "slide_ref", "capability"),
         tags: panelStringArray(item["tags"], "capability.tags"),
@@ -91,6 +94,16 @@ function decodeCapabilitySideEffectClass(
     throw new Error("invalid Operator API response: capability.side_effect_class is invalid");
   }
   return value as CapabilitySideEffectClass;
+}
+
+function decodeCapabilityMode(
+  item: Readonly<Record<string, unknown>>,
+): CapabilityMode {
+  const value = panelNonEmptyString(item, "default_mode", "capability");
+  if (!CAPABILITY_MODES.some((candidate) => candidate === value)) {
+    throw new Error("invalid Operator API response: capability.default_mode is invalid");
+  }
+  return value as CapabilityMode;
 }
 
 export interface CapabilityRouteState {

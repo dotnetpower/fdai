@@ -95,8 +95,8 @@ Operations includes a Detection readiness route backed only by Muninn's durable 
 It shows Heimdall's decision, the six evidence dimensions, gaps, authority ceiling, source, and
 observation time. The browser does not probe AKS or derive a replacement decision. Each target
 links to its Architecture resource, and promotion-related counts link to Promotion gates. A
-successful HTTP response that fails strict decoding renders an error instead of remaining in the
-loading skeleton.
+successful HTTP response for this route or Capabilities that fails strict decoding renders an error
+instead of remaining in the loading skeleton or treating an unknown autonomy mode as enforcement.
 
 With a server-pinned drift context, the GET-only Configuration baselines route fresh-reads identity, lifecycle, drift, Knowledge citation, topology, latency, scheduled-review, and four safety counters.
 It reports absent binding or campaign as unavailable or `not-configured`, never invents progress, strictly rejects malformed data, and compares immutable in-scope versions with failed-attempt counts. The SPA exposes no activation, resume, schedule creation, approval, mitigation, or resource mutation; evidence-run, resume, blueprint review, and materialization use separate authenticated routes.
