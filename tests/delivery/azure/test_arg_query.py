@@ -20,6 +20,7 @@ No real Azure endpoints are contacted; every test builds an
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Sequence
 from pathlib import Path
@@ -406,6 +407,40 @@ async def test_retry_after_and_quota_reset_delay_follow_up_calls(
 
     assert calls == 3
     assert delays == [2.0, 3.0]
+
+
+@pytest.mark.asyncio
+async def test_quota_gate_rechecks_deadline_extended_while_waiting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gate = arg_transport.ArgThrottleGate()
+    first_sleep_started = asyncio.Event()
+    release_first_sleep = asyncio.Event()
+    delays: list[float] = []
+    now = 0.0
+
+    def _fake_monotonic() -> float:
+        return now
+
+    async def _controlled_sleep(delay: float) -> None:
+        nonlocal now
+        delays.append(delay)
+        if len(delays) == 1:
+            first_sleep_started.set()
+            await release_first_sleep.wait()
+        now += delay
+
+    monkeypatch.setattr(arg_transport, "_monotonic", _fake_monotonic)
+    monkeypatch.setattr(arg_transport, "_sleep", _controlled_sleep)
+
+    await gate.defer(2.0)
+    waiter = asyncio.create_task(gate.wait())
+    await first_sleep_started.wait()
+    await gate.defer(3.0)
+    release_first_sleep.set()
+    await waiter
+
+    assert delays == [2.0, 1.0]
 
 
 @pytest.mark.asyncio

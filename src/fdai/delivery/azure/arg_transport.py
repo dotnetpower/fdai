@@ -26,10 +26,13 @@ class ArgThrottleGate:
         self._not_before = 0.0
 
     async def wait(self) -> None:
-        async with self._lock:
-            delay = self._not_before - _monotonic()
+        while True:
+            async with self._lock:
+                delay = self._not_before - _monotonic()
             if delay > 0:
                 await _sleep(delay)
+                continue
+            return
 
     async def defer(self, delay_seconds: float) -> None:
         if delay_seconds <= 0:
