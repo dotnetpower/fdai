@@ -73,11 +73,16 @@ bottlenecks through the same Operator API stream used by the Console. Score exac
 rubrics at 0 or 1 point each and report a total out of 10; the campaign pass threshold is 9/10.
 Persist every redacted question, answer, rubric result, timing summary, and regression cohort in
 ignored mode-`0600` ledgers. All prior and cohort questions participate in duplicate rejection. A
-score below 9 starts or resumes an isolated
-Copilot hardening candidate immediately; the same question and its paraphrase cohort are remeasured
+score below 9 starts or resumes an isolated Copilot hardening candidate immediately; the same
+question and its paraphrase cohort are remeasured
 until every item reaches at least 9/10. After focused verification, the next bounded question cycle
 starts automatically. The loop remains A0/read-only, never merges to `main`, never uses generated
 text as a command, and never grants approval or execution authority.
+
+A separate persistent user-systemd supervisor MUST run every 30 minutes. It repairs a disabled or
+inactive main timer, resets a failed cycle service, and starts a recovery cycle when activity is
+stale for 45 minutes or question generation has held three consecutive times. It records only
+bounded local recovery metadata and MUST honor `.improve/STOP` as an explicit operator stop.
 
 ## Issue Lifecycle (MUST)
 

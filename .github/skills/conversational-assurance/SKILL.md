@@ -18,6 +18,7 @@ The process runs indefinitely while the PC and user systemd session are availabl
 a recurring timer, not a busy loop:
 
 - `fdai-chat-watchdog.timer` starts the next bounded cycle within one minute, with small jitter.
+- `fdai-chat-watchdog-supervisor.timer` checks and repairs the watchdog every 30 minutes.
 - `Persistent=true` resumes a missed cycle after sleep or restart when the user session returns.
 - Daily question and hardening budgets reset by UTC day; they bound cost without ending the service.
 - `.improve/STOP` is the immediate local stop switch.
@@ -35,6 +36,12 @@ Before each cycle, skip without generating a question only when any of these con
 A dirty primary worktree or active developer session does not block measurement. Hardening starts
 from committed `HEAD` in a separate worktree and must not read, stage, overwrite, or archive the
 primary worktree's uncommitted changes. The runner lock prevents overlapping generated candidates.
+
+The recovery supervisor repairs a disabled or inactive main timer, resets a failed service, and
+starts a nonblocking recovery cycle after 45 minutes without ledger activity or three consecutive
+question-generation holds. It never edits source, deletes worktrees, breaks a lock, or bypasses
+`.improve/STOP`. Recovery observations are stored in ignored mode-`0600`
+`supervisor.jsonl`.
 
 ## Campaign start and focus
 
@@ -198,7 +205,7 @@ but it must never start hardening.
 
 ```bash
 # Status
-systemctl --user status fdai-chat-watchdog.timer --no-pager
+systemctl --user status fdai-chat-watchdog.timer fdai-chat-watchdog-supervisor.timer --no-pager
 
 # Recent cycles
 journalctl --user -u fdai-chat-watchdog.service -n 100 --no-pager
