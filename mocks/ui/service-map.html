@@ -29,7 +29,7 @@
     .sm-workspace { position: relative; overflow: hidden; border: 1px solid #D9DEDF; border-radius: 8px; background: #F8F9F8; box-shadow: 0 18px 48px rgba(46,54,64,.07), 0 2px 8px rgba(46,54,64,.04); }
     .sm-scroll { overflow-x: auto; outline: none; }
     .sm-scroll:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: -2px; }
-    .sm-canvas { display: block; width: 100%; min-width: 1120px; height: auto; min-height: 550px; cursor: grab; touch-action: none; user-select: none; }
+    .sm-canvas { display: block; width: 100%; min-width: 1120px; height: auto; min-height: 0; aspect-ratio: 1220 / 464; cursor: grab; touch-action: none; user-select: none; }
     .sm-canvas.is-panning { cursor: grabbing; }
 
     .sm-cad-controls { position: absolute; z-index: 8; top: 12px; right: 12px; display: grid; grid-template-columns: 34px 48px 34px 38px; gap: 3px; padding: 3px; border: 1px solid rgba(160,171,177,.72); border-radius: 6px; background: rgba(255,255,255,.90); box-shadow: 0 5px 16px rgba(46,54,64,.09); backdrop-filter: blur(8px); }
@@ -236,7 +236,7 @@
       </div>
       <output class="sm-cad-coordinates" aria-label="Drawing coordinates" data-sm-coordinates>X 0000 · Y 0000</output>
       <div class="sm-scroll" tabindex="0" aria-label="Scrollable service map canvas">
-        <svg class="sm-canvas" viewBox="0 0 1280 590" role="img" aria-labelledby="sm-title sm-description" data-sm-canvas>
+        <svg class="sm-canvas" viewBox="30 76 1220 464" role="img" aria-labelledby="sm-title sm-description" data-sm-canvas>
           <title id="sm-title">Service map design preview</title>
           <desc id="sm-description">Synthetic directional topology with ingress, services, data dependencies, and external egress. Animated particles represent throughput.</desc>
           <defs>
@@ -288,15 +288,15 @@
       "use strict";
 
       var nodes = [
-        { id: "browser", label: "Example clients", detail: "Web and mobile", kind: "client", lane: "External sources", health: "healthy", x: 94, y: 206 },
-        { id: "probe", label: "Availability probe", detail: "Synthetic check", kind: "monitor", lane: "External sources", health: "healthy", x: 94, y: 426 },
-        { id: "gateway", label: "Example gateway", detail: "Application Gateway", kind: "gateway", lane: "Ingress", health: "healthy", x: 316, y: 316 },
-        { id: "checkout", label: "Checkout API", detail: "Container App · 3 replicas", kind: "container", lane: "Services", health: "warning", x: 570, y: 196 },
-        { id: "worker", label: "Order worker", detail: "Container App · 2 replicas", kind: "worker", lane: "Services", health: "healthy", x: 570, y: 432 },
-        { id: "orders", label: "Orders database", detail: "PostgreSQL", kind: "database", lane: "Data and messaging", health: "healthy", x: 824, y: 132 },
-        { id: "events", label: "Order events", detail: "Event Hubs", kind: "event", lane: "Data and messaging", health: "warning", x: 824, y: 316 },
-        { id: "receipts", label: "Receipt archive", detail: "Blob Storage", kind: "storage", lane: "Data and messaging", health: "healthy", x: 824, y: 500 },
-        { id: "payment", label: "Payment provider", detail: "External HTTPS API", kind: "external", lane: "External egress", health: "critical", x: 1090, y: 196 }
+        { id: "browser", label: "Example clients", detail: "Web and mobile", kind: "client", lane: "External sources", health: "healthy", x: 94, y: 226 },
+        { id: "probe", label: "Availability probe", detail: "Synthetic check", kind: "monitor", lane: "External sources", health: "healthy", x: 94, y: 446 },
+        { id: "gateway", label: "Example gateway", detail: "Application Gateway", kind: "gateway", lane: "Ingress", health: "healthy", x: 316, y: 336 },
+        { id: "checkout", label: "Checkout API", detail: "Container App · 3 replicas", kind: "container", lane: "Services", health: "warning", x: 570, y: 226 },
+        { id: "worker", label: "Order worker", detail: "Container App · 2 replicas", kind: "worker", lane: "Services", health: "healthy", x: 570, y: 452 },
+        { id: "orders", label: "Orders database", detail: "PostgreSQL", kind: "database", lane: "Data and messaging", health: "healthy", x: 824, y: 176 },
+        { id: "events", label: "Order events", detail: "Event Hubs", kind: "event", lane: "Data and messaging", health: "warning", x: 824, y: 336 },
+        { id: "receipts", label: "Receipt archive", detail: "Blob Storage", kind: "storage", lane: "Data and messaging", health: "healthy", x: 824, y: 510 },
+        { id: "payment", label: "Payment provider", detail: "External HTTPS API", kind: "external", lane: "External egress", health: "critical", x: 1090, y: 226 }
       ];
       var edges = [
         { id: "browser-gateway", source: "browser", target: "gateway", protocol: "HTTPS", port: 443, tls: "TLS 1.3", auth: "server certificate", certificate: "valid · 42d", security: "secure", rpm: 18400, p95: 42, error: 0.2, health: "healthy" },
@@ -311,10 +311,11 @@
       var abbreviations = { client: "WEB", monitor: "SYN", gateway: "AGW", container: "CA", worker: "CA", database: "PG", event: "EH", storage: "ST", external: "API" };
       var selectedId = "payment";
       var selectedEdgeId = null;
-      var drawingWidth = 1280;
-      var drawingHeight = 590;
+      var drawingBounds = { x: 30, y: 76, width: 1220, height: 464 };
+      var drawingWidth = drawingBounds.width;
+      var drawingHeight = drawingBounds.height;
       var zoom = 1;
-      var camera = { x: 0, y: 0, width: drawingWidth, height: drawingHeight };
+      var camera = { x: drawingBounds.x, y: drawingBounds.y, width: drawingWidth, height: drawingHeight };
       var panStart = null;
       var workspace = document.querySelector(".sm-workspace");
       var canvas = document.querySelector("[data-sm-canvas]");
@@ -357,17 +358,12 @@
       }
 
       function clampCamera() {
-        if (zoom < 1) {
-          camera.x = (drawingWidth - camera.width) / 2;
-          camera.y = (drawingHeight - camera.height) / 2;
-          return;
-        }
-        camera.x = Math.max(0, Math.min(drawingWidth - camera.width, camera.x));
-        camera.y = Math.max(0, Math.min(drawingHeight - camera.height, camera.y));
+        camera.x = Math.max(drawingBounds.x, Math.min(drawingBounds.x + drawingWidth - camera.width, camera.x));
+        camera.y = Math.max(drawingBounds.y, Math.min(drawingBounds.y + drawingHeight - camera.height, camera.y));
       }
 
       function zoomAt(nextZoom, clientX, clientY) {
-        nextZoom = Math.max(.75, Math.min(2.5, nextZoom));
+        nextZoom = Math.max(1, Math.min(2.5, nextZoom));
         var bounds = canvas.getBoundingClientRect();
         var ratioX = clientX === undefined ? .5 : (clientX - bounds.left) / bounds.width;
         var ratioY = clientY === undefined ? .5 : (clientY - bounds.top) / bounds.height;
@@ -384,7 +380,7 @@
 
       function fitDrawing() {
         zoom = 1;
-        camera = { x: 0, y: 0, width: drawingWidth, height: drawingHeight };
+        camera = { x: drawingBounds.x, y: drawingBounds.y, width: drawingWidth, height: drawingHeight };
         applyCamera();
       }
 

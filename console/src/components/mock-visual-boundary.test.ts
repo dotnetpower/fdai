@@ -91,6 +91,9 @@ describe("mock console visual boundary", () => {
     expect(serviceMap).toContain('data-sm-zoom-fit');
     expect(serviceMap).toContain("function zoomAt(");
     expect(serviceMap).toContain("function fitDrawing(");
+    expect(serviceMap).toContain("Math.max(1, Math.min(2.5, nextZoom))");
+    expect(serviceMap).toContain('viewBox="30 76 1220 464"');
+    expect(serviceMap).toContain("drawingBounds = { x: 30, y: 76, width: 1220, height: 464 }");
     expect(serviceMap).toContain("function formatCoordinate(");
     expect(serviceMap).toContain('scrollSurface.addEventListener("keydown"');
     expect(serviceMap).toContain("sm-map-plate");
