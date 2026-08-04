@@ -21,8 +21,10 @@ _CUTOFF = datetime(2026, 8, 4, 12, 0, tzinfo=UTC)
     ],
 )
 def test_log_signals_require_repeated_recent_exact_uid_records(body: str, signal: str) -> None:
+    later = _record(body)
+    later["observed_at"] = "2026-08-04T11:59:01Z"
     findings = bounded_log_signal_findings(
-        [_record(body), _record(body)], evidence_complete=True, evidence_cutoff=_CUTOFF
+        [_record(body), later], evidence_complete=True, evidence_cutoff=_CUTOFF
     )
     assert findings[0]["signal_class"] == signal
     assert findings[0]["occurrence_count"] == 2
@@ -53,8 +55,20 @@ def test_log_signals_abstain_on_missing_uid_oversized_or_unrecognized_body() -> 
     assert not bounded_log_signal_findings(unknown, evidence_complete=True, evidence_cutoff=_CUTOFF)
 
 
+def test_log_signals_do_not_count_exact_duplicate_delivery_twice() -> None:
+    record = _record("worker exception failed")
+
+    assert not bounded_log_signal_findings(
+        [record, deepcopy(record)],
+        evidence_complete=True,
+        evidence_cutoff=_CUTOFF,
+    )
+
+
 def test_log_signals_are_metamorphic_to_order_and_identity_rename() -> None:
-    records = [_record("worker exception failed"), _record("worker exception failed")]
+    later = _record("worker exception failed")
+    later["observed_at"] = "2026-08-04T11:59:01Z"
+    records = [_record("worker exception failed"), later]
     expected = bounded_log_signal_findings(records, evidence_complete=True, evidence_cutoff=_CUTOFF)
     renamed = deepcopy(records)
     for record in renamed:

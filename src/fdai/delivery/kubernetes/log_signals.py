@@ -39,6 +39,7 @@ def bounded_log_signal_findings(
         return ()
     lower_bound = evidence_cutoff - window
     counts: dict[tuple[str, str, str, str, str], int] = {}
+    observations: set[tuple[str, str, str, str, str, datetime, str]] = set()
     for record in records:
         body = record.get("body")
         observed_at = _timestamp(record.get("observed_at"))
@@ -60,6 +61,10 @@ def bounded_log_signal_findings(
         signal = next((name for name, pattern in _SIGNALS.items() if pattern.search(body)), None)
         if signal:
             key = (*identity, signal)
+            observation = (*key, observed_at, body)
+            if observation in observations:
+                continue
+            observations.add(observation)
             counts[key] = counts.get(key, 0) + 1
     return tuple(
         {
