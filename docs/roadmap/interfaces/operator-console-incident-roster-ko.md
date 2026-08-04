@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 489f8f9d42b55ea73c84f5070dbb2283996be513
-translation_revised: 2026-08-02
+translation_source_sha: d901b58529cbf081c50bb5e32ce020504358e2c6
+translation_revised: 2026-08-05
 ---
 
 # Operator Console - Incident Roster and Fix History
@@ -222,11 +222,12 @@ Process 목록도 `source`, nullable `synthetic`, nullable `durable`로 같은 �
 `postgres/false/true`를 보고합니다. Process status, journal, dynamic view는 server-owned로
 유지되지만 현재 render가 underlying snapshot의 생성 또는 저장 방식을 지우지 않습니다.
 
-선택한 인시던트 상세는 요약과 근거 계층을 분리합니다. 교정 타임라인보다 먼저
-서버 소유 인시던트 ID, 티켓 ID, lifecycle 상태와 소스, 처분, 판정, 담당 영역,
-최신 모드, 타임스탬프, 이력 수를 표시합니다. 누락된 값은 사용할 수 없음으로
-렌더링하며 브라우저가 영향, 소유권, 복구를 추론하지 않습니다. 상세는
-History > Reports의 correlation 범위 **Incident RCA Dossier**로 연결됩니다.
+선택한 인시던트 상세는 요약과 근거 계층을 분리합니다. 교정 타임라인보다 먼저 alert lifecycle,
+agent work state, pending user input, server-owned incident 및 ticket ID, disposition, verdict,
+vertical, mode, timestamp, history count를 표시합니다. Compact response-routing section은 기록된
+severity, involved agent, governed human-ownership mapping, autonomy mode 순서로 표시합니다. 누락된
+값은 unavailable로 렌더링하며 browser가 impact, 사람, ownership, recovery를 추론하지 않습니다.
+상세는 History > Reports의 correlation 범위 **Incident RCA Dossier**로 연결됩니다.
 
 조치 이력은 각 audit row를 사람이 읽을 수 있는 이벤트로 표시합니다. 먼저 기록된
 `summary`, `detail`, `reason` 텍스트를 사용하고, 값이 없으면 알려진 lifecycle, 알림,

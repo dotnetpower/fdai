@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AuditItem, IncidentSummary } from "../types";
-import { incidentOperationalOverview } from "./incidents.overview";
+import { incidentAgentStatus, incidentOperationalOverview } from "./incidents.overview";
 
 function incident(overrides: Partial<IncidentSummary> = {}): IncidentSummary {
   return {
@@ -43,6 +43,15 @@ function audit(
 }
 
 describe("incident operational overview", () => {
+  it("keeps alert lifecycle separate from agent work state", () => {
+    expect(incidentAgentStatus("resolved")).toBe("completed");
+    expect(incidentAgentStatus("notification_failed")).toBe("blocked");
+    expect(incidentAgentStatus("response_failed")).toBe("blocked");
+    expect(incidentAgentStatus("approval_required")).toBe("pending_user_input");
+    expect(incidentAgentStatus("response_in_progress")).toBe("in_progress");
+    expect(incidentAgentStatus("monitoring")).toBe("monitoring");
+  });
+
   it("surfaces notification failure and hides unrecorded RCA views", () => {
     const overview = incidentOperationalOverview(incident(), [
       audit("incident.open"),

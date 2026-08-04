@@ -18,6 +18,23 @@ export interface IncidentOperationalOverview {
   readonly activityCount: number;
 }
 
+export type IncidentAgentStatus =
+  | "completed"
+  | "blocked"
+  | "pending_user_input"
+  | "in_progress"
+  | "monitoring";
+
+export function incidentAgentStatus(
+  phase: IncidentOperationalPhase,
+): IncidentAgentStatus {
+  if (phase === "resolved") return "completed";
+  if (phase === "notification_failed" || phase === "response_failed") return "blocked";
+  if (phase === "approval_required") return "pending_user_input";
+  if (phase === "response_in_progress") return "in_progress";
+  return "monitoring";
+}
+
 export function incidentOperationalOverview(
   incident: IncidentSummary,
   history: readonly AuditItem[],
