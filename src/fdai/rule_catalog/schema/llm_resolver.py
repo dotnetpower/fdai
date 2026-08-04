@@ -226,6 +226,30 @@ class ResolvedModels:
         capabilities = [binding.capability for binding in self.endpoint_bindings]
         if len(capabilities) != len(set(capabilities)):
             raise ValueError("resolved model endpoint capabilities MUST be unique")
+        for label, candidates in (
+            ("narrator", self.narrator_candidates),
+            ("vision", self.vision_candidates),
+            ("web search", self.web_search_candidates),
+            ("primary reasoner", self.reasoner_primary_candidates),
+        ):
+            deployments = [candidate.deployment for candidate in candidates]
+            if any(not deployment.strip() for deployment in deployments):
+                raise ValueError(f"resolved {label} candidate deployments MUST be non-empty")
+            if len(deployments) != len(set(deployments)):
+                raise ValueError(f"resolved {label} candidate deployments MUST be unique")
+        narrator_routes = {
+            candidate.deployment: candidate
+            for candidate in (
+                self.narrator_candidates
+                if self.narrator_candidates
+                else ((self.narrator,) if self.narrator is not None else ())
+            )
+        }
+        for candidate in self.vision_candidates:
+            if narrator_routes.get(candidate.deployment) != candidate:
+                raise ValueError(
+                    "resolved vision candidates MUST exactly reuse narrator candidate routes"
+                )
 
     def to_json(self) -> str:
         """JSON with sorted keys - same input yields the same bytes.

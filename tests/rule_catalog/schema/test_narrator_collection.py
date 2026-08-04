@@ -200,6 +200,56 @@ class TestResolvedModelsNarratorSerialization:
         assert restored.web_search_candidates == (second,)
         assert restored.to_json() == text
 
+    def test_rejects_duplicate_vision_candidates(self) -> None:
+        candidate = NarratorCandidate(
+            endpoint=_ENDPOINT,
+            deployment="narrator-gpt-5-mini",
+        )
+        with pytest.raises(ValueError, match="vision candidate deployments MUST be unique"):
+            ResolvedModels(
+                schema_version="1.0.0",
+                region=_REGION,
+                subscription_id="00000000-0000-0000-0000-000000000000",
+                deployer_object_id="00000000-0000-0000-0000-000000000001",
+                mixed_model_mode="azure-foundry",
+                capabilities=(),
+                narrator_candidates=(candidate,),
+                vision_candidates=(candidate, candidate),
+            )
+
+    def test_rejects_vision_candidate_outside_narrator_routes(self) -> None:
+        narrator = NarratorCandidate(endpoint=_ENDPOINT, deployment="narrator-gpt-5-mini")
+        vision = NarratorCandidate(endpoint=_ENDPOINT, deployment="unresolved-vision")
+        with pytest.raises(ValueError, match="exactly reuse narrator candidate routes"):
+            ResolvedModels(
+                schema_version="1.0.0",
+                region=_REGION,
+                subscription_id="00000000-0000-0000-0000-000000000000",
+                deployer_object_id="00000000-0000-0000-0000-000000000001",
+                mixed_model_mode="azure-foundry",
+                capabilities=(),
+                narrator_candidates=(narrator,),
+                vision_candidates=(vision,),
+            )
+
+    def test_rejects_vision_route_with_conflicting_endpoint(self) -> None:
+        narrator = NarratorCandidate(endpoint=_ENDPOINT, deployment="narrator-gpt-5-mini")
+        vision = NarratorCandidate(
+            endpoint="https://other.example.com/",
+            deployment=narrator.deployment,
+        )
+        with pytest.raises(ValueError, match="exactly reuse narrator candidate routes"):
+            ResolvedModels(
+                schema_version="1.0.0",
+                region=_REGION,
+                subscription_id="00000000-0000-0000-0000-000000000000",
+                deployer_object_id="00000000-0000-0000-0000-000000000001",
+                mixed_model_mode="azure-foundry",
+                capabilities=(),
+                narrator_candidates=(narrator,),
+                vision_candidates=(vision,),
+            )
+
 
 class TestNarratorDeploymentName:
     def test_dots_become_dashes_and_prefixes_narrator(self) -> None:
