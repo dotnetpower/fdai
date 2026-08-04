@@ -135,7 +135,9 @@ class KubectlEvidenceClient:
 
     async def admission_configurations(self, task: EvaluationTask) -> Mapping[str, Any]:
         self._namespace(task)
-        payload = await self._get_cluster_json("mutatingwebhookconfigurations")
+        payload = await self._get_cluster_json(
+            "mutatingwebhookconfigurations,validatingwebhookconfigurations"
+        )
         items = _items(payload)
         selected = items[: self._config.max_items]
         return {
@@ -144,7 +146,7 @@ class KubectlEvidenceClient:
                 projection
                 for item in selected
                 if isinstance(item, Mapping)
-                and (projection := _project_mutating_webhook_configuration(item)) is not None
+                and (projection := _project_webhook_configuration(item)) is not None
             ],
             "truncated": len(items) > len(selected),
         }
@@ -705,12 +707,17 @@ def _project_labels(value: object) -> dict[str, Any] | None:
     }
 
 
-def _project_mutating_webhook_configuration(
+def _project_webhook_configuration(
     item: Mapping[str, Any],
 ) -> dict[str, Any] | None:
+    kind = item.get("kind")
     metadata = item.get("metadata")
     webhooks = item.get("webhooks")
-    if not isinstance(metadata, Mapping) or not isinstance(webhooks, list):
+    if (
+        kind not in {"MutatingWebhookConfiguration", "ValidatingWebhookConfiguration"}
+        or not isinstance(metadata, Mapping)
+        or not isinstance(webhooks, list)
+    ):
         return None
     name = metadata.get("name")
     if not isinstance(name, str) or not name:
@@ -719,11 +726,10 @@ def _project_mutating_webhook_configuration(
     projected_webhooks = [
         projection
         for webhook in selected
-        if isinstance(webhook, Mapping)
-        and (projection := _project_mutating_webhook(webhook)) is not None
+        if isinstance(webhook, Mapping) and (projection := _project_webhook(webhook)) is not None
     ]
     return {
-        "kind": "MutatingWebhookConfiguration",
+        "kind": kind,
         "name": name[:253],
         "namespace": "",
         "projection_complete": len(webhooks) <= 32 and len(projected_webhooks) == len(webhooks),
@@ -731,7 +737,7 @@ def _project_mutating_webhook_configuration(
     }
 
 
-def _project_mutating_webhook(value: Mapping[str, Any]) -> dict[str, Any] | None:
+def _project_webhook(value: Mapping[str, Any]) -> dict[str, Any] | None:
     name = value.get("name")
     rules = value.get("rules")
     object_selector = _project_selector_presence(value.get("objectSelector"))
@@ -752,6 +758,12 @@ def _project_mutating_webhook(value: Mapping[str, Any]) -> dict[str, Any] | None
         if isinstance(rule, Mapping) and (projection := _project_admission_rule(rule)) is not None
     ]
     condition_values = match_conditions if isinstance(match_conditions, list) else []
+    client_config = value.get("clientConfig")
+    if not isinstance(client_config, Mapping):
+        return None
+    service = _project_webhook_service(client_config.get("service"))
+    if client_config.get("service") is not None and service is None:
+        return None
     return {
         "name": name[:253],
         "projection_complete": len(rules) <= 32
@@ -761,8 +773,23 @@ def _project_mutating_webhook(value: Mapping[str, Any]) -> dict[str, Any] | None
         "object_selector": object_selector,
         "namespace_selector": namespace_selector,
         "match_conditions": [{} for _ in condition_values[:32]],
+        "failure_policy": _text(value.get("failurePolicy"), 32),
+        "timeout_seconds": _count(value.get("timeoutSeconds")),
+        "service": service or {},
         "rules": projected_rules,
     }
+
+
+def _project_webhook_service(value: object) -> dict[str, str] | None:
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping):
+        return None
+    namespace = value.get("namespace")
+    name = value.get("name")
+    if not isinstance(namespace, str) or not isinstance(name, str):
+        return None
+    return {"namespace": namespace[:253], "name": name[:253]}
 
 
 def _project_selector_presence(value: object) -> dict[str, bool] | None:

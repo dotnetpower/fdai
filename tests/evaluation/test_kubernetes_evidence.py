@@ -560,6 +560,7 @@ async def test_admission_configurations_are_cluster_scoped_and_bounded(tmp_path:
             {
                 "items": [
                     {
+                        "kind": "MutatingWebhookConfiguration",
                         "metadata": {
                             "name": "resource-defaulting",
                             "labels": {"private.example/owner": "must-not-project"},
@@ -574,6 +575,8 @@ async def test_admission_configurations_are_cluster_scoped_and_bounded(tmp_path:
                                 "objectSelector": {},
                                 "namespaceSelector": {},
                                 "matchConditions": [],
+                                "failurePolicy": "Fail",
+                                "timeoutSeconds": 10,
                                 "rules": [
                                     {
                                         "operations": ["CREATE"],
@@ -596,7 +599,7 @@ async def test_admission_configurations_are_cluster_scoped_and_bounded(tmp_path:
     assert "--namespace" not in commands[0]
     assert commands[0][-5:] == (
         "get",
-        "mutatingwebhookconfigurations",
+        "mutatingwebhookconfigurations,validatingwebhookconfigurations",
         "--output",
         "json",
         "--request-timeout=15s",
@@ -616,6 +619,9 @@ async def test_admission_configurations_are_cluster_scoped_and_bounded(tmp_path:
                         "object_selector": {},
                         "namespace_selector": {},
                         "match_conditions": [],
+                        "failure_policy": "Fail",
+                        "timeout_seconds": 10,
+                        "service": {},
                         "rules": [
                             {
                                 "projection_complete": True,

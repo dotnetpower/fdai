@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 237e70e6fee32a8c741e90895c2aed0adb085622
+translation_source_sha: f4f4d6e6d7ea6995e4a0aa5d91f1e61ce2c2b8a2
 translation_revised: 2026-08-04
 ---
 
@@ -233,6 +233,14 @@ pre-effect audit intent, bounded rollback drill 및 observer-independent effect 
 `remediate.kubernetes-patch`를 미등록 상태로 유지합니다. Future implementation은 새로운
 shadow-first ActionType으로 시작하고 real staging substrate에서 7개 safeguard를 모두 충족해야
 합니다. Evaluation environment variable은 해당 authority를 부여할 수 없습니다.
+
+Admission evidence는 bounded MutatingWebhookConfiguration 및
+ValidatingWebhookConfiguration projection을 읽습니다. Structured failed event는 complete
+projection 전체에서 webhook name이 유일하고 affected resource가 target namespace에 있을 때만
+configuration candidate를 식별할 수 있습니다. TLS, timeout 및 backend failure는 검토된 source
+path와 bounded failure policy/Service identity를 보존합니다. Webhook URL과 CA bundle은 계속
+제외합니다. Finding은 candidate-only이며 webhook name 일치는 configuration이 external failure를
+일으켰다는 증명이 아닙니다.
 
 공유 Kubernetes package에는 hold-only admission resource-drift reducer가 있습니다. Exact core/v1
 Pod CREATE rule을 가진 complete selector-free, namespace-unscoped

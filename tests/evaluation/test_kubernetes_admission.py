@@ -30,6 +30,10 @@ class _Client:
             "truncated": self.inventory_truncated,
         }
 
+    async def events(self, task: EvaluationTask) -> Mapping[str, Any]:
+        del task
+        return {"events": [], "truncated": False}
+
     async def admission_configurations(self, task: EvaluationTask) -> Mapping[str, Any]:
         del task
         return {
@@ -45,6 +49,47 @@ async def test_admission_provider_emits_candidate_only_hold_finding() -> None:
     assert evidence["evidence_complete"] is True
     assert evidence["findings"][0]["causality"] == "candidate_only"
     assert evidence["findings"][0]["decision"] == "hold"
+
+
+async def test_admission_provider_correlates_structured_webhook_failure_candidate() -> None:
+    class _EventClient(_Client):
+        async def events(self, task: EvaluationTask) -> Mapping[str, Any]:
+            del task
+            return {
+                "events": [
+                    {
+                        "namespace": "example-app",
+                        "reason": "FailedCreate",
+                        "code": "admission_webhook_timeout",
+                        "webhook_name": "mutate.example.com",
+                        "regarding": {"kind": "ReplicaSet", "name": "api-1"},
+                    }
+                ],
+                "truncated": False,
+            }
+
+    evidence = await KubectlAdmissionEvidenceProvider(_EventClient()).collect(None)  # type: ignore[arg-type]
+
+    finding = next(
+        item
+        for item in evidence["findings"]
+        if item["reason"] == "admission_webhook_failure_configuration_candidate"
+    )
+    assert finding["failure_class"] == "timeout"
+    assert finding["resource"]["name"] == "resource-defaulting"
+    assert finding["causality"] == "candidate_only"
+
+
+async def test_admission_provider_abstains_when_event_query_is_truncated() -> None:
+    class _TruncatedEventClient(_Client):
+        async def events(self, task: EvaluationTask) -> Mapping[str, Any]:
+            del task
+            return {"events": [], "truncated": True}
+
+    evidence = await KubectlAdmissionEvidenceProvider(_TruncatedEventClient()).collect(None)  # type: ignore[arg-type]
+
+    assert evidence["evidence_complete"] is False
+    assert evidence["findings"] == []
 
 
 async def test_admission_provider_prioritizes_no_magic_weight_but_exposes_direct_evidence() -> None:

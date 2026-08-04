@@ -252,6 +252,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_webhook_failure_source_candidate",
+      "source_commits": [
+        "fb30124a5dc52e25edf2c12aecf48911a4f74fce"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Replaced fixed causal ranking with complete, globally unique webhook-name correlation and an explicit candidate-only claim.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

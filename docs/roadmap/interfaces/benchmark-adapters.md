@@ -231,6 +231,14 @@ arbitrary custom resources. A future implementation must enter as a new shadow-f
 and satisfy all seven safeguards on a real staging substrate; an evaluation environment variable
 cannot grant that authority.
 
+Admission evidence reads bounded MutatingWebhookConfiguration and
+ValidatingWebhookConfiguration projections. A structured failed event can identify a
+configuration candidate only when its webhook name is globally unique across the complete
+projection and its affected resource is in the target namespace. TLS, timeout, and backend
+failures retain a reviewed source path plus bounded failure policy and Service identity. Webhook
+URLs and CA bundles remain excluded. The finding is candidate-only; matching a webhook name does
+not prove that its configuration caused the external failure.
+
 The shared Kubernetes package has a hold-only admission resource-drift reducer. It reports a
 candidate-only correlation between normalized request or limit drift and one complete
 selector-free, namespace-unscoped MutatingWebhookConfiguration with an exact core/v1 Pod CREATE
