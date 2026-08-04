@@ -12,7 +12,7 @@ describe("capability catalog provenance", () => {
   });
 
   test("counts only execute and breakglass declarations as mutating", () => {
-    expect(["read", "simulate", "approve", "execute", "breakglass"]
+    expect((["read", "simulate", "approve", "execute", "breakglass"] as const)
       .filter(isMutatingCapability)).toEqual(["execute", "breakglass"]);
   });
 
@@ -84,5 +84,9 @@ describe("capability catalog provenance", () => {
       .toThrow(/MUST NOT be empty/);
     expect(() => decodeCapabilities({ ...root, capabilities: [{ ...item, slide_ref: 8 }] }))
       .toThrow(/slide_ref MUST be a string/);
+    expect(() => decodeCapabilities({
+      ...root,
+      capabilities: [{ ...item, side_effect_class: "unknown" }],
+    })).toThrow(/side_effect_class is invalid/);
   });
 });

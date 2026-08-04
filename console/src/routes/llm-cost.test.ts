@@ -102,6 +102,38 @@ describe("LLM usage provenance", () => {
     expect(decoded.records[0]).not.toHaveProperty("cost");
   });
 
+  test("rejects negative or fractional usage counts", () => {
+    const payload = {
+      source: "metering",
+      range_start: null,
+      range_end: null,
+      latest_occurred_at: null,
+      invocations: 1,
+      total: summary,
+      chat: summary,
+      by_scope: [],
+      by_model: [],
+      chat_by_model: [],
+      by_mode: [],
+      by_conversation: [],
+      by_conversation_truncated: false,
+      conversation_count: 0,
+      by_hour: [],
+      by_day: [],
+      by_month: [],
+      records: [],
+      records_truncated: false,
+      record_count: 0,
+    };
+
+    expect(() => decodeLlmCost({ ...payload, invocations: -1 }))
+      .toThrow(/non-negative integer/);
+    expect(() => decodeLlmCost({
+      ...payload,
+      total: { ...summary, prompt_tokens: 1.5 },
+    })).toThrow(/non-negative integer/);
+  });
+
   test("derives presentation ratios and trends only from measured tokens", () => {
     expect(tokenShare(25, 100)).toBe(0.25);
     expect(tokenShare(0, 0)).toBeNull();

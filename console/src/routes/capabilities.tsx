@@ -15,12 +15,21 @@ import {
   panelStringArray,
 } from "./panel-decode";
 
+const CAPABILITY_SIDE_EFFECT_CLASSES = [
+  "read",
+  "simulate",
+  "approve",
+  "execute",
+  "breakglass",
+] as const;
+type CapabilitySideEffectClass = typeof CAPABILITY_SIDE_EFFECT_CLASSES[number];
+
 interface Capability {
   readonly capability_id: string;
   readonly name: string;
   readonly category: string;
   readonly summary: string;
-  readonly side_effect_class: string;
+  readonly side_effect_class: CapabilitySideEffectClass;
   readonly default_mode: string;
   readonly required_role: string;
   readonly slide_ref: string | null;
@@ -55,7 +64,7 @@ export function decodeCapabilities(value: unknown): CapabilityResponse {
         name: panelNonEmptyString(item, "name", "capability"),
         category: panelNonEmptyString(item, "category", "capability"),
         summary: panelNonEmptyString(item, "summary", "capability"),
-        side_effect_class: panelNonEmptyString(item, "side_effect_class", "capability"),
+        side_effect_class: decodeCapabilitySideEffectClass(item),
         default_mode: panelNonEmptyString(item, "default_mode", "capability"),
         required_role: panelNonEmptyString(item, "required_role", "capability"),
         slide_ref: panelNullableString(item, "slide_ref", "capability"),
@@ -72,6 +81,16 @@ export function decodeCapabilities(value: unknown): CapabilityResponse {
     count,
     capabilities,
   };
+}
+
+function decodeCapabilitySideEffectClass(
+  item: Readonly<Record<string, unknown>>,
+): CapabilitySideEffectClass {
+  const value = panelNonEmptyString(item, "side_effect_class", "capability");
+  if (!CAPABILITY_SIDE_EFFECT_CLASSES.some((candidate) => candidate === value)) {
+    throw new Error("invalid Operator API response: capability.side_effect_class is invalid");
+  }
+  return value as CapabilitySideEffectClass;
 }
 
 export interface CapabilityRouteState {
@@ -103,11 +122,11 @@ const columns: readonly Column<Capability>[] = [
   { key: "summary", header: t("governance.capabilities.column.summary"), render: (row) => row.summary },
 ];
 
-export function isMutatingCapability(sideEffectClass: string): boolean {
+export function isMutatingCapability(sideEffectClass: CapabilitySideEffectClass): boolean {
   return sideEffectClass === "execute" || sideEffectClass === "breakglass";
 }
 
-export function capabilityRequestPath(sideEffectClass: string): Readonly<{
+export function capabilityRequestPath(sideEffectClass: CapabilitySideEffectClass): Readonly<{
   key: "directRead" | "governedRequest" | "humanApproval" | "ownerBreakGlass";
   tone: "info" | "shadow" | "hil" | "danger";
 }> {

@@ -31,8 +31,8 @@ import { LlmCostTrend } from "./llm-cost-trend";
 import {
   panelArray,
   panelBoolean,
+  panelNonNegativeInteger,
   panelNullableString,
-  panelNumber,
   panelRecord,
   panelString,
 } from "./panel-decode";
@@ -217,10 +217,10 @@ export function decodeLlmCost(value: unknown): Response {
     const summary = panelRecord(value, label);
     return {
       key: panelString(summary, "key", label),
-      invocations: panelNumber(summary, "invocations", label),
-      prompt_tokens: panelNumber(summary, "prompt_tokens", label),
-      completion_tokens: panelNumber(summary, "completion_tokens", label),
-      total_tokens: panelNumber(summary, "total_tokens", label),
+      invocations: panelNonNegativeInteger(summary, "invocations", label),
+      prompt_tokens: panelNonNegativeInteger(summary, "prompt_tokens", label),
+      completion_tokens: panelNonNegativeInteger(summary, "completion_tokens", label),
+      total_tokens: panelNonNegativeInteger(summary, "total_tokens", label),
     };
   };
   const summaries = (key: string) => panelArray(root[key], `LLM cost.${key}`)
@@ -230,7 +230,7 @@ export function decodeLlmCost(value: unknown): Response {
     range_start: panelNullableString(root, "range_start", "LLM cost"),
     range_end: panelNullableString(root, "range_end", "LLM cost"),
     latest_occurred_at: panelNullableString(root, "latest_occurred_at", "LLM cost"),
-    invocations: panelNumber(root, "invocations", "LLM cost"),
+    invocations: panelNonNegativeInteger(root, "invocations", "LLM cost"),
     total: decodeSummary(root["total"], "LLM cost.total"),
     chat: decodeSummary(root["chat"], "LLM cost.chat"),
     by_scope: summaries("by_scope"),
@@ -239,7 +239,7 @@ export function decodeLlmCost(value: unknown): Response {
     by_mode: summaries("by_mode"),
     by_conversation: summaries("by_conversation"),
     by_conversation_truncated: panelBoolean(root, "by_conversation_truncated", "LLM cost"),
-    conversation_count: panelNumber(root, "conversation_count", "LLM cost"),
+    conversation_count: panelNonNegativeInteger(root, "conversation_count", "LLM cost"),
     by_hour: summaries("by_hour"),
     by_day: summaries("by_day"),
     by_month: summaries("by_month"),
@@ -253,13 +253,13 @@ export function decodeLlmCost(value: unknown): Response {
         tier: panelString(record, "tier", `LLM cost.records[${index}]`),
         mode: panelString(record, "mode", `LLM cost.records[${index}]`),
         usage_scope: panelString(record, "usage_scope", `LLM cost.records[${index}]`),
-        prompt_tokens: panelNumber(record, "prompt_tokens", `LLM cost.records[${index}]`),
-        completion_tokens: panelNumber(record, "completion_tokens", `LLM cost.records[${index}]`),
-        total_tokens: panelNumber(record, "total_tokens", `LLM cost.records[${index}]`),
+        prompt_tokens: panelNonNegativeInteger(record, "prompt_tokens", `LLM cost.records[${index}]`),
+        completion_tokens: panelNonNegativeInteger(record, "completion_tokens", `LLM cost.records[${index}]`),
+        total_tokens: panelNonNegativeInteger(record, "total_tokens", `LLM cost.records[${index}]`),
       };
     }),
     records_truncated: panelBoolean(root, "records_truncated", "LLM cost"),
-    record_count: panelNumber(root, "record_count", "LLM cost"),
+    record_count: panelNonNegativeInteger(root, "record_count", "LLM cost"),
   };
 }
 
