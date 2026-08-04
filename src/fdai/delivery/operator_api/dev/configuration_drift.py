@@ -6,6 +6,11 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 
+from fdai.core.detection.configuration_drift import (
+    ConfigurationBaselineRegistry,
+    ConfigurationBaselineStatus,
+    RegisteredConfigurationBaseline,
+)
 from fdai.core.detection.configuration_drift_codec import baseline_from_dict
 from fdai.core.detection.configuration_drift_service import ConfigurationDriftService
 from fdai.delivery.configuration_drift import (
@@ -69,6 +74,9 @@ def build_local_configuration_drift_context(
         baseline_source=baseline_source,
         service=service,
         document_name=document.source_ref,
+        baseline_registry=ConfigurationBaselineRegistry(
+            (RegisteredConfigurationBaseline(baseline, ConfigurationBaselineStatus.ACTIVE),)
+        ),
     )
 
 

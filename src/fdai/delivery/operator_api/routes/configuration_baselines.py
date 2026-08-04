@@ -6,6 +6,14 @@ from collections import Counter
 from collections.abc import Mapping
 from typing import Any
 
+from fdai.core.detection.configuration_drift import (
+    ConfigurationBaselineRegistry,
+    ConfigurationObservation,
+    DriftVerdict,
+    EvidenceCompleteness,
+    FrozenConfigurationBaseline,
+    compare_configuration,
+)
 from fdai.core.detection.configuration_review import ConfigurationReviewCampaignStore
 from fdai.delivery.configuration_review_store import configuration_review_campaign_id
 from fdai.delivery.operator_api.routes.chat_configuration_drift import (
@@ -55,6 +63,7 @@ class ConfigurationBaselinesPanel:
                 "unknown_count": len(baseline.unknown_items),
                 "lifecycle": "active-pinned",
             },
+            "versions": _version_history(baseline, self._context.baseline_registry),
             "drift": {
                 "verdict": report.verdict.value,
                 "observed_at": report.observed_at.isoformat(),
@@ -80,6 +89,61 @@ class ConfigurationBaselinesPanel:
                 "required_runs": campaign.required_successes if campaign is not None else 3,
             },
         }
+
+
+def _version_history(
+    active: FrozenConfigurationBaseline,
+    registry: ConfigurationBaselineRegistry | None,
+) -> list[dict[str, Any]]:
+    if registry is None:
+        return []
+    records = sorted(
+        registry.list(scope=active.scope),
+        key=lambda record: (record.baseline.created_at, record.baseline.version),
+        reverse=True,
+    )
+    history: list[dict[str, Any]] = []
+    for record in records:
+        candidate = record.baseline
+        comparison = compare_configuration(
+            active,
+            ConfigurationObservation(
+                scope=active.scope,
+                observed_at=candidate.created_at,
+                source=f"configuration baseline {candidate.version}",
+                completeness=(
+                    EvidenceCompleteness.PARTIAL
+                    if candidate.unknown_items
+                    else EvidenceCompleteness.COMPLETE
+                ),
+                resources=candidate.resources,
+                links=candidate.links,
+            ),
+        )
+        counts = Counter(finding.drift_type.value for finding in comparison.findings)
+        verdict = (
+            DriftVerdict.BLOCKED.value
+            if candidate.unknown_items and comparison.verdict is DriftVerdict.PASSED
+            else comparison.verdict.value
+        )
+        history.append(
+            {
+                "version": candidate.version,
+                "sha256": candidate.sha256,
+                "status": record.status.value,
+                "created_at": candidate.created_at.isoformat(),
+                "resource_count": len(candidate.resources),
+                "topology_count": len(candidate.links),
+                "unknown_count": len(candidate.unknown_items),
+                "comparison": {
+                    "baseline_version": active.version,
+                    "verdict": verdict,
+                    "finding_count": len(comparison.findings),
+                    "counts": dict(sorted(counts.items())),
+                },
+            }
+        )
+    return history
 
 
 __all__ = ["ConfigurationBaselinesPanel"]

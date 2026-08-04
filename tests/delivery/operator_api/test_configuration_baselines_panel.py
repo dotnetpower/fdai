@@ -3,11 +3,14 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from fdai.core.detection.configuration_drift import (
+    ConfigurationBaselineRegistry,
+    ConfigurationBaselineStatus,
     ConfigurationObservation,
     ConfigurationResource,
     ConfigurationReviewCampaign,
     EvidenceCompleteness,
     FrozenConfigurationBaseline,
+    RegisteredConfigurationBaseline,
 )
 from fdai.core.detection.configuration_drift_service import ConfigurationDriftService
 from fdai.delivery.configuration_drift_knowledge import (
@@ -92,6 +95,43 @@ async def test_panel_projects_baseline_drift_knowledge_safety_and_performance() 
             monotonic=lambda: next(ticks),
         ),
         document_name="baseline.docx",
+        baseline_registry=ConfigurationBaselineRegistry(
+            (
+                RegisteredConfigurationBaseline(
+                    FrozenConfigurationBaseline(
+                        version="v0",
+                        created_at=datetime(2026, 8, 3, tzinfo=UTC),
+                        scope=baseline.scope,
+                        source="reviewed snapshot",
+                        document_sha256="b" * 64,
+                        resources=(
+                            ConfigurationResource(
+                                local_name="service-a",
+                                resource_type="example/service",
+                                region="example-region",
+                                attributes={"sku": "Legacy"},
+                            ),
+                        ),
+                    ),
+                    ConfigurationBaselineStatus.SUPERSEDED,
+                ),
+                RegisteredConfigurationBaseline(
+                    baseline,
+                    ConfigurationBaselineStatus.ACTIVE,
+                ),
+                RegisteredConfigurationBaseline(
+                    FrozenConfigurationBaseline(
+                        version="other-v1",
+                        created_at=_NOW,
+                        scope="another-scope",
+                        source="reviewed snapshot",
+                        document_sha256="c" * 64,
+                        resources=(),
+                    ),
+                    ConfigurationBaselineStatus.ACTIVE,
+                ),
+            )
+        ),
     )
     review_store = StateStoreConfigurationReviewCampaignStore(InMemoryStateStore())
     await review_store.create(
@@ -113,6 +153,11 @@ async def test_panel_projects_baseline_drift_knowledge_safety_and_performance() 
 
     assert payload["baseline"]["version"] == "v1"
     assert payload["baseline"]["resource_count"] == 1
+    assert [item["version"] for item in payload["versions"]] == ["v1", "v0"]
+    assert payload["versions"][0]["status"] == "active"
+    assert payload["versions"][1]["status"] == "superseded"
+    assert payload["versions"][1]["comparison"]["verdict"] == "failed"
+    assert payload["versions"][1]["comparison"]["counts"]["changed"] == 1
     assert payload["drift"]["verdict"] == "passed"
     assert payload["knowledge"]["status"] == "cited"
     assert payload["knowledge"]["citation_count"] == 1

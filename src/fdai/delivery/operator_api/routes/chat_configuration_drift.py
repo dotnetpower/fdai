@@ -6,7 +6,10 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from typing import Any, Final
 
-from fdai.core.detection.configuration_drift import KnowledgeGroundingStatus
+from fdai.core.detection.configuration_drift import (
+    ConfigurationBaselineRegistry,
+    KnowledgeGroundingStatus,
+)
 from fdai.core.detection.configuration_drift_service import (
     ConfigurationBaselineSource,
     ConfigurationDriftService,
@@ -29,6 +32,7 @@ class ConfigurationDriftChatTools:
     baseline_source: ConfigurationBaselineSource
     service: ConfigurationDriftService
     document_name: str
+    baseline_registry: ConfigurationBaselineRegistry | None = None
     fallback: ChatToolResolver | None = None
 
     def with_fallback(self, fallback: ChatToolResolver) -> ConfigurationDriftChatTools:
