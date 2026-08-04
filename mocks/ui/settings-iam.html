@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Agent-human dependencies - FDAI Console</title>
+  <title>Agent oversight - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
-  <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
+  <script src="assets/calm-slate.js?v=page-context-v4" defer></script>
   <style>
     .cs-settings-page { max-width: 1320px; }
     .ah-boundary { display:flex; gap:9px; margin:18px 0; padding:10px 12px; border:1px solid var(--cs-hairline); border-radius:7px; background:var(--cs-shade); color:var(--cs-text-soft); font-size:12px; }
@@ -182,16 +182,16 @@
 <body>
   <main class="cs-container cs-page cs-settings-page">
     <div class="cs-page-header cs-mb-24">
-      <h1><span class="cs-page-domain">Settings</span><span aria-hidden="true"> / </span>Identity and access</h1>
+      <h1><span class="cs-page-domain">Governance</span><span aria-hidden="true"> / </span>Agent oversight</h1>
       <p class="cs-lead">Connect each agent to the human knowledge, approval, and escalation it still needs.</p>
     </div>
 
-    <div class="cs-tabs" role="tablist" aria-label="Identity and access views">
-      <button class="cs-tab" type="button" role="tab" aria-selected="false">My access</button>
-      <button class="cs-tab" type="button" role="tab" aria-selected="false">Users</button>
-      <button class="cs-tab" type="button" role="tab" aria-selected="false">Roles</button>
-      <button class="cs-tab" type="button" role="tab" aria-selected="false">Requests</button>
-      <button class="cs-tab cs-active" type="button" role="tab" aria-selected="true">Agent dependencies</button>
+    <div class="cs-tabs" role="tablist" aria-label="Agent oversight views">
+      <button class="cs-tab" type="button" role="tab" aria-selected="false">Overview</button>
+      <button class="cs-tab cs-active" type="button" role="tab" aria-selected="true">Human dependencies</button>
+      <button class="cs-tab" type="button" role="tab" aria-selected="false">Knowledge handover</button>
+      <button class="cs-tab" type="button" role="tab" aria-selected="false">Approval routes</button>
+      <button class="cs-tab" type="button" role="tab" aria-selected="false">Mapping reviews</button>
     </div>
 
     <div class="ah-boundary" role="note"><strong>Agent-led handover</strong><span>RBAC limits eligibility; it does not infer expertise or grant authority. Every proposed relationship requires human confirmation and governed review.</span></div>
