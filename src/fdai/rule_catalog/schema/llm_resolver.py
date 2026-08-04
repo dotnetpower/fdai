@@ -49,6 +49,7 @@ from fdai.rule_catalog.schema.llm_endpoint_selection import (
     collect_narrator_deployments,
     collect_primary_candidates,
     collect_primary_deployments,
+    collect_vision_candidates,
     collect_web_search_candidates,
     collect_web_search_deployments,
     narrator_deployment_name,
@@ -187,6 +188,14 @@ class ResolvedModels:
     (single-narrator path) or a deterministic answerer.
     """
 
+    vision_candidates: tuple[NarratorCandidate, ...] = ()
+    """Image-input candidates selected only from ``t1.vision``.
+
+    These entries reuse matching narrator deployments but carry an independent
+    capability contract and runtime latency window. An empty list makes image
+    turns unavailable instead of borrowing an unverified text-only model.
+    """
+
     web_search_candidates: tuple[NarratorCandidate, ...] = ()
     """Responses API candidates selected only from ``t1.web_search``."""
 
@@ -239,6 +248,10 @@ class ResolvedModels:
             payload["narrator_candidates"] = [
                 _narrator_to_dict(n) for n in self.narrator_candidates
             ]
+        if self.vision_candidates:
+            payload["vision_candidates"] = [
+                _narrator_to_dict(candidate) for candidate in self.vision_candidates
+            ]
         if self.web_search_candidates:
             payload["web_search_candidates"] = [
                 _narrator_to_dict(candidate) for candidate in self.web_search_candidates
@@ -285,6 +298,11 @@ class ResolvedModels:
                 _narrator_from_dict(n)
                 for n in raw.get("narrator_candidates", ())
                 if isinstance(n, dict)
+            ),
+            vision_candidates=tuple(
+                _narrator_from_dict(candidate)
+                for candidate in raw.get("vision_candidates", ())
+                if isinstance(candidate, dict)
             ),
             web_search_candidates=tuple(
                 _narrator_from_dict(candidate)
@@ -594,6 +612,7 @@ __all__ = [
     "ResolverError",
     "collect_narrator",
     "collect_narrator_deployments",
+    "collect_vision_candidates",
     "collect_primary_candidates",
     "collect_primary_deployments",
     "collect_web_search_candidates",

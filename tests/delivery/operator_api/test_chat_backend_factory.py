@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from decimal import Decimal
 
 import pytest
@@ -9,8 +10,11 @@ from fdai.delivery.operator_api.routes.chat_backend_factory import (
     _DEFAULT_NARRATOR_TURN_TIMEOUT_SECONDS,
     _chat_metering,
     _narrator_turn_timeout_seconds,
+    _resolve_disk_azure_backend,
     _resolved_model_keys,
+    describe_backend,
 )
+from fdai.delivery.operator_api.routes.chat_backend_router import LatencyRoutedChatBackend
 
 
 @pytest.mark.parametrize(
@@ -59,6 +63,7 @@ async def test_chat_metering_prices_explicit_resolved_family() -> None:
     await emitter.emit_safe(TokenUsage(prompt_tokens=1_000, completion_tokens=500))
 
     (record,) = await sink.invocations()
+    assert record.capability_id == "t1.judge"
     assert record.model_key == "gpt-4o-mini"
     assert record.cost == Decimal("0.45")
     assert record.currency == "USD"
@@ -101,3 +106,50 @@ def test_resolved_model_keys_reject_conflicting_families() -> None:
     )
 
     assert model_keys == {}
+
+
+async def test_chat_metering_can_attribute_vision_capability() -> None:
+    sink = InMemoryMeteringSink()
+    emitter = _chat_metering(
+        sink,
+        "vision-gpt",
+        capability_id="t1.vision",
+    )
+    assert emitter is not None
+
+    await emitter.emit_safe(TokenUsage(prompt_tokens=10, completion_tokens=5))
+
+    (record,) = await sink.invocations()
+    assert record.capability_id == "t1.vision"
+
+
+def test_resolved_artifact_binds_a_separate_vision_pool(tmp_path) -> None:
+    endpoint = "https://example.openai.azure.com/"
+    candidate = lambda deployment: {  # noqa: E731 - compact fixture builder
+        "endpoint": endpoint,
+        "deployment": deployment,
+        "api_version": "2024-08-01-preview",
+    }
+    path = tmp_path / "resolved-models.json"
+    path.write_text(
+        json.dumps(
+            {
+                "narrator_candidates": [candidate("text-a"), candidate("text-b")],
+                "vision_candidates": [candidate("vision-a"), candidate("vision-b")],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    backend = _resolve_disk_azure_backend({"LLM_RESOLVED_MODELS_PATH": str(path)})
+
+    assert isinstance(backend, LatencyRoutedChatBackend)
+    vision = backend.vision_backend()
+    assert isinstance(vision, LatencyRoutedChatBackend)
+    assert vision.candidate_names() == ("vision-a", "vision-b")
+    descriptor = describe_backend(backend)
+    assert descriptor["router"]["vision"] == {
+        "available": True,
+        "chose": "vision-a",
+        "candidates": vision.stats(),
+    }

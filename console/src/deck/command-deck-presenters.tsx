@@ -140,10 +140,15 @@ export interface BackendTooltipView {
     readonly reason: string;
     readonly candidates: readonly BackendTooltipCandidateView[];
   } | null;
+  readonly visionRouter?: {
+    readonly deployment: string;
+    readonly candidates: readonly BackendTooltipCandidateView[];
+  };
 }
 
 export function backendTooltipView(health: BackendHealth): BackendTooltipView {
   const router = health.router;
+  const vision = router?.vision;
   return {
     mode: health.mode,
     endpoint: health.endpoint,
@@ -158,6 +163,20 @@ export function backendTooltipView(health: BackendHealth): BackendTooltipView {
         selected: candidate.deployment === router.chose,
       })),
     } : null,
+    ...(vision?.available && vision.chose
+      ? {
+          visionRouter: {
+            deployment: vision.chose,
+            candidates: vision.candidates.map((candidate) => ({
+              deployment: candidate.deployment,
+              p50: candidate.p50_ms === null ? "-" : `${Math.round(candidate.p50_ms)}ms`,
+              p95: candidate.p95_ms === null ? "-" : `${Math.round(candidate.p95_ms)}ms`,
+              samples: candidate.samples,
+              selected: candidate.deployment === vision.chose,
+            })),
+          },
+        }
+      : {}),
   };
 }
 
@@ -206,6 +225,29 @@ function BackendTooltipContent({ health }: { readonly health: BackendHealth }) {
             {view.router.candidates.map((candidate) => (
               <span
                 key={candidate.deployment}
+                class={`deck-backend-tooltip-candidate${candidate.selected ? " is-selected" : ""}`}
+                aria-current={candidate.selected ? "true" : undefined}
+              >
+                <span class="deck-backend-tooltip-marker" aria-hidden="true" />
+                <code>{candidate.deployment}</code>
+                <span><small>p50</small>{candidate.p50}</span>
+                <span><small>p95</small>{candidate.p95}</span>
+                <span><small>n</small>{candidate.samples}</span>
+              </span>
+            ))}
+          </span>
+        </span>
+      ) : null}
+      {view.visionRouter ? (
+        <span class="deck-backend-tooltip-router">
+          <span class="deck-backend-tooltip-choice">
+            <span>vision-router</span>
+            <strong>{view.visionRouter.deployment}</strong>
+          </span>
+          <span class="deck-backend-tooltip-candidates">
+            {view.visionRouter.candidates.map((candidate) => (
+              <span
+                key={`vision-${candidate.deployment}`}
                 class={`deck-backend-tooltip-candidate${candidate.selected ? " is-selected" : ""}`}
                 aria-current={candidate.selected ? "true" : undefined}
               >

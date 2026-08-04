@@ -163,6 +163,7 @@ class TestResolvedModelsNarratorSerialization:
         text = self._empty_resolved().to_json()
         assert "narrator" not in text
         assert "narrator_candidates" not in text
+        assert "vision_candidates" not in text
 
     def test_narrator_fields_round_trip(self) -> None:
         winner = NarratorCandidate(
@@ -184,15 +185,18 @@ class TestResolvedModelsNarratorSerialization:
             capabilities=(),
             narrator=winner,
             narrator_candidates=(winner, second),
+            vision_candidates=(winner,),
             web_search_candidates=(second,),
         )
         text = original.to_json()
         assert "narrator" in text
         assert "narrator_candidates" in text
+        assert "vision_candidates" in text
         assert "web_search_candidates" in text
         restored = ResolvedModels.from_json(text)
         assert restored.narrator == winner
         assert restored.narrator_candidates == (winner, second)
+        assert restored.vision_candidates == (winner,)
         assert restored.web_search_candidates == (second,)
         assert restored.to_json() == text
 

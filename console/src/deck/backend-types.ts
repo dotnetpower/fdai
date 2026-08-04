@@ -36,6 +36,11 @@ export interface RouterSnapshot {
   readonly chose: string;
   readonly reason: string;
   readonly candidates: readonly RouterCandidate[];
+  readonly vision?: {
+    readonly available: boolean;
+    readonly chose: string | null;
+    readonly candidates: readonly RouterCandidate[];
+  };
 }
 
 export interface BackendReply {

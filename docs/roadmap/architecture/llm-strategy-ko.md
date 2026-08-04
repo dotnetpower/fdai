@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 64fa28ce6c1476727a96ee2e38fd7fefb964f5ee
-translation_revised: 2026-08-02
+translation_source_sha: 4a23cb9baa9a99acbae8a75fb3ef82531a86d531
+translation_revised: 2026-08-04
 ---
 
 # LLM 전략(LLM Strategy)
@@ -125,7 +125,7 @@ flowchart TD
 
 - 모든 모델 호출은 `shared/` 의 **provider-neutral 클라이언트** 를 통해 감 - 모델이 `core/tiers`
   를 만지지 않고 스왑 가능.
-- 모델을 하드코딩 이름이 아니라 capability로 설정: `t1.embedding`, `t1.judge`,
+- 모델을 하드코딩 이름이 아니라 capability로 설정: `t1.embedding`, `t1.judge`, `t1.vision`,
   `t2.reasoner.primary`, `t2.reasoner.secondary`, `t2.rca`.
 - **클라이언트 계약**: 요청 timeout, 구조화/JSON-schema 출력, 토큰 회계, 재현 가능 설정
   (지원되는 곳에서 temperature 0 + 고정 seed) 강제 - 그래서 교차 검사와 리플레이가 비교 가능.
@@ -425,12 +425,12 @@ HIL로 라우팅)을 반환하며, 다음 하드닝 불변식을 지킨다:
 새 capability(예: `t1.judge.fast-pool`)를 quality gate 와 함께 선언하고
 composer 로 라우팅, 스왑을 감사. narrator 라우터를 통해 쓰레딩하지 말 것.
 
-Operator API는 operator traffic과 독립적으로 이 pool을 갱신합니다. 시작할 때 모든
-후보를 두 번 probe하고, 이후 `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS`마다 후보별
-최소 sample을 하나씩 추가합니다. 기본값은 `300`초입니다. 실제 대화 latency도
-같은 8-sample rolling window에 들어가므로 느려지거나 실패한 deployment는 재시작을
-기다리지 않고 healthy 후보 뒤로 이동합니다.
-
+Operator API는 operator traffic과 독립적으로 text 및 multimodal pool을 갱신합니다. Text는
+`narrator_candidates`를 사용하고 image turn은 이미 provision된 deployment와 `t1.vision` preference의
+교집합인 `vision_candidates`를 사용하므로 Azure quota를 중복 예약하지 않습니다. 각 pool은 별도
+8-sample latency와 TTFT window를 유지합니다. Startup은 text 후보를 두 번, vision 후보는 bounded 1 px
+image로 probe하고 이후 `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS`(기본 `300`)마다 sample을 추가합니다. 느리거나 incompatible한 후보는 재시작 없이 뒤로 이동하며 vision pool이 없으면 text를 빌리지 않고 image
+turn만 unavailable로 유지합니다.
 ### 사용자별 Narrator 선호 및 TTFT
 
 Settings > Models는 모델 endpoint 또는 자격 증명을 노출하지 않고 해결된 T1/T2

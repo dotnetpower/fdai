@@ -3,6 +3,7 @@ import {
   clipboardImageFiles,
   detectKind,
   fileExtension,
+  fitVisionImageDimensions,
   formatSize,
   isRightsProtected,
   newAttachmentId,
@@ -11,6 +12,16 @@ import {
 } from "./composer-attachments";
 
 describe("composer-attachments", () => {
+  it("fits large screenshots inside the vision pixel bound without distortion", () => {
+    expect(fitVisionImageDimensions(7680, 4320)).toEqual({ width: 2048, height: 1152 });
+    expect(fitVisionImageDimensions(2160, 3840)).toEqual({ width: 1152, height: 2048 });
+  });
+
+  it("does not upscale small images and rejects invalid dimensions", () => {
+    expect(fitVisionImageDimensions(1280, 720)).toEqual({ width: 1280, height: 720 });
+    expect(() => fitVisionImageDimensions(0, 720)).toThrow(RangeError);
+  });
+
   it("extracts pasted image files and ignores text clipboard items", () => {
     const png = new File([new Uint8Array([1, 2, 3])], "clipboard.png", {
       type: "image/png",

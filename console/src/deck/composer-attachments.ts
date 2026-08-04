@@ -45,6 +45,13 @@ export interface ClipboardFileItem {
   getAsFile(): File | null;
 }
 
+export const MAX_VISION_IMAGE_EDGE = 2048;
+
+export interface VisionImageDimensions {
+  readonly width: number;
+  readonly height: number;
+}
+
 const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "heic", "avif"]);
 const WORD_EXT = new Set(["doc", "docx", "docm", "rtf"]);
 const EXCEL_EXT = new Set(["xls", "xlsx", "xlsm"]);
@@ -131,6 +138,25 @@ export function clipboardImageFiles(items: readonly ClipboardFileItem[]): File[]
     if (file) files.push(file);
   }
   return files;
+}
+
+/** Fit a raster inside the model-facing pixel bound without upscaling. */
+export function fitVisionImageDimensions(
+  width: number,
+  height: number,
+  maxEdge = MAX_VISION_IMAGE_EDGE,
+): VisionImageDimensions {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    throw new RangeError("image dimensions MUST be positive finite numbers");
+  }
+  if (!Number.isFinite(maxEdge) || maxEdge < 1) {
+    throw new RangeError("image max edge MUST be a positive finite number");
+  }
+  const scale = Math.min(1, maxEdge / Math.max(width, height));
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
 }
 
 /**

@@ -9,7 +9,10 @@ from typing import Any
 import pytest
 
 from fdai.delivery.operator_api.routes.chat import LatencyRoutedChatBackend, describe_backend
-from fdai.delivery.operator_api.routes.chat_backend_common import ChatContentPolicyError
+from fdai.delivery.operator_api.routes.chat_backend_common import (
+    ChatBackendUnavailableError,
+    ChatContentPolicyError,
+)
 
 
 class _FixedLatencyBackend:
@@ -211,6 +214,97 @@ class TestRouterWarmupAndSelection:
             candidates=[("fast", fast), ("mid", mid), ("slow", slow)],
         )
         return router, fast, mid, slow
+
+    async def test_routes_image_turns_to_an_independent_vision_pool(self) -> None:
+        text_a = _FixedLatencyBackend(model="text-a", delay_ms=1)
+        text_b = _FixedLatencyBackend(model="text-b", delay_ms=1)
+        vision_a = _FixedLatencyBackend(model="vision-a", delay_ms=1)
+        vision_b = _FixedLatencyBackend(model="vision-b", delay_ms=1)
+        router = LatencyRoutedChatBackend(
+            candidates=[("text-a", text_a), ("text-b", text_b)],
+        )
+        vision = LatencyRoutedChatBackend(
+            candidates=[("vision-a", vision_a), ("vision-b", vision_b)],
+            vision_capable=True,
+        )
+        router.bind_vision_backend(vision)
+
+        text_reply = await router.answer(prompt="text", view_context={}, history=[])
+        image_reply = await router.answer(
+            prompt="image",
+            view_context={"_attachments": [{"data_url": "data:image/png;base64,AA=="}]},
+            history=[],
+        )
+
+        assert text_reply["model"] == "text-a"
+        assert image_reply["model"] == "vision-a"
+        assert text_a.calls == 1
+        assert vision_a.calls == 1
+
+    async def test_image_turn_fails_closed_without_a_vision_pool(self) -> None:
+        router = LatencyRoutedChatBackend(
+            candidates=[
+                ("text-a", _FixedLatencyBackend(model="text-a", delay_ms=1)),
+                ("text-b", _FixedLatencyBackend(model="text-b", delay_ms=1)),
+            ],
+        )
+
+        with pytest.raises(ChatBackendUnavailableError, match="vision model pool unavailable"):
+            await router.answer(
+                prompt="image",
+                view_context={"_attachments": [{"data_url": "data:image/png;base64,AA=="}]},
+                history=[],
+            )
+
+    async def test_benchmark_samples_text_and_vision_pools(self) -> None:
+        text = [
+            _FixedLatencyBackend(model="text-a", delay_ms=1),
+            _FixedLatencyBackend(model="text-b", delay_ms=1),
+        ]
+        vision_candidates = [
+            _FixedLatencyBackend(model="vision-a", delay_ms=1),
+            _FixedLatencyBackend(model="vision-b", delay_ms=1),
+        ]
+        router = LatencyRoutedChatBackend(
+            candidates=[("text-a", text[0]), ("text-b", text[1])],
+        )
+        router.bind_vision_backend(
+            LatencyRoutedChatBackend(
+                candidates=[("vision-a", vision_candidates[0]), ("vision-b", vision_candidates[1])],
+                vision_capable=True,
+            )
+        )
+
+        await router.benchmark(rounds=1)
+
+        assert [candidate.calls for candidate in text] == [1, 1]
+        assert [candidate.calls for candidate in vision_candidates] == [1, 1]
+
+    async def test_stream_routes_image_turns_to_the_vision_pool(self) -> None:
+        text = [_StreamingBackend(), _StreamingBackend()]
+        vision_candidates = [_StreamingBackend(), _StreamingBackend()]
+        router = LatencyRoutedChatBackend(
+            candidates=[("text-a", text[0]), ("text-b", text[1])],
+        )
+        router.bind_vision_backend(
+            LatencyRoutedChatBackend(
+                candidates=[("vision-a", vision_candidates[0]), ("vision-b", vision_candidates[1])],
+                vision_capable=True,
+            )
+        )
+
+        events = [
+            event
+            async for event in router.answer_stream(
+                prompt="image",
+                view_context={"_attachments": [{"data_url": "data:image/png;base64,AA=="}]},
+                history=[],
+            )
+        ]
+
+        assert events[-1]["model"] == "vision-a"
+        assert [candidate.calls for candidate in text] == [0, 0]
+        assert [candidate.calls for candidate in vision_candidates] == [1, 0]
 
     async def test_warmup_rotates_every_candidate_before_pinning(self) -> None:
         router, fast, mid, slow = await self._make_router()

@@ -137,7 +137,7 @@ injection ([security-and-identity.md](security-and-identity.md)).
 
 - All model calls go through a **provider-neutral client** in `shared/` so models can be
   swapped without touching `core/tiers`.
-- Configure models by capability, not hard-coded name: `t1.embedding`, `t1.judge`,
+- Configure models by capability, not hard-coded name: `t1.embedding`, `t1.judge`, `t1.vision`,
   `t2.reasoner.primary`, `t2.reasoner.secondary`, `t2.rca`.
 - **Client contract**: enforce request timeouts, structured/JSON-schema output, token
   accounting, and reproducible settings (temperature 0 and a fixed seed where supported) so
@@ -453,13 +453,13 @@ declare a new capability (e.g. `t1.judge.fast-pool`) with its own quality gate,
 route via the composer, and audit the swap - do not thread it through the
 narrator router.
 
-The Operator API refreshes this pool independently of operator traffic. It probes
-every candidate twice at startup and then adds one minimal sample per candidate
-every `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS` (default `300`). Real conversation
-latencies share the same eight-sample rolling window, so a deployment that
-slows down or fails moves behind a healthier candidate without waiting for a
-restart.
-
+The Operator API refreshes text and multimodal pools independently of operator traffic. Text uses
+`narrator_candidates`; image turns use `t1.vision` preferences intersected with those provisioned
+deployments and emitted as `vision_candidates`, so Azure quota isn't reserved twice. Each pool keeps
+its own eight-sample latency and TTFT windows. Startup probes every text candidate twice and every
+vision candidate with a bounded 1 px image; periodic checks add one sample every
+`FDAI_NARRATOR_PROBE_INTERVAL_SECONDS` (default `300`). A slower or incompatible candidate falls
+behind without restart, while a missing vision pool makes image turns unavailable instead of borrowing text.
 ### Per-user Narrator Preference and TTFT
 
 Settings > Models projects the resolved T1/T2 capability inventory, bootstrap discovery and

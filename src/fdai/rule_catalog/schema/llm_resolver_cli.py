@@ -50,6 +50,7 @@ from fdai.rule_catalog.schema.llm_resolver import (
     collect_narrator_deployments,
     collect_primary_candidates,
     collect_primary_deployments,
+    collect_vision_candidates,
     collect_web_search_candidates,
     collect_web_search_deployments,
     resolve,
@@ -359,6 +360,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     # stays orthogonal to how the console consumes the output.
     narrator_winner = None
     narrator_candidates: tuple[Any, ...] = ()
+    vision_candidates: tuple[Any, ...] = ()
     web_search_candidates: tuple[Any, ...] = ()
     primary_candidates: tuple[Any, ...] = ()
     extra_deployments: tuple[Any, ...] = ()
@@ -382,6 +384,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             catalog=catalog_query,
             quota=quota_query,
             capability_name=args.narrator_capability,
+        )
+        vision_candidates = collect_vision_candidates(
+            registry=registry,
+            region=args.region,
+            catalog=catalog_query,
+            quota=quota_query,
+            endpoint=args.narrator_endpoint,
+            narrator_candidates=narrator_candidates,
+            api_version=args.narrator_api_version,
         )
         web_search_candidates = collect_web_search_candidates(
             registry=registry,
@@ -435,6 +446,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             capabilities=resolved.capabilities + extra_deployments,
             narrator=narrator_winner,
             narrator_candidates=narrator_candidates,
+            vision_candidates=vision_candidates,
             web_search_candidates=web_search_candidates,
             reasoner_primary_candidates=primary_candidates,
         )

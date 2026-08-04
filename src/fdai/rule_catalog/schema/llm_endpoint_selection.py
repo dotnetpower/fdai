@@ -135,6 +135,44 @@ def collect_narrator_deployments(
     return tuple(out)
 
 
+def collect_vision_candidates(
+    *,
+    registry: LlmRegistry,
+    region: str,
+    catalog: Any,
+    quota: Any,
+    endpoint: str,
+    narrator_candidates: tuple[Any, ...],
+    api_version: str = "2024-08-01-preview",
+    capability_name: str = "t1.vision",
+) -> tuple[Any, ...]:
+    """Collect vision-capable candidates backed by narrator deployments.
+
+    The capability resolves independently, but only families already emitted
+    in ``narrator_candidates`` are eligible. This keeps image routing explicit
+    without provisioning duplicate Azure deployments or consuming quota twice.
+    """
+    from fdai.rule_catalog.schema.llm_resolver import NarratorCandidate
+
+    deployed = {candidate.deployment for candidate in narrator_candidates}
+    prefs = _viable_narrator_prefs(
+        registry=registry,
+        region=region,
+        catalog=catalog,
+        quota=quota,
+        capability_name=capability_name,
+    )
+    return tuple(
+        NarratorCandidate(
+            endpoint=endpoint,
+            deployment=deployment,
+            api_version=api_version,
+        )
+        for pref in prefs
+        if (deployment := narrator_deployment_name(pref.family)) in deployed
+    )
+
+
 def collect_web_search_candidates(
     *,
     registry: LlmRegistry,
@@ -315,6 +353,7 @@ def _viable_primary_prefs(
 __all__ = [
     "collect_narrator",
     "collect_narrator_deployments",
+    "collect_vision_candidates",
     "collect_primary_candidates",
     "collect_primary_deployments",
     "narrator_deployment_name",
