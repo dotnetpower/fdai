@@ -14,6 +14,7 @@ from pathlib import Path
 from fdai.core.detection.configuration_drift import FrozenConfigurationBaseline
 from fdai.delivery.configuration_baseline_docx import (
     render_configuration_baseline_docx,
+    validate_configuration_baseline_docx,
     write_configuration_baseline_docx,
 )
 from fdai.delivery.configuration_drift import JsonFileConfigurationObservationSource
@@ -70,6 +71,7 @@ async def _freeze(args: argparse.Namespace) -> int:
         allowed_exceptions=tuple(args.allowed_exception),
         unknown_items=tuple(args.unknown_item),
     )
+    validate_configuration_baseline_docx(baseline, document)
 
     json_temp = args.output_json.with_name(f".{args.output_json.name}.{os.getpid()}.tmp")
     docx_temp = args.output_docx.with_name(f".{args.output_docx.name}.{os.getpid()}.tmp")

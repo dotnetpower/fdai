@@ -4,7 +4,16 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from fdai.core.detection.configuration_drift_codec import baseline_from_dict
+import pytest
+
+from fdai.core.detection.configuration_drift_codec import (
+    baseline_from_dict,
+    observation_from_dict,
+)
+from fdai.delivery.configuration_baseline_docx import (
+    render_configuration_baseline_docx,
+    validate_configuration_baseline_docx,
+)
 from fdai.delivery.configuration_baseline_freeze_cli import main
 from fdai.shared.providers.local.document_structure import extract_ooxml
 
@@ -135,3 +144,37 @@ def test_freeze_rejects_out_of_scope_observation_without_outputs(
     assert not output_json.exists()
     assert not output_docx.exists()
     assert "PermissionError" in capsys.readouterr().err  # type: ignore[attr-defined]
+
+
+def test_docx_validator_rejects_different_resource_facts(tmp_path: Path) -> None:
+    observation_path = tmp_path / "observation.json"
+    _observation(observation_path)
+    raw = json.loads(observation_path.read_text())
+    baseline = baseline_from_dict(
+        {
+            "schema_version": "1.0.0",
+            "version": "s13-v1",
+            "created_at": _NOW.isoformat(),
+            "scope": "example-scope",
+            "source": "reviewed inventory snapshot",
+            "document_sha256": "a" * 64,
+            "resources": [
+                {
+                    **raw["resources"][0],
+                    "attributes": {"sku": "Premium"},
+                }
+            ],
+            "links": raw["links"],
+            "allowed_exceptions": [],
+            "unknown_items": [],
+        }
+    )
+    document = render_configuration_baseline_docx(
+        observation=observation_from_dict(raw),
+        version="s13-v1",
+        created_at=_NOW,
+        source="reviewed inventory snapshot",
+    )
+
+    with pytest.raises(ValueError, match="does not match"):
+        validate_configuration_baseline_docx(baseline, document)

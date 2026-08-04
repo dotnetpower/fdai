@@ -16,6 +16,7 @@ from typing import Any, Final
 from fdai.core.detection.configuration_drift import FrozenConfigurationBaseline
 from fdai.core.detection.configuration_drift_codec import report_to_dict
 from fdai.core.detection.configuration_drift_service import ConfigurationDriftService
+from fdai.delivery.configuration_baseline_docx import validate_configuration_baseline_docx
 from fdai.delivery.configuration_drift import (
     JsonFileConfigurationBaselineSource,
     JsonFileConfigurationObservationSource,
@@ -102,6 +103,7 @@ async def _freeze(args: argparse.Namespace) -> int:
         allowed_exceptions=tuple(args.allowed_exception),
         unknown_items=tuple(args.unknown_item),
     )
+    validate_configuration_baseline_docx(baseline, args.document.read_bytes())
     _atomic_json(args.output, baseline.to_dict())
     print(json.dumps({"baseline_sha256": baseline.sha256, "document_sha256": document_sha256}))
     return 0
@@ -112,6 +114,7 @@ async def _validate(args: argparse.Namespace) -> int:
     baseline = await JsonFileConfigurationBaselineSource(args.baseline).load()
     if baseline.document_sha256 != document_sha256:
         raise ValueError("baseline document digest does not match")
+    validate_configuration_baseline_docx(baseline, args.document.read_bytes())
     print(json.dumps({"baseline_sha256": baseline.sha256, "document_sha256": document_sha256}))
     return 0
 

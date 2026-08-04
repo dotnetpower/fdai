@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import io
 import zipfile
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 from html import escape
 from pathlib import Path
@@ -13,7 +13,9 @@ from typing import Final
 from fdai.core.detection.configuration_drift import (
     ConfigurationLink,
     ConfigurationObservation,
+    FrozenConfigurationBaseline,
 )
+from fdai.shared.providers.local.document_structure import extract_ooxml
 
 _WORD_NS: Final[str] = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
@@ -92,6 +94,31 @@ def write_configuration_baseline_docx(path: Path, content: bytes) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def validate_configuration_baseline_docx(
+    baseline: FrozenConfigurationBaseline,
+    content: bytes,
+) -> None:
+    """Fail when a DOCX omits any structured fact from its paired baseline."""
+
+    visible_text = "\n".join(unit.text for unit in extract_ooxml(content))
+    required = [
+        f"Scope: {baseline.scope}.",
+        f"Version: {baseline.version}",
+        f"Created UTC: {baseline.created_at.isoformat()}",
+        f"Reviewed and frozen intended baseline: {baseline.source}",
+    ]
+    for resource in baseline.resources:
+        required.extend((resource.resource_type, resource.local_name, resource.region))
+        required.extend(f"{key}={_display(value)}" for key, value in resource.attributes.items())
+        required.extend(f"unknown:{item}" for item in resource.unknown_attributes)
+        required.extend(f"unauthorized:{item}" for item in resource.unauthorized_attributes)
+    required.extend(f"{link.source} {link.relation} {link.target}" for link in baseline.links)
+    required.extend(baseline.allowed_exceptions)
+    required.extend(baseline.unknown_items)
+    if any(fact not in visible_text for fact in required):
+        raise ValueError("configuration baseline DOCX does not match the canonical baseline")
+
+
 def _inventory_table(observation: ConfigurationObservation) -> str:
     rows = [
         ("Resource type", "Local resource name", "Region", "Attributes", "Evidence gaps"),
@@ -136,7 +163,7 @@ def _items(values: Iterable[str], *, empty: str) -> list[str]:
 
 
 def _display(value: object) -> str:
-    if isinstance(value, dict):
+    if isinstance(value, Mapping):
         return ",".join(f"{key}:{_display(item)}" for key, item in sorted(value.items()))
     if isinstance(value, (list, tuple)):
         return ",".join(_display(item) for item in value)
@@ -223,5 +250,6 @@ def _package(document: str) -> bytes:
 
 __all__ = [
     "render_configuration_baseline_docx",
+    "validate_configuration_baseline_docx",
     "write_configuration_baseline_docx",
 ]

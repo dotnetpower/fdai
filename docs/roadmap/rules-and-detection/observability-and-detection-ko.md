@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 354e6263f615da573eab15263a6982f5ef102462
+translation_source_sha: c96878d506376f229ad393c64113b7ad8a86ba03
 translation_revised: 2026-08-04
 ---
 
@@ -67,6 +67,9 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **findin
 구성 드리프트는 T0(결정론적 규칙) 점검 결과입니다. 검토된 실제 스냅샷을 의도된 상태로
 동결하며 이후 관측값으로 자동 교체하지 않습니다. 사람이 검토하는 DOCX와 정규 JSON 기준선은
 동일한 버전, 범위, 생성 시각, 문서 digest를 가집니다.
+Generation과 validation은 canonical JSON의 표시 가능한 모든 resource, attribute, evidence gap,
+topology link, exception, unknown item이 paired DOCX에 있는지도 확인합니다. File digest 일치만으로는
+cross-format equivalence가 성립하지 않습니다.
 
 - `core/detection/configuration_drift.py`는 리소스, 토폴로지 링크, 비교 가능한 속성을 정규화하고
   `added`, `removed`, `changed`, `unchanged`, `unknown`, `unauthorized`를 보고합니다.

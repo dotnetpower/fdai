@@ -66,6 +66,9 @@ are synthetic.
 Configuration drift is a T0 (deterministic rules) finding. A reviewed actual snapshot is frozen
 as intended state and is never replaced automatically by a later observation. The human-readable
 DOCX and canonical JSON baseline carry the same version, scope, creation time, and document digest.
+Generation and validation also verify that every displayed resource, attribute, evidence gap,
+topology link, exception, and unknown item in canonical JSON appears in the paired DOCX. A matching
+file digest alone does not establish cross-format equivalence.
 
 - `core/detection/configuration_drift.py` canonicalizes resources, topology links, and comparable
   attributes, then reports `added`, `removed`, `changed`, `unchanged`, `unknown`, or `unauthorized`.
