@@ -153,6 +153,21 @@ def _clean_name(raw: Any, index: int) -> str:
     return f"image-{index + 1}"
 
 
+def _unique_name(name: str, used: set[str]) -> str:
+    candidate = name
+    sequence = 2
+    while candidate.casefold() in used:
+        suffix = f" ({sequence})"
+        stem, separator, extension = name.rpartition(".")
+        extension_part = f".{extension}" if separator and stem else ""
+        base = stem if extension_part else name
+        available = _MAX_NAME_LEN - len(suffix) - len(extension_part)
+        candidate = f"{base[:available]}{suffix}{extension_part}"
+        sequence += 1
+    used.add(candidate.casefold())
+    return candidate
+
+
 def parse_vision_attachments(
     body: dict[str, Any],
     *,
@@ -177,6 +192,7 @@ def parse_vision_attachments(
         raise ValueError(f"attachments exceed cap ({len(raw)} > {max_images})")
 
     parsed: list[VisionAttachment] = []
+    used_names: set[str] = set()
     for index, item in enumerate(raw):
         if not isinstance(item, dict):
             raise ValueError("each attachment MUST be an object")
@@ -216,7 +232,7 @@ def parse_vision_attachments(
             )
         parsed.append(
             VisionAttachment(
-                name=_clean_name(item.get("name"), index),
+                name=_unique_name(_clean_name(item.get("name"), index), used_names),
                 media_type=media_type,
                 data_url=f"data:{media_type};base64,{b64}",
                 byte_size=len(decoded),

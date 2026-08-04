@@ -163,6 +163,22 @@ def test_sanitizes_control_characters_in_name() -> None:
     assert parsed[0].name == "abc.png"
 
 
+def test_disambiguates_names_that_collide_after_truncation() -> None:
+    prefix = "a" * 128
+    parsed = parse_vision_attachments(
+        {
+            "attachments": [
+                _attachment("image/png", _PNG, f"{prefix}-one.png"),
+                _attachment("image/png", _PNG, f"{prefix}-two.png"),
+            ]
+        }
+    )
+
+    assert parsed[0].name == prefix
+    assert parsed[1].name.endswith(" (2)")
+    assert len(parsed[1].name) <= 128
+
+
 def test_normalizes_whitespace_in_data_url() -> None:
     raw = base64.b64encode(_PNG).decode()
     spaced = f"data:image/png;base64,{raw[:8]}\n{raw[8:]}"
