@@ -288,6 +288,10 @@ policy, Service identity, and reviewed source path. The targeted receipt provide
 from the reducer. The admission evaluation provider now performs at most eight exact allowlisted
 `service/{name} --ignore-not-found` reads. Empty successful output confirms absence; out-of-scope,
 failed, oversized, malformed, or identity-mismatched responses make Service evidence incomplete.
+FDAI does not use a webhook Service reference to collect the backend namespace's full inventory.
+That reference proves neither dependency on every resource in the namespace nor authority to widen
+the evidence surface. Exact targeted Service receipts replace the source campaign's broad
+cross-namespace traversal for backend absence evidence.
 The source campaign's automatic `failurePolicy: Fail` to `Ignore` recovery seed is not ported.
 That mutation changes admission security intent to fail open, does not restore the missing backend,
 and lacks independent proof that the resulting admissions and rollback preserve the intended

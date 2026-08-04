@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: e3501f3912f7bc280c7edd625d00880616ad1e91
+translation_source_sha: 5f4a81964fa2e8a104fbc38dff1ea17f483ded2c
 translation_revised: 2026-08-04
 ---
 
@@ -290,6 +290,10 @@ reducer만으로 제공된다고 간주하지 않습니다. Admission evaluation
 allowlisted `service/{name} --ignore-not-found` read를 수행합니다. Empty successful output만 absence를
 확인하며 out-of-scope, failed, oversized, malformed 또는 identity-mismatched response는 Service
 evidence를 incomplete로 만듭니다.
+FDAI는 webhook Service reference를 사용해 backend namespace의 full inventory를 수집하지 않습니다.
+해당 reference는 namespace 내 모든 resource에 대한 dependency나 evidence surface 확장 authority를
+증명하지 않습니다. Exact targeted Service receipt가 backend absence evidence에서 source campaign의
+broad cross-namespace traversal을 대체합니다.
 Source campaign의 automatic `failurePolicy: Fail` to `Ignore` recovery seed는 port하지 않습니다.
 이 mutation은 admission security intent를 fail-open으로 바꾸고 missing backend를 복구하지 않으며,
 resulting admission과 rollback이 intended control을 보존한다는 independent proof도 없습니다. Approval,

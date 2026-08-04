@@ -509,6 +509,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_webhook_backend_namespace_inventory_expansion",
+      "source_commits": [
+        "a0e71fbce641513d77c951d9622d769841ac3991"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected collecting a backend namespace's full inventory from a webhook Service reference; exact bounded Service receipts provide the required absence evidence without widening unrelated resource exposure.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [
