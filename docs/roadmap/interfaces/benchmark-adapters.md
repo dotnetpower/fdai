@@ -239,6 +239,13 @@ failures retain a reviewed source path plus bounded failure policy and Service i
 URLs and CA bundles remain excluded. The finding is candidate-only; matching a webhook name does
 not prove that its configuration caused the external failure.
 
+Cumulative timeout evidence is a separate candidate-only mechanism. It requires at least two
+distinct structured timeout events for distinct webhook names, the same immutable affected-resource
+UID, and timestamps inside a five-minute window ending at the trusted evidence cutoff. Duplicate,
+stale, future, UID-conflicting, malformed, or truncated events produce no finding. Unlike the
+source campaign implementation, this mechanism does not infer a NetworkPolicy or degraded workload
+as the cause without direct policy-path and temporal evidence.
+
 The shared Kubernetes package has a hold-only admission resource-drift reducer. It reports a
 candidate-only correlation between normalized request or limit drift and one complete
 selector-free, namespace-unscoped MutatingWebhookConfiguration with an exact core/v1 Pod CREATE

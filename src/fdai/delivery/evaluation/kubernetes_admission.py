@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from fdai_evaluation_sdk import EvaluationTask
@@ -11,6 +12,11 @@ from fdai_evaluation_sdk import EvaluationTask
 from fdai.delivery.kubernetes.admission import mutating_webhook_resource_drift_findings
 from fdai.delivery.kubernetes.admission_conditions import admission_condition_findings
 from fdai.delivery.kubernetes.webhook_findings import admission_webhook_failure_findings
+from fdai.delivery.kubernetes.webhook_timeout import cumulative_webhook_timeout_findings
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 class KubernetesAdmissionEvidenceClient(Protocol):
@@ -24,6 +30,7 @@ class KubernetesAdmissionEvidenceClient(Protocol):
 @dataclass(frozen=True, slots=True)
 class KubectlAdmissionEvidenceProvider:
     client: KubernetesAdmissionEvidenceClient
+    clock: Callable[[], datetime] = _utc_now
 
     async def collect(self, task: EvaluationTask) -> Mapping[str, Any]:
         inventory = await self.client.inventory(task)
@@ -39,6 +46,7 @@ class KubectlAdmissionEvidenceProvider:
             *_mappings(configurations.get("resources")),
         ]
         namespace = str(inventory.get("namespace") or "")[:253]
+        events = _mappings(event_inventory.get("events"))
         return {
             "cluster": str(inventory.get("cluster") or "")[:253],
             "namespace": namespace,
@@ -50,9 +58,15 @@ class KubectlAdmissionEvidenceProvider:
                 ),
                 *admission_webhook_failure_findings(
                     resources,
-                    _mappings(event_inventory.get("events")),
+                    events,
                     namespace=namespace,
                     evidence_complete=evidence_complete,
+                ),
+                *cumulative_webhook_timeout_findings(
+                    events,
+                    namespace=namespace,
+                    evidence_complete=evidence_complete,
+                    evidence_cutoff=self.clock(),
                 ),
                 *mutating_webhook_resource_drift_findings(
                     resources,

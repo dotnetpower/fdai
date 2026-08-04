@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: f4f4d6e6d7ea6995e4a0aa5d91f1e61ce2c2b8a2
+translation_source_sha: ac32f2d62bf0cfe52c3fe2eda4d89829aaf913c0
 translation_revised: 2026-08-04
 ---
 
@@ -241,6 +241,12 @@ configuration candidate를 식별할 수 있습니다. TLS, timeout 및 backend 
 path와 bounded failure policy/Service identity를 보존합니다. Webhook URL과 CA bundle은 계속
 제외합니다. Finding은 candidate-only이며 webhook name 일치는 configuration이 external failure를
 일으켰다는 증명이 아닙니다.
+
+Cumulative timeout evidence는 별도 candidate-only mechanism입니다. 서로 다른 webhook name의
+structured timeout event가 최소 2개이고, affected resource immutable UID가 같으며, trusted evidence
+cutoff로 끝나는 5분 window 안의 timestamp가 있어야 합니다. Duplicate, stale, future, UID-conflicting,
+malformed 또는 truncated event는 finding을 생성하지 않습니다. Source campaign 구현과 달리 direct
+policy-path 및 temporal evidence 없이 NetworkPolicy나 degraded workload를 원인으로 추론하지 않습니다.
 
 공유 Kubernetes package에는 hold-only admission resource-drift reducer가 있습니다. Exact core/v1
 Pod CREATE rule을 가진 complete selector-free, namespace-unscoped

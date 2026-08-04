@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -77,6 +78,45 @@ async def test_admission_provider_correlates_structured_webhook_failure_candidat
     )
     assert finding["failure_class"] == "timeout"
     assert finding["resource"]["name"] == "resource-defaulting"
+    assert finding["causality"] == "candidate_only"
+
+
+async def test_admission_provider_correlates_recent_cumulative_timeouts() -> None:
+    class _CumulativeClient(_Client):
+        async def events(self, task: EvaluationTask) -> Mapping[str, Any]:
+            del task
+            return {
+                "events": [
+                    {
+                        "name": f"timeout-{index}",
+                        "namespace": "example-app",
+                        "reason": "FailedCreate",
+                        "code": "admission_webhook_timeout",
+                        "webhook_name": f"policy-{index}.example.io",
+                        "last_seen": f"2026-08-04T11:5{8 + index}:00Z",
+                        "regarding": {
+                            "kind": "ReplicaSet",
+                            "name": "api-1",
+                            "uid": "replica-uid",
+                        },
+                    }
+                    for index in range(2)
+                ],
+                "truncated": False,
+            }
+
+    evidence = await KubectlAdmissionEvidenceProvider(
+        _CumulativeClient(),
+        clock=lambda: datetime(2026, 8, 4, 12, 0, tzinfo=UTC),
+    ).collect(None)  # type: ignore[arg-type]
+
+    finding = next(
+        item
+        for item in evidence["findings"]
+        if item["reason"] == "cumulative_admission_webhook_timeout_candidate"
+    )
+    assert finding["webhook_count"] == 2
+    assert finding["resource"]["uid"] == "replica-uid"
     assert finding["causality"] == "candidate_only"
 
 

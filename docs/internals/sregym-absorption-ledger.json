@@ -267,6 +267,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_cumulative_webhook_timeout_candidate",
+      "source_commits": [
+        "d3215b019cf8e215f711a9b758efcea859071d52"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Requires two distinct recent timeout events and one immutable affected-resource UID; rejects the source campaign's unproven NetworkPolicy and degraded-workload causal attribution.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [
