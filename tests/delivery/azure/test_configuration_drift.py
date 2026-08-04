@@ -5,6 +5,7 @@ import json
 import httpx
 import pytest
 
+from fdai.delivery.azure.arg_query import ArgQueryError
 from fdai.delivery.azure.configuration_drift import (
     AzureArgConfigurationObservationSource,
     AzureConfigurationObservationConfig,
@@ -116,6 +117,37 @@ async def test_scope_mismatch_is_rejected_before_arg_call() -> None:
             await source.observe(scope="another-scope")
 
     assert not called
+
+
+async def test_arg_pagination_cap_fails_without_partial_observation() -> None:
+    calls = 0
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(200, json={"data": [], "$skipToken": "more"})
+
+    config = AzureConfigurationObservationConfig(
+        scope_ref="configured-drift-scope",
+        subscription_scope=_SUBSCRIPTION,
+        resource_group="rg-example",
+        page_size=100,
+        max_pages=1,
+        timeout_seconds=5.0,
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = AzureArgConfigurationObservationSource(
+            identity=StaticWorkloadIdentity(
+                audience="https://management.azure.com/.default",
+                token="test-token",  # noqa: S106
+            ),
+            http_client=client,
+            config=config,
+        )
+        with pytest.raises(ArgQueryError, match="pagination cap"):
+            await source.observe(scope="configured-drift-scope")
+
+    assert calls == 1
 
 
 def test_resource_group_filter_rejects_kusto_injection() -> None:

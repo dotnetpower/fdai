@@ -96,6 +96,30 @@ def _service(
     )
 
 
+@pytest.mark.parametrize(
+    ("version", "digest", "scope", "message"),
+    [
+        ("", "a" * 64, "example-scope", "version and scope"),
+        ("s13-v1", "a" * 64, "", "version and scope"),
+        ("s13-v1", "not-a-digest", "example-scope", "SHA-256"),
+    ],
+)
+def test_service_rejects_invalid_server_binding(
+    version: str,
+    digest: str,
+    scope: str,
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        ConfigurationDriftService(
+            baseline_source=_BaselineSource(_baseline()),
+            observation_source=_ObservationSource(_observation()),
+            expected_version=version,
+            expected_sha256=digest,
+            expected_scope=scope,
+        )
+
+
 async def test_service_uses_only_server_owned_scope() -> None:
     observation_source = _ObservationSource(_observation())
     baseline = _baseline()
