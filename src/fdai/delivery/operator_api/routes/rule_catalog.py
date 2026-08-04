@@ -206,15 +206,13 @@ def _parse_rego_metadata(body: str) -> dict[str, Any] | None:
 
     collected: list[str] = []
     for line in lines[start:]:
-        stripped = line.lstrip()
-        if not stripped.startswith("#"):
+        stripped = line.rstrip()
+        if stripped.startswith("# "):
+            collected.append(stripped[2:])
+        elif stripped == "#":
+            collected.append("")
+        else:
             break
-        # Drop the leading '#' and at most one following space so YAML
-        # indentation inside the block scalar is preserved.
-        content = stripped[1:]
-        if content.startswith(" "):
-            content = content[1:]
-        collected.append(content)
 
     if not collected:
         return None

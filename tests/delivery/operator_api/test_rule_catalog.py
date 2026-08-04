@@ -10,6 +10,7 @@ from starlette.testclient import TestClient
 from fdai.delivery.operator_api.auth import build_authenticator
 from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.operator_api.routes.rule_catalog import _parse_rego_metadata
 from fdai.shared.contracts.models import (
     Category,
     CheckLogic,
@@ -194,6 +195,17 @@ def test_rules_returns_totals_and_facets() -> None:
     assert body["facets"]["by_severity"] == {"low": 2, "critical": 1, "high": 1, "medium": 1}
     assert body["resource_type_count"] == 4
     assert body["search_mode"] == "substring"
+
+
+def test_rego_metadata_parser_requires_opa_comment_spacing() -> None:
+    malformed = "# METADATA\n#title: Missing space\npackage fdai.example"
+    valid = "# METADATA\n# title: Valid\n# custom:\n#   rule_id: example\npackage fdai.example"
+
+    assert _parse_rego_metadata(malformed) is None
+    assert _parse_rego_metadata(valid) == {
+        "title": "Valid",
+        "custom": {"rule_id": "example"},
+    }
 
 
 def test_rules_use_semantic_rank_when_index_is_bound() -> None:
