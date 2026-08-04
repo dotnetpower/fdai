@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import re
 from collections.abc import Awaitable, Callable, Mapping
@@ -14,6 +15,7 @@ from fdai_evaluation_sdk import EvaluationTask
 
 from fdai.delivery.kubernetes.admission_events import classify_admission_failure
 from fdai.delivery.kubernetes.capacity import project_pod_resource_requests
+from fdai.delivery.kubernetes.image_drift import image_pull_controller_drift_findings
 from fdai.delivery.kubernetes.owners import CustomOwnerQuery, project_custom_owner
 from fdai.delivery.kubernetes.quantity import cpu_millicores, memory_bytes, parse_quantity
 from fdai.evaluation.evidence import EvaluationEvidenceProvider
@@ -291,7 +293,17 @@ class KubectlInventoryEvidenceProvider:
     client: KubectlEvidenceClient
 
     async def collect(self, task: EvaluationTask) -> Mapping[str, Any]:
-        return await self.client.inventory(task)
+        inventory = dict(await self.client.inventory(task))
+        resources = [item for item in inventory.get("resources", []) if isinstance(item, Mapping)]
+        evidence_complete = inventory.get("truncated") is False
+        inventory["evidence_complete"] = evidence_complete
+        inventory["findings"] = list(
+            image_pull_controller_drift_findings(
+                resources,
+                evidence_complete=evidence_complete,
+            )
+        )
+        return inventory
 
 
 @dataclass(frozen=True, slots=True)
@@ -357,6 +369,9 @@ def _project_resource(item: Mapping[str, Any]) -> dict[str, Any] | None:
     if not isinstance(name, str) or not isinstance(namespace, str):
         return None
     projected: dict[str, Any] = {"kind": kind, "name": name, "namespace": namespace}
+    uid = metadata.get("uid")
+    if isinstance(uid, str) and uid:
+        projected["uid"] = uid[:128]
     if "ownerReferences" in metadata:
         owner_references, owner_references_complete = _project_owner_references(
             metadata.get("ownerReferences")
@@ -407,9 +422,6 @@ def _project_resource(item: Mapping[str, Any]) -> dict[str, Any] | None:
                 if isinstance(value, Mapping)
             ],
         )
-        uid = metadata.get("uid")
-        if isinstance(uid, str) and uid:
-            projected["uid"] = uid[:128]
         resource_requests = project_pod_resource_requests(spec_values)
         if resource_requests is not None:
             projected["resource_requests"] = resource_requests
@@ -593,7 +605,7 @@ def _project_template_container(value: Mapping[str, Any]) -> dict[str, Any]:
         if isinstance(item, Mapping) and (projection := _project_endpoint_env(item)) is not None
     ]
     resources = _project_container_resources(value.get("resources"))
-    return {
+    result: dict[str, Any] = {
         "name": _text(value.get("name"), 253),
         "resource_projection_complete": resources is not None,
         "resources": resources or {},
@@ -604,6 +616,10 @@ def _project_template_container(value: Mapping[str, Any]) -> dict[str, Any]:
         "env_projection_complete": isinstance(raw_env, list) and len(raw_env) <= 128,
         "env": env,
     }
+    image_reference_sha256 = _image_reference_sha256(value.get("image"))
+    if image_reference_sha256:
+        result["image_reference_sha256"] = image_reference_sha256
+    return result
 
 
 def _project_pod_resource_spec(value: Mapping[str, Any]) -> dict[str, Any] | None:
@@ -628,11 +644,21 @@ def _project_resource_container(value: Mapping[str, Any]) -> dict[str, Any] | No
     resources = _project_container_resources(value.get("resources"))
     if not isinstance(name, str) or not name or resources is None:
         return None
-    return {
+    projection: dict[str, Any] = {
         "name": name[:253],
         "resource_projection_complete": True,
         "resources": resources,
     }
+    image_reference_sha256 = _image_reference_sha256(value.get("image"))
+    if image_reference_sha256:
+        projection["image_reference_sha256"] = image_reference_sha256
+    return projection
+
+
+def _image_reference_sha256(value: object) -> str:
+    if not isinstance(value, str) or not value or len(value) > 512:
+        return ""
+    return hashlib.sha256(value.encode()).hexdigest()
 
 
 def _project_container_resources(value: object) -> dict[str, dict[str, str]] | None:

@@ -297,6 +297,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_image_pull_controller_template_drift_candidate",
+      "source_commits": [
+        "519bc2da1948bd034dc9fcff20c9944101853879"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Replaced name-only ownership and raw image disclosure with exact immutable UID-chain traversal, complete container projections, and SHA-256 image-reference fingerprints; retained candidate-only causality.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

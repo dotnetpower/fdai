@@ -226,6 +226,14 @@ not that the owner's configuration caused the degradation. The source campaign's
 `configuration_precedes` claim and arbitrary custom spec projection are intentionally rejected
 because they carried neither a configuration change timestamp nor interventional evidence.
 
+Inventory evidence can correlate a Pod image pull failure with drift from an owning Deployment,
+StatefulSet, or DaemonSet template. The correlation requires complete container projections, one
+exact controller owner at each hop, immutable UID matches for every resource in the chain, a
+recognized waiting reason, and different SHA-256 image-reference fingerprints for the same
+container name. Raw image references are not projected. Recreated, ambiguous, malformed, or
+truncated evidence produces no finding, and the result remains a hold-only candidate rather than a
+claim that template drift caused the pull failure.
+
 The campaign's generic custom-resource patch allowlist is not ported. Exact API-version and kind
 allowlisting plus generation checks are necessary but insufficient for a new mutation primitive.
 The current live executor keeps `remediate.kubernetes-patch` unregistered because the source

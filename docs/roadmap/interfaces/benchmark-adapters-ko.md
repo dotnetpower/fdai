@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 07905cbd1572c9616180f5bd6d911355f01beffa
+translation_source_sha: 60b112ba862b3f776feba34f151de0bc6d032016
 translation_revised: 2026-08-04
 ---
 
@@ -228,6 +228,14 @@ Complete workload projection에 projected custom owner UID와 일치하는 contr
 이는 direct ownership relationship을 증명하지만 owner configuration이 degradation을 일으켰다고
 증명하지 않습니다. Source campaign의 `configuration_precedes` 주장과 임의 custom spec projection은
 configuration change timestamp 또는 interventional evidence가 없으므로 의도적으로 거부합니다.
+
+Inventory evidence는 Pod image pull failure와 owning Deployment, StatefulSet 또는 DaemonSet
+template의 drift를 correlate할 수 있습니다. Correlation에는 complete container projection, 각 hop의
+exact controller owner 하나, chain 내 모든 resource의 immutable UID match, 인식된 waiting reason 및
+같은 container name의 서로 다른 SHA-256 image-reference fingerprint가 필요합니다. Raw image
+reference는 projection하지 않습니다. Recreated, ambiguous, malformed 또는 truncated evidence는
+finding을 생성하지 않으며 결과는 template drift가 pull failure를 일으켰다는 주장이 아닌 hold-only
+candidate로 유지됩니다.
 
 Campaign의 generic custom-resource patch allowlist는 port하지 않습니다. Exact API-version/kind
 allowlist와 generation check는 새 mutation primitive에 필요하지만 충분하지 않습니다. Source

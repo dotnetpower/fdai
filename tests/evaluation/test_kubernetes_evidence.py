@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fdai_evaluation_sdk import EvaluationTask, ResourceLimits, TargetRef
 
 from fdai.delivery.evaluation import KubectlEvidenceClient, KubectlEvidenceConfig
+from fdai.delivery.evaluation.kubernetes_evidence import KubectlInventoryEvidenceProvider
 from fdai.delivery.kubernetes.owners import CustomOwnerQuery
 
 _NOW = datetime(2026, 7, 29, 12, 0, tzinfo=UTC)
@@ -262,6 +266,7 @@ async def test_inventory_projects_bounded_immutable_owner_references(tmp_path: P
                         "metadata": {
                             "name": "api",
                             "namespace": "example-app",
+                            "uid": "deployment-uid",
                             "ownerReferences": [
                                 {
                                     "apiVersion": "database.example.io/v1",
@@ -283,6 +288,7 @@ async def test_inventory_projects_bounded_immutable_owner_references(tmp_path: P
     evidence = await KubectlEvidenceClient(config=_config(kubeconfig), run=run).inventory(_task())
 
     resource = evidence["resources"][0]
+    assert resource["uid"] == "deployment-uid"
     assert resource["owner_reference_projection_complete"] is True
     assert resource["owner_references"] == [
         {
@@ -294,6 +300,26 @@ async def test_inventory_projects_bounded_immutable_owner_references(tmp_path: P
         }
     ]
     assert "blockOwnerDeletion" not in json.dumps(evidence)
+
+
+async def test_inventory_provider_adds_hold_only_image_drift_candidates() -> None:
+    class _InventoryClient:
+        async def inventory(self, task: EvaluationTask) -> Mapping[str, Any]:
+            del task
+            return {
+                "resources": _image_drift_resources(),
+                "truncated": False,
+            }
+
+    evidence = await KubectlInventoryEvidenceProvider(
+        _InventoryClient()  # type: ignore[arg-type]
+    ).collect(_task())
+
+    assert evidence["evidence_complete"] is True
+    assert evidence["findings"][0]["reason"] == (
+        "pod_image_pull_controller_template_drift_candidate"
+    )
+    assert evidence["findings"][0]["decision"] == "hold"
 
 
 async def test_inventory_projects_only_active_admission_conditions(tmp_path: Path) -> None:
@@ -457,6 +483,7 @@ async def test_inventory_projects_only_reviewed_workload_endpoint_structure(
         "containers": [
             {
                 "name": "frontend",
+                "image_reference_sha256": hashlib.sha256(b"must-not-project").hexdigest(),
                 "resource_projection_complete": True,
                 "resources": {},
                 "port_projection_complete": True,
@@ -755,3 +782,55 @@ async def test_invalid_or_oversized_kubectl_payload_is_rejected(tmp_path: Path) 
     )
     with pytest.raises(RuntimeError, match="exceeded"):
         await limited.inventory(_task())
+
+
+def _image_drift_resources() -> list[dict[str, Any]]:
+    observed = hashlib.sha256(b"registry.example/api:broken").hexdigest()
+    expected = hashlib.sha256(b"registry.example/api:v1").hexdigest()
+    return [
+        {
+            "kind": "Pod",
+            "name": "api-1-abc",
+            "namespace": "example-app",
+            "uid": "pod-uid",
+            "owner_reference_projection_complete": True,
+            "owner_references": [
+                {
+                    "kind": "ReplicaSet",
+                    "name": "api-1",
+                    "uid": "rs-uid",
+                    "controller": True,
+                }
+            ],
+            "containers": [{"name": "api", "state": "waiting", "reason": "ImagePullBackOff"}],
+            "pod_spec": {
+                "projection_complete": True,
+                "containers": [{"name": "api", "image_reference_sha256": observed}],
+            },
+        },
+        {
+            "kind": "ReplicaSet",
+            "name": "api-1",
+            "namespace": "example-app",
+            "uid": "rs-uid",
+            "owner_reference_projection_complete": True,
+            "owner_references": [
+                {
+                    "kind": "Deployment",
+                    "name": "api",
+                    "uid": "deployment-uid",
+                    "controller": True,
+                }
+            ],
+        },
+        {
+            "kind": "Deployment",
+            "name": "api",
+            "namespace": "example-app",
+            "uid": "deployment-uid",
+            "pod_template": {
+                "projection_complete": True,
+                "containers": [{"name": "api", "image_reference_sha256": expected}],
+            },
+        },
+    ]
