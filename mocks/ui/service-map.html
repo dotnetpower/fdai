@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Service map - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=service-map-v1" />
+  <script src="assets/calm-slate.js?v=service-map-v1" defer></script>
+  <style>
+    .sm-page { max-width: 1480px; }
+    .sm-page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+    .sm-page-head .cs-page-header { min-width: 0; }
+    .sm-preview-badge { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; padding: 6px 10px; border: 1px solid rgba(68,104,142,.28); border-radius: 6px; background: rgba(68,104,142,.07); color: var(--cs-steel); font-size: 11px; font-weight: 700; }
+    .sm-preview-badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--cs-steel); }
+
+    .sm-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 54px; margin-bottom: 12px; padding: 8px 10px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); }
+    .sm-mode { display: inline-grid; grid-template-columns: repeat(3, minmax(92px, auto)); gap: 3px; padding: 3px; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-shade); }
+    .sm-mode button { min-height: 32px; padding: 4px 12px; border: 0; border-radius: 5px; background: transparent; color: var(--cs-text-soft); font: 600 12px var(--cs-font); cursor: pointer; }
+    .sm-mode button:hover { color: var(--cs-text); }
+    .sm-mode button.is-active { background: var(--cs-card); color: var(--cs-text); box-shadow: 0 1px 4px rgba(46,54,64,.12); }
+    .sm-toolbar-side { display: flex; align-items: center; gap: 12px; color: var(--cs-text-soft); font-size: 11px; }
+    .sm-window { min-height: 34px; padding: 0 30px 0 10px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); color: var(--cs-text); font: 600 11px var(--cs-font); }
+    .sm-motion { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); color: var(--cs-text-soft); cursor: pointer; }
+    .sm-motion:hover { color: var(--cs-text); background: var(--cs-shade); }
+    .sm-motion svg { width: 16px; height: 16px; fill: currentColor; }
+
+    .sm-workspace { overflow: hidden; border: 1px solid var(--cs-hairline); border-radius: 8px; background: #F7F8F8; box-shadow: var(--cs-shadow); }
+    .sm-scroll { overflow-x: auto; outline: none; }
+    .sm-scroll:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: -2px; }
+    .sm-canvas { display: block; width: 100%; min-width: 1120px; height: auto; min-height: 550px; }
+
+    .sm-lane rect { stroke: #D9DDDF; stroke-width: 1; }
+    .sm-lane text { fill: #7A838B; font: 700 11px var(--cs-font); letter-spacing: 0; text-transform: uppercase; }
+    .sm-lane-external rect { fill: #F5F6F5; }
+    .sm-lane-ingress rect { fill: #EEF4F5; }
+    .sm-lane-services rect { fill: #F8F8F7; }
+    .sm-lane-data rect { fill: #F3F1F5; }
+    .sm-lane-egress rect { fill: #F7F1ED; }
+    .sm-boundary-label { fill: #4F847E; font: 750 10px var(--cs-font); letter-spacing: .12em; }
+    .sm-boundary-label.egress { fill: #BC7449; }
+
+    .sm-edge-base { fill: none; stroke: #81909B; stroke-width: 2.2; opacity: .72; }
+    .sm-edge.is-async .sm-edge-base { stroke-dasharray: 7 6; }
+    .sm-edge-particles { fill: none; stroke: #44688E; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 2 15; opacity: 0; }
+    .sm-workspace[data-mode="live"][data-motion="running"] .sm-edge-particles { opacity: .82; animation: sm-flow 1.8s linear infinite; }
+    .sm-workspace[data-mode="live"][data-motion="running"] .sm-edge.speed-fast .sm-edge-particles { animation-duration: .8s; }
+    .sm-workspace[data-mode="live"][data-motion="running"] .sm-edge.speed-medium .sm-edge-particles { animation-duration: 1.25s; }
+    .sm-edge.health-warning .sm-edge-base, .sm-edge.health-warning .sm-edge-particles { stroke: #BC7449; }
+    .sm-edge.health-critical .sm-edge-base, .sm-edge.health-critical .sm-edge-particles { stroke: #AC5A5A; }
+    .sm-workspace[data-mode="incident"] .sm-edge.health-healthy { opacity: .18; }
+    .sm-workspace[data-mode="incident"] .sm-edge.health-warning .sm-edge-base { stroke-width: 3.5; opacity: .92; }
+    .sm-workspace[data-mode="incident"] .sm-edge.health-critical .sm-edge-base { stroke-width: 5; opacity: 1; }
+    .sm-workspace[data-mode="performance"] .sm-edge-label rect { stroke: #A9B2B8; }
+    @keyframes sm-flow { to { stroke-dashoffset: -34; } }
+
+    .sm-marker { fill: #81909B; }
+    .sm-marker-warning { fill: #BC7449; }
+    .sm-marker-critical { fill: #AC5A5A; }
+    .sm-edge-label rect { fill: rgba(255,255,255,.96); stroke: #D7DBDE; stroke-width: 1; }
+    .sm-edge-label text { text-anchor: middle; pointer-events: none; }
+    .sm-edge-rate { fill: #33414C; font: 700 10px var(--cs-font); }
+    .sm-edge-metric { fill: #6B7178; font: 10px var(--cs-font); }
+    .sm-edge.health-warning .sm-edge-rate { fill: #95552F; }
+    .sm-edge.health-critical .sm-edge-rate { fill: #913F3F; }
+
+    .sm-node { cursor: pointer; outline: none; }
+    .sm-node-surface { fill: #FFFFFF; stroke: #AEB7BD; stroke-width: 1.2; filter: drop-shadow(0 3px 5px rgba(46,54,64,.08)); }
+    .sm-node:hover .sm-node-surface, .sm-node:focus-visible .sm-node-surface { stroke: #44688E; stroke-width: 2; }
+    .sm-node.is-selected .sm-node-surface { fill: #F1F6F8; stroke: #44688E; stroke-width: 2.4; }
+    .sm-node.health-warning .sm-node-surface { fill: #FFFAF6; }
+    .sm-node.health-critical .sm-node-surface { fill: #FCF4F4; stroke: #AC5A5A; }
+    .sm-icon-tile { fill: #EEF2F5; stroke: #D6DDE2; }
+    .sm-icon-glyph { fill: none; stroke: #44688E; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .sm-icon-abbr { fill: #44688E; text-anchor: middle; font: 800 7px var(--cs-font); }
+    .sm-node-label { fill: #2C333A; font: 700 12px var(--cs-font); }
+    .sm-node-detail { fill: #6B7178; font: 10px var(--cs-font); }
+    .sm-health-dot { fill: #5E8259; stroke: #FFFFFF; stroke-width: 2; }
+    .sm-node.health-warning .sm-health-dot { fill: #BC7449; }
+    .sm-node.health-critical .sm-health-dot { fill: #AC5A5A; }
+
+    .sm-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 9px 18px; min-height: 48px; padding: 9px 14px; border-top: 1px solid var(--cs-hairline); background: var(--cs-card); color: var(--cs-text-soft); font-size: 11px; }
+    .sm-legend span { display: inline-flex; align-items: center; gap: 7px; }
+    .sm-legend i { display: inline-block; width: 24px; height: 7px; }
+    .sm-legend .flow { background: linear-gradient(#44688E, #44688E) center / 100% 2px no-repeat; }
+    .sm-legend .async { background: repeating-linear-gradient(90deg, #81909B 0 5px, transparent 5px 9px) center / 100% 2px no-repeat; }
+    .sm-legend .warning { background: linear-gradient(#BC7449, #BC7449) center / 100% 3px no-repeat; }
+    .sm-legend .critical { background: linear-gradient(#AC5A5A, #AC5A5A) center / 100% 4px no-repeat; }
+    .sm-legend small { margin-left: auto; }
+
+    .sm-inspector { display: grid; grid-template-columns: minmax(260px, 1.2fr) minmax(360px, 1fr) minmax(280px, 1fr); gap: 24px; margin-top: 16px; padding: 18px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); }
+    .sm-inspector-identity { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 13px; align-items: center; }
+    .sm-inspector-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 7px; background: #EEF2F5; color: var(--cs-steel); }
+    .sm-inspector-icon svg { width: 34px; height: 34px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .sm-inspector .eyebrow { display: block; margin-bottom: 2px; color: var(--cs-text-soft); font-size: 9px; font-weight: 750; text-transform: uppercase; }
+    .sm-inspector h2 { margin: 0; font-size: 17px; }
+    .sm-inspector p { margin: 2px 0 0; color: var(--cs-text-soft); font-size: 11px; }
+    .sm-health-label { padding: 4px 7px; border-radius: 5px; background: rgba(94,130,89,.1); color: var(--cs-sage); font-size: 10px; font-weight: 750; text-transform: capitalize; }
+    .sm-health-label.warning { background: rgba(188,116,73,.11); color: #95552F; }
+    .sm-health-label.critical { background: rgba(172,90,90,.1); color: #913F3F; }
+    .sm-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; margin: 0; }
+    .sm-facts div { min-width: 0; }
+    .sm-facts dt { color: var(--cs-text-soft); font-size: 9px; font-weight: 700; text-transform: uppercase; }
+    .sm-facts dd { margin: 2px 0 0; color: var(--cs-text); font-size: 12px; font-weight: 650; }
+    .sm-connections { display: grid; gap: 6px; }
+    .sm-connection { display: flex; justify-content: space-between; gap: 12px; min-width: 0; padding: 5px 0; border-bottom: 1px solid var(--cs-hairline); font-size: 11px; }
+    .sm-connection:last-child { border-bottom: 0; }
+    .sm-connection strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sm-connection small { flex: 0 0 auto; font-size: 10px; }
+
+    @media (max-width: 980px) {
+      .sm-inspector { grid-template-columns: 1fr 1fr; }
+      .sm-connections { grid-column: 1 / -1; }
+    }
+    @media (max-width: 700px) {
+      .sm-page { padding-left: 14px; padding-right: 14px; }
+      .sm-page-head, .sm-toolbar { align-items: stretch; flex-direction: column; }
+      .sm-preview-badge { align-self: flex-start; }
+      .sm-mode { width: 100%; grid-template-columns: repeat(3, 1fr); }
+      .sm-toolbar-side { justify-content: space-between; }
+      .sm-inspector { grid-template-columns: 1fr; }
+      .sm-connections { grid-column: auto; }
+      .sm-legend small { flex-basis: 100%; margin-left: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .sm-edge-particles { animation: none !important; opacity: 0 !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="cs-container cs-page sm-page">
+    <div class="sm-page-head cs-mb-16">
+      <div class="cs-page-header">
+        <div class="cs-eyebrow">Directional dependency flow</div>
+        <h1>Service map</h1>
+        <p class="cs-lead">Service-to-service topology across ingress, internal dependencies, and external egress.</p>
+      </div>
+      <span class="sm-preview-badge">Design preview · Synthetic telemetry</span>
+    </div>
+
+    <section class="sm-toolbar" aria-label="Service map view controls">
+      <div class="sm-mode" role="group" aria-label="View mode">
+        <button type="button" class="is-active" data-sm-mode="live" aria-pressed="true">Live flow</button>
+        <button type="button" data-sm-mode="performance" aria-pressed="false">Performance</button>
+        <button type="button" data-sm-mode="incident" aria-pressed="false">Incident</button>
+      </div>
+      <div class="sm-toolbar-side">
+        <span>Synthetic · relative 5 minute window</span>
+        <select class="sm-window" aria-label="Time window">
+          <option>5 minutes</option>
+          <option>30 minutes</option>
+          <option>1 hour</option>
+        </select>
+        <button class="sm-motion" type="button" aria-label="Pause traffic motion" title="Pause traffic motion" data-sm-motion>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="4" width="3" height="12" rx="1" /><rect x="12" y="4" width="3" height="12" rx="1" /></svg>
+        </button>
+      </div>
+    </section>
+
+    <section class="sm-workspace" data-mode="live" data-motion="running" aria-label="Synthetic service topology">
+      <div class="sm-scroll" tabindex="0" aria-label="Scrollable service map canvas">
+        <svg class="sm-canvas" viewBox="0 0 1280 590" role="img" aria-labelledby="sm-title sm-description">
+          <title id="sm-title">Service map design preview</title>
+          <desc id="sm-description">Synthetic directional topology with ingress, services, data dependencies, and external egress. Animated particles represent throughput.</desc>
+          <defs>
+            <marker id="sm-arrow-healthy" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth"><path class="sm-marker" d="M0,0 L8,4 L0,8 Z" /></marker>
+            <marker id="sm-arrow-warning" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth"><path class="sm-marker-warning" d="M0,0 L8,4 L0,8 Z" /></marker>
+            <marker id="sm-arrow-critical" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth"><path class="sm-marker-critical" d="M0,0 L8,4 L0,8 Z" /></marker>
+          </defs>
+          <g class="sm-lane sm-lane-external"><rect x="0" y="0" width="190" height="590" /><text x="16" y="28">External sources</text></g>
+          <g class="sm-lane sm-lane-ingress"><rect x="190" y="0" width="230" height="590" /><text x="206" y="28">Ingress</text></g>
+          <g class="sm-lane sm-lane-services"><rect x="420" y="0" width="290" height="590" /><text x="436" y="28">Services</text></g>
+          <g class="sm-lane sm-lane-data"><rect x="710" y="0" width="250" height="590" /><text x="726" y="28">Data and messaging</text></g>
+          <g class="sm-lane sm-lane-egress"><rect x="960" y="0" width="320" height="590" /><text x="976" y="28">External egress</text></g>
+          <text class="sm-boundary-label" x="207" y="566">INGRESS</text>
+          <text class="sm-boundary-label egress" x="978" y="566">EGRESS</text>
+          <g data-sm-edges></g>
+          <g data-sm-nodes></g>
+        </svg>
+      </div>
+      <footer class="sm-legend" aria-label="Traffic legend">
+        <span><i class="flow"></i>Request flow</span>
+        <span><i class="async"></i>Asynchronous</span>
+        <span><i class="warning"></i>Degraded</span>
+        <span><i class="critical"></i>Critical</span>
+        <small>Motion speed represents throughput. Latency remains numeric.</small>
+      </footer>
+    </section>
+
+    <section class="sm-inspector" aria-live="polite" data-sm-inspector></section>
+  </main>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var nodeWidth = 166;
+      var nodes = [
+        { id: "browser", label: "Example clients", detail: "Web and mobile", kind: "client", lane: "External sources", health: "healthy", x: 94, y: 206 },
+        { id: "probe", label: "Availability probe", detail: "Synthetic check", kind: "monitor", lane: "External sources", health: "healthy", x: 94, y: 426 },
+        { id: "gateway", label: "Example gateway", detail: "Application Gateway", kind: "gateway", lane: "Ingress", health: "healthy", x: 316, y: 316 },
+        { id: "checkout", label: "Checkout API", detail: "Container App · 3 replicas", kind: "container", lane: "Services", health: "warning", x: 570, y: 196 },
+        { id: "worker", label: "Order worker", detail: "Container App · 2 replicas", kind: "worker", lane: "Services", health: "healthy", x: 570, y: 432 },
+        { id: "orders", label: "Orders database", detail: "PostgreSQL", kind: "database", lane: "Data and messaging", health: "healthy", x: 824, y: 132 },
+        { id: "events", label: "Order events", detail: "Event Hubs", kind: "event", lane: "Data and messaging", health: "warning", x: 824, y: 316 },
+        { id: "receipts", label: "Receipt archive", detail: "Blob Storage", kind: "storage", lane: "Data and messaging", health: "healthy", x: 824, y: 500 },
+        { id: "payment", label: "Payment provider", detail: "External HTTPS API", kind: "external", lane: "External egress", health: "critical", x: 1090, y: 196 }
+      ];
+      var edges = [
+        { source: "browser", target: "gateway", protocol: "HTTPS", rpm: 18400, p95: 42, error: 0.2, health: "healthy" },
+        { source: "probe", target: "gateway", protocol: "HTTPS", rpm: 240, p95: 118, error: 0, health: "healthy" },
+        { source: "gateway", target: "checkout", protocol: "HTTP", rpm: 17600, p95: 67, error: 0.5, health: "warning" },
+        { source: "checkout", target: "orders", protocol: "SQL", rpm: 12900, p95: 24, error: 0.1, health: "healthy" },
+        { source: "checkout", target: "events", protocol: "AMQP", rpm: 8200, p95: 91, error: 1.7, health: "warning", async: true },
+        { source: "events", target: "worker", protocol: "AMQP", rpm: 7900, p95: 138, error: 0.6, health: "warning", async: true },
+        { source: "worker", target: "receipts", protocol: "Blob", rpm: 5100, p95: 36, error: 0.1, health: "healthy" },
+        { source: "checkout", target: "payment", protocol: "HTTPS", rpm: 4600, p95: 842, error: 8.4, health: "critical" }
+      ];
+      var abbreviations = { client: "WEB", monitor: "SYN", gateway: "AGW", container: "CA", worker: "CA", database: "PG", event: "EH", storage: "ST", external: "API" };
+      var selectedId = "payment";
+      var workspace = document.querySelector(".sm-workspace");
+      var edgeLayer = document.querySelector("[data-sm-edges]");
+      var nodeLayer = document.querySelector("[data-sm-nodes]");
+      var inspector = document.querySelector("[data-sm-inspector]");
+
+      function nodeById(id) { return nodes.find(function (node) { return node.id === id; }); }
+      function rateLabel(rpm) { return rpm >= 1000 ? (rpm / 1000).toFixed(rpm % 1000 === 0 ? 0 : 1) + "k rpm" : rpm + " rpm"; }
+      function speedClass(rpm) { return rpm >= 12000 ? "speed-fast" : rpm >= 5000 ? "speed-medium" : "speed-slow"; }
+      function pathFor(edge) {
+        var source = nodeById(edge.source);
+        var target = nodeById(edge.target);
+        var direction = target.x >= source.x ? 1 : -1;
+        var startX = source.x + direction * nodeWidth / 2;
+        var endX = target.x - direction * nodeWidth / 2;
+        var bend = Math.max(52, Math.abs(endX - startX) * .42);
+        return "M " + startX + " " + source.y + " C " + (startX + bend * direction) + " " + source.y + ", " + (endX - bend * direction) + " " + target.y + ", " + endX + " " + target.y;
+      }
+
+      function glyph(kind) {
+        if (kind === "client" || kind === "monitor") return '<rect x="9" y="7" width="22" height="16" rx="2"/><path d="M14 28 H26 M20 23 V28"/>';
+        if (kind === "gateway") return '<path d="M8 12 H32 M8 20 H32 M8 28 H32 M14 8 L8 12 L14 16 M26 24 L32 28 L26 32"/>';
+        if (kind === "container" || kind === "worker") return '<rect x="8" y="9" width="24" height="22" rx="3"/><path d="M8 16 H32 M15 9 V31"/>';
+        if (kind === "database") return '<ellipse cx="20" cy="10" rx="11" ry="4"/><path d="M9 10 V28 C9 33 31 33 31 28 V10 M9 19 C9 24 31 24 31 19"/>';
+        if (kind === "event") return '<circle cx="20" cy="20" r="12"/><path d="M8 20 H32 M20 8 V32 M13 13 L27 27 M27 13 L13 27"/>';
+        if (kind === "storage") return '<path d="M8 13 H32 V30 H8 Z M11 9 H29 L32 13 H8 Z M13 20 H27"/>';
+        return '<circle cx="20" cy="20" r="12"/><path d="M8 20 H32 M20 8 C25 13 25 27 20 32 M20 8 C15 13 15 27 20 32"/>';
+      }
+
+      function renderEdges() {
+        edgeLayer.innerHTML = edges.map(function (edge) {
+          var source = nodeById(edge.source);
+          var target = nodeById(edge.target);
+          var labelX = (source.x + target.x) / 2;
+          var labelY = (source.y + target.y) / 2;
+          return '<g class="sm-edge health-' + edge.health + ' ' + speedClass(edge.rpm) + (edge.async ? ' is-async' : '') + '" aria-label="' + source.label + ' to ' + target.label + ', ' + rateLabel(edge.rpm) + ', P95 ' + edge.p95 + ' milliseconds, ' + edge.error + ' percent errors">' +
+            '<path class="sm-edge-base" d="' + pathFor(edge) + '" marker-end="url(#sm-arrow-' + edge.health + ')"/>' +
+            '<path class="sm-edge-particles" d="' + pathFor(edge) + '"/>' +
+            '<g class="sm-edge-label" transform="translate(' + labelX + ' ' + labelY + ')"><rect x="-48" y="-20" width="96" height="40" rx="5"/><text class="sm-edge-rate" y="-4">' + rateLabel(edge.rpm) + '</text><text class="sm-edge-metric" y="11">P95 ' + edge.p95 + ' ms · ' + edge.error + '%</text></g></g>';
+        }).join("");
+      }
+
+      function renderNodes() {
+        nodeLayer.innerHTML = nodes.map(function (node) {
+          var selected = node.id === selectedId;
+          return '<g class="sm-node health-' + node.health + (selected ? ' is-selected' : '') + '" data-node-id="' + node.id + '" role="button" tabindex="0" aria-pressed="' + selected + '" aria-label="' + node.label + ', ' + node.detail + ', ' + node.health + '" transform="translate(' + (node.x - 83) + ' ' + (node.y - 35) + ')">' +
+            '<rect class="sm-node-surface" width="166" height="70" rx="7"/>' +
+            '<g transform="translate(13 14)"><rect class="sm-icon-tile" width="40" height="40" rx="6"/><g class="sm-icon-glyph">' + glyph(node.kind) + '</g><text class="sm-icon-abbr" x="20" y="35">' + abbreviations[node.kind] + '</text></g>' +
+            '<text class="sm-node-label" x="63" y="28">' + node.label + '</text><text class="sm-node-detail" x="63" y="47">' + node.detail + '</text><circle class="sm-health-dot" cx="151" cy="14" r="5"/></g>';
+        }).join("");
+      }
+
+      function inspectorGlyph(kind) {
+        return '<svg viewBox="0 0 40 40" aria-hidden="true">' + glyph(kind) + '</svg>';
+      }
+
+      function renderInspector() {
+        var node = nodeById(selectedId);
+        var connections = edges.filter(function (edge) { return edge.source === node.id || edge.target === node.id; });
+        var incoming = edges.filter(function (edge) { return edge.target === node.id; }).length;
+        var outgoing = edges.filter(function (edge) { return edge.source === node.id; }).length;
+        inspector.innerHTML = '<div class="sm-inspector-identity"><span class="sm-inspector-icon">' + inspectorGlyph(node.kind) + '</span><div><span class="eyebrow">Selected resource</span><h2>' + node.label + '</h2><p>' + node.detail + '</p></div><span class="sm-health-label ' + node.health + '">' + node.health + '</span></div>' +
+          '<dl class="sm-facts"><div><dt>Boundary</dt><dd>' + node.lane + '</dd></div><div><dt>Incoming</dt><dd>' + incoming + '</dd></div><div><dt>Outgoing</dt><dd>' + outgoing + '</dd></div><div><dt>Source</dt><dd>Synthetic preview</dd></div></dl>' +
+          '<div class="sm-connections">' + connections.map(function (edge) { var peer = nodeById(edge.source === node.id ? edge.target : edge.source); return '<span class="sm-connection"><strong>' + peer.label + '</strong><small>' + edge.protocol + ' · ' + edge.p95 + ' ms · ' + edge.error + '%</small></span>'; }).join("") + '</div>';
+      }
+
+      function selectNode(nodeId) {
+        selectedId = nodeId;
+        renderNodes();
+        renderInspector();
+      }
+
+      document.querySelectorAll("[data-sm-mode]").forEach(function (button) {
+        button.addEventListener("click", function () {
+          document.querySelectorAll("[data-sm-mode]").forEach(function (candidate) {
+            var active = candidate === button;
+            candidate.classList.toggle("is-active", active);
+            candidate.setAttribute("aria-pressed", String(active));
+          });
+          workspace.dataset.mode = button.dataset.smMode;
+        });
+      });
+
+      document.querySelector("[data-sm-motion]").addEventListener("click", function (event) {
+        var button = event.currentTarget;
+        var running = workspace.dataset.motion === "running";
+        workspace.dataset.motion = running ? "paused" : "running";
+        button.setAttribute("aria-label", running ? "Resume traffic motion" : "Pause traffic motion");
+        button.setAttribute("title", running ? "Resume traffic motion" : "Pause traffic motion");
+        button.innerHTML = running ? '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 4 L16 10 L6 16 Z"/></svg>' : '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="4" width="3" height="12" rx="1"/><rect x="12" y="4" width="3" height="12" rx="1"/></svg>';
+      });
+
+      nodeLayer.addEventListener("click", function (event) {
+        var node = event.target.closest("[data-node-id]");
+        if (node) selectNode(node.dataset.nodeId);
+      });
+      nodeLayer.addEventListener("keydown", function (event) {
+        var node = event.target.closest("[data-node-id]");
+        if (node && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          selectNode(node.dataset.nodeId);
+        }
+      });
+
+      renderEdges();
+      renderNodes();
+      renderInspector();
+    })();
+  </script>
+</body>
+</html>

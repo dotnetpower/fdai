@@ -39,4 +39,21 @@ describe("mock console visual boundary", () => {
     expect(landing).toMatch(/const previewUrl = page \+ '\?shell=left-v5&preview=' \+ Date\.now\(\);/);
     expect(landing).toContain("frame.src = previewUrl");
   });
+
+  test("registers the synthetic Service Map under Visualization", () => {
+    const landing = readFileSync(`${MOCK_ROOT}/index.html`, "utf8");
+    const navigation = readFileSync(`${MOCK_ROOT}/assets/calm-slate.js`, "utf8");
+    const serviceMap = readFileSync(`${MOCK_ROOT}/service-map.html`, "utf8");
+
+    expect(landing).toContain("<h3>Visualization</h3>");
+    expect(landing).toContain('data-page="service-map.html"');
+    expect(navigation).toContain('["Visualization", [');
+    expect(navigation).toContain('["service-map.html", "Service map", "is-steel"]');
+    expect(serviceMap).toContain("Design preview · Synthetic telemetry");
+    expect(serviceMap).toContain('data-sm-mode="live"');
+    expect(serviceMap).toContain('data-sm-mode="performance"');
+    expect(serviceMap).toContain('data-sm-mode="incident"');
+    expect(serviceMap).toContain("sm-edge-particles");
+    expect(serviceMap).toContain("sm-icon-glyph");
+  });
 });
