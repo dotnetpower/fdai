@@ -645,6 +645,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_service_backend_scaled_to_zero_candidate",
+      "source_commits": [
+        "e265bd4677f719ac24983ea6afcd04634e8b8c30"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Requires complete empty endpoint evidence, a complete Service selector, one exact same-namespace workload label match, desired replicas zero, and candidate-only causality; concrete projection remains unclaimed.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

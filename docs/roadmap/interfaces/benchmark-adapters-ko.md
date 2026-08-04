@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 6a5837b0f5ae69d6995a25bf3222390fee109384
+translation_source_sha: 3ed16577902ab55d5ca2c6cec26f17c710c3dbe4
 translation_revised: 2026-08-04
 ---
 
@@ -382,6 +382,11 @@ Global DNS mutation에는 independently observed service resolution, CoreDNS rol
 blast radius 및 snapshot restoration outcome이 필요합니다. 모든 safeguard를 검증할 때까지 live
 executor는 `remediate.coredns-nxdomain-template`를 미등록 상태로 유지하고 substrate call을 수행하지
 않습니다.
+Provider-neutral Service semantic은 endpoint evidence가 complete하고 empty이며 Service selector가
+complete하고, same-namespace workload 하나의 complete template label이 exact match하며 desired
+replica가 0일 때만 hold-only scaled-to-zero candidate를 생성합니다. Ready, nonzero, ambiguous,
+selector-mismatched, incomplete 또는 truncated evidence는 abstain합니다. Concrete endpoint 및 label
+projection은 별도 provider 작업입니다.
 Source campaign의 deterministic SecurityContext patch는 port하지 않습니다. Syntactically grounded
 template change도 process identity, capability 및 workload behavior를 바꿀 수 있으며 admission
 success만으로 rollout health, application correctness 또는 rollback restoration을 증명할 수 없습니다.

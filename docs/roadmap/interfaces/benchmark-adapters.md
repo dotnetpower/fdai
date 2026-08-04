@@ -379,6 +379,11 @@ The source campaign's automatic Corefile template removal and CoreDNS restart ar
 global DNS mutation requires independently observed service resolution, CoreDNS rollout health,
 bounded blast radius, and snapshot restoration outcomes. Until all safeguards are validated, the
 live executor keeps `remediate.coredns-nxdomain-template` unregistered and performs no substrate call.
+Provider-neutral Service semantics identify a hold-only scaled-to-zero candidate only when endpoint
+evidence is complete and empty, the Service selector is complete, exactly one same-namespace
+workload has identical complete template labels, and its desired replicas are zero. Ready,
+nonzero, ambiguous, selector-mismatched, incomplete, or truncated evidence abstains. Concrete
+endpoint and label projection remains provider work.
 The source campaign's deterministic SecurityContext patch is not ported. A syntactically grounded
 template change can alter process identity, capabilities, and workload behavior; admission success
 alone does not prove rollout health, application correctness, or rollback restoration. Until those
