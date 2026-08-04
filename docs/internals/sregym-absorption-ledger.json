@@ -494,6 +494,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_liveness_probe_failure_candidate",
+      "source_commits": [
+        "e59d3289e14c4e348d60f116133381116c06c2b6"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Requires a recent structured event, exact Pod-to-ReplicaSet-to-Deployment UID chain, degraded owner, and one identical privacy-safe probe fingerprint; rejects fixed sleep and second-read evaluation timing hacks.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

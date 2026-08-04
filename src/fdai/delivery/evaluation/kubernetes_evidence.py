@@ -18,6 +18,10 @@ from fdai.delivery.kubernetes.admission_events import classify_admission_failure
 from fdai.delivery.kubernetes.capacity import project_pod_resource_requests
 from fdai.delivery.kubernetes.host_port import host_port_conflict_findings
 from fdai.delivery.kubernetes.image_drift import image_pull_controller_drift_findings
+from fdai.delivery.kubernetes.liveness import (
+    is_liveness_probe_failure,
+    liveness_probe_failure_findings,
+)
 from fdai.delivery.kubernetes.owners import CustomOwnerQuery, project_custom_owner
 from fdai.delivery.kubernetes.quantity import cpu_millicores, memory_bytes, parse_quantity
 from fdai.delivery.kubernetes.scheduler_events import classify_scheduler_failure
@@ -375,11 +379,19 @@ class KubectlEventEvidenceProvider:
         )
         evidence["evidence_complete"] = evidence_complete
         evidence["findings"] = list(
-            host_port_conflict_findings(
-                resources,
-                events,
-                evidence_complete=evidence_complete,
-                evidence_cutoff=self.clock(),
+            (
+                *host_port_conflict_findings(
+                    resources,
+                    events,
+                    evidence_complete=evidence_complete,
+                    evidence_cutoff=self.clock(),
+                ),
+                *liveness_probe_failure_findings(
+                    resources,
+                    events,
+                    evidence_complete=evidence_complete,
+                    evidence_cutoff=self.clock(),
+                ),
             )
         )
         return evidence
@@ -698,6 +710,9 @@ def _project_template_container(value: Mapping[str, Any]) -> dict[str, Any]:
     image_reference_sha256 = _image_reference_sha256(value.get("image"))
     if image_reference_sha256:
         result["image_reference_sha256"] = image_reference_sha256
+    liveness_probe = _project_liveness_probe(value.get("livenessProbe"))
+    if liveness_probe is not None:
+        result["liveness_probe"] = liveness_probe
     return result
 
 
@@ -731,6 +746,9 @@ def _project_resource_container(value: Mapping[str, Any]) -> dict[str, Any] | No
     image_reference_sha256 = _image_reference_sha256(value.get("image"))
     if image_reference_sha256:
         projection["image_reference_sha256"] = image_reference_sha256
+    liveness_probe = _project_liveness_probe(value.get("livenessProbe"))
+    if liveness_probe is not None:
+        projection["liveness_probe"] = liveness_probe
     if "ports" in value:
         ports, ports_complete = _project_host_ports(value.get("ports"))
         projection["host_port_projection_complete"] = ports_complete
@@ -742,6 +760,39 @@ def _image_reference_sha256(value: object) -> str:
     if not isinstance(value, str) or not value or len(value) > 512:
         return ""
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+def _project_liveness_probe(value: object) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        return None
+    mechanisms = [
+        name
+        for name in ("httpGet", "tcpSocket", "exec", "grpc")
+        if isinstance(value.get(name), Mapping)
+    ]
+    if len(mechanisms) != 1:
+        return None
+    try:
+        canonical = json.dumps(value, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
+    except (TypeError, ValueError):
+        return None
+    if len(canonical) > 4_096:
+        return None
+    projection: dict[str, Any] = {
+        "mechanism": mechanisms[0],
+        "definition_sha256": hashlib.sha256(canonical.encode()).hexdigest(),
+    }
+    for source, target in (
+        ("initialDelaySeconds", "initial_delay_seconds"),
+        ("periodSeconds", "period_seconds"),
+        ("failureThreshold", "failure_threshold"),
+    ):
+        raw = value.get(source)
+        if isinstance(raw, int) and not isinstance(raw, bool) and 0 <= raw <= 86_400:
+            projection[target] = raw
+    return projection
 
 
 def _project_host_ports(value: object) -> tuple[list[dict[str, Any]], bool]:
@@ -1041,6 +1092,9 @@ def _project_event(item: Mapping[str, Any]) -> dict[str, Any] | None:
     }
     admission_failure = classify_admission_failure(reason=reason, message=message)
     if admission_failure is None:
+        if is_liveness_probe_failure(reason=reason, message=message):
+            projection["code"] = "liveness_probe_failed"
+            return projection
         scheduler_failure = classify_scheduler_failure(reason=reason, message=message)
         if scheduler_failure is not None:
             projection["code"] = scheduler_failure.code

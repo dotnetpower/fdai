@@ -330,6 +330,14 @@ Deployment UID whose desired replicas exceed ready replicas. The finding carries
 reviewed violation vocabulary, profile/version, immutable identities, and no raw message. Unknown,
 stale, future, recreated, ambiguous, healthy, or truncated evidence produces no finding. Diagnosis
 remains candidate-only and does not project or authorize a SecurityContext patch.
+
+Liveness failure evidence is reduced from one recent structured `Unhealthy` Event without retaining
+its raw message. A candidate requires an exact Pod UID, complete single-controller Pod-to-ReplicaSet
+and ReplicaSet-to-Deployment UID chains, a degraded Deployment, and one identical liveness-probe
+fingerprint across all three resources. Probe commands, HTTP paths, headers, and addresses are not
+projected; only mechanism, bounded timing, and a SHA-256 definition fingerprint remain. Drift,
+ambiguity, stale or future Events, and truncated evidence abstain. FDAI does not copy the source
+campaign's fixed sleep and second Event read; normal evidence freshness owns that concern.
 The source campaign's deterministic SecurityContext patch is not ported. A syntactically grounded
 template change can alter process identity, capabilities, and workload behavior; admission success
 alone does not prove rollout health, application correctness, or rollback restoration. Until those

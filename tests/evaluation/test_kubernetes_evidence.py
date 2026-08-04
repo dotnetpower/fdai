@@ -354,6 +354,31 @@ async def test_event_provider_correlates_recent_exact_uid_host_port_conflict() -
     assert evidence["findings"][0]["decision"] == "hold"
 
 
+async def test_event_provider_correlates_recent_exact_uid_liveness_failure() -> None:
+    class _LivenessClient:
+        async def inventory(self, task: EvaluationTask) -> Mapping[str, Any]:
+            del task
+            return {"resources": _liveness_resources(), "truncated": False}
+
+        async def events(self, task: EvaluationTask) -> Mapping[str, Any]:
+            del task
+            return {"events": _liveness_events(), "truncated": False}
+
+    evidence = await KubectlEventEvidenceProvider(
+        _LivenessClient(),  # type: ignore[arg-type]
+        clock=lambda: datetime(2026, 8, 4, 12, 0, tzinfo=UTC),
+    ).collect(_task())
+
+    finding = next(
+        item
+        for item in evidence["findings"]
+        if item["reason"] == "workload_liveness_probe_failure_candidate"
+    )
+    assert finding["resource"]["uid"] == "deployment-uid"
+    assert finding["affected_pod"]["uid"] == "pod-uid"
+    assert finding["decision"] == "hold"
+
+
 async def test_inventory_projects_only_active_admission_conditions(tmp_path: Path) -> None:
     kubeconfig = tmp_path / "config"
     kubeconfig.write_text("synthetic", encoding="utf-8")
@@ -870,6 +895,42 @@ async def test_events_structure_host_port_conflict_without_raw_message(tmp_path:
     assert raw_message not in json.dumps(evidence)
 
 
+async def test_events_structure_liveness_failure_without_raw_message(tmp_path: Path) -> None:
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text("synthetic", encoding="utf-8")
+    raw_message = "Liveness probe failed: HTTP probe returned status code 404"
+
+    async def run(command: tuple[str, ...]) -> bytes:
+        del command
+        return json.dumps(
+            {
+                "items": [
+                    {
+                        "metadata": {
+                            "name": "event-1",
+                            "namespace": "example-app",
+                            "creationTimestamp": "2026-08-04T11:59:00Z",
+                        },
+                        "reason": "Unhealthy",
+                        "message": raw_message,
+                        "involvedObject": {
+                            "kind": "Pod",
+                            "name": "api-1",
+                            "uid": "pod-uid",
+                        },
+                    }
+                ]
+            }
+        ).encode()
+
+    evidence = await KubectlEvidenceClient(config=_config(kubeconfig), run=run).events(_task())
+
+    assert evidence["events"][0]["code"] == "liveness_probe_failed"
+    assert evidence["events"][0]["regarding"]["uid"] == "pod-uid"
+    assert "message" not in evidence["events"][0]
+    assert raw_message not in json.dumps(evidence)
+
+
 async def test_inventory_projects_bounded_host_ports(tmp_path: Path) -> None:
     kubeconfig = tmp_path / "config"
     kubeconfig.write_text("synthetic", encoding="utf-8")
@@ -908,6 +969,51 @@ async def test_inventory_projects_bounded_host_ports(tmp_path: Path) -> None:
     container = evidence["resources"][0]["pod_spec"]["containers"][0]
     assert container["host_port_projection_complete"] is True
     assert container["host_ports"] == [{"host_port": 9100, "protocol": "TCP", "source_index": 1}]
+
+
+async def test_inventory_fingerprints_liveness_probe_without_raw_definition(
+    tmp_path: Path,
+) -> None:
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text("synthetic", encoding="utf-8")
+
+    async def run(command: tuple[str, ...]) -> bytes:
+        del command
+        return json.dumps(
+            {
+                "items": [
+                    {
+                        "kind": "Pod",
+                        "metadata": {
+                            "name": "api-1",
+                            "namespace": "example-app",
+                            "uid": "pod-uid",
+                        },
+                        "spec": {
+                            "containers": [
+                                {
+                                    "name": "api",
+                                    "livenessProbe": {
+                                        "exec": {"command": ["/private/check"]},
+                                        "periodSeconds": 10,
+                                        "failureThreshold": 3,
+                                    },
+                                }
+                            ]
+                        },
+                        "status": {"containerStatuses": []},
+                    }
+                ]
+            }
+        ).encode()
+
+    evidence = await KubectlEvidenceClient(config=_config(kubeconfig), run=run).inventory(_task())
+
+    probe = evidence["resources"][0]["pod_spec"]["containers"][0]["liveness_probe"]
+    assert probe["mechanism"] == "exec"
+    assert len(probe["definition_sha256"]) == 64
+    assert probe["period_seconds"] == 10
+    assert "/private/check" not in json.dumps(evidence)
 
 
 async def test_invalid_or_oversized_kubectl_payload_is_rejected(tmp_path: Path) -> None:
@@ -1013,6 +1119,67 @@ def _host_port_events() -> list[dict[str, Any]]:
             "name": "scheduler-1",
             "namespace": "example-app",
             "code": "host_port_conflict",
+            "last_seen": "2026-08-04T11:59:00Z",
+            "regarding": {"kind": "Pod", "name": "api-1", "uid": "pod-uid"},
+        }
+    ]
+
+
+def _liveness_resources() -> list[dict[str, Any]]:
+    probe = {
+        "mechanism": "httpGet",
+        "definition_sha256": hashlib.sha256(b"probe").hexdigest(),
+    }
+    return [
+        {
+            "kind": "Pod",
+            "namespace": "example-app",
+            "name": "api-1",
+            "uid": "pod-uid",
+            "owner_reference_projection_complete": True,
+            "owner_references": [
+                {"kind": "ReplicaSet", "name": "api-rs", "uid": "rs-uid", "controller": True}
+            ],
+            "pod_spec": {
+                "projection_complete": True,
+                "containers": [{"name": "api", "liveness_probe": probe}],
+            },
+        },
+        {
+            "kind": "ReplicaSet",
+            "namespace": "example-app",
+            "name": "api-rs",
+            "uid": "rs-uid",
+            "owner_reference_projection_complete": True,
+            "owner_references": [
+                {"kind": "Deployment", "name": "api", "uid": "deployment-uid", "controller": True}
+            ],
+            "pod_template": {
+                "projection_complete": True,
+                "containers": [{"name": "api", "liveness_probe": probe}],
+            },
+        },
+        {
+            "kind": "Deployment",
+            "namespace": "example-app",
+            "name": "api",
+            "uid": "deployment-uid",
+            "desired": 1,
+            "ready": 0,
+            "pod_template": {
+                "projection_complete": True,
+                "containers": [{"name": "api", "liveness_probe": probe}],
+            },
+        },
+    ]
+
+
+def _liveness_events() -> list[dict[str, Any]]:
+    return [
+        {
+            "name": "liveness-1",
+            "namespace": "example-app",
+            "code": "liveness_probe_failed",
             "last_seen": "2026-08-04T11:59:00Z",
             "regarding": {"kind": "Pod", "name": "api-1", "uid": "pod-uid"},
         }

@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: c7842cce2fd8b6a65db3beb83b4bfd2f739e0582
+translation_source_sha: e3501f3912f7bc280c7edd625d00880616ad1e91
 translation_revised: 2026-08-04
 ---
 
@@ -331,6 +331,14 @@ Deployment의 desired replica가 ready replica보다 많을 때만 correlate합�
 violation vocabulary, profile/version, immutable identity를 포함하고 raw message는 제외합니다. Unknown,
 stale, future, recreated, ambiguous, healthy 또는 truncated evidence는 finding을 생성하지 않습니다.
 Diagnosis는 candidate-only이며 SecurityContext patch를 projection하거나 authorize하지 않습니다.
+
+Liveness failure evidence는 raw message를 보존하지 않는 recent structured `Unhealthy` Event 하나에서
+reduce합니다. Candidate에는 exact Pod UID, complete single-controller Pod-to-ReplicaSet 및
+ReplicaSet-to-Deployment UID chain, degraded Deployment, 세 resource에서 동일한 liveness-probe
+fingerprint 하나가 필요합니다. Probe command, HTTP path, header 및 address는 projection하지 않고
+mechanism, bounded timing 및 SHA-256 definition fingerprint만 보존합니다. Drift, ambiguity, stale/future
+Event 및 truncated evidence는 abstain합니다. FDAI는 source campaign의 fixed sleep 및 second Event
+read를 복사하지 않으며 normal evidence freshness가 해당 concern을 소유합니다.
 Source campaign의 deterministic SecurityContext patch는 port하지 않습니다. Syntactically grounded
 template change도 process identity, capability 및 workload behavior를 바꿀 수 있으며 admission
 success만으로 rollout health, application correctness 또는 rollback restoration을 증명할 수 없습니다.
