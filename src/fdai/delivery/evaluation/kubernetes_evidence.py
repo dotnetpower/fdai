@@ -20,7 +20,9 @@ from fdai.delivery.kubernetes.host_port import host_port_conflict_findings
 from fdai.delivery.kubernetes.image_drift import image_pull_controller_drift_findings
 from fdai.delivery.kubernetes.liveness import (
     is_liveness_probe_failure,
+    is_readiness_probe_failure,
     liveness_probe_failure_findings,
+    readiness_probe_failure_findings,
 )
 from fdai.delivery.kubernetes.owners import CustomOwnerQuery, project_custom_owner
 from fdai.delivery.kubernetes.quantity import cpu_millicores, memory_bytes, parse_quantity
@@ -392,6 +394,12 @@ class KubectlEventEvidenceProvider:
                     evidence_complete=evidence_complete,
                     evidence_cutoff=self.clock(),
                 ),
+                *readiness_probe_failure_findings(
+                    resources,
+                    events,
+                    evidence_complete=evidence_complete,
+                    evidence_cutoff=self.clock(),
+                ),
             )
         )
         return evidence
@@ -710,10 +718,13 @@ def _project_template_container(value: Mapping[str, Any]) -> dict[str, Any]:
     image_reference_sha256 = _image_reference_sha256(value.get("image"))
     if image_reference_sha256:
         result["image_reference_sha256"] = image_reference_sha256
-    liveness_probe = _project_liveness_probe(value.get("livenessProbe"))
+    liveness_probe = _project_probe(value.get("livenessProbe"))
     if liveness_probe is not None:
         liveness_probe["startup_probe_present"] = isinstance(value.get("startupProbe"), Mapping)
         result["liveness_probe"] = liveness_probe
+    readiness_probe = _project_probe(value.get("readinessProbe"))
+    if readiness_probe is not None:
+        result["readiness_probe"] = readiness_probe
     return result
 
 
@@ -747,10 +758,13 @@ def _project_resource_container(value: Mapping[str, Any]) -> dict[str, Any] | No
     image_reference_sha256 = _image_reference_sha256(value.get("image"))
     if image_reference_sha256:
         projection["image_reference_sha256"] = image_reference_sha256
-    liveness_probe = _project_liveness_probe(value.get("livenessProbe"))
+    liveness_probe = _project_probe(value.get("livenessProbe"))
     if liveness_probe is not None:
         liveness_probe["startup_probe_present"] = isinstance(value.get("startupProbe"), Mapping)
         projection["liveness_probe"] = liveness_probe
+    readiness_probe = _project_probe(value.get("readinessProbe"))
+    if readiness_probe is not None:
+        projection["readiness_probe"] = readiness_probe
     if "ports" in value:
         ports, ports_complete = _project_host_ports(value.get("ports"))
         projection["host_port_projection_complete"] = ports_complete
@@ -764,7 +778,7 @@ def _image_reference_sha256(value: object) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 
-def _project_liveness_probe(value: object) -> dict[str, Any] | None:
+def _project_probe(value: object) -> dict[str, Any] | None:
     if value is None:
         return None
     if not isinstance(value, Mapping):
@@ -1080,6 +1094,9 @@ def _project_event(item: Mapping[str, Any]) -> dict[str, Any] | None:
         regarding["uid"] = involved_uid[:128]
     reason = _text(item.get("reason"), 256)
     message = _text(item.get("message"), 1_024)
+    source = item.get("source")
+    source_values = source if isinstance(source, Mapping) else {}
+    reporter = _text(item.get("reportingController") or source_values.get("component"), 128)
     projection: dict[str, Any] = {
         "name": name,
         "namespace": namespace,
@@ -1096,6 +1113,9 @@ def _project_event(item: Mapping[str, Any]) -> dict[str, Any] | None:
     if admission_failure is None:
         if is_liveness_probe_failure(reason=reason, message=message):
             projection["code"] = "liveness_probe_failed"
+            return projection
+        if is_readiness_probe_failure(reason=reason, message=message, reporter=reporter):
+            projection["code"] = "readiness_probe_failed"
             return projection
         scheduler_failure = classify_scheduler_failure(reason=reason, message=message)
         if scheduler_failure is not None:

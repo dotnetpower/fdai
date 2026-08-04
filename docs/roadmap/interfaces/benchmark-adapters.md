@@ -349,6 +349,10 @@ campaign's fixed sleep and second Event read; normal evidence freshness owns tha
 When the same full-chain probe identity has zero initial delay, a one-second period, and no startup
 probe at every hop, the existing candidate adds `aggressive_schedule=true`. It does not create a new
 reason, priority branch, or action authority. Startup-gate mismatch across the chain abstains.
+Readiness failures reuse the same recent Event, exact UID-chain, degraded-owner, and identical
+privacy-safe fingerprint kernel. Classification additionally requires the kubelet reporter and a
+reviewed readiness-failure phrase. It emits its own hold-only candidate without raw message or
+fixed-delay Event refresh; drift, stale identity, ambiguity, and truncation abstain.
 The source campaign's deterministic SecurityContext patch is not ported. A syntactically grounded
 template change can alter process identity, capabilities, and workload behavior; admission success
 alone does not prove rollout health, application correctness, or rollback restoration. Until those

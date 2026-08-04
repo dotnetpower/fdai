@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: ad9cb4c388545cf3081d0a62c8a02e05333da7ea
+translation_source_sha: fa361bd2bca65c83ea38f94fddf3932fffee79de
 translation_revised: 2026-08-04
 ---
 
@@ -350,6 +350,10 @@ read를 복사하지 않으며 normal evidence freshness가 해당 concern을 �
 동일한 full-chain probe identity가 모든 hop에서 initial delay 0, period 1초, startup probe 부재를
 가질 때 기존 candidate에 `aggressive_schedule=true`를 추가합니다. 새 reason, priority branch 또는
 action authority를 만들지 않습니다. Chain의 startup gate가 불일치하면 abstain합니다.
+Readiness failure는 동일한 recent Event, exact UID-chain, degraded-owner 및 identical privacy-safe
+fingerprint kernel을 재사용합니다. Classification에는 kubelet reporter와 reviewed readiness-failure
+phrase도 필요합니다. Raw message나 fixed-delay Event refresh 없이 별도 hold-only candidate를
+생성하며 drift, stale identity, ambiguity 및 truncation은 abstain합니다.
 Source campaign의 deterministic SecurityContext patch는 port하지 않습니다. Syntactically grounded
 template change도 process identity, capability 및 workload behavior를 바꿀 수 있으며 admission
 success만으로 rollout health, application correctness 또는 rollback restoration을 증명할 수 없습니다.

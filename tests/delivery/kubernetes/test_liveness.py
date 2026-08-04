@@ -8,7 +8,9 @@ from datetime import UTC, datetime, timedelta
 
 from fdai.delivery.kubernetes.liveness import (
     is_liveness_probe_failure,
+    is_readiness_probe_failure,
     liveness_probe_failure_findings,
+    readiness_probe_failure_findings,
 )
 
 _CUTOFF = datetime(2026, 8, 4, 12, 0, tzinfo=UTC)
@@ -18,6 +20,19 @@ def test_liveness_classifier_requires_reviewed_unhealthy_phrase() -> None:
     assert is_liveness_probe_failure(reason="Unhealthy", message="Liveness probe failed: 404")
     assert not is_liveness_probe_failure(reason="Normal", message="Liveness probe failed: 404")
     assert not is_liveness_probe_failure(reason="Unhealthy", message="Readiness probe failed")
+
+
+def test_readiness_classifier_requires_kubelet_reporter() -> None:
+    assert is_readiness_probe_failure(
+        reason="Unhealthy",
+        message="Readiness probe failed: 503",
+        reporter="kubelet",
+    )
+    assert not is_readiness_probe_failure(
+        reason="Unhealthy",
+        message="Readiness probe failed: 503",
+        reporter="other-controller",
+    )
 
 
 def test_liveness_failure_requires_recent_exact_uid_chain_and_common_probe() -> None:
@@ -129,6 +144,32 @@ def test_liveness_failure_marks_aggressive_schedule_without_new_reason() -> None
     )
 
 
+def test_readiness_failure_reuses_exact_uid_probe_kernel() -> None:
+    resources = _readiness_resources()
+    finding = readiness_probe_failure_findings(
+        resources,
+        _readiness_events(),
+        evidence_complete=True,
+        evidence_cutoff=_CUTOFF,
+    )[0]
+
+    assert finding["reason"] == "workload_readiness_probe_failure_candidate"
+    assert finding["resource"]["uid"] == "deployment-uid"
+    assert finding["affected_pod"]["uid"] == "pod-uid"
+    assert "aggressive_schedule" not in finding
+
+    drift = deepcopy(resources)
+    drift[1]["pod_template"]["containers"][0]["readiness_probe"][  # type: ignore[index]
+        "definition_sha256"
+    ] = _digest("changed")
+    assert not readiness_probe_failure_findings(
+        drift,
+        _readiness_events(),
+        evidence_complete=True,
+        evidence_cutoff=_CUTOFF,
+    )
+
+
 def _resources() -> list[dict[str, object]]:
     return [
         {
@@ -184,6 +225,21 @@ def _events() -> list[dict[str, object]]:
             "regarding": {"kind": "Pod", "name": "api-1", "uid": "pod-uid"},
         }
     ]
+
+
+def _readiness_resources() -> list[dict[str, object]]:
+    resources = deepcopy(_resources())
+    for resource in resources:
+        key = "pod_spec" if resource["kind"] == "Pod" else "pod_template"
+        container = resource[key]["containers"][0]  # type: ignore[index]
+        container["readiness_probe"] = container.pop("liveness_probe")
+    return resources
+
+
+def _readiness_events() -> list[dict[str, object]]:
+    events = deepcopy(_events())
+    events[0]["code"] = "readiness_probe_failed"
+    return events
 
 
 def _probe(value: str) -> dict[str, object]:

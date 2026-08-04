@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from typing import Any, Final
 
 _LIVENESS_FAILURE: Final = re.compile(r"\bliveness probe failed\b", re.IGNORECASE)
+_READINESS_FAILURE: Final = re.compile(r"\breadiness probe failed\b", re.IGNORECASE)
 _SHA256: Final = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -15,6 +16,16 @@ def is_liveness_probe_failure(*, reason: str, message: str) -> bool:
     """Recognize one reviewed kubelet liveness failure phrase."""
 
     return reason == "Unhealthy" and _LIVENESS_FAILURE.search(message) is not None
+
+
+def is_readiness_probe_failure(*, reason: str, message: str, reporter: str) -> bool:
+    """Recognize one reviewed kubelet readiness failure phrase."""
+
+    return (
+        reason == "Unhealthy"
+        and reporter in {"kubelet", "kubernetes.io/kubelet"}
+        and _READINESS_FAILURE.search(message) is not None
+    )
 
 
 def liveness_probe_failure_findings(
@@ -27,6 +38,55 @@ def liveness_probe_failure_findings(
 ) -> tuple[dict[str, Any], ...]:
     """Join recent liveness failures to one immutable workload probe chain."""
 
+    return _probe_failure_findings(
+        resources,
+        events,
+        evidence_complete=evidence_complete,
+        evidence_cutoff=evidence_cutoff,
+        window=window,
+        event_code="liveness_probe_failed",
+        probe_key="liveness_probe",
+        reason="workload_liveness_probe_failure_candidate",
+        source_path="/spec/template/spec/containers/livenessProbe",
+    )
+
+
+def readiness_probe_failure_findings(
+    resources: Sequence[Mapping[str, Any]],
+    events: Sequence[Mapping[str, Any]],
+    *,
+    evidence_complete: bool,
+    evidence_cutoff: datetime,
+    window: timedelta = timedelta(minutes=5),
+) -> tuple[dict[str, Any], ...]:
+    """Join recent readiness failures to one immutable workload probe chain."""
+
+    return _probe_failure_findings(
+        resources,
+        events,
+        evidence_complete=evidence_complete,
+        evidence_cutoff=evidence_cutoff,
+        window=window,
+        event_code="readiness_probe_failed",
+        probe_key="readiness_probe",
+        reason="workload_readiness_probe_failure_candidate",
+        source_path="/spec/template/spec/containers/readinessProbe",
+    )
+
+
+def _probe_failure_findings(
+    resources: Sequence[Mapping[str, Any]],
+    events: Sequence[Mapping[str, Any]],
+    *,
+    evidence_complete: bool,
+    evidence_cutoff: datetime,
+    window: timedelta,
+    event_code: str,
+    probe_key: str,
+    reason: str,
+    source_path: str,
+) -> tuple[dict[str, Any], ...]:
+
     if not evidence_complete or evidence_cutoff.tzinfo is None or window <= timedelta(0):
         return ()
     lower_bound = evidence_cutoff - window
@@ -37,7 +97,7 @@ def liveness_probe_failure_findings(
         regarding = event.get("regarding")
         observed_at = _timestamp(event.get("last_seen"))
         if (
-            event.get("code") != "liveness_probe_failed"
+            event.get("code") != event_code
             or not isinstance(regarding, Mapping)
             or regarding.get("kind") != "Pod"
             or observed_at is None
@@ -61,24 +121,30 @@ def liveness_probe_failure_findings(
         workload_identity = _identity(workload)
         if workload_identity in seen or not _degraded(workload):
             continue
-        common = _common_probe(pods[0], replica, workload)
+        common = _common_probe(pods[0], replica, workload, probe_key=probe_key)
         if common is None:
             continue
         seen.add(workload_identity)
         container, probe = common
         findings.append(
             {
-                "reason": "workload_liveness_probe_failure_candidate",
+                "reason": reason,
                 "resource": _finding_identity(workload_identity),
                 "affected_pod": _finding_identity(pod_identity),
                 "container": container,
                 "probe": probe,
-                "aggressive_schedule": (
-                    probe.get("initial_delay_seconds") == 0
-                    and probe.get("period_seconds") == 1
-                    and probe.get("startup_probe_present") is False
+                **(
+                    {
+                        "aggressive_schedule": (
+                            probe.get("initial_delay_seconds") == 0
+                            and probe.get("period_seconds") == 1
+                            and probe.get("startup_probe_present") is False
+                        )
+                    }
+                    if probe_key == "liveness_probe"
+                    else {}
                 ),
-                "source_paths": ["/spec/template/spec/containers/livenessProbe"],
+                "source_paths": [source_path],
                 "last_seen": observed_at.isoformat(),
                 "evidence_strength": "recent_event_exact_uid_chain_and_probe_fingerprint",
                 "causality": "candidate_only",
@@ -128,11 +194,13 @@ def _common_probe(
     pod: Mapping[str, Any],
     replica: Mapping[str, Any],
     workload: Mapping[str, Any],
+    *,
+    probe_key: str,
 ) -> tuple[str, dict[str, Any]] | None:
     groups = [
-        _probes(pod.get("pod_spec")),
-        _probes(replica.get("pod_template")),
-        _probes(workload.get("pod_template")),
+        _probes(pod.get("pod_spec"), probe_key=probe_key),
+        _probes(replica.get("pod_template"), probe_key=probe_key),
+        _probes(workload.get("pod_template"), probe_key=probe_key),
     ]
     if any(group is None for group in groups):
         return None
@@ -144,13 +212,17 @@ def _common_probe(
     return identity[0], complete_groups[-1][identity]
 
 
-def _probes(value: object) -> dict[tuple[str, str, bool], dict[str, Any]] | None:
+def _probes(
+    value: object,
+    *,
+    probe_key: str,
+) -> dict[tuple[str, str, bool], dict[str, Any]] | None:
     if not isinstance(value, Mapping) or value.get("projection_complete") is not True:
         return None
     probes: dict[tuple[str, str, bool], dict[str, Any]] = {}
     for container in _mappings(value.get("containers")):
         name = container.get("name")
-        probe = container.get("liveness_probe")
+        probe = container.get(probe_key)
         if not isinstance(name, str) or not name or not isinstance(probe, Mapping) or not probe:
             continue
         digest = probe.get("definition_sha256")
@@ -161,14 +233,20 @@ def _probes(value: object) -> dict[tuple[str, str, bool], dict[str, Any]] | None
             or mechanism not in {"httpGet", "tcpSocket", "exec", "grpc"}
         ):
             return None
-        startup_probe_present = probe.get("startup_probe_present") is True
+        startup_probe_present = (
+            probe.get("startup_probe_present") is True if probe_key == "liveness_probe" else False
+        )
         identity = (name, digest, startup_probe_present)
         if identity in probes:
             return None
         probes[identity] = {
             "mechanism": str(mechanism),
             "definition_sha256": digest,
-            "startup_probe_present": startup_probe_present,
+            **(
+                {"startup_probe_present": startup_probe_present}
+                if probe_key == "liveness_probe"
+                else {}
+            ),
             **{
                 key: probe[key]
                 for key in ("initial_delay_seconds", "period_seconds", "failure_threshold")
@@ -228,4 +306,9 @@ def _mappings(value: object) -> list[Mapping[str, Any]]:
     return [item for item in value if isinstance(item, Mapping)] if isinstance(value, list) else []
 
 
-__all__ = ["is_liveness_probe_failure", "liveness_probe_failure_findings"]
+__all__ = [
+    "is_liveness_probe_failure",
+    "is_readiness_probe_failure",
+    "liveness_probe_failure_findings",
+    "readiness_probe_failure_findings",
+]

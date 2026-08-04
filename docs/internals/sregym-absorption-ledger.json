@@ -540,6 +540,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_readiness_probe_failure_candidate",
+      "source_commits": [
+        "621b288300a51360fa034ab36d5db5305c3973a0"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Reuses the recent exact-UID and privacy-safe probe fingerprint kernel, requires a kubelet reporter, suppresses raw messages, and rejects fixed-delay second Event reads.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

@@ -379,6 +379,38 @@ async def test_event_provider_correlates_recent_exact_uid_liveness_failure() -> 
     assert finding["decision"] == "hold"
 
 
+async def test_event_provider_correlates_recent_exact_uid_readiness_failure() -> None:
+    resources = json.loads(json.dumps(_liveness_resources()))
+    for resource in resources:
+        key = "pod_spec" if resource["kind"] == "Pod" else "pod_template"
+        container = resource[key]["containers"][0]
+        container["readiness_probe"] = container.pop("liveness_probe")
+    events = json.loads(json.dumps(_liveness_events()))
+    events[0]["code"] = "readiness_probe_failed"
+
+    class _ReadinessClient:
+        async def inventory(self, task: EvaluationTask) -> Mapping[str, Any]:
+            del task
+            return {"resources": resources, "truncated": False}
+
+        async def events(self, task: EvaluationTask) -> Mapping[str, Any]:
+            del task
+            return {"events": events, "truncated": False}
+
+    evidence = await KubectlEventEvidenceProvider(
+        _ReadinessClient(),  # type: ignore[arg-type]
+        clock=lambda: datetime(2026, 8, 4, 12, 0, tzinfo=UTC),
+    ).collect(_task())
+
+    finding = next(
+        item
+        for item in evidence["findings"]
+        if item["reason"] == "workload_readiness_probe_failure_candidate"
+    )
+    assert finding["resource"]["uid"] == "deployment-uid"
+    assert finding["decision"] == "hold"
+
+
 async def test_inventory_projects_only_active_admission_conditions(tmp_path: Path) -> None:
     kubeconfig = tmp_path / "config"
     kubeconfig.write_text("synthetic", encoding="utf-8")
@@ -927,6 +959,44 @@ async def test_events_structure_liveness_failure_without_raw_message(tmp_path: P
 
     assert evidence["events"][0]["code"] == "liveness_probe_failed"
     assert evidence["events"][0]["regarding"]["uid"] == "pod-uid"
+    assert "message" not in evidence["events"][0]
+    assert raw_message not in json.dumps(evidence)
+
+
+async def test_events_structure_kubelet_readiness_failure_without_raw_message(
+    tmp_path: Path,
+) -> None:
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text("synthetic", encoding="utf-8")
+    raw_message = "Readiness probe failed: HTTP probe returned status code 503"
+
+    async def run(command: tuple[str, ...]) -> bytes:
+        del command
+        return json.dumps(
+            {
+                "items": [
+                    {
+                        "metadata": {
+                            "name": "event-1",
+                            "namespace": "example-app",
+                            "creationTimestamp": "2026-08-04T11:59:00Z",
+                        },
+                        "reason": "Unhealthy",
+                        "reportingController": "kubelet",
+                        "message": raw_message,
+                        "involvedObject": {
+                            "kind": "Pod",
+                            "name": "api-1",
+                            "uid": "pod-uid",
+                        },
+                    }
+                ]
+            }
+        ).encode()
+
+    evidence = await KubectlEvidenceClient(config=_config(kubeconfig), run=run).events(_task())
+
+    assert evidence["events"][0]["code"] == "readiness_probe_failed"
     assert "message" not in evidence["events"][0]
     assert raw_message not in json.dumps(evidence)
 
