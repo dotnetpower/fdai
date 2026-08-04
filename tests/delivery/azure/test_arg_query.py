@@ -1046,26 +1046,16 @@ async def test_end_to_end_inventory_snapshot_streams_final_true() -> None:
 
 
 @pytest.mark.asyncio
-async def test_non_mapping_rows_and_missing_id_are_skipped() -> None:
+@pytest.mark.parametrize(
+    "row",
+    [
+        {"id": "", "type": "Microsoft.Storage/storageAccounts"},
+        {"type": "Microsoft.Storage/storageAccounts"},
+    ],
+)
+async def test_missing_or_empty_provider_id_fails_closed(row: dict[str, Any]) -> None:
     def _handler(_request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200,
-            json={
-                "data": [
-                    "not-a-mapping",
-                    {"id": "", "type": "Microsoft.Storage/storageAccounts"},  # empty id
-                    {"type": "no-id"},  # missing id
-                    _arm_row(
-                        arm_id=(
-                            "/subscriptions/00000000-0000-0000-0000-000000000001/"
-                            "resourceGroups/rg-a/providers/Microsoft.Storage/"
-                            "storageAccounts/keep"
-                        ),
-                        arm_type="Microsoft.Storage/storageAccounts",
-                    ),
-                ]
-            },
-        )
+        return httpx.Response(200, json={"data": [row]})
 
     async with _make_client(httpx.MockTransport(_handler)) as client:
         factory = AzureArgQueryFactory(
@@ -1074,13 +1064,8 @@ async def test_non_mapping_rows_and_missing_id_are_skipped() -> None:
             http_client=client,
             config=_config(),
         )
-        resources, _ = await factory.build_query_fn()("object-storage")
-
-    # Only the well-formed row survives; the three malformed ones are dropped
-    # silently - no ArgQueryError because that's per-page level, not per-row.
-    assert len(resources) == 1
-    assert resources[0].provider_ref is not None
-    assert resources[0].provider_ref.endswith("/storageAccounts/keep")
+        with pytest.raises(ArgQueryError, match="lacks a provider id"):
+            await factory.build_query_fn()("object-storage")
 
 
 def test_neutral_id_falls_back_when_no_resource_group_marker() -> None:
