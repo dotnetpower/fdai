@@ -292,6 +292,10 @@ FDAI does not use a webhook Service reference to collect the backend namespace's
 That reference proves neither dependency on every resource in the namespace nor authority to widen
 the evidence surface. Exact targeted Service receipts replace the source campaign's broad
 cross-namespace traversal for backend absence evidence.
+FDAI also does not treat a deny-all NetworkPolicy selecting webhook backend Pods as proof that the
+policy blocks API-server traffic. Service selectors and Pod labels establish membership, not the
+control-plane network path or policy enforcement point. Without direct path evidence, this remains
+an unproven correlation and produces no causal finding.
 The source campaign's automatic `failurePolicy: Fail` to `Ignore` recovery seed is not ported.
 That mutation changes admission security intent to fail open, does not restore the missing backend,
 and lacks independent proof that the resulting admissions and rollback preserve the intended

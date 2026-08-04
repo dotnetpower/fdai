@@ -524,6 +524,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_webhook_network_policy_causal_attribution",
+      "source_commits": [
+        "f30c3954a88e1ba088182972e457cb2938646b4d"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected treating deny-all policy selection of webhook backend Pods as proof of API-server traffic blockage; membership evidence does not establish the control-plane path or enforcement point.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

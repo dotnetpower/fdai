@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 5f4a81964fa2e8a104fbc38dff1ea17f483ded2c
+translation_source_sha: 6e9ee8389f1d1822e648393b7d387271fba1e10b
 translation_revised: 2026-08-04
 ---
 
@@ -294,6 +294,10 @@ FDAI는 webhook Service reference를 사용해 backend namespace의 full invento
 해당 reference는 namespace 내 모든 resource에 대한 dependency나 evidence surface 확장 authority를
 증명하지 않습니다. Exact targeted Service receipt가 backend absence evidence에서 source campaign의
 broad cross-namespace traversal을 대체합니다.
+FDAI는 webhook backend Pod를 선택하는 deny-all NetworkPolicy도 API-server traffic 차단의 증거로
+취급하지 않습니다. Service selector와 Pod label은 membership을 증명하지만 control-plane network
+path나 policy enforcement point를 증명하지 않습니다. Direct path evidence가 없으면 이는 unproven
+correlation으로 남고 causal finding을 생성하지 않습니다.
 Source campaign의 automatic `failurePolicy: Fail` to `Ignore` recovery seed는 port하지 않습니다.
 이 mutation은 admission security intent를 fail-open으로 바꾸고 missing backend를 복구하지 않으며,
 resulting admission과 rollback이 intended control을 보존한다는 independent proof도 없습니다. Approval,
