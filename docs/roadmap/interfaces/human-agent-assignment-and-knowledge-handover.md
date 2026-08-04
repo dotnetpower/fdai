@@ -26,9 +26,11 @@ approval, conversation, and document ingestion while keeping each authority inde
 
 ## Design at a glance
 
-The target experience adds an **Assignments** tab under `Settings > IAM`. An Owner searches the
-configured human directory once, chooses FDAI access and agent duties, proves primary and backup
-coverage, and submits one governed assignment case. The case coordinates two effects:
+The target experience separates authority from operational oversight. `Settings > Identity and
+access` owns exact directory identity, FDAI App Roles, and access requests. `Governance > Agent
+oversight` owns the human dependency map, knowledge handover, action-specific approval routes,
+and mapping reviews. An Owner proves scoped primary and backup coverage and submits one governed
+assignment case. The case coordinates two effects:
 
 1. A reviewed ownership pull request updates the agent handover map.
 2. After the ownership change merges, Thor adds the person to an allowlisted Entra role group.
@@ -69,36 +71,38 @@ flowchart LR
 
 ## Administrator experience
 
-### Assignments tab
+### Agent oversight workspace
 
-The existing IAM surface gains an Assignments tab beside Users and Access requests. Keep the page
-as a dense operational workspace rather than a wizard made of nested cards.
+The Governance surface provides an Agent oversight workspace. Keep the workspace dense and
+agent-first rather than presenting a wizard or a person-first IAM editor. Identity and role
+details are read-only projections from the IAM authority.
 
 | Region | Contents |
 |--------|----------|
-| Search and filters | Name or username, active status, FDAI role, mapped agent, coverage, and handover state. |
-| Assignment roster | Person, role, agent duties, primary or backup slot, escalation target, knowledge progress, and last verification. |
-| Assignment editor | Identity, FDAI role, agent duties, approval coverage, handover goals, and final review. |
-| Validation panel | Missing backup, duplicate principals, stale identity, role mismatch, reporting cycle, overload, and unresolved directory result. |
-| Evidence drawer | Assignment audit, ownership PR, IAM receipt, approval history, and handover evidence references. |
+| Overview | Provider availability, authority mode, maintainer floor, backup coverage, overload, and source freshness. |
+| Human dependencies | Fixed Pantheon roles, Agent plus scope ownership, exact subjects, groups or schedules, effective dates, and fail-closed validation. |
+| Knowledge handover | Agent-owned goal templates, evidence weights, ACL and source spans, staleness, fatigue budget, and sign-in invitations. |
+| Approval routes | ActionType and scope, eligible roles, quorum, requester separation, delivery state, non-response TTLs, and standing authority. |
+| Mapping reviews | Immutable case revision, current-to-proposed diff, independent reviewers, ownership PR, IAM convergence, rollback, and audit receipts. |
 
 The browser searches through `GET /iam/directory/users`; it never receives Graph credentials. A
 result exposes the stable provider subject id, active state, member or guest type, current FDAI App
 Roles, existing agent mappings, and current coverage. Display name and username are recognition
 hints, not authoritative identifiers.
 
-### Assignment editor
+### Coordinated assignment review
 
-1. **Identity:** Select exactly one active directory subject. Ambiguous free text can't be
-   submitted.
-2. **FDAI access:** Choose Reader, Contributor, Approver, or Owner. BreakGlass stays outside the
-   routine workflow.
-3. **Agent duties:** Select one or more agents and a duty slot for each mapping.
-4. **Approval coverage:** Show the primary, backup, and escalation route, including role
-   eligibility for each selected action domain.
-5. **Handover goals:** Start from agent-owned goal templates, adjust scope, and attach known
-   documents or links.
-6. **Review:** Show both intended effects, approvers, rollback, and residual warnings.
+1. **Identity:** Resolve exactly one active directory subject, group, or configured schedule.
+  Ambiguous free text remains a candidate and can't be submitted.
+2. **Scope:** Bind operational ownership to Agent plus service, environment, and target scope.
+3. **Ownership:** Assign accountable primary, backup, or escalation duties separately from an
+  informed relationship. Informed entries have no duty.
+4. **Approval coverage:** Evaluate ActionType-specific role eligibility, quorum, and requester,
+  target, reviewer, and executor separation.
+5. **Handover goals:** Start from the selected Agent's versioned goal templates and attach
+  admitted documents, links, or explicit not-applicable decisions.
+6. **Review:** Block submission on coverage defects and show intended effects, independent
+  reviewers, rollback or forward repair, source freshness, and residual warnings.
 
 The editor may save a private draft, but submission creates one immutable `AssignmentCase`. A
 later intent change creates a superseding case instead of editing approved history.
@@ -300,7 +304,8 @@ currently emits audited shadow recovery plans for held cases and never invokes t
 With durable state configured, a readiness-gated runtime worker repeats that observation at the
 bounded `human_access.reconciliation_interval_seconds` cadence.
 
-1. **Assignment projection:** Add the composite read model, coverage validator, and Assignments tab.
+1. **Assignment projection:** Add the composite read model, coverage validator, IAM identity
+  projection, and Governance Agent oversight workspace.
    Submission remains observation-only and creates no provider mutation.
 2. **Governed IAM apply:** Add the allowlisted provisioner, elevated-review policy, convergence
    receipt, retry, and rollback. Promote after shadow comparisons show zero target mismatch.
