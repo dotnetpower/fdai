@@ -140,6 +140,55 @@ async def test_dynamic_binding_requires_strict_complete_config(
     )
 
 
+async def test_dynamic_binding_accepts_durable_challenger_learning_on_restart(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "fdai.runtime.dynamic_evidence._build_inventory_context_provider",
+        lambda: _inventory_context,
+    )
+    state_store = InMemoryStateStore()
+    first = await bind_dynamic_evidence_from_env(
+        default_container(_app_config()),
+        state_store=state_store,
+        environ={DYNAMIC_CONFIG_ENV: _dynamic_config()},
+    )
+    assert first.effect_model_reader is not None
+    challenger = await first.effect_model_reader.get(
+        status=EffectModelStatus.CHALLENGER,
+        action_type_id="ops.scale-out",
+        metric="service_latency_ms",
+    )
+    assert challenger is not None
+    challenger_key = next(  # noqa: SLF001 - restart fixture mutates persisted state
+        key for key in state_store._state if key.startswith("dynamic-effect-model:challenger:")
+    )
+    await state_store.write_state(
+        challenger_key,
+        {
+            **state_store._state[challenger_key],  # noqa: SLF001
+            "revision": 2,
+            "learned_through": "2026-08-02T00:00:00+00:00",
+            "sample_count": 31,
+        },
+    )
+
+    restarted = await bind_dynamic_evidence_from_env(
+        default_container(_app_config()),
+        state_store=state_store,
+        environ={DYNAMIC_CONFIG_ENV: _dynamic_config()},
+    )
+
+    assert restarted.effect_model_reader is not None
+    loaded = await restarted.effect_model_reader.get(
+        status=EffectModelStatus.CHALLENGER,
+        action_type_id="ops.scale-out",
+        metric="service_latency_ms",
+    )
+    assert loaded is not None
+    assert loaded.revision == 2
+
+
 async def test_configured_dynamic_binding_produces_verified_prediction(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

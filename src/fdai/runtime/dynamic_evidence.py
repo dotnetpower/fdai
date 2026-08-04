@@ -141,8 +141,13 @@ async def bind_dynamic_evidence_from_env(
         )
         if existing is None:
             await registry.register(model, registered_by="Mimir")
-        elif existing != model:
+        elif model.status is EffectModelStatus.ACTIVE and existing != model:
             raise ValueError("stored Dynamic model conflicts with configured exact model")
+        elif model.status is EffectModelStatus.CHALLENGER and not _challenger_descends_from(
+            existing,
+            model,
+        ):
+            raise ValueError("stored Dynamic challenger conflicts with configured model lineage")
     return replace(
         container,
         dynamic_simulation_request_provider=AzureDynamicSimulationRequestProvider(
@@ -157,6 +162,22 @@ async def bind_dynamic_evidence_from_env(
 
 def _text(value: Mapping[object, object], key: str) -> str:
     item = value.get(key)
+
+    def _challenger_descends_from(existing: EffectModel, configured: EffectModel) -> bool:
+        return (
+            existing.status is EffectModelStatus.CHALLENGER
+            and existing.model_id == configured.model_id
+            and existing.version == configured.version
+            and existing.action_type_id == configured.action_type_id
+            and existing.metric == configured.metric
+            and existing.evidence_grade is configured.evidence_grade
+            and existing.causal_evidence_receipt_digest == configured.causal_evidence_receipt_digest
+            and existing.learned_at == configured.learned_at
+            and existing.revision >= configured.revision
+            and existing.learned_through >= configured.learned_through
+            and existing.sample_count >= configured.sample_count
+        )
+
     if not isinstance(item, str) or not item:
         raise ValueError(f"Dynamic action {key} MUST be non-empty")
     return item
@@ -185,6 +206,22 @@ def _positive_integer(value: Mapping[object, object], key: str) -> int:
 
 def _is_digest(value: str) -> bool:
     return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
+
+
+def _challenger_descends_from(existing: EffectModel, configured: EffectModel) -> bool:
+    return (
+        existing.status is EffectModelStatus.CHALLENGER
+        and existing.model_id == configured.model_id
+        and existing.version == configured.version
+        and existing.action_type_id == configured.action_type_id
+        and existing.metric == configured.metric
+        and existing.evidence_grade is configured.evidence_grade
+        and existing.causal_evidence_receipt_digest == configured.causal_evidence_receipt_digest
+        and existing.learned_at == configured.learned_at
+        and existing.revision >= configured.revision
+        and existing.learned_through >= configured.learned_through
+        and existing.sample_count >= configured.sample_count
+    )
 
 
 def _effect_model(value: object) -> EffectModel:
