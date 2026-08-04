@@ -68,6 +68,22 @@ def test_custom_owner_projection_rejects_recreated_or_cross_namespace_owner() ->
     assert project_custom_owner(cross_namespace, namespace="example-app", query=query) is None
 
 
+def test_custom_owner_projection_does_not_interpret_arbitrary_spec_fields() -> None:
+    query = CustomOwnerQuery("database.database.example.io/catalog", "owner-uid")
+    payload = _payload()
+    payload["spec"] = {
+        "runAsUser": -1,
+        "effect": "Sometimes",
+        "updateStrategy": "ReplaceImmediately",
+    }
+
+    projection = project_custom_owner(payload, namespace="example-app", query=query)
+
+    assert projection is not None
+    assert "spec" not in projection
+    assert "configuration" not in projection
+
+
 def test_custom_owner_queries_reject_builtin_malformed_or_uidless_references() -> None:
     queries, omitted = custom_owner_queries(
         [

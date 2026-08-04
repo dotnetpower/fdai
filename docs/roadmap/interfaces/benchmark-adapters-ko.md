@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: ac32f2d62bf0cfe52c3fe2eda4d89829aaf913c0
+translation_source_sha: 07905cbd1572c9616180f5bd6d911355f01beffa
 translation_revised: 2026-08-04
 ---
 
@@ -219,6 +219,10 @@ resource의 API group, kind, name, namespace 및 immutable UID가 모두 일치�
 Recreated name, cross-namespace owner, invalid reference, lookup failure 및 omitted owner는 evidence를
 incomplete로 만들고 partial owner set을 노출하지 않습니다. Projection은 bounded identity,
 generation, deletion 및 condition field만 보존하며 임의 custom resource spec string은 제외합니다.
+Source campaign의 arbitrary custom owner spec field-basename validation은 port하지 않습니다. 일치하는
+CRD OpenAPI schema와 exact schema path가 없으면 `runAsUser`, `effect` 또는 `updateStrategy`라는 field
+name만으로 Kubernetes security-context, toleration 또는 workload strategy semantic을 증명할 수
+없습니다. 따라서 FDAI는 해당 value를 projection하거나 configuration finding을 생성하지 않습니다.
 Complete workload projection에 projected custom owner UID와 일치하는 controller owner reference가
 하나 있으면 degraded child는 hold-only `custom_owner_has_degraded_workload` candidate를 생성합니다.
 이는 direct ownership relationship을 증명하지만 owner configuration이 degradation을 일으켰다고

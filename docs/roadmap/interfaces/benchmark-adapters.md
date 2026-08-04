@@ -215,6 +215,10 @@ UID all match. Recreated names, cross-namespace owners, invalid references, look
 omitted owners make the evidence incomplete and expose no partial owner set. The projection keeps
 bounded identity, generation, deletion, and condition fields; arbitrary custom resource spec
 strings are excluded.
+The source campaign's field-basename validation for arbitrary custom owner specs is not ported.
+Without the matching CRD OpenAPI schema and an exact schema path, a field named `runAsUser`,
+`effect`, or `updateStrategy` does not prove Kubernetes security-context, toleration, or workload
+strategy semantics. FDAI therefore does not project those values or emit a configuration finding.
 When a complete workload projection has one controller owner reference whose UID matches a
 projected custom owner, a degraded child emits a hold-only
 `custom_owner_has_degraded_workload` candidate. This proves the direct ownership relationship,

@@ -282,6 +282,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_arbitrary_custom_owner_field_validation",
+      "source_commits": [
+        "91cfe3a26797e16a6906f0dfadc1d6130b0f7cea"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected field-basename validation over arbitrary custom-resource specs because no matching CRD OpenAPI schema or exact schema path proves Kubernetes security-context, toleration, or workload-strategy semantics; the bounded owner projection continues to exclude spec values.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [
