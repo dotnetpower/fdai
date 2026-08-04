@@ -9,7 +9,7 @@ import {
 import { t } from "../i18n";
 import { AgentOversightBody } from "./agent-oversight-views";
 import { PANTHEON } from "./agents.model";
-import { panelArray, panelBoolean, panelContractError, panelNonNegativeInteger, panelNullableString, panelRecord, panelString, panelStringArray } from "./panel-decode";
+import { panelArray, panelBoolean, panelContractError, panelNonEmptyString, panelNonNegativeInteger, panelNullableString, panelRecord, panelString, panelStringArray } from "./panel-decode";
 
 /**
  * Handover panel. Fetches ``GET /stewardship`` and renders the handover map
@@ -182,7 +182,7 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
               : stewardshipEnum(steward, "duty", ["primary", "backup", "escalation"]);
             return {
               kind: stewardshipEnum(steward, "kind", ["user", "group"]),
-              id: panelString(steward, "id", "steward"),
+              id: panelNonEmptyString(steward, "id", "steward"),
               responsibility,
               duty,
             };
@@ -228,8 +228,12 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
   ) {
     throw panelContractError("stewardship.map.agents MUST contain the fixed 15-agent pantheon exactly once");
   }
-  if (decoded.map.maintainer_count !== decoded.map.maintainers.length) {
-    throw panelContractError("stewardship.map.maintainer_count MUST match maintainers.length");
+  if (
+    decoded.map.maintainer_count !== decoded.map.maintainers.length ||
+    decoded.map.maintainer_count < 1 ||
+    decoded.map.maintainers.some((maintainer) => maintainer.trim().length === 0)
+  ) {
+    throw panelContractError("stewardship.map maintainers MUST satisfy the non-empty maintainer floor");
   }
   for (const agent of decoded.map.agents) {
     const accountableUnits = new Set(
@@ -242,7 +246,8 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
     }
     if (
       agent.autonomous !== (agent.accept_autonomous_reason !== null) ||
-      agent.autonomous === (accountableUnits.size > 0)
+      agent.autonomous === (accountableUnits.size > 0) ||
+      (agent.accept_autonomous_reason !== null && agent.accept_autonomous_reason.trim().length === 0)
     ) {
       throw panelContractError("stewardship agent autonomy MUST be an accountable-ownership alternative");
     }

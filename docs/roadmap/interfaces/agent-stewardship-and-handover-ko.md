@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: 323e704704cbe1940488cb17edccc4b393757c95
+translation_source_sha: bc9ea7530d7ee31d6cfae0e26907603ebd7caa87
 translation_revised: 2026-08-05
 title: 에이전트 스튜어드십과 인수인계
 ---
@@ -308,8 +308,9 @@ Governance > Agent oversight route는 read-only projection과 governed proposal 
 - **현재 담당 체계** - `GET /stewardship`에서 15개 agent, accountable owner, notification contact,
   backup coverage, autonomous status, FDAI maintainer count, validation finding을 표시합니다.
 - **프로젝션 검증** - Browser는 지원되는 정수 schema version, 음수가 아닌 정수 count, 양수 timeout과
-  assignment limit만 허용합니다. 고정 Pantheon map에서 aggregate count를 다시 계산하고, 불일치하면
-  health를 추정해 표시하지 않고 차단합니다.
+  assignment limit만 허용합니다. 고정 Pantheon map에서 aggregate count를 다시 계산하고,
+  maintainer 하한과 비어 있지 않은 exact subject 참조를 요구합니다. 불일치하면 health를 추정해
+  표시하지 않고 차단합니다.
 - **Finding 검증** - Coverage finding은 고정 code와 severity 용어를 사용하고, Agent가 있으면 고정
   Pantheon Agent만 참조합니다. Warning finding이 없을 때만 clean 상태로 계산합니다. 각 code는
   severity와 단일 Agent 또는 전체 map 범위도 고정합니다. 알 수 없거나 모순된 finding은
