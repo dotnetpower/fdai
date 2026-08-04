@@ -25,6 +25,14 @@ type StewardKind = "user" | "group";
 type StewardResponsibility = "accountable" | "informed";
 type StewardDuty = "primary" | "backup" | "escalation";
 type FindingSeverity = "warn" | "info";
+type FindingCode =
+  | "maintainer_single"
+  | "autonomous_no_steward"
+  | "duty_derived"
+  | "backup_missing"
+  | "bus_factor_one"
+  | "over_assigned"
+  | "stale_oid";
 export type IdentityHealthStatus = "not_configured" | "pending" | "unavailable" | "clean" | "warn";
 
 export interface StewardDto {
@@ -52,7 +60,7 @@ export interface MapDto {
 }
 
 export interface FindingDto {
-  readonly code: string;
+  readonly code: FindingCode;
   readonly severity: FindingSeverity;
   readonly message: string;
   readonly agent: string | null;
@@ -190,7 +198,15 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
       findings: panelArray(coverage["findings"], "stewardship.coverage.findings").map((value, index) => {
         const finding = panelRecord(value, `stewardship.coverage.findings[${index}]`);
         return {
-          code: panelString(finding, "code", "stewardship finding"),
+          code: stewardshipEnum(finding, "code", [
+            "maintainer_single",
+            "autonomous_no_steward",
+            "duty_derived",
+            "backup_missing",
+            "bus_factor_one",
+            "over_assigned",
+            "stale_oid",
+          ]),
           severity: stewardshipEnum(finding, "severity", ["warn", "info"]),
           message: panelString(finding, "message", "stewardship finding"),
           agent: panelNullableString(finding, "agent", "stewardship finding"),
@@ -249,6 +265,13 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
     decoded.coverage.autonomous_agents !== decoded.map.agents.filter((agent) => agent.autonomous).length
   ) {
     throw panelContractError("stewardship.coverage counts MUST match the handover map");
+  }
+  const pantheonNames = new Set(expectedNames);
+  if (
+    decoded.coverage.findings.some((finding) => finding.agent !== null && !pantheonNames.has(finding.agent)) ||
+    decoded.coverage.is_clean !== decoded.coverage.findings.every((finding) => finding.severity !== "warn")
+  ) {
+    throw panelContractError("stewardship.coverage findings MUST reference the Pantheon and derive is_clean from warnings");
   }
   const identityCheckCompleted = identityHealthStatus === "clean" || identityHealthStatus === "warn";
   const staleIdentityFindings = decoded.coverage.findings.filter((finding) => finding.code === "stale_oid").length;

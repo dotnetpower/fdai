@@ -330,6 +330,9 @@ form:
 - **Projection validation** - the browser accepts only supported integer schema versions,
   non-negative integer counts, and positive timeout and assignment limits. It recomputes aggregate
   counts from the fixed Pantheon map and rejects drift instead of displaying inferred health.
+- **Finding validation** - coverage findings use the fixed code and severity vocabulary, reference
+  only fixed Pantheon Agents when an Agent is present, and derive the clean state from the absence
+  of warning findings. Unknown or contradictory findings fail closed.
 - **Register ownership** - a Contributor, Approver, or Owner can add one or more rows containing
   the canonical agent, person or group display name or email, subject kind, and responsibility.
   The browser generates explicit `agent`, `subject`, `identity`, and `responsibility` tags and

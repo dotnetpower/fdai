@@ -113,12 +113,43 @@ describe("Handover projection contract", () => {
 
     const invalidSeverity = stewardshipPayload();
     invalidSeverity.coverage.findings.push({
-      code: "unexpected",
+      code: "maintainer_single",
       severity: "critical",
       message: "unexpected severity",
       agent: null,
     });
     expect(() => decodeStewardship(invalidSeverity)).toThrow(/severity MUST be one of warn, info/);
+
+    const invalidCode = stewardshipPayload();
+    invalidCode.coverage.findings.push({
+      code: "unexpected",
+      severity: "warn",
+      message: "unexpected code",
+      agent: null,
+    });
+    invalidCode.coverage.is_clean = false;
+    expect(() => decodeStewardship(invalidCode)).toThrow(/code MUST be one of/);
+  });
+
+  test("derives coverage cleanliness from valid Pantheon findings", () => {
+    const unknownAgent = stewardshipPayload();
+    unknownAgent.coverage.findings.push({
+      code: "backup_missing",
+      severity: "warn",
+      message: "unknown agent",
+      agent: "Unknown",
+    });
+    unknownAgent.coverage.is_clean = false;
+    expect(() => decodeStewardship(unknownAgent)).toThrow(/reference the Pantheon/);
+
+    const cleanDrift = stewardshipPayload();
+    cleanDrift.coverage.findings.push({
+      code: "bus_factor_one",
+      severity: "warn",
+      message: "warning",
+      agent: "Odin",
+    });
+    expect(() => decodeStewardship(cleanDrift)).toThrow(/derive is_clean from warnings/);
   });
 
   test("enforces v2 duty semantics while preserving v1 compatibility", () => {
