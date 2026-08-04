@@ -283,6 +283,8 @@ def test_korean_deallocated_vm_question_preserves_type_and_state() -> None:
 @pytest.mark.parametrize(
     "prompt",
     [
+        "실행중인 vm",
+        "현재 구독에서 실행중인 vm 목록",
         "지금 설정된 Azure 범위 안에서 실제로 돌아가고 있는, 그러니까 켜져서 살아있는 "
         "가상머신들만 골라서 각 항목의 현재 상태값과 함께 읽기 전용 인벤토리 근거로 "
         "알려주시겠어요?",
@@ -302,6 +304,16 @@ def test_colloquial_running_vm_question_resolves_type_and_state(prompt: str) -> 
     by_field = {predicate.field: predicate.value for predicate in query.predicates}
     assert by_field[InventoryField.RESOURCE_TYPE] == "compute.vm"
     assert by_field[InventoryField.STATUS] == "vm running"
+
+
+def test_subscription_running_vm_question_preserves_subscription_scope() -> None:
+    query = compile_inventory_query(
+        "현재 구독에서 실행중인 vm 목록",
+        resources=_RESOURCES,
+    )
+
+    assert query is not None
+    assert query.scope.value == "subscription"
 
 
 @pytest.mark.parametrize(

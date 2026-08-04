@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: f1d2495cfc0b4fe4af8bbaf278363b1e0ed6d577
+translation_source_sha: 0f52054c9d36150bc1d861aba79a01e6988812f3
 translation_revised: 2026-08-05
 ---
 
@@ -280,6 +280,9 @@ method `tools.search`, `tools.describe`로 제공됩니다. Channel call은 reso
 | `query_t2_recovery()` | Server StateStore에서 sanitized proposer attempt receipt를 읽습니다. Provider error text를 노출하지 않고 retained attempt count, recovery state, route role, failure class, observation time 및 명시적인 legacy-detail gap을 반환합니다. | Reader | `T2RecoveryStateReader` |
 | `query_configuration_baseline()` | 서버가 구성한 동결된 구성 기준선, 현재 범위의 관측값, 무결성이 고정된 정확한 DOCX citation을 읽습니다. 호출자는 범위, 버전, digest, 문서 또는 mutation operation을 선택할 수 없습니다. 구조화된 topology가 없으면 unknown으로 유지합니다. | Reader | `ConfigurationDriftService` + `KnowledgeSource` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | 정확한 server-owned policy 아래에서 credential이 없는 bounded capture를 submit합니다. Immutable artifact receipt를 반환하며 page 또는 interaction API를 반환하지 않습니다. | Reader | `BrowserEvidenceCaptureService` |
+일치하는 inventory result set은 40개 record 제한을 적용하기 전에 정렬합니다. List는 기본적으로
+resource 이름순이며, status, type 또는 location grouping을 명시하면 해당 grouping field 다음에
+resource 이름순으로 정렬합니다. 렌더링 row와 durable ordinal follow-up은 같은 순서를 사용합니다.
 구체적인 resource-type query에 완전한 lexical state match가 없으면 semantic planning은 state concept만 제안합니다. Server는 IQL catalog의 canonical current-inventory state만 수락하고
 deterministic type, scope, freshness를 보존하며 planner가 제안한 type, scope, lookback은 버립니다. Provider가 관찰한 status가 최종 predicate를 grounding하며 invalid state는 unavailable을 반환합니다.
 필터가 없는 summary는 provider가 관찰한 모든 resource를 계속 보존하고 provider-native type별로 grouping하며 resource-group container와 topology-derived record를 resource 합계에서 분리합니다.

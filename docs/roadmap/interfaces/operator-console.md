@@ -284,6 +284,9 @@ caller-supplied role parameter. Both surfaces return descriptors only and cannot
 | `query_t2_recovery()` | Read sanitized proposer attempt receipts from the server StateStore. Return the retained attempt count, recovery state, route roles, failure class, observation time, and explicit legacy-detail gaps without exposing provider error text. | Reader | `T2RecoveryStateReader` |
 | `query_configuration_baseline()` | Read one server-configured frozen configuration baseline, its current scoped observation, and the exact integrity-pinned DOCX citation. The caller cannot select scope, version, digest, document, or a mutation operation. Missing structured topology remains unknown. | Reader | `ConfigurationDriftService` + `KnowledgeSource` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | Submit a credential-free bounded capture under an exact server-owned policy. Returns an immutable artifact receipt; never returns a page or interaction API. | Reader | `BrowserEvidenceCaptureService` |
+Matched inventory result sets are sorted before the 40-record bound is applied. Lists use resource
+name order by default; an explicit status, type, or location grouping uses that grouping field and
+then resource name. The same order drives rendered rows and durable ordinal follow-ups.
 A concrete resource-type query with no complete lexical state match uses semantic planning only to propose a state concept. The server accepts canonical current-inventory states from the IQL catalog,
 preserves deterministic type, scope, and freshness, and discards planner-supplied type, scope, and lookback. Provider-observed status grounds the final predicate; an invalid state returns unavailable.
 An unfiltered summary still preserves every provider-observed resource, groups by provider-native type, and separates resource-group containers and topology-derived records from the resource total.

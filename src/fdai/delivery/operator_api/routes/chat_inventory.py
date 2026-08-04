@@ -334,6 +334,10 @@ def _project_verified_inventory_result(
         if provider_native_summary
         else matched
     )
+    reported_resources = sorted(
+        reported_resources,
+        key=lambda item: _inventory_resource_sort_key(query, item),
+    )
     counted_resources = (
         [item for item in managed if item["type"] != "resource-group"]
         if provider_native_summary
@@ -459,6 +463,24 @@ def _project_verified_inventory_result(
         "coverage_gap": "kubernetes_workloads" if workload_query else None,
         "state_history_requested": query.require_state_history,
     }
+
+
+def _inventory_resource_sort_key(
+    query: InventoryQuery,
+    resource: Mapping[str, Any],
+) -> tuple[str, str, str, str]:
+    group_field = {
+        InventoryQueryGrouping.RESOURCE_TYPE: "provider_type",
+        InventoryQueryGrouping.STATUS: "status",
+        InventoryQueryGrouping.LOCATION: "location",
+    }.get(query.group_by)
+    group_value = resource.get(group_field) if group_field else ""
+    return (
+        normalize_inventory_value(group_value or ""),
+        normalize_inventory_value(resource.get("name") or ""),
+        normalize_inventory_value(resource.get("resource_group") or ""),
+        normalize_inventory_value(resource.get("type") or ""),
+    )
 
 
 def _safe_inventory_payload(

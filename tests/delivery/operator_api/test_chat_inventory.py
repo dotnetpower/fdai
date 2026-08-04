@@ -1142,6 +1142,43 @@ async def test_common_azure_resource_queries_filter_inventory_graph(
     assert [item["name"] for item in evidence["result"]["resources"]] == [expected_name]
 
 
+async def test_running_vm_results_are_filtered_and_sorted_by_name() -> None:
+    running_names = [f"vm-{index:02d}" for index in range(42)]
+    resources = [
+        *(
+            _resource(name, "compute.vm", name, status="VM running")
+            for name in reversed(running_names)
+        ),
+        _resource("stopped", "compute.vm", "stopped", status="VM deallocated"),
+    ]
+
+    async def provider(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
+    ) -> dict[str, Any]:
+        del scope, depth, link_types, root, limit
+        return {
+            "resources": resources,
+            "links": [],
+            "freshness": "fresh",
+            "source": "test-inventory",
+        }
+
+    evidence = await InventoryChatTools(provider).resolve(
+        "현재 구독에서 실행중인 vm 목록",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    assert evidence["result"]["status_filter"] == ["vm running"]
+    assert evidence["result"]["matched_count"] == 42
+    assert [item["name"] for item in evidence["result"]["resources"]] == running_names[:40]
+
+
 def test_twenty_azure_resource_questions_are_grounded_and_deterministic() -> None:
     backend = RecordingBackend()
     tools = InventoryChatTools(_provider)
