@@ -73,4 +73,19 @@ describe("Handover projection contract", () => {
     });
     expect(() => decodeStewardship(invalidSeverity)).toThrow(/severity MUST be one of warn, info/);
   });
+
+  test("enforces v2 duty semantics while preserving v1 compatibility", () => {
+    const missingDuty = stewardshipPayload();
+    missingDuty.map.version = 2;
+    expect(() => decodeStewardship(missingDuty)).toThrow(/v2 accountable.*declare duty/);
+
+    const informedDuty = stewardshipPayload();
+    informedDuty.map.agents[0]!.stewards[0] = {
+      kind: "user",
+      id: "informed-user",
+      responsibility: "informed",
+      duty: "backup",
+    } as never;
+    expect(() => decodeStewardship(informedDuty)).toThrow(/informed.*MUST NOT declare duty/);
+  });
 });

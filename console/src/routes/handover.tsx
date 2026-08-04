@@ -29,12 +29,14 @@ import { panelArray, panelBoolean, panelContractError, panelNullableString, pane
 
 type StewardKind = "user" | "group";
 type StewardResponsibility = "accountable" | "informed";
+type StewardDuty = "primary" | "backup" | "escalation";
 type FindingSeverity = "warn" | "info";
 
 interface StewardDto {
   readonly kind: StewardKind;
   readonly id: string;
   readonly responsibility: StewardResponsibility;
+  readonly duty: StewardDuty | null;
 }
 
 interface AgentStewardshipDto {
@@ -143,14 +145,20 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
           bus_factor: panelNumber(agent, "bus_factor", "stewardship agent"),
           stewards: panelArray(agent["stewards"], "stewardship agent.stewards").map((value, stewardIndex) => {
             const steward = panelRecord(value, `stewardship agent.stewards[${stewardIndex}]`);
+            const responsibility = stewardshipEnum(
+              steward,
+              "responsibility",
+              ["accountable", "informed"],
+            );
+            const rawDuty = steward["duty"];
+            const duty = rawDuty === null || rawDuty === undefined
+              ? null
+              : stewardshipEnum(steward, "duty", ["primary", "backup", "escalation"]);
             return {
               kind: stewardshipEnum(steward, "kind", ["user", "group"]),
               id: panelString(steward, "id", "steward"),
-              responsibility: stewardshipEnum(
-                steward,
-                "responsibility",
-                ["accountable", "informed"],
-              ),
+              responsibility,
+              duty,
             };
           }),
         };
@@ -183,6 +191,16 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
   }
   if (decoded.map.maintainer_count !== decoded.map.maintainers.length) {
     throw panelContractError("stewardship.map.maintainer_count MUST match maintainers.length");
+  }
+  for (const agent of decoded.map.agents) {
+    for (const steward of agent.stewards) {
+      if (steward.responsibility === "informed" && steward.duty !== null) {
+        throw panelContractError("informed stewardship entries MUST NOT declare duty");
+      }
+      if (decoded.map.version >= 2 && steward.responsibility === "accountable" && steward.duty === null) {
+        throw panelContractError("v2 accountable stewardship entries MUST declare duty");
+      }
+    }
   }
   if (
     decoded.coverage.total_agents !== decoded.map.agents.length ||
@@ -233,7 +251,9 @@ function HandoverBody({
       records: {
         agents: map.agents.map((a) => ({
           name: a.name,
-          stewards: a.stewards.map((s) => `${s.kind}:${s.responsibility}`).join(", ") || "-",
+          stewards: a.stewards
+            .map((s) => `${s.kind}:${s.responsibility}${s.duty ? `:${s.duty}` : ""}`)
+            .join(", ") || "-",
           bus_factor: a.bus_factor,
           autonomous: a.autonomous ? "yes" : "no",
         })),
@@ -296,7 +316,7 @@ function HandoverBody({
                   {a.autonomous
                     ? `${t("handover.autonomous")} (${a.accept_autonomous_reason ?? t("handover.noReason")})`
                     : a.stewards
-                        .map((s) => `${s.kind} / ${s.responsibility}`)
+                      .map((s) => `${s.kind} / ${s.responsibility}${s.duty ? ` / ${s.duty}` : ""}`)
                         .join(", ") || "-"}
                 </td>
                 <td>{a.autonomous ? "-" : a.bus_factor}</td>

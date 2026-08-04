@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: 5607289e61bb9f231e98907e3a122f90a896f1c7
+translation_source_sha: 8ccf5c1cd812012471a4e9114005357873fd403f
 translation_revised: 2026-08-05
 ---
 # 사용자-에이전트 할당 및 지식 이전
@@ -85,6 +85,11 @@ Governance 화면은 Agent oversight 작업 공간을 제공합니다. 사람 �
 | 지식 인수인계 | 에이전트 소유 목표 템플릿, 근거 가중치, ACL과 source span, 최신성, 피로도 예산, 로그인 초대입니다. |
 | 승인 경로 | ActionType과 범위, 적격 역할, 정족수, 요청자 분리, 전달 상태, 무응답 TTL, 사전 권한입니다. |
 | 매핑 검토 | 변경할 수 없는 케이스 리비전, 현재-제안 차이, 독립 검토자, 담당 체계 PR, IAM 수렴, rollback, 감사 영수증입니다. |
+
+`GET /stewardship` 버전 2는 각 accountable 담당자의 `primary`, `backup`, `escalation` duty를
+손실 없이 보존합니다. Informed 관계는 duty를 생략합니다. 브라우저는 목록 순서에서 운영 담당
+체계를 추론하지 않으며, accountable duty 누락이나 informed 관계의 duty 포함을 계약 오류로
+처리합니다.
 
 브라우저는 `GET /iam/directory/users`를 통해 검색하며 Graph 자격 증명을 받지 않습니다. 검색
 결과는 안정적인 공급자 주체 ID, 활성 상태, 멤버 또는 게스트 유형, 현재 FDAI App Role, 기존

@@ -85,6 +85,11 @@ details are read-only projections from the IAM authority.
 | Approval routes | ActionType and scope, eligible roles, quorum, requester separation, delivery state, non-response TTLs, and standing authority. |
 | Mapping reviews | Immutable case revision, current-to-proposed diff, independent reviewers, ownership PR, IAM convergence, rollback, and audit receipts. |
 
+`GET /stewardship` version 2 preserves each accountable owner's `primary`, `backup`, or
+`escalation` duty. Informed relationships omit duty. The browser treats a missing accountable
+duty or an informed relationship with duty as a contract error instead of inferring operational
+ownership from list order.
+
 The browser searches through `GET /iam/directory/users`; it never receives Graph credentials. A
 result exposes the stable provider subject id, active state, member or guest type, current FDAI App
 Roles, existing agent mappings, and current coverage. Display name and username are recognition

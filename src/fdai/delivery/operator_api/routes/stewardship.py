@@ -49,6 +49,7 @@ def _serialize_agent(agent: AgentStewardship) -> dict[str, object]:
                 "kind": s.kind.value,
                 "id": s.id,
                 "responsibility": s.responsibility.value,
+                **({"duty": s.duty.value} if s.duty is not None else {}),
             }
             for s in agent.stewards
         ],

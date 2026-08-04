@@ -46,6 +46,20 @@ def test_stewardship_returns_map_and_coverage() -> None:
     assert body["map"]["maintainer_count"] == 2
     names = {a["name"] for a in body["map"]["agents"]}
     assert len(names) == 15 and "Loki" in names
+    accountable = [
+        steward
+        for agent in body["map"]["agents"]
+        for steward in agent["stewards"]
+        if steward["responsibility"] == "accountable"
+    ]
+    assert accountable
+    assert all(steward["duty"] in {"primary", "backup", "escalation"} for steward in accountable)
+    assert all(
+        "duty" not in steward
+        for agent in body["map"]["agents"]
+        for steward in agent["stewards"]
+        if steward["responsibility"] == "informed"
+    )
     # Coverage report is present with the headline counts.
     assert body["coverage"]["total_agents"] == 15
     assert "is_clean" in body["coverage"]
