@@ -70,7 +70,11 @@ describe("mock console visual boundary", () => {
     expect(serviceMap).toContain("sm-road-network");
     expect(serviceMap).toContain("sm-road-outlines");
     expect(serviceMap).toContain("sm-road-surfaces");
-    expect(serviceMap).toContain("sm-traffic-vehicle");
+    expect(serviceMap).toContain("sm-traffic-particle");
+    expect(serviceMap).toContain("sm-particle-halo");
+    expect(serviceMap).toContain("sm-particle-core");
+    expect(serviceMap).toContain("function particleDuration(");
+    expect(serviceMap.match(/transform=\"translate\(0 2\.2\)\"/g)).toHaveLength(2);
     expect(serviceMap).toContain("is-return");
     expect(serviceMap).toContain("sm-road-return-");
     expect(serviceMap).toContain("animation.beginElement()");
@@ -98,5 +102,7 @@ describe("mock console visual boundary", () => {
     expect(serviceMap).toContain('class="sm-node kind-');
     expect(serviceMap).toContain('inspector.className = "sm-inspector kind-"');
     expect(serviceMap).not.toContain("sm-edge-particles");
+    expect(serviceMap).not.toContain("sm-traffic-vehicle");
+    expect(serviceMap).not.toContain("sm-vehicle-body");
   });
 });
