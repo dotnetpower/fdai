@@ -29,7 +29,10 @@ from fdai.delivery.operator_api.routes.chat_inventory import (
     inventory_execution_query,
     render_inventory_answer,
 )
-from fdai.delivery.operator_api.routes.chat_inventory_compiler import compile_inventory_query
+from fdai.delivery.operator_api.routes.chat_inventory_compiler import (
+    compile_inventory_query,
+    inventory_query_status_groups,
+)
 from fdai.delivery.operator_api.routes.chat_inventory_followup import (
     InventoryScreenScopeStatus,
     contextualize_inventory_scope_followup,
@@ -2611,6 +2614,16 @@ def test_intent_graph_status_hint_completes_unknown_korean_inventory_inflection(
 
 
 def test_noncanonical_semantic_inventory_status_fails_closed() -> None:
+    # Deliberately whimsical slang that the deterministic catalog does NOT
+    # (and should never trivially) recognize as a canonical state, so the
+    # planner's non-canonical "alive" guess is the only status signal and
+    # must fail closed. If a future catalog addition starts recognizing this
+    # phrase, swap in a different unrecognized phrase rather than loosening
+    # the assertion below - this test exists to prove the fail-closed
+    # contract, not to pin one specific sentence.
+    prompt = "VM 중에 요즘 팔팔한 애들만 알려줘"
+    assert inventory_query_status_groups(prompt) == ()
+
     class Planner:
         async def plan_turn(self, **_kwargs: object) -> Any:
             return parse_turn_plan(
@@ -2648,7 +2661,7 @@ def test_noncanonical_semantic_inventory_status_fails_closed() -> None:
         TestClient(app)
         .post(
             "/chat",
-            json={"prompt": "VM 중에 지금 살아있는 것만 알려줘", "view_context": {}},
+            json={"prompt": prompt, "view_context": {}},
         )
         .json()
     )

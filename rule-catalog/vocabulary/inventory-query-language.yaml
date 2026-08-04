@@ -81,7 +81,7 @@ states:
     terms: [paused, suspended, 일시 정지, 일시정지]
     values: [paused]
   running:
-    terms: [running, active, 실행 중, 가동 중, 켜짐, 켜진]
+    terms: [running, active, 실행 중, 가동 중, 켜짐, 켜진, 켜져, 켜져서, 켜져 있는, 켜져있는, 돌아가고 있는, 돌아가는, 살아있는, 살아 있는]
     values: [running]
   failed:
     terms: [failed, failure, failures, 실패, 실패한]
