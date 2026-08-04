@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 73617deb1bf40924dd16a40ca243fbe164d5ecf7
+translation_source_sha: 2a0a4dd1ec25367dfb3fe1f0b7b5817e3947ba22
 translation_revised: 2026-08-04
 ---
 
@@ -599,7 +599,9 @@ Session replay는 4 MiB JSON envelope 안에 최신 turn을 최대 40개 유지�
 override label은 64자와 128자, code validation detail은 4 KiB, milestone agent identity는 64자로
 제한합니다.
 
-Turn이 검증된 inline image attachment를 carry하면 streaming route는 narrator가 작성하기 전에
+Web composer는 선택, drop 및 clipboard paste로 받은 raster image를 동일한 bounded attachment tray와
+validation path로 전달합니다. Clipboard text와 HTML은 textarea의 native paste 동작을 유지하며
+attachment가 되지 않습니다. Turn이 검증된 inline image attachment를 carry하면 streaming route는 narrator가 작성하기 전에
 read-only `vision_analyzing`을, 답변 전에 `vision_grounded`를 emit하며, 각 frame은 image source
 preview(name, media type, size)를 포함하되 base64 payload는 절대 포함하지 않습니다. 해당 turn은
 vision 지원 narrator로 escalate되고, 답변 준비 trace는 이 단계를 web-search grounding과 동일하게

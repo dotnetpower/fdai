@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  clipboardImageFiles,
   detectKind,
   fileExtension,
   formatSize,
@@ -10,6 +11,26 @@ import {
 } from "./composer-attachments";
 
 describe("composer-attachments", () => {
+  it("extracts pasted image files and ignores text clipboard items", () => {
+    const png = new File([new Uint8Array([1, 2, 3])], "clipboard.png", {
+      type: "image/png",
+    });
+    const textFile = vi.fn(() => null);
+
+    expect(clipboardImageFiles([
+      { kind: "string", type: "text/plain", getAsFile: textFile },
+      { kind: "file", type: "image/png", getAsFile: () => png },
+      { kind: "file", type: "application/pdf", getAsFile: () => null },
+    ])).toEqual([png]);
+    expect(textFile).not.toHaveBeenCalled();
+  });
+
+  it("drops clipboard image entries that do not expose a file", () => {
+    expect(clipboardImageFiles([
+      { kind: "file", type: "IMAGE/PNG", getAsFile: () => null },
+    ])).toEqual([]);
+  });
+
   it("classifies files by extension", () => {
     expect(detectKind("grafana-restart-rate.png")).toBe("image");
     expect(detectKind("aks-prod-krc-nginx-pods.log")).toBe("log");

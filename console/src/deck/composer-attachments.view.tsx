@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { t } from "../i18n";
 import {
+  clipboardImageFiles,
   detectKind,
   fileExtension,
   formatSize,
@@ -177,7 +178,8 @@ export function ComposerAttachments() {
 
   useEffect(() => subscribeComposerAttachmentDrain(clearTray), [clearTray]);
 
-  // Drag-and-drop onto the composer, and clear staged files after a send.
+  // Drag-and-drop and clipboard images share the same bounded attachment
+  // pipeline. Native text paste remains untouched.
   useEffect(() => {
     const form = inputRef.current?.closest("form");
     if (!form) return;
@@ -197,13 +199,19 @@ export function ComposerAttachments() {
       }
       setDragging(false);
     };
+    const onPaste = (event: ClipboardEvent) => {
+      const files = clipboardImageFiles(Array.from(event.clipboardData?.items ?? []));
+      if (files.length > 0) addFiles(files);
+    };
     form.addEventListener("dragover", onDragOver);
     form.addEventListener("dragleave", onDragLeave);
     form.addEventListener("drop", onDrop);
+    form.addEventListener("paste", onPaste);
     return () => {
       form.removeEventListener("dragover", onDragOver);
       form.removeEventListener("dragleave", onDragLeave);
       form.removeEventListener("drop", onDrop);
+      form.removeEventListener("paste", onPaste);
     };
   }, [addFiles]);
 

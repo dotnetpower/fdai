@@ -611,7 +611,9 @@ internally inconsistent optional collections are omitted rather than restored in
 Answer-plan section and override labels are limited to 64 and 128 characters, code validation
 detail to 4 KiB, and milestone agent identities to 64 characters.
 
-When a turn carries validated inline image attachments, the streaming route also emits read-only
+The Web composer sends selected, dropped, and clipboard-pasted raster images through the same
+bounded attachment tray and validation path. Clipboard text and HTML retain native textarea paste
+behavior and never become attachments. When a turn carries validated inline image attachments, the streaming route also emits read-only
 `vision_analyzing` before the narrator composes and `vision_grounded` before the answer, each with
 image source previews (name, media type, size) but never the base64 payload. The turn escalates to
 a vision-capable narrator, and the preparing-answer trace renders these stages the same way it

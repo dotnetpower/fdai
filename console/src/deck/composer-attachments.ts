@@ -39,6 +39,12 @@ export interface StagedAttachment {
   readonly note?: string;
 }
 
+export interface ClipboardFileItem {
+  readonly kind: string;
+  readonly type: string;
+  getAsFile(): File | null;
+}
+
 const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "heic", "avif"]);
 const WORD_EXT = new Set(["doc", "docx", "docm", "rtf"]);
 const EXCEL_EXT = new Set(["xls", "xlsx", "xlsm"]);
@@ -113,6 +119,18 @@ export function formatSize(bytes: number): string {
 
 export function newAttachmentId(): string {
   return `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Return only image files from a clipboard payload. Text and HTML items are
+ * left to the textarea's native paste behavior. */
+export function clipboardImageFiles(items: readonly ClipboardFileItem[]): File[] {
+  const files: File[] = [];
+  for (const item of items) {
+    if (item.kind !== "file" || !item.type.toLowerCase().startsWith("image/")) continue;
+    const file = item.getAsFile();
+    if (file) files.push(file);
+  }
+  return files;
 }
 
 /**
