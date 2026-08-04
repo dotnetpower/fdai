@@ -73,6 +73,11 @@ def liveness_probe_failure_findings(
                 "affected_pod": _finding_identity(pod_identity),
                 "container": container,
                 "probe": probe,
+                "aggressive_schedule": (
+                    probe.get("initial_delay_seconds") == 0
+                    and probe.get("period_seconds") == 1
+                    and probe.get("startup_probe_present") is False
+                ),
                 "source_paths": ["/spec/template/spec/containers/livenessProbe"],
                 "last_seen": observed_at.isoformat(),
                 "evidence_strength": "recent_event_exact_uid_chain_and_probe_fingerprint",
@@ -139,10 +144,10 @@ def _common_probe(
     return identity[0], complete_groups[-1][identity]
 
 
-def _probes(value: object) -> dict[tuple[str, str], dict[str, Any]] | None:
+def _probes(value: object) -> dict[tuple[str, str, bool], dict[str, Any]] | None:
     if not isinstance(value, Mapping) or value.get("projection_complete") is not True:
         return None
-    probes: dict[tuple[str, str], dict[str, Any]] = {}
+    probes: dict[tuple[str, str, bool], dict[str, Any]] = {}
     for container in _mappings(value.get("containers")):
         name = container.get("name")
         probe = container.get("liveness_probe")
@@ -156,12 +161,14 @@ def _probes(value: object) -> dict[tuple[str, str], dict[str, Any]] | None:
             or mechanism not in {"httpGet", "tcpSocket", "exec", "grpc"}
         ):
             return None
-        identity = (name, digest)
+        startup_probe_present = probe.get("startup_probe_present") is True
+        identity = (name, digest, startup_probe_present)
         if identity in probes:
             return None
         probes[identity] = {
             "mechanism": str(mechanism),
             "definition_sha256": digest,
+            "startup_probe_present": startup_probe_present,
             **{
                 key: probe[key]
                 for key in ("initial_delay_seconds", "period_seconds", "failure_threshold")

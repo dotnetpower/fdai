@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 6e9ee8389f1d1822e648393b7d387271fba1e10b
+translation_source_sha: ad9cb4c388545cf3081d0a62c8a02e05333da7ea
 translation_revised: 2026-08-04
 ---
 
@@ -347,6 +347,9 @@ fingerprint 하나가 필요합니다. Probe command, HTTP path, header 및 addr
 mechanism, bounded timing 및 SHA-256 definition fingerprint만 보존합니다. Drift, ambiguity, stale/future
 Event 및 truncated evidence는 abstain합니다. FDAI는 source campaign의 fixed sleep 및 second Event
 read를 복사하지 않으며 normal evidence freshness가 해당 concern을 소유합니다.
+동일한 full-chain probe identity가 모든 hop에서 initial delay 0, period 1초, startup probe 부재를
+가질 때 기존 candidate에 `aggressive_schedule=true`를 추가합니다. 새 reason, priority branch 또는
+action authority를 만들지 않습니다. Chain의 startup gate가 불일치하면 abstain합니다.
 Source campaign의 deterministic SecurityContext patch는 port하지 않습니다. Syntactically grounded
 template change도 process identity, capability 및 workload behavior를 바꿀 수 있으며 admission
 success만으로 rollout health, application correctness 또는 rollback restoration을 증명할 수 없습니다.

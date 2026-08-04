@@ -29,6 +29,7 @@ def test_liveness_failure_requires_recent_exact_uid_chain_and_common_probe() -> 
     assert finding["affected_pod"]["uid"] == "pod-uid"
     assert finding["container"] == "api"
     assert finding["probe"]["mechanism"] == "httpGet"
+    assert finding["aggressive_schedule"] is False
     assert finding["causality"] == "candidate_only"
     assert finding["decision"] == "hold"
 
@@ -100,6 +101,34 @@ def test_liveness_failure_is_metamorphic_to_order_and_namespace_rename() -> None
     assert renamed[0]["resource"]["namespace"] == "renamed-app"
 
 
+def test_liveness_failure_marks_aggressive_schedule_without_new_reason() -> None:
+    resources = deepcopy(_resources())
+    for resource in resources:
+        key = "pod_spec" if resource["kind"] == "Pod" else "pod_template"
+        probe = resource[key]["containers"][0]["liveness_probe"]  # type: ignore[index]
+        probe["initial_delay_seconds"] = 0
+        probe["period_seconds"] = 1
+        probe["startup_probe_present"] = False
+
+    finding = liveness_probe_failure_findings(
+        resources, _events(), evidence_complete=True, evidence_cutoff=_CUTOFF
+    )[0]
+
+    assert finding["reason"] == "workload_liveness_probe_failure_candidate"
+    assert finding["aggressive_schedule"] is True
+
+    startup_mismatch = deepcopy(resources)
+    startup_mismatch[1]["pod_template"]["containers"][0]["liveness_probe"][  # type: ignore[index]
+        "startup_probe_present"
+    ] = True
+    assert not liveness_probe_failure_findings(
+        startup_mismatch,
+        _events(),
+        evidence_complete=True,
+        evidence_cutoff=_CUTOFF,
+    )
+
+
 def _resources() -> list[dict[str, object]]:
     return [
         {
@@ -163,6 +192,7 @@ def _probe(value: str) -> dict[str, object]:
         "definition_sha256": _digest(value),
         "period_seconds": 10,
         "failure_threshold": 3,
+        "startup_probe_present": False,
     }
 
 

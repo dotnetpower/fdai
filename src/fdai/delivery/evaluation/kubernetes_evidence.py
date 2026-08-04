@@ -712,6 +712,7 @@ def _project_template_container(value: Mapping[str, Any]) -> dict[str, Any]:
         result["image_reference_sha256"] = image_reference_sha256
     liveness_probe = _project_liveness_probe(value.get("livenessProbe"))
     if liveness_probe is not None:
+        liveness_probe["startup_probe_present"] = isinstance(value.get("startupProbe"), Mapping)
         result["liveness_probe"] = liveness_probe
     return result
 
@@ -748,6 +749,7 @@ def _project_resource_container(value: Mapping[str, Any]) -> dict[str, Any] | No
         projection["image_reference_sha256"] = image_reference_sha256
     liveness_probe = _project_liveness_probe(value.get("livenessProbe"))
     if liveness_probe is not None:
+        liveness_probe["startup_probe_present"] = isinstance(value.get("startupProbe"), Mapping)
         projection["liveness_probe"] = liveness_probe
     if "ports" in value:
         ports, ports_complete = _project_host_ports(value.get("ports"))
