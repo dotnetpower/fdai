@@ -140,7 +140,7 @@ describe("Handover projection contract", () => {
       agent: "Unknown",
     });
     unknownAgent.coverage.is_clean = false;
-    expect(() => decodeStewardship(unknownAgent)).toThrow(/reference the Pantheon/);
+    expect(() => decodeStewardship(unknownAgent)).toThrow(/Pantheon references/);
 
     const cleanDrift = stewardshipPayload();
     cleanDrift.coverage.findings.push({
@@ -149,7 +149,39 @@ describe("Handover projection contract", () => {
       message: "warning",
       agent: "Odin",
     });
-    expect(() => decodeStewardship(cleanDrift)).toThrow(/derive is_clean from warnings/);
+    expect(() => decodeStewardship(cleanDrift)).toThrow(/clean state/);
+  });
+
+  test("enforces canonical finding severity and scope", () => {
+    const severityDrift = stewardshipPayload();
+    severityDrift.coverage.findings.push({
+      code: "autonomous_no_steward",
+      severity: "warn",
+      message: "wrong severity",
+      agent: "Odin",
+    });
+    severityDrift.coverage.is_clean = false;
+    expect(() => decodeStewardship(severityDrift)).toThrow(/canonical severity/);
+
+    const missingAgent = stewardshipPayload();
+    missingAgent.coverage.findings.push({
+      code: "backup_missing",
+      severity: "warn",
+      message: "missing agent",
+      agent: null,
+    });
+    missingAgent.coverage.is_clean = false;
+    expect(() => decodeStewardship(missingAgent)).toThrow(/canonical severity, scope/);
+
+    const globalWithAgent = stewardshipPayload();
+    globalWithAgent.coverage.findings.push({
+      code: "over_assigned",
+      severity: "warn",
+      message: "global finding",
+      agent: "Odin",
+    });
+    globalWithAgent.coverage.is_clean = false;
+    expect(() => decodeStewardship(globalWithAgent)).toThrow(/canonical severity, scope/);
   });
 
   test("enforces v2 duty semantics while preserving v1 compatibility", () => {

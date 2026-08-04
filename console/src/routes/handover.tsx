@@ -267,11 +267,30 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
     throw panelContractError("stewardship.coverage counts MUST match the handover map");
   }
   const pantheonNames = new Set(expectedNames);
+  const findingSeverity: Readonly<Record<FindingCode, FindingSeverity>> = {
+    maintainer_single: "warn",
+    autonomous_no_steward: "info",
+    duty_derived: "info",
+    backup_missing: "warn",
+    bus_factor_one: "warn",
+    over_assigned: "warn",
+    stale_oid: "warn",
+  };
+  const agentFindingCodes = new Set<FindingCode>([
+    "autonomous_no_steward",
+    "duty_derived",
+    "backup_missing",
+    "bus_factor_one",
+  ]);
+  const globalFindingCodes = new Set<FindingCode>(["maintainer_single", "over_assigned"]);
   if (
     decoded.coverage.findings.some((finding) => finding.agent !== null && !pantheonNames.has(finding.agent)) ||
+    decoded.coverage.findings.some((finding) => finding.severity !== findingSeverity[finding.code]) ||
+    decoded.coverage.findings.some((finding) => agentFindingCodes.has(finding.code) && finding.agent === null) ||
+    decoded.coverage.findings.some((finding) => globalFindingCodes.has(finding.code) && finding.agent !== null) ||
     decoded.coverage.is_clean !== decoded.coverage.findings.every((finding) => finding.severity !== "warn")
   ) {
-    throw panelContractError("stewardship.coverage findings MUST reference the Pantheon and derive is_clean from warnings");
+    throw panelContractError("stewardship.coverage findings MUST match canonical severity, scope, Pantheon references, and clean state");
   }
   const identityCheckCompleted = identityHealthStatus === "clean" || identityHealthStatus === "warn";
   const staleIdentityFindings = decoded.coverage.findings.filter((finding) => finding.code === "stale_oid").length;
