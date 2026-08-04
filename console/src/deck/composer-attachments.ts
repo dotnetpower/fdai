@@ -67,6 +67,7 @@ const OOXML_EXT = new Set(["docx", "docm", "xlsx", "xlsm", "pptx", "pptm"]);
 
 /** Leading bytes of an OLE2 compound file: D0 CF 11 E0 A1 B1 1A E1. */
 const OLE_MAGIC = [0xd0, 0xcf, 0x11, 0xe0];
+let attachmentSequence = 0;
 
 export function fileExtension(name: string): string {
   const dot = name.lastIndexOf(".");
@@ -126,7 +127,11 @@ export function formatSize(bytes: number): string {
 }
 
 export function newAttachmentId(): string {
-  return `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `att-${crypto.randomUUID()}`;
+  }
+  attachmentSequence += 1;
+  return `att-${Date.now()}-${attachmentSequence.toString(36)}`;
 }
 
 /** Return only image files from a clipboard payload. Text and HTML items are

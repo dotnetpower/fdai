@@ -119,6 +119,16 @@ describe("composer-attachments", () => {
     expect(newAttachmentId()).not.toBe(newAttachmentId());
   });
 
+  it("keeps fallback ids unique within the same millisecond", () => {
+    vi.stubGlobal("crypto", undefined);
+    vi.spyOn(Date, "now").mockReturnValue(1234);
+
+    expect(newAttachmentId()).not.toBe(newAttachmentId());
+
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
   it("rebuilds an image data URL with the validated media type", () => {
     // A blank or non-image MIME from FileReader is corrected to the real type.
     expect(normalizeImageDataUrl("data:;base64,AAAB", "image/png")).toBe(
