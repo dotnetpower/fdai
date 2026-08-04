@@ -35,16 +35,25 @@ export function viewRequiresStewardship(view: AgentOversightView): boolean {
   return view === "overview" || view === "human-dependencies";
 }
 
+export function adjacentOversightView(
+  view: AgentOversightView,
+  direction: "next" | "previous" | "first" | "last",
+): AgentOversightView {
+  if (direction === "first") return VIEWS[0]!;
+  if (direction === "last") return VIEWS[VIEWS.length - 1]!;
+  const offset = direction === "next" ? 1 : -1;
+  return VIEWS[(VIEWS.indexOf(view) + offset + VIEWS.length) % VIEWS.length]!;
+}
+
 export function AgentOversightBody({ stewardshipState, client, auth }: {
   readonly stewardshipState: AsyncState<StewardshipResponse>;
   readonly client: OperatorApiClient;
   readonly auth: AuthContext;
 }) {
   const requestedView = oversightViewFromSegment(currentRoute().segments[0]);
-  const [view, setView] = useState<AgentOversightView>(requestedView ?? "overview");
+  const view = requestedView ?? "overview";
 
   const selectView = (next: AgentOversightView) => {
-    setView(next);
     navigate(routeHref("handover", { segments: next === "overview" ? [] : [next] }));
   };
 
@@ -63,6 +72,22 @@ export function AgentOversightBody({ stewardshipState, client, auth }: {
             aria-controls={`agent-oversight-panel-${item}`}
             tabIndex={view === item ? 0 : -1}
             onClick={() => selectView(item)}
+            onKeyDown={(event) => {
+              const direction = event.key === "ArrowRight"
+                ? "next"
+                : event.key === "ArrowLeft"
+                  ? "previous"
+                  : event.key === "Home"
+                    ? "first"
+                    : event.key === "End"
+                      ? "last"
+                      : null;
+              if (direction === null) return;
+              event.preventDefault();
+              const next = adjacentOversightView(item, direction);
+              selectView(next);
+              queueMicrotask(() => document.getElementById(`agent-oversight-tab-${next}`)?.focus());
+            }}
           >
             {t(`handover.view.${item}`)}
           </button>

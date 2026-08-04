@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { oversightViewFromSegment, viewRequiresStewardship } from "./agent-oversight-views";
+import { adjacentOversightView, oversightViewFromSegment, viewRequiresStewardship } from "./agent-oversight-views";
 import { PANTHEON } from "./agents.model";
 import { decodeStewardship } from "./handover";
 
@@ -67,6 +67,10 @@ describe("Handover projection contract", () => {
     expect(viewRequiresStewardship("knowledge-handover")).toBe(false);
     expect(viewRequiresStewardship("approval-routes")).toBe(false);
     expect(viewRequiresStewardship("mapping-reviews")).toBe(false);
+    expect(adjacentOversightView("overview", "previous")).toBe("mapping-reviews");
+    expect(adjacentOversightView("mapping-reviews", "next")).toBe("overview");
+    expect(adjacentOversightView("approval-routes", "first")).toBe("overview");
+    expect(adjacentOversightView("overview", "last")).toBe("mapping-reviews");
   });
 
   test("accepts a count-consistent fixed pantheon map", () => {
