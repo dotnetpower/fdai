@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: f4667b3eb320f3c0884a506cae917f87f2fc0f1d
+translation_source_sha: 4b6be85135732919ab9b7d9a52640043358b8152
 translation_revised: 2026-08-04
 ---
 
@@ -212,6 +212,13 @@ status condition source path와 함께 `evidence_strength=direct_resource_condit
 candidate를 생성하고 raw message는 보존하지 않습니다. FDAI는 campaign의 fixed numeric ranking
 weight를 복사하지 않습니다. Downstream ranking은 correlation을 proven causation으로 취급하지 않고
 explicit evidence strength를 비교할 수 있습니다.
+
+Requested Pod port를 사용할 수 없다고 보고하는 reviewed scheduler Event reason text는 raw message를
+보존하지 않고 structured `host_port_conflict` code로 축약합니다. Hold-only candidate에는 complete
+inventory/event receipt, 5분 evidence window 안의 event, exact affected Pod UID 및 complete valid
+`hostPort`/protocol projection이 필요합니다. Finding은 bounded port fact와 reviewed source path만
+포함합니다. Name-only, stale, future, malformed, ambiguous 또는 truncated evidence는 finding을
+생성하지 않으며 event만으로 어느 Node가 conflicting socket을 소유하는지 증명하지 않습니다.
 
 Observe-only `observe.kubernetes.owners` capability는 bounded namespace inventory에서 최대 8개
 custom owner reference를 따라갑니다. 각 lookup은 owner reference UID를 보존하며 반환된 custom

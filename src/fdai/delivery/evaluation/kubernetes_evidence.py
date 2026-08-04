@@ -8,6 +8,7 @@ import json
 import re
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final
 
@@ -15,12 +16,20 @@ from fdai_evaluation_sdk import EvaluationTask
 
 from fdai.delivery.kubernetes.admission_events import classify_admission_failure
 from fdai.delivery.kubernetes.capacity import project_pod_resource_requests
+from fdai.delivery.kubernetes.host_port import host_port_conflict_findings
 from fdai.delivery.kubernetes.image_drift import image_pull_controller_drift_findings
 from fdai.delivery.kubernetes.owners import CustomOwnerQuery, project_custom_owner
 from fdai.delivery.kubernetes.quantity import cpu_millicores, memory_bytes, parse_quantity
+from fdai.delivery.kubernetes.scheduler_events import classify_scheduler_failure
 from fdai.evaluation.evidence import EvaluationEvidenceProvider
 
 CommandRunner = Callable[[tuple[str, ...]], Awaitable[bytes]]
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
 _DNS_SUBDOMAIN: Final = re.compile(
     r"^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?(?:\.[a-z0-9](?:[-a-z0-9]*[a-z0-9])?)*$"
 )
@@ -309,9 +318,29 @@ class KubectlInventoryEvidenceProvider:
 @dataclass(frozen=True, slots=True)
 class KubectlEventEvidenceProvider:
     client: KubectlEvidenceClient
+    clock: Callable[[], datetime] = _utc_now
 
     async def collect(self, task: EvaluationTask) -> Mapping[str, Any]:
-        return await self.client.events(task)
+        event_receipt, inventory = await asyncio.gather(
+            self.client.events(task),
+            self.client.inventory(task),
+        )
+        evidence = dict(event_receipt)
+        events = [item for item in evidence.get("events", []) if isinstance(item, Mapping)]
+        resources = [item for item in inventory.get("resources", []) if isinstance(item, Mapping)]
+        evidence_complete = (
+            evidence.get("truncated") is False and inventory.get("truncated") is False
+        )
+        evidence["evidence_complete"] = evidence_complete
+        evidence["findings"] = list(
+            host_port_conflict_findings(
+                resources,
+                events,
+                evidence_complete=evidence_complete,
+                evidence_cutoff=self.clock(),
+            )
+        )
+        return evidence
 
 
 @dataclass(frozen=True, slots=True)
@@ -652,6 +681,10 @@ def _project_resource_container(value: Mapping[str, Any]) -> dict[str, Any] | No
     image_reference_sha256 = _image_reference_sha256(value.get("image"))
     if image_reference_sha256:
         projection["image_reference_sha256"] = image_reference_sha256
+    if "ports" in value:
+        ports, ports_complete = _project_host_ports(value.get("ports"))
+        projection["host_port_projection_complete"] = ports_complete
+        projection["host_ports"] = ports
     return projection
 
 
@@ -659,6 +692,34 @@ def _image_reference_sha256(value: object) -> str:
     if not isinstance(value, str) or not value or len(value) > 512:
         return ""
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+def _project_host_ports(value: object) -> tuple[list[dict[str, Any]], bool]:
+    if not isinstance(value, list) or len(value) > 32:
+        return [], False
+    projected: list[dict[str, Any]] = []
+    for source_index, item in enumerate(value):
+        if not isinstance(item, Mapping):
+            return [], False
+        host_port = item.get("hostPort")
+        if host_port is None:
+            continue
+        protocol = item.get("protocol", "TCP")
+        if (
+            not isinstance(host_port, int)
+            or isinstance(host_port, bool)
+            or not 1 <= host_port <= 65_535
+            or protocol not in {"TCP", "UDP", "SCTP"}
+        ):
+            return [], False
+        projected.append(
+            {
+                "host_port": host_port,
+                "protocol": str(protocol),
+                "source_index": source_index,
+            }
+        )
+    return projected, True
 
 
 def _project_container_resources(value: object) -> dict[str, dict[str, str]] | None:
@@ -906,6 +967,10 @@ def _project_event(item: Mapping[str, Any]) -> dict[str, Any] | None:
     }
     admission_failure = classify_admission_failure(reason=reason, message=message)
     if admission_failure is None:
+        scheduler_failure = classify_scheduler_failure(reason=reason, message=message)
+        if scheduler_failure is not None:
+            projection["code"] = scheduler_failure.code
+            return projection
         projection["message"] = message
         return projection
     projection["code"] = admission_failure.code

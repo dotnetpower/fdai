@@ -13,7 +13,10 @@ import pytest
 from fdai_evaluation_sdk import EvaluationTask, ResourceLimits, TargetRef
 
 from fdai.delivery.evaluation import KubectlEvidenceClient, KubectlEvidenceConfig
-from fdai.delivery.evaluation.kubernetes_evidence import KubectlInventoryEvidenceProvider
+from fdai.delivery.evaluation.kubernetes_evidence import (
+    KubectlEventEvidenceProvider,
+    KubectlInventoryEvidenceProvider,
+)
 from fdai.delivery.kubernetes.owners import CustomOwnerQuery
 
 _NOW = datetime(2026, 7, 29, 12, 0, tzinfo=UTC)
@@ -326,6 +329,27 @@ async def test_inventory_provider_adds_hold_only_image_drift_candidates() -> Non
     assert evidence["findings"][0]["reason"] == (
         "pod_image_pull_controller_template_drift_candidate"
     )
+    assert evidence["findings"][0]["decision"] == "hold"
+
+
+async def test_event_provider_correlates_recent_exact_uid_host_port_conflict() -> None:
+    class _SchedulingClient:
+        async def inventory(self, task: EvaluationTask) -> Mapping[str, Any]:
+            del task
+            return {"resources": _host_port_resources(), "truncated": False}
+
+        async def events(self, task: EvaluationTask) -> Mapping[str, Any]:
+            del task
+            return {"events": _host_port_events(), "truncated": False}
+
+    evidence = await KubectlEventEvidenceProvider(
+        _SchedulingClient(),  # type: ignore[arg-type]
+        clock=lambda: datetime(2026, 8, 4, 12, 0, tzinfo=UTC),
+    ).collect(_task())
+
+    assert evidence["evidence_complete"] is True
+    assert evidence["findings"][0]["reason"] == "pod_host_port_conflict_candidate"
+    assert evidence["findings"][0]["resource"]["uid"] == "pod-uid"
     assert evidence["findings"][0]["decision"] == "hold"
 
 
@@ -767,6 +791,82 @@ async def test_events_structure_admission_failures_without_raw_message(
     assert message not in json.dumps(evidence)
 
 
+async def test_events_structure_host_port_conflict_without_raw_message(tmp_path: Path) -> None:
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text("synthetic", encoding="utf-8")
+    raw_message = "3 node(s) didn't have free ports for the requested pod ports"
+
+    async def run(command: tuple[str, ...]) -> bytes:
+        del command
+        return json.dumps(
+            {
+                "items": [
+                    {
+                        "metadata": {
+                            "name": "event-1",
+                            "namespace": "example-app",
+                            "creationTimestamp": "2026-07-29T11:59:00Z",
+                        },
+                        "reason": "FailedScheduling",
+                        "message": raw_message,
+                        "involvedObject": {
+                            "kind": "Pod",
+                            "name": "api-1",
+                            "uid": "pod-uid",
+                        },
+                    }
+                ]
+            }
+        ).encode()
+
+    evidence = await KubectlEvidenceClient(config=_config(kubeconfig), run=run).events(_task())
+
+    assert evidence["events"][0]["code"] == "host_port_conflict"
+    assert evidence["events"][0]["regarding"]["uid"] == "pod-uid"
+    assert "message" not in evidence["events"][0]
+    assert raw_message not in json.dumps(evidence)
+
+
+async def test_inventory_projects_bounded_host_ports(tmp_path: Path) -> None:
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text("synthetic", encoding="utf-8")
+
+    async def run(command: tuple[str, ...]) -> bytes:
+        del command
+        return json.dumps(
+            {
+                "items": [
+                    {
+                        "kind": "Pod",
+                        "metadata": {
+                            "name": "api-1",
+                            "namespace": "example-app",
+                            "uid": "pod-uid",
+                        },
+                        "spec": {
+                            "containers": [
+                                {
+                                    "name": "api",
+                                    "ports": [
+                                        {"containerPort": 8080},
+                                        {"containerPort": 9090, "hostPort": 9100},
+                                    ],
+                                }
+                            ]
+                        },
+                        "status": {"containerStatuses": []},
+                    }
+                ]
+            }
+        ).encode()
+
+    evidence = await KubectlEvidenceClient(config=_config(kubeconfig), run=run).inventory(_task())
+
+    container = evidence["resources"][0]["pod_spec"]["containers"][0]
+    assert container["host_port_projection_complete"] is True
+    assert container["host_ports"] == [{"host_port": 9100, "protocol": "TCP", "source_index": 1}]
+
+
 async def test_invalid_or_oversized_kubectl_payload_is_rejected(tmp_path: Path) -> None:
     kubeconfig = tmp_path / "config"
     kubeconfig.write_text("synthetic", encoding="utf-8")
@@ -840,4 +940,37 @@ def _image_drift_resources() -> list[dict[str, Any]]:
                 "containers": [{"name": "api", "image_reference_sha256": expected}],
             },
         },
+    ]
+
+
+def _host_port_resources() -> list[dict[str, Any]]:
+    return [
+        {
+            "kind": "Pod",
+            "name": "api-1",
+            "namespace": "example-app",
+            "uid": "pod-uid",
+            "pod_spec": {
+                "projection_complete": True,
+                "containers": [
+                    {
+                        "name": "api",
+                        "host_port_projection_complete": True,
+                        "host_ports": [{"host_port": 9100, "protocol": "TCP", "source_index": 0}],
+                    }
+                ],
+            },
+        }
+    ]
+
+
+def _host_port_events() -> list[dict[str, Any]]:
+    return [
+        {
+            "name": "scheduler-1",
+            "namespace": "example-app",
+            "code": "host_port_conflict",
+            "last_seen": "2026-08-04T11:59:00Z",
+            "regarding": {"kind": "Pod", "name": "api-1", "uid": "pod-uid"},
+        }
     ]

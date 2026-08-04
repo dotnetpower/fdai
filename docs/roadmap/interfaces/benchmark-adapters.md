@@ -208,6 +208,14 @@ condition source path, and no raw message. FDAI does not copy the campaign's fix
 weight; downstream ranking can compare the explicit evidence strength without treating correlation
 as proven causation.
 
+Scheduler Events whose reviewed reason text reports unavailable requested Pod ports are reduced to
+a structured `host_port_conflict` code without retaining the raw message. A hold-only candidate
+requires complete inventory and event receipts, an event inside the five-minute evidence window,
+an exact affected Pod UID, and complete valid `hostPort` and protocol projections. The finding
+contains only bounded port facts and reviewed source paths. Name-only, stale, future, malformed,
+ambiguous, or truncated evidence produces no finding; the event does not prove which Node owns the
+conflicting socket.
+
 The observe-only `observe.kubernetes.owners` capability follows at most eight custom owner
 references from the bounded namespace inventory. Every lookup preserves the owner reference UID
 and accepts the returned custom resource only when API group, kind, name, namespace, and immutable
