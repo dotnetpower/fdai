@@ -158,7 +158,10 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
 from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
     public_intent_graph_evidence,
 )
-from fdai.delivery.operator_api.routes.chat_inventory_compiler import compile_inventory_query
+from fdai.delivery.operator_api.routes.chat_inventory_compiler import (
+    compile_inventory_query,
+    inventory_query_requires_semantic_completion,
+)
 from fdai.delivery.operator_api.routes.chat_inventory_followup import (
     contextualize_inventory_scope_followup,
     contextualize_inventory_screen_scope,
@@ -535,6 +538,10 @@ def make_chat_route(
         )
         if inventory_screen_scope_resolution is not None:
             view_context["_inventory_screen_scope"] = inventory_screen_scope_resolution.to_context()
+        compiled_inventory = compile_inventory_query(evidence_prompt)
+        semantic_inventory_completion = compiled_inventory is not None and (
+            inventory_query_requires_semantic_completion(compiled_inventory)
+        )
         deterministic_followup = (
             resource_followup
             or (
@@ -547,7 +554,10 @@ def make_chat_route(
             or inventory_scope_followup
             or selector_hold is not None
             or is_topology_question(evidence_prompt)
-            or compile_inventory_query(evidence_prompt) is not None
+            or (
+                compiled_inventory is not None
+                and not inventory_query_requires_semantic_completion(compiled_inventory)
+            )
             or needs_subscription_health(evidence_prompt)
             or needs_log_query(evidence_prompt)
             or needs_action_context(evidence_prompt)
@@ -589,7 +599,9 @@ def make_chat_route(
             operator_turn = None
             semantic_plan = None
             if turn_planner is not None and (
-                not deterministic_followup or is_explicit_action_draft_request(clean_prompt)
+                not deterministic_followup
+                or semantic_inventory_completion
+                or is_explicit_action_draft_request(clean_prompt)
             ):
                 try:
                     semantic_plan = await plan_semantic_turn(

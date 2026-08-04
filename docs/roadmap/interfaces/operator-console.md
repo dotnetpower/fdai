@@ -16,12 +16,14 @@ Settings > Integrations can preview the production incident-open email renderer 
 placeholders. That GET-only preview does not send mail or grant approval or execution authority.
 The authenticated active-incident stream can open an idle Command Deck with an incident selector.
 That selector is a presentation hint only; the server re-resolves the durable incident and its
-evidence before answering, and the browser never auto-submits a turn.
+evidence before answering. When the tab and Deck are idle, the first browser observation of an
+incident submits one localized read-only investigation turn. A browser-local incident ledger
+suppresses replay after reload; the incident badge remains an explicit way to investigate again.
 When an incident question matches several records equally, the terminal answer includes bounded
 candidate buttons rather than relying on a plain-text instruction. A button opens the candidate's
 exact incident conversation and immediately submits the localized read-only investigation turn.
-The click is the operator's explicit request; an automatic active-incident stream open still never
-submits a turn.
+The click is the operator's explicit request; an automatic active-incident stream open never
+submits a managed-resource action.
 This doc covers the **pull direction** - the operator asks, simulates,
 approves - across every channel the notification doc already ships adapters
 for. Push and pull share the same channel credentials and the same audit
@@ -289,12 +291,9 @@ caller-supplied role parameter. Both surfaces return descriptors only and cannot
 | `query_detection_readiness()` | Read Heimdall's latest AKS readiness decisions from Muninn StateSnapshots, including six-axis coverage gaps and the authority ceiling. It does not probe Azure or recompute readiness. | Reader | `DetectionReadinessReader` |
 | `query_t2_recovery()` | Read sanitized proposer attempt receipts from the server StateStore. Return the retained attempt count, recovery state, route roles, failure class, observation time, and explicit legacy-detail gaps without exposing provider error text. | Reader | `T2RecoveryStateReader` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | Submit a credential-free bounded capture under an exact server-owned policy. Returns an immutable artifact receipt; never returns a page or interaction API. | Reader | `BrowserEvidenceCaptureService` |
-For an unfiltered resource-type summary, `query_inventory` preserves every provider-observed
-resource even when its ARM type has no canonical catalog mapping. The deterministic answer groups
-by provider-native type, reports the complete resource and type totals, and reports resource-group
-containers and topology-derived child records separately from the provider-native resource total.
-Catalog-mapped queries continue to use canonical resource types for filtering and CSP-neutral
-reasoning.
+A concrete resource-type query with no complete lexical state match uses semantic planning only to propose a state concept. The server accepts canonical current-inventory states from the IQL catalog,
+preserves deterministic type, scope, and freshness, and discards planner-supplied type, scope, and lookback. Provider-observed status grounds the final predicate; an invalid state returns unavailable.
+An unfiltered summary still preserves every provider-observed resource, groups by provider-native type, and separates resource-group containers and topology-derived records from the resource total.
 The catalog-owned `scope_counts` query kind returns provider-native resource and resource-group
 totals from one fresh snapshot without narrowing the query to resource groups. It retains the same
 container, derived-record, truncation, freshness, and verification disclosures as type summaries.

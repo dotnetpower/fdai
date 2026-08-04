@@ -34,6 +34,9 @@ from fdai.delivery.operator_api.routes.chat_inventory_query import (
     inventory_query_matches,
     normalize_inventory_value,
 )
+from fdai.delivery.operator_api.routes.chat_inventory_semantics import (
+    ground_inventory_status_query,
+)
 from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
 from fdai.delivery.operator_api.routes.chat_topology_intent import is_topology_question
 from fdai.delivery.operator_api.routes.chat_turn_plan import TurnTool
@@ -159,6 +162,10 @@ class InventoryChatTools:
         prompt: str | None = None,
     ) -> dict[str, Any]:
         graph = await self._graph_for_query(query)
+        projected = _safe_inventory_payload(graph)
+        if projected is not None:
+            resources, _links = projected
+            query = ground_inventory_status_query(query, resources)
         activity = await self._activity(query)
         result = (
             _project_inventory_result(prompt, graph, activity=activity)

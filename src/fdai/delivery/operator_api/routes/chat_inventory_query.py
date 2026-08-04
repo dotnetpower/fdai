@@ -357,7 +357,7 @@ def normalize_inventory_value(value: object) -> str:
     """Normalize one provider or query scalar for stable case-insensitive matching."""
 
     text = unicodedata.normalize("NFKC", str(value)).strip().casefold()
-    text = re.sub(r"[\\/_]+", " ", text)
+    text = re.sub(r"[\\/_:]+", " ", text)
     return " ".join(text.split())
 
 

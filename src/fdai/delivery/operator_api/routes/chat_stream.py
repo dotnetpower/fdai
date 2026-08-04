@@ -105,7 +105,10 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
     plan_semantic_turn,
     planner_context_envelope,
 )
-from fdai.delivery.operator_api.routes.chat_inventory_compiler import compile_inventory_query
+from fdai.delivery.operator_api.routes.chat_inventory_compiler import (
+    compile_inventory_query,
+    inventory_query_requires_semantic_completion,
+)
 from fdai.delivery.operator_api.routes.chat_llm_usage import (
     is_llm_usage_followup,
     needs_llm_usage,
@@ -301,6 +304,10 @@ def make_chat_stream_route(
         conversation_context = prepared.conversation_context
         view_context = prepared.view_context
         resource_followup = prepared.resource_followup
+        compiled_inventory = compile_inventory_query(evidence_prompt)
+        semantic_inventory_completion = compiled_inventory is not None and (
+            inventory_query_requires_semantic_completion(compiled_inventory)
+        )
         deterministic_followup = (
             resource_followup
             or (
@@ -313,7 +320,10 @@ def make_chat_stream_route(
             or prepared.inventory_scope_followup
             or "_read_investigation_context_hold" in view_context
             or is_topology_question(evidence_prompt)
-            or compile_inventory_query(evidence_prompt) is not None
+            or (
+                compiled_inventory is not None
+                and not inventory_query_requires_semantic_completion(compiled_inventory)
+            )
             or needs_subscription_health(evidence_prompt)
             or needs_log_query(evidence_prompt)
             or needs_action_context(evidence_prompt)
@@ -444,7 +454,9 @@ def make_chat_stream_route(
                     return
                 semantic_plan = None
                 if turn_planner is not None and (
-                    not deterministic_followup or is_explicit_action_draft_request(clean_prompt)
+                    not deterministic_followup
+                    or semantic_inventory_completion
+                    or is_explicit_action_draft_request(clean_prompt)
                 ):
                     semantic_plan_timing = turn_timing.begin("semantic_plan")
                     try:

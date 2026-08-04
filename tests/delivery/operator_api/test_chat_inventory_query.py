@@ -172,6 +172,7 @@ def test_exists_missing_contains_and_normalization_are_deterministic() -> None:
         current,
     )
     assert normalize_inventory_value(" PowerState/DEALLOCATED ") == "powerstate deallocated"
+    assert normalize_inventory_value(" PowerState:RUNNING ") == "powerstate running"
 
 
 def test_name_contains_does_not_match_inside_larger_token() -> None:

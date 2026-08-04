@@ -19,6 +19,13 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import (
     IntentGoal,
     IntentGraph,
 )
+from fdai.delivery.operator_api.routes.chat_inventory_compiler import (
+    compile_inventory_query,
+    inventory_query_requires_semantic_completion,
+)
+from fdai.delivery.operator_api.routes.chat_inventory_semantics import (
+    merge_semantic_inventory_status_query,
+)
 
 _MAX_CONCURRENCY: Final = 4
 _GOAL_TIMEOUT_SECONDS: Final = 20.0
@@ -297,9 +304,19 @@ async def _dispatch_goal(
         )
     if planned_tool_resolver is None:
         return None
+    arguments = goal.arguments
+    if capability == "query_inventory":
+        deterministic_query = compile_inventory_query(prompt)
+        if deterministic_query is not None and inventory_query_requires_semantic_completion(
+            deterministic_query
+        ):
+            arguments = (
+                merge_semantic_inventory_status_query(deterministic_query, goal.arguments)
+                or deterministic_query.to_dict()
+            )
     return await planned_tool_resolver.resolve_planned(
         capability,
-        goal.arguments,
+        arguments,
         principal_id=user_id,
     )
 

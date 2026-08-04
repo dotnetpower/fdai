@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 08787a52d0644dcb16361cf6bc69f8c3c855c7af
+translation_source_sha: 133feedb06f378af11dda3800e04e103d745344a
 translation_revised: 2026-08-04
 ---
 
@@ -18,11 +18,13 @@ Settings > Integrations에서는 합성 placeholder로 production incident-open 
 있습니다. 이 GET-only preview는 email을 보내거나 승인 또는 실행 권한을 부여하지 않습니다.
 인증된 active-incident stream은 idle Command Deck을 incident selector와 함께 열 수 있습니다. 이
 selector는 presentation hint일 뿐입니다. Server는 답변 전에 durable incident와 evidence를 다시
-resolve하며 browser는 turn을 자동 제출하지 않습니다.
+resolve합니다. Tab과 Deck이 idle 상태이면 browser에서 incident를 처음 관찰할 때 localized read-only
+investigation turn을 한 번 제출합니다. Browser-local incident ledger는 reload 뒤 replay를 억제하며,
+incident badge를 누르면 명시적으로 다시 조사할 수 있습니다.
 Incident 질문이 여러 record와 같은 정도로 일치하면 terminal answer는 plain-text 안내 대신 bounded
 candidate button을 포함합니다. Button은 해당 candidate의 exact incident conversation을 열고 localized
 read-only investigation turn을 즉시 제출합니다. Button click은 operator의 명시적인 요청입니다.
-자동 active-incident stream open은 계속 turn을 제출하지 않습니다.
+자동 active-incident stream open은 managed-resource action을 제출하지 않습니다.
 
 이 문서는 **pull 방향**, 즉 오퍼레이터가 묻고 시뮬레이션하고 승인하는 경로를 다룹니다.
 Push와 pull은 같은 채널 credential과 audit 계약을 공유하지만 서로 다른 통합
@@ -283,12 +285,9 @@ method `tools.search`, `tools.describe`로 제공됩니다. Channel call은 reso
 | `query_detection_readiness()` | Muninn StateSnapshot에서 Heimdall의 최신 AKS readiness 판정을 읽고 6축 coverage gap과 authority ceiling을 반환합니다. Azure를 probe하거나 readiness를 다시 계산하지 않습니다. | Reader | `DetectionReadinessReader` |
 | `query_t2_recovery()` | Server StateStore에서 sanitized proposer attempt receipt를 읽습니다. Provider error text를 노출하지 않고 retained attempt count, recovery state, route role, failure class, observation time 및 명시적인 legacy-detail gap을 반환합니다. | Reader | `T2RecoveryStateReader` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | 정확한 server-owned policy 아래에서 credential이 없는 bounded capture를 submit합니다. Immutable artifact receipt를 반환하며 page 또는 interaction API를 반환하지 않습니다. | Reader | `BrowserEvidenceCaptureService` |
-필터가 없는 resource-type summary에서 `query_inventory`는 ARM type에 canonical catalog
-mapping이 없더라도 provider가 관찰한 모든 resource를 보존합니다. Deterministic answer는
-provider-native type별로 grouping하고 완전한 resource 및 type 합계를 보고하며 resource-group
-container와 topology에서 파생된 하위 record는 provider-native resource 합계와 분리해
-보고합니다. Catalog-mapped query는 filtering과 CSP-neutral reasoning에 canonical resource
-type을 계속 사용합니다.
+구체적인 resource-type query에 완전한 lexical state match가 없으면 semantic planning은 state concept만 제안합니다. Server는 IQL catalog의 canonical current-inventory state만 수락하고
+deterministic type, scope, freshness를 보존하며 planner가 제안한 type, scope, lookback은 버립니다. Provider가 관찰한 status가 최종 predicate를 grounding하며 invalid state는 unavailable을 반환합니다.
+필터가 없는 summary는 provider가 관찰한 모든 resource를 계속 보존하고 provider-native type별로 grouping하며 resource-group container와 topology-derived record를 resource 합계에서 분리합니다.
 Catalog-owned `scope_counts` query kind는 query를 resource group으로 좁히지 않고 하나의
 fresh snapshot에서 provider-native resource와 resource-group 합계를 반환합니다. Type summary와
 동일하게 container, derived-record, truncation, freshness 및 verification disclosure를 유지합니다.

@@ -45,7 +45,14 @@ from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
     resolve_intent_graph_evidence,
 )
 from fdai.delivery.operator_api.routes.chat_inventory import needs_inventory_evidence
-from fdai.delivery.operator_api.routes.chat_inventory_compiler import compile_inventory_query
+from fdai.delivery.operator_api.routes.chat_inventory_compiler import (
+    compile_inventory_query,
+    inventory_query_requires_semantic_completion,
+)
+from fdai.delivery.operator_api.routes.chat_inventory_semantics import (
+    SemanticInventoryStatusError,
+    merge_semantic_inventory_status,
+)
 from fdai.delivery.operator_api.routes.chat_log_query import needs_log_query
 from fdai.delivery.operator_api.routes.chat_preincident_activity import parse_preincident_activity
 from fdai.delivery.operator_api.routes.chat_subscription_health import needs_subscription_health
@@ -165,7 +172,10 @@ async def resolve_parallel_chat_evidence(
         classify_read_investigation_intent(prompt) is not None
         and resource_name_from_question(prompt) is not None
     )
-    complete_inventory_query = compile_inventory_query(prompt) is not None
+    compiled_inventory = compile_inventory_query(prompt)
+    complete_inventory_query = compiled_inventory is not None and not (
+        inventory_query_requires_semantic_completion(compiled_inventory)
+    )
     explicit_web_search = search_intent.reason in {
         "explicit_web_search",
         "explicit_web_context",
@@ -267,6 +277,33 @@ async def resolve_parallel_chat_evidence(
                     isinstance(deterministic_result, Mapping)
                     and deterministic_result.get("reason") == "inventory_query_not_compiled"
                 )
+                if isinstance(deterministic_evidence, Mapping):
+                    try:
+                        merged_arguments = merge_semantic_inventory_status(
+                            deterministic_evidence,
+                            selected_arguments,
+                        )
+                    except SemanticInventoryStatusError:
+                        enriched = dict(base_context)
+                        enriched["_tool_evidence"] = {
+                            "tool": "query_inventory",
+                            "authority": "server_inventory_graph",
+                            "result": {
+                                "status": "unavailable",
+                                "reason": "inventory_semantic_status_invalid",
+                            },
+                        }
+                        return enriched
+                    if merged_arguments is not None:
+                        resolved = await planned_tool_resolver.resolve_planned(
+                            selected_tool_name,
+                            merged_arguments,
+                            principal_id=user_id,
+                        )
+                        enriched = dict(base_context)
+                        if resolved is not None:
+                            enriched["_tool_evidence"] = dict(resolved)
+                        return enriched
                 if "_tool_evidence" in deterministic and not lexical_abstained:
                     return deterministic
             resolved = await planned_tool_resolver.resolve_planned(
