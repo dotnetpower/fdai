@@ -419,13 +419,14 @@
       "azure_validated": false
     },
     {
-      "id": "kubernetes_missing_webhook_fail_open_recovery_seed",
+      "id": "kubernetes_webhook_fail_open_recovery_seed",
       "source_commits": [
         "e8d091916e1aab17877b3d3bf707f7845330c1db",
-        "48f33f01db9be37882498aba6036b767fd3f7860"
+        "48f33f01db9be37882498aba6036b767fd3f7860",
+        "c9ac31bad238eb8953b83b1250e93945c310a9f5"
       ],
       "status": "rejected",
-      "source_hardening": "Rejected changing failurePolicy from Fail to Ignore across proposer, policy, capability propagation, and action building: it changes admission security intent, does not restore the backend, and lacks independent effect, rollback-outcome, and intended-control validation even with approval, shadow mode, and dry-run.",
+      "source_hardening": "Rejected changing failurePolicy from Fail to Ignore for missing backends or TLS trust failures across proposer, policy, capability propagation, and action building: it changes admission security intent, restores neither backend nor trust, and lacks independent effect, rollback-outcome, and intended-control validation even with approval, shadow mode, and dry-run.",
       "benchmark_measured": true,
       "semantic_generalized": false,
       "operationalized": false,

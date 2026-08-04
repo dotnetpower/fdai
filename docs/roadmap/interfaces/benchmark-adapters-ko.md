@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 8892c6cf81a19deb54320b7a64cb13d6821f84ff
+translation_source_sha: ff38e140553ee6c7c31550b60801efbeb3c0b29d
 translation_revised: 2026-08-04
 ---
 
@@ -295,6 +295,8 @@ Source campaign의 automatic `failurePolicy: Fail` to `Ignore` recovery seed는 
 resulting admission과 rollback이 intended control을 보존한다는 independent proof도 없습니다. Approval,
 resource-version check 및 server dry-run만으로 해당 outcome을 증명할 수 없습니다. 따라서 missing
 backend finding은 hold-only로 유지되며 control-plane patch authority를 부여하지 않습니다.
+TLS trust failure에도 같은 rejection을 적용합니다. `failurePolicy` 변경은 certificate validation을
+우회하며 trust chain이나 intended admission control을 복구하지 않습니다.
 Webhook namespace selector가 expression 없이 exact
 `kubernetes.io/metadata.name=<namespace>` match label 하나만 포함할 때 missing-backend candidate는
 해당 namespace와 reviewed selector path를 기록합니다. Extra label, expression, malformed selector 또는

@@ -293,6 +293,8 @@ That mutation changes admission security intent to fail open, does not restore t
 and lacks independent proof that the resulting admissions and rollback preserve the intended
 control. Approval, resource-version checks, and server dry-run do not establish those outcomes.
 Missing backend findings therefore remain hold-only and grant no control-plane patch authority.
+The same rejection applies to TLS trust failures: changing `failurePolicy` bypasses certificate
+validation and restores neither the trust chain nor its intended admission control.
 When a webhook namespace selector contains only the exact
 `kubernetes.io/metadata.name=<namespace>` match label and no expression, the missing-backend
 candidate records that namespace and the reviewed selector path. Extra labels, expressions,
