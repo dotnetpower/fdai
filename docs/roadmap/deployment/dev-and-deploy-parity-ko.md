@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 89e350f08810b86067d0c7470edd234a640c407a
+translation_source_sha: dd199a5af31f56b3ba1b2eb69d5e3d8518f1d7ac
 translation_revised: 2026-08-04
 ---
 
@@ -99,6 +99,13 @@ Resolved-model artifact가 있으면 같은 준비 단계에서 narrator endpoin
 `FDAI_LLM_ENDPOINT`와 `LLM_RESOLVED_MODELS_PATH`를 private local runtime environment에 기록합니다.
 Narrator endpoint가 없거나 올바르지 않으면 core runtime을 시작한 뒤 실패하게 두지 않고 Terraform
 또는 Azure provider에 접근하기 전에 준비 단계를 중단합니다.
+선택적인 local configuration-baseline conversation은 ignored artifact 세 개를
+`FDAI_CONFIGURATION_BASELINE_JSON`, `FDAI_CONFIGURATION_BASELINE_DOCX`,
+`FDAI_CONFIGURATION_OBSERVATION_JSON`으로 binding합니다. Full-stack preparation 이후 Operator API
+launch에 세 값을 모두 제공합니다. Preparation이 generated `.fdai/local-runtime.env`를 교체하므로 해당
+파일을 직접 수정하지 않는 것이 좋습니다. 일부 값만 구성하거나 baseline integrity 또는 DOCX digest가
+일치하지 않으면 Operator API startup이 중단되며 caller는 고정된 scope, version, digest 또는 document를
+바꿀 수 없습니다.
 Operator API가 startup probe를 완료하는 동안 browser는 initial panel skeleton을 유지하고
 `GET /iam/self`의 fetch-level network failure만 약 28초 동안 bounded schedule로 재시도합니다.
 HTTP response, authentication failure, malformed payload 또는 소진된 schedule은 추가 retry로 숨기지

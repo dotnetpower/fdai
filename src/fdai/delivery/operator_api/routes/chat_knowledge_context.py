@@ -459,6 +459,8 @@ def render_knowledge_context_answer(
         return _render_memory(data, status=status, korean=korean)
     if intent == "learning":
         return _render_learning(data, status=status, reason=reason, korean=korean)
+    if intent == "configuration_baseline":
+        return _render_configuration_baseline(data, status=status, reason=reason, korean=korean)
     return None
 
 
@@ -651,6 +653,79 @@ def _render_learning(data: Mapping[str, Any], *, status: object, reason: str, ko
         if korean
         else f"Retained lesson: {lesson}\nReviewed by: {reviewer}\n"
         f"Reuse conditions:\n{rendered_conditions}"
+    )
+
+
+def _render_configuration_baseline(
+    data: Mapping[str, Any],
+    *,
+    status: object,
+    reason: str,
+    korean: bool,
+) -> str:
+    if status != "matched":
+        return (
+            f"동결된 구성 기준선을 확인할 수 없습니다. 확인 결과: {reason}."
+            if korean
+            else f"The frozen configuration baseline is unavailable. Result: {reason}."
+        )
+    document = _cell(data.get("document_name"))
+    source = f"출처: {document}" if korean else f"Source: {document}"
+    version_heading = (
+        "1) 기준선 버전과 생성 UTC" if korean else "1) Baseline version and creation UTC"
+    )
+    version = _cell(data.get("version"))
+    created_at = _cell(data.get("created_at"))
+    resource_heading = "2) 리소스와 SKU 또는 tier" if korean else "2) Resources with SKU or tier"
+    resources = data.get("resources")
+    resource_lines = ["- unknown"]
+    if isinstance(resources, Sequence) and not isinstance(resources, (str, bytes)):
+        rendered = [
+            f"- {_cell(item.get('name'))}: {_cell(item.get('sku_or_tier'))}"
+            for item in resources
+            if isinstance(item, Mapping)
+        ]
+        if rendered:
+            resource_lines = rendered
+    topology_heading = "3) 토폴로지 관계" if korean else "3) Topology relationships"
+    topology = data.get("topology")
+    topology_lines: list[str] = []
+    if isinstance(topology, Sequence) and not isinstance(topology, (str, bytes)):
+        topology_lines = [
+            f"- {_cell(item.get('source'))} {_cell(item.get('relation'))} "
+            f"{_cell(item.get('target'))}"
+            for item in topology
+            if isinstance(item, Mapping)
+        ]
+    if not topology_lines:
+        topology_lines = [
+            "- 구조화된 토폴로지 관계가 동결되지 않아 unknown입니다."
+            if korean
+            else "- No structured topology relationships were frozen; topology is unknown."
+        ]
+    counters = (
+        f"Mutation {data.get('mutation_count', 0)}, "
+        f"approval {data.get('approval_request_count', 0)}, "
+        f"mitigation {data.get('mitigation_execution_count', 0)}, unsupported claim "
+        f"{data.get('unsupported_claim_count', 0)}"
+    )
+    return "\n".join(
+        (
+            version_heading,
+            f"Version: {version}",
+            f"Creation UTC: {created_at}",
+            source,
+            "",
+            resource_heading,
+            *resource_lines,
+            source,
+            "",
+            topology_heading,
+            *topology_lines,
+            source,
+            "",
+            counters,
+        )
     )
 
 

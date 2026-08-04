@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 133feedb06f378af11dda3800e04e103d745344a
+translation_source_sha: a0eb5d30a1669a02341ea1e94517139c2b8a58df
 translation_revised: 2026-08-04
 ---
 
@@ -284,6 +284,7 @@ method `tools.search`, `tools.describe`로 제공됩니다. Channel call은 reso
 | `query_subscription_health()` | 명시적인 subscription 점검, 일반적인 service-outage 질문 및 catalog가 선택한 degraded 또는 unavailable resource collection에 대해 server-configured Azure reader scope를 점검합니다. Provider는 resource-group allowlist를 기본으로 사용하며, composition이 소유하는 명시적인 subscription mode는 interactive local health 범위를 subscription inventory와 맞춥니다. Resource Graph inventory와 Resource Health를 query하고, ARG가 비어 있으면 configured scope의 current Resource Health status로 fallback한 다음 bounded representative metric을 확인합니다. 근거 있는 empty group을 포함한 요청 state group을 보존합니다. Resource Health display name이 없으면 scope가 검증된 target에서 name, provider type 및 resource group을 정규화하고 raw target ID는 노출하지 않습니다. Caller-supplied scope 또는 mode를 허용하지 않고 finding, cause classification, coverage gap, freshness 및 truncation을 반환합니다. | Reader | `SubscriptionHealthProvider` |
 | `query_detection_readiness()` | Muninn StateSnapshot에서 Heimdall의 최신 AKS readiness 판정을 읽고 6축 coverage gap과 authority ceiling을 반환합니다. Azure를 probe하거나 readiness를 다시 계산하지 않습니다. | Reader | `DetectionReadinessReader` |
 | `query_t2_recovery()` | Server StateStore에서 sanitized proposer attempt receipt를 읽습니다. Provider error text를 노출하지 않고 retained attempt count, recovery state, route role, failure class, observation time 및 명시적인 legacy-detail gap을 반환합니다. | Reader | `T2RecoveryStateReader` |
+| `query_configuration_baseline()` | 서버가 구성한 동결된 구성 기준선, 현재 범위의 관측값, 무결성이 고정된 정확한 DOCX citation을 읽습니다. 호출자는 범위, 버전, digest, 문서 또는 mutation operation을 선택할 수 없습니다. 구조화된 topology가 없으면 unknown으로 유지합니다. | Reader | `ConfigurationDriftService` + `KnowledgeSource` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | 정확한 server-owned policy 아래에서 credential이 없는 bounded capture를 submit합니다. Immutable artifact receipt를 반환하며 page 또는 interaction API를 반환하지 않습니다. | Reader | `BrowserEvidenceCaptureService` |
 구체적인 resource-type query에 완전한 lexical state match가 없으면 semantic planning은 state concept만 제안합니다. Server는 IQL catalog의 canonical current-inventory state만 수락하고
 deterministic type, scope, freshness를 보존하며 planner가 제안한 type, scope, lookback은 버립니다. Provider가 관찰한 status가 최종 predicate를 grounding하며 invalid state는 unavailable을 반환합니다.
@@ -364,6 +365,7 @@ write 집합에 대한 두 명확화:
 
 `query_log`는 명시적인 bounded KQL과 세 가지 자연어 진단 형태를 server-owned template으로 처리합니다. 실패 요청 요약은 `AppRequests`를 작업과 결과 코드별로 그룹화하지만, 이 그룹이 근본 원인을 증명한다고 주장하지 않습니다. 오류 시그니처 시간 범위와 관련 로그 요청에는 정확한 시그니처 또는 선택된 context가 필요합니다. context가 없으면 provider나 narrator를 호출하지 않고 확인 질문을 반환합니다. 대표 오류 샘플은 고정 multi-table template을 사용하고, 요청 window를 24시간으로 제한하며, cell을 렌더링하기 전에 secret assignment, bearer 값, resource identifier, GUID, 이메일 주소, URL, IP 주소를 제거합니다. 추가 고정 template은 가장 느린 관측 분산 추적의 span을 순위화하고, dependency latency를 집계하며, 느린 database dependency call을 나열합니다. 이 결과만으로 근본 원인, 인과적 기여 또는 database call이 CPU 상승을 설명한다는 결론을 증명하지는 않습니다. Bounded read-only error KQL을 실행하라는 자연어 요청은 server-owned error template을 사용하고, 명시적인 영어 또는 한국어 minute/hour window를 24시간 상한으로 유지합니다. Prompt text는 실행 가능한 KQL이 되지 않습니다. workspace provider가 구성되지 않은 경우에도 같은 tool이 typed unavailable 결과를 반환하며, current-screen, incident, web 또는 narrator evidence로 fallback하지 않습니다.
 Proposal, approval, execution, outcome verification, retry 또는 idempotency에 대한 context-free 질문은 deterministic action-context hold를 사용합니다. Lifecycle claim을 검증하기 전에 exact ActionType, target resource, proposal, approval 또는 action receipt를 제공해야 합니다. Current-screen, repository, incident 및 narrator evidence는 governed record를 대체하지 않으며, 이 hold는 mutation이나 model call을 수행하지 않습니다.
+정확한 configuration-baseline 파일 이름 또는 S13 baseline 요청은 action-context 분류보다 먼저 read-only baseline tool을 선택합니다. "mitigation tool을 호출하지 마세요"와 같은 부정 지시는 문서 읽기를 action-lifecycle 질문으로 바꾸지 않습니다. 결정론적 답변은 각 section에서 고정된 DOCX를 인용하고 사용할 수 없는 관계를 prose에서 추론하지 않고 unknown으로 보고합니다.
 Month-1 추가는 콘솔을 multi-signal 인시덴트 대응 경험에 가깝게
 만들어 주지만, 여전히 **이미 correlate 된** 결과를 surface;
 correlator는 Layer 1에 살고, narrator 안에 살지 않는다.

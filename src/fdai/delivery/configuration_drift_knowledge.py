@@ -3,14 +3,55 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Final
 
 from fdai.core.detection.configuration_drift import FrozenConfigurationBaseline
-from fdai.shared.providers.knowledge import KnowledgeDocument, KnowledgeSource
+from fdai.shared.providers.knowledge import (
+    KnowledgeChunk,
+    KnowledgeDocument,
+    KnowledgeSource,
+    chunk_text,
+)
 from fdai.shared.providers.local.document_structure import extract_ooxml
 
 _MAX_DOCUMENT_BYTES: Final[int] = 16 * 1024 * 1024
+
+
+class PinnedConfigurationBaselineKnowledgeSource:
+    """Exact single-document retrieval for one integrity-pinned baseline."""
+
+    def __init__(self, document: KnowledgeDocument) -> None:
+        self._document = document
+        self._chunks = tuple(chunk_text(document.text))
+
+    async def ingest(self, documents: Sequence[KnowledgeDocument]) -> int:
+        if tuple(documents) != (self._document,):
+            raise ValueError("pinned configuration baseline cannot be replaced")
+        return len(self._chunks)
+
+    async def search(self, query: str, *, k: int = 5) -> tuple[KnowledgeChunk, ...]:
+        expected = (
+            self._document.doc_id.casefold(),
+            self._document.source_ref.casefold(),
+            self._document.metadata.get("baseline_version", "").casefold(),
+            self._document.metadata.get("document_sha256", "").casefold(),
+        )
+        normalized = query.casefold()
+        if not any(token and token in normalized for token in expected):
+            return ()
+        return tuple(
+            KnowledgeChunk(
+                doc_id=self._document.doc_id,
+                chunk_id=f"{self._document.doc_id}#{index}",
+                text=text,
+                source_ref=self._document.source_ref,
+                score=1.0,
+                metadata=self._document.metadata,
+            )
+            for index, text in enumerate(self._chunks[:k])
+        )
 
 
 def configuration_baseline_document(
@@ -60,4 +101,8 @@ async def ingest_configuration_baseline(
     return added
 
 
-__all__ = ["configuration_baseline_document", "ingest_configuration_baseline"]
+__all__ = [
+    "PinnedConfigurationBaselineKnowledgeSource",
+    "configuration_baseline_document",
+    "ingest_configuration_baseline",
+]

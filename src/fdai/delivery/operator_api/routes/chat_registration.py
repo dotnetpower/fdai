@@ -115,6 +115,7 @@ def append_chat_routes(
     backend: ChatBackend | None,
     skill_disclosure: RuntimeSkillDisclosure | None = None,
     knowledge_context: Any = None,
+    configuration_drift_context: Any = None,
     busy_input_runtime: BusyInputRuntime | None = None,
     progress_metrics: ConversationProgressMetrics | None = None,
     agent_delegate: AgentChatDelegate | None,
@@ -222,13 +223,23 @@ def append_chat_routes(
         read_model=read_model,
         fallback=system_health_tools,
     )
+    from fdai.delivery.operator_api.routes.chat_configuration_drift import (
+        ConfigurationDriftChatTools,
+        needs_configuration_drift_context,
+    )
+
+    configuration_drift_tools = (
+        configuration_drift_context.with_fallback(action_context_tools)
+        if isinstance(configuration_drift_context, ConfigurationDriftChatTools)
+        else action_context_tools
+    )
     from fdai.delivery.operator_api.routes.chat_conversation_context import (
         ConversationContextChatTools,
     )
 
     current_time_tools = CurrentTimeChatTools(
         preferences=answer_preference_store,
-        fallback=action_context_tools,
+        fallback=configuration_drift_tools,
     )
     llm_usage_tools = (
         current_time_tools
@@ -244,6 +255,7 @@ def append_chat_routes(
         knowledge_context=knowledge_context,
         inventory_context=inventory_chat_tools,
         contextual_routes=(
+            (needs_configuration_drift_context, configuration_drift_tools),
             (needs_action_context, action_context_tools),
             (needs_subscription_health_context, subscription_health_tools),
             (needs_log_query_context, log_tools),

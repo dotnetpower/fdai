@@ -94,6 +94,12 @@ When a resolved-model artifact is present, the same preparation step validates i
 endpoint as an HTTPS origin and writes `FDAI_LLM_ENDPOINT` with `LLM_RESOLVED_MODELS_PATH` into the
 private local runtime environment. A missing or malformed narrator endpoint stops preparation
 before Terraform or Azure provider access instead of allowing the core runtime to fail after launch.
+An optional local configuration-baseline conversation binds three ignored artifacts through
+`FDAI_CONFIGURATION_BASELINE_JSON`, `FDAI_CONFIGURATION_BASELINE_DOCX`, and
+`FDAI_CONFIGURATION_OBSERVATION_JSON`. Supply all three to the Operator API launch after the full-stack
+preparation step. Avoid editing the generated `.fdai/local-runtime.env` because preparation replaces
+that file. Partial configuration, a baseline integrity mismatch, or a DOCX digest mismatch stops
+Operator API startup; callers cannot replace the pinned scope, version, digest, or document.
 While the Operator API completes its startup probes, the browser keeps the initial panel skeleton and
 retries only fetch-level network failures from `GET /iam/self` on a bounded schedule of about 28
 seconds. An HTTP response, authentication failure, malformed payload, or exhausted schedule stops

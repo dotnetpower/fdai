@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 8efc2ed49a5e54946f4176062b47d06d92a6ff07
+translation_source_sha: 54f4e013421963b58878b4806ead4527615dcfa6
 translation_revised: 2026-08-04
 ---
 
@@ -196,6 +196,10 @@ Runbook, knowledge-source, memory 및 learning continuation은 rerun 전에 선�
 assistant turn을 유지합니다. JSON과 SSE에서 동일한 read-only knowledge provider를 사용하고 다른 incident
 또는 resource로 범위를 넓히지 않으며 queued 또는 steered prose를 memory, review, proposal, approval 또는
 skill lifecycle write로 바꾸지 않습니다.
+정확한 configured configuration-baseline 파일 이름 또는 S13 baseline 요청은 idle, queued 또는 steered
+turn에서도 action-context term보다 deterministic precedence를 유지합니다. Mutation 또는 mitigation을
+금지하는 부정 표현은 이 read-only route를 바꾸지 않습니다. Rerun은 server-pinned baseline과 DOCX
+citation을 다시 읽고 사용할 수 없는 structured topology는 unknown으로 유지합니다.
 Verified fresh inventory answer는 최대 40개의 bounded selector로 구성된 versioned result set도 유지할 수
 있습니다. Replay는 source, snapshot, scope, query digest, freshness 및 truncation을 저장하지만 raw
 resource ID는 저장하지 않습니다. Client는 이 result set을 제공하거나 확장할 수 없습니다.

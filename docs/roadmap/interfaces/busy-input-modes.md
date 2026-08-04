@@ -197,6 +197,10 @@ Runbook, knowledge-source, memory, and learning continuations keep the exact dur
 turn selected before the rerun. They use the same read-only knowledge provider on JSON and SSE,
 never widen to another incident or resource, and never turn queued or steered prose into a memory,
 review, proposal, approval, or skill lifecycle write.
+An exact configured configuration-baseline filename or S13 baseline request keeps deterministic
+precedence over action-context terms during an idle, queued, or steered turn. Negative wording about
+mutation or mitigation cannot change that read-only route. The rerun re-reads the server-pinned
+baseline and DOCX citation, and unavailable structured topology remains unknown.
 A verified fresh inventory answer can also retain a versioned result set of at most 40 bounded
 selectors. The replay stores source, snapshot, scope, query digest, freshness, and truncation, but
 not raw resource IDs. A client cannot supply or widen this result set.

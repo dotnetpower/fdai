@@ -398,6 +398,12 @@ class OperatorApiConfig:
     chat route reconstructs an exact durable prior turn. It never creates a
     memory, proposal, review, approval, or runtime skill."""
 
+    configuration_drift_context: Any = None
+    """Optional integrity-pinned configuration-baseline chat projection.
+
+    It reads one server-configured frozen baseline, observation, and DOCX citation. The caller
+    cannot choose a scope, baseline version, digest, document, or mutation operation."""
+
     busy_input_runtime: BusyInputRuntime | None = None
     """Optional durable queue, interrupt, and steer runtime for chat turns.
     It is meaningful only when :attr:`chat` is configured; production binds

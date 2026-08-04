@@ -688,6 +688,14 @@ def build_local_app(
             user_memories=user_context.memories,
         )
     )
+    from fdai.delivery.operator_api.dev.configuration_drift import (
+        build_local_configuration_drift_context,
+    )
+
+    configuration_drift_context = build_local_configuration_drift_context(
+        environ=os.environ,
+        repo_root=_REPO_ROOT,
+    )
     arb_status_panels = (
         (
             ArchitectureReviewStatusPanel(
@@ -849,6 +857,7 @@ def build_local_app(
             llm_usage_reader=metering,
             skill_disclosure=skill_disclosure,
             knowledge_context=knowledge_context,
+            configuration_drift_context=configuration_drift_context,
             chat_web_search=models.web_search,
             chat_probe_interval_seconds=_chat_probe_interval_seconds(),
             chat_agent_delegate=(
