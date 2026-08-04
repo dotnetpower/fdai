@@ -67,7 +67,12 @@ describe("mock console visual boundary", () => {
     expect(serviceMap).toContain("sm-road-outline");
     expect(serviceMap).toContain("sm-road-surface");
     expect(serviceMap).toContain("sm-road-divider");
+    expect(serviceMap).toContain("sm-road-network");
+    expect(serviceMap).toContain("sm-road-outlines");
+    expect(serviceMap).toContain("sm-road-surfaces");
     expect(serviceMap).toContain("sm-traffic-vehicle");
+    expect(serviceMap).toContain("is-return");
+    expect(serviceMap).toContain("sm-road-return-");
     expect(serviceMap).toContain("animation.beginElement()");
     expect(serviceMap).toContain("sm-speed-sign");
     expect(serviceMap).toContain("function rateSignUnit(");
