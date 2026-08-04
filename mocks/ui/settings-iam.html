@@ -135,8 +135,7 @@
     .ah-status { min-height:28px; padding-top:9px; color:var(--cs-text-soft); font-size:10px; }
     .ah-responsibility { display:grid; grid-template-columns:minmax(130px,.8fr) minmax(260px,1.4fr) auto; align-items:center; gap:10px; width:100%; padding:10px 0; border:0; border-bottom:1px solid var(--cs-hairline); background:transparent; color:var(--cs-text); text-align:left; }
     .ah-responsibility:last-child { border-bottom:0; }
-    button.ah-responsibility { cursor:pointer; }
-    button.ah-responsibility:hover { background:var(--cs-shade); }
+    .ah-responsibility:hover { background:var(--cs-shade); }
     .ah-responsibility strong,.ah-responsibility small { display:block; }
     .ah-responsibility strong { font-size:11px; }
     .ah-responsibility small { margin-top:2px; color:var(--cs-text-soft); font-size:9.5px; }
@@ -146,7 +145,8 @@
     .ah-owner strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .ah-unassigned { color:var(--cs-dusty-red); font-size:10px; font-weight:700; }
     .ah-coverage-people { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
-    .ah-person-pill { display:inline-flex; align-items:center; gap:5px; min-height:27px; padding:3px 7px 3px 4px; border:1px solid var(--cs-hairline); border-radius:6px; background:var(--cs-card); font-size:9px; }
+    .ah-person-pill { display:inline-flex; align-items:center; gap:5px; min-height:27px; padding:3px 7px 3px 4px; border:1px solid var(--cs-hairline); border-radius:6px; background:var(--cs-card); color:var(--cs-text); font:9px var(--cs-font); cursor:pointer; }
+    .ah-person-pill:hover { box-shadow:0 0 0 2px rgba(68,104,142,.12); }
     .ah-person-pill .ah-glyph { width:19px; height:19px; border-radius:4px; font-size:7px; }
     .ah-person-pill strong { display:inline; font-size:9.5px; }
     .ah-person-pill em { color:var(--cs-text-soft); font-size:8px; font-style:normal; text-transform:uppercase; }
@@ -155,6 +155,10 @@
     .ah-person-pill.escalation { border-color:rgba(188,116,73,.28); background:rgba(188,116,73,.06); }
     .ah-person-pill.informed { color:var(--cs-text-soft); }
     .ah-person-pill.proposed { border-style:dashed; }
+    .ah-person-pill.removal { border-color:rgba(172,90,90,.35); background:rgba(172,90,90,.06); text-decoration:line-through; }
+    .ah-coverage-actions { display:flex; align-items:center; justify-content:flex-end; gap:5px; }
+    .ah-manage-coverage { width:27px; height:27px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--cs-hairline); border-radius:6px; background:var(--cs-card); color:var(--cs-steel); font:700 14px var(--cs-font); cursor:pointer; }
+    .ah-manage-coverage:hover { background:var(--cs-shade); }
     .ah-resolver { padding:13px; border:1px solid var(--cs-hairline); border-radius:7px; background:var(--cs-bg); }
     .ah-resolver-context { display:flex; align-items:flex-start; gap:9px; }
     .ah-resolver-context > div { min-width:0; }
@@ -192,12 +196,25 @@
     .ah-add-options button strong { font-size:9.5px; }
     .ah-add-options button small { color:var(--cs-text-soft); font-size:8.5px; }
     .ah-add-linked { min-height:30px; display:flex; align-items:center; justify-content:center; border:1px solid var(--cs-hairline); border-radius:5px; color:var(--cs-text-soft); font-size:9.5px; }
+    .ah-assignment-dialog { width:min(580px,calc(100% - 32px)); }
+    .ah-dialog-person { display:flex; align-items:center; gap:9px; padding:10px; border:1px solid var(--cs-hairline); border-radius:7px; background:var(--cs-bg); }
+    .ah-dialog-person > span:last-child { min-width:0; }
+    .ah-dialog-person strong,.ah-dialog-person small { display:block; }
+    .ah-dialog-person strong { font-size:12px; }
+    .ah-dialog-person small { margin-top:2px; color:var(--cs-text-soft); font-size:10px; }
+    .ah-dialog-field { display:grid; grid-template-columns:130px minmax(0,1fr); align-items:center; gap:10px; margin-top:14px; }
+    .ah-dialog-field label { font-size:10.5px; font-weight:700; }
+    .ah-dialog-field select { min-height:38px; padding:6px 9px; border:1px solid var(--cs-hairline); border-radius:6px; background:var(--cs-card); color:var(--cs-text); font:11px var(--cs-font); }
+    .ah-dialog-warning { margin-top:12px; padding:9px 10px; border-left:3px solid var(--cs-terracotta); background:rgba(188,116,73,.07); color:var(--cs-text-soft); font-size:10px; line-height:1.45; }
+    .ah-dialog-warning.is-safe { border-left-color:var(--cs-sage); background:rgba(94,130,89,.07); }
+    .ah-dialog-remove { margin-right:auto; border-color:rgba(172,90,90,.35) !important; color:var(--cs-dusty-red) !important; }
     @media (max-width:1050px) { .ah-workspace{grid-template-columns:270px minmax(0,1fr)} .ah-detail-grid{grid-template-columns:1fr} .ah-side{border-top:1px solid var(--cs-hairline);border-left:0} }
     @media (max-width:760px) {
       .ah-summary{grid-template-columns:repeat(2,minmax(0,1fr))} .ah-metric:nth-child(2){border-right:0} .ah-metric:nth-child(-n+2){border-bottom:1px solid var(--cs-hairline)}
       .ah-tools{grid-template-columns:1fr} .ah-workspace{display:block} .ah-roster{border-right:0;border-bottom:1px solid var(--cs-hairline)}
       .ah-detail-head{flex-direction:column} .ah-badges{justify-content:flex-start} .ah-contract{grid-template-columns:1fr} .ah-contract div{border-right:0;border-bottom:1px solid var(--cs-hairline)}
       .ah-match{grid-template-columns:1fr 1fr} .ah-invitation-actions{grid-template-columns:1fr} .ah-candidates{grid-template-columns:1fr} .ah-responsibility{grid-template-columns:minmax(0,1fr) auto} .ah-coverage-people{grid-column:1/-1}
+      .ah-dialog-field{grid-template-columns:1fr}
     }
   </style>
 </head>
@@ -307,6 +324,18 @@
     </section>
   </main>
 
+  <dialog id="coverageAssignmentDialog" class="cs-dialog ah-assignment-dialog" aria-labelledby="assignment-dialog-title">
+    <div class="cs-dialog-head"><div><h3 id="assignment-dialog-title">Edit coverage assignment</h3><p id="assignmentDialogResponsibility" class="cs-muted cs-mb-0">Responsibility</p></div><button class="cs-alert-dismiss" type="button" aria-label="Close dialog" data-cs-dialog-close>&times;</button></div>
+    <div class="cs-dialog-body">
+      <div class="ah-dialog-person"><span id="assignmentDialogGlyph" class="ah-glyph">MC</span><span><strong id="assignmentDialogName">Morgan Chen</strong><small id="assignmentDialogIdentity">Contributor · Platform operations</small></span></div>
+      <div class="ah-dialog-field"><label for="assignmentPersonSelect">Assigned person</label><select id="assignmentPersonSelect"></select></div>
+      <div class="ah-dialog-field"><label for="assignmentDutySelect">Coverage duty</label><select id="assignmentDutySelect"><option value="primary">Primary</option><option value="backup">Backup</option><option value="escalation">Escalation</option><option value="informed">Informed</option></select></div>
+      <div id="assignmentDialogWarning" class="ah-dialog-warning" role="status"></div>
+      <p class="ah-status">Changes are staged for governed review. RBAC and stewardship remain unchanged until approval.</p>
+    </div>
+    <div class="cs-dialog-actions"><button id="removeCoverageAssignment" class="cs-btn ah-dialog-remove" type="button">Propose removal</button><button class="cs-btn" type="button" data-cs-dialog-close>Cancel</button><button id="saveCoverageAssignment" class="cs-btn is-primary" type="button">Stage change</button></div>
+  </dialog>
+
   <script>
     const agents = [
       ["Odin","OD","Orchestration and arbitration","knowledge","progress",64,"Coordination knowledge"],
@@ -327,6 +356,7 @@
     ].map(([name,initials,role,need,state,progress,label]) => ({name,initials,role,need,state,progress,label}));
     let selectedAgent = "Vidar";
     let selectedResponsibility = null;
+    let activeAssignmentEdit = null;
     const people = [
       { id:"morgan", initials:"MC", name:"Morgan Chen", role:"Contributor", team:"Platform operations", responsibilities:["Checkout service operations","Kubernetes incident recovery","Rollback runbook maintenance"], evidence:"Stewardship record · 2 accepted runbooks" },
       { id:"alex", initials:"AK", name:"Alex Kim", role:"Approver", team:"Change governance", responsibilities:["Production change approval","Independent recovery review","Backup escalation coverage"], evidence:"Active RBAC · approval receipts" },
@@ -418,14 +448,17 @@
       agent.responsibilities = responsibilities;
       const coverage = document.querySelector("#responsibilityCoverage");
       coverage.innerHTML = responsibilities.map((item, index) => {
-        const links = [...item.assignments, ...(item.proposals || [])];
-        const peopleMarkup = links.length ? `<span class="ah-coverage-people">${links.map((assignment) => assignmentPill(assignment)).join("")}</span>` : '<span class="ah-unassigned">No people linked</span>';
-        const tag = item.proposals?.length ? '<span class="ah-chip knowledge">Review</span>' : item.state === "gap" ? '<span class="ah-chip gap">Resolve</span>' : item.state === "partial" ? '<span class="ah-chip approval">Partial</span>' : item.state === "reviewed" ? '<span class="ah-chip knowledge">Reviewed</span>' : '<span class="ah-chip ready">Accepted</span>';
+        const accepted = item.assignments.map((assignment, assignmentIndex) => assignmentPill(assignment, index, "assignments", assignmentIndex));
+        const proposed = (item.proposals || []).map((assignment, assignmentIndex) => assignmentPill(assignment, index, "proposals", assignmentIndex));
+        const peopleMarkup = accepted.length || proposed.length ? `<span class="ah-coverage-people">${accepted.join("")}${proposed.join("")}</span>` : '<span class="ah-unassigned">No people linked</span>';
+        const hasStagedChange = item.proposals?.length || item.assignments.some((assignment) => assignment.proposed);
+        const tag = hasStagedChange ? '<span class="ah-chip knowledge">Review</span>' : item.state === "gap" ? '<span class="ah-chip gap">Resolve</span>' : item.state === "partial" ? '<span class="ah-chip approval">Partial</span>' : item.state === "reviewed" ? '<span class="ah-chip knowledge">Reviewed</span>' : '<span class="ah-chip ready">Accepted</span>';
         const editable = agent.need !== "autonomous";
-        const tagName = editable ? "button" : "div";
-        return `<${tagName} class="ah-responsibility"${editable ? ` type="button" data-responsibility="${index}"` : ""}><span><strong>${item.title}</strong><small>${item.detail}</small></span>${peopleMarkup}${tag}</${tagName}>`;
+        const actions = `<span class="ah-coverage-actions">${tag}${editable ? `<button class="ah-manage-coverage" type="button" data-responsibility="${index}" aria-label="Manage ${item.title} coverage">+</button>` : ""}</span>`;
+        return `<div class="ah-responsibility"><span><strong>${item.title}</strong><small>${item.detail}</small></span>${peopleMarkup}${actions}</div>`;
       }).join("");
       coverage.querySelectorAll("[data-responsibility]").forEach((button) => button.addEventListener("click", () => selectResponsibility(Number(button.dataset.responsibility))));
+      coverage.querySelectorAll("[data-edit-assignment]").forEach((button) => button.addEventListener("click", () => openAssignmentDialog(button.dataset.source, Number(button.dataset.responsibilityIndex), Number(button.dataset.assignmentIndex))));
       const firstGap = responsibilities.findIndex((item) => item.state === "gap" || item.state === "partial");
       const nextIndex = focusIndex ?? firstGap;
       if (nextIndex >= 0) selectResponsibility(nextIndex); else {
@@ -435,11 +468,92 @@
         document.querySelector("#mappingStatus").textContent = "No relationship change is needed for this Agent.";
       }
     }
-    function assignmentPill(assignment) {
+    function assignmentPill(assignment, responsibilityIndex, source, assignmentIndex) {
       const person = people.find((candidate) => candidate.id === assignment.person);
       const initials = person?.initials || "FM";
       const name = person?.name || "FDAI Maintainers";
-      return `<span class="ah-person-pill ${assignment.duty}${assignment.proposed ? " proposed" : ""}"><span class="ah-glyph">${initials}</span><strong>${name}</strong><em>${assignment.duty}${assignment.proposed ? " · proposed" : ""}</em></span>`;
+      const priorDuty = assignment.previousDuty && assignment.previousDuty !== assignment.duty ? `${assignment.previousDuty} → ` : "";
+      const previousPerson = people.find((candidate) => candidate.id === assignment.previousPerson);
+      const replacement = previousPerson && assignment.previousPerson !== assignment.person ? `replaces ${previousPerson.name} · ` : "";
+      const state = assignment.removalProposed ? `${assignment.duty} · remove proposed` : `${replacement}${priorDuty}${assignment.duty}${assignment.proposed ? " · proposed" : ""}`;
+      return `<button type="button" class="ah-person-pill ${assignment.duty}${assignment.proposed ? " proposed" : ""}${assignment.removalProposed ? " removal" : ""}" data-edit-assignment data-source="${source}" data-responsibility-index="${responsibilityIndex}" data-assignment-index="${assignmentIndex}" aria-label="Edit ${name}, ${state}"><span class="ah-glyph">${initials}</span><strong>${name}</strong><em>${state}</em></button>`;
+    }
+    function openAssignmentDialog(source, responsibilityIndex, assignmentIndex) {
+      const agent = agents.find((candidate) => candidate.name === selectedAgent);
+      const responsibility = agent.responsibilities[responsibilityIndex];
+      const assignment = responsibility[source][assignmentIndex];
+      const person = people.find((candidate) => candidate.id === assignment.person);
+      activeAssignmentEdit = { source, responsibilityIndex, assignmentIndex };
+      document.querySelector("#assignmentDialogResponsibility").textContent = `${agent.name} · ${responsibility.title}`;
+      document.querySelector("#assignmentDialogGlyph").textContent = person?.initials || "FM";
+      document.querySelector("#assignmentDialogName").textContent = person?.name || "FDAI Maintainers";
+      document.querySelector("#assignmentDialogIdentity").textContent = person ? `${person.role} · ${person.team}` : "Owner · fallback only";
+      const personSelect = document.querySelector("#assignmentPersonSelect");
+      personSelect.innerHTML = `${people.map((candidate) => `<option value="${candidate.id}">${candidate.name} · ${candidate.role}</option>`).join("")}<option value="maintainers">FDAI Maintainers · Owner</option>`;
+      personSelect.value = assignment.person;
+      const select = document.querySelector("#assignmentDutySelect");
+      select.value = assignment.duty;
+      updateAssignmentWarning();
+      const dialog = document.querySelector("#coverageAssignmentDialog");
+      if (typeof dialog.showModal === "function") dialog.showModal();
+    }
+    function updateAssignmentWarning() {
+      if (!activeAssignmentEdit) return;
+      const agent = agents.find((candidate) => candidate.name === selectedAgent);
+      const responsibility = agent.responsibilities[activeAssignmentEdit.responsibilityIndex];
+      const assignment = responsibility[activeAssignmentEdit.source][activeAssignmentEdit.assignmentIndex];
+      const nextDuty = document.querySelector("#assignmentDutySelect").value;
+      const nextPersonId = document.querySelector("#assignmentPersonSelect").value;
+      const nextPerson = people.find((candidate) => candidate.id === nextPersonId);
+      const nextRole = nextPerson?.role || "Owner";
+      const approvalInvalid = agent.need === "approval" && nextDuty !== "informed" && nextRole !== "Approver" && nextRole !== "Owner";
+      const warning = document.querySelector("#assignmentDialogWarning");
+      const removesPrimary = assignment.duty === "primary" && nextDuty !== "primary";
+      const hasOtherPrimary = [...responsibility.assignments, ...(responsibility.proposals || [])].some((candidate) => candidate !== assignment && candidate.duty === "primary" && !candidate.removalProposed);
+      const onlyPrimary = assignment.duty === "primary" && !hasOtherPrimary;
+      const personChanged = nextPersonId !== assignment.person;
+      const dutyChanged = nextDuty !== assignment.duty;
+      const currentName = people.find((candidate) => candidate.id === assignment.person)?.name || "FDAI Maintainers";
+      const nextName = nextPerson?.name || "FDAI Maintainers";
+      warning.classList.toggle("is-safe", !approvalInvalid && (!onlyPrimary || personChanged && !removesPrimary));
+      warning.textContent = approvalInvalid ? `${nextName} is not eligible for ${nextDuty}. Approval coverage requires Approver or Owner RBAC.` : removesPrimary && !hasOtherPrimary ? "This change leaves the responsibility without a Primary. Add a replacement before review can complete." : onlyPrimary && !personChanged ? "This is the only Primary. Proposing removal would create a coverage gap; appoint a replacement before review can complete." : personChanged ? `Replacing ${currentName} with ${nextName} as ${nextDuty} preserves the selected duty. This is a review proposal only.` : dutyChanged ? `Changing ${assignment.duty} to ${nextDuty} preserves the current coverage chain. This is a review proposal only.` : "Select another person or duty to stage a change. Proposing removal remains available.";
+      document.querySelector("#saveCoverageAssignment").disabled = approvalInvalid || !personChanged && !dutyChanged;
+    }
+    function stageAssignmentChange() {
+      if (!activeAssignmentEdit) return;
+      const agent = agents.find((candidate) => candidate.name === selectedAgent);
+      const responsibility = agent.responsibilities[activeAssignmentEdit.responsibilityIndex];
+      const assignment = responsibility[activeAssignmentEdit.source][activeAssignmentEdit.assignmentIndex];
+      const nextDuty = document.querySelector("#assignmentDutySelect").value;
+      const nextPerson = document.querySelector("#assignmentPersonSelect").value;
+      assignment.previousDuty = assignment.previousDuty || assignment.duty;
+      assignment.previousPerson = assignment.previousPerson || assignment.person;
+      assignment.duty = nextDuty;
+      assignment.person = nextPerson;
+      assignment.proposed = true;
+      assignment.removalProposed = false;
+      const previousName = people.find((person) => person.id === assignment.previousPerson)?.name || "FDAI Maintainers";
+      const nextName = people.find((person) => person.id === nextPerson)?.name || "FDAI Maintainers";
+      const personChange = previousName === nextName ? nextName : `${previousName} → ${nextName}`;
+      const dutyChange = assignment.previousDuty === nextDuty ? `${nextDuty} unchanged` : `${assignment.previousDuty} → ${nextDuty}`;
+      finishAssignmentEdit(agent, responsibility, `Coverage change staged: ${personChange}; duty ${dutyChange}.`);
+    }
+    function stageAssignmentRemoval() {
+      if (!activeAssignmentEdit) return;
+      const agent = agents.find((candidate) => candidate.name === selectedAgent);
+      const responsibility = agent.responsibilities[activeAssignmentEdit.responsibilityIndex];
+      const assignment = responsibility[activeAssignmentEdit.source][activeAssignmentEdit.assignmentIndex];
+      assignment.proposed = true;
+      assignment.removalProposed = true;
+      finishAssignmentEdit(agent, responsibility, `${people.find((person) => person.id === assignment.person)?.name || "FDAI Maintainers"} removal staged. Assign a replacement if coverage becomes incomplete.`);
+    }
+    function finishAssignmentEdit(agent, responsibility, status) {
+      const index = agent.responsibilities.indexOf(responsibility);
+      renderResponsibilities(agent, agent.responsibilities, index);
+      document.querySelector("#requestReview").disabled = false;
+      document.querySelector("#mappingStatus").textContent = status;
+      document.querySelector("#coverageAssignmentDialog").close();
+      activeAssignmentEdit = null;
     }
     function selectResponsibility(index) {
       const agent = agents.find((candidate) => candidate.name === selectedAgent);
@@ -499,6 +613,10 @@
     document.querySelectorAll("[data-owner-type]").forEach((button) => button.addEventListener("click", () => { document.querySelectorAll("[data-owner-type]").forEach((choice) => choice.classList.remove("is-active")); button.classList.add("is-active"); document.querySelector("#ownerSearch").value = button.dataset.ownerType === "not sure" ? "" : button.dataset.ownerType; renderCandidates(button.dataset.ownerType === "not sure" ? people : people.filter((person) => person.team.toLowerCase().includes(button.dataset.ownerType.split(" ")[0]) || person.responsibilities.some((item) => item.toLowerCase().includes(button.dataset.ownerType.split(" ")[0])))); }));
     document.querySelector("#ownerSearch").addEventListener("input", (event) => { const query = event.currentTarget.value.trim().toLowerCase(); renderCandidates(!query ? people : people.filter((person) => `${person.name} ${person.team} ${person.responsibilities.join(" ")}`.toLowerCase().includes(query))); });
     document.querySelector("#requestReview").addEventListener("click", () => { document.querySelector("#mappingStatus").textContent = "Mapping review requested. RBAC and stewardship remain unchanged until governed approval."; });
+    document.querySelector("#assignmentDutySelect").addEventListener("change", updateAssignmentWarning);
+    document.querySelector("#assignmentPersonSelect").addEventListener("change", updateAssignmentWarning);
+    document.querySelector("#saveCoverageAssignment").addEventListener("click", stageAssignmentChange);
+    document.querySelector("#removeCoverageAssignment").addEventListener("click", stageAssignmentRemoval);
     document.querySelectorAll("[data-invite]").forEach((button) => button.addEventListener("click", () => { const messages = {answer:"One focused handover question opened.",upload:"Secure evidence upload selected.",later:"Invitation snoozed for 24 hours."}; document.querySelector("#invitationStatus").textContent = messages[button.dataset.invite]; }));
     document.querySelector("#knowledgeCount").textContent = agents.filter((agent) => agent.need === "knowledge").length;
     document.querySelector("#approvalCount").textContent = agents.filter((agent) => agent.need === "approval").length;
