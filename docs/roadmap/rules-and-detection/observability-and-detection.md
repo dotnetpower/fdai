@@ -77,7 +77,8 @@ DOCX and canonical JSON baseline carry the same version, scope, creation time, a
   Resource Graph query. It removes full provider resource ids before producing evidence.
 - Knowledge retrieval explains and cites the reviewed document. It does not decide the drift. If
   Knowledge is unavailable, the deterministic report remains valid and the citation status stays
-  blocked rather than being reported as supported.
+  blocked rather than being reported as supported. Each citation identity includes the exact
+  baseline version and full DOCX SHA-256 digest so a reused filename cannot alias another document.
 - The read-only capability reports mutation, approval, mitigation, and unsupported-claim counts.
   Each remains zero for a configuration check.
 

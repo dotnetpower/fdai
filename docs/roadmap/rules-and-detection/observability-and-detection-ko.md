@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: cdc14af397378d1261f2b53642d59f2277060df0
+translation_source_sha: e051af84024d798effd87381737965a6060abc86
 translation_revised: 2026-08-04
 ---
 
@@ -78,7 +78,8 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **findin
   적용합니다. 증거를 생성하기 전에 전체 provider resource id를 제거합니다.
 - Knowledge retrieval은 검토된 문서를 설명하고 인용합니다. 드리프트를 판정하지는 않습니다.
   Knowledge를 사용할 수 없어도 결정론적 보고서는 유지하고 citation 상태는 근거 있음으로
-  표시하지 않고 차단 상태로 유지합니다.
+  표시하지 않고 차단 상태로 유지합니다. 각 citation identity에는 정확한 baseline version과 전체
+  DOCX SHA-256 digest가 포함되므로 재사용된 파일 이름이 다른 문서를 가리킬 수 없습니다.
 - Read-only capability는 mutation, approval, mitigation, unsupported-claim count를 보고합니다.
   구성 점검에서는 모두 0으로 유지합니다.
 

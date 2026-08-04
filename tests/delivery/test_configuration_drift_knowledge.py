@@ -17,10 +17,11 @@ from fdai.core.detection.configuration_drift import (
 from fdai.core.detection.configuration_drift_service import ConfigurationDriftService
 from fdai.delivery.configuration_baseline_docx import render_configuration_baseline_docx
 from fdai.delivery.configuration_drift_knowledge import (
+    PinnedConfigurationBaselineKnowledgeSource,
     configuration_baseline_document,
     ingest_configuration_baseline,
 )
-from fdai.shared.providers.knowledge import EmbeddingKnowledgeSource
+from fdai.shared.providers.knowledge import EmbeddingKnowledgeSource, KnowledgeDocument
 
 _NOW = datetime(2026, 8, 4, tzinfo=UTC)
 
@@ -127,6 +128,32 @@ async def test_ingestion_and_service_produce_exact_citation(tmp_path: Path) -> N
     assert all(
         citation.startswith("knowledge:baseline.docx#") for citation in report.knowledge_citations
     )
+
+
+async def test_pinned_chunk_identity_includes_full_document_digest() -> None:
+    def document(digest: str) -> KnowledgeDocument:
+        return KnowledgeDocument(
+            doc_id="configuration-baseline:s13-v1",
+            text="Frozen configuration baseline evidence.",
+            source_ref="baseline.docx",
+            metadata={
+                "baseline_version": "s13-v1",
+                "document_sha256": digest,
+            },
+        )
+
+    first_digest = "a" * 64
+    second_digest = "b" * 64
+    first = await PinnedConfigurationBaselineKnowledgeSource(document(first_digest)).search(
+        "s13-v1",
+    )
+    second = await PinnedConfigurationBaselineKnowledgeSource(document(second_digest)).search(
+        "s13-v1",
+    )
+
+    assert first[0].chunk_id != second[0].chunk_id
+    assert first_digest in first[0].chunk_id
+    assert second_digest in second[0].chunk_id
 
 
 def test_document_adapter_rejects_digest_mismatch(tmp_path: Path) -> None:

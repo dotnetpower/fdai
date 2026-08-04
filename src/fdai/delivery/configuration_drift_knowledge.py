@@ -32,6 +32,7 @@ class PinnedConfigurationBaselineKnowledgeSource:
         return len(self._chunks)
 
     async def search(self, query: str, *, k: int = 5) -> tuple[KnowledgeChunk, ...]:
+        document_sha256 = self._document.metadata["document_sha256"]
         expected = (
             self._document.doc_id.casefold(),
             self._document.source_ref.casefold(),
@@ -44,7 +45,7 @@ class PinnedConfigurationBaselineKnowledgeSource:
         return tuple(
             KnowledgeChunk(
                 doc_id=self._document.doc_id,
-                chunk_id=f"{self._document.doc_id}#{index}",
+                chunk_id=f"{self._document.doc_id}#{document_sha256}#{index}",
                 text=text,
                 source_ref=self._document.source_ref,
                 score=1.0,
