@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: d901b58529cbf081c50bb5e32ce020504358e2c6
+translation_source_sha: 62e8e42cf07e71c88b83006c2216675a1e757426
 translation_revised: 2026-08-05
 ---
 
@@ -216,6 +216,8 @@ Architecture는 server의 snapshot freshness verdict를 유지하면서 snapshot
 `included` entry만 집계합니다. Multi-datasource report는 모든 source가 evidence time을 제공할 때만
 aggregate time을 알 수 있고, 그 경우 가장 오래된 source time을 사용합니다. Mixed-currency LLM
 cost group은 non-additive로 표시하며 단일 통화 total로 렌더링하지 않습니다.
+Scope는 기록된 각 subscription 아래에 explicit monitoring 및 action entry를 group하며
+inherited authority를 계산하지 않고 각 level을 Architecture로 연결합니다.
 
 Process 목록도 `source`, nullable `synthetic`, nullable `durable`로 같은 규칙을
 따릅니다. Local seeded runtime은 `synthetic-dev/true/false`, production은

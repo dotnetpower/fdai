@@ -7418,6 +7418,33 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   background: var(--bg-subtle);
   color: var(--fg);
 }
+.deck-turn-attachments {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  width: min(420px, calc(100vw - 96px));
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+.deck-turn-attachments li { min-width: 0; }
+.deck-turn-attachments img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 7px;
+  background: var(--bg);
+}
+.deck-turn-attachments span {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* Bragi answer: plain body text on the deck background - no card chrome, so
  * the reply reads as prose rather than a boxed panel. */
 .deck-turn-deck {
@@ -10241,6 +10268,49 @@ main { padding-bottom: 60px !important; }
   .control-table-identity span { font-size: 11px; }
 }
 .scope-axis-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.scope-hierarchy-section {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius);
+  background: var(--bg-elevated);
+}
+.scope-hierarchy-list,
+.scope-hierarchy-list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.scope-hierarchy-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.scope-hierarchy-list > li {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+}
+.scope-hierarchy-subscription {
+  display: inline-block;
+  margin-bottom: 7px;
+  color: var(--cs-steel);
+  font-weight: 700;
+}
+.scope-hierarchy-list ul { display: grid; gap: 5px; }
+.scope-hierarchy-list ul li {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(120px, 0.7fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 5px;
+  border-top: 1px solid var(--border);
+}
+.scope-hierarchy-list ul a { min-width: 0; overflow-wrap: anywhere; color: var(--fg); }
+.scope-hierarchy-list ul span:not(.pill) { color: var(--fg-muted); font-size: 11px; }
 .scope-axis-section,
 .scope-executor-section,
 .scope-builder-section {
@@ -10295,6 +10365,9 @@ main { padding-bottom: 60px !important; }
 @media (max-width: 980px) {
   .scope-axis-grid { grid-template-columns: 1fr; }
   .blast-impact-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 680px) {
+  .scope-hierarchy-list ul li { grid-template-columns: minmax(0, 1fr); }
 }
 .ontology-browser-layout {
   display: grid;

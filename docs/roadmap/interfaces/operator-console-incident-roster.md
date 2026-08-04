@@ -234,6 +234,8 @@ measurement is unavailable, not measured zero. Scope eligibility counts only
 time only when every source supplies one, and then uses the oldest source time.
 Mixed-currency LLM cost groups are labelled non-additive and never displayed as
 a single-currency total.
+Scope groups explicit monitoring and action entries under each recorded
+subscription; it doesn't derive inherited authority, and every level links to Architecture.
 
 The Process list follows the same rule with `source`, nullable `synthetic`, and
 nullable `durable`. The local seeded runtime reports
