@@ -5,7 +5,9 @@ import json
 import httpx
 import pytest
 
+from fdai.delivery.azure import configuration_drift
 from fdai.delivery.azure.arg_query import ArgQueryError
+from fdai.delivery.azure.arg_transport import ArgThrottleGate
 from fdai.delivery.azure.configuration_drift import (
     AzureArgConfigurationObservationSource,
     AzureConfigurationObservationConfig,
@@ -117,6 +119,33 @@ async def test_scope_mismatch_is_rejected_before_arg_call() -> None:
             await source.observe(scope="another-scope")
 
     assert not called
+
+
+async def test_repeated_observations_share_one_arg_throttle_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gates: list[ArgThrottleGate] = []
+
+    async def _capture_gate(**kwargs):  # type: ignore[no-untyped-def]
+        gates.append(kwargs["throttle_gate"])
+        return (), ()
+
+    monkeypatch.setattr(configuration_drift, "fetch_arg_pages", _capture_gate)
+
+    async with httpx.AsyncClient() as client:
+        source = AzureArgConfigurationObservationSource(
+            identity=StaticWorkloadIdentity(
+                audience="https://management.azure.com/.default",
+                token="test-token",  # noqa: S106
+            ),
+            http_client=client,
+            config=_config(),
+        )
+        await source.observe(scope="configured-drift-scope")
+        await source.observe(scope="configured-drift-scope")
+
+    assert len(gates) == 2
+    assert gates[0] is gates[1]
 
 
 async def test_arg_pagination_cap_fails_without_partial_observation() -> None:

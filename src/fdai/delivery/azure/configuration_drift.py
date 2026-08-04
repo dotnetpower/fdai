@@ -18,7 +18,7 @@ from fdai.core.detection.configuration_drift import (
     EvidenceCompleteness,
 )
 from fdai.delivery.azure.arg_query import ArgQueryError
-from fdai.delivery.azure.arg_transport import fetch_arg_pages
+from fdai.delivery.azure.arg_transport import ArgThrottleGate, fetch_arg_pages
 from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -69,6 +69,7 @@ class AzureArgConfigurationObservationSource:
         self._identity = identity
         self._http = http_client
         self._config = config
+        self._throttle_gate = ArgThrottleGate()
 
     async def observe(self, *, scope: str) -> ConfigurationObservation:
         if scope != self._config.scope_ref:
@@ -88,6 +89,7 @@ class AzureArgConfigurationObservationSource:
             error_type=ArgQueryError,
             map_row=_map_row,
             project_links=lambda _row, _record: (),
+            throttle_gate=self._throttle_gate,
         )
         observed_at = datetime.now(tz=UTC)
         configuration_resources = tuple(_configuration_resource(resource) for resource in resources)
