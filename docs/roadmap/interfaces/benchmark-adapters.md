@@ -358,6 +358,11 @@ multi-replica workload has complete required hostname anti-affinity, an exactly 
 label selector, a complete mounted-volume path, and one same-namespace PVC with `ReadWriteOnce`.
 RWX, unmounted, selector-mismatched, single-replica, ambiguous, or incomplete evidence abstains.
 Concrete PVC, volume, mount, and anti-affinity inventory projection remains separate provider work.
+Provider-neutral init dependency semantics require one running init container, an exact immutable
+Pod-to-ReplicaSet-to-Deployment chain, one identical bounded command fingerprint and Service
+dependency across all three specs, and one targeted receipt confirming that Service absent.
+Present, conflicting, command-drifted, stopped, ambiguous, or incomplete evidence abstains. Raw
+commands are not retained, and concrete command/dependency projection remains provider work.
 The source campaign's deterministic SecurityContext patch is not ported. A syntactically grounded
 template change can alter process identity, capabilities, and workload behavior; admission success
 alone does not prove rollout health, application correctness, or rollback restoration. Until those

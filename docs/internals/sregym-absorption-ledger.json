@@ -570,6 +570,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_init_container_missing_service_candidate",
+      "source_commits": [
+        "a886903bdeeee85e7140f9dc5eeed9f234447727"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Replaces raw command parsing and complete-namespace absence with an exact UID chain, identical command fingerprint, one structured Service dependency, one running init status, and a targeted absence receipt; provider projection remains unclaimed.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [
