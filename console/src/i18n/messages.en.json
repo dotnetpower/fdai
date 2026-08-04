@@ -1994,6 +1994,15 @@
     },
     "suggestedFollowUps": "Suggested follow-ups",
     "intro": "Ask about anything currently visible - tiles, KPIs, approvals, audit rows, promotion status, impact scope, or ontology. I ground every answer in the snapshot on the right.",
+    "verticalQuickStarts": {
+      "label": "Operating domains",
+      "resilience": "Resilience",
+      "resiliencePrompt": "Show the current resilience risks and verified recovery gaps.",
+      "changeSafety": "Change Safety",
+      "changeSafetyPrompt": "Show pending change-safety decisions and their evidence gaps.",
+      "costGovernance": "Cost Governance",
+      "costGovernancePrompt": "Show measured cost-governance opportunities that preserve reliability objectives."
+    },
     "backend": {
       "probing": "probing",
       "connected": "Connected",

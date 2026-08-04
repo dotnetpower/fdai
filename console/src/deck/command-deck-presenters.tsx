@@ -688,9 +688,23 @@ export function IntroPanel({
   readonly onPick: (suggestion: string) => void;
 }) {
   const suggestions = introSuggestions(snapshot);
+  const verticals = verticalQuickStarts();
   return (
     <div class="deck-intro">
       <p class="deck-intro-lead">{t("deck.intro")}</p>
+      <div class="deck-intro-verticals" aria-label={t("deck.verticalQuickStarts.label")}>
+        <span>{t("deck.verticalQuickStarts.label")}</span>
+        {verticals.map((vertical) => (
+          <button
+            key={vertical.key}
+            type="button"
+            class="deck-vertical-suggest"
+            onClick={() => onPick(vertical.prompt)}
+          >
+            {vertical.label}
+          </button>
+        ))}
+      </div>
       <ul class="deck-intro-suggest">
         {suggestions.map((suggestion) => (
           <li key={suggestion}>
@@ -702,4 +716,28 @@ export function IntroPanel({
       </ul>
     </div>
   );
+}
+
+export function verticalQuickStarts(): readonly Readonly<{
+  key: "resilience" | "changeSafety" | "costGovernance";
+  label: string;
+  prompt: string;
+}>[] {
+  return [
+    {
+      key: "resilience",
+      label: t("deck.verticalQuickStarts.resilience"),
+      prompt: t("deck.verticalQuickStarts.resiliencePrompt"),
+    },
+    {
+      key: "changeSafety",
+      label: t("deck.verticalQuickStarts.changeSafety"),
+      prompt: t("deck.verticalQuickStarts.changeSafetyPrompt"),
+    },
+    {
+      key: "costGovernance",
+      label: t("deck.verticalQuickStarts.costGovernance"),
+      prompt: t("deck.verticalQuickStarts.costGovernancePrompt"),
+    },
+  ];
 }

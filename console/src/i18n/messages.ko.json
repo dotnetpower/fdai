@@ -1994,6 +1994,15 @@
     },
     "suggestedFollowUps": "추천 후속 질문",
     "intro": "현재 표시된 타일, KPI, 승인, 감사 행, 프로모션 상태, 영향 범위 또는 온톨로지에 관해 질문하세요. 모든 답변은 오른쪽 스냅샷을 근거로 합니다.",
+    "verticalQuickStarts": {
+      "label": "운영 영역",
+      "resilience": "복원력",
+      "resiliencePrompt": "현재 복원력 위험과 검증된 복구 공백을 보여줘.",
+      "changeSafety": "변경 안전",
+      "changeSafetyPrompt": "대기 중인 변경 안전 결정과 근거 공백을 보여줘.",
+      "costGovernance": "비용 거버넌스",
+      "costGovernancePrompt": "신뢰성 목표를 유지하는 측정된 비용 거버넌스 기회를 보여줘."
+    },
     "backend": {
       "probing": "확인 중",
       "connected": "연결됨",

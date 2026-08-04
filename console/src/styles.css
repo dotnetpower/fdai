@@ -7340,6 +7340,39 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   color: var(--fg);
 }
 .deck-intro-lead { margin: 0 0 12px; font-size: 14px; line-height: 1.55; }
+.deck-intro-verticals {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.deck-intro-verticals > span {
+  margin-right: 2px;
+  color: var(--fg-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+.deck-vertical-suggest {
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11.5px;
+}
+.deck-vertical-suggest:hover,
+.deck-vertical-suggest:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+.deck-vertical-suggest:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
 .deck-intro-suggest {
   list-style: none;
   padding: 0;
