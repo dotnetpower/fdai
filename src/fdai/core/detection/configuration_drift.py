@@ -21,6 +21,14 @@ from fdai.core.detection.configuration_drift_models import (
     FrozenConfigurationBaseline,
     KnowledgeGroundingStatus,
 )
+from fdai.core.detection.configuration_review import (
+    ConfigurationReviewCampaign,
+    ConfigurationReviewRun,
+    ConfigurationReviewScheduleProposal,
+    ConfigurationReviewState,
+    propose_weekly_configuration_review,
+    record_configuration_review_run,
+)
 
 __all__ = [
     "ConfigurationBaselineNotFoundError",
@@ -39,5 +47,11 @@ __all__ = [
     "KnowledgeGroundingStatus",
     "RegisteredConfigurationBaseline",
     "RegistryConfigurationBaselineSource",
+    "ConfigurationReviewCampaign",
+    "ConfigurationReviewRun",
+    "ConfigurationReviewScheduleProposal",
+    "ConfigurationReviewState",
     "compare_configuration",
+    "propose_weekly_configuration_review",
+    "record_configuration_review_run",
 ]

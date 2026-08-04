@@ -94,6 +94,9 @@ file digest alone does not establish cross-format equivalence.
 - Every fresh run records baseline-load, observation, comparison, Knowledge, and total latency plus
   resource and finding counts. Current observations are not reused through a TTL cache because a
   cached snapshot cannot satisfy a current-state question.
+- A pure review reducer accepts three idempotent run receipts for one pinned baseline. Only three
+  verified runs can produce an inert weekly schedule proposal. Any blocked or unsafe run pauses the
+  campaign, and the reducer never creates a scheduler task directly.
 
 ## 1. Event Correlation
 

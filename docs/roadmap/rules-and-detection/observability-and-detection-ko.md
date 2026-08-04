@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: afff35a6dfdbfec8981d580067311ead3b5de78a
+translation_source_sha: 30d236b8c472c8a38d0938c45af167e688a933bc
 translation_revised: 2026-08-04
 ---
 
@@ -94,6 +94,9 @@ cross-format equivalence가 성립하지 않습니다.
 - 각 fresh run은 baseline load, observation, comparison, Knowledge, total latency와 resource 및
   finding count를 기록합니다. Cache된 snapshot은 current-state 질문을 충족할 수 없으므로 현재 관측값을
   TTL cache로 재사용하지 않습니다.
+- Pure review reducer는 고정된 baseline 하나에 대한 idempotent run receipt 세 개를 수락합니다. Verified
+  run 세 개만 inert weekly schedule proposal을 만들 수 있습니다. Blocked 또는 unsafe run이 있으면
+  campaign을 pause하고 reducer는 scheduler task를 직접 생성하지 않습니다.
 
 ## 1. 이벤트 상관관계(Event Correlation)
 

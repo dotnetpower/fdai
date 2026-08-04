@@ -41,6 +41,19 @@ An enabled policy requires immutable `ScheduledResultOrigin` metadata. The origi
 channel kind, channel reference, conversation reference, optional thread reference, and audience.
 Only a direct audience can create an anchor.
 
+### Bounded configuration reviews
+
+A configuration-baseline review campaign pins one baseline version, digest, and scope. It accepts
+three unique run ids idempotently. A run counts as verified only when the deterministic decision is
+`passed` or `failed`, the exact DOCX is cited, and mutation, approval, mitigation, and unsupported
+claim counts are all zero. A blocked, partial, uncited, mismatched, or unsafe run causes the campaign
+to pause after its third attempt.
+
+Three verified runs move the campaign to `ready-for-weekly` and produce an inert strict-cron weekly
+proposal containing all three run ids. The reducer does not create or enable a task. Materialization
+still uses the authenticated scheduler command, event, and audit path, so review evidence cannot
+grant schedule mutation authority.
+
 ### Anchor
 
 `ScheduledConversationAnchor` records:

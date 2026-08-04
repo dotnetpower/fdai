@@ -1,7 +1,7 @@
 ---
 translation_of: scheduled-result-continuations.md
-translation_source_sha: 194664cf80ecc9fa2dfad5b58773895a29392fae
-translation_revised: 2026-07-28
+translation_source_sha: e25a71df9c5190e83afb29a2160d07913eeb8acf
+translation_revised: 2026-08-04
 ---
 # 예약 결과 이어가기
 
@@ -42,6 +42,19 @@ flowchart LR
 활성화된 정책에는 변경되지 않는 `ScheduledResultOrigin` metadata가 필요합니다. Origin은 channel
 kind, channel reference, conversation reference, 선택적 thread reference, audience를 기록합니다.
 Direct audience만 앵커를 생성할 수 있습니다.
+
+### 제한된 구성 검토
+
+Configuration-baseline review campaign은 baseline version, digest, scope 하나를 고정하고 서로 다른 run
+id 세 개를 idempotent하게 수락합니다. Deterministic decision이 `passed` 또는 `failed`이고 정확한 DOCX를
+인용하며 mutation, approval, mitigation, unsupported claim count가 모두 0일 때만 verified run으로
+계산합니다. Blocked, partial, uncited, mismatched, unsafe run이 있으면 세 번째 시도 후 campaign을
+pause합니다.
+
+Verified run 세 개는 campaign을 `ready-for-weekly`로 전환하고 세 run id가 포함된 strict-cron weekly
+proposal을 inert artifact로 생성합니다. Reducer는 task를 생성하거나 enable하지 않습니다. Materialization은
+인증된 scheduler command, event, audit path를 계속 사용하므로 review evidence가 schedule mutation authority를
+부여할 수 없습니다.
 
 ### 앵커
 
