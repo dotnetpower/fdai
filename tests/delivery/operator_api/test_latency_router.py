@@ -177,6 +177,26 @@ class TestRouterConstruction:
                 turn_timeout_seconds=0,
             )
 
+    def test_rejects_direct_vision_routing_cycle(self) -> None:
+        router = LatencyRoutedChatBackend(
+            candidates=[("text", _FixedLatencyBackend(model="text", delay_ms=1))]
+        )
+
+        with pytest.raises(ValueError, match="routing cycle"):
+            router.bind_vision_backend(router)
+
+    def test_rejects_indirect_vision_routing_cycle(self) -> None:
+        first = LatencyRoutedChatBackend(
+            candidates=[("first", _FixedLatencyBackend(model="first", delay_ms=1))]
+        )
+        second = LatencyRoutedChatBackend(
+            candidates=[("second", _FixedLatencyBackend(model="second", delay_ms=1))]
+        )
+        first.bind_vision_backend(second)
+
+        with pytest.raises(ValueError, match="routing cycle"):
+            second.bind_vision_backend(first)
+
     def test_cold_candidate_stats_are_json_safe(self) -> None:
         a = _FixedLatencyBackend(model="a", delay_ms=1)
         b = _FixedLatencyBackend(model="b", delay_ms=1)

@@ -149,6 +149,10 @@ class LatencyRoutedChatBackend:
             raise ValueError("a vision pool cannot bind another vision backend")
         if self._vision_backend is not None:
             raise ValueError("vision backend is already bound")
+        if backend is self or (
+            isinstance(backend, LatencyRoutedChatBackend) and backend._routes_to(self)
+        ):
+            raise ValueError("vision backend binding MUST NOT create a routing cycle")
         self._vision_backend = backend
 
     def vision_backend(self) -> ChatBackend | None:
@@ -570,6 +574,21 @@ class LatencyRoutedChatBackend:
     def _effective_sample_count(self, name: str) -> int:
         """Samples + in-flight picks - used by warm-up fairness."""
         return len(self._samples[name]) + self._in_flight[name]
+
+    def _routes_to(
+        self,
+        target: LatencyRoutedChatBackend,
+        seen: set[int] | None = None,
+    ) -> bool:
+        if self is target:
+            return True
+        visited = set() if seen is None else seen
+        if id(self) in visited:
+            return False
+        visited.add(id(self))
+        return isinstance(
+            self._vision_backend, LatencyRoutedChatBackend
+        ) and self._vision_backend._routes_to(target, visited)
 
     def _pick(
         self,
