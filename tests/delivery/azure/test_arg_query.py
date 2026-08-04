@@ -362,6 +362,44 @@ async def test_pagination_cap_raises() -> None:
 
 
 @pytest.mark.asyncio
+async def test_pagination_rejects_non_adjacent_token_cycle() -> None:
+    tokens = ["token-a", "token-b", "token-a"]
+    calls = 0
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        token = tokens[calls]
+        calls += 1
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    _arm_row(
+                        arm_id=(
+                            "/subscriptions/00000000-0000-0000-0000-000000000001/"
+                            f"resourceGroups/rg-a/providers/Microsoft.Storage/storageAccounts/s{calls}"
+                        ),
+                        arm_type="Microsoft.Storage/storageAccounts",
+                    )
+                ],
+                "$skipToken": token,
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(max_pages=4),
+        )
+        with pytest.raises(ArgQueryError, match="continuation token did not advance"):
+            await factory.build_query_fn()("object-storage")
+
+    assert calls == 3
+
+
+@pytest.mark.asyncio
 async def test_retry_after_and_quota_reset_delay_follow_up_calls(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

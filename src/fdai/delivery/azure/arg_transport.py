@@ -158,6 +158,7 @@ async def fetch_arg_row_pages(
         headers = dict(request_headers)
     collected: list[Mapping[str, Any]] = []
     skip_token: str | None = None
+    seen_skip_tokens: set[str] = set()
     gate = throttle_gate or ArgThrottleGate()
 
     for page in range(max_pages):
@@ -224,10 +225,11 @@ async def fetch_arg_row_pages(
                     f"{result_name!r} (page {page})"
                 )
             break
-        if next_token == skip_token:
+        if next_token in seen_skip_tokens:
             raise error_type(
                 f"ARG continuation token did not advance for {result_name!r} (page {page})"
             )
+        seen_skip_tokens.add(next_token)
         skip_token = next_token
     else:
         raise error_type(

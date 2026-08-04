@@ -374,6 +374,7 @@ class AzureCliInventory:
         executed_durations_ms: list[int] = []
         executed_results: list[Mapping[str, Any]] = []
         skip_token: str | None = None
+        seen_skip_tokens: set[str] = set()
         for _page in range(_ARG_MAX_PAGES):
             argv = [
                 self.executable,
@@ -419,8 +420,9 @@ class AzureCliInventory:
                 self._last_resource_durations_ms = tuple(executed_durations_ms)
                 self._last_resource_results = tuple(executed_results)
                 return rows
-            if next_token == skip_token:
+            if next_token in seen_skip_tokens:
                 raise AzureCliInventoryError("az graph continuation token did not advance")
+            seen_skip_tokens.add(next_token)
             skip_token = next_token
         raise AzureCliInventoryError("az graph pagination exceeded the page limit")
 
