@@ -9,6 +9,7 @@ from typing import Any, Protocol
 from fdai_evaluation_sdk import EvaluationTask
 
 from fdai.delivery.kubernetes.admission import mutating_webhook_resource_drift_findings
+from fdai.delivery.kubernetes.admission_conditions import admission_condition_findings
 
 
 class KubernetesAdmissionEvidenceClient(Protocol):
@@ -35,12 +36,16 @@ class KubectlAdmissionEvidenceProvider:
             "cluster": str(inventory.get("cluster") or "")[:253],
             "namespace": str(inventory.get("namespace") or "")[:253],
             "evidence_complete": evidence_complete,
-            "findings": list(
-                mutating_webhook_resource_drift_findings(
+            "findings": [
+                *admission_condition_findings(
                     resources,
                     evidence_complete=evidence_complete,
-                )
-            ),
+                ),
+                *mutating_webhook_resource_drift_findings(
+                    resources,
+                    evidence_complete=evidence_complete,
+                ),
+            ],
         }
 
 

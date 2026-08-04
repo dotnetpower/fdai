@@ -295,6 +295,71 @@ async def test_inventory_projects_bounded_immutable_owner_references(tmp_path: P
     assert "blockOwnerDeletion" not in json.dumps(evidence)
 
 
+async def test_inventory_projects_only_active_admission_conditions(tmp_path: Path) -> None:
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text("synthetic", encoding="utf-8")
+
+    async def run(command: tuple[str, ...]) -> bytes:
+        del command
+        return json.dumps(
+            {
+                "items": [
+                    {
+                        "kind": "ReplicaSet",
+                        "metadata": {"name": "api-1", "namespace": "example-app"},
+                        "spec": {"replicas": 1},
+                        "status": {
+                            "readyReplicas": 0,
+                            "conditions": [
+                                {
+                                    "type": "Progressing",
+                                    "status": "True",
+                                    "reason": "NewReplicaSetAvailable",
+                                    "message": "must-not-project",
+                                },
+                                {
+                                    "type": "ReplicaFailure",
+                                    "status": "False",
+                                    "reason": "FailedCreate",
+                                    "message": (
+                                        'failed calling webhook "old.example.io": '
+                                        "context deadline exceeded"
+                                    ),
+                                },
+                                {
+                                    "type": "ReplicaFailure",
+                                    "status": "True",
+                                    "reason": "FailedCreate",
+                                    "message": (
+                                        'failed calling webhook "policy.example.io": '
+                                        "context deadline exceeded; token=must-not-project"
+                                    ),
+                                },
+                            ],
+                        },
+                    }
+                ]
+            }
+        ).encode()
+
+    evidence = await KubectlEvidenceClient(config=_config(kubeconfig), run=run).inventory(_task())
+
+    resource = evidence["resources"][0]
+    assert resource["admission_condition_projection_complete"] is True
+    assert resource["admission_conditions"] == [
+        {
+            "type": "ReplicaFailure",
+            "status": "True",
+            "reason": "FailedCreate",
+            "code": "admission_webhook_timeout",
+            "source_index": 2,
+            "webhook_name": "policy.example.io",
+        }
+    ]
+    assert "must-not-project" not in json.dumps(evidence)
+    assert "old.example.io" not in json.dumps(evidence)
+
+
 async def test_custom_owner_lookup_is_exact_namespaced_and_uid_grounded(
     tmp_path: Path,
 ) -> None:

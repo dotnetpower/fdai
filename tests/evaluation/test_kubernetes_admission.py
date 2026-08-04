@@ -47,6 +47,40 @@ async def test_admission_provider_emits_candidate_only_hold_finding() -> None:
     assert evidence["findings"][0]["decision"] == "hold"
 
 
+async def test_admission_provider_prioritizes_no_magic_weight_but_exposes_direct_evidence() -> None:
+    client = _Client()
+    inventory = await client.inventory(None)  # type: ignore[arg-type]
+    resources = list(inventory["resources"])
+    resources[0] = {
+        "kind": "ReplicaSet",
+        "name": "api-1",
+        "namespace": "example-app",
+        "admission_condition_projection_complete": True,
+        "admission_conditions": [
+            {
+                "type": "ReplicaFailure",
+                "status": "True",
+                "reason": "FailedCreate",
+                "code": "admission_webhook_timeout",
+                "webhook_name": "policy.example.io",
+                "source_index": 0,
+            }
+        ],
+    }
+
+    class _ConditionClient(_Client):
+        async def inventory(self, task: EvaluationTask) -> Mapping[str, Any]:
+            del task
+            return {**inventory, "resources": resources}
+
+    evidence = await KubectlAdmissionEvidenceProvider(_ConditionClient()).collect(None)  # type: ignore[arg-type]
+
+    finding = evidence["findings"][0]
+    assert finding["evidence_strength"] == "direct_resource_condition"
+    assert finding["causality"] == "candidate_only"
+    assert "priority" not in finding
+
+
 @pytest.mark.parametrize(
     ("inventory_truncated", "webhook_truncated"),
     [(True, False), (False, True), (True, True)],

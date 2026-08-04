@@ -22,7 +22,9 @@ CommandRunner = Callable[[tuple[str, ...]], Awaitable[bytes]]
 _DNS_SUBDOMAIN: Final = re.compile(
     r"^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?(?:\.[a-z0-9](?:[-a-z0-9]*[a-z0-9])?)*$"
 )
-_INVENTORY_RESOURCES: Final = "deployments,statefulsets,daemonsets,pods,services,endpoints"
+_INVENTORY_RESOURCES: Final = (
+    "deployments,statefulsets,daemonsets,replicasets,pods,services,endpoints"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -363,7 +365,7 @@ def _project_resource(item: Mapping[str, Any]) -> dict[str, Any] | None:
     status = item.get("status")
     spec_values = spec if isinstance(spec, Mapping) else {}
     status_values = status if isinstance(status, Mapping) else {}
-    if kind in {"Deployment", "StatefulSet"}:
+    if kind in {"Deployment", "StatefulSet", "ReplicaSet"}:
         projected.update(
             desired=_count(spec_values.get("replicas")),
             ready=_count(status_values.get("readyReplicas")),
@@ -376,6 +378,7 @@ def _project_resource(item: Mapping[str, Any]) -> dict[str, Any] | None:
         selector = _project_label_selector(spec_values.get("selector"))
         if selector is not None:
             projected["selector"] = selector
+        _add_admission_conditions(projected, status_values.get("conditions"))
     elif kind == "DaemonSet":
         projected.update(
             desired=_count(status_values.get("desiredNumberScheduled")),
@@ -388,6 +391,7 @@ def _project_resource(item: Mapping[str, Any]) -> dict[str, Any] | None:
         selector = _project_label_selector(spec_values.get("selector"))
         if selector is not None:
             projected["selector"] = selector
+        _add_admission_conditions(projected, status_values.get("conditions"))
     elif kind == "Pod":
         statuses = status_values.get("containerStatuses")
         container_statuses = statuses if isinstance(statuses, list) else []
@@ -459,6 +463,64 @@ def _project_container_status(value: Mapping[str, Any]) -> dict[str, Any]:
             "finished_at": _text(last_termination.get("finishedAt"), 64),
         }
     return projection
+
+
+def _add_admission_conditions(projected: dict[str, Any], value: object) -> None:
+    if value is None:
+        return
+    if not isinstance(value, list) or len(value) > 32:
+        projected["admission_condition_projection_complete"] = False
+        projected["admission_conditions"] = []
+        return
+    conditions: list[dict[str, Any]] = []
+    projection_complete = True
+    for index, item in enumerate(value):
+        if not isinstance(item, Mapping) or not _valid_condition_shape(item):
+            projection_complete = False
+            continue
+        condition = _project_admission_condition(item, source_index=index)
+        if condition is not None:
+            conditions.append(condition)
+    projected["admission_condition_projection_complete"] = projection_complete
+    projected["admission_conditions"] = conditions
+
+
+def _project_admission_condition(
+    value: Mapping[str, Any],
+    *,
+    source_index: int,
+) -> dict[str, Any] | None:
+    condition_type = value.get("type")
+    status = value.get("status")
+    reason = value.get("reason")
+    message = value.get("message") or ""
+    if not all(isinstance(item, str) for item in (condition_type, status, reason, message)):
+        return None
+    if status != "True":
+        return None
+    failure = classify_admission_failure(reason=str(reason), message=str(message))
+    if failure is None:
+        return None
+    condition: dict[str, Any] = {
+        "type": str(condition_type)[:128],
+        "status": str(status)[:32],
+        "reason": str(reason)[:256],
+        "code": failure.code,
+        "source_index": source_index,
+    }
+    if failure.webhook_name:
+        condition["webhook_name"] = failure.webhook_name
+    if failure.pod_security_profile:
+        condition["pod_security_profile"] = failure.pod_security_profile
+        condition["pod_security_version"] = failure.pod_security_version
+        condition["pod_security_violations"] = list(failure.pod_security_violations)
+    return condition
+
+
+def _valid_condition_shape(value: Mapping[str, Any]) -> bool:
+    return all(isinstance(value.get(key), str) for key in ("type", "status", "reason")) and (
+        value.get("message") is None or isinstance(value.get("message"), str)
+    )
 
 
 def _project_owner_references(value: object) -> tuple[list[dict[str, str]], bool]:

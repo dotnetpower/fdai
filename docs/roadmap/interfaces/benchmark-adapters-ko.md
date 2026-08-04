@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 70c51ff438c9945598552cbd2cd7a7b77fc878e8
+translation_source_sha: 38214c62771ee378dc8953f585746c904b8738f8
 translation_revised: 2026-08-04
 ---
 
@@ -206,6 +206,12 @@ malformed webhook identity 및 인식되지 않은 message는 분류하지 않�
 failure의 projected event는 raw message 대신 structured code와 bounded identity 또는 Pod Security
 field만 보존합니다. 따라서 admission response가 echoed secret 또는 검토되지 않은 값을
 deterministic finding으로 전달하지 못합니다.
+Workload inventory는 bounded status condition의 active admission failure도 인식합니다. Normal
+condition과 inactive historical failure는 non-finding으로 유지됩니다. 인식된 condition은 exact
+status condition source path와 함께 `evidence_strength=direct_resource_condition`인 hold-only
+candidate를 생성하고 raw message는 보존하지 않습니다. FDAI는 campaign의 fixed numeric ranking
+weight를 복사하지 않습니다. Downstream ranking은 correlation을 proven causation으로 취급하지 않고
+explicit evidence strength를 비교할 수 있습니다.
 
 Observe-only `observe.kubernetes.owners` capability는 bounded namespace inventory에서 최대 8개
 custom owner reference를 따라갑니다. 각 lookup은 owner reference UID를 보존하며 반환된 custom

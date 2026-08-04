@@ -201,6 +201,12 @@ informational text, malformed webhook identities, and unrecognized messages rema
 For a recognized admission failure, the projected event retains only the structured code and
 bounded identity or Pod Security fields, not the raw message. This prevents an admission response
 from carrying an echoed secret or unreviewed value into deterministic findings.
+Workload inventory also recognizes active admission failures in bounded status conditions.
+Normal conditions and inactive historical failures remain non-findings. A recognized condition
+emits a hold-only candidate with `evidence_strength=direct_resource_condition`, its exact status
+condition source path, and no raw message. FDAI does not copy the campaign's fixed numeric ranking
+weight; downstream ranking can compare the explicit evidence strength without treating correlation
+as proven causation.
 
 The observe-only `observe.kubernetes.owners` capability follows at most eight custom owner
 references from the bounded namespace inventory. Every lookup preserves the owner reference UID

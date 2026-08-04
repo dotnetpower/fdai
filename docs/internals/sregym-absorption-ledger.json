@@ -208,6 +208,20 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_direct_admission_condition_evidence",
+      "source_commits": [
+        "f1da1ddf5d99db44ece6949b8c42a3bb7bdcedde"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [
