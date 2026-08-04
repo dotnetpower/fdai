@@ -10,6 +10,10 @@ import {
   normalizeImageDataUrl,
   thumbLabel,
 } from "./composer-attachments";
+import {
+  MAX_VISION_SOURCE_BYTES,
+  normalizeVisionImage,
+} from "./composer-image-normalization";
 
 describe("composer-attachments", () => {
   it("fits large screenshots inside the vision pixel bound without distortion", () => {
@@ -122,5 +126,19 @@ describe("composer-attachments", () => {
     expect(normalizeImageDataUrl("data:image/png;base64,", "image/png")).toBeNull();
     expect(normalizeImageDataUrl("not-a-data-url", "image/png")).toBeNull();
     expect(normalizeImageDataUrl("data:image/png;base64,   ", "image/png")).toBeNull();
+  });
+
+  it("rejects an oversized source before allocating a bitmap", async () => {
+    const createBitmap = vi.fn();
+    vi.stubGlobal("createImageBitmap", createBitmap);
+    const file = new File(
+      [new Uint8Array(MAX_VISION_SOURCE_BYTES + 1)],
+      "oversized.png",
+      { type: "image/png" },
+    );
+
+    await expect(normalizeVisionImage(file)).rejects.toThrow(RangeError);
+    expect(createBitmap).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 });

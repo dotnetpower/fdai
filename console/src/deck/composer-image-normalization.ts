@@ -4,12 +4,16 @@ import {
 } from "./composer-attachments";
 
 export const MAX_VISION_IMAGE_BYTES = 4 * 1024 * 1024;
+export const MAX_VISION_SOURCE_BYTES = 32 * 1024 * 1024;
 
 const RESIZABLE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
 
 export async function normalizeVisionImage(file: File): Promise<File> {
   const mediaType = file.type.toLowerCase();
   if (!RESIZABLE_TYPES.has(mediaType)) return file;
+  if (file.size > MAX_VISION_SOURCE_BYTES) {
+    throw new RangeError(`source image exceeds ${MAX_VISION_SOURCE_BYTES} bytes`);
+  }
 
   const bitmap = await createImageBitmap(file);
   try {
