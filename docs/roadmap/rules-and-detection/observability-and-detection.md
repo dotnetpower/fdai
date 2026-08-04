@@ -61,6 +61,26 @@ are synthetic.
 - New detectors ship in **shadow mode** and are promoted per the shadow→enforce rule; their
   accuracy and false-positive rate are measured against the Phase 0 baseline.
 
+### Frozen configuration baseline checks
+
+Configuration drift is a T0 (deterministic rules) finding. A reviewed actual snapshot is frozen
+as intended state and is never replaced automatically by a later observation. The human-readable
+DOCX and canonical JSON baseline carry the same version, scope, creation time, and document digest.
+
+- `core/detection/configuration_drift.py` canonicalizes resources, topology links, and comparable
+  attributes, then reports `added`, `removed`, `changed`, `unchanged`, `unknown`, or `unauthorized`.
+- A partial snapshot cannot prove removal. Missing resources, links, or attributes remain blocked
+  until an authoritative source supplies complete evidence.
+- The configured baseline version, SHA-256 digest, and scope are server-owned. A caller cannot
+  select another target through tool arguments.
+- `delivery/azure/configuration_drift.py` applies the resource-group filter inside the Azure
+  Resource Graph query. It removes full provider resource ids before producing evidence.
+- Knowledge retrieval explains and cites the reviewed document. It does not decide the drift. If
+  Knowledge is unavailable, the deterministic report remains valid and the citation status stays
+  blocked rather than being reported as supported.
+- The read-only capability reports mutation, approval, mitigation, and unsupported-claim counts.
+  Each remains zero for a configuration check.
+
 ## 1. Event Correlation
 
 A stage in `event-ingest`, immediately after normalize + deduplicate (see

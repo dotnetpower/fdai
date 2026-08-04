@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 943,
+  "file_count": 949,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "22f8e22e3fd307e30886805683b0f38c39442deeb24a45026471d71084b4ea99",
     ".github/instructions/agent-stewardship.instructions.md": "574518fca728a9a6c8d3b50e0cf4aa53a1ed5bf85d5c52e5da67a0486bf31a43",
@@ -80,6 +80,7 @@
     "src/fdai/composition/wire_browser_evidence.py": "ba5358861b1ada12139d21e2f0d4b58512c87b7362f122693732b0bb8dec891c",
     "src/fdai/composition/wire_capabilities.py": "3cbd9ae5505e2deb2f04ee48e70c5d74d85daa0afec6f6374391f6da31424dfc",
     "src/fdai/composition/wire_change_feed.py": "ec7bfb2bf72292d7445e3e50f36084706c1a8247e52b6d5e67afd528e023ca43",
+    "src/fdai/composition/wire_configuration_drift.py": "733d717f725eed28447a005fefb2dabb60ce73a94c18a13a20f7aa0fbd3ca5b7",
     "src/fdai/composition/wire_distiller.py": "ec914348ae9980bf617e5e31e4645e3d9288747faccc1c2e93fbc0f7d1bb7669",
     "src/fdai/composition/wire_execution_authorization.py": "d96c5fda55d2018bfac05aa296933af20e8de52d8ab3109969e4665ab15d393f",
     "src/fdai/composition/wire_execution_backends.py": "298635714b992ed343eed6a34e43e0b75dd80cff7699143b8bd2667a256fe8a9",
@@ -242,6 +243,11 @@
     "src/fdai/core/detection/__init__.py": "4f9e793d05a409e3ad7604505e3d01c99696f1353637e6148025c1046d068632",
     "src/fdai/core/detection/anomaly.py": "b1191d2b9cd45d5dc5d1029ac6ea7cf79cd04929306f4509b651db37d1b00aaf",
     "src/fdai/core/detection/composite.py": "7086d475ec009a2342171d8c2325c5ce08788df9831c2746b4006a93971c2957",
+    "src/fdai/core/detection/configuration_drift.py": "aa76d60843d97b3468216dae38e0054acedbf90875ebad4608577eee4dd26c22",
+    "src/fdai/core/detection/configuration_drift_codec.py": "ed55f4f1c8de7622fb1b7a39ade1a1f1b6e65b3c3bce3f1e44039ca72d8eebec",
+    "src/fdai/core/detection/configuration_drift_compare.py": "b43f238190f5cf6438c8bbe539d30821528a1a96b8b67e376dcd891d19a12ee5",
+    "src/fdai/core/detection/configuration_drift_models.py": "47585410492ba73e4f92b081829f0c34a0606797d3429e0970312036b1b14af8",
+    "src/fdai/core/detection/configuration_drift_service.py": "5ea5762f7035821b6be4bf0c8f274a79b8ed204d563ef04b8260e8d6f6ee6678",
     "src/fdai/core/detection/forecast.py": "f047a7d0a1c793ebf1b14695ee8677c93564e5c19c3780980efd7dfd1c89b923",
     "src/fdai/core/detection/forecast_band.py": "ec26269b9b96ce5b2d22f08d0ea7e26eb2257d994e5de6a962a0d414552a410b",
     "src/fdai/core/detection/forecast_closure.py": "ebeba6755bc873f638cee459e380113fdb1840a2e7f00117b650803fccf0dcde",
@@ -946,7 +952,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-03T23:43:14Z",
+  "generated_at": "2026-08-04T02:46:19Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

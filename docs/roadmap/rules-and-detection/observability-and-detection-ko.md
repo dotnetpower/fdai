@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 6e15b7effc5e5934f50a47d73821240d0f2a64b7
-translation_revised: 2026-08-02
+translation_source_sha: cdc14af397378d1261f2b53642d59f2277060df0
+translation_revised: 2026-08-04
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -61,6 +61,26 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **findin
   episode를 먼저 축출합니다.
 - 새 감지기는 **shadow 모드** 로 출시되고 shadow→enforce 규칙에 따라 승격; 정확도와
   false-positive 비율은 Phase 0 베이스라인 대비 측정됨.
+
+### 동결된 구성 기준선 점검
+
+구성 드리프트는 T0(결정론적 규칙) 점검 결과입니다. 검토된 실제 스냅샷을 의도된 상태로
+동결하며 이후 관측값으로 자동 교체하지 않습니다. 사람이 검토하는 DOCX와 정규 JSON 기준선은
+동일한 버전, 범위, 생성 시각, 문서 digest를 가집니다.
+
+- `core/detection/configuration_drift.py`는 리소스, 토폴로지 링크, 비교 가능한 속성을 정규화하고
+  `added`, `removed`, `changed`, `unchanged`, `unknown`, `unauthorized`를 보고합니다.
+- 부분 스냅샷은 제거를 증명할 수 없습니다. 누락된 리소스, 링크, 속성은 신뢰할 수 있는 소스가
+  완전한 증거를 제공할 때까지 차단 상태로 유지합니다.
+- 설정된 기준선 버전, SHA-256 digest, 범위는 서버가 소유합니다. 호출자는 tool argument로 다른
+  대상을 선택할 수 없습니다.
+- `delivery/azure/configuration_drift.py`는 Azure Resource Graph query 안에서 resource group filter를
+  적용합니다. 증거를 생성하기 전에 전체 provider resource id를 제거합니다.
+- Knowledge retrieval은 검토된 문서를 설명하고 인용합니다. 드리프트를 판정하지는 않습니다.
+  Knowledge를 사용할 수 없어도 결정론적 보고서는 유지하고 citation 상태는 근거 있음으로
+  표시하지 않고 차단 상태로 유지합니다.
+- Read-only capability는 mutation, approval, mitigation, unsupported-claim count를 보고합니다.
+  구성 점검에서는 모두 0으로 유지합니다.
 
 ## 1. 이벤트 상관관계(Event Correlation)
 
