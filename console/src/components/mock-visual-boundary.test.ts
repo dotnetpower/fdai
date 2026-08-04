@@ -69,6 +69,16 @@ describe("mock console visual boundary", () => {
     expect(serviceMap).toContain("stroke-width: 1.4");
     expect(serviceMap).toContain("stroke-width: 2.8");
     expect(serviceMap).toContain('id="sm-grid"');
+    expect(serviceMap).toContain('id="sm-minor-grid"');
+    expect(serviceMap).toContain('data-sm-zoom-in');
+    expect(serviceMap).toContain('data-sm-zoom-out');
+    expect(serviceMap).toContain('data-sm-zoom-fit');
+    expect(serviceMap).toContain("function zoomAt(");
+    expect(serviceMap).toContain("function fitDrawing(");
+    expect(serviceMap).toContain("function formatCoordinate(");
+    expect(serviceMap).toContain('scrollSurface.addEventListener("keydown"');
+    expect(serviceMap).toContain("sm-cad-dimensions");
+    expect(serviceMap).toContain("sm-node-coordinate");
     expect(serviceMap).toContain('class="sm-node kind-');
     expect(serviceMap).toContain('inspector.className = "sm-inspector kind-"');
     expect(serviceMap.match(/markerUnits="userSpaceOnUse"/g)).toHaveLength(3);
