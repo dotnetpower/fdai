@@ -405,10 +405,14 @@ class AzureCliInventory:
                 payload = json.loads(proc.stdout or "{}")
             except json.JSONDecodeError as exc:
                 raise AzureCliInventoryError("az graph returned non-JSON") from exc
-            if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+            if (
+                not isinstance(payload, dict)
+                or not isinstance(payload.get("data"), list)
+                or not all(isinstance(row, dict) for row in payload["data"])
+            ):
                 raise AzureCliInventoryError("az graph returned an invalid page")
             executed_commands.append(_receipt_argv(argv, skip_token=skip_token))
-            page_rows = [row for row in payload["data"] if isinstance(row, dict)]
+            page_rows = payload["data"]
             executed_results.append(_provider_result_preview(page_rows))
             rows.extend(page_rows)
             raw_skip_token = payload.get("skip_token") or payload.get("$skipToken")

@@ -86,6 +86,16 @@ class TestFullSnapshot:
 
         assert run.call_count == 3
 
+    def test_arg_rejects_non_object_page_row(self) -> None:
+        inventory = AzureCliInventory(resource_types=("compute.vm",))
+
+        with patch(
+            "fdai.delivery.azure.dev_inventory.subprocess.run",
+            return_value=_completed(json.dumps({"data": ["not-an-object"]})),
+        ):
+            with pytest.raises(AzureCliInventoryError, match="invalid page"):
+                asyncio.run(inventory._fetch_arg_rows())
+
     def test_yields_final_batch_at_end(self) -> None:
         inv = AzureCliInventory(resource_types=("resource-group",))
         with patch(

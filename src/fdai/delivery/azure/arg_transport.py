@@ -201,14 +201,19 @@ async def fetch_arg_row_pages(
             payload = response.json()
         except ValueError as exc:
             raise error_type(f"ARG returned non-JSON for {result_name!r} (page {page})") from exc
+        if not isinstance(payload, Mapping):
+            raise error_type(f"ARG payload was not an object for {result_name!r} (page {page})")
 
         data = payload.get("data")
         if not isinstance(data, list):
             raise error_type(f"ARG payload missing 'data' array for {result_name!r} (page {page})")
 
         for row in data:
-            if isinstance(row, Mapping):
-                collected.append(row)
+            if not isinstance(row, Mapping):
+                raise error_type(
+                    f"ARG payload contained a non-object row for {result_name!r} (page {page})"
+                )
+            collected.append(row)
         if max_records is not None and len(collected) > max_records:
             raise error_type(
                 f"ARG returned more than {max_records} records for {result_name!r}; "

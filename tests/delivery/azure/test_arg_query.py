@@ -608,6 +608,38 @@ async def test_non_json_response_raises() -> None:
 
 
 @pytest.mark.asyncio
+async def test_non_object_json_response_raises_domain_error() -> None:
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=[])
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        with pytest.raises(ArgQueryError, match="payload was not an object"):
+            await factory.build_query_fn()("object-storage")
+
+
+@pytest.mark.asyncio
+async def test_non_object_data_row_fails_closed() -> None:
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"data": ["not-an-object"]})
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        with pytest.raises(ArgQueryError, match="non-object row"):
+            await factory.build_query_fn()("object-storage")
+
+
+@pytest.mark.asyncio
 async def test_missing_data_field_raises() -> None:
     def _handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"$skipToken": "next"})  # no `data`
