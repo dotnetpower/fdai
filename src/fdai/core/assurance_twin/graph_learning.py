@@ -16,6 +16,8 @@ class GraphModelLearningObservation:
     model_ref: str
     prediction_digest: str
     observation_digest: str
+    object_ref: str
+    metric: str
     predicted_value: float
     observed_value: float
     observed_at: datetime
@@ -28,6 +30,8 @@ class GraphModelLearningObservation:
     def __post_init__(self) -> None:
         if not self.model_ref or len(self.model_ref) > 512:
             raise ValueError("graph learning model_ref MUST be bounded and non-empty")
+        if not self.object_ref.strip() or not self.metric.strip():
+            raise ValueError("graph learning slice identity MUST be non-empty")
         for digest in (self.prediction_digest, self.observation_digest):
             if len(digest) != 64 or any(
                 character not in "0123456789abcdef" for character in digest
@@ -49,6 +53,9 @@ class GraphModelLearningObservation:
                 self.model_ref,
                 self.prediction_digest,
                 self.observation_digest,
+                self.object_ref,
+                self.metric,
+                self.observed_at.isoformat(),
             )
         )
         return hashlib.sha256(material.encode()).hexdigest()
@@ -69,7 +76,7 @@ def update_graph_challenger(
 
     if model.status is not EffectModelStatus.CHALLENGER:
         return GraphChallengerUpdate(model, False, "active_model_is_immutable")
-    if observation.model_ref != model.ref:
+    if observation.model_ref.rsplit(":r", maxsplit=1)[0] != f"{model.model_id}@{model.version}":
         return GraphChallengerUpdate(model, False, "observation_model_mismatch")
     if observation.digest in model.applied_observation_digests:
         return GraphChallengerUpdate(model, False, "observation_already_applied")

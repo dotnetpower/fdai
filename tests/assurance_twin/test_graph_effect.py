@@ -9,11 +9,14 @@ import pytest
 
 from fdai.core.assurance_twin import (
     CausalEvidenceGrade,
+    DynamicInvariant,
     EffectInteractionTerm,
     EffectModelStatus,
     GraphEffectModel,
     GraphIntervention,
     GraphTopologyEdge,
+    InvariantOperator,
+    InvariantStatus,
     OperationalStateTrajectory,
     StateSlice,
     TrajectoryKind,
@@ -116,12 +119,25 @@ def _intervention(
     )
 
 
+def _invariants(*, threshold: float = 100.0) -> tuple[DynamicInvariant, ...]:
+    return (
+        DynamicInvariant(
+            invariant_id="slo.checkout.latency",
+            metric="latency_p99_ms",
+            operator=InvariantOperator.LESS_THAN_OR_EQUAL,
+            threshold=threshold,
+            target_ref="service:checkout",
+        ),
+    )
+
+
 def test_graph_effect_propagates_over_exact_typed_path() -> None:
     result = simulate_graph_effects(
         baseline=_baseline(),
         topology=_topology(),
         interventions=(_intervention(),),
         active_models=(_model(),),
+        invariants=_invariants(),
     )
 
     predicted = next(
@@ -140,12 +156,14 @@ def test_graph_simulation_is_order_stable() -> None:
         topology=_topology(),
         interventions=(_intervention(),),
         active_models=(_model(),),
+        invariants=_invariants(),
     )
     second = simulate_graph_effects(
         baseline=_baseline(),
         topology=_topology(),
         interventions=(_intervention(),),
         active_models=(_model(),),
+        invariants=_invariants(),
     )
 
     assert first.active_trajectory.digest == second.active_trajectory.digest
@@ -158,6 +176,7 @@ def test_challenger_divergence_requires_review_but_does_not_change_active() -> N
         interventions=(_intervention(),),
         active_models=(_model(gain=5.0),),
         challenger_models=(_model(status=EffectModelStatus.CHALLENGER, gain=12.0),),
+        invariants=_invariants(),
         divergence_threshold=5.0,
     )
 
@@ -175,6 +194,7 @@ def test_unmodeled_intervention_never_returns_complete_prediction() -> None:
         topology=_topology(),
         interventions=(_intervention(trigger_ref="ops.unknown"),),
         active_models=(_model(),),
+        invariants=_invariants(),
     )
 
     assert result.requires_review is True
@@ -188,6 +208,7 @@ def test_low_causal_grade_requires_review() -> None:
         topology=_topology(),
         interventions=(_intervention(),),
         active_models=(_model(grade=CausalEvidenceGrade.PREDICTIVE_PRECEDENCE),),
+        invariants=_invariants(),
     )
 
     assert result.requires_review is True
@@ -202,6 +223,7 @@ def test_interaction_term_is_applied_without_linear_assumption() -> None:
         topology=_topology(),
         interventions=(_intervention(), second),
         active_models=(_model(), cache_model),
+        invariants=_invariants(),
         interaction_terms=(
             EffectInteractionTerm(
                 "interaction:scale-cache",
@@ -231,6 +253,7 @@ def test_interaction_requires_every_upstream_trigger_to_be_modeled() -> None:
         topology=_topology(),
         interventions=(_intervention(), unknown),
         active_models=(_model(),),
+        invariants=_invariants(),
         interaction_terms=(
             EffectInteractionTerm(
                 "interaction:incomplete",
@@ -297,6 +320,7 @@ def test_path_frontier_is_bounded_and_marks_trajectory_truncated() -> None:
         topology=topology,
         interventions=(_intervention(),),
         active_models=(model,),
+        invariants=_invariants(),
     )
 
     assert result.requires_review is True
@@ -332,10 +356,47 @@ def test_cycle_or_missing_path_fails_toward_review() -> None:
         topology=cyclic,
         interventions=(_intervention(),),
         active_models=(cyclic_model,),
+        invariants=_invariants(),
     )
 
     assert result.requires_review is True
     assert "dependency_cycle_detected" in result.reason_codes
+
+
+def test_invariant_violation_requires_review_with_evaluated_result() -> None:
+    result = simulate_graph_effects(
+        baseline=_baseline(),
+        topology=_topology(),
+        interventions=(_intervention(),),
+        active_models=(_model(),),
+        invariants=_invariants(threshold=55.0),
+    )
+
+    assert result.requires_review is True
+    assert "dynamic_invariant_violated" in result.reason_codes
+    assert result.invariant_results[0].status is InvariantStatus.VIOLATED
+
+
+def test_unscorable_invariant_requires_review_with_exact_reason() -> None:
+    result = simulate_graph_effects(
+        baseline=_baseline(),
+        topology=_topology(),
+        interventions=(_intervention(),),
+        active_models=(_model(),),
+        invariants=(
+            DynamicInvariant(
+                invariant_id="capacity.unavailable",
+                metric="available_capacity",
+                operator=InvariantOperator.GREATER_THAN_OR_EQUAL,
+                threshold=1.0,
+            ),
+        ),
+    )
+
+    assert result.requires_review is True
+    assert "dynamic_invariant_unscorable" in result.reason_codes
+    assert result.invariant_results[0].status is InvariantStatus.UNSCORABLE
+    assert result.invariant_results[0].reason == "matching_state_unavailable"
 
 
 def test_graph_simulation_rejects_future_model_and_unsorted_topology() -> None:
@@ -345,6 +406,7 @@ def test_graph_simulation_rejects_future_model_and_unsorted_topology() -> None:
             topology=tuple(reversed(_topology())),
             interventions=(_intervention(),),
             active_models=(_model(),),
+            invariants=_invariants(),
         )
     with pytest.raises(ValueError, match="crosses the baseline evidence cutoff"):
         simulate_graph_effects(
@@ -352,6 +414,7 @@ def test_graph_simulation_rejects_future_model_and_unsorted_topology() -> None:
             topology=_topology(),
             interventions=(_intervention(),),
             active_models=(replace(_model(), learned_through=_NOW + timedelta(seconds=1)),),
+            invariants=_invariants(),
         )
 
 

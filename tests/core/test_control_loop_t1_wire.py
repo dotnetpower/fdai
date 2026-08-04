@@ -477,6 +477,18 @@ class _GraphDynamicCoordinator:
         )
 
 
+class _PassingDynamicCoordinator:
+    async def simulate(self, *, event, action):  # type: ignore[no-untyped-def]
+        return SimpleNamespace(
+            reason="simulation_completed",
+            simulation=SimpleNamespace(
+                simulation_id="simulation-1",
+                requires_review=False,
+                ordered_branch_ids=("branch-1",),
+            ),
+        )
+
+
 class _FailingAudit:
     async def append_audit_entry(self, entry):  # type: ignore[no-untyped-def]
         raise RuntimeError("audit unavailable")
@@ -585,6 +597,116 @@ async def test_dynamic_simulation_and_audit_double_failure_is_isolated(tmp_path:
     )
 
     await loop._simulate_and_audit_dynamic(event=event, t1=t1)  # noqa: SLF001
+
+
+async def test_dynamic_guard_passes_only_complete_audited_simulation(tmp_path: Path) -> None:
+    audit = InMemoryStateStore()
+    loop = _make_loop(
+        t1_engine=None,
+        audit=audit,
+        tmp_path=tmp_path,
+        dynamic_runtime_coordinator=_PassingDynamicCoordinator(),
+    )
+    event = EventIngest(validator=_validator()).ingest(_event_dict("evt-dynamic-pass"))
+    assert event is not None
+    t1 = T1Decision(
+        outcome=T1Outcome.REUSED,
+        event_id=str(event.event_id),
+        threshold=0.7,
+        best_match=SimilarityMatch(
+            action=LearnedAction(
+                signature="sig-pass",
+                rule_id="r1",
+                action_type="remediate.tag-add",
+                params={},
+                incident_id="inc-pass",
+                success_rate=0.9,
+            ),
+            score=0.9,
+        ),
+    )
+
+    decision = await loop._simulate_and_audit_dynamic(event=event, t1=t1)  # noqa: SLF001
+
+    assert decision.configured is True
+    assert decision.passed is True
+    assert decision.reasons == ()
+
+
+async def test_dynamic_guard_holds_when_decision_audit_fails(tmp_path: Path) -> None:
+    loop = _make_loop(
+        t1_engine=None,
+        audit=_FailingAudit(),  # type: ignore[arg-type]
+        tmp_path=tmp_path,
+        dynamic_runtime_coordinator=_PassingDynamicCoordinator(),
+    )
+    event = EventIngest(validator=_validator()).ingest(_event_dict("evt-dynamic-audit-hold"))
+    assert event is not None
+    t1 = T1Decision(
+        outcome=T1Outcome.REUSED,
+        event_id=str(event.event_id),
+        threshold=0.7,
+        best_match=SimilarityMatch(
+            action=LearnedAction(
+                signature="sig-audit-hold",
+                rule_id="r1",
+                action_type="remediate.tag-add",
+                params={},
+                incident_id="inc-audit-hold",
+                success_rate=0.9,
+            ),
+            score=0.9,
+        ),
+    )
+
+    decision = await loop._simulate_and_audit_dynamic(event=event, t1=t1)  # noqa: SLF001
+
+    assert decision.passed is False
+    assert decision.reasons == ("scalar_simulation_audit_failed",)
+
+
+async def test_configured_dynamic_gap_holds_before_t1_risk_routing(tmp_path: Path) -> None:
+    audit = InMemoryStateStore()
+    learned = LearnedAction(
+        signature="sig-route-hold",
+        rule_id="r1",
+        action_type="remediate.tag-add",
+        params={},
+        incident_id="inc-route-hold",
+        success_rate=0.9,
+    )
+    t1 = T1Decision(
+        outcome=T1Outcome.REUSED,
+        event_id="event-route-hold",
+        threshold=0.7,
+        best_match=SimilarityMatch(action=learned, score=0.9),
+        current_reuse_verification=_current_verification(),
+    )
+    engine = SimpleNamespace(evaluate=AsyncMock(return_value=t1))
+    loop = _make_loop(
+        t1_engine=engine,  # type: ignore[arg-type]
+        audit=audit,
+        tmp_path=tmp_path,
+        dynamic_runtime_coordinator=_DynamicCoordinator(),
+    )
+    route = AsyncMock()
+    loop._route_t1_reuse = route  # type: ignore[method-assign]
+    event = EventIngest(validator=_validator()).ingest(_event_dict("evt-route-hold"))
+    assert event is not None
+
+    result = await loop._evaluate_fallback_tiers(  # noqa: SLF001
+        event=event,
+        decision=RoutingDecision(tier=RoutingTier.T1, resource_type="compute.vm.novel"),
+        citing=(),
+        cs_decision=None,
+        event_id=str(event.event_id),
+        correlation_id=str(event.event_id),
+    )
+
+    assert result is not None
+    assert result.outcome is ControlLoopOutcome.HIL
+    assert result.reason == "dynamic_guard:simulation_request_unavailable"
+    route.assert_not_awaited()
 
 
 async def test_graph_only_dynamic_simulation_is_shadow_audited(tmp_path: Path) -> None:

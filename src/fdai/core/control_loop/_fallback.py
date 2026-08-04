@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -34,6 +35,13 @@ _T2_OUTCOME_MAP: Mapping[T2Outcome, ControlLoopOutcome] = {
     T2Outcome.ABSTAIN: ControlLoopOutcome.T2_ABSTAINED,
 }
 _LOGGER = logging.getLogger("fdai.core.control_loop.fallback")
+
+
+@dataclass(frozen=True, slots=True)
+class DynamicGuardDecision:
+    configured: bool
+    passed: bool
+    reasons: tuple[str, ...] = ()
 
 
 class ControlLoopFallbackMixin:
@@ -93,21 +101,31 @@ class ControlLoopFallbackMixin:
         self, *, event: Event, decision: RoutingDecision, t2: T2Decision
     ) -> None: ...
 
-    async def _simulate_and_audit_dynamic(self, *, event: Event, t1: T1Decision) -> None:
+    async def _simulate_and_audit_dynamic(
+        self,
+        *,
+        event: Event,
+        t1: T1Decision,
+    ) -> DynamicGuardDecision:
         coordinator = self._dynamic_runtime_coordinator
         if t1.best_match is None:
-            return
+            return DynamicGuardDecision(False, True)
         if coordinator is None:
-            await self._simulate_and_audit_graph_dynamic(event=event, t1=t1)
-            return
+            return await self._simulate_and_audit_graph_dynamic(event=event, t1=t1)
+        reasons: list[str] = []
         try:
             result = await coordinator.simulate(event=event, action=t1.best_match.action)
-        except Exception as exc:  # noqa: BLE001 - simulation never changes fallback
+        except Exception as exc:  # noqa: BLE001 - fail closed into Dynamic hold
             simulation = None
             reason = f"simulation_failed:{type(exc).__name__}"
+            reasons.append(reason)
         else:
             simulation = result.simulation
             reason = result.reason
+            if simulation is None:
+                reasons.append(reason)
+            elif simulation.requires_review:
+                reasons.append("scalar_simulation_requires_review")
         entry = {
             "event_id": str(event.event_id),
             "correlation_id": event.correlation_id or str(event.event_id),
@@ -123,7 +141,8 @@ class ControlLoopFallbackMixin:
         }
         try:
             await self._audit_store.append_audit_entry(entry)
-        except Exception:  # noqa: BLE001 - optional side-path audit is best-effort
+        except Exception:  # noqa: BLE001 - missing decision evidence must hold
+            reasons.append("scalar_simulation_audit_failed")
             _LOGGER.warning(
                 "dynamic_simulation_audit_failed",
                 extra={
@@ -132,25 +151,34 @@ class ControlLoopFallbackMixin:
                 },
                 exc_info=True,
             )
-        await self._simulate_and_audit_graph_dynamic(event=event, t1=t1)
+        graph = await self._simulate_and_audit_graph_dynamic(event=event, t1=t1)
+        reasons.extend(graph.reasons)
+        normalized = tuple(sorted(set(reasons)))
+        return DynamicGuardDecision(True, not normalized, normalized)
 
     async def _simulate_and_audit_graph_dynamic(
         self,
         *,
         event: Event,
         t1: T1Decision,
-    ) -> None:
+    ) -> DynamicGuardDecision:
         coordinator = self._graph_dynamic_runtime_coordinator
         if coordinator is None or t1.best_match is None:
-            return
+            return DynamicGuardDecision(False, True)
+        reasons: list[str] = []
         try:
             result = await coordinator.simulate(event=event, action=t1.best_match.action)
-        except Exception as exc:  # noqa: BLE001 - simulation remains evidence only
+        except Exception as exc:  # noqa: BLE001 - fail closed into Dynamic hold
             simulation = None
             reason = f"graph_simulation_failed:{type(exc).__name__}"
+            reasons.append(reason)
         else:
             simulation = result.simulation
             reason = result.reason
+            if simulation is None:
+                reasons.append(reason)
+            elif simulation.requires_review:
+                reasons.extend(simulation.reason_codes or ("graph_simulation_requires_review",))
         entry = {
             "event_id": str(event.event_id),
             "correlation_id": event.correlation_id or str(event.event_id),
@@ -170,12 +198,15 @@ class ControlLoopFallbackMixin:
         }
         try:
             await self._audit_store.append_audit_entry(entry)
-        except Exception:  # noqa: BLE001 - optional side-path audit is best-effort
+        except Exception:  # noqa: BLE001 - missing decision evidence must hold
+            reasons.append("graph_simulation_audit_failed")
             _LOGGER.warning(
                 "graph_dynamic_simulation_audit_failed",
                 extra={"event_id": str(event.event_id), "simulation_reason": reason},
                 exc_info=True,
             )
+        normalized = tuple(sorted(set(reasons)))
+        return DynamicGuardDecision(True, not normalized, normalized)
 
     async def _routing_hold(
         self,
@@ -243,7 +274,24 @@ class ControlLoopFallbackMixin:
             )
             await self._write_t1_audit(event=event, decision=decision, t1=t1_decision)
             if t1_decision.outcome is T1Outcome.REUSED:
-                await self._simulate_and_audit_dynamic(event=event, t1=t1_decision)
+                dynamic_guard = await self._simulate_and_audit_dynamic(
+                    event=event,
+                    t1=t1_decision,
+                )
+                if dynamic_guard.configured and not dynamic_guard.passed:
+                    return await self._routing_hold(
+                        event=event,
+                        decision=decision,
+                        tier="t1",
+                        reason=f"dynamic_guard:{','.join(dynamic_guard.reasons)}",
+                        citing_rule_ids=(
+                            (t1_decision.best_match.action.rule_id,)
+                            if t1_decision.best_match is not None
+                            else citing
+                        ),
+                        cs_decision=cs_decision,
+                        t1_decision=t1_decision,
+                    )
                 routed = await self._route_t1_reuse(
                     event=event,
                     decision=decision,

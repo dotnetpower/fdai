@@ -40,6 +40,13 @@ from fdai.core.assurance_twin.fidelity import (
     FidelityStat,
     SimulationFidelityLedger,
 )
+from fdai.core.assurance_twin.graph_closure import (
+    GraphClosureReport,
+    GraphDynamicClosureCoordinator,
+    GraphDynamicClosureRunner,
+    GraphTrajectoryOutcomeSource,
+    TrajectoryClosureCommand,
+)
 from fdai.core.assurance_twin.graph_effect import (
     EffectInteractionTerm,
     GraphDynamicSimulationResult,
@@ -120,6 +127,11 @@ from fdai.core.assurance_twin.state_trajectory import (
     close_trajectory_outcome,
     evaluate_dynamic_invariants,
 )
+from fdai.core.assurance_twin.trajectory_ledger import (
+    StateStoreTrajectoryEpisodeLedger,
+    TrajectoryClosure,
+    TrajectoryEpisodeConflictError,
+)
 
 __all__ = [
     "AbstainCode",
@@ -146,6 +158,9 @@ __all__ = [
     "GraphDynamicSimulationRequest",
     "GraphDynamicSimulationRequestProvider",
     "GraphChallengerUpdate",
+    "GraphClosureReport",
+    "GraphDynamicClosureCoordinator",
+    "GraphDynamicClosureRunner",
     "GraphEffectModel",
     "GraphEffectModelCausalEvidenceVerifier",
     "GraphEffectModelReader",
@@ -153,6 +168,7 @@ __all__ = [
     "GraphRegistryUpdate",
     "GraphIntervention",
     "GraphTopologyEdge",
+    "GraphTrajectoryOutcomeSource",
     "InMemoryProjection",
     "InvariantOperator",
     "InvariantResult",
@@ -177,8 +193,12 @@ __all__ = [
     "SimulationSnapshot",
     "StateStoreEffectModelRegistry",
     "StateStoreGraphEffectModelRegistry",
+    "StateStoreTrajectoryEpisodeLedger",
     "StateSlice",
     "TrajectoryKind",
+    "TrajectoryClosure",
+    "TrajectoryClosureCommand",
+    "TrajectoryEpisodeConflictError",
     "TrajectoryOutcome",
     "TrajectoryOutcomeStatus",
     "TypedQuery",

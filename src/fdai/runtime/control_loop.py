@@ -20,7 +20,11 @@ from fdai.core.architecture_review import (
     ArchitectureReviewProductionGateEvaluator,
     ArchitectureReviewProjector,
 )
-from fdai.core.assurance_twin import DynamicRuntimeCoordinator, GraphDynamicRuntimeCoordinator
+from fdai.core.assurance_twin import (
+    DynamicRuntimeCoordinator,
+    GraphDynamicRuntimeCoordinator,
+    StateStoreTrajectoryEpisodeLedger,
+)
 from fdai.core.chaos.symptom_index import SymptomIndex, build_from_promoted
 from fdai.core.control_loop import ControlLoop
 from fdai.core.event_ingest import EventCorrelator, EventIngest
@@ -647,6 +651,7 @@ def _build_control_loop(
             request_provider=container.graph_dynamic_simulation_request_provider,
             model_reader=container.graph_effect_model_reader,
             causal_evidence_verifier=container.graph_effect_model_causal_evidence_verifier,
+            trajectory_ledger=StateStoreTrajectoryEpisodeLedger(audit_store),
         )
 
     process_runtime_store = _build_process_store()

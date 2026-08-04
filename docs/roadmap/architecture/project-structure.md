@@ -68,7 +68,7 @@ fdai/
 │   │   ├── mscp_profile/       # pure mscp-operational-v1 provenance, effect verification, cycle guard, and runtime-integrity policies; no execution authority
 │   │   ├── deploy_preflight/   # pre-deployment feasibility probes → grounded readiness report
 │   │   ├── readiness/          # operational handoff + startup and monitored-target readiness contracts, fail-closed reducers, evidence expiry, and authority ceilings
-│   │   ├── assurance_twin/     # read-only ontology twin: text-to-query, scalar/graph active-challenger models, state trajectories, invariants, deterministic branch simulation, and outcome closure (never executes)
+│   │   ├── assurance_twin/     # read-only ontology twin: text-to-query, scalar/graph active-challenger models, required invariants, durable trajectory episodes, deterministic simulation, and off-path outcome closure (never executes or promotes)
 │   │   ├── ontology_platform/   # exact releases, semantic interfaces, bounded object sets, mutation plans, typed functions, reconciliation, and proposal-only SDK generation
 │   │   ├── conversation/       # Bragi-owned model-free screen T0, operator-console intent/tool coordination, conflict-aware read plans, grounded narration, per-turn isolation, durable delivery, and busy-input arbitration
 │   │   ├── user_context_projection.py  # metadata-only principal context / workflow binding projection into runtime ontology

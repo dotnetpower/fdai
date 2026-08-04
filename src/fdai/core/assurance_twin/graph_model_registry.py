@@ -77,7 +77,10 @@ class StateStoreGraphEffectModelRegistry:
         models = tuple(_deserialize(row) for row in rows)
         if any(observation.digest in model.applied_observation_digests for model in models):
             return GraphRegistryUpdate(False, "observation_already_applied")
-        matches = tuple(model for model in models if model.ref == observation.model_ref)
+        observation_lineage = observation.model_ref.rsplit(":r", maxsplit=1)[0]
+        matches = tuple(
+            model for model in models if f"{model.model_id}@{model.version}" == observation_lineage
+        )
         if len(matches) != 1:
             return GraphRegistryUpdate(False, "challenger_not_found_or_ambiguous")
         current = matches[0]

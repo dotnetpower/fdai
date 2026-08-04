@@ -294,6 +294,13 @@ def close_trajectory_outcome(
             TrajectoryOutcomeStatus.UNSCORABLE,
             reason="trajectory_identity_mismatch",
         )
+    if not predicted.complete or predicted.truncated:
+        return _outcome(
+            predicted,
+            observed,
+            TrajectoryOutcomeStatus.UNSCORABLE,
+            reason="prediction_incomplete",
+        )
     if observed.censoring_refs:
         return _outcome(
             predicted,

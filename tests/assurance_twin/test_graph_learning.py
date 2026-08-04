@@ -42,6 +42,8 @@ def _observation(model: GraphEffectModel) -> GraphModelLearningObservation:
         model_ref=model.ref,
         prediction_digest="b" * 64,
         observation_digest="c" * 64,
+        object_ref="service:checkout",
+        metric="latency",
         predicted_value=60.0,
         observed_value=66.0,
         observed_at=_NOW + timedelta(minutes=1),

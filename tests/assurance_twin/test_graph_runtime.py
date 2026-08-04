@@ -6,12 +6,14 @@ import pytest
 
 from fdai.core.assurance_twin import (
     CausalEvidenceGrade,
+    DynamicInvariant,
     EffectModelStatus,
     GraphDynamicRuntimeCoordinator,
     GraphDynamicSimulationRequest,
     GraphEffectModel,
     GraphIntervention,
     GraphTopologyEdge,
+    InvariantOperator,
     OperationalStateTrajectory,
     StateSlice,
     TrajectoryKind,
@@ -101,6 +103,15 @@ def _request() -> GraphDynamicSimulationRequest:
                 _NOW,
             ),
         ),
+        invariants=(
+            DynamicInvariant(
+                invariant_id="slo.api.latency",
+                metric="latency",
+                operator=InvariantOperator.LESS_THAN_OR_EQUAL,
+                threshold=100.0,
+                target_ref="service:api",
+            ),
+        ),
     )
 
 
@@ -152,6 +163,15 @@ class _Evidence:
         return self.accepted and model.causal_evidence_receipt_digest == "b" * 64
 
 
+class _Ledger:
+    def __init__(self) -> None:
+        self.calls = []
+
+    async def record_prediction(self, predicted, **kwargs):  # type: ignore[no-untyped-def]
+        self.calls.append((predicted, kwargs))
+        return True
+
+
 async def test_graph_runtime_loads_verified_models_and_simulates() -> None:
     coordinator = GraphDynamicRuntimeCoordinator(
         request_provider=_Provider(_request()),
@@ -169,6 +189,25 @@ async def test_graph_runtime_loads_verified_models_and_simulates() -> None:
         if item.effective_at == _NOW + timedelta(seconds=10)
     )
     assert predicted.value == 55.0
+
+
+async def test_graph_runtime_records_prediction_for_challenger_closure() -> None:
+    ledger = _Ledger()
+    coordinator = GraphDynamicRuntimeCoordinator(
+        request_provider=_Provider(_request()),
+        model_reader=_Models(),
+        causal_evidence_verifier=_Evidence(),
+        trajectory_ledger=ledger,  # type: ignore[arg-type]
+    )
+
+    result = await coordinator.simulate(event=_event(), action=_action())
+
+    assert result.simulation is not None
+    assert len(ledger.calls) == 1
+    predicted, metadata = ledger.calls[0]
+    assert predicted == result.simulation.active_trajectory
+    assert metadata["challenger_model_refs"] == ("graph-challenger@1.0.0:r1",)
+    assert metadata["recorded_by"] == "Forseti"
 
 
 async def test_graph_runtime_holds_when_request_is_unavailable() -> None:
@@ -193,3 +232,15 @@ async def test_graph_runtime_rejects_unverified_model_receipt() -> None:
 
     with pytest.raises(ValueError, match="causal evidence is unverified"):
         await coordinator.simulate(event=_event(), action=_action())
+
+
+def test_graph_request_rejects_empty_invariants() -> None:
+    request = _request()
+
+    with pytest.raises(ValueError, match="non-empty, unique, and bounded"):
+        GraphDynamicSimulationRequest(
+            baseline=request.baseline,
+            topology=request.topology,
+            interventions=request.interventions,
+            invariants=(),
+        )

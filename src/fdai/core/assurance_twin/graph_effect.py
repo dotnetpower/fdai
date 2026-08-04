@@ -10,15 +10,20 @@ from datetime import UTC, datetime, timedelta
 
 from fdai.core.assurance_twin.effect_model import CausalEvidenceGrade, EffectModelStatus
 from fdai.core.assurance_twin.state_trajectory import (
+    DynamicInvariant,
+    InvariantResult,
+    InvariantStatus,
     OperationalStateTrajectory,
     StateSlice,
     TrajectoryKind,
+    evaluate_dynamic_invariants,
 )
 
 _DIGEST = re.compile(r"^(?:sha256:)?[a-f0-9]{64}$")
 _MAX_EDGES = 4096
 _MAX_MODELS = 256
 _MAX_INTERVENTIONS = 32
+_MAX_INVARIANTS = 256
 _MAX_PATH_DEPTH = 5
 _MAX_PATH_FRONTIER = 4096
 
@@ -168,6 +173,7 @@ class EffectInteractionTerm:
 class GraphDynamicSimulationResult:
     active_trajectory: OperationalStateTrajectory
     challenger_trajectory: OperationalStateTrajectory | None
+    invariant_results: tuple[InvariantResult, ...]
     requires_review: bool
     reason_codes: tuple[str, ...]
     max_divergence: float | None
@@ -181,6 +187,7 @@ def simulate_graph_effects(
     active_models: tuple[GraphEffectModel, ...],
     challenger_models: tuple[GraphEffectModel, ...] = (),
     interaction_terms: tuple[EffectInteractionTerm, ...] = (),
+    invariants: tuple[DynamicInvariant, ...],
     divergence_threshold: float = 0.0,
     max_slices: int = 4096,
 ) -> GraphDynamicSimulationResult:
@@ -192,6 +199,7 @@ def simulate_graph_effects(
         interventions=interventions,
         active_models=active_models,
         challenger_models=challenger_models,
+        invariants=invariants,
         divergence_threshold=divergence_threshold,
         max_slices=max_slices,
     )
@@ -225,10 +233,16 @@ def simulate_graph_effects(
         for model in active_models
     ):
         reasons.append("causal_evidence_below_quasi_experimental")
+    invariant_results = evaluate_dynamic_invariants(active, invariants)
+    if any(item.status is InvariantStatus.VIOLATED for item in invariant_results):
+        reasons.append("dynamic_invariant_violated")
+    if any(item.status is InvariantStatus.UNSCORABLE for item in invariant_results):
+        reasons.append("dynamic_invariant_unscorable")
     normalized_reasons = tuple(sorted(set(reasons)))
     return GraphDynamicSimulationResult(
         active_trajectory=active,
         challenger_trajectory=challenger,
+        invariant_results=invariant_results,
         requires_review=bool(normalized_reasons),
         reason_codes=normalized_reasons,
         max_divergence=divergence,
@@ -400,6 +414,7 @@ def _validate_request(
     interventions: tuple[GraphIntervention, ...],
     active_models: tuple[GraphEffectModel, ...],
     challenger_models: tuple[GraphEffectModel, ...],
+    invariants: tuple[DynamicInvariant, ...],
     divergence_threshold: float,
     max_slices: int,
 ) -> None:
@@ -411,6 +426,8 @@ def _validate_request(
         raise ValueError("graph topology MUST use deterministic order")
     if not interventions or len(interventions) > _MAX_INTERVENTIONS:
         raise ValueError(f"graph interventions MUST contain 1..{_MAX_INTERVENTIONS} values")
+    if not invariants or len(invariants) > _MAX_INVARIANTS:
+        raise ValueError(f"graph invariants MUST contain 1..{_MAX_INVARIANTS} values")
     if (
         not active_models
         or len(active_models) > _MAX_MODELS

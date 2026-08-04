@@ -1,7 +1,7 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: 31dd541bd5c4a7f3a28bcde21f9e87a8816bf996
+translation_source_sha: 98b7760f67401e97cdfcd6ba1364bc0e580a90aa
 translation_revised: 2026-08-04
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
@@ -49,10 +49,13 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 > read-only Twin adapter가 있습니다. 누락되거나 future-cutoff인 model은 unscorable이며 divergence는
 > candidate를 review 대상으로 표시합니다. Adapter는 evidence만 만들고 execution을 선택하지 않습니다.
 > Dynamic V2는 immutable operational state trajectory, bounded typed-path propagation,
-> interaction term, trajectory-wide invariant, independent outcome closure, graph runtime
-> coordinator 및 durable active/challenger graph-model registry를 추가합니다. Control loop는
-> 명시적으로 injected graph coordinator를 받아 shadow evidence만 기록하며 production graph request와
-> model adapter는 deployment binding으로 남습니다.
+> interaction term, active trajectory에서 평가되는 필수 trajectory-wide invariant, independent
+> outcome closure, graph runtime coordinator, StateStore trajectory-episode ledger, off-path
+> closure runner 및 durable active/challenger graph-model registry를 추가합니다. Closure runner는
+> complete matched 또는 mismatched independent observation의 challenger slice만 update하고 active
+> model을 mutate하거나 promote하지 않았음을 audit합니다. Control loop는 명시적으로 injected graph
+> coordinator를 받아 shadow evidence만 기록하며 production graph request, model 및 observed-trajectory
+> source adapter는 deployment binding으로 남습니다.
 
 ## 왜 챗봇이 아닌가
 
@@ -189,6 +192,22 @@ remediation-PR 제안**을 붙일 수 있습니다. 그것에 대해 행동하�
   model 누락, 낮은 evidence 또는 divergence는 review를 요구하며 T1 caller는 abstain 상태를 유지하고
   learned action을 정상 re-verification 경로로 보냅니다.
 
+### 운영 binding 및 guard
+
+`FDAI_DYNAMIC_CONFIG_JSON`은 배포된 core runtime에서 scalar Dynamic을 활성화합니다. Strict
+object는 ActionType별 metric, objective, effect delta, uncertainty, divergence 및 freshness 설정,
+exact active/challenger model record, causal receipt digest allowlist를 포함합니다. Startup은 partial
+field, unknown field, 누락된 model pair, 충돌하는 durable model 또는 allowlist에 없는 receipt를 가진
+model을 차단합니다. 이 설정이 없으면 Dynamic은 명시적으로 unavailable 상태를 유지하고 기존
+deterministic routing은 변경되지 않습니다.
+
+Azure adapter는 promoted inventory evidence의 `operational_context.metric_values`를 읽고 bounded
+action branch 하나를 만듭니다. Active/challenger model은 durable StateStore registry에서 가져옵니다.
+Configured Dynamic simulation은 T1 reuse가 안전성 검토에 들어가기 전 lower-only guard가 됩니다.
+Unavailable request, missing model, divergence, graph review reason, invariant failure 또는 누락된
+Dynamic audit evidence는 사람 검토로 라우팅됩니다. Prediction은 action을 승인하거나 autonomy
+ceiling을 높일 수 없습니다.
+
 ### Graph-wide temporal Dynamic
 
 기존 action/metric model은 첫 번째 Dynamic layer로 유지됩니다. Graph-wide simulation은 이를
@@ -204,12 +223,21 @@ action effect를 linear sum으로 취급하지 않게 합니다. Model 누락, s
 baseline, truncation, 낮은 causal grade 또는 active/challenger divergence는 review를 요구합니다.
 Challenger prediction은 branch 순위를 정하지 않습니다.
 
-Trajectory invariant는 predicted unsafe branch를 arbitration 전에 제거합니다. 실행 중 observed
+모든 graph simulation request는 비어 있지 않고 bounded인 invariant tuple을 전달합니다. Simulator는
+각 invariant를 active trajectory에서 평가하고 정확한 invariant별 결과를 반환합니다. Violation 또는
+unscorable invariant는 stable review reason을 추가하며 authority를 높일 수 없습니다. 실행 중 observed
 invariant violation은 실행 중 plan을 rewrite할 수 없으며 forward dispatch를 중지하고 기존 typed
-recovery path에 다시 진입합니다. Heimdall의 complete independent observation은 trajectory를
-matched, mismatched, intervention-censored, incomplete 또는 unscorable로 종료합니다. Complete한
-post-cutoff observation만 durable challenger registry를 update할 수 있습니다. Active graph model은
-별도의 reviewed promotion evidence가 적용될 때까지 immutable 상태를 유지합니다.
+recovery path에 다시 진입합니다.
+
+Graph runtime은 simulation evidence를 반환하기 전에 predicted digest, exact trajectory 및 challenger
+model reference를 StateStore trajectory ledger에 기록합니다. Heimdall의 complete independent observation은 `close_trajectory_outcome`을
+통해 episode를 matched 또는 mismatched로 종료합니다. Identity mismatch, censoring, incompleteness 및
+unscorable comparison은 episode를 open 상태로 두며 model을 update하지 않습니다. 동일한 closure replay는
+no-op이고 conflicting replay는 fail closed됩니다. Off-path graph closure runner는 complete comparable
+challenger slice에 대해서만 learning observation을 만들고 `StateStoreGraphEffectModelRegistry`를 통해
+적용합니다. Active graph model은 별도의 reviewed promotion evidence가 적용될 때까지 immutable 상태를
+유지합니다. Production independent observed-trajectory source가 아직 binding되지 않았으므로 기존 growth
+job은 이 runner를 아직 호출하지 않습니다.
 
 ## Assessment 리포트 (구독 자세, 온디맨드)
 
@@ -292,6 +320,9 @@ source coverage는 control 실패가 아니라 `unknown` 또는 `unavailable`로
 | `review` | Precomputed finding을 `IacReviewPublisher`로 게시합니다. Change-signal 평가와 production publisher는 목표 binding입니다. |
 | `report` | Finding으로부터 `PostureAssessmentReport` 를 조립 |
 | `chat` | Immutable grounded chat-session 값과 persistence Protocol을 제공합니다. Browser 또는 delivery binding은 없습니다. |
+| `graph_effect` / `graph_runtime` | Bounded graph effect를 propagate하고 필수 active-trajectory invariant를 평가하며 review-only simulation evidence를 반환합니다. |
+| `trajectory_ledger` | Predicted trajectory episode를 persist하고 complete comparable outcome만 StateStore를 통해 atomically close합니다. |
+| `graph_closure` | Independent observation을 off-path로 drain하고 challenger slice를 update하며 active mutation과 promotion이 없었음을 audit합니다. |
 
 목표 delivery는 기존 `chatops` 어댑터에 인텐트 하나를 추가하고(질문 입력, 근거 있는 답 출력)
 제안과 Checks API 리뷰에 `gitops-pr` 어댑터를 재사용합니다. 현재 repository에는

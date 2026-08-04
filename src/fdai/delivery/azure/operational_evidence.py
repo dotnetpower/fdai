@@ -6,7 +6,7 @@ import hashlib
 import json
 import math
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Literal, Protocol
 
@@ -42,6 +42,7 @@ class AzureOperationalSnapshot:
     owner_digest: str
     observed_at: datetime
     evidence_refs: tuple[str, ...]
+    metric_values: Mapping[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.resource_ref or not self.resource_type:
@@ -55,6 +56,15 @@ class AzureOperationalSnapshot:
             raise ValueError("Azure operational snapshot evidence refs MUST be bounded")
         if len(set(self.evidence_refs)) != len(self.evidence_refs):
             raise ValueError("Azure operational snapshot evidence refs MUST be unique")
+        if any(
+            not isinstance(name, str)
+            or not name
+            or not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not math.isfinite(float(value))
+            for name, value in self.metric_values.items()
+        ):
+            raise ValueError("Azure operational snapshot metric values MUST be finite numbers")
         for name, values in (
             ("topology_roles", self.topology_roles),
             ("ownership_shape", self.ownership_shape),
@@ -90,7 +100,7 @@ class AzureCachedOperationalSnapshotSource:
         context = props.get("operational_context")
         if not isinstance(context, Mapping):
             raise ValueError("Azure inventory context lacks operational_context")
-        expected = {
+        required = {
             "topology_roles",
             "ownership_shape",
             "graph_digest",
@@ -98,7 +108,7 @@ class AzureCachedOperationalSnapshotSource:
             "observed_at",
             "evidence_refs",
         }
-        if set(context) != expected:
+        if set(context) not in {frozenset(required), frozenset((*required, "metric_values"))}:
             raise ValueError("Azure inventory operational_context has unexpected fields")
         resource_id = value.get("resource_id")
         resource_type = value.get("resource_type")
@@ -113,6 +123,7 @@ class AzureCachedOperationalSnapshotSource:
             owner_digest=_required_string(context, "owner_digest"),
             observed_at=_timestamp(context, "observed_at"),
             evidence_refs=_string_tuple(context, "evidence_refs"),
+            metric_values=_metric_values(context) if "metric_values" in context else {},
         )
 
 
@@ -413,6 +424,58 @@ class AzureBranchEstimator(Protocol):
     ) -> tuple[SimulationBranch, ...]: ...
 
 
+@dataclass(frozen=True, slots=True)
+class AzureConfiguredBranchEffect:
+    metric: str
+    delta: float
+    interval_radius: float
+
+    def __post_init__(self) -> None:
+        if (
+            not self.metric
+            or not math.isfinite(self.delta)
+            or not math.isfinite(self.interval_radius)
+            or self.interval_radius < 0.0
+        ):
+            raise ValueError("Azure configured branch effect MUST be finite and bounded")
+
+
+class AzureConfiguredBranchEstimator:
+    """Build one action branch from observed metric state and reviewed effect config."""
+
+    def __init__(self, effects: Mapping[str, AzureConfiguredBranchEffect]) -> None:
+        if not effects or len(effects) > 64:
+            raise ValueError("Azure configured branch effects MUST contain 1..64 entries")
+        self._effects = dict(effects)
+
+    async def estimate(
+        self,
+        *,
+        event: Event,
+        action: LearnedAction,
+        snapshot: AzureOperationalSnapshot,
+        metric: str,
+    ) -> tuple[SimulationBranch, ...]:
+        del event
+        effect = self._effects.get(action.action_type)
+        if effect is None or effect.metric != metric:
+            raise ValueError("Azure Dynamic branch effect is unavailable or mismatched")
+        baseline = snapshot.metric_values.get(metric)
+        if baseline is None:
+            raise ValueError("Azure Dynamic observed metric is unavailable")
+        prediction = float(baseline) + effect.delta
+        if not math.isfinite(prediction):
+            raise ValueError("Azure Dynamic configured prediction MUST remain finite")
+        return (
+            SimulationBranch(
+                branch_id=f"action:{action.action_type}",
+                action_type_id=action.action_type,
+                raw_prediction=prediction,
+                raw_interval_radius=effect.interval_radius,
+            ),
+        )
+
+
 class AzureDynamicSimulationRequestProvider:
     """Build bounded Dynamic requests from current Azure snapshots."""
 
@@ -579,6 +642,26 @@ def _string_tuple(value: Mapping[str, object], key: str) -> tuple[str, ...]:
     return tuple(item)
 
 
+def _metric_values(value: Mapping[str, object]) -> Mapping[str, float]:
+    item = value.get("metric_values")
+    if not isinstance(item, Mapping) or not item or len(item) > 64:
+        raise ValueError("Azure inventory operational_context metric_values MUST be bounded")
+    values: dict[str, float] = {}
+    for name, raw in item.items():
+        if (
+            not isinstance(name, str)
+            or not name
+            or not isinstance(raw, (int, float))
+            or isinstance(raw, bool)
+            or not math.isfinite(float(raw))
+        ):
+            raise ValueError(
+                "Azure inventory operational_context metric_values MUST contain finite numbers"
+            )
+        values[name] = float(raw)
+    return values
+
+
 def _timestamp(value: Mapping[str, object], key: str) -> datetime:
     text = _required_string(value, key)
     parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
@@ -590,6 +673,8 @@ def _timestamp(value: Mapping[str, object], key: str) -> datetime:
 __all__ = [
     "AzureBranchEstimator",
     "AzureCachedOperationalSnapshotSource",
+    "AzureConfiguredBranchEffect",
+    "AzureConfiguredBranchEstimator",
     "AzureCurrentReuseVerifier",
     "AzureDynamicPolicy",
     "AzureDynamicSimulationRequestProvider",

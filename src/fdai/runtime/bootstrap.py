@@ -108,6 +108,7 @@ from fdai.runtime.control_loop import (
     _load_resource_types,
 )
 from fdai.runtime.delivery import _build_incident_notifier
+from fdai.runtime.dynamic_evidence import bind_dynamic_evidence_from_env
 from fdai.runtime.forecast_learning import (
     ForecastLearningRuntime,
     build_forecast_learning_runtime,
@@ -396,6 +397,11 @@ async def _run() -> int:
                     },
                 )
 
+            container = await bind_dynamic_evidence_from_env(
+                container,
+                state_store=incident_audit_store,
+                environ=os.environ,
+            )
             control_loop = _build_control_loop(
                 container,
                 http_client=http_client,
