@@ -17,6 +17,9 @@ class _RecordingIndex:
         self.documents = tuple(documents)
         return len(self.documents)
 
+    async def synchronize(self, documents: Sequence[CatalogSearchDocument]) -> int:
+        return await self.upsert(documents)
+
     async def search(self, query: str, *, k: int = 20) -> Sequence[CatalogSearchResult]:
         return ()
 

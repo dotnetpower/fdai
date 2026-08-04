@@ -128,6 +128,28 @@ class PgvectorCatalogSemanticIndex(CatalogSemanticIndex):
                     changed += 1
         return changed
 
+    async def synchronize(self, documents: Sequence[CatalogSearchDocument]) -> int:
+        changed = await self.upsert(documents)
+        expected_ids = [document.rule_id for document in documents]
+        dsn = await self._secrets.get(self._config.dsn_secret)
+        table = self._config.table
+        async with await psycopg.AsyncConnection.connect(
+            dsn,
+            row_factory=dict_row,
+            connect_timeout=self._config.connect_timeout_s,
+        ) as connection:
+            async with connection.transaction():
+                await self._set_session_knobs(connection)
+                if expected_ids:
+                    cursor = await connection.execute(
+                        f"DELETE FROM {table} WHERE NOT (rule_id = ANY(%s))",  # noqa: S608
+                        (expected_ids,),
+                    )
+                else:
+                    cursor = await connection.execute(f"DELETE FROM {table}")  # noqa: S608
+                removed = cursor.rowcount or 0
+        return changed + removed
+
     async def search(self, query: str, *, k: int = 20) -> Sequence[CatalogSearchResult]:
         normalized_query = query.strip()
         if not normalized_query or k <= 0:

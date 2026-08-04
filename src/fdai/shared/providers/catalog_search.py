@@ -36,6 +36,10 @@ class CatalogSearchResult:
 class CatalogSemanticIndex(Protocol):
     async def upsert(self, documents: Sequence[CatalogSearchDocument]) -> int: ...
 
+    async def synchronize(self, documents: Sequence[CatalogSearchDocument]) -> int:
+        """Replace the indexed corpus and return changed plus removed rows."""
+        ...
+
     async def search(self, query: str, *, k: int = 20) -> Sequence[CatalogSearchResult]: ...
 
 

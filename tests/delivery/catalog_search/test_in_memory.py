@@ -42,6 +42,19 @@ async def test_hybrid_index_retrieves_bilingual_semantic_intent() -> None:
     assert exact[0].match == "exact_id"
 
 
+async def test_synchronize_removes_rules_absent_from_current_corpus() -> None:
+    index = InMemoryCatalogSemanticIndex()
+    stale = CatalogSearchDocument("rule.stale", "stale rule", ("resource.one",))
+    current = CatalogSearchDocument("rule.current", "current rule", ("resource.one",))
+    assert await index.synchronize((stale, current)) == 2
+
+    assert await index.synchronize((current,)) == 1
+
+    stale_results = await index.search("rule.stale")
+    assert all(item.rule_id != "rule.stale" for item in stale_results)
+    assert (await index.search("rule.current"))[0].rule_id == "rule.current"
+
+
 async def test_hybrid_index_breaks_equal_scores_by_rule_id() -> None:
     index = InMemoryCatalogSemanticIndex(embedder=_BilingualEmbedder())
     await index.upsert(

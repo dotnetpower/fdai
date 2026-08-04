@@ -48,6 +48,13 @@ class InMemoryCatalogSemanticIndex:
                 changed += 1
         return changed
 
+    async def synchronize(self, documents: Sequence[CatalogSearchDocument]) -> int:
+        expected_ids = {document.rule_id for document in documents}
+        removed_ids = set(self._documents) - expected_ids
+        for rule_id in removed_ids:
+            del self._documents[rule_id]
+        return len(removed_ids) + await self.upsert(documents)
+
     async def search(self, query: str, *, k: int = 20) -> Sequence[CatalogSearchResult]:
         if not query.strip() or k <= 0 or not self._documents:
             return ()

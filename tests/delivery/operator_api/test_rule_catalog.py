@@ -124,6 +124,9 @@ class _SemanticIndex:
     async def upsert(self, documents):  # type: ignore[no-untyped-def]
         return len(documents)
 
+    async def synchronize(self, documents):  # type: ignore[no-untyped-def]
+        return await self.upsert(documents)
+
     async def search(self, query: str, *, k: int = 20):  # type: ignore[no-untyped-def]
         assert query == "remote desktop"
         assert k == 5

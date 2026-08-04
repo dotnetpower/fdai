@@ -38,7 +38,7 @@ async def index_shipped_catalog(
         repo_root=repo_root,
         opa_binary=opa_binary,
     )
-    return await index.upsert(documents)
+    return await index.synchronize(documents)
 
 
 def load_shipped_catalog_search_documents(

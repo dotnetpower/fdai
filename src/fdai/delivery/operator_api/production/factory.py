@@ -867,7 +867,7 @@ def build_prod_app(
 
     async def _seed_catalog_semantic_index() -> None:
         if catalog_semantic_index is not None:
-            await catalog_semantic_index.upsert(catalog_search_documents)
+            await catalog_semantic_index.synchronize(catalog_search_documents)
 
     config = OperatorApiConfig(
         dev_mode=False,
