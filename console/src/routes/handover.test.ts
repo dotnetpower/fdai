@@ -38,6 +38,22 @@ function stewardshipPayload() {
   };
 }
 
+function stewardshipV2Payload() {
+  const payload = stewardshipPayload();
+  payload.map.version = 2;
+  payload.map.agents.forEach((agent) => {
+    agent.stewards[0] = { ...agent.stewards[0]!, duty: "primary" } as never;
+    agent.stewards.push({
+      kind: "user",
+      id: `${agent.name}-backup`,
+      responsibility: "accountable",
+      duty: "backup",
+    } as never);
+    agent.bus_factor = 2;
+  });
+  return payload;
+}
+
 describe("Handover projection contract", () => {
   test("accepts only the five Agent oversight views", () => {
     expect(oversightViewFromSegment(undefined)).toBe("overview");
@@ -239,6 +255,20 @@ describe("Handover projection contract", () => {
     informedDuty.map.agents[0]!.accept_autonomous_reason = "Ownership is intentionally absent." as never;
     informedDuty.coverage.autonomous_agents = 1;
     expect(() => decodeStewardship(informedDuty)).toThrow(/informed.*MUST NOT declare duty/);
+  });
+
+  test("requires complete v2 Primary and Backup or Escalation coverage", () => {
+    const missingPrimary = stewardshipV2Payload();
+    missingPrimary.map.agents[0]!.stewards[0] = {
+      ...missingPrimary.map.agents[0]!.stewards[0]!,
+      duty: "backup",
+    } as never;
+    expect(() => decodeStewardship(missingPrimary)).toThrow(/Primary and distinct Backup/);
+
+    const missingFallback = stewardshipV2Payload();
+    missingFallback.map.agents[0]!.stewards = [missingFallback.map.agents[0]!.stewards[0]!];
+    missingFallback.map.agents[0]!.bus_factor = 1;
+    expect(() => decodeStewardship(missingFallback)).toThrow(/Primary and distinct Backup/);
   });
 
   test("rejects identity health that is not backed by completed check evidence", () => {

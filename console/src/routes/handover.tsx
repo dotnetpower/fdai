@@ -269,6 +269,16 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
         throw panelContractError("v2 accountable stewardship entries MUST declare duty");
       }
     }
+    if (
+      decoded.map.version >= STEWARDSHIP_DUTY_VERSION &&
+      !agent.autonomous &&
+      (
+        !agent.stewards.some((steward) => steward.responsibility === "accountable" && steward.duty === "primary") ||
+        !agent.stewards.some((steward) => steward.responsibility === "accountable" && (steward.duty === "backup" || steward.duty === "escalation"))
+      )
+    ) {
+      throw panelContractError("stewardship v2 non-autonomous agents MUST include Primary and distinct Backup or Escalation coverage");
+    }
   }
   if (
     decoded.coverage.total_agents !== decoded.map.agents.length ||

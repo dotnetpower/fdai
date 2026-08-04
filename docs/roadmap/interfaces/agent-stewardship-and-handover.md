@@ -331,7 +331,8 @@ form:
   non-negative integer counts, and positive timeout and assignment limits. It recomputes aggregate
   counts from the fixed Pantheon map, requires the maintainer floor and non-empty exact subject
   references, rejects duplicate real maintainers and duplicate exact steward subjects, and rejects
-  drift instead of displaying inferred health.
+  drift instead of displaying inferred health. Version 2 non-autonomous projections also require
+  Primary and distinct Backup or Escalation coverage.
 - **Finding validation** - coverage findings use the fixed code and severity vocabulary, reference
   only fixed Pantheon Agents when an Agent is present, and derive the clean state from the absence
   of warning findings. Each code also fixes its severity and whether its scope is one Agent or the
