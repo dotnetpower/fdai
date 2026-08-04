@@ -256,6 +256,24 @@ async def test_pod_security_patch_remains_unregistered_without_outcome_proof(
     assert calls == []
 
 
+async def test_coredns_template_removal_remains_unregistered_without_dns_outcome_proof(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner, calls = _fake_run()
+    monkeypatch.setattr(lda, "_run", runner)
+
+    result = await _exec().execute(
+        _req(
+            action_type="remediate.coredns-nxdomain-template",
+            arguments={"namespace": "kube-system", "name": "coredns"},
+        )
+    )
+
+    assert result.outcome is DirectApiOutcome.FAILED
+    assert "no_handler_for_action_type" in (result.detail or "")
+    assert calls == []
+
+
 # --------------------------------------------------------------------------
 # resource-ref parsing + env hygiene
 # --------------------------------------------------------------------------

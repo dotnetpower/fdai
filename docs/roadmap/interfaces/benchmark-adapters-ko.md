@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 1629f2dc5a0ef0fb1427b297f77d2169e14795e9
+translation_source_sha: 6a5837b0f5ae69d6995a25bf3222390fee109384
 translation_revised: 2026-08-04
 ---
 
@@ -377,6 +377,11 @@ target하고 sole reviewed match가 exact all-Service pattern이며 NXDOMAIN을 
 Arbitrary regex는 실행하지 않습니다. Specific-Service, duplicate, malformed, oversized,
 non-NXDOMAIN, incomplete 또는 truncated evidence는 abstain합니다. Corefile projection은 별도
 provider 작업입니다.
+Source campaign의 automatic Corefile template removal 및 CoreDNS restart는 port하지 않습니다.
+Global DNS mutation에는 independently observed service resolution, CoreDNS rollout health, bounded
+blast radius 및 snapshot restoration outcome이 필요합니다. 모든 safeguard를 검증할 때까지 live
+executor는 `remediate.coredns-nxdomain-template`를 미등록 상태로 유지하고 substrate call을 수행하지
+않습니다.
 Source campaign의 deterministic SecurityContext patch는 port하지 않습니다. Syntactically grounded
 template change도 process identity, capability 및 workload behavior를 바꿀 수 있으며 admission
 success만으로 rollout health, application correctness 또는 rollback restoration을 증명할 수 없습니다.

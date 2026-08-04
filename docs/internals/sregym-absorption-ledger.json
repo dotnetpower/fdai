@@ -630,6 +630,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_coredns_global_nxdomain_recovery",
+      "source_commits": [
+        "5ef31a877fbfdc0a52baf7e31192d8fba511b577"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected global Corefile mutation and restart because service resolution, CoreDNS rollout health, bounded blast radius, snapshot restoration, and independent outcomes are unvalidated; the live handler remains unregistered.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

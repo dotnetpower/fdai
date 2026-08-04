@@ -375,6 +375,10 @@ Provider-neutral CoreDNS semantics recognize one bounded `template` block only w
 targets `svc.cluster.local`, its sole reviewed match is an exact all-Service pattern, and it returns
 NXDOMAIN. Arbitrary regexes are never executed. Specific-Service, duplicate, malformed, oversized,
 non-NXDOMAIN, incomplete, or truncated evidence abstains. Corefile projection remains provider work.
+The source campaign's automatic Corefile template removal and CoreDNS restart are not ported. A
+global DNS mutation requires independently observed service resolution, CoreDNS rollout health,
+bounded blast radius, and snapshot restoration outcomes. Until all safeguards are validated, the
+live executor keeps `remediate.coredns-nxdomain-template` unregistered and performs no substrate call.
 The source campaign's deterministic SecurityContext patch is not ported. A syntactically grounded
 template change can alter process identity, capabilities, and workload behavior; admission success
 alone does not prove rollout health, application correctness, or rollback restoration. Until those
