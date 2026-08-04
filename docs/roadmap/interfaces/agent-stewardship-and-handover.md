@@ -52,6 +52,9 @@ the two are resolved and validated independently.
 6. **Every change must be notified and audited.** Core deterministically computes recipients and
   the audit payload. Live PR/merge integration must bind those primitives to notification and
   audit adapters.
+7. **Autonomy is an ownership alternative.** `accept_autonomous` is valid only when the Agent has
+  no accountable owner. A configuration that declares both is rejected because it creates two
+  contradictory escalation routes.
 
 ## 2. Concepts and vocabulary
 

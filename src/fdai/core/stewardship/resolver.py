@@ -283,6 +283,11 @@ def _parse_one_agent(
         reason = raw_reason.strip()
 
     has_accountable = any(s.is_accountable for s in stewards)
+    if has_accountable and reason is not None:
+        raise StewardshipValidationError(
+            f"stewardship config: agent {name!r} MUST NOT declare 'accept_autonomous' "
+            "while it has an accountable steward"
+        )
     if not has_accountable and reason is None:
         raise StewardshipValidationError(
             f"stewardship config: agent {name!r} has no accountable steward and is not "

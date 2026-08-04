@@ -79,6 +79,14 @@ describe("Handover projection contract", () => {
     expect(() => decodeStewardship(drift)).toThrow(/bus_factor.*distinct accountable subjects/);
   });
 
+  test("rejects autonomous mode layered over accountable ownership", () => {
+    const contradictory = stewardshipPayload();
+    contradictory.map.agents[0]!.autonomous = true;
+    contradictory.map.agents[0]!.accept_autonomous_reason = "Ownership is intentionally absent." as never;
+    contradictory.coverage.autonomous_agents = 1;
+    expect(() => decodeStewardship(contradictory)).toThrow(/autonomy.*accountable-ownership alternative/);
+  });
+
   test("rejects unknown steward and finding enum values", () => {
     const invalidKind = stewardshipPayload();
     invalidKind.map.agents[0]!.stewards[0]!.kind = "service";
@@ -112,6 +120,9 @@ describe("Handover projection contract", () => {
       duty: "backup",
     } as never;
     informedDuty.map.agents[0]!.bus_factor = 0;
+    informedDuty.map.agents[0]!.autonomous = true;
+    informedDuty.map.agents[0]!.accept_autonomous_reason = "Ownership is intentionally absent." as never;
+    informedDuty.coverage.autonomous_agents = 1;
     expect(() => decodeStewardship(informedDuty)).toThrow(/informed.*MUST NOT declare duty/);
   });
 

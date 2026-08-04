@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: 032f053c4544d9b37dfa822c23b3077b22373b5b
-translation_revised: 2026-08-01
+translation_source_sha: 431fbed0d1f91434f9ec0c504cbca3fb72f66296
+translation_revised: 2026-08-05
 title: 에이전트 스튜어드십과 인수인계
 ---
 # 에이전트 스튜어드십과 인수인계
@@ -49,6 +49,9 @@ RBAC은 "누가 FDAI를 조작할 수 있나"(Reader / Contributor / Approver / 
    ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)).
 6. **모든 변경은 통보되고 감사되어야 한다.** Core는 recipient와 audit payload를 결정론적으로
   계산합니다. Live PR/merge integration은 이 primitive를 notification/audit adapter에 배선해야 합니다.
+7. **자율 운영은 담당 체계의 대안입니다.** `accept_autonomous`는 Agent에 accountable owner가
+  없을 때만 유효합니다. 둘을 함께 선언하면 서로 모순된 에스컬레이션 경로가 생기므로 구성이
+  수락되지 않습니다.
 
 ## 2. 개념과 용어
 

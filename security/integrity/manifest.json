@@ -678,7 +678,7 @@
     "src/fdai/core/stewardship/model.py": "e99ba872a7c8e9756ff7667cbac5a339bdc1a3d267c4fd66dc18d0bf54e2b565",
     "src/fdai/core/stewardship/names.py": "f5c52e56420ef9edcd9cf8e5eea669ba0302868cebbf1482cfb05bda2fa90ced",
     "src/fdai/core/stewardship/notify.py": "f356796947cb804cb7f2176c1aaac596a3a7680d84b55c439befa962a3e69143",
-    "src/fdai/core/stewardship/resolver.py": "7943d22c0056806b991ac3d5150ce6f9b6efd80d00537fcaeef846a687bb84fa",
+    "src/fdai/core/stewardship/resolver.py": "867bcd24fe1104dc7e2cf6c9e9bb08ac652fae5c1dc09efcbd09591ecd58643a",
     "src/fdai/core/supply_chain/__init__.py": "faeeaab866a45ed6d2030af2fcbc99311f3c83e4c95343ad2a8808ce7546b97a",
     "src/fdai/core/supply_chain/artifacts.py": "bd5885a7c4e05dd76c8a22ad826418d68a0b9b160c3cede86063097dbaa3667c",
     "src/fdai/core/supply_chain/installer.py": "8b326118a034c493d6a40738606b429e2d7e87ca2465dbf77d29c90d2bdbaf76",
@@ -970,7 +970,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-04T14:52:04Z",
+  "generated_at": "2026-08-04T16:09:27Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

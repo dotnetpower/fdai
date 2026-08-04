@@ -218,6 +218,12 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
     if (agent.bus_factor !== accountableUnits.size) {
       throw panelContractError("stewardship agent.bus_factor MUST match distinct accountable subjects");
     }
+    if (
+      agent.autonomous !== (agent.accept_autonomous_reason !== null) ||
+      agent.autonomous === (accountableUnits.size > 0)
+    ) {
+      throw panelContractError("stewardship agent autonomy MUST be an accountable-ownership alternative");
+    }
     for (const steward of agent.stewards) {
       if (steward.responsibility === "informed" && steward.duty !== null) {
         throw panelContractError("informed stewardship entries MUST NOT declare duty");
