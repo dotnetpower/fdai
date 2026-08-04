@@ -232,6 +232,14 @@ returning to priority order. Failing containers rank ahead of restarted and heal
 inside each Pod's separate container ceiling. This prevents both an old unhealthy backlog and a
 burst of recent healthy Pods from starving relevant evidence. Incomplete or ambiguous identities
 produce no target.
+Provider-neutral log reduction also aggregates reviewed decode, application-failure, and
+stream-stall signatures only after two recent exact-Pod-UID observations. Records are limited to
+one KiB and raw bodies never enter findings. Missing identity, stale, oversized, unrecognized, or
+incomplete evidence abstains. A concrete log provider remains separate work.
+The source campaign's CronJob child deletion, sidecar patching, finalizer/RBAC mutation, deny-all
+restoration, and reason-specific RCA precedence are not ported. Identity normalization, generation
+checks, and semantic churn tolerance do not independently establish all seven action safeguards or
+causal authority.
 
 The observe-only `observe.kubernetes.owners` capability follows at most eight custom owner
 references from the bounded namespace inventory. Every lookup preserves the owner reference UID

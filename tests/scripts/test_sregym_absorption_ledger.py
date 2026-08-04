@@ -48,6 +48,13 @@ def test_sregym_absorption_ledger_uses_closed_dispositions_and_dependencies() ->
         assert group["status"] in _ALLOWED_STATUSES
         assert group["safety_boundary"]
         assert set(group["dependencies"]) < group_ids
+        if group["status"] == "absorbed":
+            mechanism_hashes = {
+                commit
+                for mechanism in ledger["absorbed_mechanisms"]
+                for commit in mechanism["source_commits"]
+            }
+            assert set(group["commits"]) <= mechanism_hashes
 
 
 def test_sregym_absorption_ledger_keeps_validation_axes_independent() -> None:

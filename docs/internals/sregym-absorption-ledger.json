@@ -361,7 +361,12 @@
     {
       "id": "kubernetes_bounded_log_target_fairness",
       "source_commits": [
-        "221a9b15e4cd5413fede8d0f88e7b5cb441a8065"
+        "221a9b15e4cd5413fede8d0f88e7b5cb441a8065",
+        "41020989de79c0d33d2c310e6bf0c5888eb9c0df",
+        "767d142ac5f53cbb0f3b8f0ec3d4ca148e765de8",
+        "cc9dfb64c322776789e0067907deb66b88d36355",
+        "b335186087193cfe5d05cc14a2e81811b031e57d",
+        "a8c95a23c07a773d3056c34c8c2743c930e90bbc"
       ],
       "status": "semantic_generalized",
       "source_hardening": "Generalized active-failure prioritization into an exact-UID, complete-status selector that reserves half of each bounded Pod budget for recency and applies a separate container ceiling; no concrete log provider is claimed.",
@@ -675,6 +680,155 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_bounded_application_log_signals",
+      "source_commits": [
+        "3fb3b62b0896e1e5613d32ef0cf4622a3eac30e4",
+        "3401a4b86d82b565d7e8fe52f3a3bcc2aa37bc32",
+        "40647bc38ef856e5b8a255f5fe75c0154b2831a2",
+        "cf202606dbf163902d484ca20a356bbf193f4b60",
+        "b8f36c38feb5164096338ba98f15ac99e2f2b4e4",
+        "2a01039d045932ec1b97e766526211f0c0fd2721"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Generalizes decode, application-failure, and stream-stall tokens into repeated recent exact-Pod-UID candidates with one-KiB bounds, raw-body suppression, closed signal classes, and no provider claim.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_cronjob_sidecar_and_child_mutation",
+      "source_commits": [
+        "f6676a299434d932d46360eafb031cc9fa9bf2dd",
+        "696d5465a0bde39cecaae2bb5e2d641294ed604a",
+        "4ad6fb453326fc2bb37bea33ac5667030e2901c6",
+        "fd7bf9a655706bd4e93e5bcbad6a3849337c8b62",
+        "c38b2a559f751632910bc903c57e83dd31a23c98",
+        "db3e1a9b08ca90e8d8e7fd9cd650fa4c10c0d131",
+        "8daaeb06d2fa2366c330124b402d15003a9e98c1",
+        "3cc744d4390d9097172c7b8a8c182ef6b8b6919f",
+        "3edb7b31018ace49ecd8a526f93692a4f87e7455",
+        "231f665cc8903b2b7d041218d4e7ae2a5108d881",
+        "6f111ffc0b328a548c7008204e01cb77d66aed83",
+        "fd8d4c9ff8864f6340c5a1dbb415a0e46f90b2ba",
+        "f7358592f28e6a3165ff5d3c8984fe107b41e796",
+        "a130245624104d43a0b851f22e3c4f73a4f3d37f",
+        "8ac6a8b918cf5ab5590c6f2f7ae285dc0b13894c"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected CronJob template patching and active-child foreground deletion because source-owner normalization and churn tolerance do not prove durable locking, independent effect, rollback restoration, or bounded deletion outcomes.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_reason_specific_rca_ordering",
+      "source_commits": [
+        "ed871d041a9ecf41a24c73605d7064ca9a0a70d2",
+        "788430b7b95cb4050e8efc5d88c52c5df652d31f",
+        "3f9af6a484380cdb17c45df9f148dbaf85fc29a1",
+        "a4064c227f11db5274e7e3105232650f4755e38e",
+        "b57422f06c6334b9ee6e1a71663ca1f9e3c91998",
+        "f40b131922b63485fbeb06630f0485e5b6ba0644",
+        "80fa4e500b4be8b55d367fb9fbb043788ed86557"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected fixed reason-specific causal precedence and authority labels; candidate-only findings require generic evidence-strength, contradiction, completeness, and freshness ordering before any authoritative promotion.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_risky_regex_and_deny_all_restoration",
+      "source_commits": [
+        "00018d5c72ebc9f4138b284b4a9bc1cc76fbe32a",
+        "7ad6a36ee52efbce4caa9d8a5610a3af294f5703"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected literal-regex-driven and deny-all NetworkPolicy restoration actions because textual risk and selector overlap do not establish traffic path, bounded source intent, independent effect, or rollback outcomes.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_finalizer_rbac_mutation",
+      "source_commits": [
+        "a81aed6f1dc6209e80a1593669cb0bd99c1503d6",
+        "711f21f9b90a3fef3fa83c78e8e82595f9cfa600",
+        "01579dc57382aa47e12185384105fa6aa4a03298",
+        "00f129de8e67535abe1b622e36ebbfb9d08abe78",
+        "f0e07d0b37c8c6f27c11c226db015174cd9bef0d",
+        "a984d0feaca1bac4a7069fa2c5d60f6197878d9b",
+        "95fbb09e6b88aefa96a9cd1968fb5c546b5d28e7"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected ClusterRole verb append and finalizer mutation authority: provenance joins and append verification do not prove least privilege, controller intent, independent reconciliation effect, revocation, or rollback outcomes.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "evaluation_stage_capability_scoping",
+      "source_commits": ["e1953cfea7718d319e0e903082c5c62f0d64db15"],
+      "status": "semantic_generalized",
+      "source_hardening": "Superseded by the current capability broker's effective allowed-id set, side-effect-class checks, expiring stage receipts, and separate substrate authority axes.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": true,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "t2_typed_proposer_abstention_contract",
+      "source_commits": [
+        "6f180b7b8107a01f7879f9ec486eb939ee7821a7",
+        "b2147235deb05e4a499cd02f699ba679a8995a48"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Superseded by current typed abstention envelopes and audit surfaces that require explicit nonempty reasons and preserve abstention independently from action authority.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": true,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_generation_guard_as_action_authority",
+      "source_commits": ["1fa3f09bbe8654a00d81525b8acba212d9454573"],
+      "status": "rejected",
+      "source_hardening": "Generation compare-and-swap is retained as a necessary future precondition but rejected as sufficient action authority because it does not provide durable locking, rollback, blast-radius, audit-intent, or independent outcome safeguards.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [
@@ -714,7 +868,7 @@
       "id": "lifecycle_and_causal_evidence",
       "title": "Workload lifecycle, identity provenance, bounded logs, and causal ranking",
       "disposition": "test_only_absorption",
-      "status": "queued",
+      "status": "absorbed",
       "dependencies": ["diagnostics_foundation"],
       "safety_boundary": "Owner traversal, selectors, generation guards, and destructive cleanup remain fail-closed until separately action-validated.",
       "commits": [

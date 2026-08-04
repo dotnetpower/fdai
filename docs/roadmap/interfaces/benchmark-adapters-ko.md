@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 7f29c7400c66f0a45e86b09f40d706bd77301803
+translation_source_sha: 0460a259de520c91995592c261f6293e1a3b60b0
 translation_revised: 2026-08-04
 ---
 
@@ -235,6 +235,14 @@ readiness priority로 선택하고 나머지는 recency로 채운 뒤 priority o
 container ceiling 안에서는 failing container가 restarted/healthy container보다 앞섭니다. 따라서 오래된
 unhealthy backlog와 최근 healthy Pod burst 모두 relevant evidence를 starvation시키지 못합니다.
 Incomplete 또는 ambiguous identity는 target을 생성하지 않습니다.
+Provider-neutral log reduction은 reviewed decode, application-failure 및 stream-stall signature를
+recent exact-Pod-UID observation 2개 이후에만 aggregate합니다. Record는 1KiB로 제한하고 raw body는
+finding에 포함하지 않습니다. Missing identity, stale, oversized, unrecognized 또는 incomplete
+evidence는 abstain합니다. Concrete log provider는 별도 작업입니다.
+Source campaign의 CronJob child deletion, sidecar patching, finalizer/RBAC mutation, deny-all
+restoration 및 reason-specific RCA precedence는 port하지 않습니다. Identity normalization,
+generation check 및 semantic churn tolerance는 7개 action safeguard나 causal authority를 독립적으로
+증명하지 않습니다.
 
 Observe-only `observe.kubernetes.owners` capability는 bounded namespace inventory에서 최대 8개
 custom owner reference를 따라갑니다. 각 lookup은 owner reference UID를 보존하며 반환된 custom
