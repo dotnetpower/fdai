@@ -369,7 +369,7 @@ def _build_candidate_pool(
         return routed
     if not isinstance(raw, list) or len(raw) != 1 or not isinstance(raw[0], dict):
         return None
-    return _build_single_azure_backend(
+    single = _build_single_azure_backend(
         raw[0],
         identity=identity,
         http_client=http_client,
@@ -378,6 +378,16 @@ def _build_candidate_pool(
         pricing=pricing,
         resolved_model_keys=resolved_model_keys,
         metering_capability_id=("t1.vision" if vision_capable else "t1.judge"),
+    )
+    if single is None or not vision_capable:
+        return single
+    deployment = raw[0].get("deployment")
+    if not isinstance(deployment, str):
+        return None
+    return LatencyRoutedChatBackend(
+        candidates=[(deployment, single)],
+        turn_timeout_seconds=turn_timeout_seconds,
+        vision_capable=True,
     )
 
 

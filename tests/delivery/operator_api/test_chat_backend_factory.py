@@ -178,4 +178,6 @@ def test_single_narrator_binds_a_separate_vision_backend(tmp_path) -> None:
 
     assert isinstance(backend, LatencyRoutedChatBackend)
     assert backend.candidate_names() == ("shared-mini",)
-    assert backend.vision_backend() is not None
+    vision = backend.vision_backend()
+    assert isinstance(vision, LatencyRoutedChatBackend)
+    assert vision.candidate_names() == ("shared-mini",)
