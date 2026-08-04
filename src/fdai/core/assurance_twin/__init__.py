@@ -45,6 +45,7 @@ from fdai.core.assurance_twin.graph_closure import (
     GraphDynamicClosureCoordinator,
     GraphDynamicClosureRunner,
     GraphTrajectoryOutcomeSource,
+    MetricGraphTrajectoryOutcomeSource,
     TrajectoryClosureCommand,
 )
 from fdai.core.assurance_twin.graph_effect import (
@@ -128,6 +129,7 @@ from fdai.core.assurance_twin.state_trajectory import (
     evaluate_dynamic_invariants,
 )
 from fdai.core.assurance_twin.trajectory_ledger import (
+    OpenTrajectoryEpisode,
     StateStoreTrajectoryEpisodeLedger,
     TrajectoryClosure,
     TrajectoryEpisodeConflictError,
@@ -169,12 +171,14 @@ __all__ = [
     "GraphIntervention",
     "GraphTopologyEdge",
     "GraphTrajectoryOutcomeSource",
+    "MetricGraphTrajectoryOutcomeSource",
     "InMemoryProjection",
     "InvariantOperator",
     "InvariantResult",
     "InvariantStatus",
     "NlQueryCompiler",
     "OperationalStateTrajectory",
+    "OpenTrajectoryEpisode",
     "PostureAssessmentReport",
     "PostureVerdict",
     "Predicate",

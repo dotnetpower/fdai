@@ -35,6 +35,13 @@ class TrajectoryClosure:
     duplicate: bool
 
 
+@dataclass(frozen=True, slots=True)
+class OpenTrajectoryEpisode:
+    predicted: OperationalStateTrajectory
+    challenger_model_refs: tuple[str, ...]
+    recorded_at: datetime
+
+
 class StateStoreTrajectoryEpisodeLedger:
     """Open and close trajectory episodes with StateStore atomic writes."""
 
@@ -85,6 +92,23 @@ class StateStoreTrajectoryEpisodeLedger:
         if existing is None or not _same_prediction(existing, predicted, challenger_model_refs):
             raise TrajectoryEpisodeConflictError("trajectory prediction identity conflict")
         return False
+
+    async def list_open(self, *, limit: int = 256) -> tuple[OpenTrajectoryEpisode, ...]:
+        if not 1 <= limit <= 1000:
+            raise ValueError("trajectory open-episode limit MUST be in [1, 1000]")
+        rows = await self._store.read_states(f"{_PREFIX}:", limit=limit)
+        episodes = []
+        for raw in rows:
+            if raw.get("status") != "open":
+                continue
+            episodes.append(
+                OpenTrajectoryEpisode(
+                    predicted=_deserialize_trajectory(_mapping(raw, "predicted")),
+                    challenger_model_refs=_text_tuple(raw, "challenger_model_refs"),
+                    recorded_at=_timestamp(raw, "recorded_at"),
+                )
+            )
+        return tuple(sorted(episodes, key=lambda item: item.predicted.digest))
 
     async def close(
         self,
@@ -367,6 +391,7 @@ def _aware(value: datetime, name: str) -> None:
 
 
 __all__ = [
+    "OpenTrajectoryEpisode",
     "StateStoreTrajectoryEpisodeLedger",
     "TrajectoryClosure",
     "TrajectoryEpisodeConflictError",

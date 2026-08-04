@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 1a7edf7ad103d9f0aed20f9ff35868707ecc408c
+translation_source_sha: 921cd0a3808b291cea6ae3f7d46c8935e3dd60d0
 translation_revised: 2026-08-04
 ---
 
@@ -566,7 +566,7 @@ pull adapter 추가. 콘솔은 이제:
 | Teams/Slack conversation | `ProductionChannelRuntime`, authenticated ingress, principal resolution, publisher, durable reply option이 제공됩니다. 실제 배포 enablement/credential은 environment-owned입니다. |
 | Web chat and memory | JSON/SSE chat, principal-scoped conversation history/preferences/memory, AnswerPlan 및 progressive verification이 제공됩니다. |
 | Observation/discovery | `POST /read-investigations`는 Azure I/O 전에 durable latency evidence로 direct, streamed, detached execution을 선택합니다. Direct Command Deck 및 HTTP read는 owner-scoped result-replay ledger를 공유하며 streamed response가 닫히면 in-flight read를 cancel합니다. Dedicated reader binding이 있을 때만 등록되며 catalog presence만으로 provider health나 promotion을 주장하지 않습니다. |
-| Forecast learning | `GET /forecast-learning`은 PostgreSQL에서 due closure completeness, model/pipeline miss origin, publication 및 dead-letter debt, retention debt를 projection합니다. 이 route는 Reader-only이며 detector mutation 또는 promotion control을 제공하지 않습니다. |
+| Forecast 및 Dynamic learning | `GET /forecast-learning`은 forecast closure와 publication 상태를 projection하고, `GET /dynamic-assurance`는 durable scalar/graph model summary와 trajectory closure count를 projection합니다. 두 route 모두 Reader-only이며 detector/model mutation, promotion, approval 또는 execution control을 제공하지 않습니다. |
 
 Live Azure completion evidence와 capability promotion은 여전히 authoritative registry 및 deployment
 verification에서 판단하며 이 문서의 phase 이름으로 추론하지 않습니다.

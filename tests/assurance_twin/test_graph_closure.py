@@ -11,6 +11,7 @@ from fdai.core.assurance_twin import (
     GraphDynamicClosureCoordinator,
     GraphDynamicClosureRunner,
     GraphEffectModel,
+    MetricGraphTrajectoryOutcomeSource,
     OperationalStateTrajectory,
     StateSlice,
     StateStoreGraphEffectModelRegistry,
@@ -20,9 +21,14 @@ from fdai.core.assurance_twin import (
     TrajectoryKind,
     TrajectoryOutcomeStatus,
 )
+from fdai.shared.providers.metric import MetricPoint, StaticMetricProvider
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 8, 4, tzinfo=UTC)
+
+
+async def _commands(source: MetricGraphTrajectoryOutcomeSource):
+    return tuple([item async for item in source.outcomes()])
 
 
 def _model(status: EffectModelStatus) -> GraphEffectModel:
@@ -120,6 +126,63 @@ async def _coordinator() -> tuple[
         active,
         challenger,
     )
+
+
+async def test_metric_source_builds_complete_independent_observation() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreTrajectoryEpisodeLedger(store)
+    predicted = _trajectory(TrajectoryKind.PREDICTED)
+    challenger = _model(EffectModelStatus.CHALLENGER)
+    await ledger.record_prediction(
+        predicted,
+        challenger_model_refs=(challenger.ref,),
+        recorded_by="Forseti",
+        recorded_at=_NOW,
+    )
+    source = MetricGraphTrajectoryOutcomeSource(
+        ledger=ledger,
+        metrics=StaticMetricProvider(
+            (
+                MetricPoint(
+                    metric_name="latency",
+                    at=_NOW + timedelta(minutes=1, seconds=10),
+                    value=61.0,
+                    labels={"resource_id": "service:checkout"},
+                ),
+            )
+        ),
+        clock=lambda: _NOW + timedelta(minutes=8),
+    )
+
+    commands = await _commands(source)
+
+    assert len(commands) == 1
+    observed = commands[0].observed
+    assert observed.kind is TrajectoryKind.OBSERVED
+    assert observed.slices[0].value == 61.0
+    assert observed.slices[0].independent_observer is True
+    assert observed.slices[0].evidence_refs[0].startswith("metric:")
+
+
+async def test_metric_source_keeps_episode_open_when_telemetry_is_missing() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreTrajectoryEpisodeLedger(store)
+    predicted = _trajectory(TrajectoryKind.PREDICTED)
+    challenger = _model(EffectModelStatus.CHALLENGER)
+    await ledger.record_prediction(
+        predicted,
+        challenger_model_refs=(challenger.ref,),
+        recorded_by="Forseti",
+        recorded_at=_NOW,
+    )
+    source = MetricGraphTrajectoryOutcomeSource(
+        ledger=ledger,
+        metrics=StaticMetricProvider(()),
+        clock=lambda: _NOW + timedelta(minutes=8),
+    )
+
+    assert await _commands(source) == ()
+    assert len(await ledger.list_open()) == 1
 
 
 @pytest.mark.parametrize(

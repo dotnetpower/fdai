@@ -1,7 +1,7 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: 98b7760f67401e97cdfcd6ba1364bc0e580a90aa
+translation_source_sha: 1da556e806a565aa37355c684527227f5dad3800
 translation_revised: 2026-08-04
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
@@ -236,8 +236,14 @@ unscorable comparison은 episode를 open 상태로 두며 model을 update하지 
 no-op이고 conflicting replay는 fail closed됩니다. Off-path graph closure runner는 complete comparable
 challenger slice에 대해서만 learning observation을 만들고 `StateStoreGraphEffectModelRegistry`를 통해
 적용합니다. Active graph model은 별도의 reviewed promotion evidence가 적용될 때까지 immutable 상태를
-유지합니다. Production independent observed-trajectory source가 아직 binding되지 않았으므로 기존 growth
-job은 이 runner를 아직 호출하지 않습니다.
+유지합니다. Scheduled growth job은 telemetry grace window 이후 configured metric provider를 통해 due open
+episode를 관측하는 `MetricGraphTrajectoryOutcomeSource`를 사용합니다. 모든 predicted slice에 independent
+finite evidence가 있을 때만 closure command를 생성하며, 그렇지 않으면 값을 날조하지 않고 episode를
+open 상태로 유지합니다.
+
+`GET /dynamic-assurance`는 scalar/graph model count, sample/error summary 및 open/closed trajectory
+episode를 제공하는 Reader-only durable projection입니다. Model 등록, promotion, approval 또는 execution
+command를 노출하지 않습니다.
 
 ## Assessment 리포트 (구독 자세, 온디맨드)
 

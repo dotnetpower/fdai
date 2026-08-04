@@ -253,8 +253,14 @@ incompleteness, and unscorable comparison leave it open and never update a model
 replay is a no-op; conflicting replay fails closed. The off-path graph closure runner builds learning
 observations only for complete comparable challenger slices and applies them through
 `StateStoreGraphEffectModelRegistry`. Active graph models remain immutable until separate reviewed
-promotion evidence applies. The existing growth job does not invoke this runner yet because no
-production independent observed-trajectory source is bound.
+promotion evidence applies. The scheduled growth job uses `MetricGraphTrajectoryOutcomeSource` to
+observe due open episodes through the configured metric provider after the telemetry grace window.
+It emits a closure command only when every predicted slice has independent finite evidence;
+otherwise the episode remains open without a fabricated value.
+
+`GET /dynamic-assurance` is a Reader-only durable projection over scalar and graph model
+counts, sample and error summaries, and open or closed trajectory episodes. It exposes no model
+registration, promotion, approval, or execution command.
 
 ## Assessment report (subscription posture, on demand)
 
