@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: sql-database.diagnostic-settings-required
 version: 1.0.0
 source: waf
@@ -8,15 +8,17 @@ resource_type: sql-database
 applies_to:
 - sql-database
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.sql-database.diagnostic_settings
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: sql-database
+- kind: property_exists
+  value: property.sql-database.diagnostic_settings
 check_logic:
   kind: rego
   reference: policies/sql_database/diagnostic_settings_required.rego

@@ -101,6 +101,7 @@ from fdai.rule_catalog.schema.resource_type import (
     load_resource_type_registry_from_mapping,
 )
 from fdai.rule_catalog.schema.rule import load_rule_catalog
+from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
 from fdai.runtime.configuration import _resolve_catalog_root, _resolve_policies_root
 from fdai.runtime.delivery import (
@@ -325,6 +326,11 @@ def _build_control_loop(
         ontology_object_types = ()
         ontology_link_types = ()
     resource_types = _load_resource_types()
+    signal_types = load_signal_type_registry_from_mapping(
+        yaml.safe_load(
+            (catalog_root / "vocabulary" / "signal-types.yaml").read_text(encoding="utf-8")
+        )
+    )
 
     # Ontology ObjectType / LinkType catalogs (fail-closed if directories
     # exist but any file is invalid). Missing directories are tolerated
@@ -342,10 +348,11 @@ def _build_control_loop(
         schema_registry=registry,
         action_types=action_types,
         resource_types=resource_types,
+        signal_types=signal_types,
         policies_root=policies_root,
         remediation_root=remediation_root,
     )
-    index = RuleIndex.build(rules)
+    index = RuleIndex.build(rules, signal_types=signal_types)
     governance_catalog = load_governance_catalog(catalog_root)
 
     # Workflow catalog (fail-closed if the directory exists but any file is

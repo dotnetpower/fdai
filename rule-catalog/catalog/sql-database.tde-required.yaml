@@ -1,6 +1,6 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: sql-database.tde-required
-version: "1.0.0"
+version: 1.0.0
 source: mcsb
 severity: high
 category: security
@@ -8,15 +8,17 @@ resource_type: sql-database
 applies_to:
 - sql-database
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.sql-database.tde_enabled
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: sql-database
+- kind: property_exists
+  value: property.sql-database.tde_enabled
 check_logic:
   kind: rego
   reference: policies/sql_database/tde_required.rego
@@ -26,8 +28,8 @@ remediation:
 remediates: remediate.enable-tde
 provenance:
   source_url: https://example.com/rules/sql-tde-required
-  resolved_ref: "0000000000000000000000000000000000000000"
-  content_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  resolved_ref: '0000000000000000000000000000000000000000'
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
   license: LicenseRef-reference-only
   redistribution: reference-only
-  retrieved_at: "2026-07-05T00:00:00Z"
+  retrieved_at: '2026-07-05T00:00:00Z'

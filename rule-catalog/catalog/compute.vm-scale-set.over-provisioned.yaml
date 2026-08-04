@@ -1,6 +1,6 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: compute.vm-scale-set.over-provisioned
-version: "1.0.0"
+version: 1.0.0
 source: azure_advisor
 severity: medium
 category: cost
@@ -8,15 +8,20 @@ resource_type: compute.vm-scale-set
 applies_to:
 - compute.vm-scale-set
 triggered_by:
-- "*"
+- resource.metric.observed
 evaluates:
-- "*"
+- property.compute.vm-scale-set.cpu_p95_percent
+- property.compute.vm-scale-set.instance_count
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: compute.vm-scale-set
+- kind: property_exists
+  value: property.compute.vm-scale-set.cpu_p95_percent
+- kind: property_exists
+  value: property.compute.vm-scale-set.instance_count
 check_logic:
   kind: rego
   reference: policies/compute/vmss_over_provisioned.rego
@@ -30,8 +35,8 @@ parameters:
   min_headroom_replicas: 1
 provenance:
   source_url: https://example.com/rules/vmss-over-provisioned
-  resolved_ref: "0000000000000000000000000000000000000000"
-  content_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  resolved_ref: '0000000000000000000000000000000000000000'
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
   license: MIT
   redistribution: embeddable
-  retrieved_at: "2026-07-05T00:00:00Z"
+  retrieved_at: '2026-07-05T00:00:00Z'

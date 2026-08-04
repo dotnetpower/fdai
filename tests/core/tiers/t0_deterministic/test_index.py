@@ -13,6 +13,7 @@ from fdai.rule_catalog.schema.resource_type import (
     load_resource_type_registry_from_mapping,
 )
 from fdai.rule_catalog.schema.rule import load_rule_catalog
+from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.shared.contracts.models import (
     Category,
     CheckLogic,
@@ -152,3 +153,31 @@ def test_index_intersects_resource_and_signal_types() -> None:
     assert index.rules_for_signal(resource_type="compute.vm", signal_type="unknown.changed") == (
         wildcard,
     )
+
+
+def test_index_resolves_catalog_signal_types_before_intersection() -> None:
+    registry = load_signal_type_registry_from_mapping(
+        yaml.safe_load(
+            (REPO_ROOT / "rule-catalog/vocabulary/signal-types.yaml").read_text(encoding="utf-8")
+        )
+    )
+    configuration = _make_rule(
+        rule_id="a.configuration",
+        resource_type="compute.vm",
+        severity=Severity.LOW,
+        triggered_by=["resource.configuration.observed"],
+    )
+    metric = _make_rule(
+        rule_id="b.metric",
+        resource_type="compute.vm",
+        severity=Severity.LOW,
+        triggered_by=["resource.metric.observed"],
+    )
+    index = RuleIndex.build((configuration, metric), signal_types=registry)
+
+    assert index.rules_for_signal(resource_type="compute.vm", signal_type="metric.cpu.spike") == (
+        metric,
+    )
+    assert index.rules_for_signal(
+        resource_type="compute.vm", signal_type="unmapped.provider.event"
+    ) == (configuration,)

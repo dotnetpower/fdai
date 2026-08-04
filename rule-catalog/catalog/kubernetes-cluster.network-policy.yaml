@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: kubernetes-cluster.network-policy
 version: 1.0.0
 source: aks_baseline
@@ -8,15 +8,17 @@ resource_type: kubernetes-cluster
 applies_to:
 - kubernetes-cluster
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.kubernetes-cluster.network_policy
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: kubernetes-cluster
+- kind: property_exists
+  value: property.kubernetes-cluster.network_policy
 check_logic:
   kind: rego
   reference: policies/kubernetes/network_policy_required.rego

@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: network.public-ip.orphan
 version: 1.0.0
 source: azure_advisor
@@ -8,15 +8,17 @@ resource_type: network.public-ip
 applies_to:
 - network.public-ip
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.network.public-ip.associated_resource_id
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: network.public-ip
+- kind: property_exists
+  value: property.network.public-ip.associated_resource_id
 check_logic:
   kind: rego
   reference: policies/network/public_ip_orphan.rego

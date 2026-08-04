@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: postgresql-server.tier-overprovisioned
 version: 1.0.0
 source: azure_advisor
@@ -8,15 +8,17 @@ resource_type: postgresql-server
 applies_to:
 - postgresql-server
 triggered_by:
-- "*"
+- resource.metric.observed
 evaluates:
-- "*"
+- property.postgresql-server.cpu_p95_percent
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: postgresql-server
+- kind: property_exists
+  value: property.postgresql-server.cpu_p95_percent
 check_logic:
   kind: rego
   reference: policies/postgresql/tier_overprovisioned.rego

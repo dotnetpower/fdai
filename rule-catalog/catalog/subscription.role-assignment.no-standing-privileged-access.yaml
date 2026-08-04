@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: subscription.role-assignment.no-standing-privileged-access
 version: 1.0.0
 source: mcsb
@@ -8,15 +8,17 @@ resource_type: subscription
 applies_to:
 - subscription
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.subscription.role_assignments
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: subscription
+- kind: property_exists
+  value: property.subscription.role_assignments
 check_logic:
   kind: rego
   reference: policies/subscription/no_standing_privileged_access.rego

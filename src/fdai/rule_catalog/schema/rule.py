@@ -40,7 +40,9 @@ from typing import Any
 import yaml
 from jsonschema import Draft202012Validator
 
+from fdai.rule_catalog.schema.rego_semantics import property_path
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
+from fdai.rule_catalog.schema.signal_type import SignalTypeRegistry
 from fdai.shared.contracts.models import (
     OntologyActionType,
     Rule,
@@ -78,6 +80,7 @@ def _cross_reference_issues(
     origin: str,
     action_type_names: set[str],
     resource_type_ids: set[str],
+    signal_type_ids: frozenset[str] | None,
     policies_root: Path | None,
     remediation_root: Path | None,
 ) -> list[RuleIssue]:
@@ -109,6 +112,26 @@ def _cross_reference_issues(
                 message=(f"applies_to MUST contain canonical resource_type {rule.resource_type!r}"),
             )
         )
+
+    if signal_type_ids is not None:
+        for idx, signal_type in enumerate(rule.triggered_by):
+            if signal_type not in signal_type_ids:
+                issues.append(
+                    RuleIssue(
+                        key=f"{origin}:triggered_by[{idx}]",
+                        message=f"unknown SignalType {signal_type!r}",
+                    )
+                )
+        for idx, reference in enumerate(rule.evaluates):
+            try:
+                property_path(rule.resource_type, reference)
+            except ValueError as exc:
+                issues.append(
+                    RuleIssue(
+                        key=f"{origin}:evaluates[{idx}]",
+                        message=str(exc),
+                    )
+                )
 
     for idx, criterion in enumerate(rule.submission_criteria):
         if (
@@ -240,6 +263,7 @@ def load_rule_from_mapping(
     schema_registry: SchemaRegistry,
     action_type_names: set[str],
     resource_type_ids: set[str],
+    signal_type_ids: frozenset[str] | None = None,
     origin: str = "<mapping>",
     policies_root: Path | None = None,
     remediation_root: Path | None = None,
@@ -300,6 +324,7 @@ def load_rule_from_mapping(
         origin=origin,
         action_type_names=action_type_names,
         resource_type_ids=resource_type_ids,
+        signal_type_ids=signal_type_ids,
         policies_root=policies_root,
         remediation_root=remediation_root,
     )
@@ -319,6 +344,7 @@ def load_rule_catalog(
     schema_registry: SchemaRegistry,
     action_types: Iterable[OntologyActionType],
     resource_types: ResourceTypeRegistry,
+    signal_types: SignalTypeRegistry | None = None,
     policies_root: Path | None = None,
     remediation_root: Path | None = None,
 ) -> tuple[Rule, ...]:
@@ -360,6 +386,7 @@ def load_rule_catalog(
                 schema_registry=schema_registry,
                 action_type_names=action_type_names,
                 resource_type_ids=resource_type_ids,
+                signal_type_ids=signal_types.ids() if signal_types is not None else None,
                 origin=path.name,
                 policies_root=policies_root,
                 remediation_root=remediation_root,

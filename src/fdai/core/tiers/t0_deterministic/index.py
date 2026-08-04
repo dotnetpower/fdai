@@ -29,6 +29,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+from fdai.rule_catalog.schema.signal_type import SignalTypeRegistry
 from fdai.shared.contracts.models import Rule, Severity
 
 # Severity precedence (higher = more urgent). Matches the
@@ -58,9 +59,15 @@ class RuleIndex:
     _by_resource_type: dict[str, tuple[Rule, ...]]
     _by_signal_type: dict[str, frozenset[str]]
     _by_id: dict[str, Rule]
+    _signal_types: SignalTypeRegistry | None = None
 
     @classmethod
-    def build(cls, rules: Iterable[Rule]) -> RuleIndex:
+    def build(
+        cls,
+        rules: Iterable[Rule],
+        *,
+        signal_types: SignalTypeRegistry | None = None,
+    ) -> RuleIndex:
         by_type: dict[str, list[Rule]] = {}
         by_signal: dict[str, set[str]] = {}
         by_id: dict[str, Rule] = {}
@@ -83,6 +90,7 @@ class RuleIndex:
             _by_resource_type=frozen,
             _by_signal_type={key: frozenset(ids) for key, ids in by_signal.items()},
             _by_id=by_id,
+            _signal_types=signal_types,
         )
 
     def rules_for_type(self, resource_type: str) -> tuple[Rule, ...]:
@@ -95,11 +103,18 @@ class RuleIndex:
         """Return every rule that would evaluate for this Signal.
 
         The result is the ``applies_to`` resource candidates intersected
-        with exact ``triggered_by`` matches plus explicit ``*`` rules.
+        with catalog-resolved ``triggered_by`` matches plus legacy ``*`` rules.
         """
         allowed_ids = set(self._by_signal_type.get("*", ()))
-        if signal_type is not None:
-            allowed_ids.update(self._by_signal_type.get(signal_type, ()))
+        resolved = (
+            self._signal_types.resolve(signal_type)
+            if self._signal_types is not None
+            else frozenset({signal_type})
+            if signal_type is not None
+            else frozenset()
+        )
+        for resolved_type in resolved:
+            allowed_ids.update(self._by_signal_type.get(resolved_type, ()))
         return tuple(rule for rule in self.rules_for_type(resource_type) if rule.id in allowed_ids)
 
     def rule(self, rule_id: str) -> Rule:

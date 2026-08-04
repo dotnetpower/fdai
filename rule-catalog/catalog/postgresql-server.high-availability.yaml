@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: postgresql-server.high-availability
 version: 1.0.0
 source: waf
@@ -8,15 +8,17 @@ resource_type: postgresql-server
 applies_to:
 - postgresql-server
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.postgresql-server.ha_mode
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: postgresql-server
+- kind: property_exists
+  value: property.postgresql-server.ha_mode
 check_logic:
   kind: rego
   reference: policies/postgresql/high_availability.rego

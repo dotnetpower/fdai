@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: managed-identity.role-assignment.no-wildcard-action
 version: 1.0.0
 source: mcsb
@@ -8,15 +8,17 @@ resource_type: managed-identity
 applies_to:
 - managed-identity
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.managed-identity.role_assignments
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: managed-identity
+- kind: property_exists
+  value: property.managed-identity.role_assignments
 check_logic:
   kind: rego
   reference: policies/managed_identity/no_wildcard_action.rego

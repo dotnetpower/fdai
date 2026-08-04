@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: object-storage.private-endpoint.required
 version: 1.0.0
 source: mcsb
@@ -8,15 +8,20 @@ resource_type: object-storage
 applies_to:
 - object-storage
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.object-storage.private_endpoints
+- property.object-storage.public_network_access_enabled
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: object-storage
+- kind: property_exists
+  value: property.object-storage.private_endpoints
+- kind: property_exists
+  value: property.object-storage.public_network_access_enabled
 check_logic:
   kind: rego
   reference: policies/object_storage/private_endpoint_required.rego

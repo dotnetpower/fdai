@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: kubernetes-node-pool.oversized
 version: 1.0.0
 source: azure_advisor
@@ -8,15 +8,20 @@ resource_type: kubernetes-node-pool
 applies_to:
 - kubernetes-node-pool
 triggered_by:
-- "*"
+- resource.metric.observed
 evaluates:
-- "*"
+- property.kubernetes-node-pool.cpu_p95_percent
+- property.kubernetes-node-pool.node_count
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: kubernetes-node-pool
+- kind: property_exists
+  value: property.kubernetes-node-pool.cpu_p95_percent
+- kind: property_exists
+  value: property.kubernetes-node-pool.node_count
 check_logic:
   kind: rego
   reference: policies/kubernetes/node_pool_oversized.rego

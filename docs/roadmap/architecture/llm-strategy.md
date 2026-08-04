@@ -739,6 +739,18 @@ are strings, numbers are finite, datetimes are timezone-aware and normalized to 
 unsupported Python objects are rejected at the write boundary. Both the in-memory and PostgreSQL
 stores apply the same normalization so replay does not depend on the selected adapter.
 
+### Concrete Rule semantics
+
+Shipped Rules don't use wildcard ontology relationships. `triggered_by` references a reviewed
+`SignalType`, `evaluates` references canonical `Property` identities, and
+`implemented_by_policy` connects the Rule to a first-class `PolicyArtifact`. A bounded OPA AST
+synchronizer verifies Rego package identity and property reads before catalog composition.
+
+Raw events resolve through `vocabulary/signal-types.yaml`. Exact pattern matches select specialized
+types; unmatched events select the single reviewed configuration baseline type. Semantic retrieval
+may rank candidate Rules, but exact ids and graph links remain the authority for dispatch and
+grounding.
+
 ### Rule as Ontology Artifact
 
 Rule schema v2 in

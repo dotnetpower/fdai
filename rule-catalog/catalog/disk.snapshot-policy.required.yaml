@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: disk.snapshot-policy.required
 version: 1.0.0
 source: waf
@@ -8,15 +8,17 @@ resource_type: disk
 applies_to:
 - disk
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.disk.snapshot_policy_present
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: disk
+- kind: property_exists
+  value: property.disk.snapshot_policy_present
 check_logic:
   kind: rego
   reference: policies/disk/snapshot_policy_required.rego

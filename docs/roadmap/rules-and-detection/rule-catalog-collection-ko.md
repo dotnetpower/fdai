@@ -1,8 +1,8 @@
 ---
 title: 규칙 카탈로그 수집(Rule Catalog Collection)
 translation_of: rule-catalog-collection.md
-translation_source_sha: 23c9684e26217285802f30a35eb38f25611b4dcd
-translation_revised: 2026-07-30
+translation_source_sha: d14a3e698ec900f6b7fe88099374ad31b5dff69e
+translation_revised: 2026-08-04
 ---
 
 # 규칙 카탈로그 수집(Rule Catalog Collection)
@@ -544,6 +544,16 @@ Authored Rego는 `rule-catalog/` 아래에 **중첩되지 않음** ; T0와 verif
   는 **반드시** `shadow` 여야 하고 `promotion_gate` 필수. Loader:
   `src/fdai/rule_catalog/schema/action_type.py`; JSON Schema 는 공유 온톨로지 스키마
   `src/fdai/shared/contracts/ontology/action-type.json`.
+
+### Semantic 축
+
+`vocabulary/signal-types.yaml`은 범위가 제한된 원시 이벤트 pattern을 검토된 `SignalType` ID에
+매핑합니다. 일치하지 않는 이벤트를 위한 baseline 형식을 정확히 하나 포함하므로 T0 범위가 `*`에
+의존하지 않고 명시적으로 유지됩니다. Rule `evaluates` 값은 canonical `Property` ID를 사용합니다.
+
+작성된 Rego AST와 이러한 속성을 검증하려면 `scripts/catalog/sync-rule-semantics.py --check`를
+실행합니다. 동기화 도구는 OPA를 호출하고 package `rule_id`를 검증하며 모든
+`input.resource.props` 경로를 Rule metadata와 비교합니다. 불일치하면 검증이 차단됩니다.
 
 ## 검증과 신뢰
 

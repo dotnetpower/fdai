@@ -549,6 +549,16 @@ consumed by T0 and the verifier, exactly as in
   `src/fdai/rule_catalog/schema/action_type.py`; JSON Schema is the shared ontology
   schema at `src/fdai/shared/contracts/ontology/action-type.json`.
 
+### Semantic axes
+
+`vocabulary/signal-types.yaml` maps bounded raw-event patterns to reviewed `SignalType` ids. It
+contains exactly one baseline type for unmatched events, so T0 coverage remains explicit instead
+of relying on `*`. Rule `evaluates` values use canonical `Property` identities.
+
+Run `scripts/catalog/sync-rule-semantics.py --check` to verify those properties against the
+authored Rego AST. The synchronizer invokes OPA, verifies the package `rule_id`, and compares every
+`input.resource.props` path with the Rule metadata. A mismatch blocks validation.
+
 ## Validation and Trust
 
 - Every normalized entry MUST validate against its **strict** per-kind JSON Schema

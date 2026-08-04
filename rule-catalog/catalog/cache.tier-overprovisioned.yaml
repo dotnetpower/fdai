@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: cache.tier-overprovisioned
 version: 1.0.0
 source: azure_advisor
@@ -8,15 +8,20 @@ resource_type: cache
 applies_to:
 - cache
 triggered_by:
-- "*"
+- resource.metric.observed
 evaluates:
-- "*"
+- property.cache.hit_rate
+- property.cache.server_load_p95_percent
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: cache
+- kind: property_exists
+  value: property.cache.hit_rate
+- kind: property_exists
+  value: property.cache.server_load_p95_percent
 check_logic:
   kind: rego
   reference: policies/cache/tier_overprovisioned.rego

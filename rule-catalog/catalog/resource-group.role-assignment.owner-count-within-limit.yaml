@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: resource-group.role-assignment.owner-count-within-limit
 version: 1.0.0
 source: mcsb
@@ -8,15 +8,17 @@ resource_type: resource-group
 applies_to:
 - resource-group
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.resource-group.role_assignments
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: resource-group
+- kind: property_exists
+  value: property.resource-group.role_assignments
 check_logic:
   kind: rego
   reference: policies/resource_group/owner_count_within_limit.rego

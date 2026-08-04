@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 5a92d8d9a1e366350c69dcb38fedd84ddc252362
+translation_source_sha: 931e78f480ce4fc7abb19cc1b6a04c4b47032e50
 translation_revised: 2026-08-04
 ---
 
@@ -697,6 +697,18 @@ runtime ObjectType 속성과 LinkType 속성은 canonical JSON 데이터여야 �
 문자열이고, 숫자는 finite이며, datetime은 timezone-aware이고 RFC 3339 UTC로 정규화됨.
 지원하지 않는 Python 객체는 write boundary에서 거부함. in-memory와 PostgreSQL store가
 같은 정규화를 적용하므로 replay는 선택한 adapter에 따라 달라지지 않음.
+
+### 구체적인 Rule semantics
+
+제공되는 Rule은 wildcard 온톨로지 관계를 사용하지 않습니다. `triggered_by`는 검토된
+`SignalType`을 참조하고, `evaluates`는 canonical `Property` ID를 참조하며,
+`implemented_by_policy`는 Rule을 1급 `PolicyArtifact`에 연결합니다. 범위가 제한된 OPA AST
+동기화 도구는 카탈로그를 구성하기 전에 Rego package ID와 속성 읽기를 검증합니다.
+
+원시 이벤트는 `vocabulary/signal-types.yaml`을 통해 해석됩니다. 정확한 pattern 일치는 전문화된
+형식을 선택하고, 일치하지 않는 이벤트는 검토된 단일 구성 baseline 형식을 선택합니다. Semantic
+retrieval은 후보 Rule의 순위를 매길 수 있지만 정확한 ID와 graph link가 dispatch 및 근거 확인의
+권위로 유지됩니다.
 
 ### 온톨로지 아티팩트로서의 규칙
 

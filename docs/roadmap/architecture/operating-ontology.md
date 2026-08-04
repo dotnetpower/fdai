@@ -31,6 +31,17 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > for stale, incomplete, failed, or review-required assessment. The runtime currently supplies no
 > graph-freshness authority, so planned changes cannot auto-clear this gate.
 
+## Catalog semantic projection
+
+The rule catalog now models authored Rego as a first-class `PolicyArtifact`. Every shipped Rule
+uses concrete `SignalType` and canonical `Property` references, and `implemented_by_policy` links
+the Rule to its deterministic policy. `scripts/catalog/sync-rule-semantics.py` parses Rego through
+OPA, verifies package metadata, and blocks drift between policy property reads and Rule metadata.
+
+One reviewed configuration baseline SignalType handles unmatched raw event types. This preserves
+deterministic T0 coverage without retaining wildcard ontology links. These catalog declarations
+describe meaning only. They don't assert current provider state or grant execution authority.
+
 ## Design at a glance
 
 The operating ontology connects four questions that the current resource-centered graph cannot
