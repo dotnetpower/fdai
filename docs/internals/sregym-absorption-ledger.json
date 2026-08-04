@@ -421,10 +421,11 @@
     {
       "id": "kubernetes_missing_webhook_fail_open_recovery_seed",
       "source_commits": [
-        "e8d091916e1aab17877b3d3bf707f7845330c1db"
+        "e8d091916e1aab17877b3d3bf707f7845330c1db",
+        "48f33f01db9be37882498aba6036b767fd3f7860"
       ],
       "status": "rejected",
-      "source_hardening": "Rejected changing failurePolicy from Fail to Ignore: it changes admission security intent, does not restore the backend, and lacks independent effect, rollback-outcome, and intended-control validation even with approval and dry-run.",
+      "source_hardening": "Rejected changing failurePolicy from Fail to Ignore across proposer, policy, capability propagation, and action building: it changes admission security intent, does not restore the backend, and lacks independent effect, rollback-outcome, and intended-control validation even with approval, shadow mode, and dry-run.",
       "benchmark_measured": true,
       "semantic_generalized": false,
       "operationalized": false,
