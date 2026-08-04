@@ -377,6 +377,61 @@ async def test_each_page_refreshes_workload_identity_token() -> None:
 
 
 @pytest.mark.asyncio
+async def test_each_retry_refreshes_workload_identity_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    audience = "https://management.azure.com/.default"
+    identity = AsyncMock(spec=WorkloadIdentity)
+    identity.get_token.side_effect = [
+        IdentityToken(
+            token="first-attempt-token",
+            expires_at=datetime.now(tz=UTC) + timedelta(seconds=1),
+            audience=audience,
+        ),
+        IdentityToken(
+            token="retry-token",
+            expires_at=datetime.now(tz=UTC) + timedelta(hours=1),
+            audience=audience,
+        ),
+    ]
+    authorizations: list[str] = []
+    now = 0.0
+
+    monkeypatch.setattr(arg_transport, "_monotonic", lambda: now)
+
+    async def _record_delay(delay: float) -> None:
+        nonlocal now
+        now += delay
+
+    monkeypatch.setattr(arg_transport, "_sleep", _record_delay)
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        authorizations.append(request.headers["Authorization"])
+        if len(authorizations) == 1:
+            return httpx.Response(429)
+        return httpx.Response(200, json={"data": []})
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        await arg_transport.fetch_arg_row_pages(
+            identity=identity,
+            http_client=client,
+            audience=audience,
+            endpoint="https://management.azure.com",
+            api_version="2022-10-01",
+            subscriptions=("00000000-0000-0000-0000-000000000001",),
+            query="Resources | project id",
+            result_name="token-retry-test",
+            page_size=1,
+            max_pages=1,
+            timeout_seconds=5.0,
+            error_type=ArgQueryError,
+        )
+
+    assert authorizations == ["Bearer first-attempt-token", "Bearer retry-token"]
+    assert identity.get_token.await_count == 2
+
+
+@pytest.mark.asyncio
 async def test_pagination_cap_raises() -> None:
     def _handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(

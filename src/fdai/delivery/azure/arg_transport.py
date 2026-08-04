@@ -152,6 +152,7 @@ async def fetch_arg_row_pages(
     seen_skip_tokens: set[str] = set()
     total_response_bytes = 0
     gate = throttle_gate or ArgThrottleGate()
+    static_headers = dict(request_headers) if request_headers is not None else None
 
     for page in range(max_pages):
         body: dict[str, Any] = {
@@ -162,26 +163,12 @@ async def fetch_arg_row_pages(
         if skip_token is not None:
             body["options"]["$skipToken"] = skip_token
 
-        if request_headers is None:
-            try:
-                token = await identity.get_token(audience)
-            except Exception as exc:  # noqa: BLE001 - identity boundary fails closed
-                raise error_type(
-                    f"ARG identity token request failed for {result_name!r} "
-                    f"(page {page}): {type(exc).__name__}"
-                ) from exc
-            headers = {
-                "Authorization": f"Bearer {token.token}",
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-            }
-        else:
-            headers = dict(request_headers)
-
         response = await _post_with_retry(
+            identity=identity,
             http_client=http_client,
             url=url,
-            headers=headers,
+            headers=static_headers,
+            audience=audience,
             body=body,
             timeout_seconds=timeout_seconds,
             resource_type=result_name,
@@ -259,9 +246,11 @@ async def fetch_arg_row_pages(
 
 async def _post_with_retry(
     *,
+    identity: WorkloadIdentity,
     http_client: httpx.AsyncClient,
     url: str,
-    headers: Mapping[str, str],
+    headers: Mapping[str, str] | None,
+    audience: str,
     body: Mapping[str, Any],
     timeout_seconds: float,
     resource_type: str,
@@ -275,10 +264,25 @@ async def _post_with_retry(
     last_error: httpx.HTTPError | None = None
     for attempt in range(max_attempts):
         await throttle_gate.wait()
+        if headers is None:
+            try:
+                token = await identity.get_token(audience)
+            except Exception as exc:  # noqa: BLE001 - identity boundary fails closed
+                raise error_type(
+                    f"ARG identity token request failed for {resource_type!r} "
+                    f"(page {page}, attempt {attempt + 1}): {type(exc).__name__}"
+                ) from exc
+            request_headers: Mapping[str, str] = {
+                "Authorization": f"Bearer {token.token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+        else:
+            request_headers = headers
         try:
             response = await http_client.post(
                 url,
-                headers=headers,
+                headers=request_headers,
                 content=json.dumps(body),
                 timeout=timeout_seconds,
             )
