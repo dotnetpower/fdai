@@ -257,11 +257,12 @@ def test_rejects_regex_passing_but_undecodable_base64() -> None:
         parse_vision_attachments({"attachments": [{"data_url": "data:image/png;base64,AAA"}]})
 
 
-def test_exact_size_check_catches_borderline_over_cap() -> None:
-    # A PNG one byte above the cap reaches the exact post-decode check.
-    # only fires for clearly-oversized payloads), so the exact post-decode size
-    # check is the one that rejects.
+def test_borderline_over_cap_is_rejected_before_decode(monkeypatch: pytest.MonkeyPatch) -> None:
     body = {"attachments": [_attachment("image/png", _PNG)]}
     cap = len(_PNG) - 1
-    with pytest.raises(ValueError, match=rf"exceeds size cap \({len(_PNG)} > {cap}\)"):
+    monkeypatch.setattr(
+        "fdai.delivery.operator_api.routes.chat_vision_evidence.base64.b64decode",
+        lambda *_args, **_kwargs: pytest.fail("oversized payload reached base64 decode"),
+    )
+    with pytest.raises(ValueError, match=rf"exceeds size cap \(>{cap}\)"):
         parse_vision_attachments(body, max_image_bytes=cap)
