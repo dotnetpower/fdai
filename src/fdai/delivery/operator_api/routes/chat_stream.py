@@ -132,6 +132,7 @@ from fdai.delivery.operator_api.routes.chat_presentation import (
 )
 from fdai.delivery.operator_api.routes.chat_prompt import (
     _concept_answer,
+    _is_grounded_concept_query,
     _ontology_browse_answer,
     _response_locale,
     _with_concept_evidence,
@@ -484,10 +485,14 @@ def make_chat_stream_route(
                     yield frame("done", completed_payload)
                     return
                 semantic_plan = None
-                if turn_planner is not None and (
-                    not deterministic_followup
-                    or semantic_inventory_completion
-                    or is_explicit_action_draft_request(clean_prompt)
+                if (
+                    turn_planner is not None
+                    and not _is_grounded_concept_query(clean_prompt)
+                    and (
+                        not deterministic_followup
+                        or semantic_inventory_completion
+                        or is_explicit_action_draft_request(clean_prompt)
+                    )
                 ):
                     semantic_plan_timing = turn_timing.begin("semantic_plan")
                     try:

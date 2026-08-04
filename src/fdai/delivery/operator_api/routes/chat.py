@@ -223,6 +223,7 @@ from fdai.delivery.operator_api.routes.chat_prompt import (
     _glossary_matches,
     _is_capability_query,
     _is_concept_query,
+    _is_grounded_concept_query,
     _locale_directive,
     _ontology_browse_answer,
     _response_locale,
@@ -607,10 +608,14 @@ def make_chat_route(
         try:
             operator_turn = None
             semantic_plan = None
-            if turn_planner is not None and (
-                not deterministic_followup
-                or semantic_inventory_completion
-                or is_explicit_action_draft_request(clean_prompt)
+            if (
+                turn_planner is not None
+                and not _is_grounded_concept_query(clean_prompt)
+                and (
+                    not deterministic_followup
+                    or semantic_inventory_completion
+                    or is_explicit_action_draft_request(clean_prompt)
+                )
             ):
                 try:
                     semantic_plan = await plan_semantic_turn(

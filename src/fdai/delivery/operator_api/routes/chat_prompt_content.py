@@ -180,6 +180,7 @@ FDAI glossary (use only to define a term on request; the snapshot's own `glossar
 - Quality gate (T2): mixed-model cross-check (2+ distinct models) + deterministic verifier + grounded citation (RAG); the model generates, verification grants execution eligibility.
 - Verifier: re-validates every T2-generated action against policy-as-code and what-if before it can execute.
 - Grounding: T2 MUST cite the rules/policies that justify its judgment; abstains (routes to HIL) when unsupported.
+- Insufficient evidence: Forseti holds or abstains instead of granting execution eligibility, requests bounded evidence recovery when available, and routes residual ambiguity to Var for human review; Mimir governs rules and does not make this per-action judgment.
 - What-if / dry-run: predicted effect run BEFORE any change is applied; a missing what-if is a safety-invariant defect.
 - Safety invariants: stop-condition, rollback path, blast-radius cap, audit entry - all four are required for every autonomous action.
 - Blast radius: how many resources one action could touch; capped by the risk gate so a single change never exceeds its declared scope.

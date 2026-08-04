@@ -86,7 +86,9 @@ For other cross-screen questions, the web adapter uses this authority order:
   agent and calls at most three matching contributors with bounded timeouts.
 4. The canonical FDAI glossary for concept definitions. English concept turns
   use a deterministic `concept-glossary` fast path; localized turns receive
-  the same selected entries as server-owned translation evidence.
+  the same selected entries as server-owned translation evidence. A question about handling
+  insufficient or below-threshold evidence remains on this path even when it mentions an agent or
+  a proposed change. Those incidental terms don't trigger agent delegation or action evidence.
 5. The browser `ViewSnapshot` for the current screen.
 
 The server removes any client-supplied `_operational_evidence`,

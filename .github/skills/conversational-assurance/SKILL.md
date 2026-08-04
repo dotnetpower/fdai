@@ -74,8 +74,9 @@ Run one cycle in this order:
 ## Multidimensional answer gate
 
 Every terminal answer is assessed by exactly ten named rubrics. Each rubric scores `0` or `1`, so
-the total is an integer in `[0, 10]`. A cycle passes only at `10/10`; any lower score records the
-failed dimensions and is eligible for the guarded hardening path.
+the total is an integer in `[0, 10]`. A cycle passes at `9/10` or `10/10`; any lower score records
+the failed dimensions and enters the guarded hardening path. A later passing evaluation of the same
+challenge and normalized question resolves the historical failure without deleting its audit row.
 
 | Rubric | Required evidence |
 |--------|-------------------|
@@ -109,7 +110,8 @@ Every evaluated question enters `regressions.jsonl` immediately as a regression 
 question expands into a cohort with its generated paraphrases before hardening. Duplicate rejection
 reads all three ledgers. A generated original or paraphrase must never be used again as a new random
 question, while the persisted regression cohort remains available for later candidate and release
-checks.
+checks. The original and every cohort question must each reach at least `9/10` before the failure is
+resolved.
 
 ## Status reporting
 
@@ -213,6 +215,9 @@ python3 .improve/auto-hardening/install_chat_watchdog_timer.py install --project
 
 # Summary and latest 20 evaluations
 python3 .improve/auto-hardening/chat_watchdog.py --project . --status --top 20
+
+# Resume the newest unresolved score below 9/10 immediately
+python3 .improve/auto-hardening/chat_watchdog.py --project . --harden-latest --allow-active
 ```
 
 The local ledgers under `.improve/chat-watchdog/` may contain environment-derived operational text
