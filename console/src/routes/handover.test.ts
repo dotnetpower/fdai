@@ -73,6 +73,20 @@ describe("Handover projection contract", () => {
     expect(() => decodeStewardship(drift)).toThrow(/coverage counts MUST match/);
   });
 
+  test("rejects fractional, negative, and unsupported stewardship metrics", () => {
+    const fractionalTimeout = stewardshipPayload();
+    fractionalTimeout.map.hop_timeout_seconds = 1.5;
+    expect(() => decodeStewardship(fractionalTimeout)).toThrow(/non-negative integer/);
+
+    const negativeBusFactor = stewardshipPayload();
+    negativeBusFactor.map.agents[0]!.bus_factor = -1;
+    expect(() => decodeStewardship(negativeBusFactor)).toThrow(/non-negative integer/);
+
+    const unsupportedVersion = stewardshipPayload();
+    unsupportedVersion.map.version = 3;
+    expect(() => decodeStewardship(unsupportedVersion)).toThrow(/supported positive integers/);
+  });
+
   test("rejects bus factor that disagrees with distinct accountable subjects", () => {
     const drift = stewardshipPayload();
     drift.map.agents[0]!.bus_factor = 2;

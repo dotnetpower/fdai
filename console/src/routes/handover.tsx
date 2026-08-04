@@ -9,7 +9,7 @@ import {
 import { t } from "../i18n";
 import { AgentOversightBody } from "./agent-oversight-views";
 import { PANTHEON } from "./agents.model";
-import { panelArray, panelBoolean, panelContractError, panelNullableString, panelNumber, panelRecord, panelString, panelStringArray } from "./panel-decode";
+import { panelArray, panelBoolean, panelContractError, panelNonNegativeInteger, panelNullableString, panelRecord, panelString, panelStringArray } from "./panel-decode";
 
 /**
  * Handover panel. Fetches ``GET /stewardship`` and renders the handover map
@@ -140,21 +140,27 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
   );
   const identityFindingCount = identityHealth["finding_count"] === undefined
     ? null
-    : panelNumber(identityHealth, "finding_count", "stewardship.identity_health");
+    : panelNonNegativeInteger(identityHealth, "finding_count", "stewardship.identity_health");
+  const version = panelNonNegativeInteger(map, "version", "stewardship.map");
+  const hopTimeoutSeconds = panelNonNegativeInteger(map, "hop_timeout_seconds", "stewardship.map");
+  const overAssignedMax = panelNonNegativeInteger(map, "over_assigned_max", "stewardship.map");
+  if ((version !== 1 && version !== STEWARDSHIP_DUTY_VERSION) || hopTimeoutSeconds < 1 || overAssignedMax < 1) {
+    throw panelContractError("stewardship map version, timeout, and assignment limit MUST be supported positive integers");
+  }
   const decoded: StewardshipResponse = {
     map: {
-      version: panelNumber(map, "version", "stewardship.map"),
+      version,
       maintainers: panelStringArray(map["maintainers"], "stewardship.map.maintainers"),
-      maintainer_count: panelNumber(map, "maintainer_count", "stewardship.map"),
-      hop_timeout_seconds: panelNumber(map, "hop_timeout_seconds", "stewardship.map"),
-      over_assigned_max: panelNumber(map, "over_assigned_max", "stewardship.map"),
+      maintainer_count: panelNonNegativeInteger(map, "maintainer_count", "stewardship.map"),
+      hop_timeout_seconds: hopTimeoutSeconds,
+      over_assigned_max: overAssignedMax,
       agents: panelArray(map["agents"], "stewardship.map.agents").map((value, index) => {
         const agent = panelRecord(value, `stewardship.map.agents[${index}]`);
         return {
           name: panelString(agent, "name", "stewardship agent"),
           autonomous: panelBoolean(agent, "autonomous", "stewardship agent"),
           accept_autonomous_reason: panelNullableString(agent, "accept_autonomous_reason", "stewardship agent"),
-          bus_factor: panelNumber(agent, "bus_factor", "stewardship agent"),
+          bus_factor: panelNonNegativeInteger(agent, "bus_factor", "stewardship agent"),
           stewards: panelArray(agent["stewards"], "stewardship agent.stewards").map((value, stewardIndex) => {
             const steward = panelRecord(value, `stewardship agent.stewards[${stewardIndex}]`);
             const responsibility = stewardshipEnum(
@@ -178,9 +184,9 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
     },
     coverage: {
       is_clean: panelBoolean(coverage, "is_clean", "stewardship.coverage"),
-      total_agents: panelNumber(coverage, "total_agents", "stewardship.coverage"),
-      autonomous_agents: panelNumber(coverage, "autonomous_agents", "stewardship.coverage"),
-      maintainer_count: panelNumber(coverage, "maintainer_count", "stewardship.coverage"),
+      total_agents: panelNonNegativeInteger(coverage, "total_agents", "stewardship.coverage"),
+      autonomous_agents: panelNonNegativeInteger(coverage, "autonomous_agents", "stewardship.coverage"),
+      maintainer_count: panelNonNegativeInteger(coverage, "maintainer_count", "stewardship.coverage"),
       findings: panelArray(coverage["findings"], "stewardship.coverage.findings").map((value, index) => {
         const finding = panelRecord(value, `stewardship.coverage.findings[${index}]`);
         return {

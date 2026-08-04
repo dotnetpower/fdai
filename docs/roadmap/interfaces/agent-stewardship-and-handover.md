@@ -319,13 +319,17 @@ This closes the loop: the same people who are accountable for an agent are the
 people told when its governing workflow is about to change, and the change is
 permanently recorded.
 
-## 9. Console settings surface
+## 9. Console Agent oversight surface
 
-The Handover route combines a read-only projection with a governed proposal form:
+The Governance > Agent oversight route combines a read-only projection with a governed proposal
+form:
 
 - **Current ownership** - all 15 agents, accountable owners, notification contacts, backup
   coverage, autonomous status, FDAI maintainer count, and validation findings from
   `GET /stewardship`.
+- **Projection validation** - the browser accepts only supported integer schema versions,
+  non-negative integer counts, and positive timeout and assignment limits. It recomputes aggregate
+  counts from the fixed Pantheon map and rejects drift instead of displaying inferred health.
 - **Register ownership** - a Contributor, Approver, or Owner can add one or more rows containing
   the canonical agent, person or group display name or email, subject kind, and responsibility.
   The browser generates explicit `agent`, `subject`, `identity`, and `responsibility` tags and

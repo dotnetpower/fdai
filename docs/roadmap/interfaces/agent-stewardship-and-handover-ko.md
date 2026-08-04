@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: 431fbed0d1f91434f9ec0c504cbca3fb72f66296
+translation_source_sha: 7dad9c1cbd4a9538c42eef2ddc584923e0f227ec
 translation_revised: 2026-08-05
 title: 에이전트 스튜어드십과 인수인계
 ---
@@ -300,12 +300,16 @@ recipient 및 audit primitive로 lifecycle을 완료합니다.
 이로써 루프가 닫힌다: 어떤 에이전트를 책임지는 바로 그 사람들이 그 에이전트를 지배하는
 워크플로우가 바뀌려 할 때 통보받고, 변경은 영구히 기록된다.
 
-## 9. 콘솔 설정 표면
+## 9. Console Agent oversight 표면
 
-Handover route는 read-only projection과 governed proposal form을 함께 제공합니다.
+Governance > Agent oversight route는 read-only projection과 governed proposal form을 함께
+제공합니다.
 
 - **현재 담당 체계** - `GET /stewardship`에서 15개 agent, accountable owner, notification contact,
   backup coverage, autonomous status, FDAI maintainer count, validation finding을 표시합니다.
+- **프로젝션 검증** - Browser는 지원되는 정수 schema version, 음수가 아닌 정수 count, 양수 timeout과
+  assignment limit만 허용합니다. 고정 Pantheon map에서 aggregate count를 다시 계산하고, 불일치하면
+  health를 추정해 표시하지 않고 차단합니다.
 - **담당자 등록** - Contributor, Approver, Owner는 canonical agent, 사람 또는 group의 display name이나
   email, subject kind, responsibility로 하나 이상의 행을 추가할 수 있습니다. Browser는 명시적인
   `agent`, `subject`, `identity`, `responsibility` tag를 생성하고 `handover_bootstrap` text document로
