@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 26215e5467e9c942cae8692f0c18260be4ad749d
+translation_source_sha: 4f3ea9d8175252607c3e8b915160d48b73deaa0a
 translation_revised: 2026-08-04
 ---
 # 대화 품질 보증
@@ -76,6 +76,20 @@ $$
 각 평가는 제한된 메타데이터, content digest, 모델 식별자, 기준별 점수, 근거 참조, 비용 및
 생명주기 상태를 저장합니다. 제한 없는 대화 본문, 숨은 reasoning 또는 도구 출력을 복제하지
 않습니다.
+
+Terminal intake는 exact verification reason, route id, evidence-manifest completeness, ontology
+release 및 graph revision이 있으면 함께 보존합니다. Deterministic assessment는 모든 unverified
+답변을 하나의 generic class로 축약하지 않고 failure signature에 exact reason을 포함합니다. 따라서
+provider, context, routing, rendering, policy, rule, ontology, Dynamic failure가 서로의 recurrence
+floor를 충족하지 않습니다.
+
+Ontology-owned failure는 별도 `OntologyAdequacyReview`를 열 수 있습니다. 첫 runtime slice는
+hold-first입니다. StateStore에 idempotent shadow review를 기록하지만 replay success를 주장하거나
+catalog proposal을 만들지 않습니다. Complete evidence, verified routing, resolved identity, exact
+release 및 graph revision, deterministic reproduction이 모두 있을 때만 review가 ready가 됩니다.
+Provider, context, rendering, policy failure는 ontology review를 만들지 않습니다. Ready review는
+provider mapping, projection binding, ontology declaration, rule candidate 또는 Dynamic model review 중
+가장 작은 owning artifact만 추천할 수 있습니다.
 
 ### 하드 검사
 

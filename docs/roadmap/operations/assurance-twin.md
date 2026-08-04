@@ -51,6 +51,11 @@ is composition of existing parts.
 > Operational planning now has a read-only Twin adapter that applies verified active and challenger
 > effect models per objective. Missing or future-cutoff models are unscorable, and divergence marks
 > the candidate for review. The adapter produces evidence only and never selects execution.
+> Dynamic V2 adds immutable operational state trajectories, bounded typed-path propagation,
+> interaction terms, trajectory-wide invariants, independent outcome closure, a graph runtime
+> coordinator, and a durable active/challenger graph-model registry. The control loop accepts an
+> explicitly injected graph coordinator and records shadow evidence only; production graph request
+> and model adapters remain deployment bindings.
 
 ## Why not a chatbot
 
@@ -200,6 +205,28 @@ complicates the design.
   `runtime.py` loads active and challenger models for at most 32 current-state branches. Missing
   active models, low evidence, or divergence require review; the T1 caller remains abstained and
   sends the learned action through normal re-verification.
+
+### Graph-wide temporal Dynamic
+
+The existing action/metric model remains the first Dynamic layer. Graph-wide simulation extends it
+with `OperationalStateTrajectory`, `GraphEffectModel`, `DynamicInvariant`, and
+`TrajectoryOutcome`. A trajectory pins the ontology release, graph and inventory revisions,
+evidence cutoff, horizon, normalized object/metric slices, intervention references, watermarks,
+completeness, truncation, and a deterministic digest. It is not the conversation and execution
+`TrajectoryEnvelope`, and neither record is evidence of provider state by itself.
+
+Graph propagation follows only declared LinkType paths under fixed edge, depth, slice, and horizon
+bounds. Deterministic topology effects run before verified active models. Interaction terms prevent
+parallel action effects from being treated as a linear sum. A missing model, stale cutoff, cycle,
+unavailable baseline, truncation, low causal grade, or active/challenger divergence requires review.
+Challenger predictions never rank a branch.
+
+Trajectory invariants remove a predicted unsafe branch before arbitration. During execution, an
+observed invariant violation cannot rewrite a running plan; it stops forward dispatch and re-enters
+the existing typed recovery path. Heimdall's complete independent observation closes a trajectory
+as matched, mismatched, intervention-censored, incomplete, or unscorable. Only complete post-cutoff
+observations can update the durable challenger registry. Active graph models remain immutable until
+separate reviewed promotion evidence applies.
 
 ## Assessment report (subscription posture, on demand)
 

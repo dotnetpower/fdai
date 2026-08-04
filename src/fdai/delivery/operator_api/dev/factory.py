@@ -43,6 +43,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(name)s: %(messa
 from fdai.agents import OWNED_OBJECT_TOPICS  # noqa: E402
 from fdai.core.audit.what_if_replay import WhatIfEvaluator  # noqa: E402
 from fdai.core.conversation_assurance import (  # noqa: E402
+    HoldingOntologyAdequacyInvestigator,
     InMemoryConversationAssuranceLedger,
 )
 from fdai.core.execution_authorization import AccessGrantRequestService  # noqa: E402
@@ -213,6 +214,7 @@ from fdai.delivery.persistence import (  # noqa: E402
     PostgresConversationAssuranceLedgerConfig,
     PostgresMeteringStore,
     PostgresMeteringStoreConfig,
+    StateStoreOntologyAdequacyReviewSink,
 )
 from fdai.delivery.persistence.postgres_conversation_assurance_runtime import (  # noqa: E402
     PostgresConversationPolicyRuntime,
@@ -647,6 +649,14 @@ def build_local_app(
             evaluators=(),
         ),
         delegate=post_turn_review_queue,
+        adequacy_investigator=(
+            HoldingOntologyAdequacyInvestigator() if persistence is not None else None
+        ),
+        adequacy_sink=(
+            StateStoreOntologyAdequacyReviewSink(persistence.state_store)
+            if persistence is not None
+            else None
+        ),
     )
     log_query_provider = None
     log_query_shutdown_callbacks: tuple[Callable[[], Any], ...] = ()

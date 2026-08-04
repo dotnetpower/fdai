@@ -192,6 +192,9 @@ from fdai.delivery.persistence.state_store_hil_registry import (
     StateStoreHilApprovalRegistry,
     add_pending_approval,
 )
+from fdai.delivery.persistence.state_store_ontology_adequacy import (
+    StateStoreOntologyAdequacyReviewSink,
+)
 from fdai.delivery.persistence.state_store_operational_promotion import (
     StateStoreOperationalPromotionReceiptStore,
 )
@@ -296,5 +299,6 @@ __all__ = [
     "StateStoreActionPromotionRegistry",
     "StateStoreOpenActionEvidenceProvider",
     "StateStoreOperationalPromotionReceiptStore",
+    "StateStoreOntologyAdequacyReviewSink",
     "add_pending_approval",
 ]

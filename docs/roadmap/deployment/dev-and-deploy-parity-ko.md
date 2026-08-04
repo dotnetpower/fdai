@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: dd199a5af31f56b3ba1b2eb69d5e3d8518f1d7ac
+translation_source_sha: 36281e1ec105a1c0d0c11b10dc8b87f11d27cb4e
 translation_revised: 2026-08-04
 ---
 
@@ -262,6 +262,10 @@ Assurance는 배포와 같은 local conversation 및 assessment store를 사용�
 검사를 항상 실행합니다. Semantic review는 서로 다른 resolved model family가 둘 이상일 때만
 활성화되며 narrator-only 또는 `hil-only` secondary는 단일 모델 대신 inconclusive를 유지합니다.
 Artifact가 없으면 model 및 assurance inference는 unavailable이며 fixture로 대체하지 않습니다.
+PostgreSQL StateStore가 구성되면 두 profile은 ontology-owned failed-answer attribution을 shadow
+audit record가 있는 idempotent hold-first adequacy review로 저장합니다. Durable state가 없는
+interactive local은 optional review sink를 unavailable로 유지합니다. 어느 profile도 이 intake
+path에서 replay를 수행하거나 proposal을 만들거나 review를 promote하지 않습니다.
 
 `FDAI_MONITOR_WORKSPACE_ID`가 설정되면 명시적 Command Deck `query_log` 명령은 두 profile에서
 같은 bounded Azure Monitor Logs provider를 사용합니다. Interactive local은 현재 Azure CLI

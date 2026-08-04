@@ -118,6 +118,7 @@ def _make_loop(
     audit: InMemoryStateStore,
     tmp_path: Path,
     dynamic_runtime_coordinator=None,  # type: ignore[no-untyped-def]
+    graph_dynamic_runtime_coordinator=None,  # type: ignore[no-untyped-def]
     event_correlator=None,  # type: ignore[no-untyped-def]
     causal_runtime_coordinator=None,  # type: ignore[no-untyped-def]
 ) -> ControlLoop:
@@ -134,6 +135,7 @@ def _make_loop(
         rules_by_id={},
         t1_engine=t1_engine,
         dynamic_runtime_coordinator=dynamic_runtime_coordinator,
+        graph_dynamic_runtime_coordinator=graph_dynamic_runtime_coordinator,
         event_correlator=event_correlator,
         causal_runtime_coordinator=causal_runtime_coordinator,
     )
@@ -463,6 +465,18 @@ class _DynamicCoordinator:
         return DynamicRuntimeResult(None, "simulation_request_unavailable")
 
 
+class _GraphDynamicCoordinator:
+    async def simulate(self, *, event, action):  # type: ignore[no-untyped-def]
+        return SimpleNamespace(
+            reason="graph_simulation_completed",
+            simulation=SimpleNamespace(
+                active_trajectory=SimpleNamespace(digest="a" * 64),
+                requires_review=False,
+                reason_codes=(),
+            ),
+        )
+
+
 class _FailingAudit:
     async def append_audit_entry(self, entry):  # type: ignore[no-untyped-def]
         raise RuntimeError("audit unavailable")
@@ -571,3 +585,75 @@ async def test_dynamic_simulation_and_audit_double_failure_is_isolated(tmp_path:
     )
 
     await loop._simulate_and_audit_dynamic(event=event, t1=t1)  # noqa: SLF001
+
+
+async def test_graph_only_dynamic_simulation_is_shadow_audited(tmp_path: Path) -> None:
+    audit = InMemoryStateStore()
+    loop = _make_loop(
+        t1_engine=None,
+        audit=audit,
+        tmp_path=tmp_path,
+        graph_dynamic_runtime_coordinator=_GraphDynamicCoordinator(),
+    )
+    event = EventIngest(validator=_validator()).ingest(_event_dict("evt-graph-dynamic"))
+    assert event is not None
+    t1 = T1Decision(
+        outcome=T1Outcome.REUSED,
+        event_id=str(event.event_id),
+        threshold=0.7,
+        best_match=SimilarityMatch(
+            action=LearnedAction(
+                signature="sig-graph",
+                rule_id="ops.legacy.restart",
+                action_type="ops.restart-service",
+                params={},
+                incident_id="inc-graph",
+                success_rate=0.9,
+            ),
+            score=0.9,
+        ),
+    )
+
+    await loop._simulate_and_audit_dynamic(event=event, t1=t1)  # noqa: SLF001
+
+    row = audit.audit_entries[0]["entry"]
+    assert row["action_kind"] == "dynamic.graph_simulation"
+    assert row["mode"] == "shadow"
+    assert row["trajectory_digest"] == "a" * 64
+    assert row["simulation_requires_review"] is False
+
+
+async def test_scalar_and_graph_dynamic_simulations_emit_separate_audits(
+    tmp_path: Path,
+) -> None:
+    audit = InMemoryStateStore()
+    loop = _make_loop(
+        t1_engine=None,
+        audit=audit,
+        tmp_path=tmp_path,
+        dynamic_runtime_coordinator=_DynamicCoordinator(),
+        graph_dynamic_runtime_coordinator=_GraphDynamicCoordinator(),
+    )
+    event = EventIngest(validator=_validator()).ingest(_event_dict("evt-both-dynamic"))
+    assert event is not None
+    t1 = T1Decision(
+        outcome=T1Outcome.REUSED,
+        event_id=str(event.event_id),
+        threshold=0.7,
+        best_match=SimilarityMatch(
+            action=LearnedAction(
+                signature="sig-both",
+                rule_id="ops.legacy.restart",
+                action_type="ops.restart-service",
+                params={},
+                incident_id="inc-both",
+                success_rate=0.9,
+            ),
+            score=0.9,
+        ),
+    )
+
+    await loop._simulate_and_audit_dynamic(event=event, t1=t1)  # noqa: SLF001
+
+    action_kinds = [item["entry"]["action_kind"] for item in audit.audit_entries]
+    assert action_kinds == ["dynamic.simulation", "dynamic.graph_simulation"]

@@ -97,6 +97,18 @@ def test_deterministic_failed_claim_fails() -> None:
     assert result.verdict is AssuranceVerdict.FAIL
 
 
+def test_deterministic_unverified_preserves_exact_reason() -> None:
+    result = assess_deterministically(
+        _turn(
+            verification_status="unverified",
+            verification_reason_code="unknown_link_type",
+        )
+    )
+
+    assert result.verdict is AssuranceVerdict.FAIL
+    assert result.reasons == ("verification_failed:unknown_link_type",)
+
+
 async def test_mixed_family_consensus_passes_conservatively() -> None:
     first = _Evaluator("publisher-a:model-a", "family-a", 4, "Fully supported.")
     second = _Evaluator("publisher-b:model-b", "family-b", 3, "Minor support gap.")

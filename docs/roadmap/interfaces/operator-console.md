@@ -63,7 +63,12 @@ Three properties follow directly:
 Completed answers also enter the off-path [Conversation Assurance](../decisioning/conversation-assurance.md)
 loop. The Evidence panel shows principal-scoped scores, model disagreement, cost, and immutable
 disputes. Reporting an incorrect answer adds evidence for autonomous re-evaluation; it is not an
-approval, policy edit, or execution command.
+approval, policy edit, or execution command. Terminal intake preserves the exact verification
+reason and evidence-manifest completeness. A failed answer attributed to an ontology-owned layer
+can create a separate hold-first adequacy review in the durable StateStore. Provider, context,
+rendering, and policy failures create no such review. The Operator API never marks a review ready,
+creates a catalog proposal, or grants authority; those transitions require exact replay evidence
+and the existing governed catalog lifecycle.
 ### 1.1 Vocabulary added to the shared glossary
 
 The following tokens are added to the shared vocabulary in

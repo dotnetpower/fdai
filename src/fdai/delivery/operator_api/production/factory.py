@@ -71,6 +71,7 @@ from fdai.core.conversation.outbound_delivery import (
 from fdai.core.conversation_assurance import (
     ConversationAssuranceEvaluator,
     ConversationAssuranceLifecycleCoordinator,
+    HoldingOntologyAdequacyInvestigator,
     PromotionConfig,
 )
 from fdai.core.execution_authorization import AccessGrantRequestService
@@ -129,6 +130,7 @@ from fdai.delivery.persistence import (
     PostgresModelHealthTransitionSinkConfig,
     PostgresReadInvestigationRunStore,
     PostgresReadInvestigationRunStoreConfig,
+    StateStoreOntologyAdequacyReviewSink,
 )
 from fdai.delivery.persistence.postgres_conversation_assurance_runtime import (
     PostgresConversationPolicyRuntime,
@@ -471,6 +473,8 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         delegate=post_turn_review_queue,
         ledger=assurance_ledger if assurance_lifecycle is not None else None,
         lifecycle=assurance_lifecycle,
+        adequacy_investigator=HoldingOntologyAdequacyInvestigator(),
+        adequacy_sink=StateStoreOntologyAdequacyReviewSink(state_store),
     )
     shutdown_callbacks = (*shutdown_callbacks, assurance_submitter.close)
     model_settings = None

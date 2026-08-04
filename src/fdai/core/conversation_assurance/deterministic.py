@@ -15,12 +15,16 @@ def assess_deterministically(turn: TurnAssessmentInput) -> DeterministicAssessme
     """Return a decisive result when existing terminal evidence is sufficient."""
 
     if turn.failed_claim_ids:
+        reasons = ["unsupported_atomic_claim"]
+        if turn.verification_status == "unverified":
+            reasons.append(f"verification_failed:{turn.verification_reason_code}")
         return DeterministicAssessment(
             verdict=AssuranceVerdict.FAIL,
-            reasons=("unsupported_atomic_claim",),
+            reasons=tuple(reasons),
         )
     if turn.verification_status == "unverified":
-        reason = "verification_failed" if turn.checks_total else "evidence_unavailable"
+        prefix = "verification_failed" if turn.checks_total else "evidence_unavailable"
+        reason = f"{prefix}:{turn.verification_reason_code}"
         verdict = AssuranceVerdict.FAIL if turn.checks_total else AssuranceVerdict.INCONCLUSIVE
         return DeterministicAssessment(verdict=verdict, reasons=(reason,))
     if turn.checks_completed < turn.checks_total:

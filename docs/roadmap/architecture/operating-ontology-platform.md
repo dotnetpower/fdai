@@ -29,6 +29,10 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 > Canonical releases now include typed function declarations. The function registry checks the
 > caller agent, role, and purpose, derives replay-stable seeds for declared stochastic functions,
 > and emits content-addressed invocation receipts pinned to the exact release.
+> K6-K8 target graph-wide Dynamic evidence: immutable operational state trajectories,
+> dependency-scoped effect propagation, time-bounded invariants, and independently observed
+> trajectory outcomes. Existing action/metric Dynamic simulation remains implemented; graph-wide
+> propagation and failure-attribution wiring remain delivery work until their exit criteria pass.
 >
 > **Hardening status (2026-08-01):** Ten adversarial rounds covered release identity, persistence,
 > interface compatibility, ObjectSet closure, mutation safety, function authority, projection,
@@ -147,6 +151,49 @@ observed state.
 type targets, identity and property mappings, watermark behavior, freshness, deletion semantics,
 conflict policy, and batch limits. A source cannot silently overwrite another authority.
 
+## Dynamic state and graph effects
+
+The platform separates three layers that must not grant authority to one another:
+
+| Layer | Question | Output authority |
+|-------|----------|------------------|
+| **Semantic** | What exists, what does it mean, and which relationships are valid? | Type, unit, identity, cardinality, and compatibility only. |
+| **Kinetic** | What registered operation may change an exact target under which safety contract? | Proposal-only `MutationPlan`; judgment, approval, and execution remain external. |
+| **Dynamic** | How may state evolve over time under an intervention or external event, and how well did that prediction match reality? | Read-only prediction, invariant, propagation, and fidelity evidence only. |
+
+`OperationalStateTrajectory` is distinct from the existing governed conversation and execution
+`TrajectoryEnvelope`. It pins an ontology release, baseline graph revision, inventory generation,
+event-time cutoff, horizon, affected object revisions, predicted or observed state slices,
+intervention references, source watermarks, completeness, truncation, and one replay-stable digest.
+It stores normalized values and opaque evidence references, never raw cloud payloads. A predicted
+trajectory cannot assert provider truth; an observed trajectory requires authoritative provider
+or telemetry receipts.
+
+`GraphEffectModel` extends the current action-and-metric effect model without replacing it. It
+declares a source object or interface, an ActionType or external-event trigger, one bounded LinkType
+path, a target object or interface and metric, propagation lag, response function, uncertainty,
+context conditions, evidence grade, learning cutoff, and active or challenger status. The simulator
+applies deterministic topology effects first, then verified active models. Challenger output is
+reported only as divergence evidence and never ranks or selects a branch.
+
+`DynamicInvariant` describes a machine-evaluable bound that must hold over the complete trajectory,
+such as an SLO, RTO, RPO, capacity floor, cost envelope, data-integrity predicate, or affected-set
+ceiling. A predicted violation removes the branch before arbitration. An observed violation during
+execution stops forward dispatch and re-enters the existing typed recovery path; it does not let a
+simulator alter a running plan.
+
+`TrajectoryOutcome` compares predicted and independently observed state slices by object, metric,
+and time window. Its terminal status is `matched`, `mismatched`, `intervention_censored`,
+`incomplete`, or `unscorable`. Only complete, post-cutoff, independently observed outcomes update a
+challenger model. Active models remain immutable until a separate reviewed promotion applies an
+exact evidence receipt.
+
+Conversation or internal-processing failures may open an off-path adequacy review only after a
+deterministic attribution step preserves the exact verification reason, route, evidence manifest,
+ontology release, graph revision, freshness, and completeness. Context, provider, routing,
+rendering, policy, semantic, kinetic, and Dynamic failures remain distinct. Only reproduced
+semantic, projection, rule, or Dynamic gaps create inert ontology or model-review candidates.
+
 ## Query, security, and SDK surfaces
 
 Security applies at object, property, link, object-set, action-discovery, action-submission, and
@@ -166,6 +213,9 @@ proposals; they never call an executor.
 | K3 | Typed functions and authority-aware reconciliation. | Functions cannot mutate; every external effect reaches one typed closure. |
 | K4 | Projection bindings and schema migrations. | Snapshot/delta parity, watermark recovery, conflict, and migration fixtures pass. |
 | K5 | Generated SDKs and ontology application surfaces. | Python/TypeScript compile tests and proposal-only write tests pass. |
+| K6 | Operational state trajectories and deterministic graph propagation. | Identical release, graph, cutoff, models, and interventions produce one digest; stale, truncated, cyclic, or unmodeled paths require review. |
+| K7 | Dynamic invariants and trajectory outcome closure. | No invariant-violating branch reaches arbitration; provider acceptance cannot close an outcome; incomplete observations remain unscorable. |
+| K8 | Failure attribution and governed Dynamic learning. | Exact verification reasons survive intake; non-ontology failures create no ontology proposal; only challengers learn and no learned artifact raises authority without review. |
 
 New fields begin optional for decoding but are required for newly built runtime records. Legacy
 decoding is removed only after retained audit and instance fixtures replay under exact releases.
@@ -180,6 +230,9 @@ decoding is removed only after retained audit and instance fixtures replay under
 | Action safety | Stop, rollback, impact, dry-run, lock, idempotency, and audit remain mandatory. |
 | Function safety | Query and planning code has no executor identity or direct mutation path. |
 | Reconciliation | Provider acceptance and observed convergence remain distinct states. |
+| Dynamic replay | The same bounded inputs produce the same predicted trajectory and invariant verdict. |
+| Dynamic authority | Prediction, model agreement, or model promotion evidence cannot approve or execute an action. |
+| Dynamic closure | Only complete independent observations score trajectory fidelity or update a challenger. |
 
 ## Related docs
 

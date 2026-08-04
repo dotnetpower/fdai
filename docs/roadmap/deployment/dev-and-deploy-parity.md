@@ -258,6 +258,10 @@ the same local PostgreSQL conversation and assessment stores as deployment and a
 deterministic terminal checks. Semantic review activates only with two distinct resolved model
 families; a narrator-only or `hil-only` secondary stays inconclusive instead of using one model.
 Without the artifact, model and assurance inference remain unavailable and no fixture replaces them.
+When PostgreSQL StateStore is configured, both profiles persist ontology-owned failed-answer
+attributions as idempotent hold-first adequacy reviews with a shadow audit record. Interactive local
+without durable state leaves the optional review sink unavailable. Neither profile performs replay,
+creates a proposal, or promotes a review from this intake path.
 
 When `FDAI_MONITOR_WORKSPACE_ID` is configured, explicit Command Deck `query_log` commands use
 the same bounded Azure Monitor Logs provider in both profiles. Interactive local obtains its data

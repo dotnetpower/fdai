@@ -76,6 +76,20 @@ Each assessment stores bounded metadata, content digests, model identities, crit
 evidence references, cost, and lifecycle state. It does not duplicate unrestricted conversation
 bodies, hidden reasoning, or tool output.
 
+Terminal intake also preserves the exact verification reason, route id, evidence-manifest
+completeness, ontology release, and graph revision when present. Deterministic assessment includes
+that exact reason in its failure signature instead of collapsing every unverified answer into one
+generic class. This keeps provider, context, routing, rendering, policy, rule, ontology, and Dynamic
+failures from satisfying one another's recurrence floor.
+
+An ontology-owned failure can open a separate `OntologyAdequacyReview`. The first runtime slice is
+hold-first: it records an idempotent shadow review in StateStore but does not claim replay success or
+create a catalog proposal. A review becomes ready only after complete evidence, verified routing,
+resolved identity, exact release and graph revisions, and deterministic reproduction are available.
+Provider, context, rendering, and policy failures never create ontology reviews. Ready reviews may
+recommend only the smallest owning artifact: provider mapping, projection binding, ontology
+declaration, rule candidate, or Dynamic model review.
+
 ### Hard checks
 
 Hard checks run for every completed answer without a model call:

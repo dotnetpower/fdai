@@ -30,7 +30,7 @@ fdai/
 │   │   ├── browser_evidence/   # read-only origin/DNS policy, redaction, immutable artifacts, custody, and shadow comparison
 │   │   ├── operator_memory/    # HIL-approved operator memory injected as untrusted `<operator_note>` data
 │   │   ├── learning/           # consent-gated off-path turn eligibility, consensus, dedup ledger, and inert proposal routing
-│   │   ├── conversation_assurance/ # deterministic-first completed-turn scoring, mixed-family review, scoped disputes, subscription learning, and chat-policy promotion/rollback
+│   │   ├── conversation_assurance/ # deterministic-first completed-turn scoring, exact failure attribution, hold-first ontology adequacy review, mixed-family review, scoped disputes, subscription learning, and chat-policy promotion/rollback
 │   │   ├── trajectory/         # authorization-first observable trajectory projection, version policy, reviewed aggregate, and offline validation
 │   │   ├── case_history/       # canonical revisions, strict operational receipts, artifact-first intake, scoped retrieval, backfill, and retention
 │   │   ├── task_worker/        # isolated depth-one read-only workers: capability attenuation, lifecycle, durable state, and parent synthesis
@@ -68,7 +68,7 @@ fdai/
 │   │   ├── mscp_profile/       # pure mscp-operational-v1 provenance, effect verification, cycle guard, and runtime-integrity policies; no execution authority
 │   │   ├── deploy_preflight/   # pre-deployment feasibility probes → grounded readiness report
 │   │   ├── readiness/          # operational handoff + startup and monitored-target readiness contracts, fail-closed reducers, evidence expiry, and authority ceilings
-│   │   ├── assurance_twin/     # read-only ontology twin: text-to-query, active/challenger effect models, deterministic branch simulation (proposes, never executes)
+│   │   ├── assurance_twin/     # read-only ontology twin: text-to-query, scalar/graph active-challenger models, state trajectories, invariants, deterministic branch simulation, and outcome closure (never executes)
 │   │   ├── ontology_platform/   # exact releases, semantic interfaces, bounded object sets, mutation plans, typed functions, reconciliation, and proposal-only SDK generation
 │   │   ├── conversation/       # Bragi-owned model-free screen T0, operator-console intent/tool coordination, conflict-aware read plans, grounded narration, per-turn isolation, durable delivery, and busy-input arbitration
 │   │   ├── user_context_projection.py  # metadata-only principal context / workflow binding projection into runtime ontology

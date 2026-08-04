@@ -20,7 +20,7 @@ from fdai.core.architecture_review import (
     ArchitectureReviewProductionGateEvaluator,
     ArchitectureReviewProjector,
 )
-from fdai.core.assurance_twin import DynamicRuntimeCoordinator
+from fdai.core.assurance_twin import DynamicRuntimeCoordinator, GraphDynamicRuntimeCoordinator
 from fdai.core.chaos.symptom_index import SymptomIndex, build_from_promoted
 from fdai.core.control_loop import ControlLoop
 from fdai.core.event_ingest import EventCorrelator, EventIngest
@@ -287,6 +287,7 @@ def _build_control_loop(
     current_reuse_verifier: CurrentReuseVerifier | None = None,
     causal_runtime_coordinator: CausalRuntimeCoordinator | None = None,
     dynamic_runtime_coordinator: DynamicRuntimeCoordinator | None = None,
+    graph_dynamic_runtime_coordinator: GraphDynamicRuntimeCoordinator | None = None,
     human_access_enabled: bool = True,
     execution_identities: Mapping[str, WorkloadIdentity] | None = None,
 ) -> ControlLoop:
@@ -626,6 +627,20 @@ def _build_control_loop(
             model_reader=container.effect_model_reader,
             causal_evidence_verifier=container.effect_model_causal_evidence_verifier,
         )
+    if (
+        graph_dynamic_runtime_coordinator is None
+        and container.graph_dynamic_simulation_request_provider is not None
+    ):
+        if (
+            container.graph_effect_model_reader is None
+            or container.graph_effect_model_causal_evidence_verifier is None
+        ):
+            raise RuntimeError("graph Dynamic runtime requires verified effect model evidence")
+        graph_dynamic_runtime_coordinator = GraphDynamicRuntimeCoordinator(
+            request_provider=container.graph_dynamic_simulation_request_provider,
+            model_reader=container.graph_effect_model_reader,
+            causal_evidence_verifier=container.graph_effect_model_causal_evidence_verifier,
+        )
 
     process_runtime_store = _build_process_store()
     workflow_outcome_ledger = StateStoreWorkflowOutcomeLedger(audit_store)
@@ -643,6 +658,7 @@ def _build_control_loop(
         risk_gate=risk_gate,
         t1_engine=t1,
         dynamic_runtime_coordinator=dynamic_runtime_coordinator,
+        graph_dynamic_runtime_coordinator=graph_dynamic_runtime_coordinator,
         t2_engine=t2,
         direct_api_executor=direct_api_executor,
         tool_executor=tool_executor,

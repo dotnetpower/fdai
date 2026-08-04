@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: a0eb5d30a1669a02341ea1e94517139c2b8a58df
+translation_source_sha: 5c99d1b1809349529a2c0b0619a5056f94998639
 translation_revised: 2026-08-04
 ---
 
@@ -61,7 +61,12 @@ quality gate (T2 verifier), risk gate, shipped Rego policy. 콘솔은
 완료된 답변은 off-path [Conversation Assurance](../decisioning/conversation-assurance-ko.md)
 루프에도 들어갑니다. Evidence panel은 principal 범위 점수, 모델 불일치, 비용, immutable 이의
 제기를 보여줍니다. 잘못된 답변 보고는 자율 재평가 근거를 추가하며 승인, 정책 편집 또는 실행
-명령이 아닙니다.
+명령이 아닙니다. Terminal intake는 exact verification reason과 evidence-manifest completeness를
+보존합니다. Ontology-owned layer로 attribution된 failed answer는 durable StateStore에 별도
+hold-first adequacy review를 만들 수 있습니다. Provider, context, rendering, policy failure는 이
+review를 만들지 않습니다. Operator API는 review를 ready로 표시하거나 catalog proposal을 만들거나
+authority를 부여하지 않습니다. 해당 transition에는 exact replay evidence와 기존 governed catalog
+lifecycle이 필요합니다.
 ### 1.1 공유 glossary에 추가된 어휘
 
 다음 토큰들이

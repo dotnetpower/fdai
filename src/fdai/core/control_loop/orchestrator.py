@@ -12,7 +12,7 @@ from collections.abc import Awaitable, Callable, Iterable, Mapping
 from datetime import timedelta
 from typing import Any
 
-from fdai.core.assurance_twin import DynamicRuntimeCoordinator
+from fdai.core.assurance_twin import DynamicRuntimeCoordinator, GraphDynamicRuntimeCoordinator
 from fdai.core.control_loop._boundary import ControlLoopBoundaryMixin
 from fdai.core.control_loop._canary import process_canary
 from fdai.core.control_loop._execution import ControlLoopExecutionMixin
@@ -92,6 +92,7 @@ class ControlLoop(
         tool_executor: ToolCallShadowExecutor | None = None,
         t1_engine: T1Tier | None = None,
         dynamic_runtime_coordinator: DynamicRuntimeCoordinator | None = None,
+        graph_dynamic_runtime_coordinator: GraphDynamicRuntimeCoordinator | None = None,
         t2_engine: T2Tier | None = None,
         stage_publisher: StagePublisher | None = None,
         notification_router: NotificationRouter | None = None,
@@ -167,6 +168,7 @@ class ControlLoop(
         self._tool_executor = tool_executor
         self._t1_engine = t1_engine
         self._dynamic_runtime_coordinator = dynamic_runtime_coordinator
+        self._graph_dynamic_runtime_coordinator = graph_dynamic_runtime_coordinator
         self._t2_engine = t2_engine
         self._stage_publisher: StagePublisher = stage_publisher or NullStagePublisher()
         self._notification_router = notification_router

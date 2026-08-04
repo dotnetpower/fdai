@@ -1,8 +1,8 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: c2dd8e84b8a7fe022bd2f677457e86a1a266e691
-translation_revised: 2026-08-03
+translation_source_sha: 31dd541bd5c4a7f3a28bcde21f9e87a8816bf996
+translation_revised: 2026-08-04
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 
@@ -48,6 +48,11 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 > Operational planning에는 이제 objective별로 검증된 active 및 challenger effect model을 적용하는
 > read-only Twin adapter가 있습니다. 누락되거나 future-cutoff인 model은 unscorable이며 divergence는
 > candidate를 review 대상으로 표시합니다. Adapter는 evidence만 만들고 execution을 선택하지 않습니다.
+> Dynamic V2는 immutable operational state trajectory, bounded typed-path propagation,
+> interaction term, trajectory-wide invariant, independent outcome closure, graph runtime
+> coordinator 및 durable active/challenger graph-model registry를 추가합니다. Control loop는
+> 명시적으로 injected graph coordinator를 받아 shadow evidence만 기록하며 production graph request와
+> model adapter는 deployment binding으로 남습니다.
 
 ## 왜 챗봇이 아닌가
 
@@ -183,6 +188,28 @@ remediation-PR 제안**을 붙일 수 있습니다. 그것에 대해 행동하�
   `runtime.py`는 최대 32개 current-state branch의 active 및 challenger model을 로드합니다. Active
   model 누락, 낮은 evidence 또는 divergence는 review를 요구하며 T1 caller는 abstain 상태를 유지하고
   learned action을 정상 re-verification 경로로 보냅니다.
+
+### Graph-wide temporal Dynamic
+
+기존 action/metric model은 첫 번째 Dynamic layer로 유지됩니다. Graph-wide simulation은 이를
+`OperationalStateTrajectory`, `GraphEffectModel`, `DynamicInvariant`, `TrajectoryOutcome`으로
+확장합니다. Trajectory는 ontology release, graph 및 inventory revision, evidence cutoff, horizon,
+normalized object/metric slice, intervention reference, watermark, completeness, truncation 및
+deterministic digest를 고정합니다. Conversation 및 execution `TrajectoryEnvelope`와 구별되며 어느
+record도 자체적으로 provider state evidence가 아닙니다.
+
+Graph propagation은 fixed edge, depth, slice, horizon bound 아래 선언된 LinkType path만 따릅니다.
+Deterministic topology effect를 verified active model보다 먼저 적용합니다. Interaction term은 parallel
+action effect를 linear sum으로 취급하지 않게 합니다. Model 누락, stale cutoff, cycle, unavailable
+baseline, truncation, 낮은 causal grade 또는 active/challenger divergence는 review를 요구합니다.
+Challenger prediction은 branch 순위를 정하지 않습니다.
+
+Trajectory invariant는 predicted unsafe branch를 arbitration 전에 제거합니다. 실행 중 observed
+invariant violation은 실행 중 plan을 rewrite할 수 없으며 forward dispatch를 중지하고 기존 typed
+recovery path에 다시 진입합니다. Heimdall의 complete independent observation은 trajectory를
+matched, mismatched, intervention-censored, incomplete 또는 unscorable로 종료합니다. Complete한
+post-cutoff observation만 durable challenger registry를 update할 수 있습니다. Active graph model은
+별도의 reviewed promotion evidence가 적용될 때까지 immutable 상태를 유지합니다.
 
 ## Assessment 리포트 (구독 자세, 온디맨드)
 

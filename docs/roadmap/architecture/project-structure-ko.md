@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 99da006ed3d13e6297b4ac51bc9c892ec29ea873
+translation_source_sha: e3a5db09ec6fd41eb4472cab4b1f13cbce41c0b1
 translation_revised: 2026-08-04
 ---
 
@@ -35,7 +35,7 @@ fdai/
 │   │   ├── browser_evidence/   # 읽기 전용 origin/DNS policy, redaction, immutable artifact, custody, shadow comparison
 │   │   ├── operator_memory/    # HIL 승인된 오퍼레이터 메모리를 untrusted `<operator_note>` 데이터로 주입
 │   │   ├── learning/           # 동의 기반 off-path turn eligibility, consensus, dedup ledger, 비활성 proposal routing
-│   │   ├── conversation_assurance/ # deterministic-first 완료 turn 점수, mixed-family 평가, 범위 제한 이의 제기, 구독별 학습, chat-policy 승격 및 롤백
+│   │   ├── conversation_assurance/ # deterministic-first 완료 turn 점수, exact failure attribution, hold-first ontology adequacy review, mixed-family 평가, 범위 제한 이의 제기, 구독별 학습, chat-policy 승격 및 롤백
 │   │   ├── trajectory/         # authorization-first observable trajectory projection, version policy, reviewed aggregate, offline validation
 │   │   ├── case_history/       # canonical revision, strict operational receipt, artifact-first intake, scoped retrieval, backfill 및 retention
 │   │   ├── task_worker/        # 격리된 depth-one 읽기 전용 worker: capability 축소, lifecycle, 영구 state, parent synthesis
@@ -73,7 +73,7 @@ fdai/
 │   │   ├── mscp_profile/       # 실행 authority 없는 순수 mscp-operational-v1 provenance, effect verification, cycle guard 및 runtime-integrity policy
 │   │   ├── deploy_preflight/   # 배포 전 feasibility 프로브 → grounded readiness 리포트
 │   │   ├── readiness/          # 운영 handoff + startup 및 monitored-target readiness contract, fail-closed reducer, evidence expiry 및 authority ceiling
-│   │   ├── assurance_twin/     # 읽기 전용 온톨로지 트윈: text-to-query, active/challenger effect model, 결정론적 branch simulation (제안만, 실행 안 함)
+│   │   ├── assurance_twin/     # 읽기 전용 온톨로지 트윈: text-to-query, scalar/graph active-challenger model, state trajectory, invariant, 결정론적 branch simulation, outcome closure (실행 안 함)
 │   │   ├── ontology_platform/   # exact release, semantic interface, bounded object set, mutation plan, typed function, reconciliation, proposal-only SDK generation
 │   │   ├── conversation/       # Bragi-owned model-free screen T0, operator console intent/tool 조정, conflict-aware read plan, grounded narration, per-turn isolation, durable delivery 및 busy-input arbitration
 │   │   ├── user_context_projection.py  # principal context / workflow binding metadata만 runtime ontology에 projection

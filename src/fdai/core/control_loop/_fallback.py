@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
-from fdai.core.assurance_twin import DynamicRuntimeCoordinator
+from fdai.core.assurance_twin import DynamicRuntimeCoordinator, GraphDynamicRuntimeCoordinator
 from fdai.core.control_loop._helpers import _is_execution_success
 from fdai.core.control_loop.models import ControlLoopOutcome, ControlLoopResult
 from fdai.core.executor.action_builder import ActionBuilder, ActionBuildError
@@ -48,6 +48,7 @@ class ControlLoopFallbackMixin:
     _t1_engine: T1Tier | None
     _t2_engine: T2Tier | None
     _dynamic_runtime_coordinator: DynamicRuntimeCoordinator | None
+    _graph_dynamic_runtime_coordinator: GraphDynamicRuntimeCoordinator | None
 
     async def _emit_stage(
         self,
@@ -94,7 +95,10 @@ class ControlLoopFallbackMixin:
 
     async def _simulate_and_audit_dynamic(self, *, event: Event, t1: T1Decision) -> None:
         coordinator = self._dynamic_runtime_coordinator
-        if coordinator is None or t1.best_match is None:
+        if t1.best_match is None:
+            return
+        if coordinator is None:
+            await self._simulate_and_audit_graph_dynamic(event=event, t1=t1)
             return
         try:
             result = await coordinator.simulate(event=event, action=t1.best_match.action)
@@ -126,6 +130,50 @@ class ControlLoopFallbackMixin:
                     "event_id": str(event.event_id),
                     "simulation_reason": reason,
                 },
+                exc_info=True,
+            )
+        await self._simulate_and_audit_graph_dynamic(event=event, t1=t1)
+
+    async def _simulate_and_audit_graph_dynamic(
+        self,
+        *,
+        event: Event,
+        t1: T1Decision,
+    ) -> None:
+        coordinator = self._graph_dynamic_runtime_coordinator
+        if coordinator is None or t1.best_match is None:
+            return
+        try:
+            result = await coordinator.simulate(event=event, action=t1.best_match.action)
+        except Exception as exc:  # noqa: BLE001 - simulation remains evidence only
+            simulation = None
+            reason = f"graph_simulation_failed:{type(exc).__name__}"
+        else:
+            simulation = result.simulation
+            reason = result.reason
+        entry = {
+            "event_id": str(event.event_id),
+            "correlation_id": event.correlation_id or str(event.event_id),
+            "idempotency_key": f"{event.idempotency_key}:graph_dynamic_simulation",
+            "actor": "fdai.core.assurance_twin",
+            "action_kind": "dynamic.graph_simulation",
+            "mode": Mode.SHADOW.value,
+            "simulation_reason": reason,
+            "trajectory_digest": (
+                simulation.active_trajectory.digest if simulation is not None else None
+            ),
+            "simulation_requires_review": (
+                simulation.requires_review if simulation is not None else True
+            ),
+            "reason_codes": list(simulation.reason_codes) if simulation is not None else [],
+            "recorded_at": datetime.now(tz=UTC).isoformat(),
+        }
+        try:
+            await self._audit_store.append_audit_entry(entry)
+        except Exception:  # noqa: BLE001 - optional side-path audit is best-effort
+            _LOGGER.warning(
+                "graph_dynamic_simulation_audit_failed",
+                extra={"event_id": str(event.event_id), "simulation_reason": reason},
                 exc_info=True,
             )
 

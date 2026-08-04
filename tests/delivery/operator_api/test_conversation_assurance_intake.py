@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime
-from typing import cast
+from typing import Any, cast
 
 import pytest
 
@@ -12,6 +12,7 @@ from fdai.core.conversation_assurance import (
     ChatPolicyCandidate,
     ConversationAssuranceCoordinator,
     InMemoryConversationAssuranceLedger,
+    OntologyAdequacyReview,
     assurance_principal_scope,
 )
 from fdai.delivery.operator_api.routes.chat_history import replay_metadata
@@ -63,6 +64,11 @@ async def test_intake_assesses_completed_turn_off_path() -> None:
             "checks_total": 1,
             "evidence_refs": ["evidence:1"],
             "failed_claim_ids": [],
+            "reason_code": "inventory_snapshot_grounded",
+            "evidence_manifest": {
+                "route_id": "inventory-route",
+                "complete": True,
+            },
         },
     }
     assistant = _turn(
@@ -86,6 +92,56 @@ async def test_intake_assesses_completed_turn_off_path() -> None:
     assert len(records) == 1
     assert records[0].decision.verdict.value == "pass"
     assert json.loads(assistant.metadata["replay_payload"])["answer"] == assistant.content
+
+
+async def test_intake_preserves_exact_unverified_reason_for_clustering() -> None:
+    ledger = InMemoryConversationAssuranceLedger()
+    coordinator = ConversationAssuranceCoordinator(
+        ledger=ledger,
+        reviewer=None,
+        rubric_version="1.0.0",
+        now=lambda: _NOW,
+    )
+    payload = {
+        "answer": "The relationship is not represented.",
+        "source": "evidence:unverified",
+        "verification": {
+            "status": "unverified",
+            "authority": "ontology_catalog",
+            "checks_completed": 0,
+            "checks_total": 1,
+            "evidence_refs": ["ontology:release"],
+            "failed_claim_ids": ["claim-1"],
+            "reason_code": "unknown_link_type",
+            "evidence_manifest": {
+                "route_id": "ontology-route",
+                "complete": True,
+            },
+        },
+        "intent_graph": {
+            "ontology_release": "sha256:" + "a" * 64,
+            "graph_revision": "graph-1",
+        },
+    }
+    assistant = _turn(
+        ConversationTurnRole.ASSISTANT,
+        payload["answer"],
+        replay_metadata(model="narrator-model", payload=payload),
+    )
+    submitter = ConversationAssurancePostTurnSubmitter(coordinator=coordinator)
+
+    assert submitter.submit_nowait(
+        operator_turn=_turn(ConversationTurnRole.OPERATOR, "What is related?"),
+        assistant_turn=assistant,
+        submission=PostTurnReviewSubmission(("unverified",), ("ontology:release",)),
+    )
+    await submitter.close()
+
+    records = await ledger.list_assessments(principal_scope=assurance_principal_scope("operator-1"))
+    assert records[0].decision.reasons == (
+        "unsupported_atomic_claim",
+        "verification_failed:unknown_link_type",
+    )
 
 
 class _FailingCoordinator:
@@ -171,3 +227,115 @@ async def test_intake_runs_lifecycle_with_scoped_assessment_window() -> None:
 
     assert len(lifecycle.records) == 1
     assert lifecycle.records[0].principal_scope == assurance_principal_scope("operator-1")
+
+
+class _Investigator:
+    async def investigate(self, turn: object, attribution: object) -> OntologyAdequacyReview:
+        from fdai.core.conversation_assurance import build_ontology_adequacy_review
+
+        return build_ontology_adequacy_review(
+            attribution,  # type: ignore[arg-type]
+            question_digest="q" * 64,
+            replay_reproduced=False,
+            routing_verified=True,
+            identity_resolved=True,
+        )
+
+
+class _AdequacySink:
+    def __init__(self) -> None:
+        self.reviews: list[OntologyAdequacyReview] = []
+
+    async def submit(self, review: OntologyAdequacyReview) -> None:
+        self.reviews.append(review)
+
+
+async def test_failed_ontology_turn_submits_separate_adequacy_review() -> None:
+    ledger = InMemoryConversationAssuranceLedger()
+    sink = _AdequacySink()
+    coordinator = ConversationAssuranceCoordinator(
+        ledger=ledger,
+        reviewer=None,
+        rubric_version="1.0.0",
+        now=lambda: _NOW,
+    )
+    payload = {
+        "answer": "The relationship is not represented.",
+        "source": "evidence:unverified",
+        "verification": {
+            "status": "unverified",
+            "authority": "ontology_catalog",
+            "checks_completed": 0,
+            "checks_total": 1,
+            "evidence_refs": ["ontology:release"],
+            "failed_claim_ids": [],
+            "reason_code": "unknown_link_type",
+            "evidence_manifest": {"route_id": "ontology-route", "complete": True},
+        },
+        "intent_graph": {
+            "ontology_release": "sha256:" + "a" * 64,
+            "graph_revision": "graph-1",
+        },
+    }
+    assistant = _turn(
+        ConversationTurnRole.ASSISTANT,
+        payload["answer"],
+        replay_metadata(model="narrator-model", payload=payload),
+    )
+    submitter = ConversationAssurancePostTurnSubmitter(
+        coordinator=coordinator,
+        adequacy_investigator=cast(Any, _Investigator()),
+        adequacy_sink=sink,
+    )
+
+    assert submitter.submit_nowait(
+        operator_turn=_turn(ConversationTurnRole.OPERATOR, "What is related?"),
+        assistant_turn=assistant,
+        submission=PostTurnReviewSubmission(("unverified",), ("ontology:release",)),
+    )
+    await submitter.close()
+
+    assert len(sink.reviews) == 1
+    assert sink.reviews[0].state.value == "held"
+
+
+async def test_provider_failure_does_not_submit_adequacy_review() -> None:
+    ledger = InMemoryConversationAssuranceLedger()
+    sink = _AdequacySink()
+    coordinator = ConversationAssuranceCoordinator(
+        ledger=ledger,
+        reviewer=None,
+        rubric_version="1.0.0",
+        now=lambda: _NOW,
+    )
+    payload = {
+        "answer": "The provider is unavailable.",
+        "source": "evidence:unverified",
+        "verification": {
+            "status": "unverified",
+            "authority": "server_read_model",
+            "checks_completed": 0,
+            "checks_total": 1,
+            "evidence_refs": [],
+            "failed_claim_ids": [],
+            "reason_code": "provider_unavailable",
+        },
+    }
+    submitter = ConversationAssurancePostTurnSubmitter(
+        coordinator=coordinator,
+        adequacy_investigator=cast(Any, _Investigator()),
+        adequacy_sink=sink,
+    )
+
+    assert submitter.submit_nowait(
+        operator_turn=_turn(ConversationTurnRole.OPERATOR, "What happened?"),
+        assistant_turn=_turn(
+            ConversationTurnRole.ASSISTANT,
+            payload["answer"],
+            replay_metadata(model="narrator-model", payload=payload),
+        ),
+        submission=PostTurnReviewSubmission(("unverified",), ()),
+    )
+    await submitter.close()
+
+    assert sink.reviews == []
