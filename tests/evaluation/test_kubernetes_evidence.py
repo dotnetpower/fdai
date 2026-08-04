@@ -92,9 +92,16 @@ async def test_inventory_uses_explicit_context_and_projects_diagnostic_fields(
             }
         ).encode()
 
-    client = KubectlEvidenceClient(config=_config(kubeconfig), run=run)
+    client = KubectlEvidenceClient(
+        config=_config(
+            kubeconfig,
+            allowed_namespaces=frozenset({"example-app", "operator-system"}),
+        ),
+        run=run,
+    )
     evidence = await client.inventory(_task())
 
+    assert len(commands) == 1
     assert commands[0][:7] == (
         "kubectl",
         "--kubeconfig",

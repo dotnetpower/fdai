@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 60b112ba862b3f776feba34f151de0bc6d032016
+translation_source_sha: f4667b3eb320f3c0884a506cae917f87f2fc0f1d
 translation_revised: 2026-08-04
 ---
 
@@ -236,6 +236,11 @@ exact controller owner 하나, chain 내 모든 resource의 immutable UID match,
 reference는 projection하지 않습니다. Recreated, ambiguous, malformed 또는 truncated evidence는
 finding을 생성하지 않으며 결과는 template drift가 pull failure를 일으켰다는 주장이 아닌 hold-only
 candidate로 유지됩니다.
+Source campaign의 automatic operator-namespace traversal은 port하지 않습니다. 이 구현은 custom
+resource plural을 kind name에서 추론하고, broad API-group read access를 controller identity로
+취급하며, complete RBAC projection 없이 query를 확장했습니다. Allowlisted namespace만으로 inventory
+확장을 시작하지 않습니다. Future traversal capability는 discovered CRD plural identity, exact reviewed
+verb/resource, complete role/binding projection 및 explicit bounded scope를 사용해야 합니다.
 
 Campaign의 generic custom-resource patch allowlist는 port하지 않습니다. Exact API-version/kind
 allowlist와 generation check는 새 mutation primitive에 필요하지만 충분하지 않습니다. Source

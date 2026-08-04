@@ -312,6 +312,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_inferred_operator_namespace_traversal",
+      "source_commits": [
+        "519bc2da1948bd034dc9fcff20c9944101853879"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected heuristic cross-namespace expansion based on kind-name pluralization and broad API-group read access; inventory remains target-scoped until CRD plural identity, exact RBAC semantics, complete projections, and a dedicated bounded capability are available.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

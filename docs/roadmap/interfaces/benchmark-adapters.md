@@ -233,6 +233,11 @@ recognized waiting reason, and different SHA-256 image-reference fingerprints fo
 container name. Raw image references are not projected. Recreated, ambiguous, malformed, or
 truncated evidence produces no finding, and the result remains a hold-only candidate rather than a
 claim that template drift caused the pull failure.
+The source campaign's automatic operator-namespace traversal is not ported. It inferred custom
+resource plurals from kind names, treated broad API-group read access as controller identity, and
+expanded queries without a complete RBAC projection. An allowlisted namespace alone never triggers
+inventory expansion. A future traversal capability must use discovered CRD plural identity, exact
+reviewed verbs and resources, complete role and binding projections, and an explicit bounded scope.
 
 The campaign's generic custom-resource patch allowlist is not ported. Exact API-version and kind
 allowlisting plus generation checks are necessary but insufficient for a new mutation primitive.
