@@ -215,6 +215,10 @@ an exact affected Pod UID, and complete valid `hostPort` and protocol projection
 contains only bounded port facts and reviewed source paths. Name-only, stale, future, malformed,
 ambiguous, or truncated evidence produces no finding; the event does not prove which Node owns the
 conflicting socket.
+The source campaign's reason-specific RCA priority for host-port conflicts is not ported. The
+absorbed finding remains `candidate_only` and `hold`, so a reason string cannot make it an
+authoritative structural cause. Any future ordering must compare generic reviewed evidence-strength
+and contradiction metadata rather than adding another reason-specific branch.
 Provider-neutral log reduction recognizes reviewed `EADDRINUSE`, `address already in use`, and
 Linux `errno 98` signatures only in bounded records carrying an exact Pod UID, container identity,
 and timestamp inside the five-minute evidence window. It emits a hold-only socket-bind candidate

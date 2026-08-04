@@ -372,6 +372,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_host_port_reason_specific_rca_priority",
+      "source_commits": [
+        "ad23bf68d8b16d8db508a87a2b47456e385a4c91"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected reason-specific authoritative RCA promotion because the strengthened host-port finding is candidate-only, does not prove Node socket ownership, and must not bypass generic evidence-strength and contradiction handling.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

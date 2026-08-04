@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: efebd90fb6984ca647d9f651ea303a558a047619
+translation_source_sha: d0ffec01b247843b1c7489236ee4550be15b414c
 translation_revised: 2026-08-04
 ---
 
@@ -219,6 +219,10 @@ inventory/event receipt, 5분 evidence window 안의 event, exact affected Pod U
 `hostPort`/protocol projection이 필요합니다. Finding은 bounded port fact와 reviewed source path만
 포함합니다. Name-only, stale, future, malformed, ambiguous 또는 truncated evidence는 finding을
 생성하지 않으며 event만으로 어느 Node가 conflicting socket을 소유하는지 증명하지 않습니다.
+Source campaign의 host-port conflict reason-specific RCA priority는 port하지 않습니다. Absorbed
+finding은 `candidate_only` 및 `hold`로 유지되므로 reason string이 authoritative structural cause로
+승격할 수 없습니다. Future ordering은 reason-specific branch를 추가하지 않고 generic reviewed
+evidence-strength 및 contradiction metadata를 비교해야 합니다.
 Provider-neutral log reduction은 exact Pod UID, container identity 및 5분 evidence window 안의
 timestamp를 가진 bounded record에서 reviewed `EADDRINUSE`, `address already in use`, Linux `errno
 98` signature만 인식합니다. Raw body, address 또는 port 없이 occurrence count를 포함한 hold-only
