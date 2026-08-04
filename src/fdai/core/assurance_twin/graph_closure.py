@@ -236,16 +236,33 @@ class GraphDynamicClosureRunner:
 
     async def run_once(self) -> tuple[GraphClosureReport, ...]:
         reports: list[GraphClosureReport] = []
+        failure_count = 0
         async for command in self._outcome_source.outcomes():
             if len(reports) >= self._max_outcomes:
                 break
-            reports.append(
-                await self._coordinator.close_and_update(
+            try:
+                report = await self._coordinator.close_and_update(
                     prediction_digest=command.prediction_digest,
                     observed=command.observed,
                     recorded_at=command.recorded_at,
                 )
-            )
+            except Exception as exc:  # noqa: BLE001 - isolate one off-path episode
+                failure_count += 1
+                await self._audit_store.append_audit_entry(
+                    {
+                        "actor": "Norns",
+                        "producer_principal": "Norns",
+                        "action_kind": "dynamic.graph_closure.failed",
+                        "mode": "shadow",
+                        "prediction_digest": command.prediction_digest,
+                        "reason": type(exc).__name__,
+                        "active_model_mutated": False,
+                        "promotion_applied": False,
+                        "recorded_at": self._clock().isoformat(),
+                    }
+                )
+                continue
+            reports.append(report)
         await self._audit_store.append_audit_entry(
             {
                 "actor": "Norns",
@@ -256,6 +273,7 @@ class GraphDynamicClosureRunner:
                 "closed_count": sum(item.closed and not item.duplicate for item in reports),
                 "duplicate_count": sum(item.duplicate for item in reports),
                 "update_count": sum(item.update_count for item in reports),
+                "failure_count": failure_count,
                 "active_model_mutated": False,
                 "promotion_applied": False,
                 "recorded_at": self._clock().isoformat(),

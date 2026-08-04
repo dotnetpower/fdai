@@ -346,11 +346,24 @@ async def test_duplicate_prediction_with_different_identity_fails_closed() -> No
 
 
 class _OutcomeSource:
-    def __init__(self, command: TrajectoryClosureCommand) -> None:
-        self._command = command
+    def __init__(self, *commands: TrajectoryClosureCommand) -> None:
+        self._commands = commands
 
     async def outcomes(self) -> AsyncIterator[TrajectoryClosureCommand]:
-        yield self._command
+        for command in self._commands:
+            yield command
+
+
+class _FailFirstCoordinator:
+    def __init__(self, delegate: GraphDynamicClosureCoordinator) -> None:
+        self._delegate = delegate
+        self._calls = 0
+
+    async def close_and_update(self, **kwargs):  # type: ignore[no-untyped-def]
+        self._calls += 1
+        if self._calls == 1:
+            raise TrajectoryEpisodeConflictError("poison episode")
+        return await self._delegate.close_and_update(**kwargs)
 
 
 async def test_off_path_runner_audits_without_active_mutation_or_promotion() -> None:
@@ -381,3 +394,31 @@ async def test_off_path_runner_audits_without_active_mutation_or_promotion() -> 
     assert run_audit["action_kind"] == "dynamic.graph_closure.run"
     assert run_audit["active_model_mutated"] is False
     assert run_audit["promotion_applied"] is False
+
+
+async def test_off_path_runner_isolates_poison_episode() -> None:
+    store, _, coordinator, _, _ = await _coordinator()
+    predicted = _trajectory(TrajectoryKind.PREDICTED)
+    command = TrajectoryClosureCommand(
+        prediction_digest=predicted.digest,
+        observed=_trajectory(TrajectoryKind.OBSERVED, value=63.0),
+        recorded_at=_NOW + timedelta(minutes=2),
+    )
+    runner = GraphDynamicClosureRunner(
+        outcome_source=_OutcomeSource(command, command),
+        coordinator=_FailFirstCoordinator(coordinator),  # type: ignore[arg-type]
+        audit_store=store,
+        clock=lambda: _NOW + timedelta(minutes=3),
+    )
+
+    reports = await runner.run_once()
+
+    assert len(reports) == 1
+    assert reports[0].closed is True
+    failure = next(
+        item["entry"]
+        for item in store.audit_entries
+        if item["entry"].get("action_kind") == "dynamic.graph_closure.failed"
+    )
+    assert failure["reason"] == "TrajectoryEpisodeConflictError"
+    assert store.audit_entries[-1]["entry"]["failure_count"] == 1
