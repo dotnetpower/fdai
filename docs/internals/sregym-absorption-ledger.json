@@ -433,6 +433,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_missing_webhook_exact_namespace_scope",
+      "source_commits": [
+        "d508bb8ce0434f1599d0ba54651cc5e8558cef68"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Projects and trusts only one exact kubernetes.io/metadata.name match label with no expressions; ambiguous selectors omit scope and readiness never expands impact to a workload.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

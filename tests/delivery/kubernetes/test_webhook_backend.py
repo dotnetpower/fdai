@@ -20,6 +20,8 @@ def test_missing_webhook_backend_requires_targeted_absence_receipt() -> None:
             "webhook_name": "policy.example.io",
             "failure_policy": "Fail",
             "service": {"namespace": "policy-system", "name": "policy-webhook"},
+            "affected_namespaces": ["example-app"],
+            "scope_source_path": "/webhooks/0/namespaceSelector",
             "evidence_strength": "targeted_service_absence_receipt",
             "causality": "candidate_only",
             "decision": "hold",
@@ -58,6 +60,18 @@ def test_missing_webhook_backend_abstains_on_incomplete_configuration() -> None:
     )
 
 
+def test_missing_webhook_backend_omits_ambiguous_impact_scope() -> None:
+    configuration = _configuration()
+    configuration["webhooks"][0]["namespace_selector"] = {"present": True}  # type: ignore[index]
+
+    finding = missing_webhook_backend_findings(
+        [configuration], [_receipt("confirmed_absent")], evidence_complete=True
+    )[0]
+
+    assert "affected_namespaces" not in finding
+    assert "scope_source_path" not in finding
+
+
 def test_missing_webhook_backend_is_metamorphic_to_order_and_namespace_rename() -> None:
     expected = missing_webhook_backend_findings(
         [_configuration()], [_receipt("confirmed_absent")], evidence_complete=True
@@ -91,6 +105,7 @@ def _configuration() -> dict[str, object]:
                 "name": "policy.example.io",
                 "projection_complete": True,
                 "failure_policy": "Fail",
+                "namespace_selector": {"present": True, "exact_namespace": "example-app"},
                 "service": {"namespace": "policy-system", "name": "policy-webhook"},
             }
         ],

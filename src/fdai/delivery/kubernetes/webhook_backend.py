@@ -44,6 +44,7 @@ def missing_webhook_backend_findings(
                 or candidates[0].get("status") != "confirmed_absent"
             ):
                 continue
+            affected_namespace = _exact_namespace(webhook.get("namespace_selector"))
             findings.append(
                 {
                     "reason": "admission_webhook_backend_service_missing_candidate",
@@ -58,12 +59,27 @@ def missing_webhook_backend_findings(
                         "namespace": service_identity[0][:253],
                         "name": service_identity[1][:253],
                     },
+                    **(
+                        {
+                            "affected_namespaces": [affected_namespace],
+                            "scope_source_path": f"/webhooks/{index}/namespaceSelector",
+                        }
+                        if affected_namespace
+                        else {}
+                    ),
                     "evidence_strength": "targeted_service_absence_receipt",
                     "causality": "candidate_only",
                     "decision": "hold",
                 }
             )
     return tuple(findings[:32])
+
+
+def _exact_namespace(value: object) -> str:
+    if not isinstance(value, Mapping):
+        return ""
+    namespace = value.get("exact_namespace")
+    return namespace[:253] if isinstance(namespace, str) and namespace else ""
 
 
 def _identity(value: Mapping[str, Any]) -> tuple[str, str]:

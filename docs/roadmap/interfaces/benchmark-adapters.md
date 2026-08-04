@@ -293,6 +293,11 @@ That mutation changes admission security intent to fail open, does not restore t
 and lacks independent proof that the resulting admissions and rollback preserve the intended
 control. Approval, resource-version checks, and server dry-run do not establish those outcomes.
 Missing backend findings therefore remain hold-only and grant no control-plane patch authority.
+When a webhook namespace selector contains only the exact
+`kubernetes.io/metadata.name=<namespace>` match label and no expression, the missing-backend
+candidate records that namespace and the reviewed selector path. Extra labels, expressions,
+malformed selectors, or presence-only projections omit impact scope. Readiness never identifies an
+affected workload or broadens the namespace set.
 
 Cumulative timeout evidence is a separate candidate-only mechanism. It requires at least two
 distinct structured timeout events for distinct webhook names, the same immutable affected-resource

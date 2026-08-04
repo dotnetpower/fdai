@@ -878,7 +878,7 @@ def _project_webhook(value: Mapping[str, Any]) -> dict[str, Any] | None:
     name = value.get("name")
     rules = value.get("rules")
     object_selector = _project_selector_presence(value.get("objectSelector"))
-    namespace_selector = _project_selector_presence(value.get("namespaceSelector"))
+    namespace_selector = _project_namespace_selector(value.get("namespaceSelector"))
     match_conditions = value.get("matchConditions")
     if (
         not isinstance(name, str)
@@ -933,6 +933,30 @@ def _project_selector_presence(value: object) -> dict[str, bool] | None:
     if value is None or value == {}:
         return {}
     return {"present": True} if isinstance(value, Mapping) else None
+
+
+def _project_namespace_selector(value: object) -> dict[str, Any] | None:
+    if value is None or value == {}:
+        return {}
+    if not isinstance(value, Mapping):
+        return None
+    labels = value.get("matchLabels")
+    expressions = value.get("matchExpressions")
+    if (labels is not None and not isinstance(labels, Mapping)) or (
+        expressions is not None and not isinstance(expressions, list)
+    ):
+        return None
+    label_values = labels if isinstance(labels, Mapping) else {}
+    projection: dict[str, Any] = {"present": True}
+    namespace = label_values.get("kubernetes.io/metadata.name")
+    if (
+        len(label_values) == 1
+        and isinstance(namespace, str)
+        and _DNS_SUBDOMAIN.fullmatch(namespace)
+        and expressions in (None, [])
+    ):
+        projection["exact_namespace"] = namespace[:253]
+    return projection
 
 
 def _project_admission_rule(value: Mapping[str, Any]) -> dict[str, Any] | None:

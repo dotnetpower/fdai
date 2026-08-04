@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: a68d82cae9e7861317699b00f1c38a7ab45f833d
+translation_source_sha: 1f7a8a3a0887e1c1a277dc3735ed5e89fdca5cfe
 translation_revised: 2026-08-04
 ---
 
@@ -295,6 +295,11 @@ Source campaign의 automatic `failurePolicy: Fail` to `Ignore` recovery seed는 
 resulting admission과 rollback이 intended control을 보존한다는 independent proof도 없습니다. Approval,
 resource-version check 및 server dry-run만으로 해당 outcome을 증명할 수 없습니다. 따라서 missing
 backend finding은 hold-only로 유지되며 control-plane patch authority를 부여하지 않습니다.
+Webhook namespace selector가 expression 없이 exact
+`kubernetes.io/metadata.name=<namespace>` match label 하나만 포함할 때 missing-backend candidate는
+해당 namespace와 reviewed selector path를 기록합니다. Extra label, expression, malformed selector 또는
+presence-only projection은 impact scope를 생략합니다. Readiness는 affected workload를 식별하거나
+namespace set을 확장하지 않습니다.
 
 Cumulative timeout evidence는 별도 candidate-only mechanism입니다. 서로 다른 webhook name의
 structured timeout event가 최소 2개이고, affected resource immutable UID가 같으며, trusted evidence

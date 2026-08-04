@@ -632,7 +632,9 @@ async def test_admission_configurations_are_cluster_scoped_and_bounded(tmp_path:
                                     "caBundle": "must-not-project",
                                 },
                                 "objectSelector": {},
-                                "namespaceSelector": {},
+                                "namespaceSelector": {
+                                    "matchLabels": {"kubernetes.io/metadata.name": "example-app"}
+                                },
                                 "matchConditions": [],
                                 "failurePolicy": "Fail",
                                 "timeoutSeconds": 10,
@@ -676,7 +678,10 @@ async def test_admission_configurations_are_cluster_scoped_and_bounded(tmp_path:
                         "name": "mutate.example.com",
                         "projection_complete": True,
                         "object_selector": {},
-                        "namespace_selector": {},
+                        "namespace_selector": {
+                            "present": True,
+                            "exact_namespace": "example-app",
+                        },
                         "match_conditions": [],
                         "failure_policy": "Fail",
                         "timeout_seconds": 10,
