@@ -23,6 +23,9 @@ from fdai.core.detection.configuration_drift_models import (
 )
 from fdai.core.detection.configuration_review import (
     ConfigurationReviewCampaign,
+    ConfigurationReviewCampaignService,
+    ConfigurationReviewCampaignStore,
+    ConfigurationReviewConflictError,
     ConfigurationReviewRun,
     ConfigurationReviewScheduleProposal,
     ConfigurationReviewState,
@@ -48,6 +51,9 @@ __all__ = [
     "RegisteredConfigurationBaseline",
     "RegistryConfigurationBaselineSource",
     "ConfigurationReviewCampaign",
+    "ConfigurationReviewCampaignService",
+    "ConfigurationReviewCampaignStore",
+    "ConfigurationReviewConflictError",
     "ConfigurationReviewRun",
     "ConfigurationReviewScheduleProposal",
     "ConfigurationReviewState",

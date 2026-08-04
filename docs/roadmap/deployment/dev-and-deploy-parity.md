@@ -104,6 +104,10 @@ When the binding succeeds, local composition registers the same context for dete
 the GET-only Configuration baselines panel. The panel runs the configured observation source on
 each request and reports unavailable when the optional binding is absent; it never substitutes a
 fixture or caches current Azure state as fresh evidence.
+When local PostgreSQL is available, the same composition binds the campaign projection to the
+durable StateStore. Campaign revisions and audit receipts therefore survive an Operator API restart;
+without persistence, the panel reports review state as not configured rather than using an in-memory
+interactive fallback.
 While the Operator API completes its startup probes, the browser keeps the initial panel skeleton and
 retries only fetch-level network failures from `GET /iam/self` on a bounded schedule of about 28
 seconds. An HTTP response, authentication failure, malformed payload, or exhausted schedule stops

@@ -1,6 +1,6 @@
 ---
 translation_of: scheduled-result-continuations.md
-translation_source_sha: e25a71df9c5190e83afb29a2160d07913eeb8acf
+translation_source_sha: 682f6b108659960dba2192d165cb3a280846caad
 translation_revised: 2026-08-04
 ---
 # 예약 결과 이어가기
@@ -55,6 +55,12 @@ Verified run 세 개는 campaign을 `ready-for-weekly`로 전환하고 세 run i
 proposal을 inert artifact로 생성합니다. Reducer는 task를 생성하거나 enable하지 않습니다. Materialization은
 인증된 scheduler command, event, audit path를 계속 사용하므로 review evidence가 schedule mutation authority를
 부여할 수 없습니다.
+
+Campaign state는 content-derived campaign id를 사용해 shared StateStore에 저장됩니다. Create와 advance
+operation은 state write와 append-only audit entry를 원자적으로 결합합니다. 각 advance는 revision을
+증가시키고 bounded retry가 적용된 compare-and-set을 사용하므로 concurrent run이 서로를 덮어쓸 수 없습니다.
+Restart recovery는 동일한 version, scope, run receipt, state, revision을 읽습니다. Duplicate run id는
+idempotent하게 유지됩니다.
 
 ### 앵커
 

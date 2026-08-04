@@ -54,6 +54,12 @@ proposal containing all three run ids. The reducer does not create or enable a t
 still uses the authenticated scheduler command, event, and audit path, so review evidence cannot
 grant schedule mutation authority.
 
+Campaign state is stored through the shared StateStore under a content-derived campaign id. Create
+and advance operations atomically pair the state write with an append-only audit entry. Every
+advance increments a revision and uses compare-and-set with bounded retry, so concurrent runs cannot
+overwrite one another. Restart recovery reads the same version, scope, run receipts, state, and
+revision. Duplicate run ids remain idempotent.
+
 ### Anchor
 
 `ScheduledConversationAnchor` records:

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: d60caa45b371bc511af3f57f6f97e46e08109b70
+translation_source_sha: 43856609dbbb25bdd064724cef4e9edaf2dbb0c3
 translation_revised: 2026-08-04
 ---
 
@@ -89,6 +89,8 @@ readiness, topology coverage, 단계별 latency, 예약 검토 readiness, 네 sa
 SPA는 activation, schedule 생성, 승인, 완화 또는 resource mutation control을 제공하지 않습니다.
 Binding이 없으면 unavailable을 표시하고 malformed response는 inferred zero 또는 healthy state로 바꾸지
 않고 strict decoding error로 처리합니다.
+Durable campaign store가 binding되면 panel은 실제 state와 completed-versus-required run count를 읽습니다.
+Campaign이 없으면 `not-configured`를 명시하고 browser는 progress를 만들어내지 않습니다.
 
 Processes detail route는 동일한 authoritative Process journal에서 Planning Room을 조건부로
 렌더링합니다. Strict decoder는 모순된 phase count, duplicate candidate, invalid selection,

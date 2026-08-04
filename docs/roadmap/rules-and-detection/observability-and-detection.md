@@ -96,7 +96,8 @@ file digest alone does not establish cross-format equivalence.
   cached snapshot cannot satisfy a current-state question.
 - A pure review reducer accepts three idempotent run receipts for one pinned baseline. Only three
   verified runs can produce an inert weekly schedule proposal. Any blocked or unsafe run pauses the
-  campaign, and the reducer never creates a scheduler task directly.
+  campaign, and the reducer never creates a scheduler task directly. A revisioned StateStore adapter
+  persists campaign progress with atomic state-and-audit create and compare-and-set advance.
 
 ## 1. Event Correlation
 

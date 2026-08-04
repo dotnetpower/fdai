@@ -698,6 +698,9 @@ def build_local_app(
             user_memories=user_context.memories,
         )
     )
+    from fdai.delivery.configuration_review_store import (
+        StateStoreConfigurationReviewCampaignStore,
+    )
     from fdai.delivery.operator_api.dev.configuration_drift import (
         build_local_configuration_drift_context,
     )
@@ -771,7 +774,16 @@ def build_local_app(
             *arb_status_panels,
         )
         + (
-            (ConfigurationBaselinesPanel(configuration_drift_context),)
+            (
+                ConfigurationBaselinesPanel(
+                    configuration_drift_context,
+                    review_store=(
+                        StateStoreConfigurationReviewCampaignStore(persistence.state_store)
+                        if persistence is not None
+                        else None
+                    ),
+                ),
+            )
             if configuration_drift_context is not None
             else ()
         )

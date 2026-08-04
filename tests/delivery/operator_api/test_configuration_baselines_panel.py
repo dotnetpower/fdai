@@ -5,12 +5,17 @@ from datetime import UTC, datetime
 from fdai.core.detection.configuration_drift import (
     ConfigurationObservation,
     ConfigurationResource,
+    ConfigurationReviewCampaign,
     EvidenceCompleteness,
     FrozenConfigurationBaseline,
 )
 from fdai.core.detection.configuration_drift_service import ConfigurationDriftService
 from fdai.delivery.configuration_drift_knowledge import (
     PinnedConfigurationBaselineKnowledgeSource,
+)
+from fdai.delivery.configuration_review_store import (
+    StateStoreConfigurationReviewCampaignStore,
+    configuration_review_campaign_id,
 )
 from fdai.delivery.operator_api.routes.chat_configuration_drift import (
     ConfigurationDriftChatTools,
@@ -19,6 +24,7 @@ from fdai.delivery.operator_api.routes.configuration_baselines import (
     ConfigurationBaselinesPanel,
 )
 from fdai.shared.providers.knowledge import KnowledgeDocument
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 8, 4, tzinfo=UTC)
 
@@ -87,8 +93,23 @@ async def test_panel_projects_baseline_drift_knowledge_safety_and_performance() 
         ),
         document_name="baseline.docx",
     )
+    review_store = StateStoreConfigurationReviewCampaignStore(InMemoryStateStore())
+    await review_store.create(
+        ConfigurationReviewCampaign(
+            campaign_id=configuration_review_campaign_id(
+                scope=baseline.scope,
+                version=baseline.version,
+            ),
+            baseline_version=baseline.version,
+            baseline_sha256=baseline.sha256,
+            scope=baseline.scope,
+        )
+    )
 
-    payload = await ConfigurationBaselinesPanel(context).render(params={})
+    payload = await ConfigurationBaselinesPanel(
+        context,
+        review_store=review_store,
+    ).render(params={})
 
     assert payload["baseline"]["version"] == "v1"
     assert payload["baseline"]["resource_count"] == 1
@@ -103,8 +124,8 @@ async def test_panel_projects_baseline_drift_knowledge_safety_and_performance() 
     }
     assert payload["performance"]["total_ms"] == 40.0
     assert payload["review"] == {
-        "configured": False,
-        "state": "not-configured",
+        "configured": True,
+        "state": "active",
         "completed_runs": 0,
         "required_runs": 3,
     }

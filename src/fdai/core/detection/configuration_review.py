@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import StrEnum
+from typing import Protocol
 
 from croniter import croniter
 
@@ -33,6 +34,12 @@ class ConfigurationReviewRun:
     verified: bool
     evidence_refs: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        if not self.run_id.strip():
+            raise ValueError("configuration review run_id MUST be non-empty")
+        if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
+            raise ValueError("configuration review observed_at MUST be timezone-aware")
+
 
 @dataclass(frozen=True, slots=True)
 class ConfigurationReviewCampaign:
@@ -46,6 +53,7 @@ class ConfigurationReviewCampaign:
     required_successes: int = 3
     state: ConfigurationReviewState = ConfigurationReviewState.ACTIVE
     runs: tuple[ConfigurationReviewRun, ...] = ()
+    revision: int = 0
 
     def __post_init__(self) -> None:
         if (
@@ -60,6 +68,8 @@ class ConfigurationReviewCampaign:
             raise ValueError("configuration review success target MUST fit inside the run limit")
         if len(self.runs) > self.run_limit:
             raise ValueError("configuration review runs MUST NOT exceed the run limit")
+        if self.revision < 0:
+            raise ValueError("configuration review revision MUST be non-negative")
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +83,62 @@ class ConfigurationReviewScheduleProposal:
     baseline_sha256: str
     scope: str
     evidence_run_ids: tuple[str, ...]
+
+
+class ConfigurationReviewCampaignStore(Protocol):
+    """Persist revisioned review campaigns behind a CAS boundary."""
+
+    async def get(self, campaign_id: str) -> ConfigurationReviewCampaign | None: ...
+
+    async def create(self, campaign: ConfigurationReviewCampaign) -> bool: ...
+
+    async def replace(
+        self,
+        campaign: ConfigurationReviewCampaign,
+        *,
+        expected_revision: int,
+    ) -> bool: ...
+
+
+class ConfigurationReviewConflictError(RuntimeError):
+    """Concurrent review updates exhausted the bounded CAS retry."""
+
+
+class ConfigurationReviewCampaignService:
+    """Create and advance durable campaigns with bounded CAS retry."""
+
+    def __init__(self, store: ConfigurationReviewCampaignStore, *, max_attempts: int = 3) -> None:
+        if max_attempts < 1:
+            raise ValueError("configuration review max_attempts MUST be positive")
+        self._store = store
+        self._max_attempts = max_attempts
+
+    async def create(self, campaign: ConfigurationReviewCampaign) -> ConfigurationReviewCampaign:
+        if not await self._store.create(campaign):
+            existing = await self._store.get(campaign.campaign_id)
+            if existing == campaign:
+                return campaign
+            raise ConfigurationReviewConflictError("configuration review campaign already exists")
+        return campaign
+
+    async def record(
+        self,
+        campaign_id: str,
+        report: ConfigurationDriftReport,
+        *,
+        run_id: str,
+    ) -> ConfigurationReviewCampaign:
+        for _attempt in range(self._max_attempts):
+            current = await self._store.get(campaign_id)
+            if current is None:
+                raise KeyError(campaign_id)
+            next_campaign = record_configuration_review_run(current, report, run_id=run_id)
+            if next_campaign is current:
+                return current
+            updated = replace(next_campaign, revision=current.revision + 1)
+            if await self._store.replace(updated, expected_revision=current.revision):
+                return updated
+        raise ConfigurationReviewConflictError("configuration review campaign update conflicted")
 
 
 def record_configuration_review_run(
@@ -154,6 +220,9 @@ def _is_verified(report: ConfigurationDriftReport) -> bool:
 
 __all__ = [
     "ConfigurationReviewCampaign",
+    "ConfigurationReviewCampaignService",
+    "ConfigurationReviewCampaignStore",
+    "ConfigurationReviewConflictError",
     "ConfigurationReviewRun",
     "ConfigurationReviewScheduleProposal",
     "ConfigurationReviewState",

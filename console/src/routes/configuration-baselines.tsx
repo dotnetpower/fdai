@@ -60,7 +60,7 @@ function ConfigurationBaselinesBody({ data }: { readonly data: ConfigurationBase
     <EvidenceSection id="drift" title={t("drift")} rows={[[t("decision"), <StatusPill kind={tone(data.drift.verdict)} label={data.drift.verdict} />], [t("findings"), data.drift.findingCount], [t("observed"), formatConsoleTimestamp(data.drift.observedAt)]]} />
     <EvidenceSection id="knowledge" title={t("knowledge")} rows={[[t("decision"), <StatusPill kind={tone(data.knowledge.status)} label={data.knowledge.status} />], [t("citations"), data.knowledge.citationCount]]} />
     <EvidenceSection id="performance" title={t("performance")} rows={[[t("totalLatency"), `${data.performance.totalMs.toFixed(1)} ms`], [t("observationLatency"), `${data.performance.observationMs.toFixed(1)} ms`], [t("knowledgeLatency"), `${data.performance.knowledgeMs.toFixed(1)} ms`]]} />
-    <EvidenceSection id="review" title={t("review")} rows={[[t("decision"), data.review.configured ? data.review.state : t("reviewNotConfigured")], [t("findings"), `${data.review.completedRuns}/${data.review.requiredRuns}`]]} />
+    <EvidenceSection id="review" title={t("review")} rows={[[t("decision"), reviewLabel(data.review)], [t("findings"), `${data.review.completedRuns}/${data.review.requiredRuns}`]]} />
     <EvidenceSection id="safety" title={t("safety")} rows={[[t("mutation"), data.safety.mutation], [t("approval"), data.safety.approval], [t("mitigation"), data.safety.mitigation], [t("unsupported"), data.safety.unsupported]]} />
   </div>;
 }
@@ -73,4 +73,12 @@ function tone(value: string): PillKind {
   if (value === "passed" || value === "cited") return "success";
   if (value === "failed" || value === "blocked") return "danger";
   return "warning";
+}
+
+function reviewLabel(review: ConfigurationBaselinesView["review"]): string {
+  if (!review.configured) return t("reviewNotConfigured");
+  if (review.state === "active") return t("reviewActive");
+  if (review.state === "ready-for-weekly") return t("reviewReady");
+  if (review.state === "paused-failed") return t("reviewPaused");
+  return review.state;
 }

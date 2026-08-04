@@ -6,6 +6,8 @@ from collections import Counter
 from collections.abc import Mapping
 from typing import Any
 
+from fdai.core.detection.configuration_review import ConfigurationReviewCampaignStore
+from fdai.delivery.configuration_review_store import configuration_review_campaign_id
 from fdai.delivery.operator_api.routes.chat_configuration_drift import (
     ConfigurationDriftChatTools,
 )
@@ -17,8 +19,14 @@ class ConfigurationBaselinesPanel:
     path = "/configuration-baselines"
     name = "configuration-baselines"
 
-    def __init__(self, context: ConfigurationDriftChatTools) -> None:
+    def __init__(
+        self,
+        context: ConfigurationDriftChatTools,
+        *,
+        review_store: ConfigurationReviewCampaignStore | None = None,
+    ) -> None:
         self._context = context
+        self._review_store = review_store
 
     async def render(self, *, params: Mapping[str, str]) -> Mapping[str, Any]:
         del params
@@ -26,6 +34,13 @@ class ConfigurationBaselinesPanel:
         report = await self._context.service.run()
         counts = Counter(finding.drift_type.value for finding in report.findings)
         performance = report.performance.to_dict() if report.performance is not None else None
+        campaign = (
+            None
+            if self._review_store is None
+            else await self._review_store.get(
+                configuration_review_campaign_id(scope=baseline.scope, version=baseline.version)
+            )
+        )
         return {
             "source": "configuration-baseline",
             "baseline": {
@@ -59,10 +74,10 @@ class ConfigurationBaselinesPanel:
             },
             "performance": performance,
             "review": {
-                "configured": False,
-                "state": "not-configured",
-                "completed_runs": 0,
-                "required_runs": 3,
+                "configured": campaign is not None,
+                "state": campaign.state.value if campaign is not None else "not-configured",
+                "completed_runs": len(campaign.runs) if campaign is not None else 0,
+                "required_runs": campaign.required_successes if campaign is not None else 3,
             },
         }
 

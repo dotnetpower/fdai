@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 84867996d32513dbef2dc9edf01ffa5208f6df50
+translation_source_sha: d60d2144a87743422414d502b4cfe77aeefbae82
 translation_revised: 2026-08-04
 ---
 
@@ -110,6 +110,10 @@ Binding이 성공하면 local composition은 같은 context를 deterministic cha
 등록합니다. Panel은 request마다 configured observation source를 실행하고 optional binding이 없으면
 unavailable을 보고합니다. Fixture를 대체 증거로 사용하거나 현재 Azure state를 fresh evidence처럼 cache하지
 않습니다.
+Local PostgreSQL을 사용할 수 있으면 같은 composition이 campaign projection을 durable StateStore에
+binding합니다. 따라서 campaign revision과 audit receipt는 Operator API restart 후에도 유지됩니다.
+Persistence가 없으면 in-memory interactive fallback을 사용하지 않고 review state를 not configured로
+보고합니다.
 Operator API가 startup probe를 완료하는 동안 browser는 initial panel skeleton을 유지하고
 `GET /iam/self`의 fetch-level network failure만 약 28초 동안 bounded schedule로 재시도합니다.
 HTTP response, authentication failure, malformed payload 또는 소진된 schedule은 추가 retry로 숨기지

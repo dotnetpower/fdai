@@ -89,6 +89,8 @@ drift counts, Knowledge citation readiness, topology coverage, stage latency, sc
 readiness, and all four safety counters. The SPA exposes no activation, schedule creation,
 approval, mitigation, or resource mutation control. An absent binding renders unavailable, and a
 malformed response fails strict decoding instead of becoming an inferred zero or healthy state.
+When a durable campaign store is bound, the panel reads its actual state and completed-versus-required
+run count. No campaign remains explicitly `not-configured`; the browser never invents progress.
 
 The Processes detail route conditionally renders a Planning Room from the same authoritative
 Process journal. Its strict decoder rejects contradictory phase counts, duplicate candidates,
