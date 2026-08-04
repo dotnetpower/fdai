@@ -73,6 +73,10 @@ DOCX and canonical JSON baseline carry the same version, scope, creation time, a
   until an authoritative source supplies complete evidence.
 - The configured baseline version, SHA-256 digest, and scope are server-owned. A caller cannot
   select another target through tool arguments.
+- An immutable baseline registry can hold candidate, active, superseded, and archived versions for
+  multiple scopes. It allows one active version per scope. Active and replay-pinned sources are
+  selected by server composition, never by conversational input, and the registry exposes no
+  mutation API.
 - `delivery/azure/configuration_drift.py` applies the resource-group filter inside the Azure
   Resource Graph query. It removes full provider resource ids before producing evidence.
 - Knowledge retrieval explains and cites the reviewed document. It does not decide the drift. If

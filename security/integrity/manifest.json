@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 949,
+  "file_count": 950,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "22f8e22e3fd307e30886805683b0f38c39442deeb24a45026471d71084b4ea99",
     ".github/instructions/agent-stewardship.instructions.md": "574518fca728a9a6c8d3b50e0cf4aa53a1ed5bf85d5c52e5da67a0486bf31a43",
@@ -243,7 +243,8 @@
     "src/fdai/core/detection/__init__.py": "4f9e793d05a409e3ad7604505e3d01c99696f1353637e6148025c1046d068632",
     "src/fdai/core/detection/anomaly.py": "b1191d2b9cd45d5dc5d1029ac6ea7cf79cd04929306f4509b651db37d1b00aaf",
     "src/fdai/core/detection/composite.py": "7086d475ec009a2342171d8c2325c5ce08788df9831c2746b4006a93971c2957",
-    "src/fdai/core/detection/configuration_drift.py": "aa76d60843d97b3468216dae38e0054acedbf90875ebad4608577eee4dd26c22",
+    "src/fdai/core/detection/configuration_baseline_registry.py": "8228e6f85d72d47ac0afb2d83fdff682384def99074316c6cdc534a12a4f6f5c",
+    "src/fdai/core/detection/configuration_drift.py": "c2be75c92be6f5db0122da69cbc750d38a2ee1836055243f846c7fdb49a9352e",
     "src/fdai/core/detection/configuration_drift_codec.py": "ed55f4f1c8de7622fb1b7a39ade1a1f1b6e65b3c3bce3f1e44039ca72d8eebec",
     "src/fdai/core/detection/configuration_drift_compare.py": "b43f238190f5cf6438c8bbe539d30821528a1a96b8b67e376dcd891d19a12ee5",
     "src/fdai/core/detection/configuration_drift_models.py": "47585410492ba73e4f92b081829f0c34a0606797d3429e0970312036b1b14af8",
@@ -952,7 +953,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-04T03:19:23Z",
+  "generated_at": "2026-08-04T03:56:06Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
