@@ -46,7 +46,7 @@ Visualization surfaces:
 
 | File | Purpose |
 |------|---------|
-| [service-map.html](service-map.html) | Directional service topology design preview with ingress and egress boundaries, resource icons, throughput animation, per-link P95 latency and error rate, performance and incident modes, and a selected-resource inspector. All topology and telemetry values are synthetic. |
+| [service-map.html](service-map.html) | Directional service topology preview with 2.5D resources, merged bidirectional roads, glow traffic, port and TLS details, hover-revealed zoom controls, fullscreen, shared tooltips, four analysis modes, and a selected-resource inspector. All topology and telemetry values are synthetic. |
 
 Knowledge surfaces (ontology + trace):
 

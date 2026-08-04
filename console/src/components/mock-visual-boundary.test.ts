@@ -80,7 +80,9 @@ describe("mock console visual boundary", () => {
     expect(serviceMap).toContain("animation.beginElement()");
     expect(serviceMap).toContain("sm-speed-sign");
     expect(serviceMap).toContain("function rateSignUnit(");
-    expect(serviceMap).toContain("sm-road-tooltip");
+    expect(serviceMap).toContain('tooltip.className = "app-tooltip"');
+    expect(serviceMap).toContain("SM_TOOLTIP_DELAY_MS = 100");
+    expect(serviceMap).toContain("SM_TOOLTIP_EXIT_MS = 50");
     expect(serviceMap).toContain("var startX = source.x;");
     expect(serviceMap).toContain("var endX = target.x;");
     expect(serviceMap).not.toContain("plateHalfWidth");
@@ -88,7 +90,10 @@ describe("mock console visual boundary", () => {
     expect(serviceMap).toContain('id="sm-map-grid"');
     expect(serviceMap).toContain('data-sm-zoom-in');
     expect(serviceMap).toContain('data-sm-zoom-out');
-    expect(serviceMap).toContain('data-sm-zoom-fit');
+    expect(serviceMap).toContain('data-sm-fullscreen');
+    expect(serviceMap).not.toContain('data-sm-zoom-fit');
+    expect(serviceMap).toContain("requestFullscreen");
+    expect(serviceMap).toContain("fullscreenchange");
     expect(serviceMap).toContain("function zoomAt(");
     expect(serviceMap).toContain("function fitDrawing(");
     expect(serviceMap).toContain("Math.max(1, Math.min(2.5, nextZoom))");
@@ -109,5 +114,8 @@ describe("mock console visual boundary", () => {
     expect(serviceMap).not.toContain("sm-edge-particles");
     expect(serviceMap).not.toContain("sm-traffic-vehicle");
     expect(serviceMap).not.toContain("sm-vehicle-body");
+    expect(serviceMap).not.toMatch(/title="(?:Zoom|Fit|Pause)/);
+    expect(landing).toContain('allow="fullscreen"');
+    expect(masterLanding).toContain('allow="fullscreen"');
   });
 });

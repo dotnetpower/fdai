@@ -32,7 +32,9 @@
     .sm-canvas { display: block; width: 100%; min-width: 1120px; height: auto; min-height: 0; aspect-ratio: 1220 / 464; cursor: grab; touch-action: none; user-select: none; }
     .sm-canvas.is-panning { cursor: grabbing; }
 
-    .sm-cad-controls { position: absolute; z-index: 8; top: 12px; right: 12px; display: grid; grid-template-columns: 34px 48px 34px 38px; gap: 3px; padding: 3px; border: 1px solid rgba(160,171,177,.72); border-radius: 6px; background: rgba(255,255,255,.90); box-shadow: 0 5px 16px rgba(46,54,64,.09); backdrop-filter: blur(8px); }
+    .sm-cad-control-reveal { position: absolute; z-index: 8; top: 0; right: 0; min-width: 196px; min-height: 62px; padding: 12px; }
+    .sm-cad-controls { display: grid; grid-template-columns: 34px 48px 34px 38px; gap: 3px; padding: 3px; border: 1px solid rgba(160,171,177,.72); border-radius: 6px; background: rgba(255,255,255,.90); box-shadow: 0 5px 16px rgba(46,54,64,.09); opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity .14s ease, transform .14s ease; backdrop-filter: blur(8px); }
+    .sm-cad-control-reveal:hover .sm-cad-controls, .sm-cad-control-reveal:focus-within .sm-cad-controls { opacity: 1; pointer-events: auto; transform: translateY(0); }
     .sm-cad-controls button, .sm-cad-controls output { display: grid; place-items: center; min-width: 0; min-height: 32px; border: 0; border-radius: 4px; background: transparent; color: #52616B; font: 680 10px "Cascadia Code", "Consolas", monospace; }
     .sm-cad-controls button { cursor: pointer; }
     .sm-cad-controls button:hover { background: #EEF2F3; color: #29343C; }
@@ -99,11 +101,18 @@
     .security-plaintext .sm-edge-transport, .security-plaintext .sm-edge-tls { fill: #913F3F; }
     .security-attention .sm-edge-transport { fill: #95552F; }
 
-    .sm-road-tooltip { display: none; pointer-events: none; }
-    .sm-edge:hover .sm-road-tooltip, .sm-edge:focus-visible .sm-road-tooltip, .sm-edge.is-selected .sm-road-tooltip { display: block; }
-    .sm-road-tooltip rect { fill: rgba(36,48,55,.94); stroke: rgba(255,255,255,.22); stroke-width: .6; filter: drop-shadow(0 5px 8px rgba(20,28,32,.22)); }
-    .sm-road-tooltip text { fill: #F6F8F8; font: 650 7px "Cascadia Code", "Consolas", monospace; }
-    .sm-road-tooltip .muted { fill: #CBD3D5; font-weight: 500; }
+    .app-tooltip { --tooltip-enter-y: 0; position: fixed; z-index: 1000; max-width: min(320px, calc(100vw - 32px)); overflow-wrap: anywhere; padding: 6px 12px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); color: var(--cs-text); box-shadow: 0 4px 12px rgba(15,23,30,.12); font: 500 12px/1.4 var(--cs-font); text-align: left; white-space: pre-line; pointer-events: none; }
+    .app-tooltip[data-side="top"] { --tooltip-enter-y: 4px; transform-origin: 50% 100%; }
+    .app-tooltip[data-side="bottom"] { --tooltip-enter-y: -4px; transform-origin: 50% 0; }
+    .app-tooltip[data-state="delayed-open"], .app-tooltip[data-state="instant-open"] { animation: app-tooltip-in .15s ease-out both; }
+    .app-tooltip[data-state="closed"] { animation: app-tooltip-out .05s ease-out both; }
+    @keyframes app-tooltip-in { from { opacity: 0; transform: translateY(var(--tooltip-enter-y)) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes app-tooltip-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(var(--tooltip-enter-y)) scale(.98); } }
+
+    .sm-workspace:fullscreen, .sm-workspace.is-fullscreen-fallback { width: 100vw; height: 100vh; border: 0; border-radius: 0; background: #F8FAF9; }
+    .sm-workspace.is-fullscreen-fallback { position: fixed; inset: 0; z-index: 999; }
+    .sm-workspace:fullscreen .sm-scroll, .sm-workspace.is-fullscreen-fallback .sm-scroll { height: calc(100vh - 49px); }
+    .sm-workspace:fullscreen .sm-canvas, .sm-workspace.is-fullscreen-fallback .sm-canvas { width: 100%; height: 100%; min-width: 0; aspect-ratio: auto; }
 
     .sm-node, .sm-inspector { --node-accent: #557A9A; --node-icon-bg: #EEF3F6; }
     .sm-node.kind-gateway, .sm-inspector.kind-gateway { --node-accent: #4F847E; --node-icon-bg: #EDF5F3; }
@@ -184,7 +193,7 @@
       .sm-mode { width: 100%; grid-template-columns: repeat(2, 1fr); }
       .sm-toolbar-side { justify-content: space-between; }
       .sm-drawing-id { display: none; }
-      .sm-cad-controls { top: 8px; right: 8px; }
+      .sm-cad-control-reveal { min-width: 187px; min-height: 58px; padding: 8px; }
       .sm-cad-coordinates { left: 8px; }
       .sm-inspector { grid-template-columns: 1fr; }
       .sm-connections { grid-column: auto; }
@@ -192,6 +201,10 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .sm-traffic-particle { display: none !important; }
+      .sm-cad-controls, .app-tooltip { transition: none !important; animation: none !important; }
+    }
+    @media (hover: none) {
+      .sm-cad-controls { opacity: 1; pointer-events: auto; transform: none; }
     }
   </style>
 </head>
@@ -221,18 +234,20 @@
           <option>30 minutes</option>
           <option>1 hour</option>
         </select>
-        <button class="sm-motion" type="button" aria-label="Pause traffic motion" title="Pause traffic motion" data-sm-motion>
+        <button class="sm-motion" type="button" aria-label="Pause traffic motion" data-sm-tooltip="Pause traffic motion" data-sm-tooltip-side="bottom" data-sm-motion>
           <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="4" width="3" height="12" rx="1" /><rect x="12" y="4" width="3" height="12" rx="1" /></svg>
         </button>
       </div>
     </section>
 
     <section class="sm-workspace" data-mode="live" data-motion="running" aria-label="Synthetic service topology">
-      <div class="sm-cad-controls" role="group" aria-label="Drawing zoom controls">
-        <button type="button" aria-label="Zoom out" title="Zoom out" data-sm-zoom-out>-</button>
-        <output aria-label="Zoom level" data-sm-zoom-level>100%</output>
-        <button type="button" aria-label="Zoom in" title="Zoom in" data-sm-zoom-in>+</button>
-        <button type="button" aria-label="Fit drawing" title="Fit drawing" data-sm-zoom-fit><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3 H3 V7 M13 3 H17 V7 M17 13 V17 H13 M7 17 H3 V13" /></svg></button>
+      <div class="sm-cad-control-reveal">
+        <div class="sm-cad-controls" role="group" aria-label="Drawing view controls">
+          <button type="button" aria-label="Zoom out" data-sm-tooltip="Zoom out" data-sm-tooltip-side="bottom" data-sm-zoom-out>-</button>
+          <output aria-label="Zoom level" data-sm-zoom-level>100%</output>
+          <button type="button" aria-label="Zoom in" data-sm-tooltip="Zoom in" data-sm-tooltip-side="bottom" data-sm-zoom-in>+</button>
+          <button type="button" aria-label="Enter fullscreen" data-sm-tooltip="Enter fullscreen" data-sm-tooltip-side="bottom" data-sm-fullscreen><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3 H3 V7 M13 3 H17 V7 M17 13 V17 H13 M7 17 H3 V13" /></svg></button>
+        </div>
       </div>
       <output class="sm-cad-coordinates" aria-label="Drawing coordinates" data-sm-coordinates>X 0000 · Y 0000</output>
       <div class="sm-scroll" tabindex="0" aria-label="Scrollable service map canvas">
@@ -325,6 +340,13 @@
       var edgeLayer = document.querySelector("[data-sm-edges]");
       var nodeLayer = document.querySelector("[data-sm-nodes]");
       var inspector = document.querySelector("[data-sm-inspector]");
+      var fullscreenButton = document.querySelector("[data-sm-fullscreen]");
+      var SM_TOOLTIP_DELAY_MS = 100;
+      var SM_TOOLTIP_EXIT_MS = 50;
+      var tooltipOpenTimer = null;
+      var tooltipCloseTimer = null;
+      var activeTooltipAnchor = null;
+      var activeTooltip = null;
 
       function nodeById(id) { return nodes.find(function (node) { return node.id === id; }); }
       function edgeById(id) { return edges.find(function (edge) { return edge.id === id; }); }
@@ -392,6 +414,107 @@
         };
       }
 
+      function clearTooltipTimer(timer) {
+        if (timer !== null) window.clearTimeout(timer);
+      }
+
+      function positionSharedTooltip(anchor, tooltip) {
+        var anchorBounds = anchor.getBoundingClientRect();
+        var tooltipBounds = tooltip.getBoundingClientRect();
+        var side = anchor.dataset.smTooltipSide || "top";
+        var left = anchorBounds.left + (anchorBounds.width - tooltipBounds.width) / 2;
+        var top = side === "bottom" ? anchorBounds.bottom + 6 : anchorBounds.top - tooltipBounds.height - 6;
+        if (top < 8) {
+          side = "bottom";
+          top = anchorBounds.bottom + 6;
+        }
+        left = Math.max(8, Math.min(window.innerWidth - tooltipBounds.width - 8, left));
+        top = Math.max(8, Math.min(window.innerHeight - tooltipBounds.height - 8, top));
+        tooltip.dataset.side = side;
+        tooltip.style.left = left + "px";
+        tooltip.style.top = top + "px";
+      }
+
+      function mountSharedTooltip(anchor, state) {
+        if (!anchor.isConnected || !anchor.dataset.smTooltip) return;
+        activeTooltip?.remove();
+        var tooltip = document.createElement("span");
+        tooltip.className = "app-tooltip";
+        tooltip.dataset.state = state;
+        tooltip.setAttribute("role", "tooltip");
+        tooltip.textContent = anchor.dataset.smTooltip;
+        document.body.appendChild(tooltip);
+        activeTooltip = tooltip;
+        activeTooltipAnchor = anchor;
+        positionSharedTooltip(anchor, tooltip);
+        anchor.setAttribute("aria-describedby", "sm-shared-tooltip");
+        tooltip.id = "sm-shared-tooltip";
+      }
+
+      function showSharedTooltip(anchor, immediate) {
+        clearTooltipTimer(tooltipOpenTimer);
+        clearTooltipTimer(tooltipCloseTimer);
+        tooltipOpenTimer = window.setTimeout(function () {
+          tooltipOpenTimer = null;
+          mountSharedTooltip(anchor, immediate ? "instant-open" : "delayed-open");
+        }, immediate ? 0 : SM_TOOLTIP_DELAY_MS);
+      }
+
+      function hideSharedTooltip(immediate) {
+        clearTooltipTimer(tooltipOpenTimer);
+        clearTooltipTimer(tooltipCloseTimer);
+        tooltipOpenTimer = null;
+        if (activeTooltip === null) return;
+        activeTooltip.dataset.state = "closed";
+        var tooltip = activeTooltip;
+        var anchor = activeTooltipAnchor;
+        tooltipCloseTimer = window.setTimeout(function () {
+          tooltip.remove();
+          anchor?.removeAttribute("aria-describedby");
+          if (activeTooltip === tooltip) activeTooltip = null;
+          if (activeTooltipAnchor === anchor) activeTooltipAnchor = null;
+          tooltipCloseTimer = null;
+        }, immediate ? 0 : SM_TOOLTIP_EXIT_MS);
+      }
+
+      function sharedTooltipTrigger(target) {
+        return target instanceof Element ? target.closest("[data-sm-tooltip]") : null;
+      }
+
+      function fullscreenActive() {
+        return document.fullscreenElement === workspace || workspace.classList.contains("is-fullscreen-fallback");
+      }
+
+      function syncFullscreenButton() {
+        var active = fullscreenActive();
+        var label = active ? "Exit fullscreen" : "Enter fullscreen";
+        fullscreenButton.setAttribute("aria-label", label);
+        fullscreenButton.dataset.smTooltip = label;
+        fullscreenButton.innerHTML = active
+          ? '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7 H7 V3 M17 7 H13 V3 M13 17 V13 H17 M7 17 V13 H3"/></svg>'
+          : '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3 H3 V7 M13 3 H17 V7 M17 13 V17 H13 M7 17 H3 V13"/></svg>';
+      }
+
+      async function toggleFullscreen() {
+        hideSharedTooltip(true);
+        if (fullscreenActive()) {
+          if (document.fullscreenElement !== null) await document.exitFullscreen();
+          workspace.classList.remove("is-fullscreen-fallback");
+          syncFullscreenButton();
+          return;
+        }
+        if (workspace.requestFullscreen) {
+          try {
+            await workspace.requestFullscreen({ navigationUI: "hide" });
+          } catch {
+            workspace.classList.add("is-fullscreen-fallback");
+          }
+        } else {
+          workspace.classList.add("is-fullscreen-fallback");
+        }
+        syncFullscreenButton();
+      }
+
       function glyph(kind) {
         if (kind === "client" || kind === "monitor") return '<rect x="9" y="7" width="22" height="16" rx="2"/><path d="M14 28 H26 M20 23 V28"/>';
         if (kind === "gateway") return '<path d="M8 12 H32 M8 20 H32 M8 28 H32 M14 8 L8 12 L14 16 M26 24 L32 28 L26 32"/>';
@@ -443,17 +566,16 @@
           var labelX = (source.x + target.x) / 2;
           var labelY = (source.y + target.y) / 2;
           var selected = edge.id === selectedEdgeId;
-          var tooltipY = Math.max(132, labelY - 44);
           var lockPath = edge.security === "plaintext" ? '<path d="M-45 -7 V-9 A4 4 0 0 1 -37 -9"/><rect x="-46" y="-7" width="10" height="8" rx="1.5"/>' : '<path d="M-45 -7 V-10 A4 4 0 0 1 -37 -10 V-7"/><rect x="-46" y="-7" width="10" height="8" rx="1.5"/>';
           var roadPathId = "sm-road-" + edge.id;
           var returnPathId = "sm-road-return-" + edge.id;
-          return '<g class="sm-edge health-' + edge.health + ' security-' + edge.security + ' ' + speedClass(edge.rpm) + (edge.async ? ' is-async' : '') + (selected ? ' is-selected' : '') + '" data-edge-id="' + edge.id + '" role="button" tabindex="0" aria-pressed="' + selected + '" aria-label="' + source.label + ' to ' + target.label + ', ' + edge.protocol + ' destination port ' + edge.port + ', ' + edge.tls + ', ' + rateLabel(edge.rpm) + ', P95 ' + edge.p95 + ' milliseconds">' +
+          var sharedTooltip = source.label + " to " + target.label + "&#10;" + edge.protocol + " :" + edge.port + " · " + edge.tls + "&#10;" + rateLabel(edge.rpm) + " · P95 " + edge.p95 + " ms · errors " + edge.error + "%";
+          return '<g class="sm-edge health-' + edge.health + ' security-' + edge.security + ' ' + speedClass(edge.rpm) + (edge.async ? ' is-async' : '') + (selected ? ' is-selected' : '') + '" data-edge-id="' + edge.id + '" data-sm-tooltip="' + sharedTooltip + '" role="button" tabindex="0" aria-pressed="' + selected + '" aria-label="' + source.label + ' to ' + target.label + ', ' + edge.protocol + ' destination port ' + edge.port + ', ' + edge.tls + ', ' + rateLabel(edge.rpm) + ', P95 ' + edge.p95 + ' milliseconds">' +
             '<path class="sm-edge-hit" d="' + pathFor(edge) + '"/>' +
             '<g class="sm-traffic-particle is-outbound"><g transform="translate(0 2.2)"><ellipse class="sm-particle-halo" rx="7" ry="3.4"/><circle class="sm-particle-core" r="1.45"/></g><animateMotion dur="' + particleDuration(edge.rpm) + '" repeatCount="indefinite" rotate="auto"><mpath href="#' + roadPathId + '"/></animateMotion></g>' +
             '<g class="sm-traffic-particle is-return"><g transform="translate(0 2.2)"><ellipse class="sm-particle-halo" rx="7" ry="3.4"/><circle class="sm-particle-core" r="1.45"/></g><animateMotion dur="' + particleDuration(edge.rpm) + '" begin="-1.1s" repeatCount="indefinite" rotate="auto"><mpath href="#' + returnPathId + '"/></animateMotion></g>' +
             '<g class="sm-speed-sign" transform="translate(' + labelX + ' ' + labelY + ')"><path class="sm-speed-sign-pole" d="M0 10 V24"/><circle class="sm-speed-sign-face" r="11"/><text class="sm-speed-sign-value" y="1">' + rateSignLabel(edge.rpm) + '</text><text class="sm-speed-sign-unit" y="7">' + rateSignUnit(edge.rpm) + '</text></g>' +
             '<g class="sm-edge-security-label" transform="translate(' + labelX + ' ' + labelY + ')"><rect x="-58" y="-19" width="116" height="38" rx="4"/><g class="sm-security-lock">' + lockPath + '</g><text class="sm-edge-transport" x="-31" y="-4">' + edge.protocol + ' :' + edge.port + '</text><text class="sm-edge-tls" x="-31" y="10">' + edge.tls + ' · ' + edge.auth + '</text></g>' +
-            '<g class="sm-road-tooltip" transform="translate(' + labelX + ' ' + tooltipY + ')"><rect x="-72" y="-24" width="144" height="48" rx="5"/><text x="-62" y="-10">' + source.label + ' → ' + target.label + '</text><text class="muted" x="-62" y="2">' + edge.protocol + ' :' + edge.port + ' · ' + edge.tls + '</text><text class="muted" x="-62" y="14">' + rateLabel(edge.rpm) + ' · P95 ' + edge.p95 + ' ms · errors ' + edge.error + '%</text></g>' +
             '</g>';
         }).join("");
           edgeLayer.innerHTML = '<g class="sm-road-network"><g class="sm-road-outlines">' + outlines + '</g><g class="sm-road-surfaces">' + surfaces + '</g><g class="sm-road-dividers">' + dividers + '</g><g class="sm-road-guides">' + guides + '</g></g><g class="sm-road-details">' + details + '</g>';
@@ -541,13 +663,46 @@
         if (running) canvas.pauseAnimations();
         else canvas.unpauseAnimations();
         button.setAttribute("aria-label", running ? "Resume traffic motion" : "Pause traffic motion");
-        button.setAttribute("title", running ? "Resume traffic motion" : "Pause traffic motion");
+        button.dataset.smTooltip = running ? "Resume traffic motion" : "Pause traffic motion";
         button.innerHTML = running ? '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 4 L16 10 L6 16 Z"/></svg>' : '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="4" width="3" height="12" rx="1"/><rect x="12" y="4" width="3" height="12" rx="1"/></svg>';
       });
 
       document.querySelector("[data-sm-zoom-in]").addEventListener("click", function () { zoomAt(zoom + .25); });
       document.querySelector("[data-sm-zoom-out]").addEventListener("click", function () { zoomAt(zoom - .25); });
-      document.querySelector("[data-sm-zoom-fit]").addEventListener("click", fitDrawing);
+      fullscreenButton.addEventListener("click", function () { void toggleFullscreen(); });
+      document.addEventListener("fullscreenchange", syncFullscreenButton);
+      document.addEventListener("pointerover", function (event) {
+        var trigger = sharedTooltipTrigger(event.target);
+        if (trigger !== null && event.pointerType !== "touch") showSharedTooltip(trigger, false);
+      });
+      document.addEventListener("pointerout", function (event) {
+        var trigger = sharedTooltipTrigger(event.target);
+        if (trigger !== null && !trigger.contains(event.relatedTarget)) hideSharedTooltip(false);
+      });
+      document.addEventListener("pointerdown", function (event) {
+        var trigger = sharedTooltipTrigger(event.target);
+        if (trigger !== null && event.pointerType === "touch") showSharedTooltip(trigger, true);
+      });
+      document.addEventListener("focusin", function (event) {
+        var trigger = sharedTooltipTrigger(event.target);
+        if (trigger !== null) showSharedTooltip(trigger, true);
+      });
+      document.addEventListener("focusout", function (event) {
+        var trigger = sharedTooltipTrigger(event.target);
+        if (trigger !== null && !trigger.contains(event.relatedTarget)) hideSharedTooltip(false);
+      });
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          hideSharedTooltip(true);
+          if (workspace.classList.contains("is-fullscreen-fallback")) {
+            workspace.classList.remove("is-fullscreen-fallback");
+            syncFullscreenButton();
+          }
+        }
+      });
+      window.addEventListener("resize", function () {
+        if (activeTooltip !== null && activeTooltipAnchor !== null) positionSharedTooltip(activeTooltipAnchor, activeTooltip);
+      });
       canvas.addEventListener("wheel", function (event) {
         event.preventDefault();
         zoomAt(zoom + (event.deltaY < 0 ? .15 : -.15), event.clientX, event.clientY);
@@ -611,6 +766,7 @@
       renderNodes();
       renderInspector();
       applyCamera();
+      syncFullscreenButton();
     })();
   </script>
 </body>
