@@ -28,4 +28,12 @@
   "loadMoreError": "Failed to load more scheduler runs: {message}",
   "tableLabel": "Dispatch history for {taskId}",
   "viewHeadline": "{taskId}: {count} dispatch attempt(s) loaded"
+  ,"metricsTitle": "Dispatch evidence only"
+  ,"metricsBoundary": "Published means the scheduler recorded broker dispatch. It does not prove task execution or outcome success."
+  ,"loadedAttempts": "Loaded attempts"
+  ,"publishRate": "Publish rate"
+  ,"failedOrLost": "Failed or lost"
+  ,"medianClose": "Median claim-to-close"
+  ,"p95Close": "P95 claim-to-close"
+  ,"loadedSample": "Loaded page only"
 }

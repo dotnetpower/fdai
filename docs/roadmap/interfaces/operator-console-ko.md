@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 921cd0a3808b291cea6ae3f7d46c8935e3dd60d0
+translation_source_sha: 60b1336e49d0518f8ef16b44c659c3d7adebd894
 translation_revised: 2026-08-04
 ---
 
@@ -242,7 +242,7 @@ flowchart TD
 Hangul prose와 matching token을 차단하며, code-point behavior에는 정확한 rationale이 있는 예외만
 허용합니다. 이 source representation은 machine value, evidence authority, locale selection 또는 typed
 pipeline decision을 변경하지 않습니다.
-- Scheduler Runs, Automation Blueprints, Scheduled Continuations, [관리형 trajectory dataset](governed-trajectory-datasets-ko.md), [execution backend status](execution-backends-ko.md)는 read-only metadata를 제공합니다. 이 view에는 enable, submit, retry, cancel, cleanup, execute, approval control이 없고 credential 및 Thor identity를 제외하며 command는 SPA 밖에 유지됩니다.
+- Scheduler Runs, Automation Blueprints, Scheduled Continuations, [관리형 trajectory dataset](governed-trajectory-datasets-ko.md), [execution backend status](execution-backends-ko.md)는 read-only metadata를 제공합니다. Scheduler performance는 loaded-page publish rate와 claim-to-close percentile을 사용하며 `published`는 broker dispatch 근거일 뿐 task execution 또는 outcome success를 증명하지 않습니다. 이 view에는 enable, submit, retry, cancel, cleanup, execute, approval control이 없고 credential 및 Thor identity를 제외하며 command는 SPA 밖에 유지됩니다.
 - [`tools/chat.py`](../../../tools/chat.py) - core coordinator를 위한 headless
   JSONL 개발 harness입니다. 별도 policy 구현이 아닙니다.
 

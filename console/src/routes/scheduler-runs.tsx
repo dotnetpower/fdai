@@ -4,6 +4,8 @@ import {
   AsyncBoundary,
   DataTable,
   EmptyState,
+  KpiCard,
+  KpiGrid,
   PageHeader,
   StatusPill,
   type AsyncState,
@@ -19,6 +21,7 @@ import {
   decodeSchedulerRunPage,
   formatSchedulerTimestamp,
   schedulerRunTone,
+  summarizeSchedulerRuns,
   type SchedulerRunItem,
   type SchedulerRunPage,
   type SchedulerRunStatus,
@@ -155,6 +158,7 @@ function SchedulerRunsTable({ page, loadingMore, pageError, onLoadMore }: {
   readonly pageError: string | null;
   readonly onLoadMore: () => void;
 }) {
+  const summary = summarizeSchedulerRuns(page.items);
   usePublishViewContext(
     () => ({
       routeId: "scheduler-runs",
@@ -172,6 +176,10 @@ function SchedulerRunsTable({ page, loadingMore, pageError, onLoadMore }: {
         { key: "source", value: page.source, group: "provenance" },
         { key: "durable", value: page.durable, group: "provenance" },
         { key: "loaded_runs", value: page.items.length, group: "scheduler" },
+        { key: "publish_rate", value: summary.publishRate ?? "unavailable", group: "scheduler" },
+        { key: "failed_or_lost", value: summary.failedOrLost, group: "scheduler" },
+        { key: "median_close_ms", value: summary.medianCloseMs ?? "unavailable", group: "scheduler" },
+        { key: "p95_close_ms", value: summary.p95CloseMs ?? "unavailable", group: "scheduler" },
         { key: "has_more", value: page.next_cursor !== null, group: "scheduler" },
       ],
       records: {
@@ -224,6 +232,7 @@ function SchedulerRunsTable({ page, loadingMore, pageError, onLoadMore }: {
   ];
   return (
     <section
+      id="scheduler-dispatch-history"
       class="stack-section"
       aria-label={schedulerRunsText("tableLabel", { taskId: page.task_id })}
     >
@@ -233,6 +242,17 @@ function SchedulerRunsTable({ page, loadingMore, pageError, onLoadMore }: {
           {schedulerRunsText(page.durable ? "durable" : "volatile")}
         </strong></span>
       </div>
+      <div class="governance-readonly-banner">
+        <strong>{schedulerRunsText("metricsTitle")}</strong>
+        <span>{schedulerRunsText("metricsBoundary")}</span>
+      </div>
+      <KpiGrid>
+        <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("loadedAttempts")} value={summary.loaded.toLocaleString()} />
+        <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("publishRate")} value={summary.publishRate === null ? "-" : `${(summary.publishRate * 100).toFixed(1)}%`} />
+        <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("failedOrLost")} value={summary.failedOrLost.toLocaleString()} />
+        <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("medianClose")} value={formatDuration(summary.medianCloseMs)} hint={schedulerRunsText("loadedSample")} />
+        <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("p95Close")} value={formatDuration(summary.p95CloseMs)} hint={schedulerRunsText("loadedSample")} />
+      </KpiGrid>
       <DataTable
         columns={columns}
         rows={page.items}
@@ -251,6 +271,12 @@ function SchedulerRunsTable({ page, loadingMore, pageError, onLoadMore }: {
       ) : null}
     </section>
   );
+}
+
+function formatDuration(value: number | null): string {
+  if (value === null) return "-";
+  if (value < 1000) return `${value} ms`;
+  return `${(value / 1000).toFixed(1)} s`;
 }
 
 export function assertSchedulerRunTask(page: SchedulerRunPage, requestedTaskId: string): void {

@@ -29,6 +29,15 @@ export interface SchedulerRunPage {
   readonly next_cursor: string | null;
 }
 
+export interface SchedulerRunSummary {
+  readonly loaded: number;
+  readonly published: number;
+  readonly failedOrLost: number;
+  readonly publishRate: number | null;
+  readonly medianCloseMs: number | null;
+  readonly p95CloseMs: number | null;
+}
+
 const RUN_STATUSES: readonly SchedulerRunStatus[] = ["claimed", "published", "failed", "lost"];
 
 export function decodeSchedulerRunPage(value: unknown): SchedulerRunPage {
@@ -79,6 +88,36 @@ export function schedulerRunTone(status: SchedulerRunStatus): "success" | "warni
   if (status === "published") return "success";
   if (status === "claimed") return "warning";
   return "danger";
+}
+
+export function summarizeSchedulerRuns(
+  items: readonly SchedulerRunItem[],
+): SchedulerRunSummary {
+  const published = items.filter((item) => item.status === "published").length;
+  const failedOrLost = items.filter(
+    (item) => item.status === "failed" || item.status === "lost",
+  ).length;
+  const durations = items.flatMap((item) => {
+    if (item.completed_at === null) return [];
+    const claimed = Date.parse(item.claimed_at);
+    const completed = Date.parse(item.completed_at);
+    if (!Number.isFinite(claimed) || !Number.isFinite(completed) || completed < claimed) return [];
+    return [completed - claimed];
+  }).sort((left, right) => left - right);
+  return {
+    loaded: items.length,
+    published,
+    failedOrLost,
+    publishRate: items.length === 0 ? null : published / items.length,
+    medianCloseMs: percentile(durations, 0.5),
+    p95CloseMs: percentile(durations, 0.95),
+  };
+}
+
+function percentile(values: readonly number[], quantile: number): number | null {
+  if (values.length === 0) return null;
+  const index = Math.min(values.length - 1, Math.ceil(values.length * quantile) - 1);
+  return values[index] ?? null;
 }
 
 export function formatSchedulerTimestamp(value: string | null): string {

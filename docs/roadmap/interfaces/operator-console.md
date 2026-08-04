@@ -248,7 +248,7 @@ English and Korean presentation literals in these layers are authored as NFC UTF
 gate rejects escaped Hangul prose and matching tokens, with exact rationale-bearing exceptions only
 for code-point behavior. This source representation does not change machine values, evidence
 authority, locale selection, or the typed pipeline decision.
-- Scheduler Runs, Automation Blueprints, Scheduled Continuations, [governed trajectory datasets](governed-trajectory-datasets.md), and [execution backend status](execution-backends.md) expose read-only metadata. These views have no enable, submit, retry, cancel, cleanup, execute, or approval controls; omit credentials and Thor's identity; and keep commands outside the SPA.
+- Scheduler Runs, Automation Blueprints, Scheduled Continuations, [governed trajectory datasets](governed-trajectory-datasets.md), and [execution backend status](execution-backends.md) expose read-only metadata. Scheduler performance uses loaded-page publish rate and claim-to-close percentiles; `published` proves broker dispatch, not task execution or outcome success. These views have no enable, submit, retry, cancel, cleanup, execute, or approval controls; omit credentials and Thor's identity; and keep commands outside the SPA.
 - [`tools/chat.py`](../../../tools/chat.py) - headless JSONL development harness
   for the core coordinator. It is not a second policy implementation.
 
