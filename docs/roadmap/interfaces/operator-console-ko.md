@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 60b1336e49d0518f8ef16b44c659c3d7adebd894
+translation_source_sha: 3dc32826d7d1cfc5891d910c45a5ee0e4123b515
 translation_revised: 2026-08-04
 ---
 
@@ -256,11 +256,7 @@ RBAC floor, side-effect class와 문서화된 failure surface를 가집니다. W
 자체 typed request contract를 추가할 수 있습니다. 새 tool은 additive이며 rule이나 policy를
 override하지 않습니다.
 
-`RuntimeToolDiscovery`는 installed narrator schema에 search 및 describe를 제공합니다. Schema
-metadata와 실제 installed tool name의 교집합을 만들고 coordinator와 동일한 RBAC ladder를
-적용하며 name, verb, description, argument hint, RBAC floor, side-effect class만 반환합니다.
-낮은 role principal은 높은 role tool을 discover할 수 없고 descriptor에는 handler 또는 invocation
-capability가 없습니다. Discovery는 navigation을 개선할 뿐 새 authority를 부여하지 않습니다.
+`RuntimeToolDiscovery`는 installed narrator schema에 search 및 describe를 제공합니다. Schema metadata와 실제 installed tool name의 교집합을 만들고 coordinator와 동일한 RBAC ladder를 적용하며 name, verb, description, argument hint, RBAC floor, side-effect class만 반환합니다. 낮은 role principal은 높은 role tool을 discover할 수 없고 descriptor에는 handler 또는 invocation capability가 없습니다. 명시적 요청이 principal role보다 높은 tool로 해석되더라도 deterministic refusal은 tool, required role, current role을 표시하고 tool을 호출하지 않았음을 확인합니다. Discovery는 navigation을 개선할 뿐 새 authority를 부여하지 않습니다.
 
 같은 projection은 deterministic channel verb `search_tools`, `describe_tool`과 typed read RPC
 method `tools.search`, `tools.describe`로 제공됩니다. Channel call은 resolved `Principal`을

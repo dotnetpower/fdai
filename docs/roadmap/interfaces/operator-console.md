@@ -261,12 +261,7 @@ Tools are **pipeline-stage views**. A core tool has a stable name, bounded `argu
 floor, side-effect class, and documented failure surface. Web/provider-specific tools can add
 their own typed request contracts. New tools are additive; they never override a rule or policy.
 
-`RuntimeToolDiscovery` provides search and describe over installed narrator schemas. It
-intersects schema metadata with the actually installed tool names, applies the same RBAC ladder as
-the coordinator, and returns only name, verb, description, argument hint, RBAC floor, and
-side-effect class. A lower-role principal cannot discover a higher-role tool, and descriptors
-contain no handler or invocation capability. Discovery improves navigation; it grants no new
-authority.
+`RuntimeToolDiscovery` provides search and describe over installed narrator schemas. It intersects schema metadata with the actually installed tool names, applies the same RBAC ladder as the coordinator, and returns only name, verb, description, argument hint, RBAC floor, and side-effect class. A lower-role principal cannot discover a higher-role tool, and descriptors contain no handler or invocation capability. If an explicit request still resolves to a tool above the principal's role, the deterministic refusal names the tool, required role, and current role and confirms that no tool was called. Discovery improves navigation; it grants no new authority.
 
 The same projection is available through the deterministic channel verbs `search_tools` and
 `describe_tool`, and typed read RPC methods `tools.search` and `tools.describe`. Channel calls use
