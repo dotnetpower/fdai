@@ -15,7 +15,7 @@ import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { currentRoute, navigate, routeHref } from "../router";
-import { schedulerRunsText } from "./scheduler-runs.i18n";
+import { schedulerRunsNumber, schedulerRunsText } from "./scheduler-runs.i18n";
 import {
   appendSchedulerRunPage,
   decodeSchedulerRunPage,
@@ -247,9 +247,9 @@ function SchedulerRunsTable({ page, loadingMore, pageError, onLoadMore }: {
         <span>{schedulerRunsText("metricsBoundary")}</span>
       </div>
       <KpiGrid>
-        <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("loadedAttempts")} value={summary.loaded.toLocaleString()} />
+        <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("loadedAttempts")} value={schedulerRunsNumber(summary.loaded)} />
         <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("publishRate")} value={summary.publishRate === null ? "-" : `${(summary.publishRate * 100).toFixed(1)}%`} />
-        <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("failedOrLost")} value={summary.failedOrLost.toLocaleString()} />
+        <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("failedOrLost")} value={schedulerRunsNumber(summary.failedOrLost)} />
         <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("medianClose")} value={formatDuration(summary.medianCloseMs)} hint={schedulerRunsText("loadedSample")} />
         <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("p95Close")} value={formatDuration(summary.p95CloseMs)} hint={schedulerRunsText("loadedSample")} />
       </KpiGrid>

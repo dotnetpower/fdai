@@ -4,6 +4,10 @@ import ko from "./i18n/scheduler-runs.ko.json";
 
 type SchedulerRunsMessageKey = keyof typeof en;
 
+export function schedulerRunsNumber(value: number): string {
+  return value.toLocaleString(getLocale() === "ko" ? "ko-KR" : "en-US");
+}
+
 export function schedulerRunsText(
   key: SchedulerRunsMessageKey,
   params?: Readonly<Record<string, string | number>>,

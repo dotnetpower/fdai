@@ -7,6 +7,8 @@ import {
   summarizeSchedulerRuns,
 } from "./scheduler-runs.model";
 import { assertSchedulerRunTask } from "./scheduler-runs";
+import { schedulerRunsNumber } from "./scheduler-runs.i18n";
+import { setLocale } from "../i18n";
 
 const PAGE = {
   task_id: "inventory",
@@ -74,6 +76,14 @@ describe("scheduler run response", () => {
     expect(formatSchedulerTimestamp(null)).toBe("-");
     expect(formatSchedulerTimestamp("not-a-timestamp")).toBe("not-a-timestamp");
     expect(formatSchedulerTimestamp("2026-07-17T08:00:00Z")).toMatch(/2026/);
+  });
+
+  test("formats KPI counts with the operator locale", () => {
+    setLocale("en");
+    expect(schedulerRunsNumber(1234)).toBe("1,234");
+    setLocale("ko");
+    expect(schedulerRunsNumber(1234)).toBe("1,234");
+    setLocale("en");
   });
 
   test("summarizes publish evidence without claiming execution success", () => {
