@@ -99,6 +99,10 @@ from fdai.delivery.operator_api.app.catalog_reference import (
 )
 from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 from fdai.delivery.operator_api.production import env_contract as _env
+from fdai.delivery.operator_api.production.catalog_search import (
+    ProductionCatalogSearch,
+    build_production_catalog_search,
+)
 from fdai.delivery.operator_api.production.config import (
     ProdOperatorApiConfigError,
     _check_required_env,
@@ -252,6 +256,13 @@ def build_prod_app(
     iam_directory = identity.iam_directory
     iam_provider = identity.iam_provider
     shutdown_callbacks = identity.shutdown_callbacks
+    catalog_search = (
+        ProductionCatalogSearch(catalog_semantic_index)
+        if catalog_semantic_index is not None
+        else build_production_catalog_search(env=env, dsn=read_model._config.dsn)
+    )
+    catalog_semantic_index = catalog_search.index
+    shutdown_callbacks = (*shutdown_callbacks, *catalog_search.shutdown_callbacks)
     cors_origins = _parse_cors_origins(env.get(_env.CORS_ORIGINS_ENV))
     (
         reporting,
