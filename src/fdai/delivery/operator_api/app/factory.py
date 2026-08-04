@@ -315,6 +315,14 @@ def build_app(
             make_conversation_assurance_routes,
         )
 
+        routes.extend(
+            make_conversation_assurance_routes(
+                ledger=resolved_config.conversation_assurance_ledger,
+                authorize=_authorize,
+                conversation_store=resolved_config.conversation_history_store,
+            )
+        )
+
     if resolved_config.configuration_review_runtime is not None:
         from fdai.delivery.operator_api.routes.configuration_review import (
             make_configuration_review_routes,
@@ -336,14 +344,6 @@ def build_app(
             make_automation_blueprint_review_routes(
                 service=resolved_config.automation_blueprint_review,
                 authorize=_authorize_automation_principal,
-            )
-        )
-
-        routes.extend(
-            make_conversation_assurance_routes(
-                ledger=resolved_config.conversation_assurance_ledger,
-                authorize=_authorize,
-                conversation_store=resolved_config.conversation_history_store,
             )
         )
 

@@ -30,6 +30,7 @@ from starlette.responses import Response
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
+from fdai.core.conversation_assurance import InMemoryConversationAssuranceLedger
 from fdai.core.rbac.enforcer import RoleEnforcer
 from fdai.core.rbac.resolver import GroupMapping, Principal, RoleResolver
 from fdai.core.rbac.roles import Role
@@ -127,6 +128,21 @@ def no_dev_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 
 
 class TestBuildApp:
+    def test_conversation_assurance_route_depends_only_on_ledger(self) -> None:
+        resolver = RoleResolver(group_mapping=_mapping())
+        auth = build_authenticator(verifier=lambda _: {"oid": "u"}, resolver=resolver)
+        app = build_app(
+            authenticator=auth,
+            read_model=InMemoryConsoleReadModel(),
+            config=OperatorApiConfig(
+                conversation_assurance_ledger=InMemoryConversationAssuranceLedger()
+            ),
+        )
+
+        paths = {route.path for route in app.routes if isinstance(route, Route)}
+
+        assert "/conversation-assurance" in paths
+
     def test_dev_mode_without_env_var_refuses(self, no_dev_env: None) -> None:
         # Even if the code sets dev_mode=True, the env var gate MUST stop the
         # boot to avoid an accidental production build with dev auth.
