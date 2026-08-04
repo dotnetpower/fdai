@@ -24,6 +24,7 @@ from fdai.delivery.operator_api.routes.chat_inventory_compiler import (
     inventory_query_requires_semantic_completion,
 )
 from fdai.delivery.operator_api.routes.chat_inventory_semantics import (
+    SemanticInventoryStatusError,
     merge_semantic_inventory_status_query,
 )
 
@@ -204,6 +205,9 @@ async def _resolve_goal(
     except asyncio.CancelledError:
         await progress_observer(_progress(branch_id, goal, "cancelled", "Intent goal cancelled", 0))
         raise
+    except SemanticInventoryStatusError:
+        status = "unavailable"
+        reason = "inventory_semantic_status_invalid"
     except ValueError:
         status = "unavailable"
         reason = "capability_invalid_arguments"
