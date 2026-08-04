@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 5ef7192bd5bde30ea88f220d7364857bedea6c9f
+translation_source_sha: eb362ad2dce49f7e59f0b4d668d7ea2956ba428e
 translation_revised: 2026-08-04
 ---
 
@@ -337,7 +337,8 @@ local 및 deployed console의 의미를 일치시킵니다.
 - **완전한 ARG 읽기는 1,000개 이후에도 페이지를 계속 조회합니다.** Azure Resource Graph는
   응답 하나에 최대 1,000개 레코드를 반환합니다. 완전한 결과가 필요한 어댑터는 `$top`을
   최대 1,000으로 설정하고, 구성된 page cap 안에서 각 `$skipToken`을 끝까지 따라가며,
-  inventory query를 고유한 resource `id`로 정렬합니다. 각 page는 query quota 하나를
+  inventory `id` 또는 deployment-history `row_id` 같은 고유 projected key로 정렬합니다.
+  각 page는 query quota 하나를
   소비합니다. JSON projection 전에 raw response를 page당 10 MB, query당 64 MB로 제한합니다.
   Token 반복, page cap 초과, continuation token 없는 `resultTruncated=true`는
   읽기가 불완전한 것으로 보고 fail-closed 처리합니다. 반면 bounded interactive read는 명시된
