@@ -105,7 +105,8 @@ export function downloadInvocationCsv(records: readonly InvocationRecord[]): voi
 
 function csvCell(value: string | number): string {
   const raw = String(value);
-  const safe = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+  const formulaCandidate = raw.replace(/^[\s\uFEFF]+/u, "");
+  const safe = /^[=+\-@]/.test(formulaCandidate) ? `'${raw}` : raw;
   return `"${safe.replaceAll('"', '""')}"`;
 }
 

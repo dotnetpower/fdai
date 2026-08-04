@@ -35,6 +35,25 @@ describe("LLM usage provenance", () => {
     expect(csv.split("\r\n")).toHaveLength(3);
   });
 
+  test("neutralizes formula triggers hidden behind whitespace or a BOM", () => {
+    const base = {
+      occurred_at: "2026-08-04T00:00:00Z",
+      capability_id: "query_inventory",
+      model_key: "model-one",
+      tier: "T1",
+      mode: "shadow",
+      usage_scope: "operator_chat",
+      prompt_tokens: 10,
+      completion_tokens: 5,
+      total_tokens: 15,
+    } as const;
+
+    expect(invocationCsv([{ ...base, correlation_id: "  =1+1" }]))
+      .toContain('"\'  =1+1"');
+    expect(invocationCsv([{ ...base, correlation_id: "\uFEFF@SUM(1,1)" }]))
+      .toContain('"\'\uFEFF@SUM(1,1)"');
+  });
+
   test("links conversation rollups to correlation-scoped audit evidence", () => {
     expect(llmUsageCorrelationHref("corr-1")).toBe("/audit?correlation=corr-1");
   });
