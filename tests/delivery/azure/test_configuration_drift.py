@@ -84,7 +84,14 @@ async def test_arg_observation_is_filtered_at_query_and_redacts_arm_ids() -> Non
         "sku_name": "Base",
         "sku_tier": "Free",
     }
+    assert len(observation.links) == 1
+    assert observation.links[0].to_dict() == {
+        "source": "resource-group:rg-example",
+        "relation": "contains",
+        "target": "microsoft.containerservice/managedclusters:aks-example",
+    }
     assert _SUBSCRIPTION not in json.dumps(resource.to_dict())
+    assert _SUBSCRIPTION not in json.dumps(observation.links[0].to_dict())
     assert "/subscriptions/" not in json.dumps(resource.to_dict())
 
 

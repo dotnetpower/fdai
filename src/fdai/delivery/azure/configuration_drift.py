@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import httpx
 
 from fdai.core.detection.configuration_drift import (
+    ConfigurationLink,
     ConfigurationObservation,
     ConfigurationResource,
     EvidenceCompleteness,
@@ -89,12 +90,17 @@ class AzureArgConfigurationObservationSource:
             project_links=lambda _row, _record: (),
         )
         observed_at = datetime.now(tz=UTC)
+        configuration_resources = tuple(_configuration_resource(resource) for resource in resources)
         return ConfigurationObservation(
             scope=self._config.scope_ref,
             observed_at=observed_at,
             source="Azure Resource Graph",
             completeness=EvidenceCompleteness.COMPLETE,
-            resources=tuple(_configuration_resource(resource) for resource in resources),
+            resources=configuration_resources,
+            links=_resource_group_links(
+                resources,
+                resource_group=self._config.resource_group,
+            ),
         )
 
     def _query(self) -> str:
@@ -161,6 +167,18 @@ def _configuration_resource(record: ResourceRecord) -> ConfigurationResource:
         resource_type=record.type,
         region=location,
         attributes=attributes,
+    )
+
+
+def _resource_group_links(
+    resources: tuple[ResourceRecord, ...],
+    *,
+    resource_group: str,
+) -> tuple[ConfigurationLink, ...]:
+    source = f"resource-group:{resource_group.casefold()}"
+    return tuple(
+        ConfigurationLink(source=source, relation="contains", target=resource.resource_id)
+        for resource in resources
     )
 
 

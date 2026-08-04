@@ -78,7 +78,8 @@ DOCX and canonical JSON baseline carry the same version, scope, creation time, a
   selected by server composition, never by conversational input, and the registry exposes no
   mutation API.
 - `delivery/azure/configuration_drift.py` applies the resource-group filter inside the Azure
-  Resource Graph query. It removes full provider resource ids before producing evidence.
+  Resource Graph query. It removes full provider resource ids before producing evidence and emits
+  deterministic resource-group `contains` links from the configured scope to neutral resource keys.
 - Knowledge retrieval explains and cites the reviewed document. It does not decide the drift. If
   Knowledge is unavailable, the deterministic report remains valid and the citation status stays
   blocked rather than being reported as supported. Each citation identity includes the exact

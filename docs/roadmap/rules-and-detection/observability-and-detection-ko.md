@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: a14c09daf91903d4370aed7b0877a9c9922b7d1b
+translation_source_sha: 354e6263f615da573eab15263a6982f5ef102462
 translation_revised: 2026-08-04
 ---
 
@@ -78,7 +78,8 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **findin
   보관할 수 있으며 scope마다 active version을 하나만 허용합니다. Active source와 replay-pinned source는
   conversation input이 아니라 server composition이 선택하고 registry는 mutation API를 노출하지 않습니다.
 - `delivery/azure/configuration_drift.py`는 Azure Resource Graph query 안에서 resource group filter를
-  적용합니다. 증거를 생성하기 전에 전체 provider resource id를 제거합니다.
+  적용합니다. 증거를 생성하기 전에 전체 provider resource id를 제거하고 configured scope에서 neutral
+  resource key로 향하는 deterministic resource-group `contains` link를 생성합니다.
 - Knowledge retrieval은 검토된 문서를 설명하고 인용합니다. 드리프트를 판정하지는 않습니다.
   Knowledge를 사용할 수 없어도 결정론적 보고서는 유지하고 citation 상태는 근거 있음으로
   표시하지 않고 차단 상태로 유지합니다. 각 citation identity에는 정확한 baseline version과 전체
