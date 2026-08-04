@@ -14,6 +14,7 @@ from urllib.parse import quote
 
 import httpx
 
+from fdai.delivery.azure.arg_transport import ArgThrottleGate, fetch_arg_row_pages
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _MANAGEMENT_AUDIENCE: Final = "https://management.azure.com/.default"
@@ -143,6 +144,7 @@ class AzureSubscriptionHealthProvider:
         self._config = config
         self._identity = identity
         self._http = http_client
+        self._arg_throttle_gate = ArgThrottleGate()
         self._probe_by_type = {probe.resource_type: probe for probe in config.metric_probes}
 
     @property
@@ -739,14 +741,26 @@ class AzureSubscriptionHealthProvider:
         return rows[:65], isinstance(payload.get("nextLink"), str) or len(rows) > 65
 
     async def _arg(self, headers: Mapping[str, str], query: str) -> list[Mapping[str, Any]]:
-        response = await self._http.post(
-            f"{self._config.endpoint.rstrip('/')}/providers/Microsoft.ResourceGraph/resources",
-            params={"api-version": _ARG_API_VERSION},
-            headers=dict(headers),
-            json={"subscriptions": [self._config.subscription_id], "query": query},
-            timeout=self._config.timeout_seconds,
+        rows = await fetch_arg_row_pages(
+            identity=self._identity,
+            http_client=self._http,
+            audience=_MANAGEMENT_AUDIENCE,
+            endpoint=self._config.endpoint,
+            api_version=_ARG_API_VERSION,
+            subscriptions=(self._config.subscription_id,),
+            query=query,
+            result_name="subscription health",
+            page_size=1000,
+            max_pages=1,
+            max_records=1000,
+            timeout_seconds=self._config.timeout_seconds,
+            error_type=RuntimeError,
+            throttle_gate=self._arg_throttle_gate,
+            request_headers=headers,
+            allow_truncated_without_token=True,
+            max_response_bytes=self._config.max_response_bytes,
         )
-        return self._rows(response, "Resource Graph")
+        return list(rows)
 
     async def _metric(
         self,
