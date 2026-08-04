@@ -54,6 +54,22 @@ always prevails.
 5. Commit each focused-check-passing user-requested change before reporting completion unless the user says
    not to commit. Stage only task-owned files and hunks; never commit failed or incomplete work.
 
+## Continuous Conversation Assurance Triggers (MUST)
+
+Treat `대화개선`, `채팅개선`, `대화무한개선`, `채팅무한개선`, `conversation improvement`,
+`chat improvement`, and `continuous conversation assurance` as requests to load the
+`conversational-assurance` skill and start or resume the local bounded watchdog loop. At campaign
+start, ask once whether the focus is SRE, ARB, Change Management, DR, Chaos, or Balanced. Use SRE
+when the operator is unavailable, persist the selection in local ignored state, and do not ask
+again until the operator changes focus or stops the campaign.
+
+Every cycle MUST measure answer appropriateness, terminal verification state, answer-type-specific
+visualization, investigation and redacted execution detail, total latency, and per-phase
+bottlenecks through the same Operator API stream used by the Console. A qualifying failure starts
+an isolated Copilot hardening candidate immediately; after focused verification, the next bounded
+question cycle starts automatically. The loop remains A0/read-only, never merges to `main`, never
+uses generated text as a command, and never grants approval or execution authority.
+
 ## Issue Lifecycle (MUST)
 
 - Every new issue includes explicit, observable **Exit criteria** as a checkbox list.
