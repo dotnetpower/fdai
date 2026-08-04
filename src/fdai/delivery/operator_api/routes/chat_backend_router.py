@@ -475,13 +475,19 @@ class LatencyRoutedChatBackend:
             self._in_flight[name] += 1
             started = time.monotonic()
             emitted_content = False
+            success_recorded = False
             try:
                 async with asyncio.timeout(self._attempt_budget(deadline, attempted)):
                     stream = getattr(backend, "answer_stream", None)
                     if stream is not None:
+                        terminal_event: dict[str, Any] | None = None
                         async for event in stream(
                             prompt=prompt, view_context=view_context, history=history
                         ):
+                            if terminal_event is not None:
+                                raise ChatBackendUnavailableError(
+                                    f"chat candidate {name!r} emitted data after terminal done"
+                                )
                             if event.get("type") == "token" and event.get("delta"):
                                 if not emitted_content:
                                     self._ttft_samples[name].append(
@@ -496,24 +502,33 @@ class LatencyRoutedChatBackend:
                                     raise ChatBackendUnavailableError(
                                         f"chat candidate {name!r} returned an empty stream"
                                     )
-                                event = dict(event)
-                                event["model"] = name
-                                event["router"] = {
-                                    "chose": name,
-                                    "reason": "failover"
-                                    if attempted
-                                    else (
-                                        "user-preferred"
-                                        if preferred_model == name
-                                        else (
-                                            "warmup"
-                                            if len(self._samples[name]) < _ROUTER_WARMUP_SAMPLES
-                                            else "lowest-p50"
-                                        )
-                                    ),
-                                    "candidates": self.stats(),
-                                }
+                                terminal_event = dict(event)
+                                continue
                             yield event
+                        if terminal_event is None:
+                            raise ChatBackendUnavailableError(
+                                f"chat candidate {name!r} ended without terminal done"
+                            )
+                        self._samples[name].append(int((time.monotonic() - started) * 1000))
+                        self._success_counts[name] += 1
+                        success_recorded = True
+                        terminal_event["model"] = name
+                        terminal_event["router"] = {
+                            "chose": name,
+                            "reason": "failover"
+                            if attempted
+                            else (
+                                "user-preferred"
+                                if preferred_model == name
+                                else (
+                                    "warmup"
+                                    if len(self._samples[name]) <= _ROUTER_WARMUP_SAMPLES
+                                    else "lowest-p50"
+                                )
+                            ),
+                            "candidates": self.stats(),
+                        }
+                        yield terminal_event
                     else:
                         reply = await backend.answer(
                             prompt=prompt, view_context=view_context, history=history
@@ -565,8 +580,9 @@ class LatencyRoutedChatBackend:
             finally:
                 self._in_flight[name] = max(0, self._in_flight[name] - 1)
 
-            self._samples[name].append(int((time.monotonic() - started) * 1000))
-            self._success_counts[name] += 1
+            if not success_recorded:
+                self._samples[name].append(int((time.monotonic() - started) * 1000))
+                self._success_counts[name] += 1
             return
 
         self._log_all_penalised_if_saturated()

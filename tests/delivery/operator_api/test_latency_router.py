@@ -145,6 +145,17 @@ class _StreamingBackend:
         yield {"type": "done", "answer": "hello", "model": "stream"}
 
 
+class _TerminalSequenceBackend(_StreamingBackend):
+    def __init__(self, events: list[dict[str, Any]]) -> None:
+        super().__init__()
+        self._events = events
+
+    async def answer_stream(self, **_kwargs: Any) -> AsyncIterator[dict[str, Any]]:
+        self.calls += 1
+        for event in self._events:
+            yield event
+
+
 class _EmptyStreamingBackend(_EmptyBackend):
     async def answer_stream(
         self,
@@ -621,6 +632,32 @@ class TestRouterFailureHandling:
 
         assert events == [{"type": "token", "delta": "hello"}]
         assert good.calls == 0
+
+    async def test_stream_without_terminal_done_is_rejected(self) -> None:
+        incomplete = _TerminalSequenceBackend([{"type": "token", "delta": "partial"}])
+        router = LatencyRoutedChatBackend(candidates=[("incomplete", incomplete)])
+
+        with pytest.raises(ChatBackendUnavailableError, match="without terminal done"):
+            await _collect_stream(router)
+
+        assert router.stats()[0]["p50_ms"] == 30_000
+
+    async def test_stream_rejects_frames_after_terminal_done(self) -> None:
+        duplicate = _TerminalSequenceBackend(
+            [
+                {"type": "token", "delta": "hello"},
+                {"type": "done", "answer": "hello"},
+                {"type": "done", "answer": "again"},
+            ]
+        )
+        router = LatencyRoutedChatBackend(candidates=[("duplicate", duplicate)])
+        events: list[dict[str, Any]] = []
+
+        with pytest.raises(ChatBackendUnavailableError, match="after terminal done"):
+            async for event in router.answer_stream(prompt="hi", view_context={}, history=[]):
+                events.append(event)
+
+        assert events == [{"type": "token", "delta": "hello"}]
 
 
 async def _collect_stream(router: LatencyRoutedChatBackend) -> list[dict[str, Any]]:
