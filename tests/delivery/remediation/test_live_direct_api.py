@@ -224,6 +224,38 @@ async def test_custom_resource_patch_remains_unregistered_without_full_safeguard
     assert calls == []
 
 
+async def test_pod_security_patch_remains_unregistered_without_outcome_proof(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner, calls = _fake_run()
+    monkeypatch.setattr(lda, "_run", runner)
+
+    result = await _exec().execute(
+        _req(
+            action_type="remediate.kubernetes-patch",
+            arguments={
+                "api_version": "apps/v1",
+                "kind": "Deployment",
+                "namespace": "demo",
+                "name": "api",
+                "expected_resource_version": "10",
+                "expected_generation": 4,
+                "patch": [
+                    {
+                        "op": "add",
+                        "path": "/spec/template/spec/containers/0/securityContext",
+                        "value": {"allowPrivilegeEscalation": False},
+                    }
+                ],
+            },
+        )
+    )
+
+    assert result.outcome is DirectApiOutcome.FAILED
+    assert "no_handler_for_action_type" in (result.detail or "")
+    assert calls == []
+
+
 # --------------------------------------------------------------------------
 # resource-ref parsing + env hygiene
 # --------------------------------------------------------------------------

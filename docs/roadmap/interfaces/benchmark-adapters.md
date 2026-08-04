@@ -330,6 +330,11 @@ Deployment UID whose desired replicas exceed ready replicas. The finding carries
 reviewed violation vocabulary, profile/version, immutable identities, and no raw message. Unknown,
 stale, future, recreated, ambiguous, healthy, or truncated evidence produces no finding. Diagnosis
 remains candidate-only and does not project or authorize a SecurityContext patch.
+The source campaign's deterministic SecurityContext patch is not ported. A syntactically grounded
+template change can alter process identity, capabilities, and workload behavior; admission success
+alone does not prove rollout health, application correctness, or rollback restoration. Until those
+effects and all seven action safeguards are independently validated, the live executor keeps
+`remediate.kubernetes-patch` unregistered and performs no substrate call.
 
 On deterministic hold for review, the existing grounded RCA path receives the task objective and
 bounded evidence. Its hypothesis is preserved in the typed `ControlLoopResult` and rendered as the

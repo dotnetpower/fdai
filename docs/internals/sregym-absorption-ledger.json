@@ -479,6 +479,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_pod_security_template_recovery",
+      "source_commits": [
+        "8764178a248d477d82281e3e83c28966fcea9f56"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected deterministic SecurityContext mutation because admission success does not independently validate rollout health, application behavior, rollback restoration, or all seven action safeguards; the live patch handler remains unregistered.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

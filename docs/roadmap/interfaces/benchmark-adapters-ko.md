@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 6e5a8cfc823e4e6a0ad69a113a4e26824b8e7bfd
+translation_source_sha: c7842cce2fd8b6a65db3beb83b4bfd2f739e0582
 translation_revised: 2026-08-04
 ---
 
@@ -331,6 +331,11 @@ Deployment의 desired replica가 ready replica보다 많을 때만 correlate합�
 violation vocabulary, profile/version, immutable identity를 포함하고 raw message는 제외합니다. Unknown,
 stale, future, recreated, ambiguous, healthy 또는 truncated evidence는 finding을 생성하지 않습니다.
 Diagnosis는 candidate-only이며 SecurityContext patch를 projection하거나 authorize하지 않습니다.
+Source campaign의 deterministic SecurityContext patch는 port하지 않습니다. Syntactically grounded
+template change도 process identity, capability 및 workload behavior를 바꿀 수 있으며 admission
+success만으로 rollout health, application correctness 또는 rollback restoration을 증명할 수 없습니다.
+해당 effect와 7개 action safeguard를 독립적으로 검증할 때까지 live executor는
+`remediate.kubernetes-patch`를 미등록 상태로 유지하고 substrate call을 수행하지 않습니다.
 
 Deterministic 판단 보류 시 기존 grounded RCA path가 task objective와 bounded evidence를 받습니다.
 Hypothesis는 typed `ControlLoopResult`에 보존되고 submission summary로 render됩니다. RCA reasoner가
