@@ -14,7 +14,7 @@
     .sm-preview-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #6486A5; box-shadow: 0 0 0 3px rgba(100,134,165,.10); }
 
     .sm-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 54px; margin-bottom: 12px; padding: 8px 10px; border: 1px solid #DEDFDD; border-radius: 8px; background: rgba(255,255,255,.82); box-shadow: 0 5px 20px rgba(46,54,64,.045); backdrop-filter: blur(10px); }
-    .sm-mode { display: inline-grid; grid-template-columns: repeat(3, minmax(92px, auto)); gap: 3px; padding: 3px; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-shade); }
+    .sm-mode { display: inline-grid; grid-template-columns: repeat(4, minmax(92px, auto)); gap: 3px; padding: 3px; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-shade); }
     .sm-mode button { min-height: 32px; padding: 4px 12px; border: 0; border-radius: 5px; background: transparent; color: var(--cs-text-soft); font: 600 12px var(--cs-font); cursor: pointer; }
     .sm-mode button:hover { color: var(--cs-text); }
     .sm-mode button.is-active { background: #FFFFFF; color: #34414B; box-shadow: 0 1px 5px rgba(46,54,64,.10); }
@@ -22,6 +22,7 @@
     .sm-window { min-height: 34px; padding: 0 30px 0 10px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); color: var(--cs-text); font: 600 11px var(--cs-font); }
     .sm-motion { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); color: var(--cs-text-soft); cursor: pointer; }
     .sm-motion:hover { color: var(--cs-text); background: var(--cs-shade); }
+    .sm-motion:disabled { cursor: not-allowed; opacity: .38; }
     .sm-motion svg { width: 16px; height: 16px; fill: currentColor; }
 
     .sm-workspace { overflow: hidden; border: 1px solid #D9DEDF; border-radius: 8px; background: #F8F9F8; box-shadow: 0 18px 48px rgba(46,54,64,.07), 0 2px 8px rgba(46,54,64,.04); }
@@ -52,6 +53,10 @@
     .sm-workspace[data-mode="incident"] .sm-edge.health-warning .sm-edge-base { stroke-width: 2.1; opacity: .92; }
     .sm-workspace[data-mode="incident"] .sm-edge.health-critical .sm-edge-base { stroke-width: 2.8; opacity: 1; }
     .sm-workspace[data-mode="performance"] .sm-edge-label rect { stroke: #A9B2B8; }
+    .sm-workspace[data-mode="security"] .sm-edge-base { stroke: #4F847E; opacity: .88; }
+    .sm-workspace[data-mode="security"] .sm-edge.security-plaintext .sm-edge-base { stroke: #AC5A5A; stroke-dasharray: 4 4; }
+    .sm-workspace[data-mode="security"] .sm-edge.security-attention .sm-edge-base { stroke: #BC7449; }
+    .sm-workspace[data-mode="security"] .sm-edge.is-selected .sm-edge-base { stroke-width: 2.4; opacity: 1; filter: drop-shadow(0 0 3px rgba(68,104,142,.28)); }
     @keyframes sm-flow { to { stroke-dashoffset: -34; } }
 
     .sm-marker { fill: #81909B; }
@@ -59,10 +64,23 @@
     .sm-marker-critical { fill: #AC5A5A; }
     .sm-edge-label rect { fill: rgba(255,255,255,.91); stroke: rgba(182,190,195,.72); stroke-width: .8; filter: drop-shadow(0 2px 3px rgba(46,54,64,.05)); }
     .sm-edge-label text { text-anchor: middle; pointer-events: none; }
+    .sm-edge-hit { fill: none; stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: pointer; }
+    .sm-edge:focus-visible .sm-edge-base { stroke-width: 2.4; filter: drop-shadow(0 0 3px rgba(68,104,142,.28)); }
     .sm-edge-rate { fill: #33414C; font: 700 9.5px var(--cs-font); }
     .sm-edge-metric { fill: #6B7178; font: 9px var(--cs-font); }
     .sm-edge.health-warning .sm-edge-rate { fill: #95552F; }
     .sm-edge.health-critical .sm-edge-rate { fill: #913F3F; }
+    .sm-edge-security-label { display: none; }
+    .sm-workspace[data-mode="security"] .sm-edge-traffic-label { display: none; }
+    .sm-workspace[data-mode="security"] .sm-edge-security-label { display: block; }
+    .sm-edge-security-label rect { fill: rgba(255,255,255,.94); }
+    .sm-security-lock { fill: none; stroke: #4F847E; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+    .security-plaintext .sm-security-lock { stroke: #AC5A5A; }
+    .security-attention .sm-security-lock { stroke: #BC7449; }
+    .sm-edge-transport { fill: #34434B; font: 720 9px var(--cs-font); text-anchor: start !important; }
+    .sm-edge-tls { fill: #6B747A; font: 8.5px var(--cs-font); text-anchor: start !important; }
+    .security-plaintext .sm-edge-transport, .security-plaintext .sm-edge-tls { fill: #913F3F; }
+    .security-attention .sm-edge-transport { fill: #95552F; }
 
     .sm-node, .sm-inspector { --node-accent: #557A9A; --node-icon-bg: #EEF3F6; }
     .sm-node.kind-gateway, .sm-inspector.kind-gateway { --node-accent: #4F847E; --node-icon-bg: #EDF5F3; }
@@ -86,14 +104,24 @@
     .sm-node.health-warning .sm-health-dot { fill: #BC7449; }
     .sm-node.health-critical .sm-health-dot { fill: #AC5A5A; }
 
-    .sm-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 9px 18px; min-height: 48px; padding: 9px 14px; border-top: 1px solid var(--cs-hairline); background: var(--cs-card); color: var(--cs-text-soft); font-size: 11px; }
+    .sm-legend { display: flex; flex-wrap: wrap; align-items: center; min-height: 48px; padding: 9px 14px; border-top: 1px solid var(--cs-hairline); background: var(--cs-card); color: var(--cs-text-soft); font-size: 11px; }
+    .sm-legend-set { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: 9px 18px; }
+    .sm-legend-security { display: none; }
+    .sm-workspace[data-mode="security"] .sm-legend-traffic { display: none; }
+    .sm-workspace[data-mode="security"] .sm-legend-security { display: flex; }
     .sm-legend span { display: inline-flex; align-items: center; gap: 7px; }
     .sm-legend i { display: inline-block; width: 24px; height: 7px; }
     .sm-legend .flow { background: linear-gradient(#44688E, #44688E) center / 100% 2px no-repeat; }
     .sm-legend .async { background: repeating-linear-gradient(90deg, #81909B 0 5px, transparent 5px 9px) center / 100% 2px no-repeat; }
     .sm-legend .warning { background: linear-gradient(#BC7449, #BC7449) center / 100% 3px no-repeat; }
     .sm-legend .critical { background: linear-gradient(#AC5A5A, #AC5A5A) center / 100% 4px no-repeat; }
+    .sm-legend .secure { background: linear-gradient(#4F847E, #4F847E) center / 100% 2px no-repeat; }
+    .sm-legend .plaintext { background: repeating-linear-gradient(90deg, #AC5A5A 0 4px, transparent 4px 7px) center / 100% 2px no-repeat; }
+    .sm-legend .certificate { background: linear-gradient(#BC7449, #BC7449) center / 100% 2px no-repeat; }
     .sm-legend small { margin-left: auto; }
+    .sm-legend-note-security { display: none; }
+    .sm-workspace[data-mode="security"] .sm-legend-note-traffic { display: none; }
+    .sm-workspace[data-mode="security"] .sm-legend-note-security { display: inline; }
 
     .sm-inspector { display: grid; grid-template-columns: minmax(260px, 1.2fr) minmax(360px, 1fr) minmax(280px, 1fr); gap: 24px; margin-top: 16px; padding: 18px; border: 1px solid #DEDFDD; border-radius: 8px; background: rgba(255,255,255,.86); box-shadow: 0 10px 30px rgba(46,54,64,.045); backdrop-filter: blur(10px); }
     .sm-inspector-identity { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 13px; align-items: center; }
@@ -123,7 +151,7 @@
       .sm-page { padding-left: 14px; padding-right: 14px; }
       .sm-page-head, .sm-toolbar { align-items: stretch; flex-direction: column; }
       .sm-preview-badge { align-self: flex-start; }
-      .sm-mode { width: 100%; grid-template-columns: repeat(3, 1fr); }
+      .sm-mode { width: 100%; grid-template-columns: repeat(2, 1fr); }
       .sm-toolbar-side { justify-content: space-between; }
       .sm-inspector { grid-template-columns: 1fr; }
       .sm-connections { grid-column: auto; }
@@ -150,6 +178,7 @@
         <button type="button" class="is-active" data-sm-mode="live" aria-pressed="true">Live flow</button>
         <button type="button" data-sm-mode="performance" aria-pressed="false">Performance</button>
         <button type="button" data-sm-mode="incident" aria-pressed="false">Incident</button>
+        <button type="button" data-sm-mode="security" aria-pressed="false">Security</button>
       </div>
       <div class="sm-toolbar-side">
         <span>Synthetic · relative 5 minute window</span>
@@ -189,12 +218,21 @@
           <g data-sm-nodes></g>
         </svg>
       </div>
-      <footer class="sm-legend" aria-label="Traffic legend">
-        <span><i class="flow"></i>Request flow</span>
-        <span><i class="async"></i>Asynchronous</span>
-        <span><i class="warning"></i>Degraded</span>
-        <span><i class="critical"></i>Critical</span>
-        <small>Motion speed represents throughput. Latency remains numeric.</small>
+      <footer class="sm-legend" aria-label="Map legend">
+        <div class="sm-legend-set sm-legend-traffic">
+          <span><i class="flow"></i>Request flow</span>
+          <span><i class="async"></i>Asynchronous</span>
+          <span><i class="warning"></i>Degraded</span>
+          <span><i class="critical"></i>Critical</span>
+        </div>
+        <div class="sm-legend-set sm-legend-security">
+          <span><i class="secure"></i>TLS protected</span>
+          <span><i class="flow"></i>mTLS</span>
+          <span><i class="plaintext"></i>Plaintext</span>
+          <span><i class="certificate"></i>Certificate attention</span>
+        </div>
+        <small class="sm-legend-note-traffic">Motion speed represents throughput. Latency remains numeric.</small>
+        <small class="sm-legend-note-security">Ports are destination listeners. Security values are synthetic.</small>
       </footer>
     </section>
 
@@ -218,23 +256,25 @@
         { id: "payment", label: "Payment provider", detail: "External HTTPS API", kind: "external", lane: "External egress", health: "critical", x: 1090, y: 196 }
       ];
       var edges = [
-        { source: "browser", target: "gateway", protocol: "HTTPS", rpm: 18400, p95: 42, error: 0.2, health: "healthy" },
-        { source: "probe", target: "gateway", protocol: "HTTPS", rpm: 240, p95: 118, error: 0, health: "healthy" },
-        { source: "gateway", target: "checkout", protocol: "HTTP", rpm: 17600, p95: 67, error: 0.5, health: "warning" },
-        { source: "checkout", target: "orders", protocol: "SQL", rpm: 12900, p95: 24, error: 0.1, health: "healthy" },
-        { source: "checkout", target: "events", protocol: "AMQP", rpm: 8200, p95: 91, error: 1.7, health: "warning", async: true },
-        { source: "events", target: "worker", protocol: "AMQP", rpm: 7900, p95: 138, error: 0.6, health: "warning", async: true },
-        { source: "worker", target: "receipts", protocol: "Blob", rpm: 5100, p95: 36, error: 0.1, health: "healthy" },
-        { source: "checkout", target: "payment", protocol: "HTTPS", rpm: 4600, p95: 842, error: 8.4, health: "critical" }
+        { id: "browser-gateway", source: "browser", target: "gateway", protocol: "HTTPS", port: 443, tls: "TLS 1.3", auth: "server certificate", certificate: "valid · 42d", security: "secure", rpm: 18400, p95: 42, error: 0.2, health: "healthy" },
+        { id: "probe-gateway", source: "probe", target: "gateway", protocol: "HTTPS", port: 443, tls: "TLS 1.3", auth: "server certificate", certificate: "valid · 42d", security: "secure", rpm: 240, p95: 118, error: 0, health: "healthy" },
+        { id: "gateway-checkout", source: "gateway", target: "checkout", protocol: "HTTP", port: 8080, tls: "Plaintext", auth: "internal network", certificate: "none", security: "plaintext", rpm: 17600, p95: 67, error: 0.5, health: "warning" },
+        { id: "checkout-orders", source: "checkout", target: "orders", protocol: "PostgreSQL", port: 5432, tls: "TLS 1.3", auth: "mTLS", certificate: "client + server valid", security: "secure", rpm: 12900, p95: 24, error: 0.1, health: "healthy" },
+        { id: "checkout-events", source: "checkout", target: "events", protocol: "AMQPS", port: 5671, tls: "TLS 1.3", auth: "managed identity", certificate: "platform managed", security: "secure", rpm: 8200, p95: 91, error: 1.7, health: "warning", async: true },
+        { id: "events-worker", source: "events", target: "worker", protocol: "AMQPS", port: 5671, tls: "TLS 1.3", auth: "consumer identity", certificate: "platform managed", security: "secure", rpm: 7900, p95: 138, error: 0.6, health: "warning", async: true },
+        { id: "worker-receipts", source: "worker", target: "receipts", protocol: "HTTPS", port: 443, tls: "TLS 1.3", auth: "managed identity", certificate: "platform managed", security: "secure", rpm: 5100, p95: 36, error: 0.1, health: "healthy" },
+        { id: "checkout-payment", source: "checkout", target: "payment", protocol: "HTTPS", port: 443, tls: "TLS 1.2", auth: "external certificate", certificate: "expires · 12d", security: "attention", rpm: 4600, p95: 842, error: 8.4, health: "critical" }
       ];
       var abbreviations = { client: "WEB", monitor: "SYN", gateway: "AGW", container: "CA", worker: "CA", database: "PG", event: "EH", storage: "ST", external: "API" };
       var selectedId = "payment";
+      var selectedEdgeId = null;
       var workspace = document.querySelector(".sm-workspace");
       var edgeLayer = document.querySelector("[data-sm-edges]");
       var nodeLayer = document.querySelector("[data-sm-nodes]");
       var inspector = document.querySelector("[data-sm-inspector]");
 
       function nodeById(id) { return nodes.find(function (node) { return node.id === id; }); }
+      function edgeById(id) { return edges.find(function (edge) { return edge.id === id; }); }
       function rateLabel(rpm) { return rpm >= 1000 ? (rpm / 1000).toFixed(rpm % 1000 === 0 ? 0 : 1) + "k rpm" : rpm + " rpm"; }
       function speedClass(rpm) { return rpm >= 12000 ? "speed-fast" : rpm >= 5000 ? "speed-medium" : "speed-slow"; }
       function pathFor(edge) {
@@ -263,10 +303,14 @@
           var target = nodeById(edge.target);
           var labelX = (source.x + target.x) / 2;
           var labelY = (source.y + target.y) / 2;
-          return '<g class="sm-edge health-' + edge.health + ' ' + speedClass(edge.rpm) + (edge.async ? ' is-async' : '') + '" aria-label="' + source.label + ' to ' + target.label + ', ' + rateLabel(edge.rpm) + ', P95 ' + edge.p95 + ' milliseconds, ' + edge.error + ' percent errors">' +
+          var selected = edge.id === selectedEdgeId;
+          var lockPath = edge.security === "plaintext" ? '<path d="M-45 -7 V-9 A4 4 0 0 1 -37 -9"/><rect x="-46" y="-7" width="10" height="8" rx="1.5"/>' : '<path d="M-45 -7 V-10 A4 4 0 0 1 -37 -10 V-7"/><rect x="-46" y="-7" width="10" height="8" rx="1.5"/>';
+          return '<g class="sm-edge health-' + edge.health + ' security-' + edge.security + ' ' + speedClass(edge.rpm) + (edge.async ? ' is-async' : '') + (selected ? ' is-selected' : '') + '" data-edge-id="' + edge.id + '" role="button" tabindex="0" aria-pressed="' + selected + '" aria-label="' + source.label + ' to ' + target.label + ', ' + edge.protocol + ' destination port ' + edge.port + ', ' + edge.tls + ', ' + rateLabel(edge.rpm) + ', P95 ' + edge.p95 + ' milliseconds">' +
+            '<path class="sm-edge-hit" d="' + pathFor(edge) + '"/>' +
             '<path class="sm-edge-base" d="' + pathFor(edge) + '" marker-end="url(#sm-arrow-' + edge.health + ')"/>' +
             '<path class="sm-edge-particles" d="' + pathFor(edge) + '"/>' +
-            '<g class="sm-edge-label" transform="translate(' + labelX + ' ' + labelY + ')"><rect x="-46" y="-17" width="92" height="34" rx="4"/><text class="sm-edge-rate" y="-2">' + rateLabel(edge.rpm) + '</text><text class="sm-edge-metric" y="11">P95 ' + edge.p95 + ' ms · ' + edge.error + '%</text></g></g>';
+            '<g class="sm-edge-label sm-edge-traffic-label" transform="translate(' + labelX + ' ' + labelY + ')"><rect x="-46" y="-17" width="92" height="34" rx="4"/><text class="sm-edge-rate" y="-2">' + rateLabel(edge.rpm) + '</text><text class="sm-edge-metric" y="11">P95 ' + edge.p95 + ' ms · ' + edge.error + '%</text></g>' +
+            '<g class="sm-edge-label sm-edge-security-label" transform="translate(' + labelX + ' ' + labelY + ')"><rect x="-58" y="-19" width="116" height="38" rx="4"/><g class="sm-security-lock">' + lockPath + '</g><text class="sm-edge-transport" x="-31" y="-4">' + edge.protocol + ' :' + edge.port + '</text><text class="sm-edge-tls" x="-31" y="10">' + edge.tls + ' · ' + edge.auth + '</text></g></g>';
         }).join("");
       }
 
@@ -285,6 +329,10 @@
       }
 
       function renderInspector() {
+        if (selectedEdgeId !== null) {
+          renderEdgeInspector(edgeById(selectedEdgeId));
+          return;
+        }
         var node = nodeById(selectedId);
         var connections = edges.filter(function (edge) { return edge.source === node.id || edge.target === node.id; });
         var incoming = edges.filter(function (edge) { return edge.target === node.id; }).length;
@@ -295,8 +343,27 @@
           '<div class="sm-connections">' + connections.map(function (edge) { var peer = nodeById(edge.source === node.id ? edge.target : edge.source); return '<span class="sm-connection"><strong>' + peer.label + '</strong><small>' + edge.protocol + ' · ' + edge.p95 + ' ms · ' + edge.error + '%</small></span>'; }).join("") + '</div>';
       }
 
+      function renderEdgeInspector(edge) {
+        var source = nodeById(edge.source);
+        var target = nodeById(edge.target);
+        var statusLabel = edge.security === "secure" ? "TLS protected" : edge.security === "plaintext" ? "Plaintext" : "Certificate attention";
+        inspector.className = "sm-inspector kind-gateway";
+        inspector.innerHTML = '<div class="sm-inspector-identity"><span class="sm-inspector-icon"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M13 18 V13 A7 7 0 0 1 27 13 V18"/><rect x="10" y="18" width="20" height="15" rx="3"/><path d="M20 23 V28"/></svg></span><div><span class="eyebrow">Selected connection</span><h2>' + source.label + ' → ' + target.label + '</h2><p>' + edge.protocol + ' destination endpoint</p></div><span class="sm-health-label ' + (edge.security === "secure" ? "" : edge.security === "plaintext" ? "critical" : "warning") + '">' + statusLabel + '</span></div>' +
+          '<dl class="sm-facts"><div><dt>Destination port</dt><dd>:' + edge.port + '</dd></div><div><dt>Encryption</dt><dd>' + edge.tls + '</dd></div><div><dt>Authentication</dt><dd>' + edge.auth + '</dd></div><div><dt>Certificate</dt><dd>' + edge.certificate + '</dd></div></dl>' +
+          '<div class="sm-connections"><span class="sm-connection"><strong>Traffic</strong><small>' + rateLabel(edge.rpm) + '</small></span><span class="sm-connection"><strong>Latency</strong><small>P95 ' + edge.p95 + ' ms</small></span><span class="sm-connection"><strong>Error rate</strong><small>' + edge.error + '%</small></span></div>';
+      }
+
       function selectNode(nodeId) {
         selectedId = nodeId;
+        selectedEdgeId = null;
+        renderEdges();
+        renderNodes();
+        renderInspector();
+      }
+
+      function selectEdge(edgeId) {
+        selectedEdgeId = edgeId;
+        renderEdges();
         renderNodes();
         renderInspector();
       }
@@ -309,6 +376,7 @@
             candidate.setAttribute("aria-pressed", String(active));
           });
           workspace.dataset.mode = button.dataset.smMode;
+          document.querySelector("[data-sm-motion]").disabled = button.dataset.smMode === "security";
         });
       });
 
@@ -330,6 +398,17 @@
         if (node && (event.key === "Enter" || event.key === " ")) {
           event.preventDefault();
           selectNode(node.dataset.nodeId);
+        }
+      });
+      edgeLayer.addEventListener("click", function (event) {
+        var edge = event.target.closest("[data-edge-id]");
+        if (edge) selectEdge(edge.dataset.edgeId);
+      });
+      edgeLayer.addEventListener("keydown", function (event) {
+        var edge = event.target.closest("[data-edge-id]");
+        if (edge && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          selectEdge(edge.dataset.edgeId);
         }
       });
 

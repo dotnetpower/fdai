@@ -58,6 +58,12 @@ describe("mock console visual boundary", () => {
     expect(serviceMap).toContain('data-sm-mode="live"');
     expect(serviceMap).toContain('data-sm-mode="performance"');
     expect(serviceMap).toContain('data-sm-mode="incident"');
+    expect(serviceMap).toContain('data-sm-mode="security"');
+    expect(serviceMap).toContain("grid-template-columns: repeat(2, 1fr)");
+    expect(serviceMap).toContain('port: 5432, tls: "TLS 1.3", auth: "mTLS"');
+    expect(serviceMap).toContain('port: 8080, tls: "Plaintext"');
+    expect(serviceMap).toContain("Ports are destination listeners. Security values are synthetic.");
+    expect(serviceMap).toContain("renderEdgeInspector");
     expect(serviceMap).toContain("sm-edge-particles");
     expect(serviceMap).toContain("sm-icon-glyph");
     expect(serviceMap).toContain("stroke-width: 1.4");
