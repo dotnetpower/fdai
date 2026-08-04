@@ -6,6 +6,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 import httpx
+import pytest
 
 from fdai.delivery.azure.subscription_health import (
     AzureSubscriptionHealthConfig,
@@ -14,6 +15,18 @@ from fdai.delivery.azure.subscription_health import (
     MetricProbeSpec,
 )
 from fdai.shared.providers.workload_identity import IdentityToken, WorkloadIdentity
+
+
+@pytest.mark.parametrize("max_response_bytes", [0, 1_023, 5_000_001])
+def test_subscription_health_rejects_invalid_response_byte_cap(
+    max_response_bytes: int,
+) -> None:
+    with pytest.raises(ValueError, match="max_response_bytes"):
+        AzureSubscriptionHealthConfig(
+            subscription_id="subscription-example",
+            resource_groups=("rg-example",),
+            max_response_bytes=max_response_bytes,
+        )
 
 
 class _Identity(WorkloadIdentity):
