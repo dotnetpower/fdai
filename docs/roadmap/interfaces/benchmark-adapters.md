@@ -367,6 +367,10 @@ Provider-neutral ConfigMap mount semantics require a degraded workload, complete
 container-mount projections, one mounted ConfigMap volume, and one exact targeted receipt confirming
 the same-namespace ConfigMap absent. Present, conflicting, unmounted, healthy, ambiguous, or
 incomplete evidence abstains. Concrete ConfigMap and mount projection remains provider work.
+Provider-neutral rollout semantics emit a hold-only candidate when complete strategy evidence shows
+a degraded Deployment with zero available replicas, `maxSurge=0`, and `maxUnavailable` covering the
+entire desired replica count. Healthy, safe, malformed, incomplete, or truncated evidence abstains.
+Concrete strategy projection and remediation remain separate work.
 The source campaign's deterministic SecurityContext patch is not ported. A syntactically grounded
 template change can alter process identity, capabilities, and workload behavior; admission success
 alone does not prove rollout health, application correctness, or rollback restoration. Until those

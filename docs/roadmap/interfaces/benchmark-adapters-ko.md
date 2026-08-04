@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 6aa1f411b8a5d11ffabdde0d37064d205cdb3d3f
+translation_source_sha: f53636fd98434c1fb1447e88396cca12b7ef69c9
 translation_revised: 2026-08-04
 ---
 
@@ -368,6 +368,10 @@ Provider-neutral ConfigMap mount semantic은 degraded workload, complete volume/
 projection, mounted ConfigMap volume 하나 및 same-namespace ConfigMap absence를 확인한 exact targeted
 receipt 하나를 요구합니다. Present, conflicting, unmounted, healthy, ambiguous 또는 incomplete
 evidence는 abstain합니다. Concrete ConfigMap 및 mount projection은 별도 provider 작업입니다.
+Provider-neutral rollout semantic은 complete strategy evidence에서 degraded Deployment의 available
+replica가 0이고 `maxSurge=0`이며 `maxUnavailable`이 desired replica 전체를 허용할 때 hold-only
+candidate를 생성합니다. Healthy, safe, malformed, incomplete 또는 truncated evidence는 abstain합니다.
+Concrete strategy projection과 remediation은 별도 작업입니다.
 Source campaign의 deterministic SecurityContext patch는 port하지 않습니다. Syntactically grounded
 template change도 process identity, capability 및 workload behavior를 바꿀 수 있으며 admission
 success만으로 rollout health, application correctness 또는 rollback restoration을 증명할 수 없습니다.

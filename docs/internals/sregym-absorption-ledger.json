@@ -600,6 +600,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_zero_availability_rollout_candidate",
+      "source_commits": [
+        "45c44d00892f5403c9e4271f067f005283086b05"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Requires complete RollingUpdate strategy evidence, zero available replicas, a degraded rollout, maxSurge zero, and maxUnavailable covering the desired count; retains candidate-only causality and leaves projection unclaimed.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [
