@@ -3,7 +3,6 @@ import { isOptionalOperatorApiUnavailable } from "../api";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import {
-  AsyncBoundary,
   PageHeader,
   type AsyncState,
 } from "../components/ui";
@@ -113,9 +112,7 @@ export function HandoverRoute({ client, auth }: Props) {
         title={t("route.handover")}
         subtitle={t("handover.subtitle")}
       />
-      <AsyncBoundary state={state} resourceLabel={t("route.handover")}>
-        {(data) => <AgentOversightBody data={data} client={client} auth={auth} />}
-      </AsyncBoundary>
+      <AgentOversightBody stewardshipState={state} client={client} auth={auth} />
     </div>
   );
 }

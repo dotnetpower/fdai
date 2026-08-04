@@ -1,7 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
-import { KpiCard, KpiGrid, LoadingState } from "../components/ui";
+import { AsyncBoundary, KpiCard, KpiGrid, LoadingState, type AsyncState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
@@ -31,15 +31,83 @@ export function oversightViewFromSegment(segment: string | undefined): AgentOver
   return VIEWS.includes(segment as AgentOversightView) ? segment as AgentOversightView : null;
 }
 
-export function AgentOversightBody({ data, client, auth }: {
-  readonly data: StewardshipResponse;
+export function viewRequiresStewardship(view: AgentOversightView): boolean {
+  return view === "overview" || view === "human-dependencies";
+}
+
+export function AgentOversightBody({ stewardshipState, client, auth }: {
+  readonly stewardshipState: AsyncState<StewardshipResponse>;
   readonly client: OperatorApiClient;
   readonly auth: AuthContext;
 }) {
   const requestedView = oversightViewFromSegment(currentRoute().segments[0]);
   const [view, setView] = useState<AgentOversightView>(requestedView ?? "overview");
-  const { map, coverage } = data;
 
+  const selectView = (next: AgentOversightView) => {
+    setView(next);
+    navigate(routeHref("handover", { segments: next === "overview" ? [] : [next] }));
+  };
+
+  return (
+    <div class="stack agent-oversight-workspace">
+      {stewardshipState.status === "ready" ? <StewardshipViewContext data={stewardshipState.data} /> : null}
+      <div class="settings-tabs" role="tablist" aria-label={t("handover.viewsLabel")}>
+        {VIEWS.map((item) => (
+          <button
+            key={item}
+            id={`agent-oversight-tab-${item}`}
+            type="button"
+            role="tab"
+            class={requestedView !== null && view === item ? "is-active" : undefined}
+            aria-selected={requestedView !== null && view === item}
+            aria-controls={`agent-oversight-panel-${item}`}
+            tabIndex={view === item ? 0 : -1}
+            onClick={() => selectView(item)}
+          >
+            {t(`handover.view.${item}`)}
+          </button>
+        ))}
+      </div>
+      {requestedView === null ? (
+        <div class="state-block state-unavailable" role="alert">{t("handover.invalidView")}</div>
+      ) : (
+        <div
+          id={`agent-oversight-panel-${view}`}
+          role="tabpanel"
+          aria-labelledby={`agent-oversight-tab-${view}`}
+        >
+          {renderView(view, stewardshipState, client, auth)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function renderView(
+  view: AgentOversightView,
+  stewardshipState: AsyncState<StewardshipResponse>,
+  client: OperatorApiClient,
+  auth: AuthContext,
+) {
+  if (viewRequiresStewardship(view)) {
+    return (
+      <AsyncBoundary state={stewardshipState} resourceLabel={t("route.handover")}>
+        {(data) => view === "overview" ? <Overview data={data} /> : <HumanDependencies data={data} />}
+      </AsyncBoundary>
+    );
+  }
+  switch (view) {
+    case "knowledge-handover":
+      return <HandoverProposalEditor client={client} auth={auth} />;
+    case "approval-routes":
+      return <UnavailableView title={t("handover.view.approval-routes")} message={t("handover.approvalRoutesUnavailable")} />;
+    case "mapping-reviews":
+      return <MappingReviews client={client} auth={auth} />;
+  }
+}
+
+function StewardshipViewContext({ data }: { readonly data: StewardshipResponse }) {
+  const { map, coverage } = data;
   usePublishViewContext(
     () => ({
       routeId: "handover",
@@ -73,64 +141,7 @@ export function AgentOversightBody({ data, client, auth }: {
     }),
     [map, coverage],
   );
-
-  const selectView = (next: AgentOversightView) => {
-    setView(next);
-    navigate(routeHref("handover", { segments: next === "overview" ? [] : [next] }));
-  };
-
-  return (
-    <div class="stack agent-oversight-workspace">
-      <div class="settings-tabs" role="tablist" aria-label={t("handover.viewsLabel")}>
-        {VIEWS.map((item) => (
-          <button
-            key={item}
-            id={`agent-oversight-tab-${item}`}
-            type="button"
-            role="tab"
-            class={requestedView !== null && view === item ? "is-active" : undefined}
-            aria-selected={requestedView !== null && view === item}
-            aria-controls={`agent-oversight-panel-${item}`}
-            tabIndex={view === item ? 0 : -1}
-            onClick={() => selectView(item)}
-          >
-            {t(`handover.view.${item}`)}
-          </button>
-        ))}
-      </div>
-      {requestedView === null ? (
-        <div class="state-block state-unavailable" role="alert">{t("handover.invalidView")}</div>
-      ) : (
-        <div
-          id={`agent-oversight-panel-${view}`}
-          role="tabpanel"
-          aria-labelledby={`agent-oversight-tab-${view}`}
-        >
-          {renderView(view, data, client, auth)}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function renderView(
-  view: AgentOversightView,
-  data: StewardshipResponse,
-  client: OperatorApiClient,
-  auth: AuthContext,
-) {
-  switch (view) {
-    case "overview":
-      return <Overview data={data} />;
-    case "human-dependencies":
-      return <HumanDependencies data={data} />;
-    case "knowledge-handover":
-      return <HandoverProposalEditor client={client} auth={auth} />;
-    case "approval-routes":
-      return <UnavailableView title={t("handover.view.approval-routes")} message={t("handover.approvalRoutesUnavailable")} />;
-    case "mapping-reviews":
-      return <MappingReviews client={client} auth={auth} />;
-  }
+  return null;
 }
 
 function Overview({ data }: { readonly data: StewardshipResponse }) {

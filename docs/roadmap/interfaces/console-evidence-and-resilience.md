@@ -68,7 +68,9 @@ reviews. Overview and Human dependencies use the strict `GET /stewardship` proje
 reviews reuses the owner-gated `GET /iam/assignments` projection and derives its capability and
 principal only from `GET /iam`. Knowledge handover uses the governed draft boundary. Approval
 routes remains explicitly unavailable until its own authoritative projection is connected; the
-browser does not infer a route from ownership data.
+browser does not infer a route from ownership data. A missing stewardship source blocks only
+Overview and Human dependencies; it does not hide the independent Knowledge handover, Approval
+routes, or Mapping reviews views.
 
 Settings includes a Runtime policies route backed by the authoritative StateStore. The route shows
 sanitized environment, override, and effective values without exposing secrets, endpoints, tenant

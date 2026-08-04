@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 88bdaa8d4fcdb71c25d9ff31d47350c705e1599a
+translation_source_sha: 9cb4cac81babed70fa0075cc82a6e548a88f7561
 translation_revised: 2026-08-05
 ---
 
@@ -70,6 +70,8 @@ governed proposal workflow를 다루는 Governance panel이며 `/agent-oversight
 `GET /iam/assignments` 프로젝션을 재사용하며 capability와 principal은 `GET /iam`에서만 가져옵니다.
 지식 인수인계는 governed draft boundary를 사용합니다. 승인 경로는 자체 authoritative projection이
 연결될 때까지 unavailable로 명시하며, browser는 ownership data에서 경로를 추론하지 않습니다.
+Stewardship source가 없으면 개요와 사람 의존성만 차단합니다. 독립적인 지식 인수인계, 승인 경로,
+매핑 검토 view는 숨기지 않습니다.
 
 Settings에는 authoritative StateStore를 사용하는 Runtime policies route가 포함됩니다. 이 route는
 secret, endpoint, tenant identifier 또는 workload identity identifier를 노출하지 않고 정제된
