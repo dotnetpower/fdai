@@ -7397,6 +7397,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   border-color: var(--accent);
   background: color-mix(in oklab, var(--accent) 10%, var(--bg));
 }
+.deck-suggest:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
 
 .deck-turn {
   max-width: 780px;
@@ -9835,7 +9839,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     padding-bottom: 2px;
   }
   .deck-conversation { flex: 0 0 180px; }
-  .deck-conversation-remove { opacity: 1; }
+  .deck-conversation-remove,
+  .deck-conversation-favorite { opacity: 1; }
 }
 
 @media (max-width: 640px) {
