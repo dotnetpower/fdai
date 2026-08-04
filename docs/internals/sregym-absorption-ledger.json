@@ -301,7 +301,7 @@
     {
       "id": "kubernetes_image_pull_controller_template_drift_candidate",
       "source_commits": [
-        "519bc2da1948bd034dc9fcff20c9944101853879"
+        "519bc2da13c18038ae781f3897eecaf78b9d4de6"
       ],
       "status": "semantic_generalized",
       "source_hardening": "Replaced name-only ownership and raw image disclosure with exact immutable UID-chain traversal, complete container projections, and SHA-256 image-reference fingerprints; retained candidate-only causality.",
@@ -316,7 +316,7 @@
     {
       "id": "kubernetes_inferred_operator_namespace_traversal",
       "source_commits": [
-        "519bc2da1948bd034dc9fcff20c9944101853879"
+        "519bc2da13c18038ae781f3897eecaf78b9d4de6"
       ],
       "status": "rejected",
       "source_hardening": "Rejected heuristic cross-namespace expansion based on kind-name pluralization and broad API-group read access; inventory remains target-scoped until CRD plural identity, exact RBAC semantics, complete projections, and a dedicated bounded capability are available.",
@@ -346,7 +346,7 @@
     {
       "id": "kubernetes_application_socket_bind_conflict_candidate",
       "source_commits": [
-        "221a9b15e5e642fb3444754d0c300452c94dc773"
+        "221a9b15e4cd5413fede8d0f88e7b5cb441a8065"
       ],
       "status": "semantic_generalized",
       "source_hardening": "Added exact Pod UID and container identity, a five-minute trusted cutoff, a one-KiB record bound, raw-body suppression, and candidate-only causality; no concrete log provider is claimed.",
@@ -361,7 +361,7 @@
     {
       "id": "kubernetes_bounded_log_target_fairness",
       "source_commits": [
-        "221a9b15e5e642fb3444754d0c300452c94dc773"
+        "221a9b15e4cd5413fede8d0f88e7b5cb441a8065"
       ],
       "status": "semantic_generalized",
       "source_hardening": "Generalized active-failure prioritization into an exact-UID, complete-status selector that reserves half of each bounded Pod budget for recency and applies a separate container ceiling; no concrete log provider is claimed.",

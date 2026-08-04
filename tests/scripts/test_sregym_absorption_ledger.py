@@ -52,6 +52,7 @@ def test_sregym_absorption_ledger_uses_closed_dispositions_and_dependencies() ->
 
 def test_sregym_absorption_ledger_keeps_validation_axes_independent() -> None:
     ledger = _load()
+    source_hashes = {commit for group in ledger["groups"] for commit in group["commits"]}
 
     assert ledger["validation_axes"] == [
         "benchmark_measured",
@@ -63,6 +64,7 @@ def test_sregym_absorption_ledger_keeps_validation_axes_independent() -> None:
         "azure_validated",
     ]
     for mechanism in ledger["absorbed_mechanisms"]:
+        assert set(mechanism["source_commits"]) <= source_hashes
         assert all(axis in mechanism for axis in ledger["validation_axes"])
         assert all(isinstance(mechanism[axis], bool) for axis in ledger["validation_axes"])
         if mechanism["status"] == "rejected":
