@@ -40,6 +40,14 @@ def _synchronized(raw: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
     rule_id = str(raw.get("id", ""))
     if semantics.rule_id != rule_id:
         raise ValueError(f"Rego metadata rule_id mismatch for {rule_id!r}: {semantics.rule_id!r}")
+    expected_severity = str(raw.get("severity", ""))
+    expected_category = str(raw.get("category", ""))
+    if semantics.severity != expected_severity or semantics.category != expected_category:
+        raise ValueError(
+            f"Rego metadata classification mismatch for {rule_id!r}: "
+            f"{semantics.severity}/{semantics.category} != "
+            f"{expected_severity}/{expected_category}"
+        )
     resource_type = str(raw.get("resource_type", ""))
     properties = [property_ref(resource_type, path) for path in semantics.property_paths]
     updated = dict(raw)

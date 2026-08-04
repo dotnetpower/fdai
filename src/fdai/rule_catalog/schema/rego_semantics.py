@@ -20,6 +20,8 @@ class RegoSemantics:
     rule_id: str
     title: str
     description: str
+    severity: str
+    category: str
     property_paths: tuple[str, ...]
     content_digest: str
 
@@ -67,6 +69,8 @@ def load_rego_semantics(
     rule_id = _required_text(custom, "rule_id")
     title = _required_text(annotation, "title")
     description = _required_text(annotation, "description")
+    severity = _required_text(custom, "severity")
+    category = _required_text(custom, "category")
     properties = tuple(sorted(set(_property_paths(ast))))
     if not properties:
         raise RegoSemanticsError("Rego policy MUST read at least one input.resource.props path")
@@ -75,6 +79,8 @@ def load_rego_semantics(
         rule_id=rule_id,
         title=title,
         description=description,
+        severity=severity,
+        category=category,
         property_paths=properties,
         content_digest=hashlib.sha256(body).hexdigest(),
     )
