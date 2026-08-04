@@ -7605,10 +7605,6 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   background: var(--border);
 }
 .deck-branch-item {
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
   min-height: 38px;
   margin-left: 34px;
   padding: 5px 8px;
@@ -7622,6 +7618,48 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   animation: deck-investigation-rise 0.26s ease forwards;
   transition: border-color 0.2s, background 0.2s;
 }
+.deck-branch-disclosure > summary {
+  display: grid;
+  grid-template-columns: 28px 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  cursor: pointer;
+  list-style: none;
+}
+.deck-branch-disclosure > summary::-webkit-details-marker { display: none; }
+.deck-branch-step {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.deck-branch-detail {
+  display: grid;
+  gap: 10px;
+  padding: 4px 12px 12px 78px;
+  border-top: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+}
+.deck-branch-detail dl {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+.deck-branch-detail dl > div {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 8px;
+}
+.deck-branch-detail dt { color: var(--fg-muted); }
+.deck-branch-detail dd { margin: 0; overflow-wrap: anywhere; }
+.deck-branch-evidence ul {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.deck-branch-evidence code { overflow-wrap: anywhere; white-space: normal; }
 .deck-branch-item::before {
   content: "";
   position: absolute;

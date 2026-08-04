@@ -51,7 +51,8 @@
     "open": "Open {count} active incident conversation(s)",
     "sessionLabel": "Incident {ticket}",
     "briefing": "FDAI detected a {severity} operational incident: {title}",
-    "context": "Runtime detection opened incident {ticket} with correlation {correlation}. Use the incident evidence before making a root-cause or recovery claim."
+    "context": "Runtime detection opened incident {ticket} with correlation {correlation}. Use the incident evidence before making a root-cause or recovery claim.",
+    "investigationPrompt": "Investigate this incident using the available evidence and report the cause, gaps, and next safe step."
   },
   "shared": {
     "loading": "Loading...",
@@ -2205,6 +2206,9 @@
       "cancelled": "Cancelled",
       "finished": "Finished",
       "branches": "Evidence branches",
+      "status": "Status",
+      "evidenceReferences": "Evidence references",
+      "noEvidenceReferences": "No branch-specific evidence reference was recorded.",
       "sourceSummaryOne": "1 source",
       "sourceSummaryMany": "{count} sources",
       "executionDetails": "Execution details ({count})",

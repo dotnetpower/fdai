@@ -501,8 +501,10 @@ history. Clients label an interrupted stream without a terminal frame as partial
 draft text to confirmed content.
 
 The Web reducer validates branch kind, monotonic status, timing, evidence-reference, and text bounds
-before rendering. It shows compact branch summaries and keeps observed execution details collapsed
-by default. It applies a confirmed segment only after queued token paint and any correction revision
+before rendering. It renders each branch as a numbered investigation stage. Completed operational,
+agent, tool, and public-web stages are independently expandable to show status, timing, summary, and
+bounded branch-owned evidence references; observed command and output details remain collapsed by
+default. It applies a confirmed segment only after queued token paint and any correction revision
 have drained. Token and confirmed frames must match the current canonical revision. A frame from a
 superseded or unannounced revision consumes its sequence position but cannot append text, replace
 canonical content, invoke confirmation callbacks, or increment confirmation metrics. Confirmed

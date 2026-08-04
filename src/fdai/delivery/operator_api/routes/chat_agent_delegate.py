@@ -66,6 +66,7 @@ class PantheonChatDelegate:
                 "handoff_reason": abstain_reason[:128],
             }
         facts = turn.answer.get("facts")
+        evidence_refs = _delegate_evidence_refs(primary, facts, fallback=answer)
         conversation_policy = turn.answer.get("conversation_policy")
         prompt_composition = turn.answer.get("prompt_composition")
         contributors = turn.answer.get("contributors")
@@ -74,6 +75,7 @@ class PantheonChatDelegate:
             "primary_agent": primary,
             "answer": answer,
             "facts": dict(facts) if isinstance(facts, dict) else {},
+            "evidence_refs": list(evidence_refs),
             "conversation_policy": (
                 dict(conversation_policy) if isinstance(conversation_policy, dict) else {}
             ),
@@ -187,6 +189,27 @@ def _grounded_facts(
             )
         )
     return tuple(facts)
+
+
+def _delegate_evidence_refs(
+    agent: str,
+    raw: object,
+    *,
+    fallback: str,
+) -> tuple[str, ...]:
+    if isinstance(raw, dict):
+        explicit = raw.get("evidence_refs")
+        if isinstance(explicit, list):
+            refs = tuple(
+                dict.fromkeys(
+                    item
+                    for item in explicit[:64]
+                    if isinstance(item, str) and 0 < len(item) <= 1_024
+                )
+            )
+            if refs:
+                return refs
+    return tuple(fact.evidence_ref for fact in _grounded_facts(agent, raw, fallback=fallback))
 
 
 def _suggested_sections(prompt: str) -> tuple[AnswerSection, ...]:

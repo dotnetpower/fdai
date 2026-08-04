@@ -5,6 +5,7 @@ import type { Turn } from "./command-deck-presenters";
 import { DEFAULT_NARRATOR } from "./command-deck-presenters";
 import { record as recordHistory, type DraftHistory } from "./draft-history";
 import {
+  acknowledgeDeckOpenEvent,
   DECK_OPEN_EVENT,
   setDeckOpenListenerReady,
   installWorkspaceDeckNavigationHandler,
@@ -259,6 +260,7 @@ export function useCommandDeckEvents(options: EventsOptions) {
 
   useEffect(() => {
     const onOpenDeck = (event: Event) => {
+      acknowledgeDeckOpenEvent(event);
       const detail = (event as CustomEvent<DeckOpenDetail>).detail;
       if (shouldDeferDeckOpen(detail, inFlightRef.current, draft)) {
         event.preventDefault();

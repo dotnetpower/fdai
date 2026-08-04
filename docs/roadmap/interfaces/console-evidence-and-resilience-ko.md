@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 5721cae074885e7e52163688cef4a25c21c6a2a3
+translation_source_sha: 793e58848fd9da98f33928817632e6bb236ca62d
 translation_revised: 2026-08-04
 ---
 
@@ -494,7 +494,9 @@ canonical이며 conversation history에 저장되는 유일한 answer입니다. 
 중단된 stream을 partial로 표시하며 draft text를 confirmed content로 승격하지 않습니다.
 
 Web reducer는 rendering 전에 branch kind, monotonic status, timing, evidence-reference 및 text bound를
-검증합니다. Compact branch summary를 표시하고 observed execution detail은 기본적으로 접어 둡니다.
+검증합니다. 각 branch를 번호가 있는 investigation stage로 표시합니다. 완료된 operational, agent,
+tool 및 public-web stage는 각각 펼쳐 status, timing, summary 및 해당 branch가 소유한 bounded evidence
+reference를 확인할 수 있습니다. Observed command와 output detail은 기본적으로 접어 둡니다.
 Queued token paint와 correction revision이 모두 drain된 후에만 confirmed segment를 적용합니다.
 Token 및 confirmed frame은 현재 canonical revision과 일치해야 합니다. Superseded 또는 공지되지 않은
 revision의 frame은 sequence position만 소비하고 text append, canonical content 교체, confirmation

@@ -5,8 +5,8 @@
  * seeding a grounded question) without holding a reference to it. The deck
  * listens for {@link DECK_OPEN_EVENT}; senders call {@link openDeckWithPrompt}.
  *
- * This never executes anything - it only opens a question box the operator
- * still has to send, preserving the read-only-console invariant.
+ * This never executes a managed-resource action. Explicit read selections may
+ * submit one bounded investigation prompt after switching context.
  */
 
 /** The window event name the CommandDeck listens for. */
@@ -25,9 +25,9 @@ export interface IncidentConversationBinding {
 
 /** Detail payload carried by a {@link DECK_OPEN_EVENT}. */
 export interface DeckOpenDetail {
-  /** Optional draft to seed the deck input with (the operator still sends it). */
+  /** Optional draft to seed the deck input with. */
   readonly prompt?: string;
-  /** Submit `prompt` after switching context. Reserved for explicit read-selection clicks. */
+  /** Submit `prompt` after switching context for a bounded read-selection or investigation. */
   readonly submitPrompt?: boolean;
   /**
    * Optional context note injected as the deck's opening message. Unlike
@@ -58,6 +58,9 @@ export interface DeckOpenDetail {
 }
 
 let deckOpenListenerReady = false;
+const MAX_PENDING_DECK_OPENS = 8;
+let pendingDeckOpens: DeckOpenDetail[] = [];
+const handledDeckOpenEvents = new WeakSet<Event>();
 
 export function isDeckOpenListenerReady(): boolean {
   return deckOpenListenerReady;
@@ -66,8 +69,19 @@ export function isDeckOpenListenerReady(): boolean {
 export function setDeckOpenListenerReady(ready: boolean): void {
   deckOpenListenerReady = ready;
   if (ready && typeof window !== "undefined" && typeof Event !== "undefined") {
+    const pending = pendingDeckOpens;
+    pendingDeckOpens = [];
+    for (const detail of pending) dispatchDeckOpen(detail);
     window.dispatchEvent(new Event(DECK_OPEN_READY_EVENT));
   }
+}
+
+export function clearPendingDeckOpenRequests(): void {
+  pendingDeckOpens = [];
+}
+
+export function acknowledgeDeckOpenEvent(event: Event): void {
+  handledDeckOpenEvents.add(event);
 }
 
 /**
@@ -85,18 +99,28 @@ export function openDeckWithPrompt(prompt?: string): void {
 /**
  * Raise the Command Deck and inject `contextNote` as opening grounding while
  * optionally rendering a shorter `openingBriefing`. A draft `prompt` remains
- * operator-controlled and is never submitted automatically.
+ * operator-controlled unless `submitPrompt` requests a bounded read-only turn.
  *
- * No-op outside a browser. Still read-only: it opens a primed question box,
- * it never auto-submits or executes anything.
+ * No-op outside a browser. It never executes a managed-resource action.
  */
 export function openDeckWithContext(detail: DeckOpenDetail): boolean {
   if (typeof window === "undefined" || typeof CustomEvent === "undefined") return false;
-  if (!deckOpenListenerReady) return false;
-  return window.dispatchEvent(new CustomEvent<DeckOpenDetail>(DECK_OPEN_EVENT, {
+  if (!deckOpenListenerReady) {
+    const attempt = dispatchDeckOpen(detail);
+    if (attempt.handled) return attempt.accepted;
+    pendingDeckOpens = [...pendingDeckOpens.slice(-(MAX_PENDING_DECK_OPENS - 1)), detail];
+    return true;
+  }
+  return dispatchDeckOpen(detail).accepted;
+}
+
+function dispatchDeckOpen(detail: DeckOpenDetail): { accepted: boolean; handled: boolean } {
+  const event = new CustomEvent<DeckOpenDetail>(DECK_OPEN_EVENT, {
     detail,
     cancelable: true,
-  }));
+  });
+  const accepted = window.dispatchEvent(event);
+  return { accepted, handled: handledDeckOpenEvents.has(event) };
 }
 
 /**

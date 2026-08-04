@@ -32,6 +32,8 @@ def test_routes_question_to_owning_agent() -> None:
     assert result is not None
     assert result["primary_agent"] == "Njord"
     assert result["facts"]["agent"] == "Njord"
+    assert result["evidence_refs"]
+    assert result["evidence_refs"] == result["facts"]["evidence_refs"]
     njord = next(spec for spec in PANTHEON_SPECS if spec.name == "Njord")
     assert result["conversation_policy"] == njord.conversation_policy()
 
@@ -77,6 +79,7 @@ async def test_owner_tool_result_produces_answer_instead_of_posthoc_evidence() -
         "tracked_scopes": ["scope-one"],
         "evidence_refs": ["cost-sample:one"],
     }
+    assert result["evidence_refs"] == ["cost-sample:one"]
     assert "tool_evidence" not in result
     assert [context.get("conversation_tool") for context in contexts] == ["read_cost_samples"]
 

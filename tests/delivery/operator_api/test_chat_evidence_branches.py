@@ -71,6 +71,43 @@ async def test_independent_branches_overlap_and_keep_canonical_order() -> None:
     }
 
 
+async def test_terminal_branch_frame_keeps_only_bounded_branch_evidence_refs() -> None:
+    events: list[dict[str, Any]] = []
+
+    async def resolve(_observe):  # type: ignore[no-untyped-def]
+        return {
+            "_operational_evidence": {
+                "evidence_refs": ["incident:one", "audit:two"],
+                "invalid_nested": {"source_refs": "must-not-split"},
+                "citations": [{"kind": "telemetry", "ref": "metric:cpu"}],
+            },
+            "unrelated": {"evidence_refs": ["must-not-leak"]},
+        }
+
+    async def observe(event: Mapping[str, Any]) -> None:
+        events.append(dict(event))
+
+    await resolve_evidence_branches(
+        request_id="request-evidence",
+        base_context={},
+        specs=(
+            EvidenceBranchSpec(
+                EvidenceBranchKind.OPERATIONAL,
+                resolve,
+                ("_operational_evidence",),
+            ),
+        ),
+        progress_observer=observe,
+    )
+
+    terminal = next(event for event in events if event.get("status") == "completed")
+    assert terminal["evidence_refs"] == [
+        "incident:one",
+        "audit:two",
+        "telemetry:metric:cpu",
+    ]
+
+
 async def test_failure_and_timeout_do_not_discard_successful_sibling() -> None:
     async def fail(_observe):  # type: ignore[no-untyped-def]
         raise RuntimeError("synthetic branch failure")

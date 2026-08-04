@@ -394,23 +394,69 @@ export function InvestigationTimeline({
               class={`deck-branch-item is-${branch.status}`}
               style={{ animationDelay: `${index * 55}ms` }}
             >
-              <span class={`deck-branch-badge is-${branch.kind}`} aria-hidden="true">
-                {branchKindBadge(branch.kind)}
-              </span>
-              <span class="deck-investigation-copy">
-                <strong>{t(`deck.investigation.kind.${branch.kind}`)}</strong>
-                <small>{branch.summary}</small>
-              </span>
-              <span class={`deck-branch-status is-${branch.status}`}>
-                <span class="deck-investigation-state" aria-hidden="true">
-                  <span class="deck-marker-glyph">{branchStatusMark(branch.status)}</span>
-                </span>
-                <span class="deck-investigation-meta muted">
-                  {branch.durationMs !== undefined
-                    ? formatDuration(branch.durationMs)
-                    : branchStatusLabel(branch.status)}
-                </span>
-              </span>
+              <details
+                class="deck-branch-disclosure"
+                open={branch.status === "running" || branch.status === "pending"}
+              >
+                <summary class="deck-branch-summary">
+                  <span class="deck-branch-step" aria-hidden="true">
+                    {String(index + 2).padStart(2, "0")}
+                  </span>
+                  <span class={`deck-branch-badge is-${branch.kind}`} aria-hidden="true">
+                    {branchKindBadge(branch.kind)}
+                  </span>
+                  <span class="deck-investigation-copy">
+                    <strong>{t(`deck.investigation.kind.${branch.kind}`)}</strong>
+                    <small>{branch.summary}</small>
+                  </span>
+                  <span class={`deck-branch-status is-${branch.status}`}>
+                    <span class="deck-investigation-state" aria-hidden="true">
+                      <span class="deck-marker-glyph">{branchStatusMark(branch.status)}</span>
+                    </span>
+                    <span class="deck-investigation-meta muted">
+                      {branch.durationMs !== undefined
+                        ? formatDuration(branch.durationMs)
+                        : branchStatusLabel(branch.status)}
+                    </span>
+                  </span>
+                </summary>
+                <div class="deck-branch-detail">
+                  <dl>
+                    <div>
+                      <dt>{t("deck.investigation.status")}</dt>
+                      <dd>{branchStatusLabel(branch.status)}</dd>
+                    </div>
+                    <div>
+                      <dt>{t("deck.investigation.startedAt")}</dt>
+                      <dd>{branch.startedAt}</dd>
+                    </div>
+                    {branch.completedAt ? (
+                      <div>
+                        <dt>{t("deck.investigation.completedAt")}</dt>
+                        <dd>{branch.completedAt}</dd>
+                      </div>
+                    ) : null}
+                    {branch.durationMs !== undefined ? (
+                      <div>
+                        <dt>{t("deck.investigation.duration")}</dt>
+                        <dd>{formatDuration(branch.durationMs)}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                  {branch.evidenceRefs.length > 0 ? (
+                    <div class="deck-branch-evidence">
+                      <strong>{t("deck.investigation.evidenceReferences")}</strong>
+                      <ul>
+                        {branch.evidenceRefs.map((reference) => (
+                          <li key={reference}><code>{reference}</code></li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <p class="muted">{t("deck.investigation.noEvidenceReferences")}</p>
+                  )}
+                </div>
+              </details>
             </li>
           ))}
         </ol>
