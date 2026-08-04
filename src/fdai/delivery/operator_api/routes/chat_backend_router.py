@@ -354,13 +354,18 @@ class LatencyRoutedChatBackend:
                 raise ChatBackendUnavailableError(
                     "vision model pool does not support structured completion"
                 )
-            return await complete(
+            result = await complete(
                 system_prompt=system_prompt,
                 user_content=user_content,
                 schema_name=schema_name,
                 schema=schema,
                 max_tokens=max_tokens,
             )
+            if not isinstance(result, Mapping):
+                raise ChatBackendUnavailableError(
+                    "vision model pool returned invalid structured output"
+                )
+            return result
 
         attempted: set[str] = set()
         last_error: Exception | None = None

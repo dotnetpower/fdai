@@ -35,6 +35,16 @@ class _FixedLatencyBackend:
         return {"answer": "ok", "model": self._model}
 
 
+class _StructuredBackend(_FixedLatencyBackend):
+    def __init__(self, *, result: object) -> None:
+        super().__init__(model="structured", delay_ms=0)
+        self._result = result
+
+    async def complete_structured(self, **_kwargs: object) -> object:
+        self.calls += 1
+        return self._result
+
+
 class _RaisingBackend:
     def __init__(self, *, model: str) -> None:
         self._model = model
@@ -253,6 +263,42 @@ class TestRouterWarmupAndSelection:
                 prompt="image",
                 view_context={"_attachments": [{"data_url": "data:image/png;base64,AA=="}]},
                 history=[],
+            )
+
+    async def test_structured_image_turn_validates_vision_pool_output(self) -> None:
+        router = LatencyRoutedChatBackend(
+            candidates=[("text", _FixedLatencyBackend(model="text", delay_ms=1))]
+        )
+        vision = _StructuredBackend(result={"intent": "inspect_image"})
+        router.bind_vision_backend(vision)
+
+        result = await router.complete_structured(
+            system_prompt="system",
+            user_content=[{"type": "image_url"}],
+            schema_name="intent",
+            schema={"type": "object"},
+            max_tokens=64,
+        )
+
+        assert result == {"intent": "inspect_image"}
+        assert vision.calls == 1
+
+    async def test_structured_image_turn_rejects_non_mapping_output(self) -> None:
+        router = LatencyRoutedChatBackend(
+            candidates=[("text", _FixedLatencyBackend(model="text", delay_ms=1))]
+        )
+        router.bind_vision_backend(_StructuredBackend(result=["invalid"]))
+
+        with pytest.raises(
+            ChatBackendUnavailableError,
+            match="vision model pool returned invalid structured output",
+        ):
+            await router.complete_structured(
+                system_prompt="system",
+                user_content=[{"type": "image_url"}],
+                schema_name="intent",
+                schema={"type": "object"},
+                max_tokens=64,
             )
 
     async def test_benchmark_samples_text_and_vision_pools(self) -> None:
