@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: fa0e4220d70dc3931e0d7a685a5364cbaa80f86d
-translation_revised: 2026-08-04
+translation_source_sha: f6022e8c99757eba4c695d9f399eacbd89358365
+translation_revised: 2026-08-05
 ---
 
 # 콘솔 근거 및 복원력
@@ -189,9 +189,8 @@ value만 비교합니다. 누락된 값은 unavailable로 유지하고 simulated
 failure를 만들지 않습니다.
 
 LLM Cost는 측정된 호출, token, chat 비율 및 최근 호출 근거를 먼저 표시합니다. 입력 및 출력 구성,
-선택 기간 trend, model 귀속 및 invocation record는 metering projection에서만 파생합니다. Price attribution이
-연결되지 않은 경우 route는 이 경계를 안내하고 token volume에서 지출, budget, 호출당 가격 또는 invoice
-금액을 추정하지 않습니다. Workload, mode, day 및 month 상세 rollup은 secondary disclosure에서 계속
+선택 기간 trend, model 및 conversation 귀속, invocation record는 metering projection에서만 파생합니다. Price attribution이
+연결되지 않은 경우 route는 이 경계를 안내하고 token volume에서 지출, budget, fixed infrastructure cost, 호출당 가격 또는 invoice 금액을 추정하지 않습니다. Bounded visible invocation ledger는 고정 allowlist를 quoted CSV로 export하며 formula-leading cell은 neutralize합니다. Conversation, workload, mode, day 및 month 상세 rollup은 secondary disclosure에서 계속
 제공하므로 primary view의 탐색성을 유지하면서 근거를 숨기지 않습니다. Headline KPI label과 value는
 균형 잡힌 4열, 2열 또는 1열 grid에서 왼쪽 정렬을 유지하고, token 구성의 count와 share는 비교하기 쉽도록
 공통 오른쪽 숫자 열을 사용합니다. 하나의 global UTC selector는 rolling 24시간, 7일, 30일 및 사용자 지정

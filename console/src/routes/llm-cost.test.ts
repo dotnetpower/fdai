@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   decodeLlmCost,
+  invocationCsv,
   llmUsageCorrelationHref,
   tokenShare,
   usageTrendPoints,
@@ -15,6 +16,25 @@ const summary = {
 };
 
 describe("LLM usage provenance", () => {
+  test("exports bounded invocation fields and neutralizes spreadsheet formulas", () => {
+    const csv = invocationCsv([{
+      occurred_at: "2026-08-04T00:00:00Z",
+      correlation_id: "=HYPERLINK(\"https://example.com\")",
+      capability_id: "query_inventory",
+      model_key: "model,one",
+      tier: "T1",
+      mode: "shadow",
+      usage_scope: "operator_chat",
+      prompt_tokens: 10,
+      completion_tokens: 5,
+      total_tokens: 15,
+    }]);
+
+    expect(csv).toContain('"\'=HYPERLINK(""https://example.com"")"');
+    expect(csv).toContain('"model,one"');
+    expect(csv.split("\r\n")).toHaveLength(3);
+  });
+
   test("links conversation rollups to correlation-scoped audit evidence", () => {
     expect(llmUsageCorrelationHref("corr-1")).toBe("/audit?correlation=corr-1");
   });

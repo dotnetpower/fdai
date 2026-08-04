@@ -56,7 +56,7 @@ interface Summary {
   readonly total_tokens: number;
 }
 
-interface InvocationRecord {
+export interface InvocationRecord {
   readonly occurred_at: string;
   readonly correlation_id: string;
   readonly capability_id: string;
@@ -67,6 +67,46 @@ interface InvocationRecord {
   readonly prompt_tokens: number;
   readonly completion_tokens: number;
   readonly total_tokens: number;
+}
+
+const INVOCATION_CSV_FIELDS: readonly (keyof InvocationRecord)[] = [
+  "occurred_at",
+  "correlation_id",
+  "capability_id",
+  "model_key",
+  "tier",
+  "mode",
+  "usage_scope",
+  "prompt_tokens",
+  "completion_tokens",
+  "total_tokens",
+];
+
+export function invocationCsv(records: readonly InvocationRecord[]): string {
+  const rows = [
+    INVOCATION_CSV_FIELDS,
+    ...records.map((record) => INVOCATION_CSV_FIELDS.map((field) => record[field])),
+  ];
+  return `${rows.map((row) => row.map(csvCell).join(",")).join("\r\n")}\r\n`;
+}
+
+export function downloadInvocationCsv(records: readonly InvocationRecord[]): void {
+  const url = URL.createObjectURL(new Blob([invocationCsv(records)], {
+    type: "text/csv;charset=utf-8",
+  }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "fdai-llm-invocations.csv";
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function csvCell(value: string | number): string {
+  const raw = String(value);
+  const safe = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+  return `"${safe.replaceAll('"', '""')}"`;
 }
 
 interface Response {
@@ -329,6 +369,13 @@ function LlmCostBody({ data, range }: { readonly data: Response; readonly range:
             label={t("llmCost.latestInvocation")}
             value={data.latest_occurred_at ? <time class="llm-cost-timestamp" dateTime={data.latest_occurred_at}>{new Date(data.latest_occurred_at).toLocaleString(locale)}</time> : kpiEvidenceLabel("not-measured")}
           />
+                  <KpiCard
+                    evidenceState="not-connected"
+                    href={routeHref("operating-outcomes", { segments: ["cost-per-resolved-event"] })}
+                    label={t("llmCost.fixedCost")}
+                    value={kpiEvidenceLabel("not-connected")}
+                    hint={t("llmCost.fixedCostHint")}
+                  />
         </KpiGrid>
       </div>
 
@@ -359,6 +406,7 @@ function LlmCostBody({ data, range }: { readonly data: Response; readonly range:
       <section class="stack llm-cost-section" id="invocation-ledger">
         <div class="llm-cost-section-head">
           <div><h3>{t("llmCost.invocationLedger")}</h3><p>{t("llmCost.invocationLedgerSubtitle")}</p></div>
+                  <button type="button" class="btn" disabled={data.records.length === 0} onClick={() => downloadInvocationCsv(data.records)}>{t("llmCost.exportCsv")}</button>
         </div>
         {data.records_truncated ? <p class="muted">{t("llmCost.recordsTruncated", { shown: data.records.length, total: data.record_count })}</p> : null}
         <DataTable
@@ -373,6 +421,7 @@ function LlmCostBody({ data, range }: { readonly data: Response; readonly range:
         <summary>{t("llmCost.additionalRollups")}</summary>
         <div class="stack llm-cost-rollups-body">
           <RollupTable heading={t("llmCost.chatUsage")} rows={data.chat_by_model} keyHeader={t("llmCost.column.model")} empty={t("llmCost.empty")} href={() => auditHref} />
+          <RollupTable heading={t("llmCost.byConversation")} rows={data.by_conversation} keyHeader={t("llmCost.column.correlationId")} empty={t("llmCost.empty")} href={llmUsageCorrelationHref} />
           <RollupTable heading={t("llmCost.byScope")} rows={data.by_scope} keyHeader={t("llmCost.column.scope")} empty={t("llmCost.empty")} href={() => auditHref} />
           <RollupTable heading={t("llmCost.byMode")} rows={data.by_mode} keyHeader={t("llmCost.column.mode")} empty={t("llmCost.empty")} href={(key) => routeHref("audit", { params: { ...auditContext, mode: key } })} />
           <RollupTable heading={t("llmCost.byDay")} rows={data.by_day} keyHeader={t("llmCost.column.day")} empty={t("llmCost.empty")} href={() => auditHref} />

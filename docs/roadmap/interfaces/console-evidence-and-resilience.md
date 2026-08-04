@@ -189,10 +189,10 @@ Leading indicators compare only reported current and baseline values. Missing va
 unavailable, and simulated values never create an operational pass or failure.
 
 LLM Cost leads with measured calls, tokens, chat share, and latest invocation evidence. Input and
-output composition, the selected-window trend, model attribution, and invocation records are derived only
+output composition, the selected-window trend, model and conversation attribution, and invocation records are derived only
 from the metering projection. When price attribution is not connected, the route states that boundary
-and doesn't estimate spend, budgets, per-call prices, or invoice amounts from token volume. Detailed
-workload, mode, day, and month rollups remain available in a secondary disclosure so the primary view
+and doesn't estimate spend, budgets, fixed infrastructure cost, per-call prices, or invoice amounts from token volume. The bounded visible invocation ledger can export a fixed allowlist as quoted CSV; formula-leading cells are neutralized. Detailed
+conversation, workload, mode, day, and month rollups remain available in a secondary disclosure so the primary view
 stays scannable without hiding evidence. Headline KPI labels and values stay left-aligned in a
 balanced four-, two-, or one-column grid, while token-composition counts and shares use common
 right-aligned numeric columns for comparison. One global UTC selector provides rolling 24-hour,
