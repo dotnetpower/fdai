@@ -41,6 +41,18 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 > are Low. Round 12 rejected retroactive release assignment for legacy reads. Round 13 confirmed
 > that a successful update creates and pins a newly validated current-state revision.
 
+## Catalog-owned instance projection
+
+Core runtime startup now projects Rule, PolicyArtifact, ResourceType, SignalType, Property, and
+ActionType instances into one catalog-owned subgraph. The pure builder rejects missing policy
+semantics and identity collisions. The projector reads the prior bounded subgraph and replaces it
+atomically; an identical replay is a no-op so startup doesn't manufacture graph revisions.
+
+This projection makes catalog relationships queryable but doesn't change their authority. Git
+catalog-as-code remains authoritative, and the instance graph remains a read model. If OPA or the
+ontology store is unavailable in an optional local profile, projection remains unavailable rather
+than substituting synthetic state. Deployed profiles continue to require OPA for T0 evaluation.
+
 ## Design at a glance
 
 The infrastructure separates semantic declarations, authority-specific state, and agent-owned

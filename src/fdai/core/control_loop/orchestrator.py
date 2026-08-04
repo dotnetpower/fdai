@@ -215,6 +215,11 @@ class ControlLoop(
         return tuple(self._action_types_by_name.values())
 
     @property
+    def rules(self) -> tuple[Rule, ...]:
+        """Return the immutable Rule catalog loaded by this loop."""
+        return tuple(self._rules_by_id.values())
+
+    @property
     def ontology_release(self) -> OntologyRelease | None:
         """Return the exact ontology release used by ActionBuilder records."""
         return self._action_builder.ontology_release

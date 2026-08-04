@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: b7815045558fc8ca6a14050aff6e46c76bd9e30c
+translation_source_sha: 5ac8053a8969d5cfd29c8d185cf4926dde330ec6
 translation_revised: 2026-08-04
 ---
 # FDAI 온톨로지 안전 인프라
@@ -44,6 +44,18 @@ exact schema pinning, generated SDK surface를 추가합니다. 모든 runtime t
 > Low입니다. Round 12에서는 legacy read에 current release를 소급 할당하는 동작을 제거했습니다.
 > Round 13에서는 successful update가 새로 검증한 current-state revision을 생성하고 pin하는 것을
 > 확인했습니다.
+
+## Catalog-owned instance projection
+
+Core runtime startup은 이제 Rule, PolicyArtifact, ResourceType, SignalType, Property 및
+ActionType instance를 하나의 catalog-owned subgraph에 projection합니다. Pure builder는 누락된
+정책 semantics와 ID 충돌을 차단합니다. Projector는 이전의 범위가 제한된 subgraph를 읽고
+원자적으로 교체하며, 동일한 replay는 no-op이므로 startup이 거짓 graph revision을 만들지 않습니다.
+
+이 projection은 카탈로그 관계를 query 가능하게 만들지만 권위를 변경하지 않습니다. Git
+catalog-as-code가 계속 권위 원천이고 instance graph는 read model로 유지됩니다. 선택적 local
+profile에서 OPA 또는 ontology store를 사용할 수 없으면 synthetic 상태로 대체하지 않고 projection을
+unavailable로 유지합니다. 배포 profile은 T0 평가를 위해 계속 OPA를 요구합니다.
 
 ## 한눈에 보는 설계
 
