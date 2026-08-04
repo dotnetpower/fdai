@@ -301,9 +301,48 @@ class ConfigurationDriftReport:
     approval_request_count: int = 0
     mitigation_execution_count: int = 0
     unsupported_claim_count: int = 0
+    performance: ConfigurationDriftPerformance | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ConfigurationDriftPerformance:
+    """Measured stage latency and cardinality for one fresh drift run."""
+
+    baseline_load_ms: float
+    observation_ms: float
+    comparison_ms: float
+    knowledge_ms: float
+    total_ms: float
+    resource_count: int
+    finding_count: int
+
+    def __post_init__(self) -> None:
+        latencies = (
+            self.baseline_load_ms,
+            self.observation_ms,
+            self.comparison_ms,
+            self.knowledge_ms,
+            self.total_ms,
+        )
+        if any(not math.isfinite(value) or value < 0 for value in latencies):
+            raise ValueError("configuration drift latencies MUST be finite and non-negative")
+        if self.resource_count < 0 or self.finding_count < 0:
+            raise ValueError("configuration drift counts MUST be non-negative")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "baseline_load_ms": self.baseline_load_ms,
+            "observation_ms": self.observation_ms,
+            "comparison_ms": self.comparison_ms,
+            "knowledge_ms": self.knowledge_ms,
+            "total_ms": self.total_ms,
+            "resource_count": self.resource_count,
+            "finding_count": self.finding_count,
+        }
 
 
 __all__ = [
+    "ConfigurationDriftPerformance",
     "ConfigurationDriftReport",
     "ConfigurationLink",
     "ConfigurationObservation",

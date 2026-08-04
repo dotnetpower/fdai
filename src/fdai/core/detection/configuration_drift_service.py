@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from dataclasses import replace
 from typing import Protocol
 
 from fdai.core.detection.configuration_drift import (
+    ConfigurationDriftPerformance,
     ConfigurationDriftReport,
     ConfigurationObservation,
     FrozenConfigurationBaseline,
@@ -43,6 +46,7 @@ class ConfigurationDriftService:
         expected_sha256: str,
         expected_scope: str,
         knowledge_source: KnowledgeSource | None = None,
+        monotonic: Callable[[], float] = time.perf_counter,
     ) -> None:
         if not expected_version.strip() or not expected_scope.strip():
             raise ValueError("expected baseline version and scope MUST be non-empty")
@@ -54,11 +58,14 @@ class ConfigurationDriftService:
         self._expected_sha256 = expected_sha256.lower()
         self._expected_scope = expected_scope
         self._knowledge_source = knowledge_source
+        self._monotonic = monotonic
 
     async def run(self) -> ConfigurationDriftReport:
         """Execute one A0 read; never accepts caller-selected scope or baseline."""
 
+        started_at = self._monotonic()
         baseline = await self._baseline_source.load()
+        baseline_loaded_at = self._monotonic()
         if baseline.version != self._expected_version:
             raise BaselineIntegrityError("baseline version does not match the configured binding")
         if baseline.sha256 != self._expected_sha256:
@@ -67,14 +74,26 @@ class ConfigurationDriftService:
             raise BaselineIntegrityError("baseline scope does not match the configured binding")
 
         observation = await self._observation_source.observe(scope=self._expected_scope)
+        observed_at = self._monotonic()
         if observation.scope != self._expected_scope:
             raise BaselineIntegrityError("observation escaped the configured scope")
         report = compare_configuration(baseline, observation)
+        compared_at = self._monotonic()
         status, citations = await self._knowledge_citations(baseline)
+        completed_at = self._monotonic()
         return replace(
             report,
             knowledge_status=status,
             knowledge_citations=citations,
+            performance=ConfigurationDriftPerformance(
+                baseline_load_ms=(baseline_loaded_at - started_at) * 1000.0,
+                observation_ms=(observed_at - baseline_loaded_at) * 1000.0,
+                comparison_ms=(compared_at - observed_at) * 1000.0,
+                knowledge_ms=(completed_at - compared_at) * 1000.0,
+                total_ms=(completed_at - started_at) * 1000.0,
+                resource_count=len(observation.resources),
+                finding_count=len(report.findings),
+            ),
         )
 
     async def _knowledge_citations(

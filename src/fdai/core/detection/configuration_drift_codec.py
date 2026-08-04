@@ -113,6 +113,7 @@ def report_to_dict(report: ConfigurationDriftReport) -> dict[str, object]:
         "approval_request_count": report.approval_request_count,
         "mitigation_execution_count": report.mitigation_execution_count,
         "unsupported_claim_count": report.unsupported_claim_count,
+        "performance": report.performance.to_dict() if report.performance is not None else None,
     }
 
 

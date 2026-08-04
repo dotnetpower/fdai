@@ -91,6 +91,9 @@ file digest alone does not establish cross-format equivalence.
   only within that pinned document and returns no result for an unrelated query.
 - The read-only capability reports mutation, approval, mitigation, and unsupported-claim counts.
   Each remains zero for a configuration check.
+- Every fresh run records baseline-load, observation, comparison, Knowledge, and total latency plus
+  resource and finding counts. Current observations are not reused through a TTL cache because a
+  cached snapshot cannot satisfy a current-state question.
 
 ## 1. Event Correlation
 

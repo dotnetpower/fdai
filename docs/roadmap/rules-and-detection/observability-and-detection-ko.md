@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: c96878d506376f229ad393c64113b7ad8a86ba03
+translation_source_sha: afff35a6dfdbfec8981d580067311ead3b5de78a
 translation_revised: 2026-08-04
 ---
 
@@ -91,6 +91,9 @@ cross-format equivalence가 성립하지 않습니다.
   순위화하며 관련 없는 query에는 결과를 반환하지 않습니다.
 - Read-only capability는 mutation, approval, mitigation, unsupported-claim count를 보고합니다.
   구성 점검에서는 모두 0으로 유지합니다.
+- 각 fresh run은 baseline load, observation, comparison, Knowledge, total latency와 resource 및
+  finding count를 기록합니다. Cache된 snapshot은 current-state 질문을 충족할 수 없으므로 현재 관측값을
+  TTL cache로 재사용하지 않습니다.
 
 ## 1. 이벤트 상관관계(Event Correlation)
 

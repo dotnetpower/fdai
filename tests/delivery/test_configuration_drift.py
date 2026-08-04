@@ -113,6 +113,30 @@ async def test_service_uses_only_server_owned_scope() -> None:
     assert observation_source.requested_scope == "example-scope"
 
 
+async def test_service_records_fresh_stage_performance_receipt() -> None:
+    ticks = iter((0.0, 0.01, 0.04, 0.05, 0.07))
+    baseline = _baseline()
+    service = ConfigurationDriftService(
+        baseline_source=_BaselineSource(baseline),
+        observation_source=_ObservationSource(_observation()),
+        expected_version=baseline.version,
+        expected_sha256=baseline.sha256,
+        expected_scope=baseline.scope,
+        monotonic=lambda: next(ticks),
+    )
+
+    report = await service.run()
+
+    assert report.performance is not None
+    assert report.performance.baseline_load_ms == pytest.approx(10.0)
+    assert report.performance.observation_ms == pytest.approx(30.0)
+    assert report.performance.comparison_ms == pytest.approx(10.0)
+    assert report.performance.knowledge_ms == pytest.approx(20.0)
+    assert report.performance.total_ms == pytest.approx(70.0)
+    assert report.performance.resource_count == 1
+    assert report.performance.finding_count == len(report.findings)
+
+
 async def test_service_rejects_changed_baseline_before_observation() -> None:
     observation_source = _ObservationSource(_observation())
     service = ConfigurationDriftService(
