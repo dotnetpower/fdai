@@ -287,7 +287,6 @@
     (function () {
       "use strict";
 
-      var plateHalfWidth = 35;
       var nodes = [
         { id: "browser", label: "Example clients", detail: "Web and mobile", kind: "client", lane: "External sources", health: "healthy", x: 94, y: 206 },
         { id: "probe", label: "Availability probe", detail: "Synthetic check", kind: "monitor", lane: "External sources", health: "healthy", x: 94, y: 426 },
@@ -341,8 +340,8 @@
         var source = nodeById(reverse ? edge.target : edge.source);
         var target = nodeById(reverse ? edge.source : edge.target);
         var direction = target.x >= source.x ? 1 : -1;
-        var startX = source.x + direction * plateHalfWidth;
-        var endX = target.x - direction * plateHalfWidth;
+        var startX = source.x;
+        var endX = target.x;
         var bend = Math.max(52, Math.abs(endX - startX) * .42);
         return "M " + startX + " " + source.y + " C " + (startX + bend * direction) + " " + source.y + ", " + (endX - bend * direction) + " " + target.y + ", " + endX + " " + target.y;
       }

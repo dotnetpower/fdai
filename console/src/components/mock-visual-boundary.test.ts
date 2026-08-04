@@ -81,7 +81,9 @@ describe("mock console visual boundary", () => {
     expect(serviceMap).toContain("sm-speed-sign");
     expect(serviceMap).toContain("function rateSignUnit(");
     expect(serviceMap).toContain("sm-road-tooltip");
-    expect(serviceMap).toContain("plateHalfWidth = 35");
+    expect(serviceMap).toContain("var startX = source.x;");
+    expect(serviceMap).toContain("var endX = target.x;");
+    expect(serviceMap).not.toContain("plateHalfWidth");
     expect(serviceMap).not.toContain("marker-end=");
     expect(serviceMap).toContain('id="sm-map-grid"');
     expect(serviceMap).toContain('data-sm-zoom-in');
