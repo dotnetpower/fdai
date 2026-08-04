@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 4788455525c4b3556cafa26b9967cafbc6d5308f
+translation_source_sha: 6aa1f411b8a5d11ffabdde0d37064d205cdb3d3f
 translation_revised: 2026-08-04
 ---
 
@@ -364,6 +364,10 @@ Pod-to-ReplicaSet-to-Deployment chain, 세 spec에서 동일한 bounded command 
 dependency 하나, 해당 Service absence를 확인한 targeted receipt 하나를 요구합니다. Present,
 conflicting, command-drifted, stopped, ambiguous 또는 incomplete evidence는 abstain합니다. Raw
 command는 보존하지 않으며 concrete command/dependency projection은 별도 provider 작업입니다.
+Provider-neutral ConfigMap mount semantic은 degraded workload, complete volume/container-mount
+projection, mounted ConfigMap volume 하나 및 same-namespace ConfigMap absence를 확인한 exact targeted
+receipt 하나를 요구합니다. Present, conflicting, unmounted, healthy, ambiguous 또는 incomplete
+evidence는 abstain합니다. Concrete ConfigMap 및 mount projection은 별도 provider 작업입니다.
 Source campaign의 deterministic SecurityContext patch는 port하지 않습니다. Syntactically grounded
 template change도 process identity, capability 및 workload behavior를 바꿀 수 있으며 admission
 success만으로 rollout health, application correctness 또는 rollback restoration을 증명할 수 없습니다.

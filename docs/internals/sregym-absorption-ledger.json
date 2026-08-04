@@ -585,6 +585,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_missing_configmap_mount_candidate",
+      "source_commits": [
+        "0c5f66814cad6e5ceb91050a7bd064cb0b064e82"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Replaces complete-namespace absence inference with a complete mounted-volume join and one exact targeted ConfigMap absence receipt; concrete projection remains unclaimed.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

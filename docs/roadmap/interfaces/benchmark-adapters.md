@@ -363,6 +363,10 @@ Pod-to-ReplicaSet-to-Deployment chain, one identical bounded command fingerprint
 dependency across all three specs, and one targeted receipt confirming that Service absent.
 Present, conflicting, command-drifted, stopped, ambiguous, or incomplete evidence abstains. Raw
 commands are not retained, and concrete command/dependency projection remains provider work.
+Provider-neutral ConfigMap mount semantics require a degraded workload, complete volume and
+container-mount projections, one mounted ConfigMap volume, and one exact targeted receipt confirming
+the same-namespace ConfigMap absent. Present, conflicting, unmounted, healthy, ambiguous, or
+incomplete evidence abstains. Concrete ConfigMap and mount projection remains provider work.
 The source campaign's deterministic SecurityContext patch is not ported. A syntactically grounded
 template change can alter process identity, capabilities, and workload behavior; admission success
 alone does not prove rollout health, application correctness, or rollback restoration. Until those
