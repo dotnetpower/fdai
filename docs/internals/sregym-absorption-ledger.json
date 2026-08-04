@@ -448,6 +448,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_cumulative_webhook_network_policy_recovery",
+      "source_commits": [
+        "e666d4e2b2ce95284f26919ee65b0eb3773d92b3"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected opening a deny-all NetworkPolicy on a common backend port because the evidence proves neither API-server policy traversal nor a bounded source selector and lacks independent effect and rollback-outcome validation.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

@@ -305,6 +305,11 @@ UID, and timestamps inside a five-minute window ending at the trusted evidence c
 stale, future, UID-conflicting, malformed, or truncated events produce no finding. Unlike the
 source campaign implementation, this mechanism does not infer a NetworkPolicy or degraded workload
 as the cause without direct policy-path and temporal evidence.
+The source campaign's cumulative-timeout NetworkPolicy recovery patch is not ported. A common
+backend port and an ingress deny-all policy do not prove that API-server traffic traverses that
+policy or identify a bounded source selector. Adding unrestricted ingress for the port could widen
+unrelated traffic and lacks independent effect and rollback-outcome evidence. The timeout candidate
+therefore grants no `remediate.kubernetes-patch` authority.
 
 The shared Kubernetes package has a hold-only admission resource-drift reducer. It reports a
 candidate-only correlation between normalized request or limit drift and one complete

@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 1f7a8a3a0887e1c1a277dc3735ed5e89fdca5cfe
+translation_source_sha: 8892c6cf81a19deb54320b7a64cb13d6821f84ff
 translation_revised: 2026-08-04
 ---
 
@@ -306,6 +306,11 @@ structured timeout event가 최소 2개이고, affected resource immutable UID�
 cutoff로 끝나는 5분 window 안의 timestamp가 있어야 합니다. Duplicate, stale, future, UID-conflicting,
 malformed 또는 truncated event는 finding을 생성하지 않습니다. Source campaign 구현과 달리 direct
 policy-path 및 temporal evidence 없이 NetworkPolicy나 degraded workload를 원인으로 추론하지 않습니다.
+Source campaign의 cumulative-timeout NetworkPolicy recovery patch는 port하지 않습니다. Common
+backend port와 ingress deny-all policy만으로 API-server traffic이 해당 policy를 통과한다는 사실이나
+bounded source selector를 증명할 수 없습니다. Port의 unrestricted ingress를 추가하면 unrelated
+traffic을 넓힐 수 있고 independent effect 및 rollback-outcome evidence도 없습니다. 따라서 timeout
+candidate는 `remediate.kubernetes-patch` authority를 부여하지 않습니다.
 
 공유 Kubernetes package에는 hold-only admission resource-drift reducer가 있습니다. Exact core/v1
 Pod CREATE rule을 가진 complete selector-free, namespace-unscoped
