@@ -203,9 +203,10 @@ async def test_graph_runtime_records_prediction_for_challenger_closure() -> None
     result = await coordinator.simulate(event=_event(), action=_action())
 
     assert result.simulation is not None
+    assert result.simulation.challenger_trajectory is not None
     assert len(ledger.calls) == 1
     predicted, metadata = ledger.calls[0]
-    assert predicted == result.simulation.active_trajectory
+    assert predicted == result.simulation.challenger_trajectory
     assert metadata["challenger_model_refs"] == ("graph-challenger@1.0.0:r1",)
     assert metadata["recorded_by"] == "Forseti"
 

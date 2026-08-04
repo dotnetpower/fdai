@@ -116,9 +116,13 @@ class GraphDynamicRuntimeCoordinator:
             divergence_threshold=request.divergence_threshold,
             max_slices=request.max_slices,
         )
-        if self._trajectory_ledger is not None and challenger_models:
+        if (
+            self._trajectory_ledger is not None
+            and challenger_models
+            and simulation.challenger_trajectory is not None
+        ):
             await self._trajectory_ledger.record_prediction(
-                simulation.active_trajectory,
+                simulation.challenger_trajectory,
                 challenger_model_refs=tuple(sorted(model.ref for model in challenger_models)),
                 recorded_by="Forseti",
                 recorded_at=datetime.now(tz=UTC),
