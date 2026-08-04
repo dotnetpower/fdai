@@ -149,10 +149,13 @@
       "benchmark_measured": true,
       "semantic_generalized": true,
       "operationalized": false,
-      "provider_validated": false,
+      "provider_validated": true,
+      "provider_validation_kind": "live",
+      "provider_validation_evidence": "Managed AKS synthetic namespace: complete positive missing-Service receipt produced one hold finding with exact source path/backend port; adding the Service and Endpoints produced zero findings; cleanup completed.",
       "action_validated": false,
       "outcome_validated": false,
-      "azure_validated": false
+      "azure_validated": true,
+      "azure_validation_evidence": "Non-production managed AKS provider drill passed on one Ready node; isolated namespace and temporary credentials were deleted after positive and negative checks."
     },
     {
       "id": "kubernetes_admission_resource_drift_reducer",
