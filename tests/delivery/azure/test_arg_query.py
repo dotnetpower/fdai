@@ -23,8 +23,10 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Sequence
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -48,7 +50,7 @@ from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.testing.workload_identity import (
     StaticWorkloadIdentity,
 )
-from fdai.shared.providers.workload_identity import WorkloadIdentity
+from fdai.shared.providers.workload_identity import IdentityToken, WorkloadIdentity
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 VOCABULARY_FILE = REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
@@ -328,6 +330,50 @@ async def test_skip_token_is_followed_until_exhausted() -> None:
     # First page has no $skipToken; second page carries it.
     assert "$skipToken" not in calls[0]["options"]
     assert calls[1]["options"]["$skipToken"] == "next-1"
+
+
+@pytest.mark.asyncio
+async def test_each_page_refreshes_workload_identity_token() -> None:
+    audience = "https://management.azure.com/.default"
+    identity = AsyncMock(spec=WorkloadIdentity)
+    identity.get_token.side_effect = [
+        IdentityToken(
+            token="page-one-token",
+            expires_at=datetime.now(tz=UTC) + timedelta(minutes=1),
+            audience=audience,
+        ),
+        IdentityToken(
+            token="page-two-token",
+            expires_at=datetime.now(tz=UTC) + timedelta(hours=1),
+            audience=audience,
+        ),
+    ]
+    authorizations: list[str] = []
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        authorizations.append(request.headers["Authorization"])
+        if len(authorizations) == 1:
+            return httpx.Response(200, json={"data": [], "$skipToken": "next"})
+        return httpx.Response(200, json={"data": []})
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        await arg_transport.fetch_arg_row_pages(
+            identity=identity,
+            http_client=client,
+            audience=audience,
+            endpoint="https://management.azure.com",
+            api_version="2022-10-01",
+            subscriptions=("00000000-0000-0000-0000-000000000001",),
+            query="Resources | project id",
+            result_name="token-refresh-test",
+            page_size=1,
+            max_pages=2,
+            timeout_seconds=5.0,
+            error_type=ArgQueryError,
+        )
+
+    assert authorizations == ["Bearer page-one-token", "Bearer page-two-token"]
+    assert identity.get_token.await_count == 2
 
 
 @pytest.mark.asyncio

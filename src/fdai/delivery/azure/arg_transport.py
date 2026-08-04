@@ -147,20 +147,6 @@ async def fetch_arg_row_pages(
         "/providers/Microsoft.ResourceGraph/resources"
         f"?api-version={api_version}"
     )
-    if request_headers is None:
-        try:
-            token = await identity.get_token(audience)
-        except Exception as exc:  # noqa: BLE001 - identity boundary fails closed
-            raise error_type(
-                f"ARG identity token request failed for {result_name!r}: {type(exc).__name__}"
-            ) from exc
-        headers = {
-            "Authorization": f"Bearer {token.token}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        }
-    else:
-        headers = dict(request_headers)
     collected: list[Mapping[str, Any]] = []
     skip_token: str | None = None
     seen_skip_tokens: set[str] = set()
@@ -175,6 +161,22 @@ async def fetch_arg_row_pages(
         }
         if skip_token is not None:
             body["options"]["$skipToken"] = skip_token
+
+        if request_headers is None:
+            try:
+                token = await identity.get_token(audience)
+            except Exception as exc:  # noqa: BLE001 - identity boundary fails closed
+                raise error_type(
+                    f"ARG identity token request failed for {result_name!r} "
+                    f"(page {page}): {type(exc).__name__}"
+                ) from exc
+            headers = {
+                "Authorization": f"Bearer {token.token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+        else:
+            headers = dict(request_headers)
 
         response = await _post_with_retry(
             http_client=http_client,
