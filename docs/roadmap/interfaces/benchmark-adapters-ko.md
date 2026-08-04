@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: fa361bd2bca65c83ea38f94fddf3932fffee79de
+translation_source_sha: b021015d383c17bb64b0be2d26283a7d1d99fb8e
 translation_revised: 2026-08-04
 ---
 
@@ -354,6 +354,11 @@ Readiness failure는 동일한 recent Event, exact UID-chain, degraded-owner 및
 fingerprint kernel을 재사용합니다. Classification에는 kubelet reporter와 reviewed readiness-failure
 phrase도 필요합니다. Raw message나 fixed-delay Event refresh 없이 별도 hold-only candidate를
 생성하며 drift, stale identity, ambiguity 및 truncation은 abstain합니다.
+Provider-neutral storage semantic은 degraded multi-replica workload에 complete required hostname
+anti-affinity, exact matching template label selector, complete mounted-volume path 및 same-namespace
+`ReadWriteOnce` PVC 하나가 있을 때만 hold-only placement candidate를 생성합니다. RWX, unmounted,
+selector-mismatched, single-replica, ambiguous 또는 incomplete evidence는 abstain합니다. Concrete PVC,
+volume, mount 및 anti-affinity inventory projection은 별도 provider 작업입니다.
 Source campaign의 deterministic SecurityContext patch는 port하지 않습니다. Syntactically grounded
 template change도 process identity, capability 및 workload behavior를 바꿀 수 있으며 admission
 success만으로 rollout health, application correctness 또는 rollback restoration을 증명할 수 없습니다.

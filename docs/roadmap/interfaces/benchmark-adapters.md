@@ -353,6 +353,11 @@ Readiness failures reuse the same recent Event, exact UID-chain, degraded-owner,
 privacy-safe fingerprint kernel. Classification additionally requires the kubelet reporter and a
 reviewed readiness-failure phrase. It emits its own hold-only candidate without raw message or
 fixed-delay Event refresh; drift, stale identity, ambiguity, and truncation abstain.
+Provider-neutral storage semantics identify a hold-only placement candidate only when a degraded
+multi-replica workload has complete required hostname anti-affinity, an exactly matching template
+label selector, a complete mounted-volume path, and one same-namespace PVC with `ReadWriteOnce`.
+RWX, unmounted, selector-mismatched, single-replica, ambiguous, or incomplete evidence abstains.
+Concrete PVC, volume, mount, and anti-affinity inventory projection remains separate provider work.
 The source campaign's deterministic SecurityContext patch is not ported. A syntactically grounded
 template change can alter process identity, capabilities, and workload behavior; admission success
 alone does not prove rollout health, application correctness, or rollback restoration. Until those
