@@ -1,5 +1,6 @@
 import { Fragment, type RefObject } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
+import type { OperatorApiClient } from "../api";
 import { t } from "../i18n";
 import {
   PREFERENCES_CHANGED_EVENT,
@@ -26,6 +27,7 @@ import type { ConversationSummary } from "./conversation-sessions";
 import { conversationTrajectoriesByAnswer } from "./conversation-trajectory";
 import type { useViewContext } from "./context";
 import { RetrievalTrace } from "./retrieval-trace";
+import { SourceReadinessStrip } from "./source-readiness-view";
 
 interface CommandDeckViewProps {
   readonly open: boolean;
@@ -33,6 +35,7 @@ interface CommandDeckViewProps {
   readonly dragging: boolean;
   readonly routeLabel: string;
   readonly health: BackendHealth | null;
+  readonly client: OperatorApiClient;
   readonly sessionLabel: string | null;
   readonly deckStyle: Record<string, string> | undefined;
   readonly dockWidth: number;
@@ -89,6 +92,7 @@ export function CommandDeckView({
   dragging,
   routeLabel,
   health,
+  client,
   sessionLabel,
   deckStyle,
   dockWidth,
@@ -227,6 +231,8 @@ export function CommandDeckView({
           <div class="sr-only" role="status" aria-live="polite">
             {srStatus}
           </div>
+
+          <SourceReadinessStrip client={client} />
 
           <div class={`deck-body${showConversations ? " has-conversations" : ""}${showDigest ? " has-digest" : ""}`}>
             {showConversations ? (

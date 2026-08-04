@@ -1990,6 +1990,26 @@
       "ready": "LLM ready",
       "deterministic": "deterministic"
     },
+    "sourceReadiness": {
+      "label": "Evidence sources",
+      "loading": "Loading evidence-source readiness",
+      "unavailable": "Evidence-source readiness is unavailable.",
+      "openDiagnostics": "Open diagnostics",
+      "observed": "Observed {time}",
+      "observationUnknown": "Observation time unavailable",
+      "source": {
+        "inventory": "Inventory",
+        "incidents": "Incidents",
+        "audit": "Audit",
+        "knowledge": "Knowledge",
+        "automation": "Automation"
+      },
+      "status": {
+        "available": "Available",
+        "unavailable": "Unavailable",
+        "unknown": "Unknown"
+      }
+    },
     "digest": {
       "label": "What the deck sees",
       "title": "What I see",
