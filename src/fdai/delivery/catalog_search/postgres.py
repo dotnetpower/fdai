@@ -250,6 +250,13 @@ def _row_to_result(row: Mapping[str, Any]) -> CatalogSearchResult:
         rule_id=str(row["rule_id"]),
         score=float(row["total_score"]),
         match=match,
+        components={
+            "exact": float(bool(row["exact_id"])),
+            "neighbor": float(row["neighbor_score"]),
+            "reciprocal_rank": float(row["fusion_score"]),
+            "lexical": float(row["lexical_score"]),
+            "semantic": float(row["semantic_score"]),
+        },
     )
 
 

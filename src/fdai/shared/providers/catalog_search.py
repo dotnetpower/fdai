@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from typing import Literal, Protocol, runtime_checkable
 
 from fdai.shared.providers.knowledge import Embedder
@@ -30,6 +30,7 @@ class CatalogSearchResult:
     rule_id: str
     score: float
     match: CatalogSearchMatch
+    components: Mapping[str, float] = field(default_factory=dict)
 
 
 @runtime_checkable

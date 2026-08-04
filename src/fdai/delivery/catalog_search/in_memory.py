@@ -104,7 +104,18 @@ class InMemoryCatalogSemanticIndex:
         ranked.sort(key=lambda item: item[1].rule_id)
         ranked.sort(key=lambda item: item[0], reverse=True)
         return tuple(
-            CatalogSearchResult(rule_id=document.rule_id, score=sum(key), match=match)
+            CatalogSearchResult(
+                rule_id=document.rule_id,
+                score=sum(key),
+                match=match,
+                components={
+                    "exact": key[0],
+                    "neighbor": key[1],
+                    "reciprocal_rank": key[2],
+                    "lexical": key[3],
+                    "semantic": key[4],
+                },
+            )
             for key, document, match in ranked[:k]
         )
 

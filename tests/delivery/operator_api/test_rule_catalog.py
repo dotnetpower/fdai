@@ -135,6 +135,7 @@ class _SemanticIndex:
                 rule_id="disk.unattached",
                 score=0.9,
                 match="hybrid",
+                components={"lexical": 0.4, "semantic": 0.5},
             ),
             CatalogSearchResult(
                 rule_id="object-storage.public-access.deny",
@@ -200,6 +201,11 @@ def test_rules_use_semantic_rank_when_index_is_bound() -> None:
         "disk.unattached",
         "object-storage.public-access.deny",
     ]
+    assert body["rules"][0]["search"] == {
+        "score": 0.9,
+        "match": "hybrid",
+        "components": {"lexical": 0.4, "semantic": 0.5},
+    }
 
 
 def test_rules_report_configured_semantic_index_failure() -> None:

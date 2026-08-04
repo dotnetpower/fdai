@@ -376,6 +376,7 @@ def make_rule_catalog_routes(
         source = params.get("source", "").strip().lower()
         needle = params.get("q", "").strip().lower()
         semantic_rank: dict[str, int] | None = None
+        semantic_evidence: dict[str, object] = {}
         semantic_truncated = False
         if needle and semantic_index is not None:
             try:
@@ -393,6 +394,14 @@ def make_rule_catalog_routes(
                     status_code=503,
                 )
             semantic_rank = {result.rule_id: rank for rank, result in enumerate(semantic_results)}
+            semantic_evidence = {
+                result.rule_id: {
+                    "score": result.score,
+                    "match": result.match,
+                    "components": dict(result.components),
+                }
+                for result in semantic_results
+            }
             semantic_truncated = total > semantic_limit
 
         try:
@@ -432,7 +441,17 @@ def make_rule_catalog_routes(
                 "search_mode": "semantic" if semantic_rank is not None else "substring",
                 "search_truncated": semantic_truncated,
                 "facets": facets,
-                "rules": [ir.payload for ir in page],
+                "rules": [
+                    {
+                        **ir.payload,
+                        **(
+                            {"search": semantic_evidence[str(ir.payload["id"])]}
+                            if semantic_rank is not None
+                            else {}
+                        ),
+                    }
+                    for ir in page
+                ],
             }
         )
 
