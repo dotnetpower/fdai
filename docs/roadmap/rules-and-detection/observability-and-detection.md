@@ -91,6 +91,9 @@ file digest alone does not establish cross-format equivalence.
   only within that pinned document and returns no result for an unrelated query.
 - The read-only capability reports mutation, approval, mitigation, and unsupported-claim counts.
   Each remains zero for a configuration check.
+- The public `bind_configuration_drift` composition helper installs this one server-pinned A0
+  capability through the immutable capability runtime. It does not add an ActionType, executor
+  identity, schedule authority, or caller-selected scope.
 - Every fresh run records baseline-load, observation, comparison, Knowledge, and total latency plus
   resource and finding counts. Current observations are not reused through a TTL cache because a
   cached snapshot cannot satisfy a current-state question.

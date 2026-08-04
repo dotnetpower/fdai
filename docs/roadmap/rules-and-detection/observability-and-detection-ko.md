@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 2b68d342497ed4ad8ab56d639f47ba716ae541ab
+translation_source_sha: 7d7a1abb7a9d35354fd59a5c3413c7a594acaeb1
 translation_revised: 2026-08-04
 ---
 
@@ -91,6 +91,9 @@ cross-format equivalence가 성립하지 않습니다.
   순위화하며 관련 없는 query에는 결과를 반환하지 않습니다.
 - Read-only capability는 mutation, approval, mitigation, unsupported-claim count를 보고합니다.
   구성 점검에서는 모두 0으로 유지합니다.
+- Public `bind_configuration_drift` composition helper는 immutable capability runtime을 통해 이
+  server-pinned A0 capability 하나만 설치합니다. ActionType, executor identity, schedule authority,
+  caller-selected scope를 추가하지 않습니다.
 - 각 fresh run은 baseline load, observation, comparison, Knowledge, total latency와 resource 및
   finding count를 기록합니다. Cache된 snapshot은 current-state 질문을 충족할 수 없으므로 현재 관측값을
   TTL cache로 재사용하지 않습니다.
