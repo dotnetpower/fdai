@@ -334,8 +334,15 @@ def _quota_reset_seconds(headers: httpx.Headers) -> float | None:
         hours, minutes, seconds = (float(part) for part in parts)
     except ValueError:
         return None
+    if (
+        not all(isfinite(value) for value in (hours, minutes, seconds))
+        or hours < 0
+        or not 0 <= minutes < 60
+        or not 0 <= seconds < 60
+    ):
+        return None
     delay = hours * 3600 + minutes * 60 + seconds
-    return delay if delay >= 0 else None
+    return delay
 
 
 def _retry_after_seconds(raw: str | None) -> float | None:

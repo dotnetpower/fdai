@@ -606,6 +606,50 @@ async def test_retryable_status_matrix_uses_bounded_backoff(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "reset_after",
+    ["00:00:inf", "01:-1:00", "00:60:00", "00:00:60"],
+)
+async def test_invalid_quota_reset_header_does_not_create_wait(
+    reset_after: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    delays: list[float] = []
+
+    async def _record_delay(delay: float) -> None:
+        delays.append(delay)
+
+    monkeypatch.setattr(arg_transport, "_sleep", _record_delay)
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(
+                200,
+                headers={
+                    "x-ms-user-quota-remaining": "0",
+                    "x-ms-user-quota-resets-after": reset_after,
+                },
+                json={"data": [], "$skipToken": "next"},
+            )
+        return httpx.Response(200, json={"data": []})
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        await factory.build_query_fn()("object-storage")
+
+    assert calls == 2
+    assert delays == []
+
+
+@pytest.mark.asyncio
 async def test_retry_after_beyond_local_bound_fails_without_early_retry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
