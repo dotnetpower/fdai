@@ -285,7 +285,9 @@ candidate requires one complete webhook projection and one exact targeted Servic
 successful read confirms absence. Present, failed, ambiguous, malformed, or truncated receipts
 produce no finding. The candidate retains only configuration identity, webhook name, failure
 policy, Service identity, and reviewed source path. The targeted receipt provider remains separate
-work and is not implied by the reducer.
+from the reducer. The admission evaluation provider now performs at most eight exact allowlisted
+`service/{name} --ignore-not-found` reads. Empty successful output confirms absence; out-of-scope,
+failed, oversized, malformed, or identity-mismatched responses make Service evidence incomplete.
 
 Cumulative timeout evidence is a separate candidate-only mechanism. It requires at least two
 distinct structured timeout events for distinct webhook names, the same immutable affected-resource

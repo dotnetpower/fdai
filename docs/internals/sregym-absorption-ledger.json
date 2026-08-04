@@ -402,6 +402,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_targeted_webhook_service_receipt_provider",
+      "source_commits": [
+        "77b9e9becaa1f20572eb4369e36a593ce7a46d37"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Bounds exact allowlisted optional Service reads to eight references, accepts only successful empty output as confirmed absence, isolates probe incompleteness from base admission findings, and rejects mismatched responses.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

@@ -120,6 +120,44 @@ async def test_admission_provider_correlates_recent_cumulative_timeouts() -> Non
     assert finding["causality"] == "candidate_only"
 
 
+@pytest.mark.parametrize("probe_fails", [False, True])
+async def test_admission_provider_scopes_targeted_webhook_service_absence(
+    probe_fails: bool,
+) -> None:
+    class _BackendClient(_Client):
+        async def admission_configurations(self, task: EvaluationTask) -> Mapping[str, Any]:
+            receipt = dict(await super().admission_configurations(task))
+            resources = list(receipt["resources"])
+            configuration = {**resources[0]}
+            webhooks = [dict(item) for item in configuration["webhooks"]]
+            webhooks[0]["service"] = {
+                "namespace": "policy-system",
+                "name": "policy-webhook",
+            }
+            configuration["webhooks"] = webhooks
+            return {**receipt, "resources": [configuration]}
+
+        async def webhook_service(
+            self, task: EvaluationTask, *, namespace: str, name: str
+        ) -> Mapping[str, Any]:
+            del task
+            assert (namespace, name) == ("policy-system", "policy-webhook")
+            if probe_fails:
+                raise RuntimeError("unavailable")
+            return {"namespace": namespace, "name": name, "status": "confirmed_absent"}
+
+    evidence = await KubectlAdmissionEvidenceProvider(_BackendClient()).collect(None)  # type: ignore[arg-type]
+
+    missing = [
+        item
+        for item in evidence["findings"]
+        if item["reason"] == "admission_webhook_backend_service_missing_candidate"
+    ]
+    assert evidence["evidence_complete"] is True
+    assert evidence["webhook_service_evidence_complete"] is (not probe_fails)
+    assert bool(missing) is (not probe_fails)
+
+
 async def test_admission_provider_abstains_when_event_query_is_truncated() -> None:
     class _TruncatedEventClient(_Client):
         async def events(self, task: EvaluationTask) -> Mapping[str, Any]:

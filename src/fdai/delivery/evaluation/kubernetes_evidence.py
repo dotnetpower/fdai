@@ -162,6 +162,45 @@ class KubectlEvidenceClient:
             "truncated": len(items) > len(selected),
         }
 
+    async def webhook_service(
+        self,
+        task: EvaluationTask,
+        *,
+        namespace: str,
+        name: str,
+    ) -> Mapping[str, Any]:
+        self._namespace(task)
+        if namespace not in self._config.allowed_namespaces or not _DNS_SUBDOMAIN.fullmatch(name):
+            raise RuntimeError("webhook Service is outside the configured scope")
+        command = (
+            "kubectl",
+            "--kubeconfig",
+            str(self._config.kubeconfig),
+            "--context",
+            self._config.context,
+            "--namespace",
+            namespace,
+            "get",
+            f"service/{name}",
+            "--ignore-not-found",
+            "--output",
+            "json",
+            f"--request-timeout={self._config.timeout_seconds:g}s",
+        )
+        raw = await self._run(command)
+        if not raw:
+            return {"namespace": namespace, "name": name, "status": "confirmed_absent"}
+        payload = await self._decode_json(raw)
+        metadata = payload.get("metadata")
+        if (
+            payload.get("kind") != "Service"
+            or not isinstance(metadata, Mapping)
+            or metadata.get("namespace") != namespace
+            or metadata.get("name") != name
+        ):
+            raise RuntimeError("kubectl returned a mismatched webhook Service")
+        return {"namespace": namespace, "name": name, "status": "present"}
+
     async def custom_owner(
         self,
         task: EvaluationTask,
@@ -249,6 +288,9 @@ class KubectlEvidenceClient:
 
     async def _run_json(self, command: tuple[str, ...]) -> Mapping[str, Any]:
         raw = await self._run(command)
+        return await self._decode_json(raw)
+
+    async def _decode_json(self, raw: bytes) -> Mapping[str, Any]:
         if len(raw) > self._config.max_output_bytes:
             raise RuntimeError("kubectl evidence response exceeded the configured limit")
         try:

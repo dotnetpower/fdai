@@ -700,6 +700,43 @@ async def test_admission_configurations_are_cluster_scoped_and_bounded(tmp_path:
     assert "must-not-project" not in json.dumps(evidence)
 
 
+async def test_webhook_service_uses_exact_allowlisted_optional_read(tmp_path: Path) -> None:
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text("synthetic", encoding="utf-8")
+    commands: list[tuple[str, ...]] = []
+
+    async def run(command: tuple[str, ...]) -> bytes:
+        commands.append(command)
+        return b""
+
+    client = KubectlEvidenceClient(
+        config=_config(
+            kubeconfig,
+            allowed_namespaces=frozenset({"example-app", "policy-system"}),
+        ),
+        run=run,
+    )
+    receipt = await client.webhook_service(
+        _task(), namespace="policy-system", name="policy-webhook"
+    )
+
+    assert receipt == {
+        "namespace": "policy-system",
+        "name": "policy-webhook",
+        "status": "confirmed_absent",
+    }
+    assert commands[0][-6:] == (
+        "get",
+        "service/policy-webhook",
+        "--ignore-not-found",
+        "--output",
+        "json",
+        "--request-timeout=15s",
+    )
+    with pytest.raises(RuntimeError, match="outside the configured scope"):
+        await client.webhook_service(_task(), namespace="other-system", name="policy-webhook")
+
+
 async def test_events_are_bounded_and_namespace_scope_fails_closed(tmp_path: Path) -> None:
     kubeconfig = tmp_path / "config"
     kubeconfig.write_text("synthetic", encoding="utf-8")
