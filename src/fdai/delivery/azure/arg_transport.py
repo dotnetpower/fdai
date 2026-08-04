@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Callable, Mapping
+from math import isfinite
 from typing import Any
 
 import httpx
@@ -283,6 +284,8 @@ async def _post_with_retry(
                 initial_retry_delay_seconds * (2**attempt),
                 max_retry_delay_seconds,
             )
+        elif retry_delay > max_retry_delay_seconds:
+            return response
         await throttle_gate.defer(retry_delay)
 
     if last_error is None:
@@ -323,7 +326,7 @@ def _retry_after_seconds(raw: str | None) -> float | None:
         delay = float(raw)
     except ValueError:
         return None
-    return max(0.0, delay)
+    return delay if isfinite(delay) and delay >= 0 else None
 
 
 def _count_is_truncated(payload: Mapping[str, Any]) -> bool:

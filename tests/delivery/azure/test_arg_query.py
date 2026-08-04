@@ -444,6 +444,76 @@ async def test_quota_gate_rechecks_deadline_extended_while_waiting(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("retry_after", ["-1", "nan", "inf"])
+async def test_invalid_retry_after_uses_bounded_backoff(
+    retry_after: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    now = 0.0
+    delays: list[float] = []
+
+    monkeypatch.setattr(arg_transport, "_monotonic", lambda: now)
+
+    async def _record_delay(delay: float) -> None:
+        nonlocal now
+        delays.append(delay)
+        now += delay
+
+    monkeypatch.setattr(arg_transport, "_sleep", _record_delay)
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(429, headers={"Retry-After": retry_after})
+        return httpx.Response(200, json={"data": []})
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        await factory.build_query_fn()("object-storage")
+
+    assert calls == 2
+    assert delays == [0.5]
+
+
+@pytest.mark.asyncio
+async def test_retry_after_beyond_local_bound_fails_without_early_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    delays: list[float] = []
+
+    async def _record_delay(delay: float) -> None:
+        delays.append(delay)
+
+    monkeypatch.setattr(arg_transport, "_sleep", _record_delay)
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(429, headers={"Retry-After": "31"})
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        with pytest.raises(ArgQueryError, match="HTTP 429"):
+            await factory.build_query_fn()("object-storage")
+
+    assert calls == 1
+    assert delays == []
+
+
+@pytest.mark.asyncio
 async def test_truncated_page_without_skip_token_fails_closed() -> None:
     def _handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(
