@@ -40,18 +40,20 @@
     .sm-cad-controls svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
     .sm-cad-coordinates { position: absolute; z-index: 7; left: 12px; bottom: 58px; min-width: 112px; padding: 4px 7px; border: 1px solid rgba(160,171,177,.60); border-radius: 4px; background: rgba(255,255,255,.84); color: #64717A; font: 650 9px "Cascadia Code", "Consolas", monospace; letter-spacing: .04em; pointer-events: none; backdrop-filter: blur(6px); }
 
-    .sm-lane rect { stroke: #DDE2E2; stroke-width: .8; }
-    .sm-lane text { fill: #77828A; font: 720 9.5px var(--cs-font); letter-spacing: .08em; text-transform: uppercase; }
-    .sm-lane-external rect { fill: #F7F8F7; }
-    .sm-lane-ingress rect { fill: #F0F5F4; }
-    .sm-lane-services rect { fill: #FBFBFA; }
-    .sm-lane-data rect { fill: #F6F4F7; }
-    .sm-lane-egress rect { fill: #FAF5F1; }
     .sm-drawing-sheet { fill: #F8F9F8; }
-    .sm-grid-overlay { pointer-events: none; opacity: .72; }
-    .sm-cad-dimensions { fill: none; stroke: #829098; stroke-width: .65; opacity: .75; pointer-events: none; }
-    .sm-cad-dimensions text { fill: #69767E; stroke: none; text-anchor: middle; font: 650 7px "Cascadia Code", "Consolas", monospace; letter-spacing: .05em; }
-    .sm-boundary-label { fill: #4F847E; font: 750 10px var(--cs-font); letter-spacing: .12em; }
+    .sm-iso-floor-top { fill: #F8FAF9; stroke: #AEB8BC; stroke-width: 1; }
+    .sm-iso-floor-front { fill: #E7EBEA; stroke: #AEB8BC; stroke-width: 1; }
+    .sm-iso-floor-left { fill: #EDF0EF; stroke: #AEB8BC; stroke-width: 1; }
+    .sm-lane path { stroke: rgba(149,161,166,.58); stroke-width: .7; }
+    .sm-lane-external path { fill: rgba(241,244,242,.80); }
+    .sm-lane-ingress path { fill: rgba(229,240,237,.72); }
+    .sm-lane-services path { fill: rgba(250,251,249,.74); }
+    .sm-lane-data path { fill: rgba(241,238,245,.65); }
+    .sm-lane-egress path { fill: rgba(248,239,233,.66); }
+    .sm-grid-overlay { pointer-events: none; opacity: .56; }
+    .sm-lane-heading rect { fill: rgba(255,255,255,.88); stroke: rgba(157,169,173,.64); stroke-width: .7; }
+    .sm-lane-heading text { fill: #66747C; text-anchor: middle; font: 690 8px "Cascadia Code", "Consolas", monospace; letter-spacing: .06em; }
+    .sm-boundary-label { fill: #4F847E; font: 720 8px "Cascadia Code", "Consolas", monospace; letter-spacing: .12em; }
     .sm-boundary-label.egress { fill: #BC7449; }
 
     .sm-edge-base { fill: none; stroke: #81909B; stroke-width: 1.4; opacity: .72; }
@@ -103,17 +105,22 @@
     .sm-node.kind-storage, .sm-inspector.kind-storage { --node-accent: #587C8A; --node-icon-bg: #EEF4F5; }
     .sm-node.kind-external, .sm-inspector.kind-external { --node-accent: #9A5959; --node-icon-bg: #F8EEEE; }
     .sm-node { cursor: pointer; outline: none; }
-    .sm-node-surface { fill: rgba(255,255,255,.97); stroke: #BFC7CA; stroke-width: 1; filter: drop-shadow(0 4px 7px rgba(46,54,64,.075)); transition: filter .16s ease, stroke .16s ease; }
-    .sm-node:hover .sm-node-surface, .sm-node:focus-visible .sm-node-surface { stroke: var(--node-accent); stroke-width: 1.6; filter: drop-shadow(0 7px 12px rgba(46,54,64,.11)); }
-    .sm-node.is-selected .sm-node-surface { fill: #FFFFFF; stroke: var(--node-accent); stroke-width: 2; filter: drop-shadow(0 8px 15px rgba(46,54,64,.12)); }
-    .sm-node.health-warning .sm-node-surface { fill: #FFFDFB; }
-    .sm-node.health-critical .sm-node-surface { fill: #FFFBFB; stroke: #A86666; }
-    .sm-icon-tile { fill: var(--node-icon-bg); stroke: color-mix(in srgb, var(--node-accent) 22%, #FFFFFF); }
-    .sm-icon-glyph { fill: none; stroke: var(--node-accent); stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round; }
-    .sm-icon-abbr { fill: var(--node-accent); text-anchor: middle; font: 780 6.5px var(--cs-font); }
-    .sm-node-label { fill: #29343C; font: 680 11.5px var(--cs-font); }
-    .sm-node-detail { fill: #737B81; font: 9.5px var(--cs-font); }
-    .sm-node-coordinate { fill: #8A949A; font: 620 6.5px "Cascadia Code", "Consolas", monospace; letter-spacing: .04em; }
+    .sm-node-hit { fill: transparent; stroke: none; pointer-events: all; }
+    .sm-iso-ground { fill: rgba(91,105,112,.10); filter: blur(.5px); }
+    .sm-iso-base-top { fill: #F8FAF9; stroke: #B4BEC1; stroke-width: .8; }
+    .sm-iso-base-left { fill: #E1E7E6; stroke: #B4BEC1; stroke-width: .8; }
+    .sm-iso-base-right { fill: #D6DFDE; stroke: #B4BEC1; stroke-width: .8; }
+    .sm-node:hover .sm-iso-base-top, .sm-node:focus-visible .sm-iso-base-top { stroke: var(--node-accent); stroke-width: 1.4; }
+    .sm-node.is-selected .sm-iso-base-top { fill: color-mix(in srgb, var(--node-icon-bg) 56%, #FFFFFF); stroke: var(--node-accent); stroke-width: 1.8; filter: drop-shadow(0 5px 6px rgba(46,54,64,.13)); }
+    .sm-iso-object { filter: drop-shadow(0 4px 4px rgba(46,54,64,.12)); }
+    .sm-iso-object .top { fill: color-mix(in srgb, var(--node-icon-bg) 72%, #FFFFFF); stroke: var(--node-accent); stroke-width: .8; }
+    .sm-iso-object .front { fill: color-mix(in srgb, var(--node-accent) 20%, #FFFFFF); stroke: var(--node-accent); stroke-width: .8; }
+    .sm-iso-object .side { fill: color-mix(in srgb, var(--node-accent) 34%, #FFFFFF); stroke: var(--node-accent); stroke-width: .8; }
+    .sm-iso-object .line { fill: none; stroke: var(--node-accent); stroke-width: .9; stroke-linecap: round; stroke-linejoin: round; }
+    .sm-iso-label rect { fill: rgba(255,255,255,.92); stroke: rgba(157,169,173,.66); stroke-width: .7; filter: drop-shadow(0 3px 5px rgba(46,54,64,.06)); }
+    .sm-node:hover .sm-iso-label rect, .sm-node:focus-visible .sm-iso-label rect, .sm-node.is-selected .sm-iso-label rect { stroke: var(--node-accent); }
+    .sm-node-label { fill: #29343C; font: 680 9.5px var(--cs-font); }
+    .sm-node-detail { fill: #737B81; font: 7.5px var(--cs-font); }
     .sm-health-dot { fill: #5E8259; stroke: #FFFFFF; stroke-width: 2; }
     .sm-node.health-warning .sm-health-dot { fill: #BC7449; }
     .sm-node.health-critical .sm-health-dot { fill: #AC5A5A; }
@@ -224,28 +231,32 @@
           <title id="sm-title">Service map design preview</title>
           <desc id="sm-description">Synthetic directional topology with ingress, services, data dependencies, and external egress. Animated particles represent throughput.</desc>
           <defs>
-            <pattern id="sm-minor-grid" width="12" height="12" patternUnits="userSpaceOnUse">
-              <path d="M12 0 H0 V12" fill="none" stroke="#728087" stroke-width=".45" opacity=".10" />
+            <pattern id="sm-iso-grid" width="48" height="24" patternUnits="userSpaceOnUse">
+              <path d="M-24 12 L0 0 L24 12 L0 24 Z M24 12 L48 0 L72 12 L48 24 Z" fill="none" stroke="#66757D" stroke-width=".55" opacity=".18" />
             </pattern>
-            <pattern id="sm-grid" width="60" height="60" patternUnits="userSpaceOnUse">
-              <rect width="60" height="60" fill="url(#sm-minor-grid)" />
-              <path d="M60 0 H0 V60" fill="none" stroke="#66757D" stroke-width=".65" opacity=".18" />
-            </pattern>
+            <clipPath id="sm-floor-clip"><path d="M30 76 H1250 L1200 540 H80 Z" /></clipPath>
             <marker id="sm-arrow-healthy" markerWidth="7" markerHeight="7" refX="6.5" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><path class="sm-marker" d="M0,0 L7,3.5 L0,7 Z" /></marker>
             <marker id="sm-arrow-warning" markerWidth="7" markerHeight="7" refX="6.5" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><path class="sm-marker-warning" d="M0,0 L7,3.5 L0,7 Z" /></marker>
             <marker id="sm-arrow-critical" markerWidth="7" markerHeight="7" refX="6.5" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><path class="sm-marker-critical" d="M0,0 L7,3.5 L0,7 Z" /></marker>
           </defs>
           <rect class="sm-drawing-sheet" x="-320" y="-180" width="1920" height="950" />
-          <g class="sm-lane sm-lane-external"><rect x="0" y="0" width="190" height="590" /><text x="16" y="28">External sources</text></g>
-          <g class="sm-lane sm-lane-ingress"><rect x="190" y="0" width="230" height="590" /><text x="206" y="28">Ingress</text></g>
-          <g class="sm-lane sm-lane-services"><rect x="420" y="0" width="290" height="590" /><text x="436" y="28">Services</text></g>
-          <g class="sm-lane sm-lane-data"><rect x="710" y="0" width="250" height="590" /><text x="726" y="28">Data and messaging</text></g>
-          <g class="sm-lane sm-lane-egress"><rect x="960" y="0" width="320" height="590" /><text x="976" y="28">External egress</text></g>
-          <rect class="sm-grid-overlay" x="-320" y="-180" width="1920" height="950" fill="url(#sm-grid)" />
-          <g class="sm-cad-dimensions" aria-hidden="true">
-            <path d="M0 44 H1280 M0 39 V49 M190 39 V49 M420 39 V49 M710 39 V49 M960 39 V49 M1280 39 V49" />
-            <text x="95" y="41">190</text><text x="305" y="41">230</text><text x="565" y="41">290</text><text x="835" y="41">250</text><text x="1120" y="41">320</text>
+          <g class="sm-iso-floor" aria-hidden="true">
+            <path class="sm-iso-floor-front" d="M80 540 H1200 L1182 555 H98 Z" />
+            <path class="sm-iso-floor-left" d="M30 76 L80 540 L98 555 L48 89 Z" />
+            <path class="sm-iso-floor-left" d="M1250 76 L1200 540 L1182 555 L1232 89 Z" />
+            <path class="sm-iso-floor-top" d="M30 76 H1250 L1200 540 H80 Z" />
           </g>
+          <g class="sm-lane sm-lane-external"><path d="M30 76 H220 L250 540 H80 Z" /></g>
+          <g class="sm-lane sm-lane-ingress"><path d="M220 76 H435 L460 540 H250 Z" /></g>
+          <g class="sm-lane sm-lane-services"><path d="M435 76 H710 L720 540 H460 Z" /></g>
+          <g class="sm-lane sm-lane-data"><path d="M710 76 H960 L950 540 H720 Z" /></g>
+          <g class="sm-lane sm-lane-egress"><path d="M960 76 H1250 L1200 540 H950 Z" /></g>
+          <rect class="sm-grid-overlay" x="30" y="76" width="1220" height="464" fill="url(#sm-iso-grid)" clip-path="url(#sm-floor-clip)" />
+          <g class="sm-lane-heading" transform="translate(64 89)"><rect width="98" height="20" rx="10" /><text x="49" y="13">EXTERNAL</text></g>
+          <g class="sm-lane-heading" transform="translate(275 89)"><rect width="82" height="20" rx="10" /><text x="41" y="13">INGRESS</text></g>
+          <g class="sm-lane-heading" transform="translate(516 89)"><rect width="98" height="20" rx="10" /><text x="49" y="13">SERVICES</text></g>
+          <g class="sm-lane-heading" transform="translate(780 89)"><rect width="112" height="20" rx="10" /><text x="56" y="13">DATA + EVENTS</text></g>
+          <g class="sm-lane-heading" transform="translate(1044 89)"><rect width="98" height="20" rx="10" /><text x="49" y="13">EGRESS</text></g>
           <text class="sm-boundary-label" x="207" y="566">INGRESS</text>
           <text class="sm-boundary-label egress" x="978" y="566">EGRESS</text>
           <g data-sm-edges></g>
@@ -277,7 +288,7 @@
     (function () {
       "use strict";
 
-      var nodeWidth = 166;
+      var nodeWidth = 108;
       var nodes = [
         { id: "browser", label: "Example clients", detail: "Web and mobile", kind: "client", lane: "External sources", health: "healthy", x: 94, y: 206 },
         { id: "probe", label: "Availability probe", detail: "Synthetic check", kind: "monitor", lane: "External sources", health: "healthy", x: 94, y: 426 },
@@ -390,6 +401,28 @@
         return '<circle cx="20" cy="20" r="12"/><path d="M8 20 H32 M20 8 C25 13 25 27 20 32 M20 8 C15 13 15 27 20 32"/>';
       }
 
+      function isoGlyph(kind) {
+        if (kind === "database") {
+          return '<path class="front" d="M12 9 V30 C12 37 40 37 40 30 V9 Z"/><ellipse class="top" cx="26" cy="9" rx="14" ry="6"/><path class="line" d="M12 19 C12 26 40 26 40 19"/>';
+        }
+        if (kind === "event") {
+          return '<path class="front" d="M11 12 L26 20 V36 L11 28 Z"/><path class="side" d="M26 20 L42 12 V28 L26 36 Z"/><path class="top" d="M11 12 L26 4 L42 12 L26 20 Z"/><path class="line" d="M5 12 H11 M42 12 H48 M26 0 V4 M26 36 V42"/>';
+        }
+        if (kind === "gateway") {
+          return '<path class="front" d="M9 13 L26 21 V37 L9 29 Z"/><path class="side" d="M26 21 L43 13 V29 L26 37 Z"/><path class="top" d="M9 13 L26 4 L43 13 L26 21 Z"/><path class="line" d="M16 29 V21 L26 26 L36 21 V29 M16 14 L26 9 L36 14"/>';
+        }
+        if (kind === "storage") {
+          return '<path class="front" d="M8 15 L26 24 V37 L8 28 Z"/><path class="side" d="M26 24 L44 15 V28 L26 37 Z"/><path class="top" d="M8 15 L26 6 L44 15 L26 24 Z"/><path class="line" d="M13 18 L26 25 L39 18 M20 31 L25 34"/>';
+        }
+        if (kind === "client" || kind === "monitor") {
+          return '<path class="front" d="M10 9 L39 14 V31 L10 26 Z"/><path class="side" d="M39 14 L44 11 V28 L39 31 Z"/><path class="top" d="M10 9 L15 6 L44 11 L39 14 Z"/><path class="line" d="M24 30 V36 M17 38 H31"/>';
+        }
+        if (kind === "external") {
+          return '<ellipse class="top" cx="26" cy="34" rx="17" ry="7"/><circle class="front" cx="26" cy="18" r="13"/><path class="line" d="M13 18 H39 M26 5 C32 11 32 25 26 31 M26 5 C20 11 20 25 26 31 M26 31 V34"/>';
+        }
+        return '<path class="front" d="M9 13 L26 22 V38 L9 29 Z"/><path class="side" d="M26 22 L43 13 V29 L26 38 Z"/><path class="top" d="M9 13 L26 4 L43 13 L26 22 Z"/><path class="line" d="M17 17 L26 12 L35 17 M17 27 L26 32 L35 27"/>';
+      }
+
       function renderEdges() {
         edgeLayer.innerHTML = edges.map(function (edge) {
           var source = nodeById(edge.source);
@@ -410,10 +443,13 @@
       function renderNodes() {
         nodeLayer.innerHTML = nodes.map(function (node) {
           var selected = node.id === selectedId;
-          return '<g class="sm-node kind-' + node.kind + ' health-' + node.health + (selected ? ' is-selected' : '') + '" data-node-id="' + node.id + '" role="button" tabindex="0" aria-pressed="' + selected + '" aria-label="' + node.label + ', ' + node.detail + ', ' + node.health + '" transform="translate(' + (node.x - 83) + ' ' + (node.y - 35) + ')">' +
-            '<rect class="sm-node-surface" width="166" height="70" rx="7"/>' +
-            '<g transform="translate(13 14)"><rect class="sm-icon-tile" width="40" height="40" rx="6"/><g class="sm-icon-glyph">' + glyph(node.kind) + '</g><text class="sm-icon-abbr" x="20" y="35">' + abbreviations[node.kind] + '</text></g>' +
-            '<text class="sm-node-label" x="63" y="24">' + node.label + '</text><text class="sm-node-detail" x="63" y="41">' + node.detail + '</text><text class="sm-node-coordinate" x="63" y="56">X' + formatCoordinate(node.x) + ' Y' + formatCoordinate(node.y) + '</text><circle class="sm-health-dot" cx="151" cy="14" r="5"/></g>';
+          return '<g class="sm-node kind-' + node.kind + ' health-' + node.health + (selected ? ' is-selected' : '') + '" data-node-id="' + node.id + '" role="button" tabindex="0" aria-pressed="' + selected + '" aria-label="' + node.label + ', ' + node.detail + ', ' + node.health + '" transform="translate(' + (node.x - 83) + ' ' + (node.y - 42) + ')">' +
+            '<rect class="sm-node-hit" width="179" height="84" rx="8"/>' +
+            '<ellipse class="sm-iso-ground" cx="47" cy="70" rx="38" ry="9"/>' +
+            '<path class="sm-iso-base-left" d="M12 56 L47 74 V79 L12 61 Z"/><path class="sm-iso-base-right" d="M47 74 L82 56 V61 L47 79 Z"/><path class="sm-iso-base-top" d="M12 56 L47 38 L82 56 L47 74 Z"/>' +
+            '<g class="sm-iso-object" transform="translate(21 8)">' + isoGlyph(node.kind) + '</g>' +
+            '<g class="sm-iso-label" transform="translate(73 22)"><rect width="104" height="32" rx="8"/><text class="sm-node-label" x="8" y="13">' + node.label + '</text><text class="sm-node-detail" x="8" y="24">' + node.detail + '</text></g>' +
+            '<circle class="sm-health-dot" cx="168" cy="28" r="4.5"/></g>';
         }).join("");
       }
 
