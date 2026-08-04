@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 3014e9550678b308c7056afe2a44afe5cab9fba0
+translation_source_sha: 88bdaa8d4fcdb71c25d9ff31d47350c705e1599a
 translation_revised: 2026-08-05
 ---
 
@@ -65,6 +65,11 @@ status가 계속 표시됩니다.
 navigation에는 별도의 Pantheon directory를 두지 않습니다. 에이전트 감독은 운영 담당 체계와
 governed proposal workflow를 다루는 Governance panel이며 `/agent-oversight`를 사용합니다. 이전
 `/handover` 경로는 compatibility alias로 유지합니다.
+다섯 view는 개요, 사람 의존성, 지식 인수인계, 승인 경로, 매핑 검토입니다. 개요와 사람 의존성은
+엄격한 `GET /stewardship` 프로젝션을 사용합니다. 매핑 검토는 Owner 게이트가 적용된
+`GET /iam/assignments` 프로젝션을 재사용하며 capability와 principal은 `GET /iam`에서만 가져옵니다.
+지식 인수인계는 governed draft boundary를 사용합니다. 승인 경로는 자체 authoritative projection이
+연결될 때까지 unavailable로 명시하며, browser는 ownership data에서 경로를 추론하지 않습니다.
 
 Settings에는 authoritative StateStore를 사용하는 Runtime policies route가 포함됩니다. 이 route는
 secret, endpoint, tenant identifier 또는 workload identity identifier를 노출하지 않고 정제된

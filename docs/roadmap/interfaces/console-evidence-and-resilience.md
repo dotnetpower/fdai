@@ -63,6 +63,12 @@ The stable `/pantheon` path remains a compatibility route for Org, so existing l
 resolve without keeping a second Pantheon directory in navigation. Agent oversight is a Governance
 panel at `/agent-oversight` because operational ownership and its governed proposal workflow are
 governance concerns. The previous `/handover` path remains a compatibility alias.
+Its five views are Overview, Human dependencies, Knowledge handover, Approval routes, and Mapping
+reviews. Overview and Human dependencies use the strict `GET /stewardship` projection. Mapping
+reviews reuses the owner-gated `GET /iam/assignments` projection and derives its capability and
+principal only from `GET /iam`. Knowledge handover uses the governed draft boundary. Approval
+routes remains explicitly unavailable until its own authoritative projection is connected; the
+browser does not infer a route from ownership data.
 
 Settings includes a Runtime policies route backed by the authoritative StateStore. The route shows
 sanitized environment, override, and effective values without exposing secrets, endpoints, tenant

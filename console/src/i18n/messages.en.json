@@ -461,6 +461,18 @@
   },
   "handover": {
     "subtitle": "Oversee operational ownership and coverage for all 15 agents. Submit governed ownership proposals for Owner review; no runtime change is applied here.",
+    "viewsLabel": "Agent oversight views",
+    "invalidView": "This Agent oversight view does not exist.",
+    "noFindings": "No ownership coverage issues were detected.",
+    "approvalRoutesUnavailable": "Approval-route evidence is not connected to this projection. No route or authority is inferred in the browser.",
+    "mappingReviewsLoading": "Loading mapping reviews...",
+    "view": {
+      "overview": "Overview",
+      "human-dependencies": "Human dependencies",
+      "knowledge-handover": "Knowledge handover",
+      "approval-routes": "Approval routes",
+      "mapping-reviews": "Mapping reviews"
+    },
     "unavailable": "The stewardship endpoint is not wired on this deployment. Set OperatorApiConfig.stewardship_map in the composition root to enable it.",
     "noMaintainer": "No maintainer configured - at least 1 is required.",
     "oneMaintainer": "Only 1 maintainer - 2 are recommended for succession safety.",

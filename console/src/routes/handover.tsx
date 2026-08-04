@@ -4,17 +4,12 @@ import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import {
   AsyncBoundary,
-  KpiCard,
-  KpiGrid,
   PageHeader,
   type AsyncState,
 } from "../components/ui";
-import { usePublishViewContext } from "../deck/context";
-import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
-import { routeHref } from "../router";
+import { AgentOversightBody } from "./agent-oversight-views";
 import { PANTHEON } from "./agents.model";
-import { HandoverProposalEditor } from "./handover-editor";
 import { panelArray, panelBoolean, panelContractError, panelNullableString, panelNumber, panelRecord, panelString, panelStringArray } from "./panel-decode";
 
 /**
@@ -32,14 +27,14 @@ type StewardResponsibility = "accountable" | "informed";
 type StewardDuty = "primary" | "backup" | "escalation";
 type FindingSeverity = "warn" | "info";
 
-interface StewardDto {
+export interface StewardDto {
   readonly kind: StewardKind;
   readonly id: string;
   readonly responsibility: StewardResponsibility;
   readonly duty: StewardDuty | null;
 }
 
-interface AgentStewardshipDto {
+export interface AgentStewardshipDto {
   readonly name: string;
   readonly autonomous: boolean;
   readonly accept_autonomous_reason: string | null;
@@ -47,7 +42,7 @@ interface AgentStewardshipDto {
   readonly stewards: readonly StewardDto[];
 }
 
-interface MapDto {
+export interface MapDto {
   readonly version: number;
   readonly maintainers: readonly string[];
   readonly maintainer_count: number;
@@ -56,14 +51,14 @@ interface MapDto {
   readonly agents: readonly AgentStewardshipDto[];
 }
 
-interface FindingDto {
+export interface FindingDto {
   readonly code: string;
   readonly severity: FindingSeverity;
   readonly message: string;
   readonly agent: string | null;
 }
 
-interface CoverageDto {
+export interface CoverageDto {
   readonly is_clean: boolean;
   readonly total_agents: number;
   readonly autonomous_agents: number;
@@ -71,7 +66,7 @@ interface CoverageDto {
   readonly findings: readonly FindingDto[];
 }
 
-interface StewardshipResponse {
+export interface StewardshipResponse {
   readonly map: MapDto;
   readonly coverage: CoverageDto;
 }
@@ -119,7 +114,7 @@ export function HandoverRoute({ client, auth }: Props) {
         subtitle={t("handover.subtitle")}
       />
       <AsyncBoundary state={state} resourceLabel={t("route.handover")}>
-        {(data) => <HandoverBody data={data} client={client} auth={auth} />}
+        {(data) => <AgentOversightBody data={data} client={client} auth={auth} />}
       </AsyncBoundary>
     </div>
   );
@@ -197,7 +192,11 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
       if (steward.responsibility === "informed" && steward.duty !== null) {
         throw panelContractError("informed stewardship entries MUST NOT declare duty");
       }
-      if (decoded.map.version >= 2 && steward.responsibility === "accountable" && steward.duty === null) {
+      if (
+        decoded.map.version >= STEWARDSHIP_DUTY_VERSION &&
+        steward.responsibility === "accountable" &&
+        steward.duty === null
+      ) {
         throw panelContractError("v2 accountable stewardship entries MUST declare duty");
       }
     }
@@ -224,137 +223,4 @@ function stewardshipEnum<const T extends string>(
   return decoded as T;
 }
 
-function HandoverBody({
-  data,
-  client,
-  auth,
-}: {
-  readonly data: StewardshipResponse;
-  readonly client: OperatorApiClient;
-  readonly auth: AuthContext;
-}) {
-  const { map, coverage } = data;
-  usePublishViewContext(
-    () => ({
-      routeId: "handover",
-      routeLabel: t("route.handover"),
-      purpose: t("handover.subtitle"),
-      glossary: composeGlossary([agentTerm(), TERMS.hil]),
-      headline: `${map.agents.length} ${t("handover.agents")} - ${map.maintainer_count} ${t("handover.maintainers")}`,
-      capturedAt: new Date().toISOString(),
-      facts: [
-        { key: "agent_count", value: map.agents.length, group: "handover" },
-        { key: "maintainer_count", value: map.maintainer_count, group: "handover" },
-        { key: "autonomous_agents", value: coverage.autonomous_agents, group: "handover" },
-        { key: "coverage_clean", value: coverage.is_clean ? "yes" : "no", group: "handover" },
-      ],
-      records: {
-        agents: map.agents.map((a) => ({
-          name: a.name,
-          stewards: a.stewards
-            .map((s) => `${s.kind}:${s.responsibility}${s.duty ? `:${s.duty}` : ""}`)
-            .join(", ") || "-",
-          bus_factor: a.bus_factor,
-          autonomous: a.autonomous ? "yes" : "no",
-        })),
-        findings: coverage.findings.map((f) => ({
-          code: f.code,
-          severity: f.severity,
-          agent: f.agent ?? "",
-          message: f.message,
-        })),
-      },
-    }),
-    [map, coverage],
-  );
-
-  const maintainerBanner =
-    map.maintainer_count < 1
-      ? { level: "fail", text: t("handover.noMaintainer") }
-      : map.maintainer_count === 1
-        ? { level: "warn", text: t("handover.oneMaintainer") }
-        : null;
-
-  return (
-    <div class="stack">
-      <KpiGrid>
-        <KpiCard href={routeHref("agents")} label={t("handover.agents")} value={map.agents.length} />
-        <KpiCard href={`${routeHref("handover")}#handover-map`} label={t("handover.maintainers")} value={map.maintainer_count} />
-        <KpiCard href={`${routeHref("handover")}#handover-map`} label={t("handover.autonomous")} value={coverage.autonomous_agents} />
-        <KpiCard
-          href={`${routeHref("handover")}#handover-coverage`}
-          label={t("handover.coverage")}
-          value={t(coverage.is_clean ? "handover.clean" : "handover.review")}
-        />
-      </KpiGrid>
-
-      {maintainerBanner ? (
-        <div class={`callout callout--${maintainerBanner.level === "fail" ? "danger" : "warn"}`}>
-          {maintainerBanner.text}
-        </div>
-      ) : null}
-
-      <HandoverProposalEditor client={client} auth={auth} />
-
-      <section id="handover-map" class="stack">
-        <h3>{t("handover.mapTitle")}</h3>
-        <div class="data-table-wrap">
-          <table class="cs-table">
-          <thead>
-            <tr>
-              <th>{t("handover.agent")}</th>
-              <th>{t("handover.owners")}</th>
-              <th>{t("handover.backupCoverage")}</th>
-              <th>{t("handover.mode")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {map.agents.map((a) => (
-              <tr key={a.name}>
-                <td><a href={routeHref("agents", { params: { agent: a.name } })}>{a.name}</a></td>
-                <td>
-                  {a.autonomous
-                    ? `${t("handover.autonomous")} (${a.accept_autonomous_reason ?? t("handover.noReason")})`
-                    : a.stewards
-                      .map((s) => `${s.kind} / ${s.responsibility}${s.duty ? ` / ${s.duty}` : ""}`)
-                        .join(", ") || "-"}
-                </td>
-                <td>{a.autonomous ? "-" : a.bus_factor}</td>
-                <td>{t(a.autonomous ? "handover.autonomous" : "handover.mapped")}</td>
-              </tr>
-            ))}
-          </tbody>
-          </table>
-        </div>
-      </section>
-
-      {coverage.findings.length > 0 ? (
-        <section id="handover-coverage" class="stack">
-          <h3>{t("handover.findingsTitle")}</h3>
-          <div class="data-table-wrap">
-            <table class="cs-table">
-            <thead>
-              <tr>
-                <th>{t("handover.severity")}</th>
-                <th>{t("handover.code")}</th>
-                <th>{t("handover.agent")}</th>
-                <th>{t("handover.message")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {coverage.findings.map((f, i) => (
-                <tr key={`${f.code}-${i}`}>
-                  <td>{f.severity}</td>
-                  <td>{f.code}</td>
-                  <td>{f.agent ? <a href={routeHref("agents", { params: { agent: f.agent } })}>{f.agent}</a> : "-"}</td>
-                  <td>{f.message}</td>
-                </tr>
-              ))}
-            </tbody>
-            </table>
-          </div>
-        </section>
-      ) : null}
-    </div>
-  );
-}
+const STEWARDSHIP_DUTY_VERSION = 2;

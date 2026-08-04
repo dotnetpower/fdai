@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { oversightViewFromSegment } from "./agent-oversight-views";
 import { PANTHEON } from "./agents.model";
 import { decodeStewardship } from "./handover";
 
@@ -34,6 +35,15 @@ function stewardshipPayload() {
 }
 
 describe("Handover projection contract", () => {
+  test("accepts only the five Agent oversight views", () => {
+    expect(oversightViewFromSegment(undefined)).toBe("overview");
+    expect(oversightViewFromSegment("human-dependencies")).toBe("human-dependencies");
+    expect(oversightViewFromSegment("knowledge-handover")).toBe("knowledge-handover");
+    expect(oversightViewFromSegment("approval-routes")).toBe("approval-routes");
+    expect(oversightViewFromSegment("mapping-reviews")).toBe("mapping-reviews");
+    expect(oversightViewFromSegment("unknown")).toBeNull();
+  });
+
   test("accepts a count-consistent fixed pantheon map", () => {
     expect(decodeStewardship(stewardshipPayload()).map.agents).toHaveLength(15);
   });
