@@ -60,5 +60,9 @@ describe("mock console visual boundary", () => {
     expect(serviceMap).toContain('data-sm-mode="incident"');
     expect(serviceMap).toContain("sm-edge-particles");
     expect(serviceMap).toContain("sm-icon-glyph");
+    expect(serviceMap).toContain("stroke-width: 1.4");
+    expect(serviceMap).toContain("stroke-width: 2.8");
+    expect(serviceMap.match(/markerUnits="userSpaceOnUse"/g)).toHaveLength(3);
+    expect(serviceMap).not.toContain('markerUnits="strokeWidth"');
   });
 });

@@ -39,17 +39,17 @@
     .sm-boundary-label { fill: #4F847E; font: 750 10px var(--cs-font); letter-spacing: .12em; }
     .sm-boundary-label.egress { fill: #BC7449; }
 
-    .sm-edge-base { fill: none; stroke: #81909B; stroke-width: 2.2; opacity: .72; }
+    .sm-edge-base { fill: none; stroke: #81909B; stroke-width: 1.4; opacity: .72; }
     .sm-edge.is-async .sm-edge-base { stroke-dasharray: 7 6; }
-    .sm-edge-particles { fill: none; stroke: #44688E; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 2 15; opacity: 0; }
+    .sm-edge-particles { fill: none; stroke: #44688E; stroke-width: 1.8; stroke-linecap: round; stroke-dasharray: 2 15; opacity: 0; }
     .sm-workspace[data-mode="live"][data-motion="running"] .sm-edge-particles { opacity: .82; animation: sm-flow 1.8s linear infinite; }
     .sm-workspace[data-mode="live"][data-motion="running"] .sm-edge.speed-fast .sm-edge-particles { animation-duration: .8s; }
     .sm-workspace[data-mode="live"][data-motion="running"] .sm-edge.speed-medium .sm-edge-particles { animation-duration: 1.25s; }
     .sm-edge.health-warning .sm-edge-base, .sm-edge.health-warning .sm-edge-particles { stroke: #BC7449; }
     .sm-edge.health-critical .sm-edge-base, .sm-edge.health-critical .sm-edge-particles { stroke: #AC5A5A; }
     .sm-workspace[data-mode="incident"] .sm-edge.health-healthy { opacity: .18; }
-    .sm-workspace[data-mode="incident"] .sm-edge.health-warning .sm-edge-base { stroke-width: 3.5; opacity: .92; }
-    .sm-workspace[data-mode="incident"] .sm-edge.health-critical .sm-edge-base { stroke-width: 5; opacity: 1; }
+    .sm-workspace[data-mode="incident"] .sm-edge.health-warning .sm-edge-base { stroke-width: 2.1; opacity: .92; }
+    .sm-workspace[data-mode="incident"] .sm-edge.health-critical .sm-edge-base { stroke-width: 2.8; opacity: 1; }
     .sm-workspace[data-mode="performance"] .sm-edge-label rect { stroke: #A9B2B8; }
     @keyframes sm-flow { to { stroke-dashoffset: -34; } }
 
@@ -162,9 +162,9 @@
           <title id="sm-title">Service map design preview</title>
           <desc id="sm-description">Synthetic directional topology with ingress, services, data dependencies, and external egress. Animated particles represent throughput.</desc>
           <defs>
-            <marker id="sm-arrow-healthy" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth"><path class="sm-marker" d="M0,0 L8,4 L0,8 Z" /></marker>
-            <marker id="sm-arrow-warning" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth"><path class="sm-marker-warning" d="M0,0 L8,4 L0,8 Z" /></marker>
-            <marker id="sm-arrow-critical" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth"><path class="sm-marker-critical" d="M0,0 L8,4 L0,8 Z" /></marker>
+            <marker id="sm-arrow-healthy" markerWidth="7" markerHeight="7" refX="6.5" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><path class="sm-marker" d="M0,0 L7,3.5 L0,7 Z" /></marker>
+            <marker id="sm-arrow-warning" markerWidth="7" markerHeight="7" refX="6.5" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><path class="sm-marker-warning" d="M0,0 L7,3.5 L0,7 Z" /></marker>
+            <marker id="sm-arrow-critical" markerWidth="7" markerHeight="7" refX="6.5" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><path class="sm-marker-critical" d="M0,0 L7,3.5 L0,7 Z" /></marker>
           </defs>
           <g class="sm-lane sm-lane-external"><rect x="0" y="0" width="190" height="590" /><text x="16" y="28">External sources</text></g>
           <g class="sm-lane sm-lane-ingress"><rect x="190" y="0" width="230" height="590" /><text x="206" y="28">Ingress</text></g>
