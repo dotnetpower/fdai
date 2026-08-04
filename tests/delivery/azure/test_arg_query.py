@@ -587,8 +587,10 @@ async def test_non_2xx_response_raises() -> None:
             http_client=client,
             config=_config(),
         )
-        with pytest.raises(ArgQueryError, match="HTTP 403"):
+        with pytest.raises(ArgQueryError, match="HTTP 403") as exc_info:
             await factory.build_query_fn()("object-storage")
+
+    assert "insufficient RBAC" not in str(exc_info.value)
 
 
 @pytest.mark.asyncio

@@ -186,10 +186,8 @@ async def fetch_arg_row_pages(
         )
 
         if response.status_code >= 400:
-            snippet = response.text[:200].replace("\n", " ")
             raise error_type(
-                f"ARG returned HTTP {response.status_code} for {result_name!r} "
-                f"(page {page}): {snippet!r}"
+                f"ARG returned HTTP {response.status_code} for {result_name!r} (page {page})"
             )
         if max_response_bytes is not None and len(response.content) > max_response_bytes:
             raise error_type(
