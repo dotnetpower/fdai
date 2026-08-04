@@ -60,6 +60,26 @@ def test_analysis_followup_detection_does_not_capture_explicit_other_domains() -
     assert is_llm_usage_followup("지난주와 비교해줘")
 
 
+def test_analysis_followup_detection_ignores_read_only_architecture_phrase() -> None:
+    # "read-only"/"read only" is FDAI's own pervasive read-only-architecture
+    # phrase (appears in nearly every operator question). The bare word "only"
+    # inside it must never, by itself, be treated as an LLM-usage chart/table
+    # refinement cue - or any unrelated question phrased with "read-only
+    # evidence" risks reusing a stale LLM-usage analysis anchor from a prior
+    # turn.
+    assert not is_llm_usage_followup(
+        "Based on current read-only monitoring evidence, is there any active "
+        "service outage affecting FDAI-managed services within the configured "
+        "Azure scope right now, and how is that determined?"
+    )
+    assert not is_llm_usage_followup(
+        "Using read only inventory evidence, which resources are stopped?"
+    )
+    assert not is_llm_usage_followup("허용된 범위 내 읽기 전용 근거로 상태를 알려줘.")
+    # A genuine chart-refinement cue combined with "only" still routes normally.
+    assert is_llm_usage_followup("show only the weekday totals as a chart")
+
+
 @pytest.mark.parametrize("stream", [False, True])
 def test_durable_usage_followup_returns_chart_without_health_or_model_fallback(
     stream: bool, monkeypatch: pytest.MonkeyPatch
