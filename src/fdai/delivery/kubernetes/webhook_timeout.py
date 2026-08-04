@@ -51,7 +51,7 @@ def cumulative_webhook_timeout_findings(
                 "last_seen": observed_at,
             },
         )
-        group["webhook_names"].add(webhook_name[:253])
+        group["webhook_names"].add(webhook_name[:253].casefold())
         event_name = event.get("name")
         if isinstance(event_name, str) and event_name:
             group["event_names"].add(event_name[:253])

@@ -78,6 +78,18 @@ def test_cumulative_timeout_abstains_on_duplicate_webhook_or_event() -> None:
     )
 
 
+def test_cumulative_timeout_treats_webhook_case_variants_as_one_identity() -> None:
+    case_variant = deepcopy(_events())
+    case_variant[1]["webhook_name"] = "POLICY-A.EXAMPLE.IO"
+
+    assert not cumulative_webhook_timeout_findings(
+        case_variant,
+        namespace="example-app",
+        evidence_complete=True,
+        evidence_cutoff=_CUTOFF,
+    )
+
+
 def test_cumulative_timeout_abstains_on_uid_conflict_or_future_event() -> None:
     uid_conflict = deepcopy(_events())
     uid_conflict[1]["regarding"]["uid"] = "replacement-uid"  # type: ignore[index]
