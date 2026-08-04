@@ -8,7 +8,6 @@ import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { currentRoute, navigate, routeHref } from "../router";
 import { AccessRequestsView } from "./settings-iam-requests";
-import { SettingsIamAssignments } from "./settings-iam-assignments";
 import { DirectoryUserSearch } from "./settings-iam-users";
 import { submitIamAccessRequest } from "./settings-iam.command";
 import type {
@@ -25,13 +24,13 @@ interface Props {
   readonly auth: AuthContext;
 }
 
-type IamTab = "my-access" | "users" | "roles" | "requests" | "assignments";
+type IamTab = "my-access" | "users" | "roles" | "requests";
 
 export function isIamTabRestricted(
   tab: IamTab,
   canManage: boolean | null,
 ): boolean {
-  return canManage === false && (tab === "users" || tab === "requests" || tab === "assignments");
+  return canManage === false && (tab === "users" || tab === "requests");
 }
 
 export function isCurrentIamLoad(currentGeneration: number, candidate: number): boolean {
@@ -166,7 +165,6 @@ export function SettingsIamRoute({ client, auth }: Props) {
           ["users", t("settings.iam.users")],
           ["roles", t("settings.iam.roles")],
           ["requests", t("settings.iam.requests")],
-          ["assignments", t("settings.iam.assignments")],
         ] as const).map(([id, label]) => {
           const restricted = isIamTabRestricted(id, canManage);
           return (
@@ -299,15 +297,6 @@ function renderTab(props: {
           auth={props.auth}
           client={props.client}
           reload={props.reload}
-        />
-      );
-    case "assignments":
-      return (
-        <SettingsIamAssignments
-          client={props.client}
-          auth={props.auth}
-          canManage={props.canManage}
-          principalOid={props.overview.principal.oid}
         />
       );
   }
@@ -468,7 +457,7 @@ function UsersView({
   );
 }
 
-const IAM_TABS: readonly IamTab[] = ["my-access", "users", "roles", "requests", "assignments"];
+const IAM_TABS: readonly IamTab[] = ["my-access", "users", "roles", "requests"];
 
 export function iamTabFromSegment(segment: string | undefined): IamTab | null {
   if (segment === undefined) return "my-access";
