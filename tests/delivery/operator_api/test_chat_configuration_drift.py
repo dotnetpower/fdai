@@ -23,6 +23,7 @@ from fdai.delivery.operator_api.routes.chat_action_context import (
 )
 from fdai.delivery.operator_api.routes.chat_configuration_drift import (
     ConfigurationDriftChatTools,
+    needs_configuration_drift_context,
 )
 from fdai.shared.providers.knowledge import KnowledgeDocument
 
@@ -165,3 +166,8 @@ def test_non_baseline_mitigation_question_keeps_action_context_hold() -> None:
     assert payload["verification"]["authority"] == "server_action_context"
     assert payload["verification"]["reason_code"] == "exact_action_context_required"
     assert backend.calls == 0
+
+
+def test_generic_baseline_words_do_not_create_a_keyword_route() -> None:
+    assert not needs_configuration_drift_context("Show the configuration baseline")
+    assert not needs_configuration_drift_context("구성 기준선을 보여줘")

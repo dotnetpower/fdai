@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 457157ea1de86f082e5fd221a0aa8a547ee56078
+translation_source_sha: 610089159d14d7cd59f8e8ee5720c89137e1ef14
 translation_revised: 2026-08-04
 ---
 
@@ -373,7 +373,7 @@ write 집합에 대한 두 명확화:
 
 `query_log`는 명시적인 bounded KQL과 세 가지 자연어 진단 형태를 server-owned template으로 처리합니다. 실패 요청 요약은 `AppRequests`를 작업과 결과 코드별로 그룹화하지만, 이 그룹이 근본 원인을 증명한다고 주장하지 않습니다. 오류 시그니처 시간 범위와 관련 로그 요청에는 정확한 시그니처 또는 선택된 context가 필요합니다. context가 없으면 provider나 narrator를 호출하지 않고 확인 질문을 반환합니다. 대표 오류 샘플은 고정 multi-table template을 사용하고, 요청 window를 24시간으로 제한하며, cell을 렌더링하기 전에 secret assignment, bearer 값, resource identifier, GUID, 이메일 주소, URL, IP 주소를 제거합니다. 추가 고정 template은 가장 느린 관측 분산 추적의 span을 순위화하고, dependency latency를 집계하며, 느린 database dependency call을 나열합니다. 이 결과만으로 근본 원인, 인과적 기여 또는 database call이 CPU 상승을 설명한다는 결론을 증명하지는 않습니다. Bounded read-only error KQL을 실행하라는 자연어 요청은 server-owned error template을 사용하고, 명시적인 영어 또는 한국어 minute/hour window를 24시간 상한으로 유지합니다. Prompt text는 실행 가능한 KQL이 되지 않습니다. workspace provider가 구성되지 않은 경우에도 같은 tool이 typed unavailable 결과를 반환하며, current-screen, incident, web 또는 narrator evidence로 fallback하지 않습니다.
 Proposal, approval, execution, outcome verification, retry 또는 idempotency에 대한 context-free 질문은 deterministic action-context hold를 사용합니다. Lifecycle claim을 검증하기 전에 exact ActionType, target resource, proposal, approval 또는 action receipt를 제공해야 합니다. Current-screen, repository, incident 및 narrator evidence는 governed record를 대체하지 않으며, 이 hold는 mutation이나 model call을 수행하지 않습니다.
-정확한 configuration-baseline 파일 이름 또는 S13 baseline 요청은 action-context 분류보다 먼저 read-only baseline tool을 선택합니다. "mitigation tool을 호출하지 마세요"와 같은 부정 지시는 문서 읽기를 action-lifecycle 질문으로 바꾸지 않습니다. 결정론적 답변은 각 section에서 고정된 DOCX를 인용하고 사용할 수 없는 관계를 prose에서 추론하지 않고 unknown으로 보고합니다.
+정확한 configuration-baseline 파일 이름은 action-context 분류보다 먼저 read-only baseline tool을 선택합니다. "mitigation tool을 호출하지 마세요"와 같은 부정 지시는 문서 읽기를 action-lifecycle 질문으로 바꾸지 않습니다. 결정론적 답변은 각 section에서 고정된 DOCX를 인용하고 사용할 수 없는 관계를 prose에서 추론하지 않고 unknown으로 보고합니다. 일반적인 baseline 표현은 별도 keyword router를 만들지 않고 검증된 semantic planning 경로에 유지됩니다.
 Month-1 추가는 콘솔을 multi-signal 인시덴트 대응 경험에 가깝게
 만들어 주지만, 여전히 **이미 correlate 된** 결과를 surface;
 correlator는 Layer 1에 살고, narrator 안에 살지 않는다.

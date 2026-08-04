@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from typing import Any, Final
@@ -14,18 +13,13 @@ from fdai.core.detection.configuration_drift_service import (
 )
 from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
 
-_BASELINE_INTENT: Final = re.compile(
-    r"sre-s13-workload-infrastructure-baseline\.docx|"
-    r"\b(?:s13|configuration)\s+(?:configuration\s+)?baseline\b|"
-    r"(?:s13|구성)\s*(?:구성\s*)?(?:기준선|baseline)",
-    re.IGNORECASE,
-)
+_BASELINE_DOCUMENT_REF: Final = "sre-s13-workload-infrastructure-baseline.docx"
 
 
 def needs_configuration_drift_context(prompt: str) -> bool:
-    """Return whether a turn names the configured frozen S13 baseline."""
+    """Return whether a turn names the server-pinned frozen baseline document."""
 
-    return bool(_BASELINE_INTENT.search(prompt))
+    return _BASELINE_DOCUMENT_REF in prompt.casefold()
 
 
 @dataclass(frozen=True, slots=True)
