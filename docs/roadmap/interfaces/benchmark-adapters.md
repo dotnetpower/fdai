@@ -221,6 +221,13 @@ and timestamp inside the five-minute evidence window. It emits a hold-only socke
 with occurrence count and no raw body, address, or port. Missing UID, stale, future, oversized,
 unrecognized, or incomplete records produce no finding. This semantic reducer does not make the
 mechanism operational: a concrete bounded `observe.logs.query` provider remains separate work.
+Log target selection is also provider-neutral and bounded. It requires exact Pod UIDs, valid
+creation timestamps, and complete container-status projections. Half of the Pod ceiling is selected
+by active-failure, restart, and readiness priority; remaining capacity is filled by recency before
+returning to priority order. Failing containers rank ahead of restarted and healthy containers
+inside each Pod's separate container ceiling. This prevents both an old unhealthy backlog and a
+burst of recent healthy Pods from starving relevant evidence. Incomplete or ambiguous identities
+produce no target.
 
 The observe-only `observe.kubernetes.owners` capability follows at most eight custom owner
 references from the bounded namespace inventory. Every lookup preserves the owner reference UID

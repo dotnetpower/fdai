@@ -357,6 +357,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_bounded_log_target_fairness",
+      "source_commits": [
+        "221a9b15e5e642fb3444754d0c300452c94dc773"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Generalized active-failure prioritization into an exact-UID, complete-status selector that reserves half of each bounded Pod budget for recency and applies a separate container ceiling; no concrete log provider is claimed.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

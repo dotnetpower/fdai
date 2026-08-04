@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 437f3bdb5552e88a79a757d4c71b87818850cdbe
+translation_source_sha: efebd90fb6984ca647d9f651ea303a558a047619
 translation_revised: 2026-08-04
 ---
 
@@ -225,6 +225,12 @@ timestamp를 가진 bounded record에서 reviewed `EADDRINUSE`, `address already
 socket-bind candidate를 생성합니다. Missing UID, stale, future, oversized, unrecognized 또는 incomplete
 record는 finding을 생성하지 않습니다. Concrete bounded `observe.logs.query` provider는 별도 작업이므로
 이 semantic reducer만으로 mechanism이 operationalized되지는 않습니다.
+Log target selection도 provider-neutral이며 bounded입니다. Exact Pod UID, valid creation timestamp
+및 complete container-status projection이 필요합니다. Pod ceiling의 절반은 active-failure, restart,
+readiness priority로 선택하고 나머지는 recency로 채운 뒤 priority order로 돌아갑니다. 각 Pod의 별도
+container ceiling 안에서는 failing container가 restarted/healthy container보다 앞섭니다. 따라서 오래된
+unhealthy backlog와 최근 healthy Pod burst 모두 relevant evidence를 starvation시키지 못합니다.
+Incomplete 또는 ambiguous identity는 target을 생성하지 않습니다.
 
 Observe-only `observe.kubernetes.owners` capability는 bounded namespace inventory에서 최대 8개
 custom owner reference를 따라갑니다. 각 lookup은 owner reference UID를 보존하며 반환된 custom

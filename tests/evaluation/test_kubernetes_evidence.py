@@ -122,6 +122,7 @@ async def test_inventory_uses_explicit_context_and_projects_diagnostic_fields(
             "phase": "Pending",
             "node": "worker-1",
             "deleting": False,
+            "container_status_projection_complete": True,
             "containers": [
                 {
                     "name": "api",

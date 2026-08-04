@@ -441,16 +441,24 @@ def _project_resource(item: Mapping[str, Any]) -> dict[str, Any] | None:
     elif kind == "Pod":
         statuses = status_values.get("containerStatuses")
         container_statuses = statuses if isinstance(statuses, list) else []
+        selected_statuses = container_statuses[:32]
+        projected_statuses = [
+            _project_container_status(value)
+            for value in selected_statuses
+            if isinstance(value, Mapping)
+        ]
         projected.update(
             phase=_text(status_values.get("phase"), 64),
             node=_text(spec_values.get("nodeName"), 253),
             deleting=metadata.get("deletionTimestamp") is not None,
-            containers=[
-                _project_container_status(value)
-                for value in container_statuses
-                if isinstance(value, Mapping)
-            ],
+            container_status_projection_complete=isinstance(statuses, list)
+            and len(container_statuses) <= 32
+            and len(projected_statuses) == len(container_statuses),
+            containers=projected_statuses,
         )
+        created_at = _text(metadata.get("creationTimestamp"), 64)
+        if created_at:
+            projected["created_at"] = created_at
         resource_requests = project_pod_resource_requests(spec_values)
         if resource_requests is not None:
             projected["resource_requests"] = resource_requests
