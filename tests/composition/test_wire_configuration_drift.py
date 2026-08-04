@@ -3,8 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from fdai.composition import default_container
-from fdai.composition.wire_configuration_drift import bind_configuration_drift
+from fdai.composition import bind_configuration_drift, default_container
 from fdai.core.detection.configuration_drift import (
     ConfigurationObservation,
     ConfigurationResource,

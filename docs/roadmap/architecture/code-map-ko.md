@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 4c794bad68db36296cce06e0be46740d71464280
+translation_source_sha: 56708dc88941a9eeb9dbd028b71a5206197b9992
 translation_revised: 2026-08-04
 ---
 # 코드 맵
@@ -273,6 +273,7 @@ agent는 owned advisory topic을 publish하기 전에 이 canonical Event를 con
 | [src/fdai/composition/_helpers.py](../../../src/fdai/composition/_helpers.py) | `Container`, 지출이 차감되는 metering, pricing, model key와 함께 바인딩되는 optional conversation T2 synthesis를 포함한 `LlmBindings`, `LlmBindingsUnavailableError`. |
 | [src/fdai/composition/wire_llm.py](../../../src/fdai/composition/wire_llm.py) | Azure OpenAI LLM 바인더 (컴포지션 타임 모델 해석). |
 | [src/fdai/composition/wire_distiller.py](../../../src/fdai/composition/wire_distiller.py) | Exact-version 3-family ontology extraction council을 atomic하게 validate하고 `Container.distiller`에 bind합니다. Council record가 없으면 abstention을 유지하고 partial record는 startup을 실패시킵니다. |
+| [src/fdai/composition/wire_capabilities.py](../../../src/fdai/composition/wire_capabilities.py) | 검증된 capability bundle을 설치하고 server-pinned read-only configuration drift capability를 bind합니다. Caller는 `fdai.composition` facade를 사용합니다. |
 | [src/fdai/composition/wire_azure.py](../../../src/fdai/composition/wire_azure.py) | Fork-wire 컨테이너 + `AzureWireOverrides`. |
 | [src/fdai/composition/wire_change_feed.py](../../../src/fdai/composition/wire_change_feed.py) | change-feed 팩토리 wiring (Azure DevOps / GitHub 변경 생산자). |
 | [src/fdai/composition/wire_metric_provider.py](../../../src/fdai/composition/wire_metric_provider.py) | `MetricProvider` 바인더 (`FDAI_MONITOR_WORKSPACE_ID` 세팅 시 Azure Monitor Logs 자동 바인드); LOC 상한 유지를 위해 `wire_azure`에서 분리 (G-4). |

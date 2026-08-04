@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 963,
+  "file_count": 962,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "22f8e22e3fd307e30886805683b0f38c39442deeb24a45026471d71084b4ea99",
     ".github/instructions/agent-stewardship.instructions.md": "574518fca728a9a6c8d3b50e0cf4aa53a1ed5bf85d5c52e5da67a0486bf31a43",
@@ -71,16 +71,15 @@
     "src/fdai/agents/thor.py": "9e19ba3390674be85a54cd5e083021952d24d43df41eb94c272a9d757229dff4",
     "src/fdai/agents/var.py": "d4af6b0a58d477311b43c2dd4dd19d097ac5110c4bbbcbf496802c1a0039982a",
     "src/fdai/agents/vidar.py": "9a15df6fef9f5db74c90201c44088c38b20d8fb60f1476a622be01aa73007800",
-    "src/fdai/composition/__init__.py": "f0dfd4360e3811e93cc0fd8280576991d166ad9a4cd1f63df3339626249ada28",
+    "src/fdai/composition/__init__.py": "0c68b27ba9b1247022f57dc03ebce042dfbde9ef52f1fce52d9f4a59700cf83f",
     "src/fdai/composition/_helpers.py": "f9a088f72cdfd1ee2ee4ddd3552c7a2c06e9e9227c0b56b94bb825ff135316f9",
     "src/fdai/composition/readiness.py": "3e34b598b95aad397f23f3ebf9847c7c77ea396216a32533925eae9bd6dd25ba",
     "src/fdai/composition/readiness_evidence.py": "44484b30cbb3989385f7f3a69f0164cf6aabeda32a71f57a40484d30a4fd8479",
     "src/fdai/composition/wire_azure.py": "67cf1fb2ab0208130c8b9da840c68ef973fb36a3f2d4df290fe8bba55a6244ee",
     "src/fdai/composition/wire_azure_operational_evidence.py": "105a38e9bf20b9101899374f55b2f572039c100a49e593edd6e6216f0a27ec9d",
     "src/fdai/composition/wire_browser_evidence.py": "ba5358861b1ada12139d21e2f0d4b58512c87b7362f122693732b0bb8dec891c",
-    "src/fdai/composition/wire_capabilities.py": "3cbd9ae5505e2deb2f04ee48e70c5d74d85daa0afec6f6374391f6da31424dfc",
+    "src/fdai/composition/wire_capabilities.py": "f4753c5ec963cffb9660d08efb618869a19b76f2512ffdf1b5e90fed093857e9",
     "src/fdai/composition/wire_change_feed.py": "ec7bfb2bf72292d7445e3e50f36084706c1a8247e52b6d5e67afd528e023ca43",
-    "src/fdai/composition/wire_configuration_drift.py": "733d717f725eed28447a005fefb2dabb60ce73a94c18a13a20f7aa0fbd3ca5b7",
     "src/fdai/composition/wire_distiller.py": "ec914348ae9980bf617e5e31e4645e3d9288747faccc1c2e93fbc0f7d1bb7669",
     "src/fdai/composition/wire_execution_authorization.py": "d96c5fda55d2018bfac05aa296933af20e8de52d8ab3109969e4665ab15d393f",
     "src/fdai/composition/wire_execution_backends.py": "298635714b992ed343eed6a34e43e0b75dd80cff7699143b8bd2667a256fe8a9",
@@ -966,7 +965,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-04T05:05:22Z",
+  "generated_at": "2026-08-04T05:20:03Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
