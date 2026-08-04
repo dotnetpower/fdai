@@ -16,7 +16,14 @@ from fdai.composition import (
     default_container_from_env,
     wire_azure_container,
 )
-from fdai.core.assurance_twin import StateStoreEffectModelRegistry
+from fdai.core.assurance_twin import (
+    GraphDynamicClosureCoordinator,
+    GraphDynamicClosureRunner,
+    MetricGraphTrajectoryOutcomeSource,
+    StateStoreEffectModelRegistry,
+    StateStoreGraphEffectModelRegistry,
+    StateStoreTrajectoryEpisodeLedger,
+)
 from fdai.core.measurement.regression import RegressionDetector
 from fdai.core.measurement.runners import (
     AutomatedBaselineRunner,
@@ -136,6 +143,20 @@ async def _run_growth() -> int:
             registry=StateStoreEffectModelRegistry(state_store),
             audit_store=state_store,
         ).run_once()
+        trajectory_ledger = StateStoreTrajectoryEpisodeLedger(state_store)
+        graph_registry = StateStoreGraphEffectModelRegistry(state_store)
+        graph_reports = await GraphDynamicClosureRunner(
+            outcome_source=MetricGraphTrajectoryOutcomeSource(
+                ledger=trajectory_ledger,
+                metrics=container.metric_provider,
+            ),
+            coordinator=GraphDynamicClosureCoordinator(
+                ledger=trajectory_ledger,
+                registry=graph_registry,
+                audit_store=state_store,
+            ),
+            audit_store=state_store,
+        ).run_once()
     _LOGGER.info(
         "measurement_growth_complete",
         extra={
@@ -146,6 +167,8 @@ async def _run_growth() -> int:
             "dynamic_total_outcomes": dynamic_report.total_outcomes,
             "dynamic_accepted_count": dynamic_report.accepted_count,
             "dynamic_rejected_count": dynamic_report.rejected_count,
+            "graph_dynamic_outcome_count": len(graph_reports),
+            "graph_dynamic_update_count": sum(item.update_count for item in graph_reports),
         },
     )
     return 0

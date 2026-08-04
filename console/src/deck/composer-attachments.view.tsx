@@ -13,9 +13,11 @@ import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { t } from "../i18n";
 import {
+  clipboardImageFiles,
   detectKind,
   fileExtension,
   formatSize,
+  imageMediaType,
   isRightsProtected,
   newAttachmentId,
   normalizeImageDataUrl,
@@ -24,29 +26,17 @@ import {
 } from "./composer-attachments";
 import {
   clearComposerAttachments,
+  reserveComposerAttachment,
   stageComposerAttachment,
   subscribeComposerAttachmentDrain,
   unstageComposerAttachment,
 } from "./composer-attachment-store";
+import {
+  MAX_VISION_IMAGE_BYTES,
+  normalizeVisionImage,
+} from "./composer-image-normalization";
 
 const OOXML_PROBE = new Set(["docx", "docm", "xlsx", "xlsm", "pptx", "pptm"]);
-
-/** Raster types the vision narrator accepts, mirroring the server allowlist. */
-const SENDABLE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
-
-/** Per-image byte cap, symmetric to the server DEFAULT_MAX_IMAGE_BYTES. */
-const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
-
-/** Resolve a sendable image media type from the file, or null when unsupported. */
-function imageMediaType(file: File): string | null {
-  if (SENDABLE_IMAGE_TYPES.has(file.type)) return file.type;
-  const ext = fileExtension(file.name);
-  if (ext === "png") return "image/png";
-  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
-  if (ext === "gif") return "image/gif";
-  if (ext === "webp") return "image/webp";
-  return null;
-}
 
 /** Read a file as a base64 ``data:`` URL for the vision request payload. */
 function fileToDataUrl(file: File): Promise<string> {
@@ -119,34 +109,55 @@ export function ComposerAttachments() {
           const media = imageMediaType(file);
           if (media === null) {
             patch(id, { status: "abandoned", note: t("deck.attach.unsupportedImage") });
-          } else if (file.size > MAX_IMAGE_BYTES) {
-            patch(id, { status: "abandoned", note: t("deck.attach.tooLarge") });
+          } else if (!reserveComposerAttachment(id)) {
+            patch(id, { status: "abandoned", note: t("deck.attach.tooMany") });
           } else {
-            void fileToDataUrl(file)
-              .then((raw) => {
+            void normalizeVisionImage(file)
+              .then(async (normalized) => {
                 // The tile may have been removed, or a send may have drained
                 // and cleared the tray, while this read was in flight. Do not
                 // stage a now-orphaned image - that would leak it invisibly
                 // into a later turn.
                 if (!itemsRef.current.some((entry) => entry.id === id)) return;
-                const dataUrl = normalizeImageDataUrl(raw, media);
+                if (normalized.size > MAX_VISION_IMAGE_BYTES) {
+                  unstageComposerAttachment(id);
+                  patch(id, { status: "abandoned", note: t("deck.attach.tooLarge") });
+                  return;
+                }
+                const normalizedMedia = imageMediaType(normalized);
+                if (normalizedMedia === null) {
+                  unstageComposerAttachment(id);
+                  patch(id, { status: "abandoned", note: t("deck.attach.unsupportedImage") });
+                  return;
+                }
+                const raw = await fileToDataUrl(normalized);
+                const dataUrl = normalizeImageDataUrl(raw, normalizedMedia);
                 if (dataUrl === null) {
+                  unstageComposerAttachment(id);
                   patch(id, { status: "abandoned", note: t("deck.attach.readFailed") });
                   return;
                 }
                 const accepted = stageComposerAttachment(id, {
-                  name: file.name,
-                  media_type: media,
+                  name: normalized.name,
+                  media_type: normalizedMedia,
                   data_url: dataUrl,
                 });
                 patch(
                   id,
                   accepted
-                    ? { status: "ready" }
+                    ? { name: normalized.name, size: normalized.size, status: "ready" }
                     : { status: "abandoned", note: t("deck.attach.tooMany") },
                 );
               })
-              .catch(() => patch(id, { status: "abandoned", note: t("deck.attach.readFailed") }));
+              .catch((reason: unknown) => {
+                unstageComposerAttachment(id);
+                patch(
+                  id,
+                  reason instanceof RangeError
+                    ? { status: "abandoned", note: t("deck.attach.tooLarge") }
+                    : { status: "abandoned", note: t("deck.attach.readFailed") },
+                );
+              });
           }
         } else {
           patch(id, { status: "ready" });
@@ -177,7 +188,8 @@ export function ComposerAttachments() {
 
   useEffect(() => subscribeComposerAttachmentDrain(clearTray), [clearTray]);
 
-  // Drag-and-drop onto the composer, and clear staged files after a send.
+  // Drag-and-drop and clipboard images share the same bounded attachment
+  // pipeline. Native text paste remains untouched.
   useEffect(() => {
     const form = inputRef.current?.closest("form");
     if (!form) return;
@@ -197,13 +209,19 @@ export function ComposerAttachments() {
       }
       setDragging(false);
     };
+    const onPaste = (event: ClipboardEvent) => {
+      const files = clipboardImageFiles(Array.from(event.clipboardData?.items ?? []));
+      if (files.length > 0) addFiles(files);
+    };
     form.addEventListener("dragover", onDragOver);
     form.addEventListener("dragleave", onDragLeave);
     form.addEventListener("drop", onDrop);
+    form.addEventListener("paste", onPaste);
     return () => {
       form.removeEventListener("dragover", onDragOver);
       form.removeEventListener("dragleave", onDragLeave);
       form.removeEventListener("drop", onDrop);
+      form.removeEventListener("paste", onPaste);
     };
   }, [addFiles]);
 

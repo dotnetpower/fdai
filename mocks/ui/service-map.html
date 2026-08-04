@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Service map - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=service-map-v1" />
+  <script src="assets/calm-slate.js?v=service-map-v1" defer></script>
+  <style>
+    .sm-page { max-width: 1480px; }
+    .sm-page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+    .sm-page-head .cs-page-header { min-width: 0; }
+    .sm-preview-badge { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; padding: 6px 10px; border: 1px solid rgba(68,104,142,.20); border-radius: 6px; background: rgba(255,255,255,.72); color: #55728F; font-size: 10px; font-weight: 680; box-shadow: 0 4px 16px rgba(46,54,64,.05); backdrop-filter: blur(8px); }
+    .sm-preview-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #6486A5; box-shadow: 0 0 0 3px rgba(100,134,165,.10); }
+
+    .sm-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 54px; margin-bottom: 12px; padding: 8px 10px; border: 1px solid #DEDFDD; border-radius: 8px; background: rgba(255,255,255,.82); box-shadow: 0 5px 20px rgba(46,54,64,.045); backdrop-filter: blur(10px); }
+    .sm-mode { display: inline-grid; grid-template-columns: repeat(4, minmax(92px, auto)); gap: 3px; padding: 3px; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-shade); }
+    .sm-mode button { min-height: 32px; padding: 4px 12px; border: 0; border-radius: 5px; background: transparent; color: var(--cs-text-soft); font: 600 12px var(--cs-font); cursor: pointer; }
+    .sm-mode button:hover { color: var(--cs-text); }
+    .sm-mode button.is-active { background: #FFFFFF; color: #34414B; box-shadow: 0 1px 5px rgba(46,54,64,.10); }
+    .sm-toolbar-side { display: flex; align-items: center; gap: 12px; color: var(--cs-text-soft); font-size: 11px; }
+    .sm-drawing-id { color: #64717A; font: 680 9px "Cascadia Code", "Consolas", monospace; letter-spacing: .05em; white-space: nowrap; }
+    .sm-window { min-height: 34px; padding: 0 30px 0 10px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); color: var(--cs-text); font: 600 11px var(--cs-font); }
+    .sm-motion { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); color: var(--cs-text-soft); cursor: pointer; }
+    .sm-motion:hover { color: var(--cs-text); background: var(--cs-shade); }
+    .sm-motion:disabled { cursor: not-allowed; opacity: .38; }
+    .sm-motion svg { width: 16px; height: 16px; fill: currentColor; }
+
+    .sm-workspace { position: relative; overflow: hidden; border: 1px solid #D9DEDF; border-radius: 8px; background: #F8F9F8; box-shadow: 0 18px 48px rgba(46,54,64,.07), 0 2px 8px rgba(46,54,64,.04); }
+    .sm-scroll { overflow-x: auto; outline: none; }
+    .sm-scroll:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: -2px; }
+    .sm-canvas { display: block; width: 100%; min-width: 1120px; height: auto; min-height: 0; aspect-ratio: 1220 / 464; cursor: grab; touch-action: none; user-select: none; }
+    .sm-canvas.is-panning { cursor: grabbing; }
+
+    .sm-cad-control-reveal { position: absolute; z-index: 8; top: 0; right: 0; min-width: 196px; min-height: 62px; padding: 12px; }
+    .sm-cad-controls { display: grid; grid-template-columns: 34px 48px 34px 38px; gap: 3px; padding: 3px; border: 1px solid rgba(160,171,177,.72); border-radius: 6px; background: rgba(255,255,255,.90); box-shadow: 0 5px 16px rgba(46,54,64,.09); opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity .14s ease, transform .14s ease; backdrop-filter: blur(8px); }
+    .sm-cad-control-reveal:hover .sm-cad-controls, .sm-cad-control-reveal:focus-within .sm-cad-controls { opacity: 1; pointer-events: auto; transform: translateY(0); }
+    .sm-cad-controls button, .sm-cad-controls output { display: grid; place-items: center; min-width: 0; min-height: 32px; border: 0; border-radius: 4px; background: transparent; color: #52616B; font: 680 10px "Cascadia Code", "Consolas", monospace; }
+    .sm-cad-controls button { cursor: pointer; }
+    .sm-cad-controls button:hover { background: #EEF2F3; color: #29343C; }
+    .sm-cad-controls button:focus-visible { outline: 2px solid #557A9A; outline-offset: 1px; }
+    .sm-cad-controls svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .sm-cad-coordinates { position: absolute; z-index: 7; left: 12px; bottom: 58px; min-width: 112px; padding: 4px 7px; border: 1px solid rgba(160,171,177,.60); border-radius: 4px; background: rgba(255,255,255,.84); color: #64717A; font: 650 9px "Cascadia Code", "Consolas", monospace; letter-spacing: .04em; pointer-events: none; backdrop-filter: blur(6px); }
+
+    .sm-drawing-sheet { fill: #F8F9F8; }
+    .sm-map-plate { fill: #F8FAF9; stroke: #AEB8BC; stroke-width: 1; }
+    .sm-lane rect { stroke: rgba(149,161,166,.58); stroke-width: .7; }
+    .sm-lane-external rect { fill: rgba(241,244,242,.80); }
+    .sm-lane-ingress rect { fill: rgba(229,240,237,.72); }
+    .sm-lane-services rect { fill: rgba(250,251,249,.74); }
+    .sm-lane-data rect { fill: rgba(241,238,245,.65); }
+    .sm-lane-egress rect { fill: rgba(248,239,233,.66); }
+    .sm-grid-overlay { pointer-events: none; opacity: .56; }
+    .sm-lane-heading rect { fill: rgba(255,255,255,.88); stroke: rgba(157,169,173,.64); stroke-width: .7; }
+    .sm-lane-heading text { fill: #66747C; text-anchor: middle; font: 690 8px "Cascadia Code", "Consolas", monospace; letter-spacing: .06em; }
+    .sm-boundary-label { fill: #4F847E; font: 720 8px "Cascadia Code", "Consolas", monospace; letter-spacing: .12em; }
+    .sm-boundary-label.egress { fill: #BC7449; }
+
+    .sm-road-outline, .sm-road-surface, .sm-road-divider, .sm-road-guide { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .sm-road-outline { stroke: #6F7B80; stroke-width: 6; opacity: .82; }
+    .sm-road-surface { stroke: #B7BEC0; stroke-width: 4.5; }
+    .sm-road-divider { stroke: #F8FAF9; stroke-width: .65; stroke-dasharray: 3 3; opacity: .96; }
+    .sm-road-guide { stroke: transparent; pointer-events: none; }
+    .sm-workspace[data-mode="incident"] .sm-road-segment.health-healthy { opacity: .18; }
+    .sm-workspace[data-mode="incident"] .sm-road-outline.health-warning, .sm-workspace[data-mode="incident"] .sm-road-outline.health-critical { stroke: #6F7B80; stroke-width: 6.8; opacity: .96; }
+    .sm-workspace[data-mode="security"] .sm-road-outline { stroke: #6F7B80; opacity: .88; }
+    .sm-workspace[data-mode="security"] .sm-road-outline.security-plaintext { stroke: #6F7B80; stroke-dasharray: 4 2.5; }
+    .sm-workspace[data-mode="security"] .sm-road-outline.security-attention { stroke: #6F7B80; }
+    .sm-workspace[data-mode="security"] .sm-road-outline.is-selected { stroke: #6F7B80; stroke-width: 7; filter: drop-shadow(0 0 2px rgba(68,104,142,.18)); }
+
+    .sm-edge-hit { fill: none; stroke: transparent; stroke-width: 12; pointer-events: stroke; cursor: pointer; }
+    .sm-edge:focus-visible .sm-edge-hit { stroke: rgba(85,122,154,.16); }
+    .sm-traffic-particle { pointer-events: none; }
+    .sm-particle-halo { fill: #68A9BD; opacity: .16; filter: blur(2.2px); }
+    .sm-particle-core { fill: #D8FAFF; stroke: #6CB8CB; stroke-width: .45; filter: drop-shadow(0 0 2px rgba(87,180,202,.68)); }
+    .sm-traffic-particle.is-return .sm-particle-halo { fill: #7DC1AD; }
+    .sm-traffic-particle.is-return .sm-particle-core { fill: #E1FFF6; stroke: #6CB69F; }
+    .sm-edge.health-warning .sm-particle-halo { fill: #D7A16E; }
+    .sm-edge.health-warning .sm-particle-core { fill: #FFF0D9; stroke: #C58A53; }
+    .sm-edge.health-critical .sm-particle-halo { fill: #D88787; }
+    .sm-edge.health-critical .sm-particle-core { fill: #FFE7E7; stroke: #C96D6D; }
+    .sm-workspace[data-mode="security"] .sm-traffic-particle { display: none; }
+
+    .sm-speed-sign { pointer-events: none; }
+    .sm-speed-sign-pole { stroke: #7E898E; stroke-width: 1; }
+    .sm-speed-sign-face { fill: rgba(255,255,255,.96); stroke: #B65F5F; stroke-width: 2.4; filter: drop-shadow(0 2px 3px rgba(46,54,64,.10)); }
+    .sm-speed-sign-value { fill: #2D383E; text-anchor: middle; font: 760 7.5px "Cascadia Code", "Consolas", monospace; }
+    .sm-speed-sign-unit { fill: #788288; text-anchor: middle; font: 650 5.5px "Cascadia Code", "Consolas", monospace; }
+    .sm-edge-security-label { display: none; }
+    .sm-workspace[data-mode="security"] .sm-speed-sign { display: none; }
+    .sm-workspace[data-mode="security"] .sm-edge-security-label { display: block; }
+    .sm-edge-security-label rect { fill: rgba(255,255,255,.95); stroke: rgba(140,154,159,.75); stroke-width: .7; }
+    .sm-security-lock { fill: none; stroke: #4F847E; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+    .security-plaintext .sm-security-lock { stroke: #AC5A5A; }
+    .security-attention .sm-security-lock { stroke: #BC7449; }
+    .sm-edge-transport { fill: #34434B; font: 720 9px var(--cs-font); text-anchor: start !important; }
+    .sm-edge-tls { fill: #6B747A; font: 8.5px var(--cs-font); text-anchor: start !important; }
+    .security-plaintext .sm-edge-transport, .security-plaintext .sm-edge-tls { fill: #913F3F; }
+    .security-attention .sm-edge-transport { fill: #95552F; }
+
+    .app-tooltip { --tooltip-enter-y: 0; position: fixed; z-index: 1000; max-width: min(320px, calc(100vw - 32px)); overflow-wrap: anywhere; padding: 6px 12px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); color: var(--cs-text); box-shadow: 0 4px 12px rgba(15,23,30,.12); font: 500 12px/1.4 var(--cs-font); text-align: left; white-space: pre-line; pointer-events: none; }
+    .app-tooltip[data-side="top"] { --tooltip-enter-y: 4px; transform-origin: 50% 100%; }
+    .app-tooltip[data-side="bottom"] { --tooltip-enter-y: -4px; transform-origin: 50% 0; }
+    .app-tooltip[data-state="delayed-open"], .app-tooltip[data-state="instant-open"] { animation: app-tooltip-in .15s ease-out both; }
+    .app-tooltip[data-state="closed"] { animation: app-tooltip-out .05s ease-out both; }
+    @keyframes app-tooltip-in { from { opacity: 0; transform: translateY(var(--tooltip-enter-y)) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes app-tooltip-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(var(--tooltip-enter-y)) scale(.98); } }
+
+    .sm-workspace:fullscreen, .sm-workspace.is-fullscreen-fallback { width: 100vw; height: 100vh; border: 0; border-radius: 0; background: #F8FAF9; }
+    .sm-workspace.is-fullscreen-fallback { position: fixed; inset: 0; z-index: 999; }
+    .sm-workspace:fullscreen .sm-scroll, .sm-workspace.is-fullscreen-fallback .sm-scroll { height: calc(100vh - 49px); }
+    .sm-workspace:fullscreen .sm-canvas, .sm-workspace.is-fullscreen-fallback .sm-canvas { width: 100%; height: 100%; min-width: 0; aspect-ratio: auto; }
+
+    .sm-node, .sm-inspector { --node-accent: #557A9A; --node-icon-bg: #EEF3F6; }
+    .sm-node.kind-gateway, .sm-inspector.kind-gateway { --node-accent: #4F847E; --node-icon-bg: #EDF5F3; }
+    .sm-node.kind-container, .sm-node.kind-worker, .sm-inspector.kind-container, .sm-inspector.kind-worker { --node-accent: #557A9A; --node-icon-bg: #EEF3F6; }
+    .sm-node.kind-database, .sm-inspector.kind-database { --node-accent: #756990; --node-icon-bg: #F2F0F6; }
+    .sm-node.kind-event, .sm-inspector.kind-event { --node-accent: #A66D48; --node-icon-bg: #F8F1EC; }
+    .sm-node.kind-storage, .sm-inspector.kind-storage { --node-accent: #587C8A; --node-icon-bg: #EEF4F5; }
+    .sm-node.kind-external, .sm-inspector.kind-external { --node-accent: #9A5959; --node-icon-bg: #F8EEEE; }
+    .sm-node { cursor: pointer; outline: none; }
+    .sm-node-hit { fill: transparent; stroke: none; pointer-events: all; }
+    .sm-iso-ground { fill: rgba(91,105,112,.10); filter: blur(.5px); }
+    .sm-iso-base-top { fill: #F8FAF9; stroke: #B4BEC1; stroke-width: .8; }
+    .sm-iso-base-left { fill: #E1E7E6; stroke: #B4BEC1; stroke-width: .8; }
+    .sm-iso-base-right { fill: #D6DFDE; stroke: #B4BEC1; stroke-width: .8; }
+    .sm-node:hover .sm-iso-base-top, .sm-node:focus-visible .sm-iso-base-top { stroke: var(--node-accent); stroke-width: 1.4; }
+    .sm-node.is-selected .sm-iso-base-top { fill: color-mix(in srgb, var(--node-icon-bg) 56%, #FFFFFF); stroke: var(--node-accent); stroke-width: 1.8; filter: drop-shadow(0 5px 6px rgba(46,54,64,.13)); }
+    .sm-iso-object { filter: drop-shadow(0 4px 4px rgba(46,54,64,.12)); }
+    .sm-iso-object .top { fill: color-mix(in srgb, var(--node-icon-bg) 72%, #FFFFFF); stroke: var(--node-accent); stroke-width: .8; }
+    .sm-iso-object .front { fill: color-mix(in srgb, var(--node-accent) 20%, #FFFFFF); stroke: var(--node-accent); stroke-width: .8; }
+    .sm-iso-object .side { fill: color-mix(in srgb, var(--node-accent) 34%, #FFFFFF); stroke: var(--node-accent); stroke-width: .8; }
+    .sm-iso-object .line { fill: none; stroke: var(--node-accent); stroke-width: .9; stroke-linecap: round; stroke-linejoin: round; }
+    .sm-sign-post { fill: none; stroke: #78868A; stroke-width: 1; }
+    .sm-iso-label rect { fill: color-mix(in srgb, var(--node-accent) 78%, #344B4C); stroke: rgba(255,255,255,.86); stroke-width: .8; filter: drop-shadow(0 3px 5px rgba(46,54,64,.12)); }
+    .sm-node:hover .sm-iso-label rect, .sm-node:focus-visible .sm-iso-label rect, .sm-node.is-selected .sm-iso-label rect { stroke: #FFFFFF; stroke-width: 1.3; }
+    .sm-node-label { fill: #FFFFFF; font: 700 8.5px var(--cs-font); }
+    .sm-node-detail { fill: rgba(255,255,255,.78); font: 6.8px var(--cs-font); }
+    .sm-health-dot { fill: #5E8259; stroke: #FFFFFF; stroke-width: 2; }
+    .sm-node.health-warning .sm-health-dot { fill: #BC7449; }
+    .sm-node.health-critical .sm-health-dot { fill: #AC5A5A; }
+
+    .sm-legend { display: flex; flex-wrap: wrap; align-items: center; min-height: 48px; padding: 9px 14px; border-top: 1px solid var(--cs-hairline); background: var(--cs-card); color: var(--cs-text-soft); font-size: 11px; }
+    .sm-legend-set { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: 9px 18px; }
+    .sm-legend-security { display: none; }
+    .sm-workspace[data-mode="security"] .sm-legend-traffic { display: none; }
+    .sm-workspace[data-mode="security"] .sm-legend-security { display: flex; }
+    .sm-legend span { display: inline-flex; align-items: center; gap: 7px; }
+    .sm-legend i { display: inline-block; width: 24px; height: 7px; }
+    .sm-legend .flow { background: linear-gradient(#44688E, #44688E) center / 100% 2px no-repeat; }
+    .sm-legend .async { background: repeating-linear-gradient(90deg, #81909B 0 5px, transparent 5px 9px) center / 100% 2px no-repeat; }
+    .sm-legend .warning { background: linear-gradient(#BC7449, #BC7449) center / 100% 3px no-repeat; }
+    .sm-legend .critical { background: linear-gradient(#AC5A5A, #AC5A5A) center / 100% 4px no-repeat; }
+    .sm-legend .secure { background: linear-gradient(#4F847E, #4F847E) center / 100% 2px no-repeat; }
+    .sm-legend .plaintext { background: repeating-linear-gradient(90deg, #AC5A5A 0 4px, transparent 4px 7px) center / 100% 2px no-repeat; }
+    .sm-legend .certificate { background: linear-gradient(#BC7449, #BC7449) center / 100% 2px no-repeat; }
+    .sm-legend small { margin-left: auto; }
+    .sm-legend-note-security { display: none; }
+    .sm-workspace[data-mode="security"] .sm-legend-note-traffic { display: none; }
+    .sm-workspace[data-mode="security"] .sm-legend-note-security { display: inline; }
+
+    .sm-inspector { display: grid; grid-template-columns: minmax(260px, 1.2fr) minmax(360px, 1fr) minmax(280px, 1fr); gap: 24px; margin-top: 16px; padding: 18px; border: 1px solid #DEDFDD; border-radius: 8px; background: rgba(255,255,255,.86); box-shadow: 0 10px 30px rgba(46,54,64,.045); backdrop-filter: blur(10px); }
+    .sm-inspector-identity { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 13px; align-items: center; }
+    .sm-inspector-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 7px; background: var(--node-icon-bg); color: var(--node-accent); }
+    .sm-inspector-icon svg { width: 34px; height: 34px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .sm-inspector .eyebrow { display: block; margin-bottom: 2px; color: var(--cs-text-soft); font-size: 9px; font-weight: 750; text-transform: uppercase; }
+    .sm-inspector h2 { margin: 0; font-size: 17px; }
+    .sm-inspector p { margin: 2px 0 0; color: var(--cs-text-soft); font-size: 11px; }
+    .sm-health-label { padding: 4px 7px; border-radius: 5px; background: rgba(94,130,89,.1); color: var(--cs-sage); font-size: 10px; font-weight: 750; text-transform: capitalize; }
+    .sm-health-label.warning { background: rgba(188,116,73,.11); color: #95552F; }
+    .sm-health-label.critical { background: rgba(172,90,90,.1); color: #913F3F; }
+    .sm-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; margin: 0; }
+    .sm-facts div { min-width: 0; }
+    .sm-facts dt { color: var(--cs-text-soft); font-size: 9px; font-weight: 700; text-transform: uppercase; }
+    .sm-facts dd { margin: 2px 0 0; color: var(--cs-text); font-size: 12px; font-weight: 650; }
+    .sm-connections { display: grid; gap: 6px; }
+    .sm-connection { display: flex; justify-content: space-between; gap: 12px; min-width: 0; padding: 5px 0; border-bottom: 1px solid var(--cs-hairline); font-size: 11px; }
+    .sm-connection:last-child { border-bottom: 0; }
+    .sm-connection strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sm-connection small { flex: 0 0 auto; font-size: 10px; }
+
+    @media (max-width: 980px) {
+      .sm-inspector { grid-template-columns: 1fr 1fr; }
+      .sm-connections { grid-column: 1 / -1; }
+    }
+    @media (max-width: 700px) {
+      .sm-page { padding-left: 14px; padding-right: 14px; }
+      .sm-page-head, .sm-toolbar { align-items: stretch; flex-direction: column; }
+      .sm-preview-badge { align-self: flex-start; }
+      .sm-mode { width: 100%; grid-template-columns: repeat(2, 1fr); }
+      .sm-toolbar-side { justify-content: space-between; }
+      .sm-drawing-id { display: none; }
+      .sm-cad-control-reveal { min-width: 187px; min-height: 58px; padding: 8px; }
+      .sm-cad-coordinates { left: 8px; }
+      .sm-inspector { grid-template-columns: 1fr; }
+      .sm-connections { grid-column: auto; }
+      .sm-legend small { flex-basis: 100%; margin-left: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .sm-traffic-particle { display: none !important; }
+      .sm-cad-controls, .app-tooltip { transition: none !important; animation: none !important; }
+    }
+    @media (hover: none) {
+      .sm-cad-controls { opacity: 1; pointer-events: auto; transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="cs-container cs-page sm-page">
+    <div class="sm-page-head cs-mb-16">
+      <div class="cs-page-header">
+        <div class="cs-eyebrow">Directional dependency flow</div>
+        <h1>Service map</h1>
+        <p class="cs-lead">Service-to-service topology across ingress, internal dependencies, and external egress.</p>
+      </div>
+      <span class="sm-preview-badge">Design preview · Synthetic telemetry</span>
+    </div>
+
+    <section class="sm-toolbar" aria-label="Service map view controls">
+      <div class="sm-mode" role="group" aria-label="View mode">
+        <button type="button" class="is-active" data-sm-mode="live" aria-pressed="true">Live flow</button>
+        <button type="button" data-sm-mode="performance" aria-pressed="false">Performance</button>
+        <button type="button" data-sm-mode="incident" aria-pressed="false">Incident</button>
+        <button type="button" data-sm-mode="security" aria-pressed="false">Security</button>
+      </div>
+      <div class="sm-toolbar-side">
+        <span class="sm-drawing-id">SVC-001 · REV A · VECTOR</span>
+        <span>Synthetic · relative 5 minute window</span>
+        <select class="sm-window" aria-label="Time window">
+          <option>5 minutes</option>
+          <option>30 minutes</option>
+          <option>1 hour</option>
+        </select>
+        <button class="sm-motion" type="button" aria-label="Pause traffic motion" data-sm-tooltip="Pause traffic motion" data-sm-tooltip-side="bottom" data-sm-motion>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="4" width="3" height="12" rx="1" /><rect x="12" y="4" width="3" height="12" rx="1" /></svg>
+        </button>
+      </div>
+    </section>
+
+    <section class="sm-workspace" data-mode="live" data-motion="running" aria-label="Synthetic service topology">
+      <div class="sm-cad-control-reveal">
+        <div class="sm-cad-controls" role="group" aria-label="Drawing view controls">
+          <button type="button" aria-label="Zoom out" data-sm-tooltip="Zoom out" data-sm-tooltip-side="bottom" data-sm-zoom-out>-</button>
+          <output aria-label="Zoom level" data-sm-zoom-level>100%</output>
+          <button type="button" aria-label="Zoom in" data-sm-tooltip="Zoom in" data-sm-tooltip-side="bottom" data-sm-zoom-in>+</button>
+          <button type="button" aria-label="Enter fullscreen" data-sm-tooltip="Enter fullscreen" data-sm-tooltip-side="bottom" data-sm-fullscreen><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3 H3 V7 M13 3 H17 V7 M17 13 V17 H13 M7 17 H3 V13" /></svg></button>
+        </div>
+      </div>
+      <output class="sm-cad-coordinates" aria-label="Drawing coordinates" data-sm-coordinates>X 0000 · Y 0000</output>
+      <div class="sm-scroll" tabindex="0" aria-label="Scrollable service map canvas">
+        <svg class="sm-canvas" viewBox="30 76 1220 464" role="img" aria-labelledby="sm-title sm-description" data-sm-canvas>
+          <title id="sm-title">Service map design preview</title>
+          <desc id="sm-description">Synthetic directional topology with ingress, services, data dependencies, and external egress. Animated particles represent throughput.</desc>
+          <defs>
+            <pattern id="sm-map-grid" width="24" height="24" patternUnits="userSpaceOnUse">
+              <path d="M24 0 H0 V24" fill="none" stroke="#66757D" stroke-width=".5" opacity=".14" />
+            </pattern>
+            <clipPath id="sm-plate-clip"><rect x="30" y="76" width="1220" height="464" /></clipPath>
+          </defs>
+          <rect class="sm-drawing-sheet" x="-320" y="-180" width="1920" height="950" />
+          <rect class="sm-map-plate" x="30" y="76" width="1220" height="464" />
+          <g class="sm-lane sm-lane-external"><rect x="30" y="76" width="190" height="464" /></g>
+          <g class="sm-lane sm-lane-ingress"><rect x="220" y="76" width="230" height="464" /></g>
+          <g class="sm-lane sm-lane-services"><rect x="450" y="76" width="290" height="464" /></g>
+          <g class="sm-lane sm-lane-data"><rect x="740" y="76" width="250" height="464" /></g>
+          <g class="sm-lane sm-lane-egress"><rect x="990" y="76" width="260" height="464" /></g>
+          <rect class="sm-grid-overlay" x="30" y="76" width="1220" height="464" fill="url(#sm-map-grid)" clip-path="url(#sm-plate-clip)" />
+          <g class="sm-lane-heading" transform="translate(76 89)"><rect width="98" height="20" rx="10" /><text x="49" y="13">EXTERNAL</text></g>
+          <g class="sm-lane-heading" transform="translate(294 89)"><rect width="82" height="20" rx="10" /><text x="41" y="13">INGRESS</text></g>
+          <g class="sm-lane-heading" transform="translate(546 89)"><rect width="98" height="20" rx="10" /><text x="49" y="13">SERVICES</text></g>
+          <g class="sm-lane-heading" transform="translate(809 89)"><rect width="112" height="20" rx="10" /><text x="56" y="13">DATA + EVENTS</text></g>
+          <g class="sm-lane-heading" transform="translate(1071 89)"><rect width="98" height="20" rx="10" /><text x="49" y="13">EGRESS</text></g>
+          <g data-sm-edges></g>
+          <g data-sm-nodes></g>
+        </svg>
+      </div>
+      <footer class="sm-legend" aria-label="Map legend">
+        <div class="sm-legend-set sm-legend-traffic">
+          <span><i class="flow"></i>Request flow</span>
+          <span><i class="async"></i>Asynchronous</span>
+          <span><i class="warning"></i>Degraded</span>
+          <span><i class="critical"></i>Critical</span>
+        </div>
+        <div class="sm-legend-set sm-legend-security">
+          <span><i class="secure"></i>TLS protected</span>
+          <span><i class="flow"></i>mTLS</span>
+          <span><i class="plaintext"></i>Plaintext</span>
+          <span><i class="certificate"></i>Certificate attention</span>
+        </div>
+        <small class="sm-legend-note-traffic">Motion speed represents throughput. Latency remains numeric.</small>
+        <small class="sm-legend-note-security">Ports are destination listeners. Security values are synthetic.</small>
+      </footer>
+    </section>
+
+    <section class="sm-inspector" aria-live="polite" data-sm-inspector></section>
+  </main>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var nodes = [
+        { id: "browser", label: "Example clients", detail: "Web and mobile", kind: "client", lane: "External sources", health: "healthy", x: 94, y: 226 },
+        { id: "probe", label: "Availability probe", detail: "Synthetic check", kind: "monitor", lane: "External sources", health: "healthy", x: 94, y: 446 },
+        { id: "gateway", label: "Example gateway", detail: "Application Gateway", kind: "gateway", lane: "Ingress", health: "healthy", x: 316, y: 336 },
+        { id: "checkout", label: "Checkout API", detail: "Container App · 3 replicas", kind: "container", lane: "Services", health: "warning", x: 570, y: 226 },
+        { id: "worker", label: "Order worker", detail: "Container App · 2 replicas", kind: "worker", lane: "Services", health: "healthy", x: 570, y: 452 },
+        { id: "orders", label: "Orders database", detail: "PostgreSQL", kind: "database", lane: "Data and messaging", health: "healthy", x: 824, y: 176 },
+        { id: "events", label: "Order events", detail: "Event Hubs", kind: "event", lane: "Data and messaging", health: "warning", x: 824, y: 336 },
+        { id: "receipts", label: "Receipt archive", detail: "Blob Storage", kind: "storage", lane: "Data and messaging", health: "healthy", x: 824, y: 510 },
+        { id: "payment", label: "Payment provider", detail: "External HTTPS API", kind: "external", lane: "External egress", health: "critical", x: 1090, y: 226 }
+      ];
+      var edges = [
+        { id: "browser-gateway", source: "browser", target: "gateway", protocol: "HTTPS", port: 443, tls: "TLS 1.3", auth: "server certificate", certificate: "valid · 42d", security: "secure", rpm: 18400, p95: 42, error: 0.2, health: "healthy" },
+        { id: "probe-gateway", source: "probe", target: "gateway", protocol: "HTTPS", port: 443, tls: "TLS 1.3", auth: "server certificate", certificate: "valid · 42d", security: "secure", rpm: 240, p95: 118, error: 0, health: "healthy" },
+        { id: "gateway-checkout", source: "gateway", target: "checkout", protocol: "HTTP", port: 8080, tls: "Plaintext", auth: "internal network", certificate: "none", security: "plaintext", rpm: 17600, p95: 67, error: 0.5, health: "warning" },
+        { id: "checkout-orders", source: "checkout", target: "orders", protocol: "PostgreSQL", port: 5432, tls: "TLS 1.3", auth: "mTLS", certificate: "client + server valid", security: "secure", rpm: 12900, p95: 24, error: 0.1, health: "healthy" },
+        { id: "checkout-events", source: "checkout", target: "events", protocol: "AMQPS", port: 5671, tls: "TLS 1.3", auth: "managed identity", certificate: "platform managed", security: "secure", rpm: 8200, p95: 91, error: 1.7, health: "warning", async: true },
+        { id: "events-worker", source: "events", target: "worker", protocol: "AMQPS", port: 5671, tls: "TLS 1.3", auth: "consumer identity", certificate: "platform managed", security: "secure", rpm: 7900, p95: 138, error: 0.6, health: "warning", async: true },
+        { id: "worker-receipts", source: "worker", target: "receipts", protocol: "HTTPS", port: 443, tls: "TLS 1.3", auth: "managed identity", certificate: "platform managed", security: "secure", rpm: 5100, p95: 36, error: 0.1, health: "healthy" },
+        { id: "checkout-payment", source: "checkout", target: "payment", protocol: "HTTPS", port: 443, tls: "TLS 1.2", auth: "external certificate", certificate: "expires · 12d", security: "attention", rpm: 4600, p95: 842, error: 8.4, health: "critical" }
+      ];
+      var abbreviations = { client: "WEB", monitor: "SYN", gateway: "AGW", container: "CA", worker: "CA", database: "PG", event: "EH", storage: "ST", external: "API" };
+      var selectedId = "payment";
+      var selectedEdgeId = null;
+      var drawingBounds = { x: 30, y: 76, width: 1220, height: 464 };
+      var drawingWidth = drawingBounds.width;
+      var drawingHeight = drawingBounds.height;
+      var zoom = 1;
+      var camera = { x: drawingBounds.x, y: drawingBounds.y, width: drawingWidth, height: drawingHeight };
+      var panStart = null;
+      var workspace = document.querySelector(".sm-workspace");
+      var canvas = document.querySelector("[data-sm-canvas]");
+      var scrollSurface = document.querySelector(".sm-scroll");
+      var zoomLevel = document.querySelector("[data-sm-zoom-level]");
+      var coordinateOutput = document.querySelector("[data-sm-coordinates]");
+      var edgeLayer = document.querySelector("[data-sm-edges]");
+      var nodeLayer = document.querySelector("[data-sm-nodes]");
+      var inspector = document.querySelector("[data-sm-inspector]");
+      var fullscreenButton = document.querySelector("[data-sm-fullscreen]");
+      var SM_TOOLTIP_DELAY_MS = 100;
+      var SM_TOOLTIP_EXIT_MS = 50;
+      var tooltipOpenTimer = null;
+      var tooltipCloseTimer = null;
+      var activeTooltipAnchor = null;
+      var activeTooltip = null;
+
+      function nodeById(id) { return nodes.find(function (node) { return node.id === id; }); }
+      function edgeById(id) { return edges.find(function (edge) { return edge.id === id; }); }
+      function formatCoordinate(value) {
+        var rounded = Math.round(value);
+        return (rounded < 0 ? "-" : "") + String(Math.abs(rounded)).padStart(4, "0");
+      }
+      function rateLabel(rpm) { return rpm >= 1000 ? (rpm / 1000).toFixed(rpm % 1000 === 0 ? 0 : 1) + "k rpm" : rpm + " rpm"; }
+      function rateSignLabel(rpm) { return rpm >= 1000 ? (rpm / 1000).toFixed(rpm % 1000 === 0 ? 0 : 1) : String(rpm); }
+      function rateSignUnit(rpm) { return rpm >= 1000 ? "kRPM" : "RPM"; }
+      function speedClass(rpm) { return rpm >= 12000 ? "speed-fast" : rpm >= 5000 ? "speed-medium" : "speed-slow"; }
+      function particleDuration(rpm) { return rpm >= 12000 ? "2s" : rpm >= 5000 ? "2.8s" : "3.8s"; }
+      function pathFor(edge, reverse) {
+        var source = nodeById(reverse ? edge.target : edge.source);
+        var target = nodeById(reverse ? edge.source : edge.target);
+        var direction = target.x >= source.x ? 1 : -1;
+        var startX = source.x;
+        var endX = target.x;
+        var bend = Math.max(52, Math.abs(endX - startX) * .42);
+        return "M " + startX + " " + source.y + " C " + (startX + bend * direction) + " " + source.y + ", " + (endX - bend * direction) + " " + target.y + ", " + endX + " " + target.y;
+      }
+
+      function roadClassNames(edge) {
+        return "health-" + edge.health + " security-" + edge.security + (edge.async ? " is-async" : "") + (edge.id === selectedEdgeId ? " is-selected" : "");
+      }
+
+      function applyCamera() {
+        canvas.setAttribute("viewBox", camera.x + " " + camera.y + " " + camera.width + " " + camera.height);
+        zoomLevel.value = Math.round(zoom * 100) + "%";
+        zoomLevel.textContent = zoomLevel.value;
+      }
+
+      function clampCamera() {
+        camera.x = Math.max(drawingBounds.x, Math.min(drawingBounds.x + drawingWidth - camera.width, camera.x));
+        camera.y = Math.max(drawingBounds.y, Math.min(drawingBounds.y + drawingHeight - camera.height, camera.y));
+      }
+
+      function zoomAt(nextZoom, clientX, clientY) {
+        nextZoom = Math.max(1, Math.min(2.5, nextZoom));
+        var bounds = canvas.getBoundingClientRect();
+        var ratioX = clientX === undefined ? .5 : (clientX - bounds.left) / bounds.width;
+        var ratioY = clientY === undefined ? .5 : (clientY - bounds.top) / bounds.height;
+        var worldX = camera.x + camera.width * ratioX;
+        var worldY = camera.y + camera.height * ratioY;
+        zoom = nextZoom;
+        camera.width = drawingWidth / zoom;
+        camera.height = drawingHeight / zoom;
+        camera.x = worldX - camera.width * ratioX;
+        camera.y = worldY - camera.height * ratioY;
+        clampCamera();
+        applyCamera();
+      }
+
+      function fitDrawing() {
+        zoom = 1;
+        camera = { x: drawingBounds.x, y: drawingBounds.y, width: drawingWidth, height: drawingHeight };
+        applyCamera();
+      }
+
+      function drawingPoint(clientX, clientY) {
+        var bounds = canvas.getBoundingClientRect();
+        return {
+          x: camera.x + ((clientX - bounds.left) / bounds.width) * camera.width,
+          y: camera.y + ((clientY - bounds.top) / bounds.height) * camera.height
+        };
+      }
+
+      function clearTooltipTimer(timer) {
+        if (timer !== null) window.clearTimeout(timer);
+      }
+
+      function positionSharedTooltip(anchor, tooltip) {
+        var anchorBounds = anchor.getBoundingClientRect();
+        var tooltipBounds = tooltip.getBoundingClientRect();
+        var side = anchor.dataset.smTooltipSide || "top";
+        var left = anchorBounds.left + (anchorBounds.width - tooltipBounds.width) / 2;
+        var top = side === "bottom" ? anchorBounds.bottom + 6 : anchorBounds.top - tooltipBounds.height - 6;
+        if (top < 8) {
+          side = "bottom";
+          top = anchorBounds.bottom + 6;
+        }
+        left = Math.max(8, Math.min(window.innerWidth - tooltipBounds.width - 8, left));
+        top = Math.max(8, Math.min(window.innerHeight - tooltipBounds.height - 8, top));
+        tooltip.dataset.side = side;
+        tooltip.style.left = left + "px";
+        tooltip.style.top = top + "px";
+      }
+
+      function mountSharedTooltip(anchor, state) {
+        if (!anchor.isConnected || !anchor.dataset.smTooltip) return;
+        activeTooltip?.remove();
+        var tooltip = document.createElement("span");
+        tooltip.className = "app-tooltip";
+        tooltip.dataset.state = state;
+        tooltip.setAttribute("role", "tooltip");
+        tooltip.textContent = anchor.dataset.smTooltip;
+        document.body.appendChild(tooltip);
+        activeTooltip = tooltip;
+        activeTooltipAnchor = anchor;
+        positionSharedTooltip(anchor, tooltip);
+        anchor.setAttribute("aria-describedby", "sm-shared-tooltip");
+        tooltip.id = "sm-shared-tooltip";
+      }
+
+      function showSharedTooltip(anchor, immediate) {
+        clearTooltipTimer(tooltipOpenTimer);
+        clearTooltipTimer(tooltipCloseTimer);
+        tooltipOpenTimer = window.setTimeout(function () {
+          tooltipOpenTimer = null;
+          mountSharedTooltip(anchor, immediate ? "instant-open" : "delayed-open");
+        }, immediate ? 0 : SM_TOOLTIP_DELAY_MS);
+      }
+
+      function hideSharedTooltip(immediate) {
+        clearTooltipTimer(tooltipOpenTimer);
+        clearTooltipTimer(tooltipCloseTimer);
+        tooltipOpenTimer = null;
+        if (activeTooltip === null) return;
+        activeTooltip.dataset.state = "closed";
+        var tooltip = activeTooltip;
+        var anchor = activeTooltipAnchor;
+        tooltipCloseTimer = window.setTimeout(function () {
+          tooltip.remove();
+          anchor?.removeAttribute("aria-describedby");
+          if (activeTooltip === tooltip) activeTooltip = null;
+          if (activeTooltipAnchor === anchor) activeTooltipAnchor = null;
+          tooltipCloseTimer = null;
+        }, immediate ? 0 : SM_TOOLTIP_EXIT_MS);
+      }
+
+      function sharedTooltipTrigger(target) {
+        return target instanceof Element ? target.closest("[data-sm-tooltip]") : null;
+      }
+
+      function fullscreenActive() {
+        return document.fullscreenElement === workspace || workspace.classList.contains("is-fullscreen-fallback");
+      }
+
+      function syncFullscreenButton() {
+        var active = fullscreenActive();
+        var label = active ? "Exit fullscreen" : "Enter fullscreen";
+        fullscreenButton.setAttribute("aria-label", label);
+        fullscreenButton.dataset.smTooltip = label;
+        fullscreenButton.innerHTML = active
+          ? '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7 H7 V3 M17 7 H13 V3 M13 17 V13 H17 M7 17 V13 H3"/></svg>'
+          : '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3 H3 V7 M13 3 H17 V7 M17 13 V17 H13 M7 17 H3 V13"/></svg>';
+      }
+
+      async function toggleFullscreen() {
+        hideSharedTooltip(true);
+        if (fullscreenActive()) {
+          if (document.fullscreenElement !== null) await document.exitFullscreen();
+          workspace.classList.remove("is-fullscreen-fallback");
+          syncFullscreenButton();
+          return;
+        }
+        if (workspace.requestFullscreen) {
+          try {
+            await workspace.requestFullscreen({ navigationUI: "hide" });
+          } catch {
+            workspace.classList.add("is-fullscreen-fallback");
+          }
+        } else {
+          workspace.classList.add("is-fullscreen-fallback");
+        }
+        syncFullscreenButton();
+      }
+
+      function glyph(kind) {
+        if (kind === "client" || kind === "monitor") return '<rect x="9" y="7" width="22" height="16" rx="2"/><path d="M14 28 H26 M20 23 V28"/>';
+        if (kind === "gateway") return '<path d="M8 12 H32 M8 20 H32 M8 28 H32 M14 8 L8 12 L14 16 M26 24 L32 28 L26 32"/>';
+        if (kind === "container" || kind === "worker") return '<rect x="8" y="9" width="24" height="22" rx="3"/><path d="M8 16 H32 M15 9 V31"/>';
+        if (kind === "database") return '<ellipse cx="20" cy="10" rx="11" ry="4"/><path d="M9 10 V28 C9 33 31 33 31 28 V10 M9 19 C9 24 31 24 31 19"/>';
+        if (kind === "event") return '<circle cx="20" cy="20" r="12"/><path d="M8 20 H32 M20 8 V32 M13 13 L27 27 M27 13 L13 27"/>';
+        if (kind === "storage") return '<path d="M8 13 H32 V30 H8 Z M11 9 H29 L32 13 H8 Z M13 20 H27"/>';
+        return '<circle cx="20" cy="20" r="12"/><path d="M8 20 H32 M20 8 C25 13 25 27 20 32 M20 8 C15 13 15 27 20 32"/>';
+      }
+
+      function isoGlyph(kind) {
+        if (kind === "database") {
+          return '<path class="front" d="M12 9 V30 C12 37 40 37 40 30 V9 Z"/><ellipse class="top" cx="26" cy="9" rx="14" ry="6"/><path class="line" d="M12 19 C12 26 40 26 40 19"/>';
+        }
+        if (kind === "event") {
+          return '<path class="front" d="M11 12 L26 20 V36 L11 28 Z"/><path class="side" d="M26 20 L42 12 V28 L26 36 Z"/><path class="top" d="M11 12 L26 4 L42 12 L26 20 Z"/><path class="line" d="M5 12 H11 M42 12 H48 M26 0 V4 M26 36 V42"/>';
+        }
+        if (kind === "gateway") {
+          return '<path class="front" d="M9 13 L26 21 V37 L9 29 Z"/><path class="side" d="M26 21 L43 13 V29 L26 37 Z"/><path class="top" d="M9 13 L26 4 L43 13 L26 21 Z"/><path class="line" d="M16 29 V21 L26 26 L36 21 V29 M16 14 L26 9 L36 14"/>';
+        }
+        if (kind === "storage") {
+          return '<path class="front" d="M8 15 L26 24 V37 L8 28 Z"/><path class="side" d="M26 24 L44 15 V28 L26 37 Z"/><path class="top" d="M8 15 L26 6 L44 15 L26 24 Z"/><path class="line" d="M13 18 L26 25 L39 18 M20 31 L25 34"/>';
+        }
+        if (kind === "client" || kind === "monitor") {
+          return '<path class="front" d="M10 9 L39 14 V31 L10 26 Z"/><path class="side" d="M39 14 L44 11 V28 L39 31 Z"/><path class="top" d="M10 9 L15 6 L44 11 L39 14 Z"/><path class="line" d="M24 30 V36 M17 38 H31"/>';
+        }
+        if (kind === "external") {
+          return '<ellipse class="top" cx="26" cy="34" rx="17" ry="7"/><circle class="front" cx="26" cy="18" r="13"/><path class="line" d="M13 18 H39 M26 5 C32 11 32 25 26 31 M26 5 C20 11 20 25 26 31 M26 31 V34"/>';
+        }
+        return '<path class="front" d="M9 13 L26 22 V38 L9 29 Z"/><path class="side" d="M26 22 L43 13 V29 L26 38 Z"/><path class="top" d="M9 13 L26 4 L43 13 L26 22 Z"/><path class="line" d="M17 17 L26 12 L35 17 M17 27 L26 32 L35 27"/>';
+      }
+
+      function renderEdges() {
+        var outlines = edges.map(function (edge) {
+          return '<path class="sm-road-segment sm-road-outline ' + roadClassNames(edge) + '" d="' + pathFor(edge) + '"/>';
+        }).join("");
+        var surfaces = edges.map(function (edge) {
+          return '<path class="sm-road-segment sm-road-surface ' + roadClassNames(edge) + '" d="' + pathFor(edge) + '"/>';
+        }).join("");
+        var dividers = edges.map(function (edge) {
+          return '<path class="sm-road-segment sm-road-divider ' + roadClassNames(edge) + '" d="' + pathFor(edge) + '"/>';
+        }).join("");
+        var guides = edges.map(function (edge) {
+          return '<path id="sm-road-' + edge.id + '" class="sm-road-guide" d="' + pathFor(edge) + '"/><path id="sm-road-return-' + edge.id + '" class="sm-road-guide" d="' + pathFor(edge, true) + '"/>';
+        }).join("");
+        var details = edges.map(function (edge) {
+          var source = nodeById(edge.source);
+          var target = nodeById(edge.target);
+          var labelX = (source.x + target.x) / 2;
+          var labelY = (source.y + target.y) / 2;
+          var selected = edge.id === selectedEdgeId;
+          var lockPath = edge.security === "plaintext" ? '<path d="M-45 -7 V-9 A4 4 0 0 1 -37 -9"/><rect x="-46" y="-7" width="10" height="8" rx="1.5"/>' : '<path d="M-45 -7 V-10 A4 4 0 0 1 -37 -10 V-7"/><rect x="-46" y="-7" width="10" height="8" rx="1.5"/>';
+          var roadPathId = "sm-road-" + edge.id;
+          var returnPathId = "sm-road-return-" + edge.id;
+          var sharedTooltip = source.label + " to " + target.label + "&#10;" + edge.protocol + " :" + edge.port + " · " + edge.tls + "&#10;" + rateLabel(edge.rpm) + " · P95 " + edge.p95 + " ms · errors " + edge.error + "%";
+          return '<g class="sm-edge health-' + edge.health + ' security-' + edge.security + ' ' + speedClass(edge.rpm) + (edge.async ? ' is-async' : '') + (selected ? ' is-selected' : '') + '" data-edge-id="' + edge.id + '" data-sm-tooltip="' + sharedTooltip + '" role="button" tabindex="0" aria-pressed="' + selected + '" aria-label="' + source.label + ' to ' + target.label + ', ' + edge.protocol + ' destination port ' + edge.port + ', ' + edge.tls + ', ' + rateLabel(edge.rpm) + ', P95 ' + edge.p95 + ' milliseconds">' +
+            '<path class="sm-edge-hit" d="' + pathFor(edge) + '"/>' +
+            '<g class="sm-traffic-particle is-outbound"><g transform="translate(0 2.2)"><ellipse class="sm-particle-halo" rx="7" ry="3.4"/><circle class="sm-particle-core" r="1.45"/></g><animateMotion dur="' + particleDuration(edge.rpm) + '" repeatCount="indefinite" rotate="auto"><mpath href="#' + roadPathId + '"/></animateMotion></g>' +
+            '<g class="sm-traffic-particle is-return"><g transform="translate(0 2.2)"><ellipse class="sm-particle-halo" rx="7" ry="3.4"/><circle class="sm-particle-core" r="1.45"/></g><animateMotion dur="' + particleDuration(edge.rpm) + '" begin="-1.1s" repeatCount="indefinite" rotate="auto"><mpath href="#' + returnPathId + '"/></animateMotion></g>' +
+            '<g class="sm-speed-sign" transform="translate(' + labelX + ' ' + labelY + ')"><path class="sm-speed-sign-pole" d="M0 10 V24"/><circle class="sm-speed-sign-face" r="11"/><text class="sm-speed-sign-value" y="1">' + rateSignLabel(edge.rpm) + '</text><text class="sm-speed-sign-unit" y="7">' + rateSignUnit(edge.rpm) + '</text></g>' +
+            '<g class="sm-edge-security-label" transform="translate(' + labelX + ' ' + labelY + ')"><rect x="-58" y="-19" width="116" height="38" rx="4"/><g class="sm-security-lock">' + lockPath + '</g><text class="sm-edge-transport" x="-31" y="-4">' + edge.protocol + ' :' + edge.port + '</text><text class="sm-edge-tls" x="-31" y="10">' + edge.tls + ' · ' + edge.auth + '</text></g>' +
+            '</g>';
+        }).join("");
+          edgeLayer.innerHTML = '<g class="sm-road-network"><g class="sm-road-outlines">' + outlines + '</g><g class="sm-road-surfaces">' + surfaces + '</g><g class="sm-road-dividers">' + dividers + '</g><g class="sm-road-guides">' + guides + '</g></g><g class="sm-road-details">' + details + '</g>';
+        edgeLayer.querySelectorAll("animateMotion").forEach(function (animation) {
+          animation.beginElement();
+        });
+      }
+
+      function renderNodes() {
+        nodeLayer.innerHTML = nodes.map(function (node) {
+          var selected = node.id === selectedId;
+          return '<g class="sm-node kind-' + node.kind + ' health-' + node.health + (selected ? ' is-selected' : '') + '" data-node-id="' + node.id + '" role="button" tabindex="0" aria-pressed="' + selected + '" aria-label="' + node.label + ', ' + node.detail + ', ' + node.health + '" transform="translate(' + (node.x - 47) + ' ' + (node.y - 56) + ')">' +
+            '<rect class="sm-node-hit" width="179" height="84" rx="8"/>' +
+            '<ellipse class="sm-iso-ground" cx="47" cy="70" rx="38" ry="9"/>' +
+            '<path class="sm-iso-base-left" d="M12 56 L47 74 V79 L12 61 Z"/><path class="sm-iso-base-right" d="M47 74 L82 56 V61 L47 79 Z"/><path class="sm-iso-base-top" d="M12 56 L47 38 L82 56 L47 74 Z"/>' +
+            '<g class="sm-iso-object" transform="translate(21 8)">' + isoGlyph(node.kind) + '</g>' +
+            '<path class="sm-sign-post" d="M82 51 V66 M168 51 V66"/>' +
+            '<g class="sm-iso-label" transform="translate(73 19)"><rect width="104" height="32" rx="3"/><text class="sm-node-label" x="8" y="13">' + node.label + '</text><text class="sm-node-detail" x="8" y="24">' + node.detail + '</text></g>' +
+            '<circle class="sm-health-dot" cx="168" cy="25" r="4.5"/></g>';
+        }).join("");
+      }
+
+      function inspectorGlyph(kind) {
+        return '<svg viewBox="0 0 40 40" aria-hidden="true">' + glyph(kind) + '</svg>';
+      }
+
+      function renderInspector() {
+        if (selectedEdgeId !== null) {
+          renderEdgeInspector(edgeById(selectedEdgeId));
+          return;
+        }
+        var node = nodeById(selectedId);
+        var connections = edges.filter(function (edge) { return edge.source === node.id || edge.target === node.id; });
+        var incoming = edges.filter(function (edge) { return edge.target === node.id; }).length;
+        var outgoing = edges.filter(function (edge) { return edge.source === node.id; }).length;
+        inspector.className = "sm-inspector kind-" + node.kind;
+        inspector.innerHTML = '<div class="sm-inspector-identity"><span class="sm-inspector-icon">' + inspectorGlyph(node.kind) + '</span><div><span class="eyebrow">Selected resource</span><h2>' + node.label + '</h2><p>' + node.detail + '</p></div><span class="sm-health-label ' + node.health + '">' + node.health + '</span></div>' +
+          '<dl class="sm-facts"><div><dt>Boundary</dt><dd>' + node.lane + '</dd></div><div><dt>Incoming</dt><dd>' + incoming + '</dd></div><div><dt>Outgoing</dt><dd>' + outgoing + '</dd></div><div><dt>Source</dt><dd>Synthetic preview</dd></div></dl>' +
+          '<div class="sm-connections">' + connections.map(function (edge) { var peer = nodeById(edge.source === node.id ? edge.target : edge.source); return '<span class="sm-connection"><strong>' + peer.label + '</strong><small>' + edge.protocol + ' · ' + edge.p95 + ' ms · ' + edge.error + '%</small></span>'; }).join("") + '</div>';
+      }
+
+      function renderEdgeInspector(edge) {
+        var source = nodeById(edge.source);
+        var target = nodeById(edge.target);
+        var statusLabel = edge.security === "secure" ? "TLS protected" : edge.security === "plaintext" ? "Plaintext" : "Certificate attention";
+        inspector.className = "sm-inspector kind-gateway";
+        inspector.innerHTML = '<div class="sm-inspector-identity"><span class="sm-inspector-icon"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M13 18 V13 A7 7 0 0 1 27 13 V18"/><rect x="10" y="18" width="20" height="15" rx="3"/><path d="M20 23 V28"/></svg></span><div><span class="eyebrow">Selected connection</span><h2>' + source.label + ' → ' + target.label + '</h2><p>' + edge.protocol + ' destination endpoint</p></div><span class="sm-health-label ' + (edge.security === "secure" ? "" : edge.security === "plaintext" ? "critical" : "warning") + '">' + statusLabel + '</span></div>' +
+          '<dl class="sm-facts"><div><dt>Destination port</dt><dd>:' + edge.port + '</dd></div><div><dt>Encryption</dt><dd>' + edge.tls + '</dd></div><div><dt>Authentication</dt><dd>' + edge.auth + '</dd></div><div><dt>Certificate</dt><dd>' + edge.certificate + '</dd></div></dl>' +
+          '<div class="sm-connections"><span class="sm-connection"><strong>Traffic</strong><small>' + rateLabel(edge.rpm) + '</small></span><span class="sm-connection"><strong>Latency</strong><small>P95 ' + edge.p95 + ' ms</small></span><span class="sm-connection"><strong>Error rate</strong><small>' + edge.error + '%</small></span></div>';
+      }
+
+      function selectNode(nodeId) {
+        selectedId = nodeId;
+        selectedEdgeId = null;
+        renderEdges();
+        renderNodes();
+        renderInspector();
+      }
+
+      function selectEdge(edgeId) {
+        selectedEdgeId = edgeId;
+        renderEdges();
+        renderNodes();
+        renderInspector();
+      }
+
+      document.querySelectorAll("[data-sm-mode]").forEach(function (button) {
+        button.addEventListener("click", function () {
+          document.querySelectorAll("[data-sm-mode]").forEach(function (candidate) {
+            var active = candidate === button;
+            candidate.classList.toggle("is-active", active);
+            candidate.setAttribute("aria-pressed", String(active));
+          });
+          workspace.dataset.mode = button.dataset.smMode;
+          document.querySelector("[data-sm-motion]").disabled = button.dataset.smMode === "security";
+          if (button.dataset.smMode === "security") canvas.pauseAnimations();
+          else if (workspace.dataset.motion === "running") canvas.unpauseAnimations();
+        });
+      });
+
+      document.querySelector("[data-sm-motion]").addEventListener("click", function (event) {
+        var button = event.currentTarget;
+        var running = workspace.dataset.motion === "running";
+        workspace.dataset.motion = running ? "paused" : "running";
+        if (running) canvas.pauseAnimations();
+        else canvas.unpauseAnimations();
+        button.setAttribute("aria-label", running ? "Resume traffic motion" : "Pause traffic motion");
+        button.dataset.smTooltip = running ? "Resume traffic motion" : "Pause traffic motion";
+        button.innerHTML = running ? '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 4 L16 10 L6 16 Z"/></svg>' : '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="5" y="4" width="3" height="12" rx="1"/><rect x="12" y="4" width="3" height="12" rx="1"/></svg>';
+      });
+
+      document.querySelector("[data-sm-zoom-in]").addEventListener("click", function () { zoomAt(zoom + .25); });
+      document.querySelector("[data-sm-zoom-out]").addEventListener("click", function () { zoomAt(zoom - .25); });
+      fullscreenButton.addEventListener("click", function () { void toggleFullscreen(); });
+      document.addEventListener("fullscreenchange", syncFullscreenButton);
+      document.addEventListener("pointerover", function (event) {
+        var trigger = sharedTooltipTrigger(event.target);
+        if (trigger !== null && event.pointerType !== "touch") showSharedTooltip(trigger, false);
+      });
+      document.addEventListener("pointerout", function (event) {
+        var trigger = sharedTooltipTrigger(event.target);
+        if (trigger !== null && !trigger.contains(event.relatedTarget)) hideSharedTooltip(false);
+      });
+      document.addEventListener("pointerdown", function (event) {
+        var trigger = sharedTooltipTrigger(event.target);
+        if (trigger !== null && event.pointerType === "touch") showSharedTooltip(trigger, true);
+      });
+      document.addEventListener("focusin", function (event) {
+        var trigger = sharedTooltipTrigger(event.target);
+        if (trigger !== null) showSharedTooltip(trigger, true);
+      });
+      document.addEventListener("focusout", function (event) {
+        var trigger = sharedTooltipTrigger(event.target);
+        if (trigger !== null && !trigger.contains(event.relatedTarget)) hideSharedTooltip(false);
+      });
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          hideSharedTooltip(true);
+          if (workspace.classList.contains("is-fullscreen-fallback")) {
+            workspace.classList.remove("is-fullscreen-fallback");
+            syncFullscreenButton();
+          }
+        }
+      });
+      window.addEventListener("resize", function () {
+        if (activeTooltip !== null && activeTooltipAnchor !== null) positionSharedTooltip(activeTooltipAnchor, activeTooltip);
+      });
+      canvas.addEventListener("wheel", function (event) {
+        event.preventDefault();
+        zoomAt(zoom + (event.deltaY < 0 ? .15 : -.15), event.clientX, event.clientY);
+      }, { passive: false });
+      canvas.addEventListener("pointerdown", function (event) {
+        if (event.button !== 0 || event.target.closest("[data-node-id], [data-edge-id]")) return;
+        event.preventDefault();
+        canvas.setPointerCapture(event.pointerId);
+        panStart = { clientX: event.clientX, clientY: event.clientY, x: camera.x, y: camera.y };
+        canvas.classList.add("is-panning");
+      });
+      canvas.addEventListener("pointermove", function (event) {
+        var point = drawingPoint(event.clientX, event.clientY);
+        coordinateOutput.value = "X " + formatCoordinate(point.x) + " · Y " + formatCoordinate(point.y);
+        coordinateOutput.textContent = coordinateOutput.value;
+        if (panStart === null) return;
+        var bounds = canvas.getBoundingClientRect();
+        camera.x = panStart.x - ((event.clientX - panStart.clientX) / bounds.width) * camera.width;
+        camera.y = panStart.y - ((event.clientY - panStart.clientY) / bounds.height) * camera.height;
+        clampCamera();
+        applyCamera();
+      });
+      function stopPanning(event) {
+        if (panStart === null) return;
+        panStart = null;
+        canvas.classList.remove("is-panning");
+        if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+      }
+      canvas.addEventListener("pointerup", stopPanning);
+      canvas.addEventListener("pointercancel", stopPanning);
+      scrollSurface.addEventListener("keydown", function (event) {
+        if (event.key === "+" || event.key === "=") { event.preventDefault(); zoomAt(zoom + .25); }
+        if (event.key === "-") { event.preventDefault(); zoomAt(zoom - .25); }
+        if (event.key === "0") { event.preventDefault(); fitDrawing(); }
+      });
+
+      nodeLayer.addEventListener("click", function (event) {
+        var node = event.target.closest("[data-node-id]");
+        if (node) selectNode(node.dataset.nodeId);
+      });
+      nodeLayer.addEventListener("keydown", function (event) {
+        var node = event.target.closest("[data-node-id]");
+        if (node && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          selectNode(node.dataset.nodeId);
+        }
+      });
+      edgeLayer.addEventListener("click", function (event) {
+        var edge = event.target.closest("[data-edge-id]");
+        if (edge) selectEdge(edge.dataset.edgeId);
+      });
+      edgeLayer.addEventListener("keydown", function (event) {
+        var edge = event.target.closest("[data-edge-id]");
+        if (edge && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          selectEdge(edge.dataset.edgeId);
+        }
+      });
+
+      renderEdges();
+      renderNodes();
+      renderInspector();
+      applyCamera();
+      syncFullscreenButton();
+    })();
+  </script>
+</body>
+</html>

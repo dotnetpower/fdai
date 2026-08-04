@@ -8,7 +8,6 @@ import {
   groundingStages,
   handoffReasonKey,
   parseReplySource,
-  pillStats,
 } from "./grounded-sources";
 
 function manifestVerification(
@@ -164,26 +163,6 @@ describe("citationMarks", () => {
     ]);
     // "3" is one char -> dropped; "corr-9" deduped -> one mark; null -> dropped.
     expect(marks).toEqual([{ n: 1, value: "corr-9", title: "correlation_id - corr-9" }]);
-  });
-});
-
-describe("pillStats", () => {
-  it("emits only stats with real values", () => {
-    expect(
-      pillStats({ sourceCount: 7, checksCompleted: 2, checksTotal: 2, agentCount: 0 }),
-    ).toEqual([
-      { value: "7", label: "sources" },
-      { value: "2/2", label: "checks" },
-    ]);
-  });
-
-  it("uses singular labels and drops empty groups", () => {
-    expect(
-      pillStats({ sourceCount: 1, checksCompleted: 0, checksTotal: 0, agentCount: 1 }),
-    ).toEqual([
-      { value: "1", label: "source" },
-      { value: "1", label: "agent" },
-    ]);
   });
 });
 

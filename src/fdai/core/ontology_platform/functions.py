@@ -98,16 +98,19 @@ class OntologyFunctionRegistry:
         invocation_context = context or FunctionInvocationContext(caller_agent="unattributed")
         _authorize(declaration, invocation_context)
         raw_arguments = dict(arguments)
-        raw_digest = _digest(raw_arguments)
         seed = None
         if declaration.execution_class is LogicExecutionClass.SEEDED_STOCHASTIC:
+            seed_field = declaration.seed_field or "fdai_seed"
+            if seed_field in raw_arguments:
+                raise ValueError(f"ontology function seed field {seed_field!r} is runtime-owned")
+            raw_digest = _digest(raw_arguments)
             seed = int(
                 hashlib.sha256(f"{declaration.artifact_digest}:{raw_digest}".encode()).hexdigest()[
                     :16
                 ],
                 16,
             )
-            raw_arguments[declaration.seed_field or "fdai_seed"] = seed
+            raw_arguments[seed_field] = seed
         input_errors = list(
             Draft202012Validator(declaration.input_schema).iter_errors(raw_arguments)
         )

@@ -8,7 +8,10 @@ import {
   type InvestigationMilestone,
   type VerificationProgress,
 } from "./backend";
-import { takeComposerAttachments } from "./composer-attachment-store";
+import {
+  hasPendingComposerAttachments,
+  takeComposerAttachments,
+} from "./composer-attachment-store";
 import { DEFAULT_NARRATOR, type Turn } from "./command-deck-presenters";
 import { upsertEvidenceBranch, upsertInvestigationActivity } from "./investigation-timeline";
 import {
@@ -49,7 +52,6 @@ interface MutableValueRef<T> {
 interface UseCommandDeckSubmitOptions {
   readonly snapshot: ViewSnapshot | null;
   readonly pending: boolean;
-  readonly turns: readonly Turn[];
   readonly conversations: readonly ConversationSummary[];
   readonly sessionKeyRef: MutableValueRef<string>;
   readonly turnsRef: MutableValueRef<readonly Turn[]>;
@@ -71,6 +73,14 @@ interface UseCommandDeckSubmitOptions {
   readonly revealCompletedWork: (turnId: string, childSelector?: string) => void;
 }
 
+export function resolveConversationSummary(
+  conversations: readonly ConversationSummary[],
+  metadata: ReadonlyMap<string, ConversationSummary>,
+  key: string,
+): ConversationSummary | undefined {
+  return metadata.get(key) ?? conversations.find((item) => item.key === key);
+}
+
 function shortTime(): string {
   const date = new Date();
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`;
@@ -87,7 +97,6 @@ function currentPathname(): string {
 export function useCommandDeckSubmit({
   snapshot,
   pending,
-  turns,
   conversations,
   sessionKeyRef,
   turnsRef,
@@ -111,6 +120,10 @@ export function useCommandDeckSubmit({
   return useCallback(async (raw: string) => {
     const text = raw.trim();
     if (text.length === 0 || pending || inFlightRef.current) return;
+    if (hasPendingComposerAttachments()) {
+      setSrStatus(t("deck.attach.scanning"));
+      return;
+    }
     // Drain staged image attachments only once we know this turn will send, so
     // a no-op empty/busy submit (e.g. Enter on an empty composer) never
     // silently discards the operator's pending images. Draining here also means
@@ -139,9 +152,13 @@ export function useCommandDeckSubmit({
       at: shortTime(),
       recordedAt: activityAt,
     };
-    const activeSummary = conversations.find((item) => item.key === originSessionKey);
-    const sessionSummary = activeSummary ?? sessionMetadataRef.current.get(originSessionKey);
-    const hasOperatorTurn = turnsRef.current.some((turn) => turn.role === "operator");
+    const sessionSummary = resolveConversationSummary(
+      conversations,
+      sessionMetadataRef.current,
+      originSessionKey,
+    );
+    const priorTurns = turnsRef.current;
+    const hasOperatorTurn = priorTurns.some((turn) => turn.role === "operator");
     updateConversationIndex({
       key: originSessionKey,
       label:
@@ -150,6 +167,7 @@ export function useCommandDeckSubmit({
           : t("deck.general"),
       kind: sessionSummary?.kind ?? "screen-default",
       ...(sessionSummary?.agent ? { agent: sessionSummary.agent } : {}),
+      ...(sessionSummary?.binding ? { binding: sessionSummary.binding } : {}),
       originPath: sessionSummary?.originPath ?? conversationPath(currentPathname()),
       originLabel: sessionSummary?.originLabel ?? snapshot?.routeLabel ?? currentPathname(),
       createdAt: sessionSummary?.createdAt ?? activityAt,
@@ -157,7 +175,7 @@ export function useCommandDeckSubmit({
       lastReadAt: activityAt,
     });
     setTurns((current) => [...current, operatorTurn]);
-    turnsRef.current = [...turnsRef.current, operatorTurn];
+    turnsRef.current = [...priorTurns, operatorTurn];
     setDraft("");
     historyRef.current = recordHistory(historyRef.current, text);
     setPending(true);
@@ -165,7 +183,7 @@ export function useCommandDeckSubmit({
     setSrStatus(t("deck.announcement.retrieving"));
     setInFlight(true);
 
-    const history = backendHistoryForTurns(turns);
+    const history = backendHistoryForTurns(priorTurns);
     const deckId = newId();
     let activityTurnId = newId();
     const activityTurnIds = new Set<string>();
@@ -581,7 +599,6 @@ export function useCommandDeckSubmit({
     snapshot,
     focusInput,
     pending,
-    turns,
     conversations,
     updateConversationIndex,
     pinTranscriptToLatest,

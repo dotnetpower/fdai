@@ -7,7 +7,8 @@
 
 .PHONY: dev-up dev-down dev-logs dev-nuke help \
 	lint format test test-changed operator gates check validation-status validation-run \
-	validation-all pre-commit-install hooks-install \
+	validation-all roadmap-verification-sync roadmap-verification-status \
+	roadmap-verification-report roadmap-verification-apply pre-commit-install hooks-install \
         azd-up genesis-up
 
 help: ## show this help
@@ -70,6 +71,18 @@ validation-run: ## validate the pending batch with changed tests + fast gates
 
 validation-all: ## validate the pending batch with whole-repository gates
 	@python3 scripts/automation/validation_queue.py run --all
+
+roadmap-verification-sync: ## discover canonical roadmap documents and refresh queue freshness
+	@python3 scripts/automation/roadmap_verification_cli.py sync
+
+roadmap-verification-status: ## show durable roadmap verification job counts
+	@python3 scripts/automation/roadmap_verification_cli.py status
+
+roadmap-verification-report: ## audit one roadmap document without repository writes
+	@python3 scripts/automation/roadmap_verification_worker.py
+
+roadmap-verification-apply: ## apply one job in a clean campaign worktree and fast-forward it
+	@python3 scripts/automation/roadmap_verification_worker.py --apply --integrate
 
 pre-commit-install: hooks-install ## backwards-compatible alias for hooks-install
 	@echo "pre-commit-install is configured through the tracked .githooks/pre-commit hook."

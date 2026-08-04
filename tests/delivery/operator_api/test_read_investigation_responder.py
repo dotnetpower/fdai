@@ -191,6 +191,93 @@ async def test_chat_delegate_explains_read_availability_from_typed_evidence() ->
     assert "did not encounter a scope or authorization failure" in _answer(result)
 
 
+async def test_chat_delegate_renders_resource_state_from_typed_evidence() -> None:
+    envelope = ReadEvidenceEnvelope(
+        status=EvidenceStatus.MATCHED,
+        authority="azure.resource_state",
+        resource_ref="resource:one",
+        observed_at=NOW,
+        freshness=EvidenceFreshness.LIVE,
+        truncated=False,
+        records=(
+            ReadEvidenceRecord(
+                occurred_at=NOW,
+                status="succeeded",
+                state="running",
+            ),
+        ),
+        evidence_refs=("evidence:state",),
+    )
+
+    result = await _delegate(_NetworkExecutor(envelope)).delegate(
+        prompt="What is the current state of vm-01?",
+        user_id="principal-one",
+        session_id="session-one",
+    )
+
+    assert result is not None
+    assert _answer(result) == "The observed state of vm-01 is running at 2026-07-22T00:00:00Z."
+
+
+async def test_chat_delegate_renders_platform_health_from_typed_evidence() -> None:
+    envelope = ReadEvidenceEnvelope(
+        status=EvidenceStatus.MATCHED,
+        authority="azure.resource_health",
+        resource_ref="resource:one",
+        observed_at=NOW,
+        freshness=EvidenceFreshness.LIVE,
+        truncated=False,
+        records=(
+            ReadEvidenceRecord(
+                occurred_at=NOW,
+                status="available",
+                health_kind="platform_available",
+            ),
+        ),
+        evidence_refs=("evidence:health",),
+    )
+
+    result = await _delegate(_NetworkExecutor(envelope)).delegate(
+        prompt="Is vm-01 affected by a platform outage?",
+        user_id="principal-one",
+        session_id="session-one",
+    )
+
+    assert result is not None
+    assert "platform_available" in _answer(result)
+    assert "2026-07-22T00:00:00Z" in _answer(result)
+
+
+async def test_chat_delegate_renders_guest_shutdown_from_typed_evidence() -> None:
+    envelope = ReadEvidenceEnvelope(
+        status=EvidenceStatus.MATCHED,
+        authority="azure.guest_logs",
+        resource_ref="resource:one",
+        observed_at=NOW,
+        freshness=EvidenceFreshness.LIVE,
+        truncated=False,
+        records=(
+            ReadEvidenceRecord(
+                occurred_at=NOW,
+                status="succeeded",
+                operation_kind="guest_shutdown",
+            ),
+        ),
+        evidence_refs=("evidence:guest",),
+    )
+
+    result = await _delegate(_NetworkExecutor(envelope)).delegate(
+        prompt="Was guest shutdown recorded for vm-01?",
+        user_id="principal-one",
+        session_id="session-one",
+    )
+
+    assert result is not None
+    assert _answer(result) == (
+        "Guest OS shutdown evidence for vm-01 was observed at 2026-07-22T00:00:00Z."
+    )
+
+
 async def test_chat_delegate_replays_same_direct_read_without_provider_recall() -> None:
     executor = _Executor()
     delegate = _delegate(executor)
@@ -332,7 +419,7 @@ async def test_chat_delegate_executes_measured_attribution_read() -> None:
     assert executor.calls == 1
 
 
-async def test_chat_delegate_executes_cold_streamed_attribution_read() -> None:
+async def test_chat_delegate_executes_cold_attribution_with_shared_interactive_policy() -> None:
     executor = _Executor()
     delegate = HeimdallReadInvestigationChatDelegate(
         responder=HeimdallReadInvestigationResponder(
@@ -349,7 +436,7 @@ async def test_chat_delegate_executes_cold_streamed_attribution_read() -> None:
     )
 
     assert result is not None
-    assert _facts(result)["mode"] == "streamed"
+    assert _facts(result)["mode"] == "direct"
     assert _facts(result)["status"] == "matched"
     assert executor.calls == 1
 

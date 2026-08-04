@@ -1,9 +1,7 @@
 """Tests for :mod:`fdai.core.verticals.db_dr_drill_cli`.
 
-Cover the env-var contract, dry-run wire-up, and fail-fast exit codes.
-Live-restore composition is fork territory (upstream would need real
-Postgres credentials); a fork subclasses the CLI + composes the real
-DbRestoreAdapter to run a live drill.
+Cover the env-var contract, dry-run wire-up, injected live runner, and
+fail-fast exit codes.
 """
 
 from __future__ import annotations
@@ -23,6 +21,8 @@ from fdai.core.verticals.resilience.db_dr_drill_cli import (
     _build_config,
     main,
 )
+from fdai.core.verticals.resilience.db_dr_verifier import DbDrOutcome, DbDrVerdict
+from fdai.shared.providers.db_dr import DbRestoreConfig
 
 _FIXED_NOW = datetime(2026, 7, 6, 15, 30, 0, tzinfo=UTC)
 
@@ -145,6 +145,37 @@ def test_main_without_dry_run_returns_2_upstream(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setenv(_ENV_SOURCE, "/subscriptions/x/resourceGroups/rg/servers/s")
     monkeypatch.setenv(_ENV_LOCATION, "koreacentral")
     assert main() == 2
+
+
+@pytest.mark.parametrize(
+    ("outcome", "expected_exit"),
+    [
+        (DbDrOutcome.PASSED, 0),
+        (DbDrOutcome.INTEGRITY_FAILED, 3),
+        (DbDrOutcome.CLEANUP_FAILED, 3),
+    ],
+)
+def test_main_runs_injected_live_drill(
+    monkeypatch: pytest.MonkeyPatch,
+    outcome: DbDrOutcome,
+    expected_exit: int,
+) -> None:
+    monkeypatch.setenv(_ENV_SOURCE, "/subscriptions/x/resourceGroups/rg/servers/s")
+    monkeypatch.setenv(_ENV_LOCATION, "koreacentral")
+    seen_experiment_ids: list[str] = []
+
+    async def run_drill(config: DbRestoreConfig) -> DbDrVerdict:
+        experiment_id = config.experiment_id
+        seen_experiment_ids.append(experiment_id)
+        return DbDrVerdict(
+            experiment_id=experiment_id,
+            outcome=outcome,
+            cleanup_succeeded=outcome is DbDrOutcome.PASSED,
+        )
+
+    assert main(run_drill) == expected_exit
+    assert len(seen_experiment_ids) == 1
+    assert seen_experiment_ids[0].startswith("db-dr-drill-")
 
 
 def test_main_exception_returns_exit_4(monkeypatch: pytest.MonkeyPatch) -> None:

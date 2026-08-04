@@ -748,6 +748,7 @@ class TestLocalEntraLoginHarness:
         assert application.state.pantheon_runtime is not None
         assert len(application.state.pantheon_runtime.agents) == 15
         assert application.state.pantheon_runtime.bridge.handler_observer is not None
+        assert application.state.chat_agent_delegate is None
 
     def test_explicit_pantheon_disable_omits_runtime_and_stream(
         self, monkeypatch: pytest.MonkeyPatch
@@ -1019,6 +1020,9 @@ class TestLocalAzureCliHarness:
         assert "/kpi/llm-cost" in paths
         assert "/system/data-sources" in paths
         assert "/workflows/run" in paths
+        assert "/workflows/{process_id}/resume" in paths
+        assert "/workflows/{process_id}/cancel" in paths
+        assert "/workflows/{process_id}/retry" in paths
         assert "/views/process" in paths
         assert "/arb/status" in paths
         assert "/agents/stream" in paths

@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: kubernetes-node-pool.multi-zone
 version: 1.0.0
 source: waf
@@ -8,15 +8,17 @@ resource_type: kubernetes-node-pool
 applies_to:
 - kubernetes-node-pool
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.kubernetes-node-pool.availability_zones
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: kubernetes-node-pool
+- kind: property_exists
+  value: property.kubernetes-node-pool.availability_zones
 check_logic:
   kind: rego
   reference: policies/kubernetes/node_pool_multi_zone.rego

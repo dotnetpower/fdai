@@ -27,6 +27,20 @@ _ROUTER_WARMUP_SAMPLES: Final[int] = 2
 
 _ROUTER_FAILURE_PENALTY_MS: Final[int] = 30_000
 
+_VISION_PROBE_CONTEXT: Final[dict[str, Any]] = {
+    "_attachments": [
+        {
+            "name": "vision-readiness.png",
+            "media_type": "image/png",
+            "data_url": (
+                "data:image/png;base64,"
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+            ),
+            "byte_size": 68,
+        }
+    ]
+}
+
 
 class LatencyRoutedChatBackend:
     """Wrap N :class:`ChatBackend`s and route each request to the fastest.
@@ -65,9 +79,10 @@ class LatencyRoutedChatBackend:
         *,
         candidates: list[tuple[str, ChatBackend]],
         turn_timeout_seconds: float = 30.0,
+        vision_capable: bool = False,
     ) -> None:
-        if len(candidates) < 2:
-            raise ValueError("LatencyRoutedChatBackend requires >= 2 candidates")
+        if not candidates:
+            raise ValueError("LatencyRoutedChatBackend requires >= 1 candidate")
         names = [n for n, _ in candidates]
         if len(set(names)) != len(names):
             raise ValueError("LatencyRoutedChatBackend candidate names MUST be unique")
@@ -75,6 +90,8 @@ class LatencyRoutedChatBackend:
             raise ValueError("turn_timeout_seconds MUST be > 0")
         self._candidates: list[tuple[str, ChatBackend]] = list(candidates)
         self._turn_timeout_seconds = turn_timeout_seconds
+        self._vision_capable = vision_capable
+        self._vision_backend: ChatBackend | None = None
         self._samples: dict[str, deque[int]] = {
             name: deque(maxlen=_ROUTER_WINDOW_SIZE) for name, _ in candidates
         }
@@ -126,6 +143,22 @@ class LatencyRoutedChatBackend:
         """Return the preference-safe narrator deployment allowlist."""
         return tuple(name for name, _ in self._candidates)
 
+    def bind_vision_backend(self, backend: ChatBackend) -> None:
+        """Bind the independently resolved multimodal backend once at startup."""
+        if self._vision_capable:
+            raise ValueError("a vision pool cannot bind another vision backend")
+        if self._vision_backend is not None:
+            raise ValueError("vision backend is already bound")
+        if backend is self or (
+            isinstance(backend, LatencyRoutedChatBackend) and backend._routes_to(self)
+        ):
+            raise ValueError("vision backend binding MUST NOT create a routing cycle")
+        self._vision_backend = backend
+
+    def vision_backend(self) -> ChatBackend | None:
+        """Return the multimodal backend for public health metadata."""
+        return self._vision_backend
+
     def current_pick_name(self) -> str:
         """Which candidate would serve the NEXT request (peek, no state change)."""
         name, _ = self._pick()
@@ -147,7 +180,13 @@ class LatencyRoutedChatBackend:
                 out.append(be._endpoint)  # noqa: SLF001 - deliberate peek
         return out
 
-    async def benchmark(self, *, prompt: str = "ping", rounds: int | None = None) -> str:
+    async def benchmark(
+        self,
+        *,
+        prompt: str = "ping",
+        rounds: int | None = None,
+        view_context: dict[str, Any] | None = None,
+    ) -> str:
         """Measure every candidate up front so the fastest pick is known
         before the first operator turn.
 
@@ -168,7 +207,11 @@ class LatencyRoutedChatBackend:
         async def _probe(name: str, backend: ChatBackend) -> None:
             started = time.monotonic()
             try:
-                await backend.answer(prompt=prompt, view_context={}, history=[])
+                await backend.answer(
+                    prompt=prompt,
+                    view_context=dict(view_context or {}),
+                    history=[],
+                )
             except Exception as exc:  # noqa: BLE001 - best-effort probe
                 self._samples[name].append(_ROUTER_FAILURE_PENALTY_MS)
                 _LOG.warning(
@@ -181,24 +224,44 @@ class LatencyRoutedChatBackend:
 
         for _ in range(effective_rounds):
             await asyncio.gather(*(_probe(name, be) for name, be in self._candidates))
+        if isinstance(self._vision_backend, LatencyRoutedChatBackend):
+            await self._vision_backend.benchmark(
+                prompt="Describe the attached readiness pixel.",
+                rounds=effective_rounds,
+                view_context=_VISION_PROBE_CONTEXT,
+            )
         return self.current_pick_name()
 
-    async def aclose(self) -> None:
+    async def aclose(self, *, _seen_clients: set[int] | None = None) -> None:
         """Close every candidate's ``httpx.AsyncClient`` (best-effort).
 
         Idempotent: safe to call multiple times or on a router whose
         backends never opened a client. Never raises - a stuck close
         on one client MUST NOT prevent siblings from cleaning up.
         """
-        for _, backend in self._candidates:
+        seen_clients = set() if _seen_clients is None else _seen_clients
+
+        async def _close_backend(backend: ChatBackend, label: str) -> None:
+            if isinstance(backend, LatencyRoutedChatBackend):
+                await backend.aclose(_seen_clients=seen_clients)
+                return
             client = getattr(backend, "_http", None)
             aclose = getattr(client, "aclose", None)
-            if aclose is None:
-                continue
+            if aclose is None or id(client) in seen_clients:
+                return
+            seen_clients.add(id(client))
             try:
                 await aclose()
             except Exception as exc:  # pragma: no cover - defensive path
-                _LOG.warning("router.aclose: candidate client failed to close: %s", exc)
+                _LOG.warning(
+                    "router.backend_close_failed",
+                    extra={"candidate": label, "error_type": type(exc).__name__},
+                )
+
+        for name, backend in self._candidates:
+            await _close_backend(backend, name)
+        if self._vision_backend is not None:
+            await _close_backend(self._vision_backend, "vision")
 
     # ------------------------------------------------------------------ Protocol
     async def answer(
@@ -209,6 +272,21 @@ class LatencyRoutedChatBackend:
         history: list[dict[str, str]],
         preferred_model: str | None = None,
     ) -> dict[str, Any]:
+        if _has_vision_context(view_context) and not self._vision_capable:
+            if self._vision_backend is None:
+                raise ChatBackendUnavailableError("vision model pool unavailable")
+            if isinstance(self._vision_backend, LatencyRoutedChatBackend):
+                return await self._vision_backend.answer(
+                    prompt=prompt,
+                    view_context=view_context,
+                    history=history,
+                    preferred_model=preferred_model,
+                )
+            return await self._vision_backend.answer(
+                prompt=prompt,
+                view_context=view_context,
+                history=history,
+            )
         attempted: set[str] = set()
         last_error: Exception | None = None
         deadline = time.monotonic() + self._turn_timeout_seconds
@@ -283,6 +361,27 @@ class LatencyRoutedChatBackend:
     ) -> Mapping[str, object]:
         """Route one strict structured completion with bounded failover."""
 
+        if _has_image_content(user_content) and not self._vision_capable:
+            if self._vision_backend is None:
+                raise ChatBackendUnavailableError("vision model pool unavailable")
+            complete = getattr(self._vision_backend, "complete_structured", None)
+            if complete is None:
+                raise ChatBackendUnavailableError(
+                    "vision model pool does not support structured completion"
+                )
+            result = await complete(
+                system_prompt=system_prompt,
+                user_content=user_content,
+                schema_name=schema_name,
+                schema=schema,
+                max_tokens=max_tokens,
+            )
+            if not isinstance(result, Mapping):
+                raise ChatBackendUnavailableError(
+                    "vision model pool returned invalid structured output"
+                )
+            return result
+
         attempted: set[str] = set()
         last_error: Exception | None = None
         deadline = time.monotonic() + self._turn_timeout_seconds
@@ -344,6 +443,30 @@ class LatencyRoutedChatBackend:
         emitted as one token. The terminal ``done`` event is enriched with
         the router snapshot so the FE badge stays consistent.
         """
+        if _has_vision_context(view_context) and not self._vision_capable:
+            if self._vision_backend is None:
+                raise ChatBackendUnavailableError("vision model pool unavailable")
+            stream = getattr(self._vision_backend, "answer_stream", None)
+            if stream is None:
+                reply = await self._vision_backend.answer(
+                    prompt=prompt,
+                    view_context=view_context,
+                    history=history,
+                )
+                yield {"type": "token", "delta": str(reply.get("answer", ""))}
+                yield {"type": "done", **reply}
+                return
+            kwargs: dict[str, Any] = {
+                "prompt": prompt,
+                "view_context": view_context,
+                "history": history,
+            }
+            if isinstance(self._vision_backend, LatencyRoutedChatBackend):
+                kwargs["preferred_model"] = preferred_model
+            async for event in stream(**kwargs):
+                yield event
+            return
+
         attempted: set[str] = set()
         last_error: Exception | None = None
         deadline = time.monotonic() + self._turn_timeout_seconds
@@ -352,13 +475,19 @@ class LatencyRoutedChatBackend:
             self._in_flight[name] += 1
             started = time.monotonic()
             emitted_content = False
+            success_recorded = False
             try:
                 async with asyncio.timeout(self._attempt_budget(deadline, attempted)):
                     stream = getattr(backend, "answer_stream", None)
                     if stream is not None:
+                        terminal_event: dict[str, Any] | None = None
                         async for event in stream(
                             prompt=prompt, view_context=view_context, history=history
                         ):
+                            if terminal_event is not None:
+                                raise ChatBackendUnavailableError(
+                                    f"chat candidate {name!r} emitted data after terminal done"
+                                )
                             if event.get("type") == "token" and event.get("delta"):
                                 if not emitted_content:
                                     self._ttft_samples[name].append(
@@ -373,24 +502,33 @@ class LatencyRoutedChatBackend:
                                     raise ChatBackendUnavailableError(
                                         f"chat candidate {name!r} returned an empty stream"
                                     )
-                                event = dict(event)
-                                event["model"] = name
-                                event["router"] = {
-                                    "chose": name,
-                                    "reason": "failover"
-                                    if attempted
-                                    else (
-                                        "user-preferred"
-                                        if preferred_model == name
-                                        else (
-                                            "warmup"
-                                            if len(self._samples[name]) < _ROUTER_WARMUP_SAMPLES
-                                            else "lowest-p50"
-                                        )
-                                    ),
-                                    "candidates": self.stats(),
-                                }
+                                terminal_event = dict(event)
+                                continue
                             yield event
+                        if terminal_event is None:
+                            raise ChatBackendUnavailableError(
+                                f"chat candidate {name!r} ended without terminal done"
+                            )
+                        self._samples[name].append(int((time.monotonic() - started) * 1000))
+                        self._success_counts[name] += 1
+                        success_recorded = True
+                        terminal_event["model"] = name
+                        terminal_event["router"] = {
+                            "chose": name,
+                            "reason": "failover"
+                            if attempted
+                            else (
+                                "user-preferred"
+                                if preferred_model == name
+                                else (
+                                    "warmup"
+                                    if len(self._samples[name]) <= _ROUTER_WARMUP_SAMPLES
+                                    else "lowest-p50"
+                                )
+                            ),
+                            "candidates": self.stats(),
+                        }
+                        yield terminal_event
                     else:
                         reply = await backend.answer(
                             prompt=prompt, view_context=view_context, history=history
@@ -442,8 +580,9 @@ class LatencyRoutedChatBackend:
             finally:
                 self._in_flight[name] = max(0, self._in_flight[name] - 1)
 
-            self._samples[name].append(int((time.monotonic() - started) * 1000))
-            self._success_counts[name] += 1
+            if not success_recorded:
+                self._samples[name].append(int((time.monotonic() - started) * 1000))
+                self._success_counts[name] += 1
             return
 
         self._log_all_penalised_if_saturated()
@@ -462,6 +601,21 @@ class LatencyRoutedChatBackend:
     def _effective_sample_count(self, name: str) -> int:
         """Samples + in-flight picks - used by warm-up fairness."""
         return len(self._samples[name]) + self._in_flight[name]
+
+    def _routes_to(
+        self,
+        target: LatencyRoutedChatBackend,
+        seen: set[int] | None = None,
+    ) -> bool:
+        if self is target:
+            return True
+        visited = set() if seen is None else seen
+        if id(self) in visited:
+            return False
+        visited.add(id(self))
+        return isinstance(
+            self._vision_backend, LatencyRoutedChatBackend
+        ) and self._vision_backend._routes_to(target, visited)
 
     def _pick(
         self,
@@ -520,6 +674,17 @@ class LatencyRoutedChatBackend:
                 "router.all_candidates_penalised",
                 extra={"candidates": [name for name, _ in self._candidates]},
             )
+
+
+def _has_vision_context(view_context: Mapping[str, Any]) -> bool:
+    attachments = view_context.get("_attachments")
+    return isinstance(attachments, list) and bool(attachments)
+
+
+def _has_image_content(content: object) -> bool:
+    return isinstance(content, list) and any(
+        isinstance(part, Mapping) and part.get("type") == "image_url" for part in content
+    )
 
 
 def _p50(samples: deque[int]) -> float:

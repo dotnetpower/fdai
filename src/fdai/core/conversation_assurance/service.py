@@ -111,6 +111,9 @@ def _assessment_id(
             turn.question_digest,
             turn.answer_digest,
             turn.evidence_manifest_digest,
+            turn.verification_reason_code,
+            turn.verification_route_id or "",
+            str(turn.evidence_complete),
             rubric_version,
             model_set_digest,
         )

@@ -17,7 +17,7 @@
 import { useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { useTransientFlag } from "../hooks/use-transient-flag";
-import { t } from "../i18n";
+import { t, tForLocale } from "../i18n";
 import type {
   ActionDraft,
   AnswerPlanningMetadata,
@@ -40,7 +40,6 @@ import {
   groundingStages,
   handoffReasonKey,
   parseReplySource,
-  pillStats,
   type GroundedSource,
   type TraceStage,
 } from "./grounded-sources";
@@ -85,16 +84,14 @@ export function GroundedReply({
   const [draftState, setDraftState] = useState<"idle" | "submitting" | "done" | "cancelled">("idle");
   const [draftResult, setDraftResult] = useState<string | null>(null);
   const cites = relevantCitations(citations ?? [], text);
+  const renderedText = incidentCandidates && incidentCandidates.length > 0
+    ? incidentCandidateAnswerLead(text)
+    : text;
   const evidenceReferences = cites.every((citation) =>
     citation.label.startsWith("evidence."));
   const sources = buildSources(verification, cites);
   const groundingIncomplete = verification?.evidence_manifest?.complete === false;
   const marks = citationMarks(sources);
-  const replyModel = parsedSource?.kind === "llm"
-    ? parsedSource.timing
-      ? `${parsedSource.model} \u00b7 ${parsedSource.timing}`
-      : parsedSource.model
-    : null;
   const stages = groundingStages({
     sources,
     source,
@@ -185,7 +182,7 @@ export function GroundedReply({
           </span>
         ) : null}
         <RichContent
-          text={text}
+          text={renderedText}
           streaming={streaming}
           suppressCode={!streaming && (codeArtifacts?.length ?? 0) > 0}
           citeMarks={marks}
@@ -374,17 +371,12 @@ export function GroundedReply({
                 <span class="deck-gr-check" aria-hidden="true">
                   {groundingIncomplete ? "!" : "\u2713"}
                 </span>
-                {pillStats({
-                  sourceCount: sources.length,
-                  checksCompleted: verification?.checks_completed ?? 0,
-                  checksTotal: verification?.checks_total ?? 0,
-                  agentCount: answerPlanning?.consulted_agents.length ?? 0,
-                }).map((stat, i) => (
-                  <span key={`${stat.label}-${i}`} class="deck-gr-stat">
-                    <strong>{stat.value}</strong> {stat.label}
-                  </span>
-                ))}
-                {replyModel ? <span class="deck-gr-stat is-model">{replyModel}</span> : null}
+                <span class="deck-gr-stat">
+                  <strong>{sources.length}</strong>{" "}
+                  {sources.length === 1
+                    ? t("deck.grounded.source")
+                    : t("deck.grounded.sources")}
+                </span>
                 {groundingIncomplete ? (
                   <span class="deck-gr-stat">{t("deck.grounded.partialEvidence")}</span>
                 ) : null}
@@ -410,7 +402,9 @@ export function incidentCandidateDeckDetail(candidate: IncidentCandidate): DeckO
   return {
     sessionKey: `incident:${candidate.correlationId}`,
     sessionLabel: candidate.title,
-    prompt: t("deck.incidentCandidates.prompt"),
+    newConversation: true,
+    prompt: tForLocale(candidate.locale, "deck.incidentCandidates.prompt"),
+    submitPrompt: true,
     binding: {
       kind: "incident",
       incidentId: candidate.incidentId,
@@ -420,13 +414,23 @@ export function incidentCandidateDeckDetail(candidate: IncidentCandidate): DeckO
   };
 }
 
+export function incidentCandidateAnswerLead(text: string): string {
+  const lines = text.split("\n");
+  const firstCandidate = lines.findIndex((line) => /^\s*-\s+/.test(line));
+  return firstCandidate > 0 ? lines.slice(0, firstCandidate).join("\n").trimEnd() : text;
+}
+
 function IncidentCandidatePicker({ candidates }: {
   readonly candidates: readonly IncidentCandidate[];
 }) {
+  const locale = candidates[0]?.locale ?? "en";
   return (
-    <section class="deck-incident-candidates" aria-label={t("deck.incidentCandidates.title")}>
-      <strong>{t("deck.incidentCandidates.title")}</strong>
-      <p>{t("deck.incidentCandidates.hint")}</p>
+    <section
+      class="deck-incident-candidates"
+      aria-label={tForLocale(locale, "deck.incidentCandidates.title")}
+    >
+      <strong>{tForLocale(locale, "deck.incidentCandidates.title")}</strong>
+      <p>{tForLocale(locale, "deck.incidentCandidates.hint")}</p>
       <ul>
         {candidates.map((candidate) => (
           <li key={`${candidate.incidentId}:${candidate.correlationId}`}>

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from typing import Any, Final
 from urllib.parse import urlparse
@@ -15,11 +14,14 @@ from fdai.core.onboarding import (
     OnboardingProbeError,
     OnboardingResourceKind,
 )
+from fdai.delivery.azure.arg_transport import ArgThrottleGate, fetch_arg_row_pages
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _DEFAULT_ENDPOINT: Final[str] = "https://management.azure.com"
 _DEFAULT_API_VERSION: Final[str] = "2022-10-01"
 _DEFAULT_AUDIENCE: Final[str] = "https://management.azure.com/.default"
+_DEFAULT_PAGE_SIZE: Final[int] = 1000
+_DEFAULT_MAX_PAGES: Final[int] = 8
 
 _TYPE_TO_KIND: Final[dict[str, OnboardingResourceKind]] = {
     "microsoft.managedidentity/userassignedidentities": OnboardingResourceKind.EXECUTOR_IDENTITY,
@@ -43,6 +45,8 @@ class AzureOnboardingProbeConfig:
     endpoint: str = _DEFAULT_ENDPOINT
     api_version: str = _DEFAULT_API_VERSION
     audience: str = _DEFAULT_AUDIENCE
+    page_size: int = _DEFAULT_PAGE_SIZE
+    max_pages: int = _DEFAULT_MAX_PAGES
     timeout_seconds: float = 20.0
 
     def __post_init__(self) -> None:
@@ -59,6 +63,10 @@ class AzureOnboardingProbeConfig:
         parsed = urlparse(self.endpoint)
         if parsed.scheme != "https" or not parsed.netloc:
             raise ValueError("endpoint MUST be an absolute HTTPS URL")
+        if not 1 <= self.page_size <= 1000:
+            raise ValueError("page_size MUST be in [1, 1000]")
+        if self.max_pages < 1:
+            raise ValueError("max_pages MUST be positive")
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds MUST be positive")
 
@@ -76,13 +84,14 @@ class AzureResourceProbe:
         self._config = config
         self._identity = identity
         self._http = http_client
+        self._throttle_gate = ArgThrottleGate()
 
     async def observed_resources(self) -> tuple[ObservedResource, ...]:
         query = (
             "Resources "
             f"| where subscriptionId =~ '{self._config.subscription_id}' "
             f"| where resourceGroup =~ '{self._config.resource_group}' "
-            "| project type"
+            "| order by id asc | project id, type"
         )
         rows = await self._query(query)
         kinds = {
@@ -98,7 +107,8 @@ class AzureResourceProbe:
             "AuthorizationResources "
             "| where type =~ 'microsoft.authorization/roleassignments' "
             f"| where tostring(properties.principalId) =~ '{self._config.executor_principal_id}' "
-            "| project roleDefinitionId=tostring(properties.roleDefinitionId), "
+            "| order by id asc "
+            "| project id, roleDefinitionId=tostring(properties.roleDefinitionId), "
             "scope=tostring(properties.scope)"
         )
         rows = await self._query(query)
@@ -118,43 +128,22 @@ class AzureResourceProbe:
         )
 
     async def _query(self, query: str) -> tuple[dict[str, Any], ...]:
-        try:
-            token = await self._identity.get_token(self._config.audience)
-        except Exception as exc:  # noqa: BLE001 - identity boundary fails closed
-            raise OnboardingProbeError(
-                f"Azure identity token request failed: {type(exc).__name__}"
-            ) from exc
-        url = (
-            f"{self._config.endpoint.rstrip('/')}/providers/Microsoft.ResourceGraph/resources"
-            f"?api-version={self._config.api_version}"
+        rows = await fetch_arg_row_pages(
+            identity=self._identity,
+            http_client=self._http,
+            audience=self._config.audience,
+            endpoint=self._config.endpoint,
+            api_version=self._config.api_version,
+            subscriptions=(self._config.subscription_id,),
+            query=query,
+            result_name="onboarding verification",
+            page_size=self._config.page_size,
+            max_pages=self._config.max_pages,
+            timeout_seconds=self._config.timeout_seconds,
+            error_type=OnboardingProbeError,
+            throttle_gate=self._throttle_gate,
         )
-        try:
-            response = await self._http.post(
-                url,
-                headers={
-                    "Authorization": f"Bearer {token.token}",
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                },
-                content=json.dumps(
-                    {"subscriptions": [self._config.subscription_id], "query": query}
-                ),
-                timeout=self._config.timeout_seconds,
-            )
-        except httpx.HTTPError as exc:
-            raise OnboardingProbeError(
-                f"Azure Resource Graph request failed: {type(exc).__name__}"
-            ) from exc
-        if response.status_code >= 400:
-            raise OnboardingProbeError(f"Azure Resource Graph returned HTTP {response.status_code}")
-        try:
-            payload = response.json()
-        except ValueError as exc:
-            raise OnboardingProbeError("Azure Resource Graph returned non-JSON") from exc
-        data = payload.get("data")
-        if not isinstance(data, list) or not all(isinstance(row, dict) for row in data):
-            raise OnboardingProbeError("Azure Resource Graph response data MUST be an array")
-        return tuple(data)
+        return tuple(dict(row) for row in rows)
 
 
 __all__ = ["AzureOnboardingProbeConfig", "AzureResourceProbe"]

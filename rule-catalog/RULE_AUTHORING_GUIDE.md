@@ -312,6 +312,8 @@ A state entry can declare `suppresses` with other state ids when a longer semant
 a shorter contradictory term. For example, a reviewed not-running phrase can suppress the embedded
 running state. Suppression targets must exist, cannot reference the declaring state, and affect only
 state compilation; they never change provider evidence.
+Each state or operation value list, including each category-specific list, contains 1-16 unique,
+non-blank canonical values so its typed IQL predicate stays within the verifier bound.
 
 ## Ontology & LLM handoff
 

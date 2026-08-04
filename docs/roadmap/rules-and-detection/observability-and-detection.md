@@ -61,6 +61,57 @@ are synthetic.
 - New detectors ship in **shadow mode** and are promoted per the shadow→enforce rule; their
   accuracy and false-positive rate are measured against the Phase 0 baseline.
 
+### Frozen configuration baseline checks
+
+Configuration drift is a T0 (deterministic rules) finding. A reviewed actual snapshot is frozen
+as intended state and is never replaced automatically by a later observation. The human-readable
+DOCX and canonical JSON baseline carry the same version, scope, creation time, and document digest.
+Generation and validation also verify that every displayed resource, attribute, evidence gap,
+topology link, exception, and unknown item in canonical JSON appears in the paired DOCX. A matching
+file digest alone does not establish cross-format equivalence.
+
+- `core/detection/configuration_drift.py` canonicalizes resources, topology links, and comparable
+  attributes, then reports `added`, `removed`, `changed`, `unchanged`, `unknown`, or `unauthorized`.
+- A partial snapshot cannot prove removal. Missing resources, links, or attributes remain blocked
+  until an authoritative source supplies complete evidence.
+- The configured baseline version, SHA-256 digest, and scope are server-owned. A caller cannot
+  select another target through tool arguments.
+- An immutable baseline registry can hold candidate, active, superseded, and archived versions for
+  multiple scopes. It allows one active version per scope. Active and replay-pinned sources are
+  selected by server composition, never by conversational input, and the registry exposes no
+  mutation API.
+- `delivery/azure/configuration_drift.py` applies the resource-group filter inside the Azure
+  Resource Graph query. It removes full provider resource ids before producing evidence and emits
+  deterministic resource-group `contains` links from the configured scope to neutral resource keys.
+- Knowledge retrieval explains and cites the reviewed document. It does not decide the drift. If
+  Knowledge is unavailable, the deterministic report remains valid and the citation status stays
+  blocked rather than being reported as supported. Each citation identity includes the exact
+  baseline version and full DOCX SHA-256 digest so a reused filename cannot alias another document.
+  Exact metadata lookup takes precedence; a bounded deterministic lexical fallback ranks chunks
+  only within that pinned document and returns no result for an unrelated query. Provider
+  exceptions emit a structured warning containing the exception type and pinned baseline identity,
+  but never the exception message or chunk content.
+- The read-only capability reports mutation, approval, mitigation, and unsupported-claim counts.
+  Each remains zero for a configuration check.
+- The public `bind_configuration_drift` composition helper installs this one server-pinned A0
+  capability through the immutable capability runtime. It does not add an ActionType, executor
+  identity, schedule authority, or caller-selected scope.
+- Every fresh run records baseline-load, observation, comparison, Knowledge, and total latency plus
+  resource and finding counts. Current observations are not reused through a TTL cache because a
+  cached snapshot cannot satisfy a current-state question. The receipt rejects stage latencies that
+  exceed total elapsed time beyond floating-point timer tolerance.
+- A pure review reducer accepts three idempotent run receipts for one pinned baseline. Only three
+  verified runs can produce an inert weekly schedule proposal. Any blocked or unsafe run pauses the
+  campaign, and the reducer never creates a scheduler task directly. A revisioned StateStore adapter
+  persists campaign progress with atomic state-and-audit create and compare-and-set advance.
+- Before campaign advance, an immutable StateStore report ledger records the full findings,
+  citations, safety counters, and measured performance under the campaign and run identity. Its
+  strict codec supports restart replay, duplicate content is a no-op, and identity reuse with
+  different evidence is blocked.
+- A ready campaign submits an inert Automation Blueprint. Independent review and the authenticated
+  scheduler command remain mandatory before a shadow weekly event exists. Configuration drift does
+  not call the scheduler store or executor directly.
+
 ## 1. Event Correlation
 
 A stage in `event-ingest`, immediately after normalize + deduplicate (see

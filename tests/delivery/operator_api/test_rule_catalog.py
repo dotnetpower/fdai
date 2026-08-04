@@ -10,6 +10,7 @@ from starlette.testclient import TestClient
 from fdai.delivery.operator_api.auth import build_authenticator
 from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.operator_api.routes.rule_catalog import _parse_rego_metadata
 from fdai.shared.contracts.models import (
     Category,
     CheckLogic,
@@ -21,6 +22,7 @@ from fdai.shared.contracts.models import (
     RuleSource,
     Severity,
 )
+from fdai.shared.providers.catalog_search import CatalogSearchResult
 
 
 @pytest.fixture(autouse=True)
@@ -119,6 +121,56 @@ def _client(*, active: bool = True, collected: bool = True) -> TestClient:
     return TestClient(app)
 
 
+class _SemanticIndex:
+    async def upsert(self, documents):  # type: ignore[no-untyped-def]
+        return len(documents)
+
+    async def synchronize(self, documents):  # type: ignore[no-untyped-def]
+        return await self.upsert(documents)
+
+    async def search(self, query: str, *, k: int = 20):  # type: ignore[no-untyped-def]
+        assert query == "remote desktop"
+        assert k == 5
+        return (
+            CatalogSearchResult(
+                rule_id="disk.unattached",
+                score=0.9,
+                match="hybrid",
+                components={"lexical": 0.4, "semantic": 0.5},
+            ),
+            CatalogSearchResult(
+                rule_id="object-storage.public-access.deny",
+                score=0.8,
+                match="hybrid",
+            ),
+        )
+
+
+class _FailingSemanticIndex(_SemanticIndex):
+    async def search(self, query: str, *, k: int = 20):  # type: ignore[no-untyped-def]
+        raise RuntimeError("index offline")
+
+
+class _UnexpectedSemanticIndex(_SemanticIndex):
+    async def search(self, query: str, *, k: int = 20):  # type: ignore[no-untyped-def]
+        raise AssertionError("semantic index MUST NOT run for invalid pagination")
+
+
+def _semantic_client(index: object) -> TestClient:
+    auth = build_authenticator(verifier=lambda t: {"oid": "u"}, resolver=lambda claims: None)
+    app = build_app(
+        authenticator=auth,
+        read_model=InMemoryConsoleReadModel(),
+        config=OperatorApiConfig(
+            dev_mode=True,
+            rule_catalog_rules=_active(),
+            rule_catalog_collected_rules=_collected(),
+            rule_catalog_semantic_index=index,
+        ),
+    )
+    return TestClient(app)
+
+
 def _client_with_roots(policies_root: object, remediation_root: object) -> TestClient:
     auth = build_authenticator(verifier=lambda t: {"oid": "u"}, resolver=lambda claims: None)
     app = build_app(
@@ -142,6 +194,53 @@ def test_rules_returns_totals_and_facets() -> None:
     assert body["facets"]["by_category"] == {"security": 3, "cost": 1, "reliability": 1}
     assert body["facets"]["by_severity"] == {"low": 2, "critical": 1, "high": 1, "medium": 1}
     assert body["resource_type_count"] == 4
+    assert body["search_mode"] == "substring"
+
+
+def test_rego_metadata_parser_requires_opa_comment_spacing() -> None:
+    malformed = "# METADATA\n#title: Missing space\npackage fdai.example"
+    valid = "# METADATA\n# title: Valid\n# custom:\n#   rule_id: example\npackage fdai.example"
+
+    assert _parse_rego_metadata(malformed) is None
+    assert _parse_rego_metadata(valid) == {
+        "title": "Valid",
+        "custom": {"rule_id": "example"},
+    }
+
+
+def test_rules_use_semantic_rank_when_index_is_bound() -> None:
+    response = _semantic_client(_SemanticIndex()).get("/rules", params={"q": "remote desktop"})
+    body = response.json()
+
+    assert response.status_code == 200
+    assert body["search_mode"] == "semantic"
+    assert [item["id"] for item in body["rules"]] == [
+        "disk.unattached",
+        "object-storage.public-access.deny",
+    ]
+    assert body["rules"][0]["search"] == {
+        "score": 0.9,
+        "match": "hybrid",
+        "components": {"lexical": 0.4, "semantic": 0.5},
+    }
+
+
+def test_rules_report_configured_semantic_index_failure() -> None:
+    response = _semantic_client(_FailingSemanticIndex()).get(
+        "/rules", params={"q": "remote desktop"}
+    )
+
+    assert response.status_code == 503
+    assert response.json()["error"]["reason"] == "RuntimeError"
+
+
+def test_invalid_pagination_is_rejected_before_semantic_search() -> None:
+    response = _semantic_client(_UnexpectedSemanticIndex()).get(
+        "/rules", params={"q": "remote desktop", "limit": "50000"}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["message"] == "limit MUST be between 1 and 500"
 
 
 def test_rules_tagged_with_origin() -> None:

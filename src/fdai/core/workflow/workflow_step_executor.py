@@ -8,10 +8,12 @@ from datetime import UTC, datetime
 
 from fdai.core.runbook.models import RunbookStep, RunbookStepOutcome, RunbookStepResult
 from fdai.core.workflow.approval import StepApproval
+from fdai.core.workflow.workflow_cancellation import cancellation_blocks_new_step
 from fdai.core.workflow.workflow_runtime import (
     ACTOR,
     WorkflowActionDispatcher,
     WorkflowApprovalProvider,
+    WorkflowApprovalSnapshot,
     WorkflowContextualGuardEvaluator,
     WorkflowEvidenceDispatcher,
     WorkflowGuardEvaluator,
@@ -66,6 +68,7 @@ class ShadowWorkflowStepExecutor:
         "_now",
         "_mode",
         "_target_resource_id",
+        "_attempt",
     )
 
     def __init__(
@@ -88,7 +91,10 @@ class ShadowWorkflowStepExecutor:
         now: datetime | None = None,
         mode: Mode = Mode.SHADOW,
         target_resource_id: str = "",
+        attempt: int = 1,
     ) -> None:
+        if attempt < 1:
+            raise ValueError("workflow step attempt MUST be >= 1")
         self._process_id = process_id
         self._action_types = action_types
         self._action_dispatcher = action_dispatcher
@@ -106,8 +112,19 @@ class ShadowWorkflowStepExecutor:
         self._now = now or datetime.now(tz=UTC)
         self._mode = mode
         self._target_resource_id = target_resource_id or snapshot.target_resource_id
+        self._attempt = attempt
 
     async def execute(self, *, runbook_id: str, step: RunbookStep) -> RunbookStepResult:
+        if await cancellation_blocks_new_step(
+            process_store=self._process_store,
+            process_id=self._process_id,
+            step_id=step.id,
+        ):
+            return step_result(
+                step,
+                RunbookStepOutcome.FAILURE,
+                "process_cancellation_requested",
+            )
         self._snapshot = await self._transition(
             kind=ProcessEventKind.STEP_STARTED,
             status=ProcessStatus.RUNNING,
@@ -142,7 +159,10 @@ class ShadowWorkflowStepExecutor:
 
         await self._audit.append_audit_entry(
             {
-                "event_id": event_id(self._process_id, f"step:{step.id}:audit"),
+                "event_id": event_id(
+                    self._process_id,
+                    f"step:{step.id}:attempt:{self._attempt}:audit",
+                ),
                 "correlation_id": self._snapshot.correlation_id,
                 "actor": ACTOR,
                 "action_kind": "workflow.step",
@@ -150,6 +170,7 @@ class ShadowWorkflowStepExecutor:
                 "process_id": self._process_id,
                 "workflow": runbook_id,
                 "step_id": step.id,
+                "attempt": self._attempt,
                 "action_type": step.action_type,
                 "action_known": known,
                 "requires_approval": approval.requires_approval if approval else False,
@@ -258,7 +279,9 @@ class ShadowWorkflowStepExecutor:
             (
                 event
                 for event in events
-                if event.kind is ProcessEventKind.ACTION_DISPATCHED and event.step_id == step.id
+                if event.kind is ProcessEventKind.ACTION_DISPATCHED
+                and event.step_id == step.id
+                and event.attempt == self._attempt
             ),
             None,
         )
@@ -328,6 +351,7 @@ class ShadowWorkflowStepExecutor:
                 target_resource_id=self._target_resource_id,
                 params=self._params.get(step.id, {}),
                 context=self._context,
+                attempt=self._attempt,
             )
         except Exception as exc:  # noqa: BLE001 - dispatcher boundary fails closed
             return step_result(
@@ -343,13 +367,19 @@ class ShadowWorkflowStepExecutor:
             )
         await self._process_store.append_event(
             ProcessEvent(
-                event_id=event_id(self._process_id, f"step:{step.id}:action-dispatched"),
+                event_id=event_id(
+                    self._process_id,
+                    f"step:{step.id}:attempt:{self._attempt}:action-dispatched",
+                ),
                 process_id=self._process_id,
                 kind=ProcessEventKind.ACTION_DISPATCHED,
-                idempotency_key=f"{self._process_id}:step:{step.id}:action-dispatched",
+                idempotency_key=(
+                    f"{self._process_id}:step:{step.id}:attempt:{self._attempt}:action-dispatched"
+                ),
                 recorded_at=datetime.now(tz=UTC),
                 correlation_id=self._snapshot.correlation_id,
                 step_id=step.id,
+                attempt=self._attempt,
                 payload={
                     "proposal_ref": proposal_ref,
                     "action_type": step.action_type,
@@ -428,21 +458,11 @@ class ShadowWorkflowStepExecutor:
                 "approval_requester_unavailable",
             )
         try:
-            snapshot = await provider.ensure_requested(
-                process_id=self._process_id,
-                step_id=step.id,
-                correlation_id=self._snapshot.correlation_id,
-                target_resource_id=self._target_resource_id,
-                requester_principal=requester,
-                required_role=(
-                    approval.required_role.value
-                    if approval is not None and approval.required_role is not None
-                    else "approver"
-                ),
-                quorum=step.quorum,
-                no_self_approval=step.no_self_approval,
-                timeout_seconds=step.timeout_seconds,
-                requested_at=self._now,
+            snapshot = await self._ensure_approval_requested(
+                step=step,
+                approval=approval,
+                provider=provider,
+                requester=requester,
             )
         except Exception:  # noqa: BLE001 - approval evidence failure blocks execution
             return step_result(
@@ -450,27 +470,104 @@ class ShadowWorkflowStepExecutor:
                 RunbookStepOutcome.FAILURE,
                 "approval_evidence_unavailable",
             )
+        if snapshot.cancelled:
+            return step_result(
+                step,
+                RunbookStepOutcome.FAILURE,
+                "process_cancellation_requested",
+            )
+        approval_result = self._approval_result(
+            step,
+            decisions={decision.principal: decision.decision for decision in snapshot.decisions},
+            requester=snapshot.requester_principal,
+        )
+        if approval_result.outcome is not RunbookStepOutcome.WAITING:
+            return approval_result
         if snapshot.timed_out or (
             snapshot.expires_at is not None and self._now >= snapshot.expires_at
         ):
             try:
-                await provider.mark_timed_out(
-                    process_id=self._process_id,
-                    step_id=step.id,
-                    expected_revision=snapshot.revision,
-                    timed_out_at=self._now,
-                )
+                for _ in range(8):
+                    if snapshot.timed_out:
+                        return step_result(
+                            step,
+                            RunbookStepOutcome.FAILURE,
+                            "approval_timed_out",
+                        )
+                    if snapshot.cancelled:
+                        return step_result(
+                            step,
+                            RunbookStepOutcome.FAILURE,
+                            "process_cancellation_requested",
+                        )
+                    approval_result = self._approval_result(
+                        step,
+                        decisions={
+                            decision.principal: decision.decision for decision in snapshot.decisions
+                        },
+                        requester=snapshot.requester_principal,
+                    )
+                    if approval_result.outcome is not RunbookStepOutcome.WAITING:
+                        return approval_result
+                    if snapshot.expires_at is None or self._now < snapshot.expires_at:
+                        break
+                    changed = await provider.mark_timed_out(
+                        process_id=self._process_id,
+                        step_id=step.id,
+                        expected_revision=snapshot.revision,
+                        timed_out_at=self._now,
+                        attempt=self._attempt,
+                    )
+                    if changed:
+                        return step_result(
+                            step,
+                            RunbookStepOutcome.FAILURE,
+                            "approval_timed_out",
+                        )
+                    snapshot = await self._ensure_approval_requested(
+                        step=step,
+                        approval=approval,
+                        provider=provider,
+                        requester=requester,
+                    )
+                else:
+                    return step_result(
+                        step,
+                        RunbookStepOutcome.FAILURE,
+                        "approval_evidence_unavailable",
+                    )
             except Exception:  # noqa: BLE001 - timeout persistence still fails closed
                 return step_result(
                     step,
                     RunbookStepOutcome.FAILURE,
                     "approval_evidence_unavailable",
                 )
-            return step_result(step, RunbookStepOutcome.FAILURE, "approval_timed_out")
-        return self._approval_result(
-            step,
-            decisions={decision.principal: decision.decision for decision in snapshot.decisions},
-            requester=snapshot.requester_principal,
+        return approval_result
+
+    async def _ensure_approval_requested(
+        self,
+        *,
+        step: RunbookStep,
+        approval: StepApproval | None,
+        provider: WorkflowApprovalProvider,
+        requester: str,
+    ) -> WorkflowApprovalSnapshot:
+        return await provider.ensure_requested(
+            process_id=self._process_id,
+            step_id=step.id,
+            correlation_id=self._snapshot.correlation_id,
+            target_resource_id=self._target_resource_id,
+            requester_principal=requester,
+            required_role=(
+                approval.required_role.value
+                if approval is not None and approval.required_role is not None
+                else "approver"
+            ),
+            quorum=step.quorum,
+            no_self_approval=step.no_self_approval,
+            timeout_seconds=step.timeout_seconds,
+            requested_at=self._now,
+            attempt=self._attempt,
         )
 
     @staticmethod
@@ -570,13 +667,20 @@ class ShadowWorkflowStepExecutor:
         recorded_at: datetime,
     ) -> ProcessEvent:
         return ProcessEvent(
-            event_id=event_id(self._process_id, f"step:{step.id}:branch:{branch}:{suffix}"),
+            event_id=event_id(
+                self._process_id,
+                f"step:{step.id}:attempt:{self._attempt}:branch:{branch}:{suffix}",
+            ),
             process_id=self._process_id,
             kind=kind,
-            idempotency_key=f"{self._process_id}:step:{step.id}:branch:{branch}:{suffix}",
+            idempotency_key=(
+                f"{self._process_id}:step:{step.id}:attempt:{self._attempt}:"
+                f"branch:{branch}:{suffix}"
+            ),
             recorded_at=recorded_at,
             correlation_id=self._snapshot.correlation_id,
             step_id=step.id,
+            attempt=self._attempt,
             payload={"branch": branch},
         )
 
@@ -630,13 +734,19 @@ class ShadowWorkflowStepExecutor:
             status=status,
             current_step=current_step,
             event=ProcessEvent(
-                event_id=event_id(self._process_id, f"step:{step_id}:{suffix}"),
+                event_id=event_id(
+                    self._process_id,
+                    f"step:{step_id}:attempt:{self._attempt}:{suffix}",
+                ),
                 process_id=self._process_id,
                 kind=kind,
-                idempotency_key=f"{self._process_id}:step:{step_id}:attempt:1:{suffix}",
+                idempotency_key=(
+                    f"{self._process_id}:step:{step_id}:attempt:{self._attempt}:{suffix}"
+                ),
                 recorded_at=recorded_at,
                 correlation_id=self._snapshot.correlation_id,
                 step_id=step_id,
+                attempt=self._attempt,
                 payload=payload or {},
             ),
         )

@@ -16,16 +16,17 @@ function incident(overrides: Partial<IncidentAttentionProjection> = {}): Inciden
 }
 
 describe("incident attention", () => {
-  test("opens a bounded incident conversation without auto-submitting a prompt", () => {
+  test("opens a bounded incident conversation and starts one read-only investigation", () => {
     expect(incidentDeckDetail(incident())).toMatchObject({
       sessionKey: "incident:corr-1",
       onlyWhenIdle: true,
+      prompt: "Investigate this incident using the available evidence and report the cause, gaps, and next safe step.",
+      submitPrompt: true,
       binding: {
         kind: "incident",
         incidentId: "INC-1",
         correlationId: "corr-1",
       },
     });
-    expect(incidentDeckDetail(incident()).prompt).toBeUndefined();
   });
 });

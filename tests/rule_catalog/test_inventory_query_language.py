@@ -39,3 +39,15 @@ def test_inventory_query_language_rejects_unknown_state_suppression() -> None:
     raw["states"]["inactive"]["suppresses"] = ["not-a-state"]
     with pytest.raises(InventoryQueryLanguageRegistryError):
         load_inventory_query_language_from_mapping(raw)
+
+
+@pytest.mark.parametrize(
+    "values",
+    ([], ["   "], [f"state-{index}" for index in range(17)]),
+)
+def test_inventory_query_language_rejects_unbounded_state_values(values: list[str]) -> None:
+    raw = yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
+    raw["states"]["running"]["values"] = values
+
+    with pytest.raises(InventoryQueryLanguageRegistryError):
+        load_inventory_query_language_from_mapping(raw)

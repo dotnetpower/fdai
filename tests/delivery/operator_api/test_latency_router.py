@@ -9,7 +9,10 @@ from typing import Any
 import pytest
 
 from fdai.delivery.operator_api.routes.chat import LatencyRoutedChatBackend, describe_backend
-from fdai.delivery.operator_api.routes.chat_backend_common import ChatContentPolicyError
+from fdai.delivery.operator_api.routes.chat_backend_common import (
+    ChatBackendUnavailableError,
+    ChatContentPolicyError,
+)
 
 
 class _FixedLatencyBackend:
@@ -30,6 +33,16 @@ class _FixedLatencyBackend:
         self.calls += 1
         await asyncio.sleep(self._delay_ms / 1000)
         return {"answer": "ok", "model": self._model}
+
+
+class _StructuredBackend(_FixedLatencyBackend):
+    def __init__(self, *, result: object) -> None:
+        super().__init__(model="structured", delay_ms=0)
+        self._result = result
+
+    async def complete_structured(self, **_kwargs: object) -> object:
+        self.calls += 1
+        return self._result
 
 
 class _RaisingBackend:
@@ -132,6 +145,17 @@ class _StreamingBackend:
         yield {"type": "done", "answer": "hello", "model": "stream"}
 
 
+class _TerminalSequenceBackend(_StreamingBackend):
+    def __init__(self, events: list[dict[str, Any]]) -> None:
+        super().__init__()
+        self._events = events
+
+    async def answer_stream(self, **_kwargs: Any) -> AsyncIterator[dict[str, Any]]:
+        self.calls += 1
+        for event in self._events:
+            yield event
+
+
 class _EmptyStreamingBackend(_EmptyBackend):
     async def answer_stream(
         self,
@@ -145,10 +169,9 @@ class _EmptyStreamingBackend(_EmptyBackend):
 
 
 class TestRouterConstruction:
-    def test_requires_two_or_more_candidates(self) -> None:
-        only = _FixedLatencyBackend(model="only", delay_ms=1)
-        with pytest.raises(ValueError, match=">= 2"):
-            LatencyRoutedChatBackend(candidates=[("only", only)])
+    def test_requires_one_or_more_candidates(self) -> None:
+        with pytest.raises(ValueError, match=">= 1"):
+            LatencyRoutedChatBackend(candidates=[])
 
     def test_rejects_duplicate_names(self) -> None:
         a = _FixedLatencyBackend(model="dup", delay_ms=1)
@@ -164,6 +187,26 @@ class TestRouterConstruction:
                 candidates=[("a", a), ("b", b)],
                 turn_timeout_seconds=0,
             )
+
+    def test_rejects_direct_vision_routing_cycle(self) -> None:
+        router = LatencyRoutedChatBackend(
+            candidates=[("text", _FixedLatencyBackend(model="text", delay_ms=1))]
+        )
+
+        with pytest.raises(ValueError, match="routing cycle"):
+            router.bind_vision_backend(router)
+
+    def test_rejects_indirect_vision_routing_cycle(self) -> None:
+        first = LatencyRoutedChatBackend(
+            candidates=[("first", _FixedLatencyBackend(model="first", delay_ms=1))]
+        )
+        second = LatencyRoutedChatBackend(
+            candidates=[("second", _FixedLatencyBackend(model="second", delay_ms=1))]
+        )
+        first.bind_vision_backend(second)
+
+        with pytest.raises(ValueError, match="routing cycle"):
+            second.bind_vision_backend(first)
 
     def test_cold_candidate_stats_are_json_safe(self) -> None:
         a = _FixedLatencyBackend(model="a", delay_ms=1)
@@ -211,6 +254,133 @@ class TestRouterWarmupAndSelection:
             candidates=[("fast", fast), ("mid", mid), ("slow", slow)],
         )
         return router, fast, mid, slow
+
+    async def test_routes_image_turns_to_an_independent_vision_pool(self) -> None:
+        text_a = _FixedLatencyBackend(model="text-a", delay_ms=1)
+        text_b = _FixedLatencyBackend(model="text-b", delay_ms=1)
+        vision_a = _FixedLatencyBackend(model="vision-a", delay_ms=1)
+        vision_b = _FixedLatencyBackend(model="vision-b", delay_ms=1)
+        router = LatencyRoutedChatBackend(
+            candidates=[("text-a", text_a), ("text-b", text_b)],
+        )
+        vision = LatencyRoutedChatBackend(
+            candidates=[("vision-a", vision_a), ("vision-b", vision_b)],
+            vision_capable=True,
+        )
+        router.bind_vision_backend(vision)
+
+        text_reply = await router.answer(prompt="text", view_context={}, history=[])
+        image_reply = await router.answer(
+            prompt="image",
+            view_context={"_attachments": [{"data_url": "data:image/png;base64,AA=="}]},
+            history=[],
+        )
+
+        assert text_reply["model"] == "text-a"
+        assert image_reply["model"] == "vision-a"
+        assert text_a.calls == 1
+        assert vision_a.calls == 1
+
+    async def test_image_turn_fails_closed_without_a_vision_pool(self) -> None:
+        router = LatencyRoutedChatBackend(
+            candidates=[
+                ("text-a", _FixedLatencyBackend(model="text-a", delay_ms=1)),
+                ("text-b", _FixedLatencyBackend(model="text-b", delay_ms=1)),
+            ],
+        )
+
+        with pytest.raises(ChatBackendUnavailableError, match="vision model pool unavailable"):
+            await router.answer(
+                prompt="image",
+                view_context={"_attachments": [{"data_url": "data:image/png;base64,AA=="}]},
+                history=[],
+            )
+
+    async def test_structured_image_turn_validates_vision_pool_output(self) -> None:
+        router = LatencyRoutedChatBackend(
+            candidates=[("text", _FixedLatencyBackend(model="text", delay_ms=1))]
+        )
+        vision = _StructuredBackend(result={"intent": "inspect_image"})
+        router.bind_vision_backend(vision)
+
+        result = await router.complete_structured(
+            system_prompt="system",
+            user_content=[{"type": "image_url"}],
+            schema_name="intent",
+            schema={"type": "object"},
+            max_tokens=64,
+        )
+
+        assert result == {"intent": "inspect_image"}
+        assert vision.calls == 1
+
+    async def test_structured_image_turn_rejects_non_mapping_output(self) -> None:
+        router = LatencyRoutedChatBackend(
+            candidates=[("text", _FixedLatencyBackend(model="text", delay_ms=1))]
+        )
+        router.bind_vision_backend(_StructuredBackend(result=["invalid"]))
+
+        with pytest.raises(
+            ChatBackendUnavailableError,
+            match="vision model pool returned invalid structured output",
+        ):
+            await router.complete_structured(
+                system_prompt="system",
+                user_content=[{"type": "image_url"}],
+                schema_name="intent",
+                schema={"type": "object"},
+                max_tokens=64,
+            )
+
+    async def test_benchmark_samples_text_and_vision_pools(self) -> None:
+        text = [
+            _FixedLatencyBackend(model="text-a", delay_ms=1),
+            _FixedLatencyBackend(model="text-b", delay_ms=1),
+        ]
+        vision_candidates = [
+            _FixedLatencyBackend(model="vision-a", delay_ms=1),
+            _FixedLatencyBackend(model="vision-b", delay_ms=1),
+        ]
+        router = LatencyRoutedChatBackend(
+            candidates=[("text-a", text[0]), ("text-b", text[1])],
+        )
+        router.bind_vision_backend(
+            LatencyRoutedChatBackend(
+                candidates=[("vision-a", vision_candidates[0]), ("vision-b", vision_candidates[1])],
+                vision_capable=True,
+            )
+        )
+
+        await router.benchmark(rounds=1)
+
+        assert [candidate.calls for candidate in text] == [1, 1]
+        assert [candidate.calls for candidate in vision_candidates] == [1, 1]
+
+    async def test_stream_routes_image_turns_to_the_vision_pool(self) -> None:
+        text = [_StreamingBackend(), _StreamingBackend()]
+        vision_candidates = [_StreamingBackend(), _StreamingBackend()]
+        router = LatencyRoutedChatBackend(
+            candidates=[("text-a", text[0]), ("text-b", text[1])],
+        )
+        router.bind_vision_backend(
+            LatencyRoutedChatBackend(
+                candidates=[("vision-a", vision_candidates[0]), ("vision-b", vision_candidates[1])],
+                vision_capable=True,
+            )
+        )
+
+        events = [
+            event
+            async for event in router.answer_stream(
+                prompt="image",
+                view_context={"_attachments": [{"data_url": "data:image/png;base64,AA=="}]},
+                history=[],
+            )
+        ]
+
+        assert events[-1]["model"] == "vision-a"
+        assert [candidate.calls for candidate in text] == [0, 0]
+        assert [candidate.calls for candidate in vision_candidates] == [1, 0]
 
     async def test_warmup_rotates_every_candidate_before_pinning(self) -> None:
         router, fast, mid, slow = await self._make_router()
@@ -463,6 +633,32 @@ class TestRouterFailureHandling:
         assert events == [{"type": "token", "delta": "hello"}]
         assert good.calls == 0
 
+    async def test_stream_without_terminal_done_is_rejected(self) -> None:
+        incomplete = _TerminalSequenceBackend([{"type": "token", "delta": "partial"}])
+        router = LatencyRoutedChatBackend(candidates=[("incomplete", incomplete)])
+
+        with pytest.raises(ChatBackendUnavailableError, match="without terminal done"):
+            await _collect_stream(router)
+
+        assert router.stats()[0]["p50_ms"] == 30_000
+
+    async def test_stream_rejects_frames_after_terminal_done(self) -> None:
+        duplicate = _TerminalSequenceBackend(
+            [
+                {"type": "token", "delta": "hello"},
+                {"type": "done", "answer": "hello"},
+                {"type": "done", "answer": "again"},
+            ]
+        )
+        router = LatencyRoutedChatBackend(candidates=[("duplicate", duplicate)])
+        events: list[dict[str, Any]] = []
+
+        with pytest.raises(ChatBackendUnavailableError, match="after terminal done"):
+            async for event in router.answer_stream(prompt="hi", view_context={}, history=[]):
+                events.append(event)
+
+        assert events == [{"type": "token", "delta": "hello"}]
+
 
 async def _collect_stream(router: LatencyRoutedChatBackend) -> list[dict[str, Any]]:
     return [event async for event in router.answer_stream(prompt="hi", view_context={}, history=[])]
@@ -499,11 +695,14 @@ class TestRouterConcurrencyFairness:
 
 class TestRouterCleanup:
     class _WithClient:
-        def __init__(self) -> None:
+        def __init__(self, *, fail_close: bool = False) -> None:
             self.closed = False
+            self.fail_close = fail_close
             self._http = self  # so getattr(backend, "_http", None) returns it
 
         async def aclose(self) -> None:
+            if self.fail_close:
+                raise RuntimeError("close failed")
             self.closed = True
 
         async def answer(
@@ -530,6 +729,26 @@ class TestRouterCleanup:
         b = _FixedLatencyBackend(model="b", delay_ms=1)
         router = LatencyRoutedChatBackend(candidates=[("a", a), ("b", b)])
         await router.aclose()  # must not raise
+
+    async def test_aclose_closes_direct_vision_client(self) -> None:
+        text = self._WithClient()
+        vision = self._WithClient()
+        router = LatencyRoutedChatBackend(candidates=[("text", text)])
+        router.bind_vision_backend(vision)
+
+        await router.aclose()
+
+        assert text.closed is True
+        assert vision.closed is True
+
+    async def test_aclose_isolates_vision_close_failure(self) -> None:
+        text = self._WithClient()
+        router = LatencyRoutedChatBackend(candidates=[("text", text)])
+        router.bind_vision_backend(self._WithClient(fail_close=True))
+
+        await router.aclose()
+
+        assert text.closed is True
 
 
 class TestRouterBenchmark:

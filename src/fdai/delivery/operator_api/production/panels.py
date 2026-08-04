@@ -17,6 +17,7 @@ from fdai.delivery.operator_api.routes.browser_evidence import BrowserEvidencePa
 from fdai.delivery.operator_api.routes.context_selection_comparisons import (
     ContextSelectionComparisonPanel,
 )
+from fdai.delivery.operator_api.routes.dynamic_assurance import DynamicAssurancePanel
 from fdai.delivery.operator_api.routes.forecast_learning import ForecastLearningPanel
 from fdai.delivery.operator_api.routes.llm_cost import LlmCostPanel
 from fdai.delivery.operator_api.routes.onboarding import OnboardingPanel
@@ -87,6 +88,7 @@ def build_production_panels(
             )
         ),
         ContextSelectionComparisonPanel(StateStoreContextSelectionEvaluationStore(state_store)),
+        DynamicAssurancePanel(state_store),
         AutomationBlueprintPanel(
             PostgresAutomationBlueprintStore(
                 config=PostgresAutomationBlueprintStoreConfig(**connection)

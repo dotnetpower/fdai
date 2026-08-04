@@ -30,6 +30,7 @@ from fdai.delivery.persistence import (
 from fdai.shared.providers.read_investigation import (
     ActorKind,
     EvidenceFreshness,
+    EvidenceLimitationKind,
     EvidenceStatus,
     ReadEvidenceEnvelope,
     ReadEvidenceRecord,
@@ -158,7 +159,7 @@ def _result(
                 resource_ref="resource:one",
                 observed_at=_NOW,
                 freshness=EvidenceFreshness.LIVE,
-                truncated=False,
+                truncated=True,
                 records=(
                     ReadEvidenceRecord(
                         occurred_at=_NOW,
@@ -170,6 +171,8 @@ def _result(
                     ),
                 ),
                 evidence_refs=("evidence:activity:1",),
+                limitations=(EvidenceLimitationKind.RESULT_LIMIT,),
+                truncation_reason=EvidenceLimitationKind.RESULT_LIMIT,
             ),
         ),
         receipts=(
@@ -393,6 +396,7 @@ async def test_postgres_completed_result_round_trip(
     assert replayed.state is ReadInvestigationRunState.COMPLETED
     assert replayed.result == completed.result
     assert replayed.result is not None
+    assert replayed.result.evidence[0].truncation_reason is EvidenceLimitationKind.RESULT_LIMIT
     assert replayed.result.receipts[0].cost_microusd == measured_cost_microusd
     assert replayed.usage == ReadInvestigationRunUsage(
         tool_calls=2,

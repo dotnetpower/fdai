@@ -39,6 +39,17 @@ models:
     sku: Standard
     capacity_tpm: 200000
 
+  t1.vision:
+    # Multimodal chat uses a dedicated capability and latency window while
+    # reusing the matching narrator deployments to avoid duplicate quota.
+    preferences:
+      - {publisher: OpenAI, family: gpt-5.4-mini}
+      - {publisher: OpenAI, family: gpt-5-mini}
+      - {publisher: OpenAI, family: gpt-4.1-mini}
+      - {publisher: OpenAI, family: gpt-4o-mini}
+    sku: Standard
+    capacity_tpm: 200000
+
   t1.web_search:
     # Dedicated Foundry prompt-agent model for public-web retrieval. The
     # protected deploy reconciles WebSearchTool with the exact domain allowlist,

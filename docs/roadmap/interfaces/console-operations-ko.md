@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 7daaf84bf4c98c02b45e5f858bb621f9975a9f04
+translation_source_sha: c2494952176ec869851788f8c665bfb8ade2e39d
 translation_revised: 2026-08-04
 ---
 
@@ -19,7 +19,9 @@ translation_revised: 2026-08-04
 > onboarding, bounded investigation은 별도 도메인 view로 제공됩니다. Console action dispatch는
 > broker publish 전에 payload를 포함한 receipt를 저장하고 restart 뒤 pending delivery를 복구합니다.
 > Workflow approval은 callback과 conversation tool 경계 모두에서 durable role과 서로 다른 quorum을
-> 검사합니다. Federated Tasks view, cross-domain projection metadata 및 나머지 route hardening은 제안 상태입니다.
+> 검사합니다. 두 경계 모두 no-self-approval 검사 전에 principal identity를 normalize합니다. Pending
+> access-grant review는 권한을 적용하지 않은 채 App Role, 자기 승인 방지, expiry,
+> quorum 및 exact revision을 검사합니다. Federated Tasks view, cross-domain projection metadata 및 나머지 route hardening은 제안 상태입니다.
 
 ## 설계 요약
 
@@ -94,9 +96,10 @@ topic을 추가하지 않습니다. 각 source가 자체 schema, revision, lifec
 Browser에 표시할 pending access request가 있으면 인증된 GET-only stream이 principal의 App Role로
 durable record를 filter합니다. Tab과 Command Deck이 idle 상태이면 console은 capability, scope 및
 expiry가 포함된 request-scoped conversation을 엽니다. 진행 중인 작업, 전송하지 않은 draft 또는 hidden
-tab이 있으면 conversation을 바꾸지 않고 visible badge를 유지합니다. Conversation은 context만
-제공하며 approval, protected deployment, fresh access verification 및 revocation은 authorization
-workflow에 남습니다.
+tab이 있으면 conversation을 바꾸지 않고 visible badge를 유지합니다. Badge를 열면 적격 principal이
+필수 사유를 입력하고 정확한 projection revision을 승인하거나 거부할 수 있습니다. Receipt는 review가
+권한을 적용하지 않으며 새로운 probe가 여전히 필요하다고 알립니다. Protected deployment, fresh access
+verification 및 revocation은 authorization workflow의 별도 단계로 남습니다.
 
 인증된 `GET /incidents/stream` route는 durable incident read model에서 최대 50개의 active incident를
 project합니다. 새 active incident가 관찰되면 tab과 Command Deck이 idle 상태일 때 incident에 연결된
@@ -194,6 +197,34 @@ Workflow run context도 같은 boundary를 따릅니다. Route는 requester를 a
 교체하고 parameter-substitution value만 허용합니다. Approval, action outcome, compensation,
 decision, parallel, requester, wait namespace는 server-owned Process evidence 전용이며 HTTP input에서
 거부됩니다.
+
+정확한 Process resume은 request body 없이 `POST /workflows/{process_id}/resume`을 사용합니다.
+Operator API는 caller에게서 workflow, target, trigger, mode, correlation 또는 context를 받는 대신
+durable Process snapshot과 creation evidence를 다시 읽습니다. 모든 resume에는 Contributor
+capability가 필요합니다. Enforce Process의 source lifecycle을 workflow runtime이 진행하기 전에
+route가 Owner와 현재 enforce allowlist를 다시 확인합니다. 알 수 없는 Process id는 `404`를
+반환하고 incomplete 또는 inconsistent resume evidence는 typed `409` conflict를 반환합니다.
+
+안전한 Process cancellation은 request body 없이 `POST /workflows/{process_id}/cancel`을
+사용합니다. Contributor는 shadow work를 cancel할 수 있고 enforce Process에는 Owner가 필요합니다.
+Enforce allowlist entry를 제거해도 cancellation은 새 forward work를 시작할 수 없으므로 차단되지
+않습니다. Server는 durable `pending` 또는 `waiting` boundary에서만 command를 수락하고 actor와
+cancellation intent를 기록합니다. Pending human-approval slot을 닫고 이미 dispatch된 action을
+reconcile한 뒤 workflow owner를 통해 cancel 또는 compensate합니다. `running` Process는 dispatch가
+idle이라고 추측하지 않고 typed `409 process_not_at_safe_boundary`를 반환합니다.
+Local 및 deployed Operator API factory는 같은 `WorkflowExecutionConfig`에서 start, exact resume,
+safe cancellation, bounded retry를 등록하며 route inventory test는 누락을 차단합니다.
+
+Bounded Process retry는 request body 없이 `POST /workflows/{process_id}/retry`를 사용합니다.
+Contributor는 shadow를 retry할 수 있고 enforce는 새 forward work를 시작할 수 있으므로 Owner와 현재
+workflow allowlist가 필요합니다. Server는 명시적인 effect-free reason이 있는 `failed` attempt를
+수락하고 `timed_out` attempt는 `approval_timed_out`인 경우에만 수락합니다. Dispatch, cancellation,
+compensation evidence는 retry를 차단하고 approval evidence는 terminal rejection 또는 timeout에만
+허용됩니다. 다른 failure는 typed recovery conflict를 반환합니다. `max_retry_attempts`는
+server-owned이며 기본값은 3입니다.
+Approval rejection은 모든 sibling quorum slot을 닫습니다. `approval_rejected` 또는
+`approval_timed_out` retry는 distinct approval id를 가진 새 attempt를 만들며 prior decision은 새
+quorum을 충족하지 않습니다.
 
 ### 요청 검사
 

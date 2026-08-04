@@ -51,6 +51,14 @@ is composition of existing parts.
 > Operational planning now has a read-only Twin adapter that applies verified active and challenger
 > effect models per objective. Missing or future-cutoff models are unscorable, and divergence marks
 > the candidate for review. The adapter produces evidence only and never selects execution.
+> Dynamic V2 adds immutable operational state trajectories, bounded typed-path propagation,
+> interaction terms, required trajectory-wide invariants evaluated over the active trajectory,
+> independent outcome closure, a graph runtime coordinator, a StateStore trajectory-episode
+> ledger, an off-path closure runner, and a durable active/challenger graph-model registry. The
+> closure runner updates only challenger slices from complete matched or mismatched independent
+> observations and audits that it neither mutates active models nor promotes. The control loop
+> accepts an explicitly injected graph coordinator and records shadow evidence only; production
+> graph request, model, and observed-trajectory source adapters remain deployment bindings.
 
 ## Why not a chatbot
 
@@ -201,6 +209,59 @@ complicates the design.
   active models, low evidence, or divergence require review; the T1 caller remains abstained and
   sends the learned action through normal re-verification.
 
+### Operational binding and guard
+
+`FDAI_DYNAMIC_CONFIG_JSON` enables scalar Dynamic in a deployed core runtime. The strict object
+contains ActionType-specific metric, objective, effect delta, uncertainty, divergence, and
+freshness settings; exact active and challenger model records; and a causal-receipt digest
+allowlist. Startup rejects partial fields, unknown fields, missing model pairs, conflicting durable
+models, or a model whose receipt isn't allowlisted. Without this setting, Dynamic remains explicitly
+unavailable and existing deterministic routing is unchanged.
+
+The Azure adapter reads `operational_context.metric_values` from promoted inventory evidence and
+builds one bounded action branch. The active and challenger models come from the durable StateStore
+registry. A configured Dynamic simulation becomes a lower-only guard before T1 reuse enters the
+safety check: unavailable requests, missing models, divergence, graph review reasons, invariant
+failure, or missing Dynamic audit evidence route to human review. A prediction never approves an
+action or raises its autonomy ceiling.
+
+### Graph-wide temporal Dynamic
+
+The existing action/metric model remains the first Dynamic layer. Graph-wide simulation extends it
+with `OperationalStateTrajectory`, `GraphEffectModel`, `DynamicInvariant`, and
+`TrajectoryOutcome`. A trajectory pins the ontology release, graph and inventory revisions,
+evidence cutoff, horizon, normalized object/metric slices, intervention references, watermarks,
+completeness, truncation, and a deterministic digest. It is not the conversation and execution
+`TrajectoryEnvelope`, and neither record is evidence of provider state by itself.
+
+Graph propagation follows only declared LinkType paths under fixed edge, depth, slice, and horizon
+bounds. Deterministic topology effects run before verified active models. Interaction terms prevent
+parallel action effects from being treated as a linear sum. A missing model, stale cutoff, cycle,
+unavailable baseline, truncation, low causal grade, or active/challenger divergence requires review.
+Challenger predictions never rank a branch.
+
+Every graph simulation request carries a non-empty bounded invariant tuple. The simulator evaluates
+each invariant over the active trajectory and returns the exact per-invariant result. A violation or
+unscorable invariant adds a stable review reason and cannot raise authority. During execution, an
+observed invariant violation cannot rewrite a running plan; it stops forward dispatch and re-enters
+the existing typed recovery path.
+
+The graph runtime records the predicted digest, exact trajectory, and challenger model references
+in the StateStore trajectory ledger before returning simulation evidence. Heimdall's complete independent observation closes the episode
+through `close_trajectory_outcome` as matched or mismatched. Identity mismatch, censoring,
+incompleteness, and unscorable comparison leave it open and never update a model. Identical closure
+replay is a no-op; conflicting replay fails closed. The off-path graph closure runner builds learning
+observations only for complete comparable challenger slices and applies them through
+`StateStoreGraphEffectModelRegistry`. Active graph models remain immutable until separate reviewed
+promotion evidence applies. The scheduled growth job uses `MetricGraphTrajectoryOutcomeSource` to
+observe due open episodes through the configured metric provider after the telemetry grace window.
+It emits a closure command only when every predicted slice has independent finite evidence;
+otherwise the episode remains open without a fabricated value.
+
+`GET /dynamic-assurance` is a Reader-only durable projection over scalar and graph model
+counts, sample and error summaries, and open or closed trajectory episodes. It exposes no model
+registration, promotion, approval, or execution command.
+
 ## Assessment report (subscription posture, on demand)
 
 The proactive per-change review composes into a full-estate report. Running every
@@ -289,6 +350,9 @@ cloud SDK and no privileged identity.
 | `review` | Publish precomputed findings through `IacReviewPublisher`. Change-signal evaluation and a production publisher are target bindings. |
 | `report` | assemble the `PostureAssessmentReport` from Findings |
 | `chat` | Provide immutable grounded chat-session values and a persistence Protocol; no browser or delivery binding. |
+| `graph_effect` / `graph_runtime` | Propagate bounded graph effects, evaluate required active-trajectory invariants, and return review-only simulation evidence. |
+| `trajectory_ledger` | Persist predicted trajectory episodes and atomically close only complete comparable outcomes through StateStore. |
+| `graph_closure` | Drain independent observations off-path, update challenger slices, and audit that active mutation and promotion did not occur. |
 
 Target delivery adds one intent to the existing `chatops` adapter (question in, grounded answer
 out) and reuses the `gitops-pr` adapter for proposals and Checks API reviews. The current

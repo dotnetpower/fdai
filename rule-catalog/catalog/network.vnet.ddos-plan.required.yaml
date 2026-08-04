@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: network.vnet.ddos-plan.required
 version: 1.0.0
 source: mcsb
@@ -8,15 +8,17 @@ resource_type: network.vnet
 applies_to:
 - network.vnet
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.network.vnet.ddos_protection_plan_id
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: network.vnet
+- kind: property_exists
+  value: property.network.vnet.ddos_protection_plan_id
 check_logic:
   kind: rego
   reference: policies/network/vnet_ddos_plan_required.rego

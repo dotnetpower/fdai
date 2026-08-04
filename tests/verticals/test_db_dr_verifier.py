@@ -21,6 +21,7 @@ Covers the phase-3 Deep DB-DR contract in
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Iterable
 from datetime import datetime
 from typing import Any
@@ -133,6 +134,10 @@ def _audit_kinds(store: InMemoryStateStore) -> list[str]:
     return kinds
 
 
+def _audit_entries(store: InMemoryStateStore) -> list[dict[str, Any]]:
+    return [dict(record["entry"]) for record in store.audit_entries]
+
+
 def _find_audit_payload(store: InMemoryStateStore, kind: str) -> dict[str, Any]:
     for record in store.audit_entries:
         entry = record["entry"]
@@ -185,14 +190,38 @@ async def test_happy_path_passes_and_tears_down() -> None:
     assert len(restore.torn_down) == 1
     assert restore.torn_down[0].experiment_id == "exp-happy"
 
-    # Audit entries: start → passed → teardown_succeeded (order).
+    # Final pass is emitted only after verification and teardown both pass.
     _assert_contains_in_order(
         _audit_kinds(audit),
-        ["start", "passed", "teardown_succeeded"],
+        ["start", "verification_passed", "teardown_succeeded", "passed"],
     )
-    passed_payload = _find_audit_payload(audit, "passed")
+    passed_payload = _find_audit_payload(audit, "verification_passed")
     assert passed_payload["evidence"]["smoke_checks_total"] == 2
     assert passed_payload["evidence"]["integrity_row_count_tables"] == 2
+    entries = _audit_entries(audit)
+    assert verdict.run_id
+    assert {entry["run_id"] for entry in entries} == {verdict.run_id}
+    assert {entry["correlation_id"] for entry in entries} == {verdict.run_id}
+    assert len({entry["idempotency_key"] for entry in entries}) == len(entries)
+
+
+async def test_parallel_same_experiment_runs_have_isolated_audit_identity() -> None:
+    audit = InMemoryStateStore()
+    first, *_ = _make_verifier(audit=audit)
+    second, *_ = _make_verifier(audit=audit)
+    config = make_test_config(experiment_id="exp-parallel")
+
+    verdicts = await asyncio.gather(first.run(config), second.run(config))
+
+    run_ids = {verdict.run_id for verdict in verdicts}
+    assert len(run_ids) == 2
+    grouped: dict[str, list[str]] = {run_id: [] for run_id in run_ids}
+    for entry in _audit_entries(audit):
+        grouped[entry["run_id"]].append(entry["kind"])
+    assert all(
+        kinds == ["start", "verification_passed", "teardown_succeeded", "passed"]
+        for kinds in grouped.values()
+    )
 
 
 async def test_start_audit_records_config_details() -> None:
@@ -392,7 +421,7 @@ async def test_smoke_exception_aborts_and_tears_down() -> None:
     assert payload["phase"] == "smoke"
 
 
-async def test_teardown_error_is_recorded_but_does_not_change_primary_outcome() -> None:
+async def test_teardown_error_fails_the_final_drill_verdict() -> None:
     restore = FakeDbRestoreAdapter(
         teardown_error=DbDrError(
             "delete rg 500",
@@ -405,8 +434,10 @@ async def test_teardown_error_is_recorded_but_does_not_change_primary_outcome() 
 
     verdict = await verifier.run(make_test_config(experiment_id="exp-td"))
 
-    # Primary outcome is unchanged.
-    assert verdict.outcome is DbDrOutcome.PASSED
+    assert verdict.outcome is DbDrOutcome.CLEANUP_FAILED
+    assert verdict.primary_outcome is DbDrOutcome.PASSED
+    assert verdict.cleanup_succeeded is False
+    assert verdict.is_pass is False
     # Teardown was attempted (single call - the injected error clears
     # after firing so the fake does not spin) but the failure was
     # audited.
@@ -414,6 +445,9 @@ async def test_teardown_error_is_recorded_but_does_not_change_primary_outcome() 
     payload = _find_audit_payload(audit, "teardown_failed")
     assert "delete rg 500" in payload["error"]
     assert "teardown_succeeded" not in _audit_kinds(audit)
+    assert _audit_kinds(audit)[-1] == "cleanup_failed"
+    entries = _audit_entries(audit)
+    assert {entry["run_id"] for entry in entries} == {verdict.run_id}
 
 
 async def test_integrity_report_default_isolates_mismatches_field() -> None:

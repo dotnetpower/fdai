@@ -39,6 +39,19 @@ export interface StagedAttachment {
   readonly note?: string;
 }
 
+export interface ClipboardFileItem {
+  readonly kind: string;
+  readonly type: string;
+  getAsFile(): File | null;
+}
+
+export const MAX_VISION_IMAGE_EDGE = 2048;
+
+export interface VisionImageDimensions {
+  readonly width: number;
+  readonly height: number;
+}
+
 const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "heic", "avif"]);
 const WORD_EXT = new Set(["doc", "docx", "docm", "rtf"]);
 const EXCEL_EXT = new Set(["xls", "xlsx", "xlsm"]);
@@ -47,12 +60,14 @@ const ZIP_EXT = new Set(["zip", "7z", "rar", "tar", "gz", "tgz", "bz2"]);
 const DATA_EXT = new Set(["csv", "json", "yaml", "yml", "tsv", "parquet"]);
 const LOG_EXT = new Set(["log", "txt", "out", "err"]);
 const PLAN_EXT = new Set(["tf", "tfplan", "tfstate", "hcl"]);
+const SENDABLE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
 
 /** OOXML extensions where an OLE (compound-file) header signals RMS / IRM. */
 const OOXML_EXT = new Set(["docx", "docm", "xlsx", "xlsm", "pptx", "pptm"]);
 
 /** Leading bytes of an OLE2 compound file: D0 CF 11 E0 A1 B1 1A E1. */
 const OLE_MAGIC = [0xd0, 0xcf, 0x11, 0xe0];
+let attachmentSequence = 0;
 
 export function fileExtension(name: string): string {
   const dot = name.lastIndexOf(".");
@@ -112,7 +127,55 @@ export function formatSize(bytes: number): string {
 }
 
 export function newAttachmentId(): string {
-  return `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `att-${crypto.randomUUID()}`;
+  }
+  attachmentSequence += 1;
+  return `att-${Date.now()}-${attachmentSequence.toString(36)}`;
+}
+
+/** Return only image files from a clipboard payload. Text and HTML items are
+ * left to the textarea's native paste behavior. */
+export function clipboardImageFiles(items: readonly ClipboardFileItem[]): File[] {
+  const files: File[] = [];
+  for (const item of items) {
+    if (item.kind !== "file" || !item.type.toLowerCase().startsWith("image/")) continue;
+    const file = item.getAsFile();
+    if (file) files.push(file);
+  }
+  return files;
+}
+
+/** Resolve the browser-declared image type, using the extension only when the
+ * browser supplied no MIME type. A conflicting non-image MIME fails closed. */
+export function imageMediaType(file: Pick<File, "name" | "type">): string | null {
+  const declared = file.type.trim().toLowerCase();
+  if (declared) return SENDABLE_IMAGE_TYPES.has(declared) ? declared : null;
+  const ext = fileExtension(file.name);
+  if (ext === "png") return "image/png";
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  if (ext === "gif") return "image/gif";
+  if (ext === "webp") return "image/webp";
+  return null;
+}
+
+/** Fit a raster inside the model-facing pixel bound without upscaling. */
+export function fitVisionImageDimensions(
+  width: number,
+  height: number,
+  maxEdge = MAX_VISION_IMAGE_EDGE,
+): VisionImageDimensions {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    throw new RangeError("image dimensions MUST be positive finite numbers");
+  }
+  if (!Number.isFinite(maxEdge) || maxEdge < 1) {
+    throw new RangeError("image max edge MUST be a positive finite number");
+  }
+  const scale = Math.min(1, maxEdge / Math.max(width, height));
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
 }
 
 /**

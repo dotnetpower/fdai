@@ -1,7 +1,7 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: 8351d1c3cb20d68a329d155541ab79b3f3ace7a6
+translation_source_sha: 685b566a5eac6f68fef20e604e0862a438ee1b5f
 translation_revised: 2026-08-04
 ---
 
@@ -42,7 +42,9 @@ optimistic revision 을 검사하면서 snapshot 갱신과 typed `ProcessEvent` 
 한 transaction 에서 처리합니다. In-memory storage 는 테스트와 로컬 개발에 같은
 contract 를 구현합니다. 명시적 enforce 실행은 `WorkflowActionDispatcher`를 사용합니다.
 각 action step은 idempotent `operator_request`를 typed ingress로 다시 게시하므로
-ActionType promotion, risk, HIL, Thor execution을 계속 통과합니다. Dispatcher가 없거나
+ActionType promotion, risk, HIL, Thor execution을 계속 통과합니다. 명시적인 positive `attempt`는
+`1`이 기본값이며 proposal idempotency key와 모든 step transition id를 scope하므로 서로 다른
+attempt가 deduplicate되지 않습니다. Dispatcher가 없거나
 Process는 `action.dispatched`를 기록한 뒤 주입된 `WorkflowOutcomeVerifier`가 authoritative effect
 receipt를 검증할 때까지 기다립니다. Command context만으로 success를 주장할 수 없습니다. 이후
 step이 실패하면 journal에 기록된 independently verified applied step을 역순으로 보상합니다.
@@ -50,6 +52,8 @@ Compensation intent는 typed dispatch 전에 commit되고, 검증된 compensatio
 `compensated`로 닫습니다. Dispatcher, verifier, receipt가 없거나 guard가 실패하면 Process는
 hold 또는 fail-closed됩니다. ARB 같은 control-only workflow는 resource
 mutation authority 없이 실제 approval 및 decision transition을 저장할 수 있습니다.
+Approval request는 attempt-scoped입니다. Reject는 complete quorum attempt를 닫고 reject 또는 timeout
+뒤 retry는 fresh Var slot을 만들며 attempt 1 durable-key compatibility를 유지합니다.
 
 이벤트 진입점은
 [`WorkflowTriggerCoordinator`](../../../src/fdai/core/workflow/coordinator.py) 다:
@@ -94,6 +98,11 @@ waiting 상태를 유지합니다. Applied step이 없는 wait 및 approval time
 진입합니다. Parallel branch는 동시에 실행되고 parent snapshot revision을 두고 경쟁하지 않는
 child event를 기록하지만 failure는 새 branch dispatch를 freeze하고 applied receipt를 join한 뒤
 reverse-dependency compensation을 시작합니다.
+Approval timeout은 revision CAS에서 이긴 뒤에만 Process를 종료합니다. Deadline expiry는 late
+concurrent approval보다 우선합니다. Executor는 같은 attempt를 다시 읽고 최신 revision으로 timeout
+CAS를 재시도합니다. Expiry 전에 완성된 quorum은 delayed resume에서도 유효합니다. Terminal approval
+state는 단조롭게 유지되며 provider reread는 authoritative state commit 뒤 중단된 HIL slot closure를
+복구합니다.
 
 Ontology graph 는 source of truth 가 아니라 read model 입니다. 각 event 가 commit 된
 후 `ProcessOntologyProjector` 가 현재 `Process` object 와 `targets` link 를
@@ -119,13 +128,13 @@ Projection delivery 는 durable retry outbox 를 사용합니다.
 
 ### 4.4 수동 shadow 또는 enforce 명령
 
-프로덕션 signal 을 기다리지 않고 카탈로그 Workflow 를 시작하거나 재개하려면
-Contributor 권한이 필요한 선택적 `POST /workflows/run` 명령을 사용할 수 있습니다.
-이 route 는 catalog workflow 이름, target resource id, RFC 3339 trigger timestamp,
-bounded string context 및 `mode`를 받습니다. Contributor는 shadow를 실행할 수 있습니다.
-Enforce에는 Owner와 deployment `FDAI_WORKFLOW_ENFORCE_ALLOWLIST` entry가 필요합니다.
-Action step은 일반 typed pipeline으로 다시 게시되며 workflow가 executor를 직접 호출하지
-않습니다.
+프로덕션 signal 을 기다리지 않고 카탈로그 Workflow 를 시작하려면 Contributor 권한이
+필요한 선택적 `POST /workflows/run` 명령을 사용할 수 있습니다. 이 route 는 catalog
+workflow 이름, target resource id, RFC 3339 trigger timestamp, bounded
+parameter-substitution context 및 `mode`를 받습니다. Contributor는 shadow를 실행할 수
+있습니다. Enforce에는 Owner와 deployment `FDAI_WORKFLOW_ENFORCE_ALLOWLIST` entry가
+필요합니다. Action step은 일반 typed pipeline으로 다시 게시되며 workflow가 executor를
+직접 호출하지 않습니다.
 
 로컬 dev composition 은 명령과 Processes read route 를 동일한
 `ProcessRuntimeStore` 에 연결합니다. 다음 CLI wrapper 로 실행해 볼 수 있습니다.
@@ -136,15 +145,32 @@ FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1 uv run uvicorn \
 
 uv run python scripts/automation/run-workflow.py architecture-review \
   --target fdai-control-plane
+
+uv run python scripts/automation/run-workflow.py \
+  --resume-process-id <process-id-from-start-response>
+
+uv run python scripts/automation/run-workflow.py \
+  --cancel-process-id <process-id-from-start-response>
+
+uv run python scripts/automation/run-workflow.py \
+  --retry-process-id <process-id-from-start-response>
 ```
 
-응답에는 Process id 와 snapshot, journal, console route 링크가 포함됩니다. 같은
-`trigger_ts` 와 target 을 다시 사용하면 safe-to-retry (idempotent) Process 를
-재개합니다. 따라서 중복 실행을 만들지 않고 wait, approval, decision context 를
-전달할 수 있습니다. Production composition 은 `WorkflowExecutionConfig` 를 주입해
-opt-in 합니다. 설정하지 않으면 command route 가 등록되지 않습니다. SPA 는 이
-endpoint 를 호출하지 않습니다. CLI 와 ChatOps 가 command channel 이고 console 은
-read-only 상태 표면으로 유지됩니다.
+응답에는 Process id 와 snapshot, journal, console route 링크가 포함됩니다.
+`POST /workflows/{process_id}/resume`과 CLI `--resume-process-id` mode는 body를 보내지
+않습니다. Server는 Process journal에서 original target, trigger, mode, correlation,
+audit-safe parameter context를 다시 읽고 현재 role과 enforce allowlist를 다시 확인합니다.
+`POST /workflows/{process_id}/cancel`과 CLI `--cancel-process-id`도 body를 보내지 않습니다.
+Pending 또는 waiting safe boundary만 수락하고 enforce Process에는 Owner를 요구하며 pending
+approval slot을 닫습니다. Outstanding action outcome을 reconcile한 뒤 cancellation 또는
+compensation을 진행합니다. Running Process는 in-flight dispatcher가 idle이라고 가정하지 않고 typed
+conflict를 반환합니다. `POST /workflows/{process_id}/retry`와 CLI `--retry-process-id`는 effect-free
+failed attempt 또는 terminal approval timeout만 수락하고 현재 enforce authority를 다시 검사하며
+server-owned attempt cap을 적용합니다. Ambiguous dispatch failure는 recovery work로 유지합니다.
+Production composition은
+`WorkflowExecutionConfig`를 주입해 opt-in 합니다.
+설정하지 않으면 command route가 등록되지 않습니다. SPA는 이 endpoint를 호출하지 않습니다. CLI와
+ChatOps가 command channel이고 console은 read-only 상태 표면으로 유지됩니다.
 
 ### 4.5 Governed Python task 및 cron schedule
 

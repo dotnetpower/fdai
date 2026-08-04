@@ -269,6 +269,56 @@ replaces `requester.principal` with the authenticated operator and rejects calle
 `wait.*` keys. Those namespaces are server-owned Process evidence. A public request cannot create
 approval quorum, action success, recovery, or control-step progress.
 
+Every new `process.created` event carries the minimal server-owned envelope needed to resume that
+exact Process. It records the original trigger time and mode, `requester.principal`, and only the
+context keys referenced by workflow parameter templates. Values used by an `x-fdai-redact`
+argument are omitted and mark the envelope incomplete, which blocks resume rather than persisting a
+secret. `POST /workflows/{process_id}/resume` accepts no request body. The route reloads the Process
+snapshot and creation event, verifies the workflow name and version plus the derived Process id,
+and then reuses the original target, correlation, trigger, mode, and safe context. A Contributor can
+resume a shadow Process. An enforce Process still requires Owner and the current workflow enforce
+allowlist. Missing, legacy, malformed, redacted, version-mismatched, or identity-mismatched evidence
+returns a typed conflict and dispatches no step.
+
+`POST /workflows/{process_id}/cancel` also accepts no request body and resolves the same durable
+envelope. A Contributor can cancel a shadow Process; an enforce Process requires Owner. The
+command records `process.cancellation-requested` only when the Process is `pending` or `waiting`.
+A `running` Process returns `process_not_at_safe_boundary` because an in-flight dispatcher cannot
+be assumed idle. A waiting action first reconciles its authoritative outcome. The executor blocks
+every new step, and any verified applied steps enter the existing reverse compensation path. A
+waiting approval closes its durable Var state and every HIL slot, so a late approval cannot revive
+the cancelled Process. Cancellation with no applied step closes as `cancelled`; verified recovery
+after an applied step closes as `compensated`.
+
+Action dispatch and step journal identity include an explicit positive `attempt`, with `1` as the
+compatibility default. `STEP_STARTED`, `ACTION_DISPATCHED`, branch, waiting, completion, failure,
+terminal, and audit ids include that attempt, and `WorkflowActionDispatcher` uses it in the typed
+proposal idempotency key. Two attempts therefore cannot collapse into one event or proposal.
+
+`POST /workflows/{process_id}/retry` starts a new attempt from `failed`, or from `timed_out` only
+when the terminal reason is `approval_timed_out`, and accepts no body. The terminal attempt must
+have an allowlisted effect-free reason and no action dispatch, cancellation, or compensation
+evidence. Approval evidence is admitted only for terminal `approval_rejected` or
+`approval_timed_out`. A dispatcher exception is ambiguous even without a local dispatch event and
+returns `retry_requires_recovery`. Shadow retry requires Contributor; enforce retry requires Owner
+and the current enforce allowlist. The server-owned attempt limit defaults to 3 and cannot be
+raised by the caller.
+
+Workflow approval state and HIL slot identity bind Process, step, and attempt. Attempt 1 retains
+the legacy key for existing durable records; later attempts use distinct keys. One rejection makes
+the complete quorum attempt terminal and closes every sibling slot, so a late approval cannot race
+the rejection. A bounded retry after `approval_rejected` or `approval_timed_out` creates only fresh
+slots for the new attempt. The terminal workflow CAS remains authoritative if sibling park closure
+is interrupted, so the queue hides stale or expired slots and the next provider read heals their
+physical park state. Cancellation and timeout close the exact attempt, and rejection, cancellation,
+and timeout cannot overwrite one another. The workflow provider owns timeout terminalization; the
+generic HIL expiry worker skips workflow slots. Approval decisions are accepted only before the
+durable deadline. If a late decision changes the revision first, the executor rereads that attempt
+and retries timeout CAS, so quorum completed after the deadline never advances the Process. Quorum
+completed before the deadline remains valid when Process reconciliation resumes later. Callback
+and conversation approval surfaces compare normalized principals for no-self-approval. Approval
+claim CAS retries scale with the immutable slot quorum rather than a fixed contention bound.
+
 Workflow audit uses each ActionType's `x-fdai-redact` paths. Redacted fields render as
 `[REDACTED]` and never enter the Process journal. Because the workflow runtime has no secret
 custody provider, an enforce action whose resolved params include a redacted field fails before

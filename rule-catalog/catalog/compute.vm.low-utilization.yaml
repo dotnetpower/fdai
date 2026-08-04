@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: compute.vm.low-utilization
 version: 1.0.0
 source: azure_advisor
@@ -8,15 +8,20 @@ resource_type: compute.vm
 applies_to:
 - compute.vm
 triggered_by:
-- "*"
+- resource.metric.observed
 evaluates:
-- "*"
+- property.compute.vm.cpu_p95_percent
+- property.compute.vm.memory_p95_percent
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: compute.vm
+- kind: property_exists
+  value: property.compute.vm.cpu_p95_percent
+- kind: property_exists
+  value: property.compute.vm.memory_p95_percent
 check_logic:
   kind: rego
   reference: policies/compute/vm_low_utilization.rego

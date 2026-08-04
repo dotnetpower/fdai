@@ -1,5 +1,10 @@
 """Typed operational ontology platform primitives."""
 
+from .catalog_projection import (
+    CatalogOntologyProjection,
+    CatalogOntologyProjector,
+    build_catalog_ontology_projection,
+)
 from .functions import (
     FunctionInvocationContext,
     FunctionInvocationReceipt,
@@ -37,6 +42,8 @@ from .projection import project_source_records, reconcile_expected_effects
 from .sdk_codegen import GeneratedOntologySdk, generate_ontology_sdk
 
 __all__ = [
+    "CatalogOntologyProjection",
+    "CatalogOntologyProjector",
     "CompiledInterfaceCatalog",
     "AuthorityClass",
     "CriterionResult",
@@ -64,6 +71,7 @@ __all__ = [
     "ReconciliationStatus",
     "TargetRevision",
     "build_mutation_plan",
+    "build_catalog_ontology_projection",
     "compile_interfaces",
     "generate_ontology_sdk",
     "platform_manifest",

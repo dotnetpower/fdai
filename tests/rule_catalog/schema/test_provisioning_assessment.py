@@ -7,6 +7,7 @@ from typing import Any
 from fdai.rule_catalog.schema.llm_registry import load_llm_registry_from_mapping
 from fdai.rule_catalog.schema.llm_resolver import (
     CapabilityStatus,
+    NarratorCandidate,
     ResolvedCapability,
     ResolvedModels,
 )
@@ -31,6 +32,10 @@ def _registry(mode: str = "azure-foundry") -> Any:
                 "capacity_tpm": 100_000,
             },
             "t1.judge": {
+                "preferences": [{"publisher": "OpenAI", "family": "gpt-4o-mini"}],
+                "capacity_tpm": 40_000,
+            },
+            "t1.vision": {
                 "preferences": [{"publisher": "OpenAI", "family": "gpt-4o-mini"}],
                 "capacity_tpm": 40_000,
             },
@@ -82,6 +87,7 @@ def _resolved(
 _ALL = {
     "t1.embedding": CapabilityStatus.RESOLVED,
     "t1.judge": CapabilityStatus.RESOLVED,
+    "t1.vision": CapabilityStatus.RESOLVED,
     "t2.reasoner.primary": CapabilityStatus.RESOLVED,
     "t2.reasoner.secondary": CapabilityStatus.RESOLVED,
     "t2.critic": CapabilityStatus.RESOLVED,
@@ -95,6 +101,32 @@ def test_fully_provisioned_is_ok() -> None:
     assert report.quorum_ok is True
     assert report.reasons == ()
     assert report.degraded == ()
+
+
+def test_vision_candidates_satisfy_virtual_capability() -> None:
+    capabilities = dict(_ALL)
+    del capabilities["t1.vision"]
+    resolved = _resolved(capabilities)
+    narrator = NarratorCandidate(
+        endpoint="https://example.openai.azure.com/",
+        deployment="narrator-gpt-4o-mini",
+    )
+    resolved = ResolvedModels(
+        schema_version=resolved.schema_version,
+        region=resolved.region,
+        subscription_id=resolved.subscription_id,
+        deployer_object_id=resolved.deployer_object_id,
+        mixed_model_mode=resolved.mixed_model_mode,
+        capabilities=resolved.capabilities,
+        narrator_candidates=(narrator,),
+        vision_candidates=(narrator,),
+    )
+
+    report = assess_provisioning(registry=_registry(), resolved=resolved)
+
+    by_name = {assessment.name: assessment for assessment in report.capabilities}
+    assert by_name["t1.vision"].state is ProvisioningState.RESOLVED
+    assert report.severity is ProvisioningSeverity.OK
 
 
 def test_secondary_missing_is_critical_and_breaks_quorum() -> None:

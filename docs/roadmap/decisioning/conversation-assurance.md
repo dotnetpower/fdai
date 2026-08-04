@@ -76,6 +76,20 @@ Each assessment stores bounded metadata, content digests, model identities, crit
 evidence references, cost, and lifecycle state. It does not duplicate unrestricted conversation
 bodies, hidden reasoning, or tool output.
 
+Terminal intake also preserves the exact verification reason, route id, evidence-manifest
+completeness, ontology release, and graph revision when present. Deterministic assessment includes
+that exact reason in its failure signature instead of collapsing every unverified answer into one
+generic class. This keeps provider, context, routing, rendering, policy, rule, ontology, and Dynamic
+failures from satisfying one another's recurrence floor.
+
+An ontology-owned failure can open a separate `OntologyAdequacyReview`. The first runtime slice is
+hold-first: it records an idempotent shadow review in StateStore but does not claim replay success or
+create a catalog proposal. A review becomes ready only after complete evidence, verified routing,
+resolved identity, exact release and graph revisions, and deterministic reproduction are available.
+Provider, context, rendering, and policy failures never create ontology reviews. Ready reviews may
+recommend only the smallest owning artifact: provider mapping, projection binding, ontology
+declaration, rule candidate, or Dynamic model review.
+
 ### Hard checks
 
 Hard checks run for every completed answer without a model call:
@@ -88,6 +102,9 @@ Hard checks run for every completed answer without a model call:
 - **Freshness**: Time-sensitive evidence is current enough for the claim.
 
 A hard failure produces `fail`. Missing evidence produces `inconclusive`; it never becomes a pass.
+A deterministic answer passes only when the terminal evidence manifest contains at least one
+reference and its verification authority is available. A route name, completed check count, or
+deterministic source flag cannot substitute for terminal evidence.
 
 ### Semantic rubric
 
@@ -191,6 +208,9 @@ is `hil-only`.
 Each candidate runs against original failures, at least three paraphrases per failure, the frozen
 English and Korean benchmark, and a hidden holdout. It then advances through shadow, 1 percent,
 5 percent, 25 percent, and 100 percent traffic stages.
+The incumbent and candidate must each produce at least one verified answer in English and Korean.
+If either locale has no verified answer, the trial remains unmeasured and cannot emit promotion
+metrics; aggregate success in the other locale cannot hide the gap.
 
 Each stage requires a fresh measurement window bound to the stage being observed. For candidate
 `c` at stage `r`, the trial reports `observed_stage = r` and a stable evidence digest `d(M_r)` over
@@ -223,6 +243,9 @@ $$
 `H` is the hard-failure escape count. A hard escape, lower confidence bound below zero, cost or
 latency regression, locale disparity, or increased disagreement automatically restores the prior
 immutable policy.
+The default minimum lower-confidence-bound gain is `0.01`, so a tie or unmeasured improvement does
+not advance. Invalid sample, gain, latency, locale-gap, or disagreement thresholds fail when the
+runtime policy is constructed.
 
 ## Operator dispute surface
 

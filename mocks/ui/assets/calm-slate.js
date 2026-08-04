@@ -25,6 +25,9 @@
       ["agents-constellation.html", "Org", ""],
       ["agent-activity.html", "Agent activity", ""]
     ]],
+    ["Visualization", [
+      ["service-map.html", "Service map", "is-steel"]
+    ]],
     ["Governance", [
       ["promotion.html", "Promotion", "is-teal"],
       ["blast-radius.html", "Blast radius", "is-terracotta"],

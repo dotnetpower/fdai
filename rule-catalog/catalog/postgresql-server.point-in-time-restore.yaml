@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: postgresql-server.point-in-time-restore
 version: 1.0.0
 source: waf
@@ -8,15 +8,17 @@ resource_type: postgresql-server
 applies_to:
 - postgresql-server
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.postgresql-server.backup_retention_days
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: postgresql-server
+- kind: property_exists
+  value: property.postgresql-server.backup_retention_days
 check_logic:
   kind: rego
   reference: policies/postgresql/point_in_time_restore.rego

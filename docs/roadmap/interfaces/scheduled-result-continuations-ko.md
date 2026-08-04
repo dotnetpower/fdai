@@ -1,7 +1,7 @@
 ---
 translation_of: scheduled-result-continuations.md
-translation_source_sha: 194664cf80ecc9fa2dfad5b58773895a29392fae
-translation_revised: 2026-07-28
+translation_source_sha: 626d15940a1eaef02b82288c2581584034eb65db
+translation_revised: 2026-08-04
 ---
 # 예약 결과 이어가기
 
@@ -42,6 +42,41 @@ flowchart LR
 활성화된 정책에는 변경되지 않는 `ScheduledResultOrigin` metadata가 필요합니다. Origin은 channel
 kind, channel reference, conversation reference, 선택적 thread reference, audience를 기록합니다.
 Direct audience만 앵커를 생성할 수 있습니다.
+
+### 제한된 구성 검토
+
+Configuration-baseline review campaign은 baseline version, digest, scope 하나를 고정하고 서로 다른 run
+id 세 개를 idempotent하게 수락합니다. Deterministic decision이 `passed` 또는 `failed`이고 정확한 DOCX를
+인용하며 mutation, approval, mitigation, unsupported claim count가 모두 0일 때만 verified run으로
+계산합니다. Blocked, partial, uncited, mismatched, unsafe run이 있으면 세 번째 시도 후 campaign을
+pause합니다.
+
+Verified run 세 개는 campaign을 `ready-for-weekly`로 전환하고 세 run id가 포함된 strict-cron weekly
+proposal을 inert artifact로 생성합니다. Reducer는 task를 생성하거나 enable하지 않습니다. Materialization은
+인증된 scheduler command, event, audit path를 계속 사용하므로 review evidence가 schedule mutation authority를
+부여할 수 없습니다.
+
+인증된 Contributor는 required idempotency key가 있는 별도 command route로 fresh review 하나를 제출할 수
+있습니다. Command는 campaign advance 전에 full report를 기록합니다. 세 번째 exact run이 ready 상태가
+되면 FDAI는 세 run의 fingerprint와 zero mutation tool을 가진 disabled, shadow-only Automation Blueprint를
+제출합니다. 이 단계에서도 task를 만들지 않습니다. 별도 Approver 또는 Owner가 candidate를 accept해야
+하며, 같은 reviewer가 기존 authenticated `CreateScheduledTaskCommand`를 통해 materialize할 수 있습니다.
+결과 strict weekly task는 normal scheduler event path를 통해 shadow mode의
+`configuration.drift.check.requested`를 emit합니다. Retry는 report, campaign, candidate, task identity에서
+collapse됩니다.
+
+Campaign state는 content-derived campaign id를 사용해 shared StateStore에 저장됩니다. Create와 advance
+operation은 state write와 append-only audit entry를 원자적으로 결합합니다. 각 advance는 revision을
+증가시키고 bounded retry가 적용된 compare-and-set을 사용하므로 concurrent run이 서로를 덮어쓸 수 없습니다.
+Restart recovery는 동일한 version, scope, run receipt, state, revision을 읽습니다. Duplicate run id는
+idempotent하게 유지됩니다.
+
+Duplicate run id는 full persisted report가 동일할 때만 idempotent합니다. 다른 decision, finding set,
+citation set, safety counter 또는 performance receipt로 id를 재사용하면 conflict가 발생하고 campaign을
+advance할 수 없습니다. Failed campaign은 Approver가 별도 resume command를 사용할 때까지 pause 상태를
+유지합니다. Resume은 complete failed run set을 immutable attempt history로 이동하고 compare-and-set으로
+revision을 증가시킨 뒤 empty active attempt를 시작합니다. Failed report 또는 audit record를 삭제하지
+않습니다.
 
 ### 앵커
 
@@ -145,6 +180,8 @@ deletion 또는 legal-hold enforcement 완료로 표현하면 안 됩니다.
 - Web delivery retry collapse와 Slack/Teams thread-mode parity입니다.
 - Typed-fact provenance와 instruction authority가 없다는 명시적 계약입니다.
 - PostgreSQL row codec, compare-and-set expiry, 동시 winner-only audit, idempotent lifecycle audit retry, migration head, 환경 조건부 live test입니다.
+- Configuration review evidence-run idempotency, proposer self-review 차단, acceptance 전 task 없음,
+  strict weekly materialization 및 duplicate task suppression입니다.
 
 ## 관련 문서
 

@@ -139,7 +139,7 @@ class ApproveHilTool:
                     "no_self_approval invariant cannot be verified (fail-closed)"
                 ),
             )
-        if principal.id == item.submitter_oid:
+        if principal.id.strip().casefold() == item.submitter_oid.strip().casefold():
             return ToolResult(
                 status="error",
                 preview=(

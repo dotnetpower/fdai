@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Final
 
@@ -31,8 +31,14 @@ _INDEX_KEY: Final[str] = "hil_pending:index"
 class StateStoreHilApprovalRegistry(HilApprovalRegistry):
     """Read pending parks and persist idempotent approval decisions."""
 
-    def __init__(self, *, store: StateStore) -> None:
+    def __init__(
+        self,
+        *,
+        store: StateStore,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
         self._store = store
+        self._clock = clock or (lambda: datetime.now(tz=UTC))
 
     async def list_pending(self, *, limit: int = 50) -> Sequence[HilPendingItem]:
         cap = max(1, limit)
@@ -103,11 +109,20 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
         return _receipt_from_mapping(stored, already_recorded=True)
 
     async def _item_is_decided(self, item: HilPendingItem) -> bool:
-        if await self._workflow_claim(item) is not None:
-            return True
+        workflow_record = await self._workflow_record(item)
+        if workflow_record is not None:
+            if workflow_record.get("state") != "pending":
+                return True
+            if _workflow_approval_expired(workflow_record, claimed_at=self._clock()):
+                return True
+            raw_claims = workflow_record.get("decision_claims", {})
+            if not isinstance(raw_claims, Mapping):
+                raise RuntimeError("workflow approval decision claims are malformed")
+            if item.idempotency_key in raw_claims:
+                return True
         return await self._store.read_state(_decision_key(item.idempotency_key)) is not None
 
-    async def _workflow_claim(self, item: HilPendingItem) -> Mapping[str, object] | None:
+    async def _workflow_record(self, item: HilPendingItem) -> Mapping[str, object] | None:
         if item.metadata.get("decision_route") != "workflow":
             return None
         state_key = item.metadata.get("workflow_state_key", "")
@@ -115,12 +130,22 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
             process_id = item.metadata.get("process_id", "")
             step_id = item.metadata.get("step_id", "")
             if process_id and step_id:
-                state_key = _workflow_state_key(process_id, step_id)
+                state_key = _workflow_state_key(
+                    process_id,
+                    step_id,
+                    int(item.metadata.get("attempt", "1")),
+                )
         if not state_key:
             raise RuntimeError("workflow approval claim metadata is malformed")
         record = await self._store.read_state(state_key)
         if record is None:
             raise RuntimeError("workflow approval state is unavailable")
+        return record
+
+    async def _workflow_claim(self, item: HilPendingItem) -> Mapping[str, object] | None:
+        record = await self._workflow_record(item)
+        if record is None:
+            return None
         raw_claims = record.get("decision_claims", {})
         if not isinstance(raw_claims, Mapping):
             raise RuntimeError("workflow approval decision claims are malformed")
@@ -180,7 +205,7 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
         if pending is None:
             raise HilItemNotFoundError(idempotency_key)
 
-        now = decided_at or datetime.now(tz=UTC)
+        now = decided_at or self._clock()
         receipt_ref = (
             "hil-receipt:"
             + hashlib.sha256(
@@ -277,14 +302,28 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
             process_id = pending.metadata.get("process_id", "")
             step_id = pending.metadata.get("step_id", "")
             if process_id and step_id:
-                state_key = _workflow_state_key(process_id, step_id)
+                state_key = _workflow_state_key(
+                    process_id,
+                    step_id,
+                    int(pending.metadata.get("attempt", "1")),
+                )
         principal = approver_oid.strip().casefold()
         if not state_key or not principal:
             raise RuntimeError("workflow approval claim metadata is malformed")
-        for _ in range(8):
+        retry_bound: int | None = None
+        attempt = 0
+        while retry_bound is None or attempt < retry_bound:
+            attempt += 1
             record = await self._store.read_state(state_key)
             if record is None or record.get("state") != "pending":
                 raise HilItemNotFoundError(pending.idempotency_key)
+            if _workflow_approval_expired(record, claimed_at=claimed_at):
+                raise HilItemNotFoundError(pending.idempotency_key)
+            raw_slots = record.get("slots")
+            if not isinstance(raw_slots, list) or not raw_slots:
+                raise RuntimeError("workflow approval slots are malformed")
+            if retry_bound is None:
+                retry_bound = max(8, len(raw_slots) + 1)
             revision = int(record.get("revision", 0))
             raw_claims = record.get("decision_claims", {})
             if not isinstance(raw_claims, Mapping):
@@ -317,6 +356,11 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
             updated = {
                 **dict(record),
                 "decision_claims": {**claims, pending.idempotency_key: claim},
+                "state": (
+                    "rejected"
+                    if decision is HilApprovalDecision.REJECT
+                    else record.get("state", "pending")
+                ),
                 "revision": revision + 1,
             }
             claimed = await self._store.compare_and_set_state_with_audit(
@@ -337,8 +381,57 @@ class StateStoreHilApprovalRegistry(HilApprovalRegistry):
                 },
             )
             if claimed:
+                if decision is HilApprovalDecision.REJECT:
+                    await self._close_rejected_workflow_slots(
+                        updated,
+                        rejected_at=claimed_at,
+                    )
                 return claim, True
         raise RuntimeError("workflow approval claim exceeded its concurrency retry bound")
+
+    async def _close_rejected_workflow_slots(
+        self,
+        record: Mapping[str, object],
+        *,
+        rejected_at: datetime,
+    ) -> None:
+        raw_slots = record.get("slots")
+        if not isinstance(raw_slots, list):
+            raise RuntimeError("workflow approval slots are malformed")
+        for raw_slot in raw_slots:
+            if not isinstance(raw_slot, Mapping):
+                raise RuntimeError("workflow approval slot is malformed")
+            approval_id = str(raw_slot.get("approval_id") or "")
+            if not approval_id:
+                raise RuntimeError("workflow approval slot identity is malformed")
+            key = _park_key(approval_id)
+            parked = await self._store.read_state(key)
+            if parked is None or parked.get("status") != "pending":
+                continue
+            revision = int(parked.get("revision", 0))
+            closed = await self._store.compare_and_set_state_with_audit(
+                key,
+                {
+                    **dict(parked),
+                    "status": "resolved",
+                    "decision": "reject",
+                    "resolved_at": rejected_at.isoformat(),
+                    "revision": revision + 1,
+                },
+                expected_revision=revision,
+                audit_entry={
+                    "actor": "Var",
+                    "action_kind": "workflow.approval.slot_rejected",
+                    "approval_id": approval_id,
+                    "process_id": record.get("process_id"),
+                    "step_id": record.get("step_id"),
+                    "rejected_at": rejected_at.isoformat(),
+                },
+            )
+            if not closed:
+                current = await self._store.read_state(key)
+                if current is not None and current.get("status") == "pending":
+                    raise RuntimeError("workflow approval rejection left a pending slot")
 
     async def record_delivery_attempt(
         self,
@@ -459,9 +552,31 @@ def _decision_key(idempotency_key: str) -> str:
     return f"{_DECISION_PREFIX}{idempotency_key}"
 
 
-def _workflow_state_key(process_id: str, step_id: str) -> str:
-    digest = hashlib.sha256(f"{process_id}\0{step_id}".encode()).hexdigest()
+def _workflow_state_key(process_id: str, step_id: str, attempt: int = 1) -> str:
+    identity = f"{process_id}\0{step_id}"
+    if attempt > 1:
+        identity += f"\0{attempt}"
+    digest = hashlib.sha256(identity.encode()).hexdigest()
     return f"workflow:approval:{digest}"
+
+
+def _workflow_approval_expired(
+    record: Mapping[str, object],
+    *,
+    claimed_at: datetime,
+) -> bool:
+    raw = record.get("expires_at")
+    if raw is None:
+        return False
+    if not isinstance(raw, str) or not raw:
+        raise RuntimeError("workflow approval expiry is malformed")
+    try:
+        expires_at = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise RuntimeError("workflow approval expiry is malformed") from exc
+    if expires_at.tzinfo is None or claimed_at.tzinfo is None:
+        raise RuntimeError("workflow approval expiry MUST be timezone-aware")
+    return claimed_at >= expires_at
 
 
 def _pending_from_park(park: Mapping[str, object] | None) -> HilPendingItem | None:

@@ -141,6 +141,10 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain("<InvestigationNextSkeleton />");
     expect(component).toContain('open={status === "running"}');
     expect(component).toContain('aria-label={t("deck.investigation.branches")}');
+    expect(component).toContain('class="deck-branch-disclosure"');
+    expect(component).toContain('class="deck-branch-step"');
+    expect(component).toContain('t("deck.investigation.evidenceReferences")');
+    expect(component).toContain("branch.evidenceRefs.map");
     expect(component).toContain('running ? "is-running" : `is-settled is-${tone}`');
     expect(component).toContain('is-${running ? "running" : tone}');
     expect(component).toContain('"deck.investigation.startingQuery"');

@@ -137,7 +137,7 @@ injection ([security-and-identity.md](security-and-identity.md)).
 
 - All model calls go through a **provider-neutral client** in `shared/` so models can be
   swapped without touching `core/tiers`.
-- Configure models by capability, not hard-coded name: `t1.embedding`, `t1.judge`,
+- Configure models by capability, not hard-coded name: `t1.embedding`, `t1.judge`, `t1.vision`,
   `t2.reasoner.primary`, `t2.reasoner.secondary`, `t2.rca`.
 - **Client contract**: enforce request timeouts, structured/JSON-schema output, token
   accounting, and reproducible settings (temperature 0 and a fixed seed where supported) so
@@ -286,9 +286,9 @@ Rules the registry enforces (MUST, at config load):
 
 ### Bootstrap Provisioner
 
-At `azd up` (or equivalent) the resolver reads the registry, queries the Azure OpenAI /
-Foundry catalog for the target region, and provisions **one deployment per capability**.
-The resolved `{capability → deployment}` mapping is written to Key Vault and audited.
+At `azd up` (or equivalent) the resolver reads the registry, queries the target region's Azure OpenAI / Foundry catalog, and provisions **one deployment per concrete capability**;
+virtual `t1.vision` reuses matching narrator deployments. The resolved `{capability → deployment}`
+mapping is written to Key Vault and audited.
 
 The full **deployer-permission gate table** (what happens when the deployer identity lacks
 `Cognitive Services Contributor`, when a preferred family is missing from the region, when
@@ -468,13 +468,13 @@ declare a new capability (e.g. `t1.judge.fast-pool`) with its own quality gate,
 route via the composer, and audit the swap - do not thread it through the
 narrator router.
 
-The Operator API refreshes this pool independently of operator traffic. It probes
-every candidate twice at startup and then adds one minimal sample per candidate
-every `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS` (default `300`). Real conversation
-latencies share the same eight-sample rolling window, so a deployment that
-slows down or fails moves behind a healthier candidate without waiting for a
-restart.
-
+The Operator API refreshes text and multimodal pools independently of operator traffic. Text uses
+`narrator_candidates`; image turns use `t1.vision` preferences intersected with those provisioned
+deployments and emitted as `vision_candidates`, so Azure quota isn't reserved twice. Each pool keeps
+its own eight-sample latency and TTFT windows. Startup probes every text candidate twice and every
+vision candidate with a bounded 1 px image; periodic checks add one sample every
+`FDAI_NARRATOR_PROBE_INTERVAL_SECONDS` (default `300`). A slower or incompatible candidate falls
+behind without restart, while a missing vision pool makes image turns unavailable instead of borrowing text. This dispatch boundary also applies when only one narrator and one vision candidate resolve.
 ### Per-user Narrator Preference and TTFT
 
 Settings > Models projects the resolved T1/T2 capability inventory, bootstrap discovery and
@@ -753,6 +753,18 @@ Runtime ObjectType properties and LinkType properties MUST be canonical JSON dat
 are strings, numbers are finite, datetimes are timezone-aware and normalized to RFC 3339 UTC, and
 unsupported Python objects are rejected at the write boundary. Both the in-memory and PostgreSQL
 stores apply the same normalization so replay does not depend on the selected adapter.
+
+### Concrete Rule semantics
+
+Shipped Rules don't use wildcard ontology relationships. `triggered_by` references a reviewed
+`SignalType`, `evaluates` references canonical `Property` identities, and
+`implemented_by_policy` connects the Rule to a first-class `PolicyArtifact`. A bounded OPA AST
+synchronizer verifies Rego package identity and property reads before catalog composition.
+
+Raw events resolve through `vocabulary/signal-types.yaml`. Exact pattern matches select specialized
+types; unmatched events select the single reviewed configuration baseline type. Semantic retrieval
+may rank candidate Rules, but exact ids and graph links remain the authority for dispatch and
+grounding.
 
 ### Rule as Ontology Artifact
 

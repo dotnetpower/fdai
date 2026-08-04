@@ -12,6 +12,7 @@ from fdai.core.read_investigation import (
 )
 from fdai.shared.providers.read_investigation import (
     EvidenceFreshness,
+    EvidenceLimitationKind,
     EvidenceStatus,
     ReadEvidenceAttempt,
     ReadEvidenceEnvelope,
@@ -321,5 +322,6 @@ async def test_provider_failure_emits_bounded_failed_receipt() -> None:
     )
     assert result.outcome is ReadInvestigationOutcome.UNAVAILABLE
     assert result.evidence[0].status is EvidenceStatus.UNAVAILABLE
+    assert result.evidence[0].limitations == (EvidenceLimitationKind.SOURCE_UNAVAILABLE,)
     assert result.receipts[-1].outcome is ToolCallOutcome.FAILED
     assert result.receipts[-1].detail == "provider attempt unavailable"

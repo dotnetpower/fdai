@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: network.load-balancer.unused-backend
 version: 1.0.0
 source: azure_advisor
@@ -8,15 +8,17 @@ resource_type: network.load-balancer
 applies_to:
 - network.load-balancer
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.network.load-balancer.backend_count
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: network.load-balancer
+- kind: property_exists
+  value: property.network.load-balancer.backend_count
 check_logic:
   kind: rego
   reference: policies/network/lb_unused_backend.rego

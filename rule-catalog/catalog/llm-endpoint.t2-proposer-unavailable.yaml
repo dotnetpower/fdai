@@ -1,6 +1,6 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: llm-endpoint.t2-proposer-unavailable
-version: "1.0.0"
+version: 1.0.0
 source: custom
 severity: high
 category: reliability
@@ -8,15 +8,20 @@ resource_type: llm-endpoint
 applies_to:
 - llm-endpoint
 triggered_by:
-- "*"
+- runtime.capability.observed
 evaluates:
-- "*"
+- property.llm-endpoint.event_type
+- property.llm-endpoint.terminal
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: llm-endpoint
+- kind: property_exists
+  value: property.llm-endpoint.event_type
+- kind: property_exists
+  value: property.llm-endpoint.terminal
 check_logic:
   kind: rego
   reference: policies/llm_endpoint/t2_proposer_unavailable.rego
@@ -30,4 +35,4 @@ provenance:
   content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
   license: MIT
   redistribution: embeddable
-  retrieved_at: "2026-07-31T00:00:00Z"
+  retrieved_at: '2026-07-31T00:00:00Z'

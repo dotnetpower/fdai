@@ -22,9 +22,9 @@ _EXECUTOR_RESOURCE_ID = (
 
 
 @pytest.mark.parametrize(
-    ("web_search_candidates", "expected_web_search_enabled"),
+    ("web_search_candidates", "expected_web_search_enabled", "local_vision_state"),
     [
-        ([], "0"),
+        ([], "0", "absent"),
         (
             [
                 {
@@ -33,13 +33,17 @@ _EXECUTOR_RESOURCE_ID = (
                 }
             ],
             "1",
+            "absent",
         ),
+        ([], "0", "valid"),
+        ([], "0", "invalid"),
     ],
 )
 def test_prepares_deployed_transport_without_copying_stale_transport(
     tmp_path: Path,
     web_search_candidates: list[dict[str, str]],
     expected_web_search_enabled: str,
+    local_vision_state: str,
 ) -> None:
     repo = tmp_path / "repo"
     (repo / "console").mkdir(parents=True)
@@ -56,6 +60,30 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         + "\n",
         encoding="utf-8",
     )
+    if local_vision_state != "absent":
+        (repo / ".fdai").mkdir()
+    if local_vision_state == "valid":
+        candidate = {
+            "endpoint": "https://models.example.com/",
+            "deployment": "narrator-mini",
+            "api_version": "2024-08-01-preview",
+        }
+        (repo / ".fdai/resolved-models-vision.json").write_text(
+            json.dumps(
+                {
+                    "narrator": candidate,
+                    "narrator_candidates": [candidate],
+                    "vision_candidates": [candidate],
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    elif local_vision_state == "invalid":
+        (repo / ".fdai/resolved-models-vision.json").write_text(
+            '{"vision_candidates": [{"deployment": "not-a-narrator"}]}\n',
+            encoding="utf-8",
+        )
     (repo / "console/.env.local").write_text(
         "VITE_MSAL_CLIENT_ID=client\n"
         "LLM_MODE=local-fake\n"
@@ -121,7 +149,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
     az.chmod(0o755)
     output = repo / ".fdai/local-runtime.env"
 
-    subprocess.run(  # noqa: S603 - resolved binary with test-controlled arguments
+    completed = subprocess.run(  # noqa: S603 - resolved binary with test-controlled arguments
         [_BASH, str(_SCRIPT), str(output)],
         check=True,
         cwd=_REPO_ROOT,
@@ -136,6 +164,11 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         text=True,
     )
 
+    expected_models_path = repo / (
+        ".fdai/resolved-models-vision.json"
+        if local_vision_state == "valid"
+        else "resolved-models.json"
+    )
     values = output.read_text(encoding="utf-8").splitlines()
     assert values == [
         "VITE_MSAL_CLIENT_ID=client",
@@ -156,7 +189,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_STATE_STORE_DSN=postgresql://fdai:devonly@127.0.0.1:5432/fdai",
         "FDAI_METERING_DSN=postgresql://fdai:devonly@127.0.0.1:5432/fdai",
         "LLM_MODE=azure",
-        f"LLM_RESOLVED_MODELS_PATH={repo / 'resolved-models.json'}",
+        f"LLM_RESOLVED_MODELS_PATH={expected_models_path}",
         "FDAI_LLM_ENDPOINT=https://models.example.com",
         f"FDAI_WEB_SEARCH_ENABLED={expected_web_search_enabled}",
         "RUNTIME_ENV=dev",
@@ -177,6 +210,8 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_DEV_OPERATIONS_GATEWAY_URL=https://gateway.example.com",
         "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=api-application-id",
     ]
+    if local_vision_state == "invalid":
+        assert "ignored invalid local vision model artifact" in completed.stderr
     assert stat.S_IMODE(output.stat().st_mode) == 0o600
 
 

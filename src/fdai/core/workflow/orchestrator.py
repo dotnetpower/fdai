@@ -15,6 +15,17 @@ from fdai.core.runbook.runner import RunbookRunner
 from fdai.core.workflow.approval import WorkflowApprovalPlanner
 from fdai.core.workflow.compensation import WorkflowCompensationCoordinator
 from fdai.core.workflow.compiler import compile_workflow
+from fdai.core.workflow.workflow_cancellation import (
+    WorkflowCancellationCoordinator,
+    WorkflowCancellationError,
+)
+from fdai.core.workflow.workflow_resume import (
+    WorkflowResumeEnvelope,
+    WorkflowResumeError,
+    build_resume_payload,
+    load_resume_envelope,
+)
+from fdai.core.workflow.workflow_retry import WorkflowRetryCoordinator, WorkflowRetryError
 from fdai.core.workflow.workflow_runtime import (
     ACTOR as _ACTOR,
 )
@@ -52,6 +63,7 @@ from fdai.shared.contracts.models import Mode, OntologyActionType, Workflow
 from fdai.shared.providers.process_runtime import (
     ProcessEvent,
     ProcessEventKind,
+    ProcessRevisionConflictError,
     ProcessRuntimeStore,
     ProcessSnapshot,
     ProcessStatus,
@@ -131,6 +143,143 @@ class WorkflowOrchestrator:
             outcome_verifier=self._outcome_verifier,
         )
 
+    async def resume_metadata(
+        self,
+        *,
+        process_id: str,
+        workflows: Mapping[str, Workflow],
+    ) -> WorkflowResumeEnvelope:
+        """Resolve exact server-owned inputs for one Process resume."""
+        snapshot = await self._process_store.get(process_id)
+        if snapshot is None:
+            raise WorkflowResumeError("process_not_found", f"unknown Process {process_id!r}")
+        workflow = workflows.get(snapshot.workflow_ref)
+        if workflow is None:
+            raise WorkflowResumeError(
+                "workflow_catalog_missing",
+                f"Process workflow {snapshot.workflow_ref!r} is not loaded",
+            )
+        events = await self._process_store.events(process_id)
+        created = next(
+            (event for event in events if event.kind is ProcessEventKind.PROCESS_CREATED),
+            None,
+        )
+        if created is None:
+            raise WorkflowResumeError(
+                "resume_evidence_unavailable",
+                "Process creation evidence is unavailable",
+            )
+        envelope = load_resume_envelope(
+            workflow=workflow,
+            snapshot=snapshot,
+            created_event=created,
+        )
+        expected_id = derive_process_id(
+            workflow_name=envelope.workflow_ref,
+            target_resource_id=envelope.target_resource_id,
+            trigger_ts=envelope.trigger_ts,
+        )
+        if expected_id != process_id:
+            raise WorkflowResumeError(
+                "process_identity_mismatch",
+                "Process id does not match its durable resume evidence",
+            )
+        return envelope
+
+    async def resume(
+        self,
+        *,
+        process_id: str,
+        workflow: Workflow,
+        now: datetime | None = None,
+    ) -> ProcessRun:
+        """Resume one Process using only its durable creation evidence."""
+        envelope = await self.resume_metadata(
+            process_id=process_id,
+            workflows={workflow.name: workflow},
+        )
+        return await self.run(
+            workflow,
+            target_resource_id=envelope.target_resource_id,
+            trigger_ts=envelope.trigger_ts,
+            context=envelope.context,
+            correlation_id=envelope.correlation_id,
+            now=now,
+            mode=envelope.mode,
+        )
+
+    async def cancel(
+        self,
+        *,
+        process_id: str,
+        workflows: Mapping[str, Workflow],
+        actor_oid: str,
+        now: datetime | None = None,
+    ) -> ProcessRun:
+        """Request cancellation at a durable safe boundary and advance recovery."""
+        envelope = await self.resume_metadata(process_id=process_id, workflows=workflows)
+        workflow = workflows[envelope.workflow_ref]
+        snapshot = await self._process_store.get(process_id)
+        if snapshot is None:  # pragma: no cover - resume metadata already proved it
+            raise WorkflowCancellationError("process_not_found", f"unknown Process {process_id!r}")
+        compensation = WorkflowCompensationCoordinator(
+            process_store=self._process_store,
+            audit_store=self._audit,
+            dispatcher=self._action_dispatcher,
+            outcome_verifier=self._outcome_verifier,
+        )
+        cancellation = WorkflowCancellationCoordinator(
+            process_store=self._process_store,
+            audit_store=self._audit,
+            approval_provider=self._approval_provider,
+            compensation=compensation,
+        )
+        try:
+            await cancellation.request(
+                snapshot=snapshot,
+                actor_oid=actor_oid,
+                requested_at=now or datetime.now(tz=UTC),
+            )
+            return await self.resume(process_id=process_id, workflow=workflow, now=now)
+        except ProcessRevisionConflictError as exc:
+            raise WorkflowCancellationError(
+                "process_revision_conflict",
+                "Process changed concurrently with cancellation",
+            ) from exc
+
+    async def retry(
+        self,
+        *,
+        process_id: str,
+        workflows: Mapping[str, Workflow],
+        actor_oid: str,
+        now: datetime | None = None,
+        max_attempts: int = 3,
+    ) -> ProcessRun:
+        """Start or resume one effect-free failed Process attempt."""
+        envelope = await self.resume_metadata(process_id=process_id, workflows=workflows)
+        workflow = workflows[envelope.workflow_ref]
+        snapshot = await self._process_store.get(process_id)
+        if snapshot is None:  # pragma: no cover - resume metadata already proved it
+            raise WorkflowRetryError("process_not_found", f"unknown Process {process_id!r}")
+        retry = WorkflowRetryCoordinator(
+            process_store=self._process_store,
+            audit_store=self._audit,
+        )
+        try:
+            await retry.request(
+                snapshot=snapshot,
+                actor_oid=actor_oid,
+                requested_at=now or datetime.now(tz=UTC),
+                max_attempts=max_attempts,
+            )
+            return await self.resume(process_id=process_id, workflow=workflow, now=now)
+        except ProcessRevisionConflictError as exc:
+            raise WorkflowRetryError(
+                "process_revision_conflict",
+                "Process changed concurrently with retry",
+            ) from exc
+
     async def run(
         self,
         workflow: Workflow,
@@ -172,9 +321,50 @@ class WorkflowOrchestrator:
                 idempotency_key=f"{process_id}:created",
                 recorded_at=started_at,
                 correlation_id=resolved_correlation_id,
-                payload={"workflow_ref": workflow.name, "workflow_version": str(workflow.version)},
+                payload={
+                    "workflow_ref": workflow.name,
+                    "workflow_version": str(workflow.version),
+                    "resume": build_resume_payload(
+                        workflow=workflow,
+                        action_types=self._action_types,
+                        trigger_ts=trigger_ts,
+                        mode=mode,
+                        context=context or {},
+                    ),
+                },
             ),
         )
+        events = await self._process_store.events(process_id)
+        attempt = max((event.attempt for event in events), default=1)
+        compensation = WorkflowCompensationCoordinator(
+            process_store=self._process_store,
+            audit_store=self._audit,
+            dispatcher=self._action_dispatcher,
+            outcome_verifier=self._outcome_verifier,
+        )
+        cancellation = WorkflowCancellationCoordinator(
+            process_store=self._process_store,
+            audit_store=self._audit,
+            approval_provider=self._approval_provider,
+            compensation=compensation,
+        )
+        compiled = compile_workflow(workflow)
+        cancellation_progress = await cancellation.advance(
+            snapshot=snapshot,
+            workflow=workflow,
+            compensations=compiled.compensations,
+            context=dict(context or {}),
+        )
+        if cancellation_progress is not None and not cancellation_progress.waiting_for_outcome:
+            return ProcessRun(
+                process_id=process_id,
+                workflow_name=workflow.name,
+                status=cancellation_progress.snapshot.status,
+                step_results=(),
+                approval_plan=plan,
+                replayed=not created,
+                mode=mode.value,
+            )
         if not created and snapshot.status.terminal:
             return ProcessRun(
                 process_id=process_id,
@@ -185,13 +375,6 @@ class WorkflowOrchestrator:
                 replayed=True,
                 mode=mode.value,
             )
-
-        compensation = WorkflowCompensationCoordinator(
-            process_store=self._process_store,
-            audit_store=self._audit,
-            dispatcher=self._action_dispatcher,
-            outcome_verifier=self._outcome_verifier,
-        )
         if snapshot.status is ProcessStatus.COMPENSATING:
             recovery = await compensation.resume(
                 snapshot=snapshot,
@@ -243,17 +426,17 @@ class WorkflowOrchestrator:
             status=ProcessStatus.RUNNING,
             current_step=start_step,
             event=ProcessEvent(
-                event_id=_event_id(process_id, "started"),
+                event_id=_event_id(process_id, f"attempt:{attempt}:started"),
                 process_id=process_id,
                 kind=ProcessEventKind.PROCESS_STARTED,
-                idempotency_key=f"{process_id}:started",
+                idempotency_key=f"{process_id}:attempt:{attempt}:started",
                 recorded_at=datetime.now(tz=UTC),
                 correlation_id=resolved_correlation_id,
                 step_id=start_step,
+                attempt=attempt,
             ),
         )
 
-        compiled = compile_workflow(workflow)
         guards: dict[str, str] = {}
         for workflow_step in workflow.steps:
             gate_or_rule = workflow_step.gate_ref or workflow_step.guard_rule_ref
@@ -277,16 +460,18 @@ class WorkflowOrchestrator:
             now=now,
             mode=mode,
             target_resource_id=target_resource_id,
+            attempt=attempt,
         )
         runner = RunbookRunner(executor=executor, audit_store=self._audit)
         result = await runner.run(
             compiled.runbook,
             start_step_id=start_step,
             audit_context={
-                "event_id": _event_id(process_id, "terminal-audit"),
+                "event_id": _event_id(process_id, f"attempt:{attempt}:terminal-audit"),
                 "correlation_id": resolved_correlation_id,
                 "process_id": process_id,
                 "mode": mode.value,
+                "attempt": attempt,
             },
         )
 
@@ -307,6 +492,22 @@ class WorkflowOrchestrator:
         current = await self._process_store.get(process_id)
         if current is None:  # pragma: no cover - store invariant
             raise RuntimeError(f"process {process_id!r} vanished before terminal transition")
+        cancellation_progress = await cancellation.advance(
+            snapshot=current,
+            workflow=workflow,
+            compensations=compiled.compensations,
+            context=dict(context or {}),
+        )
+        if cancellation_progress is not None:
+            return ProcessRun(
+                process_id=process_id,
+                workflow_name=workflow.name,
+                status=cancellation_progress.snapshot.status,
+                step_results=result.step_results,
+                approval_plan=plan,
+                replayed=not created,
+                mode=mode.value,
+            )
         status = (
             ProcessStatus.SUCCEEDED
             if result.terminal_outcome is RunbookStepOutcome.SUCCESS
@@ -353,12 +554,13 @@ class WorkflowOrchestrator:
             status=status,
             current_step="",
             event=ProcessEvent(
-                event_id=_event_id(process_id, "terminal"),
+                event_id=_event_id(process_id, f"attempt:{attempt}:terminal"),
                 process_id=process_id,
                 kind=terminal_kind,
-                idempotency_key=f"{process_id}:terminal",
+                idempotency_key=f"{process_id}:attempt:{attempt}:terminal",
                 recorded_at=datetime.now(tz=UTC),
                 correlation_id=resolved_correlation_id,
+                attempt=attempt,
                 payload={"terminal_outcome": result.terminal_outcome.value},
             ),
         )
@@ -379,6 +581,10 @@ __all__ = [
     "ShadowWorkflowStepExecutor",
     "WorkflowGuardEvaluator",
     "WorkflowOrchestrator",
+    "WorkflowCancellationError",
+    "WorkflowResumeEnvelope",
+    "WorkflowResumeError",
+    "WorkflowRetryError",
     "derive_process_id",
     "process_state_key",
 ]

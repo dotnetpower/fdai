@@ -88,6 +88,21 @@ class _EffectModelCausalEvidence:
         return True
 
 
+class _GraphRequestProvider:
+    async def build(self, **kwargs: Any):  # type: ignore[no-untyped-def]
+        return None
+
+
+class _GraphModels:
+    async def list_models(self, **kwargs: Any):  # type: ignore[no-untyped-def]
+        return ()
+
+
+class _GraphEffectModelCausalEvidence:
+    def verify(self, model: object) -> bool:
+        return True
+
+
 def test_azure_operational_evidence_binder_is_immutable_and_complete() -> None:
     original = replace(default_container(_config()), metric_provider=StaticMetricProvider(()))
 
@@ -109,6 +124,9 @@ def test_azure_operational_evidence_binder_is_immutable_and_complete() -> None:
         dynamic_policies={"ops.scale-out": AzureDynamicPolicy(metric="latency_ms")},
         effect_models=_Models(),
         effect_model_causal_evidence=_EffectModelCausalEvidence(),
+        graph_request_provider=_GraphRequestProvider(),
+        graph_effect_models=_GraphModels(),
+        graph_effect_model_causal_evidence=_GraphEffectModelCausalEvidence(),
     )
 
     assert original.current_reuse_verifier is None
@@ -117,6 +135,9 @@ def test_azure_operational_evidence_binder_is_immutable_and_complete() -> None:
     assert bound.temporal_causality_config is not None
     assert bound.dynamic_simulation_request_provider is not None
     assert bound.effect_model_reader is not None
+    assert bound.graph_dynamic_simulation_request_provider is not None
+    assert bound.graph_effect_model_reader is not None
+    assert bound.graph_effect_model_causal_evidence_verifier is not None
 
 
 def test_container_rejects_partial_operational_evidence_bindings() -> None:
@@ -126,4 +147,10 @@ def test_container_rejects_partial_operational_evidence_bindings() -> None:
         replace(
             container,
             temporal_causal_evidence_provider=object(),  # type: ignore[arg-type]
+        )
+
+    with pytest.raises(ValueError, match="graph Dynamic provider"):
+        replace(
+            container,
+            graph_dynamic_simulation_request_provider=_GraphRequestProvider(),
         )

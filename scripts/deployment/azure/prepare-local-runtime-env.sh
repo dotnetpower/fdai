@@ -9,6 +9,7 @@ SOURCE_ENV="$REPO_ROOT/console/.env.local"
 OUTPUT_ENV="${1:-$REPO_ROOT/.fdai/local-runtime.env}"
 local_consumer_instance="${FDAI_LOCAL_CONSUMER_INSTANCE:-}"
 resolved_models_override="${FDAI_LOCAL_RESOLVED_MODELS_PATH:-}"
+local_vision_models_path="$REPO_ROOT/.fdai/resolved-models-vision.json"
 resolved_models_path="${resolved_models_override:-$REPO_ROOT/resolved-models.json}"
 
 if [[ ! -f "$SOURCE_ENV" ]]; then
@@ -25,6 +26,55 @@ if [[ -n "$resolved_models_override" ]] &&
   [[ "$resolved_models_path" != /* || "$resolved_models_path" == *$'\n'* || "$resolved_models_path" == *$'\r'* || ! -f "$resolved_models_path" ]]; then
   echo "FDAI_LOCAL_RESOLVED_MODELS_PATH MUST name an existing absolute file" >&2
   exit 1
+fi
+if [[ -z "$resolved_models_override" && -f "$local_vision_models_path" ]]; then
+  if "$REPO_ROOT/.venv/bin/python" - "$local_vision_models_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+try:
+  payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError):
+  raise SystemExit(1)
+
+if not isinstance(payload, dict):
+  raise SystemExit(1)
+
+def route(value):
+  if not isinstance(value, dict):
+    return None
+  fields = (
+    value.get("endpoint"),
+    value.get("deployment"),
+    value.get("api_version", "2024-08-01-preview"),
+    value.get("api_style", "azure-openai"),
+    value.get("auth_audience", "https://cognitiveservices.azure.com/.default"),
+  )
+  return fields if all(isinstance(item, str) and item.strip() for item in fields) else None
+
+narrator_raw = payload.get("narrator_candidates")
+narrators = narrator_raw if isinstance(narrator_raw, list) and narrator_raw else [payload.get("narrator")]
+narrator_routes = {
+  candidate[1]: candidate
+  for item in narrators
+  if (candidate := route(item)) is not None
+}
+vision = payload.get("vision_candidates")
+if not isinstance(vision, list) or not vision:
+  raise SystemExit(1)
+seen = set()
+for item in vision:
+  candidate = route(item)
+  if candidate is None or candidate[1] in seen or narrator_routes.get(candidate[1]) != candidate:
+    raise SystemExit(1)
+  seen.add(candidate[1])
+PY
+  then
+    resolved_models_path="$local_vision_models_path"
+  else
+    echo "ignored invalid local vision model artifact; using canonical resolved models" >&2
+  fi
 fi
 if [[ -z "$resolved_models_override" && ! -f "$resolved_models_path" ]]; then
   resolved_models_path=""

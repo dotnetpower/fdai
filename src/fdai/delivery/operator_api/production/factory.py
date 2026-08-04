@@ -49,6 +49,10 @@ Optional (respect defaults):
     and ``resolve_seconds`` values for every key from ``sev1`` through ``sev5``.
 - ``FDAI_INCIDENT_SLA_INTERVAL_SECONDS`` (default ``60`` when the SLA policy
     is present) - positive scan interval. Ignored without the policy.
+- ``FDAI_CONFIGURATION_BASELINE_JSON``, ``FDAI_CONFIGURATION_BASELINE_DOCX``,
+  and ``FDAI_CONFIGURATION_BASELINE_RESOURCE_GROUP`` - all-or-none absolute
+  mounted baseline binding. It requires the complete Azure reader binding and
+  the resource group must already be in ``FDAI_AZURE_READER_RESOURCE_GROUPS``.
 """
 
 from __future__ import annotations
@@ -71,6 +75,7 @@ from fdai.core.conversation.outbound_delivery import (
 from fdai.core.conversation_assurance import (
     ConversationAssuranceEvaluator,
     ConversationAssuranceLifecycleCoordinator,
+    HoldingOntologyAdequacyInvestigator,
     PromotionConfig,
 )
 from fdai.core.execution_authorization import AccessGrantRequestService
@@ -79,6 +84,12 @@ from fdai.core.metering.budget import InMemoryBudgetLedger, ModelBudget
 from fdai.core.rbac.access_request import AccessRequestService
 from fdai.core.rbac.kill_switch_command import KillSwitchCommandService
 from fdai.core.stewardship import load_stewardship_from_yaml
+from fdai.delivery.catalog_search import (
+    load_shipped_catalog_search_sources,
+)
+from fdai.delivery.configuration_review_store import (
+    StateStoreConfigurationReviewCampaignStore,
+)
 from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
 from fdai.delivery.handover_events import EventBusHandoverAvailabilityPublisher
 from fdai.delivery.ingestion_gateway.chat_evidence import UploaderDocumentEvidenceResolver
@@ -88,12 +99,20 @@ from fdai.delivery.operator_api.app.catalog_reference import (
 )
 from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 from fdai.delivery.operator_api.production import env_contract as _env
+from fdai.delivery.operator_api.production.catalog_search import (
+    ProductionCatalogSearch,
+    build_production_catalog_search,
+)
 from fdai.delivery.operator_api.production.config import (
     ProdOperatorApiConfigError,
     _check_required_env,
     _parse_cors_origins,
     _parse_positive_int,
     build_prod_read_model,
+)
+from fdai.delivery.operator_api.production.configuration_drift import (
+    build_production_configuration_drift_context,
+    build_production_configuration_review,
 )
 from fdai.delivery.operator_api.production.data_sources import build_production_data_sources
 from fdai.delivery.operator_api.production.identity import build_production_identity
@@ -115,6 +134,9 @@ from fdai.delivery.operator_api.routes.background_runtime import build_backgroun
 from fdai.delivery.operator_api.routes.busy_input_runtime import build_postgres_busy_input_runtime
 from fdai.delivery.operator_api.routes.chat import backend_from_env
 from fdai.delivery.operator_api.routes.chat_web_search import chat_web_search_from_env
+from fdai.delivery.operator_api.routes.configuration_baselines import (
+    ConfigurationBaselinesPanel,
+)
 from fdai.delivery.operator_api.routes.conversation_assurance_intake import (
     ConversationAssurancePostTurnSubmitter,
 )
@@ -129,6 +151,7 @@ from fdai.delivery.persistence import (
     PostgresModelHealthTransitionSinkConfig,
     PostgresReadInvestigationRunStore,
     PostgresReadInvestigationRunStoreConfig,
+    StateStoreOntologyAdequacyReviewSink,
 )
 from fdai.delivery.persistence.postgres_conversation_assurance_runtime import (
     PostgresConversationPolicyRuntime,
@@ -158,6 +181,7 @@ from fdai.delivery.stewardship import (
     HumanIdentityLivenessDirectory,
     StewardshipHealthMonitor,
 )
+from fdai.rule_catalog.schema.catalog_search import build_catalog_search_documents
 from fdai.runtime.conversation_assurance import (
     build_azure_conversation_assurance_evaluators,
     build_conversation_assurance_coordinator,
@@ -169,6 +193,7 @@ from fdai.runtime.conversation_assurance_lifecycle import (
     DeterministicNarratorPolicyProposer,
     pricing_narrator_cost_estimator,
 )
+from fdai.shared.providers.catalog_search import CatalogSemanticIndex
 from fdai.shared.providers.local import EnvSecretProvider
 
 _REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[5]
@@ -188,8 +213,12 @@ _RBAC_ENV: Final[Mapping[str, str]] = {
 }
 
 
-def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
-    """Assemble the production ASGI app from environment only.
+def build_prod_app(
+    environ: Mapping[str, str] | None = None,
+    *,
+    catalog_semantic_index: CatalogSemanticIndex | None = None,
+) -> Starlette:
+    """Assemble the production ASGI app from environment and explicit providers.
 
     - Refuses to boot when any required env var is missing
       (:class:`ProdOperatorApiConfigError`).
@@ -227,6 +256,13 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     iam_directory = identity.iam_directory
     iam_provider = identity.iam_provider
     shutdown_callbacks = identity.shutdown_callbacks
+    catalog_search = (
+        ProductionCatalogSearch(catalog_semantic_index)
+        if catalog_semantic_index is not None
+        else build_production_catalog_search(env=env, dsn=read_model._config.dsn)
+    )
+    catalog_semantic_index = catalog_search.index
+    shutdown_callbacks = (*shutdown_callbacks, *catalog_search.shutdown_callbacks)
     cors_origins = _parse_cors_origins(env.get(_env.CORS_ORIGINS_ENV))
     (
         reporting,
@@ -471,6 +507,8 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         delegate=post_turn_review_queue,
         ledger=assurance_ledger if assurance_lifecycle is not None else None,
         lifecycle=assurance_lifecycle,
+        adequacy_investigator=HoldingOntologyAdequacyInvestigator(),
+        adequacy_sink=StateStoreOntologyAdequacyReviewSink(state_store),
     )
     shutdown_callbacks = (*shutdown_callbacks, assurance_submitter.close)
     model_settings = None
@@ -549,6 +587,8 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     inventory_activity_provider = None
     reader_startup_callbacks: tuple[Callable[[], Awaitable[None]], ...] = ()
     reader_scope_ref = None
+    reader_identity = None
+    reader_http = None
     reader_subscription = env.get("FDAI_AZURE_READER_SUBSCRIPTION_ID", "").strip()
     reader_client_id = env.get("FDAI_AZURE_READER_CLIENT_ID", "").strip()
     reader_resource_groups = tuple(
@@ -683,6 +723,43 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             await reader_http.aclose()
 
         shutdown_callbacks = (*shutdown_callbacks, _close_reader_http)
+    configuration_drift_requested = any(
+        env.get(name, "").strip()
+        for name in (
+            _env.CONFIGURATION_BASELINE_JSON_ENV,
+            _env.CONFIGURATION_BASELINE_DOCX_ENV,
+            _env.CONFIGURATION_BASELINE_RESOURCE_GROUP_ENV,
+        )
+    )
+    if configuration_drift_requested and (reader_identity is None or reader_http is None):
+        raise ProdOperatorApiConfigError(
+            "production configuration baseline requires the complete Azure reader binding"
+        )
+    try:
+        configuration_drift_context = (
+            None
+            if reader_identity is None or reader_http is None
+            else build_production_configuration_drift_context(
+                environ=env,
+                subscription_id=reader_subscription,
+                allowed_resource_groups=reader_resource_groups,
+                identity=reader_identity,
+                http_client=reader_http,
+            )
+        )
+    except (OSError, ValueError) as exc:
+        raise ProdOperatorApiConfigError(str(exc)) from exc
+    configuration_review = (
+        None
+        if configuration_drift_context is None
+        else build_production_configuration_review(
+            context=configuration_drift_context,
+            state_store=state_store,
+            dsn=read_model._config.dsn,
+            statement_timeout_ms=read_model._config.statement_timeout_ms,
+            connect_timeout_s=read_model._config.connect_timeout_s,
+        )
+    )
     background_runtime = build_background_task_runtime(
         executor=background_executor,
         state_store=state_store,
@@ -706,6 +783,10 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         and read_investigation_ledger_config is not None
         and reader_scope_ref is not None
     ):
+        from fdai.core.read_investigation import interactive_investigation_policy
+        from fdai.delivery.operator_api.routes.read_investigation_catalog import (
+            load_bound_investigation_intents,
+        )
         from fdai.delivery.operator_api.routes.read_investigation_responder import (
             HeimdallReadInvestigationChatDelegate,
             HeimdallReadInvestigationResponder,
@@ -715,6 +796,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             ReadInvestigationRoutesConfig,
         )
 
+        load_bound_investigation_intents(_REPO_ROOT)
         read_investigation_routes = ReadInvestigationRoutesConfig(
             service=read_investigation_service,
             run_store=read_investigation_run_store,
@@ -729,6 +811,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                 latency_store=read_latency_store,
                 scope_ref=reader_scope_ref,
                 scope_activity_provider=inventory_activity_provider,
+                policy=interactive_investigation_policy(),
             )
         )
     remote_agent_delegate = None
@@ -786,6 +869,17 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         )
         stewardship_startup_callbacks = (stewardship_health.start,)
         shutdown_callbacks = (stewardship_health.stop, *shutdown_callbacks)
+    catalog_search_sources = load_shipped_catalog_search_sources(repo_root=_REPO_ROOT)
+    catalog_search_documents = build_catalog_search_documents(
+        rules=catalog_search_sources.rules,
+        action_types=catalog_search_sources.action_types,
+        policy_semantics=catalog_search_sources.policy_semantics,
+    )
+
+    async def _seed_catalog_semantic_index() -> None:
+        if catalog_semantic_index is not None:
+            await catalog_semantic_index.synchronize(catalog_search_documents)
+
     config = OperatorApiConfig(
         dev_mode=False,
         cors_allow_origins=cors_origins,
@@ -810,6 +904,10 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         t2_recovery_reader=state_store,
         best_practice_controls=load_best_practice_reference(_REPO_ROOT),
         mcsb_catalogs=load_mcsb_reference(_REPO_ROOT),
+        rule_catalog_rules=catalog_search_sources.rules,
+        rule_catalog_policies_root=_REPO_ROOT / "policies",
+        rule_catalog_remediation_root=_REPO_ROOT / "rule-catalog" / "remediation",
+        rule_catalog_semantic_index=catalog_semantic_index,
         scope_source=scope_source,
         log_query_provider=log_query_provider,
         reporting=reporting,
@@ -838,6 +936,13 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         skill_disclosure=skill_runtime.disclosure,
         skill_sources=skill_sources.routes,
         knowledge_context=knowledge_context,
+        configuration_drift_context=configuration_drift_context,
+        configuration_review_runtime=(
+            configuration_review.runtime if configuration_review is not None else None
+        ),
+        automation_blueprint_review=(
+            configuration_review.blueprints if configuration_review is not None else None
+        ),
         busy_input_runtime=busy_input_runtime,
         conversation_delivery_store=conversation_delivery_store,
         chat_web_search=chat_web_search,
@@ -872,6 +977,16 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                 active_rule_count=sum(
                     1 for _ in (_REPO_ROOT / "rule-catalog" / "catalog").glob("*.yaml")
                 ),
+            ),
+            *(
+                (
+                    ConfigurationBaselinesPanel(
+                        configuration_drift_context,
+                        review_store=StateStoreConfigurationReviewCampaignStore(state_store),
+                    ),
+                )
+                if configuration_drift_context is not None
+                else ()
             ),
             skill_runtime.panel,
             ArchitectureReviewStatusPanel(
@@ -924,6 +1039,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                 else ()
             ),
             *reader_startup_callbacks,
+            _seed_catalog_semantic_index,
             *runtime.startup_callbacks,
             *((remote_agent_delegate.start,) if remote_agent_delegate is not None else ()),
             *stewardship_startup_callbacks,

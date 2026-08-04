@@ -11,6 +11,7 @@ from fdai.delivery.operator_api.routes.chat_intent_graph import parse_intent_gra
 from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
     resolve_intent_graph_evidence,
 )
+from fdai.delivery.operator_api.routes.chat_inventory_query import inventory_query_argument_schema
 from fdai.delivery.operator_api.routes.chat_turn_plan import TurnTool
 
 
@@ -102,6 +103,12 @@ def _tools() -> tuple[TurnTool, ...]:
     return (
         TurnTool("query_health", "Read health.", "read", schema),
         TurnTool("query_unavailable", "Unavailable read.", "read", schema),
+        TurnTool(
+            "query_inventory",
+            "Read inventory.",
+            "read",
+            inventory_query_argument_schema(),
+        ),
         TurnTool("ops.restart", "Draft a restart.", "write", schema),
         TurnTool(
             "web_search",
@@ -256,6 +263,36 @@ async def test_graph_executor_classifies_invalid_capability_arguments() -> None:
     assert receipt["status"] == "unavailable"
     assert receipt["reason"] == "capability_invalid_arguments"
     assert "private planner detail" not in str(receipt)
+
+
+async def test_graph_executor_classifies_invalid_semantic_inventory_status() -> None:
+    result = await resolve_intent_graph_evidence(
+        request_id="request-invalid-inventory-state",
+        prompt="지금 살아있는 VM만 알려줘",
+        graph=_graph(
+            _goal(
+                "inventory",
+                "query_inventory",
+                arguments={
+                    "source": "current",
+                    "kind": "list",
+                    "predicates": [{"field": "status", "operator": "eq", "value": "alive"}],
+                    "lookback_seconds": 3_600,
+                },
+            )
+        ),
+        view_context={},
+        user_id="reader",
+        session_id="session-invalid-inventory-state",
+        planned_tool_resolver=_Tools(),
+        agent_delegate=None,
+        web_search_resolver=None,
+        progress_observer=lambda _event: _completed(),
+    )
+
+    receipt = result["_intent_graph_evidence"]["goals"][0]
+    assert receipt["status"] == "unavailable"
+    assert receipt["reason"] == "inventory_semantic_status_invalid"
 
 
 async def test_graph_executor_skips_goal_with_unsuccessful_dependency() -> None:

@@ -12,15 +12,11 @@ Push-direction notifications (system → human) live in
 [channels-and-notifications.md](channels-and-notifications.md); operational views and requests are
 defined in [console-operations.md](console-operations.md), and the SPA lives under
 [project-structure.md § console/](../architecture/project-structure.md#console-static-web-app); evidence provenance, stream recovery, localization, and Architecture-map resilience are owned by [console-evidence-and-resilience.md](console-evidence-and-resilience.md). The Ontology map renders one generated catalog knowledge graph from `rule-catalog` and `PANTHEON_SPECS`; it doesn't read Architecture or runtime inventory.
-Settings > Integrations can preview the production incident-open email renderer with synthetic
-placeholders. That GET-only preview does not send mail or grant approval or execution authority.
-The authenticated active-incident stream can open an idle Command Deck with an incident selector.
-That selector is a presentation hint only; the server re-resolves the durable incident and its
-evidence before answering, and the browser never auto-submits a turn.
-When an incident question matches several records equally, the terminal answer includes bounded
-candidate buttons rather than relying on a plain-text instruction. A button opens the candidate's
-exact incident conversation and prepares a localized investigation draft; the operator still sends
-the turn explicitly.
+Settings > Integrations can preview the production incident-open email renderer with synthetic placeholders. That GET-only preview does not send mail or grant approval or execution authority.
+The authenticated active-incident stream can open an idle Command Deck with an incident selector. That selector is a presentation hint only; the server re-resolves the durable incident and its evidence before answering.
+When the tab and Deck are idle, the first browser observation of an incident submits one localized read-only investigation turn. A browser-local incident ledger suppresses replay after reload; the incident badge remains an explicit way to investigate again.
+When an incident question matches several records equally, the terminal answer includes bounded candidate buttons rather than relying on a plain-text instruction. A button opens the candidate's exact incident conversation and immediately submits the localized read-only investigation turn.
+The click is the operator's explicit request; an automatic active-incident stream open never submits a managed-resource action.
 This doc covers the **pull direction** - the operator asks, simulates,
 approves - across every channel the notification doc already ships adapters
 for. Push and pull share the same channel credentials and the same audit
@@ -57,10 +53,9 @@ Three properties follow directly:
   conversations lives in `audit_log` + `operator_memory` where it is
   auditable, exportable, and CSP-neutral.
 
-Completed answers also enter the off-path [Conversation Assurance](../decisioning/conversation-assurance.md)
-loop. The Evidence panel shows principal-scoped scores, model disagreement, cost, and immutable
-disputes. Reporting an incorrect answer adds evidence for autonomous re-evaluation; it is not an
-approval, policy edit, or execution command.
+Completed answers also enter the off-path [Conversation Assurance](../decisioning/conversation-assurance.md) loop. The Evidence panel shows principal-scoped scores, model disagreement, cost, and immutable disputes. Reporting an incorrect answer adds evidence for autonomous re-evaluation; it is not an approval, policy edit, or execution command.
+Terminal intake preserves the exact verification reason and evidence-manifest completeness. A failed answer attributed to an ontology-owned layer can create a separate hold-first adequacy review in the durable StateStore. Provider, context, rendering, and policy failures create no such review.
+The Operator API never marks a review ready, creates a catalog proposal, or grants authority; those transitions require exact replay evidence and the existing governed catalog lifecycle.
 ### 1.1 Vocabulary added to the shared glossary
 
 The following tokens are added to the shared vocabulary in
@@ -86,7 +81,7 @@ flowchart TD
     WEB["Web chat (Console SPA)"]
   end
   subgraph L2["Layer 2 - Conversation Coordinator"]
-    NARR["Narrator (LLM)\nt1.judge default\nt2.reasoner escalation"]
+    NARR["Narrator (LLM)\nT1 translation default\nT2 translation escalation"]
     INTENT["Intent classify\n(read | simulate | approve | breakglass)"]
     RBAC["RBAC gate\n(per-tool role floor)"]
     VERIF["Verifier re-check\n(no auto-execute)"]
@@ -197,7 +192,7 @@ flowchart TD
   Before synthesis, the aggregator compares high-signal `state`, `status`, `verdict`, `mode`,
   `health`, and `outcome` fields only when two tools name the same `resource_id`, `scope_ref`, or
   `id`. Different values produce a structured conflict, preserve both evidence sets, change the
-  aggregate to `abstain`, and skip model rendering. Different identities are not compared.
+  aggregate to `abstain`, and skip model rendering. Different identities are not compared. Local and deployed interactive reads use one core-owned mode policy, so the same latency profile selects the same direct, streamed, or detached mode.
 - **Layer 1 (Core)** is exactly the deterministic core that already ships.
   The console adds no new judgment path, no new persistence store, and no
   new execution vector. A console tool call resolves to a call the
@@ -245,6 +240,9 @@ flowchart TD
   - `chat_knowledge_context.py` reads exact prior-turn runbooks, source freshness, consented memory,
     and materialized learning without writing state; `chat_vision_prompt.py` projects validated images;
     `chat_verification_text.py` and `chat_verification_rendering.py` own terminal integrity and prose.
+  - `read_investigation_responder.py` renders every registered Heimdall read intent from typed
+    evidence fields. Missing evidence produces an explicit unavailable answer, and an unhandled
+    intent fails exhaustive type checking instead of falling back to generic success prose. Its fallback calls the bound typed responder without embedding Pantheon agents, and direct `PantheonChatDelegate` use is fixture-only. One runtime intent spec supplies tools and lookback, and `read_investigation_catalog.py` blocks startup when catalog IDs, owner, or plan bindings drift.
 
 English and Korean presentation literals in these layers are authored as NFC UTF-8. The repository
 gate rejects escaped Hangul prose and matching tokens, with exact rationale-bearing exceptions only
@@ -287,13 +285,11 @@ caller-supplied role parameter. Both surfaces return descriptors only and cannot
 | `query_subscription_health()` | Inspect the server-configured Azure reader scope for explicit subscription checks, general service-outage questions, and catalog-selected degraded or unavailable resource collections. The provider defaults to the resource-group allowlist; an explicit composition-owned subscription mode aligns interactive local health with its subscription inventory. Query Resource Graph inventory and Resource Health, fall back to current Resource Health status for the configured scope when ARG is empty, then run bounded representative metric checks. Preserve requested state groups, including grounded empty groups. Normalize name, provider type, and resource group from a scope-validated Resource Health target when its display name is absent; don't expose the raw target ID. Return findings, cause classification, coverage gaps, freshness, and truncation without allowing caller-supplied scope or mode. | Reader | `SubscriptionHealthProvider` |
 | `query_detection_readiness()` | Read Heimdall's latest AKS readiness decisions from Muninn StateSnapshots, including six-axis coverage gaps and the authority ceiling. It does not probe Azure or recompute readiness. | Reader | `DetectionReadinessReader` |
 | `query_t2_recovery()` | Read sanitized proposer attempt receipts from the server StateStore. Return the retained attempt count, recovery state, route roles, failure class, observation time, and explicit legacy-detail gaps without exposing provider error text. | Reader | `T2RecoveryStateReader` |
+| `query_configuration_baseline()` | Read one server-configured frozen configuration baseline, its current scoped observation, and the exact integrity-pinned DOCX citation. The caller cannot select scope, version, digest, document, or a mutation operation. Missing structured topology remains unknown. | Reader | `ConfigurationDriftService` + `KnowledgeSource` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | Submit a credential-free bounded capture under an exact server-owned policy. Returns an immutable artifact receipt; never returns a page or interaction API. | Reader | `BrowserEvidenceCaptureService` |
-For an unfiltered resource-type summary, `query_inventory` preserves every provider-observed
-resource even when its ARM type has no canonical catalog mapping. The deterministic answer groups
-by provider-native type, reports the complete resource and type totals, and reports resource-group
-containers and topology-derived child records separately from the provider-native resource total.
-Catalog-mapped queries continue to use canonical resource types for filtering and CSP-neutral
-reasoning.
+A concrete resource-type query with no complete lexical state match uses semantic planning only to propose a state concept. The server accepts canonical current-inventory states from the IQL catalog,
+preserves deterministic type, scope, and freshness, and discards planner-supplied type, scope, and lookback. Provider-observed status grounds the final predicate; an invalid state returns unavailable.
+An unfiltered summary still preserves every provider-observed resource, groups by provider-native type, and separates resource-group containers and topology-derived records from the resource total.
 The catalog-owned `scope_counts` query kind returns provider-native resource and resource-group
 totals from one fresh snapshot without narrowing the query to resource groups. It retains the same
 container, derived-record, truncation, freshness, and verification disclosures as type summaries.
@@ -372,6 +368,7 @@ Two clarifications on the write set:
 
 `query_log` accepts explicit bounded KQL and three natural-language diagnostic shapes through server-owned templates. Failed-request summaries group `AppRequests` by operation and result code without claiming that the grouping proves root cause. Error-signature timelines and related-log requests require an exact signature or selected context; missing context returns a clarification without calling the provider or narrator. Representative error samples use a fixed multi-table template, cap the requested window at 24 hours, and redact secret assignments, bearer values, resource identifiers, GUIDs, email addresses, URLs, and IP addresses before rendering any cell. Additional fixed templates rank spans in the slowest observed distributed trace, aggregate dependency latency, and list slow database dependency calls. These results do not by themselves prove root cause, causal contribution, or that a database call explains a CPU increase. Natural-language requests to run bounded read-only error KQL use a server-owned error template and preserve an explicit English or Korean minute/hour window, capped at 24 hours. Prompt text never becomes executable KQL. When the workspace provider is not configured, the same tool returns a typed unavailable result and does not fall through to current-screen, incident, web, or narrator evidence.
 Context-free questions about a proposal, approval, execution, outcome verification, retry, or idempotency use a deterministic action-context hold. The operator must supply an exact ActionType, target resource, proposal, approval, or action receipt before the Console can verify lifecycle claims. Current-screen, repository, incident, and narrator evidence never substitute for that governed record, and the hold performs no mutation or model call.
+The exact configuration-baseline filename selects the read-only baseline tool before action-context classification. A negative instruction such as "do not call mitigation tools" cannot turn the document read into an action-lifecycle question. The deterministic answer cites the pinned DOCX in every section and reports unavailable relationships as unknown instead of inferring them from prose. Generic baseline wording stays on the validated semantic planning path instead of creating another keyword router.
 The Month-1 additions bring the console close to a multi-signal
 incident-response experience, but they still surface
 **already-correlated** results; the correlator lives in Layer 1, not
@@ -584,7 +581,7 @@ availability source.
 | Teams/Slack conversation | `ProductionChannelRuntime`, authenticated ingress, principal resolution, publishers, and optional durable replies ship; environment-owned enablement and credentials remain required. |
 | Web chat and memory | JSON/SSE chat, principal-scoped history/preferences/memory, AnswerPlan, and progressive verification ship. |
 | Observation/discovery | `POST /read-investigations` selects direct, streamed, or detached execution from durable latency evidence before Azure I/O. Direct Command Deck and HTTP reads share an owner-scoped result-replay ledger; closing a streamed response cancels its in-flight read. The surface is registered only with a dedicated reader binding; catalog presence alone proves neither provider health nor promotion. |
-| Forecast learning | `GET /forecast-learning` projects due closure completeness, model/pipeline miss origin, publication and dead-letter debt, and retention debt from PostgreSQL. The route is Reader-only and exposes no detector mutation or promotion control. |
+| Forecast and Dynamic learning | `GET /forecast-learning` projects forecast closure and publication health; `GET /dynamic-assurance` projects durable scalar/graph model summaries and trajectory closure counts. Both routes are Reader-only and expose no detector/model mutation, promotion, approval, or execution control. |
 
 Live Azure completion evidence and capability promotion remain governed by deployment verification
 and the authoritative registry, never inferred from phase names in this document.

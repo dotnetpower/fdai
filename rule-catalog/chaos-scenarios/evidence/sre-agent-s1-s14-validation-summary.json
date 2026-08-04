@@ -1,0 +1,302 @@
+{
+  "entries": [
+    {
+      "cleanup_status": "verified",
+      "measurements": [
+        {
+          "name": "ready_replicas_after_recovery",
+          "unit": "replicas",
+          "value": 3
+        }
+      ],
+      "provenance_digests": [
+        "f1beaad0eb3ef55253b5c4109a79b382ac3f7e866a69422282f2b1e95a2aa7e6"
+      ],
+      "recovery_status": "verified",
+      "residual_count": 1,
+      "scenario_id": "S1",
+      "synthetic": false,
+      "unsupported_claim_count": 0,
+      "verdict": "partial"
+    },
+    {
+      "cleanup_status": "verified",
+      "measurements": [
+        {
+          "name": "maximum_observed_pod_cpu",
+          "unit": "millicores",
+          "value": 580
+        }
+      ],
+      "provenance_digests": [
+        "63ee408a9ad79ab448d54e5880f412ef4da33f5c75e0413a284c905e1d72b48f"
+      ],
+      "recovery_status": "verified",
+      "residual_count": 1,
+      "scenario_id": "S2",
+      "synthetic": false,
+      "unsupported_claim_count": 0,
+      "verdict": "partial"
+    },
+    {
+      "cleanup_status": "verified",
+      "measurements": [
+        {
+          "name": "maximum_injected_latency",
+          "unit": "milliseconds",
+          "value": 427
+        }
+      ],
+      "provenance_digests": [
+        "7686b26d43ace708b605680b3431ead49ae8e50a5ea64014a3e61a1c9d28ef98"
+      ],
+      "recovery_status": "verified",
+      "residual_count": 0,
+      "scenario_id": "S3",
+      "synthetic": false,
+      "unsupported_claim_count": 0,
+      "verdict": "passed"
+    },
+    {
+      "cleanup_status": "verified",
+      "measurements": [
+        {
+          "name": "injected_http_status",
+          "unit": "http-status",
+          "value": "000"
+        }
+      ],
+      "provenance_digests": [
+        "916377ec0133d079795b53385537bfff53790a80883e4ca6b5731aaca1a804fb"
+      ],
+      "recovery_status": "verified",
+      "residual_count": 0,
+      "scenario_id": "S4",
+      "synthetic": false,
+      "unsupported_claim_count": 0,
+      "verdict": "passed"
+    },
+    {
+      "cleanup_status": "verified",
+      "measurements": [
+        {
+          "name": "maximum_percentage_cpu",
+          "unit": "percent",
+          "value": 83.58
+        },
+        {
+          "name": "cpu_credits_remaining",
+          "unit": "credits",
+          "value": 25.34
+        }
+      ],
+      "provenance_digests": [
+        "c984ed865cae5b3a9e7d176bdc03ed8a333ce1a1d81127e1b46fc2c32a51c23c"
+      ],
+      "recovery_status": "verified",
+      "residual_count": 1,
+      "scenario_id": "S5",
+      "synthetic": false,
+      "unsupported_claim_count": 0,
+      "verdict": "partial"
+    },
+    {
+      "cleanup_status": "verified",
+      "measurements": [
+        {
+          "name": "adapted_stress_memory",
+          "unit": "megabytes",
+          "value": 400
+        }
+      ],
+      "provenance_digests": [
+        "8a3ef58eb983ad433f8c4c36aca4034c5b1c99d1eb51732ec7815f6e82638f89"
+      ],
+      "recovery_status": "verified",
+      "residual_count": 1,
+      "scenario_id": "S6",
+      "synthetic": false,
+      "unsupported_claim_count": 0,
+      "verdict": "partial"
+    },
+    {
+      "cleanup_status": "verified",
+      "measurements": [
+        {
+          "name": "reported_maximum_injected_connect_time",
+          "unit": "milliseconds",
+          "value": 390
+        }
+      ],
+      "provenance_digests": [
+        "c45e426a5bacd96386a654b7a6ad406d4ff44b4e95aad76cd97163a9aa6ab851"
+      ],
+      "recovery_status": "verified",
+      "residual_count": 1,
+      "scenario_id": "S7",
+      "synthetic": false,
+      "unsupported_claim_count": 0,
+      "verdict": "partial"
+    },
+    {
+      "cleanup_status": "verified",
+      "measurements": [
+        {
+          "name": "load_runs",
+          "unit": "runs",
+          "value": 0
+        }
+      ],
+      "provenance_digests": [
+        "8a3ef58eb983ad433f8c4c36aca4034c5b1c99d1eb51732ec7815f6e82638f89"
+      ],
+      "recovery_status": "not-run",
+      "residual_count": 1,
+      "scenario_id": "S8",
+      "synthetic": false,
+      "unsupported_claim_count": 0,
+      "verdict": "blocked"
+    },
+    {
+      "cleanup_status": "verified",
+      "measurements": [
+        {
+          "name": "http_429_count",
+          "unit": "requests",
+          "value": 8035
+        }
+      ],
+      "provenance_digests": [
+        "c78502b5e81c42d8fe4ecf3f4f34e3baf947f5db238b85902e3c20efe5f0c425"
+      ],
+      "recovery_status": "verified",
+      "residual_count": 1,
+      "scenario_id": "S9",
+      "synthetic": false,
+      "unsupported_claim_count": 0,
+      "verdict": "partial"
+    },
+    {
+      "cleanup_status": "verified",
+      "measurements": [
+        {
+          "name": "maximum_backend_first_byte_response_time",
+          "unit": "milliseconds",
+          "value": 5505
+        }
+      ],
+      "provenance_digests": [
+        "ab5cfa2c3834a841f19698b453f781c03f31b999ba4cc58e3a315b7c9e52a72f"
+      ],
+      "recovery_status": "verified",
+      "residual_count": 0,
+      "scenario_id": "S10",
+      "synthetic": false,
+      "unsupported_claim_count": 0,
+      "verdict": "passed"
+    },
+    {
+      "cleanup_status": "verified",
+      "measurements": [
+        {
+          "name": "endpoints_during_outage",
+          "unit": "endpoints",
+          "value": 0
+        },
+        {
+          "name": "gateway_failed_requests",
+          "unit": "requests",
+          "value": 10
+        },
+        {
+          "name": "unhealthy_host_count",
+          "unit": "hosts",
+          "value": 0.5
+        }
+      ],
+      "provenance_digests": [
+        "aa2e6489513636e22e2994895c30a9812b32114fd98b3b5d73c4ab0d28b3a886"
+      ],
+      "recovery_status": "verified",
+      "residual_count": 0,
+      "scenario_id": "S11",
+      "synthetic": false,
+      "unsupported_claim_count": 0,
+      "verdict": "passed"
+    },
+    {
+      "cleanup_status": "verified",
+      "measurements": [
+        {
+          "name": "rollout_timeout",
+          "unit": "seconds",
+          "value": 120
+        }
+      ],
+      "provenance_digests": [
+        "8a3ef58eb983ad433f8c4c36aca4034c5b1c99d1eb51732ec7815f6e82638f89"
+      ],
+      "recovery_status": "verified",
+      "residual_count": 1,
+      "scenario_id": "S12",
+      "synthetic": false,
+      "unsupported_claim_count": 0,
+      "verdict": "partial"
+    },
+    {
+      "cleanup_status": "incomplete",
+      "measurements": [
+        {
+          "name": "current_scheduled_task_count",
+          "unit": "tasks",
+          "value": 0
+        }
+      ],
+      "provenance_digests": [
+        "75edec4fb60d8381c9ce581033ee380cfc58847595d7471f65ef8fd8dc8669a3"
+      ],
+      "recovery_status": "not-applicable",
+      "residual_count": 2,
+      "scenario_id": "S13",
+      "synthetic": false,
+      "unsupported_claim_count": 0,
+      "verdict": "blocked"
+    },
+    {
+      "cleanup_status": "not-applicable",
+      "measurements": [
+        {
+          "name": "blocked_or_client_error_calls",
+          "unit": "calls",
+          "value": 110
+        },
+        {
+          "name": "current_response_plan_enabled",
+          "unit": "boolean",
+          "value": "true"
+        }
+      ],
+      "provenance_digests": [
+        "fecdf255c42fda4d2407d9c0e388fd15a903785ff04f34bc80a9e223ba7c158d"
+      ],
+      "recovery_status": "not-applicable",
+      "residual_count": 0,
+      "scenario_id": "S14",
+      "synthetic": false,
+      "unsupported_claim_count": 0,
+      "verdict": "passed"
+    }
+  ],
+  "evidence_level": "live_execution",
+  "generated_at": "2026-08-03T22:25:21Z",
+  "scenario_set": "sre-agent-s1-s14",
+  "schema_version": 1,
+  "source_ledger_sha256": "dd107c456c23d0732afe29c5572f3315c2c51f1c66f3873921edd72f144b6975",
+  "summary": {
+    "blocked": 2,
+    "failed": 0,
+    "not-applicable": 0,
+    "partial": 7,
+    "passed": 5
+  }
+}

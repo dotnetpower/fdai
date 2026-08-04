@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
+import json
 from pathlib import Path
 from types import ModuleType
 
@@ -184,6 +186,7 @@ def test_partial_scenario_preserves_cleanup_residuals(validator: ModuleType) -> 
     scenario["status"] = "partial"
     cleanup = scenario["cleanup"]
     assert isinstance(cleanup, dict)
+    cleanup["status"] = "incomplete"
     cleanup["residuals"] = ["Current replica state requires reconciliation"]
     summary["passed"] = 13
     summary["partial"] = 1
@@ -262,3 +265,77 @@ def test_receipt_and_measurement_chronology_is_ordered(validator: ModuleType) ->
     assert (
         "scenarios.S3.measurements[0].observed_at MUST be inside the scenario time_window" in errors
     )
+
+
+def test_sanitized_summary_omits_operational_context(validator: ModuleType) -> None:
+    ledger = _ledger()
+    scenarios = ledger["scenarios"]
+    assert isinstance(scenarios, dict)
+    scenario = scenarios["S1"]
+    assert isinstance(scenario, dict)
+    scenario["target"] = "private-resource-name"
+    safety = scenario["safety"]
+    detection = scenario["detection_evidence"]
+    cleanup = scenario["cleanup"]
+    assert isinstance(safety, dict) and isinstance(detection, dict) and isinstance(cleanup, dict)
+    safety["approval"] = "private-session-reference"
+    detection["source_identity"] = "private-source-identity"
+    cleanup["residuals"] = ["private-residual-detail"]
+
+    summary = validator.build_sanitized_summary(
+        ledger,
+        source_ledger_sha256="b" * 64,
+    )
+    serialized = json.dumps(summary, sort_keys=True)
+
+    assert summary["scenario_set"] == "sre-agent-s1-s14"
+    assert summary["evidence_level"] == "live_execution"
+    assert summary["source_ledger_sha256"] == "b" * 64
+    assert summary["summary"] == ledger["summary"]
+    assert summary["entries"][0] == {
+        "cleanup_status": "verified",
+        "measurements": [{"name": "sample", "unit": "count", "value": 1}],
+        "provenance_digests": ["a" * 64],
+        "recovery_status": "verified",
+        "residual_count": 1,
+        "scenario_id": "S1",
+        "synthetic": False,
+        "unsupported_claim_count": 0,
+        "verdict": "passed",
+    }
+    assert "private-resource-name" not in serialized
+    assert "private-session-reference" not in serialized
+    assert "private-source-identity" not in serialized
+    assert "private-residual-detail" not in serialized
+
+
+def test_summary_output_is_deterministic(validator: ModuleType, tmp_path: Path) -> None:
+    ledger_path = tmp_path / "ledger.json"
+    summary_path = tmp_path / "summary.json"
+    ledger_path.write_text(json.dumps(_ledger(), sort_keys=True), encoding="utf-8")
+
+    assert validator.main([str(ledger_path), "--summary-output", str(summary_path)]) == 0
+    first = summary_path.read_bytes()
+    assert validator.main([str(ledger_path), "--summary-output", str(summary_path)]) == 0
+
+    assert summary_path.read_bytes() == first
+    payload = json.loads(first)
+    assert payload["source_ledger_sha256"] == hashlib.sha256(ledger_path.read_bytes()).hexdigest()
+    assert [entry["scenario_id"] for entry in payload["entries"]] == [
+        f"S{index}" for index in range(1, 15)
+    ]
+
+
+def test_invalid_ledger_does_not_write_summary(validator: ModuleType, tmp_path: Path) -> None:
+    ledger = _ledger()
+    scenarios = ledger["scenarios"]
+    assert isinstance(scenarios, dict)
+    scenario = scenarios["S1"]
+    assert isinstance(scenario, dict)
+    scenario["status"] = "unsupported"
+    ledger_path = tmp_path / "invalid.json"
+    summary_path = tmp_path / "summary.json"
+    ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+
+    assert validator.main([str(ledger_path), "--summary-output", str(summary_path)]) == 1
+    assert not summary_path.exists()

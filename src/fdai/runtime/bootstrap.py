@@ -84,6 +84,7 @@ from fdai.runtime.case_history import (
     CaseHistoryRuntime,
     build_case_history_runtime,
 )
+from fdai.runtime.catalog_ontology import project_catalog_ontology
 from fdai.runtime.configuration import (
     _attach_runtime_github_change_feed,
     _attach_runtime_knowledge_source,
@@ -107,6 +108,7 @@ from fdai.runtime.control_loop import (
     _load_resource_types,
 )
 from fdai.runtime.delivery import _build_incident_notifier
+from fdai.runtime.dynamic_evidence import bind_dynamic_evidence_from_env
 from fdai.runtime.forecast_learning import (
     ForecastLearningRuntime,
     build_forecast_learning_runtime,
@@ -395,6 +397,11 @@ async def _run() -> int:
                     },
                 )
 
+            container = await bind_dynamic_evidence_from_env(
+                container,
+                state_store=incident_audit_store,
+                environ=os.environ,
+            )
             control_loop = _build_control_loop(
                 container,
                 http_client=http_client,
@@ -409,6 +416,7 @@ async def _run() -> int:
                 response_outcome_sink=_relay_response_outcome,
                 human_access_enabled=runtime_values["human_access.enabled"] is True,
             )
+            catalog_projection_result = await project_catalog_ontology(control_loop)
             operating_model_result = await project_operating_model_from_env(
                 store=control_loop.ontology_instance_store,
                 object_types=container.ontology_object_types,
@@ -425,6 +433,11 @@ async def _run() -> int:
                         operating_model_result.source_revision
                         if operating_model_result is not None
                         else None
+                    ),
+                    "catalog_ontology_objects": (
+                        catalog_projection_result.object_count
+                        if catalog_projection_result is not None
+                        else 0
                     ),
                 },
             )

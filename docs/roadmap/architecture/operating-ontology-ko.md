@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: c4fc6ad297b00f038340fe419f2918c14cffd3fe
+translation_source_sha: fb67501196181bec25042f9a382ef38c728ae426
 translation_revised: 2026-08-04
 ---
 # FDAI 운영 온톨로지
@@ -34,6 +34,17 @@ cloud-operations 개념을 소유하고 deployment는 observed instance와 inten
 > `ChangeAssessment`를 계산해 Verdict와 DecisionCase evidence에 보존하고, stale, incomplete,
 > failed 또는 review-required assessment에는 사람 검토를 요구합니다. 현재 runtime에는
 > graph-freshness authority가 없으므로 planned change는 이 gate를 auto-clear할 수 없습니다.
+
+## 카탈로그 semantic projection
+
+규칙 카탈로그는 이제 작성된 Rego를 1급 `PolicyArtifact`로 모델링합니다. 제공되는 모든 Rule은
+구체적인 `SignalType`과 canonical `Property` 참조를 사용하고, `implemented_by_policy`는 Rule을
+deterministic 정책에 연결합니다. `scripts/catalog/sync-rule-semantics.py`는 OPA로 Rego를 구문
+분석하고 package metadata를 검증하며 정책의 속성 읽기와 Rule metadata 사이의 drift를 차단합니다.
+
+검토된 하나의 구성 baseline SignalType이 일치하지 않는 원시 이벤트 형식을 처리합니다. 따라서
+wildcard 온톨로지 링크 없이 deterministic T0 범위를 보존합니다. 이러한 카탈로그 선언은 의미만
+설명하며 현재 provider 상태를 주장하거나 실행 권한을 부여하지 않습니다.
 
 ## 한눈에 보는 설계
 

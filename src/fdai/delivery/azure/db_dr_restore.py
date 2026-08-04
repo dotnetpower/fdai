@@ -27,12 +27,14 @@ Wire contract (v1)
 +---------------------------------+-----------------------------------------------+
 | Operation                       | REST path                                     |
 +=================================+===============================================+
+| target RG conditional create    | ``PUT /subscriptions/.../resourceGroups/{rg}``|
 | ``restore`` submit              | ``POST /subscriptions/.../resourceGroups/     |
 |                                 | {target_rg}/providers/Microsoft.DBforPostgreSQL|
 |                                 | /flexibleServers/{name}/restore``             |
 | ``restore`` LRO poll            | ``GET  {Azure-AsyncOperation | Location}``    |
 | ``restore`` final resource GET  | ``GET  .../flexibleServers/{name}``           |
 | ``teardown``                    | ``DELETE .../resourceGroups/{target_rg}``     |
+| teardown LRO + absence verify   | ``GET {status_url}`` then ``GET {target_rg}`` |
 +---------------------------------+-----------------------------------------------+
 
 Fail-closed rules
@@ -46,6 +48,9 @@ Fail-closed rules
   handle.
 - ``teardown`` swallows 404 (already deleted) but every other 4xx/5xx
   raises so an operator sees the failure in the audit log.
+- The adapter acquires target-RG ownership only from a conditional create
+    that returns 201. Existing groups are rejected and are never deleted.
+    Restore failures and cancellation clean up only an owned group.
 
 Isolation invariant
 -------------------
@@ -59,10 +64,13 @@ the target is not production before invoking the adapter.
 from __future__ import annotations
 
 import asyncio
+import re
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Final
+from uuid import UUID
 
 import httpx
 
@@ -74,12 +82,16 @@ from fdai.shared.providers.db_dr import (
 )
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
+from .arm_url_policy import ArmUrlPolicy, ArmUrlPolicyError
+
 _DEFAULT_AUDIENCE: Final[str] = "https://management.azure.com/.default"
 _DEFAULT_API_VERSION: Final[str] = "2024-08-01"
 _DEFAULT_TIMEOUT_SECONDS: Final[float] = 30.0
 _DEFAULT_MAX_POLL_SECONDS: Final[float] = 1800.0
 _DEFAULT_POLL_INTERVAL_SECONDS: Final[float] = 10.0
 _DEFAULT_MAX_ERROR_BODY_BYTES: Final[int] = 512
+_DEFAULT_TEARDOWN_RETRY_ATTEMPTS: Final[int] = 5
+_DEFAULT_TEARDOWN_RETRY_INTERVAL_SECONDS: Final[float] = 30.0
 
 _SUCCEEDED_STATES: Final[frozenset[str]] = frozenset({"succeeded", "success", "completed"})
 _IN_PROGRESS_STATES: Final[frozenset[str]] = frozenset(
@@ -94,6 +106,9 @@ _PHASE: Final[str] = "restore"
 # Provider identifier for Azure PG Flexible Server; used to build the
 # teardown RG path and to sanity-check the source ARM id.
 _PG_PROVIDER_SEGMENT: Final[str] = "/providers/Microsoft.DBforPostgreSQL/flexibleServers/"
+_PG_SERVER_NAME = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$")
+_LOCATION_NAME = re.compile(r"^[a-z0-9]+$")
+_DNS_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$", re.IGNORECASE)
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,6 +137,12 @@ class AzureDbDrRestoreAdapterConfig:
     max_error_body_bytes: int = _DEFAULT_MAX_ERROR_BODY_BYTES
     """Cap on the vendor error snippet embedded in :class:`DbDrError`."""
 
+    teardown_retry_attempts: int = _DEFAULT_TEARDOWN_RETRY_ATTEMPTS
+    """Maximum DELETE attempts for 408, 429, and 5xx teardown responses."""
+
+    teardown_retry_interval_seconds: float = _DEFAULT_TEARDOWN_RETRY_INTERVAL_SECONDS
+    """Linear delay between transient teardown attempts."""
+
 
 class AzureDbDrRestoreAdapter(DbRestoreAdapter):
     """Azure PG Flexible implementation of :class:`DbRestoreAdapter`."""
@@ -133,6 +154,7 @@ class AzureDbDrRestoreAdapter(DbRestoreAdapter):
         http_client: httpx.AsyncClient,
         config: AzureDbDrRestoreAdapterConfig | None = None,
         sleep: Callable[[float], Awaitable[None]] | None = None,
+        monotonic: Callable[[], float] | None = None,
     ) -> None:
         cfg = config or AzureDbDrRestoreAdapterConfig()
         if cfg.timeout_seconds <= 0:
@@ -143,21 +165,90 @@ class AzureDbDrRestoreAdapter(DbRestoreAdapter):
             raise ValueError("poll_interval_seconds MUST be >= 0")
         if cfg.max_error_body_bytes < 64:
             raise ValueError("max_error_body_bytes MUST be >= 64")
+        if not 1 <= cfg.teardown_retry_attempts <= 10:
+            raise ValueError("teardown_retry_attempts MUST be in [1, 10]")
+        if cfg.teardown_retry_interval_seconds < 0:
+            raise ValueError("teardown_retry_interval_seconds MUST be >= 0")
+        self._url_policy = ArmUrlPolicy.from_client(http_client)
         self._identity: Final[WorkloadIdentity] = identity
         self._http: Final[httpx.AsyncClient] = http_client
         self._config: Final[AzureDbDrRestoreAdapterConfig] = cfg
         self._sleep: Final[Callable[[float], Awaitable[None]]] = sleep or asyncio.sleep
+        self._monotonic: Final[Callable[[], float]] = monotonic or time.monotonic
 
     # ------------------------------------------------------------------
     # DbRestoreAdapter Protocol
     # ------------------------------------------------------------------
 
     async def restore(self, config: DbRestoreConfig) -> DbRestoreHandle:
+        _validate_restore_config(config)
         _validate_isolation(config)
 
         subscription_id = _extract_subscription_id(
             config.source_ref, phase=_PHASE, experiment_id=config.experiment_id
         )
+        target_ref = self._resource_url(
+            subscription_id=subscription_id,
+            target_rg=config.target_resource_group,
+            target_name=config.target_server_name,
+        ).split("?", maxsplit=1)[0]
+        provisional_handle = DbRestoreHandle(
+            experiment_id=config.experiment_id,
+            source_ref=config.source_ref,
+            target_ref=target_ref,
+            endpoint="pending.invalid",
+            resource_group=config.target_resource_group,
+            created_at=datetime.now(tz=UTC),
+        )
+        create_task = asyncio.create_task(
+            self._create_target_resource_group(
+                subscription_id=subscription_id,
+                config=config,
+            )
+        )
+        try:
+            await asyncio.shield(create_task)
+        except asyncio.CancelledError as cancelled:
+            try:
+                await create_task
+            except Exception:
+                raise cancelled from None
+            cleanup_task = asyncio.create_task(self.teardown(provisional_handle))
+            try:
+                await asyncio.shield(cleanup_task)
+            except asyncio.CancelledError:
+                await cleanup_task
+            except Exception as cleanup_exc:
+                raise cleanup_exc from cancelled
+            raise
+        try:
+            return await self._restore_owned_environment(
+                config=config,
+                subscription_id=subscription_id,
+            )
+        except BaseException as exc:
+            cleanup_task = asyncio.create_task(self.teardown(provisional_handle))
+            try:
+                await asyncio.shield(cleanup_task)
+            except asyncio.CancelledError:
+                await cleanup_task
+                raise
+            except Exception as cleanup_exc:
+                if isinstance(exc, asyncio.CancelledError):
+                    raise cleanup_exc from exc
+                raise DbDrError(
+                    "restore failed and owned target cleanup also failed",
+                    experiment_id=config.experiment_id,
+                    phase=_PHASE,
+                ) from cleanup_exc
+            raise
+
+    async def _restore_owned_environment(
+        self,
+        *,
+        config: DbRestoreConfig,
+        subscription_id: str,
+    ) -> DbRestoreHandle:
         submit_url = self._restore_submit_url(
             subscription_id=subscription_id,
             target_rg=config.target_resource_group,
@@ -196,7 +287,10 @@ class AzureDbDrRestoreAdapter(DbRestoreAdapter):
                     status_code=submit_response.status_code,
                 )
             await self._poll_until_terminal(
-                status_url=status_url,
+                status_url=self._validate_lro_url(
+                    status_url,
+                    experiment_id=config.experiment_id,
+                ),
                 experiment_id=config.experiment_id,
             )
 
@@ -206,9 +300,12 @@ class AzureDbDrRestoreAdapter(DbRestoreAdapter):
             target_rg=config.target_resource_group,
             target_name=config.target_server_name,
         )
+        expected_target_ref = resource_url.split("?", maxsplit=1)[0]
         target_ref, endpoint = await self._fetch_final_resource(
             url=resource_url,
             experiment_id=config.experiment_id,
+            expected_target_ref=expected_target_ref,
+            target_server_name=config.target_server_name,
         )
         return DbRestoreHandle(
             experiment_id=config.experiment_id,
@@ -219,7 +316,54 @@ class AzureDbDrRestoreAdapter(DbRestoreAdapter):
             created_at=datetime.now(tz=UTC),
         )
 
+    async def _create_target_resource_group(
+        self,
+        *,
+        subscription_id: str,
+        config: DbRestoreConfig,
+    ) -> None:
+        url = self._resource_group_url(
+            subscription_id=subscription_id,
+            resource_group=config.target_resource_group,
+        )
+        headers = await self._auth_headers()
+        headers["If-None-Match"] = "*"
+        response = await self._put(
+            url=url,
+            headers=headers,
+            json_body={
+                "location": config.target_location,
+                "tags": {"managed-by": "fdai", "purpose": "dr-drill"},
+            },
+            experiment_id=config.experiment_id,
+        )
+        if response.status_code == 201:
+            return
+        if response.status_code in (200, 409, 412):
+            raise DbDrError(
+                "target resource group already exists; ownership was not acquired",
+                experiment_id=config.experiment_id,
+                phase=_PHASE,
+                status_code=response.status_code,
+            )
+        raise DbDrError(
+            f"target resource group create returned HTTP {response.status_code}: "
+            f"{self._trim(response.text)}",
+            experiment_id=config.experiment_id,
+            phase=_PHASE,
+            status_code=response.status_code,
+        )
+
     async def teardown(self, handle: DbRestoreHandle) -> None:
+        try:
+            ArmUrlPolicy.validate_resource_ref(handle.target_ref)
+            _validate_arm_segment("resource_group", handle.resource_group, max_chars=90)
+        except ArmUrlPolicyError as exc:
+            raise DbDrError(
+                str(exc),
+                experiment_id=handle.experiment_id,
+                phase="teardown",
+            ) from exc
         subscription_id = _extract_subscription_id(
             handle.target_ref, phase="teardown", experiment_id=handle.experiment_id
         )
@@ -228,18 +372,65 @@ class AzureDbDrRestoreAdapter(DbRestoreAdapter):
         )
         headers = await self._auth_headers()
 
-        response = await self._delete(
+        for attempt in range(1, self._config.teardown_retry_attempts + 1):
+            response = await self._delete(
+                url=url,
+                headers=headers,
+                experiment_id=handle.experiment_id,
+            )
+            if response.status_code in (200, 202, 204, 404):
+                if response.status_code == 202:
+                    status_url = response.headers.get(
+                        "Azure-AsyncOperation"
+                    ) or response.headers.get("Location")
+                    if status_url is None:
+                        raise DbDrError(
+                            "teardown returned 202 without an LRO status header",
+                            experiment_id=handle.experiment_id,
+                            phase="teardown",
+                            status_code=202,
+                        )
+                    await self._poll_until_terminal(
+                        status_url=self._validate_lro_url(
+                            status_url,
+                            experiment_id=handle.experiment_id,
+                        ),
+                        experiment_id=handle.experiment_id,
+                    )
+                    await self._verify_resource_group_deleted(
+                        url=url,
+                        headers=headers,
+                        experiment_id=handle.experiment_id,
+                    )
+                return
+            transient = response.status_code in (408, 429) or response.status_code >= 500
+            if not transient or attempt == self._config.teardown_retry_attempts:
+                raise DbDrError(
+                    f"teardown returned HTTP {response.status_code}: {self._trim(response.text)}",
+                    experiment_id=handle.experiment_id,
+                    phase="teardown",
+                    status_code=response.status_code,
+                )
+            await self._sleep(self._config.teardown_retry_interval_seconds)
+
+    async def _verify_resource_group_deleted(
+        self,
+        *,
+        url: str,
+        headers: dict[str, str],
+        experiment_id: str,
+    ) -> None:
+        response = await self._get(
             url=url,
             headers=headers,
-            experiment_id=handle.experiment_id,
+            experiment_id=experiment_id,
         )
-
-        # 200 / 202 / 204 → accepted; 404 → already gone (idempotent).
-        if response.status_code in (200, 202, 204, 404):
+        if response.status_code == 404:
             return
         raise DbDrError(
-            f"teardown returned HTTP {response.status_code}: {self._trim(response.text)}",
-            experiment_id=handle.experiment_id,
+            f"teardown completed but target resource group still returned HTTP "
+            f"{response.status_code}",
+            experiment_id=experiment_id,
             phase="teardown",
             status_code=response.status_code,
         )
@@ -250,7 +441,8 @@ class AzureDbDrRestoreAdapter(DbRestoreAdapter):
 
     async def _poll_until_terminal(self, *, status_url: str, experiment_id: str) -> None:
         deadline = self._config.max_poll_seconds
-        elapsed = 0.0
+        synthetic_elapsed = 0.0
+        started = self._monotonic()
         interval = self._config.poll_interval_seconds
         headers = await self._auth_headers()
 
@@ -273,6 +465,13 @@ class AzureDbDrRestoreAdapter(DbRestoreAdapter):
             else:
                 state = _extract_state(response)
 
+            if response.status_code != 202 and state is None:
+                raise DbDrError(
+                    "restore poll returned no valid status",
+                    experiment_id=experiment_id,
+                    phase=_PHASE,
+                )
+
             if state is not None:
                 lowered = state.lower()
                 if lowered in _SUCCEEDED_STATES:
@@ -287,6 +486,7 @@ class AzureDbDrRestoreAdapter(DbRestoreAdapter):
                         phase=_PHASE,
                     )
 
+            elapsed = max(synthetic_elapsed, self._monotonic() - started)
             if elapsed >= deadline:
                 raise DbDrError(
                     f"restore did not complete within {deadline}s",
@@ -294,9 +494,16 @@ class AzureDbDrRestoreAdapter(DbRestoreAdapter):
                     phase=_PHASE,
                 )
             await self._sleep(interval)
-            elapsed += interval
+            synthetic_elapsed += interval
 
-    async def _fetch_final_resource(self, *, url: str, experiment_id: str) -> tuple[str, str]:
+    async def _fetch_final_resource(
+        self,
+        *,
+        url: str,
+        experiment_id: str,
+        expected_target_ref: str,
+        target_server_name: str,
+    ) -> tuple[str, str]:
         headers = await self._auth_headers()
         response = await self._get(
             url=url,
@@ -333,6 +540,12 @@ class AzureDbDrRestoreAdapter(DbRestoreAdapter):
                 experiment_id=experiment_id,
                 phase=_PHASE,
             )
+        if target_ref.casefold() != expected_target_ref.casefold():
+            raise DbDrError(
+                "restore resource GET returned an unexpected resource id",
+                experiment_id=experiment_id,
+                phase=_PHASE,
+            )
         properties = body.get("properties")
         endpoint: str | None = None
         if isinstance(properties, dict):
@@ -345,6 +558,11 @@ class AzureDbDrRestoreAdapter(DbRestoreAdapter):
                 experiment_id=experiment_id,
                 phase=_PHASE,
             )
+        _validate_restored_fqdn(
+            endpoint,
+            target_server_name=target_server_name,
+            experiment_id=experiment_id,
+        )
         # Also confirm the substrate reports Succeeded as its
         # provisioning state; a Ready endpoint with a non-Succeeded
         # state is a partial restore.
@@ -384,6 +602,28 @@ class AzureDbDrRestoreAdapter(DbRestoreAdapter):
         except httpx.HTTPError as exc:
             raise DbDrError(
                 f"restore submit failed: {exc.__class__.__name__}",
+                experiment_id=experiment_id,
+                phase=_PHASE,
+            ) from exc
+
+    async def _put(
+        self,
+        *,
+        url: str,
+        headers: dict[str, str],
+        json_body: dict[str, object],
+        experiment_id: str,
+    ) -> httpx.Response:
+        try:
+            return await self._http.put(
+                url,
+                headers=headers,
+                json=json_body,
+                timeout=self._config.timeout_seconds,
+            )
+        except httpx.HTTPError as exc:
+            raise DbDrError(
+                f"target resource group create failed: {exc.__class__.__name__}",
                 experiment_id=experiment_id,
                 phase=_PHASE,
             ) from exc
@@ -458,6 +698,16 @@ class AzureDbDrRestoreAdapter(DbRestoreAdapter):
             return raw
         return raw[:cap] + "..."
 
+    def _validate_lro_url(self, value: str, *, experiment_id: str) -> str:
+        try:
+            return self._url_policy.validate_lro_url(value)
+        except ArmUrlPolicyError as exc:
+            raise DbDrError(
+                str(exc),
+                experiment_id=experiment_id,
+                phase=_PHASE,
+            ) from exc
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -487,6 +737,57 @@ def _validate_isolation(config: DbRestoreConfig) -> None:
         )
 
 
+def _validate_restore_config(config: DbRestoreConfig) -> None:
+    try:
+        ArmUrlPolicy.validate_resource_ref(config.source_ref)
+    except ArmUrlPolicyError as exc:
+        raise DbDrError(
+            str(exc),
+            experiment_id=config.experiment_id,
+            phase=_PHASE,
+        ) from exc
+    if _PG_PROVIDER_SEGMENT not in config.source_ref:
+        raise DbDrError(
+            "source_ref MUST identify a PostgreSQL Flexible Server",
+            experiment_id=config.experiment_id,
+            phase=_PHASE,
+        )
+    source_name = config.source_ref.rsplit(_PG_PROVIDER_SEGMENT, maxsplit=1)[1]
+    if "/" in source_name or not _PG_SERVER_NAME.fullmatch(source_name):
+        raise DbDrError(
+            "source_ref contains an invalid PostgreSQL server name",
+            experiment_id=config.experiment_id,
+            phase=_PHASE,
+        )
+    try:
+        _validate_arm_segment(
+            "target_resource_group",
+            config.target_resource_group,
+            max_chars=90,
+        )
+        _validate_postgres_server_name(config.target_server_name)
+    except ArmUrlPolicyError as exc:
+        raise DbDrError(
+            str(exc),
+            experiment_id=config.experiment_id,
+            phase=_PHASE,
+        ) from exc
+    if not _LOCATION_NAME.fullmatch(config.target_location):
+        raise DbDrError(
+            "target_location MUST be a lowercase Azure region identifier",
+            experiment_id=config.experiment_id,
+            phase=_PHASE,
+        )
+    if config.point_in_time_utc is not None and (
+        config.point_in_time_utc.tzinfo is None or config.point_in_time_utc.utcoffset() is None
+    ):
+        raise DbDrError(
+            "point_in_time_utc MUST be timezone-aware",
+            experiment_id=config.experiment_id,
+            phase=_PHASE,
+        )
+
+
 def _extract_subscription_id(resource_ref: str, *, phase: str, experiment_id: str) -> str:
     """Pull the subscription id out of an ARM path like
     ``/subscriptions/<id>/resourceGroups/...``.
@@ -498,7 +799,22 @@ def _extract_subscription_id(resource_ref: str, *, phase: str, experiment_id: st
     # Expected shape: ["", "subscriptions", "<id>", "resourceGroups", ...]
     for i, seg in enumerate(parts):
         if seg == "subscriptions" and i + 1 < len(parts) and parts[i + 1]:
-            return parts[i + 1]
+            candidate = parts[i + 1]
+            try:
+                parsed = UUID(candidate)
+            except ValueError as exc:
+                raise DbDrError(
+                    "resource reference contained an invalid subscription id",
+                    experiment_id=experiment_id,
+                    phase=phase,
+                ) from exc
+            if str(parsed) != candidate.casefold():
+                raise DbDrError(
+                    "resource reference subscription id MUST be canonical",
+                    experiment_id=experiment_id,
+                    phase=phase,
+                )
+            return candidate
     raise DbDrError(
         "resource reference did not contain a subscriptions segment",
         experiment_id=experiment_id,
@@ -528,9 +844,6 @@ def _build_restore_payload(config: DbRestoreConfig) -> dict[str, object]:
     if config.point_in_time_utc is not None:
         # ISO 8601 with a trailing Z per the Azure convention.
         moment = config.point_in_time_utc
-        if moment.tzinfo is None:
-            # Treat naive as UTC - the DbRestoreConfig doc says UTC.
-            moment = moment.replace(tzinfo=UTC)
         properties["pointInTimeUTC"] = moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     return {"location": config.target_location, "properties": properties}
 
@@ -554,6 +867,46 @@ def _extract_state(response: httpx.Response) -> str | None:
         if isinstance(candidate, str):
             return candidate
     return None
+
+
+def _validate_arm_segment(name: str, value: str, *, max_chars: int) -> None:
+    if (
+        not value
+        or value != value.strip()
+        or len(value) > max_chars
+        or value.endswith(".")
+        or any(character in value for character in "/\\?#")
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
+    ):
+        raise ArmUrlPolicyError(f"{name} is not a valid Azure resource path segment")
+
+
+def _validate_postgres_server_name(value: str) -> None:
+    if not _PG_SERVER_NAME.fullmatch(value):
+        raise ArmUrlPolicyError(
+            "target_server_name MUST be a 3-63 character lowercase PostgreSQL server name"
+        )
+
+
+def _validate_restored_fqdn(
+    value: str,
+    *,
+    target_server_name: str,
+    experiment_id: str,
+) -> None:
+    labels = value.rstrip(".").split(".")
+    if (
+        value != value.strip()
+        or len(value) > 253
+        or len(labels) < 2
+        or labels[0].casefold() != target_server_name.casefold()
+        or any(not _DNS_LABEL.fullmatch(label) for label in labels)
+    ):
+        raise DbDrError(
+            "restore resource GET returned an invalid target FQDN",
+            experiment_id=experiment_id,
+            phase=_PHASE,
+        )
 
 
 __all__ = [

@@ -16,7 +16,11 @@ from starlette.testclient import TestClient
 
 from fdai.delivery.operator_api.routes.chat import make_chat_stream_route
 
-_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
+_PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+    b"\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x00\x00\x00\x00"
+)
 _DATA_URL = f"data:image/png;base64,{base64.b64encode(_PNG).decode()}"
 
 

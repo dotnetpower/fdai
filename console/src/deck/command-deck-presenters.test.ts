@@ -91,6 +91,40 @@ describe("backend connection tooltip", () => {
     });
   });
 
+  it("shows an independently measured vision router", () => {
+    const health = {
+      available: true,
+      mode: "azure-ad-routed",
+      model: "narrator-fast",
+      endpoint: "https://chat.example.com",
+      router: {
+        ...router,
+        vision: {
+          available: true,
+          chose: "vision-fast",
+          candidates: [{
+            deployment: "vision-fast",
+            p50_ms: 900,
+            p95_ms: 1100,
+            samples: 3,
+            history_ms: [800, 900, 1100],
+          }],
+        },
+      },
+    } as const;
+
+    expect(backendTooltipView(health).visionRouter).toEqual({
+      deployment: "vision-fast",
+      candidates: [{
+        deployment: "vision-fast",
+        p50: "900ms",
+        p95: "1100ms",
+        samples: 3,
+        selected: true,
+      }],
+    });
+  });
+
   it("omits empty reason parentheses without inventing a reason", () => {
     const content = routerTooltip({ ...router, reason: "" });
 

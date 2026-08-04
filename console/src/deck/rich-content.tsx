@@ -28,6 +28,7 @@ import xml from "highlight.js/lib/languages/xml";
 import yaml from "highlight.js/lib/languages/yaml";
 import { useTransientFlag } from "../hooks/use-transient-flag";
 import { t } from "../i18n";
+import { AgentActivityTimeline } from "./agent-activity-timeline";
 import {
   injectCiteMarks,
   parseAnswer,
@@ -474,6 +475,9 @@ export function RichContent({
           return (
             <TextBlock key={i} text={seg.text} caret={streaming && isLast} citeMarks={marks} />
           );
+        }
+        if (seg.kind === "agent-activity") {
+          return <AgentActivityTimeline key={i} items={seg.items} locale={seg.locale} />;
         }
         if (seg.kind === "heading") {
           return <HeadingBlock key={i} level={seg.level} text={seg.text} />;

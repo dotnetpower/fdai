@@ -80,7 +80,7 @@ architecture_review:
       severity: critical
       status: open
       owner_slot: reliability-owner
-      resolution: Approve numeric RPO/RTO objectives and attach restore and failover drill evidence.
+      resolution: Approve numeric RPO/RTO objectives and attach restore, primary-fence, event-recovery, failover, and failback drill evidence.
     - id: ARB-005
       severity: critical
       status: open
@@ -126,6 +126,9 @@ architecture_review:
       - reliability-test-results
       - disaster-recovery-plan
       - restore-failover-drill
+      - primary-fence-validation
+      - event-recovery-validation
+      - failback-drill
       - health-monitoring-evidence
       - operational-practices
       - operations-task-standards

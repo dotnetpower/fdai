@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 22ff37ec082cdb67bd42cc0b3a8100ec0a3ddbff
-translation_revised: 2026-08-03
+translation_source_sha: 5b4cc993c3eaea1c5d92880efe425d0d4cc89a6e
+translation_revised: 2026-08-04
 ---
 
 # Azure 읽기 조사
@@ -64,6 +64,9 @@ task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 del
 | Bragi 및 Heimdall routing | 구현됨 | Deterministic 영어 및 한국어 actor, shutdown, history, health, state routing이 generic scoring 전에 Heimdall을 선택합니다. |
 | Investigation evidence signal | 구현됨 | Bound된 read-investigation hook은 Heimdall 대화형 포트의 owned evidence로 계산되므로, 로컬 신호 window가 차기 전에도 조사 가능한 turn에는 evidence-gap prompt layer가 붙지 않습니다. |
 | Exact resource resolution | 구현됨 | `not_found`, bounded `ambiguous`, scope-bound exact reference가 resolution 성공 전 history query를 중지합니다. |
+| Typed intent rendering | 구현됨 | 등록된 read intent 7개가 모두 typed evidence field와 observation time을 렌더링합니다. Renderer가 없는 enum을 추가하면 generic success string을 반환하지 않고 exhaustive type checking이 실패합니다. |
+| Catalog/runtime binding | 구현됨 | Catalog intent ID가 runtime enum과 정확히 일치하고 모든 read intent를 Heimdall이 계속 소유하며 plan ID가 unique인 경우에만 local 및 deployed composition이 provider I/O 전에 시작됩니다. |
+| Planner intent coverage | 구현됨 | 하나의 immutable runtime intent spec이 plan ID, default 및 interactive tool, lookback을 소유합니다. Enum gap은 import 및 exhaustive test에서 실패하고 catalog plan-ID drift는 startup에서 차단됩니다. |
 | 대화형 resource 연속성 | 구현됨 | Command Deck은 server가 선택한 inventory resource 하나를 terminal turn 사이에 유지합니다. Resource Health history는 resource group, timestamp 및 status로 구성된 완전한 anomalous-event anchor 하나도 유지할 수 있습니다. 생략된 history 및 장애 직전 후속 질문은 semantic 및 public-web planning을 우회하고, Heimdall이 bounded context를 다시 검증한 뒤 일치하는 read evidence를 직접 반환합니다. |
 | Subscription scope identity | 구현됨 | 현재 subscription identity 질문은 server에 configured된 subscription name과 state를 Azure Resource Manager에서 읽고, masked subscription ID만 렌더링하며, narrator model을 호출하지 않습니다. |
 | Subscription health sweep | 구현됨 | 명시적인 subscription 점검, 일반적인 service-outage 질문 및 일반적인 degraded 또는 unavailable resource-state 질문이 configured reader scope를 사용합니다. Inventory language catalog가 availability 의미에 대해 Resource Health authority를 선택합니다. Provider는 configured resource-group allowlist를 기본으로 사용합니다. 명시적인 server-owned subscription mode는 interactive local health 범위를 subscription inventory와 맞춥니다. Platform-impact read는 active Service Health event와 impacted resource를 query하고 outage를 maintenance 및 advisory와 분리한 다음 Resource Health cause와 correlate합니다. 다른 diagnosis read는 최대 16개 supported resource의 대표 metric을 concurrency 4 이하로 확인할 수 있습니다. |
@@ -71,6 +74,7 @@ task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 del
 | 선택적 Azure MCP read | 구현됨 | 공식 MCP Python SDK가 고정된 Azure MCP Server를 stdio로 시작하고 traffic 전에 namespace allowlist를 probe합니다. VM state, Activity Log, Resource Health에 사용하며 unavailable 상태이거나 circuit breaker에서 차단되면 typed REST로 즉시 fallback합니다. |
 | Read-tool attenuation | 구현됨 | `background.read-only`는 Reader tool 7개만 포함하고 mutation, approval, shell, arbitrary-query, nested-worker capability를 차단합니다. |
 | Execution mode 및 progress | 구현됨 | Durable p50/p95 profile이 cloud I/O 전에 direct, streamed, detached mode를 선택합니다. Exact resolution은 barrier이며 독립 evidence tool은 bounded parallel limit 안에서 실행됩니다. Streamed mode는 bounded progress와 SSE comment heartbeat를 전송하고, stream close는 provider work를 cancel하며, terminal event는 한 번만 발생합니다. |
+| Interactive policy parity | 구현됨 | Local 및 deployed conversation composition은 동일한 명시적 direct, streamed 및 multi-source threshold를 사용합니다. Adapter latency는 다를 수 있지만 execution-mode policy는 environment에 따라 달라지지 않습니다. |
 | Direct 및 streamed replay | 구현됨 | Owner-scoped PostgreSQL run ledger가 canonical request를 claim하고 lease를 renew하며 reclaim attempt를 제한합니다. Terminal usage를 보존하고 provider를 다시 호출하지 않고 completed result를 replay합니다. Command Deck direct read도 같은 executor를 사용합니다. Interactive local PostgreSQL profile도 같은 run store를 제공하며 in-memory replay path로 대체하지 않습니다. |
 | Detached execution 및 quota | 구현됨 | Typed executor는 narrator history, screen state, event bus, Thor, executor identity를 받지 않습니다. Per-principal concurrency, cost, wall-clock, tool-call quota는 durable creation에서 적용됩니다. |
 | Completion handoff | 구현됨 | Terminal result와 pending completion outbox가 원자적으로 commit됩니다. Bounded retry는 investigation을 다시 실행하지 않고 idempotent conversation 및 reply-ledger handoff를 replay합니다. |
@@ -78,9 +82,12 @@ task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 del
 
 ## Investigation request 및 plan
 
-Planner는 eligible 질문을 immutable `ReadInvestigationRequest`로 변환합니다. Requester, conversation 및
-correlation reference, intent, resource selector, lookback, requested evidence, budget 및 idempotency key를
-전달합니다. Model이 tool description을 보기 전에 deterministic classification을 실행합니다.
+Planner는 eligible 질문을 immutable `ReadInvestigationRequest`로 변환합니다. Requester, conversation 및 correlation reference, intent, resource selector, lookback, requested evidence, budget 및 idempotency key를 전달합니다. Model이 tool description을 보기 전에 deterministic classification을 실행합니다.
+
+Schema로 검증되는 `investigation-intents.yaml` catalog가 언어와 계약 사이의 경계를 소유합니다. 각 entry는 work class, 책임 Pantheon agent, 등록된 plan ID, selector kind, answer contract, 검토된 영어 및 한국어 match term, evidence authority와 facet, 숫자형 freshness budget을 선언합니다.
+Catalog는 실행 가능한 text를 포함하거나 tool authority를 부여할 수 없습니다. 알 수 없는 owner, work class, selector, answer contract, field 또는 response-mode order는 provider I/O 전에 catalog load를 차단합니다.
+
+첫 catalog revision은 아래의 read intent 7개를 설명합니다. 모든 entry는 Heimdall이 소유하고 `work_class: read`를 사용하며 등록된 plan을 가리킵니다. Bragi는 turn을 분류하고 route할 수 있지만 catalog owner, evidence requirement 또는 freshness budget을 바꿀 수 없습니다.
 
 초기 intent vocabulary는 다음과 같습니다.
 
@@ -348,6 +355,12 @@ status를 유지합니다.
 
 ## Evidence 계약
 
+모든 envelope은 bounded source limitation을 stable machine value로 보존합니다. Truncated evidence는
+`result_limit`, `byte_limit`, `source_cutoff` 같은 primary reason 하나를 지정해야 하며 해당 reason은
+limitation set에도 있어야 합니다. Provider failure는 provider error text를 복사하지 않고
+`source_unavailable`을 기록합니다. Reason field 이전의 legacy persisted payload는 `unspecified`로
+replay되며 complete evidence로 조용히 바뀌지 않습니다.
+
 Provider는 cloud-provider-neutral envelope을 반환합니다. Raw Azure response 및 raw CLI output은
 narrator context에 들어가지 않습니다.
 
@@ -557,9 +570,8 @@ prompt 및 unredacted caller payload는 제외합니다.
 - **Ambiguous resource:** History query 전에 bounded candidate를 반환하고 resource group 또는
   subscription context를 요청합니다.
 - **Unauthorized scope:** Unavailable을 보고하고 denied provider operation class를 기록합니다.
-- **Provider throttling:** 원래 timeout 안에서 numeric `Retry-After` 값을 따릅니다. 값이 없거나
-  malformed이면 bounded jitter를 사용합니다. 두 경로 모두 scope 또는 wall-clock budget을 확장하지
-  않습니다.
+- **Provider throttling:** ARG request는 quota가 0이면 `x-ms-user-quota-resets-after`만큼 기다리는
+  shared gate를 사용합니다. Numeric `Retry-After` 또는 bounded jitter는 timeout과 scope 안에 있습니다.
 - **Retention 부족:** 요청한 lookback이 source-specific configured retention을 넘으면 cloud I/O 전에
   `unavailable`을 반환합니다. Activity Log는 기본 90일, guest log는 기본 30일이며 deployment는 실제
   retention에 맞게 각 window를 더 좁힐 수 있습니다.

@@ -10,11 +10,15 @@ from dataclasses import dataclass
 from typing import Any
 
 from fdai.core.conversation_assurance import (
+    AdequacyReviewState,
     ConversationAssuranceCoordinator,
     ConversationAssuranceLedger,
     ConversationAssuranceLifecycleRunner,
+    OntologyAdequacyInvestigator,
+    OntologyAdequacyReviewSink,
     TurnAssessmentInput,
     assurance_principal_scope,
+    attribute_answer_failure,
 )
 from fdai.delivery.operator_api.routes.chat_history import completed_replay_payload
 from fdai.delivery.operator_api.routes.post_turn_review import (
@@ -46,14 +50,20 @@ class ConversationAssurancePostTurnSubmitter:
         ledger: ConversationAssuranceLedger | None = None,
         lifecycle: ConversationAssuranceLifecycleRunner | None = None,
         config: ConversationAssuranceQueueConfig | None = None,
+        adequacy_investigator: OntologyAdequacyInvestigator | None = None,
+        adequacy_sink: OntologyAdequacyReviewSink | None = None,
     ) -> None:
         if (ledger is None) is not (lifecycle is None):
             raise ValueError("assurance ledger and lifecycle MUST be configured together")
+        if (adequacy_investigator is None) is not (adequacy_sink is None):
+            raise ValueError("adequacy investigator and sink MUST be configured together")
         self._coordinator = coordinator
         self._delegate = delegate
         self._ledger = ledger
         self._lifecycle = lifecycle
         self._config = config or ConversationAssuranceQueueConfig()
+        self._adequacy_investigator = adequacy_investigator
+        self._adequacy_sink = adequacy_sink
         self._tasks: set[asyncio.Task[None]] = set()
 
     @property
@@ -106,7 +116,9 @@ class ConversationAssurancePostTurnSubmitter:
 
     async def _assess(self, turn: TurnAssessmentInput) -> None:
         try:
-            await self._coordinator.assess(turn)
+            assessment = await self._coordinator.assess(turn)
+            if assessment.decision.verdict.value == "fail":
+                await self._submit_adequacy_review(turn)
             if self._ledger is not None and self._lifecycle is not None:
                 records = await self._ledger.list_assessments(
                     principal_scope=turn.principal_scope,
@@ -119,6 +131,17 @@ class ConversationAssurancePostTurnSubmitter:
                 extra={"turn_id": turn.turn_id},
             )
 
+    async def _submit_adequacy_review(self, turn: TurnAssessmentInput) -> None:
+        investigator = self._adequacy_investigator
+        sink = self._adequacy_sink
+        if investigator is None or sink is None:
+            return
+        attribution = attribute_answer_failure(turn)
+        review = await investigator.investigate(turn, attribution)
+        if review.state is AdequacyReviewState.NOT_APPLICABLE:
+            return
+        await sink.submit(review)
+
 
 def _assessment_input(
     operator_turn: ConversationTurnRecord,
@@ -130,7 +153,7 @@ def _assessment_input(
         raise ValueError("assurance exchange conversations MUST match")
     payload = completed_replay_payload(assistant_turn)
     verification = _mapping(payload.get("verification"))
-    evidence_manifest = verification.get("evidence_manifest")
+    evidence_manifest = _mapping(verification.get("evidence_manifest"))
     evidence_refs = _string_tuple(verification.get("evidence_refs"))
     failed_claim_ids = _string_tuple(verification.get("failed_claim_ids"))
     source = payload.get("source")
@@ -150,6 +173,17 @@ def _assessment_input(
         checks_completed=_non_negative_int(verification.get("checks_completed")),
         checks_total=_non_negative_int(verification.get("checks_total")),
         failed_claim_ids=failed_claim_ids,
+        verification_reason_code=str(
+            verification.get("reason_code") or "verification_reason_unavailable"
+        ),
+        verification_route_id=_optional_text(evidence_manifest.get("route_id")),
+        evidence_complete=(
+            evidence_manifest.get("complete")
+            if isinstance(evidence_manifest.get("complete"), bool)
+            else None
+        ),
+        ontology_release=_nested_text(payload, "ontology_release"),
+        graph_revision=_nested_text(payload, "graph_revision"),
         locale=str(assistant_turn.metadata.get("locale") or "en"),
         answer_model_identity=str(model) if isinstance(model, str) and model else None,
         deterministic_answer=isinstance(source, str) and source.startswith("evidence:"),
@@ -158,6 +192,18 @@ def _assessment_input(
 
 def _mapping(value: object) -> dict[str, Any]:
     return dict(value) if isinstance(value, dict) else {}
+
+
+def _optional_text(value: object) -> str | None:
+    return value if isinstance(value, str) and value else None
+
+
+def _nested_text(payload: dict[str, Any], key: str) -> str | None:
+    direct = _optional_text(payload.get(key))
+    if direct is not None:
+        return direct
+    intent_graph = _mapping(payload.get("intent_graph"))
+    return _optional_text(intent_graph.get(key))
 
 
 def _string_tuple(value: object) -> tuple[str, ...]:

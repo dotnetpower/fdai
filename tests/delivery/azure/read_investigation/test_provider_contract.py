@@ -9,6 +9,7 @@ from fdai.delivery.azure.read_investigation import (
     AzureRow,
 )
 from fdai.shared.providers.read_investigation import (
+    EvidenceLimitationKind,
     ReadEvidenceEnvelope,
     ReadInvestigationProvider,
     ReadToolLimits,
@@ -186,6 +187,8 @@ async def test_rest_and_typed_cli_produce_the_same_normalized_envelopes() -> Non
     activity = rest_result[2]
     assert isinstance(activity, ReadEvidenceEnvelope)
     assert [record.operation_kind for record in activity.records] == ["deallocate", "stop"]
+    assert activity.truncation_reason is EvidenceLimitationKind.SOURCE_CUTOFF
+    assert activity.limitations == (EvidenceLimitationKind.SOURCE_CUTOFF,)
     assert isinstance(network_security, ReadEvidenceEnvelope)
     assert isinstance(network_peering, ReadEvidenceEnvelope)
     assert dict(network_security.records[0].details)["destination_ports"] == "443"

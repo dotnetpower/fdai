@@ -42,6 +42,12 @@ Fleet / Safety surfaces (mirror console panels under `Now` and `Safety`):
 | [impact scope.html](blast-radius.html) | Per-action impact view - responsive query controls, concentric target / direct / indirect rings, and cap bars enforced by the safety check |
 | [provision.html](provision.html) | In-flight re-provision - Terraform stream projected as status + resource list + live event log; console URL surfaces on `provision.done` |
 
+Visualization surfaces:
+
+| File | Purpose |
+|------|---------|
+| [service-map.html](service-map.html) | Directional service topology preview with 2.5D resources, merged bidirectional roads, glow traffic, port and TLS details, hover-revealed zoom controls, fullscreen, shared tooltips, four analysis modes, and a selected-resource inspector. All topology and telemetry values are synthetic. |
+
 Knowledge surfaces (ontology + trace):
 
 | File | Purpose |

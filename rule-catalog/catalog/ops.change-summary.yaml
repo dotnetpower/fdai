@@ -1,6 +1,6 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: ops.change-summary
-version: "1.0.0"
+version: 1.0.0
 source: custom
 severity: low
 category: config_drift
@@ -8,15 +8,17 @@ resource_type: resource-group
 applies_to:
 - resource-group
 triggered_by:
-- "*"
+- change.observed
 evaluates:
-- "*"
+- property.resource-group.request_kind
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: resource-group
+- kind: property_exists
+  value: property.resource-group.request_kind
 check_logic:
   kind: rego
   reference: policies/change_summary/publish_change_summary.rego
@@ -26,8 +28,8 @@ remediation:
 remediates: ops.publish-change-summary
 provenance:
   source_url: https://fdai.dev/reference-examples/change-summary
-  resolved_ref: "0000000000000000000000000000000000000000"
-  content_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  resolved_ref: '0000000000000000000000000000000000000000'
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
   license: LicenseRef-reference-only
   redistribution: reference-only
-  retrieved_at: "2026-07-08T00:00:00Z"
+  retrieved_at: '2026-07-08T00:00:00Z'

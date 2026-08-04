@@ -11,6 +11,7 @@ export const PANEL_PATHS: Readonly<Record<string, string>> = {
   provision: "/provisioning",
   onboarding: "/onboarding",
   "detection-readiness": "/detection-readiness",
+  "configuration-baselines": "/configuration-baselines",
   processes: "/processes",
   "workflow-apps": "/workflow-apps",
   "scheduler-runs": "/scheduler-runs",

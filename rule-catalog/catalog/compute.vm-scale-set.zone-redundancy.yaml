@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: compute.vm-scale-set.zone-redundancy
 version: 1.0.0
 source: waf
@@ -8,15 +8,17 @@ resource_type: compute.vm-scale-set
 applies_to:
 - compute.vm-scale-set
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.compute.vm-scale-set.zones
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: compute.vm-scale-set
+- kind: property_exists
+  value: property.compute.vm-scale-set.zones
 check_logic:
   kind: rego
   reference: policies/compute/vmss_zone_redundancy.rego

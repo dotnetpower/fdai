@@ -9,10 +9,12 @@ from fdai.core.conversation_assurance import (
     ChatPolicyCandidate,
     ChatPolicyTarget,
     CriterionScore,
+    DebateContext,
     EvaluatorOutput,
     FailureCluster,
     MixedFamilyAssuranceReviewer,
     PolicyStage,
+    TurnAssessmentInput,
 )
 from fdai.core.metering.pricing import PricingTable
 from fdai.runtime.conversation_assurance_lifecycle import (
@@ -50,15 +52,21 @@ class _Backend:
 
 
 class _Evaluator:
-    def __init__(self, identity: str, family: str) -> None:
+    def __init__(self, identity: str, family: str, *, fail_locale: str | None = None) -> None:
         self.model_identity = identity
         self.model_family = family
         self.prospective_cost_microusd = 100
+        self.fail_locale = fail_locale
 
-    async def evaluate(self, turn: object, *, debate: object = None) -> EvaluatorOutput:
+    async def evaluate(
+        self,
+        turn: TurnAssessmentInput,
+        *,
+        debate: DebateContext | None = None,
+    ) -> EvaluatorOutput:
         del debate
         answer = turn.answer
-        score = 4 if answer.startswith("Better") else 3
+        score = 1 if turn.locale == self.fail_locale else 4 if answer.startswith("Better") else 3
         return EvaluatorOutput(
             model_identity=self.model_identity,
             model_family=self.model_family,
@@ -130,6 +138,32 @@ async def test_blind_measurer_compares_bilingual_paired_answers() -> None:
     assert metrics.candidate_cost_per_verified_microusd > 0.0
     assert metrics.locale_gap_delta == 0.0
     assert metrics.disagreement_rate_delta == 0.0
+
+
+async def test_blind_measurer_requires_verified_answer_in_each_locale() -> None:
+    reviewer = MixedFamilyAssuranceReviewer(
+        first=_Evaluator("judge-a", "family-a", fail_locale="ko"),
+        second=_Evaluator("judge-b", "family-b", fail_locale="ko"),
+        prospective_cost_microusd_per_call=100,
+    )
+    policy_text = "State uncertainty explicitly and abstain instead of guessing."
+    candidate = ChatPolicyCandidate(
+        candidate_id="candidate-locale-gap",
+        principal_scope="principal-1",
+        cluster_id="cluster-1",
+        target=ChatPolicyTarget.NARRATOR_PROMPT,
+        policy_digest=hashlib.sha256(policy_text.encode()).hexdigest(),
+        incumbent_policy_digest=BASE_POLICY_DIGEST,
+        policy_text=policy_text,
+        stage=PolicyStage.SHADOW,
+    )
+    measurer = BilingualBlindPolicyTrialMeasurer(
+        backend=_Backend(),
+        reviewer=reviewer,
+        cost_estimator=lambda _reply: 10,
+    )
+
+    assert await measurer.measure(candidate, _cluster()) is None
 
 
 def test_pricing_estimator_requires_usage_and_catalog_price() -> None:

@@ -156,6 +156,7 @@ def _resolve_disk_azure_backend(
     if not isinstance(data, dict):
         return None
     resolved_model_keys = _resolved_model_keys(data)
+    vision_candidates = _validated_vision_candidates(data)
     # 1) Multi-candidate router (preferred when present).
     routed = _build_routed_backend(
         data.get("narrator_candidates"),
@@ -168,9 +169,23 @@ def _resolve_disk_azure_backend(
         resolved_model_keys=resolved_model_keys,
     )
     if routed is not None:
+        vision_backend = _build_candidate_pool(
+            vision_candidates,
+            identity=identity,
+            http_client=http_client,
+            max_tokens=max_tokens,
+            turn_timeout_seconds=turn_timeout_seconds,
+            metering_sink=metering_sink,
+            pricing=pricing,
+            resolved_model_keys=resolved_model_keys,
+            vision_capable=True,
+        )
+        if vision_backend is not None:
+            routed.bind_vision_backend(vision_backend)
         return routed
-    # 2) Single narrator.
-    return _build_single_azure_backend(
+    # 2) Single narrator. Wrap it only when image dispatch needs the same
+    # capability-aware boundary as the multi-candidate router.
+    single = _build_single_azure_backend(
         data.get("narrator"),
         identity=identity,
         http_client=http_client,
@@ -179,6 +194,31 @@ def _resolve_disk_azure_backend(
         pricing=pricing,
         resolved_model_keys=resolved_model_keys,
     )
+    if single is None:
+        return None
+    vision_backend = _build_candidate_pool(
+        vision_candidates,
+        identity=identity,
+        http_client=http_client,
+        max_tokens=max_tokens,
+        turn_timeout_seconds=turn_timeout_seconds,
+        metering_sink=metering_sink,
+        pricing=pricing,
+        resolved_model_keys=resolved_model_keys,
+        vision_capable=True,
+    )
+    narrator = data.get("narrator")
+    if vision_backend is None or not isinstance(narrator, dict):
+        return single
+    deployment = narrator.get("deployment")
+    if not isinstance(deployment, str):
+        return single
+    wrapped = LatencyRoutedChatBackend(
+        candidates=[(deployment, single)],
+        turn_timeout_seconds=turn_timeout_seconds,
+    )
+    wrapped.bind_vision_backend(vision_backend)
+    return wrapped
 
 
 def _build_single_azure_backend(
@@ -190,6 +230,7 @@ def _build_single_azure_backend(
     metering_sink: MeteringSink | None = None,
     pricing: PricingTable | None = None,
     resolved_model_keys: Mapping[str, str] | None = None,
+    metering_capability_id: str = "t1.judge",
 ) -> AzureAdChatBackend | None:
     if not isinstance(narrator, dict):
         return None
@@ -220,8 +261,51 @@ def _build_single_azure_backend(
             deployment,
             pricing=pricing,
             resolved_model_keys=resolved_model_keys,
+            capability_id=metering_capability_id,
         ),
     )
+
+
+def _candidate_route(entry: Any) -> tuple[str, str, str, str, str] | None:
+    if not isinstance(entry, dict):
+        return None
+    endpoint = entry.get("endpoint")
+    deployment = entry.get("deployment")
+    api_version = entry.get("api_version", "2024-08-01-preview")
+    api_style = entry.get("api_style", ModelApiStyle.AZURE_OPENAI.value)
+    auth_audience = entry.get("auth_audience", COGNITIVE_SERVICES_SCOPE)
+    if not all(
+        isinstance(value, str) and bool(value.strip())
+        for value in (endpoint, deployment, api_version, api_style, auth_audience)
+    ):
+        return None
+    return endpoint, deployment, api_version, api_style, auth_audience
+
+
+def _validated_vision_candidates(data: Mapping[str, Any]) -> list[dict[str, Any]] | None:
+    raw = data.get("vision_candidates")
+    if raw is None:
+        return None
+    if not isinstance(raw, list):
+        return None
+    narrator_raw = data.get("narrator_candidates")
+    narrator_entries = (
+        narrator_raw if isinstance(narrator_raw, list) and narrator_raw else [data.get("narrator")]
+    )
+    narrator_routes = {
+        route[1]: route
+        for entry in narrator_entries
+        if (route := _candidate_route(entry)) is not None
+    }
+    validated: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for entry in raw:
+        route = _candidate_route(entry)
+        if route is None or route[1] in seen or narrator_routes.get(route[1]) != route:
+            return None
+        seen.add(route[1])
+        validated.append(entry)
+    return validated
 
 
 def _build_routed_backend(
@@ -234,6 +318,8 @@ def _build_routed_backend(
     metering_sink: MeteringSink | None = None,
     pricing: PricingTable | None = None,
     resolved_model_keys: Mapping[str, str] | None = None,
+    vision_capable: bool = False,
+    metering_capability_id: str = "t1.judge",
 ) -> LatencyRoutedChatBackend | None:
     """Build the latency-routed backend from a ``narrator_candidates`` list.
 
@@ -284,6 +370,7 @@ def _build_routed_backend(
                         deployment,
                         pricing=pricing,
                         resolved_model_keys=resolved_model_keys,
+                        capability_id=metering_capability_id,
                     ),
                 ),
             )
@@ -293,6 +380,57 @@ def _build_routed_backend(
     return LatencyRoutedChatBackend(
         candidates=candidates,
         turn_timeout_seconds=turn_timeout_seconds,
+        vision_capable=vision_capable,
+    )
+
+
+def _build_candidate_pool(
+    raw: Any,
+    *,
+    identity: WorkloadIdentity | None,
+    http_client: httpx.AsyncClient | None,
+    max_tokens: int,
+    turn_timeout_seconds: float,
+    metering_sink: MeteringSink | None,
+    pricing: PricingTable | None,
+    resolved_model_keys: Mapping[str, str],
+    vision_capable: bool,
+) -> ChatBackend | None:
+    routed = _build_routed_backend(
+        raw,
+        identity=identity,
+        http_client=http_client,
+        max_tokens=max_tokens,
+        turn_timeout_seconds=turn_timeout_seconds,
+        metering_sink=metering_sink,
+        pricing=pricing,
+        resolved_model_keys=resolved_model_keys,
+        vision_capable=vision_capable,
+        metering_capability_id=("t1.vision" if vision_capable else "t1.judge"),
+    )
+    if routed is not None:
+        return routed
+    if not isinstance(raw, list) or len(raw) != 1 or not isinstance(raw[0], dict):
+        return None
+    single = _build_single_azure_backend(
+        raw[0],
+        identity=identity,
+        http_client=http_client,
+        max_tokens=max_tokens,
+        metering_sink=metering_sink,
+        pricing=pricing,
+        resolved_model_keys=resolved_model_keys,
+        metering_capability_id=("t1.vision" if vision_capable else "t1.judge"),
+    )
+    if single is None or not vision_capable:
+        return single
+    deployment = raw[0].get("deployment")
+    if not isinstance(deployment, str):
+        return None
+    return LatencyRoutedChatBackend(
+        candidates=[(deployment, single)],
+        turn_timeout_seconds=turn_timeout_seconds,
+        vision_capable=True,
     )
 
 
@@ -302,13 +440,14 @@ def _chat_metering(
     *,
     pricing: PricingTable | None = None,
     resolved_model_keys: Mapping[str, str] | None = None,
+    capability_id: str = "t1.judge",
 ) -> MeteringEmitter | None:
     if sink is None:
         return None
     resolved_model_key = (resolved_model_keys or {}).get(model_key, model_key)
     return MeteringEmitter(
         sink=sink,
-        capability_id="t1.judge",
+        capability_id=capability_id,
         model_key=resolved_model_key,
         tier="T1",
         pricing=pricing,
@@ -397,6 +536,22 @@ def describe_backend(backend: ChatBackend) -> dict[str, Any]:
         # from a single ``GET /chat/health`` call, before any turn.
         stats = backend.stats()
         chose = backend.current_pick_name()
+        vision_backend = backend.vision_backend()
+        if isinstance(vision_backend, LatencyRoutedChatBackend):
+            vision_chose = vision_backend.current_pick_name()
+            vision = {
+                "available": vision_backend.has_available_candidate(),
+                "chose": vision_chose,
+                "candidates": vision_backend.stats(),
+            }
+        elif isinstance(vision_backend, AzureAdChatBackend):
+            vision = {
+                "available": True,
+                "chose": vision_backend._deployment,  # noqa: SLF001
+                "candidates": [{"deployment": vision_backend._deployment}],  # noqa: SLF001
+            }
+        else:
+            vision = {"available": False, "chose": None, "candidates": []}
         return {
             "available": backend.has_available_candidate(),
             "mode": (
@@ -409,6 +564,7 @@ def describe_backend(backend: ChatBackend) -> dict[str, Any]:
             "router": {
                 "chose": chose,
                 "candidates": stats,
+                "vision": vision,
             },
         }
     if isinstance(backend, AzureAdChatBackend):

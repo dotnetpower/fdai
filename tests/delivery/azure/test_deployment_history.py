@@ -334,5 +334,5 @@ async def test_max_pages_cap_fails_closed() -> None:
         return httpx.Response(200, json={"data": [_row()], "$skipToken": "loop"})
 
     provider = _provider(handler, _config(max_pages=2))
-    with pytest.raises(DeploymentHistoryError, match="max_pages"):
+    with pytest.raises(DeploymentHistoryError, match="continuation token did not advance"):
         await provider.query_deployments(window="PT1H")

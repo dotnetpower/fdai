@@ -25,7 +25,6 @@ See ``docs/roadmap/architecture/project-structure.md`` and
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
@@ -84,12 +83,11 @@ if TYPE_CHECKING:
     from ..rule_catalog.schema.resource_type import ResourceTypeRegistry
     from ..shared.providers.secret_provider import SecretProvider
 
-_LOGGER = logging.getLogger(__name__)
-
 from . import wire_capabilities as _wire_capabilities  # noqa: E402
 from ._helpers import Container, LlmBindings, LlmBindingsUnavailableError  # noqa: E402
 
 install_capability_bundle = _wire_capabilities.install_capability_bundle
+bind_configuration_drift = _wire_capabilities.bind_configuration_drift
 from .wire_distiller import bind_azure_ontology_distiller  # noqa: E402
 from .wire_execution_authorization import bind_execution_authorization  # noqa: E402
 from .wire_execution_backends import (  # noqa: E402 - public composition facade
@@ -383,6 +381,7 @@ __all__ = [
     "TrajectoryRuntime",
     "attach_metric_provider",
     "bind_browser_evidence",
+    "bind_configuration_drift",
     "bind_execution_authorization",
     "bind_execution_backends",
     "bind_azure_llm_bindings",

@@ -74,6 +74,7 @@ def append_auxiliary_routes(
         backend=config.chat,
         skill_disclosure=config.skill_disclosure,
         knowledge_context=config.knowledge_context,
+        configuration_drift_context=config.configuration_drift_context,
         busy_input_runtime=config.busy_input_runtime,
         progress_metrics=config.conversation_progress_metrics,
         agent_delegate=config.chat_agent_delegate,

@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 import pytest
 
 from fdai.core.read_investigation import (
+    READ_INVESTIGATION_INTENT_SPECS,
     READ_TOOL_SPECS,
     ReadInvestigationBudget,
     ReadInvestigationRequest,
@@ -54,6 +55,24 @@ def test_planner_resolves_before_any_history_query() -> None:
         ReadToolId.QUERY_GUEST_SHUTDOWN_EVENTS,
         ReadToolId.QUERY_RESOURCE_HEALTH,
     ]
+
+
+@pytest.mark.parametrize("intent", tuple(ReadInvestigationIntent))
+def test_planner_has_default_evidence_for_every_runtime_intent(
+    intent: ReadInvestigationIntent,
+) -> None:
+    plan = plan_read_investigation(_request(intent))
+
+    assert plan.request.intent is intent
+    assert plan.evidence_steps
+
+
+def test_intent_specs_are_the_single_runtime_semantics_source() -> None:
+    assert set(READ_INVESTIGATION_INTENT_SPECS) == set(ReadInvestigationIntent)
+    assert all(spec.default_tools for spec in READ_INVESTIGATION_INTENT_SPECS.values())
+    assert len({spec.plan_id for spec in READ_INVESTIGATION_INTENT_SPECS.values()}) == len(
+        ReadInvestigationIntent
+    )
 
 
 def test_planner_never_widens_budget_or_accepts_client_resolution() -> None:

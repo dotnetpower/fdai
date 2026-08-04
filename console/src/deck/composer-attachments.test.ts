@@ -1,15 +1,58 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  clipboardImageFiles,
   detectKind,
   fileExtension,
+  fitVisionImageDimensions,
   formatSize,
+  imageMediaType,
   isRightsProtected,
   newAttachmentId,
   normalizeImageDataUrl,
   thumbLabel,
 } from "./composer-attachments";
+import {
+  MAX_VISION_SOURCE_BYTES,
+  normalizeVisionImage,
+} from "./composer-image-normalization";
 
 describe("composer-attachments", () => {
+  it("fits large screenshots inside the vision pixel bound without distortion", () => {
+    expect(fitVisionImageDimensions(7680, 4320)).toEqual({ width: 2048, height: 1152 });
+    expect(fitVisionImageDimensions(2160, 3840)).toEqual({ width: 1152, height: 2048 });
+  });
+
+  it("does not upscale small images and rejects invalid dimensions", () => {
+    expect(fitVisionImageDimensions(1280, 720)).toEqual({ width: 1280, height: 720 });
+    expect(() => fitVisionImageDimensions(0, 720)).toThrow(RangeError);
+  });
+
+  it("extracts pasted image files and ignores text clipboard items", () => {
+    const png = new File([new Uint8Array([1, 2, 3])], "clipboard.png", {
+      type: "image/png",
+    });
+    const textFile = vi.fn(() => null);
+
+    expect(clipboardImageFiles([
+      { kind: "string", type: "text/plain", getAsFile: textFile },
+      { kind: "file", type: "image/png", getAsFile: () => png },
+      { kind: "file", type: "application/pdf", getAsFile: () => null },
+    ])).toEqual([png]);
+    expect(textFile).not.toHaveBeenCalled();
+  });
+
+  it("drops clipboard image entries that do not expose a file", () => {
+    expect(clipboardImageFiles([
+      { kind: "file", type: "IMAGE/PNG", getAsFile: () => null },
+    ])).toEqual([]);
+  });
+
+  it("rejects a conflicting declared MIME instead of trusting the extension", () => {
+    expect(imageMediaType({ name: "report.png", type: "application/pdf" })).toBeNull();
+    expect(imageMediaType({ name: "report.png", type: "IMAGE/PNG" })).toBe("image/png");
+    expect(imageMediaType({ name: "report.png", type: "" })).toBe("image/png");
+  });
+
   it("classifies files by extension", () => {
     expect(detectKind("grafana-restart-rate.png")).toBe("image");
     expect(detectKind("aks-prod-krc-nginx-pods.log")).toBe("log");
@@ -76,6 +119,16 @@ describe("composer-attachments", () => {
     expect(newAttachmentId()).not.toBe(newAttachmentId());
   });
 
+  it("keeps fallback ids unique within the same millisecond", () => {
+    vi.stubGlobal("crypto", undefined);
+    vi.spyOn(Date, "now").mockReturnValue(1234);
+
+    expect(newAttachmentId()).not.toBe(newAttachmentId());
+
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
   it("rebuilds an image data URL with the validated media type", () => {
     // A blank or non-image MIME from FileReader is corrected to the real type.
     expect(normalizeImageDataUrl("data:;base64,AAAB", "image/png")).toBe(
@@ -90,5 +143,49 @@ describe("composer-attachments", () => {
     expect(normalizeImageDataUrl("data:image/png;base64,", "image/png")).toBeNull();
     expect(normalizeImageDataUrl("not-a-data-url", "image/png")).toBeNull();
     expect(normalizeImageDataUrl("data:image/png;base64,   ", "image/png")).toBeNull();
+  });
+
+  it("rejects an oversized source before allocating a bitmap", async () => {
+    const createBitmap = vi.fn();
+    vi.stubGlobal("createImageBitmap", createBitmap);
+    const file = new File(
+      [new Uint8Array(MAX_VISION_SOURCE_BYTES + 1)],
+      "oversized.png",
+      { type: "image/png" },
+    );
+
+    await expect(normalizeVisionImage(file)).rejects.toThrow(RangeError);
+    expect(createBitmap).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("rejects a canvas codec fallback with mismatched bytes", async () => {
+    const close = vi.fn();
+    vi.stubGlobal("createImageBitmap", vi.fn(async () => ({
+      width: 4096,
+      height: 2048,
+      close,
+    })));
+    vi.stubGlobal("document", {
+      createElement: () => ({
+        width: 0,
+        height: 0,
+        getContext: () => ({
+          imageSmoothingEnabled: false,
+          imageSmoothingQuality: "low",
+          drawImage: vi.fn(),
+        }),
+        toBlob: (callback: (blob: Blob) => void) => callback(
+          new Blob([new Uint8Array([1])], { type: "image/png" }),
+        ),
+      }),
+    });
+    const file = new File([new Uint8Array([1])], "photo.jpg", { type: "image/jpeg" });
+
+    await expect(normalizeVisionImage(file)).rejects.toThrow(
+      "image encoder returned image/png for image/webp",
+    );
+    expect(close).toHaveBeenCalledOnce();
+    vi.unstubAllGlobals();
   });
 });

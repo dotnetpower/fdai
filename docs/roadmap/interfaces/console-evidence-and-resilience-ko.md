@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: b8953fc765e1d8fd7fb97f756b127cc5af990606
+translation_source_sha: fdab069ab3f6971a43952ae5cd358866724a0772
 translation_revised: 2026-08-04
 ---
 
@@ -38,8 +38,10 @@ Active cached conversation을 제거하면 current-route default(legacy `screen`
 Verified fresh inventory answer는 server-owned replay metadata에 bounded `resource_result_context`를 포함할 수 있습니다. Raw resource ID를 포함하지 않고 browser context에서는 수락하지 않으며 source, snapshot, scope, query digest, freshness, truncation 및 이후 deterministic follow-up에 사용할 최대 40개의 ordered selector를 보존합니다.
 Ordinal follow-up은 선택한 위치를 exact fresh inventory predicate로 다시 검증합니다. Ambiguity follow-up은 complete prior result set의 equal-name candidate만 표시합니다. Incomplete context는 unavailable 상태를 유지하며 current-screen 또는 narrator output으로 fallback할 수 없습니다.
 Verified source-manifest answer는 bounded unavailable 또는 unknown entry를 `source_failure_context`로 보존합니다. Partial-source continuation은 해당 receipt의 available fact와 exact gap을 렌더링하고 reason 및 last observation이 있으면 함께 표시하며 arbitrary unverified answer를 source authority로 취급하지 않습니다. Verified 또는 corrected `query_llm_usage` answer는 domain, capability, token measure, grouping, `usage_scope` 및 numeric 1-90일 lookback이 포함된 bounded `analysis_context`를 보존합니다. 기간, grouping, table 또는 chart만 바꾸는 refinement는 이 server-owned anchor를 재사용하고 metering evidence를 다시 읽습니다. Comparison, export, missing-anchor, client-supplied-anchor 및 명시적인 다른 metric 요청은 inventory, Resource Health 또는 narrator output을 선택하지 않고 context-required hold를 반환합니다.
-Full-workspace Command Deck session은 transcript만 열린 content column으로 시작합니다. Operator는 transcript toolbar에서 filter 가능한 대화 이력 또는 현재 화면 digest를 열 수 있습니다. Browser 또는
-History는 stable cursor 순서로 durable summary를 한 번에 100건씩 load합니다. 100건에 도달하면 count를
+Full-workspace Command Deck session은 transcript만 열린 content column으로 시작합니다. Transcript
+toolbar는 workspace, docked 및 floating layout에서 filter 가능한 대화 이력을 제공합니다. 좁은
+layout에서는 transcript 폭을 줄이지 않고 그 위에 overlay로 엽니다. 현재 화면 digest는 workspace
+control로 유지됩니다. History는 stable cursor 순서로 durable summary를 한 번에 100건씩 load합니다. 100건에 도달하면 count를
 `100+`로 표시하고 history scroll 경계에 가까워지면 다음 100건을 load합니다. Transcript body는 선택할
 때만 hydrate합니다. Browser 또는 durable history에서 복원된 transcript는 새 대화를 시작할 때까지
 resumed-session marker를 표시합니다. Deck header는 route와 optional agent context만 담당하며 agent
@@ -80,6 +82,10 @@ Operations에는 Muninn의 durable StateSnapshot만 사용하는 감지 준비�
 브라우저는 AKS를 probe하거나 대체 판정을 만들지 않습니다. 각 target은 Architecture resource로,
 promotion 관련 count는 Promotion gates로 연결됩니다. 성공한 HTTP 응답이 strict decoding을
 통과하지 못하면 loading skeleton에 머물지 않고 error를 렌더링합니다.
+
+Server-pinned drift context가 있으면 GET-only 구성 기준선 route가 identity, lifecycle, drift, Knowledge citation, topology, latency, 예약 검토, 네 safety counter를 fresh read로 표시합니다.
+Binding 또는 campaign 부재는 unavailable이나 `not-configured`로 보고하며 progress를 만들지 않고 malformed data를 strict하게 거부하며 in-scope immutable version 비교와 failed-attempt count를 읽습니다. SPA는 activation, resume, schedule 생성, 승인, 완화, resource mutation을 노출하지 않고 evidence-run, resume, blueprint review, materialization은 별도 authenticated route를 사용합니다.
+Production은 mounted JSON/DOCX pair, read-only Managed Identity, exact resource-group allowlist를 startup에서 검증한 뒤 panel을 노출합니다. Operator API는 executor identity를 받지 않습니다.
 
 Processes detail route는 동일한 authoritative Process journal에서 Planning Room을 조건부로
 렌더링합니다. Strict decoder는 모순된 phase count, duplicate candidate, invalid selection,
@@ -198,19 +204,12 @@ LLM Cost는 측정된 호출, token, chat 비율 및 최근 호출 근거를 먼
 
 ## 로딩 표현
 
-모든 route, panel 및 bounded content 영역은 첫 loading frame부터 skeleton을 렌더링합니다. 공통
-skeleton은 spinner-only 및 text-only 대기를 대체하며, route는 최종 layout dimension을 유지하는
-고유 shape를 제공할 수 있습니다. Dashboard는 posture block 다음에 metric, distribution,
-attention 및 vertical placeholder를 사용하므로 loading 중에도 report가 축소되지 않습니다. 하나의
-screen-reader status가 loading을 알리고 decorative block은 숨깁니다. Reduced motion에서는 shimmer가
-멈추지만 정적 skeleton은 계속 표시됩니다.
-공통 fallback은 heading, summary-card 및 body-panel placeholder를 사용합니다. 소유 route shape는 더
-정확한 최종 layout을 유지할 때만 이 fallback을 대체합니다.
+모든 route, panel 및 bounded content 영역은 첫 loading frame부터 skeleton을 렌더링합니다. 공통 skeleton은 spinner-only 및 text-only 대기를 대체하며, route는 최종 layout dimension을 유지하는 고유 shape를 제공할 수 있습니다.
+Dashboard는 posture block 다음에 metric, distribution, attention 및 vertical placeholder를 사용하므로 loading 중에도 report가 축소되지 않습니다. 하나의 screen-reader status가 loading을 알리고 decorative block은 숨깁니다. Reduced motion에서는 shimmer가 멈추지만 정적 skeleton은 계속 표시됩니다.
+공통 fallback은 heading, summary-card 및 body-panel placeholder를 사용합니다. 소유 route shape는 더 정확한 최종 layout을 유지할 때만 이 fallback을 대체합니다.
 
-Vite development server는 CSS hot update를 transform하기 전에 Vite의 race-safe file reader로
-처리합니다. Editor가 큰 CSS 파일을 truncate한 후 다시 쓰는 동안 임시 empty snapshot이 전체
-stylesheet를 대체하는 문제를 방지합니다. 이 guard는 development에서만 적용되며 production CSS
-bundling은 변경하지 않습니다.
+HTML document가 console stylesheet를 direct dependency로 소유하므로 authentication, route, component 및 JavaScript hot update 중에도 mount된 SPA의 layout과 theme가 사라지지 않습니다. Vite는 같은 document link를 fingerprinted production CSS asset으로 변환합니다.
+Development에서는 기존 hot-update guard도 CSS 변경을 transform하기 전에 Vite의 race-safe file reader로 처리하여 editor의 임시 empty snapshot이 전체 stylesheet를 대체하지 못하게 합니다.
 
 ## Localization 경계
 
@@ -270,10 +269,10 @@ evidence branch를 대체하며 observed label, tool, authority 및 detail을 �
 마지막 recorded timing completion보다 앞에 배치하지 않습니다. 따라서 browser와 server의 clock
 skew가 evidence를 input 앞에 두거나 generation과 verification을 delivery 뒤에 두지 못합니다. Lane
 baseline과 tick은 completion progress bar와 구분됩니다.
-Answer text는 14 px 이상이고,
-main disclosure 높이는 44 px이며, 200% text resize와 320 CSS pixel에서 content loss 없이 reflow합니다.
-Transcript text는 15 px, trajectory heading은 13 px, event label은 12 px, control은 13 px을 사용하며
-compact trajectory metadata는 11 px 아래로 내려가지 않습니다. 게시된 screen snapshot은 5분 후 visibly stale 상태가 되고
+Answer text는 16 px을 사용하고 main disclosure 높이는 44 px이며, 200% text resize와 320 CSS pixel에서 content loss 없이 reflow합니다.
+Trajectory heading은 14 px, event label은 13 px, compact trajectory metadata는 12 px을 사용합니다.
+Terminal verified answer에 server가 정확한 영어 또는 한국어 형식으로 렌더링한 recorded-agent-activity block이 있으면 해당 row를 하나의 compact vertical timeline으로 표시합니다. 각 row는 agent, canonical event token, 정확한 ISO timestamp 및 locale에 맞춘 읽기 쉬운 시간을 유지합니다. Malformed 또는 알 수 없는 prose는 observed activity로 승격하지 않고 일반 answer content로 유지합니다.
+게시된 screen snapshot은 5분 후 visibly stale 상태가 되고
 명시적인 page refresh를 제공합니다. Bare clock은 current evidence를 의미하지 않습니다. Markdown
 table은 점진적으로 렌더링합니다. 완성된 header와 separator가 첫 body row보다 먼저 table shell을 만들고,
 완성된 각 row는 table을 교체하지 않고 누적됩니다. 완성되지 않은 header, separator 및 row syntax는 raw
@@ -398,9 +397,10 @@ membership 또는 absence claim을 바꿀 수 없습니다.
 `ambiguous` terminal answer는 최대 5개의 server-validated incident candidate를 포함한 versioned
 artifact도 전달합니다. Web client는 candidate별로 title, severity, status, last-updated time 및
 incident id가 표시된 button을 렌더링하므로 중복 title도 구분할 수 있습니다. Button을 선택하면
-exact incident-bound conversation을 열고 localized investigation
-question을 composer에 준비합니다. 질문은 자동 제출하지 않습니다. 누락되거나 malformed, oversized
-또는 unverified인 candidate artifact는 button을 렌더링하지 않으며 binding을 만들 수 없습니다.
+exact incident-bound conversation을 열고 localized read-only investigation question을 즉시
+제출합니다. 명시적인 click이 operator 요청이며 managed resource를 변경하지 않습니다. 누락되거나
+malformed, oversized 또는 unverified인 candidate artifact는 button을 렌더링하지 않으며 binding을
+만들 수 없습니다.
 `latest`, `recent`, `최신` 같은 generic recency 단어만으로는 incident authority를 만들지 않습니다.
 Operational lookup에는 incident, issue, outage, failure, problem 또는 cause 의미가 명시적으로 함께
 있어야 합니다. 따라서 public software version 또는 release 질문은 deterministic "no matching incident"
@@ -491,7 +491,9 @@ canonical이며 conversation history에 저장되는 유일한 answer입니다. 
 중단된 stream을 partial로 표시하며 draft text를 confirmed content로 승격하지 않습니다.
 
 Web reducer는 rendering 전에 branch kind, monotonic status, timing, evidence-reference 및 text bound를
-검증합니다. Compact branch summary를 표시하고 observed execution detail은 기본적으로 접어 둡니다.
+검증합니다. 각 branch를 번호가 있는 investigation stage로 표시합니다. 완료된 operational, agent,
+tool 및 public-web stage는 각각 펼쳐 status, timing, summary 및 해당 branch가 소유한 bounded evidence
+reference를 확인할 수 있습니다. Observed command와 output detail은 기본적으로 접어 둡니다.
 Queued token paint와 correction revision이 모두 drain된 후에만 confirmed segment를 적용합니다.
 Token 및 confirmed frame은 현재 canonical revision과 일치해야 합니다. Superseded 또는 공지되지 않은
 revision의 frame은 sequence position만 소비하고 text append, canonical content 교체, confirmation
@@ -593,11 +595,9 @@ Session replay는 4 MiB JSON envelope 안에 최신 turn을 최대 40개 유지�
 override label은 64자와 128자, code validation detail은 4 KiB, milestone agent identity는 64자로
 제한합니다.
 
-Turn이 검증된 inline image attachment를 carry하면 streaming route는 narrator가 작성하기 전에
-read-only `vision_analyzing`을, 답변 전에 `vision_grounded`를 emit하며, 각 frame은 image source
-preview(name, media type, size)를 포함하되 base64 payload는 절대 포함하지 않습니다. 해당 turn은
-vision 지원 narrator로 escalate되고, 답변 준비 trace는 이 단계를 web-search grounding과 동일하게
-렌더링합니다.
+Web composer는 선택, drop 및 clipboard paste raster를 동일한 bounded attachment tray와 validation path로 전달합니다. Stage 전에 browser는 upscaling 없이 longest edge를 2048 px 안에 맞추고 image당 4 MiB 아래로 re-encode합니다. Clipboard text와 HTML은 textarea의 native paste 동작을 유지하며 attachment가 되지 않습니다.
+Turn이 검증된 inline image attachment를 carry하면 streaming route는 narrator가 작성하기 전에 read-only `vision_analyzing`을, 답변 전에 `vision_grounded`를 emit하며, 각 frame은 image source preview(name, media type, size)를 포함하되 base64 payload는 절대 포함하지 않습니다.
+해당 turn은 vision 지원 narrator로 escalate되고, 답변 준비 trace는 이 단계를 web-search grounding과 동일하게 렌더링합니다.
 
 Interactive Live route는 tab이 hidden 상태일 때 SSE reader를 pause합니다. Operator가 활성화한
 browser notification consumer만 bounded exception으로 background에서 authenticated live reader를

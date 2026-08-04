@@ -193,6 +193,30 @@ export function CommandDeck() {
     updateConversationIndex,
   });
 
+  const submit = useCommandDeckSubmit({
+    snapshot,
+    pending,
+    conversations,
+    sessionKeyRef,
+    turnsRef,
+    activeRequestRef,
+    abortRef,
+    inFlightRef,
+    sessionIdsRef,
+    sessionMetadataRef,
+    historyRef,
+    setTurns,
+    setDraft,
+    setPending,
+    setRetrievalProgress,
+    setSrStatus,
+    setInFlight,
+    updateConversationIndex,
+    focusInput,
+    pinTranscriptToLatest,
+    revealCompletedWork,
+  });
+
   const { openGeneralDeck } = useCommandDeckEvents({
     open,
     layoutMode,
@@ -213,6 +237,7 @@ export function CommandDeck() {
     setDraft,
     setSearchQuery,
     setSrStatus,
+    submitPrompt: (text) => void submit(text),
     updateConversationIndex,
     cancelActiveRequest,
     closeDeck,
@@ -221,31 +246,6 @@ export function CommandDeck() {
     openDeck,
     streamContextTurn,
     switchSession,
-  });
-
-  const submit = useCommandDeckSubmit({
-    snapshot,
-    pending,
-    turns,
-    conversations,
-    sessionKeyRef,
-    turnsRef,
-    activeRequestRef,
-    abortRef,
-    inFlightRef,
-    sessionIdsRef,
-    sessionMetadataRef,
-    historyRef,
-    setTurns,
-    setDraft,
-    setPending,
-    setRetrievalProgress,
-    setSrStatus,
-    setInFlight,
-    updateConversationIndex,
-    focusInput,
-    pinTranscriptToLatest,
-    revealCompletedWork,
   });
 
   const clearTurns = useCallback(() => {

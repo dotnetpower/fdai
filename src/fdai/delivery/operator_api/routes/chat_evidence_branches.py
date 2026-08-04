@@ -13,6 +13,9 @@ from typing import Any
 
 MAX_EVIDENCE_BRANCHES = 4
 DEFAULT_EVIDENCE_BRANCH_TIMEOUT_SECONDS = 30.0
+_MAX_BRANCH_EVIDENCE_REFS = 64
+_MAX_BRANCH_EVIDENCE_REF_CHARS = 1_024
+_MAX_BRANCH_EVIDENCE_DEPTH = 5
 
 _LOG = logging.getLogger(__name__)
 
@@ -124,6 +127,7 @@ async def _resolve_branch(
             started_at=started_at,
             started=started,
             progress_observer=progress_observer,
+            evidence_keys=spec.evidence_keys,
         )
     except asyncio.CancelledError:
         try:
@@ -162,6 +166,7 @@ async def _resolve_branch(
             started_at=started_at,
             started=started,
             progress_observer=progress_observer,
+            evidence_keys=spec.evidence_keys,
         )
     except Exception as exc:  # noqa: BLE001 - isolate one read-only evidence branch
         _LOG.warning(
@@ -179,6 +184,7 @@ async def _resolve_branch(
             started_at=started_at,
             started=started,
             progress_observer=progress_observer,
+            evidence_keys=spec.evidence_keys,
         )
 
     status = (
@@ -199,6 +205,7 @@ async def _resolve_branch(
         started_at=started_at,
         started=started,
         progress_observer=progress_observer,
+        evidence_keys=spec.evidence_keys,
     )
 
 
@@ -212,6 +219,7 @@ async def _terminal_result(
     started_at: datetime,
     started: float,
     progress_observer: BranchProgressObserver,
+    evidence_keys: tuple[str, ...],
 ) -> EvidenceBranchResult:
     duration_ms = max(0, int((time.monotonic() - started) * 1000))
     await progress_observer(
@@ -222,6 +230,7 @@ async def _terminal_result(
             summary=summary,
             started_at=started_at,
             started=started,
+            evidence_refs=_branch_evidence_refs(context, evidence_keys),
         )
     )
     return EvidenceBranchResult(
@@ -240,6 +249,7 @@ def _lifecycle_event(
     summary: str,
     started_at: datetime,
     started: float | None = None,
+    evidence_refs: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "event": "branch",
@@ -249,7 +259,7 @@ def _lifecycle_event(
         "status": status,
         "summary": summary,
         "started_at": started_at.isoformat(),
-        "evidence_refs": [],
+        "evidence_refs": list(evidence_refs),
     }
     if started is not None:
         payload.update(
@@ -259,6 +269,53 @@ def _lifecycle_event(
             }
         )
     return payload
+
+
+def _branch_evidence_refs(
+    context: Mapping[str, Any],
+    evidence_keys: tuple[str, ...],
+) -> tuple[str, ...]:
+    refs: list[str] = []
+
+    def add(value: object) -> None:
+        if (
+            isinstance(value, str)
+            and value.strip() == value
+            and 0 < len(value) <= _MAX_BRANCH_EVIDENCE_REF_CHARS
+            and not any(ord(char) < 32 for char in value)
+            and value not in refs
+            and len(refs) < _MAX_BRANCH_EVIDENCE_REFS
+        ):
+            refs.append(value)
+
+    def visit(value: object, depth: int) -> None:
+        if depth > _MAX_BRANCH_EVIDENCE_DEPTH or len(refs) >= _MAX_BRANCH_EVIDENCE_REFS:
+            return
+        if isinstance(value, Mapping):
+            citation_kind = value.get("kind")
+            citation_ref = value.get("ref")
+            if isinstance(citation_kind, str) and isinstance(citation_ref, str):
+                add(f"{citation_kind}:{citation_ref}")
+            for key, nested in value.items():
+                if key == "evidence_ref":
+                    add(nested)
+                elif (
+                    key in {"evidence_refs", "source_refs"}
+                    and isinstance(nested, Sequence)
+                    and not isinstance(nested, (str, bytes))
+                ):
+                    for item in nested:
+                        add(item)
+                else:
+                    visit(nested, depth + 1)
+        elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+            for item in value:
+                visit(item, depth + 1)
+
+    for key in evidence_keys:
+        if key in context:
+            visit(context[key], 0)
+    return tuple(refs)
 
 
 __all__ = [

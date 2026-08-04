@@ -25,6 +25,21 @@ shadow-before-enforce and safety invariants in
 > or notification wiring. Override schema/loader/runtime resolution and governance PR OID/quorum CI
 > remain target design.
 
+## Catalog retrieval
+
+Rule search is an A0 read projection and grants no policy, approval, or execution authority. The
+production `CatalogSemanticIndex` adapter stores grounded Rule documents in PostgreSQL with
+`pgvector` and combines case-insensitive exact Rule id, `tsvector` lexical rank, vector cosine
+rank, and typed-neighbor similarity through deterministic reciprocal rank fusion (RRF). Stable
+Rule id ordering resolves score ties.
+
+The index is rebuilt off the request path. The indexing service reloads shipped Rules and
+ActionTypes, parses each referenced Rego policy through OPA, calls
+`build_catalog_search_documents`, and upserts only changed content hashes. Missing or mismatched
+Rule, Rego, or ActionType evidence blocks indexing. Production Operator API composition can inject
+the persistent provider into the existing read-only `/rules` route; leaving the provider unset
+keeps semantic retrieval unavailable without creating a fallback or new credential path.
+
 ## Model (three layers, like Azure Policy)
 
 Azure Policy separates *definition* from *assignment* from *exemption*. FDAI mirrors that

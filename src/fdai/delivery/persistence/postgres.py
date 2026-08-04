@@ -200,35 +200,21 @@ class PostgresStateStore(StateStore):
         ) as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
-                if expected_revision == 0:
-                    cursor = await conn.execute(
-                        """
-                        INSERT INTO state_kv (key, value)
-                        VALUES (%s, %s::jsonb)
-                        ON CONFLICT (key) DO UPDATE
-                           SET value = EXCLUDED.value,
-                               updated_at = NOW()
-                         WHERE NOT (state_kv.value ? 'revision')
-                        RETURNING key
-                        """,
-                        (key, json.dumps(dict(value), default=str)),
-                    )
-                else:
-                    cursor = await conn.execute(
-                        """
-                        UPDATE state_kv
-                           SET value = %s::jsonb,
-                               updated_at = NOW()
-                         WHERE key = %s
-                           AND value ->> 'revision' = %s
-                        RETURNING key
-                        """,
-                        (
-                            json.dumps(dict(value), default=str),
-                            key,
-                            str(expected_revision),
-                        ),
-                    )
+                cursor = await conn.execute(
+                    """
+                    UPDATE state_kv
+                       SET value = %s::jsonb,
+                           updated_at = NOW()
+                     WHERE key = %s
+                       AND value ->> 'revision' = %s
+                    RETURNING key
+                    """,
+                    (
+                        json.dumps(dict(value), default=str),
+                        key,
+                        str(expected_revision),
+                    ),
+                )
                 if await cursor.fetchone() is None:
                     return False
                 await self._append_audit_in_transaction(conn, dict(audit_entry))

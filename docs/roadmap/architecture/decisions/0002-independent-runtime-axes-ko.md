@@ -1,8 +1,8 @@
 ---
 title: ADR-0002 Independent Runtime and Customization Axes
 translation_of: 0002-independent-runtime-axes.md
-translation_source_sha: cb276eeb4ba3c358812c759af429c561b8d482b3
-translation_revised: 2026-07-31
+translation_source_sha: ba4109e72f05e2aeb703ab7b940aa209458b7296
+translation_revised: 2026-08-02
 ---
 # ADR-0002: 독립적인 Runtime 및 Customization 축
 
@@ -49,6 +49,14 @@ FDAI는 다음 축을 독립 configuration으로 취급합니다.
 - Development deployment는 production과 같은 risk, approval, blast-radius, rollback, audit gate를
   통과할 때 promoted action을 enforce mode로 실행할 수 있습니다.
 - Production deployment도 어떤 action이든 shadow mode로 유지할 수 있습니다.
+- Evidence profile은 source limitation 및 truncation reason을 typed value로 보존합니다. Execution
+  venue 또는 environment 변경으로 partial이나 unavailable evidence가 complete evidence로 바뀔 수 없습니다.
+- Conversation route completion은 evidence authority가 아닙니다. Deterministic assurance는 venue,
+  environment 또는 answer source와 무관하게 비어 있지 않은 terminal evidence manifest를 요구합니다.
+- Chat-policy promotion은 통계적으로 양수인 measured gain을 요구합니다. Venue, environment 또는
+  deployment default는 tie를 promotion evidence로 바꿀 수 없습니다.
+- 하나의 immutable read-investigation intent spec이 plan ID, tool 및 lookback을 소유합니다. Catalog
+  ID와 plan ID는 이 spec과 정확히 일치해야 하며 venue 또는 environment가 request 시점에 누락 semantics를 공급할 수 없습니다.
 - Fork는 모든 environment에 deployment가 없거나 여러 개 있을 수 있습니다. Upstream도 직접
   deploy할 수 있습니다.
 - Fork detection은 upstream framework surface를 보호합니다. Runtime behavior, autonomy, identity,
@@ -68,6 +76,9 @@ FDAI는 다음 축을 독립 configuration으로 취급합니다.
   Browser principal 또는 executor identity를 대체하지 않습니다.
 - 동일한 agent pantheon, catalog, promotion registry, risk gate, Process journal, stage event를
   local에서도 실행합니다.
+- Interactive read investigation은 local과 deployed 환경에서 같은 execution-mode policy를
+  사용합니다. 측정된 provider latency는 선택 mode를 바꿀 수 있지만 execution venue 자체는 바꿀 수
+  없습니다.
 - Pantheon startup은 기본 활성 상태입니다. `FDAI_START_PANTHEON`이 없으면 모든 agent를
   활성화하고 명시적인 false 값만 비활성화합니다. Event Hubs configuration은 Azure transport를
   선택하며 runtime 존재 여부를 결정하지 않습니다. Event Hubs가 없으면 local in-process

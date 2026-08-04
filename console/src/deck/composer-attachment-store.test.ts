@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  ComposerAttachmentsPendingError,
   MAX_ATTACHMENTS,
   clearComposerAttachments,
+  reserveComposerAttachment,
   resetComposerAttachments,
   stageComposerAttachment,
   stagedComposerAttachmentCount,
@@ -36,6 +38,32 @@ describe("composer-attachment-store", () => {
     expect(stagedComposerAttachmentCount()).toBe(1);
     unstageComposerAttachment("a");
     expect(stagedComposerAttachmentCount()).toBe(0);
+  });
+
+  it("preserves reservation order across out-of-order completion", () => {
+    expect(reserveComposerAttachment("first")).toBe(true);
+    expect(reserveComposerAttachment("second")).toBe(true);
+    expect(stageComposerAttachment("second", att(2))).toBe(true);
+    expect(stageComposerAttachment("first", att(1))).toBe(true);
+
+    expect(takeComposerAttachments().map((item) => item.name)).toEqual([
+      "img-1.png",
+      "img-2.png",
+    ]);
+  });
+
+  it("caps reservations before normalization completes", () => {
+    for (let index = 0; index < MAX_ATTACHMENTS; index += 1) {
+      expect(reserveComposerAttachment(`pending-${index}`)).toBe(true);
+    }
+    expect(reserveComposerAttachment("overflow")).toBe(false);
+    expect(stagedComposerAttachmentCount()).toBe(MAX_ATTACHMENTS);
+  });
+
+  it("refuses to drain while any attachment is pending", () => {
+    expect(reserveComposerAttachment("pending")).toBe(true);
+    expect(() => takeComposerAttachments()).toThrow(ComposerAttachmentsPendingError);
+    expect(stagedComposerAttachmentCount()).toBe(1);
   });
 
   it("never exceeds the per-turn cap", () => {

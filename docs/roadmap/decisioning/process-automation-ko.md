@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 325ef947dff6a5486042ab5f7860ae1aa847f373
+translation_source_sha: bc77ae4253f0b48b1fdeb77d035f5129f83b5ab3
 translation_revised: 2026-08-04
 ---
 
@@ -262,6 +262,56 @@ Public workflow run route는 declared parameter substitution에만 context를 �
 `action.*`, `compensation.*`, `decision.*`, `parallel.*`, `requester.*`, `wait.*` key는
 거부합니다. 이 namespace는 server-owned Process evidence입니다. Public request는 approval quorum,
 action success, recovery 또는 control-step progress를 만들 수 없습니다.
+
+새 `process.created` event는 해당 Process를 정확히 resume하는 데 필요한 최소 server-owned
+envelope를 포함합니다. Original trigger time과 mode, `requester.principal`, workflow parameter
+template에서 참조한 context key만 기록합니다. `x-fdai-redact` argument에 사용되는 값은 제외하고
+envelope를 incomplete로 표시하므로 secret을 저장하는 대신 resume을 차단합니다.
+`POST /workflows/{process_id}/resume`은 request body를 허용하지 않습니다. Route는 Process snapshot과
+creation event를 다시 읽고 workflow name 및 version과 derived Process id를 검증한 뒤 original target,
+correlation, trigger, mode, safe context를 재사용합니다. Contributor는 shadow Process를 resume할 수
+있습니다. Enforce Process에는 계속 Owner와 현재 workflow enforce allowlist가 필요합니다. Evidence가
+missing, legacy, malformed, redacted, version-mismatched 또는 identity-mismatched 상태이면 typed conflict를
+반환하고 step을 dispatch하지 않습니다.
+
+`POST /workflows/{process_id}/cancel`도 request body를 허용하지 않으며 같은 durable envelope를
+resolve합니다. Contributor는 shadow Process를 cancel할 수 있고 enforce Process에는 Owner가
+필요합니다. 이 command는 Process가 `pending` 또는 `waiting`일 때만
+`process.cancellation-requested`를 기록합니다. `running` Process는 in-flight dispatcher가 idle이라고
+가정할 수 없으므로 `process_not_at_safe_boundary`를 반환합니다. Waiting action은 먼저 authoritative
+outcome을 reconcile합니다. Executor는 모든 새 step을 차단하고 verified applied step은 기존 reverse
+compensation path로 진입합니다. Waiting approval은 durable Var state와 모든 HIL slot을 닫으므로 늦은
+approval이 cancelled Process를 되살릴 수 없습니다. Applied step이 없는 cancellation은 `cancelled`로
+종료하고 applied step 이후 verified recovery는 `compensated`로 종료합니다.
+
+Action dispatch 및 step journal identity는 명시적인 positive `attempt`를 포함하며 compatibility
+default는 `1`입니다. `STEP_STARTED`, `ACTION_DISPATCHED`, branch, waiting, completion, failure,
+terminal, audit id는 attempt를 포함하고 `WorkflowActionDispatcher`는 typed proposal idempotency
+key에 이를 사용합니다. 따라서 두 attempt가 하나의 event 또는 proposal로 합쳐지지 않습니다.
+
+`POST /workflows/{process_id}/retry`는 `failed` 상태에서 새 attempt를 시작하거나 terminal reason이
+`approval_timed_out`인 경우에만 `timed_out` 상태에서 시작하며 body를 받지 않습니다. Terminal
+attempt에는 allowlist에 포함된 effect-free reason이 있어야 하며 action dispatch, cancellation,
+compensation evidence가 없어야 합니다. Approval evidence는 terminal `approval_rejected` 또는
+`approval_timed_out`에만 허용됩니다. Dispatcher exception은 local dispatch event가 없어도
+ambiguous하므로 `retry_requires_recovery`를 반환합니다. Shadow retry에는 Contributor가 필요하고
+enforce retry에는 Owner와 현재 enforce allowlist가 필요합니다. Server-owned attempt limit의
+기본값은 3이며 caller가 높일 수 없습니다.
+
+Workflow approval state와 HIL slot identity는 Process, step, attempt에 binding됩니다. Attempt 1은
+기존 durable record를 위해 legacy key를 유지하고 이후 attempt는 distinct key를 사용합니다. 한 명의
+rejection은 전체 quorum attempt를 terminal로 만들고 모든 sibling slot을 닫으므로 late approval이
+rejection과 경쟁할 수 없습니다. `approval_rejected` 또는 `approval_timed_out` 뒤 bounded retry는 새
+attempt용 fresh slot만 만듭니다. Sibling park closure가 중단되어도 terminal workflow CAS가
+authoritative하므로 queue는 stale 또는 expired slot을 숨기고 다음 provider read가 physical park
+state를 복구합니다. Cancellation과 timeout은 exact attempt를 닫고 rejection, cancellation, timeout은
+서로를 덮어쓰지 않습니다. Workflow provider가 timeout terminalization을 소유하며 generic HIL expiry
+worker는 workflow slot을 건너뜁니다. Approval decision은 durable deadline 전에만 수락됩니다. Late
+decision이 먼저 revision을 변경하면 executor는 해당 attempt를 다시 읽고 timeout CAS를 재시도하므로
+deadline 뒤 완성된 quorum이 Process를 진행시키지 못합니다. Deadline 전에 완성된 quorum은 Process
+reconciliation이 나중에 재개되어도 유효합니다. Callback과 conversation approval surface는
+no-self-approval을 위해 normalized principal을 비교합니다. Approval claim CAS retry는 fixed
+contention bound 대신 immutable slot quorum에 따라 확장됩니다.
 
 Workflow audit는 각 ActionType의 `x-fdai-redact` path를 사용합니다. Redacted field는
 `[REDACTED]`로 표시되며 Process journal에 들어가지 않습니다. Workflow runtime에는 secret custody

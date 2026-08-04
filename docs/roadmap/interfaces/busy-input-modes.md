@@ -155,8 +155,9 @@ follow-up deterministically renders the bounded matching set without asking the 
 one incident. A question that requires one incident, such as cause analysis, keeps the
 ambiguous-selection behavior.
 Its terminal payload retains the same bounded incident-candidate artifact as an initial turn. A
-button selection starts a separate exact incident-bound conversation with a prepared draft; it
-doesn't mutate, interrupt, or steer the completed turn.
+button selection starts a separate exact incident-bound conversation and immediately submits its
+localized read-only investigation turn. The explicit selection doesn't mutate, interrupt, or steer
+the completed turn.
 A general service-outage question deterministically selects the server-scoped subscription-health
 read on its initial or queued turn. A steer rerun retains that read authority and cannot replace its
 configured subscription or resource-group allowlist with operator text.
@@ -196,6 +197,10 @@ Runbook, knowledge-source, memory, and learning continuations keep the exact dur
 turn selected before the rerun. They use the same read-only knowledge provider on JSON and SSE,
 never widen to another incident or resource, and never turn queued or steered prose into a memory,
 review, proposal, approval, or skill lifecycle write.
+The exact configured configuration-baseline filename keeps deterministic precedence over
+action-context terms during an idle, queued, or steered turn. Negative wording about
+mutation or mitigation cannot change that read-only route. The rerun re-reads the server-pinned
+baseline and DOCX citation, and unavailable structured topology remains unknown.
 A verified fresh inventory answer can also retain a versioned result set of at most 40 bounded
 selectors. The replay stores source, snapshot, scope, query digest, freshness, and truncation, but
 not raw resource IDs. A client cannot supply or widen this result set.

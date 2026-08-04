@@ -56,7 +56,15 @@ function lookup(catalog: Catalog, key: string): string | undefined {
  * is left verbatim.
  */
 export function t(key: string, params?: Record<string, string | number>): string {
-  const template = lookup(CATALOGS[current], key) ?? lookup(CATALOGS.en, key) ?? key;
+  return tForLocale(current, key, params);
+}
+
+export function tForLocale(
+  locale: Locale,
+  key: string,
+  params?: Record<string, string | number>,
+): string {
+  const template = lookup(CATALOGS[locale], key) ?? lookup(CATALOGS.en, key) ?? key;
   if (params === undefined) return template;
   return template.replace(/\{(\w+)\}/g, (whole, name: string) =>
     name in params ? String(params[name]) : whole,

@@ -121,7 +121,7 @@ the approved value, measurement method, result, timestamp, and approver in its e
 | Latency | p50/p95/p99 by tier and end-to-end canary | within the fork-approved budget |
 | Capacity | sustained and burst event rate, partition lag, DB saturation, quota headroom | no loss; bounded lag; documented saturation point |
 | Reliability | service-specific RPO/RTO and business-impact analysis | approved numeric objectives |
-| Recovery | isolated restore and failover drill | objectives met with integrity and smoke checks passing |
+| Recovery | isolated restore plus regional failover and failback drill | objectives met with integrity and smoke passing; primary fencing, event recovery, and failback verified |
 | Security | threat review, private/allow-listed data-flow validation, least-privilege probe | no unresolved critical/high finding |
 | Privacy | privacy impact assessment and data inventory | approved by the privacy owner |
 | Operations | signed operational-readiness report, canary, smoke, alert, and runbook evidence | all production checks pass |

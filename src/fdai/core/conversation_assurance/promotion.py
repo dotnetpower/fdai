@@ -92,10 +92,30 @@ class PolicyTrialMetrics:
 @dataclass(frozen=True, slots=True)
 class PromotionConfig:
     min_samples: int = 100
-    min_score_delta_lcb95: float = 0.0
+    min_score_delta_lcb95: float = 0.01
     max_latency_delta_ms: float = 250.0
     max_locale_gap_delta: float = 0.02
     max_disagreement_rate_delta: float = 0.02
+
+    def __post_init__(self) -> None:
+        numeric = (
+            self.min_score_delta_lcb95,
+            self.max_latency_delta_ms,
+            self.max_locale_gap_delta,
+            self.max_disagreement_rate_delta,
+        )
+        if any(not math.isfinite(value) for value in numeric):
+            raise ValueError("promotion thresholds MUST be finite")
+        if self.min_samples < 1:
+            raise ValueError("promotion min_samples MUST be positive")
+        if self.min_score_delta_lcb95 <= 0:
+            raise ValueError("promotion score gain MUST be positive")
+        if self.max_latency_delta_ms < 0:
+            raise ValueError("promotion latency tolerance MUST be non-negative")
+        if not 0 <= self.max_locale_gap_delta <= 1:
+            raise ValueError("promotion locale gap tolerance MUST be in [0, 1]")
+        if not 0 <= self.max_disagreement_rate_delta <= 1:
+            raise ValueError("promotion disagreement tolerance MUST be in [0, 1]")
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,0 +1,31 @@
+schema_version: "1.0.0"
+types:
+- id: resource.configuration.observed
+  dispatch_mode: baseline
+  event_type_patterns:
+  - config*
+  - fdai.control.canary
+  - object.drift*
+  - resource.*
+  description: Current resource configuration evidence eligible for deterministic policy evaluation.
+- id: resource.metric.observed
+  dispatch_mode: exact
+  event_type_patterns:
+  - anomaly.*
+  - cost.*
+  - forecast.*
+  - metric.*
+  - '*.spike'
+  description: Current bounded metric evidence for a resource.
+- id: change.observed
+  dispatch_mode: exact
+  event_type_patterns:
+  - change.*
+  - deployment.*
+  description: A normalized planned, active, or completed change observation.
+- id: runtime.capability.observed
+  dispatch_mode: exact
+  event_type_patterns:
+  - detection.readiness.*
+  - runtime.*
+  description: A normalized FDAI runtime capability or readiness observation.

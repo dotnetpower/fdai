@@ -47,6 +47,10 @@ export function parseIncidentCandidates(raw: unknown): IncidentCandidate[] {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return [];
   const artifact = raw as Record<string, unknown>;
   if (artifact.schema_version !== 1 || !Array.isArray(artifact.candidates)) return [];
+  if (artifact.locale !== undefined && artifact.locale !== "en" && artifact.locale !== "ko") {
+    return [];
+  }
+  const locale = artifact.locale === "ko" ? "ko" : "en";
   if (artifact.candidates.length === 0 || artifact.candidates.length > MAX_INCIDENT_CANDIDATES) {
     return [];
   }
@@ -70,6 +74,7 @@ export function parseIncidentCandidates(raw: unknown): IncidentCandidate[] {
       severity,
       status: status as IncidentCandidate["status"],
       lastUpdatedAt,
+      locale,
     });
   }
   return candidates;

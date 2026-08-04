@@ -63,6 +63,9 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 | Bragi and Heimdall routing | Implemented | Deterministic English and Korean actor, shutdown, history, health, and state routing selects Heimdall before generic scoring. |
 | Investigation evidence signal | Implemented | A bound read-investigation hook counts as owned evidence for Heimdall's conversational port, so an investigable turn is not composed with the evidence-gap prompt layer even before the local signal window fills. |
 | Exact resource resolution | Implemented | `not_found`, bounded `ambiguous`, and one scope-bound exact reference stop history queries until resolution succeeds. |
+| Typed intent rendering | Implemented | All seven registered read intents render typed evidence fields and observation time. Adding an enum without a renderer fails exhaustive type checking instead of returning a generic success string. |
+| Catalog/runtime binding | Implemented | Local and deployed composition fail before provider I/O unless catalog intent IDs exactly match the runtime enum, every read intent remains owned by Heimdall, and plan IDs are unique. |
+| Planner intent coverage | Implemented | One immutable runtime intent spec owns plan ID, default and interactive tools, and lookback. Import and exhaustive tests fail on enum gaps, and startup rejects catalog plan-ID drift. |
 | Conversational resource continuity | Implemented | Command Deck retains one server-selected inventory resource across terminal turns. Resource Health history may also retain one complete anomalous-event anchor: resource group, timestamp, and status. Elliptical history and pre-incident follow-ups bypass semantic and public-web planning, then Heimdall revalidates the bounded context and returns matching read evidence directly. |
 | Subscription scope identity | Implemented | Current-subscription identity questions read the server-configured subscription name and state from Azure Resource Manager, render only a masked subscription ID, and never call the narrator model. |
 | Subscription health sweep | Implemented | Explicit subscription checks, general service-outage questions, and generic degraded or unavailable resource-state questions use the configured reader scope. The inventory language catalog selects Resource Health authority for availability semantics. The provider defaults to the configured resource-group allowlist. An explicit server-owned subscription mode aligns interactive local health with its subscription inventory. Platform-impact reads query active Service Health events and impacted resources, separate outages from maintenance and advisories, and correlate Resource Health causes. Other diagnosis reads can check representative metrics for up to 16 supported resources with concurrency limited to four. |
@@ -70,6 +73,7 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 | Optional Azure MCP reads | Implemented | The official MCP Python SDK starts the pinned Azure MCP Server over stdio, probes its namespace allowlist before traffic, uses it for VM state, Activity Log, and Resource Health, and immediately falls back to typed REST when unavailable or rejected by its circuit breaker. |
 | Read-tool attenuation | Implemented | `background.read-only` contains exactly seven Reader tools and denies mutation, approval, shell, arbitrary-query, and nested-worker capabilities. |
 | Execution modes and progress | Implemented | Durable p50/p95 profiles select direct, streamed, or detached mode before cloud I/O. Exact resolution is a barrier, independent evidence tools run under a bounded parallel limit, streamed mode emits bounded progress and SSE comment heartbeats, stream close cancels provider work, and the terminal event occurs once. |
+| Interactive policy parity | Implemented | Local and deployed conversation composition use the same explicit direct, streamed, and multi-source thresholds. Adapter latency can differ, but the execution-mode policy does not drift by environment. |
 | Direct and streamed replay | Implemented | An owner-scoped PostgreSQL run ledger claims each canonical request, renews its lease, bounds reclaim attempts, retains terminal usage, and replays completed results without another provider call. Command Deck direct reads use the same executor. The interactive local PostgreSQL profile supplies the same run store and does not substitute an in-memory replay path. |
 | Detached execution and quotas | Implemented | The typed executor receives no narrator history, screen state, event bus, Thor, or executor identity. Per-principal concurrency, cost, wall-clock, and tool-call quotas are enforced at durable creation. |
 | Completion handoff | Implemented | The terminal result and pending completion outbox commit atomically. Bounded retries replay idempotent conversation and reply-ledger handoff without rerunning the investigation. |
@@ -77,10 +81,12 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 
 ## Investigation request and plan
 
-The planner turns an eligible question into an immutable `ReadInvestigationRequest`. It carries the
-requester, conversation and correlation references, intent, resource selector, lookback, requested
-evidence, budget, and idempotency key. Deterministic classification runs before any model sees a
-tool description.
+The planner turns an eligible question into an immutable `ReadInvestigationRequest`. It carries the requester, conversation and correlation references, intent, resource selector, lookback, requested evidence, budget, and idempotency key. Deterministic classification runs before any model sees a tool description.
+
+The schema-validated `investigation-intents.yaml` catalog owns the language-to-contract boundary. Each entry declares a work class, accountable Pantheon agent, registered plan ID, selector kind, answer contract, reviewed English and Korean match terms, evidence authorities and facets, and a numeric freshness budget.
+The catalog cannot contain executable text or grant tool authority. An unknown owner, work class, selector, answer contract, field, or response-mode order blocks catalog loading before provider I/O.
+
+The first catalog revision describes the seven read intents below. Every entry is owned by Heimdall, uses `work_class: read`, and points to a registered plan. Bragi can classify and route a turn, but it cannot replace the catalog owner, evidence requirements, or freshness budget.
 
 The initial intent vocabulary is:
 
@@ -355,6 +361,9 @@ the grounded terminal status.
 
 ## Evidence contract
 
+Every envelope preserves bounded source limitations as stable machine values. Truncated evidence must name exactly one primary reason such as `result_limit`, `byte_limit`, or `source_cutoff`, and that reason must also appear in the limitation set.
+Provider failure records `source_unavailable` without copying provider error text. Legacy persisted payloads that predate the reason field replay as `unspecified`; they never become complete evidence silently.
+
 Providers return a cloud-provider-neutral envelope. Raw Azure responses and raw CLI output do not
 enter narrator context.
 
@@ -568,8 +577,8 @@ raw CLI output, prompts, and unredacted caller payloads.
 - **Ambiguous resource:** Return bounded candidates and request resource group or subscription
   context before any history query.
 - **Unauthorized scope:** Report unavailable and record the denied provider operation class.
-- **Provider throttling:** Honor a numeric `Retry-After` value inside the original timeout. Missing
-  or malformed values use bounded jitter. Neither path widens scope or wall-clock budget.
+- **Provider throttling:** ARG requests share a gate that waits for `x-ms-user-quota-resets-after`
+  when quota is zero. Numeric `Retry-After` or bounded jitter stays inside the timeout and scope.
 - **Insufficient retention:** Return unavailable before cloud I/O when a requested lookback exceeds
   its source-specific configured retention. Activity Log defaults to 90 days and guest logs default
   to 30 days; deployments can narrow either window to their actual retention.

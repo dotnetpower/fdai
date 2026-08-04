@@ -15,10 +15,20 @@ from fdai.delivery.operator_api.routes.chat_vision_evidence import (
     vision_source_previews,
 )
 
-_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
-_JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 32
-_GIF = b"GIF89a" + b"\x00" * 32
-_WEBP = b"RIFF" + b"\x00\x00\x00\x00" + b"WEBP" + b"\x00" * 16
+
+def _png(width: int = 1, height: int = 1) -> bytes:
+    return (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+        + width.to_bytes(4, "big")
+        + height.to_bytes(4, "big")
+        + b"\x08\x06\x00\x00\x00\x00\x00\x00\x00"
+    )
+
+
+_PNG = _png()
+_JPEG = b"\xff\xd8\xff\xc0\x00\x0b\x08\x00\x01\x00\x01\x01\x01\x11\x00\xff\xd9"
+_GIF = b"GIF89a\x01\x00\x01\x00" + b"\x00" * 28
+_WEBP = b"RIFF\x16\x00\x00\x00WEBPVP8X\x0a\x00\x00\x00" + b"\x00" * 10
 
 
 def _data_url(media: str, payload: bytes) -> str:
@@ -124,6 +134,18 @@ def test_enforces_count_cap() -> None:
         parse_vision_attachments(body, max_images=2)
 
 
+def test_rejects_oversized_pixel_dimensions() -> None:
+    body = {"attachments": [_attachment("image/png", _png(width=2049))]}
+    with pytest.raises(ValueError, match="exceeds pixel edge cap"):
+        parse_vision_attachments(body)
+
+
+def test_rejects_truncated_dimension_header() -> None:
+    body = {"attachments": [_attachment("image/png", b"\x89PNG\r\n\x1a\n")]}
+    with pytest.raises(ValueError, match="dimensions are malformed"):
+        parse_vision_attachments(body)
+
+
 def test_rejects_non_list_attachments() -> None:
     with pytest.raises(ValueError, match="MUST be a list"):
         parse_vision_attachments({"attachments": {"data_url": _data_url("image/png", _PNG)}})
@@ -139,6 +161,22 @@ def test_sanitizes_control_characters_in_name() -> None:
         {"attachments": [_attachment("image/png", _PNG, "a\x00b\x1fc.png")]}
     )
     assert parsed[0].name == "abc.png"
+
+
+def test_disambiguates_names_that_collide_after_truncation() -> None:
+    prefix = "a" * 128
+    parsed = parse_vision_attachments(
+        {
+            "attachments": [
+                _attachment("image/png", _PNG, f"{prefix}-one.png"),
+                _attachment("image/png", _PNG, f"{prefix}-two.png"),
+            ]
+        }
+    )
+
+    assert parsed[0].name == prefix
+    assert parsed[1].name.endswith(" (2)")
+    assert len(parsed[1].name) <= 128
 
 
 def test_normalizes_whitespace_in_data_url() -> None:
@@ -219,11 +257,12 @@ def test_rejects_regex_passing_but_undecodable_base64() -> None:
         parse_vision_attachments({"attachments": [{"data_url": "data:image/png;base64,AAA"}]})
 
 
-def test_exact_size_check_catches_borderline_over_cap() -> None:
-    # 40-byte PNG with a 39-byte cap: the encoded-length guard passes (its bound
-    # only fires for clearly-oversized payloads), so the exact post-decode size
-    # check is the one that rejects.
+def test_borderline_over_cap_is_rejected_before_decode(monkeypatch: pytest.MonkeyPatch) -> None:
     body = {"attachments": [_attachment("image/png", _PNG)]}
-    assert len(_PNG) == 40
-    with pytest.raises(ValueError, match=r"exceeds size cap \(40 > 39\)"):
-        parse_vision_attachments(body, max_image_bytes=39)
+    cap = len(_PNG) - 1
+    monkeypatch.setattr(
+        "fdai.delivery.operator_api.routes.chat_vision_evidence.base64.b64decode",
+        lambda *_args, **_kwargs: pytest.fail("oversized payload reached base64 decode"),
+    )
+    with pytest.raises(ValueError, match=rf"exceeds size cap \(>{cap}\)"):
+        parse_vision_attachments(body, max_image_bytes=cap)

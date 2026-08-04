@@ -41,6 +41,41 @@ An enabled policy requires immutable `ScheduledResultOrigin` metadata. The origi
 channel kind, channel reference, conversation reference, optional thread reference, and audience.
 Only a direct audience can create an anchor.
 
+### Bounded configuration reviews
+
+A configuration-baseline review campaign pins one baseline version, digest, and scope. It accepts
+three unique run ids idempotently. A run counts as verified only when the deterministic decision is
+`passed` or `failed`, the exact DOCX is cited, and mutation, approval, mitigation, and unsupported
+claim counts are all zero. A blocked, partial, uncited, mismatched, or unsafe run causes the campaign
+to pause after its third attempt.
+
+Three verified runs move the campaign to `ready-for-weekly` and produce an inert strict-cron weekly
+proposal containing all three run ids. The reducer does not create or enable a task. Materialization
+still uses the authenticated scheduler command, event, and audit path, so review evidence cannot
+grant schedule mutation authority.
+
+An authenticated Contributor can submit one fresh review through a separate command route with a
+required idempotency key. The command records the full report before advancing the campaign. When
+the third exact run becomes ready, FDAI submits a disabled, shadow-only Automation Blueprint with
+zero mutation tools and fingerprints for all three runs. It still creates no task. A distinct
+Approver or Owner must accept the candidate, and the same reviewer may then materialize it through
+the existing authenticated `CreateScheduledTaskCommand`. The resulting strict weekly task emits
+`configuration.drift.check.requested` in shadow mode through the normal scheduler event path.
+Retries collapse at report, campaign, candidate, and task identities.
+
+Campaign state is stored through the shared StateStore under a content-derived campaign id. Create
+and advance operations atomically pair the state write with an append-only audit entry. Every
+advance increments a revision and uses compare-and-set with bounded retry, so concurrent runs cannot
+overwrite one another. Restart recovery reads the same version, scope, run receipts, state, and
+revision. Duplicate run ids remain idempotent.
+
+A duplicate run id is idempotent only when its full persisted report is identical. Reusing the id
+with another decision, finding set, citation set, safety counter, or performance receipt is a
+conflict and cannot advance the campaign. A failed campaign remains paused until an Approver uses
+the separate resume command. Resume moves the complete failed run set into immutable attempt
+history, increments the revision with compare-and-set, and starts an empty active attempt. It does
+not delete the failed reports or their audit records.
+
 ### Anchor
 
 `ScheduledConversationAnchor` records:
@@ -143,6 +178,8 @@ Coverage includes:
 - Web delivery retry collapse and Slack/Teams thread-mode parity.
 - Typed-fact provenance and explicit absence of instruction authority.
 - PostgreSQL row codecs, compare-and-set expiry, concurrent winner-only audit, idempotent lifecycle audit retries, migration head, and environment-gated live tests.
+- Configuration review evidence-run idempotency, proposer self-review denial, no task before
+    acceptance, strict weekly materialization, and duplicate task suppression.
 
 ## Related docs
 

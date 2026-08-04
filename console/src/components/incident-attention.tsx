@@ -16,6 +16,8 @@ interface Props {
   readonly client: OperatorApiClient;
 }
 
+const AUTO_INVESTIGATION_PREFIX = "fdai:incident:auto-investigated:";
+
 export function incidentDeckDetail(incident: IncidentAttentionProjection): DeckOpenDetail {
   return {
     sessionKey: `incident:${incident.correlation_id}`,
@@ -28,6 +30,8 @@ export function incidentDeckDetail(incident: IncidentAttentionProjection): DeckO
       severity: incident.severity,
       title: incident.title,
     }),
+    prompt: t("incidentAttention.investigationPrompt"),
+    submitPrompt: true,
     binding: {
       kind: "incident",
       incidentId: incident.incident_id,
@@ -53,9 +57,13 @@ export function IncidentAttention({ client }: Props) {
   }, []);
 
   useEffect(() => {
-    if (!deckReady || !first || opened.current.has(first.incident_id) || document.hidden) return;
+    if (
+      !deckReady || !first || opened.current.has(first.incident_id) || document.hidden ||
+      wasAutoInvestigated(first.incident_id)
+    ) return;
     if (openDeckWithContext(incidentDeckDetail(first))) {
       opened.current.add(first.incident_id);
+      markAutoInvestigated(first.incident_id);
     }
   }, [deckReady, first]);
 
@@ -74,4 +82,20 @@ export function IncidentAttention({ client }: Props) {
       {t("incidentAttention.badge", { count: incidents.length })}
     </button>
   );
+}
+
+export function wasAutoInvestigated(incidentId: string): boolean {
+  try {
+    return window.localStorage.getItem(`${AUTO_INVESTIGATION_PREFIX}${incidentId}`) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function markAutoInvestigated(incidentId: string): void {
+  try {
+    window.localStorage.setItem(`${AUTO_INVESTIGATION_PREFIX}${incidentId}`, "1");
+  } catch {
+    // Browser storage is best-effort; the in-memory opened set still suppresses this mount.
+  }
 }

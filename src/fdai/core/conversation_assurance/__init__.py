@@ -1,5 +1,17 @@
 """Autonomous, evidence-governed assurance for completed conversations."""
 
+from fdai.core.conversation_assurance.attribution import (
+    AdequacyCandidateKind,
+    AdequacyReviewState,
+    AnswerFailureAttribution,
+    FailureLayer,
+    HoldingOntologyAdequacyInvestigator,
+    OntologyAdequacyInvestigator,
+    OntologyAdequacyReview,
+    OntologyAdequacyReviewSink,
+    attribute_answer_failure,
+    build_ontology_adequacy_review,
+)
 from fdai.core.conversation_assurance.consensus import MixedFamilyAssuranceReviewer
 from fdai.core.conversation_assurance.deterministic import assess_deterministically
 from fdai.core.conversation_assurance.identity import assurance_principal_scope
@@ -59,11 +71,14 @@ from fdai.core.conversation_assurance.service import ConversationAssuranceCoordi
 
 __all__ = [
     "CRITERION_WEIGHTS",
+    "AdequacyCandidateKind",
+    "AdequacyReviewState",
     "AccuracyPosterior",
     "AppliedChatPolicy",
     "BASE_POLICY_DIGEST",
     "AssessmentRecord",
     "AssessmentState",
+    "AnswerFailureAttribution",
     "BlindPolicyTrialMeasurer",
     "AssuranceCriterion",
     "AssuranceDecision",
@@ -85,9 +100,14 @@ __all__ = [
     "DisputeRecord",
     "EvaluatorOutput",
     "FailureCluster",
+    "FailureLayer",
+    "HoldingOntologyAdequacyInvestigator",
     "InMemoryConversationAssuranceLedger",
     "InMemoryConversationPolicyCandidateStore",
     "MixedFamilyAssuranceReviewer",
+    "OntologyAdequacyReview",
+    "OntologyAdequacyInvestigator",
+    "OntologyAdequacyReviewSink",
     "TurnAssessmentInput",
     "ChatPolicyCandidate",
     "ChatPolicyTarget",
@@ -96,8 +116,10 @@ __all__ = [
     "PolicyTrialMetrics",
     "PromotionConfig",
     "assess_deterministically",
+    "attribute_answer_failure",
     "assurance_principal_scope",
     "cluster_failures",
+    "build_ontology_adequacy_review",
     "evaluate_policy_transition",
     "policy_is_assigned",
 ]

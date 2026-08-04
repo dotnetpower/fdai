@@ -55,6 +55,16 @@ class EvidenceFreshness(StrEnum):
     STALE = "stale"
 
 
+class EvidenceLimitationKind(StrEnum):
+    RESULT_LIMIT = "result_limit"
+    BYTE_LIMIT = "byte_limit"
+    SOURCE_CUTOFF = "source_cutoff"
+    SOURCE_UNAVAILABLE = "source_unavailable"
+    UNAUTHORIZED = "unauthorized"
+    RETENTION_BOUNDARY = "retention_boundary"
+    UNSPECIFIED = "unspecified"
+
+
 class ActorKind(StrEnum):
     USER = "user"
     SERVICE_PRINCIPAL = "service_principal"
@@ -188,6 +198,8 @@ class ReadEvidenceEnvelope:
     truncated: bool
     records: tuple[ReadEvidenceRecord, ...]
     evidence_refs: tuple[str, ...]
+    limitations: tuple[EvidenceLimitationKind, ...] = ()
+    truncation_reason: EvidenceLimitationKind | None = None
 
     def __post_init__(self) -> None:
         _identifier("evidence authority", self.authority)
@@ -201,6 +213,12 @@ class ReadEvidenceEnvelope:
             _identifier("evidence_ref", ref)
         if len(set(self.evidence_refs)) != len(self.evidence_refs):
             raise ValueError("evidence_refs MUST be unique")
+        if len(set(self.limitations)) != len(self.limitations):
+            raise ValueError("evidence limitations MUST be unique")
+        if self.truncated != (self.truncation_reason is not None):
+            raise ValueError("truncated evidence MUST carry exactly one truncation_reason")
+        if self.truncation_reason is not None and self.truncation_reason not in self.limitations:
+            raise ValueError("truncation_reason MUST be present in evidence limitations")
         if self.status is EvidenceStatus.MATCHED and not self.records:
             raise ValueError("matched evidence requires at least one record")
         if self.status is not EvidenceStatus.MATCHED and self.records:

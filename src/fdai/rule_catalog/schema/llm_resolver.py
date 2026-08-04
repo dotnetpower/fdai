@@ -49,6 +49,7 @@ from fdai.rule_catalog.schema.llm_endpoint_selection import (
     collect_narrator_deployments,
     collect_primary_candidates,
     collect_primary_deployments,
+    collect_vision_candidates,
     collect_web_search_candidates,
     collect_web_search_deployments,
     narrator_deployment_name,
@@ -187,6 +188,14 @@ class ResolvedModels:
     (single-narrator path) or a deterministic answerer.
     """
 
+    vision_candidates: tuple[NarratorCandidate, ...] = ()
+    """Image-input candidates selected only from ``t1.vision``.
+
+    These entries reuse matching narrator deployments but carry an independent
+    capability contract and runtime latency window. An empty list makes image
+    turns unavailable instead of borrowing an unverified text-only model.
+    """
+
     web_search_candidates: tuple[NarratorCandidate, ...] = ()
     """Responses API candidates selected only from ``t1.web_search``."""
 
@@ -217,6 +226,30 @@ class ResolvedModels:
         capabilities = [binding.capability for binding in self.endpoint_bindings]
         if len(capabilities) != len(set(capabilities)):
             raise ValueError("resolved model endpoint capabilities MUST be unique")
+        for label, candidates in (
+            ("narrator", self.narrator_candidates),
+            ("vision", self.vision_candidates),
+            ("web search", self.web_search_candidates),
+            ("primary reasoner", self.reasoner_primary_candidates),
+        ):
+            deployments = [candidate.deployment for candidate in candidates]
+            if any(not deployment.strip() for deployment in deployments):
+                raise ValueError(f"resolved {label} candidate deployments MUST be non-empty")
+            if len(deployments) != len(set(deployments)):
+                raise ValueError(f"resolved {label} candidate deployments MUST be unique")
+        narrator_routes = {
+            candidate.deployment: candidate
+            for candidate in (
+                self.narrator_candidates
+                if self.narrator_candidates
+                else ((self.narrator,) if self.narrator is not None else ())
+            )
+        }
+        for candidate in self.vision_candidates:
+            if narrator_routes.get(candidate.deployment) != candidate:
+                raise ValueError(
+                    "resolved vision candidates MUST exactly reuse narrator candidate routes"
+                )
 
     def to_json(self) -> str:
         """JSON with sorted keys - same input yields the same bytes.
@@ -238,6 +271,10 @@ class ResolvedModels:
         if self.narrator_candidates:
             payload["narrator_candidates"] = [
                 _narrator_to_dict(n) for n in self.narrator_candidates
+            ]
+        if self.vision_candidates:
+            payload["vision_candidates"] = [
+                _narrator_to_dict(candidate) for candidate in self.vision_candidates
             ]
         if self.web_search_candidates:
             payload["web_search_candidates"] = [
@@ -286,6 +323,11 @@ class ResolvedModels:
                 for n in raw.get("narrator_candidates", ())
                 if isinstance(n, dict)
             ),
+            vision_candidates=tuple(
+                _narrator_from_dict(candidate)
+                for candidate in raw.get("vision_candidates", ())
+                if isinstance(candidate, dict)
+            ),
             web_search_candidates=tuple(
                 _narrator_from_dict(candidate)
                 for candidate in raw.get("web_search_candidates", ())
@@ -307,6 +349,9 @@ class ResolvedModels:
 # ---------------------------------------------------------------------------
 # Core resolver
 # ---------------------------------------------------------------------------
+
+
+_VIRTUAL_CAPABILITIES = frozenset({"t1.vision"})
 
 
 def resolve(
@@ -346,6 +391,8 @@ def resolve(
     # Sort capabilities by name so the output is deterministic regardless
     # of dict iteration order in the source YAML.
     for name in sorted(registry.models):
+        if name in _VIRTUAL_CAPABILITIES:
+            continue
         spec = registry.models[name]
         if not has_perm:
             entries.append(
@@ -594,6 +641,7 @@ __all__ = [
     "ResolverError",
     "collect_narrator",
     "collect_narrator_deployments",
+    "collect_vision_candidates",
     "collect_primary_candidates",
     "collect_primary_deployments",
     "collect_web_search_candidates",

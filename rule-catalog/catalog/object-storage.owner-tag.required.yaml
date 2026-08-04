@@ -1,6 +1,6 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: object-storage.owner-tag.required
-version: "1.0.0"
+version: 1.0.0
 source: custom
 severity: low
 category: config_drift
@@ -8,15 +8,17 @@ resource_type: object-storage
 applies_to:
 - object-storage
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.object-storage.tags.required_tag
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: object-storage
+- kind: property_exists
+  value: property.object-storage.tags.required_tag
 check_logic:
   kind: rego
   reference: policies/object_storage/owner_tag_required.rego
@@ -29,8 +31,8 @@ parameters:
   tag_value: unassigned
 provenance:
   source_url: https://example.com/rules/object-storage-owner-tag
-  resolved_ref: "0000000000000000000000000000000000000000"
-  content_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  resolved_ref: '0000000000000000000000000000000000000000'
+  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
   license: MIT
   redistribution: embeddable
-  retrieved_at: "2026-07-05T00:00:00Z"
+  retrieved_at: '2026-07-05T00:00:00Z'

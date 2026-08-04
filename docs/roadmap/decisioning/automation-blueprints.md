@@ -55,6 +55,11 @@ Materialization calls `CreateScheduledTaskCommand` with the reviewing principal.
 the scheduler store directly. A stable task ID makes retry idempotent and conflicting content
 fails. The resulting task emits shadow-only events into the existing trust and risk path.
 
+A configuration review campaign uses the same path. Three exact, cited runs submit a disabled,
+shadow-only candidate with zero mutation tools and one fingerprint per run. A separate Approver or
+Owner must accept it before the reviewing principal can materialize the strict weekly task. Drift
+evidence never writes the scheduler store directly.
+
 ## Text drafting
 
 `AutomationBlueprintTextDrafter` returns only `name` and `prompt` under a 2000-character budget.

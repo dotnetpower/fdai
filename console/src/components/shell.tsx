@@ -68,6 +68,7 @@ export function Shell({ activePanelId, auth, client, children, onExitLocalSessio
         <div class="principal">
           <IncidentAttention client={client} />
           <AccessGrantAttention
+            auth={auth}
             client={client}
             principalId={auth.account?.homeAccountId ?? null}
           />

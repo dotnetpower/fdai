@@ -417,6 +417,60 @@ class _Estimator:
         )
 
 
+async def test_configured_dynamic_estimator_uses_observed_metric() -> None:
+    from fdai.delivery.azure.operational_evidence import (
+        AzureConfiguredBranchEffect,
+        AzureConfiguredBranchEstimator,
+    )
+
+    estimator = AzureConfiguredBranchEstimator(
+        {
+            "ops.scale-out": AzureConfiguredBranchEffect(
+                metric="service_latency_ms",
+                delta=-20.0,
+                interval_radius=5.0,
+            )
+        }
+    )
+    snapshot = replace(_snapshot(), metric_values={"service_latency_ms": 100.0})
+
+    branches = await estimator.estimate(
+        event=_event(),
+        action=_action(),
+        snapshot=snapshot,
+        metric="service_latency_ms",
+    )
+
+    assert len(branches) == 1
+    assert branches[0].raw_prediction == 80.0
+    assert branches[0].raw_interval_radius == 5.0
+
+
+async def test_configured_dynamic_estimator_requires_observed_metric() -> None:
+    from fdai.delivery.azure.operational_evidence import (
+        AzureConfiguredBranchEffect,
+        AzureConfiguredBranchEstimator,
+    )
+
+    estimator = AzureConfiguredBranchEstimator(
+        {
+            "ops.scale-out": AzureConfiguredBranchEffect(
+                metric="service_latency_ms",
+                delta=-20.0,
+                interval_radius=5.0,
+            )
+        }
+    )
+
+    with pytest.raises(ValueError, match="observed metric is unavailable"):
+        await estimator.estimate(
+            event=_event(),
+            action=_action(),
+            snapshot=_snapshot(),
+            metric="service_latency_ms",
+        )
+
+
 async def test_dynamic_provider_builds_bounded_current_snapshot_request() -> None:
     provider = AzureDynamicSimulationRequestProvider(
         snapshots=_Snapshots(),

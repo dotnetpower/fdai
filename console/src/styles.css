@@ -730,6 +730,115 @@ a:hover {
   font-weight: 700;
 }
 
+.access-grant-attention-wrap {
+  position: relative;
+}
+
+.access-grant-review {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(420px, calc(100vw - 24px));
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+  color: var(--fg);
+}
+
+.access-grant-review header,
+.access-grant-review header > div,
+.access-grant-review label,
+.access-grant-review-receipt {
+  display: grid;
+  gap: 6px;
+}
+
+.access-grant-review header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  margin-bottom: 14px;
+}
+
+.access-grant-review header span,
+.access-grant-review-receipt span {
+  color: var(--fg-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.access-grant-review select,
+.access-grant-review textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 8px;
+}
+
+.access-grant-review textarea {
+  min-height: 82px;
+  resize: vertical;
+}
+
+.access-grant-review dl {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.access-grant-review dl > div {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.access-grant-review dt {
+  color: var(--fg-muted);
+}
+
+.access-grant-review dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.access-grant-review-receipt {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.access-grant-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+@media (max-width: 640px) {
+  .access-grant-review {
+    position: fixed;
+    top: var(--header-height);
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-height: calc(100vh - var(--header-height) - 12px);
+    overflow-y: auto;
+  }
+
+  .access-grant-review dl > div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
 .theme-toggle {
   display: inline-flex;
   align-items: center;
@@ -5923,10 +6032,19 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-overlay-mode-dock .deck-body,
 .deck-overlay-mode-dock .deck-body.has-conversations,
 .deck-overlay-mode-dock .deck-body.has-digest { grid-template-columns: minmax(0, 1fr); }
-.deck-overlay-mode-floating .deck-conversations,
 .deck-overlay-mode-floating .deck-digest,
-.deck-overlay-mode-dock .deck-conversations,
 .deck-overlay-mode-dock .deck-digest { display: none; }
+.deck-overlay-mode-floating .deck-body,
+.deck-overlay-mode-dock .deck-body { position: relative; }
+.deck-overlay-mode-floating .deck-conversations,
+.deck-overlay-mode-dock .deck-conversations {
+  position: absolute;
+  z-index: 4;
+  inset: 42px auto 0 0;
+  width: min(300px, 82%);
+  box-sizing: border-box;
+  box-shadow: 8px 0 22px rgb(15 23 42 / 18%);
+}
 .deck-overlay-mode-floating .deck-transcript-inner,
 .deck-overlay-mode-dock .deck-transcript-inner { padding: 18px 14px 10px; }
 .deck-overlay-mode-floating .deck-input-row,
@@ -6406,7 +6524,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   border-radius: 5px;
   background: color-mix(in oklab, var(--bg-elevated) 86%, var(--bg));
   color: var(--fg-muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .deck-trajectory-results > span::before,
 .deck-trajectory-signals dd::before {
@@ -6428,10 +6546,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-trajectory-results > span[data-state="not_observed"]::before,
 .deck-trajectory-signals > div[data-state="not_observed"] dd::before { background: var(--fg-muted); }
 .deck-trajectory {
-  --deck-font-heading: 13px;
-  --deck-font-body: 12px;
-  --deck-font-small: 11px;
-  --deck-font-label: 11px;
+  --deck-font-heading: 14px;
+  --deck-font-body: 13px;
+  --deck-font-small: 12px;
+  --deck-font-label: 12px;
   min-width: 0;
   margin-top: 7px;
   overflow: hidden;
@@ -6623,8 +6741,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-trajectory-signals > div { min-width: 0; padding: 0 12px; border-left: 1px solid var(--border); }
 .deck-trajectory-signals > div:first-child { padding-left: 0; border-left: 0; }
 .deck-trajectory-signals > div:last-child { padding-right: 0; }
-.deck-trajectory-signals dt { margin-bottom: 3px; color: var(--fg-muted); font-size: 11px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; }
-.deck-trajectory-signals dd { min-width: 0; display: flex; align-items: baseline; gap: 6px; margin: 0; overflow-wrap: anywhere; color: var(--fg); font-size: 11px; line-height: 1.4; }
+.deck-trajectory-signals dt { margin-bottom: 3px; color: var(--fg-muted); font-size: 12px; font-weight: 750; text-transform: uppercase; }
+.deck-trajectory-signals dd { min-width: 0; display: flex; align-items: baseline; gap: 6px; margin: 0; overflow-wrap: anywhere; color: var(--fg); font-size: 12px; line-height: 1.45; }
 .deck-execution-timeline { margin: 14px 0 0; padding-top: 11px; border-top: 1px solid var(--border); }
 .deck-execution-timeline > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
 .deck-execution-timeline > header h4 { margin: 0; font-size: .9375rem; }
@@ -6636,7 +6754,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   align-items: end;
   gap: 7px;
   color: var(--fg-muted);
-  font: 10px/1.2 var(--font-mono);
+  font: 11px/1.2 var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 .deck-execution-axis-range {
@@ -6672,7 +6790,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-execution-timeline li[data-kind="turn"] .deck-execution-flow-mark { background: var(--fg-muted); box-shadow: 0 0 0 1px color-mix(in oklab, var(--fg-muted) 55%, var(--border)); }
 .deck-execution-timeline li[data-kind="evidence"] .deck-execution-flow-mark { background: var(--success); box-shadow: 0 0 0 1px color-mix(in oklab, var(--success) 55%, var(--border)); }
 .deck-execution-timeline li[data-kind="model"] .deck-execution-flow-mark { background: var(--cs-plum); box-shadow: 0 0 0 1px color-mix(in oklab, var(--cs-plum) 55%, var(--border)); }
-.deck-execution-label { min-width: 0; overflow: hidden; font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.deck-execution-label { min-width: 0; overflow: hidden; font-size: 13px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .deck-execution-track {
   position: relative;
   height: 8px;
@@ -6691,8 +6809,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-execution-timeline li[data-state="degraded"] .deck-execution-bar,
 .deck-execution-timeline li[data-state="unverified"] .deck-execution-bar { background: var(--warning); }
 .deck-execution-timeline li[data-state="failed"] .deck-execution-bar { background: var(--danger); }
-.deck-execution-duration { color: var(--fg-muted); font-size: 11px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-.deck-execution-outcome { color: var(--fg-muted); font-size: 11px; font-weight: 700; text-align: right; }
+.deck-execution-duration { color: var(--fg-muted); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.deck-execution-outcome { color: var(--fg-muted); font-size: 12px; font-weight: 700; text-align: right; }
 .deck-execution-timeline li[data-state="completed"] .deck-execution-outcome { color: var(--success); }
 .deck-execution-timeline li[data-state="corrected"] .deck-execution-outcome,
 .deck-execution-timeline li[data-state="degraded"] .deck-execution-outcome,
@@ -6956,7 +7074,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   overflow-anchor: none;
   scrollbar-gutter: stable;
   padding: 0;
-  font-size: 15px;
+  font-size: 16px;
 }
 .deck-transcript-inner {
   width: min(100%, 900px);
@@ -6973,15 +7091,17 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-jump {
   position: sticky;
   bottom: 8px;
-  align-self: center;
+  z-index: 3;
+  align-self: flex-end;
   margin-top: auto;
-  padding: 6px 14px;
+  margin-right: 12px;
+  padding: 8px 14px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--bg-elevated);
   color: var(--fg);
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
@@ -7487,10 +7607,6 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   background: var(--border);
 }
 .deck-branch-item {
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
   min-height: 38px;
   margin-left: 34px;
   padding: 5px 8px;
@@ -7503,6 +7619,70 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   transform: translateY(6px) scale(0.99);
   animation: deck-investigation-rise 0.26s ease forwards;
   transition: border-color 0.2s, background 0.2s;
+}
+.deck-branch-disclosure > summary {
+  display: grid;
+  grid-template-columns: 28px 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  cursor: pointer;
+  list-style: none;
+}
+.deck-branch-disclosure > summary::-webkit-details-marker { display: none; }
+.deck-branch-step {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.deck-branch-detail {
+  display: grid;
+  gap: 10px;
+  padding: 4px 12px 12px 78px;
+  border-top: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+}
+.deck-branch-detail dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
+  margin: 0;
+}
+.deck-branch-detail dl > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.deck-branch-detail dt { color: var(--fg-muted); font-size: 12px; font-weight: 650; }
+.deck-branch-detail dd { margin: 0; overflow-wrap: anywhere; font-size: 13px; }
+.deck-branch-evidence ul {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.deck-branch-evidence code { overflow-wrap: anywhere; white-space: normal; }
+.deck-branch-empty-evidence {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+.deck-branch-empty-evidence > span {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--warning) 12%, var(--bg));
+  color: var(--warning);
+  font-size: 11px;
+  font-weight: 800;
 }
 .deck-branch-item::before {
   content: "";
@@ -8526,8 +8706,9 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-turn-line {
   margin: 0 0 4px;
-  font-size: 13.5px;
-  line-height: 1.55;
+  max-width: 72ch;
+  font-size: 16px;
+  line-height: 1.62;
   color: var(--fg);
 }
 .deck-turn-line:last-child { margin-bottom: 0; }
@@ -8536,6 +8717,73 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
    (deck/rich-content.tsx). Honest-data only: every cell / bar value is text
    the backend returned, grounded in the screen snapshot. */
 .deck-rich { display: flex; flex-direction: column; gap: 7px; }
+.deck-agent-activity {
+  max-width: 680px;
+  margin-top: 7px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--bg-elevated) 88%, var(--bg));
+}
+.deck-agent-activity > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 7px;
+}
+.deck-agent-activity > header h4 { margin: 0; color: var(--fg); font-size: 14px; }
+.deck-agent-activity > header > span { color: var(--fg-muted); font-size: 12px; }
+.deck-agent-activity ol { margin: 0; padding: 0; list-style: none; }
+.deck-agent-activity li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  min-height: 48px;
+  padding: 5px 0;
+}
+.deck-agent-activity li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 34px;
+  bottom: -5px;
+  left: 13px;
+  width: 1px;
+  background: var(--border);
+}
+.deck-agent-activity-icon {
+  position: relative;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--bg-elevated);
+  -webkit-mask-image: var(--deck-agent-icon);
+  mask-image: var(--deck-agent-icon);
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 18px;
+  mask-size: 18px;
+}
+.deck-agent-activity-copy { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.deck-agent-activity-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 9px; }
+.deck-agent-activity-heading > strong { color: var(--fg); font-size: 14px; }
+.deck-agent-activity-event { color: var(--fg); font-size: 14px; }
+.deck-agent-activity-latest {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--success) 11%, var(--bg));
+  color: var(--success);
+  font-size: 11px;
+  font-weight: 700;
+}
+.deck-agent-activity-meta { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 10px; color: var(--fg-muted); font-size: 12px; }
+.deck-agent-activity-meta code { color: var(--fg-muted); font-size: 12px; }
+.deck-agent-activity-meta time { font-variant-numeric: tabular-nums; }
 .deck-rich .deck-turn-line:not(:last-child) { margin-bottom: 2px; }
 .deck-turn.is-context .deck-rich { gap: 3px; }
 .deck-turn.is-context .deck-rich .deck-turn-line { margin-bottom: 0; }
@@ -8998,7 +9246,16 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-overlay-mode-workspace .deck-btn-primary,
 .deck-overlay-mode-workspace .deck-btn-stop { min-width: 93px; }
 .deck-overlay-mode-floating .deck-transcript-tools,
-.deck-overlay-mode-dock .deck-transcript-tools { display: none; }
+.deck-overlay-mode-dock .deck-transcript-tools {
+  position: relative;
+  z-index: 5;
+  min-height: 36px;
+  padding: 3px 12px;
+}
+.deck-overlay-mode-floating .deck-transcript-tools > button:first-child,
+.deck-overlay-mode-dock .deck-transcript-tools > button:first-child,
+.deck-overlay-mode-floating .deck-panel-toggle-context,
+.deck-overlay-mode-dock .deck-panel-toggle-context { display: none; }
 /* Slash-command hint palette - floats just above the composer, never inside
  * the input grid so it cannot disturb the textarea / actions layout. */
 .deck-slash-palette {
@@ -9412,6 +9669,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-transcript-tools { overflow-x: auto; padding-inline: 12px; }
   .deck-transcript-tools button { flex: 0 0 auto; min-height: 40px; }
   .deck-turn { padding: 10px 12px; }
+  .deck-branch-detail { padding-left: 12px; }
+  .deck-branch-detail dl { grid-template-columns: 1fr; }
+  .deck-agent-activity { padding-inline: 10px; }
+  .deck-agent-activity-heading { gap-inline: 6px; }
   .deck-table { display: block; }
   .deck-table thead {
     position: absolute;

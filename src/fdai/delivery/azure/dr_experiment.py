@@ -68,6 +68,8 @@ from fdai.shared.providers.dr_experiment import (
 )
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
+from .arm_url_policy import ArmUrlPolicy, ArmUrlPolicyError
+
 _DEFAULT_AUDIENCE: Final[str] = "https://management.azure.com/.default"
 _DEFAULT_CHAOS_API_VERSION: Final[str] = "2024-01-01"
 _DEFAULT_SITE_RECOVERY_API_VERSION: Final[str] = "2024-04-01"
@@ -133,6 +135,7 @@ class AzureDrExperimentAdapter(DrExperimentRunner):
             raise ValueError("timeout_seconds MUST be > 0")
         if cfg.max_error_body_bytes < 64:
             raise ValueError("max_error_body_bytes MUST be >= 64")
+        self._url_policy = ArmUrlPolicy.from_client(http_client)
         self._identity: Final[WorkloadIdentity] = identity
         self._http: Final[httpx.AsyncClient] = http_client
         self._config: Final[AzureDrExperimentAdapterConfig] = cfg
@@ -146,11 +149,16 @@ class AzureDrExperimentAdapter(DrExperimentRunner):
             raise DrRunnerError(
                 "provider_ref is required to start an Azure DR experiment",
                 experiment_id=experiment.experiment_id,
-                kind=_infer_kind(experiment),
+                kind=DrExperimentKind.CHAOS,
             )
 
         kind = _infer_kind(experiment)
-        url = self._start_url(provider_ref=experiment.provider_ref, kind=kind)
+        provider_ref = self._validate_provider_ref(
+            experiment.provider_ref,
+            experiment_id=experiment.experiment_id,
+            kind=kind,
+        )
+        url = self._start_url(provider_ref=provider_ref, kind=kind)
         headers = await self._auth_headers()
 
         try:
@@ -174,13 +182,17 @@ class AzureDrExperimentAdapter(DrExperimentRunner):
                 status_code=response.status_code,
             )
 
-        run_id, status_url = _extract_run_pointers(
-            response=response, provider_ref=experiment.provider_ref
-        )
+        run_id, status_url = _extract_run_pointers(response=response, provider_ref=provider_ref)
+        if status_url is not None:
+            status_url = self._validate_lro_url(
+                status_url,
+                experiment_id=experiment.experiment_id,
+                kind=kind,
+            )
         return DrRunHandle(
             experiment_id=experiment.experiment_id,
             kind=kind,
-            provider_ref=experiment.provider_ref,
+            provider_ref=provider_ref,
             run_id=run_id,
             started_at=datetime.now(tz=UTC),
             status_url=status_url,
@@ -191,8 +203,19 @@ class AzureDrExperimentAdapter(DrExperimentRunner):
         # we fall back to a GET on the experiment resource itself
         # (Site Recovery synchronous completion + Chaos Studio unit
         # tests that don't emit a Location).
-        url = handle.status_url or self._resource_url(
-            provider_ref=handle.provider_ref, kind=handle.kind
+        provider_ref = self._validate_provider_ref(
+            handle.provider_ref,
+            experiment_id=handle.experiment_id,
+            kind=handle.kind,
+        )
+        url = (
+            self._validate_lro_url(
+                handle.status_url,
+                experiment_id=handle.experiment_id,
+                kind=handle.kind,
+            )
+            if handle.status_url is not None
+            else self._resource_url(provider_ref=provider_ref, kind=handle.kind)
         )
         headers = await self._auth_headers()
 
@@ -233,7 +256,12 @@ class AzureDrExperimentAdapter(DrExperimentRunner):
         return _map_state(payload)
 
     async def rollback(self, handle: DrRunHandle) -> None:
-        url = self._rollback_url(provider_ref=handle.provider_ref, kind=handle.kind)
+        provider_ref = self._validate_provider_ref(
+            handle.provider_ref,
+            experiment_id=handle.experiment_id,
+            kind=handle.kind,
+        )
+        url = self._rollback_url(provider_ref=provider_ref, kind=handle.kind)
         headers = await self._auth_headers()
 
         try:
@@ -328,6 +356,46 @@ class AzureDrExperimentAdapter(DrExperimentRunner):
             return raw
         return raw[:cap] + "..."
 
+    def _validate_provider_ref(
+        self,
+        value: str,
+        *,
+        experiment_id: str,
+        kind: DrExperimentKind,
+    ) -> str:
+        try:
+            validated = self._url_policy.validate_resource_ref(value)
+        except ArmUrlPolicyError as exc:
+            raise DrRunnerError(
+                str(exc),
+                experiment_id=experiment_id,
+                kind=kind,
+            ) from exc
+        inferred = _kind_from_provider_ref(validated, experiment_id=experiment_id)
+        if inferred is not kind:
+            raise DrRunnerError(
+                "provider_ref resource type does not match the declared run kind",
+                experiment_id=experiment_id,
+                kind=kind,
+            )
+        return validated
+
+    def _validate_lro_url(
+        self,
+        value: str,
+        *,
+        experiment_id: str,
+        kind: DrExperimentKind,
+    ) -> str:
+        try:
+            return self._url_policy.validate_lro_url(value)
+        except ArmUrlPolicyError as exc:
+            raise DrRunnerError(
+                str(exc),
+                experiment_id=experiment_id,
+                kind=kind,
+            ) from exc
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -340,15 +408,24 @@ def _infer_kind(experiment: DrExperiment) -> DrExperimentKind:
     Chaos Studio ids contain ``/providers/Microsoft.Chaos/experiments/``;
     Site Recovery Recovery Plan ids contain
     ``/providers/Microsoft.RecoveryServices/vaults/.../replicationRecoveryPlans/``.
-    Anything else defaults to ``CHAOS`` so an ambiguous input still gets
-    a deterministic dispatch - the alternative (an exception) would
-    surface as a runner failure that :class:`DrScheduler.run` cannot
-    distinguish from an auth / transport error.
+    Anything else is rejected before a bearer-token request is built.
     """
-    ref = experiment.provider_ref or ""
-    if "/providers/Microsoft.RecoveryServices/" in ref:
+    return _kind_from_provider_ref(
+        experiment.provider_ref or "",
+        experiment_id=experiment.experiment_id,
+    )
+
+
+def _kind_from_provider_ref(ref: str, *, experiment_id: str) -> DrExperimentKind:
+    if "/providers/Microsoft.RecoveryServices/" in ref and "/replicationRecoveryPlans/" in ref:
         return DrExperimentKind.SITE_RECOVERY_TEST_FAILOVER
-    return DrExperimentKind.CHAOS
+    if "/providers/Microsoft.Chaos/experiments/" in ref:
+        return DrExperimentKind.CHAOS
+    raise DrRunnerError(
+        "provider_ref is not a supported Chaos experiment or Site Recovery plan",
+        experiment_id=experiment_id,
+        kind=DrExperimentKind.CHAOS,
+    )
 
 
 def _extract_run_pointers(*, response: httpx.Response, provider_ref: str) -> tuple[str, str | None]:

@@ -707,10 +707,12 @@ def test_ambiguous_incident_candidates_emit_bounded_selection_artifact() -> None
     artifact = response_incident_candidates(
         {"_operational_evidence": {"status": "ambiguous", "candidates": candidates}},
         verification=verification,
+        locale="ko-KR",
     )
 
     assert artifact == {
         "schema_version": 1,
+        "locale": "ko",
         "candidates": [
             {**candidates[0], "incident_id": "INC-corr-1"},
             candidates[1],

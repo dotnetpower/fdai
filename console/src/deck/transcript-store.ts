@@ -143,6 +143,7 @@ export function serializeTurns(
       const codeArtifacts = parseGroundedCodeArtifacts(t.codeArtifacts);
       const incidentCandidates = parseIncidentCandidates({
         schema_version: 1,
+        locale: t.incidentCandidates?.[0]?.locale ?? "en",
         candidates: t.incidentCandidates?.map((candidate) => ({
           incident_id: candidate.incidentId,
           correlation_id: candidate.correlationId,
@@ -222,6 +223,10 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
     const codeArtifacts = parseGroundedCodeArtifacts(rec.codeArtifacts);
     const incidentCandidates = parseIncidentCandidates({
       schema_version: 1,
+      locale: Array.isArray(rec.incidentCandidates) &&
+          typeof rec.incidentCandidates[0] === "object" && rec.incidentCandidates[0] !== null
+        ? (rec.incidentCandidates[0] as Record<string, unknown>).locale
+        : "en",
       candidates: Array.isArray(rec.incidentCandidates)
         ? rec.incidentCandidates.map((candidate) => {
             if (typeof candidate !== "object" || candidate === null) return candidate;

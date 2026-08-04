@@ -11,22 +11,22 @@ teardown cycle.
 Env-var contract
 ----------------
 
-- ``FDAI_DR_DRILL_SOURCE_SERVER_ARM_ID`` (required) — ARM id of
+- ``FDAI_DR_DRILL_SOURCE_SERVER_ARM_ID`` (required) - ARM id of
   the source PostgreSQL Flexible Server whose PITR checkpoint the
-  drill restores. Never the drill target — restoring into a fresh
+  drill restores. Never the drill target - restoring into a fresh
   isolated RG is the isolation invariant.
-- ``FDAI_DR_DRILL_TARGET_LOCATION`` (required) — Azure region
+- ``FDAI_DR_DRILL_TARGET_LOCATION`` (required) - Azure region
   the drill target lands in (e.g. ``koreacentral``).
 - ``FDAI_DR_DRILL_TARGET_RG_PREFIX`` (default ``rg-fdai-dr-drill``)
-  — prefix for the isolated resource group name; the CLI appends a
+  - prefix for the isolated resource group name; the CLI appends a
   UTC timestamp so parallel drills never collide.
 - ``FDAI_DR_DRILL_TARGET_SERVER_PREFIX`` (default ``psql-drill``)
-  — Postgres server name prefix; combined with a short timestamp to
+  - Postgres server name prefix; combined with a short timestamp to
   stay within the 63-char Azure limit.
-- ``FDAI_DR_DRILL_PITR_OFFSET_MINUTES`` (default ``30``) — how
+- ``FDAI_DR_DRILL_PITR_OFFSET_MINUTES`` (default ``30``) - how
   far back from ``now()`` the restore point sits. 30 min gives the
   PITR window slack; a fork tunes if the source retention differs.
-- ``FDAI_DR_DRILL_DRY_RUN`` (default ``0``) — when ``1``, the
+- ``FDAI_DR_DRILL_DRY_RUN`` (default ``0``) - when ``1``, the
   CLI logs the composed :class:`DbRestoreConfig` and exits ``0``
   without touching Azure. Used by CI + the smoke test that verifies
   wire-up without a live cost.
@@ -34,13 +34,13 @@ Env-var contract
 Exit codes
 ----------
 
-- ``0`` — drill passed. Restore + integrity + smoke all green.
-- ``2`` — invalid / missing env config (fail-fast per coding-conventions).
-- ``3`` — drill did not pass (any non-PASSED outcome). A regression
+- ``0`` - drill passed. Restore + integrity + smoke all green.
+- ``2`` - invalid / missing env config (fail-fast per coding-conventions).
+- ``3`` - drill did not pass (any non-PASSED outcome). A regression
   demotion or paging follows on the audit trail, not on this exit
-  code — but a non-zero exit tells the scheduler the drill did not
+  code - but a non-zero exit tells the scheduler the drill did not
   clear its exit gate.
-- ``4`` — unexpected runtime exception (adapter crashed outside the
+- ``4`` - unexpected runtime exception (adapter crashed outside the
   verifier's fail-close path).
 """
 
@@ -50,9 +50,10 @@ import asyncio
 import logging
 import os
 import sys
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 
-from fdai.core.verticals.resilience.db_dr_verifier import DbDrOutcome, DbDrVerdict
+from fdai.core.verticals.resilience.db_dr_verifier import DbDrVerdict
 from fdai.shared.providers.db_dr import DbRestoreConfig
 
 _LOGGER = logging.getLogger("fdai.core.verticals.resilience.db_dr_drill_cli")
@@ -68,6 +69,8 @@ _ENV_DRY_RUN = "FDAI_DR_DRILL_DRY_RUN"
 _DEFAULT_RG_PREFIX = "rg-fdai-dr-drill"
 _DEFAULT_SERVER_PREFIX = "psql-drill"
 _DEFAULT_OFFSET_MINUTES = 30
+
+DbDrDrillRunner = Callable[[DbRestoreConfig], Awaitable[DbDrVerdict]]
 
 
 def _read_required(env_name: str) -> str | None:
@@ -144,7 +147,7 @@ def _build_config(now: datetime) -> DbRestoreConfig | None:
     )
 
 
-async def _amain() -> int:
+async def _amain(*, run_drill: DbDrDrillRunner | None = None) -> int:
     logging.basicConfig(
         level=os.environ.get("FDAI_LOG_LEVEL", "INFO"),
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -174,38 +177,33 @@ async def _amain() -> int:
         )
         return 0
 
-    # Live drill composition: the concrete adapter + integrity checker +
-    # smoke runner bindings live in a fork's composition root (they need
-    # DB credentials + fixture schema knowledge the upstream repo
-    # deliberately does not embed — see generic-scope.instructions.md).
-    # Upstream ships the dry-run entry so Terraform wire-up + env-var
-    # contract are provable without any live cost; a fork subclasses
-    # this CLI to import :mod:`fdai.composition`, bind the
-    # adapters, and await :meth:`DbDrVerifier.run(config)`.
-    _LOGGER.info(
-        "db_dr_drill_live_composition_required",
-        extra={
-            "experiment_id": config.experiment_id,
-            "hint": (
-                "Upstream ships the dry-run entry only. Fork MUST bind "
-                "DbRestoreAdapter / IntegrityChecker / SmokeRunner at the "
-                "composition root — see docs/runbooks/db-dr-drill.md."
-            ),
-        },
-    )
-    return 2
+    if run_drill is None:
+        _LOGGER.info(
+            "db_dr_drill_live_composition_required",
+            extra={
+                "experiment_id": config.experiment_id,
+                "hint": (
+                    "Bind DbRestoreAdapter / IntegrityChecker / SmokeRunner at the "
+                    "composition root and pass DbDrVerifier.run to main."
+                ),
+            },
+        )
+        return 2
+
+    verdict = await run_drill(config)
+    return _verdict_to_exit_code(verdict)
 
 
 def _verdict_to_exit_code(verdict: DbDrVerdict) -> int:
     """Convert a verdict to a shell exit code."""
-    if verdict.outcome is DbDrOutcome.PASSED:
+    if verdict.is_pass:
         return 0
     return 3
 
 
-def main() -> int:
+def main(run_drill: DbDrDrillRunner | None = None) -> int:
     try:
-        return asyncio.run(_amain())
+        return asyncio.run(_amain(run_drill=run_drill))
     except Exception:
         _LOGGER.exception("db_dr_drill_unexpected_error")
         return 4
@@ -215,4 +213,4 @@ if __name__ == "__main__":
     sys.exit(main())
 
 
-__all__ = ["main"]
+__all__ = ["DbDrDrillRunner", "main"]

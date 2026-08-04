@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import NoReturn, cast
 
 import pytest
 from starlette.applications import Starlette
@@ -15,12 +16,16 @@ from fdai.core.reporting.models import RenderedReport
 from fdai.core.views import ViewEngine
 from fdai.core.workflow.approval import WorkflowApprovalPlanner
 from fdai.core.workflow.orchestrator import WorkflowOrchestrator
+from fdai.core.workflow.workflow_resume import WorkflowResumeError
 from fdai.delivery.operator_api.auth import build_authenticator
 from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes.process_views import ProcessViewsConfig
 from fdai.delivery.operator_api.routes.workflow_execution import (
     WorkflowExecutionConfig,
+    make_workflow_cancel_route,
+    make_workflow_resume_route,
+    make_workflow_retry_route,
     make_workflow_run_route,
 )
 from fdai.shared.contracts.models import (
@@ -151,7 +156,14 @@ def _client(
     return TestClient(app)
 
 
-def _enforce_client(*, role: Role, enforce_workflows: frozenset[str]) -> TestClient:
+def _enforce_client(
+    *,
+    role: Role,
+    enforce_workflows: frozenset[str],
+    cancel_enforce_workflows: frozenset[str] | None = None,
+    retry_enforce_workflows: frozenset[str] | None = None,
+    with_dispatcher: bool = True,
+) -> TestClient:
     action = OntologyActionType(
         schema_version="1.0.0",
         name="ops.inspect",
@@ -197,21 +209,54 @@ def _enforce_client(*, role: Role, enforce_workflows: frozenset[str]) -> TestCli
         action_types=actions,
         audit_store=InMemoryStateStore(),
         process_store=InMemoryProcessRuntimeStore(),
-        action_dispatcher=_Dispatcher(),
+        action_dispatcher=_Dispatcher() if with_dispatcher else None,
     )
 
-    async def authorize(_request):  # type: ignore[no-untyped-def]
-        return Principal(oid="operator", roles=frozenset({role}))
+    async def authorize(request):  # type: ignore[no-untyped-def]
+        request_role = Role(request.headers.get("x-test-role", role.value))
+        return Principal(oid="operator", roles=frozenset({request_role}))
 
-    route = make_workflow_run_route(
-        config=WorkflowExecutionConfig(
-            workflows=(_workflow(),),
-            orchestrator=orchestrator,
-            enforce_workflows=enforce_workflows,
+    config = WorkflowExecutionConfig(
+        workflows=(_workflow(),),
+        orchestrator=orchestrator,
+        enforce_workflows=enforce_workflows,
+    )
+    cancel_config = WorkflowExecutionConfig(
+        workflows=(_workflow(),),
+        orchestrator=orchestrator,
+        enforce_workflows=(
+            enforce_workflows if cancel_enforce_workflows is None else cancel_enforce_workflows
         ),
-        authorize_principal=authorize,
     )
-    return TestClient(Starlette(routes=[route]))
+    retry_config = WorkflowExecutionConfig(
+        workflows=(_workflow(),),
+        orchestrator=orchestrator,
+        enforce_workflows=(
+            enforce_workflows if retry_enforce_workflows is None else retry_enforce_workflows
+        ),
+    )
+    return TestClient(
+        Starlette(
+            routes=[
+                make_workflow_run_route(
+                    config=config,
+                    authorize_principal=authorize,
+                ),
+                make_workflow_resume_route(
+                    config=config,
+                    authorize_principal=authorize,
+                ),
+                make_workflow_cancel_route(
+                    config=cancel_config,
+                    authorize_principal=authorize,
+                ),
+                make_workflow_retry_route(
+                    config=retry_config,
+                    authorize_principal=authorize,
+                ),
+            ]
+        )
+    )
 
 
 def test_shadow_command_creates_process_visible_through_journal() -> None:
@@ -249,6 +294,211 @@ def test_shadow_command_is_idempotent_for_same_trigger() -> None:
 
     assert first.json()["process"]["id"] == second.json()["process"]["id"]
     assert second.json()["process"]["replayed"] is True
+
+
+def test_shadow_process_resumes_by_exact_process_id() -> None:
+    client = _client()
+    started = client.post(
+        "/workflows/run",
+        json={
+            "workflow": "sample-flow",
+            "target_resource_id": "resource-1",
+            "trigger_ts": _TRIGGER_TS.isoformat(),
+        },
+    )
+
+    resumed = client.post(started.json()["links"]["resume"])
+
+    assert resumed.status_code == 200
+    assert resumed.json()["process"]["id"] == started.json()["process"]["id"]
+    assert resumed.json()["process"]["replayed"] is True
+
+
+def test_resume_rejects_unknown_process() -> None:
+    client = _client()
+
+    response = client.post("/workflows/missing-process/resume")
+
+    assert response.status_code == 404
+    assert response.json()["error"]["kind"] == "process_not_found"
+
+
+@pytest.mark.parametrize(
+    "kind",
+    (
+        "resume_evidence_unavailable",
+        "resume_context_redacted",
+        "resume_evidence_malformed",
+        "workflow_version_mismatch",
+        "process_identity_mismatch",
+    ),
+)
+def test_resume_returns_typed_conflict_for_invalid_durable_evidence(kind: str) -> None:
+    class _FailingResumeOrchestrator:
+        async def resume_metadata(self, **_kwargs: object) -> NoReturn:
+            raise WorkflowResumeError(kind, "resume evidence rejected")
+
+    async def authorize(_request):  # type: ignore[no-untyped-def]
+        return Principal(oid="operator", roles=frozenset({Role.CONTRIBUTOR}))
+
+    route = make_workflow_resume_route(
+        config=WorkflowExecutionConfig(
+            workflows=(_workflow(),),
+            orchestrator=cast(WorkflowOrchestrator, _FailingResumeOrchestrator()),
+        ),
+        authorize_principal=authorize,
+    )
+
+    response = TestClient(Starlette(routes=[route])).post("/workflows/test-process/resume")
+
+    assert response.status_code == 409
+    assert response.json()["error"]["kind"] == kind
+
+
+def test_resume_rejects_caller_supplied_workflow_inputs() -> None:
+    client = _client()
+    started = client.post(
+        "/workflows/run",
+        json={
+            "workflow": "sample-flow",
+            "target_resource_id": "resource-1",
+            "trigger_ts": _TRIGGER_TS.isoformat(),
+        },
+    )
+
+    response = client.post(
+        started.json()["links"]["resume"],
+        json={"mode": "enforce"},
+    )
+
+    assert response.status_code == 400
+
+
+def test_enforce_resume_rechecks_owner_role() -> None:
+    client = _enforce_client(
+        role=Role.OWNER,
+        enforce_workflows=frozenset({"sample-flow"}),
+    )
+    started = client.post(
+        "/workflows/run",
+        json={
+            "workflow": "sample-flow",
+            "target_resource_id": "resource-1",
+            "trigger_ts": _TRIGGER_TS.isoformat(),
+            "mode": "enforce",
+        },
+    )
+
+    response = client.post(
+        started.json()["links"]["resume"],
+        headers={"x-test-role": Role.CONTRIBUTOR.value},
+    )
+
+    assert response.status_code == 403
+
+
+def test_enforce_cancel_rechecks_owner_role_and_accepts_no_inputs() -> None:
+    client = _enforce_client(
+        role=Role.OWNER,
+        enforce_workflows=frozenset({"sample-flow"}),
+    )
+    started = client.post(
+        "/workflows/run",
+        json={
+            "workflow": "sample-flow",
+            "target_resource_id": "resource-1",
+            "trigger_ts": _TRIGGER_TS.isoformat(),
+            "mode": "enforce",
+        },
+    )
+    cancel_path = started.json()["links"]["cancel"]
+
+    forbidden = client.post(
+        cancel_path,
+        headers={"x-test-role": Role.CONTRIBUTOR.value},
+    )
+    body_rejected = client.post(cancel_path, json={})
+    accepted = client.post(cancel_path)
+
+    assert forbidden.status_code == 403
+    assert body_rejected.status_code == 400
+    assert accepted.status_code == 200
+    assert accepted.json()["process"]["status"] == "waiting"
+
+
+def test_enforce_allowlist_removal_does_not_block_cancellation() -> None:
+    client = _enforce_client(
+        role=Role.OWNER,
+        enforce_workflows=frozenset({"sample-flow"}),
+        cancel_enforce_workflows=frozenset(),
+    )
+    started = client.post(
+        "/workflows/run",
+        json={
+            "workflow": "sample-flow",
+            "target_resource_id": "resource-1",
+            "trigger_ts": _TRIGGER_TS.isoformat(),
+            "mode": "enforce",
+        },
+    )
+
+    response = client.post(started.json()["links"]["cancel"])
+
+    assert response.status_code == 200
+    assert response.json()["process"]["status"] == "waiting"
+
+
+def test_enforce_retry_rechecks_owner_and_current_allowlist() -> None:
+    client = _enforce_client(
+        role=Role.OWNER,
+        enforce_workflows=frozenset({"sample-flow"}),
+        with_dispatcher=False,
+    )
+    started = client.post(
+        "/workflows/run",
+        json={
+            "workflow": "sample-flow",
+            "target_resource_id": "resource-1",
+            "trigger_ts": _TRIGGER_TS.isoformat(),
+            "mode": "enforce",
+        },
+    )
+    retry_path = started.json()["links"]["retry"]
+
+    forbidden = client.post(
+        retry_path,
+        headers={"x-test-role": Role.CONTRIBUTOR.value},
+    )
+    body_rejected = client.post(retry_path, json={})
+    accepted = client.post(retry_path)
+
+    assert started.json()["process"]["status"] == "failed"
+    assert forbidden.status_code == 403
+    assert body_rejected.status_code == 400
+    assert accepted.status_code == 200
+    assert accepted.json()["process"]["status"] == "failed"
+
+
+def test_enforce_allowlist_removal_blocks_retry() -> None:
+    client = _enforce_client(
+        role=Role.OWNER,
+        enforce_workflows=frozenset({"sample-flow"}),
+        retry_enforce_workflows=frozenset(),
+        with_dispatcher=False,
+    )
+    started = client.post(
+        "/workflows/run",
+        json={
+            "workflow": "sample-flow",
+            "target_resource_id": "resource-1",
+            "trigger_ts": _TRIGGER_TS.isoformat(),
+            "mode": "enforce",
+        },
+    )
+
+    response = client.post(started.json()["links"]["retry"])
+
+    assert response.status_code == 409
 
 
 def test_shadow_command_rejects_unknown_workflow_and_bad_context() -> None:

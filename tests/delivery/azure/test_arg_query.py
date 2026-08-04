@@ -20,6 +20,7 @@ No real Azure endpoints are contacted; every test builds an
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Sequence
 from pathlib import Path
@@ -29,6 +30,7 @@ import httpx
 import pytest
 import yaml
 
+from fdai.delivery.azure import arg_transport
 from fdai.delivery.azure.arg_query import (
     ArgQueryError,
     AzureArgQueryFactory,
@@ -260,6 +262,7 @@ async def test_single_page_query_maps_to_resource_records() -> None:
     body = json.loads(req.content.decode("utf-8"))
     assert body["subscriptions"] == ["00000000-0000-0000-0000-000000000001"]
     assert "Microsoft.Storage/storageAccounts" in body["query"]
+    assert "order by id asc" in body["query"]
     assert body["options"]["$top"] == 2
 
 
@@ -354,7 +357,178 @@ async def test_pagination_cap_raises() -> None:
             http_client=client,
             config=_config(max_pages=2),
         )
-        with pytest.raises(ArgQueryError, match="pagination cap"):
+        with pytest.raises(ArgQueryError, match="continuation token did not advance"):
+            await factory.build_query_fn()("object-storage")
+
+
+@pytest.mark.asyncio
+async def test_retry_after_and_quota_reset_delay_follow_up_calls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    now = 0.0
+    delays: list[float] = []
+
+    def _fake_monotonic() -> float:
+        return now
+
+    async def _record_delay(delay: float) -> None:
+        nonlocal now
+        delays.append(delay)
+        now += delay
+
+    monkeypatch.setattr(arg_transport, "_monotonic", _fake_monotonic)
+    monkeypatch.setattr(arg_transport, "_sleep", _record_delay)
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(429, headers={"Retry-After": "2"})
+        if calls == 2:
+            return httpx.Response(
+                200,
+                headers={
+                    "x-ms-user-quota-remaining": "0",
+                    "x-ms-user-quota-resets-after": "00:00:03",
+                },
+                json={"data": [], "$skipToken": "next"},
+            )
+        return httpx.Response(200, json={"data": []})
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        await factory.build_query_fn()("object-storage")
+
+    assert calls == 3
+    assert delays == [2.0, 3.0]
+
+
+@pytest.mark.asyncio
+async def test_quota_gate_rechecks_deadline_extended_while_waiting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    gate = arg_transport.ArgThrottleGate()
+    first_sleep_started = asyncio.Event()
+    release_first_sleep = asyncio.Event()
+    delays: list[float] = []
+    now = 0.0
+
+    def _fake_monotonic() -> float:
+        return now
+
+    async def _controlled_sleep(delay: float) -> None:
+        nonlocal now
+        delays.append(delay)
+        if len(delays) == 1:
+            first_sleep_started.set()
+            await release_first_sleep.wait()
+        now += delay
+
+    monkeypatch.setattr(arg_transport, "_monotonic", _fake_monotonic)
+    monkeypatch.setattr(arg_transport, "_sleep", _controlled_sleep)
+
+    await gate.defer(2.0)
+    waiter = asyncio.create_task(gate.wait())
+    await first_sleep_started.wait()
+    await gate.defer(3.0)
+    release_first_sleep.set()
+    await waiter
+
+    assert delays == [2.0, 1.0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("retry_after", ["-1", "nan", "inf"])
+async def test_invalid_retry_after_uses_bounded_backoff(
+    retry_after: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    now = 0.0
+    delays: list[float] = []
+
+    monkeypatch.setattr(arg_transport, "_monotonic", lambda: now)
+
+    async def _record_delay(delay: float) -> None:
+        nonlocal now
+        delays.append(delay)
+        now += delay
+
+    monkeypatch.setattr(arg_transport, "_sleep", _record_delay)
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(429, headers={"Retry-After": retry_after})
+        return httpx.Response(200, json={"data": []})
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        await factory.build_query_fn()("object-storage")
+
+    assert calls == 2
+    assert delays == [0.5]
+
+
+@pytest.mark.asyncio
+async def test_retry_after_beyond_local_bound_fails_without_early_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    delays: list[float] = []
+
+    async def _record_delay(delay: float) -> None:
+        delays.append(delay)
+
+    monkeypatch.setattr(arg_transport, "_sleep", _record_delay)
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(429, headers={"Retry-After": "31"})
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        with pytest.raises(ArgQueryError, match="HTTP 429"):
+            await factory.build_query_fn()("object-storage")
+
+    assert calls == 1
+    assert delays == []
+
+
+@pytest.mark.asyncio
+async def test_truncated_page_without_skip_token_fails_closed() -> None:
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"data": [], "count": 0, "totalRecords": 1, "resultTruncated": True},
+        )
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        with pytest.raises(ArgQueryError, match="truncated result"):
             await factory.build_query_fn()("object-storage")
 
 

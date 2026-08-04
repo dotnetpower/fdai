@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: cache.zone-redundant
 version: 1.0.0
 source: waf
@@ -8,15 +8,17 @@ resource_type: cache
 applies_to:
 - cache
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.cache.zones
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: cache
+- kind: property_exists
+  value: property.cache.zones
 check_logic:
   kind: rego
   reference: policies/cache/zone_redundant.rego

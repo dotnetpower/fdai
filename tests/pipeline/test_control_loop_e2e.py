@@ -60,6 +60,7 @@ from fdai.rule_catalog.schema.resource_type import (
     load_resource_type_registry_from_mapping,
 )
 from fdai.rule_catalog.schema.rule import load_rule_catalog
+from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.shared.contracts.models import Event, Mode
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.contracts.validation import (
@@ -82,6 +83,7 @@ CATALOG_ROOT = REPO_ROOT / "rule-catalog" / "catalog"
 POLICIES_ROOT = REPO_ROOT / "policies"
 REMEDIATION_ROOT = REPO_ROOT / "rule-catalog" / "remediation"
 VOCABULARY_FILE = REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
+SIGNAL_TYPES_FILE = REPO_ROOT / "rule-catalog" / "vocabulary" / "signal-types.yaml"
 
 _OPA_PRESENT = shutil.which("opa") is not None
 requires_opa = pytest.mark.skipif(
@@ -95,11 +97,15 @@ def shipped_catalog() -> tuple[Any, Any]:
     action_types = load_action_type_catalog(ACTION_TYPES_ROOT, schema_registry=registry)
     with VOCABULARY_FILE.open("r", encoding="utf-8") as fh:
         resource_types = load_resource_type_registry_from_mapping(yaml.safe_load(fh))
+    signal_types = load_signal_type_registry_from_mapping(
+        yaml.safe_load(SIGNAL_TYPES_FILE.read_text(encoding="utf-8"))
+    )
     rules = load_rule_catalog(
         CATALOG_ROOT,
         schema_registry=registry,
         action_types=action_types,
         resource_types=resource_types,
+        signal_types=signal_types,
         policies_root=POLICIES_ROOT,
         remediation_root=REMEDIATION_ROOT,
     )
@@ -120,7 +126,10 @@ def _make_loop(
     governance_assignments: tuple[Any, ...] = (),
 ) -> tuple[ControlLoop, RecordingRemediationPrPublisher, InMemoryStateStore]:
     rules, action_types = shipped_catalog
-    index = RuleIndex.build(rules)
+    signal_types = load_signal_type_registry_from_mapping(
+        yaml.safe_load(SIGNAL_TYPES_FILE.read_text(encoding="utf-8"))
+    )
+    index = RuleIndex.build(rules, signal_types=signal_types)
     evaluator = OpaRegoEvaluator(policies_root=POLICIES_ROOT) if with_opa else None
     publisher = RecordingRemediationPrPublisher()
     audit = InMemoryStateStore()
@@ -869,7 +878,10 @@ async def test_action_build_failure_falls_closed_and_audits(
     from fdai.core.executor.action_builder import ActionBuilder
 
     rules, action_types = shipped_catalog
-    index = RuleIndex.build(rules)
+    signal_types = load_signal_type_registry_from_mapping(
+        yaml.safe_load(SIGNAL_TYPES_FILE.read_text(encoding="utf-8"))
+    )
+    index = RuleIndex.build(rules, signal_types=signal_types)
     publisher = RecordingRemediationPrPublisher()
     audit = InMemoryStateStore()
     executor = ShadowExecutor(

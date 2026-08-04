@@ -20,7 +20,11 @@ from fdai.core.architecture_review import (
     ArchitectureReviewProductionGateEvaluator,
     ArchitectureReviewProjector,
 )
-from fdai.core.assurance_twin import DynamicRuntimeCoordinator
+from fdai.core.assurance_twin import (
+    DynamicRuntimeCoordinator,
+    GraphDynamicRuntimeCoordinator,
+    StateStoreTrajectoryEpisodeLedger,
+)
 from fdai.core.chaos.symptom_index import SymptomIndex, build_from_promoted
 from fdai.core.control_loop import ControlLoop
 from fdai.core.event_ingest import EventCorrelator, EventIngest
@@ -101,6 +105,7 @@ from fdai.rule_catalog.schema.resource_type import (
     load_resource_type_registry_from_mapping,
 )
 from fdai.rule_catalog.schema.rule import load_rule_catalog
+from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
 from fdai.runtime.configuration import _resolve_catalog_root, _resolve_policies_root
 from fdai.runtime.delivery import (
@@ -287,6 +292,7 @@ def _build_control_loop(
     current_reuse_verifier: CurrentReuseVerifier | None = None,
     causal_runtime_coordinator: CausalRuntimeCoordinator | None = None,
     dynamic_runtime_coordinator: DynamicRuntimeCoordinator | None = None,
+    graph_dynamic_runtime_coordinator: GraphDynamicRuntimeCoordinator | None = None,
     human_access_enabled: bool = True,
     execution_identities: Mapping[str, WorkloadIdentity] | None = None,
 ) -> ControlLoop:
@@ -324,6 +330,11 @@ def _build_control_loop(
         ontology_object_types = ()
         ontology_link_types = ()
     resource_types = _load_resource_types()
+    signal_types = load_signal_type_registry_from_mapping(
+        yaml.safe_load(
+            (catalog_root / "vocabulary" / "signal-types.yaml").read_text(encoding="utf-8")
+        )
+    )
 
     # Ontology ObjectType / LinkType catalogs (fail-closed if directories
     # exist but any file is invalid). Missing directories are tolerated
@@ -341,10 +352,11 @@ def _build_control_loop(
         schema_registry=registry,
         action_types=action_types,
         resource_types=resource_types,
+        signal_types=signal_types,
         policies_root=policies_root,
         remediation_root=remediation_root,
     )
-    index = RuleIndex.build(rules)
+    index = RuleIndex.build(rules, signal_types=signal_types)
     governance_catalog = load_governance_catalog(catalog_root)
 
     # Workflow catalog (fail-closed if the directory exists but any file is
@@ -626,6 +638,21 @@ def _build_control_loop(
             model_reader=container.effect_model_reader,
             causal_evidence_verifier=container.effect_model_causal_evidence_verifier,
         )
+    if (
+        graph_dynamic_runtime_coordinator is None
+        and container.graph_dynamic_simulation_request_provider is not None
+    ):
+        if (
+            container.graph_effect_model_reader is None
+            or container.graph_effect_model_causal_evidence_verifier is None
+        ):
+            raise RuntimeError("graph Dynamic runtime requires verified effect model evidence")
+        graph_dynamic_runtime_coordinator = GraphDynamicRuntimeCoordinator(
+            request_provider=container.graph_dynamic_simulation_request_provider,
+            model_reader=container.graph_effect_model_reader,
+            causal_evidence_verifier=container.graph_effect_model_causal_evidence_verifier,
+            trajectory_ledger=StateStoreTrajectoryEpisodeLedger(audit_store),
+        )
 
     process_runtime_store = _build_process_store()
     workflow_outcome_ledger = StateStoreWorkflowOutcomeLedger(audit_store)
@@ -643,6 +670,7 @@ def _build_control_loop(
         risk_gate=risk_gate,
         t1_engine=t1,
         dynamic_runtime_coordinator=dynamic_runtime_coordinator,
+        graph_dynamic_runtime_coordinator=graph_dynamic_runtime_coordinator,
         t2_engine=t2,
         direct_api_executor=direct_api_executor,
         tool_executor=tool_executor,

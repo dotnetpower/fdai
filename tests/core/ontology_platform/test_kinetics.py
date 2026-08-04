@@ -201,6 +201,12 @@ async def test_function_invocation_is_authorized_release_pinned_and_replay_stabl
             {"replicas": 2},
             context=context.model_copy(update={"caller_role": CeilingRole.READER}),
         )
+    with pytest.raises(ValueError, match="seed field .* runtime-owned"):
+        await registry.invoke(
+            declaration.name,
+            {"replicas": 2, "fdai_seed": 7},
+            context=context,
+        )
 
 
 async def test_projection_binding_pins_release_and_watermark() -> None:
@@ -259,6 +265,13 @@ async def test_projection_rejects_duplicate_identity_and_emits_tombstone() -> No
     )
     assert batch.objects == ()
     assert batch.deleted_ids == ("workload-a",)
+
+    with pytest.raises(ValueError, match="delete marker MUST be boolean"):
+        project_source_records(
+            binding=binding,
+            records=({**duplicate, "deleted": "true"},),
+            release=release,
+        )
 
 
 async def test_reconciliation_distinguishes_receipt_from_observed_state() -> None:

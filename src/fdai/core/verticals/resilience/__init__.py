@@ -38,6 +38,25 @@ from fdai.core.verticals.resilience.orchestrator import (
     SchedulerOutcome,
     summarize_runs,
 )
+from fdai.core.verticals.resilience.recovery_coordinator import (
+    RecoveryApprovalError,
+    RecoveryCoordinatorError,
+    RecoveryPlanCoordinator,
+    RecoveryPlanRecord,
+    RecoveryRecordError,
+    RecoveryWriteConflictError,
+)
+from fdai.core.verticals.resilience.recovery_plan import (
+    LEGAL_RECOVERY_TRANSITIONS,
+    RecoveryMode,
+    RecoveryObjectives,
+    RecoveryPlan,
+    RecoveryPlanError,
+    RecoveryPlanStateMachine,
+    RecoveryProfile,
+    RecoveryState,
+    RecoveryTransition,
+)
 
 __all__ = [
     "DbDrOutcome",
@@ -53,6 +72,21 @@ __all__ = [
     "ExecutionMode",
     "FreezePeriod",
     "MaintenanceWindow",
+    "LEGAL_RECOVERY_TRANSITIONS",
+    "RecoveryApprovalError",
+    "RecoveryCoordinatorError",
+    "RecoveryMode",
+    "RecoveryObjectives",
+    "RecoveryPlan",
+    "RecoveryPlanCoordinator",
+    "RecoveryPlanError",
+    "RecoveryPlanRecord",
+    "RecoveryPlanStateMachine",
+    "RecoveryProfile",
+    "RecoveryState",
+    "RecoveryTransition",
+    "RecoveryRecordError",
+    "RecoveryWriteConflictError",
     "RunOutcome",
     "SchedulerDecision",
     "SchedulerOutcome",

@@ -17,6 +17,9 @@ from ..core.assurance_twin import (
     DynamicSimulationRequestProvider,
     EffectModelCausalEvidenceVerifier,
     EffectModelReader,
+    GraphDynamicSimulationRequestProvider,
+    GraphEffectModelCausalEvidenceVerifier,
+    GraphEffectModelReader,
 )
 from ..core.browser_evidence.service import BrowserEvidenceCaptureService
 from ..core.browser_evidence.surfaces import (
@@ -233,6 +236,11 @@ class Container:
     dynamic_simulation_request_provider: DynamicSimulationRequestProvider | None = None
     effect_model_reader: EffectModelReader | None = None
     effect_model_causal_evidence_verifier: EffectModelCausalEvidenceVerifier | None = None
+    graph_dynamic_simulation_request_provider: GraphDynamicSimulationRequestProvider | None = None
+    graph_effect_model_reader: GraphEffectModelReader | None = None
+    graph_effect_model_causal_evidence_verifier: GraphEffectModelCausalEvidenceVerifier | None = (
+        None
+    )
     operational_promotion_receipt_verifier: OperationalPromotionReceiptVerifier | None = None
     persisted_promotion_authority_verifier: PersistedPromotionAuthorityVerifier | None = None
 
@@ -260,6 +268,18 @@ class Container:
             and self.effect_model_causal_evidence_verifier is None
         ):
             raise ValueError("Container Dynamic effect models require a causal evidence verifier")
+        graph_bindings = (
+            self.graph_dynamic_simulation_request_provider,
+            self.graph_effect_model_reader,
+            self.graph_effect_model_causal_evidence_verifier,
+        )
+        if any(item is not None for item in graph_bindings) and not all(
+            item is not None for item in graph_bindings
+        ):
+            raise ValueError(
+                "Container graph Dynamic provider, model reader, and causal verifier "
+                "MUST be bound together"
+            )
         if self.context_selection_policy_authority is None:
             object.__setattr__(
                 self,

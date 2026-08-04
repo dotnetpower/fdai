@@ -1,8 +1,8 @@
 ---
 title: Phase 3 - 통합 컨트롤 루프 (Resilience · Change Safety · Cost Governance)
 translation_of: phase-3-integrated-loop.md
-translation_source_sha: 5b79a7f1654ae25720240d142a3240ad5634ef2e
-translation_revised: 2026-08-01
+translation_source_sha: e8080f5340957eb826fe492dc52d6c09be7d0523
+translation_revised: 2026-08-04
 ---
 
 # Phase 3 - 통합 컨트롤 루프 (Resilience · Change Safety · Cost Governance)
@@ -80,6 +80,14 @@ P2에서 딜리버리된 T0/T1/T2 라우터, quality gate, 리스크 게이트
 - **윈도우-기반 스케줄러**: DR failover와 Chaos 실험을 승인된 유지 윈도우(테스트 failover /
   game day) 안에서만 실행. 스케줄러는 **freeze/quiet 기간** 과 리소스별 **opt-out 태그** 존중,
   **동시 실험** 상한(blast-radius limit), 각 실행 전후 운영자 알림.
+- **실행 예약**: 하나의 scheduler process는 start 전에 capacity를 원자적으로 예약하고
+  `RUNNING` handle을 이후 polling을 위해 유지하며 terminal success 또는 검증된 rollback 후에만
+  capacity를 해제합니다. Rollback 실패는 slot을 계속 점유합니다. 둘 이상의 scheduler process를
+  사용하는 배포는 enforce 전에 durable cross-process reservation을 binding해야 하며 caller가
+  제공한 count만으로는 충분하지 않습니다.
+- **Time box**: 모든 experiment는 finite positive `max_duration_seconds`를 가집니다. 경과 시간이
+  해당 한계에 도달하면 scheduler는 polling을 중단하고 rollback을 호출합니다. Rollback 실패는
+  reservation을 유지하며 recovery가 검증될 때까지 replacement experiment를 차단합니다.
 - **RPO/RTO 보고**: 각 실행에 대해 명시된 목표 대비 **측정된 RPO** (failover 데이터 손실) 와
   **측정된 RTO** (복원된 서비스까지 wall-clock) 를 실행에 대한 median과 p90으로 고정 측정 윈도우에
   보고 ([goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)). RPO/RTO가 목표를 위반한 실행은

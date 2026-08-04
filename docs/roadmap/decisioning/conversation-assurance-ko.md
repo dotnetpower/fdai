@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 26215e5467e9c942cae8692f0c18260be4ad749d
+translation_source_sha: 8032f3496f67eac6fd7747c6ecd338bf9b55a62f
 translation_revised: 2026-08-04
 ---
 # 대화 품질 보증
@@ -77,6 +77,20 @@ $$
 생명주기 상태를 저장합니다. 제한 없는 대화 본문, 숨은 reasoning 또는 도구 출력을 복제하지
 않습니다.
 
+Terminal intake는 exact verification reason, route id, evidence-manifest completeness, ontology
+release 및 graph revision이 있으면 함께 보존합니다. Deterministic assessment는 모든 unverified
+답변을 하나의 generic class로 축약하지 않고 failure signature에 exact reason을 포함합니다. 따라서
+provider, context, routing, rendering, policy, rule, ontology, Dynamic failure가 서로의 recurrence
+floor를 충족하지 않습니다.
+
+Ontology-owned failure는 별도 `OntologyAdequacyReview`를 열 수 있습니다. 첫 runtime slice는
+hold-first입니다. StateStore에 idempotent shadow review를 기록하지만 replay success를 주장하거나
+catalog proposal을 만들지 않습니다. Complete evidence, verified routing, resolved identity, exact
+release 및 graph revision, deterministic reproduction이 모두 있을 때만 review가 ready가 됩니다.
+Provider, context, rendering, policy failure는 ontology review를 만들지 않습니다. Ready review는
+provider mapping, projection binding, ontology declaration, rule candidate 또는 Dynamic model review 중
+가장 작은 owning artifact만 추천할 수 있습니다.
+
 ### 하드 검사
 
 하드 검사는 모델 호출 없이 완료된 모든 답변에 적용됩니다.
@@ -89,6 +103,9 @@ $$
 - **최신성**: 시간에 민감한 근거가 주장에 충분히 최신입니다.
 
 하드 검사 실패는 `fail`입니다. 근거 부족은 `inconclusive`이며 통과로 바뀌지 않습니다.
+Deterministic answer는 terminal evidence manifest에 reference가 하나 이상 있고 verification
+authority가 available인 경우에만 통과합니다. Route name, completed check count 또는 deterministic
+source flag는 terminal evidence를 대체할 수 없습니다.
 
 ### 의미 루브릭
 
@@ -187,6 +204,9 @@ resolved local profile도 secondary reasoner가 `hil-only`이면 이 hold 동작
 각 후보는 원래 실패 질문, 실패당 최소 세 개의 paraphrase, 고정된 영어 및 한국어 benchmark,
 숨겨진 holdout에서 실행됩니다. 이후 shadow, 트래픽 1 percent, 5 percent, 25 percent, 100
 percent 단계를 진행합니다.
+Incumbent와 candidate는 각각 영어와 한국어에서 verified answer를 하나 이상 생성해야 합니다.
+Locale 하나라도 verified answer가 없으면 trial은 unmeasured 상태를 유지하고 promotion metric을
+생성할 수 없습니다. 다른 locale의 aggregate success로 이 gap을 숨길 수 없습니다.
 
 각 단계에는 관측 중인 단계에 결속된 새로운 측정 기간이 필요합니다. stage `r`의 candidate
 `c`에 대해 trial은 `observed_stage = r`과 시나리오 세트 버전, holdout 버전, 입력 cohort, 정책
@@ -218,6 +238,9 @@ $$
 
 `H`는 하드 실패 이탈 수입니다. 하드 이탈, 0보다 낮은 신뢰 하한, 비용 또는 지연 회귀, locale
 격차 또는 불일치 증가가 있으면 이전 immutable 정책을 자동 복원합니다.
+기본 minimum lower-confidence-bound gain은 `0.01`이므로 tie 또는 측정되지 않은 improvement는 다음
+stage로 진행하지 않습니다. 잘못된 sample, gain, latency, locale-gap 또는 disagreement threshold는
+runtime policy 생성 시 실패합니다.
 
 ## 운영자 이의 제기 화면
 

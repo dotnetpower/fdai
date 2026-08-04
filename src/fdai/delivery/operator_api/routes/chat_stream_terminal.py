@@ -152,6 +152,7 @@ def response_incident_candidates(
     enriched_context: Mapping[str, Any],
     *,
     verification: AnswerVerification,
+    locale: str | None = None,
 ) -> dict[str, Any] | None:
     if verification.reason_code != "ambiguous_incident":
         return None
@@ -191,7 +192,11 @@ def response_incident_candidates(
         candidates.append(projected)
     if not candidates:
         return None
-    return {"schema_version": 1, "candidates": candidates}
+    return {
+        "schema_version": 1,
+        "locale": _incident_candidate_locale(locale),
+        "candidates": candidates,
+    }
 
 
 def _incident_candidate_field(value: Any) -> str | None:
@@ -203,6 +208,13 @@ def _incident_candidate_field(value: Any) -> str | None:
     ):
         return None
     return normalized
+
+
+def _incident_candidate_locale(locale: str | None) -> str:
+    if not isinstance(locale, str):
+        return "en"
+    primary = locale.strip().lower().split("-", 1)[0].split("_", 1)[0]
+    return "ko" if primary == "ko" else "en"
 
 
 def build_done_payload(
@@ -221,6 +233,7 @@ def build_done_payload(
     started: float,
     delegation: Mapping[str, Any] | None,
     enriched_context: Mapping[str, Any],
+    response_locale: str | None,
     answer_plan: AnswerPlan,
     answer_planning: Mapping[str, Any] | None,
     quality: AnswerQualityResult | None,
@@ -265,6 +278,7 @@ def build_done_payload(
     incident_candidates = response_incident_candidates(
         enriched_context,
         verification=verification,
+        locale=response_locale,
     )
     if incident_candidates is not None:
         payload["incident_candidates"] = incident_candidates

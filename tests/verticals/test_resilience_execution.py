@@ -22,7 +22,9 @@ coding conventions.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import asyncio
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -35,10 +37,23 @@ from fdai.core.verticals.resilience import (
     RunOutcome,
     SchedulerOutcome,
 )
-from fdai.shared.providers.dr_experiment import DrRunStatus
+from fdai.shared.providers.dr_experiment import DrRunHandle, DrRunStatus
 from fdai.shared.providers.testing.dr_experiment import (
     FakeDrExperimentRunner,
 )
+
+
+class _BlockingStartRunner(FakeDrExperimentRunner):
+    def __init__(self) -> None:
+        super().__init__(status_sequence=(DrRunStatus.SUCCEEDED,))
+        self.start_entered = asyncio.Event()
+        self.release_start = asyncio.Event()
+
+    async def start(self, experiment: DrExperiment) -> DrRunHandle:
+        self.start_entered.set()
+        await self.release_start.wait()
+        return await super().start(experiment)
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -74,6 +89,7 @@ def _experiment(
         "rg-example/providers/Microsoft.Chaos/experiments/exp-1"
     ),
     tags: frozenset[str] = frozenset(),
+    max_duration_seconds: float = 3600.0,
 ) -> DrExperiment:
     return DrExperiment(
         experiment_id=experiment_id,
@@ -83,6 +99,7 @@ def _experiment(
         is_production_target=is_production_target,
         has_rollback_path=has_rollback_path,
         stop_conditions=stop_conditions,
+        max_duration_seconds=max_duration_seconds,
     )
 
 
@@ -288,6 +305,7 @@ async def test_enforce_mode_records_rollback_error_reason() -> None:
     assert "rollback:error" in result.reasons
     # The rollback path was still attempted even though it raised.
     assert runner.rolled_back == []
+    assert await scheduler.active_experiment_ids() == ("exp-1",)
 
 
 async def test_enforce_mode_records_rollback_error_when_check_raises() -> None:
@@ -355,6 +373,19 @@ async def test_missing_stop_condition_blocks_enforce() -> None:
     assert runner.started == []
 
 
+@pytest.mark.parametrize("duration", [0.0, -1.0, float("inf"), float("nan")])
+async def test_invalid_time_box_blocks_before_runner(duration: float) -> None:
+    runner = FakeDrExperimentRunner()
+    scheduler = _scheduler(runner=runner)
+    result = await scheduler.run(
+        experiment=_experiment(max_duration_seconds=duration),
+        mode=ExecutionMode.ENFORCE,
+        at=_INSIDE,
+    )
+    assert result.outcome is RunOutcome.INVALID_TIME_BOX
+    assert runner.started == []
+
+
 async def test_missing_provider_ref_blocks_enforce() -> None:
     runner = FakeDrExperimentRunner()
     scheduler = _scheduler(runner=runner)
@@ -414,6 +445,164 @@ async def test_concurrent_cap_allows_run_when_slot_free() -> None:
     )
 
     assert result.outcome is RunOutcome.EXECUTED
+    assert len(runner.started) == 1
+
+
+async def test_concurrent_starts_atomically_respect_local_cap() -> None:
+    runner = _BlockingStartRunner()
+    scheduler = _scheduler(runner=runner, max_concurrent=1)
+    first_task = asyncio.create_task(
+        scheduler.run(
+            experiment=_experiment(experiment_id="exp-first"),
+            mode=ExecutionMode.ENFORCE,
+            at=_INSIDE,
+        )
+    )
+    await runner.start_entered.wait()
+
+    second = await scheduler.run(
+        experiment=_experiment(experiment_id="exp-second"),
+        mode=ExecutionMode.ENFORCE,
+        at=_INSIDE,
+    )
+    assert second.outcome is RunOutcome.NOT_ALLOWED
+    assert second.decision.outcome is SchedulerOutcome.CONCURRENCY_CAP
+    assert await scheduler.active_experiment_ids() == ("exp-first",)
+
+    runner.release_start.set()
+    first = await first_task
+    assert first.outcome is RunOutcome.EXECUTED
+    assert len(runner.started) == 1
+    assert await scheduler.active_experiment_ids() == ()
+
+
+async def test_cancellation_during_start_retains_handle_for_resume() -> None:
+    runner = _BlockingStartRunner()
+    scheduler = _scheduler(runner=runner, max_concurrent=1)
+    experiment = _experiment(experiment_id="exp-cancelled-start")
+    task = asyncio.create_task(
+        scheduler.run(
+            experiment=experiment,
+            mode=ExecutionMode.ENFORCE,
+            at=_INSIDE,
+        )
+    )
+    await runner.start_entered.wait()
+    task.cancel()
+    runner.release_start.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert len(runner.started) == 1
+    assert await scheduler.active_experiment_ids() == ("exp-cancelled-start",)
+
+    resumed = await scheduler.run(
+        experiment=experiment,
+        mode=ExecutionMode.ENFORCE,
+        at=_INSIDE,
+    )
+    assert resumed.status is DrRunStatus.SUCCEEDED
+    assert len(runner.started) == 1
+    assert await scheduler.active_experiment_ids() == ()
+
+
+async def test_running_handle_is_resumed_without_duplicate_start() -> None:
+    runner = FakeDrExperimentRunner(status_sequence=(DrRunStatus.RUNNING, DrRunStatus.SUCCEEDED))
+    scheduler = _scheduler(runner=runner, max_concurrent=1)
+    experiment = _experiment(experiment_id="exp-running")
+
+    first = await scheduler.run(
+        experiment=experiment,
+        mode=ExecutionMode.ENFORCE,
+        at=_INSIDE,
+    )
+    assert first.status is DrRunStatus.RUNNING
+    assert await scheduler.active_experiment_ids() == ("exp-running",)
+
+    completed = await scheduler.run(
+        experiment=experiment,
+        mode=ExecutionMode.ENFORCE,
+        at=_INSIDE + timedelta(seconds=1),
+        in_flight_experiments=99,
+    )
+    assert completed.status is DrRunStatus.SUCCEEDED
+    assert len(runner.started) == 1
+    assert len(runner.checked) == 2
+    assert await scheduler.active_experiment_ids() == ()
+
+
+async def test_running_handle_rolls_back_when_time_box_expires() -> None:
+    runner = FakeDrExperimentRunner(status_sequence=(DrRunStatus.RUNNING,))
+    scheduler = _scheduler(runner=runner, max_concurrent=1)
+    experiment = _experiment(experiment_id="exp-time-box", max_duration_seconds=10)
+    first = await scheduler.run(
+        experiment=experiment,
+        mode=ExecutionMode.ENFORCE,
+        at=_INSIDE,
+    )
+    assert first.status is DrRunStatus.RUNNING
+
+    expired = await scheduler.run(
+        experiment=experiment,
+        mode=ExecutionMode.ENFORCE,
+        at=_INSIDE + timedelta(seconds=10),
+    )
+    assert expired.outcome is RunOutcome.ROLLED_BACK
+    assert expired.status is DrRunStatus.STOPPED
+    assert "stop_condition:time_box_exceeded" in expired.reasons
+    assert len(runner.started) == 1
+    assert len(runner.rolled_back) == 1
+    assert await scheduler.active_experiment_ids() == ()
+
+
+async def test_time_box_rollback_failure_keeps_slot_reserved() -> None:
+    runner = FakeDrExperimentRunner(
+        status_sequence=(DrRunStatus.RUNNING,),
+        rollback_error=RuntimeError("rollback unavailable"),
+    )
+    scheduler = _scheduler(runner=runner, max_concurrent=1)
+    experiment = _experiment(experiment_id="exp-time-box", max_duration_seconds=1)
+    await scheduler.run(experiment=experiment, mode=ExecutionMode.ENFORCE, at=_INSIDE)
+
+    expired = await scheduler.run(
+        experiment=experiment,
+        mode=ExecutionMode.ENFORCE,
+        at=_INSIDE + timedelta(seconds=1),
+    )
+    assert "rollback:error" in expired.reasons
+    assert await scheduler.active_experiment_ids() == ("exp-time-box",)
+
+
+async def test_running_handle_holds_slot_until_terminal_status() -> None:
+    runner = FakeDrExperimentRunner(status_sequence=(DrRunStatus.RUNNING, DrRunStatus.SUCCEEDED))
+    scheduler = _scheduler(runner=runner, max_concurrent=1)
+    running = _experiment(experiment_id="exp-running")
+    blocked = _experiment(experiment_id="exp-blocked")
+
+    await scheduler.run(experiment=running, mode=ExecutionMode.ENFORCE, at=_INSIDE)
+    denied = await scheduler.run(experiment=blocked, mode=ExecutionMode.ENFORCE, at=_INSIDE)
+    assert denied.outcome is RunOutcome.NOT_ALLOWED
+    assert len(runner.started) == 1
+
+    await scheduler.run(experiment=running, mode=ExecutionMode.ENFORCE, at=_INSIDE)
+    accepted = await scheduler.run(experiment=blocked, mode=ExecutionMode.ENFORCE, at=_INSIDE)
+    assert accepted.outcome is RunOutcome.EXECUTED
+    assert len(runner.started) == 2
+
+
+async def test_active_experiment_definition_mismatch_fails_closed() -> None:
+    runner = FakeDrExperimentRunner(status_sequence=(DrRunStatus.RUNNING,))
+    scheduler = _scheduler(runner=runner, max_concurrent=2)
+    experiment = _experiment(experiment_id="exp-running")
+    await scheduler.run(experiment=experiment, mode=ExecutionMode.ENFORCE, at=_INSIDE)
+
+    mismatch = await scheduler.run(
+        experiment=replace(experiment, target_resource_ref="different-resource"),
+        mode=ExecutionMode.ENFORCE,
+        at=_INSIDE,
+    )
+    assert mismatch.outcome is RunOutcome.NOT_ALLOWED
+    assert "active_experiment_definition_mismatch" in mismatch.reasons
     assert len(runner.started) == 1
 
 

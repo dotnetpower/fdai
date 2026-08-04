@@ -35,8 +35,8 @@ default instead of activating an unrelated-route or agent transcript. Context-de
 Verified fresh inventory answers can include a bounded `resource_result_context` in server-owned replay metadata. It carries no raw resource ID, is never accepted from browser context, and preserves source, snapshot, scope, query digest, freshness, truncation, and up to 40 ordered selectors for later deterministic follow-ups.
 Ordinal follow-ups revalidate the selected position through exact fresh inventory predicates. Ambiguity follow-ups show only equal-name candidates from a complete prior result set. Incomplete context stays unavailable and cannot fall back to current-screen or narrator output.
 Verified source-manifest answers also preserve bounded unavailable or unknown entries as `source_failure_context`. Partial-source continuations render available facts and exact gaps from that receipt, including reason and last observation when present, without treating an arbitrary unverified answer as source authority. Verified or corrected `query_llm_usage` answers preserve a bounded `analysis_context` with the domain, capability, token measure, grouping, `usage_scope`, and numeric 1-90 day lookback. A refinement that changes only the period, grouping, table, or chart reuses that server-owned anchor and re-reads metering evidence. Comparison, export, missing-anchor, client-supplied-anchor, and explicit different-metric requests return a context-required hold instead of selecting inventory, Resource Health, or narrator output.
-Full-workspace Command Deck sessions start with the transcript as the only open content column. The operator can open filtered conversation history or the current-screen digest from the transcript
-toolbar. History loads 100 durable summaries at a time in stable cursor order. The count shows
+Full-workspace Command Deck sessions start with the transcript as the only open content column. The transcript toolbar exposes filtered conversation history in workspace, docked, and floating layouts; the narrower layouts open it over the transcript instead of reducing transcript width. The current-screen digest remains a workspace control.
+History loads 100 durable summaries at a time in stable cursor order. The count shows
 `100+` after it reaches 100, and nearing the history scroll boundary loads the next 100. Turn
 bodies hydrate only on selection. A transcript restored from browser or durable history shows a
 resumed-session marker until the operator starts a new conversation. The Deck header owns the route
@@ -80,6 +80,10 @@ observation time. The browser does not probe AKS or derive a replacement decisio
 links to its Architecture resource, and promotion-related counts link to Promotion gates. A
 successful HTTP response that fails strict decoding renders an error instead of remaining in the
 loading skeleton.
+
+With a server-pinned drift context, the GET-only Configuration baselines route fresh-reads identity, lifecycle, drift, Knowledge citation, topology, latency, scheduled-review, and four safety counters.
+It reports absent binding or campaign as unavailable or `not-configured`, never invents progress, strictly rejects malformed data, and compares immutable in-scope versions with failed-attempt counts. The SPA exposes no activation, resume, schedule creation, approval, mitigation, or resource mutation; evidence-run, resume, blueprint review, and materialization use separate authenticated routes.
+Production exposes the panel only after its mounted JSON/DOCX pair, read-only Managed Identity, and exact resource-group allowlist validate at startup. The Operator API never receives executor identity.
 
 The Processes detail route conditionally renders a Planning Room from the same authoritative
 Process journal. Its strict decoder rejects contradictory phase counts, duplicate candidates,
@@ -200,19 +204,13 @@ inclusive and maps to the next UTC midnight as the exclusive API boundary.
 
 ## Loading presentation
 
-Every route, panel, and bounded content region renders a skeleton from its first loading frame.
-The shared skeleton replaces spinner-only and text-only waits, while a route can provide a shape
-that preserves its final layout dimensions. Dashboard uses a posture block followed by metric,
-distribution, attention, and vertical placeholders so loading does not collapse the report. One
-screen-reader status announces loading; decorative blocks stay hidden. Shimmer stops under reduced
-motion while the static skeleton remains visible.
+Every route, panel, and bounded content region renders a skeleton from its first loading frame. The shared skeleton replaces spinner-only and text-only waits, while a route can provide a shape that preserves its final layout dimensions.
+Dashboard uses a posture block followed by metric, distribution, attention, and vertical placeholders so loading does not collapse the report. One screen-reader status announces loading; decorative blocks stay hidden. Shimmer stops under reduced motion while the static skeleton remains visible.
 The shared fallback uses heading, summary-card, and body-panel placeholders; an owned route shape
 replaces that fallback only when it preserves a more accurate final layout.
 
-The Vite development server passes CSS hot updates through Vite's race-safe file reader before
-transforming them. This prevents a temporary empty snapshot from replacing the complete stylesheet
-when an editor truncates and rewrites a large CSS file. The guard applies only during development;
-production CSS bundling is unchanged.
+The HTML document owns the console stylesheet as a direct dependency, so authentication, route, component, and JavaScript hot updates cannot leave a mounted SPA without its layout and theme. Vite transforms the same document link into the fingerprinted production CSS asset.
+During development, the existing hot-update guard also passes CSS changes through Vite's race-safe file reader before transformation, preventing an editor's temporary empty snapshot from replacing the complete stylesheet.
 
 ## Localization boundary
 
@@ -277,9 +275,10 @@ earliest timestamp observed for the turn, and the terminal answer anchors no ear
 recorded timing completion. Browser and server clock skew therefore cannot place evidence before
 input or generation and verification after delivery. The lane baseline and ticks remain distinct
 from a completion progress bar.
-Answer text is at least 14 px, main disclosures are 44 px high, and content reflows without loss at 200% text resize and 320 CSS pixels.
-The transcript uses 15 px text, trajectory headings use 13 px, event labels use 12 px, controls use
-13 px, and compact trajectory metadata never drops below 11 px. A published screen snapshot becomes visibly stale
+Answer text uses 16 px text, main disclosures are 44 px high, and content reflows without loss at 200% text resize and 320 CSS pixels.
+Trajectory headings use 14 px, event labels use 13 px, and compact trajectory metadata uses 12 px.
+A terminal verified answer that contains the exact server-rendered English or Korean recorded-agent-activity block presents those rows as one compact vertical timeline. Each row retains the agent, canonical event token, exact ISO timestamp, and localized readable time; malformed or unknown prose remains ordinary answer content instead of becoming observed activity.
+A published screen snapshot becomes visibly stale
 after five minutes and offers an explicit page refresh; a bare clock never implies current evidence.
 Markdown tables render progressively. A completed header and separator create the table shell before
 the first body row arrives, and each completed row appends without replacing the table. Incomplete
@@ -402,9 +401,10 @@ scope, supported cause, collection membership, or absence claim. A source with
 An `ambiguous` terminal answer also carries a versioned artifact with at most five server-validated
 incident candidates. The Web client renders one button per candidate with title, severity, status,
 last-updated time, and incident id so duplicate titles remain distinguishable. Selecting a button
-opens an exact incident-bound conversation and prepares a localized
-investigation question in the composer. It never auto-submits the question. Missing, malformed,
-oversized, or unverified candidate artifacts render no buttons and cannot create a binding.
+opens an exact incident-bound conversation and immediately submits a localized read-only
+investigation question. The explicit click is the operator request; it doesn't mutate a managed
+resource. Missing, malformed, oversized, or unverified candidate artifacts render no buttons and
+cannot create a binding.
 Generic recency words such as `latest`, `recent`, or `최신` do not create incident authority by
 themselves. Operational lookup also requires explicit incident, issue, outage, failure, problem, or
 cause semantics. A public software version or release question therefore remains eligible for the
@@ -498,8 +498,10 @@ history. Clients label an interrupted stream without a terminal frame as partial
 draft text to confirmed content.
 
 The Web reducer validates branch kind, monotonic status, timing, evidence-reference, and text bounds
-before rendering. It shows compact branch summaries and keeps observed execution details collapsed
-by default. It applies a confirmed segment only after queued token paint and any correction revision
+before rendering. It renders each branch as a numbered investigation stage. Completed operational,
+agent, tool, and public-web stages are independently expandable to show status, timing, summary, and
+bounded branch-owned evidence references; observed command and output details remain collapsed by
+default. It applies a confirmed segment only after queued token paint and any correction revision
 have drained. Token and confirmed frames must match the current canonical revision. A frame from a
 superseded or unannounced revision consumes its sequence position but cannot append text, replace
 canonical content, invoke confirmation callbacks, or increment confirmation metrics. Confirmed
@@ -603,11 +605,8 @@ internally inconsistent optional collections are omitted rather than restored in
 Answer-plan section and override labels are limited to 64 and 128 characters, code validation
 detail to 4 KiB, and milestone agent identities to 64 characters.
 
-When a turn carries validated inline image attachments, the streaming route also emits read-only
-`vision_analyzing` before the narrator composes and `vision_grounded` before the answer, each with
-image source previews (name, media type, size) but never the base64 payload. The turn escalates to
-a vision-capable narrator, and the preparing-answer trace renders these stages the same way it
-renders web-search grounding.
+The Web composer sends selected, dropped, and clipboard-pasted raster images through the same bounded attachment tray and validation path. Before staging, the browser fits each raster within a 2048 px longest edge without upscaling and re-encodes it below the 4 MiB per-image ceiling. Clipboard text and HTML retain native textarea paste behavior and never become attachments.
+When a turn carries validated inline image attachments, the streaming route also emits read-only `vision_analyzing` before the narrator composes and `vision_grounded` before the answer, each with image source previews (name, media type, size) but never the base64 payload. The turn escalates to a vision-capable narrator, and the preparing-answer trace renders these stages the same way it renders web-search grounding.
 
 The interactive Live route pauses its SSE reader while the tab is hidden. An operator-enabled
 browser notification consumer is the bounded exception: it keeps the authenticated live reader open

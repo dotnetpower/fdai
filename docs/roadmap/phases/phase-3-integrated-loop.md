@@ -84,6 +84,15 @@ package that carries the deliverable in
   maintenance windows (test failover / game days). The scheduler honors **freeze/quiet
   periods** and per-resource **opt-out tags**, caps **concurrent experiments** (a
   blast-radius limit), and notifies operators before and after each run.
+- **Execution reservation**: one scheduler process atomically reserves capacity before start,
+  retains a `RUNNING` handle for later polling, and releases capacity only after a terminal
+  success or verified rollback. A rollback failure keeps the slot occupied. A deployment with
+  more than one scheduler process must bind a durable cross-process reservation before enforce;
+  caller-supplied counts alone are not sufficient.
+- **Time box**: every experiment carries a finite positive `max_duration_seconds`. When the
+  elapsed time reaches that bound, the scheduler stops polling and invokes rollback. A rollback
+  failure keeps the reservation active and blocks replacement experiments until recovery is
+  verified.
 - **RPO/RTO reporting**: for each run, report **measured RPO** (data loss at failover) and
   **measured RTO** (wall-clock to restored service) against their stated objectives, as
   median and p90 over runs, on the fixed measurement window

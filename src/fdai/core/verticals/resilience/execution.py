@@ -27,6 +27,30 @@ async def invoke_runner(
     at: datetime,
 ) -> DrRunResult:
     """Start, check, and roll back one experiment when required."""
+    started = await start_runner(
+        runner=runner,
+        experiment=experiment,
+        decision=decision,
+        at=at,
+    )
+    if started.handle is None:
+        return started
+    return await check_runner(
+        runner=runner,
+        handle=started.handle,
+        decision=decision,
+        at=at,
+    )
+
+
+async def start_runner(
+    *,
+    runner: DrExperimentRunner,
+    experiment: DrExperiment,
+    decision: SchedulerDecision,
+    at: datetime,
+) -> DrRunResult:
+    """Start one experiment and return its handle before any status poll."""
     try:
         handle = await runner.start(experiment)
     except Exception as exc:  # noqa: BLE001 - runner Protocol surface
@@ -39,6 +63,26 @@ async def invoke_runner(
             reasons=("runner:start_failed",),
         )
 
+    return DrRunResult(
+        experiment_id=experiment.experiment_id,
+        outcome=RunOutcome.EXECUTED,
+        decision=decision,
+        handle=handle,
+        status=DrRunStatus.RUNNING,
+        at=at,
+        reasons=("runner:started",),
+    )
+
+
+async def check_runner(
+    *,
+    runner: DrExperimentRunner,
+    handle: DrRunHandle,
+    decision: SchedulerDecision,
+    at: datetime,
+) -> DrRunResult:
+    """Poll an existing handle once and roll back terminal failures."""
+
     try:
         status = await runner.check(handle)
     except Exception as exc:  # noqa: BLE001 - runner Protocol surface
@@ -47,7 +91,7 @@ async def invoke_runner(
         if rollback_error is not None:
             reasons = (*reasons, "rollback:error")
         return DrRunResult(
-            experiment_id=experiment.experiment_id,
+            experiment_id=handle.experiment_id,
             outcome=RunOutcome.ROLLED_BACK,
             decision=decision,
             handle=handle,
@@ -62,7 +106,7 @@ async def invoke_runner(
         if rollback_error is not None:
             reasons = (*reasons, "rollback:error")
         return DrRunResult(
-            experiment_id=experiment.experiment_id,
+            experiment_id=handle.experiment_id,
             outcome=RunOutcome.ROLLED_BACK,
             decision=decision,
             handle=handle,
@@ -72,7 +116,7 @@ async def invoke_runner(
         )
 
     return DrRunResult(
-        experiment_id=experiment.experiment_id,
+        experiment_id=handle.experiment_id,
         outcome=RunOutcome.EXECUTED,
         decision=decision,
         handle=handle,

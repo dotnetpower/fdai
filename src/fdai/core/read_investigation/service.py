@@ -23,6 +23,7 @@ from fdai.core.read_investigation.progress import (
 )
 from fdai.shared.providers.read_investigation import (
     EvidenceFreshness,
+    EvidenceLimitationKind,
     EvidenceStatus,
     ReadEvidenceAttempt,
     ReadEvidenceEnvelope,
@@ -239,6 +240,7 @@ class ReadInvestigationService:
                     truncated=False,
                     records=(),
                     evidence_refs=(),
+                    limitations=(EvidenceLimitationKind.SOURCE_UNAVAILABLE,),
                 ),
                 receipt=self._failed_receipt(
                     step.tool_id,

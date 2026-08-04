@@ -32,6 +32,7 @@ _ALLOWED_MEDIA_TYPES: Final = frozenset({"image/png", "image/jpeg", "image/gif",
 # bound the vision payload a single authenticated turn can carry.
 DEFAULT_MAX_IMAGE_BYTES: Final[int] = 4 * 1024 * 1024
 DEFAULT_MAX_IMAGES: Final[int] = 4
+DEFAULT_MAX_IMAGE_EDGE: Final[int] = 2048
 _MAX_NAME_LEN: Final[int] = 128
 
 _DATA_URL: Final = re.compile(
@@ -75,6 +76,73 @@ def _magic_matches(media_type: str, data: bytes) -> bool:
     return False
 
 
+def _image_dimensions(media_type: str, data: bytes) -> tuple[int, int] | None:
+    if media_type == "image/png":
+        if len(data) < 24 or data[8:12] != b"\x00\x00\x00\r" or data[12:16] != b"IHDR":
+            return None
+        return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+    if media_type == "image/gif":
+        if len(data) < 10:
+            return None
+        return int.from_bytes(data[6:8], "little"), int.from_bytes(data[8:10], "little")
+    if media_type == "image/webp":
+        if len(data) < 25:
+            return None
+        chunk = data[12:16]
+        if chunk == b"VP8X" and len(data) >= 30:
+            return (
+                1 + int.from_bytes(data[24:27], "little"),
+                1 + int.from_bytes(data[27:30], "little"),
+            )
+        if chunk == b"VP8L" and len(data) >= 25 and data[20] == 0x2F:
+            packed = int.from_bytes(data[21:25], "little")
+            return 1 + (packed & 0x3FFF), 1 + ((packed >> 14) & 0x3FFF)
+        if chunk == b"VP8 " and len(data) >= 30 and data[23:26] == b"\x9d\x01\x2a":
+            return (
+                int.from_bytes(data[26:28], "little") & 0x3FFF,
+                int.from_bytes(data[28:30], "little") & 0x3FFF,
+            )
+        return None
+    if media_type == "image/jpeg":
+        return _jpeg_dimensions(data)
+    return None
+
+
+def _jpeg_dimensions(data: bytes) -> tuple[int, int] | None:
+    sof_markers = frozenset(
+        {0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF}
+    )
+    offset = 2
+    while offset < len(data):
+        if data[offset] != 0xFF:
+            offset += 1
+            continue
+        while offset < len(data) and data[offset] == 0xFF:
+            offset += 1
+        if offset >= len(data):
+            return None
+        marker = data[offset]
+        offset += 1
+        if marker == 0xD9:
+            return None
+        if marker == 0x01 or 0xD0 <= marker <= 0xD8:
+            continue
+        if offset + 2 > len(data):
+            return None
+        segment_length = int.from_bytes(data[offset : offset + 2], "big")
+        if segment_length < 2 or offset + segment_length > len(data):
+            return None
+        if marker in sof_markers:
+            if segment_length < 7:
+                return None
+            return (
+                int.from_bytes(data[offset + 5 : offset + 7], "big"),
+                int.from_bytes(data[offset + 3 : offset + 5], "big"),
+            )
+        offset += segment_length
+    return None
+
+
 def _clean_name(raw: Any, index: int) -> str:
     """Sanitize a display name; fall back to a positional label."""
 
@@ -85,11 +153,36 @@ def _clean_name(raw: Any, index: int) -> str:
     return f"image-{index + 1}"
 
 
+def _decoded_base64_size(value: str) -> int | None:
+    if len(value) % 4 != 0:
+        return None
+    padding = len(value) - len(value.rstrip("="))
+    if padding > 2:
+        return None
+    return (len(value) // 4) * 3 - padding
+
+
+def _unique_name(name: str, used: set[str]) -> str:
+    candidate = name
+    sequence = 2
+    while candidate.casefold() in used:
+        suffix = f" ({sequence})"
+        stem, separator, extension = name.rpartition(".")
+        extension_part = f".{extension}" if separator and stem else ""
+        base = stem if extension_part else name
+        available = _MAX_NAME_LEN - len(suffix) - len(extension_part)
+        candidate = f"{base[:available]}{suffix}{extension_part}"
+        sequence += 1
+    used.add(candidate.casefold())
+    return candidate
+
+
 def parse_vision_attachments(
     body: dict[str, Any],
     *,
     max_images: int = DEFAULT_MAX_IMAGES,
     max_image_bytes: int = DEFAULT_MAX_IMAGE_BYTES,
+    max_image_edge: int = DEFAULT_MAX_IMAGE_EDGE,
 ) -> list[VisionAttachment]:
     """Parse and validate the ``attachments`` field of a chat request body.
 
@@ -108,6 +201,7 @@ def parse_vision_attachments(
         raise ValueError(f"attachments exceed cap ({len(raw)} > {max_images})")
 
     parsed: list[VisionAttachment] = []
+    used_names: set[str] = set()
     for index, item in enumerate(raw):
         if not isinstance(item, dict):
             raise ValueError("each attachment MUST be an object")
@@ -121,12 +215,8 @@ def parse_vision_attachments(
         if media_type not in _ALLOWED_MEDIA_TYPES:
             raise ValueError(f"unsupported attachment media type: {media_type}")
         b64 = re.sub(r"\s+", "", match.group("b64"))
-        # Reject a clearly-oversized payload from its encoded length BEFORE
-        # allocating the decode buffer, so a caller cannot force a large
-        # transient allocation only to have it rejected after decoding. The
-        # exact post-decode check below stays authoritative; this bound only
-        # fires when the decoded size must exceed the cap regardless of padding.
-        if (len(b64) // 4) * 3 > max_image_bytes + 3:
+        decoded_size = _decoded_base64_size(b64)
+        if decoded_size is not None and decoded_size > max_image_bytes:
             raise ValueError(f"attachment exceeds size cap (>{max_image_bytes})")
         try:
             decoded = base64.b64decode(b64, validate=True)
@@ -138,9 +228,16 @@ def parse_vision_attachments(
             raise ValueError(f"attachment exceeds size cap ({len(decoded)} > {max_image_bytes})")
         if not _magic_matches(media_type, decoded):
             raise ValueError(f"attachment content does not match declared type {media_type}")
+        dimensions = _image_dimensions(media_type, decoded)
+        if dimensions is None or min(dimensions) < 1:
+            raise ValueError(f"attachment {media_type} dimensions are malformed")
+        if max(dimensions) > max_image_edge:
+            raise ValueError(
+                f"attachment exceeds pixel edge cap ({max(dimensions)} > {max_image_edge})"
+            )
         parsed.append(
             VisionAttachment(
-                name=_clean_name(item.get("name"), index),
+                name=_unique_name(_clean_name(item.get("name"), index), used_names),
                 media_type=media_type,
                 data_url=f"data:{media_type};base64,{b64}",
                 byte_size=len(decoded),
@@ -196,6 +293,7 @@ def vision_source_previews(attachments: Any) -> list[dict[str, Any]]:
 
 
 __all__ = [
+    "DEFAULT_MAX_IMAGE_EDGE",
     "DEFAULT_MAX_IMAGES",
     "DEFAULT_MAX_IMAGE_BYTES",
     "VisionAttachment",

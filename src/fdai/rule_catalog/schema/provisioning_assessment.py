@@ -50,6 +50,7 @@ _QUORUM_REQUIRED: frozenset[str] = frozenset({"t2.reasoner.secondary"})
 _IMPACT: dict[str, str] = {
     "t1.embedding": "T1 similarity retrieval and vector reuse unavailable",
     "t1.judge": "T1 classification and the console narrator mini tier unavailable",
+    "t1.vision": "multimodal console answers unavailable",
     "t2.reasoner.primary": "T2 reasoning unavailable - novel cases route to HIL",
     "t2.reasoner.secondary": ("T2 mixed-model quorum cannot form - every T2 case routes to HIL"),
     "t2.reasoner.escalated": "escalation ladder cannot climb to a stronger model",
@@ -169,7 +170,10 @@ def assess_provisioning(
     for name in sorted(registry.models):
         tier = _tier_of(name)
         entry = resolved_map.get(name)
-        state = ProvisioningState.MISSING if entry is None else _state_of(entry.status)
+        if name == "t1.vision" and resolved.vision_candidates:
+            state = ProvisioningState.RESOLVED
+        else:
+            state = ProvisioningState.MISSING if entry is None else _state_of(entry.status)
         impact = (
             None
             if state

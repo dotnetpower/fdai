@@ -35,6 +35,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from fdai.shared.contracts.models import Rule
+from fdai.shared.providers.catalog_search import CatalogSemanticIndex
 
 DEFAULT_ROUTE_PATH = "/rules"
 DETAIL_ROUTE_PATH = "/rules/{rule_id}"
@@ -44,6 +45,7 @@ FINDINGS_SUMMARY_ROUTE_PATH = "/rules/findings-summary"
 DEFAULT_LIMIT = 100
 MAX_LIMIT = 500
 MAX_FINDINGS = 200
+MAX_SEMANTIC_CANDIDATES = 1000
 
 # A findings provider maps (rule_id, origin) -> the resources currently
 # violating that rule, each with the specific attribute at fault. It is
@@ -204,15 +206,13 @@ def _parse_rego_metadata(body: str) -> dict[str, Any] | None:
 
     collected: list[str] = []
     for line in lines[start:]:
-        stripped = line.lstrip()
-        if not stripped.startswith("#"):
+        stripped = line.rstrip()
+        if stripped.startswith("# "):
+            collected.append(stripped[2:])
+        elif stripped == "#":
+            collected.append("")
+        else:
             break
-        # Drop the leading '#' and at most one following space so YAML
-        # indentation inside the block scalar is preserved.
-        content = stripped[1:]
-        if content.startswith(" "):
-            content = content[1:]
-        collected.append(content)
 
     if not collected:
         return None
@@ -315,6 +315,7 @@ def make_rule_catalog_routes(
     remediation_root: Path | None = None,
     findings_provider: FindingsProvider | None = None,
     findings_summary_provider: FindingsSummaryProvider | None = None,
+    semantic_index: CatalogSemanticIndex | None = None,
     path: str = DEFAULT_ROUTE_PATH,
     detail_path: str = DETAIL_ROUTE_PATH,
     findings_path: str = FINDINGS_ROUTE_PATH,
@@ -372,7 +373,6 @@ def make_rule_catalog_routes(
         severity = params.get("severity", "").strip().lower()
         source = params.get("source", "").strip().lower()
         needle = params.get("q", "").strip().lower()
-
         try:
             limit = int(params.get("limit", str(DEFAULT_LIMIT)))
             offset = int(params.get("offset", "0"))
@@ -383,6 +383,35 @@ def make_rule_catalog_routes(
         if offset < 0:
             return _bad_request("offset MUST be >= 0")
 
+        semantic_rank: dict[str, int] | None = None
+        semantic_evidence: dict[str, object] = {}
+        semantic_truncated = False
+        if needle and semantic_index is not None:
+            try:
+                semantic_limit = min(max(total, 1), MAX_SEMANTIC_CANDIDATES)
+                semantic_results = await semantic_index.search(needle, k=semantic_limit)
+            except Exception as exc:  # noqa: BLE001 - read capability must report unavailability
+                return JSONResponse(
+                    {
+                        "error": {
+                            "status": 503,
+                            "message": "catalog semantic search is unavailable",
+                            "reason": type(exc).__name__,
+                        }
+                    },
+                    status_code=503,
+                )
+            semantic_rank = {result.rule_id: rank for rank, result in enumerate(semantic_results)}
+            semantic_evidence = {
+                result.rule_id: {
+                    "score": result.score,
+                    "match": result.match,
+                    "components": dict(result.components),
+                }
+                for result in semantic_results
+            }
+            semantic_truncated = total > semantic_limit
+
         matched = [
             ir
             for ir in indexed
@@ -390,8 +419,14 @@ def make_rule_catalog_routes(
             and (not category or ir.category == category)
             and (not severity or ir.severity == severity)
             and (not source or ir.source == source)
-            and (not needle or needle in ir.search)
+            and (
+                not needle
+                or (semantic_rank is not None and str(ir.payload["id"]) in semantic_rank)
+                or (semantic_rank is None and needle in ir.search)
+            )
         ]
+        if semantic_rank is not None:
+            matched.sort(key=lambda item: semantic_rank[str(item.payload["id"])])
         page = matched[offset : offset + limit]
 
         return JSONResponse(
@@ -401,8 +436,20 @@ def make_rule_catalog_routes(
                 "offset": offset,
                 "limit": limit,
                 "resource_type_count": resource_type_count,
+                "search_mode": "semantic" if semantic_rank is not None else "substring",
+                "search_truncated": semantic_truncated,
                 "facets": facets,
-                "rules": [ir.payload for ir in page],
+                "rules": [
+                    {
+                        **ir.payload,
+                        **(
+                            {"search": semantic_evidence[str(ir.payload["id"])]}
+                            if semantic_rank is not None
+                            else {}
+                        ),
+                    }
+                    for ir in page
+                ],
             }
         )
 

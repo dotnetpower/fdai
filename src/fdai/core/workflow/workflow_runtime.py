@@ -72,6 +72,7 @@ class WorkflowActionDispatcher(Protocol):
         target_resource_id: str,
         params: Mapping[str, object],
         context: Mapping[str, str],
+        attempt: int = 1,
     ) -> str:
         """Return the durable proposal or idempotency reference."""
         ...
@@ -158,8 +159,10 @@ class WorkflowApprovalSnapshot:
     revision: int
     requested_at: datetime
     expires_at: datetime | None
+    attempt: int = 1
     decisions: tuple[WorkflowApprovalDecision, ...] = ()
     timed_out: bool = False
+    cancelled: bool = False
 
 
 @runtime_checkable
@@ -179,6 +182,7 @@ class WorkflowApprovalProvider(Protocol):
         no_self_approval: bool,
         timeout_seconds: int | None,
         requested_at: datetime,
+        attempt: int = 1,
     ) -> WorkflowApprovalSnapshot: ...
 
     async def mark_timed_out(
@@ -188,6 +192,16 @@ class WorkflowApprovalProvider(Protocol):
         step_id: str,
         expected_revision: int,
         timed_out_at: datetime,
+        attempt: int = 1,
+    ) -> bool: ...
+
+    async def cancel_pending(
+        self,
+        *,
+        process_id: str,
+        step_id: str,
+        cancelled_at: datetime,
+        attempt: int = 1,
     ) -> bool: ...
 
 

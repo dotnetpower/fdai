@@ -5,7 +5,13 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import replace
 
-from fdai.core.assurance_twin import EffectModelCausalEvidenceVerifier, EffectModelReader
+from fdai.core.assurance_twin import (
+    EffectModelCausalEvidenceVerifier,
+    EffectModelReader,
+    GraphDynamicSimulationRequestProvider,
+    GraphEffectModelCausalEvidenceVerifier,
+    GraphEffectModelReader,
+)
 from fdai.core.rca import TemporalCausalityConfig
 from fdai.delivery.azure.operational_evidence import (
     AzureBranchEstimator,
@@ -32,6 +38,9 @@ def bind_azure_operational_evidence(
     dynamic_policies: Mapping[str, AzureDynamicPolicy],
     effect_models: EffectModelReader,
     effect_model_causal_evidence: EffectModelCausalEvidenceVerifier,
+    graph_request_provider: GraphDynamicSimulationRequestProvider | None = None,
+    graph_effect_models: GraphEffectModelReader | None = None,
+    graph_effect_model_causal_evidence: GraphEffectModelCausalEvidenceVerifier | None = None,
 ) -> Container:
     """Return a container with read-only Azure learning evidence bound."""
     return replace(
@@ -53,6 +62,9 @@ def bind_azure_operational_evidence(
         ),
         effect_model_reader=effect_models,
         effect_model_causal_evidence_verifier=effect_model_causal_evidence,
+        graph_dynamic_simulation_request_provider=graph_request_provider,
+        graph_effect_model_reader=graph_effect_models,
+        graph_effect_model_causal_evidence_verifier=graph_effect_model_causal_evidence,
     )
 
 

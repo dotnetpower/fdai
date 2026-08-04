@@ -72,10 +72,13 @@ _AZ_TIMEOUT_SECONDS: Final[float] = 30.0
 _MAX_PROPS_BYTES: Final[int] = 64 * 1024
 _ARG_PAGE_SIZE: Final[int] = 1000
 _ARG_MAX_PAGES: Final[int] = 32
+_ARG_MAX_ATTEMPTS: Final[int] = 3
+_ARG_INITIAL_RETRY_DELAY_SECONDS: Final[float] = 0.5
 _RECEIPT_PREVIEW_LIMIT: Final[int] = 10
 _RECEIPT_VALUE_CHARS: Final[int] = 512
 _ARG_RESOURCES_QUERY: Final[str] = (
-    "Resources | project id, type, name, location, kind, sku, tags, properties, "
+    "Resources | order by id asc "
+    "| project id, type, name, location, kind, sku, tags, properties, "
     "resourceGroup, subscriptionId"
 )
 _UNCLASSIFIED_RESOURCE_TYPE: Final[str] = "unclassified-resource"
@@ -388,7 +391,14 @@ class AzureCliInventory:
             if skip_token:
                 argv.extend(("--skip-token", skip_token))
             started = time.monotonic()
-            proc = await asyncio.to_thread(_run_az, argv, self.azure_config_dir)
+            for attempt in range(_ARG_MAX_ATTEMPTS):
+                try:
+                    proc = await asyncio.to_thread(_run_az, argv, self.azure_config_dir)
+                    break
+                except AzureCliInventoryError as exc:
+                    if not _is_arg_throttle_error(exc) or attempt + 1 >= _ARG_MAX_ATTEMPTS:
+                        raise
+                    await asyncio.sleep(_ARG_INITIAL_RETRY_DELAY_SECONDS * (2**attempt))
             executed_durations_ms.append(max(0, round((time.monotonic() - started) * 1_000)))
             try:
                 payload = json.loads(proc.stdout or "{}")
@@ -401,14 +411,17 @@ class AzureCliInventory:
             executed_results.append(_provider_result_preview(page_rows))
             rows.extend(page_rows)
             raw_skip_token = payload.get("skip_token") or payload.get("$skipToken")
-            skip_token = raw_skip_token if isinstance(raw_skip_token, str) else None
-            if not page_rows or not skip_token:
+            next_token = raw_skip_token if isinstance(raw_skip_token, str) else None
+            if not page_rows or not next_token:
                 self._last_discovery_backend = "azure_resource_graph"
                 self._last_discovery_page_count = _page + 1
                 self._last_resource_commands = tuple(executed_commands)
                 self._last_resource_durations_ms = tuple(executed_durations_ms)
                 self._last_resource_results = tuple(executed_results)
                 return rows
+            if next_token == skip_token:
+                raise AzureCliInventoryError("az graph continuation token did not advance")
+            skip_token = next_token
         raise AzureCliInventoryError("az graph pagination exceeded the page limit")
 
     async def _fetch_rows(
@@ -552,6 +565,14 @@ def _run_az(
             f"{stderr[:400] if stderr else '(no stderr)'}"
         )
     return proc
+
+
+def _is_arg_throttle_error(exc: AzureCliInventoryError) -> bool:
+    message = str(exc).casefold()
+    return any(
+        marker in message
+        for marker in ("429", "ratelimiting", "rate limit", "throttl", "too many requests")
+    )
 
 
 def _receipt_argv(

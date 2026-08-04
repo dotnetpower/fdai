@@ -2,12 +2,18 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import liveKo from "../routes/i18n/live.messages.ko.json";
 import { t as liveT } from "../routes/i18n/live";
-import { setLocale, t } from ".";
+import { setLocale, t, tForLocale } from ".";
 import ko from "./messages.ko.json";
 
 afterEach(() => setLocale("en"));
 
 describe("mandatory English catalog fallback", () => {
+  test("renders an explicit conversational locale without changing the UI locale", () => {
+    setLocale("en");
+    expect(tForLocale("ko", "deck.incidentCandidates.title")).toBe("조사할 인시던트 선택");
+    expect(t("deck.incidentCandidates.title")).toBe("Choose an incident");
+  });
+
   test("falls back when a global Korean value is empty", () => {
     const mutableKo = ko as { console: { initializeFailed: string } };
     const original = mutableKo.console.initializeFailed;

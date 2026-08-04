@@ -12,9 +12,16 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
+from fdai.core.conversation.answer_plan import AnswerIntent
 from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
 from fdai.delivery.operator_api.routes.chat_behavior_evidence import (
     RepositoryBehaviorEvidenceResolver,
+)
+from fdai.delivery.operator_api.routes.chat_intent_graph import (
+    ActionPosture,
+    EvidenceMode,
+    IntentGoal,
+    IntentGraph,
 )
 from fdai.delivery.operator_api.routes.chat_inventory import (
     InventoryChatTools,
@@ -2479,6 +2486,224 @@ def test_deterministic_inventory_filter_precedes_semantic_inventory_plan() -> No
     assert "vm-job" in payload["answer"]
     assert "vm-app" not in payload["answer"]
     assert payload["verification"]["authority"] == "server_inventory_graph"
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "지금 켜져있는 vm 목록",
+        "현재 켜져 있는 VM만 알려줘",
+        "전원이 들어와 있는 가상 머신은?",
+        "가동 중인 VM 보여줘",
+        "VM 중에 지금 돌아가는 것만 알려줘",
+    ),
+)
+def test_semantic_status_hint_completes_unknown_korean_inventory_inflection(
+    prompt: str,
+) -> None:
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            return parse_turn_plan(
+                {
+                    "kind": "read_tool",
+                    "answer_intent": "list",
+                    "tool_name": "query_inventory",
+                    "action_type": None,
+                    "arguments": {
+                        "source": "current",
+                        "kind": "list",
+                        "predicates": [
+                            {"field": "resource_type", "operator": "eq", "value": "vm"},
+                            {"field": "status", "operator": "eq", "value": "running"},
+                        ],
+                        "lookback_seconds": 3_600,
+                    },
+                    "clarification": None,
+                    "confidence": 0.99,
+                }
+            )
+
+    backend = RecordingBackend()
+    tools = InventoryChatTools(_provider)
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=tools,
+                planned_tool_resolver=tools,
+                turn_planner=Planner(),  # type: ignore[arg-type]
+                turn_tools=tools.turn_tools(),
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat",
+        json={"prompt": prompt, "view_context": {}},
+    )
+
+    payload = response.json()
+    assert "vm-app" in payload["answer"]
+    assert "vm-job" not in payload["answer"]
+    assert payload["verification"]["authority"] == "server_inventory_graph"
+    assert backend.calls == 0
+
+
+def test_intent_graph_status_hint_completes_unknown_korean_inventory_inflection() -> None:
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> IntentGraph:
+            return IntentGraph(
+                schema_version=2,
+                goals=(
+                    IntentGoal(
+                        goal_id="running_vms",
+                        intent=AnswerIntent.LIST,
+                        capability="query_inventory",
+                        arguments={
+                            "source": "current",
+                            "kind": "list",
+                            "predicates": [
+                                {"field": "resource_type", "operator": "eq", "value": "vm"},
+                                {"field": "status", "operator": "eq", "value": "running"},
+                            ],
+                            "lookback_seconds": 3_600,
+                        },
+                        depends_on=(),
+                        evidence_mode=EvidenceMode.OPERATIONAL,
+                        freshness_required=True,
+                        confidence=0.99,
+                        alternatives=(),
+                        side_effect_class="read",
+                    ),
+                ),
+                clarification=None,
+                confidence=0.99,
+                action_posture=ActionPosture.ADVISE_ONLY,
+            )
+
+    tools = InventoryChatTools(_provider)
+    payload = (
+        TestClient(
+            Starlette(
+                routes=[
+                    make_chat_route(
+                        backend=RecordingBackend(),
+                        authorize=_allow,
+                        tool_resolver=tools,
+                        planned_tool_resolver=tools,
+                        turn_planner=Planner(),  # type: ignore[arg-type]
+                        turn_tools=tools.turn_tools(),
+                    )
+                ]
+            )
+        )
+        .post(
+            "/chat",
+            json={"prompt": "지금 켜져있는 vm 목록", "view_context": {}},
+        )
+        .json()
+    )
+
+    assert payload["verification"]["status"] == "verified"
+    assert "vm-app" in payload["answer"]
+    assert "vm-job" not in payload["answer"]
+
+
+def test_noncanonical_semantic_inventory_status_fails_closed() -> None:
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            return parse_turn_plan(
+                {
+                    "kind": "read_tool",
+                    "answer_intent": "list",
+                    "tool_name": "query_inventory",
+                    "action_type": None,
+                    "arguments": {
+                        "source": "current",
+                        "kind": "list",
+                        "predicates": [{"field": "status", "operator": "eq", "value": "alive"}],
+                        "lookback_seconds": None,
+                    },
+                    "clarification": None,
+                    "confidence": 0.99,
+                }
+            )
+
+    tools = InventoryChatTools(_provider)
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=RecordingBackend(),
+                authorize=_allow,
+                tool_resolver=tools,
+                planned_tool_resolver=tools,
+                turn_planner=Planner(),  # type: ignore[arg-type]
+                turn_tools=tools.turn_tools(),
+            )
+        ]
+    )
+
+    payload = (
+        TestClient(app)
+        .post(
+            "/chat",
+            json={"prompt": "VM 중에 지금 살아있는 것만 알려줘", "view_context": {}},
+        )
+        .json()
+    )
+
+    assert payload["verification"]["status"] == "unverified"
+    assert "vm-app" not in payload["answer"]
+    assert "vm-job" not in payload["answer"]
+
+
+def test_semantic_plan_without_status_preserves_unfiltered_inventory() -> None:
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            return parse_turn_plan(
+                {
+                    "kind": "read_tool",
+                    "answer_intent": "list",
+                    "tool_name": "query_inventory",
+                    "action_type": None,
+                    "arguments": {
+                        "source": "current",
+                        "kind": "list",
+                        "predicates": [{"field": "resource_type", "operator": "eq", "value": "vm"}],
+                        "lookback_seconds": 3_600,
+                    },
+                    "clarification": None,
+                    "confidence": 0.99,
+                }
+            )
+
+    tools = InventoryChatTools(_provider)
+    app = Starlette(
+        routes=[
+            make_chat_route(
+                backend=RecordingBackend(),
+                authorize=_allow,
+                tool_resolver=tools,
+                planned_tool_resolver=tools,
+                turn_planner=Planner(),  # type: ignore[arg-type]
+                turn_tools=tools.turn_tools(),
+            )
+        ]
+    )
+
+    payload = (
+        TestClient(app)
+        .post(
+            "/chat",
+            json={"prompt": "VM 목록 알려줘", "view_context": {}},
+        )
+        .json()
+    )
+
+    assert payload["verification"]["status"] == "verified"
+    assert "vm-app" in payload["answer"]
+    assert "vm-job" in payload["answer"]
 
 
 @pytest.mark.parametrize("stream", [False, True])

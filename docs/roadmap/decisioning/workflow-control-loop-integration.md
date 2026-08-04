@@ -40,13 +40,17 @@ in one transaction with optimistic revision checking. In-memory storage implemen
 the same contract for tests and local development. An explicit enforce run uses
 `WorkflowActionDispatcher`: each action step republishes an idempotent
 `operator_request` to typed ingress and still passes ActionType promotion, risk,
-HIL, and Thor execution. The Process records `action.dispatched`, then waits until an injected
+HIL, and Thor execution. Its explicit positive `attempt` defaults to `1` and scopes both the
+proposal idempotency key and every step transition id, so separate attempts cannot deduplicate
+each other. The Process records `action.dispatched`, then waits until an injected
 `WorkflowOutcomeVerifier` validates an authoritative effect receipt. Command context alone cannot
 claim success. A failed later step starts reverse compensation for journaled, independently
 verified applied steps. Compensation intent is committed before typed dispatch, and only verified
 compensation receipts close the Process as `compensated`. A missing dispatcher, verifier, receipt,
 or failed guard holds or fails the Process closed. Control-only workflows such as ARB persist real approval and decision
 transitions without gaining resource mutation authority.
+Approval requests are attempt-scoped. A reject closes the complete quorum attempt; retry after
+reject or timeout creates fresh Var slots and preserves attempt 1 durable-key compatibility.
 
 The event entry is the
 [`WorkflowTriggerCoordinator`](../../../src/fdai/core/workflow/coordinator.py): an
@@ -91,6 +95,11 @@ is met. Wait and approval timeouts with no applied step end as `timed_out`; afte
 they stop forward dispatch and enter compensation. Parallel branches run concurrently and write
 child events without competing for the parent snapshot revision, but a failure freezes new branch
 dispatch and joins applied receipts before reverse-dependency compensation.
+An approval timeout closes the Process only after its revision CAS wins. Deadline expiry outranks
+a late concurrent approval: the executor rereads the same attempt and retries timeout CAS against
+the latest revision. A quorum completed before expiry remains valid across delayed resume. Terminal
+approval states remain monotonic, and provider rereads heal any HIL slot closure interrupted after
+the authoritative state commit.
 
 The ontology graph is a read model, not the source of truth. After each committed
 event, `ProcessOntologyProjector` materializes the current `Process` object and its
@@ -115,10 +124,10 @@ unavailable while preserving every projection intent for recovery.
 
 ### 4.4 Manual shadow or enforce command
 
-You can start or resume a catalog Workflow without waiting for its production
-signal by calling the optional Contributor-gated `POST /workflows/run` command.
-The route accepts a catalog workflow name, target resource id, RFC 3339 trigger
-timestamp, bounded string context, and `mode`. Contributor can run shadow.
+You can start a catalog Workflow without waiting for its production signal by
+calling the optional Contributor-gated `POST /workflows/run` command. The route
+accepts a catalog workflow name, target resource id, RFC 3339 trigger timestamp,
+bounded parameter-substitution context, and `mode`. Contributor can run shadow.
 Enforce requires Owner and a deployment `FDAI_WORKFLOW_ENFORCE_ALLOWLIST` entry.
 Action steps republish to the normal typed pipeline; the workflow never calls an
 executor directly.
@@ -132,15 +141,35 @@ FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1 uv run uvicorn \
 
 uv run python scripts/automation/run-workflow.py architecture-review \
   --target fdai-control-plane
+
+uv run python scripts/automation/run-workflow.py \
+  --resume-process-id <process-id-from-start-response>
+
+uv run python scripts/automation/run-workflow.py \
+  --cancel-process-id <process-id-from-start-response>
+
+uv run python scripts/automation/run-workflow.py \
+  --retry-process-id <process-id-from-start-response>
 ```
 
 The response includes the Process id and links to its snapshot, journal, and
-console route. Reusing the same `trigger_ts` and target resumes the same
-safe-to-retry (idempotent) Process, which supports wait, approval, and decision
-context without creating a duplicate run. Production compositions opt in by
-injecting `WorkflowExecutionConfig`; leaving it unset registers no command
-route. The SPA does not call this endpoint. CLI and ChatOps are the command
-channels, and the console remains a read-only status surface.
+console route. `POST /workflows/{process_id}/resume` and the CLI
+`--resume-process-id` mode send no body. The server reloads the original target,
+trigger, mode, correlation, and audit-safe parameter context from the Process
+journal, then repeats current role and enforce-allowlist checks.
+`POST /workflows/{process_id}/cancel` and CLI `--cancel-process-id` also send no
+body. They accept only a pending or waiting safe boundary, require Owner for an
+enforce Process, close pending approval slots, and reconcile any outstanding
+action outcome before cancellation or compensation. A running Process returns a
+typed conflict rather than assuming that an in-flight dispatcher is idle.
+`POST /workflows/{process_id}/retry` and CLI `--retry-process-id` admit only an
+effect-free failed attempt or terminal approval timeout, repeat current enforce
+authority, and enforce the server-owned attempt cap. Ambiguous dispatch failure remains recovery
+work.
+Production compositions opt in by injecting `WorkflowExecutionConfig`; leaving
+it unset registers none of the command routes. The SPA does not call these
+endpoints. CLI and ChatOps are the command channels, and the console remains a
+read-only status surface.
 
 ### 4.5 Governed Python tasks and cron schedules
 

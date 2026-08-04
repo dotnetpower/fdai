@@ -38,10 +38,11 @@ Safety invariants
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
+from uuid import uuid4
 
 from fdai.shared.providers.db_dr import (
     DbDrEvidence,
@@ -77,6 +78,9 @@ class DbDrOutcome(StrEnum):
     ABORTED = "aborted"
     """Integrity or smoke raised an exception; the run is undecided."""
 
+    CLEANUP_FAILED = "cleanup_failed"
+    """Verification completed, but the isolated environment was not removed."""
+
 
 @dataclass(frozen=True, slots=True)
 class DbDrVerdict:
@@ -92,17 +96,21 @@ class DbDrVerdict:
 
     experiment_id: str
     outcome: DbDrOutcome
+    run_id: str = ""
     handle: DbRestoreHandle | None = None
     integrity: IntegrityReport | None = None
     smoke: SmokeReport | None = None
     error: str | None = None
+    primary_outcome: DbDrOutcome | None = None
+    cleanup_succeeded: bool | None = None
+    cleanup_error: str | None = None
     started_at: datetime = field(default_factory=lambda: datetime.now(tz=UTC))
     completed_at: datetime = field(default_factory=lambda: datetime.now(tz=UTC))
 
     @property
     def is_pass(self) -> bool:
         """Convenience - the DR test passed iff outcome is PASSED."""
-        return self.outcome is DbDrOutcome.PASSED
+        return self.outcome is DbDrOutcome.PASSED and self.cleanup_succeeded is True
 
 
 class DbDrVerifier:
@@ -150,8 +158,10 @@ class DbDrVerifier:
         change the primary outcome.
         """
         started_at = datetime.now(tz=UTC)
+        run_id = f"db-dr-run:{uuid4().hex}"
         await self._audit_event(
             experiment_id=config.experiment_id,
+            run_id=run_id,
             kind="start",
             payload={
                 "source_ref": config.source_ref,
@@ -170,12 +180,14 @@ class DbDrVerifier:
             completed_at = datetime.now(tz=UTC)
             await self._audit_event(
                 experiment_id=config.experiment_id,
+                run_id=run_id,
                 kind="restore_failed",
                 payload={"error": error, "at": completed_at.isoformat()},
             )
             return DbDrVerdict(
                 experiment_id=config.experiment_id,
                 outcome=DbDrOutcome.RESTORE_FAILED,
+                run_id=run_id,
                 error=error,
                 started_at=started_at,
                 completed_at=completed_at,
@@ -184,17 +196,45 @@ class DbDrVerifier:
         # From here on, handle is populated: teardown MUST run in the
         # finally block so a partial pass never leaks the isolated
         # environment.
-        try:
-            return await self._verify_and_smoke(
-                config=config,
-                handle=handle,
-                started_at=started_at,
+        verdict = await self._verify_and_smoke(
+            config=config,
+            handle=handle,
+            started_at=started_at,
+            run_id=run_id,
+        )
+        cleanup_error = await self._safe_teardown(handle=handle, run_id=run_id)
+        completed_at = datetime.now(tz=UTC)
+        if cleanup_error is not None:
+            await self._audit_event(
+                experiment_id=config.experiment_id,
+                run_id=run_id,
+                kind="cleanup_failed",
+                payload={
+                    "primary_outcome": verdict.outcome.value,
+                    "error": cleanup_error,
+                    "at": completed_at.isoformat(),
+                },
             )
-        finally:
-            # Best-effort teardown; recorded on the verdict via audit
-            # if it fails. The primary outcome is already frozen in
-            # the returned DbDrVerdict at this point.
-            await self._safe_teardown(handle=handle)
+            return replace(
+                verdict,
+                outcome=DbDrOutcome.CLEANUP_FAILED,
+                primary_outcome=verdict.outcome,
+                cleanup_succeeded=False,
+                cleanup_error=cleanup_error,
+                completed_at=completed_at,
+            )
+        if verdict.outcome is DbDrOutcome.PASSED:
+            await self._audit_event(
+                experiment_id=config.experiment_id,
+                run_id=run_id,
+                kind="passed",
+                payload={"at": completed_at.isoformat()},
+            )
+        return replace(
+            verdict,
+            cleanup_succeeded=True,
+            completed_at=completed_at,
+        )
 
     # ------------------------------------------------------------------
     # Phase 2 + 3 (internals)
@@ -206,6 +246,7 @@ class DbDrVerifier:
         config: DbRestoreConfig,
         handle: DbRestoreHandle,
         started_at: datetime,
+        run_id: str,
     ) -> DbDrVerdict:
         # ---------- Phase 2: integrity check ---------------------------
         try:
@@ -215,6 +256,7 @@ class DbDrVerifier:
             completed_at = datetime.now(tz=UTC)
             await self._audit_event(
                 experiment_id=config.experiment_id,
+                run_id=run_id,
                 kind="aborted",
                 payload={
                     "phase": "integrity",
@@ -225,6 +267,7 @@ class DbDrVerifier:
             return DbDrVerdict(
                 experiment_id=config.experiment_id,
                 outcome=DbDrOutcome.ABORTED,
+                run_id=run_id,
                 handle=handle,
                 error=error,
                 started_at=started_at,
@@ -238,6 +281,7 @@ class DbDrVerifier:
             completed_at = datetime.now(tz=UTC)
             await self._audit_event(
                 experiment_id=config.experiment_id,
+                run_id=run_id,
                 kind="integrity_failed",
                 payload={
                     "mismatch_count": integrity.mismatch_count,
@@ -255,6 +299,7 @@ class DbDrVerifier:
             return DbDrVerdict(
                 experiment_id=config.experiment_id,
                 outcome=DbDrOutcome.INTEGRITY_FAILED,
+                run_id=run_id,
                 handle=handle,
                 integrity=integrity,
                 started_at=started_at,
@@ -269,6 +314,7 @@ class DbDrVerifier:
             completed_at = datetime.now(tz=UTC)
             await self._audit_event(
                 experiment_id=config.experiment_id,
+                run_id=run_id,
                 kind="aborted",
                 payload={
                     "phase": "smoke",
@@ -279,6 +325,7 @@ class DbDrVerifier:
             return DbDrVerdict(
                 experiment_id=config.experiment_id,
                 outcome=DbDrOutcome.ABORTED,
+                run_id=run_id,
                 handle=handle,
                 integrity=integrity,
                 error=error,
@@ -290,6 +337,7 @@ class DbDrVerifier:
             completed_at = datetime.now(tz=UTC)
             await self._audit_event(
                 experiment_id=config.experiment_id,
+                run_id=run_id,
                 kind="smoke_failed",
                 payload={
                     "failed_check_count": len(smoke.failures),
@@ -301,6 +349,7 @@ class DbDrVerifier:
             return DbDrVerdict(
                 experiment_id=config.experiment_id,
                 outcome=DbDrOutcome.SMOKE_FAILED,
+                run_id=run_id,
                 handle=handle,
                 integrity=integrity,
                 smoke=smoke,
@@ -319,7 +368,8 @@ class DbDrVerifier:
         )
         await self._audit_event(
             experiment_id=config.experiment_id,
-            kind="passed",
+            run_id=run_id,
+            kind="verification_passed",
             payload={
                 "evidence": {
                     "integrity_row_count_tables": evidence.integrity_row_count_tables,
@@ -332,6 +382,7 @@ class DbDrVerifier:
         return DbDrVerdict(
             experiment_id=config.experiment_id,
             outcome=DbDrOutcome.PASSED,
+            run_id=run_id,
             handle=handle,
             integrity=integrity,
             smoke=smoke,
@@ -343,7 +394,7 @@ class DbDrVerifier:
     # Teardown + audit helpers
     # ------------------------------------------------------------------
 
-    async def _safe_teardown(self, *, handle: DbRestoreHandle) -> None:
+    async def _safe_teardown(self, *, handle: DbRestoreHandle, run_id: str) -> str | None:
         """Invoke the restore adapter's teardown; swallow + audit errors.
 
         A teardown failure is recorded to the audit log as a separate
@@ -357,6 +408,7 @@ class DbDrVerifier:
             error = _truncate_error(exc)
             await self._audit_event(
                 experiment_id=handle.experiment_id,
+                run_id=run_id,
                 kind="teardown_failed",
                 payload={
                     "error": error,
@@ -364,20 +416,23 @@ class DbDrVerifier:
                     "at": datetime.now(tz=UTC).isoformat(),
                 },
             )
-            return
+            return error
         await self._audit_event(
             experiment_id=handle.experiment_id,
+            run_id=run_id,
             kind="teardown_succeeded",
             payload={
                 "target_ref": handle.target_ref,
                 "at": datetime.now(tz=UTC).isoformat(),
             },
         )
+        return None
 
     async def _audit_event(
         self,
         *,
         experiment_id: str,
+        run_id: str,
         kind: str,
         payload: Mapping[str, Any],
     ) -> None:
@@ -391,6 +446,9 @@ class DbDrVerifier:
         entry = {
             "event_kind": _AUDIT_EVENT_KIND,
             "experiment_id": experiment_id,
+            "run_id": run_id,
+            "correlation_id": run_id,
+            "idempotency_key": f"{run_id}:{kind}",
             "kind": kind,
             "payload": dict(payload),
         }

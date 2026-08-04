@@ -70,6 +70,11 @@ class TurnAssessmentInput:
     checks_completed: int
     checks_total: int
     failed_claim_ids: tuple[str, ...] = ()
+    verification_reason_code: str = "verification_reason_unavailable"
+    verification_route_id: str | None = None
+    evidence_complete: bool | None = None
+    ontology_release: str | None = None
+    graph_revision: str | None = None
     locale: str = "en"
     answer_model_identity: str | None = None
     deterministic_answer: bool = False
@@ -99,6 +104,19 @@ class TurnAssessmentInput:
             raise ValueError("verification check counts are inconsistent")
         if len(self.evidence_refs) > _MAX_EVIDENCE_REFS:
             raise ValueError("TurnAssessmentInput.evidence_refs exceeds the bounded cap")
+        if not self.verification_reason_code.strip() or len(self.verification_reason_code) > 256:
+            raise ValueError("verification_reason_code MUST be bounded and non-empty")
+        for optional_name, optional_value in (
+            ("verification_route_id", self.verification_route_id),
+            ("ontology_release", self.ontology_release),
+            ("graph_revision", self.graph_revision),
+        ):
+            if optional_value is not None and (
+                not optional_value.strip() or len(optional_value) > 512
+            ):
+                raise ValueError(f"{optional_name} MUST be bounded and non-empty when supplied")
+        if self.evidence_complete is not None and type(self.evidence_complete) is not bool:
+            raise ValueError("evidence_complete MUST be boolean when supplied")
         if len(self.reference_facts) > 32 or any(
             not fact.strip() or len(fact) > 1_000 for fact in self.reference_facts
         ):

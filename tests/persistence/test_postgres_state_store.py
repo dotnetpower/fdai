@@ -117,6 +117,47 @@ async def test_state_kv_atomic_create_and_prefix_read() -> None:
 
 
 @pytest.mark.asyncio
+async def test_state_kv_audited_cas_accepts_existing_revision_zero() -> None:
+    url = _requires_live_db()
+    _upgrade_head()
+    dsn = _plain_dsn(url)
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    key = f"integration-cas-{uuid.uuid4()}"
+    initial_audit = {
+        "event_id": str(uuid.uuid4()),
+        "actor": "integration-test",
+        "action_kind": "state.created",
+        "mode": "shadow",
+    }
+    assert await store.write_state_with_audit_if_absent(
+        key,
+        {"status": "pending", "revision": 0},
+        initial_audit,
+    )
+
+    transition_audit = {
+        "event_id": str(uuid.uuid4()),
+        "actor": "integration-test",
+        "action_kind": "state.transitioned",
+        "mode": "shadow",
+    }
+    assert await store.compare_and_set_state_with_audit(
+        key,
+        {"status": "approved", "revision": 1},
+        expected_revision=0,
+        audit_entry=transition_audit,
+    )
+    assert await store.read_state(key) == {"status": "approved", "revision": 1}
+    assert not await store.compare_and_set_state_with_audit(
+        key,
+        {"status": "rejected", "revision": 2},
+        expected_revision=0,
+        audit_entry={**transition_audit, "event_id": str(uuid.uuid4())},
+    )
+    assert await store.verify_chain()
+
+
+@pytest.mark.asyncio
 async def test_append_audit_rejects_invalid_mode() -> None:
     url = _requires_live_db()
     _upgrade_head()

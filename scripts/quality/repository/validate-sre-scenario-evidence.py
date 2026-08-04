@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -195,8 +196,8 @@ def _validate_scenario(scenario_id: str, value: object, errors: list[str]) -> st
     cleanup = _mapping(scenario.get("cleanup"), f"{field}.cleanup", errors)
     if cleanup is not None:
         cleanup_status = cleanup.get("status")
-        if cleanup_status not in ("verified", "not-applicable"):
-            errors.append(f"{field}.cleanup.status MUST be verified or not-applicable")
+        if cleanup_status not in ("verified", "incomplete", "not-applicable"):
+            errors.append(f"{field}.cleanup.status MUST be verified, incomplete, or not-applicable")
         if (
             status == "passed"
             and scenario_id not in ("S13", "S14")
@@ -255,13 +256,99 @@ def validate(payload: object) -> list[str]:
     return errors
 
 
+def build_sanitized_summary(
+    payload: Mapping[str, Any],
+    *,
+    source_ledger_sha256: str,
+) -> dict[str, Any]:
+    """Project a validated live ledger into a customer-agnostic tracked summary."""
+    if _SHA256.fullmatch(source_ledger_sha256) is None:
+        raise ValueError("source_ledger_sha256 MUST be a lowercase SHA-256 digest")
+    scenarios = payload["scenarios"]
+    if not isinstance(scenarios, Mapping):
+        raise ValueError("scenarios MUST be an object")
+
+    entries: list[dict[str, Any]] = []
+    for scenario_id in SCENARIO_IDS:
+        scenario = scenarios[scenario_id]
+        if not isinstance(scenario, Mapping):
+            raise ValueError(f"scenarios.{scenario_id} MUST be an object")
+        recovery = scenario["recovery_evidence"]
+        cleanup = scenario["cleanup"]
+        measurements = scenario["measurements"]
+        unsupported_claims = scenario["unsupported_claims"]
+        if not isinstance(recovery, Mapping) or not isinstance(cleanup, Mapping):
+            raise ValueError(f"scenarios.{scenario_id} evidence MUST be objects")
+        if not isinstance(measurements, Sequence) or isinstance(measurements, (str, bytes)):
+            raise ValueError(f"scenarios.{scenario_id}.measurements MUST be an array")
+        if not isinstance(unsupported_claims, Sequence) or isinstance(
+            unsupported_claims, (str, bytes)
+        ):
+            raise ValueError(f"scenarios.{scenario_id}.unsupported_claims MUST be an array")
+
+        receipts = (
+            scenario["injection_evidence"],
+            scenario["detection_evidence"],
+            recovery,
+        )
+        provenance_digests = sorted(
+            {
+                str(receipt["provenance_digest"])
+                for receipt in receipts
+                if isinstance(receipt, Mapping)
+            }
+        )
+        synthetic = any(
+            receipt.get("synthetic") is True for receipt in receipts if isinstance(receipt, Mapping)
+        )
+        safe_measurements = [
+            {
+                "name": measurement["name"],
+                "unit": measurement["unit"],
+                "value": measurement["value"],
+            }
+            for measurement in measurements
+            if isinstance(measurement, Mapping)
+        ]
+        residuals = cleanup.get("residuals")
+        entries.append(
+            {
+                "cleanup_status": cleanup["status"],
+                "measurements": safe_measurements,
+                "provenance_digests": provenance_digests,
+                "recovery_status": recovery["status"],
+                "residual_count": len(residuals) if isinstance(residuals, list) else 0,
+                "scenario_id": scenario_id,
+                "synthetic": synthetic,
+                "unsupported_claim_count": len(unsupported_claims),
+                "verdict": scenario["status"],
+            }
+        )
+
+    return {
+        "entries": entries,
+        "evidence_level": "live_execution",
+        "generated_at": payload["generated_at"],
+        "scenario_set": "sre-agent-s1-s14",
+        "schema_version": 1,
+        "source_ledger_sha256": source_ledger_sha256,
+        "summary": payload["summary"],
+    }
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("ledger", type=Path)
+    parser.add_argument(
+        "--summary-output",
+        type=Path,
+        help="Write a deterministic customer-agnostic tracked summary after validation.",
+    )
     args = parser.parse_args(argv)
     try:
-        payload = json.loads(args.ledger.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        source_bytes = args.ledger.read_bytes()
+        payload = json.loads(source_bytes)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         print(f"sre-evidence: ERROR: cannot read ledger: {exc}", file=sys.stderr)
         return 1
     errors = validate(payload)
@@ -269,6 +356,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         for error in errors:
             print(f"sre-evidence: ERROR: {error}", file=sys.stderr)
         return 1
+    if args.summary_output is not None:
+        summary = build_sanitized_summary(
+            payload,
+            source_ledger_sha256=hashlib.sha256(source_bytes).hexdigest(),
+        )
+        args.summary_output.parent.mkdir(parents=True, exist_ok=True)
+        args.summary_output.write_text(
+            json.dumps(summary, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
     print("sre-evidence: OK")
     return 0
 

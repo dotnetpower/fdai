@@ -45,6 +45,14 @@ No value on one axis selects a value on another axis. In particular:
 - A development deployment may run promoted actions in enforce mode when the same production risk,
   approval, blast-radius, rollback, and audit gates pass.
 - A production deployment may keep any action in shadow mode.
+- Evidence profiles preserve source limitations and truncation reasons as typed values. Changing
+  execution venue or environment cannot turn partial or unavailable evidence into complete evidence.
+- Conversation route completion is not evidence authority. Deterministic assurance requires a
+  nonempty terminal evidence manifest regardless of venue, environment, or answer source.
+- Chat-policy promotion requires a statistically positive measured gain. Venue, environment, or
+  deployment defaults cannot turn a tie into promotion evidence.
+- One immutable read-investigation intent spec owns plan IDs, tools, and lookback. Catalog IDs and
+  plan IDs must match it exactly; venue or environment cannot supply missing semantics at request time.
 - A fork may have zero or many deployments in any environment. Upstream may also be deployed
   directly.
 - Fork detection protects the upstream framework surface. It never changes runtime behavior,
@@ -63,6 +71,8 @@ The default interactive local profile is a production-parity control-plane clien
   data plane. They never replace the browser principal or the executor identity.
 - The same agent pantheon, catalogs, promotion registry, risk gate, Process journal, and stage
   events run locally.
+- Interactive read investigations use the same execution-mode policy locally and when deployed.
+  Measured provider latency can change the selected mode; execution venue alone cannot.
 - Pantheon startup is default-on. An unset `FDAI_START_PANTHEON` enables all agents; only an
   explicit false value disables them. Event Hubs configuration selects the Azure transport, not
   whether the runtime exists. Without Event Hubs, a local in-process EventBus carries agent

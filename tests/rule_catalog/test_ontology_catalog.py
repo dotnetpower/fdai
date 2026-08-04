@@ -10,6 +10,9 @@ import yaml
 from fdai.rule_catalog.schema.action_type import ActionTypeCatalogError
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.ontology_provenance import ontology_content_hash
+from fdai.rule_catalog.schema.rego_semantics import load_rego_semantics
+from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
+from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.shared.contracts.models import OntologyActionType
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 
@@ -24,6 +27,52 @@ def test_shipped_ontology_catalog_loads_as_one_graph() -> None:
     )
     assert {item.name for item in catalog.link_types} >= {"depends_on", "emits_to"}
     assert {item.name for item in catalog.action_types} >= {"remediate.enable-diagnostic-settings"}
+
+
+def test_shipped_rules_declare_concrete_semantic_axes() -> None:
+    catalog_root = REPO_ROOT / "rule-catalog"
+    registry = PackageResourceSchemaRegistry()
+    ontology = load_ontology_catalog(
+        catalog_root,
+        schema_registry=registry,
+        probes_root=catalog_root / "probes",
+    )
+    resource_types = load_resource_type_registry_from_mapping(
+        yaml.safe_load(
+            (catalog_root / "vocabulary" / "resource-types.yaml").read_text(encoding="utf-8")
+        )
+    )
+    rules = load_rule_catalog(
+        catalog_root / "catalog",
+        schema_registry=registry,
+        action_types=ontology.action_types,
+        resource_types=resource_types,
+        policies_root=REPO_ROOT / "policies",
+    )
+
+    wildcard_rules = {
+        rule.id for rule in rules if "*" in rule.triggered_by or "*" in rule.evaluates
+    }
+    assert not wildcard_rules, f"rules retain wildcard semantic axes: {sorted(wildcard_rules)}"
+
+    assert {item.name for item in ontology.object_types} >= {
+        "PolicyArtifact",
+        "Property",
+        "ResourceType",
+        "Rule",
+        "SignalType",
+    }
+    assert {item.name for item in ontology.link_types} >= {
+        "applies_to",
+        "evaluates",
+        "implemented_by_policy",
+        "remediates",
+        "triggered_by",
+    }
+    for rule in rules:
+        semantics = load_rego_semantics(REPO_ROOT / rule.check_logic.reference)
+        assert semantics.severity == rule.severity.value
+        assert semantics.category == rule.category.value
 
 
 def test_shipped_ontology_catalog_contains_operating_semantic_spine() -> None:

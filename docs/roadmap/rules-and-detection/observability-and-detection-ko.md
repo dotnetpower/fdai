@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 6e15b7effc5e5934f50a47d73821240d0f2a64b7
-translation_revised: 2026-08-02
+translation_source_sha: e7fac3be6f1d7bb8a8ff119e4dbeb7b0751fcade
+translation_revised: 2026-08-04
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -61,6 +61,55 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **findin
   episode를 먼저 축출합니다.
 - 새 감지기는 **shadow 모드** 로 출시되고 shadow→enforce 규칙에 따라 승격; 정확도와
   false-positive 비율은 Phase 0 베이스라인 대비 측정됨.
+
+### 동결된 구성 기준선 점검
+
+구성 드리프트는 T0(결정론적 규칙) 점검 결과입니다. 검토된 실제 스냅샷을 의도된 상태로
+동결하며 이후 관측값으로 자동 교체하지 않습니다. 사람이 검토하는 DOCX와 정규 JSON 기준선은
+동일한 버전, 범위, 생성 시각, 문서 digest를 가집니다.
+Generation과 validation은 canonical JSON의 표시 가능한 모든 resource, attribute, evidence gap,
+topology link, exception, unknown item이 paired DOCX에 있는지도 확인합니다. File digest 일치만으로는
+cross-format equivalence가 성립하지 않습니다.
+
+- `core/detection/configuration_drift.py`는 리소스, 토폴로지 링크, 비교 가능한 속성을 정규화하고
+  `added`, `removed`, `changed`, `unchanged`, `unknown`, `unauthorized`를 보고합니다.
+- 부분 스냅샷은 제거를 증명할 수 없습니다. 누락된 리소스, 링크, 속성은 신뢰할 수 있는 소스가
+  완전한 증거를 제공할 때까지 차단 상태로 유지합니다.
+- 설정된 기준선 버전, SHA-256 digest, 범위는 서버가 소유합니다. 호출자는 tool argument로 다른
+  대상을 선택할 수 없습니다.
+- 변경 불가능한 baseline registry는 여러 scope의 candidate, active, superseded, archived version을
+  보관할 수 있으며 scope마다 active version을 하나만 허용합니다. Active source와 replay-pinned source는
+  conversation input이 아니라 server composition이 선택하고 registry는 mutation API를 노출하지 않습니다.
+- `delivery/azure/configuration_drift.py`는 Azure Resource Graph query 안에서 resource group filter를
+  적용합니다. 증거를 생성하기 전에 전체 provider resource id를 제거하고 configured scope에서 neutral
+  resource key로 향하는 deterministic resource-group `contains` link를 생성합니다.
+- Knowledge retrieval은 검토된 문서를 설명하고 인용합니다. 드리프트를 판정하지는 않습니다.
+  Knowledge를 사용할 수 없어도 결정론적 보고서는 유지하고 citation 상태는 근거 있음으로
+  표시하지 않고 차단 상태로 유지합니다. 각 citation identity에는 정확한 baseline version과 전체
+  DOCX SHA-256 digest가 포함되므로 재사용된 파일 이름이 다른 문서를 가리킬 수 없습니다. Exact
+  metadata lookup을 우선하고 bounded deterministic lexical fallback은 고정된 문서 내부의 chunk만
+  순위화하며 관련 없는 query에는 결과를 반환하지 않습니다. Provider exception은 exception type과
+  pinned baseline identity가 포함된 structured warning을 emit하지만 exception message 또는 chunk content는
+  기록하지 않습니다.
+- Read-only capability는 mutation, approval, mitigation, unsupported-claim count를 보고합니다.
+  구성 점검에서는 모두 0으로 유지합니다.
+- Public `bind_configuration_drift` composition helper는 immutable capability runtime을 통해 이
+  server-pinned A0 capability 하나만 설치합니다. ActionType, executor identity, schedule authority,
+  caller-selected scope를 추가하지 않습니다.
+- 각 fresh run은 baseline load, observation, comparison, Knowledge, total latency와 resource 및
+  finding count를 기록합니다. Cache된 snapshot은 current-state 질문을 충족할 수 없으므로 현재 관측값을
+  TTL cache로 재사용하지 않습니다. Receipt는 floating-point timer tolerance를 넘어 stage latency 합이
+  total elapsed time보다 큰 경우를 거부합니다.
+- Pure review reducer는 고정된 baseline 하나에 대한 idempotent run receipt 세 개를 수락합니다. Verified
+  run 세 개만 inert weekly schedule proposal을 만들 수 있습니다. Blocked 또는 unsafe run이 있으면
+  campaign을 pause하고 reducer는 scheduler task를 직접 생성하지 않습니다. Revisioned StateStore adapter는
+  atomic state-and-audit create와 compare-and-set advance로 campaign progress를 저장합니다.
+- Campaign advance 전에 immutable StateStore report ledger가 campaign과 run identity 아래에 전체 finding,
+  citation, safety counter, measured performance를 기록합니다. Strict codec은 restart replay를 지원하고,
+  duplicate content는 no-op이며, 다른 evidence로 identity를 재사용하면 차단합니다.
+- Ready campaign은 inert Automation Blueprint를 제출합니다. Shadow weekly event가 생기기 전에 independent
+  review와 authenticated scheduler command가 계속 필요합니다. Configuration drift는 scheduler store 또는
+  executor를 직접 호출하지 않습니다.
 
 ## 1. 이벤트 상관관계(Event Correlation)
 

@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 2d87c974262bc70ddc6d5c96f1fee6a3c8705c90
+translation_source_sha: 921cd0a3808b291cea6ae3f7d46c8935e3dd60d0
 translation_revised: 2026-08-04
 ---
 
@@ -14,14 +14,11 @@ translation_revised: 2026-08-04
 Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고,
 운영 view와 요청은 [console-operations-ko.md](console-operations-ko.md)에 정의되며 SPA는
 [project-structure.md § console/](../architecture/project-structure-ko.md#console-static-web-app)에 있습니다. Evidence provenance, stream recovery, localization 및 Architecture map resilience는 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. 온톨로지 맵은 `rule-catalog`와 `PANTHEON_SPECS`에서 생성된 하나의 카탈로그 지식 그래프를 렌더링하며 Architecture 또는 런타임 인벤토리를 읽지 않습니다.
-Settings > Integrations에서는 합성 placeholder로 production incident-open email renderer를 미리 볼 수
-있습니다. 이 GET-only preview는 email을 보내거나 승인 또는 실행 권한을 부여하지 않습니다.
-인증된 active-incident stream은 idle Command Deck을 incident selector와 함께 열 수 있습니다. 이
-selector는 presentation hint일 뿐입니다. Server는 답변 전에 durable incident와 evidence를 다시
-resolve하며 browser는 turn을 자동 제출하지 않습니다.
-Incident 질문이 여러 record와 같은 정도로 일치하면 terminal answer는 plain-text 안내 대신 bounded
-candidate button을 포함합니다. Button은 해당 candidate의 exact incident conversation을 열고 localized
-investigation draft를 준비합니다. Operator가 turn을 명시적으로 전송하는 동작은 유지합니다.
+Settings > Integrations에서는 합성 placeholder로 production incident-open email renderer를 미리 볼 수 있습니다. 이 GET-only preview는 email을 보내거나 승인 또는 실행 권한을 부여하지 않습니다.
+인증된 active-incident stream은 idle Command Deck을 incident selector와 함께 열 수 있습니다. 이 selector는 presentation hint일 뿐이며 server는 답변 전에 durable incident와 evidence를 다시 resolve합니다.
+Tab과 Deck이 idle 상태이면 browser에서 incident를 처음 관찰할 때 localized read-only investigation turn을 한 번 제출합니다. Browser-local incident ledger는 reload 뒤 replay를 억제하며, incident badge를 누르면 명시적으로 다시 조사할 수 있습니다.
+Incident 질문이 여러 record와 같은 정도로 일치하면 terminal answer는 plain-text 안내 대신 bounded candidate button을 포함합니다. Button은 해당 candidate의 exact incident conversation을 열고 localized read-only investigation turn을 즉시 제출합니다.
+Button click은 operator의 명시적인 요청입니다. 자동 active-incident stream open은 managed-resource action을 제출하지 않습니다.
 
 이 문서는 **pull 방향**, 즉 오퍼레이터가 묻고 시뮬레이션하고 승인하는 경로를 다룹니다.
 Push와 pull은 같은 채널 credential과 audit 계약을 공유하지만 서로 다른 통합
@@ -55,10 +52,9 @@ quality gate (T2 verifier), risk gate, shipped Rego policy. 콘솔은
   불투명한 LLM 세션 memory가 아님. 대화 간에 persist 되는 모든 상태는
   `audit_log` + `operator_memory`에 살며, 감사가능 / export 가능 / CSP-중립.
 
-완료된 답변은 off-path [Conversation Assurance](../decisioning/conversation-assurance-ko.md)
-루프에도 들어갑니다. Evidence panel은 principal 범위 점수, 모델 불일치, 비용, immutable 이의
-제기를 보여줍니다. 잘못된 답변 보고는 자율 재평가 근거를 추가하며 승인, 정책 편집 또는 실행
-명령이 아닙니다.
+완료된 답변은 off-path [Conversation Assurance](../decisioning/conversation-assurance-ko.md) 루프에도 들어갑니다. Evidence panel은 principal 범위 점수, 모델 불일치, 비용, immutable 이의 제기를 보여줍니다. 잘못된 답변 보고는 자율 재평가 근거를 추가하며 승인, 정책 편집 또는 실행 명령이 아닙니다.
+Terminal intake는 exact verification reason과 evidence-manifest completeness를 보존합니다. Ontology-owned layer로 attribution된 failed answer는 durable StateStore에 별도 hold-first adequacy review를 만들 수 있습니다. Provider, context, rendering, policy failure는 이 review를 만들지 않습니다.
+Operator API는 review를 ready로 표시하거나 catalog proposal을 만들거나 authority를 부여하지 않습니다. 해당 transition에는 exact replay evidence와 기존 governed catalog lifecycle이 필요합니다.
 ### 1.1 공유 glossary에 추가된 어휘
 
 다음 토큰들이
@@ -84,7 +80,7 @@ flowchart TD
     WEB["Web chat (Console SPA)"]
   end
   subgraph L2["Layer 2 - Conversation Coordinator"]
-    NARR["Narrator (LLM)\nt1.judge default\nt2.reasoner escalation"]
+    NARR["Narrator (LLM)\nT1 translation default\nT2 translation escalation"]
     INTENT["Intent classify\n(read | simulate | approve | breakglass)"]
     RBAC["RBAC gate\n(per-tool role floor)"]
     VERIF["Verifier re-check\n(no auto-execute)"]
@@ -191,7 +187,7 @@ flowchart TD
   Synthesis 전에 aggregator는 두 tool이 같은 `resource_id`, `scope_ref` 또는 `id`를 명시할 때만
   high-signal `state`, `status`, `verdict`, `mode`, `health`, `outcome` field를 비교합니다. 값이 다르면
   structured conflict와 양쪽 evidence를 보존하고 aggregate를 `abstain`으로 바꾼 뒤 model rendering을
-  skip합니다. 서로 다른 identity는 비교하지 않습니다.
+  skip합니다. 서로 다른 identity는 비교하지 않습니다. Local 및 deployed interactive read는 core가 소유한 하나의 mode policy를 사용하므로 같은 latency profile에서 같은 direct, streamed 또는 detached mode를 선택합니다.
 - **Layer 1 (Core)**은 이미 shipping 중인 deterministic core 그대로.
   콘솔은 새 판단 경로, 새 지속성 저장소, 새 execution vector를 추가하지
   않는다. 콘솔 tool call은 기존 pipeline이 이미 만드는 법을 아는 call
@@ -238,6 +234,9 @@ flowchart TD
   - `chat_knowledge_context.py`는 state write 없이 exact prior-turn runbook, source freshness, consented memory,
     materialized learning을 읽고, `chat_vision_prompt.py`는 검증된 image를 projection하며,
     `chat_verification_text.py`와 `chat_verification_rendering.py`는 terminal integrity와 prose를 소유합니다.
+  - `read_investigation_responder.py`는 등록된 모든 Heimdall read intent를 typed evidence field에서
+    렌더링합니다. Evidence가 없으면 명시적인 unavailable answer를 반환하며, 처리되지 않은 intent는
+    generic success prose로 fallback하지 않고 exhaustive type checking에서 실패합니다. Fallback은 Pantheon agent를 embed하지 않고 bound된 typed responder를 호출하며 direct `PantheonChatDelegate` 사용은 fixture-only입니다. 하나의 runtime intent spec이 tool과 lookback을 공급하며 `read_investigation_catalog.py`는 catalog ID, owner 또는 plan binding drift 시 startup을 차단합니다.
 
 이 layer의 영어 및 한국어 presentation literal은 NFC UTF-8로 작성합니다. Repository gate는 escape된
 Hangul prose와 matching token을 차단하며, code-point behavior에는 정확한 rationale이 있는 예외만
@@ -281,13 +280,11 @@ method `tools.search`, `tools.describe`로 제공됩니다. Channel call은 reso
 | `query_subscription_health()` | 명시적인 subscription 점검, 일반적인 service-outage 질문 및 catalog가 선택한 degraded 또는 unavailable resource collection에 대해 server-configured Azure reader scope를 점검합니다. Provider는 resource-group allowlist를 기본으로 사용하며, composition이 소유하는 명시적인 subscription mode는 interactive local health 범위를 subscription inventory와 맞춥니다. Resource Graph inventory와 Resource Health를 query하고, ARG가 비어 있으면 configured scope의 current Resource Health status로 fallback한 다음 bounded representative metric을 확인합니다. 근거 있는 empty group을 포함한 요청 state group을 보존합니다. Resource Health display name이 없으면 scope가 검증된 target에서 name, provider type 및 resource group을 정규화하고 raw target ID는 노출하지 않습니다. Caller-supplied scope 또는 mode를 허용하지 않고 finding, cause classification, coverage gap, freshness 및 truncation을 반환합니다. | Reader | `SubscriptionHealthProvider` |
 | `query_detection_readiness()` | Muninn StateSnapshot에서 Heimdall의 최신 AKS readiness 판정을 읽고 6축 coverage gap과 authority ceiling을 반환합니다. Azure를 probe하거나 readiness를 다시 계산하지 않습니다. | Reader | `DetectionReadinessReader` |
 | `query_t2_recovery()` | Server StateStore에서 sanitized proposer attempt receipt를 읽습니다. Provider error text를 노출하지 않고 retained attempt count, recovery state, route role, failure class, observation time 및 명시적인 legacy-detail gap을 반환합니다. | Reader | `T2RecoveryStateReader` |
+| `query_configuration_baseline()` | 서버가 구성한 동결된 구성 기준선, 현재 범위의 관측값, 무결성이 고정된 정확한 DOCX citation을 읽습니다. 호출자는 범위, 버전, digest, 문서 또는 mutation operation을 선택할 수 없습니다. 구조화된 topology가 없으면 unknown으로 유지합니다. | Reader | `ConfigurationDriftService` + `KnowledgeSource` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | 정확한 server-owned policy 아래에서 credential이 없는 bounded capture를 submit합니다. Immutable artifact receipt를 반환하며 page 또는 interaction API를 반환하지 않습니다. | Reader | `BrowserEvidenceCaptureService` |
-필터가 없는 resource-type summary에서 `query_inventory`는 ARM type에 canonical catalog
-mapping이 없더라도 provider가 관찰한 모든 resource를 보존합니다. Deterministic answer는
-provider-native type별로 grouping하고 완전한 resource 및 type 합계를 보고하며 resource-group
-container와 topology에서 파생된 하위 record는 provider-native resource 합계와 분리해
-보고합니다. Catalog-mapped query는 filtering과 CSP-neutral reasoning에 canonical resource
-type을 계속 사용합니다.
+구체적인 resource-type query에 완전한 lexical state match가 없으면 semantic planning은 state concept만 제안합니다. Server는 IQL catalog의 canonical current-inventory state만 수락하고
+deterministic type, scope, freshness를 보존하며 planner가 제안한 type, scope, lookback은 버립니다. Provider가 관찰한 status가 최종 predicate를 grounding하며 invalid state는 unavailable을 반환합니다.
+필터가 없는 summary는 provider가 관찰한 모든 resource를 계속 보존하고 provider-native type별로 grouping하며 resource-group container와 topology-derived record를 resource 합계에서 분리합니다.
 Catalog-owned `scope_counts` query kind는 query를 resource group으로 좁히지 않고 하나의
 fresh snapshot에서 provider-native resource와 resource-group 합계를 반환합니다. Type summary와
 동일하게 container, derived-record, truncation, freshness 및 verification disclosure를 유지합니다.
@@ -364,6 +361,7 @@ write 집합에 대한 두 명확화:
 
 `query_log`는 명시적인 bounded KQL과 세 가지 자연어 진단 형태를 server-owned template으로 처리합니다. 실패 요청 요약은 `AppRequests`를 작업과 결과 코드별로 그룹화하지만, 이 그룹이 근본 원인을 증명한다고 주장하지 않습니다. 오류 시그니처 시간 범위와 관련 로그 요청에는 정확한 시그니처 또는 선택된 context가 필요합니다. context가 없으면 provider나 narrator를 호출하지 않고 확인 질문을 반환합니다. 대표 오류 샘플은 고정 multi-table template을 사용하고, 요청 window를 24시간으로 제한하며, cell을 렌더링하기 전에 secret assignment, bearer 값, resource identifier, GUID, 이메일 주소, URL, IP 주소를 제거합니다. 추가 고정 template은 가장 느린 관측 분산 추적의 span을 순위화하고, dependency latency를 집계하며, 느린 database dependency call을 나열합니다. 이 결과만으로 근본 원인, 인과적 기여 또는 database call이 CPU 상승을 설명한다는 결론을 증명하지는 않습니다. Bounded read-only error KQL을 실행하라는 자연어 요청은 server-owned error template을 사용하고, 명시적인 영어 또는 한국어 minute/hour window를 24시간 상한으로 유지합니다. Prompt text는 실행 가능한 KQL이 되지 않습니다. workspace provider가 구성되지 않은 경우에도 같은 tool이 typed unavailable 결과를 반환하며, current-screen, incident, web 또는 narrator evidence로 fallback하지 않습니다.
 Proposal, approval, execution, outcome verification, retry 또는 idempotency에 대한 context-free 질문은 deterministic action-context hold를 사용합니다. Lifecycle claim을 검증하기 전에 exact ActionType, target resource, proposal, approval 또는 action receipt를 제공해야 합니다. Current-screen, repository, incident 및 narrator evidence는 governed record를 대체하지 않으며, 이 hold는 mutation이나 model call을 수행하지 않습니다.
+정확한 configuration-baseline 파일 이름은 action-context 분류보다 먼저 read-only baseline tool을 선택합니다. "mitigation tool을 호출하지 마세요"와 같은 부정 지시는 문서 읽기를 action-lifecycle 질문으로 바꾸지 않습니다. 결정론적 답변은 각 section에서 고정된 DOCX를 인용하고 사용할 수 없는 관계를 prose에서 추론하지 않고 unknown으로 보고합니다. 일반적인 baseline 표현은 별도 keyword router를 만들지 않고 검증된 semantic planning 경로에 유지됩니다.
 Month-1 추가는 콘솔을 multi-signal 인시덴트 대응 경험에 가깝게
 만들어 주지만, 여전히 **이미 correlate 된** 결과를 surface;
 correlator는 Layer 1에 살고, narrator 안에 살지 않는다.
@@ -568,7 +566,7 @@ pull adapter 추가. 콘솔은 이제:
 | Teams/Slack conversation | `ProductionChannelRuntime`, authenticated ingress, principal resolution, publisher, durable reply option이 제공됩니다. 실제 배포 enablement/credential은 environment-owned입니다. |
 | Web chat and memory | JSON/SSE chat, principal-scoped conversation history/preferences/memory, AnswerPlan 및 progressive verification이 제공됩니다. |
 | Observation/discovery | `POST /read-investigations`는 Azure I/O 전에 durable latency evidence로 direct, streamed, detached execution을 선택합니다. Direct Command Deck 및 HTTP read는 owner-scoped result-replay ledger를 공유하며 streamed response가 닫히면 in-flight read를 cancel합니다. Dedicated reader binding이 있을 때만 등록되며 catalog presence만으로 provider health나 promotion을 주장하지 않습니다. |
-| Forecast learning | `GET /forecast-learning`은 PostgreSQL에서 due closure completeness, model/pipeline miss origin, publication 및 dead-letter debt, retention debt를 projection합니다. 이 route는 Reader-only이며 detector mutation 또는 promotion control을 제공하지 않습니다. |
+| Forecast 및 Dynamic learning | `GET /forecast-learning`은 forecast closure와 publication 상태를 projection하고, `GET /dynamic-assurance`는 durable scalar/graph model summary와 trajectory closure count를 projection합니다. 두 route 모두 Reader-only이며 detector/model mutation, promotion, approval 또는 execution control을 제공하지 않습니다. |
 
 Live Azure completion evidence와 capability promotion은 여전히 authoritative registry 및 deployment
 verification에서 판단하며 이 문서의 phase 이름으로 추론하지 않습니다.

@@ -1,10 +1,14 @@
 import { describe, expect, test } from "vitest";
 import { parseIncidentCandidates } from "./backend";
-import { incidentCandidateDeckDetail } from "./grounded-reply";
+import {
+  incidentCandidateAnswerLead,
+  incidentCandidateDeckDetail,
+} from "./grounded-reply";
 import { parseTurns, serializeTurns } from "./transcript-store";
 
 const artifact = {
   schema_version: 1,
+  locale: "ko",
   candidates: [{
     incident_id: "INC-1",
     correlation_id: "corr-1",
@@ -27,7 +31,16 @@ describe("incident candidate selection", () => {
         correlationId: "corr-1",
       },
       onlyWhenIdle: true,
+      newConversation: true,
+      prompt: "이 인시던트의 원인을 조사해줘.",
+      submitPrompt: true,
     });
+  });
+
+  test("shows one lead sentence instead of repeating candidate bullets", () => {
+    expect(incidentCandidateAnswerLead(
+      "여러 인시던트가 일치합니다. 선택해 주세요:\n- corr-1: Pod restart\n- corr-2: Memory",
+    )).toBe("여러 인시던트가 일치합니다. 선택해 주세요:");
   });
 
   test("rejects an unbounded or malformed candidate artifact", () => {

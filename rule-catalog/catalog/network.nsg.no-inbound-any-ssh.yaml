@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: network.nsg.no-inbound-any-ssh
 version: 1.0.0
 source: mcsb
@@ -8,15 +8,17 @@ resource_type: network.nsg
 applies_to:
 - network.nsg
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.network.nsg.security_rules
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: network.nsg
+- kind: property_exists
+  value: property.network.nsg.security_rules
 check_logic:
   kind: rego
   reference: policies/network/nsg_no_inbound_any_ssh.rego

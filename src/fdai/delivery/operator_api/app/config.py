@@ -321,6 +321,9 @@ class OperatorApiConfig:
     endpoint report ``evaluated=false``; a fork wires the same
     inventory-evaluation source as :attr:`rule_catalog_findings_provider`."""
 
+    rule_catalog_semantic_index: Any = None
+    """Optional async semantic index for ranked Rule catalog queries."""
+
     promotion_gate_action_types: tuple[Any, ...] = ()
     """Opt-in promotion-gate dashboard input: tuple of
     :class:`~fdai.shared.contracts.models.OntologyActionType`."""
@@ -397,6 +400,24 @@ class OperatorApiConfig:
     It reads approved skill/source and principal-scoped stores only after the
     chat route reconstructs an exact durable prior turn. It never creates a
     memory, proposal, review, approval, or runtime skill."""
+
+    configuration_drift_context: Any = None
+    """Optional integrity-pinned configuration-baseline chat projection.
+
+    It reads one server-configured frozen baseline, observation, and DOCX citation. The caller
+    cannot choose a scope, baseline version, digest, document, or mutation operation."""
+
+    configuration_review_runtime: Any = None
+    """Optional fresh-run command that records immutable drift evidence.
+
+    The Console does not expose this command. A Contributor may invoke it with
+    an idempotency key; readiness can submit only an inert automation blueprint."""
+
+    automation_blueprint_review: Any = None
+    """Optional independent review and scheduler materialization service.
+
+    Review and materialization remain separate authenticated commands. The
+    candidate proposer cannot self-review and the Console panel stays read-only."""
 
     busy_input_runtime: BusyInputRuntime | None = None
     """Optional durable queue, interrupt, and steer runtime for chat turns.
@@ -539,7 +560,7 @@ class OperatorApiConfig:
     See :mod:`fdai.delivery.operator_api.workflow_authoring`."""
 
     workflow_execution: Any = None
-    """Opt-in Contributor-gated ``POST /workflows/run`` shadow command."""
+    """Opt-in Workflow start, exact resume, safe cancel, and bounded retry commands."""
     workflow_definitions: Any = None
     """Opt-in principal-scoped WorkflowDefinition and WorkflowBinding routes."""
     user_context: Any = None

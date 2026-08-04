@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: implemented_by_policy
+version: "1.0.0"
+from_type: Rule
+to_type: PolicyArtifact
+cardinality: many_to_one
+description: Deterministic policy artifact that implements a Rule check.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:implemented_by_policy@1.0.0
+  content_hash: sha256:2963f8287f6fb51eb65e1f3cc44b8d37f177fb1f6cfccf58b8aa24e0b9d15f1f
+  license: MIT
+  retrieved_at: "2026-08-04T00:00:00Z"

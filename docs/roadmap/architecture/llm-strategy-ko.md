@@ -1,7 +1,7 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 83cc9df5e7c9e5fb88fbe45a72023b99ab66a65e
+translation_source_sha: 06ae3fe9ee9d2fe0d0beb683825746fb1f58330c
 translation_revised: 2026-08-04
 ---
 
@@ -125,7 +125,7 @@ flowchart TD
 
 - 모든 모델 호출은 `shared/` 의 **provider-neutral 클라이언트** 를 통해 감 - 모델이 `core/tiers`
   를 만지지 않고 스왑 가능.
-- 모델을 하드코딩 이름이 아니라 capability로 설정: `t1.embedding`, `t1.judge`,
+- 모델을 하드코딩 이름이 아니라 capability로 설정: `t1.embedding`, `t1.judge`, `t1.vision`,
   `t2.reasoner.primary`, `t2.reasoner.secondary`, `t2.rca`.
 - **클라이언트 계약**: 요청 timeout, 구조화/JSON-schema 출력, 토큰 회계, 재현 가능 설정
   (지원되는 곳에서 temperature 0 + 고정 seed) 강제 - 그래서 교차 검사와 리플레이가 비교 가능.
@@ -271,8 +271,8 @@ models:
 
 ### 부트스트랩 Provisioner
 
-`azd up` (또는 등가) 에서 resolver가 레지스트리를 읽고, 대상 리전의 Azure OpenAI / Foundry
-카탈로그를 쿼리하고, **capability당 하나의 deployment** 프로비저닝. Resolved `{capability →
+`azd up` (또는 등가) 에서 resolver가 레지스트리를 읽고 대상 리전의 Azure OpenAI / Foundry 카탈로그를 쿼리하여 **구체 capability당 하나의 deployment** 를 프로비저닝합니다. 가상 `t1.vision`은
+별도 deployment를 만들지 않고 일치하는 narrator deployment를 재사용합니다. Resolved `{capability →
 deployment}` 매핑이 Key Vault에 기록되고 감사됨.
 
 배포자가 `Cognitive Services Contributor` 를 갖지 않을 때, 선호 family가 리전에 없을 때,
@@ -439,12 +439,12 @@ field를 선택할 수 없습니다.
 새 capability(예: `t1.judge.fast-pool`)를 quality gate 와 함께 선언하고
 composer 로 라우팅, 스왑을 감사. narrator 라우터를 통해 쓰레딩하지 말 것.
 
-Operator API는 operator traffic과 독립적으로 이 pool을 갱신합니다. 시작할 때 모든
-후보를 두 번 probe하고, 이후 `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS`마다 후보별
-최소 sample을 하나씩 추가합니다. 기본값은 `300`초입니다. 실제 대화 latency도
-같은 8-sample rolling window에 들어가므로 느려지거나 실패한 deployment는 재시작을
-기다리지 않고 healthy 후보 뒤로 이동합니다.
-
+Operator API는 operator traffic과 독립적으로 text 및 multimodal pool을 갱신합니다. Text는
+`narrator_candidates`를 사용하고 image turn은 이미 provision된 deployment와 `t1.vision` preference의
+교집합인 `vision_candidates`를 사용하므로 Azure quota를 중복 예약하지 않습니다. 각 pool은 별도
+8-sample latency와 TTFT window를 유지합니다. Startup은 text 후보를 두 번, vision 후보는 bounded 1 px
+image로 probe하고 이후 `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS`(기본 `300`)마다 sample을 추가합니다. 느리거나 incompatible한 후보는 재시작 없이 뒤로 이동하며 vision pool이 없으면 text를 빌리지 않고 image
+turn만 unavailable로 유지합니다. 이 dispatch boundary는 narrator와 vision 후보가 각각 하나만 resolve되어도 적용됩니다.
 ### 사용자별 Narrator 선호 및 TTFT
 
 Settings > Models는 모델 endpoint 또는 자격 증명을 노출하지 않고 해결된 T1/T2
@@ -711,6 +711,18 @@ runtime ObjectType 속성과 LinkType 속성은 canonical JSON 데이터여야 �
 문자열이고, 숫자는 finite이며, datetime은 timezone-aware이고 RFC 3339 UTC로 정규화됨.
 지원하지 않는 Python 객체는 write boundary에서 거부함. in-memory와 PostgreSQL store가
 같은 정규화를 적용하므로 replay는 선택한 adapter에 따라 달라지지 않음.
+
+### 구체적인 Rule semantics
+
+제공되는 Rule은 wildcard 온톨로지 관계를 사용하지 않습니다. `triggered_by`는 검토된
+`SignalType`을 참조하고, `evaluates`는 canonical `Property` ID를 참조하며,
+`implemented_by_policy`는 Rule을 1급 `PolicyArtifact`에 연결합니다. 범위가 제한된 OPA AST
+동기화 도구는 카탈로그를 구성하기 전에 Rego package ID와 속성 읽기를 검증합니다.
+
+원시 이벤트는 `vocabulary/signal-types.yaml`을 통해 해석됩니다. 정확한 pattern 일치는 전문화된
+형식을 선택하고, 일치하지 않는 이벤트는 검토된 단일 구성 baseline 형식을 선택합니다. Semantic
+retrieval은 후보 Rule의 순위를 매길 수 있지만 정확한 ID와 graph link가 dispatch 및 근거 확인의
+권위로 유지됩니다.
 
 ### 온톨로지 아티팩트로서의 규칙
 

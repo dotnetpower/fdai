@@ -53,10 +53,14 @@ def project_source_records(
             raise ValueError("projection record watermark MUST be RFC3339") from exc
         if parsed_watermark.tzinfo is None:
             raise ValueError("projection record watermark MUST be timezone-aware")
-        if binding.delete_field is not None and raw.get(binding.delete_field) is True:
-            deleted_ids.append(identity)
-            watermarks.append(watermark)
-            continue
+        if binding.delete_field is not None and binding.delete_field in raw:
+            delete_marker = raw[binding.delete_field]
+            if not isinstance(delete_marker, bool):
+                raise ValueError("projection record delete marker MUST be boolean")
+            if delete_marker:
+                deleted_ids.append(identity)
+                watermarks.append(watermark)
+                continue
         properties = {
             target: raw[source] for source, target in binding.property_map.items() if source in raw
         }

@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DECK_OPEN_EVENT,
+  DECK_OPEN_READY_EVENT,
   isDeckOpenListenerReady,
   DECK_WORKSPACE_NAVIGATION_EVENT,
   installWorkspaceDeckNavigationHandler,
+  clearPendingDeckOpenRequests,
+  acknowledgeDeckOpenEvent,
   openDeckWithContext,
   openDeckWithPrompt,
   requestWorkspaceDeckCloseForNavigation,
@@ -21,6 +24,7 @@ class FakeCustomEvent<T> {
 
 afterEach(() => {
   setDeckOpenListenerReady(false);
+  clearPendingDeckOpenRequests();
   vi.unstubAllGlobals();
 });
 
@@ -65,8 +69,14 @@ describe("openDeckWithContext", () => {
     vi.stubGlobal("window", { dispatchEvent: dispatch });
 
     expect(isDeckOpenListenerReady()).toBe(false);
-    expect(openDeckWithContext({ onlyWhenIdle: true })).toBe(false);
-    expect(dispatch).not.toHaveBeenCalled();
+    expect(openDeckWithContext({ onlyWhenIdle: true })).toBe(true);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+
+    setDeckOpenListenerReady(true);
+    expect(dispatch).toHaveBeenCalledTimes(3);
+    expect((dispatch.mock.calls[1]?.[0] as FakeCustomEvent<Record<string, unknown>>).type)
+      .toBe(DECK_OPEN_EVENT);
+    expect((dispatch.mock.calls[2]?.[0] as Event).type).toBe(DECK_OPEN_READY_EVENT);
   });
 
   it("reports when an idle-only open request is deferred", () => {
@@ -75,6 +85,25 @@ describe("openDeckWithContext", () => {
     setDeckOpenListenerReady(true);
 
     expect(openDeckWithContext({ onlyWhenIdle: true })).toBe(false);
+  });
+
+  it("dispatches immediately when a mounted listener acknowledges stale readiness", () => {
+    const dispatched: Event[] = [];
+    vi.stubGlobal("CustomEvent", FakeCustomEvent);
+    vi.stubGlobal("window", {
+      dispatchEvent: (event: Event) => {
+        dispatched.push(event);
+        acknowledgeDeckOpenEvent(event);
+        return true;
+      },
+    });
+
+    expect(openDeckWithContext({ prompt: "investigate", submitPrompt: true })).toBe(true);
+    expect(dispatched).toHaveLength(1);
+
+    setDeckOpenListenerReady(true);
+    expect(dispatched).toHaveLength(2);
+    expect(dispatched[1]?.type).toBe(DECK_OPEN_READY_EVENT);
   });
 
   it("dispatches a fresh agent-conversation request", () => {

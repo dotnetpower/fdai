@@ -9,6 +9,7 @@ from fdai.core.read_investigation.catalog import (
 from fdai.core.read_investigation.execution_policy import (
     InvestigationExecutionPolicy,
     ReadInvestigationExecutionMode,
+    interactive_investigation_policy,
 )
 from fdai.core.read_investigation.idempotency import (
     MAX_READ_INVESTIGATION_ATTEMPTS,
@@ -22,6 +23,11 @@ from fdai.core.read_investigation.idempotency import (
     ReadInvestigationRunUsage,
     read_investigation_request_digest,
     read_investigation_request_projection,
+)
+from fdai.core.read_investigation.intent_spec import (
+    READ_INVESTIGATION_INTENT_SPECS,
+    ReadInvestigationIntentSpec,
+    read_investigation_intent_spec,
 )
 from fdai.core.read_investigation.latency import (
     PlanLatencyEstimate,
@@ -51,10 +57,14 @@ __all__ = [
     "READ_TOOL_SPECS",
     "LatencyClass",
     "InvestigationExecutionPolicy",
+    "interactive_investigation_policy",
     "InMemoryReadInvestigationRunStore",
     "PlanLatencyEstimate",
     "MAX_READ_INVESTIGATION_ATTEMPTS",
     "ReadInvestigationExecutionMode",
+    "READ_INVESTIGATION_INTENT_SPECS",
+    "ReadInvestigationIntentSpec",
+    "read_investigation_intent_spec",
     "ReadInvestigationBudget",
     "ReadInvestigationOutcome",
     "ReadInvestigationPlan",

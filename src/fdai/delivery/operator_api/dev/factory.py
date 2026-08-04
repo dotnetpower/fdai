@@ -43,6 +43,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(name)s: %(messa
 from fdai.agents import OWNED_OBJECT_TOPICS  # noqa: E402
 from fdai.core.audit.what_if_replay import WhatIfEvaluator  # noqa: E402
 from fdai.core.conversation_assurance import (  # noqa: E402
+    HoldingOntologyAdequacyInvestigator,
     InMemoryConversationAssuranceLedger,
 )
 from fdai.core.execution_authorization import AccessGrantRequestService  # noqa: E402
@@ -213,6 +214,7 @@ from fdai.delivery.persistence import (  # noqa: E402
     PostgresConversationAssuranceLedgerConfig,
     PostgresMeteringStore,
     PostgresMeteringStoreConfig,
+    StateStoreOntologyAdequacyReviewSink,
 )
 from fdai.delivery.persistence.postgres_conversation_assurance_runtime import (  # noqa: E402
     PostgresConversationPolicyRuntime,
@@ -647,6 +649,14 @@ def build_local_app(
             evaluators=(),
         ),
         delegate=post_turn_review_queue,
+        adequacy_investigator=(
+            HoldingOntologyAdequacyInvestigator() if persistence is not None else None
+        ),
+        adequacy_sink=(
+            StateStoreOntologyAdequacyReviewSink(persistence.state_store)
+            if persistence is not None
+            else None
+        ),
     )
     log_query_provider = None
     log_query_shutdown_callbacks: tuple[Callable[[], Any], ...] = ()
@@ -687,6 +697,20 @@ def build_local_app(
             skill_disclosure=skill_disclosure,
             user_memories=user_context.memories,
         )
+    )
+    from fdai.delivery.configuration_review_store import (
+        StateStoreConfigurationReviewCampaignStore,
+    )
+    from fdai.delivery.operator_api.dev.configuration_drift import (
+        build_local_configuration_drift_context,
+    )
+    from fdai.delivery.operator_api.routes.configuration_baselines import (
+        ConfigurationBaselinesPanel,
+    )
+
+    configuration_drift_context = build_local_configuration_drift_context(
+        environ=os.environ,
+        repo_root=_REPO_ROOT,
     )
     arb_status_panels = (
         (
@@ -748,6 +772,20 @@ def build_local_app(
         + (
             RuntimeSkillsPanel(skill_disclosure),
             *arb_status_panels,
+        )
+        + (
+            (
+                ConfigurationBaselinesPanel(
+                    configuration_drift_context,
+                    review_store=(
+                        StateStoreConfigurationReviewCampaignStore(persistence.state_store)
+                        if persistence is not None
+                        else None
+                    ),
+                ),
+            )
+            if configuration_drift_context is not None
+            else ()
         )
     )
     runtime_settings = RuntimeSettingsService(
@@ -849,6 +887,7 @@ def build_local_app(
             llm_usage_reader=metering,
             skill_disclosure=skill_disclosure,
             knowledge_context=knowledge_context,
+            configuration_drift_context=configuration_drift_context,
             chat_web_search=models.web_search,
             chat_probe_interval_seconds=_chat_probe_interval_seconds(),
             chat_agent_delegate=(
@@ -857,7 +896,7 @@ def build_local_app(
                 else local_read_investigation.chat_delegate
                 if local_read_investigation is not None
                 else PantheonChatDelegate(runtime.pantheon_runtime)
-                if runtime is not None
+                if test_fixtures and runtime is not None
                 else None
             ),
             console_action=(
@@ -920,7 +959,7 @@ def build_local_app(
         else local_read_investigation.chat_delegate
         if local_read_investigation is not None
         else PantheonChatDelegate(runtime.pantheon_runtime)
-        if runtime is not None
+        if test_fixtures and runtime is not None
         else None
     )
     application.state.local_operator_runtime = (

@@ -228,6 +228,17 @@ def inventory_query_scope(
     return _scope(prompt, language=lexical)
 
 
+def inventory_query_requires_semantic_completion(query: InventoryQuery) -> bool:
+    """Return whether a specific current-resource query lacks a state interpretation."""
+
+    if query.source is not InventoryQuerySource.CURRENT:
+        return False
+    resource_types = _predicate_values(query, InventoryField.RESOURCE_TYPE)
+    if not resource_types or set(resource_types) == {"resource-group"}:
+        return False
+    return not any(predicate.field is InventoryField.STATUS for predicate in query.predicates)
+
+
 def inventory_query_evidence_authorities(
     prompt: str,
     *,
@@ -493,9 +504,18 @@ def _in_or_eq(field: InventoryField, values: Sequence[str]) -> InventoryPredicat
     )
 
 
+def _predicate_values(query: InventoryQuery, field: InventoryField) -> tuple[str, ...]:
+    for predicate in query.predicates:
+        if predicate.field is not field or predicate.value is None:
+            continue
+        return predicate.value if isinstance(predicate.value, tuple) else (predicate.value,)
+    return ()
+
+
 __all__ = [
     "compile_inventory_query",
     "inventory_query_evidence_authorities",
+    "inventory_query_requires_semantic_completion",
     "inventory_query_status_groups",
     "inventory_query_scope",
     "is_inventory_question",

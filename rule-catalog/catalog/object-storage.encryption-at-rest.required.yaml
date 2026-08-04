@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: object-storage.encryption-at-rest.required
 version: 1.0.0
 source: mcsb
@@ -8,15 +8,17 @@ resource_type: object-storage
 applies_to:
 - object-storage
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.object-storage.infrastructure_encryption_enabled
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: object-storage
+- kind: property_exists
+  value: property.object-storage.infrastructure_encryption_enabled
 check_logic:
   kind: rego
   reference: policies/object_storage/encryption_at_rest_required.rego

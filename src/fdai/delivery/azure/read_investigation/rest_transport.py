@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 
 import httpx
 
+from fdai.delivery.azure.arg_transport import ArgThrottleGate
 from fdai.delivery.azure.read_investigation.transport import AzureRow
 from fdai.shared.providers.read_investigation import ReadToolLimits, ResourceSelector
 from fdai.shared.providers.workload_identity import WorkloadIdentity
@@ -106,6 +107,7 @@ class AzureRestReadTransport:
         self._http = http_client
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._monotonic = monotonic or time.monotonic
+        self._arg_throttle_gate = ArgThrottleGate()
         self._scopes = {scope.scope_ref: scope for scope in config.scopes}
         self._neutral_by_arm = {
             arm.casefold(): neutral for arm, neutral in config.resource_type_map
@@ -566,6 +568,7 @@ class AzureRestReadTransport:
                 "query": query,
                 "options": {"resultFormat": "objectArray", "$top": limits.max_results + 1},
             },
+            throttle_gate=self._arg_throttle_gate,
         )
         data = payload.get("data")
         if not isinstance(data, list):
@@ -581,6 +584,7 @@ class AzureRestReadTransport:
         limits: ReadToolLimits,
         params: Mapping[str, str] | None = None,
         json_body: Mapping[str, object] | None = None,
+        throttle_gate: ArgThrottleGate | None = None,
     ) -> Mapping[str, Any]:
         token = await self._identity.get_token(audience)
         deadline = self._monotonic() + min(
@@ -592,6 +596,8 @@ class AzureRestReadTransport:
             remaining = deadline - self._monotonic()
             if remaining <= 0:
                 break
+            if throttle_gate is not None:
+                await throttle_gate.wait()
             try:
                 response = await self._http.request(
                     method,
@@ -608,6 +614,8 @@ class AzureRestReadTransport:
                     ) from exc
                 await _delay(attempt, deadline=deadline, monotonic=self._monotonic)
                 continue
+            if throttle_gate is not None:
+                await throttle_gate.observe(response.headers)
             if response.status_code not in {429, 500, 502, 503, 504}:
                 break
             if attempt + 1 < self._config.max_attempts:

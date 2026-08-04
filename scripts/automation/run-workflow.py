@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import UTC, datetime
 from urllib.error import HTTPError, URLError
@@ -14,14 +15,27 @@ from urllib.request import Request, urlopen
 
 DEFAULT_API_URL = "http://127.0.0.1:8000"
 DEFAULT_AUTH_ENV = "FDAI_API_TOKEN"
+PROCESS_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.:-]{1,200}$")
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Start or resume a catalog Workflow in shadow mode.",
+        description="Start a catalog Workflow or resume an exact Process.",
     )
-    parser.add_argument("workflow", help="Catalog Workflow name.")
-    parser.add_argument("--target", required=True, help="Target resource id or scope.")
+    parser.add_argument("workflow", nargs="?", help="Catalog Workflow name for a new run.")
+    parser.add_argument("--target", help="Target resource id or scope for a new run.")
+    parser.add_argument(
+        "--resume-process-id",
+        help="Resume one durable Process without resupplying its workflow inputs.",
+    )
+    parser.add_argument(
+        "--cancel-process-id",
+        help="Cancel one durable Process at its current safe boundary.",
+    )
+    parser.add_argument(
+        "--retry-process-id",
+        help="Retry one effect-free failed or approval-timed-out Process.",
+    )
     parser.add_argument(
         "--api-url",
         default=os.environ.get("FDAI_OPERATOR_API_URL", DEFAULT_API_URL),
@@ -29,14 +43,14 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--trigger-ts",
-        help="RFC 3339 trigger timestamp. Reuse it to resume the same Process.",
+        help="RFC 3339 trigger timestamp for a new run.",
     )
     parser.add_argument(
         "--context",
         action="append",
         default=[],
         metavar="KEY=VALUE",
-        help="Runtime context entry. Repeat for wait, approval, or decision inputs.",
+        help="Parameter-substitution context entry for a new run.",
     )
     parser.add_argument("--correlation-id", help="Optional correlation id.")
     parser.add_argument(
@@ -65,6 +79,43 @@ def _request(args: argparse.Namespace, parser: argparse.ArgumentParser) -> Reque
     token = os.environ.get(args.token_env, "").strip()
     if token and parsed.scheme != "https" and parsed.hostname not in {"127.0.0.1", "localhost"}:
         parser.error("refusing to send a bearer token over non-local HTTP")
+    headers = {"Accept": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    process_commands = tuple(
+        (value, command)
+        for value, command in (
+            (args.resume_process_id, "resume"),
+            (args.cancel_process_id, "cancel"),
+            (args.retry_process_id, "retry"),
+        )
+        if value is not None
+    )
+    if len(process_commands) > 1:
+        parser.error("Process resume, cancel, and retry commands are mutually exclusive")
+    process_command = process_commands[0] if process_commands else None
+    if process_command is not None:
+        raw_process_id, command = process_command
+        process_id = raw_process_id.strip()
+        if not PROCESS_ID_PATTERN.fullmatch(process_id):
+            parser.error(f"--{command}-process-id MUST be a URL-safe Process id")
+        if any(
+            (
+                args.workflow,
+                args.target,
+                args.trigger_ts,
+                args.context,
+                args.correlation_id,
+            )
+        ):
+            parser.error(f"--{command}-process-id cannot be combined with new-run inputs")
+        return Request(  # noqa: S310 - scheme and authority validated above
+            f"{api_url}/workflows/{process_id}/{command}",
+            headers=headers,
+            method="POST",
+        )
+    if not args.workflow or not args.target:
+        parser.error("a new run requires WORKFLOW and --target")
     payload = {
         "workflow": args.workflow,
         "target_resource_id": args.target,
@@ -73,9 +124,7 @@ def _request(args: argparse.Namespace, parser: argparse.ArgumentParser) -> Reque
     }
     if args.correlation_id:
         payload["correlation_id"] = args.correlation_id
-    headers = {"Content-Type": "application/json", "Accept": "application/json"}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
+    headers["Content-Type"] = "application/json"
     return Request(  # noqa: S310 - scheme and authority validated above
         f"{api_url}/workflows/run",
         data=json.dumps(payload).encode("utf-8"),

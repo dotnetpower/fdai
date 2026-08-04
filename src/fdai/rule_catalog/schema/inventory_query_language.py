@@ -14,6 +14,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 _SCHEMA_PACKAGE = "fdai.rule_catalog.schema"
 _SCHEMA_FILE = "inventory_query_language.schema.json"
+QueryValueList = Annotated[
+    tuple[Annotated[str, Field(min_length=1, max_length=128, pattern=r".*\S.*")], ...],
+    Field(min_length=1, max_length=16),
+]
 
 
 class QueryTerms(BaseModel):
@@ -27,14 +31,14 @@ class QueryEvidenceAuthority(StrEnum):
 
 
 class QueryValues(QueryTerms):
-    values: tuple[Annotated[str, Field(min_length=1, max_length=128)], ...]
+    values: QueryValueList
     evidence_authority: QueryEvidenceAuthority = QueryEvidenceAuthority.CURRENT_INVENTORY
     labels: Mapping[str, Annotated[str, Field(min_length=1, max_length=128)]] = Field(
         default_factory=dict
     )
     preserve_values: bool = False
     suppresses: tuple[str, ...] = ()
-    category_values: Mapping[str, tuple[str, ...]] = Field(default_factory=dict)
+    category_values: Mapping[str, QueryValueList] = Field(default_factory=dict)
     preserve_categories: tuple[str, ...] = ()
 
     def model_post_init(self, __context: Any) -> None:

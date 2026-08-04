@@ -101,6 +101,18 @@ def test_concurrency_cap_blocks_when_reached() -> None:
     assert decision.outcome is SchedulerOutcome.CONCURRENCY_CAP
 
 
+def test_negative_in_flight_count_is_rejected() -> None:
+    scheduler = DrScheduler(
+        windows=[_window("sun-2am", "2026-07-05T02:00:00", "2026-07-05T04:00:00")]
+    )
+    with pytest.raises(ValueError, match="in_flight_experiments"):
+        scheduler.decide(
+            experiment=_experiment(),
+            at=_at("2026-07-05T03:00:00"),
+            in_flight_experiments=-1,
+        )
+
+
 def test_experiment_allowed_when_all_guards_pass() -> None:
     scheduler = DrScheduler(
         windows=[_window("sun-2am", "2026-07-05T02:00:00", "2026-07-05T04:00:00")]

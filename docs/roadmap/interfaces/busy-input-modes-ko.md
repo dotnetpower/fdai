@@ -2,7 +2,7 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 5e4c19271a04d4f76d8d76c2fbe1a707065695ef
+translation_source_sha: 27b88cd2997470ba0a324bee8aaa094f11d8e8c3
 translation_revised: 2026-08-04
 ---
 
@@ -157,8 +157,8 @@ route를 유지하고, queued next turn은 자신의 content를 분류합니다.
 입력은 operator에게 incident 하나를 선택하도록 요청하지 않고 bounded matching set을 결정론적으로
 렌더링합니다. Cause analysis처럼 incident 하나가 필요한 질문은 ambiguous-selection 동작을 유지합니다.
 Terminal payload는 initial turn과 같은 bounded incident-candidate artifact를 유지합니다. Button 선택은
-준비된 draft가 있는 별도의 exact incident-bound conversation을 시작하며 완료된 turn을 mutate,
-interrupt 또는 steer하지 않습니다.
+별도의 exact incident-bound conversation을 시작하고 localized read-only investigation turn을 즉시
+제출합니다. 명시적인 선택은 완료된 turn을 mutate, interrupt 또는 steer하지 않습니다.
 일반적인 service-outage 질문은 initial 또는 queued turn에서 server-scoped subscription-health read를
 결정론적으로 선택합니다. Steer rerun은 해당 read authority를 유지하며 configured subscription 또는
 resource-group allowlist를 operator text로 바꿀 수 없습니다.
@@ -196,6 +196,10 @@ Runbook, knowledge-source, memory 및 learning continuation은 rerun 전에 선�
 assistant turn을 유지합니다. JSON과 SSE에서 동일한 read-only knowledge provider를 사용하고 다른 incident
 또는 resource로 범위를 넓히지 않으며 queued 또는 steered prose를 memory, review, proposal, approval 또는
 skill lifecycle write로 바꾸지 않습니다.
+정확한 configured configuration-baseline 파일 이름은 idle, queued 또는 steered turn에서도
+action-context term보다 deterministic precedence를 유지합니다. Mutation 또는 mitigation을
+금지하는 부정 표현은 이 read-only route를 바꾸지 않습니다. Rerun은 server-pinned baseline과 DOCX
+citation을 다시 읽고 사용할 수 없는 structured topology는 unknown으로 유지합니다.
 Verified fresh inventory answer는 최대 40개의 bounded selector로 구성된 versioned result set도 유지할 수
 있습니다. Replay는 source, snapshot, scope, query digest, freshness 및 truncation을 저장하지만 raw
 resource ID는 저장하지 않습니다. Client는 이 result set을 제공하거나 확장할 수 없습니다.

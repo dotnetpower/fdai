@@ -730,7 +730,23 @@ export function parseRouter(raw: unknown): RouterSnapshot | undefined {
   const chose = typeof record.chose === "string" ? record.chose : null;
   if (chose === null) return undefined;
   const reason = typeof record.reason === "string" ? record.reason : "";
-  const rawCandidates = Array.isArray(record.candidates) ? record.candidates : [];
+  const candidates = parseRouterCandidates(record.candidates);
+  const visionRecord = typeof record.vision === "object" && record.vision !== null
+    ? record.vision as Record<string, unknown>
+    : null;
+  const visionChose = typeof visionRecord?.chose === "string" ? visionRecord.chose : null;
+  const vision = visionRecord
+    ? {
+        available: visionRecord.available === true,
+        chose: visionChose,
+        candidates: parseRouterCandidates(visionRecord.candidates),
+      }
+    : undefined;
+  return { chose, reason, candidates, ...(vision ? { vision } : {}) };
+}
+
+function parseRouterCandidates(raw: unknown): RouterCandidate[] {
+  const rawCandidates = Array.isArray(raw) ? raw : [];
   const candidates: RouterCandidate[] = [];
   for (const candidate of rawCandidates) {
     if (typeof candidate !== "object" || candidate === null) continue;
@@ -759,5 +775,5 @@ export function parseRouter(raw: unknown): RouterSnapshot | undefined {
     }
     candidates.push({ deployment, p50_ms: p50, p95_ms: p95, samples, history_ms: history });
   }
-  return { chose, reason, candidates };
+  return candidates;
 }

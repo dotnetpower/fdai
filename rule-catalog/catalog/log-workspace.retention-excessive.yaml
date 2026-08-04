@@ -1,4 +1,4 @@
-schema_version: "2.0.0"
+schema_version: 2.0.0
 id: log-workspace.retention-excessive
 version: 1.0.0
 source: waf
@@ -8,15 +8,17 @@ resource_type: log-workspace
 applies_to:
 - log-workspace
 triggered_by:
-- "*"
+- resource.configuration.observed
 evaluates:
-- "*"
+- property.log-workspace.retention_days
 required_interfaces:
 - Evaluable
 - Remediable
 submission_criteria:
 - kind: resource_type_registered
   value: log-workspace
+- kind: property_exists
+  value: property.log-workspace.retention_days
 check_logic:
   kind: rego
   reference: policies/log_workspace/retention_excessive.rego

@@ -30,7 +30,7 @@ fdai/
 │   │   ├── browser_evidence/   # read-only origin/DNS policy, redaction, immutable artifacts, custody, and shadow comparison
 │   │   ├── operator_memory/    # HIL-approved operator memory injected as untrusted `<operator_note>` data
 │   │   ├── learning/           # consent-gated off-path turn eligibility, consensus, dedup ledger, and inert proposal routing
-│   │   ├── conversation_assurance/ # deterministic-first completed-turn scoring, mixed-family review, scoped disputes, subscription learning, and chat-policy promotion/rollback
+│   │   ├── conversation_assurance/ # deterministic-first completed-turn scoring, exact failure attribution, hold-first ontology adequacy review, mixed-family review, scoped disputes, subscription learning, and chat-policy promotion/rollback
 │   │   ├── trajectory/         # authorization-first observable trajectory projection, version policy, reviewed aggregate, and offline validation
 │   │   ├── case_history/       # canonical revisions, strict operational receipts, artifact-first intake, scoped retrieval, backfill, and retention
 │   │   ├── task_worker/        # isolated depth-one read-only workers: capability attenuation, lifecycle, durable state, and parent synthesis
@@ -68,12 +68,12 @@ fdai/
 │   │   ├── mscp_profile/       # pure mscp-operational-v1 provenance, effect verification, cycle guard, and runtime-integrity policies; no execution authority
 │   │   ├── deploy_preflight/   # pre-deployment feasibility probes → grounded readiness report
 │   │   ├── readiness/          # operational handoff + startup and monitored-target readiness contracts, fail-closed reducers, evidence expiry, and authority ceilings
-│   │   ├── assurance_twin/     # read-only ontology twin: text-to-query, active/challenger effect models, deterministic branch simulation (proposes, never executes)
+│   │   ├── assurance_twin/     # read-only ontology twin: text-to-query, scalar/graph active-challenger models, required invariants, durable trajectory episodes, deterministic simulation, and off-path outcome closure (never executes or promotes)
 │   │   ├── ontology_platform/   # exact releases, semantic interfaces, bounded object sets, mutation plans, typed functions, reconciliation, and proposal-only SDK generation
 │   │   ├── conversation/       # Bragi-owned model-free screen T0, operator-console intent/tool coordination, conflict-aware read plans, grounded narration, per-turn isolation, durable delivery, and busy-input arbitration
 │   │   ├── user_context_projection.py  # metadata-only principal context / workflow binding projection into runtime ontology
 │   │   ├── console_request/    # operator-console write-direction re-request policy (Scenario B deny-override), a single pure `evaluate_operator_rerequest`
-│   │   ├── verticals/          # Resilience / Change Safety / Cost Governance (P3 integration surface); each is a sub-package (G-6) with its own orchestrator + submodules, plus the shared `Vertical` Protocol in `base.py` and the `VerticalRegistry` seam
+│   │   ├── verticals/          # Resilience / Change Safety / Cost Governance (P3 integration surface); Resilience includes the control-plane recovery plan, record codec, epoch-fenced reducer, and durable CAS coordinator; each vertical is a sub-package (G-6) with its own orchestrator + submodules, plus the shared `Vertical` Protocol in `base.py` and the `VerticalRegistry` seam
 │   │   ├── control_loop/       # P1 pipeline: `orchestrator.py` (ControlLoop composition), `_process.py` (ordered event stages), `_fallback.py` (T1/T2), `_execution.py` (governance/risk/dispatch), `_rca.py` (shadow RCA), `_boundary.py` (audit/notification/stage adapters), `models.py` (typed results), `operator_request.py` (authoritative proposal lifecycle), `_helpers.py` (pure utilities), and `stages/` (Stage Protocol scaffold)
 │   │   └── ontology_explorer.py    # deterministic Mermaid renderer for the loaded ObjectType / LinkType catalog
 │   ├── shared/                # cross-cutting; MUST NOT import from core/
@@ -85,7 +85,7 @@ fdai/
 │   │   │   ├── ontology/       # object/link/action schemas; ObjectType may declare lifecycle criteria + provenance
 │   │   │   └── workflow/       # workflow/schema.json (process-automation catalog)
 │   │   ├── ontology/           # runtime ontology helpers (ACL, audit purposes, purpose taxonomy)
-│   │   ├── providers/          # CSP-neutral cloud provider interfaces, including OperatingModelProvider and the backward-compatible Distiller plus optional versioned conformance descriptor (adapters implement them)
+│   │   ├── providers/          # CSP-neutral cloud provider interfaces, including OperatingModelProvider, backward-compatible Distiller conformance, and action-bound control-plane recovery approval verification (adapters implement them)
 │   │   │                       #   event_bus.py, secret_provider.py, state_store.py, execution_backend.py,
 │   │   │                       #   workload_identity.py, inventory.py, log_query.py, trace_query.py, incident_platform.py, behavior_knowledge.py, programmatic_pipeline.py + LLM / channel / RBAC seams
 │   │   │                       # `providers/local/` = process-local transport adapters plus bounded document format adapters (`document_limits.py` immutable ceilings, `document_text.py` for Markdown/SGML, `document_structure.py` for OOXML, `document_pdf.py` for pypdf/OCR) and explicit offline helpers;

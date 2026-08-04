@@ -4,6 +4,9 @@ from fdai.core.scheduler.blueprints.aggregator import (
     AutomationBlueprintAggregator,
     BlueprintAggregationPolicy,
 )
+from fdai.core.scheduler.blueprints.configuration_review import (
+    configuration_review_blueprint,
+)
 from fdai.core.scheduler.blueprints.models import (
     AutomationBlueprintCandidate,
     AutomationBlueprintEvidence,
@@ -50,4 +53,5 @@ __all__ = [
     "BlueprintOutcome",
     "InMemoryAutomationBlueprintStore",
     "draft_blueprint_text",
+    "configuration_review_blueprint",
 ]

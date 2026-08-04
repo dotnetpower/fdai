@@ -94,10 +94,14 @@ When a resolved-model artifact is present, the same preparation step validates i
 endpoint as an HTTPS origin and writes `FDAI_LLM_ENDPOINT` with `LLM_RESOLVED_MODELS_PATH` into the
 private local runtime environment. A missing or malformed narrator endpoint stops preparation
 before Terraform or Azure provider access instead of allowing the core runtime to fail after launch.
-While the Operator API completes its startup probes, the browser keeps the initial panel skeleton and
-retries only fetch-level network failures from `GET /iam/self` on a bounded schedule of about 28
-seconds. An HTTP response, authentication failure, malformed payload, or exhausted schedule stops
-immediately at the existing access-recovery surface instead of being hidden by another retry.
+An optional local configuration-baseline conversation binds three ignored artifacts through `FDAI_CONFIGURATION_BASELINE_JSON`, `FDAI_CONFIGURATION_BASELINE_DOCX`, and `FDAI_CONFIGURATION_OBSERVATION_JSON`. Supply all three to the Operator API launch after the full-stack preparation step. Avoid editing the generated `.fdai/local-runtime.env` because preparation replaces that file.
+Partial configuration, a baseline integrity mismatch, or a DOCX digest mismatch stops Operator API startup; callers cannot replace the pinned scope, version, digest, or document. When the binding succeeds, local composition registers the same context for deterministic chat and the GET-only Configuration baselines panel.
+The panel runs the configured observation source per request, reports an absent binding as unavailable, never substitutes fixtures or cached Azure state, and binds campaign state to PostgreSQL when available.
+Campaign revisions and audit receipts survive restart; without persistence, review is not configured and no in-memory fallback is used. Local composition registers the pinned artifact as the only active immutable registry entry, so history cannot invent unconfigured versions.
+Deployment requires absolute mounted baseline JSON and DOCX paths plus `FDAI_CONFIGURATION_BASELINE_RESOURCE_GROUP` in the reader allowlist, reusing that reader's Managed Identity and bounded HTTP client.
+Missing identity, scope escape, malformed files, or integrity mismatch blocks startup; success adds only read evidence, durable campaign/report state, and independently reviewed shadow scheduling.
+While startup probes run, the browser keeps the initial skeleton and retries only fetch-level `GET /iam/self` failures for about 28 seconds.
+An HTTP response, authentication failure, malformed payload, or exhausted schedule stops at the existing access-recovery surface.
 After IAM bootstrap succeeds, Dashboard treats `GET /kpi` as its required backbone and leaves the
 route skeleton as soon as that response resolves. Optional FinOps, promotion-gate, and autonomy
 projections join independently and never keep the complete Dashboard in a loading state.
@@ -111,19 +115,11 @@ their own previous output when restarted. Operator API startup stays silent and 
 VS Code marks each background task ready only after the
 Pantheon bridge starts, Uvicorn completes application startup, or Vite publishes its local address,
 respectively, so a spawned process isn't presented as a ready service.
-The standard local Azure profile uses the same lock by default when `FDAI_RUNTIME_LOCK_FILE` is
-unset, so a direct `python -m fdai` launch cannot bypass the singleton guard. Production runtimes
-continue to use a process lock only when the deployment configures one explicitly.
-The core runtime remains the only Pantheon owner. With `FDAI_OPERATOR_API_EMBED_PANTHEON=0`, the read
-API reaches Bragi's conversational port through bounded request and response logical topics on the
-existing `aw.pantheon.objects` transport. A startup probe confirms the response consumer before
-traffic is accepted. The client reuses a joining consumer across retries and allows a 20-second
-initial Event Hubs group join. Production replicas share the server consumer group so one replica
-answers each request. The singleton local core uses a process-scoped server group so a restart
-begins at the current physical-topic offset instead of replaying unrelated Pantheon traffic from a
-previous process. Requests carry salted SHA-256 user and session references rather than raw identities;
-timeouts or invalid responses become an explicit agent-to-Bragi handoff instead of a fabricated
-specialist answer.
+The standard local Azure profile uses the same lock by default when `FDAI_RUNTIME_LOCK_FILE` is unset, so a direct `python -m fdai` launch cannot bypass the singleton guard. Production runtimes continue to use a process lock only when the deployment configures one explicitly.
+The core runtime remains the only Pantheon owner, and local and deployed interactive reads use the same execution-mode policy and fail startup when intent IDs, Heimdall ownership, or plan bindings drift. Embedded direct Pantheon chat delegation is fixture-only. With `FDAI_OPERATOR_API_EMBED_PANTHEON=0`, the Operator API reaches Bragi's conversational port through bounded request and response logical topics on the
+existing `aw.pantheon.objects` transport. A startup probe confirms the response consumer before traffic is accepted. The client reuses a joining consumer across retries and allows a 20-second initial Event Hubs group join.
+Production replicas share the server consumer group so one replica answers each request. The singleton local core uses a process-scoped server group so a restart begins at the current physical-topic offset instead of replaying unrelated Pantheon traffic from a previous process.
+Requests carry salted SHA-256 user and session references rather than raw identities; timeouts or invalid responses become an explicit agent-to-Bragi handoff instead of a fabricated specialist answer. The same latency profile selects the same direct, streamed, or detached mode; only measured provider latency and configured evidence availability can change it.
 The long-running core and Operator API tasks preserve their terminal output in
 `.fdai/logs/core-runtime.log` and `.fdai/logs/operator-api.log`. Every captured child-output line begins
 with a Python logging-style timestamp containing milliseconds and the local timezone abbreviation,
@@ -245,13 +241,16 @@ account's restricted firewall when the active Azure CLI principal has permission
 set `FDAI_NARRATOR_AUTO_OPEN_AOAI=0` so they never call Azure CLI or change a firewall. A genuinely
 unconfigured, unauthorized, or unreachable model endpoint still fails safely to the deterministic
 answerer for that turn.
-With repository-local `resolved-models.json`, full-stack preparation emits `LLM_MODE=azure` and
-`LLM_RESOLVED_MODELS_PATH`, and binds metering to the read-model PostgreSQL instance. The LLM Cost panel and `query_llm_usage` chat capability share that measured reader in local and deployed profiles. Cost uses only
+Full-stack preparation emits `LLM_MODE=azure` and `LLM_RESOLVED_MODELS_PATH` from an explicit override, then a validated `.fdai/resolved-models-vision.json`, then repository-local `resolved-models.json`, and binds metering to the read-model PostgreSQL instance. The LLM Cost panel and `query_llm_usage` chat capability share that measured reader in local and deployed profiles. Cost uses only
 explicit deployment-to-family bindings; missing families stay unpriced. Conversation Assurance uses
 the same local PostgreSQL conversation and assessment stores as deployment and always runs
 deterministic terminal checks. Semantic review activates only with two distinct resolved model
 families; a narrator-only or `hil-only` secondary stays inconclusive instead of using one model.
 Without the artifact, model and assurance inference remain unavailable and no fixture replaces them.
+When PostgreSQL StateStore is configured, both profiles persist ontology-owned failed-answer
+attributions as idempotent hold-first adequacy reviews with a shadow audit record. Interactive local
+without durable state leaves the optional review sink unavailable. Neither profile performs replay,
+creates a proposal, or promotes a review from this intake path.
 
 When `FDAI_MONITOR_WORKSPACE_ID` is configured, explicit Command Deck `query_log` commands use
 the same bounded Azure Monitor Logs provider in both profiles. Interactive local obtains its data
@@ -321,12 +320,12 @@ characters when it needs a stable explicit name. Generated core, Pantheon, and O
 that instance, while deployed Operator API replicas use their runtime hostname. Each console stream
 therefore receives every frame instead of sharing partitions with another developer or replica.
 
-Workflow definitions use the same enforce allowlist as deployment, while each ActionType remains
-subject to its authoritative promotion and risk gates. Enforce workflows still require Azure event
-transport and a durable local database shared with workflow approval evidence. Thor does not receive
-the developer's credential: privileged execution remains in the deployed Managed Identity runtime.
-Scenario replay, seeded audit rows, recording executors, VM-task fakes, synthetic scheduler/cost
-data, scope templates, and blast-radius fixtures remain pytest-only.
+Workflow definitions use the deployment enforce allowlist; ActionTypes retain promotion and risk gates.
+Enforce requires Azure event transport and a durable database shared with workflow approval evidence.
+Both expose body-free resume, safe cancel, and bounded effect-free retry over durable Process state.
+They repeat App Role and allowlist checks, share the attempt cap, and reject unsafe retry or cancel.
+Thor never receives the developer credential; execution stays in the deployed Managed Identity runtime.
+Scenario replay, recording executors, VM-task fakes, synthetic data, and scope fixtures stay pytest-only.
 
 When FDAI's Azure PostgreSQL, Event Hubs, runtime, or executor resources are absent, the associated
 surfaces are unavailable or empty with no runtime claim. Repository catalogs and schemas remain

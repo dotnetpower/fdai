@@ -5,6 +5,7 @@ import type { Turn } from "./command-deck-presenters";
 import { DEFAULT_NARRATOR } from "./command-deck-presenters";
 import { record as recordHistory, type DraftHistory } from "./draft-history";
 import {
+  acknowledgeDeckOpenEvent,
   DECK_OPEN_EVENT,
   setDeckOpenListenerReady,
   installWorkspaceDeckNavigationHandler,
@@ -42,6 +43,7 @@ interface EventsOptions {
   readonly setDraft: (value: string) => void;
   readonly setSearchQuery: (value: string) => void;
   readonly setSrStatus: (value: string) => void;
+  readonly submitPrompt: (text: string) => void;
   readonly updateConversationIndex: (summary: ConversationSummary) => void;
   readonly cancelActiveRequest: () => "stream" | "action" | null;
   readonly closeDeck: () => void;
@@ -82,6 +84,8 @@ export function resolveDeckOpenSession(
     detail.targetAgent !== undefined && targetAgent === null;
   const key = detail?.newConversation === true && targetAgent
     ? newConversationKey(userScope, targetAgent, nonce)
+    : detail?.newConversation === true && detail.binding?.kind === "incident"
+      ? newConversationKey(userScope, null, nonce)
     : requestedKey
       ? userConversationKey(userScope, requestedKey)
       : screenConversationKey(userScope, pathname);
@@ -130,6 +134,7 @@ export function useCommandDeckEvents(options: EventsOptions) {
     setDraft,
     setSearchQuery,
     setSrStatus,
+    submitPrompt,
     updateConversationIndex,
     cancelActiveRequest,
     closeDeck,
@@ -255,6 +260,7 @@ export function useCommandDeckEvents(options: EventsOptions) {
 
   useEffect(() => {
     const onOpenDeck = (event: Event) => {
+      acknowledgeDeckOpenEvent(event);
       const detail = (event as CustomEvent<DeckOpenDetail>).detail;
       if (shouldDeferDeckOpen(detail, inFlightRef.current, draft)) {
         event.preventDefault();
@@ -292,8 +298,12 @@ export function useCommandDeckEvents(options: EventsOptions) {
       }
       const seed = typeof detail?.prompt === "string" ? detail.prompt : "";
       if (seed) {
-        setDraft(seed);
-        historyRef.current = recordHistory(historyRef.current, seed);
+        if (detail?.submitPrompt === true) {
+          submitPrompt(seed);
+        } else {
+          setDraft(seed);
+          historyRef.current = recordHistory(historyRef.current, seed);
+        }
       }
       openDeck();
     };
@@ -310,6 +320,7 @@ export function useCommandDeckEvents(options: EventsOptions) {
     openDeck,
     sessionKeyRef,
     setDraft,
+    submitPrompt,
     streamContextTurn,
     switchSession,
     turnsRef,

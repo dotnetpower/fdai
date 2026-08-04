@@ -28,14 +28,31 @@
     "open": "Open {count} pending access request(s)",
     "sessionLabel": "Access request",
     "briefing": "FDAI detected an operational issue, but investigation is blocked because {capability} access is unavailable for {scope}.",
-    "context": "A time-bound, least-privilege request is pending for {capability} on {scope}. It expires at {expires}. This conversation cannot grant or apply access; independent approval and a fresh access probe remain required."
+    "context": "A time-bound, least-privilege request is pending for {capability} on {scope}. It expires at {expires}. This conversation cannot grant or apply access; independent approval and a fresh access probe remain required.",
+    "reviewTitle": "Review access request",
+    "reviewBoundary": "A review records approval or rejection only. A protected deployer must apply access, then a fresh probe must verify it.",
+    "close": "Close access review",
+    "request": "Request",
+    "capability": "Capability",
+    "scope": "Scope",
+    "expires": "Expires",
+    "quorum": "Required approvals",
+    "reason": "Review reason",
+    "approve": "Approve",
+    "reject": "Reject",
+    "openInvestigation": "Open investigation",
+    "approved": "Approval recorded.",
+    "rejected": "Rejection recorded.",
+    "quorumPending": "Approval {count} of {quorum} recorded.",
+    "notApplied": "Permission has not been applied. A protected deployer and fresh access probe are still required."
   },
   "incidentAttention": {
     "badge": "Incident {count}",
     "open": "Open {count} active incident conversation(s)",
     "sessionLabel": "Incident {ticket}",
     "briefing": "FDAI detected a {severity} operational incident: {title}",
-    "context": "Runtime detection opened incident {ticket} with correlation {correlation}. Use the incident evidence before making a root-cause or recovery claim."
+    "context": "Runtime detection opened incident {ticket} with correlation {correlation}. Use the incident evidence before making a root-cause or recovery claim.",
+    "investigationPrompt": "Investigate this incident using the available evidence and report the cause, gaps, and next safe step."
   },
   "shared": {
     "loading": "Loading...",
@@ -177,6 +194,7 @@
       "skills": "Skills",
       "onboarding": "Onboarding",
       "detectionReadiness": "Detection readiness",
+      "configurationBaselines": "Configuration baselines",
       "processes": "Processes",
       "workflowApps": "Workflow apps",
       "schedulerRuns": "Scheduler runs",
@@ -229,6 +247,7 @@
       "skills": "Installed runtime skill metadata, dependencies, eligibility, and load diagnostics",
       "onboarding": "Provisioned resources and required role assignments",
       "detectionReadiness": "Agent-owned Kubernetes telemetry, detector, pipeline, and governance readiness",
+      "configurationBaselines": "Baseline integrity, current drift, Knowledge, and measured latency",
       "processes": "Workflow runtime state and dynamic ontology-backed views",
       "workflowApps": "Published workflow-specific read surfaces and run history",
       "schedulerRuns": "Task dispatch history from the configured scheduler ledger",
@@ -1888,7 +1907,7 @@
   "deck": {
     "incidentCandidates": {
       "title": "Choose an incident",
-      "hint": "Select one incident, then send the prepared investigation question.",
+      "hint": "Select an incident to continue the investigation.",
       "prompt": "Investigate the root cause of this incident."
     },
     "answerPlan": {
@@ -2053,6 +2072,8 @@
       "hideTrace": "hide trace",
       "showSources": "show sources",
       "hideSources": "hide sources",
+      "source": "source",
+      "sources": "sources",
       "traceLabel": "Retrieval trace",
       "sourceAria": "Source",
       "llmEscalation": "LLM escalation",
@@ -2189,6 +2210,9 @@
       "cancelled": "Cancelled",
       "finished": "Finished",
       "branches": "Evidence branches",
+      "status": "Status",
+      "evidenceReferences": "Evidence references",
+      "noEvidenceReferences": "No branch-specific evidence reference was recorded.",
       "sourceSummaryOne": "1 source",
       "sourceSummaryMany": "{count} sources",
       "executionDetails": "Execution details ({count})",
@@ -2359,7 +2383,17 @@
       "streaming": "streaming",
       "preparingChart": "Preparing chart",
       "preparingChartProgress": "Preparing chart...",
-      "lineChart": "Line chart"
+      "lineChart": "Line chart",
+      "agentActivity": {
+        "title": "Recorded agent activity",
+        "count": "{count} observed",
+        "latest": "Latest",
+        "event": {
+          "rcaHypothesis": "RCA hypothesis recorded",
+          "incidentOpen": "Incident opened",
+          "recorded": "Activity recorded"
+        }
+      }
     },
     "tooltip": {
       "chattingWith": "Conversation context: {session}",
