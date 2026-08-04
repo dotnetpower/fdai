@@ -32,7 +32,25 @@
     .ah-chip.ready { border-color:rgba(94,130,89,.28); background:rgba(94,130,89,.08); color:var(--cs-sage); }
     .ah-chip.gap { border-color:rgba(172,90,90,.28); background:rgba(172,90,90,.07); color:var(--cs-dusty-red); }
     .ah-agent-list { max-height:756px; overflow-y:auto; }
-    .ah-agent { width:100%; display:grid; grid-template-columns:34px minmax(0,1fr) auto; align-items:center; gap:9px; padding:11px 13px; border:0; border-bottom:1px solid var(--cs-hairline); background:transparent; color:var(--cs-text); text-align:left; cursor:pointer; }
+    .ah-agent-icon { --agent-icon:none; width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; border:1px solid rgba(68,104,142,.22); border-radius:7px; background:rgba(68,104,142,.08); color:var(--cs-steel); }
+    .ah-agent-icon::before { width:21px; height:21px; background:currentColor; content:""; -webkit-mask:var(--agent-icon) center/contain no-repeat; mask:var(--agent-icon) center/contain no-repeat; }
+    .ah-agent-icon.large { width:38px; height:38px; }
+    .ah-agent-icon.large::before { width:26px; height:26px; }
+    .ah-tree-root { display:grid; grid-template-columns:34px minmax(0,1fr) auto; align-items:center; gap:9px; padding:12px 13px; border-bottom:1px solid var(--cs-hairline); background:var(--cs-card); }
+    .ah-tree-root strong,.ah-tree-root small,.ah-tree-group-head strong,.ah-tree-group-head small { display:block; }
+    .ah-tree-root strong { font-size:12px; }
+    .ah-tree-root small { margin-top:2px; color:var(--cs-text-soft); font-size:9px; }
+    .ah-tree-groups { margin-left:29px; padding-left:14px; border-left:1px solid var(--cs-hairline); }
+    .ah-tree-group { position:relative; padding:8px 0 3px; }
+    .ah-tree-group::before { position:absolute; top:22px; left:-14px; width:12px; border-top:1px solid var(--cs-hairline); content:""; }
+    .ah-tree-group-head { display:grid; grid-template-columns:18px minmax(0,1fr) auto; align-items:center; gap:6px; min-height:30px; padding:3px 9px 3px 0; }
+    .ah-tree-toggle { width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; border:0; background:transparent; color:var(--cs-text-soft); font:12px var(--cs-font); cursor:pointer; }
+    .ah-tree-group-head strong { font-size:10.5px; }
+    .ah-tree-group-head small { color:var(--cs-text-soft); font-size:8.5px; }
+    .ah-tree-children { margin-left:8px; padding-left:14px; border-left:1px solid var(--cs-hairline); }
+    .ah-tree-group.is-collapsed .ah-tree-children { display:none; }
+    .ah-agent { position:relative; width:100%; display:grid; grid-template-columns:34px minmax(0,1fr) auto; align-items:center; gap:9px; padding:8px 10px; border:0; background:transparent; color:var(--cs-text); text-align:left; cursor:pointer; }
+    .ah-agent::before { position:absolute; top:50%; left:-14px; width:12px; border-top:1px solid var(--cs-hairline); content:""; }
     .ah-agent:hover { background:var(--cs-card); }
     .ah-agent.is-selected { background:var(--cs-card); box-shadow:inset 3px 0 0 var(--cs-steel); }
     .ah-glyph { width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; border:1px solid rgba(68,104,142,.22); border-radius:7px; background:rgba(68,104,142,.08); color:var(--cs-steel); font-size:10px; font-weight:800; }
@@ -194,12 +212,12 @@
     <section class="ah-workspace" aria-label="Agent-human dependency workspace">
       <aside class="ah-roster" aria-labelledby="agent-roster-heading">
         <header class="ah-panel-head"><div><h2 id="agent-roster-heading">Agents</h2><p>Start from the work owner, not the person.</p></div><span id="agentCount" class="ah-count">15 agents</span></header>
-        <div id="agentList" class="ah-agent-list" role="listbox" aria-label="FDAI agents"></div>
+        <div id="agentList" class="ah-agent-list" role="tree" aria-label="FDAI Agent dependency tree"></div>
       </aside>
 
       <article class="ah-detail" aria-live="polite">
         <header class="ah-detail-head">
-          <div class="ah-title"><span id="agentGlyph" class="ah-glyph">VI</span><div><h2 id="agentName">Vidar</h2><p id="agentRole">Recovery and rollback assurance</p></div></div>
+          <div class="ah-title"><span id="agentGlyph" class="ah-agent-icon large" style="--agent-icon:url('../../console/public/agent-icons/vidar.svg')" aria-hidden="true"></span><div><h2 id="agentName">Vidar</h2><p id="agentRole">Recovery and rollback assurance</p></div></div>
           <div id="agentBadges" class="ah-badges"></div>
         </header>
         <div class="ah-contract" aria-label="Human dependency contract">
@@ -254,7 +272,7 @@
             <section id="invitationSection" class="ah-section" aria-labelledby="invitation-heading">
               <div class="ah-section-head"><h3 id="invitation-heading">Next sign-in invitation</h3><p>1 per login · up to 5 min</p></div>
               <div class="ah-invitation">
-                <div class="ah-invitation-head"><span class="ah-glyph">BR</span><span><strong>Bragi</strong><small id="invitationOwner">Question owned by Vidar</small></span></div>
+                <div class="ah-invitation-head"><span class="ah-agent-icon" style="--agent-icon:url('../../console/public/agent-icons/bragi.svg')" aria-hidden="true"></span><span><strong>Bragi</strong><small id="invitationOwner">Question owned by Vidar</small></span></div>
                 <p id="invitationCopy">Morgan, Vidar still needs the stop conditions for checkout recovery. Answer one question now, attach a runbook, or continue later.</p>
                 <div class="ah-invitation-actions"><button type="button" data-invite="answer">Answer now</button><button type="button" data-invite="upload">Upload document</button><button type="button" data-invite="later">Remind me later</button></div>
                 <div id="invitationStatus" class="ah-status">Suppressed during incidents and approval work.</div>
@@ -305,14 +323,25 @@
     function renderAgents() {
       const visible = visibleAgents();
       document.querySelector("#agentCount").textContent = `${visible.length} ${visible.length === 1 ? "agent" : "agents"}`;
-      list.innerHTML = visible.map((agent) => `<button class="ah-agent${agent.name === selectedAgent ? " is-selected" : ""}" type="button" role="option" aria-selected="${agent.name === selectedAgent}" data-agent="${agent.name}"><span class="ah-glyph">${agent.initials}</span><span class="ah-agent-copy"><strong>${agent.name}</strong><small>${agent.label}</small></span><span class="ah-agent-progress"><strong>${agent.progress}%</strong><small>${agent.state === "gap" ? "Gap" : agent.state === "ready" ? "Ready" : "Active"}</small></span></button>`).join("") || '<div class="cs-empty"><strong>No matching agents</strong>Adjust the dependency filters.</div>';
+      const groups = [
+        { key:"knowledge", label:"Knowledge transfer", hint:"Operational expertise and evidence" },
+        { key:"approval", label:"Approval route", hint:"Action-dependent human authority" },
+        { key:"autonomous", label:"No direct contact", hint:"Maintainer fallback only" }
+      ];
+      const groupMarkup = groups.map((group) => {
+        const children = visible.filter((agent) => agent.need === group.key);
+        if (!children.length) return "";
+        return `<section class="ah-tree-group" role="group" aria-label="${group.label}" data-tree-group="${group.key}"><div class="ah-tree-group-head"><button class="ah-tree-toggle" type="button" aria-expanded="true" data-tree-toggle="${group.key}" aria-label="Collapse ${group.label}">−</button><span><strong>${group.label}</strong><small>${group.hint}</small></span><span class="ah-count">${children.length}</span></div><div class="ah-tree-children">${children.map((agent) => `<button class="ah-agent${agent.name === selectedAgent ? " is-selected" : ""}" type="button" role="treeitem" aria-selected="${agent.name === selectedAgent}" data-agent="${agent.name}"><span class="ah-agent-icon" style="--agent-icon:url('../../console/public/agent-icons/${agent.name.toLowerCase()}.svg')" aria-hidden="true"></span><span class="ah-agent-copy"><strong>${agent.name}</strong><small>${agent.label}</small></span><span class="ah-agent-progress"><strong>${agent.progress}%</strong><small>${agent.state === "gap" ? "Gap" : agent.state === "ready" ? "Ready" : "Active"}</small></span></button>`).join("")}</div></section>`;
+      }).join("");
+      list.innerHTML = visible.length ? `<div class="ah-tree-root" role="treeitem" aria-expanded="true"><span class="ah-agent-icon" style="--agent-icon:url('../../console/public/agent-icons/pantheon.svg')" aria-hidden="true"></span><span><strong>FDAI Pantheon</strong><small>Agent-human dependency map</small></span><span class="ah-count">${visible.length}</span></div><div class="ah-tree-groups">${groupMarkup}</div>` : '<div class="cs-empty"><strong>No matching agents</strong>Adjust the dependency filters.</div>';
       list.querySelectorAll("[data-agent]").forEach((button) => button.addEventListener("click", () => selectAgent(button.dataset.agent)));
+      list.querySelectorAll("[data-tree-toggle]").forEach((button) => button.addEventListener("click", () => { const group = list.querySelector(`[data-tree-group="${button.dataset.treeToggle}"]`); const collapsed = group.classList.toggle("is-collapsed"); button.textContent = collapsed ? "+" : "−"; button.setAttribute("aria-expanded", String(!collapsed)); button.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} ${group.getAttribute("aria-label")}`); }));
     }
     function selectAgent(name) {
       selectedAgent = name;
       selectedResponsibility = null;
       const agent = agents.find((candidate) => candidate.name === name);
-      document.querySelector("#agentGlyph").textContent = agent.initials;
+      document.querySelector("#agentGlyph").style.setProperty("--agent-icon", `url('../../console/public/agent-icons/${agent.name.toLowerCase()}.svg')`);
       document.querySelector("#agentName").textContent = agent.name;
       document.querySelector("#agentRole").textContent = agent.role;
       document.querySelector("#agentBadges").innerHTML = agent.need === "knowledge" ? '<span class="ah-chip knowledge">Knowledge transfer required</span><span class="ah-chip">Steward mapped</span>' : agent.need === "approval" ? '<span class="ah-chip approval">Human approval path required</span><span class="ah-chip gap">Coverage gap</span>' : '<span class="ah-chip ready">No direct human contact</span><span class="ah-chip">Maintainer fallback</span>';
