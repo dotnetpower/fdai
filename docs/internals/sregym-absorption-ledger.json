@@ -840,7 +840,7 @@
       "id": "advanced_diagnostics",
       "title": "Admission, owner, webhook, probe, storage, rollout, capacity, and autoscaling diagnostics",
       "disposition": "test_only_absorption",
-      "status": "in_progress",
+      "status": "absorbed",
       "dependencies": ["diagnostics_foundation", "lifecycle_and_causal_evidence"],
       "safety_boundary": "Each generalized mechanism must prove positive, negative, stale, truncated, conflicting, and metamorphic behavior before semantic promotion.",
       "commits": [
