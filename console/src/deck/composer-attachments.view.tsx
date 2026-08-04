@@ -26,6 +26,7 @@ import {
 } from "./composer-attachments";
 import {
   clearComposerAttachments,
+  reserveComposerAttachment,
   stageComposerAttachment,
   subscribeComposerAttachmentDrain,
   unstageComposerAttachment,
@@ -108,6 +109,8 @@ export function ComposerAttachments() {
           const media = imageMediaType(file);
           if (media === null) {
             patch(id, { status: "abandoned", note: t("deck.attach.unsupportedImage") });
+          } else if (!reserveComposerAttachment(id)) {
+            patch(id, { status: "abandoned", note: t("deck.attach.tooMany") });
           } else {
             void normalizeVisionImage(file)
               .then(async (normalized) => {
@@ -117,17 +120,20 @@ export function ComposerAttachments() {
                 // into a later turn.
                 if (!itemsRef.current.some((entry) => entry.id === id)) return;
                 if (normalized.size > MAX_VISION_IMAGE_BYTES) {
+                  unstageComposerAttachment(id);
                   patch(id, { status: "abandoned", note: t("deck.attach.tooLarge") });
                   return;
                 }
                 const normalizedMedia = imageMediaType(normalized);
                 if (normalizedMedia === null) {
+                  unstageComposerAttachment(id);
                   patch(id, { status: "abandoned", note: t("deck.attach.unsupportedImage") });
                   return;
                 }
                 const raw = await fileToDataUrl(normalized);
                 const dataUrl = normalizeImageDataUrl(raw, normalizedMedia);
                 if (dataUrl === null) {
+                  unstageComposerAttachment(id);
                   patch(id, { status: "abandoned", note: t("deck.attach.readFailed") });
                   return;
                 }
@@ -143,12 +149,15 @@ export function ComposerAttachments() {
                     : { status: "abandoned", note: t("deck.attach.tooMany") },
                 );
               })
-              .catch((reason: unknown) => patch(
-                id,
-                reason instanceof RangeError
-                  ? { status: "abandoned", note: t("deck.attach.tooLarge") }
-                  : { status: "abandoned", note: t("deck.attach.readFailed") },
-              ));
+              .catch((reason: unknown) => {
+                unstageComposerAttachment(id);
+                patch(
+                  id,
+                  reason instanceof RangeError
+                    ? { status: "abandoned", note: t("deck.attach.tooLarge") }
+                    : { status: "abandoned", note: t("deck.attach.readFailed") },
+                );
+              });
           }
         } else {
           patch(id, { status: "ready" });

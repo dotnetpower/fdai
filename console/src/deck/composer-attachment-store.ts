@@ -23,7 +23,7 @@ export interface ChatAttachment {
 /** Per-turn image cap, symmetric to the server-side DEFAULT_MAX_IMAGES. */
 export const MAX_ATTACHMENTS = 4;
 
-const staged = new Map<string, ChatAttachment>();
+const staged = new Map<string, ChatAttachment | null>();
 const drainListeners = new Set<() => void>();
 
 /** Subscribe to "the store was drained by a send". The composer uses this to
@@ -35,6 +35,14 @@ export function subscribeComposerAttachmentDrain(listener: () => void): () => vo
   return () => {
     drainListeners.delete(listener);
   };
+}
+
+/** Reserve one input-order slot before asynchronous normalization starts. */
+export function reserveComposerAttachment(id: string): boolean {
+  if (staged.has(id)) return true;
+  if (staged.size >= MAX_ATTACHMENTS) return false;
+  staged.set(id, null);
+  return true;
 }
 
 /** Stage (or replace) one attachment by its composer id. Returns whether it
@@ -56,7 +64,9 @@ export function unstageComposerAttachment(id: string): void {
  *  drain subscribers. Called by the submit path so exactly one turn owns the
  *  payload and a later composer clear cannot race it away. */
 export function takeComposerAttachments(): ChatAttachment[] {
-  const list = [...staged.values()];
+  const list = [...staged.values()].filter(
+    (attachment): attachment is ChatAttachment => attachment !== null,
+  );
   staged.clear();
   notifyDrain();
   return list;
@@ -83,4 +93,8 @@ function notifyDrain(): void {
 /** How many attachments are currently staged (view/tests only). */
 export function stagedComposerAttachmentCount(): number {
   return staged.size;
+}
+
+export function hasPendingComposerAttachments(): boolean {
+  return [...staged.values()].some((attachment) => attachment === null);
 }
