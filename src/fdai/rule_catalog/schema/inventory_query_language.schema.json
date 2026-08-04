@@ -30,6 +30,12 @@
       "type": "array", "minItems": 1, "uniqueItems": true,
       "items": {"type": "string", "minLength": 1, "maxLength": 128}
     },
+    "values": {
+      "type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true,
+      "items": {
+        "type": "string", "minLength": 1, "maxLength": 128, "pattern": ".*\\S.*"
+      }
+    },
     "termEntry": {
       "type": "object", "additionalProperties": false, "required": ["terms"],
       "properties": {"terms": {"$ref": "#/$defs/terms"}}
@@ -38,7 +44,7 @@
       "type": "object", "additionalProperties": false, "required": ["terms", "values"],
       "properties": {
         "terms": {"$ref": "#/$defs/terms"},
-        "values": {"$ref": "#/$defs/terms"},
+        "values": {"$ref": "#/$defs/values"},
         "evidence_authority": {
           "type": "string",
           "enum": ["current_inventory", "subscription_health"],
@@ -57,7 +63,7 @@
         "suppresses": {"$ref": "#/$defs/terms"},
         "category_values": {
           "type": "object",
-          "additionalProperties": {"$ref": "#/$defs/terms"},
+          "additionalProperties": {"$ref": "#/$defs/values"},
           "default": {}
         },
         "preserve_categories": {"$ref": "#/$defs/terms"}
