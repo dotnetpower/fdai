@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -153,6 +153,39 @@ async def test_service_rejects_changed_baseline_before_observation() -> None:
     assert observation_source.requested_scope is None
 
 
+async def test_service_rejects_changed_version_before_observation() -> None:
+    observation_source = _ObservationSource(_observation())
+    baseline = replace(_baseline(), version="s13-v2")
+    service = ConfigurationDriftService(
+        baseline_source=_BaselineSource(baseline),
+        observation_source=observation_source,
+        expected_version="s13-v1",
+        expected_sha256=baseline.sha256,
+        expected_scope="example-scope",
+    )
+
+    with pytest.raises(BaselineIntegrityError, match="version"):
+        await service.run()
+
+    assert observation_source.requested_scope is None
+
+
+async def test_service_rejects_observation_scope_escape() -> None:
+    baseline = _baseline()
+    service = ConfigurationDriftService(
+        baseline_source=_BaselineSource(baseline),
+        observation_source=_ObservationSource(
+            replace(_observation(), scope="another-scope"),
+        ),
+        expected_version=baseline.version,
+        expected_sha256=baseline.sha256,
+        expected_scope=baseline.scope,
+    )
+
+    with pytest.raises(BaselineIntegrityError, match="escaped"):
+        await service.run()
+
+
 async def test_tool_provider_returns_blocked_without_exception_details() -> None:
     bundle = build_configuration_drift_bundle(_service(expected_sha256="0" * 64))
     artifact = bundle.reasoning_tools[0]
@@ -293,6 +326,39 @@ async def test_service_cites_only_exact_baseline_knowledge() -> None:
     assert report.verdict is DriftVerdict.PASSED
     assert report.knowledge_status is KnowledgeGroundingStatus.CITED
     assert report.knowledge_citations == ("knowledge:baseline.docx#baseline#0",)
+
+
+async def test_service_blocks_mismatched_knowledge_metadata() -> None:
+    baseline = _baseline()
+    source = _KnowledgeSource(
+        chunks=(
+            KnowledgeChunk(
+                doc_id="baseline",
+                chunk_id="baseline#0",
+                text="wrong baseline",
+                source_ref="baseline.docx",
+                score=1.0,
+                metadata={
+                    "baseline_version": "another-version",
+                    "document_sha256": baseline.document_sha256,
+                },
+            ),
+        )
+    )
+    service = ConfigurationDriftService(
+        baseline_source=_BaselineSource(baseline),
+        observation_source=_ObservationSource(_observation()),
+        expected_version=baseline.version,
+        expected_sha256=baseline.sha256,
+        expected_scope=baseline.scope,
+        knowledge_source=source,
+    )
+
+    report = await service.run()
+
+    assert report.verdict is DriftVerdict.PASSED
+    assert report.knowledge_status is KnowledgeGroundingStatus.BLOCKED
+    assert report.knowledge_citations == ()
 
 
 @pytest.mark.parametrize("source", [_KnowledgeSource(), _KnowledgeSource(error=TimeoutError())])
