@@ -99,11 +99,22 @@ const columns: readonly Column<Capability>[] = [
   { key: "effect", header: t("governance.capabilities.column.sideEffectClass"), render: (row) => <StatusPill kind={row.side_effect_class === "read" ? "info" : "warning"} label={row.side_effect_class} /> },
   { key: "mode", header: t("governance.capabilities.column.defaultMode"), render: (row) => <StatusPill kind={row.default_mode === "shadow" ? "shadow" : "enforce"} label={row.default_mode} /> },
   { key: "role", header: t("governance.capabilities.column.requiredRole"), render: (row) => row.required_role },
+  { key: "path", header: t("governance.capabilities.column.operatorPath"), render: (row) => <StatusPill kind={capabilityRequestPath(row.side_effect_class).tone} label={t(`governance.capabilities.operatorPath.${capabilityRequestPath(row.side_effect_class).key}`)} /> },
   { key: "summary", header: t("governance.capabilities.column.summary"), render: (row) => row.summary },
 ];
 
 export function isMutatingCapability(sideEffectClass: string): boolean {
   return sideEffectClass === "execute" || sideEffectClass === "breakglass";
+}
+
+export function capabilityRequestPath(sideEffectClass: string): Readonly<{
+  key: "directRead" | "governedRequest" | "humanApproval" | "ownerBreakGlass";
+  tone: "info" | "shadow" | "hil" | "danger";
+}> {
+  if (sideEffectClass === "read") return { key: "directRead", tone: "info" };
+  if (sideEffectClass === "simulate") return { key: "governedRequest", tone: "shadow" };
+  if (sideEffectClass === "breakglass") return { key: "ownerBreakGlass", tone: "danger" };
+  return { key: "humanApproval", tone: "hil" };
 }
 
 function CapabilitiesBody({ data }: { readonly data: CapabilityResponse }) {
@@ -267,8 +278,12 @@ function CapabilitiesBody({ data }: { readonly data: CapabilityResponse }) {
             <div><dt>{t("governance.capabilities.detail.sideEffect")}</dt><dd>{selected.side_effect_class}</dd></div>
             <div><dt>{t("governance.capabilities.detail.defaultMode")}</dt><dd>{selected.default_mode}</dd></div>
             <div><dt>{t("governance.capabilities.detail.requiredRole")}</dt><dd>{selected.required_role}</dd></div>
+            <div><dt>{t("governance.capabilities.detail.operatorPath")}</dt><dd>{t(`governance.capabilities.operatorPath.${capabilityRequestPath(selected.side_effect_class).key}`)}</dd></div>
             <div><dt>{t("governance.capabilities.detail.tags")}</dt><dd>{selected.tags.join(", ") || "-"}</dd></div>
           </dl>
+          {isMutatingCapability(selected.side_effect_class) ? (
+            <a href={routeHref("promotion-gates")}>{t("governance.capabilities.detail.openPromotionEvidence")}</a>
+          ) : null}
           <a href={routeHref(capabilityPanel(selected.category))}>{t("governance.capabilities.detail.openRelated")}</a>
         </section>
       ) : null}

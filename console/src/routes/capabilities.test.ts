@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  capabilityRequestPath,
   capabilityRouteStateFromSearch,
   decodeCapabilities,
   isMutatingCapability,
@@ -13,6 +14,14 @@ describe("capability catalog provenance", () => {
   test("counts only execute and breakglass declarations as mutating", () => {
     expect(["read", "simulate", "approve", "execute", "breakglass"]
       .filter(isMutatingCapability)).toEqual(["execute", "breakglass"]);
+  });
+
+  test("maps declarations to non-authoritative operator request paths", () => {
+    expect(capabilityRequestPath("read")).toEqual({ key: "directRead", tone: "info" });
+    expect(capabilityRequestPath("simulate")).toEqual({ key: "governedRequest", tone: "shadow" });
+    expect(capabilityRequestPath("approve")).toEqual({ key: "humanApproval", tone: "hil" });
+    expect(capabilityRequestPath("execute")).toEqual({ key: "humanApproval", tone: "hil" });
+    expect(capabilityRequestPath("breakglass")).toEqual({ key: "ownerBreakGlass", tone: "danger" });
   });
 
   test("decodes inert catalog metadata without implying execution eligibility", () => {

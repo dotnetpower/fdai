@@ -1,8 +1,8 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: 078ebb347cf26f4f896bb89769cab0be0508768a
-translation_revised: 2026-08-02
+translation_source_sha: b456fed2c660ddeaeb3c8e582ae241e2dc7833b3
+translation_revised: 2026-08-04
 ---
 
 # 진화하는 시스템 프롬프트
@@ -208,9 +208,8 @@ capability gate, allowlist, output wrapper를 선언합니다.
 
 ### Reviewed runtime skill
 
-Runtime skill은 이미 등록된 tool 사용법을 agent에게 알려주는 portable Markdown
-instruction입니다. Repository coding-agent skill과 별개이며 tool, identity, role, execution
-authority를 부여하지 않습니다.
+Runtime skill은 이미 등록된 tool 사용법을 agent에게 알려주는 portable Markdown instruction입니다. Repository coding-agent skill과 별개이며 tool, identity, role, execution authority를 부여하지 않습니다. FDAI Console은 `설치됨`, `활성화됨`, `로드 적격`을 load-readiness state로 표시하고 authority promotion은 해당 없음으로 표시합니다.
+Capability declaration은 deterministic operator request path를 별도로 표시하며 mutation declaration은 skill eligibility나 catalog 존재로 promotion을 추론하지 않고 측정된 ActionType promotion evidence로 연결합니다.
 
 - **3단계:** Bounded index에는 metadata만 포함됩니다. `load_skill`은 complete `SKILL.md` 하나를, `read_skill_reference`는 support artifact 하나를 반환합니다. `list_skills`, `describe_skill`도 Reader operation이며 lifecycle을 변경하지 않습니다.
 - **Signed artifact manifest:** YAML front matter는 identity, version, provenance, body digest, required tool, allowed agent, content-addressed reference를 포함합니다. Unsafe path, undeclared/partial file, symlink-shaped metadata, digest mismatch, budget overflow는 fail closed합니다.

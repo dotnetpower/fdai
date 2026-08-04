@@ -24,6 +24,7 @@
       "requiredTools": "Required tools",
       "allowedAgents": "Allowed agents",
       "references": "References",
+      "lifecycle": "Lifecycle",
       "loadEligibility": "Load eligibility",
       "operation": "Operation",
       "skillReference": "Skill / reference",
@@ -50,7 +51,14 @@
       "eligible": "Eligible",
       "bundles": "Bundles",
       "eligibleBundles": "Eligible bundles",
-      "diagnostics": "Diagnostics"
+      "diagnostics": "Diagnostics",
+      "authorityPromotion": "Authority promotion",
+      "notApplicable": "Not applicable"
+    },
+    "lifecycle": {
+      "installed": "Installed",
+      "enabled": "Enabled - dependencies blocked",
+      "eligible": "Eligible to load"
     },
     "section": {
       "installedAria": "Installed skill index",
@@ -88,6 +96,7 @@
       "sideEffectClass": "Side-effect class",
       "defaultMode": "Default mode",
       "requiredRole": "Required role",
+      "operatorPath": "Operator path",
       "summary": "Summary"
     },
     "context": {
@@ -121,8 +130,16 @@
       "sideEffect": "Side effect",
       "defaultMode": "Default mode",
       "requiredRole": "Required role",
+      "operatorPath": "Operator path",
+      "openPromotionEvidence": "Open ActionType promotion evidence",
       "tags": "Tags",
       "openRelated": "Open related surface"
+    },
+    "operatorPath": {
+      "directRead": "Direct read",
+      "governedRequest": "Governed request",
+      "humanApproval": "Human approval",
+      "ownerBreakGlass": "Owner break-glass"
     },
     "error": {
       "count": "invalid Operator API response: capabilities.count MUST match items",

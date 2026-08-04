@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { decodeRuntimeSkills } from "./skills";
+import { decodeRuntimeSkills, skillLifecycleState } from "./skills";
 
 const ITEM = {
   name: "inventory-evidence",
@@ -66,6 +66,12 @@ function payload() {
 }
 
 describe("runtime Skills panel contract", () => {
+  test("keeps load eligibility separate from authority promotion", () => {
+    expect(skillLifecycleState({ enabled: false, eligible: false })).toBe("installed");
+    expect(skillLifecycleState({ enabled: true, eligible: false })).toBe("enabled");
+    expect(skillLifecycleState({ enabled: true, eligible: true })).toBe("eligible");
+  });
+
   test("decodes metadata, dependencies, eligibility, and diagnostics", () => {
     const decoded = decodeRuntimeSkills(payload());
 
