@@ -126,7 +126,8 @@
       "source_commits": [
         "a2ff0cce59d2f298b6366416a571411ca0849cc4",
         "adb792a9f9e363bf3721f0284df3b5cfd118f80f",
-        "6b51980ee079f10ebf9bdb1c6184c1e2fda33f6a"
+        "6b51980ee079f10ebf9bdb1c6184c1e2fda33f6a",
+        "cb5ac2a4e17e9ef225f90bd7d228341581a49b80"
       ],
       "status": "semantic_generalized",
       "benchmark_measured": true,
@@ -366,7 +367,9 @@
         "767d142ac5f53cbb0f3b8f0ec3d4ca148e765de8",
         "cc9dfb64c322776789e0067907deb66b88d36355",
         "b335186087193cfe5d05cc14a2e81811b031e57d",
-        "a8c95a23c07a773d3056c34c8c2743c930e90bbc"
+        "a8c95a23c07a773d3056c34c8c2743c930e90bbc",
+        "ea9f23de3ad341d706eea485588d7d2e41c9379c",
+        "f5fc51a5f644540e7f2f83d1f49abe64ca758c5e"
       ],
       "status": "semantic_generalized",
       "source_hardening": "Generalized active-failure prioritization into an exact-UID, complete-status selector that reserves half of each bounded Pod budget for recency and applies a separate container ceiling; no concrete log provider is claimed.",
@@ -624,7 +627,8 @@
     {
       "id": "kubernetes_coredns_global_nxdomain_candidate",
       "source_commits": [
-        "5ef31a877fbfdc0a52baf7e31192d8fba511b577"
+        "5ef31a877fbfdc0a52baf7e31192d8fba511b577",
+        "3d8cb6458da17227296f5a5c63f8c9f1e0cee486"
       ],
       "status": "semantic_generalized",
       "source_hardening": "Uses a bounded non-executing parser and accepts only one exact reviewed all-Service svc.cluster.local NXDOMAIN template; arbitrary, duplicate, malformed, and oversized patterns abstain, while projection remains unclaimed.",
@@ -829,6 +833,162 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_bounded_evidence_budgeting",
+      "source_commits": [
+        "29c10fe6acc9da7c1fc1413e47541e7da6c01582",
+        "e245bc2fcc1ec3358039516528c88ba4bdb1c28f"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Superseded by current per-provider item/output limits, total evidence byte ceilings, response-over-limit fail-closed behavior, and independent capability receipts.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": true,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_foundation_patch_authority",
+      "source_commits": [
+        "8962406e910d1a345b509391edfda39f8435b1a2",
+        "0ab907b6ce85cc5ddc9ac6088d99e7b21eea532d",
+        "3cac48ee33592af9db3360376e6120a1dd341fb5"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected generic control-plane and namespace patch authority; path normalization and policy routing do not independently provide all seven safeguards or outcome validation, and live generic handlers remain unregistered.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_dns_bypass_and_local_priority",
+      "source_commits": [
+        "81101efaadab30ecec0dfc5b6ea7c41b803c8d87",
+        "1ce85539cff1a3ebc494ac1e375344f93cca84ae"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected fixed DNS-bypass and local-blast reason priority without a current complete DNS policy/search projection and generic evidence-strength ordering; no authority is inferred from locality alone.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_dns_and_service_selector_recovery",
+      "source_commits": [
+        "40110c20048eeadf7ac04e20668b9d91b578a6ea",
+        "55725384caa62fc808084c65c45cbfe9e40517a5",
+        "55be5305c56df32c9f1de25b9308e87b535b2a64",
+        "89f5843b203f9f566e7012f533c89d019d766e99",
+        "b02463d8595ee61f525a20142b6f2357638f0d02"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected CoreDNS and Service-selector mutation normalization and rollout convergence because DNS resolution, dependent traffic, rollout health, snapshot restore, and independent outcomes remain unvalidated.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_quota_admission_causal_attribution",
+      "source_commits": [
+        "1e86a8e5f2b852677b7059b0680a795cbce248d0",
+        "29203d664be97d56ee52c9c001fe51e05316ee2f",
+        "7c0c051b18caf04e9fa2847276ce42a304005570",
+        "e54de6b4ea8909459209625aca8b7f898a56ae16",
+        "e5e49167a7af0ab5c7636305a60ddf6ba94ac331"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected priority, alias, and temporal-proximity quota causality without exact immutable affected-resource identity, trusted cutoff, complete quota projection, and contradiction handling; no new reason branch is added.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_quota_revert_authority",
+      "source_commits": ["13ab50fe48a7b8cfee908a3b4429be35f69bd3c2"],
+      "status": "rejected",
+      "source_hardening": "Rejected quota reversion because change proximity does not prove intent or safe prior value, and independent admission recovery, workload outcome, blast-radius, and rollback validation are absent.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_auth_posture_and_service_attribution",
+      "source_commits": [
+        "4944ab73f72e0909b1f2bc3f13442d97c3a0ea64",
+        "6e2c578938aa93060a77373591625ebf64e323e4",
+        "b39191ae34f6d7831f54c85c93b039dc583f2394",
+        "db74b4105197988a64c406ced9e0343c2f2ae0c4",
+        "e0b1a1f42e58969a667930920e2da1107ca4daa8"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected datastore credential posture probes and Service attribution until a secret-free provider proves exact owner/selector identity, bounded authentication semantics, current freshness, and no credential material exposure.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_auth_workload_restart_authority",
+      "source_commits": [
+        "0ae13edca65f710a852fd2000864716d2aa538fb",
+        "1e81e127cfdd7d7629ebc4427bec1252bc736f8c",
+        "40f986f254bf3fb7603ea02de04f3dc57bac06bf",
+        "504b6a0a3a21fdb958ba820f874b44cb90a375db",
+        "55ee3deadf0104337d9393196c643099a964a97c",
+        "b07e8e101767ffbf78b6f34644c87b87169d86f7",
+        "cabe07bb51f8898f1094b6924c54e71666aa57b5"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected auth-driven workload restart authority because selector/owner grounding and replacement waits do not prove credential recovery, application correctness, durable idempotency, rollback restoration, or independent outcomes.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_auth_recovery_catalog_assets",
+      "source_commits": [
+        "6101ab070aa0475b28cd8a5c9c49e000993c1459",
+        "e4192b1fe5b967a6e2c649ed032a4855a3a4daba"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected catalog coverage as authority: catalog presence and asset isolation do not validate a provider, action, outcome, or promotion state.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [
@@ -836,7 +996,7 @@
       "id": "diagnostics_foundation",
       "title": "Bounded Kubernetes diagnostics foundation",
       "disposition": "semantic_port",
-      "status": "in_progress",
+      "status": "absorbed",
       "dependencies": [],
       "safety_boundary": "Evidence remains bounded, untrusted, namespace-scoped, and unable to grant action authority.",
       "commits": [
@@ -924,7 +1084,7 @@
       "id": "runtime_operationalization",
       "title": "Ordinary runtime evidence operationalization",
       "disposition": "semantic_port",
-      "status": "queued",
+      "status": "absorbed",
       "dependencies": ["diagnostics_foundation", "lifecycle_and_causal_evidence"],
       "safety_boundary": "Evaluation remains a thin consumer of the same operational evidence path used by normal agents.",
       "commits": [
@@ -935,7 +1095,7 @@
       "id": "dns_recovery",
       "title": "DNS diagnosis and governed CoreDNS recovery",
       "disposition": "test_only_absorption",
-      "status": "queued",
+      "status": "absorbed",
       "dependencies": ["diagnostics_foundation", "runtime_operationalization"],
       "safety_boundary": "Cluster-wide DNS mutation requires grounded target identity, dry-run, bounded scope, rollback, and independent convergence verification.",
       "commits": [
@@ -953,7 +1113,7 @@
       "id": "quota_recovery",
       "title": "Quota attribution, semantic quantities, and governed revert",
       "disposition": "test_only_absorption",
-      "status": "queued",
+      "status": "absorbed",
       "dependencies": ["diagnostics_foundation", "runtime_operationalization"],
       "safety_boundary": "A quota revert remains ineligible without exact provenance, temporal causality, rollback, and outcome verification.",
       "commits": [
@@ -970,7 +1130,7 @@
       "id": "auth_recovery",
       "title": "Datastore authentication diagnosis and grounded workload recovery",
       "disposition": "test_only_absorption",
-      "status": "queued",
+      "status": "absorbed",
       "dependencies": ["diagnostics_foundation", "runtime_operationalization"],
       "safety_boundary": "Selectors and owner chains must identify one exact workload before any restart can become action-eligible.",
       "commits": [
@@ -1038,7 +1198,7 @@
       "id": "ontology_shadow_pilots",
       "title": "Provider-neutral dependency and capacity proof mechanisms",
       "disposition": "test_only_absorption",
-      "status": "in_progress",
+      "status": "absorbed",
       "dependencies": ["advanced_diagnostics", "runtime_operationalization"],
       "safety_boundary": "Ontology validates identity, unit, relationship, and evidence eligibility but never senses, judges, approves, executes, or promotes.",
       "commits": [
