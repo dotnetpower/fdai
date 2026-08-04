@@ -41,15 +41,13 @@
     .sm-cad-coordinates { position: absolute; z-index: 7; left: 12px; bottom: 58px; min-width: 112px; padding: 4px 7px; border: 1px solid rgba(160,171,177,.60); border-radius: 4px; background: rgba(255,255,255,.84); color: #64717A; font: 650 9px "Cascadia Code", "Consolas", monospace; letter-spacing: .04em; pointer-events: none; backdrop-filter: blur(6px); }
 
     .sm-drawing-sheet { fill: #F8F9F8; }
-    .sm-iso-floor-top { fill: #F8FAF9; stroke: #AEB8BC; stroke-width: 1; }
-    .sm-iso-floor-front { fill: #E7EBEA; stroke: #AEB8BC; stroke-width: 1; }
-    .sm-iso-floor-left { fill: #EDF0EF; stroke: #AEB8BC; stroke-width: 1; }
-    .sm-lane path { stroke: rgba(149,161,166,.58); stroke-width: .7; }
-    .sm-lane-external path { fill: rgba(241,244,242,.80); }
-    .sm-lane-ingress path { fill: rgba(229,240,237,.72); }
-    .sm-lane-services path { fill: rgba(250,251,249,.74); }
-    .sm-lane-data path { fill: rgba(241,238,245,.65); }
-    .sm-lane-egress path { fill: rgba(248,239,233,.66); }
+    .sm-map-plate { fill: #F8FAF9; stroke: #AEB8BC; stroke-width: 1; }
+    .sm-lane rect { stroke: rgba(149,161,166,.58); stroke-width: .7; }
+    .sm-lane-external rect { fill: rgba(241,244,242,.80); }
+    .sm-lane-ingress rect { fill: rgba(229,240,237,.72); }
+    .sm-lane-services rect { fill: rgba(250,251,249,.74); }
+    .sm-lane-data rect { fill: rgba(241,238,245,.65); }
+    .sm-lane-egress rect { fill: rgba(248,239,233,.66); }
     .sm-grid-overlay { pointer-events: none; opacity: .56; }
     .sm-lane-heading rect { fill: rgba(255,255,255,.88); stroke: rgba(157,169,173,.64); stroke-width: .7; }
     .sm-lane-heading text { fill: #66747C; text-anchor: middle; font: 690 8px "Cascadia Code", "Consolas", monospace; letter-spacing: .06em; }
@@ -231,34 +229,27 @@
           <title id="sm-title">Service map design preview</title>
           <desc id="sm-description">Synthetic directional topology with ingress, services, data dependencies, and external egress. Animated particles represent throughput.</desc>
           <defs>
-            <pattern id="sm-iso-grid" width="48" height="24" patternUnits="userSpaceOnUse">
-              <path d="M-24 12 L0 0 L24 12 L0 24 Z M24 12 L48 0 L72 12 L48 24 Z" fill="none" stroke="#66757D" stroke-width=".55" opacity=".18" />
+            <pattern id="sm-map-grid" width="24" height="24" patternUnits="userSpaceOnUse">
+              <path d="M24 0 H0 V24" fill="none" stroke="#66757D" stroke-width=".5" opacity=".14" />
             </pattern>
-            <clipPath id="sm-floor-clip"><path d="M30 76 H1250 L1200 540 H80 Z" /></clipPath>
+            <clipPath id="sm-plate-clip"><rect x="30" y="76" width="1220" height="464" /></clipPath>
             <marker id="sm-arrow-healthy" markerWidth="7" markerHeight="7" refX="6.5" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><path class="sm-marker" d="M0,0 L7,3.5 L0,7 Z" /></marker>
             <marker id="sm-arrow-warning" markerWidth="7" markerHeight="7" refX="6.5" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><path class="sm-marker-warning" d="M0,0 L7,3.5 L0,7 Z" /></marker>
             <marker id="sm-arrow-critical" markerWidth="7" markerHeight="7" refX="6.5" refY="3.5" orient="auto" markerUnits="userSpaceOnUse"><path class="sm-marker-critical" d="M0,0 L7,3.5 L0,7 Z" /></marker>
           </defs>
           <rect class="sm-drawing-sheet" x="-320" y="-180" width="1920" height="950" />
-          <g class="sm-iso-floor" aria-hidden="true">
-            <path class="sm-iso-floor-front" d="M80 540 H1200 L1182 555 H98 Z" />
-            <path class="sm-iso-floor-left" d="M30 76 L80 540 L98 555 L48 89 Z" />
-            <path class="sm-iso-floor-left" d="M1250 76 L1200 540 L1182 555 L1232 89 Z" />
-            <path class="sm-iso-floor-top" d="M30 76 H1250 L1200 540 H80 Z" />
-          </g>
-          <g class="sm-lane sm-lane-external"><path d="M30 76 H220 L250 540 H80 Z" /></g>
-          <g class="sm-lane sm-lane-ingress"><path d="M220 76 H435 L460 540 H250 Z" /></g>
-          <g class="sm-lane sm-lane-services"><path d="M435 76 H710 L720 540 H460 Z" /></g>
-          <g class="sm-lane sm-lane-data"><path d="M710 76 H960 L950 540 H720 Z" /></g>
-          <g class="sm-lane sm-lane-egress"><path d="M960 76 H1250 L1200 540 H950 Z" /></g>
-          <rect class="sm-grid-overlay" x="30" y="76" width="1220" height="464" fill="url(#sm-iso-grid)" clip-path="url(#sm-floor-clip)" />
-          <g class="sm-lane-heading" transform="translate(64 89)"><rect width="98" height="20" rx="10" /><text x="49" y="13">EXTERNAL</text></g>
-          <g class="sm-lane-heading" transform="translate(275 89)"><rect width="82" height="20" rx="10" /><text x="41" y="13">INGRESS</text></g>
-          <g class="sm-lane-heading" transform="translate(516 89)"><rect width="98" height="20" rx="10" /><text x="49" y="13">SERVICES</text></g>
-          <g class="sm-lane-heading" transform="translate(780 89)"><rect width="112" height="20" rx="10" /><text x="56" y="13">DATA + EVENTS</text></g>
-          <g class="sm-lane-heading" transform="translate(1044 89)"><rect width="98" height="20" rx="10" /><text x="49" y="13">EGRESS</text></g>
-          <text class="sm-boundary-label" x="207" y="566">INGRESS</text>
-          <text class="sm-boundary-label egress" x="978" y="566">EGRESS</text>
+          <rect class="sm-map-plate" x="30" y="76" width="1220" height="464" />
+          <g class="sm-lane sm-lane-external"><rect x="30" y="76" width="190" height="464" /></g>
+          <g class="sm-lane sm-lane-ingress"><rect x="220" y="76" width="230" height="464" /></g>
+          <g class="sm-lane sm-lane-services"><rect x="450" y="76" width="290" height="464" /></g>
+          <g class="sm-lane sm-lane-data"><rect x="740" y="76" width="250" height="464" /></g>
+          <g class="sm-lane sm-lane-egress"><rect x="990" y="76" width="260" height="464" /></g>
+          <rect class="sm-grid-overlay" x="30" y="76" width="1220" height="464" fill="url(#sm-map-grid)" clip-path="url(#sm-plate-clip)" />
+          <g class="sm-lane-heading" transform="translate(76 89)"><rect width="98" height="20" rx="10" /><text x="49" y="13">EXTERNAL</text></g>
+          <g class="sm-lane-heading" transform="translate(294 89)"><rect width="82" height="20" rx="10" /><text x="41" y="13">INGRESS</text></g>
+          <g class="sm-lane-heading" transform="translate(546 89)"><rect width="98" height="20" rx="10" /><text x="49" y="13">SERVICES</text></g>
+          <g class="sm-lane-heading" transform="translate(809 89)"><rect width="112" height="20" rx="10" /><text x="56" y="13">DATA + EVENTS</text></g>
+          <g class="sm-lane-heading" transform="translate(1071 89)"><rect width="98" height="20" rx="10" /><text x="49" y="13">EGRESS</text></g>
           <g data-sm-edges></g>
           <g data-sm-nodes></g>
         </svg>
