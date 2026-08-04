@@ -371,6 +371,10 @@ Provider-neutral rollout semantics emit a hold-only candidate when complete stra
 a degraded Deployment with zero available replicas, `maxSurge=0`, and `maxUnavailable` covering the
 entire desired replica count. Healthy, safe, malformed, incomplete, or truncated evidence abstains.
 Concrete strategy projection and remediation remain separate work.
+Provider-neutral CoreDNS semantics recognize one bounded `template` block only when its header
+targets `svc.cluster.local`, its sole reviewed match is an exact all-Service pattern, and it returns
+NXDOMAIN. Arbitrary regexes are never executed. Specific-Service, duplicate, malformed, oversized,
+non-NXDOMAIN, incomplete, or truncated evidence abstains. Corefile projection remains provider work.
 The source campaign's deterministic SecurityContext patch is not ported. A syntactically grounded
 template change can alter process identity, capabilities, and workload behavior; admission success
 alone does not prove rollout health, application correctness, or rollback restoration. Until those

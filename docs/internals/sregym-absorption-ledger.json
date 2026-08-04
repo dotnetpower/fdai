@@ -615,6 +615,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_coredns_global_nxdomain_candidate",
+      "source_commits": [
+        "5ef31a877fbfdc0a52baf7e31192d8fba511b577"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Uses a bounded non-executing parser and accepts only one exact reviewed all-Service svc.cluster.local NXDOMAIN template; arbitrary, duplicate, malformed, and oversized patterns abstain, while projection remains unclaimed.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [
