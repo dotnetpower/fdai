@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 2d3d2e1095cef9a76998594499d111fcc1717171
+translation_source_sha: 3014e9550678b308c7056afe2a44afe5cab9fba0
 translation_revised: 2026-08-05
 ---
 
@@ -62,8 +62,9 @@ status가 계속 표시됩니다.
 실시간 runtime state와 고정 registry ownership 및 safety flag를 에이전트별 상세 disclosure에 함께
 표시합니다. 조직 view는 keyboard-accessible 보고 체계와 선택된 incident evidence를 렌더링합니다.
 기존 link가 계속 동작하도록 stable `/pantheon` path는 조직 compatibility route로 유지하고,
-navigation에는 별도의 Pantheon directory를 두지 않습니다. 담당자 인수인계는 자체 governed proposal
-workflow가 있으므로 별도 Explorer panel로 유지합니다.
+navigation에는 별도의 Pantheon directory를 두지 않습니다. 에이전트 감독은 운영 담당 체계와
+governed proposal workflow를 다루는 Governance panel이며 `/agent-oversight`를 사용합니다. 이전
+`/handover` 경로는 compatibility alias로 유지합니다.
 
 Settings에는 authoritative StateStore를 사용하는 Runtime policies route가 포함됩니다. 이 route는
 secret, endpoint, tenant identifier 또는 workload identity identifier를 노출하지 않고 정제된

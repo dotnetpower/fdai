@@ -60,8 +60,9 @@ The Agents workspace uses three compact views: `Fleet`, `Org`, and `Activity`. F
 runtime state with the fixed registry ownership and safety flags inside per-agent Details
 disclosures. Org renders the keyboard-accessible reporting chart and selected incident evidence.
 The stable `/pantheon` path remains a compatibility route for Org, so existing links continue to
-resolve without keeping a second Pantheon directory in navigation. Ownership Handover remains a
-separate Explorer panel because it has its own governed proposal workflow.
+resolve without keeping a second Pantheon directory in navigation. Agent oversight is a Governance
+panel at `/agent-oversight` because operational ownership and its governed proposal workflow are
+governance concerns. The previous `/handover` path remains a compatibility alias.
 
 Settings includes a Runtime policies route backed by the authoritative StateStore. The route shows
 sanitized environment, override, and effective values without exposing secrets, endpoints, tenant

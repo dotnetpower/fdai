@@ -34,10 +34,10 @@ describe("panel navigation placement", () => {
       "dashboard", "operating-outcomes", "control-assurance", "verticals", "trust-routing", "llm-cost",
     ]);
     expect(panelsInGroup("agents").map((panel) => panel.id)).toEqual([
-      "agents", "pantheon", "agent-activity", "handover",
+      "agents", "pantheon", "agent-activity",
     ]);
     expect(panelsInGroup("governance").map((panel) => panel.id)).toEqual([
-      "architecture", "ontology", "rules", "workflow-builder", "capabilities", "skills", "blast-radius", "promotion-gates", "context-selection-comparisons", "scope",
+      "architecture", "ontology", "handover", "rules", "workflow-builder", "capabilities", "skills", "blast-radius", "promotion-gates", "context-selection-comparisons", "scope",
     ]);
     expect(panelsInGroup("evidence").map((panel) => panel.id)).toEqual([
       "audit", "browser-evidence", "forecast-learning", "conversation-search", "conversation-assurance", "reports", "trace", "rca", "documents",

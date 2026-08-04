@@ -14,6 +14,7 @@ describe("clean console routes", () => {
     expect(panelPath("dashboard")).toBe("/overview");
     expect(panelPath("hil-queue")).toBe("/approvals");
     expect(panelPath("agent-activity")).toBe("/agent-activity");
+    expect(panelPath("handover")).toBe("/agent-oversight");
     expect(panelPath("scheduler-runs")).toBe("/scheduler-runs");
     expect(panelPath("scheduled-continuations")).toBe("/scheduled-continuations");
     expect(panelPath("conversation-delivery")).toBe("/conversation-delivery");
@@ -82,6 +83,14 @@ describe("clean console routes", () => {
     expect(route.panelId).toBe("settings-general");
     expect(route.matched).toBe(true);
     expect(route.canonicalPathname).toBe("/settings/general");
+    expect(route.segments).toEqual([]);
+  });
+
+  test("keeps the legacy Handover URL as an Agent oversight alias", () => {
+    const route = parseConsoleRoute("/handover");
+    expect(route.panelId).toBe("handover");
+    expect(route.matched).toBe(true);
+    expect(route.canonicalPathname).toBe("/agent-oversight");
     expect(route.segments).toEqual([]);
   });
 
