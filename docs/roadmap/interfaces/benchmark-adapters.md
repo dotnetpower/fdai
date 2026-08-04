@@ -288,6 +288,11 @@ policy, Service identity, and reviewed source path. The targeted receipt provide
 from the reducer. The admission evaluation provider now performs at most eight exact allowlisted
 `service/{name} --ignore-not-found` reads. Empty successful output confirms absence; out-of-scope,
 failed, oversized, malformed, or identity-mismatched responses make Service evidence incomplete.
+The source campaign's automatic `failurePolicy: Fail` to `Ignore` recovery seed is not ported.
+That mutation changes admission security intent to fail open, does not restore the missing backend,
+and lacks independent proof that the resulting admissions and rollback preserve the intended
+control. Approval, resource-version checks, and server dry-run do not establish those outcomes.
+Missing backend findings therefore remain hold-only and grant no control-plane patch authority.
 
 Cumulative timeout evidence is a separate candidate-only mechanism. It requires at least two
 distinct structured timeout events for distinct webhook names, the same immutable affected-resource

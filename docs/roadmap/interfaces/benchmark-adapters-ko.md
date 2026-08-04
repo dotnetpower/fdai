@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 2363e7764c9612f5fcd9123f31958d2c9845de06
+translation_source_sha: a68d82cae9e7861317699b00f1c38a7ab45f833d
 translation_revised: 2026-08-04
 ---
 
@@ -290,6 +290,11 @@ reducer만으로 제공된다고 간주하지 않습니다. Admission evaluation
 allowlisted `service/{name} --ignore-not-found` read를 수행합니다. Empty successful output만 absence를
 확인하며 out-of-scope, failed, oversized, malformed 또는 identity-mismatched response는 Service
 evidence를 incomplete로 만듭니다.
+Source campaign의 automatic `failurePolicy: Fail` to `Ignore` recovery seed는 port하지 않습니다.
+이 mutation은 admission security intent를 fail-open으로 바꾸고 missing backend를 복구하지 않으며,
+resulting admission과 rollback이 intended control을 보존한다는 independent proof도 없습니다. Approval,
+resource-version check 및 server dry-run만으로 해당 outcome을 증명할 수 없습니다. 따라서 missing
+backend finding은 hold-only로 유지되며 control-plane patch authority를 부여하지 않습니다.
 
 Cumulative timeout evidence는 별도 candidate-only mechanism입니다. 서로 다른 webhook name의
 structured timeout event가 최소 2개이고, affected resource immutable UID가 같으며, trusted evidence
