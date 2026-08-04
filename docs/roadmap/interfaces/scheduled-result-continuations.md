@@ -54,6 +54,15 @@ proposal containing all three run ids. The reducer does not create or enable a t
 still uses the authenticated scheduler command, event, and audit path, so review evidence cannot
 grant schedule mutation authority.
 
+An authenticated Contributor can submit one fresh review through a separate command route with a
+required idempotency key. The command records the full report before advancing the campaign. When
+the third exact run becomes ready, FDAI submits a disabled, shadow-only Automation Blueprint with
+zero mutation tools and fingerprints for all three runs. It still creates no task. A distinct
+Approver or Owner must accept the candidate, and the same reviewer may then materialize it through
+the existing authenticated `CreateScheduledTaskCommand`. The resulting strict weekly task emits
+`configuration.drift.check.requested` in shadow mode through the normal scheduler event path.
+Retries collapse at report, campaign, candidate, and task identities.
+
 Campaign state is stored through the shared StateStore under a content-derived campaign id. Create
 and advance operations atomically pair the state write with an append-only audit entry. Every
 advance increments a revision and uses compare-and-set with bounded retry, so concurrent runs cannot
@@ -162,6 +171,8 @@ Coverage includes:
 - Web delivery retry collapse and Slack/Teams thread-mode parity.
 - Typed-fact provenance and explicit absence of instruction authority.
 - PostgreSQL row codecs, compare-and-set expiry, concurrent winner-only audit, idempotent lifecycle audit retries, migration head, and environment-gated live tests.
+- Configuration review evidence-run idempotency, proposer self-review denial, no task before
+    acceptance, strict weekly materialization, and duplicate task suppression.
 
 ## Related docs
 

@@ -105,6 +105,7 @@ from fdai.delivery.operator_api.production.config import (
 )
 from fdai.delivery.operator_api.production.configuration_drift import (
     build_production_configuration_drift_context,
+    build_production_configuration_review,
 )
 from fdai.delivery.operator_api.production.data_sources import build_production_data_sources
 from fdai.delivery.operator_api.production.identity import build_production_identity
@@ -728,6 +729,17 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         )
     except (OSError, ValueError) as exc:
         raise ProdOperatorApiConfigError(str(exc)) from exc
+    configuration_review = (
+        None
+        if configuration_drift_context is None
+        else build_production_configuration_review(
+            context=configuration_drift_context,
+            state_store=state_store,
+            dsn=read_model._config.dsn,
+            statement_timeout_ms=read_model._config.statement_timeout_ms,
+            connect_timeout_s=read_model._config.connect_timeout_s,
+        )
+    )
     background_runtime = build_background_task_runtime(
         executor=background_executor,
         state_store=state_store,
@@ -890,6 +902,12 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         skill_sources=skill_sources.routes,
         knowledge_context=knowledge_context,
         configuration_drift_context=configuration_drift_context,
+        configuration_review_runtime=(
+            configuration_review.runtime if configuration_review is not None else None
+        ),
+        automation_blueprint_review=(
+            configuration_review.blueprints if configuration_review is not None else None
+        ),
         busy_input_runtime=busy_input_runtime,
         conversation_delivery_store=conversation_delivery_store,
         chat_web_search=chat_web_search,

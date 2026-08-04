@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 962,
+  "file_count": 963,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "22f8e22e3fd307e30886805683b0f38c39442deeb24a45026471d71084b4ea99",
     ".github/instructions/agent-stewardship.instructions.md": "574518fca728a9a6c8d3b50e0cf4aa53a1ed5bf85d5c52e5da67a0486bf31a43",
@@ -255,7 +255,7 @@
     "src/fdai/core/detection/configuration_drift_models.py": "6ecef70f5b3b50994c01f0da736075c9f75bddc07de7d5cdf115040abec94a05",
     "src/fdai/core/detection/configuration_drift_reports.py": "3d48e262c0d3fe711cdf7bc0901d4bd9323cbc308faa6612ecc2c7b6e63230f2",
     "src/fdai/core/detection/configuration_drift_service.py": "4b628af85b70430cc0de3beba9dea6a668edca5e95acba7da7fd3a24c5b08b1f",
-    "src/fdai/core/detection/configuration_review.py": "ad0c27b3ad89aaebed9a0f5f2aa424ff648096c4ceb344ce95e2e237786e652d",
+    "src/fdai/core/detection/configuration_review.py": "89419d2c45131da30802a7392a9fa18845d85ff36fb1848a6da306ace76371c6",
     "src/fdai/core/detection/forecast.py": "f047a7d0a1c793ebf1b14695ee8677c93564e5c19c3780980efd7dfd1c89b923",
     "src/fdai/core/detection/forecast_band.py": "ec26269b9b96ce5b2d22f08d0ea7e26eb2257d994e5de6a962a0d414552a410b",
     "src/fdai/core/detection/forecast_closure.py": "ebeba6755bc873f638cee459e380113fdb1840a2e7f00117b650803fccf0dcde",
@@ -622,8 +622,9 @@
     "src/fdai/core/sandbox/__init__.py": "789b937b466cd170d93410e94db4e8ae34466a1d96743a72eaee8284cbd159ce",
     "src/fdai/core/sandbox/profiles.py": "931467069c72db7425a8c80b3de41c47b963f0c7299791f96c3df41088705445",
     "src/fdai/core/scheduler/__init__.py": "c6c8ba4f2621abe06f7169e3ca71dfe38334ade2b11ebe0f06a5b6785e25b6b0",
-    "src/fdai/core/scheduler/blueprints/__init__.py": "4b7aa31063e5fada8b1720f045d1005483e1d94a5e6a5ec1efb0b1fc2e8fe8ab",
+    "src/fdai/core/scheduler/blueprints/__init__.py": "c82e73ad16bd0d7e50c86f4451db0e4e300a2a581ef7cbaea91339735bf162f0",
     "src/fdai/core/scheduler/blueprints/aggregator.py": "e30538f8a33d391a0cd0c780a011e0baf7d3fcf61d05b6ed7bd8b0c5614b5d4e",
+    "src/fdai/core/scheduler/blueprints/configuration_review.py": "d3549e2a624b0b3e170c9ea608101eae95c318ca21dd8171c8264192a36513df",
     "src/fdai/core/scheduler/blueprints/models.py": "a7422dffcc59645db38a7771dca8316335e8742acf528183818b881daef1659a",
     "src/fdai/core/scheduler/blueprints/review.py": "e22e39a7d3bdb2507b4d32dd4d2ee0350073881a5bd71d75547d793facc880bd",
     "src/fdai/core/scheduler/blueprints/store.py": "2432b1fc1142cdcbe00c2772643481caff2fbdaa191b889d1189cfff36730088",
@@ -965,7 +966,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-04T05:20:03Z",
+  "generated_at": "2026-08-04T06:24:50Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

@@ -105,6 +105,9 @@ file digest alone does not establish cross-format equivalence.
   citations, safety counters, and measured performance under the campaign and run identity. Its
   strict codec supports restart replay, duplicate content is a no-op, and identity reuse with
   different evidence is blocked.
+- A ready campaign submits an inert Automation Blueprint. Independent review and the authenticated
+  scheduler command remain mandatory before a shadow weekly event exists. Configuration drift does
+  not call the scheduler store or executor directly.
 
 ## 1. Event Correlation
 

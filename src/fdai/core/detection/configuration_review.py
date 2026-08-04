@@ -132,6 +132,28 @@ class ConfigurationReviewCampaignService:
             raise ConfigurationReviewConflictError("configuration review campaign already exists")
         return campaign
 
+    async def ensure(self, campaign: ConfigurationReviewCampaign) -> ConfigurationReviewCampaign:
+        """Create a campaign or recover its matching advanced revision."""
+
+        if await self._store.create(campaign):
+            return campaign
+        existing = await self._store.get(campaign.campaign_id)
+        if existing is not None and (
+            existing.baseline_version,
+            existing.baseline_sha256,
+            existing.scope,
+            existing.run_limit,
+            existing.required_successes,
+        ) == (
+            campaign.baseline_version,
+            campaign.baseline_sha256,
+            campaign.scope,
+            campaign.run_limit,
+            campaign.required_successes,
+        ):
+            return existing
+        raise ConfigurationReviewConflictError("configuration review campaign already exists")
+
     async def record(
         self,
         campaign_id: str,

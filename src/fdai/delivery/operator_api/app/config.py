@@ -404,6 +404,18 @@ class OperatorApiConfig:
     It reads one server-configured frozen baseline, observation, and DOCX citation. The caller
     cannot choose a scope, baseline version, digest, document, or mutation operation."""
 
+    configuration_review_runtime: Any = None
+    """Optional fresh-run command that records immutable drift evidence.
+
+    The Console does not expose this command. A Contributor may invoke it with
+    an idempotency key; readiness can submit only an inert automation blueprint."""
+
+    automation_blueprint_review: Any = None
+    """Optional independent review and scheduler materialization service.
+
+    Review and materialization remain separate authenticated commands. The
+    candidate proposer cannot self-review and the Console panel stays read-only."""
+
     busy_input_runtime: BusyInputRuntime | None = None
     """Optional durable queue, interrupt, and steer runtime for chat turns.
     It is meaningful only when :attr:`chat` is configured; production binds

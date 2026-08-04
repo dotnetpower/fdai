@@ -205,7 +205,11 @@ def test_build_prod_app_wires_configuration_baseline_panel(tmp_path: Path) -> No
 
     app = build_prod_app(env)
 
-    assert "/configuration-baselines" in {route.path for route in app.routes}
+    paths = {route.path for route in app.routes}
+    assert "/configuration-baselines" in paths
+    assert "/configuration-baselines/review/run" in paths
+    assert "/automation-blueprints/{candidate_id:str}/review" in paths
+    assert "/automation-blueprints/{candidate_id:str}/materialize" in paths
 
 
 def test_build_prod_app_rejects_configuration_baseline_without_reader() -> None:

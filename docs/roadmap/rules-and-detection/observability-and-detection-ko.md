@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 7d7a1abb7a9d35354fd59a5c3413c7a594acaeb1
+translation_source_sha: 8381d3223a81dd77ff920b4be064baf0cacc4fb5
 translation_revised: 2026-08-04
 ---
 
@@ -104,6 +104,9 @@ cross-format equivalence가 성립하지 않습니다.
 - Campaign advance 전에 immutable StateStore report ledger가 campaign과 run identity 아래에 전체 finding,
   citation, safety counter, measured performance를 기록합니다. Strict codec은 restart replay를 지원하고,
   duplicate content는 no-op이며, 다른 evidence로 identity를 재사용하면 차단합니다.
+- Ready campaign은 inert Automation Blueprint를 제출합니다. Shadow weekly event가 생기기 전에 independent
+  review와 authenticated scheduler command가 계속 필요합니다. Configuration drift는 scheduler store 또는
+  executor를 직접 호출하지 않습니다.
 
 ## 1. 이벤트 상관관계(Event Correlation)
 
