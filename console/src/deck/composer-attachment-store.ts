@@ -23,6 +23,13 @@ export interface ChatAttachment {
 /** Per-turn image cap, symmetric to the server-side DEFAULT_MAX_IMAGES. */
 export const MAX_ATTACHMENTS = 4;
 
+export class ComposerAttachmentsPendingError extends Error {
+  constructor() {
+    super("composer attachments are still processing");
+    this.name = "ComposerAttachmentsPendingError";
+  }
+}
+
 const staged = new Map<string, ChatAttachment | null>();
 const drainListeners = new Set<() => void>();
 
@@ -64,6 +71,7 @@ export function unstageComposerAttachment(id: string): void {
  *  drain subscribers. Called by the submit path so exactly one turn owns the
  *  payload and a later composer clear cannot race it away. */
 export function takeComposerAttachments(): ChatAttachment[] {
+  if (hasPendingComposerAttachments()) throw new ComposerAttachmentsPendingError();
   const list = [...staged.values()].filter(
     (attachment): attachment is ChatAttachment => attachment !== null,
   );

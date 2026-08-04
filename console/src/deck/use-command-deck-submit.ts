@@ -8,7 +8,10 @@ import {
   type InvestigationMilestone,
   type VerificationProgress,
 } from "./backend";
-import { takeComposerAttachments } from "./composer-attachment-store";
+import {
+  hasPendingComposerAttachments,
+  takeComposerAttachments,
+} from "./composer-attachment-store";
 import { DEFAULT_NARRATOR, type Turn } from "./command-deck-presenters";
 import { upsertEvidenceBranch, upsertInvestigationActivity } from "./investigation-timeline";
 import {
@@ -117,6 +120,10 @@ export function useCommandDeckSubmit({
   return useCallback(async (raw: string) => {
     const text = raw.trim();
     if (text.length === 0 || pending || inFlightRef.current) return;
+    if (hasPendingComposerAttachments()) {
+      setSrStatus(t("deck.attach.scanning"));
+      return;
+    }
     // Drain staged image attachments only once we know this turn will send, so
     // a no-op empty/busy submit (e.g. Enter on an empty composer) never
     // silently discards the operator's pending images. Draining here also means

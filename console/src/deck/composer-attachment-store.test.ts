@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  ComposerAttachmentsPendingError,
   MAX_ATTACHMENTS,
   clearComposerAttachments,
   reserveComposerAttachment,
@@ -57,6 +58,12 @@ describe("composer-attachment-store", () => {
     }
     expect(reserveComposerAttachment("overflow")).toBe(false);
     expect(stagedComposerAttachmentCount()).toBe(MAX_ATTACHMENTS);
+  });
+
+  it("refuses to drain while any attachment is pending", () => {
+    expect(reserveComposerAttachment("pending")).toBe(true);
+    expect(() => takeComposerAttachments()).toThrow(ComposerAttachmentsPendingError);
+    expect(stagedComposerAttachmentCount()).toBe(1);
   });
 
   it("never exceeds the per-turn cap", () => {
