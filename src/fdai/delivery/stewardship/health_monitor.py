@@ -6,8 +6,8 @@ import asyncio
 import hashlib
 import json
 import logging
-from collections.abc import Mapping
-from datetime import UTC, datetime
+from collections.abc import Callable, Mapping
+from datetime import UTC, datetime, timedelta
 
 from fdai.core.stewardship import IdentityDirectory, StewardshipMap, audit_stale_oids
 from fdai.shared.providers.human_identity import HumanIdentityDirectory
@@ -15,6 +15,7 @@ from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger(__name__)
 _STATE_KEY = "stewardship_health:current"
+_FRESHNESS_STATE_KEY = "stewardship_health:last_success"
 
 
 class HumanIdentityLivenessDirectory(IdentityDirectory):
@@ -38,6 +39,7 @@ class StewardshipHealthMonitor:
         directory: IdentityDirectory,
         state_store: StateStore,
         interval_seconds: int = 3600,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         if interval_seconds < 60:
             raise ValueError("stewardship health interval MUST be at least 60 seconds")
@@ -45,6 +47,7 @@ class StewardshipHealthMonitor:
         self._directory = directory
         self._state_store = state_store
         self._interval_seconds = interval_seconds
+        self._clock = clock or _utc_now
         self._stop = asyncio.Event()
         self._task: asyncio.Task[None] | None = None
 
@@ -74,11 +77,16 @@ class StewardshipHealthMonitor:
         )
         previous = await self._state_store.read_state(_STATE_KEY)
         previous_rows = previous.get("findings") if previous is not None else None
+        observed_at = self._clock()
+        if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+            raise RuntimeError("stewardship health clock MUST be timezone-aware")
+        observed_at = observed_at.astimezone(UTC)
         if previous_rows == list(finding_rows):
+            await self._write_freshness(observed_at, revision=_revision(previous))
             return False
 
         previous_revision = _revision(previous)
-        checked_at = datetime.now(tz=UTC).isoformat()
+        checked_at = observed_at.isoformat()
         revision = previous_revision + 1
         state = {
             "revision": revision,
@@ -99,16 +107,31 @@ class StewardshipHealthMonitor:
             "findings": list(finding_rows),
         }
         if previous is None:
-            return await self._state_store.write_state_with_audit_if_absent(
+            changed = await self._state_store.write_state_with_audit_if_absent(
                 _STATE_KEY,
                 state,
                 audit,
             )
-        return await self._state_store.compare_and_set_state_with_audit(
-            _STATE_KEY,
-            state,
-            expected_revision=previous_revision,
-            audit_entry=audit,
+        else:
+            changed = await self._state_store.compare_and_set_state_with_audit(
+                _STATE_KEY,
+                state,
+                expected_revision=previous_revision,
+                audit_entry=audit,
+            )
+        if changed:
+            await self._write_freshness(observed_at, revision=revision)
+        return changed
+
+    async def _write_freshness(self, observed_at: datetime, *, revision: int) -> None:
+        expires_at = observed_at + timedelta(seconds=self._interval_seconds * 2)
+        await self._state_store.write_state(
+            _FRESHNESS_STATE_KEY,
+            {
+                "checked_at": observed_at.isoformat(),
+                "expires_at": expires_at.isoformat(),
+                "revision": revision,
+            },
         )
 
     async def _run(self) -> None:
@@ -127,6 +150,10 @@ class StewardshipHealthMonitor:
                 "stewardship_health_check_failed",
                 extra={"error_type": type(exc).__name__},
             )
+
+
+def _utc_now() -> datetime:
+    return datetime.now(tz=UTC)
 
 
 def _revision(state: Mapping[str, object] | None) -> int:

@@ -280,8 +280,9 @@ An injected `IdentityDirectory` (Graph-backed in a fork, static in tests) is ask
 to confirm each maintainer/steward OID still resolves to an active account. A
 missing OID produces a `stale_oid` finding and the person is dropped from live
 escalation (falling through to the next tier / maintainer). This runs off the hot
-path (scheduled), never inline in the control loop. Production stores transition-only health and
-merges the latest validated stale findings into the read-only `/stewardship` coverage response.
+path (scheduled), never inline in the control loop. Production stores transition-only findings and
+a separate last-success heartbeat. The read-only `/stewardship` response merges stale findings only
+when the heartbeat is unexpired and names the same state revision.
 
 ### 7.4 CI gate (`scripts/governance/check-stewardship.sh`)
 

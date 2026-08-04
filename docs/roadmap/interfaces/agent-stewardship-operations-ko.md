@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: e612d62044c006520f7e31d007c84205c5fa61f9
-translation_revised: 2026-08-02
+translation_source_sha: e37afa0094528ab179f898239e1cd1ca402271da
+translation_revised: 2026-08-05
 title: 에이전트 운영 책임 수명 주기
 ---
 # 에이전트 운영 책임 수명 주기
@@ -51,7 +51,7 @@ flowchart LR
 |------------|-------|------|------|
 | Production map binding | Operator API composition | 구현됨 | `build_prod_app()`이 `config/agent-stewardship.yaml`을 load하고 `GET /stewardship`을 등록합니다. |
 | Real-binding readiness | Terraform plus resolver | 구현됨 | Container Apps가 `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1`, maintainer OID, agent별 override를 받습니다. |
-| Stale identity audit | stewardship health monitor | 구현됨 | 설정한 interval로 Entra liveness를 실행하고 transition-only state 및 audit를 기록합니다. |
+| Stale identity audit | stewardship health monitor | 구현됨 | Entra liveness가 transition-only state와 audit를 기록하고 별도의 last-success heartbeat를 갱신합니다. |
 | Handover draft PR | ingestion consumer plus GitOps adapter | 구현됨, opt-in | 처리된 `handover_bootstrap` upload가 `config/agent-stewardship.yaml` draft PR 하나를 엽니다. |
 | Merge notification and audit | signed GitHub webhook | 구현됨, opt-in | Adapter가 HMAC, changed file, repository, merge state, merged YAML을 검증한 후 기록합니다. |
 | Guided registration | console plus ingestion | 구현됨 | Contributor, Approver, Owner가 structured assignment를 제출할 수 있습니다. SPA는 Git credential을 보유하지 않고 map을 적용할 수 없습니다. |
@@ -87,19 +87,22 @@ missing-backup finding을 표시합니다.
 `StewardshipHealthMonitor`는 production human directory를 core `IdentityDirectory` protocol에
 adapt합니다. Maintainer와 user-steward OID를 hot path 밖에서 검사합니다.
 
-Monitor는 `stewardship_health:current` 아래 revisioned snapshot 하나를 저장합니다.
+Monitor는 `stewardship_health:current` 아래 revisioned transition snapshot을 저장합니다.
 
 - 현재 stale finding
-- check timestamp
+- transition timestamp
 - 단조 증가 revision
 - audit correlation에 사용하는 deterministic fingerprint
 
-결과가 바뀌지 않으면 no-op입니다. Clean-to-stale 또는 stale-to-clean transition은 state를
-원자적으로 update하고 `stewardship.health.changed`를 append합니다. Graph failure는 error type만
-log하고 다음 interval에 retry합니다. 모든 identity를 stale로 만들거나 control loop를 중지하지
-않습니다. 첫 sweep는 named background task에서 시작하므로 Graph latency가 Operator API startup을
-지연하지 않습니다. Operator API는 최신 snapshot을 validate하고 stale finding을 `/stewardship`
-coverage에 merge합니다. Malformed durable state는 base map을 숨기지 않고
+성공한 sweep마다 observation time, expiry time, 일치하는 transition revision을
+`stewardship_health:last_success`에 저장합니다. 결과가 바뀌지 않으면 이 heartbeat만 갱신하고 audit
+record를 만들지 않습니다. Clean-to-stale 또는 stale-to-clean transition은 transition snapshot을
+원자적으로 update하고 `stewardship.health.changed`를 append한 다음 heartbeat를 갱신합니다. Graph
+failure는 error type만 log하고 다음 interval에 retry합니다. Heartbeat를 갱신하거나 모든 identity를
+stale로 만들거나 control loop를 중지하지 않습니다. 첫 sweep는 named background task에서 시작하므로
+Graph latency가 Operator API startup을 지연하지 않습니다. Operator API는 두 snapshot이 모두 valid하고
+revision이 일치하며 heartbeat가 만료되지 않았을 때만 stale finding을 `/stewardship` coverage에
+merge합니다. Health state가 없거나 malformed, mismatched, expired이면 base map을 숨기지 않고
 `identity_health.status=unavailable`로 표시합니다.
 
 ### Draft PR 생성
@@ -230,7 +233,8 @@ terraform -chdir=infra validate
 Deployment 후 다음을 확인하세요.
 
 1. `GET /stewardship`이 15개 agent와 예상 coverage finding을 반환합니다.
-2. 현재 `stewardship_health:current` snapshot이 존재하고 최근 `checked_at`을 가집니다.
+2. `stewardship_health:current`가 존재하고 `stewardship_health:last_success`가 동일 revision과
+   만료되지 않은 `expires_at`을 가집니다.
 3. Synthetic handover upload가 draft PR 하나와 request audit 하나를 생성합니다.
 4. Upload 재처리가 동일한 PR reference를 반환합니다.
 5. 검토된 test change merge가 merge audit 하나와 operational notification 하나를 생성합니다.

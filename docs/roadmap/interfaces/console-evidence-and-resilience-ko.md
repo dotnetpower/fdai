@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 2ec63df09904cb1b395adeff998be19679a5f415
+translation_source_sha: 392b13ecc64082bee24d49c47282b82795bc0f00
 translation_revised: 2026-08-05
 ---
 
@@ -72,9 +72,10 @@ governed proposal workflow를 다루는 Governance panel이며 `/agent-oversight
 연결될 때까지 unavailable로 명시하며, browser는 ownership data에서 경로를 추론하지 않습니다.
 Stewardship source가 없으면 개요와 사람 의존성만 차단합니다. 독립적인 지식 인수인계, 승인 경로,
 매핑 검토 view는 숨기지 않습니다.
-개요는 `identity_health`에서만 ID source freshness를 표시합니다. 완료된 `clean` 또는 `warn` 확인은
-유효한 `checked_at`과 병합된 `stale_oid` coverage에 맞는 finding count가 필요합니다. 불일치는
-정상 또는 최신 상태로 표시하지 않고 contract error로 처리합니다.
+개요는 `identity_health`에서만 ID source freshness를 표시합니다. Operator API는 stale-finding
+snapshot과 revision이 일치하고 만료되지 않은 last-success heartbeat에서만 `checked_at`을 제공합니다.
+완료된 `clean` 또는 `warn` 확인은 이 timestamp와 병합된 `stale_oid` coverage에 맞는 finding count가
+필요합니다. 불일치는 정상 또는 최신 상태로 표시하지 않고 contract error로 처리합니다.
 각 agent의 `bus_factor`는 coverage evaluator와 동일하게 distinct accountable `(kind, id)` subject
 unit 수를 사용합니다. Browser는 steward projection에서 이 값을 다시 계산하고 다른 headline 값은
 backup coverage를 과장하지 않도록 거부합니다.

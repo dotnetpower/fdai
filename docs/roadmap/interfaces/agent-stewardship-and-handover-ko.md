@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: 7bfa4e4786a2c60357a51e8a047373824177a13d
+translation_source_sha: 222796546e161a5f5d4da94ae0aa93c91b366aea
 translation_revised: 2026-08-05
 title: 에이전트 스튜어드십과 인수인계
 ---
@@ -264,8 +264,9 @@ Hard 에러(`StewardshipValidationError` 발생, 레이어의 clean 부팅 차�
 maintainer/steward OID가 여전히 활성 계정으로 해석되는지 확인한다. 없는 OID는 `stale_oid` 발견을
 만들고 그 사람은 live 에스컬레이션에서 제거된다(다음 tier / maintainer로 폴백). 이는 hot path
 바깥(스케줄)에서 실행되며 제어 루프에서 절대 인라인으로 돌지 않습니다. Production은
-transition-only health를 저장하고 최신 validated stale finding을 read-only `/stewardship` coverage
-response에 merge합니다.
+transition-only finding과 별도의 last-success heartbeat를 저장합니다. Read-only `/stewardship`
+response는 heartbeat가 만료되지 않고 동일한 state revision을 가리킬 때만 stale finding을
+merge합니다.
 
 ### 7.4 CI 게이트 (`scripts/governance/check-stewardship.sh`)
 

@@ -71,9 +71,11 @@ routes remains explicitly unavailable until its own authoritative projection is 
 browser does not infer a route from ownership data. A missing stewardship source blocks only
 Overview and Human dependencies; it does not hide the independent Knowledge handover, Approval
 routes, or Mapping reviews views.
-Overview renders identity-source freshness only from `identity_health`. A completed `clean` or
-`warn` check requires a valid `checked_at` and a finding count that matches merged `stale_oid`
-coverage. Any mismatch is a contract error rather than a healthy or current state.
+Overview renders identity-source freshness only from `identity_health`. The Operator API supplies
+`checked_at` only from an unexpired last-success heartbeat whose revision matches the stale-finding
+snapshot. A completed `clean` or `warn` check requires that timestamp and a finding count that
+matches merged `stale_oid` coverage. Any mismatch is a contract error rather than a healthy or
+current state.
 Each agent's `bus_factor` counts distinct accountable `(kind, id)` subject units, matching the
 coverage evaluator. The browser recomputes that count from the steward projection and rejects a
 different headline value instead of overstating backup coverage.

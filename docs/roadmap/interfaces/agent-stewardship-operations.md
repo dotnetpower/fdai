@@ -48,7 +48,7 @@ flowchart LR
 |------------|-------|--------|----------|
 | Production map binding | Operator API composition | Implemented | `build_prod_app()` loads `config/agent-stewardship.yaml` and registers `GET /stewardship`. |
 | Real-binding readiness | Terraform plus resolver | Implemented | Container Apps receives `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1`, maintainer OIDs, and per-agent overrides. |
-| Stale identity audit | stewardship health monitor | Implemented | Entra liveness runs on a configured interval and writes transition-only state plus audit. |
+| Stale identity audit | stewardship health monitor | Implemented | Entra liveness writes transition-only state plus audit and refreshes a separate last-success heartbeat. |
 | Handover draft PR | ingestion consumer plus GitOps adapter | Implemented, opt-in | A processed `handover_bootstrap` upload opens one draft PR for `config/agent-stewardship.yaml`. |
 | Merge notification and audit | signed GitHub webhook | Implemented, opt-in | The adapter verifies HMAC, changed files, repository, merge state, and merged YAML before recording. |
 | Guided registration | console plus ingestion | Implemented | Contributor, Approver, and Owner can submit structured assignments; the SPA holds no Git credentials and cannot apply the map. |
@@ -84,19 +84,23 @@ missing-backup findings.
 `StewardshipHealthMonitor` adapts the production human directory to the core `IdentityDirectory`
 protocol. It checks maintainer and user-steward OIDs off the hot path.
 
-The monitor stores one revisioned snapshot under `stewardship_health:current`:
+The monitor stores a revisioned transition snapshot under `stewardship_health:current`:
 
 - the current stale findings;
-- the check timestamp;
+- the transition timestamp;
 - a monotonically increasing revision;
 - a deterministic fingerprint used by the audit correlation.
 
-An unchanged result is a no-op. A clean-to-stale or stale-to-clean transition atomically updates
-state and appends `stewardship.health.changed`. A Graph failure logs only the error type and retries
-at the next interval; it does not mark every identity stale and does not stop the control loop. The
-first sweep starts in a named background task, so Graph latency never delays Operator API startup. The
-Operator API validates the latest snapshot and merges its stale findings into `/stewardship` coverage;
-malformed durable state renders `identity_health.status=unavailable` without hiding the base map.
+Every successful sweep also replaces `stewardship_health:last_success` with the observation time,
+expiry time, and matching transition revision. An unchanged result refreshes only this heartbeat
+and creates no audit record. A clean-to-stale or stale-to-clean transition atomically updates the
+transition snapshot and appends `stewardship.health.changed` before refreshing the heartbeat. A
+Graph failure logs only the error type and retries at the next interval; it does not refresh the
+heartbeat, mark every identity stale, or stop the control loop. The first sweep starts in a named
+background task, so Graph latency never delays Operator API startup. The Operator API merges stale
+findings only when both snapshots are valid, their revisions match, and the heartbeat has not
+expired. Missing, malformed, mismatched, or expired health renders
+`identity_health.status=unavailable` without hiding the base map.
 
 ### Draft PR creation
 
@@ -226,7 +230,8 @@ terraform -chdir=infra validate
 After deployment, verify:
 
 1. `GET /stewardship` returns 15 agents and the expected coverage findings.
-2. The current `stewardship_health:current` snapshot exists and has a recent `checked_at`.
+2. `stewardship_health:current` exists and `stewardship_health:last_success` has the same revision
+  with an unexpired `expires_at`.
 3. A synthetic handover upload creates one draft PR and one request audit.
 4. Reprocessing the upload returns the same PR reference.
 5. Merging a reviewed test change produces one merge audit and one operational notification.

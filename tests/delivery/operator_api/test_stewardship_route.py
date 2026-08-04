@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -93,11 +94,21 @@ def test_stewardship_marks_autonomous_agent() -> None:
 
 
 def test_stewardship_merges_scheduled_stale_oid_findings() -> None:
+    checked_at = datetime.now(tz=UTC)
+
     class HealthReader:
         async def read_state(self, key: str):
+            if key == "stewardship_health:last_success":
+                return {
+                    "checked_at": checked_at.isoformat(),
+                    "expires_at": (checked_at + timedelta(hours=2)).isoformat(),
+                    "revision": 1,
+                }
             assert key == "stewardship_health:current"
             return {
-                "checked_at": "2026-07-22T00:00:00+00:00",
+                "revision": 1,
+                "checked_at": checked_at.isoformat(),
+                "finding_count": 1,
                 "findings": [
                     {
                         "code": "stale_oid",
@@ -113,6 +124,45 @@ def test_stewardship_merges_scheduled_stale_oid_findings() -> None:
     assert body["identity_health"]["status"] == "warn"
     assert any(item["code"] == "stale_oid" for item in body["coverage"]["findings"])
     assert body["coverage"]["is_clean"] is False
+
+
+@pytest.mark.parametrize(
+    ("heartbeat_revision", "expires_at"),
+    [
+        (2, "2999-08-05T02:00:00+00:00"),
+        (1, "2020-08-05T02:00:00+00:00"),
+    ],
+)
+def test_stewardship_rejects_mismatched_or_expired_health(
+    heartbeat_revision: int,
+    expires_at: str,
+) -> None:
+    class HealthReader:
+        async def read_state(self, key: str):
+            if key == "stewardship_health:last_success":
+                return {
+                    "checked_at": "2020-08-05T00:00:00+00:00",
+                    "expires_at": expires_at,
+                    "revision": heartbeat_revision,
+                }
+            return {
+                "revision": 1,
+                "checked_at": "2020-08-05T00:00:00+00:00",
+                "finding_count": 1,
+                "findings": [
+                    {
+                        "code": "stale_oid",
+                        "severity": "warn",
+                        "message": "Steward no longer resolves.",
+                        "agent": "Thor",
+                    }
+                ],
+            }
+
+    body = _client(expose=True, health_reader=HealthReader()).get("/stewardship").json()
+
+    assert body["identity_health"] == {"status": "unavailable", "checked_at": None}
+    assert not any(item["code"] == "stale_oid" for item in body["coverage"]["findings"])
 
 
 def test_stewardship_marks_malformed_health_unavailable() -> None:
