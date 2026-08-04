@@ -79,6 +79,8 @@ DOCX and canonical JSON baseline carry the same version, scope, creation time, a
   Knowledge is unavailable, the deterministic report remains valid and the citation status stays
   blocked rather than being reported as supported. Each citation identity includes the exact
   baseline version and full DOCX SHA-256 digest so a reused filename cannot alias another document.
+  Exact metadata lookup takes precedence; a bounded deterministic lexical fallback ranks chunks
+  only within that pinned document and returns no result for an unrelated query.
 - The read-only capability reports mutation, approval, mitigation, and unsupported-claim counts.
   Each remains zero for a configuration check.
 

@@ -156,6 +156,27 @@ async def test_pinned_chunk_identity_includes_full_document_digest() -> None:
     assert second_digest in second[0].chunk_id
 
 
+async def test_pinned_source_uses_bounded_lexical_fallback() -> None:
+    source = PinnedConfigurationBaselineKnowledgeSource(
+        KnowledgeDocument(
+            doc_id="configuration-baseline:s13-v1",
+            text="Frozen infrastructure topology and configuration evidence.",
+            source_ref="baseline.docx",
+            metadata={
+                "baseline_version": "s13-v1",
+                "document_sha256": "a" * 64,
+            },
+        ),
+    )
+
+    grounded = await source.search("show frozen topology evidence")
+    unrelated = await source.search("lunch menu forecast")
+
+    assert grounded
+    assert grounded[0].score > 0
+    assert unrelated == ()
+
+
 def test_document_adapter_rejects_digest_mismatch(tmp_path: Path) -> None:
     observation = _observation()
     document = render_configuration_baseline_docx(

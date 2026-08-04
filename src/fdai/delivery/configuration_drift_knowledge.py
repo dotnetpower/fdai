@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Final
@@ -17,6 +18,7 @@ from fdai.shared.providers.knowledge import (
 from fdai.shared.providers.local.document_structure import extract_ooxml
 
 _MAX_DOCUMENT_BYTES: Final[int] = 16 * 1024 * 1024
+_SEARCH_TERM: Final[re.Pattern[str]] = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{2,}")
 
 
 class PinnedConfigurationBaselineKnowledgeSource:
@@ -40,7 +42,16 @@ class PinnedConfigurationBaselineKnowledgeSource:
             self._document.metadata.get("document_sha256", "").casefold(),
         )
         normalized = query.casefold()
-        if not any(token and token in normalized for token in expected):
+        exact_match = any(token and token in normalized for token in expected)
+        query_terms = _terms(normalized)
+        ranked = sorted(
+            (
+                (_relevance(query_terms, text), index, text)
+                for index, text in enumerate(self._chunks)
+            ),
+            key=lambda item: (-item[0], item[1]),
+        )
+        if not exact_match and (not ranked or ranked[0][0] < 2):
             return ()
         return tuple(
             KnowledgeChunk(
@@ -48,11 +59,19 @@ class PinnedConfigurationBaselineKnowledgeSource:
                 chunk_id=f"{self._document.doc_id}#{document_sha256}#{index}",
                 text=text,
                 source_ref=self._document.source_ref,
-                score=1.0,
+                score=1.0 + score if exact_match else score / max(1, len(query_terms)),
                 metadata=self._document.metadata,
             )
-            for index, text in enumerate(self._chunks[:k])
+            for score, index, text in ranked[:k]
         )
+
+
+def _terms(text: str) -> frozenset[str]:
+    return frozenset(match.group(0).casefold() for match in _SEARCH_TERM.finditer(text))
+
+
+def _relevance(query_terms: frozenset[str], text: str) -> int:
+    return len(query_terms.intersection(_terms(text)))
 
 
 def configuration_baseline_document(
