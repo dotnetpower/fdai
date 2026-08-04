@@ -100,6 +100,10 @@ An optional local configuration-baseline conversation binds three ignored artifa
 preparation step. Avoid editing the generated `.fdai/local-runtime.env` because preparation replaces
 that file. Partial configuration, a baseline integrity mismatch, or a DOCX digest mismatch stops
 Operator API startup; callers cannot replace the pinned scope, version, digest, or document.
+When the binding succeeds, local composition registers the same context for deterministic chat and
+the GET-only Configuration baselines panel. The panel runs the configured observation source on
+each request and reports unavailable when the optional binding is absent; it never substitutes a
+fixture or caches current Azure state as fresh evidence.
 While the Operator API completes its startup probes, the browser keeps the initial panel skeleton and
 retries only fetch-level network failures from `GET /iam/self` on a bounded schedule of about 28
 seconds. An HTTP response, authentication failure, malformed payload, or exhausted schedule stops

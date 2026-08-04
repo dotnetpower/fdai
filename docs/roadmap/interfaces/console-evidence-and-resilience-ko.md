@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 2a0a4dd1ec25367dfb3fe1f0b7b5817e3947ba22
+translation_source_sha: d60caa45b371bc511af3f57f6f97e46e08109b70
 translation_revised: 2026-08-04
 ---
 
@@ -82,6 +82,13 @@ Operations에는 Muninn의 durable StateSnapshot만 사용하는 감지 준비�
 브라우저는 AKS를 probe하거나 대체 판정을 만들지 않습니다. 각 target은 Architecture resource로,
 promotion 관련 count는 Promotion gates로 연결됩니다. 성공한 HTTP 응답이 strict decoding을
 통과하지 못하면 loading skeleton에 머물지 않고 error를 렌더링합니다.
+
+Server-pinned drift context를 사용할 수 있으면 Operations에 구성 기준선 route도 표시됩니다. GET-only
+projection은 fresh read를 실행하고 baseline identity와 lifecycle, drift count, Knowledge citation
+readiness, topology coverage, 단계별 latency, 예약 검토 readiness, 네 safety counter를 표시합니다.
+SPA는 activation, schedule 생성, 승인, 완화 또는 resource mutation control을 제공하지 않습니다.
+Binding이 없으면 unavailable을 표시하고 malformed response는 inferred zero 또는 healthy state로 바꾸지
+않고 strict decoding error로 처리합니다.
 
 Processes detail route는 동일한 authoritative Process journal에서 Planning Room을 조건부로
 렌더링합니다. Strict decoder는 모순된 phase count, duplicate candidate, invalid selection,

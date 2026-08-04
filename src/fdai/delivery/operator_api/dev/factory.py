@@ -701,6 +701,9 @@ def build_local_app(
     from fdai.delivery.operator_api.dev.configuration_drift import (
         build_local_configuration_drift_context,
     )
+    from fdai.delivery.operator_api.routes.configuration_baselines import (
+        ConfigurationBaselinesPanel,
+    )
 
     configuration_drift_context = build_local_configuration_drift_context(
         environ=os.environ,
@@ -766,6 +769,11 @@ def build_local_app(
         + (
             RuntimeSkillsPanel(skill_disclosure),
             *arb_status_panels,
+        )
+        + (
+            (ConfigurationBaselinesPanel(configuration_drift_context),)
+            if configuration_drift_context is not None
+            else ()
         )
     )
     runtime_settings = RuntimeSettingsService(

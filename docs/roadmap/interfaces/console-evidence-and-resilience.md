@@ -83,6 +83,13 @@ links to its Architecture resource, and promotion-related counts link to Promoti
 successful HTTP response that fails strict decoding renders an error instead of remaining in the
 loading skeleton.
 
+Operations also includes a Configuration baselines route when a server-pinned drift context is
+available. Its GET-only projection runs a fresh read and shows baseline identity and lifecycle,
+drift counts, Knowledge citation readiness, topology coverage, stage latency, scheduled-review
+readiness, and all four safety counters. The SPA exposes no activation, schedule creation,
+approval, mitigation, or resource mutation control. An absent binding renders unavailable, and a
+malformed response fails strict decoding instead of becoming an inferred zero or healthy state.
+
 The Processes detail route conditionally renders a Planning Room from the same authoritative
 Process journal. Its strict decoder rejects contradictory phase counts, duplicate candidates,
 invalid selections, and non-finite effect ranges. Ordinary Processes keep the existing view with

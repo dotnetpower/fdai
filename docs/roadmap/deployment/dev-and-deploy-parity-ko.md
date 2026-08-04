@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 36281e1ec105a1c0d0c11b10dc8b87f11d27cb4e
+translation_source_sha: 84867996d32513dbef2dc9edf01ffa5208f6df50
 translation_revised: 2026-08-04
 ---
 
@@ -106,6 +106,10 @@ launch에 세 값을 모두 제공합니다. Preparation이 generated `.fdai/loc
 파일을 직접 수정하지 않는 것이 좋습니다. 일부 값만 구성하거나 baseline integrity 또는 DOCX digest가
 일치하지 않으면 Operator API startup이 중단되며 caller는 고정된 scope, version, digest 또는 document를
 바꿀 수 없습니다.
+Binding이 성공하면 local composition은 같은 context를 deterministic chat과 GET-only 구성 기준선 panel에
+등록합니다. Panel은 request마다 configured observation source를 실행하고 optional binding이 없으면
+unavailable을 보고합니다. Fixture를 대체 증거로 사용하거나 현재 Azure state를 fresh evidence처럼 cache하지
+않습니다.
 Operator API가 startup probe를 완료하는 동안 browser는 initial panel skeleton을 유지하고
 `GET /iam/self`의 fetch-level network failure만 약 28초 동안 bounded schedule로 재시도합니다.
 HTTP response, authentication failure, malformed payload 또는 소진된 schedule은 추가 retry로 숨기지

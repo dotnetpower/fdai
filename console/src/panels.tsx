@@ -60,6 +60,7 @@ const CapabilitiesRoute = lazy(async () => ({ default: (await import("./routes/c
 const SkillsRoute = lazy(async () => ({ default: (await import("./routes/skills")).SkillsRoute }));
 const OnboardingRoute = lazy(async () => ({ default: (await import("./routes/onboarding")).OnboardingRoute }));
 const DetectionReadinessRoute = lazy(async () => ({ default: (await import("./routes/detection-readiness")).DetectionReadinessRoute }));
+const ConfigurationBaselinesRoute = lazy(async () => ({ default: (await import("./routes/configuration-baselines")).ConfigurationBaselinesRoute }));
 const SchedulerRunsRoute = lazy(async () => ({ default: (await import("./routes/scheduler-runs")).SchedulerRunsRoute }));
 const AutomationBlueprintsRoute = lazy(async () => ({ default: (await import("./routes/automation-blueprints")).AutomationBlueprintsRoute }));
 const ScheduledContinuationsRoute = lazy(async () => ({ default: (await import("./routes/scheduled-continuations")).ScheduledContinuationsRoute }));
@@ -204,6 +205,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.detectionReadiness"),
     group: "operations",
     component: DetectionReadinessRoute,
+  },
+  {
+    id: "configuration-baselines",
+    label: t("nav.panel.configurationBaselines"),
+    subtitle: t("nav.panelSub.configurationBaselines"),
+    group: "operations",
+    component: ConfigurationBaselinesRoute,
   },
   {
     id: "processes",
