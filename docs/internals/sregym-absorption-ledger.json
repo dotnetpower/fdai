@@ -387,6 +387,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_missing_webhook_backend_candidate",
+      "source_commits": [
+        "77b9e9becaa1f20572eb4369e36a593ce7a46d37"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Replaced complete-namespace absence inference with one exact targeted Service absence receipt, complete webhook projection, conflict rejection, bounded evidence, and candidate-only causality; provider wiring remains unclaimed.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

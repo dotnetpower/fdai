@@ -280,6 +280,12 @@ projection and its affected resource is in the target namespace. TLS, timeout, a
 failures retain a reviewed source path plus bounded failure policy and Service identity. Webhook
 URLs and CA bundles remain excluded. The finding is candidate-only; matching a webhook name does
 not prove that its configuration caused the external failure.
+Missing webhook backend semantics use a stronger absence boundary than namespace inventory. A
+candidate requires one complete webhook projection and one exact targeted Service receipt whose
+successful read confirms absence. Present, failed, ambiguous, malformed, or truncated receipts
+produce no finding. The candidate retains only configuration identity, webhook name, failure
+policy, Service identity, and reviewed source path. The targeted receipt provider remains separate
+work and is not implied by the reducer.
 
 Cumulative timeout evidence is a separate candidate-only mechanism. It requires at least two
 distinct structured timeout events for distinct webhook names, the same immutable affected-resource

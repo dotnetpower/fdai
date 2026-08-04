@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: d0ffec01b247843b1c7489236ee4550be15b414c
+translation_source_sha: fb1e7b470ebc966c308aca22aab67f9d530b7484
 translation_revised: 2026-08-04
 ---
 
@@ -281,6 +281,12 @@ configuration candidate를 식별할 수 있습니다. TLS, timeout 및 backend 
 path와 bounded failure policy/Service identity를 보존합니다. Webhook URL과 CA bundle은 계속
 제외합니다. Finding은 candidate-only이며 webhook name 일치는 configuration이 external failure를
 일으켰다는 증명이 아닙니다.
+Missing webhook backend semantic은 namespace inventory보다 강한 absence boundary를 사용합니다.
+Candidate에는 complete webhook projection 하나와 successful read가 absence를 확인한 exact targeted
+Service receipt 하나가 필요합니다. Present, failed, ambiguous, malformed 또는 truncated receipt는
+finding을 생성하지 않습니다. Candidate는 configuration identity, webhook name, failure policy,
+Service identity 및 reviewed source path만 보존합니다. Targeted receipt provider는 별도 작업이며
+reducer만으로 제공된다고 간주하지 않습니다.
 
 Cumulative timeout evidence는 별도 candidate-only mechanism입니다. 서로 다른 webhook name의
 structured timeout event가 최소 2개이고, affected resource immutable UID가 같으며, trusted evidence
