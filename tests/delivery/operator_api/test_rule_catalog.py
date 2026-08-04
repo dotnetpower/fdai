@@ -150,6 +150,11 @@ class _FailingSemanticIndex(_SemanticIndex):
         raise RuntimeError("index offline")
 
 
+class _UnexpectedSemanticIndex(_SemanticIndex):
+    async def search(self, query: str, *, k: int = 20):  # type: ignore[no-untyped-def]
+        raise AssertionError("semantic index MUST NOT run for invalid pagination")
+
+
 def _semantic_client(index: object) -> TestClient:
     auth = build_authenticator(verifier=lambda t: {"oid": "u"}, resolver=lambda claims: None)
     app = build_app(
@@ -215,6 +220,15 @@ def test_rules_report_configured_semantic_index_failure() -> None:
 
     assert response.status_code == 503
     assert response.json()["error"]["reason"] == "RuntimeError"
+
+
+def test_invalid_pagination_is_rejected_before_semantic_search() -> None:
+    response = _semantic_client(_UnexpectedSemanticIndex()).get(
+        "/rules", params={"q": "remote desktop", "limit": "50000"}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["message"] == "limit MUST be between 1 and 500"
 
 
 def test_rules_tagged_with_origin() -> None:

@@ -375,6 +375,16 @@ def make_rule_catalog_routes(
         severity = params.get("severity", "").strip().lower()
         source = params.get("source", "").strip().lower()
         needle = params.get("q", "").strip().lower()
+        try:
+            limit = int(params.get("limit", str(DEFAULT_LIMIT)))
+            offset = int(params.get("offset", "0"))
+        except ValueError:
+            return _bad_request("limit and offset MUST be integers")
+        if limit < 1 or limit > MAX_LIMIT:
+            return _bad_request(f"limit MUST be between 1 and {MAX_LIMIT}")
+        if offset < 0:
+            return _bad_request("offset MUST be >= 0")
+
         semantic_rank: dict[str, int] | None = None
         semantic_evidence: dict[str, object] = {}
         semantic_truncated = False
@@ -403,16 +413,6 @@ def make_rule_catalog_routes(
                 for result in semantic_results
             }
             semantic_truncated = total > semantic_limit
-
-        try:
-            limit = int(params.get("limit", str(DEFAULT_LIMIT)))
-            offset = int(params.get("offset", "0"))
-        except ValueError:
-            return _bad_request("limit and offset MUST be integers")
-        if limit < 1 or limit > MAX_LIMIT:
-            return _bad_request(f"limit MUST be between 1 and {MAX_LIMIT}")
-        if offset < 0:
-            return _bad_request("offset MUST be >= 0")
 
         matched = [
             ir
