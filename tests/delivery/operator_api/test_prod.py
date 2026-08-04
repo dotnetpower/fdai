@@ -7,13 +7,23 @@ objects up to the DB round-trip).
 
 from __future__ import annotations
 
+import hashlib
 import json
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Final
 
 import pytest
 from starlette.applications import Starlette
 
+from fdai.core.detection.configuration_drift import (
+    ConfigurationObservation,
+    ConfigurationResource,
+    EvidenceCompleteness,
+    FrozenConfigurationBaseline,
+)
 from fdai.delivery.agent_introspection_bus import EventBusAgentIntrospectionClient
+from fdai.delivery.configuration_baseline_docx import render_configuration_baseline_docx
 from fdai.delivery.operator_api.prod import (
     ProdOperatorApiConfigError,
     _parse_cors_origins,
@@ -175,6 +185,99 @@ def test_build_prod_app_returns_starlette_app() -> None:
     assert "/chat/busy-input/mode" not in paths
     assert "/chat/busy-input/cancel-current" not in paths
     assert app.state.skill_disclosure.inspect()["installed_count"] == 0
+
+
+def test_build_prod_app_wires_configuration_baseline_panel(tmp_path: Path) -> None:
+    baseline_path, document_path = _configuration_baseline_files(tmp_path)
+    env = dict(_GOOD_ENV)
+    env.update(
+        {
+            "FDAI_AZURE_READER_SUBSCRIPTION_ID": "example-subscription",
+            "FDAI_AZURE_READER_CLIENT_ID": "reader-client-id",
+            "FDAI_AZURE_READER_RESOURCE_GROUPS": "example-group",
+            "IDENTITY_ENDPOINT": "http://localhost/identity",
+            "IDENTITY_HEADER": "test-header",
+            "FDAI_CONFIGURATION_BASELINE_JSON": str(baseline_path),
+            "FDAI_CONFIGURATION_BASELINE_DOCX": str(document_path),
+            "FDAI_CONFIGURATION_BASELINE_RESOURCE_GROUP": "example-group",
+        }
+    )
+
+    app = build_prod_app(env)
+
+    assert "/configuration-baselines" in {route.path for route in app.routes}
+
+
+def test_build_prod_app_rejects_configuration_baseline_without_reader() -> None:
+    env = dict(_GOOD_ENV)
+    env.update(
+        {
+            "FDAI_CONFIGURATION_BASELINE_JSON": "/example/baseline.json",
+            "FDAI_CONFIGURATION_BASELINE_DOCX": "/example/baseline.docx",
+            "FDAI_CONFIGURATION_BASELINE_RESOURCE_GROUP": "example-group",
+        }
+    )
+
+    with pytest.raises(ProdOperatorApiConfigError, match="complete Azure reader binding"):
+        build_prod_app(env)
+
+
+def test_build_prod_app_rejects_configuration_baseline_outside_reader_scope(
+    tmp_path: Path,
+) -> None:
+    baseline_path, document_path = _configuration_baseline_files(tmp_path)
+    env = dict(_GOOD_ENV)
+    env.update(
+        {
+            "FDAI_AZURE_READER_SUBSCRIPTION_ID": "example-subscription",
+            "FDAI_AZURE_READER_CLIENT_ID": "reader-client-id",
+            "FDAI_AZURE_READER_RESOURCE_GROUPS": "allowed-group",
+            "IDENTITY_ENDPOINT": "http://localhost/identity",
+            "IDENTITY_HEADER": "test-header",
+            "FDAI_CONFIGURATION_BASELINE_JSON": str(baseline_path),
+            "FDAI_CONFIGURATION_BASELINE_DOCX": str(document_path),
+            "FDAI_CONFIGURATION_BASELINE_RESOURCE_GROUP": "outside-group",
+        }
+    )
+
+    with pytest.raises(ProdOperatorApiConfigError, match="outside the Azure reader allowlist"):
+        build_prod_app(env)
+
+
+def _configuration_baseline_files(tmp_path: Path) -> tuple[Path, Path]:
+    created_at = datetime(2026, 8, 4, tzinfo=UTC)
+    resource = ConfigurationResource(
+        local_name="service-a",
+        resource_type="example/service",
+        region="example-region",
+        attributes={"sku": "Standard"},
+    )
+    observation = ConfigurationObservation(
+        scope="example-scope",
+        observed_at=created_at,
+        source="Azure Resource Graph",
+        completeness=EvidenceCompleteness.COMPLETE,
+        resources=(resource,),
+    )
+    document = render_configuration_baseline_docx(
+        observation=observation,
+        version="v1",
+        created_at=created_at,
+        source="reviewed snapshot",
+    )
+    document_path = tmp_path / "baseline.docx"
+    document_path.write_bytes(document)
+    baseline = FrozenConfigurationBaseline(
+        version="v1",
+        created_at=created_at,
+        scope=observation.scope,
+        source="reviewed snapshot",
+        document_sha256=hashlib.sha256(document).hexdigest(),
+        resources=observation.resources,
+    )
+    baseline_path = tmp_path / "baseline.json"
+    baseline_path.write_text(json.dumps(baseline.to_dict()), encoding="utf-8")
+    return baseline_path, document_path
 
 
 def test_build_prod_app_verifies_postgresql_before_runtime_startup(

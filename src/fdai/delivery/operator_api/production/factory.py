@@ -49,6 +49,10 @@ Optional (respect defaults):
     and ``resolve_seconds`` values for every key from ``sev1`` through ``sev5``.
 - ``FDAI_INCIDENT_SLA_INTERVAL_SECONDS`` (default ``60`` when the SLA policy
     is present) - positive scan interval. Ignored without the policy.
+- ``FDAI_CONFIGURATION_BASELINE_JSON``, ``FDAI_CONFIGURATION_BASELINE_DOCX``,
+  and ``FDAI_CONFIGURATION_BASELINE_RESOURCE_GROUP`` - all-or-none absolute
+  mounted baseline binding. It requires the complete Azure reader binding and
+  the resource group must already be in ``FDAI_AZURE_READER_RESOURCE_GROUPS``.
 """
 
 from __future__ import annotations
@@ -80,6 +84,9 @@ from fdai.core.metering.budget import InMemoryBudgetLedger, ModelBudget
 from fdai.core.rbac.access_request import AccessRequestService
 from fdai.core.rbac.kill_switch_command import KillSwitchCommandService
 from fdai.core.stewardship import load_stewardship_from_yaml
+from fdai.delivery.configuration_review_store import (
+    StateStoreConfigurationReviewCampaignStore,
+)
 from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
 from fdai.delivery.handover_events import EventBusHandoverAvailabilityPublisher
 from fdai.delivery.ingestion_gateway.chat_evidence import UploaderDocumentEvidenceResolver
@@ -95,6 +102,9 @@ from fdai.delivery.operator_api.production.config import (
     _parse_cors_origins,
     _parse_positive_int,
     build_prod_read_model,
+)
+from fdai.delivery.operator_api.production.configuration_drift import (
+    build_production_configuration_drift_context,
 )
 from fdai.delivery.operator_api.production.data_sources import build_production_data_sources
 from fdai.delivery.operator_api.production.identity import build_production_identity
@@ -116,6 +126,9 @@ from fdai.delivery.operator_api.routes.background_runtime import build_backgroun
 from fdai.delivery.operator_api.routes.busy_input_runtime import build_postgres_busy_input_runtime
 from fdai.delivery.operator_api.routes.chat import backend_from_env
 from fdai.delivery.operator_api.routes.chat_web_search import chat_web_search_from_env
+from fdai.delivery.operator_api.routes.configuration_baselines import (
+    ConfigurationBaselinesPanel,
+)
 from fdai.delivery.operator_api.routes.conversation_assurance_intake import (
     ConversationAssurancePostTurnSubmitter,
 )
@@ -553,6 +566,8 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
     inventory_activity_provider = None
     reader_startup_callbacks: tuple[Callable[[], Awaitable[None]], ...] = ()
     reader_scope_ref = None
+    reader_identity = None
+    reader_http = None
     reader_subscription = env.get("FDAI_AZURE_READER_SUBSCRIPTION_ID", "").strip()
     reader_client_id = env.get("FDAI_AZURE_READER_CLIENT_ID", "").strip()
     reader_resource_groups = tuple(
@@ -687,6 +702,32 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
             await reader_http.aclose()
 
         shutdown_callbacks = (*shutdown_callbacks, _close_reader_http)
+    configuration_drift_requested = any(
+        env.get(name, "").strip()
+        for name in (
+            _env.CONFIGURATION_BASELINE_JSON_ENV,
+            _env.CONFIGURATION_BASELINE_DOCX_ENV,
+            _env.CONFIGURATION_BASELINE_RESOURCE_GROUP_ENV,
+        )
+    )
+    if configuration_drift_requested and (reader_identity is None or reader_http is None):
+        raise ProdOperatorApiConfigError(
+            "production configuration baseline requires the complete Azure reader binding"
+        )
+    try:
+        configuration_drift_context = (
+            None
+            if reader_identity is None or reader_http is None
+            else build_production_configuration_drift_context(
+                environ=env,
+                subscription_id=reader_subscription,
+                allowed_resource_groups=reader_resource_groups,
+                identity=reader_identity,
+                http_client=reader_http,
+            )
+        )
+    except (OSError, ValueError) as exc:
+        raise ProdOperatorApiConfigError(str(exc)) from exc
     background_runtime = build_background_task_runtime(
         executor=background_executor,
         state_store=state_store,
@@ -848,6 +889,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         skill_disclosure=skill_runtime.disclosure,
         skill_sources=skill_sources.routes,
         knowledge_context=knowledge_context,
+        configuration_drift_context=configuration_drift_context,
         busy_input_runtime=busy_input_runtime,
         conversation_delivery_store=conversation_delivery_store,
         chat_web_search=chat_web_search,
@@ -882,6 +924,16 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                 active_rule_count=sum(
                     1 for _ in (_REPO_ROOT / "rule-catalog" / "catalog").glob("*.yaml")
                 ),
+            ),
+            *(
+                (
+                    ConfigurationBaselinesPanel(
+                        configuration_drift_context,
+                        review_store=StateStoreConfigurationReviewCampaignStore(state_store),
+                    ),
+                )
+                if configuration_drift_context is not None
+                else ()
             ),
             skill_runtime.panel,
             ArchitectureReviewStatusPanel(
