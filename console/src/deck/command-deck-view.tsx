@@ -74,6 +74,7 @@ interface CommandDeckViewProps {
   readonly onLoadMoreConversations: () => void;
   readonly onSelectLayout: (mode: DeckLayoutMode) => void;
   readonly onRemoveConversation: (conversation: ConversationSummary) => void;
+  readonly onToggleFavorite: (conversation: ConversationSummary) => void;
   readonly onSelectConversation: (conversation: ConversationSummary) => void;
   readonly onTranscriptScroll: () => void;
   readonly onSubmit: (text: string) => void;
@@ -131,6 +132,7 @@ export function CommandDeckView({
   onLoadMoreConversations,
   onSelectLayout,
   onRemoveConversation,
+  onToggleFavorite,
   onSelectConversation,
   onTranscriptScroll,
   onSubmit,
@@ -245,6 +247,7 @@ export function CommandDeckView({
                 onNew={onNewConversation}
                 onLoadMore={onLoadMoreConversations}
                 onRemove={onRemoveConversation}
+                onToggleFavorite={onToggleFavorite}
                 onSelect={onSelectConversation}
               />
             ) : null}

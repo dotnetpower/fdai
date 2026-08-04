@@ -1942,6 +1942,16 @@
     "general": "General",
     "noConversations": "Start a conversation to keep it in this tab's history.",
     "filterConversations": "Filter conversations",
+    "conversationFilters": {
+      "label": "Conversation filters",
+      "mine": "Mine",
+      "unread": "Unread",
+      "favorites": "Favorites"
+    },
+    "favorite": {
+      "add": "Add to favorites",
+      "remove": "Remove from favorites"
+    },
     "noConversationMatches": "No conversations match this filter.",
     "loadingConversations": "Loading more conversations",
     "yesterdayAt": "Yesterday {time}",

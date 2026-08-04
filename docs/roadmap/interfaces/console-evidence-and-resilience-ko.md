@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: ffd35f27a3876e114d2a1f14dac4dab2dc3ddc29
+translation_source_sha: 5ebe537e61e14a99abef30bea0214afd8c9b0e87
 translation_revised: 2026-08-04
 ---
 
@@ -18,8 +18,7 @@ full-workspace Deck은 route가 변경되기 전에 닫힙니다.
 Transient default-session switch 또는 close/reopen focus cycle 없이 Deck을 열린 상태로 유지합니다.
 Same-screen 및 agent conversation은 navigation 없이 전환합니다.
 이미 active인 same-screen conversation을 다시 선택하면 focus만 복원하며 최신 in-memory turn 위에 sessionStorage transcript를 다시 로드하지 않습니다.
-비활성 conversation을 선택하면 browser-local 읽음 확인만 기록하고 activity timestamp는 변경하지
-않으므로 history 순서가 유지됩니다. Conversation 제목은 관찰된 activity가 저장된 read timestamp보다
+비활성 conversation을 선택하면 browser-local 읽음 확인만 기록하고 activity timestamp는 변경하지 않으므로 history 순서가 유지됩니다. Principal-scoped `내 대화`, `읽지 않음` 및 `즐겨찾기` filter는 browser-local navigation metadata만 사용하며 즐겨찾기 전환은 server activity, evidence 또는 ordering을 변경하지 않습니다. Conversation 제목은 관찰된 activity가 저장된 read timestamp보다
 최신인 동안에만 굵게 표시됩니다. 선택하면 행을 이동하지 않고 이 표시를 해제하며, 더 새로운 server
 activity만 ordering timestamp를 갱신합니다.
 Agent 대화가 아닌 경우 첫 operator 질문이 제목이 되고 origin screen은 별도 metadata로 유지됩니다.

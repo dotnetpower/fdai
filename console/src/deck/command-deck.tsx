@@ -335,6 +335,12 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
       onLoadMoreConversations={loadMoreConversations}
       onSelectLayout={selectLayoutMode}
       onRemoveConversation={removeCachedConversation}
+      onToggleFavorite={(conversation) => {
+        updateConversationIndex({
+          ...conversation,
+          favorite: conversation.favorite !== true,
+        });
+      }}
       onSelectConversation={(conversation) => {
         selectConversationWithRoute(conversation, currentPathname(), sessionKey, {
           navigate: (path) => runConversationRouteNavigation(

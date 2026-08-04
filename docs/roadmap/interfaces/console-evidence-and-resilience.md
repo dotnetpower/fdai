@@ -15,7 +15,7 @@ Selecting a cached conversation from another screen is the bounded exception: th
 event, then activates its transcript. The Deck remains open without a transient default-session
 switch or close/reopen focus cycle. Same-screen and agent conversations switch without navigation.
 Reselecting the already active same-screen conversation is focus-only; it does not reload the sessionStorage transcript over newer in-memory turns.
-Selecting an inactive conversation records only a browser-local read acknowledgement and does not change its activity timestamp, so the history order remains stable. A conversation title is bold
+Selecting an inactive conversation records only a browser-local read acknowledgement and does not change its activity timestamp, so the history order remains stable. Principal-scoped `Mine`, `Unread`, and `Favorites` filters use only browser-local navigation metadata; toggling a favorite doesn't change server activity, evidence, or ordering. A conversation title is bold
 only while its observed activity is newer than its persisted read timestamp; selecting it clears
 that cue without moving the row. Only newer server activity advances the ordering timestamp.
 For a non-agent conversation, the first operator question becomes the title while the originating

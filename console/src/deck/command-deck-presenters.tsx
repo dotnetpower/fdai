@@ -30,6 +30,8 @@ import {
   conversationGroups,
   isScreenConversationKey,
   type ConversationSummary,
+  type ConversationListFilter,
+  conversationMatchesFilter,
 } from "./conversation-sessions";
 import { useViewContext } from "./context";
 import type { ConversationTrajectory } from "./conversation-trajectory";
@@ -299,6 +301,7 @@ export function ConversationSidebar({
   onLoadMore,
   onSelect,
   onRemove,
+  onToggleFavorite,
 }: {
   readonly conversations: readonly ConversationSummary[];
   readonly activeKey: string;
@@ -309,13 +312,17 @@ export function ConversationSidebar({
   readonly onLoadMore: () => void;
   readonly onSelect: (conversation: ConversationSummary) => void;
   readonly onRemove: (conversation: ConversationSummary) => void;
+  readonly onToggleFavorite: (conversation: ConversationSummary) => void;
 }) {
   const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<ConversationListFilter>("mine");
   const normalizedQuery = query.trim().toLocaleLowerCase();
+  const filteredConversations = conversations.filter((conversation) =>
+    conversationMatchesFilter(conversation, filter));
   const visibleConversations = normalizedQuery
-    ? conversations.filter((conversation) =>
+    ? filteredConversations.filter((conversation) =>
         `${conversation.label} ${conversation.originLabel}`.toLocaleLowerCase().includes(normalizedQuery))
-    : conversations;
+    : filteredConversations;
   const groups = conversationGroups(visibleConversations, currentPath);
   return (
     <aside
@@ -345,6 +352,18 @@ export function ConversationSidebar({
         placeholder={t("deck.filterConversations")}
         onInput={(event) => setQuery(event.currentTarget.value)}
       />
+      <div class="deck-conversation-filters" role="group" aria-label={t("deck.conversationFilters.label")}>
+        {(["mine", "unread", "favorites"] as const).map((value) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={filter === value}
+            onClick={() => setFilter(value)}
+          >
+            {t(`deck.conversationFilters.${value}`)}
+          </button>
+        ))}
+      </div>
       <div class="deck-conversation-list">
         {visibleConversations.length === 0 ? (
           <p class="deck-conversation-empty">
@@ -359,6 +378,7 @@ export function ConversationSidebar({
               showOrigin={false}
               onSelect={onSelect}
               onRemove={onRemove}
+              onToggleFavorite={onToggleFavorite}
             />
             <ConversationGroup
               label={t("deck.otherScreens")}
@@ -367,6 +387,7 @@ export function ConversationSidebar({
               showOrigin
               onSelect={onSelect}
               onRemove={onRemove}
+              onToggleFavorite={onToggleFavorite}
             />
             <ConversationGroup
               label={t("deck.agentConversations")}
@@ -375,6 +396,7 @@ export function ConversationSidebar({
               showOrigin
               onSelect={onSelect}
               onRemove={onRemove}
+              onToggleFavorite={onToggleFavorite}
             />
           </>
         )}
@@ -399,6 +421,7 @@ function ConversationGroup({
   showOrigin,
   onSelect,
   onRemove,
+  onToggleFavorite,
 }: {
   readonly label: string;
   readonly conversations: readonly ConversationSummary[];
@@ -406,6 +429,7 @@ function ConversationGroup({
   readonly showOrigin: boolean;
   readonly onSelect: (conversation: ConversationSummary) => void;
   readonly onRemove: (conversation: ConversationSummary) => void;
+  readonly onToggleFavorite: (conversation: ConversationSummary) => void;
 }) {
   if (conversations.length === 0) return null;
   return (
@@ -444,6 +468,17 @@ function ConversationGroup({
               </small>
             </span>
           </button>
+          <Tooltip content={t(conversation.favorite ? "deck.favorite.remove" : "deck.favorite.add")}>
+            <button
+              type="button"
+              class={`deck-conversation-favorite${conversation.favorite ? " is-favorite" : ""}`}
+              onClick={() => onToggleFavorite(conversation)}
+              aria-label={`${t(conversation.favorite ? "deck.favorite.remove" : "deck.favorite.add")}: ${conversation.label}`}
+              aria-pressed={conversation.favorite === true}
+            >
+              <span aria-hidden="true">{conversation.favorite ? "★" : "☆"}</span>
+            </button>
+          </Tooltip>
           {!isScreenConversationKey(conversation.key) ? (
             <Tooltip content={t("deck.removeCachedConversationHint")}>
               <button
