@@ -63,12 +63,19 @@ start, ask once whether the focus is SRE, ARB, Change Management, DR, Chaos, or 
 when the operator is unavailable, persist the selection in local ignored state, and do not ask
 again until the operator changes focus or stops the campaign.
 
+Treat `대화개선 현황`, `채팅개선 현황`, and `conversation assurance status` as read-only status
+requests. Do not restart the campaign or ask for focus. Report the campaign summary and a Markdown
+table of the latest 20 question-and-answer evaluations.
+
 Every cycle MUST measure answer appropriateness, terminal verification state, answer-type-specific
 visualization, investigation and redacted execution detail, total latency, and per-phase
-bottlenecks through the same Operator API stream used by the Console. A qualifying failure starts
-an isolated Copilot hardening candidate immediately; after focused verification, the next bounded
-question cycle starts automatically. The loop remains A0/read-only, never merges to `main`, never
-uses generated text as a command, and never grants approval or execution authority.
+bottlenecks through the same Operator API stream used by the Console. Score exactly ten named
+rubrics at 0 or 1 point each and report a total out of 10. Persist every redacted question, answer,
+rubric result, timing summary, and regression cohort in ignored mode-`0600` ledgers. All prior and
+cohort questions participate in duplicate rejection. A qualifying failure starts an isolated
+Copilot hardening candidate immediately; after focused verification, the next bounded question
+cycle starts automatically. The loop remains A0/read-only, never merges to `main`, never uses
+generated text as a command, and never grants approval or execution authority.
 
 ## Issue Lifecycle (MUST)
 

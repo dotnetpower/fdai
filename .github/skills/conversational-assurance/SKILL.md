@@ -1,6 +1,6 @@
 ---
 name: conversational-assurance
-description: "Continuous FDAI conversational reliability workflow. Use when the user says 대화개선, 채팅개선, 대화무한개선, 채팅무한개선, conversation improvement, chat improvement, or continuous conversation assurance; or when building, operating, reviewing, or resuming the chat-quality watchdog, evaluating Azure-backed answers, hardening a failed answer, or checking generalization."
+description: "Continuous FDAI conversational reliability workflow. Use when the user says 대화개선, 채팅개선, 대화무한개선, 채팅무한개선, 대화개선 현황, 채팅개선 현황, conversation improvement, chat improvement, conversation assurance status, or continuous conversation assurance; or when building, operating, reviewing, or resuming the chat-quality watchdog, evaluating Azure-backed answers, hardening a failed answer, or checking generalization."
 ---
 
 # FDAI Continuous Conversational Assurance
@@ -73,21 +73,54 @@ Run one cycle in this order:
 
 ## Multidimensional answer gate
 
-Every terminal answer is assessed across all applicable dimensions:
+Every terminal answer is assessed by exactly ten named rubrics. Each rubric scores `0` or `1`, so
+the total is an integer in `[0, 10]`. A cycle passes only at `10/10`; any lower score records the
+failed dimensions and is eligible for the guarded hardening path.
 
-| Dimension | Required evidence |
-|-----------|-------------------|
+| Rubric | Required evidence |
+|--------|-------------------|
 | Appropriateness | Required contract concepts plus an independent review of relevance, directness, and honest uncertainty. Only a `medium` or `high` failure at confidence >= 0.85 may enter hardening. |
+| Completeness | Every required concept and result-row constraint for the selected challenge is present. |
+| Grounding | The terminal response carries bounded evidence references and no fallback source. |
 | Verification | `unverified` is a failure with its authority and reason code recorded. `verified`, `consistent`, and `corrected` remain distinct outcomes. |
+| Authority and safety | The observed authority is available and matches the challenge's expected server authority when declared. |
 | Visualization | `answer_plan.format` must match the question. Chart answers require a schema-valid `chart_artifact`; table answers require complete Markdown rows. |
 | Investigation | Operational investigation questions require schema-v1 `trajectory_detail` with agent, authority, status, label, and bounded branch/activity records. |
 | Execution record | Observed commands or queries require `redacted=true`, tool, bounded command, output/truncation state when available, and duration. These are read-operation observations, not executor authority. |
 | Performance | Record total `latency_ms`, every `turn_timing` phase, the slowest phase, degraded/failed phases, and configured total/phase budget violations. |
+| Response integrity | The answer is nonempty, bounded, free of forbidden fallback text, and emitted by a valid terminal response. |
 
 Persist these dimensions in the local ledger so a repair is attributable to the exact failure.
 Headless presentation validation proves the Console-facing artifact contract. A separate browser
 canary remains responsible for CSS/layout rendering regressions; do not claim pixel parity from
 the headless cycle alone.
+
+## Evaluation and regression ledgers
+
+Use three separate ignored, mode-`0600` JSONL files:
+
+- `questions.jsonl` records cycle and hardening lifecycle events.
+- `evaluations.jsonl` records every question, redacted answer, answer digest, all ten rubric
+   results, total score, verification, presentation, trajectory counts, total latency, every phase,
+   and bottleneck.
+- `regressions.jsonl` records the original failed question and every generated similar question.
+
+Every evaluated question enters `regressions.jsonl` immediately as a regression baseline. A failed
+question expands into a cohort with its generated paraphrases before hardening. Duplicate rejection
+reads all three ledgers. A generated original or paraphrase must never be used again as a new random
+question, while the persisted regression cohort remains available for later candidate and release
+checks.
+
+## Status reporting
+
+When the operator asks `대화개선 현황`, `채팅개선 현황`, or `conversation assurance status`, run:
+
+```bash
+python3 .improve/auto-hardening/chat_watchdog.py --project . --status --top 20
+```
+
+Return the complete summary and latest 20 question-and-answer evaluation rows as a Markdown table.
+This is a read-only report and must not start a cycle, change focus, or acquire the runner lock.
 
 ## Question contract
 
@@ -177,10 +210,13 @@ python3 .improve/auto-hardening/chat_watchdog.py --project . --force --dry-run
 
 # Start or change campaign focus
 python3 .improve/auto-hardening/install_chat_watchdog_timer.py install --project . --focus sre
+
+# Summary and latest 20 evaluations
+python3 .improve/auto-hardening/chat_watchdog.py --project . --status --top 20
 ```
 
-The local question and verdict ledger is `.improve/chat-watchdog/questions.jsonl`. It may contain
-environment-derived operational text and must remain ignored, mode `0600`, and uncommitted.
+The local ledgers under `.improve/chat-watchdog/` may contain environment-derived operational text
+and must remain ignored, mode `0600`, and uncommitted.
 
 ## Verification
 
