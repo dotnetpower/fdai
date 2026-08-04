@@ -81,21 +81,12 @@ signal is emitted. PostgreSQL remains the source of truth; a wake signal is only
 
 ## Investigation request and plan
 
-The planner turns an eligible question into an immutable `ReadInvestigationRequest`. It carries the
-requester, conversation and correlation references, intent, resource selector, lookback, requested
-evidence, budget, and idempotency key. Deterministic classification runs before any model sees a
-tool description.
+The planner turns an eligible question into an immutable `ReadInvestigationRequest`. It carries the requester, conversation and correlation references, intent, resource selector, lookback, requested evidence, budget, and idempotency key. Deterministic classification runs before any model sees a tool description.
 
-The schema-validated `investigation-intents.yaml` catalog owns the language-to-contract boundary.
-Each entry declares a work class, accountable Pantheon agent, registered plan ID, selector kind,
-answer contract, reviewed English and Korean match terms, evidence authorities and facets, and a
-numeric freshness budget. The catalog cannot contain executable text or grant tool authority. An
-unknown owner, work class, selector, answer contract, field, or response-mode order blocks catalog
-loading before provider I/O.
+The schema-validated `investigation-intents.yaml` catalog owns the language-to-contract boundary. Each entry declares a work class, accountable Pantheon agent, registered plan ID, selector kind, answer contract, reviewed English and Korean match terms, evidence authorities and facets, and a numeric freshness budget.
+The catalog cannot contain executable text or grant tool authority. An unknown owner, work class, selector, answer contract, field, or response-mode order blocks catalog loading before provider I/O.
 
-The first catalog revision describes the seven read intents below. Every entry is owned by
-Heimdall, uses `work_class: read`, and points to a registered plan. Bragi can classify and route a
-turn, but it cannot replace the catalog owner, evidence requirements, or freshness budget.
+The first catalog revision describes the seven read intents below. Every entry is owned by Heimdall, uses `work_class: read`, and points to a registered plan. Bragi can classify and route a turn, but it cannot replace the catalog owner, evidence requirements, or freshness budget.
 
 The initial intent vocabulary is:
 
@@ -370,11 +361,8 @@ the grounded terminal status.
 
 ## Evidence contract
 
-Every envelope preserves bounded source limitations as stable machine values. Truncated evidence
-must name exactly one primary reason such as `result_limit`, `byte_limit`, or `source_cutoff`, and
-that reason must also appear in the limitation set. Provider failure records
-`source_unavailable` without copying provider error text. Legacy persisted payloads that predate
-the reason field replay as `unspecified`; they never become complete evidence silently.
+Every envelope preserves bounded source limitations as stable machine values. Truncated evidence must name exactly one primary reason such as `result_limit`, `byte_limit`, or `source_cutoff`, and that reason must also appear in the limitation set.
+Provider failure records `source_unavailable` without copying provider error text. Legacy persisted payloads that predate the reason field replay as `unspecified`; they never become complete evidence silently.
 
 Providers return a cloud-provider-neutral envelope. Raw Azure responses and raw CLI output do not
 enter narrator context.

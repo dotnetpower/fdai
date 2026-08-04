@@ -94,20 +94,10 @@ When a resolved-model artifact is present, the same preparation step validates i
 endpoint as an HTTPS origin and writes `FDAI_LLM_ENDPOINT` with `LLM_RESOLVED_MODELS_PATH` into the
 private local runtime environment. A missing or malformed narrator endpoint stops preparation
 before Terraform or Azure provider access instead of allowing the core runtime to fail after launch.
-An optional local configuration-baseline conversation binds three ignored artifacts through
-`FDAI_CONFIGURATION_BASELINE_JSON`, `FDAI_CONFIGURATION_BASELINE_DOCX`, and
-`FDAI_CONFIGURATION_OBSERVATION_JSON`. Supply all three to the Operator API launch after the full-stack
-preparation step. Avoid editing the generated `.fdai/local-runtime.env` because preparation replaces
-that file. Partial configuration, a baseline integrity mismatch, or a DOCX digest mismatch stops
-Operator API startup; callers cannot replace the pinned scope, version, digest, or document.
-When the binding succeeds, local composition registers the same context for deterministic chat and
-the GET-only Configuration baselines panel. The panel runs the configured observation source on
-each request and reports unavailable when the optional binding is absent; it never substitutes a
-fixture or caches current Azure state as fresh evidence.
-When local PostgreSQL is available, the same composition binds the campaign projection to the
-durable StateStore. Campaign revisions and audit receipts therefore survive an Operator API restart;
-without persistence, the panel reports review state as not configured rather than using an in-memory
-interactive fallback.
+An optional local configuration-baseline conversation binds three ignored artifacts through `FDAI_CONFIGURATION_BASELINE_JSON`, `FDAI_CONFIGURATION_BASELINE_DOCX`, and `FDAI_CONFIGURATION_OBSERVATION_JSON`. Supply all three to the Operator API launch after the full-stack preparation step. Avoid editing the generated `.fdai/local-runtime.env` because preparation replaces that file.
+Partial configuration, a baseline integrity mismatch, or a DOCX digest mismatch stops Operator API startup; callers cannot replace the pinned scope, version, digest, or document. When the binding succeeds, local composition registers the same context for deterministic chat and the GET-only Configuration baselines panel.
+The panel runs the configured observation source on each request and reports unavailable when the optional binding is absent; it never substitutes a fixture or caches current Azure state as fresh evidence. When local PostgreSQL is available, the same composition binds the campaign projection to the durable StateStore.
+Campaign revisions and audit receipts therefore survive an Operator API restart; without persistence, the panel reports review state as not configured rather than using an in-memory interactive fallback.
 While the Operator API completes its startup probes, the browser keeps the initial panel skeleton and
 retries only fetch-level network failures from `GET /iam/self` on a bounded schedule of about 28
 seconds. An HTTP response, authentication failure, malformed payload, or exhausted schedule stops
@@ -125,18 +115,11 @@ their own previous output when restarted. Operator API startup stays silent and 
 VS Code marks each background task ready only after the
 Pantheon bridge starts, Uvicorn completes application startup, or Vite publishes its local address,
 respectively, so a spawned process isn't presented as a ready service.
-The standard local Azure profile uses the same lock by default when `FDAI_RUNTIME_LOCK_FILE` is
-unset, so a direct `python -m fdai` launch cannot bypass the singleton guard. Production runtimes
-continue to use a process lock only when the deployment configures one explicitly.
+The standard local Azure profile uses the same lock by default when `FDAI_RUNTIME_LOCK_FILE` is unset, so a direct `python -m fdai` launch cannot bypass the singleton guard. Production runtimes continue to use a process lock only when the deployment configures one explicitly.
 The core runtime remains the only Pantheon owner, and local and deployed interactive reads use the same execution-mode policy and fail startup when intent IDs, Heimdall ownership, or plan bindings drift. Embedded direct Pantheon chat delegation is fixture-only. With `FDAI_OPERATOR_API_EMBED_PANTHEON=0`, the Operator API reaches Bragi's conversational port through bounded request and response logical topics on the
-existing `aw.pantheon.objects` transport. A startup probe confirms the response consumer before
-traffic is accepted. The client reuses a joining consumer across retries and allows a 20-second
-initial Event Hubs group join. Production replicas share the server consumer group so one replica
-answers each request. The singleton local core uses a process-scoped server group so a restart
-begins at the current physical-topic offset instead of replaying unrelated Pantheon traffic from a
-previous process. Requests carry salted SHA-256 user and session references rather than raw identities;
-timeouts or invalid responses become an explicit agent-to-Bragi handoff instead of a fabricated
-specialist answer. The same latency profile selects the same direct, streamed, or detached mode; only measured provider latency and configured evidence availability can change it.
+existing `aw.pantheon.objects` transport. A startup probe confirms the response consumer before traffic is accepted. The client reuses a joining consumer across retries and allows a 20-second initial Event Hubs group join.
+Production replicas share the server consumer group so one replica answers each request. The singleton local core uses a process-scoped server group so a restart begins at the current physical-topic offset instead of replaying unrelated Pantheon traffic from a previous process.
+Requests carry salted SHA-256 user and session references rather than raw identities; timeouts or invalid responses become an explicit agent-to-Bragi handoff instead of a fabricated specialist answer. The same latency profile selects the same direct, streamed, or detached mode; only measured provider latency and configured evidence availability can change it.
 The long-running core and Operator API tasks preserve their terminal output in
 `.fdai/logs/core-runtime.log` and `.fdai/logs/operator-api.log`. Every captured child-output line begins
 with a Python logging-style timestamp containing milliseconds and the local timezone abbreviation,

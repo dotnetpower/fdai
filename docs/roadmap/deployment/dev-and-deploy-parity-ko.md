@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: dcd48caf0c0286c380b86bfbaec8a00a0a9ec44d
+translation_source_sha: 3c7f025ceac06136efc306f920c1b3a05a7f9ecc
 translation_revised: 2026-08-04
 ---
 
@@ -99,21 +99,10 @@ Resolved-model artifact가 있으면 같은 준비 단계에서 narrator endpoin
 `FDAI_LLM_ENDPOINT`와 `LLM_RESOLVED_MODELS_PATH`를 private local runtime environment에 기록합니다.
 Narrator endpoint가 없거나 올바르지 않으면 core runtime을 시작한 뒤 실패하게 두지 않고 Terraform
 또는 Azure provider에 접근하기 전에 준비 단계를 중단합니다.
-선택적인 local configuration-baseline conversation은 ignored artifact 세 개를
-`FDAI_CONFIGURATION_BASELINE_JSON`, `FDAI_CONFIGURATION_BASELINE_DOCX`,
-`FDAI_CONFIGURATION_OBSERVATION_JSON`으로 binding합니다. Full-stack preparation 이후 Operator API
-launch에 세 값을 모두 제공합니다. Preparation이 generated `.fdai/local-runtime.env`를 교체하므로 해당
-파일을 직접 수정하지 않는 것이 좋습니다. 일부 값만 구성하거나 baseline integrity 또는 DOCX digest가
-일치하지 않으면 Operator API startup이 중단되며 caller는 고정된 scope, version, digest 또는 document를
-바꿀 수 없습니다.
-Binding이 성공하면 local composition은 같은 context를 deterministic chat과 GET-only 구성 기준선 panel에
-등록합니다. Panel은 request마다 configured observation source를 실행하고 optional binding이 없으면
-unavailable을 보고합니다. Fixture를 대체 증거로 사용하거나 현재 Azure state를 fresh evidence처럼 cache하지
-않습니다.
-Local PostgreSQL을 사용할 수 있으면 같은 composition이 campaign projection을 durable StateStore에
-binding합니다. 따라서 campaign revision과 audit receipt는 Operator API restart 후에도 유지됩니다.
-Persistence가 없으면 in-memory interactive fallback을 사용하지 않고 review state를 not configured로
-보고합니다.
+선택적인 local configuration-baseline conversation은 ignored artifact 세 개를 `FDAI_CONFIGURATION_BASELINE_JSON`, `FDAI_CONFIGURATION_BASELINE_DOCX`, `FDAI_CONFIGURATION_OBSERVATION_JSON`으로 binding합니다. Full-stack preparation 이후 Operator API launch에 세 값을 모두 제공합니다. Preparation이 generated `.fdai/local-runtime.env`를 교체하므로 해당 파일을 직접 수정하지 않는 것이 좋습니다.
+일부 값만 구성하거나 baseline integrity 또는 DOCX digest가 일치하지 않으면 Operator API startup이 중단되며 caller는 고정된 scope, version, digest 또는 document를 바꿀 수 없습니다. Binding이 성공하면 local composition은 같은 context를 deterministic chat과 GET-only 구성 기준선 panel에 등록합니다.
+Panel은 request마다 configured observation source를 실행하고 optional binding이 없으면 unavailable을 보고합니다. Fixture를 대체 증거로 사용하거나 현재 Azure state를 fresh evidence처럼 cache하지 않습니다. Local PostgreSQL을 사용할 수 있으면 같은 composition이 campaign projection을 durable StateStore에 binding합니다.
+따라서 campaign revision과 audit receipt는 Operator API restart 후에도 유지됩니다. Persistence가 없으면 in-memory interactive fallback을 사용하지 않고 review state를 not configured로 보고합니다.
 Operator API가 startup probe를 완료하는 동안 browser는 initial panel skeleton을 유지하고
 `GET /iam/self`의 fetch-level network failure만 약 28초 동안 bounded schedule로 재시도합니다.
 HTTP response, authentication failure, malformed payload 또는 소진된 schedule은 추가 retry로 숨기지
@@ -126,22 +115,15 @@ abort되고 영구 skeleton을 남기지 않고 기존 route error surface로 �
 각 long-running Console task는 VS Code instance 하나만 허용합니다. Core task와 debug launch는
 `.fdai/core-runtime.lock`도 공유하므로 두 번째 process는 Kafka consumer group에 참여하기 전에
 실패합니다. 따라서 task/debug overlap이 duplicate Pantheon consumer와 지속적인 rebalance를 만들지 않습니다.
-Core runtime, Operator API 및 frontend task는 각각 별도의 dedicated terminal group을 사용하며 재시작할 때
-자신의 이전 output만 지웁니다. Operator API startup은 조용히 유지되며 editor focus를 가져가지 않습니다.
+Core runtime, Operator API 및 frontend task는 각각 별도의 dedicated terminal group을 사용하며 재시작할 때 자신의 이전 output만 지웁니다. Operator API startup은 조용히 유지되며 editor focus를 가져가지 않습니다.
 VS Code는 Pantheon bridge 시작, Uvicorn application startup 완료 또는
 Vite local address 게시를 각각 확인한 뒤에만 background task를 ready로 표시합니다. 따라서 process가
 생성되기만 한 상태를 준비된 service로 표시하지 않습니다.
-표준 local Azure profile은 `FDAI_RUNTIME_LOCK_FILE`이 설정되지 않아도 같은 lock을 기본값으로 사용하므로,
-`python -m fdai`를 직접 실행해도 singleton guard를 우회할 수 없습니다. Production runtime은 deployment에서
-명시적으로 구성한 경우에만 process lock을 계속 사용합니다.
+표준 local Azure profile은 `FDAI_RUNTIME_LOCK_FILE`이 설정되지 않아도 같은 lock을 기본값으로 사용하므로, `python -m fdai`를 직접 실행해도 singleton guard를 우회할 수 없습니다. Production runtime은 deployment에서 명시적으로 구성한 경우에만 process lock을 계속 사용합니다.
 Core runtime만 Pantheon을 소유하며 local 및 deployed interactive read는 같은 execution-mode policy를 사용하고 intent ID, Heimdall ownership 또는 plan binding drift 시 startup을 차단합니다. Embedded direct Pantheon chat delegation은 fixture-only입니다. `FDAI_OPERATOR_API_EMBED_PANTHEON=0`일 때 Operator API는 기존 `aw.pantheon.objects` transport의 bounded request/response logical topic을 통해 Bragi conversational
-port에 접근합니다. Startup probe로 response consumer 준비를 확인한 후 traffic을 받습니다. Client는
-retry 중 joining consumer를 재사용하고 최초 Event Hubs group join을 최대 20초 허용합니다. Production
-replica는 server consumer group을 공유하므로 request마다 replica 하나만 응답합니다. Singleton local
-core는 process-scoped server group을 사용하므로 재시작할 때 이전 process의 관련 없는 Pantheon traffic을
-replay하지 않고 physical topic의 현재 offset에서 시작합니다. Request는
-raw identity 대신 salted SHA-256 user/session reference를 전달하며, timeout 또는 invalid response는 specialist
-answer를 꾸미지 않고 명시적인 agent-to-Bragi handoff로 표시합니다. 같은 latency profile은 같은 direct, streamed 또는 detached mode를 선택하며 측정된 provider latency와 구성된 evidence availability만 mode를 바꿀 수 있습니다.
+port에 접근합니다. Startup probe로 response consumer 준비를 확인한 후 traffic을 받습니다. Client는 retry 중 joining consumer를 재사용하고 최초 Event Hubs group join을 최대 20초 허용합니다.
+Production replica는 server consumer group을 공유하므로 request마다 replica 하나만 응답합니다. Singleton local core는 process-scoped server group을 사용하므로 재시작할 때 이전 process의 관련 없는 Pantheon traffic을 replay하지 않고 physical topic의 현재 offset에서 시작합니다.
+Request는 raw identity 대신 salted SHA-256 user/session reference를 전달하며, timeout 또는 invalid response는 specialist answer를 꾸미지 않고 명시적인 agent-to-Bragi handoff로 표시합니다. 같은 latency profile은 같은 direct, streamed 또는 detached mode를 선택하며 측정된 provider latency와 구성된 evidence availability만 mode를 바꿀 수 있습니다.
 장기 실행 core 및 Operator API task의 terminal output은 `.fdai/logs/core-runtime.log`와
 `.fdai/logs/operator-api.log`에 보존됩니다. 캡처된 모든 child-output 줄은 millisecond와 local timezone
 약어를 포함한 Python logging style timestamp로 시작합니다. 예시는 `2026-07-28 15:25:53,717 KST`입니다.

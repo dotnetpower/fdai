@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: acd444a8a792b1184eb8f3e6347394495cdea194
+translation_source_sha: 67f8a8c5d913651489c7fd65f52f8842aa7b4a0a
 translation_revised: 2026-08-04
 ---
 
@@ -83,14 +83,9 @@ Operations에는 Muninn의 durable StateSnapshot만 사용하는 감지 준비�
 promotion 관련 count는 Promotion gates로 연결됩니다. 성공한 HTTP 응답이 strict decoding을
 통과하지 못하면 loading skeleton에 머물지 않고 error를 렌더링합니다.
 
-Server-pinned drift context를 사용할 수 있으면 Operations에 구성 기준선 route도 표시됩니다. GET-only
-projection은 fresh read를 실행하고 baseline identity와 lifecycle, drift count, Knowledge citation
-readiness, topology coverage, 단계별 latency, 예약 검토 readiness, 네 safety counter를 표시합니다.
-SPA는 activation, schedule 생성, 승인, 완화 또는 resource mutation control을 제공하지 않습니다.
-Binding이 없으면 unavailable을 표시하고 malformed response는 inferred zero 또는 healthy state로 바꾸지
-않고 strict decoding error로 처리합니다.
-Durable campaign store가 binding되면 panel은 실제 state와 completed-versus-required run count를 읽습니다.
-Campaign이 없으면 `not-configured`를 명시하고 browser는 progress를 만들어내지 않습니다.
+Server-pinned drift context를 사용할 수 있으면 Operations에 구성 기준선 route도 표시됩니다. GET-only projection은 fresh read를 실행하고 baseline identity와 lifecycle, drift count, Knowledge citation readiness, topology coverage, 단계별 latency, 예약 검토 readiness, 네 safety counter를 표시합니다.
+SPA는 activation, schedule 생성, 승인, 완화 또는 resource mutation control을 제공하지 않습니다. Binding이 없으면 unavailable을 표시하고 malformed response는 inferred zero 또는 healthy state로 바꾸지 않고 strict decoding error로 처리합니다.
+Durable campaign store가 binding되면 panel은 실제 state와 completed-versus-required run count를 읽습니다. Campaign이 없으면 `not-configured`를 명시하고 browser는 progress를 만들어내지 않습니다.
 
 Processes detail route는 동일한 authoritative Process journal에서 Planning Room을 조건부로
 렌더링합니다. Strict decoder는 모순된 phase count, duplicate candidate, invalid selection,
@@ -209,20 +204,12 @@ LLM Cost는 측정된 호출, token, chat 비율 및 최근 호출 근거를 먼
 
 ## 로딩 표현
 
-모든 route, panel 및 bounded content 영역은 첫 loading frame부터 skeleton을 렌더링합니다. 공통
-skeleton은 spinner-only 및 text-only 대기를 대체하며, route는 최종 layout dimension을 유지하는
-고유 shape를 제공할 수 있습니다. Dashboard는 posture block 다음에 metric, distribution,
-attention 및 vertical placeholder를 사용하므로 loading 중에도 report가 축소되지 않습니다. 하나의
-screen-reader status가 loading을 알리고 decorative block은 숨깁니다. Reduced motion에서는 shimmer가
-멈추지만 정적 skeleton은 계속 표시됩니다.
-공통 fallback은 heading, summary-card 및 body-panel placeholder를 사용합니다. 소유 route shape는 더
-정확한 최종 layout을 유지할 때만 이 fallback을 대체합니다.
+모든 route, panel 및 bounded content 영역은 첫 loading frame부터 skeleton을 렌더링합니다. 공통 skeleton은 spinner-only 및 text-only 대기를 대체하며, route는 최종 layout dimension을 유지하는 고유 shape를 제공할 수 있습니다.
+Dashboard는 posture block 다음에 metric, distribution, attention 및 vertical placeholder를 사용하므로 loading 중에도 report가 축소되지 않습니다. 하나의 screen-reader status가 loading을 알리고 decorative block은 숨깁니다. Reduced motion에서는 shimmer가 멈추지만 정적 skeleton은 계속 표시됩니다.
+공통 fallback은 heading, summary-card 및 body-panel placeholder를 사용합니다. 소유 route shape는 더 정확한 최종 layout을 유지할 때만 이 fallback을 대체합니다.
 
-HTML document가 console stylesheet를 direct dependency로 소유하므로 authentication, route,
-component 및 JavaScript hot update 중에도 mount된 SPA의 layout과 theme가 사라지지 않습니다.
-Vite는 같은 document link를 fingerprinted production CSS asset으로 변환합니다. Development에서는
-기존 hot-update guard도 CSS 변경을 transform하기 전에 Vite의 race-safe file reader로 처리하여
-editor의 임시 empty snapshot이 전체 stylesheet를 대체하지 못하게 합니다.
+HTML document가 console stylesheet를 direct dependency로 소유하므로 authentication, route, component 및 JavaScript hot update 중에도 mount된 SPA의 layout과 theme가 사라지지 않습니다. Vite는 같은 document link를 fingerprinted production CSS asset으로 변환합니다.
+Development에서는 기존 hot-update guard도 CSS 변경을 transform하기 전에 Vite의 race-safe file reader로 처리하여 editor의 임시 empty snapshot이 전체 stylesheet를 대체하지 못하게 합니다.
 
 ## Localization 경계
 
@@ -608,12 +595,9 @@ Session replay는 4 MiB JSON envelope 안에 최신 turn을 최대 40개 유지�
 override label은 64자와 128자, code validation detail은 4 KiB, milestone agent identity는 64자로
 제한합니다.
 
-Web composer는 선택, drop 및 clipboard paste raster를 동일한 bounded attachment tray와 validation path로 전달합니다. Stage 전에 browser는 upscaling 없이 longest edge를 2048 px 안에 맞추고 image당 4 MiB 아래로 re-encode합니다. Clipboard text와 HTML은 textarea의 native paste 동작을 유지하며
-attachment가 되지 않습니다. Turn이 검증된 inline image attachment를 carry하면 streaming route는 narrator가 작성하기 전에
-read-only `vision_analyzing`을, 답변 전에 `vision_grounded`를 emit하며, 각 frame은 image source
-preview(name, media type, size)를 포함하되 base64 payload는 절대 포함하지 않습니다. 해당 turn은
-vision 지원 narrator로 escalate되고, 답변 준비 trace는 이 단계를 web-search grounding과 동일하게
-렌더링합니다.
+Web composer는 선택, drop 및 clipboard paste raster를 동일한 bounded attachment tray와 validation path로 전달합니다. Stage 전에 browser는 upscaling 없이 longest edge를 2048 px 안에 맞추고 image당 4 MiB 아래로 re-encode합니다. Clipboard text와 HTML은 textarea의 native paste 동작을 유지하며 attachment가 되지 않습니다.
+Turn이 검증된 inline image attachment를 carry하면 streaming route는 narrator가 작성하기 전에 read-only `vision_analyzing`을, 답변 전에 `vision_grounded`를 emit하며, 각 frame은 image source preview(name, media type, size)를 포함하되 base64 payload는 절대 포함하지 않습니다.
+해당 turn은 vision 지원 narrator로 escalate되고, 답변 준비 trace는 이 단계를 web-search grounding과 동일하게 렌더링합니다.
 
 Interactive Live route는 tab이 hidden 상태일 때 SSE reader를 pause합니다. Operator가 활성화한
 browser notification consumer만 bounded exception으로 background에서 authenticated live reader를

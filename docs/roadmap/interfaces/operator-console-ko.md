@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 610089159d14d7cd59f8e8ee5720c89137e1ef14
+translation_source_sha: 1a7edf7ad103d9f0aed20f9ff35868707ecc408c
 translation_revised: 2026-08-04
 ---
 
@@ -14,17 +14,11 @@ translation_revised: 2026-08-04
 Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고,
 운영 view와 요청은 [console-operations-ko.md](console-operations-ko.md)에 정의되며 SPA는
 [project-structure.md § console/](../architecture/project-structure-ko.md#console-static-web-app)에 있습니다. Evidence provenance, stream recovery, localization 및 Architecture map resilience는 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. 온톨로지 맵은 `rule-catalog`와 `PANTHEON_SPECS`에서 생성된 하나의 카탈로그 지식 그래프를 렌더링하며 Architecture 또는 런타임 인벤토리를 읽지 않습니다.
-Settings > Integrations에서는 합성 placeholder로 production incident-open email renderer를 미리 볼 수
-있습니다. 이 GET-only preview는 email을 보내거나 승인 또는 실행 권한을 부여하지 않습니다.
-인증된 active-incident stream은 idle Command Deck을 incident selector와 함께 열 수 있습니다. 이
-selector는 presentation hint일 뿐입니다. Server는 답변 전에 durable incident와 evidence를 다시
-resolve합니다. Tab과 Deck이 idle 상태이면 browser에서 incident를 처음 관찰할 때 localized read-only
-investigation turn을 한 번 제출합니다. Browser-local incident ledger는 reload 뒤 replay를 억제하며,
-incident badge를 누르면 명시적으로 다시 조사할 수 있습니다.
-Incident 질문이 여러 record와 같은 정도로 일치하면 terminal answer는 plain-text 안내 대신 bounded
-candidate button을 포함합니다. Button은 해당 candidate의 exact incident conversation을 열고 localized
-read-only investigation turn을 즉시 제출합니다. Button click은 operator의 명시적인 요청입니다.
-자동 active-incident stream open은 managed-resource action을 제출하지 않습니다.
+Settings > Integrations에서는 합성 placeholder로 production incident-open email renderer를 미리 볼 수 있습니다. 이 GET-only preview는 email을 보내거나 승인 또는 실행 권한을 부여하지 않습니다.
+인증된 active-incident stream은 idle Command Deck을 incident selector와 함께 열 수 있습니다. 이 selector는 presentation hint일 뿐이며 server는 답변 전에 durable incident와 evidence를 다시 resolve합니다.
+Tab과 Deck이 idle 상태이면 browser에서 incident를 처음 관찰할 때 localized read-only investigation turn을 한 번 제출합니다. Browser-local incident ledger는 reload 뒤 replay를 억제하며, incident badge를 누르면 명시적으로 다시 조사할 수 있습니다.
+Incident 질문이 여러 record와 같은 정도로 일치하면 terminal answer는 plain-text 안내 대신 bounded candidate button을 포함합니다. Button은 해당 candidate의 exact incident conversation을 열고 localized read-only investigation turn을 즉시 제출합니다.
+Button click은 operator의 명시적인 요청입니다. 자동 active-incident stream open은 managed-resource action을 제출하지 않습니다.
 
 이 문서는 **pull 방향**, 즉 오퍼레이터가 묻고 시뮬레이션하고 승인하는 경로를 다룹니다.
 Push와 pull은 같은 채널 credential과 audit 계약을 공유하지만 서로 다른 통합
@@ -58,15 +52,9 @@ quality gate (T2 verifier), risk gate, shipped Rego policy. 콘솔은
   불투명한 LLM 세션 memory가 아님. 대화 간에 persist 되는 모든 상태는
   `audit_log` + `operator_memory`에 살며, 감사가능 / export 가능 / CSP-중립.
 
-완료된 답변은 off-path [Conversation Assurance](../decisioning/conversation-assurance-ko.md)
-루프에도 들어갑니다. Evidence panel은 principal 범위 점수, 모델 불일치, 비용, immutable 이의
-제기를 보여줍니다. 잘못된 답변 보고는 자율 재평가 근거를 추가하며 승인, 정책 편집 또는 실행
-명령이 아닙니다. Terminal intake는 exact verification reason과 evidence-manifest completeness를
-보존합니다. Ontology-owned layer로 attribution된 failed answer는 durable StateStore에 별도
-hold-first adequacy review를 만들 수 있습니다. Provider, context, rendering, policy failure는 이
-review를 만들지 않습니다. Operator API는 review를 ready로 표시하거나 catalog proposal을 만들거나
-authority를 부여하지 않습니다. 해당 transition에는 exact replay evidence와 기존 governed catalog
-lifecycle이 필요합니다.
+완료된 답변은 off-path [Conversation Assurance](../decisioning/conversation-assurance-ko.md) 루프에도 들어갑니다. Evidence panel은 principal 범위 점수, 모델 불일치, 비용, immutable 이의 제기를 보여줍니다. 잘못된 답변 보고는 자율 재평가 근거를 추가하며 승인, 정책 편집 또는 실행 명령이 아닙니다.
+Terminal intake는 exact verification reason과 evidence-manifest completeness를 보존합니다. Ontology-owned layer로 attribution된 failed answer는 durable StateStore에 별도 hold-first adequacy review를 만들 수 있습니다. Provider, context, rendering, policy failure는 이 review를 만들지 않습니다.
+Operator API는 review를 ready로 표시하거나 catalog proposal을 만들거나 authority를 부여하지 않습니다. 해당 transition에는 exact replay evidence와 기존 governed catalog lifecycle이 필요합니다.
 ### 1.1 공유 glossary에 추가된 어휘
 
 다음 토큰들이

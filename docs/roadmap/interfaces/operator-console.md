@@ -12,18 +12,11 @@ Push-direction notifications (system → human) live in
 [channels-and-notifications.md](channels-and-notifications.md); operational views and requests are
 defined in [console-operations.md](console-operations.md), and the SPA lives under
 [project-structure.md § console/](../architecture/project-structure.md#console-static-web-app); evidence provenance, stream recovery, localization, and Architecture-map resilience are owned by [console-evidence-and-resilience.md](console-evidence-and-resilience.md). The Ontology map renders one generated catalog knowledge graph from `rule-catalog` and `PANTHEON_SPECS`; it doesn't read Architecture or runtime inventory.
-Settings > Integrations can preview the production incident-open email renderer with synthetic
-placeholders. That GET-only preview does not send mail or grant approval or execution authority.
-The authenticated active-incident stream can open an idle Command Deck with an incident selector.
-That selector is a presentation hint only; the server re-resolves the durable incident and its
-evidence before answering. When the tab and Deck are idle, the first browser observation of an
-incident submits one localized read-only investigation turn. A browser-local incident ledger
-suppresses replay after reload; the incident badge remains an explicit way to investigate again.
-When an incident question matches several records equally, the terminal answer includes bounded
-candidate buttons rather than relying on a plain-text instruction. A button opens the candidate's
-exact incident conversation and immediately submits the localized read-only investigation turn.
-The click is the operator's explicit request; an automatic active-incident stream open never
-submits a managed-resource action.
+Settings > Integrations can preview the production incident-open email renderer with synthetic placeholders. That GET-only preview does not send mail or grant approval or execution authority.
+The authenticated active-incident stream can open an idle Command Deck with an incident selector. That selector is a presentation hint only; the server re-resolves the durable incident and its evidence before answering.
+When the tab and Deck are idle, the first browser observation of an incident submits one localized read-only investigation turn. A browser-local incident ledger suppresses replay after reload; the incident badge remains an explicit way to investigate again.
+When an incident question matches several records equally, the terminal answer includes bounded candidate buttons rather than relying on a plain-text instruction. A button opens the candidate's exact incident conversation and immediately submits the localized read-only investigation turn.
+The click is the operator's explicit request; an automatic active-incident stream open never submits a managed-resource action.
 This doc covers the **pull direction** - the operator asks, simulates,
 approves - across every channel the notification doc already ships adapters
 for. Push and pull share the same channel credentials and the same audit
@@ -60,15 +53,9 @@ Three properties follow directly:
   conversations lives in `audit_log` + `operator_memory` where it is
   auditable, exportable, and CSP-neutral.
 
-Completed answers also enter the off-path [Conversation Assurance](../decisioning/conversation-assurance.md)
-loop. The Evidence panel shows principal-scoped scores, model disagreement, cost, and immutable
-disputes. Reporting an incorrect answer adds evidence for autonomous re-evaluation; it is not an
-approval, policy edit, or execution command. Terminal intake preserves the exact verification
-reason and evidence-manifest completeness. A failed answer attributed to an ontology-owned layer
-can create a separate hold-first adequacy review in the durable StateStore. Provider, context,
-rendering, and policy failures create no such review. The Operator API never marks a review ready,
-creates a catalog proposal, or grants authority; those transitions require exact replay evidence
-and the existing governed catalog lifecycle.
+Completed answers also enter the off-path [Conversation Assurance](../decisioning/conversation-assurance.md) loop. The Evidence panel shows principal-scoped scores, model disagreement, cost, and immutable disputes. Reporting an incorrect answer adds evidence for autonomous re-evaluation; it is not an approval, policy edit, or execution command.
+Terminal intake preserves the exact verification reason and evidence-manifest completeness. A failed answer attributed to an ontology-owned layer can create a separate hold-first adequacy review in the durable StateStore. Provider, context, rendering, and policy failures create no such review.
+The Operator API never marks a review ready, creates a catalog proposal, or grants authority; those transitions require exact replay evidence and the existing governed catalog lifecycle.
 ### 1.1 Vocabulary added to the shared glossary
 
 The following tokens are added to the shared vocabulary in

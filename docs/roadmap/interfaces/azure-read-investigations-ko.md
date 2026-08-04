@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 72fdf2656e627120cea03f8d535143132e1c8668
+translation_source_sha: 33a45e64c2d0ab788bc36c18bcf52fc158a6e684
 translation_revised: 2026-08-04
 ---
 
@@ -82,20 +82,12 @@ task를 persist합니다. PostgreSQL이 source of truth이고 wake signal은 del
 
 ## Investigation request 및 plan
 
-Planner는 eligible 질문을 immutable `ReadInvestigationRequest`로 변환합니다. Requester, conversation 및
-correlation reference, intent, resource selector, lookback, requested evidence, budget 및 idempotency key를
-전달합니다. Model이 tool description을 보기 전에 deterministic classification을 실행합니다.
+Planner는 eligible 질문을 immutable `ReadInvestigationRequest`로 변환합니다. Requester, conversation 및 correlation reference, intent, resource selector, lookback, requested evidence, budget 및 idempotency key를 전달합니다. Model이 tool description을 보기 전에 deterministic classification을 실행합니다.
 
-Schema로 검증되는 `investigation-intents.yaml` catalog가 언어와 계약 사이의 경계를 소유합니다.
-각 entry는 work class, 책임 Pantheon agent, 등록된 plan ID, selector kind, answer contract, 검토된
-영어 및 한국어 match term, evidence authority와 facet, 숫자형 freshness budget을 선언합니다.
-Catalog는 실행 가능한 text를 포함하거나 tool authority를 부여할 수 없습니다. 알 수 없는 owner,
-work class, selector, answer contract, field 또는 response-mode order는 provider I/O 전에 catalog
-load를 차단합니다.
+Schema로 검증되는 `investigation-intents.yaml` catalog가 언어와 계약 사이의 경계를 소유합니다. 각 entry는 work class, 책임 Pantheon agent, 등록된 plan ID, selector kind, answer contract, 검토된 영어 및 한국어 match term, evidence authority와 facet, 숫자형 freshness budget을 선언합니다.
+Catalog는 실행 가능한 text를 포함하거나 tool authority를 부여할 수 없습니다. 알 수 없는 owner, work class, selector, answer contract, field 또는 response-mode order는 provider I/O 전에 catalog load를 차단합니다.
 
-첫 catalog revision은 아래의 read intent 7개를 설명합니다. 모든 entry는 Heimdall이 소유하고
-`work_class: read`를 사용하며 등록된 plan을 가리킵니다. Bragi는 turn을 분류하고 route할 수 있지만
-catalog owner, evidence requirement 또는 freshness budget을 바꿀 수 없습니다.
+첫 catalog revision은 아래의 read intent 7개를 설명합니다. 모든 entry는 Heimdall이 소유하고 `work_class: read`를 사용하며 등록된 plan을 가리킵니다. Bragi는 turn을 분류하고 route할 수 있지만 catalog owner, evidence requirement 또는 freshness budget을 바꿀 수 없습니다.
 
 초기 intent vocabulary는 다음과 같습니다.
 
