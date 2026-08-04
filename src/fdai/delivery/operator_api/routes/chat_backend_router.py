@@ -232,25 +232,36 @@ class LatencyRoutedChatBackend:
             )
         return self.current_pick_name()
 
-    async def aclose(self) -> None:
+    async def aclose(self, *, _seen_clients: set[int] | None = None) -> None:
         """Close every candidate's ``httpx.AsyncClient`` (best-effort).
 
         Idempotent: safe to call multiple times or on a router whose
         backends never opened a client. Never raises - a stuck close
         on one client MUST NOT prevent siblings from cleaning up.
         """
-        for _, backend in self._candidates:
+        seen_clients = set() if _seen_clients is None else _seen_clients
+
+        async def _close_backend(backend: ChatBackend, label: str) -> None:
+            if isinstance(backend, LatencyRoutedChatBackend):
+                await backend.aclose(_seen_clients=seen_clients)
+                return
             client = getattr(backend, "_http", None)
             aclose = getattr(client, "aclose", None)
-            if aclose is None:
-                continue
+            if aclose is None or id(client) in seen_clients:
+                return
+            seen_clients.add(id(client))
             try:
                 await aclose()
             except Exception as exc:  # pragma: no cover - defensive path
-                _LOG.warning("router.aclose: candidate client failed to close: %s", exc)
-        close_vision = getattr(self._vision_backend, "aclose", None)
-        if close_vision is not None:
-            await close_vision()
+                _LOG.warning(
+                    "router.backend_close_failed",
+                    extra={"candidate": label, "error_type": type(exc).__name__},
+                )
+
+        for name, backend in self._candidates:
+            await _close_backend(backend, name)
+        if self._vision_backend is not None:
+            await _close_backend(self._vision_backend, "vision")
 
     # ------------------------------------------------------------------ Protocol
     async def answer(

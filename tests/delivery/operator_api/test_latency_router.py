@@ -658,11 +658,14 @@ class TestRouterConcurrencyFairness:
 
 class TestRouterCleanup:
     class _WithClient:
-        def __init__(self) -> None:
+        def __init__(self, *, fail_close: bool = False) -> None:
             self.closed = False
+            self.fail_close = fail_close
             self._http = self  # so getattr(backend, "_http", None) returns it
 
         async def aclose(self) -> None:
+            if self.fail_close:
+                raise RuntimeError("close failed")
             self.closed = True
 
         async def answer(
@@ -689,6 +692,26 @@ class TestRouterCleanup:
         b = _FixedLatencyBackend(model="b", delay_ms=1)
         router = LatencyRoutedChatBackend(candidates=[("a", a), ("b", b)])
         await router.aclose()  # must not raise
+
+    async def test_aclose_closes_direct_vision_client(self) -> None:
+        text = self._WithClient()
+        vision = self._WithClient()
+        router = LatencyRoutedChatBackend(candidates=[("text", text)])
+        router.bind_vision_backend(vision)
+
+        await router.aclose()
+
+        assert text.closed is True
+        assert vision.closed is True
+
+    async def test_aclose_isolates_vision_close_failure(self) -> None:
+        text = self._WithClient()
+        router = LatencyRoutedChatBackend(candidates=[("text", text)])
+        router.bind_vision_backend(self._WithClient(fail_close=True))
+
+        await router.aclose()
+
+        assert text.closed is True
 
 
 class TestRouterBenchmark:
