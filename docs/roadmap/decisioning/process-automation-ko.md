@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: fc22ffae48731c46e1fc7cec5bee3ce3bf2b0e24
+translation_source_sha: bc77ae4253f0b48b1fdeb77d035f5129f83b5ab3
 translation_revised: 2026-08-04
 ---
 
@@ -303,11 +303,15 @@ Workflow approval state와 HIL slot identity는 Process, step, attempt에 bindin
 rejection은 전체 quorum attempt를 terminal로 만들고 모든 sibling slot을 닫으므로 late approval이
 rejection과 경쟁할 수 없습니다. `approval_rejected` 또는 `approval_timed_out` 뒤 bounded retry는 새
 attempt용 fresh slot만 만듭니다. Sibling park closure가 중단되어도 terminal workflow CAS가
-authoritative하므로 queue는 stale slot을 숨기고 다음 provider read가 이를 복구합니다. Cancellation과
-timeout도 exact attempt를 닫습니다. Timeout은 revision CAS에서 이긴 경우에만 terminal이 됩니다.
-Approval decision이 먼저 revision을 변경하면 executor는 해당 attempt를 다시 읽고 stale expiry
-snapshot으로 종료하는 대신 authoritative quorum, rejection, cancellation 또는 timeout state를
-따릅니다.
+authoritative하므로 queue는 stale 또는 expired slot을 숨기고 다음 provider read가 physical park
+state를 복구합니다. Cancellation과 timeout은 exact attempt를 닫고 rejection, cancellation, timeout은
+서로를 덮어쓰지 않습니다. Workflow provider가 timeout terminalization을 소유하며 generic HIL expiry
+worker는 workflow slot을 건너뜁니다. Approval decision은 durable deadline 전에만 수락됩니다. Late
+decision이 먼저 revision을 변경하면 executor는 해당 attempt를 다시 읽고 timeout CAS를 재시도하므로
+deadline 뒤 완성된 quorum이 Process를 진행시키지 못합니다. Deadline 전에 완성된 quorum은 Process
+reconciliation이 나중에 재개되어도 유효합니다. Callback과 conversation approval surface는
+no-self-approval을 위해 normalized principal을 비교합니다. Approval claim CAS retry는 fixed
+contention bound 대신 immutable slot quorum에 따라 확장됩니다.
 
 Workflow audit는 각 ActionType의 `x-fdai-redact` path를 사용합니다. Redacted field는
 `[REDACTED]`로 표시되며 Process journal에 들어가지 않습니다. Workflow runtime에는 secret custody

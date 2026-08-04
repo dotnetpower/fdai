@@ -309,11 +309,15 @@ the legacy key for existing durable records; later attempts use distinct keys. O
 the complete quorum attempt terminal and closes every sibling slot, so a late approval cannot race
 the rejection. A bounded retry after `approval_rejected` or `approval_timed_out` creates only fresh
 slots for the new attempt. The terminal workflow CAS remains authoritative if sibling park closure
-is interrupted, so the queue hides stale slots and the next provider read heals them. Cancellation
-and timeout close the exact attempt. A timeout becomes terminal only when its revision CAS wins.
-If an approval decision changes the revision first, the executor rereads that attempt and follows
-the authoritative quorum, rejection, cancellation, or timeout state instead of closing from a
-stale expiry snapshot.
+is interrupted, so the queue hides stale or expired slots and the next provider read heals their
+physical park state. Cancellation and timeout close the exact attempt, and rejection, cancellation,
+and timeout cannot overwrite one another. The workflow provider owns timeout terminalization; the
+generic HIL expiry worker skips workflow slots. Approval decisions are accepted only before the
+durable deadline. If a late decision changes the revision first, the executor rereads that attempt
+and retries timeout CAS, so quorum completed after the deadline never advances the Process. Quorum
+completed before the deadline remains valid when Process reconciliation resumes later. Callback
+and conversation approval surfaces compare normalized principals for no-self-approval. Approval
+claim CAS retries scale with the immutable slot quorum rather than a fixed contention bound.
 
 Workflow audit uses each ActionType's `x-fdai-redact` paths. Redacted fields render as
 `[REDACTED]` and never enter the Process journal. Because the workflow runtime has no secret

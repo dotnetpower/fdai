@@ -368,6 +368,20 @@ class TestApproveHilFailClosed:
         assert list(store.audit_entries) == []
         assert reg.resolved == ()
 
+    def test_no_self_approval_refuses_recased_principal(self) -> None:
+        reg = _build_registry([_item(submitter_oid="submitter-oid")])
+        tool, store = _build_approve_tool(reg)
+
+        result = tool.call(
+            arguments={"idempotency_key": "ik-1", "decision": "approve"},
+            principal=_principal(oid="SUBMITTER-OID"),
+        )
+
+        assert result.status == "error"
+        assert "no_self_approval" in result.preview
+        assert list(store.audit_entries) == []
+        assert reg.resolved == ()
+
     def test_missing_submitter_oid_fails_closed(self) -> None:
         # A pending item with no submitter identity cannot have the
         # no_self_approval invariant verified, so the approval MUST fail

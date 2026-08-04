@@ -1514,7 +1514,7 @@ async def test_approval_requires_distinct_quorum_and_excludes_requester() -> Non
 async def test_enforce_approval_uses_only_durable_var_receipts() -> None:
     audit = InMemoryStateStore()
     provider = StateStoreWorkflowApprovalProvider(audit)
-    registry = StateStoreHilApprovalRegistry(store=audit)
+    registry = StateStoreHilApprovalRegistry(store=audit, clock=lambda: _TRIGGER_TS)
     process_store = InMemoryProcessRuntimeStore()
     orchestrator = WorkflowOrchestrator(
         planner=WorkflowApprovalPlanner(
@@ -1577,7 +1577,7 @@ async def test_enforce_approval_resumes_from_exact_process_id() -> None:
     audit = InMemoryStateStore()
     process_store = InMemoryProcessRuntimeStore()
     provider = StateStoreWorkflowApprovalProvider(audit)
-    registry = StateStoreHilApprovalRegistry(store=audit)
+    registry = StateStoreHilApprovalRegistry(store=audit, clock=lambda: _TRIGGER_TS)
     orchestrator = WorkflowOrchestrator(
         planner=WorkflowApprovalPlanner(
             action_types=_ACTION_TYPES,
@@ -1649,7 +1649,7 @@ async def test_waiting_approval_cancellation_closes_var_slots() -> None:
     audit = InMemoryStateStore()
     process_store = InMemoryProcessRuntimeStore()
     provider = StateStoreWorkflowApprovalProvider(audit)
-    registry = StateStoreHilApprovalRegistry(store=audit)
+    registry = StateStoreHilApprovalRegistry(store=audit, clock=lambda: _TRIGGER_TS)
     orchestrator = WorkflowOrchestrator(
         planner=WorkflowApprovalPlanner(
             action_types=_ACTION_TYPES,
@@ -1731,7 +1731,7 @@ async def test_rejected_approval_retries_with_fresh_attempt_slots() -> None:
     audit = InMemoryStateStore()
     process_store = InMemoryProcessRuntimeStore()
     provider = StateStoreWorkflowApprovalProvider(audit)
-    registry = StateStoreHilApprovalRegistry(store=audit)
+    registry = StateStoreHilApprovalRegistry(store=audit, clock=lambda: _TRIGGER_TS)
     workflow = _approval_workflow(name="approval-rerequest")
     orchestrator = WorkflowOrchestrator(
         planner=WorkflowApprovalPlanner(
@@ -1797,7 +1797,7 @@ async def test_timed_out_approval_retries_with_fresh_attempt_slots() -> None:
     audit = InMemoryStateStore()
     process_store = InMemoryProcessRuntimeStore()
     provider = StateStoreWorkflowApprovalProvider(audit)
-    registry = StateStoreHilApprovalRegistry(store=audit)
+    registry = StateStoreHilApprovalRegistry(store=audit, clock=lambda: _TRIGGER_TS)
     workflow = _approval_workflow(name="approval-timeout-rerequest", timeout_seconds=10)
     orchestrator = WorkflowOrchestrator(
         planner=WorkflowApprovalPlanner(
@@ -2205,22 +2205,19 @@ async def test_enforce_approval_timeout_persistence_failure_is_explicit() -> Non
     )
 
 
-async def test_enforce_approval_timeout_reconciles_concurrent_quorum() -> None:
+async def test_enforce_approval_timeout_retries_after_concurrent_revision_loss() -> None:
     audit = InMemoryStateStore()
-    registry = StateStoreHilApprovalRegistry(store=audit)
 
-    class ApprovalWinsTimeoutProvider(StateStoreWorkflowApprovalProvider):
+    class FirstTimeoutCasLosesProvider(StateStoreWorkflowApprovalProvider):
+        lost_once = False
+
         async def mark_timed_out(self, **kwargs: object) -> bool:
-            pending = await registry.list_pending()
-            for item, approver in zip(pending, ("owner-a", "owner-b"), strict=True):
-                await registry.record_decision(
-                    idempotency_key=item.idempotency_key,
-                    decision=HilApprovalDecision.APPROVE,
-                    approver_oid=approver,
-                )
+            if not self.lost_once:
+                self.lost_once = True
+                return False
             return await super().mark_timed_out(**kwargs)
 
-    provider = ApprovalWinsTimeoutProvider(audit)
+    provider = FirstTimeoutCasLosesProvider(audit)
     orchestrator = WorkflowOrchestrator(
         planner=WorkflowApprovalPlanner(
             action_types=_ACTION_TYPES,
@@ -2242,6 +2239,51 @@ async def test_enforce_approval_timeout_reconciles_concurrent_quorum() -> None:
         mode=Mode.ENFORCE,
     )
 
+    timed_out = await orchestrator.resume(
+        process_id=waiting.process_id,
+        workflow=workflow,
+        now=_TRIGGER_TS + timedelta(seconds=11),
+    )
+
+    assert timed_out.status is ProcessStatus.TIMED_OUT
+
+
+async def test_enforce_approval_preserves_quorum_completed_before_expiry() -> None:
+    audit = InMemoryStateStore()
+    registry = StateStoreHilApprovalRegistry(store=audit, clock=lambda: _TRIGGER_TS)
+    provider = StateStoreWorkflowApprovalProvider(audit)
+    orchestrator = WorkflowOrchestrator(
+        planner=WorkflowApprovalPlanner(
+            action_types=_ACTION_TYPES,
+            group_mapping=_group_mapping(),
+            matrix=_matrix(),
+        ),
+        action_types=_ACTION_TYPES,
+        audit_store=audit,
+        process_store=InMemoryProcessRuntimeStore(),
+        approval_provider=provider,
+    )
+    workflow = _approval_workflow(name="approval-timely-quorum", timeout_seconds=10)
+    waiting = await orchestrator.run(
+        workflow,
+        target_resource_id="scope-timely-quorum",
+        trigger_ts=_TRIGGER_TS,
+        context={"requester.principal": "requester-1"},
+        now=_TRIGGER_TS,
+        mode=Mode.ENFORCE,
+    )
+    for item, approver in zip(
+        await registry.list_pending(),
+        ("owner-a", "owner-b"),
+        strict=True,
+    ):
+        await registry.record_decision(
+            idempotency_key=item.idempotency_key,
+            decision=HilApprovalDecision.APPROVE,
+            approver_oid=approver,
+            decided_at=_TRIGGER_TS + timedelta(seconds=5),
+        )
+
     completed = await orchestrator.resume(
         process_id=waiting.process_id,
         workflow=workflow,
@@ -2249,7 +2291,6 @@ async def test_enforce_approval_timeout_reconciles_concurrent_quorum() -> None:
     )
 
     assert completed.status is ProcessStatus.SUCCEEDED
-    assert await registry.list_pending() == ()
 
 
 async def test_wait_timeout_terminates_process() -> None:

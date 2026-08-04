@@ -476,23 +476,65 @@ class ShadowWorkflowStepExecutor:
                 RunbookStepOutcome.FAILURE,
                 "process_cancellation_requested",
             )
+        approval_result = self._approval_result(
+            step,
+            decisions={decision.principal: decision.decision for decision in snapshot.decisions},
+            requester=snapshot.requester_principal,
+        )
+        if approval_result.outcome is not RunbookStepOutcome.WAITING:
+            return approval_result
         if snapshot.timed_out or (
             snapshot.expires_at is not None and self._now >= snapshot.expires_at
         ):
             try:
-                changed = await provider.mark_timed_out(
-                    process_id=self._process_id,
-                    step_id=step.id,
-                    expected_revision=snapshot.revision,
-                    timed_out_at=self._now,
-                    attempt=self._attempt,
-                )
-                if not changed:
+                for _ in range(8):
+                    if snapshot.timed_out:
+                        return step_result(
+                            step,
+                            RunbookStepOutcome.FAILURE,
+                            "approval_timed_out",
+                        )
+                    if snapshot.cancelled:
+                        return step_result(
+                            step,
+                            RunbookStepOutcome.FAILURE,
+                            "process_cancellation_requested",
+                        )
+                    approval_result = self._approval_result(
+                        step,
+                        decisions={
+                            decision.principal: decision.decision for decision in snapshot.decisions
+                        },
+                        requester=snapshot.requester_principal,
+                    )
+                    if approval_result.outcome is not RunbookStepOutcome.WAITING:
+                        return approval_result
+                    if snapshot.expires_at is None or self._now < snapshot.expires_at:
+                        break
+                    changed = await provider.mark_timed_out(
+                        process_id=self._process_id,
+                        step_id=step.id,
+                        expected_revision=snapshot.revision,
+                        timed_out_at=self._now,
+                        attempt=self._attempt,
+                    )
+                    if changed:
+                        return step_result(
+                            step,
+                            RunbookStepOutcome.FAILURE,
+                            "approval_timed_out",
+                        )
                     snapshot = await self._ensure_approval_requested(
                         step=step,
                         approval=approval,
                         provider=provider,
                         requester=requester,
+                    )
+                else:
+                    return step_result(
+                        step,
+                        RunbookStepOutcome.FAILURE,
+                        "approval_evidence_unavailable",
                     )
             except Exception:  # noqa: BLE001 - timeout persistence still fails closed
                 return step_result(
@@ -500,19 +542,7 @@ class ShadowWorkflowStepExecutor:
                     RunbookStepOutcome.FAILURE,
                     "approval_evidence_unavailable",
                 )
-            if changed or snapshot.timed_out:
-                return step_result(step, RunbookStepOutcome.FAILURE, "approval_timed_out")
-            if snapshot.cancelled:
-                return step_result(
-                    step,
-                    RunbookStepOutcome.FAILURE,
-                    "process_cancellation_requested",
-                )
-        return self._approval_result(
-            step,
-            decisions={decision.principal: decision.decision for decision in snapshot.decisions},
-            requester=snapshot.requester_principal,
-        )
+        return approval_result
 
     async def _ensure_approval_requested(
         self,

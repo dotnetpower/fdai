@@ -97,6 +97,20 @@ class StateStoreWorkflowApprovalProvider:
                 resolved_at=_rejected_at(stored),
                 action_kind="workflow.approval.slot_rejected",
             )
+        elif stored.get("state") == "timed_out":
+            await self._close_parks(
+                stored,
+                decision="timeout",
+                resolved_at=_datetime(stored.get("timed_out_at")),
+                action_kind="workflow.approval.slot_timed_out",
+            )
+        elif stored.get("state") == "cancelled":
+            await self._close_parks(
+                stored,
+                decision="cancel",
+                resolved_at=_datetime(stored.get("cancelled_at")),
+                action_kind="workflow.approval.slot_cancelled",
+            )
         return await self._snapshot(stored)
 
     async def mark_timed_out(
@@ -120,6 +134,8 @@ class StateStoreWorkflowApprovalProvider:
                 action_kind="workflow.approval.slot_timed_out",
             )
             return True
+        if record.get("state") != "pending":
+            return False
         updated = {
             **dict(record),
             "state": "timed_out",
@@ -172,6 +188,12 @@ class StateStoreWorkflowApprovalProvider:
                 )
                 return True
             if state == "timed_out":
+                await self._close_parks(
+                    record,
+                    decision="timeout",
+                    resolved_at=_datetime(record.get("timed_out_at")),
+                    action_kind="workflow.approval.slot_timed_out",
+                )
                 return True
             if state != "pending":
                 return False
@@ -296,7 +318,7 @@ class StateStoreWorkflowApprovalProvider:
             if parked is None or parked.get("status") != "pending":
                 continue
             revision = int(parked.get("revision", 0))
-            await self.store.compare_and_set_state_with_audit(
+            closed = await self.store.compare_and_set_state_with_audit(
                 key,
                 {
                     **dict(parked),
@@ -315,6 +337,10 @@ class StateStoreWorkflowApprovalProvider:
                     "resolved_at": resolved_at.isoformat(),
                 },
             )
+            if not closed:
+                current = await self.store.read_state(key)
+                if current is not None and current.get("status") == "pending":
+                    raise RuntimeError(f"workflow approval {decision} left a pending slot")
 
 
 def _state_key(process_id: str, step_id: str, attempt: int = 1) -> str:

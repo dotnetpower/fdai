@@ -75,3 +75,28 @@ async def test_dispatch_uses_attempt_in_proposal_identity() -> None:
     )
 
     assert reference == "process-1:step:restart:attempt:2"
+
+
+async def test_compensation_redispatch_preserves_proposal_identity() -> None:
+    bus = InMemoryEventBus()
+    dispatcher = EventBusWorkflowActionDispatcher(event_bus=bus, topic="events")
+    step = RunbookStep(id="compensate_restart", action_type="ops.stop-service")
+    dispatch = {
+        "process_id": "process-1",
+        "correlation_id": "corr-1",
+        "step": step,
+        "target_resource_id": "service-1",
+        "params": {"reason": "workflow recovery"},
+        "context": {"requester.principal": "operator-1"},
+    }
+
+    first = await dispatcher.dispatch(**dispatch)
+    replay = await dispatcher.dispatch(**dispatch)
+    envelopes = await _drain(bus)
+
+    assert first == replay == "process-1:step:compensate_restart:attempt:1"
+    assert [item.payload["idempotency_key"] for item in envelopes] == [first, first]
+    assert [item.payload["workflow_action"]["proposal_ref"] for item in envelopes] == [
+        first,
+        first,
+    ]

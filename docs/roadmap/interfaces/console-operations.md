@@ -16,7 +16,8 @@ second execution authority.
 > runs, provisioning, onboarding, and bounded investigations are shipped as separate domain views.
 > Console action dispatch persists payload-bearing receipts before broker publication and recovers
 > pending delivery after restart. Workflow approvals enforce their durable role and distinct quorum
-> at both callback and conversation-tool boundaries. Pending access-grant review enforces App Role,
+> at both callback and conversation-tool boundaries. Both boundaries normalize principal identities
+> before enforcing no-self-approval. Pending access-grant review enforces App Role,
 > no-self-approval, expiry, quorum, and exact revision without applying permission. The federated Tasks view, cross-domain
 > projection metadata, and hardening of the remaining domain routes are proposed.
 

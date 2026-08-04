@@ -1,7 +1,7 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: 3ea982bf06a5e01383b7577924f34dca690dac42
+translation_source_sha: 685b566a5eac6f68fef20e604e0862a438ee1b5f
 translation_revised: 2026-08-04
 ---
 
@@ -98,8 +98,11 @@ waiting 상태를 유지합니다. Applied step이 없는 wait 및 approval time
 진입합니다. Parallel branch는 동시에 실행되고 parent snapshot revision을 두고 경쟁하지 않는
 child event를 기록하지만 failure는 새 branch dispatch를 freeze하고 applied receipt를 join한 뒤
 reverse-dependency compensation을 시작합니다.
-Approval timeout은 revision CAS에서 이긴 뒤에만 Process를 종료합니다. Concurrent decision이 먼저
-이기면 같은 attempt에서 다시 읽은 해당 decision이 authoritative 상태를 유지합니다.
+Approval timeout은 revision CAS에서 이긴 뒤에만 Process를 종료합니다. Deadline expiry는 late
+concurrent approval보다 우선합니다. Executor는 같은 attempt를 다시 읽고 최신 revision으로 timeout
+CAS를 재시도합니다. Expiry 전에 완성된 quorum은 delayed resume에서도 유효합니다. Terminal approval
+state는 단조롭게 유지되며 provider reread는 authoritative state commit 뒤 중단된 HIL slot closure를
+복구합니다.
 
 Ontology graph 는 source of truth 가 아니라 read model 입니다. 각 event 가 commit 된
 후 `ProcessOntologyProjector` 가 현재 `Process` object 와 `targets` link 를

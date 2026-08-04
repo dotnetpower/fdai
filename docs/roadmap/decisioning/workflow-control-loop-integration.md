@@ -95,8 +95,11 @@ is met. Wait and approval timeouts with no applied step end as `timed_out`; afte
 they stop forward dispatch and enter compensation. Parallel branches run concurrently and write
 child events without competing for the parent snapshot revision, but a failure freezes new branch
 dispatch and joins applied receipts before reverse-dependency compensation.
-An approval timeout closes the Process only after its revision CAS wins. A concurrent decision
-that wins first is reread from the same attempt and remains authoritative.
+An approval timeout closes the Process only after its revision CAS wins. Deadline expiry outranks
+a late concurrent approval: the executor rereads the same attempt and retries timeout CAS against
+the latest revision. A quorum completed before expiry remains valid across delayed resume. Terminal
+approval states remain monotonic, and provider rereads heal any HIL slot closure interrupted after
+the authoritative state commit.
 
 The ontology graph is a read model, not the source of truth. After each committed
 event, `ProcessOntologyProjector` materializes the current `Process` object and its

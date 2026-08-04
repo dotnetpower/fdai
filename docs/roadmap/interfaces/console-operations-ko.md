@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 70a743f29d0f3cc7479a711b905f323254db3bb6
+translation_source_sha: c2494952176ec869851788f8c665bfb8ade2e39d
 translation_revised: 2026-08-04
 ---
 
@@ -19,7 +19,8 @@ translation_revised: 2026-08-04
 > onboarding, bounded investigation은 별도 도메인 view로 제공됩니다. Console action dispatch는
 > broker publish 전에 payload를 포함한 receipt를 저장하고 restart 뒤 pending delivery를 복구합니다.
 > Workflow approval은 callback과 conversation tool 경계 모두에서 durable role과 서로 다른 quorum을
-> 검사합니다. Pending access-grant review는 권한을 적용하지 않은 채 App Role, 자기 승인 방지, expiry,
+> 검사합니다. 두 경계 모두 no-self-approval 검사 전에 principal identity를 normalize합니다. Pending
+> access-grant review는 권한을 적용하지 않은 채 App Role, 자기 승인 방지, expiry,
 > quorum 및 exact revision을 검사합니다. Federated Tasks view, cross-domain projection metadata 및 나머지 route hardening은 제안 상태입니다.
 
 ## 설계 요약

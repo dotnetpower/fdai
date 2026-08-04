@@ -317,7 +317,15 @@ class ApprovalReminderDispatcher:
         )
         expired = 0
         for park in parks:
-            if park.get("status") != "pending" or not _park_expired(park, now=now):
+            metadata = park.get("metadata")
+            workflow_managed = (
+                isinstance(metadata, Mapping) and metadata.get("decision_route") == "workflow"
+            )
+            if (
+                park.get("status") != "pending"
+                or workflow_managed
+                or not _park_expired(park, now=now)
+            ):
                 continue
             approval_id = str(park.get("approval_id") or "")
             if not approval_id:
