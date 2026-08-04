@@ -69,6 +69,33 @@ class TestFullSnapshot:
         second_page_argv = run.call_args_list[2].args[0]
         assert second_page_argv[-2:] == ["--skip-token", "next"]
 
+    def test_arg_rejects_non_adjacent_skip_token_cycle(self) -> None:
+        inventory = AzureCliInventory(resource_types=("compute.vm",))
+        responses = [
+            _completed(json.dumps({"data": [{"id": "first"}], "skip_token": "token-a"})),
+            _completed(json.dumps({"data": [{"id": "second"}], "skip_token": "token-b"})),
+            _completed(json.dumps({"data": [{"id": "third"}], "skip_token": "token-a"})),
+        ]
+
+        with patch(
+            "fdai.delivery.azure.dev_inventory.subprocess.run",
+            side_effect=responses,
+        ) as run:
+            with pytest.raises(AzureCliInventoryError, match="continuation token"):
+                asyncio.run(inventory._fetch_arg_rows())
+
+        assert run.call_count == 3
+
+    def test_arg_rejects_non_object_page_row(self) -> None:
+        inventory = AzureCliInventory(resource_types=("compute.vm",))
+
+        with patch(
+            "fdai.delivery.azure.dev_inventory.subprocess.run",
+            return_value=_completed(json.dumps({"data": ["not-an-object"]})),
+        ):
+            with pytest.raises(AzureCliInventoryError, match="invalid page"):
+                asyncio.run(inventory._fetch_arg_rows())
+
     def test_yields_final_batch_at_end(self) -> None:
         inv = AzureCliInventory(resource_types=("resource-group",))
         with patch(

@@ -158,6 +158,7 @@ async def fetch_arg_row_pages(
         headers = dict(request_headers)
     collected: list[Mapping[str, Any]] = []
     skip_token: str | None = None
+    seen_skip_tokens: set[str] = set()
     gate = throttle_gate or ArgThrottleGate()
 
     for page in range(max_pages):
@@ -185,10 +186,8 @@ async def fetch_arg_row_pages(
         )
 
         if response.status_code >= 400:
-            snippet = response.text[:200].replace("\n", " ")
             raise error_type(
-                f"ARG returned HTTP {response.status_code} for {result_name!r} "
-                f"(page {page}): {snippet!r}"
+                f"ARG returned HTTP {response.status_code} for {result_name!r} (page {page})"
             )
         if max_response_bytes is not None and len(response.content) > max_response_bytes:
             raise error_type(
@@ -200,14 +199,19 @@ async def fetch_arg_row_pages(
             payload = response.json()
         except ValueError as exc:
             raise error_type(f"ARG returned non-JSON for {result_name!r} (page {page})") from exc
+        if not isinstance(payload, Mapping):
+            raise error_type(f"ARG payload was not an object for {result_name!r} (page {page})")
 
         data = payload.get("data")
         if not isinstance(data, list):
             raise error_type(f"ARG payload missing 'data' array for {result_name!r} (page {page})")
 
         for row in data:
-            if isinstance(row, Mapping):
-                collected.append(row)
+            if not isinstance(row, Mapping):
+                raise error_type(
+                    f"ARG payload contained a non-object row for {result_name!r} (page {page})"
+                )
+            collected.append(row)
         if max_records is not None and len(collected) > max_records:
             raise error_type(
                 f"ARG returned more than {max_records} records for {result_name!r}; "
@@ -224,10 +228,11 @@ async def fetch_arg_row_pages(
                     f"{result_name!r} (page {page})"
                 )
             break
-        if next_token == skip_token:
+        if next_token in seen_skip_tokens:
             raise error_type(
                 f"ARG continuation token did not advance for {result_name!r} (page {page})"
             )
+        seen_skip_tokens.add(next_token)
         skip_token = next_token
     else:
         raise error_type(
