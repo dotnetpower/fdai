@@ -215,6 +215,12 @@ UID all match. Recreated names, cross-namespace owners, invalid references, look
 omitted owners make the evidence incomplete and expose no partial owner set. The projection keeps
 bounded identity, generation, deletion, and condition fields; arbitrary custom resource spec
 strings are excluded.
+When a complete workload projection has one controller owner reference whose UID matches a
+projected custom owner, a degraded child emits a hold-only
+`custom_owner_has_degraded_workload` candidate. This proves the direct ownership relationship,
+not that the owner's configuration caused the degradation. The source campaign's
+`configuration_precedes` claim and arbitrary custom spec projection are intentionally rejected
+because they carried neither a configuration change timestamp nor interventional evidence.
 
 The shared Kubernetes package has a hold-only admission resource-drift reducer. It reports a
 candidate-only correlation between normalized request or limit drift and one complete

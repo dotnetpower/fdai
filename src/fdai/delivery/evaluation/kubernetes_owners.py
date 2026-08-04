@@ -9,6 +9,7 @@ from typing import Any, Protocol
 
 from fdai_evaluation_sdk import EvaluationTask
 
+from fdai.delivery.kubernetes.owner_findings import custom_owner_degradation_findings
 from fdai.delivery.kubernetes.owners import CustomOwnerQuery, custom_owner_queries
 
 _MAX_OWNERS = 8
@@ -46,6 +47,13 @@ class KubectlOwnerEvidenceProvider:
             "namespace": str(inventory.get("namespace") or "")[:253],
             "evidence_complete": evidence_complete,
             "owners": owners if evidence_complete else [],
+            "findings": list(
+                custom_owner_degradation_findings(
+                    resources,
+                    owners,
+                    evidence_complete=evidence_complete,
+                )
+            ),
         }
 
     async def _collect_owner(

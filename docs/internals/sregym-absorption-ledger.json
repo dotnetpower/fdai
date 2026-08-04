@@ -222,6 +222,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_custom_owner_degradation_relationship",
+      "source_commits": [
+        "66ea9b511170bc18dba475dec1295e63ce36e7cb"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Rejected unsupported configuration_precedes causality and arbitrary custom spec projection; retained UID-grounded direct ownership relationship evidence.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 38214c62771ee378dc8953f585746c904b8738f8
+translation_source_sha: fcd21cfe467ba100a061bd1aadfc239803aad4be
 translation_revised: 2026-08-04
 ---
 
@@ -219,6 +219,11 @@ resource의 API group, kind, name, namespace 및 immutable UID가 모두 일치�
 Recreated name, cross-namespace owner, invalid reference, lookup failure 및 omitted owner는 evidence를
 incomplete로 만들고 partial owner set을 노출하지 않습니다. Projection은 bounded identity,
 generation, deletion 및 condition field만 보존하며 임의 custom resource spec string은 제외합니다.
+Complete workload projection에 projected custom owner UID와 일치하는 controller owner reference가
+하나 있으면 degraded child는 hold-only `custom_owner_has_degraded_workload` candidate를 생성합니다.
+이는 direct ownership relationship을 증명하지만 owner configuration이 degradation을 일으켰다고
+증명하지 않습니다. Source campaign의 `configuration_precedes` 주장과 임의 custom spec projection은
+configuration change timestamp 또는 interventional evidence가 없으므로 의도적으로 거부합니다.
 
 공유 Kubernetes package에는 hold-only admission resource-drift reducer가 있습니다. Exact core/v1
 Pod CREATE rule을 가진 complete selector-free, namespace-unscoped

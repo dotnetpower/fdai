@@ -290,6 +290,7 @@ async def test_inventory_projects_bounded_immutable_owner_references(tmp_path: P
             "kind": "Database",
             "name": "catalog",
             "uid": "owner-uid",
+            "controller": True,
         }
     ]
     assert "blockOwnerDeletion" not in json.dumps(evidence)

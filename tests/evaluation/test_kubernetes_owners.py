@@ -66,6 +66,42 @@ async def test_owner_provider_returns_uid_grounded_projection() -> None:
     assert evidence["owners"] == [_owner()]
 
 
+async def test_owner_provider_emits_only_uid_grounded_relationship_finding() -> None:
+    class _FindingClient(_Client):
+        async def inventory(self, task: EvaluationTask) -> Mapping[str, Any]:
+            del task
+            return {
+                "cluster": "example-cluster",
+                "namespace": "example-app",
+                "resources": [
+                    {
+                        "kind": "StatefulSet",
+                        "name": "database",
+                        "namespace": "example-app",
+                        "desired": 3,
+                        "ready": 2,
+                        "owner_reference_projection_complete": True,
+                        "owner_references": [
+                            {
+                                "api_version": "database.example.io/v1",
+                                "kind": "Database",
+                                "name": "database-0",
+                                "uid": "owner-0",
+                                "controller": True,
+                            }
+                        ],
+                    }
+                ],
+                "truncated": False,
+            }
+
+    evidence = await KubectlOwnerEvidenceProvider(_FindingClient()).collect(None)  # type: ignore[arg-type]
+
+    assert evidence["findings"][0]["reason"] == "custom_owner_has_degraded_workload"
+    assert evidence["findings"][0]["evidence_strength"] == "direct_owner_reference"
+    assert "operational_configuration" not in evidence["findings"][0]
+
+
 @pytest.mark.parametrize(
     "client_kwargs",
     [

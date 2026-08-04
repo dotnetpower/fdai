@@ -538,7 +538,7 @@ def _project_owner_references(value: object) -> tuple[list[dict[str, str]], bool
     return references, len(value) <= 8 and len(references) == len(value)
 
 
-def _project_owner_reference(value: Mapping[str, Any]) -> dict[str, str] | None:
+def _project_owner_reference(value: Mapping[str, Any]) -> dict[str, Any] | None:
     api_version = value.get("apiVersion")
     kind = value.get("kind")
     name = value.get("name")
@@ -550,6 +550,7 @@ def _project_owner_reference(value: Mapping[str, Any]) -> dict[str, str] | None:
         "kind": str(kind)[:128],
         "name": str(name)[:253],
         "uid": str(uid)[:128],
+        "controller": value.get("controller") is True,
     }
 
 
