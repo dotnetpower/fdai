@@ -342,6 +342,40 @@ async def test_throttling_honors_retry_after_within_deadline(
     assert delays == [4.0]
 
 
+async def test_arg_throttle_wait_recalculates_request_timeout() -> None:
+    now = 0.0
+    request_timeouts: list[float] = []
+
+    class _AdvancingGate:
+        async def wait(self) -> None:
+            nonlocal now
+            now += 4.0
+
+        async def observe(self, _headers: httpx.Headers) -> None:
+            return None
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        request_timeouts.append(request.extensions["timeout"]["read"])
+        return httpx.Response(200, json={"data": []})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        transport = AzureRestReadTransport(
+            config=_config(),
+            identity=_Identity(),
+            http_client=client,
+            clock=lambda: NOW,
+            monotonic=lambda: now,
+        )
+        transport._arg_throttle_gate = _AdvancingGate()  # type: ignore[assignment]
+        result = await transport.resolve_resources(
+            ResourceSelector(name="vm-01", scope_ref="scope:allowed"),
+            limits=LIMITS,
+        )
+
+    assert result == []
+    assert request_timeouts == [6.0]
+
+
 async def test_resource_health_fallback_honors_lookback() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/providers/Microsoft.ResourceGraph/resources"):

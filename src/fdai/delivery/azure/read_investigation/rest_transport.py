@@ -598,6 +598,9 @@ class AzureRestReadTransport:
                 break
             if throttle_gate is not None:
                 await throttle_gate.wait()
+                remaining = deadline - self._monotonic()
+                if remaining <= 0:
+                    break
             try:
                 response = await self._http.request(
                     method,
