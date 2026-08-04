@@ -27,8 +27,8 @@ class GraphRegistryUpdate:
 
 
 class StateStoreGraphEffectModelRegistry:
-    def __init__(self, store: StateStore, *, max_models: int = 256, max_retries: int = 3) -> None:
-        if not 1 <= max_models <= 4096 or max_retries < 1:
+    def __init__(self, store: StateStore, *, max_models: int = 1000, max_retries: int = 3) -> None:
+        if not 1 <= max_models <= 1000 or max_retries < 1:
             raise ValueError("graph registry limits MUST be positive and bounded")
         self._store = store
         self._max_models = max_models
@@ -58,6 +58,8 @@ class StateStoreGraphEffectModelRegistry:
         trigger_refs: tuple[str, ...],
     ) -> tuple[GraphEffectModel, ...]:
         rows = await self._store.read_states(f"{_PREFIX}:{status.value}:", limit=self._max_models)
+        if len(rows) >= self._max_models:
+            raise ValueError("graph effect model registry partition is truncated")
         models = tuple(
             sorted(
                 (model for row in rows if (model := _deserialize(row)).trigger_ref in trigger_refs),
@@ -74,6 +76,8 @@ class StateStoreGraphEffectModelRegistry:
             f"{_PREFIX}:{EffectModelStatus.CHALLENGER.value}:",
             limit=self._max_models,
         )
+        if len(rows) >= self._max_models:
+            return GraphRegistryUpdate(False, "challenger_registry_truncated")
         models = tuple(_deserialize(row) for row in rows)
         if any(observation.digest in model.applied_observation_digests for model in models):
             return GraphRegistryUpdate(False, "observation_already_applied")

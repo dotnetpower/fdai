@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from fdai.core.assurance_twin import (
     CausalEvidenceGrade,
     EffectModelStatus,
@@ -147,3 +149,28 @@ async def test_graph_registry_rejects_unknown_challenger() -> None:
 
     assert update.accepted is False
     assert update.reason == "challenger_not_found_or_ambiguous"
+
+
+async def test_graph_registry_fails_closed_on_truncated_status_partition() -> None:
+    store = InMemoryStateStore()
+    registry = StateStoreGraphEffectModelRegistry(store, max_models=1)
+    model = _model(EffectModelStatus.ACTIVE)
+    assert await registry.register(model, registered_by="Mimir") is True
+
+    with pytest.raises(ValueError, match="partition is truncated"):
+        await registry.list_models(
+            status=EffectModelStatus.ACTIVE,
+            trigger_refs=(model.trigger_ref,),
+        )
+
+
+async def test_graph_registry_rejects_update_when_challenger_partition_is_truncated() -> None:
+    store = InMemoryStateStore()
+    registry = StateStoreGraphEffectModelRegistry(store, max_models=1)
+    model = _model(EffectModelStatus.CHALLENGER)
+    assert await registry.register(model, registered_by="Mimir") is True
+
+    result = await registry.update_from_observation(_observation(model))
+
+    assert result.accepted is False
+    assert result.reason == "challenger_registry_truncated"
