@@ -165,10 +165,7 @@
     .ah-find label { display:block; margin-bottom:5px; font-size:10px; font-weight:700; }
     .ah-find input { width:100%; min-height:39px; padding:8px 10px; border:1px solid var(--cs-hairline); border-radius:7px; background:var(--cs-card); color:var(--cs-text); font:12px var(--cs-font); }
     .ah-find input:focus { outline:0; border-color:var(--cs-steel); box-shadow:0 0 0 3px rgba(68,104,142,.12); }
-    .ah-duty-picker { display:grid; grid-template-columns:120px 170px minmax(0,1fr); align-items:center; gap:8px; margin-top:11px; padding:8px 0; border-block:1px solid var(--cs-hairline); }
-    .ah-duty-picker label { font-size:10px; font-weight:700; }
-    .ah-duty-picker select { min-height:34px; padding:5px 8px; border:1px solid var(--cs-hairline); border-radius:6px; background:var(--cs-card); color:var(--cs-text); font:10.5px var(--cs-font); }
-    .ah-duty-picker span { color:var(--cs-text-soft); font-size:9.5px; }
+    .ah-coverage-guidance { margin-top:10px; padding:8px 9px; border-block:1px solid var(--cs-hairline); color:var(--cs-text-soft); font-size:9.5px; }
     .ah-candidates { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:11px; }
     .ah-candidate { min-width:0; padding:11px; border:1px solid var(--cs-hairline); border-radius:7px; background:var(--cs-card); }
     .ah-candidate-head { display:flex; align-items:flex-start; gap:8px; }
@@ -183,14 +180,24 @@
     .ah-candidate-evidence { margin-top:6px; padding-top:6px; border-top:1px solid var(--cs-hairline); color:var(--cs-text-soft); font-size:9px; }
     .ah-candidate-actions { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-top:8px; }
     .ah-candidate-actions button { min-height:30px; padding:4px; border:1px solid var(--cs-hairline); border-radius:5px; background:var(--cs-bg); color:var(--cs-text); font:9.5px var(--cs-font); cursor:pointer; }
-    .ah-candidate-actions button.primary { border-color:var(--cs-navy); background:var(--cs-navy); color:#fff; }
     .ah-candidate-actions button:disabled { opacity:.48; cursor:not-allowed; }
+    .ah-add-menu { position:relative; min-width:0; }
+    .ah-add-menu > summary { min-height:30px; display:flex; align-items:center; justify-content:center; padding:4px 7px; border:1px solid var(--cs-navy); border-radius:5px; background:var(--cs-navy); color:#fff; font:600 9.5px var(--cs-font); cursor:pointer; list-style:none; }
+    .ah-add-menu > summary::-webkit-details-marker { display:none; }
+    .ah-add-menu > summary::after { margin-left:5px; content:"▾"; font-size:8px; }
+    .ah-add-menu[open] > summary::after { content:"▴"; }
+    .ah-add-options { position:absolute; right:0; bottom:calc(100% + 5px); z-index:25; width:220px; overflow:hidden; padding:4px; border:1px solid var(--cs-hairline); border-radius:7px; background:var(--cs-card); box-shadow:0 10px 24px rgba(46,54,64,.16); }
+    .ah-add-options button { width:100%; min-height:37px; display:grid; grid-template-columns:70px minmax(0,1fr); align-items:center; gap:6px; padding:5px 7px; border:0; background:transparent; text-align:left; }
+    .ah-add-options button:hover:not(:disabled) { background:var(--cs-shade); }
+    .ah-add-options button strong { font-size:9.5px; }
+    .ah-add-options button small { color:var(--cs-text-soft); font-size:8.5px; }
+    .ah-add-linked { min-height:30px; display:flex; align-items:center; justify-content:center; border:1px solid var(--cs-hairline); border-radius:5px; color:var(--cs-text-soft); font-size:9.5px; }
     @media (max-width:1050px) { .ah-workspace{grid-template-columns:270px minmax(0,1fr)} .ah-detail-grid{grid-template-columns:1fr} .ah-side{border-top:1px solid var(--cs-hairline);border-left:0} }
     @media (max-width:760px) {
       .ah-summary{grid-template-columns:repeat(2,minmax(0,1fr))} .ah-metric:nth-child(2){border-right:0} .ah-metric:nth-child(-n+2){border-bottom:1px solid var(--cs-hairline)}
       .ah-tools{grid-template-columns:1fr} .ah-workspace{display:block} .ah-roster{border-right:0;border-bottom:1px solid var(--cs-hairline)}
       .ah-detail-head{flex-direction:column} .ah-badges{justify-content:flex-start} .ah-contract{grid-template-columns:1fr} .ah-contract div{border-right:0;border-bottom:1px solid var(--cs-hairline)}
-      .ah-match{grid-template-columns:1fr 1fr} .ah-invitation-actions{grid-template-columns:1fr} .ah-candidates{grid-template-columns:1fr} .ah-responsibility{grid-template-columns:minmax(0,1fr) auto} .ah-coverage-people{grid-column:1/-1} .ah-duty-picker{grid-template-columns:1fr}
+      .ah-match{grid-template-columns:1fr 1fr} .ah-invitation-actions{grid-template-columns:1fr} .ah-candidates{grid-template-columns:1fr} .ah-responsibility{grid-template-columns:minmax(0,1fr) auto} .ah-coverage-people{grid-column:1/-1}
     }
   </style>
 </head>
@@ -253,7 +260,7 @@
               <div class="ah-resolver">
                 <div class="ah-resolver-context"><span class="ah-glyph">?</span><div><strong id="resolverResponsibility">Stop conditions and recovery decisions</strong><small id="resolverQuestion">Who decides when checkout recovery must stop or roll back?</small></div></div>
                 <div class="ah-choices" style="margin-top:10px"><button class="ah-choice" type="button" data-owner-type="platform operations">Platform operations</button><button class="ah-choice" type="button" data-owner-type="service owner">Service owner</button><button class="ah-choice" type="button" data-owner-type="incident commander">Incident commander</button><button class="ah-choice" type="button" data-owner-type="not sure">Not sure</button></div>
-                <div class="ah-duty-picker"><label for="dutySelect">Add candidate as</label><select id="dutySelect"><option value="primary">Primary</option><option value="backup">Backup</option><option value="escalation">Escalation</option><option value="informed">Informed</option></select><span id="coverageRequirement">Primary and a distinct backup or escalation are required.</span></div>
+                <div id="coverageRequirement" class="ah-coverage-guidance">Choose a candidate, then select Primary, Backup, Escalation, or Informed from Add to coverage.</div>
                 <div class="ah-find"><label for="ownerSearch">Search a name or team, or describe where this responsibility lives</label><input id="ownerSearch" type="search" placeholder="Example: checkout platform operations lead" /></div>
                 <div id="candidateList" class="ah-candidates"></div>
                 <div id="resolverStatus" class="ah-status">Candidates are ranked by observed responsibility; RBAC only limits eligible relationship types.</div>
@@ -442,11 +449,7 @@
       document.querySelector("#resolverQuestion").textContent = selectedResponsibility.detail;
       document.querySelector("#ownerSearch").value = "";
       const links = [...selectedResponsibility.assignments, ...(selectedResponsibility.proposals || [])];
-      const duties = new Set(links.map((assignment) => assignment.duty));
-      const title = selectedResponsibility.title.toLowerCase();
-      const nextDuty = title.includes("backup") && !duties.has("backup") ? "backup" : title.includes("escalation") && !duties.has("escalation") ? "escalation" : !duties.has("primary") ? "primary" : !duties.has("backup") && !duties.has("escalation") ? "backup" : "informed";
-      document.querySelector("#dutySelect").value = nextDuty;
-      document.querySelector("#coverageRequirement").textContent = agent.need === "approval" ? "Primary, backup, and escalation require Approver or Owner RBAC." : "Primary and a distinct backup or escalation are required.";
+      document.querySelector("#coverageRequirement").textContent = agent.need === "approval" ? "Choose a candidate and duty. Primary, Backup, and Escalation require Approver or Owner RBAC; Informed does not." : "Choose a candidate and duty. Primary and a distinct Backup or Escalation provide accountable coverage; Informed receives context only.";
       document.querySelector("#proposalSummary").innerHTML = `<strong>${links.length} linked</strong><span>Coverage chain</span><small>${links.length ? links.map((assignment) => `${people.find((person) => person.id === assignment.person)?.name || "FDAI Maintainers"} · ${assignment.duty}`).join(" / ") : "Add primary, backup, escalation, or informed people."}</small><span class="ah-chip ${selectedResponsibility.state === "gap" ? "gap" : "knowledge"}">${selectedResponsibility.state === "gap" ? "Gap" : "Manage"}</span>`;
       document.querySelector("#requestReview").disabled = true;
       document.querySelector("#mappingStatus").textContent = "No relationship changes have been applied.";
@@ -455,23 +458,24 @@
     }
     function renderCandidates(candidates) {
       const agent = agents.find((candidate) => candidate.name === selectedAgent);
-      const duty = document.querySelector("#dutySelect").value;
+      const dutyOptions = [
+        { value:"primary", label:"Primary", detail:"First accountable contact" },
+        { value:"backup", label:"Backup", detail:"Accountable fallback" },
+        { value:"escalation", label:"Escalation", detail:"Final accountable route" },
+        { value:"informed", label:"Informed", detail:"Context and notifications only" }
+      ];
       document.querySelector("#candidateList").innerHTML = candidates.map((person) => {
         const approvalEligible = person.role === "Approver" || person.role === "Owner";
-        const requiresApproval = agent.need === "approval" && duty !== "informed";
         const alreadyLinked = [...selectedResponsibility.assignments, ...(selectedResponsibility.proposals || [])].some((assignment) => assignment.person === person.id);
-        const relation = requiresApproval ? approvalEligible ? `${duty} candidate` : "Informed only" : duty === "informed" ? "Informed candidate" : "Knowledge candidate";
-        const eligibility = requiresApproval && !approvalEligible ? '<span class="ah-chip gap">Not eligible</span>' : `<span class="ah-chip ${requiresApproval ? "approval" : "knowledge"}">${relation}</span>`;
-        const disabled = alreadyLinked || requiresApproval && !approvalEligible;
-        const actionLabel = alreadyLinked ? "Already linked" : `Add as ${duty}`;
-        return `<article class="ah-candidate"><div class="ah-candidate-head"><span class="ah-glyph">${person.initials}</span><div><strong>${person.name}</strong><small>${person.role} · ${person.team}</small></div>${eligibility}</div><div class="ah-candidate-role">Current responsibilities</div><ul class="ah-responsibility-list">${person.responsibilities.map((item) => `<li>${item}</li>`).join("")}</ul><div class="ah-candidate-evidence">Evidence: ${person.evidence}</div><div class="ah-candidate-actions"><button type="button" data-confirm="${person.id}">Ask at sign-in</button><button class="primary" type="button" data-propose="${person.id}"${disabled ? " disabled" : ""}>${actionLabel}</button></div></article>`;
+        const eligibility = agent.need === "approval" ? approvalEligible ? '<span class="ah-chip approval">Accountable eligible</span>' : '<span class="ah-chip knowledge">Informed only</span>' : '<span class="ah-chip knowledge">Coverage candidate</span>';
+        const menu = alreadyLinked ? '<span class="ah-add-linked">Already linked</span>' : `<details class="ah-add-menu"><summary>Add to coverage</summary><div class="ah-add-options">${dutyOptions.map((duty) => { const disabled = agent.need === "approval" && duty.value !== "informed" && !approvalEligible; return `<button type="button" data-propose="${person.id}" data-duty="${duty.value}"${disabled ? " disabled" : ""}><strong>${duty.label}</strong><small>${disabled ? "Requires Approver or Owner" : duty.detail}</small></button>`; }).join("")}</div></details>`;
+        return `<article class="ah-candidate"><div class="ah-candidate-head"><span class="ah-glyph">${person.initials}</span><div><strong>${person.name}</strong><small>${person.role} · ${person.team}</small></div>${eligibility}</div><div class="ah-candidate-role">Current responsibilities</div><ul class="ah-responsibility-list">${person.responsibilities.map((item) => `<li>${item}</li>`).join("")}</ul><div class="ah-candidate-evidence">Evidence: ${person.evidence}</div><div class="ah-candidate-actions"><button type="button" data-confirm="${person.id}">Ask at sign-in</button>${menu}</div></article>`;
       }).join("") || '<div class="cs-empty"><strong>No matching people</strong>Describe the team or responsibility instead.</div>';
-      document.querySelectorAll("[data-propose]").forEach((button) => button.addEventListener("click", () => proposePerson(button.dataset.propose)));
+      document.querySelectorAll("[data-propose]").forEach((button) => button.addEventListener("click", () => proposePerson(button.dataset.propose, button.dataset.duty)));
       document.querySelectorAll("[data-confirm]").forEach((button) => button.addEventListener("click", () => askPerson(button.dataset.confirm)));
     }
-    function proposePerson(id) {
+    function proposePerson(id, duty) {
       const person = people.find((candidate) => candidate.id === id);
-      const duty = document.querySelector("#dutySelect").value;
       selectedResponsibility.proposals = [...(selectedResponsibility.proposals || []), { person:id, duty, proposed:true }];
       const agent = agents.find((candidate) => candidate.name === selectedAgent);
       const index = agent.responsibilities.indexOf(selectedResponsibility);
@@ -494,7 +498,6 @@
     state.addEventListener("change", renderAgents);
     document.querySelectorAll("[data-owner-type]").forEach((button) => button.addEventListener("click", () => { document.querySelectorAll("[data-owner-type]").forEach((choice) => choice.classList.remove("is-active")); button.classList.add("is-active"); document.querySelector("#ownerSearch").value = button.dataset.ownerType === "not sure" ? "" : button.dataset.ownerType; renderCandidates(button.dataset.ownerType === "not sure" ? people : people.filter((person) => person.team.toLowerCase().includes(button.dataset.ownerType.split(" ")[0]) || person.responsibilities.some((item) => item.toLowerCase().includes(button.dataset.ownerType.split(" ")[0])))); }));
     document.querySelector("#ownerSearch").addEventListener("input", (event) => { const query = event.currentTarget.value.trim().toLowerCase(); renderCandidates(!query ? people : people.filter((person) => `${person.name} ${person.team} ${person.responsibilities.join(" ")}`.toLowerCase().includes(query))); });
-    document.querySelector("#dutySelect").addEventListener("change", () => { document.querySelector("#ownerSearch").dispatchEvent(new Event("input", { bubbles:true })); });
     document.querySelector("#requestReview").addEventListener("click", () => { document.querySelector("#mappingStatus").textContent = "Mapping review requested. RBAC and stewardship remain unchanged until governed approval."; });
     document.querySelectorAll("[data-invite]").forEach((button) => button.addEventListener("click", () => { const messages = {answer:"One focused handover question opened.",upload:"Secure evidence upload selected.",later:"Invitation snoozed for 24 hours."}; document.querySelector("#invitationStatus").textContent = messages[button.dataset.invite]; }));
     document.querySelector("#knowledgeCount").textContent = agents.filter((agent) => agent.need === "knowledge").length;
