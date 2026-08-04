@@ -660,6 +660,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_hpa_cpu_utilization_missing_request_candidate",
+      "source_commits": [
+        "df33b72059ec0e25efc3f5f9618058567fd1a046"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Requires complete HPA metrics, one closed inactive metric condition, an exact target workload, complete container resource projections, parsed positive CPU quantities, and candidate-only causality; concrete projection remains unclaimed.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

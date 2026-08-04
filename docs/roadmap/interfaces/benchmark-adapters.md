@@ -384,6 +384,11 @@ evidence is complete and empty, the Service selector is complete, exactly one sa
 workload has identical complete template labels, and its desired replicas are zero. Ready,
 nonzero, ambiguous, selector-mismatched, incomplete, or truncated evidence abstains. Concrete
 endpoint and label projection remains provider work.
+Provider-neutral autoscaling semantics identify a hold-only candidate when one complete HPA uses CPU
+utilization, has one closed `ScalingActive=False` metric-failure reason, targets one exact complete
+workload template, and at least one completely projected container lacks a positive CPU request.
+Active, valid-request, non-CPU, ambiguous, malformed, incomplete, or truncated evidence abstains.
+Concrete HPA projection remains provider work.
 The source campaign's deterministic SecurityContext patch is not ported. A syntactically grounded
 template change can alter process identity, capabilities, and workload behavior; admission success
 alone does not prove rollout health, application correctness, or rollback restoration. Until those

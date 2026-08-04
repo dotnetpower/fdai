@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 3ed16577902ab55d5ca2c6cec26f17c710c3dbe4
+translation_source_sha: 7f29c7400c66f0a45e86b09f40d706bd77301803
 translation_revised: 2026-08-04
 ---
 
@@ -387,6 +387,11 @@ complete하고, same-namespace workload 하나의 complete template label이 exa
 replica가 0일 때만 hold-only scaled-to-zero candidate를 생성합니다. Ready, nonzero, ambiguous,
 selector-mismatched, incomplete 또는 truncated evidence는 abstain합니다. Concrete endpoint 및 label
 projection은 별도 provider 작업입니다.
+Provider-neutral autoscaling semantic은 complete HPA 하나가 CPU utilization을 사용하고 closed
+`ScalingActive=False` metric-failure reason 하나를 가지며 exact complete workload template 하나를
+target하고, completely projected container 하나 이상에 positive CPU request가 없을 때 hold-only
+candidate를 생성합니다. Active, valid-request, non-CPU, ambiguous, malformed, incomplete 또는
+truncated evidence는 abstain합니다. Concrete HPA projection은 별도 provider 작업입니다.
 Source campaign의 deterministic SecurityContext patch는 port하지 않습니다. Syntactically grounded
 template change도 process identity, capability 및 workload behavior를 바꿀 수 있으며 admission
 success만으로 rollout health, application correctness 또는 rollback restoration을 증명할 수 없습니다.
