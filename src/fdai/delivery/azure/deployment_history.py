@@ -49,7 +49,6 @@ Safety / cost invariants
 
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -57,6 +56,7 @@ from typing import Any, Final
 
 import httpx
 
+from fdai.delivery.azure.arg_transport import ArgThrottleGate, fetch_arg_row_pages
 from fdai.shared.providers.observation import (
     DeploymentHistoryError,
     DeploymentHistoryResult,
@@ -149,6 +149,7 @@ class AzureResourceGraphDeploymentHistory:
         self._config: Final[AzureDeploymentHistoryConfig] = config
         self._identity: Final[WorkloadIdentity] = identity
         self._http: Final[httpx.AsyncClient] = http_client
+        self._throttle_gate = ArgThrottleGate()
 
     async def query_deployments(
         self, *, window: str, resource_ref: str | None = None
@@ -177,82 +178,23 @@ class AzureResourceGraphDeploymentHistory:
     # ------------------------------------------------------------------
 
     async def _fetch_all_pages(self, *, query: str) -> list[Mapping[str, Any]]:
-        url = (
-            f"{self._config.arg_endpoint.rstrip('/')}"
-            "/providers/Microsoft.ResourceGraph/resources"
-            f"?api-version={self._config.arg_api_version}"
+        rows = await fetch_arg_row_pages(
+            identity=self._identity,
+            http_client=self._http,
+            audience=self._config.audience,
+            endpoint=self._config.arg_endpoint,
+            api_version=self._config.arg_api_version,
+            subscriptions=self._config.subscription_scopes,
+            query=query,
+            result_name="deployment history",
+            page_size=self._config.page_size,
+            max_pages=self._config.max_pages,
+            max_records=self._config.max_records,
+            timeout_seconds=self._config.timeout_seconds,
+            error_type=DeploymentHistoryError,
+            throttle_gate=self._throttle_gate,
         )
-        token = await self._identity.get_token(self._config.audience)
-        headers = {
-            "Authorization": f"Bearer {token.token}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        }
-
-        collected: list[Mapping[str, Any]] = []
-        skip_token: str | None = None
-
-        for page in range(self._config.max_pages):
-            body: dict[str, Any] = {
-                "subscriptions": list(self._config.subscription_scopes),
-                "query": query,
-                "options": {"$top": self._config.page_size},
-            }
-            if skip_token is not None:
-                body["options"]["$skipToken"] = skip_token
-
-            try:
-                response = await self._http.post(
-                    url,
-                    headers=headers,
-                    content=json.dumps(body),
-                    timeout=self._config.timeout_seconds,
-                )
-            except httpx.HTTPError as exc:
-                raise DeploymentHistoryError(
-                    f"ARG deployment-history request failed (page {page}): {exc}"
-                ) from exc
-
-            if response.status_code >= 400:
-                snippet = response.text[:200].replace("\n", " ")
-                raise DeploymentHistoryError(
-                    f"ARG returned HTTP {response.status_code} for deployment history "
-                    f"(page {page}): {snippet!r}"
-                )
-
-            try:
-                payload = response.json()
-            except ValueError as exc:
-                raise DeploymentHistoryError(
-                    f"ARG returned non-JSON for deployment history (page {page})"
-                ) from exc
-
-            data = payload.get("data") if isinstance(payload, Mapping) else None
-            if not isinstance(data, list):
-                raise DeploymentHistoryError(
-                    f"ARG payload missing 'data' array for deployment history (page {page})"
-                )
-
-            for row in data:
-                if isinstance(row, Mapping):
-                    collected.append(row)
-            if len(collected) > self._config.max_records:
-                raise DeploymentHistoryError(
-                    f"ARG returned more than {self._config.max_records} deployment "
-                    "records; narrow the query window or resource filter"
-                )
-
-            next_token = payload.get("$skipToken")
-            if not isinstance(next_token, str) or not next_token:
-                break
-            skip_token = next_token
-        else:
-            raise DeploymentHistoryError(
-                f"ARG deployment history exceeded the max_pages cap of "
-                f"{self._config.max_pages}; narrow the query"
-            )
-
-        return collected
+        return list(rows)
 
     def _map_row(self, row: Mapping[str, Any]) -> DeploymentRecord:
         deployment_ref = self._require(row, self._config.deployment_ref_column)

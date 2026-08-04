@@ -343,6 +343,20 @@ use the same view-classification rules so local and deployed consoles keep the s
   workload by `ResourceType` (and further by scope when a single type is too broad), fans
   out queries under a semaphore, and streams batches into the ingest pipeline. The core
   never assumes a single-connection blocking scan.
+- **Complete ARG reads page beyond 1,000 records**: Azure Resource Graph returns at most 1,000
+  records per response. Complete-result adapters set `$top` to at most 1,000, follow each
+  `$skipToken` until exhaustion under a configured page cap, and order inventory queries by the
+  unique resource `id`. Every page consumes one query quota. A repeated token, a page-cap breach,
+  or `resultTruncated=true` without a continuation token makes the read incomplete and fails
+  closed. Bounded interactive reads instead request their explicit result cap plus one and report
+  truncation. See [Guidance for pagination](https://learn.microsoft.com/azure/governance/resource-graph/concepts/paging-results).
+- **ARG calls respect service quota signals**: one shared gate per adapter reads
+  `x-ms-user-quota-remaining` and `x-ms-user-quota-resets-after` from every response and delays
+  concurrent shards when quota reaches zero. HTTP `429` retries wait for `Retry-After`; transport
+  failures, `408`, and selected `5xx` responses use bounded exponential backoff. Retry exhaustion
+  fails closed instead of publishing a partial result. Fixed query-rate constants are not used
+  because Azure can change the allocated quota. See
+  [Guidance for throttled requests](https://learn.microsoft.com/azure/governance/resource-graph/concepts/guidance-for-throttled-requests).
 - **Idempotent generation storage** stages a complete scan in
   `inventory_snapshot_resource` and `inventory_snapshot_link`, keyed by generation plus the
   neutral `resource_id` or `(from_id, link_type, to_id)`. A complete fence atomically swaps the

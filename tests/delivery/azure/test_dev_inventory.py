@@ -7,7 +7,7 @@ import json
 import shlex
 import subprocess
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import yaml
@@ -43,6 +43,32 @@ async def _drain(inv: AzureCliInventory) -> list[InventoryBatch]:
 
 
 class TestFullSnapshot:
+    def test_arg_retries_throttling_and_follows_skip_token(self) -> None:
+        inventory = AzureCliInventory(resource_types=("compute.vm",))
+        responses = [
+            _completed("", returncode=1, stderr="429 RateLimiting"),
+            _completed(json.dumps({"data": [{"id": "first"}], "skip_token": "next"})),
+            _completed(json.dumps({"data": [{"id": "second"}], "skip_token": None})),
+        ]
+
+        with (
+            patch(
+                "fdai.delivery.azure.dev_inventory.subprocess.run",
+                side_effect=responses,
+            ) as run,
+            patch(
+                "fdai.delivery.azure.dev_inventory.asyncio.sleep",
+                new=AsyncMock(),
+            ) as sleep,
+        ):
+            rows = asyncio.run(inventory._fetch_arg_rows())
+
+        assert [row["id"] for row in rows] == ["first", "second"]
+        assert run.call_count == 3
+        sleep.assert_awaited_once_with(0.5)
+        second_page_argv = run.call_args_list[2].args[0]
+        assert second_page_argv[-2:] == ["--skip-token", "next"]
+
     def test_yields_final_batch_at_end(self) -> None:
         inv = AzureCliInventory(resource_types=("resource-group",))
         with patch(

@@ -108,6 +108,7 @@ class AzureArgConfigurationObservationSource:
         return (
             "Resources "
             f"| where resourceGroup =~ '{group}' "
+            "| order by id asc "
             "| project id, type, name, location, kind, sku, properties, resourceGroup"
         )
 

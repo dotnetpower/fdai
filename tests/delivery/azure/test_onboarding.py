@@ -83,6 +83,34 @@ async def test_probe_fails_closed_on_http_error() -> None:
             await probe.observed_resources()
 
 
+async def test_probe_follows_arg_skip_token() -> None:
+    requests: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append(body)
+        if len(requests) == 1:
+            return httpx.Response(
+                200,
+                json={"data": [{"type": "Microsoft.App/containerApps"}], "$skipToken": "next"},
+            )
+        return httpx.Response(
+            200,
+            json={"data": [{"type": "Microsoft.KeyVault/vaults"}]},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        probe = AzureResourceProbe(config=_config(), identity=_identity(), http_client=client)
+        resources = await probe.observed_resources()
+
+    assert {item.kind for item in resources} == {
+        OnboardingResourceKind.RUNTIME,
+        OnboardingResourceKind.SECRET_STORE,
+    }
+    assert requests[0]["options"] == {"$top": 1000}
+    assert requests[1]["options"] == {"$top": 1000, "$skipToken": "next"}
+
+
 def test_probe_rejects_query_delimiter_in_config() -> None:
     with pytest.raises(ValueError, match="resource_group"):
         AzureOnboardingProbeConfig(

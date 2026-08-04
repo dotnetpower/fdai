@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 98ae05a556388cac12eab39c2537fe787300f28b
-translation_revised: 2026-08-02
+translation_source_sha: 435c727a028a0ad53868ba613d81e98c479960d0
+translation_revised: 2026-08-04
 ---
 
 # CSP-중립성 계약
@@ -334,6 +334,23 @@ local 및 deployed console의 의미를 일치시킵니다.
   `ResourceType` 으로 샤딩 (하나의 타입이 너무 넓으면 스코프로 더 세분화), semaphore 하에서
   fan-out 쿼리, 배치를 ingest 파이프라인으로 스트리밍. 코어는 절대 단일-연결 블로킹
   스캔을 가정하지 않음.
+- **완전한 ARG 읽기는 1,000개 이후에도 페이지를 계속 조회합니다.** Azure Resource Graph는
+  응답 하나에 최대 1,000개 레코드를 반환합니다. 완전한 결과가 필요한 어댑터는 `$top`을
+  최대 1,000으로 설정하고, 구성된 page cap 안에서 각 `$skipToken`을 끝까지 따라가며,
+  inventory query를 고유한 resource `id`로 정렬합니다. 각 page는 query quota 하나를
+  소비합니다. Token 반복, page cap 초과, continuation token 없는 `resultTruncated=true`는
+  읽기가 불완전한 것으로 보고 fail-closed 처리합니다. 반면 bounded interactive read는 명시된
+  result cap보다 하나 더 요청하고 truncation을 표시합니다. 자세한 내용은
+  [Pagination 지침](https://learn.microsoft.com/azure/governance/resource-graph/concepts/paging-results)을
+  참조하세요.
+- **ARG 호출은 service quota 신호를 따릅니다.** 어댑터별 shared gate는 모든 응답의
+  `x-ms-user-quota-remaining`과 `x-ms-user-quota-resets-after`를 읽고 quota가 0이면 concurrent
+  shard를 지연합니다. HTTP `429` 재시도는 `Retry-After`만큼 기다립니다. Transport failure,
+  `408`, 일부 `5xx` 응답에는 bounded exponential backoff를 적용합니다. 재시도를 모두 사용하면
+  partial result를 publish하지 않고 fail-closed 처리합니다. Azure가 할당 quota를 변경할 수
+  있으므로 고정 query-rate 상수는 사용하지 않습니다. 자세한 내용은
+  [Throttled request 지침](https://learn.microsoft.com/azure/governance/resource-graph/concepts/guidance-for-throttled-requests)을
+  참조하세요.
 - **멱등 generation 저장**은 complete scan을 `inventory_snapshot_resource`와
   `inventory_snapshot_link`에 stage하며, generation과 중립 `resource_id` 또는
   `(from_id, link_type, to_id)`를 key로 사용합니다. Complete fence가 `inventory_active`

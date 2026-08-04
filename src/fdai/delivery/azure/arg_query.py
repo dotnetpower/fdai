@@ -104,7 +104,7 @@ from fdai.delivery.azure.arg_projection import (
 from fdai.delivery.azure.arg_projection import (
     truncate_props as _truncate_props,
 )
-from fdai.delivery.azure.arg_transport import fetch_arg_pages
+from fdai.delivery.azure.arg_transport import ArgThrottleGate, fetch_arg_pages
 from fdai.delivery.azure.inventory import ResourceQueryFn
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
@@ -212,6 +212,7 @@ class AzureArgQueryFactory:
         self._resource_types: Final[ResourceTypeRegistry] = resource_types
         self._http: Final[httpx.AsyncClient] = http_client
         self._config: Final[AzureArgQueryFactoryConfig] = config
+        self._throttle_gate = ArgThrottleGate()
         # Pre-compute the ARM-type → neutral-id reverse map once. Every
         # `attached_to` extraction hits this map per referenced id; a
         # fresh iteration per row would be O(vocabulary_size * rows).
@@ -285,6 +286,7 @@ class AzureArgQueryFactory:
         )
         return (
             f"{table} | where type =~ '{arm_type}' "
+            "| order by id asc "
             "| project id, type, name, location, kind, sku, tags, properties, "
             "resourceGroup, subscriptionId"
         )
@@ -308,6 +310,7 @@ class AzureArgQueryFactory:
             error_type=ArgQueryError,
             map_row=lambda row: self._map_row(row, resource_type=resource_type),
             project_links=self._project_links,
+            throttle_gate=self._throttle_gate,
         )
 
     def _project_links(
