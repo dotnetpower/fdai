@@ -279,9 +279,10 @@ earliest timestamp observed for the turn, and the terminal answer anchors no ear
 recorded timing completion. Browser and server clock skew therefore cannot place evidence before
 input or generation and verification after delivery. The lane baseline and ticks remain distinct
 from a completion progress bar.
-Answer text is at least 14 px, main disclosures are 44 px high, and content reflows without loss at 200% text resize and 320 CSS pixels.
-The transcript uses 15 px text, trajectory headings use 13 px, event labels use 12 px, controls use
-13 px, and compact trajectory metadata never drops below 11 px. A published screen snapshot becomes visibly stale
+Answer text uses 16 px text, main disclosures are 44 px high, and content reflows without loss at 200% text resize and 320 CSS pixels.
+Trajectory headings use 14 px, event labels use 13 px, and compact trajectory metadata uses 12 px.
+A terminal verified answer that contains the exact server-rendered English or Korean recorded-agent-activity block presents those rows as one compact vertical timeline. Each row retains the agent, canonical event token, exact ISO timestamp, and localized readable time; malformed or unknown prose remains ordinary answer content instead of becoming observed activity.
+A published screen snapshot becomes visibly stale
 after five minutes and offers an explicit page refresh; a bare clock never implies current evidence.
 Markdown tables render progressively. A completed header and separator create the table shell before
 the first body row arrives, and each completed row appends without replacing the table. Incomplete

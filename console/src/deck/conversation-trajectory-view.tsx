@@ -75,11 +75,6 @@ export function ConversationTrajectoryView({
             references: presentation.evidenceReferenceCount,
           })}
         </span>
-        {answer.verification ? (
-          <span data-state={presentation.phaseStates.verification}>
-            {answer.verification.checks_completed}/{answer.verification.checks_total} {t("deck.trajectory.checks")}
-          </span>
-        ) : null}
       </div>
       <details
         class="deck-trajectory"

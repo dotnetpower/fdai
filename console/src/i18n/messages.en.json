@@ -2070,6 +2070,8 @@
       "hideTrace": "hide trace",
       "showSources": "show sources",
       "hideSources": "hide sources",
+      "source": "source",
+      "sources": "sources",
       "traceLabel": "Retrieval trace",
       "sourceAria": "Source",
       "llmEscalation": "LLM escalation",
@@ -2379,7 +2381,17 @@
       "streaming": "streaming",
       "preparingChart": "Preparing chart",
       "preparingChartProgress": "Preparing chart...",
-      "lineChart": "Line chart"
+      "lineChart": "Line chart",
+      "agentActivity": {
+        "title": "Recorded agent activity",
+        "count": "{count} observed",
+        "latest": "Latest",
+        "event": {
+          "rcaHypothesis": "RCA hypothesis recorded",
+          "incidentOpen": "Incident opened",
+          "recorded": "Activity recorded"
+        }
+      }
     },
     "tooltip": {
       "chattingWith": "Conversation context: {session}",

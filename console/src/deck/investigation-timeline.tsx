@@ -453,7 +453,10 @@ export function InvestigationTimeline({
                       </ul>
                     </div>
                   ) : (
-                    <p class="muted">{t("deck.investigation.noEvidenceReferences")}</p>
+                    <p class="deck-branch-empty-evidence">
+                      <span aria-hidden="true">!</span>
+                      {t("deck.investigation.noEvidenceReferences")}
+                    </p>
                   )}
                 </div>
               </details>

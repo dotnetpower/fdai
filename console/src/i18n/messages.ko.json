@@ -2070,6 +2070,8 @@
       "hideTrace": "추적 숨기기",
       "showSources": "출처 보기",
       "hideSources": "출처 숨기기",
+      "source": "개 출처",
+      "sources": "개 출처",
       "traceLabel": "검색 추적",
       "sourceAria": "출처",
       "llmEscalation": "LLM 에스컬레이션",
@@ -2379,7 +2381,17 @@
       "streaming": "스트리밍 중",
       "preparingChart": "차트 준비 중",
       "preparingChartProgress": "차트 준비 중...",
-      "lineChart": "선형 차트"
+      "lineChart": "선형 차트",
+      "agentActivity": {
+        "title": "기록된 에이전트 활동",
+        "count": "관찰 {count}건",
+        "latest": "최신",
+        "event": {
+          "rcaHypothesis": "RCA 가설 기록",
+          "incidentOpen": "인시던트 생성",
+          "recorded": "활동 기록"
+        }
+      }
     },
     "tooltip": {
       "chattingWith": "대화 컨텍스트: {session}",

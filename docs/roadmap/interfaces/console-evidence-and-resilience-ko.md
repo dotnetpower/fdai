@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 793e58848fd9da98f33928817632e6bb236ca62d
+translation_source_sha: bc521e7ac0675c7334c2b6c3e089db10ec780b46
 translation_revised: 2026-08-04
 ---
 
@@ -272,10 +272,10 @@ evidence branch를 대체하며 observed label, tool, authority 및 detail을 �
 마지막 recorded timing completion보다 앞에 배치하지 않습니다. 따라서 browser와 server의 clock
 skew가 evidence를 input 앞에 두거나 generation과 verification을 delivery 뒤에 두지 못합니다. Lane
 baseline과 tick은 completion progress bar와 구분됩니다.
-Answer text는 14 px 이상이고,
-main disclosure 높이는 44 px이며, 200% text resize와 320 CSS pixel에서 content loss 없이 reflow합니다.
-Transcript text는 15 px, trajectory heading은 13 px, event label은 12 px, control은 13 px을 사용하며
-compact trajectory metadata는 11 px 아래로 내려가지 않습니다. 게시된 screen snapshot은 5분 후 visibly stale 상태가 되고
+Answer text는 16 px을 사용하고 main disclosure 높이는 44 px이며, 200% text resize와 320 CSS pixel에서 content loss 없이 reflow합니다.
+Trajectory heading은 14 px, event label은 13 px, compact trajectory metadata는 12 px을 사용합니다.
+Terminal verified answer에 server가 정확한 영어 또는 한국어 형식으로 렌더링한 recorded-agent-activity block이 있으면 해당 row를 하나의 compact vertical timeline으로 표시합니다. 각 row는 agent, canonical event token, 정확한 ISO timestamp 및 locale에 맞춘 읽기 쉬운 시간을 유지합니다. Malformed 또는 알 수 없는 prose는 observed activity로 승격하지 않고 일반 answer content로 유지합니다.
+게시된 screen snapshot은 5분 후 visibly stale 상태가 되고
 명시적인 page refresh를 제공합니다. Bare clock은 current evidence를 의미하지 않습니다. Markdown
 table은 점진적으로 렌더링합니다. 완성된 header와 separator가 첫 body row보다 먼저 table shell을 만들고,
 완성된 각 row는 table을 교체하지 않고 누적됩니다. 완성되지 않은 header, separator 및 row syntax는 raw

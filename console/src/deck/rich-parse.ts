@@ -8,6 +8,11 @@
  * block degrades to text, never throws.
  */
 
+import {
+  parseAgentActivityBlock,
+  type AgentActivityItem,
+} from "./agent-activity-block";
+
 export interface ChartDatum {
   readonly label: string;
   readonly value: number;
@@ -29,6 +34,11 @@ export interface ListItem {
 
 export type Segment =
   | { readonly kind: "text"; readonly text: string }
+  | {
+      readonly kind: "agent-activity";
+      readonly locale: "en" | "ko";
+      readonly items: readonly AgentActivityItem[];
+    }
   | { readonly kind: "heading"; readonly level: number; readonly text: string }
   | { readonly kind: "list"; readonly ordered: boolean; readonly items: readonly ListItem[] }
   | { readonly kind: "quote"; readonly text: string }
@@ -143,6 +153,18 @@ export function parseAnswer(text: string): Segment[] {
 
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i] ?? "";
+
+    const agentActivity = parseAgentActivityBlock(lines, i);
+    if (agentActivity) {
+      flushText();
+      segments.push({
+        kind: "agent-activity",
+        locale: agentActivity.locale,
+        items: agentActivity.items,
+      });
+      i = agentActivity.nextIndex - 1;
+      continue;
+    }
 
     const fence = line.match(FENCE_OPEN);
     if (fence) {

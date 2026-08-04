@@ -59,12 +59,6 @@ export interface CiteMark {
   readonly title: string;
 }
 
-/** One stat span in the grounded pill (e.g. `7 sources`, `2/2 checks`). */
-export interface PillStat {
-  readonly value: string;
-  readonly label: string;
-}
-
 /** One reconstructed retrieval-trace stage. `side` mirrors the mock's
  *  side_effect_class tag (read / route / ground / verify). */
 export interface TraceStage {
@@ -281,36 +275,6 @@ export function citationMarks(sources: readonly GroundedSource[]): CiteMark[] {
     });
   }
   return marks;
-}
-
-/** Build the grounded-pill stat spans from data the reply already holds. Only
- *  stats with real values are emitted (no zero-filled placeholders). */
-export function pillStats(input: {
-  readonly sourceCount: number;
-  readonly checksCompleted: number;
-  readonly checksTotal: number;
-  readonly agentCount: number;
-}): PillStat[] {
-  const stats: PillStat[] = [];
-  if (input.sourceCount > 0) {
-    stats.push({
-      value: String(input.sourceCount),
-      label: input.sourceCount === 1 ? "source" : "sources",
-    });
-  }
-  if (input.checksTotal > 0) {
-    stats.push({
-      value: `${input.checksCompleted}/${input.checksTotal}`,
-      label: "checks",
-    });
-  }
-  if (input.agentCount > 0) {
-    stats.push({
-      value: String(input.agentCount),
-      label: input.agentCount === 1 ? "agent" : "agents",
-    });
-  }
-  return stats;
 }
 
 /** Reconstruct the retrieval-trace stages from the reply's own metadata, so an

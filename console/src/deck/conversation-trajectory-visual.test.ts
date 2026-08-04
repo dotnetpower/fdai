@@ -11,15 +11,16 @@ const source = readFileSync(
 describe("observed trajectory typography", () => {
   test("keeps primary detail text readable and subordinate to the transcript", () => {
     expect(styles).toMatch(
-      /\.deck-transcript\s*\{[^}]*overflow-y:\s*auto;[^}]*overflow-anchor:\s*none;[^}]*padding:\s*0;[^}]*font-size:\s*15px;/,
+      /\.deck-transcript\s*\{[^}]*overflow-y:\s*auto;[^}]*overflow-anchor:\s*none;[^}]*padding:\s*0;[^}]*font-size:\s*16px;/,
     );
     expect(styles).toMatch(
       /\.deck-transcript-inner\s*\{[^}]*width:\s*min\(100%, 900px\);[^}]*display:\s*flex;[^}]*flex-direction:\s*column;[^}]*gap:\s*12px;/,
     );
-    expect(styles).toContain("--deck-font-heading: 13px;");
-    expect(styles).toContain("--deck-font-body: 12px;");
-    expect(styles).toContain("--deck-font-small: 11px;");
-    expect(styles).toContain("--deck-font-label: 11px;");
+    expect(styles).toContain("--deck-font-heading: 14px;");
+    expect(styles).toContain("--deck-font-body: 13px;");
+    expect(styles).toContain("--deck-font-small: 12px;");
+    expect(styles).toContain("--deck-font-label: 12px;");
+    expect(styles).toContain("font-size: 16px;\n  line-height: 1.62;");
   });
 
   test("keeps the operator prompt visible in the run record summary", () => {

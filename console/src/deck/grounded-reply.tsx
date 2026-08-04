@@ -40,7 +40,6 @@ import {
   groundingStages,
   handoffReasonKey,
   parseReplySource,
-  pillStats,
   type GroundedSource,
   type TraceStage,
 } from "./grounded-sources";
@@ -93,11 +92,6 @@ export function GroundedReply({
   const sources = buildSources(verification, cites);
   const groundingIncomplete = verification?.evidence_manifest?.complete === false;
   const marks = citationMarks(sources);
-  const replyModel = parsedSource?.kind === "llm"
-    ? parsedSource.timing
-      ? `${parsedSource.model} \u00b7 ${parsedSource.timing}`
-      : parsedSource.model
-    : null;
   const stages = groundingStages({
     sources,
     source,
@@ -377,17 +371,12 @@ export function GroundedReply({
                 <span class="deck-gr-check" aria-hidden="true">
                   {groundingIncomplete ? "!" : "\u2713"}
                 </span>
-                {pillStats({
-                  sourceCount: sources.length,
-                  checksCompleted: verification?.checks_completed ?? 0,
-                  checksTotal: verification?.checks_total ?? 0,
-                  agentCount: answerPlanning?.consulted_agents.length ?? 0,
-                }).map((stat, i) => (
-                  <span key={`${stat.label}-${i}`} class="deck-gr-stat">
-                    <strong>{stat.value}</strong> {stat.label}
-                  </span>
-                ))}
-                {replyModel ? <span class="deck-gr-stat is-model">{replyModel}</span> : null}
+                <span class="deck-gr-stat">
+                  <strong>{sources.length}</strong>{" "}
+                  {sources.length === 1
+                    ? t("deck.grounded.source")
+                    : t("deck.grounded.sources")}
+                </span>
                 {groundingIncomplete ? (
                   <span class="deck-gr-stat">{t("deck.grounded.partialEvidence")}</span>
                 ) : null}
