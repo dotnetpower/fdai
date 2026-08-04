@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: 60223497aa5359093c2b26c6fd4735976e99c338
-translation_revised: 2026-08-01
+translation_source_sha: a1c8b188a1865819782f7bd2d2bc8b7c816816a4
+translation_revised: 2026-08-04
 ---
 
 # 규칙 거버넌스(Rule Governance)
@@ -28,6 +28,21 @@ shadow-before-enforce 및 안전 불변식을 준수.
 > schema/loader와 CLI가 있지만 governance directory loader, expiry job 및 notification wiring에는
 > 포함되지 않습니다. Override schema/loader/runtime resolution과 governance PR OID/quorum CI는
 > 아직 목표 설계입니다.
+
+## 카탈로그 검색
+
+규칙 검색은 A0 읽기 프로젝션이며 정책, 승인 또는 실행 권한을 부여하지 않습니다. 프로덕션
+`CatalogSemanticIndex` 어댑터는 근거가 확인된 Rule 문서를 PostgreSQL과 `pgvector`에 저장하고,
+대소문자를 구분하지 않는 정확한 Rule id, `tsvector` 어휘 순위, 벡터 코사인 순위, 타입이 지정된
+이웃 유사도를 결정론적 reciprocal rank fusion(RRF)으로 결합합니다. 점수가 같으면 안정적인 Rule
+id 순서로 결정합니다.
+
+인덱스 재구축은 요청 경로 밖에서 실행합니다. 인덱싱 서비스는 제공되는 Rules와 ActionTypes를
+다시 로드하고, 참조된 각 Rego 정책을 OPA로 파싱한 다음 `build_catalog_search_documents`를 호출해
+콘텐츠 해시가 변경된 행만 upsert합니다. Rule, Rego 또는 ActionType 근거가 누락되거나 일치하지
+않으면 인덱싱을 차단합니다. 프로덕션 Operator API composition은 기존 읽기 전용 `/rules` 경로에
+persistent provider를 주입할 수 있습니다. provider를 설정하지 않으면 fallback이나 새 credential
+경로를 만들지 않고 semantic retrieval을 사용할 수 없는 상태로 유지합니다.
 
 ## 모델 (Azure Policy처럼 세 레이어)
 

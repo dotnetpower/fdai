@@ -17,12 +17,17 @@ from fdai.delivery.operator_api.production.config import (
     build_prod_read_model,
 )
 from fdai.delivery.operator_api.production.views import _build_dynamic_views
+from fdai.shared.providers.catalog_search import CatalogSemanticIndex
 
 
-def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
+def build_prod_app(
+    environ: Mapping[str, str] | None = None,
+    *,
+    catalog_semantic_index: CatalogSemanticIndex | None = None,
+) -> Starlette:
     from fdai.delivery.operator_api.production.factory import build_prod_app as build
 
-    return build(environ)
+    return build(environ, catalog_semantic_index=catalog_semantic_index)
 
 
 def app() -> Starlette:

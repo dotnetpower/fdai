@@ -84,6 +84,9 @@ from fdai.core.metering.budget import InMemoryBudgetLedger, ModelBudget
 from fdai.core.rbac.access_request import AccessRequestService
 from fdai.core.rbac.kill_switch_command import KillSwitchCommandService
 from fdai.core.stewardship import load_stewardship_from_yaml
+from fdai.delivery.catalog_search import (
+    load_shipped_catalog_search_sources,
+)
 from fdai.delivery.configuration_review_store import (
     StateStoreConfigurationReviewCampaignStore,
 )
@@ -174,6 +177,7 @@ from fdai.delivery.stewardship import (
     HumanIdentityLivenessDirectory,
     StewardshipHealthMonitor,
 )
+from fdai.rule_catalog.schema.catalog_search import build_catalog_search_documents
 from fdai.runtime.conversation_assurance import (
     build_azure_conversation_assurance_evaluators,
     build_conversation_assurance_coordinator,
@@ -185,6 +189,7 @@ from fdai.runtime.conversation_assurance_lifecycle import (
     DeterministicNarratorPolicyProposer,
     pricing_narrator_cost_estimator,
 )
+from fdai.shared.providers.catalog_search import CatalogSemanticIndex
 from fdai.shared.providers.local import EnvSecretProvider
 
 _REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[5]
@@ -204,8 +209,12 @@ _RBAC_ENV: Final[Mapping[str, str]] = {
 }
 
 
-def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
-    """Assemble the production ASGI app from environment only.
+def build_prod_app(
+    environ: Mapping[str, str] | None = None,
+    *,
+    catalog_semantic_index: CatalogSemanticIndex | None = None,
+) -> Starlette:
+    """Assemble the production ASGI app from environment and explicit providers.
 
     - Refuses to boot when any required env var is missing
       (:class:`ProdOperatorApiConfigError`).
@@ -849,6 +858,17 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         )
         stewardship_startup_callbacks = (stewardship_health.start,)
         shutdown_callbacks = (stewardship_health.stop, *shutdown_callbacks)
+    catalog_search_sources = load_shipped_catalog_search_sources(repo_root=_REPO_ROOT)
+    catalog_search_documents = build_catalog_search_documents(
+        rules=catalog_search_sources.rules,
+        action_types=catalog_search_sources.action_types,
+        policy_semantics=catalog_search_sources.policy_semantics,
+    )
+
+    async def _seed_catalog_semantic_index() -> None:
+        if catalog_semantic_index is not None:
+            await catalog_semantic_index.upsert(catalog_search_documents)
+
     config = OperatorApiConfig(
         dev_mode=False,
         cors_allow_origins=cors_origins,
@@ -873,6 +893,10 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         t2_recovery_reader=state_store,
         best_practice_controls=load_best_practice_reference(_REPO_ROOT),
         mcsb_catalogs=load_mcsb_reference(_REPO_ROOT),
+        rule_catalog_rules=catalog_search_sources.rules,
+        rule_catalog_policies_root=_REPO_ROOT / "policies",
+        rule_catalog_remediation_root=_REPO_ROOT / "rule-catalog" / "remediation",
+        rule_catalog_semantic_index=catalog_semantic_index,
         scope_source=scope_source,
         log_query_provider=log_query_provider,
         reporting=reporting,
@@ -1004,6 +1028,7 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
                 else ()
             ),
             *reader_startup_callbacks,
+            _seed_catalog_semantic_index,
             *runtime.startup_callbacks,
             *((remote_agent_delegate.start,) if remote_agent_delegate is not None else ()),
             *stewardship_startup_callbacks,

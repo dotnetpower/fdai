@@ -321,6 +321,9 @@ class OperatorApiConfig:
     endpoint report ``evaluated=false``; a fork wires the same
     inventory-evaluation source as :attr:`rule_catalog_findings_provider`."""
 
+    rule_catalog_semantic_index: Any = None
+    """Optional async semantic index for ranked Rule catalog queries."""
+
     promotion_gate_action_types: tuple[Any, ...] = ()
     """Opt-in promotion-gate dashboard input: tuple of
     :class:`~fdai.shared.contracts.models.OntologyActionType`."""

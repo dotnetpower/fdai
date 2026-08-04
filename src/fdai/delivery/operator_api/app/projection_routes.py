@@ -134,6 +134,7 @@ def append_projection_routes(
                 remediation_root=config.rule_catalog_remediation_root,
                 findings_provider=config.rule_catalog_findings_provider,
                 findings_summary_provider=config.rule_catalog_findings_summary_provider,
+                semantic_index=config.rule_catalog_semantic_index,
             )
         )
 
