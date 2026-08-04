@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 1b44c1cf6f51fca29471d96b8782039d3c9e3d6a
+translation_source_sha: 51f381cf92e69d81063b63e04565d77f6438dfb0
 translation_revised: 2026-08-04
 ---
 # 코드 맵
@@ -56,7 +56,7 @@ shared 패키지를 커버한다.
 
 | 서브시스템 | 책임 | 소스 | 테스트 |
 |-----------|------|------|--------|
-| detection | Anomaly와 operational-insight producer, 변경 불가능한 positive/negative/abstained forecast episode, event-time closure, publication outbox, 변경 불가능한 multi-scope version registry, 단계별 측정 receipt, durable revisioned review readiness를 사용하는 동결된 구성 기준선 비교, 범위가 제한된 read-only Azure 증거 | [src/fdai/core/detection/](../../../src/fdai/core/detection/), [src/fdai/runtime/forecast_learning.py](../../../src/fdai/runtime/forecast_learning.py), [src/fdai/delivery/persistence/postgres_forecast_episode.py](../../../src/fdai/delivery/persistence/postgres_forecast_episode.py) | [tests/core/detection/](../../../tests/core/detection/), [tests/runtime/test_forecast_learning.py](../../../tests/runtime/test_forecast_learning.py), [tests/persistence/test_postgres_forecast_episode.py](../../../tests/persistence/test_postgres_forecast_episode.py) |
+| detection | Anomaly와 operational-insight producer, 변경 불가능한 positive/negative/abstained forecast episode, event-time closure, publication outbox, 변경 불가능한 multi-scope version registry, 단계별 측정 receipt, replay 가능한 full-report evidence, durable revisioned review readiness를 사용하는 동결된 구성 기준선 비교, 범위가 제한된 read-only Azure 증거 | [src/fdai/core/detection/](../../../src/fdai/core/detection/), [src/fdai/runtime/forecast_learning.py](../../../src/fdai/runtime/forecast_learning.py), [src/fdai/delivery/persistence/postgres_forecast_episode.py](../../../src/fdai/delivery/persistence/postgres_forecast_episode.py) | [tests/core/detection/](../../../tests/core/detection/), [tests/runtime/test_forecast_learning.py](../../../tests/runtime/test_forecast_learning.py), [tests/persistence/test_postgres_forecast_episode.py](../../../tests/persistence/test_postgres_forecast_episode.py) |
 | case_history | Canonical case revision, strict operational receipt compilation, action/incident artifact-first intake, StateStore-to-PostgreSQL shadow migration, generic metadata 전체 chain backfill, retention, governed Norns 분석, 환경 독립 failure fingerprint ([case-history 설계](../rules-and-detection/prediction-learning-and-case-history-ko.md), [operational-learning 설계](../rules-and-detection/operational-learning-ontology-ko.md)) | [src/fdai/core/case_history/](../../../src/fdai/core/case_history/), [src/fdai/shared/providers/case_history.py](../../../src/fdai/shared/providers/case_history.py), [src/fdai/delivery/persistence/](../../../src/fdai/delivery/persistence/) | [tests/core/case_history/](../../../tests/core/case_history/), [tests/persistence/test_case_history_backfill.py](../../../tests/persistence/test_case_history_backfill.py), [tests/persistence/test_postgres_case_history.py](../../../tests/persistence/test_postgres_case_history.py), [tests/agents/test_forecast_learning_chain.py](../../../tests/agents/test_forecast_learning_chain.py) |
 | rca | Leakage-safe lagged evidence, immutable hypothesis, support/refutation 및 independent closure를 위한 shadow runtime이 포함된 근본원인 분석 | [src/fdai/core/rca/](../../../src/fdai/core/rca/) | [tests/core/rca/](../../../tests/core/rca/) |
 | incident | 인시던트 라이프사이클 레지스트리 + 상태 머신 | [src/fdai/core/incident/](../../../src/fdai/core/incident/) | [tests/core/incident/](../../../tests/core/incident/) |

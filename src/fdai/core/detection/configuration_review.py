@@ -14,6 +14,10 @@ from fdai.core.detection.configuration_drift_models import (
     DriftVerdict,
     KnowledgeGroundingStatus,
 )
+from fdai.core.detection.configuration_drift_reports import (
+    ConfigurationDriftReportStore,
+    persist_configuration_drift_report,
+)
 
 
 class ConfigurationReviewState(StrEnum):
@@ -107,10 +111,17 @@ class ConfigurationReviewConflictError(RuntimeError):
 class ConfigurationReviewCampaignService:
     """Create and advance durable campaigns with bounded CAS retry."""
 
-    def __init__(self, store: ConfigurationReviewCampaignStore, *, max_attempts: int = 3) -> None:
+    def __init__(
+        self,
+        store: ConfigurationReviewCampaignStore,
+        reports: ConfigurationDriftReportStore,
+        *,
+        max_attempts: int = 3,
+    ) -> None:
         if max_attempts < 1:
             raise ValueError("configuration review max_attempts MUST be positive")
         self._store = store
+        self._reports = reports
         self._max_attempts = max_attempts
 
     async def create(self, campaign: ConfigurationReviewCampaign) -> ConfigurationReviewCampaign:
@@ -135,6 +146,12 @@ class ConfigurationReviewCampaignService:
             next_campaign = record_configuration_review_run(current, report, run_id=run_id)
             if next_campaign is current:
                 return current
+            await persist_configuration_drift_report(
+                self._reports,
+                campaign_id=campaign_id,
+                run_id=run_id,
+                report=report,
+            )
             updated = replace(next_campaign, revision=current.revision + 1)
             if await self._store.replace(updated, expected_revision=current.revision):
                 return updated

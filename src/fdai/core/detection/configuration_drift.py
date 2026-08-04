@@ -21,6 +21,11 @@ from fdai.core.detection.configuration_drift_models import (
     FrozenConfigurationBaseline,
     KnowledgeGroundingStatus,
 )
+from fdai.core.detection.configuration_drift_reports import (
+    ConfigurationDriftReportConflictError,
+    ConfigurationDriftReportStore,
+    persist_configuration_drift_report,
+)
 from fdai.core.detection.configuration_review import (
     ConfigurationReviewCampaign,
     ConfigurationReviewCampaignService,
@@ -39,6 +44,8 @@ __all__ = [
     "ConfigurationBaselineStatus",
     "ConfigurationDriftPerformance",
     "ConfigurationDriftReport",
+    "ConfigurationDriftReportConflictError",
+    "ConfigurationDriftReportStore",
     "ConfigurationLink",
     "ConfigurationObservation",
     "ConfigurationResource",
@@ -59,5 +66,6 @@ __all__ = [
     "ConfigurationReviewState",
     "compare_configuration",
     "propose_weekly_configuration_review",
+    "persist_configuration_drift_report",
     "record_configuration_review_run",
 ]

@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: fdfbbf72ae218acb0b3024d3385eebab3eb31b38
+translation_source_sha: 2b68d342497ed4ad8ab56d639f47ba716ae541ab
 translation_revised: 2026-08-04
 ---
 
@@ -98,6 +98,9 @@ cross-format equivalence가 성립하지 않습니다.
   run 세 개만 inert weekly schedule proposal을 만들 수 있습니다. Blocked 또는 unsafe run이 있으면
   campaign을 pause하고 reducer는 scheduler task를 직접 생성하지 않습니다. Revisioned StateStore adapter는
   atomic state-and-audit create와 compare-and-set advance로 campaign progress를 저장합니다.
+- Campaign advance 전에 immutable StateStore report ledger가 campaign과 run identity 아래에 전체 finding,
+  citation, safety counter, measured performance를 기록합니다. Strict codec은 restart replay를 지원하고,
+  duplicate content는 no-op이며, 다른 evidence로 identity를 재사용하면 차단합니다.
 
 ## 1. 이벤트 상관관계(Event Correlation)
 

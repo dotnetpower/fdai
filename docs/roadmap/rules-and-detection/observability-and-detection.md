@@ -98,6 +98,10 @@ file digest alone does not establish cross-format equivalence.
   verified runs can produce an inert weekly schedule proposal. Any blocked or unsafe run pauses the
   campaign, and the reducer never creates a scheduler task directly. A revisioned StateStore adapter
   persists campaign progress with atomic state-and-audit create and compare-and-set advance.
+- Before campaign advance, an immutable StateStore report ledger records the full findings,
+  citations, safety counters, and measured performance under the campaign and run identity. Its
+  strict codec supports restart replay, duplicate content is a no-op, and identity reuse with
+  different evidence is blocked.
 
 ## 1. Event Correlation
 
