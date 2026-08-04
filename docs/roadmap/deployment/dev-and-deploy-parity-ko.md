@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: f88d5c2aac9bdfa0351f0b2ac8085e21e5bcf69f
+translation_source_sha: 20c5c1cba0c69359789530e2459c274d7e5e143e
 translation_revised: 2026-08-04
 ---
 
@@ -101,21 +101,12 @@ Narrator endpoint가 없거나 올바르지 않으면 core runtime을 시작한 
 또는 Azure provider에 접근하기 전에 준비 단계를 중단합니다.
 선택적인 local configuration-baseline conversation은 ignored artifact 세 개를 `FDAI_CONFIGURATION_BASELINE_JSON`, `FDAI_CONFIGURATION_BASELINE_DOCX`, `FDAI_CONFIGURATION_OBSERVATION_JSON`으로 binding합니다. Full-stack preparation 이후 Operator API launch에 세 값을 모두 제공합니다. Preparation이 generated `.fdai/local-runtime.env`를 교체하므로 해당 파일을 직접 수정하지 않는 것이 좋습니다.
 일부 값만 구성하거나 baseline integrity 또는 DOCX digest가 일치하지 않으면 Operator API startup이 중단되며 caller는 고정된 scope, version, digest 또는 document를 바꿀 수 없습니다. Binding이 성공하면 local composition은 같은 context를 deterministic chat과 GET-only 구성 기준선 panel에 등록합니다.
-Panel은 request마다 configured observation source를 실행하고 optional binding이 없으면 unavailable을 보고합니다. Fixture를 대체 증거로 사용하거나 현재 Azure state를 fresh evidence처럼 cache하지 않습니다. Local PostgreSQL을 사용할 수 있으면 같은 composition이 campaign projection을 durable StateStore에 binding합니다.
-따라서 campaign revision과 audit receipt는 Operator API restart 후에도 유지됩니다. Persistence가 없으면 in-memory interactive fallback을 사용하지 않고 review state를 not configured로 보고합니다.
-Local composition은 pinned artifact도 immutable registry의 active entry 하나로 등록하므로 history
-rendering이 구성되지 않은 version을 만들어내지 않습니다.
-
-Deployment는 같은 baseline JSON 및 DOCX key와
-`FDAI_CONFIGURATION_BASELINE_RESOURCE_GROUP`을 사용합니다. 세 값은 absolute mounted path로 함께
-필요합니다. Resource group은 Azure reader allowlist에 포함되어야 하며 context는 해당 reader의
-Managed Identity와 bounded HTTP client를 재사용합니다. Identity 누락, scope escape, malformed file 또는
-integrity mismatch는 startup을 차단합니다. Composition이 성공해도 read evidence, durable
-campaign/report state, independently reviewed shadow scheduling만 추가합니다.
-Operator API가 startup probe를 완료하는 동안 browser는 initial panel skeleton을 유지하고
-`GET /iam/self`의 fetch-level network failure만 약 28초 동안 bounded schedule로 재시도합니다.
-HTTP response, authentication failure, malformed payload 또는 소진된 schedule은 추가 retry로 숨기지
-않고 기존 access-recovery surface에 즉시 표시합니다.
+Panel은 request마다 observation source를 실행하고 binding 부재를 unavailable로 보고하며 fixture나 cached Azure state를 대체 근거로 사용하지 않습니다. 가능한 경우 campaign state를 PostgreSQL에 binding합니다.
+Campaign revision과 audit receipt는 restart 후에도 유지됩니다. Persistence가 없으면 review는 not configured이고 in-memory fallback을 사용하지 않으며, pinned artifact만 active immutable registry entry가 되어 history가 구성되지 않은 version을 만들지 않습니다.
+Deployment는 absolute mounted baseline JSON/DOCX path와 reader allowlist의 `FDAI_CONFIGURATION_BASELINE_RESOURCE_GROUP`을 함께 요구하고 해당 reader의 Managed Identity와 bounded HTTP client를 재사용합니다.
+Identity 누락, scope escape, malformed file 또는 integrity mismatch는 startup을 차단하며 성공 시 read evidence, durable campaign/report state, independently reviewed shadow scheduling만 추가합니다.
+Startup probe 중 browser는 initial skeleton을 유지하고 `GET /iam/self`의 fetch-level network failure만 약 28초 동안 재시도합니다.
+HTTP response, authentication failure, malformed payload 또는 소진된 schedule은 기존 access-recovery surface에 표시합니다.
 IAM bootstrap이 성공하면 Dashboard는 `GET /kpi`를 필수 backbone으로 취급하고 해당 response가
 resolve되는 즉시 route skeleton을 종료합니다. 선택 FinOps, promotion-gate 및 autonomy projection은
 독립적으로 합류하며 전체 Dashboard를 loading 상태로 유지하지 않습니다.

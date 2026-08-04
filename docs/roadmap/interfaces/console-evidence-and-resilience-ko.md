@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: d930764a70f45734ef349b6c867eb8119eb0b2d7
+translation_source_sha: fdab069ab3f6971a43952ae5cd358866724a0772
 translation_revised: 2026-08-04
 ---
 
@@ -83,17 +83,9 @@ Operations에는 Muninn의 durable StateSnapshot만 사용하는 감지 준비�
 promotion 관련 count는 Promotion gates로 연결됩니다. 성공한 HTTP 응답이 strict decoding을
 통과하지 못하면 loading skeleton에 머물지 않고 error를 렌더링합니다.
 
-Server-pinned drift context를 사용할 수 있으면 Operations에 구성 기준선 route도 표시됩니다. GET-only projection은 fresh read를 실행하고 baseline identity와 lifecycle, drift count, Knowledge citation readiness, topology coverage, 단계별 latency, 예약 검토 readiness, 네 safety counter를 표시합니다.
-SPA는 activation, schedule 생성, 승인, 완화 또는 resource mutation control을 제공하지 않습니다. Binding이 없으면 unavailable을 표시하고 malformed response는 inferred zero 또는 healthy state로 바꾸지 않고 strict decoding error로 처리합니다.
-Durable campaign store가 binding되면 panel은 실제 state와 completed-versus-required run count를 읽습니다. Campaign이 없으면 `not-configured`를 명시하고 browser는 progress를 만들어내지 않습니다.
-같은 read-only projection은 active baseline의 exact scope에 있는 immutable version을 나열하고 각
-version을 deterministic하게 active baseline과 비교하며 preserved failed-attempt count를 표시합니다.
-Activation 또는 resume control은 노출하지 않습니다. Evidence-run, resume, blueprint review,
-materialization은 별도 authenticated command route로 유지됩니다.
-
-Production은 mounted JSON/DOCX pair, read-only Managed Identity, exact resource-group allowlist가
-startup에서 검증된 뒤에만 이 panel을 노출합니다. Operator API는 이 capability를 위해 executor
-identity를 받지 않습니다.
+Server-pinned drift context가 있으면 GET-only 구성 기준선 route가 identity, lifecycle, drift, Knowledge citation, topology, latency, 예약 검토, 네 safety counter를 fresh read로 표시합니다.
+Binding 또는 campaign 부재는 unavailable이나 `not-configured`로 보고하며 progress를 만들지 않고 malformed data를 strict하게 거부하며 in-scope immutable version 비교와 failed-attempt count를 읽습니다. SPA는 activation, resume, schedule 생성, 승인, 완화, resource mutation을 노출하지 않고 evidence-run, resume, blueprint review, materialization은 별도 authenticated route를 사용합니다.
+Production은 mounted JSON/DOCX pair, read-only Managed Identity, exact resource-group allowlist를 startup에서 검증한 뒤 panel을 노출합니다. Operator API는 executor identity를 받지 않습니다.
 
 Processes detail route는 동일한 authoritative Process journal에서 Planning Room을 조건부로
 렌더링합니다. Strict decoder는 모순된 phase count, duplicate candidate, invalid selection,
