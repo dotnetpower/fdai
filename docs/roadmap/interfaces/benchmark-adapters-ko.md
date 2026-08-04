@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: fcd21cfe467ba100a061bd1aadfc239803aad4be
+translation_source_sha: 237e70e6fee32a8c741e90895c2aed0adb085622
 translation_revised: 2026-08-04
 ---
 
@@ -224,6 +224,15 @@ Complete workload projection에 projected custom owner UID와 일치하는 contr
 이는 direct ownership relationship을 증명하지만 owner configuration이 degradation을 일으켰다고
 증명하지 않습니다. Source campaign의 `configuration_precedes` 주장과 임의 custom spec projection은
 configuration change timestamp 또는 interventional evidence가 없으므로 의도적으로 거부합니다.
+
+Campaign의 generic custom-resource patch allowlist는 port하지 않습니다. Exact API-version/kind
+allowlist와 generation check는 새 mutation primitive에 필요하지만 충분하지 않습니다. Source
+change는 arbitrary custom resource에 대한 durable target lock, persistent duplicate suppression,
+pre-effect audit intent, bounded rollback drill 및 observer-independent effect verification을
+독립적으로 증명하지 않습니다. 따라서 current live executor는
+`remediate.kubernetes-patch`를 미등록 상태로 유지합니다. Future implementation은 새로운
+shadow-first ActionType으로 시작하고 real staging substrate에서 7개 safeguard를 모두 충족해야
+합니다. Evaluation environment variable은 해당 authority를 부여할 수 없습니다.
 
 공유 Kubernetes package에는 hold-only admission resource-drift reducer가 있습니다. Exact core/v1
 Pod CREATE rule을 가진 complete selector-free, namespace-unscoped

@@ -65,6 +65,14 @@ def test_sregym_absorption_ledger_keeps_validation_axes_independent() -> None:
     for mechanism in ledger["absorbed_mechanisms"]:
         assert all(axis in mechanism for axis in ledger["validation_axes"])
         assert all(isinstance(mechanism[axis], bool) for axis in ledger["validation_axes"])
+        if mechanism["status"] == "rejected":
+            assert mechanism["source_hardening"]
+            assert mechanism["semantic_generalized"] is False
+            assert mechanism["operationalized"] is False
+            assert mechanism["provider_validated"] is False
+            assert mechanism["action_validated"] is False
+            assert mechanism["outcome_validated"] is False
+            assert mechanism["azure_validated"] is False
 
     assert any(
         mechanism["provider_validated"] and not mechanism["operationalized"]

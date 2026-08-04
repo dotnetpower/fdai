@@ -237,6 +237,21 @@
       "action_validated": false,
       "outcome_validated": false,
       "azure_validated": false
+    },
+    {
+      "id": "kubernetes_generic_custom_resource_patch_allowlist",
+      "source_commits": [
+        "228e80e9394a340eb62015bda14c98546bdd0256"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected production port: allowlist and generation checks do not independently provide durable locking, persistent idempotency, pre-effect audit intent, rollback drill evidence, or observer-independent effect verification for arbitrary custom resources.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
     }
   ],
   "groups": [

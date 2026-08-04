@@ -222,6 +222,15 @@ not that the owner's configuration caused the degradation. The source campaign's
 `configuration_precedes` claim and arbitrary custom spec projection are intentionally rejected
 because they carried neither a configuration change timestamp nor interventional evidence.
 
+The campaign's generic custom-resource patch allowlist is not ported. Exact API-version and kind
+allowlisting plus generation checks are necessary but insufficient for a new mutation primitive.
+The current live executor keeps `remediate.kubernetes-patch` unregistered because the source
+change does not independently prove a durable target lock, persistent duplicate suppression,
+pre-effect audit intent, bounded rollback drill, and observer-independent effect verification for
+arbitrary custom resources. A future implementation must enter as a new shadow-first ActionType
+and satisfy all seven safeguards on a real staging substrate; an evaluation environment variable
+cannot grant that authority.
+
 The shared Kubernetes package has a hold-only admission resource-drift reducer. It reports a
 candidate-only correlation between normalized request or limit drift and one complete
 selector-free, namespace-unscoped MutatingWebhookConfiguration with an exact core/v1 Pod CREATE
