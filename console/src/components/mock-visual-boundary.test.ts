@@ -70,6 +70,11 @@ describe("mock console visual boundary", () => {
     expect(serviceMap).toContain("sm-road-network");
     expect(serviceMap).toContain("sm-road-outlines");
     expect(serviceMap).toContain("sm-road-surfaces");
+    expect(serviceMap).toContain("stroke: #6F7B80; stroke-width: 6");
+    expect(serviceMap).toContain("stroke-width: 4.5");
+    expect(serviceMap).not.toContain("#9E765C");
+    expect(serviceMap).not.toContain("#9E6161");
+    expect(serviceMap).not.toContain("#527C76");
     expect(serviceMap).toContain("sm-traffic-particle");
     expect(serviceMap).toContain("sm-particle-halo");
     expect(serviceMap).toContain("sm-particle-core");

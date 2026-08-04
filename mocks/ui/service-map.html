@@ -57,21 +57,18 @@
     .sm-boundary-label.egress { fill: #BC7449; }
 
     .sm-road-outline, .sm-road-surface, .sm-road-divider, .sm-road-guide { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-    .sm-road-outline { stroke: #657278; stroke-width: 11; opacity: .84; }
-    .sm-road-surface { stroke: #B8C0C2; stroke-width: 9; }
-    .sm-road-divider { stroke: #F8FAF9; stroke-width: 1; stroke-dasharray: 5 5; opacity: .98; }
+    .sm-road-outline { stroke: #6F7B80; stroke-width: 6; opacity: .82; }
+    .sm-road-surface { stroke: #B7BEC0; stroke-width: 4.5; }
+    .sm-road-divider { stroke: #F8FAF9; stroke-width: .65; stroke-dasharray: 3 3; opacity: .96; }
     .sm-road-guide { stroke: transparent; pointer-events: none; }
-    .sm-road-outline.health-warning { stroke: #9E765C; }
-    .sm-road-outline.health-critical { stroke: #9E6161; }
     .sm-workspace[data-mode="incident"] .sm-road-segment.health-healthy { opacity: .18; }
-    .sm-workspace[data-mode="incident"] .sm-road-outline.health-warning { stroke-width: 12; opacity: .96; }
-    .sm-workspace[data-mode="incident"] .sm-road-outline.health-critical { stroke-width: 13; opacity: 1; }
-    .sm-workspace[data-mode="security"] .sm-road-outline { stroke: #527C76; opacity: .92; }
-    .sm-workspace[data-mode="security"] .sm-road-outline.security-plaintext { stroke: #A64E4E; stroke-dasharray: 5 3; }
-    .sm-workspace[data-mode="security"] .sm-road-outline.security-attention { stroke: #A8754D; }
-    .sm-workspace[data-mode="security"] .sm-road-outline.is-selected { stroke-width: 13; filter: drop-shadow(0 0 3px rgba(68,104,142,.24)); }
+    .sm-workspace[data-mode="incident"] .sm-road-outline.health-warning, .sm-workspace[data-mode="incident"] .sm-road-outline.health-critical { stroke: #6F7B80; stroke-width: 6.8; opacity: .96; }
+    .sm-workspace[data-mode="security"] .sm-road-outline { stroke: #6F7B80; opacity: .88; }
+    .sm-workspace[data-mode="security"] .sm-road-outline.security-plaintext { stroke: #6F7B80; stroke-dasharray: 4 2.5; }
+    .sm-workspace[data-mode="security"] .sm-road-outline.security-attention { stroke: #6F7B80; }
+    .sm-workspace[data-mode="security"] .sm-road-outline.is-selected { stroke: #6F7B80; stroke-width: 7; filter: drop-shadow(0 0 2px rgba(68,104,142,.18)); }
 
-    .sm-edge-hit { fill: none; stroke: transparent; stroke-width: 20; pointer-events: stroke; cursor: pointer; }
+    .sm-edge-hit { fill: none; stroke: transparent; stroke-width: 12; pointer-events: stroke; cursor: pointer; }
     .sm-edge:focus-visible .sm-edge-hit { stroke: rgba(85,122,154,.16); }
     .sm-traffic-particle { pointer-events: none; }
     .sm-particle-halo { fill: #68A9BD; opacity: .16; filter: blur(2.2px); }
