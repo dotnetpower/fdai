@@ -62,6 +62,9 @@ describe("mock console visual boundary", () => {
     expect(serviceMap).toContain("sm-icon-glyph");
     expect(serviceMap).toContain("stroke-width: 1.4");
     expect(serviceMap).toContain("stroke-width: 2.8");
+    expect(serviceMap).toContain('id="sm-grid"');
+    expect(serviceMap).toContain('class="sm-node kind-');
+    expect(serviceMap).toContain('inspector.className = "sm-inspector kind-"');
     expect(serviceMap.match(/markerUnits="userSpaceOnUse"/g)).toHaveLength(3);
     expect(serviceMap).not.toContain('markerUnits="strokeWidth"');
   });
