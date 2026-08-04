@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 const MOCK_ROOT = fileURLToPath(new URL("../../../mocks/ui/", import.meta.url));
+const REPOSITORY_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 
 function mockSources(): readonly { readonly file: string; readonly source: string }[] {
   return readdirSync(MOCK_ROOT, { recursive: true, withFileTypes: true })
@@ -42,11 +43,15 @@ describe("mock console visual boundary", () => {
 
   test("registers the synthetic Service Map under Visualization", () => {
     const landing = readFileSync(`${MOCK_ROOT}/index.html`, "utf8");
+    const masterLanding = readFileSync(`${REPOSITORY_ROOT}/index.html`, "utf8");
     const navigation = readFileSync(`${MOCK_ROOT}/assets/calm-slate.js`, "utf8");
     const serviceMap = readFileSync(`${MOCK_ROOT}/service-map.html`, "utf8");
 
     expect(landing).toContain("<h3>Visualization</h3>");
     expect(landing).toContain('data-page="service-map.html"');
+    expect(masterLanding).toContain("<h3>Visualization</h3>");
+    expect(masterLanding).toContain('data-page="mocks/ui/service-map.html"');
+    expect(masterLanding).toContain('<span class="count">41 pages</span>');
     expect(navigation).toContain('["Visualization", [');
     expect(navigation).toContain('["service-map.html", "Service map", "is-steel"]');
     expect(serviceMap).toContain("Design preview · Synthetic telemetry");
