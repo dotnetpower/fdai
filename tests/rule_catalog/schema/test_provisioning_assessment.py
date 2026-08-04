@@ -107,6 +107,10 @@ def test_vision_candidates_satisfy_virtual_capability() -> None:
     capabilities = dict(_ALL)
     del capabilities["t1.vision"]
     resolved = _resolved(capabilities)
+    narrator = NarratorCandidate(
+        endpoint="https://example.openai.azure.com/",
+        deployment="narrator-gpt-4o-mini",
+    )
     resolved = ResolvedModels(
         schema_version=resolved.schema_version,
         region=resolved.region,
@@ -114,12 +118,8 @@ def test_vision_candidates_satisfy_virtual_capability() -> None:
         deployer_object_id=resolved.deployer_object_id,
         mixed_model_mode=resolved.mixed_model_mode,
         capabilities=resolved.capabilities,
-        vision_candidates=(
-            NarratorCandidate(
-                endpoint="https://example.openai.azure.com/",
-                deployment="narrator-gpt-4o-mini",
-            ),
-        ),
+        narrator_candidates=(narrator,),
+        vision_candidates=(narrator,),
     )
 
     report = assess_provisioning(registry=_registry(), resolved=resolved)
