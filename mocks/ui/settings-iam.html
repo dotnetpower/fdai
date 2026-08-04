@@ -79,6 +79,7 @@
     .ah-button { min-height:34px; padding:6px 11px; border:1px solid var(--cs-hairline); border-radius:6px; background:var(--cs-card); color:var(--cs-text); font:600 11px var(--cs-font); cursor:pointer; }
     .ah-button:hover { background:var(--cs-shade); }
     .ah-button.primary { border-color:var(--cs-navy); background:var(--cs-navy); color:#fff; }
+    .ah-button:disabled { opacity:.48; cursor:not-allowed; }
     [hidden] { display:none !important; }
     .ah-slots { display:flex; gap:5px; flex-wrap:wrap; margin-top:11px; }
     .ah-slot { padding:5px 7px; border:1px solid rgba(68,104,142,.22); border-radius:5px; background:rgba(68,104,142,.06); font-size:10px; }
@@ -114,12 +115,49 @@
     .ah-invitation-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; margin-top:10px; }
     .ah-invitation-actions button { min-height:30px; padding:4px; border:1px solid var(--cs-hairline); border-radius:5px; background:var(--cs-bg); color:var(--cs-text); font:9.5px var(--cs-font); cursor:pointer; }
     .ah-status { min-height:28px; padding-top:9px; color:var(--cs-text-soft); font-size:10px; }
+    .ah-responsibility { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(120px,.8fr) auto; align-items:center; gap:10px; width:100%; padding:10px 0; border:0; border-bottom:1px solid var(--cs-hairline); background:transparent; color:var(--cs-text); text-align:left; }
+    .ah-responsibility:last-child { border-bottom:0; }
+    button.ah-responsibility { cursor:pointer; }
+    button.ah-responsibility:hover { background:var(--cs-shade); }
+    .ah-responsibility strong,.ah-responsibility small { display:block; }
+    .ah-responsibility strong { font-size:11px; }
+    .ah-responsibility small { margin-top:2px; color:var(--cs-text-soft); font-size:9.5px; }
+    .ah-owner { display:flex; align-items:center; gap:6px; min-width:0; }
+    .ah-owner .ah-glyph { width:26px; height:26px; border-radius:6px; font-size:8px; }
+    .ah-owner span { min-width:0; }
+    .ah-owner strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .ah-unassigned { color:var(--cs-dusty-red); font-size:10px; font-weight:700; }
+    .ah-resolver { padding:13px; border:1px solid var(--cs-hairline); border-radius:7px; background:var(--cs-bg); }
+    .ah-resolver-context { display:flex; align-items:flex-start; gap:9px; }
+    .ah-resolver-context > div { min-width:0; }
+    .ah-resolver-context strong,.ah-resolver-context small { display:block; }
+    .ah-resolver-context strong { font-size:12px; }
+    .ah-resolver-context small { margin-top:3px; color:var(--cs-text-soft); font-size:10px; line-height:1.45; }
+    .ah-find { margin-top:11px; }
+    .ah-find label { display:block; margin-bottom:5px; font-size:10px; font-weight:700; }
+    .ah-find input { width:100%; min-height:39px; padding:8px 10px; border:1px solid var(--cs-hairline); border-radius:7px; background:var(--cs-card); color:var(--cs-text); font:12px var(--cs-font); }
+    .ah-find input:focus { outline:0; border-color:var(--cs-steel); box-shadow:0 0 0 3px rgba(68,104,142,.12); }
+    .ah-candidates { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:11px; }
+    .ah-candidate { min-width:0; padding:11px; border:1px solid var(--cs-hairline); border-radius:7px; background:var(--cs-card); }
+    .ah-candidate-head { display:flex; align-items:flex-start; gap:8px; }
+    .ah-candidate-head > div { min-width:0; flex:1; }
+    .ah-candidate-head strong,.ah-candidate-head small { display:block; }
+    .ah-candidate-head strong { font-size:11px; }
+    .ah-candidate-head small { overflow:hidden; margin-top:2px; color:var(--cs-text-soft); font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
+    .ah-candidate-role { margin:9px 0 5px; color:var(--cs-text-soft); font-size:9px; font-weight:700; text-transform:uppercase; }
+    .ah-responsibility-list { margin:0; padding:0; list-style:none; }
+    .ah-responsibility-list li { position:relative; padding:3px 0 3px 10px; color:var(--cs-text); font-size:9.5px; line-height:1.35; }
+    .ah-responsibility-list li::before { position:absolute; left:0; color:var(--cs-steel); content:"·"; font-weight:800; }
+    .ah-candidate-evidence { margin-top:6px; padding-top:6px; border-top:1px solid var(--cs-hairline); color:var(--cs-text-soft); font-size:9px; }
+    .ah-candidate-actions { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-top:8px; }
+    .ah-candidate-actions button { min-height:30px; padding:4px; border:1px solid var(--cs-hairline); border-radius:5px; background:var(--cs-bg); color:var(--cs-text); font:9.5px var(--cs-font); cursor:pointer; }
+    .ah-candidate-actions button.primary { border-color:var(--cs-navy); background:var(--cs-navy); color:#fff; }
     @media (max-width:1050px) { .ah-workspace{grid-template-columns:270px minmax(0,1fr)} .ah-detail-grid{grid-template-columns:1fr} .ah-side{border-top:1px solid var(--cs-hairline);border-left:0} }
     @media (max-width:760px) {
       .ah-summary{grid-template-columns:repeat(2,minmax(0,1fr))} .ah-metric:nth-child(2){border-right:0} .ah-metric:nth-child(-n+2){border-bottom:1px solid var(--cs-hairline)}
       .ah-tools{grid-template-columns:1fr} .ah-workspace{display:block} .ah-roster{border-right:0;border-bottom:1px solid var(--cs-hairline)} .ah-agent-list{max-height:290px}
       .ah-detail-head{flex-direction:column} .ah-badges{justify-content:flex-start} .ah-contract{grid-template-columns:1fr} .ah-contract div{border-right:0;border-bottom:1px solid var(--cs-hairline)}
-      .ah-match{grid-template-columns:1fr 1fr} .ah-invitation-actions{grid-template-columns:1fr}
+      .ah-match{grid-template-columns:1fr 1fr} .ah-invitation-actions{grid-template-columns:1fr} .ah-candidates{grid-template-columns:1fr} .ah-responsibility{grid-template-columns:minmax(0,1fr) auto} .ah-responsibility .ah-owner{grid-column:1/-1}
     }
   </style>
 </head>
@@ -172,36 +210,34 @@
 
         <div class="ah-detail-grid">
           <div class="ah-main">
-            <section class="ah-section" aria-labelledby="people-heading">
-              <div class="ah-section-head"><h3 id="people-heading">Human relationships</h3><p>Expertise and authority stay separate.</p></div>
-              <div id="humanRelationships"></div>
+            <section class="ah-section" aria-labelledby="coverage-heading">
+              <div class="ah-section-head"><h3 id="coverage-heading">Responsibility coverage</h3><p>Select a gap; FDAI will find likely owners.</p></div>
+              <div id="responsibilityCoverage"></div>
             </section>
 
-            <section class="ah-section" aria-labelledby="interview-heading">
-              <div class="ah-section-head"><h3 id="interview-heading">Describe a person's work</h3><p>Only missing decision-critical slots are asked.</p></div>
-              <div class="ah-interview">
-                <label for="workDescription">What work does Morgan Chen currently own?</label>
-                <span class="ah-hint">Example: Service operator for example.com and senior monitoring responder.</span>
-                <textarea id="workDescription" class="ah-textarea">Operates the checkout service and Kubernetes platform, leads incident recovery, and maintains rollback runbooks.</textarea>
-                <div class="ah-actions"><button id="analyzeWork" class="ah-button primary" type="button">Analyze responsibilities</button></div>
-                <div id="analysisResult" hidden>
-                  <div class="ah-slots" aria-label="Extracted responsibility slots">
-                    <span class="ah-slot"><span>Service</span> Checkout</span><span class="ah-slot"><span>Platform</span> Kubernetes</span><span class="ah-slot"><span>Work</span> Incident recovery</span><span class="ah-slot"><span>Evidence</span> Rollback runbooks</span>
-                  </div>
-                  <div class="ah-question"><strong>One detail is still needed</strong><p>Does Morgan execute recovery, approve recovery, or provide operational knowledge?</p>
-                    <div class="ah-choices"><button class="ah-choice" type="button" data-answer="executes recovery">Executes recovery</button><button class="ah-choice" type="button" data-answer="approves recovery">Approves recovery</button><button class="ah-choice" type="button" data-answer="knowledge source">Knowledge source</button><button class="ah-choice" type="button" data-answer="not sure">Not sure</button></div>
-                  </div>
-                </div>
+            <section id="resolverSection" class="ah-section" aria-labelledby="resolver-heading">
+              <div class="ah-section-head"><h3 id="resolver-heading">Resolve responsibility gap</h3><p>No person selection required to begin.</p></div>
+              <div class="ah-resolver">
+                <div class="ah-resolver-context"><span class="ah-glyph">?</span><div><strong id="resolverResponsibility">Stop conditions and recovery decisions</strong><small id="resolverQuestion">Who decides when checkout recovery must stop or roll back?</small></div></div>
+                <div class="ah-choices" style="margin-top:10px"><button class="ah-choice" type="button" data-owner-type="platform operations">Platform operations</button><button class="ah-choice" type="button" data-owner-type="service owner">Service owner</button><button class="ah-choice" type="button" data-owner-type="incident commander">Incident commander</button><button class="ah-choice" type="button" data-owner-type="not sure">Not sure</button></div>
+                <div class="ah-find"><label for="ownerSearch">Search a name or team, or describe where this responsibility lives</label><input id="ownerSearch" type="search" placeholder="Example: checkout platform operations lead" /></div>
+                <div id="candidateList" class="ah-candidates"></div>
+                <div id="resolverStatus" class="ah-status">Candidates are ranked by observed responsibility; RBAC only limits eligible relationship types.</div>
+              </div>
+            </section>
+
+            <section class="ah-section" aria-labelledby="people-heading">
+              <div class="ah-section-head"><h3 id="people-heading">Known people and responsibilities</h3><p>What each person owns, with evidence.</p></div>
+              <div class="ah-candidates">
+                <article class="ah-candidate"><div class="ah-candidate-head"><span class="ah-glyph">MC</span><div><strong>Morgan Chen</strong><small>Contributor · Platform operations</small></div><span class="ah-chip knowledge">Knowledge</span></div><div class="ah-candidate-role">Observed responsibilities</div><ul class="ah-responsibility-list"><li>Checkout service operations</li><li>Kubernetes incident recovery</li><li>Rollback runbook maintenance</li></ul><div class="ah-candidate-evidence">Evidence: stewardship record, two accepted runbooks</div></article>
+                <article class="ah-candidate"><div class="ah-candidate-head"><span class="ah-glyph">AK</span><div><strong>Alex Kim</strong><small>Approver · Change governance</small></div><span class="ah-chip approval">Approval</span></div><div class="ah-candidate-role">Observed responsibilities</div><ul class="ah-responsibility-list"><li>Production change approval</li><li>Independent recovery review</li><li>Backup escalation coverage</li></ul><div class="ah-candidate-evidence">Evidence: active RBAC, approval receipts</div></article>
               </div>
             </section>
 
             <section class="ah-section" aria-labelledby="matches-heading">
-              <div class="ah-section-head"><h3 id="matches-heading">Explainable Agent matches</h3><p>Recommendations cannot change RBAC.</p></div>
-              <div class="ah-match"><strong>Vidar</strong><span>Knowledge source</span><small>Recovery leadership and rollback evidence</small><span class="ah-confidence">94%</span></div>
-              <div class="ah-match"><strong>Thor</strong><span>Procedure source</span><small>Kubernetes execution and rollback steps</small><span class="ah-confidence">82%</span></div>
-              <div class="ah-match"><strong>Heimdall</strong><span>Signal source</span><small>Incident detection context needs confirmation</small><span class="ah-confidence">61%</span></div>
-              <div class="ah-match"><strong>Var</strong><span>Approval candidate</span><small>Blocked: Contributor RBAC is not approval-eligible</small><span class="ah-chip gap">Ineligible</span></div>
-              <div class="ah-actions"><button class="ah-button" type="button">Discard</button><button id="requestReview" class="ah-button primary" type="button">Request mapping review</button></div>
+              <div class="ah-section-head"><h3 id="matches-heading">Proposed relationship</h3><p>Confirmation does not change RBAC.</p></div>
+              <div id="proposalSummary" class="ah-match"><strong>Unassigned</strong><span>Knowledge source</span><small>Select a candidate or ask a likely owner at next sign-in.</small><span class="ah-chip gap">Gap</span></div>
+              <div class="ah-actions"><button class="ah-button" type="button">Discard</button><button id="requestReview" class="ah-button primary" type="button" disabled>Request mapping review</button></div>
               <div id="mappingStatus" class="ah-status">No relationship changes have been applied.</div>
             </section>
           </div>
@@ -249,6 +285,12 @@
       ["Loki","LO","Bounded resilience testing","approval","gap",25,"Experiment approval gap"]
     ].map(([name,initials,role,need,state,progress,label]) => ({name,initials,role,need,state,progress,label}));
     let selectedAgent = "Vidar";
+    let selectedResponsibility = null;
+    const people = [
+      { id:"morgan", initials:"MC", name:"Morgan Chen", role:"Contributor", team:"Platform operations", responsibilities:["Checkout service operations","Kubernetes incident recovery","Rollback runbook maintenance"], evidence:"Stewardship record · 2 accepted runbooks" },
+      { id:"alex", initials:"AK", name:"Alex Kim", role:"Approver", team:"Change governance", responsibilities:["Production change approval","Independent recovery review","Backup escalation coverage"], evidence:"Active RBAC · approval receipts" },
+      { id:"jordan", initials:"JL", name:"Jordan Lee", role:"Reader", team:"Monitoring", responsibilities:["Alert triage","Dashboard ownership","Incident notification"], evidence:"Directory profile · monitoring roster" }
+    ];
     const list = document.querySelector("#agentList");
     const search = document.querySelector("#agentSearch");
     const need = document.querySelector("#needFilter");
@@ -268,6 +310,7 @@
     }
     function selectAgent(name) {
       selectedAgent = name;
+      selectedResponsibility = null;
       const agent = agents.find((candidate) => candidate.name === name);
       document.querySelector("#agentGlyph").textContent = agent.initials;
       document.querySelector("#agentName").textContent = agent.name;
@@ -282,33 +325,106 @@
       renderAgents();
     }
     function renderHumanContext(agent) {
-      const relationships = document.querySelector("#humanRelationships");
+      const coverage = document.querySelector("#responsibilityCoverage");
       const goals = document.querySelector("#handoverGoals");
       const invitation = document.querySelector("#invitationSection");
       const goal = (mark, title, detail, progress, open = false) => `<div class="ah-goal${open ? " open" : ""}"><span class="ah-goal-mark">${mark}</span><span><strong>${title}</strong><small>${detail}</small></span><small>${progress}</small></div>`;
       if (agent.need === "knowledge") {
-        relationships.innerHTML = '<div class="ah-person"><span class="ah-glyph">MC</span><span><strong>Morgan Chen</strong><small>Knowledge source · domain operations</small></span><span class="ah-person-state limited"><strong>Contributor</strong><small>Not approval-eligible</small></span></div><div class="ah-person"><span class="ah-glyph">AK</span><span><strong>Alex Kim</strong><small>Backup escalation · independent reviewer</small></span><span class="ah-person-state"><strong>Approver</strong><small>RBAC eligible</small></span></div>';
+        renderResponsibilities(agent, [
+          { title:"Operational scope", detail:"Services, platforms, and explicit exclusions", owner:"morgan", state:"accepted" },
+          { title:"Known failure modes", detail:"Incidents, exceptions, and unresolved risks", owner:"morgan", state:"accepted" },
+          { title:"Runbook and rollback", detail:"Execution, rollback, and verification steps", owner:"morgan", state:"reviewed" },
+          { title:"Stop conditions and decisions", detail:"Who decides when work must stop or roll back", owner:null, state:"gap" },
+          { title:"Effect verification", detail:"Who confirms recovery produced the expected result", owner:null, state:"gap" }
+        ]);
         goals.innerHTML = goal("✓", "Operational scope", "Accepted evidence · 20/20", "100%") + goal("✓", "Known failure modes", "Accepted incident evidence · 20/20", "100%") + goal("✓", "Runbook and rollback", "Linked and reviewed · 18/20", "90%") + goal("◐", "Stop conditions", "Answer captured; evidence needed", "50%", true) + goal("○", "Effect verification", "Not started", "0%", true);
         invitation.hidden = false;
         document.querySelector("#invitationOwner").textContent = `Question owned by ${agent.name}`;
         document.querySelector("#invitationCopy").textContent = `Morgan, ${agent.name} still needs one high-risk operating detail. Answer one question now, attach evidence, or continue later.`;
       } else if (agent.need === "approval") {
-        relationships.innerHTML = '<div class="ah-person"><span class="ah-glyph">AK</span><span><strong>Alex Kim</strong><small>Primary approval candidate · independently eligible</small></span><span class="ah-person-state"><strong>Approver</strong><small>RBAC eligible</small></span></div><div class="ah-person"><span class="ah-glyph">MC</span><span><strong>Morgan Chen</strong><small>Domain context only · cannot approve</small></span><span class="ah-person-state limited"><strong>Contributor</strong><small>Ineligible</small></span></div>';
+        renderResponsibilities(agent, [
+          { title:"Primary approval decision", detail:"Eligible human for governed action review", owner:"alex", state:"accepted" },
+          { title:"Independent review", detail:"Reviewer must differ from requester and executor", owner:"alex", state:"reviewed" },
+          { title:"Backup approval", detail:"Second eligible person when primary is unavailable", owner:null, state:"gap" },
+          { title:"Escalation route", detail:"Ordered route after confirmed non-response", owner:null, state:"gap" }
+        ]);
         goals.innerHTML = goal("✓", "Primary approver", "RBAC and identity verified", "100%") + goal("✓", "No-self-approval", "Requester exclusion verified", "100%") + goal("◐", "Backup approver", "Candidate not confirmed", "50%", true) + goal("○", "Escalation route", "Maintainer fallback only", "0%", true) + goal("✓", "Delivery channel", "Active and tested", "100%");
         invitation.hidden = false;
         document.querySelector("#invitationOwner").textContent = `Availability check owned by ${agent.name}`;
         document.querySelector("#invitationCopy").textContent = `Alex, ${agent.name} needs confirmation of the backup approval route. Confirm availability now or continue later.`;
       } else {
-        relationships.innerHTML = '<div class="ah-person"><span class="ah-glyph">FM</span><span><strong>FDAI Maintainers</strong><small>Final escalation fallback · no routine contact</small></span><span class="ah-person-state"><strong>Owner</strong><small>Fallback only</small></span></div>';
+        renderResponsibilities(agent, [
+          { title:"Autonomous operation boundary", detail:"No routine human conversation required", owner:"maintainers", state:"accepted" },
+          { title:"Maintainer fallback", detail:"Final escalation only", owner:"maintainers", state:"accepted" },
+          { title:"Review date", detail:"Periodic confirmation that autonomy remains appropriate", owner:"maintainers", state:"accepted" }
+        ]);
         goals.innerHTML = goal("✓", "Autonomous operation reason", "Reviewed and accepted", "100%") + goal("✓", "Maintainer fallback", "Two live maintainers", "100%") + goal("✓", "Escalation boundary", "No routine human contact", "100%") + goal("✓", "Review date", "Current", "100%");
         invitation.hidden = true;
       }
     }
+    function renderResponsibilities(agent, responsibilities) {
+      agent.responsibilities = responsibilities;
+      const coverage = document.querySelector("#responsibilityCoverage");
+      coverage.innerHTML = responsibilities.map((item, index) => {
+        const owner = people.find((person) => person.id === item.owner);
+        const ownerMarkup = owner ? `<span class="ah-owner"><span class="ah-glyph">${owner.initials}</span><span><strong>${owner.name}</strong><small>${owner.role} · ${owner.team}</small></span></span>` : item.owner === "maintainers" ? '<span class="ah-owner"><span class="ah-glyph">FM</span><span><strong>FDAI Maintainers</strong><small>Owner · fallback only</small></span></span>' : '<span class="ah-unassigned">No confirmed owner</span>';
+        const tag = item.state === "gap" ? '<span class="ah-chip gap">Resolve</span>' : item.state === "reviewed" ? '<span class="ah-chip knowledge">Reviewed</span>' : '<span class="ah-chip ready">Accepted</span>';
+        const tagName = item.state === "gap" ? "button" : "div";
+        return `<${tagName} class="ah-responsibility"${item.state === "gap" ? ` type="button" data-responsibility="${index}"` : ""}><span><strong>${item.title}</strong><small>${item.detail}</small></span>${ownerMarkup}${tag}</${tagName}>`;
+      }).join("");
+      coverage.querySelectorAll("[data-responsibility]").forEach((button) => button.addEventListener("click", () => selectResponsibility(Number(button.dataset.responsibility))));
+      const firstGap = responsibilities.findIndex((item) => item.state === "gap");
+      if (firstGap >= 0) selectResponsibility(firstGap); else {
+        document.querySelector("#resolverSection").hidden = true;
+        document.querySelector("#proposalSummary").innerHTML = '<strong>Covered</strong><span>No new relationship</span><small>All required responsibilities have a confirmed owner.</small><span class="ah-chip ready">Ready</span>';
+        document.querySelector("#requestReview").disabled = true;
+        document.querySelector("#mappingStatus").textContent = "No relationship change is needed for this Agent.";
+      }
+    }
+    function selectResponsibility(index) {
+      const agent = agents.find((candidate) => candidate.name === selectedAgent);
+      selectedResponsibility = agent.responsibilities[index];
+      document.querySelector("#resolverSection").hidden = false;
+      document.querySelector("#resolverResponsibility").textContent = selectedResponsibility.title;
+      document.querySelector("#resolverQuestion").textContent = selectedResponsibility.detail;
+      document.querySelector("#ownerSearch").value = "";
+      document.querySelector("#proposalSummary").innerHTML = '<strong>Unassigned</strong><span>Pending relationship</span><small>Select a candidate or ask a likely owner at next sign-in.</small><span class="ah-chip gap">Gap</span>';
+      document.querySelector("#requestReview").disabled = true;
+      document.querySelector("#mappingStatus").textContent = "No relationship changes have been applied.";
+      renderCandidates(people);
+      document.querySelector("#resolverStatus").textContent = "Candidates are ranked by observed responsibility; RBAC only limits eligible relationship types.";
+    }
+    function renderCandidates(candidates) {
+      const agent = agents.find((candidate) => candidate.name === selectedAgent);
+      document.querySelector("#candidateList").innerHTML = candidates.map((person) => {
+        const approvalEligible = person.role === "Approver" || person.role === "Owner";
+        const relation = agent.need === "approval" ? approvalEligible ? "Approval candidate" : "Context only" : "Knowledge source";
+        const eligibility = agent.need === "approval" && !approvalEligible ? '<span class="ah-chip gap">Not approval-eligible</span>' : `<span class="ah-chip ${agent.need === "approval" ? "approval" : "knowledge"}">${relation}</span>`;
+        return `<article class="ah-candidate"><div class="ah-candidate-head"><span class="ah-glyph">${person.initials}</span><div><strong>${person.name}</strong><small>${person.role} · ${person.team}</small></div>${eligibility}</div><div class="ah-candidate-role">Current responsibilities</div><ul class="ah-responsibility-list">${person.responsibilities.map((item) => `<li>${item}</li>`).join("")}</ul><div class="ah-candidate-evidence">Evidence: ${person.evidence}</div><div class="ah-candidate-actions"><button type="button" data-confirm="${person.id}">Ask at sign-in</button><button class="primary" type="button" data-propose="${person.id}"${agent.need === "approval" && !approvalEligible ? " disabled" : ""}>Propose</button></div></article>`;
+      }).join("") || '<div class="cs-empty"><strong>No matching people</strong>Describe the team or responsibility instead.</div>';
+      document.querySelectorAll("[data-propose]").forEach((button) => button.addEventListener("click", () => proposePerson(button.dataset.propose)));
+      document.querySelectorAll("[data-confirm]").forEach((button) => button.addEventListener("click", () => askPerson(button.dataset.confirm)));
+    }
+    function proposePerson(id) {
+      const person = people.find((candidate) => candidate.id === id);
+      const relation = agents.find((agent) => agent.name === selectedAgent).need === "approval" ? "Approval candidate" : "Knowledge source";
+      document.querySelector("#proposalSummary").innerHTML = `<strong>${person.name}</strong><span>${relation}</span><small>${selectedResponsibility.title} · confirmation required</small><span class="ah-chip knowledge">Proposed</span>`;
+      document.querySelector("#requestReview").disabled = false;
+      document.querySelector("#mappingStatus").textContent = `${person.name} proposed for ${selectedResponsibility.title}. No relationship has been applied.`;
+    }
+    function askPerson(id) {
+      const person = people.find((candidate) => candidate.id === id);
+      const invitation = document.querySelector("#invitationSection");
+      invitation.hidden = false;
+      document.querySelector("#invitationOwner").textContent = `Responsibility confirmation owned by ${selectedAgent}`;
+      document.querySelector("#invitationCopy").textContent = `${person.name}, are you currently responsible for ${selectedResponsibility.title.toLowerCase()}? Confirm, redirect us to the owner, or continue later.`;
+      document.querySelector("#resolverStatus").textContent = `${person.name} will receive one bounded confirmation at next sign-in.`;
+    }
     search.addEventListener("input", renderAgents);
     need.addEventListener("change", renderAgents);
     state.addEventListener("change", renderAgents);
-    document.querySelector("#analyzeWork").addEventListener("click", () => { document.querySelector("#analysisResult").hidden = false; document.querySelector("#mappingStatus").textContent = "Four responsibility slots extracted; one clarification remains."; });
-    document.querySelectorAll("[data-answer]").forEach((button) => button.addEventListener("click", () => { document.querySelectorAll("[data-answer]").forEach((choice) => choice.classList.remove("is-active")); button.classList.add("is-active"); document.querySelector("#mappingStatus").textContent = `Clarification captured: ${button.dataset.answer}. Recommendations are ready for review.`; }));
+    document.querySelectorAll("[data-owner-type]").forEach((button) => button.addEventListener("click", () => { document.querySelectorAll("[data-owner-type]").forEach((choice) => choice.classList.remove("is-active")); button.classList.add("is-active"); document.querySelector("#ownerSearch").value = button.dataset.ownerType === "not sure" ? "" : button.dataset.ownerType; renderCandidates(button.dataset.ownerType === "not sure" ? people : people.filter((person) => person.team.toLowerCase().includes(button.dataset.ownerType.split(" ")[0]) || person.responsibilities.some((item) => item.toLowerCase().includes(button.dataset.ownerType.split(" ")[0])))); }));
+    document.querySelector("#ownerSearch").addEventListener("input", (event) => { const query = event.currentTarget.value.trim().toLowerCase(); renderCandidates(!query ? people : people.filter((person) => `${person.name} ${person.team} ${person.responsibilities.join(" ")}`.toLowerCase().includes(query))); });
     document.querySelector("#requestReview").addEventListener("click", () => { document.querySelector("#mappingStatus").textContent = "Mapping review requested. RBAC and stewardship remain unchanged until governed approval."; });
     document.querySelectorAll("[data-invite]").forEach((button) => button.addEventListener("click", () => { const messages = {answer:"One focused handover question opened.",upload:"Secure evidence upload selected.",later:"Invitation snoozed for 24 hours."}; document.querySelector("#invitationStatus").textContent = messages[button.dataset.invite]; }));
     document.querySelector("#knowledgeCount").textContent = agents.filter((agent) => agent.need === "knowledge").length;
