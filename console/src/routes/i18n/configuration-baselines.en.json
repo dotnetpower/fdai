@@ -36,6 +36,7 @@
   "reviewActive": "Active",
   "reviewReady": "Ready for weekly review",
   "reviewPaused": "Paused after failed review",
+  "failedAttempts": "Preserved failed attempts",
   "safety": "Safety counters",
   "mutation": "Mutation",
   "approval": "Approval",

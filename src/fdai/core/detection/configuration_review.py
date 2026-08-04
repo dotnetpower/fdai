@@ -57,6 +57,7 @@ class ConfigurationReviewCampaign:
     required_successes: int = 3
     state: ConfigurationReviewState = ConfigurationReviewState.ACTIVE
     runs: tuple[ConfigurationReviewRun, ...] = ()
+    failed_attempts: tuple[tuple[ConfigurationReviewRun, ...], ...] = ()
     revision: int = 0
 
     def __post_init__(self) -> None:
@@ -72,6 +73,8 @@ class ConfigurationReviewCampaign:
             raise ValueError("configuration review success target MUST fit inside the run limit")
         if len(self.runs) > self.run_limit:
             raise ValueError("configuration review runs MUST NOT exceed the run limit")
+        if any(len(attempt) != self.run_limit for attempt in self.failed_attempts):
+            raise ValueError("configuration review failed attempts MUST be complete")
         if self.revision < 0:
             raise ValueError("configuration review revision MUST be non-negative")
 
@@ -166,18 +169,38 @@ class ConfigurationReviewCampaignService:
             if current is None:
                 raise KeyError(campaign_id)
             next_campaign = record_configuration_review_run(current, report, run_id=run_id)
-            if next_campaign is current:
-                return current
             await persist_configuration_drift_report(
                 self._reports,
                 campaign_id=campaign_id,
                 run_id=run_id,
                 report=report,
             )
+            if next_campaign is current:
+                return current
             updated = replace(next_campaign, revision=current.revision + 1)
             if await self._store.replace(updated, expected_revision=current.revision):
                 return updated
         raise ConfigurationReviewConflictError("configuration review campaign update conflicted")
+
+    async def resume(self, campaign_id: str) -> ConfigurationReviewCampaign:
+        """Start a new bounded attempt while preserving failed-run history."""
+
+        for _attempt in range(self._max_attempts):
+            current = await self._store.get(campaign_id)
+            if current is None:
+                raise KeyError(campaign_id)
+            if current.state is not ConfigurationReviewState.PAUSED_FAILED:
+                raise ValueError("only a failed configuration review campaign can resume")
+            resumed = replace(
+                current,
+                state=ConfigurationReviewState.ACTIVE,
+                runs=(),
+                failed_attempts=current.failed_attempts + (current.runs,),
+                revision=current.revision + 1,
+            )
+            if await self._store.replace(resumed, expected_revision=current.revision):
+                return resumed
+        raise ConfigurationReviewConflictError("configuration review resume conflicted")
 
 
 def record_configuration_review_run(

@@ -23,7 +23,7 @@ interface ConfigurationBaselinesView {
   readonly knowledge: { readonly status: string; readonly citationCount: number; readonly citations: readonly string[] };
   readonly safety: { readonly mutation: number; readonly approval: number; readonly mitigation: number; readonly unsupported: number };
   readonly performance: { readonly totalMs: number; readonly observationMs: number; readonly knowledgeMs: number };
-  readonly review: { readonly configured: boolean; readonly state: string; readonly completedRuns: number; readonly requiredRuns: number };
+  readonly review: { readonly configured: boolean; readonly state: string; readonly completedRuns: number; readonly requiredRuns: number; readonly failedAttempts: number };
 }
 
 export function ConfigurationBaselinesRoute({ client }: { readonly client: OperatorApiClient }) {
@@ -75,7 +75,7 @@ export function decodeConfigurationBaselines(value: unknown): ConfigurationBasel
     knowledge: { status: panelNonEmptyString(knowledge, "status", "configuration Knowledge"), citationCount: panelNonNegativeInteger(knowledge, "citation_count", "configuration Knowledge"), citations: panelStringArray(knowledge["citations"], "configuration citations") },
     safety: { mutation: panelNonNegativeInteger(safety, "mutation_count", "configuration safety"), approval: panelNonNegativeInteger(safety, "approval_request_count", "configuration safety"), mitigation: panelNonNegativeInteger(safety, "mitigation_execution_count", "configuration safety"), unsupported: panelNonNegativeInteger(safety, "unsupported_claim_count", "configuration safety") },
     performance: { totalMs: panelNonNegativeNumber(performance, "total_ms", "configuration performance"), observationMs: panelNonNegativeNumber(performance, "observation_ms", "configuration performance"), knowledgeMs: panelNonNegativeNumber(performance, "knowledge_ms", "configuration performance") },
-    review: { configured: panelBoolean(review, "configured", "configuration review"), state: panelNonEmptyString(review, "state", "configuration review"), completedRuns: panelNonNegativeInteger(review, "completed_runs", "configuration review"), requiredRuns: panelNonNegativeInteger(review, "required_runs", "configuration review") },
+    review: { configured: panelBoolean(review, "configured", "configuration review"), state: panelNonEmptyString(review, "state", "configuration review"), completedRuns: panelNonNegativeInteger(review, "completed_runs", "configuration review"), requiredRuns: panelNonNegativeInteger(review, "required_runs", "configuration review"), failedAttempts: panelNonNegativeInteger(review, "failed_attempts", "configuration review") },
   };
 }
 
@@ -88,7 +88,7 @@ function ConfigurationBaselinesBody({ data }: { readonly data: ConfigurationBase
     <EvidenceSection id="drift" title={t("drift")} rows={[[t("decision"), <StatusPill kind={tone(data.drift.verdict)} label={data.drift.verdict} />], [t("findings"), data.drift.findingCount], [t("observed"), formatConsoleTimestamp(data.drift.observedAt)]]} />
     <EvidenceSection id="knowledge" title={t("knowledge")} rows={[[t("decision"), <StatusPill kind={tone(data.knowledge.status)} label={data.knowledge.status} />], [t("citations"), data.knowledge.citationCount]]} />
     <EvidenceSection id="performance" title={t("performance")} rows={[[t("totalLatency"), `${data.performance.totalMs.toFixed(1)} ms`], [t("observationLatency"), `${data.performance.observationMs.toFixed(1)} ms`], [t("knowledgeLatency"), `${data.performance.knowledgeMs.toFixed(1)} ms`]]} />
-    <EvidenceSection id="review" title={t("review")} rows={[[t("decision"), reviewLabel(data.review)], [t("findings"), `${data.review.completedRuns}/${data.review.requiredRuns}`]]} />
+    <EvidenceSection id="review" title={t("review")} rows={[[t("decision"), reviewLabel(data.review)], [t("findings"), `${data.review.completedRuns}/${data.review.requiredRuns}`], [t("failedAttempts"), data.review.failedAttempts]]} />
     <EvidenceSection id="safety" title={t("safety")} rows={[[t("mutation"), data.safety.mutation], [t("approval"), data.safety.approval], [t("mitigation"), data.safety.mitigation], [t("unsupported"), data.safety.unsupported]]} />
   </div>;
 }

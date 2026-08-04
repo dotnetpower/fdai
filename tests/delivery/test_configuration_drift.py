@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -404,3 +405,28 @@ async def test_knowledge_failure_is_blocked_without_changing_drift_verdict(
     assert report.verdict is DriftVerdict.PASSED
     assert report.knowledge_status is KnowledgeGroundingStatus.BLOCKED
     assert report.knowledge_citations == ()
+
+
+async def test_knowledge_exception_emits_secret_safe_structured_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    baseline = _baseline()
+    service = ConfigurationDriftService(
+        baseline_source=_BaselineSource(baseline),
+        observation_source=_ObservationSource(_observation()),
+        expected_version=baseline.version,
+        expected_sha256=baseline.sha256,
+        expected_scope=baseline.scope,
+        knowledge_source=_KnowledgeSource(error=RuntimeError("secret-bearing provider detail")),
+    )
+
+    with caplog.at_level(logging.WARNING):
+        report = await service.run()
+
+    assert report.knowledge_status is KnowledgeGroundingStatus.BLOCKED
+    record = next(
+        item for item in caplog.records if item.message == "configuration_drift_knowledge_failed"
+    )
+    assert record.error_type == "RuntimeError"
+    assert record.baseline_version == baseline.version
+    assert "secret-bearing" not in caplog.text

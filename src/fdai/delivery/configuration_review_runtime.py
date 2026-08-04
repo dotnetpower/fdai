@@ -106,6 +106,17 @@ class ConfigurationReviewRuntime:
             blueprint=blueprint,
         )
 
+    async def resume(self) -> ConfigurationReviewCampaign:
+        """Resume the pinned campaign without deleting its failed evidence."""
+
+        baseline = await self._baseline_source.load()
+        return await self._campaigns.resume(
+            configuration_review_campaign_id(
+                scope=baseline.scope,
+                version=baseline.version,
+            )
+        )
+
 
 __all__ = [
     "ConfigurationReviewBlueprintSubmitter",

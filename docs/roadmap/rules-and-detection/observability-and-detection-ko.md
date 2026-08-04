@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 8381d3223a81dd77ff920b4be064baf0cacc4fb5
+translation_source_sha: e7fac3be6f1d7bb8a8ff119e4dbeb7b0751fcade
 translation_revised: 2026-08-04
 ---
 
@@ -88,7 +88,9 @@ cross-format equivalence가 성립하지 않습니다.
   표시하지 않고 차단 상태로 유지합니다. 각 citation identity에는 정확한 baseline version과 전체
   DOCX SHA-256 digest가 포함되므로 재사용된 파일 이름이 다른 문서를 가리킬 수 없습니다. Exact
   metadata lookup을 우선하고 bounded deterministic lexical fallback은 고정된 문서 내부의 chunk만
-  순위화하며 관련 없는 query에는 결과를 반환하지 않습니다.
+  순위화하며 관련 없는 query에는 결과를 반환하지 않습니다. Provider exception은 exception type과
+  pinned baseline identity가 포함된 structured warning을 emit하지만 exception message 또는 chunk content는
+  기록하지 않습니다.
 - Read-only capability는 mutation, approval, mitigation, unsupported-claim count를 보고합니다.
   구성 점검에서는 모두 0으로 유지합니다.
 - Public `bind_configuration_drift` composition helper는 immutable capability runtime을 통해 이
@@ -96,7 +98,8 @@ cross-format equivalence가 성립하지 않습니다.
   caller-selected scope를 추가하지 않습니다.
 - 각 fresh run은 baseline load, observation, comparison, Knowledge, total latency와 resource 및
   finding count를 기록합니다. Cache된 snapshot은 current-state 질문을 충족할 수 없으므로 현재 관측값을
-  TTL cache로 재사용하지 않습니다.
+  TTL cache로 재사용하지 않습니다. Receipt는 floating-point timer tolerance를 넘어 stage latency 합이
+  total elapsed time보다 큰 경우를 거부합니다.
 - Pure review reducer는 고정된 baseline 하나에 대한 idempotent run receipt 세 개를 수락합니다. Verified
   run 세 개만 inert weekly schedule proposal을 만들 수 있습니다. Blocked 또는 unsafe run이 있으면
   campaign을 pause하고 reducer는 scheduler task를 직접 생성하지 않습니다. Revisioned StateStore adapter는

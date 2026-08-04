@@ -87,6 +87,13 @@ async def test_campaign_create_and_duplicate_run_are_idempotent() -> None:
     assert duplicate == first
     assert duplicate.revision == 1
 
+    with pytest.raises(ConfigurationDriftReportConflictError, match="different evidence"):
+        await service.record(
+            campaign_id,
+            replace(_report(digest), verdict=DriftVerdict.FAILED),
+            run_id="run-1",
+        )
+
 
 async def test_report_identity_rejects_different_replay_evidence() -> None:
     state_store = InMemoryStateStore()
@@ -121,4 +128,39 @@ async def test_report_identity_rejects_different_replay_evidence() -> None:
         )
     assert await reports.get(campaign_id, "run-1") == first
     assert len(tuple(state_store.audit_entries)) == 1
+    assert await state_store.verify_chain()
+
+
+async def test_failed_campaign_resumes_without_deleting_prior_attempt() -> None:
+    state_store = InMemoryStateStore()
+    store = StateStoreConfigurationReviewCampaignStore(state_store, clock=lambda: _NOW)
+    reports = StateStoreConfigurationDriftReportStore(state_store, clock=lambda: _NOW)
+    digest = "a" * 64
+    campaign_id = configuration_review_campaign_id(scope="example-scope", version="v1")
+    service = ConfigurationReviewCampaignService(store, reports)
+    await service.create(
+        ConfigurationReviewCampaign(
+            campaign_id=campaign_id,
+            baseline_version="v1",
+            baseline_sha256=digest,
+            scope="example-scope",
+        )
+    )
+    await service.record(campaign_id, _report(digest), run_id="attempt-1-run-1")
+    await service.record(
+        campaign_id,
+        replace(_report(digest), verdict=DriftVerdict.BLOCKED),
+        run_id="attempt-1-run-2",
+    )
+    failed = await service.record(campaign_id, _report(digest), run_id="attempt-1-run-3")
+
+    resumed = await service.resume(campaign_id)
+    restored = await store.get(campaign_id)
+
+    assert failed.state.value == "paused-failed"
+    assert resumed.state.value == "active"
+    assert resumed.runs == ()
+    assert resumed.failed_attempts == (failed.runs,)
+    assert restored == resumed
+    assert resumed.revision == 4
     assert await state_store.verify_chain()

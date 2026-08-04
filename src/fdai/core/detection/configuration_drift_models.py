@@ -326,6 +326,10 @@ class ConfigurationDriftPerformance:
         )
         if any(not math.isfinite(value) or value < 0 for value in latencies):
             raise ValueError("configuration drift latencies MUST be finite and non-negative")
+        stage_total = sum(latencies[:4])
+        tolerance = max(1e-6, self.total_ms * 1e-9)
+        if stage_total > self.total_ms + tolerance:
+            raise ValueError("configuration drift stage latencies MUST NOT exceed total latency")
         if self.resource_count < 0 or self.finding_count < 0:
             raise ValueError("configuration drift counts MUST be non-negative")
 

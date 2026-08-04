@@ -69,6 +69,13 @@ advance increments a revision and uses compare-and-set with bounded retry, so co
 overwrite one another. Restart recovery reads the same version, scope, run receipts, state, and
 revision. Duplicate run ids remain idempotent.
 
+A duplicate run id is idempotent only when its full persisted report is identical. Reusing the id
+with another decision, finding set, citation set, safety counter, or performance receipt is a
+conflict and cannot advance the campaign. A failed campaign remains paused until an Approver uses
+the separate resume command. Resume moves the complete failed run set into immutable attempt
+history, increments the revision with compare-and-set, and starts an empty active attempt. It does
+not delete the failed reports or their audit records.
+
 ### Anchor
 
 `ScheduledConversationAnchor` records:

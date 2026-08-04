@@ -70,7 +70,7 @@ def _key(campaign_id: str) -> str:
 
 def _encode(campaign: ConfigurationReviewCampaign) -> dict[str, Any]:
     return {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "campaign_id": campaign.campaign_id,
         "baseline_version": campaign.baseline_version,
         "baseline_sha256": campaign.baseline_sha256,
@@ -79,39 +79,26 @@ def _encode(campaign: ConfigurationReviewCampaign) -> dict[str, Any]:
         "required_successes": campaign.required_successes,
         "state": campaign.state.value,
         "revision": campaign.revision,
-        "runs": [
-            {
-                "run_id": run.run_id,
-                "observed_at": run.observed_at.isoformat(),
-                "verdict": run.verdict.value,
-                "verified": run.verified,
-                "evidence_refs": list(run.evidence_refs),
-            }
-            for run in campaign.runs
+        "runs": [_encode_run(run) for run in campaign.runs],
+        "failed_attempts": [
+            [_encode_run(run) for run in attempt] for attempt in campaign.failed_attempts
         ],
     }
 
 
 def _decode(raw: Mapping[str, Any]) -> ConfigurationReviewCampaign:
     runs_raw = raw.get("runs")
-    if raw.get("schema_version") != "1.0.0" or not isinstance(runs_raw, list):
+    if raw.get("schema_version") not in {"1.0.0", "1.1.0"} or not isinstance(runs_raw, list):
         raise ValueError("configuration review campaign state is invalid")
-    runs: list[ConfigurationReviewRun] = []
-    for item in runs_raw:
-        if not isinstance(item, Mapping):
-            raise ValueError("configuration review run state is invalid")
-        refs = item.get("evidence_refs")
-        if not isinstance(refs, list) or any(not isinstance(ref, str) for ref in refs):
-            raise ValueError("configuration review evidence refs are invalid")
-        runs.append(
-            ConfigurationReviewRun(
-                run_id=_text(item, "run_id"),
-                observed_at=datetime.fromisoformat(_text(item, "observed_at")),
-                verdict=DriftVerdict(_text(item, "verdict")),
-                verified=_bool(item, "verified"),
-                evidence_refs=tuple(refs),
-            )
-        )
+    runs = [_decode_run(item) for item in runs_raw]
+    attempts_raw = raw.get("failed_attempts", [])
+    if not isinstance(attempts_raw, list):
+        raise ValueError("configuration review failed attempts are invalid")
+    failed_attempts: list[tuple[ConfigurationReviewRun, ...]] = []
+    for attempt in attempts_raw:
+        if not isinstance(attempt, list):
+            raise ValueError("configuration review failed attempt is invalid")
+        failed_attempts.append(tuple(_decode_run(item) for item in attempt))
     return ConfigurationReviewCampaign(
         campaign_id=_text(raw, "campaign_id"),
         baseline_version=_text(raw, "baseline_version"),
@@ -121,7 +108,33 @@ def _decode(raw: Mapping[str, Any]) -> ConfigurationReviewCampaign:
         required_successes=_int(raw, "required_successes"),
         state=ConfigurationReviewState(_text(raw, "state")),
         runs=tuple(runs),
+        failed_attempts=tuple(failed_attempts),
         revision=_int(raw, "revision"),
+    )
+
+
+def _encode_run(run: ConfigurationReviewRun) -> dict[str, Any]:
+    return {
+        "run_id": run.run_id,
+        "observed_at": run.observed_at.isoformat(),
+        "verdict": run.verdict.value,
+        "verified": run.verified,
+        "evidence_refs": list(run.evidence_refs),
+    }
+
+
+def _decode_run(item: object) -> ConfigurationReviewRun:
+    if not isinstance(item, Mapping):
+        raise ValueError("configuration review run state is invalid")
+    refs = item.get("evidence_refs")
+    if not isinstance(refs, list) or any(not isinstance(ref, str) for ref in refs):
+        raise ValueError("configuration review evidence refs are invalid")
+    return ConfigurationReviewRun(
+        run_id=_text(item, "run_id"),
+        observed_at=datetime.fromisoformat(_text(item, "observed_at")),
+        verdict=DriftVerdict(_text(item, "verdict")),
+        verified=_bool(item, "verified"),
+        evidence_refs=tuple(refs),
     )
 
 

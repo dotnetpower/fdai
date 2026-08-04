@@ -1,6 +1,6 @@
 ---
 translation_of: scheduled-result-continuations.md
-translation_source_sha: 1096bfca91bf2d80bc233138a6152ead4d0ad1a7
+translation_source_sha: 626d15940a1eaef02b82288c2581584034eb65db
 translation_revised: 2026-08-04
 ---
 # 예약 결과 이어가기
@@ -70,6 +70,13 @@ operation은 state write와 append-only audit entry를 원자적으로 결합합
 증가시키고 bounded retry가 적용된 compare-and-set을 사용하므로 concurrent run이 서로를 덮어쓸 수 없습니다.
 Restart recovery는 동일한 version, scope, run receipt, state, revision을 읽습니다. Duplicate run id는
 idempotent하게 유지됩니다.
+
+Duplicate run id는 full persisted report가 동일할 때만 idempotent합니다. 다른 decision, finding set,
+citation set, safety counter 또는 performance receipt로 id를 재사용하면 conflict가 발생하고 campaign을
+advance할 수 없습니다. Failed campaign은 Approver가 별도 resume command를 사용할 때까지 pause 상태를
+유지합니다. Resume은 complete failed run set을 immutable attempt history로 이동하고 compare-and-set으로
+revision을 증가시킨 뒤 empty active attempt를 시작합니다. Failed report 또는 audit record를 삭제하지
+않습니다.
 
 ### 앵커
 

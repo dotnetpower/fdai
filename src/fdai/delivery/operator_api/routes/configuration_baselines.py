@@ -87,6 +87,7 @@ class ConfigurationBaselinesPanel:
                 "state": campaign.state.value if campaign is not None else "not-configured",
                 "completed_runs": len(campaign.runs) if campaign is not None else 0,
                 "required_runs": campaign.required_successes if campaign is not None else 3,
+                "failed_attempts": len(campaign.failed_attempts) if campaign is not None else 0,
             },
         }
 

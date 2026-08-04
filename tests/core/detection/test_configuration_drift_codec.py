@@ -61,3 +61,16 @@ def test_report_codec_rejects_unknown_fields() -> None:
 
     with pytest.raises(ValueError, match="report has unknown fields"):
         report_from_dict(raw)
+
+
+def test_performance_rejects_impossible_stage_total() -> None:
+    with pytest.raises(ValueError, match="stage latencies MUST NOT exceed total"):
+        ConfigurationDriftPerformance(
+            baseline_load_ms=4.0,
+            observation_ms=4.0,
+            comparison_ms=4.0,
+            knowledge_ms=4.0,
+            total_ms=10.0,
+            resource_count=1,
+            finding_count=1,
+        )

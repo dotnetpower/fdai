@@ -179,8 +179,10 @@ def test_review_run_route_requires_idempotency_key_and_records_one_run() -> None
             "/configuration-baselines/review/run",
             headers={"Idempotency-Key": "run-1"},
         )
+        forbidden_resume = client.post("/configuration-baselines/review/resume")
 
     assert missing.status_code == 400
     assert recorded.status_code == 200
     assert recorded.json()["completed_runs"] == 1
     assert duplicate.json()["completed_runs"] == 1
+    assert forbidden_resume.status_code == 403

@@ -173,4 +173,5 @@ async def test_panel_projects_baseline_drift_knowledge_safety_and_performance() 
         "state": "active",
         "completed_runs": 0,
         "required_runs": 3,
+        "failed_attempts": 0,
     }

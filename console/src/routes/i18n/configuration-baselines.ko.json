@@ -36,6 +36,7 @@
   "reviewActive": "진행 중",
   "reviewReady": "주간 검토 준비됨",
   "reviewPaused": "검토 실패 후 일시 중지됨",
+  "failedAttempts": "보존된 실패 시도",
   "safety": "안전 counter",
   "mutation": "변경",
   "approval": "승인",

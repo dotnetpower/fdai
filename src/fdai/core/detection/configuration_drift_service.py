@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import Callable
 from dataclasses import replace
@@ -16,6 +17,8 @@ from fdai.core.detection.configuration_drift import (
     compare_configuration,
 )
 from fdai.shared.providers.knowledge import KnowledgeSource
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class BaselineIntegrityError(RuntimeError):
@@ -105,7 +108,15 @@ class ConfigurationDriftService:
         query = f"configuration baseline {baseline.version} {baseline.document_sha256}"
         try:
             chunks = await self._knowledge_source.search(query, k=5)
-        except Exception:  # noqa: BLE001 - grounding failure cannot change drift evidence
+        except Exception as exc:  # noqa: BLE001 - grounding failure cannot change drift evidence
+            _LOGGER.warning(
+                "configuration_drift_knowledge_failed",
+                extra={
+                    "baseline_version": baseline.version,
+                    "baseline_sha256": baseline.sha256,
+                    "error_type": type(exc).__name__,
+                },
+            )
             return KnowledgeGroundingStatus.BLOCKED, ()
         matching = tuple(
             chunk

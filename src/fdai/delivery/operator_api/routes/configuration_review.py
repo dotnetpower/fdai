@@ -44,6 +44,7 @@ def make_configuration_review_routes(
                 "state": result.campaign.state.value,
                 "completed_runs": len(result.campaign.runs),
                 "required_runs": result.campaign.required_successes,
+                "failed_attempts": len(result.campaign.failed_attempts),
                 "report_verdict": result.report.verdict.value,
                 "blueprint_candidate_id": (
                     result.blueprint.candidate_id if result.blueprint is not None else None
@@ -52,7 +53,27 @@ def make_configuration_review_routes(
             }
         )
 
-    return (Route("/configuration-baselines/review/run", run_review, methods=["POST"]),)
+    async def resume_review(request: Request) -> Response:
+        principal = await authorize(request)
+        if not principal_has_role_at_least(principal.role, Role.APPROVER):
+            raise HTTPException(
+                status_code=403, detail="configuration review resume requires Approver"
+            )
+        campaign = await runtime.resume()
+        return JSONResponse(
+            {
+                "campaign_id": campaign.campaign_id,
+                "state": campaign.state.value,
+                "completed_runs": len(campaign.runs),
+                "required_runs": campaign.required_successes,
+                "failed_attempts": len(campaign.failed_attempts),
+            }
+        )
+
+    return (
+        Route("/configuration-baselines/review/run", run_review, methods=["POST"]),
+        Route("/configuration-baselines/review/resume", resume_review, methods=["POST"]),
+    )
 
 
 def _request_time(request: Request) -> datetime:

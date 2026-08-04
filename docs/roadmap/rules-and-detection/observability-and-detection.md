@@ -88,7 +88,9 @@ file digest alone does not establish cross-format equivalence.
   blocked rather than being reported as supported. Each citation identity includes the exact
   baseline version and full DOCX SHA-256 digest so a reused filename cannot alias another document.
   Exact metadata lookup takes precedence; a bounded deterministic lexical fallback ranks chunks
-  only within that pinned document and returns no result for an unrelated query.
+  only within that pinned document and returns no result for an unrelated query. Provider
+  exceptions emit a structured warning containing the exception type and pinned baseline identity,
+  but never the exception message or chunk content.
 - The read-only capability reports mutation, approval, mitigation, and unsupported-claim counts.
   Each remains zero for a configuration check.
 - The public `bind_configuration_drift` composition helper installs this one server-pinned A0
@@ -96,7 +98,8 @@ file digest alone does not establish cross-format equivalence.
   identity, schedule authority, or caller-selected scope.
 - Every fresh run records baseline-load, observation, comparison, Knowledge, and total latency plus
   resource and finding counts. Current observations are not reused through a TTL cache because a
-  cached snapshot cannot satisfy a current-state question.
+  cached snapshot cannot satisfy a current-state question. The receipt rejects stage latencies that
+  exceed total elapsed time beyond floating-point timer tolerance.
 - A pure review reducer accepts three idempotent run receipts for one pinned baseline. Only three
   verified runs can produce an inert weekly schedule proposal. Any blocked or unsafe run pauses the
   campaign, and the reducer never creates a scheduler task directly. A revisioned StateStore adapter

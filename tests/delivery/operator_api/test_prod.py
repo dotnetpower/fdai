@@ -208,6 +208,7 @@ def test_build_prod_app_wires_configuration_baseline_panel(tmp_path: Path) -> No
     paths = {route.path for route in app.routes}
     assert "/configuration-baselines" in paths
     assert "/configuration-baselines/review/run" in paths
+    assert "/configuration-baselines/review/resume" in paths
     assert "/automation-blueprints/{candidate_id:str}/review" in paths
     assert "/automation-blueprints/{candidate_id:str}/materialize" in paths
 
