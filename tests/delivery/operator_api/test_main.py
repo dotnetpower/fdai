@@ -45,6 +45,7 @@ from fdai.delivery.operator_api.read_model import (
     InMemoryConsoleReadModel,
 )
 from fdai.delivery.operator_api.routes.auxiliary_registration import registered_cors_methods
+from fdai.delivery.operator_api.routes.dynamic_views import validate_panel_path_collisions
 from fdai.delivery.operator_api.routes.panels import ExampleFinOpsPanel
 
 _DEV_MODE_ENV = "FDAI_OPERATOR_API_DEV_MODE"
@@ -891,14 +892,41 @@ class TestExtensionPanels:
             _build_with_panels(_FakePanel("finops"), dev_mode=False)
 
     def test_panel_path_collision_with_core_rejected(self) -> None:
-        with pytest.raises(ValueError, match="collides with a core route"):
+        with pytest.raises(ValueError, match="collides with an existing route"):
             _build_with_panels(_FakePanel("/kpi"), dev_mode=False)
+
+    def test_panel_path_collision_with_assembled_route_rejected(self) -> None:
+        with pytest.raises(ValueError, match="panel paths collide"):
+            _build_with_panels(
+                _FakePanel("/audit/{correlation_id}/trace"),
+                dev_mode=False,
+            )
 
     def test_duplicate_panel_paths_rejected(self) -> None:
         with pytest.raises(ValueError, match="duplicate panel path"):
             _build_with_panels(
                 _FakePanel("/finops"), _FakePanel("/finops", name="other"), dev_mode=False
             )
+
+    def test_duplicate_panel_names_rejected(self) -> None:
+        with pytest.raises(ValueError, match="duplicate panel name"):
+            _build_with_panels(
+                _FakePanel("/finops"),
+                _FakePanel("/cost-summary"),
+                dev_mode=False,
+            )
+
+    def test_panel_path_is_exclusive_across_http_methods(self) -> None:
+        async def endpoint(_: Any) -> Response:
+            return Response()
+
+        routes = [
+            Route("/extension", endpoint, methods=["GET"], name="panel:extension"),
+            Route("/extension", endpoint, methods=["POST"], name="submit-extension"),
+        ]
+
+        with pytest.raises(ValueError, match="panel paths collide"):
+            validate_panel_path_collisions(routes, {"/extension"})
 
     def test_example_finops_panel_derives_from_audit(self, dev_env: None) -> None:
         del dev_env

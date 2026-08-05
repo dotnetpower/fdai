@@ -19,9 +19,11 @@ Seam contract
 - A panel never sees the executor identity. Its route is authorized with
   the same reader-role gate as the core routes; approvals/actions still
   flow through ChatOps / remediation PRs, never a console button.
-- ``path`` MUST start with ``/`` and MUST NOT collide with a core route
-  (``/audit``, ``/kpi``, ``/hil-queue``, ``/healthz``). The app factory
-  fails fast at build time on a malformed or colliding path.
+- ``path`` MUST start with ``/`` and MUST NOT collide with an existing or
+    reserved route. The app factory fails fast at build time on a malformed
+    or colliding path.
+- ``name`` MUST be unique across core and extension panels so reverse routing,
+    logs, and metrics retain one stable ``panel:<name>`` identity.
 
 This module also ships :class:`ExampleFinOpsPanel` as a **reference
 implementation**. It is intentionally *not* registered by the upstream
@@ -88,24 +90,44 @@ def append_read_panels(
     handler_factory: Callable[[ReadPanel], Callable[[Request], Awaitable[Response]]],
     core_paths: frozenset[str],
 ) -> set[str]:
-    """Append core and extension panels, returning extension paths."""
+    """Append panels while rejecting duplicate paths and stable route names."""
     from fdai.delivery.operator_api.routes.incidents import IncidentsPanel
     from fdai.delivery.operator_api.routes.rca import RcaPanel
 
     core_panels: tuple[ReadPanel, ...] = (IncidentsPanel(read_model), RcaPanel(read_model))
     for panel in core_panels:
-        routes.append(Route(panel.path, handler_factory(panel), methods=["GET"]))
+        routes.append(
+            Route(
+                panel.path,
+                handler_factory(panel),
+                methods=["GET"],
+                name=f"panel:{panel.name}",
+            )
+        )
     seen: set[str] = set()
+    seen_names = {panel.name for panel in core_panels}
     for panel in extra_panels:
         path = panel.path
         if not path.startswith("/"):
             raise ValueError(f"panel path MUST start with '/', got {path!r} ({panel.name!r})")
         if path in core_paths:
-            raise ValueError(f"panel path {path!r} collides with a core route ({panel.name!r})")
+            raise ValueError(
+                f"panel path {path!r} collides with an existing route ({panel.name!r})"
+            )
         if path in seen:
             raise ValueError(f"duplicate panel path {path!r} ({panel.name!r})")
+        if panel.name in seen_names:
+            raise ValueError(f"duplicate panel name {panel.name!r} ({path!r})")
         seen.add(path)
-        routes.append(Route(path, handler_factory(panel), methods=["GET"]))
+        seen_names.add(panel.name)
+        routes.append(
+            Route(
+                path,
+                handler_factory(panel),
+                methods=["GET"],
+                name=f"panel:{panel.name}",
+            )
+        )
     return seen
 
 

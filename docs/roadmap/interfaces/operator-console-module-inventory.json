@@ -1,0 +1,302 @@
+{
+  "schema_version": "1.0.0",
+  "owner": "FDAI maintainers",
+  "tracking_issue": 67,
+  "scope": "src/fdai/delivery/operator_api",
+  "packages": [
+    {
+      "path": ".",
+      "responsibility": "Public facades and foundational Operator API contracts",
+      "classification": "public-or-transitional",
+      "candidate_destination": "retain until a classified replacement is available"
+    },
+    {
+      "path": "app",
+      "responsibility": "Shared ASGI assembly, middleware, route registration, and lifespan",
+      "classification": "composition",
+      "candidate_destination": "retain"
+    },
+    {
+      "path": "dev",
+      "responsibility": "Interactive local and test-only provider composition",
+      "classification": "composition",
+      "candidate_destination": "retain"
+    },
+    {
+      "path": "dev/fixtures",
+      "responsibility": "Synthetic pytest-only Operator API fixtures",
+      "classification": "test-fixture",
+      "candidate_destination": "retain outside production composition"
+    },
+    {
+      "path": "persistence",
+      "responsibility": "Operator API-owned read-model implementations and projections",
+      "classification": "provider-adapter",
+      "candidate_destination": "retain"
+    },
+    {
+      "path": "production",
+      "responsibility": "Production provider construction and Operator API bindings",
+      "classification": "composition",
+      "candidate_destination": "retain and reduce fanout incrementally"
+    },
+    {
+      "path": "routes",
+      "responsibility": "Mixed HTTP adapters, application coordination, projections, and policy helpers",
+      "classification": "mixed-transitional",
+      "candidate_destination": "classify and migrate one bounded family at a time under issues 69-72"
+    },
+    {
+      "path": "streaming",
+      "responsibility": "Read-only SSE transport, fanout, redaction, and runtime projection",
+      "classification": "stream-transport",
+      "candidate_destination": "retain until a versioned relay contract and replay policy exist"
+    }
+  ],
+  "top_level_modules": [
+    {
+      "pattern": "main.py|prod.py|__init__.py",
+      "responsibility": "Public app and deployment facades",
+      "classification": "public-facade"
+    },
+    {
+      "pattern": "auth.py|entra_verifier.py",
+      "responsibility": "Authentication contracts and Entra verification",
+      "classification": "transitional-cross-service"
+    },
+    {
+      "pattern": "read_model.py|postgres_read_model.py",
+      "responsibility": "Console read-model contract and PostgreSQL implementation facade",
+      "classification": "read-model"
+    },
+    {
+      "pattern": "console_action_dispatch*.py|console_incident_ticket.py",
+      "responsibility": "Durable governed request and incident-ticket delivery coordination",
+      "classification": "delivery-coordination"
+    }
+  ],
+  "route_families": [
+    {
+      "pattern": "chat*.py",
+      "responsibility": "Conversation HTTP, coordination, evidence, verification, presentation, and provider integration",
+      "classification": "mixed-transitional",
+      "candidate_destination": "issue 71 defines the typed application-service boundary before any bulk move"
+    },
+    {
+      "pattern": "audit*.py",
+      "responsibility": "Audit read projections and measurement views",
+      "classification": "read-projection",
+      "candidate_destination": "candidate leaf family after issue 69"
+    },
+    {
+      "pattern": "workflow*.py",
+      "responsibility": "Workflow projections and governed request adapters",
+      "classification": "mixed-domain-route",
+      "candidate_destination": "keep domain lifecycle boundaries; do not merge into a universal operation service"
+    },
+    {
+      "pattern": "read_investigation*.py",
+      "responsibility": "Bounded investigation request, execution coordination, replay, and rendering",
+      "classification": "mixed-domain-route",
+      "candidate_destination": "classify after the first reversible route-family migration"
+    },
+    {
+      "pattern": "*.py",
+      "responsibility": "Unclassified route family pending measured ownership review",
+      "classification": "internal-transitional",
+      "candidate_destination": "issue 70 selects one low-fanout read-only family"
+    }
+  ],
+  "reviewed_fallback_modules": [
+    "access_grant_decision.py", "access_grant_stream.py", "arb_status.py",
+    "architecture_views.py", "automation_blueprints.py", "auxiliary_registration.py",
+    "azure_monitor_webhook.py", "background_executor.py", "background_runtime.py",
+    "background_tasks.py", "best_practices.py", "bitemporal.py", "blast_radius.py",
+    "browser_evidence.py", "busy_input.py", "busy_input_runtime.py",
+    "configuration_baselines.py", "configuration_review.py", "console_action.py",
+    "context_selection_comparisons.py", "conversation_assurance.py",
+    "conversation_assurance_intake.py", "conversation_delivery.py", "core_reads.py",
+    "data_sources.py", "demo_findings.py", "demo_inventory_graph.py",
+    "detection_readiness.py", "dynamic_assurance.py", "dynamic_views.py",
+    "forecast_learning.py", "handover_goals.py", "hil_callback.py",
+    "human_assignments.py", "iam.py", "incident_attention_stream.py", "incident_chat.py",
+    "incident_projection.py", "incidents.py", "inventory_graph.py",
+    "inventory_graph_bounds.py", "inventory_provider_execution.py", "kill_switch.py",
+    "llm_cost.py", "mcsb_controls.py", "measurement_summary.py", "model_settings.py",
+    "notification_templates.py", "onboarding.py", "ontology_graph.py", "operator_memory.py",
+    "panels.py", "pantheon.py", "persisted_promotion_gates.py", "post_turn_event_bus.py",
+    "post_turn_review.py", "post_turn_review_panel.py", "process_views.py",
+    "promotion_gates.py", "provenance.py", "python_tasks.py", "rca.py",
+    "rca_projection.py", "reporting.py", "rule_catalog.py", "rule_fire_trace.py",
+    "rule_fire_trace_reader.py", "runtime_settings.py", "scheduler_runs.py", "scope.py",
+    "skill_runtime.py", "skill_sources.py", "skills.py", "stewardship.py",
+    "task_workers.py", "trajectory_datasets.py", "user_context.py",
+    "user_context_conversations.py", "webhook.py", "what_if.py"
+  ],
+  "import_surfaces": [
+    {
+      "module": "fdai.delivery.operator_api.main",
+      "classification": "public-facade",
+      "migration": "preserve"
+    },
+    {
+      "module": "fdai.delivery.operator_api.prod",
+      "classification": "public-deployment-entrypoint",
+      "migration": "preserve while the shared image starts the production ASGI role"
+    },
+    {
+      "module": "fdai.delivery.operator_api.read_model",
+      "classification": "public-delivery-contract",
+      "migration": "preserve until a reviewed replacement exists"
+    },
+    {
+      "module": "fdai.delivery.operator_api.auth",
+      "classification": "transitional-cross-service",
+      "migration": "issue 68 moves framework-neutral authentication ownership"
+    },
+    {
+      "module": "fdai.delivery.operator_api.routes.busy_input_runtime",
+      "classification": "transitional-public-reexport",
+      "migration": "preserve the main facade export until issue 68 defines a neutral runtime contract"
+    },
+    {
+      "module": "fdai.delivery.operator_api.routes.panels",
+      "classification": "transitional-public-extension-seam",
+      "migration": "preserve ReadPanel compatibility until fork guidance names a replacement"
+    },
+    {
+      "module": "fdai.delivery.operator_api.routes.reporting",
+      "classification": "transitional-public-extension-seam",
+      "migration": "preserve ReportingConfig compatibility until integration guidance names a replacement"
+    },
+    {
+      "module": "fdai.delivery.operator_api.routes.*",
+      "classification": "internal-implementation",
+      "migration": "use per-module forwarding shims only for classified compatibility needs"
+    },
+    {
+      "module": "fdai.delivery.operator_api.routes.*",
+      "consumer_scope": "tests/**",
+      "classification": "test-only-compatibility-debt",
+      "migration": "record expected test churn before moving a route family"
+    },
+    {
+      "module": "fdai.delivery.operator_api.streaming.agent_activity_stream",
+      "consumer_scope": "src/fdai/runtime/bootstrap.py",
+      "classification": "transitional-cross-service",
+      "migration": "issue 68 moves runtime-owned records out of the Operator API implementation"
+    },
+    {
+      "module": "fdai.delivery.operator_api.streaming.agent_runtime_state_publisher",
+      "consumer_scope": "src/fdai/runtime/bootstrap.py",
+      "classification": "transitional-cross-service",
+      "migration": "issue 68 separates runtime publication from HTTP stream ownership"
+    },
+    {
+      "module": "fdai.delivery.operator_api.streaming.agent_activity_broadcaster",
+      "consumer_scope": "src/fdai/runtime/bootstrap.py",
+      "classification": "transitional-cross-service",
+      "migration": "issue 68 moves runtime fanout behind a neutral publication contract"
+    },
+    {
+      "module": "fdai.delivery.operator_api.streaming.provision_stream",
+      "consumer_scope": "src/fdai/delivery/provisioning/*.py",
+      "classification": "transitional-cross-service",
+      "migration": "preserve provisioning publisher compatibility until a neutral stream contract exists"
+    },
+    {
+      "module": "fdai.delivery.operator_api.dev.*",
+      "classification": "test-and-local-only",
+      "migration": "production imports prohibited"
+    }
+  ],
+  "wire_baselines": [
+    {
+      "contract": "default-route-method-path-name",
+      "test": "tests/delivery/operator_api/test_operator_api_layout.py::test_build_app_composes_starlette_router"
+    },
+    {
+      "contract": "extension-panel-route-name-uniqueness",
+      "test": "tests/delivery/operator_api/test_main.py::TestExtensionPanels::test_duplicate_panel_names_rejected"
+    },
+    {
+      "contract": "extension-panel-path-uniqueness",
+      "test": "tests/delivery/operator_api/test_main.py::TestExtensionPanels::test_panel_path_collision_with_assembled_route_rejected"
+    },
+    {
+      "contract": "representative-http-envelopes",
+      "test": "tests/delivery/operator_api/test_operator_api_layout.py::test_default_http_envelopes_are_stable"
+    },
+    {
+      "contract": "progress-sequence-and-terminal-branch-bounds",
+      "test": "tests/delivery/operator_api/test_chat_evidence_branches.py::test_terminal_branch_frame_keeps_only_bounded_branch_evidence_refs"
+    },
+    {
+      "contract": "redacted-model-trace",
+      "test": "tests/delivery/operator_api/test_chat_route.py::TestChatStreamEvidence::test_stream_opt_in_returns_redacted_actual_model_trace"
+    },
+    {
+      "contract": "poisoned-model-trace-redaction",
+      "test": "tests/delivery/operator_api/test_chat_model_trace.py::test_trace_preserves_roles_and_hashes_while_redacting_sensitive_values"
+    },
+    {
+      "contract": "json-sse-terminal-parity",
+      "test": "tests/delivery/operator_api/test_chat_route.py::test_json_and_sse_terminal_payloads_share_nullable_fields_and_verification"
+    },
+    {
+      "contract": "terminal-replay-idempotency",
+      "test": "tests/delivery/operator_api/test_chat_request_idempotency.py::test_stream_exact_retry_replays_only_completed_terminal_response"
+    },
+    {
+      "contract": "sse-frame-injection-neutralization",
+      "test": "tests/delivery/operator_api/test_live_stream_hardening.py::test_r3_injection_cannot_forge_a_second_event"
+    },
+    {
+      "contract": "sse-frame-size-cap",
+      "test": "tests/delivery/operator_api/test_live_stream_hardening.py::test_r4_data_is_capped"
+    },
+    {
+      "contract": "sse-sink-failure-termination",
+      "test": "tests/delivery/operator_api/test_live_stream_hardening.py::test_r7_stream_ends_when_sink_errors"
+    }
+  ],
+  "client_wire_baselines": [
+    {
+      "contract": "live-stream-auth-and-reconnect-backoff",
+      "test_file": "console/src/hooks/use-live-stream.test.ts",
+      "test_name": "classifies auth failures and caps reconnect backoff"
+    },
+    {
+      "contract": "agent-stream-auth-and-reconnect-backoff",
+      "test_file": "console/src/hooks/use-agent-stream.test.ts",
+      "test_name": "classifies auth failures and caps reconnect backoff"
+    },
+    {
+      "contract": "provision-stream-auth-and-reconnect-backoff",
+      "test_file": "console/src/hooks/use-provision-stream.test.ts",
+      "test_name": "classifies permanent auth failures and caps reconnect backoff"
+    },
+    {
+      "contract": "chat-sequence-gap-fail-closed",
+      "test_file": "console/src/deck/backend-stream-fallback.test.ts",
+      "test_name": "fails closed when a terminal stream has a sequence gap"
+    }
+  ],
+  "known_wire_debts": [
+    {
+      "contract": "chat-frame-request-binding-and-required-sequence",
+      "tracking_issue": 71,
+      "exit_condition": "The browser rejects a mismatched request_id and a semantic frame without seq."
+    },
+    {
+      "contract": "chat-sse-error-envelope-parity",
+      "tracking_issue": 71,
+      "exit_condition": "Known HTTP failures retain a bounded status and reason in the SSE error envelope."
+    },
+    {
+      "contract": "chat-sse-producer-frame-cap",
+      "tracking_issue": 71,
+      "exit_condition": "The producer bounds chat frames at or below the browser's 256 KiB limit."
+    }
+  ]
+}

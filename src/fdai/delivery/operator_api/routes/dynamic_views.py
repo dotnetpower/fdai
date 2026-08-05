@@ -62,4 +62,22 @@ def validate_route_method_collisions(routes: list[BaseRoute]) -> None:
             claimed[key] = index
 
 
-__all__ = ["build_dynamic_view_routes", "validate_route_method_collisions"]
+def validate_panel_path_collisions(
+    routes: list[BaseRoute],
+    panel_paths: set[str],
+) -> None:
+    """Fail startup when another route claims an extension panel's path."""
+    path_counts: dict[str, int] = {path: 0 for path in panel_paths}
+    for route in routes:
+        if isinstance(route, Route) and route.path in path_counts:
+            path_counts[route.path] += 1
+    collisions = sorted(path for path, count in path_counts.items() if count != 1)
+    if collisions:
+        raise ValueError(f"panel paths collide with another route or are missing: {collisions}")
+
+
+__all__ = [
+    "build_dynamic_view_routes",
+    "validate_panel_path_collisions",
+    "validate_route_method_collisions",
+]

@@ -1,7 +1,7 @@
 ---
 title: Narrator Routing and Latency
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 9a304c2464e6bb867b04d116f9728f416813ed57
+translation_source_sha: ed8ccc1bf78902c73e1bde7732bd29780ff05452
 translation_revised: 2026-08-05
 ---
 # Narrator Routing and Latency
@@ -11,10 +11,12 @@ pool 동작을 소유합니다. T1 narration과 system-governed T2 reasoning의 
 
 ## Narrator latency routing
 
-Console chat backend(`fdai.delivery.operator_api.chat.LatencyRoutedChatBackend`)는 `t1.judge`
+Console chat backend
+(`fdai.delivery.operator_api.routes.chat_backend_router.LatencyRoutedChatBackend`)는 `t1.judge`
 mini-stack deployment를 감싸고 각 turn에서 rolling p50 latency가 가장 낮은 후보를 선택합니다.
 `resolved-models.json`에 `narrator_candidates`가 두 개 이상 있으면 활성화되고, 하나만 있으면
-`AzureAdChatBackend`를 직접 사용합니다.
+vision routing에 one-candidate latency wrapper가 필요하지 않은 한 `AzureAdChatBackend`를 직접
+사용합니다.
 
 Router는 T1 narrator traffic 전용입니다. T2 capability로 latency routing을 확장하려면 별도 설계
 검토가 필요합니다. `t2.reasoner.primary` slot의 검토된 same-publisher 예외는
@@ -74,9 +76,9 @@ Endpoint reference, auth audience, resource digest, URL 및 credential은 제외
 ## 대화형 web-search latency pool
 
 Public-web lookup은 별도 Chat T2 tool invocation이며 T1 judgment나 action quality-gate pair가 아닙니다.
-활성화하면 Azure Responses `WebSearchProvider`가 `narrator_candidates`를 function-calling pool로
-재사용하고 rolling p50이 가장 낮은 후보를 선택하며 나머지 후보로 failover합니다. Deterministic
-web-search policy가 provider 호출 전에 turn을 승격합니다.
+활성화하면 Azure Responses `WebSearchProvider`가 별도 `web_search_candidates` function-calling
+pool을 사용하고 rolling p50이 가장 낮은 후보를 선택하며 나머지 후보로 failover합니다.
+Deterministic web-search policy가 provider 호출 전에 turn을 승격합니다.
 
 Web-search pool은 같은 warm-up 및 periodic measurement pattern을 사용합니다. Periodic probe는
 `web_search` tool 없이 minimal model response를 요청하고 실제 search는 end-to-end latency를 같은

@@ -9,10 +9,12 @@ system-governed T2 reasoning.
 
 ## Narrator latency routing
 
-The console chat backend (`fdai.delivery.operator_api.chat.LatencyRoutedChatBackend`) wraps the
+The console chat backend
+(`fdai.delivery.operator_api.routes.chat_backend_router.LatencyRoutedChatBackend`) wraps the
 `t1.judge` mini-stack deployments and selects the candidate with the lowest rolling p50 latency for
 each turn. It is enabled when `resolved-models.json` contains two or more
-`narrator_candidates`; a single entry uses `AzureAdChatBackend` directly.
+`narrator_candidates`. A single text candidate uses `AzureAdChatBackend` directly unless vision
+routing requires the one-candidate latency wrapper.
 
 The router is scoped to T1 narrator traffic. Extending latency routing to a T2 capability requires
 separate design review. The reviewed same-publisher exception for the `t2.reasoner.primary` slot is
@@ -74,8 +76,8 @@ catalog workflows.
 ## Conversational web-search latency pool
 
 Public-web lookup is a separate Chat T2 tool invocation, not T1 judgment and not part of the action
-quality-gate pair. When enabled, the Azure Responses `WebSearchProvider` reuses
-`narrator_candidates` as a function-calling pool, selects the lowest rolling p50, and fails over
+quality-gate pair. When enabled, the Azure Responses `WebSearchProvider` uses the separate
+`web_search_candidates` function-calling pool, selects the lowest rolling p50, and fails over
 across the remaining candidates. The deterministic web-search policy promotes the turn before the
 provider is called.
 

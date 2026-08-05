@@ -61,6 +61,7 @@ def make_incident_attention_stream_route(
     poll_seconds: float = 2.0,
     keepalive_seconds: float = 15.0,
 ) -> Route:
+    """Return the named active-incident SSE route over durable projections."""
     if not path.startswith("/"):
         raise ValueError("incident attention stream path MUST start with '/'")
     if poll_seconds <= 0 or keepalive_seconds <= 0:
@@ -98,7 +99,7 @@ def make_incident_attention_stream_route(
             },
         )
 
-    return Route(path, handler, methods=["GET"])
+    return Route(path, handler, methods=["GET"], name="incident_attention_stream")
 
 
 __all__ = [

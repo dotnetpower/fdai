@@ -420,7 +420,10 @@ def build_app(
         read_model=read_model,
         extra_panels=extra_panels,
         handler_factory=_make_panel_handler,
-        core_paths=_CORE_ROUTE_PATHS,
+        core_paths=_CORE_ROUTE_PATHS
+        | frozenset(
+            path for route in routes if isinstance(path := getattr(route, "path", None), str)
+        ),
     )
 
     # Optional HIL callback POST route (Wave W1.3). Fails fast if the
@@ -499,6 +502,7 @@ def build_app(
         logger=_LOGGER,
     )
 
+    dynamic_views.validate_panel_path_collisions(routes, seen_panel_paths)
     dynamic_views.validate_route_method_collisions(routes)
 
     middleware: list[Middleware] = []

@@ -6,6 +6,44 @@ title: Operator Console Module Map and Boundaries
 This document maps the Operator Console conversation modules, routes, channels, and provider
 boundaries. It keeps source ownership discoverable without expanding the main console contract.
 
+## Executable baseline
+
+[`operator-console-module-inventory.json`](operator-console-module-inventory.json) records the
+current Operator API package responsibilities, route-family classifications, candidate
+destinations, and import-surface status. It is descriptive rather than a file-count target, but an
+executable completeness gate requires every current module directory and route module to remain
+classified.
+[`test_operator_api_layout.py`](../../../tests/delivery/operator_api/test_operator_api_layout.py)
+also pins the exact default method, path, and route-name set plus representative HTTP envelopes.
+An intentional default route addition updates this reviewed baseline in the same change.
+
+| Package | Current responsibility | Migration rule |
+|---------|------------------------|----------------|
+| Root | Public facades and foundational contracts | Preserve until a classified replacement exists. |
+| `app/` | Shared ASGI assembly, middleware, registration, and lifespan | Retain as the HTTP composition boundary. |
+| `dev/` | Interactive local and test-only provider composition | Keep unavailable to production imports. |
+| `dev/fixtures/` | Synthetic pytest-only fixtures | Keep outside production composition. |
+| `persistence/` | Operator API read-model implementations and projections | Retain behind owned read contracts. |
+| `production/` | Production provider construction and bindings | Reduce fanout incrementally without changing wire behavior. |
+| `routes/` | Mixed HTTP adapters, coordination, projections, and policy helpers | Move one measured family at a time; don't bulk-move chat before its typed service boundary. |
+| `streaming/` | Read-only SSE transport, redaction, fanout, and runtime projection | Retain until versioned relay and replay contracts exist. |
+
+`fdai.delivery.operator_api.main` is the public app facade. `read_model` remains a public delivery
+contract until a reviewed replacement exists. `auth` is a transitional cross-service dependency.
+The `main` facade's `busy_input_runtime` re-export is a transitional public seam rather than a new
+runtime ownership claim.
+`routes.panels` and `routes.reporting` remain transitional public extension seams because current
+fork and reporting guidance imports them directly. Other individual `routes.*` modules are
+internal implementation paths; a migration uses a per-module forwarding shim only when a
+classified compatibility need exists. Runtime and provisioning imports of `streaming.*` remain
+scoped transitional cross-service debt for issue 68. The inventory separately records issue 71
+wire debts for request binding, required sequence fields, error-envelope parity, and the chat SSE
+producer frame cap.
+
+PostgreSQL and Alembic remain the shared migration authority during these moves. A module or route
+migration does not create a second schema owner; service-owned schemas and migration lanes require
+a separately reviewed boundary.
+
 ## Core and delivery map
 
 - [`src/fdai/core/conversation/`](../../../src/fdai/core/conversation)

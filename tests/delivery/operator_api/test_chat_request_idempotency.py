@@ -117,6 +117,14 @@ def _done_payload(response_text: str) -> dict[str, Any]:
     raise AssertionError("stream did not emit done")
 
 
+def _event_payloads(response_text: str) -> list[dict[str, Any]]:
+    return [
+        json.loads(line.removeprefix("data: "))
+        for line in response_text.splitlines()
+        if line.startswith("data: ")
+    ]
+
+
 def _terminal_payload(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         key: value
@@ -145,6 +153,8 @@ def test_stream_exact_retry_replays_only_completed_terminal_response() -> None:
 
     first = client.post("/chat/stream", json=_request())
     retry = client.post("/chat/stream", json=_request())
+    first_payloads = _event_payloads(first.text)
+    retry_payloads = _event_payloads(retry.text)
 
     assert first.status_code == retry.status_code == 200
     assert _terminal_payload(_done_payload(retry.text)) == _terminal_payload(
@@ -152,6 +162,19 @@ def test_stream_exact_retry_replays_only_completed_terminal_response() -> None:
     )
     assert retry.text.count("event: done") == 1
     assert "event: token" not in retry.text
+    assert [payload["seq"] for payload in first_payloads] == list(range(1, len(first_payloads) + 1))
+    assert [payload["revision"] for payload in first_payloads] == sorted(
+        payload["revision"] for payload in first_payloads
+    )
+    assert retry_payloads == [
+        {
+            **_done_payload(retry.text),
+            "v": 1,
+            "request_id": "request-1",
+            "seq": 1,
+            "revision": 0,
+        }
+    ]
     assert backend.calls == 1
 
 

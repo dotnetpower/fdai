@@ -1,13 +1,49 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 81c684735daa8d97c2460341f3016c41c87e801c
+translation_source_sha: 37c0fcd0c14c57712c0ef33ddef9bcd9a4e619d5
 translation_revised: 2026-08-05
 ---
 # Operator Console Module Map and Boundaries
 
 이 문서는 Operator Console conversation module, route, channel 및 provider boundary를 매핑합니다.
 Main console contract를 확장하지 않고 source ownership을 찾을 수 있게 유지합니다.
+
+## 실행 가능한 기준선
+
+[`operator-console-module-inventory.json`](operator-console-module-inventory.json)은 현재 Operator API
+package 책임, route family 분류, 후보 destination 및 import surface 상태를 기록합니다. 이 inventory는
+file-count 목표가 아닌 설명 기준이지만, executable completeness gate는 현재 모든 module directory와
+route module을 분류된 상태로 유지하도록 요구합니다.
+[`test_operator_api_layout.py`](../../../tests/delivery/operator_api/test_operator_api_layout.py)는 현재 모든
+package와 route module이 분류된 상태인지 확인하고, exact 기본 method, path, route-name set 및 대표 HTTP
+envelope를 고정합니다. 의도적인 기본 route 추가는 같은 변경에서 검토된 baseline을 갱신합니다.
+
+| Package | 현재 책임 | Migration 규칙 |
+|---------|-----------|----------------|
+| Root | Public facade 및 foundational contract | 분류된 replacement가 준비될 때까지 유지합니다. |
+| `app/` | Shared ASGI assembly, middleware, registration 및 lifespan | HTTP composition boundary로 유지합니다. |
+| `dev/` | Interactive local 및 test-only provider composition | Production import에서 사용할 수 없게 유지합니다. |
+| `dev/fixtures/` | Synthetic pytest-only fixture | Production composition 밖에 유지합니다. |
+| `persistence/` | Operator API read-model implementation 및 projection | 소유된 read contract 뒤에 유지합니다. |
+| `production/` | Production provider construction 및 binding | Wire behavior를 변경하지 않고 fanout을 점진적으로 줄입니다. |
+| `routes/` | HTTP adapter, coordination, projection 및 policy helper가 혼재 | 측정된 family 하나씩 이동하며 typed service boundary 전에 chat을 일괄 이동하지 않습니다. |
+| `streaming/` | Read-only SSE transport, redaction, fanout 및 runtime projection | Versioned relay 및 replay contract가 준비될 때까지 유지합니다. |
+
+`fdai.delivery.operator_api.main`은 public app facade입니다. `read_model`은 검토된 replacement가 준비될
+때까지 public delivery contract로 유지합니다. `auth`는 transitional cross-service dependency입니다.
+`main` facade의 `busy_input_runtime` re-export는 새 runtime ownership claim이 아닌 transitional public
+seam입니다.
+현재 fork 및 reporting guide가 직접 import하므로 `routes.panels`와 `routes.reporting`은 transitional
+public extension seam으로 유지합니다. 그 외 개별 `routes.*` module은 internal implementation path입니다.
+Migration에서는 분류된 compatibility 필요가 있을 때만 module별 forwarding shim을 사용합니다. Runtime 및
+provisioning의 `streaming.*` import는 issue 68의 scoped transitional cross-service debt로 유지합니다.
+Inventory는 request binding, required sequence field, error-envelope parity 및 chat SSE producer frame cap을
+issue 71 wire debt로 별도 기록합니다.
+
+이 이동 동안 PostgreSQL과 Alembic은 shared migration authority로 유지됩니다. Module 또는 route migration은
+두 번째 schema owner를 만들지 않습니다. Service-owned schema 및 migration lane에는 별도 검토된 boundary가
+필요합니다.
 
 ## Core 및 delivery map
 

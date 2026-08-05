@@ -27,7 +27,7 @@ def make_rule_fire_trace_route(
     authorize: Callable[[Request], Awaitable[str]],
     path: str = DEFAULT_ROUTE_PATH,
 ) -> Route:
-    """Return a Starlette :class:`Route` serving one trace by correlation id."""
+    """Return the named read-only route serving one trace by correlation id."""
 
     async def handler(request: Request) -> Response:
         await authorize(request)
@@ -44,7 +44,7 @@ def make_rule_fire_trace_route(
 
         return JSONResponse(trace.as_json())
 
-    return Route(path, handler, methods=["GET"])
+    return Route(path, handler, methods=["GET"], name="rule_fire_trace")
 
 
 def _error(status: int, message: str) -> JSONResponse:
