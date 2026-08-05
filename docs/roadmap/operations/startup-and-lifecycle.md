@@ -148,11 +148,14 @@ and restarts them after recovery. Recovery reuses the deployment ceilings suppli
 and cannot promote authority.
 
 You can tune the bounded runner with `FDAI_STARTUP_MAX_CONCURRENCY`,
-`FDAI_STARTUP_PROBE_TIMEOUT_SECONDS`, `FDAI_STARTUP_PHASE_TIMEOUT_SECONDS`,
+`FDAI_STARTUP_KAFKA_SETTLE_SECONDS`, `FDAI_STARTUP_PROBE_TIMEOUT_SECONDS`,
+`FDAI_STARTUP_PHASE_TIMEOUT_SECONDS`,
 `FDAI_STARTUP_PROBE_RETRIES`, `FDAI_STARTUP_COST_LIMIT_USD`,
 `FDAI_STARTUP_MODEL_SAMPLE_COUNT`, and `FDAI_STARTUP_REFRESH_SECONDS`. Enabled optional adapters
 should register a `StartupProbeSpec` and `StartupProbe`; they should not add a blanket connectivity
-flag.
+flag. The Azure reference profile allows 12 seconds for the Event Hubs consumer-group join,
+30 seconds per probe, and 60 seconds per phase. These are deployment defaults, not changes to the
+provider-neutral runtime defaults.
 
 ### Continuous monitored-target readiness
 

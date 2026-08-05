@@ -141,8 +141,11 @@ retries bounded trigger sync, and requires both Function triggers before recordi
 If a later identity or health check fails after the immutable claim, verification resume validates
 that claim, skips Terraform apply, and reruns convergence and post-apply checks. Console hostname
 recovery uses the exact Static Web App id from Terraform state, never an arbitrary resource search.
-Health acceptance requires each selected Container App's latest revision to be `Provisioned` and
-`Healthy` before the shared ingress `/healthz` response is trusted.
+Health acceptance always requires the core Container App's latest revision to be `Provisioned`
+and `Healthy` before an apply receipt can be recorded. Selected Operator API and ingestion
+revisions must also be healthy, and their shared ingress `/healthz` responses must return the
+fixed success payload. Design-mocks-only applies are the sole exception because they do not plan
+the runtime.
 The protected-plan delete gate permits one built-in security retirement: a pure delete of the
 broad PostgreSQL Azure-services firewall rule when private networking removes that public path.
 The same address as a replacement and every other delete remain blocked, so this transition does

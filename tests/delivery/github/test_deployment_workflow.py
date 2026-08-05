@@ -395,6 +395,12 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "Run complete Azure live preflight" in workflow
     assert "latest revision is not healthy" in workflow
     assert "Provisioned:Healthy" in workflow
+    health_step = workflow[workflow.index("- name: Verify deployed health endpoints") :]
+    health_step = health_step[: health_step.index("- name: Run canary publisher smoke")]
+    assert "if: ${{ inputs.apply && !inputs.deploy_design_mocks }}" in health_step
+    assert 'apps=("$(terraform output -raw core_app_name)")' in health_step
+    assert 'apps+=("$(terraform output -raw operator_api_name)")' in health_step
+    assert 'apps+=("$(terraform output -raw ingestion_gateway_name)")' in health_step
     assert "Reject destructive protected plan" in workflow
     assert 'if "delete" in change.get("change", {}).get("actions", [])' in workflow
     assert "Protected plans reject delete or replacement actions" in workflow

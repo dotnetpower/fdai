@@ -1280,16 +1280,15 @@ jobs:
           done
 
       - name: Verify deployed health endpoints
-        if: ${{ inputs.apply && (inputs.deploy_operator_api || inputs.deploy_document_ingestion) }}
+        if: ${{ inputs.apply && !inputs.deploy_design_mocks }}
         run: |
           set -euo pipefail
           rg="$(terraform output -raw resource_group_name)"
+          apps=("$(terraform output -raw core_app_name)")
           targets=()
           if [ "${{ inputs.deploy_operator_api }}" = "true" ]; then
-            apps=("$(terraform output -raw operator_api_name)")
+            apps+=("$(terraform output -raw operator_api_name)")
             targets+=("https://$(terraform output -raw operator_api_fqdn)/healthz")
-          else
-            apps=()
           fi
           if [ "${{ inputs.deploy_document_ingestion }}" = "true" ]; then
             apps+=("$(terraform output -raw ingestion_gateway_name)")

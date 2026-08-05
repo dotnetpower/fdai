@@ -1,7 +1,7 @@
 ---
 title: 시작과 라이프사이클(Startup and Lifecycle)
 translation_of: startup-and-lifecycle.md
-translation_source_sha: 9b7addcd0bccea4c327c8508dfd8023ce7d50a0d
+translation_source_sha: 5d592fba02082aee5209d7e3bb49f127a51ade8c
 translation_revised: 2026-08-06
 ---
 
@@ -150,11 +150,13 @@ consumer, discovery, canary, 사람 승인, retention, runtime-state 및 Pantheo
 cancel하고 recovery 후 다시 시작합니다. Recovery는 composition에서 받은 deployment ceiling을
 재사용하며 authority를 승격할 수 없습니다.
 
-Bounded runner는 `FDAI_STARTUP_MAX_CONCURRENCY`, `FDAI_STARTUP_PROBE_TIMEOUT_SECONDS`,
-`FDAI_STARTUP_PHASE_TIMEOUT_SECONDS`, `FDAI_STARTUP_PROBE_RETRIES`,
+Bounded runner는 `FDAI_STARTUP_MAX_CONCURRENCY`, `FDAI_STARTUP_KAFKA_SETTLE_SECONDS`,
+`FDAI_STARTUP_PROBE_TIMEOUT_SECONDS`, `FDAI_STARTUP_PHASE_TIMEOUT_SECONDS`, `FDAI_STARTUP_PROBE_RETRIES`,
 `FDAI_STARTUP_COST_LIMIT_USD`, `FDAI_STARTUP_MODEL_SAMPLE_COUNT` 및
 `FDAI_STARTUP_REFRESH_SECONDS`로 조정할 수 있습니다. 활성화된 optional adapter는 blanket connectivity
-flag를 추가하지 말고 `StartupProbeSpec`과 `StartupProbe`를 등록하는 것이 좋습니다.
+flag를 추가하지 말고 `StartupProbeSpec`과 `StartupProbe`를 등록하는 것이 좋습니다. Azure reference
+profile은 Event Hubs consumer-group join에 12초, probe마다 30초, phase마다 60초를 허용합니다. 이 값은
+deployment default이며 provider-neutral runtime default를 변경하지 않습니다.
 
 ### 지속적인 monitored-target readiness
 

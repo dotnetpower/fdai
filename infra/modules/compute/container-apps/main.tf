@@ -28,16 +28,19 @@ resource "azurerm_container_app_environment" "primary" {
 # ---------------------------------------------------------------------------
 locals {
   core_config_env = {
-    AZURE_TENANT_ID         = var.azure_tenant_id
-    AZURE_SUBSCRIPTION_ID   = var.azure_subscription_id
-    AZURE_RESOURCE_GROUP    = var.azure_resource_group
-    AZURE_REGION            = var.azure_region
-    KAFKA_BOOTSTRAP_SERVERS = var.kafka_bootstrap_servers
-    KAFKA_TOPIC_EVENTS      = var.kafka_topic_events
-    POSTGRES_HOST           = var.postgres_host
-    POSTGRES_DATABASE       = var.postgres_database
-    RUNTIME_ENV             = var.runtime_env
-    AUTONOMY_MODE_DEFAULT   = var.autonomy_mode_default
+    AZURE_TENANT_ID                    = var.azure_tenant_id
+    AZURE_SUBSCRIPTION_ID              = var.azure_subscription_id
+    AZURE_RESOURCE_GROUP               = var.azure_resource_group
+    AZURE_REGION                       = var.azure_region
+    KAFKA_BOOTSTRAP_SERVERS            = var.kafka_bootstrap_servers
+    KAFKA_TOPIC_EVENTS                 = var.kafka_topic_events
+    POSTGRES_HOST                      = var.postgres_host
+    POSTGRES_DATABASE                  = var.postgres_database
+    RUNTIME_ENV                        = var.runtime_env
+    AUTONOMY_MODE_DEFAULT              = var.autonomy_mode_default
+    FDAI_STARTUP_KAFKA_SETTLE_SECONDS  = tostring(var.startup_kafka_settle_seconds)
+    FDAI_STARTUP_PROBE_TIMEOUT_SECONDS = tostring(var.startup_probe_timeout_seconds)
+    FDAI_STARTUP_PHASE_TIMEOUT_SECONDS = tostring(var.startup_phase_timeout_seconds)
   }
 
   # Optional env-vars: attached only when their upstream input is

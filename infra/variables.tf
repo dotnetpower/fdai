@@ -222,6 +222,36 @@ variable "quality_gate_quorum" {
   }
 }
 
+variable "startup_kafka_settle_seconds" {
+  description = "Seconds allowed for the startup probe consumer to join the operational Event Hubs group before publishing."
+  type        = number
+  default     = 12
+  validation {
+    condition     = var.startup_kafka_settle_seconds >= 0
+    error_message = "startup_kafka_settle_seconds must be non-negative."
+  }
+}
+
+variable "startup_probe_timeout_seconds" {
+  description = "Per-probe startup readiness deadline in seconds."
+  type        = number
+  default     = 30
+  validation {
+    condition     = var.startup_probe_timeout_seconds > var.startup_kafka_settle_seconds
+    error_message = "startup_probe_timeout_seconds must exceed startup_kafka_settle_seconds."
+  }
+}
+
+variable "startup_phase_timeout_seconds" {
+  description = "Per-phase startup readiness deadline in seconds."
+  type        = number
+  default     = 60
+  validation {
+    condition     = var.startup_phase_timeout_seconds >= var.startup_probe_timeout_seconds
+    error_message = "startup_phase_timeout_seconds must be at least startup_probe_timeout_seconds."
+  }
+}
+
 variable "resolved_capabilities" {
   description = "Resolved LLM capabilities produced by the bootstrap resolver (fdai.rule_catalog.schema.llm_resolver_cli). Entries with status='hil-only' MUST be filtered out before being passed here."
   type = list(object({

@@ -17,6 +17,9 @@ def test_design_mocks_rejects_every_other_deployment_target() -> None:
     assert '"module.design_mocks[0].azurerm_static_web_app.design_mocks"' in _WORKFLOW
     assert "if: ${{ !inputs.deploy_design_mocks }}" in _WORKFLOW
     assert "if: ${{ inputs.apply && !inputs.deploy_design_mocks }}" in _WORKFLOW
+    health_step = _WORKFLOW[_WORKFLOW.index("- name: Verify deployed health endpoints") :]
+    health_step = health_step[: health_step.index("- name: Run canary publisher smoke")]
+    assert "if: ${{ inputs.apply && !inputs.deploy_design_mocks }}" in health_step
 
 
 def test_design_mocks_publishes_only_the_allowlisted_artifact() -> None:

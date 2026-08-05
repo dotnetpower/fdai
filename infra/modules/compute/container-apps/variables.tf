@@ -90,6 +90,21 @@ variable "quality_gate_quorum" {
   type        = number
 }
 
+variable "startup_kafka_settle_seconds" {
+  description = "Seconds allowed for the startup probe consumer to join before publishing."
+  type        = number
+}
+
+variable "startup_probe_timeout_seconds" {
+  description = "Per-probe startup readiness deadline in seconds."
+  type        = number
+}
+
+variable "startup_phase_timeout_seconds" {
+  description = "Per-phase startup readiness deadline in seconds."
+  type        = number
+}
+
 variable "inventory_identity_id" {
   description = "Dedicated read-only user-assigned MI resource id for inventory discovery."
   type        = string

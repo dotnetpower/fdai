@@ -1368,6 +1368,9 @@ module "compute" {
   t1_min_success_rate               = var.t1_min_success_rate
   quality_gate_confidence_threshold = var.quality_gate_confidence_threshold
   quality_gate_quorum               = var.quality_gate_quorum
+  startup_kafka_settle_seconds      = var.startup_kafka_settle_seconds
+  startup_probe_timeout_seconds     = var.startup_probe_timeout_seconds
+  startup_phase_timeout_seconds     = var.startup_phase_timeout_seconds
   inventory_identity_id             = module.inventory_identity.resource_id
   inventory_identity_client_id      = module.inventory_identity.client_id
   inventory_raw_topic               = local.inventory_raw_topic

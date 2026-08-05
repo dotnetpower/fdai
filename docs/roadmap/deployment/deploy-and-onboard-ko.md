@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 3e19a1e0934f3f9b02ad9b4ec962c1a73cf569f4
+translation_source_sha: 22f69340f88a431e556ec66bfe00e97235e7bfeb
 translation_revised: 2026-08-06
 ---
 
@@ -147,8 +147,10 @@ source를 official Flex One Deploy action으로 remote build하고 bounded trigg
 Immutable claim 뒤 identity 또는 health check가 실패하면 verification resume이 claim을 검증하고
 Terraform apply를 건너뛰며 convergence와 post-apply check를 다시 수행합니다. Console hostname
 복구는 arbitrary resource search가 아니라 Terraform state의 exact Static Web App id를 사용합니다. 전체 런북:
-Health acceptance는 shared ingress `/healthz` response를 신뢰하기 전에 선택한 각 Container App의
-latest revision이 `Provisioned`와 `Healthy`인지 요구합니다.
+Health acceptance는 apply receipt를 기록하기 전에 core Container App의 latest revision이 항상
+`Provisioned`와 `Healthy`인지 확인합니다. 선택된 Operator API 및 ingestion revision도 healthy여야
+하며 shared ingress `/healthz` response는 고정된 success payload를 반환해야 합니다. Runtime을
+plan하지 않는 design-mocks-only apply만 예외입니다.
 Protected-plan delete gate는 private networking이 public path를 제거할 때 broad PostgreSQL
 Azure-services firewall rule을 순수 삭제하는 내장 security retirement 한 건만 허용합니다.
 같은 주소의 replacement와 다른 모든 delete는 계속 차단되므로 이 전환은 일반적인 파괴 우회
