@@ -5,40 +5,19 @@ applyTo: "src/**,tests/**,scripts/**,console/**,cli/**,infra/**,rule-catalog/**,
 
 # Coding Conventions
 
-These rules are normative. Use RFC 2119 keywords: **MUST** / **MUST NOT** are hard gates
-enforced in CI; **SHOULD** is a strong default that requires a written justification in the
-PR description to deviate; **MAY** is optional. A PR that violates a MUST is not mergeable.
+These rules are normative. Use RFC 2119 keywords: **MUST** / **MUST NOT** are hard gates enforced in CI; **SHOULD** is a strong default that requires a written justification in the PR description to deviate; **MAY** is optional. A PR that violates a MUST is not mergeable.
 
-See sibling docs for the concepts referenced here:
-[architecture.instructions.md](architecture.instructions.md) (tiers, quality gate, safety
-invariants), [generic-scope.instructions.md](generic-scope.instructions.md) (customer-agnostic
-scope), [app-shape.instructions.md](app-shape.instructions.md) (topology), and
-[language.instructions.md](language.instructions.md) (language policy). The [FDAI Constitution](../../docs/roadmap/architecture/fdai-constitution.md) is the highest design authority.
+See sibling docs for [architecture](architecture.instructions.md), [generic scope](generic-scope.instructions.md), [app shape](app-shape.instructions.md), and [language](language.instructions.md). The [FDAI Constitution](../../docs/roadmap/architecture/fdai-constitution.md) is the highest design authority.
 
 ## Documentation Workflow
 
 The design docs are the single source of truth; code and docs MUST stay in sync.
 
-- **Docs-first (MUST)**: before writing or changing code, read the relevant design docs - the
-  applicable `*.instructions.md` files and the [docs/roadmap/](../../docs/roadmap/README.md)
-  documents for the area you are touching (e.g. project structure, the relevant phase,
-  rule-catalog collection/governance, security). Code that contradicts the documented design is
-  a defect. If the design itself is wrong, change the doc first - or in the same PR, with
-  justification - before or alongside the code.
-- **Docs-after (MUST)**: after changing code, update the affected documentation in the **same
-  PR** so docs never drift from the implementation. Any change to behavior, structure, a public
-  interface, a DI seam, a config key, or a schema MUST update the corresponding doc. Reviewers
-  block a merge that leaves docs stale.
+- **Docs-first (MUST)**: before writing or changing code, read the applicable `*.instructions.md` files and [roadmap documents](../../docs/roadmap/README.md) for the area. Code that contradicts the documented design is a defect. If the design is wrong, change the doc first or in the same PR with justification.
+- **Docs-after (MUST)**: update affected documentation in the **same PR** for any behavior, structure, public interface, DI seam, config key, or schema change. Reviewers block a merge that leaves docs stale.
 - **Bilingual docs (MUST)**: user-facing docs (root `README.md` and everything under
-  `docs/**/*.md`) ship as `foo.md` (English canonical) + `foo-ko.md` (Korean translation)
-  pairs. **Any edit to `foo.md` MUST update `foo-ko.md` in the same PR**, and vice versa.
-  Adding a new user-facing doc MUST add both files. The `scripts/quality/localization/check-translations.sh`
-  CI gate blocks merges where a `-ko.md` is missing or its recorded
-  `translation_source_sha` does not match `git hash-object foo.md`. `.github/**` stays
-  English canonical (no `-ko.md` pair). Full rules:
-  [language.instructions.md](language.instructions.md#user-facing-doc-translations-ko).
-- New modules, interfaces, injectable seams, config keys, and rule/schema changes are reflected
-  in [docs/roadmap/](../../docs/roadmap/README.md) and the relevant instruction files.
+  `docs/**/*.md`) ship as canonical `foo.md` plus Korean `foo-ko.md`; editing either MUST update both in the same PR. New docs add both files. `check-translations.sh` requires the pair and matching `translation_source_sha`; `.github/**` stays English canonical. See the [full rules](language.instructions.md#user-facing-doc-translations-ko).
+- Reflect new modules, interfaces, injectable seams, config keys, and rule/schema changes in the [roadmap](../../docs/roadmap/README.md) and relevant instructions.
 
 ## General
 
