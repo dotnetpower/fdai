@@ -101,10 +101,10 @@ states:
     description: A current state in which processing is intentionally suspended.
     examples: [databases with processing temporarily suspended, 처리가 잠시 중단된 데이터베이스]
   running:
-    terms: [running, active, 실행 중, 실행중, 가동 중, 켜짐, 켜진, 켜져, 켜져서, 켜져 있는, 켜져있는, 돌아가고 있는, 돌아가는, 살아있는, 살아 있는]
+    terms: [running, active, up and humming, 실행 중, 실행중, 가동 중, 켜짐, 켜진, 켜져, 켜져서, 켜져 있는, 켜져있는, 돌아가고 있는, 돌아가는, 살아있는, 살아 있는]
     values: [running]
     description: A current operational state in which a resource is powered on and processing work.
-    examples: [virtual machines currently serving workloads, 지금 켜져서 작업 중인 가상 머신]
+    examples: [virtual machines currently serving workloads, virtual machines that are up and humming, 지금 켜져서 작업 중인 가상 머신]
   failed:
     terms: [failed, failure, failures, 실패, 실패한]
     values: [failed]
