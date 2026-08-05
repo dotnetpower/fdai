@@ -39,3 +39,14 @@ def test_inventory_job_inherits_required_runtime_config() -> None:
 
     assert "for_each = local.core_config_env" in job
     assert 'command = ["python", "-m", "fdai.delivery.inventory_sync_cli"]' in job
+
+
+def test_operator_api_command_identity_can_publish_owned_objects() -> None:
+    root = (_ROOT / "infra" / "main.tf").read_text(encoding="utf-8")
+    module = (_ROOT / "infra/modules/operator-api/container-app/main.tf").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'name  = "FDAI_COMMAND_MI_CLIENT_ID"' in module
+    assert "value = var.command_api_identity_client_id" in module
+    assert '"aw.pantheon.objects"   = module.event_bus.topic_ids["aw.pantheon.objects"]' in root

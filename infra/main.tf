@@ -445,6 +445,7 @@ import {
 resource "azurerm_role_assignment" "command_api_eventhubs_sender" {
   for_each = var.enable_operator_api ? {
     (local.event_topics[0]) = module.event_bus.topic_ids[local.event_topics[0]]
+    "aw.pantheon.objects"   = module.event_bus.topic_ids["aw.pantheon.objects"]
     "aw.hil.decisions"      = module.event_bus.auxiliary_topic_ids["aw.hil.decisions"]
   } : {}
   scope                = each.value

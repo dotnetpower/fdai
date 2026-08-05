@@ -359,8 +359,8 @@ Additional identity, channel, and console elements are deployment-owned or opt-i
   receives only the callback secret.
 - **Topic-scoped Event Hubs roles** - the executor receives Data Owner on each currently
   provisioned hub entity, not the namespace. Inventory and canary can send only to their own
-  topics. The Operator API command identity sends proposals/HIL decisions and receives the stage
-  topic. Document ingestion is limited to `aw.pipeline.stages`.
+  topics. The Operator API command identity sends proposals, HIL decisions, and pantheon object
+  messages, and receives the stage topic. Document ingestion is limited to `aw.pipeline.stages`.
 - **Static Web Apps (Free tier, opt-in)** - hosts the read-only console when
   `enable_console=true`.
 - **Design-mocks Static Web App (Free tier, opt-in)** - hosts the isolated static design-review

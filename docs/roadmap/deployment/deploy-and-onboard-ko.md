@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: b3d783c8367edf727c65d7a497f07b294757b647
-translation_revised: 2026-08-05
+translation_source_sha: ffd87db6e137519b22aa61c751880de64cf1542e
+translation_revised: 2026-08-06
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
@@ -364,8 +364,8 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
   callback secret만 전달합니다.
 - **Topic-scoped Event Hubs role** - executor는 namespace가 아니라 현재 프로비저닝된 각 hub
   entity에 Data Owner를 받습니다. Inventory와 canary는 각자의 topic에만 send할 수 있습니다.
-  Operator API command identity는 proposal/HIL decision을 send하고 stage topic을 receive합니다.
-  Document ingestion은 `aw.pipeline.stages`로 제한됩니다.
+  Operator API command identity는 proposal, HIL decision, pantheon object message를 send하고
+  stage topic을 receive합니다. Document ingestion은 `aw.pipeline.stages`로 제한됩니다.
 - **Static Web Apps (Free tier, opt-in)** - `enable_console=true`일 때 읽기 전용 콘솔을 호스팅합니다.
 - **Design-mocks Static Web App (Free tier, opt-in)** - `enable_design_mocks=true`일 때 격리된
   정적 디자인 검토 아티팩트를 호스팅합니다. 아티팩트 빌더는 `index.html`, `mocks/`,
