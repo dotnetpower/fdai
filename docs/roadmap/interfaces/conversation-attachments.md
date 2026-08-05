@@ -158,7 +158,9 @@ the owning conversation cascades to its image rows. Each image also expires afte
 the conversation remains active; the scheduled user-context retention job removes expired image
 bytes independently. A principal can retain at most 1,000 conversation images or 256 MiB, whichever
 limit is reached first. Exact retries do not consume quota twice, and a quota rejection returns
-`429` before turn metadata is stored.
+`429` before turn metadata is stored. Images remain on a 15-minute pending expiry until the operator
+turn is durable, then move to the 90-day expiry. If immediate compensation also fails, the next
+upload or retention pass removes the pending bytes after that short interval.
 
 ## Image OCR
 

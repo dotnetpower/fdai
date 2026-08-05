@@ -4,11 +4,16 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from fdai.core.user_context_projection import UserContextOntologyProjector
-from fdai.delivery.conversation_images import ConversationImage, ConversationImageStore
+from fdai.delivery.conversation_images import (
+    DEFAULT_CONVERSATION_IMAGE_RETENTION_DAYS,
+    PENDING_CONVERSATION_IMAGE_RETENTION_MINUTES,
+    ConversationImage,
+    ConversationImageStore,
+)
 from fdai.delivery.operator_api.routes.chat_history import (
     append_operator_turn,
     ensure_conversation,
@@ -57,6 +62,8 @@ async def persist_conversation_images(
                 media_type=attachment.media_type,
                 content=attachment.content,
                 created_at=created_at,
+                expires_at=created_at
+                + timedelta(minutes=PENDING_CONVERSATION_IMAGE_RETENTION_MINUTES),
             )
             for attachment in attachments
         )
@@ -94,7 +101,7 @@ async def persist_operator_turn_with_images(
             created_at=recorded_at,
         )
     try:
-        return await append_operator_turn(
+        turn = await append_operator_turn(
             store=history_store,
             principal_id=principal_id,
             conversation_id=conversation_id,
@@ -119,6 +126,15 @@ async def persist_operator_turn_with_images(
                     extra={"request_id": request_id},
                 )
         raise
+    if image_store is not None and attachments:
+        await image_store.finalize_many(
+            principal_id=principal_id,
+            conversation_id=conversation_id,
+            request_id=request_id,
+            image_ids=tuple(attachment.attachment_id for attachment in attachments),
+            expires_at=turn.recorded_at + timedelta(days=DEFAULT_CONVERSATION_IMAGE_RETENTION_DAYS),
+        )
+    return turn
 
 
 __all__ = [

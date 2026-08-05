@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Final, Protocol, runtime_checkable
 
@@ -13,6 +13,7 @@ MAX_CONVERSATION_IMAGE_BYTES: Final[int] = 4 * 1024 * 1024
 DEFAULT_MAX_IMAGES_PER_PRINCIPAL: Final[int] = 1000
 DEFAULT_MAX_IMAGE_BYTES_PER_PRINCIPAL: Final[int] = 256 * 1024 * 1024
 DEFAULT_CONVERSATION_IMAGE_RETENTION_DAYS: Final[int] = 90
+PENDING_CONVERSATION_IMAGE_RETENTION_MINUTES: Final[int] = 15
 _ALLOWED_MEDIA_TYPES: Final = frozenset({"image/png", "image/jpeg", "image/gif", "image/webp"})
 _IMAGE_ID: Final = re.compile(r"att-[A-Za-z0-9-]{1,124}")
 
@@ -121,6 +122,16 @@ class ConversationImageStore(Protocol):
         image_ids: tuple[str, ...],
     ) -> None: ...
 
+    async def finalize_many(
+        self,
+        *,
+        principal_id: str,
+        conversation_id: str,
+        request_id: str,
+        image_ids: tuple[str, ...],
+        expires_at: datetime,
+    ) -> None: ...
+
     async def get(
         self,
         *,
@@ -190,6 +201,21 @@ class InMemoryConversationImageStore:
         for image_id in image_ids:
             self._images.pop((principal_id, conversation_id, image_id), None)
 
+    async def finalize_many(
+        self,
+        *,
+        principal_id: str,
+        conversation_id: str,
+        request_id: str,
+        image_ids: tuple[str, ...],
+        expires_at: datetime,
+    ) -> None:
+        for image_id in image_ids:
+            key = (principal_id, conversation_id, image_id)
+            image = self._images.get(key)
+            if image is not None and image.request_id == request_id:
+                self._images[key] = replace(image, expires_at=expires_at)
+
     async def get(
         self,
         *,
@@ -220,6 +246,7 @@ __all__ = [
     "DEFAULT_CONVERSATION_IMAGE_RETENTION_DAYS",
     "DEFAULT_MAX_IMAGE_BYTES_PER_PRINCIPAL",
     "DEFAULT_MAX_IMAGES_PER_PRINCIPAL",
+    "PENDING_CONVERSATION_IMAGE_RETENTION_MINUTES",
     "InMemoryConversationImageStore",
     "MAX_CONVERSATION_IMAGE_BYTES",
 ]

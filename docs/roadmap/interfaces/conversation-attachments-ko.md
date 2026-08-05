@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: fddb67ebe4f536f3a4b1fde8b431ecc3c386c5cc
+translation_source_sha: f3539c8f31a35bc47d0e58b01169cefa1993985d
 translation_revised: 2026-08-05
 title: 대화 첨부파일
 ---
@@ -165,7 +165,10 @@ object URL을 만듭니다. 다른 principal, conversation 또는 알 수 없는
 Conversation이 active 상태를 유지해도 각 image는 90일 후 만료되며, scheduled user-context
 retention job이 만료된 image byte를 독립적으로 삭제합니다. Principal은 conversation image를 최대
 1,000개 또는 256 MiB 중 먼저 도달하는 한도까지만 보관할 수 있습니다. Exact retry는 quota를 중복
-소비하지 않으며, quota rejection은 turn metadata 저장 전에 `429`를 반환합니다.
+소비하지 않으며, quota rejection은 turn metadata 저장 전에 `429`를 반환합니다. Image는 operator
+turn이 durable해질 때까지 15분 pending expiry를 유지한 뒤 90일 expiry로 전환됩니다. Immediate
+compensation도 실패하면 다음 upload 또는 retention pass가 이 짧은 interval 이후 pending byte를
+삭제합니다.
 
 ## Image OCR
 

@@ -70,16 +70,33 @@ async def test_postgres_image_repository_contract_and_retention() -> None:
     await history.create_conversation(
         ConversationRecord(conversation_id, principal_id, "web", now, now)
     )
-    image = _image(
-        principal_id=principal_id,
-        conversation_id=conversation_id,
-        image_id="att-primary",
-        created_at=now,
+    image = replace(
+        _image(
+            principal_id=principal_id,
+            conversation_id=conversation_id,
+            image_id="att-primary",
+            created_at=now,
+        ),
+        expires_at=now + timedelta(minutes=15),
     )
 
     try:
         assert await store.put(image) == image
         assert await store.put(replace(image, created_at=now + timedelta(seconds=1))) == image
+        await store.finalize_many(
+            principal_id=principal_id,
+            conversation_id=conversation_id,
+            request_id=image.request_id,
+            image_ids=(image.image_id,),
+            expires_at=now + timedelta(days=90),
+        )
+        finalized = await store.get(
+            principal_id=principal_id,
+            conversation_id=conversation_id,
+            image_id=image.image_id,
+        )
+        assert finalized is not None
+        assert finalized.expires_at == now + timedelta(days=90)
         assert (
             await store.get(
                 principal_id="other-principal",

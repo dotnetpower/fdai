@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from fdai.delivery.conversation_images import (
@@ -111,6 +112,31 @@ class PostgresConversationImageStore(_PostgresBase):
                 "DELETE FROM conversation_image WHERE principal_id = %s "
                 "AND conversation_id = %s AND image_id = ANY(%s)",
                 (principal_id, conversation_id, list(image_ids)),
+            )
+
+    async def finalize_many(
+        self,
+        *,
+        principal_id: str,
+        conversation_id: str,
+        request_id: str,
+        image_ids: tuple[str, ...],
+        expires_at: datetime,
+    ) -> None:
+        if not image_ids:
+            return
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            await connection.execute(
+                "UPDATE conversation_image SET expires_at = %s WHERE principal_id = %s "
+                "AND conversation_id = %s AND request_id = %s AND image_id = ANY(%s)",
+                (
+                    expires_at,
+                    principal_id,
+                    conversation_id,
+                    request_id,
+                    list(image_ids),
+                ),
             )
 
     async def _put(self, connection: Any, image: ConversationImage) -> ConversationImage:

@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -59,6 +60,11 @@ class _FailingHistoryStore(InMemoryConversationHistoryStore):
     async def append_turn(self, record: Any, *, allocate_index: bool = False) -> Any:
         del record, allocate_index
         raise RuntimeError("turn store unavailable")
+
+
+class _FailingDeleteImageStore(InMemoryConversationImageStore):
+    async def delete_many(self, **_kwargs: Any) -> None:
+        raise RuntimeError("image cleanup unavailable")
 
 
 async def _allow(request: Request) -> str:
@@ -160,6 +166,7 @@ def test_chat_stream_persists_image_bytes_outside_turn_metadata() -> None:
     assert _DATA_URL not in json.dumps(dict(operator_turn.metadata))
     assert stored_image is not None
     assert stored_image.content == _PNG
+    assert stored_image.expires_at - stored_image.created_at == timedelta(days=90)
 
 
 def test_chat_stream_image_failure_leaves_no_operator_turn() -> None:
@@ -230,3 +237,39 @@ def test_chat_stream_turn_failure_compensates_new_image() -> None:
         )
     )
     assert stored is None
+
+
+def test_chat_stream_cleanup_failure_leaves_only_short_pending_expiry() -> None:
+    history = _FailingHistoryStore()
+    images = _FailingDeleteImageStore()
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=_Backend(),
+                authorize=_allow,
+                conversation_history_store=history,
+                conversation_image_store=images,
+            )
+        ]
+    )
+
+    with pytest.raises(RuntimeError, match="turn store unavailable"):
+        TestClient(app).post(
+            "/chat/stream",
+            json={
+                "prompt": "what is shown?",
+                "session_id": "session-failed-cleanup",
+                "request_id": "request-failed-cleanup",
+                "attachments": [{"id": "att-pending", "name": "photo.png", "data_url": _DATA_URL}],
+            },
+        )
+
+    stored = asyncio.run(
+        images.get(
+            principal_id="reader",
+            conversation_id="session-failed-cleanup",
+            image_id="att-pending",
+        )
+    )
+    assert stored is not None
+    assert stored.expires_at - stored.created_at == timedelta(minutes=15)
