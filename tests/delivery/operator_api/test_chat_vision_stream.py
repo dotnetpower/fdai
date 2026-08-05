@@ -12,6 +12,7 @@ import base64
 import json
 from typing import Any
 
+import pytest
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
@@ -46,6 +47,12 @@ class _Backend:
         attachments = view_context.get("_attachments")
         self.saw_image_part = bool(attachments)
         return {"answer": "The photo shows two people.", "model": "vision-test"}
+
+
+class _FailingImageStore(InMemoryConversationImageStore):
+    async def put(self, image: Any) -> Any:
+        del image
+        raise RuntimeError("image store unavailable")
 
 
 async def _allow(request: Request) -> str:
@@ -147,3 +154,36 @@ def test_chat_stream_persists_image_bytes_outside_turn_metadata() -> None:
     assert _DATA_URL not in json.dumps(dict(operator_turn.metadata))
     assert stored_image is not None
     assert stored_image.content == _PNG
+
+
+def test_chat_stream_image_failure_leaves_no_operator_turn() -> None:
+    history = InMemoryConversationHistoryStore()
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=_Backend(),
+                authorize=_allow,
+                conversation_history_store=history,
+                conversation_image_store=_FailingImageStore(),
+            )
+        ]
+    )
+
+    with pytest.raises(RuntimeError, match="image store unavailable"):
+        TestClient(app).post(
+            "/chat/stream",
+            json={
+                "prompt": "what is shown?",
+                "session_id": "session-failed-image",
+                "request_id": "request-failed-image",
+                "attachments": [{"name": "photo.png", "data_url": _DATA_URL}],
+            },
+        )
+
+    turns = asyncio.run(
+        history.list_all_turns(
+            principal_id="reader",
+            conversation_id="session-failed-image",
+        )
+    )
+    assert len(turns) == 0
