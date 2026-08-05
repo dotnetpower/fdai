@@ -53,15 +53,32 @@
   var swarm = document.getElementById("swarm");
   var ticker = document.getElementById("ticker");
   var pauseBtn = document.getElementById("live-pause");
-  var rateBtn = document.getElementById("live-rate");
+  var queueBody = document.getElementById("live-queue");
+  var queueEmpty = document.getElementById("queue-empty");
+  var queueView = document.getElementById("queue-view");
+  var flowView = document.getElementById("flow-view");
+  var queueButton = document.getElementById("view-queue");
+  var flowButton = document.getElementById("view-flow");
+  var tickerBody = document.getElementById("ticker-body");
+  var tickerToggle = document.getElementById("ticker-toggle");
+  var detailBackdrop = document.getElementById("detail-backdrop");
+  var detailClose = document.getElementById("detail-close");
   var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   var pool = []; // tile records: { el, ev, startedAt, endsAt, retiresAt, state }
   var lastFrame = 0;
   var emitAccum = 0;
   var paused = false;
-  var speed = 1;
   var running = true;
+  var viewMode = "queue";
+  var currentFilter = "all";
+  var selectedEventId = null;
+  var detailPreviousFocus = null;
+  var detailReturnEventId = null;
+  var droppedFrames = 0;
+  var lastEventAt = Date.now();
+  var lastOperationalRender = 0;
+  var pulseTimers = new WeakMap();
 
   // Sliding buckets for the last 60s
   var buckets = []; // each: { t0, t1, t2, auto, hil, abstain, deny }
@@ -96,6 +113,20 @@
   function pad2(n) { return n < 10 ? "0" + n : "" + n; }
   function pad3(n) { return n < 10 ? "00" + n : n < 100 ? "0" + n : "" + n; }
   function timeStr(d) { return pad2(d.getUTCHours()) + ":" + pad2(d.getUTCMinutes()) + ":" + pad2(d.getUTCSeconds()) + "." + pad3(d.getUTCMilliseconds()); }
+  function ageLabel(ms) {
+    if (ms < 1000) return "now";
+    if (ms < 60000) return Math.floor(ms / 1000) + "s";
+    return Math.floor(ms / 60000) + "m";
+  }
+  function pulse(element) {
+    if (!element || reduced || pulseTimers.has(element)) return;
+    element.classList.add("is-content-updated");
+    var timer = window.setTimeout(function () {
+      pulseTimers.delete(element);
+      element.classList.remove("is-content-updated");
+    }, 1350);
+    pulseTimers.set(element, timer);
+  }
 
   // ---------- pool creation ----------
   function computePoolSize() {
@@ -106,14 +137,17 @@
     swarm.appendChild(probe);
     var w = probe.offsetWidth || 152;
     swarm.removeChild(probe);
-    var cols = Math.max(4, Math.floor(swarm.clientWidth / (w + 8)));
-    var rows = 10;
+    var availableWidth = swarm.clientWidth || Math.max(640, document.documentElement.clientWidth - 48);
+    var cols = Math.max(4, Math.floor(availableWidth / (w + 8)));
+    var rows = 6;
     return Math.max(42, Math.min(140, cols * rows));
   }
 
   function buildTile() {
     var el = document.createElement("div");
     el.className = "cs-tile";
+    el.setAttribute("role", "button");
+    el.setAttribute("tabindex", "-1");
     el.setAttribute("data-empty", "true");
     el.innerHTML = ''
       + '<div class="cs-tile-inner">'
@@ -162,6 +196,7 @@
     for (var i = 0; i < pool.length; i++) {
       if (pool[i].state === "empty") return pool[i];
     }
+    droppedFrames++;
     return null;
   }
 
@@ -174,8 +209,11 @@
     var outcome = weightedOutcome(tier);
     var sample = pick(CATALOG);
     var id = shortId();
+    var failed = rng() < 0.018;
+    var stuck = !failed && rng() < 0.025;
+    var mode = outcome === "auto" ? (rng() < 0.22 ? "shadow" : "enforce") : "gated";
 
-    slot.ev = { tier: tier, outcome: outcome, sample: sample, id: id, total: total, emitAt: Date.now() };
+    slot.ev = { tier: tier, outcome: outcome, sample: sample, id: id, total: total, emitAt: Date.now(), failed: failed, stuck: stuck, mode: mode };
     slot.startedAt = now;
     slot.endsAt = now + total;
     slot.retiresAt = 0;
@@ -186,6 +224,9 @@
     el.setAttribute("data-tier", tier);
     el.setAttribute("data-state", "active");
     el.setAttribute("data-outcome", outcome);
+    el.setAttribute("data-failed", failed ? "true" : "false");
+    el.setAttribute("data-event-id", id);
+    el.setAttribute("tabindex", "0");
     el.removeAttribute("data-fade");
     slot.tierEl.className = "cs-tile-tier " + tier;
     slot.tierEl.textContent = tier.toUpperCase();
@@ -195,6 +236,8 @@
     slot.scopeEl.textContent = sample.scope;
     slot.idEl.textContent = id;
     slot.barEl.style.width = "0%";
+    lastEventAt = Date.now();
+    applyFlowFilter(slot);
 
     if (reduced) {
       // Skip animation - jump to done state visually
@@ -218,8 +261,9 @@
     slot.el.setAttribute("data-state", "done");
     slot.barEl.style.width = "100%";
     // Human-facing stage label reflects the outcome
-    var terminalLabel = slot.ev.outcome === "auto" ? "auto" : slot.ev.outcome;
+    var terminalLabel = slot.ev.failed ? "failed" : slot.ev.outcome === "auto" ? "auto" : slot.ev.outcome;
     slot.stageEl.textContent = terminalLabel;
+    pulse(slot.el);
 
     // Emit audit + count outcome in bucket
     countOutcomeInBucket(now, slot.ev.outcome);
@@ -234,6 +278,10 @@
     slot.el.removeAttribute("data-outcome");
     slot.el.removeAttribute("data-tier");
     slot.el.removeAttribute("data-fade");
+    slot.el.removeAttribute("data-failed");
+    slot.el.removeAttribute("data-event-id");
+    slot.el.setAttribute("tabindex", "-1");
+    applyFlowFilter(slot);
   }
 
   function tick(now) {
@@ -243,7 +291,7 @@
       lastFrame = now;
 
       if (!paused) {
-        var rate = BASE_RATE * speed;
+        var rate = BASE_RATE;
         emitAccum += (dt / 1000) * rate;
         while (emitAccum >= 1) { spawn(now); emitAccum -= 1; }
       }
@@ -257,7 +305,10 @@
           var ratio = Math.min(1, elapsed / total);
           t.barEl.style.width = (ratio * 100).toFixed(1) + "%";
           var s = stageIndex(ratio);
-          if (t.stageEl.textContent !== STAGES[s]) t.stageEl.textContent = STAGES[s];
+          if (t.stageEl.textContent !== STAGES[s]) {
+            t.stageEl.textContent = STAGES[s];
+            pulse(t.el);
+          }
           if (elapsed >= total) finish(t, now);
         } else if (t.state === "done") {
           var age = now - t.endsAt;
@@ -280,8 +331,11 @@
         renderKpis();
         renderSparkline();
       }
+      if (now - lastOperationalRender >= 250) {
+        renderOperationalState(now);
+        lastOperationalRender = now;
+      }
     }
-    requestAnimationFrame(tick);
   }
 
   // ---------- ticker ----------
@@ -325,6 +379,7 @@
     ticker.insertBefore(li, ticker.firstChild);
     tickerCount++;
     while (ticker.children.length > TICKER_MAX) ticker.removeChild(ticker.lastChild);
+    document.getElementById("ticker-count").textContent = "- " + ticker.children.length + " items";
   }
 
   // ---------- buckets ----------
@@ -354,6 +409,10 @@
   var kEpsT1 = document.getElementById("k-eps-t1");
   var kEpsT2 = document.getElementById("k-eps-t2");
   var kAuto = document.getElementById("k-auto");
+  var kAutoCount = document.getElementById("k-auto-count");
+  var kHilCount = document.getElementById("k-hil-count");
+  var kAbstainCount = document.getElementById("k-abstain-count");
+  var kDenyCount = document.getElementById("k-deny-count");
   var kT0 = document.getElementById("k-t0");
   var kT1 = document.getElementById("k-t1");
   var kT2 = document.getElementById("k-t2");
@@ -363,12 +422,17 @@
   function renderKpis() {
     var t = windowTotals();
     var eps = (t.total / SPARK_BUCKETS).toFixed(1);
+    var previous = [kEps.firstChild.nodeValue, kAuto.textContent, kT0.textContent, kT1.textContent, kT2.textContent].join("|");
     kEps.firstChild.nodeValue = eps;
     if (kEpsT0) kEpsT0.textContent = (t.t0 / SPARK_BUCKETS).toFixed(1);
     if (kEpsT1) kEpsT1.textContent = (t.t1 / SPARK_BUCKETS).toFixed(1);
     if (kEpsT2) kEpsT2.textContent = (t.t2 / SPARK_BUCKETS).toFixed(1);
     var outcomeTotal = t.auto + t.hil + t.abstain + t.deny;
     kAuto.textContent = pct(t.auto, outcomeTotal) + "%";
+    kAutoCount.textContent = t.auto;
+    kHilCount.textContent = t.hil;
+    kAbstainCount.textContent = t.abstain;
+    kDenyCount.textContent = t.deny;
     kT0.textContent = "T0 " + pct(t.t0, t.total) + "%";
     kT1.textContent = "T1 " + pct(t.t1, t.total) + "%";
     kT2.textContent = "T2 " + pct(t.t2, t.total) + "%";
@@ -382,6 +446,10 @@
     tierSpans[0].style.width = pct(t.t0, t.total) + "%";
     tierSpans[1].style.width = pct(t.t1, t.total) + "%";
     tierSpans[2].style.width = pct(t.t2, t.total) + "%";
+    var next = [eps, kAuto.textContent, kT0.textContent, kT1.textContent, kT2.textContent].join("|");
+    if (previous !== next) {
+      document.querySelectorAll(".cs-live-kpi").forEach(pulse);
+    }
   }
 
   // ---------- sparkline ----------
@@ -482,18 +550,261 @@
     sparkCtx.restore();
   }
 
+  // ---------- production-aligned operational projection ----------
+  function isSlotStuck(slot, now) {
+    return Boolean(slot.ev && slot.ev.stuck && slot.state === "active" && now - slot.startedAt > 850);
+  }
+
+  function slotStatus(slot, now) {
+    var decisionObserved = slot.state === "done" || slot.stageEl.textContent === "gate" || slot.stageEl.textContent === "execute";
+    if (slot.ev.failed && slot.state === "done") return "failed";
+    if (isSlotStuck(slot, now)) return "stuck";
+    if (decisionObserved && slot.ev.outcome === "hil") return "hil";
+    if (decisionObserved && slot.ev.outcome === "deny") return "deny";
+    return slot.state === "done" ? "done" : "active";
+  }
+
+  function matchesSlot(slot, filter, now) {
+    if (!slot.ev || slot.state === "empty") return false;
+    if (filter === "all") return true;
+    return slotStatus(slot, now) === filter;
+  }
+
+  function applyFlowFilter(slot) {
+    if (!slot || !slot.el) return;
+    slot.el.hidden = currentFilter !== "all" && !matchesSlot(slot, currentFilter, performance.now());
+  }
+
+  function queueRank(slot, now) {
+    var status = slotStatus(slot, now);
+    return status === "failed" ? 0 : status === "stuck" ? 1 : status === "hil" ? 2 : status === "deny" ? 3 : status === "active" ? 4 : 5;
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, function (character) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character];
+    });
+  }
+
+  function renderQueue(now) {
+    var visible = pool.filter(function (slot) { return matchesSlot(slot, currentFilter, now); });
+    visible.sort(function (left, right) {
+      var rank = queueRank(left, now) - queueRank(right, now);
+      return rank || right.ev.emitAt - left.ev.emitAt;
+    });
+    visible = visible.slice(0, 12);
+    queueEmpty.hidden = visible.length > 0;
+    queueBody.innerHTML = visible.map(function (slot) {
+      var ev = slot.ev;
+      var status = slotStatus(slot, now);
+      var decisionObserved = slot.state === "done" || slot.stageEl.textContent === "gate" || slot.stageEl.textContent === "execute";
+      var decision = status === "failed" ? "Failed" : status === "stuck" ? "Pending" : !decisionObserved ? "Pending" : ev.outcome === "hil" ? "Approval" : ev.outcome === "deny" ? "Deny" : ev.outcome === "abstain" ? "Review" : "Auto";
+      var decisionClass = status === "failed" ? "deny" : decisionObserved ? ev.outcome : "";
+      var visibleMode = decisionObserved ? ev.mode : "-";
+      return '<tr data-status="' + status + '" data-event-id="' + escapeHtml(ev.id) + '">'
+        + '<td><button class="cs-live-queue-action" type="button" data-select-event="' + escapeHtml(ev.id) + '"><strong>' + escapeHtml(ev.sample.at) + '</strong><span>' + escapeHtml(ev.sample.scope) + '</span><code>' + escapeHtml(ev.id) + '</code></button></td>'
+        + '<td data-label="Stage"><strong>' + escapeHtml(slot.stageEl.textContent) + '</strong><br><small>' + (slot.state === "done" ? "Saga" : "Forseti") + '</small></td>'
+        + '<td data-label="Age">' + ageLabel(Date.now() - ev.emitAt) + (status === "stuck" ? '<br><small>Over budget</small>' : '') + '</td>'
+        + '<td data-label="Tier"><span class="cs-tier ' + ev.tier + '">' + ev.tier.toUpperCase() + '</span></td>'
+        + '<td data-label="Mode"><span class="cs-tk-mode ' + visibleMode + '">' + visibleMode + '</span></td>'
+        + '<td data-label="Decision"><span class="out ' + decisionClass + '">' + decision + '</span></td>'
+        + '</tr>';
+    }).join("");
+  }
+
+  function renderOperationalState(now) {
+    var counts = { all: 0, hil: 0, deny: 0, failed: 0, stuck: 0 };
+    pool.forEach(function (slot) {
+      if (!slot.ev || slot.state === "empty") return;
+      counts.all++;
+      var status = slotStatus(slot, now);
+      if (Object.prototype.hasOwnProperty.call(counts, status)) counts[status]++;
+      applyFlowFilter(slot);
+    });
+
+    Object.keys(counts).forEach(function (key) {
+      var count = document.getElementById("filter-" + key);
+      if (count) count.textContent = counts[key];
+    });
+    ["hil", "deny", "failed", "stuck"].forEach(function (key) {
+      document.getElementById("attention-" + key).textContent = counts[key];
+      var button = document.querySelector('[data-attention-filter="' + key + '"]');
+      if (button) button.hidden = counts[key] === 0;
+    });
+
+    var attentionTotal = counts.hil + counts.deny + counts.failed + counts.stuck;
+    var attention = document.getElementById("live-attention");
+    document.getElementById("attention-calm").hidden = attentionTotal > 0;
+    document.getElementById("attention-items").hidden = attentionTotal === 0;
+    attention.classList.toggle("is-calm", attentionTotal === 0);
+    attention.classList.toggle("is-active", attentionTotal > 0);
+
+    var secondsSinceEvent = Math.max(0, Math.floor((Date.now() - lastEventAt) / 1000));
+    document.getElementById("health-last-event").textContent = secondsSinceEvent === 0 ? "Signal now" : secondsSinceEvent + "s ago";
+    document.getElementById("health-presentation").textContent = paused ? "Frozen" : "Following";
+    var backlog = document.getElementById("health-backlog");
+    backlog.textContent = droppedFrames > 0 ? droppedFrames + " dropped" : "Complete";
+    backlog.className = droppedFrames > 0 ? "is-warn" : "is-ok";
+
+    if (viewMode === "queue") renderQueue(now);
+  }
+
+  function setFilter(filter) {
+    currentFilter = filter;
+    document.querySelectorAll("[data-live-filter]").forEach(function (button) {
+      var active = button.getAttribute("data-live-filter") === filter;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+    pool.forEach(applyFlowFilter);
+    renderOperationalState(performance.now());
+  }
+
+  function setView(mode) {
+    viewMode = mode;
+    queueView.hidden = mode !== "queue";
+    flowView.hidden = mode !== "flow";
+    queueButton.classList.toggle("is-active", mode === "queue");
+    flowButton.classList.toggle("is-active", mode === "flow");
+    queueButton.setAttribute("aria-pressed", mode === "queue" ? "true" : "false");
+    flowButton.setAttribute("aria-pressed", mode === "flow" ? "true" : "false");
+    if (mode === "flow") {
+      resizeSpark();
+      pool.forEach(applyFlowFilter);
+    } else {
+      renderQueue(performance.now());
+    }
+  }
+
+  function slotForEvent(eventId) {
+    return pool.find(function (slot) { return slot.ev && slot.ev.id === eventId; }) || null;
+  }
+
+  function closeDetail() {
+    detailBackdrop.hidden = true;
+    document.body.style.overflow = "";
+    var fallbackFocus = detailReturnEventId
+      ? document.querySelector('[data-select-event="' + detailReturnEventId + '"]')
+      : null;
+    if (!fallbackFocus && detailReturnEventId && viewMode === "flow") {
+      fallbackFocus = document.querySelector('.cs-tile[data-event-id="' + detailReturnEventId + '"]');
+    }
+    if (!fallbackFocus) fallbackFocus = viewMode === "queue" ? queueButton : flowButton;
+    var restoreFocus = detailPreviousFocus && detailPreviousFocus !== document.body && detailPreviousFocus.isConnected
+      ? detailPreviousFocus
+      : fallbackFocus;
+    window.setTimeout(function () {
+      if (restoreFocus && restoreFocus.isConnected) restoreFocus.focus();
+    }, 0);
+    detailPreviousFocus = null;
+    detailReturnEventId = null;
+  }
+
+  function openDetail(slot) {
+    if (!slot || !slot.ev) return;
+    detailPreviousFocus = document.activeElement;
+    detailReturnEventId = slot.ev.id;
+    var ev = slot.ev;
+    var currentStage = STAGES.indexOf(slot.stageEl.textContent);
+    if (currentStage < 0) currentStage = slot.state === "done" ? STAGES.length : 0;
+    var agents = { route: "Huginn", verify: "Forseti", gate: "Var", execute: "Thor" };
+    document.getElementById("detail-title").textContent = ev.sample.at;
+    document.getElementById("detail-trace").innerHTML = STAGES.map(function (stage, index) {
+      var css = slot.state === "done" || index < currentStage ? "is-done" : index === currentStage ? "is-current" : "";
+      var state = slot.state === "done" || index < currentStage ? "Observed" : index === currentStage ? "In progress" : "Not observed";
+      return '<li class="' + css + '"><i aria-hidden="true"></i><div><strong>' + stage + '</strong><small>' + agents[stage] + ' - ' + state + '</small></div></li>';
+    }).join("");
+    document.getElementById("detail-event").textContent = ev.id;
+    document.getElementById("detail-correlation").textContent = "corr-" + ev.id.slice(4);
+    document.getElementById("detail-rule").textContent = ev.sample.rule;
+    document.getElementById("detail-action").textContent = ev.sample.at;
+    document.getElementById("detail-mode").textContent = ev.mode;
+    document.getElementById("detail-vertical").textContent = ev.sample.vertical;
+    document.getElementById("detail-scope").textContent = ev.sample.scope;
+    document.getElementById("detail-tier").textContent = ev.tier.toUpperCase();
+    document.getElementById("detail-decision").textContent = slot.state === "done" ? (ev.failed ? "failed" : ev.outcome) : "pending";
+    document.getElementById("detail-age").textContent = ageLabel(Date.now() - ev.emitAt);
+    document.getElementById("detail-trace-link").href = "rule-trace.html?correlation=corr-" + encodeURIComponent(ev.id.slice(4));
+    document.getElementById("detail-audit-link").href = "audit.html?correlation=corr-" + encodeURIComponent(ev.id.slice(4));
+    detailBackdrop.hidden = false;
+    document.body.style.overflow = "hidden";
+    detailClose.focus();
+  }
+
   // ---------- controls ----------
   pauseBtn.addEventListener("click", function () {
     paused = !paused;
-    pauseBtn.textContent = paused ? "Resume" : "Pause";
+    pauseBtn.textContent = paused ? "Resume" : "Freeze";
     pauseBtn.setAttribute("aria-pressed", paused ? "true" : "false");
     document.querySelector(".cs-live-heartbeat").style.animationPlayState = paused ? "paused" : "";
+    renderOperationalState(performance.now());
   });
-  rateBtn.addEventListener("click", function () {
-    var order = [1, 2, 4, 0.5];
-    var idx = order.indexOf(speed);
-    speed = order[(idx + 1) % order.length];
-    rateBtn.textContent = "Rate: " + speed + "x";
+  queueButton.addEventListener("click", function () { setView("queue"); });
+  flowButton.addEventListener("click", function () { setView("flow"); });
+  document.querySelectorAll("[data-live-filter]").forEach(function (button) {
+    button.addEventListener("click", function () { setFilter(button.getAttribute("data-live-filter")); });
+  });
+  document.querySelectorAll("[data-attention-filter]").forEach(function (button) {
+    button.addEventListener("click", function () { setFilter(button.getAttribute("data-attention-filter")); });
+  });
+  queueBody.addEventListener("click", function (event) {
+    var target = event.target instanceof Element ? event.target : null;
+    var button = target ? target.closest("[data-select-event]") : null;
+    if (!button) return;
+    selectedEventId = button.getAttribute("data-select-event");
+    queueBody.querySelectorAll("tr").forEach(function (row) {
+      row.toggleAttribute("data-selected", row.getAttribute("data-event-id") === selectedEventId);
+    });
+    openDetail(slotForEvent(selectedEventId));
+  });
+  swarm.addEventListener("click", function (event) {
+    var target = event.target instanceof Element ? event.target : null;
+    var tile = target ? target.closest("[data-event-id]") : null;
+    if (!tile) return;
+    selectedEventId = tile.getAttribute("data-event-id");
+    openDetail(slotForEvent(selectedEventId));
+  });
+  swarm.addEventListener("keydown", function (event) {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    var target = event.target instanceof Element ? event.target.closest("[data-event-id]") : null;
+    if (!target) return;
+    event.preventDefault();
+    selectedEventId = target.getAttribute("data-event-id");
+    openDetail(slotForEvent(selectedEventId));
+  });
+  detailClose.addEventListener("click", closeDetail);
+  detailBackdrop.addEventListener("click", function (event) {
+    if (event.target === detailBackdrop) closeDetail();
+  });
+  document.addEventListener("keydown", function (event) {
+    if (detailBackdrop.hidden) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeDetail();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    var focusable = Array.from(detailBackdrop.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+    if (focusable.length === 0) {
+      event.preventDefault();
+      return;
+    }
+    var first = focusable[0];
+    var last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+  tickerToggle.addEventListener("click", function () {
+    var expanded = tickerToggle.getAttribute("aria-expanded") === "true";
+    tickerToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
+    tickerToggle.setAttribute("aria-label", expanded ? "Expand recent outcomes" : "Collapse recent outcomes");
+    tickerToggle.textContent = expanded ? "+" : "-";
+    tickerBody.hidden = expanded;
   });
 
   window.addEventListener("resize", function () {
@@ -505,14 +816,19 @@
 
   // ---------- boot ----------
   initPool();
-  // Wait one frame so layout has settled before sizing the canvas.
-  requestAnimationFrame(function (t) {
+  setView("queue");
+  setFilter("all");
+  // Timer-driven so the synthetic preview continues in integrated browser
+  // tabs where requestAnimationFrame may pause when the iframe is hidden.
+  window.setTimeout(function () {
+    var t = performance.now();
     resizeSpark();
     lastFrame = t;
     lastBucketAt = t;
     renderSparkline();
-    requestAnimationFrame(tick);
-  });
+    tick(t);
+    window.setInterval(function () { tick(performance.now()); }, 50);
+  }, 0);
 
   // Prime a few seconds of history so the sparkline is not empty at load
   (function prime() {
