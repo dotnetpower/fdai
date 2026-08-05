@@ -31,7 +31,7 @@ _INVENTORY_SEMANTIC_ENABLED_ENV = "FDAI_INVENTORY_SEMANTIC_ENABLED"
 @dataclass(frozen=True, slots=True)
 class ProductionCatalogSearch:
     index: CatalogSemanticIndex | None
-    embedder: Embedder | None = None
+    inventory_embedder: Embedder | None = None
     shutdown_callbacks: tuple[Callable[[], Awaitable[None]], ...] = ()
 
 
@@ -109,7 +109,7 @@ def build_production_catalog_search(
 
     return ProductionCatalogSearch(
         index=index,
-        embedder=embedder,
+        inventory_embedder=embedder if inventory_semantic_enabled else None,
         shutdown_callbacks=(close_http,),
     )
 

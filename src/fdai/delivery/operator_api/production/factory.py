@@ -297,13 +297,13 @@ def build_prod_app(
     )
     inventory_semantic_resolver = (
         EmbeddingInventorySemanticResolver(
-            embedder=catalog_search.embedder,
+            embedder=catalog_search.inventory_embedder,
             target_ref=ontology_release.type_ref(
                 OntologyDeclarationKind.FUNCTION,
                 "inventory.select_resources",
             ),
         )
-        if catalog_search.embedder is not None
+        if catalog_search.inventory_embedder is not None
         else None
     )
     enforce_workflows = frozenset(
