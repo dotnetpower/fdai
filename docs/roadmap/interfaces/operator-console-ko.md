@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 82c4b0b5479b34827e20e19e6aaed4ca984b4fe0
+translation_source_sha: 043ea0b346032b6f99504e9669762824f53bd9b3
 translation_revised: 2026-08-05
 ---
 
@@ -298,6 +298,15 @@ method `tools.search`, `tools.describe`로 제공됩니다. Channel call은 reso
 일치하는 inventory result set은 40개 record 제한을 적용하기 전에 정렬합니다. List는 기본적으로
 resource 이름순이며, status, type 또는 location grouping을 명시하면 해당 grouping field 다음에
 resource 이름순으로 정렬합니다. 렌더링 row와 durable ordinal follow-up은 같은 순서를 사용합니다.
+향후 VM 종료 질문은 catalog-owned `scheduled_shutdown` query kind와
+`compute.vm-shutdown-schedule` resource type을 사용합니다. Query는 timezone-aware server 기준 시각과
+closed `today_evening` window를 고정합니다. Provider adapter는 검증된 `ComputeVmShutdownTask`
+record만 projection하고 target ARM id는 노출하지 않은 채 target VM 이름과 resource group, enabled
+state, daily local time, provider timezone을 제공합니다. Deterministic projection은 schedule timezone에서
+18:00부터 23:59 사이이며 아직 지나지 않은 enabled occurrence만 포함합니다. Disabled schedule은
+결과가 아닙니다. Snapshot이 truncated되거나 production coverage에 schedule type이 없거나 schedule이
+malformed이거나 timezone을 지원하지 않으면 어떤 VM도 종료되지 않는다고 단정하지 않고 unavailable을
+반환합니다.
 구체적인 resource-type query에 완전한 lexical state match가 없으면 semantic retrieval은 state 또는
 operation candidate만 제안할 수 있습니다. Model 및 embedding candidate는 해당 turn에서 provider
 query를 실행하지 않습니다. Server가 complete typed query를 만들려면 exact/promoted catalog mapping

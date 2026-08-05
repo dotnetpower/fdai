@@ -1,5 +1,5 @@
 schema_version: "1.1.0"
-version: "1.1.29"
+version: "1.1.30"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -36,6 +36,8 @@ signals:
   unfiltered:
     terms: [what resources exist, what azure assets exist, resource inventory, inventory list, azure resources, azure inventory, managed resources, resources in managed scope, current managed resources, Azure 리소스 뭐 있어, Azure 인벤토리 목록, 관리 범위 리소스, 관리 범위의 리소스, 관리 범위에서, 현재 관리 범위 리소스, 현재 관리 범위에서]
 query_kinds:
+  scheduled_shutdown:
+    terms: [VMs shutting down tonight, virtual machines scheduled to shut down tonight, VMs turning off tonight, 오늘 저녁에 꺼지는 VM, 오늘 저녁 종료 예정 VM, 오늘 밤 자동 종료 VM, 자동 종료 예정 가상 머신]
   list:
     terms: [list, inventory list, resource list, 목록, 목록으로]
   scope_counts:

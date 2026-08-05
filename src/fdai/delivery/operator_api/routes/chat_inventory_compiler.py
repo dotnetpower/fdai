@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Any
 
 from fdai.delivery.operator_api.routes.chat_inventory_language import (
@@ -20,6 +21,7 @@ from fdai.delivery.operator_api.routes.chat_inventory_query import (
     InventoryQueryScope,
     InventoryQuerySource,
     InventoryQueryValueGroup,
+    InventoryScheduleWindow,
     normalize_inventory_value,
 )
 from fdai.delivery.operator_api.routes.chat_inventory_resource_types import (
@@ -85,6 +87,7 @@ def compile_inventory_query(
     resources: Sequence[Mapping[str, Any]] = (),
     resolver: InventoryResourceTypeResolver | None = None,
     language: InventoryQueryLanguageResolver | None = None,
+    now: datetime | None = None,
 ) -> InventoryQuery | None:
     """Compile one high-confidence catalog match into a verified typed query."""
 
@@ -115,6 +118,25 @@ def compile_inventory_query(
     operations = lexical.matched_values(registry.operations, prompt)
     source = _source(prompt, operations=operations, language=lexical)
     kind = _kind(prompt, source, language=lexical)
+    if kind is InventoryQueryKind.SCHEDULED_SHUTDOWN:
+        reference_time = now or datetime.now(tz=UTC)
+        if reference_time.tzinfo is None:
+            raise ValueError("inventory query clock MUST be timezone-aware")
+        return InventoryQuery(
+            source=InventoryQuerySource.CURRENT,
+            kind=kind,
+            predicates=(
+                InventoryPredicate(
+                    InventoryField.RESOURCE_TYPE,
+                    InventoryOperator.EQ,
+                    "compute.vm-shutdown-schedule",
+                ),
+            ),
+            scope=_scope(prompt, language=lexical),
+            require_fresh=registry.current_requires_fresh,
+            schedule_window=InventoryScheduleWindow.TODAY_EVENING,
+            reference_time=reference_time,
+        )
     if kind is InventoryQueryKind.SCOPE_COUNTS:
         resource_types = ()
         group = None
@@ -367,6 +389,7 @@ def _kind(
 ) -> InventoryQueryKind:
     matched = language.matched_ids(language.registry.query_kinds, prompt)
     priority = (
+        InventoryQueryKind.SCHEDULED_SHUTDOWN,
         InventoryQueryKind.SCOPE_COUNTS,
         InventoryQueryKind.INVENTORY_COVERAGE,
         InventoryQueryKind.STATE_COVERAGE,

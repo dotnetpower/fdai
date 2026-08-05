@@ -43,6 +43,10 @@ async def _drain(inv: AzureCliInventory) -> list[InventoryBatch]:
 
 
 class TestFullSnapshot:
+    def test_discover_all_requires_subscription_scope(self) -> None:
+        with pytest.raises(ValueError, match="requires subscription_id"):
+            AzureCliInventory(resource_types=("compute.vm",), discover_all=True)
+
     def test_arg_retries_throttling_and_follows_skip_token(self) -> None:
         inventory = AzureCliInventory(resource_types=("compute.vm",))
         responses = [
@@ -507,6 +511,7 @@ class TestFullSnapshot:
                 "network.public-ip": "Microsoft.Network/publicIPAddresses",
             },
             discover_all=True,
+            subscription_id="00000000-0000-0000-0000-000000000000",
         )
         executed_commands: list[list[str]] = []
 
@@ -553,6 +558,7 @@ class TestFullSnapshot:
             resource_types=("compute.vm",),
             azure_arm_types={"compute.vm": "Microsoft.Compute/virtualMachines"},
             discover_all=True,
+            subscription_id="00000000-0000-0000-0000-000000000000",
         )
         commands: list[tuple[str, str]] = []
 
@@ -608,6 +614,7 @@ class TestFullSnapshot:
             },
             resource_type_registry=registry,
             discover_all=True,
+            subscription_id="00000000-0000-0000-0000-000000000000",
         )
         fallback_rows = [
             {
@@ -722,6 +729,7 @@ class TestFullSnapshot:
             azure_arm_types=arm_types,
             resource_type_registry=registry,
             discover_all=True,
+            subscription_id="00000000-0000-0000-0000-000000000000",
         )
 
         def _response(argv, **_kwargs):  # type: ignore[no-untyped-def]
@@ -740,6 +748,62 @@ class TestFullSnapshot:
 
         assert {record.type for record in batches[0].resources} == expected_types
         assert len(batches[0].resources) == len(expected_types)
+
+    def test_discover_all_projects_vm_shutdown_schedule(self) -> None:
+        registry = _resource_types()
+        inventory = AzureCliInventory(
+            resource_types=("compute.vm-shutdown-schedule",),
+            azure_arm_types={"compute.vm-shutdown-schedule": "Microsoft.DevTestLab/schedules"},
+            resource_type_registry=registry,
+            discover_all=True,
+            subscription_id="00000000-0000-0000-0000-000000000000",
+        )
+        row = {
+            "id": (
+                "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                "resourceGroups/rg-example/providers/Microsoft.DevTestLab/"
+                "schedules/shutdown-computevm-vm-example"
+            ),
+            "type": "Microsoft.DevTestLab/schedules",
+            "name": "shutdown-computevm-vm-example",
+            "resourceGroup": "rg-example",
+            "properties": {
+                "status": "Enabled",
+                "taskType": "ComputeVmShutdownTask",
+                "dailyRecurrence": {"time": "1900"},
+                "timeZoneId": "Korea Standard Time",
+                "targetResourceId": (
+                    "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                    "resourceGroups/rg-example/providers/Microsoft.Compute/"
+                    "virtualMachines/vm-example"
+                ),
+            },
+        }
+
+        def _response(argv, **_kwargs):  # type: ignore[no-untyped-def]
+            command = tuple(argv[1:3])
+            if command == ("group", "list"):
+                return _completed("[]")
+            if command == ("graph", "query"):
+                return _completed(json.dumps({"data": [row], "skip_token": None}))
+            raise AssertionError(f"unexpected Azure CLI command: {argv}")
+
+        with patch(
+            "fdai.delivery.azure.dev_inventory.subprocess.run",
+            side_effect=_response,
+        ):
+            batches = asyncio.run(_drain(inventory))
+
+        schedule = batches[0].resources[0]
+        assert schedule.type == "compute.vm-shutdown-schedule"
+        assert schedule.props["scheduledShutdownStatus"] == "Enabled"
+        assert schedule.props["scheduledShutdownTime"] == "1900"
+        assert schedule.props["scheduledShutdownTimeZone"] == "Korea Standard Time"
+        assert schedule.props["scheduledShutdownTimeZoneIana"] == "Asia/Seoul"
+        assert schedule.props["scheduledShutdownTargetName"] == "vm-example"
+        assert schedule.props["scheduledShutdownTargetResourceGroup"] == "rg-example"
+        assert "targetResourceId" not in schedule.props
+        assert "targetResourceId" not in schedule.props["properties"]
 
     def test_arm_reverse_map_is_built_once_per_inventory(self) -> None:
         registry = _resource_types()

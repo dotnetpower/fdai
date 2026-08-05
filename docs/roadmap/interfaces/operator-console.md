@@ -304,6 +304,15 @@ caller-supplied role parameter. Both surfaces return descriptors only and cannot
 Matched inventory result sets are sorted before the 40-record bound is applied. Lists use resource
 name order by default; an explicit status, type, or location grouping uses that grouping field and
 then resource name. The same order drives rendered rows and durable ordinal follow-ups.
+Future VM shutdown questions use the catalog-owned `scheduled_shutdown` query kind and the
+`compute.vm-shutdown-schedule` resource type. The query pins one aware server reference time and a
+closed `today_evening` window. Provider adapters project only validated
+`ComputeVmShutdownTask` records and expose the target VM name and resource group, enabled state,
+daily local time, and provider timezone without exposing the target ARM id. The deterministic
+projection includes only enabled occurrences from 18:00 through 23:59 that have not passed in the
+schedule timezone. Disabled schedules are not results. A truncated snapshot, missing production
+coverage for the schedule type, malformed schedule, or unsupported timezone returns unavailable
+instead of proving that no VM will shut down.
 A concrete resource-type query with no complete lexical state match can use semantic retrieval only
 to propose state or operation candidates. Model and embedding candidates never execute a provider
 query in that turn. An exact or promoted catalog mapping, or a separately verified operator

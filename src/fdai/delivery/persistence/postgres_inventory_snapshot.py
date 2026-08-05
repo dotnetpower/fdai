@@ -14,6 +14,10 @@ from psycopg import IsolationLevel
 from psycopg.rows import dict_row
 
 from fdai.core.views.architecture_graph import project_architecture_graph
+from fdai.delivery.inventory_schedule import (
+    VM_SHUTDOWN_SCHEDULE_TYPE,
+    project_vm_shutdown_schedule,
+)
 from fdai.delivery.persistence.postgres_inventory_graph import load_rooted_inventory_graph
 from fdai.shared.providers.inventory import InventoryBatch
 from fdai.shared.providers.inventory_snapshot import (
@@ -632,6 +636,24 @@ def _resource_payload(row: Mapping[str, Any], *, include_props: bool = False) ->
     }
     if include_props:
         payload["props"] = props
+    if row["resource_type"] == VM_SHUTDOWN_SCHEDULE_TYPE:
+        schedule = project_vm_shutdown_schedule(props)
+        if schedule is not None:
+            payload.update(
+                {
+                    "scheduled_shutdown_status": schedule["scheduledShutdownStatus"],
+                    "scheduled_shutdown_time": schedule["scheduledShutdownTime"],
+                    "scheduled_shutdown_time_zone": schedule["scheduledShutdownTimeZone"],
+                    "scheduled_shutdown_time_zone_iana": schedule["scheduledShutdownTimeZoneIana"],
+                    "scheduled_shutdown_target_name": schedule["scheduledShutdownTargetName"],
+                    "scheduled_shutdown_target_resource_group": schedule[
+                        "scheduledShutdownTargetResourceGroup"
+                    ],
+                    "scheduled_shutdown_target_subscription_digest": schedule[
+                        "scheduledShutdownTargetSubscriptionDigest"
+                    ],
+                }
+            )
     return payload
 
 

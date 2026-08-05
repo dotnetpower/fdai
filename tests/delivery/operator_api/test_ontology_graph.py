@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
@@ -230,6 +231,35 @@ def test_inventory_function_projection_marks_bounded_resource_preview() -> None:
     assert projected["matched_count"] == 41
     assert projected["resource_preview_truncated"] is True
     assert len(projected["resources"]) == 40
+
+
+def test_inventory_function_projection_preserves_scheduled_shutdown_fields() -> None:
+    query = compile_inventory_query(
+        "오늘 저녁에 꺼지는 vm은?",
+        now=datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+    )
+    assert query is not None
+
+    projected = project_inventory_function_result(
+        {
+            "status": "matched",
+            "query": query.to_dict(),
+            "matched_count": 1,
+            "resources": [
+                {
+                    "name": "vm-example",
+                    "type": "compute.vm",
+                    "status": "scheduled_shutdown",
+                    "resource_group": "rg-example",
+                    "scheduled_shutdown_at": "2026-08-05T19:00:00+09:00",
+                    "scheduled_shutdown_time_zone": "Korea Standard Time",
+                }
+            ],
+        }
+    )
+
+    assert projected["resources"][0]["scheduled_shutdown_at"] == ("2026-08-05T19:00:00+09:00")
+    assert projected["resources"][0]["scheduled_shutdown_time_zone"] == ("Korea Standard Time")
 
 
 def test_inventory_function_projection_rejects_matched_result_without_query() -> None:

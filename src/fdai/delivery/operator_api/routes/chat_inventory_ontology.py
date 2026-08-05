@@ -18,7 +18,7 @@ from fdai.shared.contracts.models import (
 )
 
 _FUNCTION_NAME = "inventory.select_resources"
-_ARTIFACT_ID = b"fdai.inventory.select_resources.v2"
+_ARTIFACT_ID = b"fdai.inventory.select_resources.v3"
 _DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
 _FUNCTION_RESULT_STATUSES = frozenset({"matched", "partial", "unavailable", "clarification"})
 
@@ -64,6 +64,8 @@ def project_inventory_function_result(result: Mapping[str, Any]) -> dict[str, An
                     "status",
                     "location",
                     "resource_group",
+                    "scheduled_shutdown_at",
+                    "scheduled_shutdown_time_zone",
                 )
                 if key in resource
             }
@@ -95,7 +97,7 @@ def inventory_query_function_type() -> OntologyFunctionType:
 
     return OntologyFunctionType(
         name=_FUNCTION_NAME,
-        version="1.1.0",
+        version="1.2.0",
         kind=OntologyFunctionKind.QUERY,
         artifact_digest=f"sha256:{hashlib.sha256(_ARTIFACT_ID).hexdigest()}",
         publisher="FDAI",
@@ -206,6 +208,16 @@ def inventory_query_function_type() -> OntologyFunctionType:
                             "resource_group": {
                                 "type": ["string", "null"],
                                 "maxLength": 1024,
+                            },
+                            "scheduled_shutdown_at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "maxLength": 64,
+                            },
+                            "scheduled_shutdown_time_zone": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
                             },
                         },
                         "required": ["name", "type"],

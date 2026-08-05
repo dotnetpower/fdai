@@ -74,6 +74,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any, Final
 from urllib.parse import urlparse
 
@@ -106,6 +107,10 @@ from fdai.delivery.azure.arg_projection import (
 )
 from fdai.delivery.azure.arg_transport import ArgThrottleGate, fetch_arg_pages
 from fdai.delivery.azure.inventory import ResourceQueryFn
+from fdai.delivery.inventory_schedule import (
+    VM_SHUTDOWN_SCHEDULE_TYPE,
+    project_vm_shutdown_schedule,
+)
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
     resolve_azure_resource_type,
@@ -352,12 +357,24 @@ class AzureArgQueryFactory:
             return None
 
         neutral_id = _to_neutral_id(arm_id)
-        props: dict[str, Any] = {}
+        props: dict[str, Any] = {"providerType": arm_type}
+        subscription_id = row.get("subscriptionId")
+        if isinstance(subscription_id, str) and subscription_id:
+            props["subscriptionId"] = subscription_id
         for key in ("name", "location", "kind", "sku", "tags", "properties", "resourceGroup"):
             if key in row and row[key] is not None:
                 props[key] = row[key]
         if status := resource_operational_status(row):
             props["status"] = status
+        if resource_type == VM_SHUTDOWN_SCHEDULE_TYPE:
+            schedule = project_vm_shutdown_schedule(props)
+            if schedule is None:
+                return None
+            props.update(schedule)
+            nested_value = props.get("properties")
+            nested_schedule = dict(nested_value) if isinstance(nested_value, Mapping) else {}
+            nested_schedule.pop("targetResourceId", None)
+            props["properties"] = nested_schedule
 
         props = _truncate_props(props, max_bytes=self._config.max_props_bytes)
 
@@ -366,6 +383,11 @@ class AzureArgQueryFactory:
             type=resource_type,
             props=props,
             provider_ref=arm_id,
+            last_seen=(
+                datetime.now(tz=UTC).isoformat()
+                if resource_type == VM_SHUTDOWN_SCHEDULE_TYPE
+                else None
+            ),
         )
 
 

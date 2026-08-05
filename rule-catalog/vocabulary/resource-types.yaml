@@ -27,7 +27,7 @@
 #
 # All values are English, secret-free, and customer-agnostic.
 schema_version: "1.0.0"
-version: "0.3.5"
+version: "0.3.6"
 category_query_terms:
   database: [database, databases, db, dbs, 데이터베이스, 디비]
 query_groups:
@@ -44,6 +44,12 @@ types:
     description: Long-running virtual machine.
     azure_arm_type: Microsoft.Compute/virtualMachines
     query_terms: [virtual machine, virtual machines, vm, vms, 가상 머신, 가상머신, 가상 머신들, 가상머신들]
+    typical_parents: [resource-group]
+  - id: compute.vm-shutdown-schedule
+    category: compute
+    description: Recurring provider schedule that shuts down one virtual machine.
+    azure_arm_type: Microsoft.DevTestLab/schedules
+    query_terms: [VM shutdown schedule, VM auto-shutdown schedule, 가상 머신 자동 종료 일정, VM 자동 종료 일정]
     typical_parents: [resource-group]
   - id: compute.vm-scale-set
     category: compute

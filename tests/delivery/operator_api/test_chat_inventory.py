@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -178,6 +179,288 @@ async def test_incomplete_state_semantics_holds_instead_of_widening() -> None:
     ]
     assert "resources" not in result
     assert provider_calls == 0
+
+
+async def test_today_evening_vm_shutdown_uses_enabled_schedule_evidence() -> None:
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        del args, kwargs
+        return {
+            "snapshot_at": "2026-08-05T03:00:00+00:00",
+            "freshness": "fresh",
+            "source": "azure-resource-graph",
+            "active_view": "all-test-resources",
+            "truncated": False,
+            "coverage": {"resource_types": ["compute.vm-shutdown-schedule"]},
+            "resources": [
+                {
+                    "id": "schedule-enabled",
+                    "type": "compute.vm-shutdown-schedule",
+                    "name": "shutdown-computevm-ubuntu2204",
+                    "status": "unknown",
+                    "scheduled_shutdown_status": "Enabled",
+                    "scheduled_shutdown_time": "1900",
+                    "scheduled_shutdown_time_zone": "Korea Standard Time",
+                    "scheduled_shutdown_time_zone_iana": "Asia/Seoul",
+                    "scheduled_shutdown_target_name": "ubuntu2204",
+                    "scheduled_shutdown_target_resource_group": "rg-vm",
+                    "scheduled_shutdown_target_subscription_digest": "sha256:" + "a" * 64,
+                },
+                {
+                    "id": "schedule-disabled",
+                    "type": "compute.vm-shutdown-schedule",
+                    "name": "shutdown-computevm-disabled",
+                    "status": "unknown",
+                    "scheduled_shutdown_status": "Disabled",
+                    "scheduled_shutdown_time": "2300",
+                    "scheduled_shutdown_time_zone": "Korea Standard Time",
+                    "scheduled_shutdown_time_zone_iana": "Asia/Seoul",
+                    "scheduled_shutdown_target_name": "vm-disabled",
+                    "scheduled_shutdown_target_resource_group": "rg-vm",
+                    "scheduled_shutdown_target_subscription_digest": "sha256:" + "a" * 64,
+                },
+            ],
+            "links": [],
+        }
+
+    evidence = await InventoryChatTools(
+        provider,
+        clock=lambda: datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+    ).resolve("오늘 저녁에 꺼지는 vm은?", principal_id="reader")
+
+    assert evidence is not None
+    result = evidence["result"]
+    assert result["status"] == "matched"
+    assert result["matched_count"] == 1
+    assert result["resources"] == [
+        {
+            "name": "ubuntu2204",
+            "type": "compute.vm",
+            "provider_type": "Microsoft.Compute/virtualMachines",
+            "status": "scheduled_shutdown",
+            "resource_group": "rg-vm",
+            "scheduled_shutdown_at": "2026-08-05T19:00:00+09:00",
+            "scheduled_shutdown_time_zone": "Korea Standard Time",
+        }
+    ]
+    answer = render_inventory_answer(evidence, locale="ko")
+    assert answer is not None
+    assert "ubuntu2204" in answer
+    assert "19:00" in answer
+    assert "vm-disabled" not in answer
+
+
+async def test_today_evening_shutdown_excludes_occurrence_that_already_passed() -> None:
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        del args, kwargs
+        return {
+            "snapshot_at": "2026-08-05T11:00:00+00:00",
+            "freshness": "fresh",
+            "source": "azure-resource-graph",
+            "active_view": "all-test-resources",
+            "truncated": False,
+            "coverage": {"resource_types": ["compute.vm-shutdown-schedule"]},
+            "resources": [
+                {
+                    "id": "schedule-enabled",
+                    "type": "compute.vm-shutdown-schedule",
+                    "name": "shutdown-computevm-ubuntu2204",
+                    "status": "unknown",
+                    "scheduled_shutdown_status": "Enabled",
+                    "scheduled_shutdown_time": "1900",
+                    "scheduled_shutdown_time_zone": "Korea Standard Time",
+                    "scheduled_shutdown_time_zone_iana": "Asia/Seoul",
+                    "scheduled_shutdown_target_name": "ubuntu2204",
+                    "scheduled_shutdown_target_resource_group": "rg-vm",
+                    "scheduled_shutdown_target_subscription_digest": "sha256:" + "a" * 64,
+                }
+            ],
+            "links": [],
+        }
+
+    evidence = await InventoryChatTools(
+        provider,
+        clock=lambda: datetime(2026, 8, 5, 11, 0, tzinfo=UTC),
+    ).resolve("오늘 저녁에 꺼지는 vm은?", principal_id="reader")
+
+    assert evidence is not None
+    assert evidence["result"]["matched_count"] == 0
+
+
+async def test_today_evening_shutdown_refuses_truncated_schedule_coverage() -> None:
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        del args, kwargs
+        return {
+            "snapshot_at": "2026-08-05T03:00:00+00:00",
+            "freshness": "fresh",
+            "source": "azure-resource-graph",
+            "active_view": "all-test-resources",
+            "truncated": True,
+            "resources": [],
+            "links": [],
+        }
+
+    evidence = await InventoryChatTools(
+        provider,
+        clock=lambda: datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+    ).resolve("오늘 저녁에 꺼지는 vm은?", principal_id="reader")
+
+    assert evidence is not None
+    assert evidence["result"]["status"] == "unavailable"
+    assert evidence["result"]["reason"] == "scheduled_shutdown_coverage_incomplete"
+
+
+async def test_today_evening_shutdown_refuses_stale_schedule_snapshot() -> None:
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        del args, kwargs
+        return {
+            "snapshot_at": "2026-08-05T02:00:00+00:00",
+            "freshness": "stale",
+            "source": "postgres-inventory",
+            "active_view": "all-test-resources",
+            "truncated": False,
+            "coverage": {"resource_types": ["compute.vm-shutdown-schedule"]},
+            "resources": [],
+            "links": [],
+        }
+
+    evidence = await InventoryChatTools(
+        provider,
+        clock=lambda: datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+    ).resolve("오늘 저녁에 꺼지는 vm은?", principal_id="reader")
+
+    assert evidence is not None
+    assert evidence["result"]["status"] == "unavailable"
+    assert evidence["result"]["reason"] == "fresh_inventory_required"
+
+
+async def test_today_evening_shutdown_refuses_unsupported_schedule_timezone() -> None:
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        del args, kwargs
+        return {
+            "snapshot_at": "2026-08-05T03:00:00+00:00",
+            "freshness": "fresh",
+            "source": "azure-resource-graph",
+            "active_view": "all-test-resources",
+            "truncated": False,
+            "coverage": {"resource_types": ["compute.vm-shutdown-schedule"]},
+            "resources": [
+                {
+                    "id": "schedule-enabled",
+                    "type": "compute.vm-shutdown-schedule",
+                    "name": "shutdown-computevm-vm-example",
+                    "status": "unknown",
+                    "scheduled_shutdown_status": "Enabled",
+                    "scheduled_shutdown_time": "1900",
+                    "scheduled_shutdown_time_zone": "Unsupported Provider Time",
+                    "scheduled_shutdown_time_zone_iana": "Unsupported Provider Time",
+                    "scheduled_shutdown_target_name": "vm-example",
+                    "scheduled_shutdown_target_resource_group": "rg-example",
+                    "scheduled_shutdown_target_subscription_digest": "sha256:" + "a" * 64,
+                }
+            ],
+            "links": [],
+        }
+
+    evidence = await InventoryChatTools(
+        provider,
+        clock=lambda: datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+    ).resolve("오늘 저녁에 꺼지는 vm은?", principal_id="reader")
+
+    assert evidence is not None
+    assert evidence["result"]["status"] == "unavailable"
+    assert evidence["result"]["reason"] == "ScheduledShutdownEvidenceError"
+
+
+async def test_today_evening_shutdown_requires_production_schedule_coverage() -> None:
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        del args, kwargs
+        return {
+            "snapshot_at": "2026-08-05T03:00:00+00:00",
+            "freshness": "fresh",
+            "source": "postgres-inventory",
+            "active_view": "all-test-resources",
+            "truncated": False,
+            "coverage": {"resource_types": ["compute.vm"]},
+            "resources": [],
+            "links": [],
+        }
+
+    evidence = await InventoryChatTools(
+        provider,
+        clock=lambda: datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+    ).resolve("오늘 저녁에 꺼지는 vm은?", principal_id="reader")
+
+    assert evidence is not None
+    assert evidence["result"]["status"] == "unavailable"
+    assert evidence["result"]["reason"] == "scheduled_shutdown_coverage_unavailable"
+
+
+async def test_direct_planned_shutdown_rejects_stale_reference_before_provider_read() -> None:
+    provider_calls = 0
+
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        nonlocal provider_calls
+        del args, kwargs
+        provider_calls += 1
+        return {}
+
+    evidence = await InventoryChatTools(
+        provider,
+        clock=lambda: datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+    ).resolve_planned(
+        "query_inventory",
+        {
+            "source": "current",
+            "kind": "scheduled_shutdown",
+            "predicates": [
+                {
+                    "field": "resource_type",
+                    "operator": "eq",
+                    "value": "compute.vm-shutdown-schedule",
+                }
+            ],
+            "lookback_seconds": None,
+            "require_fresh": True,
+            "schedule_window": "today_evening",
+            "reference_time": "2026-08-04T03:00:00+00:00",
+        },
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    assert evidence["result"]["reason"] == "scheduled_shutdown_reference_time_stale"
+    assert provider_calls == 0
+
+
+async def test_natural_shutdown_query_rechecks_reference_before_projection() -> None:
+    clock_values = iter(
+        (
+            datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+            datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+            datetime(2026, 8, 5, 3, 6, tzinfo=UTC),
+        )
+    )
+
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        del args, kwargs
+        return {
+            "snapshot_at": "2026-08-05T03:00:00+00:00",
+            "freshness": "fresh",
+            "source": "azure-resource-graph",
+            "active_view": "all-test-resources",
+            "truncated": False,
+            "coverage": {"resource_types": ["compute.vm-shutdown-schedule"]},
+            "resources": [],
+            "links": [],
+        }
+
+    evidence = await InventoryChatTools(provider, clock=lambda: next(clock_values)).resolve(
+        "오늘 저녁에 꺼지는 vm은?",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    assert evidence["result"]["reason"] == "scheduled_shutdown_reference_time_stale"
 
 
 async def test_direct_planned_inventory_rejects_noncanonical_status_before_provider_read() -> None:

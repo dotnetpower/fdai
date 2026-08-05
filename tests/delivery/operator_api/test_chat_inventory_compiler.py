@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,7 @@ from fdai.delivery.operator_api.routes.chat_inventory_query import (
     InventoryOperator,
     InventoryQueryGrouping,
     InventoryQueryKind,
+    InventoryQueryScope,
     InventoryQuerySource,
 )
 from fdai.delivery.operator_api.routes.chat_inventory_resource_types import (
@@ -587,6 +589,26 @@ def test_activity_window_is_bounded_by_query_contract() -> None:
 
     with pytest.raises(ValueError, match="out of bounds"):
         compile_inventory_query("resources deleted in the last 31 days", resources=_RESOURCES)
+
+
+def test_today_evening_shutdown_compiles_to_pinned_schedule_query() -> None:
+    query = compile_inventory_query(
+        "오늘 저녁에 꺼지는 vm은?",
+        now=datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+    )
+
+    assert query is not None
+    assert query.kind is InventoryQueryKind.SCHEDULED_SHUTDOWN
+    assert query.scope is InventoryQueryScope.SUBSCRIPTION
+    assert query.to_dict()["schedule_window"] == "today_evening"
+    assert query.to_dict()["reference_time"] == "2026-08-05T03:00:00+00:00"
+    assert query.to_dict()["predicates"] == [
+        {
+            "field": "resource_type",
+            "operator": "eq",
+            "value": "compute.vm-shutdown-schedule",
+        }
+    ]
 
 
 @pytest.mark.parametrize(

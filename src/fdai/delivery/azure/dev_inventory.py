@@ -58,6 +58,11 @@ from fdai.delivery.azure.arg_projection import (
     to_neutral_id,
     truncate_props,
 )
+from fdai.delivery.inventory_schedule import (
+    VM_SHUTDOWN_SCHEDULE_TYPE,
+    VM_SHUTDOWN_TASK_TYPE,
+    project_vm_shutdown_schedule,
+)
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
     resolve_azure_resource_type,
@@ -131,6 +136,14 @@ _NEUTRAL_TYPE_TO_AZ_ARGS: Final[dict[str, tuple[str, ...]]] = {
         "--output",
         "json",
     ),
+    "compute.vm-shutdown-schedule": (
+        "resource",
+        "list",
+        "--resource-type",
+        "Microsoft.DevTestLab/schedules",
+        "--output",
+        "json",
+    ),
 }
 _DEFAULT_ARM_TYPES: Final[dict[str, str]] = {
     **{
@@ -178,6 +191,8 @@ class AzureCliInventory:
     """
 
     def __post_init__(self) -> None:
+        if self.discover_all and not self.subscription_id:
+            raise ValueError("discover_all Azure CLI inventory requires subscription_id")
         arm_to_neutral = (
             build_arm_to_neutral_map(self.resource_type_registry)
             if self.resource_type_registry is not None
@@ -531,6 +546,9 @@ class AzureCliInventory:
         )
 
     def _row_matches_type(self, row: Mapping[str, Any], resource_type: str) -> bool:
+        if resource_type == VM_SHUTDOWN_SCHEDULE_TYPE:
+            nested = row.get("properties")
+            return isinstance(nested, Mapping) and nested.get("taskType") == VM_SHUTDOWN_TASK_TYPE
         if self.resource_type_registry is None or not isinstance(row.get("type"), str):
             return True
         if resource_type == _UNCLASSIFIED_RESOURCE_TYPE:
@@ -633,6 +651,9 @@ def _record_from_az_row(*, row: dict[str, Any], resource_type: str, now_iso: str
         "location": row.get("location"),
         "tags": row.get("tags") or {},
     }
+    subscription_id = row.get("subscriptionId") or _subscription_from_arm_id(arm_id)
+    if subscription_id:
+        props["subscriptionId"] = subscription_id
     if isinstance(row.get("type"), str) and row["type"]:
         props["providerType"] = row["type"]
     for key in ("kind", "sku", "properties"):
@@ -664,6 +685,14 @@ def _record_from_az_row(*, row: dict[str, Any], resource_type: str, now_iso: str
     if resource_type == "compute.vm":
         if power_state := row.get("powerState"):
             props["powerState"] = power_state
+    if resource_type == VM_SHUTDOWN_SCHEDULE_TYPE:
+        schedule = project_vm_shutdown_schedule(props)
+        if schedule is None:
+            raise AzureCliInventoryError("VM shutdown schedule projection is unavailable")
+        props.update(schedule)
+        nested_schedule = dict(nested)
+        nested_schedule.pop("targetResourceId", None)
+        props["properties"] = nested_schedule
     return ResourceRecord(
         resource_id=resource_id,
         type=resource_type,
@@ -697,6 +726,21 @@ def _resource_group_from_arm_id(arm_id: str) -> str | None:
     if not arm_id:
         return None
     marker = "/resourcegroups/"
+    lowered = arm_id.lower()
+    idx = lowered.find(marker)
+    if idx < 0:
+        return None
+    rest = arm_id[idx + len(marker) :]
+    segment = rest.split("/", 1)[0].strip()
+    return segment or None
+
+
+def _subscription_from_arm_id(arm_id: str) -> str | None:
+    """Recover the subscription id from an ARM path, or ``None``."""
+
+    if not arm_id:
+        return None
+    marker = "/subscriptions/"
     lowered = arm_id.lower()
     idx = lowered.find(marker)
     if idx < 0:

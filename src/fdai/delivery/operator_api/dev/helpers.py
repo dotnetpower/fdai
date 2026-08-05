@@ -121,6 +121,8 @@ def build_inventory_graph_provider() -> Any:
         os.environ.get(LOCAL_AZURE_SUBSCRIPTION_ENV, "").strip()
         or os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
     )
+    if not subscription_id:
+        raise ValueError("interactive local Azure discovery requires an explicit subscription id")
     import yaml
 
     from fdai.delivery.azure.dev_inventory import AzureCliInventory

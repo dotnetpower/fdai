@@ -6,6 +6,7 @@ import json
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 
 from fdai.delivery.operator_api.routes.chat_inventory_activity import (
@@ -41,6 +42,12 @@ from fdai.delivery.operator_api.routes.chat_inventory_query import (
 from fdai.delivery.operator_api.routes.chat_inventory_resource_types import (
     default_inventory_resource_type_resolver,
 )
+from fdai.delivery.operator_api.routes.chat_inventory_schedule import (
+    ScheduledShutdownEvidenceError,
+    project_scheduled_shutdown_result,
+    render_scheduled_shutdown_answer,
+    schedule_reference_is_current,
+)
 from fdai.delivery.operator_api.routes.chat_inventory_semantic_retrieval import (
     InventorySemanticResolver,
 )
@@ -61,6 +68,11 @@ _MAX_RESOURCES = 40
 _MAX_LINKS = 40
 KubernetesWorkloadProvider = Callable[[], Awaitable[Mapping[str, Any]]]
 InventoryActivityProvider = Callable[[int, int], Awaitable[Mapping[str, Any]]]
+InventoryClock = Callable[[], datetime]
+
+
+def _utc_now() -> datetime:
+    return datetime.now(tz=UTC)
 
 
 @runtime_checkable
@@ -77,6 +89,7 @@ class InventoryChatTools:
     workload_provider: KubernetesWorkloadProvider | None = None
     activity_provider: InventoryActivityProvider | None = None
     semantic_resolver: InventorySemanticResolver | None = None
+    clock: InventoryClock = _utc_now
 
     def turn_tools(self) -> tuple[TurnTool, ...]:
         """Return the strict semantic capability for generalized resource reads."""
@@ -105,6 +118,19 @@ class InventoryChatTools:
         if tool_name != "query_inventory":
             return None
         query = InventoryQuery.from_mapping(arguments)
+        if (
+            query.kind is InventoryQueryKind.SCHEDULED_SHUTDOWN
+            and not schedule_reference_is_current(query, self.clock())
+        ):
+            return {
+                "tool": "query_inventory",
+                "authority": "server_inventory_graph",
+                "result": {
+                    "status": "unavailable",
+                    "reason": "scheduled_shutdown_reference_time_stale",
+                    "query": query.to_dict(),
+                },
+            }
         try:
             query = canonicalize_semantic_inventory_status_arguments(query, arguments)
         except SemanticInventoryStatusError:
@@ -145,7 +171,7 @@ class InventoryChatTools:
                 raise ValueError("invalid_inventory_payload")
             resources, raw_links = safe_payload
             managed = [item for item in resources if item["type"] != "subscription"]
-            query = compile_inventory_query(prompt, resources=managed)
+            query = compile_inventory_query(prompt, resources=managed, now=self.clock())
             if query is None:
                 return {
                     "tool": "query_inventory",
@@ -172,6 +198,20 @@ class InventoryChatTools:
                     raise ValueError("invalid_inventory_payload")
                 resources, raw_links = safe_payload
             activity = await self._activity(query)
+            if (
+                query.kind is InventoryQueryKind.SCHEDULED_SHUTDOWN
+                and not schedule_reference_is_current(query, self.clock())
+            ):
+                result = {
+                    "status": "unavailable",
+                    "reason": "scheduled_shutdown_reference_time_stale",
+                    "query": query.to_dict(),
+                }
+                return {
+                    "tool": "query_inventory",
+                    "authority": "server_inventory_graph",
+                    "result": result,
+                }
             result = _project_verified_inventory_result(
                 query,
                 graph,
@@ -203,7 +243,7 @@ class InventoryChatTools:
         resource_types = default_inventory_resource_type_resolver().resolve(prompt)
         if not resource_types:
             return None
-        query = compile_inventory_query(prompt)
+        query = compile_inventory_query(prompt, now=self.clock())
         if query is not None and not inventory_query_requires_semantic_completion(
             query, prompt=prompt
         ):
@@ -389,6 +429,15 @@ def _project_verified_inventory_result(
     if safe_payload is None:
         return {"status": "unavailable", "reason": "invalid_inventory_payload"}
     resources, raw_links = safe_payload
+    if query.kind is InventoryQueryKind.SCHEDULED_SHUTDOWN:
+        try:
+            return project_scheduled_shutdown_result(query, graph, resources)
+        except ScheduledShutdownEvidenceError as exc:
+            return {
+                "status": "unavailable",
+                "reason": type(exc).__name__,
+                "query": query.to_dict(),
+            }
     id_to_name = {str(item["id"]): str(item["name"]) for item in resources}
     managed = [item for item in resources if item["type"] != "subscription"]
     if query.source is InventoryQuerySource.ACTIVITY:
@@ -612,6 +661,8 @@ def render_inventory_answer(
     korean = bool(locale and locale.casefold().startswith("ko"))
     if result.get("query_source") == InventoryQuerySource.ACTIVITY.value:
         return render_inventory_activity(result, korean=korean)
+    if result.get("query_kind") == InventoryQueryKind.SCHEDULED_SHUTDOWN.value:
+        return render_scheduled_shutdown_answer(result, korean=korean)
     if (
         result.get("status") == "clarification"
         and result.get("reason") == "inventory_semantic_confirmation_required"
@@ -1322,6 +1373,19 @@ def _safe_resource(raw: Mapping[str, Any]) -> dict[str, Any] | None:
         "status_source": str(raw.get("status_source") or "unknown"),
         "location": _optional_text(props.get("location") or raw.get("location")),
         "resource_group": _optional_text(props.get("resourceGroup") or raw.get("resource_group")),
+        "scheduled_shutdown_status": _optional_text(raw.get("scheduled_shutdown_status")),
+        "scheduled_shutdown_time": _optional_text(raw.get("scheduled_shutdown_time")),
+        "scheduled_shutdown_time_zone": _optional_text(raw.get("scheduled_shutdown_time_zone")),
+        "scheduled_shutdown_time_zone_iana": _optional_text(
+            raw.get("scheduled_shutdown_time_zone_iana")
+        ),
+        "scheduled_shutdown_target_name": _optional_text(raw.get("scheduled_shutdown_target_name")),
+        "scheduled_shutdown_target_resource_group": _optional_text(
+            raw.get("scheduled_shutdown_target_resource_group")
+        ),
+        "scheduled_shutdown_target_subscription_digest": _optional_text(
+            raw.get("scheduled_shutdown_target_subscription_digest")
+        ),
     }
 
 

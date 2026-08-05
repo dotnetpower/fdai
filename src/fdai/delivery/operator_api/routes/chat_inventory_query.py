@@ -6,6 +6,7 @@ import re
 import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from enum import StrEnum
 from types import MappingProxyType
 from typing import Any, Final
@@ -28,6 +29,13 @@ class InventoryQueryKind(StrEnum):
     STATE_COVERAGE = "state_coverage"
     TYPES = "types"
     RELATIONSHIPS = "relationships"
+    SCHEDULED_SHUTDOWN = "scheduled_shutdown"
+
+
+class InventoryScheduleWindow(StrEnum):
+    """Closed future windows supported by schedule-backed inventory reads."""
+
+    TODAY_EVENING = "today_evening"
 
 
 class InventoryQueryScope(StrEnum):
@@ -192,6 +200,8 @@ class InventoryQuery:
     include_workloads: bool = False
     require_state_history: bool = False
     status_groups: tuple[InventoryQueryValueGroup, ...] = ()
+    schedule_window: InventoryScheduleWindow | None = None
+    reference_time: datetime | None = None
 
     def __post_init__(self) -> None:
         if len(self.predicates) > _MAX_PREDICATES:
@@ -217,6 +227,18 @@ class InventoryQuery:
             and self.kind is InventoryQueryKind.RELATIONSHIPS
         ):
             raise ValueError("activity inventory query does not support relationships")
+        if self.kind is InventoryQueryKind.SCHEDULED_SHUTDOWN:
+            if self.source is not InventoryQuerySource.CURRENT:
+                raise ValueError("scheduled shutdown query requires current inventory")
+            if self.schedule_window is None or self.reference_time is None:
+                raise ValueError("scheduled shutdown query requires a window and reference time")
+            if self.reference_time.tzinfo is None:
+                raise ValueError("scheduled shutdown reference_time MUST be timezone-aware")
+            if not self.require_fresh:
+                raise ValueError("scheduled shutdown query requires fresh inventory")
+            object.__setattr__(self, "reference_time", self.reference_time.astimezone(UTC))
+        elif self.schedule_window is not None or self.reference_time is not None:
+            raise ValueError("non-schedule inventory query forbids schedule fields")
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, object]) -> InventoryQuery:
@@ -233,6 +255,8 @@ class InventoryQuery:
             "require_fresh",
             "include_workloads",
             "require_state_history",
+            "schedule_window",
+            "reference_time",
         }:
             raise ValueError("inventory query contains unknown fields")
         if not {"source", "kind", "predicates"}.issubset(raw):
@@ -247,7 +271,15 @@ class InventoryQuery:
         boolean_fields = ("require_fresh", "include_workloads", "require_state_history")
         if any(field in raw and not isinstance(raw[field], bool) for field in boolean_fields):
             raise ValueError("inventory query evidence requirements MUST be booleans")
+        raw_reference_time = raw.get("reference_time")
+        if raw_reference_time is not None and not isinstance(raw_reference_time, str):
+            raise ValueError("inventory query reference_time MUST be an RFC 3339 string or null")
         try:
+            reference_time = (
+                datetime.fromisoformat(raw_reference_time.replace("Z", "+00:00"))
+                if raw_reference_time is not None
+                else None
+            )
             return cls(
                 source=InventoryQuerySource(str(raw["source"])),
                 kind=InventoryQueryKind(str(raw["kind"])),
@@ -263,6 +295,12 @@ class InventoryQuery:
                 require_fresh=bool(raw.get("require_fresh", False)),
                 include_workloads=bool(raw.get("include_workloads", False)),
                 require_state_history=bool(raw.get("require_state_history", False)),
+                schedule_window=(
+                    InventoryScheduleWindow(str(raw["schedule_window"]))
+                    if raw.get("schedule_window") is not None
+                    else None
+                ),
+                reference_time=reference_time,
             )
         except ValueError as exc:
             raise ValueError(f"inventory query is invalid: {exc}") from exc
@@ -270,7 +308,7 @@ class InventoryQuery:
     def to_dict(self) -> dict[str, object]:
         """Return a JSON-safe canonical query projection."""
 
-        return {
+        projection: dict[str, object] = {
             "source": self.source.value,
             "kind": self.kind.value,
             "predicates": [predicate.to_dict() for predicate in self.predicates],
@@ -282,6 +320,10 @@ class InventoryQuery:
             "include_workloads": self.include_workloads,
             "require_state_history": self.require_state_history,
         }
+        if self.schedule_window is not None and self.reference_time is not None:
+            projection["schedule_window"] = self.schedule_window.value
+            projection["reference_time"] = self.reference_time.isoformat()
+        return projection
 
 
 def inventory_query_argument_schema() -> dict[str, object]:
@@ -343,8 +385,27 @@ def inventory_query_argument_schema() -> dict[str, object]:
             "require_fresh": {"type": "boolean"},
             "include_workloads": {"type": "boolean"},
             "require_state_history": {"type": "boolean"},
+            "schedule_window": {
+                "type": ["string", "null"],
+                "enum": [item.value for item in InventoryScheduleWindow] + [None],
+            },
+            "reference_time": {"type": ["string", "null"], "format": "date-time"},
         },
         "required": ["source", "kind", "predicates", "lookback_seconds"],
+        "allOf": [
+            {
+                "if": {
+                    "properties": {"kind": {"const": InventoryQueryKind.SCHEDULED_SHUTDOWN.value}}
+                },
+                "then": {
+                    "properties": {
+                        "source": {"const": InventoryQuerySource.CURRENT.value},
+                        "require_fresh": {"const": True},
+                    },
+                    "required": ["require_fresh", "schedule_window", "reference_time"],
+                },
+            }
+        ],
         "additionalProperties": False,
     }
 

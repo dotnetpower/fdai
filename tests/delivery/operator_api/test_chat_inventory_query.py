@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 
 from fdai.delivery.operator_api.routes.chat_inventory_query import (
@@ -12,10 +14,47 @@ from fdai.delivery.operator_api.routes.chat_inventory_query import (
     InventoryQueryProjection,
     InventoryQueryScope,
     InventoryQuerySource,
+    InventoryScheduleWindow,
     inventory_query_argument_schema,
     inventory_query_matches,
     normalize_inventory_value,
 )
+
+
+def test_scheduled_shutdown_query_pins_aware_reference_time() -> None:
+    query = InventoryQuery(
+        source=InventoryQuerySource.CURRENT,
+        kind=InventoryQueryKind.SCHEDULED_SHUTDOWN,
+        predicates=(
+            InventoryPredicate(
+                InventoryField.RESOURCE_TYPE,
+                InventoryOperator.EQ,
+                "compute.vm-shutdown-schedule",
+            ),
+        ),
+        require_fresh=True,
+        schedule_window=InventoryScheduleWindow.TODAY_EVENING,
+        reference_time=datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+    )
+
+    assert query.to_dict()["schedule_window"] == "today_evening"
+    assert query.to_dict()["reference_time"] == "2026-08-05T03:00:00+00:00"
+    assert InventoryQuery.from_mapping(query.to_dict()) == query
+
+
+def test_scheduled_shutdown_query_rejects_missing_or_naive_reference_time() -> None:
+    with pytest.raises(ValueError, match="requires a window and reference time"):
+        InventoryQuery(
+            source=InventoryQuerySource.CURRENT,
+            kind=InventoryQueryKind.SCHEDULED_SHUTDOWN,
+        )
+    with pytest.raises(ValueError, match="timezone-aware"):
+        InventoryQuery(
+            source=InventoryQuerySource.CURRENT,
+            kind=InventoryQueryKind.SCHEDULED_SHUTDOWN,
+            schedule_window=InventoryScheduleWindow.TODAY_EVENING,
+            reference_time=datetime(2026, 8, 5, 3, 0),
+        )
 
 
 def test_current_query_round_trips_and_matches_exact_normalized_status() -> None:
