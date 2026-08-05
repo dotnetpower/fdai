@@ -4,9 +4,9 @@ title: Busy Conversation Input Modes
 
 # Busy Conversation Input Modes
 
-This design defines one channel-neutral state machine for follow-up input received while an
-operator conversation turn is active. It covers durable queue, interrupt, and steer semantics,
-input bounds, authorization, cancellation, safe boundaries, cross-channel behavior, and recovery.
+This design defines one channel-neutral state machine shared by the JSON and SSE route adapters
+for follow-up input received while an operator conversation turn is active. Extracted planning,
+evidence, verification, and terminal helpers preserve the same queue, interrupt, and steer contract.
 
 > **Scope:** Busy-input cancellation stops only conversational model and tool work. It does not
 > cancel or modify an action, approval, resource lock, idempotency key, execution scope, or rollback.

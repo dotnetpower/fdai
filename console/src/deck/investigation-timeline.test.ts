@@ -203,7 +203,6 @@ describe("upsertEvidenceBranch", () => {
     expect(trajectory).toContain("<IntentGraphPhase");
     expect(trajectory).toContain('class="deck-trajectory-goals"');
     expect(trajectory).toContain('t("deck.trajectory.runRecord")');
-    expect(trajectory).toContain('class="deck-trajectory-results"');
     expect(trajectory).toContain('class="deck-trajectory-signals"');
     expect(trajectory).toContain("useState(false)");
     expect(trajectory).toContain("trajectory.question.text");

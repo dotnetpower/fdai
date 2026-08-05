@@ -53,9 +53,9 @@ Three properties follow directly:
   conversations lives in `audit_log` + `operator_memory` where it is
   auditable, exportable, and CSP-neutral.
 
-Completed answers also enter the off-path [Conversation Assurance](../decisioning/conversation-assurance.md) loop. The Evidence panel shows principal-scoped scores, model disagreement, cost, and immutable disputes. Reporting an incorrect answer adds evidence for autonomous re-evaluation; it is not an approval, policy edit, or execution command.
-Terminal intake preserves the exact verification reason and evidence-manifest completeness. A failed answer attributed to an ontology-owned layer can create a separate hold-first adequacy review in the durable StateStore. Provider, context, rendering, and policy failures create no such review.
-The Operator API never marks a review ready, creates a catalog proposal, or grants authority; those transitions require exact replay evidence and the existing governed catalog lifecycle.
+Completed answers also enter the off-path [Conversation Assurance](../decisioning/conversation-assurance.md) loop. JSON and SSE adapters share the typed conversation-turn service and extracted request setup, evidence, progress, verification, and terminal-delivery helpers while preserving their existing wire contracts.
+Terminal intake preserves the exact verification reason and evidence-manifest completeness. Outcome summaries, context selection, Azure investigations, durable delivery, and attachment evidence remain owned by their typed providers; adapter modules only coordinate presentation and persistence.
+The Operator API never marks a review ready, creates a catalog proposal, or grants authority. Reporting an incorrect answer adds evidence for autonomous re-evaluation, and every governed transition still requires exact replay evidence plus the existing catalog lifecycle.
 ### 1.1 Vocabulary added to the shared glossary
 
 The following tokens are added to the shared vocabulary in

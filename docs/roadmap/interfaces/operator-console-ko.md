@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 1f2bc498372b4e5b7bc8202c3d4c37cc983e3830
-translation_revised: 2026-08-05
+translation_source_sha: eb7d205e5dc6c5b8de248e3ad84229ecff807f6b
+translation_revised: 2026-08-06
 ---
 
 # FDAI Console 대화
@@ -52,9 +52,9 @@ quality gate (T2 verifier), risk gate, shipped Rego policy. 콘솔은
   불투명한 LLM 세션 memory가 아님. 대화 간에 persist 되는 모든 상태는
   `audit_log` + `operator_memory`에 살며, 감사가능 / export 가능 / CSP-중립.
 
-완료된 답변은 off-path [Conversation Assurance](../decisioning/conversation-assurance-ko.md) 루프에도 들어갑니다. Evidence panel은 principal 범위 점수, 모델 불일치, 비용, immutable 이의 제기를 보여줍니다. 잘못된 답변 보고는 자율 재평가 근거를 추가하며 승인, 정책 편집 또는 실행 명령이 아닙니다.
-Terminal intake는 exact verification reason과 evidence-manifest completeness를 보존합니다. Ontology-owned layer로 attribution된 failed answer는 durable StateStore에 별도 hold-first adequacy review를 만들 수 있습니다. Provider, context, rendering, policy failure는 이 review를 만들지 않습니다.
-Operator API는 review를 ready로 표시하거나 catalog proposal을 만들거나 authority를 부여하지 않습니다. 해당 transition에는 exact replay evidence와 기존 governed catalog lifecycle이 필요합니다.
+완료된 답변은 off-path [Conversation Assurance](../decisioning/conversation-assurance-ko.md) 루프에도 들어갑니다. JSON과 SSE adapter는 typed conversation-turn service와 분리된 request setup, evidence, progress, verification 및 terminal-delivery helper를 공유하면서 기존 wire contract를 유지합니다.
+Terminal intake는 exact verification reason과 evidence-manifest completeness를 보존합니다. Outcome summary, context selection, Azure investigation, durable delivery 및 attachment evidence는 typed provider가 계속 소유하고 adapter module은 presentation과 persistence만 조정합니다.
+Operator API는 review를 ready로 표시하거나 catalog proposal을 만들거나 authority를 부여하지 않습니다. 잘못된 답변 보고는 자율 재평가 evidence만 추가하며 governed transition에는 exact replay evidence와 기존 catalog lifecycle이 계속 필요합니다.
 ### 1.1 공유 glossary에 추가된 어휘
 
 다음 토큰들이

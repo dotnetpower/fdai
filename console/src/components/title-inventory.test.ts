@@ -8,12 +8,14 @@ const ACCESSIBLE_NATIVE_TITLE_ELEMENTS = new Set(["iframe"]);
 const VISIBLE_TITLE_COMPONENTS = new Set([
   "DetailSection",
   "EmptyState",
+  "EvidenceSection",
   "OverviewSection",
   "PageHeader",
   "PanelLoading",
   "RecordFacts",
   "RecordList",
   "TypeSelector",
+  "UnavailableView",
 ]);
 
 interface TitleAttribute {

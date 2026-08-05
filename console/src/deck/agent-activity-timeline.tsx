@@ -1,4 +1,5 @@
 import { tForLocale } from "../i18n";
+import { Tooltip } from "../components/tooltip";
 import type { AgentActivityItem } from "./agent-activity-block";
 
 export function AgentActivityTimeline({
@@ -37,12 +38,14 @@ export function AgentActivityTimeline({
               </span>
               <span class="deck-agent-activity-meta">
                 <code>{item.event}</code>
-                <time dateTime={item.at} title={item.at}>
-                  {new Date(item.at).toLocaleString(localeTag, {
-                    dateStyle: "medium",
-                    timeStyle: "medium",
-                  })}
-                </time>
+                <Tooltip content={item.at}>
+                  <time dateTime={item.at}>
+                    {new Date(item.at).toLocaleString(localeTag, {
+                      dateStyle: "medium",
+                      timeStyle: "medium",
+                    })}
+                  </time>
+                </Tooltip>
               </span>
             </span>
           </li>

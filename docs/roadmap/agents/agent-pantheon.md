@@ -165,7 +165,7 @@ operations / interface), `3` = governance staff.
 | Freyr | Capacity | 1 | CapacityForecast, SizingRecommendation | propose_capacity_action | no |
 | Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |
 
-Heimdall owns deterministic forecast episode evaluation and closure. Its repeated-event detector can also call an optional
+Heimdall remains accountable for deterministic forecast episode evaluation and closure while the private `heimdall_forecast.py` helper owns that calculation. Its repeated-event detector can call an optional
 `incident_candidate_hook` after it emits the authoritative anomaly. The hook
 carries the normalized resource, event type, correlation, worst severity, reason
 code, and all burst evidence keys to the composition-owned `IncidentLifecycleWorkflow`.

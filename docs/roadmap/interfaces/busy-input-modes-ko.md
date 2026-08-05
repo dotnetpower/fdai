@@ -2,15 +2,15 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: f4f9c8fcdc5bfd33e7161add4ab423ff222af032
-translation_revised: 2026-08-05
+translation_source_sha: d8692afbb13932b7c7aafccccb0137b3054ead3e
+translation_revised: 2026-08-06
 ---
 
 # 처리 중인 Conversation 입력 모드
 
-이 설계는 operator conversation turn이 진행되는 동안 도착한 후속 입력을 위한 하나의
-channel-neutral state machine을 정의합니다. 영구 queue, interrupt, steer 의미, 입력 제한,
-authorization, cancellation, safe boundary, cross-channel 동작, recovery를 다룹니다.
+이 설계는 operator conversation turn이 진행되는 동안 도착한 후속 입력을 위해 JSON과 SSE route
+adapter가 공유하는 하나의 channel-neutral state machine을 정의합니다. 분리된 planning, evidence,
+verification 및 terminal helper는 동일한 queue, interrupt, steer contract를 유지합니다.
 
 > **범위:** Busy-input cancellation은 conversational model 및 tool 작업만 중지합니다. Action,
 > approval, resource lock, idempotency key, execution scope, rollback을 취소하거나 변경하지 않습니다.

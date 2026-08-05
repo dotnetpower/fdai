@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: f08cffbb0602e7bb47577f02aa8d1a74d822156a
-translation_revised: 2026-08-05
+translation_source_sha: 31e30aea9acec7d3969c0b62eeec4b679f2e2a06
+translation_revised: 2026-08-06
 ---
 
 # 에이전트 판테온
@@ -164,7 +164,7 @@ operations / interface), `3` = governance staff.
 | Freyr | Capacity | 1 | CapacityForecast, SizingRecommendation | propose_capacity_action | no |
 | Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |
 
-Heimdall은 deterministic forecast episode 평가와 closure를 소유합니다. Repeated-event detector는 authoritative anomaly를 emit한 뒤 optional
+Heimdall은 deterministic forecast episode 평가와 closure의 accountable owner이며 private `heimdall_forecast.py` helper가 해당 계산을 소유합니다. Repeated-event detector는 authoritative anomaly를 emit한 뒤 optional
 `incident_candidate_hook`을 호출할 수 있습니다. 이 hook은 정규화된 resource,
 event type, correlation, worst severity, reason code, 모든 burst evidence key를 composition 소유
 `IncidentLifecycleWorkflow`에 전달합니다. Heimdall은 Incident를 직접 쓰거나 새

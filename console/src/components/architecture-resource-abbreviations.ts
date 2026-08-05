@@ -38,6 +38,7 @@ export const ARCHITECTURE_RESOURCE_ABBREVIATIONS = {
   "message-queue": "sbq",
   kafka: "kafka",
   "compute.vm": "vm",
+  "compute.vm-shutdown-schedule": "vms",
   "compute.vm-scale-set": "vmss",
   "compute.container-app": "ca",
   "compute.function": "func",
