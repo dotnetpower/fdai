@@ -70,7 +70,7 @@ Report and kit:
 | File | Purpose |
 |------|---------|
 | [report.html](report.html) | Weekly review layout: numbered sections, KPI grid, AS-IS / TO-BE compare, critique table |
-| [components.html](components.html) | Component gallery: 22 sections covering metrics, tables, tokens, forms, selection, navigation, feedback, code, grid lists, feeds, comboboxes, menus, drawers, data states, structured lists, notifications, and calendars |
+| [components.html](components.html) | Component gallery: 22 sections covering metrics, tables, tokens, forms, selection, navigation, feedback, trend, comparison, distribution and density charts, code, grid lists, feeds, comboboxes, menus, drawers, data states, structured lists, notifications, and calendars |
 | [index.html](index.html) | Kit landing: palette, page index, design principles |
 
 ## Assets
@@ -81,7 +81,7 @@ Report and kit:
   selection controls, native date and time inputs, range controls, alerts, tabs, pagination,
   loading and empty states, tooltips, dialogs, syntax-highlighted code, grid and stacked lists,
   feeds, rich selects, comboboxes, dropdowns, drawers, responsive data states, notifications,
-  calendars, meters, and the Live cockpit (activity swarm, sparkline strip, audit ticker). All
+  calendars, meters, reusable charts, and the Live cockpit (activity swarm, sparkline strip, audit ticker). All
   classes are prefixed `cs-`.
 - [assets/calm-slate.js](assets/calm-slate.js) - shared left navigation, tab switching, local
   select and menu behavior, code copy feedback, drawers, notifications, calendar selection, and

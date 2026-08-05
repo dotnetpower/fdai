@@ -702,6 +702,68 @@ body.cs-has-sidebar { padding-left: var(--cs-sidebar-w); }
 .cs-stackbar-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--cs-text-soft); margin-top: 8px; }
 .cs-stackbar-legend .dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 5px; vertical-align: middle; }
 
+/* Chart gallery - static SVG/CSS views with data-table modal fallback. */
+.cs-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0 0 24px; }
+.cs-chart-card { min-width: 0; margin: 0; padding: 18px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); box-shadow: 0 2px 8px rgba(46,54,64,.04); }
+.cs-chart-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.cs-chart-head h3 { margin: 0; font-size: 15px; }
+.cs-chart-head p { margin: 2px 0 0; color: var(--cs-text-soft); font-size: 11px; }
+.cs-chart-value { flex: 0 0 auto; text-align: right; }
+.cs-chart-value strong { display: block; font-size: 22px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.cs-chart-value small { display: block; margin-top: 3px; color: var(--cs-sage); font-size: 10px; }
+.cs-chart-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.cs-chart-gridline { stroke: var(--cs-hairline); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.cs-chart-axis { fill: var(--cs-text-soft); font-family: var(--cs-font); font-size: 8px; letter-spacing: 0; }
+.cs-chart-area { fill: rgba(68,104,142,.08); }
+.cs-chart-line { fill: none; stroke: var(--cs-steel); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.cs-chart-point { fill: var(--cs-card); stroke: var(--cs-steel); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.cs-chart-bars { display: grid; gap: 11px; margin-top: 18px; }
+.cs-chart-bar-row { display: grid; grid-template-columns: 78px minmax(0, 1fr) 34px; align-items: center; gap: 8px; }
+.cs-chart-bar-row > span { overflow: hidden; color: var(--cs-text-soft); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.cs-chart-bar-row > strong { font-size: 11px; font-variant-numeric: tabular-nums; text-align: right; }
+.cs-chart-bar-track { position: relative; height: 8px; border-radius: var(--cs-radius-pill); background: var(--cs-shade); }
+.cs-chart-bar-baseline, .cs-chart-bar-current { position: absolute; inset: 0 auto 0 0; border-radius: inherit; }
+.cs-chart-bar-baseline { width: var(--baseline); background: rgba(68,104,142,.18); }
+.cs-chart-bar-current { top: 2px; bottom: 2px; width: var(--current); background: var(--cs-steel); }
+.cs-chart-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 13px; color: var(--cs-text-soft); font-size: 10px; }
+.cs-chart-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.cs-chart-legend i { width: 8px; height: 8px; border-radius: 2px; background: var(--legend-color, var(--cs-steel)); }
+.cs-chart-legend .is-baseline i { background: rgba(68,104,142,.18); }
+.cs-chart-donut-layout { display: grid; grid-template-columns: 132px minmax(0, 1fr); align-items: center; gap: 18px; min-height: 154px; }
+.cs-chart-donut { position: relative; width: 132px; height: 132px; }
+.cs-chart-donut svg { display: block; width: 100%; height: 100%; transform: rotate(-90deg); }
+.cs-chart-donut-track, .cs-chart-donut-segment { fill: none; stroke-width: 8; }
+.cs-chart-donut-track { stroke: var(--cs-shade); }
+.cs-chart-donut-segment { stroke: var(--segment-color); stroke-dasharray: var(--segment-size) calc(100 - var(--segment-size)); stroke-dashoffset: calc(-1 * var(--segment-offset)); }
+.cs-chart-donut-center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+.cs-chart-donut-center strong { font-size: 24px; line-height: 1; font-variant-numeric: tabular-nums; }
+.cs-chart-donut-center small { margin-top: 4px; color: var(--cs-text-soft); font-size: 9px; text-transform: uppercase; }
+.cs-chart-donut-legend { display: grid; grid-template-columns: 1fr; gap: 7px; }
+.cs-chart-donut-legend span { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: center; gap: 6px; color: var(--cs-text-soft); font-size: 10px; }
+.cs-chart-donut-legend i { width: 8px; height: 8px; border-radius: 50%; background: var(--legend-color); }
+.cs-chart-donut-legend b { color: var(--cs-text); font-size: 11px; font-variant-numeric: tabular-nums; }
+.cs-heatmap { display: grid; grid-template-columns: 34px repeat(7, minmax(18px, 1fr)); gap: 5px; align-items: center; margin-top: 16px; }
+.cs-heatmap-label { color: var(--cs-text-soft); font-size: 9px; text-align: center; }
+.cs-heatmap-label.is-row { text-align: right; }
+.cs-heatmap-cell { min-height: 25px; border: 1px solid rgba(68,104,142,.05); border-radius: 4px; background: var(--cs-shade); }
+.cs-heatmap-cell.is-1 { background: rgba(68,104,142,.14); }
+.cs-heatmap-cell.is-2 { background: rgba(68,104,142,.30); }
+.cs-heatmap-cell.is-3 { background: rgba(68,104,142,.52); }
+.cs-heatmap-cell.is-4 { background: rgba(68,104,142,.78); }
+.cs-heatmap-legend { justify-content: flex-end; }
+.cs-heatmap-legend i { background: rgba(68,104,142,.18); }
+.cs-heatmap-legend .is-high i { background: rgba(68,104,142,.78); }
+@media (max-width: 900px) { .cs-chart-grid { grid-template-columns: 1fr; } }
+@media (max-width: 520px) {
+  .cs-chart-card { padding: 14px; }
+  .cs-chart-donut-layout { grid-template-columns: 108px minmax(0, 1fr); gap: 12px; }
+  .cs-chart-donut { width: 108px; height: 108px; }
+  .cs-chart-donut-legend { grid-template-columns: 1fr; gap: 5px; }
+  .cs-chart-bar-row { grid-template-columns: 62px minmax(0, 1fr) 30px; }
+  .cs-heatmap { grid-template-columns: 28px repeat(7, minmax(16px, 1fr)); gap: 3px; }
+  .cs-heatmap-cell { min-height: 21px; }
+}
+
 /* Meta list - compact key/value strip used in HIL card, ActionType detail */
 .cs-meta { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px 16px; font-size: 13px; margin: 12px 0; }
 .cs-meta > div { display: flex; flex-direction: column; }

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Components - Calm Slate</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=chart-gallery-v1" />
 </head>
 <body>
   <main class="cs-container cs-page">
@@ -347,7 +347,53 @@
     <section class="cs-section">
       <div class="cs-section-head">
         <span class="cs-badge-num">13</span>
-        <div class="cs-section-title"><h2>Structured summaries</h2><p class="cs-desc">Before/after comparison, compact metadata, and stacked distribution.</p></div>
+        <div class="cs-section-title"><h2>Charts &amp; structured summaries</h2><p class="cs-desc">Trend, comparison, distribution, and density charts with inspectable source data.</p></div>
+      </div>
+      <div class="cs-chart-grid">
+        <figure class="cs-chart-card js-chartable" aria-label="Incident volume trend. Select to inspect daily values." data-chart-title="Incident volume" data-chart-sub="Seven-day synthetic trend" data-chart-columns='["Day","Incidents"]' data-chart-rows='[["Mon","18"],["Tue","24"],["Wed","21"],["Thu","31"],["Fri","27"],["Sat","36"],["Sun","29"]]' data-chart-num-cols="[1]" data-chart-source="Synthetic preview - 7-day window">
+          <figcaption class="cs-chart-head"><div><h3>Incident volume</h3><p>7-day trend</p></div><span class="cs-chart-value"><strong>29</strong><small>8% below peak</small></span></figcaption>
+          <svg class="cs-chart-svg" viewBox="0 0 360 150" role="img" aria-label="Line chart rising from 18 incidents on Monday to a peak of 36 on Saturday, ending at 29 on Sunday">
+            <path class="cs-chart-gridline" d="M28 24H348 M28 62H348 M28 100H348 M28 128H348" />
+            <path class="cs-chart-area" d="M28 104 L81 82 L134 91 L188 50 L241 66 L294 28 L348 58 L348 128 L28 128 Z" />
+            <path class="cs-chart-line" d="M28 104 L81 82 L134 91 L188 50 L241 66 L294 28 L348 58" />
+            <g class="cs-chart-point"><circle cx="28" cy="104" r="3" /><circle cx="81" cy="82" r="3" /><circle cx="134" cy="91" r="3" /><circle cx="188" cy="50" r="3" /><circle cx="241" cy="66" r="3" /><circle cx="294" cy="28" r="3" /><circle cx="348" cy="58" r="3" /></g>
+            <g class="cs-chart-axis" text-anchor="middle"><text x="28" y="145">Mon</text><text x="81" y="145">Tue</text><text x="134" y="145">Wed</text><text x="188" y="145">Thu</text><text x="241" y="145">Fri</text><text x="294" y="145">Sat</text><text x="348" y="145">Sun</text></g>
+          </svg>
+        </figure>
+
+        <figure class="cs-chart-card js-chartable" aria-label="Outcome assurance by domain. Select to inspect current and baseline values." data-chart-title="Outcome assurance" data-chart-sub="Current versus baseline" data-chart-columns='["Domain","Baseline","Current"]' data-chart-rows='[["SRE","72%","91%"],["Change","66%","84%"],["Resilience","78%","88%"],["Cost","58%","76%"]]' data-chart-num-cols="[1,2]" data-chart-source="Synthetic preview - current review window">
+          <figcaption class="cs-chart-head"><div><h3>Outcome assurance</h3><p>Current vs baseline</p></div><span class="cs-chart-value"><strong>85%</strong><small>17 pts improved</small></span></figcaption>
+          <div class="cs-chart-bars" aria-hidden="true">
+            <div class="cs-chart-bar-row"><span>SRE</span><div class="cs-chart-bar-track" style="--baseline:72%;--current:91%"><i class="cs-chart-bar-baseline"></i><i class="cs-chart-bar-current"></i></div><strong>91%</strong></div>
+            <div class="cs-chart-bar-row"><span>Change</span><div class="cs-chart-bar-track" style="--baseline:66%;--current:84%"><i class="cs-chart-bar-baseline"></i><i class="cs-chart-bar-current"></i></div><strong>84%</strong></div>
+            <div class="cs-chart-bar-row"><span>Resilience</span><div class="cs-chart-bar-track" style="--baseline:78%;--current:88%"><i class="cs-chart-bar-baseline"></i><i class="cs-chart-bar-current"></i></div><strong>88%</strong></div>
+            <div class="cs-chart-bar-row"><span>Cost</span><div class="cs-chart-bar-track" style="--baseline:58%;--current:76%"><i class="cs-chart-bar-baseline"></i><i class="cs-chart-bar-current"></i></div><strong>76%</strong></div>
+          </div>
+          <div class="cs-chart-legend" aria-hidden="true"><span><i></i>Current</span><span class="is-baseline"><i></i>Baseline</span></div>
+        </figure>
+
+        <figure class="cs-chart-card js-chartable" aria-label="Gate decision distribution. Select to inspect outcome counts." data-chart-title="Gate decision mix" data-chart-sub="Last 1,248 decisions" data-chart-columns='["Decision","Count","Share"]' data-chart-rows='[["Auto","899","72%"],["Approval","225","18%"],["Review","87","7%"],["Deny","37","3%"]]' data-chart-num-cols="[1,2]" data-chart-source="Synthetic preview - rolling 60-minute window">
+          <figcaption class="cs-chart-head"><div><h3>Gate decision mix</h3><p>Rolling 60 minutes</p></div><span class="cs-chart-value"><strong>1,248</strong><small>decisions</small></span></figcaption>
+          <div class="cs-chart-donut-layout">
+            <div class="cs-chart-donut" aria-hidden="true">
+              <svg viewBox="0 0 42 42"><circle class="cs-chart-donut-track" cx="21" cy="21" r="15.9155" pathLength="100" /><circle class="cs-chart-donut-segment" style="--segment-color:var(--cs-sage);--segment-size:72;--segment-offset:0" cx="21" cy="21" r="15.9155" pathLength="100" /><circle class="cs-chart-donut-segment" style="--segment-color:var(--cs-terracotta);--segment-size:18;--segment-offset:72" cx="21" cy="21" r="15.9155" pathLength="100" /><circle class="cs-chart-donut-segment" style="--segment-color:var(--cs-plum);--segment-size:7;--segment-offset:90" cx="21" cy="21" r="15.9155" pathLength="100" /><circle class="cs-chart-donut-segment" style="--segment-color:var(--cs-dusty-red);--segment-size:3;--segment-offset:97" cx="21" cy="21" r="15.9155" pathLength="100" /></svg>
+              <span class="cs-chart-donut-center"><strong>72%</strong><small>auto</small></span>
+            </div>
+            <div class="cs-chart-donut-legend"><span><i style="--legend-color:var(--cs-sage)"></i>Auto <b>899</b></span><span><i style="--legend-color:var(--cs-terracotta)"></i>Approval <b>225</b></span><span><i style="--legend-color:var(--cs-plum)"></i>Review <b>87</b></span><span><i style="--legend-color:var(--cs-dusty-red)"></i>Deny <b>37</b></span></div>
+          </div>
+        </figure>
+
+        <figure class="cs-chart-card js-chartable" aria-label="Event density by weekday and six-hour window. Select to inspect summarized values." data-chart-title="Event density" data-chart-sub="Average events by weekday and time window" data-chart-columns='["Window","Mon","Tue","Wed","Thu","Fri","Sat","Sun"]' data-chart-rows='[["00-06","Low","Low","Low","Low","Low","Low","Low"],["06-12","Medium","High","Medium","High","Medium","Low","Low"],["12-18","High","Peak","High","Peak","High","Medium","Low"],["18-24","Medium","High","Medium","High","Medium","Low","Low"]]' data-chart-source="Synthetic preview - four-week average">
+          <figcaption class="cs-chart-head"><div><h3>Event density</h3><p>Weekday x time window</p></div><span class="cs-chart-value"><strong>14:00</strong><small>peak window</small></span></figcaption>
+          <div class="cs-heatmap" aria-hidden="true">
+            <span></span><span class="cs-heatmap-label">M</span><span class="cs-heatmap-label">T</span><span class="cs-heatmap-label">W</span><span class="cs-heatmap-label">T</span><span class="cs-heatmap-label">F</span><span class="cs-heatmap-label">S</span><span class="cs-heatmap-label">S</span>
+            <span class="cs-heatmap-label is-row">00</span><i class="cs-heatmap-cell is-1"></i><i class="cs-heatmap-cell is-1"></i><i class="cs-heatmap-cell"></i><i class="cs-heatmap-cell is-1"></i><i class="cs-heatmap-cell is-1"></i><i class="cs-heatmap-cell"></i><i class="cs-heatmap-cell"></i>
+            <span class="cs-heatmap-label is-row">06</span><i class="cs-heatmap-cell is-2"></i><i class="cs-heatmap-cell is-3"></i><i class="cs-heatmap-cell is-2"></i><i class="cs-heatmap-cell is-3"></i><i class="cs-heatmap-cell is-2"></i><i class="cs-heatmap-cell is-1"></i><i class="cs-heatmap-cell is-1"></i>
+            <span class="cs-heatmap-label is-row">12</span><i class="cs-heatmap-cell is-3"></i><i class="cs-heatmap-cell is-4"></i><i class="cs-heatmap-cell is-3"></i><i class="cs-heatmap-cell is-4"></i><i class="cs-heatmap-cell is-3"></i><i class="cs-heatmap-cell is-2"></i><i class="cs-heatmap-cell is-1"></i>
+            <span class="cs-heatmap-label is-row">18</span><i class="cs-heatmap-cell is-2"></i><i class="cs-heatmap-cell is-3"></i><i class="cs-heatmap-cell is-2"></i><i class="cs-heatmap-cell is-3"></i><i class="cs-heatmap-cell is-2"></i><i class="cs-heatmap-cell is-1"></i><i class="cs-heatmap-cell"></i>
+          </div>
+          <div class="cs-chart-legend cs-heatmap-legend" aria-hidden="true"><span><i></i>Low</span><span class="is-high"><i></i>Peak</span></div>
+        </figure>
       </div>
       <div class="cs-compare cs-mb-24">
         <div class="cs-compare-col is-asis"><h4>Before</h4><ul><li>Manual triage queue</li><li>Unmeasured response time</li></ul></div>
