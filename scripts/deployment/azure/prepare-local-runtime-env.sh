@@ -41,6 +41,28 @@ except (OSError, json.JSONDecodeError):
 if not isinstance(payload, dict):
   raise SystemExit(1)
 
+bindable_statuses = {"resolved", "capacity-reduced"}
+capabilities = payload.get("capabilities")
+if not isinstance(capabilities, list):
+  raise SystemExit(1)
+capability_by_name = {
+  item.get("name"): item
+  for item in capabilities
+  if isinstance(item, dict) and isinstance(item.get("name"), str)
+}
+
+def bindable(name):
+  item = capability_by_name.get(name)
+  return isinstance(item, dict) and item.get("status") in bindable_statuses
+
+if not bindable("t1.embedding"):
+  raise SystemExit(1)
+if (
+  not (bindable("t2.reasoner.primary") and bindable("t2.reasoner.secondary"))
+  and payload.get("mixed_model_mode") != "hil-only"
+):
+  raise SystemExit(1)
+
 def route(value):
   if not isinstance(value, dict):
     return None

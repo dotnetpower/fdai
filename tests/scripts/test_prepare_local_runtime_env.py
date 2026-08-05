@@ -37,6 +37,7 @@ _EXECUTOR_RESOURCE_ID = (
         ),
         ([], "0", "valid"),
         ([], "0", "invalid"),
+        ([], "0", "core-incompatible"),
     ],
 )
 def test_prepares_deployed_transport_without_copying_stale_transport(
@@ -62,15 +63,33 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
     )
     if local_vision_state != "absent":
         (repo / ".fdai").mkdir()
-    if local_vision_state == "valid":
+    if local_vision_state in {"valid", "core-incompatible"}:
         candidate = {
             "endpoint": "https://models.example.com/",
             "deployment": "narrator-mini",
             "api_version": "2024-08-01-preview",
         }
+        capabilities = [
+            {
+                "name": "t1.embedding",
+                "status": "resolved",
+            },
+            {
+                "name": "t2.reasoner.primary",
+                "status": "resolved" if local_vision_state == "valid" else "hil-only",
+            },
+            {
+                "name": "t2.reasoner.secondary",
+                "status": "hil-only",
+            },
+        ]
         (repo / ".fdai/resolved-models-vision.json").write_text(
             json.dumps(
                 {
+                    "mixed_model_mode": (
+                        "hil-only" if local_vision_state == "valid" else "azure-foundry"
+                    ),
+                    "capabilities": capabilities,
                     "narrator": candidate,
                     "narrator_candidates": [candidate],
                     "vision_candidates": [candidate],
@@ -210,7 +229,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "FDAI_DEV_OPERATIONS_GATEWAY_URL=https://gateway.example.com",
         "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=api-application-id",
     ]
-    if local_vision_state == "invalid":
+    if local_vision_state in {"invalid", "core-incompatible"}:
         assert "ignored invalid local vision model artifact" in completed.stderr
     assert stat.S_IMODE(output.stat().st_mode) == 0o600
 
