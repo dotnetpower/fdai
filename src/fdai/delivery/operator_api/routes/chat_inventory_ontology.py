@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
+from typing import Any
 
 from fdai.delivery.operator_api.routes.chat_inventory_query import (
     inventory_query_argument_schema,
@@ -16,6 +18,61 @@ from fdai.shared.contracts.models import (
 _FUNCTION_NAME = "inventory.select_resources"
 _ARTIFACT_ID = b"fdai.inventory.select_resources.v2"
 _DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
+_FUNCTION_RESULT_STATUSES = frozenset({"matched", "partial", "unavailable", "clarification"})
+
+
+def project_inventory_function_result(result: Mapping[str, Any]) -> dict[str, Any]:
+    """Project rich chat evidence into the strict ontology function boundary."""
+
+    status = result.get("status")
+    if status not in _FUNCTION_RESULT_STATUSES:
+        raise ValueError("inventory function result status is invalid")
+    query = result.get("query")
+    projected: dict[str, Any] = {
+        "status": status,
+        "query": dict(query) if isinstance(query, Mapping) else None,
+    }
+    reason = result.get("reason")
+    if isinstance(reason, str) and reason:
+        projected["reason"] = reason
+    if status in {"matched", "partial"}:
+        matched_count = result.get("matched_count")
+        resources = result.get("resources")
+        if not isinstance(matched_count, int) or isinstance(matched_count, bool):
+            raise ValueError("inventory function matched_count is invalid")
+        if not isinstance(resources, (list, tuple)):
+            raise ValueError("inventory function resources are invalid")
+        projected["matched_count"] = matched_count
+        projected["resources"] = [
+            {
+                key: resource[key]
+                for key in (
+                    "name",
+                    "type",
+                    "provider_type",
+                    "status",
+                    "location",
+                    "resource_group",
+                )
+                if key in resource
+            }
+            for resource in resources[:40]
+            if isinstance(resource, Mapping)
+        ]
+    if status == "unavailable" and "reason" not in projected:
+        raise ValueError("unavailable inventory function result requires reason")
+    if status == "clarification":
+        resource_types = result.get("resource_types")
+        candidates = result.get("semantic_candidates")
+        if not isinstance(resource_types, (list, tuple)) or not isinstance(
+            candidates, (list, tuple)
+        ):
+            raise ValueError("inventory function clarification evidence is invalid")
+        projected["resource_types"] = list(resource_types)
+        projected["semantic_candidates"] = [
+            dict(candidate) for candidate in candidates if isinstance(candidate, Mapping)
+        ]
+    return projected
 
 
 def inventory_query_function_type() -> OntologyFunctionType:
@@ -143,6 +200,14 @@ def inventory_query_function_type() -> OntologyFunctionType:
             "required": ["status"],
             "allOf": [
                 {
+                    "if": {"properties": {"status": {"enum": ["matched", "partial"]}}},
+                    "then": {"required": ["status", "query", "matched_count", "resources"]},
+                },
+                {
+                    "if": {"properties": {"status": {"const": "unavailable"}}},
+                    "then": {"required": ["status", "query", "reason"]},
+                },
+                {
                     "if": {"properties": {"status": {"const": "clarification"}}},
                     "then": {
                         "required": [
@@ -153,7 +218,7 @@ def inventory_query_function_type() -> OntologyFunctionType:
                             "semantic_candidates",
                         ]
                     },
-                }
+                },
             ],
             "additionalProperties": False,
         },
@@ -167,4 +232,4 @@ def inventory_query_function_type() -> OntologyFunctionType:
     )
 
 
-__all__ = ["inventory_query_function_type"]
+__all__ = ["inventory_query_function_type", "project_inventory_function_result"]

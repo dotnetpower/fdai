@@ -316,7 +316,7 @@ def make_chat_stream_route(
         resource_followup = prepared.resource_followup
         compiled_inventory = compile_inventory_query(evidence_prompt)
         semantic_inventory_completion = compiled_inventory is not None and (
-            inventory_query_requires_semantic_completion(compiled_inventory)
+            inventory_query_requires_semantic_completion(compiled_inventory, prompt=evidence_prompt)
         )
         deterministic_followup = (
             resource_followup
@@ -332,7 +332,9 @@ def make_chat_stream_route(
             or is_topology_question(evidence_prompt)
             or (
                 compiled_inventory is not None
-                and not inventory_query_requires_semantic_completion(compiled_inventory)
+                and not inventory_query_requires_semantic_completion(
+                    compiled_inventory, prompt=evidence_prompt
+                )
             )
             or needs_subscription_health(evidence_prompt)
             or needs_log_query(evidence_prompt)

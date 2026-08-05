@@ -111,7 +111,7 @@ async def test_topology_questions_require_exact_resource_selectors() -> None:
     assert calls == 0
 
 
-async def test_recognized_inventory_intent_does_not_fall_back_when_query_is_incomplete() -> None:
+async def test_recognized_explicit_inventory_list_does_not_fall_back() -> None:
     class RejectFallback:
         async def resolve(self, prompt: str, *, principal_id: str) -> None:
             del prompt, principal_id
@@ -141,14 +141,11 @@ async def test_recognized_inventory_intent_does_not_fall_back_when_query_is_inco
         principal_id="reader",
     )
 
-    assert evidence == {
-        "tool": "query_inventory",
-        "authority": "server_inventory_graph",
-        "result": {
-            "status": "unavailable",
-            "reason": "inventory_query_not_compiled",
-        },
-    }
+    assert evidence is not None
+    assert evidence["tool"] == "query_inventory"
+    assert evidence["authority"] == "server_inventory_graph"
+    assert evidence["result"]["status"] == "matched"
+    assert evidence["result"]["matched_count"] == 1
 
 
 async def test_incomplete_state_semantics_holds_instead_of_widening() -> None:
@@ -454,7 +451,7 @@ def test_stream_uses_model_selected_table_for_comparable_inventory_rows() -> Non
         "/chat/stream",
         json={
             "request_id": "req-adaptive-presentation",
-            "prompt": "현재 구독에서 사용하는 데이터베이스가 뭐야?",
+            "prompt": "현재 구독의 데이터베이스 목록",
             "view_context": {"_locale": "ko"},
         },
     )
@@ -2468,7 +2465,7 @@ def test_subscription_stopped_db_ignores_invalid_semantic_lookback_plan() -> Non
     assert backend.calls == 0
 
 
-def test_semantic_inventory_plan_executes_verified_long_tail_predicate() -> None:
+def test_semantic_inventory_plan_cannot_execute_long_tail_predicate_same_turn() -> None:
     class Planner:
         async def plan_turn(self, **_kwargs: object) -> Any:
             return parse_turn_plan(
@@ -2509,10 +2506,11 @@ def test_semantic_inventory_plan_executes_verified_long_tail_predicate() -> None
 
     assert response.status_code == 200
     payload = response.json()
-    assert "vm-job" in payload["answer"]
-    assert "postgres-data" in payload["answer"]
+    assert "vm-job" not in payload["answer"]
+    assert "postgres-data" not in payload["answer"]
     assert "vm-app" not in payload["answer"]
-    assert payload["verification"]["reason_code"] == "inventory_snapshot_grounded"
+    assert payload["verification"]["status"] == "unverified"
+    assert payload["verification"]["reason_code"] == "inventory_evidence_unavailable"
 
 
 def test_deterministic_inventory_filter_precedes_semantic_inventory_plan() -> None:

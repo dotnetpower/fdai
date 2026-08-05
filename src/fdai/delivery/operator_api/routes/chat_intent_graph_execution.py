@@ -316,7 +316,7 @@ async def _dispatch_goal(
     if capability == "query_inventory":
         deterministic_query = compile_inventory_query(prompt)
         if deterministic_query is None or inventory_query_requires_semantic_completion(
-            deterministic_query
+            deterministic_query, prompt=prompt
         ):
             raise SemanticInventoryInterpretationRequiredError(
                 "inventory semantic interpretation is required"

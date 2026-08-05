@@ -116,6 +116,14 @@ class InventoryResourceTypeResolver:
             )
         )
 
+    def is_exact_reference(self, prompt: str) -> bool:
+        """Return whether the complete prompt is one catalog resource-type surface."""
+
+        return any(
+            self._language.is_exact(prompt, (surface,))
+            for surface, _value in (*self._type_forms, *self._category_forms, *self._group_forms)
+        )
+
     def categories_for(self, type_ids: Sequence[str]) -> tuple[str, ...]:
         """Return catalog categories represented by canonical type ids."""
 

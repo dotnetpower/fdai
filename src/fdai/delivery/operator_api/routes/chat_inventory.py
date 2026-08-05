@@ -111,11 +111,6 @@ class InventoryChatTools:
         *,
         principal_id: str,
     ) -> dict[str, Any] | None:
-        semantic_hold = await self._semantic_hold(prompt)
-        if semantic_hold is not None:
-            return semantic_hold
-        if not needs_inventory_evidence(prompt):
-            return await self._fallback(prompt, principal_id=principal_id)
         if is_topology_question(prompt):
             return {
                 "tool": "query_inventory",
@@ -125,6 +120,11 @@ class InventoryChatTools:
                     "reason": "topology_selector_required",
                 },
             }
+        semantic_hold = await self._semantic_hold(prompt)
+        if semantic_hold is not None:
+            return semantic_hold
+        if not needs_inventory_evidence(prompt):
+            return await self._fallback(prompt, principal_id=principal_id)
         try:
             graph = await self._graph_for_scope(inventory_query_scope(prompt))
             safe_payload = _safe_inventory_payload(graph)
@@ -142,7 +142,7 @@ class InventoryChatTools:
                         "reason": "inventory_query_not_compiled",
                     },
                 }
-            if inventory_query_requires_semantic_completion(query):
+            if inventory_query_requires_semantic_completion(query, prompt=prompt):
                 return {
                     "tool": "query_inventory",
                     "authority": "server_inventory_graph",
@@ -189,7 +189,9 @@ class InventoryChatTools:
         if not resource_types:
             return None
         query = compile_inventory_query(prompt)
-        if query is not None and not inventory_query_requires_semantic_completion(query):
+        if query is not None and not inventory_query_requires_semantic_completion(
+            query, prompt=prompt
+        ):
             return None
         if self.semantic_resolver is None:
             return _inventory_interpretation_required(query) if query is not None else None

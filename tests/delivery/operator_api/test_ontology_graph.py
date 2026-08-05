@@ -12,8 +12,10 @@ from fdai.core.rbac.resolver import RoleResolver
 from fdai.delivery.operator_api.auth import build_authenticator
 from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.operator_api.routes.chat_inventory_compiler import compile_inventory_query
 from fdai.delivery.operator_api.routes.chat_inventory_ontology import (
     inventory_query_function_type,
+    project_inventory_function_result,
 )
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.link_type import load_link_type_catalog
@@ -94,6 +96,60 @@ def test_ontology_graph_returns_mermaid_and_counts() -> None:
     assert platform["write_surface"] == "typed_proposal"
     assert "ops.scale-out" in platform["action_types"]
     assert "inventory.select_resources" in platform["functions"]
+
+
+@pytest.mark.parametrize("status", ("matched", "partial"))
+def test_inventory_function_contract_accepts_bounded_runtime_projection(status: str) -> None:
+    from jsonschema import Draft202012Validator
+
+    query = compile_inventory_query("VM list")
+    assert query is not None
+    runtime_result = {
+        "status": status,
+        "query": query.to_dict(),
+        "matched_count": 1,
+        "resources": [
+            {
+                "id": "must-not-cross-function-boundary",
+                "name": "vm-a",
+                "type": "compute.vm",
+                "status": "running",
+                "unknown_runtime_metadata": "must-not-cross-function-boundary",
+            }
+        ],
+        "query_source": "current_state",
+        "freshness": "fresh",
+        "unknown_runtime_metadata": "must-not-cross-function-boundary",
+    }
+
+    projected = project_inventory_function_result(runtime_result)
+
+    Draft202012Validator(inventory_query_function_type().output_schema).validate(projected)
+    assert projected == {
+        "status": status,
+        "query": runtime_result["query"],
+        "matched_count": 1,
+        "resources": [{"name": "vm-a", "type": "compute.vm", "status": "running"}],
+    }
+
+
+def test_inventory_function_contract_accepts_unavailable_runtime_projection() -> None:
+    from jsonschema import Draft202012Validator
+
+    projected = project_inventory_function_result(
+        {
+            "status": "unavailable",
+            "reason": "provider_unavailable",
+            "query_source": "current_state",
+        }
+    )
+
+    Draft202012Validator(inventory_query_function_type().output_schema).validate(projected)
+    assert projected == {
+        "status": "unavailable",
+        "query": None,
+        "reason": "provider_unavailable",
+    }
 
 
 def test_ontology_graph_returns_bounded_operating_model_status() -> None:
