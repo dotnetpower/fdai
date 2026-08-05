@@ -292,31 +292,59 @@ export function ComposerAttachments() {
           {items.map((entry) => (
             <li
               key={entry.id}
-              class={`deck-attach-item${entry.status === "abandoned" ? " is-abandoned" : ""}`}
+              class={`deck-attach-item${entry.previewUrl ? " is-image-preview" : ""}${entry.status === "scanning" ? " is-scanning" : ""}${entry.status === "abandoned" ? " is-abandoned" : ""}`}
             >
-              <span
-                class={`deck-attach-thumb is-${entry.kind}`}
-                style={
-                  entry.previewUrl ? { backgroundImage: `url(${entry.previewUrl})` } : undefined
-                }
-                aria-hidden="true"
-              >
-                {entry.previewUrl ? "" : thumbLabel(entry.kind)}
-              </span>
-              <span class="deck-attach-body">
-                <Tooltip content={entry.name}>
-                  <span class="deck-attach-name">{entry.name}</span>
-                </Tooltip>
-                <span class="deck-attach-meta">
-                  {entry.status === "abandoned"
-                    ? (entry.note ?? t("deck.attach.rmsProtected"))
-                    : formatSize(entry.size)}{" "}
-                  ·{" "}
-                  <span class={`deck-attach-status is-${entry.status}`}>
-                    {statusLabel(entry.status)}
+              {entry.previewUrl ? (
+                <>
+                  <Tooltip
+                    content={(
+                      <span class="deck-attach-preview-layer">
+                        <img src={entry.previewUrl} alt={entry.name} />
+                      </span>
+                    )}
+                    placement="top"
+                    sideOffset={10}
+                    variant="image-preview"
+                  >
+                    <span
+                      class="deck-attach-thumb is-image"
+                      style={{ backgroundImage: `url(${entry.previewUrl})` }}
+                      role="img"
+                      aria-label={entry.name}
+                    />
+                  </Tooltip>
+                  {entry.status !== "ready" ? (
+                    <span class="sr-only" role="status">
+                      {entry.name}: {entry.status === "abandoned"
+                        ? (entry.note ?? t("deck.attach.rmsProtected"))
+                        : statusLabel(entry.status)}
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <span
+                    class={`deck-attach-thumb is-${entry.kind}`}
+                    aria-hidden="true"
+                  >
+                    {thumbLabel(entry.kind)}
                   </span>
-                </span>
-              </span>
+                  <span class="deck-attach-body">
+                    <Tooltip content={entry.name}>
+                      <span class="deck-attach-name">{entry.name}</span>
+                    </Tooltip>
+                    <span class="deck-attach-meta">
+                      {entry.status === "abandoned"
+                        ? (entry.note ?? t("deck.attach.rmsProtected"))
+                        : formatSize(entry.size)}{" "}
+                      ·{" "}
+                      <span class={`deck-attach-status is-${entry.status}`}>
+                        {statusLabel(entry.status)}
+                      </span>
+                    </span>
+                  </span>
+                </>
+              )}
               <Tooltip content={t("deck.attach.remove")}>
                 <button
                   type="button"

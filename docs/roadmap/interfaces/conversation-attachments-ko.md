@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: f3539c8f31a35bc47d0e58b01169cefa1993985d
+translation_source_sha: b6bfb64368f9837c9fc857a7fa56e025a9d485b8
 translation_revised: 2026-08-05
 title: 대화 첨부파일
 ---
@@ -169,6 +169,12 @@ retention job이 만료된 image byte를 독립적으로 삭제합니다. Princi
 turn이 durable해질 때까지 15분 pending expiry를 유지한 뒤 90일 expiry로 전환됩니다. Immediate
 compensation도 실패하면 다음 upload 또는 retention pass가 이 짧은 interval 이후 pending byte를
 삭제합니다.
+
+Composer는 staged image를 filename, byte size 또는 ready label을 반복하지 않는 fixed thumbnail로
+표시합니다. Pointer hover, keyboard focus 또는 touch는 shared tooltip layer를 통해 viewport 범위의 큰
+preview를 엽니다. Normalization이 진행 중이면 tile은 shared neutral top-edge shimmer를 사용하며,
+reduced-motion preference는 이 animation을 비활성화합니다. Non-image file과 rejected attachment는
+compact metadata 및 actionable reason을 유지합니다.
 
 ## Image OCR
 

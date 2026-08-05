@@ -557,7 +557,23 @@ test("renders a sent image inside the operator turn without caching its bytes", 
       "base64",
     ),
   });
-  await expect(deck.getByText(/^ready$/i)).toBeVisible();
+  const stagedImage = deck.locator(".deck-attach-item.is-image-preview");
+  await expect(stagedImage).toHaveCount(1);
+  await expect(stagedImage).not.toHaveClass(/is-scanning/);
+  await expect(stagedImage.locator(
+    ".deck-attach-name, .deck-attach-meta, .deck-attach-status",
+  )).toHaveCount(0);
+  const thumbnailBox = await stagedImage.boundingBox();
+  expect(thumbnailBox?.width).toBe(54);
+  expect(thumbnailBox?.height).toBe(54);
+
+  await stagedImage.locator(".deck-attach-thumb").hover();
+  const largePreview = page.locator(".deck-attach-preview-layer img");
+  await expect(largePreview).toBeVisible();
+  await expect.poll(() => largePreview.evaluate((image: HTMLImageElement) => image.naturalWidth))
+    .toBeGreaterThan(0);
+  expect((await largePreview.boundingBox())?.width).toBeGreaterThan(300);
+
   await deck.getByPlaceholder(/Ask anything/i).fill("What is shown?");
   await deck.getByRole("button", { name: "Send" }).click();
 

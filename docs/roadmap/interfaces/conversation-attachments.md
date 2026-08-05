@@ -162,6 +162,12 @@ limit is reached first. Exact retries do not consume quota twice, and a quota re
 turn is durable, then move to the 90-day expiry. If immediate compensation also fails, the next
 upload or retention pass removes the pending bytes after that short interval.
 
+The composer presents a staged image as a fixed thumbnail without repeating its filename, byte
+size, or ready label. Pointer hover, keyboard focus, or touch opens a viewport-bounded large preview
+through the shared tooltip layer. While normalization is in progress, the tile uses the shared
+neutral top-edge shimmer; reduced-motion preference disables that animation. Non-image files and
+rejected attachments retain their compact metadata and actionable reason.
+
 ## Image OCR
 
 The standard extractor recognizes image signatures before OCR. Without an OCR provider it preserves

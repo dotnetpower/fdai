@@ -29,7 +29,7 @@ interface TooltipProps {
   readonly placement?: Placement;
   readonly delay?: number;
   readonly sideOffset?: number;
-  readonly variant?: "backend";
+  readonly variant?: "backend" | "image-preview";
 }
 
 export function Tooltip(props: TooltipProps) {
