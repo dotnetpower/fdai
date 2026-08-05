@@ -40,21 +40,6 @@ export function ConversationTrajectoryView({
   ]);
   const presentation = buildTrajectoryPresentation(trajectory);
   const [open, setOpen] = useState(false);
-  const queryCount = activities.filter(
-    (activity) => activity.execution?.inputKind === "query",
-  ).length;
-  const commandCount = activities.filter(
-    (activity) => activity.execution?.inputKind === "command",
-  ).length;
-  const activitySummary = t("deck.trajectory.activitySummary", {
-    queries: queryCount,
-    commands: commandCount,
-  });
-  const evidenceSummary = t("deck.trajectory.evidenceSummary", {
-    successful: presentation.evidenceCompletedCount,
-    attempted: presentation.evidenceAttemptCount,
-    references: presentation.evidenceReferenceCount,
-  });
   const omittedDetailCount = answer.trajectoryDetail
     ? Object.values(answer.trajectoryDetail.omitted).reduce((total, count) => total + count, 0)
     : 0;
@@ -70,19 +55,6 @@ export function ConversationTrajectoryView({
 
   return (
     <div class={`deck-trajectory-cluster is-${presentation.workProgress}`}>
-      <div
-        class="deck-trajectory-results"
-        role="group"
-        tabIndex={0}
-        aria-label={`${activitySummary}; ${evidenceSummary}`}
-      >
-        <span data-state="observed" aria-hidden="true">
-          {activitySummary}
-        </span>
-        <span data-state={presentation.phaseStates.evidence} aria-hidden="true">
-          {evidenceSummary}
-        </span>
-      </div>
       <details
         class="deck-trajectory"
         open={open}
@@ -213,6 +185,47 @@ export function ConversationTrajectoryView({
       </details>
     </div>
   );
+}
+
+export function ConversationTrajectoryResults({
+  trajectory,
+}: {
+  readonly trajectory: ConversationTrajectory;
+}) {
+  const { activitySummary, evidenceSummary, evidenceState } = trajectoryResultSummary(trajectory);
+  return (
+    <span class="deck-trajectory-results" aria-hidden="true">
+      <span data-state="observed">{activitySummary}</span>
+      <span data-state={evidenceState}>{evidenceSummary}</span>
+    </span>
+  );
+}
+
+export function trajectoryResultLabel(trajectory: ConversationTrajectory): string {
+  const { activitySummary, evidenceSummary } = trajectoryResultSummary(trajectory);
+  return `${activitySummary}; ${evidenceSummary}`;
+}
+
+function trajectoryResultSummary(trajectory: ConversationTrajectory) {
+  const presentation = buildTrajectoryPresentation(trajectory);
+  const queryCount = trajectory.activities.filter(
+    (activity) => activity.execution?.inputKind === "query",
+  ).length;
+  const commandCount = trajectory.activities.filter(
+    (activity) => activity.execution?.inputKind === "command",
+  ).length;
+  return {
+    activitySummary: t("deck.trajectory.activitySummary", {
+      queries: queryCount,
+      commands: commandCount,
+    }),
+    evidenceSummary: t("deck.trajectory.evidenceSummary", {
+      successful: presentation.evidenceCompletedCount,
+      attempted: presentation.evidenceAttemptCount,
+      references: presentation.evidenceReferenceCount,
+    }),
+    evidenceState: presentation.phaseStates.evidence,
+  };
 }
 
 function IntentGraphPhase({

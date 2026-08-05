@@ -3,8 +3,16 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
+const resultStyles = readFileSync(
+  fileURLToPath(new URL("./conversation-trajectory-results.css", import.meta.url)),
+  "utf8",
+);
 const source = readFileSync(
   fileURLToPath(new URL("./conversation-trajectory-view.tsx", import.meta.url)),
+  "utf8",
+);
+const reply = readFileSync(
+  fileURLToPath(new URL("./grounded-reply.tsx", import.meta.url)),
   "utf8",
 );
 
@@ -32,13 +40,15 @@ describe("observed trajectory typography", () => {
     expect(styles).toContain("text-overflow: ellipsis; white-space: nowrap;");
   });
 
-  test("stacks trajectory summaries until hover or keyboard focus", () => {
+  test("overlays deeply stacked trajectory summaries on the source button", () => {
     expect(source).toContain('class="deck-trajectory-results"');
-    expect(source).toContain('role="group"');
-    expect(source).toContain("tabIndex={0}");
-    expect(styles).toContain(".deck-trajectory-results:hover > span,");
-    expect(styles).toContain(".deck-trajectory-results:focus > span");
-    expect(styles).toContain("max-width: 22px;");
-    expect(styles).toContain("margin-left: -7px;");
+    expect(reply).toContain('class="deck-gr-source-stack"');
+    expect(reply).toContain("<ConversationTrajectoryResults trajectory={trajectory} />");
+    expect(reply).toContain("trajectoryResultLabel(trajectory)");
+    expect(resultStyles).toContain("position: absolute;");
+    expect(resultStyles).toContain("max-width: 18px;");
+    expect(resultStyles).toContain("margin-left: -13px;");
+    expect(resultStyles).toContain(".deck-gr-source-stack:hover .deck-trajectory-results > span,");
+    expect(resultStyles).toContain(".deck-gr-source-stack:focus-within .deck-trajectory-results > span");
   });
 });

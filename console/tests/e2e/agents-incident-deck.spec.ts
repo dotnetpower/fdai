@@ -328,20 +328,40 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   const runRecord = workspace.locator(".deck-trajectory");
   await expect(runRecord).not.toHaveAttribute("open", "");
   await expect(runRecord.locator(".deck-trajectory-question")).toHaveCount(0);
-  const trajectoryResults = workspace.locator(".deck-trajectory-results");
-  const collapsedResults = await trajectoryResults.locator(":scope > span").evaluateAll(
-    (items) => items.map((item) => {
-      const bounds = item.getBoundingClientRect();
-      return { top: bounds.top, width: bounds.width };
-    }),
+  await expect(runRecord.locator(".deck-trajectory-results")).toHaveCount(0);
+  const sourceStack = workspace.locator(".deck-gr-source-stack");
+  const trajectoryResults = sourceStack.locator(".deck-trajectory-results");
+  const collapsedResults = await sourceStack.evaluate((root) => {
+    const button = root.querySelector<HTMLElement>(".deck-gr-pill")?.getBoundingClientRect();
+    const items = [...root.querySelectorAll<HTMLElement>(".deck-trajectory-results > span")]
+      .map((item) => item.getBoundingClientRect());
+    return {
+      items: items.map((bounds) => ({
+        top: bounds.top,
+        width: bounds.width,
+        overlapsButton: button
+          ? Math.min(bounds.right, button.right) > Math.max(bounds.left, button.left) &&
+            Math.min(bounds.bottom, button.bottom) > Math.max(bounds.top, button.top)
+          : false,
+      })),
+      badgeOverlap: items.length === 2 ? items[0]!.right - items[1]!.left : 0,
+    };
+  });
+  expect(collapsedResults.items).toHaveLength(2);
+  expect(collapsedResults.items[0]?.top).toBe(collapsedResults.items[1]?.top);
+  expect(collapsedResults.items.every((item) => item.width <= 18)).toBe(true);
+  expect(collapsedResults.items.every((item) => item.overlapsButton)).toBe(true);
+  expect(collapsedResults.badgeOverlap).toBeGreaterThanOrEqual(12);
+  const actionRowHeight = await workspace.locator(".deck-gr-actions").evaluate(
+    (element) => element.getBoundingClientRect().height,
   );
-  expect(collapsedResults).toHaveLength(2);
-  expect(collapsedResults[0]?.top).toBe(collapsedResults[1]?.top);
-  expect(collapsedResults.every((item) => item.width <= 22)).toBe(true);
-  await trajectoryResults.hover();
+  await sourceStack.hover();
   await expect.poll(async () => trajectoryResults.locator(":scope > span").evaluateAll(
-    (items) => items.every((item) => item.getBoundingClientRect().width > 22),
+    (items) => items.every((item) => item.getBoundingClientRect().width > 18),
   )).toBe(true);
+  await expect.poll(async () => workspace.locator(".deck-gr-actions").evaluate(
+    (element) => element.getBoundingClientRect().height,
+  )).toBe(actionRowHeight);
   await runRecord.locator(":scope > summary").click();
   await expect(runRecord).toHaveAttribute("open", "");
   await expect(runRecord.locator(".deck-trajectory-question strong")).toHaveText(

@@ -606,6 +606,7 @@ export function TurnBubble({
           codeArtifacts={turn.codeArtifacts}
           incidentCandidates={turn.incidentCandidates}
           actionDraft={turn.actionDraft}
+          trajectory={trajectory}
           {...(onRegenerate ? { onRegenerate } : {})}
         />
       ) : (

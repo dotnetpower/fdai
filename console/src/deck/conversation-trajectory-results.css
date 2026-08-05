@@ -1,0 +1,33 @@
+.deck-gr-source-stack {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.deck-gr-source-stack .deck-trajectory-results {
+  position: absolute;
+  z-index: 2;
+  top: -6px;
+  right: -6px;
+  pointer-events: none;
+}
+
+.deck-gr-source-stack .deck-trajectory-results > span {
+  max-width: 18px;
+  min-height: 18px;
+  margin-left: -13px;
+}
+
+.deck-gr-source-stack:hover .deck-trajectory-results > span,
+.deck-gr-source-stack:focus-within .deck-trajectory-results > span {
+  max-width: 260px;
+  margin-left: -4px;
+  padding: 2px 7px;
+  gap: 6px;
+  color: var(--fg-muted);
+}
+
+.deck-gr-source-stack:hover .deck-trajectory-results > span:first-child,
+.deck-gr-source-stack:focus-within .deck-trajectory-results > span:first-child {
+  margin-left: 0;
+}

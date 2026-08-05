@@ -33,6 +33,11 @@ import { confirmActionDraft, renderActionResult } from "./backend";
 import { RichContent } from "./rich-content";
 import { openDeckWithContext, type DeckOpenDetail } from "./open-deck";
 import { relevantCitations, type Citation } from "./citations";
+import type { ConversationTrajectory } from "./conversation-trajectory";
+import {
+  ConversationTrajectoryResults,
+  trajectoryResultLabel,
+} from "./conversation-trajectory-view";
 import { unverifiedDetailLabel, verificationPrimaryLabel } from "./verification-presentation";
 import {
   buildSources,
@@ -44,6 +49,7 @@ import {
   type GroundedSource,
   type TraceStage,
 } from "./grounded-sources";
+import "./conversation-trajectory-results.css";
 
 export function GroundedReply({
   turnId,
@@ -59,6 +65,7 @@ export function GroundedReply({
   codeArtifacts,
   incidentCandidates,
   actionDraft,
+  trajectory,
   onRegenerate,
 }: {
   readonly turnId: string;
@@ -75,6 +82,7 @@ export function GroundedReply({
   readonly codeArtifacts: readonly GroundedCodeArtifact[] | undefined;
   readonly incidentCandidates: readonly IncidentCandidate[] | undefined;
   readonly actionDraft: ActionDraft | undefined;
+  readonly trajectory: ConversationTrajectory | undefined;
   /** Re-run the operator question that produced this reply, if known. */
   readonly onRegenerate?: () => void;
 }) {
@@ -131,6 +139,9 @@ export function GroundedReply({
     ? "confirmed"
     : "complete";
   const showAnswerState = answerState !== "complete";
+  const sourceButtonLabel = evidenceReferences
+    ? t("deck.tooltip.evidenceReferences", { count: sources.length })
+    : t("deck.tooltip.groundedSources", { count: sources.length });
 
   const copy = () => {
     void navigator.clipboard?.writeText(text).then(
@@ -358,36 +369,36 @@ export function GroundedReply({
           ) : null}
 
           {sources.length > 0 ? (
-            <Tooltip
-              content={
-                evidenceReferences
-                  ? t("deck.tooltip.evidenceReferences", { count: sources.length })
-                  : t("deck.tooltip.groundedSources", { count: sources.length })
-              }
-            >
-              <button
-                type="button"
-                class="deck-gr-pill"
-                onClick={() => setOpen((v) => !v)}
-                aria-expanded={open}
-              >
-                <span class="deck-gr-check" aria-hidden="true">
-                  {groundingIncomplete ? "!" : "\u2713"}
-                </span>
-                <span class="deck-gr-stat">
-                  <strong>{sources.length}</strong>{" "}
-                  {sources.length === 1
-                    ? t("deck.grounded.source")
-                    : t("deck.grounded.sources")}
-                </span>
-                {groundingIncomplete ? (
-                  <span class="deck-gr-stat">{t("deck.grounded.partialEvidence")}</span>
-                ) : null}
-                <span class="deck-gr-more">
-                  {open ? t("deck.grounded.hideSources") : t("deck.grounded.showSources")}
-                </span>
-              </button>
-            </Tooltip>
+            <span class="deck-gr-source-stack">
+              <Tooltip content={sourceButtonLabel}>
+                <button
+                  type="button"
+                  class="deck-gr-pill"
+                  onClick={() => setOpen((v) => !v)}
+                  aria-expanded={open}
+                  aria-label={trajectory
+                    ? `${sourceButtonLabel}; ${trajectoryResultLabel(trajectory)}`
+                    : sourceButtonLabel}
+                >
+                  <span class="deck-gr-check" aria-hidden="true">
+                    {groundingIncomplete ? "!" : "\u2713"}
+                  </span>
+                  <span class="deck-gr-stat">
+                    <strong>{sources.length}</strong>{" "}
+                    {sources.length === 1
+                      ? t("deck.grounded.source")
+                      : t("deck.grounded.sources")}
+                  </span>
+                  {groundingIncomplete ? (
+                    <span class="deck-gr-stat">{t("deck.grounded.partialEvidence")}</span>
+                  ) : null}
+                  <span class="deck-gr-more">
+                    {open ? t("deck.grounded.hideSources") : t("deck.grounded.showSources")}
+                  </span>
+                </button>
+              </Tooltip>
+              {trajectory ? <ConversationTrajectoryResults trajectory={trajectory} /> : null}
+            </span>
           ) : null}
         </div>
       ) : null}

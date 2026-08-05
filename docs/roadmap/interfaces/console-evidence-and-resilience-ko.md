@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 15689a72151c719169d3e3aeff3f8420b370c6f9
+translation_source_sha: 391cbd097f5f52dd3ce83c1466d44398c4f1fcaa
 translation_revised: 2026-08-05
 ---
 
@@ -257,8 +257,9 @@ command count, evidence completion, reference 및 verification을 표시합니�
 status는 replay를 위해 그대로 유지합니다. Primary Console label은 bounded reason code에 따라 Context
 필요, Source 사용 불가, Query 검증 실패 또는 근거 없는 claim으로 표시하고 technical detail에는
 canonical status와 raw reason code를 유지합니다. Run-record summary는
-두 result indicator를 compact한 한 줄에 겹쳐 표시하고 pointer hover 또는 keyboard focus에서 전체
-localized label을 보여 줍니다. 펼친 run-record summary는 complete bounded operator prompt를 유지하고
+두 result indicator를 서로 깊게 겹쳐 source button 모서리에 표시합니다. Absolute positioning을
+사용하므로 별도 행을 만들거나 reply action 높이를 바꾸지 않으며, pointer hover 또는 keyboard focus에서
+전체 localized label을 button 위에 보여 줍니다. 펼친 run-record summary는 complete bounded operator prompt를 유지하고
 좁은 layout에서는 줄바꿈합니다. Disclosure를 변경하면 transcript만 scroll하고 composer는
 Deck 경계에 계속 표시됩니다. 펼친 view는 6단계 rail, 펼칠 수 있는 observed-event timeline 및 provenance signal을 먼저 표시하고,
 timing window, decision context, phase record 및 coverage gap은 하나의 접힌 execution-details disclosure에

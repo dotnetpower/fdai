@@ -262,8 +262,9 @@ counts, evidence completion, references, and verification rather than internal e
 serialized `unverified` status remains stable for replay. Its primary Console label is derived from
 the bounded reason code as Context required, Source unavailable, Invalid query, or Unsupported
 claim, while technical detail retains the canonical status and raw reason code. The
-two result indicators overlap in one compact line and reveal their complete localized labels on
-pointer hover or keyboard focus. The expanded run-record summary retains the complete bounded
+two result indicators overlap each other deeply on the source-button corner. They use absolute
+positioning, so they create no separate row or change the reply-action height, and reveal their
+complete localized labels over the button on pointer hover or keyboard focus. The expanded run-record summary retains the complete bounded
 operator prompt and wraps it on narrow layouts. Changing its disclosure
 scrolls only the transcript while the composer remains visible at the Deck boundary. The expanded
 view leads with the six-phase rail,
