@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { t } from "../i18n";
 import {
+  attachmentOperationIsCurrent,
   clipboardImageFiles,
   detectKind,
   fileExtension,
@@ -64,17 +65,22 @@ export function ComposerAttachments() {
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const itemsRef = useRef<readonly StagedAttachment[]>([]);
+  const generationRef = useRef(0);
   itemsRef.current = items;
 
   const patch = useCallback((id: string, next: Partial<StagedAttachment>) => {
-    setItems((current) =>
-      current.map((entry) => (entry.id === id ? { ...entry, ...next } : entry)),
-    );
+    setItems((current) => {
+      const updated = current.map((entry) =>
+        entry.id === id ? { ...entry, ...next } : entry);
+      itemsRef.current = updated;
+      return updated;
+    });
   }, []);
 
   const addFiles = useCallback(
     (files: FileList | readonly File[]) => {
       for (const file of Array.from(files)) {
+        const generation = generationRef.current;
         const id = newAttachmentId();
         const kind = detectKind(file.name);
         const previewUrl = kind === "image" ? URL.createObjectURL(file) : undefined;
@@ -86,11 +92,21 @@ export function ComposerAttachments() {
           status: "scanning",
           ...(previewUrl ? { previewUrl } : {}),
         };
-        setItems((current) => [...current, staged]);
+        setItems((current) => {
+          const updated = [...current, staged];
+          itemsRef.current = updated;
+          return updated;
+        });
+        const isCurrent = () => attachmentOperationIsCurrent(
+          generation,
+          generationRef.current,
+          itemsRef.current.some((entry) => entry.id === id),
+        );
 
         if (OOXML_PROBE.has(fileExtension(file.name))) {
           void readHead(file)
             .then((head) => {
+              if (!isCurrent()) return;
               patch(
                 id,
                 isRightsProtected(file.name, head)
@@ -98,7 +114,9 @@ export function ComposerAttachments() {
                   : { status: "ready" },
               );
             })
-            .catch(() => patch(id, { status: "ready" }));
+            .catch(() => {
+              if (isCurrent()) patch(id, { status: "ready" });
+            });
         } else if (kind === "image") {
           // Stage the image as send-ready vision evidence: read it as a base64
           // data URL (rebuilt with the validated media type so a blank
@@ -118,7 +136,7 @@ export function ComposerAttachments() {
                 // and cleared the tray, while this read was in flight. Do not
                 // stage a now-orphaned image - that would leak it invisibly
                 // into a later turn.
-                if (!itemsRef.current.some((entry) => entry.id === id)) return;
+                if (!isCurrent()) return;
                 if (normalized.size > MAX_VISION_IMAGE_BYTES) {
                   unstageComposerAttachment(id);
                   patch(id, { status: "abandoned", note: t("deck.attach.tooLarge") });
@@ -131,6 +149,7 @@ export function ComposerAttachments() {
                   return;
                 }
                 const raw = await fileToDataUrl(normalized);
+                if (!isCurrent()) return;
                 const dataUrl = normalizeImageDataUrl(raw, normalizedMedia);
                 if (dataUrl === null) {
                   unstageComposerAttachment(id);
@@ -151,6 +170,7 @@ export function ComposerAttachments() {
                 );
               })
               .catch((reason: unknown) => {
+                if (!isCurrent()) return;
                 unstageComposerAttachment(id);
                 patch(
                   id,
@@ -173,7 +193,9 @@ export function ComposerAttachments() {
     setItems((current) => {
       const target = current.find((entry) => entry.id === id);
       if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
-      return current.filter((entry) => entry.id !== id);
+      const updated = current.filter((entry) => entry.id !== id);
+      itemsRef.current = updated;
+      return updated;
     });
   }, []);
 
@@ -181,9 +203,11 @@ export function ComposerAttachments() {
   // drain event so the tray empties on both Enter-send and button-send (a form
   // `submit` event fires only for the button), keeping tray and payload in sync.
   const clearTray = useCallback(() => {
+    generationRef.current += 1;
     for (const entry of itemsRef.current) {
       if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
     }
+    itemsRef.current = [];
     setItems([]);
   }, []);
 
@@ -230,9 +254,11 @@ export function ComposerAttachments() {
   // attachments so a closed/switched deck never carries them into a later turn.
   useEffect(
     () => () => {
+      generationRef.current += 1;
       for (const entry of itemsRef.current) {
         if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
       }
+      itemsRef.current = [];
       clearComposerAttachments();
     },
     [],

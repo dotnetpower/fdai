@@ -134,6 +134,14 @@ export function newAttachmentId(): string {
   return `att-${Date.now()}-${attachmentSequence.toString(36)}`;
 }
 
+export function attachmentOperationIsCurrent(
+  startedGeneration: number,
+  currentGeneration: number,
+  attachmentPresent: boolean,
+): boolean {
+  return startedGeneration === currentGeneration && attachmentPresent;
+}
+
 /** Return only image files from a clipboard payload. Text and HTML items are
  * left to the textarea's native paste behavior. */
 export function clipboardImageFiles(items: readonly ClipboardFileItem[]): File[] {

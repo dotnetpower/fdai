@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  attachmentOperationIsCurrent,
   clipboardImageFiles,
   detectKind,
   fileExtension,
@@ -17,6 +18,12 @@ import {
 } from "./composer-image-normalization";
 
 describe("composer-attachments", () => {
+  it("invalidates late attachment work after reset or removal", () => {
+    expect(attachmentOperationIsCurrent(3, 3, true)).toBe(true);
+    expect(attachmentOperationIsCurrent(3, 4, true)).toBe(false);
+    expect(attachmentOperationIsCurrent(3, 3, false)).toBe(false);
+  });
+
   it("fits large screenshots inside the vision pixel bound without distortion", () => {
     expect(fitVisionImageDimensions(7680, 4320)).toEqual({ width: 2048, height: 1152 });
     expect(fitVisionImageDimensions(2160, 3840)).toEqual({ width: 1152, height: 2048 });
