@@ -597,6 +597,8 @@ def test_activity_window_is_bounded_by_query_contract() -> None:
         "create a resource group",
         "리소스를 삭제해주세요",
         "why is the database slow?",
+        "why is this unavailable storage account?",
+        "이 unavailable 스토리지 계정의 원인이 뭐야?",
         "VM CPU usage",
     ],
 )

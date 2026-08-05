@@ -55,6 +55,7 @@ def is_inventory_question(
     return bool(
         prompt.strip()
         and not lexical.has(registry.signals, "mutation", prompt)
+        and not lexical.has(registry.signals, "causal_diagnosis", prompt)
         and (not lexical.has(registry.signals, "diagnosis", prompt) or diagnosis_allowed)
         and (lexical.has(registry.signals, "resource_subject", prompt) or resource_types)
         and (lexical.has(registry.signals, "read", prompt) or semantic_marker or "?" in prompt)

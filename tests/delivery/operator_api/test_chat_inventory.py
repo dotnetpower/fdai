@@ -180,6 +180,52 @@ async def test_incomplete_state_semantics_holds_instead_of_widening() -> None:
     assert provider_calls == 0
 
 
+async def test_direct_planned_inventory_rejects_noncanonical_status_before_provider_read() -> None:
+    provider_calls = 0
+
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        nonlocal provider_calls
+        del args, kwargs
+        provider_calls += 1
+        return {}
+
+    evidence = await InventoryChatTools(provider).resolve_planned(
+        "query_inventory",
+        {
+            "source": "current",
+            "kind": "list",
+            "predicates": [{"field": "status", "operator": "eq", "value": "alive"}],
+            "lookback_seconds": None,
+        },
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    assert evidence["result"] == {
+        "status": "unavailable",
+        "reason": "inventory_semantic_status_invalid",
+    }
+    assert provider_calls == 0
+
+
+async def test_malformed_provider_resource_fails_closed_without_partial_projection() -> None:
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        del args, kwargs
+        return {
+            "resources": [
+                _resource("vm-a", "compute.vm", "vm-a", status="running"),
+                object(),
+            ],
+            "links": [],
+            "freshness": "fresh",
+        }
+
+    evidence = await InventoryChatTools(provider).resolve("VM list", principal_id="reader")
+
+    assert evidence is not None
+    assert evidence["result"] == {"status": "unavailable", "reason": "ValueError"}
+
+
 class StructuredPresentationBackend(RecordingBackend):
     def __init__(self, selected_format: str) -> None:
         super().__init__()

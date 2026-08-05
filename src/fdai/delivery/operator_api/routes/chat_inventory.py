@@ -45,7 +45,9 @@ from fdai.delivery.operator_api.routes.chat_inventory_semantic_retrieval import 
     InventorySemanticResolver,
 )
 from fdai.delivery.operator_api.routes.chat_inventory_semantics import (
+    SemanticInventoryStatusError,
     ground_inventory_status_query,
+    validate_semantic_inventory_status_arguments,
 )
 from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
 from fdai.delivery.operator_api.routes.chat_topology_intent import is_topology_question
@@ -103,6 +105,17 @@ class InventoryChatTools:
         if tool_name != "query_inventory":
             return None
         query = InventoryQuery.from_mapping(arguments)
+        try:
+            validate_semantic_inventory_status_arguments(query, arguments)
+        except SemanticInventoryStatusError:
+            return {
+                "tool": "query_inventory",
+                "authority": "server_inventory_graph",
+                "result": {
+                    "status": "unavailable",
+                    "reason": "inventory_semantic_status_invalid",
+                },
+            }
         return await self._resolve_query(query)
 
     async def resolve(
@@ -561,10 +574,10 @@ def _safe_inventory_payload(
     raw_by_id: dict[str, Mapping[str, Any]] = {}
     for raw in raw_resources:
         if not isinstance(raw, Mapping):
-            continue
+            return None
         resource = _safe_resource(raw)
         if resource is None:
-            continue
+            return None
         resources.append(resource)
         raw_by_id[resource["id"]] = raw
     safe_by_id = {resource["id"]: resource for resource in resources}

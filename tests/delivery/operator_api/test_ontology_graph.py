@@ -129,6 +129,7 @@ def test_inventory_function_contract_accepts_bounded_runtime_projection(status: 
         "status": status,
         "query": runtime_result["query"],
         "matched_count": 1,
+        "resource_preview_truncated": False,
         "resources": [{"name": "vm-a", "type": "compute.vm", "status": "running"}],
     }
 
@@ -192,7 +193,6 @@ def test_inventory_function_projection_rejects_invalid_semantic_candidate() -> N
     "resources, matched_count",
     (
         ([object()], 1),
-        ([{"name": "vm-a", "type": "compute.vm"}], 2),
         ([{"name": f"vm-{index}", "type": "compute.vm"} for index in range(41)], 41),
     ),
 )
@@ -210,6 +210,37 @@ def test_inventory_function_projection_rejects_lossy_resource_evidence(
                 "query": query.to_dict(),
                 "matched_count": matched_count,
                 "resources": resources,
+            }
+        )
+
+
+def test_inventory_function_projection_marks_bounded_resource_preview() -> None:
+    query = compile_inventory_query("VM list")
+    assert query is not None
+
+    projected = project_inventory_function_result(
+        {
+            "status": "matched",
+            "query": query.to_dict(),
+            "matched_count": 41,
+            "resources": [{"name": f"vm-{index}", "type": "compute.vm"} for index in range(40)],
+        }
+    )
+
+    assert projected["matched_count"] == 41
+    assert projected["resource_preview_truncated"] is True
+    assert len(projected["resources"]) == 40
+
+
+def test_inventory_function_projection_rejects_mixed_malformed_candidates() -> None:
+    with pytest.raises(ValueError, match="semantic candidate"):
+        project_inventory_function_result(
+            {
+                "status": "clarification",
+                "reason": "inventory_semantic_confirmation_required",
+                "query": None,
+                "resource_types": ["compute.vm"],
+                "semantic_candidates": [{}, object()],
             }
         )
 

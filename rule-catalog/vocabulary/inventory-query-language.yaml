@@ -1,5 +1,5 @@
 schema_version: "1.1.0"
-version: "1.1.27"
+version: "1.1.28"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -15,6 +15,8 @@ signals:
     terms: [create, delete, drop, restart, scale, restore, update, start, stop, 생성해줘, 삭제해줘, 재시작해줘, 스케일해줘, 복구해줘, 수정해줘, 시작해줘, 중지해줘]
   diagnosis:
     terms: [why, cause, latency, slow, cpu, memory, throughput, usage, utilization, affected, impact, blast radius, 왜, 원인, 지연, 느려, 메트릭, 사용률, 이용률, 처리량, 영향, 영향 범위]
+  causal_diagnosis:
+    terms: [why, cause, root cause, 왜, 원인, 근본 원인]
   temporal:
     terms: [recent, recently, last, past, history, when, since when, became, 최근, 지난, 이력, 언제, 누가]
   activity:

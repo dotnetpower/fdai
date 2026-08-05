@@ -46,11 +46,12 @@ def project_inventory_function_result(result: Mapping[str, Any]) -> dict[str, An
             raise ValueError("inventory function resources are invalid")
         if any(not isinstance(resource, Mapping) for resource in resources):
             raise ValueError("inventory function resource is invalid")
-        if matched_count != len(resources):
-            raise ValueError("inventory function matched_count does not match resources")
+        if matched_count < len(resources):
+            raise ValueError("inventory function matched_count is below the resource preview")
         if len(resources) > 40:
             raise ValueError("inventory function resources exceed the output bound")
         projected["matched_count"] = matched_count
+        projected["resource_preview_truncated"] = matched_count > len(resources)
         projected["resources"] = [
             {
                 key: resource[key]
@@ -75,10 +76,10 @@ def project_inventory_function_result(result: Mapping[str, Any]) -> dict[str, An
             candidates, (list, tuple)
         ):
             raise ValueError("inventory function clarification evidence is invalid")
+        if any(not isinstance(candidate, Mapping) for candidate in candidates):
+            raise ValueError("inventory function semantic candidate is invalid")
         projected["resource_types"] = list(resource_types)
-        projected["semantic_candidates"] = [
-            dict(candidate) for candidate in candidates if isinstance(candidate, Mapping)
-        ]
+        projected["semantic_candidates"] = [dict(candidate) for candidate in candidates]
     errors = list(
         Draft202012Validator(inventory_query_function_type().output_schema).iter_errors(projected)
     )
@@ -185,6 +186,7 @@ def inventory_query_function_type() -> OntologyFunctionType:
                     },
                 },
                 "matched_count": {"type": "integer", "minimum": 0},
+                "resource_preview_truncated": {"type": "boolean"},
                 "resources": {
                     "type": "array",
                     "maxItems": 40,
@@ -213,7 +215,15 @@ def inventory_query_function_type() -> OntologyFunctionType:
             "allOf": [
                 {
                     "if": {"properties": {"status": {"enum": ["matched", "partial"]}}},
-                    "then": {"required": ["status", "query", "matched_count", "resources"]},
+                    "then": {
+                        "required": [
+                            "status",
+                            "query",
+                            "matched_count",
+                            "resource_preview_truncated",
+                            "resources",
+                        ]
+                    },
                 },
                 {
                     "if": {"properties": {"status": {"const": "unavailable"}}},
