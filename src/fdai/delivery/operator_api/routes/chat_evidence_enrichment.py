@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
@@ -28,9 +27,19 @@ from fdai.delivery.operator_api.routes.chat_evidence_branches import (
     EvidenceBranchResult,
     EvidenceBranchStatus,
 )
-from fdai.delivery.operator_api.routes.chat_execution_output import inventory_execution_output
+from fdai.delivery.operator_api.routes.chat_evidence_provenance import (
+    _delegation_summary as _delegation_summary,
+)
+from fdai.delivery.operator_api.routes.chat_evidence_provenance import (
+    _retrieval_source_previews as _retrieval_source_previews,
+)
+from fdai.delivery.operator_api.routes.chat_evidence_provenance import (
+    _tool_matches_current_route as _tool_matches_current_route,
+)
+from fdai.delivery.operator_api.routes.chat_evidence_provenance import (
+    _web_search_summary as _web_search_summary,
+)
 from fdai.delivery.operator_api.routes.chat_inventory import (
-    inventory_execution_query,
     inventory_screen_scope_unavailable_evidence,
     needs_inventory_evidence,
 )
@@ -46,8 +55,17 @@ from fdai.delivery.operator_api.routes.chat_prompt import (
 )
 from fdai.delivery.operator_api.routes.chat_subscription_health import needs_subscription_health
 from fdai.delivery.operator_api.routes.chat_t2_recovery import needs_t2_recovery_evidence
-from fdai.delivery.operator_api.routes.inventory_provider_execution import (
-    project_inventory_provider_execution,
+from fdai.delivery.operator_api.routes.chat_tool_progress_projection import (
+    _inventory_provider_progress_events as _inventory_provider_progress_events,
+)
+from fdai.delivery.operator_api.routes.chat_tool_progress_projection import (
+    _tool_execution_detail as _tool_execution_detail,
+)
+from fdai.delivery.operator_api.routes.chat_tool_progress_projection import (
+    _tool_execution_progress_event as _tool_execution_progress_event,
+)
+from fdai.delivery.operator_api.routes.chat_tool_progress_projection import (
+    _tool_execution_progress_events as _tool_execution_progress_events,
 )
 
 
@@ -545,202 +563,6 @@ async def _with_tool_evidence(
     return enriched
 
 
-def _tool_execution_progress_event(
-    evidence: Mapping[str, Any],
-    *,
-    started_at: datetime,
-    duration_ms: int,
-) -> dict[str, object] | None:
-    tool = evidence.get("tool")
-    queries = {
-        "query_llm_usage": {
-            "operation": "query_llm_usage",
-            "arguments": evidence.get("analysis_context"),
-        },
-        "query_subscription_health": {
-            "operation": "query_subscription_health",
-            "scope": "server-owned",
-        },
-        "query_t2_recovery": {
-            "operation": "query_t2_recovery",
-            "scope": "server-owned",
-        },
-    }
-    labels = {
-        "query_inventory": "Applied inventory query",
-        "query_llm_usage": "Read measured LLM usage",
-        "query_subscription_health": "Checked subscription health",
-        "query_t2_recovery": "Read T2 recovery state",
-    }
-    if not isinstance(tool, str) or (tool not in queries and tool != "query_inventory"):
-        return None
-    result = evidence.get("result")
-    if not isinstance(result, Mapping):
-        return None
-    result_status = str(result.get("status") or "unavailable")
-    completed = result_status in {"matched", "partial", "none", "ambiguous"}
-    summary: dict[str, object] = {"status": result_status}
-    for key in (
-        "matched_count",
-        "total_resources",
-        "resource_count",
-        "metric_checked",
-        "metric_unavailable",
-    ):
-        value = result.get(key)
-        if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
-            summary[key] = value
-    if tool == "query_subscription_health":
-        for key in ("source", "observed_at"):
-            value = result.get(key)
-            if isinstance(value, str) and value:
-                summary[key] = value[:200]
-        findings = result.get("findings")
-        if isinstance(findings, list):
-            summary["finding_count"] = min(len(findings), 20)
-        if result.get("truncated") is True:
-            summary["truncated"] = True
-    output, output_truncated = (
-        inventory_execution_output(result)
-        if tool == "query_inventory"
-        else (json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True), False)
-    )
-    completed_at = datetime.now(UTC)
-    execution: dict[str, object] = {
-        "tool": "FDAI IQL" if tool == "query_inventory" else "FDAI server read",
-        "command": (
-            inventory_execution_query(evidence)
-            if tool == "query_inventory"
-            else json.dumps(queries[tool], indent=2, sort_keys=True)
-        ),
-        "input_kind": "query",
-        "redacted": True,
-        "output": output,
-        "exit_code": None,
-        "started_at": started_at.isoformat(),
-        "completed_at": completed_at.isoformat(),
-        "duration_ms": duration_ms,
-    }
-    if output_truncated:
-        execution["output_truncated"] = True
-    event: dict[str, object] = {
-        "event": "activity",
-        "activity_id": f"{tool}-execution",
-        "kind": "read.execution",
-        "status": "completed" if completed else "unavailable",
-        "label": labels[tool],
-        "detail": _tool_execution_detail(summary),
-        "completed": 1 if completed else 0,
-        "total": 1,
-        "authority": str(evidence.get("authority") or "server_read_model"),
-        "observed_at": completed_at.isoformat(),
-        "execution": execution,
-    }
-    return event
-
-
-def _tool_execution_progress_events(
-    evidence: Mapping[str, Any],
-    *,
-    started_at: datetime,
-    duration_ms: int,
-) -> tuple[dict[str, object], ...]:
-    primary = _tool_execution_progress_event(
-        evidence,
-        started_at=started_at,
-        duration_ms=duration_ms,
-    )
-    if primary is None:
-        return ()
-    if evidence.get("tool") != "query_inventory":
-        return (primary,)
-    return (primary, *_inventory_provider_progress_events(evidence))
-
-
-def _inventory_provider_progress_events(
-    evidence: Mapping[str, Any],
-) -> tuple[dict[str, object], ...]:
-    result = evidence.get("result")
-    if not isinstance(result, Mapping):
-        return ()
-    provider = project_inventory_provider_execution(result.get("provider_execution"))
-    if provider is None:
-        return ()
-    snapshot_at = str(result.get("snapshot_at") or "snapshot time unavailable")
-    backend = str(provider["backend"])
-    subscription_id = provider.get("subscription_id")
-    events: list[dict[str, object]] = []
-    for index, command in enumerate(provider["commands"]):
-        label = str(command["label"])
-        is_arg = label == "resources" and backend == "azure_resource_graph"
-        events.append(
-            {
-                "event": "activity",
-                "activity_id": f"query_inventory-provider-{index}",
-                "kind": "read.provider",
-                "status": "completed",
-                "label": (
-                    "Listed Azure resource groups"
-                    if label == "resource_groups"
-                    else "Queried Azure Resource Graph"
-                    if is_arg
-                    else "Listed Azure resources"
-                ),
-                "detail": (
-                    f"Subscription {subscription_id} - snapshot source observed at {snapshot_at}"
-                    if isinstance(subscription_id, str)
-                    else f"Snapshot source observed at {snapshot_at}"
-                ),
-                "completed": 1,
-                "total": 1,
-                "authority": backend,
-                "observed_at": snapshot_at,
-                "execution": {
-                    "tool": "Azure Resource Graph via Azure CLI" if is_arg else "Azure CLI",
-                    "command": str(command["command"]),
-                    "input_kind": "command",
-                    "redacted": True,
-                    **(
-                        {"duration_ms": command["duration_ms"]}
-                        if isinstance(command.get("duration_ms"), int)
-                        else {}
-                    ),
-                    **(
-                        {
-                            "output": json.dumps(command["result"], ensure_ascii=False, indent=2),
-                            **(
-                                {"output_truncated": True}
-                                if command["result"].get("truncated") is True
-                                else {}
-                            ),
-                        }
-                        if isinstance(command.get("result"), Mapping)
-                        else {}
-                    ),
-                },
-            }
-        )
-    return tuple(events)
-
-
-def _tool_execution_detail(summary: Mapping[str, object]) -> str:
-    for key, singular, plural in (
-        ("matched_count", "matching resource", "matching resources"),
-        ("resource_count", "resource", "resources"),
-        ("total_resources", "resource inspected", "resources inspected"),
-        ("metric_checked", "metric checked", "metrics checked"),
-    ):
-        value = summary.get(key)
-        if isinstance(value, int):
-            return f"{value} {singular if value == 1 else plural}"
-    return f"Status: {str(summary.get('status') or 'unavailable').replace('_', ' ')}"
-
-
-def _is_explicit_tool_command(prompt: str) -> bool:
-    parts = prompt.lstrip().split(maxsplit=1)
-    return bool(parts and parts[0] in _EXPLICIT_TOOL_VERBS)
-
-
 async def _with_web_evidence(
     prompt: str,
     view_context: dict[str, Any],
@@ -894,182 +716,6 @@ def merge_evidence_branch_results(
     return merged
 
 
-def _tool_matches_current_route(
-    evidence: Mapping[str, Any],
-    view_context: Mapping[str, Any],
-) -> bool:
-    tool = evidence.get("tool")
-    route = str(view_context.get("routeId") or "").lower()
-    same_route: dict[str, frozenset[str]] = {
-        "get_kpi": frozenset({"dashboard", "overview"}),
-        "list_hil": frozenset({"approvals", "hil-queue"}),
-        "query_audit": frozenset({"audit"}),
-        "list_incidents": frozenset({"incidents"}),
-    }
-    return isinstance(tool, str) and route in same_route.get(tool, frozenset())
-
-
-def _delegation_summary(view_context: Mapping[str, Any]) -> dict[str, Any] | None:
-    """Return the bounded public metadata for one delegated turn."""
-
-    raw = view_context.get("_agent_evidence")
-    if not isinstance(raw, Mapping):
-        return None
-    primary = raw.get("primary_agent")
-    if not isinstance(primary, str) or not primary:
-        return None
-    contributors = raw.get("contributors")
-    safe_contributors = (
-        [item for item in contributors[:8] if isinstance(item, str)]
-        if isinstance(contributors, list)
-        else []
-    )
-    summary: dict[str, Any] = {
-        "primary_agent": primary,
-        "contributors": safe_contributors,
-    }
-    trace_ref = raw.get("trace_ref")
-    if isinstance(trace_ref, str) and trace_ref:
-        summary["trace_ref"] = trace_ref[:256]
-    handoff_from = raw.get("handoff_from")
-    handoff_reason = raw.get("handoff_reason")
-    if isinstance(handoff_from, str) and handoff_from in PANTHEON_NAMES:
-        summary["handoff_from"] = handoff_from
-    if isinstance(handoff_reason, str) and handoff_reason:
-        summary["handoff_reason"] = handoff_reason[:128]
-    return summary
-
-
-def _retrieval_source_previews(
-    view_context: Mapping[str, Any],
-    *,
-    server_owned: bool,
-) -> list[dict[str, str]]:
-    """Return a bounded, display-safe preview of evidence selected so far."""
-
-    sources: list[dict[str, str]] = []
-    route_id = str(view_context.get("routeId") or "").strip()
-    if route_id:
-        route_label = str(view_context.get("routeLabel") or route_id).strip()
-        facts = view_context.get("facts")
-        fact_count = len(facts) if isinstance(facts, list) else 0
-        sources.append(
-            {
-                "kind": "screen",
-                "label": route_label,
-                "detail": f"current screen - {fact_count} facts",
-                "side_effect_class": "read",
-            }
-        )
-    if not server_owned:
-        return sources
-
-    behavior = view_context.get("_behavior_evidence")
-    if isinstance(behavior, Mapping):
-        sources.append(
-            {
-                "kind": "behavior",
-                "label": str(behavior.get("behavior_id") or "Behavior knowledge"),
-                "detail": str(behavior.get("implementation_status") or behavior.get("status")),
-                "side_effect_class": "read",
-            }
-        )
-
-    tool = view_context.get("_tool_evidence")
-    if isinstance(tool, Mapping):
-        tool_name = str(tool.get("tool") or "console tool")
-        sources.append(
-            {
-                "kind": "tool",
-                "label": tool_name,
-                "detail": str(tool.get("authority") or "server read model"),
-                "side_effect_class": "read",
-            }
-        )
-
-    operational = view_context.get("_operational_evidence")
-    if isinstance(operational, Mapping):
-        selected = operational.get("selected_incident")
-        detail = str(operational.get("status") or "operational evidence")
-        if isinstance(selected, Mapping):
-            detail = str(selected.get("title") or selected.get("correlation_id") or detail)
-        sources.append(
-            {
-                "kind": "operational",
-                "label": "Operational evidence",
-                "detail": detail,
-                "side_effect_class": "read",
-            }
-        )
-
-    agent = view_context.get("_agent_evidence")
-    if isinstance(agent, Mapping):
-        primary = str(agent.get("primary_agent") or "Pantheon agent")
-        sources.append(
-            {
-                "kind": "agent",
-                "label": primary,
-                "detail": "agent-owned domain evidence",
-                "side_effect_class": "route",
-            }
-        )
-
-    concept = view_context.get("_concept_evidence")
-    if isinstance(concept, Mapping):
-        entries = concept.get("entries")
-        terms = (
-            [
-                str(entry.get("term"))
-                for entry in entries[:3]
-                if isinstance(entry, Mapping) and entry.get("term")
-            ]
-            if isinstance(entries, list)
-            else []
-        )
-        sources.append(
-            {
-                "kind": "glossary",
-                "label": "FDAI glossary",
-                "detail": ", ".join(terms) or "selected definitions",
-                "side_effect_class": "read",
-            }
-        )
-
-    web = view_context.get("_web_evidence")
-    if isinstance(web, Mapping):
-        web_sources = web.get("sources")
-        if isinstance(web_sources, list):
-            for source in web_sources[:3]:
-                if not isinstance(source, Mapping):
-                    continue
-                sources.append(
-                    {
-                        "kind": "web",
-                        "label": str(source.get("title") or source.get("domain") or "Web"),
-                        "detail": str(source.get("url") or "public-web evidence"),
-                        "side_effect_class": "read",
-                    }
-                )
-    return sources[:8]
-
-
-def _web_search_summary(view_context: Mapping[str, Any]) -> dict[str, Any] | None:
-    """Return public search provenance without echoing untrusted snippet bodies."""
-
-    raw = view_context.get("_web_evidence")
-    if not isinstance(raw, Mapping):
-        return None
-    sources = raw.get("sources")
-    safe_sources = (
-        [dict(item) for item in sources[:8] if isinstance(item, Mapping)]
-        if isinstance(sources, list)
-        else []
-    )
-    summary: dict[str, Any] = {
-        "status": str(raw.get("status") or "unavailable"),
-        "sources": safe_sources,
-    }
-    router = raw.get("router")
-    if isinstance(router, Mapping):
-        summary["router"] = dict(router)
-    return summary
+def _is_explicit_tool_command(prompt: str) -> bool:
+    parts = prompt.lstrip().split(maxsplit=1)
+    return bool(parts and parts[0] in _EXPLICIT_TOOL_VERBS)
