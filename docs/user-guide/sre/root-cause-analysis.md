@@ -60,6 +60,41 @@ Temporal order alone is not certainty. Confidence is bounded, reduced when
 multiple roots explain the failure similarly, and determined by the weakest
 supported link.
 
+## How strong is the causal claim
+
+A cited hypothesis still varies enormously in strength. FDAI grades that strength explicitly, so
+"we think the deployment did it" and "we removed the deployment and the errors stopped" don't read
+the same.
+
+| Grade | What it rests on | What it can support |
+|-------|------------------|---------------------|
+| Association | Things happened close together on a related resource | Explaining and choosing the next investigation |
+| Predictive precedence | The candidate repeatedly precedes the effect and predicts its direction | A recovery proposal in observation mode or with explicit approval |
+| Quasi-experimental | A comparable untreated group behaved differently | Bounded recovery eligibility when every other safety check passes |
+| Interventional | An approved intervention reproduced or removed the predicted effect | Promotion evidence, and never permission on its own |
+
+Two mechanisms keep a grade honest. A chain is scored by its weakest link, so one unsupported hop
+collapses the whole claim rather than averaging out. And every supporting query is paired with a
+refutation query: if the hypothesis says errors rose after the deployment, FDAI also asks whether
+unchanged hosts saw the same rise beforehand. A missing refutation is recorded as unknown, not as
+support.
+
+When refuting evidence arrives, the hypothesis is marked refuted or dropped to a lower grade and a
+new revision is written rather than the old one being edited. A decision already made isn't silently
+rewritten, but future autonomy can drop if the grade no longer clears the bar policy requires.
+
+Closure is the terminal state after an intervention: confirmed, refuted, inconclusive when the
+outcome evidence was stale or incomplete, or unsafe when the observed impact went past what was
+approved. Closure is evidence about the hypothesis. It grants no execution permission, skips no
+safety check, and a confirmed hypothesis with an unsafe impact moves both the hypothesis and its
+related action back to observation mode.
+
+> **Current status:** The hypothesis lifecycle, weakest-link scoring, support and refutation links,
+> temporal analysis, and independent closure classification are implemented. The control loop
+> analyzes and audits in observation mode rather than writing causation into the ontology, and a
+> deployment binds its own temporal series, projection publisher, outcome provider, and receipt
+> resolver. No causal result grants execution.
+
 ## Read an RCA dossier
 
 Check these elements together:

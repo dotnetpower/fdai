@@ -19,6 +19,30 @@ root-cause hypothesis, and prioritized recommendations.
 The report is read-only. A recommendation naming a fix is still only a
 proposal and must re-enter the typed action pipeline.
 
+## Pick how the investigation runs
+
+A short lookup and a wide sweep across a subscription shouldn't feel the same. Investigations run in
+one of three modes, and the choice is about your attention, not about what FDAI is allowed to see.
+
+| Mode | You get | Use it when |
+|------|---------|-------------|
+| Direct | The full result in the same response | The question is small and you're waiting on it |
+| Streamed | Progress and partial results as analyzers finish | It takes a while and you want to watch it land |
+| Detached | A task id immediately, and the result later | It's long, or you want several running while you do something else |
+
+For a detached investigation you can check progress, subscribe to its updates, cancel it, or fetch
+the finished result by its task id. Cancelling is best-effort: in-flight work stops and no result is
+written.
+
+Two behaviors are worth knowing before you rely on this during an incident:
+
+- **Cancelling undoes nothing in Azure.** Investigations only read, so there is nothing to roll back.
+  Cancelling stops the observation, and any recommendation in a partial result is still a proposal
+  that has to go through the normal approval path.
+- **Closing the tab doesn't kill the work.** A detached investigation keeps running and you can pick
+  it back up by its task id. If the process running it is lost, the attempt is recorded as unknown
+  rather than silently retried, and you can ask again with the same key to reuse or redo it.
+
 ## Bounded evidence gathering
 
 - **Resource scope** limits which resources an analyzer may inspect.

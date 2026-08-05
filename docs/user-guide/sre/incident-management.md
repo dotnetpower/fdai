@@ -73,6 +73,26 @@ Startup replay retries rows without a checkpoint.
 | Duplicate | Already sent | Replay produced no new state or message |
 | Conflict | Not sent | Reload the incident and reconsider the requested transition |
 
+## Work from the incident list
+
+The console's incident list is where most shifts start. Each row carries the incident id, its status
+straight from the lifecycle state machine rather than inferred, severity, the correlation keys that
+grouped it, when it opened and last moved, which agents were involved, the vertical, whether it ran
+in observation or enforcement, and the recorded outcome. Newest activity sorts first, and you can
+filter by status and vertical.
+
+From a row you can reach the evidence: the incident detail with its response routing and recorded
+disposition, the plain-language history of what happened, and from there the full audit rows and the
+reconstructed trace for that correlation id.
+
+The list is read-only. There is no transition button on it, because an incident transition is a
+typed, confirmed request rather than a click on a projection.
+
+One habit worth keeping: the list is a snapshot, and a quiet list can mean a quiet estate or a
+projection that hasn't caught up. Timestamps are exact rather than relative for that reason, and
+audit views state the row range they sampled. If the newest activity looks old, refresh before you
+conclude that nothing is happening.
+
 ## Triage, mitigate, and resolve
 
 1. Confirm membership, scope, severity, and current owner.

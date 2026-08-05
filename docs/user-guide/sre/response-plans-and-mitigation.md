@@ -47,6 +47,29 @@ any referenced `ActionType`, lower its risk tier, or grant execution authority.
 The default approval gate denies. A missing or broken approval binding therefore
 produces no action.
 
+## Compare options before you mitigate
+
+When more than one mitigation is defensible, FDAI can assemble the comparison for you instead of
+leaving it to whoever is on call at 3am. Specialists contribute what they own: Heimdall supplies
+observation and forecast evidence, Freyr capacity and sizing, Njord bounded cost, Loki resilience
+scenarios when they're asked for, and Mimir validates that the rules and action types involved are
+real and current.
+
+The result is a comparison rather than a recommendation you have to take on faith. It includes doing
+nothing as an explicit baseline, the candidate options, the hard constraints that excluded the ones
+that aren't there, simulated effects with their receipts, and the reason each rejected option was
+rejected. Comparing a candidate against no-action is usually the most useful thing on the page.
+
+Planning holds instead of picking when no option is eligible, when nothing safe survives the
+constraints, or when the context it needs is stale, incomplete, conflicting, or truncated. A hold
+here is a real answer: it tells you the deterministic path couldn't justify any of the choices.
+
+> **Planning is read-only.** It produces evidence and proposals. It can't approve, execute, promote,
+> or claim an external effect, and a selected option still travels the same path as any other
+> proposal. Planning also binds only when your deployment supplies the ontology release, operational
+> context, process store, effect-model reader, and causal verifier it depends on, so treat it as an
+> optional capability rather than one that's always present.
+
 ## Preserve separation of duties
 
 The plan coordinator selects a supported recommendation, but does not judge,
