@@ -1,5 +1,5 @@
 schema_version: "1.1.0"
-version: "1.1.28"
+version: "1.1.29"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -11,6 +11,8 @@ signals:
     terms: [how many, count, list, show, which, what, where, find, status, summary, exist, are any, 몇 개, 개수, 목록, 보여줘, 보여, 어떤, 어디, 찾아, 찾아줘, 상태, 있어, 알려줘]
   state_inspection:
     terms: [status, health state, current state, 상태, 상태 확인, 현재 상태, 정상인가]
+  bounded_read:
+    terms: [show, where, 보여줘, 어디, 어느 위치]
   mutation:
     terms: [create, delete, drop, restart, scale, restore, update, start, stop, 생성해줘, 삭제해줘, 재시작해줘, 스케일해줘, 복구해줘, 수정해줘, 시작해줘, 중지해줘]
   diagnosis:
@@ -35,7 +37,7 @@ signals:
     terms: [what resources exist, what azure assets exist, resource inventory, inventory list, azure resources, azure inventory, managed resources, resources in managed scope, current managed resources, Azure 리소스 뭐 있어, Azure 인벤토리 목록, 관리 범위 리소스, 관리 범위의 리소스, 관리 범위에서, 현재 관리 범위 리소스, 현재 관리 범위에서]
 query_kinds:
   list:
-    terms: [list, show, where, inventory list, resource list, 목록, 목록으로, 보여줘, 어디, 어느 위치]
+    terms: [list, inventory list, resource list, 목록, 목록으로]
   scope_counts:
     terms: [resources and resource groups, resource and resource group counts, resource count and resource group count, total resource and resource-group counts, 리소스와 리소스 그룹 수, 리소스와 리소스 그룹 개수]
   count:

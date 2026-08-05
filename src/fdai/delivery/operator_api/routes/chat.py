@@ -548,7 +548,9 @@ def make_chat_route(
         )
         if inventory_screen_scope_resolution is not None:
             view_context["_inventory_screen_scope"] = inventory_screen_scope_resolution.to_context()
-        compiled_inventory = compile_inventory_query(evidence_prompt)
+        compiled_inventory = (
+            compile_inventory_query(evidence_prompt) if tool_resolver is not None else None
+        )
         semantic_inventory_completion = compiled_inventory is not None and (
             inventory_query_requires_semantic_completion(compiled_inventory, prompt=evidence_prompt)
         )

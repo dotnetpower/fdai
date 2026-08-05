@@ -43,7 +43,7 @@ def build_production_catalog_search(
     enabled = env.get(_ENABLED_ENV, "1").strip().casefold() not in {"0", "false", "no", "off"}
     inventory_semantic_enabled = env.get(
         _INVENTORY_SEMANTIC_ENABLED_ENV,
-        "1",
+        "1" if enabled else "0",
     ).strip().casefold() not in {"0", "false", "no", "off"}
     endpoint = env.get(_ENDPOINT_ENV, "").strip()
     deployment = env.get(_DEPLOYMENT_ENV, "").strip()

@@ -260,6 +260,8 @@ def inventory_query_requires_semantic_completion(
         return False
     if lexical.has(lexical.registry.query_kinds, "list", prompt):
         return False
+    if lexical.has(lexical.registry.signals, "bounded_read", prompt):
+        return False
     if lexical.has(lexical.registry.signals, "state_inspection", prompt):
         return False
     if lexical.has(lexical.registry.signals, "unfiltered", prompt):
