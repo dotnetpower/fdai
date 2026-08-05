@@ -299,7 +299,10 @@
           } else if (age > FADE_1_MS) {
             if (t.el.getAttribute("data-fade") !== "1") t.el.setAttribute("data-fade", "1");
           }
-          if (now >= t.retiresAt) retire(t);
+          if (now >= t.retiresAt && !paused) {
+            retire(t);
+            spawn(now);
+          }
         }
       }
 
