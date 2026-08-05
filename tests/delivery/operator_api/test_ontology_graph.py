@@ -190,7 +190,11 @@ def test_inventory_function_projection_rejects_invalid_semantic_candidate() -> N
 
 @pytest.mark.parametrize(
     "resources, matched_count",
-    (([object()], 1), ([{"name": "vm-a", "type": "compute.vm"}], 2)),
+    (
+        ([object()], 1),
+        ([{"name": "vm-a", "type": "compute.vm"}], 2),
+        ([{"name": f"vm-{index}", "type": "compute.vm"} for index in range(41)], 41),
+    ),
 )
 def test_inventory_function_projection_rejects_lossy_resource_evidence(
     resources: list[object],
