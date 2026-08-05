@@ -411,6 +411,8 @@ def make_chat_route(
         prompt = body.get("prompt")
         if not isinstance(prompt, str) or not prompt.strip():
             raise HTTPException(status_code=400, detail="prompt MUST be a non-empty string")
+        session_id = _session_id(body)
+        request_id = _request_id(body)
         view_context = body.get("view_context")
         if view_context is None:
             view_context = {}
@@ -425,7 +427,7 @@ def make_chat_route(
         # client-supplied one, then set it from the parsed inline images.
         view_context.pop("_attachments", None)
         try:
-            vision_attachments = parse_vision_attachments(body)
+            vision_attachments = parse_vision_attachments(body, request_id=request_id)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         if vision_attachments:
@@ -448,8 +450,6 @@ def make_chat_route(
             _reject_direct_override(clean_prompt)
         except ChatContentPolicyError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-        session_id = _session_id(body)
-        request_id = _request_id(body)
         if conversation_history_store is not None:
             try:
                 replay_stage = await content_policy_replay_stage(

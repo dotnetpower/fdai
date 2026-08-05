@@ -181,19 +181,19 @@ def _unique_name(name: str, used: set[str]) -> str:
     return candidate
 
 
-def _attachment_id(raw: Any, *, body: dict[str, Any], index: int, content: bytes) -> str:
+def _attachment_id(raw: Any, *, request_id: str, index: int, content: bytes) -> str:
     if raw is not None:
         if not isinstance(raw, str) or _ATTACHMENT_ID.fullmatch(raw) is None:
             raise ValueError("attachment id is invalid")
         return raw
-    request_id = body.get("request_id")
-    seed = f"{request_id if isinstance(request_id, str) else ''}:{index}:".encode() + content
+    seed = f"{request_id}:{index}:".encode() + content
     return f"att-{hashlib.sha256(seed).hexdigest()[:40]}"
 
 
 def parse_vision_attachments(
     body: dict[str, Any],
     *,
+    request_id: str = "compatibility-request",
     max_images: int = DEFAULT_MAX_IMAGES,
     max_image_bytes: int = DEFAULT_MAX_IMAGE_BYTES,
     max_image_edge: int = DEFAULT_MAX_IMAGE_EDGE,
@@ -252,7 +252,7 @@ def parse_vision_attachments(
             )
         attachment_id = _attachment_id(
             item.get("id"),
-            body=body,
+            request_id=request_id,
             index=index,
             content=decoded,
         )

@@ -47,6 +47,15 @@ def test_no_attachments_returns_empty() -> None:
     assert parse_vision_attachments({"attachments": None}) == []
 
 
+def test_synthesized_ids_are_scoped_to_the_normalized_request() -> None:
+    body = {"attachments": [_attachment("image/png", _PNG)]}
+
+    first = parse_vision_attachments(body, request_id="request-first")
+    second = parse_vision_attachments(body, request_id="request-second")
+
+    assert first[0].attachment_id != second[0].attachment_id
+
+
 def test_parses_each_allowed_raster_type() -> None:
     body = {
         "attachments": [
