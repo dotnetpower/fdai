@@ -125,7 +125,9 @@ eight workers, and fails the plan if selection is incomplete or any delete fails
 When the development operations gateway is selected, Terraform targets that Function, core, Operator API,
 ingestion, operational canary, inventory reconciliation Job, realtime inventory publishers, and their
 dependency graphs. This keeps the Job's image and required shared runtime configuration converged while
-unrelated runtime-resource changes stay outside the plan.
+unrelated runtime-resource changes stay outside the plan. The target set includes both source and
+destination addresses from active Terraform `moved` blocks, and the workflow contract test keeps
+those addresses synchronized so state migrations cannot invalidate a protected plan.
 Terraform uses the reader managed identity for host and deployment storage; the workflow removes
 Flex-generated shared-key overrides before publishing. It grants `Storage Blob Data Owner` for the host
 and a separate idempotency role. Easy Auth admits only the core executor client before principal checks.

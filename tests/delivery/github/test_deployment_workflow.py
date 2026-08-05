@@ -346,6 +346,19 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
         "-target=azurerm_eventgrid_system_topic_event_subscription.inventory_resource_changes[0]"
         in workflow
     )
+    for moved_target in (
+        "azurerm_role_assignment.operator_api_acr_pull",
+        "azurerm_role_assignment.operator_api_kv_secrets_user",
+        "azurerm_role_assignment.operator_api_reader",
+        "azurerm_role_assignment.read_api_acr_pull",
+        "azurerm_role_assignment.read_api_kv_secrets_user",
+        "azurerm_role_assignment.read_api_reader",
+        "module.operator_api_identity[0].azurerm_user_assigned_identity.primary",
+        "module.read_api[0].azurerm_container_app.read_api",
+        "module.read_api[0].azurerm_container_app_job.migrate",
+        "module.read_api_identity[0].azurerm_user_assigned_identity.primary",
+    ):
+        assert f"-target={moved_target}" in workflow
     assert "Build development operations gateway source artifact" in workflow
     assert 'source = Path("../delivery/dev_operations_gateway")' in workflow
     assert "source_artifact_digest" in workflow

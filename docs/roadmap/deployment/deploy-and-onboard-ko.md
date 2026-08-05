@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 8cfa0ee8d18d87195478b948f61e1556e9ac79b4
-translation_revised: 2026-08-03
+translation_source_sha: 8e5e0680250113dc38b4e53ce711a5daed3af0b2
+translation_revised: 2026-08-05
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
@@ -129,7 +129,10 @@ preflight, claim, receipt blob만 선택합니다. 1001개 미만을 scan하고 
 Development operations gateway를 선택하면 Terraform은 해당 Function, core, Operator API,
 ingestion, operational canary, inventory reconciliation Job, realtime inventory publisher 및 해당
 dependency graph를 target합니다. 이렇게 하면 관련 없는 runtime resource 변경은 plan에서
-제외하면서 Job image와 required shared runtime config를 수렴 상태로 유지합니다. Terraform은 host와 deployment
+제외하면서 Job image와 required shared runtime config를 수렴 상태로 유지합니다. Target set에는
+활성 Terraform `moved` block의 source 및 destination address가 모두 포함됩니다. Workflow contract
+test는 이 address를 동기화하여 state migration 때문에 protected plan이 무효화되지 않도록 합니다.
+Terraform은 host와 deployment
 storage에 reader managed identity를 사용하며 workflow는 publish 전에 Flex-generated exact shared-key
 override를 제거합니다. 해당 identity에는 host용 `Storage Blob Data Owner`와 idempotency용 contributor
 grant를 별도로 부여합니다. Function `site_config`는 Application Insights를 단독 관리하며 Easy Auth는
