@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from starlette.requests import Request
 from starlette.routing import BaseRoute
 
-from fdai.delivery.operator_api.app.config import OperatorApiConfig
+from fdai.delivery.operator_api.app.composition import StreamRouteBindings
 from fdai.delivery.operator_api.streaming.agent_activity_emitter import (
     SyntheticAgentActivityEmitter,
 )
@@ -39,7 +39,7 @@ class StreamLifecycles:
 def append_stream_routes(
     routes: list[BaseRoute],
     *,
-    config: OperatorApiConfig,
+    bindings: StreamRouteBindings,
     authorize: Callable[[Request], Awaitable[str]],
     core_paths: Collection[str],
     panel_paths: Collection[str],
@@ -47,8 +47,8 @@ def append_stream_routes(
     """Append configured SSE routes in live, provision, agent order."""
     live_emitter: LiveEmitter | None = None
     live_broadcaster: LiveStageProducer | None = None
-    if config.live_stream is not None:
-        live_cfg = config.live_stream
+    if bindings.live_stream is not None:
+        live_cfg = bindings.live_stream
         _ensure_available(live_cfg.path, "live_stream.path", core_paths, panel_paths)
         live_sink = live_cfg.sink if live_cfg.sink is not None else InMemorySseSink()
         if live_cfg.broadcaster_factory is not None:
@@ -69,10 +69,10 @@ def append_stream_routes(
             )
         )
 
-    if config.provision_stream is not None:
-        provision_cfg = config.provision_stream
+    if bindings.provision_stream is not None:
+        provision_cfg = bindings.provision_stream
         _ensure_available(provision_cfg.path, "provision_stream.path", core_paths, panel_paths)
-        if config.live_stream is not None and provision_cfg.path == config.live_stream.path:
+        if bindings.live_stream is not None and provision_cfg.path == bindings.live_stream.path:
             raise ValueError(
                 f"provision_stream.path {provision_cfg.path!r} collides with the live-stream route"
             )
@@ -89,10 +89,10 @@ def append_stream_routes(
 
     agent_emitter: SyntheticAgentActivityEmitter | None = None
     agent_broadcaster: AgentActivityProducer | None = None
-    if config.agent_activity is not None:
-        agent_cfg = config.agent_activity
+    if bindings.agent_activity is not None:
+        agent_cfg = bindings.agent_activity
         _ensure_available(agent_cfg.path, "agent_activity.path", core_paths, panel_paths)
-        for other in (config.live_stream, config.provision_stream):
+        for other in (bindings.live_stream, bindings.provision_stream):
             if other is not None and agent_cfg.path == other.path:
                 raise ValueError(
                     f"agent_activity.path {agent_cfg.path!r} collides with another SSE route"

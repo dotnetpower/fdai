@@ -81,6 +81,28 @@ select provider scope, or receive Thor's identity. HTTP status mapping, SSE sequ
 headers, route names, authorization, and cancellation transport remain route-owned. Bragi remains
 the presentation translator, and authority-bearing agent work continues through typed pub/sub.
 
+### Immutable app composition
+
+Issue 72 keeps `OperatorApiConfig(**kwargs)` as the bounded compatibility constructor and projects
+it through `split()` before any route registration. `OperatorApiValues` contains only inert,
+environment-derived values. `OperatorApiRuntimeBindings` groups process-local dependencies into
+stream, projection, lifecycle, read-view, conversation, governed-route, and fixed-HTTP records.
+Each registration function receives only its capability record rather than the legacy aggregate.
+
+All records are frozen. Mapping inputs are copied into read-only views, and intentionally shared
+providers must reference the same object across their consumers. `OperatorApiComposition.validate()`
+checks those shared references and required cross-group pairs before a route is appended or a
+lifecycle callback starts. The records contain neither raw provider credentials nor Thor's
+executor identity. Production and interactive local composition continue to build the same legacy
+constructor and enter the same split and validation boundary, so no synthetic production fallback
+or venue-specific route model is introduced.
+
+Route methods, paths, names, registration order, authorization, CORS, response payloads, and
+availability defaults remain unchanged. Rollback moves the immutable record definitions and
+validation back into `app/config.py`, removes `app/composition.py`, and leaves the legacy
+constructor, `split()` mapping, public `main` facade, and registration signatures intact. This
+reverses physical ownership without a wire or caller migration.
+
 | Package | Current responsibility | Migration rule |
 |---------|------------------------|----------------|
 | Root | Public facades and foundational contracts | Preserve until a classified replacement exists. |

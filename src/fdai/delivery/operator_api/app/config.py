@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Any
 
 from fdai.core.conversation_assurance import ConversationAssuranceLedger
@@ -20,6 +21,19 @@ from fdai.delivery.operator_api.streaming.provision_stream import ProvisionStrea
 from fdai.shared.providers.conversation_delivery import ConversationDeliveryStore
 from fdai.shared.providers.hil_registry import HilApprovalRegistry
 from fdai.shared.telemetry import ConversationProgressMetrics
+
+from .composition import (
+    ConversationRouteBindings,
+    GovernedRouteBindings,
+    HttpSurfaceBindings,
+    LifecycleBindings,
+    OperatorApiComposition,
+    OperatorApiRuntimeBindings,
+    OperatorApiValues,
+    ProjectionRouteBindings,
+    ReadViewBindings,
+    StreamRouteBindings,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -598,5 +612,170 @@ class OperatorApiConfig:
     response is a bounded RenderedView projection selected by Workflow ref;
     no ontology layout or workflow decision is computed in the browser."""
 
+    def __post_init__(self) -> None:
+        """Defensively freeze legacy mapping inputs before capability splitting."""
+        if self.local_cli_profile is not None:
+            object.__setattr__(
+                self,
+                "local_cli_profile",
+                MappingProxyType(dict(self.local_cli_profile)),
+            )
+        object.__setattr__(
+            self,
+            "iam_role_group_ids",
+            MappingProxyType(dict(self.iam_role_group_ids)),
+        )
+        object.__setattr__(
+            self,
+            "what_if_evaluators",
+            MappingProxyType(dict(self.what_if_evaluators)),
+        )
 
-__all__ = ["OperatorApiConfig"]
+    def split(self) -> OperatorApiComposition:
+        """Project legacy keyword construction into owned immutable groups."""
+        return OperatorApiComposition(
+            values=OperatorApiValues(
+                dev_mode=self.dev_mode,
+                local_cli_profile=self.local_cli_profile,
+                cors_allow_origins=self.cors_allow_origins,
+                conversation_delivery_source=self.conversation_delivery_source,
+                webhook_path=self.webhook_path,
+                chat_probe_interval_seconds=self.chat_probe_interval_seconds,
+                iam_identity_provider=self.iam_identity_provider,
+                iam_role_group_ids=self.iam_role_group_ids,
+                expose_pantheon=self.expose_pantheon,
+            ),
+            bindings=OperatorApiRuntimeBindings(
+                streams=StreamRouteBindings(
+                    live_stream=self.live_stream,
+                    provision_stream=self.provision_stream,
+                    agent_activity=self.agent_activity,
+                ),
+                projections=ProjectionRouteBindings(
+                    blast_radius_graph=self.blast_radius_graph,
+                    ontology_object_types=self.ontology_object_types,
+                    ontology_link_types=self.ontology_link_types,
+                    ontology_action_types=self.ontology_action_types,
+                    ontology_function_types=self.ontology_function_types,
+                    operating_model_status_reader=self.operating_model_status_reader,
+                    inventory_graph_provider=self.inventory_graph_provider,
+                    detection_readiness_reader=self.detection_readiness_reader,
+                    best_practice_controls=self.best_practice_controls,
+                    mcsb_catalogs=self.mcsb_catalogs,
+                    rule_catalog_rules=self.rule_catalog_rules,
+                    rule_catalog_collected_rules=self.rule_catalog_collected_rules,
+                    rule_catalog_policies_root=self.rule_catalog_policies_root,
+                    rule_catalog_remediation_root=self.rule_catalog_remediation_root,
+                    rule_catalog_findings_provider=self.rule_catalog_findings_provider,
+                    rule_catalog_findings_summary_provider=(
+                        self.rule_catalog_findings_summary_provider
+                    ),
+                    rule_catalog_semantic_index=self.rule_catalog_semantic_index,
+                    promotion_gate_action_types=self.promotion_gate_action_types,
+                    promotion_gate_source=self.promotion_gate_source,
+                    scope_source=self.scope_source,
+                    stewardship_map=self.stewardship_map,
+                    stewardship_health_reader=self.stewardship_health_reader,
+                    workflow_authoring=self.workflow_authoring,
+                    workflow_execution=self.workflow_execution,
+                    python_tasks=self.python_tasks,
+                ),
+                lifecycle=LifecycleBindings(
+                    startup_callbacks=self.startup_callbacks,
+                    shutdown_callbacks=self.shutdown_callbacks,
+                    chat_backend=self.chat,
+                    web_search_resolver=self.chat_web_search,
+                ),
+                read_views=ReadViewBindings(
+                    reporting=self.reporting,
+                    process_views=self.process_views,
+                    trace_reader=self.trace_reader,
+                    bitemporal_reader=self.bitemporal_reader,
+                    what_if_reader=self.what_if_reader,
+                    what_if_evaluators=self.what_if_evaluators,
+                ),
+                conversation=ConversationRouteBindings(
+                    chat=self.chat,
+                    skill_disclosure=self.skill_disclosure,
+                    knowledge_context=self.knowledge_context,
+                    configuration_drift_context=self.configuration_drift_context,
+                    busy_input_runtime=self.busy_input_runtime,
+                    conversation_progress_metrics=self.conversation_progress_metrics,
+                    chat_agent_delegate=self.chat_agent_delegate,
+                    chat_web_search=self.chat_web_search,
+                    conversation_policy_store=self.conversation_policy_store,
+                    conversation_assurance_runtime=self.conversation_assurance_runtime,
+                    conversation_history_store=self.conversation_history_store,
+                    conversation_search=self.conversation_search,
+                    llm_usage_reader=self.llm_usage_reader,
+                    inventory_graph_provider=self.inventory_graph_provider,
+                    inventory_semantic_resolver=self.inventory_semantic_resolver,
+                    inventory_activity_provider=self.inventory_activity_provider,
+                    kubernetes_workload_provider=self.kubernetes_workload_provider,
+                    detection_readiness_reader=self.detection_readiness_reader,
+                    t2_recovery_reader=self.t2_recovery_reader,
+                    subscription_health_provider=self.subscription_health_provider,
+                    log_query_provider=self.log_query_provider,
+                    network_reachability_provider=self.network_reachability_provider,
+                    data_sources=self.data_sources,
+                    post_turn_review_submitter=self.post_turn_review_submitter,
+                    chat_document_evidence=self.chat_document_evidence,
+                    user_context_ontology_projector=self.user_context_ontology_projector,
+                    model_settings=self.model_settings,
+                    console_action=self.console_action,
+                    handover_availability_publisher=self.handover_availability_publisher,
+                    extra_panels=self.extra_panels,
+                    user_context=self.user_context,
+                ),
+                governed=GovernedRouteBindings(
+                    handover_goals=self.handover_goals,
+                    task_worker_store=self.task_worker_store,
+                    background_tasks=self.background_tasks,
+                    read_investigations=self.read_investigations,
+                    trajectory_datasets=self.trajectory_datasets,
+                    skill_sources=self.skill_sources,
+                    model_settings=self.model_settings,
+                    runtime_settings=self.runtime_settings,
+                    workflow_definitions=self.workflow_definitions,
+                ),
+                http=HttpSurfaceBindings(
+                    local_cli_principal=self.local_cli_principal,
+                    extra_panels=self.extra_panels,
+                    data_sources=self.data_sources,
+                    authoritative_read_proxy=self.authoritative_read_proxy,
+                    conversation_delivery_store=self.conversation_delivery_store,
+                    conversation_progress_metrics=self.conversation_progress_metrics,
+                    conversation_assurance_ledger=self.conversation_assurance_ledger,
+                    conversation_history_store=self.conversation_history_store,
+                    configuration_review_runtime=self.configuration_review_runtime,
+                    automation_blueprint_review=self.automation_blueprint_review,
+                    kill_switch_command=self.kill_switch_command,
+                    iam_access=self.iam_access,
+                    iam_directory=self.iam_directory,
+                    human_assignments=self.human_assignments,
+                    execution_access_grants=self.execution_access_grants,
+                    stewardship_map=self.stewardship_map,
+                    hil_callback=self.hil_callback,
+                    hil_registry=self.hil_registry,
+                    hil_coordinator=self.hil_coordinator,
+                    hil_decision_publisher=self.hil_decision_publisher,
+                    webhook_ingress=self.webhook_ingress,
+                    console_action=self.console_action,
+                ),
+            ),
+        )
+
+
+__all__ = [
+    "ConversationRouteBindings",
+    "GovernedRouteBindings",
+    "HttpSurfaceBindings",
+    "LifecycleBindings",
+    "OperatorApiComposition",
+    "OperatorApiConfig",
+    "OperatorApiRuntimeBindings",
+    "OperatorApiValues",
+    "ProjectionRouteBindings",
+    "ReadViewBindings",
+    "StreamRouteBindings",
+]

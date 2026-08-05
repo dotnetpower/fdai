@@ -69,6 +69,7 @@ from fdai.delivery.operator_api.routes.panels import (
     ReadPanel,
     append_read_panels,
 )
+from fdai.delivery.operator_api.routes.pantheon import append_pantheon_routes
 from fdai.delivery.operator_api.routes.webhook import make_webhook_route
 
 _LOGGER = logging.getLogger(__name__)
@@ -127,7 +128,12 @@ def build_app(
     registering* any mutating route.
     """
     resolved_config = config or OperatorApiConfig()
-    if resolved_config.dev_mode and os.environ.get(_DEV_MODE_ENV) != "1":
+    composition = resolved_config.split()
+    composition.validate()
+    values = composition.values
+    bindings = composition.bindings
+    http = bindings.http
+    if values.dev_mode and os.environ.get(_DEV_MODE_ENV) != "1":
         raise ValueError(
             "OperatorApiConfig.dev_mode=True but "
             f"{_DEV_MODE_ENV} is not set; refusing to build a dev-mode app "
@@ -137,7 +143,7 @@ def build_app(
     # AND FDAI_OPERATOR_API_DEV_MODE=1 in staging / prod, we refuse to boot.
     # Auth-off in staging / prod is a security-critical misconfiguration,
     # not a warning-level condition.
-    if resolved_config.dev_mode:
+    if values.dev_mode:
         runtime_env = os.environ.get("RUNTIME_ENV", "").strip().lower()
         if runtime_env in ("staging", "prod"):
             raise ValueError(
@@ -145,12 +151,12 @@ def build_app(
                 "The Operator API MUST require signed Entra tokens outside dev."
             )
 
-    local_cli_principal = resolved_config.local_cli_principal
-    local_cli_profile = resolved_config.local_cli_profile
+    local_cli_principal = http.local_cli_principal
+    local_cli_profile = values.local_cli_profile
     local_cli_enabled = local_cli_principal is not None
     if local_cli_enabled != (local_cli_profile is not None):
         raise ValueError("local_cli_principal and local_cli_profile MUST be configured together")
-    if local_cli_enabled and resolved_config.dev_mode:
+    if local_cli_enabled and values.dev_mode:
         raise ValueError("local Azure CLI auth and dev_mode MUST NOT be enabled together")
     if local_cli_enabled and os.environ.get(_LOCAL_AZURE_CLI_ENV) != "1":
         raise ValueError(
@@ -169,7 +175,7 @@ def build_app(
     # with any future credentialed request is a cross-origin data leak;
     # the doc already says "MUST NOT be ('*',) in production" but the
     # code enforces it here so a bad tfvars can never ship.
-    if "*" in resolved_config.cors_allow_origins:
+    if "*" in values.cors_allow_origins:
         runtime_env = os.environ.get("RUNTIME_ENV", "").strip().lower()
         if runtime_env in ("staging", "prod"):
             raise ValueError(
@@ -191,7 +197,7 @@ def build_app(
 
     async def _authorize(request: Request) -> str:
         """Return the caller's ``oid`` (or ``dev-anon``) or raise 401/403."""
-        if resolved_config.dev_mode:
+        if values.dev_mode:
             return _dev_request_principal(request, require_console_access=True).oid
         if local_cli_principal is not None:
             return local_cli_principal.oid
@@ -208,7 +214,7 @@ def build_app(
         Contributor ceiling. Dev mode is refused outside local by
         :func:`build_app`.
         """
-        if resolved_config.dev_mode:
+        if values.dev_mode:
             return _dev_request_principal(request, require_console_access=True)
         if local_cli_principal is not None:
             return local_cli_principal
@@ -217,7 +223,7 @@ def build_app(
 
     async def _authenticate_principal(request: Request) -> Principal:
         """Authenticate a caller without requiring an assigned App Role."""
-        if resolved_config.dev_mode:
+        if values.dev_mode:
             return _dev_request_principal(request, require_console_access=False)
         if local_cli_principal is not None:
             return local_cli_principal
@@ -284,12 +290,12 @@ def build_app(
             read_model=read_model,
             authorize_oid=_authorize,
             authorize_principal=_authorize_principal,
-            dev_mode=resolved_config.dev_mode,
+            dev_mode=values.dev_mode,
         )
     )
     routes.append(
         make_data_sources_route(
-            sources=resolved_config.data_sources,
+            sources=http.data_sources,
             authorize=_authorize,
         )
     )
@@ -310,80 +316,80 @@ def build_app(
         )
     )
 
-    if resolved_config.conversation_assurance_ledger is not None:
+    if http.conversation_assurance_ledger is not None:
         from fdai.delivery.operator_api.routes.conversation_assurance import (
             make_conversation_assurance_routes,
         )
 
         routes.extend(
             make_conversation_assurance_routes(
-                ledger=resolved_config.conversation_assurance_ledger,
+                ledger=http.conversation_assurance_ledger,
                 authorize=_authorize,
-                conversation_store=resolved_config.conversation_history_store,
+                conversation_store=http.conversation_history_store,
             )
         )
 
-    if resolved_config.configuration_review_runtime is not None:
+    if http.configuration_review_runtime is not None:
         from fdai.delivery.operator_api.routes.configuration_review import (
             make_configuration_review_routes,
         )
 
         routes.extend(
             make_configuration_review_routes(
-                runtime=resolved_config.configuration_review_runtime,
+                runtime=http.configuration_review_runtime,
                 authorize=_authorize_automation_principal,
             )
         )
 
-    if resolved_config.automation_blueprint_review is not None:
+    if http.automation_blueprint_review is not None:
         from fdai.delivery.operator_api.routes.automation_blueprints import (
             make_automation_blueprint_review_routes,
         )
 
         routes.extend(
             make_automation_blueprint_review_routes(
-                service=resolved_config.automation_blueprint_review,
+                service=http.automation_blueprint_review,
                 authorize=_authorize_automation_principal,
             )
         )
 
-    if resolved_config.kill_switch_command is not None:
+    if http.kill_switch_command is not None:
         from fdai.delivery.operator_api.routes.kill_switch import make_kill_switch_route
 
         routes.append(
             make_kill_switch_route(
-                service=resolved_config.kill_switch_command,
+                service=http.kill_switch_command,
                 authorize_principal=_authorize_principal,
             )
         )
 
-    if resolved_config.iam_access is not None:
+    if http.iam_access is not None:
         append_iam_routes(
             routes,
-            service=resolved_config.iam_access,
+            service=http.iam_access,
             authorize=_authorize_principal,
             authenticate=_authenticate_principal,
-            directory=resolved_config.iam_directory,
-            identity_provider=resolved_config.iam_identity_provider,
-            role_group_ids=dict(resolved_config.iam_role_group_ids),
+            directory=http.iam_directory,
+            identity_provider=values.iam_identity_provider,
+            role_group_ids=dict(values.iam_role_group_ids),
         )
 
-    if resolved_config.human_assignments is not None:
+    if http.human_assignments is not None:
         from fdai.delivery.operator_api.routes.human_assignments import (
             append_human_assignment_routes,
         )
 
         append_human_assignment_routes(
             routes,
-            service=resolved_config.human_assignments,
+            service=http.human_assignments,
             authorize=_authorize_principal,
-            directory=resolved_config.iam_directory,
-            stewardship_map=resolved_config.stewardship_map,
-            identity_provider=resolved_config.iam_identity_provider,
-            role_group_ids=dict(resolved_config.iam_role_group_ids),
+            directory=http.iam_directory,
+            stewardship_map=http.stewardship_map,
+            identity_provider=values.iam_identity_provider,
+            role_group_ids=dict(values.iam_role_group_ids),
         )
 
-    if resolved_config.execution_access_grants is not None:
+    if http.execution_access_grants is not None:
         from fdai.delivery.operator_api.routes.access_grant_decision import (
             make_access_grant_decision_route,
         )
@@ -393,26 +399,26 @@ def build_app(
 
         routes.append(
             make_access_grant_stream_route(
-                service=resolved_config.execution_access_grants,
+                service=http.execution_access_grants,
                 authorize=_authorize_principal,
             )
         )
         routes.append(
             make_access_grant_decision_route(
-                service=resolved_config.execution_access_grants,
+                service=http.execution_access_grants,
                 authorize=_authorize_principal,
             )
         )
 
     append_local_auth_route(routes, profile=local_cli_profile)
-    extra_panels = resolved_config.extra_panels
-    if resolved_config.conversation_delivery_store is not None:
+    extra_panels = http.extra_panels
+    if http.conversation_delivery_store is not None:
         extra_panels = (
             *extra_panels,
             ConversationDeliveryPanel(
-                store=resolved_config.conversation_delivery_store,
-                source=resolved_config.conversation_delivery_source,
-                progress_metrics=resolved_config.conversation_progress_metrics,
+                store=http.conversation_delivery_store,
+                source=values.conversation_delivery_source,
+                progress_metrics=http.conversation_progress_metrics,
             ),
         )
     seen_panel_paths = append_read_panels(
@@ -429,33 +435,33 @@ def build_app(
     # Optional HIL callback POST route (Wave W1.3). Fails fast if the
     # config declares a callback but not a registry - the config error
     # MUST NOT reach a live deployment.
-    if resolved_config.hil_callback is not None:
-        if resolved_config.hil_registry is None:
+    if http.hil_callback is not None:
+        if http.hil_registry is None:
             raise ValueError(
                 "hil_callback set but hil_registry is None; "
                 "both are required to enable the POST callback route"
             )
         routes.append(
             make_hil_callback_route(
-                registry=resolved_config.hil_registry,
-                config=resolved_config.hil_callback,
-                coordinator=resolved_config.hil_coordinator,
-                decision_publisher=resolved_config.hil_decision_publisher,
+                registry=http.hil_registry,
+                config=http.hil_callback,
+                coordinator=http.hil_coordinator,
+                decision_publisher=http.hil_decision_publisher,
             )
         )
 
     # Optional inbound webhook POST route (P2-7). Fronts the transport-
     # agnostic WebhookIngress; authenticates + injects an event, never
     # executes a change. Default composition has no webhook surface.
-    if resolved_config.webhook_ingress is not None:
-        webhook_path = resolved_config.webhook_path
+    if http.webhook_ingress is not None:
+        webhook_path = values.webhook_path
         if webhook_path in _CORE_ROUTE_PATHS:
             raise ValueError(f"webhook_path {webhook_path!r} collides with a core route")
         if webhook_path in seen_panel_paths:
             raise ValueError(f"webhook_path {webhook_path!r} collides with a panel path")
         routes.append(
             make_webhook_route(
-                ingress=resolved_config.webhook_ingress,
+                ingress=http.webhook_ingress,
                 path=webhook_path,
             )
         )
@@ -466,7 +472,7 @@ def build_app(
     # the route below is one of that sink's consumers.
     stream_lifecycles = append_stream_routes(
         routes,
-        config=resolved_config,
+        bindings=bindings.streams,
         authorize=_authorize,
         core_paths=_CORE_ROUTE_PATHS,
         panel_paths=seen_panel_paths,
@@ -474,16 +480,25 @@ def build_app(
 
     append_projection_routes(
         routes,
-        config=resolved_config,
+        bindings=bindings.projections,
         authorize=_authorize,
         authorize_principal=_authorize_principal,
         core_paths=_CORE_ROUTE_PATHS,
         panel_paths=seen_panel_paths,
     )
+    append_pantheon_routes(
+        routes,
+        values.expose_pantheon,
+        _authorize,
+        _CORE_ROUTE_PATHS,
+        seen_panel_paths,
+    )
 
     auxiliary_registration.append_auxiliary_routes(
         routes,
-        config=resolved_config,
+        read_views=bindings.read_views,
+        conversation=bindings.conversation,
+        governed=bindings.governed,
         authorize=_authorize,
         authorize_principal=_authorize_principal,
         read_model=read_model,
@@ -496,7 +511,7 @@ def build_app(
 
     append_console_action_route(
         routes,
-        submitter=resolved_config.console_action,
+        submitter=http.console_action,
         authorize_principal=_authorize_principal,
         core_paths=_CORE_ROUTE_PATHS,
         logger=_LOGGER,
@@ -511,21 +526,21 @@ def build_app(
             _SecurityHeadersMiddleware,
         )
     )
-    if resolved_config.cors_allow_origins:
+    if values.cors_allow_origins:
         # Derive the allow-list from routes so opt-in user-owned PUT / DELETE
         # surfaces cannot drift from CORS while absent methods stay closed.
         allow_methods = auxiliary_registration.registered_cors_methods(routes)
         middleware.append(
             Middleware(
                 CORSMiddleware,
-                allow_origins=list(resolved_config.cors_allow_origins),
+                allow_origins=list(values.cors_allow_origins),
                 allow_methods=allow_methods,
                 allow_headers=["authorization", "content-type"],
                 allow_credentials=False,
             )
         )
 
-    if resolved_config.authoritative_read_proxy is not None:
+    if http.authoritative_read_proxy is not None:
         from fdai.delivery.operator_api.app.authoritative_proxy import (
             AuthoritativeReadProxyMiddleware,
         )
@@ -533,12 +548,13 @@ def build_app(
         middleware.append(
             Middleware(
                 AuthoritativeReadProxyMiddleware,
-                proxy=resolved_config.authoritative_read_proxy,
+                proxy=http.authoritative_read_proxy,
             )
         )
 
     lifespan = build_lifespan(
-        config=resolved_config,
+        bindings=bindings.lifecycle,
+        chat_probe_interval_seconds=values.chat_probe_interval_seconds,
         live_emitter=stream_lifecycles.live_emitter,
         live_broadcaster=stream_lifecycles.live_broadcaster,
         agent_emitter=stream_lifecycles.agent_emitter,

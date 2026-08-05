@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: ae16030bd5cf8dbfaadabdc16998980776d50fa0
+translation_source_sha: 819aa6ceb3c7d7c2789ae6e8798ad8299e9b7952
 translation_revised: 2026-08-06
 ---
 # Operator Console Module Map and Boundaries
@@ -81,6 +81,26 @@ Service는 non-authoritative이며 call 사이에 state를 유지하지 않습�
 provider scope 선택을 수행할 수 없고 Thor identity를 받을 수 없습니다. HTTP status mapping, SSE
 sequence/revision, header, route name, authorization 및 cancellation transport는 route가 계속 소유합니다.
 Bragi는 presentation translator로 유지되고 authority-bearing agent work는 typed pub/sub을 계속 사용합니다.
+
+### Immutable app composition
+
+Issue 72는 `OperatorApiConfig(**kwargs)`를 bounded compatibility constructor로 유지하고 route를 등록하기
+전에 `split()`으로 projection합니다. `OperatorApiValues`에는 inert environment-derived value만 포함됩니다.
+`OperatorApiRuntimeBindings`는 process-local dependency를 stream, projection, lifecycle, read-view,
+conversation, governed-route 및 fixed-HTTP record로 그룹화합니다. 각 registration function은 legacy
+aggregate 대신 자신이 소유한 capability record만 받습니다.
+
+모든 record는 frozen입니다. Mapping input은 read-only view로 복사되며, 의도적으로 공유하는 provider는
+consumer 전체에서 같은 object를 참조해야 합니다. `OperatorApiComposition.validate()`는 route를 추가하거나
+lifecycle callback을 시작하기 전에 shared reference와 필수 cross-group pair를 검사합니다. Record에는 raw
+provider credential 또는 Thor executor identity가 없습니다. Production과 interactive local composition은
+계속 같은 legacy constructor를 만들고 동일한 split 및 validation boundary로 진입하므로 synthetic
+production fallback이나 venue-specific route model을 추가하지 않습니다.
+
+Route method, path, name, registration order, authorization, CORS, response payload 및 availability default는
+변경하지 않습니다. Rollback은 immutable record definition과 validation을 `app/config.py`로 다시 옮기고
+`app/composition.py`를 제거하며 legacy constructor, `split()` mapping, public `main` facade 및 registration
+signature를 그대로 유지합니다. 이 절차는 wire 또는 caller migration 없이 physical ownership을 되돌립니다.
 
 | Package | 현재 책임 | Migration 규칙 |
 |---------|-----------|----------------|

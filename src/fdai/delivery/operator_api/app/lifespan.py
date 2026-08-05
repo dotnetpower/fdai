@@ -9,6 +9,7 @@ from typing import Any
 
 from starlette.applications import Starlette
 
+from fdai.delivery.operator_api.app.composition import LifecycleBindings
 from fdai.delivery.operator_api.routes import chat_registration
 from fdai.shared.telemetry.correlation import with_correlation
 
@@ -30,7 +31,8 @@ async def _run_correlated_latency_probe(
 
 def build_lifespan(
     *,
-    config: Any,
+    bindings: LifecycleBindings,
+    chat_probe_interval_seconds: int,
     live_emitter: Any,
     live_broadcaster: Any,
     agent_emitter: Any,
@@ -41,7 +43,7 @@ def build_lifespan(
 
     @asynccontextmanager
     async def lifespan(_app: Starlette):  # type: ignore[no-untyped-def]
-        for callback in config.startup_callbacks:
+        for callback in bindings.startup_callbacks:
             await callback()
         if live_emitter is not None:
             await live_emitter.start()
@@ -53,8 +55,8 @@ def build_lifespan(
             await agent_broadcaster.run()
 
         probe_tasks: list[Any] = []
-        chat_backend = config.chat
-        web_search_resolver = config.chat_web_search
+        chat_backend = bindings.chat_backend
+        web_search_resolver = bindings.web_search_resolver
         web_search_ready = False
         if web_search_resolver is not None:
             verify = getattr(web_search_resolver, "verify_availability", None)
@@ -72,7 +74,7 @@ def build_lifespan(
                     _run_correlated_latency_probe(
                         chat_backend,
                         label="CommandDeck narrator router",
-                        interval_seconds=max(30, config.chat_probe_interval_seconds),
+                        interval_seconds=max(30, chat_probe_interval_seconds),
                         correlation_id="operator-api:narrator-latency-probe",
                     )
                 )
@@ -106,7 +108,7 @@ def build_lifespan(
                 await agent_emitter.stop()
             if agent_broadcaster is not None:
                 await agent_broadcaster.stop()
-            for callback in config.shutdown_callbacks:
+            for callback in bindings.shutdown_callbacks:
                 try:
                     await callback()
                 except Exception:  # noqa: BLE001 - shutdown is best-effort

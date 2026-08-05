@@ -6,6 +6,7 @@ from typing import Any
 from starlette.applications import Starlette
 
 from fdai.delivery.operator_api.app import lifespan
+from fdai.delivery.operator_api.app.composition import LifecycleBindings
 from fdai.shared.telemetry.correlation import current_correlation_id
 
 
@@ -52,15 +53,9 @@ async def test_web_search_readiness_runs_before_app_serves(monkeypatch: Any) -> 
         raise AssertionError("unavailable web search must not schedule latency probes")
 
     monkeypatch.setattr(lifespan.chat_registration, "periodic_latency_probe", unexpected_probe)
-    config = SimpleNamespace(
-        startup_callbacks=(),
-        shutdown_callbacks=(),
-        chat=None,
-        chat_web_search=WebSearch(),
-        chat_probe_interval_seconds=300,
-    )
     app_lifespan = lifespan.build_lifespan(
-        config=config,
+        bindings=LifecycleBindings(web_search_resolver=WebSearch()),
+        chat_probe_interval_seconds=300,
         live_emitter=None,
         live_broadcaster=None,
         agent_emitter=None,

@@ -609,6 +609,21 @@ def test_main_stays_declarative_public_facade() -> None:
         if isinstance(node, ast.ImportFrom)
     ]
     assert imports == [
+        (
+            "fdai.delivery.operator_api.app.composition",
+            (
+                "ConversationRouteBindings",
+                "GovernedRouteBindings",
+                "HttpSurfaceBindings",
+                "LifecycleBindings",
+                "OperatorApiComposition",
+                "OperatorApiRuntimeBindings",
+                "OperatorApiValues",
+                "ProjectionRouteBindings",
+                "ReadViewBindings",
+                "StreamRouteBindings",
+            ),
+        ),
         ("fdai.delivery.operator_api.app.config", ("OperatorApiConfig",)),
         ("fdai.delivery.operator_api.app.factory", ("build_app",)),
         (
@@ -634,7 +649,17 @@ def test_main_stays_declarative_public_facade() -> None:
     assert exported_names == [
         "BusyInputRuntime",
         "BusyInputRuntimeMetrics",
+        "ConversationRouteBindings",
+        "GovernedRouteBindings",
+        "HttpSurfaceBindings",
+        "LifecycleBindings",
+        "OperatorApiComposition",
         "OperatorApiConfig",
+        "OperatorApiRuntimeBindings",
+        "OperatorApiValues",
+        "ProjectionRouteBindings",
+        "ReadViewBindings",
+        "StreamRouteBindings",
         "build_app",
         "build_postgres_busy_input_runtime",
     ]
