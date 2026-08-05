@@ -332,96 +332,59 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   const sourceControl = workspace.locator(".deck-gr-source-status");
   const sourceButton = sourceControl.locator(".deck-gr-pill");
   const actionRow = workspace.locator(".deck-gr-actions:has(.deck-gr-pill)");
-  const reviewControl = actionRow.locator(".deck-gr-review-status");
-  const statusTrigger = reviewControl.locator(".deck-trajectory-status-trigger");
-  const trajectoryResults = statusTrigger.locator(".deck-trajectory-results");
-  const collapsedResults = await actionRow.evaluate((root) => {
+  await expect(actionRow.locator(".deck-trajectory-status-trigger")).toHaveCount(0);
+  const initialFooter = await actionRow.evaluate((root) => {
     const button = root.querySelector<HTMLElement>(".deck-gr-pill")!.getBoundingClientRect();
-    const review = root.closest(".deck-gr-actions")
-      ?.querySelector<HTMLElement>(".deck-gr-review")?.getBoundingClientRect();
-    const items = [...root.querySelectorAll<HTMLElement>(".deck-trajectory-results > span")]
-      .map((item) => item.getBoundingClientRect());
+    const review = root.querySelector<HTMLElement>(".deck-gr-review")!.getBoundingClientRect();
+    const row = root.getBoundingClientRect();
     return {
-      items: items.map((bounds) => ({
-        top: bounds.top,
-        width: bounds.width,
-        overlapsButton:
-          Math.min(bounds.right, button.right) > Math.max(bounds.left, button.left) &&
-          Math.min(bounds.bottom, button.bottom) > Math.max(bounds.top, button.top),
-        overlapsReview: review
-          ? Math.min(bounds.right, review.right) > Math.max(bounds.left, review.left) &&
-            Math.min(bounds.bottom, review.bottom) > Math.max(bounds.top, review.top)
-          : true,
-      })),
-      badgeOverlap: items.length === 2 ? items[0]!.right - items[1]!.left : 0,
+      row: { width: row.width, height: row.height },
+      button: {
+        x: button.x - row.x,
+        y: button.y - row.y,
+        width: button.width,
+        height: button.height,
+      },
+      review: {
+        x: review.x - row.x,
+        y: review.y - row.y,
+        width: review.width,
+        height: review.height,
+      },
     };
   });
-  expect(collapsedResults.items).toHaveLength(2);
-  expect(collapsedResults.items[0]?.top).toBe(collapsedResults.items[1]?.top);
-  expect(collapsedResults.items.every((item) => item.width <= 10)).toBe(true);
-  expect(collapsedResults.items.every((item) => !item.overlapsButton)).toBe(true);
-  expect(collapsedResults.items.every((item) => !item.overlapsReview)).toBe(true);
-  expect(collapsedResults.badgeOverlap).toBeGreaterThanOrEqual(1);
-  expect(collapsedResults.badgeOverlap).toBeLessThanOrEqual(3);
-  const actionRowHeight = await actionRow.evaluate(
-    (element) => element.getBoundingClientRect().height,
-  );
-  const collapsedWidths = await trajectoryResults.locator(":scope > span").evaluateAll(
-    (items) => items.map((item) => item.getBoundingClientRect().width),
-  );
   await sourceButton.hover();
   const sourceTooltip = page.locator('.app-tooltip[data-state="delayed-open"]');
   await expect(sourceTooltip).toHaveCount(1);
   await expect(sourceTooltip).toContainText("Checked against 1 evidence reference(s)");
   await expect(sourceTooltip).not.toContainText("1 read queries / 0 commands");
-  await expect(trajectoryResults).toHaveCSS("width", "18px");
   await page.waitForTimeout(250);
   await expect(sourceTooltip).toHaveCount(1);
-  expect(await statusTrigger.evaluate((element) => element.matches(":hover"))).toBe(false);
-  await expect(trajectoryResults).toHaveCSS("width", "18px");
-  await trajectoryResults.hover();
-  await expect(page.locator(
-    '.app-tooltip[data-state="delayed-open"], .app-tooltip[data-state="instant-open"]',
-  )).toHaveCount(0);
-  const hoveredWidths = await trajectoryResults.locator(":scope > span").evaluateAll(
-    (items) => items.map((item) => item.getBoundingClientRect().width),
-  );
-  expect(hoveredWidths).toEqual(collapsedWidths);
-  const stableResults = await actionRow.evaluate((root) => {
+  const hoveredFooter = await actionRow.evaluate((root) => {
     const button = root.querySelector<HTMLElement>(".deck-gr-pill")!.getBoundingClientRect();
     const review = root.querySelector<HTMLElement>(".deck-gr-review")!.getBoundingClientRect();
-    const results = root.querySelector<HTMLElement>(".deck-trajectory-results")!
-      .getBoundingClientRect();
-    const items = [...root.querySelectorAll<HTMLElement>(".deck-trajectory-results > span")];
+    const row = root.getBoundingClientRect();
     return {
-      button: { left: button.left, right: button.right },
-      review: { left: review.left, right: review.right },
-      results: { left: results.left, right: results.right },
-      overlapsSource:
-        Math.min(results.right, button.right) > Math.max(results.left, button.left) &&
-        Math.min(results.bottom, button.bottom) > Math.max(results.top, button.top),
-      overlapsReview:
-        Math.min(results.right, review.right) > Math.max(results.left, review.left) &&
-        Math.min(results.bottom, review.bottom) > Math.max(results.top, review.top),
-      widths: items.map((item) => item.getBoundingClientRect().width),
-      labels: items.map((item) => item.textContent),
+      row: { width: row.width, height: row.height },
+      button: {
+        x: button.x - row.x,
+        y: button.y - row.y,
+        width: button.width,
+        height: button.height,
+      },
+      review: {
+        x: review.x - row.x,
+        y: review.y - row.y,
+        width: review.width,
+        height: review.height,
+      },
     };
   });
-  expect(stableResults.widths).toEqual(collapsedWidths);
-  expect(stableResults.labels).toEqual([
-    "Reads 1 / cmds 0",
-    "Evidence 1/1 / refs 2",
-  ]);
-  await expect.poll(async () => actionRow.evaluate(
-    (element) => element.getBoundingClientRect().height,
-  )).toBe(actionRowHeight);
-  const viewport = page.viewportSize();
-  expect(viewport).not.toBeNull();
-  expect(stableResults.results.left).toBeGreaterThanOrEqual(0);
-  expect(stableResults.results.right).toBeLessThanOrEqual(viewport!.width);
-  expect(stableResults.results.left).toBeGreaterThanOrEqual(stableResults.review.right + 4);
-  expect(stableResults.overlapsSource).toBe(false);
-  expect(stableResults.overlapsReview).toBe(false);
+  expect(hoveredFooter).toEqual(initialFooter);
+  expect(hoveredFooter.button.x).toBeGreaterThanOrEqual(0);
+  expect(hoveredFooter.button.x + hoveredFooter.button.width).toBeLessThanOrEqual(
+    hoveredFooter.row.width,
+  );
   await workspace.getByRole("button", { name: /^Conversations/ }).click();
   const conversationRow = workspace.locator(".deck-conversation-select", {
     hasText: "List resource groups",
@@ -436,6 +399,7 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await workspace.getByRole("button", { name: /^Conversations/ }).click();
   await runRecord.locator(":scope > summary").click();
   await expect(runRecord).toHaveAttribute("open", "");
+  await expect(runRecord.locator(".deck-trajectory-phase-strip")).toHaveCount(1);
   await expect(runRecord.locator(".deck-trajectory-question strong")).toHaveText(
     "List resource groups",
   );

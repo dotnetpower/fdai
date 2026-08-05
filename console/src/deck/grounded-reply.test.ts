@@ -96,16 +96,16 @@ describe("grounded reply presentation", () => {
     expect(component).not.toContain("deck.answerPlan.detail");
   });
 
-  it("keeps trajectory status on answer review independently of sources", () => {
+  it("keeps trajectory status out of the compact reply footer", () => {
     const component = readFileSync(
       fileURLToPath(new URL("./grounded-reply.tsx", import.meta.url)),
       "utf8",
     );
 
-    expect(component).toContain("{trajectory ? (");
-    expect(component).toContain('class="deck-gr-review-status"');
-    expect(component).toContain("<TrajectoryStatusTrigger trajectory={trajectory} />");
-    expect(component).not.toContain("trajectory && sources.length === 0");
+    expect(component).toContain('class="deck-gr-tool deck-gr-review"');
+    expect(component).not.toContain('class="deck-gr-review-status"');
+    expect(component).not.toContain("TrajectoryStatusTrigger");
+    expect(component).not.toContain("ConversationTrajectoryResults");
     expect(component).not.toContain('class="deck-trajectory-flyout"');
   });
 });

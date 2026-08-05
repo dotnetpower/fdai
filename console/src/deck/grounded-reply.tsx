@@ -36,7 +36,6 @@ import { StructuredReply } from "./structured-reply";
 import { openDeckWithContext, type DeckOpenDetail } from "./open-deck";
 import { relevantCitations, type Citation } from "./citations";
 import type { ConversationTrajectory } from "./conversation-trajectory";
-import { ConversationTrajectoryResults } from "./conversation-trajectory-view";
 import { unverifiedDetailLabel, verificationPrimaryLabel } from "./verification-presentation";
 import {
   buildSources,
@@ -48,7 +47,6 @@ import {
   type GroundedSource,
   type TraceStage,
 } from "./grounded-sources";
-import "./conversation-trajectory-results.css";
 
 export function GroundedReply({
   turnId,
@@ -65,7 +63,6 @@ export function GroundedReply({
   incidentCandidates,
   actionDraft,
   presentationArtifact,
-  trajectory,
   onRegenerate,
 }: {
   readonly turnId: string;
@@ -367,18 +364,9 @@ export function GroundedReply({
                   </button>
                 </Tooltip>
               ) : null}
-              {trajectory ? (
-                <span class="deck-gr-review-status">
-                  <a class="deck-gr-tool deck-gr-review" href={assuranceHref(turnId)}>
-                    {t("deck.reviewAnswer")}
-                  </a>
-                  <TrajectoryStatusTrigger trajectory={trajectory} />
-                </span>
-              ) : (
-                <a class="deck-gr-tool deck-gr-review" href={assuranceHref(turnId)}>
-                  {t("deck.reviewAnswer")}
-                </a>
-              )}
+              <a class="deck-gr-tool deck-gr-review" href={assuranceHref(turnId)}>
+                {t("deck.reviewAnswer")}
+              </a>
             </>
           ) : null}
 
@@ -420,18 +408,6 @@ export function GroundedReply({
         </div>
       ) : null}
     </div>
-  );
-}
-
-function TrajectoryStatusTrigger({
-  trajectory,
-}: {
-  readonly trajectory: ConversationTrajectory;
-}) {
-  return (
-    <span class="deck-trajectory-status-trigger">
-      <ConversationTrajectoryResults trajectory={trajectory} />
-    </span>
   );
 }
 
