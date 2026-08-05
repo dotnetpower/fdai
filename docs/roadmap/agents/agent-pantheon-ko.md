@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 3872ea8c022388fbc4ad77855f93470f0656553b
+translation_source_sha: 413676d5509fa7aff37106c1f72509703868e3da
 translation_revised: 2026-08-06
 ---
 
@@ -94,10 +94,7 @@ graph TD
 Forseti에 신호를 전달합니다. Action verdict는 Thor가 Vidar (recovery), Var (사람 승인),
 또는 실행으로 dispatch합니다. Document-ingestion verdict는 ingestion plane으로 돌아가며
 Thor는 이를 무시합니다. Var와 Saga는 문서 HIL에서 stable idempotency key를 보존합니다.
-Production은 gated decision과 terminal 상태를 위해 Saga를 durable StateStore에 bind합니다.
-Saga의 document audit event와 Muninn의 index command는 additive `1.0.0` worker contract를
-전달합니다. Ingestion worker는 별도의 durable stage claim을 사용하며, 이 delivery record는
-어느 에이전트에도 새로운 authority를 부여하지 않습니다.
+Production은 gated decision과 terminal 상태를 위해 Saga를 durable StateStore에 bind합니다. Saga의 document audit event와 Muninn의 index command는 additive `1.0.0` worker contract를 전달하고 ingestion worker는 별도의 durable stage claim을 사용하며, 이 delivery record는 어느 에이전트에도 새로운 authority를 부여하지 않습니다.
 Forseti는 각 action의 stable idempotency key를 Verdict에 보존하고, Thor는 per-state event key와 구분해 durable `ActionRun`에 저장합니다.
 Workflow에서 시작된 operator request의 경우 Huginn은 bounded `workflow_action` lineage도
 보존하고 Forseti는 Verdict에 그대로 전달하며 Thor는 durable `ActionRun`에 저장합니다. 이 lineage는

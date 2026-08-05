@@ -93,10 +93,7 @@ graph TD
 The org chart is reporting lines. The relationship diagram is data flow.
 Sensing and specialists feed Forseti. Action verdicts feed Thor for dispatch to
 Vidar (recovery), Var (human approval), or execution; document-ingestion verdicts
-return to the ingestion plane and Thor ignores them. Var and Saga preserve the stable idempotency key through document HIL; production binds Saga to the durable StateStore for gated decisions and terminal states;
-Saga's document audit event and Muninn's index command carry the additive `1.0.0` worker contract.
-The ingestion worker then uses a separate durable stage claim; this delivery record does not grant
-either agent new authority.
+return to the ingestion plane and Thor ignores them. Var and Saga preserve the stable idempotency key through document HIL; production binds Saga to the durable StateStore for gated decisions and terminal states. Saga's document audit event and Muninn's index command carry the additive `1.0.0` worker contract, after which the ingestion worker uses a separate durable stage claim that grants neither agent new authority.
 Forseti also preserves each action's stable idempotency key on its Verdict, while Thor stores it on the durable `ActionRun` separately from the per-state event key.
 For workflow-originated operator requests, Huginn also preserves the bounded `workflow_action`
 lineage, Forseti carries it unchanged on the Verdict, and Thor stores it on the durable
