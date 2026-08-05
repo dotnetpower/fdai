@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Mapping
-from enum import StrEnum
+from enum import Enum, StrEnum
 from importlib import resources
 from types import MappingProxyType
 from typing import Annotated, Any, cast
@@ -32,6 +33,8 @@ class QueryEvidenceAuthority(StrEnum):
 
 class QueryValues(QueryTerms):
     values: QueryValueList
+    description: Annotated[str, Field(max_length=512)] = ""
+    examples: tuple[Annotated[str, Field(min_length=1, max_length=256)], ...] = ()
     evidence_authority: QueryEvidenceAuthority = QueryEvidenceAuthority.CURRENT_INVENTORY
     labels: Mapping[str, Annotated[str, Field(min_length=1, max_length=128)]] = Field(
         default_factory=dict
@@ -122,6 +125,34 @@ def load_inventory_query_language_from_mapping(
         raise InventoryQueryLanguageRegistryError(str(exc)) from exc
 
 
+def inventory_query_language_digest(registry: InventoryQueryLanguageRegistry) -> str:
+    """Return one replay-stable digest over the complete frozen registry."""
+
+    encoded = json.dumps(
+        _canonical_json_value(registry),
+        allow_nan=False,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _canonical_json_value(value: object) -> object:
+    if isinstance(value, BaseModel):
+        return {
+            field: _canonical_json_value(getattr(value, field))
+            for field in type(value).model_fields
+        }
+    if isinstance(value, Mapping):
+        return {str(key): _canonical_json_value(item) for key, item in value.items()}
+    if isinstance(value, tuple | list):
+        return [_canonical_json_value(item) for item in value]
+    if isinstance(value, Enum):
+        return value.value
+    return value
+
+
 __all__ = [
     "InventoryQueryLanguageRegistry",
     "InventoryQueryLanguageRegistryError",
@@ -129,5 +160,6 @@ __all__ = [
     "QueryTerms",
     "QueryValues",
     "TimeUnit",
+    "inventory_query_language_digest",
     "load_inventory_query_language_from_mapping",
 ]

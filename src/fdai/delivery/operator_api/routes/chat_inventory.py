@@ -23,6 +23,9 @@ from fdai.delivery.operator_api.routes.chat_inventory_followup import (
     SUBSCRIPTION_ROOT,
     SUBSCRIPTION_ROOT_LIMIT,
 )
+from fdai.delivery.operator_api.routes.chat_inventory_language import (
+    default_inventory_query_language_resolver,
+)
 from fdai.delivery.operator_api.routes.chat_inventory_query import (
     InventoryField,
     InventoryOperator,
@@ -34,6 +37,12 @@ from fdai.delivery.operator_api.routes.chat_inventory_query import (
     inventory_query_argument_schema,
     inventory_query_matches,
     normalize_inventory_value,
+)
+from fdai.delivery.operator_api.routes.chat_inventory_resource_types import (
+    default_inventory_resource_type_resolver,
+)
+from fdai.delivery.operator_api.routes.chat_inventory_semantic_retrieval import (
+    InventorySemanticResolver,
 )
 from fdai.delivery.operator_api.routes.chat_inventory_semantics import (
     ground_inventory_status_query,
@@ -65,6 +74,7 @@ class InventoryChatTools:
     fallback: ChatToolResolver | None = None
     workload_provider: KubernetesWorkloadProvider | None = None
     activity_provider: InventoryActivityProvider | None = None
+    semantic_resolver: InventorySemanticResolver | None = None
 
     def turn_tools(self) -> tuple[TurnTool, ...]:
         """Return the strict semantic capability for generalized resource reads."""
@@ -101,6 +111,9 @@ class InventoryChatTools:
         *,
         principal_id: str,
     ) -> dict[str, Any] | None:
+        semantic_hold = await self._semantic_hold(prompt)
+        if semantic_hold is not None:
+            return semantic_hold
         if not needs_inventory_evidence(prompt):
             return await self._fallback(prompt, principal_id=principal_id)
         if is_topology_question(prompt):
@@ -164,6 +177,33 @@ class InventoryChatTools:
                 else "server_inventory_graph"
             ),
             "result": result,
+        }
+
+    async def _semantic_hold(self, prompt: str) -> dict[str, Any] | None:
+        if self.semantic_resolver is None:
+            return None
+        language = default_inventory_query_language_resolver()
+        if language.has(language.registry.signals, "mutation", prompt):
+            return None
+        resource_types = default_inventory_resource_type_resolver().resolve(prompt)
+        if not resource_types:
+            return None
+        query = compile_inventory_query(prompt)
+        if query is not None and not inventory_query_requires_semantic_completion(query):
+            return None
+        candidates = await self.semantic_resolver.resolve(prompt)
+        if not candidates:
+            return None
+        return {
+            "tool": "query_inventory",
+            "authority": "server_inventory_graph",
+            "result": {
+                "status": "clarification",
+                "reason": "inventory_semantic_confirmation_required",
+                "query": query.to_dict() if query is not None else None,
+                "resource_types": list(resource_types),
+                "semantic_candidates": [candidate.to_dict() for candidate in candidates],
+            },
         }
 
     async def _resolve_query(
@@ -541,6 +581,11 @@ def render_inventory_answer(
     korean = bool(locale and locale.casefold().startswith("ko"))
     if result.get("query_source") == InventoryQuerySource.ACTIVITY.value:
         return render_inventory_activity(result, korean=korean)
+    if (
+        result.get("status") == "clarification"
+        and result.get("reason") == "inventory_semantic_confirmation_required"
+    ):
+        return _render_inventory_semantic_clarification(result, korean=korean)
     if result.get("status") not in {"matched", "partial"}:
         if result.get("reason") == "topology_selector_required":
             return (
@@ -814,6 +859,38 @@ def render_inventory_answer(
     if truncated:
         lines.append("The inventory snapshot is truncated, so additional resources may exist.")
     return "\n".join(lines)
+
+
+def _render_inventory_semantic_clarification(
+    result: Mapping[str, Any],
+    *,
+    korean: bool,
+) -> str:
+    raw_candidates = result.get("semantic_candidates")
+    candidates = raw_candidates if isinstance(raw_candidates, list) else []
+    labels: list[str] = []
+    locale = "ko" if korean else "en"
+    for candidate in candidates:
+        if not isinstance(candidate, Mapping):
+            continue
+        candidate_labels = candidate.get("labels")
+        label = candidate_labels.get(locale) if isinstance(candidate_labels, Mapping) else None
+        labels.append(str(label or candidate.get("concept_id") or "unknown"))
+    bounded_labels = tuple(dict.fromkeys(labels))[:3]
+    options = (
+        ", ".join(bounded_labels)
+        if bounded_labels
+        else ("상태 의미" if korean else "state meaning")
+    )
+    if korean:
+        return (
+            f"요청의 의미를 확정해야 합니다. 다음 중 하나를 지정해 주세요: {options}. "
+            "확정 전에는 Azure inventory를 조회하지 않았습니다."
+        )
+    return (
+        f"The request needs semantic confirmation. Specify one of: {options}. "
+        "Azure inventory was not queried before confirmation."
+    )
 
 
 def inventory_screen_scope_unavailable_evidence(

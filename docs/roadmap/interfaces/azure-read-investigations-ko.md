@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 58965622df5e3acc8c706019d82576e8ffa592ff
+translation_source_sha: 88c8ce78eaa409651b72a91871786bf8f2dd2f41
 translation_revised: 2026-08-05
 ---
 
@@ -164,6 +164,12 @@ Filter가 없는 managed-scope 목록 표현은 영어와 한국어 모두 catal
 subscription-scoped `list` query로 compile됩니다.
 
 Inventory language catalog의 state entry는 필요한 evidence authority도 선언합니다. 일반적인 current
+state와 operation은 language-neutral description과 bounded 영어/한국어 example도 포함합니다. Optional
+embedding resolver는 exact term으로 query를 완성할 수 없을 때 해당 semantic surface를 검색합니다.
+Ranking 결과는 non-authoritative candidate일 뿐입니다. 승격되지 않았거나 모호한 candidate는 provider
+I/O 전에 clarification을 만들며 similarity score로 predicate, evidence receipt 또는 action이 될 수
+없습니다.
+일반적인 current
 operational state는 promoted inventory를 사용합니다. Degraded 또는 unavailable availability 의미를
 포함한 질문은 동일한 server-owned scope 아래에서 `Resources`와 `HealthResources`를 결합하는 기존
 subscription health sweep을 사용합니다. 구체적인 resource-family filter는 해당 health query에

@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: f63fd47db27f46c84ebb0be97de50da84cc9b88e
+translation_source_sha: d37573b0bfb798e36b75f312d7517a97f02ae360
 translation_revised: 2026-08-05
 ---
 
@@ -291,6 +291,11 @@ deterministic query skeleton이 포함된 typed interpretation hold를 반환합
 Negative state candidate는 canonical catalog state에 대해 bounded `not_in` operator를 사용합니다.
 Provider grounding은 같은 snapshot에서 excluded value를 resolve하며, negation을 unsupported
 positive-state guess로 바꾸지 않습니다.
+Exact catalog term은 유일한 entry gate가 아니라 T0 latency optimization으로 유지됩니다. Production에
+기존 T1 embedding binding이 있으면 같은 credential path로 state와 operation description 및 example을
+검색합니다. Retrieved concept는 `candidate_only`를 유지하고 inventory를 query하지 않은 채 localized
+clarification을 만듭니다. Embedder가 없거나 실패하면 resolver는 candidate를 반환하지 않고
+deterministic hold가 authoritative 상태를 유지합니다.
 필터가 없는 summary는 provider가 관찰한 모든 resource를 계속 보존하고 provider-native type별로 grouping하며 resource-group container와 topology-derived record를 resource 합계에서 분리합니다.
 Catalog-owned `scope_counts` query kind는 query를 resource group으로 좁히지 않고 하나의
 fresh snapshot에서 provider-native resource와 resource-group 합계를 반환합니다. Type summary와

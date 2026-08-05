@@ -133,6 +133,9 @@ from fdai.delivery.operator_api.routes.arb_status import ArchitectureReviewStatu
 from fdai.delivery.operator_api.routes.background_runtime import build_background_task_runtime
 from fdai.delivery.operator_api.routes.busy_input_runtime import build_postgres_busy_input_runtime
 from fdai.delivery.operator_api.routes.chat import backend_from_env
+from fdai.delivery.operator_api.routes.chat_inventory_semantic_retrieval import (
+    EmbeddingInventorySemanticResolver,
+)
 from fdai.delivery.operator_api.routes.chat_web_search import chat_web_search_from_env
 from fdai.delivery.operator_api.routes.configuration_baselines import (
     ConfigurationBaselinesPanel,
@@ -257,11 +260,16 @@ def build_prod_app(
     iam_provider = identity.iam_provider
     shutdown_callbacks = identity.shutdown_callbacks
     catalog_search = (
-        ProductionCatalogSearch(catalog_semantic_index)
+        ProductionCatalogSearch(index=catalog_semantic_index)
         if catalog_semantic_index is not None
         else build_production_catalog_search(env=env, dsn=read_model._config.dsn)
     )
     catalog_semantic_index = catalog_search.index
+    inventory_semantic_resolver = (
+        EmbeddingInventorySemanticResolver(embedder=catalog_search.embedder)
+        if catalog_search.embedder is not None
+        else None
+    )
     shutdown_callbacks = (*shutdown_callbacks, *catalog_search.shutdown_callbacks)
     cors_origins = _parse_cors_origins(env.get(_env.CORS_ORIGINS_ENV))
     (
@@ -897,6 +905,7 @@ def build_prod_app(
                 connect_timeout_s=read_model._config.connect_timeout_s,
             )
         ),
+        inventory_semantic_resolver=inventory_semantic_resolver,
         inventory_activity_provider=inventory_activity_provider,
         subscription_health_provider=subscription_health_provider,
         detection_readiness_reader=state_store,

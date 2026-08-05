@@ -1,5 +1,5 @@
 schema_version: "1.1.0"
-version: "1.1.24"
+version: "1.1.26"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -61,12 +61,18 @@ states:
   stopped:
     terms: [stopped, powered off, 중지, 중지된, 중지됨, 정지, 정지된]
     values: [stopped, deallocated]
+    description: A current operational state in which a resource is powered off or stopped.
+    examples: [powered-off virtual machines, 전원이 꺼진 가상 머신]
   deallocated:
     terms: [deallocated, allocation released, 할당 해제, 할당 해제된]
     values: [deallocated]
+    description: A current state in which compute allocation has been released.
+    examples: [virtual machines with released compute allocation, 컴퓨팅 할당이 해제된 가상 머신]
   inactive:
     terms: [not running, inactive, 멈춘, 멈춰 있는, 비활성, 실행 중이 아닌, 실행 중이 아니]
     values: [stopped, deallocated]
+    description: A grouped current state for resources that are not running.
+    examples: [resources that are not currently operating, 현재 동작하고 있지 않은 리소스]
     suppresses: [running]
     category_values:
       database: [stopped, deallocated, paused]
@@ -75,45 +81,67 @@ states:
   not_ready:
     terms: [not ready, unready, 준비되지 않은, 준비 안 된]
     values: [failed, degraded, unavailable]
+    description: A health state in which a resource is failed, degraded, or unavailable.
+    examples: [services that are not ready to serve, 요청을 처리할 준비가 되지 않은 서비스]
     evidence_authority: subscription_health
     labels: {en: Not ready, ko: 준비되지 않음}
   paused:
     terms: [paused, suspended, 일시 정지, 일시정지]
     values: [paused]
+    description: A current state in which processing is intentionally suspended.
+    examples: [databases with processing temporarily suspended, 처리가 잠시 중단된 데이터베이스]
   running:
     terms: [running, active, 실행 중, 실행중, 가동 중, 켜짐, 켜진, 켜져, 켜져서, 켜져 있는, 켜져있는, 돌아가고 있는, 돌아가는, 살아있는, 살아 있는]
     values: [running]
+    description: A current operational state in which a resource is powered on and processing work.
+    examples: [virtual machines currently serving workloads, 지금 켜져서 작업 중인 가상 머신]
   failed:
     terms: [failed, failure, failures, 실패, 실패한]
     values: [failed]
+    description: A state in which the resource or operation has failed.
+    examples: [resources in a failed state, 실패 상태인 리소스]
     labels: {en: Failed, ko: 실패}
   degraded:
     terms: [degraded, 성능 저하, 저하된]
     values: [degraded]
+    description: A health state in which service remains available with reduced capability.
+    examples: [services operating with reduced capability, 성능이 저하된 상태로 동작하는 서비스]
     evidence_authority: subscription_health
     labels: {en: Degraded, ko: 성능 저하}
   unavailable:
-    terms: [unavailable, down, 사용할 수 없는, 사용 불가, 사용 불가능]
+    terms: [unavailable, cache is down, 사용할 수 없는, 사용 불가, 사용 불가능]
     values: [unavailable]
+    description: A health state in which the resource cannot provide its service.
+    examples: [resources that cannot currently serve requests, 현재 요청을 처리할 수 없는 리소스]
     evidence_authority: subscription_health
     labels: {en: Unavailable, ko: 사용 불가}
   unhealthy:
     terms: [unhealthy, abnormal, 비정상, 비정상 상태]
     values: [stopped, failed, degraded, unavailable, unknown]
+    description: A broad grouped state for resources that are not demonstrably healthy.
+    examples: [resources showing an abnormal condition, 비정상 징후를 보이는 리소스]
     labels: {en: Unhealthy, ko: 비정상}
 operations:
   start:
     terms: [started, 시작된]
     values: [start]
+    description: A historical transition or operation that starts a resource.
+    examples: [virtual machines started during the last day, 지난 하루 동안 시작된 가상 머신]
   stop:
     terms: [stopped, powered off, deallocated, 중지된, 정지된]
     values: [stop, deallocate, power off]
+    description: A historical transition or operation that stops or deallocates a resource.
+    examples: [resources stopped during the selected period, 선택한 기간에 중지된 리소스]
   delete:
     terms: [deleted, removed, 삭제된, 제거된]
     values: [delete]
+    description: A historical operation that removes a resource.
+    examples: [resources deleted during the last week, 지난 일주일 동안 삭제된 리소스]
   write:
     terms: [changed, created, updated, modified, 변경된, 생성된, 수정된, 갱신된]
     values: [write]
+    description: A historical operation that creates or modifies a resource.
+    examples: [resources changed during the selected period, 선택한 기간에 변경된 리소스]
 time_units:
   hour:
     terms: [hour, hours, 시간]

@@ -295,6 +295,11 @@ type-only skeleton or drop the unresolved modifier to widen the result set.
 Negative state candidates use the bounded `not_in` operator over canonical catalog states. Provider
 grounding resolves excluded values against the same snapshot; negation never becomes an
 unsupported positive-state guess.
+Exact catalog terms remain a T0 latency optimization, not the only entry gate. When production has
+the existing T1 embedding binding, the same credential path retrieves state and operation
+descriptions and examples. A retrieved concept remains `candidate_only` and causes a localized
+clarification without querying inventory. If the embedder is absent or fails, the resolver returns
+no candidate and the deterministic hold remains authoritative.
 An unfiltered summary still preserves every provider-observed resource, groups by provider-native type, and separates resource-group containers and topology-derived records from the resource total.
 The catalog-owned `scope_counts` query kind returns provider-native resource and resource-group
 totals from one fresh snapshot without narrowing the query to resource groups. It retains the same

@@ -213,6 +213,12 @@ class OperatorApiConfig:
     Reader-gated ``GET /inventory/graph``. The provider reads the inventory
     projection only; the console never receives a cloud or executor identity."""
 
+    inventory_semantic_resolver: Any = None
+    """Optional non-authoritative inventory concept retriever.
+
+    It can return candidate state or operation concepts for clarification, but
+    it cannot construct or execute a provider query."""
+
     inventory_activity_provider: Any = None
     """Optional server-scoped resource-change collection for Command Deck.
 

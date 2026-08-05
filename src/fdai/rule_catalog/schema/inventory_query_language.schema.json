@@ -45,6 +45,12 @@
       "properties": {
         "terms": {"$ref": "#/$defs/terms"},
         "values": {"$ref": "#/$defs/values"},
+        "description": {"type": "string", "maxLength": 512, "default": ""},
+        "examples": {
+          "type": "array", "maxItems": 32, "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 256},
+          "default": []
+        },
         "evidence_authority": {
           "type": "string",
           "enum": ["current_inventory", "subscription_health"],

@@ -18,6 +18,7 @@ from fdai.delivery.catalog_search import (
 )
 from fdai.delivery.operator_api.production.config import ProdOperatorApiConfigError
 from fdai.shared.providers.catalog_search import CatalogSemanticIndex
+from fdai.shared.providers.knowledge import Embedder
 from fdai.shared.providers.local.secret import EnvSecretProvider
 
 _ENDPOINT_ENV = "FDAI_EMBEDDING_ENDPOINT"
@@ -29,6 +30,7 @@ _ENABLED_ENV = "FDAI_CATALOG_SEARCH_ENABLED"
 @dataclass(frozen=True, slots=True)
 class ProductionCatalogSearch:
     index: CatalogSemanticIndex | None
+    embedder: Embedder | None = None
     shutdown_callbacks: tuple[Callable[[], Awaitable[None]], ...] = ()
 
 
@@ -96,7 +98,11 @@ def build_production_catalog_search(
     async def close_http() -> None:
         await http_client.aclose()
 
-    return ProductionCatalogSearch(index=index, shutdown_callbacks=(close_http,))
+    return ProductionCatalogSearch(
+        index=index,
+        embedder=embedder,
+        shutdown_callbacks=(close_http,),
+    )
 
 
 __all__ = ["ProductionCatalogSearch", "build_production_catalog_search"]

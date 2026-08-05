@@ -165,6 +165,11 @@ fresh subscription-scoped `list` query before semantic planning, even when the o
 only names, types, status, evidence, or one representative resource.
 
 State entries in the inventory language catalog also declare their required evidence authority.
+Each state and operation also carries a language-neutral description and bounded English/Korean
+examples. An optional embedding resolver searches those semantic surfaces when exact terms cannot
+complete the query. Its ranked results are non-authoritative candidates only. An unpromoted or
+ambiguous candidate produces a clarification before provider I/O; it cannot become a predicate,
+evidence receipt, or action by similarity score.
 Ordinary current operational states use promoted inventory. Questions that include degraded or
 unavailable availability semantics use the existing subscription health sweep, which joins
 `Resources` with `HealthResources` under the same server-owned scope. A concrete resource-family

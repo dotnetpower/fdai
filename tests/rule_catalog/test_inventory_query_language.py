@@ -7,6 +7,7 @@ import yaml
 
 from fdai.rule_catalog.schema.inventory_query_language import (
     InventoryQueryLanguageRegistryError,
+    inventory_query_language_digest,
     load_inventory_query_language_from_mapping,
 )
 
@@ -25,6 +26,23 @@ def test_shipped_inventory_query_language_loads() -> None:
     assert registry.states["degraded"].evidence_authority == "subscription_health"
     assert registry.states["unavailable"].evidence_authority == "subscription_health"
     assert registry.states["inactive"].suppresses == ("running",)
+    assert all(
+        entry.description for entry in (*registry.states.values(), *registry.operations.values())
+    )
+    assert all(
+        entry.examples for entry in (*registry.states.values(), *registry.operations.values())
+    )
+
+
+def test_inventory_query_language_digest_is_replay_stable() -> None:
+    raw = yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
+    registry = load_inventory_query_language_from_mapping(raw)
+    reordered = {key: raw[key] for key in reversed(tuple(raw))}
+
+    assert inventory_query_language_digest(registry).startswith("sha256:")
+    assert inventory_query_language_digest(
+        load_inventory_query_language_from_mapping(reordered)
+    ) == inventory_query_language_digest(registry)
 
 
 def test_inventory_query_language_rejects_unknown_fields() -> None:
