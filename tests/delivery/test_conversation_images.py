@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -46,6 +47,15 @@ async def test_image_store_is_idempotent_and_principal_scoped() -> None:
         )
         is None
     )
+
+
+async def test_image_store_retry_ignores_new_attempt_timestamp() -> None:
+    store = InMemoryConversationImageStore()
+    image = _image()
+    retry = replace(image, created_at=image.created_at + timedelta(seconds=1))
+
+    assert await store.put(image) == image
+    assert await store.put(retry) == image
 
 
 async def test_image_store_rejects_id_reuse_with_different_bytes() -> None:

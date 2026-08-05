@@ -48,7 +48,7 @@ class PostgresConversationImageStore(_PostgresBase):
                 conversation_id=image.conversation_id,
                 image_id=image.image_id,
             )
-            if existing != image:
+            if existing is None or not existing.has_same_intent(image):
                 raise ConversationImageConflictError(
                     "conversation image id conflicts with existing content"
                 )

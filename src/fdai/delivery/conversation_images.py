@@ -70,6 +70,18 @@ class ConversationImage:
             created_at=created_at,
         )
 
+    def has_same_intent(self, other: ConversationImage) -> bool:
+        return (
+            self.image_id == other.image_id
+            and self.principal_id == other.principal_id
+            and self.conversation_id == other.conversation_id
+            and self.request_id == other.request_id
+            and self.name == other.name
+            and self.media_type == other.media_type
+            and self.content_sha256 == other.content_sha256
+            and self.content == other.content
+        )
+
 
 @runtime_checkable
 class ConversationImageStore(Protocol):
@@ -92,7 +104,7 @@ class InMemoryConversationImageStore:
         key = (image.principal_id, image.conversation_id, image.image_id)
         existing = self._images.get(key)
         if existing is not None:
-            if existing != image:
+            if not existing.has_same_intent(image):
                 raise ConversationImageConflictError(
                     "conversation image id conflicts with existing content"
                 )
