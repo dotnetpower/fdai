@@ -61,9 +61,10 @@ The production shell keeps this Activity Bar + Explorer hierarchy even though
 the static prototypes under [`mocks/ui/`](../mocks/ui/) use a single sidebar.
 The prototypes remain the visual reference for content: Calm Slate palette,
 hairline borders, compact section hierarchy, semantic tier/risk colors, KPI
-accents, evidence tables, and approval safety cards. Shared `--cs-*` tokens in
-[`src/styles.css`](src/styles.css) apply that language across every route while
-preserving the documented navigation and clean History API URLs.
+accents, evidence tables, and approval safety cards. Shared foundation tokens in
+[`../ui/calm-slate-tokens.css`](../ui/calm-slate-tokens.css) apply that language to both the
+Console and static prototypes. [`src/styles.css`](src/styles.css) owns route and shell styling
+while preserving the documented navigation and clean History API URLs.
 
 The **Operations > Incidents** panel is the incident-centric entry point. It groups
 the append-only audit stream by `correlation_id`, shows lifecycle status and
@@ -734,7 +735,7 @@ console/
     ├── types.ts        - TS mirrors of read_model.py shapes
     ├── panels.tsx      - panel registry (core panels + fork extension point)
     ├── router.ts       - clean path mapping + History API navigation
-    ├── styles.css      - minimal, no design-system dep
+    ├── styles.css      - route and shell styles over shared Calm Slate tokens
     ├── components/
     │   ├── left-rail.tsx - grouped flyouts + bottom global utilities
     │   ├── rail-icons.tsx - group and standalone navigation glyphs

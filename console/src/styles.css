@@ -1,3 +1,5 @@
+@import url("../../ui/calm-slate-tokens.css");
+
 .deck-incident-candidates {
   display: grid;
   gap: 8px;
@@ -296,23 +298,6 @@
      [data-theme="dark"] and a `prefers-color-scheme: dark` fallback that
      only fires when no explicit theme is set on <html>. */
   color-scheme: light;
-  --cs-bg: #fbfaf9;
-  --cs-card: #ffffff;
-  --cs-hairline: #e3e1de;
-  --cs-shade: #f4f2f0;
-  --cs-text: #2c333a;
-  --cs-text-soft: #6b7178;
-  --cs-steel: #44688e;
-  --cs-navy: #3e4c59;
-  --cs-sage: #5e8259;
-  --cs-terracotta: #bc7449;
-  --cs-dusty-red: #ac5a5a;
-  --cs-teal: #4f847e;
-  --cs-plum: #7b6c9c;
-  --cs-radius: 8px;
-  --cs-radius-sm: 6px;
-  --cs-shadow: 0 4px 16px rgba(46, 54, 64, 0.06);
-  --cs-shadow-hover: 0 6px 22px rgba(46, 54, 64, 0.1);
   --bg: var(--cs-bg);
   --bg-elevated: var(--cs-card);
   --bg-subtle: var(--cs-shade);
@@ -324,8 +309,8 @@
   --success: var(--cs-sage);
   --warning: var(--cs-terracotta);
   --border: var(--cs-hairline);
-  --font-sans: "Segoe UI Variable Text", "Segoe UI", "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
-  --font-mono: "Cascadia Code", "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  --font-sans: var(--cs-font);
+  --font-mono: var(--cs-font-mono);
   --rail-width: 56px;
   --header-height: 49px;
   --deck-invoke-height: 44px;
@@ -337,7 +322,7 @@
   --architecture-map-label-text: #263543;
   --architecture-map-selected-label-text: #102f36;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--cs-font-size);
 }
 
 :root[data-theme="dark"] {

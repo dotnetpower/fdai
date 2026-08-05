@@ -1,3 +1,5 @@
+@import url("../../../ui/calm-slate-tokens.css");
+
 /* ==========================================================================
    Calm Slate - report theme for FDAI UI kit
    Toned-down, desaturated palette. No primary/neon colors, no color bands.
@@ -6,42 +8,9 @@
    ========================================================================== */
 
 :root {
-  /* Surfaces */
-  --cs-bg: #FBFAF9;
-  --cs-card: #FFFFFF;
-  --cs-hairline: #E3E1DE;
-  --cs-shade: #F4F2F0; /* subtle even-row / muted block */
-
-  /* Text */
-  --cs-text: #2C333A;
-  --cs-text-soft: #6B7178;
-
-  /* Primary tones */
-  --cs-steel: #44688E;      /* steel blue - primary accent */
-  --cs-navy: #3E4C59;       /* slate navy - badges, table header */
-
-  /* Desaturated accents */
-  --cs-sage: #5E8259;
-  --cs-terracotta: #BC7449;
-  --cs-dusty-red: #AC5A5A;
-  --cs-teal: #4F847E;
-  --cs-plum: #7B6C9C;
-
-  /* Comparison backgrounds (very light) */
-  --cs-asis-bg: #F7ECEC;    /* light pink */
-  --cs-tobe-bg: #ECF2EA;    /* light green */
-
-  /* Shape */
-  --cs-radius: 14px;
-  --cs-radius-sm: 9px;
-  --cs-radius-pill: 999px;
-  --cs-shadow: 0 4px 16px rgba(46, 54, 64, .06);
-  --cs-shadow-hover: 0 6px 22px rgba(46, 54, 64, .10);
-
   --cs-maxw: 1160px;
   --cs-gap: 20px;
   --cs-sidebar-w: 244px;
-  --cs-font: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
 }
 
 /* ----- Reset-ish ----- */
@@ -50,7 +19,7 @@ html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
   font-family: var(--cs-font);
-  font-size: 15px;
+  font-size: var(--cs-font-size);
   line-height: 1.6;
   color: var(--cs-text);
   background: var(--cs-bg);
@@ -65,7 +34,7 @@ p { margin: 0 0 1em; }
 a { color: var(--cs-steel); text-decoration: none; }
 a:hover { text-decoration: underline; }
 small { color: var(--cs-text-soft); }
-code { font-family: "Cascadia Code", "Consolas", monospace; font-size: .88em; background: var(--cs-shade); padding: .12em .4em; border-radius: 5px; }
+code { font-family: var(--cs-font-mono); font-size: .88em; background: var(--cs-shade); padding: .12em .4em; border-radius: 5px; }
 
 /* ----- Layout ----- */
 .cs-container { width: 100%; max-width: none; margin: 0; padding: 0 24px; }
