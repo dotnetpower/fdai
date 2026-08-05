@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from math import isfinite
 from typing import Any, Final, Protocol, runtime_checkable
 
 from fdai.delivery.operator_api.routes.chat_inventory_compiler import (
@@ -22,6 +21,24 @@ from fdai.delivery.operator_api.routes.chat_inventory_resource_types import (
     default_inventory_resource_type_resolver,
 )
 from fdai.delivery.operator_api.routes.chat_log_query import needs_log_query
+from fdai.delivery.operator_api.routes.chat_subscription_health_metrics import (
+    correlation_result as _correlation_result,
+)
+from fdai.delivery.operator_api.routes.chat_subscription_health_metrics import (
+    diagnostic_metric as _diagnostic_metric,
+)
+from fdai.delivery.operator_api.routes.chat_subscription_health_metrics import (
+    is_before_after_comparison_prompt as _is_before_after_comparison_prompt,
+)
+from fdai.delivery.operator_api.routes.chat_subscription_health_metrics import (
+    is_error_change_correlation_prompt as _is_error_change_correlation_prompt,
+)
+from fdai.delivery.operator_api.routes.chat_subscription_health_metrics import (
+    kql_text as _kql_text,
+)
+from fdai.delivery.operator_api.routes.chat_subscription_health_metrics import (
+    render_metric_change_answer as _render_metric_change_answer,
+)
 from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
 from fdai.delivery.operator_api.routes.chat_turn_plan import TurnTool
 from fdai.rule_catalog.schema.inventory_query_language import QueryEvidenceAuthority
@@ -77,36 +94,6 @@ _CURRENT_HEALTH_TIMELINE: Final = re.compile(
     r"(?=[\s\S]{0,500}(?:\b(?:first observed|began|started|onset)\b|언제부터|"
     r"최초로?\s*관측|처음\s*(?:발견|감지)|시작))"
     r"(?=[\s\S]{0,500}(?:\b(?:customer|platform)[ -]initiated|고객\s*기인|플랫폼\s*기인))",
-    re.IGNORECASE,
-)
-_CPU_DIAGNOSIS: Final = re.compile(
-    r"\bcpu\b.{0,48}\b(?:spike|spikes|spiked|abnormal|unusual|high|surge|usage|utilization)\b|"
-    r"\b(?:spike|spikes|abnormal|unusual|high)\b.{0,48}\bcpu\b|"
-    r"CPU.{0,32}(?:급증|비정상|상승|사용률|튀|튄)",
-    re.IGNORECASE,
-)
-_MEMORY_DIAGNOSIS: Final = re.compile(
-    r"\bmemory\b.{0,48}\b(?:pressure|shortage|low|high|usage|utilization|exhausted)\b|"
-    r"\b(?:pressure|shortage|low|high)\b.{0,48}\bmemory\b|"
-    r"(?:메모리).{0,32}(?:부족|모자란|압박|고갈|사용률|높|상승|달라)",
-    re.IGNORECASE,
-)
-_BEFORE_AFTER_COMPARISON: Final = re.compile(
-    r"\b(?:before|prior to)\b.{0,48}\b(?:after|following)\b.{0,48}"
-    r"\b(?:incident|outage)\b|"
-    r"\b(?:incident|outage)\b.{0,48}\b(?:before|prior to)\b.{0,48}"
-    r"\b(?:after|following)\b|"
-    r"(?:인시던트|장애).{0,24}(?:전후|앞뒤|이전과 이후)|"
-    r"(?:전후|앞뒤|이전과 이후).{0,24}(?:인시던트|장애)",
-    re.IGNORECASE,
-)
-_ERROR_CHANGE_CORRELATION: Final = re.compile(
-    r"\b(?:error rate|error-rate|errors?)\b.{0,64}"
-    r"\b(?:correlate|correlation|deployment|configuration|change|increase|spike)\b|"
-    r"\b(?:deployment|configuration|change)\b.{0,64}"
-    r"\b(?:error rate|error-rate|errors?)\b|"
-    r"(?:오류율|에러).{0,48}(?:급증|상승|오른|늘어난|배포|설정 변경|변경|연관|겹쳐)|"
-    r"(?:배포|설정 변경).{0,48}(?:오류율|에러)",
     re.IGNORECASE,
 )
 _POD_DIAGNOSIS: Final = re.compile(
@@ -296,11 +283,11 @@ class SubscriptionHealthChatTools:
         principal_id: str,
         context: Mapping[str, Any] | None,
     ) -> dict[str, Any] | None:
-        error_change_correlation = bool(_ERROR_CHANGE_CORRELATION.search(prompt))
+        error_change_correlation = _is_error_change_correlation_prompt(prompt)
         if error_change_correlation:
             return await self._resolve_error_change_correlation(prompt, context=context)
         diagnostic_metric = _diagnostic_metric(prompt)
-        if diagnostic_metric is None or not _BEFORE_AFTER_COMPARISON.search(prompt):
+        if diagnostic_metric is None or not _is_before_after_comparison_prompt(prompt):
             return await self.resolve(prompt, principal_id=principal_id)
         resource_context = context.get("resource_context") if context is not None else None
         anchor_at = (
@@ -540,9 +527,9 @@ class SubscriptionHealthChatTools:
         health_coverage = bool(_HEALTH_COVERAGE.search(prompt))
         diagnostic_metric = _diagnostic_metric(prompt)
         metric_comparison = diagnostic_metric is not None and bool(
-            _BEFORE_AFTER_COMPARISON.search(prompt)
+            _is_before_after_comparison_prompt(prompt)
         )
-        error_change_correlation = bool(_ERROR_CHANGE_CORRELATION.search(prompt))
+        error_change_correlation = _is_error_change_correlation_prompt(prompt)
         pod_diagnosis = bool(_POD_DIAGNOSIS.search(prompt))
         capacity_diagnosis = bool(_CAPACITY_DIAGNOSIS.search(prompt))
         status_groups = inventory_query_status_groups(prompt)
@@ -637,9 +624,9 @@ def needs_subscription_health(prompt: str) -> bool:
     if _POD_DIAGNOSIS.search(prompt) or _CAPACITY_DIAGNOSIS.search(prompt):
         return True
     diagnostic_metric = _diagnostic_metric(prompt)
-    if diagnostic_metric is not None and _BEFORE_AFTER_COMPARISON.search(prompt):
+    if diagnostic_metric is not None and _is_before_after_comparison_prompt(prompt):
         return True
-    if _ERROR_CHANGE_CORRELATION.search(prompt):
+    if _is_error_change_correlation_prompt(prompt):
         return True
     if _HEALTH_COVERAGE.search(prompt):
         return not _MUTATION.search(prompt)
@@ -666,8 +653,8 @@ def needs_subscription_health(prompt: str) -> bool:
 def needs_subscription_health_context(prompt: str) -> bool:
     diagnostic_metric = _diagnostic_metric(prompt)
     return (
-        diagnostic_metric is not None and bool(_BEFORE_AFTER_COMPARISON.search(prompt))
-    ) or bool(_ERROR_CHANGE_CORRELATION.search(prompt))
+        diagnostic_metric is not None and _is_before_after_comparison_prompt(prompt)
+    ) or _is_error_change_correlation_prompt(prompt)
 
 
 def _normalize_health_coverage(result: dict[str, Any]) -> dict[str, Any]:
@@ -684,14 +671,6 @@ def _normalize_health_coverage(result: dict[str, Any]) -> dict[str, Any]:
     if not incomplete:
         return result
     return {**result, "status": "partial"}
-
-
-def _diagnostic_metric(prompt: str) -> str | None:
-    if _CPU_DIAGNOSIS.search(prompt):
-        return "cpu"
-    if _MEMORY_DIAGNOSIS.search(prompt):
-        return "memory"
-    return None
 
 
 def needs_subscription_context(prompt: str) -> bool:
@@ -778,46 +757,13 @@ def render_subscription_health_answer(
         return None
     korean = bool(locale and locale.casefold().startswith("ko"))
     query = evidence.get("query")
-    metric_comparison = isinstance(query, Mapping) and query.get("metric_comparison") is True
-    error_change_correlation = (
-        isinstance(query, Mapping) and query.get("error_change_correlation") is True
-    )
+    metric_change_answer = _render_metric_change_answer(query, result, korean=korean)
+    if metric_change_answer is not None:
+        return metric_change_answer
     pod_diagnosis = isinstance(query, Mapping) and query.get("pod_diagnosis") is True
     capacity_diagnosis = isinstance(query, Mapping) and query.get("capacity_diagnosis") is True
     status = result.get("status")
     if status not in {"matched", "partial"}:
-        if metric_comparison and result.get("reason") == "incident_anchor_unavailable":
-            return (
-                "비교할 인시던트 anchor가 없어 전후 메트릭 window를 조회하지 않았습니다. "
-                "인시던트를 선택한 뒤 다시 시도하세요."
-                if korean
-                else (
-                    "No incident anchor was available, so separate before and after metric "
-                    "windows were not queried. Select an incident and try again."
-                )
-            )
-        if (
-            error_change_correlation
-            and result.get("reason") == "telemetry_activity_join_unavailable"
-        ):
-            return (
-                "오류율 metric window와 배포 또는 설정 변경 activity를 함께 조회하는 provider가 "
-                "구성되지 않아 상관관계를 확정하지 않았습니다."
-                if korean
-                else (
-                    "No provider is configured to join an error-rate metric window with "
-                    "deployment or configuration activity, so no correlation was claimed."
-                )
-            )
-        if error_change_correlation and result.get("reason") == "incident_anchor_unavailable":
-            return (
-                "비교할 인시던트 anchor가 없어 오류율과 변경 activity를 조회하지 않았습니다."
-                if korean
-                else (
-                    "No incident anchor was available, so error-rate and change activity "
-                    "were not queried."
-                )
-            )
         if pod_diagnosis and result.get("reason") == "pod_selector_required":
             return (
                 "정확한 pod name 또는 선택된 pod context가 없어 재시작이나 throttling 원인을 "
@@ -846,10 +792,6 @@ def render_subscription_health_answer(
                 "was not confirmed."
             )
         )
-    if metric_comparison:
-        return _render_metric_comparison_answer(result, korean=korean)
-    if error_change_correlation:
-        return _render_error_change_correlation_answer(result, korean=korean)
     resource_count = _integer(result.get("resource_count"))
     resource_health_unavailable = _integer(result.get("resource_health_unavailable"))
     service_health_unavailable = _integer(result.get("service_health_unavailable"))
@@ -1064,154 +1006,6 @@ def render_subscription_health_answer(
             "complete normal operation was not confirmed."
         )
     return "\n".join(lines)
-
-
-def _render_metric_comparison_answer(result: Mapping[str, Any], *, korean: bool) -> str:
-    comparisons = [
-        item for item in result.get("metric_comparisons", []) if isinstance(item, Mapping)
-    ]
-    metric_family = str(result.get("metric_family") or "metric")
-    anchor_at = str(result.get("anchor_at") or "unknown")
-    if not comparisons:
-        return (
-            f"인시던트 {anchor_at} 전후의 {metric_family} 메트릭을 조회했지만 비교 가능한 "
-            "point가 없습니다. 지원 대상, telemetry 수집 또는 두 window의 관측값이 필요합니다."
-            if korean
-            else (
-                f"The {metric_family} metric was queried before and after incident anchor "
-                f"{anchor_at}, but no comparable points were available. Supported targets, "
-                "telemetry collection, and observations in both windows are required."
-            )
-        )
-    lines = [
-        (
-            f"인시던트 anchor {anchor_at} 전후의 {metric_family} 메트릭을 같은 리소스에서 "
-            f"비교했습니다. 비교 가능한 리소스: {len(comparisons)}개."
-            if korean
-            else (
-                f"Compared {metric_family} metrics on the same resources before and after "
-                f"incident anchor {anchor_at}. Comparable resources: {len(comparisons)}."
-            )
-        )
-    ]
-    for item in comparisons[:20]:
-        name = str(item.get("resource_name") or "unknown")
-        metric = str(item.get("metric") or metric_family)
-        before = _finite_number(item.get("before_value"))
-        after = _finite_number(item.get("after_value"))
-        delta = _finite_number(item.get("delta"))
-        if before is None or after is None or delta is None:
-            continue
-        lines.append(
-            f"- {name}: {metric} 전 {before:g}, 후 {after:g}, 변화 {delta:+g}."
-            if korean
-            else f"- {name}: {metric} before {before:g}, after {after:g}, delta {delta:+g}."
-        )
-    lines.append(
-        "이 비교는 시간적 동시성을 보여주며 원인을 단독으로 증명하지 않습니다."
-        if korean
-        else "This comparison shows temporal alignment and does not by itself prove cause."
-    )
-    return "\n".join(lines)
-
-
-def _render_error_change_correlation_answer(result: Mapping[str, Any], *, korean: bool) -> str:
-    peak = result.get("peak_error_window")
-    nearest = result.get("nearest_change")
-    if not isinstance(peak, Mapping):
-        return (
-            "인시던트 전후의 오류율 window를 조회했지만 오류 요청 집계를 관찰하지 못했습니다. "
-            "변경 activity가 있더라도 오류율과의 상관관계를 주장하지 않습니다."
-            if korean
-            else (
-                "The error-rate window was queried around the incident, but no error-request "
-                "aggregate was observed. Even if change activity exists, no correlation is claimed."
-            )
-        )
-    peak_at = str(peak.get("time") or "unknown")
-    error_count = _integer(peak.get("error_count"))
-    request_count = _integer(peak.get("request_count"))
-    if not isinstance(nearest, Mapping):
-        return (
-            f"오류가 가장 많은 window는 {peak_at}이며 오류 {error_count}건, 전체 요청 "
-            f"{request_count}건입니다. 같은 bounded window에서 성공한 배포 또는 설정 변경은 "
-            "관찰되지 않았습니다."
-            if korean
-            else (
-                f"The peak error window was {peak_at} with {error_count} error(s) out of "
-                f"{request_count} request(s). No successful deployment or configuration change "
-                "was observed in the same bounded window."
-            )
-        )
-    operation = str(nearest.get("operation") or "unknown")
-    change_at = str(nearest.get("time") or "unknown")
-    distance_seconds = _integer(nearest.get("distance_seconds"))
-    return (
-        f"오류가 가장 많은 window는 {peak_at}이며 오류 {error_count}건, 전체 요청 "
-        f"{request_count}건입니다. 가장 가까운 성공 변경은 {change_at}의 {operation}이며 "
-        f"시간 차이는 {distance_seconds}초입니다. 이는 시간적 연관이며 원인 증명이 아닙니다."
-        if korean
-        else (
-            f"The peak error window was {peak_at} with {error_count} error(s) out of "
-            f"{request_count} request(s). The nearest successful change was {operation} at "
-            f"{change_at}, {distance_seconds} seconds away. This is temporal association, not "
-            "proof of cause."
-        )
-    )
-
-
-def _correlation_result(
-    rows: Sequence[Mapping[str, Any]],
-    *,
-    anchor_at: str,
-    observed_at: str,
-    truncated: bool,
-) -> dict[str, Any]:
-    error_rows: list[dict[str, Any]] = []
-    change_rows: list[dict[str, Any]] = []
-    for row in rows[:100]:
-        kind = str(row.get("evidence_kind") or "").casefold()
-        occurred_at = row.get("TimeGenerated") or row.get("time_generated")
-        if not isinstance(occurred_at, str) or not occurred_at:
-            continue
-        if kind == "error_rate":
-            error_rows.append(
-                {
-                    "time": occurred_at,
-                    "request_count": _integer(row.get("request_count")),
-                    "error_count": _integer(row.get("error_count")),
-                }
-            )
-        elif kind == "change":
-            change_rows.append(
-                {
-                    "time": occurred_at,
-                    "operation": _bounded_text(row.get("OperationNameValue")),
-                    "resource_group": _bounded_text(row.get("ResourceGroup")),
-                }
-            )
-    peak = max(error_rows, key=lambda item: item["error_count"], default=None)
-    nearest = None
-    if peak is not None:
-        peak_time = _parse_aware_time(peak["time"])
-        candidates = [
-            (abs((_parse_aware_time(item["time"]) - peak_time).total_seconds()), item)
-            for item in change_rows
-        ]
-        if candidates:
-            distance, item = min(candidates, key=lambda candidate: candidate[0])
-            nearest = {**item, "distance_seconds": round(distance)}
-    return {
-        "status": "partial" if truncated else "matched",
-        "source": "azure-monitor-logs-activity-join",
-        "observed_at": observed_at,
-        "anchor_at": anchor_at,
-        "peak_error_window": peak,
-        "nearest_change": nearest,
-        "error_window_count": len(error_rows),
-        "change_count": len(change_rows),
-        "truncated": truncated,
-    }
 
 
 def subscription_health_evidence_refs(evidence: Mapping[str, Any]) -> tuple[str, ...]:
@@ -1455,9 +1249,9 @@ def _status_query(prompt: str) -> dict[str, object]:
     health_coverage = bool(_HEALTH_COVERAGE.search(prompt))
     diagnostic_metric = _diagnostic_metric(prompt)
     metric_comparison = diagnostic_metric is not None and bool(
-        _BEFORE_AFTER_COMPARISON.search(prompt)
+        _is_before_after_comparison_prompt(prompt)
     )
-    error_change_correlation = bool(_ERROR_CHANGE_CORRELATION.search(prompt))
+    error_change_correlation = _is_error_change_correlation_prompt(prompt)
     pod_diagnosis = bool(_POD_DIAGNOSIS.search(prompt))
     capacity_diagnosis = bool(_CAPACITY_DIAGNOSIS.search(prompt))
     groups = (
@@ -1653,32 +1447,6 @@ def _grouped_finding_lines(
 
 def _integer(value: object) -> int:
     return int(value) if isinstance(value, int | float) else 0
-
-
-def _finite_number(value: object) -> float | None:
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        return None
-    numeric = float(value)
-    return numeric if isfinite(numeric) else None
-
-
-def _bounded_text(value: object) -> str:
-    return " ".join(str(value or "unknown").split())[:128] or "unknown"
-
-
-def _kql_text(value: str) -> str:
-    if len(value) > 256 or any(character in value for character in "\r\n\x00"):
-        raise ValueError("KQL scalar context is invalid")
-    return value.replace("'", "''")
-
-
-def _parse_aware_time(value: object) -> datetime:
-    if not isinstance(value, str):
-        raise ValueError("telemetry timestamp MUST be a string")
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    if parsed.tzinfo is None:
-        raise ValueError("telemetry timestamp MUST be timezone-aware")
-    return parsed.astimezone(UTC)
 
 
 def _mask_subscription_id(value: str) -> str:
