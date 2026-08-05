@@ -172,6 +172,22 @@
     if (dismissible) dismissible.remove();
   });
 
+  document.addEventListener("click", function (event) {
+    var replayButton = event.target.closest("[data-cs-shimmer-replay]");
+    if (!replayButton) return;
+    var demo = replayButton.closest("[data-cs-shimmer-demo]");
+    if (!demo || (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) return;
+    demo.classList.remove("is-content-updated");
+    demo.getBoundingClientRect();
+    demo.classList.add("is-content-updated");
+  });
+
+  document.addEventListener("animationend", function (event) {
+    if (event.animationName === "cs-content-update") {
+      event.target.classList.remove("is-content-updated");
+    }
+  });
+
   function closeSelectMenus(except) {
     document.querySelectorAll("[data-cs-rich-select]").forEach(function (select) {
       if (select === except) return;
