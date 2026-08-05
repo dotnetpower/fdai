@@ -1,0 +1,120 @@
+.deck-overlay-mode-workspace .deck-body.has-conversations {
+  grid-template-columns: var(--deck-conversation-width, 240px) minmax(0, 1fr);
+}
+
+.deck-overlay-mode-workspace .deck-body.has-conversations.has-digest {
+  grid-template-columns: var(--deck-conversation-width, 240px) minmax(0, 1fr) 280px;
+}
+
+.deck-overlay .deck-conversations {
+  position: relative;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 14px 10px 10px;
+}
+
+.deck-overlay .deck-conversations-head { margin: 0 2px 8px; }
+
+.deck-conversation-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+
+.deck-conversation-controls > .tooltip-anchor { width: 30px; }
+
+.deck-overlay .deck-conversation-new {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.deck-overlay .deck-conversation-filter {
+  min-height: 30px;
+  margin: 0;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+}
+
+.deck-overlay .deck-conversation-filters {
+  display: flex;
+  gap: 14px;
+  margin: 0 2px 8px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.deck-overlay .deck-conversation-filters button {
+  min-width: 0;
+  flex: 1 1 0;
+  padding: 4px 0 6px;
+  border-radius: 0;
+}
+
+.deck-overlay .deck-conversation-filters button[aria-pressed="true"] {
+  background: transparent;
+  color: var(--fg);
+  box-shadow: inset 0 -2px var(--accent);
+}
+
+.deck-overlay .deck-conversation-list {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.deck-conversation-resize-handle {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+}
+
+.deck-conversation-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  background: transparent;
+}
+
+.deck-conversation-resize-handle:hover::after,
+.deck-conversation-resize-handle:focus-visible::after { background: var(--accent); }
+
+.deck-conversation-resize-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
+
+@media (max-width: 1399px) {
+  .deck-overlay-mode-workspace .deck-body.has-conversations.has-digest {
+    grid-template-columns: var(--deck-conversation-width, 240px) minmax(0, 1fr) 250px;
+  }
+}
+
+@media (max-width: 780px) {
+  .deck-conversation-resize-handle { display: none; }
+}

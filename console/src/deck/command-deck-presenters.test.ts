@@ -28,6 +28,20 @@ describe("conversation history paging", () => {
   });
 });
 
+describe("conversation sidebar controls", () => {
+  it("combines search and icon-only creation above lightweight filter tabs", () => {
+    const component = readFileSync(
+      fileURLToPath(new URL("./command-deck-presenters.tsx", import.meta.url)),
+      "utf8",
+    );
+    expect(component).toContain('class="deck-conversation-controls"');
+    expect(component).toContain('class="deck-conversation-new"');
+    expect(component).toContain('aria-label={t("deck.newConversation")}');
+    expect(component).toContain('class="deck-conversation-filters"');
+    expect(component).toContain('class="deck-conversation-resize-handle"');
+  });
+});
+
 describe("conversation title tooltip", () => {
   it("covers the complete selectable row without layout measurement", () => {
     const component = readFileSync(

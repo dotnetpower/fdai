@@ -25,9 +25,15 @@ import { investigationFlowPosition } from "./investigation-turn-state";
 import type { DeckSlashCommand } from "./command-deck-slash";
 import type { ConversationSummary } from "./conversation-sessions";
 import { conversationTrajectoriesByAnswer } from "./conversation-trajectory";
+import {
+  clampConversationWidth,
+  initialConversationWidth,
+  saveConversationWidth,
+} from "./conversation-sidebar-width";
 import type { useViewContext } from "./context";
 import { RetrievalTrace } from "./retrieval-trace";
 import { SourceReadinessStrip } from "./source-readiness-view";
+import "./conversation-sidebar.css";
 
 interface CommandDeckViewProps {
   readonly open: boolean;
@@ -155,6 +161,7 @@ export function CommandDeckView({
   }, []);
   const [showConversations, setShowConversations] = useState(false);
   const [showDigest, setShowDigest] = useState(false);
+  const [conversationWidth, setConversationWidth] = useState(initialConversationWidth);
   const openedAtRef = useRef(Date.now());
   const processedResumeKeysRef = useRef(new Set<string>());
   const [resumedAtBySession, setResumedAtBySession] = useState<Readonly<Record<string, string>>>({});
@@ -179,6 +186,34 @@ export function CommandDeckView({
     (latest, turn, index) => turn.role === "operator" ? index : latest,
     -1,
   );
+  const startConversationResize = (event: MouseEvent) => {
+    if (layoutMode !== "workspace" || event.button !== 0) return;
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = conversationWidth;
+    let latest = conversationWidth;
+    const onMove = (moveEvent: MouseEvent) => {
+      latest = clampConversationWidth(startWidth + moveEvent.clientX - startX);
+      setConversationWidth(latest);
+    };
+    const onEnd = () => {
+      saveConversationWidth(latest);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onEnd);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onEnd);
+  };
+  const resizeConversationWithKeyboard = (event: KeyboardEvent) => {
+    if (layoutMode !== "workspace" ||
+        (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) return;
+    event.preventDefault();
+    const next = clampConversationWidth(
+      conversationWidth + (event.key === "ArrowLeft" ? -20 : 20),
+    );
+    setConversationWidth(next);
+    saveConversationWidth(next);
+  };
   return (
     <>
       <CommandDeckLauncher
@@ -236,7 +271,10 @@ export function CommandDeckView({
 
           <SourceReadinessStrip client={client} />
 
-          <div class={`deck-body${showConversations ? " has-conversations" : ""}${showDigest ? " has-digest" : ""}`}>
+          <div
+            class={`deck-body${showConversations ? " has-conversations" : ""}${showDigest ? " has-digest" : ""}`}
+            style={`--deck-conversation-width: ${conversationWidth}px`}
+          >
             {showConversations ? (
               <ConversationSidebar
                 conversations={conversations}
@@ -244,11 +282,15 @@ export function CommandDeckView({
                 currentPath={currentPath}
                 hasMore={conversationHasMore}
                 loading={conversationPageLoading}
+                resizable={layoutMode === "workspace"}
+                width={conversationWidth}
                 onNew={onNewConversation}
                 onLoadMore={onLoadMoreConversations}
                 onRemove={onRemoveConversation}
                 onToggleFavorite={onToggleFavorite}
                 onSelect={onSelectConversation}
+                onResizeKeyDown={resizeConversationWithKeyboard}
+                onResizeStart={startConversationResize}
               />
             ) : null}
             <div class="deck-transcript-column">

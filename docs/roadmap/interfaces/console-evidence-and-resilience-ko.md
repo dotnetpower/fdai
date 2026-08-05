@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 26abd373e4ff1e14273fd4d51b001c3f2631e190
+translation_source_sha: af298eb7a4636742c4f3a5593550482d4b647e08
 translation_revised: 2026-08-05
 ---
 
@@ -40,7 +40,7 @@ Ordinal follow-up은 선택한 위치를 exact fresh inventory predicate로 다�
 Verified source-manifest answer는 bounded unavailable 또는 unknown entry를 `source_failure_context`로 보존합니다. Partial-source continuation은 해당 receipt의 available fact와 exact gap을 렌더링하고 reason 및 last observation이 있으면 함께 표시하며 arbitrary unverified answer를 source authority로 취급하지 않습니다. Verified 또는 corrected `query_llm_usage` answer는 domain, capability, token measure, grouping, `usage_scope` 및 numeric 1-90일 lookback이 포함된 bounded `analysis_context`를 보존합니다. 기간, grouping, table 또는 chart만 바꾸는 refinement는 이 server-owned anchor를 재사용하고 metering evidence를 다시 읽습니다. Comparison, export, missing-anchor, client-supplied-anchor 및 명시적인 다른 metric 요청은 inventory, Resource Health 또는 narrator output을 선택하지 않고 context-required hold를 반환합니다.
 Full-workspace Command Deck session은 transcript만 열린 content column으로 시작합니다. 비어 있는 transcript는 상황별 suggestion을 유지하고 tool 선택이나 authority를 바꾸지 않는 localized Resilience, Change Safety 및 Cost Governance quick start를 추가합니다. Transcript
 toolbar는 workspace, docked 및 floating layout에서 filter 가능한 대화 이력을 제공합니다. 좁은
-layout에서는 transcript 폭을 줄이지 않고 그 위에 overlay로 엽니다. 현재 화면 digest는 workspace control로 유지됩니다. Deck은 열린 surface마다 composition-owned data-source manifest를 한 번 읽고 transcript 위에 Inventory, Incidents, Audit, Knowledge 및 Automation readiness link를 compact하게 표시합니다. 누락되거나 non-authoritative인 source는 `unknown`으로 유지합니다. Browser는 health를 추론하거나 raw provider detail을 노출하거나 route 존재로 manifest를 대체하지 않습니다. Loading은 stable skeleton을 사용하고 manifest failure는 conversation history를 차단하지 않으면서 Diagnostics로 연결합니다.
+layout에서는 transcript 폭을 줄이지 않고 그 위에 overlay로 엽니다. Workspace에서는 pointer 또는 keyboard separator로 대화 이력 폭을 180-360 px 범위에서 조절하고 마지막 폭을 local에 저장합니다. 좁은 layout은 separator를 숨깁니다. History header는 검색과 icon-only 새 대화를 compact한 한 줄에 배치하고 lightweight filter tab을 사용하며, control 대신 list만 scroll합니다. 현재 화면 digest는 workspace control로 유지됩니다. Deck은 열린 surface마다 composition-owned data-source manifest를 한 번 읽고 transcript 위에 Inventory, Incidents, Audit, Knowledge 및 Automation readiness link를 compact하게 표시합니다. 누락되거나 non-authoritative인 source는 `unknown`으로 유지합니다. Browser는 health를 추론하거나 raw provider detail을 노출하거나 route 존재로 manifest를 대체하지 않습니다. Loading은 stable skeleton을 사용하고 manifest failure는 conversation history를 차단하지 않으면서 Diagnostics로 연결합니다.
 History는 stable cursor 순서로 durable summary를 한 번에 100건씩 load합니다. 100건에 도달하면 count를
 `100+`로 표시하고 history scroll 경계에 가까워지면 다음 100건을 load합니다. Transcript body는 선택할
 때만 hydrate합니다. Operator image는 전송된 turn 안에 표시됩니다. Browser cache serialization은

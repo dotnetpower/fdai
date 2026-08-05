@@ -33,6 +33,10 @@ import {
   type ConversationListFilter,
   conversationMatchesFilter,
 } from "./conversation-sessions";
+import {
+  CONVERSATION_WIDTH_MAX,
+  CONVERSATION_WIDTH_MIN,
+} from "./conversation-sidebar-width";
 import { useViewContext } from "./context";
 import type { ConversationTrajectory } from "./conversation-trajectory";
 import { ConversationTrajectoryView } from "./conversation-trajectory-view";
@@ -272,22 +276,30 @@ export function ConversationSidebar({
   currentPath,
   hasMore,
   loading,
+  resizable,
+  width,
   onNew,
   onLoadMore,
   onSelect,
   onRemove,
   onToggleFavorite,
+  onResizeKeyDown,
+  onResizeStart,
 }: {
   readonly conversations: readonly ConversationSummary[];
   readonly activeKey: string;
   readonly currentPath: string;
   readonly hasMore: boolean;
   readonly loading: boolean;
+  readonly resizable: boolean;
+  readonly width: number;
   readonly onNew: () => void;
   readonly onLoadMore: () => void;
   readonly onSelect: (conversation: ConversationSummary) => void;
   readonly onRemove: (conversation: ConversationSummary) => void;
   readonly onToggleFavorite: (conversation: ConversationSummary) => void;
+  readonly onResizeKeyDown: (event: KeyboardEvent) => void;
+  readonly onResizeStart: (event: MouseEvent) => void;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ConversationListFilter>("mine");
@@ -304,10 +316,6 @@ export function ConversationSidebar({
       class="deck-conversations"
       aria-label={t("deck.conversations")}
       aria-busy={loading}
-      onScroll={(event) => {
-        const element = event.currentTarget;
-        if (shouldLoadMoreConversations(element, hasMore)) onLoadMore();
-      }}
     >
       <div class="deck-conversations-head">
         <span>{t("deck.conversations")}</span>
@@ -315,18 +323,26 @@ export function ConversationSidebar({
           {conversationCountLabel(conversations.length, hasMore)}
         </span>
       </div>
-      <button type="button" class="deck-conversation-new" onClick={onNew}>
-        <span aria-hidden="true">+</span>
-        {t("deck.newConversation")}
-      </button>
-      <input
-        class="deck-conversation-filter"
-        type="search"
-        value={query}
-        aria-label={t("deck.filterConversations")}
-        placeholder={t("deck.filterConversations")}
-        onInput={(event) => setQuery(event.currentTarget.value)}
-      />
+      <div class="deck-conversation-controls">
+        <input
+          class="deck-conversation-filter"
+          type="search"
+          value={query}
+          aria-label={t("deck.filterConversations")}
+          placeholder={t("deck.filterConversations")}
+          onInput={(event) => setQuery(event.currentTarget.value)}
+        />
+        <Tooltip content={t("deck.newConversation")} placement="bottom-end">
+          <button
+            type="button"
+            class="deck-conversation-new"
+            onClick={onNew}
+            aria-label={t("deck.newConversation")}
+          >
+            <span aria-hidden="true">+</span>
+          </button>
+        </Tooltip>
+      </div>
       <div class="deck-conversation-filters" role="group" aria-label={t("deck.conversationFilters.label")}>
         {(["mine", "unread", "favorites"] as const).map((value) => (
           <button
@@ -339,7 +355,13 @@ export function ConversationSidebar({
           </button>
         ))}
       </div>
-      <div class="deck-conversation-list">
+      <div
+        class="deck-conversation-list"
+        onScroll={(event) => {
+          const element = event.currentTarget;
+          if (shouldLoadMoreConversations(element, hasMore)) onLoadMore();
+        }}
+      >
         {visibleConversations.length === 0 ? (
           <p class="deck-conversation-empty">
             {conversations.length === 0 ? t("deck.noConversations") : t("deck.noConversationMatches")}
@@ -385,6 +407,20 @@ export function ConversationSidebar({
           </div>
         ) : null}
       </div>
+      {resizable ? (
+        <button
+          type="button"
+          class="deck-conversation-resize-handle"
+          role="separator"
+          aria-label={t("deck.conversations")}
+          aria-orientation="vertical"
+          aria-valuemin={CONVERSATION_WIDTH_MIN}
+          aria-valuemax={CONVERSATION_WIDTH_MAX}
+          aria-valuenow={width}
+          onMouseDown={onResizeStart}
+          onKeyDown={onResizeKeyDown}
+        />
+      ) : null}
     </aside>
   );
 }
