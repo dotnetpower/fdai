@@ -330,6 +330,8 @@ Both expose body-free resume, safe cancel, and bounded effect-free retry over du
 They repeat App Role and allowlist checks, share the attempt cap, and reject unsafe retry or cancel.
 Thor never receives the developer credential; execution stays in the deployed Managed Identity runtime.
 Scenario replay, recording executors, VM-task fakes, synthetic data, and scope fixtures stay pytest-only.
+The explicit pytest fixture builder binds a synthetic inventory graph and registers no Azure
+inventory warmup or shutdown lifecycle; interactive local composition always keeps the live Azure provider.
 
 When FDAI's Azure PostgreSQL, Event Hubs, runtime, or executor resources are absent, the associated
 surfaces are unavailable or empty with no runtime claim. Repository catalogs and schemas remain

@@ -147,7 +147,14 @@ class TestListAudit:
 
     async def test_filters_before_pagination_so_late_matches_are_visible(self) -> None:
         model = InMemoryConsoleReadModel()
-        model.record_audit_entry(_entry(action_kind="target", tier="t2", vertical="change_safety"))
+        model.record_audit_entry(
+            _entry(
+                action_kind="target",
+                tier="t2",
+                vertical="change_safety",
+                recorded_at=(datetime.now(tz=UTC) - timedelta(days=1)).isoformat(),
+            )
+        )
         for index in range(30):
             model.record_audit_entry(_entry(action_kind=f"other-{index}", tier="t0"))
         page = await model.list_audit(

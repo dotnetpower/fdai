@@ -560,6 +560,8 @@ class TestLocalEntrypoint:
         assert review["id"] == "architecture-review"
         assert review["process"]["status"] == "waiting"
         assert review["regions"][0]["report"]["id"] == "architecture-review-process"
+        inventory = client.get("/inventory/graph").json()
+        assert inventory["source"] == "synthetic-dev"
 
     def test_dev_mode_honors_owner_role_from_present_bearer_token(
         self, monkeypatch: pytest.MonkeyPatch
@@ -722,6 +724,10 @@ class TestLocalEntraLoginHarness:
         monkeypatch.delenv(_DATABASE_URL_ENV, raising=False)
         monkeypatch.delenv(_AUTHORITATIVE_OPERATOR_API_ENV, raising=False)
         monkeypatch.setenv(_LOCAL_ENTRA_ENV, "1")
+        monkeypatch.setenv(
+            _LOCAL_AZURE_SUBSCRIPTION_ENV,
+            "00000000-0000-0000-0000-000000000000",
+        )
         monkeypatch.setenv("FDAI_ENTRA_TENANT_ID", "00000000-0000-0000-0000-000000000abc")
         monkeypatch.setenv("FDAI_API_AUDIENCE", "api://00000000-0000-0000-0000-000000000def")
 
@@ -849,6 +855,10 @@ class TestLocalAzureCliHarness:
         monkeypatch.delenv(_KAFKA_BOOTSTRAP_ENV, raising=False)
         monkeypatch.delenv(_KAFKA_EVENT_TOPIC_ENV, raising=False)
         monkeypatch.delenv(_DATABASE_URL_ENV, raising=False)
+        monkeypatch.setenv(
+            _LOCAL_AZURE_SUBSCRIPTION_ENV,
+            "00000000-0000-0000-0000-000000000000",
+        )
 
     def test_authoritative_proxy_is_declared_without_synthetic_fallback(
         self, monkeypatch: pytest.MonkeyPatch

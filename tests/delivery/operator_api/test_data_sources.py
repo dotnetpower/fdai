@@ -290,6 +290,17 @@ def test_unconfigured_local_operational_source_has_unknown_reachability() -> Non
     assert operational.reachable is None
 
 
+def test_fixture_inventory_is_explicitly_synthetic() -> None:
+    sources = build_local_data_sources(test_fixtures=True)
+
+    inventory = next(source for source in sources if source.key == "azure-inventory")
+    assert inventory.source == "synthetic-test-fixtures"
+    assert inventory.availability == "available"
+    assert inventory.reachable is True
+    assert inventory.authoritative is False
+    assert inventory.synthetic is True
+
+
 def test_local_postgresql_stays_unknown_without_startup_verification() -> None:
     sources = build_local_data_sources(
         test_fixtures=False,

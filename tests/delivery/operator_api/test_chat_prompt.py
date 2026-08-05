@@ -35,6 +35,7 @@ from fdai.delivery.operator_api.routes.chat_backend_common import (
     ChatContentPolicyError,
     _raise_if_content_filtered,
 )
+from fdai.delivery.operator_api.routes.chat_prompt import _with_concept_evidence
 from fdai.delivery.operator_api.routes.chat_prompt_content import (
     _AGENT_EVIDENCE_DIRECTIVE,
     _AGENT_SESSION_EVIDENCE_DIRECTIVE,
@@ -1093,6 +1094,18 @@ def test_concept_directive_prioritizes_selected_glossary_over_screen() -> None:
     assert any("primary authority" in directive for directive in directives)
     assert any("Do not infer or mention facts" in directive for directive in directives)
     assert any("operator's language" in directive for directive in directives)
+
+
+def test_document_evidence_blocks_concept_glossary_fast_path() -> None:
+    document_evidence = {"authority": "document_ingestion", "refs": ["doc:1:2"]}
+
+    enriched = _with_concept_evidence(
+        "Summarize the attached evidence",
+        {"_document_evidence": document_evidence},
+    )
+
+    assert enriched["_document_evidence"] == document_evidence
+    assert "_concept_evidence" not in enriched
 
 
 # ---------------------------------------------------------------------------

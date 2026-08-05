@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 170e0ca1eb4335744c11de9345afc58d4313d9a7
+translation_source_sha: 37316665ef671067a12bf69e93696ad0f4faba23
 translation_revised: 2026-08-05
 ---
 
@@ -334,6 +334,8 @@ Enforce에는 Azure event transport와 workflow approval evidence를 공유하�
 App Role 및 allowlist를 다시 검사하고 attempt cap을 공유하며 unsafe retry 또는 cancel을 차단합니다.
 Thor는 developer credential을 받지 않으며 execution은 deployed Managed Identity runtime에 남습니다.
 Scenario replay, recording executor, VM-task fake, synthetic data 및 scope fixture는 pytest 전용입니다.
+명시적 pytest fixture builder는 synthetic inventory graph를 bind하고 Azure inventory warmup 또는
+shutdown lifecycle을 등록하지 않습니다. Interactive local composition은 항상 live Azure provider를 유지합니다.
 
 FDAI Azure PostgreSQL, Event Hubs, runtime, executor resource가 없으면 해당 surface는 runtime
 claim 없이 unavailable 또는 empty로 표시됩니다. Repository catalog와 schema는 observed runtime
