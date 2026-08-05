@@ -35,7 +35,14 @@ Before each cycle, skip without generating a question only when any of these con
 
 A dirty primary worktree or active developer session does not block measurement. Hardening starts
 from committed `HEAD` in a separate worktree and must not read, stage, overwrite, or archive the
-primary worktree's uncommitted changes. The runner lock prevents overlapping generated candidates.
+primary worktree's uncommitted changes. An active Copilot session does block hardening. The first
+timer cycle after the configured idle window resumes the newest unresolved evaluation before it
+generates another question. The runner lock prevents overlapping generated candidates.
+
+The user-systemd service runs with the project's virtual-environment Python and inherited tool
+`PATH`, so candidate verification uses the same Python and Node toolchain as local development.
+Every started hardening attempt appends a bounded terminal `hardening_result` record for verified,
+failed, or exceptional completion. Error records contain the exception type, not provider output.
 
 The recovery supervisor repairs a disabled or inactive main timer, resets a failed service, and
 starts a nonblocking recovery cycle after 45 minutes without ledger activity or three consecutive
