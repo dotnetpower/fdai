@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 392b13ecc64082bee24d49c47282b82795bc0f00
+translation_source_sha: 15689a72151c719169d3e3aeff3f8420b370c6f9
 translation_revised: 2026-08-05
 ---
 
@@ -242,10 +242,12 @@ provider payload 및 validation result는 변경하지 않습니다.
 각 Command Deck 질문은 관측된 작업이 뒷받침하는 가장 작은 presentation을 선택합니다. Activity,
 handoff 또는 background task가 없는 turn도 접힌 run record를 유지합니다. 성공한 단일 terminal read는
 compact investigation row와 접힌 run record를 함께 사용합니다. 여러 activity, milestone,
-retry, failure, handoff, command 또는 file change가 있으면 timeline을 기본으로 펼칩니다. Durable
+retry, failure, handoff, command 또는 file change가 있으면 전체 timeline을 유지하지만 run record는
+기본적으로 접어 둡니다. Durable
 background task는 detached task summary를 사용합니다. 복원된 compact turn은 durable detail에서
 observed row를 재구성하고 live turn은 인과 순서로 이미 표시한 row를 유지합니다. 완료된 모든 answer는
-trajectory summary와 bounded original operator prompt를 표시합니다. Internal AnswerPlan intent 및
+trajectory summary를 확인할 수 있게 유지합니다. Bounded original operator prompt는 run record가
+접혀 있는 동안 숨기고 operator가 펼치면 표시합니다. Internal AnswerPlan intent 및
 detail label은 answer 위에 표시하지 않습니다. Run record decision context에는 유지하며 answer는
 operator-facing content와 verified evidence로 바로 시작합니다. Model-assisted format selection은 validation된 presentation shape만 변경합니다. Verified chart는 evidence reference가 포함된 bounded `chart_artifact` v1을 반환하며 transport는 answer text보다 먼저 이를 검증하고 렌더링합니다. Canonical fenced chart data는 compatibility fallback으로 유지합니다.
 
@@ -255,7 +257,9 @@ command count, evidence completion, reference 및 verification을 표시합니�
 status는 replay를 위해 그대로 유지합니다. Primary Console label은 bounded reason code에 따라 Context
 필요, Source 사용 불가, Query 검증 실패 또는 근거 없는 claim으로 표시하고 technical detail에는
 canonical status와 raw reason code를 유지합니다. Run-record summary는
-complete bounded operator prompt를 유지하고 좁은 layout에서는 줄바꿈합니다. Disclosure를 변경하면 transcript만 scroll하고 composer는
+두 result indicator를 compact한 한 줄에 겹쳐 표시하고 pointer hover 또는 keyboard focus에서 전체
+localized label을 보여 줍니다. 펼친 run-record summary는 complete bounded operator prompt를 유지하고
+좁은 layout에서는 줄바꿈합니다. Disclosure를 변경하면 transcript만 scroll하고 composer는
 Deck 경계에 계속 표시됩니다. 펼친 view는 6단계 rail, 펼칠 수 있는 observed-event timeline 및 provenance signal을 먼저 표시하고,
 timing window, decision context, phase record 및 coverage gap은 하나의 접힌 execution-details disclosure에
 유지합니다. Preparing-answer surface는 observed activity와 evidence branch가 terminal state에 도달할
@@ -284,8 +288,8 @@ evidence branch를 대체하며 observed label, tool, authority 및 detail을 �
 마지막 recorded timing completion보다 앞에 배치하지 않습니다. 따라서 browser와 server의 clock
 skew가 evidence를 input 앞에 두거나 generation과 verification을 delivery 뒤에 두지 못합니다. Lane
 baseline과 tick은 completion progress bar와 구분됩니다.
-Answer text는 16 px을 사용하고 main disclosure 높이는 44 px이며, 200% text resize와 320 CSS pixel에서 content loss 없이 reflow합니다.
-Trajectory heading은 14 px, event label은 13 px, compact trajectory metadata는 12 px을 사용합니다.
+Answer text는 15 px을 사용하고 main disclosure 높이는 44 px이며, 200% text resize와 320 CSS pixel에서 content loss 없이 reflow합니다.
+Trajectory heading은 13 px, event label은 12 px, compact trajectory metadata는 11 px을 사용합니다.
 Terminal verified answer에 server가 정확한 영어 또는 한국어 형식으로 렌더링한 recorded-agent-activity block이 있으면 해당 row를 하나의 compact vertical timeline으로 표시합니다. 각 row는 agent, canonical event token, 정확한 ISO timestamp 및 locale에 맞춘 읽기 쉬운 시간을 유지합니다. Malformed 또는 알 수 없는 prose는 observed activity로 승격하지 않고 일반 answer content로 유지합니다.
 게시된 screen snapshot은 5분 후 visibly stale 상태가 되고
 명시적인 page refresh를 제공합니다. Bare clock은 current evidence를 의미하지 않습니다. Markdown

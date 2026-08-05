@@ -316,7 +316,9 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await expect(investigation.locator(".deck-investigation-item")).toHaveCount(1);
   await expect(investigation.locator(".deck-investigation-kind-badge")).toHaveText("QUERY");
   await investigation.locator(".deck-investigation-item-disclosure > summary").click();
-  const queryResult = investigation.locator(".deck-investigation-disclosure").first();
+  const queryResult = investigation.locator(
+    "details.deck-investigation-disclosure:has(> .deck-investigation-output)",
+  );
   await queryResult.locator(":scope > summary").click();
   const queryResultCode = queryResult.locator(".deck-investigation-output code");
   await expect(queryResultCode).toHaveAttribute("data-format", "json");
@@ -324,6 +326,22 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await expect(queryResultCode).toContainText('"name": "vm-example"');
 
   const runRecord = workspace.locator(".deck-trajectory");
+  await expect(runRecord).not.toHaveAttribute("open", "");
+  await expect(runRecord.locator(".deck-trajectory-question")).toHaveCount(0);
+  const trajectoryResults = workspace.locator(".deck-trajectory-results");
+  const collapsedResults = await trajectoryResults.locator(":scope > span").evaluateAll(
+    (items) => items.map((item) => {
+      const bounds = item.getBoundingClientRect();
+      return { top: bounds.top, width: bounds.width };
+    }),
+  );
+  expect(collapsedResults).toHaveLength(2);
+  expect(collapsedResults[0]?.top).toBe(collapsedResults[1]?.top);
+  expect(collapsedResults.every((item) => item.width <= 22)).toBe(true);
+  await trajectoryResults.hover();
+  await expect.poll(async () => trajectoryResults.locator(":scope > span").evaluateAll(
+    (items) => items.every((item) => item.getBoundingClientRect().width > 22),
+  )).toBe(true);
   await runRecord.locator(":scope > summary").click();
   await expect(runRecord).toHaveAttribute("open", "");
   await expect(runRecord.locator(".deck-trajectory-question strong")).toHaveText(

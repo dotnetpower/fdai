@@ -39,13 +39,22 @@ export function ConversationTrajectoryView({
     ...(answer.verification?.evidence_refs ?? []),
   ]);
   const presentation = buildTrajectoryPresentation(trajectory);
-  const [open, setOpen] = useState(presentation.workProgress === "timeline");
+  const [open, setOpen] = useState(false);
   const queryCount = activities.filter(
     (activity) => activity.execution?.inputKind === "query",
   ).length;
   const commandCount = activities.filter(
     (activity) => activity.execution?.inputKind === "command",
   ).length;
+  const activitySummary = t("deck.trajectory.activitySummary", {
+    queries: queryCount,
+    commands: commandCount,
+  });
+  const evidenceSummary = t("deck.trajectory.evidenceSummary", {
+    successful: presentation.evidenceCompletedCount,
+    attempted: presentation.evidenceAttemptCount,
+    references: presentation.evidenceReferenceCount,
+  });
   const omittedDetailCount = answer.trajectoryDetail
     ? Object.values(answer.trajectoryDetail.omitted).reduce((total, count) => total + count, 0)
     : 0;
@@ -61,19 +70,17 @@ export function ConversationTrajectoryView({
 
   return (
     <div class={`deck-trajectory-cluster is-${presentation.workProgress}`}>
-      <div class="deck-trajectory-results" aria-label={t("deck.trajectory.title")}>
-        <span data-state="observed">
-          {t("deck.trajectory.activitySummary", {
-            queries: queryCount,
-            commands: commandCount,
-          })}
+      <div
+        class="deck-trajectory-results"
+        role="group"
+        tabIndex={0}
+        aria-label={`${activitySummary}; ${evidenceSummary}`}
+      >
+        <span data-state="observed" aria-hidden="true">
+          {activitySummary}
         </span>
-        <span data-state={presentation.phaseStates.evidence}>
-          {t("deck.trajectory.evidenceSummary", {
-            successful: presentation.evidenceCompletedCount,
-            attempted: presentation.evidenceAttemptCount,
-            references: presentation.evidenceReferenceCount,
-          })}
+        <span data-state={presentation.phaseStates.evidence} aria-hidden="true">
+          {evidenceSummary}
         </span>
       </div>
       <details
@@ -111,10 +118,12 @@ export function ConversationTrajectoryView({
               })}
         </span>
         <span class="deck-trajectory-chevron" aria-hidden="true" />
-        <span class="deck-trajectory-question">
-          <small>{t("deck.trajectory.phase.input")}</small>
-          <strong>{trajectory.question.text}</strong>
-        </span>
+        {open ? (
+          <span class="deck-trajectory-question">
+            <small>{t("deck.trajectory.phase.input")}</small>
+            <strong>{trajectory.question.text}</strong>
+          </span>
+        ) : null}
       </summary>
       {open ? (
         <div class="deck-trajectory-body">

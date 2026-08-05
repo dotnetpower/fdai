@@ -247,10 +247,11 @@ provider payloads, and validation results remain unchanged.
 Each Command Deck question selects the smallest presentation supported by observed work. A turn with
 no activity, handoff, or background task keeps a collapsed run record. One successful terminal read
 uses a compact investigation row and a collapsed run record. Multiple activities,
-milestones, retries, failures, handoffs, commands, or file changes use an expanded timeline by
-default. A durable background task uses a detached task summary. Restored compact turns reconstruct
+milestones, retries, failures, handoffs, commands, or file changes retain the complete timeline but
+keep its run record collapsed by default. A durable background task uses a detached task summary. Restored compact turns reconstruct
 the observed row from durable detail, while live turns retain the row already shown in causal order.
-Every completed answer keeps its trajectory summary and bounded original operator prompt visible.
+Every completed answer keeps its trajectory summary available. The bounded original operator prompt
+stays hidden while the run record is collapsed and appears when the operator expands it.
 Internal AnswerPlan intent and detail labels don't appear above the answer. They remain available in
 the Run record decision context, while the answer leads with operator-facing content and verified
 evidence. Model-assisted format selection changes only the validated presentation shape. A verified chart returns a bounded `chart_artifact` v1 with evidence references, and the transport validates and renders it before answer text; canonical fenced chart data remains the compatibility fallback.
@@ -261,7 +262,9 @@ counts, evidence completion, references, and verification rather than internal e
 serialized `unverified` status remains stable for replay. Its primary Console label is derived from
 the bounded reason code as Context required, Source unavailable, Invalid query, or Unsupported
 claim, while technical detail retains the canonical status and raw reason code. The
-run-record summary retains the complete bounded operator prompt and wraps it on narrow layouts. Changing its disclosure
+two result indicators overlap in one compact line and reveal their complete localized labels on
+pointer hover or keyboard focus. The expanded run-record summary retains the complete bounded
+operator prompt and wraps it on narrow layouts. Changing its disclosure
 scrolls only the transcript while the composer remains visible at the Deck boundary. The expanded
 view leads with the six-phase rail,
 expandable observed-event timeline, and provenance signals, while timing windows, decision context, phase records, and coverage gaps remain in one
@@ -294,8 +297,8 @@ earliest timestamp observed for the turn, and the terminal answer anchors no ear
 recorded timing completion. Browser and server clock skew therefore cannot place evidence before
 input or generation and verification after delivery. The lane baseline and ticks remain distinct
 from a completion progress bar.
-Answer text uses 16 px text, main disclosures are 44 px high, and content reflows without loss at 200% text resize and 320 CSS pixels.
-Trajectory headings use 14 px, event labels use 13 px, and compact trajectory metadata uses 12 px.
+Answer text uses 15 px text, main disclosures are 44 px high, and content reflows without loss at 200% text resize and 320 CSS pixels.
+Trajectory headings use 13 px, event labels use 12 px, and compact trajectory metadata uses 11 px.
 A terminal verified answer that contains the exact server-rendered English or Korean recorded-agent-activity block presents those rows as one compact vertical timeline. Each row retains the agent, canonical event token, exact ISO timestamp, and localized readable time; malformed or unknown prose remains ordinary answer content instead of becoming observed activity.
 A published screen snapshot becomes visibly stale
 after five minutes and offers an explicit page refresh; a bare clock never implies current evidence.

@@ -6665,18 +6665,46 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   line-height: 1.5;
 }
 .deck-trajectory-cluster { min-width: 0; width: 100%; margin-top: 6px; }
-.deck-trajectory-results { display: flex; flex-wrap: wrap; gap: 6px; }
+.deck-trajectory-results {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  cursor: help;
+  outline: none;
+}
 .deck-trajectory-results > span {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 0;
+  max-width: 22px;
   min-height: 22px;
-  padding: 2px 6px;
+  margin-left: -7px;
+  padding: 0;
+  overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 999px;
   background: color-mix(in oklab, var(--bg-elevated) 86%, var(--bg));
+  color: transparent;
+  font-size: 11px;
+  white-space: nowrap;
+  transition: max-width .16s ease, margin-left .16s ease, padding .16s ease, color .12s ease;
+}
+.deck-trajectory-results > span:first-child { z-index: 1; margin-left: 0; }
+.deck-trajectory-results:hover > span,
+.deck-trajectory-results:focus > span {
+  max-width: 260px;
+  margin-left: 4px;
+  padding: 2px 7px;
+  gap: 6px;
   color: var(--fg-muted);
-  font-size: 12px;
+}
+.deck-trajectory-results:hover > span:first-child,
+.deck-trajectory-results:focus > span:first-child { margin-left: 0; }
+.deck-trajectory-results:focus-visible {
+  border-radius: 999px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .deck-trajectory-results > span::before,
 .deck-trajectory-signals dd::before {
@@ -6698,10 +6726,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-trajectory-results > span[data-state="not_observed"]::before,
 .deck-trajectory-signals > div[data-state="not_observed"] dd::before { background: var(--fg-muted); }
 .deck-trajectory {
-  --deck-font-heading: 14px;
-  --deck-font-body: 13px;
-  --deck-font-small: 12px;
-  --deck-font-label: 12px;
+  --deck-font-heading: 13px;
+  --deck-font-body: 12px;
+  --deck-font-small: 11px;
+  --deck-font-label: 11px;
   min-width: 0;
   margin-top: 7px;
   overflow: hidden;
@@ -7226,7 +7254,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   overflow-anchor: none;
   scrollbar-gutter: stable;
   padding: 0;
-  font-size: 16px;
+  font-size: 15px;
 }
 .deck-transcript-inner {
   width: min(100%, 900px);
@@ -8937,7 +8965,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-turn-line {
   margin: 0 0 4px;
   max-width: 72ch;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.62;
   color: var(--fg);
 }
@@ -9024,7 +9052,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   letter-spacing: 0;
   line-height: 1.35;
 }
-.deck-rich-heading.is-level-1 { font-size: 16px; }
+.deck-rich-heading.is-level-1 { font-size: 15px; }
 .deck-rich-heading.is-level-2 { font-size: 14px; }
 .deck-rich-heading.is-level-3 { font-size: 13px; }
 .deck-rich-list {
