@@ -527,6 +527,21 @@ export default defineConfig({
               translations: { ko: "규칙 오버라이드" },
               link: "/guides/override-a-rule/",
             },
+            {
+              label: "Work in the operator console",
+              translations: { ko: "운영자 콘솔 사용하기" },
+              link: "/guides/use-console-operations/",
+            },
+            {
+              label: "Investigate an Azure resource",
+              translations: { ko: "Azure 리소스 조사하기" },
+              link: "/guides/investigate-azure-resources/",
+            },
+            {
+              label: "Ask FDAI in conversation",
+              translations: { ko: "대화로 FDAI에 묻기" },
+              link: "/guides/use-operator-conversations/",
+            },
           ],
         },
         {
