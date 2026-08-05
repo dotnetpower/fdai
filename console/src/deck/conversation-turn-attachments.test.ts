@@ -1,15 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { withoutAttachmentSource } from "./conversation-turn-attachments";
+import { releaseFailedAttachmentSource } from "./conversation-turn-attachments";
 
 describe("conversation turn attachment failures", () => {
   it("removes only the image source that failed to decode", () => {
-    expect(withoutAttachmentSource({
+    const revoke = vi.fn();
+    expect(releaseFailedAttachmentSource({
       "att-first": "blob:first",
       "att-second": "blob:second",
-    }, "att-first")).toEqual({
+    }, "att-first", revoke)).toEqual({
       "att-first": "",
       "att-second": "blob:second",
     });
+    expect(revoke).toHaveBeenCalledWith("blob:first");
   });
 });

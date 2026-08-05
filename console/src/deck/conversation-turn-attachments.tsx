@@ -5,10 +5,13 @@ import { fetchConversationImage } from "../user-context-client";
 import { conversationImageFetchLimiter } from "./image-fetch-limiter";
 import type { TurnAttachment } from "./turn-attachments";
 
-export function withoutAttachmentSource(
+export function releaseFailedAttachmentSource(
   sources: Readonly<Record<string, string>>,
   attachmentId: string,
+  revoke: (source: string) => void = URL.revokeObjectURL,
 ): Readonly<Record<string, string>> {
+  const source = sources[attachmentId];
+  if (source?.startsWith("blob:")) revoke(source);
   return { ...sources, [attachmentId]: "" };
 }
 
@@ -67,7 +70,7 @@ export function ConversationTurnAttachments({
                   src={source}
                   alt={attachment.name}
                   onError={() => setSources((current) =>
-                    withoutAttachmentSource(current, attachment.id))}
+                    releaseFailedAttachmentSource(current, attachment.id))}
                 />
               ) : (
                 <span
