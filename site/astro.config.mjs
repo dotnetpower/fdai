@@ -283,6 +283,11 @@ export default defineConfig({
               translations: { ko: "에이전트 조직" },
               link: "/concepts/agents-and-self-healing/",
             },
+            {
+              label: "Agent ownership",
+              translations: { ko: "에이전트 담당 체계" },
+              link: "/concepts/ownership-and-handover/",
+            },
           ],
         },
         {
