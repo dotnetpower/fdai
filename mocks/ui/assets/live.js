@@ -67,7 +67,7 @@
   var emitAccum = 0;
   var paused = false;
   var running = true;
-  var viewMode = "queue";
+  var viewMode = "flow";
   var currentFilter = "all";
   var selectedEventId = null;
   var detailPreviousFocus = null;
@@ -582,7 +582,6 @@
 
     var secondsSinceEvent = Math.max(0, Math.floor((Date.now() - lastEventAt) / 1000));
     document.getElementById("health-last-event").textContent = secondsSinceEvent === 0 ? "Signal now" : secondsSinceEvent + "s ago";
-    document.getElementById("health-presentation").textContent = paused ? "Frozen" : "Following";
     var backlog = document.getElementById("health-backlog");
     backlog.textContent = droppedFrames > 0 ? droppedFrames + " dropped" : "Complete";
     backlog.className = droppedFrames > 0 ? "is-warn" : "is-ok";
@@ -677,7 +676,9 @@
     paused = !paused;
     pauseBtn.textContent = paused ? "Resume" : "Freeze";
     pauseBtn.setAttribute("aria-pressed", paused ? "true" : "false");
-    document.querySelector(".cs-live-heartbeat").style.animationPlayState = paused ? "paused" : "";
+    document.querySelectorAll(".cs-live-connection i").forEach(function (indicator) {
+      indicator.style.animationPlayState = paused ? "paused" : "";
+    });
     renderOperationalState(performance.now());
   });
   queueButton.addEventListener("click", function () { setView("queue"); });
@@ -746,7 +747,7 @@
 
   // ---------- boot ----------
   initPool();
-  setView("queue");
+  setView("flow");
   setFilter("all");
   // Timer-driven so the synthetic preview continues in integrated browser
   // tabs where requestAnimationFrame may pause when the iframe is hidden.

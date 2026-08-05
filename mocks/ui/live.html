@@ -4,43 +4,36 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Live - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=live-six-row-v1" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=live-compact-v1" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
 </head>
 <body>
   <main class="cs-page cs-live-page">
     <header class="cs-live-header">
       <div class="cs-live-heading">
-        <div class="cs-eyebrow">Operations / Live</div>
-        <h1 class="cs-live-title">Live <span class="cs-live-heartbeat" aria-hidden="true"></span></h1>
-        <p class="cs-live-lead">Current control-loop activity, routing decisions, and outcomes from the synthetic preview stream.</p>
+        <h1 class="cs-live-title">Live</h1>
+        <p class="cs-live-lead">Current control-loop activity and decisions.</p>
       </div>
       <div class="cs-live-controls">
         <button class="cs-btn is-sm" id="live-pause" type="button" aria-pressed="false">Freeze</button>
-        <span class="cs-tag">Source <strong>Synthetic preview</strong></span>
-        <span class="cs-tag"><code>GET /live/stream</code></span>
-        <span class="cs-tag">Window <strong>60s</strong></span>
-        <span class="cs-live-connection"><i aria-hidden="true"></i>Connected</span>
+        <span class="cs-live-context"><strong>Synthetic preview</strong><span>60s</span><span class="cs-live-connection"><i aria-hidden="true"></i>Connected</span></span>
       </div>
     </header>
 
-    <section class="cs-live-health" aria-label="Stream health">
-      <div><span>Stream</span><strong class="is-ok" id="health-stream">Connected</strong></div>
-      <div><span>Last event</span><strong id="health-last-event">Signal now</strong></div>
-      <div><span>Environment</span><strong>Synthetic preview</strong></div>
-      <div><span>Presentation</span><strong id="health-presentation">Following</strong></div>
-      <div><span>Backlog</span><strong class="is-ok" id="health-backlog">Complete</strong></div>
-    </section>
-
-    <section class="cs-live-attention is-calm" id="live-attention" aria-label="Items needing attention">
-      <span class="cs-live-attention-calm" id="attention-calm"><i aria-hidden="true"></i>No items need attention</span>
-      <div class="cs-live-attention-items" id="attention-items" hidden>
-        <strong>Needs attention</strong>
-        <button type="button" data-attention-filter="hil">Approvals <span id="attention-hil">0</span></button>
-        <button type="button" data-attention-filter="deny">Denied <span id="attention-deny">0</span></button>
-        <button type="button" data-attention-filter="failed">Failed <span id="attention-failed">0</span></button>
-        <button type="button" data-attention-filter="stuck">Over budget <span id="attention-stuck">0</span></button>
-        <a href="hil.html">Open approvals</a>
+    <section class="cs-live-status-rail" aria-label="Live status and attention">
+      <div class="cs-live-health" aria-label="Stream health">
+        <div><span>Last signal</span><strong id="health-last-event">Now</strong></div>
+        <div><span>Backlog</span><strong class="is-ok" id="health-backlog">Complete</strong></div>
+      </div>
+      <div class="cs-live-attention is-calm" id="live-attention" aria-label="Items needing attention">
+        <span class="cs-live-attention-calm" id="attention-calm"><i aria-hidden="true"></i>No attention needed</span>
+        <div class="cs-live-attention-items" id="attention-items" hidden>
+          <strong>Attention</strong>
+          <button type="button" data-attention-filter="hil">Approval <span id="attention-hil">0</span></button>
+          <button type="button" data-attention-filter="deny">Deny <span id="attention-deny">0</span></button>
+          <button type="button" data-attention-filter="failed">Failed <span id="attention-failed">0</span></button>
+          <button type="button" data-attention-filter="stuck">Over budget <span id="attention-stuck">0</span></button>
+        </div>
       </div>
     </section>
 
@@ -79,21 +72,19 @@
       </a>
     </section>
 
-    <section class="cs-live-work-header">
+    <section class="cs-live-workbar">
       <div><span>Current work</span><h2>Control-loop work</h2></div>
-      <div class="cs-live-view-toggle" role="group" aria-label="Work view">
-        <button type="button" id="view-queue" class="is-active" aria-pressed="true">Queue</button>
-        <button type="button" id="view-flow" aria-pressed="false">Flow</button>
+      <div class="cs-live-filterbar" aria-label="Work filters">
+        <button type="button" class="is-active" data-live-filter="all" aria-pressed="true">All <span id="filter-all">0</span></button>
+        <button type="button" data-live-filter="hil" aria-pressed="false">Approval <span id="filter-hil">0</span></button>
+        <button type="button" data-live-filter="deny" aria-pressed="false">Deny <span id="filter-deny">0</span></button>
+        <button type="button" data-live-filter="failed" aria-pressed="false">Failed <span id="filter-failed">0</span></button>
+        <button type="button" data-live-filter="stuck" aria-pressed="false">Over budget <span id="filter-stuck">0</span></button>
       </div>
-    </section>
-
-    <section class="cs-live-filterbar" aria-label="Work filters">
-      <button type="button" class="is-active" data-live-filter="all" aria-pressed="true">All <span id="filter-all">0</span></button>
-      <button type="button" data-live-filter="hil" aria-pressed="false">Approval <span id="filter-hil">0</span></button>
-      <button type="button" data-live-filter="deny" aria-pressed="false">Deny <span id="filter-deny">0</span></button>
-      <button type="button" data-live-filter="failed" aria-pressed="false">Failed <span id="filter-failed">0</span></button>
-      <button type="button" data-live-filter="stuck" aria-pressed="false">Over budget <span id="filter-stuck">0</span></button>
-      <span>Exception-first ordering</span>
+      <div class="cs-live-view-toggle" role="group" aria-label="Work view">
+        <button type="button" id="view-queue" aria-pressed="false">Queue</button>
+        <button type="button" id="view-flow" class="is-active" aria-pressed="true">Flow</button>
+      </div>
     </section>
 
     <section id="queue-view" aria-label="Control-loop work queue">
@@ -106,7 +97,7 @@
       </div>
     </section>
 
-    <section id="flow-view" aria-label="Control-loop flow" hidden>
+    <section id="flow-view" aria-label="Control-loop flow">
       <div class="cs-swarm" id="swarm"></div>
     </section>
 
@@ -135,6 +126,6 @@
 
   </main>
 
-  <script src="assets/live.js?v=live-six-row-v2" defer></script>
+  <script src="assets/live.js?v=live-compact-v2" defer></script>
 </body>
 </html>
