@@ -24,7 +24,7 @@ describe("Live responsive header", () => {
   });
 
   it("keeps the mock-aligned work grid and mobile queue bounded", () => {
-    expect(styles).toMatch(/\.live-swarm\s*\{[^}]*grid-template-columns: repeat\(4/);
+    expect(styles).toMatch(/\.live-swarm\s*\{[^}]*grid-template-columns: repeat\(6/);
     expect(styles).toMatch(/\.live-tile\s*\{[^}]*min-height: 164px/);
     expect(styles).toMatch(/@media \(max-width: 1180px\)[\s\S]*?\.live-swarm\s*\{[^}]*repeat\(3/);
     expect(styles).toMatch(/@media \(max-width: 1100px\)[\s\S]*?\.live-kpis\s*\{[^}]*repeat\(2/);

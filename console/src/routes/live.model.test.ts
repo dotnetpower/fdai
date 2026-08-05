@@ -13,6 +13,7 @@ import { appendLiveBacklog, drainLiveBacklog, liveTraceHref } from "./live";
 import {
   authorityModeHelp,
   authorityModeLabel,
+  compareLiveTiles,
   liveControlState,
 } from "./live.tiles";
 
@@ -183,6 +184,24 @@ describe("Live cockpit model", () => {
     const tile = state.tiles.find((candidate) => candidate?.event_id === "evt-live-1");
     expect(tile).not.toBeNull();
     expect(tile && isTileStuck(tile, tile.first_seen_at + 60_000)).toBe(false);
+  });
+
+  test("orders work by attention priority and then newest observation", () => {
+    let state = makeInitialState();
+    state = applyEvent(state, stageEvent("route", { tier: "t0" }));
+    const base = state.tiles.find((candidate) => candidate?.event_id === "evt-live-1");
+    expect(base).not.toBeNull();
+    if (!base) return;
+
+    const activeOlder = { ...base, event_id: "active-older", last_seen_at: 100 };
+    const activeNewer = { ...base, event_id: "active-newer", last_seen_at: 200 };
+    const failedOldest = { ...base, event_id: "failed", failed: true, last_seen_at: 50 };
+
+    expect(
+      [activeOlder, failedOldest, activeNewer]
+        .sort((left, right) => compareLiveTiles(left, right, base.first_seen_at))
+        .map((tile) => tile.event_id),
+    ).toEqual(["failed", "active-newer", "active-older"]);
   });
 
   test("recycles completed approvals after the bounded Live retention window", () => {

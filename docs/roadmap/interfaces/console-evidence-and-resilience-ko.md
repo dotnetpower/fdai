@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 2854af35b93b6ae69ab13efc2bd574ff48264269
+translation_source_sha: fdb292ccd13776c4f1d74de0defbd64a7a44aaec
 translation_revised: 2026-08-05
 ---
 
@@ -65,8 +65,10 @@ status가 계속 표시됩니다.
 운영 metric을 unavailable 상태로 유지하며, 0을 측정된 상태로 제시하는 대신 Core Runtime과 단계
 topic 준비 상태를 확인하도록 안내합니다. 기본 보기는 제한된 12개 작업 pool의 Flow입니다.
 Flow와 Queue는 동일한 제목, 대상, 범위, 이유, tier, mode, owner 및 stage 사실을 유지하고 Queue는
-관찰된 risk, impact, SLA 및 control state만 추가합니다. Tier, autonomy 및 mode badge는 pointer와
-keyboard에서 같은 tooltip을 사용합니다. 누락된 autonomy, risk, impact 또는 SLA는
+관찰된 risk, impact, SLA 및 control state만 추가합니다. Flow는 값이 있는 작업만 렌더링하고
+desktop 한 행에 6개씩 배치하며 attention priority와 최신 관찰 순서로 정렬합니다. Terminal outcome은
+Live 작업 영역을 차지하지 않고 History에서 계속 확인할 수 있습니다. Tier, autonomy 및 mode badge는
+pointer와 keyboard에서 같은 tooltip을 사용합니다. 누락된 autonomy, risk, impact 또는 SLA는
 `관찰되지 않음`으로 유지되며 browser에서 추론하지 않습니다.
 
 에이전트 작업 영역은 `Fleet`, `조직` 및 `활동`의 세 가지 compact view를 사용합니다. Fleet은

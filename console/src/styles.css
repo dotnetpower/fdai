@@ -2716,7 +2716,7 @@ pre {
 .live-work-header h3 { font-size: 14px; }
 .live-eyebrow, .live-filterbar-note { font-size: 12px; }
 .live-filter-count { font-size: 11px; }
-.live-swarm { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.live-swarm { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
 .live-tile {
   min-height: 164px;
   padding: 10px 12px 14px;

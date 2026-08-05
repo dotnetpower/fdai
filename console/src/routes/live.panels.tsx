@@ -1,9 +1,6 @@
 import { Tooltip } from "../components/tooltip";
 import { PageHeader } from "../components/ui";
-import type {
-  LiveConnectionStatus,
-  LiveStageEvent,
-} from "../hooks/use-live-stream";
+import type { LiveConnectionStatus } from "../hooks/use-live-stream";
 import {
   observationSourceLabel,
   type ObservationSource,
@@ -19,8 +16,14 @@ import {
   type LiveState,
   type TileState,
 } from "./live.model";
-import { LiveTicker } from "./live.ticker";
-import { DetailPanel, LiveQueue, LiveTile, Sparkline, StackBar } from "./live.tiles";
+import {
+  compareLiveTiles,
+  DetailPanel,
+  LiveQueue,
+  LiveTile,
+  Sparkline,
+  StackBar,
+} from "./live.tiles";
 import type { LiveViewModel } from "./live.view-model";
 
 export type LiveViewMode = "queue" | "flow";
@@ -38,15 +41,12 @@ export function LivePanels({
   lastError,
   streamSource,
   tickerPaused,
-  tickerCollapsed,
   frozenObserved,
   droppedFrames,
-  displayedTicker,
   viewMode,
   selectionState,
   selectedTile,
   togglePause,
-  toggleCollapse,
   updateRoute,
   selectEvent,
 }: {
@@ -56,15 +56,12 @@ export function LivePanels({
   readonly lastError: string | null;
   readonly streamSource: ObservationSource;
   readonly tickerPaused: boolean;
-  readonly tickerCollapsed: boolean;
   readonly frozenObserved: number;
   readonly droppedFrames: number;
-  readonly displayedTicker: readonly LiveStageEvent[];
   readonly viewMode: LiveViewMode;
   readonly selectionState: LiveSelectionState;
   readonly selectedTile: TileState | null;
   readonly togglePause: () => void;
-  readonly toggleCollapse: () => void;
   readonly updateRoute: (update: LiveRouteUpdate) => void;
   readonly selectEvent: (eventId: string | null) => void;
 }) {
@@ -101,7 +98,7 @@ export function LivePanels({
     : "var(--bg)";
 
   return (
-    <div class="live" data-filter={state.filter} data-ticker-collapsed={tickerCollapsed ? "1" : "0"}>
+    <div class="live" data-filter={state.filter}>
       <PageHeader
         title={appT("nav.panel.live")}
         subtitle={t("live.lead")}
@@ -333,29 +330,20 @@ export function LivePanels({
               <span>{view.emptyState}</span>
             </div>
           ) : null}
-          {state.tiles.map((tile, index) => (
+          {[...view.populatedTiles]
+            .sort((left, right) => compareLiveTiles(left, right, state.now))
+            .map((tile) => (
             <LiveTile
-              key={index}
+              key={tile.event_id}
               tile={tile}
               filter={state.filter}
-              selected={tile?.event_id === state.selectedEventId}
+              selected={tile.event_id === state.selectedEventId}
               now={state.now}
-              onClick={
-                tile
-                  ? () => selectEvent(tile.event_id === state.selectedEventId ? null : tile.event_id)
-                  : undefined
-              }
+              onClick={() => selectEvent(tile.event_id === state.selectedEventId ? null : tile.event_id)}
             />
           ))}
         </section>
       )}
-
-      <LiveTicker
-        events={displayedTicker}
-        collapsed={tickerCollapsed}
-        paused={tickerPaused}
-        onToggleCollapse={toggleCollapse}
-      />
 
       {selectionState === "waiting" && state.selectedEventId ? (
         <div class="state-block state-unavailable" role="status">

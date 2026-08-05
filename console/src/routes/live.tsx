@@ -49,13 +49,11 @@ export function LiveRoute({ client }: Props) {
   const initialRoute = currentRoute();
   const [state, dispatch] = useReducer(reducer, undefined, makeInitialState);
   const [tickerPaused, setTickerPaused] = useState(false);
-  const [tickerCollapsed, setTickerCollapsed] = useState(false);
   const [viewMode, setViewMode] = useState<LiveViewMode>(
     initialRoute.search.get("view") === "queue" ? "queue" : "flow",
   );
   const [frozenObserved, setFrozenObserved] = useState(0);
   const [droppedFrames, setDroppedFrames] = useState(0);
-  const pausedSnapshotRef = useRef<readonly LiveStageEvent[]>([]);
   const pausedRef = useRef(false);
   const frozenObservedRef = useRef(0);
   const pendingEventsRef = useRef<LiveStageEvent[]>([]);
@@ -154,21 +152,17 @@ export function LiveRoute({ client }: Props) {
     return () => window.clearInterval(handle);
   }, []);
 
-  const displayedTicker = tickerPaused ? pausedSnapshotRef.current : state.ticker;
   const togglePause = () => {
     if (tickerPaused) {
       pausedRef.current = false;
       setTickerPaused(false);
-      pausedSnapshotRef.current = [];
     } else {
       pausedRef.current = true;
       frozenObservedRef.current = 0;
       setFrozenObserved(0);
-      pausedSnapshotRef.current = state.ticker;
       setTickerPaused(true);
     }
   };
-  const toggleCollapse = () => setTickerCollapsed((value) => !value);
 
   const selectedTile = state.selectedEventId
     ? state.tiles.find((tile) => tile?.event_id === state.selectedEventId) ?? null
@@ -214,7 +208,7 @@ export function LiveRoute({ client }: Props) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [state.selectedEventId, state.filter, tickerPaused, state.session_total, state.ticker, viewMode]);
+  }, [state.selectedEventId, state.filter, tickerPaused, state.session_total, viewMode]);
 
   return (
     <LivePanels
@@ -224,15 +218,12 @@ export function LiveRoute({ client }: Props) {
       lastError={lastError}
       streamSource={streamSource}
       tickerPaused={tickerPaused}
-      tickerCollapsed={tickerCollapsed}
       frozenObserved={frozenObserved}
       droppedFrames={droppedFrames}
-      displayedTicker={displayedTicker}
       viewMode={viewMode}
       selectionState={selectionState}
       selectedTile={selectedTile}
       togglePause={togglePause}
-      toggleCollapse={toggleCollapse}
       updateRoute={updateRoute}
       selectEvent={selectEvent}
     />

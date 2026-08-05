@@ -257,6 +257,11 @@ export function tileAttentionRank(tile: TileState, now: number): number {
   return 5;
 }
 
+export function compareLiveTiles(left: TileState, right: TileState, now: number): number {
+  const rank = tileAttentionRank(left, now) - tileAttentionRank(right, now);
+  return rank !== 0 ? rank : right.last_seen_at - left.last_seen_at;
+}
+
 export function LiveQueue({
   tiles,
   filter,
@@ -271,10 +276,7 @@ export function LiveQueue({
   readonly onSelect: (eventId: string) => void;
 }) {
   const visible = [...tiles.filter((tile) => matchesFilter(tile, filter, now))]
-    .sort((left, right) => {
-      const rank = tileAttentionRank(left, now) - tileAttentionRank(right, now);
-      return rank !== 0 ? rank : right.last_seen_at - left.last_seen_at;
-    });
+    .sort((left, right) => compareLiveTiles(left, right, now));
 
   if (visible.length === 0) {
     return <div class="live-queue-empty" role="status">{t("live.work.noMatch")}</div>;
