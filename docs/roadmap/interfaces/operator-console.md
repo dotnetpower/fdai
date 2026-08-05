@@ -169,6 +169,12 @@ flowchart TD
   charts, keeps partial or truncated coverage visible, and binds every block reference to the
   terminal verification receipt. A partial source never removes completed slots: the answer renders
   every available verified fact and marks only the missing portion as unknown or unavailable.
+  A streamed evidence-fast-path turn starts with the complete deterministic plan and streams the
+  canonical answer immediately while the optional mini-model planner runs concurrently. After the
+  answer is visible, the terminal event waits at most five seconds for a valid alternative layout;
+  timeout, cancellation, invalid output, or provider failure keeps the deterministic plan. The
+  non-stream JSON route uses the deterministic plan directly and never delays an evidence answer
+  for presentation planning.
   Presentation planning can return no artifact only when no relevant verified slot exists. Model,
   schema, timeout, or compiler failure uses the deterministic answer and default layout, so the
   operator still receives the maximum evidence-supported answer. Existing Markdown table, fenced

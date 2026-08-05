@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: f3c9aba7b70ba16d7925331527ef8379ac749ec3
+translation_source_sha: d083ed922c61558b11d7eca78db36235ff20a661
 translation_revised: 2026-08-05
 ---
 
@@ -164,7 +164,12 @@ flowchart TD
   Compiler는 chart의 compatible unit과 threshold direction을 강제하고 partial 또는 truncated coverage를
   계속 표시하며 각 block reference를 terminal verification receipt에 바인딩합니다. Partial source가
   completed slot을 제거하지 않습니다. Answer는 사용할 수 있는 verified fact를 모두 렌더링하고 누락된
-  부분만 unknown 또는 unavailable로 표시합니다. 관련 verified slot이 하나도 없을 때만 presentation
+  부분만 unknown 또는 unavailable로 표시합니다.
+  Streamed evidence-fast-path turn은 complete deterministic plan으로 시작하고 optional mini-model planner를
+  병렬로 실행하면서 canonical answer를 즉시 streaming합니다. Answer가 표시된 뒤 terminal event는 valid
+  alternative layout을 최대 5초 동안만 기다립니다. Timeout, cancellation, invalid output 또는 provider
+  failure에는 deterministic plan을 유지합니다. Non-stream JSON route는 deterministic plan을 바로 사용하며
+  presentation planning 때문에 evidence answer를 지연하지 않습니다. 관련 verified slot이 하나도 없을 때만
   planning이 artifact를 반환하지 않을 수 있습니다. Model, schema, timeout 또는 compiler failure에는
   deterministic answer와 default layout을 사용하므로 operator는 가능한 최대 evidence-supported answer를
   계속 받습니다. 기존 Markdown table, fenced chart, bullet 및 prose output은 다른 channel과 이전
