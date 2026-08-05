@@ -202,6 +202,9 @@ class OperatorApiConfig:
     Empty by default; ObjectType and LinkType exploration remains available
     without an ActionType catalog."""
 
+    ontology_function_types: tuple[Any, ...] = ()
+    """Typed ontology functions exposed by ``GET /ontology/graph``."""
+
     operating_model_status_reader: Any = None
     """Optional StateStore reader for bounded operating-model startup status.
     The ontology route returns only status, revision, and aggregate counts."""

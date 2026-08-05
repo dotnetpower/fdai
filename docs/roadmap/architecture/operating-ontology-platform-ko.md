@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: cdd862f5fed6f5c6e8f1bd45a280bc65855c9a00
+translation_source_sha: e04a08fde86988b7f81b69fde010cf8a5bda9f1f
 translation_revised: 2026-08-05
 ---
 # FDAI 온톨로지 안전 인프라
@@ -107,6 +107,10 @@ turn을 인용할 때만 candidate가 `VerifiedSemanticPlan`이 됩니다. Verif
 `execution_authority: false`를 유지합니다. Query, derive 및 validate plan은 typed function만 target할
 수 있습니다. Action interpretation은 ActionType에 바인딩된 draft만 만들 수 있으며, 일반 judgment,
 approval, execution, recovery 및 audit 경로로 다시 진입합니다.
+
+Operator API는 `inventory.select_resources`를 read-only ontology query function으로 선언합니다.
+Production semantic candidate와 `/ontology/graph` manifest는 같은 release digest 및 function
+reference를 사용합니다. 다른 release의 candidate는 provider I/O 전에 차단됩니다.
 
 ## Semantic interface와 object set
 

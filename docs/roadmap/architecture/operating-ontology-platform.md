@@ -105,6 +105,10 @@ plan remains `execution_authority: false`. Query, derive, and validate plans can
 functions; an action interpretation can create only an ActionType-bound draft that re-enters the
 normal judgment, approval, execution, recovery, and audit path.
 
+The Operator API declares `inventory.select_resources` as a read-only ontology query function.
+Production semantic candidates and the `/ontology/graph` manifest use the same release digest and
+function reference. A candidate from another release is rejected before provider I/O.
+
 ## Semantic interfaces and object sets
 
 `OntologyInterfaceType` is distinct from the existing `ActionInterface` safety flags. A semantic

@@ -15,6 +15,30 @@ from fdai.delivery.operator_api.routes.chat_inventory_semantic_retrieval import 
     InventorySemanticKind,
     InventorySemanticMatch,
 )
+from fdai.shared.contracts.models import (
+    OntologyDeclarationKind,
+    OntologyDeclarationRef,
+    OntologyRelease,
+    OntologyTypeRef,
+)
+
+_RELEASE_DIGEST = "sha256:" + "a" * 64
+_DECLARATION_DIGEST = "sha256:" + "b" * 64
+
+
+def _target_ref() -> OntologyTypeRef:
+    release = OntologyRelease(
+        digest=_RELEASE_DIGEST,
+        declarations=(
+            OntologyDeclarationRef(
+                kind=OntologyDeclarationKind.FUNCTION,
+                name="inventory.select_resources",
+                version="1.0.0",
+                declaration_digest=_DECLARATION_DIGEST,
+            ),
+        ),
+    )
+    return release.type_ref(OntologyDeclarationKind.FUNCTION, "inventory.select_resources")
 
 
 class ControlledEmbedder:
@@ -42,6 +66,7 @@ class FailingEmbedder:
 async def test_description_embedding_returns_non_authoritative_state_candidate() -> None:
     resolver = EmbeddingInventorySemanticResolver(
         embedder=ControlledEmbedder(),
+        target_ref=_target_ref(),
         config=InventorySemanticConfig(score_threshold=0.6, max_candidates=3),
     )
 
@@ -52,11 +77,13 @@ async def test_description_embedding_returns_non_authoritative_state_candidate()
     assert matches[0].concept_id == "running"
     assert matches[0].authority == "candidate_only"
     assert matches[0].catalog_digest.startswith("sha256:")
+    assert matches[0].target_ref.catalog_digest == _RELEASE_DIGEST
 
 
 async def test_semantic_ties_have_stable_concept_order() -> None:
     resolver = EmbeddingInventorySemanticResolver(
         embedder=ControlledEmbedder(),
+        target_ref=_target_ref(),
         config=InventorySemanticConfig(score_threshold=0.6, max_candidates=3),
     )
 
@@ -69,7 +96,10 @@ async def test_semantic_ties_have_stable_concept_order() -> None:
 
 
 async def test_embedding_failure_returns_no_candidate() -> None:
-    resolver = EmbeddingInventorySemanticResolver(embedder=FailingEmbedder())
+    resolver = EmbeddingInventorySemanticResolver(
+        embedder=FailingEmbedder(),
+        target_ref=_target_ref(),
+    )
 
     assert await resolver.resolve("machines still serving traffic") == ()
 
@@ -83,6 +113,7 @@ class FixedResolver:
                 concept_id="running",
                 score=0.91,
                 catalog_digest="sha256:" + "a" * 64,
+                target_ref=_target_ref(),
                 labels={"en": "Running", "ko": "실행 중"},
             ),
             InventorySemanticMatch(
@@ -90,6 +121,7 @@ class FixedResolver:
                 concept_id="inactive",
                 score=0.89,
                 catalog_digest="sha256:" + "a" * 64,
+                target_ref=_target_ref(),
                 labels={"en": "Not running", "ko": "실행 중 아님"},
             ),
         )

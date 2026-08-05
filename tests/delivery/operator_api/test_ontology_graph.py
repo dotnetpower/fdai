@@ -12,6 +12,9 @@ from fdai.core.rbac.resolver import RoleResolver
 from fdai.delivery.operator_api.auth import build_authenticator
 from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.operator_api.routes.chat_inventory_ontology import (
+    inventory_query_function_type,
+)
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.link_type import load_link_type_catalog
 from fdai.rule_catalog.schema.object_type import load_object_type_catalog
@@ -58,6 +61,7 @@ def _client(*, wire_ontology: bool, status_store: InMemoryStateStore | None = No
             ontology_object_types=tuple(objects),
             ontology_link_types=tuple(links),
             ontology_action_types=tuple(actions),
+            ontology_function_types=(inventory_query_function_type(),),
             operating_model_status_reader=status_store,
         ),
     )
@@ -89,6 +93,7 @@ def test_ontology_graph_returns_mermaid_and_counts() -> None:
     assert platform["mutation_authority"] is False
     assert platform["write_surface"] == "typed_proposal"
     assert "ops.scale-out" in platform["action_types"]
+    assert "inventory.select_resources" in platform["functions"]
 
 
 def test_ontology_graph_returns_bounded_operating_model_status() -> None:

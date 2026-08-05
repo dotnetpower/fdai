@@ -18,6 +18,7 @@ from fdai.rule_catalog.schema.inventory_query_language import (
     QueryValues,
     inventory_query_language_digest,
 )
+from fdai.shared.contracts.models import OntologyTypeRef
 from fdai.shared.providers.knowledge import Embedder, cosine_similarity
 
 _LOG = logging.getLogger(__name__)
@@ -46,6 +47,7 @@ class InventorySemanticMatch:
     concept_id: str
     score: float
     catalog_digest: str
+    target_ref: OntologyTypeRef
     labels: Mapping[str, str] = field(default_factory=dict)
     authority: Literal["candidate_only"] = "candidate_only"
 
@@ -62,6 +64,7 @@ class InventorySemanticMatch:
             "concept_id": self.concept_id,
             "score": self.score,
             "catalog_digest": self.catalog_digest,
+            "target_ref": self.target_ref.model_dump(mode="json"),
             "labels": dict(self.labels),
             "authority": self.authority,
         }
@@ -87,10 +90,12 @@ class EmbeddingInventorySemanticResolver:
         self,
         *,
         embedder: Embedder,
+        target_ref: OntologyTypeRef,
         language: InventoryQueryLanguageResolver | None = None,
         config: InventorySemanticConfig | None = None,
     ) -> None:
         self._embedder = embedder
+        self._target_ref = target_ref
         self._language = language or default_inventory_query_language_resolver()
         self._config = config or InventorySemanticConfig()
         self._catalog_digest = inventory_query_language_digest(self._language.registry)
@@ -127,6 +132,7 @@ class EmbeddingInventorySemanticResolver:
                 concept_id=item.concept_id,
                 score=score,
                 catalog_digest=self._catalog_digest,
+                target_ref=self._target_ref,
                 labels=item.labels,
             )
             for score, item in ranked[: self._config.max_candidates]
