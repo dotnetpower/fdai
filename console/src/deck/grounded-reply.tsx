@@ -367,7 +367,7 @@ export function GroundedReply({
                   </button>
                 </Tooltip>
               ) : null}
-              {trajectory && sources.length === 0 ? (
+              {trajectory ? (
                 <span class="deck-gr-review-status">
                   <a class="deck-gr-tool deck-gr-review" href={assuranceHref(turnId)}>
                     {t("deck.reviewAnswer")}
@@ -409,7 +409,6 @@ export function GroundedReply({
                   </span>
                 </button>
               </Tooltip>
-              {trajectory ? <TrajectoryStatusTrigger trajectory={trajectory} /> : null}
             </span>
           ) : null}
         </div>

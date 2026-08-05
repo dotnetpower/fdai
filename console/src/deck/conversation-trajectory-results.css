@@ -3,9 +3,10 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  margin-inline-end: 22px;
   overflow: visible;
 }
+
+.deck-gr-review-status { margin-inline-end: 22px; }
 
 .deck-trajectory-status-trigger {
   position: absolute;
@@ -42,8 +43,7 @@
   font-size: 11px;
   line-height: 1.35;
   white-space: nowrap;
-  transition: max-width .16s ease, min-height .16s ease, margin-left .16s ease,
-    padding .16s ease, border-width .16s ease, color .12s ease;
+  transition: none;
 }
 
 .deck-trajectory-status-trigger .deck-trajectory-results > span::before {
@@ -57,14 +57,11 @@
 
 .deck-trajectory-status-trigger .deck-trajectory-results:hover > span,
 .deck-trajectory-status-trigger .deck-trajectory-results:focus > span {
-  max-width: 220px;
-  min-height: 22px;
-  margin-left: 4px;
-  padding: 2px 7px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--fg-muted);
+  max-width: 10px;
+  min-height: 10px;
+  margin-left: -2px;
+  padding: 0;
+  color: transparent;
 }
 
 .deck-trajectory-status-trigger .deck-trajectory-results:hover > span:first-child,
