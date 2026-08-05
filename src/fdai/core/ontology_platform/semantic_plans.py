@@ -13,7 +13,7 @@ import math
 import re
 from collections.abc import Callable
 from enum import StrEnum
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Protocol, runtime_checkable
 
 from pydantic import Field, model_validator
 
@@ -103,6 +103,16 @@ SemanticBasisValidator = Callable[
 ]
 
 
+@runtime_checkable
+class ActiveSemanticCatalog(Protocol):
+    """Authoritative active catalog identity and exact-entry membership boundary."""
+
+    @property
+    def digest(self) -> str: ...
+
+    def contains(self, candidate: SemanticInterpretationCandidate) -> bool: ...
+
+
 class VerifiedSemanticPlan(ContractBase):
     """One ontology-pinned interpretation that still grants no execution authority."""
 
@@ -189,7 +199,7 @@ def verify_semantic_candidate(
     candidate: SemanticInterpretationCandidate,
     *,
     release: OntologyRelease,
-    active_semantic_catalog_digest: str,
+    active_semantic_catalog: ActiveSemanticCatalog,
     basis: VerifiedInterpretationBasis,
     basis_ref: str,
     basis_validator: SemanticBasisValidator | None = None,
@@ -198,7 +208,9 @@ def verify_semantic_candidate(
 
     if candidate.unresolved_terms:
         raise ValueError("semantic candidate has unresolved terms")
-    if candidate.semantic_catalog_digest != active_semantic_catalog_digest:
+    if re.fullmatch(_DIGEST_PATTERN, active_semantic_catalog.digest) is None:
+        raise ValueError("active semantic catalog digest is invalid")
+    if candidate.semantic_catalog_digest != active_semantic_catalog.digest:
         raise ValueError("semantic candidate targets a stale semantic catalog")
     expected_candidate_digest = _candidate_digest(
         source=candidate.source,
@@ -220,6 +232,7 @@ def verify_semantic_candidate(
         candidate,
         basis,
         basis_ref,
+        active_semantic_catalog=active_semantic_catalog,
         basis_validator=basis_validator,
     )
     plan_digest = _plan_digest(
@@ -266,6 +279,7 @@ def _validate_basis(
     basis: VerifiedInterpretationBasis,
     basis_ref: str,
     *,
+    active_semantic_catalog: ActiveSemanticCatalog,
     basis_validator: SemanticBasisValidator | None,
 ) -> None:
     prefixes = {
@@ -280,6 +294,8 @@ def _validate_basis(
             raise ValueError("exact catalog verification requires a lexical candidate")
         if basis_ref != f"catalog:{candidate.semantic_catalog_digest}":
             raise ValueError("exact catalog verification requires the candidate catalog digest")
+        if not active_semantic_catalog.contains(candidate):
+            raise ValueError("exact catalog candidate is absent from the active catalog")
         return
     pattern = (
         _PROMOTION_REF

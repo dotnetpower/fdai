@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Any
+
 import pytest
 
 from fdai.core.ontology_platform import (
@@ -18,6 +21,22 @@ from fdai.shared.contracts.models import (
 _DIGEST_A = "sha256:" + "a" * 64
 _DIGEST_B = "sha256:" + "b" * 64
 _DIGEST_C = "sha256:" + "c" * 64
+
+
+@dataclass(frozen=True, slots=True)
+class CatalogAuthority:
+    digest: str
+    candidate_digests: frozenset[str] = frozenset()
+
+    def contains(self, candidate: Any) -> bool:
+        return candidate.candidate_digest in self.candidate_digests
+
+
+def _catalog(*candidates: Any, digest: str = _DIGEST_B) -> CatalogAuthority:
+    return CatalogAuthority(
+        digest=digest,
+        candidate_digests=frozenset(candidate.candidate_digest for candidate in candidates),
+    )
 
 
 def _release() -> OntologyRelease:
@@ -81,7 +100,7 @@ def test_unresolved_candidate_cannot_be_verified() -> None:
         verify_semantic_candidate(
             candidate,
             release=release,
-            active_semantic_catalog_digest=_DIGEST_B,
+            active_semantic_catalog=_catalog(),
             basis=VerifiedInterpretationBasis.OPERATOR_CONFIRMATION,
             basis_ref="conversation-turn:confirmation-1",
             basis_validator=lambda *_args: True,
@@ -118,14 +137,14 @@ def test_verified_plan_is_replay_stable_for_canonical_arguments() -> None:
     left_plan = verify_semantic_candidate(
         left,
         release=release,
-        active_semantic_catalog_digest=_DIGEST_B,
+        active_semantic_catalog=_catalog(left),
         basis=VerifiedInterpretationBasis.EXACT_CATALOG,
         basis_ref=f"catalog:{_DIGEST_B}",
     )
     right_plan = verify_semantic_candidate(
         right,
         release=release,
-        active_semantic_catalog_digest=_DIGEST_B,
+        active_semantic_catalog=_catalog(right),
         basis=VerifiedInterpretationBasis.EXACT_CATALOG,
         basis_ref=f"catalog:{_DIGEST_B}",
     )
@@ -151,7 +170,7 @@ def test_query_cannot_target_action_type() -> None:
         verify_semantic_candidate(
             candidate,
             release=release,
-            active_semantic_catalog_digest=_DIGEST_B,
+            active_semantic_catalog=_catalog(),
             basis=VerifiedInterpretationBasis.OPERATOR_CONFIRMATION,
             basis_ref="conversation-turn:confirmation-2",
             basis_validator=lambda *_args: True,
@@ -174,7 +193,7 @@ def test_action_interpretation_remains_proposal_only() -> None:
     plan = verify_semantic_candidate(
         candidate,
         release=release,
-        active_semantic_catalog_digest=_DIGEST_B,
+        active_semantic_catalog=_catalog(),
         basis=VerifiedInterpretationBasis.OPERATOR_CONFIRMATION,
         basis_ref="conversation-turn:confirmation-3",
         basis_validator=lambda *_args: True,
@@ -205,7 +224,7 @@ def test_stale_release_cannot_verify_candidate() -> None:
         verify_semantic_candidate(
             candidate,
             release=stale_release,
-            active_semantic_catalog_digest=_DIGEST_B,
+            active_semantic_catalog=_catalog(candidate),
             basis=VerifiedInterpretationBasis.EXACT_CATALOG,
             basis_ref=f"catalog:{_DIGEST_B}",
         )
@@ -234,7 +253,7 @@ def test_candidate_arguments_are_defensive_and_digest_bound() -> None:
     plan = verify_semantic_candidate(
         candidate,
         release=release,
-        active_semantic_catalog_digest=_DIGEST_B,
+        active_semantic_catalog=_catalog(candidate),
         basis=VerifiedInterpretationBasis.EXACT_CATALOG,
         basis_ref=f"catalog:{_DIGEST_B}",
     )
@@ -258,7 +277,7 @@ def test_non_catalog_basis_requires_external_evidence_validation() -> None:
         verify_semantic_candidate(
             candidate,
             release=release,
-            active_semantic_catalog_digest=_DIGEST_B,
+            active_semantic_catalog=_catalog(),
             basis=VerifiedInterpretationBasis.OPERATOR_CONFIRMATION,
             basis_ref="conversation-turn:confirmation-4",
         )
@@ -266,7 +285,7 @@ def test_non_catalog_basis_requires_external_evidence_validation() -> None:
         verify_semantic_candidate(
             candidate,
             release=release,
-            active_semantic_catalog_digest=_DIGEST_B,
+            active_semantic_catalog=_catalog(),
             basis=VerifiedInterpretationBasis.OPERATOR_CONFIRMATION,
             basis_ref="conversation-turn:confirmation-4",
             basis_validator=lambda *_args: False,
@@ -293,7 +312,33 @@ def test_foreign_semantic_catalog_cannot_verify_candidate() -> None:
         verify_semantic_candidate(
             candidate,
             release=release,
-            active_semantic_catalog_digest=_DIGEST_C,
+            active_semantic_catalog=_catalog(digest=_DIGEST_C),
+            basis=VerifiedInterpretationBasis.EXACT_CATALOG,
+            basis_ref=f"catalog:{_DIGEST_B}",
+        )
+
+
+def test_exact_catalog_candidate_must_exist_in_active_catalog() -> None:
+    release = _release()
+    candidate = build_semantic_candidate(
+        source=InterpretationCandidateSource.LEXICAL,
+        operation_class=SemanticOperationClass.QUERY,
+        target_ref=release.type_ref(
+            OntologyDeclarationKind.FUNCTION,
+            "inventory.select_resources",
+        ),
+        arguments={"resource_type": "compute.vm"},
+        semantic_catalog_digest=_DIGEST_B,
+        input_text="VM list",
+        score=1.0,
+        unresolved_terms=(),
+    )
+
+    with pytest.raises(ValueError, match="absent from the active catalog"):
+        verify_semantic_candidate(
+            candidate,
+            release=release,
+            active_semantic_catalog=_catalog(),
             basis=VerifiedInterpretationBasis.EXACT_CATALOG,
             basis_ref=f"catalog:{_DIGEST_B}",
         )

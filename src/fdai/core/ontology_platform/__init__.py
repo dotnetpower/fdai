@@ -41,6 +41,7 @@ from .planning import build_mutation_plan, validate_plan_revisions
 from .projection import project_source_records, reconcile_expected_effects
 from .sdk_codegen import GeneratedOntologySdk, generate_ontology_sdk
 from .semantic_plans import (
+    ActiveSemanticCatalog,
     InterpretationCandidateSource,
     SemanticBasisValidator,
     SemanticInterpretationCandidate,
@@ -52,6 +53,7 @@ from .semantic_plans import (
 )
 
 __all__ = [
+    "ActiveSemanticCatalog",
     "CatalogOntologyProjection",
     "CatalogOntologyProjector",
     "CompiledInterfaceCatalog",
