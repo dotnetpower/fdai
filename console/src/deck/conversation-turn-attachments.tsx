@@ -2,6 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 
 import { t } from "../i18n";
 import { fetchConversationImage } from "../user-context-client";
+import { conversationImageFetchLimiter } from "./image-fetch-limiter";
 import type { TurnAttachment } from "./turn-attachments";
 
 export function withoutAttachmentSource(
@@ -30,11 +31,11 @@ export function ConversationTurnAttachments({
 
     void Promise.all(pending.map(async (attachment) => {
       try {
-        const blob = await fetchConversationImage(
-          attachment.conversationId,
-          attachment.id,
-        );
-        if (!active) return;
+        const blob = await conversationImageFetchLimiter.run(() =>
+          active
+            ? fetchConversationImage(attachment.conversationId, attachment.id)
+            : Promise.resolve(null));
+        if (!active || blob === null) return;
         const source = URL.createObjectURL(blob);
         objectUrls.push(source);
         setSources((current) => ({ ...current, [attachment.id]: source }));
