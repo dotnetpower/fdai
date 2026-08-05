@@ -40,13 +40,15 @@ describe("observed trajectory typography", () => {
     expect(styles).toContain("text-overflow: ellipsis; white-space: nowrap;");
   });
 
-  test("expands read and evidence status directly beside the source", () => {
+  test("expands read and evidence status beside the source without overlap", () => {
     expect(source).toContain('class="deck-trajectory-results"');
     expect(reply).toContain('class="deck-trajectory-status-trigger"');
     expect(reply).not.toContain('class="deck-trajectory-flyout"');
     expect(reply).toContain('class="deck-gr-source-status"');
     expect(reply).toContain('class="deck-gr-review-status"');
     expect(resultStyles).toContain("position: absolute;");
+    expect(resultStyles).toContain("margin-inline-end: 22px;");
+    expect(resultStyles).toContain("left: calc(100% + 4px);");
     expect(resultStyles).toContain("width: 10px;");
     expect(resultStyles).toContain("margin-left: -2px;");
     expect(resultStyles).toContain("max-width: 220px;");

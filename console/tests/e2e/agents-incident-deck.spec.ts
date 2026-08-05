@@ -357,7 +357,7 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   expect(collapsedResults.items).toHaveLength(2);
   expect(collapsedResults.items[0]?.top).toBe(collapsedResults.items[1]?.top);
   expect(collapsedResults.items.every((item) => item.width <= 10)).toBe(true);
-  expect(collapsedResults.items.some((item) => item.overlapsButton)).toBe(true);
+  expect(collapsedResults.items.every((item) => !item.overlapsButton)).toBe(true);
   expect(collapsedResults.items.every((item) => !item.overlapsReview)).toBe(true);
   expect(collapsedResults.badgeOverlap).toBeGreaterThanOrEqual(1);
   expect(collapsedResults.badgeOverlap).toBeLessThanOrEqual(3);
@@ -406,7 +406,7 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   expect(viewport).not.toBeNull();
   expect(expandedResults.results.left).toBeGreaterThanOrEqual(0);
   expect(expandedResults.results.right).toBeLessThanOrEqual(viewport!.width);
-  expect(expandedResults.results.left).toBeGreaterThanOrEqual(expandedResults.button.right - 6);
+  expect(expandedResults.results.left).toBeGreaterThanOrEqual(expandedResults.button.right + 4);
   await workspace.getByRole("button", { name: /^Conversations/ }).click();
   const conversationRow = workspace.locator(".deck-conversation-select", {
     hasText: "List resource groups",
