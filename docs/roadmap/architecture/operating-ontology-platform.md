@@ -107,8 +107,9 @@ normal judgment, approval, execution, recovery, and audit path.
 
 Candidate and plan arguments are stored as canonical JSON rather than mutable nested containers.
 Verification recomputes candidate integrity before producing a plan. Exact-catalog verification
-pins the catalog digest directly; promoted surfaces and operator confirmations require an injected
-evidence validator for the immutable promotion or conversation-turn reference.
+pins the catalog digest directly and requires it to match the active semantic catalog supplied by
+composition. Promoted surfaces and operator confirmations require an injected evidence validator
+for the immutable promotion or conversation-turn reference.
 
 The Operator API declares `inventory.select_resources` as a read-only ontology query function.
 Production semantic candidates and the `/ontology/graph` manifest use the same release digest and

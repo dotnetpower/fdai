@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 1574e949ebbf4dbbce56291023fa997ffd685474
+translation_source_sha: 2a5e5d649c6e8ecb7617486d8dd2f93e6c4485a1
 translation_revised: 2026-08-05
 ---
 
@@ -301,6 +301,9 @@ deterministic hold가 authoritative 상태를 유지합니다.
 `FDAI_INVENTORY_SEMANTIC_ENABLED`는 이 clarification capability를
 `FDAI_CATALOG_SEARCH_ENABLED`와 독립적으로 제어합니다. Rule search를 비활성화해도 inventory
 semantic retrieval이 암묵적으로 비활성화되지 않습니다.
+Clarification은 dead end가 아닙니다. 이후 operator turn에서 exact promoted catalog expression을
+선택하면 deterministic하게 다시 compile하고 provider read를 수행할 수 있습니다. 이전 model 또는
+embedding argument는 query authority로 재사용하지 않습니다.
 Intent-graph planning은 complete deterministic inventory query를 override할 수 없습니다.
 Planner-supplied status concept도 canonical catalog로 확인하며 invalid value는 차단되고 execution은
 deterministic query를 사용합니다. 필요한 semantic status가 생략되면 hold 상태를 유지합니다.

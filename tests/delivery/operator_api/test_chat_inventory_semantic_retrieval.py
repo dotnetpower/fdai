@@ -211,3 +211,45 @@ async def test_diagnosis_wording_is_not_hijacked_by_semantic_inventory() -> None
 
     assert evidence is None
     assert provider_calls == 0
+
+
+async def test_exact_followup_after_clarification_runs_deterministic_query() -> None:
+    provider_calls = 0
+
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        nonlocal provider_calls
+        del args, kwargs
+        provider_calls += 1
+        return {
+            "resources": [
+                {
+                    "id": "vm-running",
+                    "type": "compute.vm",
+                    "name": "vm-running",
+                    "status": "VM running",
+                    "status_source": "operational",
+                },
+                {
+                    "id": "vm-stopped",
+                    "type": "compute.vm",
+                    "name": "vm-stopped",
+                    "status": "VM stopped",
+                    "status_source": "operational",
+                },
+            ],
+            "links": [],
+            "freshness": "fresh",
+            "source": "test-inventory",
+        }
+
+    tools = InventoryChatTools(provider, semantic_resolver=FixedResolver())
+
+    first = await tools.resolve("전원이 유지되는 VM", principal_id="reader")
+    second = await tools.resolve("running VM list", principal_id="reader")
+
+    assert first is not None
+    assert first["result"]["status"] == "clarification"
+    assert second is not None
+    assert second["result"]["status"] == "matched"
+    assert [item["name"] for item in second["result"]["resources"]] == ["vm-running"]
+    assert provider_calls == 1

@@ -81,6 +81,7 @@ def test_unresolved_candidate_cannot_be_verified() -> None:
         verify_semantic_candidate(
             candidate,
             release=release,
+            active_semantic_catalog_digest=_DIGEST_B,
             basis=VerifiedInterpretationBasis.OPERATOR_CONFIRMATION,
             basis_ref="conversation-turn:confirmation-1",
             basis_validator=lambda *_args: True,
@@ -117,12 +118,14 @@ def test_verified_plan_is_replay_stable_for_canonical_arguments() -> None:
     left_plan = verify_semantic_candidate(
         left,
         release=release,
+        active_semantic_catalog_digest=_DIGEST_B,
         basis=VerifiedInterpretationBasis.EXACT_CATALOG,
         basis_ref=f"catalog:{_DIGEST_B}",
     )
     right_plan = verify_semantic_candidate(
         right,
         release=release,
+        active_semantic_catalog_digest=_DIGEST_B,
         basis=VerifiedInterpretationBasis.EXACT_CATALOG,
         basis_ref=f"catalog:{_DIGEST_B}",
     )
@@ -148,6 +151,7 @@ def test_query_cannot_target_action_type() -> None:
         verify_semantic_candidate(
             candidate,
             release=release,
+            active_semantic_catalog_digest=_DIGEST_B,
             basis=VerifiedInterpretationBasis.OPERATOR_CONFIRMATION,
             basis_ref="conversation-turn:confirmation-2",
             basis_validator=lambda *_args: True,
@@ -170,6 +174,7 @@ def test_action_interpretation_remains_proposal_only() -> None:
     plan = verify_semantic_candidate(
         candidate,
         release=release,
+        active_semantic_catalog_digest=_DIGEST_B,
         basis=VerifiedInterpretationBasis.OPERATOR_CONFIRMATION,
         basis_ref="conversation-turn:confirmation-3",
         basis_validator=lambda *_args: True,
@@ -200,6 +205,7 @@ def test_stale_release_cannot_verify_candidate() -> None:
         verify_semantic_candidate(
             candidate,
             release=stale_release,
+            active_semantic_catalog_digest=_DIGEST_B,
             basis=VerifiedInterpretationBasis.EXACT_CATALOG,
             basis_ref=f"catalog:{_DIGEST_B}",
         )
@@ -228,6 +234,7 @@ def test_candidate_arguments_are_defensive_and_digest_bound() -> None:
     plan = verify_semantic_candidate(
         candidate,
         release=release,
+        active_semantic_catalog_digest=_DIGEST_B,
         basis=VerifiedInterpretationBasis.EXACT_CATALOG,
         basis_ref=f"catalog:{_DIGEST_B}",
     )
@@ -251,6 +258,7 @@ def test_non_catalog_basis_requires_external_evidence_validation() -> None:
         verify_semantic_candidate(
             candidate,
             release=release,
+            active_semantic_catalog_digest=_DIGEST_B,
             basis=VerifiedInterpretationBasis.OPERATOR_CONFIRMATION,
             basis_ref="conversation-turn:confirmation-4",
         )
@@ -258,7 +266,34 @@ def test_non_catalog_basis_requires_external_evidence_validation() -> None:
         verify_semantic_candidate(
             candidate,
             release=release,
+            active_semantic_catalog_digest=_DIGEST_B,
             basis=VerifiedInterpretationBasis.OPERATOR_CONFIRMATION,
             basis_ref="conversation-turn:confirmation-4",
             basis_validator=lambda *_args: False,
+        )
+
+
+def test_foreign_semantic_catalog_cannot_verify_candidate() -> None:
+    release = _release()
+    candidate = build_semantic_candidate(
+        source=InterpretationCandidateSource.LEXICAL,
+        operation_class=SemanticOperationClass.QUERY,
+        target_ref=release.type_ref(
+            OntologyDeclarationKind.FUNCTION,
+            "inventory.select_resources",
+        ),
+        arguments={"resource_type": "compute.vm"},
+        semantic_catalog_digest=_DIGEST_B,
+        input_text="VM list",
+        score=1.0,
+        unresolved_terms=(),
+    )
+
+    with pytest.raises(ValueError, match="stale semantic catalog"):
+        verify_semantic_candidate(
+            candidate,
+            release=release,
+            active_semantic_catalog_digest=_DIGEST_C,
+            basis=VerifiedInterpretationBasis.EXACT_CATALOG,
+            basis_ref=f"catalog:{_DIGEST_B}",
         )

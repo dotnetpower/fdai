@@ -8,6 +8,7 @@ import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
+from types import MappingProxyType
 from typing import Literal, Protocol, runtime_checkable
 
 from fdai.core.ontology_platform import (
@@ -66,7 +67,7 @@ class InventorySemanticMatch:
         for digest in (self.input_digest, self.candidate_digest):
             if not digest.startswith("sha256:") or len(digest) != 71:
                 raise ValueError("inventory semantic match proof digest is invalid")
-        object.__setattr__(self, "labels", dict(self.labels))
+        object.__setattr__(self, "labels", MappingProxyType(dict(self.labels)))
 
     def to_dict(self) -> dict[str, object]:
         return {

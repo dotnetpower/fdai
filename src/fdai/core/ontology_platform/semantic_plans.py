@@ -189,6 +189,7 @@ def verify_semantic_candidate(
     candidate: SemanticInterpretationCandidate,
     *,
     release: OntologyRelease,
+    active_semantic_catalog_digest: str,
     basis: VerifiedInterpretationBasis,
     basis_ref: str,
     basis_validator: SemanticBasisValidator | None = None,
@@ -197,6 +198,8 @@ def verify_semantic_candidate(
 
     if candidate.unresolved_terms:
         raise ValueError("semantic candidate has unresolved terms")
+    if candidate.semantic_catalog_digest != active_semantic_catalog_digest:
+        raise ValueError("semantic candidate targets a stale semantic catalog")
     expected_candidate_digest = _candidate_digest(
         source=candidate.source,
         operation_class=candidate.operation_class,

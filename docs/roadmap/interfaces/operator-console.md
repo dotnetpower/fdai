@@ -305,6 +305,9 @@ no candidate and the deterministic hold remains authoritative.
 `FDAI_INVENTORY_SEMANTIC_ENABLED` controls this clarification capability independently from
 `FDAI_CATALOG_SEARCH_ENABLED`; disabling Rule search does not silently disable inventory semantic
 retrieval.
+The clarification is not a dead end. A later operator turn that selects an exact promoted catalog
+expression recompiles deterministically and can perform the provider read. The earlier model or
+embedding arguments are never reused as query authority.
 Intent-graph planning cannot override a complete deterministic inventory query. Planner-supplied
 status concepts are still checked against the canonical catalog; invalid values are rejected, and
 execution uses the deterministic query. A required semantic status that is omitted remains held.
