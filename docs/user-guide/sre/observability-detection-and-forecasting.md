@@ -84,6 +84,28 @@ detected issue. Thresholds and metric bindings stay in catalog data so a deploym
 tune them without changing the evaluator. Every recipe starts in observation mode
 and re-enters event ingest for stable deduplication before trust routing.
 
+## Detect configuration drift against a frozen baseline
+
+Configuration drift compares the current configuration in one scope with a reviewed snapshot
+that was frozen as the intended state. A later observation never replaces the baseline by itself;
+a human reviews and re-freezes it. The report classifies each resource, attribute, or topology
+link as `added`, `removed`, `changed`, `unchanged`, `unknown`, or `unauthorized`.
+
+- **Pinned, not chosen.** The baseline version, digest, and scope are fixed by the deployment. A
+  caller cannot point the check at a different baseline or scope.
+- **No silent removal.** A partial snapshot cannot prove a resource was removed. Missing evidence
+  stays `unknown` until a complete source confirms it.
+- **One active baseline per scope.** An immutable registry holds candidate, active, superseded,
+  and archived baseline versions, and comparison always uses the active version.
+- **A weekly review needs three verified runs first.** Before FDAI proposes a recurring weekly
+  drift review, the same pinned baseline must pass three independent, read-only runs. A blocked or
+  unsafe run pauses the review, and the result is an inert governance blueprint for a human to
+  schedule, never a scheduler task or a fix FDAI starts on its own.
+
+Example: a resource-group scope is frozen as its Q3 baseline. A later scan finds a new inbound
+rule that isn't in the baseline. The report marks it `unauthorized`, cites the frozen document and
+its digest, and re-enters the same trust and risk pipeline as any other detected issue.
+
 ## Distinguish absence from provider failure
 
 A successful query with no samples can be evidence for an `absent` recipe. A

@@ -198,6 +198,25 @@ catalog counts, and operating-model status with its source revision and aggregat
 The endpoint doesn't expose deployment instance properties. The graph is for inspection and
 explanation, not mutation. The console's ontology views use the same projection.
 
+## Answering questions in plain language
+
+When you ask an inventory question in plain language, FDAI does not silently guess what you meant.
+Lexical, embedding, or model matching can propose an interpretation, but that proposal stays a
+**candidate**: it names the requested operation, the exact ontology target, and the arguments it
+inferred, alongside the exact catalog version it was matched against. A candidate carries no
+execution authority no matter how confident the match looks.
+
+If a term is unresolved, the catalog has moved on since the candidate was built, or the target
+isn't valid for the requested operation, FDAI holds and asks you to clarify instead of broadening
+the search or picking the closest match. Only reviewed, catalog-exact evidence can turn a candidate
+into a verified interpretation, and even a verified interpretation of an action stays a proposal:
+it still has to pass the same governed pipeline as any other `ActionType` instance before anything
+can run.
+
+Example: you ask "show me the databases in the payments service," and `payments-db-2` was renamed
+last week. FDAI reports the rename as an unresolved term and asks which service you mean, rather
+than returning a result built on a stale name.
+
 ## Tip: From Aristotle to modern ontology
 
 Aristotle did not design a software ontology, but his questions are a useful starting point: what

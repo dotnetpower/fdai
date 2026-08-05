@@ -34,6 +34,18 @@ The important line runs between **A1**, where a decision comes back, and
 everything else. A2, A4, and read-only A3 can travel over a less-trusted channel,
 because they carry information and never authority.
 
+## When a chat command is denied
+
+A3 commands are role-gated per command, not per channel. Before FDAI calls a tool on your behalf,
+it checks your role against that tool's required floor, even when a narrator translated your
+words into the command. A role that falls short never reaches the tool: FDAI denies the call and
+writes an auditable system turn explaining why, and no tool-call turn is created.
+
+Example: a Contributor asks Bragi to "approve the pending human-approval item," a command that
+needs the Approver role. FDAI replies: `Tool access denied: 'approve_hil' requires role 'approver';
+current role is 'contributor'. No tool was called.` Being on call or reachable through a paging
+channel never raises that floor.
+
 ## How an approval reaches you
 
 When the safety check classifies an action as **human approval** (see

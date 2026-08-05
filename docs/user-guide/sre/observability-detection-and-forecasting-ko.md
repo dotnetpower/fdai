@@ -2,8 +2,8 @@
 title: 관측성, 감지, 예측
 description: FDAI가 두 번째 실행 경로를 만들지 않고, 이벤트와 관측 데이터를 서로 연결된 설명 가능한 발견 결과로 바꾸는 방법입니다.
 translation_of: observability-detection-and-forecasting.md
-translation_source_sha: f8d6229ddd6f0e4ac5023a03dc7eea95d85df7da
-translation_revised: 2026-07-27
+translation_source_sha: 97881b15232e71d4f531f365b001c4ffd6f3333b
+translation_revised: 2026-08-06
 ---
 
 # 관측성, 감지, 예측
@@ -82,6 +82,28 @@ FDAI는 관측성을 실행 수단이 아니라 근거를 만들어 내는 일�
 임계값과 메트릭 연결은 카탈로그 데이터에 남으므로, 배포 환경에서 평가기를 고치지 않고도
 조정할 수 있습니다. 모든 점검법은 관찰 모드에서 시작하며, 신뢰 라우팅에 들어가기 전에 안정적인
 중복 제거를 거치도록 이벤트 수집을 다시 통과합니다.
+
+## 고정된 기준선과 비교해 구성 드리프트 탐지하기
+
+구성 드리프트는 현재 구성을 어떤 scope에서 의도된 상태로 고정(freeze)한 검토된 스냅샷과
+비교합니다. 나중에 관측한 결과가 그 기준선을 스스로 대체하는 일은 없습니다. 사람이 검토하고
+다시 고정해야 합니다. 보고서는 각 resource, attribute, topology link를 `added`, `removed`,
+`changed`, `unchanged`, `unknown`, `unauthorized` 중 하나로 분류합니다.
+
+- **선택이 아니라 고정입니다.** 기준선 version, digest, scope는 배포 환경이 고정합니다.
+  호출자가 다른 기준선이나 scope를 지정할 수 없습니다.
+- **조용한 삭제는 없습니다.** 부분적인 스냅샷만으로는 resource가 삭제됐다고 증명할 수 없습니다.
+  근거가 없으면 완전한 source가 확인해 줄 때까지 `unknown`으로 남습니다.
+- **scope당 활성 기준선은 하나입니다.** immutable registry가 candidate, active, superseded,
+  archived 기준선 version을 보관하며, 비교는 항상 active version과 이뤄집니다.
+- **주간 리뷰는 먼저 세 번의 검증된 실행이 필요합니다.** FDAI가 반복되는 weekly drift review를
+  제안하려면, 같은 고정 기준선이 독립적인 read-only 실행 세 번을 통과해야 합니다. 막히거나
+  안전하지 않은 실행이 하나라도 있으면 리뷰가 멈추며, 결과는 사람이 예약해야 하는 비활성
+  governance blueprint일 뿐 FDAI가 스스로 시작하는 scheduler task나 수정이 아닙니다.
+
+예시: 어떤 resource-group scope가 Q3 기준선으로 고정돼 있습니다. 이후 스캔에서 기준선에
+없는 새 inbound rule을 발견합니다. 보고서는 이를 `unauthorized`로 표시하고 고정된 문서와 그
+digest를 인용하며, 다른 발견 결과와 마찬가지로 같은 신뢰·리스크 파이프라인으로 다시 들어갑니다.
 
 ## 데이터가 없는 것과 provider 실패는 다릅니다
 

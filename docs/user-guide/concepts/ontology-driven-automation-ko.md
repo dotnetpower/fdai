@@ -2,8 +2,8 @@
 title: 에이전트 기반 자동화(Agent-driven automation)
 description: FDAI 에이전트가 typed operational truth와 ActionType 안전 계약으로 cloud operations를 자동화하는 방식을 설명합니다.
 translation_of: ontology-driven-automation.md
-translation_source_sha: 7a0133f9e151156157fcda358717f795b451675b
-translation_revised: 2026-08-01
+translation_source_sha: 5260bef4df5deb73224d5360b17614744f462701
+translation_revised: 2026-08-06
 sidebar:
   order: 4
 ---
@@ -205,6 +205,24 @@ Reader 역할로 접근하는 `GET /ontology/graph` endpoint는 결정론적인 
 
 이 endpoint는 배포 인스턴스 속성을 노출하지 않습니다. 그래프는 점검과 설명을 위한 것이며
 변경을 수행하지 않습니다. 콘솔의 온톨로지 화면도 같은 projection을 사용합니다.
+
+## 자연어로 묻기
+
+일상어로 재고(inventory) 질문을 던져도 FDAI는 조용히 의미를 추측하지 않습니다. 어휘, 임베딩,
+또는 모델 매칭이 해석을 제안할 수 있지만, 그 제안은 **candidate**로 남습니다. 즉 요청된
+operation, 정확한 온톨로지 target, 추론한 argument를 그 candidate가 매칭된 정확한 카탈로그
+version과 함께 표기합니다. candidate는 매칭이 아무리 확실해 보여도 실행 권한을 갖지 않습니다.
+
+용어가 해소되지 않았거나, candidate가 만들어진 뒤 카탈로그가 갱신됐거나, target이 요청된
+operation에 유효하지 않으면 FDAI는 검색 범위를 넓히거나 가장 가까운 답을 고르는 대신 보류하고
+명확화를 요청합니다. 검토를 거친 카탈로그와 정확히 일치하는 근거만이 candidate를 verified
+interpretation으로 바꿀 수 있으며, action의 verified interpretation조차 여전히 proposal일
+뿐입니다. 다른 `ActionType` 인스턴스와 마찬가지로 실행 전에 같은 governed pipeline을 통과해야
+합니다.
+
+예시: "payments 서비스의 데이터베이스를 보여줘"라고 물었는데 `payments-db-2`가 지난주에
+이름이 바뀌었다고 가정합시다. FDAI는 그 이름을 unresolved term으로 보고하고 어떤 서비스를
+말하는지 되묻습니다. 오래된 이름으로 만든 결과를 그대로 돌려주지 않습니다.
 
 ## 팁: 아리스토텔레스에서 현대 온톨로지까지
 
