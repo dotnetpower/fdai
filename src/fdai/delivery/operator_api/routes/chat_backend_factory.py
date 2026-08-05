@@ -274,9 +274,17 @@ def _candidate_route(entry: Any) -> tuple[str, str, str, str, str] | None:
     api_version = entry.get("api_version", "2024-08-01-preview")
     api_style = entry.get("api_style", ModelApiStyle.AZURE_OPENAI.value)
     auth_audience = entry.get("auth_audience", COGNITIVE_SERVICES_SCOPE)
-    if not all(
-        isinstance(value, str) and bool(value.strip())
-        for value in (endpoint, deployment, api_version, api_style, auth_audience)
+    if (
+        not isinstance(endpoint, str)
+        or not endpoint.strip()
+        or not isinstance(deployment, str)
+        or not deployment.strip()
+        or not isinstance(api_version, str)
+        or not api_version.strip()
+        or not isinstance(api_style, str)
+        or not api_style.strip()
+        or not isinstance(auth_audience, str)
+        or not auth_audience.strip()
     ):
         return None
     return endpoint, deployment, api_version, api_style, auth_audience
