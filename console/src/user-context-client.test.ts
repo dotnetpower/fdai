@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { decodeConversationSearch, decodeUserContext } from "./user-context-client";
+import {
+  authenticatedRequestInit,
+  decodeConversationSearch,
+  decodeUserContext,
+} from "./user-context-client";
 
 const payload = {
   preference: {
@@ -25,6 +29,20 @@ const payload = {
 };
 
 describe("user-context decoder", () => {
+  it("disables browser caching for authenticated JSON and image reads", () => {
+    const controller = new AbortController();
+
+    expect(authenticatedRequestInit(
+      "GET",
+      { authorization: "Bearer test" },
+      controller.signal,
+    )).toMatchObject({
+      method: "GET",
+      credentials: "omit",
+      cache: "no-store",
+    });
+  });
+
   it("decodes a complete account context", () => {
     const decoded = decodeUserContext(payload);
     expect(decoded.preference?.timezone).toBe("UTC");

@@ -163,6 +163,22 @@ export class UserContextRequestError extends Error {
   }
 }
 
+export function authenticatedRequestInit(
+  method: "GET" | "POST" | "PUT" | "DELETE",
+  headers: Record<string, string>,
+  signal: AbortSignal,
+  body?: string,
+): RequestInit {
+  return {
+    method,
+    headers,
+    credentials: "omit",
+    cache: "no-store",
+    signal,
+    ...(body === undefined ? {} : { body }),
+  };
+}
+
 let authContext: AuthContext | null = null;
 
 export function setUserContextAuth(auth: AuthContext | null): void {
@@ -214,12 +230,7 @@ export async function fetchConversationImage(
   try {
     response = await fetch(
       `${base.replace(/\/$/, "")}/me/conversations/${encodeURIComponent(conversationId)}/images/${encodeURIComponent(imageId)}`,
-      {
-        method: "GET",
-        headers,
-        credentials: "omit",
-        signal: controller.signal,
-      },
+      authenticatedRequestInit("GET", headers, controller.signal),
     );
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
@@ -344,13 +355,15 @@ async function request(
   const timer = window.setTimeout(() => controller.abort(), 10_000);
   let response: Response;
   try {
-    response = await fetch(`${base.replace(/\/$/, "")}${path}`, {
-      method,
-      headers,
-      credentials: "omit",
-      signal: controller.signal,
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    });
+    response = await fetch(
+      `${base.replace(/\/$/, "")}${path}`,
+      authenticatedRequestInit(
+        method,
+        headers,
+        controller.signal,
+        body === undefined ? undefined : JSON.stringify(body),
+      ),
+    );
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new UserContextRequestError("User context request timed out", 0);
