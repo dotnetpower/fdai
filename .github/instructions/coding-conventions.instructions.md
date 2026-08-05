@@ -90,6 +90,24 @@ The design docs are the single source of truth; code and docs MUST stay in sync.
 - Use the shared tier vocabulary in code and identifiers: `T0`, `T1`, `T2`, `trust-router`,
   `deterministic-engine`, `rule-catalog`, `risk-gate`, `remediation-pr`, `shadow-mode`, `hil`.
 
+## Docstrings and API Documentation
+
+- New or materially changed public modules, classes, functions, methods, Protocols, and interfaces
+  **MUST** include a concise language-native docstring or API documentation comment. Document the
+  unit's responsibility and the externally relevant behavioral contract, including non-obvious
+  preconditions, side effects, failure or abstention behavior, and safety invariants.
+- Document arguments, return values, raised errors, and async or ordering guarantees when their
+  meaning is not evident from names and types. Do not restate the signature, narrate the
+  implementation line by line, or claim guarantees that code and focused tests do not prove.
+- Private helpers **SHOULD** have a docstring when they encode non-obvious domain logic, security
+  boundaries, state transitions, retry or idempotency behavior, or assumptions needed for safe
+  maintenance. Straightforward private helpers do not need one.
+- A behavior or contract change **MUST** update the affected docstring in the same change. A stale,
+  misleading, or copied docstring is a defect; remove obsolete claims rather than preserving them.
+- Trivial accessors, unchanged contract-preserving overrides, self-describing test functions and
+  fixtures, generated code, and vendored code are exempt unless they carry behavior that a reader
+  could not safely infer from the signature and surrounding context.
+
 ## Error Handling and Boundaries
 
 - Validate untrusted input at system boundaries only (event ingress, API, config, rule-catalog
