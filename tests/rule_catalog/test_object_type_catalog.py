@@ -40,7 +40,7 @@ def test_shipped_object_types_load() -> None:
     # (docs/roadmap/agents/agent-pantheon.md § 5,
     #  docs/roadmap/agents/agent-pantheon-implementation.md Wave 0)
     # plus the Process runtime object (docs/roadmap/decisioning/process-automation.md 3.1)
-    # and the operating spine (docs/roadmap/architecture/operating-ontology.md).
+    # and the operating and diagnostic ontology additions.
     assert names == {
         "Resource",
         "Rule",
@@ -91,6 +91,11 @@ def test_shipped_object_types_load() -> None:
         "AuthorizationRequirement",
         "ExecutionProfile",
         "ProviderPermissionSet",
+        # Diagnostic ontology and benchmark validation evidence.
+        "BenchmarkValidation",
+        "DiagnosticEvidence",
+        "DiagnosticFinding",
+        "DiagnosticMechanism",
         # Operating ontology scope and intent.
         "ActionOption",
         "ActionRun",
