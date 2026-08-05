@@ -24,6 +24,20 @@ test("live operational typography remains legible", () => {
   assert.match(stylesheet, /\.cs-tier-axis \{[^}]*margin-left: 118px; margin-right: 42px/);
 });
 
+test("live badges explain authority and mode in flow and queue", () => {
+  ["A0", "A1", "A2", "A3-H", "A4"].forEach((authority) => {
+    assert.match(script, new RegExp(`(?:${authority}|"${authority}"):\\s*"`));
+  });
+  ["pending", "shadow", "enforce", "gated"].forEach((mode) => {
+    assert.match(script, new RegExp(`${mode}:\\s*"`));
+  });
+  assert.match(script, /data-live-term-tip/);
+  assert.match(script, /queueBody\.contains\(document\.activeElement\)/);
+  assert.match(script, /document\.addEventListener\("focusin"/);
+  assert.match(html, /<th>Tier \/ mode<\/th><th>Why<\/th>/);
+  assert.doesNotMatch(html, /Priority basis/);
+});
+
 test("gated and shadow paths do not observe execution or effect", () => {
   const gatedPath = script.match(
     /if \(ev\.outcome !== "auto" \|\| ev\.mode === "shadow"\) \{\s*(return \[[^;]+\];)\s*\}/,

@@ -17,6 +17,24 @@
     t1: { auto: 0.83, hil: 0.10, abstain: 0.04, deny: 0.03 },
     t2: { auto: 0.35, hil: 0.42, abstain: 0.18, deny: 0.05 }
   };
+  var TIER_HELP = {
+    t0: "T0 uses deterministic rules for repeatable decisions.",
+    t1: "T1 reuses evidence-backed similarity from prior validated patterns.",
+    t2: "T2 uses grounded adaptive reasoning and still requires deterministic verification."
+  };
+  var AUTONOMY_HELP = {
+    A0: "A0 observes, explains, or simulates only. External mutation is not allowed.",
+    A1: "A1 permits a reversible, resource-scoped low-risk action inside current policy.",
+    A2: "A2 permits a promoted workflow inside a measured and pre-approved envelope.",
+    "A3-H": "A3-H requires independent per-execution human approval before dispatch.",
+    A4: "A4 is denied. Execution is prohibited."
+  };
+  var MODE_HELP = {
+    pending: "Pending means the policy decision and authority have not been observed yet.",
+    shadow: "Shadow mode evaluates and records only. It cannot change the target.",
+    enforce: "Enforce mode may dispatch only after current policy, safety, and authority checks. It does not prove effect success.",
+    gated: "Gated mode cannot dispatch on its current decision path. Approval, review, or denial remains authoritative."
+  };
   var STAGES = ["route", "decide", "authorize", "execute", "effect", "audit"];
   // Per-tier total pipeline duration (ms). Randomised +/-25% per event.
   var TIER_TOTAL_MS = { t0: 2400, t1: 3400, t2: 4800 };
@@ -328,11 +346,10 @@
     el.setAttribute("data-mode", mode);
     el.setAttribute("data-event-id", id);
     el.setAttribute("tabindex", "0");
-    el.setAttribute("aria-label", sample.title + ". Target: " + sample.target + ". Why: " + sample.reason + ". Huginn, route stage.");
     el.removeAttribute("data-fade");
     slot.tierEl.className = "cs-tile-tier " + tier;
     slot.tierEl.textContent = tier.toUpperCase();
-    slot.modeEl.textContent = "Pending";
+    setTermTip(slot.tierEl, TIER_HELP[tier]);
     slot.stageEl.textContent = STAGES[0];
     slot.titleEl.textContent = sample.title;
     slot.titleEl.title = sample.at;
@@ -341,6 +358,8 @@
     slot.ownerEl.textContent = "Huginn · Route";
     slot.scopeEl.textContent = sample.scope;
     slot.barEl.style.width = "0%";
+    renderTileControl(slot);
+    el.setAttribute("aria-label", sample.title + ". Target: " + sample.target + ". Why: " + sample.reason + ". Huginn, route stage. Autonomy and mode: " + modeBadgeLabel(slot) + ". " + modeBadgeTooltip(slot));
     lastEventAt = Date.now();
     applyFlowFilter(slot);
 
@@ -370,8 +389,8 @@
             : slot.ev.outcome === "abstain" ? "held" : "denied";
     slot.stageEl.textContent = terminalLabel;
     slot.ownerEl.textContent = "Saga · Recorded";
-    slot.modeEl.textContent = authorityLabel(slot.ev) + " · " + slot.ev.mode.toUpperCase();
-    slot.el.setAttribute("aria-label", slot.ev.sample.title + ". Target: " + slot.ev.sample.target + ". Why: " + slot.ev.sample.reason + ". Saga, recorded. Decision: " + terminalLabel + ".");
+    renderTileControl(slot);
+    slot.el.setAttribute("aria-label", slot.ev.sample.title + ". Target: " + slot.ev.sample.target + ". Why: " + slot.ev.sample.reason + ". Saga, recorded. Decision: " + terminalLabel + ". Autonomy and mode: " + modeBadgeLabel(slot) + ". " + modeBadgeTooltip(slot));
     pulse(slot.el);
 
     // Count the observed terminal outcome in the rolling KPI window.
@@ -419,7 +438,7 @@
             t.stageEl.textContent = stage;
             t.ownerEl.textContent = stageOwner(stage) + " · " + titleCase(stage);
             renderTileControl(t);
-            t.el.setAttribute("aria-label", t.ev.sample.title + ". Target: " + t.ev.sample.target + ". Why: " + t.ev.sample.reason + ". " + stageOwner(stage) + ", " + stage + " stage.");
+            t.el.setAttribute("aria-label", t.ev.sample.title + ". Target: " + t.ev.sample.target + ". Why: " + t.ev.sample.reason + ". " + stageOwner(stage) + ", " + stage + " stage. Autonomy and mode: " + modeBadgeLabel(t) + ". " + modeBadgeTooltip(t));
             pulse(t.el);
           }
           if (elapsed >= total) finish(t, now);
@@ -562,7 +581,7 @@
   }
 
   function showChartTooltip(anchor, clientX, clientY) {
-    var text = anchor.dataset.liveChartTip;
+    var text = anchor.dataset.liveChartTip || anchor.dataset.liveTermTip;
     if (!text) return;
     chartTooltip.textContent = text;
     chartTooltip.hidden = false;
@@ -591,6 +610,32 @@
     anchor.addEventListener("pointerleave", function () { hideChartTooltip(anchor); });
     anchor.addEventListener("focus", function () { showChartTooltip(anchor); });
     anchor.addEventListener("blur", function () { hideChartTooltip(anchor); });
+  });
+
+  function termAnchor(event) {
+    var target = event.target instanceof Element ? event.target : null;
+    return target ? target.closest("[data-live-term-tip]") : null;
+  }
+
+  [swarm, queueBody].forEach(function (container) {
+    container.addEventListener("pointerover", function (event) {
+      var anchor = termAnchor(event);
+      if (!anchor || (event.relatedTarget instanceof Node && anchor.contains(event.relatedTarget))) return;
+      showChartTooltip(anchor, event.clientX, event.clientY);
+    });
+    container.addEventListener("pointerout", function (event) {
+      var anchor = termAnchor(event);
+      if (!anchor || (event.relatedTarget instanceof Node && anchor.contains(event.relatedTarget))) return;
+      hideChartTooltip(anchor);
+    });
+  });
+  document.addEventListener("focusin", function (event) {
+    var anchor = termAnchor(event);
+    if (anchor) showChartTooltip(anchor);
+  });
+  document.addEventListener("focusout", function (event) {
+    var anchor = termAnchor(event);
+    if (anchor) hideChartTooltip(anchor);
   });
 
   function renderKpis() {
@@ -856,12 +901,33 @@
     };
   }
 
+  function compactAuthority(authority) {
+    return authority.replace(" delegated", "").replace(" pending", "").replace(" denied", "").replace(" shadow", "");
+  }
+
+  function modeBadgeLabel(slot) {
+    if (!decisionObserved(slot)) return "Pending";
+    return compactAuthority(controlState(slot).authority) + " · " + slot.ev.mode.toUpperCase();
+  }
+
+  function modeBadgeTooltip(slot) {
+    if (!decisionObserved(slot)) return MODE_HELP.pending;
+    var state = controlState(slot);
+    var authority = compactAuthority(state.authority);
+    var autonomyHelp = AUTONOMY_HELP[authority] || "Authority is bounded by the current policy decision.";
+    var modeHelp = MODE_HELP[slot.ev.mode] || "The execution mode is unavailable.";
+    return autonomyHelp + " " + modeHelp + " Current synthetic state: policy " + state.policy + "; execution " + state.execution + "; effect " + state.effect + ".";
+  }
+
+  function setTermTip(element, text) {
+    element.dataset.liveTermTip = text;
+    element.title = text;
+  }
+
   function renderTileControl(slot) {
     if (!slot.ev) return;
-    var state = controlState(slot);
-    slot.modeEl.textContent = decisionObserved(slot)
-      ? state.authority.replace(" delegated", "").replace(" pending", "").replace(" denied", "").replace(" shadow", "") + " · " + slot.ev.mode.toUpperCase()
-      : "Pending";
+    slot.modeEl.textContent = modeBadgeLabel(slot);
+    setTermTip(slot.modeEl, modeBadgeTooltip(slot));
   }
 
   function slotStatus(slot, now) {
@@ -915,6 +981,7 @@
   }
 
   function renderQueue(now) {
+    if (queueBody.contains(document.activeElement)) return;
     var visible = pool.filter(function (slot) { return matchesSlot(slot, currentFilter, now); });
     visible.sort(function (left, right) {
       var rank = queueRank(left, now) - queueRank(right, now);
@@ -928,14 +995,17 @@
       var state = controlState(slot);
       var hasDecision = decisionObserved(slot);
       var decisionClass = status === "failed" ? "deny" : hasDecision ? ev.outcome : "";
-      var attentionBasis = status === "failed" ? "Execution failed" : status === "stuck" ? "Stage budget exceeded" : status === "hil" ? "Human approval required" : status === "abstain" ? "Decision evidence is insufficient" : status === "deny" ? "Policy denial recorded" : ev.sample.reason;
+      var modeLabel = modeBadgeLabel(slot);
+      var modeTip = modeBadgeTooltip(slot);
+      var tierTip = TIER_HELP[ev.tier];
       return '<tr data-status="' + status + '" data-event-id="' + escapeHtml(ev.id) + '">'
         + '<td><button class="cs-live-queue-action" type="button" data-select-event="' + escapeHtml(ev.id) + '"><strong>' + escapeHtml(ev.sample.title) + '</strong><span>' + escapeHtml(ev.sample.target) + ' · ' + escapeHtml(ev.sample.scope) + '</span></button></td>'
-        + '<td data-label="Priority basis"><span class="cs-live-queue-reason">' + escapeHtml(attentionBasis) + '</span></td>'
-        + '<td data-label="Owner / stage"><strong>' + escapeHtml(slot.state === "done" ? "Saga" : stageOwner(slot.stageEl.textContent)) + '</strong><br><small>' + escapeHtml(slot.state === "done" ? "Recorded" : titleCase(slot.stageEl.textContent)) + '</small></td>'
+        + '<td data-label="Tier / mode"><span class="cs-live-queue-badges"><span class="cs-tile-tier ' + ev.tier + ' cs-live-queue-term" tabindex="0" data-live-term-tip="' + escapeHtml(tierTip) + '" aria-label="' + ev.tier.toUpperCase() + '. ' + escapeHtml(tierTip) + '">' + ev.tier.toUpperCase() + '</span><span class="cs-tile-mode cs-live-queue-mode cs-live-queue-term" tabindex="0" data-mode="' + ev.mode + '" data-live-term-tip="' + escapeHtml(modeTip) + '" aria-label="' + escapeHtml(modeLabel + ". " + modeTip) + '">' + escapeHtml(modeLabel) + '</span></span></td>'
+        + '<td data-label="Why"><span class="cs-live-queue-reason">' + escapeHtml(ev.sample.reason) + '</span></td>'
+        + '<td data-label="Owner / stage"><strong>' + escapeHtml(stageOwner(slot.stageEl.textContent)) + '</strong><br><small>' + escapeHtml(titleCase(slot.stageEl.textContent)) + '</small></td>'
         + '<td data-label="Risk / impact"><strong>' + ev.profile.risk + '</strong><br><small>' + escapeHtml(ev.profile.impact) + '</small></td>'
         + '<td data-label="Age / SLA">' + ageLabel(Date.now() - ev.emitAt) + '<br><small>' + slaLabel(slot) + '</small></td>'
-        + '<td data-label="Control state"><span class="out ' + decisionClass + '">' + escapeHtml(state.policy) + '</span><br><small>' + escapeHtml(state.authority) + ' · ' + escapeHtml(state.execution) + ' · ' + escapeHtml(state.effect) + '</small></td>'
+        + '<td class="cs-live-queue-state" data-label="Control state"><span class="out ' + decisionClass + '">' + escapeHtml(state.policy) + '</span><small>' + escapeHtml(state.authority) + '</small><small>' + escapeHtml(state.execution) + ' · ' + escapeHtml(state.effect) + '</small></td>'
         + '</tr>';
     }).join("");
   }

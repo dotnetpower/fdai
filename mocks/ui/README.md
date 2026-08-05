@@ -96,7 +96,9 @@ Report and kit:
   before execution and effect observation, and reports omitted synthetic attempts when the preview
   pool is saturated. Its 12-item work pool renders as a four-column desktop swarm and responsive
   tablet or mobile flow with a 12px operational text floor and 11px technical annotations. It
-  renders the swarm, sparkline, and audit ticker entirely client-side with no backend.
+  explains tier, autonomy, and mode badges on hover or focus. Queue preserves the same work facts
+  as Flow while adding risk, SLA, and control state. The page renders the swarm, sparkline, and
+  audit ticker entirely client-side with no backend.
 
 ## Usage
 

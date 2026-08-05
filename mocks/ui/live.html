@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Live - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=live-legibility-v2" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=live-semantics-v1" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
 </head>
 <body>
@@ -122,7 +122,7 @@
       <section id="queue-view" aria-label="Control-loop work queue">
         <div class="cs-live-queue-wrap">
           <table class="cs-live-queue">
-            <thead><tr><th>Work</th><th>Priority basis</th><th>Owner / stage</th><th>Risk / impact</th><th>Age / SLA</th><th>Control state</th></tr></thead>
+            <thead><tr><th>Work</th><th>Tier / mode</th><th>Why</th><th>Owner / stage</th><th>Risk / impact</th><th>Age / SLA</th><th>Control state</th></tr></thead>
             <tbody id="live-queue"></tbody>
           </table>
           <p class="cs-live-empty" id="queue-empty" hidden>No work matches this filter.</p>
@@ -188,6 +188,6 @@
 
   </main>
 
-  <script src="assets/live.js?v=live-density-v2" defer></script>
+  <script src="assets/live.js?v=live-semantics-v3" defer></script>
 </body>
 </html>
