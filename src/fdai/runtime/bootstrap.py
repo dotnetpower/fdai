@@ -79,6 +79,7 @@ from fdai.runtime.bootstrap_lifecycle import (
 from fdai.runtime.bootstrap_lifecycle import (
     supervise_runtime_tasks as _supervise_runtime_tasks,
 )
+from fdai.runtime.bootstrap_shutdown import close_runtime_resources as _close_runtime_resources
 from fdai.runtime.case_history import (
     CaseHistoryRetentionTickPublisher,
     CaseHistoryRuntime,
@@ -1002,37 +1003,14 @@ async def _run() -> int:
         _LOGGER.info("shutdown_complete")
         return 0
     finally:
-        if health_server is not None:
-            try:
-                await health_server.close()
-            except Exception:  # noqa: BLE001
-                _LOGGER.warning("health_server_stop_failed", exc_info=True)
-        if pantheon_runtime is not None:
-            try:
-                await pantheon_runtime.stop()
-            except Exception:  # noqa: BLE001
-                _LOGGER.warning("pantheon_stop_failed", exc_info=True)
-        if runtime_state_publisher is not None:
-            await runtime_state_publisher.stop()
-        if auxiliary_bus is not None:
-            close = getattr(auxiliary_bus, "close", None)
-            if callable(close):
-                try:
-                    await close()
-                except Exception:  # noqa: BLE001
-                    _LOGGER.warning("auxiliary_bus_close_failed", exc_info=True)
-        if bus is not None:
-            close = getattr(bus, "close", None)
-            if callable(close):
-                try:
-                    await close()
-                except Exception:  # noqa: BLE001
-                    _LOGGER.warning("bus_close_failed", exc_info=True)
-        if http_client is not None:
-            try:
-                await http_client.aclose()
-            except Exception:  # noqa: BLE001
-                _LOGGER.warning("http_client_close_failed", exc_info=True)
+        await _close_runtime_resources(
+            health_server=health_server,
+            pantheon_runtime=pantheon_runtime,
+            runtime_state_publisher=runtime_state_publisher,
+            auxiliary_bus=auxiliary_bus,
+            bus=bus,
+            http_client=http_client,
+        )
 
 
 def main() -> int:
