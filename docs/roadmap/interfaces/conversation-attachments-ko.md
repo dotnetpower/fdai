@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: b6bfb64368f9837c9fc857a7fa56e025a9d485b8
+translation_source_sha: 68932e634bfc8d4f4d3d7abce89f3e262363ffca
 translation_revised: 2026-08-05
 title: 대화 첨부파일
 ---
@@ -46,7 +46,7 @@ File source는 channel마다 다릅니다. Safety, storage, purpose, citation, r
 | Protected channel ingestion | Composition 구현됨, deployment binding 대기 | `ProtectedChannelAttachmentIngestor`는 모든 byte를 기존 scan, protection, extraction, indexing 및 access lifecycle로 전달합니다. |
 | Explicit ownership handover | Contract 구현됨, Slack/Teams deployment binding 대기 | Leading `/handover`, `/attach handover` 또는 `인수인계 문서:` directive가 `handover_bootstrap`을 선택합니다. Content와 filename은 purpose를 선택하지 않습니다. |
 | Web chat document references | Backend contract 구현됨 | JSON 및 SSE chat은 immutable document/version id를 최대 8개 받습니다. Production resolver는 현재 principal이 upload한 ready version만 허용합니다. SPA file picker는 product UI 후속 작업입니다. |
-| Web chat inline vision evidence | 구현됨 | Web chat `attachments` field는 bounded inline base64 image를 받습니다(raster allowlist png/jpeg/gif/webp, `data:` URL만, 선언된 media type이 magic byte와 일치해야 함, decode 전 browser source 32 MiB cap, server edge 2048 pixel cap, per-image output cap 및 per-turn count cap). 검증된 image는 read-only evidence로서 해당 turn을 vision 지원 narrator로 escalate하며, 실행 자격을 부여하지 않습니다. Operator API는 검증된 byte를 principal 범위 `conversation_image` repository에 저장하고 content-free descriptor만 turn history에 남겨 Console에서 복원할 수 있게 합니다. |
+| Web chat inline vision evidence | 구현됨 | Web chat `attachments` field는 bounded inline base64 image를 받습니다(raster allowlist png/jpeg/gif/webp, `data:` URL만, 선언된 media type이 magic byte와 일치해야 함, decode 전 browser source 32 MiB cap, server edge 2048 pixel cap, per-image output cap 및 per-turn count cap). 검증된 image는 read-only evidence로서 해당 turn을 vision 지원 narrator로 escalate하며, 실행 자격을 부여하지 않습니다. Terminal verification은 해당 해석을 screen-verified로 취급하지 않고 현재 `conversation-image` ref가 있는 unverified 답변으로 보존합니다. Operator API는 검증된 byte를 principal 범위 `conversation_image` repository에 저장하고 content-free descriptor만 turn history에 남겨 Console에서 복원할 수 있게 합니다. |
 | Image OCR | 구현됨, opt-in | `ImageOcrProvider`를 standard extractor에 inject합니다. Azure production은 managed identity로 Document Intelligence `prebuilt-read`를 bind할 수 있습니다. |
 
 ## Purpose 및 authorization

@@ -57,6 +57,8 @@ def test_analysis_followup_detection_does_not_capture_explicit_other_domains() -
     assert not is_llm_usage_followup("오류율을 그래프로 보여줘")
     assert not is_llm_usage_followup("Show the latency as a chart")
     assert not is_llm_usage_followup("compare the two requested datasets")
+    assert not is_llm_usage_followup("이 이미지의 목차 내용을 표로 정리해줄래?")
+    assert not is_llm_usage_followup("Summarize this attached screenshot as a table")
     assert is_llm_usage_followup("지난주와 비교해줘")
 
 

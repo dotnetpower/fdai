@@ -620,6 +620,7 @@ def make_chat_route(
             semantic_plan = None
             if (
                 turn_planner is not None
+                and not vision_attachments
                 and not _is_grounded_concept_query(clean_prompt)
                 and (
                     not deterministic_followup

@@ -19,7 +19,11 @@ from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from fdai.delivery.conversation_images import InMemoryConversationImageStore
-from fdai.delivery.operator_api.routes.chat import make_chat_stream_route
+from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
+from fdai.delivery.operator_api.routes.chat_conversation_context import (
+    ConversationContextChatTools,
+)
+from fdai.delivery.operator_api.routes.chat_llm_usage import is_llm_usage_followup
 from fdai.shared.providers.testing.user_context import InMemoryConversationHistoryStore
 
 _PNG = (
@@ -50,6 +54,15 @@ class _Backend:
         return {"answer": "The photo shows two people.", "model": "vision-test"}
 
 
+class _UnexpectedPlanner:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def plan_turn(self, **_kwargs: object) -> None:
+        self.calls += 1
+        raise AssertionError("image turns must bypass semantic tool planning")
+
+
 class _FailingImageStore(InMemoryConversationImageStore):
     async def put_many(self, images: Any) -> Any:
         del images
@@ -70,6 +83,15 @@ class _FailingDeleteImageStore(InMemoryConversationImageStore):
 async def _allow(request: Request) -> str:
     del request
     return "reader"
+
+
+def _done_payload(body: str) -> dict[str, Any]:
+    for block in body.split("\n\n"):
+        if not block.startswith("event: done\n"):
+            continue
+        data = next(line[6:] for line in block.splitlines() if line.startswith("data: "))
+        return json.loads(data)  # type: ignore[no-any-return]
+    raise AssertionError("done event missing")
 
 
 def test_chat_stream_emits_vision_phases_before_answer() -> None:
@@ -98,6 +120,49 @@ def test_chat_stream_emits_vision_phases_before_answer() -> None:
     assert '"label": "photo.png"' in body
     assert base64.b64encode(_PNG).decode() not in body
     assert backend.saw_image_part is True
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_chat_attachment_preempts_prompt_only_routing(stream: bool) -> None:
+    backend = _Backend()
+    planner = _UnexpectedPlanner()
+    tools = ConversationContextChatTools(analysis_predicate=is_llm_usage_followup)
+    route_factory = make_chat_stream_route if stream else make_chat_route
+    app = Starlette(
+        routes=[
+            route_factory(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=tools,
+                turn_planner=planner,  # type: ignore[arg-type]
+            )
+        ]
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/chat/stream" if stream else "/chat",
+            json={
+                "prompt": "이 이미지의 주요 구성 요소를 표로 정리해줘.",
+                "view_context": {},
+                "session_id": "session-vision-table",
+                "request_id": "request-vision-table",
+                "attachments": [{"name": "outline.png", "data_url": _DATA_URL}],
+            },
+        )
+
+    assert response.status_code == 200
+    if stream:
+        assert '"phase": "vision_analyzing"' in response.text
+    assert "prior_analysis_context" not in response.text
+    assert planner.calls == 0
+    assert backend.saw_image_part is True
+    payload = _done_payload(response.text) if stream else response.json()
+    assert payload["answer"] == "The photo shows two people."
+    assert payload["verification"]["status"] == "unverified"
+    assert payload["verification"]["authority"] == "vision_narrator"
+    assert payload["verification"]["reason_code"] == "vision_interpretation_unverified"
+    assert payload["verification"]["evidence_refs"][0].startswith("conversation-image:att-")
 
 
 def test_chat_stream_without_attachments_emits_no_vision_phase() -> None:

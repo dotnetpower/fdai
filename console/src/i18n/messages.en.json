@@ -2184,6 +2184,7 @@
         "contextRequired": "Context required",
         "sourceUnavailable": "Source unavailable",
         "invalidQuery": "Invalid query",
+        "visionUnverified": "Image interpretation",
         "unsupportedClaim": "Unsupported claim",
         "unverified": "Unverified"
       },
@@ -2200,6 +2201,7 @@
         "contextRequired": "Required conversation context is missing{claims}",
         "sourceUnavailable": "An authoritative source is unavailable{claims}",
         "invalidQuery": "The read query failed strict validation{claims}",
+        "visionUnverified": "Image interpretation is grounded in the current attachment but is not independently verified",
         "unsupportedClaim": "One or more claims are not supported by evidence{claims}",
         "unverified": "Verification could not be completed{claims}",
         "scope": {

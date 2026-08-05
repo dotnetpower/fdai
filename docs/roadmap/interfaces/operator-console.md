@@ -139,8 +139,8 @@ flowchart TD
   Full-workspace web chat opens transcript-first. Conversation history and the current-screen
   digest are toolbar panels rather than permanent columns. The Deck header shows the active route;
   the Digest toggle and header own record count, snapshot age, and stale refresh. The composer keeps
-  only attachments, question entry, and send or stop. Sent images render inside the operator turn.
-  Browser transcript caches retain only image descriptors, while authenticated history reads load
+  only attachments, question entry, and send or stop. Sent images render inside the operator turn, and validated image attachments bypass prompt-only semantic tool planning and omitted-subject
+  LLM-usage refinement so the current image reaches vision narration. Terminal verification preserves the interpretation as unverified with a current `conversation-image` ref instead of treating it as screen-verified. Explicit measured LLM usage remains a deterministic tool request. Browser transcript caches retain only image descriptors, while authenticated history reads load
   bytes from the principal-scoped conversation image repository. A restored transcript shows its last recorded
   time and a new-conversation action. Tables render every bounded row without internal scrolling or
   expansion controls. On narrow screens, cells reflow while preserving native table semantics.

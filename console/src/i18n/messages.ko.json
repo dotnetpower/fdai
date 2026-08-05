@@ -2184,6 +2184,7 @@
         "contextRequired": "Context 필요",
         "sourceUnavailable": "Source 사용 불가",
         "invalidQuery": "Query 검증 실패",
+        "visionUnverified": "이미지 해석",
         "unsupportedClaim": "근거 없는 claim",
         "unverified": "검증되지 않음"
       },
@@ -2200,6 +2201,7 @@
         "contextRequired": "필요한 conversation context가 없습니다{claims}",
         "sourceUnavailable": "Authoritative source를 사용할 수 없습니다{claims}",
         "invalidQuery": "Read query가 strict validation을 통과하지 못했습니다{claims}",
+        "visionUnverified": "현재 attachment에 근거한 이미지 해석이며 독립적으로 검증되지는 않았습니다",
         "unsupportedClaim": "하나 이상의 claim을 근거로 뒷받침할 수 없습니다{claims}",
         "unverified": "검증을 완료하지 못함{claims}",
         "scope": {

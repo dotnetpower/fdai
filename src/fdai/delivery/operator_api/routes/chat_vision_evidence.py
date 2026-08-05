@@ -59,6 +59,7 @@ class VisionAttachment:
         """Render the view-context payload the vision narrator consumes."""
 
         return {
+            "id": self.attachment_id,
             "name": self.name,
             "media_type": self.media_type,
             "data_url": self.data_url,
@@ -318,11 +319,27 @@ def vision_source_previews(attachments: Any) -> list[dict[str, Any]]:
     return previews
 
 
+def vision_evidence_refs(attachments: Any) -> tuple[str, ...]:
+    """Return stable refs for server-validated current-turn images."""
+
+    if not isinstance(attachments, list):
+        return ()
+    refs: list[str] = []
+    for attachment in attachments:
+        if not isinstance(attachment, dict):
+            continue
+        attachment_id = attachment.get("id")
+        if isinstance(attachment_id, str) and _ATTACHMENT_ID.fullmatch(attachment_id):
+            refs.append(f"conversation-image:{attachment_id}")
+    return tuple(dict.fromkeys(refs))
+
+
 __all__ = [
     "DEFAULT_MAX_IMAGE_EDGE",
     "DEFAULT_MAX_IMAGES",
     "DEFAULT_MAX_IMAGE_BYTES",
     "VisionAttachment",
     "parse_vision_attachments",
+    "vision_evidence_refs",
     "vision_source_previews",
 ]

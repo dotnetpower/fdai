@@ -12,6 +12,7 @@ from fdai.delivery.operator_api.routes.chat_vision_evidence import (
     _format_bytes,
     _magic_matches,
     parse_vision_attachments,
+    vision_evidence_refs,
     vision_source_previews,
 )
 
@@ -82,11 +83,15 @@ def test_parses_each_allowed_raster_type() -> None:
 def test_view_dict_shape() -> None:
     parsed = parse_vision_attachments({"attachments": [_attachment("image/png", _PNG)]})
     assert parsed[0].to_view_dict() == {
+        "id": parsed[0].attachment_id,
         "name": "image-1",
         "media_type": "image/png",
         "data_url": parsed[0].data_url,
         "byte_size": len(_PNG),
     }
+    assert vision_evidence_refs([parsed[0].to_view_dict()]) == (
+        f"conversation-image:{parsed[0].attachment_id}",
+    )
 
 
 def test_rejects_svg_and_other_media_types() -> None:
