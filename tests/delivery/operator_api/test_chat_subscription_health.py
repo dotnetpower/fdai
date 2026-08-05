@@ -1334,6 +1334,96 @@ def test_service_outage_answer_explains_customer_initiated_resource_health() -> 
     assert backend.calls == 0
 
 
+@pytest.mark.parametrize("stream", [False, True])
+def test_current_resource_health_timeline_is_grounded_without_metrics(stream: bool) -> None:
+    prompt = (
+        "현재 범위 내 Azure 리소스 중 활성 상태인 Resource Health 이상 징후가 있는 항목이 "
+        "있는지, 있다면 해당 상태가 언제부터 시작되었거나 최초로 관측되었는지, 그리고 이를 "
+        "고객 기인(customer-initiated)과 플랫폼 기인(platform-initiated) 중 어느 쪽으로 "
+        "분류하는지 읽기 전용 근거를 바탕으로 알려주시겠어요?"
+    )
+
+    class Provider:
+        async def query_health(
+            self,
+            lookback_seconds: int,
+            *,
+            include_metrics: bool,
+            include_service_health: bool = False,
+            progress_observer: Any = None,
+        ) -> dict[str, Any]:
+            del progress_observer
+            assert lookback_seconds == 3_600
+            assert include_metrics is False
+            assert include_service_health is False
+            return {
+                "status": "matched",
+                "source": "azure-resource-graph+resource-health",
+                "observed_at": "2026-08-05T01:00:00Z",
+                "resource_count": 2,
+                "resource_health_unavailable": 0,
+                "metrics_requested": False,
+                "metric_checked": 0,
+                "metric_unavailable": 0,
+                "unsupported_metric_resources": 0,
+                "truncated": False,
+                "findings": [
+                    {
+                        "kind": "resource_health",
+                        "resource_name": "vm-example",
+                        "resource_type": "Microsoft.Compute/virtualMachines",
+                        "resource_group": "rg-example",
+                        "status": "Unavailable",
+                        "title": "Unavailable",
+                        "reason": "Customer Initiated",
+                        "observed_at": "2026-08-05T00:55:00Z",
+                    }
+                ],
+            }
+
+    backend = _Backend()
+    tools = SubscriptionHealthChatTools(Provider())  # type: ignore[arg-type]
+    route = (
+        make_chat_stream_route(backend=backend, authorize=_allow, tool_resolver=tools)
+        if stream
+        else make_chat_route(backend=backend, authorize=_allow, tool_resolver=tools)
+    )
+    response = TestClient(Starlette(routes=[route])).post(
+        "/chat/stream" if stream else "/chat",
+        json={"prompt": prompt, "view_context": {}},
+    )
+
+    assert response.status_code == 200
+    if stream:
+        done_block = next(
+            block for block in response.text.split("\n\n") if block.startswith("event: done\n")
+        )
+        payload = json.loads(
+            next(
+                line.removeprefix("data: ")
+                for line in done_block.splitlines()
+                if line.startswith("data: ")
+            )
+        )
+    else:
+        payload = response.json()
+    assert payload["verification"]["status"] == "verified"
+    assert payload["verification"]["authority"] == "server_subscription_health"
+    assert "2026-08-05T00:55:00Z" in payload["answer"]
+    assert "customer-initiated" in payload["answer"]
+    assert backend.calls == 0
+    if stream:
+        activities = payload["trajectory_detail"]["activities"]
+        execution = next(
+            activity["execution"]
+            for activity in activities
+            if activity.get("activity_id") == "query_subscription_health-execution"
+        )
+        output = json.loads(execution["output"])
+        assert output["finding_count"] == 1
+        assert output["observed_at"] == "2026-08-05T01:00:00Z"
+
+
 def test_platform_health_reports_cause_counts_without_metrics() -> None:
     class Provider:
         async def __call__(

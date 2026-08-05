@@ -590,6 +590,16 @@ def _tool_execution_progress_event(
         value = result.get(key)
         if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
             summary[key] = value
+    if tool == "query_subscription_health":
+        for key in ("source", "observed_at"):
+            value = result.get(key)
+            if isinstance(value, str) and value:
+                summary[key] = value[:200]
+        findings = result.get("findings")
+        if isinstance(findings, list):
+            summary["finding_count"] = min(len(findings), 20)
+        if result.get("truncated") is True:
+            summary["truncated"] = True
     output, output_truncated = (
         inventory_execution_output(result)
         if tool == "query_inventory"

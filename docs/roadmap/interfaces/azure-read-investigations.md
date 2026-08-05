@@ -319,6 +319,11 @@ an Azure platform incident, but the actor remains unknown until Activity Log evi
 Historical reads don't fall back to the current ARM availability endpoint. They preserve the exact
 lookback, chronological order, three-way cause counts, partial source failures, and truncation, so a
 current status cannot be presented as a historical event.
+Current Resource Health timeline questions use a separate deterministic mode. They query current
+Resource Health and cause annotations without unrelated representative metrics or Service Health,
+then render each finding's provider observation time and `customer-initiated`, `status-only`, or
+`platform-initiated` classification. The timestamp is the first observation available in this
+bounded read. It is not proof of the actual condition onset.
 Health-coverage questions query Resource Health, Service Health, and representative metrics under
 the same server scope. They report unavailable and unsupported counts separately, and don't label a
 provider-unavailable result as authorization or scope unless the provider proves that cause.

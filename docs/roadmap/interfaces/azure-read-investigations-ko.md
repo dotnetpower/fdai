@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 20ecb5b2cdd9373f3cc4a9bda9cc846c904746b0
+translation_source_sha: 8954931bccab2d34e36ea6d4ebcd03c836416321
 translation_revised: 2026-08-05
 ---
 
@@ -317,6 +317,11 @@ Customer-initiated Resource Health state는 Azure platform incident가 아니라
 Historical read는 current ARM availability endpoint로 fallback하지 않습니다. Exact lookback,
 chronological order, three-way cause count, partial source failure 및 truncation을 보존하므로 current
 status를 historical event로 표시하지 않습니다.
+Current Resource Health timeline 질문은 별도의 deterministic mode를 사용합니다. 관련 없는
+representative metric이나 Service Health를 섞지 않고 current Resource Health와 cause annotation을
+query한 다음 각 finding의 provider observation time과 `customer-initiated`, `status-only` 또는
+`platform-initiated` 분류를 렌더링합니다. Timestamp는 이 bounded read에서 확인한 최초 관측
+시각이며 실제 condition onset을 증명하지는 않습니다.
 Health-coverage 질문은 동일한 server scope에서 Resource Health, Service Health 및 representative
 metric을 query합니다. Unavailable 및 unsupported count를 분리해 보고하며 provider가 원인을 증명하지
 않으면 provider-unavailable 결과를 authorization 또는 scope로 표시하지 않습니다.

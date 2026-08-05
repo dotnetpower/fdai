@@ -72,6 +72,12 @@ _HEALTH_COVERAGE: Final = re.compile(
     r"(?:권한|범위).{0,24}(?:차단|막힌|조회 불가).{0,24}(?:상태|헬스|건강).{0,12}점검",
     re.IGNORECASE,
 )
+_CURRENT_HEALTH_TIMELINE: Final = re.compile(
+    r"^(?=[\s\S]{0,500}\bresource health\b)"
+    r"(?=[\s\S]{0,500}(?:\b(?:first observed|began|started|onset)\b|언제부터|최초로?\s*관측|시작))"
+    r"(?=[\s\S]{0,500}(?:\b(?:customer|platform)[ -]initiated\b|고객\s*기인|플랫폼\s*기인))",
+    re.IGNORECASE,
+)
 _CPU_DIAGNOSIS: Final = re.compile(
     r"\bcpu\b.{0,48}\b(?:spike|spikes|spiked|abnormal|unusual|high|surge|usage|utilization)\b|"
     r"\b(?:spike|spikes|abnormal|unusual|high)\b.{0,48}\bcpu\b|"
@@ -529,6 +535,7 @@ class SubscriptionHealthChatTools:
         language = default_inventory_query_language_resolver()
         platform_impact = language.has(language.registry.signals, "platform_health", prompt)
         health_history = language.has(language.registry.signals, "health_history", prompt)
+        current_health_timeline = bool(_CURRENT_HEALTH_TIMELINE.search(prompt))
         health_coverage = bool(_HEALTH_COVERAGE.search(prompt))
         diagnostic_metric = _diagnostic_metric(prompt)
         metric_comparison = diagnostic_metric is not None and bool(
@@ -586,7 +593,7 @@ class SubscriptionHealthChatTools:
                 "observed_at": datetime.now(UTC).isoformat(),
                 "truncated": False,
             }
-        include_metrics = (
+        include_metrics = not current_health_timeline and (
             health_coverage
             or diagnostic_metric is not None
             or (
@@ -634,6 +641,8 @@ def needs_subscription_health(prompt: str) -> bool:
     if _ERROR_CHANGE_CORRELATION.search(prompt):
         return True
     if _HEALTH_COVERAGE.search(prompt):
+        return not _MUTATION.search(prompt)
+    if _CURRENT_HEALTH_TIMELINE.search(prompt):
         return not _MUTATION.search(prompt)
     if diagnostic_metric is not None:
         return not _MUTATION.search(prompt)
@@ -867,6 +876,9 @@ def render_subscription_health_answer(
     requested_groups = _requested_status_groups(evidence, korean=korean)
     platform_impact = isinstance(query, Mapping) and query.get("platform_impact") is True
     health_history = isinstance(query, Mapping) and query.get("health_history") is True
+    current_health_timeline = (
+        isinstance(query, Mapping) and query.get("current_health_timeline") is True
+    )
     health_coverage = isinstance(query, Mapping) and query.get("health_coverage") is True
     diagnostic_metric = (
         str(query.get("diagnostic_metric"))
@@ -907,7 +919,30 @@ def render_subscription_health_answer(
             truncated=truncated,
             korean=korean,
         )
-    if requested_groups:
+    if current_health_timeline:
+        grouped_lines = _finding_lines(findings, korean=korean, include_timeline=True)
+        if not findings:
+            grouped_lines = [
+                (
+                    "- 현재 Resource Health 이상이 없어 customer-initiated 또는 "
+                    "platform-initiated 분류 대상이 없습니다."
+                )
+                if korean
+                else (
+                    "- No current Resource Health anomaly requires customer-initiated or "
+                    "platform-initiated classification."
+                )
+            ]
+        summary = (
+            f"허용된 Azure 범위에서 리소스 {resource_count}개를 확인했고 현재 Resource Health "
+            f"이상 {len(findings)}개를 찾았습니다."
+            if korean
+            else (
+                f"Checked {resource_count} resources in the allowed Azure scope and found "
+                f"{len(findings)} current Resource Health anomaly finding(s)."
+            )
+        )
+    elif requested_groups:
         grouped_lines, grouped_count = _grouped_finding_lines(
             findings,
             requested_groups,
@@ -1221,7 +1256,12 @@ def requested_subscription_health_findings_are_grounded(
     )
 
 
-def _finding_lines(findings: list[Mapping[str, Any]], *, korean: bool) -> list[str]:
+def _finding_lines(
+    findings: list[Mapping[str, Any]],
+    *,
+    korean: bool,
+    include_timeline: bool = False,
+) -> list[str]:
     if not findings:
         return [
             "- 현재 조회 범위에서 명시적인 이상 근거가 발견되지 않았습니다."
@@ -1236,6 +1276,8 @@ def _finding_lines(findings: list[Mapping[str, Any]], *, korean: bool) -> list[s
         if kind == "resource_health":
             title = str(finding.get("title") or "unknown")
             reason = str(finding.get("reason") or "unknown")
+            classification = _health_cause_classification(reason)
+            observed_at = str(finding.get("observed_at") or "unknown")
             resource_type = str(finding.get("resource_type") or "unknown")
             resource_group = str(finding.get("resource_group") or "unknown")
             if korean:
@@ -1247,7 +1289,13 @@ def _finding_lines(findings: list[Mapping[str, Any]], *, korean: bool) -> list[s
                 )
                 lines.append(
                     f"- {name}: Resource Health {status} ({title}), type {resource_type}, "
-                    f"resource group {resource_group}. {explanation}"
+                    f"resource group {resource_group}. "
+                    + (
+                        f"최초 관측 {observed_at}, 분류 {classification}. "
+                        if include_timeline
+                        else ""
+                    )
+                    + explanation
                 )
             else:
                 explanation = (
@@ -1258,7 +1306,13 @@ def _finding_lines(findings: list[Mapping[str, Any]], *, korean: bool) -> list[s
                 )
                 lines.append(
                     f"- {name}: Resource Health {status} ({title}), type {resource_type}, "
-                    f"resource group {resource_group}. {explanation}"
+                    f"resource group {resource_group}. "
+                    + (
+                        f"First observed {observed_at}, classification {classification}. "
+                        if include_timeline
+                        else ""
+                    )
+                    + explanation
                 )
             continue
         metric = finding.get("metric")
@@ -1266,6 +1320,15 @@ def _finding_lines(findings: list[Mapping[str, Any]], *, korean: bool) -> list[s
         detail = f", {metric}={value}" if isinstance(metric, str) else ""
         lines.append(f"- {name}: {kind}, {status}{detail}")
     return lines
+
+
+def _health_cause_classification(reason: str) -> str:
+    normalized = reason.casefold().replace("_", " ").replace("-", " ")
+    if "customer initiated" in normalized:
+        return "customer-initiated"
+    if "platform initiated" in normalized:
+        return "platform-initiated"
+    return "status-only"
 
 
 def _metric_observation_lines(
@@ -1387,6 +1450,7 @@ def _status_query(prompt: str) -> dict[str, object]:
     language = default_inventory_query_language_resolver()
     platform_impact = language.has(language.registry.signals, "platform_health", prompt)
     health_history = language.has(language.registry.signals, "health_history", prompt)
+    current_health_timeline = bool(_CURRENT_HEALTH_TIMELINE.search(prompt))
     health_coverage = bool(_HEALTH_COVERAGE.search(prompt))
     diagnostic_metric = _diagnostic_metric(prompt)
     metric_comparison = diagnostic_metric is not None and bool(
@@ -1395,13 +1459,18 @@ def _status_query(prompt: str) -> dict[str, object]:
     error_change_correlation = bool(_ERROR_CHANGE_CORRELATION.search(prompt))
     pod_diagnosis = bool(_POD_DIAGNOSIS.search(prompt))
     capacity_diagnosis = bool(_CAPACITY_DIAGNOSIS.search(prompt))
-    groups = () if platform_impact or health_history else inventory_query_status_groups(prompt)
+    groups = (
+        ()
+        if platform_impact or health_history or current_health_timeline
+        else inventory_query_status_groups(prompt)
+    )
     if diagnostic_metric is not None:
         groups = tuple(group for group in groups if group.id != "unhealthy")
     requested_types = default_inventory_resource_type_resolver().resolve(prompt)
     return {
         "platform_impact": platform_impact,
         "health_history": health_history,
+        "current_health_timeline": current_health_timeline,
         "health_coverage": health_coverage,
         "diagnostic_metric": diagnostic_metric,
         "metric_comparison": metric_comparison,
