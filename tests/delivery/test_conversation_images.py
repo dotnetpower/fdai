@@ -117,3 +117,25 @@ async def test_image_store_enforces_principal_byte_quota() -> None:
 
     with pytest.raises(ConversationImageQuotaError, match="byte quota"):
         await store.put(_image(image_id="att-second", content=b"456"))
+
+
+async def test_image_store_removes_expired_images_from_reads_and_quota() -> None:
+    now = datetime(2026, 8, 5, tzinfo=UTC)
+    clock = [now]
+    store = InMemoryConversationImageStore(
+        max_images_per_principal=1,
+        clock=lambda: clock[0],
+    )
+    image = replace(_image(), expires_at=now + timedelta(seconds=1))
+    await store.put(image)
+
+    clock[0] = now + timedelta(seconds=2)
+    assert (
+        await store.get(
+            principal_id="principal-a",
+            conversation_id="conversation-1",
+            image_id=image.image_id,
+        )
+        is None
+    )
+    await store.put(_image(image_id="att-replacement"))

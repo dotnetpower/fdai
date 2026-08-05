@@ -67,18 +67,18 @@ async def test_postgres_image_repository_contract_and_retention() -> None:
     now = datetime.now(tz=UTC)
     old = now - timedelta(days=100)
     await history.create_conversation(
-        ConversationRecord(conversation_id, principal_id, "web", old, old)
+        ConversationRecord(conversation_id, principal_id, "web", now, now)
     )
     image = _image(
         principal_id=principal_id,
         conversation_id=conversation_id,
         image_id="att-primary",
-        created_at=old,
+        created_at=now,
     )
 
     try:
         assert await store.put(image) == image
-        assert await store.put(replace(image, created_at=old + timedelta(seconds=1))) == image
+        assert await store.put(replace(image, created_at=now + timedelta(seconds=1))) == image
         assert (
             await store.get(
                 principal_id="other-principal",
@@ -126,12 +126,35 @@ async def test_postgres_image_repository_contract_and_retention() -> None:
                 image_id=image.image_id,
             )
 
+        async with await psycopg.AsyncConnection.connect(dsn) as connection:
+            await connection.execute(
+                "UPDATE conversation_image SET content_sha256 = %s, created_at = %s, "
+                "expires_at = %s WHERE principal_id = %s AND conversation_id = %s "
+                "AND image_id = %s",
+                (
+                    image.content_sha256,
+                    old,
+                    old + timedelta(days=90),
+                    principal_id,
+                    conversation_id,
+                    image.image_id,
+                ),
+            )
+
         report = await PostgresUserContextRetention(config=config).purge(
             now=now,
             conversation_before=now - timedelta(days=90),
             briefing_before=now - timedelta(days=90),
         )
-        assert report.conversations >= 1
+        assert report.conversations == 0
+        assert report.conversation_images == 1
+        assert (
+            await history.get_conversation(
+                principal_id=principal_id,
+                conversation_id=conversation_id,
+            )
+            is not None
+        )
         assert (
             await store.get(
                 principal_id=principal_id,
@@ -193,8 +216,8 @@ async def test_postgres_image_quota_and_schema_constraints() -> None:
                 await connection.execute(
                     "INSERT INTO conversation_image "
                     "(principal_id, image_id, conversation_id, request_id, name, media_type, "
-                    "content, content_sha256, created_at) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    "content, content_sha256, created_at, expires_at) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                     (
                         principal_id,
                         "invalid-id",
@@ -205,6 +228,7 @@ async def test_postgres_image_quota_and_schema_constraints() -> None:
                         b"bad",
                         hashlib.sha256(b"bad").hexdigest(),
                         now,
+                        now + timedelta(days=1),
                     ),
                 )
     finally:

@@ -48,6 +48,10 @@ class PostgresConversationImageStore(_PostgresBase):
                 "SELECT pg_advisory_xact_lock(hashtextextended(%s, 7046029254386353131))",
                 (principal_id,),
             )
+            await connection.execute(
+                "DELETE FROM conversation_image WHERE principal_id = %s AND expires_at <= NOW()",
+                (principal_id,),
+            )
             existing: dict[tuple[str, str], ConversationImage] = {}
             pending: dict[tuple[str, str], ConversationImage] = {}
             for image in images:
@@ -113,8 +117,8 @@ class PostgresConversationImageStore(_PostgresBase):
         cursor = await connection.execute(
             "INSERT INTO conversation_image "
             "(principal_id, image_id, conversation_id, request_id, name, media_type, "
-            "content, content_sha256, created_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "content, content_sha256, created_at, expires_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT (principal_id, conversation_id, image_id) "
             "DO NOTHING RETURNING image_id",
             (
@@ -127,6 +131,7 @@ class PostgresConversationImageStore(_PostgresBase):
                 image.content,
                 image.content_sha256,
                 image.created_at,
+                image.expires_at,
             ),
         )
         if await cursor.fetchone() is not None:
@@ -169,8 +174,9 @@ class PostgresConversationImageStore(_PostgresBase):
     ) -> ConversationImage | None:
         cursor = await connection.execute(
             "SELECT principal_id, image_id, conversation_id, request_id, name, media_type, "
-            "content, content_sha256, created_at FROM conversation_image "
-            "WHERE principal_id = %s AND conversation_id = %s AND image_id = %s",
+            "content, content_sha256, created_at, expires_at FROM conversation_image "
+            "WHERE principal_id = %s AND conversation_id = %s AND image_id = %s "
+            "AND expires_at > NOW()",
             (principal_id, conversation_id, image_id),
         )
         row = await cursor.fetchone()
@@ -186,6 +192,7 @@ class PostgresConversationImageStore(_PostgresBase):
             content=bytes(row["content"]),
             content_sha256=str(row["content_sha256"]),
             created_at=row["created_at"],
+            expires_at=row["expires_at"],
         )
 
 
