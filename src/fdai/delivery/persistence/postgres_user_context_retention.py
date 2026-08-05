@@ -18,6 +18,7 @@ class UserContextRetentionReport:
     memories: int
     briefing_runs: int
     queued_projection_deletes: int
+    conversation_images: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +46,17 @@ class PostgresUserContextRetention:
             conversation_rows = await self._conversation_rows(
                 connection, before=conversation_before, limit=limit
             )
+            expired_images = await connection.execute(
+                "WITH selected AS (SELECT principal_id, conversation_id, image_id "
+                "FROM conversation_image WHERE expires_at <= %s "
+                "ORDER BY expires_at, image_id FOR UPDATE SKIP LOCKED LIMIT %s) "
+                "DELETE FROM conversation_image AS image USING selected "
+                "WHERE image.principal_id = selected.principal_id "
+                "AND image.conversation_id = selected.conversation_id "
+                "AND image.image_id = selected.image_id RETURNING image.image_id",
+                (now, limit),
+            )
+            expired_image_rows = await expired_images.fetchall()
             conversation_keys = [
                 (str(row["principal_id"]), str(row["conversation_id"])) for row in conversation_rows
             ]
@@ -126,6 +138,7 @@ class PostgresUserContextRetention:
             memories=len(expired_rows),
             briefing_runs=len(briefing_rows),
             queued_projection_deletes=len(object_ids),
+            conversation_images=len(expired_image_rows),
         )
 
     async def claim_deletions(

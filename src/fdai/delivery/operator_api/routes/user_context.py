@@ -527,9 +527,16 @@ def make_user_context_routes(
         principal_id = await authorize(request)
         if config.images is None:
             raise HTTPException(status_code=404, detail="conversation image unavailable")
+        conversation_id = request.path_params["conversation_id"]
+        conversation = await config.conversations.get_conversation(
+            principal_id=principal_id,
+            conversation_id=conversation_id,
+        )
+        if conversation is None:
+            raise HTTPException(status_code=404, detail="conversation image unavailable")
         image = await config.images.get(
             principal_id=principal_id,
-            conversation_id=request.path_params["conversation_id"],
+            conversation_id=conversation_id,
             image_id=request.path_params["image_id"],
         )
         if image is None:

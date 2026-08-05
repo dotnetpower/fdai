@@ -29,6 +29,7 @@ from fdai.core.python_task.grounded_code import extract_grounded_code
 from fdai.core.user_context_projection import UserContextOntologyProjector
 from fdai.delivery.conversation_images import (
     ConversationImageConflictError,
+    ConversationImageQuotaError,
     ConversationImageStore,
 )
 from fdai.delivery.handover_events import HandoverAvailabilityPublisher
@@ -140,7 +141,6 @@ from fdai.delivery.operator_api.routes.chat_freshness_context import (
 from fdai.delivery.operator_api.routes.chat_history import (
     append_assistant_turn,
     append_content_policy_receipt,
-    append_operator_turn,
     completed_replay_payload,
     content_policy_replay_stage,
     replay_metadata,
@@ -153,7 +153,7 @@ from fdai.delivery.operator_api.routes.chat_history_context import (
 )
 from fdai.delivery.operator_api.routes.chat_image_history import (
     image_turn_metadata,
-    persist_conversation_images,
+    persist_operator_turn_with_images,
 )
 from fdai.delivery.operator_api.routes.chat_intent_graph import (
     IntentGraph,
@@ -409,6 +409,8 @@ def make_chat_route(
         prompt = body.get("prompt")
         if not isinstance(prompt, str) or not prompt.strip():
             raise HTTPException(status_code=400, detail="prompt MUST be a non-empty string")
+        session_id = _session_id(body)
+        request_id = _request_id(body)
         view_context = body.get("view_context")
         if view_context is None:
             view_context = {}
@@ -423,7 +425,7 @@ def make_chat_route(
         # client-supplied one, then set it from the parsed inline images.
         view_context.pop("_attachments", None)
         try:
-            vision_attachments = parse_vision_attachments(body)
+            vision_attachments = parse_vision_attachments(body, request_id=request_id)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         if vision_attachments:
@@ -446,8 +448,6 @@ def make_chat_route(
             _reject_direct_override(clean_prompt)
         except ChatContentPolicyError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-        session_id = _session_id(body)
-        request_id = _request_id(body)
         if conversation_history_store is not None:
             try:
                 replay_stage = await content_policy_replay_stage(
@@ -655,8 +655,10 @@ def make_chat_route(
                     )
                 operator_recorded_at = datetime.now(tz=UTC)
                 try:
-                    operator_turn = await append_operator_turn(
-                        store=conversation_history_store,
+                    operator_turn = await persist_operator_turn_with_images(
+                        history_store=conversation_history_store,
+                        image_store=conversation_image_store,
+                        attachments=vision_attachments,
                         principal_id=user_id,
                         conversation_id=session_id,
                         request_id=request_id,
@@ -669,26 +671,21 @@ def make_chat_route(
                         },
                         ontology_projector=user_context_ontology_projector,
                     )
+                except ConversationImageConflictError as exc:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="chat image id conflicts with existing content",
+                    ) from exc
+                except ConversationImageQuotaError as exc:
+                    raise HTTPException(
+                        status_code=429,
+                        detail="conversation image storage quota exceeded",
+                    ) from exc
                 except UserContextConflictError as exc:
                     raise HTTPException(
                         status_code=409,
                         detail="chat request id conflicts with an existing turn",
                     ) from exc
-                if conversation_image_store is not None:
-                    try:
-                        await persist_conversation_images(
-                            store=conversation_image_store,
-                            attachments=vision_attachments,
-                            principal_id=user_id,
-                            conversation_id=session_id,
-                            request_id=request_id,
-                            created_at=operator_recorded_at,
-                        )
-                    except ConversationImageConflictError as exc:
-                        raise HTTPException(
-                            status_code=409,
-                            detail="chat image id conflicts with existing content",
-                        ) from exc
                 completed_turn = await conversation_history_store.get_turn_by_idempotency(
                     principal_id=user_id,
                     idempotency_key=f"{request_id}:assistant",

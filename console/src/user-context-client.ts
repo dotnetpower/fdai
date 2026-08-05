@@ -163,6 +163,36 @@ export class UserContextRequestError extends Error {
   }
 }
 
+export function authenticatedRequestInit(
+  method: "GET" | "POST" | "PUT" | "DELETE",
+  headers: Record<string, string>,
+  signal: AbortSignal,
+  body?: string,
+): RequestInit {
+  return {
+    method,
+    headers,
+    credentials: "omit",
+    cache: "no-store",
+    signal,
+    ...(body === undefined ? {} : { body }),
+  };
+}
+
+export function relayAbortSignal(
+  source: AbortSignal | undefined,
+  target: AbortController,
+): () => void {
+  if (source === undefined) return () => undefined;
+  if (source.aborted) {
+    target.abort();
+    return () => undefined;
+  }
+  const abort = () => target.abort();
+  source.addEventListener("abort", abort, { once: true });
+  return () => source.removeEventListener("abort", abort);
+}
+
 let authContext: AuthContext | null = null;
 
 export function setUserContextAuth(auth: AuthContext | null): void {
@@ -203,23 +233,20 @@ export async function fetchConversationTurns(
 export async function fetchConversationImage(
   conversationId: string,
   imageId: string,
+  signal?: AbortSignal,
 ): Promise<Blob> {
   const base = loadConfig().operatorApiBaseUrl || window.location.origin;
   const authorization = authContext ? await authContext.getAuthorizationHeader() : null;
   const headers: Record<string, string> = { accept: "image/*" };
   if (authorization !== null) headers.authorization = authorization;
   const controller = new AbortController();
+  const unlinkAbort = relayAbortSignal(signal, controller);
   const timer = window.setTimeout(() => controller.abort(), 10_000);
   let response: Response;
   try {
     response = await fetch(
       `${base.replace(/\/$/, "")}/me/conversations/${encodeURIComponent(conversationId)}/images/${encodeURIComponent(imageId)}`,
-      {
-        method: "GET",
-        headers,
-        credentials: "omit",
-        signal: controller.signal,
-      },
+      authenticatedRequestInit("GET", headers, controller.signal),
     );
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
@@ -228,6 +255,7 @@ export async function fetchConversationImage(
     throw error;
   } finally {
     window.clearTimeout(timer);
+    unlinkAbort();
   }
   if (!response.ok) {
     throw new UserContextRequestError("Conversation image unavailable", response.status);
@@ -344,13 +372,15 @@ async function request(
   const timer = window.setTimeout(() => controller.abort(), 10_000);
   let response: Response;
   try {
-    response = await fetch(`${base.replace(/\/$/, "")}${path}`, {
-      method,
-      headers,
-      credentials: "omit",
-      signal: controller.signal,
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    });
+    response = await fetch(
+      `${base.replace(/\/$/, "")}${path}`,
+      authenticatedRequestInit(
+        method,
+        headers,
+        controller.signal,
+        body === undefined ? undefined : JSON.stringify(body),
+      ),
+    );
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new UserContextRequestError("User context request timed out", 0);

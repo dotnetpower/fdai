@@ -2,7 +2,18 @@ import { useEffect, useState } from "preact/hooks";
 
 import { t } from "../i18n";
 import { fetchConversationImage } from "../user-context-client";
+import { conversationImageFetchLimiter } from "./image-fetch-limiter";
 import type { TurnAttachment } from "./turn-attachments";
+
+export function releaseFailedAttachmentSource(
+  sources: Readonly<Record<string, string>>,
+  attachmentId: string,
+  revoke: (source: string) => void = URL.revokeObjectURL,
+): Readonly<Record<string, string>> {
+  const source = sources[attachmentId];
+  if (source?.startsWith("blob:")) revoke(source);
+  return { ...sources, [attachmentId]: "" };
+}
 
 export function ConversationTurnAttachments({
   attachments,
@@ -15,6 +26,7 @@ export function ConversationTurnAttachments({
 
   useEffect(() => {
     let active = true;
+    const requestController = new AbortController();
     const objectUrls: string[] = [];
     setSources(directSources(attachments));
     const pending = attachments.filter((attachment) => !attachment.src);
@@ -23,11 +35,15 @@ export function ConversationTurnAttachments({
 
     void Promise.all(pending.map(async (attachment) => {
       try {
-        const blob = await fetchConversationImage(
-          attachment.conversationId,
-          attachment.id,
-        );
-        if (!active) return;
+        const blob = await conversationImageFetchLimiter.run(() =>
+          active
+            ? fetchConversationImage(
+                attachment.conversationId,
+                attachment.id,
+                requestController.signal,
+              )
+            : Promise.resolve(null));
+        if (!active || blob === null) return;
         const source = URL.createObjectURL(blob);
         objectUrls.push(source);
         setSources((current) => ({ ...current, [attachment.id]: source }));
@@ -40,6 +56,7 @@ export function ConversationTurnAttachments({
 
     return () => {
       active = false;
+      requestController.abort();
       for (const source of objectUrls) URL.revokeObjectURL(source);
     };
   }, [attachments]);
@@ -55,7 +72,12 @@ export function ConversationTurnAttachments({
           return (
             <li key={attachment.id}>
               {source ? (
-                <img src={source} alt={attachment.name} />
+                <img
+                  src={source}
+                  alt={attachment.name}
+                  onError={() => setSources((current) =>
+                    releaseFailedAttachmentSource(current, attachment.id))}
+                />
               ) : (
                 <span
                   class="deck-turn-attachment-placeholder"

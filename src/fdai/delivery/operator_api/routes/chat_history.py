@@ -23,6 +23,30 @@ _DEFAULT_PROJECTION_TIMEOUT_SECONDS = 2.0
 _LOG = logging.getLogger(__name__)
 
 
+async def ensure_conversation(
+    *,
+    store: ConversationHistoryStore,
+    principal_id: str,
+    conversation_id: str,
+    recorded_at: datetime,
+) -> ConversationRecord:
+    conversation = await store.get_conversation(
+        principal_id=principal_id,
+        conversation_id=conversation_id,
+    )
+    if conversation is not None:
+        return conversation
+    return await store.create_conversation(
+        ConversationRecord(
+            conversation_id=conversation_id,
+            principal_id=principal_id,
+            channel_id="web",
+            started_at=recorded_at,
+            last_active=recorded_at,
+        )
+    )
+
+
 async def append_operator_turn(
     *,
     store: ConversationHistoryStore,
@@ -34,20 +58,12 @@ async def append_operator_turn(
     metadata: dict[str, Any] | None = None,
     ontology_projector: UserContextOntologyProjector | None = None,
 ) -> ConversationTurnRecord:
-    conversation = await store.get_conversation(
+    conversation = await ensure_conversation(
+        store=store,
         principal_id=principal_id,
         conversation_id=conversation_id,
+        recorded_at=recorded_at,
     )
-    if conversation is None:
-        conversation = await store.create_conversation(
-            ConversationRecord(
-                conversation_id=conversation_id,
-                principal_id=principal_id,
-                channel_id="web",
-                started_at=recorded_at,
-                last_active=recorded_at,
-            )
-        )
     idempotency_key = f"{request_id}:operator"
     turn = ConversationTurnRecord(
         turn_id=f"turn:{request_id}:operator",

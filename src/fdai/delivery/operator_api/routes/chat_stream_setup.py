@@ -186,7 +186,7 @@ async def prepare_chat_stream_request(
     if not isinstance(include_model_trace, bool):
         raise HTTPException(status_code=400, detail="include_model_trace MUST be a boolean")
     try:
-        vision_attachments = parse_vision_attachments(body)
+        vision_attachments = parse_vision_attachments(body, request_id=request_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if vision_attachments:
