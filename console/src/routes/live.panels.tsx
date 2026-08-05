@@ -8,6 +8,7 @@ import {
   observationSourceLabel,
   type ObservationSource,
 } from "../hooks/observation-source";
+import { useContentUpdatePulse } from "../hooks/use-content-update-pulse";
 import { t as appT } from "../i18n";
 import { routeHref } from "../router";
 import { t } from "./i18n/live";
@@ -67,6 +68,25 @@ export function LivePanels({
   readonly updateRoute: (update: LiveRouteUpdate) => void;
   readonly selectEvent: (eventId: string | null) => void;
 }) {
+  const epsUpdated = useContentUpdatePulse([
+    view.eps,
+    state.rateBuckets.t0.join(","),
+    state.rateBuckets.t1.join(","),
+    state.rateBuckets.t2.join(","),
+  ].join("|"));
+  const gateUpdated = useContentUpdatePulse([
+    view.autoShare,
+    state.gateCounts.auto ?? 0,
+    state.gateCounts.hil ?? 0,
+    state.gateCounts.abstain ?? 0,
+    state.gateCounts.deny ?? 0,
+  ].join("|"));
+  const tierUpdated = useContentUpdatePulse([
+    state.tierCounts.t0 ?? 0,
+    state.tierCounts.t1 ?? 0,
+    state.tierCounts.t2 ?? 0,
+  ].join("|"));
+
   return (
     <div class="live" data-filter={state.filter} data-ticker-collapsed={tickerCollapsed ? "1" : "0"}>
       <PageHeader
@@ -199,7 +219,7 @@ export function LivePanels({
       </section>
 
       <section class="grid live-kpis">
-        <a class="card kpi live-kpi live-kpi-eps" href={routeHref("audit")}>
+        <a class={`card kpi live-kpi live-kpi-eps${epsUpdated ? " is-content-updated" : ""}`} href={routeHref("audit")}>
           <span class="label">{t("live.kpi.events")}</span>
           <span class="live-kpi-value">
             {view.eps}<small>{t("live.kpi.average")}</small>
@@ -211,7 +231,7 @@ export function LivePanels({
             <span class="live-spark-key t2"><i />T2 <b>{sumBuckets(state.rateBuckets.t2)}</b></span>
           </div>
         </a>
-        <a class="card kpi live-kpi" href={routeHref("audit")}>
+        <a class={`card kpi live-kpi${gateUpdated ? " is-content-updated" : ""}`} href={routeHref("audit")}>
           <span class="label">{t("live.kpi.gateMix")}</span>
           <span class="live-kpi-value">
             {view.autoShare}% <small>{t("live.kpi.auto")}</small>
@@ -234,7 +254,7 @@ export function LivePanels({
             ))}
           </div>
         </a>
-        <a class="card kpi live-kpi" href={routeHref("trust-routing")}>
+        <a class={`card kpi live-kpi${tierUpdated ? " is-content-updated" : ""}`} href={routeHref("trust-routing")}>
           <span class="label">{t("live.kpi.tierMix")}</span>
           <div class="live-tier-summary">
             {(["t0", "t1", "t2"] as const).map((key) => (

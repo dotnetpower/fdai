@@ -1348,6 +1348,33 @@ main {
   box-shadow: var(--cs-shadow);
 }
 
+.is-content-updated {
+  position: relative;
+  overflow: hidden;
+}
+.is-content-updated::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: 0 0 auto;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, rgba(85,164,255,.25) 38%, rgba(111,190,255,.95) 50%, rgba(85,164,255,.25) 62%, transparent 100%) left / 72% 100% no-repeat;
+  filter: drop-shadow(0 0 7px rgba(73,156,255,.75));
+  opacity: 0;
+  transform: translateX(-125%);
+  animation: content-update-top-edge 1.35s cubic-bezier(.2,.7,.25,1);
+}
+@keyframes content-update-top-edge {
+  0% { opacity: 0; transform: translateX(-125%); }
+  12% { opacity: 1; }
+  72% { opacity: .95; }
+  100% { opacity: 0; transform: translateX(125%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .is-content-updated::after { animation: none; }
+}
+
 .card h2 {
   margin: 0 0 12px;
   font-size: 15px;

@@ -143,6 +143,13 @@ retain a complete-border focus or hover cue; the visual treatment never sets dis
 The shared KPI card distinguishes `not-measured`, `not-connected`, `insufficient-sample`, and
 `not-applicable` evidence states. These states use neutral copy and styling; actual request or probe
 failures use the error component and remain visually distinct.
+Cards whose authoritative visible content changes in place use the shared `top-edge shimmer`: one
+neutral blue sweep, 2 px high and 1.35 seconds long. Primitive shared KPI values opt in
+automatically; complex live cards provide a semantic update key. The first render, unchanged parent
+rerenders, filters, selection, and clock-, age-, or timestamp-only changes stay quiet. Rapid updates
+coalesce while one sweep runs, and reduced-motion preferences disable the animation. The shimmer
+only confirms that displayed content changed; status, freshness, severity, and outcome remain in
+their labeled content-local cues.
 The console card contract test checks shared KPI destinations, rejects nested whole-card links,
 requires nullable KPI values to declare an evidence state, requires raw data cards to expose a link
 or explicit detail control, and blocks structural card names.

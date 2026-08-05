@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { architectureHref } from "../components/architecture-map.model";
 import { Tooltip } from "../components/tooltip";
 import type { LiveStageName } from "../hooks/use-live-stream";
+import { useContentUpdatePulse } from "../hooks/use-content-update-pulse";
 import { routeHref } from "../router";
 import { t } from "./i18n/live";
 import {
@@ -61,7 +62,30 @@ export interface TileProps {
   readonly onClick: (() => void) | undefined;
 }
 
+export function liveTileUpdateKey(tile: TileState | null): string | null {
+  if (!tile) return null;
+  return [
+    tile.event_id,
+    tile.last_stage,
+    [...tile.stages_completed].sort().join(","),
+    [...tile.stage_agents.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([stage, agent]) => `${stage}:${agent}`)
+      .join(","),
+    tile.tier ?? "",
+    tile.gate_decision ?? "",
+    tile.failed,
+    tile.completed,
+    tile.resource_type ?? "",
+    tile.scope ?? "",
+    tile.last_agent ?? "",
+    tile.mode ?? "",
+    [...tile.action_types].sort().join(","),
+  ].join("|");
+}
+
 export function LiveTile({ tile, filter, selected, now, onClick }: TileProps) {
+  const contentUpdated = useContentUpdatePulse(liveTileUpdateKey(tile));
   if (!tile) {
     return <div class="live-tile live-tile-empty" data-empty="1" aria-hidden="true" />;
   }
@@ -83,7 +107,7 @@ export function LiveTile({ tile, filter, selected, now, onClick }: TileProps) {
   return (
     <button
       type="button"
-      class={`live-tile live-tile-gate-${gate}${dimmed}`}
+      class={`live-tile live-tile-gate-${gate}${dimmed}${contentUpdated ? " is-content-updated" : ""}`}
       data-empty="0"
       data-failed={failed}
       data-done={done}
@@ -119,7 +143,7 @@ export function LiveTile({ tile, filter, selected, now, onClick }: TileProps) {
         {gate ? (
           <span class={`live-gate live-gate-${gate}`}>{decisionLabel(gate)}</span>
         ) : (
-          <span class="muted">…</span>
+          <span class="muted">...</span>
         )}
         {tile.mode ? (
           <Tooltip content={t("live.work.executionMode", { mode: tile.mode })}>

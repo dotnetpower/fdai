@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 391cbd097f5f52dd3ce83c1466d44398c4f1fcaa
+translation_source_sha: 5234bd147331d8c651f8ecb03b95398751bd0d1a
 translation_revised: 2026-08-05
 ---
 
@@ -143,6 +143,13 @@ Unavailable metric 카드는 낮은 강조도의 전체 surface 배경, elevatio
 Shared KPI card는 `not-measured`, `not-connected`, `insufficient-sample` 및 `not-applicable`
 evidence state를 구분합니다. 이 상태들은 neutral copy와 style을 사용하며, 실제 request 또는 probe
 실패만 error component를 사용해 시각적으로 구분합니다.
+Authoritative visible content가 제자리에서 변경되는 card는 공유 `top-edge shimmer`를 사용합니다.
+이 효과는 높이 2 px, 길이 1.35초의 neutral blue sweep 한 번으로 제한합니다. Primitive shared KPI
+value는 자동 적용하고 복잡한 live card는 semantic update key를 제공합니다. 첫 render, 변경되지 않은
+parent rerender, filter, selection 및 clock-, age-, timestamp-only 변경에는 적용하지 않습니다. 빠른
+update는 하나의 sweep이 실행되는 동안 합치며 reduced-motion preference에서는 animation을
+비활성화합니다. Shimmer는 표시 content가 변경됐다는 사실만 알립니다. Status, freshness, severity 및
+outcome은 label이 있는 content-local cue로 계속 표시합니다.
 Console card contract test는 shared KPI 목적지를 확인하고, 중첩된 whole-card link를 차단하며,
 nullable KPI 값에 evidence state를 요구하고, raw data card에 link 또는 명시적 detail control을
 요구하며, structural card 이름을 차단합니다.

@@ -140,19 +140,29 @@ scale independently. See [Architecture](architecture.instructions.md) for trust 
 - A container without a detail destination is not a card: groups, forms, editors, callouts, and
   tools use section/panel semantics. Typed card APIs and contract tests MUST require destinations.
 - Console cards, panels, page sections, callouts, workflow nodes, table rows, and list rows
-  **MUST NOT use a colored top edge or colored left edge as decoration or status**. This
-  prohibition includes thick `border-top` / `border-left`, inset edge shadows, absolutely
-  positioned bars, ribbons, rails, and `::before` / `::after` strips at the top or left.
+  **MUST NOT use a persistent colored top edge or colored left edge as decoration or status**.
+  This prohibition includes thick `border-top` / `border-left`, inset edge shadows, absolutely
+  positioned bars, ribbons, rails, and persistent `::before` / `::after` strips at the top or left.
 - Status and selection **MUST** use content-local cues instead: text, icons, badges, neutral
   full borders, subtle whole-surface background tint, or an outline around the complete
   control. A semantic color belongs on the status datum itself, never on the container edge.
+- A card whose authoritative visible content changes in place after its first render **SHOULD use
+  the shared top-edge shimmer** as transient update feedback. The effect MUST be a single neutral
+  blue sweep no more than 2 px high and 1.5 seconds long. It MUST NOT encode success, failure,
+  freshness, severity, selection, or agent state. Primitive shared KPI cards derive their update
+  key from visible values; complex cards MUST supply an explicit semantic update key.
+- The top-edge shimmer MUST skip first render, unchanged parent rerenders, filter or selection
+  changes, and clock-, age-, or timestamp-only updates. Rapid semantic updates coalesce while one
+  sweep is active. The shared implementation MUST stop the animation under
+  `prefers-reduced-motion: reduce`; routes MUST NOT create local color or timing variants.
 - Do not reintroduce the edge-accent pattern from static prototypes. Prototype palette and
   information hierarchy may be reused, but colored card rails and top stamps are not part of
   the production console design.
 - Exceptions are limited to non-content mechanics whose meaning depends on position: the
   Activity Bar's active-navigation marker, drag-and-drop insertion indicators, loading
-  spinners, charts, graph edges, progress meters, and focus outlines. These exceptions MUST
-  NOT be repurposed as card or panel decoration.
+  spinners, charts, graph edges, progress meters, focus outlines, and the shared transient
+  content-update top-edge shimmer. These exceptions MUST NOT be repurposed as card or panel
+  decoration.
 
 ## Azure Mapping (draft - reconfirm preview services at adoption time)
 

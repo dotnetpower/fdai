@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   dataTableHeaderClass,
   kpiEvidenceLabel,
+  kpiContentUpdateKey,
   mobileColumnLabel,
   safeExternalHref,
 } from "./ui";
@@ -62,5 +63,21 @@ describe("KPI evidence-state labels", () => {
     expect(kpiEvidenceLabel("not-connected")).toBe("Source not connected");
     expect(kpiEvidenceLabel("insufficient-sample")).toBe("Insufficient sample");
     expect(kpiEvidenceLabel("not-applicable")).toBe("Not applicable");
+  });
+});
+
+describe("KPI content update keys", () => {
+  test("derives a stable semantic key from primitive visible content", () => {
+    expect(kpiContentUpdateKey({
+      evidenceState: "measured",
+      value: "42%",
+      hint: "Last 60 minutes",
+      tone: "positive",
+    })).toBe("measured|positive|42%|Last 60 minutes");
+    expect(kpiContentUpdateKey({ value: 42 })).toBe("measured|default|42|");
+  });
+
+  test("requires an explicit update key for complex KPI content", () => {
+    expect(kpiContentUpdateKey({ value: null })).toBeUndefined();
   });
 });
