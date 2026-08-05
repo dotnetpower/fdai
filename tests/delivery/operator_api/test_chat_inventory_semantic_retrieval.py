@@ -139,6 +139,16 @@ class FixedResolver:
         "안꺼진 vm",
         "VMs that have not been powered down",
         "started VM",
+        "전원이 내려가지 않은 가상 머신",
+        "작업을 처리하고 있는 가상 머신",
+        "전원이 유지되는 VM",
+        "계속 서비스 중인 VM",
+        "기동된 VM",
+        "virtual machines still serving workloads",
+        "VMs remaining online",
+        "virtual machines that continue processing work",
+        "virtual machines brought online",
+        "VMs available for processing",
     ),
 )
 async def test_unpromoted_semantic_surface_clarifies_without_provider_read(prompt: str) -> None:
