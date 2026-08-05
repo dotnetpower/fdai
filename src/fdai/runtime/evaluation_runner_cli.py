@@ -106,16 +106,22 @@ async def _probe_kubernetes_evidence(
     namespaces: frozenset[str],
 ) -> tuple[dict[str, bool], str | None]:
     checks = {
+        "kubernetes_capacity_live_probe": True,
+        "kubernetes_dependencies_live_probe": True,
         "kubernetes_inventory_live_probe": True,
         "kubernetes_events_live_probe": True,
+        "kubernetes_nodes_live_probe": True,
         "kubernetes_metrics_live_probe": True,
     }
     first_error_type: str | None = None
     for namespace in sorted(namespaces):
         task = _probe_task(namespace)
         probes = (
+            ("kubernetes_capacity_live_probe", evidence_client.capacity),
+            ("kubernetes_dependencies_live_probe", evidence_client.dependencies),
             ("kubernetes_inventory_live_probe", evidence_client.inventory),
             ("kubernetes_events_live_probe", evidence_client.events),
+            ("kubernetes_nodes_live_probe", evidence_client.nodes),
             ("kubernetes_metrics_live_probe", evidence_client.pod_metrics),
         )
         for check_name, probe in probes:

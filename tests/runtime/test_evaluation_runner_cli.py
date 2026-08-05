@@ -68,11 +68,23 @@ async def test_rca_probe_requires_grounded_live_hypothesis() -> None:
 
 async def test_kubernetes_probe_reports_missing_metrics_permission() -> None:
     class _Client:
+        async def capacity(self, task):  # type: ignore[no-untyped-def]
+            assert task.target.value == "example-app"
+            return {}
+
+        async def dependencies(self, task):  # type: ignore[no-untyped-def]
+            assert task.target.value == "example-app"
+            return {}
+
         async def inventory(self, task):  # type: ignore[no-untyped-def]
             assert task.target.value == "example-app"
             return {}
 
         async def events(self, task):  # type: ignore[no-untyped-def]
+            assert task.target.value == "example-app"
+            return {}
+
+        async def nodes(self, task):  # type: ignore[no-untyped-def]
             assert task.target.value == "example-app"
             return {}
 
@@ -86,8 +98,11 @@ async def test_kubernetes_probe_reports_missing_metrics_permission() -> None:
     )
 
     assert checks == {
+        "kubernetes_capacity_live_probe": True,
+        "kubernetes_dependencies_live_probe": True,
         "kubernetes_inventory_live_probe": True,
         "kubernetes_events_live_probe": True,
+        "kubernetes_nodes_live_probe": True,
         "kubernetes_metrics_live_probe": False,
     }
     assert error_type == "RuntimeError"

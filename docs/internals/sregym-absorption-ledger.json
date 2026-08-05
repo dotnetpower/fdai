@@ -1,0 +1,1213 @@
+{
+  "schema_version": "1.0.0",
+  "source_branch": "harden/sregym-diagnostics-v2",
+  "source_head": "386fed856292d68a15bf0a1861580a2b8a286aa6",
+  "archive_tag": "archive/sregym-wave2-386fed856",
+  "archive_bundle_sha256": "d3fb9974b4c8368d362a2a2c0b0eb0bff56b1c1cf16facd4acdf0ec1f69cd041",
+  "source_commit_count": 124,
+  "source_set_sha256": "5c547ea475ab0bd5c3403f696017d78e55d2d2cd3c415463430bc1b8091c188c",
+  "validation_axes": [
+    "benchmark_measured",
+    "semantic_generalized",
+    "operationalized",
+    "provider_validated",
+    "action_validated",
+    "outcome_validated",
+    "azure_validated"
+  ],
+  "absorbed_mechanisms": [
+    {
+      "id": "kubernetes_quantity_normalization",
+      "source_commits": [
+        "3cff0fecec791374ef8c4457f21235e964202410",
+        "69bc5005ce5ed1fe5a05a29793087de4d85c795d",
+        "386fed856292d68a15bf0a1861580a2b8a286aa6"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_node_capacity_evidence",
+      "source_commits": [
+        "d974e2b835f7176387bbc2ad146f833ab5936b99",
+        "69bc5005ce5ed1fe5a05a29793087de4d85c795d",
+        "386fed856292d68a15bf0a1861580a2b8a286aa6"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_capacity_reducer",
+      "source_commits": [
+        "69bc5005ce5ed1fe5a05a29793087de4d85c795d",
+        "386fed856292d68a15bf0a1861580a2b8a286aa6"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_capacity_evaluation_provider",
+      "source_commits": [
+        "d974e2b835f7176387bbc2ad146f833ab5936b99",
+        "69bc5005ce5ed1fe5a05a29793087de4d85c795d"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_capacity_operational_hook",
+      "source_commits": [
+        "d974e2b835f7176387bbc2ad146f833ab5936b99"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "ontology_first_model_escalation_budget",
+      "source_commits": [
+        "c94c07200f3c891d6ae74c07dc4343d2f38892f9",
+        "7cfbea0299bdf7924ab7d18ee639043697033f7c"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "reasoning_model_completion_compatibility",
+      "source_commits": [
+        "77140bf66b521618e44adba0fae2e4d7c9c55811"
+      ],
+      "status": "operationalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": true,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_missing_dependency_reducer",
+      "source_commits": [
+        "a2ff0cce59d2f298b6366416a571411ca0849cc4",
+        "adb792a9f9e363bf3721f0284df3b5cfd118f80f",
+        "6b51980ee079f10ebf9bdb1c6184c1e2fda33f6a",
+        "cb5ac2a4e17e9ef225f90bd7d228341581a49b80"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_dependency_evaluation_provider",
+      "source_commits": [
+        "a2ff0cce59d2f298b6366416a571411ca0849cc4",
+        "adb792a9f9e363bf3721f0284df3b5cfd118f80f",
+        "6b51980ee079f10ebf9bdb1c6184c1e2fda33f6a"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "provider_validation_kind": "live",
+      "provider_validation_evidence": "Managed AKS synthetic namespace: complete positive missing-Service receipt produced one hold finding with exact source path/backend port; adding the Service and Endpoints produced zero findings; cleanup completed.",
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": true,
+      "azure_validation_evidence": "Non-production managed AKS provider drill passed on one Ready node; isolated namespace and temporary credentials were deleted after positive and negative checks."
+    },
+    {
+      "id": "kubernetes_admission_resource_drift_reducer",
+      "source_commits": [
+        "2b92220205971d8dc5e2e4883165a545e6e44758"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_admission_evaluation_provider",
+      "source_commits": [
+        "2b92220205971d8dc5e2e4883165a545e6e44758"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_admission_event_classification",
+      "source_commits": [
+        "3ddb7d30b80f3efa778dfa17ee1bb09a2662dae0"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_custom_owner_evidence",
+      "source_commits": [
+        "89742e1f6dc376e6ccca0baa1633c3e46a565fe8"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_direct_admission_condition_evidence",
+      "source_commits": [
+        "f1da1ddf5d99db44ece6949b8c42a3bb7bdcedde"
+      ],
+      "status": "semantic_generalized",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_custom_owner_degradation_relationship",
+      "source_commits": [
+        "66ea9b511170bc18dba475dec1295e63ce36e7cb"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Rejected unsupported configuration_precedes causality and arbitrary custom spec projection; retained UID-grounded direct ownership relationship evidence.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_generic_custom_resource_patch_allowlist",
+      "source_commits": [
+        "228e80e9394a340eb62015bda14c98546bdd0256"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected production port: allowlist and generation checks do not independently provide durable locking, persistent idempotency, pre-effect audit intent, rollback drill evidence, or observer-independent effect verification for arbitrary custom resources.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_webhook_failure_source_candidate",
+      "source_commits": [
+        "fb30124a5dc52e25edf2c12aecf48911a4f74fce"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Replaced fixed causal ranking with complete, globally unique webhook-name correlation and an explicit candidate-only claim.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_cumulative_webhook_timeout_candidate",
+      "source_commits": [
+        "d3215b019cf8e215f711a9b758efcea859071d52"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Requires two distinct recent timeout events and one immutable affected-resource UID; rejects the source campaign's unproven NetworkPolicy and degraded-workload causal attribution.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_arbitrary_custom_owner_field_validation",
+      "source_commits": [
+        "91cfe3a26797e16a6906f0dfadc1d6130b0f7cea"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected field-basename validation over arbitrary custom-resource specs because no matching CRD OpenAPI schema or exact schema path proves Kubernetes security-context, toleration, or workload-strategy semantics; the bounded owner projection continues to exclude spec values.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_image_pull_controller_template_drift_candidate",
+      "source_commits": [
+        "519bc2da13c18038ae781f3897eecaf78b9d4de6"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Replaced name-only ownership and raw image disclosure with exact immutable UID-chain traversal, complete container projections, and SHA-256 image-reference fingerprints; retained candidate-only causality.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_inferred_operator_namespace_traversal",
+      "source_commits": [
+        "519bc2da13c18038ae781f3897eecaf78b9d4de6"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected heuristic cross-namespace expansion based on kind-name pluralization and broad API-group read access; inventory remains target-scoped until CRD plural identity, exact RBAC semantics, complete projections, and a dedicated bounded capability are available.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_pod_host_port_conflict_candidate",
+      "source_commits": [
+        "19a27aa1192d9a27088ac725fa0716039e4979f6"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Replaced name-only timeless event correlation with raw-message-safe classification, a five-minute trusted cutoff, exact Pod UID matching, complete hostPort projection, and candidate-only causality.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_application_socket_bind_conflict_candidate",
+      "source_commits": [
+        "221a9b15e4cd5413fede8d0f88e7b5cb441a8065"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Added exact Pod UID and container identity, a five-minute trusted cutoff, a one-KiB record bound, raw-body suppression, and candidate-only causality; no concrete log provider is claimed.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_bounded_log_target_fairness",
+      "source_commits": [
+        "221a9b15e4cd5413fede8d0f88e7b5cb441a8065",
+        "41020989de79c0d33d2c310e6bf0c5888eb9c0df",
+        "767d142ac5f53cbb0f3b8f0ec3d4ca148e765de8",
+        "cc9dfb64c322776789e0067907deb66b88d36355",
+        "b335186087193cfe5d05cc14a2e81811b031e57d",
+        "a8c95a23c07a773d3056c34c8c2743c930e90bbc",
+        "ea9f23de3ad341d706eea485588d7d2e41c9379c",
+        "f5fc51a5f644540e7f2f83d1f49abe64ca758c5e"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Generalized active-failure prioritization into an exact-UID, complete-status selector that reserves half of each bounded Pod budget for recency and applies a separate container ceiling; no concrete log provider is claimed.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_host_port_reason_specific_rca_priority",
+      "source_commits": [
+        "ad23bf68d8b16d8db508a87a2b47456e385a4c91"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected reason-specific authoritative RCA promotion because the strengthened host-port finding is candidate-only, does not prove Node socket ownership, and must not bypass generic evidence-strength and contradiction handling.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_missing_webhook_backend_candidate",
+      "source_commits": [
+        "77b9e9becaa1f20572eb4369e36a593ce7a46d37"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Replaced complete-namespace absence inference with one exact targeted Service absence receipt, complete webhook projection, conflict rejection, bounded evidence, and candidate-only causality; provider wiring remains unclaimed.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_targeted_webhook_service_receipt_provider",
+      "source_commits": [
+        "77b9e9becaa1f20572eb4369e36a593ce7a46d37"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Bounds exact allowlisted optional Service reads to eight references, accepts only successful empty output as confirmed absence, isolates probe incompleteness from base admission findings, and rejects mismatched responses.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_webhook_fail_open_recovery_seed",
+      "source_commits": [
+        "e8d091916e1aab17877b3d3bf707f7845330c1db",
+        "48f33f01db9be37882498aba6036b767fd3f7860",
+        "c9ac31bad238eb8953b83b1250e93945c310a9f5"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected changing failurePolicy from Fail to Ignore for missing backends or TLS trust failures across proposer, policy, capability propagation, and action building: it changes admission security intent, restores neither backend nor trust, and lacks independent effect, rollback-outcome, and intended-control validation even with approval, shadow mode, and dry-run.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_missing_webhook_exact_namespace_scope",
+      "source_commits": [
+        "d508bb8ce0434f1599d0ba54651cc5e8558cef68"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Projects and trusts only one exact kubernetes.io/metadata.name match label with no expressions; ambiguous selectors omit scope and readiness never expands impact to a workload.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_cumulative_webhook_network_policy_recovery",
+      "source_commits": [
+        "e666d4e2b2ce95284f26919ee65b0eb3773d92b3"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected opening a deny-all NetworkPolicy on a common backend port because the evidence proves neither API-server policy traversal nor a bounded source selector and lacks independent effect and rollback-outcome validation.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_pod_security_restricted_mismatch_candidate",
+      "source_commits": [
+        "8764178a248d477d82281e3e83c28966fcea9f56"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Requires a recent structured restricted-profile rejection, exact ReplicaSet and Deployment UIDs, a complete single-controller chain, degraded replica counts, and a closed violation vocabulary; emits only a candidate hold.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_pod_security_template_recovery",
+      "source_commits": [
+        "8764178a248d477d82281e3e83c28966fcea9f56"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected deterministic SecurityContext mutation because admission success does not independently validate rollout health, application behavior, rollback restoration, or all seven action safeguards; the live patch handler remains unregistered.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_liveness_probe_failure_candidate",
+      "source_commits": [
+        "e59d3289e14c4e348d60f116133381116c06c2b6",
+        "b42ee8dd48107c62141c1260b627b3fe077e92b9"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Requires a recent structured event, exact Pod-to-ReplicaSet-to-Deployment UID chain, degraded owner, and one identical privacy-safe probe plus startup-gate identity; rejects fixed sleep, second-read timing hacks, and reason-specific aggressive-schedule priority branches.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_webhook_backend_namespace_inventory_expansion",
+      "source_commits": [
+        "a0e71fbce641513d77c951d9622d769841ac3991"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected collecting a backend namespace's full inventory from a webhook Service reference; exact bounded Service receipts provide the required absence evidence without widening unrelated resource exposure.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_webhook_network_policy_causal_attribution",
+      "source_commits": [
+        "f30c3954a88e1ba088182972e457cb2938646b4d"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected treating deny-all policy selection of webhook backend Pods as proof of API-server traffic blockage; membership evidence does not establish the control-plane path or enforcement point.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_readiness_probe_failure_candidate",
+      "source_commits": [
+        "621b288300a51360fa034ab36d5db5305c3973a0"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Reuses the recent exact-UID and privacy-safe probe fingerprint kernel, requires a kubelet reporter, suppresses raw messages, and rejects fixed-delay second Event reads.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": true,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_rwo_anti_affinity_conflict_candidate",
+      "source_commits": [
+        "454c31228c6101126f73d4acb2e9f050d00635c5"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Requires complete required hostname anti-affinity, exact template labels, a mounted volume, one same-namespace RWO claim, degraded multi-replica counts, and candidate-only causality; concrete projection remains unclaimed.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_init_container_missing_service_candidate",
+      "source_commits": [
+        "a886903bdeeee85e7140f9dc5eeed9f234447727"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Replaces raw command parsing and complete-namespace absence with an exact UID chain, identical command fingerprint, one structured Service dependency, one running init status, and a targeted absence receipt; provider projection remains unclaimed.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_missing_configmap_mount_candidate",
+      "source_commits": [
+        "0c5f66814cad6e5ceb91050a7bd064cb0b064e82"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Replaces complete-namespace absence inference with a complete mounted-volume join and one exact targeted ConfigMap absence receipt; concrete projection remains unclaimed.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_zero_availability_rollout_candidate",
+      "source_commits": [
+        "45c44d00892f5403c9e4271f067f005283086b05"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Requires complete RollingUpdate strategy evidence, zero available replicas, a degraded rollout, maxSurge zero, and maxUnavailable covering the desired count; retains candidate-only causality and leaves projection unclaimed.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_coredns_global_nxdomain_candidate",
+      "source_commits": [
+        "5ef31a877fbfdc0a52baf7e31192d8fba511b577",
+        "3d8cb6458da17227296f5a5c63f8c9f1e0cee486"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Uses a bounded non-executing parser and accepts only one exact reviewed all-Service svc.cluster.local NXDOMAIN template; arbitrary, duplicate, malformed, and oversized patterns abstain, while projection remains unclaimed.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_coredns_global_nxdomain_recovery",
+      "source_commits": [
+        "5ef31a877fbfdc0a52baf7e31192d8fba511b577"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected global Corefile mutation and restart because service resolution, CoreDNS rollout health, bounded blast radius, snapshot restoration, and independent outcomes are unvalidated; the live handler remains unregistered.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_service_backend_scaled_to_zero_candidate",
+      "source_commits": [
+        "e265bd4677f719ac24983ea6afcd04634e8b8c30"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Requires complete empty endpoint evidence, a complete Service selector, one exact same-namespace workload label match, desired replicas zero, and candidate-only causality; concrete projection remains unclaimed.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_hpa_cpu_utilization_missing_request_candidate",
+      "source_commits": [
+        "df33b72059ec0e25efc3f5f9618058567fd1a046"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Requires complete HPA metrics, one closed inactive metric condition, an exact target workload, complete container resource projections, parsed positive CPU quantities, and candidate-only causality; concrete projection remains unclaimed.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_bounded_application_log_signals",
+      "source_commits": [
+        "3fb3b62b0896e1e5613d32ef0cf4622a3eac30e4",
+        "3401a4b86d82b565d7e8fe52f3a3bcc2aa37bc32",
+        "40647bc38ef856e5b8a255f5fe75c0154b2831a2",
+        "cf202606dbf163902d484ca20a356bbf193f4b60",
+        "b8f36c38feb5164096338ba98f15ac99e2f2b4e4",
+        "2a01039d045932ec1b97e766526211f0c0fd2721"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Generalizes decode, application-failure, and stream-stall tokens into repeated recent exact-Pod-UID candidates with one-KiB bounds, raw-body suppression, closed signal classes, and no provider claim.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_cronjob_sidecar_and_child_mutation",
+      "source_commits": [
+        "f6676a299434d932d46360eafb031cc9fa9bf2dd",
+        "696d5465a0bde39cecaae2bb5e2d641294ed604a",
+        "4ad6fb453326fc2bb37bea33ac5667030e2901c6",
+        "fd7bf9a655706bd4e93e5bcbad6a3849337c8b62",
+        "c38b2a559f751632910bc903c57e83dd31a23c98",
+        "db3e1a9b08ca90e8d8e7fd9cd650fa4c10c0d131",
+        "8daaeb06d2fa2366c330124b402d15003a9e98c1",
+        "3cc744d4390d9097172c7b8a8c182ef6b8b6919f",
+        "3edb7b31018ace49ecd8a526f93692a4f87e7455",
+        "231f665cc8903b2b7d041218d4e7ae2a5108d881",
+        "6f111ffc0b328a548c7008204e01cb77d66aed83",
+        "fd8d4c9ff8864f6340c5a1dbb415a0e46f90b2ba",
+        "f7358592f28e6a3165ff5d3c8984fe107b41e796",
+        "a130245624104d43a0b851f22e3c4f73a4f3d37f",
+        "8ac6a8b918cf5ab5590c6f2f7ae285dc0b13894c"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected CronJob template patching and active-child foreground deletion because source-owner normalization and churn tolerance do not prove durable locking, independent effect, rollback restoration, or bounded deletion outcomes.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_reason_specific_rca_ordering",
+      "source_commits": [
+        "ed871d041a9ecf41a24c73605d7064ca9a0a70d2",
+        "788430b7b95cb4050e8efc5d88c52c5df652d31f",
+        "3f9af6a484380cdb17c45df9f148dbaf85fc29a1",
+        "a4064c227f11db5274e7e3105232650f4755e38e",
+        "b57422f06c6334b9ee6e1a71663ca1f9e3c91998",
+        "f40b131922b63485fbeb06630f0485e5b6ba0644",
+        "80fa4e500b4be8b55d367fb9fbb043788ed86557"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected fixed reason-specific causal precedence and authority labels; candidate-only findings require generic evidence-strength, contradiction, completeness, and freshness ordering before any authoritative promotion.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_risky_regex_and_deny_all_restoration",
+      "source_commits": [
+        "00018d5c72ebc9f4138b284b4a9bc1cc76fbe32a",
+        "7ad6a36ee52efbce4caa9d8a5610a3af294f5703"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected literal-regex-driven and deny-all NetworkPolicy restoration actions because textual risk and selector overlap do not establish traffic path, bounded source intent, independent effect, or rollback outcomes.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_finalizer_rbac_mutation",
+      "source_commits": [
+        "a81aed6f1dc6209e80a1593669cb0bd99c1503d6",
+        "711f21f9b90a3fef3fa83c78e8e82595f9cfa600",
+        "01579dc57382aa47e12185384105fa6aa4a03298",
+        "00f129de8e67535abe1b622e36ebbfb9d08abe78",
+        "f0e07d0b37c8c6f27c11c226db015174cd9bef0d",
+        "a984d0feaca1bac4a7069fa2c5d60f6197878d9b",
+        "95fbb09e6b88aefa96a9cd1968fb5c546b5d28e7"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected ClusterRole verb append and finalizer mutation authority: provenance joins and append verification do not prove least privilege, controller intent, independent reconciliation effect, revocation, or rollback outcomes.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "evaluation_stage_capability_scoping",
+      "source_commits": ["e1953cfea7718d319e0e903082c5c62f0d64db15"],
+      "status": "semantic_generalized",
+      "source_hardening": "Superseded by the current capability broker's effective allowed-id set, side-effect-class checks, expiring stage receipts, and separate substrate authority axes.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": true,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "t2_typed_proposer_abstention_contract",
+      "source_commits": [
+        "6f180b7b8107a01f7879f9ec486eb939ee7821a7",
+        "b2147235deb05e4a499cd02f699ba679a8995a48"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Superseded by current typed abstention envelopes and audit surfaces that require explicit nonempty reasons and preserve abstention independently from action authority.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": true,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_generation_guard_as_action_authority",
+      "source_commits": ["1fa3f09bbe8654a00d81525b8acba212d9454573"],
+      "status": "rejected",
+      "source_hardening": "Generation compare-and-swap is retained as a necessary future precondition but rejected as sufficient action authority because it does not provide durable locking, rollback, blast-radius, audit-intent, or independent outcome safeguards.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_bounded_evidence_budgeting",
+      "source_commits": [
+        "29c10fe6acc9da7c1fc1413e47541e7da6c01582",
+        "e245bc2fcc1ec3358039516528c88ba4bdb1c28f"
+      ],
+      "status": "semantic_generalized",
+      "source_hardening": "Superseded by current per-provider item/output limits, total evidence byte ceilings, response-over-limit fail-closed behavior, and independent capability receipts.",
+      "benchmark_measured": true,
+      "semantic_generalized": true,
+      "operationalized": true,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_foundation_patch_authority",
+      "source_commits": [
+        "8962406e910d1a345b509391edfda39f8435b1a2",
+        "0ab907b6ce85cc5ddc9ac6088d99e7b21eea532d",
+        "3cac48ee33592af9db3360376e6120a1dd341fb5"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected generic control-plane and namespace patch authority; path normalization and policy routing do not independently provide all seven safeguards or outcome validation, and live generic handlers remain unregistered.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_dns_bypass_and_local_priority",
+      "source_commits": [
+        "81101efaadab30ecec0dfc5b6ea7c41b803c8d87",
+        "1ce85539cff1a3ebc494ac1e375344f93cca84ae"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected fixed DNS-bypass and local-blast reason priority without a current complete DNS policy/search projection and generic evidence-strength ordering; no authority is inferred from locality alone.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_dns_and_service_selector_recovery",
+      "source_commits": [
+        "40110c20048eeadf7ac04e20668b9d91b578a6ea",
+        "55725384caa62fc808084c65c45cbfe9e40517a5",
+        "55be5305c56df32c9f1de25b9308e87b535b2a64",
+        "89f5843b203f9f566e7012f533c89d019d766e99",
+        "b02463d8595ee61f525a20142b6f2357638f0d02"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected CoreDNS and Service-selector mutation normalization and rollout convergence because DNS resolution, dependent traffic, rollout health, snapshot restore, and independent outcomes remain unvalidated.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_quota_admission_causal_attribution",
+      "source_commits": [
+        "1e86a8e5f2b852677b7059b0680a795cbce248d0",
+        "29203d664be97d56ee52c9c001fe51e05316ee2f",
+        "7c0c051b18caf04e9fa2847276ce42a304005570",
+        "e54de6b4ea8909459209625aca8b7f898a56ae16",
+        "e5e49167a7af0ab5c7636305a60ddf6ba94ac331"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected priority, alias, and temporal-proximity quota causality without exact immutable affected-resource identity, trusted cutoff, complete quota projection, and contradiction handling; no new reason branch is added.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_quota_revert_authority",
+      "source_commits": ["13ab50fe48a7b8cfee908a3b4429be35f69bd3c2"],
+      "status": "rejected",
+      "source_hardening": "Rejected quota reversion because change proximity does not prove intent or safe prior value, and independent admission recovery, workload outcome, blast-radius, and rollback validation are absent.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_auth_posture_and_service_attribution",
+      "source_commits": [
+        "4944ab73f72e0909b1f2bc3f13442d97c3a0ea64",
+        "6e2c578938aa93060a77373591625ebf64e323e4",
+        "b39191ae34f6d7831f54c85c93b039dc583f2394",
+        "db74b4105197988a64c406ced9e0343c2f2ae0c4",
+        "e0b1a1f42e58969a667930920e2da1107ca4daa8"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected datastore credential posture probes and Service attribution until a secret-free provider proves exact owner/selector identity, bounded authentication semantics, current freshness, and no credential material exposure.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_auth_workload_restart_authority",
+      "source_commits": [
+        "0ae13edca65f710a852fd2000864716d2aa538fb",
+        "1e81e127cfdd7d7629ebc4427bec1252bc736f8c",
+        "40f986f254bf3fb7603ea02de04f3dc57bac06bf",
+        "504b6a0a3a21fdb958ba820f874b44cb90a375db",
+        "55ee3deadf0104337d9393196c643099a964a97c",
+        "b07e8e101767ffbf78b6f34644c87b87169d86f7",
+        "cabe07bb51f8898f1094b6924c54e71666aa57b5"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected auth-driven workload restart authority because selector/owner grounding and replacement waits do not prove credential recovery, application correctness, durable idempotency, rollback restoration, or independent outcomes.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    },
+    {
+      "id": "kubernetes_auth_recovery_catalog_assets",
+      "source_commits": [
+        "6101ab070aa0475b28cd8a5c9c49e000993c1459",
+        "e4192b1fe5b967a6e2c649ed032a4855a3a4daba"
+      ],
+      "status": "rejected",
+      "source_hardening": "Rejected catalog coverage as authority: catalog presence and asset isolation do not validate a provider, action, outcome, or promotion state.",
+      "benchmark_measured": true,
+      "semantic_generalized": false,
+      "operationalized": false,
+      "provider_validated": false,
+      "action_validated": false,
+      "outcome_validated": false,
+      "azure_validated": false
+    }
+  ],
+  "groups": [
+    {
+      "id": "diagnostics_foundation",
+      "title": "Bounded Kubernetes diagnostics foundation",
+      "disposition": "semantic_port",
+      "status": "absorbed",
+      "dependencies": [],
+      "safety_boundary": "Evidence remains bounded, untrusted, namespace-scoped, and unable to grant action authority.",
+      "commits": [
+        "8962406e910d1a345b509391edfda39f8435b1a2",
+        "29c10fe6acc9da7c1fc1413e47541e7da6c01582",
+        "0ab907b6ce85cc5ddc9ac6088d99e7b21eea532d",
+        "ea9f23de3ad341d706eea485588d7d2e41c9379c",
+        "3cac48ee33592af9db3360376e6120a1dd341fb5",
+        "f5fc51a5f644540e7f2f83d1f49abe64ca758c5e",
+        "2b92220205971d8dc5e2e4883165a545e6e44758",
+        "e245bc2fcc1ec3358039516528c88ba4bdb1c28f",
+        "cb5ac2a4e17e9ef225f90bd7d228341581a49b80"
+      ]
+    },
+    {
+      "id": "model_escalation",
+      "title": "Ontology-first model escalation and wire compatibility",
+      "disposition": "superseded_verify",
+      "status": "absorbed",
+      "dependencies": ["diagnostics_foundation"],
+      "safety_boundary": "Escalation is configuration-driven, audited, and never raises execution authority.",
+      "commits": [
+        "c94c07200f3c891d6ae74c07dc4343d2f38892f9",
+        "77140bf66b521618e44adba0fae2e4d7c9c55811",
+        "7cfbea0299bdf7924ab7d18ee639043697033f7c"
+      ]
+    },
+    {
+      "id": "lifecycle_and_causal_evidence",
+      "title": "Workload lifecycle, identity provenance, bounded logs, and causal ranking",
+      "disposition": "test_only_absorption",
+      "status": "absorbed",
+      "dependencies": ["diagnostics_foundation"],
+      "safety_boundary": "Owner traversal, selectors, generation guards, and destructive cleanup remain fail-closed until separately action-validated.",
+      "commits": [
+        "ed871d041a9ecf41a24c73605d7064ca9a0a70d2",
+        "f6676a299434d932d46360eafb031cc9fa9bf2dd",
+        "696d5465a0bde39cecaae2bb5e2d641294ed604a",
+        "4ad6fb453326fc2bb37bea33ac5667030e2901c6",
+        "fd7bf9a655706bd4e93e5bcbad6a3849337c8b62",
+        "c38b2a559f751632910bc903c57e83dd31a23c98",
+        "e1953cfea7718d319e0e903082c5c62f0d64db15",
+        "db3e1a9b08ca90e8d8e7fd9cd650fa4c10c0d131",
+        "8daaeb06d2fa2366c330124b402d15003a9e98c1",
+        "3cc744d4390d9097172c7b8a8c182ef6b8b6919f",
+        "3edb7b31018ace49ecd8a526f93692a4f87e7455",
+        "231f665cc8903b2b7d041218d4e7ae2a5108d881",
+        "6f111ffc0b328a548c7008204e01cb77d66aed83",
+        "fd8d4c9ff8864f6340c5a1dbb415a0e46f90b2ba",
+        "f7358592f28e6a3165ff5d3c8984fe107b41e796",
+        "a130245624104d43a0b851f22e3c4f73a4f3d37f",
+        "8ac6a8b918cf5ab5590c6f2f7ae285dc0b13894c",
+        "41020989de79c0d33d2c310e6bf0c5888eb9c0df",
+        "788430b7b95cb4050e8efc5d88c52c5df652d31f",
+        "767d142ac5f53cbb0f3b8f0ec3d4ca148e765de8",
+        "3f9af6a484380cdb17c45df9f148dbaf85fc29a1",
+        "00018d5c72ebc9f4138b284b4a9bc1cc76fbe32a",
+        "7ad6a36ee52efbce4caa9d8a5610a3af294f5703",
+        "a4064c227f11db5274e7e3105232650f4755e38e",
+        "1fa3f09bbe8654a00d81525b8acba212d9454573",
+        "a81aed6f1dc6209e80a1593669cb0bd99c1503d6",
+        "711f21f9b90a3fef3fa83c78e8e82595f9cfa600",
+        "01579dc57382aa47e12185384105fa6aa4a03298",
+        "00f129de8e67535abe1b622e36ebbfb9d08abe78",
+        "b57422f06c6334b9ee6e1a71663ca1f9e3c91998",
+        "f0e07d0b37c8c6f27c11c226db015174cd9bef0d",
+        "a984d0feaca1bac4a7069fa2c5d60f6197878d9b",
+        "95fbb09e6b88aefa96a9cd1968fb5c546b5d28e7",
+        "cc9dfb64c322776789e0067907deb66b88d36355",
+        "3fb3b62b0896e1e5613d32ef0cf4622a3eac30e4",
+        "3401a4b86d82b565d7e8fe52f3a3bcc2aa37bc32",
+        "b335186087193cfe5d05cc14a2e81811b031e57d",
+        "40647bc38ef856e5b8a255f5fe75c0154b2831a2",
+        "a8c95a23c07a773d3056c34c8c2743c930e90bbc",
+        "cf202606dbf163902d484ca20a356bbf193f4b60",
+        "b8f36c38feb5164096338ba98f15ac99e2f2b4e4",
+        "f40b131922b63485fbeb06630f0485e5b6ba0644",
+        "2a01039d045932ec1b97e766526211f0c0fd2721",
+        "80fa4e500b4be8b55d367fb9fbb043788ed86557",
+        "6f180b7b8107a01f7879f9ec486eb939ee7821a7",
+        "b2147235deb05e4a499cd02f699ba679a8995a48"
+      ]
+    },
+    {
+      "id": "runtime_operationalization",
+      "title": "Ordinary runtime evidence operationalization",
+      "disposition": "semantic_port",
+      "status": "absorbed",
+      "dependencies": ["diagnostics_foundation", "lifecycle_and_causal_evidence"],
+      "safety_boundary": "Evaluation remains a thin consumer of the same operational evidence path used by normal agents.",
+      "commits": [
+        "d974e2b835f7176387bbc2ad146f833ab5936b99"
+      ]
+    },
+    {
+      "id": "dns_recovery",
+      "title": "DNS diagnosis and governed CoreDNS recovery",
+      "disposition": "test_only_absorption",
+      "status": "absorbed",
+      "dependencies": ["diagnostics_foundation", "runtime_operationalization"],
+      "safety_boundary": "Cluster-wide DNS mutation requires grounded target identity, dry-run, bounded scope, rollback, and independent convergence verification.",
+      "commits": [
+        "1ce85539cff1a3ebc494ac1e375344f93cca84ae",
+        "81101efaadab30ecec0dfc5b6ea7c41b803c8d87",
+        "3d8cb6458da17227296f5a5c63f8c9f1e0cee486",
+        "40110c20048eeadf7ac04e20668b9d91b578a6ea",
+        "b02463d8595ee61f525a20142b6f2357638f0d02",
+        "55725384caa62fc808084c65c45cbfe9e40517a5",
+        "89f5843b203f9f566e7012f533c89d019d766e99",
+        "55be5305c56df32c9f1de25b9308e87b535b2a64"
+      ]
+    },
+    {
+      "id": "quota_recovery",
+      "title": "Quota attribution, semantic quantities, and governed revert",
+      "disposition": "test_only_absorption",
+      "status": "absorbed",
+      "dependencies": ["diagnostics_foundation", "runtime_operationalization"],
+      "safety_boundary": "A quota revert remains ineligible without exact provenance, temporal causality, rollback, and outcome verification.",
+      "commits": [
+        "1e86a8e5f2b852677b7059b0680a795cbce248d0",
+        "e54de6b4ea8909459209625aca8b7f898a56ae16",
+        "7c0c051b18caf04e9fa2847276ce42a304005570",
+        "3cff0fecec791374ef8c4457f21235e964202410",
+        "29203d664be97d56ee52c9c001fe51e05316ee2f",
+        "13ab50fe48a7b8cfee908a3b4429be35f69bd3c2",
+        "e5e49167a7af0ab5c7636305a60ddf6ba94ac331"
+      ]
+    },
+    {
+      "id": "auth_recovery",
+      "title": "Datastore authentication diagnosis and grounded workload recovery",
+      "disposition": "test_only_absorption",
+      "status": "absorbed",
+      "dependencies": ["diagnostics_foundation", "runtime_operationalization"],
+      "safety_boundary": "Selectors and owner chains must identify one exact workload before any restart can become action-eligible.",
+      "commits": [
+        "6e2c578938aa93060a77373591625ebf64e323e4",
+        "db74b4105197988a64c406ced9e0343c2f2ae0c4",
+        "b39191ae34f6d7831f54c85c93b039dc583f2394",
+        "0ae13edca65f710a852fd2000864716d2aa538fb",
+        "1e81e127cfdd7d7629ebc4427bec1252bc736f8c",
+        "55ee3deadf0104337d9393196c643099a964a97c",
+        "b07e8e101767ffbf78b6f34644c87b87169d86f7",
+        "e0b1a1f42e58969a667930920e2da1107ca4daa8",
+        "6101ab070aa0475b28cd8a5c9c49e000993c1459",
+        "e4192b1fe5b967a6e2c649ed032a4855a3a4daba",
+        "504b6a0a3a21fdb958ba820f874b44cb90a375db",
+        "4944ab73f72e0909b1f2bc3f13442d97c3a0ea64",
+        "40f986f254bf3fb7603ea02de04f3dc57bac06bf",
+        "cabe07bb51f8898f1094b6924c54e71666aa57b5"
+      ]
+    },
+    {
+      "id": "advanced_diagnostics",
+      "title": "Admission, owner, webhook, probe, storage, rollout, capacity, and autoscaling diagnostics",
+      "disposition": "test_only_absorption",
+      "status": "absorbed",
+      "dependencies": ["diagnostics_foundation", "lifecycle_and_causal_evidence"],
+      "safety_boundary": "Each generalized mechanism must prove positive, negative, stale, truncated, conflicting, and metamorphic behavior before semantic promotion.",
+      "commits": [
+        "3ddb7d30b80f3efa778dfa17ee1bb09a2662dae0",
+        "89742e1f6dc376e6ccca0baa1633c3e46a565fe8",
+        "f1da1ddf5d99db44ece6949b8c42a3bb7bdcedde",
+        "a2ff0cce59d2f298b6366416a571411ca0849cc4",
+        "66ea9b511170bc18dba475dec1295e63ce36e7cb",
+        "228e80e9394a340eb62015bda14c98546bdd0256",
+        "fb30124a5dc52e25edf2c12aecf48911a4f74fce",
+        "a0e71fbce641513d77c951d9622d769841ac3991",
+        "f30c3954a88e1ba088182972e457cb2938646b4d",
+        "d3215b019cf8e215f711a9b758efcea859071d52",
+        "91cfe3a26797e16a6906f0dfadc1d6130b0f7cea",
+        "519bc2da13c18038ae781f3897eecaf78b9d4de6",
+        "19a27aa1192d9a27088ac725fa0716039e4979f6",
+        "221a9b15e4cd5413fede8d0f88e7b5cb441a8065",
+        "ad23bf68d8b16d8db508a87a2b47456e385a4c91",
+        "77b9e9becaa1f20572eb4369e36a593ce7a46d37",
+        "e8d091916e1aab17877b3d3bf707f7845330c1db",
+        "48f33f01db9be37882498aba6036b767fd3f7860",
+        "d508bb8ce0434f1599d0ba54651cc5e8558cef68",
+        "e666d4e2b2ce95284f26919ee65b0eb3773d92b3",
+        "c9ac31bad238eb8953b83b1250e93945c310a9f5",
+        "8764178a248d477d82281e3e83c28966fcea9f56",
+        "e59d3289e14c4e348d60f116133381116c06c2b6",
+        "b42ee8dd48107c62141c1260b627b3fe077e92b9",
+        "621b288300a51360fa034ab36d5db5305c3973a0",
+        "454c31228c6101126f73d4acb2e9f050d00635c5",
+        "a886903bdeeee85e7140f9dc5eeed9f234447727",
+        "0c5f66814cad6e5ceb91050a7bd064cb0b064e82",
+        "45c44d00892f5403c9e4271f067f005283086b05",
+        "5ef31a877fbfdc0a52baf7e31192d8fba511b577",
+        "adb792a9f9e363bf3721f0284df3b5cfd118f80f",
+        "69bc5005ce5ed1fe5a05a29793087de4d85c795d",
+        "e265bd4677f719ac24983ea6afcd04634e8b8c30",
+        "df33b72059ec0e25efc3f5f9618058567fd1a046"
+      ]
+    },
+    {
+      "id": "ontology_shadow_pilots",
+      "title": "Provider-neutral dependency and capacity proof mechanisms",
+      "disposition": "test_only_absorption",
+      "status": "absorbed",
+      "dependencies": ["advanced_diagnostics", "runtime_operationalization"],
+      "safety_boundary": "Ontology validates identity, unit, relationship, and evidence eligibility but never senses, judges, approves, executes, or promotes.",
+      "commits": [
+        "6b51980ee079f10ebf9bdb1c6184c1e2fda33f6a",
+        "386fed856292d68a15bf0a1861580a2b8a286aa6"
+      ]
+    }
+  ]
+}

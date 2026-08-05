@@ -14,7 +14,7 @@ import json
 import logging
 import time
 from collections import Counter, deque
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -49,6 +49,9 @@ IncidentCandidateHook = Callable[[dict[str, Any]], Awaitable[bool]]
 
 ReadInvestigationHook = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any] | None]]
 """Composition-provided read-only investigation responder."""
+
+OperationalEvidenceHook = Callable[[dict[str, Any]], Awaitable[Mapping[str, Any]]]
+"""Composition-provided bounded evidence collector for one operational Event."""
 
 _LOG = logging.getLogger(__name__)
 
@@ -108,6 +111,7 @@ class Heimdall(Agent):
         alerter_hook: AlerterHook | None = None,
         incident_candidate_hook: IncidentCandidateHook | None = None,
         read_investigation_hook: ReadInvestigationHook | None = None,
+        operational_evidence_hook: OperationalEvidenceHook | None = None,
         alert_rate_per_hour: int = 5,
         clock: Callable[[], float] | None = None,
         forecast_clock: Callable[[], datetime] | None = None,
@@ -132,6 +136,7 @@ class Heimdall(Agent):
         self._alerter_hook = alerter_hook
         self._incident_candidate_hook = incident_candidate_hook
         self._read_investigation_hook = read_investigation_hook
+        self._operational_evidence_hook = operational_evidence_hook
         self._alert_rate_per_hour = alert_rate_per_hour
         # Per-initiator rolling-hour alert budget: (window_start, count).
         # Injected clock keeps the window deterministic under test; defaults
@@ -161,6 +166,11 @@ class Heimdall(Agent):
     def register_read_investigation(self, hook: ReadInvestigationHook) -> None:
         """Bind a provider-neutral conversational read responder."""
         self._read_investigation_hook = hook
+
+    def register_operational_evidence(self, hook: OperationalEvidenceHook) -> None:
+        """Bind a bounded read-only Event evidence collector."""
+
+        self._operational_evidence_hook = hook
 
     async def publish_forecast_outcome(self, outcome: ForecastOutcome) -> bool:
         """Publish one schema-validated terminal forecast result."""
@@ -554,6 +564,9 @@ class Heimdall(Agent):
                 ),
                 "incident_correlation": incident_correlation,
             }
+            operational_evidence = await self._collect_operational_evidence(event)
+            if operational_evidence:
+                anomaly["operational_evidence"] = operational_evidence
             if self.bus is not None:
                 await self.bus.publish("Heimdall", "object.anomaly", anomaly)
             if self._incident_candidate_hook is None:
@@ -589,6 +602,27 @@ class Heimdall(Agent):
                 return
             self._drop_episode(episode_key)
             self.record_behavior("incident_candidate" if accepted else "incident_candidate_held")
+
+    async def _collect_operational_evidence(
+        self,
+        event: dict[str, Any],
+    ) -> Mapping[str, Any]:
+        if self._operational_evidence_hook is None:
+            return {}
+        try:
+            evidence = await self._operational_evidence_hook(event)
+        except Exception:  # noqa: BLE001 - evidence loss cannot suppress the anomaly
+            self.record_behavior("operational_evidence:provider_error")
+            return {
+                "observe.kubernetes.capacity": {
+                    "status": "unavailable",
+                    "reason": "provider_error",
+                }
+            }
+        self.record_behavior(
+            "operational_evidence:available" if evidence else "operational_evidence:not_applicable"
+        )
+        return evidence
 
     def _episode_history(
         self,

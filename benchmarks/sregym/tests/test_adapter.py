@@ -85,7 +85,10 @@ async def test_translates_diagnosis_and_submits_result() -> None:
     assert task is not None
     assert request.session_id == "attempt-1"
     assert {item.capability_id for item in request.requested_capabilities} >= {
+        "observe.kubernetes.capacity",
+        "observe.kubernetes.dependencies",
         "observe.kubernetes.inventory",
+        "observe.kubernetes.nodes",
         "observe.metrics.query",
     }
     assert task.phase == "diagnosis"

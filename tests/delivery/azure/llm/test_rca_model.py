@@ -83,6 +83,32 @@ async def test_propose_cause_builds_request_and_returns_content() -> None:
 
 
 @pytest.mark.asyncio
+async def test_gpt5_family_uses_completion_tokens_without_temperature() -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json=_envelope(_grounded_answer()))
+
+    config = AzureOpenAIRcaModelConfig(
+        endpoint="https://example.openai.azure.com",
+        deployment="t2-rca",
+        model_family="gpt-5.4-mini",
+        system_prompt="You are an FDAI root-cause reasoner.",
+        max_tokens=128,
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        model = AzureOpenAIRcaModel(identity=_FakeIdentity(), http_client=client, config=config)
+        await model.propose_cause(incident_summary="x", candidate_citations=_CANDIDATES)
+
+    body = captured["body"]
+    assert isinstance(body, dict)
+    assert body["max_completion_tokens"] == 128
+    assert "max_tokens" not in body
+    assert "temperature" not in body
+
+
+@pytest.mark.asyncio
 async def test_http_error_raises() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(500, json={})

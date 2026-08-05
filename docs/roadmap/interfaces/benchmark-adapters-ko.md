@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 7ff6e001539ae4c917f09d270f7014e668cca56e
+translation_source_sha: 0460a259de520c91995592c261f6293e1a3b60b0
 translation_revised: 2026-08-04
 ---
 
@@ -173,13 +173,238 @@ runtime은 benchmark package를 import하지 않고 선택된 `EvaluationAdapter
 SREGym package는 이 group에 `sregym`을 등록합니다.
 
 현재 live SREGym composition은 explicit kubeconfig와 context를 통해 exact-namespace Kubernetes
-inventory 및 event evidence를 제공합니다. Kubectl adapter는 fixed read-only command, no shell,
-최대 30초 timeout, output 및 item limit을 사용합니다. Diagnostic projection은 Secret object와
-검토되지 않은 field를 제외합니다. 위임된 identity가 target namespace의 `metrics.k8s.io` pod를
+inventory 및 event evidence와 explicit cluster-scoped Node capacity evidence를 제공합니다. Node
+evidence는 별도 observe-only capability입니다. Node identity, readiness, schedulability 및 검증된
+CPU와 memory allocatable quantity만 projection하고 address, label 및 extended resource는 제외합니다.
+Kubectl adapter는 fixed read-only command, no shell, 최대 30초 timeout, output 및 item limit을
+사용합니다. Diagnostic projection은 Secret object와 검토되지 않은 field를 제외합니다. 위임된
+identity가 target namespace의 `metrics.k8s.io` pod를
 읽을 수 있으면 adapter는 `observe.metrics.query`를 통해 정규화된 container CPU 및 memory 사용량을
-projection합니다. Pod status는 crash 진단을 위해 제한된 직전 종료 reason, exit code 및 종료 시각도
+projection합니다. Quantity normalization은 operational Kubernetes delivery package가 소유하므로
+evaluation, runtime evidence, capacity 및 quota 진단은 동일한 exact base-unit 의미를 사용합니다.
+Pod inventory는 image 또는 command literal을 보존하지 않고 immutable UID와 aggregate CPU/memory
+request 및 검토된 source path를 projection합니다. 공유 hold-only reducer는 exact FailedScheduling
+Pod UID와 complete eligible Node ceiling이 일치할 때만 capacity finding을 생성합니다. Truncated,
+stale, conflicting 또는 incomplete evidence는 finding을 생성하지 않습니다. SREGym은 별도
+observe-only `observe.kubernetes.capacity` capability를 통해 이 join을 요청합니다. Pod status는 crash
+진단을 위해 제한된 직전 종료 reason, exit code 및 종료 시각도
 보존합니다. Raw logs 및 traces는 별도 provider가 bind될 때까지 structured unavailable evidence로
 유지됩니다.
+
+공유 Kubernetes package에는 hold-only endpoint dependency reducer도 있습니다. Complete
+same-namespace projection, exact short `host:port` environment reference, absent Service 및 referenced
+port를 선언한 healthy same-name backend가 모두 있을 때만 missing-Service finding을 생성합니다.
+Present, external, ambiguous, unhealthy, mismatched 또는 truncated evidence는 finding을 생성하지
+않습니다.
+SREGym은 별도 observe-only `observe.kubernetes.dependencies` capability를 통해 completed inventory
+join을 요청합니다. Readiness는 실행 전에 이 capability를 probe하며 unavailable 또는 truncated
+inventory는 absence finding을 생성할 수 없습니다.
+
+실패한 Kubernetes admission event는 bounded webhook TLS, timeout, unavailable 또는 Pod Security
+rejection code로 분류됩니다. 분류에는 failed event reason이 필요합니다. Informational text,
+malformed webhook identity 및 인식되지 않은 message는 분류하지 않습니다. 인식된 admission
+failure의 projected event는 raw message 대신 structured code와 bounded identity 또는 Pod Security
+field만 보존합니다. 따라서 admission response가 echoed secret 또는 검토되지 않은 값을
+deterministic finding으로 전달하지 못합니다.
+Workload inventory는 bounded status condition의 active admission failure도 인식합니다. Normal
+condition과 inactive historical failure는 non-finding으로 유지됩니다. 인식된 condition은 exact
+status condition source path와 함께 `evidence_strength=direct_resource_condition`인 hold-only
+candidate를 생성하고 raw message는 보존하지 않습니다. FDAI는 campaign의 fixed numeric ranking
+weight를 복사하지 않습니다. Downstream ranking은 correlation을 proven causation으로 취급하지 않고
+explicit evidence strength를 비교할 수 있습니다.
+
+Requested Pod port를 사용할 수 없다고 보고하는 reviewed scheduler Event reason text는 raw message를
+보존하지 않고 structured `host_port_conflict` code로 축약합니다. Hold-only candidate에는 complete
+inventory/event receipt, 5분 evidence window 안의 event, exact affected Pod UID 및 complete valid
+`hostPort`/protocol projection이 필요합니다. Finding은 bounded port fact와 reviewed source path만
+포함합니다. Name-only, stale, future, malformed, ambiguous 또는 truncated evidence는 finding을
+생성하지 않으며 event만으로 어느 Node가 conflicting socket을 소유하는지 증명하지 않습니다.
+Source campaign의 host-port conflict reason-specific RCA priority는 port하지 않습니다. Absorbed
+finding은 `candidate_only` 및 `hold`로 유지되므로 reason string이 authoritative structural cause로
+승격할 수 없습니다. Future ordering은 reason-specific branch를 추가하지 않고 generic reviewed
+evidence-strength 및 contradiction metadata를 비교해야 합니다.
+Provider-neutral log reduction은 exact Pod UID, container identity 및 5분 evidence window 안의
+timestamp를 가진 bounded record에서 reviewed `EADDRINUSE`, `address already in use`, Linux `errno
+98` signature만 인식합니다. Raw body, address 또는 port 없이 occurrence count를 포함한 hold-only
+socket-bind candidate를 생성합니다. Missing UID, stale, future, oversized, unrecognized 또는 incomplete
+record는 finding을 생성하지 않습니다. Concrete bounded `observe.logs.query` provider는 별도 작업이므로
+이 semantic reducer만으로 mechanism이 operationalized되지는 않습니다.
+Log target selection도 provider-neutral이며 bounded입니다. Exact Pod UID, valid creation timestamp
+및 complete container-status projection이 필요합니다. Pod ceiling의 절반은 active-failure, restart,
+readiness priority로 선택하고 나머지는 recency로 채운 뒤 priority order로 돌아갑니다. 각 Pod의 별도
+container ceiling 안에서는 failing container가 restarted/healthy container보다 앞섭니다. 따라서 오래된
+unhealthy backlog와 최근 healthy Pod burst 모두 relevant evidence를 starvation시키지 못합니다.
+Incomplete 또는 ambiguous identity는 target을 생성하지 않습니다.
+Provider-neutral log reduction은 reviewed decode, application-failure 및 stream-stall signature를
+recent exact-Pod-UID observation 2개 이후에만 aggregate합니다. Record는 1KiB로 제한하고 raw body는
+finding에 포함하지 않습니다. Missing identity, stale, oversized, unrecognized 또는 incomplete
+evidence는 abstain합니다. Concrete log provider는 별도 작업입니다.
+Source campaign의 CronJob child deletion, sidecar patching, finalizer/RBAC mutation, deny-all
+restoration 및 reason-specific RCA precedence는 port하지 않습니다. Identity normalization,
+generation check 및 semantic churn tolerance는 7개 action safeguard나 causal authority를 독립적으로
+증명하지 않습니다.
+
+Observe-only `observe.kubernetes.owners` capability는 bounded namespace inventory에서 최대 8개
+custom owner reference를 따라갑니다. 각 lookup은 owner reference UID를 보존하며 반환된 custom
+resource의 API group, kind, name, namespace 및 immutable UID가 모두 일치할 때만 허용합니다.
+Recreated name, cross-namespace owner, invalid reference, lookup failure 및 omitted owner는 evidence를
+incomplete로 만들고 partial owner set을 노출하지 않습니다. Projection은 bounded identity,
+generation, deletion 및 condition field만 보존하며 임의 custom resource spec string은 제외합니다.
+Source campaign의 arbitrary custom owner spec field-basename validation은 port하지 않습니다. 일치하는
+CRD OpenAPI schema와 exact schema path가 없으면 `runAsUser`, `effect` 또는 `updateStrategy`라는 field
+name만으로 Kubernetes security-context, toleration 또는 workload strategy semantic을 증명할 수
+없습니다. 따라서 FDAI는 해당 value를 projection하거나 configuration finding을 생성하지 않습니다.
+Complete workload projection에 projected custom owner UID와 일치하는 controller owner reference가
+하나 있으면 degraded child는 hold-only `custom_owner_has_degraded_workload` candidate를 생성합니다.
+이는 direct ownership relationship을 증명하지만 owner configuration이 degradation을 일으켰다고
+증명하지 않습니다. Source campaign의 `configuration_precedes` 주장과 임의 custom spec projection은
+configuration change timestamp 또는 interventional evidence가 없으므로 의도적으로 거부합니다.
+
+Inventory evidence는 Pod image pull failure와 owning Deployment, StatefulSet 또는 DaemonSet
+template의 drift를 correlate할 수 있습니다. Correlation에는 complete container projection, 각 hop의
+exact controller owner 하나, chain 내 모든 resource의 immutable UID match, 인식된 waiting reason 및
+같은 container name의 서로 다른 SHA-256 image-reference fingerprint가 필요합니다. Raw image
+reference는 projection하지 않습니다. Recreated, ambiguous, malformed 또는 truncated evidence는
+finding을 생성하지 않으며 결과는 template drift가 pull failure를 일으켰다는 주장이 아닌 hold-only
+candidate로 유지됩니다.
+Source campaign의 automatic operator-namespace traversal은 port하지 않습니다. 이 구현은 custom
+resource plural을 kind name에서 추론하고, broad API-group read access를 controller identity로
+취급하며, complete RBAC projection 없이 query를 확장했습니다. Allowlisted namespace만으로 inventory
+확장을 시작하지 않습니다. Future traversal capability는 discovered CRD plural identity, exact reviewed
+verb/resource, complete role/binding projection 및 explicit bounded scope를 사용해야 합니다.
+
+Campaign의 generic custom-resource patch allowlist는 port하지 않습니다. Exact API-version/kind
+allowlist와 generation check는 새 mutation primitive에 필요하지만 충분하지 않습니다. Source
+change는 arbitrary custom resource에 대한 durable target lock, persistent duplicate suppression,
+pre-effect audit intent, bounded rollback drill 및 observer-independent effect verification을
+독립적으로 증명하지 않습니다. 따라서 current live executor는
+`remediate.kubernetes-patch`를 미등록 상태로 유지합니다. Future implementation은 새로운
+shadow-first ActionType으로 시작하고 real staging substrate에서 7개 safeguard를 모두 충족해야
+합니다. Evaluation environment variable은 해당 authority를 부여할 수 없습니다.
+
+Admission evidence는 bounded MutatingWebhookConfiguration 및
+ValidatingWebhookConfiguration projection을 읽습니다. Structured failed event는 complete
+projection 전체에서 webhook name이 유일하고 affected resource가 target namespace에 있을 때만
+configuration candidate를 식별할 수 있습니다. TLS, timeout 및 backend failure는 검토된 source
+path와 bounded failure policy/Service identity를 보존합니다. Webhook URL과 CA bundle은 계속
+제외합니다. Finding은 candidate-only이며 webhook name 일치는 configuration이 external failure를
+일으켰다는 증명이 아닙니다.
+Missing webhook backend semantic은 namespace inventory보다 강한 absence boundary를 사용합니다.
+Candidate에는 complete webhook projection 하나와 successful read가 absence를 확인한 exact targeted
+Service receipt 하나가 필요합니다. Present, failed, ambiguous, malformed 또는 truncated receipt는
+finding을 생성하지 않습니다. Candidate는 configuration identity, webhook name, failure policy,
+Service identity 및 reviewed source path만 보존합니다. Targeted receipt provider는 별도 작업이며
+reducer만으로 제공된다고 간주하지 않습니다. Admission evaluation provider는 최대 8개의 exact
+allowlisted `service/{name} --ignore-not-found` read를 수행합니다. Empty successful output만 absence를
+확인하며 out-of-scope, failed, oversized, malformed 또는 identity-mismatched response는 Service
+evidence를 incomplete로 만듭니다.
+FDAI는 webhook Service reference를 사용해 backend namespace의 full inventory를 수집하지 않습니다.
+해당 reference는 namespace 내 모든 resource에 대한 dependency나 evidence surface 확장 authority를
+증명하지 않습니다. Exact targeted Service receipt가 backend absence evidence에서 source campaign의
+broad cross-namespace traversal을 대체합니다.
+FDAI는 webhook backend Pod를 선택하는 deny-all NetworkPolicy도 API-server traffic 차단의 증거로
+취급하지 않습니다. Service selector와 Pod label은 membership을 증명하지만 control-plane network
+path나 policy enforcement point를 증명하지 않습니다. Direct path evidence가 없으면 이는 unproven
+correlation으로 남고 causal finding을 생성하지 않습니다.
+Source campaign의 automatic `failurePolicy: Fail` to `Ignore` recovery seed는 port하지 않습니다.
+이 mutation은 admission security intent를 fail-open으로 바꾸고 missing backend를 복구하지 않으며,
+resulting admission과 rollback이 intended control을 보존한다는 independent proof도 없습니다. Approval,
+resource-version check 및 server dry-run만으로 해당 outcome을 증명할 수 없습니다. 따라서 missing
+backend finding은 hold-only로 유지되며 control-plane patch authority를 부여하지 않습니다.
+TLS trust failure에도 같은 rejection을 적용합니다. `failurePolicy` 변경은 certificate validation을
+우회하며 trust chain이나 intended admission control을 복구하지 않습니다.
+Webhook namespace selector가 expression 없이 exact
+`kubernetes.io/metadata.name=<namespace>` match label 하나만 포함할 때 missing-backend candidate는
+해당 namespace와 reviewed selector path를 기록합니다. Extra label, expression, malformed selector 또는
+presence-only projection은 impact scope를 생략합니다. Readiness는 affected workload를 식별하거나
+namespace set을 확장하지 않습니다.
+
+Cumulative timeout evidence는 별도 candidate-only mechanism입니다. 서로 다른 webhook name의
+structured timeout event가 최소 2개이고, affected resource immutable UID가 같으며, trusted evidence
+cutoff로 끝나는 5분 window 안의 timestamp가 있어야 합니다. Duplicate, stale, future, UID-conflicting,
+malformed 또는 truncated event는 finding을 생성하지 않습니다. Source campaign 구현과 달리 direct
+policy-path 및 temporal evidence 없이 NetworkPolicy나 degraded workload를 원인으로 추론하지 않습니다.
+Source campaign의 cumulative-timeout NetworkPolicy recovery patch는 port하지 않습니다. Common
+backend port와 ingress deny-all policy만으로 API-server traffic이 해당 policy를 통과한다는 사실이나
+bounded source selector를 증명할 수 없습니다. Port의 unrestricted ingress를 추가하면 unrelated
+traffic을 넓힐 수 있고 independent effect 및 rollback-outcome evidence도 없습니다. 따라서 timeout
+candidate는 `remediate.kubernetes-patch` authority를 부여하지 않습니다.
+
+공유 Kubernetes package에는 hold-only admission resource-drift reducer가 있습니다. Exact core/v1
+Pod CREATE rule을 가진 complete selector-free, namespace-unscoped
+MutatingWebhookConfiguration 하나와 normalized request 또는 limit drift 사이의 candidate-only
+correlation을 보고합니다. Complete workload selector도 complete Pod label과 일치해야 합니다.
+Reducer는 webhook이 drift를 일으켰다고 주장하지 않습니다. 여러 mutator, conditional mutator,
+scoped mutator, incompatible mutator, semantically equivalent quantity 및 incomplete evidence는
+finding을 생성하지 않습니다. 별도 observe-only `observe.kubernetes.admission` capability는 bounded
+namespace inventory와 bounded cluster-scoped webhook projection을 join합니다. Webhook URL, CA bundle
+및 검토되지 않은 field는 projection하지 않습니다. 이는 namespace scope 또는 rule applicability를
+증명하지 않고 mutator 하나를 causal로 취급하던 source campaign 동작을 강화합니다.
+
+Restricted Pod Security admission evidence는 recent structured rejection이 exact ReplicaSet UID
+하나를 지정하고 complete single-controller reference가 exact Deployment UID 하나에 도달하며 해당
+Deployment의 desired replica가 ready replica보다 많을 때만 correlate합니다. Finding은 closed reviewed
+violation vocabulary, profile/version, immutable identity를 포함하고 raw message는 제외합니다. Unknown,
+stale, future, recreated, ambiguous, healthy 또는 truncated evidence는 finding을 생성하지 않습니다.
+Diagnosis는 candidate-only이며 SecurityContext patch를 projection하거나 authorize하지 않습니다.
+
+Liveness failure evidence는 raw message를 보존하지 않는 recent structured `Unhealthy` Event 하나에서
+reduce합니다. Candidate에는 exact Pod UID, complete single-controller Pod-to-ReplicaSet 및
+ReplicaSet-to-Deployment UID chain, degraded Deployment, 세 resource에서 동일한 liveness-probe
+fingerprint 하나가 필요합니다. Probe command, HTTP path, header 및 address는 projection하지 않고
+mechanism, bounded timing 및 SHA-256 definition fingerprint만 보존합니다. Drift, ambiguity, stale/future
+Event 및 truncated evidence는 abstain합니다. FDAI는 source campaign의 fixed sleep 및 second Event
+read를 복사하지 않으며 normal evidence freshness가 해당 concern을 소유합니다.
+동일한 full-chain probe identity가 모든 hop에서 initial delay 0, period 1초, startup probe 부재를
+가질 때 기존 candidate에 `aggressive_schedule=true`를 추가합니다. 새 reason, priority branch 또는
+action authority를 만들지 않습니다. Chain의 startup gate가 불일치하면 abstain합니다.
+Readiness failure는 동일한 recent Event, exact UID-chain, degraded-owner 및 identical privacy-safe
+fingerprint kernel을 재사용합니다. Classification에는 kubelet reporter와 reviewed readiness-failure
+phrase도 필요합니다. Raw message나 fixed-delay Event refresh 없이 별도 hold-only candidate를
+생성하며 drift, stale identity, ambiguity 및 truncation은 abstain합니다.
+Provider-neutral storage semantic은 degraded multi-replica workload에 complete required hostname
+anti-affinity, exact matching template label selector, complete mounted-volume path 및 same-namespace
+`ReadWriteOnce` PVC 하나가 있을 때만 hold-only placement candidate를 생성합니다. RWX, unmounted,
+selector-mismatched, single-replica, ambiguous 또는 incomplete evidence는 abstain합니다. Concrete PVC,
+volume, mount 및 anti-affinity inventory projection은 별도 provider 작업입니다.
+Provider-neutral init dependency semantic은 running init container 하나, exact immutable
+Pod-to-ReplicaSet-to-Deployment chain, 세 spec에서 동일한 bounded command fingerprint 및 Service
+dependency 하나, 해당 Service absence를 확인한 targeted receipt 하나를 요구합니다. Present,
+conflicting, command-drifted, stopped, ambiguous 또는 incomplete evidence는 abstain합니다. Raw
+command는 보존하지 않으며 concrete command/dependency projection은 별도 provider 작업입니다.
+Provider-neutral ConfigMap mount semantic은 degraded workload, complete volume/container-mount
+projection, mounted ConfigMap volume 하나 및 same-namespace ConfigMap absence를 확인한 exact targeted
+receipt 하나를 요구합니다. Present, conflicting, unmounted, healthy, ambiguous 또는 incomplete
+evidence는 abstain합니다. Concrete ConfigMap 및 mount projection은 별도 provider 작업입니다.
+Provider-neutral rollout semantic은 complete strategy evidence에서 degraded Deployment의 available
+replica가 0이고 `maxSurge=0`이며 `maxUnavailable`이 desired replica 전체를 허용할 때 hold-only
+candidate를 생성합니다. Healthy, safe, malformed, incomplete 또는 truncated evidence는 abstain합니다.
+Concrete strategy projection과 remediation은 별도 작업입니다.
+Provider-neutral CoreDNS semantic은 bounded `template` block 하나의 header가 `svc.cluster.local`을
+target하고 sole reviewed match가 exact all-Service pattern이며 NXDOMAIN을 반환할 때만 인식합니다.
+Arbitrary regex는 실행하지 않습니다. Specific-Service, duplicate, malformed, oversized,
+non-NXDOMAIN, incomplete 또는 truncated evidence는 abstain합니다. Corefile projection은 별도
+provider 작업입니다.
+Source campaign의 automatic Corefile template removal 및 CoreDNS restart는 port하지 않습니다.
+Global DNS mutation에는 independently observed service resolution, CoreDNS rollout health, bounded
+blast radius 및 snapshot restoration outcome이 필요합니다. 모든 safeguard를 검증할 때까지 live
+executor는 `remediate.coredns-nxdomain-template`를 미등록 상태로 유지하고 substrate call을 수행하지
+않습니다.
+Provider-neutral Service semantic은 endpoint evidence가 complete하고 empty이며 Service selector가
+complete하고, same-namespace workload 하나의 complete template label이 exact match하며 desired
+replica가 0일 때만 hold-only scaled-to-zero candidate를 생성합니다. Ready, nonzero, ambiguous,
+selector-mismatched, incomplete 또는 truncated evidence는 abstain합니다. Concrete endpoint 및 label
+projection은 별도 provider 작업입니다.
+Provider-neutral autoscaling semantic은 complete HPA 하나가 CPU utilization을 사용하고 closed
+`ScalingActive=False` metric-failure reason 하나를 가지며 exact complete workload template 하나를
+target하고, completely projected container 하나 이상에 positive CPU request가 없을 때 hold-only
+candidate를 생성합니다. Active, valid-request, non-CPU, ambiguous, malformed, incomplete 또는
+truncated evidence는 abstain합니다. Concrete HPA projection은 별도 provider 작업입니다.
+Source campaign의 deterministic SecurityContext patch는 port하지 않습니다. Syntactically grounded
+template change도 process identity, capability 및 workload behavior를 바꿀 수 있으며 admission
+success만으로 rollout health, application correctness 또는 rollback restoration을 증명할 수 없습니다.
+해당 effect와 7개 action safeguard를 독립적으로 검증할 때까지 live executor는
+`remediate.kubernetes-patch`를 미등록 상태로 유지하고 substrate call을 수행하지 않습니다.
 
 Deterministic 판단 보류 시 기존 grounded RCA path가 task objective와 bounded evidence를 받습니다.
 Hypothesis는 typed `ControlLoopResult`에 보존되고 submission summary로 render됩니다. RCA reasoner가
@@ -196,9 +421,9 @@ fdai-evaluation-runner check --adapter sregym
 `FDAI_EVALUATION_KUBECONFIG`, `FDAI_EVALUATION_KUBERNETES_CONTEXT`,
 `FDAI_EVALUATION_KUBERNETES_CLUSTER` 및 comma-separated exact namespace allowlist인
 `FDAI_EVALUATION_KUBERNETES_NAMESPACES`를 구성합니다. Readiness는 installed-adapter discovery,
-live Kubernetes inventory access, 두 Kubernetes evidence provider, pod metrics access 및 configured
-grounded RCA reasoner를 요구합니다. 실행 전에 allowlist에 포함된 모든 namespace에서 inventory,
-events 및 `metrics.k8s.io`를 probe합니다. 또한 synthetic citation-bounded RCA request를 한 번
+live Kubernetes inventory, event 및 Node evidence access, pod metrics access 및 configured grounded
+RCA reasoner를 요구합니다. 실행 전에 allowlist에 포함된 모든 namespace에서 inventory, events,
+Nodes, capacity join 및 `metrics.k8s.io`를 probe합니다. 또한 synthetic citation-bounded RCA request를 한 번
 전송하므로 stale 또는 missing model deployment는 ready로 표시되지 않습니다. 모든 check를 통과해도
 host authority는 관찰 모드로 유지됩니다.
 

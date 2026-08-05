@@ -255,7 +255,9 @@ Forseti reasons; Norns closes the discovery loop.
   (declared vs actual state via Muninn snapshot compare), forecast
   (statistical time-series; ARIMA or exponential smoothing). Publish
   `Anomaly`, `Drift`, `Forecast`. Reserve `SecurityEvent` subscription
-  for W6. Stale/degraded inventory fails closed; Heimdall never starts the reconciliation job.
+  for W6. An injected bounded read-only operational evidence hook can enrich an authoritative
+  anomaly without granting judgment or execution authority. Stale/degraded inventory fails closed;
+  Heimdall never starts the reconciliation job.
 - **Forseti (`src/fdai/agents/forseti.py`)** - subscribe to
   `object.anomaly`, `object.drift`, `object.event`. Implement the
   three-tier trust router locally: T0 rule match via Mimir; T1

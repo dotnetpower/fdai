@@ -226,6 +226,10 @@ def bind_azure_llm_bindings(
             }
         return _binding_target(binding, endpoint_resolver)
 
+    def _model_family(capability_id: str, legacy_family: str | None) -> str | None:
+        binding = endpoint_bindings.get(capability_id)
+        return binding.family if binding is not None else legacy_family
+
     def _emitter_for(
         capability_id: str, cap: ResolvedCapability, tier: str
     ) -> MeteringEmitter | None:
@@ -260,6 +264,7 @@ def bind_azure_llm_bindings(
                         legacy_api_version="2024-06-01",
                     ),
                     system_prompt=rca_system_prompt,
+                    model_family=_model_family("t2.rca", rca_cap.family),
                 ),
                 metering=_emitter_for("t2.rca", rca_cap, "T2"),
             )
@@ -276,6 +281,7 @@ def bind_azure_llm_bindings(
                     legacy_api_version="2024-06-01",
                 ),
                 system_prompt=proposer_system_prompt,
+                model_family=_model_family("t2.reasoner.primary", primary_cap.family),
             ),
             metering=_emitter_for("t2.reasoner.primary", primary_cap, "T2"),
             gateway_route_sink=model_health_sink,
@@ -307,6 +313,7 @@ def bind_azure_llm_bindings(
                             legacy_api_version="2024-06-01",
                         ),
                         system_prompt=system_prompt,
+                        model_family=_model_family("t2.reasoner.primary", primary_cap.family),
                     ),
                     tool_registry=tool_registry,
                     tool_executor=tool_executor,
@@ -370,6 +377,7 @@ def bind_azure_llm_bindings(
                 legacy_api_version="2024-06-01",
             ),
             system_prompt=system_prompt,
+            model_family=_model_family("t2.reasoner.primary", primary_cap.family),
         ),
         tool_registry=tool_registry,
         tool_executor=tool_executor,
@@ -406,6 +414,7 @@ def bind_azure_llm_bindings(
                         deployment=cand.deployment,
                         system_prompt=system_prompt,
                         api_version=cand.api_version,
+                        model_family=_cap_by_name.get(cand.deployment, primary_cap).family,
                     ),
                     tool_registry=tool_registry,
                     tool_executor=tool_executor,
@@ -435,6 +444,7 @@ def bind_azure_llm_bindings(
                 legacy_api_version="2024-06-01",
             ),
             system_prompt=system_prompt,
+            model_family=_model_family("t2.reasoner.secondary", secondary_cap.family),
         ),
         tool_registry=tool_registry,
         tool_executor=tool_executor,
@@ -455,6 +465,7 @@ def bind_azure_llm_bindings(
                     legacy_api_version="2024-06-01",
                 ),
                 system_prompt=proposer_system_prompt,
+                model_family=_model_family("t2.reasoner.secondary", secondary_cap.family),
             ),
             metering=_emitter_for("t2.reasoner.secondary", secondary_cap, "T2"),
             gateway_route_sink=model_health_sink,

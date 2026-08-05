@@ -1,20 +1,12 @@
 """Composition-root wiring for the pantheon runtime.
 
-The pantheon subclasses ship their behavior wave-by-wave, but until this
-module they were only ever wired together inside tests. ``PantheonRuntime``
-is the seam that lets the headless control plane
-(:mod:`fdai.__main__`) run all 15 agents against a real
-:class:`~fdai.shared.providers.event_bus.EventBus` provider:
+``PantheonRuntime`` wires all 15 agents to an injected
+:class:`~fdai.shared.providers.event_bus.EventBus` provider. It:
 
 - instantiate the 15 agents (:func:`fdai.agents._framework.factory.instantiate_pantheon`),
 - bind every publishing agent to one injected ``EventBusBridge``,
-- register each agent's declared typed subscriptions
-  (``AgentSpec.subscribes``) so a published ``object.<type>`` record
-  fans out to every subscriber immediately (distinct Kafka consumer
-  groups),
-- route raw ingress events (the same topic the P1 control loop consumes)
-  into Huginn, the Event Collector, which normalizes and republishes them
-  as ``object.event``.
+- register declared typed subscriptions with distinct consumer groups,
+- route raw ingress through Huginn, which normalizes and republishes ``object.event``.
 
 The runtime is **shadow by default**: it forces Thor into shadow mode
 (``enforce=False``) so the pantheon never double-executes alongside the
@@ -62,7 +54,12 @@ from fdai.agents._framework.tool_planner import (
 from fdai.agents._framework.tool_prefetch import prefetch_tools
 from fdai.agents._framework.tool_semantic import SemanticToolPlanner
 from fdai.agents.bragi import Bragi, RoutingDecision, Turn
-from fdai.agents.heimdall import Heimdall, IncidentCandidateHook, ReadInvestigationHook
+from fdai.agents.heimdall import (
+    Heimdall,
+    IncidentCandidateHook,
+    OperationalEvidenceHook,
+    ReadInvestigationHook,
+)
 from fdai.agents.huginn import DiscoveryProjector, Huginn
 from fdai.agents.muninn import Muninn
 from fdai.agents.norns import Norns
@@ -144,6 +141,7 @@ class PantheonRuntime:
         heimdall_rate_threshold: int = 5,
         heimdall_rate_window: int = 300,
         read_investigation_hook: ReadInvestigationHook | None = None,
+        operational_evidence_hook: OperationalEvidenceHook | None = None,
         discovery_projector: DiscoveryProjector | None = None,
         scenario_coverage_aggregator: ScenarioCoverageAggregator | None = None,
         post_turn_review: PostTurnReviewCoordinator | None = None,
@@ -297,6 +295,7 @@ class PantheonRuntime:
             forecast_evaluator=forecast_evaluator,
             forecast_closer=forecast_closer,
             forecast_store=forecast_store,
+            operational_evidence_hook=operational_evidence_hook,
         )
         if saga is not None:
             instantiated["Saga"] = saga

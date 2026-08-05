@@ -168,13 +168,240 @@ generic runtime loads the selected `EvaluationAdapter` contract without importin
 package. The SREGym package registers `sregym` in that group.
 
 The current live SREGym composition provides exact-namespace Kubernetes inventory and event
-evidence through an explicit kubeconfig and context. The kubectl adapter uses fixed read-only
-commands, no shell, a 30-second maximum timeout, output and item limits, and a diagnostic projection
-that excludes Secret objects and unreviewed fields. When the delegated identity can read
+evidence plus explicit cluster-scoped Node capacity evidence through an explicit kubeconfig and
+context. Node evidence is a separate observe-only capability. It projects only Node identity,
+readiness, schedulability, and validated CPU and memory allocatable quantities; it excludes
+addresses, labels, and extended resources. The kubectl adapter uses fixed read-only commands, no
+shell, a 30-second maximum timeout, output and item limits, and a diagnostic projection that
+excludes Secret objects and unreviewed fields. When the delegated identity can read
 `metrics.k8s.io` pods in the target namespace, the adapter projects normalized container CPU and
-memory usage through `observe.metrics.query`. Pod status also retains bounded prior termination
+memory usage through `observe.metrics.query`. Quantity normalization is owned by the operational
+Kubernetes delivery package, so evaluation, runtime evidence, capacity, and quota diagnostics use
+the same exact base-unit semantics. Pod inventory projects immutable UID and aggregate CPU and
+memory requests with reviewed source paths, without retaining image or command literals. A shared
+hold-only reducer emits a capacity finding only when an exact FailedScheduling Pod UID and complete
+eligible Node ceilings agree. Truncated, stale, conflicting, or incomplete evidence produces no
+finding. SREGym requests this join through the separate observe-only
+`observe.kubernetes.capacity` capability. Pod status also retains bounded prior termination
 reason, exit code, and finish time for crash diagnosis. Raw logs and traces remain structured
 unavailable evidence until separate providers are bound.
+
+The shared Kubernetes package also contains a hold-only endpoint dependency reducer. It emits a
+missing-Service finding only for a complete same-namespace projection with an exact short
+`host:port` environment reference, an absent Service, and one healthy same-name backend declaring
+the referenced port. Present, external, ambiguous, unhealthy, mismatched, or truncated evidence
+produces no finding. Provider wiring remains a separate absorption step.
+SREGym requests the completed inventory join through the separate observe-only
+`observe.kubernetes.dependencies` capability. Readiness probes this capability before a run; an
+unavailable or truncated inventory cannot produce an absence finding.
+
+Failed Kubernetes admission events are classified into bounded webhook TLS, timeout,
+unavailable, or Pod Security rejection codes. Classification requires a failed event reason;
+informational text, malformed webhook identities, and unrecognized messages remain unclassified.
+For a recognized admission failure, the projected event retains only the structured code and
+bounded identity or Pod Security fields, not the raw message. This prevents an admission response
+from carrying an echoed secret or unreviewed value into deterministic findings.
+Workload inventory also recognizes active admission failures in bounded status conditions.
+Normal conditions and inactive historical failures remain non-findings. A recognized condition
+emits a hold-only candidate with `evidence_strength=direct_resource_condition`, its exact status
+condition source path, and no raw message. FDAI does not copy the campaign's fixed numeric ranking
+weight; downstream ranking can compare the explicit evidence strength without treating correlation
+as proven causation.
+
+Scheduler Events whose reviewed reason text reports unavailable requested Pod ports are reduced to
+a structured `host_port_conflict` code without retaining the raw message. A hold-only candidate
+requires complete inventory and event receipts, an event inside the five-minute evidence window,
+an exact affected Pod UID, and complete valid `hostPort` and protocol projections. The finding
+contains only bounded port facts and reviewed source paths. Name-only, stale, future, malformed,
+ambiguous, or truncated evidence produces no finding; the event does not prove which Node owns the
+conflicting socket.
+The source campaign's reason-specific RCA priority for host-port conflicts is not ported. The
+absorbed finding remains `candidate_only` and `hold`, so a reason string cannot make it an
+authoritative structural cause. Any future ordering must compare generic reviewed evidence-strength
+and contradiction metadata rather than adding another reason-specific branch.
+Provider-neutral log reduction recognizes reviewed `EADDRINUSE`, `address already in use`, and
+Linux `errno 98` signatures only in bounded records carrying an exact Pod UID, container identity,
+and timestamp inside the five-minute evidence window. It emits a hold-only socket-bind candidate
+with occurrence count and no raw body, address, or port. Missing UID, stale, future, oversized,
+unrecognized, or incomplete records produce no finding. This semantic reducer does not make the
+mechanism operational: a concrete bounded `observe.logs.query` provider remains separate work.
+Log target selection is also provider-neutral and bounded. It requires exact Pod UIDs, valid
+creation timestamps, and complete container-status projections. Half of the Pod ceiling is selected
+by active-failure, restart, and readiness priority; remaining capacity is filled by recency before
+returning to priority order. Failing containers rank ahead of restarted and healthy containers
+inside each Pod's separate container ceiling. This prevents both an old unhealthy backlog and a
+burst of recent healthy Pods from starving relevant evidence. Incomplete or ambiguous identities
+produce no target.
+Provider-neutral log reduction also aggregates reviewed decode, application-failure, and
+stream-stall signatures only after two recent exact-Pod-UID observations. Records are limited to
+one KiB and raw bodies never enter findings. Missing identity, stale, oversized, unrecognized, or
+incomplete evidence abstains. A concrete log provider remains separate work.
+The source campaign's CronJob child deletion, sidecar patching, finalizer/RBAC mutation, deny-all
+restoration, and reason-specific RCA precedence are not ported. Identity normalization, generation
+checks, and semantic churn tolerance do not independently establish all seven action safeguards or
+causal authority.
+
+The observe-only `observe.kubernetes.owners` capability follows at most eight custom owner
+references from the bounded namespace inventory. Every lookup preserves the owner reference UID
+and accepts the returned custom resource only when API group, kind, name, namespace, and immutable
+UID all match. Recreated names, cross-namespace owners, invalid references, lookup failures, and
+omitted owners make the evidence incomplete and expose no partial owner set. The projection keeps
+bounded identity, generation, deletion, and condition fields; arbitrary custom resource spec
+strings are excluded.
+The source campaign's field-basename validation for arbitrary custom owner specs is not ported.
+Without the matching CRD OpenAPI schema and an exact schema path, a field named `runAsUser`,
+`effect`, or `updateStrategy` does not prove Kubernetes security-context, toleration, or workload
+strategy semantics. FDAI therefore does not project those values or emit a configuration finding.
+When a complete workload projection has one controller owner reference whose UID matches a
+projected custom owner, a degraded child emits a hold-only
+`custom_owner_has_degraded_workload` candidate. This proves the direct ownership relationship,
+not that the owner's configuration caused the degradation. The source campaign's
+`configuration_precedes` claim and arbitrary custom spec projection are intentionally rejected
+because they carried neither a configuration change timestamp nor interventional evidence.
+
+Inventory evidence can correlate a Pod image pull failure with drift from an owning Deployment,
+StatefulSet, or DaemonSet template. The correlation requires complete container projections, one
+exact controller owner at each hop, immutable UID matches for every resource in the chain, a
+recognized waiting reason, and different SHA-256 image-reference fingerprints for the same
+container name. Raw image references are not projected. Recreated, ambiguous, malformed, or
+truncated evidence produces no finding, and the result remains a hold-only candidate rather than a
+claim that template drift caused the pull failure.
+The source campaign's automatic operator-namespace traversal is not ported. It inferred custom
+resource plurals from kind names, treated broad API-group read access as controller identity, and
+expanded queries without a complete RBAC projection. An allowlisted namespace alone never triggers
+inventory expansion. A future traversal capability must use discovered CRD plural identity, exact
+reviewed verbs and resources, complete role and binding projections, and an explicit bounded scope.
+
+The campaign's generic custom-resource patch allowlist is not ported. Exact API-version and kind
+allowlisting plus generation checks are necessary but insufficient for a new mutation primitive.
+The current live executor keeps `remediate.kubernetes-patch` unregistered because the source
+change does not independently prove a durable target lock, persistent duplicate suppression,
+pre-effect audit intent, bounded rollback drill, and observer-independent effect verification for
+arbitrary custom resources. A future implementation must enter as a new shadow-first ActionType
+and satisfy all seven safeguards on a real staging substrate; an evaluation environment variable
+cannot grant that authority.
+
+Admission evidence reads bounded MutatingWebhookConfiguration and
+ValidatingWebhookConfiguration projections. A structured failed event can identify a
+configuration candidate only when its webhook name is globally unique across the complete
+projection and its affected resource is in the target namespace. TLS, timeout, and backend
+failures retain a reviewed source path plus bounded failure policy and Service identity. Webhook
+URLs and CA bundles remain excluded. The finding is candidate-only; matching a webhook name does
+not prove that its configuration caused the external failure.
+Missing webhook backend semantics use a stronger absence boundary than namespace inventory. A
+candidate requires one complete webhook projection and one exact targeted Service receipt whose
+successful read confirms absence. Present, failed, ambiguous, malformed, or truncated receipts
+produce no finding. The candidate retains only configuration identity, webhook name, failure
+policy, Service identity, and reviewed source path. The targeted receipt provider remains separate
+from the reducer. The admission evaluation provider now performs at most eight exact allowlisted
+`service/{name} --ignore-not-found` reads. Empty successful output confirms absence; out-of-scope,
+failed, oversized, malformed, or identity-mismatched responses make Service evidence incomplete.
+FDAI does not use a webhook Service reference to collect the backend namespace's full inventory.
+That reference proves neither dependency on every resource in the namespace nor authority to widen
+the evidence surface. Exact targeted Service receipts replace the source campaign's broad
+cross-namespace traversal for backend absence evidence.
+FDAI also does not treat a deny-all NetworkPolicy selecting webhook backend Pods as proof that the
+policy blocks API-server traffic. Service selectors and Pod labels establish membership, not the
+control-plane network path or policy enforcement point. Without direct path evidence, this remains
+an unproven correlation and produces no causal finding.
+The source campaign's automatic `failurePolicy: Fail` to `Ignore` recovery seed is not ported.
+That mutation changes admission security intent to fail open, does not restore the missing backend,
+and lacks independent proof that the resulting admissions and rollback preserve the intended
+control. Approval, resource-version checks, and server dry-run do not establish those outcomes.
+Missing backend findings therefore remain hold-only and grant no control-plane patch authority.
+The same rejection applies to TLS trust failures: changing `failurePolicy` bypasses certificate
+validation and restores neither the trust chain nor its intended admission control.
+When a webhook namespace selector contains only the exact
+`kubernetes.io/metadata.name=<namespace>` match label and no expression, the missing-backend
+candidate records that namespace and the reviewed selector path. Extra labels, expressions,
+malformed selectors, or presence-only projections omit impact scope. Readiness never identifies an
+affected workload or broadens the namespace set.
+
+Cumulative timeout evidence is a separate candidate-only mechanism. It requires at least two
+distinct structured timeout events for distinct webhook names, the same immutable affected-resource
+UID, and timestamps inside a five-minute window ending at the trusted evidence cutoff. Duplicate,
+stale, future, UID-conflicting, malformed, or truncated events produce no finding. Unlike the
+source campaign implementation, this mechanism does not infer a NetworkPolicy or degraded workload
+as the cause without direct policy-path and temporal evidence.
+The source campaign's cumulative-timeout NetworkPolicy recovery patch is not ported. A common
+backend port and an ingress deny-all policy do not prove that API-server traffic traverses that
+policy or identify a bounded source selector. Adding unrestricted ingress for the port could widen
+unrelated traffic and lacks independent effect and rollback-outcome evidence. The timeout candidate
+therefore grants no `remediate.kubernetes-patch` authority.
+
+The shared Kubernetes package has a hold-only admission resource-drift reducer. It reports a
+candidate-only correlation between normalized request or limit drift and one complete
+selector-free, namespace-unscoped MutatingWebhookConfiguration with an exact core/v1 Pod CREATE
+rule. Complete workload selectors must also match complete Pod labels. The reducer does not claim
+that the webhook caused the drift. Multiple, conditional, scoped, or incompatible mutators,
+semantically equivalent quantities, and incomplete evidence produce no finding. The separate
+observe-only `observe.kubernetes.admission` capability joins bounded namespace inventory with a
+bounded cluster-scoped webhook projection. Webhook URLs, CA bundles, and unreviewed fields are not
+projected. This strengthens the source campaign behavior, which treated any single mutator as
+causal without proving namespace scope or rule applicability.
+
+Restricted Pod Security admission evidence is correlated only when a recent structured rejection
+names one exact ReplicaSet UID and its complete single-controller reference reaches one exact
+Deployment UID whose desired replicas exceed ready replicas. The finding carries the closed
+reviewed violation vocabulary, profile/version, immutable identities, and no raw message. Unknown,
+stale, future, recreated, ambiguous, healthy, or truncated evidence produces no finding. Diagnosis
+remains candidate-only and does not project or authorize a SecurityContext patch.
+
+Liveness failure evidence is reduced from one recent structured `Unhealthy` Event without retaining
+its raw message. A candidate requires an exact Pod UID, complete single-controller Pod-to-ReplicaSet
+and ReplicaSet-to-Deployment UID chains, a degraded Deployment, and one identical liveness-probe
+fingerprint across all three resources. Probe commands, HTTP paths, headers, and addresses are not
+projected; only mechanism, bounded timing, and a SHA-256 definition fingerprint remain. Drift,
+ambiguity, stale or future Events, and truncated evidence abstain. FDAI does not copy the source
+campaign's fixed sleep and second Event read; normal evidence freshness owns that concern.
+When the same full-chain probe identity has zero initial delay, a one-second period, and no startup
+probe at every hop, the existing candidate adds `aggressive_schedule=true`. It does not create a new
+reason, priority branch, or action authority. Startup-gate mismatch across the chain abstains.
+Readiness failures reuse the same recent Event, exact UID-chain, degraded-owner, and identical
+privacy-safe fingerprint kernel. Classification additionally requires the kubelet reporter and a
+reviewed readiness-failure phrase. It emits its own hold-only candidate without raw message or
+fixed-delay Event refresh; drift, stale identity, ambiguity, and truncation abstain.
+Provider-neutral storage semantics identify a hold-only placement candidate only when a degraded
+multi-replica workload has complete required hostname anti-affinity, an exactly matching template
+label selector, a complete mounted-volume path, and one same-namespace PVC with `ReadWriteOnce`.
+RWX, unmounted, selector-mismatched, single-replica, ambiguous, or incomplete evidence abstains.
+Concrete PVC, volume, mount, and anti-affinity inventory projection remains separate provider work.
+Provider-neutral init dependency semantics require one running init container, an exact immutable
+Pod-to-ReplicaSet-to-Deployment chain, one identical bounded command fingerprint and Service
+dependency across all three specs, and one targeted receipt confirming that Service absent.
+Present, conflicting, command-drifted, stopped, ambiguous, or incomplete evidence abstains. Raw
+commands are not retained, and concrete command/dependency projection remains provider work.
+Provider-neutral ConfigMap mount semantics require a degraded workload, complete volume and
+container-mount projections, one mounted ConfigMap volume, and one exact targeted receipt confirming
+the same-namespace ConfigMap absent. Present, conflicting, unmounted, healthy, ambiguous, or
+incomplete evidence abstains. Concrete ConfigMap and mount projection remains provider work.
+Provider-neutral rollout semantics emit a hold-only candidate when complete strategy evidence shows
+a degraded Deployment with zero available replicas, `maxSurge=0`, and `maxUnavailable` covering the
+entire desired replica count. Healthy, safe, malformed, incomplete, or truncated evidence abstains.
+Concrete strategy projection and remediation remain separate work.
+Provider-neutral CoreDNS semantics recognize one bounded `template` block only when its header
+targets `svc.cluster.local`, its sole reviewed match is an exact all-Service pattern, and it returns
+NXDOMAIN. Arbitrary regexes are never executed. Specific-Service, duplicate, malformed, oversized,
+non-NXDOMAIN, incomplete, or truncated evidence abstains. Corefile projection remains provider work.
+The source campaign's automatic Corefile template removal and CoreDNS restart are not ported. A
+global DNS mutation requires independently observed service resolution, CoreDNS rollout health,
+bounded blast radius, and snapshot restoration outcomes. Until all safeguards are validated, the
+live executor keeps `remediate.coredns-nxdomain-template` unregistered and performs no substrate call.
+Provider-neutral Service semantics identify a hold-only scaled-to-zero candidate only when endpoint
+evidence is complete and empty, the Service selector is complete, exactly one same-namespace
+workload has identical complete template labels, and its desired replicas are zero. Ready,
+nonzero, ambiguous, selector-mismatched, incomplete, or truncated evidence abstains. Concrete
+endpoint and label projection remains provider work.
+Provider-neutral autoscaling semantics identify a hold-only candidate when one complete HPA uses CPU
+utilization, has one closed `ScalingActive=False` metric-failure reason, targets one exact complete
+workload template, and at least one completely projected container lacks a positive CPU request.
+Active, valid-request, non-CPU, ambiguous, malformed, incomplete, or truncated evidence abstains.
+Concrete HPA projection remains provider work.
+The source campaign's deterministic SecurityContext patch is not ported. A syntactically grounded
+template change can alter process identity, capabilities, and workload behavior; admission success
+alone does not prove rollout health, application correctness, or rollback restoration. Until those
+effects and all seven action safeguards are independently validated, the live executor keeps
+`remediate.kubernetes-patch` unregistered and performs no substrate call.
 
 On deterministic hold for review, the existing grounded RCA path receives the task objective and
 bounded evidence. Its hypothesis is preserved in the typed `ControlLoopResult` and rendered as the
@@ -192,8 +419,8 @@ fdai-evaluation-runner check --adapter sregym
 Configure `FDAI_EVALUATION_KUBECONFIG`, `FDAI_EVALUATION_KUBERNETES_CONTEXT`,
 `FDAI_EVALUATION_KUBERNETES_CLUSTER`, and the comma-separated exact namespace allowlist in
 `FDAI_EVALUATION_KUBERNETES_NAMESPACES`. Readiness requires installed-adapter discovery, live
-Kubernetes inventory access, both Kubernetes evidence providers, pod metrics access, and a
-configured grounded RCA reasoner. It probes inventory, events, and `metrics.k8s.io` for every
+Kubernetes inventory, event, and Node evidence access, pod metrics access, and a configured
+grounded RCA reasoner. It probes inventory, events, Nodes, the capacity join, and `metrics.k8s.io` for every
 allowlisted namespace before a run. It also sends one synthetic citation-bounded RCA request so a
 stale or missing model deployment cannot report ready. The host authority remains observation mode
 even when all checks pass.

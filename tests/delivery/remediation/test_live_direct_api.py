@@ -26,7 +26,7 @@ def _req(
     mode: Mode = Mode.ENFORCE,
     labels: tuple[str, ...] = ("shadow", "enforce"),
     key: str = "k1",
-    arguments: dict | None = None,
+    arguments: dict[str, object] | None = None,
 ) -> DirectApiRequest:
     return DirectApiRequest(
         action_id=uuid4(),
@@ -195,6 +195,82 @@ async def test_unknown_action_type_returns_failed(
     r = await _exec().execute(_req(action_type="ops.does-not-exist"))
     assert r.outcome is DirectApiOutcome.FAILED
     assert "no_handler_for_action_type" in (r.detail or "")
+    assert calls == []
+
+
+async def test_custom_resource_patch_remains_unregistered_without_full_safeguards(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner, calls = _fake_run()
+    monkeypatch.setattr(lda, "_run", runner)
+
+    result = await _exec().execute(
+        _req(
+            action_type="remediate.kubernetes-patch",
+            arguments={
+                "api_version": "database.example.io/v1",
+                "kind": "Database",
+                "namespace": "demo",
+                "name": "catalog",
+                "expected_resource_version": "10",
+                "expected_generation": 4,
+                "patch": [{"op": "replace", "path": "/spec/replicas", "value": 1}],
+            },
+        )
+    )
+
+    assert result.outcome is DirectApiOutcome.FAILED
+    assert "no_handler_for_action_type" in (result.detail or "")
+    assert calls == []
+
+
+async def test_pod_security_patch_remains_unregistered_without_outcome_proof(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner, calls = _fake_run()
+    monkeypatch.setattr(lda, "_run", runner)
+
+    result = await _exec().execute(
+        _req(
+            action_type="remediate.kubernetes-patch",
+            arguments={
+                "api_version": "apps/v1",
+                "kind": "Deployment",
+                "namespace": "demo",
+                "name": "api",
+                "expected_resource_version": "10",
+                "expected_generation": 4,
+                "patch": [
+                    {
+                        "op": "add",
+                        "path": "/spec/template/spec/containers/0/securityContext",
+                        "value": {"allowPrivilegeEscalation": False},
+                    }
+                ],
+            },
+        )
+    )
+
+    assert result.outcome is DirectApiOutcome.FAILED
+    assert "no_handler_for_action_type" in (result.detail or "")
+    assert calls == []
+
+
+async def test_coredns_template_removal_remains_unregistered_without_dns_outcome_proof(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runner, calls = _fake_run()
+    monkeypatch.setattr(lda, "_run", runner)
+
+    result = await _exec().execute(
+        _req(
+            action_type="remediate.coredns-nxdomain-template",
+            arguments={"namespace": "kube-system", "name": "coredns"},
+        )
+    )
+
+    assert result.outcome is DirectApiOutcome.FAILED
+    assert "no_handler_for_action_type" in (result.detail or "")
     assert calls == []
 
 

@@ -41,6 +41,7 @@ from fdai.core.prompts.composer import PromptComposer
 from fdai.core.prompts.types import PromptMode, PromptReplayManifest
 from fdai.core.quality_gate.gate import CrossCheckProposal, QualityCandidate
 from fdai.core.tools import ToolExecutor, ToolRegistry
+from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.gateway_evidence import record_gateway_route_evidence
 from fdai.delivery.azure.llm.latency_routed_cross_check import ModelHealthTransitionSink
 from fdai.delivery.azure.llm.request_target import (
@@ -91,6 +92,7 @@ class AzureOpenAICrossCheckModelConfig:
     api_version: str = "2024-06-01"
     temperature: float = 0.0
     max_tokens: int = 512
+    model_family: str | None = None
     timeout_seconds: float = 30.0
     max_tool_iterations: int = 3
     api_style: ModelApiStyle = ModelApiStyle.AZURE_OPENAI
@@ -243,9 +245,12 @@ class AzureOpenAICrossCheckModel:
             for iteration in range(self._config.max_tool_iterations + 1):
                 body: dict[str, Any] = {
                     "messages": messages,
-                    "temperature": self._config.temperature,
-                    "max_tokens": self._config.max_tokens,
                     "response_format": {"type": "json_object"},
+                    **completion_body_params(
+                        self._config.model_family or self._config.deployment,
+                        temperature=self._config.temperature,
+                        max_tokens=self._config.max_tokens,
+                    ),
                 }
                 if self._tools_param is not None:
                     body["tools"] = self._tools_param

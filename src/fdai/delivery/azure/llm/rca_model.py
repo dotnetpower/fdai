@@ -26,6 +26,7 @@ import httpx
 
 from fdai.core.metering.emitter import MeteringEmitter
 from fdai.core.rca import Citation
+from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
     ModelRequestTarget,
@@ -50,6 +51,7 @@ class AzureOpenAIRcaModelConfig:
     api_version: str = "2024-06-01"
     temperature: float = 0.0
     max_tokens: int = 512
+    model_family: str | None = None
     timeout_seconds: float = 30.0
     api_style: ModelApiStyle = ModelApiStyle.AZURE_OPENAI
     auth_audience: str = COGNITIVE_SERVICES_SCOPE
@@ -106,9 +108,12 @@ class AzureOpenAIRcaModel:
                 {"role": "system", "content": self._config.system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "temperature": self._config.temperature,
-            "max_tokens": self._config.max_tokens,
             "response_format": {"type": "json_object"},
+            **completion_body_params(
+                self._config.model_family or self._config.deployment,
+                temperature=self._config.temperature,
+                max_tokens=self._config.max_tokens,
+            ),
         }
         if request.model_body_field is not None:
             body["model"] = request.model_body_field

@@ -1152,7 +1152,7 @@ async def test_wire_azure_container_forwards_model_endpoint_resolver(tmp_path: P
             "route_kind": "direct",
             "api_style": "azure-openai",
             "endpoint_ref": "azure-openai:oai-example",
-            "deployment": "shared-gpt-4o",
+            "deployment": "shared-gpt-5-4",
             "api_version": "2024-10-21",
             "auth": {
                 "kind": "entra",
@@ -1160,8 +1160,8 @@ async def test_wire_azure_container_forwards_model_endpoint_resolver(tmp_path: P
             },
             "model": {
                 "publisher": "OpenAI",
-                "family": "gpt-4o",
-                "version": "2024-11-20",
+                "family": "gpt-5.4",
+                "version": "2026-03-05",
             },
             "capacity": {"unit": "tpm", "value": 1_000},
             "features": {
@@ -1202,7 +1202,8 @@ async def test_wire_azure_container_forwards_model_endpoint_resolver(tmp_path: P
     assert reasoner is not None
     model = reasoner._model  # noqa: SLF001
     assert model._config.endpoint == "https://oai-example.openai.azure.com"  # noqa: SLF001
-    assert model._config.deployment == "shared-gpt-4o"  # noqa: SLF001
+    assert model._config.deployment == "shared-gpt-5-4"  # noqa: SLF001
+    assert model._config.model_family == "gpt-5.4"  # noqa: SLF001
 
 
 async def test_wire_azure_container_propagates_scope_resolver(tmp_path: Path) -> None:

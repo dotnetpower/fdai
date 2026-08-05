@@ -215,6 +215,33 @@ async def test_cross_check_parses_structured_json_response() -> None:
 
 
 @pytest.mark.asyncio
+async def test_cross_check_gpt5_family_uses_completion_tokens_without_temperature() -> None:
+    captured: list[httpx.Request] = []
+    transport = _mock_cross_check_transport(
+        json.dumps({"action_type": "remediate.tag-add", "params": {}}),
+        captured=captured,
+    )
+    async with httpx.AsyncClient(transport=transport) as http:
+        adapter = AzureOpenAICrossCheckModel(
+            identity=_StaticIdentity(),
+            http_client=http,
+            config=AzureOpenAICrossCheckModelConfig(
+                endpoint="https://oai-test.openai.azure.com",
+                deployment="t2-primary",
+                model_family="gpt-5.4-mini",
+                system_prompt=_TEST_SYSTEM_PROMPT,
+                max_tokens=256,
+            ),
+        )
+        await adapter.propose(_candidate())
+
+    body = json.loads(captured[0].content.decode())
+    assert body["max_completion_tokens"] == 256
+    assert "max_tokens" not in body
+    assert "temperature" not in body
+
+
+@pytest.mark.asyncio
 async def test_cross_check_rejects_non_json_content() -> None:
     transport = _mock_cross_check_transport("not-json", captured=[])
     async with httpx.AsyncClient(transport=transport) as http:

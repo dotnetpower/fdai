@@ -105,6 +105,34 @@ async def test_request_is_bounded_and_target_is_caller_bound(valid_rule: dict[st
 
 
 @pytest.mark.asyncio
+async def test_gpt5_family_uses_completion_tokens_without_temperature(
+    valid_rule: dict[str, Any],
+) -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json=_envelope(_valid_response()))
+
+    config = AzureOpenAIProposerConfig(
+        endpoint="https://example.openai.azure.com",
+        deployment="t2-primary",
+        model_family="gpt-5.4-mini",
+        system_prompt="Return a bounded FDAI proposal.",
+        max_tokens=256,
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        proposer = AzureOpenAIProposer(identity=_FakeIdentity(), http_client=client, config=config)
+        assert await proposer.propose(context=_context(valid_rule)) is not None
+
+    body = captured["body"]
+    assert isinstance(body, dict)
+    assert body["max_completion_tokens"] == 256
+    assert "max_tokens" not in body
+    assert "temperature" not in body
+
+
+@pytest.mark.asyncio
 async def test_abstain_response_returns_none(valid_rule: dict[str, Any]) -> None:
     transport = httpx.MockTransport(
         lambda _request: httpx.Response(200, json=_envelope({"abstain": True}))

@@ -400,6 +400,13 @@ enforce step. The `on_self_consistency_below` trigger reads the
 places on the candidate - the gate never samples a model itself (the sampler's
 "cascade trigger is a composition concern" contract).
 
+Before any trigger can climb, the ladder requires a trusted count of validated
+ontology, rule, or deterministic-evidence improvements. The default minimum is 10. The count comes
+from orchestration, never from the model candidate, and both the count and configured minimum are
+recorded in `escalation_metadata`. A missing count defaults to 0 and therefore stops safely with
+`ontology_improvement_budget_remaining`. This remains shadow observation until durable case-history
+orchestration supplies the count and a separate promotion enables invocation.
+
 The ladder rungs (`EscalationTier`) map one-to-one onto the registry capabilities:
 `PRIMARY` -> `SECONDARY` -> `ESCALATED`. `decide_escalation` returns `ESCALATE`
 (spend the next-stronger reasoner as a tiebreaker) or `STOP` (the caller routes the
@@ -413,11 +420,19 @@ unresolved case to HIL), under these hardening invariants:
   `t2.reasoner.escalated`) returns `STOP`, above the deny-list in precedence.
 - **Cost-bounded.** A single call climbs at most one rung and never past the
   `ESCALATED` ceiling; `enabled=False` is a killswitch for a cost spike.
+- **Ontology-first.** A configured trigger still stops until the trusted validated-improvement
+  count reaches `minimum_ontology_improvement_attempts`.
 - **Triggers.** `cross_check_disagreement` (primary, mirrors the registry's
   `invocation: on_disagreement`) plus an optional `on_self_consistency_below`
   threshold (escalate when the self-consistency sampler reports a wavering proposer,
   even on nominal agreement). A per-ActionType `never`/`always` list tunes it, deny
   winning over allow.
+
+Resolved model family is passed separately from the deployment alias to each T2 adapter. GPT-5
+and o-series chat families send `max_completion_tokens` and omit custom `temperature`; classic
+chat families retain `max_tokens` and `temperature`. This applies consistently to RCA, proposer,
+and cross-check requests, including primary latency-pool members, so a friendly deployment alias
+cannot select the wrong wire fields.
 
 ### Narrator Latency Routing (T1-Only)
 
