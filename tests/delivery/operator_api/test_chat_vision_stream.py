@@ -55,6 +55,12 @@ class _FailingImageStore(InMemoryConversationImageStore):
         raise RuntimeError("image store unavailable")
 
 
+class _FailingHistoryStore(InMemoryConversationHistoryStore):
+    async def append_turn(self, record: Any, *, allocate_index: bool = False) -> Any:
+        del record, allocate_index
+        raise RuntimeError("turn store unavailable")
+
+
 async def _allow(request: Request) -> str:
     del request
     return "reader"
@@ -187,3 +193,40 @@ def test_chat_stream_image_failure_leaves_no_operator_turn() -> None:
         )
     )
     assert len(turns) == 0
+
+
+def test_chat_stream_turn_failure_compensates_new_image() -> None:
+    history = _FailingHistoryStore()
+    images = InMemoryConversationImageStore()
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=_Backend(),
+                authorize=_allow,
+                conversation_history_store=history,
+                conversation_image_store=images,
+            )
+        ]
+    )
+
+    with pytest.raises(RuntimeError, match="turn store unavailable"):
+        TestClient(app).post(
+            "/chat/stream",
+            json={
+                "prompt": "what is shown?",
+                "session_id": "session-failed-turn",
+                "request_id": "request-failed-turn",
+                "attachments": [
+                    {"id": "att-compensated", "name": "photo.png", "data_url": _DATA_URL}
+                ],
+            },
+        )
+
+    stored = asyncio.run(
+        images.get(
+            principal_id="reader",
+            conversation_id="session-failed-turn",
+            image_id="att-compensated",
+        )
+    )
+    assert stored is None

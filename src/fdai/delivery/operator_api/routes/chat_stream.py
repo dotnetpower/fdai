@@ -93,9 +93,7 @@ from fdai.delivery.operator_api.routes.chat_freshness_context import (
 from fdai.delivery.operator_api.routes.chat_history import (
     append_assistant_turn,
     append_content_policy_receipt,
-    append_operator_turn,
     completed_replay_payload,
-    ensure_conversation,
     replay_metadata,
 )
 from fdai.delivery.operator_api.routes.chat_history_context import (
@@ -105,7 +103,7 @@ from fdai.delivery.operator_api.routes.chat_history_context import (
 )
 from fdai.delivery.operator_api.routes.chat_image_history import (
     image_turn_metadata,
-    persist_conversation_images,
+    persist_operator_turn_with_images,
 )
 from fdai.delivery.operator_api.routes.chat_intent_graph import (
     IntentGraph,
@@ -377,23 +375,10 @@ def make_chat_stream_route(
                     )
                 operator_recorded_at = datetime.now(tz=UTC)
                 try:
-                    await ensure_conversation(
-                        store=conversation_history_store,
-                        principal_id=user_id,
-                        conversation_id=session_id,
-                        recorded_at=operator_recorded_at,
-                    )
-                    if conversation_image_store is not None:
-                        await persist_conversation_images(
-                            store=conversation_image_store,
-                            attachments=prepared.vision_attachments,
-                            principal_id=user_id,
-                            conversation_id=session_id,
-                            request_id=request_id,
-                            created_at=operator_recorded_at,
-                        )
-                    operator_turn = await append_operator_turn(
-                        store=conversation_history_store,
+                    operator_turn = await persist_operator_turn_with_images(
+                        history_store=conversation_history_store,
+                        image_store=conversation_image_store,
+                        attachments=prepared.vision_attachments,
                         principal_id=user_id,
                         conversation_id=session_id,
                         request_id=request_id,

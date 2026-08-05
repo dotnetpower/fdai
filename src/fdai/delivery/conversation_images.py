@@ -24,6 +24,12 @@ class ConversationImageQuotaError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
+class ConversationImageBatchResult:
+    images: tuple[ConversationImage, ...]
+    created_image_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class ConversationImage:
     image_id: str
     principal_id: str
@@ -95,7 +101,15 @@ class ConversationImageStore(Protocol):
 
     async def put_many(
         self, images: tuple[ConversationImage, ...]
-    ) -> tuple[ConversationImage, ...]: ...
+    ) -> ConversationImageBatchResult: ...
+
+    async def delete_many(
+        self,
+        *,
+        principal_id: str,
+        conversation_id: str,
+        image_ids: tuple[str, ...],
+    ) -> None: ...
 
     async def get(
         self,
@@ -120,11 +134,9 @@ class InMemoryConversationImageStore:
         self._max_bytes_per_principal = max_bytes_per_principal
 
     async def put(self, image: ConversationImage) -> ConversationImage:
-        return (await self.put_many((image,)))[0]
+        return (await self.put_many((image,))).images[0]
 
-    async def put_many(
-        self, images: tuple[ConversationImage, ...]
-    ) -> tuple[ConversationImage, ...]:
+    async def put_many(self, images: tuple[ConversationImage, ...]) -> ConversationImageBatchResult:
         stored: list[ConversationImage] = []
         pending: dict[tuple[str, str, str], ConversationImage] = {}
         for image in images:
@@ -150,7 +162,20 @@ class InMemoryConversationImageStore:
             if sum(len(image.content) for image in current + added) > self._max_bytes_per_principal:
                 raise ConversationImageQuotaError("conversation image byte quota exceeded")
         self._images.update(pending)
-        return tuple(stored)
+        return ConversationImageBatchResult(
+            tuple(stored),
+            tuple(image.image_id for image in pending.values()),
+        )
+
+    async def delete_many(
+        self,
+        *,
+        principal_id: str,
+        conversation_id: str,
+        image_ids: tuple[str, ...],
+    ) -> None:
+        for image_id in image_ids:
+            self._images.pop((principal_id, conversation_id, image_id), None)
 
     async def get(
         self,
@@ -164,6 +189,7 @@ class InMemoryConversationImageStore:
 
 __all__ = [
     "ConversationImage",
+    "ConversationImageBatchResult",
     "ConversationImageConflictError",
     "ConversationImageQuotaError",
     "ConversationImageStore",

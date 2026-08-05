@@ -8,6 +8,7 @@ from fdai.delivery.conversation_images import (
     DEFAULT_MAX_IMAGE_BYTES_PER_PRINCIPAL,
     DEFAULT_MAX_IMAGES_PER_PRINCIPAL,
     ConversationImage,
+    ConversationImageBatchResult,
     ConversationImageConflictError,
     ConversationImageQuotaError,
 )
@@ -32,15 +33,13 @@ class PostgresConversationImageStore(_PostgresBase):
         self._max_bytes_per_principal = max_bytes_per_principal
 
     async def put(self, image: ConversationImage) -> ConversationImage:
-        return (await self.put_many((image,)))[0]
+        return (await self.put_many((image,))).images[0]
 
-    async def put_many(
-        self, images: tuple[ConversationImage, ...]
-    ) -> tuple[ConversationImage, ...]:
+    async def put_many(self, images: tuple[ConversationImage, ...]) -> ConversationImageBatchResult:
         async with await self._connect() as connection, connection.transaction():
             await self._timeout(connection)
             if not images:
-                return ()
+                return ConversationImageBatchResult((), ())
             principals = {image.principal_id for image in images}
             if len(principals) != 1:
                 raise ValueError("conversation image batch MUST have one principal")
@@ -88,7 +87,27 @@ class PostgresConversationImageStore(_PostgresBase):
                 raise ConversationImageQuotaError("conversation image byte quota exceeded")
             for key, image in pending.items():
                 existing[key] = await self._put(connection, image)
-            return tuple(existing[(image.conversation_id, image.image_id)] for image in images)
+            return ConversationImageBatchResult(
+                tuple(existing[(image.conversation_id, image.image_id)] for image in images),
+                tuple(image.image_id for image in pending.values()),
+            )
+
+    async def delete_many(
+        self,
+        *,
+        principal_id: str,
+        conversation_id: str,
+        image_ids: tuple[str, ...],
+    ) -> None:
+        if not image_ids:
+            return
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            await connection.execute(
+                "DELETE FROM conversation_image WHERE principal_id = %s "
+                "AND conversation_id = %s AND image_id = ANY(%s)",
+                (principal_id, conversation_id, list(image_ids)),
+            )
 
     async def _put(self, connection: Any, image: ConversationImage) -> ConversationImage:
         cursor = await connection.execute(
