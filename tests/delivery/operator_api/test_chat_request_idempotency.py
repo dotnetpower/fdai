@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 from typing import Any
 
@@ -8,6 +9,7 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
+from fdai.delivery.conversation_images import InMemoryConversationImageStore
 from fdai.delivery.operator_api.routes.chat import (
     ChatBackend,
     make_chat_route,
@@ -36,20 +38,31 @@ async def _authorize(request: Request) -> str:
     return request.headers.get("x-test-principal", "principal-a")
 
 
+_PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+    b"\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x00\x00\x00\x00"
+)
+_DATA_URL = f"data:image/png;base64,{base64.b64encode(_PNG).decode()}"
+
+
 def _client() -> tuple[TestClient, _ChangingBackend, InMemoryConversationHistoryStore]:
     backend = _ChangingBackend()
     store = InMemoryConversationHistoryStore()
+    images = InMemoryConversationImageStore()
     app = Starlette(
         routes=[
             make_chat_route(
                 backend=backend,
                 authorize=_authorize,
                 conversation_history_store=store,
+                conversation_image_store=images,
             ),
             make_chat_stream_route(
                 backend=backend,
                 authorize=_authorize,
                 conversation_history_store=store,
+                conversation_image_store=images,
             ),
         ]
     )
@@ -81,11 +94,18 @@ def _request(
     *,
     prompt: str = "Show major issues.",
     session_id: str = "conversation-1",
-) -> dict[str, str]:
+) -> dict[str, Any]:
     return {
         "prompt": prompt,
         "session_id": session_id,
         "request_id": "request-1",
+    }
+
+
+def _image_request() -> dict[str, Any]:
+    return {
+        **_request(),
+        "attachments": [{"id": "att-retry", "name": "retry.png", "data_url": _DATA_URL}],
     }
 
 
@@ -132,6 +152,30 @@ def test_stream_exact_retry_replays_only_completed_terminal_response() -> None:
     )
     assert retry.text.count("event: done") == 1
     assert "event: token" not in retry.text
+    assert backend.calls == 1
+
+
+def test_json_exact_image_retry_replays_without_conflict() -> None:
+    client, backend, _ = _client()
+
+    first = client.post("/chat", json=_image_request())
+    retry = client.post("/chat", json=_image_request())
+
+    assert first.status_code == retry.status_code == 200
+    assert retry.json() == first.json()
+    assert backend.calls == 1
+
+
+def test_stream_exact_image_retry_replays_without_conflict() -> None:
+    client, backend, _ = _client()
+
+    first = client.post("/chat/stream", json=_image_request())
+    retry = client.post("/chat/stream", json=_image_request())
+
+    assert first.status_code == retry.status_code == 200
+    assert _terminal_payload(_done_payload(retry.text)) == _terminal_payload(
+        _done_payload(first.text)
+    )
     assert backend.calls == 1
 
 

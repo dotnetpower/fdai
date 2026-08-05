@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import os
 from dataclasses import replace
@@ -231,6 +232,50 @@ async def test_postgres_image_quota_and_schema_constraints() -> None:
                         now + timedelta(days=1),
                     ),
                 )
+    finally:
+        async with await psycopg.AsyncConnection.connect(dsn) as connection:
+            await connection.execute(
+                "DELETE FROM conversation_record WHERE principal_id = %s",
+                (principal_id,),
+            )
+
+
+async def test_postgres_concurrent_writes_cannot_bypass_principal_quota() -> None:
+    dsn = _dsn()
+    config = PostgresUserContextStoreConfig(dsn=dsn)
+    history = PostgresConversationHistoryStore(config=config)
+    store = PostgresConversationImageStore(config=config, max_images_per_principal=1)
+    suffix = uuid4().hex
+    principal_id = f"concurrent-principal-{suffix}"
+    conversation_id = f"concurrent-conversation-{suffix}"
+    now = datetime.now(tz=UTC)
+    await history.create_conversation(
+        ConversationRecord(conversation_id, principal_id, "web", now, now)
+    )
+
+    try:
+        results = await asyncio.gather(
+            store.put(
+                _image(
+                    principal_id=principal_id,
+                    conversation_id=conversation_id,
+                    image_id="att-concurrent-first",
+                    created_at=now,
+                )
+            ),
+            store.put(
+                _image(
+                    principal_id=principal_id,
+                    conversation_id=conversation_id,
+                    image_id="att-concurrent-second",
+                    created_at=now,
+                )
+            ),
+            return_exceptions=True,
+        )
+
+        assert sum(isinstance(result, ConversationImage) for result in results) == 1
+        assert sum(isinstance(result, ConversationImageQuotaError) for result in results) == 1
     finally:
         async with await psycopg.AsyncConnection.connect(dsn) as connection:
             await connection.execute(
