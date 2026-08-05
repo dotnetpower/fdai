@@ -107,6 +107,34 @@ def validate_semantic_inventory_status_arguments(
         raise SemanticInventoryStatusError("semantic inventory status predicate is invalid")
 
 
+def canonicalize_semantic_inventory_status_arguments(
+    query: InventoryQuery,
+    planned_arguments: Mapping[str, object],
+) -> InventoryQuery:
+    """Replace planned ontology state IDs with their canonical provider values."""
+
+    raw_predicates = planned_arguments.get("predicates")
+    if not isinstance(raw_predicates, Sequence) or isinstance(raw_predicates, str | bytes):
+        return query
+    if not any(
+        isinstance(item, Mapping) and item.get("field") == InventoryField.STATUS.value
+        for item in raw_predicates
+    ):
+        return query
+    selector = replace(
+        query,
+        predicates=tuple(
+            predicate
+            for predicate in query.predicates
+            if predicate.field is not InventoryField.STATUS
+        ),
+    )
+    merged = merge_semantic_inventory_status_query(selector, planned_arguments)
+    if merged is None:  # pragma: no cover - status presence guarantees a merge or error
+        raise SemanticInventoryStatusError("semantic inventory status predicate is invalid")
+    return InventoryQuery.from_mapping(merged)
+
+
 def ground_inventory_status_query(
     query: InventoryQuery,
     resources: Sequence[Mapping[str, Any]],
@@ -274,6 +302,7 @@ def _canonical_current_status_values() -> frozenset[str]:
 __all__ = [
     "SemanticInventoryStatusError",
     "SemanticInventoryInterpretationRequiredError",
+    "canonicalize_semantic_inventory_status_arguments",
     "ground_inventory_status_query",
     "merge_semantic_inventory_status",
     "merge_semantic_inventory_status_query",

@@ -208,6 +208,27 @@ async def test_direct_planned_inventory_rejects_noncanonical_status_before_provi
     assert provider_calls == 0
 
 
+async def test_direct_planned_inventory_canonicalizes_ontology_state_before_read() -> None:
+    evidence = await InventoryChatTools(_provider).resolve_planned(
+        "query_inventory",
+        {
+            "source": "current",
+            "kind": "list",
+            "predicates": [
+                {"field": "resource_type", "operator": "eq", "value": "compute.vm"},
+                {"field": "status", "operator": "eq", "value": "inactive"},
+            ],
+            "lookback_seconds": None,
+        },
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    assert evidence["result"]["status"] == "matched"
+    assert evidence["result"]["matched_count"] == 1
+    assert [resource["name"] for resource in evidence["result"]["resources"]] == ["vm-job"]
+
+
 async def test_malformed_provider_resource_fails_closed_without_partial_projection() -> None:
     async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
         del args, kwargs

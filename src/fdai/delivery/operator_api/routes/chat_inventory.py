@@ -46,8 +46,8 @@ from fdai.delivery.operator_api.routes.chat_inventory_semantic_retrieval import 
 )
 from fdai.delivery.operator_api.routes.chat_inventory_semantics import (
     SemanticInventoryStatusError,
+    canonicalize_semantic_inventory_status_arguments,
     ground_inventory_status_query,
-    validate_semantic_inventory_status_arguments,
 )
 from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
 from fdai.delivery.operator_api.routes.chat_topology_intent import is_topology_question
@@ -106,7 +106,7 @@ class InventoryChatTools:
             return None
         query = InventoryQuery.from_mapping(arguments)
         try:
-            validate_semantic_inventory_status_arguments(query, arguments)
+            query = canonicalize_semantic_inventory_status_arguments(query, arguments)
         except SemanticInventoryStatusError:
             return {
                 "tool": "query_inventory",
