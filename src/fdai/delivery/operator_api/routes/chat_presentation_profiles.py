@@ -173,6 +173,8 @@ def _inventory_profile(
     counts = result.get("matched_type_counts")
     category_count = len(counts) if isinstance(counts, Mapping) else 0
     query_kind = str(result.get("query_kind") or "list")
+    if query_kind not in {"list", "types"}:
+        return None
     limited = result.get("status") == "partial" or result.get("truncated") is True
     coverage_state: Literal["complete", "limited", "unknown"] = "limited" if limited else "complete"
     slots: list[PresentationSlot] = [
