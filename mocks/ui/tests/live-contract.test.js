@@ -12,6 +12,14 @@ test("flow preview exposes twelve concurrent work slots", () => {
   assert.match(script, /var FLOW_POOL_SIZE = 12;/);
   assert.match(script, /for \(var slotIndex = 0; slotIndex < FLOW_POOL_SIZE; slotIndex\+\+\) spawn\(t\);\s*renderOperationalState\(t\);/);
   assert.match(stylesheet, /grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); grid-template-rows: repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(stylesheet, /\.cs-swarm \{[^}]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
+});
+
+test("live operational typography remains legible", () => {
+  assert.match(stylesheet, /operational text and labels stay at 12px or larger/);
+  assert.match(stylesheet, /\.cs-live-health span \{[^}]*font-size: 12px/);
+  assert.match(stylesheet, /\.cs-tile-title \{[^}]*font-size: 13px/);
+  assert.match(stylesheet, /\.cs-tile-mode \{[^}]*font-size: 11px/);
 });
 
 test("gated and shadow paths do not observe execution or effect", () => {

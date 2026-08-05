@@ -94,9 +94,9 @@ Report and kit:
 - [assets/live.js](assets/live.js) - Live cockpit only. Generates synthetic control-plane events,
   routes them through T0 / T1 / T2 with the roadmap's distribution, stops non-executable paths
   before execution and effect observation, and reports omitted synthetic attempts when the preview
-  pool is saturated. Its 12-item work pool renders as a dense two-row desktop swarm and responsive
-  tablet or mobile flow. It renders the swarm, sparkline, and audit ticker entirely client-side with
-  no backend.
+  pool is saturated. Its 12-item work pool renders as a four-column desktop swarm and responsive
+  tablet or mobile flow with a 12px operational text floor and 11px technical annotations. It
+  renders the swarm, sparkline, and audit ticker entirely client-side with no backend.
 
 ## Usage
 
