@@ -70,6 +70,12 @@ and are used consistently by every referring doc:
   the console (multi-turn, RBAC-scoped, audited).
 - **console-tool** - one exposed pipeline stage or catalog view the narrator
   may call.
+
+Explanatory questions about T2 execution-eligibility checks or insufficient-evidence handling use
+the canonical glossary before action-context or intent-graph tools. This precedence applies only
+to concept explanations. A question with an exact action, approval, correlation, or idempotency
+selector continues to require server-owned action lifecycle evidence.
+
 ## 2. Three-layer architecture
 
 ```mermaid

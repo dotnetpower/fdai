@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 043ea0b346032b6f99504e9669762824f53bd9b3
+translation_source_sha: 323c85dc5db826b6795ec48ab70457dee0bbe83e
 translation_revised: 2026-08-05
 ---
 
@@ -69,6 +69,12 @@ Operator API는 review를 ready로 표시하거나 catalog proposal을 만들거
   하나 (멀티-turn, RBAC-scoped, 감사됨).
 - **console-tool** - narrator가 호출 가능한 노출된 pipeline stage 또는
   카탈로그 view 하나.
+
+T2 실행 적격성 검사 또는 불충분한 근거 처리에 대한 설명형 질문은 action-context 또는
+intent-graph tool보다 canonical glossary를 먼저 사용합니다. 이 우선순위는 개념 설명에만
+적용됩니다. 정확한 action, approval, correlation 또는 idempotency selector가 있는 질문은 계속
+server-owned action lifecycle evidence가 필요합니다.
+
 ## 2. 3-layer 아키텍처
 
 ```mermaid

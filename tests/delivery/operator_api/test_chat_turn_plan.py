@@ -673,6 +673,44 @@ def test_insufficient_evidence_concept_bypasses_agent_intent_graph_korean(
 
 
 @pytest.mark.parametrize("stream", [False, True])
+def test_t2_quality_gate_explanation_bypasses_action_context(stream: bool) -> None:
+    prompt = (
+        "Before a T2-graded change proposal can be marked execution eligible, what full set "
+        "of checks must it pass across ontology validation, safety gating, and evidence "
+        "sufficiency, and can you walk through each check using current read-only evidence?"
+    )
+    backend = _AnswerBackend()
+    planner = _Planner()
+    route = (
+        make_chat_stream_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=default_read_turn_tools(),
+        )
+        if stream
+        else make_chat_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=default_read_turn_tools(),
+        )
+    )
+
+    response = TestClient(Starlette(routes=[route])).post(
+        "/chat/stream" if stream else "/chat",
+        json={"prompt": prompt, "view_context": {}},
+    )
+
+    assert response.status_code == 200
+    assert planner.calls == 0
+    assert backend.calls == 0
+    payload = response.text if stream else json.dumps(response.json())
+    assert "fdai_glossary" in payload
+    assert "Quality gate (T2)" in payload
+
+
+@pytest.mark.parametrize("stream", [False, True])
 def test_chat_routes_execute_hierarchical_intent_graph(stream: bool) -> None:
     backend = _AnswerBackend()
     tools = (

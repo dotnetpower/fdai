@@ -128,6 +128,15 @@ _INSUFFICIENT_EVIDENCE_CONCEPT: Final = re.compile(
 )
 
 
+_T2_QUALITY_GATE_CONCEPT: Final = re.compile(
+    r"^(?=[\s\S]{0,400}\bt2(?:-graded)?\b)"
+    r"(?=[\s\S]{0,400}\bexecution eligib(?:le|ility)\b)"
+    r"(?=[\s\S]{0,400}\b(?:what|which|explain|requirements?|walk through)\b)"
+    r"(?=[\s\S]{0,400}\b(?:checks?|pass|validation|gating|sufficiency)\b)",
+    re.IGNORECASE,
+)
+
+
 _AGENT_NAME_TOKEN: Final = re.compile(r"[A-Za-z][A-Za-z0-9-]*")
 
 
@@ -171,6 +180,7 @@ _GLOSSARY_ALIASES: Final = {
     # is English-only ("Insufficient evidence: ..."), so a Korean-phrased
     # question needs this alias to score against that entry.
     "insufficient evidence": _INSUFFICIENT_EVIDENCE_CONCEPT,
+    "quality gate (t2)": _T2_QUALITY_GATE_CONCEPT,
 }
 
 
@@ -188,9 +198,9 @@ def _is_concept_query(prompt: str) -> bool:
 def _is_grounded_concept_query(prompt: str) -> bool:
     """Return whether the canonical glossary owns this explanatory turn."""
 
-    return bool(_INSUFFICIENT_EVIDENCE_CONCEPT.search(prompt)) or (
-        _is_concept_query(prompt) and bool(_CONCEPT_DOMAIN.search(prompt))
-    )
+    return bool(
+        _INSUFFICIENT_EVIDENCE_CONCEPT.search(prompt) or _T2_QUALITY_GATE_CONCEPT.search(prompt)
+    ) or (_is_concept_query(prompt) and bool(_CONCEPT_DOMAIN.search(prompt)))
 
 
 def _is_screen_explanation_query(prompt: str) -> bool:
