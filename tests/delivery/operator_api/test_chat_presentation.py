@@ -422,7 +422,7 @@ async def test_health_presentation_selects_mixed_slots_without_evidence_values()
         view_context=_health_context(),
     )
 
-    assert decision.answer_plan.format is AnswerFormat.PROSE
+    assert decision.answer_plan.format is AnswerFormat.MIXED
     assert decision.presentation_plan is not None
     assert [item.slot_id for item in decision.presentation_plan.placements] == [
         "overview",
@@ -609,7 +609,7 @@ async def test_inventory_plan_preserves_table_fallback_and_compiles_mixed_artifa
         view_context=context,
     )
     assert decision.presentation_plan is not None
-    assert decision.answer_plan.format is AnswerFormat.PROSE
+    assert decision.answer_plan.format is AnswerFormat.TABLE
     context["_presentation_plan"] = decision.presentation_plan.to_dict()
 
     artifact = response_presentation_artifact(

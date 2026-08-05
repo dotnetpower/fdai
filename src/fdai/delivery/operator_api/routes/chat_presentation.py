@@ -11,6 +11,7 @@ from typing import Any, Final
 from fdai.core.conversation.answer_plan import AnswerFormat, AnswerPlan
 from fdai.delivery.operator_api.routes.chat_presentation_contract import (
     PresentationPlan,
+    PresentationProfile,
     default_presentation_plan,
     parse_presentation_plan,
     presentation_plan_schema,
@@ -95,7 +96,10 @@ async def select_answer_presentation(
     if plan.explicit_overrides or plan.preference_applied:
         return PresentationDecision(answer_plan=plan, presentation_plan=None)
     if not isinstance(backend, StructuredCompletionBackend):
-        return PresentationDecision(answer_plan=plan, presentation_plan=fallback)
+        return PresentationDecision(
+            answer_plan=_fallback_answer_plan(plan, profile.kind, fallback),
+            presentation_plan=fallback,
+        )
     user_content = json.dumps(
         {
             "operator_request": prompt[:512],
@@ -119,13 +123,73 @@ async def select_answer_presentation(
             "chat structured presentation unavailable",
             extra={"error_type": type(exc).__name__},
         )
-        return PresentationDecision(answer_plan=plan, presentation_plan=fallback)
+        return PresentationDecision(
+            answer_plan=_fallback_answer_plan(plan, profile.kind, fallback),
+            presentation_plan=fallback,
+        )
     parsed = parse_presentation_plan(proposed, profile)
-    presentation_plan = parsed if parsed is not None else fallback
+    if parsed is None:
+        parsed = _legacy_inventory_presentation_plan(proposed, profile, fallback)
+    if parsed is None:
+        return PresentationDecision(
+            answer_plan=_fallback_answer_plan(plan, profile.kind, fallback),
+            presentation_plan=fallback,
+        )
     return PresentationDecision(
-        answer_plan=plan,
-        presentation_plan=presentation_plan,
+        answer_plan=_answer_plan_for_selected_presentation(plan, profile.kind, parsed),
+        presentation_plan=parsed,
     )
+
+
+def _legacy_inventory_presentation_plan(
+    proposed: Mapping[str, object],
+    profile: PresentationProfile,
+    fallback: PresentationPlan,
+) -> PresentationPlan | None:
+    if profile.kind != "inventory" or set(proposed) != {"format"}:
+        return None
+    selected = proposed.get("format")
+    if selected not in {AnswerFormat.TABLE.value, AnswerFormat.CHART.value}:
+        return None
+    target_component = "data_table" if selected == AnswerFormat.TABLE.value else "bar_chart"
+    placements = []
+    changed = False
+    slots = {slot.slot_id: slot for slot in profile.slots}
+    for placement in fallback.placements:
+        slot = slots[placement.slot_id]
+        if target_component in slot.allowed_components:
+            placements.append(replace(placement, component=target_component))
+            changed = True
+        else:
+            placements.append(placement)
+    return PresentationPlan(placements=tuple(placements)) if changed else None
+
+
+def _fallback_answer_plan(
+    plan: AnswerPlan,
+    profile_kind: str,
+    presentation_plan: PresentationPlan,
+) -> AnswerPlan:
+    if profile_kind == "inventory" and any(
+        placement.slot_id == "records" for placement in presentation_plan.placements
+    ):
+        return replace(plan, format=AnswerFormat.TABLE)
+    return plan
+
+
+def _answer_plan_for_selected_presentation(
+    plan: AnswerPlan,
+    profile_kind: str,
+    presentation_plan: PresentationPlan,
+) -> AnswerPlan:
+    if profile_kind == "subscription_health":
+        return replace(plan, format=AnswerFormat.MIXED)
+    components = {placement.component for placement in presentation_plan.placements}
+    if components & {"bar_chart", "line_chart"}:
+        return replace(plan, format=AnswerFormat.CHART)
+    if components & {"data_table", "status_table", "threshold_table"}:
+        return replace(plan, format=AnswerFormat.TABLE)
+    return plan
 
 
 def _plain_presentation_requested(plan: AnswerPlan) -> bool:

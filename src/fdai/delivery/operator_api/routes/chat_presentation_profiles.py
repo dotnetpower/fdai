@@ -216,7 +216,7 @@ def _inventory_profile(
                 coverage_state,
             )
         )
-    elif resources:
+    elif len(resources) >= 2:
         slots.append(
             _slot(
                 "records",
