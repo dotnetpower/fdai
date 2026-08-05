@@ -585,6 +585,94 @@ def test_insufficient_evidence_concept_bypasses_agent_intent_graph(
 
 
 @pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        (
+            "Norns가 특정 변경 제안에 대해 수집한 증거의 신뢰도가 결정을 내리기에 충분하지 "
+            "않다고 판단할 경우, FDAI는 해당 제안을 보류 상태로 유지하는지, 아니면 Odin에게 "
+            "에스컬레이션하는지, 그리고 그 판단 기준이 되는 읽기 전용 근거는 무엇인지 설명해 "
+            "주시겠어요?"
+        ),
+        (
+            "Norns가 어떤 변경 제안을 검토했는데 모아진 증거의 신뢰도가 결정을 내리기엔 "
+            "부족하다고 판단했다면, FDAI는 그 제안을 그대로 보류시키나요, 아니면 Odin한테 "
+            "넘겨서 에스컬레이션하나요? 이때 판단 근거로 삼는 읽기 전용 자료는 뭐가요?"
+        ),
+        (
+            "증거 신뢰도 부족 시 FDAI의 처리 절차가 궁금합니다. Norns가 특정 제안의 근거가 "
+            "충분치 않다고 결론지었을 때, 제안은 보류 상태로 남는지 혹은 Odin 에스컬레이션으로 "
+            "이어지는지, 그리고 이 판단에 쓰이는 읽기 전용 근거 자료는 무엇인지 알려주세요."
+        ),
+        (
+            "Norns가 증거 신뢰도 부족하다고 보면 그냥 홀드 걸어두는 거예요, 아니면 바로 "
+            "Odin한테 에스컬레이션하는 거예요? 그 판단할 때 참고하는 읽기 전용 근거가 뭔지도 "
+            "궁금해요."
+        ),
+    ],
+)
+def test_insufficient_evidence_concept_bypasses_agent_intent_graph_korean(
+    stream: bool,
+    prompt: str,
+) -> None:
+    """Korean phrasing of the insufficient-evidence concept must ground the
+    same as the English phrasing above: no live agent delegation or
+    intent-graph tool call, only the canonical fdai_glossary entry.
+
+    A Korean prompt still renders through the model for L3 locale
+    translation (unlike the English case, which answers directly), so the
+    assertions here check the *evidence handed to the model* rather than a
+    literal glossary string in the final rendered text.
+    """
+
+    class NeverDelegate:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def delegate(self, **_kwargs: object) -> None:
+            self.calls += 1
+            raise AssertionError("concept explanation must not call an agent conversational port")
+
+    backend = _AnswerBackend()
+    planner = _Planner()
+    delegate = NeverDelegate()
+    route = (
+        make_chat_stream_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=(*default_read_turn_tools(), *agent_turn_tools()),
+            agent_delegate=delegate,  # type: ignore[arg-type]
+        )
+        if stream
+        else make_chat_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=(*default_read_turn_tools(), *agent_turn_tools()),
+            agent_delegate=delegate,  # type: ignore[arg-type]
+        )
+    )
+
+    response = TestClient(Starlette(routes=[route])).post(
+        "/chat/stream" if stream else "/chat",
+        json={"prompt": prompt, "view_context": {}},
+    )
+
+    assert response.status_code == 200
+    assert planner.calls == 0
+    assert delegate.calls == 0
+    concept_evidence = backend.context.get("_concept_evidence")
+    assert isinstance(concept_evidence, dict)
+    assert concept_evidence.get("authority") == "fdai_glossary"
+    entries = concept_evidence.get("entries")
+    assert isinstance(entries, list) and entries
+    assert any(entry.get("term") == "Insufficient evidence" for entry in entries)
+    assert "_intent_graph_evidence" not in backend.context
+    assert "_agent_evidence" not in backend.context
+
+
+@pytest.mark.parametrize("stream", [False, True])
 def test_chat_routes_execute_hierarchical_intent_graph(stream: bool) -> None:
     backend = _AnswerBackend()
     tools = (
