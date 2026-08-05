@@ -800,6 +800,29 @@ def build_local_app(
     )
 
     ontology_function_types = (inventory_query_function_type(),)
+    from fdai.delivery.operator_api.routes.chat_inventory_semantic_retrieval import (
+        EmbeddingInventorySemanticResolver,
+    )
+    from fdai.shared.contracts.models import OntologyDeclarationKind
+    from fdai.shared.ontology.release import build_ontology_release
+
+    local_ontology_release = build_ontology_release(
+        object_types=tuple(ontology_object_types),
+        link_types=tuple(ontology_link_types),
+        action_types=tuple(action_types),
+        function_types=ontology_function_types,
+    )
+    inventory_semantic_resolver = (
+        EmbeddingInventorySemanticResolver(
+            embedder=models.embedder,
+            target_ref=local_ontology_release.type_ref(
+                OntologyDeclarationKind.FUNCTION,
+                "inventory.select_resources",
+            ),
+        )
+        if models.embedder is not None
+        else None
+    )
     inventory_startup_callbacks, inventory_shutdown_callbacks = _inventory_lifecycle_callbacks(
         inventory_graph_provider
     )
@@ -835,6 +858,7 @@ def build_local_app(
             runtime_settings=runtime_settings,
             workflow_definitions=workflow_definitions,
             inventory_graph_provider=inventory_graph_provider,
+            inventory_semantic_resolver=inventory_semantic_resolver,
             inventory_activity_provider=(
                 local_read_investigation.inventory_activity_provider
                 if local_read_investigation is not None
@@ -955,6 +979,7 @@ def build_local_app(
             + ((authoritative_read_proxy.aclose,) if authoritative_read_proxy is not None else ())
             + ((local_read_investigation.close,) if local_read_investigation is not None else ())
             + log_query_shutdown_callbacks
+            + models.shutdown_callbacks
             + iam.shutdown_callbacks,
         ),
     )

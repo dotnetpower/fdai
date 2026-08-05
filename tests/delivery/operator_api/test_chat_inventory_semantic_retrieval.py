@@ -4,10 +4,14 @@ from collections.abc import Sequence
 from typing import Any
 
 import pytest
+from jsonschema import Draft202012Validator
 
 from fdai.delivery.operator_api.routes.chat_inventory import (
     InventoryChatTools,
     render_inventory_answer,
+)
+from fdai.delivery.operator_api.routes.chat_inventory_ontology import (
+    inventory_query_function_type,
 )
 from fdai.delivery.operator_api.routes.chat_inventory_semantic_retrieval import (
     EmbeddingInventorySemanticResolver,
@@ -169,6 +173,7 @@ async def test_unpromoted_semantic_surface_clarifies_without_provider_read(promp
     assert evidence["result"]["status"] == "clarification"
     assert evidence["result"]["reason"] == "inventory_semantic_confirmation_required"
     assert evidence["result"]["semantic_candidates"][0]["authority"] == "candidate_only"
+    Draft202012Validator(inventory_query_function_type().output_schema).validate(evidence["result"])
     answer = render_inventory_answer(evidence, locale="ko")
     assert answer is not None
     assert "Azure inventory를 조회하지 않았습니다" in answer

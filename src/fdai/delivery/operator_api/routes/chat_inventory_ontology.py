@@ -14,7 +14,8 @@ from fdai.shared.contracts.models import (
 )
 
 _FUNCTION_NAME = "inventory.select_resources"
-_ARTIFACT_ID = b"fdai.inventory.select_resources.v1"
+_ARTIFACT_ID = b"fdai.inventory.select_resources.v2"
+_DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
 
 
 def inventory_query_function_type() -> OntologyFunctionType:
@@ -22,7 +23,7 @@ def inventory_query_function_type() -> OntologyFunctionType:
 
     return OntologyFunctionType(
         name=_FUNCTION_NAME,
-        version="1.0.0",
+        version="1.1.0",
         kind=OntologyFunctionKind.QUERY,
         artifact_digest=f"sha256:{hashlib.sha256(_ARTIFACT_ID).hexdigest()}",
         publisher="FDAI",
@@ -36,6 +37,83 @@ def inventory_query_function_type() -> OntologyFunctionType:
                 },
                 "query": {
                     "anyOf": [inventory_query_argument_schema(), {"type": "null"}],
+                },
+                "reason": {"type": "string", "minLength": 1, "maxLength": 256},
+                "resource_types": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "uniqueItems": True,
+                    "items": {"type": "string", "minLength": 1, "maxLength": 256},
+                },
+                "semantic_candidates": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "kind": {"type": "string", "enum": ["state", "operation"]},
+                            "concept_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                            },
+                            "score": {"type": "number", "minimum": 0, "maximum": 1},
+                            "catalog_digest": {
+                                "type": "string",
+                                "pattern": _DIGEST_PATTERN,
+                            },
+                            "target_ref": {
+                                "type": "object",
+                                "properties": {
+                                    "kind": {"const": "function"},
+                                    "name": {"const": _FUNCTION_NAME},
+                                    "version": {
+                                        "type": "string",
+                                        "pattern": r"^\d+\.\d+\.\d+$",
+                                    },
+                                    "catalog_digest": {
+                                        "type": "string",
+                                        "pattern": _DIGEST_PATTERN,
+                                    },
+                                },
+                                "required": ["kind", "name", "version", "catalog_digest"],
+                                "additionalProperties": False,
+                            },
+                            "input_digest": {
+                                "type": "string",
+                                "pattern": _DIGEST_PATTERN,
+                            },
+                            "candidate_digest": {
+                                "type": "string",
+                                "pattern": _DIGEST_PATTERN,
+                            },
+                            "labels": {
+                                "type": "object",
+                                "maxProperties": 8,
+                                "propertyNames": {"pattern": r"^[a-z]{2,8}$"},
+                                "additionalProperties": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 256,
+                                },
+                            },
+                            "authority": {"const": "candidate_only"},
+                        },
+                        "required": [
+                            "kind",
+                            "concept_id",
+                            "score",
+                            "catalog_digest",
+                            "target_ref",
+                            "input_digest",
+                            "candidate_digest",
+                            "labels",
+                            "authority",
+                        ],
+                        "additionalProperties": False,
+                    },
                 },
                 "matched_count": {"type": "integer", "minimum": 0},
                 "resources": {
@@ -63,6 +141,20 @@ def inventory_query_function_type() -> OntologyFunctionType:
                 },
             },
             "required": ["status"],
+            "allOf": [
+                {
+                    "if": {"properties": {"status": {"const": "clarification"}}},
+                    "then": {
+                        "required": [
+                            "status",
+                            "reason",
+                            "query",
+                            "resource_types",
+                            "semantic_candidates",
+                        ]
+                    },
+                }
+            ],
             "additionalProperties": False,
         },
         read_sets=["Resource"],
