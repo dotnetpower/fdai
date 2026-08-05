@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 971,
+  "file_count": 972,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "22f8e22e3fd307e30886805683b0f38c39442deeb24a45026471d71084b4ea99",
     ".github/instructions/agent-stewardship.instructions.md": "574518fca728a9a6c8d3b50e0cf4aa53a1ed5bf85d5c52e5da67a0486bf31a43",
@@ -37,6 +37,7 @@
     "src/fdai/agents/_framework/deliberation.py": "eb4dae285df12eced67c86190a2212a36f4943fd2a07eb31c6663530b207e1ed",
     "src/fdai/agents/_framework/divergence.py": "0304d6e035bf126bf02893794bef8453df40c042c264e89ceb7946254ddd8d0a",
     "src/fdai/agents/_framework/factory.py": "6a31c2957d3c08aab2ea8cb5528612a066be22b7c01476751efc44360406b168",
+    "src/fdai/agents/_framework/heimdall_forecast.py": "ceeeebc583ad84f1370cf55aa2184bf0b72c872328c1de5b03c70306212eb3bc",
     "src/fdai/agents/_framework/introspection.py": "c94678c69528e49d9a98d26f225a5f2af1fdcc21f213af4bf882faf925ce0809",
     "src/fdai/agents/_framework/kpi.py": "f6887ceb0e55c8ddba6c59fd4d3c38a05da756d4fd689138ead42b17ab32fd59",
     "src/fdai/agents/_framework/norns_consensus.py": "f7e63d32df134c92d66caaa12c30d4f3078debec16cd150be91961fc7b4b3bfa",
@@ -59,7 +60,7 @@
     "src/fdai/agents/bragi.py": "660e20501fb8e14ccdb22a47e74e233cf88d5c8f8175d27bfd8ae11d733f40c9",
     "src/fdai/agents/forseti.py": "9645a61868d83163a67bd6a10138e5b49ba53cd07269fa20b049b6cfe2d93218",
     "src/fdai/agents/freyr.py": "34e80a770aa237a410343f9269b57751f26496099877fe24c1426efc721eb120",
-    "src/fdai/agents/heimdall.py": "66fa709820d81af1f8f18c45e57cf01c8f610dd6cfecfa39e574a95f3312dbb1",
+    "src/fdai/agents/heimdall.py": "0c089e27bb17831913fdd494cb0128e029265e572def5f3e297f4e11f5228f40",
     "src/fdai/agents/huginn.py": "8533e497be3c2ed6eb21b7969444a45b1251f23a3ca3bf54e263a9b0659d5905",
     "src/fdai/agents/loki.py": "258277ece8fe20e2e3c945c0fa8e961dafb7630e38273278e46af77ca5e0a1a3",
     "src/fdai/agents/mimir.py": "7bbaa9ff7ca8bbd9cdc0ab295db74bb0cfac68ab1313e992749f54a505f7f6a5",
@@ -974,7 +975,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-05T10:16:58Z",
+  "generated_at": "2026-08-05T11:54:21Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

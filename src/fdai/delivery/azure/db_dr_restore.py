@@ -83,6 +83,15 @@ from fdai.shared.providers.db_dr import (
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 from .arm_url_policy import ArmUrlPolicy, ArmUrlPolicyError
+from .db_dr_restore_http import (
+    DB_DR_PHASE as _PHASE,
+)
+from .db_dr_restore_http import (
+    PG_PROVIDER_SEGMENT as _PG_PROVIDER_SEGMENT,
+)
+from .db_dr_restore_http import (
+    AzureDbDrRestoreHttpMixin,
+)
 
 _DEFAULT_AUDIENCE: Final[str] = "https://management.azure.com/.default"
 _DEFAULT_API_VERSION: Final[str] = "2024-08-01"
@@ -101,11 +110,6 @@ _IN_PROGRESS_STATES: Final[frozenset[str]] = frozenset(
 outside :data:`_SUCCEEDED_STATES` is treated as a partial-restore
 failure - the adapter never guesses at "probably fine"."""
 
-_PHASE: Final[str] = "restore"
-
-# Provider identifier for Azure PG Flexible Server; used to build the
-# teardown RG path and to sanity-check the source ARM id.
-_PG_PROVIDER_SEGMENT: Final[str] = "/providers/Microsoft.DBforPostgreSQL/flexibleServers/"
 _PG_SERVER_NAME = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$")
 _LOCATION_NAME = re.compile(r"^[a-z0-9]+$")
 _DNS_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$", re.IGNORECASE)
@@ -144,7 +148,9 @@ class AzureDbDrRestoreAdapterConfig:
     """Linear delay between transient teardown attempts."""
 
 
-class AzureDbDrRestoreAdapter(DbRestoreAdapter):
+class AzureDbDrRestoreAdapter(
+    AzureDbDrRestoreHttpMixin[AzureDbDrRestoreAdapterConfig], DbRestoreAdapter
+):
     """Azure PG Flexible implementation of :class:`DbRestoreAdapter`."""
 
     def __init__(
@@ -170,9 +176,9 @@ class AzureDbDrRestoreAdapter(DbRestoreAdapter):
         if cfg.teardown_retry_interval_seconds < 0:
             raise ValueError("teardown_retry_interval_seconds MUST be >= 0")
         self._url_policy = ArmUrlPolicy.from_client(http_client)
-        self._identity: Final[WorkloadIdentity] = identity
-        self._http: Final[httpx.AsyncClient] = http_client
-        self._config: Final[AzureDbDrRestoreAdapterConfig] = cfg
+        self._identity = identity
+        self._http = http_client
+        self._config = cfg
         self._sleep: Final[Callable[[float], Awaitable[None]]] = sleep or asyncio.sleep
         self._monotonic: Final[Callable[[], float]] = monotonic or time.monotonic
 
@@ -575,138 +581,6 @@ class AzureDbDrRestoreAdapter(DbRestoreAdapter):
                     phase=_PHASE,
                 )
         return target_ref, endpoint
-
-    async def _auth_headers(self) -> dict[str, str]:
-        token = await self._identity.get_token(self._config.audience)
-        return {
-            "Authorization": f"Bearer {token.token}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        }
-
-    async def _post(
-        self,
-        *,
-        url: str,
-        headers: dict[str, str],
-        json_body: dict[str, object],
-        experiment_id: str,
-    ) -> httpx.Response:
-        try:
-            return await self._http.post(
-                url,
-                headers=headers,
-                json=json_body,
-                timeout=self._config.timeout_seconds,
-            )
-        except httpx.HTTPError as exc:
-            raise DbDrError(
-                f"restore submit failed: {exc.__class__.__name__}",
-                experiment_id=experiment_id,
-                phase=_PHASE,
-            ) from exc
-
-    async def _put(
-        self,
-        *,
-        url: str,
-        headers: dict[str, str],
-        json_body: dict[str, object],
-        experiment_id: str,
-    ) -> httpx.Response:
-        try:
-            return await self._http.put(
-                url,
-                headers=headers,
-                json=json_body,
-                timeout=self._config.timeout_seconds,
-            )
-        except httpx.HTTPError as exc:
-            raise DbDrError(
-                f"target resource group create failed: {exc.__class__.__name__}",
-                experiment_id=experiment_id,
-                phase=_PHASE,
-            ) from exc
-
-    async def _get(
-        self,
-        *,
-        url: str,
-        headers: dict[str, str],
-        experiment_id: str,
-    ) -> httpx.Response:
-        try:
-            return await self._http.get(
-                url,
-                headers=headers,
-                timeout=self._config.timeout_seconds,
-            )
-        except httpx.HTTPError as exc:
-            raise DbDrError(
-                f"restore request failed: {exc.__class__.__name__}",
-                experiment_id=experiment_id,
-                phase=_PHASE,
-            ) from exc
-
-    async def _delete(
-        self,
-        *,
-        url: str,
-        headers: dict[str, str],
-        experiment_id: str,
-    ) -> httpx.Response:
-        try:
-            return await self._http.delete(
-                url,
-                headers=headers,
-                timeout=self._config.timeout_seconds,
-            )
-        except httpx.HTTPError as exc:
-            raise DbDrError(
-                f"teardown request failed: {exc.__class__.__name__}",
-                experiment_id=experiment_id,
-                phase="teardown",
-            ) from exc
-
-    def _restore_submit_url(self, *, subscription_id: str, target_rg: str, target_name: str) -> str:
-        path = (
-            f"/subscriptions/{subscription_id}/resourceGroups/{target_rg}"
-            f"{_PG_PROVIDER_SEGMENT}{target_name}/restore"
-        )
-        return f"{path}?api-version={self._config.api_version}"
-
-    def _resource_url(self, *, subscription_id: str, target_rg: str, target_name: str) -> str:
-        path = (
-            f"/subscriptions/{subscription_id}/resourceGroups/{target_rg}"
-            f"{_PG_PROVIDER_SEGMENT}{target_name}"
-        )
-        return f"{path}?api-version={self._config.api_version}"
-
-    def _resource_group_url(self, *, subscription_id: str, resource_group: str) -> str:
-        # RG-level API uses a different (older) api-version envelope;
-        # 2021-04-01 is the long-lived stable version and works for
-        # DELETE across every Azure region we target.
-        return (
-            f"/subscriptions/{subscription_id}/resourceGroups/{resource_group}"
-            f"?api-version=2021-04-01"
-        )
-
-    def _trim(self, text: str) -> str:
-        cap = self._config.max_error_body_bytes
-        raw = text.replace("\n", " ")
-        if len(raw) <= cap:
-            return raw
-        return raw[:cap] + "..."
-
-    def _validate_lro_url(self, value: str, *, experiment_id: str) -> str:
-        try:
-            return self._url_policy.validate_lro_url(value)
-        except ArmUrlPolicyError as exc:
-            raise DbDrError(
-                str(exc),
-                experiment_id=experiment_id,
-                phase=_PHASE,
-            ) from exc
 
 
 # ---------------------------------------------------------------------------
