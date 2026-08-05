@@ -20,7 +20,8 @@ a recurring timer, not a busy loop:
 - `fdai-chat-watchdog.timer` starts the next bounded cycle within one minute, with small jitter.
 - `fdai-chat-watchdog-supervisor.timer` checks and repairs the watchdog every 30 minutes.
 - `Persistent=true` resumes a missed cycle after sleep or restart when the user session returns.
-- Daily question and hardening budgets reset by UTC day; they bound cost without ending the service.
+- Daily question and hardening budgets reset by UTC day; the hardening budget is 30 attempts per
+   UTC day, and both budgets bound cost without ending the service.
 - `.improve/STOP` is the immediate local stop switch.
 - A failed or skipped cycle does not disable the next timer invocation.
 - Malformed or non-JSON Copilot generation output is retried inside the bounded cycle. Exhausted
