@@ -28,6 +28,7 @@ export function parseTurnAttachments(
 ): TurnAttachment[] {
   if (!Array.isArray(value) || value.length > MAX_TURN_ATTACHMENTS) return [];
   const attachments: TurnAttachment[] = [];
+  const ids = new Set<string>();
   for (const item of value) {
     if (typeof item !== "object" || item === null || Array.isArray(item)) return [];
     const record = item as Record<string, unknown>;
@@ -41,6 +42,8 @@ export function parseTurnAttachments(
       typeof mediaType !== "string" || !MEDIA_TYPES.has(mediaType) ||
       typeof conversationId !== "string" || conversationId.length < 1 || conversationId.length > 200
     ) return [];
+    if (ids.has(id)) return [];
+    ids.add(id);
     attachments.push({ id, name, mediaType, conversationId });
   }
   return attachments;
