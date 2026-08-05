@@ -172,6 +172,7 @@ async def test_unpromoted_semantic_surface_clarifies_without_provider_read(promp
     answer = render_inventory_answer(evidence, locale="ko")
     assert answer is not None
     assert "Azure inventory를 조회하지 않았습니다" in answer
+    assert "현재 상태: 실행 중" in answer
     assert "0.91" not in answer
     assert provider_calls == 0
 

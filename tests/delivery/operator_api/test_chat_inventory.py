@@ -2565,7 +2565,6 @@ def test_deterministic_inventory_filter_precedes_semantic_inventory_plan() -> No
     (
         "지금 켜져있는 vm 목록",
         "현재 켜져 있는 VM만 알려줘",
-        "전원이 들어와 있는 가상 머신은?",
         "가동 중인 VM 보여줘",
         "VM 중에 지금 돌아가는 것만 알려줘",
     ),
@@ -2620,6 +2619,66 @@ def test_semantic_status_hint_completes_unknown_korean_inventory_inflection(
     assert "vm-job" not in payload["answer"]
     assert payload["verification"]["authority"] == "server_inventory_graph"
     assert backend.calls == 0
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    ("전원이 들어와 있는 가상 머신은?", "mysterious widgets"),
+)
+def test_model_only_inventory_status_holds_without_provider_read(prompt: str) -> None:
+    provider_calls = 0
+
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        nonlocal provider_calls
+        provider_calls += 1
+        return await _provider(*args, **kwargs)
+
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            return parse_turn_plan(
+                {
+                    "kind": "read_tool",
+                    "answer_intent": "list",
+                    "tool_name": "query_inventory",
+                    "action_type": None,
+                    "arguments": {
+                        "source": "current",
+                        "kind": "list",
+                        "predicates": [{"field": "status", "operator": "eq", "value": "running"}],
+                        "lookback_seconds": 3_600,
+                    },
+                    "clarification": None,
+                    "confidence": 0.99,
+                }
+            )
+
+    tools = InventoryChatTools(provider)
+    payload = (
+        TestClient(
+            Starlette(
+                routes=[
+                    make_chat_route(
+                        backend=RecordingBackend(),
+                        authorize=_allow,
+                        tool_resolver=tools,
+                        planned_tool_resolver=tools,
+                        turn_planner=Planner(),  # type: ignore[arg-type]
+                        turn_tools=tools.turn_tools(),
+                    )
+                ]
+            )
+        )
+        .post(
+            "/chat",
+            json={"prompt": prompt, "view_context": {}},
+        )
+        .json()
+    )
+
+    assert payload["verification"]["status"] == "unverified"
+    assert "vm-app" not in payload["answer"]
+    assert "vm-job" not in payload["answer"]
+    assert provider_calls == 0
 
 
 def test_intent_graph_status_hint_completes_unknown_korean_inventory_inflection() -> None:

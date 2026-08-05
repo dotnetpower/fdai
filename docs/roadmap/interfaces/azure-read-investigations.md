@@ -155,8 +155,9 @@ are `resource_type`, `status`, `name`, `resource_group`, `location`, `operation`
 deterministic compiler matches facets actually observed in the current provider, so a new status
 does not require another routing expression. Unmatched modifiers abstain instead of widening to all
 resources. A semantic planner can propose the same strict shape only after deterministic
-abstention, and the verifier rechecks the complete query before I/O. Imperative changes remain
-action drafts and cannot enter this read path.
+abstention, but that proposal cannot execute in the same turn. A verified exact/promoted mapping
+or separate operator confirmation must produce the complete query, and the verifier rechecks it
+before I/O. Imperative changes remain action drafts and cannot enter this read path.
 `not_in` accepts only a bounded unique value list. The verifier expands canonical state ids and the
 provider grounding step replaces them with observed provider status forms before exclusion. A
 negative phrase is not rewritten as a positive `running` alias.

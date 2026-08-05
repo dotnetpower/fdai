@@ -287,8 +287,10 @@ caller-supplied role parameter. Both surfaces return descriptors only and cannot
 Matched inventory result sets are sorted before the 40-record bound is applied. Lists use resource
 name order by default; an explicit status, type, or location grouping uses that grouping field and
 then resource name. The same order drives rendered rows and durable ordinal follow-ups.
-A concrete resource-type query with no complete lexical state match uses semantic planning only to propose a state concept. The server accepts canonical current-inventory states from the IQL catalog,
-preserves deterministic type, scope, and freshness, and discards planner-supplied type, scope, and lookback. Provider-observed status grounds the final predicate; an invalid state returns unavailable.
+A concrete resource-type query with no complete lexical state match can use semantic retrieval only
+to propose state or operation candidates. Model and embedding candidates never execute a provider
+query in that turn. An exact or promoted catalog mapping, or a separately verified operator
+confirmation receipt, is required before the server can produce a complete typed query.
 If semantic planning is unavailable, ambiguous, or omits the required state, the server returns a
 typed interpretation hold with the deterministic query skeleton. It does not execute that
 type-only skeleton or drop the unresolved modifier to widen the result set.
@@ -300,6 +302,9 @@ the existing T1 embedding binding, the same credential path retrieves state and 
 descriptions and examples. A retrieved concept remains `candidate_only` and causes a localized
 clarification without querying inventory. If the embedder is absent or fails, the resolver returns
 no candidate and the deterministic hold remains authoritative.
+`FDAI_INVENTORY_SEMANTIC_ENABLED` controls this clarification capability independently from
+`FDAI_CATALOG_SEARCH_ENABLED`; disabling Rule search does not silently disable inventory semantic
+retrieval.
 Intent-graph planning cannot override a complete deterministic inventory query. Planner-supplied
 status concepts are still checked against the canonical catalog; invalid values are rejected, and
 execution uses the deterministic query. A required semantic status that is omitted remains held.

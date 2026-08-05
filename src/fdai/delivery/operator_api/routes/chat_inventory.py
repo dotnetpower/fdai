@@ -600,6 +600,15 @@ def render_inventory_answer(
         and result.get("reason") == "inventory_semantic_confirmation_required"
     ):
         return _render_inventory_semantic_clarification(result, korean=korean)
+    if result.get("reason") == "inventory_semantic_interpretation_required":
+        return (
+            "요청의 상태 또는 작업 의미를 확정할 수 없어 Azure inventory를 조회하지 않았습니다."
+            if korean
+            else (
+                "The request's state or operation meaning could not be confirmed, so Azure "
+                "inventory was not queried."
+            )
+        )
     if result.get("status") not in {"matched", "partial"}:
         if result.get("reason") == "topology_selector_required":
             return (
@@ -889,7 +898,13 @@ def _render_inventory_semantic_clarification(
             continue
         candidate_labels = candidate.get("labels")
         label = candidate_labels.get(locale) if isinstance(candidate_labels, Mapping) else None
-        labels.append(str(label or candidate.get("concept_id") or "unknown"))
+        kind = str(candidate.get("kind") or "state")
+        kind_label = (
+            ("현재 상태" if kind == "state" else "작업 이력")
+            if korean
+            else ("Current state" if kind == "state" else "Operation history")
+        )
+        labels.append(f"{kind_label}: {label or candidate.get('concept_id') or 'unknown'}")
     bounded_labels = tuple(dict.fromkeys(labels))[:3]
     options = (
         ", ".join(bounded_labels)

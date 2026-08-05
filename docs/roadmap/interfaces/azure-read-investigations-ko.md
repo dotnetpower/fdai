@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 88c8ce78eaa409651b72a91871786bf8f2dd2f41
+translation_source_sha: a12f0b0b41aefc9fa10ac1884f98e04b5f39c4a3
 translation_revised: 2026-08-05
 ---
 
@@ -154,8 +154,10 @@ bounded lookback을 가진 immutable `InventoryQuery` 하나로 compile됩니다
 `eq`, `ne`, `in`, `not_in`, `contains`, `exists`, `missing`입니다. Deterministic compiler는 current provider에
 실제로 관찰된 facet을 match하므로 새 status마다 routing expression을 추가할 필요가 없습니다. Match되지
 않은 modifier는 전체 resource로 확장하지 않고 abstain합니다. Semantic planner는 deterministic abstain
-후에만 동일한 strict shape를 제안할 수 있고 verifier가 I/O 전에 query 전체를 다시 확인합니다.
-Imperative change는 action draft로 유지되며 이 read path에 들어갈 수 없습니다.
+후에만 동일한 strict shape를 제안할 수 있지만 같은 turn에서 실행할 수 없습니다. Verified
+exact/promoted mapping 또는 별도 operator confirmation이 complete query를 만들어야 하며 verifier가
+I/O 전에 query 전체를 다시 확인합니다. Imperative change는 action draft로 유지되며 이 read path에
+들어갈 수 없습니다.
 `not_in`은 bounded unique value list만 받습니다. Verifier가 canonical state id를 확장하고 provider
 grounding 단계가 제외 전에 이를 관찰된 provider status form으로 교체합니다. 따라서 negative phrase를
 positive `running` alias로 바꾸지 않습니다.

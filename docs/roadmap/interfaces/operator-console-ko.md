@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: a0b8a28d4a1b06fb3db9646368b66dce83aeb33d
+translation_source_sha: 1574e949ebbf4dbbce56291023fa997ffd685474
 translation_revised: 2026-08-05
 ---
 
@@ -283,8 +283,10 @@ method `tools.search`, `tools.describe`로 제공됩니다. Channel call은 reso
 일치하는 inventory result set은 40개 record 제한을 적용하기 전에 정렬합니다. List는 기본적으로
 resource 이름순이며, status, type 또는 location grouping을 명시하면 해당 grouping field 다음에
 resource 이름순으로 정렬합니다. 렌더링 row와 durable ordinal follow-up은 같은 순서를 사용합니다.
-구체적인 resource-type query에 완전한 lexical state match가 없으면 semantic planning은 state concept만 제안합니다. Server는 IQL catalog의 canonical current-inventory state만 수락하고
-deterministic type, scope, freshness를 보존하며 planner가 제안한 type, scope, lookback은 버립니다. Provider가 관찰한 status가 최종 predicate를 grounding하며 invalid state는 unavailable을 반환합니다.
+구체적인 resource-type query에 완전한 lexical state match가 없으면 semantic retrieval은 state 또는
+operation candidate만 제안할 수 있습니다. Model 및 embedding candidate는 해당 turn에서 provider
+query를 실행하지 않습니다. Server가 complete typed query를 만들려면 exact/promoted catalog mapping
+또는 별도로 검증된 operator confirmation receipt가 필요합니다.
 Semantic planning을 사용할 수 없거나, 결과가 모호하거나, 필요한 state를 생략하면 server는
 deterministic query skeleton이 포함된 typed interpretation hold를 반환합니다. Type-only skeleton을
 실행하거나 unresolved modifier를 삭제하여 결과 범위를 넓히지 않습니다.
@@ -296,6 +298,9 @@ Exact catalog term은 유일한 entry gate가 아니라 T0 latency optimization�
 검색합니다. Retrieved concept는 `candidate_only`를 유지하고 inventory를 query하지 않은 채 localized
 clarification을 만듭니다. Embedder가 없거나 실패하면 resolver는 candidate를 반환하지 않고
 deterministic hold가 authoritative 상태를 유지합니다.
+`FDAI_INVENTORY_SEMANTIC_ENABLED`는 이 clarification capability를
+`FDAI_CATALOG_SEARCH_ENABLED`와 독립적으로 제어합니다. Rule search를 비활성화해도 inventory
+semantic retrieval이 암묵적으로 비활성화되지 않습니다.
 Intent-graph planning은 complete deterministic inventory query를 override할 수 없습니다.
 Planner-supplied status concept도 canonical catalog로 확인하며 invalid value는 차단되고 execution은
 deterministic query를 사용합니다. 필요한 semantic status가 생략되면 hold 상태를 유지합니다.
