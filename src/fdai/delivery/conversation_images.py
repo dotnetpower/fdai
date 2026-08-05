@@ -9,12 +9,18 @@ from datetime import datetime
 from typing import Final, Protocol, runtime_checkable
 
 MAX_CONVERSATION_IMAGE_BYTES: Final[int] = 4 * 1024 * 1024
+DEFAULT_MAX_IMAGES_PER_PRINCIPAL: Final[int] = 1000
+DEFAULT_MAX_IMAGE_BYTES_PER_PRINCIPAL: Final[int] = 256 * 1024 * 1024
 _ALLOWED_MEDIA_TYPES: Final = frozenset({"image/png", "image/jpeg", "image/gif", "image/webp"})
 _IMAGE_ID: Final = re.compile(r"att-[A-Za-z0-9-]{1,124}")
 
 
 class ConversationImageConflictError(RuntimeError):
     """An image id was reused with different immutable content."""
+
+
+class ConversationImageQuotaError(RuntimeError):
+    """A principal's bounded conversation-image repository is full."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,8 +107,17 @@ class ConversationImageStore(Protocol):
 
 
 class InMemoryConversationImageStore:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        max_images_per_principal: int = DEFAULT_MAX_IMAGES_PER_PRINCIPAL,
+        max_bytes_per_principal: int = DEFAULT_MAX_IMAGE_BYTES_PER_PRINCIPAL,
+    ) -> None:
+        if max_images_per_principal < 1 or max_bytes_per_principal < 1:
+            raise ValueError("conversation image quotas MUST be positive")
         self._images: dict[tuple[str, str, str], ConversationImage] = {}
+        self._max_images_per_principal = max_images_per_principal
+        self._max_bytes_per_principal = max_bytes_per_principal
 
     async def put(self, image: ConversationImage) -> ConversationImage:
         return (await self.put_many((image,)))[0]
@@ -124,6 +139,16 @@ class InMemoryConversationImageStore:
                 continue
             pending[key] = image
             stored.append(image)
+        principals = {image.principal_id for image in images}
+        for principal_id in principals:
+            current = [
+                image for image in self._images.values() if image.principal_id == principal_id
+            ]
+            added = [image for image in pending.values() if image.principal_id == principal_id]
+            if len(current) + len(added) > self._max_images_per_principal:
+                raise ConversationImageQuotaError("conversation image count quota exceeded")
+            if sum(len(image.content) for image in current + added) > self._max_bytes_per_principal:
+                raise ConversationImageQuotaError("conversation image byte quota exceeded")
         self._images.update(pending)
         return tuple(stored)
 
@@ -140,7 +165,10 @@ class InMemoryConversationImageStore:
 __all__ = [
     "ConversationImage",
     "ConversationImageConflictError",
+    "ConversationImageQuotaError",
     "ConversationImageStore",
+    "DEFAULT_MAX_IMAGE_BYTES_PER_PRINCIPAL",
+    "DEFAULT_MAX_IMAGES_PER_PRINCIPAL",
     "InMemoryConversationImageStore",
     "MAX_CONVERSATION_IMAGE_BYTES",
 ]

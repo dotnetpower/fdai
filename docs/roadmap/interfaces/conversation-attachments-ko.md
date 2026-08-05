@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: bb7dc475aa73b54c5199fa80f4d471799e5c9733
+translation_source_sha: 93d687f927ed87b532be44cc9c2ca7f5509debb9
 translation_revised: 2026-08-05
 title: 대화 첨부파일
 ---
@@ -162,6 +162,10 @@ display name 및 검증된 media type만 저장하고 base64 body는 저장하�
 `GET /me/conversations/{conversation_id}/images/{image_id}`를 통해 history image를 읽고 표시용 browser
 object URL을 만듭니다. 다른 principal, conversation 또는 알 수 없는 id는 모두 같은 `404` response를
 반환합니다. Owning conversation을 삭제하면 해당 image row도 cascade로 삭제됩니다.
+Scheduled user-context retention job은 90일이 지난 inactive conversation을 purge하므로 같은
+transaction에서 해당 image byte도 삭제됩니다. Principal은 conversation image를 최대 1,000개 또는
+256 MiB 중 먼저 도달하는 한도까지만 보관할 수 있습니다. Exact retry는 quota를 중복 소비하지 않으며,
+quota rejection은 turn metadata 저장 전에 `429`를 반환합니다.
 
 ## Image OCR
 

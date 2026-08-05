@@ -5,8 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 from fdai.delivery.conversation_images import (
+    DEFAULT_MAX_IMAGE_BYTES_PER_PRINCIPAL,
+    DEFAULT_MAX_IMAGES_PER_PRINCIPAL,
     ConversationImage,
     ConversationImageConflictError,
+    ConversationImageQuotaError,
 )
 from fdai.delivery.persistence.postgres_user_context import (
     PostgresUserContextStoreConfig,
@@ -15,8 +18,18 @@ from fdai.delivery.persistence.postgres_user_context import (
 
 
 class PostgresConversationImageStore(_PostgresBase):
-    def __init__(self, *, config: PostgresUserContextStoreConfig) -> None:
+    def __init__(
+        self,
+        *,
+        config: PostgresUserContextStoreConfig,
+        max_images_per_principal: int = DEFAULT_MAX_IMAGES_PER_PRINCIPAL,
+        max_bytes_per_principal: int = DEFAULT_MAX_IMAGE_BYTES_PER_PRINCIPAL,
+    ) -> None:
         super().__init__(config=config)
+        if max_images_per_principal < 1 or max_bytes_per_principal < 1:
+            raise ValueError("conversation image quotas MUST be positive")
+        self._max_images_per_principal = max_images_per_principal
+        self._max_bytes_per_principal = max_bytes_per_principal
 
     async def put(self, image: ConversationImage) -> ConversationImage:
         return (await self.put_many((image,)))[0]
@@ -26,7 +39,56 @@ class PostgresConversationImageStore(_PostgresBase):
     ) -> tuple[ConversationImage, ...]:
         async with await self._connect() as connection, connection.transaction():
             await self._timeout(connection)
-            return tuple([await self._put(connection, image) for image in images])
+            if not images:
+                return ()
+            principals = {image.principal_id for image in images}
+            if len(principals) != 1:
+                raise ValueError("conversation image batch MUST have one principal")
+            principal_id = images[0].principal_id
+            await connection.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended(%s, 7046029254386353131))",
+                (principal_id,),
+            )
+            existing: dict[tuple[str, str], ConversationImage] = {}
+            pending: dict[tuple[str, str], ConversationImage] = {}
+            for image in images:
+                key = (image.conversation_id, image.image_id)
+                prior = (
+                    existing.get(key)
+                    or pending.get(key)
+                    or await self._get(
+                        connection,
+                        principal_id=principal_id,
+                        conversation_id=image.conversation_id,
+                        image_id=image.image_id,
+                    )
+                )
+                if prior is not None:
+                    if not prior.has_same_intent(image):
+                        raise ConversationImageConflictError(
+                            "conversation image id conflicts with existing content"
+                        )
+                    existing[key] = prior
+                else:
+                    pending[key] = image
+            usage = await connection.execute(
+                "SELECT COUNT(*) AS image_count, COALESCE(SUM(octet_length(content)), 0) "
+                "AS image_bytes FROM conversation_image WHERE principal_id = %s",
+                (principal_id,),
+            )
+            row = await usage.fetchone()
+            image_count = int(row["image_count"]) if row is not None else 0
+            image_bytes = int(row["image_bytes"]) if row is not None else 0
+            if image_count + len(pending) > self._max_images_per_principal:
+                raise ConversationImageQuotaError("conversation image count quota exceeded")
+            if (
+                image_bytes + sum(len(image.content) for image in pending.values())
+                > self._max_bytes_per_principal
+            ):
+                raise ConversationImageQuotaError("conversation image byte quota exceeded")
+            for key, image in pending.items():
+                existing[key] = await self._put(connection, image)
+            return tuple(existing[(image.conversation_id, image.image_id)] for image in images)
 
     async def _put(self, connection: Any, image: ConversationImage) -> ConversationImage:
         cursor = await connection.execute(

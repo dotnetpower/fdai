@@ -29,6 +29,7 @@ from fdai.core.python_task.grounded_code import extract_grounded_code
 from fdai.core.user_context_projection import UserContextOntologyProjector
 from fdai.delivery.conversation_images import (
     ConversationImageConflictError,
+    ConversationImageQuotaError,
     ConversationImageStore,
 )
 from fdai.delivery.handover_events import HandoverAvailabilityPublisher
@@ -689,6 +690,11 @@ def make_chat_route(
                     raise HTTPException(
                         status_code=409,
                         detail="chat image id conflicts with existing content",
+                    ) from exc
+                except ConversationImageQuotaError as exc:
+                    raise HTTPException(
+                        status_code=429,
+                        detail="conversation image storage quota exceeded",
                     ) from exc
                 except UserContextConflictError as exc:
                     raise HTTPException(

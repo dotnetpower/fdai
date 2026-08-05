@@ -8,6 +8,7 @@ import pytest
 from fdai.delivery.conversation_images import (
     ConversationImage,
     ConversationImageConflictError,
+    ConversationImageQuotaError,
     InMemoryConversationImageStore,
 )
 
@@ -91,3 +92,28 @@ async def test_image_store_batch_conflict_is_atomic() -> None:
         )
         is None
     )
+
+
+async def test_image_store_enforces_principal_count_quota_atomically() -> None:
+    store = InMemoryConversationImageStore(max_images_per_principal=1)
+    await store.put(_image(image_id="att-first"))
+
+    with pytest.raises(ConversationImageQuotaError, match="count quota"):
+        await store.put(_image(image_id="att-second"))
+
+    assert (
+        await store.get(
+            principal_id="principal-a",
+            conversation_id="conversation-1",
+            image_id="att-second",
+        )
+        is None
+    )
+
+
+async def test_image_store_enforces_principal_byte_quota() -> None:
+    store = InMemoryConversationImageStore(max_bytes_per_principal=5)
+    await store.put(_image(image_id="att-first", content=b"123"))
+
+    with pytest.raises(ConversationImageQuotaError, match="byte quota"):
+        await store.put(_image(image_id="att-second", content=b"456"))
