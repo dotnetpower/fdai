@@ -40,17 +40,18 @@ describe("observed trajectory typography", () => {
     expect(styles).toContain("text-overflow: ellipsis; white-space: nowrap;");
   });
 
-  test("uses fixed status dots and one combined source tooltip", () => {
+  test("opens read and evidence status sideways from a distinct trigger", () => {
     expect(source).toContain('class="deck-trajectory-results"');
-    expect(reply).toContain("<ConversationTrajectoryResults trajectory={trajectory} />");
-    expect(reply).toContain('class="deck-source-status-tooltip"');
-    expect(reply).toContain('class="deck-trajectory-tooltip"');
-    expect(reply).toContain('class="deck-gr-tool deck-gr-review has-trajectory-status"');
+    expect(reply).toContain('class="deck-trajectory-status-trigger"');
+    expect(reply).toContain('class="deck-trajectory-flyout"');
+    expect(reply).toContain('placement="right"');
+    expect(reply).toContain("sideOffset={10}");
+    expect(reply).toContain('class="deck-gr-source-status"');
+    expect(reply).toContain('class="deck-gr-review-status"');
     expect(resultStyles).toContain("position: absolute;");
     expect(resultStyles).toContain("width: 10px;");
-    expect(resultStyles).toContain("margin-left: -4px;");
+    expect(resultStyles).toContain("margin-left: -2px;");
     expect(resultStyles).toContain("transition: none;");
-    expect(resultStyles).not.toContain(":hover");
-    expect(resultStyles).not.toContain("focus-within");
+    expect(resultStyles).toContain(".deck-trajectory-flyout");
   });
 });

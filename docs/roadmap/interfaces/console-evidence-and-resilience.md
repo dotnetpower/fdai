@@ -269,11 +269,12 @@ counts, evidence completion, references, and verification rather than internal e
 serialized `unverified` status remains stable for replay. Its primary Console label is derived from
 the bounded reason code as Context required, Source unavailable, Invalid query, or Unsupported
 claim, while technical detail retains the canonical status and raw reason code. The
-two result indicators are fixed dots no larger than 10 px that overlap on the source-button edge.
-They never expand. The source description, query and command counts, and evidence summary share one
-viewport-bounded tooltip on pointer hover or keyboard focus. The dots use absolute positioning, so
-they create no row, change no reply-action geometry, and don't cover adjacent actions. When no
-source button exists, the same dots and status-only tooltip attach to Review answer quality. The
+two result indicators are fixed dots no larger than 10 px that overlap by 2 px on the source-button
+edge. The source button keeps its own source tooltip. The dots form a separate pointer and keyboard
+trigger that opens query and command counts plus the evidence summary as adjacent pills to the
+right, or flips them to the left when viewport space requires it. The dots use absolute positioning,
+so they create no row, change no reply-action geometry, and don't cover adjacent actions. When no
+source button exists, the same dots and side-opening status flyout attach to Review answer quality. The
 expanded run-record summary retains the complete bounded
 operator prompt and wraps it on narrow layouts. Changing its disclosure
 scrolls only the transcript while the composer remains visible at the Deck boundary. The expanded

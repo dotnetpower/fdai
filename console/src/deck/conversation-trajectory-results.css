@@ -1,23 +1,42 @@
-.deck-gr-pill.has-trajectory-status,
-.deck-gr-review.has-trajectory-status {
+.deck-gr-source-status,
+.deck-gr-review-status {
   position: relative;
+  display: inline-flex;
+  align-items: center;
   overflow: visible;
 }
 
-.has-trajectory-status .deck-trajectory-results {
+.deck-trajectory-status-trigger {
   position: absolute;
-  z-index: 1;
+  z-index: 2;
   top: 50%;
-  right: -6px;
+  right: -12px;
   transform: translateY(-50%);
-  pointer-events: none;
 }
 
-.has-trajectory-status .deck-trajectory-results > span {
+.deck-trajectory-status-trigger > .tooltip-anchor {
+  display: inline-flex;
+}
+
+.deck-trajectory-status-trigger .deck-trajectory-results {
+  display: inline-flex;
+  align-items: center;
+  cursor: help;
+  outline: none;
+}
+
+.deck-trajectory-status-trigger .deck-trajectory-results:focus-visible {
+  border-radius: 999px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.deck-trajectory-status-trigger .deck-trajectory-results > span {
   width: 10px;
+  height: 10px;
   max-width: 10px;
   min-height: 10px;
-  margin-left: -4px;
+  margin-left: -2px;
   padding: 0;
   overflow: visible;
   border: 2px solid var(--bg-elevated);
@@ -26,26 +45,32 @@
   transition: none;
 }
 
-.has-trajectory-status .deck-trajectory-results > span::before {
+.deck-trajectory-status-trigger .deck-trajectory-results > span::before {
   width: 6px;
   height: 6px;
 }
 
-.has-trajectory-status .deck-trajectory-results > span:first-child {
+.deck-trajectory-status-trigger .deck-trajectory-results > span:first-child {
   margin-left: 0;
 }
 
-.deck-source-status-tooltip,
-.deck-trajectory-tooltip {
-  display: grid;
-  gap: 3px;
+.deck-trajectory-flyout {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
 }
 
-.deck-source-status-tooltip > span:first-child {
-  font-weight: 700;
-}
-
-.deck-trajectory-tooltip {
+.deck-trajectory-flyout > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
   color: var(--fg-muted);
+  font-size: 11px;
   font-weight: 500;
+  white-space: nowrap;
 }

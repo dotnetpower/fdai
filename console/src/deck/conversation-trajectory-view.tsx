@@ -198,10 +198,10 @@ export function ConversationTrajectoryResults({
       class="deck-trajectory-results"
       data-activity-summary={activitySummary}
       data-evidence-summary={evidenceSummary}
-      aria-hidden="true"
+      aria-label={t("deck.trajectory.runRecord")}
     >
-      <span data-state="observed" />
-      <span data-state={evidenceState} />
+      <span data-state="observed" aria-hidden="true" />
+      <span data-state={evidenceState} aria-hidden="true" />
     </span>
   );
 }

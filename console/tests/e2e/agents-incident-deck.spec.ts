@@ -329,10 +329,12 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await expect(runRecord).not.toHaveAttribute("open", "");
   await expect(runRecord.locator(".deck-trajectory-question")).toHaveCount(0);
   await expect(runRecord.locator(".deck-trajectory-results")).toHaveCount(0);
-  const sourceButton = workspace.locator(".deck-gr-pill.has-trajectory-status");
-  const trajectoryResults = sourceButton.locator(".deck-trajectory-results");
-  const collapsedResults = await sourceButton.evaluate((root) => {
-    const button = root.getBoundingClientRect();
+  const sourceControl = workspace.locator(".deck-gr-source-status");
+  const sourceButton = sourceControl.locator(".deck-gr-pill");
+  const statusTrigger = sourceControl.locator(".deck-trajectory-status-trigger");
+  const trajectoryResults = statusTrigger.locator(".deck-trajectory-results");
+  const collapsedResults = await sourceControl.evaluate((root) => {
+    const button = root.querySelector<HTMLElement>(".deck-gr-pill")!.getBoundingClientRect();
     const review = root.closest(".deck-gr-actions")
       ?.querySelector<HTMLElement>(".deck-gr-review")?.getBoundingClientRect();
     const items = [...root.querySelectorAll<HTMLElement>(".deck-trajectory-results > span")]
@@ -355,9 +357,10 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   expect(collapsedResults.items).toHaveLength(2);
   expect(collapsedResults.items[0]?.top).toBe(collapsedResults.items[1]?.top);
   expect(collapsedResults.items.every((item) => item.width <= 10)).toBe(true);
-  expect(collapsedResults.items.every((item) => item.overlapsButton)).toBe(true);
+  expect(collapsedResults.items.some((item) => item.overlapsButton)).toBe(true);
   expect(collapsedResults.items.every((item) => !item.overlapsReview)).toBe(true);
-  expect(collapsedResults.badgeOverlap).toBeGreaterThanOrEqual(4);
+  expect(collapsedResults.badgeOverlap).toBeGreaterThanOrEqual(1);
+  expect(collapsedResults.badgeOverlap).toBeLessThanOrEqual(3);
   const actionRowHeight = await workspace.locator(".deck-gr-actions").evaluate(
     (element) => element.getBoundingClientRect().height,
   );
@@ -368,20 +371,34 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   const sourceTooltip = page.locator('.app-tooltip[data-state="delayed-open"]');
   await expect(sourceTooltip).toHaveCount(1);
   await expect(sourceTooltip).toContainText("Checked against 1 evidence reference(s)");
-  await expect(sourceTooltip).toContainText("1 read queries / 0 commands");
-  await expect(sourceTooltip).toContainText("Evidence 1/1 completed / 2 refs");
+  await expect(sourceTooltip).not.toContainText("1 read queries / 0 commands");
+  await statusTrigger.hover();
+  const statusTooltip = page.locator('.app-tooltip[data-state="delayed-open"]');
+  await expect(statusTooltip).toHaveCount(1);
+  await expect(statusTooltip).toContainText("1 read queries / 0 commands");
+  await expect(statusTooltip).toContainText("Evidence 1/1 completed / 2 refs");
+  await expect(statusTooltip).not.toContainText("Checked against 1 evidence reference(s)");
   await expect.poll(async () => trajectoryResults.locator(":scope > span").evaluateAll(
     (items) => items.map((item) => item.getBoundingClientRect().width),
   )).toEqual(badgeWidths);
   await expect.poll(async () => workspace.locator(".deck-gr-actions").evaluate(
     (element) => element.getBoundingClientRect().height,
   )).toBe(actionRowHeight);
-  const tooltipBounds = await sourceTooltip.boundingBox();
+  const tooltipBounds = await statusTooltip.boundingBox();
+  const triggerBounds = await statusTrigger.boundingBox();
   const viewport = page.viewportSize();
   expect(tooltipBounds).not.toBeNull();
+  expect(triggerBounds).not.toBeNull();
   expect(viewport).not.toBeNull();
   expect(tooltipBounds!.x).toBeGreaterThanOrEqual(0);
   expect(tooltipBounds!.x + tooltipBounds!.width).toBeLessThanOrEqual(viewport!.width);
+  const tooltipSide = await statusTooltip.getAttribute("data-side");
+  expect(["left", "right"]).toContain(tooltipSide);
+  if (tooltipSide === "right") {
+    expect(tooltipBounds!.x).toBeGreaterThanOrEqual(triggerBounds!.x + triggerBounds!.width);
+  } else {
+    expect(tooltipBounds!.x + tooltipBounds!.width).toBeLessThanOrEqual(triggerBounds!.x);
+  }
   await runRecord.locator(":scope > summary").click();
   await expect(runRecord).toHaveAttribute("open", "");
   await expect(runRecord.locator(".deck-trajectory-question strong")).toHaveText(

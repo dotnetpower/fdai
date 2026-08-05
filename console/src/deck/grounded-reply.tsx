@@ -142,13 +142,6 @@ export function GroundedReply({
   const sourceButtonLabel = evidenceReferences
     ? t("deck.tooltip.evidenceReferences", { count: sources.length })
     : t("deck.tooltip.groundedSources", { count: sources.length });
-  const trajectoryLabels = trajectory ? trajectoryResultLabels(trajectory) : undefined;
-  const trajectoryTooltip = trajectoryLabels ? (
-    <span class="deck-trajectory-tooltip">
-      <span>{trajectoryLabels.activitySummary}</span>
-      <span>{trajectoryLabels.evidenceSummary}</span>
-    </span>
-  ) : null;
 
   const copy = () => {
     void navigator.clipboard?.writeText(text).then(
@@ -370,15 +363,12 @@ export function GroundedReply({
                 </Tooltip>
               ) : null}
               {trajectory && sources.length === 0 ? (
-                <Tooltip content={trajectoryTooltip} placement="top-end">
-                  <a
-                    class="deck-gr-tool deck-gr-review has-trajectory-status"
-                    href={assuranceHref(turnId)}
-                  >
+                <span class="deck-gr-review-status">
+                  <a class="deck-gr-tool deck-gr-review" href={assuranceHref(turnId)}>
                     {t("deck.reviewAnswer")}
-                    <ConversationTrajectoryResults trajectory={trajectory} />
                   </a>
-                </Tooltip>
+                  <TrajectoryStatusTrigger trajectory={trajectory} />
+                </span>
               ) : (
                 <a class="deck-gr-tool deck-gr-review" href={assuranceHref(turnId)}>
                   {t("deck.reviewAnswer")}
@@ -388,40 +378,34 @@ export function GroundedReply({
           ) : null}
 
           {sources.length > 0 ? (
-            <Tooltip
-              placement="top-end"
-              content={
-                <span class="deck-source-status-tooltip">
-                  <span>{sourceButtonLabel}</span>
-                  {trajectoryTooltip}
-                </span>
-              }
-            >
-              <button
-                type="button"
-                class={`deck-gr-pill${trajectory ? " has-trajectory-status" : ""}`}
-                onClick={() => setOpen((v) => !v)}
-                aria-expanded={open}
-                aria-label={sourceButtonLabel}
-              >
-                <span class="deck-gr-check" aria-hidden="true">
-                  {groundingIncomplete ? "!" : "\u2713"}
-                </span>
-                <span class="deck-gr-stat">
-                  <strong>{sources.length}</strong>{" "}
-                  {sources.length === 1
-                    ? t("deck.grounded.source")
-                    : t("deck.grounded.sources")}
-                </span>
-                {groundingIncomplete ? (
-                  <span class="deck-gr-stat">{t("deck.grounded.partialEvidence")}</span>
-                ) : null}
-                <span class="deck-gr-more">
-                  {open ? t("deck.grounded.hideSources") : t("deck.grounded.showSources")}
-                </span>
-                {trajectory ? <ConversationTrajectoryResults trajectory={trajectory} /> : null}
-              </button>
-            </Tooltip>
+            <span class="deck-gr-source-status">
+              <Tooltip placement="top-end" content={sourceButtonLabel}>
+                <button
+                  type="button"
+                  class="deck-gr-pill"
+                  onClick={() => setOpen((v) => !v)}
+                  aria-expanded={open}
+                  aria-label={sourceButtonLabel}
+                >
+                  <span class="deck-gr-check" aria-hidden="true">
+                    {groundingIncomplete ? "!" : "\u2713"}
+                  </span>
+                  <span class="deck-gr-stat">
+                    <strong>{sources.length}</strong>{" "}
+                    {sources.length === 1
+                      ? t("deck.grounded.source")
+                      : t("deck.grounded.sources")}
+                  </span>
+                  {groundingIncomplete ? (
+                    <span class="deck-gr-stat">{t("deck.grounded.partialEvidence")}</span>
+                  ) : null}
+                  <span class="deck-gr-more">
+                    {open ? t("deck.grounded.hideSources") : t("deck.grounded.showSources")}
+                  </span>
+                </button>
+              </Tooltip>
+              {trajectory ? <TrajectoryStatusTrigger trajectory={trajectory} /> : null}
+            </span>
           ) : null}
         </div>
       ) : null}
@@ -432,6 +416,30 @@ export function GroundedReply({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function TrajectoryStatusTrigger({
+  trajectory,
+}: {
+  readonly trajectory: ConversationTrajectory;
+}) {
+  const labels = trajectoryResultLabels(trajectory);
+  return (
+    <span class="deck-trajectory-status-trigger">
+      <Tooltip
+        content={
+          <span class="deck-trajectory-flyout">
+            <span>{labels.activitySummary}</span>
+            <span>{labels.evidenceSummary}</span>
+          </span>
+        }
+        placement="right"
+        sideOffset={10}
+      >
+        <ConversationTrajectoryResults trajectory={trajectory} />
+      </Tooltip>
+    </span>
   );
 }
 

@@ -103,8 +103,8 @@ describe("grounded reply presentation", () => {
     );
 
     expect(component).toContain("trajectory && sources.length === 0");
-    expect(component).toContain('class="deck-gr-tool deck-gr-review has-trajectory-status"');
-    expect(component).toContain("<ConversationTrajectoryResults trajectory={trajectory} />");
-    expect(component).toContain('content={trajectoryTooltip} placement="top-end"');
+    expect(component).toContain('class="deck-gr-review-status"');
+    expect(component).toContain("<TrajectoryStatusTrigger trajectory={trajectory} />");
+    expect(component).toContain('placement="right"');
   });
 });
