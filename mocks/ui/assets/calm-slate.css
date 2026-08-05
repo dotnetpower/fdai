@@ -1306,7 +1306,7 @@ body.cs-drawer-open { overflow: hidden; }
 .cs-live-workspace:fullscreen .cs-live-queue-wrap,
 .cs-live-workspace.is-fullscreen-fallback .cs-live-queue-wrap { height: 100%; overflow: auto; }
 .cs-live-workspace:fullscreen .cs-swarm,
-.cs-live-workspace.is-fullscreen-fallback .cs-swarm { width: 100%; height: 100%; min-height: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, clamp(220px, 32vh, 280px)); gap: 12px; margin: 0; align-content: center; }
+.cs-live-workspace.is-fullscreen-fallback .cs-swarm { width: 100%; height: 100%; min-height: 0; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; align-content: center; }
 .cs-live-workspace:fullscreen .cs-tile,
 .cs-live-workspace.is-fullscreen-fallback .cs-tile { width: 100%; height: 100%; min-height: 0; }
 .cs-live-workspace:fullscreen .cs-tile[data-fade],

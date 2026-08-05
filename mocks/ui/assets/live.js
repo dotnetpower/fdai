@@ -20,11 +20,11 @@
   var STAGES = ["route", "decide", "authorize", "execute", "effect", "audit"];
   // Per-tier total pipeline duration (ms). Randomised +/-25% per event.
   var TIER_TOTAL_MS = { t0: 2400, t1: 3400, t2: 4800 };
-  var BASE_RATE = 2; // events / sec, bounded for the six-card preview
+  var BASE_RATE = 2; // events / sec, bounded for the twelve-card preview
   var FADE_1_MS = 900;
   var FADE_2_MS = 1600;
   var RETIRE_MS = 2400;
-  var FLOW_POOL_SIZE = 6;
+  var FLOW_POOL_SIZE = 12;
   var SPARK_BUCKETS = 60; // one second per bucket
   var SPARK_BUCKET_MS = 1000;
   var PULSE_COOLDOWN_MS = 5000;
@@ -1204,6 +1204,7 @@
     lastFrame = t;
     lastBucketAt = t;
     for (var slotIndex = 0; slotIndex < FLOW_POOL_SIZE; slotIndex++) spawn(t);
+    renderOperationalState(t);
     renderSparkline();
     tick(t);
     window.setInterval(function () { tick(performance.now()); }, 50);

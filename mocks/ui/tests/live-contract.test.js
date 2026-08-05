@@ -5,7 +5,14 @@ const test = require("node:test");
 
 const uiRoot = join(__dirname, "..");
 const script = readFileSync(join(uiRoot, "assets", "live.js"), "utf8");
+const stylesheet = readFileSync(join(uiRoot, "assets", "calm-slate.css"), "utf8");
 const html = readFileSync(join(uiRoot, "live.html"), "utf8");
+
+test("flow preview exposes twelve concurrent work slots", () => {
+  assert.match(script, /var FLOW_POOL_SIZE = 12;/);
+  assert.match(script, /for \(var slotIndex = 0; slotIndex < FLOW_POOL_SIZE; slotIndex\+\+\) spawn\(t\);\s*renderOperationalState\(t\);/);
+  assert.match(stylesheet, /grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); grid-template-rows: repeat\(3, minmax\(0, 1fr\)\)/);
+});
 
 test("gated and shadow paths do not observe execution or effect", () => {
   const gatedPath = script.match(
