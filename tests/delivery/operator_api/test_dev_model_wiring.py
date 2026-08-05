@@ -77,3 +77,16 @@ def test_local_embedder_is_absent_when_resolved_models_are_not_provisioned(
     monkeypatch.delenv("FDAI_EMBEDDING_DEPLOYMENT", raising=False)
 
     assert _build_local_embedder(tmp_path / "missing.json") == (None, ())
+
+
+def test_local_embedder_honors_off_toggle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resolved = tmp_path / "resolved-models.json"
+    _write_resolved(resolved)
+    monkeypatch.setenv("FDAI_INVENTORY_SEMANTIC_ENABLED", "off")
+    monkeypatch.setenv("FDAI_EMBEDDING_ENDPOINT", "https://override.example/")
+    monkeypatch.setenv("FDAI_EMBEDDING_DEPLOYMENT", "embedding-example")
+
+    assert _build_local_embedder(resolved) == (None, ())

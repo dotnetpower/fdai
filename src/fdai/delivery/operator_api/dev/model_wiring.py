@@ -66,7 +66,7 @@ def _build_local_embedder(
     tuple[Callable[[], Coroutine[Any, Any, None]], ...],
 ]:
     enabled = os.environ.get("FDAI_INVENTORY_SEMANTIC_ENABLED", "1").strip().casefold()
-    if enabled in {"0", "false", "no"}:
+    if enabled in {"0", "false", "no", "off"}:
         return None, ()
     endpoint_override = os.environ.get("FDAI_EMBEDDING_ENDPOINT", "").strip()
     deployment_override = os.environ.get("FDAI_EMBEDDING_DEPLOYMENT", "").strip()
