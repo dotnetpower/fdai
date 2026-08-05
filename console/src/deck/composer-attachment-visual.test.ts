@@ -22,6 +22,13 @@ describe("composer image attachment presentation", () => {
     expect(styles).toContain(".deck-attach-item.is-image-preview");
     expect(view).toContain('variant="image-preview"');
     expect(styles).toContain("width: min(420px, calc(100vw - 32px))");
+    expect(styles).toContain(
+      ".deck-attach-item.is-image-preview > .tooltip-anchor:first-child",
+    );
+    expect(styles).toMatch(
+      /\.deck-attach-item\.is-image-preview \.deck-attach-thumb\s*\{[^}]*cursor:\s*default;/,
+    );
+    expect(styles).not.toContain("cursor: zoom-in");
   });
 
   it("shares the neutral top-edge shimmer and reduced-motion contract", () => {
