@@ -98,9 +98,15 @@ def project_scheduled_shutdown_result(
         resource_group = schedule.get("scheduled_shutdown_target_resource_group")
         subscription_digest = schedule.get("scheduled_shutdown_target_subscription_digest")
         time_zone = schedule.get("scheduled_shutdown_time_zone")
-        if not all(
-            isinstance(value, str) and value
-            for value in (target_name, resource_group, subscription_digest, time_zone)
+        if (
+            not isinstance(target_name, str)
+            or not target_name
+            or not isinstance(resource_group, str)
+            or not resource_group
+            or not isinstance(subscription_digest, str)
+            or not subscription_digest
+            or not isinstance(time_zone, str)
+            or not time_zone
         ):
             raise ScheduledShutdownEvidenceError("scheduled shutdown target is invalid")
         if not subscription_digest.startswith("sha256:") or len(subscription_digest) != 71:

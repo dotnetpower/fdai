@@ -181,47 +181,38 @@ Recommended mapping:
   subscription resource-write/delete signals into a raw Event Hub. It is not a core contract,
   broker, or decision surface. Huginn normalizes those records after Kafka ingress, so the core
   still sees Kafka only. Event Hubs local authentication remains disabled.
-- Core consumer: **Azure Container Apps** (Consumption) - **one app with one modular Python
-  process** that composes the core subsystems behind internal interfaces. The current
-  Terraform baseline keeps `minReplicas = 1`; scale-to-zero remains blocked until an
-  Event Hubs Kafka-lag scaler can authenticate without adding a long-lived secret. AKS is
-  reserved for a measured heavier profile. The app ships as an **OCI
-  image + a Knative-compatible manifest subset**, rendered into `containerapp` resources by
-  IaC. **Dapr sidecars and Envoy-specific ingress rules are prohibited** to keep the runtime
-  contract portable.
-- Light triggers: **Container Apps Jobs** in the same environment for out-of-band change
-  detection and cost-anomaly probes (avoids provisioning a separate Functions plan); rendered
-  from the same manifest as a K8s `CronJob` on non-Azure targets.
-- Audit/state/KPI + T1 vectors: **PostgreSQL Flexible** with **pgvector** co-located. Dev uses
-  Burstable with HA disabled; production requires zone-redundant HA plus geo-redundant backup.
-  Cosmos DB is considered only if RU-metering and geo-distribution outgrow this boundary.
-- Secrets: the app reads **environment variables only**; **Key Vault** is bridged in via
-  **Container Apps native secret + Key Vault reference** (K8s targets use External Secrets
-  Operator). The app never calls a secret SDK.
+- Core consumer: **Azure Container Apps** (Consumption) - **one app with one modular Python process**
+  behind internal interfaces. The current Terraform baseline keeps `minReplicas = 1`; scale-to-zero
+  remains blocked until an Event Hubs Kafka-lag scaler authenticates without a long-lived secret.
+  AKS is reserved for a measured heavier profile. The app ships as an **OCI image + a
+  Knative-compatible manifest subset**, rendered into `containerapp` resources by IaC. **Dapr
+  sidecars and Envoy-specific ingress rules are prohibited** to keep the runtime contract portable.
+- Light triggers: **Container Apps Jobs** in the same environment for out-of-band change detection
+  and cost-anomaly probes; the same manifest renders a K8s `CronJob` on non-Azure targets.
+- Audit/state/KPI + T1 vectors: **PostgreSQL Flexible** with **pgvector** co-located. Dev uses Burstable
+  without HA; production requires zone-redundant HA plus geo-redundant backup. Cosmos DB is considered
+  only if RU-metering and geo-distribution outgrow this boundary.
+- Secrets: the app reads **environment variables only**; **Key Vault** uses a **Container Apps native
+  secret + Key Vault reference** (K8s targets use External Secrets Operator). The app never calls a secret SDK.
 - PR gate: **GitHub App** (Checks API) or Azure DevOps service hooks.
 - HIL approval: **Bot Framework / Teams** Adaptive Cards (Azure Bot Free tier).
-- Execution identity: **user-assigned Managed Identity** + action whitelist (least privilege),
-  exposed to the core as an **OIDC token** via a `WorkloadIdentity` interface so IRSA / GCP
-  Workload Identity / SPIRE slot into the same contract later. `DefaultAzureCredential()` and
-  similar SDK entry points are confined to the Azure adapter, never `core/`.
-- Observability: **Log Analytics** workspace with **App Insights bound to it** (no separate
-  APM resource); default 30-day retention, UI-configurable.
+- Execution identity: **user-assigned Managed Identity** + action whitelist (least privilege), exposed
+  as an **OIDC token** via `WorkloadIdentity` so IRSA / GCP Workload Identity / SPIRE remain additive.
+  `DefaultAzureCredential()` and similar SDK entry points stay in the Azure adapter, never `core/`.
+- Observability: **Log Analytics** with **App Insights bound to it**; default 30-day retention,
+  UI-configurable.
 
 ## Failure Modes
 
 - **Console down** - operations continue; core engine, PR gate, and ChatOps are unaffected.
-- **ChatOps down** - high-risk HIL items queue and alert via a fallback; nothing auto-executes
-  without approval.
-- **Event-bus backpressure** - rely on ordering plus dead-letter queues; the core reprocesses,
-  it does not drop events.
+- **ChatOps down** - high-risk HIL items queue and alert via fallback; nothing auto-executes without approval.
+- **Event-bus backpressure** - use ordering plus dead-letter queues; the core reprocesses without dropping events.
 - **Any layer** that triggers a state change owes all seven safeguards (see coding conventions and security/identity).
 
 ## Anti-Patterns (avoid)
 
-- **Monolithic web app that does everything** - always-on cost, violates autonomy philosophy,
-  hard to port across clouds.
-- **UI buttons that execute actions** - forces custom audit/rollback and breaks least
-  privilege; PR-native gets audit, rollback, and approval for free.
+- **Monolithic web app that does everything** - always-on cost, violates autonomy, hard to port.
+- **UI buttons that execute actions** - breaks least privilege; PR-native supplies audit, rollback, and approval.
 - **Always-on polling daemons** - conflicts with the event-driven, scale-to-zero principle.
 - **Shared identity across layers** - a console or bot reusing the executor identity collapses
   the approval/execution boundary.
