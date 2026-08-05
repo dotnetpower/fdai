@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import {
   backendTooltip,
   backendTooltipView,
   conversationCountLabel,
-  hasOverflowingText,
   routerTooltip,
   shouldLoadMoreConversations,
   verticalQuickStarts,
@@ -27,11 +28,16 @@ describe("conversation history paging", () => {
   });
 });
 
-describe("conversation title overflow", () => {
-  it("enables the full-title tooltip only when the rendered text is truncated", () => {
-    expect(hasOverflowingText({ clientWidth: 120, scrollWidth: 121 })).toBe(true);
-    expect(hasOverflowingText({ clientWidth: 120, scrollWidth: 120 })).toBe(false);
-    expect(hasOverflowingText({ clientWidth: 120, scrollWidth: 80 })).toBe(false);
+describe("conversation title tooltip", () => {
+  it("always exposes the complete bounded question without layout measurement", () => {
+    const component = readFileSync(
+      fileURLToPath(new URL("./command-deck-presenters.tsx", import.meta.url)),
+      "utf8",
+    );
+
+    expect(component).toContain('<Tooltip content={label} placement="top-start">');
+    expect(component).not.toContain("hasOverflowingText");
+    expect(component).not.toContain("ResizeObserver");
   });
 });
 

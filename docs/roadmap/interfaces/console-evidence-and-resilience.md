@@ -21,8 +21,8 @@ that cue without moving the row. Only newer server activity advances the orderin
 For a non-agent conversation, the first operator question becomes the title while the originating
 screen remains separate metadata. The normalized question is bounded to 512 characters in history
 metadata and preserved across browser and durable restoration. When the title is visually
-truncated, pointer hover shows that bounded question through the shared console tooltip. A title
-that fits does not show a redundant tooltip.
+truncated, its visible text keeps the ellipsis. Pointer hover or keyboard focus on every conversation
+title shows the bounded full question through the shared console tooltip, including titles that fit.
 Layout and close icon controls use the same localized tooltip component. The connected-backend
 tooltip preserves separate mode, endpoint, route-choice, and candidate lines, fills every localized
 placeholder, and wraps long endpoint or deployment tokens within its viewport bound.

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: ef61d3da6b35c9126b6be4686b7b58ea0ce96a8f
+translation_source_sha: b8f140be8fd573df4fb653ee84bdc0824b6c240e
 translation_revised: 2026-08-05
 ---
 
@@ -23,8 +23,8 @@ Same-screen 및 agent conversation은 navigation 없이 전환합니다.
 activity만 ordering timestamp를 갱신합니다.
 Agent 대화가 아닌 경우 첫 operator 질문이 제목이 되고 origin screen은 별도 metadata로 유지됩니다.
 정규화된 질문은 history metadata에서 512자로 제한되고 browser 및 durable 복원 후에도 보존됩니다.
-제목이 시각적으로 잘리면 pointer hover에서 공용 console tooltip으로 제한된 질문 전체를 표시합니다.
-제목이 영역 안에 모두 표시되면 중복 tooltip을 표시하지 않습니다. Layout 및 닫기 icon control도 같은 localized tooltip component를
+제목이 시각적으로 잘리면 visible text는 ellipsis를 유지합니다. 모든 conversation 제목은 길이와 관계없이
+pointer hover 또는 keyboard focus에서 공용 console tooltip으로 제한된 질문 전체를 표시합니다. Layout 및 닫기 icon control도 같은 localized tooltip component를
 사용합니다. 연결된 backend tooltip은 mode, endpoint, route choice 및 candidate를 별도 줄로 유지하고
 localized placeholder를 모두 채우며 긴 endpoint 또는 deployment token을 viewport 경계 안에서
 줄바꿈합니다.

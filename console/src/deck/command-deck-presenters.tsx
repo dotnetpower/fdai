@@ -1,6 +1,6 @@
 import { Tooltip } from "../components/tooltip";
 import { t } from "../i18n";
-import { useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useState } from "preact/hooks";
 import {
   type AnswerVerification,
   type ActionDraft,
@@ -96,30 +96,10 @@ export function shouldLoadMoreConversations(
   return hasMore && element.scrollHeight - element.scrollTop - element.clientHeight <= 120;
 }
 
-export function hasOverflowingText(
-  element: Pick<HTMLElement, "clientWidth" | "scrollWidth">,
-): boolean {
-  return element.scrollWidth > element.clientWidth;
-}
-
 function ConversationTitle({ label }: { readonly label: string }) {
-  const titleRef = useRef<HTMLSpanElement | null>(null);
-  const [truncated, setTruncated] = useState(false);
-
-  useLayoutEffect(() => {
-    const title = titleRef.current;
-    if (!title) return undefined;
-    const measure = () => setTruncated(hasOverflowingText(title));
-    measure();
-    if (typeof ResizeObserver === "undefined") return undefined;
-    const observer = new ResizeObserver(measure);
-    observer.observe(title);
-    return () => observer.disconnect();
-  }, [label]);
-
   return (
-    <Tooltip content={truncated ? label : undefined}>
-      <span ref={titleRef} class="deck-conversation-title">{label}</span>
+    <Tooltip content={label} placement="top-start">
+      <span class="deck-conversation-title">{label}</span>
     </Tooltip>
   );
 }
