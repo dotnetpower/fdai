@@ -44,6 +44,10 @@ def project_inventory_function_result(result: Mapping[str, Any]) -> dict[str, An
             raise ValueError("inventory function matched_count is invalid")
         if not isinstance(resources, (list, tuple)):
             raise ValueError("inventory function resources are invalid")
+        if any(not isinstance(resource, Mapping) for resource in resources):
+            raise ValueError("inventory function resource is invalid")
+        if matched_count != len(resources):
+            raise ValueError("inventory function matched_count does not match resources")
         projected["matched_count"] = matched_count
         projected["resources"] = [
             {
@@ -59,7 +63,6 @@ def project_inventory_function_result(result: Mapping[str, Any]) -> dict[str, An
                 if key in resource
             }
             for resource in resources[:40]
-            if isinstance(resource, Mapping)
         ]
     if status == "unavailable" and "reason" not in projected:
         raise ValueError("unavailable inventory function result requires reason")

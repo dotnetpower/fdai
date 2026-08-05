@@ -188,6 +188,28 @@ def test_inventory_function_projection_rejects_invalid_semantic_candidate() -> N
         )
 
 
+@pytest.mark.parametrize(
+    "resources, matched_count",
+    (([object()], 1), ([{"name": "vm-a", "type": "compute.vm"}], 2)),
+)
+def test_inventory_function_projection_rejects_lossy_resource_evidence(
+    resources: list[object],
+    matched_count: int,
+) -> None:
+    query = compile_inventory_query("VM list")
+    assert query is not None
+
+    with pytest.raises(ValueError, match="resource|matched_count"):
+        project_inventory_function_result(
+            {
+                "status": "matched",
+                "query": query.to_dict(),
+                "matched_count": matched_count,
+                "resources": resources,
+            }
+        )
+
+
 def test_ontology_graph_returns_bounded_operating_model_status() -> None:
     import asyncio
 
