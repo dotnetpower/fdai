@@ -151,6 +151,33 @@ async def test_recognized_inventory_intent_does_not_fall_back_when_query_is_inco
     }
 
 
+async def test_incomplete_state_semantics_holds_instead_of_widening() -> None:
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        del args, kwargs
+        return {
+            "resources": [
+                _resource("running", "compute.vm", "vm-running", status="VM running"),
+                _resource("stopped", "compute.vm", "vm-stopped", status="VM stopped"),
+            ],
+            "links": [],
+            "freshness": "fresh",
+        }
+
+    evidence = await InventoryChatTools(provider).resolve(
+        "started VM",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    result = evidence["result"]
+    assert result["status"] == "unavailable"
+    assert result["reason"] == "inventory_semantic_interpretation_required"
+    assert result["query"]["predicates"] == [
+        {"field": "resource_type", "operator": "eq", "value": "compute.vm"}
+    ]
+    assert "resources" not in result
+
+
 class StructuredPresentationBackend(RecordingBackend):
     def __init__(self, selected_format: str) -> None:
         super().__init__()

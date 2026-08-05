@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 0f52054c9d36150bc1d861aba79a01e6988812f3
+translation_source_sha: 256108f6806b5de32b6c830a6c765d649c246550
 translation_revised: 2026-08-05
 ---
 
@@ -285,6 +285,9 @@ resource 이름순이며, status, type 또는 location grouping을 명시하면 
 resource 이름순으로 정렬합니다. 렌더링 row와 durable ordinal follow-up은 같은 순서를 사용합니다.
 구체적인 resource-type query에 완전한 lexical state match가 없으면 semantic planning은 state concept만 제안합니다. Server는 IQL catalog의 canonical current-inventory state만 수락하고
 deterministic type, scope, freshness를 보존하며 planner가 제안한 type, scope, lookback은 버립니다. Provider가 관찰한 status가 최종 predicate를 grounding하며 invalid state는 unavailable을 반환합니다.
+Semantic planning을 사용할 수 없거나, 결과가 모호하거나, 필요한 state를 생략하면 server는
+deterministic query skeleton이 포함된 typed interpretation hold를 반환합니다. Type-only skeleton을
+실행하거나 unresolved modifier를 삭제하여 결과 범위를 넓히지 않습니다.
 필터가 없는 summary는 provider가 관찰한 모든 resource를 계속 보존하고 provider-native type별로 grouping하며 resource-group container와 topology-derived record를 resource 합계에서 분리합니다.
 Catalog-owned `scope_counts` query kind는 query를 resource group으로 좁히지 않고 하나의
 fresh snapshot에서 provider-native resource와 resource-group 합계를 반환합니다. Type summary와

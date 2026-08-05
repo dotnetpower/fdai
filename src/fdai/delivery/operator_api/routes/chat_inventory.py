@@ -15,6 +15,7 @@ from fdai.delivery.operator_api.routes.chat_inventory_activity import (
 )
 from fdai.delivery.operator_api.routes.chat_inventory_compiler import (
     compile_inventory_query,
+    inventory_query_requires_semantic_completion,
     inventory_query_scope,
     is_inventory_question,
 )
@@ -126,6 +127,16 @@ class InventoryChatTools:
                     "result": {
                         "status": "unavailable",
                         "reason": "inventory_query_not_compiled",
+                    },
+                }
+            if inventory_query_requires_semantic_completion(query):
+                return {
+                    "tool": "query_inventory",
+                    "authority": "server_inventory_graph",
+                    "result": {
+                        "status": "unavailable",
+                        "reason": "inventory_semantic_interpretation_required",
+                        "query": query.to_dict(),
                     },
                 }
             if query.require_fresh and graph.get("freshness") != "fresh":

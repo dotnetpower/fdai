@@ -289,6 +289,9 @@ name order by default; an explicit status, type, or location grouping uses that 
 then resource name. The same order drives rendered rows and durable ordinal follow-ups.
 A concrete resource-type query with no complete lexical state match uses semantic planning only to propose a state concept. The server accepts canonical current-inventory states from the IQL catalog,
 preserves deterministic type, scope, and freshness, and discards planner-supplied type, scope, and lookback. Provider-observed status grounds the final predicate; an invalid state returns unavailable.
+If semantic planning is unavailable, ambiguous, or omits the required state, the server returns a
+typed interpretation hold with the deterministic query skeleton. It does not execute that
+type-only skeleton or drop the unresolved modifier to widen the result set.
 An unfiltered summary still preserves every provider-observed resource, groups by provider-native type, and separates resource-group containers and topology-derived records from the resource total.
 The catalog-owned `scope_counts` query kind returns provider-native resource and resource-group
 totals from one fresh snapshot without narrowing the query to resource groups. It retains the same
