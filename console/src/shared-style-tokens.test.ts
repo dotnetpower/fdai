@@ -11,16 +11,24 @@ const sharedTokens = readFileSync(
   fileURLToPath(new URL("../../ui/calm-slate-tokens.css", import.meta.url)),
   "utf8",
 );
+const sharedPrimitives = readFileSync(
+  fileURLToPath(new URL("../../ui/calm-slate-primitives.css", import.meta.url)),
+  "utf8",
+);
 
 describe("shared Calm Slate tokens", () => {
   test("keeps foundation tokens in one stylesheet consumed by Console and mocks", () => {
     expect(consoleStyles).toContain('@import url("../../ui/calm-slate-tokens.css")');
     expect(mockStyles).toContain('@import url("../../../ui/calm-slate-tokens.css")');
+    expect(consoleStyles).toContain('@import url("../../ui/calm-slate-primitives.css")');
+    expect(mockStyles).toContain('@import url("../../../ui/calm-slate-primitives.css")');
     expect(sharedTokens).toContain("--cs-radius: 8px");
     expect(sharedTokens).toContain("--cs-font-size: 14px");
     expect(consoleStyles).toContain("--font-sans: var(--cs-font)");
     expect(mockStyles).toContain("font-size: var(--cs-font-size)");
     expect(mockStyles).not.toContain("--cs-radius: 14px");
     expect(mockStyles).not.toContain("--cs-font:");
+    expect(sharedPrimitives).toContain(".is-content-updated::after");
+    expect(sharedPrimitives).toContain("animation: calm-slate-content-update 1.35s");
   });
 });

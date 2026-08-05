@@ -1,4 +1,5 @@
 @import url("../../../ui/calm-slate-tokens.css");
+@import url("../../../ui/calm-slate-primitives.css");
 
 /* ==========================================================================
    Calm Slate - report theme for FDAI UI kit
@@ -1414,18 +1415,13 @@ body.cs-live-fullscreen-fallback { overflow: hidden; }
 .cs-live-detail-safety { display: grid; gap: 5px; margin: 0; padding-left: 18px; color: var(--cs-text-soft); font-size: 11.5px; }
 .cs-live-detail-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
 
-/* Shared semantic content-update feedback: top edge only. */
-.is-content-updated { position: relative; overflow: hidden; }
-.is-content-updated::after { content: ""; position: absolute; z-index: 4; inset: 0 0 auto; height: 2px; pointer-events: none; background: linear-gradient(90deg, transparent 0%, rgba(85,164,255,.25) 38%, rgba(111,190,255,.95) 50%, rgba(85,164,255,.25) 62%, transparent 100%) left / 72% 100% no-repeat; filter: drop-shadow(0 0 7px rgba(73,156,255,.75)); opacity: 0; transform: translateX(-125%); animation: cs-content-update 1.35s cubic-bezier(.2,.7,.25,1); }
-@keyframes cs-content-update { 0% { opacity: 0; transform: translateX(-125%); } 12% { opacity: 1; } 72% { opacity: .95; } 100% { opacity: 0; transform: translateX(125%); } }
-
 .cs-tk-mode { flex: 0 0 auto; margin-left: auto; padding: 0 7px; border-radius: 5px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; border: 1px solid var(--cs-hairline); }
 .cs-tk-mode.enforce { color: var(--cs-sage); border-color: rgba(94,130,89,.35); background: rgba(94,130,89,.10); }
 .cs-tk-mode.shadow { color: var(--cs-teal); border-color: rgba(79,132,126,.35); background: rgba(79,132,126,.10); }
 .cs-tk-mode.gated { color: var(--cs-plum); border-color: rgba(123,108,156,.35); background: rgba(123,108,156,.10); }
 /* Reduced-motion: freeze everything to final state */
 @media (prefers-reduced-motion: reduce) {
-  .cs-live-heartbeat, .cs-live-connection i, .is-content-updated::after { animation: none; }
+  .cs-live-heartbeat, .cs-live-connection i { animation: none; }
   .cs-tile, .cs-tile-bar > span { transition: none; }
   .cs-tile[data-state="active"] { animation: none; }
   .cs-gate-segment { transition: none; }

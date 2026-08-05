@@ -165,6 +165,8 @@
 
   document.addEventListener("DOMContentLoaded", createNavigation);
 
+  var shimmerTimers = new WeakMap();
+
   document.addEventListener("click", function (event) {
     var dismissButton = event.target.closest("[data-cs-dismiss]");
     if (!dismissButton) return;
@@ -180,10 +182,17 @@
     demo.classList.remove("is-content-updated");
     demo.getBoundingClientRect();
     demo.classList.add("is-content-updated");
+    if (shimmerTimers.has(demo)) window.clearTimeout(shimmerTimers.get(demo));
+    shimmerTimers.set(demo, window.setTimeout(function () {
+      shimmerTimers.delete(demo);
+      demo.classList.remove("is-content-updated");
+    }, 1500));
   });
 
   document.addEventListener("animationend", function (event) {
-    if (event.animationName === "cs-content-update") {
+    if (event.animationName === "calm-slate-content-update") {
+      if (shimmerTimers.has(event.target)) window.clearTimeout(shimmerTimers.get(event.target));
+      shimmerTimers.delete(event.target);
       event.target.classList.remove("is-content-updated");
     }
   });

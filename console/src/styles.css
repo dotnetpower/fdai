@@ -1,4 +1,5 @@
 @import url("../../ui/calm-slate-tokens.css");
+@import url("../../ui/calm-slate-primitives.css");
 
 .deck-incident-candidates {
   display: grid;
@@ -1353,11 +1354,6 @@ main {
   box-shadow: var(--cs-shadow);
 }
 
-.is-content-updated {
-  position: relative;
-  overflow: hidden;
-}
-.is-content-updated::after,
 .deck-attach-item.is-scanning::after {
   content: "";
   position: absolute;
@@ -1369,16 +1365,9 @@ main {
   filter: drop-shadow(0 0 7px rgba(73,156,255,.75));
   opacity: 0;
   transform: translateX(-125%);
-  animation: content-update-top-edge 1.35s cubic-bezier(.2,.7,.25,1);
-}
-@keyframes content-update-top-edge {
-  0% { opacity: 0; transform: translateX(-125%); }
-  12% { opacity: 1; }
-  72% { opacity: .95; }
-  100% { opacity: 0; transform: translateX(125%); }
+  animation: calm-slate-content-update 1.35s cubic-bezier(.2,.7,.25,1);
 }
 @media (prefers-reduced-motion: reduce) {
-  .is-content-updated::after,
   .deck-attach-item.is-scanning::after { animation: none; }
 }
 

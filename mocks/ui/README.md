@@ -77,6 +77,8 @@ Report and kit:
 
 - [../../ui/calm-slate-tokens.css](../../ui/calm-slate-tokens.css) - shared palette, typography,
   shape, and elevation tokens consumed by both the Console and static prototypes.
+- [../../ui/calm-slate-primitives.css](../../ui/calm-slate-primitives.css) - shared presentation
+  primitives such as the semantic top-edge content-update shimmer.
 - [assets/calm-slate.css](assets/calm-slate.css) - mock layout and component styles over the shared tokens:
   layout container (max-width 1160px), section number badges, cards, KPI grid, AS-IS/TO-BE
   comparison, critique table, pill tags, severity badges, trust-tier chips, buttons, forms,

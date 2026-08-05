@@ -63,8 +63,10 @@ The prototypes remain the visual reference for content: Calm Slate palette,
 hairline borders, compact section hierarchy, semantic tier/risk colors, KPI
 accents, evidence tables, and approval safety cards. Shared foundation tokens in
 [`../ui/calm-slate-tokens.css`](../ui/calm-slate-tokens.css) apply that language to both the
-Console and static prototypes. [`src/styles.css`](src/styles.css) owns route and shell styling
-while preserving the documented navigation and clean History API URLs.
+Console and static prototypes. Shared presentation behavior such as the semantic top-edge shimmer
+lives in [`../ui/calm-slate-primitives.css`](../ui/calm-slate-primitives.css).
+[`src/styles.css`](src/styles.css) owns route and shell styling while preserving the documented
+navigation and clean History API URLs.
 
 The **Operations > Incidents** panel is the incident-centric entry point. It groups
 the append-only audit stream by `correlation_id`, shows lifecycle status and

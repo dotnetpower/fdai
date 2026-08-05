@@ -8,9 +8,10 @@ function source(relativePath: string): string {
 
 describe("content update top-edge shimmer contract", () => {
   test("keeps the shared effect edge-only and motion-aware", () => {
-    const styles = source("../styles.css");
+    const styles = source("../../../ui/calm-slate-primitives.css");
+    const mockRuntime = source("../../../mocks/ui/assets/calm-slate.js");
     const shimmerStart = styles.indexOf(".is-content-updated::after");
-    const shimmerEnd = styles.indexOf("@keyframes content-update-top-edge");
+    const shimmerEnd = styles.indexOf("@keyframes calm-slate-content-update");
     const shimmer = styles.slice(shimmerStart, shimmerEnd);
 
     expect(shimmerStart).toBeGreaterThan(-1);
@@ -18,6 +19,8 @@ describe("content update top-edge shimmer contract", () => {
     expect(shimmer).toContain("linear-gradient(90deg");
     expect(shimmer.match(/linear-gradient/g)).toHaveLength(1);
     expect(styles).toContain(".is-content-updated::after { animation: none; }");
+    expect(mockRuntime).toContain('event.animationName === "calm-slate-content-update"');
+    expect(mockRuntime).toContain("}, 1500)");
   });
 
   test("provides a shared KPI API and wires the live card surfaces", () => {

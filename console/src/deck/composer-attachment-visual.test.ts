@@ -32,12 +32,8 @@ describe("composer image attachment presentation", () => {
   });
 
   it("shares the neutral top-edge shimmer and reduced-motion contract", () => {
-    expect(styles).toContain(
-      ".is-content-updated::after,\n.deck-attach-item.is-scanning::after",
-    );
-    expect(styles).toContain("animation: content-update-top-edge 1.35s");
-    expect(styles).toContain(
-      ".is-content-updated::after,\n  .deck-attach-item.is-scanning::after { animation: none; }",
-    );
+    expect(styles).toContain(".deck-attach-item.is-scanning::after");
+    expect(styles).toContain("animation: calm-slate-content-update 1.35s");
+    expect(styles).toContain(".deck-attach-item.is-scanning::after { animation: none; }");
   });
 });
