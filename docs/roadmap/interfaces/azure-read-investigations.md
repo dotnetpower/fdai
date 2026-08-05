@@ -151,12 +151,15 @@ has no authority until the deterministic inventory-query verifier accepts it.
 Every accepted current or activity collection compiles to one immutable `InventoryQuery` with a
 source, result kind, at most eight predicates, and an optional bounded lookback. Allowlisted fields
 are `resource_type`, `status`, `name`, `resource_group`, `location`, `operation`, and
-`event_status`; operators are `eq`, `ne`, `in`, `contains`, `exists`, and `missing`. The
+`event_status`; operators are `eq`, `ne`, `in`, `not_in`, `contains`, `exists`, and `missing`. The
 deterministic compiler matches facets actually observed in the current provider, so a new status
 does not require another routing expression. Unmatched modifiers abstain instead of widening to all
 resources. A semantic planner can propose the same strict shape only after deterministic
 abstention, and the verifier rechecks the complete query before I/O. Imperative changes remain
 action drafts and cannot enter this read path.
+`not_in` accepts only a bounded unique value list. The verifier expands canonical state ids and the
+provider grounding step replaces them with observed provider status forms before exclusion. A
+negative phrase is not rewritten as a positive `running` alias.
 Unfiltered managed-scope list wording is catalog data in both English and Korean. It compiles to a
 fresh subscription-scoped `list` query before semantic planning, even when the operator requests
 only names, types, status, evidence, or one representative resource.

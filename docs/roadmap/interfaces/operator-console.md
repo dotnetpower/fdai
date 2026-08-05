@@ -292,6 +292,9 @@ preserves deterministic type, scope, and freshness, and discards planner-supplie
 If semantic planning is unavailable, ambiguous, or omits the required state, the server returns a
 typed interpretation hold with the deterministic query skeleton. It does not execute that
 type-only skeleton or drop the unresolved modifier to widen the result set.
+Negative state candidates use the bounded `not_in` operator over canonical catalog states. Provider
+grounding resolves excluded values against the same snapshot; negation never becomes an
+unsupported positive-state guess.
 An unfiltered summary still preserves every provider-observed resource, groups by provider-native type, and separates resource-group containers and topology-derived records from the resource total.
 The catalog-owned `scope_counts` query kind returns provider-native resource and resource-group
 totals from one fresh snapshot without narrowing the query to resource groups. It retains the same

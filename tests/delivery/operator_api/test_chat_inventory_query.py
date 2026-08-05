@@ -85,6 +85,33 @@ def test_activity_query_accepts_bounded_change_predicates() -> None:
     )
 
 
+def test_not_in_requires_bounded_values_and_excludes_exact_matches() -> None:
+    query = InventoryQuery.from_mapping(
+        {
+            "source": "current",
+            "kind": "list",
+            "predicates": [
+                {
+                    "field": "status",
+                    "operator": "not_in",
+                    "value": ["VM stopped", "PowerState/deallocated"],
+                }
+            ],
+            "lookback_seconds": None,
+        }
+    )
+
+    assert inventory_query_matches(query, {"status": "VM running"})
+    assert not inventory_query_matches(query, {"status": "VM stopped"})
+    assert not inventory_query_matches(query, {"status": "PowerState/deallocated"})
+    with pytest.raises(ValueError, match="not_in requires"):
+        InventoryPredicate(
+            InventoryField.STATUS,
+            InventoryOperator.NOT_IN,
+            "stopped",
+        )
+
+
 @pytest.mark.parametrize(
     "raw, message",
     [

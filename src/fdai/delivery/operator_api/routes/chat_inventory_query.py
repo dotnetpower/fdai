@@ -72,6 +72,7 @@ class InventoryOperator(StrEnum):
     EQ = "eq"
     NE = "ne"
     IN = "in"
+    NOT_IN = "not_in"
     CONTAINS = "contains"
     EXISTS = "exists"
     MISSING = "missing"
@@ -101,6 +102,7 @@ _VALUE_OPERATORS: Final = frozenset(
         InventoryOperator.EQ,
         InventoryOperator.NE,
         InventoryOperator.IN,
+        InventoryOperator.NOT_IN,
         InventoryOperator.CONTAINS,
     }
 )
@@ -135,12 +137,12 @@ class InventoryPredicate:
             raise ValueError(f"inventory predicate {self.operator.value} requires a value")
         if self.operator not in _VALUE_OPERATORS and self.value is not None:
             raise ValueError(f"inventory predicate {self.operator.value} forbids a value")
-        if self.operator is InventoryOperator.IN:
+        if self.operator in {InventoryOperator.IN, InventoryOperator.NOT_IN}:
             if not isinstance(self.value, tuple) or not 1 <= len(self.value) <= _MAX_VALUES:
-                raise ValueError("inventory predicate in requires 1..16 values")
+                raise ValueError(f"inventory predicate {self.operator.value} requires 1..16 values")
             normalized = tuple(_bounded_value(item) for item in self.value)
             if len(set(normalized)) != len(normalized):
-                raise ValueError("inventory predicate in values MUST be unique")
+                raise ValueError(f"inventory predicate {self.operator.value} values MUST be unique")
             object.__setattr__(self, "value", normalized)
         elif isinstance(self.value, str):
             object.__setattr__(self, "value", _bounded_value(self.value))
@@ -407,6 +409,8 @@ def _predicate_matches(record: Mapping[str, Any], predicate: InventoryPredicate)
         return actual != predicate.value
     if predicate.operator is InventoryOperator.IN:
         return isinstance(predicate.value, tuple) and actual in predicate.value
+    if predicate.operator is InventoryOperator.NOT_IN:
+        return isinstance(predicate.value, tuple) and actual not in predicate.value
     if predicate.operator is InventoryOperator.CONTAINS:
         return isinstance(predicate.value, str) and _contains_token_sequence(
             actual, predicate.value

@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 5b4cc993c3eaea1c5d92880efe425d0d4cc89a6e
-translation_revised: 2026-08-04
+translation_source_sha: 58965622df5e3acc8c706019d82576e8ffa592ff
+translation_revised: 2026-08-05
 ---
 
 # Azure 읽기 조사
@@ -151,11 +151,14 @@ inventory-query verifier가 수락하기 전에는 authority가 없습니다.
 수락된 모든 current 또는 activity collection은 source, result kind, 최대 8개 predicate 및 optional
 bounded lookback을 가진 immutable `InventoryQuery` 하나로 compile됩니다. Allowlist field는
 `resource_type`, `status`, `name`, `resource_group`, `location`, `operation`, `event_status`이고 operator는
-`eq`, `ne`, `in`, `contains`, `exists`, `missing`입니다. Deterministic compiler는 current provider에
+`eq`, `ne`, `in`, `not_in`, `contains`, `exists`, `missing`입니다. Deterministic compiler는 current provider에
 실제로 관찰된 facet을 match하므로 새 status마다 routing expression을 추가할 필요가 없습니다. Match되지
 않은 modifier는 전체 resource로 확장하지 않고 abstain합니다. Semantic planner는 deterministic abstain
 후에만 동일한 strict shape를 제안할 수 있고 verifier가 I/O 전에 query 전체를 다시 확인합니다.
 Imperative change는 action draft로 유지되며 이 read path에 들어갈 수 없습니다.
+`not_in`은 bounded unique value list만 받습니다. Verifier가 canonical state id를 확장하고 provider
+grounding 단계가 제외 전에 이를 관찰된 provider status form으로 교체합니다. 따라서 negative phrase를
+positive `running` alias로 바꾸지 않습니다.
 Filter가 없는 managed-scope 목록 표현은 영어와 한국어 모두 catalog data로 관리됩니다. Operator가
 이름, 유형, 상태, evidence 또는 대표 resource 하나만 요청하더라도 semantic planning 전에 fresh
 subscription-scoped `list` query로 compile됩니다.

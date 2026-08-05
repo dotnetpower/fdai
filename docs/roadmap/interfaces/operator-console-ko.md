@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 256108f6806b5de32b6c830a6c765d649c246550
+translation_source_sha: f63fd47db27f46c84ebb0be97de50da84cc9b88e
 translation_revised: 2026-08-05
 ---
 
@@ -288,6 +288,9 @@ deterministic type, scope, freshness를 보존하며 planner가 제안한 type, 
 Semantic planning을 사용할 수 없거나, 결과가 모호하거나, 필요한 state를 생략하면 server는
 deterministic query skeleton이 포함된 typed interpretation hold를 반환합니다. Type-only skeleton을
 실행하거나 unresolved modifier를 삭제하여 결과 범위를 넓히지 않습니다.
+Negative state candidate는 canonical catalog state에 대해 bounded `not_in` operator를 사용합니다.
+Provider grounding은 같은 snapshot에서 excluded value를 resolve하며, negation을 unsupported
+positive-state guess로 바꾸지 않습니다.
 필터가 없는 summary는 provider가 관찰한 모든 resource를 계속 보존하고 provider-native type별로 grouping하며 resource-group container와 topology-derived record를 resource 합계에서 분리합니다.
 Catalog-owned `scope_counts` query kind는 query를 resource group으로 좁히지 않고 하나의
 fresh snapshot에서 provider-native resource와 resource-group 합계를 반환합니다. Type summary와

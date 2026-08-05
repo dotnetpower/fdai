@@ -113,10 +113,21 @@ def ground_inventory_status_query(
     )
     if not observed:
         return query
+    grounded_operator = (
+        InventoryOperator.NOT_IN
+        if predicate.operator is InventoryOperator.NOT_IN
+        else InventoryOperator.EQ
+        if len(observed) == 1
+        else InventoryOperator.IN
+    )
     grounded = InventoryPredicate(
         InventoryField.STATUS,
-        InventoryOperator.EQ if len(observed) == 1 else InventoryOperator.IN,
-        observed[0] if len(observed) == 1 else observed,
+        grounded_operator,
+        observed
+        if grounded_operator is InventoryOperator.NOT_IN
+        else observed[0]
+        if len(observed) == 1
+        else observed,
     )
     return replace(
         query,
@@ -142,7 +153,15 @@ def _canonical_status_predicate(
     state_ids: tuple[str, ...]
     if operator == InventoryOperator.EQ.value and isinstance(value, str):
         state_ids = (normalize_inventory_value(value),)
-    elif operator == InventoryOperator.IN.value and isinstance(value, list) and value:
+    elif (
+        operator
+        in {
+            InventoryOperator.IN.value,
+            InventoryOperator.NOT_IN.value,
+        }
+        and isinstance(value, list)
+        and value
+    ):
         string_values = tuple(item for item in value if isinstance(item, str))
         if len(string_values) != len(value):
             return None
@@ -177,10 +196,21 @@ def _canonical_status_predicate(
     unique = tuple(dict.fromkeys(values))
     if not 1 <= len(unique) <= 16 or any(not value for value in unique):
         return None
+    resolved_operator = (
+        InventoryOperator.NOT_IN
+        if operator == InventoryOperator.NOT_IN.value
+        else InventoryOperator.EQ
+        if len(unique) == 1
+        else InventoryOperator.IN
+    )
     return InventoryPredicate(
         InventoryField.STATUS,
-        InventoryOperator.EQ if len(unique) == 1 else InventoryOperator.IN,
-        unique[0] if len(unique) == 1 else unique,
+        resolved_operator,
+        unique
+        if resolved_operator is InventoryOperator.NOT_IN
+        else unique[0]
+        if len(unique) == 1
+        else unique,
     )
 
 
