@@ -5,12 +5,9 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
-from fdai.delivery.operator_api.routes.chat_action_context import (
-    action_context_evidence_refs,
-    render_action_context_answer,
-)
+from fdai.delivery.operator_api.routes import chat_verification_rendering as _rendering
 from fdai.delivery.operator_api.routes.chat_behavior_evidence import (
     behavior_evidence_refs,
     render_behavior_answer,
@@ -21,97 +18,18 @@ from fdai.delivery.operator_api.routes.chat_claims import (
     ScreenClaimResult,
     verify_screen_claims,
 )
-from fdai.delivery.operator_api.routes.chat_conversation_context import (
-    conversation_context_evidence_refs,
-    render_conversation_context_answer,
-)
-from fdai.delivery.operator_api.routes.chat_current_time import (
-    current_time_evidence_refs,
-    render_current_time_answer,
-)
-from fdai.delivery.operator_api.routes.chat_data_sources import (
-    read_source_evidence_refs,
-    render_read_source_answer,
-)
-from fdai.delivery.operator_api.routes.chat_detection_readiness import (
-    detection_readiness_evidence_refs,
-    render_detection_readiness_answer,
-)
-from fdai.delivery.operator_api.routes.chat_incident_dossier import render_incident_dossier
 from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
     public_intent_graph_evidence,
 )
-from fdai.delivery.operator_api.routes.chat_inventory import (
-    inventory_evidence_refs,
-    partial_inventory_findings_are_grounded,
-    render_inventory_answer,
+from fdai.delivery.operator_api.routes.chat_operational_verification import (
+    verify_operational_evidence,
 )
-from fdai.delivery.operator_api.routes.chat_knowledge_context import (
-    knowledge_context_evidence_refs,
-    render_knowledge_context_answer,
+from fdai.delivery.operator_api.routes.chat_tool_contract_verification import (
+    verify_tool_contract,
 )
-from fdai.delivery.operator_api.routes.chat_llm_usage_rendering import (
-    llm_usage_evidence_refs,
-    render_llm_usage_answer,
-)
-from fdai.delivery.operator_api.routes.chat_log_query import (
-    log_query_evidence_refs,
-    render_log_query_answer,
-)
-from fdai.delivery.operator_api.routes.chat_network_reachability import (
-    network_reachability_evidence_refs,
-    render_network_reachability_answer,
-)
-from fdai.delivery.operator_api.routes.chat_prompt_ontology import (
-    _render_ontology_storage_answer,
-)
-from fdai.delivery.operator_api.routes.chat_subscription_health import (
-    render_subscription_health_answer,
-    render_subscription_scope_answer,
-    requested_subscription_health_findings_are_grounded,
-    subscription_health_evidence_refs,
-    subscription_scope_evidence_refs,
-)
-from fdai.delivery.operator_api.routes.chat_t2_recovery import (
-    render_t2_recovery_answer,
-    t2_recovery_evidence_refs,
-)
-from fdai.delivery.operator_api.routes.chat_tools import (
-    read_model_evidence_refs,
-    render_read_model_answer,
-)
-from fdai.delivery.operator_api.routes.chat_verification_rendering import (
-    agent_activity_lines as _agent_activity_lines,
-)
-from fdai.delivery.operator_api.routes.chat_verification_rendering import (
-    incident_summary_line as _incident_summary_line,
-)
-from fdai.delivery.operator_api.routes.chat_verification_rendering import (
-    integer as _integer,
-)
-from fdai.delivery.operator_api.routes.chat_verification_rendering import (
-    mappings as _mappings,
-)
-from fdai.delivery.operator_api.routes.chat_verification_rendering import (
-    notification_delivery_lines as _notification_delivery_lines,
-)
-from fdai.delivery.operator_api.routes.chat_verification_rendering import (
-    optional_text as _optional_text,
-)
-from fdai.delivery.operator_api.routes.chat_verification_rendering import (
-    recorded_detection_lines as _recorded_detection_lines,
-)
-from fdai.delivery.operator_api.routes.chat_verification_rendering import (
-    recorded_failure_lines as _recorded_failure_lines,
-)
-from fdai.delivery.operator_api.routes.chat_verification_rendering import (
-    strings as _strings,
-)
-from fdai.delivery.operator_api.routes.chat_verification_rendering import (
-    text as _text,
-)
-from fdai.delivery.operator_api.routes.chat_verification_rendering import (
-    topic_text as _topic_text,
+from fdai.delivery.operator_api.routes.chat_verification_result import (
+    VerificationPayload,
+    VerificationStatus,
 )
 from fdai.delivery.operator_api.routes.chat_verification_text import (
     answer_text_is_well_formed,
@@ -119,7 +37,17 @@ from fdai.delivery.operator_api.routes.chat_verification_text import (
 )
 from fdai.delivery.operator_api.routes.chat_vision_evidence import vision_evidence_refs
 
-VerificationStatus = Literal["verified", "consistent", "corrected", "unverified"]
+_agent_activity_lines = _rendering.agent_activity_lines
+_incident_summary_line = _rendering.incident_summary_line
+_integer = _rendering.integer
+_mappings = _rendering.mappings
+_notification_delivery_lines = _rendering.notification_delivery_lines
+_optional_text = _rendering.optional_text
+_recorded_detection_lines = _rendering.recorded_detection_lines
+_recorded_failure_lines = _rendering.recorded_failure_lines
+_strings = _rendering.strings
+_text = _rendering.text
+_topic_text = _rendering.topic_text
 
 _AGENT_SELF_CAPABILITY_QUESTION = re.compile(
     r"\b(?:what\s+do\s+you\s+do|what\s+is\s+your\s+role|what\s+are\s+your\s+"
@@ -162,6 +90,201 @@ class AnswerVerification:
         return payload
 
 
+def _from_payload(payload: VerificationPayload) -> AnswerVerification:
+    return AnswerVerification(
+        status=payload.status,
+        answer=payload.answer,
+        authority=payload.authority,
+        checks_completed=payload.checks_completed,
+        checks_total=payload.checks_total,
+        evidence_refs=payload.evidence_refs,
+        reason_code=payload.reason_code,
+    )
+
+
+def _result(
+    status: VerificationStatus,
+    answer: str,
+    reason_code: str,
+    refs: tuple[str, ...] = (),
+) -> AnswerVerification:
+    return AnswerVerification(
+        status=status,
+        answer=answer,
+        authority="server_read_model",
+        checks_completed=1,
+        checks_total=1,
+        evidence_refs=refs,
+        reason_code=reason_code,
+    )
+
+
+def _intent_graph_hold(
+    view_context: Mapping[str, Any], *, locale: str | None
+) -> AnswerVerification | None:
+    raw = view_context.get("_intent_graph_evidence")
+    if not isinstance(raw, Mapping) or raw.get("status") == "completed":
+        return None
+    public = public_intent_graph_evidence(raw)
+    goals = public.get("goals")
+    projected_goals = (
+        [item for item in goals if isinstance(item, Mapping)] if isinstance(goals, list) else []
+    )
+    incomplete = [item for item in projected_goals if item.get("status") != "completed"]
+    details = ", ".join(
+        f"{_text(item.get('capability'), 'unknown')}: "
+        f"{_text(item.get('reason') or item.get('status'), 'unavailable')}"
+        for item in incomplete[:5]
+    )
+    korean = _is_korean(locale)
+    answer = (
+        "요청한 읽기 계획을 근거로 완료하지 못해 답변을 확정하지 않았습니다."
+        if korean
+        else "The requested read plan could not be completed from evidence, "
+        "so no answer was finalized."
+    )
+    if details:
+        answer += f" {'확인된 제한' if korean else 'Confirmed limits'}: {details}."
+    refs = tuple(
+        dict.fromkeys(
+            ref for item in projected_goals for ref in _strings(item.get("evidence_refs"))
+        )
+    )
+    return AnswerVerification(
+        status="unverified",
+        answer=answer,
+        authority="server_intent_graph",
+        checks_completed=sum(1 for item in projected_goals if item.get("status") == "completed"),
+        checks_total=max(1, len(projected_goals)),
+        evidence_refs=refs,
+        reason_code=f"intent_graph_{public.get('status') or 'unavailable'}",
+    )
+
+
+def _verify_agent_self_capability(
+    provisional: str,
+    view_context: Mapping[str, Any],
+    agent_evidence: Mapping[str, Any],
+    *,
+    locale: str | None,
+) -> AnswerVerification | None:
+    """Render a selected agent's role only from its content-addressed capability facts."""
+
+    plan = view_context.get("_answer_plan")
+    subject = plan.get("subject") if isinstance(plan, Mapping) else None
+    if not isinstance(subject, str) or _AGENT_SELF_CAPABILITY_QUESTION.search(subject) is None:
+        return None
+    primary_agent = _optional_text(agent_evidence.get("primary_agent"))
+    facts = agent_evidence.get("facts")
+    if primary_agent is None or not isinstance(facts, Mapping):
+        return None
+    fact_agent = _optional_text(facts.get("agent"))
+    layer = _optional_text(facts.get("layer"))
+    owns = _strings(facts.get("owns"))
+    domains = _strings(facts.get("question_domains"))
+    refs = tuple(
+        ref
+        for ref in _strings(facts.get("evidence_refs"))
+        if (match := _AGENT_STATE_REF.fullmatch(ref)) is not None
+        and match.group(1) == primary_agent
+    )
+    if fact_agent != primary_agent or layer is None or not owns or not domains or not refs:
+        return None
+
+    owned_text = ", ".join(owns)
+    domain_text = ", ".join(domain.replace("_", " ") for domain in domains)
+    if _is_korean(locale):
+        layer_text = {
+            "pipeline": "파이프라인",
+            "domain": "도메인",
+            "governance": "거버넌스",
+        }.get(layer, layer)
+        answer = (
+            f"저는 {primary_agent}이며 {layer_text} 계층의 에이전트입니다. "
+            f"주로 {owned_text} 관련 신호를 담당합니다. "
+            f"{domain_text} 영역의 질문에 답합니다."
+        )
+    else:
+        answer = (
+            f"I am {primary_agent}, a {layer}-layer agent. "
+            f"My primary owned signals are {owned_text}. "
+            f"I answer questions about {domain_text}."
+        )
+    return AnswerVerification(
+        status=_changed(provisional, answer),
+        answer=answer,
+        authority="pantheon_runtime",
+        checks_completed=1,
+        checks_total=1,
+        evidence_refs=tuple(dict.fromkeys(refs)),
+        reason_code="agent_capability_facts",
+    )
+
+
+def _changed(provisional: str, canonical: str) -> VerificationStatus:
+    return "verified" if answers_match(provisional, canonical) else "corrected"
+
+
+def _correct_concept_scope_additions(
+    answer: str,
+    view_context: Mapping[str, Any],
+    claims: Sequence[AtomicClaim],
+) -> tuple[str, ScreenClaimResult] | None:
+    """Remove unsupported scope-only addenda from a glossary answer once."""
+
+    if not isinstance(view_context.get("_concept_evidence"), Mapping):
+        return None
+    failed = tuple(claim for claim in claims if claim.status != "supported")
+    if not failed or any(claim.kind != "scope" for claim in failed):
+        return None
+    corrected = answer
+    for claim in sorted(failed, key=lambda item: item.start, reverse=True):
+        corrected = corrected[: claim.start] + corrected[claim.end :]
+    corrected = corrected.strip()
+    if not corrected:
+        return None
+    verified = verify_screen_claims(corrected, view_context)
+    if verified.overflow or not verified.manifest.complete or not verified.supported:
+        return None
+    return corrected, verified
+
+
+def _correct_screen_unsupported_sentences(
+    answer: str,
+    view_context: Mapping[str, Any],
+    result: ScreenClaimResult,
+) -> tuple[str, ScreenClaimResult] | None:
+    """Remove unsupported sentences when other screen claims are grounded."""
+
+    if result.overflow or not result.manifest.complete:
+        return None
+    failed = tuple(claim for claim in result.claims if claim.status != "supported")
+    supported = tuple(claim for claim in result.claims if claim.status == "supported")
+    if not failed or not supported:
+        return None
+    corrected = answer
+    for sentence in sorted({claim.text for claim in failed}, key=len, reverse=True):
+        corrected = corrected.replace(sentence, "")
+    corrected = corrected.strip()
+    if not corrected:
+        return None
+    verified = verify_screen_claims(corrected, view_context)
+    if (
+        verified.overflow
+        or not verified.manifest.complete
+        or not verified.supported
+        or not verified.claims
+    ):
+        return None
+    return corrected, verified
+
+
+def _is_korean(locale: str | None) -> bool:
+    if locale is None:
+        return False
+    return locale.lower().split("-", 1)[0].split("_", 1)[0] == "ko"
+
+
 def verify_answer(
     provisional: str,
     view_context: Mapping[str, Any],
@@ -191,482 +314,14 @@ def verify_answer(
             reason_code="answer_text_invalid",
         )
 
-    ontology_storage = view_context.get("_ontology_storage_contract")
-    if isinstance(ontology_storage, Mapping):
-        ontology_answer = _render_ontology_storage_answer(ontology_storage, locale=locale)
-        evidence_ref = ontology_storage.get("evidence_ref")
-        if ontology_answer is None or not isinstance(evidence_ref, str):
-            return AnswerVerification(
-                status="unverified",
-                answer="Ontology catalog storage evidence could not be rendered.",
-                authority="ontology_catalog",
-                checks_completed=0,
-                checks_total=1,
-                reason_code="ontology_storage_evidence_invalid",
-            )
-        return AnswerVerification(
-            status=_changed(provisional, ontology_answer),
-            answer=ontology_answer,
-            authority="ontology_catalog",
-            checks_completed=1,
-            checks_total=1,
-            evidence_refs=(evidence_ref,),
-            reason_code="ontology_storage_contract",
-        )
-
-    tool = view_context.get("_tool_evidence")
-    if isinstance(tool, Mapping) and tool.get("tool") == "query_t2_recovery":
-        recovery_answer = render_t2_recovery_answer(tool, locale=locale)
-        recovery_refs = t2_recovery_evidence_refs(tool)
-        if recovery_answer is None:
-            return AnswerVerification(
-                status="unverified",
-                answer="T2 proposer recovery evidence could not be rendered.",
-                authority="server_t2_recovery_ledger",
-                checks_completed=0,
-                checks_total=1,
-                reason_code="t2_recovery_evidence_invalid",
-            )
-        return AnswerVerification(
-            status=_changed(provisional, recovery_answer),
-            answer=recovery_answer,
-            authority="server_t2_recovery_ledger",
-            checks_completed=len(recovery_refs),
-            checks_total=len(recovery_refs),
-            evidence_refs=recovery_refs,
-            reason_code=("t2_recovery_grounded" if recovery_refs else "t2_recovery_not_observed"),
-        )
-    if isinstance(tool, Mapping) and tool.get("tool") == "get_current_time":
-        time_answer = render_current_time_answer(tool, locale=locale)
-        if time_answer is None:
-            return AnswerVerification(
-                status="unverified",
-                answer="Server-clock evidence could not be rendered.",
-                authority="server_clock",
-                checks_completed=0,
-                checks_total=1,
-                reason_code="current_time_evidence_invalid",
-            )
-        time_refs = current_time_evidence_refs(tool)
-        return AnswerVerification(
-            status=_changed(provisional, time_answer),
-            answer=time_answer,
-            authority="server_clock",
-            checks_completed=1,
-            checks_total=1,
-            evidence_refs=time_refs,
-            reason_code="current_time_grounded",
-        )
-
-    if isinstance(tool, Mapping) and tool.get("tool") == "query_action_context":
-        action_answer = render_action_context_answer(tool, locale=locale)
-        result = tool.get("result")
-        state = result.get("status") if isinstance(result, Mapping) else None
-        action_refs = action_context_evidence_refs(tool)
-        if state == "matched" and action_answer is not None and action_refs:
-            intent = result.get("intent") if isinstance(result, Mapping) else None
-            return AnswerVerification(
-                status=_changed(provisional, action_answer),
-                answer=action_answer,
-                authority="server_action_context",
-                checks_completed=1,
-                checks_total=1,
-                evidence_refs=action_refs,
-                reason_code=f"action_{intent}_grounded",
-            )
-        return AnswerVerification(
-            status="unverified",
-            answer=action_answer or "Exact governed action context is required.",
-            authority="server_action_context",
-            checks_completed=0,
-            checks_total=1,
-            reason_code="exact_action_context_required",
-        )
-
-    if isinstance(tool, Mapping) and tool.get("tool") in {
-        "get_kpi",
-        "list_hil",
-        "list_incidents",
-        "query_audit",
-    }:
-        read_answer = render_read_model_answer(tool, locale=locale)
-        read_refs = read_model_evidence_refs(tool)
-        if read_answer is None or not read_refs:
-            return AnswerVerification(
-                status="unverified",
-                answer="Server read-model evidence could not be rendered.",
-                authority="server_read_model",
-                checks_completed=0,
-                checks_total=1,
-                reason_code="read_model_evidence_invalid",
-            )
-        return AnswerVerification(
-            status=_changed(provisional, read_answer),
-            answer=read_answer,
-            authority="server_read_model",
-            checks_completed=1,
-            checks_total=1,
-            evidence_refs=read_refs,
-            reason_code=f"read_model_{tool.get('tool')}_grounded",
-        )
-
-    if isinstance(tool, Mapping) and tool.get("tool") == "query_conversation_context":
-        context_answer = render_conversation_context_answer(tool, locale=locale)
-        result = tool.get("result")
-        state = result.get("status") if isinstance(result, Mapping) else None
-        context_refs = conversation_context_evidence_refs(tool)
-        if state == "matched" and context_answer is not None:
-            return AnswerVerification(
-                status=_changed(provisional, context_answer),
-                answer=context_answer,
-                authority="server_conversation_context",
-                checks_completed=1,
-                checks_total=1,
-                evidence_refs=context_refs,
-                reason_code="prior_context_grounded",
-            )
-        return AnswerVerification(
-            status="unverified",
-            answer=context_answer or "Verified prior conversation context is required.",
-            authority="server_conversation_context",
-            checks_completed=0,
-            checks_total=1,
-            reason_code="prior_context_required",
-        )
-
-    if isinstance(tool, Mapping) and tool.get("tool") == "query_llm_usage":
-        answer_plan = view_context.get("_answer_plan")
-        usage_format = (
-            str(answer_plan.get("format")) if isinstance(answer_plan, Mapping) else "prose"
-        )
-        usage_answer = render_llm_usage_answer(
-            tool,
-            locale=locale,
-            answer_format=usage_format,
-        )
-        usage_refs = llm_usage_evidence_refs(tool)
-        result = tool.get("result")
-        state = result.get("status") if isinstance(result, Mapping) else None
-        if usage_answer is None or state not in {"matched", "none"} or not usage_refs:
-            return AnswerVerification(
-                status="unverified",
-                answer="Measured LLM usage evidence could not be rendered.",
-                authority="server_metering",
-                checks_completed=0,
-                checks_total=1,
-                evidence_refs=usage_refs,
-                reason_code="llm_usage_evidence_invalid",
-            )
-        return AnswerVerification(
-            status=_changed(provisional, usage_answer),
-            answer=usage_answer,
-            authority="server_metering",
-            checks_completed=1,
-            checks_total=1,
-            evidence_refs=usage_refs,
-            reason_code="llm_usage_grounded",
-        )
-
-    if isinstance(tool, Mapping) and tool.get("tool") == "query_knowledge_context":
-        knowledge_answer = render_knowledge_context_answer(tool, locale=locale)
-        result = tool.get("result")
-        state = result.get("status") if isinstance(result, Mapping) else None
-        knowledge_refs = knowledge_context_evidence_refs(tool)
-        if state in {"matched", "empty"} and knowledge_answer is not None and knowledge_refs:
-            intent = result.get("intent") if isinstance(result, Mapping) else None
-            return AnswerVerification(
-                status=_changed(provisional, knowledge_answer),
-                answer=knowledge_answer,
-                authority="server_knowledge_context",
-                checks_completed=1,
-                checks_total=1,
-                evidence_refs=knowledge_refs,
-                reason_code=f"knowledge_{intent}_grounded",
-            )
-        return AnswerVerification(
-            status="unverified",
-            answer=knowledge_answer or "Knowledge context could not be verified.",
-            authority="server_knowledge_context",
-            checks_completed=0,
-            checks_total=1,
-            evidence_refs=knowledge_refs,
-            reason_code="knowledge_context_unavailable",
-        )
-
-    if isinstance(tool, Mapping) and tool.get("tool") == "describe_read_sources":
-        source_answer = render_read_source_answer(tool, locale=locale)
-        if source_answer is None:
-            return AnswerVerification(
-                status="unverified",
-                answer="Read-source manifest evidence could not be rendered.",
-                authority="server_read_source_manifest",
-                checks_completed=0,
-                checks_total=1,
-                reason_code="read_source_manifest_invalid",
-            )
-        source_refs = read_source_evidence_refs(tool)
-        return AnswerVerification(
-            status=_changed(provisional, source_answer),
-            answer=source_answer,
-            authority="server_read_source_manifest",
-            checks_completed=len(source_refs),
-            checks_total=len(source_refs),
-            evidence_refs=source_refs,
-            reason_code="read_source_manifest_grounded",
-        )
-
-    if isinstance(tool, Mapping) and tool.get("tool") == "query_log":
-        log_answer = render_log_query_answer(tool, locale=locale)
-        if log_answer is None:
-            return AnswerVerification(
-                status="unverified",
-                answer="Azure Monitor Logs evidence could not be rendered.",
-                authority="server_log_query",
-                checks_completed=0,
-                checks_total=1,
-                reason_code="log_query_evidence_invalid",
-            )
-        result = tool.get("result")
-        state = result.get("status") if isinstance(result, Mapping) else None
-        log_refs = log_query_evidence_refs(tool)
-        if state in {"matched", "empty"}:
-            return AnswerVerification(
-                status=_changed(provisional, log_answer),
-                answer=log_answer,
-                authority="server_log_query",
-                checks_completed=1,
-                checks_total=1,
-                evidence_refs=log_refs,
-                reason_code="log_query_bounded",
-            )
-        return AnswerVerification(
-            status="unverified",
-            answer=log_answer,
-            authority="server_log_query",
-            checks_completed=0,
-            checks_total=1,
-            evidence_refs=log_refs,
-            reason_code="log_query_unavailable",
-        )
-
-    if isinstance(tool, Mapping) and tool.get("tool") == "query_detection_readiness":
-        readiness_answer = render_detection_readiness_answer(tool, locale=locale)
-        if readiness_answer is None:
-            return AnswerVerification(
-                status="unverified",
-                answer="Detection readiness evidence could not be rendered.",
-                authority="server_detection_readiness",
-                checks_completed=0,
-                checks_total=1,
-                reason_code="detection_readiness_evidence_invalid",
-            )
-        result = tool.get("result")
-        state = result.get("status") if isinstance(result, Mapping) else None
-        readiness_refs = detection_readiness_evidence_refs(tool)
-        return AnswerVerification(
-            status=(
-                _changed(provisional, readiness_answer)
-                if state in {"matched", "empty"}
-                else "unverified"
-            ),
-            answer=readiness_answer,
-            authority="server_detection_readiness",
-            checks_completed=1 if state in {"matched", "empty"} else 0,
-            checks_total=1,
-            evidence_refs=readiness_refs,
-            reason_code=(
-                "detection_readiness_snapshot_grounded"
-                if state in {"matched", "empty"}
-                else "detection_readiness_unavailable"
-            ),
-        )
-
-    if isinstance(tool, Mapping) and tool.get("tool") == "query_network_reachability":
-        reachability_answer = render_network_reachability_answer(tool, locale=locale)
-        if reachability_answer is None:
-            return AnswerVerification(
-                status="unverified",
-                answer="Network reachability evidence could not be rendered.",
-                authority="server_network_probe",
-                checks_completed=0,
-                checks_total=1,
-                reason_code="network_reachability_evidence_invalid",
-            )
-        result = tool.get("result")
-        state = result.get("status") if isinstance(result, Mapping) else None
-        reachability_refs = network_reachability_evidence_refs(tool)
-        verified = state == "matched" and bool(reachability_refs)
-        return AnswerVerification(
-            status=_changed(provisional, reachability_answer) if verified else "unverified",
-            answer=reachability_answer,
-            authority="server_network_probe",
-            checks_completed=1 if verified else 0,
-            checks_total=1,
-            evidence_refs=reachability_refs,
-            reason_code=(
-                "network_reachability_active_probe_grounded"
-                if verified
-                else "network_reachability_probe_unavailable"
-            ),
-        )
-
-    if isinstance(tool, Mapping) and tool.get("tool") == "query_inventory":
-        plan = view_context.get("_answer_plan")
-        answer_format = str(plan.get("format")) if isinstance(plan, Mapping) else None
-        inventory_answer = render_inventory_answer(
-            tool,
-            locale=locale,
-            answer_format=answer_format,
-        )
-        if inventory_answer is None:
-            return AnswerVerification(
-                status="unverified",
-                answer="Azure inventory evidence could not be rendered.",
-                authority="server_inventory_graph",
-                checks_completed=0,
-                checks_total=1,
-                reason_code="inventory_evidence_invalid",
-            )
-        result = tool.get("result")
-        state = result.get("status") if isinstance(result, Mapping) else None
-        inventory_activity = bool(
-            isinstance(result, Mapping) and result.get("query_source") == "activity"
-        )
-        inventory_authority = (
-            "server_inventory_activity" if inventory_activity else "server_inventory_graph"
-        )
-        inventory_refs = inventory_evidence_refs(tool)
-        if state == "matched":
-            return AnswerVerification(
-                status=_changed(provisional, inventory_answer),
-                answer=inventory_answer,
-                authority=inventory_authority,
-                checks_completed=1,
-                checks_total=1,
-                evidence_refs=inventory_refs,
-                reason_code=(
-                    "inventory_activity_grounded"
-                    if inventory_activity
-                    else "inventory_snapshot_grounded"
-                ),
-            )
-        if state == "partial":
-            if inventory_refs and partial_inventory_findings_are_grounded(tool):
-                return AnswerVerification(
-                    status=_changed(provisional, inventory_answer),
-                    answer=inventory_answer,
-                    authority=inventory_authority,
-                    checks_completed=1,
-                    checks_total=1,
-                    evidence_refs=inventory_refs,
-                    reason_code="inventory_findings_grounded_partial",
-                )
-            return AnswerVerification(
-                status="unverified",
-                answer=inventory_answer,
-                authority="server_inventory_graph",
-                checks_completed=1,
-                checks_total=2,
-                evidence_refs=inventory_refs,
-                reason_code="inventory_workload_coverage_gap",
-            )
-        return AnswerVerification(
-            status="unverified",
-            answer=inventory_answer,
-            authority=inventory_authority,
-            checks_completed=0,
-            checks_total=1,
-            evidence_refs=inventory_refs,
-            reason_code="inventory_evidence_unavailable",
-        )
-
-    if isinstance(tool, Mapping) and tool.get("tool") == "query_subscription_scope":
-        scope_answer = render_subscription_scope_answer(tool, locale=locale)
-        if scope_answer is None:
-            return AnswerVerification(
-                status="unverified",
-                answer="Azure subscription scope evidence could not be rendered.",
-                authority="server_subscription_scope",
-                checks_completed=0,
-                checks_total=1,
-                reason_code="subscription_scope_evidence_invalid",
-            )
-        result = tool.get("result")
-        state = result.get("status") if isinstance(result, Mapping) else None
-        scope_refs = subscription_scope_evidence_refs(tool)
-        if state == "matched":
-            return AnswerVerification(
-                status=_changed(provisional, scope_answer),
-                answer=scope_answer,
-                authority="server_subscription_scope",
-                checks_completed=1,
-                checks_total=1,
-                evidence_refs=scope_refs,
-                reason_code="subscription_scope_grounded",
-            )
-        return AnswerVerification(
-            status="unverified",
-            answer=scope_answer,
-            authority="server_subscription_scope",
-            checks_completed=0,
-            checks_total=1,
-            evidence_refs=scope_refs,
-            reason_code="subscription_scope_unavailable",
-        )
-
-    if isinstance(tool, Mapping) and tool.get("tool") == "query_subscription_health":
-        health_answer = render_subscription_health_answer(tool, locale=locale)
-        if health_answer is None:
-            return AnswerVerification(
-                status="unverified",
-                answer="Azure subscription health evidence could not be rendered.",
-                authority="server_subscription_health",
-                checks_completed=0,
-                checks_total=1,
-                reason_code="subscription_health_evidence_invalid",
-            )
-        result = tool.get("result")
-        state = result.get("status") if isinstance(result, Mapping) else None
-        health_refs = subscription_health_evidence_refs(tool)
-        if state == "matched":
-            return AnswerVerification(
-                status=_changed(provisional, health_answer),
-                answer=health_answer,
-                authority="server_subscription_health",
-                checks_completed=1,
-                checks_total=1,
-                evidence_refs=health_refs,
-                reason_code="subscription_health_grounded",
-            )
-        if state == "partial":
-            if health_refs and requested_subscription_health_findings_are_grounded(tool):
-                return AnswerVerification(
-                    status=_changed(provisional, health_answer),
-                    answer=health_answer,
-                    authority="server_subscription_health",
-                    checks_completed=1,
-                    checks_total=1,
-                    evidence_refs=health_refs,
-                    reason_code="subscription_health_findings_grounded_partial",
-                )
-            return AnswerVerification(
-                status="unverified",
-                answer=health_answer,
-                authority="server_subscription_health",
-                checks_completed=0,
-                checks_total=1,
-                evidence_refs=health_refs,
-                reason_code="subscription_health_partial",
-            )
-        return AnswerVerification(
-            status="unverified",
-            answer=health_answer,
-            authority="server_subscription_health",
-            checks_completed=0,
-            checks_total=1,
-            evidence_refs=health_refs,
-            reason_code="subscription_health_unavailable",
-        )
+    tool_verification = verify_tool_contract(
+        provisional,
+        view_context,
+        locale=locale,
+        changed=_changed,
+    )
+    if tool_verification is not None:
+        return _from_payload(tool_verification)
 
     graph_hold = _intent_graph_hold(view_context, locale=locale)
     if graph_hold is not None:
@@ -852,466 +507,13 @@ def verify_answer(
             evidence_manifest=screen.manifest,
         )
 
-    evidence = dict(raw)
-    state = evidence.get("status")
-    korean = _is_korean(locale)
-    if state == "unavailable":
-        answer = (
-            "운영 근거 조회를 완료하지 "
-            "못해 현재 답변을 검증할 수 "
-            "없습니다. 잠시 후 다시 "
-            "시도해 주세요."
-            if korean
-            else "Operational evidence could not be retrieved, so this answer could not be "
-            "verified. Try again shortly."
-        )
-        return _result("unverified", answer, "evidence_unavailable")
-    if state == "none":
-        evidence_reason = evidence.get("reason")
-        if evidence_reason in {
-            "selected incident context is invalid",
-            "selected incident is not available in the server read model",
-        }:
-            answer = (
-                "선택된 incident context가 유효하지 않거나 현재 server read model에서 사용할 수 "
-                "없습니다. Incident를 다시 선택해 주세요."
-                if korean
-                else (
-                    "The selected incident context is invalid or no longer available in the "
-                    "server read model. Select the incident again."
-                )
-            )
-            return AnswerVerification(
-                status="unverified",
-                answer=answer,
-                authority="server_read_model",
-                checks_completed=0,
-                checks_total=1,
-                reason_code="selected_incident_context_unavailable",
-            )
-        searched = _integer(evidence.get("searched_recent_incidents"))
-        topics = _strings(evidence.get("topic_terms"))
-        scope = str(searched) if searched is not None else "the bounded recent set"
-        topic = _topic_text(topics, korean=korean)
-        answer = (
-            f"최근 인시던트 {scope}건을 "
-            f"확인했지만 {topic}와 일치하는 "
-            "사건은 없었습니다. 이 "
-            "제한된 검색 범위에서는 "
-            "원인을 확정할 수 없습니다."
-            if korean and searched is not None
-            else (
-                f"제한된 최근 인시던트 "
-                f"범위에서 {topic}와 일치하는 "
-                "사건을 찾지 못했습니다. "
-                "따라서 원인을 확정할 수 "
-                "없습니다."
-                if korean
-                else f"The {scope} incidents searched contained no match for {topic}. "
-                "No cause can be established from this bounded search."
-            )
-        )
-        search_refs = (f"incident-search:recent:{searched}",) if searched is not None else ()
-        return _result(
-            _changed(provisional, answer),
-            answer,
-            "no_matching_incident",
-            search_refs,
-        )
-    if state == "summary":
-        incidents = _mappings(evidence.get("incidents"))
-        searched = _integer(evidence.get("searched_recent_incidents"))
-        lines = [_incident_summary_line(item, korean=korean) for item in incidents]
-        count = len(lines)
-        answer = (
-            f"최근 인시던트 {count}건 요약입니다:\n"
-            if korean
-            else f"Summary of {count} recent incident(s):\n"
-        ) + "\n".join(lines)
-        if searched is not None and searched > count:
-            answer += (
-                f"\n최근 {searched}건을 검색해 일치한 {count}건을 표시했습니다."
-                if korean
-                else f"\nSearched {searched} recent incidents and displayed {count} matches."
-            )
-        summary_refs = tuple(
-            f"incident:{correlation}"
-            for item in incidents
-            if (correlation := _optional_text(item.get("correlation_id"))) is not None
-        )
-        return _result(
-            _changed(provisional, answer),
-            answer,
-            "incident_summary",
-            summary_refs,
-        )
-    if state == "ambiguous":
-        candidates = _mappings(evidence.get("candidates"))[:5]
-        lines = [
-            f"- {_text(item.get('correlation_id'), 'unknown')}: "
-            f"{_text(item.get('title'), 'untitled')}"
-            for item in candidates
-        ]
-        answer = (
-            "여러 인시던트가 질문과 동일하게 일치합니다. 확인할 대상을 선택해 주세요:\n"
-            if korean
-            else "Multiple incidents match the question equally. Choose one to verify:\n"
-        ) + "\n".join(lines)
-        candidate_refs = tuple(
-            f"incident:{corr}"
-            for item in candidates
-            if (corr := _optional_text(item.get("correlation_id"))) is not None
-        )
-        return _result(
-            _changed(provisional, answer),
-            answer,
-            "ambiguous_incident",
-            candidate_refs,
-        )
-    if state != "matched":
-        answer = (
-            "운영 근거 상태를 확인할 수 없어 답변을 검증하지 못했습니다."
-            if korean
-            else "The operational evidence state was not recognized, so the answer is unverified."
-        )
-        return _result("unverified", answer, "unknown_evidence_state")
-
-    selected = evidence.get("selected_incident")
-    incident = dict(selected) if isinstance(selected, Mapping) else {}
-    correlation = _text(incident.get("correlation_id"), "unknown")
-    title = _text(incident.get("title"), "untitled incident")
-    incident_status = _text(incident.get("status"), "unknown")
-    recorded_at = _text(incident.get("last_updated_at"), "unknown time")
-    dossier = render_incident_dossier(evidence, locale=locale)
-    if dossier is not None:
-        return AnswerVerification(
-            status=(_changed(provisional, dossier.answer) if dossier.verified else "unverified"),
-            answer=dossier.answer,
-            authority="server_read_model",
-            checks_completed=1 if dossier.verified else 0,
-            checks_total=1,
-            evidence_refs=dossier.evidence_refs,
-            reason_code=dossier.reason_code,
-        )
-    activities = _agent_activity_lines(evidence, korean=korean)
-    activity_suffix = (
-        ("\n\n기록된 에이전트 활동:\n" if korean else "\n\nRecorded agent activity:\n")
-        + "\n".join(activities)
-        if activities
-        else (
-            "\n\n사용 가능한 감사 근거에는 에이전트별 활동이 기록되어 있지 않습니다."
-            if korean
-            else "\n\nNo agent-specific activity is recorded in the available audit evidence."
-        )
+    operational_verification = verify_operational_evidence(
+        provisional,
+        raw,
+        locale=locale,
+        changed=_changed,
     )
-    hypotheses = _mappings(evidence.get("grounded_hypotheses"))
-    refs: list[str] = [f"incident:{correlation}"]
-    if hypotheses:
-        hypothesis = hypotheses[0]
-        cause = _text(hypothesis.get("cause"), "")
-        citations = _mappings(hypothesis.get("citations"))
-        refs.extend(
-            f"{_text(item.get('kind'), 'evidence')}:{_text(item.get('ref'), 'unknown')}"
-            for item in citations
-        )
-        answer = (
-            f"{correlation} ({title})의 상태는 {incident_status}이며, "
-            "검증된 원인은 "
-            f"다음과 같습니다: {cause} 마지막 "
-            f"근거 시각은 {recorded_at}입니다."
-            f"{activity_suffix}"
-            if korean
-            else f"The verified cause for {correlation} ({title}) is: {cause} "
-            f"The incident status is {incident_status}. The latest evidence is from "
-            f"{recorded_at}.{activity_suffix}"
-        )
-        return _result(_changed(provisional, answer), answer, "grounded_rca", tuple(refs))
-
-    detection_lines, detection_refs = _recorded_detection_lines(evidence, korean=korean)
-    failure_lines, failure_refs = _recorded_failure_lines(evidence)
-    delivery_lines, delivery_refs = _notification_delivery_lines(evidence)
-    detection_section = (
-        ("\n감지된 workload 상태:\n" if korean else "\nDetected workload condition:\n")
-        + "\n".join(detection_lines)
-        if detection_lines
-        else ""
-    )
-    delivery_section = (
-        ("\n\n알림 전달 문제:\n" if korean else "\n\nNotification delivery issue:\n")
-        + "\n".join(delivery_lines)
-        if delivery_lines
-        else ""
-    )
-    if failure_lines:
-        refs.extend((*detection_refs, *failure_refs, *delivery_refs))
-        recorded_failures = "\n".join(failure_lines)
-        answer = (
-            f"{correlation} ({title})의 상태는 {incident_status}이며 "
-            f"{recorded_at}에 마지막으로 "
-            f"갱신되었습니다.{detection_section}\n\ncitation을 갖춘 grounded "
-            "root cause는 기록되지 않았지만, "
-            "workload 감사 로그에 다음 실패 "
-            "이유가 기록되어 있습니다:\n"
-            f"{recorded_failures}\n이 내용은 관찰된 "
-            "실패 이유이며 완전한 RCA는 "
-            f"아닙니다.{delivery_section}"
-            f"{activity_suffix}"
-            if korean
-            else f"{correlation} ({title}) is {incident_status} and was last updated at "
-            f"{recorded_at}.{detection_section}\n\nNo citation-grounded root cause is recorded, "
-            "but the workload audit log "
-            f"records this failure reason:\n{recorded_failures}\nThis is an observed failure "
-            f"reason, not a complete RCA.{delivery_section}{activity_suffix}"
-        )
-        return _result(
-            _changed(provisional, answer),
-            answer,
-            "recorded_failure_reason",
-            tuple(refs),
-        )
-
-    if detection_lines:
-        refs.extend((*detection_refs, *delivery_refs))
-        answer = (
-            f"{correlation} ({title})의 상태는 {incident_status}이며 "
-            f"{recorded_at}에 마지막으로 갱신되었습니다.{detection_section}\n\n"
-            "이 근거는 감지된 증상과 대상만 확인하며 원인을 증명하지 않습니다. "
-            "citation을 갖춘 grounded root cause는 아직 기록되지 않았습니다."
-            f"{delivery_section}{activity_suffix}"
-            if korean
-            else f"{correlation} ({title}) is {incident_status} and was last updated at "
-            f"{recorded_at}.{detection_section}\n\nThis evidence confirms the detected condition "
-            "and target, not its cause. No citation-grounded root cause is recorded yet."
-            f"{delivery_section}{activity_suffix}"
-        )
-        return _result(
-            _changed(provisional, answer),
-            answer,
-            "detected_condition_without_rca",
-            tuple(refs),
-        )
-
-    if delivery_lines:
-        refs.extend(delivery_refs)
-        recorded_failures = "\n".join(delivery_lines)
-        answer = (
-            f"{correlation} ({title})의 상태는 {incident_status}이며 "
-            f"{recorded_at}에 마지막으로 갱신되었습니다. 감사 로그에 다음 알림 전달 "
-            f"실패가 기록되어 있습니다:\n{recorded_failures}\n이 내용은 관찰된 전달 실패이며 "
-            f"완전한 RCA는 아닙니다.{activity_suffix}"
-            if korean
-            else f"{correlation} ({title}) is {incident_status} and was last updated at "
-            f"{recorded_at}. The audit log records this notification delivery failure:\n"
-            f"{recorded_failures}\nThis is an observed delivery failure, not a complete RCA."
-            f"{activity_suffix}"
-        )
-        return _result(
-            _changed(provisional, answer),
-            answer,
-            "recorded_failure_reason",
-            tuple(refs),
-        )
-
-    answer = (
-        f"{correlation} ({title})의 상태는 {incident_status}이며 "
-        f"{recorded_at}에 마지막으로 "
-        "갱신되었지만, citation을 갖춘 grounded "
-        "root cause는 기록되지 않았습니다. "
-        f"원인을 확정할 수 없습니다.{activity_suffix}"
-        if korean
-        else f"{correlation} ({title}) is {incident_status} and was last updated at "
-        f"{recorded_at}, but no grounded root cause with citations is recorded. "
-        f"The cause cannot be confirmed.{activity_suffix}"
-    )
-    return _result(
-        _changed(provisional, answer),
-        answer,
-        "no_grounded_rca",
-        tuple(refs),
-    )
-
-
-def _result(
-    status: VerificationStatus,
-    answer: str,
-    reason_code: str,
-    refs: tuple[str, ...] = (),
-) -> AnswerVerification:
-    return AnswerVerification(
-        status=status,
-        answer=answer,
-        authority="server_read_model",
-        checks_completed=1,
-        checks_total=1,
-        evidence_refs=refs,
-        reason_code=reason_code,
-    )
-
-
-def _intent_graph_hold(
-    view_context: Mapping[str, Any], *, locale: str | None
-) -> AnswerVerification | None:
-    raw = view_context.get("_intent_graph_evidence")
-    if not isinstance(raw, Mapping) or raw.get("status") == "completed":
-        return None
-    public = public_intent_graph_evidence(raw)
-    goals = public.get("goals")
-    projected_goals = (
-        [item for item in goals if isinstance(item, Mapping)] if isinstance(goals, list) else []
-    )
-    incomplete = [item for item in projected_goals if item.get("status") != "completed"]
-    details = ", ".join(
-        f"{_text(item.get('capability'), 'unknown')}: "
-        f"{_text(item.get('reason') or item.get('status'), 'unavailable')}"
-        for item in incomplete[:5]
-    )
-    korean = _is_korean(locale)
-    answer = (
-        "요청한 읽기 계획을 근거로 완료하지 못해 답변을 확정하지 않았습니다."
-        if korean
-        else "The requested read plan could not be completed from evidence, "
-        "so no answer was finalized."
-    )
-    if details:
-        answer += f" {'확인된 제한' if korean else 'Confirmed limits'}: {details}."
-    refs = tuple(
-        dict.fromkeys(
-            ref for item in projected_goals for ref in _strings(item.get("evidence_refs"))
-        )
-    )
-    return AnswerVerification(
-        status="unverified",
-        answer=answer,
-        authority="server_intent_graph",
-        checks_completed=sum(1 for item in projected_goals if item.get("status") == "completed"),
-        checks_total=max(1, len(projected_goals)),
-        evidence_refs=refs,
-        reason_code=f"intent_graph_{public.get('status') or 'unavailable'}",
-    )
-
-
-def _verify_agent_self_capability(
-    provisional: str,
-    view_context: Mapping[str, Any],
-    agent_evidence: Mapping[str, Any],
-    *,
-    locale: str | None,
-) -> AnswerVerification | None:
-    """Render a selected agent's role only from its content-addressed capability facts."""
-
-    plan = view_context.get("_answer_plan")
-    subject = plan.get("subject") if isinstance(plan, Mapping) else None
-    if not isinstance(subject, str) or _AGENT_SELF_CAPABILITY_QUESTION.search(subject) is None:
-        return None
-    primary_agent = _optional_text(agent_evidence.get("primary_agent"))
-    facts = agent_evidence.get("facts")
-    if primary_agent is None or not isinstance(facts, Mapping):
-        return None
-    fact_agent = _optional_text(facts.get("agent"))
-    layer = _optional_text(facts.get("layer"))
-    owns = _strings(facts.get("owns"))
-    domains = _strings(facts.get("question_domains"))
-    refs = tuple(
-        ref
-        for ref in _strings(facts.get("evidence_refs"))
-        if (match := _AGENT_STATE_REF.fullmatch(ref)) is not None
-        and match.group(1) == primary_agent
-    )
-    if fact_agent != primary_agent or layer is None or not owns or not domains or not refs:
-        return None
-
-    owned_text = ", ".join(owns)
-    domain_text = ", ".join(domain.replace("_", " ") for domain in domains)
-    if _is_korean(locale):
-        layer_text = {
-            "pipeline": "파이프라인",
-            "domain": "도메인",
-            "governance": "거버넌스",
-        }.get(layer, layer)
-        answer = (
-            f"저는 {primary_agent}이며 {layer_text} 계층의 에이전트입니다. "
-            f"주로 {owned_text} 관련 신호를 담당합니다. "
-            f"{domain_text} 영역의 질문에 답합니다."
-        )
-    else:
-        answer = (
-            f"I am {primary_agent}, a {layer}-layer agent. "
-            f"My primary owned signals are {owned_text}. "
-            f"I answer questions about {domain_text}."
-        )
-    return AnswerVerification(
-        status=_changed(provisional, answer),
-        answer=answer,
-        authority="pantheon_runtime",
-        checks_completed=1,
-        checks_total=1,
-        evidence_refs=tuple(dict.fromkeys(refs)),
-        reason_code="agent_capability_facts",
-    )
-
-
-def _changed(provisional: str, canonical: str) -> VerificationStatus:
-    return "verified" if answers_match(provisional, canonical) else "corrected"
-
-
-def _correct_concept_scope_additions(
-    answer: str,
-    view_context: Mapping[str, Any],
-    claims: Sequence[AtomicClaim],
-) -> tuple[str, ScreenClaimResult] | None:
-    """Remove unsupported scope-only addenda from a glossary answer once."""
-
-    if not isinstance(view_context.get("_concept_evidence"), Mapping):
-        return None
-    failed = tuple(claim for claim in claims if claim.status != "supported")
-    if not failed or any(claim.kind != "scope" for claim in failed):
-        return None
-    corrected = answer
-    for claim in sorted(failed, key=lambda item: item.start, reverse=True):
-        corrected = corrected[: claim.start] + corrected[claim.end :]
-    corrected = corrected.strip()
-    if not corrected:
-        return None
-    verified = verify_screen_claims(corrected, view_context)
-    if verified.overflow or not verified.manifest.complete or not verified.supported:
-        return None
-    return corrected, verified
-
-
-def _correct_screen_unsupported_sentences(
-    answer: str,
-    view_context: Mapping[str, Any],
-    result: ScreenClaimResult,
-) -> tuple[str, ScreenClaimResult] | None:
-    """Remove unsupported sentences when other screen claims are grounded."""
-
-    if result.overflow or not result.manifest.complete:
-        return None
-    failed = tuple(claim for claim in result.claims if claim.status != "supported")
-    supported = tuple(claim for claim in result.claims if claim.status == "supported")
-    if not failed or not supported:
-        return None
-    corrected = answer
-    for sentence in sorted({claim.text for claim in failed}, key=len, reverse=True):
-        corrected = corrected.replace(sentence, "")
-    corrected = corrected.strip()
-    if not corrected:
-        return None
-    verified = verify_screen_claims(corrected, view_context)
-    if (
-        verified.overflow
-        or not verified.manifest.complete
-        or not verified.supported
-        or not verified.claims
-    ):
-        return None
-    return corrected, verified
-
-
-def _is_korean(locale: str | None) -> bool:
-    if locale is None:
-        return False
-    return locale.lower().split("-", 1)[0].split("_", 1)[0] == "ko"
+    return _from_payload(operational_verification)
 
 
 __all__ = [
