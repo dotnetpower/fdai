@@ -179,6 +179,20 @@ export function authenticatedRequestInit(
   };
 }
 
+export function relayAbortSignal(
+  source: AbortSignal | undefined,
+  target: AbortController,
+): () => void {
+  if (source === undefined) return () => undefined;
+  if (source.aborted) {
+    target.abort();
+    return () => undefined;
+  }
+  const abort = () => target.abort();
+  source.addEventListener("abort", abort, { once: true });
+  return () => source.removeEventListener("abort", abort);
+}
+
 let authContext: AuthContext | null = null;
 
 export function setUserContextAuth(auth: AuthContext | null): void {
@@ -219,12 +233,14 @@ export async function fetchConversationTurns(
 export async function fetchConversationImage(
   conversationId: string,
   imageId: string,
+  signal?: AbortSignal,
 ): Promise<Blob> {
   const base = loadConfig().operatorApiBaseUrl || window.location.origin;
   const authorization = authContext ? await authContext.getAuthorizationHeader() : null;
   const headers: Record<string, string> = { accept: "image/*" };
   if (authorization !== null) headers.authorization = authorization;
   const controller = new AbortController();
+  const unlinkAbort = relayAbortSignal(signal, controller);
   const timer = window.setTimeout(() => controller.abort(), 10_000);
   let response: Response;
   try {
@@ -239,6 +255,7 @@ export async function fetchConversationImage(
     throw error;
   } finally {
     window.clearTimeout(timer);
+    unlinkAbort();
   }
   if (!response.ok) {
     throw new UserContextRequestError("Conversation image unavailable", response.status);

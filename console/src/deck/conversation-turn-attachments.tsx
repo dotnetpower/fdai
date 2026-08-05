@@ -26,6 +26,7 @@ export function ConversationTurnAttachments({
 
   useEffect(() => {
     let active = true;
+    const requestController = new AbortController();
     const objectUrls: string[] = [];
     setSources(directSources(attachments));
     const pending = attachments.filter((attachment) => !attachment.src);
@@ -36,7 +37,11 @@ export function ConversationTurnAttachments({
       try {
         const blob = await conversationImageFetchLimiter.run(() =>
           active
-            ? fetchConversationImage(attachment.conversationId, attachment.id)
+            ? fetchConversationImage(
+                attachment.conversationId,
+                attachment.id,
+                requestController.signal,
+              )
             : Promise.resolve(null));
         if (!active || blob === null) return;
         const source = URL.createObjectURL(blob);
@@ -51,6 +56,7 @@ export function ConversationTurnAttachments({
 
     return () => {
       active = false;
+      requestController.abort();
       for (const source of objectUrls) URL.revokeObjectURL(source);
     };
   }, [attachments]);
