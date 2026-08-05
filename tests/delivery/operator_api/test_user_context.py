@@ -84,9 +84,19 @@ def _client(
 
 
 def test_conversation_image_read_is_conversation_scoped() -> None:
+    conversations = InMemoryConversationHistoryStore()
     images = InMemoryConversationImageStore()
 
     async def seed() -> None:
+        await conversations.create_conversation(
+            ConversationRecord(
+                "conversation-1",
+                "principal-a",
+                "web",
+                NOW,
+                NOW,
+            )
+        )
         await images.put(
             ConversationImage.create(
                 image_id="att-image-1",
@@ -101,7 +111,7 @@ def test_conversation_image_read_is_conversation_scoped() -> None:
         )
 
     asyncio.run(seed())
-    client = _client(images=images)
+    client = _client(conversations=conversations, images=images)
 
     response = client.get("/me/conversations/conversation-1/images/att-image-1")
     denied = client.get("/me/conversations/conversation-2/images/att-image-1")
@@ -112,6 +122,9 @@ def test_conversation_image_read_is_conversation_scoped() -> None:
     assert response.headers["cache-control"] == "private, no-store"
     assert response.headers["x-content-type-options"] == "nosniff"
     assert denied.status_code == 404
+
+    assert client.delete("/me/conversations/conversation-1").status_code == 204
+    assert client.get("/me/conversations/conversation-1/images/att-image-1").status_code == 404
 
 
 def test_context_pages_durable_conversations_in_hundreds() -> None:
