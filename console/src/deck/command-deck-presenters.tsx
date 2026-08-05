@@ -72,6 +72,7 @@ export interface Turn {
   readonly delegation?: DelegationMetadata;
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
   readonly incidentCandidates?: readonly import("./backend-types").IncidentCandidate[];
+  readonly presentationArtifact?: import("./backend-types").PresentationArtifact;
   readonly actionDraft?: ActionDraft;
   readonly modelTrace?: ModelTrace;
   readonly turnTiming?: TurnTiming;
@@ -616,6 +617,7 @@ export function TurnBubble({
           codeArtifacts={turn.codeArtifacts}
           incidentCandidates={turn.incidentCandidates}
           actionDraft={turn.actionDraft}
+          presentationArtifact={turn.presentationArtifact}
           trajectory={trajectory}
           {...(onRegenerate ? { onRegenerate } : {})}
         />

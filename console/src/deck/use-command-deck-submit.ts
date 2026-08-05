@@ -559,6 +559,9 @@ export function useCommandDeckSubmit({
                   ...(reply.incidentCandidates
                     ? { incidentCandidates: reply.incidentCandidates }
                     : {}),
+                  ...(reply.presentationArtifact
+                    ? { presentationArtifact: reply.presentationArtifact }
+                    : {}),
                   ...(reply.actionDraft ? { actionDraft: reply.actionDraft } : {}),
                   ...(reply.modelTrace ? { modelTrace: reply.modelTrace } : {}),
                   ...(reply.turnTiming ? { turnTiming: reply.turnTiming } : {}),

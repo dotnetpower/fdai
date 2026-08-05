@@ -27,10 +27,12 @@ import type {
   DelegationMetadata,
   GroundedCodeArtifact,
   IncidentCandidate,
+  PresentationArtifact,
   VerificationProgress,
 } from "./backend";
 import { confirmActionDraft, renderActionResult } from "./backend";
 import { RichContent } from "./rich-content";
+import { StructuredReply } from "./structured-reply";
 import { openDeckWithContext, type DeckOpenDetail } from "./open-deck";
 import { relevantCitations, type Citation } from "./citations";
 import type { ConversationTrajectory } from "./conversation-trajectory";
@@ -62,6 +64,7 @@ export function GroundedReply({
   codeArtifacts,
   incidentCandidates,
   actionDraft,
+  presentationArtifact,
   trajectory,
   onRegenerate,
 }: {
@@ -79,6 +82,7 @@ export function GroundedReply({
   readonly codeArtifacts: readonly GroundedCodeArtifact[] | undefined;
   readonly incidentCandidates: readonly IncidentCandidate[] | undefined;
   readonly actionDraft: ActionDraft | undefined;
+  readonly presentationArtifact: PresentationArtifact | undefined;
   readonly trajectory: ConversationTrajectory | undefined;
   /** Re-run the operator question that produced this reply, if known. */
   readonly onRegenerate?: () => void;
@@ -189,12 +193,16 @@ export function GroundedReply({
             {t(`deck.answerState.${answerState}`)}
           </span>
         ) : null}
-        <RichContent
-          text={renderedText}
-          streaming={streaming}
-          suppressCode={!streaming && (codeArtifacts?.length ?? 0) > 0}
-          citeMarks={marks}
-        />
+        {!streaming && presentationArtifact ? (
+          <StructuredReply artifact={presentationArtifact} />
+        ) : (
+          <RichContent
+            text={renderedText}
+            streaming={streaming}
+            suppressCode={!streaming && (codeArtifacts?.length ?? 0) > 0}
+            citeMarks={marks}
+          />
+        )}
       </div>
 
       {actionDraft ? (

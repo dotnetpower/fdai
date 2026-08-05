@@ -40,6 +40,7 @@ import type { ViewSnapshot } from "./context";
 import { parseTrajectoryDetail } from "./trajectory-detail";
 import { parseIntentGraph, parseIntentGraphEvidence } from "./intent-graph";
 import { chartArtifactText } from "./rich-parse";
+import { parsePresentationArtifact } from "./presentation-artifact";
 
 export const fallbackTypewriter = { intervalMs: 12 };
 export const streamBurstPacer = { intervalMs: 16 };
@@ -398,15 +399,18 @@ export async function askBackendStream(
   if (confirmedSegment !== undefined) callbacks.onConfirmed?.(confirmedSegment);
 
   const done: Record<string, unknown> = doneData ?? {};
-  const finalText = chartArtifactText(done.chart_artifact) ??
-    (typeof done.answer === "string" && done.answer ? done.answer : answerText);
-  if (finalText === "") return fallback("upstream returned empty completion");
   const model = typeof done.model === "string" ? done.model : "llm";
   const latencyMs = typeof done.latency_ms === "number" && Number.isFinite(done.latency_ms)
     ? done.latency_ms
     : null;
   const router = parseRouter(done.router);
   const verification = parseAnswerVerification(done.verification);
+  const presentationArtifact = parsePresentationArtifact(done.presentation_artifact, verification);
+  const canonicalAnswer = typeof done.answer === "string" && done.answer ? done.answer : answerText;
+  const finalText = presentationArtifact
+    ? canonicalAnswer
+    : chartArtifactText(done.chart_artifact) ?? canonicalAnswer;
+  if (finalText === "") return fallback("upstream returned empty completion");
   const delegation = parseDelegation(done.delegation);
   const answerPlan = parseAnswerPlan(done.answer_plan);
   const answerPlanning = parseAnswerPlanning(done.answer_planning);
@@ -443,6 +447,7 @@ export async function askBackendStream(
     ...(answerPlanning ? { answerPlanning } : {}),
     ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
     ...(incidentCandidates.length > 0 ? { incidentCandidates } : {}),
+    ...(presentationArtifact ? { presentationArtifact } : {}),
     ...(confirmedSegment ? { confirmed: confirmedSegment } : {}),
     ...(actionDraft ? { actionDraft } : {}),
     ...(resourceContext ? { resourceContext } : {}),
