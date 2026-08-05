@@ -2027,7 +2027,11 @@
       "tooLarge": "too large to send",
       "unsupportedImage": "unsupported image type",
       "tooMany": "attachment limit reached",
-      "readFailed": "could not read file"
+      "readFailed": "could not read file",
+      "image": "Attached image {index}",
+      "openImage": "Open attached image {index}",
+      "imagePreview": "Attached image preview",
+      "closeImagePreview": "Close image preview"
     },
     "suggestedFollowUps": "Suggested follow-ups",
     "reviewAnswer": "Review answer quality",

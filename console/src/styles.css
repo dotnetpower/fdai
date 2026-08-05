@@ -7511,6 +7511,19 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   list-style: none;
 }
 .deck-turn-attachments li { min-width: 0; }
+.deck-turn-attachment-open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+}
+.deck-turn-attachment-open:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .deck-turn-attachments img {
   display: block;
   width: 100%;
@@ -7526,14 +7539,53 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   border-radius: 7px;
   background: var(--skeleton, var(--bg));
 }
-.deck-turn-attachments .deck-turn-attachment-name {
+.deck-image-lightbox {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(7, 12, 18, 0.78);
+}
+.deck-image-lightbox-dialog {
+  position: relative;
+  display: grid;
+  max-width: 100%;
+  max-height: 100%;
+  outline: none;
+}
+.deck-image-lightbox-dialog > img {
   display: block;
-  margin-top: 4px;
-  overflow: hidden;
-  color: var(--fg-muted);
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  width: min(1100px, calc(100vw - 48px));
+  max-width: min(1100px, calc(100vw - 48px));
+  max-height: calc(100dvh - 48px);
+  border-radius: 8px;
+  object-fit: contain;
+  background: var(--bg);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.42);
+}
+.deck-image-lightbox-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  background: rgba(7, 12, 18, 0.78);
+  color: #fff;
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.deck-image-lightbox-close:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
 /* Bragi answer: plain body text on the deck background - no card chrome, so
  * the reply reads as prose rather than a boxed panel. */

@@ -617,10 +617,33 @@ test("renders a sent image inside the operator turn without caching its bytes", 
   await deck.getByPlaceholder(/Ask anything/i).fill("What is shown?");
   await deck.getByRole("button", { name: "Send" }).click();
 
-  const sentImage = deck.locator('.deck-turn-operator img[alt="screenshot.png"]');
-  await expect(sentImage).toBeVisible();
+  const sentTurn = deck.locator(".deck-turn-operator").filter({ hasText: "What is shown?" });
+  const sentImageButton = sentTurn.getByRole("button", { name: "Open attached image 1" });
+  const sentImage = sentImageButton.getByRole("img", { name: "Attached image 1" });
+  await expect(sentImageButton).toBeVisible();
+  await expect(sentTurn.getByText("screenshot.png", { exact: true })).toHaveCount(0);
+  expect(await sentTurn.evaluate((element) => {
+    const attachments = element.querySelector(".deck-turn-attachment-block");
+    const question = element.querySelector(".deck-turn-body");
+    return Boolean(
+      attachments
+      && question
+      && (attachments.compareDocumentPosition(question) & Node.DOCUMENT_POSITION_FOLLOWING),
+    );
+  })).toBe(true);
   await expect.poll(() => sentImage.evaluate((image: HTMLImageElement) => image.naturalWidth))
     .toBeGreaterThan(0);
+  const thumbnailBounds = await sentImage.boundingBox();
+  await sentImageButton.click();
+  const imageDialog = page.getByRole("dialog", { name: "Attached image preview" });
+  await expect(imageDialog).toBeVisible();
+  const expandedImage = imageDialog.getByRole("img", { name: "Attached image 1" });
+  await expect.poll(() => expandedImage.evaluate((image: HTMLImageElement) => image.naturalWidth))
+    .toBeGreaterThan(0);
+  expect((await expandedImage.boundingBox())?.width).toBeGreaterThan(thumbnailBounds?.width ?? 0);
+  await page.keyboard.press("Escape");
+  await expect(imageDialog).toHaveCount(0);
+  await expect(sentImageButton).toBeFocused();
   await expect.poll(() => fixture.chatBody()).not.toBeNull();
   expect(fixture.chatBody()?.attachments).toMatchObject([{
     id: expect.stringMatching(/^att-/),

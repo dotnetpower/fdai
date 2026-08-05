@@ -584,14 +584,16 @@ export function TurnBubble({
           {...(onRegenerate ? { onRegenerate } : {})}
         />
       ) : (
-        <div class="deck-turn-body">
+        <>
           {turn.attachments && turn.attachments.length > 0 ? (
             <ConversationTurnAttachments attachments={turn.attachments} />
           ) : null}
-          {turn.text.split("\n").map((line, index) => (
-            <p key={index} class="deck-turn-line">{line}</p>
-          ))}
-        </div>
+          <div class="deck-turn-body">
+            {turn.text.split("\n").map((line, index) => (
+              <p key={index} class="deck-turn-line">{line}</p>
+            ))}
+          </div>
+        </>
       )}
       {turn.followUps && turn.followUps.length > 0 ? (
         <ul class="deck-followups" aria-label={t("deck.suggestedFollowUps")}>
