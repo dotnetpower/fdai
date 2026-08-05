@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c8ff6670b5302db7fa95e0ba2f3504f470b86ba0
-translation_revised: 2026-08-04
+translation_source_sha: af47b8b984f46d2c1649f5b358af985557cb8893
+translation_revised: 2026-08-05
 ---
 # 코드 맵
 
@@ -255,7 +255,10 @@ agent는 owned advisory topic을 publish하기 전에 이 canonical Event를 con
 | 경로 | 목적 |
 |------|------|
 | [evaluation-sdk/](../../../evaluation-sdk/) | 독립적으로 package할 수 있는 neutral contract, public Protocol, workspace value 및 bounded runner입니다. |
-| [src/fdai/evaluation/](../../../src/fdai/evaluation/) | Public host 구현, capability attenuation, artifact custody, workspace policy, typed ingress 및 result receipt입니다. |
+| [src/fdai/evaluation/](../../../src/fdai/evaluation/) | Public host 구현, capability attenuation, artifact custody, workspace policy, typed ingress, judgment 전 evidence observation 및 result receipt입니다. |
+| [src/fdai/core/ontology_platform/](../../../src/fdai/core/ontology_platform/) | Frozen diagnostic-ledger validation, 61-mechanism catalog projection, immutable validation receipt 427개 및 content-addressed finding evidence입니다. |
+| [src/fdai/delivery/kubernetes/](../../../src/fdai/delivery/kubernetes/) | Shared Kubernetes reducer, exact-release ontology function 22개 및 cluster-scoped UID topology projection입니다. |
+| [src/fdai/delivery/evaluation/](../../../src/fdai/delivery/evaluation/) | Registry-backed evidence provider와 judgment 전 receipt-verified Kubernetes ontology observation입니다. |
 | [src/fdai/benchmarking/](../../../src/fdai/benchmarking/) | Legacy benchmark caller를 위한 임시 `0.1.x` compatibility facade입니다. |
 | [benchmarks/](../../../benchmarks/) | 독립적으로 package된 SREGym 및 CyberGym driver입니다. [benchmark adapter 설계](../interfaces/benchmark-adapters-ko.md)를 참조하세요. |
 

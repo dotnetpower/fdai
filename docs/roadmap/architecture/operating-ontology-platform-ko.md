@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 631bd2cd95888c710addd80ffb6c2dd18269f5a3
+translation_source_sha: a62ba45c0e65fda468abfaadd3dca8cb261b9b37
 translation_revised: 2026-08-05
 ---
 # FDAI 온톨로지 안전 인프라
@@ -167,6 +167,12 @@ execution은 digest와 current revision을 다시 검증합니다. Stale plan은
 Function은 exact input/output schema, read set, determinism class, artifact digest, publisher,
 resource ceiling, network policy를 선언합니다. Executor identity를 받지 않으며 provider mutation을
 직접 호출하지 않습니다.
+
+Diagnostic runtime은 Kubernetes reducer 22개를 exact-release `derive` function으로 등록합니다.
+Live provider는 `diagnostic-evaluation` purpose에서 Heimdall로 registry를 호출하고 각 invocation
+receipt와 함께 canonical function argument를 보존합니다. Observer는 active release, caller,
+invocation identity, input digest 및 output digest가 모두 일치할 때만 finding을 수락합니다. 이러한
+receipt는 read-only provenance이며 diagnostic function을 action으로 바꾸지 않습니다.
 
 ## Authority-aware writeback과 projection
 

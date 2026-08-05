@@ -159,8 +159,8 @@ so a transport failure can retry the same result without permitting an unissued 
 submission.
 While that identity is outstanding, another `next_task()` call fails before polling the conductor.
 
-The package imports only `fdai_evaluation_sdk`. It requests neutral Kubernetes, metric, log, and
-trace observation capabilities. `FdaiEvaluationHost` owns stable event construction, control-loop
+The package imports only `fdai_evaluation_sdk`. It requests neutral Kubernetes and metric
+observation capabilities. `FdaiEvaluationHost` owns stable event construction, control-loop
 result interpretation, idempotency, authority attenuation, and audit correlation.
 
 FDAI discovers installed drivers through the `fdai.evaluation.adapters` entry-point group. The
@@ -175,24 +175,24 @@ addresses, labels, and extended resources. The kubectl adapter uses fixed read-o
 shell, a 30-second maximum timeout, output and item limits, and a diagnostic projection that
 excludes Secret objects and unreviewed fields. When the delegated identity can read
 `metrics.k8s.io` pods in the target namespace, the adapter projects normalized container CPU and
-memory usage through `observe.metrics.query`. Metrics loss remains visible as a failed readiness
-check and structured unavailable evidence, but it does not block a session when inventory, events,
-Nodes, capacity, dependencies, and grounded RCA remain live. Quantity normalization is owned by the operational
-Kubernetes delivery package, so evaluation, runtime evidence, capacity, and quota diagnostics use
-the same exact base-unit semantics. Pod inventory projects immutable UID and aggregate CPU and
+memory usage through `observe.metrics.query`. Metrics, admission, owner, inventory, event, Node,
+capacity, and dependency providers all participate in fail-closed readiness before the run.
+Quantity normalization is owned by the operational Kubernetes delivery package, so evaluation,
+runtime evidence, capacity, and quota diagnostics use the same exact base-unit semantics. Pod
+inventory projects immutable UID and aggregate CPU and
 memory requests with reviewed source paths, without retaining image or command literals. A shared
 hold-only reducer emits a capacity finding only when an exact FailedScheduling Pod UID and complete
 eligible Node ceilings agree. Truncated, stale, conflicting, or incomplete evidence produces no
 finding. SREGym requests this join through the separate observe-only
 `observe.kubernetes.capacity` capability. Pod status also retains bounded prior termination
-reason, exit code, and finish time for crash diagnosis. Raw logs and traces remain structured
-unavailable evidence until separate providers are bound.
+reason, exit code, and finish time for crash diagnosis. Log and trace capabilities are not
+advertised until bounded providers are installed.
 
 The shared Kubernetes package also contains a hold-only endpoint dependency reducer. It emits a
 missing-Service finding only for a complete same-namespace projection with an exact short
 `host:port` environment reference, an absent Service, and one healthy same-name backend declaring
 the referenced port. Present, external, ambiguous, unhealthy, mismatched, or truncated evidence
-produces no finding. Provider wiring remains a separate absorption step.
+produces no finding.
 SREGym requests the completed inventory join through the separate observe-only
 `observe.kubernetes.dependencies` capability. Readiness probes this capability before a run; an
 unavailable or truncated inventory cannot produce an absence finding.
@@ -433,8 +433,10 @@ stores an abstract `azure-openai:<account>` reference instead of a URL. Runtime 
 only the reference that matches `FDAI_LLM_ENDPOINT`; another account reference blocks startup.
 
 The plugin image contains the FDAI distribution, rule and policy catalogs, and SREGym plugin on top
-of the reviewed SREGym agent base. The root Docker build context excludes local runtime state,
-resolved model files, logs, temporary artifacts, and secrets.
+of a digest-pinned SREGym agent base. It installs the frozen FDAI and SREGym workspace packages,
+copies the frozen diagnostic ledger, includes the reviewed OPA binary, and runs as UID 65532. The
+root Docker build context excludes local runtime state, resolved model files, logs, temporary
+artifacts, and secrets.
 
 ## CyberGym driver
 

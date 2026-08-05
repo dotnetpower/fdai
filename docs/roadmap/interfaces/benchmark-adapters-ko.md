@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 44bb526d1a201d49ca8cd5ec13a8b661079506f4
+translation_source_sha: 89c25c4d96d5e0bf3c5b9f0f5f8795b5328a39ae
 translation_revised: 2026-08-05
 ---
 
@@ -164,8 +164,8 @@ transport failure는 같은 결과를 재시도할 수 있지만 발급되지 �
 이 identity가 outstanding 상태인 동안 다른 `next_task()` 호출은 conductor를 polling하기 전에
 실패합니다.
 
-Package는 `fdai_evaluation_sdk`만 import합니다. Neutral Kubernetes, metric, log 및 trace observation
-capability를 요청합니다. `FdaiEvaluationHost`가 stable event construction, control-loop result
+Package는 `fdai_evaluation_sdk`만 import합니다. Neutral Kubernetes 및 metric observation capability를
+요청합니다. `FdaiEvaluationHost`가 stable event construction, control-loop result
 interpretation, idempotency, authority attenuation 및 audit correlation을 소유합니다.
 
 FDAI는 `fdai.evaluation.adapters` entry-point group에서 설치된 driver를 검색합니다. Generic
@@ -180,9 +180,9 @@ Kubectl adapter는 fixed read-only command, no shell, 최대 30초 timeout, outp
 사용합니다. Diagnostic projection은 Secret object와 검토되지 않은 field를 제외합니다. 위임된
 identity가 target namespace의 `metrics.k8s.io` pod를
 읽을 수 있으면 adapter는 `observe.metrics.query`를 통해 정규화된 container CPU 및 memory 사용량을
-projection합니다. Metrics 손실은 실패한 readiness check 및 structured unavailable evidence로 계속
-표시되지만 inventory, event, Node, capacity, dependency 및 grounded RCA가 live이면 session을
-차단하지 않습니다. Quantity normalization은 operational Kubernetes delivery package가 소유하므로
+projection합니다. Metrics, admission, owner, inventory, event, Node, capacity 및 dependency
+provider는 모두 실행 전 fail-closed readiness에 참여합니다. Quantity normalization은 operational
+Kubernetes delivery package가 소유하므로
 evaluation, runtime evidence, capacity 및 quota 진단은 동일한 exact base-unit 의미를 사용합니다.
 Pod inventory는 image 또는 command literal을 보존하지 않고 immutable UID와 aggregate CPU/memory
 request 및 검토된 source path를 projection합니다. 공유 hold-only reducer는 exact FailedScheduling
@@ -190,8 +190,7 @@ Pod UID와 complete eligible Node ceiling이 일치할 때만 capacity finding�
 stale, conflicting 또는 incomplete evidence는 finding을 생성하지 않습니다. SREGym은 별도
 observe-only `observe.kubernetes.capacity` capability를 통해 이 join을 요청합니다. Pod status는 crash
 진단을 위해 제한된 직전 종료 reason, exit code 및 종료 시각도
-보존합니다. Raw logs 및 traces는 별도 provider가 bind될 때까지 structured unavailable evidence로
-유지됩니다.
+보존합니다. Log 및 trace capability는 bounded provider를 설치할 때까지 advertise하지 않습니다.
 
 공유 Kubernetes package에는 hold-only endpoint dependency reducer도 있습니다. Complete
 same-namespace projection, exact short `host:port` environment reference, absent Service 및 referenced
@@ -435,9 +434,10 @@ abstract `azure-openai:<account>` reference를 저장합니다. Runtime composit
 `FDAI_LLM_ENDPOINT`와 일치하는 reference만 resolve하며 다른 account reference는 startup을
 차단합니다.
 
-Plugin image는 검토된 SREGym agent base 위에 FDAI distribution, rule 및 policy catalog, SREGym
-plugin을 포함합니다. Root Docker build context는 local runtime state, resolved model file, log,
-temporary artifact 및 secret을 제외합니다.
+Plugin image는 digest-pinned SREGym agent base 위에 FDAI distribution, rule 및 policy catalog,
+SREGym plugin을 포함합니다. Frozen FDAI/SREGym workspace package와 diagnostic ledger를 설치하고,
+검토된 OPA binary를 포함하며 UID 65532로 실행합니다. Root Docker build context는 local runtime
+state, resolved model file, log, temporary artifact 및 secret을 제외합니다.
 
 ## CyberGym driver
 

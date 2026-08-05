@@ -165,6 +165,12 @@ Functions declare exact input and output schemas, read sets, determinism class, 
 publisher, resource ceilings, and network policy. A function never receives executor identity and
 never invokes a provider mutation directly.
 
+The diagnostic runtime registers 22 Kubernetes reducers as exact-release `derive` functions. Live
+providers invoke the registry as Heimdall under the `diagnostic-evaluation` purpose and preserve
+the canonical function arguments with each invocation receipt. The observer accepts a finding only
+when the active release, caller, invocation identity, input digest, and output digest all match.
+These receipts are read-only provenance; they do not turn a diagnostic function into an action.
+
 ## Authority-aware writeback and projection
 
 Each ObjectType declares one authority class and write policy:

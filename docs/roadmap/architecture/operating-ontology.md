@@ -42,6 +42,23 @@ One reviewed configuration baseline SignalType handles unmatched raw event types
 deterministic T0 coverage without retaining wildcard ontology links. These catalog declarations
 describe meaning only. They don't assert current provider state or grant execution authority.
 
+### Diagnostic knowledge projection
+
+The SREGym absorption ledger projects 61 reviewed diagnostic mechanisms into
+`DiagnosticMechanism`. Seven independent validation axes create 427 content-addressed
+`BenchmarkValidation` receipts. Each receipt keeps its source revisions, result, validation kind,
+available evidence summary, and canonical digest. Catalog refreshes append new receipts instead of
+rewriting prior validation history, and rejected mechanisms remain explicit negative knowledge.
+
+Live Kubernetes evaluation projects `DiagnosticEvidence` and hold-only `DiagnosticFinding`
+objects before control-loop judgment. Every finding is bound to an exact `derive` function release,
+Heimdall caller, canonical input and output digests, and content-addressed invocation identity.
+Current topology uses cluster-scoped resource identities derived from the selected kubeconfig API
+server and certificate authority. Complete observations replace current relationships, incomplete
+observations withdraw unsupported relationships without deleting resource objects, and unavailable
+inventory leaves the prior projection untouched. None of these objects grants action, approval,
+promotion, or execution authority.
+
 ## Design at a glance
 
 The operating ontology connects four questions that the current resource-centered graph cannot

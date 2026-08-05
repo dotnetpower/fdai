@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ca5bb566eb82b5b9808fa56b8255cb7e87229c30
-translation_revised: 2026-08-04
+translation_source_sha: 6df28bf6b147273f4a291858c7c49c16e04745ea
+translation_revised: 2026-08-05
 ---
 
 # 프로젝트 구조
@@ -74,7 +74,7 @@ fdai/
 │   │   ├── deploy_preflight/   # 배포 전 feasibility 프로브 → grounded readiness 리포트
 │   │   ├── readiness/          # 운영 handoff + startup 및 monitored-target readiness contract, fail-closed reducer, evidence expiry 및 authority ceiling
 │   │   ├── assurance_twin/     # 읽기 전용 온톨로지 트윈: text-to-query, scalar/graph active-challenger model, 필수 invariant, durable trajectory episode, 결정론적 simulation, off-path outcome closure (실행 또는 promotion 안 함)
-│   │   ├── ontology_platform/   # exact release, semantic interface, bounded object set, mutation plan, typed function, reconciliation, proposal-only SDK generation
+│   │   ├── ontology_platform/   # exact release, semantic interface, bounded object set, immutable diagnostic ledger/result projection, mutation plan, typed function, reconciliation, proposal-only SDK generation
 │   │   ├── conversation/       # Bragi-owned model-free screen T0, operator console intent/tool 조정, conflict-aware read plan, grounded narration, per-turn isolation, durable delivery 및 busy-input arbitration
 │   │   ├── user_context_projection.py  # principal context / workflow binding metadata만 runtime ontology에 projection
 │   │   ├── console_request/    # 오퍼레이터 콘솔 write-direction 재요청 정책 (Scenario B deny-override), 순수 함수 `evaluate_operator_rerequest` 하나
@@ -116,7 +116,7 @@ fdai/
 │   │   ├── programmatic_pipeline/ # local isolated child runner; Azure strict submission adapter는 delivery/azure 아래 유지
 │   │   ├── browser/             # 선택적 isolated async Playwright evidence capture; GET/HEAD 전용, page handle 없음
 │   │   ├── trajectory/         # deterministic JSONL streaming export, quarantine, atomic partial-file cleanup
-│   │   ├── kubernetes/         # evaluation/runtime evidence가 공유하는 exact quantity, bounded projection, UID-grounded owner 및 hold-only finding
+│   │   ├── kubernetes/         # evaluation/runtime evidence가 공유하는 exact quantity, cluster-scoped topology, UID-grounded owner, exact-release diagnostic function 및 hold-only finding
 │   │   ├── chaos/              # `Chaos` runbook 단계가 enforce로 갈 때 쓰는 라이브 카오스 주입 어댑터: `live_injectors.py` (CSP-중립 프리미티브 fan-out) + `chaos_mesh.py` (Chaos Mesh CRD) + `mysql_load.py` (MySQL 벤치마크 부하)
 │   │   ├── remediation/        # 직접 API 리메디에이션용 구체 `DirectApiExecutor` (`live_direct_api.py`); Protocol 은 `shared/providers/`에 있음
 │   │   ├── operator_api/           # 얇은 ASGI - `main.py`가 principal 범위 complete-history 및 read-only knowledge-context 조립과 IAM 옆의 Owner 전용 관찰 assignment case를 포함한 route module을 조립. GET route는 bounded state를 projection하고 POST command route는 governed record 또는 typed proposal을 제출하며 privileged executor 또는 human-access provisioner를 직접 호출하지 않음
@@ -129,10 +129,10 @@ fdai/
 │   │   ├── pipeline/           # watch -> collect -> shadow/regression; distill은 DocumentEnvelope provenance bridge, cross-format equivalence 및 review-only ontology gate 추가
 │   │   └── codegen/            # 저작 헬퍼 (`new_action_type`, `new_object_type`) - 스캐폴드 생성만, 라이브 카탈로그 변경 안 함
 │   ├── agents/                # 판테온 런타임 - 15개 agent, typed topic, v2 conversation charter 및 bounded T1/T2 deliberation; [agent-pantheon-ko.md](../agents/agent-pantheon-ko.md) 참조
-│   ├── evaluation/            # public EvaluationHost 구현, capability attenuation, workspace policy, artifact custody 및 typed ingress
+│   ├── evaluation/            # public EvaluationHost 구현, capability attenuation, workspace policy, artifact custody, typed ingress 및 judgment 전 diagnostic ontology observation
 │   ├── benchmarking/          # legacy benchmark contract와 runner를 위한 임시 0.1.x compatibility facade
 │   ├── composition/           # composition root 패키지 (G-3, 트래커 #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings(optional conversation T2 synthesis 포함) + focused `wire_*` binder
-│   ├── runtime/               # Operating-model startup projection/status, durable T2 recovery observation/backfill, Thor/Vidar 실행과 rollback을 사용하는 StateStore-backed proposer route selection, transport/identity binding, startup readiness, worker gating 및 Norns post-turn review를 포함한 headless lifecycle/composition
+│   ├── runtime/               # Operating-model 및 diagnostic-catalog startup projection/status, durable T2 recovery observation/backfill, Thor/Vidar 실행과 rollback을 사용하는 StateStore-backed proposer route selection, transport/identity binding, startup readiness, worker gating 및 Norns post-turn review를 포함한 headless lifecycle/composition
 │   └── __main__.py            # 진입점 (P1 컨트롤 루프 기동)
 ├── evaluation-sdk/            # 독립적으로 package할 수 있는 neutral evaluation contract와 runner; FDAI implementation import 없음
 ├── benchmarks/                # 독립적으로 package된 external-harness driver; FDAI wheel에 포함되지 않음

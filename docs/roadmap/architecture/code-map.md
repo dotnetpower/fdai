@@ -250,7 +250,10 @@ domain agents consume those canonical Events before publishing their owned advis
 | Path | Purpose |
 |------|---------|
 | [evaluation-sdk/](../../../evaluation-sdk/) | Independently packageable neutral contracts, public Protocols, workspace values, and bounded runner. |
-| [src/fdai/evaluation/](../../../src/fdai/evaluation/) | Public host implementation, capability attenuation, artifact custody, workspace policy, typed ingress, and result receipts. |
+| [src/fdai/evaluation/](../../../src/fdai/evaluation/) | Public host implementation, capability attenuation, artifact custody, workspace policy, typed ingress, pre-judgment evidence observation, and result receipts. |
+| [src/fdai/core/ontology_platform/](../../../src/fdai/core/ontology_platform/) | Frozen diagnostic-ledger validation, 61-mechanism catalog projection, 427 immutable validation receipts, and content-addressed finding evidence. |
+| [src/fdai/delivery/kubernetes/](../../../src/fdai/delivery/kubernetes/) | Shared Kubernetes reducers, 22 exact-release ontology functions, and cluster-scoped UID topology projection. |
+| [src/fdai/delivery/evaluation/](../../../src/fdai/delivery/evaluation/) | Registry-backed evidence providers and receipt-verified Kubernetes ontology observation before judgment. |
 | [src/fdai/benchmarking/](../../../src/fdai/benchmarking/) | Temporary `0.1.x` compatibility facade for legacy benchmark callers. |
 | [benchmarks/](../../../benchmarks/) | Independently packaged SREGym and CyberGym drivers; see the [benchmark adapter design](../interfaces/benchmark-adapters.md). |
 

@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: fb67501196181bec25042f9a382ef38c728ae426
-translation_revised: 2026-08-04
+translation_source_sha: 5eea02378956c943d6272f4c2948459aa06973f8
+translation_revised: 2026-08-05
 ---
 # FDAI 운영 온톨로지
 
@@ -45,6 +45,23 @@ deterministic 정책에 연결합니다. `scripts/catalog/sync-rule-semantics.py
 검토된 하나의 구성 baseline SignalType이 일치하지 않는 원시 이벤트 형식을 처리합니다. 따라서
 wildcard 온톨로지 링크 없이 deterministic T0 범위를 보존합니다. 이러한 카탈로그 선언은 의미만
 설명하며 현재 provider 상태를 주장하거나 실행 권한을 부여하지 않습니다.
+
+### 진단 지식 projection
+
+SREGym absorption ledger는 검토된 진단 mechanism 61개를 `DiagnosticMechanism`으로
+projection합니다. 독립된 validation axis 7개는 content-addressed `BenchmarkValidation` receipt
+427개를 생성합니다. 각 receipt는 source revision, 결과, validation kind, 사용 가능한 evidence
+summary 및 canonical digest를 보존합니다. Catalog refresh는 이전 validation history를 덮어쓰지
+않고 새 receipt를 추가하며, rejected mechanism은 명시적인 negative knowledge로 유지됩니다.
+
+Live Kubernetes evaluation은 control-loop judgment 전에 `DiagnosticEvidence`와 hold-only
+`DiagnosticFinding` object를 projection합니다. 각 finding은 exact `derive` function release,
+Heimdall caller, canonical input/output digest 및 content-addressed invocation identity에
+연결됩니다. Current topology는 선택된 kubeconfig API server와 certificate authority에서 파생한
+cluster-scoped resource identity를 사용합니다. Complete observation은 current relationship을
+교체하고, incomplete observation은 resource object를 삭제하지 않으면서 지원되지 않는
+relationship을 철회하며, unavailable inventory는 기존 projection을 유지합니다. 이러한 object는
+action, approval, promotion 또는 execution authority를 부여하지 않습니다.
 
 ## 한눈에 보는 설계
 

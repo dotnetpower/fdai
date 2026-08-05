@@ -69,7 +69,7 @@ fdai/
 │   │   ├── deploy_preflight/   # pre-deployment feasibility probes → grounded readiness report
 │   │   ├── readiness/          # operational handoff + startup and monitored-target readiness contracts, fail-closed reducers, evidence expiry, and authority ceilings
 │   │   ├── assurance_twin/     # read-only ontology twin: text-to-query, scalar/graph active-challenger models, required invariants, durable trajectory episodes, deterministic simulation, and off-path outcome closure (never executes or promotes)
-│   │   ├── ontology_platform/   # exact releases, semantic interfaces, bounded object sets, mutation plans, typed functions, reconciliation, and proposal-only SDK generation
+│   │   ├── ontology_platform/   # exact releases, semantic interfaces, bounded object sets, immutable diagnostic ledger/result projection, mutation plans, typed functions, reconciliation, and proposal-only SDK generation
 │   │   ├── conversation/       # Bragi-owned model-free screen T0, operator-console intent/tool coordination, conflict-aware read plans, grounded narration, per-turn isolation, durable delivery, and busy-input arbitration
 │   │   ├── user_context_projection.py  # metadata-only principal context / workflow binding projection into runtime ontology
 │   │   ├── console_request/    # operator-console write-direction re-request policy (Scenario B deny-override), a single pure `evaluate_operator_rerequest`
@@ -111,7 +111,7 @@ fdai/
 │   │   ├── programmatic_pipeline/ # local isolated child runner; Azure strict submission adapter remains under delivery/azure
 │   │   ├── browser/             # optional isolated async Playwright evidence capture; GET/HEAD only, no page handle
 │   │   ├── trajectory/         # deterministic JSONL streaming export with quarantine and atomic partial-file cleanup
-│   │   ├── kubernetes/         # shared operational Kubernetes semantics: exact quantities, bounded projections, UID-grounded owners, and hold-only findings
+│   │   ├── kubernetes/         # shared operational Kubernetes semantics: exact quantities, cluster-scoped topology, UID-grounded owners, exact-release diagnostic functions, and hold-only findings
 │   │   ├── chaos/              # live chaos-inject adapters when a `Chaos` runbook step goes enforce: `live_injectors.py` (CSP-neutral primitive fan-out) + `chaos_mesh.py` (Chaos Mesh CRDs) + `mysql_load.py` (MySQL benchmark load)
 │   │   ├── remediation/        # concrete `DirectApiExecutor` for direct-API remediation (`live_direct_api.py`); the Protocol lives in `shared/providers/`
 │   │   ├── operator_api/           # thin ASGI - `main.py` composes route modules, including principal-scoped complete-history and read-only knowledge-context assembly plus Owner-only observation assignment cases beside IAM. GET routes project bounded state; POST commands submit governed records or typed proposals and never call a privileged executor or human-access provisioner directly
@@ -124,10 +124,10 @@ fdai/
 │   │   ├── pipeline/           # watch -> collect -> shadow/regression; distill adds the DocumentEnvelope provenance bridge, cross-format equivalence, and review-only ontology gates
 │   │   └── codegen/            # authoring helpers (`new_action_type`, `new_object_type`) - generate scaffolds, never mutate the live catalog
 │   ├── agents/                # pantheon runtime - 15 named agents, typed topics, v2 conversation charters, and bounded T1/T2 deliberation; see [agent-pantheon.md](../agents/agent-pantheon.md)
-│   ├── evaluation/            # public EvaluationHost implementation, capability attenuation, workspace policy, artifact custody, and typed ingress
+│   ├── evaluation/            # public EvaluationHost implementation, capability attenuation, workspace policy, artifact custody, typed ingress, and pre-judgment diagnostic ontology observation
 │   ├── benchmarking/          # temporary 0.1.x compatibility facade for legacy benchmark contracts and runners
 │   ├── composition/           # composition root package (G-3, tracker #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings (including optional conversation T2 synthesis) + focused `wire_*` binders
-│   ├── runtime/               # headless lifecycle and composition, including operating-model startup projection/status, durable T2 recovery observation/backfill, StateStore-backed proposer route selection with Thor/Vidar execution and rollback, transport/identity bindings, startup readiness, worker gating, and post-turn review wiring into Norns
+│   ├── runtime/               # headless lifecycle and composition, including operating-model and diagnostic-catalog startup projection/status, durable T2 recovery observation/backfill, StateStore-backed proposer route selection with Thor/Vidar execution and rollback, transport/identity bindings, startup readiness, worker gating, and post-turn review wiring into Norns
 │   └── __main__.py            # entry point (starts the P1 control loop)
 ├── evaluation-sdk/            # independently packageable neutral evaluation contracts and runner; no FDAI implementation imports
 ├── benchmarks/                # independently packaged external-harness drivers; not included in the FDAI wheel
