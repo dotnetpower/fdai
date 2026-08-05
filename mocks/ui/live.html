@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Live - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=live-tier-beacons-v2" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=live-events-tooltip-v2" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
 </head>
 <body>
@@ -38,16 +38,17 @@
     </section>
 
     <section class="cs-live-kpis" aria-label="Live metrics">
-      <a class="cs-live-kpi" href="audit.html">
+      <article class="cs-live-kpi">
         <span class="cs-live-kpi-label">Events / sec</span>
+        <a class="cs-live-kpi-detail" href="audit.html" aria-label="Open event evidence" title="Open event evidence"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3 H13 V11 M13 3 L4 12" /></svg></a>
         <span class="cs-live-kpi-value" id="k-eps">0<small>60s average</small></span>
-        <canvas class="cs-live-spark" data-spark="eps" width="600" height="48" aria-hidden="true"></canvas>
+        <canvas class="cs-live-spark" data-spark="eps" width="600" height="48" role="img" tabindex="0">Events per second by decision tier over the last 60 seconds.</canvas>
         <div class="cs-live-spark-legend" aria-hidden="true">
           <span class="cs-spark-key t0"><i></i>T0 <b id="k-eps-t0">0</b></span>
           <span class="cs-spark-key t1"><i></i>T1 <b id="k-eps-t1">0</b></span>
           <span class="cs-spark-key t2"><i></i>T2 <b id="k-eps-t2">0</b></span>
         </div>
-      </a>
+      </article>
       <article class="cs-live-kpi">
         <span class="cs-live-kpi-label">Gate mix</span>
         <a class="cs-live-kpi-detail" href="audit.html" aria-label="Open gate evidence" title="Open gate evidence"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3 H13 V11 M13 3 L4 12" /></svg></a>
@@ -146,6 +147,6 @@
 
   </main>
 
-  <script src="assets/live.js?v=live-tier-beacons-v1" defer></script>
+  <script src="assets/live.js?v=live-events-tooltip-v2" defer></script>
 </body>
 </html>

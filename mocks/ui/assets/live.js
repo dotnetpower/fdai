@@ -484,7 +484,7 @@
     }).join(", "));
   }
 
-  function showChartTooltip(anchor) {
+  function showChartTooltip(anchor, clientX, clientY) {
     var text = anchor.dataset.liveChartTip;
     if (!text) return;
     chartTooltip.textContent = text;
@@ -492,9 +492,9 @@
     chartTooltip.style.transform = "translate(-50%, -100%)";
     var anchorBox = anchor.getBoundingClientRect();
     var tooltipBox = chartTooltip.getBoundingClientRect();
-    var left = anchorBox.left + anchorBox.width / 2;
+    var left = typeof clientX === "number" ? clientX : anchorBox.left + anchorBox.width / 2;
     left = Math.max(tooltipBox.width / 2 + 8, Math.min(window.innerWidth - tooltipBox.width / 2 - 8, left));
-    var top = anchorBox.top - 6;
+    var top = typeof clientY === "number" ? clientY - 10 : anchorBox.top - 6;
     if (top - tooltipBox.height < 8) {
       top = anchorBox.bottom + 6;
       chartTooltip.style.transform = "translate(-50%, 0)";
@@ -536,6 +536,9 @@
     renderGateChart(t, outcomeTotal);
     renderTierChart(t, t.total);
     var next = [eps, kAuto.textContent, kT0.textContent, kT1.textContent, kT2.textContent].join("|");
+    if (spark) {
+      spark.setAttribute("aria-label", "Events per second over the last 60 seconds. Average " + eps + ". Focus and use left or right arrow keys to inspect each second.");
+    }
     if (previous !== next) {
       document.querySelectorAll(".cs-live-kpi").forEach(pulse);
     }
@@ -544,6 +547,7 @@
   // ---------- sparkline ----------
   var spark = document.querySelector('canvas[data-spark="eps"]');
   var sparkCtx = spark ? spark.getContext("2d") : null;
+  var sparkHoverIndex = null;
 
   function readColor(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -637,7 +641,74 @@
     drawSeries("t1", COL.t1, 0.12);
     drawSeries("t2", COL.t2, 0.14);
     sparkCtx.restore();
+
+    if (sparkHoverIndex !== null) {
+      var hoverX = sparkHoverIndex * stepX;
+      sparkCtx.save();
+      sparkCtx.beginPath();
+      sparkCtx.moveTo(hoverX, pad);
+      sparkCtx.lineTo(hoverX, base);
+      sparkCtx.strokeStyle = COL.hairline;
+      sparkCtx.lineWidth = 1;
+      sparkCtx.stroke();
+      [["t0", COL.t0], ["t1", COL.t1], ["t2", COL.t2]].forEach(function (series) {
+        sparkCtx.beginPath();
+        sparkCtx.arc(hoverX, yFor(buckets[sparkHoverIndex][series[0]]), 2.2, 0, Math.PI * 2);
+        sparkCtx.fillStyle = series[1];
+        sparkCtx.fill();
+        sparkCtx.strokeStyle = "#FFFFFF";
+        sparkCtx.lineWidth = 1;
+        sparkCtx.stroke();
+      });
+      sparkCtx.restore();
+    }
   }
+
+  function sparkBucketTip(index) {
+    var bucket = buckets[index];
+    var secondsAgo = buckets.length - 1 - index;
+    var when = secondsAgo === 0 ? "Current second" : secondsAgo === 1 ? "1 second ago" : secondsAgo + " seconds ago";
+    return when + "\nTotal " + bucket.total + " events/s · T0 " + bucket.t0 + " · T1 " + bucket.t1 + " · T2 " + bucket.t2;
+  }
+
+  function inspectSparkBucket(index, clientX, clientY) {
+    sparkHoverIndex = Math.max(0, Math.min(buckets.length - 1, index));
+    spark.dataset.liveChartTip = sparkBucketTip(sparkHoverIndex);
+    renderSparkline();
+    showChartTooltip(spark, clientX, clientY);
+  }
+
+  function latestObservedBucket() {
+    for (var index = buckets.length - 1; index >= 0; index--) {
+      if (buckets[index].total > 0) return index;
+    }
+    return buckets.length - 1;
+  }
+
+  spark.addEventListener("pointermove", function (event) {
+    var box = spark.getBoundingClientRect();
+    var ratio = box.width > 0 ? (event.clientX - box.left) / box.width : 1;
+    inspectSparkBucket(Math.round(Math.max(0, Math.min(1, ratio)) * (buckets.length - 1)), event.clientX, event.clientY);
+  });
+  spark.addEventListener("pointerleave", function () {
+    sparkHoverIndex = null;
+    renderSparkline();
+    hideChartTooltip(spark);
+  });
+  spark.addEventListener("focus", function () {
+    inspectSparkBucket(sparkHoverIndex === null ? latestObservedBucket() : sparkHoverIndex);
+  });
+  spark.addEventListener("blur", function () {
+    sparkHoverIndex = null;
+    renderSparkline();
+    hideChartTooltip(spark);
+  });
+  spark.addEventListener("keydown", function (event) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    var current = sparkHoverIndex === null ? latestObservedBucket() : sparkHoverIndex;
+    inspectSparkBucket(current + (event.key === "ArrowLeft" ? -1 : 1));
+  });
 
   // ---------- production-aligned operational projection ----------
   function isSlotStuck(slot, now) {

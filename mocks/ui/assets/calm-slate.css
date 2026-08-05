@@ -1176,7 +1176,8 @@ body.cs-drawer-open { overflow: hidden; }
 .cs-live-kpi-detail svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 .cs-live-kpi-value { font-size: 19px; font-weight: 600; display: inline-flex; align-items: baseline; gap: 6px; }
 .cs-live-kpi-value small { color: var(--cs-text-soft); font-weight: 500; font-size: 10px; }
-.cs-live-kpi .cs-live-spark { width: 100%; height: 25px; margin-top: 1px; }
+.cs-live-kpi .cs-live-spark { width: 100%; height: 25px; margin-top: 1px; border-radius: 3px; cursor: crosshair; }
+.cs-live-kpi .cs-live-spark:focus-visible { outline: 2px solid rgba(68,104,142,.38); outline-offset: 2px; }
 .cs-live-spark-legend { display: flex; gap: 9px; margin-top: 1px; flex-wrap: wrap; }
 .cs-spark-key { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; color: var(--cs-text-soft); letter-spacing: .01em; }
 .cs-spark-key i { width: 9px; height: 3px; border-radius: 2px; display: inline-block; }
@@ -1225,7 +1226,7 @@ body.cs-drawer-open { overflow: hidden; }
 .cs-tier-axis { display: grid; grid-template-columns: repeat(3, 1fr); margin-left: 64px; margin-right: 36px; color: #AAA6A1; font-size: 7px; line-height: 1; }
 .cs-tier-axis span:nth-child(2) { text-align: center; }
 .cs-tier-axis span:last-child { text-align: right; }
-.cs-live-chart-tooltip { position: fixed; z-index: 1200; max-width: min(230px, calc(100vw - 16px)); padding: 6px 9px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-navy); color: #fff; box-shadow: 0 6px 18px rgba(46,54,64,.2); font-size: 10.5px; line-height: 1.35; pointer-events: none; transform: translate(-50%, -100%); }
+.cs-live-chart-tooltip { position: fixed; z-index: 1200; max-width: min(230px, calc(100vw - 16px)); padding: 6px 9px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-navy); color: #fff; box-shadow: 0 6px 18px rgba(46,54,64,.2); font-size: 10.5px; line-height: 1.35; white-space: pre-line; pointer-events: none; transform: translate(-50%, -100%); }
 .cs-live-chart-tooltip[hidden] { display: none; }
 
 /* Current work controls */
