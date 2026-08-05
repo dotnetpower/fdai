@@ -103,7 +103,7 @@ class OntologyFunctionRegistry:
             seed_field = declaration.seed_field or "fdai_seed"
             if seed_field in raw_arguments:
                 raise ValueError(f"ontology function seed field {seed_field!r} is runtime-owned")
-            raw_digest = _digest(raw_arguments)
+            raw_digest = ontology_function_digest(raw_arguments)
             seed = int(
                 hashlib.sha256(f"{declaration.artifact_digest}:{raw_digest}".encode()).hexdigest()[
                     :16
@@ -142,9 +142,9 @@ class OntologyFunctionRegistry:
         if release is None:  # pragma: no cover - checked by public method
             raise RuntimeError("ontology release is unavailable")
         function_ref = release.type_ref(OntologyDeclarationKind.FUNCTION, declaration.name)
-        input_digest = _digest(raw_arguments)
-        output_digest = _digest(serialized)
-        identity = _digest(
+        input_digest = ontology_function_digest(raw_arguments)
+        output_digest = ontology_function_digest(serialized)
+        identity = ontology_function_digest(
             {
                 "function_ref": function_ref.model_dump(mode="json"),
                 "input_digest": input_digest,
@@ -176,7 +176,9 @@ def _authorize(declaration: OntologyFunctionType, context: FunctionInvocationCon
         raise PermissionError("ontology function caller purpose is not allowed")
 
 
-def _digest(value: object) -> str:
+def ontology_function_digest(value: object) -> str:
+    """Return the canonical digest used by ontology function receipts."""
+
     try:
         encoded = json.dumps(
             value,

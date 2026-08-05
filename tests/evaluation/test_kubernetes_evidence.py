@@ -19,6 +19,7 @@ from fdai.delivery.evaluation.kubernetes_evidence import (
 )
 from fdai.delivery.kubernetes.owners import CustomOwnerQuery
 
+_CLUSTER_IDENTITY = "sha256:" + "a" * 64
 _NOW = datetime(2026, 7, 29, 12, 0, tzinfo=UTC)
 
 
@@ -45,6 +46,7 @@ def _config(kubeconfig: Path, **overrides: object) -> KubectlEvidenceConfig:
         "kubeconfig": kubeconfig,
         "context": "example-context",
         "cluster_name": "example-cluster",
+        "cluster_identity": _CLUSTER_IDENTITY,
         "allowed_namespaces": frozenset({"example-app"}),
     }
     values.update(overrides)
@@ -154,6 +156,14 @@ def test_config_rejects_non_dns_label_namespace(tmp_path: Path, namespace: str) 
         _config(kubeconfig, allowed_namespaces=frozenset({namespace}))
 
 
+def test_config_rejects_item_limit_above_topology_refresh_ceiling(tmp_path: Path) -> None:
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text("synthetic", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="between 1 and 1000"):
+        _config(kubeconfig, max_items=1001)
+
+
 async def test_pod_metrics_are_namespace_scoped_and_normalized(tmp_path: Path) -> None:
     kubeconfig = tmp_path / "config"
     kubeconfig.write_text("synthetic", encoding="utf-8")
@@ -200,7 +210,7 @@ async def test_pod_metrics_are_namespace_scoped_and_normalized(tmp_path: Path) -
         )
     ]
     assert evidence == {
-        "cluster": "example-cluster",
+        "cluster": _CLUSTER_IDENTITY,
         "namespace": "example-app",
         "pods": [
             {
@@ -658,7 +668,7 @@ async def test_nodes_use_cluster_scope_and_project_only_capacity_facts(tmp_path:
         "--request-timeout=15s",
     )
     assert evidence == {
-        "cluster": "example-cluster",
+        "cluster": _CLUSTER_IDENTITY,
         "nodes": [
             {
                 "name": "worker-a",
@@ -738,7 +748,7 @@ async def test_admission_configurations_are_cluster_scoped_and_bounded(tmp_path:
         "--request-timeout=15s",
     )
     assert evidence == {
-        "cluster": "example-cluster",
+        "cluster": _CLUSTER_IDENTITY,
         "resources": [
             {
                 "kind": "MutatingWebhookConfiguration",

@@ -17,12 +17,17 @@ from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
 
 _ROOT = Path(__file__).resolve().parents[2]
-_CLUSTER = "example-cluster"
+
+
+def _cluster_identity(name: str) -> str:
+    return f"sha256:{hashlib.sha256(name.encode('utf-8')).hexdigest()}"
+
+
+_CLUSTER = _cluster_identity("example-cluster")
 
 
 def _namespace_ref(cluster: str = _CLUSTER) -> str:
-    digest = hashlib.sha256(cluster.encode("utf-8")).hexdigest()
-    return f"kubernetes.cluster:{digest}/namespace/example"
+    return f"kubernetes.cluster:{cluster.removeprefix('sha256:')}/namespace/example"
 
 
 def _task() -> EvaluationTask:
@@ -405,7 +410,7 @@ async def test_same_namespace_and_uid_remain_isolated_between_clusters() -> None
         "uid": "shared-uid",
     }
 
-    for cluster in ("cluster-a", "cluster-b"):
+    for cluster in (_cluster_identity("cluster-a"), _cluster_identity("cluster-b")):
         await observer.observe(
             task=_task(),
             evidence={
@@ -421,8 +426,8 @@ async def test_same_namespace_and_uid_remain_isolated_between_clusters() -> None
             },
         )
 
-    assert await store.get_object(_namespace_ref("cluster-a")) is not None
-    assert await store.get_object(_namespace_ref("cluster-b")) is not None
+    assert await store.get_object(_namespace_ref(_cluster_identity("cluster-a"))) is not None
+    assert await store.get_object(_namespace_ref(_cluster_identity("cluster-b"))) is not None
     graph = await store.query_objects(
         object_types=("Resource",),
         property_equals={"name": "backend"},
@@ -472,3 +477,53 @@ async def test_uidless_complete_claim_does_not_delete_prior_topology() -> None:
         limit=10,
     )
     assert len(graph.objects) == 1
+
+
+async def test_incomplete_inventory_withdraws_stale_current_links() -> None:
+    store = await _store()
+    observer = KubernetesOntologyEvidenceObserver(store=store)
+    resources = [
+        {
+            "kind": "Service",
+            "namespace": "example",
+            "name": "backend",
+            "uid": "service-uid",
+            "selector": {"app": "backend"},
+        },
+        {
+            "kind": "Pod",
+            "namespace": "example",
+            "name": "backend-a",
+            "uid": "pod-uid",
+            "labels": {"app": "backend"},
+        },
+    ]
+    base_payload = {
+        "cluster": _CLUSTER,
+        "evidence_complete": True,
+        "resources": resources,
+        "findings": [],
+    }
+
+    await observer.observe(
+        task=_task(),
+        evidence={
+            "observe.kubernetes.inventory": {
+                "status": "available",
+                "payload": base_payload,
+            }
+        },
+    )
+    await observer.observe(
+        task=_task(),
+        evidence={
+            "observe.kubernetes.inventory": {
+                "status": "available",
+                "payload": {**base_payload, "evidence_complete": False},
+            }
+        },
+    )
+
+    graph = await store.query_objects(object_types=("Resource",), limit=10)
+    assert not any(item.link_type == "kubernetes_selects" for item in graph.links)
+    assert len([item for item in graph.objects if item.properties.get("name") == "backend"]) == 1

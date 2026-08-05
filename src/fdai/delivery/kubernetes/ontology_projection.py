@@ -8,7 +8,7 @@ from typing import Any
 
 from fdai.shared.providers.ontology_instance import OntologyLinkRecord, OntologyObjectRecord
 
-_MAX_RESOURCES = 4096
+_MAX_RESOURCES = 1000
 
 
 @dataclass(frozen=True, slots=True)

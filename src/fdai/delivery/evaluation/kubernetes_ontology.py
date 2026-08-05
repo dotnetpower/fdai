@@ -2,24 +2,26 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
+import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
 from fdai_evaluation_sdk import EvaluationTask
 
-from fdai.core.ontology_platform import FunctionInvocationReceipt
+from fdai.core.ontology_platform import FunctionInvocationReceipt, ontology_function_digest
 from fdai.core.ontology_platform.diagnostic_results import (
     DiagnosticResultProjector,
     build_diagnostic_result_projection,
 )
+from fdai.delivery.kubernetes.ontology_functions import diagnostic_function_types
 from fdai.delivery.kubernetes.ontology_projection import (
     KubernetesOntologyProjection,
     build_kubernetes_ontology_projection,
 )
+from fdai.shared.contracts.models import OntologyDeclarationKind
+from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import (
     OntologyInstanceStore,
     OntologyObjectRecord,
@@ -81,6 +83,9 @@ class KubernetesOntologyEvidenceObserver:
 
     store: OntologyInstanceStore
     clock: Callable[[], datetime] = lambda: datetime.now(UTC)
+    release: Any = field(
+        default_factory=lambda: build_ontology_release(function_types=diagnostic_function_types())
+    )
 
     async def observe(
         self,
@@ -105,7 +110,7 @@ class KubernetesOntologyEvidenceObserver:
                 "properties": {"cluster": cluster_name},
             },
         )
-        topology, topology_complete = self._topology(
+        topology, topology_complete, topology_observed = self._topology(
             evidence,
             expected_namespace=task.target.value,
             cluster_ref=cluster_ref,
@@ -117,7 +122,8 @@ class KubernetesOntologyEvidenceObserver:
                 links=topology.links,
             ),
             namespace_ref=namespace_ref,
-            replace_existing=topology_complete,
+            replace_objects=topology_complete,
+            refresh_links=topology_observed,
         )
         projector = DiagnosticResultProjector(store=self.store)
         for _capability_id, entry in sorted(evidence.items()):
@@ -140,16 +146,34 @@ class KubernetesOntologyEvidenceObserver:
                     raise ValueError(
                         "diagnostic findings require a matching ontology function receipt"
                     ) from exc
+                expected_ref = self.release.type_ref(
+                    OntologyDeclarationKind.FUNCTION,
+                    f"diagnostic.{mechanism_id}",
+                )
+                if receipt.function_ref != expected_ref or receipt.caller_agent != "Heimdall":
+                    raise ValueError(
+                        "diagnostic receipt does not match the active function release"
+                    )
                 try:
                     function_arguments = inputs[mechanism_id]
                 except KeyError as exc:
                     raise ValueError(
                         "diagnostic findings require matching ontology function inputs"
                     ) from exc
-                if _digest(function_arguments) != receipt.input_digest:
+                if ontology_function_digest(function_arguments) != receipt.input_digest:
                     raise ValueError("diagnostic inputs do not match function receipt input")
-                if _digest(mechanism_findings) != receipt.output_digest:
+                if ontology_function_digest(mechanism_findings) != receipt.output_digest:
                     raise ValueError("diagnostic findings do not match function receipt output")
+                invocation_identity = ontology_function_digest(
+                    {
+                        "function_ref": receipt.function_ref.model_dump(mode="json"),
+                        "input_digest": receipt.input_digest,
+                        "output_digest": receipt.output_digest,
+                        "caller_agent": receipt.caller_agent,
+                    }
+                ).removeprefix("sha256:")
+                if receipt.invocation_id != f"logic-invocation:{invocation_identity}":
+                    raise ValueError("diagnostic invocation identity is invalid")
                 function_ref = receipt.function_ref
                 projection = build_diagnostic_result_projection(
                     mechanism_id=mechanism_id,
@@ -172,10 +196,10 @@ class KubernetesOntologyEvidenceObserver:
         *,
         expected_namespace: str,
         cluster_ref: str,
-    ) -> tuple[KubernetesOntologyProjection, bool]:
+    ) -> tuple[KubernetesOntologyProjection, bool, bool]:
         payload = _available_payload(evidence.get("observe.kubernetes.inventory"))
         if payload is None:
-            return KubernetesOntologyProjection(objects=(), links=()), False
+            return KubernetesOntologyProjection(objects=(), links=()), False, False
         evidence_complete = payload.get("evidence_complete") is True
         resources = _mappings(payload.get("resources"))
         projection = build_kubernetes_ontology_projection(
@@ -184,10 +208,10 @@ class KubernetesOntologyEvidenceObserver:
             expected_namespace=expected_namespace,
             cluster_ref=cluster_ref,
         )
-        return (
-            projection,
-            evidence_complete and len(projection.objects) == len(resources),
-        )
+        topology_complete = evidence_complete and len(projection.objects) == len(resources)
+        if not topology_complete:
+            projection = KubernetesOntologyProjection(objects=projection.objects, links=())
+        return projection, topology_complete, True
 
 
 async def _project_current_topology(
@@ -195,7 +219,8 @@ async def _project_current_topology(
     projection: KubernetesOntologyProjection,
     *,
     namespace_ref: str,
-    replace_existing: bool,
+    replace_objects: bool,
+    refresh_links: bool,
 ) -> None:
     missing: list[OntologyObjectRecord] = []
     for record in projection.objects:
@@ -211,7 +236,7 @@ async def _project_current_topology(
             raise ValueError("immutable Kubernetes ontology identity changed")
     previous_object_ids: tuple[str, ...] = ()
     previous_link_keys: tuple[tuple[str, str, str], ...] = ()
-    if replace_existing:
+    if refresh_links:
         current = await store.query_objects(
             object_types=("Resource",),
             property_equals={"parent_id": namespace_ref},
@@ -220,9 +245,10 @@ async def _project_current_topology(
         if current.truncated:
             raise ValueError("existing Kubernetes namespace topology is truncated")
         projected_ids = {record.id for record in projection.objects}
-        previous_object_ids = tuple(
-            record.id for record in current.objects if record.id not in projected_ids
-        )
+        if replace_objects:
+            previous_object_ids = tuple(
+                record.id for record in current.objects if record.id not in projected_ids
+            )
         topology_link_types = {
             "contains",
             "depends_on",
@@ -270,8 +296,9 @@ def _cluster_scope(evidence: Mapping[str, Any]) -> tuple[str, str]:
         if (payload := _available_payload(entry)) is not None
     ):
         raise ValueError("Kubernetes ontology evidence crossed the target cluster")
-    digest = hashlib.sha256(cluster_name.encode("utf-8")).hexdigest()
-    return cluster_name, f"kubernetes.cluster:{digest}"
+    if re.fullmatch(r"sha256:[0-9a-f]{64}", cluster_name) is None:
+        raise ValueError("Kubernetes ontology cluster identity MUST be SHA-256")
+    return cluster_name, f"kubernetes.cluster:{cluster_name.removeprefix('sha256:')}"
 
 
 def _mechanism_for_reason(value: object) -> str:
@@ -284,17 +311,6 @@ def _mechanism_for_reason(value: object) -> str:
 
 def _mappings(value: Any) -> list[Mapping[str, Any]]:
     return [item for item in value if isinstance(item, Mapping)] if isinstance(value, list) else []
-
-
-def _digest(value: object) -> str:
-    encoded = json.dumps(
-        value,
-        allow_nan=False,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
-    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
 def _receipts_by_mechanism(

@@ -138,3 +138,13 @@ def test_rejects_cross_namespace_resource() -> None:
             expected_namespace="example",
             cluster_ref=_CLUSTER_REF,
         )
+
+
+def test_rejects_resource_count_above_store_refresh_ceiling() -> None:
+    with pytest.raises(ValueError, match="resource count exceeds limit"):
+        build_kubernetes_ontology_projection(
+            [{}] * 1001,
+            evidence_complete=False,
+            expected_namespace="example",
+            cluster_ref=_CLUSTER_REF,
+        )

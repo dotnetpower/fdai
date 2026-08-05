@@ -8,6 +8,7 @@ import pytest
 
 from fdai.core.rca import RcaTier, RootCauseHypothesis
 from fdai.runtime.evaluation_runner_cli import (
+    _cluster_identity,
     _kubernetes_config,
     _probe_kubernetes_evidence,
     _probe_rca,
@@ -20,7 +21,15 @@ from fdai.shared.config.models import LlmMode
 def test_kubernetes_config_requires_complete_exact_scope(tmp_path: Path) -> None:
     kubeconfig = tmp_path / "config"
     kubeconfig.write_text(
-        "contexts:\n- name: example-context\n  context:\n    cluster: example-cluster\n",
+        "contexts:\n"
+        "- name: example-context\n"
+        "  context:\n"
+        "    cluster: example-cluster\n"
+        "clusters:\n"
+        "- name: example-cluster\n"
+        "  cluster:\n"
+        "    server: https://example.invalid:6443\n"
+        "    certificate-authority-data: Y2E=\n",
         encoding="utf-8",
     )
     config = _kubernetes_config(
@@ -32,6 +41,7 @@ def test_kubernetes_config_requires_complete_exact_scope(tmp_path: Path) -> None
         }
     )
     assert config.allowed_namespaces == frozenset({"app-a", "app-b"})
+    assert config.cluster_identity.startswith("sha256:")
 
     with pytest.raises(ValueError, match="are required"):
         _kubernetes_config({})
@@ -45,6 +55,23 @@ def test_kubernetes_config_requires_complete_exact_scope(tmp_path: Path) -> None
                 "FDAI_EVALUATION_KUBERNETES_NAMESPACES": "app-a",
             }
         )
+
+
+def test_cluster_identity_uses_api_server_and_ca_not_alias(tmp_path: Path) -> None:
+    identities: list[str] = []
+    for index, server in enumerate(("one.invalid", "two.invalid")):
+        kubeconfig = tmp_path / f"config-{index}"
+        kubeconfig.write_text(
+            "clusters:\n"
+            "- name: prod\n"
+            "  cluster:\n"
+            f"    server: https://{server}:6443\n"
+            "    certificate-authority-data: Y2E=\n",
+            encoding="utf-8",
+        )
+        identities.append(_cluster_identity(kubeconfig, "prod"))
+
+    assert identities[0] != identities[1]
 
 
 def test_cli_rejects_unknown_adapter_before_runtime_start() -> None:

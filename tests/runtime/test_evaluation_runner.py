@@ -32,6 +32,7 @@ def _client(kubeconfig: Path) -> KubectlEvidenceClient:
             kubeconfig=kubeconfig,
             context="example-context",
             cluster_name="example-cluster",
+            cluster_identity="sha256:" + "a" * 64,
             allowed_namespaces=frozenset({"example-app"}),
         )
     )

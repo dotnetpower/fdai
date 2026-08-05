@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
+import binascii
+import hashlib
 import json
 import os
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import httpx
 import yaml
@@ -69,10 +73,12 @@ def _kubernetes_config(environ: Mapping[str, str]) -> KubectlEvidenceConfig:
     kubeconfig_path = Path(kubeconfig).expanduser().resolve()
     if _context_cluster(kubeconfig_path, context) != cluster:
         raise ValueError("evaluation Kubernetes context and cluster binding do not match")
+    cluster_identity = _cluster_identity(kubeconfig_path, cluster)
     return KubectlEvidenceConfig(
         kubeconfig=kubeconfig_path,
         context=context,
         cluster_name=cluster,
+        cluster_identity=cluster_identity,
         allowed_namespaces=namespaces,
     )
 
@@ -95,6 +101,62 @@ def _context_cluster(kubeconfig: Path, context_name: str) -> str:
         if isinstance(cluster, str) and cluster.strip():
             return cluster
     raise ValueError("evaluation Kubernetes context is unavailable in kubeconfig")
+
+
+def _cluster_identity(kubeconfig: Path, cluster_name: str) -> str:
+    try:
+        payload = yaml.safe_load(kubeconfig.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        raise ValueError("evaluation kubeconfig is unavailable or invalid") from exc
+    clusters = payload.get("clusters") if isinstance(payload, Mapping) else None
+    if not isinstance(clusters, list):
+        raise ValueError("evaluation kubeconfig clusters are unavailable")
+    for entry in clusters:
+        if not isinstance(entry, Mapping) or entry.get("name") != cluster_name:
+            continue
+        cluster = entry.get("cluster")
+        if not isinstance(cluster, Mapping):
+            break
+        server = cluster.get("server")
+        if not isinstance(server, str):
+            break
+        parsed = urlsplit(server)
+        if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
+            raise ValueError("evaluation Kubernetes API server MUST be absolute HTTPS")
+        ca_bytes = _cluster_ca_bytes(kubeconfig, cluster)
+        identity = json.dumps(
+            {
+                "server": server,
+                "ca_sha256": hashlib.sha256(ca_bytes).hexdigest(),
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        return f"sha256:{hashlib.sha256(identity).hexdigest()}"
+    raise ValueError("evaluation Kubernetes cluster is unavailable in kubeconfig")
+
+
+def _cluster_ca_bytes(kubeconfig: Path, cluster: Mapping[str, object]) -> bytes:
+    encoded = cluster.get("certificate-authority-data")
+    if isinstance(encoded, str) and encoded:
+        try:
+            value = base64.b64decode(encoded, validate=True)
+        except (ValueError, binascii.Error) as exc:
+            raise ValueError("evaluation Kubernetes CA data is invalid") from exc
+    else:
+        ca_path = cluster.get("certificate-authority")
+        if not isinstance(ca_path, str) or not ca_path:
+            raise ValueError("evaluation Kubernetes CA identity is unavailable")
+        path = Path(ca_path).expanduser()
+        if not path.is_absolute():
+            path = kubeconfig.parent / path
+        try:
+            value = path.resolve().read_bytes()
+        except OSError as exc:
+            raise ValueError("evaluation Kubernetes CA file is unavailable") from exc
+    if not value or len(value) > 1_000_000:
+        raise ValueError("evaluation Kubernetes CA data is outside limits")
+    return value
 
 
 def _probe_task(namespace: str) -> EvaluationTask:

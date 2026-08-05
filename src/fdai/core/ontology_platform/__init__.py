@@ -11,6 +11,7 @@ from .functions import (
     FunctionInvocationReceipt,
     OntologyFunction,
     OntologyFunctionRegistry,
+    ontology_function_digest,
 )
 from .interfaces import CompiledInterfaceCatalog, compile_interfaces
 from .introspection import platform_manifest
@@ -78,6 +79,7 @@ __all__ = [
     "OntologyFunction",
     "OntologyFunctionKind",
     "OntologyFunctionRegistry",
+    "ontology_function_digest",
     "OntologyFunctionType",
     "OntologyInterfaceType",
     "ProjectionBinding",

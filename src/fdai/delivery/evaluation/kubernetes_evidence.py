@@ -49,6 +49,7 @@ class KubectlEvidenceConfig:
     kubeconfig: Path
     context: str
     cluster_name: str
+    cluster_identity: str
     allowed_namespaces: frozenset[str]
     timeout_seconds: float = 15.0
     max_output_bytes: int = 4_194_304
@@ -59,6 +60,8 @@ class KubectlEvidenceConfig:
             raise ValueError("evaluation kubeconfig MUST reference an existing file")
         if not self.context.strip() or not self.cluster_name.strip():
             raise ValueError("evaluation Kubernetes context and cluster name MUST not be empty")
+        if re.fullmatch(r"sha256:[0-9a-f]{64}", self.cluster_identity) is None:
+            raise ValueError("evaluation Kubernetes cluster identity MUST be SHA-256")
         if not self.allowed_namespaces:
             raise ValueError("evaluation Kubernetes namespace scope MUST not be empty")
         if any(not _valid_namespace(item) for item in self.allowed_namespaces):
@@ -67,8 +70,8 @@ class KubectlEvidenceConfig:
             raise ValueError("evaluation kubectl timeout MUST be between 1 and 30 seconds")
         if not 1_024 <= self.max_output_bytes <= 16_777_216:
             raise ValueError("evaluation kubectl output limit MUST be between 1 KiB and 16 MiB")
-        if not 1 <= self.max_items <= 2_000:
-            raise ValueError("evaluation kubectl item limit MUST be between 1 and 2000")
+        if not 1 <= self.max_items <= 1_000:
+            raise ValueError("evaluation kubectl item limit MUST be between 1 and 1000")
 
 
 class KubectlEvidenceClient:
@@ -98,7 +101,7 @@ class KubectlEvidenceClient:
             for resource in resources
         )
         return {
-            "cluster": self._config.cluster_name,
+            "cluster": self._config.cluster_identity,
             "namespace": namespace,
             "resources": resources,
             "projection_complete": projection_complete,
@@ -117,7 +120,7 @@ class KubectlEvidenceClient:
         ]
         projection_complete = len(events) == len(selected)
         return {
-            "cluster": self._config.cluster_name,
+            "cluster": self._config.cluster_identity,
             "namespace": namespace,
             "events": events,
             "projection_complete": projection_complete,
@@ -137,7 +140,7 @@ class KubectlEvidenceClient:
         ]
         projection_complete = len(pods) == len(selected)
         return {
-            "cluster": self._config.cluster_name,
+            "cluster": self._config.cluster_identity,
             "namespace": namespace,
             "pods": pods,
             "projection_complete": projection_complete,
@@ -156,7 +159,7 @@ class KubectlEvidenceClient:
         ]
         projection_complete = len(nodes) == len(selected)
         return {
-            "cluster": self._config.cluster_name,
+            "cluster": self._config.cluster_identity,
             "nodes": nodes,
             "projection_complete": projection_complete,
             "truncated": len(items) > len(selected) or not projection_complete,
@@ -177,7 +180,7 @@ class KubectlEvidenceClient:
         ]
         projection_complete = len(resources) == len(selected)
         return {
-            "cluster": self._config.cluster_name,
+            "cluster": self._config.cluster_identity,
             "resources": resources,
             "projection_complete": projection_complete,
             "truncated": len(items) > len(selected) or not projection_complete,
