@@ -216,6 +216,7 @@ def parse_vision_attachments(
 
     parsed: list[VisionAttachment] = []
     used_names: set[str] = set()
+    used_ids: set[str] = set()
     for index, item in enumerate(raw):
         if not isinstance(item, dict):
             raise ValueError("each attachment MUST be an object")
@@ -249,14 +250,18 @@ def parse_vision_attachments(
             raise ValueError(
                 f"attachment exceeds pixel edge cap ({max(dimensions)} > {max_image_edge})"
             )
+        attachment_id = _attachment_id(
+            item.get("id"),
+            body=body,
+            index=index,
+            content=decoded,
+        )
+        if attachment_id in used_ids:
+            raise ValueError("attachment ids MUST be unique")
+        used_ids.add(attachment_id)
         parsed.append(
             VisionAttachment(
-                attachment_id=_attachment_id(
-                    item.get("id"),
-                    body=body,
-                    index=index,
-                    content=decoded,
-                ),
+                attachment_id=attachment_id,
                 name=_unique_name(_clean_name(item.get("name"), index), used_names),
                 media_type=media_type,
                 data_url=f"data:{media_type};base64,{b64}",
