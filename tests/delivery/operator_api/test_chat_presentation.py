@@ -467,6 +467,18 @@ async def test_invalid_health_plan_falls_back_without_omitting_available_slots()
     ]
 
 
+async def test_saved_plain_preference_suppresses_structured_artifact() -> None:
+    decision = await select_answer_presentation(
+        backend=_StructuredBackend({}),
+        prompt="show health",
+        plan=_plan(format_=AnswerFormat.BULLETS, preference_applied=True),
+        view_context=_health_context(),
+    )
+
+    assert decision.answer_plan.format is AnswerFormat.BULLETS
+    assert decision.presentation_plan is None
+
+
 async def test_health_plan_compiles_every_available_slot_into_grounded_blocks() -> None:
     context = _health_context()
     decision = await select_answer_presentation(

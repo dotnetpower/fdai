@@ -90,6 +90,8 @@ async def select_answer_presentation(
     if profile is None:
         return PresentationDecision(answer_plan=plan, presentation_plan=None)
     fallback = default_presentation_plan(profile)
+    if _plain_presentation_requested(plan):
+        return PresentationDecision(answer_plan=plan, presentation_plan=None)
     if plan.explicit_overrides or plan.preference_applied:
         return PresentationDecision(answer_plan=plan, presentation_plan=fallback)
     if not isinstance(backend, StructuredCompletionBackend):
@@ -145,6 +147,20 @@ def _answer_plan_for_presentation(
     if components & {"data_table", "status_table", "threshold_table"}:
         return replace(plan, format=AnswerFormat.TABLE)
     return replace(plan, format=AnswerFormat.BULLETS)
+
+
+def _plain_presentation_requested(plan: AnswerPlan) -> bool:
+    return (
+        "steps" in plan.explicit_overrides
+        or plan.preference_applied
+        and plan.format
+        in {
+            AnswerFormat.PROSE,
+            AnswerFormat.BULLETS,
+            AnswerFormat.NUMBERED_STEPS,
+            AnswerFormat.CHECKLIST,
+        }
+    )
 
 
 async def adapt_answer_plan_for_presentation(

@@ -14,6 +14,7 @@ from starlette.exceptions import HTTPException
 from fdai.core.metering.context import current_invocation_scope
 from fdai.core.metering.records import InvocationScope
 from fdai.core.metering.usage import TokenUsage
+from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.request_target import COGNITIVE_SERVICES_SCOPE
 
 _LOG = logging.getLogger(__name__)
@@ -213,10 +214,7 @@ def _completion_body_params(model: str, *, temperature: float, max_tokens: int) 
     and the legacy ``{"temperature": t, "max_tokens": N}`` for classic chat
     models (gpt-4o*, gpt-4.1*).
     """
-    normalized_model = model.lower().removeprefix("narrator-")
-    if normalized_model.startswith(_COMPLETION_TOKEN_PARAM_MODELS):
-        return {"max_completion_tokens": max_tokens}
-    return {"temperature": temperature, "max_tokens": max_tokens}
+    return completion_body_params(model, temperature=temperature, max_tokens=max_tokens)
 
 
 def _structured_completion_body(

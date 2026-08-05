@@ -812,6 +812,7 @@ class TestCompletionBodyParams:
             "o1",
             "narrator-gpt-5-4-mini",
             "narrator-gpt-5-mini",
+            "primary-gpt-5.4-mini",
         ):
             params = _completion_body_params(model, temperature=0.2, max_tokens=800)
             assert params == {"max_completion_tokens": 800}

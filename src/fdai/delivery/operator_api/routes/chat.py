@@ -278,6 +278,9 @@ from fdai.delivery.operator_api.routes.chat_stream_protocol import (
     _sse_heartbeat,
     _with_sse_heartbeats,
 )
+from fdai.delivery.operator_api.routes.chat_stream_terminal import (
+    response_incident_candidates,
+)
 from fdai.delivery.operator_api.routes.chat_subscription_health import (
     needs_subscription_health,
     needs_subscription_health_context,
@@ -1114,6 +1117,13 @@ def make_chat_route(
         if policy_summary is not None:
             enriched["conversation_policy"] = policy_summary
         enriched["answer_planning"] = answer_planning
+        incident_candidates = response_incident_candidates(
+            view_context,
+            verification=verification,
+            locale=response_locale,
+        )
+        if incident_candidates is not None:
+            enriched["incident_candidates"] = incident_candidates
         selected_resource = response_resource_context(view_context, resource_context)
         if selected_resource is not None:
             enriched["resource_context"] = selected_resource
