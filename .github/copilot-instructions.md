@@ -58,10 +58,11 @@ always prevails.
 
 Treat `대화개선`, `채팅개선`, `대화무한개선`, `채팅무한개선`, `conversation improvement`,
 `chat improvement`, and `continuous conversation assurance` as requests to load the
-`conversational-assurance` skill and start or resume the local bounded watchdog loop. At campaign
-start, ask once whether the focus is SRE, ARB, Change Management, DR, Chaos, or Balanced. Use SRE
-when the operator is unavailable, persist the selection in local ignored state, and do not ask
-again until the operator changes focus or stops the campaign.
+`conversational-assurance` skill and start exactly one explicit bounded campaign. Use the persisted
+SRE, ARB, Change Management, DR, Chaos, or Balanced focus; default to SRE when no focus is stored,
+and update it when the operator names a different focus. One campaign may evaluate at most 20 new
+questions and start at most 20 hardening attempts. These are per-campaign limits, not daily limits;
+a later explicit trigger starts a new campaign with fresh limits.
 
 Treat `대화개선 현황`, `채팅개선 현황`, and `conversation assurance status` as read-only status
 requests. Do not restart the campaign or ask for focus. Report the campaign summary and a Markdown
@@ -75,14 +76,15 @@ Persist every redacted question, answer, rubric result, timing summary, and regr
 ignored mode-`0600` ledgers. All prior and cohort questions participate in duplicate rejection. A
 score below 9 starts or resumes an isolated Copilot hardening candidate immediately; the same
 question and its paraphrase cohort are remeasured
-until every item reaches at least 9/10. After focused verification, the next bounded question cycle
-starts automatically. The loop remains A0/read-only, never merges to `main`, never uses generated
-text as a command, and never grants approval or execution authority.
+until every item reaches at least 9/10 or the campaign hardening limit is reached. After focused
+verification, the next bounded question cycle starts within the same explicit campaign until its
+question limit is reached or a cycle cannot make progress. The loop remains A0/read-only, never
+merges to `main`, never uses generated text as a command, and never grants approval or execution
+authority.
 
-A separate persistent user-systemd supervisor MUST run every 30 minutes. It repairs a disabled or
-inactive main timer, resets a failed cycle service, and starts a recovery cycle when activity is
-stale for 45 minutes or question generation has held three consecutive times. It records only
-bounded local recovery metadata and MUST honor `.improve/STOP` as an explicit operator stop.
+Conversation assurance MUST NOT start from systemd, login, boot, a recurring timer, stale-activity
+recovery, or any other implicit scheduler. Only an explicit campaign trigger may start work.
+`.improve/STOP` remains the immediate local stop switch.
 
 ## Issue Lifecycle (MUST)
 

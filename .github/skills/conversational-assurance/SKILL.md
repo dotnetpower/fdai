@@ -3,53 +3,49 @@ name: conversational-assurance
 description: "Continuous FDAI conversational reliability workflow. Use when the user says 대화개선, 채팅개선, 대화무한개선, 채팅무한개선, 대화개선 현황, 채팅개선 현황, conversation improvement, chat improvement, conversation assurance status, or continuous conversation assurance; or when building, operating, reviewing, or resuming the chat-quality watchdog, evaluating Azure-backed answers, hardening a failed answer, or checking generalization."
 ---
 
-# FDAI Continuous Conversational Assurance
+# FDAI Explicit Conversational Assurance
 
 Use this skill to operate the local FDAI Conversation Assurance Watchdog. The watchdog continuously
-generates unique FDAI questions, measures real answers, and proposes isolated fixes when objective
-contracts fail.
+generates unique FDAI questions within one explicit bounded campaign, measures real answers, and
+proposes isolated fixes when objective contracts fail.
 
 > Scope: This is a local development assurance loop. It does not join the Pantheon, execute an
 > Azure mutation, approve an action, or merge a generated branch into `main`.
 
-## Continuous operation contract
+## Explicit campaign contract
 
-The process runs indefinitely while the PC and user systemd session are available. Indefinite means
-a recurring timer, not a busy loop:
+The process starts only when the operator explicitly requests `대화개선`, `채팅개선`,
+`대화무한개선`, `채팅무한개선`, `conversation improvement`, `chat improvement`, or
+`continuous conversation assurance`. It MUST NOT start from systemd, login, boot, a recurring
+timer, stale-activity recovery, or any other implicit scheduler.
 
-- `fdai-chat-watchdog.timer` starts the next bounded cycle within one minute, with small jitter.
-- `fdai-chat-watchdog-supervisor.timer` checks and repairs the watchdog every 30 minutes.
-- `Persistent=true` resumes a missed cycle after sleep or restart when the user session returns.
-- Daily question and hardening budgets reset by UTC day; the hardening budget is 30 attempts per
-   UTC day, and both budgets bound cost without ending the service.
+- One explicit trigger starts one campaign.
+- One campaign evaluates at most 20 new questions and starts at most 20 hardening attempts.
+- These limits belong to the campaign id, not a UTC date. A later explicit trigger creates a new
+  campaign id with fresh limits.
 - `.improve/STOP` is the immediate local stop switch.
-- A failed or skipped cycle does not disable the next timer invocation.
+- A failed cycle that cannot make progress ends the campaign without busy-looping.
 - Malformed or non-JSON Copilot generation output is retried inside the bounded cycle. Exhausted
-   retries produce a redacted `cycle_hold` ledger record and a successful service exit, so one
-   transient generation failure cannot disable or obscure later timer invocations.
+   retries produce a redacted `cycle_hold` ledger record and a successful cycle exit, so one
+   transient generation failure cannot obscure the campaign result.
 
 Before each cycle, skip without generating a question only when any of these conditions is true:
 
 - Another improvement runner owns the lock.
-- The daily question or hardening budget is exhausted.
+- The campaign question or hardening budget is exhausted.
 - `.improve/STOP` exists.
 
 A dirty primary worktree or active developer session does not block measurement. Hardening starts
 from committed `HEAD` in a separate worktree and must not read, stage, overwrite, or archive the
-primary worktree's uncommitted changes. An active Copilot session does block hardening. The first
-timer cycle after the configured idle window resumes the newest unresolved evaluation before it
-generates another question. The runner lock prevents overlapping generated candidates.
+primary worktree's uncommitted changes. The explicit operator-triggering Copilot session does not
+block campaign hardening; the runner lock and isolated worktree prevent overlap with another
+candidate. Each campaign resumes the newest unresolved evaluation before generating another
+question.
 
-The user-systemd service runs with the project's virtual-environment Python and inherited tool
+The explicit campaign runs with the project's virtual-environment Python and inherited tool
 `PATH`, so candidate verification uses the same Python and Node toolchain as local development.
 Every started hardening attempt appends a bounded terminal `hardening_result` record for verified,
 failed, or exceptional completion. Error records contain the exception type, not provider output.
-
-The recovery supervisor repairs a disabled or inactive main timer, resets a failed service, and
-starts a nonblocking recovery cycle after 45 minutes without ledger activity or three consecutive
-question-generation holds. It never edits source, deletes worktrees, breaks a lock, or bypasses
-`.improve/STOP`. Recovery observations are stored in ignored mode-`0600`
-`supervisor.jsonl`.
 
 ## Campaign start and focus
 
@@ -57,11 +53,12 @@ The trigger phrases are `대화개선`, `채팅개선`, `대화무한개선`, `�
 `conversation improvement`, `chat improvement`, and `continuous conversation assurance`.
 When one appears:
 
-1. Ask once for SRE, ARB, Change Management, DR, Chaos, or Balanced focus.
-2. Select SRE if the operator is unavailable.
+1. Use the persisted SRE, ARB, Change Management, DR, Chaos, or Balanced focus.
+2. Select SRE when no focus is stored; update the focus when the operator names one explicitly.
 3. Persist the choice in ignored `.improve/chat-watchdog/config.json` with mode `0600`.
-4. Install or refresh the user-systemd timer with `--allow-active`.
-5. Continue bounded cycles without asking again until `.improve/STOP` appears or focus changes.
+4. Run `chat_watchdog.py --campaign` once with the selected focus.
+5. Continue bounded cycles within that campaign until 20 questions, 20 hardening attempts,
+   `.improve/STOP`, or a no-progress hold ends it.
 
 The logical conversation id is `dev-discuss-<focus>`. Its wire kind remains `web`, so the harness
 uses the same authorization, routing, evidence, verification, history, and terminal response
@@ -83,8 +80,8 @@ Run one cycle in this order:
    cohort after the fix.
 7. **Preserve for review**: retain a verified branch, remove the generated worktree, and never
    merge to `main` automatically.
-8. **Continue immediately**: the next timer activation generates the next bounded question within
-   one minute after the cycle ends.
+8. **Continue immediately**: the same explicit campaign starts its next bounded cycle after the
+   current cycle ends, subject to the campaign limits.
 
 ## Multidimensional answer gate
 
@@ -212,21 +209,17 @@ but it must never start hardening.
 ## Operations
 
 ```bash
-# Status
-systemctl --user status fdai-chat-watchdog.timer fdai-chat-watchdog-supervisor.timer --no-pager
-
-# Recent cycles
-journalctl --user -u fdai-chat-watchdog.service -n 100 --no-pager
-
-# Stop and resume
+# Stop the current campaign
 touch .improve/STOP
+
+# Allow a later explicit campaign
 rm .improve/STOP
 
 # Preview without Copilot or Azure
 python3 .improve/auto-hardening/chat_watchdog.py --project . --force --dry-run
 
-# Start or change campaign focus
-python3 .improve/auto-hardening/install_chat_watchdog_timer.py install --project . --focus sre
+# Start one explicit 20-question / 20-hardening campaign
+python3 .improve/auto-hardening/chat_watchdog.py --project . --campaign --focus sre
 
 # Summary and latest 20 evaluations
 python3 .improve/auto-hardening/chat_watchdog.py --project . --status --top 20
@@ -255,5 +248,6 @@ PYTHONPATH="$PWD/src" .venv/bin/pytest -q --no-cov \
   .improve/auto-hardening/test_run_if_idle.py
 ```
 
-Also verify the timer remains enabled and that a normal invocation during an active Copilot session
-reports a session-based skip before it can generate a question.
+Also verify that the legacy watchdog and supervisor systemd units do not exist, and that a normal
+invocation without `--campaign` reports `explicit --campaign required` before it can generate a
+question.
