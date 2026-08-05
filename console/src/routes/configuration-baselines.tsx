@@ -4,7 +4,7 @@ import { useEffect, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import { AsyncBoundary, KpiCard, KpiGrid, PageHeader, StatusPill, type AsyncState, type PillKind } from "../components/ui";
 import { formatConsoleTimestamp } from "../time-format";
-import { configurationBaselinesText as t } from "./configuration-baselines.i18n";
+import { configurationBaselinesText as configurationBaselinesText } from "./configuration-baselines.i18n";
 import { panelArray, panelBoolean, panelNonEmptyString, panelNonNegativeInteger, panelNonNegativeNumber, panelRecord, panelStringArray } from "./panel-decode";
 
 interface ConfigurationBaselineVersionView {
@@ -33,14 +33,14 @@ export function ConfigurationBaselinesRoute({ client }: { readonly client: Opera
     void loadConfigurationBaselines(client).then((next) => { if (active) setState(next); });
     return () => { active = false; };
   }, [client]);
-  return <div class="stack configuration-baselines-route"><PageHeader title={t("title")} subtitle={t("subtitle")} /><AsyncBoundary state={state} resourceLabel={t("resourceLabel")}>{(data) => <ConfigurationBaselinesBody data={data} />}</AsyncBoundary></div>;
+  return <div class="stack configuration-baselines-route"><PageHeader title={configurationBaselinesText("title")} subtitle={configurationBaselinesText("subtitle")} /><AsyncBoundary state={state} resourceLabel={configurationBaselinesText("resourceLabel")}>{(data) => <ConfigurationBaselinesBody data={data} />}</AsyncBoundary></div>;
 }
 
 export async function loadConfigurationBaselines(client: OperatorApiClient): Promise<AsyncState<ConfigurationBaselinesView>> {
   try {
     return { status: "ready", data: decodeConfigurationBaselines(await client.panel<unknown>("/configuration-baselines")) };
   } catch (error) {
-    return isOptionalOperatorApiUnavailable(error) ? { status: "unavailable", message: t("unavailable") } : { status: "error", message: error instanceof Error ? error.message : String(error) };
+    return isOptionalOperatorApiUnavailable(error) ? { status: "unavailable", message: configurationBaselinesText("unavailable") } : { status: "error", message: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -81,20 +81,20 @@ export function decodeConfigurationBaselines(value: unknown): ConfigurationBasel
 
 function ConfigurationBaselinesBody({ data }: { readonly data: ConfigurationBaselinesView }) {
   return <div class="stack">
-    <div class="governance-readonly-banner"><strong>{t("bannerTitle")}</strong><span>{t("bannerBody")}</span></div>
-    <KpiGrid><KpiCard href="#baseline" label={t("version")} value={data.baseline.version} /><KpiCard href="#drift" label={t("decision")} value={data.drift.verdict} /><KpiCard href="#knowledge" label={t("citations")} value={data.knowledge.citationCount} /><KpiCard href="#performance" label={t("totalLatency")} value={`${data.performance.totalMs.toFixed(1)} ms`} /></KpiGrid>
-    <EvidenceSection id="baseline" title={t("baseline")} rows={[[t("scope"), data.baseline.scope], [t("created"), formatConsoleTimestamp(data.baseline.createdAt)], [t("document"), data.baseline.documentName], [t("lifecycle"), data.baseline.lifecycle], [t("resources"), data.baseline.resourceCount], [t("topology"), data.baseline.topologyCount], [t("unknown"), data.baseline.unknownCount]]} />
+    <div class="governance-readonly-banner"><strong>{configurationBaselinesText("bannerTitle")}</strong><span>{configurationBaselinesText("bannerBody")}</span></div>
+    <KpiGrid><KpiCard href="#baseline" label={configurationBaselinesText("version")} value={data.baseline.version} /><KpiCard href="#drift" label={configurationBaselinesText("decision")} value={data.drift.verdict} /><KpiCard href="#knowledge" label={configurationBaselinesText("citations")} value={data.knowledge.citationCount} /><KpiCard href="#performance" label={configurationBaselinesText("totalLatency")} value={`${data.performance.totalMs.toFixed(1)} ms`} /></KpiGrid>
+    <EvidenceSection id="baseline" title={configurationBaselinesText("baseline")} rows={[[configurationBaselinesText("scope"), data.baseline.scope], [configurationBaselinesText("created"), formatConsoleTimestamp(data.baseline.createdAt)], [configurationBaselinesText("document"), data.baseline.documentName], [configurationBaselinesText("lifecycle"), data.baseline.lifecycle], [configurationBaselinesText("resources"), data.baseline.resourceCount], [configurationBaselinesText("topology"), data.baseline.topologyCount], [configurationBaselinesText("unknown"), data.baseline.unknownCount]]} />
     <BaselineHistory versions={data.versions} />
-    <EvidenceSection id="drift" title={t("drift")} rows={[[t("decision"), <StatusPill kind={tone(data.drift.verdict)} label={data.drift.verdict} />], [t("findings"), data.drift.findingCount], [t("observed"), formatConsoleTimestamp(data.drift.observedAt)]]} />
-    <EvidenceSection id="knowledge" title={t("knowledge")} rows={[[t("decision"), <StatusPill kind={tone(data.knowledge.status)} label={data.knowledge.status} />], [t("citations"), data.knowledge.citationCount]]} />
-    <EvidenceSection id="performance" title={t("performance")} rows={[[t("totalLatency"), `${data.performance.totalMs.toFixed(1)} ms`], [t("observationLatency"), `${data.performance.observationMs.toFixed(1)} ms`], [t("knowledgeLatency"), `${data.performance.knowledgeMs.toFixed(1)} ms`]]} />
-    <EvidenceSection id="review" title={t("review")} rows={[[t("decision"), reviewLabel(data.review)], [t("findings"), `${data.review.completedRuns}/${data.review.requiredRuns}`], [t("failedAttempts"), data.review.failedAttempts]]} />
-    <EvidenceSection id="safety" title={t("safety")} rows={[[t("mutation"), data.safety.mutation], [t("approval"), data.safety.approval], [t("mitigation"), data.safety.mitigation], [t("unsupported"), data.safety.unsupported]]} />
+    <EvidenceSection id="drift" title={configurationBaselinesText("drift")} rows={[[configurationBaselinesText("decision"), <StatusPill kind={tone(data.drift.verdict)} label={data.drift.verdict} />], [configurationBaselinesText("findings"), data.drift.findingCount], [configurationBaselinesText("observed"), formatConsoleTimestamp(data.drift.observedAt)]]} />
+    <EvidenceSection id="knowledge" title={configurationBaselinesText("knowledge")} rows={[[configurationBaselinesText("decision"), <StatusPill kind={tone(data.knowledge.status)} label={data.knowledge.status} />], [configurationBaselinesText("citations"), data.knowledge.citationCount]]} />
+    <EvidenceSection id="performance" title={configurationBaselinesText("performance")} rows={[[configurationBaselinesText("totalLatency"), `${data.performance.totalMs.toFixed(1)} ms`], [configurationBaselinesText("observationLatency"), `${data.performance.observationMs.toFixed(1)} ms`], [configurationBaselinesText("knowledgeLatency"), `${data.performance.knowledgeMs.toFixed(1)} ms`]]} />
+    <EvidenceSection id="review" title={configurationBaselinesText("review")} rows={[[configurationBaselinesText("decision"), reviewLabel(data.review)], [configurationBaselinesText("findings"), `${data.review.completedRuns}/${data.review.requiredRuns}`], [configurationBaselinesText("failedAttempts"), data.review.failedAttempts]]} />
+    <EvidenceSection id="safety" title={configurationBaselinesText("safety")} rows={[[configurationBaselinesText("mutation"), data.safety.mutation], [configurationBaselinesText("approval"), data.safety.approval], [configurationBaselinesText("mitigation"), data.safety.mitigation], [configurationBaselinesText("unsupported"), data.safety.unsupported]]} />
   </div>;
 }
 
 function BaselineHistory({ versions }: { readonly versions: readonly ConfigurationBaselineVersionView[] }) {
-  return <section id="versions" class="stack-section"><h3 class="section-title">{t("history")}</h3><div class="scroll"><table class="data-table"><caption class="sr-only">{t("historyCaption")}</caption><thead><tr><th scope="col">{t("version")}</th><th scope="col">{t("lifecycle")}</th><th scope="col">{t("created")}</th><th scope="col">{t("resources")}</th><th scope="col">{t("comparison")}</th><th scope="col">{t("findings")}</th></tr></thead><tbody>{versions.map((version) => <tr key={version.version}><td>{version.version}</td><td>{statusLabel(version.status)}</td><td>{formatConsoleTimestamp(version.createdAt)}</td><td>{version.resourceCount}</td><td><StatusPill kind={tone(version.comparison.verdict)} label={version.comparison.verdict} /></td><td>{version.comparison.findingCount}</td></tr>)}</tbody></table></div></section>;
+  return <section id="versions" class="stack-section"><h3 class="section-title">{configurationBaselinesText("history")}</h3><div class="scroll"><table class="data-table"><caption class="sr-only">{configurationBaselinesText("historyCaption")}</caption><thead><tr><th scope="col">{configurationBaselinesText("version")}</th><th scope="col">{configurationBaselinesText("lifecycle")}</th><th scope="col">{configurationBaselinesText("created")}</th><th scope="col">{configurationBaselinesText("resources")}</th><th scope="col">{configurationBaselinesText("comparison")}</th><th scope="col">{configurationBaselinesText("findings")}</th></tr></thead><tbody>{versions.map((version) => <tr key={version.version}><td>{version.version}</td><td>{statusLabel(version.status)}</td><td>{formatConsoleTimestamp(version.createdAt)}</td><td>{version.resourceCount}</td><td><StatusPill kind={tone(version.comparison.verdict)} label={version.comparison.verdict} /></td><td>{version.comparison.findingCount}</td></tr>)}</tbody></table></div></section>;
 }
 
 function EvidenceSection({ id, title, rows }: { readonly id: string; readonly title: string; readonly rows: readonly (readonly [string, ComponentChildren])[] }) {
@@ -108,17 +108,17 @@ function tone(value: string): PillKind {
 }
 
 function reviewLabel(review: ConfigurationBaselinesView["review"]): string {
-  if (!review.configured) return t("reviewNotConfigured");
-  if (review.state === "active") return t("reviewActive");
-  if (review.state === "ready-for-weekly") return t("reviewReady");
-  if (review.state === "paused-failed") return t("reviewPaused");
+  if (!review.configured) return configurationBaselinesText("reviewNotConfigured");
+  if (review.state === "active") return configurationBaselinesText("reviewActive");
+  if (review.state === "ready-for-weekly") return configurationBaselinesText("reviewReady");
+  if (review.state === "paused-failed") return configurationBaselinesText("reviewPaused");
   return review.state;
 }
 
 function statusLabel(status: string): string {
-  if (status === "active") return t("statusActive");
-  if (status === "candidate") return t("statusCandidate");
-  if (status === "superseded") return t("statusSuperseded");
-  if (status === "archived") return t("statusArchived");
+  if (status === "active") return configurationBaselinesText("statusActive");
+  if (status === "candidate") return configurationBaselinesText("statusCandidate");
+  if (status === "superseded") return configurationBaselinesText("statusSuperseded");
+  if (status === "archived") return configurationBaselinesText("statusArchived");
   return status;
 }

@@ -6,6 +6,7 @@ import {
   EmptyState,
   KpiCard,
   KpiGrid,
+  kpiEvidenceLabel,
   PageHeader,
   StatusPill,
   type AsyncState,
@@ -248,7 +249,7 @@ function SchedulerRunsTable({ page, loadingMore, pageError, onLoadMore }: {
       </div>
       <KpiGrid>
         <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("loadedAttempts")} value={schedulerRunsNumber(summary.loaded)} />
-        <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("publishRate")} value={summary.publishRate === null ? "-" : `${(summary.publishRate * 100).toFixed(1)}%`} />
+        <KpiCard evidenceState={summary.publishRate === null ? "not-measured" : "measured"} href="#scheduler-dispatch-history" label={schedulerRunsText("publishRate")} value={summary.publishRate === null ? kpiEvidenceLabel("not-measured") : `${(summary.publishRate * 100).toFixed(1)}%`} />
         <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("failedOrLost")} value={schedulerRunsNumber(summary.failedOrLost)} />
         <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("medianClose")} value={formatDuration(summary.medianCloseMs)} hint={schedulerRunsText("loadedSample")} />
         <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("p95Close")} value={formatDuration(summary.p95CloseMs)} hint={schedulerRunsText("loadedSample")} />

@@ -18,6 +18,7 @@ const PANEL_SOURCE_ROUTES: Readonly<Record<string, readonly string[]>> = {
   "workflow-apps": ["/views/workflow-apps"],
   "scheduler-runs": ["/scheduler-runs"],
   "automation-blueprints": ["/automation-blueprints"],
+  "configuration-baselines": ["/configuration-baselines"],
   "conversation-delivery": ["/conversation-delivery"],
   agents: ["/incidents", "/agents/stream"],
   pantheon: ["/incidents", "/agents/stream"],

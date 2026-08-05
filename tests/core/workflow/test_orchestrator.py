@@ -2207,13 +2207,12 @@ async def test_enforce_approval_timeout_persistence_failure_is_explicit() -> Non
 
 async def test_enforce_approval_timeout_retries_after_concurrent_revision_loss() -> None:
     audit = InMemoryStateStore()
+    lost_once = [False]
 
     class FirstTimeoutCasLosesProvider(StateStoreWorkflowApprovalProvider):
-        lost_once = False
-
         async def mark_timed_out(self, **kwargs: object) -> bool:
-            if not self.lost_once:
-                self.lost_once = True
+            if not lost_once[0]:
+                lost_once[0] = True
                 return False
             return await super().mark_timed_out(**kwargs)
 
