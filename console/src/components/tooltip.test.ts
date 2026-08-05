@@ -46,10 +46,20 @@ describe("shared Tooltip contract", () => {
   });
 
   test("supports a wider structured backend status variant", () => {
-    expect(source).toContain('readonly variant?: "backend";');
+    expect(source).toContain('readonly variant?: "backend" | "image-preview";');
     expect(source).toContain("data-variant={variant}");
     expect(styles).toMatch(
       /\.app-tooltip\[data-variant="backend"\]\s*\{[^}]*width:\s*min\(390px, calc\(100vw - 48px\)\);[^}]*white-space:\s*normal;/,
+    );
+  });
+
+  test("opens image previews without hover delay or enter animation", () => {
+    expect(source).toContain(
+      'delay ?? (variant === "image-preview" ? 0 : TOOLTIP_DELAY_MS)',
+    );
+    expect(source).toContain("show(pointerDelay)");
+    expect(styles).toMatch(
+      /\.app-tooltip\[data-variant="image-preview"\]\[data-state="instant-open"\]\s*\{\s*animation:\s*none;/,
     );
   });
 });

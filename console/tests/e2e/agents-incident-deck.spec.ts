@@ -570,6 +570,9 @@ test("renders a sent image inside the operator turn without caching its bytes", 
   await stagedImage.locator(".deck-attach-thumb").hover();
   const largePreview = page.locator(".deck-attach-preview-layer img");
   await expect(largePreview).toBeVisible();
+  await expect(page.locator(
+    '.app-tooltip[data-variant="image-preview"][data-state="instant-open"]',
+  )).toHaveCount(1);
   await expect.poll(() => largePreview.evaluate((image: HTMLImageElement) => image.naturalWidth))
     .toBeGreaterThan(0);
   expect((await largePreview.boundingBox())?.width).toBeGreaterThan(300);

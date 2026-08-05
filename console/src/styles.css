@@ -1094,6 +1094,9 @@ body.deck-open { overflow: hidden; }
 .app-tooltip[data-state="instant-open"] {
   animation: app-tooltip-in 0.15s ease-out both;
 }
+.app-tooltip[data-variant="image-preview"][data-state="instant-open"] {
+  animation: none;
+}
 .app-tooltip[data-state="closed"] {
   animation: app-tooltip-out 0.05s ease-out both;
 }
