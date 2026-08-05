@@ -152,6 +152,42 @@ def test_inventory_function_contract_accepts_unavailable_runtime_projection() ->
     }
 
 
+def test_inventory_function_projection_rejects_invalid_query() -> None:
+    with pytest.raises(ValueError, match="output_schema"):
+        project_inventory_function_result(
+            {
+                "status": "unavailable",
+                "reason": "provider_unavailable",
+                "query": {"source": "current", "unknown": "not-allowed"},
+            }
+        )
+
+
+def test_inventory_function_projection_rejects_invalid_semantic_candidate() -> None:
+    with pytest.raises(ValueError, match="output_schema"):
+        project_inventory_function_result(
+            {
+                "status": "clarification",
+                "reason": "inventory_semantic_confirmation_required",
+                "query": None,
+                "resource_types": ["compute.vm"],
+                "semantic_candidates": [
+                    {
+                        "kind": "state",
+                        "concept_id": "running",
+                        "score": 0.9,
+                        "catalog_digest": "not-a-digest",
+                        "target_ref": {},
+                        "input_digest": "not-a-digest",
+                        "candidate_digest": "not-a-digest",
+                        "labels": {"en": "Running"},
+                        "authority": "candidate_only",
+                    }
+                ],
+            }
+        )
+
+
 def test_ontology_graph_returns_bounded_operating_model_status() -> None:
     import asyncio
 

@@ -6,6 +6,8 @@ import hashlib
 from collections.abc import Mapping
 from typing import Any
 
+from jsonschema import Draft202012Validator
+
 from fdai.delivery.operator_api.routes.chat_inventory_query import (
     inventory_query_argument_schema,
 )
@@ -72,6 +74,11 @@ def project_inventory_function_result(result: Mapping[str, Any]) -> dict[str, An
         projected["semantic_candidates"] = [
             dict(candidate) for candidate in candidates if isinstance(candidate, Mapping)
         ]
+    errors = list(
+        Draft202012Validator(inventory_query_function_type().output_schema).iter_errors(projected)
+    )
+    if errors:
+        raise ValueError("inventory function result violates output_schema")
     return projected
 
 
