@@ -68,6 +68,13 @@ class FailingEmbedder:
         raise RuntimeError("embedding unavailable")
 
 
+def test_default_threshold_allows_measured_candidate_only_paraphrases() -> None:
+    config = InventorySemanticConfig()
+
+    assert config.score_threshold == 0.50
+    assert config.max_candidates == 3
+
+
 async def test_description_embedding_returns_non_authoritative_state_candidate() -> None:
     resolver = EmbeddingInventorySemanticResolver(
         embedder=ControlledEmbedder(),

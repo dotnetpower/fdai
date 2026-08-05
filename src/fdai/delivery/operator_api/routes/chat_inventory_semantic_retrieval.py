@@ -37,7 +37,7 @@ class InventorySemanticKind(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class InventorySemanticConfig:
-    score_threshold: float = 0.72
+    score_threshold: float = 0.50
     max_candidates: int = 3
 
     def __post_init__(self) -> None:
