@@ -10,6 +10,7 @@ import {
   isRightsProtected,
   newAttachmentId,
   normalizeImageDataUrl,
+  shouldCreateImagePreview,
   thumbLabel,
 } from "./composer-attachments";
 import {
@@ -22,6 +23,13 @@ describe("composer-attachments", () => {
     expect(attachmentOperationIsCurrent(3, 3, true)).toBe(true);
     expect(attachmentOperationIsCurrent(3, 4, true)).toBe(false);
     expect(attachmentOperationIsCurrent(3, 3, false)).toBe(false);
+  });
+
+  it("creates previews only for images with a reserved send slot", () => {
+    expect(shouldCreateImagePreview("image", "image/png", true)).toBe(true);
+    expect(shouldCreateImagePreview("image", "image/png", false)).toBe(false);
+    expect(shouldCreateImagePreview("image", null, true)).toBe(false);
+    expect(shouldCreateImagePreview("doc", "image/png", true)).toBe(false);
   });
 
   it("fits large screenshots inside the vision pixel bound without distortion", () => {

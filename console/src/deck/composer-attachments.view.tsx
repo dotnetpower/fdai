@@ -22,6 +22,7 @@ import {
   isRightsProtected,
   newAttachmentId,
   normalizeImageDataUrl,
+  shouldCreateImagePreview,
   thumbLabel,
   type StagedAttachment,
 } from "./composer-attachments";
@@ -83,7 +84,13 @@ export function ComposerAttachments() {
         const generation = generationRef.current;
         const id = newAttachmentId();
         const kind = detectKind(file.name);
-        const previewUrl = kind === "image" ? URL.createObjectURL(file) : undefined;
+        const media = kind === "image" ? imageMediaType(file) : null;
+        const imageReserved = kind === "image" && media !== null
+          ? reserveComposerAttachment(id)
+          : false;
+        const previewUrl = shouldCreateImagePreview(kind, media, imageReserved)
+          ? URL.createObjectURL(file)
+          : undefined;
         const staged: StagedAttachment = {
           id,
           name: file.name,
@@ -124,10 +131,9 @@ export function ComposerAttachments() {
           // the external store the submit path drains. Anything that cannot be
           // sent is marked non-sendable with a reason instead of a false
           // "ready", so the operator is never misled about what will be sent.
-          const media = imageMediaType(file);
           if (media === null) {
             patch(id, { status: "abandoned", note: t("deck.attach.unsupportedImage") });
-          } else if (!reserveComposerAttachment(id)) {
+          } else if (!imageReserved) {
             patch(id, { status: "abandoned", note: t("deck.attach.tooMany") });
           } else {
             void normalizeVisionImage(file)
