@@ -86,6 +86,19 @@ export function LivePanels({
     state.tierCounts.t1 ?? 0,
     state.tierCounts.t2 ?? 0,
   ].join("|"));
+  const displayStatus = status === "open" && !view.streamOpen
+    ? "awaitingSource"
+    : status === "open"
+      ? "open"
+      : status;
+  const gateKeys = ["auto", "hil", "abstain", "deny"] as const;
+  const gateTotal = Math.max(1, view.gateTotal);
+  const gateAutoEnd = ((state.gateCounts.auto ?? 0) / gateTotal) * 100;
+  const gateHilEnd = gateAutoEnd + ((state.gateCounts.hil ?? 0) / gateTotal) * 100;
+  const gateAbstainEnd = gateHilEnd + ((state.gateCounts.abstain ?? 0) / gateTotal) * 100;
+  const gateGradient = view.gateTotal > 0
+    ? `conic-gradient(var(--gate-auto) 0 ${gateAutoEnd}%, var(--gate-hil) ${gateAutoEnd}% ${gateHilEnd}%, var(--gate-abstain) ${gateHilEnd}% ${gateAbstainEnd}%, var(--gate-deny) ${gateAbstainEnd}% 100%)`
+    : "var(--bg)";
 
   return (
     <div class="live" data-filter={state.filter} data-ticker-collapsed={tickerCollapsed ? "1" : "0"}>
@@ -122,26 +135,31 @@ export function LivePanels({
           <span class="live-context-tag">
             {t("live.context.window")} <strong>60s</strong>
           </span>
-          <div class={`live-status live-status-${status}`}>
+          <div class={`live-status live-status-${displayStatus === "awaitingSource" ? "awaiting-source" : displayStatus}`}>
             <span class="live-status-dot" />
-            <span>{t(`live.status.${status === "open" ? "open" : status}`)}</span>
+            <span>{t(`live.status.${displayStatus}`)}</span>
             {lastError ? <span class="muted"> · {lastError}</span> : null}
           </div>
         </div>}
       />
 
+      <section class="live-scope-strip" aria-label={t("live.scope.label")}>
+        <span><strong>{t("live.scope.mode")}</strong>{t("live.scope.readOnly")}</span>
+        <span><strong>{t("live.scope.source")}</strong><code>GET /live/stream</code></span>
+        <span><strong>{t("live.scope.evidence")}</strong>{observationSourceLabel(streamSource)}</span>
+        <span class="live-scope-warning">
+          {view.streamOpen ? t("live.scope.observed") : t("live.scope.notReady")}
+        </span>
+      </section>
+
       <section class="live-health" aria-label={t("live.health.label")}>
         <div>
           <span>{t("live.health.stream")}</span>
-          <strong class={`live-health-${view.streamOpen ? "ok" : "warn"}`}>{t(`live.status.${status === "open" ? "open" : status}`)}</strong>
+          <strong class={`live-health-${view.streamOpen ? "ok" : "warn"}`}>{t(`live.status.${displayStatus}`)}</strong>
         </div>
         <div>
           <span>{t("live.health.lastEvent")}</span>
           <strong>{view.lastEventLabel}</strong>
-        </div>
-        <div>
-          <span>{t("live.health.environment")}</span>
-          <strong>{observationSourceLabel(streamSource)}</strong>
         </div>
         <div>
           <span>{t("live.health.presentation")}</span>
@@ -233,46 +251,33 @@ export function LivePanels({
         </a>
         <a class={`card kpi live-kpi${gateUpdated ? " is-content-updated" : ""}`} href={routeHref("audit")}>
           <span class="label">{t("live.kpi.gateMix")}</span>
-          <span class="live-kpi-value">
-            {view.autoShare}% <small>{t("live.kpi.auto")}</small>
-          </span>
-          <StackBar
-            entries={(["auto", "hil", "abstain", "deny"] as const).map((key) => ({
-              key,
-              label: t(`live.decision.${key}`),
-              value: state.gateCounts[key] ?? 0,
-              className: `live-gate live-gate-${key}`,
-            }))}
-            total={view.gateTotal}
-            showLegend={false}
-          />
-          <div class="live-mix-legend">
-            {(["auto", "hil", "abstain", "deny"] as const).map((key) => (
+          <div class="live-gate-viz">
+            <div class="live-gate-donut" style={{ background: gateGradient }}>
+              <span><strong>{view.autoShare}%</strong><small>{t("live.kpi.auto")}</small></span>
+            </div>
+            <div class="live-mix-legend">
+            {gateKeys.map((key) => (
               <span key={key} class={`live-mix-key ${key}`}>
                 <i />{t(`live.decision.${key}`)} <b>{state.gateCounts[key] ?? 0}</b>
               </span>
             ))}
+            </div>
           </div>
+          <span class="live-kpi-meta">{t("live.kpi.finalized", { count: view.gateTotal })}</span>
         </a>
         <a class={`card kpi live-kpi${tierUpdated ? " is-content-updated" : ""}`} href={routeHref("trust-routing")}>
           <span class="label">{t("live.kpi.tierMix")}</span>
-          <div class="live-tier-summary">
+          <div class="live-tier-plot">
             {(["t0", "t1", "t2"] as const).map((key) => (
-              <span key={key} class={`live-tier live-tier-${key}`}>
-                {key.toUpperCase()} {view.tierTotal > 0 ? Math.round(((state.tierCounts[key] ?? 0) / view.tierTotal) * 100) : 0}%
-              </span>
+              <div key={key} class={`live-tier-row live-tier-row-${key}`}>
+                <span><b>{key.toUpperCase()}</b><small>{t(`live.kpi.tierLabel.${key}`)}</small></span>
+                <i><i style={{ width: `${view.tierTotal > 0 ? ((state.tierCounts[key] ?? 0) / view.tierTotal) * 100 : 0}%` }} /></i>
+                <strong>{view.tierTotal > 0 ? Math.round(((state.tierCounts[key] ?? 0) / view.tierTotal) * 100) : 0}%</strong>
+              </div>
             ))}
+            <div class="live-tier-axis"><span>0</span><span>50</span><span>100%</span></div>
           </div>
-          <StackBar
-            entries={(["t0", "t1", "t2"] as const).map((key) => ({
-              key,
-              label: key.toUpperCase(),
-              value: state.tierCounts[key] ?? 0,
-              className: `live-tier live-tier-${key}`,
-            }))}
-            total={view.tierTotal}
-            showLegend={false}
-          />
+          <span class="live-kpi-meta">{t("live.kpi.routed", { count: view.tierTotal })}</span>
         </a>
       </section>
 

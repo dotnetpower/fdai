@@ -6,18 +6,25 @@
   "freezeTitle": "실시간 화면을 고정합니다",
   "resumeTitle": "실시간 화면을 다시 따라갑니다",
   "context": {"devTitle": "로컬 ControlLoop: 관리 리소스 변경 없음", "source": "소스", "window": "구간"},
+  "scope": {"label": "실시간 관찰 범위", "mode": "모드", "readOnly": "읽기 전용", "source": "소스", "evidence": "근거", "observed": "권한 있는 단계 소스가 관찰됨", "notReady": "권한 있는 단계 프레임이 관찰되지 않음 - 실시간 준비 근거로 사용할 수 없음"},
   "lead": "지금 주의가 필요한 항목을 확인하고 각 제어 루프 단계를 따라가며 기록된 근거를 여세요. 이 화면은 관찰만 하며 실행하지 않습니다.",
   "health": {"label": "실시간 관찰 상태", "stream": "스트림", "lastEvent": "마지막 이벤트", "environment": "환경", "presentation": "표시 상태", "backlog": "프레임 연속성", "complete": "오버플로 감지 없음", "dropped": "제한 버퍼에서 오래된 프레임 {count}개 폐기", "notObserved": "관찰되지 않음", "devLocal": "로컬 ControlLoop", "configuredRuntime": "구성된 런타임", "following": "실시간 추적 중", "frozen": "화면 고정 - 프레임 {count}개 대기"},
-  "status": {"idle": "유휴", "connecting": "연결 중", "open": "실시간", "closed": "연결 종료", "unsupported": "SSE 미지원"},
+  "status": {"idle": "유휴", "connecting": "연결 중", "open": "실시간", "connected": "연결됨", "awaitingSource": "소스 대기", "closed": "연결 종료", "unsupported": "SSE 미지원"},
   "attention": {"ariaLabel": "운영자 주의 항목 분류", "label": "주의 필요", "approvals": "승인 대기 {count}건", "denied": "거부 {count}건", "failed": "실패 {count}건", "stuck": "지연 {count}건", "approvalTitle": "승인을 기다리는 고위험 작업", "deniedTitle": "위험 게이트가 거부한 작업입니다. 정책 근거를 확인하세요.", "failedTitle": "제어 루프 단계가 실패했습니다. 기록된 감사 항목을 확인하세요.", "stuckTitle": "컨트롤 플레인이 게시한 지연 예산을 초과한 항목입니다.", "openApprovals": "승인 열기", "none": "현재 주의가 필요한 제어 루프 작업이 없습니다.", "unavailable": "실시간 주의 항목을 확인할 수 없습니다. 기록된 결과는 이력에 남아 있습니다."},
-  "kpi": {"events": "초당 이벤트", "average": "/초 - 60초 평균", "gateMix": "게이트 구성 (60초)", "auto": "자동", "tierMix": "티어 구성 (60초)"},
+  "kpi": {"events": "초당 이벤트", "average": "/초 - 60초 평균", "gateMix": "게이트 구성 (60초)", "auto": "자동", "tierMix": "티어 구성 (60초)", "finalized": "최종 결정 {count}건", "routed": "라우팅 이벤트 {count}건", "tierLabel": {"t0": "결정론적", "t1": "근거 기반", "t2": "적응형"}},
   "decision": {"auto": "자동", "hil": "승인", "abstain": "보류", "deny": "거부"},
   "work": {
-    "eyebrow": "활성 제어 루프", "title": "운영자 주의도 순으로 정렬", "queue": "대기열", "flow": "흐름", "viewModeLabel": "실시간 보기 모드", "filtersLabel": "제어 루프 필터", "queueLabel": "우선순위가 적용된 실시간 제어 루프", "flowLabel": "실시간 컨트롤 플레인 흐름", "filterTitle": "필터: {filter} ({key} 키)", "filterNote": "항목을 선택하여 단계 추적을 확인하세요.", "noMatch": "이 필터와 일치하는 제어 루프 작업이 없습니다.", "routing": "이벤트 라우팅", "actions": "작업 {count}개", "unknownResource": "알 수 없는 리소스", "overBudget": "예산 초과", "pending": "대기 중", "approval": "승인", "noRule": "일치하는 규칙 없음", "needsApproval": "승인 필요", "executionMode": "실행 모드: {mode}", "agentRelay": "에이전트 전달", "itemLabel": "{resource}의 {action}",
-    "columns": {"controlLoop": "제어 루프", "stage": "현재 단계", "age": "경과", "tier": "티어", "mode": "모드", "decision": "결정"}
+    "eyebrow": "현재 작업", "title": "제어 루프 작업", "queue": "대기열", "flow": "흐름", "viewModeLabel": "실시간 보기 모드", "filtersLabel": "제어 루프 필터", "queueLabel": "우선순위가 적용된 실시간 제어 루프", "flowLabel": "실시간 컨트롤 플레인 흐름", "filterTitle": "필터: {filter} ({key} 키)", "filterNote": "항목을 선택하여 단계 추적을 확인하세요.", "noMatch": "이 필터와 일치하는 제어 루프 작업이 없습니다.", "routing": "이벤트 라우팅", "actions": "작업 {count}개", "unknownResource": "알 수 없는 리소스", "overBudget": "예산 초과", "pending": "대기 중", "approval": "승인", "noRule": "일치하는 규칙 없음", "needsApproval": "승인 필요", "executionMode": "실행 모드: {mode}", "agentRelay": "에이전트 전달", "itemLabel": "{resource}의 {action}", "why": "이유: {reason}", "slaRemaining": "{value}초 남음",
+    "columns": {"controlLoop": "제어 루프", "stage": "현재 단계", "age": "경과", "tier": "티어", "mode": "모드", "decision": "결정", "work": "작업", "tierMode": "티어 / 모드", "why": "이유", "ownerStage": "담당 / 단계", "riskImpact": "위험 / 영향", "ageSla": "경과 / SLA", "controlState": "제어 상태"}
+  },
+  "control": {"notObserved": "관찰되지 않음", "notStarted": "시작되지 않음", "notDispatched": "전송되지 않음", "simulated": "시뮬레이션됨", "inProgress": "진행 중", "completed": "완료", "executionFailed": "실패"},
+  "help": {
+    "tier": {"t0": "T0은 반복 가능한 결정을 결정론적 규칙으로 처리합니다.", "t1": "T1은 검증된 이전 패턴의 근거 기반 유사성을 재사용합니다.", "t2": "T2는 근거 기반 적응형 추론을 사용하며 결정론적 검증을 계속 요구합니다.", "unknown": "결정 티어가 관찰되지 않았습니다."},
+    "autonomy": {"A0": "A0은 관찰, 설명 또는 시뮬레이션만 수행하며 관리 대상을 변경할 수 없습니다.", "A1": "A1은 현재 정책 안에서 되돌릴 수 있는 리소스 범위의 낮은 위험 작업을 허용합니다.", "A2": "A2는 측정되고 사전 승인된 범위 안의 승격된 워크플로를 허용합니다.", "A3_H": "A3-H는 전송 전에 실행별 독립적인 사람 승인을 요구합니다.", "A3_E": "A3-E는 범위가 제한되고 되돌릴 수 있는 긴급 완화에 유효한 상시 사람 권한을 사용합니다.", "A4": "A4는 거부 상태이며 실행이 허용되지 않습니다.", "guide": "권한 안내: A0은 관찰, A1은 제한된 낮은 위험, A2는 승격된 범위, A3-H는 현재 승인, A3-E는 상시 권한을 요구하며 A4는 거부입니다. 이 이벤트는 정확한 자율성 등급을 게시하지 않았습니다."},
+    "mode": {"pending": "대기는 정책 및 실행 모드가 아직 관찰되지 않았음을 뜻합니다.", "shadow": "관찰 모드는 대상을 변경하지 않고 평가와 기록만 수행합니다.", "enforce": "적용 모드는 정책, 안전, 권한 검사를 통과한 뒤에만 전송할 수 있으며 전송은 효과 성공을 증명하지 않습니다.", "gated": "제한 모드는 필요한 검토나 승인이 충족될 때까지 현재 결정 경로의 전송을 차단합니다."}
   },
   "filter": {"all": "전체", "hil": "승인", "deny": "거부", "failed": "실패", "stuck": "지연"},
-  "empty": {"connectedTitle": "표시할 이벤트 없음", "disconnectedTitle": "실시간 신호 없음", "connected": "스트림이 연결되었습니다. 다음 제어 플레인 이벤트를 기다립니다.", "connecting": "실시간 이벤트 스트림에 연결 중입니다.", "idle": "이 화면이 연결되지 않아 실시간 관찰이 유휴 상태입니다.", "unavailable": "실시간 관찰을 사용할 수 없습니다. 기록된 결과는 이력을 사용하세요."},
+  "empty": {"connectedTitle": "표시할 이벤트 없음", "disconnectedTitle": "실시간 신호 없음", "connected": "권한 있는 소스가 관찰되었습니다. 다음 컨트롤 플레인 이벤트를 기다립니다.", "awaitingSource": "SSE 연결은 열려 있지만 권한 있는 단계 프레임이 관찰되지 않았습니다. Core Runtime과 단계 토픽 준비 상태를 확인하세요.", "connecting": "실시간 이벤트 스트림에 연결 중입니다.", "idle": "이 화면이 연결되지 않아 실시간 관찰이 유휴 상태입니다.", "unavailable": "실시간 관찰을 사용할 수 없습니다. 기록된 결과는 이력을 사용하세요."},
   "selectionWaiting": "이벤트 {event}이 실시간 스트림에 나타나기를 기다리고 있습니다.",
   "selectionUnavailable": "현재 제한된 실시간 창에서 이벤트 {event}을 사용할 수 없습니다.",
   "selectionOpenAudit": "감사 로그 열기",

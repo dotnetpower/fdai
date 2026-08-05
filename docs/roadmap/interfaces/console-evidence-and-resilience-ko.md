@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: fb21f3e29819dd4d5a57f2d2c6e0ea1d34bbe2bb
+translation_source_sha: 2854af35b93b6ae69ab13efc2bd574ff48264269
 translation_revised: 2026-08-05
 ---
 
@@ -60,6 +60,14 @@ resumed-session marker를 표시합니다. Deck header는 route와 optional agen
 Live도 `운영 / 실시간`과 같은 공통 title 계약을 따릅니다. 관찰 control은 공통 header actions
 영역에 유지되고 좁은 viewport에서는 제목 아래로 줄바꿈되어 화면 고정, source, window 및 connection
 status가 계속 표시됩니다.
+열린 SSE 응답은 전송 연결만 증명합니다. Live는 권한 있는 runtime 또는 replay 단계 frame을
+관찰한 뒤에만 source가 준비되었다고 표시합니다. keepalive만 있는 연결은 `소스 대기`를 렌더링하고
+운영 metric을 unavailable 상태로 유지하며, 0을 측정된 상태로 제시하는 대신 Core Runtime과 단계
+topic 준비 상태를 확인하도록 안내합니다. 기본 보기는 제한된 12개 작업 pool의 Flow입니다.
+Flow와 Queue는 동일한 제목, 대상, 범위, 이유, tier, mode, owner 및 stage 사실을 유지하고 Queue는
+관찰된 risk, impact, SLA 및 control state만 추가합니다. Tier, autonomy 및 mode badge는 pointer와
+keyboard에서 같은 tooltip을 사용합니다. 누락된 autonomy, risk, impact 또는 SLA는
+`관찰되지 않음`으로 유지되며 browser에서 추론하지 않습니다.
 
 에이전트 작업 영역은 `Fleet`, `조직` 및 `활동`의 세 가지 compact view를 사용합니다. Fleet은
 실시간 runtime state와 고정 registry ownership 및 safety flag를 에이전트별 상세 disclosure에 함께

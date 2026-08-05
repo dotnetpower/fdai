@@ -50,6 +50,76 @@ function decisionLabel(decision: string): string {
   return label === key ? decision : label;
 }
 
+function tierHelp(tier: string): string {
+  const key = `live.help.tier.${tier}`;
+  const value = t(key);
+  return value === key ? t("live.help.tier.unknown") : value;
+}
+
+function normalizedAutonomy(value: string | undefined): string | null {
+  if (!value) return null;
+  const normalized = value.trim().toUpperCase().replace("AUTONOMY.", "").replace("_", "-");
+  return ["A0", "A1", "A2", "A3-H", "A3-E", "A4"].includes(normalized)
+    ? normalized
+    : null;
+}
+
+export function authorityModeLabel(tile: TileState): string {
+  const autonomy = normalizedAutonomy(tile.autonomy);
+  const mode = tile.mode?.trim().toUpperCase();
+  return [autonomy, mode].filter(Boolean).join(" · ") || t("live.work.pending");
+}
+
+export function authorityModeHelp(tile: TileState): string {
+  const autonomy = normalizedAutonomy(tile.autonomy);
+  const autonomyKey = autonomy ? `live.help.autonomy.${autonomy.replace("-", "_")}` : "live.help.autonomy.guide";
+  const mode = tile.mode?.trim().toLowerCase();
+  const modeKey = mode && ["shadow", "enforce", "gated"].includes(mode)
+    ? `live.help.mode.${mode}`
+    : "live.help.mode.pending";
+  return `${t(autonomyKey)} ${t(modeKey)}`;
+}
+
+export interface LiveControlState {
+  readonly policy: string;
+  readonly authority: string;
+  readonly execution: string;
+  readonly effect: string;
+}
+
+export function liveControlState(tile: TileState): LiveControlState {
+  const blocked = tile.gate_decision === "hil" || tile.gate_decision === "deny";
+  const execution = tile.failed
+    ? t("live.control.executionFailed")
+    : tile.mode === "shadow"
+      ? t("live.control.simulated")
+      : blocked
+        ? t("live.control.notDispatched")
+        : tile.stages_completed.has("execute")
+          ? t("live.control.completed")
+          : tile.last_stage === "execute"
+            ? t("live.control.inProgress")
+            : t("live.control.notStarted");
+  return {
+    policy: tile.gate_decision ? decisionLabel(tile.gate_decision) : t("live.work.pending"),
+    authority: normalizedAutonomy(tile.autonomy) ?? t("live.control.notObserved"),
+    execution,
+    effect: tile.outcome ?? t("live.control.notObserved"),
+  };
+}
+
+function targetLabel(tile: TileState): string {
+  return tile.target ?? tile.resource_type ?? t("live.work.unknownResource");
+}
+
+function slaLabel(tile: TileState, now: number): string {
+  if (tile.latency_budget_ms === undefined) return t("live.control.notObserved");
+  const remaining = tile.latency_budget_ms - Math.max(0, now - tile.first_seen_at);
+  return remaining > 0
+    ? t("live.work.slaRemaining", { value: Math.ceil(remaining / 1000) })
+    : t("live.work.overBudget");
+}
+
 // ---------------------------------------------------------------------------
 // Tile + stage dots
 // ---------------------------------------------------------------------------
@@ -99,6 +169,8 @@ export function LiveTile({ tile, filter, selected, now, onClick }: TileProps) {
   const ageMs = Math.max(0, now - tile.first_seen_at);
   const heading = actionHeading(tile);
   const tierLabel = tier === "abstain" ? "N/A" : tier.toUpperCase();
+  const modeLabel = authorityModeLabel(tile);
+  const stageProgress = ((STAGE_ORDER.indexOf(tile.last_stage) + 1) / STAGE_ORDER.length) * 100;
   // Abstain-and-done tiles carry zero operational information. Mark
   // them so CSS can quiet them into a background pattern rather than
   // stealing visual weight from remediation tiles.
@@ -119,40 +191,31 @@ export function LiveTile({ tile, filter, selected, now, onClick }: TileProps) {
         resource: tile.resource_type ?? t("live.work.unknownResource"),
       })}
     >
-      <StageDots
-        completed={tile.stages_completed}
-        last_stage={tile.last_stage}
-        stage_agents={tile.stage_agents}
-      />
       <div class="live-tile-top">
-        <Tooltip content={tile.rule ?? [...tile.action_types].join(", ")}>
-          <span class="live-tile-action">{heading}</span>
+        <Tooltip content={tierHelp(tier)}>
+          <span class={`live-tier live-tier-${tier}`}>{tierLabel}</span>
         </Tooltip>
-        <span class={`live-tier live-tier-${tier}`}>{tierLabel}</span>
+        <Tooltip content={authorityModeHelp(tile)}>
+          <span class={`live-tile-mode live-tile-mode-${tile.mode ?? "pending"}`}>{modeLabel}</span>
+        </Tooltip>
+        <span class="live-tile-stage">{stageLabel(tile.last_stage)}</span>
       </div>
+      <Tooltip content={tile.rule ?? [...tile.action_types].join(", ")}>
+        <span class="live-tile-action">{heading}</span>
+      </Tooltip>
       <div class="live-tile-target">
-        <span>{tile.resource_type ?? "-"}</span>
-        <span class="muted">{tile.scope ? ` · ${tile.scope}` : ""}</span>
+        <span>{targetLabel(tile)}</span>
+      </div>
+      <div class="live-tile-reason">
+        {t("live.work.why", { reason: tile.reason ?? t("live.control.notObserved") })}
       </div>
       <div class="live-tile-foot">
-        {tile.last_agent ? (
-          <Tooltip content={`${tile.last_agent} - ${agentRole(tile.last_agent)}`}>
-            <span class="live-tile-agent">{tile.last_agent}</span>
-          </Tooltip>
-        ) : null}
-        {gate ? (
-          <span class={`live-gate live-gate-${gate}`}>{decisionLabel(gate)}</span>
-        ) : (
-          <span class="muted">...</span>
-        )}
-        {tile.mode ? (
-          <Tooltip content={t("live.work.executionMode", { mode: tile.mode })}>
-            <span class="live-tile-mode">{tile.mode}</span>
-          </Tooltip>
-        ) : null}
-        <span class="muted live-tile-age">{formatAge(ageMs)}</span>
+        <span class="live-tile-owner">
+          {tile.last_agent ? `${tile.last_agent} · ${stageLabel(tile.last_stage)}` : stageLabel(tile.last_stage)}
+        </span>
+        <span class="live-tile-scope">{tile.scope ?? t("live.control.notObserved")}</span>
       </div>
-      {gate === "hil" ? <span class="live-tile-badge">{t("live.work.needsApproval")}</span> : null}
+      <span class="live-tile-bar" aria-hidden="true"><span style={{ width: `${stageProgress}%` }} /></span>
     </button>
   );
 }
@@ -222,12 +285,13 @@ export function LiveQueue({
       <table class="live-queue">
         <thead>
           <tr>
-            <th scope="col">{t("live.work.columns.controlLoop")}</th>
-            <th scope="col">{t("live.work.columns.stage")}</th>
-            <th scope="col">{t("live.work.columns.age")}</th>
-            <th scope="col">{t("live.work.columns.tier")}</th>
-            <th scope="col">{t("live.work.columns.mode")}</th>
-            <th scope="col">{t("live.work.columns.decision")}</th>
+            <th scope="col">{t("live.work.columns.work")}</th>
+            <th scope="col">{t("live.work.columns.tierMode")}</th>
+            <th scope="col">{t("live.work.columns.why")}</th>
+            <th scope="col">{t("live.work.columns.ownerStage")}</th>
+            <th scope="col">{t("live.work.columns.riskImpact")}</th>
+            <th scope="col">{t("live.work.columns.ageSla")}</th>
+            <th scope="col">{t("live.work.columns.controlState")}</th>
           </tr>
         </thead>
         <tbody>
@@ -242,41 +306,51 @@ export function LiveQueue({
                   : tile.completed
                     ? "completed"
                     : "active";
+                      const control = liveControlState(tile);
+                      const tier = tile.tier ?? "unknown";
             return (
               <tr
                 key={tile.event_id}
                 data-status={status}
                 data-selected={tile.event_id === selectedEventId ? "1" : "0"}
               >
-                <td data-label={t("live.work.columns.controlLoop")}>
+                <td data-label={t("live.work.columns.work")}>
                   <button type="button" onClick={() => onSelect(tile.event_id)}>
                     <strong>{actionHeading(tile)}</strong>
-                    <span>{tile.resource_type ?? t("live.work.unknownResource")}</span>
-                    <code>{tile.correlation_id}</code>
+                    <span>{targetLabel(tile)}{tile.scope ? ` · ${tile.scope}` : ""}</span>
                   </button>
                 </td>
-                <td data-label={t("live.work.columns.stage")}>
-                  <span class="live-queue-stage">{stageLabel(tile.last_stage)}</span>
-                  {tile.last_agent ? <small>{tile.last_agent}</small> : null}
-                </td>
-                <td class="live-queue-age" data-label={t("live.work.columns.age")}>
-                  {formatAge(Math.max(0, now - tile.first_seen_at))}
-                  {stuck ? <small>{t("live.work.overBudget")}</small> : null}
-                </td>
-                <td data-label={t("live.work.columns.tier")}>
-                  <span class={`live-tier live-tier-${tile.tier ?? "unknown"}`}>
-                    {tile.tier?.toUpperCase() ?? "N/A"}
+                <td data-label={t("live.work.columns.tierMode")}>
+                  <span class="live-queue-badges">
+                    <Tooltip content={tierHelp(tier)}>
+                      <span class={`live-tier live-tier-${tier}`}>{tile.tier?.toUpperCase() ?? "N/A"}</span>
+                    </Tooltip>
+                    <Tooltip content={authorityModeHelp(tile)}>
+                      <span class={`live-tile-mode live-tile-mode-${tile.mode ?? "pending"}`}>
+                        {authorityModeLabel(tile)}
+                      </span>
+                    </Tooltip>
                   </span>
                 </td>
-                <td data-label={t("live.work.columns.mode")}>{tile.mode ? <span class="live-tile-mode">{tile.mode}</span> : "-"}</td>
-                <td data-label={t("live.work.columns.decision")}>
-                  {tile.gate_decision ? (
-                    <span class={`live-gate live-gate-${tile.gate_decision}`}>
-                      {decisionLabel(tile.gate_decision)}
-                    </span>
-                  ) : (
-                    <span class="muted">{t("live.work.pending")}</span>
-                  )}
+                <td data-label={t("live.work.columns.why")}>
+                  <span class="live-queue-reason">{tile.reason ?? t("live.control.notObserved")}</span>
+                </td>
+                <td data-label={t("live.work.columns.ownerStage")}>
+                  <strong>{tile.last_agent ?? t("live.control.notObserved")}</strong>
+                  <small>{stageLabel(tile.last_stage)}</small>
+                </td>
+                <td data-label={t("live.work.columns.riskImpact")}>
+                  <strong>{tile.risk ?? t("live.control.notObserved")}</strong>
+                  <small>{tile.impact ?? t("live.control.notObserved")}</small>
+                </td>
+                <td class="live-queue-age" data-label={t("live.work.columns.ageSla")}>
+                  {formatAge(Math.max(0, now - tile.first_seen_at))}
+                  <small class={stuck ? "is-stuck" : undefined}>{slaLabel(tile, now)}</small>
+                </td>
+                <td class="live-queue-control" data-label={t("live.work.columns.controlState")}>
+                  <span class={`live-gate live-gate-${tile.gate_decision ?? "pending"}`}>{control.policy}</span>
+                  <small>{control.authority}</small>
+                  <small>{control.execution} · {control.effect}</small>
                 </td>
               </tr>
             );

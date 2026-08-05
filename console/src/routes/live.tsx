@@ -51,7 +51,7 @@ export function LiveRoute({ client }: Props) {
   const [tickerPaused, setTickerPaused] = useState(false);
   const [tickerCollapsed, setTickerCollapsed] = useState(false);
   const [viewMode, setViewMode] = useState<LiveViewMode>(
-    initialRoute.search.get("view") === "flow" ? "flow" : "queue",
+    initialRoute.search.get("view") === "queue" ? "queue" : "flow",
   );
   const [frozenObserved, setFrozenObserved] = useState(0);
   const [droppedFrames, setDroppedFrames] = useState(0);
@@ -71,7 +71,7 @@ export function LiveRoute({ client }: Props) {
       params: {
         event: eventId,
         filter: filter === "all" ? null : filter,
-        view: view === "queue" ? null : view,
+        view: view === "flow" ? null : view,
       },
     }));
   };
@@ -82,7 +82,7 @@ export function LiveRoute({ client }: Props) {
       params: {
         event: eventId,
         filter: state.filter === "all" ? null : state.filter,
-        view: viewMode === "queue" ? null : viewMode,
+        view: viewMode === "flow" ? null : viewMode,
       },
     }));
   };
@@ -98,7 +98,7 @@ export function LiveRoute({ client }: Props) {
           : "all",
       });
       dispatch({ kind: "select", event_id: route.search.get("event") });
-      setViewMode(route.search.get("view") === "flow" ? "flow" : "queue");
+      setViewMode(route.search.get("view") === "queue" ? "queue" : "flow");
     };
     sync();
     window.addEventListener("popstate", sync);
@@ -178,7 +178,13 @@ export function LiveRoute({ client }: Props) {
     selectedTile,
     state.session_total,
   );
-  const view = useLiveViewModel(state, status, selectedTile, droppedFrames);
+  const view = useLiveViewModel(
+    state,
+    status,
+    streamSource,
+    selectedTile,
+    droppedFrames,
+  );
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

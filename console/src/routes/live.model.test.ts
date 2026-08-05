@@ -10,6 +10,11 @@ import {
   pickSlot,
 } from "./live.model";
 import { appendLiveBacklog, drainLiveBacklog, liveTraceHref } from "./live";
+import {
+  authorityModeHelp,
+  authorityModeLabel,
+  liveControlState,
+} from "./live.tiles";
 
 describe("live event selection", () => {
   test("links a recent outcome to correlation-scoped Trace evidence", () => {
@@ -72,6 +77,59 @@ describe("Live cockpit model", () => {
     expect(tile?.correlation_id).toBe("corr-live-1");
     expect(tile?.mode).toBe("enforce");
     expect(tile?.completed).toBe(true);
+  });
+
+  test("preserves authoritative work context without inferring missing fields", () => {
+    let state = makeInitialState();
+    state = applyEvent(
+      state,
+      stageEvent("gate", {
+        tier: "t2",
+        mode: "shadow",
+        autonomy: "A0",
+        resource_type: "compute.vm",
+        scope: "example-scope",
+        target: "example-target",
+        reason: "Policy evidence requires review",
+        risk: "medium",
+        impact: "one resource",
+      }),
+    );
+
+    const tile = state.tiles.find((candidate) => candidate?.event_id === "evt-live-1");
+    expect(tile).toMatchObject({
+      autonomy: "A0",
+      target: "example-target",
+      reason: "Policy evidence requires review",
+      risk: "medium",
+      impact: "one resource",
+    });
+  });
+
+  test("explains explicit authority without inventing a missing autonomy class", () => {
+    let state = makeInitialState();
+    state = applyEvent(
+      state,
+      stageEvent("gate", {
+        autonomy: "A3-H",
+        mode: "gated",
+        gate_decision: "hil",
+      }),
+    );
+    const explicit = state.tiles.find((candidate) => candidate?.event_id === "evt-live-1");
+    expect(explicit && authorityModeLabel(explicit)).toBe("A3-H · GATED");
+    expect(explicit && authorityModeHelp(explicit)).toContain("human approval");
+    expect(explicit && liveControlState(explicit)).toMatchObject({
+      policy: "Approval",
+      authority: "A3-H",
+      execution: "Not dispatched",
+    });
+
+    state = makeInitialState();
+    state = applyEvent(state, stageEvent("route", { tier: "t0" }));
+    const missing = state.tiles.find((candidate) => candidate?.event_id === "evt-live-1");
+    expect(missing && authorityModeLabel(missing)).toBe("Pending");
+    expect(missing && authorityModeHelp(missing)).toContain("has not published an exact autonomy class");
   });
 
   test("uses the terminal event decision and counts a replay only once", () => {

@@ -2,6 +2,7 @@ import { useMemo } from "preact/hooks";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import type { LiveConnectionStatus } from "../hooks/use-live-stream";
+import type { ObservationSource } from "../hooks/observation-source";
 import { t } from "./i18n/live";
 import {
   POOL_SIZE,
@@ -22,6 +23,7 @@ export interface LiveAttention {
 export function useLiveViewModel(
   state: LiveState,
   status: LiveConnectionStatus,
+  streamSource: ObservationSource,
   selectedTile: TileState | null,
   droppedFrames = 0,
 ) {
@@ -81,9 +83,12 @@ export function useLiveViewModel(
   const lastEventLabel = lastEventAt > 0
     ? t("live.spark.secondsAgo", { count: Math.max(0, Math.floor((state.now - lastEventAt) / 1000)) })
     : t("live.health.notObserved");
-  const streamOpen = status === "open";
+  const streamConnected = status === "open";
+  const streamOpen = streamConnected && streamSource !== "unknown";
   const emptyState = streamOpen
     ? t("live.empty.connected")
+    : streamConnected
+      ? t("live.empty.awaitingSource")
     : status === "connecting"
       ? t("live.empty.connecting")
       : status === "idle"
@@ -163,10 +168,15 @@ export function useLiveViewModel(
             rule: tile.rule ?? null,
             tier: tile.tier ?? null,
             mode: tile.mode ?? null,
+            autonomy: tile.autonomy ?? null,
             gate_decision: tile.gate_decision ?? null,
             vertical: tile.vertical ?? "unknown",
             resource_type: tile.resource_type ?? null,
             scope: tile.scope ?? null,
+            target: tile.target ?? null,
+            reason: tile.reason ?? null,
+            risk: tile.risk ?? null,
+            impact: tile.impact ?? null,
             stages_completed: [...tile.stages_completed],
             completed: tile.completed,
             failed: tile.failed,
@@ -212,6 +222,7 @@ export function useLiveViewModel(
     populatedTiles,
     lastEventLabel,
     streamOpen,
+    streamConnected,
     emptyState,
   };
 }

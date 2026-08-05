@@ -245,7 +245,7 @@ account's restricted firewall when the active Azure CLI principal has permission
 set `FDAI_NARRATOR_AUTO_OPEN_AOAI=0` so they never call Azure CLI or change a firewall. A genuinely
 unconfigured, unauthorized, or unreachable model endpoint still fails safely to the deterministic
 answerer for that turn.
-Full-stack preparation emits `LLM_MODE=azure` and `LLM_RESOLVED_MODELS_PATH` from an explicit override, then a validated `.fdai/resolved-models-vision.json`, then repository-local `resolved-models.json`, and binds metering to the read-model PostgreSQL instance. The LLM Cost panel and `query_llm_usage` chat capability share that measured reader in local and deployed profiles. Cost uses only
+Full-stack preparation emits `LLM_MODE=azure` and `LLM_RESOLVED_MODELS_PATH` from an explicit override, then a validated `.fdai/resolved-models-vision.json`, then repository-local `resolved-models.json`, and binds metering to the read-model PostgreSQL instance. A vision artifact is eligible only when it also satisfies the core composition floor: a bindable T1 embedding plus either a bindable primary/secondary T2 pair or explicit top-level `hil-only` mode. An incompatible vision artifact falls back to the canonical artifact instead of stopping Core Runtime after preparation reported success. The LLM Cost panel and `query_llm_usage` chat capability share that measured reader in local and deployed profiles. Cost uses only
 explicit deployment-to-family bindings; missing families stay unpriced. Conversation Assurance uses
 the same local PostgreSQL conversation and assessment stores as deployment and always runs
 deterministic terminal checks. Semantic review activates only with two distinct resolved model

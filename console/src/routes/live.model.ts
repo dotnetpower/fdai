@@ -21,7 +21,7 @@ import type {
 // Constants (shared with the presentational layer)
 // ---------------------------------------------------------------------------
 
-export const POOL_SIZE = 60;
+export const POOL_SIZE = 12;
 export const TICKER_CAP = 8;
 export const RATE_WINDOW_MS = 60_000;
 export const RATE_BUCKETS = 60; // one bar per second, 60s history
@@ -144,9 +144,14 @@ export interface TileState {
   readonly vertical: string | undefined;
   readonly tier: string | undefined;
   readonly mode: string | undefined;
+  readonly autonomy: string | undefined;
   readonly latency_budget_ms: number | undefined;
   readonly resource_type: string | undefined;
   readonly scope: string | undefined;
+  readonly target: string | undefined;
+  readonly reason: string | undefined;
+  readonly risk: string | undefined;
+  readonly impact: string | undefined;
   readonly rule: string | undefined;
   readonly action_type: string | undefined;
   readonly action_types: ReadonlySet<string>;
@@ -293,6 +298,11 @@ export function applyEvent(state: LiveState, evt: LiveStageEvent): LiveState {
     (evt.stage === "audit" ? pickString(detail, "decision") : undefined);
   const outcome = pickString(detail, "outcome");
   const mode = pickString(detail, "mode");
+  const autonomy = pickString(detail, "autonomy") ?? pickString(detail, "autonomy_class");
+  const target = pickString(detail, "target") ?? pickString(detail, "resource_ref");
+  const reason = pickString(detail, "reason");
+  const risk = pickString(detail, "risk") ?? pickString(detail, "risk_level");
+  const impact = pickString(detail, "impact") ?? pickString(detail, "impact_scope");
   const latencyBudgetMs = pickPositiveNumber(detail, "latency_budget_ms");
   const agent = pickString(detail, "producer_principal");
 
@@ -336,9 +346,14 @@ export function applyEvent(state: LiveState, evt: LiveStageEvent): LiveState {
     vertical: vertical ?? previous?.vertical,
     tier: tier ?? previous?.tier,
     mode: mode ?? previous?.mode,
+    autonomy: autonomy ?? previous?.autonomy,
     latency_budget_ms: latencyBudgetMs ?? previous?.latency_budget_ms,
     resource_type: resourceType ?? previous?.resource_type,
     scope: scope ?? previous?.scope,
+    target: target ?? previous?.target,
+    reason: reason ?? previous?.reason,
+    risk: risk ?? previous?.risk,
+    impact: impact ?? previous?.impact,
     rule: rule ?? previous?.rule,
     action_type: actionType ?? previous?.action_type,
     action_types,

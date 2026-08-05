@@ -58,6 +58,14 @@ The shared top bar renders the icon-only FDAI mark in its original source colors
 Live follows the same shared title contract as `Operations / Live`. Its observation controls stay
 in the shared header actions area and wrap below the title on narrow viewports, so Freeze, source,
 window, and connection status remain visible.
+An open SSE response proves transport connectivity only. Live reports the source as ready only
+after an authoritative runtime or replay stage frame is observed. A keepalive-only connection
+renders `Awaiting source`, keeps operational metrics unavailable, and points the operator to Core
+Runtime and stage-topic readiness instead of presenting zero as measured health. Flow is the
+default view with a bounded 12-item work pool. Flow and Queue preserve the same title, target,
+scope, reason, tier, mode, owner, and stage facts; Queue adds only observed risk, impact, SLA, and
+control-state fields. Tier, autonomy, and mode badges use shared pointer and keyboard tooltips. A
+missing autonomy, risk, impact, or SLA remains `Not observed` and is never inferred in the browser.
 
 The Agents workspace uses three compact views: `Fleet`, `Org`, and `Activity`. Fleet combines live
 runtime state with the fixed registry ownership and safety flags inside per-agent Details

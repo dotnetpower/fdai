@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 37316665ef671067a12bf69e93696ad0f4faba23
+translation_source_sha: 1fe1420aa6eac05383b4af6016626863e14b711c
 translation_revised: 2026-08-05
 ---
 
@@ -248,7 +248,7 @@ IP를 account의 restricted firewall에 추가할 수 있습니다. Automated te
 `FDAI_NARRATOR_AUTO_OPEN_AOAI=0`을 설정하므로 Azure CLI를 호출하거나 firewall을 변경하지 않습니다.
 Model endpoint가 실제로 미구성, 권한 없음 또는 unreachable 상태이면 해당 turn만 deterministic
 answerer로 안전하게 fallback합니다.
-Full-stack 준비는 explicit override, 검증된 `.fdai/resolved-models-vision.json`, repository-local `resolved-models.json` 순서로 `LLM_MODE=azure`와 `LLM_RESOLVED_MODELS_PATH`를 만들고 metering을 read-model PostgreSQL에 bind합니다. LLM Cost panel과 `query_llm_usage` chat capability는 local 및 deployed profile에서 이 measured reader를 공유합니다. 비용은 명시적
+Full-stack 준비는 explicit override, 검증된 `.fdai/resolved-models-vision.json`, repository-local `resolved-models.json` 순서로 `LLM_MODE=azure`와 `LLM_RESOLVED_MODELS_PATH`를 만들고 metering을 read-model PostgreSQL에 bind합니다. Vision artifact는 bind 가능한 T1 embedding과 bind 가능한 primary/secondary T2 쌍 또는 명시적인 top-level `hil-only` mode라는 core composition 하한도 충족할 때만 사용할 수 있습니다. 호환되지 않는 vision artifact는 준비가 성공했다고 보고한 뒤 Core Runtime을 중지시키는 대신 canonical artifact로 fallback합니다. LLM Cost panel과 `query_llm_usage` chat capability는 local 및 deployed profile에서 이 measured reader를 공유합니다. 비용은 명시적
 deployment-to-family binding만 사용하며 누락된 family는 unpriced 상태로 둡니다. Conversation
 Assurance는 배포와 같은 local conversation 및 assessment store를 사용하고 deterministic terminal
 검사를 항상 실행합니다. Semantic review는 서로 다른 resolved model family가 둘 이상일 때만
