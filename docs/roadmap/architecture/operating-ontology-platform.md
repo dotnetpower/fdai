@@ -92,6 +92,19 @@ an exact reference. Compatibility checking returns `compatible`, `migration_requ
 `incompatible`. A release cannot replace a declaration in place when existing records would be
 reinterpreted.
 
+## Proof-carrying semantic interpretation
+
+Lexical matching, embeddings, and models can produce a `SemanticInterpretationCandidate`. The
+candidate pins its target type, ontology release, semantic catalog, normalized arguments, input,
+unresolved terms, source, and content digest, but it always has `candidate_only` authority.
+
+A candidate becomes a `VerifiedSemanticPlan` only when every term is resolved, its target matches
+the exact active release, its operation class matches a typed function or ActionType, and it cites
+an exact catalog record, promoted language surface, or operator-confirmation turn. The verified
+plan remains `execution_authority: false`. Query, derive, and validate plans can target only typed
+functions; an action interpretation can create only an ActionType-bound draft that re-enters the
+normal judgment, approval, execution, recovery, and audit path.
+
 ## Semantic interfaces and object sets
 
 `OntologyInterfaceType` is distinct from the existing `ActionInterface` safety flags. A semantic

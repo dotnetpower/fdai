@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 5ac8053a8969d5cfd29c8d185cf4926dde330ec6
-translation_revised: 2026-08-04
+translation_source_sha: cdd862f5fed6f5c6e8f1bd45a280bc65855c9a00
+translation_revised: 2026-08-05
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -94,6 +94,19 @@ type_ref:
 `Action`, `ActionRun`, ontology object, ontology link, audit record, generated plan은 exact reference를
 보존합니다. Compatibility check는 `compatible`, `migration_required`, `incompatible` 중 하나를
 반환합니다. 기존 record를 재해석하는 방식으로 release가 declaration을 in-place 교체할 수 없습니다.
+
+## Proof를 포함한 semantic interpretation
+
+Lexical matching, embedding 및 model은 `SemanticInterpretationCandidate`를 만들 수 있습니다.
+Candidate는 target type, ontology release, semantic catalog, normalized argument, input, unresolved
+term, source 및 content digest를 고정하지만 authority는 항상 `candidate_only`입니다.
+
+모든 term이 resolve되고, target이 exact active release와 일치하고, operation class가 typed function
+또는 ActionType과 일치하며, exact catalog record, promoted language surface 또는 operator-confirmation
+turn을 인용할 때만 candidate가 `VerifiedSemanticPlan`이 됩니다. Verified plan도
+`execution_authority: false`를 유지합니다. Query, derive 및 validate plan은 typed function만 target할
+수 있습니다. Action interpretation은 ActionType에 바인딩된 draft만 만들 수 있으며, 일반 judgment,
+approval, execution, recovery 및 audit 경로로 다시 진입합니다.
 
 ## Semantic interface와 object set
 
