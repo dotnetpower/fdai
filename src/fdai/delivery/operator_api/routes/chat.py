@@ -187,7 +187,10 @@ from fdai.delivery.operator_api.routes.chat_log_query import (
     needs_log_query_context,
 )
 from fdai.delivery.operator_api.routes.chat_presentation import (
-    adapt_answer_plan_for_presentation,
+    select_answer_presentation,
+)
+from fdai.delivery.operator_api.routes.chat_presentation_artifact import (
+    response_presentation_artifact,
 )
 from fdai.delivery.operator_api.routes.chat_prompt import (
     _AGENT_EVIDENCE_DIRECTIVE,
@@ -850,8 +853,8 @@ def make_chat_route(
                     with_correlation(_metering_correlation_id(user_id, session_id)),
                     with_invocation_scope(InvocationScope.OPERATOR_CHAT),
                 ):
-                    answer_plan = await await_with_interrupt(
-                        adapt_answer_plan_for_presentation(
+                    presentation_decision = await await_with_interrupt(
+                        select_answer_presentation(
                             backend=backend,
                             prompt=clean_prompt,
                             plan=answer_plan,
@@ -859,6 +862,11 @@ def make_chat_route(
                         ),
                         active_turn=active_turn,
                     )
+                    answer_plan = presentation_decision.answer_plan
+                    if presentation_decision.presentation_plan is not None:
+                        view_context["_presentation_plan"] = (
+                            presentation_decision.presentation_plan.to_dict()
+                        )
                 view_context["_answer_plan"] = answer_plan.to_dict()
             reply: dict[str, Any]
             if freshness_verification is not None:
@@ -1135,6 +1143,15 @@ def make_chat_route(
         )
         if chart_artifact is not None:
             enriched["chart_artifact"] = chart_artifact
+        presentation_artifact = response_presentation_artifact(
+            view_context,
+            answer_plan=answer_plan,
+            verification_status=verification.status,
+            evidence_refs=verification.evidence_refs,
+            locale=response_locale,
+        )
+        if presentation_artifact is not None:
+            enriched["presentation_artifact"] = presentation_artifact
         selected_freshness = response_evidence_freshness_context(view_context, freshness_context)
         if selected_freshness is not None:
             enriched["evidence_freshness_context"] = selected_freshness.to_dict()

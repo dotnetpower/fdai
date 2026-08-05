@@ -20,6 +20,9 @@ from fdai.delivery.operator_api.routes.chat_llm_usage_rendering import (
     response_llm_usage_analysis_context,
     response_llm_usage_chart_artifact,
 )
+from fdai.delivery.operator_api.routes.chat_presentation_artifact import (
+    response_presentation_artifact,
+)
 from fdai.delivery.operator_api.routes.chat_resource_result_context import (
     response_resource_result_context,
 )
@@ -319,6 +322,15 @@ def build_done_payload(
     )
     if chart_artifact is not None:
         payload["chart_artifact"] = chart_artifact
+    presentation_artifact = response_presentation_artifact(
+        enriched_context,
+        answer_plan=answer_plan,
+        verification_status=verification.status,
+        evidence_refs=verification.evidence_refs,
+        locale=locale if isinstance(locale, str) else None,
+    )
+    if presentation_artifact is not None:
+        payload["presentation_artifact"] = presentation_artifact
     if freshness_context is not None:
         payload["evidence_freshness_context"] = freshness_context.to_dict()
     if model_trace is not None:

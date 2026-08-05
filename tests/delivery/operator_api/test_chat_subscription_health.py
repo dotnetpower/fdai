@@ -486,6 +486,7 @@ def test_platform_health_skips_semantic_turn_planner() -> None:
 
     assert response.status_code == 200
     assert "server_subscription_health" in response.text
+    assert "presentation_artifact" in response.text
     assert "model fallback" not in response.text
     assert backend.calls == 0
 
@@ -571,6 +572,16 @@ def test_resource_health_state_cohort_renders_requested_zero_groups() -> None:
         assert (
             "type Microsoft.Compute/virtualMachines, resource group rg-batch" in payload["answer"]
         )
+        artifact = payload["presentation_artifact"]
+        assert artifact["schema_version"] == 1
+        assert [block["slot_id"] for block in artifact["blocks"]] == [
+            "overview",
+            "limitations",
+            "findings",
+            "coverage",
+            "evidence",
+        ]
+        assert artifact["evidence_refs"] == payload["verification"]["evidence_refs"]
     assert calls == len(prompts)
     assert backend.calls == 0
 
