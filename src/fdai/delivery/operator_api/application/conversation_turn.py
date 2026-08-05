@@ -75,7 +75,7 @@ class ConversationTurnInput:
         _require_text("conversation_id", self.conversation_id, _MAX_ID_CHARS)
         _require_text("request_id", self.request_id, _MAX_ID_CHARS)
         _require_text("correlation_id", self.correlation_id, _MAX_ID_CHARS)
-        _require_text("prompt", self.prompt, _MAX_PROMPT_CHARS)
+        _require_prompt(self.prompt)
         if self.response_locale is not None:
             _require_text("response_locale", self.response_locale, 64)
         if self.target_agent is not None:
@@ -517,3 +517,8 @@ def _validate_wire_identity(
 def _require_text(name: str, value: str, maximum: int) -> None:
     if not value or len(value) > maximum or any(character in value for character in "\x00\r\n"):
         raise ValueError(f"{name} MUST be non-empty, bounded, single-line text")
+
+
+def _require_prompt(value: str) -> None:
+    if not value or len(value) > _MAX_PROMPT_CHARS or "\x00" in value:
+        raise ValueError("prompt MUST be non-empty, bounded text")

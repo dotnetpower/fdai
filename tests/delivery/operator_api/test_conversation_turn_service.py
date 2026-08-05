@@ -273,6 +273,18 @@ def test_input_rejects_scalar_evidence_refs() -> None:
         )
 
 
+def test_input_accepts_bounded_multiline_prompt() -> None:
+    request = ConversationTurnInput(
+        principal_id="reader-1",
+        conversation_id="conversation-1",
+        request_id="request-1",
+        correlation_id="chat:reader-1:conversation-1",
+        prompt="show\nthe tables\nin database",
+    )
+
+    assert request.prompt == "show\nthe tables\nin database"
+
+
 def test_rejects_cyclic_or_excessively_nested_terminal_payload() -> None:
     service = ConversationTurnApplicationService()
     execution = service.start_turn(_request())
