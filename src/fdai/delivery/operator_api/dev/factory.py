@@ -51,14 +51,15 @@ from fdai.core.metering import (  # noqa: E402
 )
 from fdai.core.onboarding import EmptyResourceProbe  # noqa: E402
 from fdai.core.rbac.resolver import RoleResolver  # noqa: E402
+from fdai.delivery.auth import (  # noqa: E402  # noqa: E402
+    EntraJwtVerifier,
+    UnsafeClaimsExtractor,
+    build_authenticator,
+)
 from fdai.delivery.event_bus_multiplex import MultiplexedEventBus  # noqa: E402
 from fdai.delivery.operator_api.app.authoritative_proxy import (  # noqa: E402
     AUTHORITATIVE_OPERATOR_API_ENV,
     authoritative_read_proxy_from_env,
-)
-from fdai.delivery.operator_api.auth import (  # noqa: E402
-    UnsafeClaimsExtractor,
-    build_authenticator,
 )
 from fdai.delivery.operator_api.dev.app_config import (  # noqa: E402
     LocalAppConfigDependencies,
@@ -128,9 +129,6 @@ from fdai.delivery.operator_api.dev.runtime_wiring import (  # noqa: E402
     build_local_runtime_wiring,
 )
 from fdai.delivery.operator_api.dev.view_wiring import build_local_view_wiring  # noqa: E402
-from fdai.delivery.operator_api.entra_verifier import (  # noqa: E402
-    EntraJwtVerifier,
-)
 from fdai.delivery.operator_api.main import build_app  # noqa: E402
 from fdai.delivery.operator_api.postgres_read_model import PostgresConsoleReadModel  # noqa: E402
 from fdai.delivery.operator_api.production.config import build_prod_read_model  # noqa: E402

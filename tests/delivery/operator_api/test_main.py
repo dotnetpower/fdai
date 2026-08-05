@@ -90,10 +90,13 @@ def _build_stack(
     *,
     dev_mode: bool = False,
     extra_panels: tuple[Any, ...] = (),
+    verifier_override: Any | None = None,
 ) -> tuple[Starlette, InMemoryConsoleReadModel]:
     resolver = RoleResolver(group_mapping=_mapping())
     verifier: Any
-    if dev_mode:
+    if verifier_override is not None:
+        verifier = verifier_override
+    elif dev_mode:
         # In dev mode the verifier is never called; supply a fail-fast one so
         # the test proves it.
         def verifier(_: str) -> dict[str, Any]:
@@ -531,6 +534,28 @@ class TestAuthenticationGate:
         client = TestClient(app)
         response = client.get("/audit", headers={"authorization": f"Bearer {_no_role_token()}"})
         assert response.status_code == 403
+
+    @pytest.mark.parametrize("reason", ["expired", "wrong audience"])
+    def test_verified_token_failures_preserve_operator_error_envelope(
+        self,
+        no_dev_env: None,
+        reason: str,
+    ) -> None:
+        del no_dev_env
+
+        def reject(_token: str) -> dict[str, Any]:
+            raise AuthenticationError(reason)
+
+        app, _ = _build_stack(dev_mode=False, verifier_override=reject)
+        response = TestClient(app).get(
+            "/audit",
+            headers={"authorization": "Bearer rejected-token"},
+        )
+
+        assert (response.status_code, response.json()) == (
+            401,
+            {"error": {"status": 401, "message": reason}},
+        )
 
     def test_authentication_failure_is_logged_without_credentials(
         self,

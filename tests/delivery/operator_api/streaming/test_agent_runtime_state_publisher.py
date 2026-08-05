@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 import pytest
 
 from fdai.agents import AgentHandlerPhase
@@ -80,6 +82,20 @@ async def test_does_not_publish_agents_with_terminal_consumers() -> None:
     assert [payload["agent"] for payload in payloads] == ["Odin"]
 
 
+async def test_does_not_publish_unknown_health_entries() -> None:
+    events = runtime_agent_state_snapshot(
+        {
+            "consumers_live": 2,
+            "agent_health": {
+                "Odin": {"status": "ok"},
+                "Unknown": {"status": "ok"},
+            },
+        }
+    )
+
+    assert [event.agent for event in events] == ["Odin"]
+
+
 async def test_publishes_real_handler_lifecycle_to_shared_stage_topic() -> None:
     event_bus = InMemoryEventBus()
     observer = EventBusPantheonActivityObserver(event_bus=event_bus)
@@ -123,6 +139,41 @@ async def test_publishes_real_handler_lifecycle_to_shared_stage_topic() -> None:
     assert frames[1]["correlation_id"] is None
     assert all(frame["type"] == "agent.runtime-state" for frame in frames)
     assert all(frame["source"] == "runtime-observed" for frame in frames)
+
+
+@pytest.mark.parametrize(
+    "timestamp",
+    ["not-a-timestamp", "2026-07-24T04:00:00", "9999-01-01T00:00:00+00:00"],
+)
+async def test_handler_observer_replaces_untrusted_timestamps(timestamp: str) -> None:
+    event_bus = InMemoryEventBus()
+    observer = EventBusPantheonActivityObserver(event_bus=event_bus)
+
+    await observer.observe(
+        agent="Odin",
+        topic="object.verdict",
+        phase=AgentHandlerPhase.STARTED,
+        payload={"ts": timestamp},
+    )
+    frames = [
+        envelope.payload
+        async for envelope in event_bus.subscribe("aw.pipeline.stages", "test-reader")
+    ]
+
+    assert frames[0]["ts"] != timestamp
+    assert datetime.fromisoformat(frames[0]["ts"]).tzinfo is not None
+
+
+async def test_handler_observer_rejects_unknown_agent() -> None:
+    observer = EventBusPantheonActivityObserver(event_bus=InMemoryEventBus())
+
+    with pytest.raises(ValueError, match="unknown Pantheon agent"):
+        await observer.observe(
+            agent="Unknown",
+            topic="object.verdict",
+            phase=AgentHandlerPhase.STARTED,
+            payload={},
+        )
 
 
 @pytest.mark.parametrize("interval", [0.0, -1.0, float("nan"), float("inf")])

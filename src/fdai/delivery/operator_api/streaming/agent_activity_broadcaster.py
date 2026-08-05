@@ -35,19 +35,21 @@ import asyncio
 import logging
 import math
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from fdai.agents import PANTHEON_NAMES
+from fdai.delivery.agent_activity import (
+    DEFAULT_STAGE_TOPIC,
+    AgentState,
+    AgentStateEvent,
+)
 from fdai.delivery.operator_api.streaming.agent_activity_projection import (
     AgentActivityProjection,
     bound_projection,
     project_stage,
 )
-from fdai.delivery.operator_api.streaming.agent_activity_stream import (
-    AgentActivityPublisher,
-    AgentState,
-    AgentStateEvent,
-)
+from fdai.delivery.operator_api.streaming.agent_activity_stream import AgentActivityPublisher
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.stage_publisher import (
     ObservationSource,
@@ -58,10 +60,12 @@ from fdai.shared.providers.stage_publisher import (
 
 _LOGGER = logging.getLogger(__name__)
 
-DEFAULT_STAGE_TOPIC = "aw.pipeline.stages"
 DEFAULT_GROUP_ID = "fdai-agent-activity"
 DEFAULT_MAX_INCIDENTS = 256
 DEFAULT_RETRY_BACKOFF_SECONDS = 1.0
+_MAX_IDENTIFIER_CHARS = 1024
+_MAX_DETAIL_CHARS = 512
+_MAX_FUTURE_SKEW = timedelta(minutes=5)
 
 
 def parse_stage_event(payload: Mapping[str, Any]) -> StageEvent | None:
@@ -82,14 +86,20 @@ def parse_stage_event(payload: Mapping[str, Any]) -> StageEvent | None:
             and isinstance(ts_raw, str)
         ):
             return None
+        if not event_id or len(event_id) > _MAX_IDENTIFIER_CHARS:
+            return None
+        if not correlation_id or len(correlation_id) > _MAX_IDENTIFIER_CHARS:
+            return None
         stage = StageName(payload["stage"])
         phase = StagePhase(payload["phase"])
         ts = datetime.fromisoformat(ts_raw)
+        if ts.tzinfo is None or ts > datetime.now(UTC) + _MAX_FUTURE_SKEW:
+            return None
         detail = payload.get("detail", {})
         if not isinstance(detail, Mapping):
             return None
         error = payload.get("error")
-        if error is not None and not isinstance(error, str):
+        if error is not None and (not isinstance(error, str) or len(error) > _MAX_DETAIL_CHARS):
             return None
         source_raw = payload.get("source", ObservationSource.UNKNOWN.value)
         try:
@@ -121,12 +131,21 @@ def parse_runtime_state_event(payload: Mapping[str, Any]) -> AgentStateEvent | N
         state = AgentState(payload["state"])
         ts = payload["ts"]
         detail = payload.get("detail")
-        if not isinstance(agent, str) or not isinstance(ts, str):
+        if not isinstance(agent, str) or agent not in PANTHEON_NAMES:
             return None
-        if detail is not None and not isinstance(detail, str):
+        if not isinstance(ts, str):
+            return None
+        if detail is not None and (not isinstance(detail, str) or len(detail) > _MAX_DETAIL_CHARS):
+            return None
+        correlation_id = payload.get("correlation_id")
+        if correlation_id is not None and (
+            not isinstance(correlation_id, str)
+            or not correlation_id
+            or len(correlation_id) > _MAX_IDENTIFIER_CHARS
+        ):
             return None
         parsed_ts = datetime.fromisoformat(ts)
-        if parsed_ts.tzinfo is None:
+        if parsed_ts.tzinfo is None or parsed_ts > datetime.now(UTC) + _MAX_FUTURE_SKEW:
             return None
         source_raw = payload.get("source", ObservationSource.UNKNOWN.value)
         try:
@@ -137,6 +156,7 @@ def parse_runtime_state_event(payload: Mapping[str, Any]) -> AgentStateEvent | N
             agent=agent,
             state=state,
             ts=ts,
+            correlation_id=correlation_id,
             detail=detail,
             source=source,
         )

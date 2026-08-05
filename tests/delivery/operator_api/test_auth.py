@@ -11,7 +11,7 @@ import pytest
 from fdai.core.rbac.enforcer import RoleEnforcer, RoleRequiredError
 from fdai.core.rbac.resolver import GroupMapping, RoleResolver
 from fdai.core.rbac.roles import Role
-from fdai.delivery.operator_api.auth import (
+from fdai.delivery.auth import (
     AuthenticationError,
     Authenticator,
     UnsafeClaimsExtractor,
@@ -184,6 +184,13 @@ class TestBuildAuthenticator:
         )
         assert isinstance(auth, Authenticator)
         assert isinstance(auth.enforcer, RoleEnforcer)
+
+    def test_operator_api_compatibility_path_preserves_symbol_identity(self) -> None:
+        from fdai.delivery.operator_api import auth as compatibility
+
+        assert compatibility.AuthenticationError is AuthenticationError
+        assert compatibility.Authenticator is Authenticator
+        assert compatibility.build_authenticator is build_authenticator
 
 
 class TestUnsafeClaimsExtractor:

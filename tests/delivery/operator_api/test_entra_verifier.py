@@ -1,6 +1,6 @@
 """Generic Entra JWT verifier - real RS256 signing + JWKS injection.
 
-Exercises :class:`fdai.delivery.operator_api.entra_verifier.EntraJwtVerifier`
+Exercises :class:`fdai.delivery.auth.EntraJwtVerifier`
 against genuinely signed tokens (a per-test RSA keypair) so the crypto
 path (signature, ``aud``, ``iss``, ``exp``/``nbf``, required claims) is
 validated for real, not mocked away. The JWKS client is a small fake that
@@ -16,8 +16,8 @@ import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from fdai.delivery.operator_api.auth import AuthenticationError
-from fdai.delivery.operator_api.entra_verifier import (
+from fdai.delivery.auth import (
+    AuthenticationError,
     EntraJwtVerifier,
     EntraVerifierConfigError,
 )

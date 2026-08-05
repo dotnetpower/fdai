@@ -64,6 +64,8 @@ _IMPORT_SURFACE_CLASSIFICATIONS = frozenset(
         "public-delivery-contract",
         "public-deployment-entrypoint",
         "public-facade",
+        "public-compatibility-facade",
+        "shared-delivery-contract",
         "test-and-local-only",
         "test-only-compatibility-debt",
         "transitional-cross-service",
@@ -233,6 +235,14 @@ def test_module_inventory_covers_current_operator_api_tree() -> None:
         (entry["module"], entry.get("consumer_scope")) for entry in inventory["import_surfaces"]
     }
     assert len(import_surface_keys) == len(inventory["import_surfaces"])
+    required_boundary_surfaces = {
+        "fdai.delivery.auth",
+        "fdai.delivery.agent_activity",
+        "fdai.delivery.operator_api.auth",
+        "fdai.delivery.operator_api.entra_verifier",
+        "fdai.delivery.operator_api.streaming.agent_runtime_state_publisher",
+    }
+    assert required_boundary_surfaces <= {entry["module"] for entry in inventory["import_surfaces"]}
     assert all(
         _IMPORT_SURFACE_REQUIRED_KEYS <= set(entry) <= _IMPORT_SURFACE_KEYS
         for entry in inventory["import_surfaces"]

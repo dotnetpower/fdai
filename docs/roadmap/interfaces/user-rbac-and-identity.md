@@ -417,7 +417,7 @@ The API validates every request as follows (deny by default):
    audit and no-self-approval use `oid`.
 
 Steps 1-4 are implemented upstream by the generic
-[`EntraJwtVerifier`](../../../src/fdai/delivery/operator_api/entra_verifier.py) (PyJWT +
+[`EntraJwtVerifier`](../../../src/fdai/delivery/auth/entra.py) (PyJWT +
 `PyJWKClient`); steps 5-6 by [`RoleResolver`](../../../src/fdai/core/rbac/resolver.py). The
 verifier is customer-agnostic - a fork supplies only values, via env:
 

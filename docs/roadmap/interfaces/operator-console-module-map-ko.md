@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 37c0fcd0c14c57712c0ef33ddef9bcd9a4e619d5
+translation_source_sha: 7cbc1327cd597ea895605057addbc302c9a9ab0e
 translation_revised: 2026-08-05
 ---
 # Operator Console Module Map and Boundaries
@@ -31,15 +31,18 @@ envelope를 고정합니다. 의도적인 기본 route 추가는 같은 변경�
 | `streaming/` | Read-only SSE transport, redaction, fanout 및 runtime projection | Versioned relay 및 replay contract가 준비될 때까지 유지합니다. |
 
 `fdai.delivery.operator_api.main`은 public app facade입니다. `read_model`은 검토된 replacement가 준비될
-때까지 public delivery contract로 유지합니다. `auth`는 transitional cross-service dependency입니다.
+때까지 public delivery contract로 유지합니다. `fdai.delivery.auth`는 framework-neutral bearer 및 Entra
+verification을 소유하고 `operator_api.auth`와 `operator_api.entra_verifier`는 compatibility facade로만
+유지됩니다.
 `main` facade의 `busy_input_runtime` re-export는 새 runtime ownership claim이 아닌 transitional public
 seam입니다.
 현재 fork 및 reporting guide가 직접 import하므로 `routes.panels`와 `routes.reporting`은 transitional
 public extension seam으로 유지합니다. 그 외 개별 `routes.*` module은 internal implementation path입니다.
-Migration에서는 분류된 compatibility 필요가 있을 때만 module별 forwarding shim을 사용합니다. Runtime 및
-provisioning의 `streaming.*` import는 issue 68의 scoped transitional cross-service debt로 유지합니다.
-Inventory는 request binding, required sequence field, error-envelope parity 및 chat SSE producer frame cap을
-issue 71 wire debt로 별도 기록합니다.
+Migration에서는 분류된 compatibility 필요가 있을 때만 module별 forwarding shim을 사용합니다.
+Runtime-owned agent-state record 및 event-bus publication은 `fdai.delivery.agent_activity`에 있으므로
+headless runtime은 Operator API streaming implementation을 import하지 않습니다. Provisioning의
+`streaming.provision_stream` compatibility는 별도로 분류합니다. Inventory는 request binding, required
+sequence field, error-envelope parity 및 chat SSE producer frame cap을 issue 71 wire debt로 별도 기록합니다.
 
 이 이동 동안 PostgreSQL과 Alembic은 shared migration authority로 유지됩니다. Module 또는 route migration은
 두 번째 schema owner를 만들지 않습니다. Service-owned schema 및 migration lane에는 별도 검토된 boundary가

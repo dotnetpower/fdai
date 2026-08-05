@@ -151,13 +151,33 @@
     },
     {
       "module": "fdai.delivery.operator_api.auth",
-      "classification": "transitional-cross-service",
-      "migration": "issue 68 moves framework-neutral authentication ownership"
+      "classification": "public-compatibility-facade",
+      "migration": "re-export fdai.delivery.auth symbols while published callers migrate"
+    },
+    {
+      "module": "fdai.delivery.operator_api.entra_verifier",
+      "classification": "public-compatibility-facade",
+      "migration": "re-export fdai.delivery.auth Entra verifier symbols while published callers migrate"
+    },
+    {
+      "module": "fdai.delivery.operator_api.streaming.agent_runtime_state_publisher",
+      "classification": "public-compatibility-facade",
+      "migration": "re-export fdai.delivery.agent_activity publisher symbols while published callers migrate"
+    },
+    {
+      "module": "fdai.delivery.auth",
+      "classification": "shared-delivery-contract",
+      "migration": "shared bearer and Entra authentication for independently hosted human APIs"
+    },
+    {
+      "module": "fdai.delivery.agent_activity",
+      "classification": "shared-delivery-contract",
+      "migration": "shared runtime-owned agent-state records and event-bus publication"
     },
     {
       "module": "fdai.delivery.operator_api.routes.busy_input_runtime",
       "classification": "transitional-public-reexport",
-      "migration": "preserve the main facade export until issue 68 defines a neutral runtime contract"
+      "migration": "preserve the main facade export pending a separately scoped neutral runtime contract"
     },
     {
       "module": "fdai.delivery.operator_api.routes.panels",
@@ -179,24 +199,6 @@
       "consumer_scope": "tests/**",
       "classification": "test-only-compatibility-debt",
       "migration": "record expected test churn before moving a route family"
-    },
-    {
-      "module": "fdai.delivery.operator_api.streaming.agent_activity_stream",
-      "consumer_scope": "src/fdai/runtime/bootstrap.py",
-      "classification": "transitional-cross-service",
-      "migration": "issue 68 moves runtime-owned records out of the Operator API implementation"
-    },
-    {
-      "module": "fdai.delivery.operator_api.streaming.agent_runtime_state_publisher",
-      "consumer_scope": "src/fdai/runtime/bootstrap.py",
-      "classification": "transitional-cross-service",
-      "migration": "issue 68 separates runtime publication from HTTP stream ownership"
-    },
-    {
-      "module": "fdai.delivery.operator_api.streaming.agent_activity_broadcaster",
-      "consumer_scope": "src/fdai/runtime/bootstrap.py",
-      "classification": "transitional-cross-service",
-      "migration": "issue 68 moves runtime fanout behind a neutral publication contract"
     },
     {
       "module": "fdai.delivery.operator_api.streaming.provision_stream",

@@ -2,7 +2,7 @@
 
 The upstream dev factory lives at
 ``src/fdai/delivery/operator_api/dev/local.py`` and boots
-:class:`~fdai.delivery.operator_api.auth.UnsafeClaimsExtractor` +
+:class:`~fdai.delivery.auth.UnsafeClaimsExtractor` +
 :class:`~fdai.delivery.operator_api.read_model.InMemoryConsoleReadModel`. That
 harness is never a production surface (its build-time tripwire refuses to
 boot outside ``FDAI_OPERATOR_API_DEV_MODE=1``).
@@ -11,7 +11,7 @@ This module is the counterpart: the fork's composition root serves it
 with any ASGI server (``uvicorn fdai.delivery.operator_api.prod:app``).
 It composes the real production wiring from environment only:
 
-- :class:`~fdai.delivery.operator_api.entra_verifier.EntraJwtVerifier` for
+- :class:`~fdai.delivery.auth.EntraJwtVerifier` for
   bearer-token validation (JWKS + audience + issuer + expiry);
 - :class:`~fdai.core.rbac.resolver.GroupMapping` +
   :class:`~fdai.core.rbac.resolver.RoleResolver` for the ``roles`` claim
@@ -32,7 +32,7 @@ Required (fail-fast startup):
 - ``FDAI_DATABASE_URL`` - psycopg 3 URL,
   ``postgresql+psycopg://user:password@host:5432/db``.
 - ``FDAI_ENTRA_TENANT_ID`` / ``FDAI_API_AUDIENCE`` - from
-  :class:`~fdai.delivery.operator_api.entra_verifier.EntraJwtVerifier`.
+    :class:`~fdai.delivery.auth.EntraJwtVerifier`.
 - ``FDAI_RBAC_{READERS,CONTRIBUTORS,APPROVERS,OWNERS,BREAK_GLASS}_GROUP_ID``.
 
 Optional (respect defaults):
@@ -196,7 +196,7 @@ def build_prod_app(
       (:class:`ProdOperatorApiConfigError`).
     - Wires the production :class:`EntraJwtVerifier` (JWKS + ``aud`` +
       ``iss`` + ``exp``) - never the dev-mode
-      :class:`~fdai.delivery.operator_api.auth.UnsafeClaimsExtractor`.
+    :class:`~fdai.delivery.auth.UnsafeClaimsExtractor`.
     - Binds :class:`PostgresConsoleReadModel` on the persisted schema.
     - ``dev_mode`` stays ``False``; ``build_app`` enforces the extra
       staging/prod guards.

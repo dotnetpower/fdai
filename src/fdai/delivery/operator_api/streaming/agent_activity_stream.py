@@ -60,7 +60,7 @@ Producers
 from __future__ import annotations
 
 import json
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Protocol, runtime_checkable
@@ -68,8 +68,12 @@ from typing import Any, Protocol, runtime_checkable
 from starlette.requests import Request
 from starlette.routing import Route
 
+from fdai.delivery.agent_activity import (
+    AgentState,
+    AgentStateEvent,
+    runtime_agent_state_snapshot,
+)
 from fdai.delivery.operator_api.streaming.live_stream import make_live_stream_route
-from fdai.delivery.operator_api.streaming.sse_protocol import iso_ts_utc
 from fdai.shared.providers.sse import SseEvent, SseSink
 from fdai.shared.providers.stage_publisher import ObservationSource
 
@@ -82,34 +86,6 @@ DEFAULT_ROUTE_PATH = "/agents/stream"
 # `EventSource.onmessage` receives every frame; the semantic kind is carried
 # inside the JSON payload's `type` field.
 _SSE_EVENT_NAME = "message"
-
-
-class AgentState(StrEnum):
-    """What a pantheon agent is doing right now (console status ring)."""
-
-    IDLE = "idle"
-    """No active work - resting."""
-
-    WATCHING = "watching"
-    """Sensing agents (Huginn / Heimdall) on standby watch."""
-
-    COLLECTING = "collecting"
-    """Ingesting / correlating signals for an event."""
-
-    ANALYZING = "analyzing"
-    """Root-cause reasoning (verify / RCA)."""
-
-    DECIDING = "deciding"
-    """Issuing a verdict at the risk gate."""
-
-    EXECUTING = "executing"
-    """Applying an approved action (Thor / Vidar)."""
-
-    APPROVING = "approving"
-    """A human approver (Var) is reviewing an HIL item."""
-
-    AUDITING = "auditing"
-    """Writing the append-only audit record (Saga)."""
 
 
 class TicketStatus(StrEnum):
@@ -132,32 +108,6 @@ def _sse(payload: dict[str, Any]) -> SseEvent:
     """Encode a semantic payload as one SSE frame (event name ``message``)."""
 
     return SseEvent(id=None, event=_SSE_EVENT_NAME, data=json.dumps(payload))
-
-
-@dataclass(frozen=True, slots=True)
-class AgentStateEvent:
-    """One agent's status transition. Wire ``type = "agent.state"``."""
-
-    agent: str
-    state: AgentState
-    ts: str
-    correlation_id: str | None = None
-    detail: str | None = None
-    source: ObservationSource = ObservationSource.UNKNOWN
-
-    def to_payload(self) -> dict[str, Any]:
-        return {
-            "type": "agent.state",
-            "agent": self.agent,
-            "state": self.state.value,
-            "ts": self.ts,
-            "correlation_id": self.correlation_id,
-            "detail": self.detail,
-            "source": self.source.value,
-        }
-
-    def to_sse_event(self) -> SseEvent:
-        return _sse(self.to_payload())
 
 
 @dataclass(frozen=True, slots=True)
@@ -323,35 +273,6 @@ def make_agent_activity_stream_route(
             if snapshot_factory is not None
             else None
         ),
-    )
-
-
-def runtime_agent_state_snapshot(health: Mapping[str, Any]) -> tuple[AgentStateEvent, ...]:
-    """Project initialized, healthy pantheon agents into resting SSE states."""
-    if int(health.get("consumers_live") or 0) <= 0:
-        return ()
-    agent_health = health.get("agent_health")
-    if not isinstance(agent_health, Mapping):
-        return ()
-    unavailable = {
-        str(agent) for agent in health.get("unavailable_agents", ()) if isinstance(agent, str)
-    }
-    ts = iso_ts_utc()
-    sensing_agents = {"Huginn", "Heimdall"}
-    return tuple(
-        AgentStateEvent(
-            agent=str(agent),
-            state=AgentState.WATCHING if agent in sensing_agents else AgentState.IDLE,
-            ts=ts,
-            detail="Runtime agent initialized",
-            source=ObservationSource.RUNTIME_OBSERVED,
-        )
-        for agent, snapshot in agent_health.items()
-        if (
-            isinstance(snapshot, Mapping)
-            and snapshot.get("status") != "error"
-            and agent not in unavailable
-        )
     )
 
 

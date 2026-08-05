@@ -29,16 +29,19 @@ An intentional default route addition updates this reviewed baseline in the same
 | `streaming/` | Read-only SSE transport, redaction, fanout, and runtime projection | Retain until versioned relay and replay contracts exist. |
 
 `fdai.delivery.operator_api.main` is the public app facade. `read_model` remains a public delivery
-contract until a reviewed replacement exists. `auth` is a transitional cross-service dependency.
+contract until a reviewed replacement exists. `fdai.delivery.auth` owns framework-neutral bearer
+and Entra verification; `operator_api.auth` and `operator_api.entra_verifier` are compatibility
+facades only.
 The `main` facade's `busy_input_runtime` re-export is a transitional public seam rather than a new
 runtime ownership claim.
 `routes.panels` and `routes.reporting` remain transitional public extension seams because current
 fork and reporting guidance imports them directly. Other individual `routes.*` modules are
 internal implementation paths; a migration uses a per-module forwarding shim only when a
-classified compatibility need exists. Runtime and provisioning imports of `streaming.*` remain
-scoped transitional cross-service debt for issue 68. The inventory separately records issue 71
-wire debts for request binding, required sequence fields, error-envelope parity, and the chat SSE
-producer frame cap.
+classified compatibility need exists. Runtime-owned agent-state records and event-bus publication
+live in `fdai.delivery.agent_activity`, so the headless runtime imports no Operator API streaming
+implementation. Provisioning's `streaming.provision_stream` compatibility remains classified
+separately. The inventory also records issue 71 wire debts for request binding, required sequence
+fields, error-envelope parity, and the chat SSE producer frame cap.
 
 PostgreSQL and Alembic remain the shared migration authority during these moves. A module or route
 migration does not create a second schema owner; service-owned schemas and migration lanes require

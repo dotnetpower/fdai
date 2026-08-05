@@ -36,14 +36,13 @@ from fdai.core.operational_planning import (
 )
 from fdai.core.readiness import AuthorityCeiling
 from fdai.core.readiness.coordinator import _TRANSITION_TOPIC
-from fdai.delivery.agent_introspection_bus import AGENT_INTROSPECTION_TOPICS
-from fdai.delivery.operator_api.streaming.agent_activity_stream import (
-    runtime_agent_state_snapshot,
-)
-from fdai.delivery.operator_api.streaming.agent_runtime_state_publisher import (
+from fdai.delivery.agent_activity import (
+    DEFAULT_STAGE_TOPIC,
     AgentRuntimeStatePublisher,
     EventBusPantheonActivityObserver,
+    runtime_agent_state_snapshot,
 )
+from fdai.delivery.agent_introspection_bus import AGENT_INTROSPECTION_TOPICS
 from fdai.delivery.persistence.postgres_case_history import (
     PostgresCaseHistoryMetadataStore,
     PostgresCaseHistoryMetadataStoreConfig,
@@ -283,9 +282,6 @@ async def _run() -> int:
                     ),
                 )
             operational_bus = _operational_event_bus(bus, auxiliary_bus)
-            from fdai.delivery.operator_api.streaming.agent_activity_broadcaster import (
-                DEFAULT_STAGE_TOPIC,
-            )
             from fdai.shared.streaming.stage_publisher import EventBusStagePublisher
 
             stage_topic = os.environ.get("FDAI_STAGE_TOPIC", "").strip() or DEFAULT_STAGE_TOPIC

@@ -66,6 +66,7 @@ def build_production_runtime(
     hil_secret = env.get(_env.HIL_SECRET_ENV, "").strip()
     kafka_bootstrap = env.get("FDAI_KAFKA_BOOTSTRAP_SERVERS", "").strip()
     if hil_secret or kafka_bootstrap:
+        from fdai.delivery.agent_activity import DEFAULT_STAGE_TOPIC
         from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
         from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
         from fdai.delivery.chatops.hil_decision import (
@@ -78,7 +79,6 @@ def build_production_runtime(
             DEFAULT_GROUP_ID as DEFAULT_AGENT_ACTIVITY_GROUP_ID,
         )
         from fdai.delivery.operator_api.streaming.agent_activity_broadcaster import (
-            DEFAULT_STAGE_TOPIC,
             AgentActivityBroadcaster,
         )
         from fdai.delivery.operator_api.streaming.agent_activity_stream import (

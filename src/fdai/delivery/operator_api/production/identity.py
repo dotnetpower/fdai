@@ -8,9 +8,8 @@ from dataclasses import dataclass
 import httpx
 
 from fdai.core.rbac.resolver import GroupMapping, RoleResolver
+from fdai.delivery.auth import Authenticator, EntraJwtVerifier, build_authenticator
 from fdai.delivery.identity import EntraHumanIdentityDirectory
-from fdai.delivery.operator_api.auth import Authenticator, build_authenticator
-from fdai.delivery.operator_api.entra_verifier import EntraJwtVerifier
 from fdai.delivery.operator_api.production.config import (
     ProdOperatorApiConfigError,
     _build_group_mapping,

@@ -13,13 +13,13 @@ from fdai.core.document_ingestion import DocumentIngestionService, DocumentInges
 from fdai.core.rbac.resolver import GroupMapping, RoleResolver
 from fdai.core.stewardship.handover_bootstrap import HandoverBootstrapper
 from fdai.core.tiers.t1_lightweight.testing import DeterministicEmbeddingModel
+from fdai.delivery.auth import UnsafeClaimsExtractor, build_authenticator
 from fdai.delivery.document_index import InMemoryEmbeddingDocumentIndex
 from fdai.delivery.ingestion_gateway.handover import (
     HandoverBootstrapConsumer,
     InMemoryHandoverDraftStore,
 )
 from fdai.delivery.ingestion_gateway.main import IngestionGatewayConfig, build_app
-from fdai.delivery.operator_api.auth import UnsafeClaimsExtractor, build_authenticator
 from fdai.delivery.persistence.postgres_document_ingestion import (
     PostgresDocumentMetadataStore,
     PostgresDocumentMetadataStoreConfig,

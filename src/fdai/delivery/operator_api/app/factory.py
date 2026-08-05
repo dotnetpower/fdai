@@ -40,6 +40,10 @@ from starlette.routing import BaseRoute
 from fdai.core.rbac.enforcer import RoleRequiredError
 from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import Role
+from fdai.delivery.auth import (
+    AuthenticationError,
+    Authenticator,
+)
 from fdai.delivery.operator_api.app.config import OperatorApiConfig
 from fdai.delivery.operator_api.app.lifespan import build_lifespan
 from fdai.delivery.operator_api.app.middleware import (
@@ -47,10 +51,6 @@ from fdai.delivery.operator_api.app.middleware import (
 )
 from fdai.delivery.operator_api.app.projection_routes import append_projection_routes
 from fdai.delivery.operator_api.app.stream_routes import append_stream_routes
-from fdai.delivery.operator_api.auth import (
-    AuthenticationError,
-    Authenticator,
-)
 from fdai.delivery.operator_api.read_model import ConsoleReadModel
 from fdai.delivery.operator_api.routes import auxiliary_registration, dynamic_views
 from fdai.delivery.operator_api.routes.conversation_delivery import ConversationDeliveryPanel

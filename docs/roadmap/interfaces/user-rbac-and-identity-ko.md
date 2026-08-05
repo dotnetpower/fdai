@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 3b243ce68356c2aa9b99a242489b42ed99cb3186
-translation_revised: 2026-08-02
+translation_source_sha: c6ab05ddb1c75e78088e92ad99319b6ca6fadae9
+translation_revised: 2026-08-05
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -405,7 +405,7 @@ API는 다음처럼 모든 요청 검증(deny by default):
    자기승인 없음은 `oid` 사용.
 
 1-4단계는 제네릭
-[`EntraJwtVerifier`](../../../src/fdai/delivery/operator_api/entra_verifier.py) (PyJWT +
+[`EntraJwtVerifier`](../../../src/fdai/delivery/auth/entra.py) (PyJWT +
 `PyJWKClient`)가 upstream에서 구현; 5-6단계는
 [`RoleResolver`](../../../src/fdai/core/rbac/resolver.py)가 구현. 이 verifier는
 customer-agnostic - 포크는 값만 env로 공급:

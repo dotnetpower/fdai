@@ -105,9 +105,20 @@ class TestParseStageEvent:
         payload["ts"] = "2026-07-12T09:00:00"  # no tz offset
         assert parse_stage_event(payload) is None
 
+    def test_future_timestamp_is_none(self) -> None:
+        payload = _stage_dict()
+        payload["ts"] = "9999-01-01T00:00:00+00:00"
+        assert parse_stage_event(payload) is None
+
     def test_non_string_id_is_none(self) -> None:
         payload = _stage_dict()
         payload["event_id"] = 42
+        assert parse_stage_event(payload) is None
+
+    @pytest.mark.parametrize("field", ["event_id", "correlation_id"])
+    def test_oversized_identifier_is_none(self, field: str) -> None:
+        payload = _stage_dict()
+        payload[field] = "x" * 1025
         assert parse_stage_event(payload) is None
 
     def test_failed_without_error_violates_invariant_and_is_none(self) -> None:
@@ -125,6 +136,10 @@ class TestParseStageEvent:
     def test_non_string_error_is_none(self) -> None:
         payload = _stage_dict()
         payload["error"] = 123  # non-string error field
+        assert parse_stage_event(payload) is None
+
+    def test_oversized_error_is_none(self) -> None:
+        payload = _stage_dict(phase=StagePhase.FAILED, error="x" * 513)
         assert parse_stage_event(payload) is None
 
     def test_legacy_and_unknown_sources_normalize_without_dropping_frame(self) -> None:
@@ -164,6 +179,32 @@ class TestParseStageEvent:
             "state": "idle",
             "ts": _TS.isoformat(),
             "detail": 1,
+        },
+        {
+            "type": "agent.runtime-state",
+            "agent": "Unknown",
+            "state": "idle",
+            "ts": _TS.isoformat(),
+        },
+        {
+            "type": "agent.runtime-state",
+            "agent": "Odin",
+            "state": "idle",
+            "ts": "9999-01-01T00:00:00+00:00",
+        },
+        {
+            "type": "agent.runtime-state",
+            "agent": "Odin",
+            "state": "idle",
+            "ts": _TS.isoformat(),
+            "detail": "x" * 513,
+        },
+        {
+            "type": "agent.runtime-state",
+            "agent": "Odin",
+            "state": "idle",
+            "ts": _TS.isoformat(),
+            "correlation_id": "x" * 1025,
         },
     ],
 )
@@ -222,6 +263,7 @@ async def test_consumes_runtime_state_snapshots_from_stage_stream() -> None:
             "agent": "Odin",
             "state": "idle",
             "ts": _TS.isoformat(),
+            "correlation_id": "corr-runtime",
             "detail": "Runtime agent initialized",
             "source": "runtime-observed",
         },
@@ -240,6 +282,7 @@ async def test_consumes_runtime_state_snapshots_from_stage_stream() -> None:
             agent="Odin",
             state=AgentState.IDLE,
             ts=_TS.isoformat(),
+            correlation_id="corr-runtime",
             detail="Runtime agent initialized",
             source=ObservationSource.RUNTIME_OBSERVED,
         )

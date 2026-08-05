@@ -14,6 +14,7 @@ from fdai.agents import OWNED_OBJECT_TOPICS
 from fdai.core.document_ingestion import DocumentIngestionService, DocumentIngestionWorker
 from fdai.core.rbac.resolver import GroupMapping, RoleResolver
 from fdai.core.stewardship.handover_bootstrap import HandoverBootstrapper
+from fdai.delivery.auth import EntraJwtVerifier, build_authenticator
 from fdai.delivery.azure.document_ocr import (
     AzureDocumentIntelligenceOcr,
     AzureDocumentOcrConfig,
@@ -43,8 +44,6 @@ from fdai.delivery.ingestion_gateway.main import IngestionGatewayConfig, build_a
 from fdai.delivery.ingestion_gateway.pantheon_events import EventBusDocumentIngestionIntake
 from fdai.delivery.ingestion_gateway.worker_service import DocumentIngestionEventConsumer
 from fdai.delivery.malware import ClamAvMalwareScanner, ClamAvScannerConfig
-from fdai.delivery.operator_api.auth import build_authenticator
-from fdai.delivery.operator_api.entra_verifier import EntraJwtVerifier
 from fdai.delivery.persistence.postgres import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_document_ingestion import (
     PostgresDocumentMetadataStore,

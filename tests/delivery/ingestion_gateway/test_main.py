@@ -12,9 +12,9 @@ from starlette.testclient import TestClient
 from fdai.core.document_ingestion import DocumentIngestionService, DocumentIngestionWorker
 from fdai.core.rbac.enforcer import RoleEnforcer
 from fdai.core.rbac.resolver import GroupMapping, RoleResolver
+from fdai.delivery.auth import AuthenticationError, Authenticator
 from fdai.delivery.ingestion_gateway import IngestionGatewayConfig, build_app
 from fdai.delivery.ingestion_gateway import dev as _dev
-from fdai.delivery.operator_api.auth import Authenticator
 from fdai.shared.contracts import IngestionCapabilities, SourceStorageMode
 from fdai.shared.providers.local.document_ingestion import (
     SignatureProtectionInspector,
@@ -41,10 +41,13 @@ def _authenticator() -> Authenticator:
     )
 
     def verify(token: str):
+        if token in {"expired", "wrong-audience"}:
+            raise AuthenticationError(token)
         role = "Reader" if token in {"reader", "group-reader"} else "Contributor"
+        roles = [] if token == "no-role" else [role]
         return {
             "oid": token,
-            "roles": [role],
+            "roles": roles,
             "groups": ["reader-group"] if token == "group-reader" else [],
         }
 
@@ -114,13 +117,61 @@ def test_production_gateway_requires_auth_and_contributor_role() -> None:
     health = client.get("/healthz")
     assert health.status_code == 200
     assert health.json() == {"status": "ok"}
-    assert client.get("/ingestion/capabilities").status_code == 401
+    missing = client.get("/ingestion/capabilities")
+    assert (missing.status_code, missing.json()) == (
+        401,
+        {"error": "unauthorized", "message": "authentication is required"},
+    )
     response = client.post(
         "/ingestion/uploads",
         headers={"authorization": "Bearer reader"},
         json=_body(b"text"),
     )
-    assert response.status_code == 403
+    assert (response.status_code, response.json()) == (
+        403,
+        {"error": "forbidden", "message": "document access is denied"},
+    )
+
+
+@pytest.mark.parametrize(
+    ("authorization", "expected_status", "expected_body"),
+    [
+        (
+            "Basic malformed",
+            401,
+            {"error": "unauthorized", "message": "authentication is required"},
+        ),
+        (
+            "Bearer expired",
+            401,
+            {"error": "unauthorized", "message": "authentication is required"},
+        ),
+        (
+            "Bearer wrong-audience",
+            401,
+            {"error": "unauthorized", "message": "authentication is required"},
+        ),
+        (
+            "Bearer no-role",
+            403,
+            {"error": "forbidden", "message": "document access is denied"},
+        ),
+    ],
+)
+def test_ingestion_auth_failures_preserve_surface_envelopes(
+    authorization: str,
+    expected_status: int,
+    expected_body: dict[str, str],
+) -> None:
+    service, worker = _stack()
+    client = TestClient(build_app(authenticator=_authenticator(), service=service, worker=worker))
+
+    response = client.get(
+        "/ingestion/capabilities",
+        headers={"authorization": authorization},
+    )
+
+    assert (response.status_code, response.json()) == (expected_status, expected_body)
 
 
 def test_stewardship_webhook_uses_signed_handler_without_entra_auth() -> None:
