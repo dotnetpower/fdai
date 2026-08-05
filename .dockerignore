@@ -14,7 +14,10 @@ resolved-models*.json
 # re-include exception below actually applies.
 tests/*
 !tests/scenarios/
-docs/
+docs/*
+!docs/internals/
+docs/internals/*
+!docs/internals/sregym-absorption-ledger.json
 site/
 infra/
 console/

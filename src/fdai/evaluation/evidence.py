@@ -27,6 +27,17 @@ class EvaluationEvidenceCollector(Protocol):
     ) -> Mapping[str, Any]: ...
 
 
+class EvaluationEvidenceObserver(Protocol):
+    """Observe collected evidence before judgment without changing task authority."""
+
+    async def observe(
+        self,
+        *,
+        task: EvaluationTask,
+        evidence: Mapping[str, Any],
+    ) -> None: ...
+
+
 class NoopEvaluationEvidenceCollector:
     """Backward-compatible collector used when no evidence providers are bound."""
 
@@ -38,6 +49,18 @@ class NoopEvaluationEvidenceCollector:
     ) -> Mapping[str, Any]:
         del task, allowed_capabilities
         return {}
+
+
+class NoopEvaluationEvidenceObserver:
+    """Default observer that records no projection or side effect."""
+
+    async def observe(
+        self,
+        *,
+        task: EvaluationTask,
+        evidence: Mapping[str, Any],
+    ) -> None:
+        del task, evidence
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +131,8 @@ def _encode(value: object) -> bytes:
 __all__ = [
     "BoundedEvaluationEvidenceCollector",
     "EvaluationEvidenceCollector",
+    "EvaluationEvidenceObserver",
     "EvaluationEvidenceProvider",
     "NoopEvaluationEvidenceCollector",
+    "NoopEvaluationEvidenceObserver",
 ]

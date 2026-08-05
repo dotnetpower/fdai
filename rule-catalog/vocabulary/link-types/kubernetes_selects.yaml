@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: kubernetes_selects
+version: "1.0.0"
+from_type: Resource
+to_type: Resource
+cardinality: many_to_many
+description: Complete exact-label Kubernetes Service selector match to an observed Pod.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:kubernetes_selects@1.0.0
+  content_hash: sha256:4791966f338a4b3af869fb4bbcd11a92dd9b1e0d1f4ad4848a039741144a68fc
+  license: MIT
+  retrieved_at: "2026-08-05T00:00:00Z"

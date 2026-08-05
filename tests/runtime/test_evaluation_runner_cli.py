@@ -19,7 +19,10 @@ from fdai.shared.config.models import LlmMode
 
 def test_kubernetes_config_requires_complete_exact_scope(tmp_path: Path) -> None:
     kubeconfig = tmp_path / "config"
-    kubeconfig.write_text("synthetic", encoding="utf-8")
+    kubeconfig.write_text(
+        "contexts:\n- name: example-context\n  context:\n    cluster: example-cluster\n",
+        encoding="utf-8",
+    )
     config = _kubernetes_config(
         {
             "FDAI_EVALUATION_KUBECONFIG": str(kubeconfig),
@@ -32,6 +35,16 @@ def test_kubernetes_config_requires_complete_exact_scope(tmp_path: Path) -> None
 
     with pytest.raises(ValueError, match="are required"):
         _kubernetes_config({})
+
+    with pytest.raises(ValueError, match="do not match"):
+        _kubernetes_config(
+            {
+                "FDAI_EVALUATION_KUBECONFIG": str(kubeconfig),
+                "FDAI_EVALUATION_KUBERNETES_CONTEXT": "example-context",
+                "FDAI_EVALUATION_KUBERNETES_CLUSTER": "other-cluster",
+                "FDAI_EVALUATION_KUBERNETES_NAMESPACES": "app-a",
+            }
+        )
 
 
 def test_cli_rejects_unknown_adapter_before_runtime_start() -> None:
@@ -66,8 +79,11 @@ async def test_rca_probe_requires_grounded_live_hypothesis() -> None:
     assert await _probe_rca(None) is False
 
 
-async def test_kubernetes_probe_keeps_missing_metrics_optional() -> None:
+async def test_kubernetes_probe_requires_every_advertised_capability() -> None:
     class _Client:
+        async def admission(self, task):  # type: ignore[no-untyped-def]
+            return {}
+
         async def capacity(self, task):  # type: ignore[no-untyped-def]
             assert task.target.value == "example-app"
             return {}
@@ -86,6 +102,9 @@ async def test_kubernetes_probe_keeps_missing_metrics_optional() -> None:
 
         async def nodes(self, task):  # type: ignore[no-untyped-def]
             assert task.target.value == "example-app"
+            return {}
+
+        async def owners(self, task):  # type: ignore[no-untyped-def]
             return {}
 
         async def pod_metrics(self, task):  # type: ignore[no-untyped-def]
@@ -98,18 +117,23 @@ async def test_kubernetes_probe_keeps_missing_metrics_optional() -> None:
     )
 
     assert checks == {
+        "kubernetes_admission_live_probe": True,
         "kubernetes_capacity_live_probe": True,
         "kubernetes_dependencies_live_probe": True,
         "kubernetes_inventory_live_probe": True,
         "kubernetes_events_live_probe": True,
         "kubernetes_nodes_live_probe": True,
+        "kubernetes_owners_live_probe": True,
         "kubernetes_metrics_live_probe": False,
     }
-    assert error_type is None
+    assert error_type == "RuntimeError"
 
 
 async def test_kubernetes_probe_requires_inventory_access() -> None:
     class _Client:
+        async def admission(self, task):  # type: ignore[no-untyped-def]
+            return {}
+
         async def capacity(self, task):  # type: ignore[no-untyped-def]
             return {}
 
@@ -123,6 +147,9 @@ async def test_kubernetes_probe_requires_inventory_access() -> None:
             return {}
 
         async def nodes(self, task):  # type: ignore[no-untyped-def]
+            return {}
+
+        async def owners(self, task):  # type: ignore[no-untyped-def]
             return {}
 
         async def pod_metrics(self, task):  # type: ignore[no-untyped-def]

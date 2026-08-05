@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from fdai_evaluation_sdk import EvaluationTask
 
-from fdai.delivery.kubernetes.owner_findings import custom_owner_degradation_findings
+from fdai.delivery.evaluation.diagnostic_functions import DiagnosticFunctionExecutor
 from fdai.delivery.kubernetes.owners import CustomOwnerQuery, custom_owner_queries
 
 _MAX_OWNERS = 8
@@ -28,6 +28,7 @@ class KubernetesOwnerEvidenceClient(Protocol):
 @dataclass(frozen=True, slots=True)
 class KubectlOwnerEvidenceProvider:
     client: KubernetesOwnerEvidenceClient
+    executor: DiagnosticFunctionExecutor = field(default_factory=DiagnosticFunctionExecutor)
 
     async def collect(self, task: EvaluationTask) -> Mapping[str, Any]:
         inventory = await self.client.inventory(task)
@@ -42,18 +43,22 @@ class KubectlOwnerEvidenceProvider:
         evidence_complete = (
             inventory.get("truncated") is False and omitted == 0 and len(owners) == len(queries)
         )
+        execution = await self.executor.derive(
+            "kubernetes_custom_owner_degradation_relationship",
+            {
+                "resources": resources,
+                "owners": owners,
+                "evidence_complete": evidence_complete,
+            },
+        )
         return {
             "cluster": str(inventory.get("cluster") or "")[:253],
             "namespace": str(inventory.get("namespace") or "")[:253],
             "evidence_complete": evidence_complete,
             "owners": owners if evidence_complete else [],
-            "findings": list(
-                custom_owner_degradation_findings(
-                    resources,
-                    owners,
-                    evidence_complete=evidence_complete,
-                )
-            ),
+            "findings": list(execution.findings),
+            "function_receipts": [execution.receipt],
+            "function_inputs": [execution.input_binding],
         }
 
     async def _collect_owner(

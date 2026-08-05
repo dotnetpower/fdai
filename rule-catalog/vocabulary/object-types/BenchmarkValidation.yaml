@@ -1,0 +1,21 @@
+schema_version: "1.0.0"
+name: BenchmarkValidation
+version: "1.0.0"
+key: id
+description: Immutable benchmark measurement and independent validation-axis receipt.
+properties:
+  id: {type: string, required: true}
+  benchmark_id: {type: string, required: true}
+  mechanism_id: {type: string, required: true}
+  validation_axis: {type: string, required: true}
+  passed: {type: boolean, required: true}
+  source_revisions: {type: array, required: true}
+  validation_kind: {type: string, required: true}
+  evidence_summary: {type: string, required: false}
+  evidence_digest: {type: string, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:BenchmarkValidation@1.0.0
+  content_hash: sha256:7b5a31ab4f567156386f11473e3f8b969d820410bd0c809e1fa062e36550b51c
+  license: MIT
+  retrieved_at: "2026-08-05T00:00:00Z"

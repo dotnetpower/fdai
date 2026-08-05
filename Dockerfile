@@ -80,6 +80,7 @@ COPY --from=builder /usr/local/bin/opa /usr/local/bin/opa
 COPY --chown=65532:65532 rule-catalog/ /app/rule-catalog/
 COPY --chown=65532:65532 policies/ /app/policies/
 COPY --chown=65532:65532 config/ /app/config/
+COPY --chown=65532:65532 docs/internals/sregym-absorption-ledger.json /app/docs/internals/sregym-absorption-ledger.json
 COPY --chown=65532:65532 resolved-models.json /app/resolved-models.json
 COPY --chown=65532:65532 tests/scenarios/ /app/tests/scenarios/
 # App source colocated at /app/src (on PYTHONPATH) so path-relative catalog

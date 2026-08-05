@@ -1,0 +1,24 @@
+schema_version: "1.0.0"
+name: DiagnosticEvidence
+version: "1.0.0"
+key: id
+description: Bounded diagnostic evidence projection with completeness and immutable source reference.
+properties:
+  id: {type: string, required: true}
+  source: {type: string, required: true}
+  source_revision: {type: string, required: true}
+  evidence_ref: {type: string, required: true}
+  observed_at: {type: datetime, required: true}
+  complete: {type: boolean, required: true}
+  payload_digest: {type: string, required: true}
+  function_name: {type: string, required: true}
+  function_version: {type: string, required: true}
+  input_digest: {type: string, required: true}
+  output_digest: {type: string, required: true}
+  caller_agent: {type: string, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:DiagnosticEvidence@1.0.0
+  content_hash: sha256:58ee98283812caf739a4e1f5fa26710bfd7384cb42dc144484b256528c97943f
+  license: MIT
+  retrieved_at: "2026-08-05T00:00:00Z"

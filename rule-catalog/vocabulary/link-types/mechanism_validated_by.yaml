@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: mechanism_validated_by
+version: "1.0.0"
+from_type: DiagnosticMechanism
+to_type: BenchmarkValidation
+cardinality: one_to_many
+description: Independent benchmark and provider validation receipts for a diagnostic mechanism.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:mechanism_validated_by@1.0.0
+  content_hash: sha256:5526e922f0f96653a43ce71039259aefe4e2e88c9c644811491b1d86c0a90200
+  license: MIT
+  retrieved_at: "2026-08-05T00:00:00Z"

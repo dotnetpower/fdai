@@ -7,22 +7,19 @@ import hashlib
 import json
 import re
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final
 
 from fdai_evaluation_sdk import EvaluationTask
 
+from fdai.delivery.evaluation.diagnostic_functions import DiagnosticFunctionExecutor
 from fdai.delivery.kubernetes.admission_events import classify_admission_failure
 from fdai.delivery.kubernetes.capacity import project_pod_resource_requests
-from fdai.delivery.kubernetes.host_port import host_port_conflict_findings
-from fdai.delivery.kubernetes.image_drift import image_pull_controller_drift_findings
 from fdai.delivery.kubernetes.liveness import (
     is_liveness_probe_failure,
     is_readiness_probe_failure,
-    liveness_probe_failure_findings,
-    readiness_probe_failure_findings,
 )
 from fdai.delivery.kubernetes.owners import CustomOwnerQuery, project_custom_owner
 from fdai.delivery.kubernetes.quantity import cpu_millicores, memory_bytes, parse_quantity
@@ -39,6 +36,7 @@ def _utc_now() -> datetime:
 _DNS_SUBDOMAIN: Final = re.compile(
     r"^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?(?:\.[a-z0-9](?:[-a-z0-9]*[a-z0-9])?)*$"
 )
+_DNS_LABEL: Final = re.compile(r"^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?$")
 _INVENTORY_RESOURCES: Final = (
     "deployments,statefulsets,daemonsets,replicasets,pods,services,endpoints"
 )
@@ -90,15 +88,21 @@ class KubectlEvidenceClient:
         payload = await self._get_json(namespace, _INVENTORY_RESOURCES)
         items = _items(payload)
         selected = items[: self._config.max_items]
+        resources = [
+            projection
+            for item in selected
+            if isinstance(item, Mapping) and (projection := _project_resource(item)) is not None
+        ]
+        projection_complete = len(resources) == len(selected) and all(
+            isinstance(resource.get("uid"), str) and bool(str(resource["uid"]).strip())
+            for resource in resources
+        )
         return {
             "cluster": self._config.cluster_name,
             "namespace": namespace,
-            "resources": [
-                projection
-                for item in selected
-                if isinstance(item, Mapping) and (projection := _project_resource(item)) is not None
-            ],
-            "truncated": len(items) > len(selected),
+            "resources": resources,
+            "projection_complete": projection_complete,
+            "truncated": len(items) > len(selected) or not projection_complete,
         }
 
     async def events(self, task: EvaluationTask) -> Mapping[str, Any]:
@@ -106,15 +110,18 @@ class KubectlEvidenceClient:
         payload = await self._get_json(namespace, "events")
         items = _items(payload)
         selected = items[-self._config.max_items :]
+        events = [
+            projection
+            for item in selected
+            if isinstance(item, Mapping) and (projection := _project_event(item)) is not None
+        ]
+        projection_complete = len(events) == len(selected)
         return {
             "cluster": self._config.cluster_name,
             "namespace": namespace,
-            "events": [
-                projection
-                for item in selected
-                if isinstance(item, Mapping) and (projection := _project_event(item)) is not None
-            ],
-            "truncated": len(items) > len(selected),
+            "events": events,
+            "projection_complete": projection_complete,
+            "truncated": len(items) > len(selected) or not projection_complete,
         }
 
     async def pod_metrics(self, task: EvaluationTask) -> Mapping[str, Any]:
@@ -123,16 +130,18 @@ class KubectlEvidenceClient:
         payload = await self._get_raw_json(namespace, path)
         items = _items(payload)
         selected = items[: self._config.max_items]
+        pods = [
+            projection
+            for item in selected
+            if isinstance(item, Mapping) and (projection := _project_pod_metric(item)) is not None
+        ]
+        projection_complete = len(pods) == len(selected)
         return {
             "cluster": self._config.cluster_name,
             "namespace": namespace,
-            "pods": [
-                projection
-                for item in selected
-                if isinstance(item, Mapping)
-                and (projection := _project_pod_metric(item)) is not None
-            ],
-            "truncated": len(items) > len(selected),
+            "pods": pods,
+            "projection_complete": projection_complete,
+            "truncated": len(items) > len(selected) or not projection_complete,
         }
 
     async def nodes(self, task: EvaluationTask) -> Mapping[str, Any]:
@@ -140,14 +149,17 @@ class KubectlEvidenceClient:
         payload = await self._get_cluster_json("nodes")
         items = _items(payload)
         selected = items[: self._config.max_items]
+        nodes = [
+            projection
+            for item in selected
+            if isinstance(item, Mapping) and (projection := _project_node(item)) is not None
+        ]
+        projection_complete = len(nodes) == len(selected)
         return {
             "cluster": self._config.cluster_name,
-            "nodes": [
-                projection
-                for item in selected
-                if isinstance(item, Mapping) and (projection := _project_node(item)) is not None
-            ],
-            "truncated": len(items) > len(selected),
+            "nodes": nodes,
+            "projection_complete": projection_complete,
+            "truncated": len(items) > len(selected) or not projection_complete,
         }
 
     async def admission_configurations(self, task: EvaluationTask) -> Mapping[str, Any]:
@@ -157,15 +169,18 @@ class KubectlEvidenceClient:
         )
         items = _items(payload)
         selected = items[: self._config.max_items]
+        resources = [
+            projection
+            for item in selected
+            if isinstance(item, Mapping)
+            and (projection := _project_webhook_configuration(item)) is not None
+        ]
+        projection_complete = len(resources) == len(selected)
         return {
             "cluster": self._config.cluster_name,
-            "resources": [
-                projection
-                for item in selected
-                if isinstance(item, Mapping)
-                and (projection := _project_webhook_configuration(item)) is not None
-            ],
-            "truncated": len(items) > len(selected),
+            "resources": resources,
+            "projection_complete": projection_complete,
+            "truncated": len(items) > len(selected) or not projection_complete,
         }
 
     async def webhook_service(
@@ -348,18 +363,20 @@ class KubectlEvidenceClient:
 @dataclass(frozen=True, slots=True)
 class KubectlInventoryEvidenceProvider:
     client: KubectlEvidenceClient
+    executor: DiagnosticFunctionExecutor = field(default_factory=DiagnosticFunctionExecutor)
 
     async def collect(self, task: EvaluationTask) -> Mapping[str, Any]:
         inventory = dict(await self.client.inventory(task))
         resources = [item for item in inventory.get("resources", []) if isinstance(item, Mapping)]
         evidence_complete = inventory.get("truncated") is False
         inventory["evidence_complete"] = evidence_complete
-        inventory["findings"] = list(
-            image_pull_controller_drift_findings(
-                resources,
-                evidence_complete=evidence_complete,
-            )
+        execution = await self.executor.derive(
+            "kubernetes_image_pull_controller_template_drift_candidate",
+            {"resources": resources, "evidence_complete": evidence_complete},
         )
+        inventory["findings"] = list(execution.findings)
+        inventory["function_receipts"] = [execution.receipt]
+        inventory["function_inputs"] = [execution.input_binding]
         return inventory
 
 
@@ -367,6 +384,7 @@ class KubectlInventoryEvidenceProvider:
 class KubectlEventEvidenceProvider:
     client: KubectlEvidenceClient
     clock: Callable[[], datetime] = _utc_now
+    executor: DiagnosticFunctionExecutor = field(default_factory=DiagnosticFunctionExecutor)
 
     async def collect(self, task: EvaluationTask) -> Mapping[str, Any]:
         event_receipt, inventory = await asyncio.gather(
@@ -380,28 +398,28 @@ class KubectlEventEvidenceProvider:
             evidence.get("truncated") is False and inventory.get("truncated") is False
         )
         evidence["evidence_complete"] = evidence_complete
-        evidence["findings"] = list(
-            (
-                *host_port_conflict_findings(
-                    resources,
-                    events,
-                    evidence_complete=evidence_complete,
-                    evidence_cutoff=self.clock(),
-                ),
-                *liveness_probe_failure_findings(
-                    resources,
-                    events,
-                    evidence_complete=evidence_complete,
-                    evidence_cutoff=self.clock(),
-                ),
-                *readiness_probe_failure_findings(
-                    resources,
-                    events,
-                    evidence_complete=evidence_complete,
-                    evidence_cutoff=self.clock(),
-                ),
-            )
+        cutoff = self.clock().isoformat()
+        executions = tuple(
+            [
+                await self.executor.derive(
+                    mechanism_id,
+                    {
+                        "resources": resources,
+                        "events": events,
+                        "evidence_complete": evidence_complete,
+                        "evidence_cutoff": cutoff,
+                    },
+                )
+                for mechanism_id in (
+                    "kubernetes_pod_host_port_conflict_candidate",
+                    "kubernetes_liveness_probe_failure_candidate",
+                    "kubernetes_readiness_probe_failure_candidate",
+                )
+            ]
         )
+        evidence["findings"] = [finding for item in executions for finding in item.findings]
+        evidence["function_receipts"] = [item.receipt for item in executions]
+        evidence["function_inputs"] = [item.input_binding for item in executions]
         return evidence
 
 
@@ -431,14 +449,17 @@ def kubernetes_evidence_providers(
     from fdai.delivery.evaluation.kubernetes_dependency import KubectlDependencyEvidenceProvider
     from fdai.delivery.evaluation.kubernetes_owners import KubectlOwnerEvidenceProvider
 
+    executor = DiagnosticFunctionExecutor()
     return {
-        "observe.kubernetes.admission": KubectlAdmissionEvidenceProvider(client),
-        "observe.kubernetes.capacity": KubectlCapacityEvidenceProvider(client),
-        "observe.kubernetes.dependencies": KubectlDependencyEvidenceProvider(client),
-        "observe.kubernetes.inventory": KubectlInventoryEvidenceProvider(client),
-        "observe.kubernetes.events": KubectlEventEvidenceProvider(client),
+        "observe.kubernetes.admission": KubectlAdmissionEvidenceProvider(client, executor=executor),
+        "observe.kubernetes.capacity": KubectlCapacityEvidenceProvider(client, executor=executor),
+        "observe.kubernetes.dependencies": KubectlDependencyEvidenceProvider(
+            client, executor=executor
+        ),
+        "observe.kubernetes.inventory": KubectlInventoryEvidenceProvider(client, executor=executor),
+        "observe.kubernetes.events": KubectlEventEvidenceProvider(client, executor=executor),
         "observe.kubernetes.nodes": KubectlNodeEvidenceProvider(client),
-        "observe.kubernetes.owners": KubectlOwnerEvidenceProvider(client),
+        "observe.kubernetes.owners": KubectlOwnerEvidenceProvider(client, executor=executor),
         "observe.metrics.query": KubectlPodMetricEvidenceProvider(client),
     }
 
@@ -1205,7 +1226,7 @@ def _node_ready(value: object) -> bool:
 
 
 def _valid_namespace(value: str) -> bool:
-    return 1 <= len(value) <= 253 and _DNS_SUBDOMAIN.fullmatch(value) is not None
+    return 1 <= len(value) <= 63 and _DNS_LABEL.fullmatch(value) is not None
 
 
 def _count(value: object) -> int:

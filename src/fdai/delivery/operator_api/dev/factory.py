@@ -800,11 +800,12 @@ def build_local_app(
     inventory_graph_provider = (
         demo_inventory_graph_provider if test_fixtures else _build_inventory_graph_provider()
     )
+    from fdai.delivery.kubernetes.ontology_functions import diagnostic_function_types
     from fdai.delivery.operator_api.routes.chat_inventory_ontology import (
         inventory_query_function_type,
     )
 
-    ontology_function_types = (inventory_query_function_type(),)
+    ontology_function_types = (inventory_query_function_type(), *diagnostic_function_types())
     from fdai.delivery.operator_api.routes.chat_inventory_semantic_retrieval import (
         EmbeddingInventorySemanticResolver,
     )

@@ -62,7 +62,7 @@ def test_sregym_absorption_ledger_keeps_validation_axes_independent() -> None:
     source_hashes = {commit for group in ledger["groups"] for commit in group["commits"]}
     mechanism_ids = [mechanism["id"] for mechanism in ledger["absorbed_mechanisms"]]
 
-    assert len(mechanism_ids) == len(set(mechanism_ids))
+    assert len(mechanism_ids) == len(set(mechanism_ids)) == ledger["absorbed_mechanism_count"] == 61
 
     assert ledger["validation_axes"] == [
         "benchmark_measured",

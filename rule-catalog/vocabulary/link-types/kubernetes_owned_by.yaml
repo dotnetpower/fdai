@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: kubernetes_owned_by
+version: "1.0.0"
+from_type: Resource
+to_type: Resource
+cardinality: many_to_many
+description: Exact UID-grounded Kubernetes owner relationship between observed resources.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:kubernetes_owned_by@1.0.0
+  content_hash: sha256:1dd856bf88bbc83c9af7b9aa2e2d0d39cfe30dde6a6ce1d1fdff471faa6e16f3
+  license: MIT
+  retrieved_at: "2026-08-05T00:00:00Z"

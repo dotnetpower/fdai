@@ -141,6 +141,17 @@ async def test_inventory_uses_explicit_context_and_projects_diagnostic_fields(
     ]
     assert "not-exposed" not in json.dumps(evidence)
     assert "must-not-escape" not in json.dumps(evidence)
+    assert evidence["projection_complete"] is False
+    assert evidence["truncated"] is True
+
+
+@pytest.mark.parametrize("namespace", ("team.prod", "a" * 64))
+def test_config_rejects_non_dns_label_namespace(tmp_path: Path, namespace: str) -> None:
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text("synthetic", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="namespace scope is invalid"):
+        _config(kubeconfig, allowed_namespaces=frozenset({namespace}))
 
 
 async def test_pod_metrics_are_namespace_scoped_and_normalized(tmp_path: Path) -> None:
@@ -201,6 +212,7 @@ async def test_pod_metrics_are_namespace_scoped_and_normalized(tmp_path: Path) -
                 ],
             }
         ],
+        "projection_complete": True,
         "truncated": False,
     }
 
@@ -245,6 +257,8 @@ async def test_inventory_projects_pod_request_semantics_and_uid(tmp_path: Path) 
     evidence = await KubectlEvidenceClient(config=_config(kubeconfig), run=run).inventory(_task())
 
     assert evidence["resources"][0]["uid"] == "pod-uid"
+    assert evidence["projection_complete"] is True
+    assert evidence["truncated"] is False
     assert evidence["resources"][0]["resource_requests"] == {
         "projection_complete": True,
         "source_paths": {
@@ -661,6 +675,7 @@ async def test_nodes_use_cluster_scope_and_project_only_capacity_facts(tmp_path:
                 "allocatable_projection_complete": False,
             },
         ],
+        "projection_complete": True,
         "truncated": False,
     }
 
@@ -757,6 +772,7 @@ async def test_admission_configurations_are_cluster_scoped_and_bounded(tmp_path:
                 ],
             }
         ],
+        "projection_complete": True,
         "truncated": False,
     }
     assert "must-not-project" not in json.dumps(evidence)

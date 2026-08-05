@@ -144,6 +144,7 @@ def _host(
     side_effect_class: SideEffectClass = SideEffectClass.WORKSPACE,
     target_resource_types: Mapping[str, str] | None = None,
     evidence_collector: BoundedEvaluationEvidenceCollector | None = None,
+    evidence_observer=None,  # type: ignore[no-untyped-def]
 ):
     allowed = frozenset({capability_id})
     processor = _Processor(outcome)
@@ -154,6 +155,7 @@ def _host(
         artifact_broker=broker,
         validation_sink=InMemoryExternalValidationSink(),
         evidence_collector=evidence_collector,
+        evidence_observer=evidence_observer,
         policy=EvaluationHostPolicy(
             capability_catalog={capability_id: side_effect_class},
             capability_axes=CapabilityAxes(
@@ -177,6 +179,30 @@ def _host(
         clock=lambda: _NOW,
     )
     return host, processor, custody
+
+
+async def test_observes_evidence_before_control_loop_processing() -> None:
+    order: list[str] = []
+
+    class _Observer:
+        async def observe(self, *, task, evidence):  # type: ignore[no-untyped-def]
+            assert task.task_id == "task-1"
+            assert evidence == {}
+            order.append("observe")
+
+    host, processor, _ = _host(evidence_observer=_Observer())
+    original_process = processor.process
+
+    async def ordered_process(event):  # type: ignore[no-untyped-def]
+        order.append("process")
+        return await original_process(event)
+
+    processor.process = ordered_process  # type: ignore[method-assign]
+    session = await host.open(_request())
+
+    await session.execute(_task())
+
+    assert order == ["observe", "process"]
 
 
 def test_public_spi_exposes_only_sdk_protocols() -> None:

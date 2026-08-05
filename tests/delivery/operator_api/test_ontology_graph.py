@@ -10,6 +10,7 @@ import pytest
 from starlette.testclient import TestClient
 
 from fdai.core.rbac.resolver import RoleResolver
+from fdai.delivery.kubernetes.ontology_functions import diagnostic_function_types
 from fdai.delivery.operator_api.auth import build_authenticator
 from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
@@ -64,7 +65,7 @@ def _client(*, wire_ontology: bool, status_store: InMemoryStateStore | None = No
             ontology_object_types=tuple(objects),
             ontology_link_types=tuple(links),
             ontology_action_types=tuple(actions),
-            ontology_function_types=(inventory_query_function_type(),),
+            ontology_function_types=(inventory_query_function_type(), *diagnostic_function_types()),
             operating_model_status_reader=status_store,
         ),
     )
@@ -97,6 +98,7 @@ def test_ontology_graph_returns_mermaid_and_counts() -> None:
     assert platform["write_surface"] == "typed_proposal"
     assert "ops.scale-out" in platform["action_types"]
     assert "inventory.select_resources" in platform["functions"]
+    assert "diagnostic.kubernetes_missing_dependency_reducer" in platform["functions"]
 
 
 @pytest.mark.parametrize("status", ("matched", "partial"))

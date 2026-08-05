@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 968,
+  "file_count": 971,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "22f8e22e3fd307e30886805683b0f38c39442deeb24a45026471d71084b4ea99",
     ".github/instructions/agent-stewardship.instructions.md": "574518fca728a9a6c8d3b50e0cf4aa53a1ed5bf85d5c52e5da67a0486bf31a43",
@@ -421,8 +421,11 @@
     "src/fdai/core/oncall/__init__.py": "ca8daa982aa60a0f11ae813039f799802ae55e45bfb9b5ca9396cc1909fd4dfa",
     "src/fdai/core/oncall/resolver.py": "35fa432f02b240fd04b03995ade748032093c702272a473004a42ff08a80b178",
     "src/fdai/core/ontology_explorer.py": "013a0fb74b5f42ce905408eba84710d33ed4c45fb1a0cdcb02a059fcd353f950",
-    "src/fdai/core/ontology_platform/__init__.py": "1a31254e8fb47d947852ef9ed80147fc4929e90cc867ec6b1581bf2e60b6d57e",
-    "src/fdai/core/ontology_platform/catalog_projection.py": "ead5a75f1f749ef1e48c12193647d8322513b63e8a543cdb2592d494cb3e6f4b",
+    "src/fdai/core/ontology_platform/__init__.py": "569e7be33077a466301ed13a3074e5df3a91201bdac57bcd34b28b41f6e1311f",
+    "src/fdai/core/ontology_platform/catalog_projection.py": "8ed919c466ecf2964be6f678e011c99a4b12062ba0effa2bcc2f5b86d7f82739",
+    "src/fdai/core/ontology_platform/diagnostic_ledger.py": "c6863e75d45a2aa550bb71afad872bb74c2196f2446854cfbf45ebd370c2f8dc",
+    "src/fdai/core/ontology_platform/diagnostic_projection.py": "c1307832c77815206ef8ed82de23059dc5afc243b6b2e11918c0132440c662c2",
+    "src/fdai/core/ontology_platform/diagnostic_results.py": "c7de37c37c2347ebdc9b3f38431a6334aeb0433b4b44233251a149d3c74f02b2",
     "src/fdai/core/ontology_platform/functions.py": "736bd1372dc47acb00aa64ad1404a33eb743724688b20597c4f7880ab87df728",
     "src/fdai/core/ontology_platform/interfaces.py": "c7e0d29779bd92881258e1a64f8bbb8dc34a6050b166fe180901d2c95bc71ec3",
     "src/fdai/core/ontology_platform/introspection.py": "c3c8ad97436e3bf811ef22771f9114e4defb733966f1a15610eac88a1006979d",
@@ -971,7 +974,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-05T06:28:21Z",
+  "generated_at": "2026-08-05T10:05:55Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

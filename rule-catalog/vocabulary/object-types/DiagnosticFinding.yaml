@@ -1,0 +1,20 @@
+schema_version: "1.0.0"
+name: DiagnosticFinding
+version: "1.0.0"
+key: id
+description: Hold-only diagnostic conclusion derived from bounded evidence by one mechanism.
+properties:
+  id: {type: string, required: true}
+  mechanism_id: {type: string, required: true}
+  reason: {type: string, required: true}
+  decision: {type: string, required: true}
+  resource_ref: {type: string, required: true}
+  evidence_ref: {type: string, required: true}
+  observed_at: {type: datetime, required: true}
+  payload_digest: {type: string, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:DiagnosticFinding@1.0.0
+  content_hash: sha256:8b18d341c9e478c9d6b763955408f03b25263e0021056efe4186a3a3ace77d62
+  license: MIT
+  retrieved_at: "2026-08-05T00:00:00Z"

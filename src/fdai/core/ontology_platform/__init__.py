@@ -4,6 +4,7 @@ from .catalog_projection import (
     CatalogOntologyProjection,
     CatalogOntologyProjector,
     build_catalog_ontology_projection,
+    merge_catalog_ontology_projections,
 )
 from .functions import (
     FunctionInvocationContext,
@@ -91,6 +92,7 @@ __all__ = [
     "build_mutation_plan",
     "build_semantic_candidate",
     "build_catalog_ontology_projection",
+    "merge_catalog_ontology_projections",
     "compile_interfaces",
     "generate_ontology_sdk",
     "platform_manifest",

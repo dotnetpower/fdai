@@ -38,7 +38,9 @@ from fdai.evaluation.capabilities import (
 )
 from fdai.evaluation.evidence import (
     EvaluationEvidenceCollector,
+    EvaluationEvidenceObserver,
     NoopEvaluationEvidenceCollector,
+    NoopEvaluationEvidenceObserver,
 )
 from fdai.evaluation.outputs import (
     EvaluationOutputCollector,
@@ -106,6 +108,7 @@ class FdaiEvaluationHost:
         validation_sink: ExternalValidationSink,
         policy: EvaluationHostPolicy,
         evidence_collector: EvaluationEvidenceCollector | None = None,
+        evidence_observer: EvaluationEvidenceObserver | None = None,
         output_collector: EvaluationOutputCollector | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
@@ -113,6 +116,7 @@ class FdaiEvaluationHost:
         self._artifact_broker = artifact_broker
         self._validation_sink = validation_sink
         self._evidence_collector = evidence_collector or NoopEvaluationEvidenceCollector()
+        self._evidence_observer = evidence_observer or NoopEvaluationEvidenceObserver()
         self._output_collector = output_collector or NoopEvaluationOutputCollector()
         self._policy = policy
         self._clock = clock or (lambda: datetime.now(UTC))
@@ -163,6 +167,7 @@ class FdaiEvaluationHost:
             artifact_broker=self._artifact_broker,
             validation_sink=self._validation_sink,
             evidence_collector=self._evidence_collector,
+            evidence_observer=self._evidence_observer,
             output_collector=self._output_collector,
             target_resource_types=self._policy.target_resource_types,
             clock=self._clock,
@@ -221,6 +226,7 @@ class FdaiEvaluationSession:
         artifact_broker: InMemoryArtifactBroker,
         validation_sink: ExternalValidationSink,
         evidence_collector: EvaluationEvidenceCollector,
+        evidence_observer: EvaluationEvidenceObserver,
         output_collector: EvaluationOutputCollector,
         target_resource_types: Mapping[str, str],
         clock: Callable[[], datetime],
@@ -233,6 +239,7 @@ class FdaiEvaluationSession:
         self._artifact_broker = artifact_broker
         self._validation_sink = validation_sink
         self._evidence_collector = evidence_collector
+        self._evidence_observer = evidence_observer
         self._output_collector = output_collector
         self._target_resource_types = dict(target_resource_types)
         self._clock = clock
@@ -271,6 +278,7 @@ class FdaiEvaluationSession:
                     task=task,
                     allowed_capabilities=self._effective_capabilities.allowed_ids,
                 )
+                await self._evidence_observer.observe(task=task, evidence=evidence)
                 event = self._event_for(task, fingerprint, evidence=evidence)
                 loop_result = await self._processor.process(event)
                 completed = loop_result.outcome is ControlLoopOutcome.EXECUTED

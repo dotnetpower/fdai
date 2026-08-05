@@ -17,6 +17,8 @@ from fdai.shared.providers.ontology_instance import (
 
 _OBJECT_TYPES = (
     "ActionType",
+    "BenchmarkValidation",
+    "DiagnosticMechanism",
     "PolicyArtifact",
     "Property",
     "ResourceType",
@@ -24,12 +26,41 @@ _OBJECT_TYPES = (
     "SignalType",
 )
 _MAX_CATALOG_OBJECTS = 1000
+_MAX_CATALOG_HISTORY_OBJECTS = 1000
+_APPEND_ONLY_OBJECT_TYPES = frozenset({"BenchmarkValidation"})
+_APPEND_ONLY_LINK_TYPES = frozenset({"mechanism_validated_by"})
 
 
 @dataclass(frozen=True, slots=True)
 class CatalogOntologyProjection:
     objects: tuple[OntologyObjectRecord, ...]
     links: tuple[OntologyLinkRecord, ...]
+
+
+def merge_catalog_ontology_projections(
+    *projections: CatalogOntologyProjection,
+) -> CatalogOntologyProjection:
+    """Merge catalog-owned projections and reject identity collisions."""
+
+    objects: dict[str, OntologyObjectRecord] = {}
+    links: dict[tuple[str, str, str], OntologyLinkRecord] = {}
+    for projection in projections:
+        for object_record in projection.objects:
+            _add_object(objects, object_record)
+        for link_record in projection.links:
+            key = (link_record.from_id, link_record.link_type, link_record.to_id)
+            previous = links.get(key)
+            if previous is not None and previous != link_record:
+                raise ValueError(f"catalog ontology link collision: {key!r}")
+            links[key] = link_record
+    if len(objects) > _MAX_CATALOG_OBJECTS:
+        raise ValueError("catalog ontology projection exceeds its object limit")
+    return CatalogOntologyProjection(
+        objects=tuple(sorted(objects.values(), key=lambda item: item.id)),
+        links=tuple(
+            sorted(links.values(), key=lambda item: (item.from_id, item.link_type, item.to_id))
+        ),
+    )
 
 
 def build_catalog_ontology_projection(
@@ -172,40 +203,57 @@ class CatalogOntologyProjector:
     async def replace(self, projection: CatalogOntologyProjection) -> None:
         previous = await self._store.query_objects(
             object_types=_OBJECT_TYPES,
-            limit=_MAX_CATALOG_OBJECTS,
+            limit=_MAX_CATALOG_HISTORY_OBJECTS,
         )
         if previous.truncated:
             raise ValueError("existing catalog ontology subgraph is truncated")
-        if _same_projection(previous.objects, previous.links, projection):
-            return
-        await self._store.replace_subgraph(
-            objects=projection.objects,
-            links=projection.links,
-            previous_object_ids=tuple(item.id for item in previous.objects),
-            previous_link_keys=tuple(
-                (item.from_id, item.link_type, item.to_id) for item in previous.links
-            ),
+        previous_objects = {item.id: item for item in previous.objects}
+        projected_objects = {item.id: item for item in projection.objects}
+        changed_objects: list[OntologyObjectRecord] = []
+        for record in projection.objects:
+            existing = previous_objects.get(record.id)
+            if existing is None:
+                changed_objects.append(record)
+            elif existing.object_type != record.object_type or dict(existing.properties) != dict(
+                record.properties
+            ):
+                if record.object_type in _APPEND_ONLY_OBJECT_TYPES:
+                    raise ValueError("immutable catalog receipt content changed")
+                changed_objects.append(record)
+        stale_object_ids = tuple(
+            record.id
+            for record in previous.objects
+            if record.object_type not in _APPEND_ONLY_OBJECT_TYPES
+            and record.id not in projected_objects
         )
 
-
-def _same_projection(
-    previous_objects: Sequence[OntologyObjectRecord],
-    previous_links: Sequence[OntologyLinkRecord],
-    projection: CatalogOntologyProjection,
-) -> bool:
-    object_state = {(item.id, item.object_type): dict(item.properties) for item in previous_objects}
-    projected_object_state = {
-        (item.id, item.object_type): dict(item.properties) for item in projection.objects
-    }
-    link_state = {
-        (item.from_id, item.link_type, item.to_id, tuple(sorted(item.properties.items())))
-        for item in previous_links
-    }
-    projected_link_state = {
-        (item.from_id, item.link_type, item.to_id, tuple(sorted(item.properties.items())))
-        for item in projection.links
-    }
-    return object_state == projected_object_state and link_state == projected_link_state
+        previous_links = {
+            (item.from_id, item.link_type, item.to_id): item for item in previous.links
+        }
+        projected_links = {
+            (item.from_id, item.link_type, item.to_id): item for item in projection.links
+        }
+        changed_links = tuple(
+            record for key, record in projected_links.items() if previous_links.get(key) != record
+        )
+        stale_link_keys = tuple(
+            key
+            for key, record in previous_links.items()
+            if record.link_type not in _APPEND_ONLY_LINK_TYPES and key not in projected_links
+        )
+        if (
+            not changed_objects
+            and not stale_object_ids
+            and not changed_links
+            and not stale_link_keys
+        ):
+            return
+        await self._store.replace_subgraph(
+            objects=tuple(changed_objects),
+            links=changed_links,
+            previous_object_ids=stale_object_ids,
+            previous_link_keys=stale_link_keys,
+        )
 
 
 def _add_object(
@@ -256,4 +304,5 @@ __all__ = [
     "CatalogOntologyProjection",
     "CatalogOntologyProjector",
     "build_catalog_ontology_projection",
+    "merge_catalog_ontology_projections",
 ]

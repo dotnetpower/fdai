@@ -288,7 +288,9 @@ def build_prod_app(
         read_model=read_model,
         group_mapping=group_mapping,
     )
-    ontology_function_types = (inventory_query_function_type(),)
+    from fdai.delivery.kubernetes.ontology_functions import diagnostic_function_types
+
+    ontology_function_types = (inventory_query_function_type(), *diagnostic_function_types())
     ontology_release = build_ontology_release(
         object_types=object_types,
         link_types=link_types,

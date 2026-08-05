@@ -127,6 +127,37 @@ def test_resolved_model_manifest_reaches_container_build_context() -> None:
     assert "!resolved-models.json" in dockerignore
 
 
+def test_diagnostic_ontology_ledger_reaches_runtime_image() -> None:
+    root = Path(__file__).resolve().parents[2]
+    dockerfile = (root / "Dockerfile").read_text(encoding="utf-8")
+    dockerignore = (root / ".dockerignore").read_text(encoding="utf-8")
+
+    assert (
+        "COPY --chown=65532:65532 docs/internals/sregym-absorption-ledger.json "
+        "/app/docs/internals/sregym-absorption-ledger.json"
+    ) in dockerfile
+    assert "!docs/internals/sregym-absorption-ledger.json" in dockerignore
+
+
+def test_sregym_image_uses_frozen_workspace_and_includes_ontology_ledger() -> None:
+    dockerfile = (
+        Path(__file__).resolve().parents[2] / "benchmarks" / "sregym" / "Dockerfile"
+    ).read_text(encoding="utf-8")
+
+    assert "COPY pyproject.toml uv.lock README.md LICENSE ./" in dockerfile
+    assert "FROM sregym-agent-base@sha256:" in dockerfile
+    assert "COPY --from=opa-builder /go/bin/opa /usr/local/bin/opa" in dockerfile
+    assert "uv==0.11.32" in dockerfile
+    assert (
+        "uv sync --frozen --package fdai --package fdai-benchmark-sregym --no-dev --no-editable"
+    ) in dockerfile
+    assert (
+        "COPY docs/internals/sregym-absorption-ledger.json "
+        "./docs/internals/sregym-absorption-ledger.json"
+    ) in dockerfile
+    assert "USER 65532" in dockerfile
+
+
 def test_dockerfile_installs_only_runtime_workspace_packages() -> None:
     dockerfile = (Path(__file__).resolve().parents[2] / "Dockerfile").read_text(encoding="utf-8")
 

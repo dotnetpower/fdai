@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+name: diagnostic_finding_affects_resource
+version: "1.0.0"
+from_type: DiagnosticFinding
+to_type: Resource
+cardinality: many_to_one
+description: Exact managed resource affected by a diagnostic finding.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:diagnostic_finding_affects_resource@1.0.0
+  content_hash: sha256:f006407c7aba6530a37cf5086b5fb762ee9f38a9dd5f825fab773b5a8fffcf14
+  license: MIT
+  retrieved_at: "2026-08-05T00:00:00Z"

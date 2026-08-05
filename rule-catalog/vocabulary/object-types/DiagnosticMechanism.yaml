@@ -1,0 +1,24 @@
+schema_version: "1.0.0"
+name: DiagnosticMechanism
+version: "1.0.0"
+key: id
+description: Reviewed deterministic diagnostic mechanism with independent validation axes.
+properties:
+  id: {type: string, required: true}
+  mechanism_id: {type: string, required: true}
+  status: {type: string, required: true}
+  source_commits: {type: array, required: true}
+  source_hardening: {type: string, required: false}
+  benchmark_measured: {type: boolean, required: true}
+  semantic_generalized: {type: boolean, required: true}
+  operationalized: {type: boolean, required: true}
+  provider_validated: {type: boolean, required: true}
+  action_validated: {type: boolean, required: true}
+  outcome_validated: {type: boolean, required: true}
+  azure_validated: {type: boolean, required: true}
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:DiagnosticMechanism@1.0.0
+  content_hash: sha256:01eabc81142a539d7d6e2bd59a38c471cf2b313379884c44c68399b09b856041
+  license: MIT
+  retrieved_at: "2026-08-05T00:00:00Z"

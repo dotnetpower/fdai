@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
+import yaml
 from fdai_evaluation_sdk import EvaluationRunner, EvaluationTask, ResourceLimits, TargetRef
 
 from fdai.composition import default_container_from_env
@@ -19,6 +20,7 @@ from fdai.core.rca import Citation, CitationKind, RcaReasoner
 from fdai.delivery.evaluation import KubectlEvidenceClient, KubectlEvidenceConfig
 from fdai.evaluation.plugins import load_evaluation_adapter
 from fdai.runtime.bootstrap_bindings import build_runtime_workload_identity
+from fdai.runtime.catalog_ontology import project_catalog_ontology
 from fdai.runtime.configuration import _finalize_llm_bindings, _new_http_client
 from fdai.runtime.control_loop import _build_control_loop
 from fdai.runtime.evaluation_runner import (
@@ -35,10 +37,13 @@ _NAMESPACES_ENV = "FDAI_EVALUATION_KUBERNETES_NAMESPACES"
 _REQUIRED_KUBERNETES_LIVE_CHECKS = frozenset(
     {
         "kubernetes_capacity_live_probe",
+        "kubernetes_admission_live_probe",
         "kubernetes_dependencies_live_probe",
         "kubernetes_inventory_live_probe",
         "kubernetes_events_live_probe",
         "kubernetes_nodes_live_probe",
+        "kubernetes_owners_live_probe",
+        "kubernetes_metrics_live_probe",
     }
 )
 
@@ -61,12 +66,35 @@ def _kubernetes_config(environ: Mapping[str, str]) -> KubectlEvidenceConfig:
         raise ValueError(
             f"{_KUBECONFIG_ENV}, {_CONTEXT_ENV}, {_CLUSTER_ENV}, and {_NAMESPACES_ENV} are required"
         )
+    kubeconfig_path = Path(kubeconfig).expanduser().resolve()
+    if _context_cluster(kubeconfig_path, context) != cluster:
+        raise ValueError("evaluation Kubernetes context and cluster binding do not match")
     return KubectlEvidenceConfig(
-        kubeconfig=Path(kubeconfig).expanduser().resolve(),
+        kubeconfig=kubeconfig_path,
         context=context,
         cluster_name=cluster,
         allowed_namespaces=namespaces,
     )
+
+
+def _context_cluster(kubeconfig: Path, context_name: str) -> str:
+    try:
+        payload = yaml.safe_load(kubeconfig.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        raise ValueError("evaluation kubeconfig is unavailable or invalid") from exc
+    if not isinstance(payload, Mapping):
+        raise ValueError("evaluation kubeconfig MUST be an object")
+    contexts = payload.get("contexts")
+    if not isinstance(contexts, list):
+        raise ValueError("evaluation kubeconfig contexts are unavailable")
+    for entry in contexts:
+        if not isinstance(entry, Mapping) or entry.get("name") != context_name:
+            continue
+        context = entry.get("context")
+        cluster = context.get("cluster") if isinstance(context, Mapping) else None
+        if isinstance(cluster, str) and cluster.strip():
+            return cluster
+    raise ValueError("evaluation Kubernetes context is unavailable in kubeconfig")
 
 
 def _probe_task(namespace: str) -> EvaluationTask:
@@ -115,22 +143,26 @@ async def _probe_kubernetes_evidence(
     namespaces: frozenset[str],
 ) -> tuple[dict[str, bool], str | None]:
     checks = {
+        "kubernetes_admission_live_probe": True,
         "kubernetes_capacity_live_probe": True,
         "kubernetes_dependencies_live_probe": True,
         "kubernetes_inventory_live_probe": True,
         "kubernetes_events_live_probe": True,
         "kubernetes_nodes_live_probe": True,
+        "kubernetes_owners_live_probe": True,
         "kubernetes_metrics_live_probe": True,
     }
     first_error_type: str | None = None
     for namespace in sorted(namespaces):
         task = _probe_task(namespace)
         probes = (
+            ("kubernetes_admission_live_probe", evidence_client.admission),
             ("kubernetes_capacity_live_probe", evidence_client.capacity),
             ("kubernetes_dependencies_live_probe", evidence_client.dependencies),
             ("kubernetes_inventory_live_probe", evidence_client.inventory),
             ("kubernetes_events_live_probe", evidence_client.events),
             ("kubernetes_nodes_live_probe", evidence_client.nodes),
+            ("kubernetes_owners_live_probe", evidence_client.owners),
             ("kubernetes_metrics_live_probe", evidence_client.pod_metrics),
         )
         for check_name, probe in probes:
@@ -188,10 +220,12 @@ async def _run(command: str, adapter_name: str, environ: Mapping[str, str]) -> i
             print(json.dumps(payload, sort_keys=True))
             return 0 if payload["ready"] else 2
         control_loop = _build_control_loop(container)
+        await project_catalog_ontology(control_loop)
         host, _ = build_sregym_evaluation_host(
             processor=control_loop,
             evidence_client=evidence_client,
             rca_reasoner=rca_reasoner,
+            ontology_store=control_loop.ontology_instance_store,
         )
         summary = await EvaluationRunner(adapter=adapter, host=host).run()
         print(

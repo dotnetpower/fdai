@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from fdai_evaluation_sdk import EvaluationTask
 
-from fdai.delivery.kubernetes.capacity import capacity_exceeds_ceiling_findings
+from fdai.delivery.evaluation.diagnostic_functions import DiagnosticFunctionExecutor
 
 
 class KubernetesCapacityEvidenceClient(Protocol):
@@ -27,6 +27,7 @@ class KubectlCapacityEvidenceProvider:
     """Join bounded reads through shared hold-only capacity semantics."""
 
     client: KubernetesCapacityEvidenceClient
+    executor: DiagnosticFunctionExecutor = field(default_factory=DiagnosticFunctionExecutor)
 
     async def collect(self, task: EvaluationTask) -> Mapping[str, Any]:
         inventory, events, nodes = await asyncio.gather(
@@ -40,17 +41,22 @@ class KubectlCapacityEvidenceProvider:
         evidence_complete = all(
             payload.get("truncated") is False for payload in (inventory, events, nodes)
         )
-        findings = capacity_exceeds_ceiling_findings(
-            resources,
-            events=projected_events,
-            nodes=projected_nodes,
-            evidence_complete=evidence_complete,
+        execution = await self.executor.derive(
+            "kubernetes_capacity_reducer",
+            {
+                "resources": resources,
+                "events": projected_events,
+                "nodes": projected_nodes,
+                "evidence_complete": evidence_complete,
+            },
         )
         return {
             "cluster": str(inventory.get("cluster") or "")[:253],
             "namespace": str(inventory.get("namespace") or "")[:253],
             "evidence_complete": evidence_complete,
-            "findings": list(findings),
+            "findings": list(execution.findings),
+            "function_receipts": [execution.receipt],
+            "function_inputs": [execution.input_binding],
         }
 
 

@@ -6,6 +6,7 @@
   "archive_bundle_sha256": "d3fb9974b4c8368d362a2a2c0b0eb0bff56b1c1cf16facd4acdf0ec1f69cd041",
   "source_commit_count": 124,
   "source_set_sha256": "5c547ea475ab0bd5c3403f696017d78e55d2d2cd3c415463430bc1b8091c188c",
+  "absorbed_mechanism_count": 61,
   "validation_axes": [
     "benchmark_measured",
     "semantic_generalized",

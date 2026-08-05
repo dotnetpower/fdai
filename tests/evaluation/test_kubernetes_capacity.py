@@ -104,9 +104,14 @@ async def test_capacity_provider_emits_one_hold_only_finding() -> None:
 async def test_capacity_provider_exposes_incomplete_evidence_without_finding() -> None:
     evidence = await KubectlCapacityEvidenceProvider(_Client(truncated=True)).collect(None)  # type: ignore[arg-type]
 
+    receipts = evidence.pop("function_receipts")
+    inputs = evidence.pop("function_inputs")
     assert evidence == {
         "cluster": "example-cluster",
         "namespace": "example-app",
         "evidence_complete": False,
         "findings": [],
     }
+    assert receipts[0]["function_ref"]["name"] == "diagnostic.kubernetes_capacity_reducer"
+    assert receipts[0]["caller_agent"] == "Heimdall"
+    assert inputs[0]["function_name"] == "diagnostic.kubernetes_capacity_reducer"

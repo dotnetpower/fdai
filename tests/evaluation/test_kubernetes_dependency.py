@@ -35,12 +35,17 @@ async def test_dependency_provider_emits_hold_only_finding() -> None:
 async def test_dependency_provider_exposes_incomplete_evidence_without_finding() -> None:
     evidence = await KubectlDependencyEvidenceProvider(_Client(truncated=True)).collect(None)  # type: ignore[arg-type]
 
+    receipts = evidence.pop("function_receipts")
+    inputs = evidence.pop("function_inputs")
     assert evidence == {
         "cluster": "example-cluster",
         "namespace": "example-app",
         "evidence_complete": False,
         "findings": [],
     }
+    assert receipts[0]["function_ref"]["name"] == "diagnostic.kubernetes_missing_dependency_reducer"
+    assert receipts[0]["caller_agent"] == "Heimdall"
+    assert inputs[0]["function_name"] == "diagnostic.kubernetes_missing_dependency_reducer"
 
 
 def _resources() -> list[dict[str, object]]:

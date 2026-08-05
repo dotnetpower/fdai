@@ -9,6 +9,7 @@ from fdai_evaluation_sdk import AuthorityCeiling, SideEffectClass
 
 from fdai.core.rca import RcaReasoner
 from fdai.delivery.evaluation import KubectlEvidenceClient, kubernetes_evidence_providers
+from fdai.delivery.evaluation.kubernetes_ontology import KubernetesOntologyEvidenceObserver
 from fdai.evaluation.artifacts import InMemoryArtifactBroker, InMemoryArtifactCustodySink
 from fdai.evaluation.capabilities import AuthorityAxes, CapabilityAxes
 from fdai.evaluation.evidence import BoundedEvaluationEvidenceCollector
@@ -18,16 +19,17 @@ from fdai.evaluation.host import (
     FdaiEvaluationHost,
     InMemoryExternalValidationSink,
 )
+from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 
 _SREGYM_CAPABILITIES = {
+    "observe.kubernetes.admission": SideEffectClass.OBSERVE,
     "observe.kubernetes.capacity": SideEffectClass.OBSERVE,
     "observe.kubernetes.dependencies": SideEffectClass.OBSERVE,
     "observe.kubernetes.inventory": SideEffectClass.OBSERVE,
     "observe.kubernetes.events": SideEffectClass.OBSERVE,
     "observe.kubernetes.nodes": SideEffectClass.OBSERVE,
+    "observe.kubernetes.owners": SideEffectClass.OBSERVE,
     "observe.metrics.query": SideEffectClass.OBSERVE,
-    "observe.logs.query": SideEffectClass.OBSERVE,
-    "observe.traces.query": SideEffectClass.OBSERVE,
 }
 
 
@@ -42,6 +44,8 @@ class EvaluationRuntimeReadiness:
     kubernetes_nodes_ready: bool
     kubernetes_capacity_ready: bool
     kubernetes_dependencies_ready: bool
+    kubernetes_admission_ready: bool
+    kubernetes_owners_ready: bool
     shadow_only: bool = True
 
     @property
@@ -53,6 +57,8 @@ class EvaluationRuntimeReadiness:
             and self.kubernetes_nodes_ready
             and self.kubernetes_capacity_ready
             and self.kubernetes_dependencies_ready
+            and self.kubernetes_admission_ready
+            and self.kubernetes_owners_ready
             and self.shadow_only
         )
 
@@ -62,6 +68,7 @@ def build_sregym_evaluation_host(
     processor: EventProcessor,
     evidence_client: KubectlEvidenceClient,
     rca_reasoner: RcaReasoner | None,
+    ontology_store: OntologyInstanceStore | None = None,
 ) -> tuple[FdaiEvaluationHost, EvaluationRuntimeReadiness]:
     """Compose a shadow-only SREGym host or report why it cannot diagnose."""
 
@@ -75,6 +82,11 @@ def build_sregym_evaluation_host(
         ),
         validation_sink=InMemoryExternalValidationSink(),
         evidence_collector=BoundedEvaluationEvidenceCollector(providers=providers),
+        evidence_observer=(
+            KubernetesOntologyEvidenceObserver(store=ontology_store)
+            if ontology_store is not None
+            else None
+        ),
         policy=EvaluationHostPolicy(
             capability_catalog=_SREGYM_CAPABILITIES,
             capability_axes=CapabilityAxes(*((allowed,) * 6)),
@@ -107,6 +119,8 @@ def sregym_evaluation_readiness(
         kubernetes_nodes_ready="observe.kubernetes.nodes" in providers,
         kubernetes_capacity_ready="observe.kubernetes.capacity" in providers,
         kubernetes_dependencies_ready="observe.kubernetes.dependencies" in providers,
+        kubernetes_admission_ready="observe.kubernetes.admission" in providers,
+        kubernetes_owners_ready="observe.kubernetes.owners" in providers,
     )
 
 
@@ -124,6 +138,8 @@ def readiness_payload(readiness: EvaluationRuntimeReadiness) -> dict[str, Any]:
             "kubernetes_nodes": readiness.kubernetes_nodes_ready,
             "kubernetes_capacity": readiness.kubernetes_capacity_ready,
             "kubernetes_dependencies": readiness.kubernetes_dependencies_ready,
+            "kubernetes_admission": readiness.kubernetes_admission_ready,
+            "kubernetes_owners": readiness.kubernetes_owners_ready,
         },
     }
 

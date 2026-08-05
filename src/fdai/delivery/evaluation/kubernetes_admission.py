@@ -3,18 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from fdai_evaluation_sdk import EvaluationTask
 
-from fdai.delivery.kubernetes.admission import mutating_webhook_resource_drift_findings
-from fdai.delivery.kubernetes.admission_conditions import admission_condition_findings
-from fdai.delivery.kubernetes.pod_security import pod_security_mismatch_findings
-from fdai.delivery.kubernetes.webhook_backend import missing_webhook_backend_findings
-from fdai.delivery.kubernetes.webhook_findings import admission_webhook_failure_findings
-from fdai.delivery.kubernetes.webhook_timeout import cumulative_webhook_timeout_findings
+from fdai.delivery.evaluation.diagnostic_functions import DiagnosticFunctionExecutor
 
 _MAX_WEBHOOK_SERVICES = 8
 
@@ -39,6 +34,7 @@ class KubernetesAdmissionEvidenceClient(Protocol):
 class KubectlAdmissionEvidenceProvider:
     client: KubernetesAdmissionEvidenceClient
     clock: Callable[[], datetime] = _utc_now
+    executor: DiagnosticFunctionExecutor = field(default_factory=DiagnosticFunctionExecutor)
 
     async def collect(self, task: EvaluationTask) -> Mapping[str, Any]:
         inventory = await self.client.inventory(task)
@@ -74,44 +70,60 @@ class KubectlAdmissionEvidenceProvider:
             and len(service_references) <= _MAX_WEBHOOK_SERVICES
             and len(service_receipts) == len(selected_references)
         )
+        cutoff = self.clock().isoformat()
+        executions = (
+            await self.executor.derive(
+                "kubernetes_direct_admission_condition_evidence",
+                {"resources": resources, "evidence_complete": evidence_complete},
+            ),
+            await self.executor.derive(
+                "kubernetes_webhook_failure_source_candidate",
+                {
+                    "resources": resources,
+                    "events": events,
+                    "namespace": namespace,
+                    "evidence_complete": evidence_complete,
+                },
+            ),
+            await self.executor.derive(
+                "kubernetes_cumulative_webhook_timeout_candidate",
+                {
+                    "events": events,
+                    "namespace": namespace,
+                    "evidence_complete": evidence_complete,
+                    "evidence_cutoff": cutoff,
+                },
+            ),
+            await self.executor.derive(
+                "kubernetes_missing_webhook_backend_candidate",
+                {
+                    "configurations": _mappings(configurations.get("resources")),
+                    "service_receipts": service_receipts,
+                    "evidence_complete": service_evidence_complete,
+                },
+            ),
+            await self.executor.derive(
+                "kubernetes_pod_security_restricted_mismatch_candidate",
+                {
+                    "resources": resources,
+                    "events": events,
+                    "evidence_complete": evidence_complete,
+                    "evidence_cutoff": cutoff,
+                },
+            ),
+            await self.executor.derive(
+                "kubernetes_admission_resource_drift_reducer",
+                {"resources": resources, "evidence_complete": evidence_complete},
+            ),
+        )
         return {
             "cluster": str(inventory.get("cluster") or "")[:253],
             "namespace": namespace,
             "evidence_complete": evidence_complete,
             "webhook_service_evidence_complete": service_evidence_complete,
-            "findings": [
-                *admission_condition_findings(
-                    resources,
-                    evidence_complete=evidence_complete,
-                ),
-                *admission_webhook_failure_findings(
-                    resources,
-                    events,
-                    namespace=namespace,
-                    evidence_complete=evidence_complete,
-                ),
-                *cumulative_webhook_timeout_findings(
-                    events,
-                    namespace=namespace,
-                    evidence_complete=evidence_complete,
-                    evidence_cutoff=self.clock(),
-                ),
-                *missing_webhook_backend_findings(
-                    _mappings(configurations.get("resources")),
-                    service_receipts,
-                    evidence_complete=service_evidence_complete,
-                ),
-                *pod_security_mismatch_findings(
-                    resources,
-                    events,
-                    evidence_complete=evidence_complete,
-                    evidence_cutoff=self.clock(),
-                ),
-                *mutating_webhook_resource_drift_findings(
-                    resources,
-                    evidence_complete=evidence_complete,
-                ),
-            ],
+            "findings": [finding for item in executions for finding in item.findings],
+            "function_receipts": [item.receipt for item in executions],
+            "function_inputs": [item.input_binding for item in executions],
         }
 
     async def _service_receipt(
