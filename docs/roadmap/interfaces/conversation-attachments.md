@@ -42,7 +42,7 @@ The file source changes by channel. Safety, storage, purpose, citations, retenti
 | Protected channel ingestion | Composition implemented; deployment binding pending | `ProtectedChannelAttachmentIngestor` sends all bytes through the existing scan, protection, extraction, indexing, and access lifecycle. |
 | Explicit ownership handover | Contract implemented; Slack/Teams deployment binding pending | A leading `/handover`, `/attach handover`, or `인수인계 문서:` directive selects `handover_bootstrap`; content and filenames never select it. |
 | Web chat document references | Implemented backend contract | JSON and SSE chat accept up to eight immutable document/version ids. The production resolver permits only ready versions uploaded by the current principal. The SPA file picker remains product UI work. |
-| Web chat inline vision evidence | Implemented | The web chat `attachments` field accepts a bounded set of inline base64 images (raster allowlist png/jpeg/gif/webp, `data:` URLs only, declared media type must match magic bytes, browser source capped at 32 MiB before decode, server edge capped at 2048 pixels, per-image output cap and per-turn count cap). Validated images escalate the turn to a vision-capable narrator as read-only evidence; they never grant execution eligibility. The Operator API stores validated bytes in the principal-scoped `conversation_image` repository and keeps content-free descriptors in turn history so the Console can restore them. |
+| Web chat inline vision evidence | Implemented | The web chat `attachments` field accepts a bounded set of inline base64 images (raster allowlist png/jpeg/gif/webp, `data:` URLs only, declared media type must match magic bytes, browser source capped at 32 MiB before decode, server edge capped at 2048 pixels, per-image output cap and per-turn count cap). Validated images escalate the turn to a vision-capable narrator as read-only evidence; they never grant execution eligibility. Terminal verification preserves the interpretation as unverified with a current `conversation-image` ref rather than treating it as screen-verified. The Operator API stores validated bytes in the principal-scoped `conversation_image` repository and keeps content-free descriptors in turn history so the Console can restore them. |
 | Image OCR | Implemented, opt-in | `ImageOcrProvider` is injected into the standard extractor. Azure production can bind Document Intelligence `prebuilt-read` with managed identity. |
 
 ## Purpose and authorization
@@ -154,7 +154,19 @@ stores only id, display name, and validated media type; it never stores the base
 reads a historical image through authenticated
 `GET /me/conversations/{conversation_id}/images/{image_id}` and creates a browser object URL for
 display. A different principal, conversation, or unknown id returns the same `404` response. Deleting
-the owning conversation cascades to its image rows.
+the owning conversation cascades to its image rows. Each image also expires after 90 days even when
+the conversation remains active; the scheduled user-context retention job removes expired image
+bytes independently. A principal can retain at most 1,000 conversation images or 256 MiB, whichever
+limit is reached first. Exact retries do not consume quota twice, and a quota rejection returns
+`429` before turn metadata is stored. Images remain on a 15-minute pending expiry until the operator
+turn is durable, then move to the 90-day expiry. If immediate compensation also fails, the next
+upload or retention pass removes the pending bytes after that short interval.
+
+The composer presents a staged image as a fixed thumbnail without repeating its filename, byte
+size, or ready label. Pointer hover, keyboard focus, or touch opens a viewport-bounded large preview
+through the shared tooltip layer. While normalization is in progress, the tile uses the shared
+neutral top-edge shimmer; reduced-motion preference disables that animation. Non-image files and
+rejected attachments retain their compact metadata and actionable reason.
 
 ## Image OCR
 

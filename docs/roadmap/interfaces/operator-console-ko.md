@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 0f52054c9d36150bc1d861aba79a01e6988812f3
+translation_source_sha: 043ea0b346032b6f99504e9669762824f53bd9b3
 translation_revised: 2026-08-05
 ---
 
@@ -138,10 +138,10 @@ flowchart TD
   Full-workspace 웹 채팅은 transcript 중심으로 열립니다. 대화 이력과 현재 화면 digest는 항상
   표시되는 열이 아니라 toolbar panel입니다. Deck header는 활성 route를 표시하고, Digest toggle과
   header는 근거 record 수, snapshot age 및 오래된 context 새로고침을 담당합니다. Composer에는
-  attachment, 질문 입력 및 보내기 또는 중지만 유지합니다. 전송된 image는 operator turn 안에
-  표시됩니다. Browser transcript cache에는 image descriptor만 유지하고 인증된 history read가
+  attachment, 질문 입력 및 보내기 또는 중지만 유지합니다. 전송된 image는 operator turn 안에 표시되며 검증된 image attachment는 prompt-only semantic tool planning과
+  주어가 생략된 LLM 사용량 refinement를 우회하여 현재 image를 vision narration에 전달합니다. Terminal verification은 해당 해석을 screen-verified로 취급하지 않고 현재 `conversation-image` ref가 있는 unverified 답변으로 보존합니다. 측정된 LLM 사용량을 명시한 요청은 deterministic tool request로 유지합니다. Browser transcript cache에는 image descriptor만 유지하고 인증된 history read가
   principal 범위 conversation image repository에서 byte를 load합니다. 복원된 transcript에는 마지막 기록 시각과
-  새 대화 작업을 표시합니다. 좁은 화면에서도 Markdown table은 native table semantics를 유지합니다.
+  새 대화 작업을 표시합니다. Table cell의 `<br>` 변형만 안전한 줄바꿈으로 바꾸고 다른 raw HTML은 text로 유지합니다. 좁은 화면에서도 Markdown table은 native table semantics를 유지합니다.
 - **Layer 2 (Coordinator)**는 intent classification, RBAC gating, tool
   dispatch, verifier re-check, 세션 bookkeeping을 소유합니다. Core translator는 `Narrator`
   Protocol을 사용합니다. `GroundedAnswerNarrator`도 구현하는 narrator는 완료된 성공
@@ -151,17 +151,32 @@ flowchart TD
   class, evidence-reference count 및 prior conversation context 유무에서 결정론적으로 조립합니다.
   현재 inbound/tool/result transaction은 prior context에서 제외합니다. Web generation은 Operator API
   backend seam이므로 deployment가 provider를 바인딩할 수 있습니다.
-  `AnswerPlan.format`은 `table`과 `chart`를 first-class presentation contract로 취급합니다. 명시적인
-  request format 또는 저장된 response preference가 우선합니다. 그렇지 않으면 inventory evidence가
-  준비된 뒤 bounded structured model call이 record count, available column, category count, query
-  kind 및 operator request에서 presentation shape를 판단합니다. Comparable row는 `table` 또는 `chart`만
-  허용하며 bullet은 이 shape의 valid model choice가 아닙니다. Category summary는 `chart` 또는
-  `bullets`를 허용합니다. Model은 row value를 받지 않으며 content를 추가할 수 없습니다. Strict
-  schema는 다른 key와 format을 거부합니다. Deterministic evidence selection과 verification은 T0에
-  유지하고 model은 presentation만 판단합니다.
-  Deterministic inventory verifier는 immutable evidence에서 완전한 Markdown table, fenced `chart` JSON
-  또는 bullet을 렌더링합니다. Model 실패 또는 invalid proposal은 여러 comparable record를 table로
-  fallback하므로 presentation 실패가 evidence를 제거하거나 answer를 차단하지 않습니다.
+  `AnswerPlan.format`은 `table`, `chart`, `mixed`를 presentation preference로 유지합니다. 명시적인
+  request format 또는 저장된 response preference는 verified result가 의미를 바꾸지 않고 해당 shape를
+  지원할 때만 우선합니다. 적합한 read evidence가 준비되면 bounded structured model call이 server가
+  선언한 slot으로 `PresentationPlan`을 배치할 수 있습니다. Model은 shape metadata, 허용된
+  slot-component pair, coverage class 및 operator request만 받습니다. Row value를 받지 않으며 title,
+  fact, unit, threshold, status, severity, color, link 또는 evidence reference를 출력할 수 없습니다.
+  Plan은 slot 순서, allowlisted component 하나, emphasis 및 supporting detail의 초기 접힘 상태만 선택할
+  수 있습니다. Required slot을 반복하거나 생략할 수 없습니다. `AnswerPlan.format`은 canonical Markdown
+  text fallback을 계속 소유하고 `PresentationPlan`은 Console artifact layout만 소유합니다. Presentation
+  planning은 canonical text format을 다시 작성하지 않습니다. 명시적인 format 또는 저장된 preference가
+  있으면 artifact를 생략하고 기존 table, chart, list 또는 prose renderer를 유지합니다.
+
+  Server는 plan을 검증한 뒤 immutable evidence를 bounded `presentation_artifact` v1으로 compile합니다.
+  Compiler는 chart의 compatible unit과 threshold direction을 강제하고 partial 또는 truncated coverage를
+  계속 표시하며 각 block reference를 terminal verification receipt에 바인딩합니다. Partial source가
+  completed slot을 제거하지 않습니다. Answer는 사용할 수 있는 verified fact를 모두 렌더링하고 누락된
+  부분만 unknown 또는 unavailable로 표시합니다.
+  Streamed evidence-fast-path turn은 complete deterministic plan으로 시작하고 optional mini-model planner를
+  병렬로 실행하면서 canonical answer를 즉시 streaming합니다. Answer가 표시된 뒤 terminal event는 valid
+  alternative layout을 최대 5초 동안만 기다립니다. Timeout, cancellation, invalid output 또는 provider
+  failure에는 deterministic plan을 유지합니다. Non-stream JSON route는 deterministic plan을 바로 사용하며
+  presentation planning 때문에 evidence answer를 지연하지 않습니다. 관련 verified slot이 하나도 없을 때만
+  planning이 artifact를 반환하지 않을 수 있습니다. Model, schema, timeout 또는 compiler failure에는
+  deterministic answer와 default layout을 사용하므로 operator는 가능한 최대 evidence-supported answer를
+  계속 받습니다. 기존 Markdown table, fenced chart, bullet 및 prose output은 다른 channel과 이전
+  client를 위한 compatibility contract로 유지합니다.
   Semantic turn planner는 해당 request의 bounded capability만 strict structured-output schema로
   projection합니다. 모든 object는 additional property를 거부하고 declared field를 required로
   표시합니다. Tool의 optional argument는 nullable field로 표현하며 coordinator는 deterministic
@@ -283,8 +298,39 @@ method `tools.search`, `tools.describe`로 제공됩니다. Channel call은 reso
 일치하는 inventory result set은 40개 record 제한을 적용하기 전에 정렬합니다. List는 기본적으로
 resource 이름순이며, status, type 또는 location grouping을 명시하면 해당 grouping field 다음에
 resource 이름순으로 정렬합니다. 렌더링 row와 durable ordinal follow-up은 같은 순서를 사용합니다.
-구체적인 resource-type query에 완전한 lexical state match가 없으면 semantic planning은 state concept만 제안합니다. Server는 IQL catalog의 canonical current-inventory state만 수락하고
-deterministic type, scope, freshness를 보존하며 planner가 제안한 type, scope, lookback은 버립니다. Provider가 관찰한 status가 최종 predicate를 grounding하며 invalid state는 unavailable을 반환합니다.
+향후 VM 종료 질문은 catalog-owned `scheduled_shutdown` query kind와
+`compute.vm-shutdown-schedule` resource type을 사용합니다. Query는 timezone-aware server 기준 시각과
+closed `today_evening` window를 고정합니다. Provider adapter는 검증된 `ComputeVmShutdownTask`
+record만 projection하고 target ARM id는 노출하지 않은 채 target VM 이름과 resource group, enabled
+state, daily local time, provider timezone을 제공합니다. Deterministic projection은 schedule timezone에서
+18:00부터 23:59 사이이며 아직 지나지 않은 enabled occurrence만 포함합니다. Disabled schedule은
+결과가 아닙니다. Snapshot이 truncated되거나 production coverage에 schedule type이 없거나 schedule이
+malformed이거나 timezone을 지원하지 않으면 어떤 VM도 종료되지 않는다고 단정하지 않고 unavailable을
+반환합니다.
+구체적인 resource-type query에 완전한 lexical state match가 없으면 semantic retrieval은 state 또는
+operation candidate만 제안할 수 있습니다. Model 및 embedding candidate는 해당 turn에서 provider
+query를 실행하지 않습니다. Server가 complete typed query를 만들려면 exact/promoted catalog mapping
+또는 별도로 검증된 operator confirmation receipt가 필요합니다.
+Semantic planning을 사용할 수 없거나, 결과가 모호하거나, 필요한 state를 생략하면 server는
+deterministic query skeleton이 포함된 typed interpretation hold를 반환합니다. Type-only skeleton을
+실행하거나 unresolved modifier를 삭제하여 결과 범위를 넓히지 않습니다.
+Negative state candidate는 canonical catalog state에 대해 bounded `not_in` operator를 사용합니다.
+Provider grounding은 같은 snapshot에서 excluded value를 resolve하며, negation을 unsupported
+positive-state guess로 바꾸지 않습니다.
+Exact catalog term은 유일한 entry gate가 아니라 T0 latency optimization으로 유지됩니다. Production에
+기존 T1 embedding binding이 있으면 같은 credential path로 state와 operation description 및 example을
+검색합니다. Retrieved concept는 `candidate_only`를 유지하고 inventory를 query하지 않은 채 localized
+clarification을 만듭니다. Embedder가 없거나 실패하면 resolver는 candidate를 반환하지 않고
+deterministic hold가 authoritative 상태를 유지합니다.
+`FDAI_INVENTORY_SEMANTIC_ENABLED`는 이 clarification capability를
+`FDAI_CATALOG_SEARCH_ENABLED`와 독립적으로 제어합니다. Rule search를 비활성화해도 inventory
+semantic retrieval이 암묵적으로 비활성화되지 않습니다.
+Clarification은 dead end가 아닙니다. 이후 operator turn에서 exact promoted catalog expression을
+선택하면 deterministic하게 다시 compile하고 provider read를 수행할 수 있습니다. 이전 model 또는
+embedding argument는 query authority로 재사용하지 않습니다.
+Intent-graph planning은 complete deterministic inventory query를 override할 수 없습니다.
+Planner-supplied status concept도 canonical catalog로 확인하며 invalid value는 차단되고 execution은
+deterministic query를 사용합니다. 필요한 semantic status가 생략되면 hold 상태를 유지합니다.
 필터가 없는 summary는 provider가 관찰한 모든 resource를 계속 보존하고 provider-native type별로 grouping하며 resource-group container와 topology-derived record를 resource 합계에서 분리합니다.
 Catalog-owned `scope_counts` query kind는 query를 resource group으로 좁히지 않고 하나의
 fresh snapshot에서 provider-native resource와 resource-group 합계를 반환합니다. Type summary와

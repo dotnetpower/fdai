@@ -53,6 +53,9 @@ from fdai.delivery.operator_api.routes.chat_inventory import (
     InventoryChatTools,
     KubernetesWorkloadProvider,
 )
+from fdai.delivery.operator_api.routes.chat_inventory_semantic_retrieval import (
+    InventorySemanticResolver,
+)
 from fdai.delivery.operator_api.routes.chat_llm_usage import (
     LlmUsageChatTools,
     is_llm_usage_followup,
@@ -127,6 +130,7 @@ def append_chat_routes(
     conversation_search: ConversationSearch | None = None,
     llm_usage_reader: Any = None,
     inventory_graph_provider: InventoryGraphProvider | None = None,
+    inventory_semantic_resolver: InventorySemanticResolver | None = None,
     inventory_activity_provider: InventoryActivityProvider | None = None,
     kubernetes_workload_provider: KubernetesWorkloadProvider | None = None,
     detection_readiness_reader: DetectionReadinessReader | None = None,
@@ -170,6 +174,7 @@ def append_chat_routes(
             fallback=log_tools,
             workload_provider=kubernetes_workload_provider,
             activity_provider=inventory_activity_provider,
+            semantic_resolver=inventory_semantic_resolver,
         )
     )
     inventory_tools = inventory_chat_tools or log_tools

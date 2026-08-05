@@ -295,6 +295,38 @@ async def test_graph_executor_classifies_invalid_semantic_inventory_status() -> 
     assert receipt["reason"] == "inventory_semantic_status_invalid"
 
 
+async def test_graph_executor_holds_when_required_semantic_status_is_omitted() -> None:
+    resolver = _Tools()
+    result = await resolve_intent_graph_evidence(
+        request_id="request-missing-inventory-state",
+        prompt="started VM",
+        graph=_graph(
+            _goal(
+                "inventory",
+                "query_inventory",
+                arguments={
+                    "source": "current",
+                    "kind": "list",
+                    "predicates": [],
+                    "lookback_seconds": 3_600,
+                },
+            )
+        ),
+        view_context={},
+        user_id="reader",
+        session_id="session-missing-inventory-state",
+        planned_tool_resolver=resolver,
+        agent_delegate=None,
+        web_search_resolver=None,
+        progress_observer=lambda _event: _completed(),
+    )
+
+    receipt = result["_intent_graph_evidence"]["goals"][0]
+    assert receipt["status"] == "unavailable"
+    assert receipt["reason"] == "inventory_semantic_interpretation_required"
+    assert resolver.calls == []
+
+
 async def test_graph_executor_skips_goal_with_unsuccessful_dependency() -> None:
     resolver = _Tools()
     events: list[Mapping[str, Any]] = []

@@ -29,6 +29,7 @@ from fdai.core.python_task.grounded_code import extract_grounded_code
 from fdai.core.user_context_projection import UserContextOntologyProjector
 from fdai.delivery.conversation_images import (
     ConversationImageConflictError,
+    ConversationImageQuotaError,
     ConversationImageStore,
 )
 from fdai.delivery.handover_events import HandoverAvailabilityPublisher
@@ -140,7 +141,6 @@ from fdai.delivery.operator_api.routes.chat_freshness_context import (
 from fdai.delivery.operator_api.routes.chat_history import (
     append_assistant_turn,
     append_content_policy_receipt,
-    append_operator_turn,
     completed_replay_payload,
     content_policy_replay_stage,
     replay_metadata,
@@ -153,7 +153,7 @@ from fdai.delivery.operator_api.routes.chat_history_context import (
 )
 from fdai.delivery.operator_api.routes.chat_image_history import (
     image_turn_metadata,
-    persist_conversation_images,
+    persist_operator_turn_with_images,
 )
 from fdai.delivery.operator_api.routes.chat_intent_graph import (
     IntentGraph,
@@ -187,7 +187,10 @@ from fdai.delivery.operator_api.routes.chat_log_query import (
     needs_log_query_context,
 )
 from fdai.delivery.operator_api.routes.chat_presentation import (
-    adapt_answer_plan_for_presentation,
+    select_answer_presentation,
+)
+from fdai.delivery.operator_api.routes.chat_presentation_artifact import (
+    response_presentation_artifact,
 )
 from fdai.delivery.operator_api.routes.chat_prompt import (
     _AGENT_EVIDENCE_DIRECTIVE,
@@ -274,6 +277,9 @@ from fdai.delivery.operator_api.routes.chat_stream_protocol import (
     _sse,
     _sse_heartbeat,
     _with_sse_heartbeats,
+)
+from fdai.delivery.operator_api.routes.chat_stream_terminal import (
+    response_incident_candidates,
 )
 from fdai.delivery.operator_api.routes.chat_subscription_health import (
     needs_subscription_health,
@@ -409,6 +415,8 @@ def make_chat_route(
         prompt = body.get("prompt")
         if not isinstance(prompt, str) or not prompt.strip():
             raise HTTPException(status_code=400, detail="prompt MUST be a non-empty string")
+        session_id = _session_id(body)
+        request_id = _request_id(body)
         view_context = body.get("view_context")
         if view_context is None:
             view_context = {}
@@ -423,7 +431,7 @@ def make_chat_route(
         # client-supplied one, then set it from the parsed inline images.
         view_context.pop("_attachments", None)
         try:
-            vision_attachments = parse_vision_attachments(body)
+            vision_attachments = parse_vision_attachments(body, request_id=request_id)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         if vision_attachments:
@@ -446,8 +454,6 @@ def make_chat_route(
             _reject_direct_override(clean_prompt)
         except ChatContentPolicyError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-        session_id = _session_id(body)
-        request_id = _request_id(body)
         if conversation_history_store is not None:
             try:
                 replay_stage = await content_policy_replay_stage(
@@ -548,9 +554,11 @@ def make_chat_route(
         )
         if inventory_screen_scope_resolution is not None:
             view_context["_inventory_screen_scope"] = inventory_screen_scope_resolution.to_context()
-        compiled_inventory = compile_inventory_query(evidence_prompt)
+        compiled_inventory = (
+            compile_inventory_query(evidence_prompt) if tool_resolver is not None else None
+        )
         semantic_inventory_completion = compiled_inventory is not None and (
-            inventory_query_requires_semantic_completion(compiled_inventory)
+            inventory_query_requires_semantic_completion(compiled_inventory, prompt=evidence_prompt)
         )
         deterministic_followup = (
             resource_followup
@@ -566,7 +574,9 @@ def make_chat_route(
             or is_topology_question(evidence_prompt)
             or (
                 compiled_inventory is not None
-                and not inventory_query_requires_semantic_completion(compiled_inventory)
+                and not inventory_query_requires_semantic_completion(
+                    compiled_inventory, prompt=evidence_prompt
+                )
             )
             or needs_subscription_health(evidence_prompt)
             or needs_log_query(evidence_prompt)
@@ -610,6 +620,7 @@ def make_chat_route(
             semantic_plan = None
             if (
                 turn_planner is not None
+                and not vision_attachments
                 and not _is_grounded_concept_query(clean_prompt)
                 and (
                     not deterministic_followup
@@ -655,8 +666,10 @@ def make_chat_route(
                     )
                 operator_recorded_at = datetime.now(tz=UTC)
                 try:
-                    operator_turn = await append_operator_turn(
-                        store=conversation_history_store,
+                    operator_turn = await persist_operator_turn_with_images(
+                        history_store=conversation_history_store,
+                        image_store=conversation_image_store,
+                        attachments=vision_attachments,
                         principal_id=user_id,
                         conversation_id=session_id,
                         request_id=request_id,
@@ -669,26 +682,21 @@ def make_chat_route(
                         },
                         ontology_projector=user_context_ontology_projector,
                     )
+                except ConversationImageConflictError as exc:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="chat image id conflicts with existing content",
+                    ) from exc
+                except ConversationImageQuotaError as exc:
+                    raise HTTPException(
+                        status_code=429,
+                        detail="conversation image storage quota exceeded",
+                    ) from exc
                 except UserContextConflictError as exc:
                     raise HTTPException(
                         status_code=409,
                         detail="chat request id conflicts with an existing turn",
                     ) from exc
-                if conversation_image_store is not None:
-                    try:
-                        await persist_conversation_images(
-                            store=conversation_image_store,
-                            attachments=vision_attachments,
-                            principal_id=user_id,
-                            conversation_id=session_id,
-                            request_id=request_id,
-                            created_at=operator_recorded_at,
-                        )
-                    except ConversationImageConflictError as exc:
-                        raise HTTPException(
-                            status_code=409,
-                            detail="chat image id conflicts with existing content",
-                        ) from exc
                 completed_turn = await conversation_history_store.get_turn_by_idempotency(
                     principal_id=user_id,
                     idempotency_key=f"{request_id}:assistant",
@@ -849,15 +857,20 @@ def make_chat_route(
                     with_correlation(_metering_correlation_id(user_id, session_id)),
                     with_invocation_scope(InvocationScope.OPERATOR_CHAT),
                 ):
-                    answer_plan = await await_with_interrupt(
-                        adapt_answer_plan_for_presentation(
-                            backend=backend,
+                    presentation_decision = await await_with_interrupt(
+                        select_answer_presentation(
+                            backend=object(),
                             prompt=clean_prompt,
                             plan=answer_plan,
                             view_context=view_context,
                         ),
                         active_turn=active_turn,
                     )
+                    answer_plan = presentation_decision.answer_plan
+                    if presentation_decision.presentation_plan is not None:
+                        view_context["_presentation_plan"] = (
+                            presentation_decision.presentation_plan.to_dict()
+                        )
                 view_context["_answer_plan"] = answer_plan.to_dict()
             reply: dict[str, Any]
             if freshness_verification is not None:
@@ -1105,6 +1118,13 @@ def make_chat_route(
         if policy_summary is not None:
             enriched["conversation_policy"] = policy_summary
         enriched["answer_planning"] = answer_planning
+        incident_candidates = response_incident_candidates(
+            view_context,
+            verification=verification,
+            locale=response_locale,
+        )
+        if incident_candidates is not None:
+            enriched["incident_candidates"] = incident_candidates
         selected_resource = response_resource_context(view_context, resource_context)
         if selected_resource is not None:
             enriched["resource_context"] = selected_resource
@@ -1134,6 +1154,15 @@ def make_chat_route(
         )
         if chart_artifact is not None:
             enriched["chart_artifact"] = chart_artifact
+        presentation_artifact = response_presentation_artifact(
+            view_context,
+            answer_plan=answer_plan,
+            verification_status=verification.status,
+            evidence_refs=verification.evidence_refs,
+            locale=response_locale,
+        )
+        if presentation_artifact is not None:
+            enriched["presentation_artifact"] = presentation_artifact
         selected_freshness = response_evidence_freshness_context(view_context, freshness_context)
         if selected_freshness is not None:
             enriched["evidence_freshness_context"] = selected_freshness.to_dict()

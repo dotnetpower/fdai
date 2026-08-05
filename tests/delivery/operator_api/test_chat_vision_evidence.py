@@ -12,6 +12,7 @@ from fdai.delivery.operator_api.routes.chat_vision_evidence import (
     _format_bytes,
     _magic_matches,
     parse_vision_attachments,
+    vision_evidence_refs,
     vision_source_previews,
 )
 
@@ -47,6 +48,15 @@ def test_no_attachments_returns_empty() -> None:
     assert parse_vision_attachments({"attachments": None}) == []
 
 
+def test_synthesized_ids_are_scoped_to_the_normalized_request() -> None:
+    body = {"attachments": [_attachment("image/png", _PNG)]}
+
+    first = parse_vision_attachments(body, request_id="request-first")
+    second = parse_vision_attachments(body, request_id="request-second")
+
+    assert first[0].attachment_id != second[0].attachment_id
+
+
 def test_parses_each_allowed_raster_type() -> None:
     body = {
         "attachments": [
@@ -73,11 +83,15 @@ def test_parses_each_allowed_raster_type() -> None:
 def test_view_dict_shape() -> None:
     parsed = parse_vision_attachments({"attachments": [_attachment("image/png", _PNG)]})
     assert parsed[0].to_view_dict() == {
+        "id": parsed[0].attachment_id,
         "name": "image-1",
         "media_type": "image/png",
         "data_url": parsed[0].data_url,
         "byte_size": len(_PNG),
     }
+    assert vision_evidence_refs([parsed[0].to_view_dict()]) == (
+        f"conversation-image:{parsed[0].attachment_id}",
+    )
 
 
 def test_rejects_svg_and_other_media_types() -> None:
@@ -132,6 +146,18 @@ def test_enforces_count_cap() -> None:
     body = {"attachments": [_attachment("image/png", _PNG) for _ in range(3)]}
     with pytest.raises(ValueError, match="exceed cap"):
         parse_vision_attachments(body, max_images=2)
+
+
+def test_rejects_duplicate_attachment_ids() -> None:
+    body = {
+        "attachments": [
+            {"id": "att-duplicate", **_attachment("image/png", _PNG)},
+            {"id": "att-duplicate", **_attachment("image/jpeg", _JPEG)},
+        ]
+    }
+
+    with pytest.raises(ValueError, match="ids MUST be unique"):
+        parse_vision_attachments(body)
 
 
 def test_rejects_oversized_pixel_dimensions() -> None:

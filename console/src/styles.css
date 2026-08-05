@@ -1,3 +1,6 @@
+@import url("../../ui/calm-slate-tokens.css");
+@import url("../../ui/calm-slate-primitives.css");
+
 .deck-incident-candidates {
   display: grid;
   gap: 8px;
@@ -296,23 +299,6 @@
      [data-theme="dark"] and a `prefers-color-scheme: dark` fallback that
      only fires when no explicit theme is set on <html>. */
   color-scheme: light;
-  --cs-bg: #fbfaf9;
-  --cs-card: #ffffff;
-  --cs-hairline: #e3e1de;
-  --cs-shade: #f4f2f0;
-  --cs-text: #2c333a;
-  --cs-text-soft: #6b7178;
-  --cs-steel: #44688e;
-  --cs-navy: #3e4c59;
-  --cs-sage: #5e8259;
-  --cs-terracotta: #bc7449;
-  --cs-dusty-red: #ac5a5a;
-  --cs-teal: #4f847e;
-  --cs-plum: #7b6c9c;
-  --cs-radius: 8px;
-  --cs-radius-sm: 6px;
-  --cs-shadow: 0 4px 16px rgba(46, 54, 64, 0.06);
-  --cs-shadow-hover: 0 6px 22px rgba(46, 54, 64, 0.1);
   --bg: var(--cs-bg);
   --bg-elevated: var(--cs-card);
   --bg-subtle: var(--cs-shade);
@@ -324,8 +310,8 @@
   --success: var(--cs-sage);
   --warning: var(--cs-terracotta);
   --border: var(--cs-hairline);
-  --font-sans: "Segoe UI Variable Text", "Segoe UI", "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
-  --font-mono: "Cascadia Code", "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  --font-sans: var(--cs-font);
+  --font-mono: var(--cs-font-mono);
   --rail-width: 56px;
   --header-height: 49px;
   --deck-invoke-height: 44px;
@@ -337,7 +323,7 @@
   --architecture-map-label-text: #263543;
   --architecture-map-selected-label-text: #102f36;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--cs-font-size);
 }
 
 :root[data-theme="dark"] {
@@ -964,6 +950,23 @@ body.deck-open { overflow: hidden; }
   padding: 10px;
   white-space: normal;
 }
+.app-tooltip[data-variant="image-preview"] {
+  width: min(420px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  padding: 6px;
+  white-space: normal;
+}
+.deck-attach-preview-layer,
+.deck-attach-preview-layer img {
+  display: block;
+  width: 100%;
+}
+.deck-attach-preview-layer img {
+  max-height: min(420px, calc(100vh - 48px));
+  object-fit: contain;
+  border-radius: 5px;
+  background: var(--bg);
+}
 .deck-backend-tooltip,
 .deck-backend-tooltip-router,
 .deck-backend-tooltip-candidates {
@@ -1076,6 +1079,9 @@ body.deck-open { overflow: hidden; }
 .app-tooltip[data-state="delayed-open"],
 .app-tooltip[data-state="instant-open"] {
   animation: app-tooltip-in 0.15s ease-out both;
+}
+.app-tooltip[data-variant="image-preview"][data-state="instant-open"] {
+  animation: none;
 }
 .app-tooltip[data-state="closed"] {
   animation: app-tooltip-out 0.05s ease-out both;
@@ -1346,6 +1352,23 @@ main {
   border-radius: var(--cs-radius);
   padding: 16px;
   box-shadow: var(--cs-shadow);
+}
+
+.deck-attach-item.is-scanning::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: 0 0 auto;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, rgba(85,164,255,.25) 38%, rgba(111,190,255,.95) 50%, rgba(85,164,255,.25) 62%, transparent 100%) left / 72% 100% no-repeat;
+  filter: drop-shadow(0 0 7px rgba(73,156,255,.75));
+  opacity: 0;
+  transform: translateX(-125%);
+  animation: calm-slate-content-update 1.35s cubic-bezier(.2,.7,.25,1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .deck-attach-item.is-scanning::after { animation: none; }
 }
 
 .card h2 {
@@ -6546,6 +6569,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   color: var(--fg);
 }
 .deck-conversation:hover { background: var(--bg); }
+.deck-conversation > .tooltip-anchor { min-width: 0; flex: 1 1 auto; }
+.deck-conversation > .tooltip-anchor .deck-conversation-select { width: 100%; }
 .deck-conversation.is-active {
   border-color: color-mix(in oklab, var(--accent) 38%, var(--border));
   background: color-mix(in oklab, var(--accent) 12%, var(--bg));
@@ -6665,18 +6690,46 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   line-height: 1.5;
 }
 .deck-trajectory-cluster { min-width: 0; width: 100%; margin-top: 6px; }
-.deck-trajectory-results { display: flex; flex-wrap: wrap; gap: 6px; }
+.deck-trajectory-results {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  cursor: help;
+  outline: none;
+}
 .deck-trajectory-results > span {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 0;
+  max-width: 22px;
   min-height: 22px;
-  padding: 2px 6px;
+  margin-left: -7px;
+  padding: 0;
+  overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 999px;
   background: color-mix(in oklab, var(--bg-elevated) 86%, var(--bg));
+  color: transparent;
+  font-size: 11px;
+  white-space: nowrap;
+  transition: max-width .16s ease, margin-left .16s ease, padding .16s ease, color .12s ease;
+}
+.deck-trajectory-results > span:first-child { z-index: 1; margin-left: 0; }
+.deck-trajectory-results:hover > span,
+.deck-trajectory-results:focus > span {
+  max-width: 260px;
+  margin-left: 4px;
+  padding: 2px 7px;
+  gap: 6px;
   color: var(--fg-muted);
-  font-size: 12px;
+}
+.deck-trajectory-results:hover > span:first-child,
+.deck-trajectory-results:focus > span:first-child { margin-left: 0; }
+.deck-trajectory-results:focus-visible {
+  border-radius: 999px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .deck-trajectory-results > span::before,
 .deck-trajectory-signals dd::before {
@@ -6698,10 +6751,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-trajectory-results > span[data-state="not_observed"]::before,
 .deck-trajectory-signals > div[data-state="not_observed"] dd::before { background: var(--fg-muted); }
 .deck-trajectory {
-  --deck-font-heading: 14px;
-  --deck-font-body: 13px;
-  --deck-font-small: 12px;
-  --deck-font-label: 12px;
+  --deck-font-heading: 13px;
+  --deck-font-body: 12px;
+  --deck-font-small: 11px;
+  --deck-font-label: 11px;
   min-width: 0;
   margin-top: 7px;
   overflow: hidden;
@@ -7226,7 +7279,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   overflow-anchor: none;
   scrollbar-gutter: stable;
   padding: 0;
-  font-size: 16px;
+  font-size: 15px;
 }
 .deck-transcript-inner {
   width: min(100%, 900px);
@@ -7423,15 +7476,32 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   color: var(--fg);
 }
 .deck-turn-attachments {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
   width: min(420px, calc(100vw - 96px));
   margin: 0 0 8px;
   padding: 0;
   list-style: none;
 }
-.deck-turn-attachments li { min-width: 0; }
+.deck-turn-attachments li {
+  flex: 0 1 calc(50% - 3px);
+  min-width: 0;
+}
+.deck-turn-attachment-open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+}
+.deck-turn-attachment-open:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .deck-turn-attachments img {
   display: block;
   width: 100%;
@@ -7447,14 +7517,53 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   border-radius: 7px;
   background: var(--skeleton, var(--bg));
 }
-.deck-turn-attachments .deck-turn-attachment-name {
+.deck-image-lightbox {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(7, 12, 18, 0.78);
+}
+.deck-image-lightbox-dialog {
+  position: relative;
+  display: grid;
+  max-width: 100%;
+  max-height: 100%;
+  outline: none;
+}
+.deck-image-lightbox-dialog > img {
   display: block;
-  margin-top: 4px;
-  overflow: hidden;
-  color: var(--fg-muted);
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  width: min(1100px, calc(100vw - 48px));
+  max-width: min(1100px, calc(100vw - 48px));
+  max-height: calc(100dvh - 48px);
+  border-radius: 8px;
+  object-fit: contain;
+  background: var(--bg);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.42);
+}
+.deck-image-lightbox-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  background: rgba(7, 12, 18, 0.78);
+  color: #fff;
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.deck-image-lightbox-close:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
 /* Bragi answer: plain body text on the deck background - no card chrome, so
  * the reply reads as prose rather than a boxed panel. */
@@ -8937,7 +9046,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-turn-line {
   margin: 0 0 4px;
   max-width: 72ch;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.62;
   color: var(--fg);
 }
@@ -9024,7 +9133,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   letter-spacing: 0;
   line-height: 1.35;
 }
-.deck-rich-heading.is-level-1 { font-size: 16px; }
+.deck-rich-heading.is-level-1 { font-size: 15px; }
 .deck-rich-heading.is-level-2 { font-size: 14px; }
 .deck-rich-heading.is-level-3 { font-size: 13px; }
 .deck-rich-list {
@@ -9654,6 +9763,28 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   background: var(--bg);
   min-width: 0;
   max-width: 260px;
+}
+.deck-attach-item.is-image-preview {
+  width: 54px;
+  height: 54px;
+  padding: 3px;
+  gap: 0;
+  box-sizing: border-box;
+  max-width: none;
+}
+.deck-attach-item.is-image-preview > .tooltip-anchor:first-child {
+  width: 100%;
+  height: 100%;
+}
+.deck-attach-item.is-image-preview .deck-attach-thumb {
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  cursor: default;
+}
+.deck-attach-item.is-image-preview .deck-attach-thumb:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .deck-attach-item.is-abandoned { opacity: 0.74; border-style: dashed; }
 .deck-attach-item.is-abandoned .deck-attach-name {

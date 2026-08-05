@@ -395,6 +395,73 @@ export interface IncidentCandidate {
   readonly locale: "en" | "ko";
 }
 
+export type PresentationTone = "neutral" | "positive" | "attention" | "warning";
+export type PresentationEmphasis = "primary" | "secondary" | "supporting";
+
+export interface PresentationSummaryItem {
+  readonly label: string;
+  readonly value: string;
+  readonly tone: PresentationTone;
+}
+
+export interface PresentationChartItem {
+  readonly label: string;
+  readonly value: number;
+  readonly tone: PresentationTone;
+}
+
+export interface PresentationColumn {
+  readonly key: string;
+  readonly label: string;
+}
+
+interface PresentationBlockBase {
+  readonly slotId: string;
+  readonly title: string;
+  readonly emphasis: PresentationEmphasis;
+  readonly collapsed: boolean;
+  readonly evidenceRefs: readonly string[];
+}
+
+interface PresentationTableData {
+  readonly columns: readonly PresentationColumn[];
+  readonly rows: readonly Readonly<Record<string, string>>[];
+  readonly statusKey: string | null;
+}
+
+export type PresentationBlock =
+  | PresentationBlockBase & {
+      readonly kind: "summary";
+      readonly data: { readonly items: readonly PresentationSummaryItem[] };
+    }
+  | PresentationBlockBase & {
+      readonly kind: "callout";
+      readonly data: { readonly tone: PresentationTone; readonly lines: readonly string[] };
+    }
+  | PresentationBlockBase & { readonly kind: "table"; readonly data: PresentationTableData }
+  | PresentationBlockBase & {
+      readonly kind: "threshold_table";
+      readonly data: PresentationTableData;
+    }
+  | PresentationBlockBase & { readonly kind: "list"; readonly data: PresentationTableData }
+  | PresentationBlockBase & {
+      readonly kind: "coverage" | "bar";
+      readonly data: { readonly items: readonly PresentationChartItem[] };
+    }
+  | PresentationBlockBase & {
+      readonly kind: "evidence";
+      readonly data: {
+        readonly items: readonly { readonly label: string; readonly value: string }[];
+      };
+    };
+
+export interface PresentationArtifact {
+  readonly schemaVersion: 1;
+  readonly layout: "stack";
+  readonly blocks: readonly PresentationBlock[];
+  readonly evidenceRefs: readonly string[];
+}
+
 export type ProgressiveAnswer = Answer & {
   readonly source: string;
   readonly router?: RouterSnapshot;
@@ -414,6 +481,7 @@ export type ProgressiveAnswer = Answer & {
   readonly intentGraphEvidence?: IntentGraphEvidence;
   readonly evidenceMode?: IntentEvidenceMode;
   readonly incidentCandidates?: readonly IncidentCandidate[];
+  readonly presentationArtifact?: PresentationArtifact;
 };
 
 export interface BackendHealth {

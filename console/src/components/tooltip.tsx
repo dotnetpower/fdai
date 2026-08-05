@@ -29,7 +29,7 @@ interface TooltipProps {
   readonly placement?: Placement;
   readonly delay?: number;
   readonly sideOffset?: number;
-  readonly variant?: "backend";
+  readonly variant?: "backend" | "image-preview";
 }
 
 export function Tooltip(props: TooltipProps) {
@@ -43,7 +43,7 @@ function ActiveTooltip({
   children,
   content,
   placement = "top",
-  delay = TOOLTIP_DELAY_MS,
+  delay,
   sideOffset = 4,
   variant,
 }: TooltipProps & { readonly content: ComponentChildren }) {
@@ -55,6 +55,7 @@ function ActiveTooltip({
   const [state, setState] = useState<TooltipState | null>(null);
   const [position, setPosition] = useState({ x: 0, y: 0, placement });
   const [positioned, setPositioned] = useState(false);
+  const pointerDelay = delay ?? (variant === "image-preview" ? 0 : TOOLTIP_DELAY_MS);
 
   function clearTimer(timerRef: typeof openTimerRef): void {
     if (timerRef.current === null) return;
@@ -165,7 +166,7 @@ function ActiveTooltip({
       ref={anchorRef}
       class="tooltip-anchor"
       onPointerEnter={(event) => {
-        if (event.pointerType !== "touch") show(delay);
+        if (event.pointerType !== "touch") show(pointerDelay);
       }}
       onPointerDown={(event) => {
         if (event.pointerType === "touch") show(0);

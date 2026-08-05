@@ -22,6 +22,7 @@ from fdai.delivery.inventory_cache_invalidation import (
     inventory_cache_path,
     inventory_invalidation_path,
 )
+from fdai.delivery.inventory_schedule import VM_SHUTDOWN_SCHEDULE_TYPE
 from fdai.delivery.operator_api.routes.inventory_graph_bounds import (
     project_bounded_inventory_neighborhood,
 )
@@ -32,7 +33,7 @@ from fdai.shared.providers.inventory import Inventory, LinkRecord, ResourceRecor
 
 _ROOT_ID = "azure-subscription"
 _LOGGER = logging.getLogger(__name__)
-_CACHE_VERSION: Final[int] = 13
+_CACHE_VERSION: Final[int] = 15
 _MAX_CACHE_BYTES: Final[int] = 5_000_000
 _MAX_CLOCK_SKEW_SECONDS: Final[int] = 300
 _ALLOWED_LINK_TYPES: Final[frozenset[str]] = frozenset({"contains", "attached_to", "depends_on"})
@@ -160,6 +161,7 @@ class AzureCliInventoryGraphProvider:
                 max_resources=self.max_resources,
                 cursor=cursor,
                 provider_execution=_inventory_query_receipt(self.inventory),
+                coverage_resource_types=_inventory_coverage_types(self.inventory),
             )
             if not _valid_cached_graph(graph, self.max_resources):
                 raise RuntimeError("local Azure inventory projected an invalid graph")
@@ -396,6 +398,8 @@ def _write_cache_file(
 def _valid_cached_graph(graph: Mapping[str, Any], max_resources: int) -> bool:
     resources = graph.get("resources")
     links = graph.get("links")
+    coverage = graph.get("coverage")
+    covered_types = coverage.get("resource_types") if isinstance(coverage, Mapping) else None
     if not isinstance(resources, list) or not isinstance(links, list):
         return False
     if (
@@ -406,6 +410,9 @@ def _valid_cached_graph(graph: Mapping[str, Any], max_resources: int) -> bool:
         or graph.get("freshness") != "fresh"
         or not isinstance(graph.get("truncated"), bool)
         or not _valid_timestamp(graph.get("snapshot_at"))
+        or not isinstance(covered_types, list)
+        or not all(isinstance(item, str) and item for item in covered_types)
+        or len(covered_types) != len(set(covered_types))
     ):
         return False
     resource_ids: set[str] = set()
@@ -529,6 +536,13 @@ def _inventory_query_receipt(inventory: Inventory) -> Mapping[str, Any] | None:
     return project_inventory_provider_execution(receipt)
 
 
+def _inventory_coverage_types(inventory: Inventory) -> tuple[str, ...]:
+    value = getattr(inventory, "resource_types", ())
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(sorted({item for item in value if isinstance(item, str) and item}))
+
+
 def _project_graph(
     records: list[ResourceRecord],
     *,
@@ -536,6 +550,7 @@ def _project_graph(
     max_resources: int,
     cursor: str | None,
     provider_execution: Mapping[str, Any] | None,
+    coverage_resource_types: tuple[str, ...],
 ) -> dict[str, Any]:
     ordered = sorted(
         records,
@@ -664,6 +679,7 @@ def _project_graph(
         "snapshot_at": datetime.now(UTC).isoformat(),
         "freshness": "fresh",
         "source": "azure-cli-local",
+        "coverage": {"resource_types": list(coverage_resource_types)},
         **({"provider_execution": dict(provider_execution)} if provider_execution else {}),
         "resources": resources,
         "links": links,
@@ -713,6 +729,25 @@ def _resource_payload(
         value = record.props.get(prop)
         if isinstance(value, str) and value:
             payload[output_field] = value
+    if record.type == VM_SHUTDOWN_SCHEDULE_TYPE:
+        for output_field, prop in (
+            ("scheduled_shutdown_status", "scheduledShutdownStatus"),
+            ("scheduled_shutdown_time", "scheduledShutdownTime"),
+            ("scheduled_shutdown_time_zone", "scheduledShutdownTimeZone"),
+            ("scheduled_shutdown_time_zone_iana", "scheduledShutdownTimeZoneIana"),
+            ("scheduled_shutdown_target_name", "scheduledShutdownTargetName"),
+            (
+                "scheduled_shutdown_target_resource_group",
+                "scheduledShutdownTargetResourceGroup",
+            ),
+            (
+                "scheduled_shutdown_target_subscription_digest",
+                "scheduledShutdownTargetSubscriptionDigest",
+            ),
+        ):
+            value = record.props.get(prop)
+            if isinstance(value, str) and value:
+                payload[output_field] = value
     if width is not None:
         payload["w"] = width
     if height is not None:

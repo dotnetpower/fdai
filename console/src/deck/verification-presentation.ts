@@ -5,6 +5,7 @@ export type VerificationIssueKind =
   | "contextRequired"
   | "sourceUnavailable"
   | "invalidQuery"
+  | "visionUnverified"
   | "unsupportedClaim";
 
 const CONTEXT_REQUIRED_REASONS = new Set([
@@ -20,6 +21,9 @@ const SOURCE_UNAVAILABLE_REASONS = new Set([
 
 export function verificationIssueKind(reasonCode: string | null): VerificationIssueKind {
   const reason = reasonCode?.toLowerCase() ?? "";
+  if (reason === "vision_interpretation_unverified") {
+    return "visionUnverified";
+  }
   if (
     CONTEXT_REQUIRED_REASONS.has(reason) ||
     reason === "prior_context_required" ||

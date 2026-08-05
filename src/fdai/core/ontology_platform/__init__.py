@@ -40,8 +40,20 @@ from .object_sets import ObjectSetService
 from .planning import build_mutation_plan, validate_plan_revisions
 from .projection import project_source_records, reconcile_expected_effects
 from .sdk_codegen import GeneratedOntologySdk, generate_ontology_sdk
+from .semantic_plans import (
+    ActiveSemanticCatalog,
+    InterpretationCandidateSource,
+    SemanticBasisValidator,
+    SemanticInterpretationCandidate,
+    SemanticOperationClass,
+    VerifiedInterpretationBasis,
+    VerifiedSemanticPlan,
+    build_semantic_candidate,
+    verify_semantic_candidate,
+)
 
 __all__ = [
+    "ActiveSemanticCatalog",
     "CatalogOntologyProjection",
     "CatalogOntologyProjector",
     "CompiledInterfaceCatalog",
@@ -51,6 +63,7 @@ __all__ = [
     "FunctionInvocationContext",
     "FunctionInvocationReceipt",
     "InterfaceImplementation",
+    "InterpretationCandidateSource",
     "ObjectPredicate",
     "ObjectSelector",
     "ObjectSelectorKind",
@@ -69,8 +82,14 @@ __all__ = [
     "ProjectionBinding",
     "ReconciliationReceipt",
     "ReconciliationStatus",
+    "SemanticBasisValidator",
+    "SemanticInterpretationCandidate",
+    "SemanticOperationClass",
     "TargetRevision",
+    "VerifiedInterpretationBasis",
+    "VerifiedSemanticPlan",
     "build_mutation_plan",
+    "build_semantic_candidate",
     "build_catalog_ontology_projection",
     "compile_interfaces",
     "generate_ontology_sdk",
@@ -78,4 +97,5 @@ __all__ = [
     "project_source_records",
     "reconcile_expected_effects",
     "validate_plan_revisions",
+    "verify_semantic_candidate",
 ]

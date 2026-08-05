@@ -1,21 +1,24 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import {
   backendTooltip,
   backendTooltipView,
+  CONVERSATION_VISIBLE_BATCH_SIZE,
   conversationCountLabel,
-  hasOverflowingText,
   routerTooltip,
   shouldLoadMoreConversations,
+  visibleConversationGroups,
   verticalQuickStarts,
 } from "./command-deck-presenters";
 
 describe("conversation history paging", () => {
   it("shows a bounded count while more cursor pages exist", () => {
-    expect(conversationCountLabel(100, true)).toBe("100+");
-    expect(conversationCountLabel(200, true)).toBe("100+");
-    expect(conversationCountLabel(200, false)).toBe("100+");
-    expect(conversationCountLabel(73, false)).toBe("73");
+    expect(conversationCountLabel(20, true)).toBe("20+");
+    expect(conversationCountLabel(40, true)).toBe("20+");
+    expect(conversationCountLabel(40, false)).toBe("40");
+    expect(conversationCountLabel(13, false)).toBe("13");
   });
 
   it("loads the next page near the scroll boundary only when available", () => {
@@ -25,13 +28,55 @@ describe("conversation history paging", () => {
     expect(shouldLoadMoreConversations(farFromBottom, true)).toBe(false);
     expect(shouldLoadMoreConversations(nearBottom, false)).toBe(false);
   });
+
+  it("reveals 20 conversations at a time while preserving group order", () => {
+    const summary = (key: string) => ({ key }) as never;
+    const groups = {
+      current: Array.from({ length: 3 }, (_, index) => summary(`current-${index}`)),
+      other: Array.from({ length: 25 }, (_, index) => summary(`other-${index}`)),
+      agents: Array.from({ length: 4 }, (_, index) => summary(`agent-${index}`)),
+    };
+
+    expect(CONVERSATION_VISIBLE_BATCH_SIZE).toBe(20);
+    const first = visibleConversationGroups(groups, CONVERSATION_VISIBLE_BATCH_SIZE);
+    expect(first.current).toHaveLength(3);
+    expect(first.other).toHaveLength(17);
+    expect(first.agents).toHaveLength(0);
+
+    const second = visibleConversationGroups(groups, CONVERSATION_VISIBLE_BATCH_SIZE * 2);
+    expect(second.current).toHaveLength(3);
+    expect(second.other).toHaveLength(25);
+    expect(second.agents).toHaveLength(4);
+  });
 });
 
-describe("conversation title overflow", () => {
-  it("enables the full-title tooltip only when the rendered text is truncated", () => {
-    expect(hasOverflowingText({ clientWidth: 120, scrollWidth: 121 })).toBe(true);
-    expect(hasOverflowingText({ clientWidth: 120, scrollWidth: 120 })).toBe(false);
-    expect(hasOverflowingText({ clientWidth: 120, scrollWidth: 80 })).toBe(false);
+describe("conversation sidebar controls", () => {
+  it("combines search and icon-only creation above lightweight filter tabs", () => {
+    const component = readFileSync(
+      fileURLToPath(new URL("./command-deck-presenters.tsx", import.meta.url)),
+      "utf8",
+    );
+    expect(component).toContain('class="deck-conversation-controls"');
+    expect(component).toContain('class="deck-conversation-new"');
+    expect(component).toContain('aria-label={t("deck.newConversation")}');
+    expect(component).toContain('class="deck-conversation-filters"');
+    expect(component).toContain('class="deck-conversation-resize-handle"');
+  });
+});
+
+describe("conversation title tooltip", () => {
+  it("covers the complete selectable row without layout measurement", () => {
+    const component = readFileSync(
+      fileURLToPath(new URL("./command-deck-presenters.tsx", import.meta.url)),
+      "utf8",
+    );
+
+    expect(component).toContain('<Tooltip content={conversation.label} placement="right-start">');
+    expect(component).toMatch(
+      /<Tooltip content=\{conversation\.label\} placement="right-start">[\s\S]*?class="deck-conversation-select"/,
+    );
+    expect(component).not.toContain("hasOverflowingText");
+    expect(component).not.toContain("ResizeObserver");
   });
 });
 

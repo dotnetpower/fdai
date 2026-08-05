@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { decodeConversationSearch, decodeUserContext } from "./user-context-client";
+import {
+  authenticatedRequestInit,
+  decodeConversationSearch,
+  decodeUserContext,
+  relayAbortSignal,
+} from "./user-context-client";
 
 const payload = {
   preference: {
@@ -25,6 +30,36 @@ const payload = {
 };
 
 describe("user-context decoder", () => {
+  it("disables browser caching for authenticated JSON and image reads", () => {
+    const controller = new AbortController();
+
+    expect(authenticatedRequestInit(
+      "GET",
+      { authorization: "Bearer test" },
+      controller.signal,
+    )).toMatchObject({
+      method: "GET",
+      credentials: "omit",
+      cache: "no-store",
+    });
+  });
+
+  it("relays and unlinks caller cancellation", () => {
+    const source = new AbortController();
+    const target = new AbortController();
+    const unlink = relayAbortSignal(source.signal, target);
+
+    source.abort();
+    expect(target.signal.aborted).toBe(true);
+    unlink();
+
+    const detachedSource = new AbortController();
+    const detachedTarget = new AbortController();
+    relayAbortSignal(detachedSource.signal, detachedTarget)();
+    detachedSource.abort();
+    expect(detachedTarget.signal.aborted).toBe(false);
+  });
+
   it("decodes a complete account context", () => {
     const decoded = decodeUserContext(payload);
     expect(decoded.preference?.timezone).toBe("UTC");

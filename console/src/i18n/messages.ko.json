@@ -2027,7 +2027,11 @@
       "tooLarge": "전송하기에 너무 큼",
       "unsupportedImage": "지원하지 않는 이미지 형식",
       "tooMany": "첨부 한도 도달",
-      "readFailed": "파일을 읽지 못함"
+      "readFailed": "파일을 읽지 못함",
+      "image": "첨부 이미지 {index}",
+      "openImage": "첨부 이미지 {index} 크게 보기",
+      "imagePreview": "첨부 이미지 미리보기",
+      "closeImagePreview": "이미지 미리보기 닫기"
     },
     "suggestedFollowUps": "추천 후속 질문",
     "reviewAnswer": "답변 품질 검토",
@@ -2180,6 +2184,7 @@
         "contextRequired": "Context 필요",
         "sourceUnavailable": "Source 사용 불가",
         "invalidQuery": "Query 검증 실패",
+        "visionUnverified": "이미지 해석",
         "unsupportedClaim": "근거 없는 claim",
         "unverified": "검증되지 않음"
       },
@@ -2196,6 +2201,7 @@
         "contextRequired": "필요한 conversation context가 없습니다{claims}",
         "sourceUnavailable": "Authoritative source를 사용할 수 없습니다{claims}",
         "invalidQuery": "Read query가 strict validation을 통과하지 못했습니다{claims}",
+        "visionUnverified": "현재 attachment에 근거한 이미지 해석이며 독립적으로 검증되지는 않았습니다",
         "unsupportedClaim": "하나 이상의 claim을 근거로 뒷받침할 수 없습니다{claims}",
         "unverified": "검증을 완료하지 못함{claims}",
         "scope": {
@@ -2364,6 +2370,7 @@
       "executionDetails": "실행 상세",
       "observedEventCount": "관측 이벤트 {count}건",
       "activitySummary": "읽기 쿼리 {queries}건 / 명령 {commands}건",
+      "activityCompact": "읽기 {queries} / 명령 {commands}",
       "endToEndDuration": "전체 처리 {duration}",
       "executionKind": {
         "turn": "대화",
@@ -2424,6 +2431,7 @@
       "planningStatus": "계획 상태",
       "confidence": "신뢰도 {value}%",
       "evidenceSummary": "근거 완료 {successful}/{attempted}건 / 참조 {references}개",
+      "evidenceCompact": "근거 {successful}/{attempted} / 참조 {references}",
       "status": "상태",
       "authority": "권한",
       "checks": "검사",

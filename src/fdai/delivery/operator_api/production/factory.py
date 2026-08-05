@@ -133,6 +133,12 @@ from fdai.delivery.operator_api.routes.arb_status import ArchitectureReviewStatu
 from fdai.delivery.operator_api.routes.background_runtime import build_background_task_runtime
 from fdai.delivery.operator_api.routes.busy_input_runtime import build_postgres_busy_input_runtime
 from fdai.delivery.operator_api.routes.chat import backend_from_env
+from fdai.delivery.operator_api.routes.chat_inventory_ontology import (
+    inventory_query_function_type,
+)
+from fdai.delivery.operator_api.routes.chat_inventory_semantic_retrieval import (
+    EmbeddingInventorySemanticResolver,
+)
 from fdai.delivery.operator_api.routes.chat_web_search import chat_web_search_from_env
 from fdai.delivery.operator_api.routes.configuration_baselines import (
     ConfigurationBaselinesPanel,
@@ -193,6 +199,8 @@ from fdai.runtime.conversation_assurance_lifecycle import (
     DeterministicNarratorPolicyProposer,
     pricing_narrator_cost_estimator,
 )
+from fdai.shared.contracts.models import OntologyDeclarationKind
+from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.catalog_search import CatalogSemanticIndex
 from fdai.shared.providers.local import EnvSecretProvider
 
@@ -257,7 +265,7 @@ def build_prod_app(
     iam_provider = identity.iam_provider
     shutdown_callbacks = identity.shutdown_callbacks
     catalog_search = (
-        ProductionCatalogSearch(catalog_semantic_index)
+        ProductionCatalogSearch(index=catalog_semantic_index)
         if catalog_semantic_index is not None
         else build_production_catalog_search(env=env, dsn=read_model._config.dsn)
     )
@@ -279,6 +287,24 @@ def build_prod_app(
         connect_timeout_s=read_model._config.connect_timeout_s,
         read_model=read_model,
         group_mapping=group_mapping,
+    )
+    ontology_function_types = (inventory_query_function_type(),)
+    ontology_release = build_ontology_release(
+        object_types=object_types,
+        link_types=link_types,
+        action_types=action_types,
+        function_types=ontology_function_types,
+    )
+    inventory_semantic_resolver = (
+        EmbeddingInventorySemanticResolver(
+            embedder=catalog_search.inventory_embedder,
+            target_ref=ontology_release.type_ref(
+                OntologyDeclarationKind.FUNCTION,
+                "inventory.select_resources",
+            ),
+        )
+        if catalog_search.inventory_embedder is not None
+        else None
     )
     enforce_workflows = frozenset(
         item.strip()
@@ -886,6 +912,7 @@ def build_prod_app(
         ontology_object_types=object_types,
         ontology_link_types=link_types,
         ontology_action_types=action_types,
+        ontology_function_types=ontology_function_types,
         operating_model_status_reader=state_store,
         inventory_graph_provider=PostgresInventoryGraphProvider(
             config=PostgresInventorySnapshotStoreConfig(
@@ -897,6 +924,7 @@ def build_prod_app(
                 connect_timeout_s=read_model._config.connect_timeout_s,
             )
         ),
+        inventory_semantic_resolver=inventory_semantic_resolver,
         inventory_activity_provider=inventory_activity_provider,
         subscription_health_provider=subscription_health_provider,
         detection_readiness_reader=state_store,

@@ -438,19 +438,15 @@ class TestLocalEntrypoint:
         assert env["FDAI_API_AUDIENCE"] == "api-app-id"
         assert entra_application_id_from_env(env) == "api-app-id"
 
-    def test_inventory_graph_defaults_to_azure_cli(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from fdai.delivery.operator_api.dev.azure_inventory_graph import (
-            AzureCliInventoryGraphProvider,
-        )
-
+    def test_inventory_graph_requires_explicit_subscription(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.delenv(_LOCAL_AZURE_DISCOVERY_ENV, raising=False)
         monkeypatch.delenv(_LOCAL_AZURE_SUBSCRIPTION_ENV, raising=False)
         monkeypatch.delenv("AZURE_SUBSCRIPTION_ID", raising=False)
 
-        provider = _local._build_inventory_graph_provider()
-
-        assert isinstance(provider, AzureCliInventoryGraphProvider)
-        assert provider.cache_path is None
+        with pytest.raises(ValueError, match="requires an explicit subscription"):
+            _local._build_inventory_graph_provider()
 
     def test_local_azure_discovery_rejects_synthetic_opt_out(
         self, monkeypatch: pytest.MonkeyPatch

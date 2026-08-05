@@ -1,0 +1,26 @@
+/* Shared Calm Slate foundation tokens for the Console and static UI mocks. */
+:root {
+  --cs-bg: #fbfaf9;
+  --cs-card: #ffffff;
+  --cs-hairline: #e3e1de;
+  --cs-shade: #f4f2f0;
+  --cs-text: #2c333a;
+  --cs-text-soft: #6b7178;
+  --cs-steel: #44688e;
+  --cs-navy: #3e4c59;
+  --cs-sage: #5e8259;
+  --cs-terracotta: #bc7449;
+  --cs-dusty-red: #ac5a5a;
+  --cs-teal: #4f847e;
+  --cs-plum: #7b6c9c;
+  --cs-asis-bg: #f7ecec;
+  --cs-tobe-bg: #ecf2ea;
+  --cs-radius: 8px;
+  --cs-radius-sm: 6px;
+  --cs-radius-pill: 999px;
+  --cs-shadow: 0 4px 16px rgba(46, 54, 64, 0.06);
+  --cs-shadow-hover: 0 6px 22px rgba(46, 54, 64, 0.1);
+  --cs-font: "Segoe UI Variable Text", "Segoe UI", "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  --cs-font-mono: "Cascadia Code", "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  --cs-font-size: 14px;
+}

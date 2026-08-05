@@ -151,17 +151,26 @@ has no authority until the deterministic inventory-query verifier accepts it.
 Every accepted current or activity collection compiles to one immutable `InventoryQuery` with a
 source, result kind, at most eight predicates, and an optional bounded lookback. Allowlisted fields
 are `resource_type`, `status`, `name`, `resource_group`, `location`, `operation`, and
-`event_status`; operators are `eq`, `ne`, `in`, `contains`, `exists`, and `missing`. The
+`event_status`; operators are `eq`, `ne`, `in`, `not_in`, `contains`, `exists`, and `missing`. The
 deterministic compiler matches facets actually observed in the current provider, so a new status
 does not require another routing expression. Unmatched modifiers abstain instead of widening to all
 resources. A semantic planner can propose the same strict shape only after deterministic
-abstention, and the verifier rechecks the complete query before I/O. Imperative changes remain
-action drafts and cannot enter this read path.
+abstention, but that proposal cannot execute in the same turn. A verified exact/promoted mapping
+or separate operator confirmation must produce the complete query, and the verifier rechecks it
+before I/O. Imperative changes remain action drafts and cannot enter this read path.
+`not_in` accepts only a bounded unique value list. The verifier expands canonical state ids and the
+provider grounding step replaces them with observed provider status forms before exclusion. A
+negative phrase is not rewritten as a positive `running` alias.
 Unfiltered managed-scope list wording is catalog data in both English and Korean. It compiles to a
 fresh subscription-scoped `list` query before semantic planning, even when the operator requests
 only names, types, status, evidence, or one representative resource.
 
 State entries in the inventory language catalog also declare their required evidence authority.
+Each state and operation also carries a language-neutral description and bounded English/Korean
+examples. An optional embedding resolver searches those semantic surfaces when exact terms cannot
+complete the query. Its ranked results are non-authoritative candidates only. An unpromoted or
+ambiguous candidate produces a clarification before provider I/O; it cannot become a predicate,
+evidence receipt, or action by similarity score.
 Ordinary current operational states use promoted inventory. Questions that include degraded or
 unavailable availability semantics use the existing subscription health sweep, which joins
 `Resources` with `HealthResources` under the same server-owned scope. A concrete resource-family
@@ -355,9 +364,12 @@ an unqueried metric. The deterministic renderer shows the value, comparison, and
 The terminal answer keeps every partial-coverage limitation. A positive finding whose state belongs
 to a typed requested group can complete one evidence check because that finding is directly grounded;
 empty groups say only that no match was observed in checked evidence. A partial result without a
-positive requested-state finding remains `unverified`. The response is deterministic and does not
-call the narrator model. A complete `matched` result reports one of one checks completed and retains
-the grounded terminal status.
+positive requested-state finding remains `unverified`. Evidence selection, factual rendering, and
+verification remain deterministic. An optional presentation-only mini model can arrange a
+shape-only slot profile after evidence collection, but it receives no finding or metric values and
+cannot change the terminal status. Invalid or unavailable planning falls back to the deterministic
+answer. A complete `matched` result reports one of one checks completed and retains the grounded
+terminal status.
 
 ## Evidence contract
 

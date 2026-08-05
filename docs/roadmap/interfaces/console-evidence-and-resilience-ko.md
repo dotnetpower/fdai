@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 392b13ecc64082bee24d49c47282b82795bc0f00
+translation_source_sha: fb21f3e29819dd4d5a57f2d2c6e0ea1d34bbe2bb
 translation_revised: 2026-08-05
 ---
 
@@ -23,8 +23,9 @@ Same-screen 및 agent conversation은 navigation 없이 전환합니다.
 activity만 ordering timestamp를 갱신합니다.
 Agent 대화가 아닌 경우 첫 operator 질문이 제목이 되고 origin screen은 별도 metadata로 유지됩니다.
 정규화된 질문은 history metadata에서 512자로 제한되고 browser 및 durable 복원 후에도 보존됩니다.
-제목이 시각적으로 잘리면 pointer hover에서 공용 console tooltip으로 제한된 질문 전체를 표시합니다.
-제목이 영역 안에 모두 표시되면 중복 tooltip을 표시하지 않습니다. Layout 및 닫기 icon control도 같은 localized tooltip component를
+제목이 시각적으로 잘리면 visible text는 ellipsis를 유지합니다. 시간 영역을 포함한 selectable
+conversation row 어디에서든 pointer hover하거나 keyboard focus하면 제목 길이와 관계없이 공용 console
+tooltip으로 제한된 질문 전체를 표시합니다. Layout 및 닫기 icon control도 같은 localized tooltip component를
 사용합니다. 연결된 backend tooltip은 mode, endpoint, route choice 및 candidate를 별도 줄로 유지하고
 localized placeholder를 모두 채우며 긴 endpoint 또는 deployment token을 viewport 경계 안에서
 줄바꿈합니다.
@@ -39,9 +40,11 @@ Ordinal follow-up은 선택한 위치를 exact fresh inventory predicate로 다�
 Verified source-manifest answer는 bounded unavailable 또는 unknown entry를 `source_failure_context`로 보존합니다. Partial-source continuation은 해당 receipt의 available fact와 exact gap을 렌더링하고 reason 및 last observation이 있으면 함께 표시하며 arbitrary unverified answer를 source authority로 취급하지 않습니다. Verified 또는 corrected `query_llm_usage` answer는 domain, capability, token measure, grouping, `usage_scope` 및 numeric 1-90일 lookback이 포함된 bounded `analysis_context`를 보존합니다. 기간, grouping, table 또는 chart만 바꾸는 refinement는 이 server-owned anchor를 재사용하고 metering evidence를 다시 읽습니다. Comparison, export, missing-anchor, client-supplied-anchor 및 명시적인 다른 metric 요청은 inventory, Resource Health 또는 narrator output을 선택하지 않고 context-required hold를 반환합니다.
 Full-workspace Command Deck session은 transcript만 열린 content column으로 시작합니다. 비어 있는 transcript는 상황별 suggestion을 유지하고 tool 선택이나 authority를 바꾸지 않는 localized Resilience, Change Safety 및 Cost Governance quick start를 추가합니다. Transcript
 toolbar는 workspace, docked 및 floating layout에서 filter 가능한 대화 이력을 제공합니다. 좁은
-layout에서는 transcript 폭을 줄이지 않고 그 위에 overlay로 엽니다. 현재 화면 digest는 workspace control로 유지됩니다. Deck은 열린 surface마다 composition-owned data-source manifest를 한 번 읽고 transcript 위에 Inventory, Incidents, Audit, Knowledge 및 Automation readiness link를 compact하게 표시합니다. 누락되거나 non-authoritative인 source는 `unknown`으로 유지합니다. Browser는 health를 추론하거나 raw provider detail을 노출하거나 route 존재로 manifest를 대체하지 않습니다. Loading은 stable skeleton을 사용하고 manifest failure는 conversation history를 차단하지 않으면서 Diagnostics로 연결합니다.
-History는 stable cursor 순서로 durable summary를 한 번에 100건씩 load합니다. 100건에 도달하면 count를
-`100+`로 표시하고 history scroll 경계에 가까워지면 다음 100건을 load합니다. Transcript body는 선택할
+layout에서는 transcript 폭을 줄이지 않고 그 위에 overlay로 엽니다. Workspace에서는 pointer 또는 keyboard separator로 대화 이력 폭을 180-360 px 범위에서 조절하고 마지막 폭을 local에 저장합니다. 좁은 layout은 separator를 숨깁니다. History header는 검색과 icon-only 새 대화를 compact한 한 줄에 배치하고 lightweight filter tab을 사용하며, control 대신 list만 scroll합니다. 현재 화면 digest는 workspace control로 유지됩니다. Deck은 열린 surface마다 composition-owned data-source manifest를 한 번 읽고 transcript 위에 Inventory, Incidents, Audit, Knowledge 및 Automation readiness link를 compact하게 표시합니다. 누락되거나 non-authoritative인 source는 `unknown`으로 유지합니다. Browser는 health를 추론하거나 raw provider detail을 노출하거나 route 존재로 manifest를 대체하지 않습니다. Loading은 stable skeleton을 사용하고 manifest failure는 conversation history를 차단하지 않으면서 Diagnostics로 연결합니다.
+History는 stable cursor 순서를 유지하지만 처음에는 summary 20건만 렌더링합니다. History scroll
+경계에 가까워지면 이미 load된 summary 중 다음 20건을 표시합니다. Local window를 모두 사용한 뒤에는
+같은 경계에서 server page 20건을 요청하고 기존 row를 교체하지 않고 이어서 표시합니다. 다음 page가
+있으면 count를 `20+`로 표시합니다. Transcript body는 선택할
 때만 hydrate합니다. Operator image는 전송된 turn 안에 표시됩니다. Browser cache serialization은
 inline byte를 제거하고 bounded descriptor만 유지하며, durable restoration은 인증된 principal 및
 conversation 범위 image route를 통해 binary를 fetch합니다. Browser 또는 durable history에서 복원된 transcript는 새 대화를 시작할 때까지
@@ -143,6 +146,13 @@ Unavailable metric 카드는 낮은 강조도의 전체 surface 배경, elevatio
 Shared KPI card는 `not-measured`, `not-connected`, `insufficient-sample` 및 `not-applicable`
 evidence state를 구분합니다. 이 상태들은 neutral copy와 style을 사용하며, 실제 request 또는 probe
 실패만 error component를 사용해 시각적으로 구분합니다.
+Authoritative visible content가 제자리에서 변경되는 card는 공유 `top-edge shimmer`를 사용합니다.
+이 효과는 높이 2 px, 길이 1.35초의 neutral blue sweep 한 번으로 제한합니다. Primitive shared KPI
+value는 자동 적용하고 복잡한 live card는 semantic update key를 제공합니다. 첫 render, 변경되지 않은
+parent rerender, filter, selection 및 clock-, age-, timestamp-only 변경에는 적용하지 않습니다. 빠른
+update는 하나의 sweep이 실행되는 동안 합치며 reduced-motion preference에서는 animation을
+비활성화합니다. Shimmer는 표시 content가 변경됐다는 사실만 알립니다. Status, freshness, severity 및
+outcome은 label이 있는 content-local cue로 계속 표시합니다.
 Console card contract test는 shared KPI 목적지를 확인하고, 중첩된 whole-card link를 차단하며,
 nullable KPI 값에 evidence state를 요구하고, raw data card에 link 또는 명시적 detail control을
 요구하며, structural card 이름을 차단합니다.
@@ -242,12 +252,21 @@ provider payload 및 validation result는 변경하지 않습니다.
 각 Command Deck 질문은 관측된 작업이 뒷받침하는 가장 작은 presentation을 선택합니다. Activity,
 handoff 또는 background task가 없는 turn도 접힌 run record를 유지합니다. 성공한 단일 terminal read는
 compact investigation row와 접힌 run record를 함께 사용합니다. 여러 activity, milestone,
-retry, failure, handoff, command 또는 file change가 있으면 timeline을 기본으로 펼칩니다. Durable
+retry, failure, handoff, command 또는 file change가 있으면 전체 timeline을 유지하지만 run record는
+기본적으로 접어 둡니다. Durable
 background task는 detached task summary를 사용합니다. 복원된 compact turn은 durable detail에서
 observed row를 재구성하고 live turn은 인과 순서로 이미 표시한 row를 유지합니다. 완료된 모든 answer는
-trajectory summary와 bounded original operator prompt를 표시합니다. Internal AnswerPlan intent 및
+trajectory summary를 확인할 수 있게 유지합니다. Bounded original operator prompt는 run record가
+접혀 있는 동안 숨기고 operator가 펼치면 표시합니다. Internal AnswerPlan intent 및
 detail label은 answer 위에 표시하지 않습니다. Run record decision context에는 유지하며 answer는
-operator-facing content와 verified evidence로 바로 시작합니다. Model-assisted format selection은 validation된 presentation shape만 변경합니다. Verified chart는 evidence reference가 포함된 bounded `chart_artifact` v1을 반환하며 transport는 answer text보다 먼저 이를 검증하고 렌더링합니다. Canonical fenced chart data는 compatibility fallback으로 유지합니다.
+operator-facing content와 verified evidence로 바로 시작합니다. Model-assisted planning은 validation된
+presentation shape만 변경합니다. Verified `presentation_artifact` v1은 server가 immutable evidence에서
+compile한 content를 사용해 summary, table, chart, coverage, callout, detail 및 evidence block을 mixed할 수
+있습니다. Browser는 unknown block, duplicate slot, invalid bound, incompatible chart 또는 terminal
+verification receipt 밖의 evidence reference를 거부한 뒤 canonical answer text를 렌더링합니다. Partial
+evidence는 valid block을 모두 유지하고 명시적인 limitation block을 추가합니다. 누락된 source 하나가
+answer의 나머지를 숨기지 않습니다. Legacy verified chart는 bounded `chart_artifact` v1을 계속 반환할 수
+있으며 canonical Markdown 또는 fenced chart data는 compatibility fallback으로 유지합니다.
 
 상태 개요는 완료, 수정 후 완료, 일부 저하, 실패, 검증 미완료, 진행 중 및 관측되지 않음을 구분하며
 record 존재를 성공으로 표시하지 않습니다. Result chip은 내부 event total 대신 관측된 query와
@@ -255,7 +274,13 @@ command count, evidence completion, reference 및 verification을 표시합니�
 status는 replay를 위해 그대로 유지합니다. Primary Console label은 bounded reason code에 따라 Context
 필요, Source 사용 불가, Query 검증 실패 또는 근거 없는 claim으로 표시하고 technical detail에는
 canonical status와 raw reason code를 유지합니다. Run-record summary는
-complete bounded operator prompt를 유지하고 좁은 layout에서는 줄바꿈합니다. Disclosure를 변경하면 transcript만 scroll하고 composer는
+두 result indicator를 10 px 이하의 고정된 점으로 표시하고 source button 가장자리에서 2 px만 겹칩니다.
+Source button은 자체 source tooltip을 유지합니다. 점은 별도 pointer 및 keyboard trigger이며 floating
+tooltip 또는 별도 container 없이 compact한 query, command 및 evidence pill로 오른쪽에 직접 펼쳐집니다.
+전체 summary는 trigger의 accessible name에 유지합니다. Absolute positioning을 사용하므로 별도 행을
+만들거나 reply action geometry를 바꾸지 않고 인접 action을 가리지 않습니다. Source button이 없으면
+답변 품질 검토에 같은 직접 확장 점을 연결합니다. 펼친 run-record summary는 complete bounded operator prompt를 유지하고
+좁은 layout에서는 줄바꿈합니다. Disclosure를 변경하면 transcript만 scroll하고 composer는
 Deck 경계에 계속 표시됩니다. 펼친 view는 6단계 rail, 펼칠 수 있는 observed-event timeline 및 provenance signal을 먼저 표시하고,
 timing window, decision context, phase record 및 coverage gap은 하나의 접힌 execution-details disclosure에
 유지합니다. Preparing-answer surface는 observed activity와 evidence branch가 terminal state에 도달할
@@ -284,8 +309,8 @@ evidence branch를 대체하며 observed label, tool, authority 및 detail을 �
 마지막 recorded timing completion보다 앞에 배치하지 않습니다. 따라서 browser와 server의 clock
 skew가 evidence를 input 앞에 두거나 generation과 verification을 delivery 뒤에 두지 못합니다. Lane
 baseline과 tick은 completion progress bar와 구분됩니다.
-Answer text는 16 px을 사용하고 main disclosure 높이는 44 px이며, 200% text resize와 320 CSS pixel에서 content loss 없이 reflow합니다.
-Trajectory heading은 14 px, event label은 13 px, compact trajectory metadata는 12 px을 사용합니다.
+Answer text는 15 px을 사용하고 main disclosure 높이는 44 px이며, 200% text resize와 320 CSS pixel에서 content loss 없이 reflow합니다.
+Trajectory heading은 13 px, event label은 12 px, compact trajectory metadata는 11 px을 사용합니다.
 Terminal verified answer에 server가 정확한 영어 또는 한국어 형식으로 렌더링한 recorded-agent-activity block이 있으면 해당 row를 하나의 compact vertical timeline으로 표시합니다. 각 row는 agent, canonical event token, 정확한 ISO timestamp 및 locale에 맞춘 읽기 쉬운 시간을 유지합니다. Malformed 또는 알 수 없는 prose는 observed activity로 승격하지 않고 일반 answer content로 유지합니다.
 게시된 screen snapshot은 5분 후 visibly stale 상태가 되고
 명시적인 page refresh를 제공합니다. Bare clock은 current evidence를 의미하지 않습니다. Markdown

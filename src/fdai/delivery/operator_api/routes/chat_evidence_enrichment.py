@@ -34,6 +34,10 @@ from fdai.delivery.operator_api.routes.chat_inventory import (
     inventory_screen_scope_unavailable_evidence,
     needs_inventory_evidence,
 )
+from fdai.delivery.operator_api.routes.chat_llm_usage import (
+    is_llm_usage_followup,
+    needs_llm_usage,
+)
 from fdai.delivery.operator_api.routes.chat_log_query import needs_log_query
 from fdai.delivery.operator_api.routes.chat_preincident_activity import parse_preincident_activity
 from fdai.delivery.operator_api.routes.chat_prompt import (
@@ -460,8 +464,12 @@ async def _with_tool_evidence(
     conversation_context_question = needs_conversation_context(prompt)
     read_source_question = needs_read_source_evidence(prompt)
     t2_recovery_question = needs_t2_recovery_evidence(prompt)
+    attachment_preempts_usage_followup = bool(enriched.get("_attachments")) and bool(
+        is_llm_usage_followup(prompt) and not needs_llm_usage(prompt)
+    )
     if (
         resolver is None
+        or (attachment_preempts_usage_followup and not explicit_command)
         or (
             "_screen_scope" in enriched
             and not explicit_command

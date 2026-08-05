@@ -139,11 +139,11 @@ flowchart TD
   Full-workspace web chat opens transcript-first. Conversation history and the current-screen
   digest are toolbar panels rather than permanent columns. The Deck header shows the active route;
   the Digest toggle and header own record count, snapshot age, and stale refresh. The composer keeps
-  only attachments, question entry, and send or stop. Sent images render inside the operator turn.
-  Browser transcript caches retain only image descriptors, while authenticated history reads load
+  only attachments, question entry, and send or stop. Sent images render inside the operator turn, and validated image attachments bypass prompt-only semantic tool planning and omitted-subject
+  LLM-usage refinement so the current image reaches vision narration. Terminal verification preserves the interpretation as unverified with a current `conversation-image` ref instead of treating it as screen-verified. Explicit measured LLM usage remains a deterministic tool request. Browser transcript caches retain only image descriptors, while authenticated history reads load
   bytes from the principal-scoped conversation image repository. A restored transcript shows its last recorded
-  time and a new-conversation action. Tables render every bounded row without internal scrolling or
-  expansion controls. On narrow screens, cells reflow while preserving native table semantics.
+  time and a new-conversation action. Tables render every bounded row without internal scrolling or expansion controls; cell-level `<br>` variants become safe line breaks while other raw HTML remains text.
+  On narrow screens, cells reflow while preserving native table semantics.
 - **Layer 2 (Coordinator)** owns intent classification, RBAC gating, tool
   dispatch, verifier re-check, and session bookkeeping. Core translation uses the `Narrator`
   Protocol. A narrator that also implements `GroundedAnswerNarrator` receives a completed
@@ -154,18 +154,35 @@ flowchart TD
   and the presence of prior conversation context. The current inbound/tool/result transaction is
   excluded from that prior context. Web generation uses the Operator API backend seam, so deployments
   can bind providers.
-  `AnswerPlan.format` treats `table` and `chart` as first-class presentation contracts. An explicit
-  request format or saved response preference wins. Otherwise, after inventory evidence resolves,
-  a bounded structured model call judges the presentation shape from record count, available
-  columns, category count, query kind, and the operator request. Comparable rows permit only
-  `table` or `chart`; bullets aren't a valid model choice for that shape. Category summaries permit
-  `chart` or `bullets`. The model receives no row values and cannot add content. The strict schema
-  rejects other keys and formats. Deterministic evidence selection and verification remain T0;
-  the model judges presentation only. The
-  deterministic inventory verifier then renders the complete Markdown table, fenced `chart` JSON,
-  or bullets from immutable evidence. Model failure or an invalid proposal falls back to a table
-  for multiple comparable records, so presentation failure never removes evidence or blocks the
-  answer.
+  `AnswerPlan.format` keeps `table`, `chart`, and `mixed` as presentation preferences. An explicit
+  request format or saved response preference wins only when the verified result can support that
+  shape without changing meaning. After eligible read evidence resolves, a bounded structured
+  model call may arrange a `PresentationPlan` from server-declared slots. The model receives only
+  shape metadata, allowed slot-component pairs, coverage classes, and the operator request. It
+  never receives row values and cannot emit titles, facts, units, thresholds, status, severity,
+  colors, links, or evidence references. The plan can choose slot order, one allowlisted component,
+  emphasis, and whether supporting detail starts collapsed. It cannot repeat or omit a required
+  slot. `AnswerPlan.format` continues to own the canonical Markdown text fallback, while
+  `PresentationPlan` owns only the Console artifact layout. Presentation planning never rewrites
+  the canonical text format. An explicit format or saved preference skips the artifact and keeps
+  the established table, chart, list, or prose renderer.
+
+  The server validates the plan, then compiles immutable evidence into a bounded
+  `presentation_artifact` v1. The compiler enforces compatible units and threshold directions for
+  charts, keeps partial or truncated coverage visible, and binds every block reference to the
+  terminal verification receipt. A partial source never removes completed slots: the answer renders
+  every available verified fact and marks only the missing portion as unknown or unavailable.
+  A streamed evidence-fast-path turn starts with the complete deterministic plan and streams the
+  canonical answer immediately while the optional mini-model planner runs concurrently. After the
+  answer is visible, the terminal event waits at most five seconds for a valid alternative layout;
+  timeout, cancellation, invalid output, or provider failure keeps the deterministic plan. The
+  non-stream JSON route uses the deterministic plan directly and never delays an evidence answer
+  for presentation planning.
+  Presentation planning can return no artifact only when no relevant verified slot exists. Model,
+  schema, timeout, or compiler failure uses the deterministic answer and default layout, so the
+  operator still receives the maximum evidence-supported answer. Existing Markdown table, fenced
+  chart, bullet, and prose output remains the compatibility contract for other channels and older
+  clients.
   The semantic turn planner projects only the bounded capabilities for that request into a strict
   structured-output schema. Every object rejects additional properties and marks its declared
   fields required. A tool's optional arguments are represented as nullable fields, and the
@@ -287,8 +304,39 @@ caller-supplied role parameter. Both surfaces return descriptors only and cannot
 Matched inventory result sets are sorted before the 40-record bound is applied. Lists use resource
 name order by default; an explicit status, type, or location grouping uses that grouping field and
 then resource name. The same order drives rendered rows and durable ordinal follow-ups.
-A concrete resource-type query with no complete lexical state match uses semantic planning only to propose a state concept. The server accepts canonical current-inventory states from the IQL catalog,
-preserves deterministic type, scope, and freshness, and discards planner-supplied type, scope, and lookback. Provider-observed status grounds the final predicate; an invalid state returns unavailable.
+Future VM shutdown questions use the catalog-owned `scheduled_shutdown` query kind and the
+`compute.vm-shutdown-schedule` resource type. The query pins one aware server reference time and a
+closed `today_evening` window. Provider adapters project only validated
+`ComputeVmShutdownTask` records and expose the target VM name and resource group, enabled state,
+daily local time, and provider timezone without exposing the target ARM id. The deterministic
+projection includes only enabled occurrences from 18:00 through 23:59 that have not passed in the
+schedule timezone. Disabled schedules are not results. A truncated snapshot, missing production
+coverage for the schedule type, malformed schedule, or unsupported timezone returns unavailable
+instead of proving that no VM will shut down.
+A concrete resource-type query with no complete lexical state match can use semantic retrieval only
+to propose state or operation candidates. Model and embedding candidates never execute a provider
+query in that turn. An exact or promoted catalog mapping, or a separately verified operator
+confirmation receipt, is required before the server can produce a complete typed query.
+If semantic planning is unavailable, ambiguous, or omits the required state, the server returns a
+typed interpretation hold with the deterministic query skeleton. It does not execute that
+type-only skeleton or drop the unresolved modifier to widen the result set.
+Negative state candidates use the bounded `not_in` operator over canonical catalog states. Provider
+grounding resolves excluded values against the same snapshot; negation never becomes an
+unsupported positive-state guess.
+Exact catalog terms remain a T0 latency optimization, not the only entry gate. When production has
+the existing T1 embedding binding, the same credential path retrieves state and operation
+descriptions and examples. A retrieved concept remains `candidate_only` and causes a localized
+clarification without querying inventory. If the embedder is absent or fails, the resolver returns
+no candidate and the deterministic hold remains authoritative.
+`FDAI_INVENTORY_SEMANTIC_ENABLED` controls this clarification capability independently from
+`FDAI_CATALOG_SEARCH_ENABLED`; disabling Rule search does not silently disable inventory semantic
+retrieval.
+The clarification is not a dead end. A later operator turn that selects an exact promoted catalog
+expression recompiles deterministically and can perform the provider read. The earlier model or
+embedding arguments are never reused as query authority.
+Intent-graph planning cannot override a complete deterministic inventory query. Planner-supplied
+status concepts are still checked against the canonical catalog; invalid values are rejected, and
+execution uses the deterministic query. A required semantic status that is omitted remains held.
 An unfiltered summary still preserves every provider-observed resource, groups by provider-native type, and separates resource-group containers and topology-derived records from the resource total.
 The catalog-owned `scope_counts` query kind returns provider-native resource and resource-group
 totals from one fresh snapshot without narrowing the query to resource groups. It retains the same

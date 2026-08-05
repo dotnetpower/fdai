@@ -9,6 +9,10 @@
 
 import type { ComponentChildren, JSX } from "preact";
 import { useState } from "preact/hooks";
+import {
+  useContentUpdatePulse,
+  type ContentUpdateKey,
+} from "../hooks/use-content-update-pulse";
 import { useTransientFlag } from "../hooks/use-transient-flag";
 import { t } from "../i18n";
 import { useNavigationDomain } from "./navigation-title";
@@ -180,6 +184,29 @@ export interface KpiCardProps {
   readonly value: ComponentChildren;
   readonly hint?: ComponentChildren;
   readonly tone?: "default" | "positive" | "warning" | "danger";
+  readonly updateKey?: ContentUpdateKey;
+}
+
+function primitiveUpdatePart(value: ComponentChildren): string | null {
+  return typeof value === "string" || typeof value === "number" || typeof value === "bigint"
+    ? String(value)
+    : null;
+}
+
+export function kpiContentUpdateKey({
+  evidenceState,
+  value,
+  hint,
+  tone,
+}: Pick<KpiCardProps, "evidenceState" | "value" | "hint" | "tone">): ContentUpdateKey {
+  const valuePart = primitiveUpdatePart(value);
+  if (valuePart === null) return undefined;
+  return [
+    evidenceState ?? "measured",
+    tone ?? "default",
+    valuePart,
+    primitiveUpdatePart(hint) ?? "",
+  ].join("|");
 }
 
 export function KpiCard({
@@ -189,10 +216,15 @@ export function KpiCard({
   value,
   hint,
   tone = "default",
+  updateKey,
 }: KpiCardProps) {
+  const semanticUpdateKey = updateKey === undefined
+    ? kpiContentUpdateKey({ evidenceState, value, hint, tone })
+    : updateKey;
+  const contentUpdated = useContentUpdatePulse(semanticUpdateKey);
   return (
     <a
-      class={`card kpi-card kpi-tone-${tone} kpi-evidence-${evidenceState}`}
+      class={`card kpi-card kpi-tone-${tone} kpi-evidence-${evidenceState}${contentUpdated ? " is-content-updated" : ""}`}
       data-evidence-state={evidenceState}
       href={href}
     >

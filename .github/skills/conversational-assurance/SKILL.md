@@ -20,7 +20,8 @@ a recurring timer, not a busy loop:
 - `fdai-chat-watchdog.timer` starts the next bounded cycle within one minute, with small jitter.
 - `fdai-chat-watchdog-supervisor.timer` checks and repairs the watchdog every 30 minutes.
 - `Persistent=true` resumes a missed cycle after sleep or restart when the user session returns.
-- Daily question and hardening budgets reset by UTC day; they bound cost without ending the service.
+- Daily question and hardening budgets reset by UTC day; the hardening budget is 30 attempts per
+   UTC day, and both budgets bound cost without ending the service.
 - `.improve/STOP` is the immediate local stop switch.
 - A failed or skipped cycle does not disable the next timer invocation.
 - Malformed or non-JSON Copilot generation output is retried inside the bounded cycle. Exhausted
@@ -35,7 +36,14 @@ Before each cycle, skip without generating a question only when any of these con
 
 A dirty primary worktree or active developer session does not block measurement. Hardening starts
 from committed `HEAD` in a separate worktree and must not read, stage, overwrite, or archive the
-primary worktree's uncommitted changes. The runner lock prevents overlapping generated candidates.
+primary worktree's uncommitted changes. An active Copilot session does block hardening. The first
+timer cycle after the configured idle window resumes the newest unresolved evaluation before it
+generates another question. The runner lock prevents overlapping generated candidates.
+
+The user-systemd service runs with the project's virtual-environment Python and inherited tool
+`PATH`, so candidate verification uses the same Python and Node toolchain as local development.
+Every started hardening attempt appends a bounded terminal `hardening_result` record for verified,
+failed, or exceptional completion. Error records contain the exception type, not provider output.
 
 The recovery supervisor repairs a disabled or inactive main timer, resets a failed service, and
 starts a nonblocking recovery cycle after 45 minutes without ledger activity or three consecutive

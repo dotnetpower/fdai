@@ -1,5 +1,6 @@
 import type { ObservationSource } from "../hooks/observation-source";
 import { observationSourceLabel } from "../hooks/observation-source";
+import { useContentUpdatePulse } from "../hooks/use-content-update-pulse";
 import { t } from "../i18n";
 import { routeHref } from "../router";
 import { openDeckWithContext } from "../deck/open-deck";
@@ -112,104 +113,124 @@ export function AgentRoster({
         </div>
       ) : (
         <div class="agent-roster-grid">
-          {agents.map((node) => {
-            const role = AGENT_ROLE[node.name];
-            const contract = AGENT_CONTRACT[node.name];
-            const incident = node.correlationId ? state.incidents[node.correlationId] : undefined;
-            const agentIncidents = incidentsForAgent(state, node.name);
-            const iconUrl = agentIconUrl(node.name);
-            return (
-              <article class={`agent-roster-card layer-${node.layer}`} key={node.name}>
-                <header>
-                  <span class="agent-roster-avatar" aria-hidden="true">
-                    <span
-                      class="agent-icon"
-                      style={{ WebkitMaskImage: iconUrl, maskImage: iconUrl }}
-                    />
-                  </span>
-                  <div>
-                    <h3>{node.name}</h3>
-                    <p>{agentRoleTitle(node.name) ?? node.layer} - {t(`agents.layer.${rosterLayerOf(node.name)}`)}</p>
-                  </div>
-                  <span class={`agent-roster-state state-${node.state}`}>
-                    {agentStateLabel(node)}
-                  </span>
-                </header>
-                <p class="agent-roster-task">
-                  <span>{t("agents.card.currentWork")}</span>
-                  <strong>{currentTask(node)}</strong>
-                </p>
-                <dl class="agent-roster-metrics">
-                  <div>
-                    <dt>{t("agents.card.activeIncident")}</dt>
-                    <dd>{incident?.ticketId || t("agents.common.none")}</dd>
-                  </div>
-                  <div>
-                    <dt>{t("agents.card.stateSince")}</dt>
-                    <dd>{stateTime(node.since)}</dd>
-                  </div>
-                </dl>
-                <details class="agent-roster-details">
-                  <summary>{t("agents.card.details")}</summary>
-                  {agentRoleSummary(node.name) ? (
-                    <p class="agent-roster-role-summary">{agentRoleSummary(node.name)}</p>
-                  ) : null}
-                  <dl>
-                    <div class="agent-roster-owns">
-                      <dt>{t("agents.card.owns")}</dt>
-                      <dd>{contract?.owns.map((item) => <code key={item}>{item}</code>) ?? "-"}</dd>
-                    </div>
-                    <div>
-                      <dt>{t("agents.card.recentEvents")}</dt>
-                      <dd>{agentIncidents.length}</dd>
-                    </div>
-                    <div>
-                      <dt>{t("agents.card.reportsTo")}</dt>
-                      <dd>{role?.reportsTo ?? "-"}{role?.staff ? ` (${t("agents.common.staff")})` : ""}</dd>
-                    </div>
-                    <div>
-                      <dt>{t("agents.card.runtimeBinding")}</dt>
-                      <dd>{agentRuntimeBindingLabel(node.name)}</dd>
-                    </div>
-                    <div>
-                      <dt>{t("agents.card.authority")}</dt>
-                      <dd>{node.name === "Thor" ? t("agents.authority.execute") : node.name === "Var" ? t("agents.authority.approve") : t("agents.authority.advise")}</dd>
-                    </div>
-                  </dl>
-                  <div class="agent-roster-flags">
-                    {contract?.hotPathLlm ? <span>{t("pantheon.hotPathLlm")}</span> : null}
-                    {contract?.offPathLlm ? <span>{t("pantheon.offPathLlm")}</span> : null}
-                    {contract?.hardDependency ? <span>{t("pantheon.hardDependency")}</span> : null}
-                  </div>
-                </details>
-                <footer>
-                  <button type="button" onClick={() => onOpen(node.name)}>{t("agents.action.open")}</button>
-                  <a href={routeHref("agent-activity", { params: { agent: node.name } })}>
-                    {t("agents.workspace.activity")}
-                  </a>
-                  <button
-                    type="button"
-                    class="is-primary"
-                    onClick={() =>
-                      openDeckWithContext({
-                        sessionLabel: node.name,
-                        newConversation: true,
-                        targetAgent: node.name,
-                        contextNote: agentChatContext(node, agentIncidents),
-                        openingBriefing: agentConversationBriefing(node, agentIncidents),
-                        prompt: `What has ${node.name} been working on?`,
-                      })
-                    }
-                  >
-                    {t("agents.action.ask", { agent: node.name })}
-                  </button>
-                </footer>
-              </article>
-            );
-          })}
+          {agents.map((node) => (
+            <AgentRosterCard key={node.name} node={node} state={state} onOpen={onOpen} />
+          ))}
         </div>
       )}
     </div>
+  );
+}
+
+function AgentRosterCard({
+  node,
+  state,
+  onOpen,
+}: {
+  readonly node: AgentNode;
+  readonly state: AgentsState;
+  readonly onOpen: (name: string) => void;
+}) {
+  const role = AGENT_ROLE[node.name];
+  const contract = AGENT_CONTRACT[node.name];
+  const incident = node.correlationId ? state.incidents[node.correlationId] : undefined;
+  const agentIncidents = incidentsForAgent(state, node.name);
+  const iconUrl = agentIconUrl(node.name);
+  const contentUpdated = useContentUpdatePulse([
+    node.state,
+    node.detail ?? "",
+    node.correlationId ?? "",
+    incident?.ticketId ?? "",
+    agentIncidents.length,
+  ].join("|"));
+
+  return (
+    <article class={`agent-roster-card layer-${node.layer}${contentUpdated ? " is-content-updated" : ""}`}>
+      <header>
+        <span class="agent-roster-avatar" aria-hidden="true">
+          <span
+            class="agent-icon"
+            style={{ WebkitMaskImage: iconUrl, maskImage: iconUrl }}
+          />
+        </span>
+        <div>
+          <h3>{node.name}</h3>
+          <p>{agentRoleTitle(node.name) ?? node.layer} - {t(`agents.layer.${rosterLayerOf(node.name)}`)}</p>
+        </div>
+        <span class={`agent-roster-state state-${node.state}`}>
+          {agentStateLabel(node)}
+        </span>
+      </header>
+      <p class="agent-roster-task">
+        <span>{t("agents.card.currentWork")}</span>
+        <strong>{currentTask(node)}</strong>
+      </p>
+      <dl class="agent-roster-metrics">
+        <div>
+          <dt>{t("agents.card.activeIncident")}</dt>
+          <dd>{incident?.ticketId || t("agents.common.none")}</dd>
+        </div>
+        <div>
+          <dt>{t("agents.card.stateSince")}</dt>
+          <dd>{stateTime(node.since)}</dd>
+        </div>
+      </dl>
+      <details class="agent-roster-details">
+        <summary>{t("agents.card.details")}</summary>
+        {agentRoleSummary(node.name) ? (
+          <p class="agent-roster-role-summary">{agentRoleSummary(node.name)}</p>
+        ) : null}
+        <dl>
+          <div class="agent-roster-owns">
+            <dt>{t("agents.card.owns")}</dt>
+            <dd>{contract?.owns.map((item) => <code key={item}>{item}</code>) ?? "-"}</dd>
+          </div>
+          <div>
+            <dt>{t("agents.card.recentEvents")}</dt>
+            <dd>{agentIncidents.length}</dd>
+          </div>
+          <div>
+            <dt>{t("agents.card.reportsTo")}</dt>
+            <dd>{role?.reportsTo ?? "-"}{role?.staff ? ` (${t("agents.common.staff")})` : ""}</dd>
+          </div>
+          <div>
+            <dt>{t("agents.card.runtimeBinding")}</dt>
+            <dd>{agentRuntimeBindingLabel(node.name)}</dd>
+          </div>
+          <div>
+            <dt>{t("agents.card.authority")}</dt>
+            <dd>{node.name === "Thor" ? t("agents.authority.execute") : node.name === "Var" ? t("agents.authority.approve") : t("agents.authority.advise")}</dd>
+          </div>
+        </dl>
+        <div class="agent-roster-flags">
+          {contract?.hotPathLlm ? <span>{t("pantheon.hotPathLlm")}</span> : null}
+          {contract?.offPathLlm ? <span>{t("pantheon.offPathLlm")}</span> : null}
+          {contract?.hardDependency ? <span>{t("pantheon.hardDependency")}</span> : null}
+        </div>
+      </details>
+      <footer>
+        <button type="button" onClick={() => onOpen(node.name)}>{t("agents.action.open")}</button>
+        <a href={routeHref("agent-activity", { params: { agent: node.name } })}>
+          {t("agents.workspace.activity")}
+        </a>
+        <button
+          type="button"
+          class="is-primary"
+          onClick={() =>
+            openDeckWithContext({
+              sessionLabel: node.name,
+              newConversation: true,
+              targetAgent: node.name,
+              contextNote: agentChatContext(node, agentIncidents),
+              openingBriefing: agentConversationBriefing(node, agentIncidents),
+              prompt: `What has ${node.name} been working on?`,
+            })
+          }
+        >
+          {t("agents.action.ask", { agent: node.name })}
+        </button>
+      </footer>
+    </article>
   );
 }
 
@@ -226,8 +247,9 @@ function RosterSummary({
   readonly detail: string;
   readonly kind: string;
 }) {
+  const contentUpdated = useContentUpdatePulse(`${value}|${detail}`);
   return (
-    <a class={`agent-roster-kpi kind-${kind}`} href={href}>
+    <a class={`agent-roster-kpi kind-${kind}${contentUpdated ? " is-content-updated" : ""}`} href={href}>
       <span>{label}</span>
       <strong>{value}</strong>
       <small>{detail}</small>

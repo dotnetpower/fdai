@@ -70,18 +70,22 @@ Report and kit:
 | File | Purpose |
 |------|---------|
 | [report.html](report.html) | Weekly review layout: numbered sections, KPI grid, AS-IS / TO-BE compare, critique table |
-| [components.html](components.html) | Component gallery: 22 sections covering metrics, tables, tokens, forms, selection, navigation, feedback, code, grid lists, feeds, comboboxes, menus, drawers, data states, structured lists, notifications, and calendars |
+| [components.html](components.html) | Component gallery: 22 sections covering metrics, tables, tokens, forms, selection, navigation, feedback, trend, comparison, distribution and density charts, code, grid lists, feeds, comboboxes, menus, drawers, data states, structured lists, notifications, and calendars |
 | [index.html](index.html) | Kit landing: palette, page index, design principles |
 
 ## Assets
 
-- [assets/calm-slate.css](assets/calm-slate.css) - the whole theme: CSS variables (palette),
+- [../../ui/calm-slate-tokens.css](../../ui/calm-slate-tokens.css) - shared palette, typography,
+  shape, and elevation tokens consumed by both the Console and static prototypes.
+- [../../ui/calm-slate-primitives.css](../../ui/calm-slate-primitives.css) - shared presentation
+  primitives such as the semantic top-edge content-update shimmer.
+- [assets/calm-slate.css](assets/calm-slate.css) - mock layout and component styles over the shared tokens:
   layout container (max-width 1160px), section number badges, cards, KPI grid, AS-IS/TO-BE
   comparison, critique table, pill tags, severity badges, trust-tier chips, buttons, forms,
   selection controls, native date and time inputs, range controls, alerts, tabs, pagination,
   loading and empty states, tooltips, dialogs, syntax-highlighted code, grid and stacked lists,
   feeds, rich selects, comboboxes, dropdowns, drawers, responsive data states, notifications,
-  calendars, meters, and the Live cockpit (activity swarm, sparkline strip, audit ticker). All
+  calendars, meters, reusable charts, and the Live cockpit (activity swarm, sparkline strip, audit ticker). All
   classes are prefixed `cs-`.
 - [assets/calm-slate.js](assets/calm-slate.js) - shared left navigation, tab switching, local
   select and menu behavior, code copy feedback, drawers, notifications, calendar selection, and

@@ -12,6 +12,7 @@ from fdai.delivery.operator_api.routes.chat_inventory_query import (
     InventoryQuery,
     InventoryQueryKind,
     InventoryQuerySource,
+    inventory_query_matches,
 )
 from fdai.delivery.operator_api.routes.chat_inventory_semantics import (
     SemanticInventoryStatusError,
@@ -81,6 +82,50 @@ def test_semantic_status_merge_uses_resource_category_values() -> None:
     assert merged is not None
     status = next(predicate for predicate in merged["predicates"] if predicate["field"] == "status")
     assert status["value"] == ["stopped", "deallocated", "paused"]
+
+
+def test_semantic_status_merge_preserves_bounded_negation() -> None:
+    merged = merge_semantic_inventory_status_query(
+        _vm_query(),
+        {"predicates": [{"field": "status", "operator": "not_in", "value": ["inactive"]}]},
+    )
+
+    assert merged is not None
+    status = next(predicate for predicate in merged["predicates"] if predicate["field"] == "status")
+    assert status == {
+        "field": "status",
+        "operator": "not_in",
+        "value": ["stopped", "deallocated"],
+    }
+
+
+def test_negated_status_grounding_excludes_provider_status_forms() -> None:
+    query = InventoryQuery(
+        source=InventoryQuerySource.CURRENT,
+        kind=InventoryQueryKind.LIST,
+        predicates=(
+            *_vm_query().predicates,
+            InventoryPredicate(
+                InventoryField.STATUS,
+                InventoryOperator.NOT_IN,
+                ("stopped", "deallocated"),
+            ),
+        ),
+    )
+    resources = (
+        {"type": "compute.vm", "status": "VM running"},
+        {"type": "compute.vm", "status": "VM stopped"},
+        {"type": "compute.vm", "status": "PowerState/deallocated"},
+    )
+
+    grounded = ground_inventory_status_query(query, resources)
+
+    status = grounded.predicates[-1]
+    assert status.operator is InventoryOperator.NOT_IN
+    assert status.value == ("vm stopped", "powerstate deallocated")
+    assert inventory_query_matches(grounded, resources[0])
+    assert not inventory_query_matches(grounded, resources[1])
+    assert not inventory_query_matches(grounded, resources[2])
 
 
 def test_status_grounding_ignores_unselected_resource_types() -> None:

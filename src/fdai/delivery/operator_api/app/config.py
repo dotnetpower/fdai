@@ -202,6 +202,9 @@ class OperatorApiConfig:
     Empty by default; ObjectType and LinkType exploration remains available
     without an ActionType catalog."""
 
+    ontology_function_types: tuple[Any, ...] = ()
+    """Typed ontology functions exposed by ``GET /ontology/graph``."""
+
     operating_model_status_reader: Any = None
     """Optional StateStore reader for bounded operating-model startup status.
     The ontology route returns only status, revision, and aggregate counts."""
@@ -212,6 +215,12 @@ class OperatorApiConfig:
     ``resources`` and ``links`` plus freshness metadata. When set, registers
     Reader-gated ``GET /inventory/graph``. The provider reads the inventory
     projection only; the console never receives a cloud or executor identity."""
+
+    inventory_semantic_resolver: Any = None
+    """Optional non-authoritative inventory concept retriever.
+
+    It can return candidate state or operation concepts for clarification, but
+    it cannot construct or execute a provider query."""
 
     inventory_activity_provider: Any = None
     """Optional server-scoped resource-change collection for Command Deck.

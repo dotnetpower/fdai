@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  attachmentOperationIsCurrent,
   clipboardImageFiles,
   detectKind,
   fileExtension,
@@ -9,6 +10,7 @@ import {
   isRightsProtected,
   newAttachmentId,
   normalizeImageDataUrl,
+  shouldCreateImagePreview,
   thumbLabel,
 } from "./composer-attachments";
 import {
@@ -17,6 +19,19 @@ import {
 } from "./composer-image-normalization";
 
 describe("composer-attachments", () => {
+  it("invalidates late attachment work after reset or removal", () => {
+    expect(attachmentOperationIsCurrent(3, 3, true)).toBe(true);
+    expect(attachmentOperationIsCurrent(3, 4, true)).toBe(false);
+    expect(attachmentOperationIsCurrent(3, 3, false)).toBe(false);
+  });
+
+  it("creates previews only for images with a reserved send slot", () => {
+    expect(shouldCreateImagePreview("image", "image/png", true)).toBe(true);
+    expect(shouldCreateImagePreview("image", "image/png", false)).toBe(false);
+    expect(shouldCreateImagePreview("image", null, true)).toBe(false);
+    expect(shouldCreateImagePreview("doc", "image/png", true)).toBe(false);
+  });
+
   it("fits large screenshots inside the vision pixel bound without distortion", () => {
     expect(fitVisionImageDimensions(7680, 4320)).toEqual({ width: 2048, height: 1152 });
     expect(fitVisionImageDimensions(2160, 3840)).toEqual({ width: 1152, height: 2048 });

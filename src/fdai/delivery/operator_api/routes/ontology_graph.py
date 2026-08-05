@@ -23,6 +23,7 @@ from fdai.core.ontology_explorer import render_ontology_mermaid
 from fdai.core.ontology_platform import CompiledInterfaceCatalog, platform_manifest
 from fdai.shared.contracts.models import (
     OntologyActionType,
+    OntologyFunctionType,
     OntologyLinkType,
     OntologyObjectType,
 )
@@ -37,6 +38,7 @@ def make_ontology_graph_route(
     object_types: Sequence[OntologyObjectType],
     link_types: Sequence[OntologyLinkType],
     action_types: Sequence[OntologyActionType] = (),
+    function_types: Sequence[OntologyFunctionType] = (),
     status_reader: StateStore | None = None,
     authorize: Callable[[Request], Awaitable[str]],
     path: str = DEFAULT_ROUTE_PATH,
@@ -120,12 +122,13 @@ def make_ontology_graph_route(
             object_types=object_types,
             link_types=link_types,
             action_types=action_types,
+            function_types=function_types,
         )
         ontology_platform = platform_manifest(
             release=release,
             interfaces=CompiledInterfaceCatalog(interfaces={}, concrete_types={}),
             action_types=action_types,
-            functions=(),
+            functions=function_types,
         )
         operating_model = {"status": "unavailable"}
         if status_reader is not None:

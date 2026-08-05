@@ -29,6 +29,10 @@ class SemanticInventoryStatusError(ValueError):
     """Raised when a planner proposes a non-canonical inventory state."""
 
 
+class SemanticInventoryInterpretationRequiredError(ValueError):
+    """Raised when a required semantic predicate remains unresolved."""
+
+
 def merge_semantic_inventory_status(
     evidence: Mapping[str, Any],
     planned_arguments: Mapping[str, object],
@@ -76,6 +80,61 @@ def merge_semantic_inventory_status_query(
     return replace(query, predicates=(*query.predicates, predicate)).to_dict()
 
 
+def validate_semantic_inventory_status_arguments(
+    query: InventoryQuery,
+    planned_arguments: Mapping[str, object],
+) -> None:
+    """Reject non-canonical planner status values without changing a complete query."""
+
+    raw_predicates = planned_arguments.get("predicates")
+    if not isinstance(raw_predicates, Sequence) or isinstance(raw_predicates, str | bytes):
+        return
+    planned_statuses = [
+        item
+        for item in raw_predicates
+        if isinstance(item, Mapping) and item.get("field") == InventoryField.STATUS.value
+    ]
+    if not planned_statuses:
+        return
+    if (
+        len(planned_statuses) != 1
+        or _canonical_status_predicate(
+            planned_statuses[0],
+            resource_category=_query_resource_category(query),
+        )
+        is None
+    ):
+        raise SemanticInventoryStatusError("semantic inventory status predicate is invalid")
+
+
+def canonicalize_semantic_inventory_status_arguments(
+    query: InventoryQuery,
+    planned_arguments: Mapping[str, object],
+) -> InventoryQuery:
+    """Replace planned ontology state IDs with their canonical provider values."""
+
+    raw_predicates = planned_arguments.get("predicates")
+    if not isinstance(raw_predicates, Sequence) or isinstance(raw_predicates, str | bytes):
+        return query
+    if not any(
+        isinstance(item, Mapping) and item.get("field") == InventoryField.STATUS.value
+        for item in raw_predicates
+    ):
+        return query
+    selector = replace(
+        query,
+        predicates=tuple(
+            predicate
+            for predicate in query.predicates
+            if predicate.field is not InventoryField.STATUS
+        ),
+    )
+    merged = merge_semantic_inventory_status_query(selector, planned_arguments)
+    if merged is None:  # pragma: no cover - status presence guarantees a merge or error
+        raise SemanticInventoryStatusError("semantic inventory status predicate is invalid")
+    return InventoryQuery.from_mapping(merged)
+
+
 def ground_inventory_status_query(
     query: InventoryQuery,
     resources: Sequence[Mapping[str, Any]],
@@ -113,10 +172,21 @@ def ground_inventory_status_query(
     )
     if not observed:
         return query
+    grounded_operator = (
+        InventoryOperator.NOT_IN
+        if predicate.operator is InventoryOperator.NOT_IN
+        else InventoryOperator.EQ
+        if len(observed) == 1
+        else InventoryOperator.IN
+    )
     grounded = InventoryPredicate(
         InventoryField.STATUS,
-        InventoryOperator.EQ if len(observed) == 1 else InventoryOperator.IN,
-        observed[0] if len(observed) == 1 else observed,
+        grounded_operator,
+        observed
+        if grounded_operator is InventoryOperator.NOT_IN
+        else observed[0]
+        if len(observed) == 1
+        else observed,
     )
     return replace(
         query,
@@ -142,7 +212,15 @@ def _canonical_status_predicate(
     state_ids: tuple[str, ...]
     if operator == InventoryOperator.EQ.value and isinstance(value, str):
         state_ids = (normalize_inventory_value(value),)
-    elif operator == InventoryOperator.IN.value and isinstance(value, list) and value:
+    elif (
+        operator
+        in {
+            InventoryOperator.IN.value,
+            InventoryOperator.NOT_IN.value,
+        }
+        and isinstance(value, list)
+        and value
+    ):
         string_values = tuple(item for item in value if isinstance(item, str))
         if len(string_values) != len(value):
             return None
@@ -177,10 +255,21 @@ def _canonical_status_predicate(
     unique = tuple(dict.fromkeys(values))
     if not 1 <= len(unique) <= 16 or any(not value for value in unique):
         return None
+    resolved_operator = (
+        InventoryOperator.NOT_IN
+        if operator == InventoryOperator.NOT_IN.value
+        else InventoryOperator.EQ
+        if len(unique) == 1
+        else InventoryOperator.IN
+    )
     return InventoryPredicate(
         InventoryField.STATUS,
-        InventoryOperator.EQ if len(unique) == 1 else InventoryOperator.IN,
-        unique[0] if len(unique) == 1 else unique,
+        resolved_operator,
+        unique
+        if resolved_operator is InventoryOperator.NOT_IN
+        else unique[0]
+        if len(unique) == 1
+        else unique,
     )
 
 
@@ -212,7 +301,10 @@ def _canonical_current_status_values() -> frozenset[str]:
 
 __all__ = [
     "SemanticInventoryStatusError",
+    "SemanticInventoryInterpretationRequiredError",
+    "canonicalize_semantic_inventory_status_arguments",
     "ground_inventory_status_query",
     "merge_semantic_inventory_status",
     "merge_semantic_inventory_status_query",
+    "validate_semantic_inventory_status_arguments",
 ]

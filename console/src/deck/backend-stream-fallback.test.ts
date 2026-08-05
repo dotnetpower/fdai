@@ -468,6 +468,50 @@ describe("askBackendStream fallback typewriter", () => {
     expect(malformed.text).toBe("safe malformed fallback");
   });
 
+  test("SSE and JSON retain canonical text beside a verified mixed presentation", async () => {
+    const ref = "subscription-health:test@2026-08-05T00:00:00Z";
+    const verification = {
+      status: "verified",
+      authority: "server_subscription_health",
+      checks_completed: 1,
+      checks_total: 1,
+      evidence_refs: [ref],
+      reason_code: "subscription_health_grounded",
+    };
+    const presentation = {
+      schema_version: 1,
+      layout: "stack",
+      evidence_refs: [ref],
+      blocks: [{
+        slot_id: "overview",
+        kind: "summary",
+        title: "Azure scope health",
+        emphasis: "primary",
+        collapsed: false,
+        evidence_refs: [ref],
+        data: { items: [{ label: "Resources checked", value: "454", tone: "neutral" }] },
+      }],
+    };
+    const payload = {
+      answer: "Canonical health fallback.",
+      model: "evidence-verifier",
+      verification,
+      presentation_artifact: presentation,
+    };
+    const body = `event: done\ndata: ${JSON.stringify(payload)}\n\n`;
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+
+    const streamed = await mod.askBackendStream("q", snap(), [], { onToken: () => undefined });
+    expect(streamed.text).toBe("Canonical health fallback.");
+    expect(streamed.presentationArtifact?.blocks[0]?.slotId).toBe("overview");
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(payload), { status: 200 })));
+    const json = await mod.askBackend("q", snap(), []);
+    expect(json.text).toBe("Canonical health fallback.");
+    expect(json.presentationArtifact?.blocks[0]?.kind).toBe("summary");
+  });
+
   test("returns bounded trajectory detail from the terminal event", async () => {
     const body = `event: done\ndata: ${JSON.stringify({
       answer: "Inventory complete.",

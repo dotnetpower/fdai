@@ -21,8 +21,9 @@ that cue without moving the row. Only newer server activity advances the orderin
 For a non-agent conversation, the first operator question becomes the title while the originating
 screen remains separate metadata. The normalized question is bounded to 512 characters in history
 metadata and preserved across browser and durable restoration. When the title is visually
-truncated, pointer hover shows that bounded question through the shared console tooltip. A title
-that fits does not show a redundant tooltip.
+truncated, its visible text keeps the ellipsis. Pointer hover anywhere on the selectable conversation
+row, including its time, or keyboard focus shows the bounded full question through the shared console
+tooltip, including titles that fit.
 Layout and close icon controls use the same localized tooltip component. The connected-backend
 tooltip preserves separate mode, endpoint, route-choice, and candidate lines, fills every localized
 placeholder, and wraps long endpoint or deployment tokens within its viewport bound.
@@ -35,9 +36,11 @@ default instead of activating an unrelated-route or agent transcript. Context-de
 Verified fresh inventory answers can include a bounded `resource_result_context` in server-owned replay metadata. It carries no raw resource ID, is never accepted from browser context, and preserves source, snapshot, scope, query digest, freshness, truncation, and up to 40 ordered selectors for later deterministic follow-ups.
 Ordinal follow-ups revalidate the selected position through exact fresh inventory predicates. Ambiguity follow-ups show only equal-name candidates from a complete prior result set. Incomplete context stays unavailable and cannot fall back to current-screen or narrator output.
 Verified source-manifest answers also preserve bounded unavailable or unknown entries as `source_failure_context`. Partial-source continuations render available facts and exact gaps from that receipt, including reason and last observation when present, without treating an arbitrary unverified answer as source authority. Verified or corrected `query_llm_usage` answers preserve a bounded `analysis_context` with the domain, capability, token measure, grouping, `usage_scope`, and numeric 1-90 day lookback. A refinement that changes only the period, grouping, table, or chart reuses that server-owned anchor and re-reads metering evidence. Comparison, export, missing-anchor, client-supplied-anchor, and explicit different-metric requests return a context-required hold instead of selecting inventory, Resource Health, or narrator output.
-Full-workspace Command Deck sessions start with the transcript as the only open content column. An empty transcript keeps situational suggestions and adds localized Resilience, Change Safety, and Cost Governance quick starts without changing tool selection or authority. The transcript toolbar exposes filtered conversation history in workspace, docked, and floating layouts; the narrower layouts open it over the transcript instead of reducing transcript width. The current-screen digest remains a workspace control. The Deck reads the composition-owned data-source manifest once per open surface and shows compact Inventory, Incidents, Audit, Knowledge, and Automation readiness links above the transcript. Missing or non-authoritative sources remain `unknown`; the browser doesn't infer health, expose raw provider details, or replace the manifest with route presence. Loading uses a stable skeleton, and manifest failure links to Diagnostics without blocking conversation history.
-History loads 100 durable summaries at a time in stable cursor order. The count shows
-`100+` after it reaches 100, and nearing the history scroll boundary loads the next 100. Turn
+Full-workspace Command Deck sessions start with the transcript as the only open content column. An empty transcript keeps situational suggestions and adds localized Resilience, Change Safety, and Cost Governance quick starts without changing tool selection or authority. The transcript toolbar exposes filtered conversation history in workspace, docked, and floating layouts; the narrower layouts open it over the transcript instead of reducing transcript width. In workspace, a pointer or keyboard separator resizes conversation history from 180 to 360 px and stores the last width locally. Narrow layouts hide the separator. The history header keeps search and icon-only creation in one compact row, uses lightweight filter tabs, and leaves scrolling to the list rather than the controls. The current-screen digest remains a workspace control. The Deck reads the composition-owned data-source manifest once per open surface and shows compact Inventory, Incidents, Audit, Knowledge, and Automation readiness links above the transcript. Missing or non-authoritative sources remain `unknown`; the browser doesn't infer health, expose raw provider details, or replace the manifest with route presence. Loading uses a stable skeleton, and manifest failure links to Diagnostics without blocking conversation history.
+History preserves stable cursor order but renders only 20 summaries initially. Nearing the history
+scroll boundary reveals the next 20 already loaded summaries. After the local window is exhausted,
+the same boundary requests the next server page of 20 and reveals it without replacing prior rows.
+The count shows `20+` while another page exists. Turn
 bodies hydrate only on selection. An operator image is visible in its sent turn. Browser cache
 serialization drops inline bytes and keeps a bounded descriptor; durable restoration fetches the
 binary through the authenticated principal-and-conversation-scoped image route. A transcript restored from browser or durable history shows a
@@ -143,6 +146,13 @@ retain a complete-border focus or hover cue; the visual treatment never sets dis
 The shared KPI card distinguishes `not-measured`, `not-connected`, `insufficient-sample`, and
 `not-applicable` evidence states. These states use neutral copy and styling; actual request or probe
 failures use the error component and remain visually distinct.
+Cards whose authoritative visible content changes in place use the shared `top-edge shimmer`: one
+neutral blue sweep, 2 px high and 1.35 seconds long. Primitive shared KPI values opt in
+automatically; complex live cards provide a semantic update key. The first render, unchanged parent
+rerenders, filters, selection, and clock-, age-, or timestamp-only changes stay quiet. Rapid updates
+coalesce while one sweep runs, and reduced-motion preferences disable the animation. The shimmer
+only confirms that displayed content changed; status, freshness, severity, and outcome remain in
+their labeled content-local cues.
 The console card contract test checks shared KPI destinations, rejects nested whole-card links,
 requires nullable KPI values to declare an evidence state, requires raw data cards to expose a link
 or explicit detail control, and blocks structural card names.
@@ -247,13 +257,21 @@ provider payloads, and validation results remain unchanged.
 Each Command Deck question selects the smallest presentation supported by observed work. A turn with
 no activity, handoff, or background task keeps a collapsed run record. One successful terminal read
 uses a compact investigation row and a collapsed run record. Multiple activities,
-milestones, retries, failures, handoffs, commands, or file changes use an expanded timeline by
-default. A durable background task uses a detached task summary. Restored compact turns reconstruct
+milestones, retries, failures, handoffs, commands, or file changes retain the complete timeline but
+keep its run record collapsed by default. A durable background task uses a detached task summary. Restored compact turns reconstruct
 the observed row from durable detail, while live turns retain the row already shown in causal order.
-Every completed answer keeps its trajectory summary and bounded original operator prompt visible.
+Every completed answer keeps its trajectory summary available. The bounded original operator prompt
+stays hidden while the run record is collapsed and appears when the operator expands it.
 Internal AnswerPlan intent and detail labels don't appear above the answer. They remain available in
 the Run record decision context, while the answer leads with operator-facing content and verified
-evidence. Model-assisted format selection changes only the validated presentation shape. A verified chart returns a bounded `chart_artifact` v1 with evidence references, and the transport validates and renders it before answer text; canonical fenced chart data remains the compatibility fallback.
+evidence. Model-assisted planning changes only a validated presentation shape. A verified
+`presentation_artifact` v1 can mix summary, table, chart, coverage, callout, detail, and evidence
+blocks whose content was compiled by the server from immutable evidence. The browser rejects an
+unknown block, duplicate slot, invalid bound, incompatible chart, or evidence reference outside the
+terminal verification receipt, then renders the canonical answer text instead. Partial evidence
+keeps every valid block and adds an explicit limitation block; one missing source never suppresses
+the rest of the answer. A legacy verified chart can still return bounded `chart_artifact` v1, and
+canonical Markdown or fenced chart data remains the compatibility fallback.
 
 The status overview distinguishes completed, corrected, degraded, failed, unverified, running, and
 unobserved phases; record presence isn't success. Result chips report observed query and command
@@ -261,7 +279,15 @@ counts, evidence completion, references, and verification rather than internal e
 serialized `unverified` status remains stable for replay. Its primary Console label is derived from
 the bounded reason code as Context required, Source unavailable, Invalid query, or Unsupported
 claim, while technical detail retains the canonical status and raw reason code. The
-run-record summary retains the complete bounded operator prompt and wraps it on narrow layouts. Changing its disclosure
+two result indicators are fixed dots no larger than 10 px that overlap by 2 px on the source-button
+edge. The source button keeps its own source tooltip. The dots form a separate pointer and keyboard
+trigger and directly widen into compact query, command, and evidence pills to the right without a
+floating tooltip or separate container. Full summaries remain in the trigger's accessible name. The
+dots use absolute positioning, so they create no row, change no reply-action geometry, and don't
+cover adjacent actions. When no source button exists, the same directly expanding dots attach to
+Review answer quality. The
+expanded run-record summary retains the complete bounded
+operator prompt and wraps it on narrow layouts. Changing its disclosure
 scrolls only the transcript while the composer remains visible at the Deck boundary. The expanded
 view leads with the six-phase rail,
 expandable observed-event timeline, and provenance signals, while timing windows, decision context, phase records, and coverage gaps remain in one
@@ -294,8 +320,8 @@ earliest timestamp observed for the turn, and the terminal answer anchors no ear
 recorded timing completion. Browser and server clock skew therefore cannot place evidence before
 input or generation and verification after delivery. The lane baseline and ticks remain distinct
 from a completion progress bar.
-Answer text uses 16 px text, main disclosures are 44 px high, and content reflows without loss at 200% text resize and 320 CSS pixels.
-Trajectory headings use 14 px, event labels use 13 px, and compact trajectory metadata uses 12 px.
+Answer text uses 15 px text, main disclosures are 44 px high, and content reflows without loss at 200% text resize and 320 CSS pixels.
+Trajectory headings use 13 px, event labels use 12 px, and compact trajectory metadata uses 11 px.
 A terminal verified answer that contains the exact server-rendered English or Korean recorded-agent-activity block presents those rows as one compact vertical timeline. Each row retains the agent, canonical event token, exact ISO timestamp, and localized readable time; malformed or unknown prose remains ordinary answer content instead of becoming observed activity.
 A published screen snapshot becomes visibly stale
 after five minutes and offers an explicit page refresh; a bare clock never implies current evidence.

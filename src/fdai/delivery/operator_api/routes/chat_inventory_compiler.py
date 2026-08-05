@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Any
 
 from fdai.delivery.operator_api.routes.chat_inventory_language import (
@@ -20,6 +21,7 @@ from fdai.delivery.operator_api.routes.chat_inventory_query import (
     InventoryQueryScope,
     InventoryQuerySource,
     InventoryQueryValueGroup,
+    InventoryScheduleWindow,
     normalize_inventory_value,
 )
 from fdai.delivery.operator_api.routes.chat_inventory_resource_types import (
@@ -55,6 +57,7 @@ def is_inventory_question(
     return bool(
         prompt.strip()
         and not lexical.has(registry.signals, "mutation", prompt)
+        and not lexical.has(registry.signals, "causal_diagnosis", prompt)
         and (not lexical.has(registry.signals, "diagnosis", prompt) or diagnosis_allowed)
         and (lexical.has(registry.signals, "resource_subject", prompt) or resource_types)
         and (lexical.has(registry.signals, "read", prompt) or semantic_marker or "?" in prompt)
@@ -84,6 +87,7 @@ def compile_inventory_query(
     resources: Sequence[Mapping[str, Any]] = (),
     resolver: InventoryResourceTypeResolver | None = None,
     language: InventoryQueryLanguageResolver | None = None,
+    now: datetime | None = None,
 ) -> InventoryQuery | None:
     """Compile one high-confidence catalog match into a verified typed query."""
 
@@ -114,6 +118,25 @@ def compile_inventory_query(
     operations = lexical.matched_values(registry.operations, prompt)
     source = _source(prompt, operations=operations, language=lexical)
     kind = _kind(prompt, source, language=lexical)
+    if kind is InventoryQueryKind.SCHEDULED_SHUTDOWN:
+        reference_time = now or datetime.now(tz=UTC)
+        if reference_time.tzinfo is None:
+            raise ValueError("inventory query clock MUST be timezone-aware")
+        return InventoryQuery(
+            source=InventoryQuerySource.CURRENT,
+            kind=kind,
+            predicates=(
+                InventoryPredicate(
+                    InventoryField.RESOURCE_TYPE,
+                    InventoryOperator.EQ,
+                    "compute.vm-shutdown-schedule",
+                ),
+            ),
+            scope=_scope(prompt, language=lexical),
+            require_fresh=registry.current_requires_fresh,
+            schedule_window=InventoryScheduleWindow.TODAY_EVENING,
+            reference_time=reference_time,
+        )
     if kind is InventoryQueryKind.SCOPE_COUNTS:
         resource_types = ()
         group = None
@@ -211,7 +234,10 @@ def compile_inventory_query(
         group_by=grouping,
         projection=_projection(prompt, language=lexical),
         require_fresh=registry.current_requires_fresh,
-        include_workloads=lexical.has(registry.signals, "workload", prompt),
+        include_workloads=(
+            "kubernetes-cluster" in resource_types
+            and lexical.has(registry.signals, "workload", prompt)
+        ),
         require_state_history=lexical.has(registry.signals, "temporal", prompt),
         status_groups=status_groups,
     )
@@ -228,7 +254,13 @@ def inventory_query_scope(
     return _scope(prompt, language=lexical)
 
 
-def inventory_query_requires_semantic_completion(query: InventoryQuery) -> bool:
+def inventory_query_requires_semantic_completion(
+    query: InventoryQuery,
+    *,
+    prompt: str,
+    language: InventoryQueryLanguageResolver | None = None,
+    resolver: InventoryResourceTypeResolver | None = None,
+) -> bool:
     """Return whether a specific current-resource query lacks a state interpretation."""
 
     if query.source is not InventoryQuerySource.CURRENT:
@@ -236,7 +268,27 @@ def inventory_query_requires_semantic_completion(query: InventoryQuery) -> bool:
     resource_types = _predicate_values(query, InventoryField.RESOURCE_TYPE)
     if not resource_types or set(resource_types) == {"resource-group"}:
         return False
-    return not any(predicate.field is InventoryField.STATUS for predicate in query.predicates)
+    if any(predicate.field is InventoryField.STATUS for predicate in query.predicates):
+        return False
+    lexical = language or default_inventory_query_language_resolver()
+    resource_resolver = resolver or default_inventory_resource_type_resolver()
+    if resource_resolver.is_exact_reference(prompt):
+        return False
+    if query.include_workloads or query.kind is not InventoryQueryKind.LIST:
+        return False
+    if query.group_by is not InventoryQueryGrouping.NONE:
+        return False
+    if query.projection is not InventoryQueryProjection.DETAILS:
+        return False
+    if lexical.has(lexical.registry.query_kinds, "list", prompt):
+        return False
+    if lexical.has(lexical.registry.signals, "bounded_read", prompt):
+        return False
+    if lexical.has(lexical.registry.signals, "state_inspection", prompt):
+        return False
+    if lexical.has(lexical.registry.signals, "unfiltered", prompt):
+        return False
+    return True
 
 
 def inventory_query_evidence_authorities(
@@ -337,6 +389,7 @@ def _kind(
 ) -> InventoryQueryKind:
     matched = language.matched_ids(language.registry.query_kinds, prompt)
     priority = (
+        InventoryQueryKind.SCHEDULED_SHUTDOWN,
         InventoryQueryKind.SCOPE_COUNTS,
         InventoryQueryKind.INVENTORY_COVERAGE,
         InventoryQueryKind.STATE_COVERAGE,

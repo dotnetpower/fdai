@@ -205,7 +205,7 @@ describe("upsertEvidenceBranch", () => {
     expect(trajectory).toContain('t("deck.trajectory.runRecord")');
     expect(trajectory).toContain('class="deck-trajectory-results"');
     expect(trajectory).toContain('class="deck-trajectory-signals"');
-    expect(trajectory).toContain('useState(presentation.workProgress === "timeline")');
+    expect(trajectory).toContain("useState(false)");
     expect(trajectory).toContain("trajectory.question.text");
     expect(trajectory).not.toContain('if (presentation.workProgress === "none") return null;');
     expect(trajectory).not.toContain('if (presentation.workProgress === "compact")');

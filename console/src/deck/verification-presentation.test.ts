@@ -25,6 +25,11 @@ describe("verification presentation", () => {
     ["capability_invalid_arguments", "invalidQuery", "Invalid query"],
     ["provider_unavailable", "sourceUnavailable", "Source unavailable"],
     ["screen_claim_mismatch", "unsupportedClaim", "Unsupported claim"],
+    [
+      "vision_interpretation_unverified",
+      "visionUnverified",
+      "Image interpretation",
+    ],
   ] as const)("maps %s to %s", (reason, kind, label) => {
     const value = verification(reason);
     expect(verificationIssueKind(reason)).toBe(kind);

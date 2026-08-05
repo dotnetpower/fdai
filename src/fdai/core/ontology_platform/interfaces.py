@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
+from types import MappingProxyType
 
 from fdai.shared.contracts.models import OntologyObjectType, PropertyDecl
 
@@ -11,8 +13,8 @@ from .models import InterfaceImplementation, OntologyInterfaceType
 
 @dataclass(frozen=True, slots=True)
 class CompiledInterfaceCatalog:
-    interfaces: dict[str, OntologyInterfaceType]
-    concrete_types: dict[str, tuple[str, ...]]
+    interfaces: Mapping[str, OntologyInterfaceType]
+    concrete_types: Mapping[str, tuple[str, ...]]
 
     def resolve(self, interface_name: str) -> tuple[str, ...]:
         try:
@@ -52,9 +54,17 @@ def compile_interfaces(
                 )
             for inherited_name in _interface_closure(interface_name, by_name):
                 concrete[inherited_name].add(object_type.name)
+    frozen_interfaces = {
+        name: interface.model_copy(
+            update={"properties": MappingProxyType(dict(interface.properties))}
+        )
+        for name, interface in expanded.items()
+    }
     return CompiledInterfaceCatalog(
-        interfaces=expanded,
-        concrete_types={name: tuple(sorted(values)) for name, values in concrete.items()},
+        interfaces=MappingProxyType(frozen_interfaces),
+        concrete_types=MappingProxyType(
+            {name: tuple(sorted(values)) for name, values in concrete.items()}
+        ),
     )
 
 

@@ -47,6 +47,7 @@ import type {
 import type { IncidentConversationBinding } from "./open-deck";
 import { parseTrajectoryDetail } from "./trajectory-detail";
 import { parseIntentGraph, parseIntentGraphEvidence } from "./intent-graph";
+import { parsePresentationArtifact } from "./presentation-artifact";
 import { chartArtifactText } from "./rich-parse";
 
 export { setChatAuth } from "./auth";
@@ -146,8 +147,6 @@ export async function askBackend(
   const payloadRecord = typeof payload === "object" && payload !== null
     ? payload as Record<string, unknown>
     : undefined;
-  const answerText = chartArtifactText(payloadRecord?.chart_artifact) ??
-    extractString(payload, "answer");
   const model = extractString(payload, "model") ?? "llm";
   const explicitSource = extractString(payload, "source");
   const latencyMs = extractNumber(payload, "latency_ms");
@@ -156,6 +155,14 @@ export async function askBackend(
       ? (payload as Record<string, unknown>).verification
       : undefined,
   );
+  const presentationArtifact = parsePresentationArtifact(
+    payloadRecord?.presentation_artifact,
+    verification,
+  );
+  const canonicalAnswer = extractString(payload, "answer");
+  const answerText = presentationArtifact
+    ? canonicalAnswer
+    : chartArtifactText(payloadRecord?.chart_artifact) ?? canonicalAnswer;
   const router = parseRouter(
     typeof payload === "object" && payload !== null
       ? (payload as Record<string, unknown>).router
@@ -252,6 +259,7 @@ export async function askBackend(
     ...(answerPlanning ? { answerPlanning } : {}),
     ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
     ...(incidentCandidates.length > 0 ? { incidentCandidates } : {}),
+    ...(presentationArtifact ? { presentationArtifact } : {}),
     ...(resourceContext ? { resourceContext } : {}),
     ...(evidenceFreshnessContext ? { evidenceFreshnessContext } : {}),
     ...(modelTrace ? { modelTrace } : {}),

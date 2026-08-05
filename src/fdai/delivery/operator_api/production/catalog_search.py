@@ -18,17 +18,20 @@ from fdai.delivery.catalog_search import (
 )
 from fdai.delivery.operator_api.production.config import ProdOperatorApiConfigError
 from fdai.shared.providers.catalog_search import CatalogSemanticIndex
+from fdai.shared.providers.knowledge import Embedder
 from fdai.shared.providers.local.secret import EnvSecretProvider
 
 _ENDPOINT_ENV = "FDAI_EMBEDDING_ENDPOINT"
 _DEPLOYMENT_ENV = "FDAI_EMBEDDING_DEPLOYMENT"
 _DIM_ENV = "FDAI_EMBEDDING_DIM"
 _ENABLED_ENV = "FDAI_CATALOG_SEARCH_ENABLED"
+_INVENTORY_SEMANTIC_ENABLED_ENV = "FDAI_INVENTORY_SEMANTIC_ENABLED"
 
 
 @dataclass(frozen=True, slots=True)
 class ProductionCatalogSearch:
     index: CatalogSemanticIndex | None
+    inventory_embedder: Embedder | None = None
     shutdown_callbacks: tuple[Callable[[], Awaitable[None]], ...] = ()
 
 
@@ -38,13 +41,17 @@ def build_production_catalog_search(
     dsn: str,
 ) -> ProductionCatalogSearch:
     enabled = env.get(_ENABLED_ENV, "1").strip().casefold() not in {"0", "false", "no", "off"}
+    inventory_semantic_enabled = env.get(
+        _INVENTORY_SEMANTIC_ENABLED_ENV,
+        "1" if enabled else "0",
+    ).strip().casefold() not in {"0", "false", "no", "off"}
     endpoint = env.get(_ENDPOINT_ENV, "").strip()
     deployment = env.get(_DEPLOYMENT_ENV, "").strip()
     configured = (bool(endpoint), bool(deployment))
-    if not enabled:
-        return ProductionCatalogSearch(None)
+    if not enabled and not inventory_semantic_enabled:
+        return ProductionCatalogSearch(index=None)
     if configured == (False, False):
-        return ProductionCatalogSearch(None)
+        return ProductionCatalogSearch(index=None)
     if configured != (True, True):
         raise ProdOperatorApiConfigError(
             f"{_ENDPOINT_ENV} and {_DEPLOYMENT_ENV} MUST be configured together"
@@ -84,19 +91,27 @@ def build_production_catalog_search(
             dim=dimension,
         ),
     )
-    index = PgvectorCatalogSemanticIndex(
-        config=PgvectorCatalogSemanticIndexConfig(
-            dsn_secret="catalog-search-dsn",  # noqa: S106 - provider lookup key
-            embedding_dim=dimension,
-        ),
-        embedder=embedder,
-        secrets=EnvSecretProvider(env={"catalog-search-dsn": dsn}, prefix=""),
+    index = (
+        PgvectorCatalogSemanticIndex(
+            config=PgvectorCatalogSemanticIndexConfig(
+                dsn_secret="catalog-search-dsn",  # noqa: S106 - provider lookup key
+                embedding_dim=dimension,
+            ),
+            embedder=embedder,
+            secrets=EnvSecretProvider(env={"catalog-search-dsn": dsn}, prefix=""),
+        )
+        if enabled
+        else None
     )
 
     async def close_http() -> None:
         await http_client.aclose()
 
-    return ProductionCatalogSearch(index=index, shutdown_callbacks=(close_http,))
+    return ProductionCatalogSearch(
+        index=index,
+        inventory_embedder=embedder if inventory_semantic_enabled else None,
+        shutdown_callbacks=(close_http,),
+    )
 
 
 __all__ = ["ProductionCatalogSearch", "build_production_catalog_search"]

@@ -316,7 +316,9 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await expect(investigation.locator(".deck-investigation-item")).toHaveCount(1);
   await expect(investigation.locator(".deck-investigation-kind-badge")).toHaveText("QUERY");
   await investigation.locator(".deck-investigation-item-disclosure > summary").click();
-  const queryResult = investigation.locator(".deck-investigation-disclosure").first();
+  const queryResult = investigation.locator(
+    "details.deck-investigation-disclosure:has(> .deck-investigation-output)",
+  );
   await queryResult.locator(":scope > summary").click();
   const queryResultCode = queryResult.locator(".deck-investigation-output code");
   await expect(queryResultCode).toHaveAttribute("data-format", "json");
@@ -324,6 +326,99 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await expect(queryResultCode).toContainText('"name": "vm-example"');
 
   const runRecord = workspace.locator(".deck-trajectory");
+  await expect(runRecord).not.toHaveAttribute("open", "");
+  await expect(runRecord.locator(".deck-trajectory-question")).toHaveCount(0);
+  await expect(runRecord.locator(".deck-trajectory-results")).toHaveCount(0);
+  const sourceControl = workspace.locator(".deck-gr-source-status");
+  const sourceButton = sourceControl.locator(".deck-gr-pill");
+  const statusTrigger = sourceControl.locator(".deck-trajectory-status-trigger");
+  const trajectoryResults = statusTrigger.locator(".deck-trajectory-results");
+  const collapsedResults = await sourceControl.evaluate((root) => {
+    const button = root.querySelector<HTMLElement>(".deck-gr-pill")!.getBoundingClientRect();
+    const review = root.closest(".deck-gr-actions")
+      ?.querySelector<HTMLElement>(".deck-gr-review")?.getBoundingClientRect();
+    const items = [...root.querySelectorAll<HTMLElement>(".deck-trajectory-results > span")]
+      .map((item) => item.getBoundingClientRect());
+    return {
+      items: items.map((bounds) => ({
+        top: bounds.top,
+        width: bounds.width,
+        overlapsButton:
+          Math.min(bounds.right, button.right) > Math.max(bounds.left, button.left) &&
+          Math.min(bounds.bottom, button.bottom) > Math.max(bounds.top, button.top),
+        overlapsReview: review
+          ? Math.min(bounds.right, review.right) > Math.max(bounds.left, review.left) &&
+            Math.min(bounds.bottom, review.bottom) > Math.max(bounds.top, review.top)
+          : true,
+      })),
+      badgeOverlap: items.length === 2 ? items[0]!.right - items[1]!.left : 0,
+    };
+  });
+  expect(collapsedResults.items).toHaveLength(2);
+  expect(collapsedResults.items[0]?.top).toBe(collapsedResults.items[1]?.top);
+  expect(collapsedResults.items.every((item) => item.width <= 10)).toBe(true);
+  expect(collapsedResults.items.some((item) => item.overlapsButton)).toBe(true);
+  expect(collapsedResults.items.every((item) => !item.overlapsReview)).toBe(true);
+  expect(collapsedResults.badgeOverlap).toBeGreaterThanOrEqual(1);
+  expect(collapsedResults.badgeOverlap).toBeLessThanOrEqual(3);
+  const actionRowHeight = await workspace.locator(".deck-gr-actions").evaluate(
+    (element) => element.getBoundingClientRect().height,
+  );
+  const collapsedWidths = await trajectoryResults.locator(":scope > span").evaluateAll(
+    (items) => items.map((item) => item.getBoundingClientRect().width),
+  );
+  await sourceButton.hover();
+  const sourceTooltip = page.locator('.app-tooltip[data-state="delayed-open"]');
+  await expect(sourceTooltip).toHaveCount(1);
+  await expect(sourceTooltip).toContainText("Checked against 1 evidence reference(s)");
+  await expect(sourceTooltip).not.toContainText("1 read queries / 0 commands");
+  await trajectoryResults.hover();
+  await expect(page.locator(
+    '.app-tooltip[data-state="delayed-open"], .app-tooltip[data-state="instant-open"]',
+  )).toHaveCount(0);
+  await expect.poll(async () => {
+    const widths = await trajectoryResults.locator(":scope > span").evaluateAll(
+      (items) => items.map((item) => item.getBoundingClientRect().width),
+    );
+    return widths.every((width, index) => width > collapsedWidths[index]!);
+  }).toBe(true);
+  const expandedResults = await sourceControl.evaluate((root) => {
+    const button = root.querySelector<HTMLElement>(".deck-gr-pill")!.getBoundingClientRect();
+    const results = root.querySelector<HTMLElement>(".deck-trajectory-results")!
+      .getBoundingClientRect();
+    const items = [...root.querySelectorAll<HTMLElement>(".deck-trajectory-results > span")];
+    return {
+      button: { left: button.left, right: button.right },
+      results: { left: results.left, right: results.right },
+      widths: items.map((item) => item.getBoundingClientRect().width),
+      labels: items.map((item) => item.textContent),
+    };
+  });
+  expect(expandedResults.widths.every((width, index) => width > collapsedWidths[index]!)).toBe(true);
+  expect(expandedResults.labels).toEqual([
+    "Reads 1 / cmds 0",
+    "Evidence 1/1 / refs 2",
+  ]);
+  await expect.poll(async () => workspace.locator(".deck-gr-actions").evaluate(
+    (element) => element.getBoundingClientRect().height,
+  )).toBe(actionRowHeight);
+  const viewport = page.viewportSize();
+  expect(viewport).not.toBeNull();
+  expect(expandedResults.results.left).toBeGreaterThanOrEqual(0);
+  expect(expandedResults.results.right).toBeLessThanOrEqual(viewport!.width);
+  expect(expandedResults.results.left).toBeGreaterThanOrEqual(expandedResults.button.right - 6);
+  await workspace.getByRole("button", { name: /^Conversations/ }).click();
+  const conversationRow = workspace.locator(".deck-conversation-select", {
+    hasText: "List resource groups",
+  });
+  await expect(conversationRow).toBeVisible();
+  await conversationRow.locator("small").hover();
+  const conversationTooltip = page.locator('.app-tooltip[data-state="delayed-open"]', {
+    hasText: "List resource groups",
+  });
+  await expect(conversationTooltip).toHaveCount(1);
+  await expect(conversationTooltip).toHaveText("List resource groups");
+  await workspace.getByRole("button", { name: /^Conversations/ }).click();
   await runRecord.locator(":scope > summary").click();
   await expect(runRecord).toHaveAttribute("open", "");
   await expect(runRecord.locator(".deck-trajectory-question strong")).toHaveText(
@@ -499,14 +594,56 @@ test("renders a sent image inside the operator turn without caching its bytes", 
       "base64",
     ),
   });
-  await expect(deck.getByText(/^ready$/i)).toBeVisible();
+  const stagedImage = deck.locator(".deck-attach-item.is-image-preview");
+  await expect(stagedImage).toHaveCount(1);
+  await expect(stagedImage).not.toHaveClass(/is-scanning/);
+  await expect(stagedImage.locator(
+    ".deck-attach-name, .deck-attach-meta, .deck-attach-status",
+  )).toHaveCount(0);
+  const thumbnailBox = await stagedImage.boundingBox();
+  expect(thumbnailBox?.width).toBe(54);
+  expect(thumbnailBox?.height).toBe(54);
+
+  await stagedImage.locator(".deck-attach-thumb").hover();
+  const largePreview = page.locator(".deck-attach-preview-layer img");
+  await expect(largePreview).toBeVisible();
+  await expect(page.locator(
+    '.app-tooltip[data-variant="image-preview"][data-state="instant-open"]',
+  )).toHaveCount(1);
+  await expect.poll(() => largePreview.evaluate((image: HTMLImageElement) => image.naturalWidth))
+    .toBeGreaterThan(0);
+  expect((await largePreview.boundingBox())?.width).toBeGreaterThan(300);
+
   await deck.getByPlaceholder(/Ask anything/i).fill("What is shown?");
   await deck.getByRole("button", { name: "Send" }).click();
 
-  const sentImage = deck.locator('.deck-turn-operator img[alt="screenshot.png"]');
-  await expect(sentImage).toBeVisible();
+  const sentTurn = deck.locator(".deck-turn-operator").filter({ hasText: "What is shown?" });
+  const sentImageButton = sentTurn.getByRole("button", { name: "Open attached image 1" });
+  const sentImage = sentImageButton.getByRole("img", { name: "Attached image 1" });
+  await expect(sentImageButton).toBeVisible();
+  await expect(sentTurn.getByText("screenshot.png", { exact: true })).toHaveCount(0);
+  expect(await sentTurn.evaluate((element) => {
+    const attachments = element.querySelector(".deck-turn-attachment-block");
+    const question = element.querySelector(".deck-turn-body");
+    return Boolean(
+      attachments
+      && question
+      && (attachments.compareDocumentPosition(question) & Node.DOCUMENT_POSITION_FOLLOWING),
+    );
+  })).toBe(true);
   await expect.poll(() => sentImage.evaluate((image: HTMLImageElement) => image.naturalWidth))
     .toBeGreaterThan(0);
+  const thumbnailBounds = await sentImage.boundingBox();
+  await sentImageButton.click();
+  const imageDialog = page.getByRole("dialog", { name: "Attached image preview" });
+  await expect(imageDialog).toBeVisible();
+  const expandedImage = imageDialog.getByRole("img", { name: "Attached image 1" });
+  await expect.poll(() => expandedImage.evaluate((image: HTMLImageElement) => image.naturalWidth))
+    .toBeGreaterThan(0);
+  expect((await expandedImage.boundingBox())?.width).toBeGreaterThan(thumbnailBounds?.width ?? 0);
+  await page.keyboard.press("Escape");
+  await expect(imageDialog).toHaveCount(0);
+  await expect(sentImageButton).toBeFocused();
   await expect.poll(() => fixture.chatBody()).not.toBeNull();
   expect(fixture.chatBody()?.attachments).toMatchObject([{
     id: expect.stringMatching(/^att-/),

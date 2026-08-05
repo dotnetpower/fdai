@@ -188,6 +188,7 @@ describe("durable transcript restoration", () => {
   });
 
   test("restores bounded terminal replay metadata for historical trajectories", () => {
+    const presentationRef = "inventory:snapshot";
     const assistant = restoredTurn({
       turn_id: "turn-2",
       conversation_id: "conversation-1",
@@ -219,6 +220,20 @@ describe("durable transcript restoration", () => {
             checks_total: 1,
             evidence_refs: ["inventory:snapshot"],
             reason_code: null,
+          },
+          presentation_artifact: {
+            schema_version: 1,
+            layout: "stack",
+            evidence_refs: [presentationRef],
+            blocks: [{
+              slot_id: "overview",
+              kind: "summary",
+              title: "Inventory",
+              emphasis: "primary",
+              collapsed: false,
+              evidence_refs: [presentationRef],
+              data: { items: [{ label: "Resources", value: "2", tone: "neutral" }] },
+            }],
           },
           resource_context: {
             name: "example-service",
@@ -307,6 +322,7 @@ describe("durable transcript restoration", () => {
         activities: [{ execution: { output: '{"count":2}' } }],
         milestones: [{ text: "Inventory complete" }],
       },
+      presentationArtifact: { blocks: [{ slotId: "overview" }] },
     });
   });
 

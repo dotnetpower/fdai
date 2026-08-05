@@ -89,6 +89,43 @@ class _InventoryWithReceipt(_Inventory):
         }
 
 
+class _ShutdownScheduleInventory(_Inventory):
+    resource_types = ("compute.vm-shutdown-schedule",)
+
+    async def full_snapshot(self, since: str | None = None):  # type: ignore[no-untyped-def]
+        del since
+        yield InventoryBatch(
+            resources=(
+                ResourceRecord(
+                    resource_id="resourcegroups/rg-example",
+                    type="resource-group",
+                    props={"name": "rg-example", "resourceGroup": "rg-example"},
+                ),
+                ResourceRecord(
+                    resource_id=(
+                        "resourcegroups/rg-example/providers/"
+                        "microsoft.devtestlab/schedules/shutdown-computevm-vm-example"
+                    ),
+                    type="compute.vm-shutdown-schedule",
+                    props={
+                        "name": "shutdown-computevm-vm-example",
+                        "resourceGroup": "rg-example",
+                        "providerType": "Microsoft.DevTestLab/schedules",
+                        "scheduledShutdownStatus": "Enabled",
+                        "scheduledShutdownTime": "1900",
+                        "scheduledShutdownTimeZone": "Korea Standard Time",
+                        "scheduledShutdownTimeZoneIana": "Asia/Seoul",
+                        "scheduledShutdownTargetName": "vm-example",
+                        "scheduledShutdownTargetResourceGroup": "rg-example",
+                        "scheduledShutdownTargetSubscriptionDigest": "sha256:" + "a" * 64,
+                    },
+                ),
+            ),
+            cursor="page-1",
+        )
+        yield InventoryBatch(cursor="done", final=True)
+
+
 class _InventoryAfterFinal(_Inventory):
     async def full_snapshot(self, since: str | None = None):  # type: ignore[no-untyped-def]
         async for batch in super().full_snapshot(since):
@@ -349,6 +386,33 @@ def test_preserves_validated_redacted_provider_execution_receipt() -> None:
     }
 
 
+def test_projects_vm_shutdown_schedule_without_target_resource_id() -> None:
+    graph = asyncio.run(
+        AzureCliInventoryGraphProvider(inventory=_ShutdownScheduleInventory())(
+            None,
+            4,
+            ("contains",),
+            root="azure-subscription",
+            limit=500,
+        )
+    )
+
+    schedule = next(
+        resource
+        for resource in graph["resources"]
+        if resource["type"] == "compute.vm-shutdown-schedule"
+    )
+    assert schedule["scheduled_shutdown_status"] == "Enabled"
+    assert schedule["scheduled_shutdown_time"] == "1900"
+    assert schedule["scheduled_shutdown_time_zone"] == "Korea Standard Time"
+    assert schedule["scheduled_shutdown_time_zone_iana"] == "Asia/Seoul"
+    assert schedule["scheduled_shutdown_target_name"] == "vm-example"
+    assert schedule["scheduled_shutdown_target_resource_group"] == "rg-example"
+    assert schedule["scheduled_shutdown_target_subscription_digest"] == "sha256:" + "a" * 64
+    assert "target_resource_id" not in schedule
+    assert graph["coverage"]["resource_types"] == ["compute.vm-shutdown-schedule"]
+
+
 def test_projects_normalized_aks_operational_status() -> None:
     provider = AzureCliInventoryGraphProvider(
         inventory=_AksInventory(),
@@ -462,7 +526,7 @@ def test_bounds_inventory_refresh_duration() -> None:
         asyncio.run(provider(None, 4, ("contains",)))
 
 
-def test_helper_disables_persistent_cache_without_explicit_subscription(
+def test_helper_rejects_discovery_without_explicit_subscription(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("FDAI_LOCAL_AZURE_DISCOVERY", raising=False)
@@ -470,12 +534,8 @@ def test_helper_disables_persistent_cache_without_explicit_subscription(
     monkeypatch.delenv("AZURE_SUBSCRIPTION_ID", raising=False)
     monkeypatch.delenv("FDAI_LOCAL_AZURE_CONFIG_DIR", raising=False)
 
-    provider = build_inventory_graph_provider()
-
-    assert provider.inventory.subscription_id is None
-    assert provider.cache_path is None
-    assert provider.cache_identity is None
-    assert provider.invalidation_path is None
+    with pytest.raises(ValueError, match="requires an explicit subscription"):
+        build_inventory_graph_provider()
 
 
 def test_helper_isolates_cache_by_explicit_subscription_and_profile(

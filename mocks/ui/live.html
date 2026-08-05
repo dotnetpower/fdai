@@ -4,105 +4,149 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Live - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=live-tier-light-v1" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
 </head>
 <body>
-  <main class="cs-container cs-page cs-live-page">
-    <div class="cs-live-header">
-      <div>
-        <div class="cs-eyebrow">Live &middot; autonomy at work</div>
-        <h1 class="cs-live-title">Control plane <span class="cs-live-heartbeat" aria-hidden="true"></span></h1>
+  <main class="cs-page cs-live-page">
+    <header class="cs-live-header">
+      <div class="cs-live-heading">
+        <h1 class="cs-live-title">Live</h1>
+        <p class="cs-live-lead">Current control-loop activity and decisions.</p>
       </div>
       <div class="cs-live-controls">
-        <button class="cs-btn is-sm" id="live-pause" type="button" aria-pressed="false">Pause</button>
-        <button class="cs-btn is-sm" id="live-rate" type="button">Rate: 1x</button>
-        <span class="cs-tag">scenario <code>v2026.07</code></span>
-        <span class="cs-tag">window <strong>60s</strong></span>
+        <button class="cs-btn is-sm" id="live-pause" type="button" aria-pressed="false">Freeze</button>
+        <span class="cs-live-context"><strong>Synthetic preview</strong><span>60s</span><span class="cs-live-connection"><i aria-hidden="true"></i>Connected</span></span>
       </div>
-    </div>
+    </header>
 
-    <p class="cs-live-lead">Every tile is one control-plane action: an event flowed through the
-      trust router, was resolved by T0 rule, T1 similarity, or T2 grounded reasoning, and its
-      outcome was gated and audited. This screen is a translator - it never executes anything.</p>
+    <section class="cs-live-status-rail" aria-label="Live status and attention">
+      <div class="cs-live-health" aria-label="Stream health">
+        <div><span>Last signal</span><strong id="health-last-event">Now</strong></div>
+        <div><span>Backlog</span><strong class="is-ok" id="health-backlog">Complete</strong></div>
+      </div>
+      <div class="cs-live-attention is-calm" id="live-attention" aria-label="Items needing attention">
+        <span class="cs-live-attention-calm" id="attention-calm"><i aria-hidden="true"></i>No attention needed</span>
+        <div class="cs-live-attention-items" id="attention-items" hidden>
+          <strong>Attention</strong>
+          <button type="button" data-attention-filter="hil">Approval <span id="attention-hil">0</span></button>
+          <button type="button" data-attention-filter="deny">Deny <span id="attention-deny">0</span></button>
+          <button type="button" data-attention-filter="failed">Failed <span id="attention-failed">0</span></button>
+          <button type="button" data-attention-filter="stuck">Over budget <span id="attention-stuck">0</span></button>
+        </div>
+      </div>
+    </section>
 
-    <!-- KPI strip -->
-    <div class="cs-live-kpis">
-      <div class="cs-live-kpi">
+    <section class="cs-live-kpis" aria-label="Live metrics">
+      <article class="cs-live-kpi">
         <span class="cs-live-kpi-label">Events / sec</span>
-        <span class="cs-live-kpi-value" id="k-eps">0<small>/s &middot; 60s avg</small></span>
-        <canvas class="cs-live-spark" data-spark="eps" width="600" height="48" aria-hidden="true"></canvas>
+        <a class="cs-live-kpi-detail" href="audit.html" aria-label="Open event evidence" title="Open event evidence"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3 H13 V11 M13 3 L4 12" /></svg></a>
+        <span class="cs-live-kpi-value" id="k-eps">0<small>60s average</small></span>
+        <canvas class="cs-live-spark" data-spark="eps" width="600" height="48" role="img" tabindex="0">Events per second by decision tier over the last 60 seconds.</canvas>
         <div class="cs-live-spark-legend" aria-hidden="true">
           <span class="cs-spark-key t0"><i></i>T0 <b id="k-eps-t0">0</b></span>
           <span class="cs-spark-key t1"><i></i>T1 <b id="k-eps-t1">0</b></span>
           <span class="cs-spark-key t2"><i></i>T2 <b id="k-eps-t2">0</b></span>
         </div>
-      </div>
-      <div class="cs-live-kpi">
-        <span class="cs-live-kpi-label">Gate mix (60s)</span>
-        <span class="cs-live-kpi-value">
-          <span id="k-auto">0%</span> <small>auto</small>
-        </span>
-        <div class="cs-stackbar cs-live-stack" id="k-mix" aria-hidden="true">
-          <span class="is-auto" style="width:0%"></span>
-          <span class="is-hil" style="width:0%"></span>
-          <span class="is-abstain" style="width:0%"></span>
-          <span class="is-deny" style="width:0%"></span>
+      </article>
+      <article class="cs-live-kpi">
+        <span class="cs-live-kpi-label">Gate mix</span>
+        <a class="cs-live-kpi-detail" href="audit.html" aria-label="Open gate evidence" title="Open gate evidence"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3 H13 V11 M13 3 L4 12" /></svg></a>
+        <div class="cs-gate-viz">
+          <div class="cs-gate-donut">
+            <svg viewBox="0 0 42 42" role="img" aria-label="Gate decision distribution" id="k-gate-chart">
+              <circle class="cs-gate-track" cx="21" cy="21" r="15.9155" pathLength="100" />
+              <circle class="cs-gate-segment is-auto" data-gate-segment="auto" data-live-chart-tip tabindex="0" cx="21" cy="21" r="15.9155" pathLength="100" />
+              <circle class="cs-gate-segment is-hil" data-gate-segment="hil" data-live-chart-tip tabindex="0" cx="21" cy="21" r="15.9155" pathLength="100" />
+              <circle class="cs-gate-segment is-abstain" data-gate-segment="abstain" data-live-chart-tip tabindex="0" cx="21" cy="21" r="15.9155" pathLength="100" />
+              <circle class="cs-gate-segment is-deny" data-gate-segment="deny" data-live-chart-tip tabindex="0" cx="21" cy="21" r="15.9155" pathLength="100" />
+            </svg>
+            <span class="cs-gate-center"><strong id="k-auto">0%</strong><small>auto</small></span>
+          </div>
+          <div class="cs-live-mix-legend">
+            <span class="auto" data-gate-legend="auto" data-live-chart-tip tabindex="0"><i></i>Auto <b id="k-auto-count">0</b></span>
+            <span class="hil" data-gate-legend="hil" data-live-chart-tip tabindex="0"><i></i>Approval <b id="k-hil-count">0</b></span>
+            <span class="abstain" data-gate-legend="abstain" data-live-chart-tip tabindex="0"><i></i>Review <b id="k-abstain-count">0</b></span>
+            <span class="deny" data-gate-legend="deny" data-live-chart-tip tabindex="0"><i></i>Deny <b id="k-deny-count">0</b></span>
+          </div>
+        </div>
+      </article>
+      <article class="cs-live-kpi">
+        <span class="cs-live-kpi-label">Tier mix</span>
+        <a class="cs-live-kpi-detail" href="trust-routing.html" aria-label="Open trust routing" title="Open trust routing"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3 H13 V11 M13 3 L4 12" /></svg></a>
+        <div class="cs-tier-plot" id="k-tier-chart" role="img" aria-label="Decision tier distribution on a zero to one hundred percent scale">
+          <div class="cs-tier-row is-t0"><span class="cs-tier-label"><b>T0</b><small>Rules</small></span><span class="cs-tier-track" id="k-t0-track" data-live-chart-tip tabindex="0"><span class="cs-tier-stem" id="k-t0-stem"></span></span><strong id="k-t0">0%</strong></div>
+          <div class="cs-tier-row is-t1"><span class="cs-tier-label"><b>T1</b><small>Similarity</small></span><span class="cs-tier-track" id="k-t1-track" data-live-chart-tip tabindex="0"><span class="cs-tier-stem" id="k-t1-stem"></span></span><strong id="k-t1">0%</strong></div>
+          <div class="cs-tier-row is-t2"><span class="cs-tier-label"><b>T2</b><small>Reasoning</small></span><span class="cs-tier-track" id="k-t2-track" data-live-chart-tip tabindex="0"><span class="cs-tier-stem" id="k-t2-stem"></span></span><strong id="k-t2">0%</strong></div>
+          <div class="cs-tier-axis" aria-hidden="true"><span>0</span><span>50</span><span>100%</span></div>
+        </div>
+      </article>
+    </section>
+    <div class="cs-live-chart-tooltip" id="live-chart-tooltip" role="tooltip" hidden></div>
+
+    <section class="cs-live-workspace" id="live-workspace">
+      <div class="cs-live-workbar">
+        <div><span>Current work</span><h2>Control-loop work</h2></div>
+        <div class="cs-live-filterbar" aria-label="Work filters">
+          <button type="button" class="is-active" data-live-filter="all" aria-pressed="true">All <span id="filter-all">0</span></button>
+          <button type="button" data-live-filter="hil" aria-pressed="false">Approval <span id="filter-hil">0</span></button>
+          <button type="button" data-live-filter="deny" aria-pressed="false">Deny <span id="filter-deny">0</span></button>
+          <button type="button" data-live-filter="failed" aria-pressed="false">Failed <span id="filter-failed">0</span></button>
+          <button type="button" data-live-filter="stuck" aria-pressed="false">Over budget <span id="filter-stuck">0</span></button>
+        </div>
+        <div class="cs-live-work-actions">
+          <div class="cs-live-view-toggle" role="group" aria-label="Work view">
+            <button type="button" id="view-queue" aria-pressed="false">Queue</button>
+            <button type="button" id="view-flow" class="is-active" aria-pressed="true">Flow</button>
+          </div>
+          <button class="cs-live-fullscreen" id="live-fullscreen" type="button" aria-label="View work full screen" title="View work full screen" aria-pressed="false">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3 H3 V7 M13 3 H17 V7 M17 13 V17 H13 M7 17 H3 V13" /></svg>
+          </button>
         </div>
       </div>
-      <div class="cs-live-kpi">
-        <span class="cs-live-kpi-label">Tier mix (60s)</span>
-        <span class="cs-live-kpi-value" style="gap:6px">
-          <span class="cs-tier t0" id="k-t0">T0 0%</span>
-          <span class="cs-tier t1" id="k-t1">T1 0%</span>
-          <span class="cs-tier t2" id="k-t2">T2 0%</span>
-        </span>
-        <div class="cs-stackbar cs-live-stack" id="k-tier" aria-hidden="true">
-          <span class="is-t0" style="width:0%"></span>
-          <span class="is-t1" style="width:0%"></span>
-          <span class="is-t2" style="width:0%"></span>
+
+      <section id="queue-view" aria-label="Control-loop work queue">
+        <div class="cs-live-queue-wrap">
+          <table class="cs-live-queue">
+            <thead><tr><th>Work</th><th>Why</th><th>Owner / stage</th><th>Age</th><th>Decision</th></tr></thead>
+            <tbody id="live-queue"></tbody>
+          </table>
+          <p class="cs-live-empty" id="queue-empty" hidden>No work matches this filter.</p>
         </div>
-      </div>
-      <div class="cs-live-kpi">
-        <span class="cs-live-kpi-label">Guard status</span>
-        <div class="cs-live-guards">
-          <span class="cs-guard ok" title="Change failure rate">CFR</span>
-          <span class="cs-guard ok" title="False-positive rate">FPR</span>
-          <span class="cs-guard ok" title="Rollback rate">RB</span>
-          <span class="cs-guard ok" title="Policy-violation escapes">ESC</span>
-        </div>
-        <span class="cs-help" style="margin-top:6px">within budget vs baseline</span>
-      </div>
+      </section>
+
+      <section id="flow-view" aria-label="Control-loop flow">
+        <div class="cs-swarm" id="swarm"></div>
+      </section>
+    </section>
+
+    <div class="cs-live-detail-backdrop" id="detail-backdrop" hidden>
+      <aside class="cs-live-detail" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+        <header><h3 id="detail-title">Control-loop work</h3><button type="button" id="detail-close" aria-label="Close details">x</button></header>
+        <ol class="cs-live-detail-trace" id="detail-trace" aria-label="Control-loop stages"></ol>
+        <dl class="cs-live-detail-list">
+          <dt>Event ID</dt><dd><code id="detail-event"></code></dd>
+          <dt>Correlation ID</dt><dd><code id="detail-correlation"></code></dd>
+          <dt>Rule</dt><dd id="detail-rule"></dd>
+          <dt>Action type</dt><dd id="detail-action"></dd>
+          <dt>Why</dt><dd id="detail-reason"></dd>
+          <dt>Target</dt><dd id="detail-target"></dd>
+          <dt>Mode</dt><dd id="detail-mode"></dd>
+          <dt>Vertical</dt><dd id="detail-vertical"></dd>
+          <dt>Scope</dt><dd id="detail-scope"></dd>
+          <dt>Tier</dt><dd id="detail-tier"></dd>
+          <dt>Gate decision</dt><dd id="detail-decision"></dd>
+          <dt>Age</dt><dd id="detail-age"></dd>
+        </dl>
+        <h4>Safety evidence</h4>
+        <ul class="cs-live-detail-safety"><li>Stop condition registered</li><li>Rollback path available</li><li>Impact scope bounded</li><li>Audit intent recorded</li></ul>
+        <p class="cs-muted">Read-only projection. The Console does not execute this action.</p>
+        <div class="cs-live-detail-actions"><a class="cs-btn is-sm" id="detail-trace-link" href="rule-trace.html">Open trace</a><a class="cs-btn is-sm" id="detail-audit-link" href="audit.html">Open audit</a><a class="cs-btn is-sm" href="service-map.html">Architecture</a></div>
+      </aside>
     </div>
 
-    <!-- Swarm grid -->
-    <div class="cs-swarm" id="swarm" aria-label="live control-plane activity"></div>
-
-    <!-- Ticker (floating audit dock - sits above the chat area, fades top/bottom) -->
-    <div class="cs-ticker cs-ticker--dock" id="audit-dock">
-      <div class="cs-ticker-head">
-        Audit stream <span class="cs-muted">&middot; append-only</span>
-        <span class="cs-ticker-live">live</span>
-      </div>
-      <div class="cs-ticker-viewport">
-        <ol class="cs-ticker-list" id="ticker"></ol>
-      </div>
-    </div>
-
-    <p class="cs-help" style="margin-top:14px">
-      Distribution follows the deterministic-first target: T0 dominates, T2 is a small minority.
-      Any HIL (amber) or deny (red) tile links back to the same audit entry a human would see on
-      the <a href="hil.html">HIL page</a> and the <a href="audit.html">audit stream</a>.
-    </p>
   </main>
 
-  <footer class="cs-footer">
-    <div class="cs-container cs-flex-between cs-wrap">
-      <span>FDAI console mock - Calm Slate. Read-only surface, synthetic values.</span>
-      <span class="cs-muted">generic-scope &middot; no customer data</span>
-    </div>
-  </footer>
-
-  <script src="assets/live.js" defer></script>
+  <script src="assets/live.js?v=live-tier-stem-glow-v1" defer></script>
 </body>
 </html>

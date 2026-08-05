@@ -35,7 +35,8 @@
     .fl-filterbar .cs-chipset .cs-chip.cs-active { border-bottom-color: currentColor; font-weight: 650; }
     .fl-results { margin-left: auto; color: var(--cs-text-soft); font-size: 12.5px; white-space: nowrap; }
     .fl-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 10px; }
-    .fl-card { display: flex; min-width: 0; flex-direction: column; padding: 12px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); box-shadow: 0 2px 8px rgba(46,54,64,.04); }
+    .fl-card { position: relative; display: flex; min-width: 0; overflow: hidden; flex-direction: column; padding: 12px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); box-shadow: 0 2px 8px rgba(46,54,64,.04); }
+    .fl-card.is-state-changed::before { content: ""; position: absolute; z-index: 2; inset: 0 0 auto; height: 2px; pointer-events: none; background: linear-gradient(90deg, transparent 0%, rgba(85,164,255,.25) 38%, rgba(111,190,255,.95) 50%, rgba(85,164,255,.25) 62%, transparent 100%) left / 72% 100% no-repeat; filter: drop-shadow(0 0 7px rgba(73,156,255,.75)); opacity: 0; transform: translateX(-125%); animation: fl-state-change-glow 1.35s cubic-bezier(.2,.7,.25,1); }
     .fl-card.is-attention { border-color: var(--cs-terracotta); }
     .fl-card-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
     .fl-avatar { display: grid; width: 32px; height: 32px; flex: 0 0 auto; place-items: center; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-shade); }
@@ -66,6 +67,12 @@
       0% { box-shadow: 0 0 0 0 rgba(107,113,120,.32); opacity: 1; }
       70% { box-shadow: 0 0 0 4px rgba(107,113,120,0); opacity: .6; }
       100% { box-shadow: 0 0 0 0 rgba(107,113,120,0); opacity: 1; }
+    }
+    @keyframes fl-state-change-glow {
+      0% { opacity: 0; transform: translateX(-125%); }
+      12% { opacity: 1; }
+      72% { opacity: .95; }
+      100% { opacity: 0; transform: translateX(125%); }
     }
 
     .fl-work { min-height: 43px; margin-top: 9px; }
@@ -118,6 +125,7 @@
       .fl-actions .cs-btn { flex: 1; justify-content: center; }
     }
     @media (prefers-reduced-motion: reduce) {
+      .fl-card.is-state-changed::before,
       .fl-state.is-watching::before,
       .fl-live-pulse { animation: none; }
     }
@@ -220,10 +228,11 @@
       ];
 
       var filters = { layer: "all", state: "all", query: "", attention: false };
+      var renderedStates = {};
       var grid = document.getElementById("fleetGrid");
       var resultStatus = document.getElementById("fleetResults");
 
-      function agentCard(agent) {
+      function agentCard(agent, stateChanged) {
         var slug = agent.name.toLowerCase();
         var badges = '<span class="fl-state is-' + agent.state + '">' + agent.state + "</span>";
         if (agent.mode) badges += '<span class="fl-mode">' + agent.mode + "</span>";
@@ -236,7 +245,7 @@
         }).join("");
         var search = (agent.name + " " + agent.role + " " + agent.work).toLowerCase();
 
-        return '<article class="fl-card' + (agent.attention ? " is-attention" : "") + '" data-layer="' + agent.layer + '" data-state="' + agent.state + '" data-attention="' + Boolean(agent.attention) + '" data-search="' + search + '">' +
+        return '<article class="fl-card' + (agent.attention ? " is-attention" : "") + (stateChanged ? " is-state-changed" : "") + '" data-layer="' + agent.layer + '" data-state="' + agent.state + '" data-attention="' + Boolean(agent.attention) + '" data-search="' + search + '">' +
           '<div class="fl-card-head"><span class="fl-avatar"><img src="' + iconRoot + slug + '.svg" alt="" /></span>' +
           '<div class="fl-identity"><h2 class="fl-name">' + agent.name + '</h2><p class="fl-role">' + agent.role + "</p></div>" +
           '<div class="fl-badges">' + badges + "</div></div>" +
@@ -253,7 +262,15 @@
           if (filters.layer !== "all" && agent.layer !== filters.layer) return false;
           return (agent.name + " " + agent.role + " " + agent.work).toLowerCase().includes(filters.query);
         });
-        grid.innerHTML = visible.length ? visible.map(agentCard).join("") : '<p class="fl-empty">No agents match these filters.</p>';
+        grid.innerHTML = visible.length ? visible.map(function (agent) {
+          return agentCard(agent, Boolean(renderedStates[agent.name] && renderedStates[agent.name] !== agent.state));
+        }).join("") : '<p class="fl-empty">No agents match these filters.</p>';
+        agents.forEach(function (agent) { renderedStates[agent.name] = agent.state; });
+        document.querySelectorAll("[data-summary-state]").forEach(function (summary) {
+          var state = summary.getAttribute("data-summary-state");
+          var count = state === "attention" ? agents.filter(function (agent) { return agent.attention; }).length : agents.filter(function (agent) { return agent.state === state; }).length;
+          summary.querySelector(".fl-summary-value").textContent = String(count);
+        });
         resultStatus.textContent = visible.length + (visible.length === 1 ? " agent" : " agents");
       }
 
@@ -320,6 +337,11 @@
         var eventMetric = document.querySelector('[data-search*="huginn"] .fl-metric strong');
         if (eventMetric) eventMetric.textContent = huginn.metrics[0][1];
       }, 5000);
+
+      window.setInterval(function () {
+        huginn.state = huginn.state === "watching" ? "engaged" : "watching";
+        render();
+      }, 10000);
     }());
   </script>
 </body>

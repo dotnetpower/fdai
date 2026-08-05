@@ -39,13 +39,7 @@ export function ConversationTrajectoryView({
     ...(answer.verification?.evidence_refs ?? []),
   ]);
   const presentation = buildTrajectoryPresentation(trajectory);
-  const [open, setOpen] = useState(presentation.workProgress === "timeline");
-  const queryCount = activities.filter(
-    (activity) => activity.execution?.inputKind === "query",
-  ).length;
-  const commandCount = activities.filter(
-    (activity) => activity.execution?.inputKind === "command",
-  ).length;
+  const [open, setOpen] = useState(false);
   const omittedDetailCount = answer.trajectoryDetail
     ? Object.values(answer.trajectoryDetail.omitted).reduce((total, count) => total + count, 0)
     : 0;
@@ -61,21 +55,6 @@ export function ConversationTrajectoryView({
 
   return (
     <div class={`deck-trajectory-cluster is-${presentation.workProgress}`}>
-      <div class="deck-trajectory-results" aria-label={t("deck.trajectory.title")}>
-        <span data-state="observed">
-          {t("deck.trajectory.activitySummary", {
-            queries: queryCount,
-            commands: commandCount,
-          })}
-        </span>
-        <span data-state={presentation.phaseStates.evidence}>
-          {t("deck.trajectory.evidenceSummary", {
-            successful: presentation.evidenceCompletedCount,
-            attempted: presentation.evidenceAttemptCount,
-            references: presentation.evidenceReferenceCount,
-          })}
-        </span>
-      </div>
       <details
         class="deck-trajectory"
         open={open}
@@ -111,10 +90,12 @@ export function ConversationTrajectoryView({
               })}
         </span>
         <span class="deck-trajectory-chevron" aria-hidden="true" />
-        <span class="deck-trajectory-question">
-          <small>{t("deck.trajectory.phase.input")}</small>
-          <strong>{trajectory.question.text}</strong>
-        </span>
+        {open ? (
+          <span class="deck-trajectory-question">
+            <small>{t("deck.trajectory.phase.input")}</small>
+            <strong>{trajectory.question.text}</strong>
+          </span>
+        ) : null}
       </summary>
       {open ? (
         <div class="deck-trajectory-body">
@@ -204,6 +185,63 @@ export function ConversationTrajectoryView({
       </details>
     </div>
   );
+}
+
+export function ConversationTrajectoryResults({
+  trajectory,
+}: {
+  readonly trajectory: ConversationTrajectory;
+}) {
+  const {
+    activityCompact,
+    activitySummary,
+    evidenceCompact,
+    evidenceSummary,
+    evidenceState,
+  } = trajectoryResultSummary(trajectory);
+  return (
+    <span
+      class="deck-trajectory-results"
+      data-activity-summary={activitySummary}
+      data-evidence-summary={evidenceSummary}
+      aria-label={`${t("deck.trajectory.runRecord")}: ${activitySummary}; ${evidenceSummary}`}
+      tabIndex={0}
+    >
+      <span data-state="observed" aria-hidden="true">{activityCompact}</span>
+      <span data-state={evidenceState} aria-hidden="true">{evidenceCompact}</span>
+    </span>
+  );
+}
+
+function trajectoryResultSummary(trajectory: ConversationTrajectory) {
+  const presentation = buildTrajectoryPresentation(trajectory);
+  const queryCount = trajectory.activities.filter(
+    (activity) => activity.execution?.inputKind === "query",
+  ).length;
+  const commandCount = trajectory.activities.filter(
+    (activity) => activity.execution?.inputKind === "command",
+  ).length;
+  return {
+    activityCompact: t("deck.trajectory.activityCompact", {
+      queries: queryCount,
+      commands: commandCount,
+    }),
+    activitySummary: t("deck.trajectory.activitySummary", {
+      queries: queryCount,
+      commands: commandCount,
+    }),
+    evidenceSummary: t("deck.trajectory.evidenceSummary", {
+      successful: presentation.evidenceCompletedCount,
+      attempted: presentation.evidenceAttemptCount,
+      references: presentation.evidenceReferenceCount,
+    }),
+    evidenceCompact: t("deck.trajectory.evidenceCompact", {
+      successful: presentation.evidenceCompletedCount,
+      attempted: presentation.evidenceAttemptCount,
+      references: presentation.evidenceReferenceCount,
+    }),
+    evidenceState: presentation.phaseStates.evidence,
+  };
 }
 
 function IntentGraphPhase({

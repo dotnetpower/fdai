@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -111,7 +112,7 @@ async def test_topology_questions_require_exact_resource_selectors() -> None:
     assert calls == 0
 
 
-async def test_recognized_inventory_intent_does_not_fall_back_when_query_is_incomplete() -> None:
+async def test_recognized_explicit_inventory_list_does_not_fall_back() -> None:
     class RejectFallback:
         async def resolve(self, prompt: str, *, principal_id: str) -> None:
             del prompt, principal_id
@@ -141,14 +142,392 @@ async def test_recognized_inventory_intent_does_not_fall_back_when_query_is_inco
         principal_id="reader",
     )
 
-    assert evidence == {
-        "tool": "query_inventory",
-        "authority": "server_inventory_graph",
-        "result": {
-            "status": "unavailable",
-            "reason": "inventory_query_not_compiled",
+    assert evidence is not None
+    assert evidence["tool"] == "query_inventory"
+    assert evidence["authority"] == "server_inventory_graph"
+    assert evidence["result"]["status"] == "matched"
+    assert evidence["result"]["matched_count"] == 1
+
+
+async def test_incomplete_state_semantics_holds_instead_of_widening() -> None:
+    provider_calls = 0
+
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        nonlocal provider_calls
+        del args, kwargs
+        provider_calls += 1
+        return {
+            "resources": [
+                _resource("running", "compute.vm", "vm-running", status="VM running"),
+                _resource("stopped", "compute.vm", "vm-stopped", status="VM stopped"),
+            ],
+            "links": [],
+            "freshness": "fresh",
+        }
+
+    evidence = await InventoryChatTools(provider).resolve(
+        "started VM",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    result = evidence["result"]
+    assert result["status"] == "unavailable"
+    assert result["reason"] == "inventory_semantic_interpretation_required"
+    assert result["query"]["predicates"] == [
+        {"field": "resource_type", "operator": "eq", "value": "compute.vm"}
+    ]
+    assert "resources" not in result
+    assert provider_calls == 0
+
+
+async def test_today_evening_vm_shutdown_uses_enabled_schedule_evidence() -> None:
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        del args, kwargs
+        return {
+            "snapshot_at": "2026-08-05T03:00:00+00:00",
+            "freshness": "fresh",
+            "source": "azure-resource-graph",
+            "active_view": "all-test-resources",
+            "truncated": False,
+            "coverage": {"resource_types": ["compute.vm-shutdown-schedule"]},
+            "resources": [
+                {
+                    "id": "schedule-enabled",
+                    "type": "compute.vm-shutdown-schedule",
+                    "name": "shutdown-computevm-ubuntu2204",
+                    "status": "unknown",
+                    "scheduled_shutdown_status": "Enabled",
+                    "scheduled_shutdown_time": "1900",
+                    "scheduled_shutdown_time_zone": "Korea Standard Time",
+                    "scheduled_shutdown_time_zone_iana": "Asia/Seoul",
+                    "scheduled_shutdown_target_name": "ubuntu2204",
+                    "scheduled_shutdown_target_resource_group": "rg-vm",
+                    "scheduled_shutdown_target_subscription_digest": "sha256:" + "a" * 64,
+                },
+                {
+                    "id": "schedule-disabled",
+                    "type": "compute.vm-shutdown-schedule",
+                    "name": "shutdown-computevm-disabled",
+                    "status": "unknown",
+                    "scheduled_shutdown_status": "Disabled",
+                    "scheduled_shutdown_time": "2300",
+                    "scheduled_shutdown_time_zone": "Korea Standard Time",
+                    "scheduled_shutdown_time_zone_iana": "Asia/Seoul",
+                    "scheduled_shutdown_target_name": "vm-disabled",
+                    "scheduled_shutdown_target_resource_group": "rg-vm",
+                    "scheduled_shutdown_target_subscription_digest": "sha256:" + "a" * 64,
+                },
+            ],
+            "links": [],
+        }
+
+    evidence = await InventoryChatTools(
+        provider,
+        clock=lambda: datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+    ).resolve("오늘 저녁에 꺼지는 vm은?", principal_id="reader")
+
+    assert evidence is not None
+    result = evidence["result"]
+    assert result["status"] == "matched"
+    assert result["matched_count"] == 1
+    assert result["resources"] == [
+        {
+            "name": "ubuntu2204",
+            "type": "compute.vm",
+            "provider_type": "Microsoft.Compute/virtualMachines",
+            "status": "scheduled_shutdown",
+            "resource_group": "rg-vm",
+            "scheduled_shutdown_at": "2026-08-05T19:00:00+09:00",
+            "scheduled_shutdown_time_zone": "Korea Standard Time",
+        }
+    ]
+    answer = render_inventory_answer(evidence, locale="ko")
+    assert answer is not None
+    assert "ubuntu2204" in answer
+    assert "19:00" in answer
+    assert "vm-disabled" not in answer
+
+
+async def test_today_evening_shutdown_excludes_occurrence_that_already_passed() -> None:
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        del args, kwargs
+        return {
+            "snapshot_at": "2026-08-05T11:00:00+00:00",
+            "freshness": "fresh",
+            "source": "azure-resource-graph",
+            "active_view": "all-test-resources",
+            "truncated": False,
+            "coverage": {"resource_types": ["compute.vm-shutdown-schedule"]},
+            "resources": [
+                {
+                    "id": "schedule-enabled",
+                    "type": "compute.vm-shutdown-schedule",
+                    "name": "shutdown-computevm-ubuntu2204",
+                    "status": "unknown",
+                    "scheduled_shutdown_status": "Enabled",
+                    "scheduled_shutdown_time": "1900",
+                    "scheduled_shutdown_time_zone": "Korea Standard Time",
+                    "scheduled_shutdown_time_zone_iana": "Asia/Seoul",
+                    "scheduled_shutdown_target_name": "ubuntu2204",
+                    "scheduled_shutdown_target_resource_group": "rg-vm",
+                    "scheduled_shutdown_target_subscription_digest": "sha256:" + "a" * 64,
+                }
+            ],
+            "links": [],
+        }
+
+    evidence = await InventoryChatTools(
+        provider,
+        clock=lambda: datetime(2026, 8, 5, 11, 0, tzinfo=UTC),
+    ).resolve("오늘 저녁에 꺼지는 vm은?", principal_id="reader")
+
+    assert evidence is not None
+    assert evidence["result"]["matched_count"] == 0
+
+
+async def test_today_evening_shutdown_refuses_truncated_schedule_coverage() -> None:
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        del args, kwargs
+        return {
+            "snapshot_at": "2026-08-05T03:00:00+00:00",
+            "freshness": "fresh",
+            "source": "azure-resource-graph",
+            "active_view": "all-test-resources",
+            "truncated": True,
+            "resources": [],
+            "links": [],
+        }
+
+    evidence = await InventoryChatTools(
+        provider,
+        clock=lambda: datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+    ).resolve("오늘 저녁에 꺼지는 vm은?", principal_id="reader")
+
+    assert evidence is not None
+    assert evidence["result"]["status"] == "unavailable"
+    assert evidence["result"]["reason"] == "scheduled_shutdown_coverage_incomplete"
+
+
+async def test_today_evening_shutdown_refuses_stale_schedule_snapshot() -> None:
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        del args, kwargs
+        return {
+            "snapshot_at": "2026-08-05T02:00:00+00:00",
+            "freshness": "stale",
+            "source": "postgres-inventory",
+            "active_view": "all-test-resources",
+            "truncated": False,
+            "coverage": {"resource_types": ["compute.vm-shutdown-schedule"]},
+            "resources": [],
+            "links": [],
+        }
+
+    evidence = await InventoryChatTools(
+        provider,
+        clock=lambda: datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+    ).resolve("오늘 저녁에 꺼지는 vm은?", principal_id="reader")
+
+    assert evidence is not None
+    assert evidence["result"]["status"] == "unavailable"
+    assert evidence["result"]["reason"] == "fresh_inventory_required"
+
+
+async def test_today_evening_shutdown_refuses_unsupported_schedule_timezone() -> None:
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        del args, kwargs
+        return {
+            "snapshot_at": "2026-08-05T03:00:00+00:00",
+            "freshness": "fresh",
+            "source": "azure-resource-graph",
+            "active_view": "all-test-resources",
+            "truncated": False,
+            "coverage": {"resource_types": ["compute.vm-shutdown-schedule"]},
+            "resources": [
+                {
+                    "id": "schedule-enabled",
+                    "type": "compute.vm-shutdown-schedule",
+                    "name": "shutdown-computevm-vm-example",
+                    "status": "unknown",
+                    "scheduled_shutdown_status": "Enabled",
+                    "scheduled_shutdown_time": "1900",
+                    "scheduled_shutdown_time_zone": "Unsupported Provider Time",
+                    "scheduled_shutdown_time_zone_iana": "Unsupported Provider Time",
+                    "scheduled_shutdown_target_name": "vm-example",
+                    "scheduled_shutdown_target_resource_group": "rg-example",
+                    "scheduled_shutdown_target_subscription_digest": "sha256:" + "a" * 64,
+                }
+            ],
+            "links": [],
+        }
+
+    evidence = await InventoryChatTools(
+        provider,
+        clock=lambda: datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+    ).resolve("오늘 저녁에 꺼지는 vm은?", principal_id="reader")
+
+    assert evidence is not None
+    assert evidence["result"]["status"] == "unavailable"
+    assert evidence["result"]["reason"] == "ScheduledShutdownEvidenceError"
+
+
+async def test_today_evening_shutdown_requires_production_schedule_coverage() -> None:
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        del args, kwargs
+        return {
+            "snapshot_at": "2026-08-05T03:00:00+00:00",
+            "freshness": "fresh",
+            "source": "postgres-inventory",
+            "active_view": "all-test-resources",
+            "truncated": False,
+            "coverage": {"resource_types": ["compute.vm"]},
+            "resources": [],
+            "links": [],
+        }
+
+    evidence = await InventoryChatTools(
+        provider,
+        clock=lambda: datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+    ).resolve("오늘 저녁에 꺼지는 vm은?", principal_id="reader")
+
+    assert evidence is not None
+    assert evidence["result"]["status"] == "unavailable"
+    assert evidence["result"]["reason"] == "scheduled_shutdown_coverage_unavailable"
+
+
+async def test_direct_planned_shutdown_rejects_stale_reference_before_provider_read() -> None:
+    provider_calls = 0
+
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        nonlocal provider_calls
+        del args, kwargs
+        provider_calls += 1
+        return {}
+
+    evidence = await InventoryChatTools(
+        provider,
+        clock=lambda: datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+    ).resolve_planned(
+        "query_inventory",
+        {
+            "source": "current",
+            "kind": "scheduled_shutdown",
+            "predicates": [
+                {
+                    "field": "resource_type",
+                    "operator": "eq",
+                    "value": "compute.vm-shutdown-schedule",
+                }
+            ],
+            "lookback_seconds": None,
+            "require_fresh": True,
+            "schedule_window": "today_evening",
+            "reference_time": "2026-08-04T03:00:00+00:00",
         },
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    assert evidence["result"]["reason"] == "scheduled_shutdown_reference_time_stale"
+    assert provider_calls == 0
+
+
+async def test_natural_shutdown_query_rechecks_reference_before_projection() -> None:
+    clock_values = iter(
+        (
+            datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+            datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+            datetime(2026, 8, 5, 3, 6, tzinfo=UTC),
+        )
+    )
+
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        del args, kwargs
+        return {
+            "snapshot_at": "2026-08-05T03:00:00+00:00",
+            "freshness": "fresh",
+            "source": "azure-resource-graph",
+            "active_view": "all-test-resources",
+            "truncated": False,
+            "coverage": {"resource_types": ["compute.vm-shutdown-schedule"]},
+            "resources": [],
+            "links": [],
+        }
+
+    evidence = await InventoryChatTools(provider, clock=lambda: next(clock_values)).resolve(
+        "오늘 저녁에 꺼지는 vm은?",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    assert evidence["result"]["reason"] == "scheduled_shutdown_reference_time_stale"
+
+
+async def test_direct_planned_inventory_rejects_noncanonical_status_before_provider_read() -> None:
+    provider_calls = 0
+
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        nonlocal provider_calls
+        del args, kwargs
+        provider_calls += 1
+        return {}
+
+    evidence = await InventoryChatTools(provider).resolve_planned(
+        "query_inventory",
+        {
+            "source": "current",
+            "kind": "list",
+            "predicates": [{"field": "status", "operator": "eq", "value": "alive"}],
+            "lookback_seconds": None,
+        },
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    assert evidence["result"] == {
+        "status": "unavailable",
+        "reason": "inventory_semantic_status_invalid",
     }
+    assert provider_calls == 0
+
+
+async def test_direct_planned_inventory_canonicalizes_ontology_state_before_read() -> None:
+    evidence = await InventoryChatTools(_provider).resolve_planned(
+        "query_inventory",
+        {
+            "source": "current",
+            "kind": "list",
+            "predicates": [
+                {"field": "resource_type", "operator": "eq", "value": "compute.vm"},
+                {"field": "status", "operator": "eq", "value": "inactive"},
+            ],
+            "lookback_seconds": None,
+        },
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    assert evidence["result"]["status"] == "matched"
+    assert evidence["result"]["matched_count"] == 1
+    assert [resource["name"] for resource in evidence["result"]["resources"]] == ["vm-job"]
+
+
+async def test_malformed_provider_resource_fails_closed_without_partial_projection() -> None:
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        del args, kwargs
+        return {
+            "resources": [
+                _resource("vm-a", "compute.vm", "vm-a", status="running"),
+                object(),
+            ],
+            "links": [],
+            "freshness": "fresh",
+        }
+
+    evidence = await InventoryChatTools(provider).resolve("VM list", principal_id="reader")
+
+    assert evidence is not None
+    assert evidence["result"] == {"status": "unavailable", "reason": "ValueError"}
 
 
 class StructuredPresentationBackend(RecordingBackend):
@@ -422,7 +801,7 @@ def test_stream_uses_model_selected_table_for_comparable_inventory_rows() -> Non
         "/chat/stream",
         json={
             "request_id": "req-adaptive-presentation",
-            "prompt": "현재 구독에서 사용하는 데이터베이스가 뭐야?",
+            "prompt": "현재 구독의 데이터베이스 목록",
             "view_context": {"_locale": "ko"},
         },
     )
@@ -2436,7 +2815,7 @@ def test_subscription_stopped_db_ignores_invalid_semantic_lookback_plan() -> Non
     assert backend.calls == 0
 
 
-def test_semantic_inventory_plan_executes_verified_long_tail_predicate() -> None:
+def test_semantic_inventory_plan_cannot_execute_long_tail_predicate_same_turn() -> None:
     class Planner:
         async def plan_turn(self, **_kwargs: object) -> Any:
             return parse_turn_plan(
@@ -2477,10 +2856,11 @@ def test_semantic_inventory_plan_executes_verified_long_tail_predicate() -> None
 
     assert response.status_code == 200
     payload = response.json()
-    assert "vm-job" in payload["answer"]
-    assert "postgres-data" in payload["answer"]
+    assert "vm-job" not in payload["answer"]
+    assert "postgres-data" not in payload["answer"]
     assert "vm-app" not in payload["answer"]
-    assert payload["verification"]["reason_code"] == "inventory_snapshot_grounded"
+    assert payload["verification"]["status"] == "unverified"
+    assert payload["verification"]["reason_code"] == "inventory_evidence_unavailable"
 
 
 def test_deterministic_inventory_filter_precedes_semantic_inventory_plan() -> None:
@@ -2533,7 +2913,6 @@ def test_deterministic_inventory_filter_precedes_semantic_inventory_plan() -> No
     (
         "지금 켜져있는 vm 목록",
         "현재 켜져 있는 VM만 알려줘",
-        "전원이 들어와 있는 가상 머신은?",
         "가동 중인 VM 보여줘",
         "VM 중에 지금 돌아가는 것만 알려줘",
     ),
@@ -2588,6 +2967,66 @@ def test_semantic_status_hint_completes_unknown_korean_inventory_inflection(
     assert "vm-job" not in payload["answer"]
     assert payload["verification"]["authority"] == "server_inventory_graph"
     assert backend.calls == 0
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    ("전원이 들어와 있는 가상 머신은?", "mysterious widgets"),
+)
+def test_model_only_inventory_status_holds_without_provider_read(prompt: str) -> None:
+    provider_calls = 0
+
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        nonlocal provider_calls
+        provider_calls += 1
+        return await _provider(*args, **kwargs)
+
+    class Planner:
+        async def plan_turn(self, **_kwargs: object) -> Any:
+            return parse_turn_plan(
+                {
+                    "kind": "read_tool",
+                    "answer_intent": "list",
+                    "tool_name": "query_inventory",
+                    "action_type": None,
+                    "arguments": {
+                        "source": "current",
+                        "kind": "list",
+                        "predicates": [{"field": "status", "operator": "eq", "value": "running"}],
+                        "lookback_seconds": 3_600,
+                    },
+                    "clarification": None,
+                    "confidence": 0.99,
+                }
+            )
+
+    tools = InventoryChatTools(provider)
+    payload = (
+        TestClient(
+            Starlette(
+                routes=[
+                    make_chat_route(
+                        backend=RecordingBackend(),
+                        authorize=_allow,
+                        tool_resolver=tools,
+                        planned_tool_resolver=tools,
+                        turn_planner=Planner(),  # type: ignore[arg-type]
+                        turn_tools=tools.turn_tools(),
+                    )
+                ]
+            )
+        )
+        .post(
+            "/chat",
+            json={"prompt": prompt, "view_context": {}},
+        )
+        .json()
+    )
+
+    assert payload["verification"]["status"] == "unverified"
+    assert "vm-app" not in payload["answer"]
+    assert "vm-job" not in payload["answer"]
+    assert provider_calls == 0
 
 
 def test_intent_graph_status_hint_completes_unknown_korean_inventory_inflection() -> None:

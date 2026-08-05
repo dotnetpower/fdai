@@ -67,6 +67,25 @@ def test_interface_compilation_expands_inheritance() -> None:
     assert "owner_ref" in compiled.interfaces["Operable"].properties
 
 
+def test_compiled_interface_catalog_is_deeply_immutable() -> None:
+    ownable, operable = _interfaces()
+    compiled = compile_interfaces(
+        interfaces=(ownable, operable),
+        implementations=(
+            InterfaceImplementation(object_type="Workload", interfaces=("Operable",)),
+        ),
+        object_types=(_object_type("Workload"),),
+    )
+
+    with pytest.raises(TypeError):
+        compiled.concrete_types["Operable"] = ("Other",)  # type: ignore[index]
+    with pytest.raises(TypeError):
+        compiled.interfaces["Operable"].properties["injected"] = PropertyDecl(  # type: ignore[index]
+            type=PropertyType.STRING
+        )
+    assert compiled.resolve("Operable") == ("Workload",)
+
+
 def test_interface_compilation_rejects_missing_property_and_cycle() -> None:
     ownable, operable = _interfaces()
     with pytest.raises(ValueError, match="missing interface properties"):

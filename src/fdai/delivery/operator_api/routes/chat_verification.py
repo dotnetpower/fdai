@@ -117,6 +117,7 @@ from fdai.delivery.operator_api.routes.chat_verification_text import (
     answer_text_is_well_formed,
     answers_match,
 )
+from fdai.delivery.operator_api.routes.chat_vision_evidence import vision_evidence_refs
 
 VerificationStatus = Literal["verified", "consistent", "corrected", "unverified"]
 
@@ -738,6 +739,18 @@ def verify_answer(
         )
         if capability is not None:
             return capability
+
+    vision_refs = vision_evidence_refs(view_context.get("_attachments"))
+    if vision_refs:
+        return AnswerVerification(
+            status="unverified",
+            answer=provisional,
+            authority="vision_narrator",
+            checks_completed=0,
+            checks_total=len(vision_refs),
+            evidence_refs=vision_refs,
+            reason_code="vision_interpretation_unverified",
+        )
 
     if not isinstance(raw, Mapping):
         screen = verify_screen_claims(provisional, view_context)

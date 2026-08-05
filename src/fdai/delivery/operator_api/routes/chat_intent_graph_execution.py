@@ -24,8 +24,9 @@ from fdai.delivery.operator_api.routes.chat_inventory_compiler import (
     inventory_query_requires_semantic_completion,
 )
 from fdai.delivery.operator_api.routes.chat_inventory_semantics import (
+    SemanticInventoryInterpretationRequiredError,
     SemanticInventoryStatusError,
-    merge_semantic_inventory_status_query,
+    validate_semantic_inventory_status_arguments,
 )
 
 _MAX_CONCURRENCY: Final = 4
@@ -208,6 +209,9 @@ async def _resolve_goal(
     except SemanticInventoryStatusError:
         status = "unavailable"
         reason = "inventory_semantic_status_invalid"
+    except SemanticInventoryInterpretationRequiredError:
+        status = "unavailable"
+        reason = "inventory_semantic_interpretation_required"
     except ValueError:
         status = "unavailable"
         reason = "capability_invalid_arguments"
@@ -311,13 +315,17 @@ async def _dispatch_goal(
     arguments = goal.arguments
     if capability == "query_inventory":
         deterministic_query = compile_inventory_query(prompt)
-        if deterministic_query is not None and inventory_query_requires_semantic_completion(
-            deterministic_query
+        if deterministic_query is None or inventory_query_requires_semantic_completion(
+            deterministic_query, prompt=prompt
         ):
-            arguments = (
-                merge_semantic_inventory_status_query(deterministic_query, goal.arguments)
-                or deterministic_query.to_dict()
+            raise SemanticInventoryInterpretationRequiredError(
+                "inventory semantic interpretation is required"
             )
+        validate_semantic_inventory_status_arguments(
+            deterministic_query,
+            goal.arguments,
+        )
+        arguments = deterministic_query.to_dict()
     return await planned_tool_resolver.resolve_planned(
         capability,
         arguments,

@@ -151,6 +151,21 @@ describe("buildTrajectoryPresentation", () => {
     expect(result.modelCallCountIsLowerBound).toBe(true);
   });
 
+  it("includes calls omitted by the trace bound", () => {
+    const result = buildTrajectoryPresentation(trajectory({
+      source: "llm:narrator-mini · 500ms",
+      modelTrace: {
+        schema_version: 1,
+        redacted: true,
+        calls: [],
+        omitted_calls: 3,
+      },
+    }));
+
+    expect(result.modelCallCount).toBe(3);
+    expect(result.modelCallCountIsLowerBound).toBe(false);
+  });
+
   it("distinguishes corrected verification and degraded planning", () => {
     const input = trajectory({
       answerPlanning: {

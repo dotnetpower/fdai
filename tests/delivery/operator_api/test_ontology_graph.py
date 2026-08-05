@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
@@ -12,6 +13,11 @@ from fdai.core.rbac.resolver import RoleResolver
 from fdai.delivery.operator_api.auth import build_authenticator
 from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.operator_api.routes.chat_inventory_compiler import compile_inventory_query
+from fdai.delivery.operator_api.routes.chat_inventory_ontology import (
+    inventory_query_function_type,
+    project_inventory_function_result,
+)
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.link_type import load_link_type_catalog
 from fdai.rule_catalog.schema.object_type import load_object_type_catalog
@@ -58,6 +64,7 @@ def _client(*, wire_ontology: bool, status_store: InMemoryStateStore | None = No
             ontology_object_types=tuple(objects),
             ontology_link_types=tuple(links),
             ontology_action_types=tuple(actions),
+            ontology_function_types=(inventory_query_function_type(),),
             operating_model_status_reader=status_store,
         ),
     )
@@ -89,6 +96,195 @@ def test_ontology_graph_returns_mermaid_and_counts() -> None:
     assert platform["mutation_authority"] is False
     assert platform["write_surface"] == "typed_proposal"
     assert "ops.scale-out" in platform["action_types"]
+    assert "inventory.select_resources" in platform["functions"]
+
+
+@pytest.mark.parametrize("status", ("matched", "partial"))
+def test_inventory_function_contract_accepts_bounded_runtime_projection(status: str) -> None:
+    from jsonschema import Draft202012Validator
+
+    query = compile_inventory_query("VM list")
+    assert query is not None
+    runtime_result = {
+        "status": status,
+        "query": query.to_dict(),
+        "matched_count": 1,
+        "resources": [
+            {
+                "id": "must-not-cross-function-boundary",
+                "name": "vm-a",
+                "type": "compute.vm",
+                "status": "running",
+                "unknown_runtime_metadata": "must-not-cross-function-boundary",
+            }
+        ],
+        "query_source": "current_state",
+        "freshness": "fresh",
+        "unknown_runtime_metadata": "must-not-cross-function-boundary",
+    }
+
+    projected = project_inventory_function_result(runtime_result)
+
+    Draft202012Validator(inventory_query_function_type().output_schema).validate(projected)
+    assert projected == {
+        "status": status,
+        "query": runtime_result["query"],
+        "matched_count": 1,
+        "resource_preview_truncated": False,
+        "resources": [{"name": "vm-a", "type": "compute.vm", "status": "running"}],
+    }
+
+
+def test_inventory_function_contract_accepts_unavailable_runtime_projection() -> None:
+    from jsonschema import Draft202012Validator
+
+    projected = project_inventory_function_result(
+        {
+            "status": "unavailable",
+            "reason": "provider_unavailable",
+            "query_source": "current_state",
+        }
+    )
+
+    Draft202012Validator(inventory_query_function_type().output_schema).validate(projected)
+    assert projected == {
+        "status": "unavailable",
+        "query": None,
+        "reason": "provider_unavailable",
+    }
+
+
+def test_inventory_function_projection_rejects_invalid_query() -> None:
+    with pytest.raises(ValueError, match="output_schema"):
+        project_inventory_function_result(
+            {
+                "status": "unavailable",
+                "reason": "provider_unavailable",
+                "query": {"source": "current", "unknown": "not-allowed"},
+            }
+        )
+
+
+def test_inventory_function_projection_rejects_invalid_semantic_candidate() -> None:
+    with pytest.raises(ValueError, match="output_schema"):
+        project_inventory_function_result(
+            {
+                "status": "clarification",
+                "reason": "inventory_semantic_confirmation_required",
+                "query": None,
+                "resource_types": ["compute.vm"],
+                "semantic_candidates": [
+                    {
+                        "kind": "state",
+                        "concept_id": "running",
+                        "score": 0.9,
+                        "catalog_digest": "not-a-digest",
+                        "target_ref": {},
+                        "input_digest": "not-a-digest",
+                        "candidate_digest": "not-a-digest",
+                        "labels": {"en": "Running"},
+                        "authority": "candidate_only",
+                    }
+                ],
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    "resources, matched_count",
+    (
+        ([object()], 1),
+        ([{"name": f"vm-{index}", "type": "compute.vm"} for index in range(41)], 41),
+    ),
+)
+def test_inventory_function_projection_rejects_lossy_resource_evidence(
+    resources: list[object],
+    matched_count: int,
+) -> None:
+    query = compile_inventory_query("VM list")
+    assert query is not None
+
+    with pytest.raises(ValueError, match="resource|matched_count"):
+        project_inventory_function_result(
+            {
+                "status": "matched",
+                "query": query.to_dict(),
+                "matched_count": matched_count,
+                "resources": resources,
+            }
+        )
+
+
+def test_inventory_function_projection_marks_bounded_resource_preview() -> None:
+    query = compile_inventory_query("VM list")
+    assert query is not None
+
+    projected = project_inventory_function_result(
+        {
+            "status": "matched",
+            "query": query.to_dict(),
+            "matched_count": 41,
+            "resources": [{"name": f"vm-{index}", "type": "compute.vm"} for index in range(40)],
+        }
+    )
+
+    assert projected["matched_count"] == 41
+    assert projected["resource_preview_truncated"] is True
+    assert len(projected["resources"]) == 40
+
+
+def test_inventory_function_projection_preserves_scheduled_shutdown_fields() -> None:
+    query = compile_inventory_query(
+        "오늘 저녁에 꺼지는 vm은?",
+        now=datetime(2026, 8, 5, 3, 0, tzinfo=UTC),
+    )
+    assert query is not None
+
+    projected = project_inventory_function_result(
+        {
+            "status": "matched",
+            "query": query.to_dict(),
+            "matched_count": 1,
+            "resources": [
+                {
+                    "name": "vm-example",
+                    "type": "compute.vm",
+                    "status": "scheduled_shutdown",
+                    "resource_group": "rg-example",
+                    "scheduled_shutdown_at": "2026-08-05T19:00:00+09:00",
+                    "scheduled_shutdown_time_zone": "Korea Standard Time",
+                }
+            ],
+        }
+    )
+
+    assert projected["resources"][0]["scheduled_shutdown_at"] == ("2026-08-05T19:00:00+09:00")
+    assert projected["resources"][0]["scheduled_shutdown_time_zone"] == ("Korea Standard Time")
+
+
+def test_inventory_function_projection_rejects_matched_result_without_query() -> None:
+    with pytest.raises(ValueError, match="requires a query"):
+        project_inventory_function_result(
+            {
+                "status": "matched",
+                "query": None,
+                "matched_count": 0,
+                "resources": [],
+            }
+        )
+
+
+def test_inventory_function_projection_rejects_mixed_malformed_candidates() -> None:
+    with pytest.raises(ValueError, match="semantic candidate"):
+        project_inventory_function_result(
+            {
+                "status": "clarification",
+                "reason": "inventory_semantic_confirmation_required",
+                "query": None,
+                "resource_types": ["compute.vm"],
+                "semantic_candidates": [{}, object()],
+            }
+        )
 
 
 def test_ontology_graph_returns_bounded_operating_model_status() -> None:

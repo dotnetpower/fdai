@@ -860,8 +860,7 @@ def render_subscription_health_answer(
     metric_observations = [
         item for item in result.get("metric_observations", []) if isinstance(item, Mapping)
     ]
-    findings = [item for item in result.get("findings", []) if isinstance(item, Mapping)]
-    findings = _filter_findings_by_requested_type(evidence, findings)
+    findings = subscription_health_findings(evidence)
     source = str(result.get("source") or "Azure read providers")
     observed_at = str(result.get("observed_at") or "unknown")
     truncated = bool(result.get("truncated"))
@@ -1188,6 +1187,18 @@ def subscription_health_evidence_refs(evidence: Mapping[str, Any]) -> tuple[str,
     if not isinstance(source, str) or not isinstance(observed_at, str):
         return ()
     return (f"subscription-health:{source}@{observed_at}",)
+
+
+def subscription_health_findings(
+    evidence: Mapping[str, Any],
+) -> list[Mapping[str, Any]]:
+    """Return bounded findings after applying the typed resource filter."""
+
+    result = evidence.get("result")
+    if not isinstance(result, Mapping):
+        return []
+    findings = [item for item in result.get("findings", []) if isinstance(item, Mapping)]
+    return _filter_findings_by_requested_type(evidence, findings)[:20]
 
 
 def requested_subscription_health_findings_are_grounded(
@@ -1632,4 +1643,5 @@ __all__ = [
     "render_subscription_health_answer",
     "subscription_scope_evidence_refs",
     "subscription_health_evidence_refs",
+    "subscription_health_findings",
 ]

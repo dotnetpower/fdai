@@ -1,6 +1,6 @@
 import { Tooltip } from "../components/tooltip";
 import { t } from "../i18n";
-import { useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import {
   type AnswerVerification,
   type ActionDraft,
@@ -33,6 +33,10 @@ import {
   type ConversationListFilter,
   conversationMatchesFilter,
 } from "./conversation-sessions";
+import {
+  CONVERSATION_WIDTH_MAX,
+  CONVERSATION_WIDTH_MIN,
+} from "./conversation-sidebar-width";
 import { useViewContext } from "./context";
 import type { ConversationTrajectory } from "./conversation-trajectory";
 import { ConversationTrajectoryView } from "./conversation-trajectory-view";
@@ -68,6 +72,7 @@ export interface Turn {
   readonly delegation?: DelegationMetadata;
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
   readonly incidentCandidates?: readonly import("./backend-types").IncidentCandidate[];
+  readonly presentationArtifact?: import("./backend-types").PresentationArtifact;
   readonly actionDraft?: ActionDraft;
   readonly modelTrace?: ModelTrace;
   readonly turnTiming?: TurnTiming;
@@ -82,9 +87,10 @@ export interface Turn {
 }
 
 export const DEFAULT_NARRATOR = "Bragi";
+export const CONVERSATION_VISIBLE_BATCH_SIZE = CONVERSATION_HISTORY_PAGE_SIZE;
 
 export function conversationCountLabel(count: number, hasMore: boolean): string {
-  return count >= CONVERSATION_HISTORY_PAGE_SIZE || hasMore
+  return hasMore
     ? `${CONVERSATION_HISTORY_PAGE_SIZE}+`
     : String(count);
 }
@@ -96,32 +102,21 @@ export function shouldLoadMoreConversations(
   return hasMore && element.scrollHeight - element.scrollTop - element.clientHeight <= 120;
 }
 
-export function hasOverflowingText(
-  element: Pick<HTMLElement, "clientWidth" | "scrollWidth">,
-): boolean {
-  return element.scrollWidth > element.clientWidth;
-}
-
-function ConversationTitle({ label }: { readonly label: string }) {
-  const titleRef = useRef<HTMLSpanElement | null>(null);
-  const [truncated, setTruncated] = useState(false);
-
-  useLayoutEffect(() => {
-    const title = titleRef.current;
-    if (!title) return undefined;
-    const measure = () => setTruncated(hasOverflowingText(title));
-    measure();
-    if (typeof ResizeObserver === "undefined") return undefined;
-    const observer = new ResizeObserver(measure);
-    observer.observe(title);
-    return () => observer.disconnect();
-  }, [label]);
-
-  return (
-    <Tooltip content={truncated ? label : undefined}>
-      <span ref={titleRef} class="deck-conversation-title">{label}</span>
-    </Tooltip>
-  );
+export function visibleConversationGroups(
+  groups: ReturnType<typeof conversationGroups>,
+  limit: number,
+): ReturnType<typeof conversationGroups> {
+  let remaining = Math.max(0, limit);
+  const take = (items: readonly ConversationSummary[]) => {
+    const visible = items.slice(0, remaining);
+    remaining -= visible.length;
+    return visible;
+  };
+  return {
+    current: take(groups.current),
+    other: take(groups.other),
+    agents: take(groups.agents),
+  };
 }
 
 function agentIconUrl(name: string): string {
@@ -300,25 +295,34 @@ export function ConversationSidebar({
   currentPath,
   hasMore,
   loading,
+  resizable,
+  width,
   onNew,
   onLoadMore,
   onSelect,
   onRemove,
   onToggleFavorite,
+  onResizeKeyDown,
+  onResizeStart,
 }: {
   readonly conversations: readonly ConversationSummary[];
   readonly activeKey: string;
   readonly currentPath: string;
   readonly hasMore: boolean;
   readonly loading: boolean;
+  readonly resizable: boolean;
+  readonly width: number;
   readonly onNew: () => void;
   readonly onLoadMore: () => void;
   readonly onSelect: (conversation: ConversationSummary) => void;
   readonly onRemove: (conversation: ConversationSummary) => void;
   readonly onToggleFavorite: (conversation: ConversationSummary) => void;
+  readonly onResizeKeyDown: (event: KeyboardEvent) => void;
+  readonly onResizeStart: (event: MouseEvent) => void;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ConversationListFilter>("mine");
+  const [visibleLimit, setVisibleLimit] = useState(CONVERSATION_VISIBLE_BATCH_SIZE);
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const filteredConversations = conversations.filter((conversation) =>
     conversationMatchesFilter(conversation, filter));
@@ -326,16 +330,18 @@ export function ConversationSidebar({
     ? filteredConversations.filter((conversation) =>
         `${conversation.label} ${conversation.originLabel}`.toLocaleLowerCase().includes(normalizedQuery))
     : filteredConversations;
-  const groups = conversationGroups(visibleConversations, currentPath);
+  useEffect(() => {
+    setVisibleLimit(CONVERSATION_VISIBLE_BATCH_SIZE);
+  }, [filter, normalizedQuery]);
+  const groups = visibleConversationGroups(
+    conversationGroups(visibleConversations, currentPath),
+    visibleLimit,
+  );
   return (
     <aside
       class="deck-conversations"
       aria-label={t("deck.conversations")}
       aria-busy={loading}
-      onScroll={(event) => {
-        const element = event.currentTarget;
-        if (shouldLoadMoreConversations(element, hasMore)) onLoadMore();
-      }}
     >
       <div class="deck-conversations-head">
         <span>{t("deck.conversations")}</span>
@@ -343,18 +349,26 @@ export function ConversationSidebar({
           {conversationCountLabel(conversations.length, hasMore)}
         </span>
       </div>
-      <button type="button" class="deck-conversation-new" onClick={onNew}>
-        <span aria-hidden="true">+</span>
-        {t("deck.newConversation")}
-      </button>
-      <input
-        class="deck-conversation-filter"
-        type="search"
-        value={query}
-        aria-label={t("deck.filterConversations")}
-        placeholder={t("deck.filterConversations")}
-        onInput={(event) => setQuery(event.currentTarget.value)}
-      />
+      <div class="deck-conversation-controls">
+        <input
+          class="deck-conversation-filter"
+          type="search"
+          value={query}
+          aria-label={t("deck.filterConversations")}
+          placeholder={t("deck.filterConversations")}
+          onInput={(event) => setQuery(event.currentTarget.value)}
+        />
+        <Tooltip content={t("deck.newConversation")} placement="bottom-end">
+          <button
+            type="button"
+            class="deck-conversation-new"
+            onClick={onNew}
+            aria-label={t("deck.newConversation")}
+          >
+            <span aria-hidden="true">+</span>
+          </button>
+        </Tooltip>
+      </div>
       <div class="deck-conversation-filters" role="group" aria-label={t("deck.conversationFilters.label")}>
         {(["mine", "unread", "favorites"] as const).map((value) => (
           <button
@@ -367,7 +381,16 @@ export function ConversationSidebar({
           </button>
         ))}
       </div>
-      <div class="deck-conversation-list">
+      <div
+        class="deck-conversation-list"
+        onScroll={(event) => {
+          const element = event.currentTarget;
+          const hasLocalMore = visibleLimit < visibleConversations.length;
+          if (loading || !shouldLoadMoreConversations(element, hasLocalMore || hasMore)) return;
+          setVisibleLimit((current) => current + CONVERSATION_VISIBLE_BATCH_SIZE);
+          if (!hasLocalMore && hasMore) onLoadMore();
+        }}
+      >
         {visibleConversations.length === 0 ? (
           <p class="deck-conversation-empty">
             {conversations.length === 0 ? t("deck.noConversations") : t("deck.noConversationMatches")}
@@ -413,6 +436,20 @@ export function ConversationSidebar({
           </div>
         ) : null}
       </div>
+      {resizable ? (
+        <button
+          type="button"
+          class="deck-conversation-resize-handle"
+          role="separator"
+          aria-label={t("deck.conversations")}
+          aria-orientation="vertical"
+          aria-valuemin={CONVERSATION_WIDTH_MIN}
+          aria-valuemax={CONVERSATION_WIDTH_MAX}
+          aria-valuenow={width}
+          onMouseDown={onResizeStart}
+          onKeyDown={onResizeKeyDown}
+        />
+      ) : null}
     </aside>
   );
 }
@@ -447,30 +484,32 @@ function ConversationGroup({
               : ""
           }`}
         >
-          <button
-            type="button"
-            class="deck-conversation-select"
-            aria-current={conversation.key === activeKey ? "true" : undefined}
-            onClick={() => onSelect(conversation)}
-          >
-            <span
-              class="deck-conversation-avatar is-agent"
-              aria-hidden="true"
-              style={{
-                WebkitMaskImage: agentIconUrl(conversation.agent ?? DEFAULT_NARRATOR),
-                maskImage: agentIconUrl(conversation.agent ?? DEFAULT_NARRATOR),
-              }}
-            />
-            <span class="deck-conversation-copy">
-              <ConversationTitle label={conversation.label} />
-              <small>
-                {showOrigin && conversation.originLabel !== conversation.label
-                  ? `${conversation.originLabel} · `
-                  : ""}
-                {conversationTimeLabel(conversation.updatedAt)}
-              </small>
-            </span>
-          </button>
+          <Tooltip content={conversation.label} placement="right-start">
+            <button
+              type="button"
+              class="deck-conversation-select"
+              aria-current={conversation.key === activeKey ? "true" : undefined}
+              onClick={() => onSelect(conversation)}
+            >
+              <span
+                class="deck-conversation-avatar is-agent"
+                aria-hidden="true"
+                style={{
+                  WebkitMaskImage: agentIconUrl(conversation.agent ?? DEFAULT_NARRATOR),
+                  maskImage: agentIconUrl(conversation.agent ?? DEFAULT_NARRATOR),
+                }}
+              />
+              <span class="deck-conversation-copy">
+                <span class="deck-conversation-title">{conversation.label}</span>
+                <small>
+                  {showOrigin && conversation.originLabel !== conversation.label
+                    ? `${conversation.originLabel} · `
+                    : ""}
+                  {conversationTimeLabel(conversation.updatedAt)}
+                </small>
+              </span>
+            </button>
+          </Tooltip>
           <Tooltip content={t(conversation.favorite ? "deck.favorite.remove" : "deck.favorite.add")}>
             <button
               type="button"
@@ -606,17 +645,21 @@ export function TurnBubble({
           codeArtifacts={turn.codeArtifacts}
           incidentCandidates={turn.incidentCandidates}
           actionDraft={turn.actionDraft}
+          presentationArtifact={turn.presentationArtifact}
+          trajectory={trajectory}
           {...(onRegenerate ? { onRegenerate } : {})}
         />
       ) : (
-        <div class="deck-turn-body">
+        <>
           {turn.attachments && turn.attachments.length > 0 ? (
             <ConversationTurnAttachments attachments={turn.attachments} />
           ) : null}
-          {turn.text.split("\n").map((line, index) => (
-            <p key={index} class="deck-turn-line">{line}</p>
-          ))}
-        </div>
+          <div class="deck-turn-body">
+            {turn.text.split("\n").map((line, index) => (
+              <p key={index} class="deck-turn-line">{line}</p>
+            ))}
+          </div>
+        </>
       )}
       {turn.followUps && turn.followUps.length > 0 ? (
         <ul class="deck-followups" aria-label={t("deck.suggestedFollowUps")}>

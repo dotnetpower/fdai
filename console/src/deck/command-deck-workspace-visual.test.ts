@@ -3,8 +3,16 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
+const sidebarStyles = readFileSync(
+  fileURLToPath(new URL("./conversation-sidebar.css", import.meta.url)),
+  "utf8",
+);
 const source = readFileSync(
   fileURLToPath(new URL("./command-deck-view.tsx", import.meta.url)),
+  "utf8",
+);
+const presenters = readFileSync(
+  fileURLToPath(new URL("./command-deck-presenters.tsx", import.meta.url)),
   "utf8",
 );
 const sessions = readFileSync(
@@ -16,7 +24,7 @@ describe("Command Deck workspace hierarchy", () => {
   test("opens transcript-first and adds columns only for requested panels", () => {
     expect(source).toContain("const [showConversations, setShowConversations] = useState(false);");
     expect(source).toContain("const [showDigest, setShowDigest] = useState(false);");
-    expect(styles).toContain(".deck-body.has-conversations { grid-template-columns: 210px minmax(0, 1fr); }");
+    expect(sidebarStyles).toContain("grid-template-columns: var(--deck-conversation-width, 240px) minmax(0, 1fr);");
     expect(styles).toContain(".deck-body.has-digest { grid-template-columns: minmax(0, 1fr) 280px; }");
   });
 
@@ -26,6 +34,25 @@ describe("Command Deck workspace hierarchy", () => {
     expect(source).toContain("conversationCountLabel(conversations.length, conversationHasMore)");
     expect(sessions).toContain(".slice(0, CONVERSATION_HISTORY_PAGE_SIZE)");
     expect(sessions).toContain("setSessionLabel(agent);");
+    expect(presenters).toContain("CONVERSATION_VISIBLE_BATCH_SIZE");
+    expect(presenters).toContain("visibleLimit");
+  });
+
+  test("persists a bounded workspace conversation width", () => {
+    expect(source).toContain("initialConversationWidth");
+    expect(source).toContain("clampConversationWidth");
+    expect(source).toContain("saveConversationWidth");
+    expect(source).toContain('style={`--deck-conversation-width: ${conversationWidth}px`}');
+    expect(source).toContain("onResizeStart={startConversationResize}");
+    expect(sidebarStyles).toContain(".deck-conversation-resize-handle {");
+    expect(sidebarStyles).toContain("cursor: col-resize;");
+  });
+
+  test("keeps conversation controls compact and the list independently scrollable", () => {
+    expect(sidebarStyles).toContain(".deck-conversation-controls {");
+    expect(sidebarStyles).toContain("grid-template-columns: minmax(0, 1fr) 30px;");
+    expect(sidebarStyles).toContain("border-bottom: 1px solid var(--border);");
+    expect(sidebarStyles).toContain("overflow-y: auto;");
   });
 
   test("does not reserve a hidden digest column on narrow screens", () => {

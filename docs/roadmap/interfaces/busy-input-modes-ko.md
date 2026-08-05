@@ -2,8 +2,8 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 27b88cd2997470ba0a324bee8aaa094f11d8e8c3
-translation_revised: 2026-08-04
+translation_source_sha: f4f9c8fcdc5bfd33e7161add4ab423ff222af032
+translation_revised: 2026-08-05
 ---
 
 # 처리 중인 Conversation 입력 모드
@@ -211,6 +211,7 @@ Unavailable 또는 unknown entry가 있는 verified read-source manifest는 vers
 receipt를 저장합니다. Partial-source follow-up은 available source fact와 exact gap을 분리하고 reason과
 last observation이 있으면 함께 표시하며 다른 authority로 대체하지 않습니다.
 Queued analytical refinement는 verified server-issued `analysis_context`만 재사용할 수 있습니다. 구현된 LLM usage anchor는 token measure, grouping, `usage_scope` 및 week/month 변환을 포함한 numeric 1-90일 lookback을 보존합니다. Panel이 `conversation_tool`을 선언하면 chat-enabled 구성에서 해당 registered capability가 필요하며 mismatch는 startup을 차단합니다.
+검증된 current-turn image attachment는 prompt-only semantic tool planning과 주어가 생략된 LLM 사용량 refinement를 우회하므로 queued 및 steered image turn도 vision narration을 유지합니다. Terminal verification은 해당 해석을 현재 `conversation-image` ref가 있는 unverified 답변으로 보존합니다. 측정된 LLM 사용량을 명시한 요청은 deterministic tool request로 유지됩니다.
 기간, grouping, table 또는 chart만 바꾸는 follow-up은 측정된 metering record를 다시 읽습니다. Verified chart는 evidence reference가 포함된 `chart_artifact` v1을 전달하고 fenced chart text는 compatibility fallback으로 유지합니다. Comparison, export, missing-anchor 및 client-supplied-anchor 요청은 context-required hold를 반환하며 subscription health 또는 inventory로 넓히지 않습니다.
 
 ## Queue 동작

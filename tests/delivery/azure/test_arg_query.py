@@ -164,6 +164,60 @@ async def test_inventory_promotes_nested_service_state_to_status() -> None:
     assert resources[0].props["status"] == "Stopped"
 
 
+@pytest.mark.asyncio
+async def test_inventory_projects_vm_shutdown_schedule_in_production_arg() -> None:
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.DevTestLab/"
+        "schedules/shutdown-computevm-vm-example"
+    )
+    target_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.Compute/virtualMachines/vm-example"
+    )
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    _arm_row(
+                        arm_id=arm_id,
+                        arm_type="Microsoft.DevTestLab/schedules",
+                        extra={
+                            "properties": {
+                                "status": "Enabled",
+                                "taskType": "ComputeVmShutdownTask",
+                                "dailyRecurrence": {"time": "1900"},
+                                "timeZoneId": "Korea Standard Time",
+                                "targetResourceId": target_id,
+                            }
+                        },
+                    )
+                ]
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        resources, _ = await factory.build_query_fn()("compute.vm-shutdown-schedule")
+
+    assert len(resources) == 1
+    schedule = resources[0]
+    assert schedule.props["scheduledShutdownStatus"] == "Enabled"
+    assert schedule.props["scheduledShutdownTime"] == "1900"
+    assert schedule.props["scheduledShutdownTargetName"] == "vm-example"
+    assert schedule.props["scheduledShutdownTargetResourceGroup"] == "rg-example"
+    assert schedule.props["scheduledShutdownTimeZoneIana"] == "Asia/Seoul"
+    assert "targetResourceId" not in schedule.props["properties"]
+    assert schedule.last_seen is not None
+
+
 def _make_client(
     handler: httpx.MockTransport,
 ) -> httpx.AsyncClient:

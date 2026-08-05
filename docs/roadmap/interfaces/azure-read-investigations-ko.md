@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 5b4cc993c3eaea1c5d92880efe425d0d4cc89a6e
-translation_revised: 2026-08-04
+translation_source_sha: 20ecb5b2cdd9373f3cc4a9bda9cc846c904746b0
+translation_revised: 2026-08-05
 ---
 
 # Azure 읽기 조사
@@ -151,16 +151,27 @@ inventory-query verifier가 수락하기 전에는 authority가 없습니다.
 수락된 모든 current 또는 activity collection은 source, result kind, 최대 8개 predicate 및 optional
 bounded lookback을 가진 immutable `InventoryQuery` 하나로 compile됩니다. Allowlist field는
 `resource_type`, `status`, `name`, `resource_group`, `location`, `operation`, `event_status`이고 operator는
-`eq`, `ne`, `in`, `contains`, `exists`, `missing`입니다. Deterministic compiler는 current provider에
+`eq`, `ne`, `in`, `not_in`, `contains`, `exists`, `missing`입니다. Deterministic compiler는 current provider에
 실제로 관찰된 facet을 match하므로 새 status마다 routing expression을 추가할 필요가 없습니다. Match되지
 않은 modifier는 전체 resource로 확장하지 않고 abstain합니다. Semantic planner는 deterministic abstain
-후에만 동일한 strict shape를 제안할 수 있고 verifier가 I/O 전에 query 전체를 다시 확인합니다.
-Imperative change는 action draft로 유지되며 이 read path에 들어갈 수 없습니다.
+후에만 동일한 strict shape를 제안할 수 있지만 같은 turn에서 실행할 수 없습니다. Verified
+exact/promoted mapping 또는 별도 operator confirmation이 complete query를 만들어야 하며 verifier가
+I/O 전에 query 전체를 다시 확인합니다. Imperative change는 action draft로 유지되며 이 read path에
+들어갈 수 없습니다.
+`not_in`은 bounded unique value list만 받습니다. Verifier가 canonical state id를 확장하고 provider
+grounding 단계가 제외 전에 이를 관찰된 provider status form으로 교체합니다. 따라서 negative phrase를
+positive `running` alias로 바꾸지 않습니다.
 Filter가 없는 managed-scope 목록 표현은 영어와 한국어 모두 catalog data로 관리됩니다. Operator가
 이름, 유형, 상태, evidence 또는 대표 resource 하나만 요청하더라도 semantic planning 전에 fresh
 subscription-scoped `list` query로 compile됩니다.
 
 Inventory language catalog의 state entry는 필요한 evidence authority도 선언합니다. 일반적인 current
+state와 operation은 language-neutral description과 bounded 영어/한국어 example도 포함합니다. Optional
+embedding resolver는 exact term으로 query를 완성할 수 없을 때 해당 semantic surface를 검색합니다.
+Ranking 결과는 non-authoritative candidate일 뿐입니다. 승격되지 않았거나 모호한 candidate는 provider
+I/O 전에 clarification을 만들며 similarity score로 predicate, evidence receipt 또는 action이 될 수
+없습니다.
+일반적인 current
 operational state는 promoted inventory를 사용합니다. Degraded 또는 unavailable availability 의미를
 포함한 질문은 동일한 server-owned scope 아래에서 `Resources`와 `HealthResources`를 결합하는 기존
 subscription health sweep을 사용합니다. 구체적인 resource-family filter는 해당 health query에
@@ -349,9 +360,11 @@ Deterministic renderer는 value, comparison 및 threshold를 표시합니다.
 Terminal answer는 모든 partial-coverage 제한을 유지합니다. Typed requested group에 속하는 상태의
 양성 finding은 해당 finding이 직접 grounded되므로 evidence check 1건을 완료할 수 있습니다. Empty
 group은 확인한 evidence에서 match가 관찰되지 않았다는 사실만 표시합니다. 양성 requested-state
-finding이 없는 partial result는 `unverified`로 유지됩니다. 응답은 결정적이며 narrator model을 호출하지
-않습니다. Complete `matched` result는 check 1건 중 1건을 완료했다고 보고하고 grounded terminal
-status를 유지합니다.
+finding이 없는 partial result는 `unverified`로 유지됩니다. Evidence selection, factual rendering 및
+verification은 deterministic하게 유지합니다. Optional presentation-only mini model은 evidence collection
+후 shape-only slot profile을 배치할 수 있지만 finding 또는 metric value를 받지 않으며 terminal status를
+바꿀 수 없습니다. Invalid 또는 unavailable planning은 deterministic answer로 fallback합니다. Complete
+`matched` result는 check 1건 중 1건을 완료했다고 보고하고 grounded terminal status를 유지합니다.
 
 ## Evidence 계약
 

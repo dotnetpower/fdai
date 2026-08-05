@@ -7,6 +7,7 @@ import type {
   EvidenceFreshnessContext,
   GroundedCodeArtifact,
   ModelTrace,
+  PresentationArtifact,
   TurnTiming,
   TrajectoryDetail,
   ProgressiveAnswer,
@@ -28,6 +29,7 @@ import {
   parseRouter,
 } from "./backend-normalizers";
 import { parseTrajectoryDetail } from "./trajectory-detail";
+import { parsePresentationArtifact } from "./presentation-artifact";
 import { parseTurnAttachmentMetadata, type TurnAttachment } from "./turn-attachments";
 
 const MAX_SESSION_ID_CHARS = 200;
@@ -54,6 +56,7 @@ export interface RestoredTurn {
   readonly trajectoryDetail?: TrajectoryDetail;
   readonly resourceContext?: ResourceContext;
   readonly evidenceFreshnessContext?: EvidenceFreshnessContext;
+  readonly presentationArtifact?: PresentationArtifact;
 }
 
 export type DeckLayoutMode = "floating" | "dock" | "workspace";
@@ -88,6 +91,10 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
   const evidenceFreshnessContext = parseEvidenceFreshnessContext(
     replay?.evidence_freshness_context,
   );
+  const presentationArtifact = parsePresentationArtifact(
+    replay?.presentation_artifact,
+    verification,
+  );
   const source = turn.metadata.source ?? replaySource(replay) ??
     (turn.role === "assistant" ? "history" : undefined);
   const agent = turn.metadata.agent ?? delegation?.primary_agent;
@@ -116,6 +123,7 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
     ...(trajectoryDetail ? { trajectoryDetail } : {}),
     ...(resourceContext ? { resourceContext } : {}),
     ...(evidenceFreshnessContext ? { evidenceFreshnessContext } : {}),
+    ...(presentationArtifact ? { presentationArtifact } : {}),
   };
 }
 

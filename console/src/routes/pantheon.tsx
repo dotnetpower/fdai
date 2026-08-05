@@ -12,6 +12,7 @@ import { usePublishViewContext } from "../deck/context";
 import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import { agentStreamDescriptor, useAgentStream, type AgentStreamStatus } from "../hooks/use-agent-stream";
 import { observationSourceLabel, type ObservationSource } from "../hooks/observation-source";
+import { useContentUpdatePulse } from "../hooks/use-content-update-pulse";
 import { t } from "../i18n";
 import { currentRoute, navigate, routeHref } from "../router";
 import {
@@ -488,8 +489,13 @@ function PantheonAgentCard({
   readonly runtime: AgentsState["agents"][string] | undefined;
 }) {
   const state = runtime?.observed ? runtime.state : "unobserved";
+  const contentUpdated = useContentUpdatePulse([
+    state,
+    runtime?.detail ?? "",
+    runtime?.correlationId ?? "",
+  ].join("|"));
   return (
-    <article class={`pt-card is-${agent.layer}`}>
+    <article class={`pt-card is-${agent.layer}${contentUpdated ? " is-content-updated" : ""}`}>
       <header class="pt-card-head">
         <span class={`pt-avatar is-${agent.layer}`}>{agent.name.slice(0, 2)}</span>
         <div>

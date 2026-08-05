@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: bb7dc475aa73b54c5199fa80f4d471799e5c9733
+translation_source_sha: 68932e634bfc8d4f4d3d7abce89f3e262363ffca
 translation_revised: 2026-08-05
 title: 대화 첨부파일
 ---
@@ -46,7 +46,7 @@ File source는 channel마다 다릅니다. Safety, storage, purpose, citation, r
 | Protected channel ingestion | Composition 구현됨, deployment binding 대기 | `ProtectedChannelAttachmentIngestor`는 모든 byte를 기존 scan, protection, extraction, indexing 및 access lifecycle로 전달합니다. |
 | Explicit ownership handover | Contract 구현됨, Slack/Teams deployment binding 대기 | Leading `/handover`, `/attach handover` 또는 `인수인계 문서:` directive가 `handover_bootstrap`을 선택합니다. Content와 filename은 purpose를 선택하지 않습니다. |
 | Web chat document references | Backend contract 구현됨 | JSON 및 SSE chat은 immutable document/version id를 최대 8개 받습니다. Production resolver는 현재 principal이 upload한 ready version만 허용합니다. SPA file picker는 product UI 후속 작업입니다. |
-| Web chat inline vision evidence | 구현됨 | Web chat `attachments` field는 bounded inline base64 image를 받습니다(raster allowlist png/jpeg/gif/webp, `data:` URL만, 선언된 media type이 magic byte와 일치해야 함, decode 전 browser source 32 MiB cap, server edge 2048 pixel cap, per-image output cap 및 per-turn count cap). 검증된 image는 read-only evidence로서 해당 turn을 vision 지원 narrator로 escalate하며, 실행 자격을 부여하지 않습니다. Operator API는 검증된 byte를 principal 범위 `conversation_image` repository에 저장하고 content-free descriptor만 turn history에 남겨 Console에서 복원할 수 있게 합니다. |
+| Web chat inline vision evidence | 구현됨 | Web chat `attachments` field는 bounded inline base64 image를 받습니다(raster allowlist png/jpeg/gif/webp, `data:` URL만, 선언된 media type이 magic byte와 일치해야 함, decode 전 browser source 32 MiB cap, server edge 2048 pixel cap, per-image output cap 및 per-turn count cap). 검증된 image는 read-only evidence로서 해당 turn을 vision 지원 narrator로 escalate하며, 실행 자격을 부여하지 않습니다. Terminal verification은 해당 해석을 screen-verified로 취급하지 않고 현재 `conversation-image` ref가 있는 unverified 답변으로 보존합니다. Operator API는 검증된 byte를 principal 범위 `conversation_image` repository에 저장하고 content-free descriptor만 turn history에 남겨 Console에서 복원할 수 있게 합니다. |
 | Image OCR | 구현됨, opt-in | `ImageOcrProvider`를 standard extractor에 inject합니다. Azure production은 managed identity로 Document Intelligence `prebuilt-read`를 bind할 수 있습니다. |
 
 ## Purpose 및 authorization
@@ -162,6 +162,19 @@ display name 및 검증된 media type만 저장하고 base64 body는 저장하�
 `GET /me/conversations/{conversation_id}/images/{image_id}`를 통해 history image를 읽고 표시용 browser
 object URL을 만듭니다. 다른 principal, conversation 또는 알 수 없는 id는 모두 같은 `404` response를
 반환합니다. Owning conversation을 삭제하면 해당 image row도 cascade로 삭제됩니다.
+Conversation이 active 상태를 유지해도 각 image는 90일 후 만료되며, scheduled user-context
+retention job이 만료된 image byte를 독립적으로 삭제합니다. Principal은 conversation image를 최대
+1,000개 또는 256 MiB 중 먼저 도달하는 한도까지만 보관할 수 있습니다. Exact retry는 quota를 중복
+소비하지 않으며, quota rejection은 turn metadata 저장 전에 `429`를 반환합니다. Image는 operator
+turn이 durable해질 때까지 15분 pending expiry를 유지한 뒤 90일 expiry로 전환됩니다. Immediate
+compensation도 실패하면 다음 upload 또는 retention pass가 이 짧은 interval 이후 pending byte를
+삭제합니다.
+
+Composer는 staged image를 filename, byte size 또는 ready label을 반복하지 않는 fixed thumbnail로
+표시합니다. Pointer hover, keyboard focus 또는 touch는 shared tooltip layer를 통해 viewport 범위의 큰
+preview를 엽니다. Normalization이 진행 중이면 tile은 shared neutral top-edge shimmer를 사용하며,
+reduced-motion preference는 이 animation을 비활성화합니다. Non-image file과 rejected attachment는
+compact metadata 및 actionable reason을 유지합니다.
 
 ## Image OCR
 
