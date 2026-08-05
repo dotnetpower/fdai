@@ -129,7 +129,8 @@ unrelated runtime-resource changes stay outside the plan. The target set include
 destination addresses from active Terraform `moved` blocks, and the workflow contract test keeps
 those addresses synchronized so state migrations cannot invalidate a protected plan. A `for_each`
 key rename uses an explicit `moved` block so Terraform preserves the existing resource instead of
-planning a delete and replacement create.
+planning a delete and replacement create. A targeted plan includes the collection resource address
+for that `for_each` move so Terraform can evaluate both keyed instances together.
 Terraform uses the reader managed identity for host and deployment storage; the workflow removes
 Flex-generated shared-key overrides before publishing. It grants `Storage Blob Data Owner` for the host
 and a separate idempotency role. Easy Auth admits only the core executor client before principal checks.
