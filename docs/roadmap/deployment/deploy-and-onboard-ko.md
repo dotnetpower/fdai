@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 39dbcfe7e2a00eb840ad054f68af54ad95b478b2
+translation_source_sha: 147ec0a7e14a621b095207de284c0f46c8481b96
 translation_revised: 2026-08-06
 ---
 
@@ -135,7 +135,8 @@ test는 이 address를 동기화하여 state migration 때문에 protected plan�
 `for_each` key rename에는 명시적인 `moved` block을 사용합니다. 따라서 Terraform은 기존 resource를
 삭제한 후 새로 만들도록 계획하지 않고 현재 resource를 그대로 보존합니다.
 Targeted plan에는 해당 `for_each` move의 collection resource address가 포함됩니다. 따라서
-Terraform은 key가 지정된 두 instance를 함께 평가할 수 있습니다.
+Terraform은 key가 지정된 두 instance를 함께 평가할 수 있습니다. AI account와 role collection도
+함께 target하므로 network 및 authorization 설정이 하나의 apply에서 수렴합니다.
 Terraform은 host와 deployment
 storage에 reader managed identity를 사용하며 workflow는 publish 전에 Flex-generated exact shared-key
 override를 제거합니다. 해당 identity에는 host용 `Storage Blob Data Owner`와 idempotency용 contributor

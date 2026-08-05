@@ -357,6 +357,7 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
         "module.read_api[0].azurerm_container_app.read_api",
         "module.read_api[0].azurerm_container_app_job.migrate",
         "module.read_api_identity[0].azurerm_user_assigned_identity.primary",
+        "module.llm_azure_openai[0].azurerm_cognitive_account.primary",
         "module.llm_azure_openai[0].azurerm_role_assignment.additional_openai_user",
         "azurerm_role_assignment.runtime_startup_probe_eventhubs_owner",
     ):
