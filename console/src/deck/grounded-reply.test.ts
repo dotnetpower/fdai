@@ -95,4 +95,16 @@ describe("grounded reply presentation", () => {
     expect(component).not.toContain("deck.answerPlan.intent");
     expect(component).not.toContain("deck.answerPlan.detail");
   });
+
+  it("keeps trajectory status on answer review when no source button exists", () => {
+    const component = readFileSync(
+      fileURLToPath(new URL("./grounded-reply.tsx", import.meta.url)),
+      "utf8",
+    );
+
+    expect(component).toContain("trajectory && sources.length === 0");
+    expect(component).toContain('class="deck-gr-tool deck-gr-review has-trajectory-status"');
+    expect(component).toContain("<ConversationTrajectoryResults trajectory={trajectory} />");
+    expect(component).toContain('content={trajectoryTooltip} placement="top-end"');
+  });
 });

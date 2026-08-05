@@ -329,39 +329,59 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await expect(runRecord).not.toHaveAttribute("open", "");
   await expect(runRecord.locator(".deck-trajectory-question")).toHaveCount(0);
   await expect(runRecord.locator(".deck-trajectory-results")).toHaveCount(0);
-  const sourceStack = workspace.locator(".deck-gr-source-stack");
-  const trajectoryResults = sourceStack.locator(".deck-trajectory-results");
-  const collapsedResults = await sourceStack.evaluate((root) => {
-    const button = root.querySelector<HTMLElement>(".deck-gr-pill")?.getBoundingClientRect();
+  const sourceButton = workspace.locator(".deck-gr-pill.has-trajectory-status");
+  const trajectoryResults = sourceButton.locator(".deck-trajectory-results");
+  const collapsedResults = await sourceButton.evaluate((root) => {
+    const button = root.getBoundingClientRect();
+    const review = root.closest(".deck-gr-actions")
+      ?.querySelector<HTMLElement>(".deck-gr-review")?.getBoundingClientRect();
     const items = [...root.querySelectorAll<HTMLElement>(".deck-trajectory-results > span")]
       .map((item) => item.getBoundingClientRect());
     return {
       items: items.map((bounds) => ({
         top: bounds.top,
         width: bounds.width,
-        overlapsButton: button
-          ? Math.min(bounds.right, button.right) > Math.max(bounds.left, button.left) &&
-            Math.min(bounds.bottom, button.bottom) > Math.max(bounds.top, button.top)
-          : false,
+        overlapsButton:
+          Math.min(bounds.right, button.right) > Math.max(bounds.left, button.left) &&
+          Math.min(bounds.bottom, button.bottom) > Math.max(bounds.top, button.top),
+        overlapsReview: review
+          ? Math.min(bounds.right, review.right) > Math.max(bounds.left, review.left) &&
+            Math.min(bounds.bottom, review.bottom) > Math.max(bounds.top, review.top)
+          : true,
       })),
       badgeOverlap: items.length === 2 ? items[0]!.right - items[1]!.left : 0,
     };
   });
   expect(collapsedResults.items).toHaveLength(2);
   expect(collapsedResults.items[0]?.top).toBe(collapsedResults.items[1]?.top);
-  expect(collapsedResults.items.every((item) => item.width <= 18)).toBe(true);
+  expect(collapsedResults.items.every((item) => item.width <= 10)).toBe(true);
   expect(collapsedResults.items.every((item) => item.overlapsButton)).toBe(true);
-  expect(collapsedResults.badgeOverlap).toBeGreaterThanOrEqual(12);
+  expect(collapsedResults.items.every((item) => !item.overlapsReview)).toBe(true);
+  expect(collapsedResults.badgeOverlap).toBeGreaterThanOrEqual(4);
   const actionRowHeight = await workspace.locator(".deck-gr-actions").evaluate(
     (element) => element.getBoundingClientRect().height,
   );
-  await sourceStack.hover();
+  const badgeWidths = await trajectoryResults.locator(":scope > span").evaluateAll(
+    (items) => items.map((item) => item.getBoundingClientRect().width),
+  );
+  await sourceButton.hover();
+  const sourceTooltip = page.locator('.app-tooltip[data-state="delayed-open"]');
+  await expect(sourceTooltip).toHaveCount(1);
+  await expect(sourceTooltip).toContainText("Checked against 1 evidence reference(s)");
+  await expect(sourceTooltip).toContainText("1 read queries / 0 commands");
+  await expect(sourceTooltip).toContainText("Evidence 1/1 completed / 2 refs");
   await expect.poll(async () => trajectoryResults.locator(":scope > span").evaluateAll(
-    (items) => items.every((item) => item.getBoundingClientRect().width > 18),
-  )).toBe(true);
+    (items) => items.map((item) => item.getBoundingClientRect().width),
+  )).toEqual(badgeWidths);
   await expect.poll(async () => workspace.locator(".deck-gr-actions").evaluate(
     (element) => element.getBoundingClientRect().height,
   )).toBe(actionRowHeight);
+  const tooltipBounds = await sourceTooltip.boundingBox();
+  const viewport = page.viewportSize();
+  expect(tooltipBounds).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(tooltipBounds!.x).toBeGreaterThanOrEqual(0);
+  expect(tooltipBounds!.x + tooltipBounds!.width).toBeLessThanOrEqual(viewport!.width);
   await runRecord.locator(":scope > summary").click();
   await expect(runRecord).toHaveAttribute("open", "");
   await expect(runRecord.locator(".deck-trajectory-question strong")).toHaveText(

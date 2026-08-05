@@ -40,15 +40,17 @@ describe("observed trajectory typography", () => {
     expect(styles).toContain("text-overflow: ellipsis; white-space: nowrap;");
   });
 
-  test("overlays deeply stacked trajectory summaries on the source button", () => {
+  test("uses fixed status dots and one combined source tooltip", () => {
     expect(source).toContain('class="deck-trajectory-results"');
-    expect(reply).toContain('class="deck-gr-source-stack"');
     expect(reply).toContain("<ConversationTrajectoryResults trajectory={trajectory} />");
-    expect(reply).toContain("trajectoryResultLabel(trajectory)");
+    expect(reply).toContain('class="deck-source-status-tooltip"');
+    expect(reply).toContain('class="deck-trajectory-tooltip"');
+    expect(reply).toContain('class="deck-gr-tool deck-gr-review has-trajectory-status"');
     expect(resultStyles).toContain("position: absolute;");
-    expect(resultStyles).toContain("max-width: 18px;");
-    expect(resultStyles).toContain("margin-left: -13px;");
-    expect(resultStyles).toContain(".deck-gr-source-stack:hover .deck-trajectory-results > span,");
-    expect(resultStyles).toContain(".deck-gr-source-stack:focus-within .deck-trajectory-results > span");
+    expect(resultStyles).toContain("width: 10px;");
+    expect(resultStyles).toContain("margin-left: -4px;");
+    expect(resultStyles).toContain("transition: none;");
+    expect(resultStyles).not.toContain(":hover");
+    expect(resultStyles).not.toContain("focus-within");
   });
 });

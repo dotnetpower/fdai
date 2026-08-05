@@ -36,7 +36,7 @@ import { relevantCitations, type Citation } from "./citations";
 import type { ConversationTrajectory } from "./conversation-trajectory";
 import {
   ConversationTrajectoryResults,
-  trajectoryResultLabel,
+  trajectoryResultLabels,
 } from "./conversation-trajectory-view";
 import { unverifiedDetailLabel, verificationPrimaryLabel } from "./verification-presentation";
 import {
@@ -142,6 +142,13 @@ export function GroundedReply({
   const sourceButtonLabel = evidenceReferences
     ? t("deck.tooltip.evidenceReferences", { count: sources.length })
     : t("deck.tooltip.groundedSources", { count: sources.length });
+  const trajectoryLabels = trajectory ? trajectoryResultLabels(trajectory) : undefined;
+  const trajectoryTooltip = trajectoryLabels ? (
+    <span class="deck-trajectory-tooltip">
+      <span>{trajectoryLabels.activitySummary}</span>
+      <span>{trajectoryLabels.evidenceSummary}</span>
+    </span>
+  ) : null;
 
   const copy = () => {
     void navigator.clipboard?.writeText(text).then(
@@ -362,43 +369,59 @@ export function GroundedReply({
                   </button>
                 </Tooltip>
               ) : null}
-              <a class="deck-gr-tool deck-gr-review" href={assuranceHref(turnId)}>
-                {t("deck.reviewAnswer")}
-              </a>
+              {trajectory && sources.length === 0 ? (
+                <Tooltip content={trajectoryTooltip} placement="top-end">
+                  <a
+                    class="deck-gr-tool deck-gr-review has-trajectory-status"
+                    href={assuranceHref(turnId)}
+                  >
+                    {t("deck.reviewAnswer")}
+                    <ConversationTrajectoryResults trajectory={trajectory} />
+                  </a>
+                </Tooltip>
+              ) : (
+                <a class="deck-gr-tool deck-gr-review" href={assuranceHref(turnId)}>
+                  {t("deck.reviewAnswer")}
+                </a>
+              )}
             </>
           ) : null}
 
           {sources.length > 0 ? (
-            <span class="deck-gr-source-stack">
-              <Tooltip content={sourceButtonLabel}>
-                <button
-                  type="button"
-                  class="deck-gr-pill"
-                  onClick={() => setOpen((v) => !v)}
-                  aria-expanded={open}
-                  aria-label={trajectory
-                    ? `${sourceButtonLabel}; ${trajectoryResultLabel(trajectory)}`
-                    : sourceButtonLabel}
-                >
-                  <span class="deck-gr-check" aria-hidden="true">
-                    {groundingIncomplete ? "!" : "\u2713"}
-                  </span>
-                  <span class="deck-gr-stat">
-                    <strong>{sources.length}</strong>{" "}
-                    {sources.length === 1
-                      ? t("deck.grounded.source")
-                      : t("deck.grounded.sources")}
-                  </span>
-                  {groundingIncomplete ? (
-                    <span class="deck-gr-stat">{t("deck.grounded.partialEvidence")}</span>
-                  ) : null}
-                  <span class="deck-gr-more">
-                    {open ? t("deck.grounded.hideSources") : t("deck.grounded.showSources")}
-                  </span>
-                </button>
-              </Tooltip>
-              {trajectory ? <ConversationTrajectoryResults trajectory={trajectory} /> : null}
-            </span>
+            <Tooltip
+              placement="top-end"
+              content={
+                <span class="deck-source-status-tooltip">
+                  <span>{sourceButtonLabel}</span>
+                  {trajectoryTooltip}
+                </span>
+              }
+            >
+              <button
+                type="button"
+                class={`deck-gr-pill${trajectory ? " has-trajectory-status" : ""}`}
+                onClick={() => setOpen((v) => !v)}
+                aria-expanded={open}
+                aria-label={sourceButtonLabel}
+              >
+                <span class="deck-gr-check" aria-hidden="true">
+                  {groundingIncomplete ? "!" : "\u2713"}
+                </span>
+                <span class="deck-gr-stat">
+                  <strong>{sources.length}</strong>{" "}
+                  {sources.length === 1
+                    ? t("deck.grounded.source")
+                    : t("deck.grounded.sources")}
+                </span>
+                {groundingIncomplete ? (
+                  <span class="deck-gr-stat">{t("deck.grounded.partialEvidence")}</span>
+                ) : null}
+                <span class="deck-gr-more">
+                  {open ? t("deck.grounded.hideSources") : t("deck.grounded.showSources")}
+                </span>
+                {trajectory ? <ConversationTrajectoryResults trajectory={trajectory} /> : null}
+              </button>
+            </Tooltip>
           ) : null}
         </div>
       ) : null}

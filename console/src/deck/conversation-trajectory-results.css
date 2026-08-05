@@ -1,33 +1,51 @@
-.deck-gr-source-stack {
+.deck-gr-pill.has-trajectory-status,
+.deck-gr-review.has-trajectory-status {
   position: relative;
-  display: inline-flex;
-  align-items: center;
+  overflow: visible;
 }
 
-.deck-gr-source-stack .deck-trajectory-results {
+.has-trajectory-status .deck-trajectory-results {
   position: absolute;
-  z-index: 2;
-  top: -6px;
+  z-index: 1;
+  top: 50%;
   right: -6px;
+  transform: translateY(-50%);
   pointer-events: none;
 }
 
-.deck-gr-source-stack .deck-trajectory-results > span {
-  max-width: 18px;
-  min-height: 18px;
-  margin-left: -13px;
-}
-
-.deck-gr-source-stack:hover .deck-trajectory-results > span,
-.deck-gr-source-stack:focus-within .deck-trajectory-results > span {
-  max-width: 260px;
+.has-trajectory-status .deck-trajectory-results > span {
+  width: 10px;
+  max-width: 10px;
+  min-height: 10px;
   margin-left: -4px;
-  padding: 2px 7px;
-  gap: 6px;
-  color: var(--fg-muted);
+  padding: 0;
+  overflow: visible;
+  border: 2px solid var(--bg-elevated);
+  background: var(--bg-elevated);
+  color: transparent;
+  transition: none;
 }
 
-.deck-gr-source-stack:hover .deck-trajectory-results > span:first-child,
-.deck-gr-source-stack:focus-within .deck-trajectory-results > span:first-child {
+.has-trajectory-status .deck-trajectory-results > span::before {
+  width: 6px;
+  height: 6px;
+}
+
+.has-trajectory-status .deck-trajectory-results > span:first-child {
   margin-left: 0;
+}
+
+.deck-source-status-tooltip,
+.deck-trajectory-tooltip {
+  display: grid;
+  gap: 3px;
+}
+
+.deck-source-status-tooltip > span:first-child {
+  font-weight: 700;
+}
+
+.deck-trajectory-tooltip {
+  color: var(--fg-muted);
+  font-weight: 500;
 }

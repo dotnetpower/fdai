@@ -194,16 +194,21 @@ export function ConversationTrajectoryResults({
 }) {
   const { activitySummary, evidenceSummary, evidenceState } = trajectoryResultSummary(trajectory);
   return (
-    <span class="deck-trajectory-results" aria-hidden="true">
-      <span data-state="observed">{activitySummary}</span>
-      <span data-state={evidenceState}>{evidenceSummary}</span>
+    <span
+      class="deck-trajectory-results"
+      data-activity-summary={activitySummary}
+      data-evidence-summary={evidenceSummary}
+      aria-hidden="true"
+    >
+      <span data-state="observed" />
+      <span data-state={evidenceState} />
     </span>
   );
 }
 
-export function trajectoryResultLabel(trajectory: ConversationTrajectory): string {
+export function trajectoryResultLabels(trajectory: ConversationTrajectory) {
   const { activitySummary, evidenceSummary } = trajectoryResultSummary(trajectory);
-  return `${activitySummary}; ${evidenceSummary}`;
+  return { activitySummary, evidenceSummary };
 }
 
 function trajectoryResultSummary(trajectory: ConversationTrajectory) {
