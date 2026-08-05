@@ -117,7 +117,22 @@ _INSUFFICIENT_EVIDENCE_CONCEPT: Final = re.compile(
     r"\bevidence\b[\s\S]{0,120}\bconfidence\s+(?:threshold|bar)\b"
     r"[\s\S]{0,180}\b(?:next|proceed|pause|escalat|request|gather|fetch|decid|action)\w*\b"
     r"|\bconfidence\s+(?:threshold|bar)\b[\s\S]{0,120}\bevidence\b"
-    r"[\s\S]{0,180}\b(?:next|proceed|pause|escalat|request|gather|fetch|decid|action)\w*\b",
+    r"[\s\S]{0,180}\b(?:next|proceed|pause|escalat|request|gather|fetch|decid|action)\w*\b"
+    # Korean phrasing of the same concept: evidence/grounds whose reliability or
+    # sufficiency is judged, proximate to a hold/escalate/review outcome word.
+    r"|(?:증거|근거)[\s\S]{0,160}(?:신뢰도|충분|부족)[\s\S]{0,220}"
+    r"(?:보류|홀드|에스컬레이션|검토|승인|유지)"
+    r"|(?:신뢰도|충분|부족)[\s\S]{0,160}(?:증거|근거)[\s\S]{0,220}"
+    r"(?:보류|홀드|에스컬레이션|검토|승인|유지)",
+    re.IGNORECASE,
+)
+
+
+_T2_QUALITY_GATE_CONCEPT: Final = re.compile(
+    r"^(?=[\s\S]{0,400}\bt2(?:-graded)?\b)"
+    r"(?=[\s\S]{0,400}\bexecution eligib(?:le|ility)\b)"
+    r"(?=[\s\S]{0,400}\b(?:what|which|explain|requirements?|walk through)\b)"
+    r"(?=[\s\S]{0,400}\b(?:checks?|pass|validation|gating|sufficiency)\b)",
     re.IGNORECASE,
 )
 
@@ -161,6 +176,11 @@ _GLOSSARY_ALIASES: Final = {
         "|(?:대화|스스로|자율|동작).*에이전트",
         re.IGNORECASE,
     ),
+    # Reuse the bilingual insufficient-evidence detector: the glossary term text
+    # is English-only ("Insufficient evidence: ..."), so a Korean-phrased
+    # question needs this alias to score against that entry.
+    "insufficient evidence": _INSUFFICIENT_EVIDENCE_CONCEPT,
+    "quality gate (t2)": _T2_QUALITY_GATE_CONCEPT,
 }
 
 
@@ -178,9 +198,9 @@ def _is_concept_query(prompt: str) -> bool:
 def _is_grounded_concept_query(prompt: str) -> bool:
     """Return whether the canonical glossary owns this explanatory turn."""
 
-    return bool(_INSUFFICIENT_EVIDENCE_CONCEPT.search(prompt)) or (
-        _is_concept_query(prompt) and bool(_CONCEPT_DOMAIN.search(prompt))
-    )
+    return bool(
+        _INSUFFICIENT_EVIDENCE_CONCEPT.search(prompt) or _T2_QUALITY_GATE_CONCEPT.search(prompt)
+    ) or (_is_concept_query(prompt) and bool(_CONCEPT_DOMAIN.search(prompt)))
 
 
 def _is_screen_explanation_query(prompt: str) -> bool:

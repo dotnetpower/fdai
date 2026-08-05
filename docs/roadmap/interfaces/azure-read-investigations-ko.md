@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 20ecb5b2cdd9373f3cc4a9bda9cc846c904746b0
+translation_source_sha: 43ea6e80fe7f9f7ebbf9ef4fec5c7c3db90449a7
 translation_revised: 2026-08-05
 ---
 
@@ -103,6 +103,9 @@ Catalog는 실행 가능한 text를 포함하거나 tool authority를 부여할 
 Planner는 history를 조회하기 전에 resource name을 resolve합니다. Match가 없으면 `not_found`를
 반환합니다. 여러 match는 bounded candidate와 함께 `ambiguous`를 반환하고 추가 cloud query를 하지
 않습니다. 단일 match는 이후 tool이 확장할 수 없는 exact provider resource reference를 생성합니다.
+`read-only`, `customer-initiated`, `platform-initiated`와 같은 evidence 및 cause qualifier는
+resource selector가 아닙니다. 이러한 term이 포함된 collection 질문은 distinct identifier-like
+resource name 하나도 함께 포함하지 않는 한 collection read를 유지합니다.
 
 Inventory 답변이 resource 하나를 선택하면 terminal response에 bounded name, type 및 inventory
 evidence reference를 포함할 수 있습니다. Command Deck은 "언제부터 중지되어 있었어?" 같은 후속
@@ -317,6 +320,11 @@ Customer-initiated Resource Health state는 Azure platform incident가 아니라
 Historical read는 current ARM availability endpoint로 fallback하지 않습니다. Exact lookback,
 chronological order, three-way cause count, partial source failure 및 truncation을 보존하므로 current
 status를 historical event로 표시하지 않습니다.
+Current Resource Health timeline 질문은 별도의 deterministic mode를 사용합니다. 관련 없는
+representative metric이나 Service Health를 섞지 않고 current Resource Health와 cause annotation을
+query한 다음 각 finding의 provider observation time과 `customer-initiated`, `status-only` 또는
+`platform-initiated` 분류를 렌더링합니다. Timestamp는 이 bounded read에서 확인한 최초 관측
+시각이며 실제 condition onset을 증명하지는 않습니다.
 Health-coverage 질문은 동일한 server scope에서 Resource Health, Service Health 및 representative
 metric을 query합니다. Unavailable 및 unsupported count를 분리해 보고하며 provider가 원인을 증명하지
 않으면 provider-unavailable 결과를 authorization 또는 scope로 표시하지 않습니다.
