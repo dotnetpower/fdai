@@ -76,6 +76,7 @@ class ContentPolicyReplayRequest:
     user_id: str
     session_id: str
     request_id: str
+    clean_prompt: str
     stage: str
 
 
@@ -147,6 +148,7 @@ async def prepare_chat_stream_request(
                 user_id=user_id,
                 session_id=session_id,
                 request_id=request_id,
+                clean_prompt=clean_prompt,
                 stage=replay_stage,
             )
     preferred_model = (

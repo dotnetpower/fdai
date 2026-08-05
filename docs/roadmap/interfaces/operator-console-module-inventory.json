@@ -17,6 +17,12 @@
       "candidate_destination": "retain"
     },
     {
+      "path": "application",
+      "responsibility": "Typed process-local, non-authoritative application coordination",
+      "classification": "application-coordination",
+      "candidate_destination": "retain until service-graduation evidence justifies a process boundary"
+    },
+    {
       "path": "dev",
       "responsibility": "Interactive local and test-only provider composition",
       "classification": "composition",
@@ -319,6 +325,18 @@
     {
       "contract": "sse-sink-failure-termination",
       "test": "tests/delivery/operator_api/test_live_stream_hardening.py::test_r7_stream_ends_when_sink_errors"
+    },
+    {
+      "contract": "chat-sse-producer-frame-cap",
+      "test": "tests/delivery/operator_api/test_chat_stream_protocol.py::test_chat_sse_frame_rejects_payload_above_browser_limit"
+    },
+    {
+      "contract": "chat-sse-error-envelope-parity",
+      "test": "tests/delivery/operator_api/test_conversation_turn_service.py::test_sse_known_http_failure_retains_bounded_status_and_reason"
+    },
+    {
+      "contract": "chat-sse-route-envelope-ownership",
+      "test": "tests/delivery/operator_api/test_conversation_turn_service.py::test_sse_transport_envelope_overrides_backend_reserved_fields"
     }
   ],
   "client_wire_baselines": [
@@ -341,23 +359,12 @@
       "contract": "chat-sequence-gap-fail-closed",
       "test_file": "console/src/deck/backend-stream-fallback.test.ts",
       "test_name": "fails closed when a terminal stream has a sequence gap"
-    }
-  ],
-  "known_wire_debts": [
+    },
     {
       "contract": "chat-frame-request-binding-and-required-sequence",
-      "tracking_issue": 71,
-      "exit_condition": "The browser rejects a mismatched request_id and a semantic frame without seq."
-    },
-    {
-      "contract": "chat-sse-error-envelope-parity",
-      "tracking_issue": 71,
-      "exit_condition": "Known HTTP failures retain a bounded status and reason in the SSE error envelope."
-    },
-    {
-      "contract": "chat-sse-producer-frame-cap",
-      "tracking_issue": 71,
-      "exit_condition": "The producer bounds chat frames at or below the browser's 256 KiB limit."
+      "test_file": "console/src/deck/backend-stream-v1-contract.test.ts",
+      "test_name": "rejects v1 frames with mismatched request ids or missing sequences"
     }
-  ]
+  ],
+  "known_wire_debts": []
 }

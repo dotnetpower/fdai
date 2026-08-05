@@ -24,6 +24,7 @@ _MODULE_INVENTORY_PATH = (
 _REQUIRED_SUBPACKAGES = frozenset(
     {
         "app",
+        "application",
         "dev",
         "persistence",
         "production",
@@ -34,6 +35,7 @@ _REQUIRED_SUBPACKAGES = frozenset(
 
 _PACKAGE_CLASSIFICATIONS = frozenset(
     {
+        "application-coordination",
         "composition",
         "mixed-transitional",
         "provider-adapter",

@@ -9,6 +9,11 @@ from typing import Any, cast
 
 from starlette.responses import JSONResponse
 
+from fdai.delivery.operator_api.application import (
+    ConversationTurnApplicationService,
+    ConversationTurnExecution,
+)
+
 
 @dataclass(frozen=True)
 class ChatResponseTailContext:
@@ -32,6 +37,8 @@ class ChatResponseTailContext:
     user_context_ontology_projector: Any | None
     post_turn_review_submitter: Any | None
     operator_turn: Any | None
+    turn_service: ConversationTurnApplicationService
+    turn_execution: ConversationTurnExecution
 
     @classmethod
     def from_handler_locals(
@@ -61,6 +68,8 @@ class ChatResponseTailContext:
             user_context_ontology_projector=values["user_context_ontology_projector"],
             post_turn_review_submitter=post_turn_review_submitter,
             operator_turn=values["operator_turn"],
+            turn_service=cast(ConversationTurnApplicationService, values["turn_service"]),
+            turn_execution=cast(ConversationTurnExecution, values["turn_execution"]),
         )
 
 
@@ -246,6 +255,11 @@ async def finalize_chat_response(
         artifact.to_dict()
         for artifact in dependencies.extract_grounded_code(context.verification.answer)
     ]
+    validated_result = context.turn_service.validate_turn_result(
+        context.turn_execution,
+        enriched,
+    )
+    terminal_payload = validated_result.to_wire_payload()
     if context.conversation_history_store is not None:
         assistant_turn = await dependencies.append_assistant_turn(
             store=context.conversation_history_store,
@@ -256,7 +270,7 @@ async def finalize_chat_response(
             recorded_at=dependencies.now_utc(),
             metadata=dependencies.replay_metadata(
                 model=str(context.reply.get("model") or "unknown"),
-                payload=enriched,
+                payload=terminal_payload,
                 additional=dependencies.turn_metadata(
                     model=str(context.reply.get("model") or "unknown"),
                     view_context=context.view_context,
@@ -276,5 +290,7 @@ async def finalize_chat_response(
                     explicit_corrections=dependencies.explicit_corrections(context.clean_prompt),
                 ),
             )
-    response = dependencies.json_response(enriched)
+    result = context.turn_service.complete_turn(context.turn_execution, terminal_payload)
+    terminal_payload = result.to_wire_payload()
+    response = dependencies.json_response(terminal_payload)
     return cast(JSONResponse, response)

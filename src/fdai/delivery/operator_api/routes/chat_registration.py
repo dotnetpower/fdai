@@ -18,6 +18,7 @@ from fdai.core.conversation_assurance import ConversationPolicyRuntime
 from fdai.core.skills import RuntimeSkillDisclosure
 from fdai.core.user_context_projection import UserContextOntologyProjector
 from fdai.delivery.handover_events import HandoverAvailabilityPublisher
+from fdai.delivery.operator_api.application import ConversationTurnApplicationService
 from fdai.delivery.operator_api.read_model import ConsoleReadModel
 from fdai.delivery.operator_api.routes.busy_input import make_busy_input_routes
 from fdai.delivery.operator_api.routes.busy_input_runtime import BusyInputRuntime
@@ -331,6 +332,7 @@ def append_chat_routes(
         read_tools,
         *((inventory_chat_tools,) if inventory_chat_tools is not None else ()),
     )
+    turn_service = ConversationTurnApplicationService()
     routes.extend(
         (
             make_chat_route(
@@ -362,6 +364,7 @@ def append_chat_routes(
                 turn_planner=turn_planner,
                 turn_tools=capability_registry.visible_tools,
                 handover_availability_publisher=handover_availability_publisher,
+                turn_service=turn_service,
             ),
             make_chat_stream_route(
                 backend=backend,
@@ -392,6 +395,7 @@ def append_chat_routes(
                 progress_metrics=progress_metrics,
                 turn_planner=turn_planner,
                 turn_tools=capability_registry.visible_tools,
+                turn_service=turn_service,
             ),
             make_chat_health_route(
                 backend=backend,

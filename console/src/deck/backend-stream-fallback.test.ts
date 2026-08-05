@@ -946,4 +946,33 @@ describe("askBackendStream fallback typewriter", () => {
     expect(after.partialTerminals).toBe(before.partialTerminals + 1);
   });
 
+  test.each([
+    ["mismatched request binding", { v: 1, request_id: "another-request", seq: 1 }],
+    ["missing required sequence", { v: 1, request_id: "REQUEST_ID" }],
+  ])("fails closed on a v1 %s", async (_name, frame) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input, init) => {
+        const request = JSON.parse(String(init?.body)) as { request_id: string };
+        const payload = {
+          ...frame,
+          request_id: frame.request_id === "REQUEST_ID"
+            ? request.request_id
+            : frame.request_id,
+          answer: "must not be accepted",
+          model: "gpt-test",
+        };
+        return new Response(`event: done\ndata: ${JSON.stringify(payload)}\n\n`, {
+          status: 200,
+        });
+      }),
+    );
+    const mod = await import("./backend");
+
+    const reply = await mod.askBackendStream("q", snap(), [], { onToken: () => undefined });
+
+    expect(reply.source).toBe("partial (sequence gap)");
+    expect(reply.verification).toBeUndefined();
+  });
+
 });

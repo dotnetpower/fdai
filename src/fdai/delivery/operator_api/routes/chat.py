@@ -33,6 +33,11 @@ from fdai.delivery.conversation_images import (
     ConversationImageStore,
 )
 from fdai.delivery.handover_events import HandoverAvailabilityPublisher
+from fdai.delivery.operator_api.application import (
+    ConversationTurnApplicationService,
+    ConversationTurnInput,
+    ConversationTurnTerminalStatus,
+)
 from fdai.delivery.operator_api.routes.chat_action_context import (
     is_explicit_action_draft_request,
     needs_action_context,
@@ -367,19 +372,23 @@ def make_chat_route(
     turn_tools: tuple[TurnTool, ...] | Callable[[], tuple[TurnTool, ...]] = (),
     handover_availability_publisher: HandoverAvailabilityPublisher | None = None,
     history_policy: ChatHistoryPolicy = DEFAULT_CHAT_HISTORY_POLICY,
+    turn_service: ConversationTurnApplicationService | None = None,
     path: str = DEFAULT_ROUTE_PATH,
     max_body_bytes: int = DEFAULT_MAX_CHAT_BODY_BYTES,
 ) -> Route:
     """Build the ``POST /chat`` route.
 
-    The route is POST because the browser sends a body; it is still
-    read-only in the FDAI sense (no state mutation, no privileged call).
-    Reader role is required (enforced by the shared ``authorize`` fn).
+    The route is POST because the browser sends a body. It can persist
+    conversation history and review records, but has no privileged execution
+    or approval authority. Reader role is required through ``authorize``.
     """
 
     history_compressor = BackendChatHistoryCompressor(
         backend=backend,
         max_summary_chars=history_policy.max_summary_chars,
+    )
+    resolved_turn_service = (
+        turn_service if turn_service is not None else ConversationTurnApplicationService()
     )
 
     async def handler(request: Request) -> JSONResponse:
@@ -455,6 +464,19 @@ def make_chat_route(
                     history.append({"role": role, "content": content})
 
         clean_prompt = prompt.strip()
+        turn_input = ConversationTurnInput(
+            principal_id=user_id,
+            conversation_id=session_id,
+            request_id=request_id,
+            correlation_id=_metering_correlation_id(user_id, session_id),
+            prompt=clean_prompt,
+            response_locale=_response_locale(clean_prompt, view_context),
+            target_agent=target_agent,
+            evidence_refs=document_evidence_refs,
+            history_turn_count=len(history),
+            streaming=False,
+        )
+        turn_service = resolved_turn_service
         try:
             _reject_direct_override(clean_prompt)
         except ChatContentPolicyError as exc:
@@ -607,6 +629,7 @@ def make_chat_route(
                 )
             )
             task.add_done_callback(_log_handover_availability_failure)
+        turn_execution = resolved_turn_service.start_turn(turn_input)
         active_turn = None
         if busy_input_coordinator is not None:
             try:
@@ -616,9 +639,17 @@ def make_chat_route(
                     principal_id=user_id,
                 )
             except RuntimeError as exc:
+                failed_detail = "conversation session already has an active turn"
+                resolved_turn_service.terminate_turn(
+                    turn_execution,
+                    terminal_status=ConversationTurnTerminalStatus.FAILED,
+                    code="chat_session_busy",
+                    detail=failed_detail,
+                    wire_payload={"detail": failed_detail},
+                )
                 raise HTTPException(
                     status_code=409,
-                    detail="conversation session already has an active turn",
+                    detail=failed_detail,
                 ) from exc
         try:
             operator_turn = None
@@ -713,7 +744,11 @@ def make_chat_route(
                             turn_id=request_id,
                             principal_id=user_id,
                         )
-                    return JSONResponse(completed_replay_payload(completed_turn))
+                    replay = resolved_turn_service.complete_turn(
+                        turn_execution,
+                        completed_replay_payload(completed_turn),
+                    )
+                    return JSONResponse(replay.to_wire_payload())
             if semantic_plan is not None and semantic_plan.requires_confirmation:
                 if isinstance(semantic_plan, IntentGraph) and not draft_capability_available(
                     semantic_plan,
@@ -725,27 +760,36 @@ def make_chat_route(
                             turn_id=request_id,
                             principal_id=user_id,
                         )
-                    return JSONResponse(
-                        {"detail": "draft capability is no longer available"},
-                        status_code=409,
+                    unavailable_payload = {"detail": "draft capability is no longer available"}
+                    unavailable = resolved_turn_service.terminate_turn(
+                        turn_execution,
+                        terminal_status=ConversationTurnTerminalStatus.UNAVAILABLE,
+                        code="draft_capability_unavailable",
+                        detail=unavailable_payload["detail"],
+                        wire_payload=unavailable_payload,
                     )
+                    return JSONResponse(unavailable.to_wire_payload(), status_code=409)
                 if busy_input_coordinator is not None and active_turn is not None:
                     await busy_input_coordinator.finish_turn(
                         session_id=session_id,
                         turn_id=request_id,
                         principal_id=user_id,
                     )
-                return JSONResponse(
-                    {
-                        "answer": "Review this action draft before submitting it.",
-                        "model": "semantic-turn-planner",
-                        "source": "action-draft",
-                        "action_draft": semantic_plan.confirmation_payload(
-                            request_id=request_id,
-                            session_id=session_id,
-                        ),
-                    }
+                draft_payload = {
+                    "answer": "Review this action draft before submitting it.",
+                    "model": "semantic-turn-planner",
+                    "source": "action-draft",
+                    "action_draft": semantic_plan.confirmation_payload(
+                        request_id=request_id,
+                        session_id=session_id,
+                    ),
+                }
+                draft = resolved_turn_service.complete_turn(
+                    turn_execution,
+                    draft_payload,
+                    terminal_status=ConversationTurnTerminalStatus.UNVERIFIED,
                 )
+                return JSONResponse(draft.to_wire_payload())
             view_context = await _with_compiled_user_policy(
                 view_context,
                 user_id=user_id,
@@ -1054,20 +1098,30 @@ def make_chat_route(
             }
         except ChatTurnInterruptedError:
             await cancel_planning(planning_task)
-            return JSONResponse(
-                {
-                    "detail": "chat turn interrupted",
-                    "session_id": session_id,
-                    "request_id": request_id,
-                },
-                status_code=409,
+            interrupted_payload = {
+                "detail": "chat turn interrupted",
+                "session_id": session_id,
+                "request_id": request_id,
+            }
+            interrupted = resolved_turn_service.terminate_turn(
+                turn_execution,
+                terminal_status=ConversationTurnTerminalStatus.CANCELLED,
+                code="chat_turn_interrupted",
+                detail=interrupted_payload["detail"],
+                wire_payload=interrupted_payload,
             )
+            return JSONResponse(interrupted.to_wire_payload(), status_code=409)
         except ChatBackendUnavailableError:
             await cancel_planning(planning_task)
-            raise HTTPException(
-                status_code=501,
-                detail="chat backend not configured on this deployment",
-            ) from None
+            unavailable_payload = {"detail": "chat backend not configured on this deployment"}
+            resolved_turn_service.terminate_turn(
+                turn_execution,
+                terminal_status=ConversationTurnTerminalStatus.UNAVAILABLE,
+                code="chat_backend_unavailable",
+                detail=unavailable_payload["detail"],
+                wire_payload=unavailable_payload,
+            )
+            raise HTTPException(status_code=501, detail=unavailable_payload["detail"]) from None
         except ChatContentPolicyError as exc:
             await cancel_planning(planning_task)
             if conversation_history_store is not None and operator_turn is not None:
@@ -1087,13 +1141,50 @@ def make_chat_route(
                         type(receipt_error).__name__,
                         extra={"request_id": request_id},
                     )
+                    failed_detail = "content policy receipt unavailable"
+                    resolved_turn_service.terminate_turn(
+                        turn_execution,
+                        terminal_status=ConversationTurnTerminalStatus.FAILED,
+                        code="content_policy_receipt_unavailable",
+                        detail=failed_detail,
+                        wire_payload={"detail": failed_detail},
+                    )
                     raise HTTPException(
                         status_code=503,
-                        detail="content policy receipt unavailable",
+                        detail=failed_detail,
                     ) from receipt_error
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+            policy_payload = {"detail": str(exc)}
+            resolved_turn_service.terminate_turn(
+                turn_execution,
+                terminal_status=ConversationTurnTerminalStatus.ABSTAINED,
+                code="content_policy_block",
+                detail=policy_payload["detail"],
+                wire_payload=policy_payload,
+            )
+            raise HTTPException(status_code=422, detail=policy_payload["detail"]) from exc
+        except asyncio.CancelledError:
+            await cancel_planning(planning_task)
+            cancelled_detail = "chat turn cancelled"
+            if not turn_execution.closed:
+                resolved_turn_service.terminate_turn(
+                    turn_execution,
+                    terminal_status=ConversationTurnTerminalStatus.CANCELLED,
+                    code="chat_turn_cancelled",
+                    detail=cancelled_detail,
+                    wire_payload={"detail": cancelled_detail},
+                )
+            raise
         except Exception:
             await cancel_planning(planning_task)
+            failed_detail = "chat turn failed"
+            if not turn_execution.closed:
+                resolved_turn_service.terminate_turn(
+                    turn_execution,
+                    terminal_status=ConversationTurnTerminalStatus.FAILED,
+                    code="chat_turn_failed",
+                    detail=failed_detail,
+                    wire_payload={"detail": failed_detail},
+                )
             raise
         finally:
             if busy_input_coordinator is not None and active_turn is not None:
@@ -1102,13 +1193,36 @@ def make_chat_route(
                     turn_id=request_id,
                     principal_id=user_id,
                 )
-        return await finalize_chat_response(
-            ChatResponseTailContext.from_handler_locals(
-                locals(),
-                post_turn_review_submitter=post_turn_review_submitter,
-            ),
-            ChatResponseTailDependencies.from_chat_namespace(globals()),
-        )
+        try:
+            return await finalize_chat_response(
+                ChatResponseTailContext.from_handler_locals(
+                    locals(),
+                    post_turn_review_submitter=post_turn_review_submitter,
+                ),
+                ChatResponseTailDependencies.from_chat_namespace(globals()),
+            )
+        except asyncio.CancelledError:
+            cancelled_detail = "chat turn cancelled"
+            if not turn_execution.closed:
+                resolved_turn_service.terminate_turn(
+                    turn_execution,
+                    terminal_status=ConversationTurnTerminalStatus.CANCELLED,
+                    code="chat_turn_cancelled",
+                    detail=cancelled_detail,
+                    wire_payload={"detail": cancelled_detail},
+                )
+            raise
+        except Exception:
+            failed_detail = "chat turn failed"
+            if not turn_execution.closed:
+                resolved_turn_service.terminate_turn(
+                    turn_execution,
+                    terminal_status=ConversationTurnTerminalStatus.FAILED,
+                    code="chat_turn_failed",
+                    detail=failed_detail,
+                    wire_payload={"detail": failed_detail},
+                )
+            raise
 
     return Route(path, handler, methods=["POST"])
 

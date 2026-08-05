@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: f38883e84b1d0c2efb6fd25e092f24eda78ee3ca
+translation_source_sha: ae16030bd5cf8dbfaadabdc16998980776d50fa0
 translation_revised: 2026-08-06
 ---
 # Operator Console Module Map and Boundaries
@@ -61,10 +61,32 @@ Rollback에서도 두 import surface를 안정적으로 유지합니다. Impleme
 composition import는 package facade에 유지합니다. 이 절차는 API 또는 wire rollback 없이 physical
 ownership을 되돌리고 broad wildcard facade를 만들지 않습니다.
 
+### Conversation turn application boundary
+
+Issue 71은 JSON 및 SSE chat route가 공유하는 process-local application-service boundary로
+`fdai.delivery.operator_api.application.conversation_turn`을 도입합니다. Authentication과 bounded
+transport parsing 이후 각 route는 immutable `ConversationTurnInput`을 만들고 하나의 typed lifecycle을
+시작합니다. 기존 evidence, planning, narration, verification, history, busy-input, progress 및 cancellation
+implementation은 in-process로 유지되고 해당 lifecycle을 통해 완료됩니다. Network hop 또는 별도 배포
+service는 추가하지 않습니다.
+
+Input은 server-derived principal, conversation, request, correlation, prompt, locale, target-agent,
+evidence-reference, history-count 및 transport-mode value만 포함합니다. Provider scope, credential,
+approval, role, executor identity 또는 mutable context field는 없습니다. Immutable result는 terminal
+status, verified answer, verification summary, evidence ref, presentation artifact, delegation metadata 및
+explicit failure detail을 기록합니다. Frozen wire snapshot은 field 추가 없이 기존 JSON payload 또는 SSE
+terminal frame으로 round-trip합니다.
+
+Service는 non-authoritative이며 call 사이에 state를 유지하지 않습니다. Approval, execution, promotion,
+provider scope 선택을 수행할 수 없고 Thor identity를 받을 수 없습니다. HTTP status mapping, SSE
+sequence/revision, header, route name, authorization 및 cancellation transport는 route가 계속 소유합니다.
+Bragi는 presentation translator로 유지되고 authority-bearing agent work는 typed pub/sub을 계속 사용합니다.
+
 | Package | 현재 책임 | Migration 규칙 |
 |---------|-----------|----------------|
 | Root | Public facade 및 foundational contract | 분류된 replacement가 준비될 때까지 유지합니다. |
 | `app/` | Shared ASGI assembly, middleware, registration 및 lifespan | HTTP composition boundary로 유지합니다. |
+| `application/` | Typed process-local, non-authoritative application coordination | Service-graduation evidence가 process boundary를 정당화할 때까지 유지합니다. |
 | `dev/` | Interactive local 및 test-only provider composition | Production import에서 사용할 수 없게 유지합니다. |
 | `dev/fixtures/` | Synthetic pytest-only fixture | Production composition 밖에 유지합니다. |
 | `persistence/` | Operator API read-model implementation 및 projection | 소유된 read contract 뒤에 유지합니다. |
@@ -85,8 +107,10 @@ public extension seam으로 유지합니다. 그 외 개별 `routes.*` module은
 Migration에서는 분류된 compatibility 필요가 있을 때만 module별 forwarding shim을 사용합니다.
 Runtime-owned agent-state record 및 event-bus publication은 `fdai.delivery.agent_activity`에 있으므로
 headless runtime은 Operator API streaming implementation을 import하지 않습니다. Provisioning의
-`streaming.provision_stream` compatibility는 별도로 분류합니다. Inventory는 request binding, required
-sequence field, error-envelope parity 및 chat SSE producer frame cap을 issue 71 wire debt로 별도 기록합니다.
+`streaming.provision_stream` compatibility는 별도로 분류합니다. Issue 71은 baseline에 기록된 chat wire
+debt를 해소합니다. Version 1 semantic frame에는 server-owned request id와 integer sequence가 필요하고,
+known HTTP failure는 bounded status와 reason을 유지하며, producer는 browser의 256 KiB limit를 넘는
+frame을 거부합니다.
 
 이 이동 동안 PostgreSQL과 Alembic은 shared migration authority로 유지됩니다. Module 또는 route migration은
 두 번째 schema owner를 만들지 않습니다. Service-owned schema 및 migration lane에는 별도 검토된 boundary가

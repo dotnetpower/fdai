@@ -25,6 +25,11 @@ from fdai.delivery.conversation_images import (
     ConversationImageQuotaError,
     ConversationImageStore,
 )
+from fdai.delivery.operator_api.application import (
+    ConversationTurnApplicationService,
+    ConversationTurnInput,
+    ConversationTurnTerminalStatus,
+)
 from fdai.delivery.operator_api.routes.chat_action_context import (
     is_explicit_action_draft_request,
     needs_action_context,
@@ -213,6 +218,7 @@ def make_chat_stream_route(
     turn_planner: TurnPlanner | IntentGraphPlanner | None = None,
     turn_tools: tuple[TurnTool, ...] | Callable[[], tuple[TurnTool, ...]] = (),
     history_policy: ChatHistoryPolicy = DEFAULT_CHAT_HISTORY_POLICY,
+    turn_service: ConversationTurnApplicationService | None = None,
     path: str = DEFAULT_STREAM_PATH,
     max_body_bytes: int = DEFAULT_MAX_CHAT_BODY_BYTES,
 ) -> Route:
@@ -224,12 +230,16 @@ def make_chat_stream_route(
     frame is emitted and the stream closes. Backends that do not implement
     ``answer_stream`` fall back to a single-shot ``answer`` emitted as one
     token + done, so the FE can always consume the same protocol.
-    Read-only in the FDAI sense - no state mutation, no privileged call.
+    The route can persist conversation history and review records, but has no
+    privileged execution or approval authority.
     """
 
     history_compressor = BackendChatHistoryCompressor(
         backend=backend,
         max_summary_chars=history_policy.max_summary_chars,
+    )
+    resolved_turn_service = (
+        turn_service if turn_service is not None else ConversationTurnApplicationService()
     )
 
     async def handler(request: Request) -> StreamingResponse:
@@ -247,20 +257,43 @@ def make_chat_stream_route(
         if isinstance(prepared, ContentPolicyReplayRequest):
             if progress_metrics is not None:
                 progress_metrics.increment("content_policy_blocks")
+            policy_execution = resolved_turn_service.start_turn(
+                ConversationTurnInput(
+                    principal_id=prepared.user_id,
+                    conversation_id=prepared.session_id,
+                    request_id=prepared.request_id,
+                    correlation_id=_metering_correlation_id(
+                        prepared.user_id,
+                        prepared.session_id,
+                    ),
+                    prompt=prepared.clean_prompt,
+                    history_turn_count=0,
+                    streaming=True,
+                )
+            )
 
             async def policy_replay_source() -> AsyncIterator[bytes]:
+                detail = "chat request blocked by content policy"
+                payload = {
+                    "v": 1,
+                    "request_id": prepared.request_id,
+                    "seq": 1,
+                    "revision": 0,
+                    "code": "content_policy_block",
+                    "stage": prepared.stage,
+                    "receipt_persisted": True,
+                    "detail": detail,
+                }
+                abstained = resolved_turn_service.terminate_turn(
+                    policy_execution,
+                    terminal_status=ConversationTurnTerminalStatus.ABSTAINED,
+                    code="content_policy_block",
+                    detail=detail,
+                    wire_payload=payload,
+                )
                 yield _sse(
                     "error",
-                    {
-                        "v": 1,
-                        "request_id": prepared.request_id,
-                        "seq": 1,
-                        "revision": 0,
-                        "code": "content_policy_block",
-                        "stage": prepared.stage,
-                        "receipt_persisted": True,
-                        "detail": "chat request blocked by content policy",
-                    },
+                    abstained.to_wire_payload(),
                 )
 
             return StreamingResponse(
@@ -319,6 +352,20 @@ def make_chat_stream_route(
         session_id = prepared.session_id
         request_id = prepared.request_id
         include_model_trace = prepared.include_model_trace
+        turn_execution = resolved_turn_service.start_turn(
+            ConversationTurnInput(
+                principal_id=user_id,
+                conversation_id=session_id,
+                request_id=request_id,
+                correlation_id=_metering_correlation_id(user_id, session_id),
+                prompt=clean_prompt,
+                response_locale=_response_locale(clean_prompt, view_context),
+                target_agent=target_agent,
+                evidence_refs=document_evidence_refs,
+                history_turn_count=len(history),
+                streaming=True,
+            )
+        )
         active_turn = None
         if busy_input_coordinator is not None:
             try:
@@ -328,9 +375,17 @@ def make_chat_stream_route(
                     principal_id=user_id,
                 )
             except RuntimeError as exc:
+                failed_detail = "conversation session already has an active turn"
+                resolved_turn_service.terminate_turn(
+                    turn_execution,
+                    terminal_status=ConversationTurnTerminalStatus.FAILED,
+                    code="chat_session_busy",
+                    detail=failed_detail,
+                    wire_payload={"detail": failed_detail},
+                )
                 raise HTTPException(
                     status_code=409,
-                    detail="conversation session already has an active turn",
+                    detail=failed_detail,
                 ) from exc
         try:
             operator_turn = None
@@ -380,6 +435,22 @@ def make_chat_stream_route(
                 )
                 if completed_turn is not None:
                     completed_payload = completed_replay_payload(completed_turn)
+        except asyncio.CancelledError:
+            if busy_input_coordinator is not None and active_turn is not None:
+                await busy_input_coordinator.finish_turn(
+                    session_id=session_id,
+                    turn_id=request_id,
+                    principal_id=user_id,
+                )
+            cancelled_detail = "chat turn cancelled"
+            resolved_turn_service.terminate_turn(
+                turn_execution,
+                terminal_status=ConversationTurnTerminalStatus.CANCELLED,
+                code="chat_turn_cancelled",
+                detail=cancelled_detail,
+                wire_payload={"detail": cancelled_detail},
+            )
+            raise
         except Exception:
             if busy_input_coordinator is not None and active_turn is not None:
                 await busy_input_coordinator.finish_turn(
@@ -387,6 +458,14 @@ def make_chat_stream_route(
                     turn_id=request_id,
                     principal_id=user_id,
                 )
+            failed_detail = "chat stream setup failed"
+            resolved_turn_service.terminate_turn(
+                turn_execution,
+                terminal_status=ConversationTurnTerminalStatus.FAILED,
+                code="chat_stream_setup_failed",
+                detail=failed_detail,
+                wire_payload={"detail": failed_detail},
+            )
             raise
 
         async def event_source() -> AsyncIterator[bytes]:
@@ -408,11 +487,11 @@ def make_chat_stream_route(
                 return _sse(
                     event,
                     {
+                        **payload,
                         "v": 1,
                         "request_id": request_id,
                         "seq": sequence,
                         "revision": revision,
-                        **payload,
                     },
                 )
 
@@ -452,7 +531,26 @@ def make_chat_stream_route(
                             max(0, int((time.monotonic() - started) * 1000)),
                         )
                     await cleanup()
-                    yield frame("done", completed_payload)
+                    validated_replay = resolved_turn_service.validate_turn_result(
+                        turn_execution,
+                        completed_payload,
+                    )
+                    replay_payload = validated_replay.to_wire_payload()
+                    _sse(
+                        "done",
+                        {
+                            **replay_payload,
+                            "v": 1,
+                            "request_id": request_id,
+                            "seq": 9_223_372_036_854_775_807,
+                            "revision": revision,
+                        },
+                    )
+                    replay = resolved_turn_service.complete_turn(
+                        turn_execution,
+                        replay_payload,
+                    )
+                    yield frame("done", replay.to_wire_payload())
                     return
                 semantic_plan = None
                 if (
@@ -508,27 +606,42 @@ def make_chat_stream_route(
                                 turn_tools() if callable(turn_tools) else turn_tools,
                             ):
                                 await cleanup()
+                                unavailable_detail = "draft capability is no longer available"
+                                unavailable_payload = {
+                                    "error": unavailable_detail,
+                                    "status": 409,
+                                }
+                                unavailable = resolved_turn_service.terminate_turn(
+                                    turn_execution,
+                                    terminal_status=ConversationTurnTerminalStatus.UNAVAILABLE,
+                                    code="draft_capability_unavailable",
+                                    detail=unavailable_detail,
+                                    wire_payload=unavailable_payload,
+                                )
                                 yield frame(
                                     "error",
-                                    {
-                                        "error": "draft capability is no longer available",
-                                        "status": 409,
-                                    },
+                                    unavailable.to_wire_payload(),
                                 )
                                 return
                             await cleanup()
+                            draft_payload = {
+                                "answer": "Review this action draft before submitting it.",
+                                "model": "semantic-turn-planner",
+                                "source": "action-draft",
+                                "action_draft": semantic_plan.confirmation_payload(
+                                    request_id=request_id,
+                                    session_id=session_id,
+                                ),
+                                "turn_timing": turn_timing.snapshot(),
+                            }
+                            draft = resolved_turn_service.complete_turn(
+                                turn_execution,
+                                draft_payload,
+                                terminal_status=ConversationTurnTerminalStatus.UNVERIFIED,
+                            )
                             yield frame(
                                 "done",
-                                {
-                                    "answer": "Review this action draft before submitting it.",
-                                    "model": "semantic-turn-planner",
-                                    "source": "action-draft",
-                                    "action_draft": semantic_plan.confirmation_payload(
-                                        request_id=request_id,
-                                        session_id=session_id,
-                                    ),
-                                    "turn_timing": turn_timing.snapshot(),
-                                },
+                                draft.to_wire_payload(),
                             )
                             return
                 yield frame(
@@ -1016,6 +1129,8 @@ def make_chat_stream_route(
                         operator_turn=operator_turn,
                         post_turn_review_submitter=post_turn_review_submitter,
                         cleanup=cleanup,
+                        turn_service=resolved_turn_service,
+                        turn_execution=turn_execution,
                     )
                 )
                 async for terminal_frame in post_generation:
@@ -1024,18 +1139,50 @@ def make_chat_stream_route(
                         yield _sse_heartbeat()
                     elif terminal_frame.payload is not None:
                         yield frame(terminal_frame.event, terminal_frame.payload)
+            except asyncio.CancelledError:
+                await cleanup()
+                cancelled_detail = "chat turn cancelled"
+                if not turn_execution.closed:
+                    resolved_turn_service.terminate_turn(
+                        turn_execution,
+                        terminal_status=ConversationTurnTerminalStatus.CANCELLED,
+                        code="chat_turn_cancelled",
+                        detail=cancelled_detail,
+                        wire_payload={"detail": cancelled_detail},
+                    )
+                raise
             except ChatTurnInterruptedError:
                 await cleanup()
-                yield frame(
-                    "interrupted",
-                    {
-                        "detail": "chat turn interrupted",
-                        "session_id": session_id,
-                    },
-                )
+                interrupted_payload = {
+                    "detail": "chat turn interrupted",
+                    "session_id": session_id,
+                }
+                wire_interrupted_payload: dict[str, Any] = interrupted_payload
+                if not turn_execution.closed:
+                    interrupted = resolved_turn_service.terminate_turn(
+                        turn_execution,
+                        terminal_status=ConversationTurnTerminalStatus.CANCELLED,
+                        code="chat_turn_interrupted",
+                        detail=interrupted_payload["detail"],
+                        wire_payload=interrupted_payload,
+                    )
+                    wire_interrupted_payload = interrupted.to_wire_payload()
+                yield frame("interrupted", wire_interrupted_payload)
             except ChatBackendUnavailableError:
                 await cleanup()
-                yield frame("error", {"detail": "chat backend not configured"})
+                unavailable_detail = "chat backend not configured"
+                unavailable_payload = {"detail": unavailable_detail}
+                wire_unavailable_payload: dict[str, Any] = unavailable_payload
+                if not turn_execution.closed:
+                    unavailable = resolved_turn_service.terminate_turn(
+                        turn_execution,
+                        terminal_status=ConversationTurnTerminalStatus.UNAVAILABLE,
+                        code="chat_backend_unavailable",
+                        detail=unavailable_detail,
+                        wire_payload=unavailable_payload,
+                    )
+                    wire_unavailable_payload = unavailable.to_wire_payload()
+                yield frame("error", wire_unavailable_payload)
             except ChatContentPolicyError as exc:
                 await cleanup()
                 if progress_metrics is not None:
@@ -1059,34 +1206,77 @@ def make_chat_stream_route(
                             type(receipt_error).__name__,
                             extra={"request_id": request_id},
                         )
-                yield frame(
-                    "error",
-                    {
-                        "code": "content_policy_block",
-                        "stage": exc.stage,
-                        "receipt_persisted": receipt_persisted,
-                        "detail": str(exc),
-                    },
-                )
+                policy_detail = str(exc)
+                policy_payload = {
+                    "code": "content_policy_block",
+                    "stage": exc.stage,
+                    "receipt_persisted": receipt_persisted,
+                    "detail": policy_detail,
+                }
+                wire_policy_payload: dict[str, Any] = policy_payload
+                if not turn_execution.closed:
+                    abstained = resolved_turn_service.terminate_turn(
+                        turn_execution,
+                        terminal_status=ConversationTurnTerminalStatus.ABSTAINED,
+                        code="content_policy_block",
+                        detail=policy_detail,
+                        wire_payload=policy_payload,
+                    )
+                    wire_policy_payload = abstained.to_wire_payload()
+                yield frame("error", wire_policy_payload)
             except HTTPException as exc:
                 _LOG.warning(
                     "chat stream HTTP failure",
                     extra={"request_id": request_id, "status_code": exc.status_code},
                 )
                 await cleanup()
-                yield frame(
-                    "error",
-                    {
-                        "code": "chat_stream_failed",
-                        "detail": "chat stream failed",
-                    },
-                )
+                http_status = exc.status_code if 400 <= exc.status_code <= 599 else 500
+                http_reason = f"upstream HTTP {http_status}"
+                failure_detail = "chat stream failed"
+                failed_payload = {
+                    "code": "chat_stream_failed",
+                    "detail": failure_detail,
+                    "status": http_status,
+                    "reason": http_reason,
+                }
+                wire_failed_payload: dict[str, Any] = failed_payload
+                if not turn_execution.closed:
+                    failed = resolved_turn_service.terminate_turn(
+                        turn_execution,
+                        terminal_status=ConversationTurnTerminalStatus.FAILED,
+                        code="chat_stream_failed",
+                        detail=failure_detail,
+                        wire_payload=failed_payload,
+                    )
+                    wire_failed_payload = failed.to_wire_payload()
+                yield frame("error", wire_failed_payload)
             except Exception as exc:  # noqa: BLE001 - surface as a stream error, never 500 mid-stream
                 _LOG.warning("chat stream failed: %s", type(exc).__name__, exc_info=True)
                 await cleanup()
-                yield frame("error", {"detail": "chat stream failed"})
+                failure_detail = "chat stream failed"
+                failed_payload = {"detail": failure_detail}
+                wire_failure_payload: dict[str, Any] = failed_payload
+                if not turn_execution.closed:
+                    failed = resolved_turn_service.terminate_turn(
+                        turn_execution,
+                        terminal_status=ConversationTurnTerminalStatus.FAILED,
+                        code="chat_stream_failed",
+                        detail=failure_detail,
+                        wire_payload=failed_payload,
+                    )
+                    wire_failure_payload = failed.to_wire_payload()
+                yield frame("error", wire_failure_payload)
             finally:
                 await cleanup()
+                if not turn_execution.closed:
+                    cancelled_detail = "chat turn cancelled"
+                    resolved_turn_service.terminate_turn(
+                        turn_execution,
+                        terminal_status=ConversationTurnTerminalStatus.CANCELLED,
+                        code="chat_turn_cancelled",
+                        detail=cancelled_detail,
+                        wire_payload={"detail": cancelled_detail},
+                    )
                 deactivate_model_trace(model_trace_scope)
 
         return StreamingResponse(

@@ -60,10 +60,32 @@ change each new `projections.audit` module into a forwarding shim to its restore
 and leave composition imports on the package facade. This reverses physical ownership without an
 API or wire rollback and avoids a broad wildcard facade.
 
+### Conversation turn application boundary
+
+Issue 71 introduces `fdai.delivery.operator_api.application.conversation_turn` as the process-local
+application-service boundary shared by JSON and SSE chat routes. After authentication and bounded
+transport parsing, each route creates an immutable `ConversationTurnInput` and starts one typed
+lifecycle. Existing evidence, planning, narration, verification, history, busy-input, progress,
+and cancellation implementations remain in-process and finish through that lifecycle. No network
+hop or separately deployed service is introduced.
+
+The input contains only server-derived principal, conversation, request, correlation, prompt,
+locale, target-agent, evidence-reference, history-count, and transport-mode values. It has no
+provider scope, credential, approval, role, executor identity, or mutable context field. The
+immutable result records terminal status, verified answer, verification summary, evidence refs,
+presentation artifact, delegation metadata, and explicit failure detail. Its frozen wire snapshot
+round-trips to the existing JSON payload or SSE terminal frame without adding fields.
+
+The service is non-authoritative and stateless between calls. It cannot approve, execute, promote,
+select provider scope, or receive Thor's identity. HTTP status mapping, SSE sequence/revision,
+headers, route names, authorization, and cancellation transport remain route-owned. Bragi remains
+the presentation translator, and authority-bearing agent work continues through typed pub/sub.
+
 | Package | Current responsibility | Migration rule |
 |---------|------------------------|----------------|
 | Root | Public facades and foundational contracts | Preserve until a classified replacement exists. |
 | `app/` | Shared ASGI assembly, middleware, registration, and lifespan | Retain as the HTTP composition boundary. |
+| `application/` | Typed process-local, non-authoritative application coordination | Retain until service-graduation evidence justifies a process boundary. |
 | `dev/` | Interactive local and test-only provider composition | Keep unavailable to production imports. |
 | `dev/fixtures/` | Synthetic pytest-only fixtures | Keep outside production composition. |
 | `persistence/` | Operator API read-model implementations and projections | Retain behind owned read contracts. |
@@ -85,8 +107,9 @@ internal implementation paths; a migration uses a per-module forwarding shim onl
 classified compatibility need exists. Runtime-owned agent-state records and event-bus publication
 live in `fdai.delivery.agent_activity`, so the headless runtime imports no Operator API streaming
 implementation. Provisioning's `streaming.provision_stream` compatibility remains classified
-separately. The inventory also records issue 71 wire debts for request binding, required sequence
-fields, error-envelope parity, and the chat SSE producer frame cap.
+separately. Issue 71 closes the chat wire debts recorded by the baseline. Version 1 semantic frames
+require the server-owned request id and integer sequence, known HTTP failures retain a bounded
+status and reason, and the producer rejects frames above the browser's 256 KiB limit.
 
 PostgreSQL and Alembic remain the shared migration authority during these moves. A module or route
 migration does not create a second schema owner; service-owned schemas and migration lanes require

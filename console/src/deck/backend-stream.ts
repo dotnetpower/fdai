@@ -248,6 +248,19 @@ export async function askBackendStream(
     const sequence = typeof object.seq === "number" && Number.isInteger(object.seq)
       ? object.seq
       : null;
+    if (
+      object.v === 1 &&
+      (object.request_id !== requestId || sequence === null)
+    ) {
+      tokenQueue.length = 0;
+      answerText = "";
+      doneData = null;
+      pendingRevisions.length = 0;
+      confirmedSegment = undefined;
+      sequenceGap = true;
+      terminalSeen = true;
+      return;
+    }
     if (sequence !== null) {
       if (sequence <= lastSequence) return;
       if (sequence !== lastSequence + 1) sequenceGap = true;

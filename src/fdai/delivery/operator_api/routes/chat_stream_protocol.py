@@ -9,11 +9,15 @@ from collections.abc import AsyncIterator
 from typing import Any, Final
 
 DEFAULT_STREAM_HEARTBEAT_S: Final[float] = 15.0
+_MAX_CHAT_SSE_FRAME_BYTES: Final[int] = 256 * 1024
 
 
 def _sse(event: str, data: dict[str, Any]) -> bytes:
     """Format one Server-Sent Event frame (``event:`` + ``data:`` + blank)."""
-    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n".encode()
+    frame = f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n".encode()
+    if len(frame) > _MAX_CHAT_SSE_FRAME_BYTES:
+        raise ValueError("chat stream frame exceeds the 256 KiB limit")
+    return frame
 
 
 def _sse_heartbeat() -> bytes:

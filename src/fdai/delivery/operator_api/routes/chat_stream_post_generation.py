@@ -16,6 +16,10 @@ from fdai.core.conversation.answer_plan import AnswerPlan
 from fdai.core.conversation.answer_planning import AnswerPlanningResult
 from fdai.core.metering import InvocationScope, with_invocation_scope
 from fdai.core.user_context_projection import UserContextOntologyProjector
+from fdai.delivery.operator_api.application import (
+    ConversationTurnApplicationService,
+    ConversationTurnExecution,
+)
 from fdai.delivery.operator_api.routes.chat_answer_planning import planning_metadata
 from fdai.delivery.operator_api.routes.chat_answer_quality import (
     AnswerQualityInvoke,
@@ -41,6 +45,7 @@ from fdai.delivery.operator_api.routes.chat_route_common import (
 )
 from fdai.delivery.operator_api.routes.chat_stream_protocol import (
     DEFAULT_STREAM_HEARTBEAT_S,
+    _sse,
     _with_sse_heartbeats,
 )
 from fdai.delivery.operator_api.routes.chat_stream_terminal import (
@@ -152,6 +157,8 @@ class PostGenerationContext:
     operator_turn: ConversationTurnRecord | None
     post_turn_review_submitter: PostTurnReviewSubmitter | None
     cleanup: Callable[[], Awaitable[None]]
+    turn_service: ConversationTurnApplicationService
+    turn_execution: ConversationTurnExecution
 
 
 def evidence_timing_status(outcomes: list[str]) -> TurnTimingStatus:
@@ -372,6 +379,21 @@ async def finalize_post_generation(
     )
     if trajectory_detail_snapshot is not None:
         done_payload["trajectory_detail"] = trajectory_detail_snapshot
+    validated_result = context.turn_service.validate_turn_result(
+        context.turn_execution,
+        done_payload,
+    )
+    terminal_payload = validated_result.to_wire_payload()
+    _sse(
+        "done",
+        {
+            **terminal_payload,
+            "v": 1,
+            "request_id": context.request_id,
+            "seq": 9_223_372_036_854_775_807,
+            "revision": revision,
+        },
+    )
     if context.conversation_history_store is not None:
         assistant_turn = await append_assistant_turn(
             store=context.conversation_history_store,
@@ -382,7 +404,7 @@ async def finalize_post_generation(
             recorded_at=datetime.now(tz=UTC),
             metadata=replay_metadata(
                 model=str(context.terminal_model or "unknown"),
-                payload=done_payload,
+                payload=terminal_payload,
                 additional=_turn_metadata(
                     model=str(context.terminal_model or "unknown"),
                     view_context=context.enriched_context,
@@ -402,10 +424,16 @@ async def finalize_post_generation(
                     explicit_corrections=explicit_corrections(context.clean_prompt),
                 ),
             )
+    result = context.turn_service.complete_turn(context.turn_execution, terminal_payload)
+    terminal_payload = result.to_wire_payload()
     await context.cleanup()
     if context.progress_metrics is not None:
         context.progress_metrics.increment("terminal_completed")
-    yield PostGenerationFrame(event="done", payload=done_payload, revision=revision)
+    yield PostGenerationFrame(
+        event="done",
+        payload=terminal_payload,
+        revision=revision,
+    )
 
 
 __all__ = [
