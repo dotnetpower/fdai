@@ -93,7 +93,10 @@ async def select_answer_presentation(
     if _plain_presentation_requested(plan):
         return PresentationDecision(answer_plan=plan, presentation_plan=None)
     if plan.explicit_overrides or plan.preference_applied:
-        return PresentationDecision(answer_plan=plan, presentation_plan=fallback)
+        return PresentationDecision(
+            answer_plan=_answer_plan_for_presentation(plan, profile.kind, fallback),
+            presentation_plan=fallback,
+        )
     if not isinstance(backend, StructuredCompletionBackend):
         return PresentationDecision(
             answer_plan=_answer_plan_for_presentation(plan, profile.kind, fallback),
@@ -151,7 +154,7 @@ def _answer_plan_for_presentation(
 
 def _plain_presentation_requested(plan: AnswerPlan) -> bool:
     return (
-        "steps" in plan.explicit_overrides
+        bool({"prose", "bullets", "steps", "checklist"} & set(plan.explicit_overrides))
         or plan.preference_applied
         and plan.format
         in {

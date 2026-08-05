@@ -858,7 +858,7 @@ def make_chat_route(
                 ):
                     presentation_decision = await await_with_interrupt(
                         select_answer_presentation(
-                            backend=backend,
+                            backend=object(),
                             prompt=clean_prompt,
                             plan=answer_plan,
                             view_context=view_context,

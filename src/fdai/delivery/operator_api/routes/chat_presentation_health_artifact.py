@@ -14,6 +14,7 @@ from fdai.delivery.operator_api.routes.chat_presentation_artifact_common import 
     number_text,
     summary_item,
     text,
+    verification_label,
 )
 from fdai.delivery.operator_api.routes.chat_presentation_contract import PresentationPlacement
 from fdai.delivery.operator_api.routes.chat_subscription_health import (
@@ -246,7 +247,7 @@ def _metrics(
     ]
     return block(
         placement,
-        kind="threshold_table",
+        kind="table" if placement.component == "data_table" else "threshold_table",
         title="메트릭 상세" if korean else "Metric details",
         refs=refs,
         data={
@@ -275,7 +276,7 @@ def _evidence(
         },
         {
             "label": "검증" if korean else "Verification",
-            "value": verification_status,
+            "value": verification_label(verification_status, korean=korean),
         },
     ]
     return block(

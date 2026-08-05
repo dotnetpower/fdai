@@ -479,6 +479,21 @@ async def test_saved_plain_preference_suppresses_structured_artifact() -> None:
     assert decision.presentation_plan is None
 
 
+async def test_unsupported_saved_chart_preference_reports_actual_table_shape() -> None:
+    decision = await select_answer_presentation(
+        backend=_StructuredBackend({}),
+        prompt="show databases",
+        plan=_plan(format_=AnswerFormat.CHART, preference_applied=True),
+        view_context=_inventory_context(),
+    )
+
+    assert decision.answer_plan.format is AnswerFormat.TABLE
+    assert decision.presentation_plan is not None
+    assert any(
+        placement.component == "data_table" for placement in decision.presentation_plan.placements
+    )
+
+
 async def test_health_plan_compiles_every_available_slot_into_grounded_blocks() -> None:
     context = _health_context()
     decision = await select_answer_presentation(
@@ -554,6 +569,40 @@ def test_health_artifact_applies_typed_resource_filter() -> None:
     assert "vm-must-not-leak" not in str(artifact)
 
 
+async def test_health_artifact_compiles_every_allowed_alternate_component() -> None:
+    context = _health_context()
+    profile = presentation_profile(context, _plan())
+    assert profile is not None
+    placements = default_presentation_plan(profile).to_dict()["placements"]
+    assert isinstance(placements, list)
+    for placement in placements:
+        if placement["slot_id"] == "findings":
+            placement["component"] = "detail_list"
+        elif placement["slot_id"] in {"coverage", "metrics"}:
+            placement["component"] = "data_table"
+    context["_presentation_plan"] = {
+        "schema_version": 1,
+        "layout": "stack",
+        "placements": placements,
+    }
+
+    artifact = response_presentation_artifact(
+        context,
+        answer_plan=_plan(format_=AnswerFormat.MIXED),
+        verification_status="unverified",
+        evidence_refs=("subscription-health:test@2026-08-05T00:00:00Z",),
+        locale="en",
+    )
+
+    assert artifact is not None
+    blocks = artifact["blocks"]
+    assert isinstance(blocks, list)
+    kinds = {block["slot_id"]: block["kind"] for block in blocks}
+    assert kinds["findings"] == "list"
+    assert kinds["coverage"] == "table"
+    assert kinds["metrics"] == "table"
+
+
 async def test_inventory_plan_preserves_table_fallback_and_compiles_mixed_artifact() -> None:
     context = _inventory_context()
     decision = await select_answer_presentation(
@@ -580,3 +629,35 @@ async def test_inventory_plan_preserves_table_fallback_and_compiles_mixed_artifa
     assert [block["slot_id"] for block in blocks] == ["overview", "records", "evidence"]
     assert blocks[1]["kind"] == "table"
     assert "db-one" in str(blocks[1])
+
+
+async def test_inventory_distribution_is_bounded_for_terminal_transport() -> None:
+    context = _inventory_context()
+    evidence = context["_tool_evidence"]
+    assert isinstance(evidence, dict)
+    result = evidence["result"]
+    assert isinstance(result, dict)
+    result["query_kind"] = "types"
+    result["matched_type_counts"] = {f"type-{index}": index for index in range(100)}
+    decision = await select_answer_presentation(
+        backend=object(),
+        prompt="show types",
+        plan=_plan(),
+        view_context=context,
+    )
+    assert decision.presentation_plan is not None
+    context["_presentation_plan"] = decision.presentation_plan.to_dict()
+
+    artifact = response_presentation_artifact(
+        context,
+        answer_plan=decision.answer_plan,
+        verification_status="verified",
+        evidence_refs=("inventory:test@2026-08-05T00:00:00Z",),
+        locale="en",
+    )
+
+    assert artifact is not None
+    blocks = artifact["blocks"]
+    assert isinstance(blocks, list)
+    distribution = next(block for block in blocks if block["slot_id"] == "distribution")
+    assert len(distribution["data"]["items"]) == 16

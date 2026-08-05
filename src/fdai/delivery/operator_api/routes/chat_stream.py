@@ -128,6 +128,7 @@ from fdai.delivery.operator_api.routes.chat_model_trace import (
     snapshot_model_trace,
 )
 from fdai.delivery.operator_api.routes.chat_presentation import (
+    PresentationDecision,
     select_answer_presentation,
 )
 from fdai.delivery.operator_api.routes.chat_prompt import (
@@ -198,6 +199,7 @@ from fdai.shared.providers.user_context import ConversationHistoryStore, UserCon
 from fdai.shared.telemetry import ConversationProgressMetrics, with_correlation
 
 _LOG = logging.getLogger(__name__)
+_PRESENTATION_JOIN_TIMEOUT_SECONDS: Final[float] = 5.0
 
 
 DEFAULT_STREAM_PATH: Final[str] = "/chat/stream"
@@ -434,6 +436,7 @@ def make_chat_stream_route(
             sequence = 0
             revision = 0
             planning_task: asyncio.Task[AnswerPlanningResult] | None = None
+            presentation_task: asyncio.Task[PresentationDecision] | None = None
             cleanup_complete = False
             first_progress_recorded = False
 
@@ -456,6 +459,10 @@ def make_chat_stream_route(
                 if cleanup_complete:
                     return
                 await cancel_planning(planning_task)
+                if presentation_task is not None and not presentation_task.done():
+                    presentation_task.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await presentation_task
                 if busy_input_coordinator is not None and active_turn is not None:
                     try:
                         await busy_input_coordinator.finish_turn(
@@ -786,36 +793,27 @@ def make_chat_stream_route(
 
                 generation_timing = turn_timing.begin("generation")
                 if evidence_fast_path:
-
-                    async def presentation_source() -> AsyncIterator[dict[str, Any]]:
-                        presentation_decision = await select_answer_presentation(
+                    presentation_base_plan = answer_plan
+                    default_presentation = await select_answer_presentation(
+                        backend=object(),
+                        prompt=clean_prompt,
+                        plan=presentation_base_plan,
+                        view_context=enriched_context,
+                    )
+                    answer_plan = default_presentation.answer_plan
+                    if default_presentation.presentation_plan is not None:
+                        enriched_context["_presentation_plan"] = (
+                            default_presentation.presentation_plan.to_dict()
+                        )
+                    enriched_context["_answer_plan"] = answer_plan.to_dict()
+                    presentation_task = asyncio.create_task(
+                        select_answer_presentation(
                             backend=backend,
                             prompt=clean_prompt,
-                            plan=answer_plan,
+                            plan=presentation_base_plan,
                             view_context=enriched_context,
                         )
-                        yield {
-                            "answer_plan": presentation_decision.answer_plan,
-                            "presentation_plan": presentation_decision.presentation_plan,
-                        }
-
-                    presentation_events = _with_sse_heartbeats(
-                        presentation_source(), interval=DEFAULT_STREAM_HEARTBEAT_S
                     )
-                    async for presentation_event in interruptible_events(
-                        presentation_events,
-                        active_turn=active_turn,
-                    ):
-                        if presentation_event is None:
-                            yield _sse_heartbeat()
-                            continue
-                        selected_plan = presentation_event.get("answer_plan")
-                        if isinstance(selected_plan, type(answer_plan)):
-                            answer_plan = selected_plan
-                        presentation_plan = presentation_event.get("presentation_plan")
-                        if presentation_plan is not None:
-                            enriched_context["_presentation_plan"] = presentation_plan.to_dict()
-                    enriched_context["_answer_plan"] = answer_plan.to_dict()
                 stream = getattr(backend, "answer_stream", None)
                 provisional_answer = ""
                 model_generated = False
@@ -1004,6 +1002,29 @@ def make_chat_stream_route(
                     terminal_model = reply.get("model")
                     terminal_router = reply.get("router")
                     terminal_usage = reply.get("usage")
+
+                if presentation_task is not None:
+                    try:
+                        presentation_decision = await asyncio.wait_for(
+                            presentation_task,
+                            timeout=_PRESENTATION_JOIN_TIMEOUT_SECONDS,
+                        )
+                    except TimeoutError:
+                        presentation_task.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await presentation_task
+                    except Exception as exc:  # noqa: BLE001 - keep canonical answer and default plan
+                        _LOG.warning(
+                            "chat presentation task failed after answer streaming",
+                            extra={"error_type": type(exc).__name__},
+                        )
+                    else:
+                        answer_plan = presentation_decision.answer_plan
+                        if presentation_decision.presentation_plan is not None:
+                            enriched_context["_presentation_plan"] = (
+                                presentation_decision.presentation_plan.to_dict()
+                            )
+                        enriched_context["_answer_plan"] = answer_plan.to_dict()
 
                 generation_ms = int((time.monotonic() - started) * 1000)
                 turn_timing.complete(generation_timing, status="completed")

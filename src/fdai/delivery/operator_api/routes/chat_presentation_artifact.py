@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from typing import Any, Final
 
@@ -19,6 +20,7 @@ from fdai.delivery.operator_api.routes.chat_presentation_profiles import present
 _VERIFIED_PRESENTATION_STATUSES: Final = frozenset(
     {"verified", "consistent", "corrected", "unverified"}
 )
+_MAX_PRESENTATION_ARTIFACT_BYTES: Final = 48 * 1024
 
 
 def response_presentation_artifact(
@@ -67,12 +69,18 @@ def response_presentation_artifact(
         return None
     if not blocks or len(blocks) != len(plan.placements):
         return None
-    return {
+    artifact: dict[str, object] = {
         "schema_version": 1,
         "layout": "stack",
         "blocks": blocks,
         "evidence_refs": list(refs),
     }
+    if (
+        len(json.dumps(artifact, ensure_ascii=False).encode("utf-8"))
+        > _MAX_PRESENTATION_ARTIFACT_BYTES
+    ):
+        return None
+    return artifact
 
 
 __all__ = ["response_presentation_artifact"]

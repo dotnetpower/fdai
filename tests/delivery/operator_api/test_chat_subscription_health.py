@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -487,8 +488,135 @@ def test_platform_health_skips_semantic_turn_planner() -> None:
     assert response.status_code == 200
     assert "server_subscription_health" in response.text
     assert "presentation_artifact" in response.text
+    assert "fdai_presentation_plan" not in response.text
     assert "model fallback" not in response.text
     assert backend.calls == 0
+
+
+def test_health_stream_uses_parallel_structured_presentation_without_model_answer() -> None:
+    class StructuredBackend(_Backend):
+        def __init__(self) -> None:
+            super().__init__()
+            self.structured_calls = 0
+
+        async def complete_structured(self, **kwargs: object) -> Mapping[str, object]:
+            self.structured_calls += 1
+            assert kwargs["schema_name"] == "fdai_presentation_plan"
+            return {
+                "schema_version": 1,
+                "layout": "stack",
+                "placements": [
+                    {
+                        "slot_id": "findings",
+                        "component": "status_table",
+                        "emphasis": "primary",
+                        "collapsed": False,
+                        "rationale": "attention",
+                    },
+                    {
+                        "slot_id": "overview",
+                        "component": "summary_band",
+                        "emphasis": "primary",
+                        "collapsed": False,
+                        "rationale": "summary",
+                    },
+                    {
+                        "slot_id": "limitations",
+                        "component": "callout",
+                        "emphasis": "primary",
+                        "collapsed": False,
+                        "rationale": "limitation",
+                    },
+                    {
+                        "slot_id": "coverage",
+                        "component": "coverage_bar",
+                        "emphasis": "secondary",
+                        "collapsed": False,
+                        "rationale": "coverage",
+                    },
+                    {
+                        "slot_id": "evidence",
+                        "component": "evidence_footer",
+                        "emphasis": "supporting",
+                        "collapsed": False,
+                        "rationale": "provenance",
+                    },
+                ],
+            }
+
+    backend = StructuredBackend()
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(_provider),
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat/stream",
+        json={"prompt": "현재 Azure 구독 상태를 확인해줘", "view_context": {}},
+    )
+
+    done = next(
+        json.loads(line.removeprefix("data: "))
+        for line in response.text.splitlines()
+        if line.startswith("data: ") and '"presentation_artifact"' in line
+    )
+    assert backend.structured_calls == 1
+    assert backend.calls == 0
+    assert done["presentation_artifact"]["blocks"][0]["slot_id"] == "findings"
+    assert done["presentation_artifact"]["blocks"][0]["title"] == "상태 이상 후보"
+    evidence_block = next(
+        block for block in done["presentation_artifact"]["blocks"] if block["slot_id"] == "evidence"
+    )
+    assert evidence_block["data"]["items"][-1]["value"] == "검증 미완료"
+
+
+def test_health_stream_cancels_slow_presentation_and_returns_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import fdai.delivery.operator_api.routes.chat_stream as stream_module
+
+    class SlowStructuredBackend(_Backend):
+        def __init__(self) -> None:
+            super().__init__()
+            self.cancelled = False
+
+        async def complete_structured(self, **_kwargs: object) -> Mapping[str, object]:
+            try:
+                await __import__("asyncio").Event().wait()
+            except __import__("asyncio").CancelledError:
+                self.cancelled = True
+                raise
+
+    monkeypatch.setattr(stream_module, "_PRESENTATION_JOIN_TIMEOUT_SECONDS", 0.01)
+    backend = SlowStructuredBackend()
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=backend,
+                authorize=_allow,
+                tool_resolver=SubscriptionHealthChatTools(_provider),
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat/stream",
+        json={"prompt": "현재 Azure 구독 상태를 확인해줘", "view_context": {}},
+    )
+
+    done = next(
+        json.loads(line.removeprefix("data: "))
+        for line in response.text.splitlines()
+        if line.startswith("data: ") and '"presentation_artifact"' in line
+    )
+    assert backend.cancelled is True
+    assert backend.calls == 0
+    assert done["presentation_artifact"]["blocks"][0]["slot_id"] == "overview"
 
 
 def test_generic_resource_health_states_use_subscription_health() -> None:

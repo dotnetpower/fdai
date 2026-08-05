@@ -14,8 +14,11 @@ from fdai.delivery.operator_api.routes.chat_presentation_artifact_common import 
     nonnegative_int_or_none,
     summary_item,
     text,
+    verification_label,
 )
 from fdai.delivery.operator_api.routes.chat_presentation_contract import PresentationPlacement
+
+_MAX_DISTRIBUTION_ITEMS = 16
 
 
 def inventory_blocks(
@@ -180,6 +183,8 @@ def _distribution(
         value = nonnegative_int_or_none(raw_value)
         if value is not None:
             items.append(chart_item(text(label), value, "neutral"))
+        if len(items) == _MAX_DISTRIBUTION_ITEMS:
+            break
     if not items:
         return None
     title = "리소스 형식별 분포" if korean else "Resources by type"
@@ -197,7 +202,7 @@ def _distribution(
                 "rows": [
                     {"type": str(item["label"]), "count": str(item["value"])} for item in items
                 ],
-                "status_key": "type",
+                "status_key": None,
             },
         )
     return block(
@@ -228,16 +233,16 @@ def _evidence(
                     "value": text(result.get("source") or "inventory"),
                 },
                 {
-                    "label": "Snapshot",
+                    "label": "스냅샷" if korean else "Snapshot",
                     "value": text(result.get("snapshot_at") or "unknown"),
                 },
                 {
-                    "label": "Freshness",
+                    "label": "최신성" if korean else "Freshness",
                     "value": text(result.get("freshness") or "unknown"),
                 },
                 {
                     "label": "검증" if korean else "Verification",
-                    "value": verification_status,
+                    "value": verification_label(verification_status, korean=korean),
                 },
             ]
         },

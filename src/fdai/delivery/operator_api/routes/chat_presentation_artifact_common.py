@@ -70,3 +70,19 @@ def number_text(value: object) -> str:
 
 def text(value: object) -> str:
     return str(value)[:MAX_TEXT_CHARS]
+
+
+def verification_label(status: str, *, korean: bool) -> str:
+    if not korean:
+        return {
+            "verified": "Verified",
+            "consistent": "Consistent",
+            "corrected": "Corrected",
+            "unverified": "Unverified",
+        }.get(status, "Unknown")
+    return {
+        "verified": "검증됨",
+        "consistent": "근거와 일치",
+        "corrected": "수정 후 검증됨",
+        "unverified": "검증 미완료",
+    }.get(status, "알 수 없음")
