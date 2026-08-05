@@ -77,6 +77,16 @@ def test_analysis_followup_detection_ignores_read_only_architecture_phrase() -> 
     assert not is_llm_usage_followup(
         "Using read only inventory evidence, which resources are stopped?"
     )
+    assert not is_llm_usage_followup(
+        "Out of everything currently in scope, which VMs are actually up and humming right "
+        "now? Please list each one with its current power state, based on read-only inventory "
+        "evidence only."
+    )
+    assert not is_llm_usage_followup(
+        "Which VMs in the currently configured Azure scope are actually up and running right "
+        "now? Please show each one's current power state, drawing only on read-only inventory "
+        "evidence."
+    )
     assert not is_llm_usage_followup("허용된 범위 내 읽기 전용 근거로 상태를 알려줘.")
     # A genuine chart-refinement cue combined with "only" still routes normally.
     assert is_llm_usage_followup("show only the weekday totals as a chart")

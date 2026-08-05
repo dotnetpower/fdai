@@ -102,6 +102,9 @@ The initial intent vocabulary is:
 The planner resolves a resource name before querying history. Zero matches produce `not_found`.
 Multiple matches produce `ambiguous` with bounded candidates and no further cloud query. A single
 match produces an exact provider resource reference that later tools cannot widen.
+Evidence and cause qualifiers such as `read-only`, `customer-initiated`, and
+`platform-initiated` are not resource selectors. Collection questions that contain these terms
+remain collection reads unless they also contain one distinct identifier-like resource name.
 
 When an inventory answer selects one resource, the terminal response can include its bounded name,
 type, and inventory evidence reference. Command Deck echoes that context on a later question such

@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 8954931bccab2d34e36ea6d4ebcd03c836416321
+translation_source_sha: 43ea6e80fe7f9f7ebbf9ef4fec5c7c3db90449a7
 translation_revised: 2026-08-05
 ---
 
@@ -103,6 +103,9 @@ Catalog는 실행 가능한 text를 포함하거나 tool authority를 부여할 
 Planner는 history를 조회하기 전에 resource name을 resolve합니다. Match가 없으면 `not_found`를
 반환합니다. 여러 match는 bounded candidate와 함께 `ambiguous`를 반환하고 추가 cloud query를 하지
 않습니다. 단일 match는 이후 tool이 확장할 수 없는 exact provider resource reference를 생성합니다.
+`read-only`, `customer-initiated`, `platform-initiated`와 같은 evidence 및 cause qualifier는
+resource selector가 아닙니다. 이러한 term이 포함된 collection 질문은 distinct identifier-like
+resource name 하나도 함께 포함하지 않는 한 collection read를 유지합니다.
 
 Inventory 답변이 resource 하나를 선택하면 terminal response에 bounded name, type 및 inventory
 evidence reference를 포함할 수 있습니다. Command Deck은 "언제부터 중지되어 있었어?" 같은 후속
