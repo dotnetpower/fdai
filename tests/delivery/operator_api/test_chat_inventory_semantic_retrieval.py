@@ -202,6 +202,29 @@ async def test_mutation_wording_never_becomes_semantic_inventory_read() -> None:
     assert provider_calls == 0
 
 
+async def test_causal_diagnosis_never_becomes_semantic_inventory_retrieval() -> None:
+    class RejectResolver:
+        async def resolve(self, prompt: str) -> tuple[InventorySemanticMatch, ...]:
+            del prompt
+            raise AssertionError("causal diagnosis must not call semantic retrieval")
+
+    provider_calls = 0
+
+    async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        nonlocal provider_calls
+        del args, kwargs
+        provider_calls += 1
+        return {}
+
+    evidence = await InventoryChatTools(
+        provider,
+        semantic_resolver=RejectResolver(),
+    ).resolve("What is the root cause of this unavailable VM?", principal_id="reader")
+
+    assert evidence is None
+    assert provider_calls == 0
+
+
 async def test_diagnosis_wording_is_not_hijacked_by_semantic_inventory() -> None:
     provider_calls = 0
 

@@ -196,6 +196,8 @@ class InventoryChatTools:
         language = default_inventory_query_language_resolver()
         if language.has(language.registry.signals, "mutation", prompt):
             return None
+        if language.has(language.registry.signals, "causal_diagnosis", prompt):
+            return None
         if language.has(language.registry.signals, "diagnosis", prompt):
             return None
         resource_types = default_inventory_resource_type_resolver().resolve(prompt)

@@ -232,6 +232,18 @@ def test_inventory_function_projection_marks_bounded_resource_preview() -> None:
     assert len(projected["resources"]) == 40
 
 
+def test_inventory_function_projection_rejects_matched_result_without_query() -> None:
+    with pytest.raises(ValueError, match="requires a query"):
+        project_inventory_function_result(
+            {
+                "status": "matched",
+                "query": None,
+                "matched_count": 0,
+                "resources": [],
+            }
+        )
+
+
 def test_inventory_function_projection_rejects_mixed_malformed_candidates() -> None:
     with pytest.raises(ValueError, match="semantic candidate"):
         project_inventory_function_result(

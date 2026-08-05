@@ -38,6 +38,8 @@ def project_inventory_function_result(result: Mapping[str, Any]) -> dict[str, An
     if isinstance(reason, str) and reason:
         projected["reason"] = reason
     if status in {"matched", "partial"}:
+        if not isinstance(query, Mapping):
+            raise ValueError("matched inventory function result requires a query")
         matched_count = result.get("matched_count")
         resources = result.get("resources")
         if not isinstance(matched_count, int) or isinstance(matched_count, bool):
