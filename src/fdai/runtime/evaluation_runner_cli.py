@@ -32,6 +32,15 @@ _KUBECONFIG_ENV = "FDAI_EVALUATION_KUBECONFIG"
 _CONTEXT_ENV = "FDAI_EVALUATION_KUBERNETES_CONTEXT"
 _CLUSTER_ENV = "FDAI_EVALUATION_KUBERNETES_CLUSTER"
 _NAMESPACES_ENV = "FDAI_EVALUATION_KUBERNETES_NAMESPACES"
+_REQUIRED_KUBERNETES_LIVE_CHECKS = frozenset(
+    {
+        "kubernetes_capacity_live_probe",
+        "kubernetes_dependencies_live_probe",
+        "kubernetes_inventory_live_probe",
+        "kubernetes_events_live_probe",
+        "kubernetes_nodes_live_probe",
+    }
+)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -129,7 +138,7 @@ async def _probe_kubernetes_evidence(
                 await probe(task)
             except Exception as exc:  # noqa: BLE001 - readiness emits only the error type
                 checks[check_name] = False
-                if first_error_type is None:
+                if check_name in _REQUIRED_KUBERNETES_LIVE_CHECKS and first_error_type is None:
                     first_error_type = type(exc).__name__
     return checks, first_error_type
 
@@ -166,7 +175,10 @@ async def _run(command: str, adapter_name: str, environ: Mapping[str, str]) -> i
         checks.update(kubernetes_checks)
         checks["rca_live_probe"] = rca_live
         payload["checks"] = checks
-        payload["ready"] = readiness.ready and all(kubernetes_checks.values()) and rca_live
+        required_kubernetes_live = all(
+            kubernetes_checks[check_name] for check_name in _REQUIRED_KUBERNETES_LIVE_CHECKS
+        )
+        payload["ready"] = readiness.ready and required_kubernetes_live and rca_live
         if probe_error is not None:
             payload["reason_code"] = "kubernetes_evidence_probe_failed"
             payload["error_type"] = probe_error

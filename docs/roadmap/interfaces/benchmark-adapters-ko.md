@@ -1,8 +1,8 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 0460a259de520c91995592c261f6293e1a3b60b0
-translation_revised: 2026-08-04
+translation_source_sha: 44bb526d1a201d49ca8cd5ec13a8b661079506f4
+translation_revised: 2026-08-05
 ---
 
 # 벤치마크 어댑터
@@ -180,7 +180,9 @@ Kubectl adapter는 fixed read-only command, no shell, 최대 30초 timeout, outp
 사용합니다. Diagnostic projection은 Secret object와 검토되지 않은 field를 제외합니다. 위임된
 identity가 target namespace의 `metrics.k8s.io` pod를
 읽을 수 있으면 adapter는 `observe.metrics.query`를 통해 정규화된 container CPU 및 memory 사용량을
-projection합니다. Quantity normalization은 operational Kubernetes delivery package가 소유하므로
+projection합니다. Metrics 손실은 실패한 readiness check 및 structured unavailable evidence로 계속
+표시되지만 inventory, event, Node, capacity, dependency 및 grounded RCA가 live이면 session을
+차단하지 않습니다. Quantity normalization은 operational Kubernetes delivery package가 소유하므로
 evaluation, runtime evidence, capacity 및 quota 진단은 동일한 exact base-unit 의미를 사용합니다.
 Pod inventory는 image 또는 command literal을 보존하지 않고 immutable UID와 aggregate CPU/memory
 request 및 검토된 source path를 projection합니다. 공유 hold-only reducer는 exact FailedScheduling

@@ -66,7 +66,7 @@ async def test_rca_probe_requires_grounded_live_hypothesis() -> None:
     assert await _probe_rca(None) is False
 
 
-async def test_kubernetes_probe_reports_missing_metrics_permission() -> None:
+async def test_kubernetes_probe_keeps_missing_metrics_optional() -> None:
     class _Client:
         async def capacity(self, task):  # type: ignore[no-untyped-def]
             assert task.target.value == "example-app"
@@ -105,4 +105,33 @@ async def test_kubernetes_probe_reports_missing_metrics_permission() -> None:
         "kubernetes_nodes_live_probe": True,
         "kubernetes_metrics_live_probe": False,
     }
+    assert error_type is None
+
+
+async def test_kubernetes_probe_requires_inventory_access() -> None:
+    class _Client:
+        async def capacity(self, task):  # type: ignore[no-untyped-def]
+            return {}
+
+        async def dependencies(self, task):  # type: ignore[no-untyped-def]
+            return {}
+
+        async def inventory(self, task):  # type: ignore[no-untyped-def]
+            raise RuntimeError("forbidden")
+
+        async def events(self, task):  # type: ignore[no-untyped-def]
+            return {}
+
+        async def nodes(self, task):  # type: ignore[no-untyped-def]
+            return {}
+
+        async def pod_metrics(self, task):  # type: ignore[no-untyped-def]
+            return {}
+
+    checks, error_type = await _probe_kubernetes_evidence(
+        _Client(),  # type: ignore[arg-type]
+        frozenset({"example-app"}),
+    )
+
+    assert checks["kubernetes_inventory_live_probe"] is False
     assert error_type == "RuntimeError"
