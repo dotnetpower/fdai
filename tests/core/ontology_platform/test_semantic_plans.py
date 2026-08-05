@@ -83,6 +83,7 @@ def test_unresolved_candidate_cannot_be_verified() -> None:
             release=release,
             basis=VerifiedInterpretationBasis.OPERATOR_CONFIRMATION,
             basis_ref="conversation-turn:confirmation-1",
+            basis_validator=lambda *_args: True,
         )
 
 
@@ -149,6 +150,7 @@ def test_query_cannot_target_action_type() -> None:
             release=release,
             basis=VerifiedInterpretationBasis.OPERATOR_CONFIRMATION,
             basis_ref="conversation-turn:confirmation-2",
+            basis_validator=lambda *_args: True,
         )
 
 
@@ -170,6 +172,7 @@ def test_action_interpretation_remains_proposal_only() -> None:
         release=release,
         basis=VerifiedInterpretationBasis.OPERATOR_CONFIRMATION,
         basis_ref="conversation-turn:confirmation-3",
+        basis_validator=lambda *_args: True,
     )
 
     assert plan.operation_class is SemanticOperationClass.ACTION_DRAFT
@@ -199,4 +202,63 @@ def test_stale_release_cannot_verify_candidate() -> None:
             release=stale_release,
             basis=VerifiedInterpretationBasis.EXACT_CATALOG,
             basis_ref=f"catalog:{_DIGEST_B}",
+        )
+
+
+def test_candidate_arguments_are_defensive_and_digest_bound() -> None:
+    release = _release()
+    candidate = build_semantic_candidate(
+        source=InterpretationCandidateSource.LEXICAL,
+        operation_class=SemanticOperationClass.QUERY,
+        target_ref=release.type_ref(
+            OntologyDeclarationKind.FUNCTION,
+            "inventory.select_resources",
+        ),
+        arguments={"filter": {"state": ["running"]}},
+        semantic_catalog_digest=_DIGEST_B,
+        input_text="running VMs",
+        score=1.0,
+        unresolved_terms=(),
+    )
+
+    projected = candidate.arguments
+    projected["filter"]["state"].append("stopped")
+
+    assert candidate.arguments == {"filter": {"state": ["running"]}}
+    plan = verify_semantic_candidate(
+        candidate,
+        release=release,
+        basis=VerifiedInterpretationBasis.EXACT_CATALOG,
+        basis_ref=f"catalog:{_DIGEST_B}",
+    )
+    assert plan.arguments == {"filter": {"state": ["running"]}}
+
+
+def test_non_catalog_basis_requires_external_evidence_validation() -> None:
+    release = _release()
+    candidate = build_semantic_candidate(
+        source=InterpretationCandidateSource.MODEL,
+        operation_class=SemanticOperationClass.ACTION_DRAFT,
+        target_ref=release.type_ref(OntologyDeclarationKind.ACTION, "ops.start-vm"),
+        arguments={"resource": "vm-example"},
+        semantic_catalog_digest=_DIGEST_B,
+        input_text="start the VM",
+        score=None,
+        unresolved_terms=(),
+    )
+
+    with pytest.raises(ValueError, match="basis evidence"):
+        verify_semantic_candidate(
+            candidate,
+            release=release,
+            basis=VerifiedInterpretationBasis.OPERATOR_CONFIRMATION,
+            basis_ref="conversation-turn:confirmation-4",
+        )
+    with pytest.raises(ValueError, match="basis evidence"):
+        verify_semantic_candidate(
+            candidate,
+            release=release,
+            basis=VerifiedInterpretationBasis.OPERATOR_CONFIRMATION,
+            basis_ref="conversation-turn:confirmation-4",
+            basis_validator=lambda *_args: False,
         )

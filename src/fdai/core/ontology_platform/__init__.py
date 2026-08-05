@@ -42,6 +42,7 @@ from .projection import project_source_records, reconcile_expected_effects
 from .sdk_codegen import GeneratedOntologySdk, generate_ontology_sdk
 from .semantic_plans import (
     InterpretationCandidateSource,
+    SemanticBasisValidator,
     SemanticInterpretationCandidate,
     SemanticOperationClass,
     VerifiedInterpretationBasis,
@@ -79,6 +80,7 @@ __all__ = [
     "ProjectionBinding",
     "ReconciliationReceipt",
     "ReconciliationStatus",
+    "SemanticBasisValidator",
     "SemanticInterpretationCandidate",
     "SemanticOperationClass",
     "TargetRevision",

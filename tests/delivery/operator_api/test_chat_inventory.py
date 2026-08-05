@@ -152,8 +152,12 @@ async def test_recognized_inventory_intent_does_not_fall_back_when_query_is_inco
 
 
 async def test_incomplete_state_semantics_holds_instead_of_widening() -> None:
+    provider_calls = 0
+
     async def provider(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        nonlocal provider_calls
         del args, kwargs
+        provider_calls += 1
         return {
             "resources": [
                 _resource("running", "compute.vm", "vm-running", status="VM running"),
@@ -176,6 +180,7 @@ async def test_incomplete_state_semantics_holds_instead_of_widening() -> None:
         {"field": "resource_type", "operator": "eq", "value": "compute.vm"}
     ]
     assert "resources" not in result
+    assert provider_calls == 0
 
 
 class StructuredPresentationBackend(RecordingBackend):

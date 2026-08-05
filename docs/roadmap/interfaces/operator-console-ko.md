@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: d37573b0bfb798e36b75f312d7517a97f02ae360
+translation_source_sha: a0b8a28d4a1b06fb3db9646368b66dce83aeb33d
 translation_revised: 2026-08-05
 ---
 
@@ -296,6 +296,9 @@ Exact catalog term은 유일한 entry gate가 아니라 T0 latency optimization�
 검색합니다. Retrieved concept는 `candidate_only`를 유지하고 inventory를 query하지 않은 채 localized
 clarification을 만듭니다. Embedder가 없거나 실패하면 resolver는 candidate를 반환하지 않고
 deterministic hold가 authoritative 상태를 유지합니다.
+Intent-graph planning은 complete deterministic inventory query를 override할 수 없습니다.
+Planner-supplied status concept도 canonical catalog로 확인하며 invalid value는 차단되고 execution은
+deterministic query를 사용합니다. 필요한 semantic status가 생략되면 hold 상태를 유지합니다.
 필터가 없는 summary는 provider가 관찰한 모든 resource를 계속 보존하고 provider-native type별로 grouping하며 resource-group container와 topology-derived record를 resource 합계에서 분리합니다.
 Catalog-owned `scope_counts` query kind는 query를 resource group으로 좁히지 않고 하나의
 fresh snapshot에서 provider-native resource와 resource-group 합계를 반환합니다. Type summary와

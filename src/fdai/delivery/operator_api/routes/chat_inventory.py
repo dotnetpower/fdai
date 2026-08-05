@@ -180,10 +180,10 @@ class InventoryChatTools:
         }
 
     async def _semantic_hold(self, prompt: str) -> dict[str, Any] | None:
-        if self.semantic_resolver is None:
-            return None
         language = default_inventory_query_language_resolver()
         if language.has(language.registry.signals, "mutation", prompt):
+            return None
+        if language.has(language.registry.signals, "diagnosis", prompt):
             return None
         resource_types = default_inventory_resource_type_resolver().resolve(prompt)
         if not resource_types:
@@ -191,9 +191,11 @@ class InventoryChatTools:
         query = compile_inventory_query(prompt)
         if query is not None and not inventory_query_requires_semantic_completion(query):
             return None
+        if self.semantic_resolver is None:
+            return _inventory_interpretation_required(query) if query is not None else None
         candidates = await self.semantic_resolver.resolve(prompt)
         if not candidates:
-            return None
+            return _inventory_interpretation_required(query) if query is not None else None
         return {
             "tool": "query_inventory",
             "authority": "server_inventory_graph",
@@ -323,6 +325,18 @@ def needs_inventory_evidence(prompt: str) -> bool:
     """Return whether a question asks for observed Azure resource inventory."""
 
     return is_topology_question(prompt) or is_inventory_question(prompt)
+
+
+def _inventory_interpretation_required(query: InventoryQuery) -> dict[str, Any]:
+    return {
+        "tool": "query_inventory",
+        "authority": "server_inventory_graph",
+        "result": {
+            "status": "unavailable",
+            "reason": "inventory_semantic_interpretation_required",
+            "query": query.to_dict(),
+        },
+    }
 
 
 def _project_inventory_result(

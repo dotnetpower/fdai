@@ -795,6 +795,11 @@ def build_local_app(
     )
     assignment_store = persistence.state_store if persistence is not None else models.settings.store
     inventory_graph_provider = _build_inventory_graph_provider()
+    from fdai.delivery.operator_api.routes.chat_inventory_ontology import (
+        inventory_query_function_type,
+    )
+
+    ontology_function_types = (inventory_query_function_type(),)
     inventory_startup_callbacks, inventory_shutdown_callbacks = _inventory_lifecycle_callbacks(
         inventory_graph_provider
     )
@@ -817,6 +822,7 @@ def build_local_app(
             ontology_object_types=tuple(ontology_object_types),
             ontology_link_types=tuple(ontology_link_types),
             ontology_action_types=tuple(action_types),
+            ontology_function_types=ontology_function_types,
             conversation_history_store=conversation_history_store,
             conversation_assurance_ledger=assurance_ledger,
             conversation_assurance_runtime=assurance_policy_runtime,

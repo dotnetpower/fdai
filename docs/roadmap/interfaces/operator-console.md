@@ -300,6 +300,9 @@ the existing T1 embedding binding, the same credential path retrieves state and 
 descriptions and examples. A retrieved concept remains `candidate_only` and causes a localized
 clarification without querying inventory. If the embedder is absent or fails, the resolver returns
 no candidate and the deterministic hold remains authoritative.
+Intent-graph planning cannot override a complete deterministic inventory query. Planner-supplied
+status concepts are still checked against the canonical catalog; invalid values are rejected, and
+execution uses the deterministic query. A required semantic status that is omitted remains held.
 An unfiltered summary still preserves every provider-observed resource, groups by provider-native type, and separates resource-group containers and topology-derived records from the resource total.
 The catalog-owned `scope_counts` query kind returns provider-native resource and resource-group
 totals from one fresh snapshot without narrowing the query to resource groups. It retains the same

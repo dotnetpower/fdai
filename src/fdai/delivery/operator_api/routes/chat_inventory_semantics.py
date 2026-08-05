@@ -29,6 +29,10 @@ class SemanticInventoryStatusError(ValueError):
     """Raised when a planner proposes a non-canonical inventory state."""
 
 
+class SemanticInventoryInterpretationRequiredError(ValueError):
+    """Raised when a required semantic predicate remains unresolved."""
+
+
 def merge_semantic_inventory_status(
     evidence: Mapping[str, Any],
     planned_arguments: Mapping[str, object],
@@ -74,6 +78,33 @@ def merge_semantic_inventory_status_query(
     if predicate is None:
         raise SemanticInventoryStatusError("semantic inventory status predicate is invalid")
     return replace(query, predicates=(*query.predicates, predicate)).to_dict()
+
+
+def validate_semantic_inventory_status_arguments(
+    query: InventoryQuery,
+    planned_arguments: Mapping[str, object],
+) -> None:
+    """Reject non-canonical planner status values without changing a complete query."""
+
+    raw_predicates = planned_arguments.get("predicates")
+    if not isinstance(raw_predicates, Sequence) or isinstance(raw_predicates, str | bytes):
+        return
+    planned_statuses = [
+        item
+        for item in raw_predicates
+        if isinstance(item, Mapping) and item.get("field") == InventoryField.STATUS.value
+    ]
+    if not planned_statuses:
+        return
+    if (
+        len(planned_statuses) != 1
+        or _canonical_status_predicate(
+            planned_statuses[0],
+            resource_category=_query_resource_category(query),
+        )
+        is None
+    ):
+        raise SemanticInventoryStatusError("semantic inventory status predicate is invalid")
 
 
 def ground_inventory_status_query(
@@ -242,7 +273,9 @@ def _canonical_current_status_values() -> frozenset[str]:
 
 __all__ = [
     "SemanticInventoryStatusError",
+    "SemanticInventoryInterpretationRequiredError",
     "ground_inventory_status_query",
     "merge_semantic_inventory_status",
     "merge_semantic_inventory_status_query",
+    "validate_semantic_inventory_status_arguments",
 ]
