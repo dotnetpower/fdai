@@ -1198,9 +1198,10 @@ body.cs-drawer-open { overflow: hidden; }
 .cs-live-queue-wrap { overflow-x: auto; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); }
 .cs-live-queue { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11.5px; }
 .cs-live-queue th { padding: 7px 10px; border-bottom: 1px solid var(--cs-hairline); background: var(--cs-shade); color: var(--cs-text-soft); font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-align: left; text-transform: uppercase; }
-.cs-live-queue th:first-child { width: 38%; }
-.cs-live-queue th:nth-child(2) { width: 17%; }
-.cs-live-queue th:nth-child(3), .cs-live-queue th:nth-child(4), .cs-live-queue th:nth-child(5) { width: 10%; }
+.cs-live-queue th:first-child { width: 30%; }
+.cs-live-queue th:nth-child(2) { width: 29%; }
+.cs-live-queue th:nth-child(3) { width: 17%; }
+.cs-live-queue th:nth-child(4) { width: 9%; }
 .cs-live-queue th:last-child { width: 15%; }
 .cs-live-queue td { overflow: hidden; padding: 8px 10px; border-bottom: 1px solid var(--cs-hairline); text-overflow: ellipsis; white-space: nowrap; }
 .cs-live-queue tr:last-child td { border-bottom: 0; }
@@ -1211,6 +1212,7 @@ body.cs-drawer-open { overflow: hidden; }
 .cs-live-queue-action strong, .cs-live-queue-action span, .cs-live-queue-action code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cs-live-queue-action span, .cs-live-queue small { color: var(--cs-text-soft); font-size: 10px; }
 .cs-live-queue-action code { padding: 0; background: transparent; color: var(--cs-text-soft); font-size: 9.5px; }
+.cs-live-queue-reason { display: -webkit-box; overflow: hidden; color: var(--cs-text-soft); line-height: 1.35; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .cs-live-queue .out { font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
 .cs-live-queue .out.auto { color: var(--cs-sage); }
 .cs-live-queue .out.hil { color: var(--cs-terracotta); }
@@ -1223,8 +1225,8 @@ body.cs-drawer-open { overflow: hidden; }
 
 .cs-tile {
   position: relative;
-  min-height: 112px;
-  padding: 12px 14px 14px;
+  min-height: 148px;
+  padding: 10px 12px 13px;
   background: var(--cs-card);
   border: 1px solid var(--cs-hairline);
   border-radius: 9px;
@@ -1266,10 +1268,12 @@ body.cs-drawer-open { overflow: hidden; }
 }
 .cs-tile[data-state="done"] .cs-tile-stage { color: var(--cs-text); background: transparent; font-weight: 600; }
 
-.cs-tile-title { font-size: 12px; line-height: 1.25; font-weight: 500; color: var(--cs-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cs-tile-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; margin-top: auto; }
-.cs-tile-scope { color: var(--cs-text-soft); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cs-tile-id { font-family: "Cascadia Code","Consolas",monospace; color: var(--cs-text-soft); font-size: 10.5px; }
+.cs-tile-title { display: -webkit-box; overflow: hidden; color: var(--cs-text); font-size: 12px; font-weight: 650; line-height: 1.25; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.cs-tile-target { overflow: hidden; color: var(--cs-steel); font-size: 10.5px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.cs-tile-reason { display: -webkit-box; overflow: hidden; color: var(--cs-text-soft); font-size: 9.5px; line-height: 1.3; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.cs-tile-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; margin-top: auto; padding-top: 2px; border-top: 1px solid var(--cs-hairline); }
+.cs-tile-owner { overflow: hidden; color: var(--cs-text); font-size: 9.5px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.cs-tile-scope { overflow: hidden; color: var(--cs-text-soft); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Progress bar */
 .cs-tile-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--cs-shade); }

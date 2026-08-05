@@ -29,24 +29,18 @@
   var SPARK_BUCKET_MS = 1000;
 
   var CATALOG = [
-    { rule: "storage.public-blob.deny",           at: "storage.public-blob.disable",       scope: "rg-webapp",   vertical: "change"     },
-    { rule: "database.pitr.required",             at: "database.enable-pitr",              scope: "rg-billing",  vertical: "resilience" },
-    { rule: "compute.autoscale.floor.min-2",      at: "compute.autoscale.raise-floor",     scope: "rg-web-eu",   vertical: "change"     },
-    { rule: "identity.cert.expiry.30d",           at: "identity.cert.rotate",              scope: "rg-core",     vertical: "change"     },
-    { rule: "cost.rightsize.candidate",           at: "cost.rightsize.downshift-cpu",      scope: "rg-batch",    vertical: "cost"       },
-    { rule: "network.firewall.orphan-rule",       at: "network.firewall.deny-orphan",      scope: "rg-net",      vertical: "change"     },
-    { rule: "k8s.rbac.cluster-admin.narrow",      at: "k8s.rbac.narrow-cluster-admin",     scope: "aks-prod",    vertical: "change"     },
-    { rule: "network.dns.public-resolver.deny",   at: "network.dns.pin-internal",          scope: "rg-net",      vertical: "change"     },
-    { rule: "keyvault.access.grant-narrow",       at: "keyvault.grant-narrow",             scope: "rg-ident",    vertical: "change"     },
-    { rule: "observability.log.retention",        at: "observability.log.extend-retention", scope: "rg-obs",     vertical: "change"     },
-    { rule: "cost.orphan-disk.cleanup",           at: "cost.disk.delete-orphan",           scope: "rg-legacy",   vertical: "cost"       },
-    { rule: "reliability.replica-lag.alert",      at: "reliability.replica.failover",      scope: "rg-db-eu",    vertical: "resilience" },
-    { rule: "storage.tls.min-1_2",                at: "storage.tls.enforce-min-1_2",       scope: "rg-media",    vertical: "change"     },
-    { rule: "compute.public-ip.deny",             at: "compute.public-ip.remove",          scope: "rg-net",      vertical: "change"     },
-    { rule: "cost.reserved-instance.recommend",   at: "cost.ri.propose-purchase",          scope: "rg-fleet",    vertical: "cost"       },
-    { rule: "reliability.backup.stale",           at: "reliability.backup.trigger",        scope: "rg-billing",  vertical: "resilience" },
-    { rule: "network.nsg.overly-permissive",      at: "network.nsg.narrow-source",         scope: "rg-web-us",   vertical: "change"     },
-    { rule: "identity.mi.unused",                 at: "identity.mi.retire",                scope: "rg-core",     vertical: "change"     }
+    { title: "Disable public blob access", target: "Web app storage", reason: "Public access violates storage policy", rule: "storage.public-blob.deny", at: "storage.public-blob.disable", scope: "rg-webapp", vertical: "change" },
+    { title: "Enable point-in-time restore", target: "Billing database", reason: "Recovery coverage is below policy", rule: "database.pitr.required", at: "database.enable-pitr", scope: "rg-billing", vertical: "resilience" },
+    { title: "Raise autoscale minimum", target: "EU web service", reason: "Capacity is below the reliability floor", rule: "compute.autoscale.floor.min-2", at: "compute.autoscale.raise-floor", scope: "rg-web-eu", vertical: "change" },
+    { title: "Rotate expiring certificate", target: "Core identity service", reason: "Certificate expires within 30 days", rule: "identity.cert.expiry.30d", at: "identity.cert.rotate", scope: "rg-core", vertical: "change" },
+    { title: "Right-size batch compute", target: "Batch worker pool", reason: "CPU is consistently underused", rule: "cost.rightsize.candidate", at: "cost.rightsize.downshift-cpu", scope: "rg-batch", vertical: "cost" },
+    { title: "Remove orphan firewall rule", target: "Shared network", reason: "Rule has no active workload owner", rule: "network.firewall.orphan-rule", at: "network.firewall.deny-orphan", scope: "rg-net", vertical: "change" },
+    { title: "Narrow cluster admin access", target: "Production Kubernetes", reason: "Cluster-wide privilege exceeds need", rule: "k8s.rbac.cluster-admin.narrow", at: "k8s.rbac.narrow-cluster-admin", scope: "aks-prod", vertical: "change" },
+    { title: "Pin DNS to internal resolver", target: "Shared network", reason: "Public resolver bypasses network policy", rule: "network.dns.public-resolver.deny", at: "network.dns.pin-internal", scope: "rg-net", vertical: "change" },
+    { title: "Reduce vault access", target: "Identity secrets vault", reason: "Grant is broader than the workload needs", rule: "keyvault.access.grant-narrow", at: "keyvault.grant-narrow", scope: "rg-ident", vertical: "change" },
+    { title: "Extend log retention", target: "Operations workspace", reason: "Retention is shorter than evidence policy", rule: "observability.log.retention", at: "observability.log.extend-retention", scope: "rg-obs", vertical: "change" },
+    { title: "Delete unattached disk", target: "Legacy workload", reason: "Disk is unused and still accruing cost", rule: "cost.orphan-disk.cleanup", at: "cost.disk.delete-orphan", scope: "rg-legacy", vertical: "cost" },
+    { title: "Fail over lagging replica", target: "EU database replica", reason: "Replication lag threatens recovery time", rule: "reliability.replica-lag.alert", at: "reliability.replica.failover", scope: "rg-db-eu", vertical: "resilience" }
   ];
 
   // ---------- state ----------
@@ -86,6 +80,11 @@
   function zeroBucket() { return { t0: 0, t1: 0, t2: 0, total: 0, auto: 0, hil: 0, abstain: 0, deny: 0 }; }
   function rng() { return Math.random(); }
   function pick(arr) { return arr[Math.floor(rng() * arr.length)]; }
+  function pickAvailableWork() {
+    var activeRules = new Set(pool.filter(function (slot) { return slot.ev; }).map(function (slot) { return slot.ev.sample.rule; }));
+    var available = CATALOG.filter(function (sample) { return !activeRules.has(sample.rule); });
+    return pick(available.length > 0 ? available : CATALOG);
+  }
   function weightedTier() {
     var r = rng();
     if (r < TIER_WEIGHTS.t0) return "t0";
@@ -140,9 +139,11 @@
       +     '<span class="cs-tile-stage"></span>'
       +   '</div>'
       +   '<div class="cs-tile-title"></div>'
+      +   '<div class="cs-tile-target"></div>'
+      +   '<div class="cs-tile-reason"></div>'
       +   '<div class="cs-tile-meta">'
+      +     '<span class="cs-tile-owner"></span>'
       +     '<span class="cs-tile-scope"></span>'
-      +     '<span class="cs-tile-id"></span>'
       +   '</div>'
       + '</div>'
       + '<div class="cs-tile-bar"><span></span></div>';
@@ -151,8 +152,10 @@
       tierEl: el.querySelector(".cs-tile-tier"),
       stageEl: el.querySelector(".cs-tile-stage"),
       titleEl: el.querySelector(".cs-tile-title"),
+      targetEl: el.querySelector(".cs-tile-target"),
+      reasonEl: el.querySelector(".cs-tile-reason"),
+      ownerEl: el.querySelector(".cs-tile-owner"),
       scopeEl: el.querySelector(".cs-tile-scope"),
-      idEl: el.querySelector(".cs-tile-id"),
       barEl: el.querySelector(".cs-tile-bar > span"),
       ev: null,
       startedAt: 0,
@@ -190,7 +193,7 @@
     var jitter = 0.75 + rng() * 0.5; // 75%..125%
     var total = Math.round(TIER_TOTAL_MS[tier] * jitter);
     var outcome = weightedOutcome(tier);
-    var sample = pick(CATALOG);
+    var sample = pickAvailableWork();
     var id = shortId();
     var failed = rng() < 0.018;
     var stuck = !failed && rng() < 0.025;
@@ -210,14 +213,17 @@
     el.setAttribute("data-failed", failed ? "true" : "false");
     el.setAttribute("data-event-id", id);
     el.setAttribute("tabindex", "0");
+    el.setAttribute("aria-label", sample.title + ". Target: " + sample.target + ". Why: " + sample.reason + ". Huginn, route stage.");
     el.removeAttribute("data-fade");
     slot.tierEl.className = "cs-tile-tier " + tier;
     slot.tierEl.textContent = tier.toUpperCase();
     slot.stageEl.textContent = STAGES[0];
-    slot.titleEl.textContent = sample.at;
-    slot.titleEl.title = sample.rule + " -> " + sample.at;
+    slot.titleEl.textContent = sample.title;
+    slot.titleEl.title = sample.at;
+    slot.targetEl.textContent = sample.target;
+    slot.reasonEl.textContent = "Why: " + sample.reason;
+    slot.ownerEl.textContent = "Huginn · Route";
     slot.scopeEl.textContent = sample.scope;
-    slot.idEl.textContent = id;
     slot.barEl.style.width = "0%";
     lastEventAt = Date.now();
     applyFlowFilter(slot);
@@ -246,6 +252,8 @@
     // Human-facing stage label reflects the outcome
     var terminalLabel = slot.ev.failed ? "failed" : slot.ev.outcome === "auto" ? "auto" : slot.ev.outcome;
     slot.stageEl.textContent = terminalLabel;
+    slot.ownerEl.textContent = "Saga · Recorded";
+    slot.el.setAttribute("aria-label", slot.ev.sample.title + ". Target: " + slot.ev.sample.target + ". Why: " + slot.ev.sample.reason + ". Saga, recorded. Decision: " + terminalLabel + ".");
     pulse(slot.el);
 
     // Count the observed terminal outcome in the rolling KPI window.
@@ -262,6 +270,7 @@
     slot.el.removeAttribute("data-fade");
     slot.el.removeAttribute("data-failed");
     slot.el.removeAttribute("data-event-id");
+    slot.el.removeAttribute("aria-label");
     slot.el.setAttribute("tabindex", "-1");
     applyFlowFilter(slot);
   }
@@ -289,6 +298,8 @@
           var s = stageIndex(ratio);
           if (t.stageEl.textContent !== STAGES[s]) {
             t.stageEl.textContent = STAGES[s];
+            t.ownerEl.textContent = stageOwner(STAGES[s]) + " · " + titleCase(STAGES[s]);
+            t.el.setAttribute("aria-label", t.ev.sample.title + ". Target: " + t.ev.sample.target + ". Why: " + t.ev.sample.reason + ". " + stageOwner(STAGES[s]) + ", " + STAGES[s] + " stage.");
             pulse(t.el);
           }
           if (elapsed >= total) finish(t, now);
@@ -527,6 +538,14 @@
     });
   }
 
+  function titleCase(value) {
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+
+  function stageOwner(stage) {
+    return stage === "route" ? "Huginn" : stage === "verify" ? "Forseti" : stage === "gate" ? "Var" : "Thor";
+  }
+
   function renderQueue(now) {
     var visible = pool.filter(function (slot) { return matchesSlot(slot, currentFilter, now); });
     visible.sort(function (left, right) {
@@ -543,12 +562,11 @@
       var decisionClass = status === "failed" ? "deny" : decisionObserved ? ev.outcome : "";
       var visibleMode = decisionObserved ? ev.mode : "-";
       return '<tr data-status="' + status + '" data-event-id="' + escapeHtml(ev.id) + '">'
-        + '<td><button class="cs-live-queue-action" type="button" data-select-event="' + escapeHtml(ev.id) + '"><strong>' + escapeHtml(ev.sample.at) + '</strong><span>' + escapeHtml(ev.sample.scope) + '</span><code>' + escapeHtml(ev.id) + '</code></button></td>'
-        + '<td data-label="Stage"><strong>' + escapeHtml(slot.stageEl.textContent) + '</strong><br><small>' + (slot.state === "done" ? "Saga" : "Forseti") + '</small></td>'
+        + '<td><button class="cs-live-queue-action" type="button" data-select-event="' + escapeHtml(ev.id) + '"><strong>' + escapeHtml(ev.sample.title) + '</strong><span>' + escapeHtml(ev.sample.target) + ' · ' + escapeHtml(ev.sample.scope) + '</span></button></td>'
+        + '<td data-label="Why"><span class="cs-live-queue-reason">' + escapeHtml(ev.sample.reason) + '</span></td>'
+        + '<td data-label="Owner / stage"><strong>' + escapeHtml(slot.state === "done" ? "Saga" : stageOwner(slot.stageEl.textContent)) + '</strong><br><small>' + escapeHtml(slot.state === "done" ? "Recorded" : titleCase(slot.stageEl.textContent)) + '</small></td>'
         + '<td data-label="Age">' + ageLabel(Date.now() - ev.emitAt) + (status === "stuck" ? '<br><small>Over budget</small>' : '') + '</td>'
-        + '<td data-label="Tier"><span class="cs-tier ' + ev.tier + '">' + ev.tier.toUpperCase() + '</span></td>'
-        + '<td data-label="Mode"><span class="cs-tk-mode ' + visibleMode + '">' + visibleMode + '</span></td>'
-        + '<td data-label="Decision"><span class="out ' + decisionClass + '">' + decision + '</span></td>'
+        + '<td data-label="Decision"><span class="out ' + decisionClass + '">' + decision + '</span><br><small>' + ev.tier.toUpperCase() + (visibleMode === "-" ? "" : " · " + visibleMode) + '</small></td>'
         + '</tr>';
     }).join("");
   }
@@ -648,7 +666,7 @@
     var currentStage = STAGES.indexOf(slot.stageEl.textContent);
     if (currentStage < 0) currentStage = slot.state === "done" ? STAGES.length : 0;
     var agents = { route: "Huginn", verify: "Forseti", gate: "Var", execute: "Thor" };
-    document.getElementById("detail-title").textContent = ev.sample.at;
+    document.getElementById("detail-title").textContent = ev.sample.title;
     document.getElementById("detail-trace").innerHTML = STAGES.map(function (stage, index) {
       var css = slot.state === "done" || index < currentStage ? "is-done" : index === currentStage ? "is-current" : "";
       var state = slot.state === "done" || index < currentStage ? "Observed" : index === currentStage ? "In progress" : "Not observed";
@@ -658,6 +676,8 @@
     document.getElementById("detail-correlation").textContent = "corr-" + ev.id.slice(4);
     document.getElementById("detail-rule").textContent = ev.sample.rule;
     document.getElementById("detail-action").textContent = ev.sample.at;
+    document.getElementById("detail-reason").textContent = ev.sample.reason;
+    document.getElementById("detail-target").textContent = ev.sample.target;
     document.getElementById("detail-mode").textContent = ev.mode;
     document.getElementById("detail-vertical").textContent = ev.sample.vertical;
     document.getElementById("detail-scope").textContent = ev.sample.scope;

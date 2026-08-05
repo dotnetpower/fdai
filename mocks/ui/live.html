@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Live - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=live-compact-v1" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=live-human-work-v2" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
 </head>
 <body>
@@ -90,7 +90,7 @@
     <section id="queue-view" aria-label="Control-loop work queue">
       <div class="cs-live-queue-wrap">
         <table class="cs-live-queue">
-          <thead><tr><th>Control loop</th><th>Stage</th><th>Age</th><th>Tier</th><th>Mode</th><th>Decision</th></tr></thead>
+          <thead><tr><th>Work</th><th>Why</th><th>Owner / stage</th><th>Age</th><th>Decision</th></tr></thead>
           <tbody id="live-queue"></tbody>
         </table>
         <p class="cs-live-empty" id="queue-empty" hidden>No work matches this filter.</p>
@@ -110,6 +110,8 @@
           <dt>Correlation ID</dt><dd><code id="detail-correlation"></code></dd>
           <dt>Rule</dt><dd id="detail-rule"></dd>
           <dt>Action type</dt><dd id="detail-action"></dd>
+          <dt>Why</dt><dd id="detail-reason"></dd>
+          <dt>Target</dt><dd id="detail-target"></dd>
           <dt>Mode</dt><dd id="detail-mode"></dd>
           <dt>Vertical</dt><dd id="detail-vertical"></dd>
           <dt>Scope</dt><dd id="detail-scope"></dd>
@@ -126,6 +128,6 @@
 
   </main>
 
-  <script src="assets/live.js?v=live-compact-v2" defer></script>
+  <script src="assets/live.js?v=live-human-work-v4" defer></script>
 </body>
 </html>
