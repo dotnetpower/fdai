@@ -10,6 +10,11 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Literal, Protocol, runtime_checkable
 
+from fdai.core.ontology_platform import (
+    InterpretationCandidateSource,
+    SemanticOperationClass,
+    build_semantic_candidate,
+)
 from fdai.delivery.operator_api.routes.chat_inventory_language import (
     InventoryQueryLanguageResolver,
     default_inventory_query_language_resolver,
@@ -48,6 +53,8 @@ class InventorySemanticMatch:
     score: float
     catalog_digest: str
     target_ref: OntologyTypeRef
+    input_digest: str
+    candidate_digest: str
     labels: Mapping[str, str] = field(default_factory=dict)
     authority: Literal["candidate_only"] = "candidate_only"
 
@@ -56,6 +63,9 @@ class InventorySemanticMatch:
             raise ValueError("inventory semantic match is invalid")
         if not self.catalog_digest.startswith("sha256:") or len(self.catalog_digest) != 71:
             raise ValueError("inventory semantic match catalog_digest is invalid")
+        for digest in (self.input_digest, self.candidate_digest):
+            if not digest.startswith("sha256:") or len(digest) != 71:
+                raise ValueError("inventory semantic match proof digest is invalid")
         object.__setattr__(self, "labels", dict(self.labels))
 
     def to_dict(self) -> dict[str, object]:
@@ -65,6 +75,8 @@ class InventorySemanticMatch:
             "score": self.score,
             "catalog_digest": self.catalog_digest,
             "target_ref": self.target_ref.model_dump(mode="json"),
+            "input_digest": self.input_digest,
+            "candidate_digest": self.candidate_digest,
             "labels": dict(self.labels),
             "authority": self.authority,
         }
@@ -126,18 +138,36 @@ class EmbeddingInventorySemanticResolver:
             ),
             key=lambda pair: (-pair[0], pair[1].kind.value, pair[1].concept_id),
         )
-        return tuple(
-            InventorySemanticMatch(
-                kind=item.kind,
-                concept_id=item.concept_id,
-                score=score,
-                catalog_digest=self._catalog_digest,
+        matches: list[InventorySemanticMatch] = []
+        for score, item in ranked[: self._config.max_candidates]:
+            if score < self._config.score_threshold:
+                continue
+            candidate = build_semantic_candidate(
+                source=InterpretationCandidateSource.EMBEDDING,
+                operation_class=SemanticOperationClass.QUERY,
                 target_ref=self._target_ref,
-                labels=item.labels,
+                arguments={
+                    "semantic_kind": item.kind.value,
+                    "concept_id": item.concept_id,
+                },
+                semantic_catalog_digest=self._catalog_digest,
+                input_text=prompt,
+                score=score,
+                unresolved_terms=(),
             )
-            for score, item in ranked[: self._config.max_candidates]
-            if score >= self._config.score_threshold
-        )
+            matches.append(
+                InventorySemanticMatch(
+                    kind=item.kind,
+                    concept_id=item.concept_id,
+                    score=score,
+                    catalog_digest=self._catalog_digest,
+                    target_ref=self._target_ref,
+                    input_digest=candidate.input_digest,
+                    candidate_digest=candidate.candidate_digest,
+                    labels=item.labels,
+                )
+            )
+        return tuple(matches)
 
     async def _catalog_vectors(self) -> tuple[_SemanticVector, ...]:
         if self._vectors is not None:

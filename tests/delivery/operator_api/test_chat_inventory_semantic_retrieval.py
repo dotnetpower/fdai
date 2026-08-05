@@ -78,6 +78,8 @@ async def test_description_embedding_returns_non_authoritative_state_candidate()
     assert matches[0].authority == "candidate_only"
     assert matches[0].catalog_digest.startswith("sha256:")
     assert matches[0].target_ref.catalog_digest == _RELEASE_DIGEST
+    assert matches[0].input_digest.startswith("sha256:")
+    assert matches[0].candidate_digest.startswith("sha256:")
 
 
 async def test_semantic_ties_have_stable_concept_order() -> None:
@@ -114,6 +116,8 @@ class FixedResolver:
                 score=0.91,
                 catalog_digest="sha256:" + "a" * 64,
                 target_ref=_target_ref(),
+                input_digest="sha256:" + "c" * 64,
+                candidate_digest="sha256:" + "d" * 64,
                 labels={"en": "Running", "ko": "실행 중"},
             ),
             InventorySemanticMatch(
@@ -122,6 +126,8 @@ class FixedResolver:
                 score=0.89,
                 catalog_digest="sha256:" + "a" * 64,
                 target_ref=_target_ref(),
+                input_digest="sha256:" + "c" * 64,
+                candidate_digest="sha256:" + "e" * 64,
                 labels={"en": "Not running", "ko": "실행 중 아님"},
             ),
         )
