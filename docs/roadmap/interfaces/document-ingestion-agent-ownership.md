@@ -78,6 +78,25 @@ replays `RECEIVED` and `PROTECTION_CHECK` events with stable idempotency keys bu
 those gated states. It resumes only post-decision work in `QUARANTINED`, `SCANNING`, `EXTRACTING`,
 or `INDEXING`.
 
+## Durable worker ownership
+
+Each mechanical worker operation acquires a separate PostgreSQL claim for `(upload_id, stage)`
+before it reads or changes lifecycle state. The claim records the worker owner, attempt id,
+revision, server-clock claim time, bounded lease expiry, and active, completed, or released status.
+It does not add worker authority to `UploadSession` and does not replace the Saga or Muninn gate.
+
+- **Single owner:** Concurrent replicas contend on one row, so only one active unexpired claim can
+  run a stage.
+- **Fenced completion:** Renew, complete, and release compare the owner, attempt id, and expected
+  revision. A stale or crashed worker cannot close a newer attempt.
+- **Bounded recovery:** A new attempt can recover an active claim only after its server-time lease
+  expires. An explicitly released claim can be retried immediately with a new attempt and revision.
+- **Terminal deduplication:** A completed claim cannot be reacquired. Duplicate broker deliveries
+  and reconciliation therefore reuse the durable terminal result instead of repeating the stage.
+- **Gate preservation:** Received and protection reconciliation only republishes persisted facts.
+  Inspection still requires a Saga-audited admission, and indexing still requires a Muninn-owned
+  command or recovery from an already started post-decision state.
+
 ## Related docs
 
 | To learn about | Read |

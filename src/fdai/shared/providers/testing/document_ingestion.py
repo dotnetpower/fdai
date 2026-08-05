@@ -2,20 +2,26 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fdai.shared.contracts import (
     DocumentEnvelope,
     DocumentVersion,
+    DocumentWorkerClaim,
+    DocumentWorkerClaimStatus,
+    DocumentWorkerStage,
     MalwareVerdict,
     UploadSession,
 )
 from fdai.shared.providers.document_ingestion import (
     DocumentAccessDeniedError,
     DocumentNotFoundError,
+    DocumentWorkerClaimConflictError,
     StoredObjectInfo,
     UploadGrant,
 )
@@ -77,9 +83,12 @@ class InMemoryDocumentAccessProvider:
 
 
 class InMemoryDocumentMetadataStore:
-    def __init__(self) -> None:
+    def __init__(self, *, clock: Callable[[], datetime] | None = None) -> None:
         self.uploads: dict[UUID, UploadSession] = {}
         self.versions: dict[tuple[UUID, UUID], DocumentVersion] = {}
+        self.worker_claims: dict[tuple[UUID, DocumentWorkerStage], DocumentWorkerClaim] = {}
+        self._clock = clock or (lambda: datetime.now(UTC))
+        self._worker_claim_lock = asyncio.Lock()
 
     async def create(self, session: UploadSession, version: DocumentVersion) -> None:
         if session.upload_id in self.uploads:
@@ -123,6 +132,164 @@ class InMemoryDocumentMetadataStore:
     async def list_uploads_by_state(self, state: str, *, limit: int) -> tuple[UploadSession, ...]:
         uploads = [upload for upload in self.uploads.values() if upload.state.value == state]
         return tuple(sorted(uploads, key=lambda item: item.created_at)[:limit])
+
+    async def claim_worker_stage(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        *,
+        owner: str,
+        attempt_id: UUID,
+        lease_seconds: int,
+    ) -> DocumentWorkerClaim | None:
+        if not owner or lease_seconds < 1:
+            raise ValueError("document worker owner and lease MUST be valid")
+        now = self._clock()
+        key = (upload_id, stage)
+        async with self._worker_claim_lock:
+            current = self.worker_claims.get(key)
+            if current is not None:
+                if current.status is DocumentWorkerClaimStatus.COMPLETED:
+                    return None
+                if current.status is DocumentWorkerClaimStatus.ACTIVE:
+                    if (
+                        current.owner == owner
+                        and current.attempt_id == attempt_id
+                        and current.lease_expires_at > now
+                    ):
+                        return current
+                    if current.lease_expires_at > now:
+                        return None
+                    if current.attempt_id == attempt_id:
+                        return None
+                if (
+                    current.status is DocumentWorkerClaimStatus.RELEASED
+                    and current.attempt_id == attempt_id
+                ):
+                    return None
+            claim = DocumentWorkerClaim(
+                upload_id=upload_id,
+                stage=stage,
+                owner=owner,
+                attempt_id=attempt_id,
+                revision=1 if current is None else current.revision + 1,
+                status=DocumentWorkerClaimStatus.ACTIVE,
+                claimed_at=now,
+                lease_expires_at=now + timedelta(seconds=lease_seconds),
+            )
+            self.worker_claims[key] = claim
+            return claim
+
+    async def complete_worker_stage(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        *,
+        owner: str,
+        attempt_id: UUID,
+        expected_revision: int,
+    ) -> DocumentWorkerClaim:
+        return await self._finish_worker_stage(
+            upload_id,
+            stage,
+            owner=owner,
+            attempt_id=attempt_id,
+            expected_revision=expected_revision,
+            status=DocumentWorkerClaimStatus.COMPLETED,
+        )
+
+    async def renew_worker_stage(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        *,
+        owner: str,
+        attempt_id: UUID,
+        expected_revision: int,
+        lease_seconds: int,
+    ) -> DocumentWorkerClaim:
+        if lease_seconds < 1:
+            raise ValueError("document worker lease MUST be positive")
+        now = self._clock()
+        key = (upload_id, stage)
+        async with self._worker_claim_lock:
+            current = self.worker_claims.get(key)
+            if (
+                current is None
+                or current.status is not DocumentWorkerClaimStatus.ACTIVE
+                or current.owner != owner
+                or current.attempt_id != attempt_id
+                or current.revision != expected_revision
+                or current.lease_expires_at <= now
+            ):
+                raise DocumentWorkerClaimConflictError("document worker claim conflict")
+            renewed = current.model_copy(
+                update={
+                    "revision": current.revision + 1,
+                    "lease_expires_at": now + timedelta(seconds=lease_seconds),
+                }
+            )
+            self.worker_claims[key] = renewed
+            return renewed
+
+    async def release_worker_stage(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        *,
+        owner: str,
+        attempt_id: UUID,
+        expected_revision: int,
+    ) -> DocumentWorkerClaim:
+        return await self._finish_worker_stage(
+            upload_id,
+            stage,
+            owner=owner,
+            attempt_id=attempt_id,
+            expected_revision=expected_revision,
+            status=DocumentWorkerClaimStatus.RELEASED,
+        )
+
+    async def _finish_worker_stage(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        *,
+        owner: str,
+        attempt_id: UUID,
+        expected_revision: int,
+        status: DocumentWorkerClaimStatus,
+    ) -> DocumentWorkerClaim:
+        now = self._clock()
+        key = (upload_id, stage)
+        async with self._worker_claim_lock:
+            current = self.worker_claims.get(key)
+            if (
+                current is not None
+                and current.status is status
+                and current.owner == owner
+                and current.attempt_id == attempt_id
+                and current.revision == expected_revision + 1
+            ):
+                return current
+            if (
+                current is None
+                or current.status is not DocumentWorkerClaimStatus.ACTIVE
+                or current.owner != owner
+                or current.attempt_id != attempt_id
+                or current.revision != expected_revision
+                or current.lease_expires_at <= now
+            ):
+                raise DocumentWorkerClaimConflictError("document worker claim conflict")
+            finished = current.model_copy(
+                update={
+                    "revision": current.revision + 1,
+                    "status": status,
+                    "finished_at": now,
+                }
+            )
+            self.worker_claims[key] = finished
+            return finished
 
 
 class InMemoryDocumentObjectStore:

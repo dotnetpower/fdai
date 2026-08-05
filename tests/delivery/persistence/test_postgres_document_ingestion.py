@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import subprocess
 import sys
@@ -21,10 +22,13 @@ from fdai.shared.contracts import (
     DocumentPurpose,
     DocumentState,
     DocumentVersion,
+    DocumentWorkerClaimStatus,
+    DocumentWorkerStage,
     RetentionPolicy,
     SourceStorageMode,
     UploadSession,
 )
+from fdai.shared.providers.document_ingestion import DocumentWorkerClaimConflictError
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -132,4 +136,109 @@ async def test_live_metadata_crud_and_active_version_replacement() -> None:
             await connection.execute(
                 "DELETE FROM document_upload_session WHERE document_id = %s",
                 (first_session.document_id,),
+            )
+
+
+@pytest.mark.integration
+async def test_live_worker_claim_contention_expiry_and_completion_cas() -> None:
+    database_url = os.environ.get("FDAI_DATABASE_URL")
+    if not database_url:
+        pytest.skip("FDAI_DATABASE_URL is unset")
+    upgraded = subprocess.run(  # noqa: S603
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=_REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert upgraded.returncode == 0, upgraded.stderr
+    dsn = database_url.replace("postgresql+psycopg://", "postgresql://", 1)
+    first_store = PostgresDocumentMetadataStore(config=PostgresDocumentMetadataStoreConfig(dsn=dsn))
+    second_store = PostgresDocumentMetadataStore(
+        config=PostgresDocumentMetadataStoreConfig(dsn=dsn)
+    )
+    session, version = _records()
+    first_attempt = uuid4()
+    second_attempt = uuid4()
+    await first_store.create(session, version)
+
+    try:
+        claims = await asyncio.gather(
+            first_store.claim_worker_stage(
+                session.upload_id,
+                DocumentWorkerStage.INDEXING,
+                owner="integration-worker-a",
+                attempt_id=first_attempt,
+                lease_seconds=30,
+            ),
+            second_store.claim_worker_stage(
+                session.upload_id,
+                DocumentWorkerStage.INDEXING,
+                owner="integration-worker-b",
+                attempt_id=second_attempt,
+                lease_seconds=30,
+            ),
+        )
+        winner = next(claim for claim in claims if claim is not None)
+        assert sum(claim is not None for claim in claims) == 1
+        assert winner.revision == 1
+
+        async with await psycopg.AsyncConnection.connect(dsn) as connection:
+            await connection.execute(
+                "UPDATE document_worker_claim "
+                "SET claimed_at = clock_timestamp() - INTERVAL '2 seconds', "
+                "lease_expires_at = clock_timestamp() - INTERVAL '1 second' "
+                "WHERE upload_id = %s AND stage = %s",
+                (session.upload_id, DocumentWorkerStage.INDEXING.value),
+            )
+        recovery_store = second_store if winner.owner == "integration-worker-a" else first_store
+        recovery_owner = (
+            "integration-worker-b"
+            if winner.owner == "integration-worker-a"
+            else "integration-worker-a"
+        )
+        recovery_attempt = second_attempt if recovery_store is second_store else first_attempt
+        recovered = await recovery_store.claim_worker_stage(
+            session.upload_id,
+            DocumentWorkerStage.INDEXING,
+            owner=recovery_owner,
+            attempt_id=recovery_attempt,
+            lease_seconds=30,
+        )
+        assert recovered is not None
+        assert recovered.revision == winner.revision + 1
+        with pytest.raises(DocumentWorkerClaimConflictError):
+            await first_store.complete_worker_stage(
+                session.upload_id,
+                DocumentWorkerStage.INDEXING,
+                owner=winner.owner,
+                attempt_id=winner.attempt_id,
+                expected_revision=winner.revision,
+            )
+        completed = await recovery_store.complete_worker_stage(
+            session.upload_id,
+            DocumentWorkerStage.INDEXING,
+            owner=recovered.owner,
+            attempt_id=recovered.attempt_id,
+            expected_revision=recovered.revision,
+        )
+        replayed = await recovery_store.complete_worker_stage(
+            session.upload_id,
+            DocumentWorkerStage.INDEXING,
+            owner=recovered.owner,
+            attempt_id=recovered.attempt_id,
+            expected_revision=recovered.revision,
+        )
+
+        assert completed.status is DocumentWorkerClaimStatus.COMPLETED
+        assert replayed == completed
+    finally:
+        async with await psycopg.AsyncConnection.connect(dsn) as connection:
+            await connection.execute(
+                "DELETE FROM document_version WHERE document_id = %s",
+                (session.document_id,),
+            )
+            await connection.execute(
+                "DELETE FROM document_upload_session WHERE document_id = %s",
+                (session.document_id,),
             )

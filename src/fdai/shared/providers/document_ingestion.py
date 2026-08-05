@@ -12,6 +12,8 @@ from fdai.shared.contracts import (
     DocumentEnvelope,
     DocumentPurpose,
     DocumentVersion,
+    DocumentWorkerClaim,
+    DocumentWorkerStage,
     MalwareVerdict,
     ProtectionState,
     StructuralUnit,
@@ -30,6 +32,10 @@ class DocumentNotFoundError(DocumentIngestionError):
 
 class DocumentAccessDeniedError(DocumentIngestionError):
     """The principal is not permitted to perform the operation."""
+
+
+class DocumentWorkerClaimConflictError(DocumentIngestionError):
+    """A worker claim changed owner, attempt, revision, or lease state."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,6 +118,47 @@ class DocumentMetadataStore(Protocol):
     async def list_uploads_by_state(
         self, state: str, *, limit: int
     ) -> tuple[UploadSession, ...]: ...
+
+    async def claim_worker_stage(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        *,
+        owner: str,
+        attempt_id: UUID,
+        lease_seconds: int,
+    ) -> DocumentWorkerClaim | None: ...
+
+    async def complete_worker_stage(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        *,
+        owner: str,
+        attempt_id: UUID,
+        expected_revision: int,
+    ) -> DocumentWorkerClaim: ...
+
+    async def renew_worker_stage(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        *,
+        owner: str,
+        attempt_id: UUID,
+        expected_revision: int,
+        lease_seconds: int,
+    ) -> DocumentWorkerClaim: ...
+
+    async def release_worker_stage(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        *,
+        owner: str,
+        attempt_id: UUID,
+        expected_revision: int,
+    ) -> DocumentWorkerClaim: ...
 
 
 @runtime_checkable
@@ -242,6 +289,7 @@ __all__ = [
     "DocumentObjectStore",
     "DocumentReadyConsumer",
     "DocumentSearch",
+    "DocumentWorkerClaimConflictError",
     "ImageOcrProvider",
     "MalwareScanner",
     "ProtectionInspection",

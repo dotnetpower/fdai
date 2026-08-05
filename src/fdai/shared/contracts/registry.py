@@ -79,6 +79,8 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("runbook", "1.0.0"): "runbook/schema.json",
     ("workflow", "1.0.0"): "workflow/schema.json",
     ("profile", "1.0.0"): "profile/schema.json",
+    ("document-worker-audit", "1.0.0"): "document-worker-audit/schema.json",
+    ("document-worker-index", "1.0.0"): "document-worker-index/schema.json",
     ("ontology/object-type", "1.0.0"): "ontology/object-type.json",
     ("ontology/link-type", "1.0.0"): "ontology/link-type.json",
     ("ontology/action-type", "1.0.0"): "ontology/action-type.json",

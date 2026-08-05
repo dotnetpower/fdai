@@ -7,7 +7,7 @@ from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from ._base import SemVer, _Base
 
@@ -59,6 +59,20 @@ class DocumentPurpose(StrEnum):
     HANDOVER_EVIDENCE = "handover_evidence"
 
 
+class DocumentWorkerStage(StrEnum):
+    RECEIVED_REPLAY = "received_replay"
+    INSPECTION = "inspection"
+    PROTECTION_REPLAY = "protection_replay"
+    SAFETY_DECISION = "safety_decision"
+    INDEXING = "indexing"
+
+
+class DocumentWorkerClaimStatus(StrEnum):
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    RELEASED = "released"
+
+
 class AccessDescriptor(_Base):
     reference: Annotated[str, Field(min_length=1, max_length=512)]
     collection_id: Annotated[str, Field(min_length=1, max_length=256)]
@@ -92,6 +106,56 @@ class UploadSession(_Base):
     expires_at: datetime
     supersedes_version_id: UUID | None = None
     failure_code: str | None = None
+
+
+class DocumentWorkerClaim(_Base):
+    schema_version: SemVer = "1.0.0"
+    upload_id: UUID
+    stage: DocumentWorkerStage
+    owner: Annotated[str, Field(min_length=1, max_length=256)]
+    attempt_id: UUID
+    revision: Annotated[int, Field(ge=1)]
+    status: DocumentWorkerClaimStatus
+    claimed_at: datetime
+    lease_expires_at: datetime
+    finished_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def _validate_lifecycle(self) -> DocumentWorkerClaim:
+        if self.lease_expires_at <= self.claimed_at:
+            raise ValueError("document worker claim lease MUST expire after it is claimed")
+        if (self.status is DocumentWorkerClaimStatus.ACTIVE) == (self.finished_at is not None):
+            raise ValueError("only terminal document worker claims MUST have finished_at")
+        return self
+
+
+class DocumentWorkerAuditEvent(_Base):
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    producer_principal: Literal["Saga"]
+    kind: Literal["document_ingestion"]
+    audited_topic: Literal["object.verdict", "object.approval"]
+    correlation_id: Annotated[str, Field(max_length=512)] = ""
+    idempotency_key: Annotated[str, Field(max_length=512)] = ""
+    stage: Literal["received", "protection_check"]
+    decision: Annotated[str, Field(min_length=1, max_length=64)]
+    reason: Annotated[str, Field(max_length=256)] = ""
+    document_id: Annotated[str, Field(max_length=128)] = ""
+    upload_id: UUID
+    initiator_principal: Annotated[str, Field(max_length=256)] = ""
+    approvers: tuple[str, ...] = ()
+
+
+class DocumentWorkerIndexCommand(_Base):
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    producer_principal: Literal["Muninn"]
+    kind: Literal["document_ingestion"]
+    stage: Literal["indexing"]
+    command: Literal["index"]
+    correlation_id: Annotated[str, Field(max_length=512)] = ""
+    idempotency_key: Annotated[str, Field(max_length=512)] = ""
+    resource_id: Annotated[str, Field(max_length=128)] = ""
+    document_id: Annotated[str, Field(max_length=128)] = ""
+    upload_id: UUID
 
 
 class DocumentVersion(_Base):
@@ -175,6 +239,11 @@ __all__ = [
     "DocumentSourceSpan",
     "DocumentState",
     "DocumentVersion",
+    "DocumentWorkerClaim",
+    "DocumentWorkerClaimStatus",
+    "DocumentWorkerAuditEvent",
+    "DocumentWorkerIndexCommand",
+    "DocumentWorkerStage",
     "IngestionCapabilities",
     "MalwareVerdict",
     "ProtectionState",

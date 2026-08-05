@@ -386,6 +386,7 @@ class Muninn(Agent):
             self.record_behavior("document_index:invalid")
             return
         command = {
+            "schema_version": "1.0.0",
             "producer_principal": "Muninn",
             "kind": "document_ingestion",
             "stage": "indexing",

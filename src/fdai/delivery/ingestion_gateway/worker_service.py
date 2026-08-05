@@ -4,20 +4,38 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import socket
 from collections.abc import Awaitable, Callable
 from functools import partial
 from typing import Final
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fdai.core.document_ingestion import DocumentIngestionWorker
-from fdai.shared.contracts import DocumentState
-from fdai.shared.providers.document_ingestion import DocumentMetadataStore
+from fdai.shared.contracts import (
+    DocumentState,
+    DocumentWorkerAuditEvent,
+    DocumentWorkerClaim,
+    DocumentWorkerIndexCommand,
+    DocumentWorkerStage,
+)
+from fdai.shared.providers.document_ingestion import (
+    DocumentMetadataStore,
+    DocumentWorkerClaimConflictError,
+)
 from fdai.shared.providers.event_bus import EventBus
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class DocumentIngestionEventConsumer:
+    """Run gated operations under durable, revision-fenced stage claims.
+
+    Received/protection replay claims only republish persisted facts. Inspection,
+    safety-decision, and indexing claims execute work unlocked by Saga or Muninn.
+    Every operation renews its server-time lease and closes by owner, attempt, and
+    expected revision; failure releases the claim for a new attempt.
+    """
+
     def __init__(
         self,
         *,
@@ -29,6 +47,8 @@ class DocumentIngestionEventConsumer:
         retry_seconds: float = 2.0,
         reconcile_interval_seconds: float = 30.0,
         reconcile_batch_size: int = 100,
+        worker_owner: str | None = None,
+        lease_seconds: int = 120,
     ) -> None:
         if (
             topic != "object.audit-entry"
@@ -36,8 +56,13 @@ class DocumentIngestionEventConsumer:
             or retry_seconds <= 0
             or reconcile_interval_seconds <= 0
             or reconcile_batch_size < 1
+            or lease_seconds < 3
+            or lease_seconds > 3600
         ):
             raise ValueError("document worker MUST consume object.audit-entry with valid limits")
+        resolved_owner = worker_owner or f"{socket.gethostname()}:{uuid4().hex}"
+        if not resolved_owner or len(resolved_owner) > 256:
+            raise ValueError("document worker owner MUST be in [1, 256] characters")
         self._event_bus: Final = event_bus
         self._worker: Final = worker
         self._metadata: Final = metadata
@@ -46,8 +71,8 @@ class DocumentIngestionEventConsumer:
         self._retry_seconds: Final = retry_seconds
         self._reconcile_interval_seconds: Final = reconcile_interval_seconds
         self._reconcile_batch_size: Final = reconcile_batch_size
-        self._active: set[UUID] = set()
-        self._active_lock = asyncio.Lock()
+        self._worker_owner: Final = resolved_owner
+        self._lease_seconds: Final = lease_seconds
 
     async def run(self) -> None:
         while True:
@@ -57,25 +82,25 @@ class DocumentIngestionEventConsumer:
                         "audited_topic"
                     ) not in {"object.verdict", "object.approval"}:
                         continue
-                    upload_id = event.payload.get("upload_id")
-                    if not isinstance(upload_id, str):
-                        raise ValueError("audited document admission is missing upload_id")
-                    stage = str(event.payload.get("stage") or "")
-                    decision = str(event.payload.get("decision") or "hold")
-                    if stage == "received" and decision == "admit":
-                        await self._run_once(UUID(upload_id), self._worker.inspect)
-                    elif stage == "protection_check" and decision in {
+                    command = DocumentWorkerAuditEvent.model_validate(event.payload)
+                    if command.stage == "received" and command.decision == "admit":
+                        await self._run_once(
+                            command.upload_id,
+                            DocumentWorkerStage.INSPECTION,
+                            self._worker.inspect,
+                        )
+                    elif command.stage == "protection_check" and command.decision in {
                         "hold",
                         "deny",
                         "rejected",
                     }:
-                        reason = str(event.payload.get("reason") or "safety_hold")
                         await self._run_once(
-                            UUID(upload_id),
+                            command.upload_id,
+                            DocumentWorkerStage.SAFETY_DECISION,
                             partial(
                                 self._worker.apply_safety_decision,
-                                decision=decision,
-                                reason=reason,
+                                decision=command.decision,
+                                reason=command.reason or "safety_hold",
                             ),
                         )
                 await asyncio.sleep(self._retry_seconds)
@@ -102,16 +127,11 @@ class DocumentIngestionEventConsumer:
                         or event.payload.get("command") != "index"
                     ):
                         continue
-                    upload_id = event.payload.get("upload_id")
-                    if not isinstance(upload_id, str):
-                        raise ValueError("document index command is missing upload_id")
+                    command = DocumentWorkerIndexCommand.model_validate(event.payload)
                     await self._run_once(
-                        UUID(upload_id),
-                        partial(
-                            self._worker.apply_safety_decision,
-                            decision="admit",
-                            reason="safety_checks_passed",
-                        ),
+                        command.upload_id,
+                        DocumentWorkerStage.INDEXING,
+                        self._worker.index,
                     )
                 await asyncio.sleep(self._retry_seconds)
             except asyncio.CancelledError:
@@ -127,17 +147,25 @@ class DocumentIngestionEventConsumer:
         while True:
             try:
                 replay_operations = (
-                    (DocumentState.RECEIVED, self._worker.republish_received),
-                    (DocumentState.PROTECTION_CHECK, self._worker.republish_inspection),
+                    (
+                        DocumentState.RECEIVED,
+                        DocumentWorkerStage.RECEIVED_REPLAY,
+                        self._worker.republish_received,
+                    ),
+                    (
+                        DocumentState.PROTECTION_CHECK,
+                        DocumentWorkerStage.PROTECTION_REPLAY,
+                        self._worker.republish_inspection,
+                    ),
                 )
-                for state, operation in replay_operations:
+                for state, worker_stage, operation in replay_operations:
                     sessions = await self._metadata.list_uploads_by_state(
                         state.value,
                         limit=self._reconcile_batch_size,
                     )
                     for session in sessions:
                         try:
-                            await self._run_once(session.upload_id, operation)
+                            await self._run_once(session.upload_id, worker_stage, operation)
                         except asyncio.CancelledError:
                             raise
                         except Exception as exc:
@@ -159,7 +187,11 @@ class DocumentIngestionEventConsumer:
                     )
                     for session in sessions:
                         try:
-                            await self._run_once(session.upload_id, self._worker.inspect)
+                            await self._run_once(
+                                session.upload_id,
+                                DocumentWorkerStage.INSPECTION,
+                                self._worker.inspect,
+                            )
                         except asyncio.CancelledError:
                             raise
                         except Exception as exc:
@@ -177,7 +209,11 @@ class DocumentIngestionEventConsumer:
                     )
                     for session in sessions:
                         try:
-                            await self._run_once(session.upload_id, self._worker.index)
+                            await self._run_once(
+                                session.upload_id,
+                                DocumentWorkerStage.INDEXING,
+                                self._worker.index,
+                            )
                         except asyncio.CancelledError:
                             raise
                         except Exception as exc:
@@ -200,17 +236,123 @@ class DocumentIngestionEventConsumer:
     async def _run_once(
         self,
         upload_id: UUID,
+        stage: DocumentWorkerStage,
         operation: Callable[[UUID], Awaitable[object]],
     ) -> None:
-        async with self._active_lock:
-            if upload_id in self._active:
-                return
-            self._active.add(upload_id)
+        attempt_id = uuid4()
+        claim = await self._metadata.claim_worker_stage(
+            upload_id,
+            stage,
+            owner=self._worker_owner,
+            attempt_id=attempt_id,
+            lease_seconds=self._lease_seconds,
+        )
+        if claim is None:
+            return
+        current_claim = [claim]
+        operation_task: asyncio.Future[object] = asyncio.ensure_future(operation(upload_id))
+        renewal_task: asyncio.Task[object] = asyncio.create_task(
+            self._renew_claim(upload_id, stage, attempt_id, current_claim)
+        )
         try:
-            await operation(upload_id)
-        finally:
-            async with self._active_lock:
-                self._active.discard(upload_id)
+            done, _ = await asyncio.wait(
+                {operation_task, renewal_task},
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if renewal_task in done:
+                await renewal_task
+                raise RuntimeError("document worker claim renewal stopped unexpectedly")
+            await operation_task
+            renewal_task.cancel()
+            await asyncio.gather(renewal_task, return_exceptions=True)
+            await self._metadata.complete_worker_stage(
+                upload_id,
+                stage,
+                owner=self._worker_owner,
+                attempt_id=attempt_id,
+                expected_revision=current_claim[0].revision,
+            )
+        except asyncio.CancelledError:
+            await self._cancel_operation(operation_task, renewal_task)
+            await self._release_claim_safely(
+                upload_id,
+                stage,
+                attempt_id,
+                current_claim[0].revision,
+            )
+            raise
+        except Exception:
+            await self._cancel_operation(operation_task, renewal_task)
+            await self._release_claim_safely(
+                upload_id,
+                stage,
+                attempt_id,
+                current_claim[0].revision,
+            )
+            raise
+
+    async def _renew_claim(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        attempt_id: UUID,
+        current_claim: list[DocumentWorkerClaim],
+    ) -> object:
+        while True:
+            await asyncio.sleep(self._lease_seconds / 3)
+            revision = current_claim[0].revision
+            current_claim[0] = await self._metadata.renew_worker_stage(
+                upload_id,
+                stage,
+                owner=self._worker_owner,
+                attempt_id=attempt_id,
+                expected_revision=revision,
+                lease_seconds=self._lease_seconds,
+            )
+
+    async def _release_claim(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        attempt_id: UUID,
+        expected_revision: int,
+    ) -> None:
+        try:
+            await self._metadata.release_worker_stage(
+                upload_id,
+                stage,
+                owner=self._worker_owner,
+                attempt_id=attempt_id,
+                expected_revision=expected_revision,
+            )
+        except DocumentWorkerClaimConflictError:
+            _LOGGER.warning(
+                "document_worker_claim_release_conflict",
+                extra={"upload_id": str(upload_id), "stage": stage.value},
+            )
+
+    async def _release_claim_safely(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        attempt_id: UUID,
+        expected_revision: int,
+    ) -> None:
+        release_task = asyncio.create_task(
+            self._release_claim(upload_id, stage, attempt_id, expected_revision)
+        )
+        try:
+            await asyncio.shield(release_task)
+        except asyncio.CancelledError:
+            await release_task
+            raise
+
+    @staticmethod
+    async def _cancel_operation(*tasks: asyncio.Future[object]) -> None:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 __all__ = ["DocumentIngestionEventConsumer"]

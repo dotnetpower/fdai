@@ -1,5 +1,7 @@
 """PostgreSQL metadata store for durable document-ingestion state."""
 
+# ruff: noqa: S608 - interpolated SQL fragments are module constants or private fixed literals.
+
 from __future__ import annotations
 
 import json
@@ -10,8 +12,22 @@ from uuid import UUID
 import psycopg
 from psycopg.rows import dict_row
 
-from fdai.shared.contracts import DocumentVersion, UploadSession
-from fdai.shared.providers.document_ingestion import DocumentNotFoundError
+from fdai.shared.contracts import (
+    DocumentVersion,
+    DocumentWorkerClaim,
+    DocumentWorkerClaimStatus,
+    DocumentWorkerStage,
+    UploadSession,
+)
+from fdai.shared.providers.document_ingestion import (
+    DocumentNotFoundError,
+    DocumentWorkerClaimConflictError,
+)
+
+_WORKER_CLAIM_COLUMNS = (
+    "upload_id, stage, owner, attempt_id, revision, status, claimed_at, "
+    "lease_expires_at, finished_at"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -154,6 +170,210 @@ class PostgresDocumentMetadataStore:
             rows = await cursor.fetchall()
         return tuple(UploadSession.model_validate(_payload(row["payload"])) for row in rows)
 
+    async def claim_worker_stage(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        *,
+        owner: str,
+        attempt_id: UUID,
+        lease_seconds: int,
+    ) -> DocumentWorkerClaim | None:
+        _validate_worker_claim_input(owner=owner, lease_seconds=lease_seconds)
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            cursor = await connection.execute(
+                "INSERT INTO document_worker_claim ("
+                f"{_WORKER_CLAIM_COLUMNS}) VALUES ("
+                "%s, %s, %s, %s, 1, 'active', clock_timestamp(), "
+                "clock_timestamp() + (%s * INTERVAL '1 second'), NULL) "
+                "ON CONFLICT (upload_id, stage) DO NOTHING "
+                f"RETURNING {_WORKER_CLAIM_COLUMNS}",
+                (upload_id, stage.value, owner, attempt_id, lease_seconds),
+            )
+            row = await cursor.fetchone()
+            if row is not None:
+                return _worker_claim(row)
+            current_cursor = await connection.execute(
+                f"SELECT {_WORKER_CLAIM_COLUMNS}, clock_timestamp() AS server_now "
+                "FROM document_worker_claim WHERE upload_id = %s AND stage = %s FOR UPDATE",
+                (upload_id, stage.value),
+            )
+            current_row = await current_cursor.fetchone()
+            if current_row is None:
+                raise RuntimeError("document worker claim disappeared during acquisition")
+            current = _worker_claim(current_row)
+            server_now = current_row["server_now"]
+            if current.status is DocumentWorkerClaimStatus.COMPLETED:
+                return None
+            if current.status is DocumentWorkerClaimStatus.ACTIVE:
+                if (
+                    current.owner == owner
+                    and current.attempt_id == attempt_id
+                    and current.lease_expires_at > server_now
+                ):
+                    return current
+                if current.lease_expires_at > server_now or current.attempt_id == attempt_id:
+                    return None
+            if current.attempt_id == attempt_id:
+                return None
+            reclaimed_cursor = await connection.execute(
+                "UPDATE document_worker_claim SET owner = %s, attempt_id = %s, "
+                "revision = revision + 1, status = 'active', claimed_at = clock_timestamp(), "
+                "lease_expires_at = clock_timestamp() + (%s * INTERVAL '1 second'), "
+                "finished_at = NULL WHERE upload_id = %s AND stage = %s AND revision = %s "
+                f"RETURNING {_WORKER_CLAIM_COLUMNS}",
+                (
+                    owner,
+                    attempt_id,
+                    lease_seconds,
+                    upload_id,
+                    stage.value,
+                    current.revision,
+                ),
+            )
+            reclaimed_row = await reclaimed_cursor.fetchone()
+            if reclaimed_row is None:
+                raise DocumentWorkerClaimConflictError("document worker claim conflict")
+            return _worker_claim(reclaimed_row)
+
+    async def renew_worker_stage(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        *,
+        owner: str,
+        attempt_id: UUID,
+        expected_revision: int,
+        lease_seconds: int,
+    ) -> DocumentWorkerClaim:
+        _validate_worker_claim_input(owner=owner, lease_seconds=lease_seconds)
+        return await self._update_worker_claim(
+            upload_id,
+            stage,
+            owner=owner,
+            attempt_id=attempt_id,
+            expected_revision=expected_revision,
+            assignment=(
+                "revision = revision + 1, lease_expires_at = "
+                "clock_timestamp() + (%s * INTERVAL '1 second')"
+            ),
+            assignment_params=(lease_seconds,),
+        )
+
+    async def complete_worker_stage(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        *,
+        owner: str,
+        attempt_id: UUID,
+        expected_revision: int,
+    ) -> DocumentWorkerClaim:
+        return await self._finish_worker_stage(
+            upload_id,
+            stage,
+            owner=owner,
+            attempt_id=attempt_id,
+            expected_revision=expected_revision,
+            status=DocumentWorkerClaimStatus.COMPLETED,
+        )
+
+    async def release_worker_stage(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        *,
+        owner: str,
+        attempt_id: UUID,
+        expected_revision: int,
+    ) -> DocumentWorkerClaim:
+        return await self._finish_worker_stage(
+            upload_id,
+            stage,
+            owner=owner,
+            attempt_id=attempt_id,
+            expected_revision=expected_revision,
+            status=DocumentWorkerClaimStatus.RELEASED,
+        )
+
+    async def _finish_worker_stage(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        *,
+        owner: str,
+        attempt_id: UUID,
+        expected_revision: int,
+        status: DocumentWorkerClaimStatus,
+    ) -> DocumentWorkerClaim:
+        try:
+            return await self._update_worker_claim(
+                upload_id,
+                stage,
+                owner=owner,
+                attempt_id=attempt_id,
+                expected_revision=expected_revision,
+                assignment=(
+                    "revision = revision + 1, status = %s, finished_at = clock_timestamp()"
+                ),
+                assignment_params=(status.value,),
+            )
+        except DocumentWorkerClaimConflictError:
+            async with await self._connect() as connection:
+                await self._timeout(connection)
+                cursor = await connection.execute(
+                    f"SELECT {_WORKER_CLAIM_COLUMNS} FROM document_worker_claim "
+                    "WHERE upload_id = %s AND stage = %s",
+                    (upload_id, stage.value),
+                )
+                row = await cursor.fetchone()
+            if row is not None:
+                current = _worker_claim(row)
+                if (
+                    current.status is status
+                    and current.owner == owner
+                    and current.attempt_id == attempt_id
+                    and current.revision == expected_revision + 1
+                ):
+                    return current
+            raise
+
+    async def _update_worker_claim(
+        self,
+        upload_id: UUID,
+        stage: DocumentWorkerStage,
+        *,
+        owner: str,
+        attempt_id: UUID,
+        expected_revision: int,
+        assignment: str,
+        assignment_params: tuple[object, ...],
+    ) -> DocumentWorkerClaim:
+        if not owner or expected_revision < 1:
+            raise ValueError("document worker owner and revision MUST be valid")
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            cursor = await connection.execute(
+                f"UPDATE document_worker_claim SET {assignment} "
+                "WHERE upload_id = %s AND stage = %s AND owner = %s AND attempt_id = %s "
+                "AND revision = %s AND status = 'active' "
+                "AND lease_expires_at > clock_timestamp() "
+                f"RETURNING {_WORKER_CLAIM_COLUMNS}",
+                (
+                    *assignment_params,
+                    upload_id,
+                    stage.value,
+                    owner,
+                    attempt_id,
+                    expected_revision,
+                ),
+            )
+            row = await cursor.fetchone()
+        if row is None:
+            raise DocumentWorkerClaimConflictError("document worker claim conflict")
+        return _worker_claim(row)
+
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
         return await psycopg.AsyncConnection.connect(
             self._config.dsn,
@@ -175,6 +395,25 @@ def _payload(value: Any) -> dict[str, Any]:
         if isinstance(parsed, dict):
             return parsed
     raise RuntimeError("document metadata payload is not a JSON object")
+
+
+def _worker_claim(row: dict[str, Any]) -> DocumentWorkerClaim:
+    return DocumentWorkerClaim(
+        upload_id=row["upload_id"],
+        stage=DocumentWorkerStage(row["stage"]),
+        owner=str(row["owner"]),
+        attempt_id=row["attempt_id"],
+        revision=int(row["revision"]),
+        status=DocumentWorkerClaimStatus(row["status"]),
+        claimed_at=row["claimed_at"],
+        lease_expires_at=row["lease_expires_at"],
+        finished_at=row["finished_at"],
+    )
+
+
+def _validate_worker_claim_input(*, owner: str, lease_seconds: int) -> None:
+    if not owner or len(owner) > 256 or lease_seconds < 1 or lease_seconds > 3600:
+        raise ValueError("document worker owner and lease MUST be valid")
 
 
 __all__ = ["PostgresDocumentMetadataStore", "PostgresDocumentMetadataStoreConfig"]

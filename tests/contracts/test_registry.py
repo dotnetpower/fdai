@@ -74,6 +74,8 @@ def test_registry_names_covers_expected_set(
         "runbook",
         "workflow",
         "profile",
+        "document-worker-audit",
+        "document-worker-index",
         "ontology/object-type",
         "ontology/link-type",
         "ontology/action-type",

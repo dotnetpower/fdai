@@ -1,7 +1,7 @@
 ---
 translation_of: document-ingestion-agent-ownership.md
-translation_source_sha: 7014336bc2145b255aa0239cb82a72d587ea2ecb
-translation_revised: 2026-07-23
+translation_source_sha: 5c51c89bc3ee3d64759f0610a5d2db2040de4ef9
+translation_revised: 2026-08-06
 ---
 
 # 문서 인제스트 에이전트 소유권
@@ -83,6 +83,26 @@ verdict와 approval을 모두 무시합니다.
 Reconciliation은 stable idempotency key로 `RECEIVED`와 `PROTECTION_CHECK` event를 재발행하지만
 해당 gated state를 직접 진행하지 않습니다. `QUARANTINED`, `SCANNING`, `EXTRACTING`, `INDEXING`의
 post-decision 작업만 resume합니다.
+
+## 지속성 있는 worker 소유권
+
+각 기계적 worker 작업은 lifecycle state를 읽거나 변경하기 전에 `(upload_id, stage)`에 대한 별도
+PostgreSQL claim을 획득합니다. Claim은 worker owner, attempt id, revision, server clock 기준 claim
+시각, 제한된 lease 만료, active, completed 또는 released 상태를 기록합니다. 이 record는
+`UploadSession`에 worker 권한을 추가하지 않으며 Saga 또는 Muninn gate를 대체하지 않습니다.
+
+- **단일 owner:** 동시 replica는 한 row에서 경합하므로 만료되지 않은 active claim 하나만 해당
+  stage를 실행할 수 있습니다.
+- **Fencing된 완료:** renew, complete, release는 owner, attempt id, expected revision을 비교합니다.
+  오래되거나 중단된 worker는 더 최신 attempt를 닫을 수 없습니다.
+- **제한된 recovery:** 새 attempt는 server time 기준 lease가 만료된 뒤에만 active claim을
+  복구할 수 있습니다. 명시적으로 release된 claim은 새 attempt와 revision으로 즉시 재시도할 수
+  있습니다.
+- **Terminal 중복 제거:** completed claim은 다시 획득할 수 없습니다. 따라서 중복 broker delivery와
+  reconciliation은 stage를 반복하는 대신 지속성 있는 terminal 결과를 재사용합니다.
+- **Gate 보존:** received 및 protection reconciliation은 저장된 사실만 재발행합니다. Inspection에는
+  여전히 Saga가 감사한 admission이 필요하며, indexing에는 Muninn 소유 command 또는 이미 시작된
+  post-decision state의 recovery가 필요합니다.
 
 ## 관련 문서
 

@@ -207,6 +207,7 @@ class Saga(Agent):
             "Saga",
             "object.audit-entry",
             {
+                "schema_version": "1.0.0",
                 "producer_principal": "Saga",
                 "kind": "document_ingestion",
                 "audited_topic": "object.verdict",
@@ -231,6 +232,7 @@ class Saga(Agent):
             "Saga",
             "object.audit-entry",
             {
+                "schema_version": "1.0.0",
                 "producer_principal": "Saga",
                 "kind": "document_ingestion",
                 "audited_topic": "object.approval",

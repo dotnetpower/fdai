@@ -22,6 +22,8 @@ SCHEMA_NAMES = [
     "runbook",
     "workflow",
     "profile",
+    "document-worker-audit",
+    "document-worker-index",
     "ontology/object-type",
     "ontology/link-type",
     "ontology/action-type",
