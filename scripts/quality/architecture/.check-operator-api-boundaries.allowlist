@@ -1,0 +1,6 @@
+# Production composition owns provider construction and reviewed runtime bindings.
+composition-fanout|src/fdai/delivery/operator_api/production/factory.py|49
+# Local composition mirrors production bindings while selecting local providers.
+composition-fanout|src/fdai/delivery/operator_api/dev/factory.py|55
+# Runtime bootstrap is the reviewed process composition root for headless services.
+composition-fanout|src/fdai/runtime/bootstrap.py|47

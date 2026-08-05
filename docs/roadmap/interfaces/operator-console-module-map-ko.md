@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 7cbc1327cd597ea895605057addbc302c9a9ab0e
+translation_source_sha: 5487edfc46ba36933eca12919e44e243d8074f2d
 translation_revised: 2026-08-05
 ---
 # Operator Console Module Map and Boundaries
@@ -18,6 +18,29 @@ route module을 분류된 상태로 유지하도록 요구합니다.
 [`test_operator_api_layout.py`](../../../tests/delivery/operator_api/test_operator_api_layout.py)는 현재 모든
 package와 route module이 분류된 상태인지 확인하고, exact 기본 method, path, route-name set 및 대표 HTTP
 envelope를 고정합니다. 의도적인 기본 route 추가는 같은 변경에서 검토된 baseline을 갱신합니다.
+
+### Dependency-direction gate
+
+`check-operator-api-boundaries.py`는 application code를 로드하지 않고 import를 파싱합니다. 정리된
+core-to-delivery, runtime-to-Operator API, ingestion-to-Operator API 및 shared
+delivery-to-application 방향은 enforced check로 유지합니다. 기존 route-to-core policy import와 반대
+방향의 Operator API service import는 report-only debt로 유지하므로 이후 migration issue가 이를 줄이는
+동안 관련 없는 작업을 차단하지 않습니다.
+
+Gate는 production factory, development factory 및 runtime bootstrap의 unique internal import도
+측정합니다. 검토된 limit 이상인 composition root는
+`.check-operator-api-boundaries.allowlist`에 exact path, maximum import count 및 바로 앞의
+justification comment가 필요합니다. 검토된 maximum을 넘기려면 새 review가 필요합니다. Justification
+누락, 검토되지 않은 high-fanout root 또는 stale exception은 check를 실패시킵니다. Report-only rule은
+`.check-operator-api-boundaries.debt`를 aggregate non-growth budget으로 사용합니다. Debt는 file 변경 없이
+줄어들 수 있지만 증가는 CI를 실패시킵니다. 좁은 package 또는 touched-file check에는 하나 이상의
+`--path <repository-relative-path>` argument를 사용합니다. Stale detection도 동일한 선택 범위로
+제한되며 CI와 pre-push는 항상 full scan을 실행합니다.
+
+Enforced finding은 dependency를 neutral contract 또는 provider seam으로 이동하고 검토된 composition
+root에서 implementation을 bind하여 해결합니다. Reverse service import를 위해 allowlist entry를 추가하지
+않습니다. Report-only finding은 migration inventory이며 owning package가 정리된 후에만 enforce 대상으로
+전환합니다.
 
 | Package | 현재 책임 | Migration 규칙 |
 |---------|-----------|----------------|

@@ -17,6 +17,29 @@ classified.
 also pins the exact default method, path, and route-name set plus representative HTTP envelopes.
 An intentional default route addition updates this reviewed baseline in the same change.
 
+### Dependency-direction gate
+
+`check-operator-api-boundaries.py` parses imports without loading application code. It enforces
+the cleaned core-to-delivery, runtime-to-Operator API, ingestion-to-Operator API, and shared
+delivery-to-application directions. Existing route-to-core policy imports and opposite-direction
+Operator API service imports remain report-only debt, so unrelated work isn't blocked while the
+later migration issues reduce them.
+
+The gate also measures unique internal imports for the production factory, development factory,
+and runtime bootstrap. A composition root at or above the reviewed limit needs an exact path,
+maximum import count, and preceding justification comment in
+`.check-operator-api-boundaries.allowlist`. Exceeding that reviewed maximum requires a new review.
+Missing justification, an unreviewed high-fanout root, or a stale exception fails the check.
+Report-only rules use `.check-operator-api-boundaries.debt` as aggregate non-growth budgets: debt
+may shrink without updating the file, but an increase fails CI. Use one or more
+`--path <repository-relative-path>` arguments for a narrow package or touched-file check; stale
+detection is limited to the same selected scope, while CI and pre-push always run the full scan.
+
+Fix an enforced finding by moving the dependency to a neutral contract or provider seam and
+binding its implementation at a reviewed composition root. Don't add an allowlist entry for a
+reverse service import. Report-only findings are migration inventory and become enforceable only
+after their owning package is cleaned.
+
 | Package | Current responsibility | Migration rule |
 |---------|------------------------|----------------|
 | Root | Public facades and foundational contracts | Preserve until a classified replacement exists. |

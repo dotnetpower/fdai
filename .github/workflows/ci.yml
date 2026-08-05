@@ -386,6 +386,16 @@ jobs:
       - name: check-evaluation-boundaries.py
         run: python3 scripts/quality/architecture/check-evaluation-boundaries.py
 
+  operator-api-boundaries:
+    name: Operator API dependency-direction guard
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: check-operator-api-boundaries.py
+        run: python3 scripts/quality/architecture/check-operator-api-boundaries.py
+
   evaluation-packages:
     name: evaluation SDK and external-adapter packages
     runs-on: ubuntu-24.04
