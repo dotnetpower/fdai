@@ -20,11 +20,11 @@
   var STAGES = ["route", "verify", "gate", "execute"];
   // Per-tier total pipeline duration (ms). Randomised +/-25% per event.
   var TIER_TOTAL_MS = { t0: 320, t1: 750, t2: 2100 };
-  var BASE_RATE = 22; // events / sec at Rate 1x
+  var BASE_RATE = 2; // events / sec, bounded for the six-card preview
   var FADE_1_MS = 900;
   var FADE_2_MS = 1600;
   var RETIRE_MS = 2400;
-  var TICKER_MAX = 12;
+  var FLOW_POOL_SIZE = 6;
   var SPARK_BUCKETS = 60; // one second per bucket
   var SPARK_BUCKET_MS = 1000;
 
@@ -51,7 +51,6 @@
 
   // ---------- state ----------
   var swarm = document.getElementById("swarm");
-  var ticker = document.getElementById("ticker");
   var pauseBtn = document.getElementById("live-pause");
   var queueBody = document.getElementById("live-queue");
   var queueEmpty = document.getElementById("queue-empty");
@@ -59,8 +58,6 @@
   var flowView = document.getElementById("flow-view");
   var queueButton = document.getElementById("view-queue");
   var flowButton = document.getElementById("view-flow");
-  var tickerBody = document.getElementById("ticker-body");
-  var tickerToggle = document.getElementById("ticker-toggle");
   var detailBackdrop = document.getElementById("detail-backdrop");
   var detailClose = document.getElementById("detail-close");
   var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -110,9 +107,6 @@
     var s = Math.floor(rng() * 0xFFFFFF).toString(16).padStart(6, "0");
     return "evt-" + s;
   }
-  function pad2(n) { return n < 10 ? "0" + n : "" + n; }
-  function pad3(n) { return n < 10 ? "00" + n : n < 100 ? "0" + n : "" + n; }
-  function timeStr(d) { return pad2(d.getUTCHours()) + ":" + pad2(d.getUTCMinutes()) + ":" + pad2(d.getUTCSeconds()) + "." + pad3(d.getUTCMilliseconds()); }
   function ageLabel(ms) {
     if (ms < 1000) return "now";
     if (ms < 60000) return Math.floor(ms / 1000) + "s";
@@ -130,17 +124,7 @@
 
   // ---------- pool creation ----------
   function computePoolSize() {
-    // Fit whatever the grid gives us; keep at least 42, at most 140.
-    var probe = document.createElement("div");
-    probe.className = "cs-tile";
-    probe.style.visibility = "hidden";
-    swarm.appendChild(probe);
-    var w = probe.offsetWidth || 152;
-    swarm.removeChild(probe);
-    var availableWidth = swarm.clientWidth || Math.max(640, document.documentElement.clientWidth - 48);
-    var cols = Math.max(4, Math.floor(availableWidth / (w + 8)));
-    var rows = 6;
-    return Math.max(42, Math.min(140, cols * rows));
+    return FLOW_POOL_SIZE;
   }
 
   function buildTile() {
@@ -191,12 +175,11 @@
 
   // ---------- lifecycle ----------
   function pickSlot() {
-    // Only recycle fully-retired slots. If the swarm is at capacity, drop the
-    // new event - realistic backpressure signal beats popping a mid-fade tile.
+    // Only recycle fully-retired slots. A full synthetic preview pauses new
+    // generation instead of presenting artificial transport backpressure.
     for (var i = 0; i < pool.length; i++) {
       if (pool[i].state === "empty") return pool[i];
     }
-    droppedFrames++;
     return null;
   }
 
@@ -265,9 +248,8 @@
     slot.stageEl.textContent = terminalLabel;
     pulse(slot.el);
 
-    // Emit audit + count outcome in bucket
+    // Count the observed terminal outcome in the rolling KPI window.
     countOutcomeInBucket(now, slot.ev.outcome);
-    pushTicker(slot);
   }
 
   function retire(slot) {
@@ -336,50 +318,6 @@
         lastOperationalRender = now;
       }
     }
-  }
-
-  // ---------- ticker ----------
-  var tickerCount = 0;
-  function pushTicker(slot) {
-    var li = document.createElement("li");
-    var ev = slot.ev;
-    var d = new Date();
-    var tier = ev.tier;
-    var s = ev.sample;
-
-    // Derive a mode chip: executed (auto) actions run in enforce, with a
-    // realistic slice still in shadow; gated outcomes (hil/abstain/deny) did
-    // not execute, so they carry a neutral "gated" chip.
-    var mode, modeClass;
-    if (ev.outcome === "auto") {
-      var shadow = (parseInt(ev.id.slice(-1), 16) % 4) === 0;
-      mode = shadow ? "shadow" : "enforce";
-      modeClass = shadow ? "shadow" : "enforce";
-    } else {
-      mode = "gated";
-      modeClass = "gated";
-    }
-
-    var row1 = ''
-      + '<div class="cs-tk-row1">'
-      +   '<span class="cs-tier ' + tier + ' tier">' + tier.toUpperCase() + '</span>'
-      +   '<span class="cs-tk-rule" title="' + s.rule + ' -&gt; ' + s.at + '">' + s.rule + ' &rarr; ' + s.at + '</span>'
-      +   '<span class="out ' + ev.outcome + '">' + ev.outcome + '</span>'
-      + '</div>';
-    var row2 = ''
-      + '<div class="cs-tk-row2">'
-      +   '<span class="t">' + timeStr(d) + '</span>'
-      +   '<span class="cs-tk-id">' + ev.id + '</span>'
-      +   '<span class="cs-vert ' + s.vertical + '">' + s.vertical + '</span>'
-      +   '<span class="cs-tk-scope">' + s.scope + '</span>'
-      +   '<span class="cs-tk-lat">' + ev.total + 'ms</span>'
-      +   '<span class="cs-tk-mode ' + modeClass + '">' + mode + '</span>'
-      + '</div>';
-    li.innerHTML = row1 + row2;
-    ticker.insertBefore(li, ticker.firstChild);
-    tickerCount++;
-    while (ticker.children.length > TICKER_MAX) ticker.removeChild(ticker.lastChild);
-    document.getElementById("ticker-count").textContent = "- " + ticker.children.length + " items";
   }
 
   // ---------- buckets ----------
@@ -799,19 +737,8 @@
       first.focus();
     }
   });
-  tickerToggle.addEventListener("click", function () {
-    var expanded = tickerToggle.getAttribute("aria-expanded") === "true";
-    tickerToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
-    tickerToggle.setAttribute("aria-label", expanded ? "Expand recent outcomes" : "Collapse recent outcomes");
-    tickerToggle.textContent = expanded ? "+" : "-";
-    tickerBody.hidden = expanded;
-  });
-
   window.addEventListener("resize", function () {
     resizeSpark();
-    // If pool size changed materially, rebuild.
-    var expected = computePoolSize();
-    if (Math.abs(expected - pool.length) > 8) initPool();
   });
 
   // ---------- boot ----------
@@ -825,6 +752,7 @@
     resizeSpark();
     lastFrame = t;
     lastBucketAt = t;
+    for (var slotIndex = 0; slotIndex < FLOW_POOL_SIZE; slotIndex++) spawn(t);
     renderSparkline();
     tick(t);
     window.setInterval(function () { tick(performance.now()); }, 50);
