@@ -358,6 +358,7 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
         "module.read_api[0].azurerm_container_app_job.migrate",
         "module.read_api_identity[0].azurerm_user_assigned_identity.primary",
         "module.llm_azure_openai[0].azurerm_role_assignment.additional_openai_user",
+        "azurerm_role_assignment.runtime_startup_probe_eventhubs_owner",
     ):
         assert f"-target={moved_target}" in workflow
     assert "Build development operations gateway source artifact" in workflow
@@ -480,7 +481,10 @@ def test_gateway_source_deployment_is_owned_by_the_workflow() -> None:
         encoding="utf-8"
     )
     assert 'value     = "VECTOR,PG_TRGM"' in postgres
-    assert re.search(r"topics\s*=\s*\[local\.canary_topic\]", terraform)
+    assert re.search(
+        r"topics\s*=\s*\[local\.canary_topic, local\.startup_probe_topic\]",
+        terraform,
+    )
     assert re.search(r"auxiliary_topics\s*=\s*\[local\.inventory_raw_topic\]", terraform)
     assert "module.event_bus_auxiliary.kafka_bootstrap" in terraform
     assert 'resource "azurerm_eventgrid_system_topic" "inventory_resource_changes"' in terraform

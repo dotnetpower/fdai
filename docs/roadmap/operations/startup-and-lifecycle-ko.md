@@ -1,8 +1,8 @@
 ---
 title: 시작과 라이프사이클(Startup and Lifecycle)
 translation_of: startup-and-lifecycle.md
-translation_source_sha: 3d50b4a7e82c6e2484dc6e83d15a09c7c0bf7870
-translation_revised: 2026-08-02
+translation_source_sha: 9b7addcd0bccea4c327c8508dfd8023ce7d50a0d
+translation_revised: 2026-08-06
 ---
 
 # 시작과 라이프사이클(Startup and Lifecycle)
@@ -76,6 +76,11 @@ provisioning 중심 deployment preflight 및 active post-deploy smoke test와 �
 | Required reachability | identity token, private DNS, TLS, PostgreSQL, Kafka, catalog와 policy engine | bounded read-only |
 | Capability warm-up | 활성화된 각 model, embedding, search, notification 및 telemetry adapter | 명시적 비용 한도가 있는 최소 요청 |
 | Active smoke | Kafka probe topic round trip, database probe transaction, canary, 사람 승인 dry run | 전용 synthetic scope만 사용 |
+
+Kafka round trip은 operational Event Hubs namespace의 전용 `runtime.startup.probe` entity를
+사용합니다. Core identity는 해당 entity에만 topic-scoped Data Owner 권한을 가지며, runtime
+composition은 readiness를 operational bus로 전달합니다. 따라서 probe traffic은 가득 찬 primary
+namespace의 capacity를 사용하거나 governed event topic과 섞이지 않습니다.
 
 Report는 세 가지 결정을 사용합니다. `blocked`는 `/ready`를 닫습니다. `degraded`는 관찰 또는 read-only
 작업을 열 수 있지만 unavailable capability의 권한을 낮춥니다. `ready`는 낮은 권한 상한 없이 필수

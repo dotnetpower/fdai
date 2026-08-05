@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: ffd87db6e137519b22aa61c751880de64cf1542e
+translation_source_sha: 39dbcfe7e2a00eb840ad054f68af54ad95b478b2
 translation_revised: 2026-08-06
 ---
 
@@ -325,7 +325,7 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 | 1 | **Container Apps environment** | Consumption | 공유 서버리스 컴퓨트 호스트 | 코어 앱과 예약 작업이 하나의 environment를 공유하며 [Runtime 계약](../architecture/csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트)을 구현합니다. |
 | 2 | **Container App** (통합 코어) | 1 앱, `minReplicas: 1`, 기본 최대 3 | 하나의 모듈식 프로세스가 `event-ingest`, `trust-router`, `executor`, `audit`를 구성합니다. | 자격 증명 없는 scaler 인증을 검증할 때까지 Kafka lag 기반 scale-to-zero는 연기합니다. [Compute Shape](#compute-shape-single-modular-process)를 참조하세요. |
 | 3 | **Container Apps Job** | Consumption | 스케줄 프로브와 out-of-band 변경 감지 | Azure Functions 대체; environment 공유 |
-| 4 | **Event Hubs namespace shard** | Standard 2개 (각 1 TU, auto-inflate off) | Kafka-와이어 이벤트 버스 (`:9093` endpoint) | primary는 governed ingress, DLQ, HIL, stage를 소유하고 operational은 canary + DLQ와 raw inventory를 소유하여 parser별 payload를 섞지 않고 Standard의 namespace당 entity 10개 제한을 지킵니다. |
+| 4 | **Event Hubs namespace shard** | Standard 2개 (각 1 TU, auto-inflate off) | Kafka-와이어 이벤트 버스 (`:9093` endpoint) | primary는 governed ingress, DLQ, HIL, stage를 소유하고 operational은 canary + DLQ, raw inventory 및 전용 startup round-trip topic을 소유합니다. Governed, synthetic 및 parser별 payload를 섞지 않으면서 Standard의 namespace당 entity 10개 제한을 지킵니다. |
 | 5 | **Event Grid inventory system topic + subscription + Diagnostic Settings** | global subscription event delivery / Log Analytics | Resource write/delete를 `aw.inventory.raw`로 보내고 플랫폼 진단을 workspace로 보냄 | Terraform은 Azure canonical lowercase type으로 tracked topic 하나를 adopt하고 send-only inventory UAMI를 할당하며 dedicated system-topic subscription API를 사용합니다. Discovery가 모호하면 plan을 차단합니다. |
 | 6 | **PostgreSQL Flexible Server** | Dev: Burstable **B1ms**, HA 비활성, 7일 백업; prod: zone-redundant HA, 35일 geo backup | audit + KPI + 패턴 라이브러리 + **pgvector** T1 임베딩, 단일 저장 | Terraform은 `vector`와 `pg_trgm`을 allowlist하며 production은 `ZoneRedundant` HA를 요구합니다. |
 | 7 | **Key Vault** | Standard | **Container Apps native secret + Key Vault reference**로 소비되는 secret backend - [시크릿 계약](../architecture/csp-neutrality-ko.md#3-시크릿-계약--환경변수--k8s-secret) 구현 | Premium (HSM) 불필요; 앱은 secret SDK 호출 안 함 |

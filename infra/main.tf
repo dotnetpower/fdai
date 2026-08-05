@@ -89,6 +89,7 @@ locals {
   # Kafka topics served by Event Hubs (see docs/roadmap/deployment/deploy-and-onboard.md § Event Source Subscription).
   canary_topic        = "aw.control.canary"
   inventory_raw_topic = "aw.inventory.raw"
+  startup_probe_topic = "runtime.startup.probe"
   event_topics = [
     "aw.change.events",
     "aw.dr.events",
@@ -641,6 +642,12 @@ resource "azurerm_role_assignment" "canary_eventhubs_sender" {
   principal_id         = module.canary_identity.principal_id
 }
 
+resource "azurerm_role_assignment" "runtime_startup_probe_eventhubs_owner" {
+  scope                = module.event_bus_auxiliary.topic_ids[local.startup_probe_topic]
+  role_definition_name = "Azure Event Hubs Data Owner"
+  principal_id         = module.identity.principal_id
+}
+
 # -----------------------------------------------------------------------
 # Per-vertical Managed Identities - phase-3 § Unified Control Loop.
 # Each vertical (Change / Resilience / FinOps) executes under its own MI
@@ -1138,14 +1145,14 @@ module "event_bus" {
 
 # Standard namespaces are limited to ten Event Hub entities. Keep the four
 # governed ingress topics, their DLQs, and the two shared control topics on the
-# primary namespace. Canary and raw inventory traffic use this isolated
-# namespace so parser-specific consumers never share a physical topic.
+# primary namespace. Canary, startup probes, and raw inventory traffic use this
+# isolated namespace so synthetic and parser-specific consumers stay separate.
 module "event_bus_auxiliary" {
   source                        = "./modules/event-bus/event-hubs-kafka"
   name                          = "evhns-${var.workload}${local.full_suffix}-ops"
   location                      = var.region
   resource_group_name           = module.resource_group.name
-  topics                        = [local.canary_topic]
+  topics                        = [local.canary_topic, local.startup_probe_topic]
   auxiliary_topics              = [local.inventory_raw_topic]
   public_network_access_enabled = !var.enable_private_networking
   tags                          = merge(local.tags, { "fdai:component" = "operational-signals" })
@@ -1522,6 +1529,7 @@ module "compute" {
     azurerm_role_assignment.inventory_eventhubs_sender,
     azurerm_role_assignment.canary_acr_pull,
     azurerm_role_assignment.canary_eventhubs_sender,
+    azurerm_role_assignment.runtime_startup_probe_eventhubs_owner,
     azurerm_communication_service_email_domain_association.notifications,
     azurerm_role_assignment.notification_email_sender,
   ]

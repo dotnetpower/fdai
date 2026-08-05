@@ -74,6 +74,11 @@ Before `/ready` opens, the runtime should evaluate a dependency-specific startup
 | Capability warm-up | each enabled model, embedding, search, notification, and telemetry adapter | minimal requests with explicit cost limits |
 | Active smoke | Kafka probe-topic round trip, database probe transaction, canary, Human approval dry run | dedicated synthetic scope only |
 
+The Kafka round trip uses the dedicated `runtime.startup.probe` entity in the operational Event
+Hubs namespace. The core identity has topic-scoped Data Owner authority only on that entity, and
+runtime composition routes readiness through the operational bus. Probe traffic therefore does
+not consume capacity in the full primary namespace or mix with governed event topics.
+
 The report uses three decisions. `blocked` keeps `/ready` closed. `degraded` may open observation or read-only
 work but lowers the unavailable capability's authority. `ready` means all required checks passed without a
 lower authority ceiling. Results record the check id, dependency or capability, required/optional class,
