@@ -1335,13 +1335,26 @@ def test_service_outage_answer_explains_customer_initiated_resource_health() -> 
 
 
 @pytest.mark.parametrize("stream", [False, True])
-def test_current_resource_health_timeline_is_grounded_without_metrics(stream: bool) -> None:
-    prompt = (
-        "현재 범위 내 Azure 리소스 중 활성 상태인 Resource Health 이상 징후가 있는 항목이 "
-        "있는지, 있다면 해당 상태가 언제부터 시작되었거나 최초로 관측되었는지, 그리고 이를 "
-        "고객 기인(customer-initiated)과 플랫폼 기인(platform-initiated) 중 어느 쪽으로 "
-        "분류하는지 읽기 전용 근거를 바탕으로 알려주시겠어요?"
-    )
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        (
+            "현재 범위 내 Azure 리소스 중 활성 상태인 Resource Health 이상 징후가 있는 항목이 "
+            "있는지, 있다면 해당 상태가 언제부터 시작되었거나 최초로 관측되었는지, 그리고 이를 "
+            "고객 기인(customer-initiated)과 플랫폼 기인(platform-initiated) 중 어느 쪽으로 "
+            "분류하는지 읽기 전용 근거를 바탕으로 알려주시겠어요?"
+        ),
+        (
+            "범위 안 Azure 리소스들 중에 지금 문제 있는 Resource Health 상태인 게 있나요? "
+            "있으면 언제부터 시작됐는지 아니면 언제 처음 발견됐는지, customer-initiated인지 "
+            "platform-initiated인지도 읽기 전용으로 확인해서 알려주세요."
+        ),
+    ),
+)
+def test_current_resource_health_timeline_is_grounded_without_metrics(
+    stream: bool,
+    prompt: str,
+) -> None:
 
     class Provider:
         async def query_health(

@@ -74,8 +74,9 @@ _HEALTH_COVERAGE: Final = re.compile(
 )
 _CURRENT_HEALTH_TIMELINE: Final = re.compile(
     r"^(?=[\s\S]{0,500}\bresource health\b)"
-    r"(?=[\s\S]{0,500}(?:\b(?:first observed|began|started|onset)\b|언제부터|최초로?\s*관측|시작))"
-    r"(?=[\s\S]{0,500}(?:\b(?:customer|platform)[ -]initiated\b|고객\s*기인|플랫폼\s*기인))",
+    r"(?=[\s\S]{0,500}(?:\b(?:first observed|began|started|onset)\b|언제부터|"
+    r"최초로?\s*관측|처음\s*(?:발견|감지)|시작))"
+    r"(?=[\s\S]{0,500}(?:\b(?:customer|platform)[ -]initiated|고객\s*기인|플랫폼\s*기인))",
     re.IGNORECASE,
 )
 _CPU_DIAGNOSIS: Final = re.compile(

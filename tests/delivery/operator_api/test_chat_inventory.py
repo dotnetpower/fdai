@@ -1529,6 +1529,19 @@ async def test_common_azure_resource_queries_filter_inventory_graph(
             "Out of everything currently in scope, which VMs are actually up and humming "
             "right now? Please list each one with its current state."
         ),
+        (
+            "Which VMs in scope right now are actually alive and chugging along? List each "
+            "along with its current power state, using read-only inventory evidence only."
+        ),
+        (
+            "Hey, which VMs in our Azure scope are actually alive and humming right now? "
+            "Just pull it from read-only inventory data and list each one's current state."
+        ),
+        (
+            "Using only read-only inventory evidence, identify the VMs in the configured "
+            "Azure scope that are presently powered on, and report the current state for "
+            "each row."
+        ),
     ),
 )
 async def test_running_vm_results_are_filtered_and_sorted_by_name(prompt: str) -> None:
