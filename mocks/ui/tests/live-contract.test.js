@@ -20,6 +20,8 @@ test("live operational typography remains legible", () => {
   assert.match(stylesheet, /\.cs-live-health span \{[^}]*font-size: 12px/);
   assert.match(stylesheet, /\.cs-tile-title \{[^}]*font-size: 13px/);
   assert.match(stylesheet, /\.cs-tile-mode \{[^}]*font-size: 11px/);
+  assert.match(stylesheet, /\.cs-tier-row \{[^}]*grid-template-columns: 112px minmax\(60px, 1fr\) 36px/);
+  assert.match(stylesheet, /\.cs-tier-axis \{[^}]*margin-left: 118px; margin-right: 42px/);
 });
 
 test("gated and shadow paths do not observe execution or effect", () => {
