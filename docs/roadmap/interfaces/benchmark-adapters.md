@@ -175,7 +175,9 @@ addresses, labels, and extended resources. The kubectl adapter uses fixed read-o
 shell, a 30-second maximum timeout, output and item limits, and a diagnostic projection that
 excludes Secret objects and unreviewed fields. When the delegated identity can read
 `metrics.k8s.io` pods in the target namespace, the adapter projects normalized container CPU and
-memory usage through `observe.metrics.query`. Quantity normalization is owned by the operational
+memory usage through `observe.metrics.query`. Metrics loss remains visible as a failed readiness
+check and structured unavailable evidence, but it does not block a session when inventory, events,
+Nodes, capacity, dependencies, and grounded RCA remain live. Quantity normalization is owned by the operational
 Kubernetes delivery package, so evaluation, runtime evidence, capacity, and quota diagnostics use
 the same exact base-unit semantics. Pod inventory projects immutable UID and aggregate CPU and
 memory requests with reviewed source paths, without retaining image or command literals. A shared
