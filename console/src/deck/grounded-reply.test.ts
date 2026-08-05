@@ -105,6 +105,6 @@ describe("grounded reply presentation", () => {
     expect(component).toContain("trajectory && sources.length === 0");
     expect(component).toContain('class="deck-gr-review-status"');
     expect(component).toContain("<TrajectoryStatusTrigger trajectory={trajectory} />");
-    expect(component).toContain('placement="right"');
+    expect(component).not.toContain('class="deck-trajectory-flyout"');
   });
 });

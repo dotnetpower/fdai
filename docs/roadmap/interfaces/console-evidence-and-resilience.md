@@ -21,8 +21,9 @@ that cue without moving the row. Only newer server activity advances the orderin
 For a non-agent conversation, the first operator question becomes the title while the originating
 screen remains separate metadata. The normalized question is bounded to 512 characters in history
 metadata and preserved across browser and durable restoration. When the title is visually
-truncated, its visible text keeps the ellipsis. Pointer hover or keyboard focus on every conversation
-title shows the bounded full question through the shared console tooltip, including titles that fit.
+truncated, its visible text keeps the ellipsis. Pointer hover anywhere on the selectable conversation
+row, including its time, or keyboard focus shows the bounded full question through the shared console
+tooltip, including titles that fit.
 Layout and close icon controls use the same localized tooltip component. The connected-backend
 tooltip preserves separate mode, endpoint, route-choice, and candidate lines, fills every localized
 placeholder, and wraps long endpoint or deployment tokens within its viewport bound.
@@ -271,10 +272,11 @@ the bounded reason code as Context required, Source unavailable, Invalid query, 
 claim, while technical detail retains the canonical status and raw reason code. The
 two result indicators are fixed dots no larger than 10 px that overlap by 2 px on the source-button
 edge. The source button keeps its own source tooltip. The dots form a separate pointer and keyboard
-trigger that opens query and command counts plus the evidence summary as adjacent pills to the
-right, or flips them to the left when viewport space requires it. The dots use absolute positioning,
-so they create no row, change no reply-action geometry, and don't cover adjacent actions. When no
-source button exists, the same dots and side-opening status flyout attach to Review answer quality. The
+trigger and directly widen into compact query, command, and evidence pills to the right without a
+floating tooltip or separate container. Full summaries remain in the trigger's accessible name. The
+dots use absolute positioning, so they create no row, change no reply-action geometry, and don't
+cover adjacent actions. When no source button exists, the same directly expanding dots attach to
+Review answer quality. The
 expanded run-record summary retains the complete bounded
 operator prompt and wraps it on narrow layouts. Changing its disclosure
 scrolls only the transcript while the composer remains visible at the Deck boundary. The expanded

@@ -2364,6 +2364,7 @@
       "executionDetails": "Execution details",
       "observedEventCount": "{count} observed events",
       "activitySummary": "{queries} read queries / {commands} commands",
+      "activityCompact": "Reads {queries} / cmds {commands}",
       "endToEndDuration": "End-to-end {duration}",
       "executionKind": {
         "turn": "Turn",
@@ -2424,6 +2425,7 @@
       "planningStatus": "Planning status",
       "confidence": "Confidence {value}%",
       "evidenceSummary": "Evidence {successful}/{attempted} completed / {references} refs",
+      "evidenceCompact": "Evidence {successful}/{attempted} / refs {references}",
       "status": "Status",
       "authority": "Authority",
       "checks": "Checks",

@@ -29,13 +29,16 @@ describe("conversation history paging", () => {
 });
 
 describe("conversation title tooltip", () => {
-  it("always exposes the complete bounded question without layout measurement", () => {
+  it("covers the complete selectable row without layout measurement", () => {
     const component = readFileSync(
       fileURLToPath(new URL("./command-deck-presenters.tsx", import.meta.url)),
       "utf8",
     );
 
-    expect(component).toContain('<Tooltip content={label} placement="top-start">');
+    expect(component).toContain('<Tooltip content={conversation.label} placement="right-start">');
+    expect(component).toMatch(
+      /<Tooltip content=\{conversation\.label\} placement="right-start">[\s\S]*?class="deck-conversation-select"/,
+    );
     expect(component).not.toContain("hasOverflowingText");
     expect(component).not.toContain("ResizeObserver");
   });

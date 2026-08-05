@@ -96,14 +96,6 @@ export function shouldLoadMoreConversations(
   return hasMore && element.scrollHeight - element.scrollTop - element.clientHeight <= 120;
 }
 
-function ConversationTitle({ label }: { readonly label: string }) {
-  return (
-    <Tooltip content={label} placement="top-start">
-      <span class="deck-conversation-title">{label}</span>
-    </Tooltip>
-  );
-}
-
 function agentIconUrl(name: string): string {
   const base = typeof import.meta.env.BASE_URL === "string" ? import.meta.env.BASE_URL : "/";
   return `url("${base}agent-icons/${name.toLowerCase()}.svg")`;
@@ -427,30 +419,32 @@ function ConversationGroup({
               : ""
           }`}
         >
-          <button
-            type="button"
-            class="deck-conversation-select"
-            aria-current={conversation.key === activeKey ? "true" : undefined}
-            onClick={() => onSelect(conversation)}
-          >
-            <span
-              class="deck-conversation-avatar is-agent"
-              aria-hidden="true"
-              style={{
-                WebkitMaskImage: agentIconUrl(conversation.agent ?? DEFAULT_NARRATOR),
-                maskImage: agentIconUrl(conversation.agent ?? DEFAULT_NARRATOR),
-              }}
-            />
-            <span class="deck-conversation-copy">
-              <ConversationTitle label={conversation.label} />
-              <small>
-                {showOrigin && conversation.originLabel !== conversation.label
-                  ? `${conversation.originLabel} · `
-                  : ""}
-                {conversationTimeLabel(conversation.updatedAt)}
-              </small>
-            </span>
-          </button>
+          <Tooltip content={conversation.label} placement="right-start">
+            <button
+              type="button"
+              class="deck-conversation-select"
+              aria-current={conversation.key === activeKey ? "true" : undefined}
+              onClick={() => onSelect(conversation)}
+            >
+              <span
+                class="deck-conversation-avatar is-agent"
+                aria-hidden="true"
+                style={{
+                  WebkitMaskImage: agentIconUrl(conversation.agent ?? DEFAULT_NARRATOR),
+                  maskImage: agentIconUrl(conversation.agent ?? DEFAULT_NARRATOR),
+                }}
+              />
+              <span class="deck-conversation-copy">
+                <span class="deck-conversation-title">{conversation.label}</span>
+                <small>
+                  {showOrigin && conversation.originLabel !== conversation.label
+                    ? `${conversation.originLabel} · `
+                    : ""}
+                  {conversationTimeLabel(conversation.updatedAt)}
+                </small>
+              </span>
+            </button>
+          </Tooltip>
           <Tooltip content={t(conversation.favorite ? "deck.favorite.remove" : "deck.favorite.add")}>
             <button
               type="button"

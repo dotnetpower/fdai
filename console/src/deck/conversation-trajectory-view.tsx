@@ -192,23 +192,25 @@ export function ConversationTrajectoryResults({
 }: {
   readonly trajectory: ConversationTrajectory;
 }) {
-  const { activitySummary, evidenceSummary, evidenceState } = trajectoryResultSummary(trajectory);
+  const {
+    activityCompact,
+    activitySummary,
+    evidenceCompact,
+    evidenceSummary,
+    evidenceState,
+  } = trajectoryResultSummary(trajectory);
   return (
     <span
       class="deck-trajectory-results"
       data-activity-summary={activitySummary}
       data-evidence-summary={evidenceSummary}
-      aria-label={t("deck.trajectory.runRecord")}
+      aria-label={`${t("deck.trajectory.runRecord")}: ${activitySummary}; ${evidenceSummary}`}
+      tabIndex={0}
     >
-      <span data-state="observed" aria-hidden="true" />
-      <span data-state={evidenceState} aria-hidden="true" />
+      <span data-state="observed" aria-hidden="true">{activityCompact}</span>
+      <span data-state={evidenceState} aria-hidden="true">{evidenceCompact}</span>
     </span>
   );
-}
-
-export function trajectoryResultLabels(trajectory: ConversationTrajectory) {
-  const { activitySummary, evidenceSummary } = trajectoryResultSummary(trajectory);
-  return { activitySummary, evidenceSummary };
 }
 
 function trajectoryResultSummary(trajectory: ConversationTrajectory) {
@@ -220,11 +222,20 @@ function trajectoryResultSummary(trajectory: ConversationTrajectory) {
     (activity) => activity.execution?.inputKind === "command",
   ).length;
   return {
+    activityCompact: t("deck.trajectory.activityCompact", {
+      queries: queryCount,
+      commands: commandCount,
+    }),
     activitySummary: t("deck.trajectory.activitySummary", {
       queries: queryCount,
       commands: commandCount,
     }),
     evidenceSummary: t("deck.trajectory.evidenceSummary", {
+      successful: presentation.evidenceCompletedCount,
+      attempted: presentation.evidenceAttemptCount,
+      references: presentation.evidenceReferenceCount,
+    }),
+    evidenceCompact: t("deck.trajectory.evidenceCompact", {
       successful: presentation.evidenceCompletedCount,
       attempted: presentation.evidenceAttemptCount,
       references: presentation.evidenceReferenceCount,

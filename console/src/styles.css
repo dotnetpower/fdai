@@ -6595,6 +6595,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   color: var(--fg);
 }
 .deck-conversation:hover { background: var(--bg); }
+.deck-conversation > .tooltip-anchor { min-width: 0; flex: 1 1 auto; }
+.deck-conversation > .tooltip-anchor .deck-conversation-select { width: 100%; }
 .deck-conversation.is-active {
   border-color: color-mix(in oklab, var(--accent) 38%, var(--border));
   background: color-mix(in oklab, var(--accent) 12%, var(--bg));

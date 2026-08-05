@@ -40,18 +40,16 @@ describe("observed trajectory typography", () => {
     expect(styles).toContain("text-overflow: ellipsis; white-space: nowrap;");
   });
 
-  test("opens read and evidence status sideways from a distinct trigger", () => {
+  test("expands read and evidence status directly beside the source", () => {
     expect(source).toContain('class="deck-trajectory-results"');
     expect(reply).toContain('class="deck-trajectory-status-trigger"');
-    expect(reply).toContain('class="deck-trajectory-flyout"');
-    expect(reply).toContain('placement="right"');
-    expect(reply).toContain("sideOffset={10}");
+    expect(reply).not.toContain('class="deck-trajectory-flyout"');
     expect(reply).toContain('class="deck-gr-source-status"');
     expect(reply).toContain('class="deck-gr-review-status"');
     expect(resultStyles).toContain("position: absolute;");
     expect(resultStyles).toContain("width: 10px;");
     expect(resultStyles).toContain("margin-left: -2px;");
-    expect(resultStyles).toContain("transition: none;");
-    expect(resultStyles).toContain(".deck-trajectory-flyout");
+    expect(resultStyles).toContain("max-width: 220px;");
+    expect(resultStyles).not.toContain("@media (max-width: 640px)");
   });
 });

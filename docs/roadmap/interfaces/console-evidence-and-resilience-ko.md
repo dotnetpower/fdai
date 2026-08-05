@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 66c7728b633eadf554550a75e630811a6531803e
+translation_source_sha: 26abd373e4ff1e14273fd4d51b001c3f2631e190
 translation_revised: 2026-08-05
 ---
 
@@ -23,8 +23,9 @@ Same-screen 및 agent conversation은 navigation 없이 전환합니다.
 activity만 ordering timestamp를 갱신합니다.
 Agent 대화가 아닌 경우 첫 operator 질문이 제목이 되고 origin screen은 별도 metadata로 유지됩니다.
 정규화된 질문은 history metadata에서 512자로 제한되고 browser 및 durable 복원 후에도 보존됩니다.
-제목이 시각적으로 잘리면 visible text는 ellipsis를 유지합니다. 모든 conversation 제목은 길이와 관계없이
-pointer hover 또는 keyboard focus에서 공용 console tooltip으로 제한된 질문 전체를 표시합니다. Layout 및 닫기 icon control도 같은 localized tooltip component를
+제목이 시각적으로 잘리면 visible text는 ellipsis를 유지합니다. 시간 영역을 포함한 selectable
+conversation row 어디에서든 pointer hover하거나 keyboard focus하면 제목 길이와 관계없이 공용 console
+tooltip으로 제한된 질문 전체를 표시합니다. Layout 및 닫기 icon control도 같은 localized tooltip component를
 사용합니다. 연결된 backend tooltip은 mode, endpoint, route choice 및 candidate를 별도 줄로 유지하고
 localized placeholder를 모두 채우며 긴 endpoint 또는 deployment token을 viewport 경계 안에서
 줄바꿈합니다.
@@ -265,11 +266,11 @@ status는 replay를 위해 그대로 유지합니다. Primary Console label은 b
 필요, Source 사용 불가, Query 검증 실패 또는 근거 없는 claim으로 표시하고 technical detail에는
 canonical status와 raw reason code를 유지합니다. Run-record summary는
 두 result indicator를 10 px 이하의 고정된 점으로 표시하고 source button 가장자리에서 2 px만 겹칩니다.
-Source button은 자체 source tooltip을 유지합니다. 점은 별도 pointer 및 keyboard trigger이며 query와
-command count 및 evidence summary를 오른쪽의 나란한 pill로 펼칩니다. Viewport 공간이 부족하면 왼쪽으로
-자동 전환합니다. Absolute positioning을 사용하므로 별도 행을 만들거나 reply action geometry를 바꾸지
-않고 인접 action을 가리지 않습니다. Source button이 없으면 같은 점과 옆으로 열리는 status flyout을
-답변 품질 검토에 연결합니다. 펼친 run-record summary는 complete bounded operator prompt를 유지하고
+Source button은 자체 source tooltip을 유지합니다. 점은 별도 pointer 및 keyboard trigger이며 floating
+tooltip 또는 별도 container 없이 compact한 query, command 및 evidence pill로 오른쪽에 직접 펼쳐집니다.
+전체 summary는 trigger의 accessible name에 유지합니다. Absolute positioning을 사용하므로 별도 행을
+만들거나 reply action geometry를 바꾸지 않고 인접 action을 가리지 않습니다. Source button이 없으면
+답변 품질 검토에 같은 직접 확장 점을 연결합니다. 펼친 run-record summary는 complete bounded operator prompt를 유지하고
 좁은 layout에서는 줄바꿈합니다. Disclosure를 변경하면 transcript만 scroll하고 composer는
 Deck 경계에 계속 표시됩니다. 펼친 view는 6단계 rail, 펼칠 수 있는 observed-event timeline 및 provenance signal을 먼저 표시하고,
 timing window, decision context, phase record 및 coverage gap은 하나의 접힌 execution-details disclosure에

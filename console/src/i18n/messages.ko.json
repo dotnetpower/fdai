@@ -2364,6 +2364,7 @@
       "executionDetails": "실행 상세",
       "observedEventCount": "관측 이벤트 {count}건",
       "activitySummary": "읽기 쿼리 {queries}건 / 명령 {commands}건",
+      "activityCompact": "읽기 {queries} / 명령 {commands}",
       "endToEndDuration": "전체 처리 {duration}",
       "executionKind": {
         "turn": "대화",
@@ -2424,6 +2425,7 @@
       "planningStatus": "계획 상태",
       "confidence": "신뢰도 {value}%",
       "evidenceSummary": "근거 완료 {successful}/{attempted}건 / 참조 {references}개",
+      "evidenceCompact": "근거 {successful}/{attempted} / 참조 {references}",
       "status": "상태",
       "authority": "권한",
       "checks": "검사",

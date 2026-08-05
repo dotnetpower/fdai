@@ -34,10 +34,7 @@ import { RichContent } from "./rich-content";
 import { openDeckWithContext, type DeckOpenDetail } from "./open-deck";
 import { relevantCitations, type Citation } from "./citations";
 import type { ConversationTrajectory } from "./conversation-trajectory";
-import {
-  ConversationTrajectoryResults,
-  trajectoryResultLabels,
-} from "./conversation-trajectory-view";
+import { ConversationTrajectoryResults } from "./conversation-trajectory-view";
 import { unverifiedDetailLabel, verificationPrimaryLabel } from "./verification-presentation";
 import {
   buildSources,
@@ -424,21 +421,9 @@ function TrajectoryStatusTrigger({
 }: {
   readonly trajectory: ConversationTrajectory;
 }) {
-  const labels = trajectoryResultLabels(trajectory);
   return (
     <span class="deck-trajectory-status-trigger">
-      <Tooltip
-        content={
-          <span class="deck-trajectory-flyout">
-            <span>{labels.activitySummary}</span>
-            <span>{labels.evidenceSummary}</span>
-          </span>
-        }
-        placement="right"
-        sideOffset={10}
-      >
-        <ConversationTrajectoryResults trajectory={trajectory} />
-      </Tooltip>
+      <ConversationTrajectoryResults trajectory={trajectory} />
     </span>
   );
 }
