@@ -4,16 +4,18 @@ from datetime import datetime
 from pathlib import Path
 
 from fdai.core.verticals.cost_governance.finops import FinOpsActionKind
+from fdai.delivery.operator_api.projections.audit import (
+    AuditAutonomyMeasurementPanel,
+    AuditFinOpsPanel,
+)
+from fdai.delivery.operator_api.projections.audit.audit_measurement_events import (
+    latest_finalizations,
+)
 from fdai.delivery.operator_api.read_model import (
     AuditItem,
     AuditPage,
     AuditQueryFilters,
     InMemoryConsoleReadModel,
-)
-from fdai.delivery.operator_api.routes.audit_finops import AuditFinOpsPanel
-from fdai.delivery.operator_api.routes.audit_measurement_events import latest_finalizations
-from fdai.delivery.operator_api.routes.audit_measurement_summary import (
-    AuditAutonomyMeasurementPanel,
 )
 from fdai.delivery.operator_api.routes.persisted_promotion_gates import (
     PersistedPromotionGatesPanel,
@@ -163,6 +165,9 @@ async def test_audit_overview_projects_only_recorded_measurements() -> None:
         "baseline": 300.0,
         "direction": "lower",
     }
+    assert autonomy["source"]["name"] == "postgres-audit"
+    assert autonomy["source"]["kind"] == "audit"
+    assert autonomy["source"]["as_of"] is not None
     assert autonomy["verticals"] == [
         {
             "key": "resilience",
@@ -196,6 +201,9 @@ async def test_audit_overview_projects_only_recorded_measurements() -> None:
     assert finops["estimated_monthly_savings"] == 12.5
     assert finops["source"] == "postgres-audit"
     assert finops["durable"] is True
+    assert finops["sampled_events"] == 8
+    assert finops["window_days"] == 30
+    assert finops["as_of"] is not None
 
 
 async def test_audit_overview_uses_latest_savings_observation_per_action() -> None:

@@ -35,6 +35,18 @@
       "candidate_destination": "retain"
     },
     {
+      "path": "projections",
+      "responsibility": "Read-only Operator API projection ownership outside HTTP route namespaces",
+      "classification": "read-projection",
+      "candidate_destination": "retain as the owner of migrated projection families"
+    },
+    {
+      "path": "projections/audit",
+      "responsibility": "Audit query and measurement read projections",
+      "classification": "read-projection",
+      "candidate_destination": "retain behind the explicit package facade"
+    },
+    {
       "path": "production",
       "responsibility": "Production provider construction and Operator API bindings",
       "classification": "composition",
@@ -84,9 +96,9 @@
     },
     {
       "pattern": "audit*.py",
-      "responsibility": "Audit read projections and measurement views",
-      "classification": "read-projection",
-      "candidate_destination": "candidate leaf family after issue 69"
+      "responsibility": "Per-module compatibility shims for migrated audit projections",
+      "classification": "compatibility-shim",
+      "candidate_destination": "preserve while callers migrate to fdai.delivery.operator_api.projections.audit"
     },
     {
       "pattern": "workflow*.py",
@@ -105,6 +117,23 @@
       "responsibility": "Unclassified route family pending measured ownership review",
       "classification": "internal-transitional",
       "candidate_destination": "issue 70 selects one low-fanout read-only family"
+    }
+  ],
+  "migration_selections": [
+    {
+      "tracking_issue": 70,
+      "family": "audit*.py",
+      "destination": "fdai.delivery.operator_api.projections.audit",
+      "observed_window_days": 90,
+      "modules": [
+        {"module": "audit_finops.py", "direct_python_consumers": 2, "fdai_imports": 2, "changes": 1},
+        {"module": "audit_measurement_events.py", "direct_python_consumers": 2, "fdai_imports": 3, "changes": 1},
+        {"module": "audit_measurement_projection.py", "direct_python_consumers": 1, "fdai_imports": 2, "changes": 1},
+        {"module": "audit_measurement_summary.py", "direct_python_consumers": 2, "fdai_imports": 2, "changes": 1},
+        {"module": "audit_query.py", "direct_python_consumers": 2, "fdai_imports": 1, "changes": 2}
+      ],
+      "rationale": "lowest classified cohesive read-only family after issue 69",
+      "rollback": "restore route implementations and reverse the new leaf modules into exact forwarding shims"
     }
   ],
   "reviewed_fallback_modules": [
@@ -173,6 +202,36 @@
       "module": "fdai.delivery.agent_activity",
       "classification": "shared-delivery-contract",
       "migration": "shared runtime-owned agent-state records and event-bus publication"
+    },
+    {
+      "module": "fdai.delivery.operator_api.projections.audit",
+      "classification": "public-delivery-contract",
+      "migration": "owned audit read-projection facade for app and panel composition"
+    },
+    {
+      "module": "fdai.delivery.operator_api.routes.audit_finops",
+      "classification": "public-compatibility-facade",
+      "migration": "forward exact public symbols to the owned audit projection module"
+    },
+    {
+      "module": "fdai.delivery.operator_api.routes.audit_measurement_events",
+      "classification": "public-compatibility-facade",
+      "migration": "forward exact public symbols to the owned audit projection module"
+    },
+    {
+      "module": "fdai.delivery.operator_api.routes.audit_measurement_projection",
+      "classification": "public-compatibility-facade",
+      "migration": "forward exact public symbols to the owned audit projection module"
+    },
+    {
+      "module": "fdai.delivery.operator_api.routes.audit_measurement_summary",
+      "classification": "public-compatibility-facade",
+      "migration": "forward exact public symbols to the owned audit projection module"
+    },
+    {
+      "module": "fdai.delivery.operator_api.routes.audit_query",
+      "classification": "public-compatibility-facade",
+      "migration": "forward exact public symbols to the owned audit projection module"
     },
     {
       "module": "fdai.delivery.operator_api.routes.busy_input_runtime",

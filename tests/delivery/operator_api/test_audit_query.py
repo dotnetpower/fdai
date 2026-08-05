@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fdai.delivery.operator_api.routes.audit_query import parse_audit_filters
+from fdai.delivery.operator_api.projections.audit import parse_audit_filters
 
 
 def test_parses_exact_action_and_idempotency_filters() -> None:

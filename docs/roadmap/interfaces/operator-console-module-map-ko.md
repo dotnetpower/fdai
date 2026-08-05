@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 5487edfc46ba36933eca12919e44e243d8074f2d
-translation_revised: 2026-08-05
+translation_source_sha: f38883e84b1d0c2efb6fd25e092f24eda78ee3ca
+translation_revised: 2026-08-06
 ---
 # Operator Console Module Map and Boundaries
 
@@ -42,6 +42,25 @@ root에서 implementation을 bind하여 해결합니다. Reverse service import�
 않습니다. Report-only finding은 migration inventory이며 owning package가 정리된 후에만 enforce 대상으로
 전환합니다.
 
+### 첫 reversible family migration
+
+Issue 70은 다섯 개의 `routes/audit*.py` module을 첫 migration family로 선택합니다. Executable
+inventory는 이미 이 module을 하나의 read-projection family로 분류합니다. 각 module은 family 외부에 한두
+개의 direct Python consumer, 한 개에서 세 개의 internal FDAI import 및 측정된 90-day window에 한두 번의 변경이
+있습니다. 이 family는 read-only이며 approval, execution, CORS 또는 lifespan behavior를 소유하지 않으므로
+chat, workflow 또는 investigation보다 behavioral surface가 작습니다.
+
+Implementation owner는 `fdai.delivery.operator_api.projections.audit`로 이동하며 filename과 public
+symbol은 변경하지 않습니다. App-side audit query use와 production panel composition은 새 package facade를
+import합니다. Development composition은 shared production panel builder를 통해 같은 facade에 도달합니다.
+기존의 모든 `routes.audit_*` module은 explicit per-module compatibility shim으로 유지합니다. Method,
+path, route name, authorization, response payload, provenance 및 database ownership은 변경하지 않습니다.
+
+Rollback에서도 두 import surface를 안정적으로 유지합니다. Implementation file을 `routes/` 아래에
+복원하고 새 `projections.audit` module 각각을 복원된 route module의 forwarding shim으로 변경하며
+composition import는 package facade에 유지합니다. 이 절차는 API 또는 wire rollback 없이 physical
+ownership을 되돌리고 broad wildcard facade를 만들지 않습니다.
+
 | Package | 현재 책임 | Migration 규칙 |
 |---------|-----------|----------------|
 | Root | Public facade 및 foundational contract | 분류된 replacement가 준비될 때까지 유지합니다. |
@@ -49,6 +68,8 @@ root에서 implementation을 bind하여 해결합니다. Reverse service import�
 | `dev/` | Interactive local 및 test-only provider composition | Production import에서 사용할 수 없게 유지합니다. |
 | `dev/fixtures/` | Synthetic pytest-only fixture | Production composition 밖에 유지합니다. |
 | `persistence/` | Operator API read-model implementation 및 projection | 소유된 read contract 뒤에 유지합니다. |
+| `projections/` | HTTP route 밖의 read-only projection ownership | Migrated family의 owner로 유지합니다. |
+| `projections/audit/` | Audit query 및 autonomy/FinOps measurement projection | Explicit facade를 통해 import하고 기존 route module은 shim으로 유지합니다. |
 | `production/` | Production provider construction 및 binding | Wire behavior를 변경하지 않고 fanout을 점진적으로 줄입니다. |
 | `routes/` | HTTP adapter, coordination, projection 및 policy helper가 혼재 | 측정된 family 하나씩 이동하며 typed service boundary 전에 chat을 일괄 이동하지 않습니다. |
 | `streaming/` | Read-only SSE transport, redaction, fanout 및 runtime projection | Versioned relay 및 replay contract가 준비될 때까지 유지합니다. |

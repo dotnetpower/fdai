@@ -38,6 +38,7 @@ _PACKAGE_CLASSIFICATIONS = frozenset(
         "mixed-transitional",
         "provider-adapter",
         "public-or-transitional",
+        "read-projection",
         "stream-transport",
         "test-fixture",
     }
@@ -52,6 +53,7 @@ _TOP_LEVEL_CLASSIFICATIONS = frozenset(
 )
 _ROUTE_CLASSIFICATIONS = frozenset(
     {
+        "compatibility-shim",
         "internal-transitional",
         "mixed-domain-route",
         "mixed-transitional",
@@ -81,6 +83,7 @@ _INVENTORY_KEYS = frozenset(
         "tracking_issue",
         "scope",
         "packages",
+        "migration_selections",
         "top_level_modules",
         "route_families",
         "reviewed_fallback_modules",
@@ -98,6 +101,18 @@ _IMPORT_SURFACE_KEYS = _IMPORT_SURFACE_REQUIRED_KEYS | {"consumer_scope"}
 _WIRE_BASELINE_KEYS = frozenset({"contract", "test"})
 _CLIENT_WIRE_BASELINE_KEYS = frozenset({"contract", "test_file", "test_name"})
 _KNOWN_WIRE_DEBT_KEYS = frozenset({"contract", "tracking_issue", "exit_condition"})
+_MIGRATION_SELECTION_KEYS = frozenset(
+    {
+        "tracking_issue",
+        "family",
+        "destination",
+        "observed_window_days",
+        "modules",
+        "rationale",
+        "rollback",
+    }
+)
+_MIGRATION_MODULE_KEYS = frozenset({"module", "direct_python_consumers", "fdai_imports", "changes"})
 
 _DEFAULT_ROUTE_SNAPSHOT = (
     (("GET", "HEAD"), "/audit", "get_audit"),
@@ -314,6 +329,29 @@ def test_module_inventory_covers_current_operator_api_tree() -> None:
     assert len({entry["contract"] for entry in known_wire_debts}) == len(known_wire_debts)
     assert all(entry["tracking_issue"] > inventory["tracking_issue"] for entry in known_wire_debts)
     assert all(entry["exit_condition"].strip() for entry in known_wire_debts)
+
+    selections = inventory["migration_selections"]
+    assert len(selections) == 1
+    selection = selections[0]
+    assert set(selection) == _MIGRATION_SELECTION_KEYS
+    assert selection["tracking_issue"] == 70
+    assert selection["family"] == "audit*.py"
+    assert selection["destination"] == "fdai.delivery.operator_api.projections.audit"
+    assert selection["observed_window_days"] == 90
+    assert selection["rationale"].strip()
+    assert selection["rollback"].strip()
+    modules = selection["modules"]
+    assert all(set(entry) == _MIGRATION_MODULE_KEYS for entry in modules)
+    assert {entry["module"] for entry in modules} == {
+        "audit_finops.py",
+        "audit_measurement_events.py",
+        "audit_measurement_projection.py",
+        "audit_measurement_summary.py",
+        "audit_query.py",
+    }
+    assert all(entry["direct_python_consumers"] >= 1 for entry in modules)
+    assert all(entry["fdai_imports"] >= 1 for entry in modules)
+    assert all(entry["changes"] >= 1 for entry in modules)
 
 
 # ---------------------------------------------------------------------------

@@ -40,6 +40,26 @@ binding its implementation at a reviewed composition root. Don't add an allowlis
 reverse service import. Report-only findings are migration inventory and become enforceable only
 after their owning package is cleaned.
 
+### First reversible family migration
+
+Issue 70 selects the five `routes/audit*.py` modules as the first migration family. The executable
+inventory already classifies them as one read-projection family. Each module has one or two direct
+Python consumers outside the family, one to three internal FDAI imports, and one or two changes in
+the measured 90-day window. The family is read-only and owns no approval, execution, CORS, or
+lifespan behavior, so it has a smaller behavioral surface than chat, workflow, or investigation.
+
+The implementation owner moves to `fdai.delivery.operator_api.projections.audit`, with filenames
+and public symbols unchanged. App-side audit query use and production panel composition import the
+new package facade; development composition reaches the same facade through the shared production
+panel builder. Every former `routes.audit_*` module remains an explicit per-module compatibility
+shim. Method, path, route name, authorization, response payload, provenance, and database ownership
+stay unchanged.
+
+Rollback keeps both import surfaces stable. Restore the implementation files under `routes/`,
+change each new `projections.audit` module into a forwarding shim to its restored route module,
+and leave composition imports on the package facade. This reverses physical ownership without an
+API or wire rollback and avoids a broad wildcard facade.
+
 | Package | Current responsibility | Migration rule |
 |---------|------------------------|----------------|
 | Root | Public facades and foundational contracts | Preserve until a classified replacement exists. |
@@ -47,6 +67,8 @@ after their owning package is cleaned.
 | `dev/` | Interactive local and test-only provider composition | Keep unavailable to production imports. |
 | `dev/fixtures/` | Synthetic pytest-only fixtures | Keep outside production composition. |
 | `persistence/` | Operator API read-model implementations and projections | Retain behind owned read contracts. |
+| `projections/` | Read-only projection ownership outside HTTP routes | Retain as the owner of migrated families. |
+| `projections/audit/` | Audit query and autonomy/FinOps measurement projections | Import through its explicit facade; keep old route modules as shims. |
 | `production/` | Production provider construction and bindings | Reduce fanout incrementally without changing wire behavior. |
 | `routes/` | Mixed HTTP adapters, coordination, projections, and policy helpers | Move one measured family at a time; don't bulk-move chat before its typed service boundary. |
 | `streaming/` | Read-only SSE transport, redaction, fanout, and runtime projection | Retain until versioned relay and replay contracts exist. |

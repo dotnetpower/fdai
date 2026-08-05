@@ -8,9 +8,9 @@ from fdai.core.learning import PostTurnReviewMetrics
 from fdai.core.operator_memory import OperatorMemoryReviewService
 from fdai.core.scheduler import ScheduleRunHistoryService
 from fdai.core.working_context import StateStoreContextSelectionEvaluationStore
-from fdai.delivery.operator_api.routes.audit_finops import AuditFinOpsPanel
-from fdai.delivery.operator_api.routes.audit_measurement_summary import (
+from fdai.delivery.operator_api.projections.audit import (
     AuditAutonomyMeasurementPanel,
+    AuditFinOpsPanel,
 )
 from fdai.delivery.operator_api.routes.automation_blueprints import AutomationBlueprintPanel
 from fdai.delivery.operator_api.routes.browser_evidence import BrowserEvidencePanel

@@ -12,8 +12,8 @@ from starlette.routing import BaseRoute, Route
 
 from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import Capability, has_capability
+from fdai.delivery.operator_api.projections.audit import AuditQueryError, parse_audit_filters
 from fdai.delivery.operator_api.read_model import DEFAULT_LIMIT, ConsoleReadModel, clamp_limit
-from fdai.delivery.operator_api.routes.audit_query import AuditQueryError, parse_audit_filters
 
 _LOGGER = logging.getLogger(__name__)
 

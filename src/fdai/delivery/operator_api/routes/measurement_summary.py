@@ -32,46 +32,15 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from fdai.core.verticals.cost_governance.finops import FinOpsActionKind
+from fdai.delivery.operator_api.projections.verticals import audit_vertical as _vertical_of
 from fdai.delivery.operator_api.read_model import ConsoleReadModel
 
-# Cost-vertical action kinds, plus free-text hints for actions that are
-# cost-shaped but not modelled as a FinOpsActionKind in a seed/fixture.
-_FINOPS_KINDS: frozenset[str] = frozenset(kind.value for kind in FinOpsActionKind)
-_COST_HINTS: tuple[str, ...] = ("right_size", "shutdown", "orphan", "cost", "idle", "spot")
-_RESILIENCE_HINTS: tuple[str, ...] = (
-    "backup",
-    "failover",
-    "zone",
-    "snapshot",
-    "dr",
-    "restore",
-    "replica",
-    "recovery",
-    "rollback",
-)
 # Outcomes that mean a human was pulled in (not auto-resolved).
 _INTERVENTION_OUTCOMES: frozenset[str] = frozenset(
     {"escalated_hil", "awaiting_approval", "hil_pending", "hil.await"}
 )
 
 _VERTICAL_KEYS: tuple[str, ...] = ("resilience", "change_safety", "cost")
-
-
-def _vertical_of(action_kind: str) -> str:
-    """Map an audit ``action_kind`` onto one of the three verticals.
-
-    Cost is matched first (it has an explicit action-kind enum), then
-    resilience by hint, else change-safety - the same collapse the Live
-    cockpit uses so the two surfaces agree.
-    """
-    k = action_kind.lower()
-    hint_key = k.replace("-", "_")
-    if k in _FINOPS_KINDS or any(h in hint_key for h in _COST_HINTS):
-        return "cost"
-    if any(h in hint_key for h in _RESILIENCE_HINTS):
-        return "resilience"
-    return "change_safety"
 
 
 # Synthetic dev/demo measurement. In production a real measurement source
