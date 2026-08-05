@@ -245,6 +245,11 @@ from fdai.delivery.operator_api.routes.chat_resource_context import (
 from fdai.delivery.operator_api.routes.chat_resource_result_context import (
     response_resource_result_context,
 )
+from fdai.delivery.operator_api.routes.chat_response_tail import (
+    ChatResponseTailContext,
+    ChatResponseTailDependencies,
+    finalize_chat_response,
+)
 from fdai.delivery.operator_api.routes.chat_route_common import (
     DEFAULT_MAX_CHAT_BODY_BYTES,
     DEFAULT_MAX_SESSION_ID_CHARS,
@@ -1097,109 +1102,13 @@ def make_chat_route(
                     turn_id=request_id,
                     principal_id=user_id,
                 )
-        latency_ms = int((time.monotonic() - started) * 1000)
-        answer_planning = await planning_metadata(planning_task)
-        enriched: dict[str, Any] = dict(reply)
-        enriched.setdefault("source", None)
-        delegation = _delegation_summary(view_context)
-        enriched["delegation"] = delegation
-        web_search = _web_search_summary(view_context)
-        enriched["web_search"] = web_search
-        enriched["latency_ms"] = latency_ms
-        enriched["history_context"] = history_metadata
-        enriched["answer_plan"] = answer_plan.to_dict()
-        if isinstance(view_context.get("_intent_graph"), Mapping):
-            enriched["intent_graph"] = dict(view_context["_intent_graph"])
-        if isinstance(view_context.get("_intent_graph_evidence"), Mapping):
-            graph_evidence = public_intent_graph_evidence(view_context["_intent_graph_evidence"])
-            enriched["intent_graph_evidence"] = graph_evidence
-            enriched["evidence_mode"] = graph_evidence.get("evidence_mode")
-        policy_summary = assurance_policy_summary(view_context)
-        if policy_summary is not None:
-            enriched["conversation_policy"] = policy_summary
-        enriched["answer_planning"] = answer_planning
-        incident_candidates = response_incident_candidates(
-            view_context,
-            verification=verification,
-            locale=response_locale,
+        return await finalize_chat_response(
+            ChatResponseTailContext.from_handler_locals(
+                locals(),
+                post_turn_review_submitter=post_turn_review_submitter,
+            ),
+            ChatResponseTailDependencies.from_chat_namespace(globals()),
         )
-        if incident_candidates is not None:
-            enriched["incident_candidates"] = incident_candidates
-        selected_resource = response_resource_context(view_context, resource_context)
-        if selected_resource is not None:
-            enriched["resource_context"] = selected_resource
-        resource_result_context = response_resource_result_context(
-            view_context,
-            verification_status=verification.status,
-        )
-        if resource_result_context is not None:
-            enriched["resource_result_context"] = resource_result_context
-        source_failure_context = response_source_failure_context(
-            view_context,
-            verification_status=verification.status,
-        )
-        if source_failure_context is not None:
-            enriched["source_failure_context"] = source_failure_context
-        analysis_context = response_llm_usage_analysis_context(
-            view_context,
-            verification_status=verification.status,
-        )
-        if analysis_context is not None:
-            enriched["analysis_context"] = analysis_context
-        chart_artifact = response_llm_usage_chart_artifact(
-            view_context,
-            verification_status=verification.status,
-            answer_format=answer_plan.format.value,
-            locale=response_locale,
-        )
-        if chart_artifact is not None:
-            enriched["chart_artifact"] = chart_artifact
-        presentation_artifact = response_presentation_artifact(
-            view_context,
-            answer_plan=answer_plan,
-            verification_status=verification.status,
-            evidence_refs=verification.evidence_refs,
-            locale=response_locale,
-        )
-        if presentation_artifact is not None:
-            enriched["presentation_artifact"] = presentation_artifact
-        selected_freshness = response_evidence_freshness_context(view_context, freshness_context)
-        if selected_freshness is not None:
-            enriched["evidence_freshness_context"] = selected_freshness.to_dict()
-        enriched["code_artifacts"] = [
-            artifact.to_dict() for artifact in extract_grounded_code(verification.answer)
-        ]
-        if conversation_history_store is not None:
-            assistant_turn = await append_assistant_turn(
-                store=conversation_history_store,
-                principal_id=user_id,
-                conversation_id=session_id,
-                request_id=request_id,
-                content=verification.answer,
-                recorded_at=datetime.now(tz=UTC),
-                metadata=replay_metadata(
-                    model=str(reply.get("model") or "unknown"),
-                    payload=enriched,
-                    additional=_turn_metadata(
-                        model=str(reply.get("model") or "unknown"),
-                        view_context=view_context,
-                        answer_planning=answer_planning,
-                    )
-                    | history_metadata,
-                ),
-                ontology_projector=user_context_ontology_projector,
-            )
-            if post_turn_review_submitter is not None and operator_turn is not None:
-                post_turn_review_submitter.submit_nowait(
-                    operator_turn=operator_turn,
-                    assistant_turn=assistant_turn,
-                    submission=PostTurnReviewSubmission(
-                        validation_outcomes=(verification.status,),
-                        evidence_refs=verification.evidence_refs,
-                        explicit_corrections=explicit_corrections(clean_prompt),
-                    ),
-                )
-        return JSONResponse(enriched)
 
     return Route(path, handler, methods=["POST"])
 

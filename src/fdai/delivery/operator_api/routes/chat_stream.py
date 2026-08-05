@@ -32,11 +32,9 @@ from fdai.delivery.operator_api.routes.chat_action_context import (
 from fdai.delivery.operator_api.routes.chat_answer_planning import (
     AnswerPlanningDelegate,
     cancel_planning,
-    planning_metadata,
     start_shadow_answer_planning,
 )
 from fdai.delivery.operator_api.routes.chat_answer_quality import (
-    AnswerQualityResult,
     review_korean_narrator_answer,
     verify_quality_result,
 )
@@ -63,7 +61,6 @@ from fdai.delivery.operator_api.routes.chat_conversation_context import (
 from fdai.delivery.operator_api.routes.chat_current_time import needs_current_time
 from fdai.delivery.operator_api.routes.chat_document_evidence import (
     ChatDocumentEvidenceResolver,
-    merge_document_verification,
     with_document_evidence,
 )
 from fdai.delivery.operator_api.routes.chat_evidence import needs_operational_evidence
@@ -88,13 +85,10 @@ from fdai.delivery.operator_api.routes.chat_freshness_context import (
     freshness_evidence_refs,
     needs_evidence_freshness_context,
     render_evidence_freshness_answer,
-    response_evidence_freshness_context,
 )
 from fdai.delivery.operator_api.routes.chat_history import (
-    append_assistant_turn,
     append_content_policy_receipt,
     completed_replay_payload,
-    replay_metadata,
 )
 from fdai.delivery.operator_api.routes.chat_history_context import (
     DEFAULT_CHAT_HISTORY_POLICY,
@@ -139,23 +133,24 @@ from fdai.delivery.operator_api.routes.chat_prompt import (
     _with_concept_evidence,
 )
 from fdai.delivery.operator_api.routes.chat_prompt_ontology import _with_ontology_storage_contract
-from fdai.delivery.operator_api.routes.chat_resource_context import (
-    resource_followup_verification,
-    response_resource_context,
-)
+from fdai.delivery.operator_api.routes.chat_resource_context import resource_followup_verification
 from fdai.delivery.operator_api.routes.chat_route_common import (
     DEFAULT_MAX_CHAT_BODY_BYTES,
     AnswerPreferenceResolver,
     AuthorizeFn,
     ModelPreferenceResolver,
     _metering_correlation_id,
-    _turn_metadata,
     _uses_evidence_fast_path,
     _with_assurance_policy,
     _with_compiled_user_policy,
 )
 from fdai.delivery.operator_api.routes.chat_screen_data import render_screen_data_answer
 from fdai.delivery.operator_api.routes.chat_stream_metrics import record_enqueued_progress_metrics
+from fdai.delivery.operator_api.routes.chat_stream_post_generation import (
+    PostGenerationContext,
+    evidence_timing_status,
+    finalize_post_generation,
+)
 from fdai.delivery.operator_api.routes.chat_stream_protocol import (
     DEFAULT_STREAM_HEARTBEAT_S,
     _chunk_answer_for_stream,
@@ -167,19 +162,11 @@ from fdai.delivery.operator_api.routes.chat_stream_setup import (
     ContentPolicyReplayRequest,
     prepare_chat_stream_request,
 )
-from fdai.delivery.operator_api.routes.chat_stream_terminal import (
-    TurnTimingRecorder,
-    TurnTimingStatus,
-    build_done_payload,
-    verification_events,
-)
+from fdai.delivery.operator_api.routes.chat_stream_terminal import TurnTimingRecorder
 from fdai.delivery.operator_api.routes.chat_subscription_health import needs_subscription_health
 from fdai.delivery.operator_api.routes.chat_system_health import render_system_health_answer
 from fdai.delivery.operator_api.routes.chat_topology_intent import is_topology_question
-from fdai.delivery.operator_api.routes.chat_trajectory_detail import (
-    TrajectoryDetailCollector,
-    trajectory_detail_budget,
-)
+from fdai.delivery.operator_api.routes.chat_trajectory_detail import TrajectoryDetailCollector
 from fdai.delivery.operator_api.routes.chat_turn_plan import (
     TurnPlanner,
     TurnTool,
@@ -189,11 +176,7 @@ from fdai.delivery.operator_api.routes.chat_verification import AnswerVerificati
 from fdai.delivery.operator_api.routes.chat_vision_evidence import (
     vision_source_previews,
 )
-from fdai.delivery.operator_api.routes.post_turn_review import (
-    PostTurnReviewSubmission,
-    PostTurnReviewSubmitter,
-    explicit_corrections,
-)
+from fdai.delivery.operator_api.routes.post_turn_review import PostTurnReviewSubmitter
 from fdai.shared.providers.briefing import ConversationPolicyStore
 from fdai.shared.providers.user_context import ConversationHistoryStore, UserContextConflictError
 from fdai.shared.telemetry import ConversationProgressMetrics, with_correlation
@@ -203,27 +186,6 @@ _PRESENTATION_JOIN_TIMEOUT_SECONDS: Final[float] = 5.0
 
 
 DEFAULT_STREAM_PATH: Final[str] = "/chat/stream"
-
-
-def _evidence_timing_status(outcomes: list[str]) -> TurnTimingStatus:
-    terminal = [
-        status
-        for status in outcomes
-        if status in {"completed", "unavailable", "failed", "timed_out", "cancelled"}
-    ]
-    if not terminal or all(status == "completed" for status in terminal):
-        return "completed"
-    if all(status == "failed" for status in terminal):
-        return "failed"
-    return "degraded"
-
-
-def _verification_timing_status(status: str) -> TurnTimingStatus:
-    if status == "corrected":
-        return "corrected"
-    if status == "unverified":
-        return "unverified"
-    return "completed"
 
 
 def make_chat_stream_route(
@@ -680,7 +642,7 @@ def make_chat_stream_route(
                     enriched_context = await evidence_task
                     turn_timing.complete(
                         evidence_timing,
-                        status=_evidence_timing_status(evidence_outcomes),
+                        status=evidence_timing_status(evidence_outcomes),
                     )
                 finally:
                     if not evidence_task.done():
@@ -1004,222 +966,64 @@ def make_chat_stream_route(
                     terminal_router = reply.get("router")
                     terminal_usage = reply.get("usage")
 
-                if presentation_task is not None:
-                    try:
-                        presentation_decision = await asyncio.wait_for(
-                            presentation_task,
-                            timeout=_PRESENTATION_JOIN_TIMEOUT_SECONDS,
-                        )
-                    except TimeoutError:
-                        presentation_task.cancel()
-                        with suppress(asyncio.CancelledError):
-                            await presentation_task
-                    except Exception as exc:  # noqa: BLE001 - keep canonical answer and default plan
-                        _LOG.warning(
-                            "chat presentation task failed after answer streaming",
-                            extra={"error_type": type(exc).__name__},
-                        )
-                    else:
-                        answer_plan = presentation_decision.answer_plan
-                        if presentation_decision.presentation_plan is not None:
-                            enriched_context["_presentation_plan"] = (
-                                presentation_decision.presentation_plan.to_dict()
-                            )
-                        enriched_context["_answer_plan"] = answer_plan.to_dict()
-
-                generation_ms = int((time.monotonic() - started) * 1000)
-                turn_timing.complete(generation_timing, status="completed")
-                yield frame(
-                    "provisional",
-                    {
-                        "answer": provisional_answer,
-                        "model": terminal_model,
-                        "generation_ms": generation_ms,
-                    },
-                )
-                quality: AnswerQualityResult | None = None
-                if model_generated:
-                    quality_timing = turn_timing.begin("quality_review")
-
-                    async def invoke_quality(
-                        quality_prompt: str,
-                        quality_context: dict[str, Any],
-                    ) -> dict[str, Any]:
-                        if isinstance(backend, LatencyRoutedChatBackend):
-                            return await backend.answer(
-                                prompt=quality_prompt,
-                                view_context=quality_context,
-                                history=[],
-                                preferred_model=str(terminal_model or preferred_model or "")
-                                or None,
-                            )
-                        return await backend.answer(
-                            prompt=quality_prompt,
-                            view_context=quality_context,
-                            history=[],
-                        )
-
-                    async def quality_source() -> AsyncIterator[dict[str, Any]]:
-                        with (
-                            with_correlation(_metering_correlation_id(user_id, session_id)),
-                            with_invocation_scope(InvocationScope.OPERATOR_CHAT),
-                        ):
-                            result = await review_korean_narrator_answer(
-                                answer=provisional_answer,
-                                view_context=enriched_context,
-                                locale=response_locale,
-                                invoke=invoke_quality,
-                            )
-                        yield {"result": result}
-
-                    quality_events = _with_sse_heartbeats(
-                        quality_source(), interval=DEFAULT_STREAM_HEARTBEAT_S
-                    )
-                    async for quality_event in interruptible_events(
-                        quality_events,
+                post_generation = finalize_post_generation(
+                    PostGenerationContext(
+                        backend=backend,
+                        presentation_task=presentation_task,
+                        presentation_timeout_seconds=_PRESENTATION_JOIN_TIMEOUT_SECONDS,
+                        answer_plan=answer_plan,
+                        enriched_context=enriched_context,
+                        provisional_answer=provisional_answer,
+                        terminal_model=terminal_model,
+                        terminal_router=terminal_router,
+                        terminal_usage=terminal_usage,
+                        started=started,
+                        turn_timing=turn_timing,
+                        generation_timing=generation_timing,
+                        model_generated=model_generated,
+                        preferred_model=preferred_model,
+                        response_locale=response_locale,
                         active_turn=active_turn,
-                    ):
-                        if quality_event is None:
-                            yield _sse_heartbeat()
-                            continue
-                        candidate = quality_event.get("result")
-                        if isinstance(candidate, AnswerQualityResult):
-                            quality = candidate
-                    turn_timing.complete(
-                        quality_timing,
-                        status="completed" if quality is not None else "degraded",
-                    )
-
-                verification_timing = turn_timing.begin("verification")
-                verification = (
-                    freshness_verification
-                    if freshness_verification is not None
-                    else contextual_verification
-                    if contextual_verification is not None
-                    else verify_quality_result(
-                        quality,
-                        enriched_context,
-                        locale=response_locale,
-                    )
-                    if quality is not None
-                    else verify_answer(
-                        provisional_answer,
-                        enriched_context,
-                        locale=response_locale,
-                    )
-                )
-                verification = merge_document_verification(
-                    verification,
-                    document_evidence_refs,
-                )
-                if progress_metrics is not None and verification.answer != provisional_answer:
-                    progress_metrics.increment("corrections")
-                terminal_events, revision = verification_events(
-                    provisional_answer,
-                    verification,
-                    revision,
-                )
-                for event_name, payload in terminal_events:
-                    yield frame(event_name, payload)
-                turn_timing.complete(
-                    verification_timing,
-                    status=_verification_timing_status(verification.status),
-                )
-                if verification.status != "unverified":
-                    if progress_metrics is not None:
-                        progress_metrics.observe_latency(
-                            "time_to_first_confirmed",
-                            max(0, int((time.monotonic() - started) * 1000)),
-                        )
-                    confirmed_payload: dict[str, Any] = {
-                        "segment_index": 0,
-                        "text": verification.answer,
-                        "status": verification.status,
-                        "evidence_refs": list(verification.evidence_refs),
-                    }
-                    if verification.answer != provisional_answer:
-                        confirmed_payload.update(
-                            {
-                                "replace_start": 0,
-                                "replace_end": len(provisional_answer),
-                            }
-                        )
-                    yield frame("confirmed", confirmed_payload)
-                answer_planning = await planning_metadata(planning_task)
-                done_payload = build_done_payload(
-                    verification=verification,
-                    terminal_model=terminal_model,
-                    terminal_router=terminal_router,
-                    terminal_usage=terminal_usage,
-                    evidence_fast_path=evidence_fast_path,
-                    ontology_answer=ontology_answer,
-                    health_answer=health_answer,
-                    screen_answer=screen_answer,
-                    concept_answer=concept_answer,
-                    resource_answer=contextual_answer,
-                    freshness_answer=freshness_answer,
-                    started=started,
-                    delegation=delegation,
-                    enriched_context=enriched_context,
-                    response_locale=response_locale,
-                    answer_plan=answer_plan,
-                    answer_planning=answer_planning,
-                    quality=quality,
-                    resource_context=response_resource_context(
-                        enriched_context,
-                        resource_context,
-                    ),
-                    freshness_context=response_evidence_freshness_context(
-                        enriched_context,
-                        freshness_context,
-                    ),
-                    model_trace=snapshot_model_trace(model_trace_scope.collector),
-                    turn_timing=turn_timing.snapshot(),
-                    trajectory_detail=None,
-                )
-                done_payload["history_context"] = history_metadata
-                trajectory_detail_snapshot = trajectory_detail.snapshot(
-                    max_bytes=trajectory_detail_budget(done_payload)
-                )
-                if trajectory_detail_snapshot is not None:
-                    done_payload["trajectory_detail"] = trajectory_detail_snapshot
-                if conversation_history_store is not None:
-                    assistant_turn = await append_assistant_turn(
-                        store=conversation_history_store,
-                        principal_id=user_id,
-                        conversation_id=session_id,
+                        user_id=user_id,
+                        session_id=session_id,
                         request_id=request_id,
-                        content=verification.answer,
-                        recorded_at=datetime.now(tz=UTC),
-                        metadata=replay_metadata(
-                            model=str(terminal_model or "unknown"),
-                            payload=done_payload,
-                            additional=_turn_metadata(
-                                model=str(terminal_model or "unknown"),
-                                view_context=enriched_context,
-                                answer_planning=answer_planning,
-                            )
-                            | history_metadata,
+                        clean_prompt=clean_prompt,
+                        review_quality=review_korean_narrator_answer,
+                        verify_quality=verify_quality_result,
+                        freshness_verification=freshness_verification,
+                        contextual_verification=contextual_verification,
+                        document_evidence_refs=document_evidence_refs,
+                        progress_metrics=progress_metrics,
+                        revision=revision,
+                        planning_task=planning_task,
+                        evidence_fast_path=evidence_fast_path,
+                        ontology_answer=ontology_answer,
+                        health_answer=health_answer,
+                        screen_answer=screen_answer,
+                        concept_answer=concept_answer,
+                        contextual_answer=contextual_answer,
+                        freshness_answer=freshness_answer,
+                        delegation=delegation,
+                        resource_context=resource_context,
+                        freshness_context=freshness_context,
+                        model_trace_snapshot=lambda: snapshot_model_trace(
+                            model_trace_scope.collector
                         ),
-                        ontology_projector=user_context_ontology_projector,
+                        history_metadata=history_metadata,
+                        trajectory_detail=trajectory_detail,
+                        conversation_history_store=conversation_history_store,
+                        user_context_ontology_projector=user_context_ontology_projector,
+                        operator_turn=operator_turn,
+                        post_turn_review_submitter=post_turn_review_submitter,
+                        cleanup=cleanup,
                     )
-                    if post_turn_review_submitter is not None and operator_turn is not None:
-                        post_turn_review_submitter.submit_nowait(
-                            operator_turn=operator_turn,
-                            assistant_turn=assistant_turn,
-                            submission=PostTurnReviewSubmission(
-                                validation_outcomes=(verification.status,),
-                                evidence_refs=verification.evidence_refs,
-                                explicit_corrections=explicit_corrections(clean_prompt),
-                            ),
-                        )
-                await cleanup()
-                if progress_metrics is not None:
-                    progress_metrics.increment("terminal_completed")
-                yield frame(
-                    "done",
-                    done_payload,
                 )
+                async for terminal_frame in post_generation:
+                    revision = terminal_frame.revision
+                    if terminal_frame.event is None:
+                        yield _sse_heartbeat()
+                    elif terminal_frame.payload is not None:
+                        yield frame(terminal_frame.event, terminal_frame.payload)
             except ChatTurnInterruptedError:
                 await cleanup()
                 yield frame(

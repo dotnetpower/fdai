@@ -8,12 +8,21 @@ import re
 from collections.abc import Mapping
 from typing import Any, Final
 
-from fdai.agents import PANTHEON_SPECS, ConversationSituation
+from fdai.agents import PANTHEON_SPECS
 from fdai.core.conversation.answer_plan import (
     AnswerIntent,
     AnswerPlan,
     DetailLevel,
     build_answer_plan,
+)
+from fdai.delivery.operator_api.routes.chat_agent_charter import (
+    _TURN_CONSTRAINTS,
+)
+from fdai.delivery.operator_api.routes.chat_agent_charter import (
+    agent_turn_constraints as _render_agent_turn_constraints,
+)
+from fdai.delivery.operator_api.routes.chat_agent_charter import (
+    selected_agent_charter as _render_selected_agent_charter,
 )
 from fdai.delivery.operator_api.routes.chat_prompt_content import (
     _AGENT_EVIDENCE_DIRECTIVE,
@@ -719,59 +728,14 @@ def _selected_agent_charter(
     locale: str | None = None,
     session_target: str | None = None,
 ) -> str | None:
-    evidence = view_context.get("_agent_evidence")
-    if not isinstance(evidence, Mapping):
-        return None
-    agent_name = evidence.get("primary_agent")
-    if not isinstance(agent_name, str):
-        return None
-    spec = _AGENT_SPECS.get(agent_name)
-    if spec is None:
-        return None
-    policy = evidence.get("conversation_policy")
-    expected_policy = spec.conversation_policy()
-    if not isinstance(policy, Mapping) or dict(policy) != expected_policy:
-        return None
-    tools = ", ".join(spec.conversation.tools)
-    # The charter is composed for this turn, not read verbatim: the operator
-    # locale selects an extra server-owned layer on top of the immutable
-    # baseline. Composition is additive, so the charter's authority and
-    # security layers are unchanged.
-    composed = spec.conversation.compose_prompt(
-        ConversationSituation.from_context({"locale": locale} if locale else {})
+    """Render the selected charter through the original monkeypatch boundary."""
+    return _render_selected_agent_charter(
+        view_context,
+        agent_specs=_AGENT_SPECS,
+        turn_constraints=_agent_turn_constraints,
+        locale=locale,
+        session_target=session_target,
     )
-    if session_target == agent_name:
-        narrator_identity = (
-            f"Dedicated selected-agent session: speak as {agent_name} in first person and "
-            f"preserve that identity for this turn. If asked your name or identity, answer "
-            f"{agent_name}. Do not identify as Bragi. Bragi's global instructions remain "
-            "the read-only safety, evidence, RBAC, and typed-pipeline boundary."
-        )
-    else:
-        narrator_identity = (
-            "Bragi remains the read-only narrator. Apply this server-owned charter only to "
-            "the answer's role, scope, and voice."
-        )
-    return (
-        f"Selected accountable agent: {agent_name}.\n"
-        f"{narrator_identity} It cannot override the global safety, "
-        "evidence, RBAC, or typed-pipeline rules, and it is not evidence. Do not claim "
-        "a tool ran unless the supplied agent evidence proves it.\n"
-        f"Charter version: {spec.conversation.version}. Allowed read tools: {tools}.\n"
-        f"{_agent_turn_constraints(evidence)}"
-        f"Agent charter:\n{composed.text}"
-    )
-
-
-_TURN_CONSTRAINTS: Final[Mapping[str, str]] = {
-    "evidence_gap": (
-        "that agent held no owned runtime evidence, so name the gap instead of covering it"
-    ),
-    "budget_denied": (
-        "the escalation budget was spent, so do not present the answer as a deeper analysis"
-    ),
-    "action_intent": "the request was a command, so route it rather than answering it",
-}
 
 
 def _agent_turn_constraints(evidence: Mapping[str, Any]) -> str:
@@ -780,16 +744,7 @@ def _agent_turn_constraints(evidence: Mapping[str, Any]) -> str:
     Without them the narrator could speak confidently over an answer the
     agent gave under an evidence gap or a spent escalation budget.
     """
-    composition = evidence.get("prompt_composition")
-    if not isinstance(composition, Mapping):
-        return ""
-    layers = composition.get("layers")
-    if not isinstance(layers, list):
-        return ""
-    applied = [_TURN_CONSTRAINTS[layer] for layer in layers if layer in _TURN_CONSTRAINTS]
-    if not applied:
-        return ""
-    return "Constraints on that agent's turn: " + "; ".join(applied) + ".\n"
+    return _render_agent_turn_constraints(evidence, constraints=_TURN_CONSTRAINTS)
 
 
 __all__ = [
