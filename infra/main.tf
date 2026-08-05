@@ -41,6 +41,11 @@ moved {
   to   = module.operator_api
 }
 
+moved {
+  from = module.llm_azure_openai[0].azurerm_role_assignment.additional_openai_user["read_api"]
+  to   = module.llm_azure_openai[0].azurerm_role_assignment.additional_openai_user["operator_api"]
+}
+
 data "azurerm_client_config" "current" {}
 
 locals {

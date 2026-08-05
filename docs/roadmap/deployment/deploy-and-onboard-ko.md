@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 8e5e0680250113dc38b4e53ce711a5daed3af0b2
+translation_source_sha: 8729f7f0f105ac924e14699bfea6185cfb4a66ef
 translation_revised: 2026-08-05
 ---
 
@@ -132,6 +132,8 @@ dependency graph를 target합니다. 이렇게 하면 관련 없는 runtime reso
 제외하면서 Job image와 required shared runtime config를 수렴 상태로 유지합니다. Target set에는
 활성 Terraform `moved` block의 source 및 destination address가 모두 포함됩니다. Workflow contract
 test는 이 address를 동기화하여 state migration 때문에 protected plan이 무효화되지 않도록 합니다.
+`for_each` key rename에는 명시적인 `moved` block을 사용합니다. 따라서 Terraform은 기존 resource를
+삭제한 후 새로 만들도록 계획하지 않고 현재 resource를 그대로 보존합니다.
 Terraform은 host와 deployment
 storage에 reader managed identity를 사용하며 workflow는 publish 전에 Flex-generated exact shared-key
 override를 제거합니다. 해당 identity에는 host용 `Storage Blob Data Owner`와 idempotency용 contributor
