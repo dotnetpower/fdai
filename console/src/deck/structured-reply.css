@@ -61,6 +61,10 @@
   font-variant-numeric: tabular-nums;
 }
 
+.deck-presentation-summary > div[data-tone="attention"] dd {
+  color: color-mix(in oklab, var(--warning) 78%, var(--fg));
+}
+
 .deck-presentation-callout {
   display: grid;
   gap: 5px;
@@ -132,6 +136,23 @@
   font-variant-numeric: tabular-nums;
 }
 
+.deck-presentation-bar-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.deck-presentation-tone-mark {
+  flex: 0 0 auto;
+  min-width: 18px;
+  color: currentColor;
+  font-size: 9px;
+  font-weight: 800;
+  text-align: center;
+}
+
 .deck-presentation-bar-track {
   height: 12px;
   overflow: hidden;
@@ -180,19 +201,7 @@
 
 @media (max-width: 560px) {
   .deck-presentation-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .deck-presentation-table,
-  .deck-presentation-table tbody,
-  .deck-presentation-table tr,
-  .deck-presentation-table td { display: block; width: 100%; }
-  .deck-presentation-table thead { display: none; }
-  .deck-presentation-table tr { padding: 7px 9px; border-bottom: 1px solid var(--border); }
-  .deck-presentation-table td {
-    display: grid;
-    grid-template-columns: minmax(92px, 34%) minmax(0, 1fr);
-    gap: 8px;
-    padding: 4px 0;
-    border: 0;
-  }
-  .deck-presentation-cell-label { display: inline; color: var(--fg-muted); font-size: 11px; }
+  .deck-presentation-table th,
+  .deck-presentation-table td { padding: 5px 4px; font-size: 10px; }
   .deck-presentation-bar-row { grid-template-columns: minmax(72px, 30%) 1fr auto; }
 }

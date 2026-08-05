@@ -74,6 +74,14 @@ describe("presentation artifact boundary", () => {
     expect(parsePresentationArtifact(unknown, verification)).toBeUndefined();
   });
 
+  it("rejects a valid generic kind on the wrong semantic slot", () => {
+    const raw = artifact();
+    const blocks = raw.blocks as Record<string, unknown>[];
+    blocks[0] = { ...blocks[1], slot_id: "overview" };
+
+    expect(parsePresentationArtifact(raw, verification)).toBeUndefined();
+  });
+
   it("rejects oversized rows and unsafe text", () => {
     const raw = artifact();
     const blocks = raw.blocks as Record<string, unknown>[];

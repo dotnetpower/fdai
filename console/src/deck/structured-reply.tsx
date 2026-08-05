@@ -101,7 +101,9 @@ function PresentationTable({
   return (
     <table class="deck-presentation-table">
       <thead>
-        <tr>{block.data.columns.map((column) => <th key={column.key}>{column.label}</th>)}</tr>
+        <tr>{block.data.columns.map((column) => (
+          <th key={column.key} scope="col">{column.label}</th>
+        ))}</tr>
       </thead>
       <tbody>
         {block.data.rows.map((row, rowIndex) => (
@@ -111,7 +113,7 @@ function PresentationTable({
                 <span class="deck-presentation-cell-label" aria-hidden="true">
                   {column.label}
                 </span>
-                {column.key === block.data.statusKey ? (
+                {block.data.statusKey !== null && column.key === block.data.statusKey ? (
                   <span class="deck-presentation-status" data-tone={statusTone(row[column.key])}>
                     {row[column.key] ?? ""}
                   </span>
@@ -143,7 +145,14 @@ function PresentationBars({
         const width = item.value === 0 ? 0 : Math.max(2, (item.value / denominator) * 100);
         return (
           <div key={item.label} class="deck-presentation-bar-row" data-tone={item.tone}>
-            <span>{item.label}</span>
+            <span class="deck-presentation-bar-label">
+              {item.tone === "warning" ? (
+                <span class="deck-presentation-tone-mark" aria-hidden="true">!</span>
+              ) : item.tone === "positive" ? (
+                <span class="deck-presentation-tone-mark" aria-hidden="true">OK</span>
+              ) : null}
+              {item.label}
+            </span>
             <span class="deck-presentation-bar-track" aria-hidden="true">
               <span style={{ width: `${width}%` }} />
             </span>
@@ -157,10 +166,10 @@ function PresentationBars({
 
 function statusTone(value: string | undefined): "neutral" | "positive" | "attention" | "warning" {
   const normalized = value?.toLowerCase() ?? "";
+  if (normalized.includes("unavailable") || normalized.includes("unknown") ||
+      normalized.includes("초과") || normalized.includes("degraded")) return "warning";
   if (normalized.includes("within") || normalized.includes("이내") || normalized === "available") {
     return "positive";
   }
-  if (normalized.includes("unavailable") || normalized.includes("unknown") ||
-      normalized.includes("초과") || normalized.includes("degraded")) return "warning";
   return "neutral";
 }

@@ -426,7 +426,7 @@ interface PresentationBlockBase {
 interface PresentationTableData {
   readonly columns: readonly PresentationColumn[];
   readonly rows: readonly Readonly<Record<string, string>>[];
-  readonly statusKey: string;
+  readonly statusKey: string | null;
 }
 
 export type PresentationBlock =

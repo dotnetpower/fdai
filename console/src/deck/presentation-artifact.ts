@@ -20,6 +20,16 @@ const SLOT_ID = /^[a-z][a-z0-9_]{0,63}$/;
 const COLUMN_KEY = /^[a-z][a-z0-9_]{0,63}$/;
 const EMPHASES = new Set<PresentationEmphasis>(["primary", "secondary", "supporting"]);
 const TONES = new Set<PresentationTone>(["neutral", "positive", "attention", "warning"]);
+const SLOT_KINDS: Readonly<Record<string, ReadonlySet<PresentationBlock["kind"]>>> = {
+  overview: new Set(["summary"]),
+  limitations: new Set(["callout"]),
+  findings: new Set(["table", "list"]),
+  coverage: new Set(["coverage", "table"]),
+  metrics: new Set(["threshold_table", "table"]),
+  evidence: new Set(["evidence"]),
+  records: new Set(["table", "list"]),
+  distribution: new Set(["bar", "table"]),
+};
 
 export function parsePresentationArtifact(
   raw: unknown,
@@ -124,6 +134,9 @@ function parseBlock(raw: unknown, artifactRefs: ReadonlySet<string>): Presentati
   if (!slotId || !SLOT_ID.test(slotId) || !title ||
       !EMPHASES.has(emphasis as PresentationEmphasis) || typeof collapsed !== "boolean" ||
       !evidenceRefs || !isRecord(raw.data)) return null;
+  const allowedKinds = SLOT_KINDS[slotId];
+  if (!allowedKinds || typeof raw.kind !== "string" ||
+      !allowedKinds.has(raw.kind as PresentationBlock["kind"])) return null;
   const base = {
     slotId,
     title,
@@ -195,7 +208,7 @@ function parseChartItems(data: Record<string, unknown>): PresentationChartItem[]
 function parseTable(data: Record<string, unknown>): {
   readonly columns: readonly PresentationColumn[];
   readonly rows: readonly Readonly<Record<string, string>>[];
-  readonly statusKey: string;
+  readonly statusKey: string | null;
 } | null {
   if (!hasExactKeys(data, ["columns", "rows", "status_key"]) ||
       !Array.isArray(data.columns) || data.columns.length === 0 ||
@@ -211,8 +224,8 @@ function parseTable(data: Record<string, unknown>): {
     keys.add(key);
     columns.push({ key, label });
   }
-  const statusKey = text(data.status_key, 64);
-  if (!statusKey || !keys.has(statusKey)) return null;
+  const statusKey = data.status_key === null ? null : text(data.status_key, 64);
+  if (data.status_key !== null && (!statusKey || !keys.has(statusKey))) return null;
   const rows: Readonly<Record<string, string>>[] = [];
   for (const rawRow of data.rows) {
     if (!isRecord(rawRow) || Object.keys(rawRow).length !== keys.size ||

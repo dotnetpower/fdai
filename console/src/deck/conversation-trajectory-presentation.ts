@@ -41,7 +41,9 @@ export function buildTrajectoryPresentation(
     ...(trajectory.answer.verification?.evidence_refs ?? []),
   ]);
 
-  const recordedModelCalls = trajectory.answer.modelTrace?.calls.length ?? 0;
+  const recordedModelCalls = trajectory.answer.modelTrace
+    ? trajectory.answer.modelTrace.calls.length + trajectory.answer.modelTrace.omitted_calls
+    : 0;
   const modelBacked = trajectory.answer.source?.startsWith("llm:") === true;
   return {
     workProgress: workProgressPresentation(trajectory),
