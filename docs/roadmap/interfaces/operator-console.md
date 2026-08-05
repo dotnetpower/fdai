@@ -162,7 +162,10 @@ flowchart TD
   never receives row values and cannot emit titles, facts, units, thresholds, status, severity,
   colors, links, or evidence references. The plan can choose slot order, one allowlisted component,
   emphasis, and whether supporting detail starts collapsed. It cannot repeat or omit a required
-  slot.
+  slot. `AnswerPlan.format` continues to own the canonical Markdown text fallback, while
+  `PresentationPlan` owns only the Console artifact layout. Presentation planning never rewrites
+  the canonical text format. An explicit format or saved preference skips the artifact and keeps
+  the established table, chart, list, or prose renderer.
 
   The server validates the plan, then compiles immutable evidence into a bounded
   `presentation_artifact` v1. The compiler enforces compatible units and threshold directions for

@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: d083ed922c61558b11d7eca78db36235ff20a661
+translation_source_sha: 40261c3f33c4fa541202e2caba9531450c9f98f1
 translation_revised: 2026-08-05
 ---
 
@@ -158,7 +158,10 @@ flowchart TD
   slot-component pair, coverage class 및 operator request만 받습니다. Row value를 받지 않으며 title,
   fact, unit, threshold, status, severity, color, link 또는 evidence reference를 출력할 수 없습니다.
   Plan은 slot 순서, allowlisted component 하나, emphasis 및 supporting detail의 초기 접힘 상태만 선택할
-  수 있습니다. Required slot을 반복하거나 생략할 수 없습니다.
+  수 있습니다. Required slot을 반복하거나 생략할 수 없습니다. `AnswerPlan.format`은 canonical Markdown
+  text fallback을 계속 소유하고 `PresentationPlan`은 Console artifact layout만 소유합니다. Presentation
+  planning은 canonical text format을 다시 작성하지 않습니다. 명시적인 format 또는 저장된 preference가
+  있으면 artifact를 생략하고 기존 table, chart, list 또는 prose renderer를 유지합니다.
 
   Server는 plan을 검증한 뒤 immutable evidence를 bounded `presentation_artifact` v1으로 compile합니다.
   Compiler는 chart의 compatible unit과 threshold direction을 강제하고 partial 또는 truncated coverage를
