@@ -4,6 +4,13 @@ import { t } from "../i18n";
 import { fetchConversationImage } from "../user-context-client";
 import type { TurnAttachment } from "./turn-attachments";
 
+export function withoutAttachmentSource(
+  sources: Readonly<Record<string, string>>,
+  attachmentId: string,
+): Readonly<Record<string, string>> {
+  return { ...sources, [attachmentId]: "" };
+}
+
 export function ConversationTurnAttachments({
   attachments,
 }: {
@@ -55,7 +62,12 @@ export function ConversationTurnAttachments({
           return (
             <li key={attachment.id}>
               {source ? (
-                <img src={source} alt={attachment.name} />
+                <img
+                  src={source}
+                  alt={attachment.name}
+                  onError={() => setSources((current) =>
+                    withoutAttachmentSource(current, attachment.id))}
+                />
               ) : (
                 <span
                   class="deck-turn-attachment-placeholder"
