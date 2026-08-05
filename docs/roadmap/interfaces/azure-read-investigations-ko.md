@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 43ea6e80fe7f9f7ebbf9ef4fec5c7c3db90449a7
+translation_source_sha: 2a38f2fbd2f09a7f0732f1753f63a3a7c7d1ab35
 translation_revised: 2026-08-05
 ---
 
@@ -615,27 +615,7 @@ prompt 및 unredacted caller payload는 제외합니다.
   name을 검증했습니다. Dedicated validation environment가 retained guest shutdown event와 자연스럽게
   발생한 provider `429`를 제공할 때까지 capability는 configuration-gated 상태를 유지합니다.
 
-## Release evidence
-
-Live check는 existing resource와 reader credential을 사용합니다. Azure resource를 create, update,
-start, stop 또는 delete하지 않습니다. Live subscription에서 안전하게 유도할 수 없는 failure path는
-customer-neutral synthetic payload를 사용하는 repository test로 검증합니다.
-
-| Scenario | Evidence class | 결과 |
-|----------|----------------|------|
-| Successful caller attribution | Live | 통과했습니다. Exact resolution 및 projected Activity Log read가 user와 service-principal actor를 match했으며 opaque actor 및 correlation reference만 유지했습니다. |
-| Resource Health | Live | 통과했습니다. 비어 있는 ARG projection이 current Resource Health REST endpoint로 fallback하여 normalized availability evidence를 반환했습니다. |
-| Unauthorized scope | Live | 통과했습니다. 접근할 수 없는 scope가 failed bounded receipt와 함께 `unavailable`로 변환되었습니다. |
-| Ambiguous resource name | Live | 통과했습니다. Duplicate name 하나가 bounded candidate 4개, exact resource binding 없음 및 history query 없음으로 반환되었습니다. |
-| Guest OS shutdown | Live 및 contract | 완료되지 않았습니다. 접근 가능한 workspace 16개에는 available history 전체에서 retained Event 또는 Syslog shutdown record가 없었습니다. Live missing-workspace behavior는 `unavailable`을 반환했고 matched Event 및 Syslog normalization은 contract test만 통과했습니다. |
-| Provider throttling | Contract | 동작은 통과했습니다. Synthetic `429` response가 bounded retry 및 terminal failure를 검증했습니다. Deliberate throttling은 bounded-read policy를 위반하므로 실제 live `429`는 유도하지 않았습니다. |
-| Retention 부족 | Contract | 통과했습니다. Configured Activity Log 또는 guest-log retention을 넘는 lookback은 HTTP 전에 실패하고 provider boundary에서 unavailable로 normalize됩니다. |
-
-완료되지 않은 guest-event row와 자연스럽게 발생한 live `429` 부재는 implementation defect가 아니라
-release evidence로 남습니다. Dedicated validation environment가 Azure 변경 없이 해당 observation을
-제공할 때까지 issue를 open 상태로 유지합니다.
-
-## 검증
+## 검증 및 release evidence
 
 - 영어 및 한국어 intent test가 actor, shutdown, resource history, health 및 ambiguity를 검증합니다.
 - Property test가 모든 investigation tool이 read-only이고 attenuation이 mutation, approval, shell,
@@ -659,4 +639,4 @@ release evidence로 남습니다. Dedicated validation environment가 Azure 변�
 | Detached investigation lifecycle | [Durable Background Task Sessions](background-task-sessions-ko.md) |
 | Isolated tool attenuation | [Bounded Task Workers](../agents/bounded-task-workers-ko.md) |
 | Azure inventory boundary | [Cloud Provider Neutrality](../architecture/csp-neutrality-ko.md) |
-| Workload identity separation | [Security and Identity](../architecture/security-and-identity-ko.md) |
+| Workload identity separation 및 live release evidence | [Security and Identity](../architecture/security-and-identity-ko.md), [운영 및 검증](../operations/operating-and-verification-ko.md#azure-read-investigation-release-evidence) |

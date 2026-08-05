@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 323c85dc5db826b6795ec48ab70457dee0bbe83e
+translation_source_sha: 1f2bc498372b4e5b7bc8202c3d4c37cc983e3830
 translation_revised: 2026-08-05
 ---
 
@@ -217,61 +217,8 @@ flowchart TD
   로 resolve.
 ### 2.1 모듈 맵
 
-- [`src/fdai/core/conversation/`](../../../src/fdai/core/conversation)
-  - `coordinator.py` - `ConversationCoordinator` (Layer 2 orchestrator).
-  - `tool_arguments.py` - 순수 canonical-verb argument parsing이며 tool authority를 부여하지 않습니다.
-  - `read_plan.py` - bounded-plan 순수 검증, serial read 실행, result aggregation 및 identity-scoped
-    high-signal conflict detection.
-  - `contextual_translation.py` - 현재 및 prior turn text에 대한 순수 scalar argument provenance.
-  - `grounded_answer_validation.py` - narrated output과 immutable tool authority 사이의 보수적
-    canonical-ID, numeric, timestamp, freshness 및 exact-ref 검사.
-  - `tools.py` - `ConsoleTool` Protocol + per-tool 구현체가 Layer 1
-    모듈에만 delegate.
-  - `narrator.py` - sync intent `Narrator`, optional `ContextualNarrator`, proposal-only
-    `ReadPlanNarrator`, zero-execution `ClarificationNarrator` 및 presentation-only
-    `GroundedAnswerNarrator` Protocol, deterministic verb schema와 RBAC-scoped descriptor.
-  - `session.py` - core/CLI용 disposable `ConversationSession` projection. Production web transcript는
-    principal-scoped `ConversationHistoryStore`가 소유합니다.
-- [`cli/`](../../../cli)
-  - `src/repl.ts` - 공유 `POST /chat` coordinator를 사용하는 IME-safe
-    stdin/stdout 채널입니다.
-  - `src/cockpit.ts` - 동일한 coordinator에 self-describing 화면 snapshot을
-    게시하는 live SSE presentation입니다.
-- [`src/fdai/core/conversation/channel_gateway.py`](../../../src/fdai/core/conversation/channel_gateway.py)
-  - Sender 인증, message idempotency claim, coordinator 호출을 수행하고 durable delivery 구성 시
-    provider send 전에 complete response를 저장합니다. [Durable delivery](durable-conversation-delivery-ko.md)가 verified binding과 recovery를 담당합니다.
-- [`src/fdai/delivery/channels/`](../../../src/fdai/delivery/channels)
-  - `teams.py` - bearer-token verification 이후 Bot Framework activity를 normalize하고 reply에
-    injected publisher를 사용합니다. Payload가 제공한 reply URL을 신뢰하지 않습니다.
-  - `slack.py` - timestamped Slack request signature를 검증하고 replay 또는 bot-authored event를
-    차단하고 message를 normalize하고 reply에 injected publisher를 사용합니다.
-  - Slack, Teams 및 web attachment contract는
-    [conversation-attachments-ko.md](conversation-attachments-ko.md)를 통해 수렴합니다. Web chat은
-    already-ingested immutable document ref만 제출하고 resolver는 요청된 exact citation을 순서대로
-    반환해야 합니다. 전용 WebSocket adapter는 선택적입니다.
-- [`src/fdai/delivery/operator_api/routes/chat_current_time.py`](../../../src/fdai/delivery/operator_api/routes/chat_current_time.py)
-  - injected aware clock과 principal IANA timezone에서 current-time 질문을 resolve합니다. Deterministic
-    verification은 exact timestamp와 명시적 UTC fallback을 emit합니다.
-- [`src/fdai/delivery/operator_api/routes/`](../../../src/fdai/delivery/operator_api/routes)
-  - `chat_stream_setup.py`는 authenticated request, evidence, history, answer-plan validation을, `chat_stream_terminal.py`는 pure terminal verification-frame 및 replay-payload assembly를 소유하고, `chat_trajectory_detail.py`는 durable trajectory replay용 bounded final progress projection을 소유합니다.
-  - `chat_knowledge_context.py`는 state write 없이 exact prior-turn runbook, source freshness, consented memory,
-    materialized learning을 읽고, `chat_vision_prompt.py`는 검증된 image를 projection하며,
-    `chat_verification_text.py`와 `chat_verification_rendering.py`는 terminal integrity와 prose를 소유합니다.
-  - `read_investigation_responder.py`는 등록된 모든 Heimdall read intent를 typed evidence field에서
-    렌더링합니다. Evidence가 없으면 명시적인 unavailable answer를 반환하며, 처리되지 않은 intent는
-    generic success prose로 fallback하지 않고 exhaustive type checking에서 실패합니다. Fallback은 Pantheon agent를 embed하지 않고 bound된 typed responder를 호출하며 direct `PantheonChatDelegate` 사용은 fixture-only입니다. 하나의 runtime intent spec이 tool과 lookback을 공급하며 `read_investigation_catalog.py`는 catalog ID, owner 또는 plan binding drift 시 startup을 차단합니다.
+Source inventory와 boundary는 [Operator Console Module Map and Boundaries](operator-console-module-map-ko.md)가 소유합니다.
 
-이 layer의 영어 및 한국어 presentation literal은 NFC UTF-8로 작성합니다. Repository gate는 escape된
-Hangul prose와 matching token을 차단하며, code-point behavior에는 정확한 rationale이 있는 예외만
-허용합니다. 이 source representation은 machine value, evidence authority, locale selection 또는 typed
-pipeline decision을 변경하지 않습니다.
-- Scheduler Runs, Automation Blueprints, Scheduled Continuations, [관리형 trajectory dataset](governed-trajectory-datasets-ko.md), [execution backend status](execution-backends-ko.md)는 read-only metadata를 제공합니다. Scheduler performance는 loaded-page publish rate와 claim-to-close percentile을 사용하며 `published`는 broker dispatch 근거일 뿐 task execution 또는 outcome success를 증명하지 않습니다. 이 view에는 enable, submit, retry, cancel, cleanup, execute, approval control이 없고 credential 및 Thor identity를 제외하며 command는 SPA 밖에 유지됩니다.
-- [`tools/chat.py`](../../../tools/chat.py) - core coordinator를 위한 headless
-  JSONL 개발 harness입니다. 별도 policy 구현이 아닙니다.
-
-CSP-중립 규칙은 그대로 유지: `core/conversation/`은 **오직** Protocol만
-import. 모든 Azure SDK / httpx / Bot Framework 호출은 `delivery/` 아래
-거주.
 ## 3. Tool 카탈로그
 
 Tool은 **pipeline-stage view** 입니다. Core tool은 안정된 name, bounded `argument_hint`,

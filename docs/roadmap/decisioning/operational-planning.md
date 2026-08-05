@@ -246,6 +246,41 @@ The frozen scenario pack includes:
 8. artifact tampering and sandbox escape attempts; and
 9. A3-E non-applicability for A0 planning, plus the referenced ActionType's own authority proof.
 
+## Multi-objective arbitration
+
+When specialists disagree on one resource, each owner normalizes its own raw signal and attaches
+an `impact` in `[0, 1]`. Njord uses `clamp(ratio - 1.0, 0, 1)` for cost anomalies, while Freyr uses
+`clamp(forecast_util, 0, 1)` for capacity forecasts. Forseti forwards those comparable magnitudes
+on its owned `object.arbitration-request`; it does not reinterpret domain metrics.
+
+Odin applies the deterministic `MultiObjectiveArbiter` under these rules:
+
+- Forseti and the risk gate remove options that violate safety, security, identity, data integrity,
+  recovery, or service-objective constraints before any score is computed.
+- Conflicts within the initial execution verticals apply
+  `resilience_safety_hold > resilience > change_safety > cost` first. Unknown, duplicate,
+  security, or capacity domains continue to weighted arbitration.
+- Eligible soft-objective scores use `weight * impact`. Default priority is
+  `resilience > security > change_safety > cost > capacity`; a fork can supply static weights or a
+  deterministic `weight_fn`, including convex or concave curves anchored at `1.0` and `0.4`.
+- Equal impact reproduces the legacy priority winner. A lower-priority objective can win only among
+  eligible soft tradeoffs when its measured impact is larger.
+- A top-two margin within the configured human-approval band, default `0.10`, or an unknown domain
+  sets `escalate_hil`. Every decision records `objective_scores` and `margin` on
+  `object.arbitration-decision`.
+
+The arbiter performs no I/O or model call. An optional read-only `SpecialistPlanningCoordinator`
+adds logic, simulation, and hard-constraint receipts to the DecisionCase and applies Pareto pruning
+before Odin receives eligible options. Missing or unscorable planning evidence routes to review
+without creating another execution path.
+
+Temporal policy remains opt-in and deterministic. `AlternatingFairnessPolicy` gives a bounded
+boost to a repeated loser after `streak_threshold`; one opposing win resets the streak.
+`HysteresisPolicy` boosts the most recent winner only when the last `window` rounds are actually
+flapping. Both are pure functions of `(base_weights, domains, history)`, retain the human-approval
+margin and non-finite checks, and replay from the same audit history. Upstream uses
+`NoopDecisionHistory`, preserving stateless behavior.
+
 ## Delivery and exit criteria
 
 | Wave | Deliverable | Exit criteria |

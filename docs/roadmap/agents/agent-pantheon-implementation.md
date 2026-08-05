@@ -435,37 +435,9 @@ defaults and never invokes the privileged executor.
 
 ## 11. Wave 7 - Cross-agent workflows in shadow
 
-Each of the 13 workflows in [agent-workflows.md](agent-workflows.md)
-lands as its own PR with its own shadow-mode gate. Rough sequence:
-
-1. Cost-aware remediation (Njord + Forseti + Thor)
-2. Predictive scale (Freyr + Heimdall + Njord)
-3. DR drill orchestration (Loki + Vidar + Heimdall + Norns)
-4. Override -> Discovery (Var + Saga + Norns + Mimir)
-5. Security escalation (formalized after W6 into a workflow object)
-6. Handoff -> Capability (Saga + Norns + Mimir)
-7. Agent health degradation (Heimdall + Odin + Bragi)
-8. Judgment coherence audit (Forseti + Norns + Mimir)
-9. Rollback rehearsal (Loki + Vidar + Heimdall + Saga)
-10. Retrospective what-if (Saga + Forseti + Norns + Mimir)
-11. Operational readiness handoff (Forseti)
-12. Scheduled governed Python task (Forseti + Thor)
-13. Detection readiness assurance (Huginn + Heimdall + Muninn + Forseti + Saga + Bragi)
-
-**Per-workflow exit gate**
-
-- End-to-end trace in shadow with all participating agents.
-- KPI baseline captured (see W8 for KPI collectors).
-- Zero policy-violation escapes in shadow.
-
-**Dependencies**
-
-- W6 complete.
-
-**Anti-scope**
-
-- No workflow promoted to enforce in this wave. Promotion happens
-  after W8 per-workflow, gated on KPI thresholds.
+The rollout order, per-workflow shadow gate, dependency, and anti-scope are owned by
+[Agent Workflow Shadow Rollout](agent-workflow-rollout.md). Each workflow remains an independent
+review and no workflow reaches enforcement during this wave.
 
 ## 12. Wave 8 - Promotion gates, KPIs, degradation drills
 

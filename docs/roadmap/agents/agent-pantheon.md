@@ -123,115 +123,16 @@ graph LR
 
 ### 3.1 Multi-objective arbitration
 
-When domain specialists disagree on the same resource (Njord recommends
-`scale_down` for cost while Freyr recommends `scale_up` for capacity),
-Forseti - the sole writer of `object.arbitration-request` - forwards the
-conflict to Odin with each domain's measured **impact magnitude** in
-`[0, 1]`. Each specialist owns the normalization of its own raw metric
-and attaches an explicit `impact` field to the payload it publishes, so
-Forseti does not have to know per-domain metrics and magnitudes stay
-comparable across verticals:
-
-- **Njord (cost)** - `impact = clamp(ratio - 1.0, 0, 1)` on
-  `object.cost-anomaly`. A 2x overspend saturates to `1.0`; a 1.1x
-  overspend is a mild `0.1`. Reported alongside the raw `ratio` for
-  grounding.
-- **Freyr (capacity)** - `impact = clamp(forecast_util, 0, 1)` on
-  `object.capacity-forecast`. The smoothed forecast is already
-  normalized; the specialist attaches it so the arbiter reads one field,
-  not a raw metric.
-
-Odin resolves the conflict with the deterministic **multi-objective**
-`MultiObjectiveArbiter` in `src/fdai/agents/_framework/arbitration.py`:
-
-- **Constitutional eligibility comes first.** Forseti and the risk gate remove options that violate safety, security, identity, data-integrity, recovery, or service-objective constraints. Odin
-  receives only eligible options; no score can compensate for a failed hard constraint.
-
-- Conflicts composed entirely of the three initial execution verticals first use the fixed
-  safety precedence `resilience_safety_hold > resilience > change_safety > cost`. This policy
-  is the Pantheon adapter over the shared `PrecedenceResolver`; impact magnitude cannot trade
-  away an active recovery or change-safety hold. Unknown, duplicate, security, or capacity
-  domains fall through to the weighted arbiter below.
-
-- Each domain has a configured **weight** (derived from the priority order
-  `resilience > security > change_safety > cost > capacity` by default;
-  fork config overrides). The score is `weight * impact`. Weights may be
-  a static dict, or a fork-supplied `weight_fn(priority) -> dict` (for
-  example, `weights_from_priority_curved(curve="convex")` to emphasize
-  the top priority, or `curve="concave"` to flatten the spread). The
-  curve helper anchors the top weight to `1.0` and the bottom to `0.4`,
-  so the HIL band and margin arithmetic stay calibrated across curves.
-- The winner is the highest score. With equal impacts this reproduces the
-  legacy priority winner exactly, so the arbiter is a strict superset of
-  the old table - no behavior regresses.
-- Among eligible soft-objective tradeoffs, a high-impact lower-priority domain can outrank a
-  low-impact higher-priority one. The arbiter weighs *magnitude*, not just rank; this never permits
-  cost or efficiency to override a constitutional constraint.
-- When the top-two **margin** is within a configured HIL band (default
-  `0.10`), or a domain has no known weight, the call is too close to
-  auto-resolve: the decision is flagged `escalate_hil`, which Forseti turns
-  into a `hil` verdict so the close call reaches a human (fail toward safety).
-- Every decision records per-domain `objective_scores` and the `margin`
-  on `object.arbitration-decision`, so the outcome is grounded and
-  auditable.
-
-The arbiter takes no LLM call and no I/O; it is pure and deterministic
-given its config and inputs.
-
-Forseti can bind the read-only `SpecialistPlanningCoordinator` before it emits the same
-`object.arbitration-request`. The coordinator preserves the existing Cost and Capacity topics,
-adds exact logic and simulation receipts plus hard-constraint evaluations to the DecisionCase,
-and applies Pareto pruning before Odin receives eligible soft-objective tradeoffs. An absent
-binding preserves the existing decision path. An incomplete or unscorable plan reaches human
-review and never creates another topic or execution route.
-
-**Temporal fairness (opt-in)** - a fork can wire a `DecisionHistory`
-seam (backed by the append-only audit log) and a `TemporalPolicy` into
-Odin to prevent two failure modes on repeated conflicts:
-
-- `AlternatingFairnessPolicy` - once a domain has won `streak_threshold`
-  rounds in a row against the same conflict, the perpetual loser gets a
-  bounded weight boost so it has a chance to win the next round. A
-  single opposing win breaks the streak.
-- `HysteresisPolicy` - when the winner has been flip-flopping between
-  two domains within the last `window` rounds, add a bonus to the most
-  recent winner to damp the oscillation. A stable one-sided run is not
-  flapping and receives no bonus.
-
-Both policies are pure functions of `(base_weights, domains, history)`
-so the arbiter stays deterministic and replayable (same audit log +
-same request => same decision). Neither weakens the HIL safety net:
-close margins, unknown domains, and non-finite impacts still escalate
-even after a boost. Upstream default binds `NoopDecisionHistory`
-(returns an empty window), which reproduces today's stateless behavior
-exactly.
+**Constitutional eligibility comes first.** Forseti owns the arbitration request and Odin ranks
+only constitutionally eligible soft-objective tradeoffs. Normalization, precedence, weighted
+scoring, human-approval margins, planning receipts, and temporal policy are owned by
+[Operational Planning](../decisioning/operational-planning.md#multi-objective-arbitration).
 
 ### 3.2 Discovery-loop learners (Norns)
 
-Norns closes the learning loop shown as `Saga -. signals .-> Norns` in
-the relationship diagram. It never mutates the catalog or any threshold
-directly - every output is an inert `RuleCandidate` proposal that must
-pass the quality gate.
-
-Before publication, three deterministic internal perspectives must agree:
-
-| Perspective | Bounded check |
-|-------------|---------------|
-| Urd (past) | Historical evidence is grounded. |
-| Verdandi (present) | The current `RuleCandidate` contract and Norns ownership are valid. |
-| Skuld (future) | The proposal does not directly raise autonomy or enter enforcement mode. |
-
-They are not agents, identities, or bus principals. Norns remains the sole writer of
-`object.rule-candidate`: `3/3` agreement emits one bounded `norns_consensus` summary;
-disagreement retains an aggregate hold without free-form reasoning. Deterministic candidate
-sources cover repeated fingerprints (`new`), high rollback rates (`threshold_adjustment`),
-overrides or approval rejections (`revision` / `retirement`), and optional scenario gaps
-(`new-scenario`). Every source passes the same consensus boundary.
-
-Every proposal records numeric evidence. Trajectory intake accepts only reviewed aggregates and creates no candidate by itself.
-Huginn carries strict operational-case events; Muninn seals them and publishes bounded failure-fingerprint cohorts.
-Norns serializes typed intake, rejects operational cohorts over 100 cases before materialization, and requires one fingerprint and ActionType, balanced evidence, and immutable revisions before consensus emits an inert candidate into its bounded 5,000-entry pending queue.
-Incomplete evidence stays held. Norns supplies stable correlation and idempotency keys. Mimir serializes concurrent intake, compiles immutable review packages, quarantines failed receipts, backpressures unresolved capacity, and compacts state after idempotent PR publication. It never promotes an operational candidate in process; reviewed catalog PR and reload remain the only activation path. Review outcomes travel on Mimir's `object.rule`; Saga seals them as `object.audit-entry`.
+Norns remains the sole writer of inert `RuleCandidate` proposals. Its three-perspective consensus,
+balanced cohort limits, pending queue, Mimir review, and catalog activation boundary are owned by
+[Operational Learning Ontology](../rules-and-detection/operational-learning-ontology.md#norns-consensus-and-catalog-boundary).
 
 ## 4. Agent catalog
 

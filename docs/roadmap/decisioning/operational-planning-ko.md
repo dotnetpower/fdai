@@ -1,7 +1,7 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: 0cc98dd369120e6bb38ee8f921b98d158f70189a
-translation_revised: 2026-08-03
+translation_source_sha: 4ccc2e9ee4e6a0ca6f94eed9e49a38d054282e4c
+translation_revised: 2026-08-05
 ---
 # 운영 계획
 
@@ -243,6 +243,41 @@ Frozen scenario pack에는 다음이 포함됩니다.
 7. active 및 challenger model divergence
 8. artifact tampering 및 sandbox escape 시도
 9. A0 planning에 대한 A3-E non-applicability와 참조된 ActionType 자체의 authority proof
+
+## 다목적 중재
+
+Specialist가 같은 resource에 대해 충돌하면 각 owner가 raw signal을 정규화하고 `[0, 1]`의 `impact`를
+추가합니다. Njord는 cost anomaly에 `clamp(ratio - 1.0, 0, 1)`을 사용하고 Freyr는 capacity forecast에
+`clamp(forecast_util, 0, 1)`을 사용합니다. Forseti는 비교 가능한 magnitude를 소유 topic인
+`object.arbitration-request`로 전달하며 domain metric을 다시 해석하지 않습니다.
+
+Odin은 다음 규칙에 따라 deterministic `MultiObjectiveArbiter`를 적용합니다.
+
+- Forseti와 risk gate는 score 계산 전에 safety, security, identity, data integrity, recovery 또는
+  service-objective constraint를 위반하는 option을 제거합니다.
+- 초기 execution vertical의 conflict는 먼저
+  `resilience_safety_hold > resilience > change_safety > cost`를 적용합니다. Unknown, duplicate,
+  security 또는 capacity domain은 weighted arbitration으로 이어집니다.
+- Eligible soft-objective score는 `weight * impact`를 사용합니다. 기본 priority는
+  `resilience > security > change_safety > cost > capacity`입니다. Fork는 `1.0`과 `0.4`에 anchor된
+  convex/concave curve를 포함한 static weight 또는 deterministic `weight_fn`을 공급할 수 있습니다.
+- 같은 impact는 legacy priority winner를 재현합니다. 낮은 priority objective는 eligible soft tradeoff
+  안에서 measured impact가 더 큰 경우에만 이길 수 있습니다.
+- Top-two margin이 configured human-approval band(기본 `0.10`) 이내이거나 domain이 unknown이면
+  `escalate_hil`을 설정합니다. 모든 decision은 `objective_scores`와 `margin`을
+  `object.arbitration-decision`에 기록합니다.
+
+Arbiter는 I/O 또는 model call을 수행하지 않습니다. Optional read-only
+`SpecialistPlanningCoordinator`는 DecisionCase에 logic, simulation 및 hard-constraint receipt를 추가하고
+Odin이 eligible option을 받기 전에 Pareto pruning을 적용합니다. Planning evidence가 없거나 unscorable이면
+별도 execution path를 만들지 않고 review로 이동합니다.
+
+Temporal policy는 opt-in이며 deterministic합니다. `AlternatingFairnessPolicy`는 `streak_threshold` 이후
+repeated loser에게 bounded boost를 주고 반대편 승리 한 번이 streak를 reset합니다.
+`HysteresisPolicy`는 최근 `window` round가 실제로 flapping할 때만 most recent winner를 boost합니다. 둘 다
+`(base_weights, domains, history)`의 pure function이며 human-approval margin과 non-finite check를 유지하고
+같은 audit history에서 replay됩니다. Upstream은 stateless behavior를 유지하는 `NoopDecisionHistory`를
+사용합니다.
 
 ## Delivery 및 exit criteria
 

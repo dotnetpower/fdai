@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: a50281f564e4c79c828b7517e76c62847f52a2ea
-translation_revised: 2026-08-04
+translation_source_sha: 2132fe68464f1f5c7f25c3e167e847ba129346ac
+translation_revised: 2026-08-05
 ---
 
 # 에이전트 판테온 구현 계획
@@ -420,37 +420,9 @@ default 를 유지하며 privileged executor 를 호출하지 않습니다.
 
 ## 11. Wave 7 - Shadow 로 cross-agent workflows
 
-[agent-workflows.md](agent-workflows-ko.md)의 13개 워크플로우 각각이 자기
-shadow-mode gate 를 가진 자기 PR 로 착지. 대략적 순서:
-
-1. Cost-aware remediation (Njord + Forseti + Thor)
-2. Predictive scale (Freyr + Heimdall + Njord)
-3. DR drill orchestration (Loki + Vidar + Heimdall + Norns)
-4. Override -> Discovery (Var + Saga + Norns + Mimir)
-5. Security escalation (W6 이후 워크플로우 object 로 formalize)
-6. Handoff -> Capability (Saga + Norns + Mimir)
-7. Agent health degradation (Heimdall + Odin + Bragi)
-8. Judgment coherence audit (Forseti + Norns + Mimir)
-9. Rollback rehearsal (Loki + Vidar + Heimdall + Saga)
-10. Retrospective what-if (Saga + Forseti + Norns + Mimir)
-11. Operational readiness handoff (Forseti)
-12. Scheduled governed Python task (Forseti + Thor)
-13. Detection readiness assurance (Huginn + Heimdall + Muninn + Forseti + Saga + Bragi)
-
-**Per-workflow exit gate**
-
-- 참여 에이전트 전부와 shadow 로 종단간 trace.
-- KPI baseline 캡처 (KPI collector 는 W8 참고).
-- Shadow 에서 정책 위반 escape zero.
-
-**Dependencies**
-
-- W6 완료.
-
-**Anti-scope**
-
-- 이 웨이브에서 enforce 로 승격되는 워크플로우 없음. 승격은 W8 이후
-  per-workflow, KPI threshold gated.
+Rollout 순서, workflow별 shadow gate, dependency 및 anti-scope는
+[Agent Workflow Shadow Rollout](agent-workflow-rollout-ko.md)이 소유합니다. 각 workflow는
+독립적으로 검토하며 이 wave에서는 어떤 workflow도 enforce로 승격하지 않습니다.
 
 ## 12. Wave 8 - Promotion gates, KPIs, degradation drills
 

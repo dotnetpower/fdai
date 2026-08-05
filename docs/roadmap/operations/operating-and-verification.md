@@ -252,6 +252,26 @@ The result is a body of shadow evidence - accuracy, latency, zero
 policy-violation escapes - that an operator reviews **before** promoting any
 action from shadow to enforce.
 
+## Azure read-investigation release evidence
+
+Live checks use existing resources and a reader credential. They do not create, update, start,
+stop, or delete an Azure resource. Repository tests use synthetic, customer-neutral payloads for
+failure paths that are not safe to induce against a live subscription.
+
+| Scenario | Evidence class | Result |
+|----------|----------------|--------|
+| Successful caller attribution | Live | Passed. Exact resolution and projected Activity Log reads matched user and service-principal actors while retaining only opaque actor and correlation references. |
+| Resource Health | Live | Passed. An empty ARG projection fell back to the current Resource Health REST endpoint and returned normalized availability evidence. |
+| Unauthorized scope | Live | Passed. An inaccessible scope became `unavailable` with a failed bounded receipt. |
+| Ambiguous resource name | Live | Passed. One duplicate name returned four bounded candidates, no exact resource binding, and no history query. |
+| Guest OS shutdown | Live and contract | Incomplete. Sixteen accessible workspaces contained no retained Event or Syslog shutdown record across their available history. Live missing-workspace behavior returned `unavailable`; matched Event and Syslog normalization passed contract tests only. |
+| Provider throttling | Contract | Behavior passed. Synthetic `429` responses exercised bounded retry and terminal failure. An actual live `429` was not induced because deliberate throttling would violate the bounded-read policy. |
+| Insufficient retention | Contract | Passed. Lookbacks beyond configured Activity Log or guest-log retention fail before HTTP and normalize as unavailable through the provider boundary. |
+
+The incomplete guest-event row and missing naturally occurring live `429` remain release evidence,
+not implementation defects. Keep the issue open until the dedicated validation environment can
+produce those observations without an Azure change.
+
 ## Post-Launch Stabilization Window
 
 After a service opens, FDAI is most useful **left running for the first few

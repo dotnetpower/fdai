@@ -645,11 +645,3 @@ Each work item MUST be provable at CI time:
   `Reader` role - proving the LLM module is truly opt-in.
 - Resolver dry-run against a recorded region catalog produces a stable
   `resolved-models.json` hash - proving idempotency.
-
-## Open Questions
-
-- **Runtime delivery for `resolved-models.json` - resolved.** Day zero supports a filesystem
-  path or inline JSON env/secretRef. A direct Key Vault loader remains deferred with W-I.
-- **Is a local Ollama / LM Studio fixture worth adding?** Not now. It would be an explicit model
-  binding and would not redefine the interactive local profile.
-- **Reconciler alerts channel** - assumed Teams; confirm at W-I time.

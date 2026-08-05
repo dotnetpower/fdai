@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: 5a583e5cefe35aef6667181fb19a58639da78d9e
-translation_revised: 2026-08-01
+translation_source_sha: 5033a9a85427efc365453047858d78e5c65b4b22
+translation_revised: 2026-08-05
 ---
 # 운영 학습 온톨로지
 
@@ -257,6 +257,30 @@ O0부터 O2 code batch는 다음 foundation을 구현했습니다.
 9. Norns는 하나의 fingerprint와 ActionType, verified success, negative/control evidence를 요구하고
    pattern digest로 deduplicate하며 consensus와 proposal rate limit을 거친 inert mapping만 emit합니다.
    Raw `ResponseOutcome` telemetry는 candidate를 만들 수 없습니다.
+
+## Norns consensus 및 catalog boundary
+
+Norns는 catalog 또는 threshold를 변경하지 않고 Saga-to-learning loop를 닫습니다. 모든 output은 publish
+전에 세 가지 deterministic internal perspective를 요구하는 inert `RuleCandidate`입니다.
+
+| Perspective | Bounded check |
+|-------------|---------------|
+| Urd | Historical evidence가 grounded 상태입니다. |
+| Verdandi | Current candidate contract와 Norns ownership이 valid합니다. |
+| Skuld | Proposal이 autonomy를 높이거나 enforcement에 진입하지 않습니다. |
+
+이 perspective는 agent나 bus principal이 아닙니다. Norns가 sole writer로 유지됩니다. `3/3` agreement는
+bounded `norns_consensus` 하나를 emit하고 disagreement는 free-form reasoning 없이 aggregate hold를
+유지합니다. Deterministic candidate source에는 repeated fingerprint, rollback-rate adjustment, override 또는
+approval rejection, retirement 및 optional scenario gap이 포함됩니다.
+
+Trajectory intake는 reviewed aggregate만 받습니다. Muninn은 strict operational case를 seal하고 bounded
+failure-fingerprint cohort를 publish합니다. Norns는 materialization 전에 100개 초과 cohort를 차단하고 하나의
+fingerprint, 하나의 ActionType, balanced success/negative evidence, immutable revision, stable correlation 및
+idempotency key를 요구합니다. Bounded 5,000-entry pending queue에만 emit합니다. Mimir는 review를
+serialize하고 failed receipt를 quarantine하며 backpressure를 적용하고 idempotent PR publication 후
+compact합니다. Reviewed catalog PR과 reload만 activation path이며 Saga는 Mimir-owned `object.rule` event의
+review outcome을 seal합니다.
 
 ## 검증 매트릭스
 

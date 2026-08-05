@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 06ae3fe9ee9d2fe0d0beb683825746fb1f58330c
-translation_revised: 2026-08-04
+translation_source_sha: 104e3407a076c168fc2823cd06ea13ef4ca687fe
+translation_revised: 2026-08-05
 ---
 
 # LLM 전략(LLM Strategy)
@@ -408,123 +408,12 @@ family는 `max_tokens`와 `temperature`를 유지합니다. 이 규칙은 primar
 RCA, proposer 및 cross-check request에 동일하게 적용되므로 friendly deployment alias가 잘못된 wire
 field를 선택할 수 없습니다.
 
-### Narrator Latency Routing (T1 전용)
+### Narrator routing 및 latency
 
-콘솔 chat 백엔드(`fdai.delivery.operator_api.chat.LatencyRoutedChatBackend`)는
-`t1.judge` mini 스택의 N개 deployment 를 감싸서 매 turn 마다 rolling p50 지연이
-가장 낮은 후보를 pick. 리졸버가 `resolved-models.json` 의 `narrator_candidates`
-배열을 2개 이상 emit할 때 자동 활성화; 1개 이하이면 plain `AzureAdChatBackend`
-로 fallback ([dev-and-deploy-parity-ko.md](../deployment/dev-and-deploy-parity-ko.md) 의
-"Auto-populate narrator" 참조).
-
-라우터는 **T1 narrator 트래픽 전용** 이다. T2 capability 로 지연 라우팅을
-확장하려면 별도 설계 리뷰가 필요한데, T1/T2 경계를 지키는 두 하드 제약 때문이다.
-리뷰를 마친 유일한 invariant-safe 예외 - `t2.reasoner.primary` 슬롯 내부에서
-동일 publisher 후보들 사이의 라우팅 - 는 아래
-[T2 Primary Latency Pool](#t2-primary-latency-pool-invariant-safe-opt-in) 에 기록.
-두 제약:
-
-- **Mixed-model invariant** ([architecture.instructions.md § Quality Gate](../../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2)):
-  `t2.reasoner.primary.publisher != t2.reasoner.secondary.publisher`. 지연
-  라우터는 개별 호출 속도를 최적화하므로, 항상 서로 *다른* family 두 개를
-  병렬로 돌려야 한다는 요구와 충돌. *쌍 전체*를 속도로 라우팅하는 "가장 빠른
-  T2" 정책은 마지막 라운드에서 이긴 family로 cross-check 를 조용히 collapse
-  시켜 quality gate 를 통째로 무력화.
-- **Judge/critic 결정성**: composer 는 [composition.py](../../../src/fdai/composition/__init__.py)
-  에서 `t1.judge`, `t2.critic`, debate orchestrator 를 특정 deployment 이름에
-  바인딩. config 레벨 opt-in 없이 *judge* deployment 를 런타임 중에 바꾸는
-  건 라우팅 wrapper 안에 숨기고 싶지 않은 동작 변경.
-
-포크가 지연-라우팅된 *judge* 를 원한다면, 그건 거버넌스 레벨 변경:
-새 capability(예: `t1.judge.fast-pool`)를 quality gate 와 함께 선언하고
-composer 로 라우팅, 스왑을 감사. narrator 라우터를 통해 쓰레딩하지 말 것.
-
-Operator API는 operator traffic과 독립적으로 text 및 multimodal pool을 갱신합니다. Text는
-`narrator_candidates`를 사용하고 image turn은 이미 provision된 deployment와 `t1.vision` preference의
-교집합인 `vision_candidates`를 사용하므로 Azure quota를 중복 예약하지 않습니다. 각 pool은 별도
-8-sample latency와 TTFT window를 유지합니다. Startup은 text 후보를 두 번, vision 후보는 bounded 1 px
-image로 probe하고 이후 `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS`(기본 `300`)마다 sample을 추가합니다. 느리거나 incompatible한 후보는 재시작 없이 뒤로 이동하며 vision pool이 없으면 text를 빌리지 않고 image
-turn만 unavailable로 유지합니다. 이 dispatch boundary는 narrator와 vision 후보가 각각 하나만 resolve되어도 적용됩니다.
-### 사용자별 Narrator 선호 및 TTFT
-
-Settings > Models는 모델 endpoint 또는 자격 증명을 노출하지 않고 해결된 T1/T2
-capability 목록, bootstrap discovery 및 provisioning 상태, 런타임 지연 시간 근거를
-projection합니다. 인증된 각 principal은 `Auto` 라우팅을 유지하거나 현재
-`narrator_candidates` 허용 목록의 deployment 하나를 선택할 수 있습니다. 선호 모델이
-제거되거나 사용할 수 없으면 `Auto`로 fallback합니다. 서버가 후보를 검증하므로
-브라우저가 임의 모델 id를 upstream endpoint에 전달하지 않습니다.
-
-Narrator 선호는 명시적 revision을 사용합니다. 생성 시 revision `0`을 보내고 이후 쓰기는
-현재 revision과 일치해야 합니다. State update와 audit 항목은 하나의 transaction에서
-commit되므로 동시 세션은 서로 덮어쓰는 대신 `409`를 받습니다.
-
-Streaming router는 비어 있지 않은 첫 model token이 도착할 때 time to first token
-(TTFT)을 기록합니다. TTFT p50/p95와 전체 지연 시간 p50/p95는 별도 rolling window를
-사용하고 각각 sample 수를 함께 표시합니다. 측정되지 않은 TTFT는 전체 지연 시간에서
-추론하지 않고 사용할 수 없음으로 표시합니다. 이 선호는 T1 narrator에만 적용됩니다.
-T1 내부 judgment, embedding 및 모든 T2 secondary/critic/rubric/escalation 할당은
-시스템 관리 상태로 유지됩니다. T2 primary pool은 same-publisher invariant를 유지하며
-operator별로 개인화되지 않습니다.
-
-Settings > Models는 **T2 모델 정책 초안 builder**도 제공합니다. Operator API는
-`rule-catalog/llm-registry.yaml`의 primary 및 secondary publisher/family 선호만
-projection하며 endpoint나 credential은 노출하지 않습니다. Operator는 publisher가 서로
-다른 경우에만 각 role의 후보를 하나씩 선택하고 governance PR에 사용할 검증된 YAML
-fragment를 복사할 수 있습니다. 브라우저는 이 선택을 runtime state에 쓰지 않습니다.
-Catalog PR 검토, resolver의 `resolved-models.json` 재생성 및 deployment의 artifact load가
-완료된 후에만 active pair가 변경됩니다. Registry metadata가 mount되지 않은 경우 narrator
-모델에서 후보를 추론하지 않고 candidate list를 사용할 수 없음으로 표시합니다.
-
-Local operator mode에서 이 page는 Azure CLI session의 live regional GPT catalog,
-subscription quota 및 기존 deployment도 결합합니다. Reader는 async로 실행되고 결과를
-5분 동안 cache하며 명시적인 read-only refresh를 지원합니다. Projection에는 family,
-version, lifecycle, 지원 SKU, 가용 quota 및 deployment 이름만 포함합니다. Azure resource
-id, endpoint 및 credential은 계속 숨깁니다. 모델은 `deployed`, `provisionable` 또는
-`quota-unavailable`로 표시되며 deprecated/chat/codex/realtime family는 새 T2 role 선택
-후보로 제공하지 않습니다.
-
-배포된 모델을 선택하면 T2 governance 초안에 추가됩니다. Provisionable 모델을 선택하면
-auto-provision 안내가 포함된 같은 초안을 생성합니다. 두 경로 모두 console에서 Azure를
-변경하지 않습니다. 검토 후 bootstrap resolver가 catalog, quota, 배포자 권한 및 publisher
-distinctness를 다시 확인하고 Terraform이 capability deployment를 생성합니다. Production
-Operator API는 이 화면만을 위해 subscription-wide Reader를 추가로 받지 않습니다. Live
-discovery를 사용할 수 없으면 page는 registry와 resolved snapshot으로 fallback합니다.
-
-같은 page는 검증된 binding의 read-only endpoint inventory를 projection합니다. Capability,
-provider, direct 또는 APIM route, API style, deployment, model family, TPM/PTU/GPU capacity,
-feature flag, discovery source, verification time을 표시합니다. `endpoint_ref`, auth audience,
-resource-reference digest, URL, credential data는 반환하지 않습니다. Endpoint 등록, APIM backend
-변경, PTU resize, GPU image 변경, T2 role 할당은 Settings write가 아니라 catalog/deployment
-workflow로 유지됩니다.
-
-### 대화형 Web-Search Latency Pool
-
-Public-web lookup은 별도의 Chat T2 tool invocation입니다. T1 judgment가 아니며
-action quality-gate pair에도 포함되지 않습니다. 명시적으로 활성화하면 Azure
-Responses `WebSearchProvider`는 `narrator_candidates`를 function-calling deployment
-pool로 재사용합니다. 검색마다 rolling p50이 가장 낮은 후보를 선택하고 나머지
-후보로 failover합니다. 이 재사용은 T1/T2 분류를 바꾸지 않습니다. 결정론적
-web-search policy가 model-backed provider 호출 전에 turn을 승격합니다.
-
-Web-search pool은 narrator pool과 같은 warm-up 및 주기 측정 패턴을 사용합니다.
-주기 probe는 `web_search` 툴 없이 최소 model response만 요청하고, 실제 검색
-호출은 end-to-end latency를 같은 window에 추가합니다. 따라서 각 health sample에
-Bing 검색 툴 비용을 지불하지 않으면서 순위를 최신으로 유지합니다.
-`FDAI_WEB_SEARCH_PROBE_INTERVAL_SECONDS` 기본값은 `300`이며 `30` 미만은 허용되지
-않습니다.
-
-Settings > Models는 Owner에게 deployment 전체 web-search 활성화 및 exact-host allowlist를
-제공합니다. 이 쓰기도 같은 revisioned state-and-audit transaction을 사용하며 transaction이
-성공한 후 live resolver를 갱신합니다. Owner가 아닌 사용자는 read-only projection을 받습니다.
-Web-search resolver가 등록되지 않았으면 projection은 `available=false`, `enabled=false`,
-provider domain 없음, management capability 없음으로 보고합니다. Console은 control을
-unavailable로 렌더링하며 settings write는 persistence 전에 `503`을 반환합니다. 구성 default만으로
-Azure Responses provider가 존재하거나 정상이라고 추론하지 않습니다.
-
-Settings > Models는 generated resolved-model snapshot의 sanitized filename,
-`kind=generated-file`, UTC filesystem modification time을 `as_of`로 보고합니다. Projection은
-전체 local path를 반환하지 않습니다. Automatic discovery와 provisioning label은 구성된 bootstrap
-동작을 설명하며 snapshot freshness evidence를 대체하지 않습니다.
+Narrator deployment 선택, multimodal probe, 사용자별 preference, TTFT, web-search pool 및 runtime
+delivery 결정은 [Narrator Routing and Latency](../interfaces/narrator-routing-and-latency-ko.md)가
+소유합니다. T2 quality-gate assignment는 system-governed 상태를 유지하며 same-publisher T2 primary
+예외는 아래에 이어집니다.
 
 ### T2 Primary Latency Pool (invariant-safe, opt-in)
 

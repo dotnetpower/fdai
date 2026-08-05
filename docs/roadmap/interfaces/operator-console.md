@@ -224,62 +224,8 @@ flowchart TD
   existing pipeline already knows how to make.
 ### 2.1 Module map
 
-- [`src/fdai/core/conversation/`](../../../src/fdai/core/conversation)
-  - `coordinator.py` - `ConversationCoordinator` (Layer 2 orchestrator).
-  - `tool_arguments.py` - pure canonical-verb argument parsing; it grants no tool authority.
-  - `read_plan.py` - pure bounded-plan validation, serial read execution, result aggregation, and
-    identity-scoped high-signal conflict detection.
-  - `contextual_translation.py` - pure scalar argument provenance over current and prior turn text.
-  - `grounded_answer_validation.py` - conservative canonical-ID, numeric, timestamp, freshness, and
-    exact-ref checks over narrated output and immutable tool authority.
-  - `tools.py` - `SystemConsoleTool` Protocol + per-tool implementations that
-    delegate to Layer 1 modules only.
-  - `narrator.py` - synchronous intent `Narrator`, optional `ContextualNarrator`, proposal-only
-    `ReadPlanNarrator`, zero-execution `ClarificationNarrator`, and presentation-only
-    `GroundedAnswerNarrator` Protocols, deterministic verb schemas, and RBAC-scoped descriptors.
-  - `session.py` - disposable core/CLI `ConversationSession` projection. Principal-scoped
-    `ConversationHistoryStore` owns production web transcripts.
-- [`cli/`](../../../cli)
-  - `src/repl.ts` - IME-safe stdin/stdout channel for the shared `POST /chat`
-    coordinator.
-  - `src/cockpit.ts` - live SSE presentation that publishes a
-    self-describing screen snapshot to the same coordinator.
-- [`src/fdai/core/conversation/channel_gateway.py`](../../../src/fdai/core/conversation/channel_gateway.py)
-  - authenticates senders, claims message idempotency keys, calls the existing coordinator, and
-    persists the complete response before provider send when durable delivery is configured.
-    Verified bindings and recovery follow [durable delivery](durable-conversation-delivery.md).
-- [`src/fdai/delivery/channels/`](../../../src/fdai/delivery/channels)
-  - `teams.py` - normalizes Bot Framework activities after bearer-token verification and uses an
-    injected publisher for replies. It never trusts a payload-supplied reply URL.
-  - `slack.py` - verifies timestamped Slack request signatures, rejects replayed or bot-authored
-    events, normalizes messages, and uses an injected publisher for replies.
-  - Slack, Teams, and web attachment contracts converge through
-    [conversation-attachments.md](conversation-attachments.md); web chat submits only already-ingested
-    immutable document refs, and the resolver must return the exact requested citations in order.
-    A dedicated WebSocket adapter remains optional future transport work.
-- [`src/fdai/delivery/operator_api/routes/chat_current_time.py`](../../../src/fdai/delivery/operator_api/routes/chat_current_time.py)
-  - resolves current-time questions from an injected aware clock and principal IANA timezone;
-    deterministic verification emits the exact timestamp and an explicit UTC fallback.
-- [`src/fdai/delivery/operator_api/routes/`](../../../src/fdai/delivery/operator_api/routes)
-  - `chat_stream_setup.py` owns authenticated request, evidence, history, and answer-plan validation; `chat_stream_terminal.py` owns pure terminal verification-frame and replay-payload assembly; `chat_trajectory_detail.py` owns bounded final progress projection for durable trajectory replay.
-  - `chat_knowledge_context.py` reads exact prior-turn runbooks, source freshness, consented memory,
-    and materialized learning without writing state; `chat_vision_prompt.py` projects validated images;
-    `chat_verification_text.py` and `chat_verification_rendering.py` own terminal integrity and prose.
-  - `read_investigation_responder.py` renders every registered Heimdall read intent from typed
-    evidence fields. Missing evidence produces an explicit unavailable answer, and an unhandled
-    intent fails exhaustive type checking instead of falling back to generic success prose. Its fallback calls the bound typed responder without embedding Pantheon agents, and direct `PantheonChatDelegate` use is fixture-only. One runtime intent spec supplies tools and lookback, and `read_investigation_catalog.py` blocks startup when catalog IDs, owner, or plan bindings drift.
+The source inventory and boundaries are owned by [Operator Console Module Map and Boundaries](operator-console-module-map.md).
 
-English and Korean presentation literals in these layers are authored as NFC UTF-8. The repository
-gate rejects escaped Hangul prose and matching tokens, with exact rationale-bearing exceptions only
-for code-point behavior. This source representation does not change machine values, evidence
-authority, locale selection, or the typed pipeline decision.
-- Scheduler Runs, Automation Blueprints, Scheduled Continuations, [governed trajectory datasets](governed-trajectory-datasets.md), and [execution backend status](execution-backends.md) expose read-only metadata. Scheduler performance uses loaded-page publish rate and claim-to-close percentiles; `published` proves broker dispatch, not task execution or outcome success. These views have no enable, submit, retry, cancel, cleanup, execute, or approval controls; omit credentials and Thor's identity; and keep commands outside the SPA.
-- [`tools/chat.py`](../../../tools/chat.py) - headless JSONL development harness
-  for the core coordinator. It is not a second policy implementation.
-
-The CSP-neutral rule stays intact: `core/conversation/` imports **only**
-Protocols. All Azure SDK / httpx / Bot Framework calls live under
-`delivery/`.
 ## 3. Tool catalog
 
 Tools are **pipeline-stage views**. A core tool has a stable name, bounded `argument_hint`, RBAC

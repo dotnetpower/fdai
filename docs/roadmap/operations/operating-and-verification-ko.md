@@ -1,8 +1,8 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: 9781f7d0881957685241611dea1d0b140c7cdf8c
-translation_revised: 2026-07-23
+translation_source_sha: b1e266eec41801715ffdf4e1c5b1c9b6348a967f
+translation_revised: 2026-08-05
 ---
 
 # 운영과 검증(Operating and Verification)
@@ -237,6 +237,26 @@ Testing, k6, JMeter)가 트래픽을 만든다 - 그 트래픽이 도는 동안 
 
 결과는 shadow 증거 뭉치 - 정확도, 지연, 정책 위반 escape 0 - 이며, 오퍼레이터는
 어떤 action 을 shadow 에서 enforce 로 승격하기 **전에** 이를 검토한다.
+
+## Azure read-investigation release evidence
+
+Live check는 existing resource와 reader credential을 사용합니다. Azure resource를 create, update,
+start, stop 또는 delete하지 않습니다. Live subscription에서 안전하게 유도할 수 없는 failure path는
+customer-neutral synthetic payload를 사용하는 repository test로 검증합니다.
+
+| Scenario | Evidence class | 결과 |
+|----------|----------------|------|
+| Successful caller attribution | Live | 통과했습니다. Exact resolution 및 projected Activity Log read가 user와 service-principal actor를 match했으며 opaque actor 및 correlation reference만 유지했습니다. |
+| Resource Health | Live | 통과했습니다. 비어 있는 ARG projection이 current Resource Health REST endpoint로 fallback하여 normalized availability evidence를 반환했습니다. |
+| Unauthorized scope | Live | 통과했습니다. 접근할 수 없는 scope가 failed bounded receipt와 함께 `unavailable`로 변환되었습니다. |
+| Ambiguous resource name | Live | 통과했습니다. Duplicate name 하나가 bounded candidate 4개, exact resource binding 없음 및 history query 없음으로 반환되었습니다. |
+| Guest OS shutdown | Live 및 contract | 완료되지 않았습니다. 접근 가능한 workspace 16개에는 available history 전체에서 retained Event 또는 Syslog shutdown record가 없었습니다. Live missing-workspace behavior는 `unavailable`을 반환했고 matched Event 및 Syslog normalization은 contract test만 통과했습니다. |
+| Provider throttling | Contract | 동작은 통과했습니다. Synthetic `429` response가 bounded retry 및 terminal failure를 검증했습니다. Deliberate throttling은 bounded-read policy를 위반하므로 실제 live `429`는 유도하지 않았습니다. |
+| Retention 부족 | Contract | 통과했습니다. Configured Activity Log 또는 guest-log retention을 넘는 lookback은 HTTP 전에 실패하고 provider boundary에서 unavailable로 normalize됩니다. |
+
+완료되지 않은 guest-event row와 자연스럽게 발생한 live `429` 부재는 implementation defect가 아니라
+release evidence로 남습니다. Dedicated validation environment가 Azure 변경 없이 해당 observation을
+제공할 때까지 issue를 open 상태로 유지합니다.
 
 ## 오픈 후 안정화 윈도우(Stabilization Window)
 

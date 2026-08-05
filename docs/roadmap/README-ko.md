@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: b58aac2790f5eac05c5bf3b125a9a673db83510e
-translation_revised: 2026-08-04
+translation_source_sha: e10bbf438d1bb88b0414f0691af0e1ab72a15cc2
+translation_revised: 2026-08-05
 ---
 # FDAI 로드맵
 
@@ -102,6 +102,9 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 17b | [escalation-and-standing-authority-ko.md](decisioning/escalation-and-standing-authority-ko.md) | `hil` verdict 후 아무도 응답하지 않을 때 무슨 일이 벌어지는가: 감독형 OODA 루프, 영향도 tier 별 시간 감쇠 에스컬레이션 사다리(채널 fallback 과 구별), 상시 권한(사전 승인·envelope 경계·가역 전용 조건부 자동 조치를 결정론적 risk-gate 입력으로) |
 | 18 | [dev-and-deploy-parity-ko.md](deployment/dev-and-deploy-parity-ko.md) | authoritative interactive local/deployed parity, 명시적 fixture profile, deployer-scoped LLM gate |
 | 19 | [operator-console-ko.md](interfaces/operator-console-ko.md) | CLI, Teams, Slack, web의 FDAI Console 대화, tool별 RBAC, LLM tier, session persistence |
+| 19k | [operator-console-module-map-ko.md](interfaces/operator-console-module-map-ko.md) | Conversation module ownership, CLI/API route map, channel adapter 및 core/delivery boundary |
+| 19l | [operator-console-progressive-conversations-ko.md](interfaces/operator-console-progressive-conversations-ko.md) | Bounded read branch, ordered reduction, verified revision, cancellation, replay 및 progress metric |
+| 19m | [narrator-routing-and-latency-ko.md](interfaces/narrator-routing-and-latency-ko.md) | T1 narrator deployment routing, multimodal probe, operator preference, TTFT, web-search pool 및 runtime delivery 결정 |
 | 19j | [console-operations-ko.md](interfaces/console-operations-ko.md) | 기존 Operations 탐색, source별 task projection과 schema, 운영 요청, pantheon ownership, 실행 분리 |
 | 19f | [console-evidence-and-resilience-ko.md](interfaces/console-evidence-and-resilience-ko.md) | 콘솔 evidence provenance, localization, durable replay, stream recovery 및 Architecture map resilience |
 | 19a | [document-ingestion-ko.md](interfaces/document-ingestion-ko.md) | Drop-zone UX, 대용량 및 보호 문서 처리, format extraction, private storage, 공유 가시성, retention, deletion 계약 |
@@ -127,6 +130,7 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 22d | [azure-read-investigations-ko.md](interfaces/azure-read-investigations-ko.md) | Exact resource resolution, typed Azure read evidence, 측정 기반 direct/streamed/detached execution, dedicated reader identity, quota, durable completion delivery |
 | 22e | [azure-resource-discovery-commands-ko.md](interfaces/azure-resource-discovery-commands-ko.md) | Ontology-aligned Azure resource 검색, ARG 및 CLI fallback coverage, 정제된 reproduction command, plan 비평 및 측정 기반 rollout |
 | 23 | [agent-workflows-ko.md](agents/agent-workflows-ko.md) | 판테온이 제품 capability로 조합하는 13개 cross-agent workflow입니다. Cost-aware remediation, predictive scale, operational readiness handoff, scheduled governed Python task, detection readiness assurance 등을 포함하며 각 workflow는 trigger, sequence diagram, exit criteria, promotion gate를 가집니다. |
+| 23f | [agent-workflow-rollout-ko.md](agents/agent-workflow-rollout-ko.md) | 독립 shadow rollout 순서, workflow별 exit gate, dependency 및 no-enforcement boundary |
 | 23b | [process-automation-ko.md](decisioning/process-automation-ko.md) | agent-workflows.md 의 머신-리더블 대응물: Workflow 카탈로그 스키마 (`rule-catalog/workflows/` 아래 catalog-as-code), `Process` ObjectType + `targets` / `advances` LinkType, compile-to-Runbook 컨트롤 루프 배선, saga 보상, shadow-first 거버넌스. 비즈니스 프로세스는 trust-router 가 한 번에 하나씩 dispatch 하는 `ActionType` 스텝의 순서 리스트다 |
 | 23c | [customer-workflow-automation-plan-ko.md](decisioning/customer-workflow-automation-plan-ko.md) | 도입 조직용 제공 계획: 준비도 기준선, 6개 rollout wave, 고객 adapter 경계, 승인 및 복구 작업, 동작 simulation, 승격 근거, 검증 matrix 및 production 완료 기준 |
 | 23d | [operational-planning-ko.md](decisioning/operational-planning-ko.md) | immutable context, versioned logic asset, bounded sandbox 및 twin simulation, hard constraint, arbitration, governed execution, effect closure, Planning Room projection을 사용하는 event-driven specialist planning |

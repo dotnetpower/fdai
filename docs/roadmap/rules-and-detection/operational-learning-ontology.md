@@ -253,6 +253,30 @@ The O0 through O2 code batches implemented these foundations:
   evidence, deduplicates by pattern digest, and emits only an inert mapping through consensus and
   proposal rate limits. Raw `ResponseOutcome` telemetry cannot create a candidate.
 
+## Norns consensus and catalog boundary
+
+Norns closes the Saga-to-learning loop without mutating a catalog or threshold. Every output is an
+inert `RuleCandidate` that requires three deterministic internal perspectives before publication:
+
+| Perspective | Bounded check |
+|-------------|---------------|
+| Urd | Historical evidence is grounded. |
+| Verdandi | The current candidate contract and Norns ownership are valid. |
+| Skuld | The proposal does not raise autonomy or enter enforcement. |
+
+These perspectives are not agents or bus principals. Norns remains the sole writer. `3/3`
+agreement emits one bounded `norns_consensus`; disagreement retains an aggregate hold without
+free-form reasoning. Deterministic candidate sources include repeated fingerprints, rollback-rate
+adjustment, overrides or approval rejections, retirement, and optional scenario gaps.
+
+Trajectory intake accepts reviewed aggregates only. Muninn seals strict operational cases and
+publishes bounded failure-fingerprint cohorts. Norns rejects cohorts over 100 cases before
+materialization and requires one fingerprint, one ActionType, balanced success and negative
+evidence, immutable revisions, and stable correlation and idempotency keys. It emits only into its
+bounded 5,000-entry pending queue. Mimir serializes review, quarantines failed receipts, applies
+backpressure, and compacts after idempotent PR publication. Reviewed catalog PR and reload remain
+the only activation path; Saga seals review outcomes from Mimir-owned `object.rule` events.
+
 ## Verification matrix
 
 | Concern | Required proof |

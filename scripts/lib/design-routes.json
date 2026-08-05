@@ -409,16 +409,23 @@
     },
     {
       "id": "agents",
-      "paths": ["src/fdai/agents/**"],
+      "paths": [
+        "src/fdai/agents/**",
+        "docs/roadmap/agents/agent-workflow-rollout*.md"
+      ],
       "must_read": [
         ".github/instructions/agent-pantheon.instructions.md",
         ".github/skills/agent-pantheon-edit/SKILL.md",
         "docs/roadmap/agents/agent-pantheon.md",
-        "docs/roadmap/agents/conversational-deliberation.md"
+        "docs/roadmap/agents/conversational-deliberation.md",
+        "docs/roadmap/agents/agent-workflow-rollout.md",
+        "docs/roadmap/decisioning/operational-planning.md",
+        "docs/roadmap/rules-and-detection/operational-learning-ontology.md"
       ],
       "docs_update": [
         "docs/roadmap/agents/agent-pantheon.md",
-        "docs/roadmap/agents/conversational-deliberation.md"
+        "docs/roadmap/agents/conversational-deliberation.md",
+        "docs/roadmap/agents/agent-workflow-rollout.md"
       ]
     },
     {
@@ -487,6 +494,7 @@
         ".github/instructions/agent-pantheon.instructions.md",
         "docs/roadmap/interfaces/azure-read-investigations.md",
         "docs/roadmap/interfaces/azure-resource-discovery-commands.md",
+        "docs/roadmap/operations/operating-and-verification.md",
         "docs/roadmap/interfaces/background-task-sessions.md",
         "docs/roadmap/agents/bounded-task-workers.md",
         "docs/roadmap/architecture/security-and-identity.md"
@@ -494,6 +502,7 @@
       "docs_update": [
         "docs/roadmap/interfaces/azure-read-investigations.md",
         "docs/roadmap/interfaces/azure-resource-discovery-commands.md",
+        "docs/roadmap/operations/operating-and-verification.md",
         "docs/roadmap/interfaces/operator-console.md",
         "docs/roadmap/agents/agent-pantheon.md",
         "docs/roadmap/architecture/code-map.md",
@@ -983,15 +992,28 @@
     },
     {
       "id": "operator-surfaces",
-      "paths": ["console/**", "cli/**", "src/fdai/delivery/operator_api/**"],
+      "paths": [
+        "console/**",
+        "cli/**",
+        "src/fdai/delivery/operator_api/**",
+        "docs/roadmap/interfaces/operator-console-module-map*.md",
+        "docs/roadmap/interfaces/operator-console-progressive-conversations*.md",
+        "docs/roadmap/interfaces/narrator-routing-and-latency*.md"
+      ],
       "must_read": [
         ".github/instructions/app-shape.instructions.md",
         "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/interfaces/operator-console-module-map.md",
+        "docs/roadmap/interfaces/operator-console-progressive-conversations.md",
+        "docs/roadmap/interfaces/narrator-routing-and-latency.md",
         "docs/roadmap/interfaces/console-operations.md",
         "docs/roadmap/interfaces/console-evidence-and-resilience.md"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/interfaces/operator-console-module-map.md",
+        "docs/roadmap/interfaces/operator-console-progressive-conversations.md",
+        "docs/roadmap/interfaces/narrator-routing-and-latency.md",
         "docs/roadmap/interfaces/console-operations.md",
         "docs/roadmap/interfaces/console-evidence-and-resilience.md",
         "docs/roadmap/deployment/dev-and-deploy-parity.md"
@@ -1123,16 +1145,19 @@
         "console/src/config.ts",
         "console/src/auth.ts",
         "src/fdai/delivery/operator_api/dev/**",
-        "tests/delivery/operator_api/test_local.py"
+        "tests/delivery/operator_api/test_local.py",
+        "docs/roadmap/interfaces/narrator-routing-and-latency*.md"
       ],
       "must_read": [
         ".github/instructions/app-shape.instructions.md",
         "docs/roadmap/deployment/dev-and-deploy-parity.md",
+        "docs/roadmap/interfaces/narrator-routing-and-latency.md",
         "docs/roadmap/interfaces/user-rbac-and-identity.md",
         "docs/roadmap/operations/operator-initiated-sre-and-arb.md"
       ],
       "docs_update": [
         "docs/roadmap/deployment/dev-and-deploy-parity.md",
+        "docs/roadmap/interfaces/narrator-routing-and-latency.md",
         "docs/roadmap/interfaces/user-rbac-and-identity.md"
       ]
     },

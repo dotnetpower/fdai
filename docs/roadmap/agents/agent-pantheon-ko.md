@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: c1dee0a42a08b551046f66f1004d81fa18bedf03
-translation_revised: 2026-08-04
+translation_source_sha: f08cffbb0602e7bb47577f02aa8d1a74d822156a
+translation_revised: 2026-08-05
 ---
 
 # 에이전트 판테온
@@ -124,96 +124,16 @@ graph LR
 
 ### 3.1 다목적 중재 (multi-objective arbitration)
 
-같은 리소스에 대해 도메인 전문가들이 상충하는 조언을 낼 때(Njord는 비용을 위해
-`scale_down`, Freyr는 용량을 위해 `scale_up`), `object.arbitration-request`의
-유일한 작성자인 Forseti가 각 도메인의 측정된 **영향 크기**(impact magnitude,
-`[0, 1]`)를 실어 Odin에게 충돌을 전달한다. 각 전문가가 자신의 원(raw) 메트릭에
-대한 정규화를 소유하고, 발행하는 payload에 명시적 `impact` 필드를 붙인다. 그래야
-Forseti가 도메인별 메트릭을 알 필요가 없고, 크기가 도메인들 사이에서 비교
-가능해진다:
-
-- **Njord (비용)** - `object.cost-anomaly`에 `impact = clamp(ratio - 1.0, 0, 1)`.
-  2배 초과지출은 `1.0`으로 포화되고, 1.1배는 약한 `0.1`. 근거를 위해 원 `ratio`도
-  함께 실린다.
-- **Freyr (용량)** - `object.capacity-forecast`에
-  `impact = clamp(forecast_util, 0, 1)`. 평활화된 forecast는 이미 정규화되어
-  있으며, 전문가가 이를 붙여 중재기는 원 메트릭이 아니라 하나의 필드를 읽는다.
-
-Odin은 `src/fdai/agents/_framework/arbitration.py`의 결정론적 **다목적**
-`MultiObjectiveArbiter`로 충돌을 해소합니다.
-
-- **헌법 적격성을 먼저 확인합니다.** Forseti와 risk gate는 안전, 보안, ID, 데이터 무결성, 복구 또는 서비스 목표 제약을 위반하는 선택지를 제거합니다. Odin은 적격 선택지만 받으며 어떤 점수도 실패한 강제 제약을 보상할 수 없습니다.
-
-- 초기 세 execution vertical로만 구성된 충돌은 먼저 고정 safety precedence
-  `resilience_safety_hold > resilience > change_safety > cost`를 사용합니다. 이 policy는
-  공유 `PrecedenceResolver`의 Pantheon adapter이며 impact magnitude가 active recovery 또는
-  change-safety hold를 상쇄할 수 없습니다. Unknown, duplicate, security 또는 capacity domain은
-  아래 weighted arbiter로 전달됩니다.
-
-- 각 도메인은 설정된 **가중치**를 가진다(기본은 우선순위 순서
-  `resilience > security > change_safety > cost > capacity`에서 도출;
-  fork config가 재정의). 점수는 `weight * impact`. 가중치는 정적 dict일 수도 있고,
-  fork가 공급하는 `weight_fn(priority) -> dict`일 수도 있다(예:
-  `weights_from_priority_curved(curve="convex")`로 최상위 우선순위를 강조하거나,
-  `curve="concave"`로 분포를 완만하게). 커브 헬퍼는 최상위 가중치를 `1.0`, 최하위를
-  `0.4`에 고정하므로 커브를 바꿔도 HIL 밴드와 마진 산술이 그대로 보정된다.
-- 승자는 최고 점수다. 영향 크기가 같으면 기존 우선순위 승자를 정확히 재현하므로,
-  중재기는 옛 테이블의 엄격한 상위집합이다 - 어떤 동작도 퇴행하지 않는다.
-- 적격한 소프트 목표 상충 관계에서는 영향이 큰 낮은 우선순위 도메인이 영향이 작은 높은 우선순위 도메인을 이길 수 있습니다. 중재기는 순위뿐 아니라 *크기*를 평가하지만 비용이나
-  효율성이 헌법 제약을 덮어쓰도록 허용하지 않습니다.
-- 상위 2개의 **마진**이 설정된 HIL 밴드(기본 `0.10`) 이내이거나, 도메인에 알려진
-  가중치가 없으면, 자동 해소하기엔 너무 접전이라 결정에 `escalate_hil` 플래그가
-  붙고 Forseti가 이를 `hil` 판정으로 바꿔 사람에게 넘긴다 - 절대 조용히 자동
-  선택하지 않는다(안전 쪽으로 실패).
-- 모든 결정은 도메인별 `objective_scores`와 `margin`을
-  `object.arbitration-decision`에 기록하므로 결과는 근거가 있고 감사 가능하다.
-
-중재기는 LLM 호출도 I/O도 없다; 설정과 입력이 주어지면 순수하고 결정론적이다.
-
-Forseti는 동일한 `object.arbitration-request`를 emit하기 전에 read-only
-`SpecialistPlanningCoordinator`를 bind할 수 있습니다. Coordinator는 기존 Cost 및 Capacity topic을
-유지하고, exact logic 및 simulation receipt와 hard-constraint evaluation을 DecisionCase에 추가하며,
-Odin이 eligible soft-objective tradeoff를 받기 전에 Pareto pruning을 적용합니다. Binding이 없으면
-기존 decision path를 유지합니다. Incomplete 또는 unscorable plan은 사람 검토에 도달하며 다른
-topic이나 execution route를 만들지 않습니다.
-
-**시간적 공정성(temporal fairness, 옵트인)** - fork는 append-only 감사 로그를
-백엔드로 하는 `DecisionHistory` seam과 `TemporalPolicy`를 Odin에 배선해서
-반복 충돌에서 나타나는 두 가지 실패 모드를 막을 수 있다:
-
-- `AlternatingFairnessPolicy` - 어떤 도메인이 같은 충돌에서 `streak_threshold`
-  번 연속 이겼다면, 계속 지고 있던 쪽에 유계된 가중치 부스트를 주어 다음 라운드에
-  이길 기회를 준다. 반대편이 한 번이라도 이기면 streak가 리셋된다.
-- `HysteresisPolicy` - 최근 `window` 라운드 동안 두 도메인 사이에서 승자가
-  뒤집혀 왔다면(플래핑), 가장 최근 승자에게 보너스를 주어 진동을 감쇠시킨다.
-  안정적인 일방적 연승은 플래핑이 아니므로 보너스가 붙지 않는다.
-
-두 정책 모두 `(base_weights, domains, history)`의 순수 함수라서 중재기는 여전히
-결정론적이고 재현 가능하다(같은 감사 로그 + 같은 요청 => 같은 결정). HIL 안전망도
-약화되지 않는다: 접전 마진, 알려지지 않은 도메인, 비유한(non-finite) 영향은
-부스트 이후에도 여전히 상향된다. 업스트림 기본값은 빈 윈도우를 반환하는
-`NoopDecisionHistory`로 바인딩되어 있어 오늘의 stateless 동작을 그대로 재현한다.
+**헌법 적격성을 먼저 확인합니다.** Forseti는 arbitration request를 소유하고 Odin은 헌법 제약을
+통과한 soft-objective tradeoff만 rank합니다. Normalization, precedence, weighted scoring, 사람 승인
+margin, planning receipt 및 temporal policy는
+[Operational Planning](../decisioning/operational-planning-ko.md#다목적-중재)이 소유합니다.
 
 ### 3.2 발견 루프 학습기 (Norns)
 
-Norns는 관계도의 `Saga -. signals .-> Norns` 학습 루프를 닫지만 카탈로그나 임계값을
-직접 변경하지 않습니다. 모든 출력은 품질게이트를 통과해야 하는 비활성 `RuleCandidate`입니다.
-
-Publish 전에 결정론적 내부 관점 3개가 합의해야 합니다:
-
-| 관점 | 제한된 확인 항목 |
-|------|------------------|
-| Urd (과거) | 과거 근거가 grounding되어 있습니다. |
-| Verdandi (현재) | 현재 `RuleCandidate` 계약과 Norns 소유권이 유효합니다. |
-| Skuld (미래) | 제안이 자율성을 직접 높이거나 적용 모드로 진입하지 않습니다. |
-
-이들은 agent, identity 또는 bus principal이 아니며 Norns가 유일한 writer입니다. `3/3` 합의는
-bounded `norns_consensus` 하나를 내보내고, 불일치는 자유 형식 추론 없이 aggregate hold로 보관합니다.
-결정론적 후보 source는 반복 fingerprint (`new`), rollback rate (`threshold_adjustment`), override나
-승인 거절 (`revision` / `retirement`), 선택적 scenario gap (`new-scenario`)이며 모두 같은 합의 경계를 거칩니다.
-
-모든 제안은 수치 근거를 기록합니다. Trajectory intake는 reviewed aggregate만 받고 자체 candidate를 만들지 않습니다.
-Huginn은 strict operational-case event를 전달하고 Muninn은 이를 seal해 bounded failure-fingerprint cohort를 publish합니다. Norns는 typed intake를 serialize하고 100개 초과 operational cohort를 materialization 전에 거부하며 하나의 fingerprint와 ActionType, balanced evidence, immutable revision, stable correlation 및 idempotency key를 요구한 뒤 bounded 5,000-entry pending queue에 inert candidate를 냅니다. Incomplete evidence는 hold됩니다. Mimir는 concurrent intake를 serialize하고 immutable review package를 compile하며 failed receipt를 quarantine하고 unresolved capacity를 backpressure하며 idempotent PR publication 후 state를 compact합니다. Operational candidate를 process 안에서 promote하지 않으며 reviewed catalog PR과 reload만 activation 경로입니다. Review outcome은 Mimir-owned `object.rule`로 이동하고 Saga가 `object.audit-entry`로 seal합니다.
+Norns는 inert `RuleCandidate` proposal의 sole writer로 유지됩니다. Three-perspective consensus, balanced
+cohort limit, pending queue, Mimir review 및 catalog activation boundary는
+[Operational Learning Ontology](../rules-and-detection/operational-learning-ontology-ko.md#norns-consensus-및-catalog-boundary)가 소유합니다.
 ## 4. 에이전트 카탈로그
 > **머신 판독용 원본 (single source of truth)**: `PANTHEON_SPECS`
 > ([`src/fdai/agents/_framework/pantheon.py`](../../../src/fdai/agents/_framework/pantheon.py)).

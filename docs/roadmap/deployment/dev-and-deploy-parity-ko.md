@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 1fe1420aa6eac05383b4af6016626863e14b711c
+translation_source_sha: c71caef73a73005497236b0448040a1c7053ce9f
 translation_revised: 2026-08-05
 ---
 
@@ -646,11 +646,3 @@ Future work로 유지. 전체 설계는 이미
   LLM 모듈이 정말 opt-in 임을 증명.
 - 녹화된 리전 카탈로그에 대한 resolver dry-run이 stable `resolved-models.json` 해시 →
   idempotency 증명.
-
-## Open Questions
-
-- **`resolved-models.json` runtime 전달 - 해결됨.** Day-zero는 filesystem path 또는 inline
-  JSON env/secretRef를 지원합니다. Reconciler의 direct Key Vault loader는 W-I와 함께 연기됩니다.
-- **Local Ollama / LM Studio fixture를 추가할 가치가 있나요?** 지금은 아닙니다. 이는 명시적
-  model binding이며 interactive local profile을 다시 정의하지 않습니다.
-- **Reconciler 알림 채널** - Teams로 가정; W-I 시점에 확정.
