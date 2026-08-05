@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Live - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=live-fullscreen-grid-v5" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=live-mix-charts-v2" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
 </head>
 <body>
@@ -48,29 +48,40 @@
           <span class="cs-spark-key t2"><i></i>T2 <b id="k-eps-t2">0</b></span>
         </div>
       </a>
-      <a class="cs-live-kpi" href="audit.html">
+      <article class="cs-live-kpi">
         <span class="cs-live-kpi-label">Gate mix</span>
-        <span class="cs-live-kpi-value"><span id="k-auto">0%</span> <small>auto</small></span>
-        <div class="cs-stackbar cs-live-stack" id="k-mix" aria-hidden="true">
-          <span class="is-auto" style="width:0%"></span><span class="is-hil" style="width:0%"></span><span class="is-abstain" style="width:0%"></span><span class="is-deny" style="width:0%"></span>
+        <a class="cs-live-kpi-detail" href="audit.html" aria-label="Open gate evidence" title="Open gate evidence"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3 H13 V11 M13 3 L4 12" /></svg></a>
+        <div class="cs-gate-viz">
+          <div class="cs-gate-donut">
+            <svg viewBox="0 0 42 42" role="img" aria-label="Gate decision distribution" id="k-gate-chart">
+              <circle class="cs-gate-track" cx="21" cy="21" r="15.9155" pathLength="100" />
+              <circle class="cs-gate-segment is-auto" data-gate-segment="auto" data-live-chart-tip tabindex="0" cx="21" cy="21" r="15.9155" pathLength="100" />
+              <circle class="cs-gate-segment is-hil" data-gate-segment="hil" data-live-chart-tip tabindex="0" cx="21" cy="21" r="15.9155" pathLength="100" />
+              <circle class="cs-gate-segment is-abstain" data-gate-segment="abstain" data-live-chart-tip tabindex="0" cx="21" cy="21" r="15.9155" pathLength="100" />
+              <circle class="cs-gate-segment is-deny" data-gate-segment="deny" data-live-chart-tip tabindex="0" cx="21" cy="21" r="15.9155" pathLength="100" />
+            </svg>
+            <span class="cs-gate-center"><strong id="k-auto">0%</strong><small>auto</small></span>
+          </div>
+          <div class="cs-live-mix-legend">
+            <span class="auto" data-gate-legend="auto" data-live-chart-tip tabindex="0"><i></i>Auto <b id="k-auto-count">0</b></span>
+            <span class="hil" data-gate-legend="hil" data-live-chart-tip tabindex="0"><i></i>Approval <b id="k-hil-count">0</b></span>
+            <span class="abstain" data-gate-legend="abstain" data-live-chart-tip tabindex="0"><i></i>Review <b id="k-abstain-count">0</b></span>
+            <span class="deny" data-gate-legend="deny" data-live-chart-tip tabindex="0"><i></i>Deny <b id="k-deny-count">0</b></span>
+          </div>
         </div>
-        <div class="cs-live-mix-legend" aria-hidden="true">
-          <span class="auto"><i></i>Auto <b id="k-auto-count">0</b></span>
-          <span class="hil"><i></i>Approval <b id="k-hil-count">0</b></span>
-          <span class="abstain"><i></i>Review <b id="k-abstain-count">0</b></span>
-          <span class="deny"><i></i>Deny <b id="k-deny-count">0</b></span>
-        </div>
-      </a>
-      <a class="cs-live-kpi" href="trust-routing.html">
+      </article>
+      <article class="cs-live-kpi">
         <span class="cs-live-kpi-label">Tier mix</span>
-        <span class="cs-live-kpi-value cs-live-tier-summary">
-          <span class="cs-tier t0" id="k-t0">T0 0%</span><span class="cs-tier t1" id="k-t1">T1 0%</span><span class="cs-tier t2" id="k-t2">T2 0%</span>
-        </span>
-        <div class="cs-stackbar cs-live-stack" id="k-tier" aria-hidden="true">
-          <span class="is-t0" style="width:0%"></span><span class="is-t1" style="width:0%"></span><span class="is-t2" style="width:0%"></span>
+        <a class="cs-live-kpi-detail" href="trust-routing.html" aria-label="Open trust routing" title="Open trust routing"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3 H13 V11 M13 3 L4 12" /></svg></a>
+        <div class="cs-tier-plot" id="k-tier-chart" role="img" aria-label="Decision tier distribution on a zero to one hundred percent scale">
+          <div class="cs-tier-row is-t0"><span class="cs-tier-label"><b>T0</b><small>Rules</small></span><span class="cs-tier-track"><span class="cs-tier-stem" id="k-t0-stem"></span><span class="cs-tier-dot" id="k-t0-dot" data-live-chart-tip tabindex="0"></span></span><strong id="k-t0">0%</strong></div>
+          <div class="cs-tier-row is-t1"><span class="cs-tier-label"><b>T1</b><small>Similarity</small></span><span class="cs-tier-track"><span class="cs-tier-stem" id="k-t1-stem"></span><span class="cs-tier-dot" id="k-t1-dot" data-live-chart-tip tabindex="0"></span></span><strong id="k-t1">0%</strong></div>
+          <div class="cs-tier-row is-t2"><span class="cs-tier-label"><b>T2</b><small>Reasoning</small></span><span class="cs-tier-track"><span class="cs-tier-stem" id="k-t2-stem"></span><span class="cs-tier-dot" id="k-t2-dot" data-live-chart-tip tabindex="0"></span></span><strong id="k-t2">0%</strong></div>
+          <div class="cs-tier-axis" aria-hidden="true"><span>0</span><span>50</span><span>100%</span></div>
         </div>
-      </a>
+      </article>
     </section>
+    <div class="cs-live-chart-tooltip" id="live-chart-tooltip" role="tooltip" hidden></div>
 
     <section class="cs-live-workspace" id="live-workspace">
       <div class="cs-live-workbar">
@@ -135,6 +146,6 @@
 
   </main>
 
-  <script src="assets/live.js?v=live-work-fullscreen-v5" defer></script>
+  <script src="assets/live.js?v=live-mix-charts-v3" defer></script>
 </body>
 </html>

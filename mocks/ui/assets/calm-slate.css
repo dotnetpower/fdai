@@ -1170,6 +1170,10 @@ body.cs-drawer-open { overflow: hidden; }
 .cs-live-kpi { position: relative; display: flex; min-width: 0; min-height: 86px; overflow: hidden; flex-direction: column; gap: 2px; padding: 8px 11px; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-card); box-shadow: 0 1px 2px rgba(46,54,64,.03); color: inherit; text-decoration: none; }
 .cs-live-kpi:hover { border-color: #B9B5B0; text-decoration: none; }
 .cs-live-kpi-label { font-size: 9.5px; color: var(--cs-text-soft); letter-spacing: .04em; text-transform: uppercase; }
+.cs-live-kpi-detail { position: absolute; z-index: 3; top: 5px; right: 6px; display: grid; width: 22px; height: 22px; place-items: center; border-radius: 5px; color: var(--cs-text-soft); }
+.cs-live-kpi-detail:hover { background: var(--cs-shade); color: var(--cs-text); }
+.cs-live-kpi-detail:focus-visible { outline: 2px solid rgba(68,104,142,.38); outline-offset: 1px; }
+.cs-live-kpi-detail svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 .cs-live-kpi-value { font-size: 19px; font-weight: 600; display: inline-flex; align-items: baseline; gap: 6px; }
 .cs-live-kpi-value small { color: var(--cs-text-soft); font-weight: 500; font-size: 10px; }
 .cs-live-kpi .cs-live-spark { width: 100%; height: 25px; margin-top: 1px; }
@@ -1181,15 +1185,48 @@ body.cs-drawer-open { overflow: hidden; }
 .cs-spark-key.t2 i { background: var(--cs-plum); }
 .cs-spark-key b { color: var(--cs-text); font-weight: 600; font-variant-numeric: tabular-nums; }
 .cs-live-stack { height: 6px; margin-top: 3px; }
-.cs-live-mix-legend { display: flex; flex-wrap: wrap; gap: 3px 8px; margin-top: 3px; color: var(--cs-text-soft); font-size: 9px; }
-.cs-live-mix-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.cs-gate-viz { display: grid; grid-template-columns: 66px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 67px; }
+.cs-gate-donut { position: relative; width: 64px; height: 64px; }
+.cs-gate-donut svg { display: block; width: 64px; height: 64px; overflow: visible; transform: rotate(-90deg); }
+.cs-gate-track, .cs-gate-segment { fill: none; stroke-width: 6; }
+.cs-gate-track { stroke: var(--cs-shade); }
+.cs-gate-segment { stroke-dasharray: 0 100; stroke-linecap: butt; cursor: help; transition: stroke-dasharray .3s ease, stroke-dashoffset .3s ease, stroke-width .15s ease; }
+.cs-gate-segment:hover, .cs-gate-segment:focus { stroke-width: 8; outline: none; }
+.cs-gate-segment.is-auto { stroke: var(--cs-sage); }
+.cs-gate-segment.is-hil { stroke: var(--cs-terracotta); }
+.cs-gate-segment.is-abstain { stroke: var(--cs-plum); }
+.cs-gate-segment.is-deny { stroke: var(--cs-dusty-red); }
+.cs-gate-center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
+.cs-gate-center strong, .cs-gate-center small { display: block; }
+.cs-gate-center strong { font-size: 13px; line-height: 1; }
+.cs-gate-center small { margin-top: 2px; color: var(--cs-text-soft); font-size: 7.5px; letter-spacing: .03em; text-transform: uppercase; }
+.cs-live-mix-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 8px; color: var(--cs-text-soft); font-size: 9px; }
+.cs-live-mix-legend span { display: inline-flex; min-width: 0; align-items: center; gap: 4px; padding: 2px 3px; border-radius: 4px; cursor: help; }
+.cs-live-mix-legend span:hover, .cs-live-mix-legend span:focus { background: var(--cs-shade); color: var(--cs-text); outline: none; }
 .cs-live-mix-legend i { width: 6px; height: 6px; border-radius: 50%; }
 .cs-live-mix-legend .auto i { background: var(--cs-sage); }
 .cs-live-mix-legend .hil i { background: var(--cs-terracotta); }
 .cs-live-mix-legend .abstain i { background: var(--cs-plum); }
 .cs-live-mix-legend .deny i { background: var(--cs-dusty-red); }
 .cs-live-mix-legend b { color: var(--cs-text); font-weight: 600; }
-.cs-live-tier-summary { flex-wrap: wrap; gap: 6px; }
+.cs-tier-plot { display: grid; grid-template-columns: 1fr; gap: 2px; min-height: 67px; padding-top: 1px; }
+.cs-tier-row { --tier-color: var(--cs-steel); display: grid; grid-template-columns: 58px minmax(60px, 1fr) 30px; align-items: center; gap: 6px; min-height: 16px; }
+.cs-tier-row.is-t0 { --tier-color: var(--cs-sage); }
+.cs-tier-row.is-t1 { --tier-color: var(--cs-teal); }
+.cs-tier-row.is-t2 { --tier-color: var(--cs-plum); }
+.cs-tier-label { display: flex; align-items: baseline; gap: 4px; min-width: 0; }
+.cs-tier-label b { color: var(--tier-color); font-size: 9px; }
+.cs-tier-label small { overflow: hidden; color: var(--cs-text-soft); font-size: 7.5px; text-overflow: ellipsis; white-space: nowrap; }
+.cs-tier-track { position: relative; height: 2px; border-radius: 999px; background: var(--cs-hairline); }
+.cs-tier-stem { position: absolute; top: 0; bottom: 0; left: 0; width: 0; border-radius: inherit; background: var(--tier-color); transition: width .3s ease; }
+.cs-tier-dot { position: absolute; top: 50%; left: 0; width: 10px; height: 10px; border: 2px solid var(--cs-card); border-radius: 50%; background: var(--tier-color); box-shadow: 0 0 0 1px var(--tier-color); cursor: help; transform: translate(-50%, -50%); transition: left .3s ease, transform .15s ease; }
+.cs-tier-dot:hover, .cs-tier-dot:focus { outline: none; transform: translate(-50%, -50%) scale(1.35); }
+.cs-tier-row > strong { font-size: 9px; font-variant-numeric: tabular-nums; text-align: right; }
+.cs-tier-axis { display: grid; grid-template-columns: repeat(3, 1fr); margin-left: 64px; margin-right: 36px; color: #AAA6A1; font-size: 7px; line-height: 1; }
+.cs-tier-axis span:nth-child(2) { text-align: center; }
+.cs-tier-axis span:last-child { text-align: right; }
+.cs-live-chart-tooltip { position: fixed; z-index: 1200; max-width: min(230px, calc(100vw - 16px)); padding: 6px 9px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-navy); color: #fff; box-shadow: 0 6px 18px rgba(46,54,64,.2); font-size: 10.5px; line-height: 1.35; pointer-events: none; transform: translate(-50%, -100%); }
+.cs-live-chart-tooltip[hidden] { display: none; }
 
 /* Current work controls */
 .cs-live-workspace { min-width: 0; }
@@ -1357,6 +1394,7 @@ body.cs-live-fullscreen-fallback { overflow: hidden; }
   .cs-live-heartbeat, .cs-live-connection i, .is-content-updated::after { animation: none; }
   .cs-tile, .cs-tile-bar > span { transition: none; }
   .cs-tile[data-state="active"] { animation: none; }
+  .cs-gate-segment, .cs-tier-stem, .cs-tier-dot { transition: none; }
 }
 
 @media (max-width: 1180px) {

@@ -421,8 +421,101 @@
   var kT0 = document.getElementById("k-t0");
   var kT1 = document.getElementById("k-t1");
   var kT2 = document.getElementById("k-t2");
-  var mixBar = document.getElementById("k-mix");
-  var tierBar = document.getElementById("k-tier");
+  var gateChart = document.getElementById("k-gate-chart");
+  var tierChart = document.getElementById("k-tier-chart");
+  var chartTooltip = document.getElementById("live-chart-tooltip");
+  var gateKeys = ["auto", "hil", "abstain", "deny"];
+  var gateLabels = { auto: "Auto", hil: "Approval", abstain: "Review", deny: "Deny" };
+  var gateMeanings = {
+    auto: "Verified without human approval",
+    hil: "Waiting for a human decision",
+    abstain: "Held because confidence is insufficient",
+    deny: "Blocked by policy"
+  };
+  var tierKeys = ["t0", "t1", "t2"];
+  var tierLabels = { t0: "T0 Rules", t1: "T1 Similarity", t2: "T2 Reasoning" };
+  var tierMeanings = {
+    t0: "Deterministic rule decision",
+    t1: "Prior-pattern similarity reuse",
+    t2: "Grounded adaptive reasoning"
+  };
+
+  function precisePercent(value, total) {
+    if (total <= 0 || value <= 0) return "0";
+    var percentage = (value / total) * 100;
+    return percentage < 10 ? percentage.toFixed(1) : String(Math.round(percentage));
+  }
+
+  function setChartTip(anchor, text) {
+    anchor.dataset.liveChartTip = text;
+    anchor.setAttribute("aria-label", text);
+  }
+
+  function renderGateChart(totals, total) {
+    var offset = 0;
+    gateKeys.forEach(function (key) {
+      var value = totals[key];
+      var percentage = total > 0 ? (value / total) * 100 : 0;
+      var text = gateLabels[key] + ": " + value + " outcomes (" + precisePercent(value, total) + "%). " + gateMeanings[key] + ".";
+      var segment = document.querySelector('[data-gate-segment="' + key + '"]');
+      var legend = document.querySelector('[data-gate-legend="' + key + '"]');
+      segment.style.strokeDasharray = percentage + " " + (100 - percentage);
+      segment.style.strokeDashoffset = String(-offset);
+      setChartTip(segment, text);
+      setChartTip(legend, text);
+      offset += percentage;
+    });
+    gateChart.setAttribute("aria-label", gateKeys.map(function (key) {
+      return gateLabels[key] + " " + precisePercent(totals[key], total) + "%";
+    }).join(", "));
+  }
+
+  function renderTierChart(totals, total) {
+    tierKeys.forEach(function (key) {
+      var value = totals[key];
+      var percentage = total > 0 ? (value / total) * 100 : 0;
+      var text = tierLabels[key] + ": " + value + " events (" + precisePercent(value, total) + "%). " + tierMeanings[key] + ".";
+      document.getElementById("k-" + key + "-stem").style.width = percentage + "%";
+      var dot = document.getElementById("k-" + key + "-dot");
+      dot.style.left = percentage + "%";
+      setChartTip(dot, text);
+    });
+    tierChart.setAttribute("aria-label", tierKeys.map(function (key) {
+      return tierLabels[key] + " " + precisePercent(totals[key], total) + "%";
+    }).join(", "));
+  }
+
+  function showChartTooltip(anchor) {
+    var text = anchor.dataset.liveChartTip;
+    if (!text) return;
+    chartTooltip.textContent = text;
+    chartTooltip.hidden = false;
+    chartTooltip.style.transform = "translate(-50%, -100%)";
+    var anchorBox = anchor.getBoundingClientRect();
+    var tooltipBox = chartTooltip.getBoundingClientRect();
+    var left = anchorBox.left + anchorBox.width / 2;
+    left = Math.max(tooltipBox.width / 2 + 8, Math.min(window.innerWidth - tooltipBox.width / 2 - 8, left));
+    var top = anchorBox.top - 6;
+    if (top - tooltipBox.height < 8) {
+      top = anchorBox.bottom + 6;
+      chartTooltip.style.transform = "translate(-50%, 0)";
+    }
+    chartTooltip.style.left = left + "px";
+    chartTooltip.style.top = top + "px";
+    anchor.setAttribute("aria-describedby", "live-chart-tooltip");
+  }
+
+  function hideChartTooltip(anchor) {
+    chartTooltip.hidden = true;
+    anchor.removeAttribute("aria-describedby");
+  }
+
+  document.querySelectorAll("[data-live-chart-tip]").forEach(function (anchor) {
+    anchor.addEventListener("pointerenter", function () { showChartTooltip(anchor); });
+    anchor.addEventListener("pointerleave", function () { hideChartTooltip(anchor); });
+    anchor.addEventListener("focus", function () { showChartTooltip(anchor); });
+    anchor.addEventListener("blur", function () { hideChartTooltip(anchor); });
+  });
 
   function renderKpis() {
     var t = windowTotals();
@@ -438,19 +531,11 @@
     kHilCount.textContent = t.hil;
     kAbstainCount.textContent = t.abstain;
     kDenyCount.textContent = t.deny;
-    kT0.textContent = "T0 " + pct(t.t0, t.total) + "%";
-    kT1.textContent = "T1 " + pct(t.t1, t.total) + "%";
-    kT2.textContent = "T2 " + pct(t.t2, t.total) + "%";
-    // Stacked bars
-    var mixSpans = mixBar.children;
-    mixSpans[0].style.width = pct(t.auto, outcomeTotal) + "%";
-    mixSpans[1].style.width = pct(t.hil, outcomeTotal) + "%";
-    mixSpans[2].style.width = pct(t.abstain, outcomeTotal) + "%";
-    mixSpans[3].style.width = pct(t.deny, outcomeTotal) + "%";
-    var tierSpans = tierBar.children;
-    tierSpans[0].style.width = pct(t.t0, t.total) + "%";
-    tierSpans[1].style.width = pct(t.t1, t.total) + "%";
-    tierSpans[2].style.width = pct(t.t2, t.total) + "%";
+    kT0.textContent = pct(t.t0, t.total) + "%";
+    kT1.textContent = pct(t.t1, t.total) + "%";
+    kT2.textContent = pct(t.t2, t.total) + "%";
+    renderGateChart(t, outcomeTotal);
+    renderTierChart(t, t.total);
     var next = [eps, kAuto.textContent, kT0.textContent, kT1.textContent, kT2.textContent].join("|");
     if (previous !== next) {
       document.querySelectorAll(".cs-live-kpi").forEach(pulse);
