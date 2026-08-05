@@ -15,6 +15,7 @@ console mutation (app-shape read-only invariant).
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 from starlette.requests import Request
@@ -32,6 +33,8 @@ from fdai.core.stewardship import (
 
 ROUTE_PATH = "/stewardship"
 _HEALTH_STATE_KEY = "stewardship_health:current"
+_HEALTH_FRESHNESS_STATE_KEY = "stewardship_health:last_success"
+_MAX_CLOCK_SKEW = timedelta(minutes=5)
 
 
 class StewardshipHealthReader(Protocol):
@@ -43,12 +46,13 @@ def _serialize_agent(agent: AgentStewardship) -> dict[str, object]:
         "name": agent.agent_name,
         "autonomous": agent.is_autonomous,
         "accept_autonomous_reason": agent.accept_autonomous_reason,
-        "bus_factor": len(agent.accountable),
+        "bus_factor": len({(subject.kind, subject.id) for subject in agent.accountable}),
         "stewards": [
             {
                 "kind": s.kind.value,
                 "id": s.id,
                 "responsibility": s.responsibility.value,
+                **({"duty": s.duty.value} if s.duty is not None else {}),
             }
             for s in agent.stewards
         ],
@@ -99,7 +103,14 @@ def make_stewardship_route(
         health: dict[str, object] = {"status": "not_configured", "checked_at": None}
         if health_reader is not None:
             raw_health = await health_reader.read_state(_HEALTH_STATE_KEY)
-            report, health = _merge_health(report, raw_health, stewardship_map)
+            raw_freshness = await health_reader.read_state(_HEALTH_FRESHNESS_STATE_KEY)
+            report, health = _merge_health(
+                report,
+                raw_health,
+                raw_freshness,
+                stewardship_map,
+                now=datetime.now(tz=UTC),
+            )
         return JSONResponse(
             {
                 "map": _serialize_map(stewardship_map),
@@ -114,13 +125,29 @@ def make_stewardship_route(
 def _merge_health(
     report: CoverageReport,
     raw: Mapping[str, object] | None,
+    raw_freshness: Mapping[str, object] | None,
     stewardship_map: StewardshipMap,
+    *,
+    now: datetime,
 ) -> tuple[CoverageReport, dict[str, object]]:
     if raw is None:
         return report, {"status": "pending", "checked_at": None}
     rows = raw.get("findings")
-    checked_at = raw.get("checked_at")
-    if not isinstance(rows, list) or len(rows) > 100 or not isinstance(checked_at, str):
+    revision = raw.get("revision")
+    finding_count = raw.get("finding_count")
+    if (
+        not isinstance(rows, list)
+        or len(rows) > 100
+        or isinstance(revision, bool)
+        or not isinstance(revision, int)
+        or revision < 1
+        or isinstance(finding_count, bool)
+        or not isinstance(finding_count, int)
+        or finding_count != len(rows)
+    ):
+        return report, {"status": "unavailable", "checked_at": None}
+    checked_at = _fresh_checked_at(raw_freshness, revision=revision, now=now)
+    if checked_at is None:
         return report, {"status": "unavailable", "checked_at": None}
     findings: list[Finding] = []
     for row in rows:
@@ -154,6 +181,42 @@ def _merge_health(
         "checked_at": checked_at,
         "finding_count": len(findings),
     }
+
+
+def _fresh_checked_at(
+    raw: Mapping[str, object] | None,
+    *,
+    revision: int,
+    now: datetime,
+) -> str | None:
+    if raw is None:
+        return None
+    checked_at = raw.get("checked_at")
+    expires_at = raw.get("expires_at")
+    heartbeat_revision = raw.get("revision")
+    if (
+        not isinstance(checked_at, str)
+        or not isinstance(expires_at, str)
+        or isinstance(heartbeat_revision, bool)
+        or heartbeat_revision != revision
+    ):
+        return None
+    try:
+        checked = datetime.fromisoformat(checked_at)
+        expires = datetime.fromisoformat(expires_at)
+    except ValueError:
+        return None
+    if (
+        checked.tzinfo is None
+        or checked.utcoffset() is None
+        or expires.tzinfo is None
+        or expires.utcoffset() is None
+        or checked > now + _MAX_CLOCK_SKEW
+        or expires <= checked
+        or expires <= now
+    ):
+        return None
+    return checked_at
 
 
 __all__ = ["ROUTE_PATH", "StewardshipHealthReader", "make_stewardship_route"]

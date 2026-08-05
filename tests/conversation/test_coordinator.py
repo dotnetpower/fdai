@@ -147,6 +147,8 @@ def test_coordinator_rbac_gate_denies_below_floor():
 
     from fdai.core.conversation.tools import ToolResult as _ToolResult
 
+    calls = 0
+
     class _ApproverOnlyTool:
         name = "explore_catalog"
         description = "gated"
@@ -154,6 +156,8 @@ def test_coordinator_rbac_gate_denies_below_floor():
         side_effect_class = "read"
 
         def call(self, *, arguments: dict[str, Any], principal: Principal) -> _ToolResult:
+            nonlocal calls
+            calls += 1
             return _ToolResult(status="ok", preview="should-not-fire")
 
     coord = ConversationCoordinator(tools=[_ApproverOnlyTool()])
@@ -165,7 +169,12 @@ def test_coordinator_rbac_gate_denies_below_floor():
     result = coord.handle_turn(session=session, message="explore_catalog tag")
     assert isinstance(result, ToolResult)
     assert result.status == "error"
-    assert "below tool" in result.preview
+    assert result.preview == (
+        "Tool access denied: 'explore_catalog' requires role 'approver'; "
+        "current role is 'reader'. No tool was called."
+    )
+    assert calls == 0
+    assert [turn.direction for turn in session.turns] == ["inbound", "system"]
 
 
 def test_list_tools_for_filters_by_rbac():

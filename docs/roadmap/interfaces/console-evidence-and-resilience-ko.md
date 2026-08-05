@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: fdab069ab3f6971a43952ae5cd358866724a0772
-translation_revised: 2026-08-04
+translation_source_sha: 392b13ecc64082bee24d49c47282b82795bc0f00
+translation_revised: 2026-08-05
 ---
 
 # 콘솔 근거 및 복원력
@@ -18,8 +18,7 @@ full-workspace Deck은 route가 변경되기 전에 닫힙니다.
 Transient default-session switch 또는 close/reopen focus cycle 없이 Deck을 열린 상태로 유지합니다.
 Same-screen 및 agent conversation은 navigation 없이 전환합니다.
 이미 active인 same-screen conversation을 다시 선택하면 focus만 복원하며 최신 in-memory turn 위에 sessionStorage transcript를 다시 로드하지 않습니다.
-비활성 conversation을 선택하면 browser-local 읽음 확인만 기록하고 activity timestamp는 변경하지
-않으므로 history 순서가 유지됩니다. Conversation 제목은 관찰된 activity가 저장된 read timestamp보다
+비활성 conversation을 선택하면 browser-local 읽음 확인만 기록하고 activity timestamp는 변경하지 않으므로 history 순서가 유지됩니다. Principal-scoped `내 대화`, `읽지 않음` 및 `즐겨찾기` filter는 browser-local navigation metadata만 사용하며 즐겨찾기 전환은 server activity, evidence 또는 ordering을 변경하지 않습니다. Conversation 제목은 관찰된 activity가 저장된 read timestamp보다
 최신인 동안에만 굵게 표시됩니다. 선택하면 행을 이동하지 않고 이 표시를 해제하며, 더 새로운 server
 activity만 ordering timestamp를 갱신합니다.
 Agent 대화가 아닌 경우 첫 operator 질문이 제목이 되고 origin screen은 별도 metadata로 유지됩니다.
@@ -38,12 +37,14 @@ Active cached conversation을 제거하면 current-route default(legacy `screen`
 Verified fresh inventory answer는 server-owned replay metadata에 bounded `resource_result_context`를 포함할 수 있습니다. Raw resource ID를 포함하지 않고 browser context에서는 수락하지 않으며 source, snapshot, scope, query digest, freshness, truncation 및 이후 deterministic follow-up에 사용할 최대 40개의 ordered selector를 보존합니다.
 Ordinal follow-up은 선택한 위치를 exact fresh inventory predicate로 다시 검증합니다. Ambiguity follow-up은 complete prior result set의 equal-name candidate만 표시합니다. Incomplete context는 unavailable 상태를 유지하며 current-screen 또는 narrator output으로 fallback할 수 없습니다.
 Verified source-manifest answer는 bounded unavailable 또는 unknown entry를 `source_failure_context`로 보존합니다. Partial-source continuation은 해당 receipt의 available fact와 exact gap을 렌더링하고 reason 및 last observation이 있으면 함께 표시하며 arbitrary unverified answer를 source authority로 취급하지 않습니다. Verified 또는 corrected `query_llm_usage` answer는 domain, capability, token measure, grouping, `usage_scope` 및 numeric 1-90일 lookback이 포함된 bounded `analysis_context`를 보존합니다. 기간, grouping, table 또는 chart만 바꾸는 refinement는 이 server-owned anchor를 재사용하고 metering evidence를 다시 읽습니다. Comparison, export, missing-anchor, client-supplied-anchor 및 명시적인 다른 metric 요청은 inventory, Resource Health 또는 narrator output을 선택하지 않고 context-required hold를 반환합니다.
-Full-workspace Command Deck session은 transcript만 열린 content column으로 시작합니다. Transcript
+Full-workspace Command Deck session은 transcript만 열린 content column으로 시작합니다. 비어 있는 transcript는 상황별 suggestion을 유지하고 tool 선택이나 authority를 바꾸지 않는 localized Resilience, Change Safety 및 Cost Governance quick start를 추가합니다. Transcript
 toolbar는 workspace, docked 및 floating layout에서 filter 가능한 대화 이력을 제공합니다. 좁은
-layout에서는 transcript 폭을 줄이지 않고 그 위에 overlay로 엽니다. 현재 화면 digest는 workspace
-control로 유지됩니다. History는 stable cursor 순서로 durable summary를 한 번에 100건씩 load합니다. 100건에 도달하면 count를
+layout에서는 transcript 폭을 줄이지 않고 그 위에 overlay로 엽니다. 현재 화면 digest는 workspace control로 유지됩니다. Deck은 열린 surface마다 composition-owned data-source manifest를 한 번 읽고 transcript 위에 Inventory, Incidents, Audit, Knowledge 및 Automation readiness link를 compact하게 표시합니다. 누락되거나 non-authoritative인 source는 `unknown`으로 유지합니다. Browser는 health를 추론하거나 raw provider detail을 노출하거나 route 존재로 manifest를 대체하지 않습니다. Loading은 stable skeleton을 사용하고 manifest failure는 conversation history를 차단하지 않으면서 Diagnostics로 연결합니다.
+History는 stable cursor 순서로 durable summary를 한 번에 100건씩 load합니다. 100건에 도달하면 count를
 `100+`로 표시하고 history scroll 경계에 가까워지면 다음 100건을 load합니다. Transcript body는 선택할
-때만 hydrate합니다. Browser 또는 durable history에서 복원된 transcript는 새 대화를 시작할 때까지
+때만 hydrate합니다. Operator image는 전송된 turn 안에 표시됩니다. Browser cache serialization은
+inline byte를 제거하고 bounded descriptor만 유지하며, durable restoration은 인증된 principal 및
+conversation 범위 image route를 통해 binary를 fetch합니다. Browser 또는 durable history에서 복원된 transcript는 새 대화를 시작할 때까지
 resumed-session marker를 표시합니다. Deck header는 route와 optional agent context만 담당하며 agent
 대화가 아닌 질문은 반복 표시하지 않습니다. Digest는 record 수, snapshot age 및 오래된 context
 새로고침을 담당하며, Composer에는 attachment, 질문 입력 및 보내기 또는 중지만 유지합니다.
@@ -61,8 +62,23 @@ status가 계속 표시됩니다.
 실시간 runtime state와 고정 registry ownership 및 safety flag를 에이전트별 상세 disclosure에 함께
 표시합니다. 조직 view는 keyboard-accessible 보고 체계와 선택된 incident evidence를 렌더링합니다.
 기존 link가 계속 동작하도록 stable `/pantheon` path는 조직 compatibility route로 유지하고,
-navigation에는 별도의 Pantheon directory를 두지 않습니다. 담당자 인수인계는 자체 governed proposal
-workflow가 있으므로 별도 Explorer panel로 유지합니다.
+navigation에는 별도의 Pantheon directory를 두지 않습니다. 에이전트 감독은 운영 담당 체계와
+governed proposal workflow를 다루는 Governance panel이며 `/agent-oversight`를 사용합니다. 이전
+`/handover` 경로는 compatibility alias로 유지합니다.
+다섯 view는 개요, 사람 의존성, 지식 인수인계, 승인 경로, 매핑 검토입니다. 개요와 사람 의존성은
+엄격한 `GET /stewardship` 프로젝션을 사용합니다. 매핑 검토는 Owner 게이트가 적용된
+`GET /iam/assignments` 프로젝션을 재사용하며 capability와 principal은 `GET /iam`에서만 가져옵니다.
+지식 인수인계는 governed draft boundary를 사용합니다. 승인 경로는 자체 authoritative projection이
+연결될 때까지 unavailable로 명시하며, browser는 ownership data에서 경로를 추론하지 않습니다.
+Stewardship source가 없으면 개요와 사람 의존성만 차단합니다. 독립적인 지식 인수인계, 승인 경로,
+매핑 검토 view는 숨기지 않습니다.
+개요는 `identity_health`에서만 ID source freshness를 표시합니다. Operator API는 stale-finding
+snapshot과 revision이 일치하고 만료되지 않은 last-success heartbeat에서만 `checked_at`을 제공합니다.
+완료된 `clean` 또는 `warn` 확인은 이 timestamp와 병합된 `stale_oid` coverage에 맞는 finding count가
+필요합니다. 불일치는 정상 또는 최신 상태로 표시하지 않고 contract error로 처리합니다.
+각 agent의 `bus_factor`는 coverage evaluator와 동일하게 distinct accountable `(kind, id)` subject
+unit 수를 사용합니다. Browser는 steward projection에서 이 값을 다시 계산하고 다른 headline 값은
+backup coverage를 과장하지 않도록 거부합니다.
 
 Settings에는 authoritative StateStore를 사용하는 Runtime policies route가 포함됩니다. 이 route는
 secret, endpoint, tenant identifier 또는 workload identity identifier를 노출하지 않고 정제된
@@ -81,7 +97,7 @@ Operations에는 Muninn의 durable StateSnapshot만 사용하는 감지 준비�
 이 화면은 Heimdall 판정, 6개 근거 차원, 공백, 권한 상한, 원본, 관찰 시각을 표시합니다.
 브라우저는 AKS를 probe하거나 대체 판정을 만들지 않습니다. 각 target은 Architecture resource로,
 promotion 관련 count는 Promotion gates로 연결됩니다. 성공한 HTTP 응답이 strict decoding을
-통과하지 못하면 loading skeleton에 머물지 않고 error를 렌더링합니다.
+통과하지 못하면 해당 route와 Capabilities는 loading skeleton에 머물거나 알 수 없는 autonomy mode를 enforcement로 취급하지 않고 error를 렌더링합니다.
 
 Server-pinned drift context가 있으면 GET-only 구성 기준선 route가 identity, lifecycle, drift, Knowledge citation, topology, latency, 예약 검토, 네 safety counter를 fresh read로 표시합니다.
 Binding 또는 campaign 부재는 unavailable이나 `not-configured`로 보고하며 progress를 만들지 않고 malformed data를 strict하게 거부하며 in-scope immutable version 비교와 failed-attempt count를 읽습니다. SPA는 activation, resume, schedule 생성, 승인, 완화, resource mutation을 노출하지 않고 evidence-run, resume, blueprint review, materialization은 별도 authenticated route를 사용합니다.
@@ -190,9 +206,8 @@ value만 비교합니다. 누락된 값은 unavailable로 유지하고 simulated
 failure를 만들지 않습니다.
 
 LLM Cost는 측정된 호출, token, chat 비율 및 최근 호출 근거를 먼저 표시합니다. 입력 및 출력 구성,
-선택 기간 trend, model 귀속 및 invocation record는 metering projection에서만 파생합니다. Price attribution이
-연결되지 않은 경우 route는 이 경계를 안내하고 token volume에서 지출, budget, 호출당 가격 또는 invoice
-금액을 추정하지 않습니다. Workload, mode, day 및 month 상세 rollup은 secondary disclosure에서 계속
+선택 기간 trend, model 및 conversation 귀속, invocation record는 metering projection에서만 파생합니다. Price attribution이
+연결되지 않은 경우 route는 이 경계를 안내하고 token volume에서 지출, budget, fixed infrastructure cost, 호출당 가격 또는 invoice 금액을 추정하지 않습니다. Bounded visible invocation ledger는 고정 allowlist를 quoted CSV로 export하며 formula-leading cell은 neutralize합니다. Conversation, workload, mode, day 및 month 상세 rollup은 secondary disclosure에서 계속
 제공하므로 primary view의 탐색성을 유지하면서 근거를 숨기지 않습니다. Headline KPI label과 value는
 균형 잡힌 4열, 2열 또는 1열 grid에서 왼쪽 정렬을 유지하고, token 구성의 count와 share는 비교하기 쉽도록
 공통 오른쪽 숫자 열을 사용합니다. 하나의 global UTC selector는 rolling 24시간, 7일, 30일 및 사용자 지정

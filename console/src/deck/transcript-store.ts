@@ -39,6 +39,7 @@ import {
 } from "./backend-normalizers";
 import { parseTrajectoryDetail } from "./trajectory-detail";
 import { parseIntentGraph, parseIntentGraphEvidence } from "./intent-graph";
+import { parseTurnAttachments, type TurnAttachment } from "./turn-attachments";
 
 export const TRANSCRIPT_KEY = "fdai.deck.transcript.v1";
 export const MAX_TRANSCRIPT_JSON_CHARS = 4 * 1024 * 1024;
@@ -79,6 +80,7 @@ export interface PersistedTurn {
   readonly id: string;
   readonly role: "operator" | "deck";
   readonly text: string;
+  readonly attachments?: readonly TurnAttachment[];
   readonly recordedAt?: string;
   readonly groundingText?: string;
   readonly kind?: "message" | "activity";
@@ -159,11 +161,13 @@ export function serializeTurns(
       const resourceContext = parseResourceContext(t.resourceContext);
       const intentGraph = parseIntentGraph(t.intentGraph);
       const intentGraphEvidence = parseIntentGraphEvidence(t.intentGraphEvidence);
+      const attachments = parseTurnAttachments(t.attachments);
       return {
         ...base,
         ...(boundedString(t.groundingText, MAX_TURN_TEXT_CHARS)
           ? { groundingText: t.groundingText }
           : {}),
+        ...(attachments.length > 0 ? { attachments } : {}),
         ...(boundedTimestamp(t.recordedAt) ? { recordedAt: t.recordedAt } : {}),
         ...(boundedString(t.source, MAX_TURN_SOURCE_CHARS) ? { source: t.source } : {}),
         ...(t.kind ? { kind: t.kind } : {}),
@@ -249,6 +253,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
     const resourceContext = parseResourceContext(rec.resourceContext);
     const intentGraph = parseIntentGraph(rec.intentGraph);
     const intentGraphEvidence = parseIntentGraphEvidence(rec.intentGraphEvidence);
+    const attachments = parseTurnAttachments(rec.attachments);
     const turn: PersistedTurn = {
       id: rec.id,
       role: rec.role,
@@ -258,6 +263,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
       ...(boundedString(rec.groundingText, MAX_TURN_TEXT_CHARS)
         ? { groundingText: rec.groundingText }
         : {}),
+      ...(attachments.length > 0 ? { attachments } : {}),
       ...(boundedString(rec.source, MAX_TURN_SOURCE_CHARS) ? { source: rec.source } : {}),
       ...(rec.kind === "message" || rec.kind === "activity" ? { kind: rec.kind } : {}),
       ...(validActivities(rec.activities) ? { activities: rec.activities } : {}),

@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 266910b224b68e16516ec0965293eb92c8e52550
-translation_revised: 2026-08-04
+translation_source_sha: 170e0ca1eb4335744c11de9345afc58d4313d9a7
+translation_revised: 2026-08-05
 ---
 
 # Runtime Parity - Authoritative Local Development 및 Test Fixture
@@ -85,6 +85,10 @@ mock과 격리된 test ingestion gateway는 시작하지 않습니다.
 Redpanda container를 시작하고 대기 중인 migration을 적용합니다. 커밋된 workspace 설정이 automatic
 task를 허용하고 task의 single-instance limit가 중복 준비를 방지하므로 별도 task 선택이 필요하지
 않습니다.
+같은 migration이 local 및 deployed PostgreSQL에 principal 범위 `conversation_image` repository를
+만듭니다. 따라서 두 profile의 Command Deck history는 동일한 인증 Operator API route를 통해 전송된
+image를 복원하며, 어느 profile도 inline base64를 turn metadata 또는 browser transcript cache에
+저장하지 않습니다.
 Compound는 child configuration을 시작하기 전에 `console: prepare full stack`을 한 번 완료합니다.
 따라서 두 backend launch가 PostgreSQL migration, runtime environment 생성, Entra 동기화를 반복하지
 않습니다. Standalone Core Runtime 또는 Operator API debug configuration을 시작할 때는 이 준비 task를

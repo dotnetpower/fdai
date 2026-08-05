@@ -24,6 +24,7 @@
       "requiredTools": "필수 도구",
       "allowedAgents": "허용된 에이전트",
       "references": "참조",
+      "lifecycle": "수명 주기",
       "loadEligibility": "로드 적격성",
       "operation": "작업",
       "skillReference": "스킬 / 참조",
@@ -50,7 +51,14 @@
       "eligible": "적격",
       "bundles": "번들",
       "eligibleBundles": "적격 번들",
-      "diagnostics": "진단"
+      "diagnostics": "진단",
+      "authorityPromotion": "권한 승격",
+      "notApplicable": "해당 없음"
+    },
+    "lifecycle": {
+      "installed": "설치됨",
+      "enabled": "활성화됨 - 종속성 차단",
+      "eligible": "로드 적격"
     },
     "section": {
       "installedAria": "설치된 스킬 인덱스",
@@ -88,6 +96,7 @@
       "sideEffectClass": "부작용 클래스",
       "defaultMode": "기본 모드",
       "requiredRole": "필수 역할",
+      "operatorPath": "운영자 경로",
       "summary": "요약"
     },
     "context": {
@@ -121,8 +130,16 @@
       "sideEffect": "부작용",
       "defaultMode": "기본 모드",
       "requiredRole": "필수 역할",
+      "operatorPath": "운영자 경로",
+      "openPromotionEvidence": "ActionType 승격 근거 열기",
       "tags": "태그",
       "openRelated": "관련 화면 열기"
+    },
+    "operatorPath": {
+      "directRead": "직접 읽기",
+      "governedRequest": "통제된 요청",
+      "humanApproval": "사람 승인",
+      "ownerBreakGlass": "Owner 긴급 접근"
     },
     "error": {
       "count": "잘못된 Operator API 응답: capabilities.count는 항목 수와 반드시 일치해야 합니다",

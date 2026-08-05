@@ -120,6 +120,14 @@ def test_accept_autonomous_without_reason_fails(valid_raw: dict) -> None:
         load_stewardship_from_mapping(valid_raw)
 
 
+def test_accept_autonomous_with_accountable_steward_fails(valid_raw: dict) -> None:
+    valid_raw["stewardship"]["agents"]["Thor"]["accept_autonomous"] = {
+        "reason": "Ownership is intentionally absent."
+    }
+    with pytest.raises(StewardshipValidationError, match="MUST NOT declare 'accept_autonomous'"):
+        load_stewardship_from_mapping(valid_raw)
+
+
 def test_bad_kind_fails(valid_raw: dict, oid) -> None:
     valid_raw["stewardship"]["agents"]["Thor"]["stewards"][0]["kind"] = "robot"
     with pytest.raises(StewardshipValidationError, match="'kind' MUST be"):

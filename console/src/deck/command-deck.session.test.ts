@@ -151,7 +151,13 @@ describe("durable transcript restoration", () => {
       role: "operator",
       content: "Show major issues.",
       recorded_at: "2026-07-16T07:00:00Z",
-      metadata: {},
+      metadata: {
+        attachments: JSON.stringify([{
+          id: "att-image-1",
+          name: "screenshot.png",
+          media_type: "image/png",
+        }]),
+      },
     });
     const assistant = restoredTurn({
       turn_id: "turn-2",
@@ -173,6 +179,12 @@ describe("durable transcript restoration", () => {
       terminal: true,
     });
     expect(operator.recordedAt).toBe("2026-07-16T07:00:00Z");
+    expect(operator.attachments).toEqual([{
+      id: "att-image-1",
+      name: "screenshot.png",
+      mediaType: "image/png",
+      conversationId: "conversation-1",
+    }]);
   });
 
   test("restores bounded terminal replay metadata for historical trajectories", () => {

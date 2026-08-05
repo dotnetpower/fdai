@@ -436,6 +436,28 @@ def test_generic_service_outage_question_uses_subscription_health() -> None:
     assert not needs_subscription_health("Restart resources affected by an active Azure outage.")
 
 
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "Is any Azure resource in the configured scope currently showing an active "
+        "Resource Health issue, when did that condition begin or get first observed, "
+        "and does Resource Health classify it as customer-initiated or "
+        "platform-initiated, based on current read-only evidence?",
+        "Within the configured scope, is any resource currently reporting an active "
+        "Resource Health issue?",
+        "허용된 범위 안에 현재 활성 Resource Health 이상이 있는 리소스가 있는지 알려줘.",
+        "구성된 범위에서 상태 이상이 감지된 리소스가 있어?",
+    ),
+)
+def test_resource_health_question_recognizes_configured_scope_phrasing(prompt: str) -> None:
+    # FDAI's own genericized terminology describes the tenant boundary as the
+    # "configured"/"allowed" scope (see the product's own answer text), not only
+    # the literal word "subscription". A Resource Health question phrased with
+    # that same canonical wording must still route to subscription health instead
+    # of falling through to a generic inventory listing.
+    assert needs_subscription_health(prompt) is True
+
+
 def test_platform_health_skips_semantic_turn_planner() -> None:
     class Planner:
         async def plan_turn(self, **_kwargs: object) -> Any:

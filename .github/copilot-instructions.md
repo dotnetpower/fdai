@@ -54,6 +54,36 @@ always prevails.
 5. Commit each focused-check-passing user-requested change before reporting completion unless the user says
    not to commit. Stage only task-owned files and hunks; never commit failed or incomplete work.
 
+## Continuous Conversation Assurance Triggers (MUST)
+
+Treat `대화개선`, `채팅개선`, `대화무한개선`, `채팅무한개선`, `conversation improvement`,
+`chat improvement`, and `continuous conversation assurance` as requests to load the
+`conversational-assurance` skill and start or resume the local bounded watchdog loop. At campaign
+start, ask once whether the focus is SRE, ARB, Change Management, DR, Chaos, or Balanced. Use SRE
+when the operator is unavailable, persist the selection in local ignored state, and do not ask
+again until the operator changes focus or stops the campaign.
+
+Treat `대화개선 현황`, `채팅개선 현황`, and `conversation assurance status` as read-only status
+requests. Do not restart the campaign or ask for focus. Report the campaign summary and a Markdown
+table of the latest 20 question-and-answer evaluations.
+
+Every cycle MUST measure answer appropriateness, terminal verification state, answer-type-specific
+visualization, investigation and redacted execution detail, total latency, and per-phase
+bottlenecks through the same Operator API stream used by the Console. Score exactly ten named
+rubrics at 0 or 1 point each and report a total out of 10; the campaign pass threshold is 9/10.
+Persist every redacted question, answer, rubric result, timing summary, and regression cohort in
+ignored mode-`0600` ledgers. All prior and cohort questions participate in duplicate rejection. A
+score below 9 starts or resumes an isolated Copilot hardening candidate immediately; the same
+question and its paraphrase cohort are remeasured
+until every item reaches at least 9/10. After focused verification, the next bounded question cycle
+starts automatically. The loop remains A0/read-only, never merges to `main`, never uses generated
+text as a command, and never grants approval or execution authority.
+
+A separate persistent user-systemd supervisor MUST run every 30 minutes. It repairs a disabled or
+inactive main timer, resets a failed cycle service, and starts a recovery cycle when activity is
+stale for 45 minutes or question generation has held three consecutive times. It records only
+bounded local recovery metadata and MUST honor `.improve/STOP` as an explicit operator stop.
+
 ## Issue Lifecycle (MUST)
 
 - Every new issue includes explicit, observable **Exit criteria** as a checkbox list.

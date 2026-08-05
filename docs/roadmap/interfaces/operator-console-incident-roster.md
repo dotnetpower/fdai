@@ -234,6 +234,8 @@ measurement is unavailable, not measured zero. Scope eligibility counts only
 time only when every source supplies one, and then uses the oldest source time.
 Mixed-currency LLM cost groups are labelled non-additive and never displayed as
 a single-currency total.
+Scope groups explicit monitoring and action entries under each recorded
+subscription; it doesn't derive inherited authority, and every level links to Architecture.
 
 The Process list follows the same rule with `source`, nullable `synthetic`, and
 nullable `durable`. The local seeded runtime reports
@@ -241,12 +243,13 @@ nullable `durable`. The local seeded runtime reports
 status, journals, and dynamic views remain server-owned, but a current render
 doesn't erase how the underlying snapshot was produced or stored.
 
-The selected incident detail keeps the summary and evidence layers separate.
-It shows the server-owned incident id, ticket id, lifecycle status and source,
-disposition, verdict, owning vertical, latest mode, timestamps, and history
-count before the remediation timeline. Missing values render unavailable; the
-browser does not infer impact, ownership, or recovery. The detail links to the
-correlation-scoped **Incident RCA Dossier** in History > Reports.
+The selected incident detail keeps the summary and evidence layers separate. It shows alert
+lifecycle, agent work state, pending user input, server-owned incident and ticket ids, disposition,
+verdict, vertical, mode, timestamps, and history count before the remediation timeline. One compact
+response-routing section orders recorded severity, involved agents, the governed human-ownership
+mapping, and autonomy mode. Missing values render unavailable; the browser doesn't infer impact,
+people, ownership, or recovery. The detail links to the correlation-scoped **Incident RCA Dossier**
+in History > Reports.
 
 The remediation history presents each audit row as a plain-language event. It uses recorded
 `summary`, `detail`, or `reason` text first, then a deterministic template for known lifecycle,

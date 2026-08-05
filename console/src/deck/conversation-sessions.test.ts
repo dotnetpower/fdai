@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   conversationHasUnreadActivity,
+  conversationMatchesFilter,
   conversationLabelForPrompt,
   conversationGroups,
   conversationIndexKeyFor,
@@ -44,6 +45,14 @@ describe("conversation index", () => {
 
     expect(parseConversationIndex(raw)).toEqual([GENERAL]);
     expect(parseConversationIndex(serializeConversationIndex([GENERAL]))).toEqual([GENERAL]);
+  });
+
+  it("round-trips only a strict browser-local favorite flag", () => {
+    const favorite = { ...GENERAL, favorite: true };
+    const invalid = { ...GENERAL, key: "invalid-favorite", favorite: "yes" };
+
+    expect(parseConversationIndex(JSON.stringify([favorite, invalid])))
+      .toEqual([favorite, { ...GENERAL, key: "invalid-favorite" }]);
   });
 
   it("deduplicates and orders the newest conversation first", () => {
@@ -148,6 +157,23 @@ describe("conversationGroups", () => {
     expect(conversationHasUnreadActivity(observed)).toBe(true);
     expect(conversationHasUnreadActivity(markConversationRead(observed, observed.updatedAt)))
       .toBe(false);
+  });
+
+  it("filters principal-scoped conversations by unread and favorite metadata", () => {
+    const unread = {
+      ...GENERAL,
+      key: "unread",
+      updatedAt: "2026-07-14T10:00:00Z",
+      lastReadAt: "2026-07-14T09:00:00Z",
+    };
+    const favorite = { ...GENERAL, key: "favorite", favorite: true };
+
+    expect([GENERAL, unread, favorite].filter((item) => conversationMatchesFilter(item, "mine")))
+      .toHaveLength(3);
+    expect([GENERAL, unread, favorite].filter((item) => conversationMatchesFilter(item, "unread")))
+      .toEqual([unread]);
+    expect([GENERAL, unread, favorite].filter((item) => conversationMatchesFilter(item, "favorites")))
+      .toEqual([favorite]);
   });
 });
 

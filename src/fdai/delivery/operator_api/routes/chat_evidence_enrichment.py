@@ -38,8 +38,7 @@ from fdai.delivery.operator_api.routes.chat_log_query import needs_log_query
 from fdai.delivery.operator_api.routes.chat_preincident_activity import parse_preincident_activity
 from fdai.delivery.operator_api.routes.chat_prompt import (
     _AGENT_NAME_TOKEN,
-    _CONCEPT_DOMAIN,
-    _is_concept_query,
+    _is_grounded_concept_query,
 )
 from fdai.delivery.operator_api.routes.chat_subscription_health import needs_subscription_health
 from fdai.delivery.operator_api.routes.chat_t2_recovery import needs_t2_recovery_evidence
@@ -341,7 +340,7 @@ async def _with_agent_evidence(
         or ("_tool_evidence" in enriched and not read_investigation and not agent_owned)
         or (current_screen_tool is not None and not agent_owned)
         or _uses_view_explanations(prompt, enriched)
-        or (_is_concept_query(prompt) and _CONCEPT_DOMAIN.search(prompt) and not explicit_agent)
+        or (_is_grounded_concept_query(prompt) and not explicit_agent)
     ):
         return enriched
     if delegate is None:
@@ -382,8 +381,7 @@ async def _with_agent_evidence(
 
 
 def _explicit_agent_requested(prompt: str) -> bool:
-    names = {name.lower() for name in PANTHEON_NAMES}
-    return any(token.lower() in names for token in _AGENT_NAME_TOKEN.findall(prompt))
+    return addressed_agent(prompt) is not None
 
 
 def _selected_agent_prompt(

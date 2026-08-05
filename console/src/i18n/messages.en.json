@@ -89,7 +89,7 @@
     "architecture": "Architecture",
     "ontology": "Ontology",
     "pantheon": "Pantheon",
-    "handover": "Handover",
+    "handover": "Agent oversight",
     "promotionGates": "Promotion gates",
     "contextSelectionComparisons": "Context policy comparisons",
     "browserEvidence": "Browser evidence",
@@ -176,7 +176,7 @@
       "architecture": "Architecture",
       "ontology": "Ontology",
       "pantheon": "Org",
-      "handover": "Handover",
+      "handover": "Agent oversight",
       "blastRadius": "Impact scope",
       "promotionGates": "Promotion gates",
       "contextSelectionComparisons": "Context policy comparisons",
@@ -229,7 +229,7 @@
       "architecture": "Deployed resources, boundaries, and dependencies",
       "ontology": "Resource + link graph (classDiagram)",
       "pantheon": "Reporting lines and live state for the fixed 15-agent fleet",
-      "handover": "Who owns each of the 15 agents: accountable owners + FDAI maintainers",
+      "handover": "Operational ownership, coverage, knowledge transfer, and assignment reviews",
       "blastRadius": "Simulate reachable subgraph before a change",
       "promotionGates": "Per-ActionType readiness to move from observation to enforcement (shadow → enforce)",
       "contextSelectionComparisons": "Baseline and shadow context-selection evidence",
@@ -460,7 +460,29 @@
     "organizationChartLabel": "Pantheon organization chart"
   },
   "handover": {
-    "subtitle": "View accountable owners, FDAI maintainers, and coverage for all 15 agents. Submit governed ownership proposals for Owner review; no runtime change is applied here.",
+    "subtitle": "Oversee operational ownership and coverage for all 15 agents. Submit governed ownership proposals for Owner review; no runtime change is applied here.",
+    "viewsLabel": "Agent oversight views",
+    "invalidView": "This Agent oversight view does not exist.",
+    "noFindings": "No ownership coverage issues were detected.",
+    "approvalRoutesUnavailable": "Approval-route evidence is not connected to this projection. No route or authority is inferred in the browser.",
+    "mappingReviewsLoading": "Loading mapping reviews...",
+    "sourceHealth": "Source health",
+    "identityHealth": "Identity verification",
+    "checkedAt": "Last checked",
+    "identityHealthStatus": {
+      "not_configured": "Not configured",
+      "pending": "Check pending",
+      "unavailable": "Check unavailable",
+      "clean": "Verified",
+      "warn": "Review required"
+    },
+    "view": {
+      "overview": "Overview",
+      "human-dependencies": "Human dependencies",
+      "knowledge-handover": "Knowledge handover",
+      "approval-routes": "Approval routes",
+      "mapping-reviews": "Mapping reviews"
+    },
     "unavailable": "The stewardship endpoint is not wired on this deployment. Set OperatorApiConfig.stewardship_map in the composition root to enable it.",
     "noMaintainer": "No maintainer configured - at least 1 is required.",
     "oneMaintainer": "Only 1 maintainer - 2 are recommended for succession safety.",
@@ -1052,6 +1074,9 @@
     "executor": "Executor identity boundary",
     "executorHint": "The executor is an RG-scoped, action-whitelisted managed identity. This hard IAM ceiling cannot be widened by any governance scope.",
     "executorResourceGroups": "Scoped resource groups",
+    "hierarchy": "Managed scope hierarchy",
+    "hierarchyHint": "Explicit server-owned entries only. The browser does not derive inherited authority.",
+    "hierarchySubscriptions": "Subscriptions",
     "none": "-",
     "builder": "Scope builder",
     "builderHint": "Compose an include/exclude selection, then submit the generated artifact as a fix / config PR. Nothing is applied from the console.",
@@ -1171,6 +1196,18 @@
         "monitoring": "The incident is open while FDAI correlates related signals. No remediation decision or action has been recorded yet."
       },
       "lifecycle": "Lifecycle",
+      "alertStatus": "Alert status",
+      "agentStatus": "Agent status",
+      "userInput": "User input",
+      "required": "Required",
+      "notRequired": "Not required",
+      "agentState": {"completed": "Completed", "blocked": "Blocked", "pending_user_input": "Pending user input", "in_progress": "In progress", "monitoring": "Monitoring"},
+      "routingTitle": "Response routing",
+      "severity": "Severity",
+      "accountableAgents": "Accountable agents",
+      "humanOwnership": "Human ownership",
+      "openOwnership": "Open ownership mapping",
+      "autonomy": "Autonomy",
       "decision": "Response decision",
       "authority": "Change authority",
       "noDecision": "No remediation decision recorded",
@@ -1942,6 +1979,16 @@
     "general": "General",
     "noConversations": "Start a conversation to keep it in this tab's history.",
     "filterConversations": "Filter conversations",
+    "conversationFilters": {
+      "label": "Conversation filters",
+      "mine": "Mine",
+      "unread": "Unread",
+      "favorites": "Favorites"
+    },
+    "favorite": {
+      "add": "Add to favorites",
+      "remove": "Remove from favorites"
+    },
     "noConversationMatches": "No conversations match this filter.",
     "loadingConversations": "Loading more conversations",
     "yesterdayAt": "Yesterday {time}",
@@ -1983,12 +2030,42 @@
       "readFailed": "could not read file"
     },
     "suggestedFollowUps": "Suggested follow-ups",
+    "reviewAnswer": "Review answer quality",
     "intro": "Ask about anything currently visible - tiles, KPIs, approvals, audit rows, promotion status, impact scope, or ontology. I ground every answer in the snapshot on the right.",
+    "verticalQuickStarts": {
+      "label": "Operating domains",
+      "resilience": "Resilience",
+      "resiliencePrompt": "Show the current resilience risks and verified recovery gaps.",
+      "changeSafety": "Change Safety",
+      "changeSafetyPrompt": "Show pending change-safety decisions and their evidence gaps.",
+      "costGovernance": "Cost Governance",
+      "costGovernancePrompt": "Show measured cost-governance opportunities that preserve reliability objectives."
+    },
     "backend": {
       "probing": "probing",
       "connected": "Connected",
       "ready": "LLM ready",
       "deterministic": "deterministic"
+    },
+    "sourceReadiness": {
+      "label": "Evidence sources",
+      "loading": "Loading evidence-source readiness",
+      "unavailable": "Evidence-source readiness is unavailable.",
+      "openDiagnostics": "Open diagnostics",
+      "observed": "Observed {time}",
+      "observationUnknown": "Observation time unavailable",
+      "source": {
+        "inventory": "Inventory",
+        "incidents": "Incidents",
+        "audit": "Audit",
+        "knowledge": "Knowledge",
+        "automation": "Automation"
+      },
+      "status": {
+        "available": "Available",
+        "unavailable": "Unavailable",
+        "unknown": "Unknown"
+      }
     },
     "digest": {
       "label": "What the deck sees",

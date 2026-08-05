@@ -19,7 +19,7 @@ _KQL = (
     "resourcechanges "
     "| extend ts=todatetime(properties.changeAttributes.timestamp) "
     "| where ts >= ago({window_seconds}s) "
-    "| project deployment_ref=tostring(properties.changeAttributes.correlationId), "
+    "| project row_id=id, deployment_ref=tostring(properties.changeAttributes.correlationId), "
     "timestamp=tostring(ts), resource_ref=tostring(properties.targetResourceId), "
     "status=tostring(properties.changeType), author=tostring(properties.changeAttributes.changedBy)"
 )
@@ -49,12 +49,14 @@ def _config(**overrides: object) -> AzureDeploymentHistoryConfig:
 def _row(
     *,
     deployment_ref: str = "corr-1",
+    row_id: str | None = None,
     timestamp: str = "2026-07-07T11:59:00Z",
     resource_ref: str = "/subscriptions/s/rg/r/app",
     status: str = "Update",
     author: str = "ci@example.com",
 ) -> dict[str, object]:
     return {
+        "row_id": row_id or f"row-{deployment_ref}",
         "deployment_ref": deployment_ref,
         "timestamp": timestamp,
         "resource_ref": resource_ref,
@@ -90,6 +92,7 @@ def _provider(
         {"max_records": 0},
         {"timeout_seconds": 0},
         {"deployment_ref_column": ""},
+        {"cursor_column": "row-id | take 1"},
         {"timestamp_column": ""},
         {"resource_ref_column": ""},
         {"status_column": ""},
@@ -232,6 +235,7 @@ async def test_untrusted_resource_ref_is_not_interpolated_into_query() -> None:
     await provider.query_deployments(window="PT1H", resource_ref="' | union hack //")
     assert "hack" not in captured[0]
     assert "union" not in captured[0]
+    assert captured[0].endswith("| order by row_id asc")
 
 
 # ---------------------------------------------------------------------------
@@ -324,6 +328,24 @@ async def test_max_records_cap_fails_closed() -> None:
 
     provider = _provider(handler, _config(max_records=2))
     with pytest.raises(DeploymentHistoryError, match="more than 2"):
+        await provider.query_deployments(window="PT1H")
+
+
+@pytest.mark.asyncio
+async def test_duplicate_pagination_cursor_fails_closed() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    _row(deployment_ref="corr-1", row_id="duplicate"),
+                    _row(deployment_ref="corr-2", row_id="duplicate"),
+                ]
+            },
+        )
+
+    provider = _provider(handler)
+    with pytest.raises(DeploymentHistoryError, match="duplicate cursor"):
         await provider.query_deployments(window="PT1H")
 
 

@@ -317,8 +317,9 @@ class ConversationCoordinator:
 
         if not principal_has_role_at_least(session.principal.role, tool.rbac_floor):
             preview = (
-                f"role {session.principal.role.value!r} is below tool "
-                f"{tool.name!r} floor {tool.rbac_floor.value!r}"
+                f"Tool access denied: {tool.name!r} requires role "
+                f"{tool.rbac_floor.value!r}; current role is "
+                f"{session.principal.role.value!r}. No tool was called."
             )
             session.append(
                 Turn(

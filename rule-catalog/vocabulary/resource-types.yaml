@@ -43,7 +43,7 @@ types:
     category: compute
     description: Long-running virtual machine.
     azure_arm_type: Microsoft.Compute/virtualMachines
-    query_terms: [virtual machine, virtual machines, vm, vms, 가상 머신]
+    query_terms: [virtual machine, virtual machines, vm, vms, 가상 머신, 가상머신, 가상 머신들, 가상머신들]
     typical_parents: [resource-group]
   - id: compute.vm-scale-set
     category: compute

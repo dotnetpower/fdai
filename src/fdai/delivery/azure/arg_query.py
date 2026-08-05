@@ -328,7 +328,7 @@ class AzureArgQueryFactory:
     def _map_row(self, row: Mapping[str, Any], *, resource_type: str) -> ResourceRecord | None:
         arm_id = row.get("id")
         if not isinstance(arm_id, str) or not arm_id:
-            return None
+            raise ArgQueryError(f"ARG row for {resource_type!r} lacks a provider id")
         arm_type = self._resource_types.get(resource_type).azure_arm_type
         if arm_type is None:
             return None

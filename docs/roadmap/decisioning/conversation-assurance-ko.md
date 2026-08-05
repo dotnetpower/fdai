@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 8032f3496f67eac6fd7747c6ecd338bf9b55a62f
+translation_source_sha: 1c8b158aad6708d90143f43f3ae4a4dbaddd808f
 translation_revised: 2026-08-04
 ---
 # 대화 품질 보증
@@ -244,8 +244,7 @@ runtime policy 생성 시 실패합니다.
 
 ## 운영자 이의 제기 화면
 
-Conversation Assurance 콘솔은 읽기 중심입니다. 인증된 운영자는 잘못된 사실, 의도 누락,
-오래된 근거, 잘못된 범위, 부적절한 판단 보류 또는 언어 품질을 보고할 수 있습니다. 보고는
+Conversation Assurance 콘솔은 읽기 중심입니다. 모든 terminal web answer는 exact turn assessment로 연결되며 assessment가 없으면 unrelated turn을 열지 않고 선택을 비워 둡니다. 인증된 운영자는 잘못된 사실, 의도 누락, 오래된 근거, 잘못된 범위, 부적절한 판단 보류 또는 언어 품질을 보고할 수 있습니다. 보고는
 append-only 이의 제기 이벤트이며 승인이나 직접 정책 편집이 아닙니다.
 멱등 재시도는 제한된 projection 목록 대신 ledger 단건 조회를 통해 최초 timestamp를 포함한
 원래 principal-scoped dispute record를 반환합니다.

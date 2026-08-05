@@ -28,7 +28,7 @@ export const PANEL_PATHS: Readonly<Record<string, string>> = {
   architecture: "/architecture",
   ontology: "/ontology",
   pantheon: "/pantheon",
-  handover: "/handover",
+  handover: "/agent-oversight",
   rules: "/rules",
   "workflow-builder": "/workflow-builder",
   documents: "/documents",
@@ -52,6 +52,7 @@ export const PANEL_PATHS: Readonly<Record<string, string>> = {
 };
 
 const PATH_ALIASES: Readonly<Record<string, string>> = {
+  "/handover": "handover",
   "/settings": "settings-general",
   "/processes/scheduler-runs": "scheduler-runs",
 };

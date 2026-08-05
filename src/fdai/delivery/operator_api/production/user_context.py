@@ -25,6 +25,7 @@ from fdai.delivery.persistence import (
     PostgresBriefingStoreConfig,
     PostgresBriefingSubscriptionStore,
     PostgresConversationHistoryStore,
+    PostgresConversationImageStore,
     PostgresConversationPolicyStore,
     PostgresConversationSearch,
     PostgresReportSignalStore,
@@ -80,6 +81,7 @@ def build_production_user_context(
     briefing_store_config = PostgresBriefingStoreConfig(**connection)
     workflow_store_config = PostgresWorkflowDefinitionStoreConfig(**connection)
     conversations = PostgresConversationHistoryStore(config=user_store_config)
+    images = PostgresConversationImageStore(config=user_store_config)
     ontology_store = PostgresOntologyInstanceStore(
         config=PostgresOntologyInstanceStoreConfig(**connection),
         object_types=object_types,
@@ -118,6 +120,7 @@ def build_production_user_context(
                 store=PostgresStateStore(config=PostgresStateStoreConfig(**connection))
             ),
         ),
+        images=images,
     )
     definitions = PostgresWorkflowDefinitionStore(config=workflow_store_config)
     bindings = PostgresWorkflowBindingStore(config=workflow_store_config)

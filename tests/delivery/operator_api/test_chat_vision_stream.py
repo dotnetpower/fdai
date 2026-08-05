@@ -7,14 +7,18 @@ before the terminal answer, symmetric to the web-search progress phases.
 
 from __future__ import annotations
 
+import asyncio
 import base64
+import json
 from typing import Any
 
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
+from fdai.delivery.conversation_images import InMemoryConversationImageStore
 from fdai.delivery.operator_api.routes.chat import make_chat_stream_route
+from fdai.shared.providers.testing.user_context import InMemoryConversationHistoryStore
 
 _PNG = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
@@ -94,3 +98,52 @@ def test_chat_stream_without_attachments_emits_no_vision_phase() -> None:
     assert response.status_code == 200
     assert "vision_analyzing" not in response.text
     assert "vision_grounded" not in response.text
+
+
+def test_chat_stream_persists_image_bytes_outside_turn_metadata() -> None:
+    history = InMemoryConversationHistoryStore()
+    images = InMemoryConversationImageStore()
+    app = Starlette(
+        routes=[
+            make_chat_stream_route(
+                backend=_Backend(),
+                authorize=_allow,
+                conversation_history_store=history,
+                conversation_image_store=images,
+            )
+        ]
+    )
+
+    response = TestClient(app).post(
+        "/chat/stream",
+        json={
+            "prompt": "what is shown?",
+            "session_id": "session-history-image",
+            "request_id": "request-history-image",
+            "attachments": [
+                {"id": "att-history-image", "name": "photo.png", "data_url": _DATA_URL}
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+
+    async def load() -> tuple[Any, Any]:
+        turns = await history.list_all_turns(
+            principal_id="reader",
+            conversation_id="session-history-image",
+        )
+        image = await images.get(
+            principal_id="reader",
+            conversation_id="session-history-image",
+            image_id="att-history-image",
+        )
+        return turns[0], image
+
+    operator_turn, stored_image = asyncio.run(load())
+    assert json.loads(operator_turn.metadata["attachments"]) == [
+        {"id": "att-history-image", "name": "photo.png", "media_type": "image/png"}
+    ]
+    assert _DATA_URL not in json.dumps(dict(operator_turn.metadata))
+    assert stored_image is not None
+    assert stored_image.content == _PNG

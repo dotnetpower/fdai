@@ -18,6 +18,7 @@ import { useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { useTransientFlag } from "../hooks/use-transient-flag";
 import { t, tForLocale } from "../i18n";
+import { routeHref } from "../router";
 import type {
   ActionDraft,
   AnswerPlanningMetadata,
@@ -77,7 +78,6 @@ export function GroundedReply({
   /** Re-run the operator question that produced this reply, if known. */
   readonly onRegenerate?: () => void;
 }) {
-  void turnId;
   const parsedSource = parseReplySource(source);
   const [open, setOpen] = useState(false);
   const [copied, showCopied] = useTransientFlag(1500);
@@ -351,6 +351,9 @@ export function GroundedReply({
                   </button>
                 </Tooltip>
               ) : null}
+              <a class="deck-gr-tool deck-gr-review" href={assuranceHref(turnId)}>
+                {t("deck.reviewAnswer")}
+              </a>
             </>
           ) : null}
 
@@ -396,6 +399,10 @@ export function GroundedReply({
       ) : null}
     </div>
   );
+}
+
+export function assuranceHref(turnId: string): string {
+  return routeHref("conversation-assurance", { params: { turn: turnId } });
 }
 
 export function incidentCandidateDeckDetail(candidate: IncidentCandidate): DeckOpenDetail {

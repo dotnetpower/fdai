@@ -298,7 +298,7 @@ export function App() {
         </PanelErrorBoundary>
       </Shell>
       <Suspense fallback={null}>
-        <CommandDeck />
+        <CommandDeck client={client} />
       </Suspense>
     </ViewContextProvider>
   );

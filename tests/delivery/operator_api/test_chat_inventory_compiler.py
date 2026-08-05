@@ -283,6 +283,42 @@ def test_korean_deallocated_vm_question_preserves_type_and_state() -> None:
 @pytest.mark.parametrize(
     "prompt",
     [
+        "실행중인 vm",
+        "현재 구독에서 실행중인 vm 목록",
+        "지금 설정된 Azure 범위 안에서 실제로 돌아가고 있는, 그러니까 켜져서 살아있는 "
+        "가상머신들만 골라서 각 항목의 현재 상태값과 함께 읽기 전용 인벤토리 근거로 "
+        "알려주시겠어요?",
+        "가상머신 중에 켜져 있는 것만 알려줘.",
+        "가상머신들 중에 돌아가고 있는 애들만 보여줘.",
+    ],
+)
+def test_colloquial_running_vm_question_resolves_type_and_state(prompt: str) -> None:
+    # Korean often writes the VM compound noun without the formal space
+    # ("가상머신" instead of "가상 머신") and describes a running instance with
+    # verb-conjugated slang ("켜져서", "돌아가고 있는") rather than the noun form
+    # ("켜짐"/"가동 중"). Both spellings and conjugations must resolve to the
+    # same canonical resource type and running state.
+    query = compile_inventory_query(prompt, resources=_RESOURCES)
+
+    assert query is not None
+    by_field = {predicate.field: predicate.value for predicate in query.predicates}
+    assert by_field[InventoryField.RESOURCE_TYPE] == "compute.vm"
+    assert by_field[InventoryField.STATUS] == "vm running"
+
+
+def test_subscription_running_vm_question_preserves_subscription_scope() -> None:
+    query = compile_inventory_query(
+        "현재 구독에서 실행중인 vm 목록",
+        resources=_RESOURCES,
+    )
+
+    assert query is not None
+    assert query.scope.value == "subscription"
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    [
         "Which virtual machines are running, stopped, or deallocated?",
         "Group all virtual machines by running, stopped, and deallocated state.",
         "실행 중, 중지됨, 할당 해제 상태별로 가상 머신을 보여줘.",

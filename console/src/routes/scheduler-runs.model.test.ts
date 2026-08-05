@@ -4,8 +4,11 @@ import {
   decodeSchedulerRunPage,
   formatSchedulerTimestamp,
   schedulerRunTone,
+  summarizeSchedulerRuns,
 } from "./scheduler-runs.model";
 import { assertSchedulerRunTask } from "./scheduler-runs";
+import { schedulerRunsNumber } from "./scheduler-runs.i18n";
+import { setLocale } from "../i18n";
 
 const PAGE = {
   task_id: "inventory",
@@ -73,5 +76,49 @@ describe("scheduler run response", () => {
     expect(formatSchedulerTimestamp(null)).toBe("-");
     expect(formatSchedulerTimestamp("not-a-timestamp")).toBe("not-a-timestamp");
     expect(formatSchedulerTimestamp("2026-07-17T08:00:00Z")).toMatch(/2026/);
+  });
+
+  test("formats KPI counts with the operator locale", () => {
+    setLocale("en");
+    expect(schedulerRunsNumber(1234)).toBe("1,234");
+    setLocale("ko");
+    expect(schedulerRunsNumber(1234)).toBe("1,234");
+    setLocale("en");
+  });
+
+  test("summarizes publish evidence without claiming execution success", () => {
+    const published = decodeSchedulerRunPage(PAGE).items[0]!;
+    const failed = {
+      ...published,
+      run_id: "schedule:inventory:2",
+      status: "failed" as const,
+      claimed_at: "2026-07-17T08:00:03Z",
+      completed_at: "2026-07-17T08:00:07Z",
+      error_kind: "publish_timeout",
+    };
+    const invalid = {
+      ...published,
+      run_id: "schedule:inventory:3",
+      status: "lost" as const,
+      claimed_at: "invalid",
+      completed_at: "2026-07-17T08:00:09Z",
+    };
+
+    expect(summarizeSchedulerRuns([published, failed, invalid])).toEqual({
+      loaded: 3,
+      published: 1,
+      failedOrLost: 2,
+      publishRate: 1 / 3,
+      medianCloseMs: 1000,
+      p95CloseMs: 4000,
+    });
+    expect(summarizeSchedulerRuns([])).toEqual({
+      loaded: 0,
+      published: 0,
+      failedOrLost: 0,
+      publishRate: null,
+      medianCloseMs: null,
+      p95CloseMs: null,
+    });
   });
 });

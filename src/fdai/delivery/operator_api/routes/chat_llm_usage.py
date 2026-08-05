@@ -30,8 +30,12 @@ _EXPLICIT_USAGE: Final = re.compile(
 )
 _FOLLOWUP_CUE: Final = re.compile(
     r"\b(?:last|past|previous|prior|this)\s+(?:day|week|month)|"
-    r"\b(?:daily|weekly|monthly|hourly|again|only|trend|"
+    r"\b(?:daily|weekly|monthly|hourly|again|trend|"
     r"chart|graph|table|export|download|group(?:ed)?\s+by)\b|"
+    # `only` alone is a weak cue - exclude it right after "read", since
+    # "read-only"/"read only" is FDAI's own pervasive read-only-architecture
+    # phrase and must never by itself imply an LLM-usage analysis follow-up.
+    r"(?<!read[- ])\bonly\b|"
     r"(?:오늘|어제|최근|지난|이번).{0,12}(?:일|주|주간|달|월|개월)|"
     r"(?:일주일|한\s*주|하루|한\s*달|한\s*개월)|"
     r"(?:그래프|차트|표|테이블)(?:로|으로)?|"
@@ -41,11 +45,12 @@ _FOLLOWUP_CUE: Final = re.compile(
 )
 _EXPLICIT_OTHER_SUBJECT: Final = re.compile(
     r"\b(?:vm|virtual\s+machine|database|postgres|sql|resource|subscription|"
-    r"incident|service\s+health|resource\s+health|cpu|memory|storage|network|"
+    r"incident|service\s+health|resource\s+health|service\s+outage|outage|"
+    r"cpu|memory|storage|network|"
     r"deployment|pod|cluster|aks|container\s+app|cost|spend|billing|error\s+rate|"
     r"latency|availability|throughput|request\s+count|success\s+rate|failure\s+rate)\b|"
     r"(?:가상\s*머신|데이터베이스|리소스|구독|인시던트|서비스\s*상태|"
-    r"리소스\s*상태|CPU|메모리|스토리지|네트워크|배포|파드|클러스터|AKS|"
+    r"리소스\s*상태|장애|아웃티지|CPU|메모리|스토리지|네트워크|배포|파드|클러스터|AKS|"
     r"컨테이너\s*앱|비용|지출|청구|오류율|에러율|지연|가용성|처리량|요청\s*수|"
     r"성공률|실패율|장애\s*수|인시던트\s*수)",
     re.IGNORECASE,

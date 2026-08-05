@@ -268,6 +268,7 @@ function skillColumns(): readonly Column<RuntimeSkillItem>[] {
   { key: "dependencies", header: t("governance.skills.column.requiredTools"), render: (item) => item.required_tools.join(", ") || t("governance.common.none") },
   { key: "agents", header: t("governance.skills.column.allowedAgents"), render: (item) => item.allowed_agents.join(", ") || t("governance.common.all") },
   { key: "references", header: t("governance.skills.column.references"), render: (item) => item.references.length },
+  { key: "lifecycle", header: t("governance.skills.column.lifecycle"), render: (item) => t(`governance.skills.lifecycle.${skillLifecycleState(item)}`) },
   {
     key: "eligibility",
     header: t("governance.skills.column.loadEligibility"),
@@ -279,6 +280,14 @@ function skillColumns(): readonly Column<RuntimeSkillItem>[] {
     ),
   },
 ];
+}
+
+export function skillLifecycleState(
+  item: Pick<RuntimeSkillItem, "enabled" | "eligible">,
+): "installed" | "enabled" | "eligible" {
+  if (item.eligible) return "eligible";
+  if (item.enabled) return "enabled";
+  return "installed";
 }
 
 function diagnosticColumns(): readonly Column<SkillDiagnostic>[] {
@@ -360,6 +369,7 @@ function SkillsBody({ data }: { readonly data: RuntimeSkillsResponse }) {
         <KpiCard href={bundlesHref} label={t("governance.skills.kpi.bundles")} value={formatNumber(data.installed_bundle_count)} />
         <KpiCard href={bundlesHref} label={t("governance.skills.kpi.eligibleBundles")} value={formatNumber(data.eligible_bundle_count)} />
         <KpiCard href={diagnosticsHref} label={t("governance.skills.kpi.diagnostics")} value={formatNumber(data.diagnostics.length)} />
+        <KpiCard href={skillsHref} label={t("governance.skills.kpi.authorityPromotion")} value={t("governance.skills.kpi.notApplicable")} />
       </KpiGrid>
       <section id="runtime-skills" class="stack-section" aria-label={t("governance.skills.section.installedAria")}>
         <header class="section-header"><div><h3>{t("governance.skills.section.installedTitle")}</h3><p>{t("governance.skills.section.installedDescription", { agent: data.agent })}</p></div></header>

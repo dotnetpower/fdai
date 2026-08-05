@@ -52,6 +52,9 @@ the two are resolved and validated independently.
 6. **Every change must be notified and audited.** Core deterministically computes recipients and
   the audit payload. Live PR/merge integration must bind those primitives to notification and
   audit adapters.
+7. **Autonomy is an ownership alternative.** `accept_autonomous` is valid only when the Agent has
+  no accountable owner. A configuration that declares both is rejected because it creates two
+  contradictory escalation routes.
 
 ## 2. Concepts and vocabulary
 
@@ -277,8 +280,9 @@ An injected `IdentityDirectory` (Graph-backed in a fork, static in tests) is ask
 to confirm each maintainer/steward OID still resolves to an active account. A
 missing OID produces a `stale_oid` finding and the person is dropped from live
 escalation (falling through to the next tier / maintainer). This runs off the hot
-path (scheduled), never inline in the control loop. Production stores transition-only health and
-merges the latest validated stale findings into the read-only `/stewardship` coverage response.
+path (scheduled), never inline in the control loop. Production stores transition-only findings and
+a separate last-success heartbeat. The read-only `/stewardship` response merges stale findings only
+when the heartbeat is unexpired and names the same state revision.
 
 ### 7.4 CI gate (`scripts/governance/check-stewardship.sh`)
 
@@ -316,13 +320,24 @@ This closes the loop: the same people who are accountable for an agent are the
 people told when its governing workflow is about to change, and the change is
 permanently recorded.
 
-## 9. Console settings surface
+## 9. Console Agent oversight surface
 
-The Handover route combines a read-only projection with a governed proposal form:
+The Governance > Agent oversight route combines a read-only projection with a governed proposal
+form:
 
 - **Current ownership** - all 15 agents, accountable owners, notification contacts, backup
   coverage, autonomous status, FDAI maintainer count, and validation findings from
   `GET /stewardship`.
+- **Projection validation** - the browser accepts only supported integer schema versions,
+  non-negative integer counts, and positive timeout and assignment limits. It recomputes aggregate
+  counts from the fixed Pantheon map, requires the maintainer floor and non-empty exact subject
+  references, rejects duplicate real maintainers and duplicate exact steward subjects, and rejects
+  drift instead of displaying inferred health. Version 2 non-autonomous projections also require
+  Primary and distinct Backup or Escalation coverage.
+- **Finding validation** - coverage findings use the fixed code and severity vocabulary, reference
+  only fixed Pantheon Agents when an Agent is present, and derive the clean state from the absence
+  of warning findings. Each code also fixes its severity and whether its scope is one Agent or the
+  whole map. Unknown or contradictory findings fail closed.
 - **Register ownership** - a Contributor, Approver, or Owner can add one or more rows containing
   the canonical agent, person or group display name or email, subject kind, and responsibility.
   The browser generates explicit `agent`, `subject`, `identity`, and `responsibility` tags and

@@ -36,6 +36,7 @@
       ["ontology.html", "Ontology", "is-plum"],
       ["ontology-map.html", "Ontology map", "is-plum"],
       ["ontology-knowledge-graph.html", "Full knowledge graph", "is-plum"],
+      ["settings-iam.html", "Agent oversight", "is-sage"],
       ["workflow-builder.html", "Workflow builder", ""]
     ]],
     ["Evidence", [
@@ -57,7 +58,6 @@
       ["settings.html", "General", "is-steel"],
       ["settings-models.html", "Models", ""],
       ["settings-memory.html", "Operator memory", ""],
-      ["settings-iam.html", "Identity and access", ""],
       ["settings-integrations.html", "Integrations", ""],
       ["settings-diagnostics.html", "Diagnostics", ""]
     ]]

@@ -31,8 +31,8 @@ import { LlmCostTrend } from "./llm-cost-trend";
 import {
   panelArray,
   panelBoolean,
+  panelNonNegativeInteger,
   panelNullableString,
-  panelNumber,
   panelRecord,
   panelString,
 } from "./panel-decode";
@@ -56,7 +56,7 @@ interface Summary {
   readonly total_tokens: number;
 }
 
-interface InvocationRecord {
+export interface InvocationRecord {
   readonly occurred_at: string;
   readonly correlation_id: string;
   readonly capability_id: string;
@@ -67,6 +67,47 @@ interface InvocationRecord {
   readonly prompt_tokens: number;
   readonly completion_tokens: number;
   readonly total_tokens: number;
+}
+
+const INVOCATION_CSV_FIELDS: readonly (keyof InvocationRecord)[] = [
+  "occurred_at",
+  "correlation_id",
+  "capability_id",
+  "model_key",
+  "tier",
+  "mode",
+  "usage_scope",
+  "prompt_tokens",
+  "completion_tokens",
+  "total_tokens",
+];
+
+export function invocationCsv(records: readonly InvocationRecord[]): string {
+  const rows = [
+    INVOCATION_CSV_FIELDS,
+    ...records.map((record) => INVOCATION_CSV_FIELDS.map((field) => record[field])),
+  ];
+  return `${rows.map((row) => row.map(csvCell).join(",")).join("\r\n")}\r\n`;
+}
+
+export function downloadInvocationCsv(records: readonly InvocationRecord[]): void {
+  const url = URL.createObjectURL(new Blob([invocationCsv(records)], {
+    type: "text/csv;charset=utf-8",
+  }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "fdai-llm-invocations.csv";
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function csvCell(value: string | number): string {
+  const raw = String(value);
+  const formulaCandidate = raw.replace(/^[\s\uFEFF]+/u, "");
+  const safe = /^[=+\-@]/.test(formulaCandidate) ? `'${raw}` : raw;
+  return `"${safe.replaceAll('"', '""')}"`;
 }
 
 interface Response {
@@ -176,10 +217,10 @@ export function decodeLlmCost(value: unknown): Response {
     const summary = panelRecord(value, label);
     return {
       key: panelString(summary, "key", label),
-      invocations: panelNumber(summary, "invocations", label),
-      prompt_tokens: panelNumber(summary, "prompt_tokens", label),
-      completion_tokens: panelNumber(summary, "completion_tokens", label),
-      total_tokens: panelNumber(summary, "total_tokens", label),
+      invocations: panelNonNegativeInteger(summary, "invocations", label),
+      prompt_tokens: panelNonNegativeInteger(summary, "prompt_tokens", label),
+      completion_tokens: panelNonNegativeInteger(summary, "completion_tokens", label),
+      total_tokens: panelNonNegativeInteger(summary, "total_tokens", label),
     };
   };
   const summaries = (key: string) => panelArray(root[key], `LLM cost.${key}`)
@@ -189,7 +230,7 @@ export function decodeLlmCost(value: unknown): Response {
     range_start: panelNullableString(root, "range_start", "LLM cost"),
     range_end: panelNullableString(root, "range_end", "LLM cost"),
     latest_occurred_at: panelNullableString(root, "latest_occurred_at", "LLM cost"),
-    invocations: panelNumber(root, "invocations", "LLM cost"),
+    invocations: panelNonNegativeInteger(root, "invocations", "LLM cost"),
     total: decodeSummary(root["total"], "LLM cost.total"),
     chat: decodeSummary(root["chat"], "LLM cost.chat"),
     by_scope: summaries("by_scope"),
@@ -198,7 +239,7 @@ export function decodeLlmCost(value: unknown): Response {
     by_mode: summaries("by_mode"),
     by_conversation: summaries("by_conversation"),
     by_conversation_truncated: panelBoolean(root, "by_conversation_truncated", "LLM cost"),
-    conversation_count: panelNumber(root, "conversation_count", "LLM cost"),
+    conversation_count: panelNonNegativeInteger(root, "conversation_count", "LLM cost"),
     by_hour: summaries("by_hour"),
     by_day: summaries("by_day"),
     by_month: summaries("by_month"),
@@ -212,13 +253,13 @@ export function decodeLlmCost(value: unknown): Response {
         tier: panelString(record, "tier", `LLM cost.records[${index}]`),
         mode: panelString(record, "mode", `LLM cost.records[${index}]`),
         usage_scope: panelString(record, "usage_scope", `LLM cost.records[${index}]`),
-        prompt_tokens: panelNumber(record, "prompt_tokens", `LLM cost.records[${index}]`),
-        completion_tokens: panelNumber(record, "completion_tokens", `LLM cost.records[${index}]`),
-        total_tokens: panelNumber(record, "total_tokens", `LLM cost.records[${index}]`),
+        prompt_tokens: panelNonNegativeInteger(record, "prompt_tokens", `LLM cost.records[${index}]`),
+        completion_tokens: panelNonNegativeInteger(record, "completion_tokens", `LLM cost.records[${index}]`),
+        total_tokens: panelNonNegativeInteger(record, "total_tokens", `LLM cost.records[${index}]`),
       };
     }),
     records_truncated: panelBoolean(root, "records_truncated", "LLM cost"),
-    record_count: panelNumber(root, "record_count", "LLM cost"),
+    record_count: panelNonNegativeInteger(root, "record_count", "LLM cost"),
   };
 }
 
@@ -329,6 +370,13 @@ function LlmCostBody({ data, range }: { readonly data: Response; readonly range:
             label={t("llmCost.latestInvocation")}
             value={data.latest_occurred_at ? <time class="llm-cost-timestamp" dateTime={data.latest_occurred_at}>{new Date(data.latest_occurred_at).toLocaleString(locale)}</time> : kpiEvidenceLabel("not-measured")}
           />
+                  <KpiCard
+                    evidenceState="not-connected"
+                    href={routeHref("operating-outcomes", { segments: ["cost-per-resolved-event"] })}
+                    label={t("llmCost.fixedCost")}
+                    value={kpiEvidenceLabel("not-connected")}
+                    hint={t("llmCost.fixedCostHint")}
+                  />
         </KpiGrid>
       </div>
 
@@ -359,6 +407,7 @@ function LlmCostBody({ data, range }: { readonly data: Response; readonly range:
       <section class="stack llm-cost-section" id="invocation-ledger">
         <div class="llm-cost-section-head">
           <div><h3>{t("llmCost.invocationLedger")}</h3><p>{t("llmCost.invocationLedgerSubtitle")}</p></div>
+                  <button type="button" class="btn" disabled={data.records.length === 0} onClick={() => downloadInvocationCsv(data.records)}>{t("llmCost.exportCsv")}</button>
         </div>
         {data.records_truncated ? <p class="muted">{t("llmCost.recordsTruncated", { shown: data.records.length, total: data.record_count })}</p> : null}
         <DataTable
@@ -373,6 +422,7 @@ function LlmCostBody({ data, range }: { readonly data: Response; readonly range:
         <summary>{t("llmCost.additionalRollups")}</summary>
         <div class="stack llm-cost-rollups-body">
           <RollupTable heading={t("llmCost.chatUsage")} rows={data.chat_by_model} keyHeader={t("llmCost.column.model")} empty={t("llmCost.empty")} href={() => auditHref} />
+          <RollupTable heading={t("llmCost.byConversation")} rows={data.by_conversation} keyHeader={t("llmCost.column.correlationId")} empty={t("llmCost.empty")} href={llmUsageCorrelationHref} />
           <RollupTable heading={t("llmCost.byScope")} rows={data.by_scope} keyHeader={t("llmCost.column.scope")} empty={t("llmCost.empty")} href={() => auditHref} />
           <RollupTable heading={t("llmCost.byMode")} rows={data.by_mode} keyHeader={t("llmCost.column.mode")} empty={t("llmCost.empty")} href={(key) => routeHref("audit", { params: { ...auditContext, mode: key } })} />
           <RollupTable heading={t("llmCost.byDay")} rows={data.by_day} keyHeader={t("llmCost.column.day")} empty={t("llmCost.empty")} href={() => auditHref} />

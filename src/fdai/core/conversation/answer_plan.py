@@ -265,7 +265,13 @@ _MODIFIERS: Final[tuple[tuple[str, re.Pattern[str]], ...]] = (
     (
         "chart",
         re.compile(
-            r"\b(as a (?:chart|graph)|chart format|graph format)\b|차트로|그래프로",
+            # Allow a few descriptive words between "as a" and chart/graph
+            # (e.g. "as a daily time-series chart", "as a weekly bar graph"),
+            # not only the bare adjacent phrase "as a chart".
+            r"\bas an?\s+(?:[\w-]+\s+){0,3}(?:chart|graph)\b|"
+            r"\bchart\s+format\b|\bgraph\s+format\b|"
+            r"\bplot\b.{0,48}\b(?:chart|graph)\b|"
+            r"차트로|그래프로",
             re.I,
         ),
     ),

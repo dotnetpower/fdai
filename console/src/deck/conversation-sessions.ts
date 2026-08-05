@@ -87,6 +87,7 @@ export interface ConversationSummary {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly lastReadAt?: string;
+  readonly favorite?: boolean;
   readonly binding?: IncidentConversationBinding;
   readonly restoredFromServer?: boolean;
 }
@@ -209,6 +210,7 @@ export function parseConversationIndex(raw: string | null): ConversationSummary[
       ...(typeof record.lastReadAt === "string" && !Number.isNaN(Date.parse(record.lastReadAt))
         ? { lastReadAt: record.lastReadAt }
         : {}),
+      ...(record.favorite === true ? { favorite: true } : {}),
       ...(typeof record.agent === "string" && record.agent.length > 0
         ? { agent: record.agent }
         : {}),
@@ -222,6 +224,17 @@ export function parseConversationIndex(raw: string | null): ConversationSummary[
 export function conversationHasUnreadActivity(summary: ConversationSummary): boolean {
   return summary.lastReadAt !== undefined &&
     Date.parse(summary.updatedAt) > Date.parse(summary.lastReadAt);
+}
+
+export type ConversationListFilter = "mine" | "unread" | "favorites";
+
+export function conversationMatchesFilter(
+  summary: ConversationSummary,
+  filter: ConversationListFilter,
+): boolean {
+  if (filter === "unread") return conversationHasUnreadActivity(summary);
+  if (filter === "favorites") return summary.favorite === true;
+  return true;
 }
 
 export function markConversationRead(

@@ -15,13 +15,25 @@ import {
   panelStringArray,
 } from "./panel-decode";
 
+const CAPABILITY_SIDE_EFFECT_CLASSES = [
+  "read",
+  "simulate",
+  "approve",
+  "execute",
+  "breakglass",
+] as const;
+type CapabilitySideEffectClass = typeof CAPABILITY_SIDE_EFFECT_CLASSES[number];
+
+const CAPABILITY_MODES = ["shadow", "enforce"] as const;
+type CapabilityMode = typeof CAPABILITY_MODES[number];
+
 interface Capability {
   readonly capability_id: string;
   readonly name: string;
   readonly category: string;
   readonly summary: string;
-  readonly side_effect_class: string;
-  readonly default_mode: string;
+  readonly side_effect_class: CapabilitySideEffectClass;
+  readonly default_mode: CapabilityMode;
   readonly required_role: string;
   readonly slide_ref: string | null;
   readonly tags: readonly string[];
@@ -55,8 +67,8 @@ export function decodeCapabilities(value: unknown): CapabilityResponse {
         name: panelNonEmptyString(item, "name", "capability"),
         category: panelNonEmptyString(item, "category", "capability"),
         summary: panelNonEmptyString(item, "summary", "capability"),
-        side_effect_class: panelNonEmptyString(item, "side_effect_class", "capability"),
-        default_mode: panelNonEmptyString(item, "default_mode", "capability"),
+        side_effect_class: decodeCapabilitySideEffectClass(item),
+        default_mode: decodeCapabilityMode(item),
         required_role: panelNonEmptyString(item, "required_role", "capability"),
         slide_ref: panelNullableString(item, "slide_ref", "capability"),
         tags: panelStringArray(item["tags"], "capability.tags"),
@@ -72,6 +84,26 @@ export function decodeCapabilities(value: unknown): CapabilityResponse {
     count,
     capabilities,
   };
+}
+
+function decodeCapabilitySideEffectClass(
+  item: Readonly<Record<string, unknown>>,
+): CapabilitySideEffectClass {
+  const value = panelNonEmptyString(item, "side_effect_class", "capability");
+  if (!CAPABILITY_SIDE_EFFECT_CLASSES.some((candidate) => candidate === value)) {
+    throw new Error("invalid Operator API response: capability.side_effect_class is invalid");
+  }
+  return value as CapabilitySideEffectClass;
+}
+
+function decodeCapabilityMode(
+  item: Readonly<Record<string, unknown>>,
+): CapabilityMode {
+  const value = panelNonEmptyString(item, "default_mode", "capability");
+  if (!CAPABILITY_MODES.some((candidate) => candidate === value)) {
+    throw new Error("invalid Operator API response: capability.default_mode is invalid");
+  }
+  return value as CapabilityMode;
 }
 
 export interface CapabilityRouteState {
@@ -99,11 +131,22 @@ const columns: readonly Column<Capability>[] = [
   { key: "effect", header: t("governance.capabilities.column.sideEffectClass"), render: (row) => <StatusPill kind={row.side_effect_class === "read" ? "info" : "warning"} label={row.side_effect_class} /> },
   { key: "mode", header: t("governance.capabilities.column.defaultMode"), render: (row) => <StatusPill kind={row.default_mode === "shadow" ? "shadow" : "enforce"} label={row.default_mode} /> },
   { key: "role", header: t("governance.capabilities.column.requiredRole"), render: (row) => row.required_role },
+  { key: "path", header: t("governance.capabilities.column.operatorPath"), render: (row) => <StatusPill kind={capabilityRequestPath(row.side_effect_class).tone} label={t(`governance.capabilities.operatorPath.${capabilityRequestPath(row.side_effect_class).key}`)} /> },
   { key: "summary", header: t("governance.capabilities.column.summary"), render: (row) => row.summary },
 ];
 
-export function isMutatingCapability(sideEffectClass: string): boolean {
+export function isMutatingCapability(sideEffectClass: CapabilitySideEffectClass): boolean {
   return sideEffectClass === "execute" || sideEffectClass === "breakglass";
+}
+
+export function capabilityRequestPath(sideEffectClass: CapabilitySideEffectClass): Readonly<{
+  key: "directRead" | "governedRequest" | "humanApproval" | "ownerBreakGlass";
+  tone: "info" | "shadow" | "hil" | "danger";
+}> {
+  if (sideEffectClass === "read") return { key: "directRead", tone: "info" };
+  if (sideEffectClass === "simulate") return { key: "governedRequest", tone: "shadow" };
+  if (sideEffectClass === "breakglass") return { key: "ownerBreakGlass", tone: "danger" };
+  return { key: "humanApproval", tone: "hil" };
 }
 
 function CapabilitiesBody({ data }: { readonly data: CapabilityResponse }) {
@@ -267,8 +310,12 @@ function CapabilitiesBody({ data }: { readonly data: CapabilityResponse }) {
             <div><dt>{t("governance.capabilities.detail.sideEffect")}</dt><dd>{selected.side_effect_class}</dd></div>
             <div><dt>{t("governance.capabilities.detail.defaultMode")}</dt><dd>{selected.default_mode}</dd></div>
             <div><dt>{t("governance.capabilities.detail.requiredRole")}</dt><dd>{selected.required_role}</dd></div>
+            <div><dt>{t("governance.capabilities.detail.operatorPath")}</dt><dd>{t(`governance.capabilities.operatorPath.${capabilityRequestPath(selected.side_effect_class).key}`)}</dd></div>
             <div><dt>{t("governance.capabilities.detail.tags")}</dt><dd>{selected.tags.join(", ") || "-"}</dd></div>
           </dl>
+          {isMutatingCapability(selected.side_effect_class) ? (
+            <a href={routeHref("promotion-gates")}>{t("governance.capabilities.detail.openPromotionEvidence")}</a>
+          ) : null}
           <a href={routeHref(capabilityPanel(selected.category))}>{t("governance.capabilities.detail.openRelated")}</a>
         </section>
       ) : null}

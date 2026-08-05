@@ -23,8 +23,10 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Sequence
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -48,7 +50,7 @@ from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.testing.workload_identity import (
     StaticWorkloadIdentity,
 )
-from fdai.shared.providers.workload_identity import WorkloadIdentity
+from fdai.shared.providers.workload_identity import IdentityToken, WorkloadIdentity
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 VOCABULARY_FILE = REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
@@ -331,6 +333,105 @@ async def test_skip_token_is_followed_until_exhausted() -> None:
 
 
 @pytest.mark.asyncio
+async def test_each_page_refreshes_workload_identity_token() -> None:
+    audience = "https://management.azure.com/.default"
+    identity = AsyncMock(spec=WorkloadIdentity)
+    identity.get_token.side_effect = [
+        IdentityToken(
+            token="page-one-token",
+            expires_at=datetime.now(tz=UTC) + timedelta(minutes=1),
+            audience=audience,
+        ),
+        IdentityToken(
+            token="page-two-token",
+            expires_at=datetime.now(tz=UTC) + timedelta(hours=1),
+            audience=audience,
+        ),
+    ]
+    authorizations: list[str] = []
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        authorizations.append(request.headers["Authorization"])
+        if len(authorizations) == 1:
+            return httpx.Response(200, json={"data": [], "$skipToken": "next"})
+        return httpx.Response(200, json={"data": []})
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        await arg_transport.fetch_arg_row_pages(
+            identity=identity,
+            http_client=client,
+            audience=audience,
+            endpoint="https://management.azure.com",
+            api_version="2022-10-01",
+            subscriptions=("00000000-0000-0000-0000-000000000001",),
+            query="Resources | project id",
+            result_name="token-refresh-test",
+            page_size=1,
+            max_pages=2,
+            timeout_seconds=5.0,
+            error_type=ArgQueryError,
+        )
+
+    assert authorizations == ["Bearer page-one-token", "Bearer page-two-token"]
+    assert identity.get_token.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_each_retry_refreshes_workload_identity_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    audience = "https://management.azure.com/.default"
+    identity = AsyncMock(spec=WorkloadIdentity)
+    identity.get_token.side_effect = [
+        IdentityToken(
+            token="first-attempt-token",
+            expires_at=datetime.now(tz=UTC) + timedelta(seconds=1),
+            audience=audience,
+        ),
+        IdentityToken(
+            token="retry-token",
+            expires_at=datetime.now(tz=UTC) + timedelta(hours=1),
+            audience=audience,
+        ),
+    ]
+    authorizations: list[str] = []
+    now = 0.0
+
+    monkeypatch.setattr(arg_transport, "_monotonic", lambda: now)
+
+    async def _record_delay(delay: float) -> None:
+        nonlocal now
+        now += delay
+
+    monkeypatch.setattr(arg_transport, "_sleep", _record_delay)
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        authorizations.append(request.headers["Authorization"])
+        if len(authorizations) == 1:
+            return httpx.Response(429)
+        return httpx.Response(200, json={"data": []})
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        await arg_transport.fetch_arg_row_pages(
+            identity=identity,
+            http_client=client,
+            audience=audience,
+            endpoint="https://management.azure.com",
+            api_version="2022-10-01",
+            subscriptions=("00000000-0000-0000-0000-000000000001",),
+            query="Resources | project id",
+            result_name="token-retry-test",
+            page_size=1,
+            max_pages=1,
+            timeout_seconds=5.0,
+            error_type=ArgQueryError,
+        )
+
+    assert authorizations == ["Bearer first-attempt-token", "Bearer retry-token"]
+    assert identity.get_token.await_count == 2
+
+
+@pytest.mark.asyncio
 async def test_pagination_cap_raises() -> None:
     def _handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -521,6 +622,89 @@ async def test_invalid_retry_after_uses_bounded_backoff(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("status_code", [408, 429, 500, 502, 503, 504])
+async def test_retryable_status_matrix_uses_bounded_backoff(
+    status_code: int,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    now = 0.0
+    delays: list[float] = []
+
+    monkeypatch.setattr(arg_transport, "_monotonic", lambda: now)
+
+    async def _record_delay(delay: float) -> None:
+        nonlocal now
+        delays.append(delay)
+        now += delay
+
+    monkeypatch.setattr(arg_transport, "_sleep", _record_delay)
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(status_code)
+        return httpx.Response(200, json={"data": []})
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        await factory.build_query_fn()("object-storage")
+
+    assert calls == 2
+    assert delays == [0.5]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "reset_after",
+    ["00:00:inf", "01:-1:00", "00:60:00", "00:00:60"],
+)
+async def test_invalid_quota_reset_header_does_not_create_wait(
+    reset_after: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    delays: list[float] = []
+
+    async def _record_delay(delay: float) -> None:
+        delays.append(delay)
+
+    monkeypatch.setattr(arg_transport, "_sleep", _record_delay)
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(
+                200,
+                headers={
+                    "x-ms-user-quota-remaining": "0",
+                    "x-ms-user-quota-resets-after": reset_after,
+                },
+                json={"data": [], "$skipToken": "next"},
+            )
+        return httpx.Response(200, json={"data": []})
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        await factory.build_query_fn()("object-storage")
+
+    assert calls == 2
+    assert delays == []
+
+
+@pytest.mark.asyncio
 async def test_retry_after_beyond_local_bound_fails_without_early_retry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -639,6 +823,68 @@ async def test_non_object_data_row_fails_closed() -> None:
         )
         with pytest.raises(ArgQueryError, match="non-object row"):
             await factory.build_query_fn()("object-storage")
+
+
+@pytest.mark.asyncio
+async def test_raw_page_response_byte_cap_fails_closed() -> None:
+    content = json.dumps({"data": [{"value": "bounded"}]}).encode()
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=content)
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        with pytest.raises(ArgQueryError, match="response exceeded"):
+            await arg_transport.fetch_arg_row_pages(
+                identity=_identity(),
+                http_client=client,
+                audience="https://management.azure.com/.default",
+                endpoint="https://management.azure.com",
+                api_version="2022-10-01",
+                subscriptions=("00000000-0000-0000-0000-000000000001",),
+                query="Resources | project id",
+                result_name="byte-cap-test",
+                page_size=1,
+                max_pages=1,
+                timeout_seconds=5.0,
+                error_type=ArgQueryError,
+                max_response_bytes=len(content) - 1,
+            )
+
+
+@pytest.mark.asyncio
+async def test_cumulative_response_byte_cap_fails_closed() -> None:
+    contents = [
+        json.dumps({"data": [{"value": "first"}], "$skipToken": "next"}).encode(),
+        json.dumps({"data": [{"value": "second"}]}).encode(),
+    ]
+    calls = 0
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        content = contents[calls]
+        calls += 1
+        return httpx.Response(200, content=content)
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        with pytest.raises(ArgQueryError, match="responses exceeded"):
+            await arg_transport.fetch_arg_row_pages(
+                identity=_identity(),
+                http_client=client,
+                audience="https://management.azure.com/.default",
+                endpoint="https://management.azure.com",
+                api_version="2022-10-01",
+                subscriptions=("00000000-0000-0000-0000-000000000001",),
+                query="Resources | project id",
+                result_name="total-byte-cap-test",
+                page_size=1,
+                max_pages=2,
+                timeout_seconds=5.0,
+                error_type=ArgQueryError,
+                max_response_bytes=max(map(len, contents)),
+                max_total_response_bytes=sum(map(len, contents)) - 1,
+            )
+
+    assert calls == 2
 
 
 @pytest.mark.asyncio
@@ -855,26 +1101,16 @@ async def test_end_to_end_inventory_snapshot_streams_final_true() -> None:
 
 
 @pytest.mark.asyncio
-async def test_non_mapping_rows_and_missing_id_are_skipped() -> None:
+@pytest.mark.parametrize(
+    "row",
+    [
+        {"id": "", "type": "Microsoft.Storage/storageAccounts"},
+        {"type": "Microsoft.Storage/storageAccounts"},
+    ],
+)
+async def test_missing_or_empty_provider_id_fails_closed(row: dict[str, Any]) -> None:
     def _handler(_request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200,
-            json={
-                "data": [
-                    "not-a-mapping",
-                    {"id": "", "type": "Microsoft.Storage/storageAccounts"},  # empty id
-                    {"type": "no-id"},  # missing id
-                    _arm_row(
-                        arm_id=(
-                            "/subscriptions/00000000-0000-0000-0000-000000000001/"
-                            "resourceGroups/rg-a/providers/Microsoft.Storage/"
-                            "storageAccounts/keep"
-                        ),
-                        arm_type="Microsoft.Storage/storageAccounts",
-                    ),
-                ]
-            },
-        )
+        return httpx.Response(200, json={"data": [row]})
 
     async with _make_client(httpx.MockTransport(_handler)) as client:
         factory = AzureArgQueryFactory(
@@ -883,13 +1119,8 @@ async def test_non_mapping_rows_and_missing_id_are_skipped() -> None:
             http_client=client,
             config=_config(),
         )
-        resources, _ = await factory.build_query_fn()("object-storage")
-
-    # Only the well-formed row survives; the three malformed ones are dropped
-    # silently - no ArgQueryError because that's per-page level, not per-row.
-    assert len(resources) == 1
-    assert resources[0].provider_ref is not None
-    assert resources[0].provider_ref.endswith("/storageAccounts/keep")
+        with pytest.raises(ArgQueryError, match="lacks a provider id"):
+            await factory.build_query_fn()("object-storage")
 
 
 def test_neutral_id_falls_back_when_no_resource_group_marker() -> None:

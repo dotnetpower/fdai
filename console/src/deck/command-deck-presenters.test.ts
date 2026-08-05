@@ -7,6 +7,7 @@ import {
   hasOverflowingText,
   routerTooltip,
   shouldLoadMoreConversations,
+  verticalQuickStarts,
 } from "./command-deck-presenters";
 
 describe("conversation history paging", () => {
@@ -31,6 +32,19 @@ describe("conversation title overflow", () => {
     expect(hasOverflowingText({ clientWidth: 120, scrollWidth: 121 })).toBe(true);
     expect(hasOverflowingText({ clientWidth: 120, scrollWidth: 120 })).toBe(false);
     expect(hasOverflowingText({ clientWidth: 120, scrollWidth: 80 })).toBe(false);
+  });
+});
+
+describe("vertical quick starts", () => {
+  it("keeps one localized entry for each FDAI operating vertical", () => {
+    const starts = verticalQuickStarts();
+
+    expect(starts.map((item) => item.key)).toEqual([
+      "resilience",
+      "changeSafety",
+      "costGovernance",
+    ]);
+    expect(starts.every((item) => item.label.length > 0 && item.prompt.length > 0)).toBe(true);
   });
 });
 

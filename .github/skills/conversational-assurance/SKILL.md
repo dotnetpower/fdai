@@ -1,6 +1,6 @@
 ---
 name: conversational-assurance
-description: "Continuous FDAI conversational reliability workflow. Use when building, operating, reviewing, or resuming the chat-quality watchdog; generating nonduplicate FDAI questions; evaluating Azure-backed answers; hardening a failed answer; checking idle-session behavior; or asking whether a fix generalizes to similar questions."
+description: "Continuous FDAI conversational reliability workflow. Use when the user says 대화개선, 채팅개선, 대화무한개선, 채팅무한개선, 대화개선 현황, 채팅개선 현황, conversation improvement, chat improvement, conversation assurance status, or continuous conversation assurance; or when building, operating, reviewing, or resuming the chat-quality watchdog, evaluating Azure-backed answers, hardening a failed answer, or checking generalization."
 ---
 
 # FDAI Continuous Conversational Assurance
@@ -17,7 +17,8 @@ contracts fail.
 The process runs indefinitely while the PC and user systemd session are available. Indefinite means
 a recurring timer, not a busy loop:
 
-- `fdai-chat-watchdog.timer` starts one bounded cycle every 20 minutes with jitter.
+- `fdai-chat-watchdog.timer` starts the next bounded cycle within one minute, with small jitter.
+- `fdai-chat-watchdog-supervisor.timer` checks and repairs the watchdog every 30 minutes.
 - `Persistent=true` resumes a missed cycle after sleep or restart when the user session returns.
 - Daily question and hardening budgets reset by UTC day; they bound cost without ending the service.
 - `.improve/STOP` is the immediate local stop switch.
@@ -26,20 +27,37 @@ a recurring timer, not a busy loop:
    retries produce a redacted `cycle_hold` ledger record and a successful service exit, so one
    transient generation failure cannot disable or obscure later timer invocations.
 
-Before each cycle, skip without generating a question when any of these conditions is true:
+Before each cycle, skip without generating a question only when any of these conditions is true:
 
-- A current Copilot transcript or legacy debug log changed inside the configured idle window.
-- A Copilot CLI process or explicit FDAI session lease is active.
 - Another improvement runner owns the lock.
 - The daily question or hardening budget is exhausted.
 - `.improve/STOP` exists.
 
-A dirty primary worktree does not block a cycle after all sessions are idle. Hardening starts from
-the committed `HEAD` in a separate worktree and must not read, stage, overwrite, or archive the
-primary worktree's uncommitted changes.
+A dirty primary worktree or active developer session does not block measurement. Hardening starts
+from committed `HEAD` in a separate worktree and must not read, stage, overwrite, or archive the
+primary worktree's uncommitted changes. The runner lock prevents overlapping generated candidates.
 
-Do not infer idleness only from process names. Current VS Code builds record activity under
-`GitHub.copilot-chat/transcripts/*.jsonl`; retain legacy `debug-logs/*/main.jsonl` support.
+The recovery supervisor repairs a disabled or inactive main timer, resets a failed service, and
+starts a nonblocking recovery cycle after 45 minutes without ledger activity or three consecutive
+question-generation holds. It never edits source, deletes worktrees, breaks a lock, or bypasses
+`.improve/STOP`. Recovery observations are stored in ignored mode-`0600`
+`supervisor.jsonl`.
+
+## Campaign start and focus
+
+The trigger phrases are `대화개선`, `채팅개선`, `대화무한개선`, `채팅무한개선`,
+`conversation improvement`, `chat improvement`, and `continuous conversation assurance`.
+When one appears:
+
+1. Ask once for SRE, ARB, Change Management, DR, Chaos, or Balanced focus.
+2. Select SRE if the operator is unavailable.
+3. Persist the choice in ignored `.improve/chat-watchdog/config.json` with mode `0600`.
+4. Install or refresh the user-systemd timer with `--allow-active`.
+5. Continue bounded cycles without asking again until `.improve/STOP` appears or focus changes.
+
+The logical conversation id is `dev-discuss-<focus>`. Its wire kind remains `web`, so the harness
+uses the same authorization, routing, evidence, verification, history, and terminal response
+contract as the Console without inventing a second answer engine.
 
 ## Assurance loop
 
@@ -49,14 +67,69 @@ Run one cycle in this order:
 2. **Generate one question**: use the tool-disabled Copilot CLI wrapper. Reject exact and near
    duplicates from the local ledger.
 3. **Measure the real answer**: start an ephemeral Azure-backed Operator API with server-owned scope.
-4. **Evaluate objectively**: check required concepts, forbidden fallback text, and expected
-   authority. Subjective Copilot review is advisory only.
+4. **Evaluate every quality dimension**: inspect the terminal `/chat/stream` `done` payload for
+   answer-contract coverage, verification, presentation, observed work, and timing.
 5. **Hold or harden**: a deterministic failure may start one isolated hardening candidate. A
    provider outage, quota event, or unavailable evidence is not a code defect by itself.
 6. **Verify generalization**: measure the original question and its persisted similar-question
    cohort after the fix.
 7. **Preserve for review**: retain a verified branch, remove the generated worktree, and never
    merge to `main` automatically.
+8. **Continue immediately**: the next timer activation generates the next bounded question within
+   one minute after the cycle ends.
+
+## Multidimensional answer gate
+
+Every terminal answer is assessed by exactly ten named rubrics. Each rubric scores `0` or `1`, so
+the total is an integer in `[0, 10]`. A cycle passes at `9/10` or `10/10`; any lower score records
+the failed dimensions and enters the guarded hardening path. A later passing evaluation of the same
+challenge and normalized question resolves the historical failure without deleting its audit row.
+
+| Rubric | Required evidence |
+|--------|-------------------|
+| Appropriateness | Required contract concepts plus an independent review of relevance, directness, and honest uncertainty. Only a `medium` or `high` failure at confidence >= 0.85 may enter hardening. |
+| Completeness | Every required concept and result-row constraint for the selected challenge is present. |
+| Grounding | The terminal response carries bounded evidence references and no fallback source. |
+| Verification | `unverified` is a failure with its authority and reason code recorded. `verified`, `consistent`, and `corrected` remain distinct outcomes. |
+| Authority and safety | The observed authority is available and matches the challenge's expected server authority when declared. |
+| Visualization | `answer_plan.format` must match the question. Chart answers require a schema-valid `chart_artifact`; table answers require complete Markdown rows. |
+| Investigation | Operational investigation questions require schema-v1 `trajectory_detail` with agent, authority, status, label, and bounded branch/activity records. |
+| Execution record | Observed commands or queries require `redacted=true`, tool, bounded command, output/truncation state when available, and duration. These are read-operation observations, not executor authority. |
+| Performance | Record total `latency_ms`, every `turn_timing` phase, the slowest phase, degraded/failed phases, and configured total/phase budget violations. |
+| Response integrity | The answer is nonempty, bounded, free of forbidden fallback text, and emitted by a valid terminal response. |
+
+Persist these dimensions in the local ledger so a repair is attributable to the exact failure.
+Headless presentation validation proves the Console-facing artifact contract. A separate browser
+canary remains responsible for CSS/layout rendering regressions; do not claim pixel parity from
+the headless cycle alone.
+
+## Evaluation and regression ledgers
+
+Use three separate ignored, mode-`0600` JSONL files:
+
+- `questions.jsonl` records cycle and hardening lifecycle events.
+- `evaluations.jsonl` records every question, redacted answer, answer digest, all ten rubric
+   results, total score, verification, presentation, trajectory counts, total latency, every phase,
+   and bottleneck.
+- `regressions.jsonl` records the original failed question and every generated similar question.
+
+Every evaluated question enters `regressions.jsonl` immediately as a regression baseline. A failed
+question expands into a cohort with its generated paraphrases before hardening. Duplicate rejection
+reads all three ledgers. A generated original or paraphrase must never be used again as a new random
+question, while the persisted regression cohort remains available for later candidate and release
+checks. The original and every cohort question must each reach at least `9/10` before the failure is
+resolved.
+
+## Status reporting
+
+When the operator asks `대화개선 현황`, `채팅개선 현황`, or `conversation assurance status`, run:
+
+```bash
+python3 .improve/auto-hardening/chat_watchdog.py --project . --status --top 20
+```
+
+Return the complete summary and latest 20 question-and-answer evaluation rows as a Markdown table.
+This is a read-only report and must not start a cycle, change focus, or acquire the runner lock.
 
 ## Question contract
 
@@ -132,7 +205,7 @@ but it must never start hardening.
 
 ```bash
 # Status
-systemctl --user status fdai-chat-watchdog.timer --no-pager
+systemctl --user status fdai-chat-watchdog.timer fdai-chat-watchdog-supervisor.timer --no-pager
 
 # Recent cycles
 journalctl --user -u fdai-chat-watchdog.service -n 100 --no-pager
@@ -143,10 +216,19 @@ rm .improve/STOP
 
 # Preview without Copilot or Azure
 python3 .improve/auto-hardening/chat_watchdog.py --project . --force --dry-run
+
+# Start or change campaign focus
+python3 .improve/auto-hardening/install_chat_watchdog_timer.py install --project . --focus sre
+
+# Summary and latest 20 evaluations
+python3 .improve/auto-hardening/chat_watchdog.py --project . --status --top 20
+
+# Resume the newest unresolved score below 9/10 immediately
+python3 .improve/auto-hardening/chat_watchdog.py --project . --harden-latest --allow-active
 ```
 
-The local question and verdict ledger is `.improve/chat-watchdog/questions.jsonl`. It may contain
-environment-derived operational text and must remain ignored, mode `0600`, and uncommitted.
+The local ledgers under `.improve/chat-watchdog/` may contain environment-derived operational text
+and must remain ignored, mode `0600`, and uncommitted.
 
 ## Verification
 

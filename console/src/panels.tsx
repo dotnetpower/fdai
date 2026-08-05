@@ -345,7 +345,7 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     id: "handover",
     label: t("nav.panel.handover"),
     subtitle: t("nav.panelSub.handover"),
-    group: "agents",
+    group: "governance",
     component: HandoverRoute,
   },
   {

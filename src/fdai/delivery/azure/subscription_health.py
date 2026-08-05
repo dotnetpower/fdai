@@ -129,6 +129,8 @@ class AzureSubscriptionHealthConfig:
             raise ValueError("max_concurrent_queries MUST be in [1, 8]")
         if not 0.1 <= self.timeout_seconds <= 120:
             raise ValueError("timeout_seconds MUST be in [0.1, 120]")
+        if not 1_024 <= self.max_response_bytes <= 5_000_000:
+            raise ValueError("max_response_bytes MUST be in [1024, 5000000]")
 
 
 class AzureSubscriptionHealthProvider:

@@ -212,9 +212,8 @@ description, invocation schema, capability gate, allowlist, and output wrapper.
 
 ### Reviewed runtime skills
 
-Runtime skills are portable Markdown instructions that teach an agent how to use already
-registered tools. They are separate from repository coding-agent skills and grant no tool,
-identity, role, or execution authority.
+Runtime skills are portable Markdown instructions that teach an agent how to use already registered tools. They are separate from repository coding-agent skills and grant no tool, identity, role, or execution authority. FDAI Console displays `Installed`, `Enabled`, and `Eligible to load` as load-readiness states and marks authority promotion as not applicable.
+Capability declarations separately show the deterministic operator request path; mutation declarations link to measured ActionType promotion evidence instead of inferring promotion from skill eligibility or catalog presence.
 
 - **Three stages:** the bounded index contains metadata only; `load_skill` returns one complete selected `SKILL.md`; `read_skill_reference` returns one declared support artifact. `list_skills` and `describe_skill` are also Reader operations and never change lifecycle.
 - **Signed artifact manifest:** YAML front matter covers identity, version, provenance, body digest, required tools, allowed agents, and content-addressed references. Unsafe paths, undeclared or partial files, symlink-shaped metadata, digest mismatch, and configured budget overflow fail closed.

@@ -29,7 +29,10 @@ from fdai.delivery.operator_api.routes.chat_inventory import (
     inventory_execution_query,
     render_inventory_answer,
 )
-from fdai.delivery.operator_api.routes.chat_inventory_compiler import compile_inventory_query
+from fdai.delivery.operator_api.routes.chat_inventory_compiler import (
+    compile_inventory_query,
+    inventory_query_status_groups,
+)
 from fdai.delivery.operator_api.routes.chat_inventory_followup import (
     InventoryScreenScopeStatus,
     contextualize_inventory_scope_followup,
@@ -1137,6 +1140,43 @@ async def test_common_azure_resource_queries_filter_inventory_graph(
 
     assert evidence is not None
     assert [item["name"] for item in evidence["result"]["resources"]] == [expected_name]
+
+
+async def test_running_vm_results_are_filtered_and_sorted_by_name() -> None:
+    running_names = [f"vm-{index:02d}" for index in range(42)]
+    resources = [
+        *(
+            _resource(name, "compute.vm", name, status="VM running")
+            for name in reversed(running_names)
+        ),
+        _resource("stopped", "compute.vm", "stopped", status="VM deallocated"),
+    ]
+
+    async def provider(
+        scope: str | None,
+        depth: int,
+        link_types: tuple[str, ...],
+        *,
+        root: str | None = None,
+        limit: int = 500,
+    ) -> dict[str, Any]:
+        del scope, depth, link_types, root, limit
+        return {
+            "resources": resources,
+            "links": [],
+            "freshness": "fresh",
+            "source": "test-inventory",
+        }
+
+    evidence = await InventoryChatTools(provider).resolve(
+        "현재 구독에서 실행중인 vm 목록",
+        principal_id="reader",
+    )
+
+    assert evidence is not None
+    assert evidence["result"]["status_filter"] == ["vm running"]
+    assert evidence["result"]["matched_count"] == 42
+    assert [item["name"] for item in evidence["result"]["resources"]] == running_names[:40]
 
 
 def test_twenty_azure_resource_questions_are_grounded_and_deterministic() -> None:
@@ -2611,6 +2651,16 @@ def test_intent_graph_status_hint_completes_unknown_korean_inventory_inflection(
 
 
 def test_noncanonical_semantic_inventory_status_fails_closed() -> None:
+    # Deliberately whimsical slang that the deterministic catalog does NOT
+    # (and should never trivially) recognize as a canonical state, so the
+    # planner's non-canonical "alive" guess is the only status signal and
+    # must fail closed. If a future catalog addition starts recognizing this
+    # phrase, swap in a different unrecognized phrase rather than loosening
+    # the assertion below - this test exists to prove the fail-closed
+    # contract, not to pin one specific sentence.
+    prompt = "VM 중에 요즘 팔팔한 애들만 알려줘"
+    assert inventory_query_status_groups(prompt) == ()
+
     class Planner:
         async def plan_turn(self, **_kwargs: object) -> Any:
             return parse_turn_plan(
@@ -2648,7 +2698,7 @@ def test_noncanonical_semantic_inventory_status_fails_closed() -> None:
         TestClient(app)
         .post(
             "/chat",
-            json={"prompt": "VM 중에 지금 살아있는 것만 알려줘", "view_context": {}},
+            json={"prompt": prompt, "view_context": {}},
         )
         .json()
     )

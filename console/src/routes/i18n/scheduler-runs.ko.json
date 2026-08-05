@@ -28,4 +28,12 @@
   "loadMoreError": "스케줄러 실행을 더 불러오지 못했습니다: {message}",
   "tableLabel": "{taskId} dispatch 이력",
   "viewHeadline": "{taskId}: 불러온 dispatch 시도 {count}건"
+  ,"metricsTitle": "Dispatch 근거 전용"
+  ,"metricsBoundary": "발행됨은 scheduler가 broker dispatch를 기록했다는 뜻입니다. 작업 실행 또는 결과 성공을 증명하지 않습니다."
+  ,"loadedAttempts": "불러온 시도"
+  ,"publishRate": "발행률"
+  ,"failedOrLost": "실패 또는 유실"
+  ,"medianClose": "선점-종료 중앙값"
+  ,"p95Close": "선점-종료 P95"
+  ,"loadedSample": "불러온 페이지만 사용"
 }

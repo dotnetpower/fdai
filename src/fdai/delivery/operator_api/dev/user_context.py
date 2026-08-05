@@ -19,6 +19,7 @@ from fdai.core.workflow.definition import (
     build_workflow_definition,
     built_in_workflow_lifecycle,
 )
+from fdai.delivery.conversation_images import InMemoryConversationImageStore
 from fdai.delivery.operator_api.routes.user_context import UserContextRoutesConfig
 from fdai.delivery.operator_api.routes.workflow_definitions import WorkflowDefinitionRoutesConfig
 from fdai.shared.providers.testing import (
@@ -61,6 +62,7 @@ def build_local_user_context(
 ) -> LocalUserContext:
     """Build local user context and upstream workflow projections."""
     conversations = InMemoryConversationHistoryStore()
+    images = InMemoryConversationImageStore()
     ontology_store = InMemoryOntologyInstanceStore(
         object_types=object_types,
         link_types=link_types,
@@ -91,6 +93,7 @@ def build_local_user_context(
             store=continuations,
             audit=InMemoryContinuationAuditSink(),
         ),
+        images=images,
     )
     action_types_by_name = {item.name: item for item in action_types}
     built_in_definitions = tuple(

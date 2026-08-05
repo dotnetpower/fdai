@@ -25,7 +25,7 @@ const ROUTES = [
   "/ontology",
   "/pantheon",
   "/agent-activity",
-  "/handover",
+  "/agent-oversight",
   "/rules",
   "/workflow-builder",
   "/capabilities",

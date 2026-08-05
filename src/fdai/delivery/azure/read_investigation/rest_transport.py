@@ -586,7 +586,6 @@ class AzureRestReadTransport:
         json_body: Mapping[str, object] | None = None,
         throttle_gate: ArgThrottleGate | None = None,
     ) -> Mapping[str, Any]:
-        token = await self._identity.get_token(audience)
         deadline = self._monotonic() + min(
             limits.timeout_seconds,
             self._config.timeout_seconds,
@@ -598,6 +597,13 @@ class AzureRestReadTransport:
                 break
             if throttle_gate is not None:
                 await throttle_gate.wait()
+                remaining = deadline - self._monotonic()
+                if remaining <= 0:
+                    break
+            token = await self._identity.get_token(audience)
+            remaining = deadline - self._monotonic()
+            if remaining <= 0:
+                break
             try:
                 response = await self._http.request(
                     method,

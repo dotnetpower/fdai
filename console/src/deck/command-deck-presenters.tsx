@@ -30,18 +30,23 @@ import {
   conversationGroups,
   isScreenConversationKey,
   type ConversationSummary,
+  type ConversationListFilter,
+  conversationMatchesFilter,
 } from "./conversation-sessions";
 import { useViewContext } from "./context";
 import type { ConversationTrajectory } from "./conversation-trajectory";
 import { ConversationTrajectoryView } from "./conversation-trajectory-view";
+import { ConversationTurnAttachments } from "./conversation-turn-attachments";
 import { GroundedReply } from "./grounded-reply";
 import { InvestigationTimeline } from "./investigation-timeline";
 import { introSuggestions } from "./intro-suggestions";
+import type { TurnAttachment } from "./turn-attachments";
 
 export interface Turn {
   readonly id: string;
   readonly role: "operator" | "deck";
   readonly text: string;
+  readonly attachments?: readonly TurnAttachment[];
   readonly recordedAt?: string;
   /** Bounded non-rendered context sent in place of `text` for backend history. */
   readonly groundingText?: string;
@@ -299,6 +304,7 @@ export function ConversationSidebar({
   onLoadMore,
   onSelect,
   onRemove,
+  onToggleFavorite,
 }: {
   readonly conversations: readonly ConversationSummary[];
   readonly activeKey: string;
@@ -309,13 +315,17 @@ export function ConversationSidebar({
   readonly onLoadMore: () => void;
   readonly onSelect: (conversation: ConversationSummary) => void;
   readonly onRemove: (conversation: ConversationSummary) => void;
+  readonly onToggleFavorite: (conversation: ConversationSummary) => void;
 }) {
   const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<ConversationListFilter>("mine");
   const normalizedQuery = query.trim().toLocaleLowerCase();
+  const filteredConversations = conversations.filter((conversation) =>
+    conversationMatchesFilter(conversation, filter));
   const visibleConversations = normalizedQuery
-    ? conversations.filter((conversation) =>
+    ? filteredConversations.filter((conversation) =>
         `${conversation.label} ${conversation.originLabel}`.toLocaleLowerCase().includes(normalizedQuery))
-    : conversations;
+    : filteredConversations;
   const groups = conversationGroups(visibleConversations, currentPath);
   return (
     <aside
@@ -345,6 +355,18 @@ export function ConversationSidebar({
         placeholder={t("deck.filterConversations")}
         onInput={(event) => setQuery(event.currentTarget.value)}
       />
+      <div class="deck-conversation-filters" role="group" aria-label={t("deck.conversationFilters.label")}>
+        {(["mine", "unread", "favorites"] as const).map((value) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={filter === value}
+            onClick={() => setFilter(value)}
+          >
+            {t(`deck.conversationFilters.${value}`)}
+          </button>
+        ))}
+      </div>
       <div class="deck-conversation-list">
         {visibleConversations.length === 0 ? (
           <p class="deck-conversation-empty">
@@ -359,6 +381,7 @@ export function ConversationSidebar({
               showOrigin={false}
               onSelect={onSelect}
               onRemove={onRemove}
+              onToggleFavorite={onToggleFavorite}
             />
             <ConversationGroup
               label={t("deck.otherScreens")}
@@ -367,6 +390,7 @@ export function ConversationSidebar({
               showOrigin
               onSelect={onSelect}
               onRemove={onRemove}
+              onToggleFavorite={onToggleFavorite}
             />
             <ConversationGroup
               label={t("deck.agentConversations")}
@@ -375,6 +399,7 @@ export function ConversationSidebar({
               showOrigin
               onSelect={onSelect}
               onRemove={onRemove}
+              onToggleFavorite={onToggleFavorite}
             />
           </>
         )}
@@ -399,6 +424,7 @@ function ConversationGroup({
   showOrigin,
   onSelect,
   onRemove,
+  onToggleFavorite,
 }: {
   readonly label: string;
   readonly conversations: readonly ConversationSummary[];
@@ -406,6 +432,7 @@ function ConversationGroup({
   readonly showOrigin: boolean;
   readonly onSelect: (conversation: ConversationSummary) => void;
   readonly onRemove: (conversation: ConversationSummary) => void;
+  readonly onToggleFavorite: (conversation: ConversationSummary) => void;
 }) {
   if (conversations.length === 0) return null;
   return (
@@ -444,6 +471,17 @@ function ConversationGroup({
               </small>
             </span>
           </button>
+          <Tooltip content={t(conversation.favorite ? "deck.favorite.remove" : "deck.favorite.add")}>
+            <button
+              type="button"
+              class={`deck-conversation-favorite${conversation.favorite ? " is-favorite" : ""}`}
+              onClick={() => onToggleFavorite(conversation)}
+              aria-label={`${t(conversation.favorite ? "deck.favorite.remove" : "deck.favorite.add")}: ${conversation.label}`}
+              aria-pressed={conversation.favorite === true}
+            >
+              <span aria-hidden="true">{conversation.favorite ? "★" : "☆"}</span>
+            </button>
+          </Tooltip>
           {!isScreenConversationKey(conversation.key) ? (
             <Tooltip content={t("deck.removeCachedConversationHint")}>
               <button
@@ -572,6 +610,9 @@ export function TurnBubble({
         />
       ) : (
         <div class="deck-turn-body">
+          {turn.attachments && turn.attachments.length > 0 ? (
+            <ConversationTurnAttachments attachments={turn.attachments} />
+          ) : null}
           {turn.text.split("\n").map((line, index) => (
             <p key={index} class="deck-turn-line">{line}</p>
           ))}
@@ -653,9 +694,23 @@ export function IntroPanel({
   readonly onPick: (suggestion: string) => void;
 }) {
   const suggestions = introSuggestions(snapshot);
+  const verticals = verticalQuickStarts();
   return (
     <div class="deck-intro">
       <p class="deck-intro-lead">{t("deck.intro")}</p>
+      <div class="deck-intro-verticals" aria-label={t("deck.verticalQuickStarts.label")}>
+        <span>{t("deck.verticalQuickStarts.label")}</span>
+        {verticals.map((vertical) => (
+          <button
+            key={vertical.key}
+            type="button"
+            class="deck-vertical-suggest"
+            onClick={() => onPick(vertical.prompt)}
+          >
+            {vertical.label}
+          </button>
+        ))}
+      </div>
       <ul class="deck-intro-suggest">
         {suggestions.map((suggestion) => (
           <li key={suggestion}>
@@ -667,4 +722,28 @@ export function IntroPanel({
       </ul>
     </div>
   );
+}
+
+export function verticalQuickStarts(): readonly Readonly<{
+  key: "resilience" | "changeSafety" | "costGovernance";
+  label: string;
+  prompt: string;
+}>[] {
+  return [
+    {
+      key: "resilience",
+      label: t("deck.verticalQuickStarts.resilience"),
+      prompt: t("deck.verticalQuickStarts.resiliencePrompt"),
+    },
+    {
+      key: "changeSafety",
+      label: t("deck.verticalQuickStarts.changeSafety"),
+      prompt: t("deck.verticalQuickStarts.changeSafetyPrompt"),
+    },
+    {
+      key: "costGovernance",
+      label: t("deck.verticalQuickStarts.costGovernance"),
+      prompt: t("deck.verticalQuickStarts.costGovernancePrompt"),
+    },
+  ];
 }

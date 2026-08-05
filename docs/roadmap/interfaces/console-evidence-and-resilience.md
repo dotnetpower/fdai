@@ -15,7 +15,7 @@ Selecting a cached conversation from another screen is the bounded exception: th
 event, then activates its transcript. The Deck remains open without a transient default-session
 switch or close/reopen focus cycle. Same-screen and agent conversations switch without navigation.
 Reselecting the already active same-screen conversation is focus-only; it does not reload the sessionStorage transcript over newer in-memory turns.
-Selecting an inactive conversation records only a browser-local read acknowledgement and does not change its activity timestamp, so the history order remains stable. A conversation title is bold
+Selecting an inactive conversation records only a browser-local read acknowledgement and does not change its activity timestamp, so the history order remains stable. Principal-scoped `Mine`, `Unread`, and `Favorites` filters use only browser-local navigation metadata; toggling a favorite doesn't change server activity, evidence, or ordering. A conversation title is bold
 only while its observed activity is newer than its persisted read timestamp; selecting it clears
 that cue without moving the row. Only newer server activity advances the ordering timestamp.
 For a non-agent conversation, the first operator question becomes the title while the originating
@@ -35,10 +35,12 @@ default instead of activating an unrelated-route or agent transcript. Context-de
 Verified fresh inventory answers can include a bounded `resource_result_context` in server-owned replay metadata. It carries no raw resource ID, is never accepted from browser context, and preserves source, snapshot, scope, query digest, freshness, truncation, and up to 40 ordered selectors for later deterministic follow-ups.
 Ordinal follow-ups revalidate the selected position through exact fresh inventory predicates. Ambiguity follow-ups show only equal-name candidates from a complete prior result set. Incomplete context stays unavailable and cannot fall back to current-screen or narrator output.
 Verified source-manifest answers also preserve bounded unavailable or unknown entries as `source_failure_context`. Partial-source continuations render available facts and exact gaps from that receipt, including reason and last observation when present, without treating an arbitrary unverified answer as source authority. Verified or corrected `query_llm_usage` answers preserve a bounded `analysis_context` with the domain, capability, token measure, grouping, `usage_scope`, and numeric 1-90 day lookback. A refinement that changes only the period, grouping, table, or chart reuses that server-owned anchor and re-reads metering evidence. Comparison, export, missing-anchor, client-supplied-anchor, and explicit different-metric requests return a context-required hold instead of selecting inventory, Resource Health, or narrator output.
-Full-workspace Command Deck sessions start with the transcript as the only open content column. The transcript toolbar exposes filtered conversation history in workspace, docked, and floating layouts; the narrower layouts open it over the transcript instead of reducing transcript width. The current-screen digest remains a workspace control.
+Full-workspace Command Deck sessions start with the transcript as the only open content column. An empty transcript keeps situational suggestions and adds localized Resilience, Change Safety, and Cost Governance quick starts without changing tool selection or authority. The transcript toolbar exposes filtered conversation history in workspace, docked, and floating layouts; the narrower layouts open it over the transcript instead of reducing transcript width. The current-screen digest remains a workspace control. The Deck reads the composition-owned data-source manifest once per open surface and shows compact Inventory, Incidents, Audit, Knowledge, and Automation readiness links above the transcript. Missing or non-authoritative sources remain `unknown`; the browser doesn't infer health, expose raw provider details, or replace the manifest with route presence. Loading uses a stable skeleton, and manifest failure links to Diagnostics without blocking conversation history.
 History loads 100 durable summaries at a time in stable cursor order. The count shows
 `100+` after it reaches 100, and nearing the history scroll boundary loads the next 100. Turn
-bodies hydrate only on selection. A transcript restored from browser or durable history shows a
+bodies hydrate only on selection. An operator image is visible in its sent turn. Browser cache
+serialization drops inline bytes and keeps a bounded descriptor; durable restoration fetches the
+binary through the authenticated principal-and-conversation-scoped image route. A transcript restored from browser or durable history shows a
 resumed-session marker until the operator starts a new conversation. The Deck header owns the route
 and optional agent context; it never repeats a non-agent conversation question. Digest owns record
 count, snapshot age, and stale refresh; the composer keeps attachments, question entry, and send or
@@ -58,8 +60,25 @@ The Agents workspace uses three compact views: `Fleet`, `Org`, and `Activity`. F
 runtime state with the fixed registry ownership and safety flags inside per-agent Details
 disclosures. Org renders the keyboard-accessible reporting chart and selected incident evidence.
 The stable `/pantheon` path remains a compatibility route for Org, so existing links continue to
-resolve without keeping a second Pantheon directory in navigation. Ownership Handover remains a
-separate Explorer panel because it has its own governed proposal workflow.
+resolve without keeping a second Pantheon directory in navigation. Agent oversight is a Governance
+panel at `/agent-oversight` because operational ownership and its governed proposal workflow are
+governance concerns. The previous `/handover` path remains a compatibility alias.
+Its five views are Overview, Human dependencies, Knowledge handover, Approval routes, and Mapping
+reviews. Overview and Human dependencies use the strict `GET /stewardship` projection. Mapping
+reviews reuses the owner-gated `GET /iam/assignments` projection and derives its capability and
+principal only from `GET /iam`. Knowledge handover uses the governed draft boundary. Approval
+routes remains explicitly unavailable until its own authoritative projection is connected; the
+browser does not infer a route from ownership data. A missing stewardship source blocks only
+Overview and Human dependencies; it does not hide the independent Knowledge handover, Approval
+routes, or Mapping reviews views.
+Overview renders identity-source freshness only from `identity_health`. The Operator API supplies
+`checked_at` only from an unexpired last-success heartbeat whose revision matches the stale-finding
+snapshot. A completed `clean` or `warn` check requires that timestamp and a finding count that
+matches merged `stale_oid` coverage. Any mismatch is a contract error rather than a healthy or
+current state.
+Each agent's `bus_factor` counts distinct accountable `(kind, id)` subject units, matching the
+coverage evaluator. The browser recomputes that count from the steward projection and rejects a
+different headline value instead of overstating backup coverage.
 
 Settings includes a Runtime policies route backed by the authoritative StateStore. The route shows
 sanitized environment, override, and effective values without exposing secrets, endpoints, tenant
@@ -78,8 +97,8 @@ Operations includes a Detection readiness route backed only by Muninn's durable 
 It shows Heimdall's decision, the six evidence dimensions, gaps, authority ceiling, source, and
 observation time. The browser does not probe AKS or derive a replacement decision. Each target
 links to its Architecture resource, and promotion-related counts link to Promotion gates. A
-successful HTTP response that fails strict decoding renders an error instead of remaining in the
-loading skeleton.
+successful HTTP response for this route or Capabilities that fails strict decoding renders an error
+instead of remaining in the loading skeleton or treating an unknown autonomy mode as enforcement.
 
 With a server-pinned drift context, the GET-only Configuration baselines route fresh-reads identity, lifecycle, drift, Knowledge citation, topology, latency, scheduled-review, and four safety counters.
 It reports absent binding or campaign as unavailable or `not-configured`, never invents progress, strictly rejects malformed data, and compares immutable in-scope versions with failed-attempt counts. The SPA exposes no activation, resume, schedule creation, approval, mitigation, or resource mutation; evidence-run, resume, blueprint review, and materialization use separate authenticated routes.
@@ -189,10 +208,10 @@ Leading indicators compare only reported current and baseline values. Missing va
 unavailable, and simulated values never create an operational pass or failure.
 
 LLM Cost leads with measured calls, tokens, chat share, and latest invocation evidence. Input and
-output composition, the selected-window trend, model attribution, and invocation records are derived only
+output composition, the selected-window trend, model and conversation attribution, and invocation records are derived only
 from the metering projection. When price attribution is not connected, the route states that boundary
-and doesn't estimate spend, budgets, per-call prices, or invoice amounts from token volume. Detailed
-workload, mode, day, and month rollups remain available in a secondary disclosure so the primary view
+and doesn't estimate spend, budgets, fixed infrastructure cost, per-call prices, or invoice amounts from token volume. The bounded visible invocation ledger can export a fixed allowlist as quoted CSV; formula-leading cells are neutralized. Detailed
+conversation, workload, mode, day, and month rollups remain available in a secondary disclosure so the primary view
 stays scannable without hiding evidence. Headline KPI labels and values stay left-aligned in a
 balanced four-, two-, or one-column grid, while token-composition counts and shares use common
 right-aligned numeric columns for comparison. One global UTC selector provides rolling 24-hour,

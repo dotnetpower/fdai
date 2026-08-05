@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import re
 from dataclasses import dataclass
 from typing import Any, Final
@@ -40,16 +41,19 @@ _DATA_URL: Final = re.compile(
     re.IGNORECASE,
 )
 _CONTROL_CHARS: Final = re.compile(r"[\x00-\x1f\x7f]")
+_ATTACHMENT_ID: Final = re.compile(r"att-[A-Za-z0-9-]{1,124}")
 
 
 @dataclass(frozen=True, slots=True)
 class VisionAttachment:
     """One validated inline image the narrator may ground a vision answer on."""
 
+    attachment_id: str
     name: str
     media_type: str
     data_url: str
     byte_size: int
+    content: bytes
 
     def to_view_dict(self) -> dict[str, Any]:
         """Render the view-context payload the vision narrator consumes."""
@@ -177,6 +181,16 @@ def _unique_name(name: str, used: set[str]) -> str:
     return candidate
 
 
+def _attachment_id(raw: Any, *, body: dict[str, Any], index: int, content: bytes) -> str:
+    if raw is not None:
+        if not isinstance(raw, str) or _ATTACHMENT_ID.fullmatch(raw) is None:
+            raise ValueError("attachment id is invalid")
+        return raw
+    request_id = body.get("request_id")
+    seed = f"{request_id if isinstance(request_id, str) else ''}:{index}:".encode() + content
+    return f"att-{hashlib.sha256(seed).hexdigest()[:40]}"
+
+
 def parse_vision_attachments(
     body: dict[str, Any],
     *,
@@ -237,10 +251,17 @@ def parse_vision_attachments(
             )
         parsed.append(
             VisionAttachment(
+                attachment_id=_attachment_id(
+                    item.get("id"),
+                    body=body,
+                    index=index,
+                    content=decoded,
+                ),
                 name=_unique_name(_clean_name(item.get("name"), index), used_names),
                 media_type=media_type,
                 data_url=f"data:{media_type};base64,{b64}",
                 byte_size=len(decoded),
+                content=decoded,
             )
         )
     return parsed

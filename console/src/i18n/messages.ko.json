@@ -89,7 +89,7 @@
     "architecture": "아키텍처",
     "ontology": "온톨로지",
     "pantheon": "판테온",
-    "handover": "인수인계",
+    "handover": "에이전트 감독",
     "promotionGates": "승급 게이트",
     "contextSelectionComparisons": "컨텍스트 정책 비교",
     "browserEvidence": "브라우저 근거",
@@ -176,7 +176,7 @@
       "architecture": "아키텍처",
       "ontology": "온톨로지",
       "pantheon": "조직",
-      "handover": "인수인계",
+      "handover": "에이전트 감독",
       "blastRadius": "영향 범위",
       "promotionGates": "승급 게이트",
       "contextSelectionComparisons": "컨텍스트 정책 비교",
@@ -229,7 +229,7 @@
       "architecture": "배포된 리소스, 경계 및 종속성",
       "ontology": "리소스 + 링크 그래프 (classDiagram)",
       "pantheon": "고정된 15개 에이전트의 보고 체계와 실시간 상태",
-      "handover": "15개 에이전트를 누가 담당하나: 책임 담당자 + FDAI 유지관리자",
+      "handover": "운영 담당 체계, 커버리지, 지식 인수인계 및 할당 검토",
       "blastRadius": "변경 전에 도달 가능한 하위 그래프 시뮬레이션",
       "promotionGates": "ActionType별 관찰 모드에서 실행 모드로의 승격 준비도",
       "contextSelectionComparisons": "기준 정책과 shadow 컨텍스트 선택 근거 비교",
@@ -460,7 +460,29 @@
     "organizationChartLabel": "판테온 조직도"
   },
   "handover": {
-    "subtitle": "15개 에이전트의 책임 담당자, FDAI 유지관리자, 담당 범위를 확인하고 Owner 검토용 담당 체계 변경을 제안합니다. 이 화면에서 런타임 변경을 직접 적용하지 않습니다.",
+    "subtitle": "15개 에이전트의 운영 담당 체계와 커버리지를 감독하고 Owner 검토용 변경을 제안합니다. 이 화면에서 런타임 변경을 직접 적용하지 않습니다.",
+    "viewsLabel": "에이전트 감독 보기",
+    "invalidView": "해당 에이전트 감독 보기가 없습니다.",
+    "noFindings": "발견된 담당 체계 커버리지 문제가 없습니다.",
+    "approvalRoutesUnavailable": "이 프로젝션에는 승인 경로 근거가 연결되지 않았습니다. 브라우저에서 경로나 권한을 추론하지 않습니다.",
+    "mappingReviewsLoading": "매핑 검토를 불러오는 중...",
+    "sourceHealth": "소스 상태",
+    "identityHealth": "ID 검증",
+    "checkedAt": "마지막 확인",
+    "identityHealthStatus": {
+      "not_configured": "구성되지 않음",
+      "pending": "확인 대기 중",
+      "unavailable": "확인할 수 없음",
+      "clean": "검증됨",
+      "warn": "검토 필요"
+    },
+    "view": {
+      "overview": "개요",
+      "human-dependencies": "사람 의존성",
+      "knowledge-handover": "지식 인수인계",
+      "approval-routes": "승인 경로",
+      "mapping-reviews": "매핑 검토"
+    },
     "unavailable": "이 배포에는 담당 체계 엔드포인트가 연결되지 않았습니다. 활성화하려면 구성 루트에서 OperatorApiConfig.stewardship_map을 설정하세요.",
     "noMaintainer": "구성된 유지관리자가 없습니다. 최소 1명이 필요합니다.",
     "oneMaintainer": "유지관리자가 1명뿐입니다. 안전한 승계를 위해 2명을 권장합니다.",
@@ -1052,6 +1074,9 @@
     "executor": "Executor 신원 경계",
     "executorHint": "executor는 RG 범위의 작업 허용목록 관리 신원입니다. 이 하드 IAM 상한은 어떤 거버넌스 범위로도 넓힐 수 없습니다.",
     "executorResourceGroups": "범위 리소스 그룹",
+    "hierarchy": "관리 범위 계층",
+    "hierarchyHint": "서버가 소유하는 명시적 항목만 표시합니다. 브라우저는 상속된 권한을 계산하지 않습니다.",
+    "hierarchySubscriptions": "구독",
     "none": "-",
     "builder": "범위 빌더",
     "builderHint": "포함/제외 선택을 구성한 뒤 생성된 아티팩트를 수정 / 구성 PR로 제출하세요. 콘솔에서는 아무것도 적용되지 않습니다.",
@@ -1171,6 +1196,18 @@
         "monitoring": "FDAI가 관련 신호를 연결하는 동안 인시던트가 열려 있습니다. 아직 기록된 수정 결정이나 작업은 없습니다."
       },
       "lifecycle": "수명 주기",
+      "alertStatus": "경보 상태",
+      "agentStatus": "에이전트 상태",
+      "userInput": "사용자 입력",
+      "required": "필요",
+      "notRequired": "필요하지 않음",
+      "agentState": {"completed": "완료", "blocked": "차단됨", "pending_user_input": "사용자 입력 대기", "in_progress": "진행 중", "monitoring": "모니터링"},
+      "routingTitle": "대응 라우팅",
+      "severity": "심각도",
+      "accountableAgents": "책임 에이전트",
+      "humanOwnership": "사람 담당 체계",
+      "openOwnership": "담당 체계 열기",
+      "autonomy": "자율 운영",
       "decision": "대응 결정",
       "authority": "변경 권한",
       "noDecision": "기록된 수정 결정 없음",
@@ -1942,6 +1979,16 @@
     "general": "일반",
     "noConversations": "대화를 시작하면 이 탭의 이력에 표시됩니다.",
     "filterConversations": "대화 검색",
+    "conversationFilters": {
+      "label": "대화 필터",
+      "mine": "내 대화",
+      "unread": "읽지 않음",
+      "favorites": "즐겨찾기"
+    },
+    "favorite": {
+      "add": "즐겨찾기에 추가",
+      "remove": "즐겨찾기에서 제거"
+    },
     "noConversationMatches": "검색 조건과 일치하는 대화가 없습니다.",
     "loadingConversations": "대화를 더 불러오는 중",
     "yesterdayAt": "어제 {time}",
@@ -1983,12 +2030,42 @@
       "readFailed": "파일을 읽지 못함"
     },
     "suggestedFollowUps": "추천 후속 질문",
+    "reviewAnswer": "답변 품질 검토",
     "intro": "현재 표시된 타일, KPI, 승인, 감사 행, 프로모션 상태, 영향 범위 또는 온톨로지에 관해 질문하세요. 모든 답변은 오른쪽 스냅샷을 근거로 합니다.",
+    "verticalQuickStarts": {
+      "label": "운영 영역",
+      "resilience": "복원력",
+      "resiliencePrompt": "현재 복원력 위험과 검증된 복구 공백을 보여줘.",
+      "changeSafety": "변경 안전",
+      "changeSafetyPrompt": "대기 중인 변경 안전 결정과 근거 공백을 보여줘.",
+      "costGovernance": "비용 거버넌스",
+      "costGovernancePrompt": "신뢰성 목표를 유지하는 측정된 비용 거버넌스 기회를 보여줘."
+    },
     "backend": {
       "probing": "확인 중",
       "connected": "연결됨",
       "ready": "LLM 준비됨",
       "deterministic": "결정론적"
+    },
+    "sourceReadiness": {
+      "label": "근거 원본",
+      "loading": "근거 원본 준비 상태를 불러오는 중",
+      "unavailable": "근거 원본 준비 상태를 사용할 수 없습니다.",
+      "openDiagnostics": "진단 열기",
+      "observed": "관찰 {time}",
+      "observationUnknown": "관찰 시각을 사용할 수 없음",
+      "source": {
+        "inventory": "인벤토리",
+        "incidents": "인시던트",
+        "audit": "감사",
+        "knowledge": "지식",
+        "automation": "자동화"
+      },
+      "status": {
+        "available": "사용 가능",
+        "unavailable": "사용 불가",
+        "unknown": "알 수 없음"
+      }
     },
     "digest": {
       "label": "명령 덱이 보는 내용",

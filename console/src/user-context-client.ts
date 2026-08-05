@@ -200,6 +200,41 @@ export async function fetchConversationTurns(
   return (response.turns as readonly ConversationTurnPayload[] | undefined) ?? [];
 }
 
+export async function fetchConversationImage(
+  conversationId: string,
+  imageId: string,
+): Promise<Blob> {
+  const base = loadConfig().operatorApiBaseUrl || window.location.origin;
+  const authorization = authContext ? await authContext.getAuthorizationHeader() : null;
+  const headers: Record<string, string> = { accept: "image/*" };
+  if (authorization !== null) headers.authorization = authorization;
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 10_000);
+  let response: Response;
+  try {
+    response = await fetch(
+      `${base.replace(/\/$/, "")}/me/conversations/${encodeURIComponent(conversationId)}/images/${encodeURIComponent(imageId)}`,
+      {
+        method: "GET",
+        headers,
+        credentials: "omit",
+        signal: controller.signal,
+      },
+    );
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new UserContextRequestError("Conversation image request timed out", 0);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
+  }
+  if (!response.ok) {
+    throw new UserContextRequestError("Conversation image unavailable", response.status);
+  }
+  return response.blob();
+}
+
 export async function searchConversations(input: {
   readonly query: string;
   readonly mode?: "terms" | "phrase" | "prefix";

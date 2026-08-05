@@ -28,6 +28,7 @@ import {
   parseRouter,
 } from "./backend-normalizers";
 import { parseTrajectoryDetail } from "./trajectory-detail";
+import { parseTurnAttachmentMetadata, type TurnAttachment } from "./turn-attachments";
 
 const MAX_SESSION_ID_CHARS = 200;
 const MAX_REPLAY_PAYLOAD_CHARS = 512 * 1024;
@@ -36,6 +37,7 @@ export interface RestoredTurn {
   readonly id: string;
   readonly role: "operator" | "deck";
   readonly text: string;
+  readonly attachments?: readonly TurnAttachment[];
   readonly source?: string;
   readonly terminal: boolean;
   readonly agent?: string;
@@ -89,6 +91,10 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
   const source = turn.metadata.source ?? replaySource(replay) ??
     (turn.role === "assistant" ? "history" : undefined);
   const agent = turn.metadata.agent ?? delegation?.primary_agent;
+  const attachments = parseTurnAttachmentMetadata(
+    turn.metadata.attachments,
+    turn.conversation_id,
+  );
   return {
     id: turn.turn_id,
     role: turn.role === "operator" ? "operator" : "deck",
@@ -96,6 +102,7 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
     at: time,
     recordedAt: turn.recorded_at,
     terminal: true,
+    ...(attachments.length > 0 ? { attachments } : {}),
     ...(source ? { source } : {}),
     ...(agent ? { agent } : {}),
     ...(router ? { router } : {}),

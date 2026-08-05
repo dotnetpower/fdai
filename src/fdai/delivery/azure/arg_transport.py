@@ -17,6 +17,8 @@ _RETRYABLE_STATUS_CODES = frozenset({408, 429, 500, 502, 503, 504})
 _DEFAULT_MAX_ATTEMPTS = 3
 _DEFAULT_INITIAL_RETRY_DELAY_SECONDS = 0.5
 _DEFAULT_MAX_RETRY_DELAY_SECONDS = 30.0
+_DEFAULT_MAX_RESPONSE_BYTES = 10_000_000
+_DEFAULT_MAX_TOTAL_RESPONSE_BYTES = 64_000_000
 
 
 class ArgThrottleGate:
@@ -126,7 +128,8 @@ async def fetch_arg_row_pages(
     max_retry_delay_seconds: float = _DEFAULT_MAX_RETRY_DELAY_SECONDS,
     request_headers: Mapping[str, str] | None = None,
     allow_truncated_without_token: bool = False,
-    max_response_bytes: int | None = None,
+    max_response_bytes: int | None = _DEFAULT_MAX_RESPONSE_BYTES,
+    max_total_response_bytes: int | None = _DEFAULT_MAX_TOTAL_RESPONSE_BYTES,
 ) -> tuple[Mapping[str, Any], ...]:
     """Fetch a complete, bounded ARG row set with quota-aware retries."""
     if max_attempts < 1:
@@ -137,29 +140,19 @@ async def fetch_arg_row_pages(
         raise ValueError("max_records MUST be >= 1")
     if max_response_bytes is not None and max_response_bytes < 1:
         raise ValueError("max_response_bytes MUST be >= 1")
+    if max_total_response_bytes is not None and max_total_response_bytes < 1:
+        raise ValueError("max_total_response_bytes MUST be >= 1")
     url = (
         f"{endpoint.rstrip('/')}"
         "/providers/Microsoft.ResourceGraph/resources"
         f"?api-version={api_version}"
     )
-    if request_headers is None:
-        try:
-            token = await identity.get_token(audience)
-        except Exception as exc:  # noqa: BLE001 - identity boundary fails closed
-            raise error_type(
-                f"ARG identity token request failed for {result_name!r}: {type(exc).__name__}"
-            ) from exc
-        headers = {
-            "Authorization": f"Bearer {token.token}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        }
-    else:
-        headers = dict(request_headers)
     collected: list[Mapping[str, Any]] = []
     skip_token: str | None = None
     seen_skip_tokens: set[str] = set()
+    total_response_bytes = 0
     gate = throttle_gate or ArgThrottleGate()
+    static_headers = dict(request_headers) if request_headers is not None else None
 
     for page in range(max_pages):
         body: dict[str, Any] = {
@@ -171,9 +164,11 @@ async def fetch_arg_row_pages(
             body["options"]["$skipToken"] = skip_token
 
         response = await _post_with_retry(
+            identity=identity,
             http_client=http_client,
             url=url,
-            headers=headers,
+            headers=static_headers,
+            audience=audience,
             body=body,
             timeout_seconds=timeout_seconds,
             resource_type=result_name,
@@ -193,6 +188,12 @@ async def fetch_arg_row_pages(
             raise error_type(
                 f"ARG response exceeded {max_response_bytes} bytes for {result_name!r} "
                 f"(page {page})"
+            )
+        total_response_bytes += len(response.content)
+        if max_total_response_bytes is not None and total_response_bytes > max_total_response_bytes:
+            raise error_type(
+                f"ARG responses exceeded {max_total_response_bytes} total bytes for "
+                f"{result_name!r} (page {page})"
             )
 
         try:
@@ -245,9 +246,11 @@ async def fetch_arg_row_pages(
 
 async def _post_with_retry(
     *,
+    identity: WorkloadIdentity,
     http_client: httpx.AsyncClient,
     url: str,
-    headers: Mapping[str, str],
+    headers: Mapping[str, str] | None,
+    audience: str,
     body: Mapping[str, Any],
     timeout_seconds: float,
     resource_type: str,
@@ -261,10 +264,25 @@ async def _post_with_retry(
     last_error: httpx.HTTPError | None = None
     for attempt in range(max_attempts):
         await throttle_gate.wait()
+        if headers is None:
+            try:
+                token = await identity.get_token(audience)
+            except Exception as exc:  # noqa: BLE001 - identity boundary fails closed
+                raise error_type(
+                    f"ARG identity token request failed for {resource_type!r} "
+                    f"(page {page}, attempt {attempt + 1}): {type(exc).__name__}"
+                ) from exc
+            request_headers: Mapping[str, str] = {
+                "Authorization": f"Bearer {token.token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+        else:
+            request_headers = headers
         try:
             response = await http_client.post(
                 url,
-                headers=headers,
+                headers=request_headers,
                 content=json.dumps(body),
                 timeout=timeout_seconds,
             )
@@ -320,8 +338,15 @@ def _quota_reset_seconds(headers: httpx.Headers) -> float | None:
         hours, minutes, seconds = (float(part) for part in parts)
     except ValueError:
         return None
+    if (
+        not all(isfinite(value) for value in (hours, minutes, seconds))
+        or hours < 0
+        or not 0 <= minutes < 60
+        or not 0 <= seconds < 60
+    ):
+        return None
     delay = hours * 3600 + minutes * 60 + seconds
-    return delay if delay >= 0 else None
+    return delay
 
 
 def _retry_after_seconds(raw: str | None) -> float | None:

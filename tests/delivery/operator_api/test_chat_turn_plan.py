@@ -509,6 +509,82 @@ def test_chat_routes_attach_shadow_semantic_plan(stream: bool) -> None:
 
 
 @pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        (
+            "When Mimir gathers evidence for a proposed change but the collected evidence falls "
+            "below the confidence threshold needed for a decision, what does FDAI do next - does "
+            "it pause, escalate to a human, or request additional evidence - and which agent is "
+            "responsible for that determination?"
+        ),
+        (
+            "If the evidence Mimir collects for a proposed change doesn't meet the confidence "
+            "threshold required to decide, how does FDAI proceed - pausing, escalating to a "
+            "human, or asking for more evidence - and which agent makes that call?"
+        ),
+        (
+            "So Mimir's evidence comes in below the confidence bar for a decision - what's "
+            "FDAI's next move here, does it pause things, kick it up to a person, or go fetch "
+            "more evidence, and who actually decides that?"
+        ),
+        (
+            "In cases where the evidence Mimir gathers for a proposed change fails to reach the "
+            "required confidence threshold, what action does FDAI take next, and which agent "
+            "holds responsibility for determining whether to pause, escalate to a human, or "
+            "request additional evidence?"
+        ),
+    ],
+)
+def test_insufficient_evidence_concept_bypasses_agent_intent_graph(
+    stream: bool,
+    prompt: str,
+) -> None:
+    class NeverDelegate:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def delegate(self, **_kwargs: object) -> None:
+            self.calls += 1
+            raise AssertionError("concept explanation must not call an agent conversational port")
+
+    backend = _AnswerBackend()
+    planner = _Planner()
+    delegate = NeverDelegate()
+    route = (
+        make_chat_stream_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=(*default_read_turn_tools(), *agent_turn_tools()),
+            agent_delegate=delegate,  # type: ignore[arg-type]
+        )
+        if stream
+        else make_chat_route(
+            backend=backend,
+            authorize=_allow,
+            turn_planner=planner,
+            turn_tools=(*default_read_turn_tools(), *agent_turn_tools()),
+            agent_delegate=delegate,  # type: ignore[arg-type]
+        )
+    )
+
+    response = TestClient(Starlette(routes=[route])).post(
+        "/chat/stream" if stream else "/chat",
+        json={"prompt": prompt, "view_context": {}},
+    )
+
+    assert response.status_code == 200
+    assert planner.calls == 0
+    assert delegate.calls == 0
+    assert backend.calls == 0
+    payload = response.text if stream else json.dumps(response.json())
+    assert "fdai_glossary" in payload
+    assert "abstain" in payload.casefold()
+    assert "Forseti" in payload
+
+
+@pytest.mark.parametrize("stream", [False, True])
 def test_chat_routes_execute_hierarchical_intent_graph(stream: bool) -> None:
     backend = _AnswerBackend()
     tools = (

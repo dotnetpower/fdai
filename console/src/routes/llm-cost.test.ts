@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   decodeLlmCost,
+  invocationCsv,
   llmUsageCorrelationHref,
   tokenShare,
   usageTrendPoints,
@@ -15,6 +16,44 @@ const summary = {
 };
 
 describe("LLM usage provenance", () => {
+  test("exports bounded invocation fields and neutralizes spreadsheet formulas", () => {
+    const csv = invocationCsv([{
+      occurred_at: "2026-08-04T00:00:00Z",
+      correlation_id: "=HYPERLINK(\"https://example.com\")",
+      capability_id: "query_inventory",
+      model_key: "model,one",
+      tier: "T1",
+      mode: "shadow",
+      usage_scope: "operator_chat",
+      prompt_tokens: 10,
+      completion_tokens: 5,
+      total_tokens: 15,
+    }]);
+
+    expect(csv).toContain('"\'=HYPERLINK(""https://example.com"")"');
+    expect(csv).toContain('"model,one"');
+    expect(csv.split("\r\n")).toHaveLength(3);
+  });
+
+  test("neutralizes formula triggers hidden behind whitespace or a BOM", () => {
+    const base = {
+      occurred_at: "2026-08-04T00:00:00Z",
+      capability_id: "query_inventory",
+      model_key: "model-one",
+      tier: "T1",
+      mode: "shadow",
+      usage_scope: "operator_chat",
+      prompt_tokens: 10,
+      completion_tokens: 5,
+      total_tokens: 15,
+    } as const;
+
+    expect(invocationCsv([{ ...base, correlation_id: "  =1+1" }]))
+      .toContain('"\'  =1+1"');
+    expect(invocationCsv([{ ...base, correlation_id: "\uFEFF@SUM(1,1)" }]))
+      .toContain('"\'\uFEFF@SUM(1,1)"');
+  });
+
   test("links conversation rollups to correlation-scoped audit evidence", () => {
     expect(llmUsageCorrelationHref("corr-1")).toBe("/audit?correlation=corr-1");
   });
@@ -61,6 +100,38 @@ describe("LLM usage provenance", () => {
     expect(decoded.total).not.toHaveProperty("cost");
     expect(decoded.records[0]?.usage_scope).toBe("operator_chat");
     expect(decoded.records[0]).not.toHaveProperty("cost");
+  });
+
+  test("rejects negative or fractional usage counts", () => {
+    const payload = {
+      source: "metering",
+      range_start: null,
+      range_end: null,
+      latest_occurred_at: null,
+      invocations: 1,
+      total: summary,
+      chat: summary,
+      by_scope: [],
+      by_model: [],
+      chat_by_model: [],
+      by_mode: [],
+      by_conversation: [],
+      by_conversation_truncated: false,
+      conversation_count: 0,
+      by_hour: [],
+      by_day: [],
+      by_month: [],
+      records: [],
+      records_truncated: false,
+      record_count: 0,
+    };
+
+    expect(() => decodeLlmCost({ ...payload, invocations: -1 }))
+      .toThrow(/non-negative integer/);
+    expect(() => decodeLlmCost({
+      ...payload,
+      total: { ...summary, prompt_tokens: 1.5 },
+    })).toThrow(/non-negative integer/);
   });
 
   test("derives presentation ratios and trends only from measured tokens", () => {

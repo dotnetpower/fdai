@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 921cd0a3808b291cea6ae3f7d46c8935e3dd60d0
-translation_revised: 2026-08-04
+translation_source_sha: 0f52054c9d36150bc1d861aba79a01e6988812f3
+translation_revised: 2026-08-05
 ---
 
 # FDAI Console 대화
@@ -138,7 +138,9 @@ flowchart TD
   Full-workspace 웹 채팅은 transcript 중심으로 열립니다. 대화 이력과 현재 화면 digest는 항상
   표시되는 열이 아니라 toolbar panel입니다. Deck header는 활성 route를 표시하고, Digest toggle과
   header는 근거 record 수, snapshot age 및 오래된 context 새로고침을 담당합니다. Composer에는
-  attachment, 질문 입력 및 보내기 또는 중지만 유지합니다. 복원된 transcript에는 마지막 기록 시각과
+  attachment, 질문 입력 및 보내기 또는 중지만 유지합니다. 전송된 image는 operator turn 안에
+  표시됩니다. Browser transcript cache에는 image descriptor만 유지하고 인증된 history read가
+  principal 범위 conversation image repository에서 byte를 load합니다. 복원된 transcript에는 마지막 기록 시각과
   새 대화 작업을 표시합니다. 좁은 화면에서도 Markdown table은 native table semantics를 유지합니다.
 - **Layer 2 (Coordinator)**는 intent classification, RBAC gating, tool
   dispatch, verifier re-check, 세션 bookkeeping을 소유합니다. Core translator는 `Narrator`
@@ -242,7 +244,7 @@ flowchart TD
 Hangul prose와 matching token을 차단하며, code-point behavior에는 정확한 rationale이 있는 예외만
 허용합니다. 이 source representation은 machine value, evidence authority, locale selection 또는 typed
 pipeline decision을 변경하지 않습니다.
-- Scheduler Runs, Automation Blueprints, Scheduled Continuations, [관리형 trajectory dataset](governed-trajectory-datasets-ko.md), [execution backend status](execution-backends-ko.md)는 read-only metadata를 제공합니다. 이 view에는 enable, submit, retry, cancel, cleanup, execute, approval control이 없고 credential 및 Thor identity를 제외하며 command는 SPA 밖에 유지됩니다.
+- Scheduler Runs, Automation Blueprints, Scheduled Continuations, [관리형 trajectory dataset](governed-trajectory-datasets-ko.md), [execution backend status](execution-backends-ko.md)는 read-only metadata를 제공합니다. Scheduler performance는 loaded-page publish rate와 claim-to-close percentile을 사용하며 `published`는 broker dispatch 근거일 뿐 task execution 또는 outcome success를 증명하지 않습니다. 이 view에는 enable, submit, retry, cancel, cleanup, execute, approval control이 없고 credential 및 Thor identity를 제외하며 command는 SPA 밖에 유지됩니다.
 - [`tools/chat.py`](../../../tools/chat.py) - core coordinator를 위한 headless
   JSONL 개발 harness입니다. 별도 policy 구현이 아닙니다.
 
@@ -256,11 +258,7 @@ RBAC floor, side-effect class와 문서화된 failure surface를 가집니다. W
 자체 typed request contract를 추가할 수 있습니다. 새 tool은 additive이며 rule이나 policy를
 override하지 않습니다.
 
-`RuntimeToolDiscovery`는 installed narrator schema에 search 및 describe를 제공합니다. Schema
-metadata와 실제 installed tool name의 교집합을 만들고 coordinator와 동일한 RBAC ladder를
-적용하며 name, verb, description, argument hint, RBAC floor, side-effect class만 반환합니다.
-낮은 role principal은 높은 role tool을 discover할 수 없고 descriptor에는 handler 또는 invocation
-capability가 없습니다. Discovery는 navigation을 개선할 뿐 새 authority를 부여하지 않습니다.
+`RuntimeToolDiscovery`는 installed narrator schema에 search 및 describe를 제공합니다. Schema metadata와 실제 installed tool name의 교집합을 만들고 coordinator와 동일한 RBAC ladder를 적용하며 name, verb, description, argument hint, RBAC floor, side-effect class만 반환합니다. 낮은 role principal은 높은 role tool을 discover할 수 없고 descriptor에는 handler 또는 invocation capability가 없습니다. 명시적 요청이 principal role보다 높은 tool로 해석되더라도 deterministic refusal은 tool, required role, current role을 표시하고 tool을 호출하지 않았음을 확인합니다. Discovery는 navigation을 개선할 뿐 새 authority를 부여하지 않습니다.
 
 같은 projection은 deterministic channel verb `search_tools`, `describe_tool`과 typed read RPC
 method `tools.search`, `tools.describe`로 제공됩니다. Channel call은 resolved `Principal`을
@@ -282,6 +280,9 @@ method `tools.search`, `tools.describe`로 제공됩니다. Channel call은 reso
 | `query_t2_recovery()` | Server StateStore에서 sanitized proposer attempt receipt를 읽습니다. Provider error text를 노출하지 않고 retained attempt count, recovery state, route role, failure class, observation time 및 명시적인 legacy-detail gap을 반환합니다. | Reader | `T2RecoveryStateReader` |
 | `query_configuration_baseline()` | 서버가 구성한 동결된 구성 기준선, 현재 범위의 관측값, 무결성이 고정된 정확한 DOCX citation을 읽습니다. 호출자는 범위, 버전, digest, 문서 또는 mutation operation을 선택할 수 없습니다. 구조화된 topology가 없으면 unknown으로 유지합니다. | Reader | `ConfigurationDriftService` + `KnowledgeSource` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | 정확한 server-owned policy 아래에서 credential이 없는 bounded capture를 submit합니다. Immutable artifact receipt를 반환하며 page 또는 interaction API를 반환하지 않습니다. | Reader | `BrowserEvidenceCaptureService` |
+일치하는 inventory result set은 40개 record 제한을 적용하기 전에 정렬합니다. List는 기본적으로
+resource 이름순이며, status, type 또는 location grouping을 명시하면 해당 grouping field 다음에
+resource 이름순으로 정렬합니다. 렌더링 row와 durable ordinal follow-up은 같은 순서를 사용합니다.
 구체적인 resource-type query에 완전한 lexical state match가 없으면 semantic planning은 state concept만 제안합니다. Server는 IQL catalog의 canonical current-inventory state만 수락하고
 deterministic type, scope, freshness를 보존하며 planner가 제안한 type, scope, lookback은 버립니다. Provider가 관찰한 status가 최종 predicate를 grounding하며 invalid state는 unavailable을 반환합니다.
 필터가 없는 summary는 provider가 관찰한 모든 resource를 계속 보존하고 provider-native type별로 grouping하며 resource-group container와 topology-derived record를 resource 합계에서 분리합니다.

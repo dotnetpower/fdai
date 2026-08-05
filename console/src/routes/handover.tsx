@@ -3,19 +3,13 @@ import { isOptionalOperatorApiUnavailable } from "../api";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import {
-  AsyncBoundary,
-  KpiCard,
-  KpiGrid,
   PageHeader,
   type AsyncState,
 } from "../components/ui";
-import { usePublishViewContext } from "../deck/context";
-import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
-import { routeHref } from "../router";
+import { AgentOversightBody } from "./agent-oversight-views";
 import { PANTHEON } from "./agents.model";
-import { HandoverProposalEditor } from "./handover-editor";
-import { panelArray, panelBoolean, panelContractError, panelNullableString, panelNumber, panelRecord, panelString, panelStringArray } from "./panel-decode";
+import { panelArray, panelBoolean, panelContractError, panelNonEmptyString, panelNonNegativeInteger, panelNullableString, panelRecord, panelString, panelStringArray } from "./panel-decode";
 
 /**
  * Handover panel. Fetches ``GET /stewardship`` and renders the handover map
@@ -29,15 +23,26 @@ import { panelArray, panelBoolean, panelContractError, panelNullableString, pane
 
 type StewardKind = "user" | "group";
 type StewardResponsibility = "accountable" | "informed";
+type StewardDuty = "primary" | "backup" | "escalation";
 type FindingSeverity = "warn" | "info";
+type FindingCode =
+  | "maintainer_single"
+  | "autonomous_no_steward"
+  | "duty_derived"
+  | "backup_missing"
+  | "bus_factor_one"
+  | "over_assigned"
+  | "stale_oid";
+export type IdentityHealthStatus = "not_configured" | "pending" | "unavailable" | "clean" | "warn";
 
-interface StewardDto {
+export interface StewardDto {
   readonly kind: StewardKind;
   readonly id: string;
   readonly responsibility: StewardResponsibility;
+  readonly duty: StewardDuty | null;
 }
 
-interface AgentStewardshipDto {
+export interface AgentStewardshipDto {
   readonly name: string;
   readonly autonomous: boolean;
   readonly accept_autonomous_reason: string | null;
@@ -45,7 +50,7 @@ interface AgentStewardshipDto {
   readonly stewards: readonly StewardDto[];
 }
 
-interface MapDto {
+export interface MapDto {
   readonly version: number;
   readonly maintainers: readonly string[];
   readonly maintainer_count: number;
@@ -54,14 +59,14 @@ interface MapDto {
   readonly agents: readonly AgentStewardshipDto[];
 }
 
-interface FindingDto {
-  readonly code: string;
+export interface FindingDto {
+  readonly code: FindingCode;
   readonly severity: FindingSeverity;
   readonly message: string;
   readonly agent: string | null;
 }
 
-interface CoverageDto {
+export interface CoverageDto {
   readonly is_clean: boolean;
   readonly total_agents: number;
   readonly autonomous_agents: number;
@@ -69,9 +74,14 @@ interface CoverageDto {
   readonly findings: readonly FindingDto[];
 }
 
-interface StewardshipResponse {
+export interface StewardshipResponse {
   readonly map: MapDto;
   readonly coverage: CoverageDto;
+  readonly identity_health: {
+    readonly status: IdentityHealthStatus;
+    readonly checked_at: string | null;
+    readonly finding_count: number | null;
+  };
 }
 
 interface Props {
@@ -116,9 +126,7 @@ export function HandoverRoute({ client, auth }: Props) {
         title={t("route.handover")}
         subtitle={t("handover.subtitle")}
       />
-      <AsyncBoundary state={state} resourceLabel={t("route.handover")}>
-        {(data) => <HandoverBody data={data} client={client} auth={auth} />}
-      </AsyncBoundary>
+      <AgentOversightBody stewardshipState={state} client={client} auth={auth} />
     </div>
   );
 }
@@ -127,30 +135,56 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
   const root = panelRecord(value, "stewardship");
   const map = panelRecord(root["map"], "stewardship.map");
   const coverage = panelRecord(root["coverage"], "stewardship.coverage");
+  const identityHealth = panelRecord(root["identity_health"], "stewardship.identity_health");
+  const identityHealthStatus = stewardshipEnum(
+    identityHealth,
+    "status",
+    ["not_configured", "pending", "unavailable", "clean", "warn"],
+  );
+  const identityCheckedAt = panelNullableString(
+    identityHealth,
+    "checked_at",
+    "stewardship.identity_health",
+  );
+  const identityFindingCount = identityHealth["finding_count"] === undefined
+    ? null
+    : panelNonNegativeInteger(identityHealth, "finding_count", "stewardship.identity_health");
+  const version = panelNonNegativeInteger(map, "version", "stewardship.map");
+  const hopTimeoutSeconds = panelNonNegativeInteger(map, "hop_timeout_seconds", "stewardship.map");
+  const overAssignedMax = panelNonNegativeInteger(map, "over_assigned_max", "stewardship.map");
+  if ((version !== 1 && version !== STEWARDSHIP_DUTY_VERSION) || hopTimeoutSeconds < 1 || overAssignedMax < 1) {
+    throw panelContractError("stewardship map version, timeout, and assignment limit MUST be supported positive integers");
+  }
   const decoded: StewardshipResponse = {
     map: {
-      version: panelNumber(map, "version", "stewardship.map"),
+      version,
       maintainers: panelStringArray(map["maintainers"], "stewardship.map.maintainers"),
-      maintainer_count: panelNumber(map, "maintainer_count", "stewardship.map"),
-      hop_timeout_seconds: panelNumber(map, "hop_timeout_seconds", "stewardship.map"),
-      over_assigned_max: panelNumber(map, "over_assigned_max", "stewardship.map"),
+      maintainer_count: panelNonNegativeInteger(map, "maintainer_count", "stewardship.map"),
+      hop_timeout_seconds: hopTimeoutSeconds,
+      over_assigned_max: overAssignedMax,
       agents: panelArray(map["agents"], "stewardship.map.agents").map((value, index) => {
         const agent = panelRecord(value, `stewardship.map.agents[${index}]`);
         return {
           name: panelString(agent, "name", "stewardship agent"),
           autonomous: panelBoolean(agent, "autonomous", "stewardship agent"),
           accept_autonomous_reason: panelNullableString(agent, "accept_autonomous_reason", "stewardship agent"),
-          bus_factor: panelNumber(agent, "bus_factor", "stewardship agent"),
+          bus_factor: panelNonNegativeInteger(agent, "bus_factor", "stewardship agent"),
           stewards: panelArray(agent["stewards"], "stewardship agent.stewards").map((value, stewardIndex) => {
             const steward = panelRecord(value, `stewardship agent.stewards[${stewardIndex}]`);
+            const responsibility = stewardshipEnum(
+              steward,
+              "responsibility",
+              ["accountable", "informed"],
+            );
+            const rawDuty = steward["duty"];
+            const duty = rawDuty === null || rawDuty === undefined
+              ? null
+              : stewardshipEnum(steward, "duty", ["primary", "backup", "escalation"]);
             return {
               kind: stewardshipEnum(steward, "kind", ["user", "group"]),
-              id: panelString(steward, "id", "steward"),
-              responsibility: stewardshipEnum(
-                steward,
-                "responsibility",
-                ["accountable", "informed"],
-              ),
+              id: panelNonEmptyString(steward, "id", "steward"),
+              responsibility,
+              duty,
             };
           }),
         };
@@ -158,18 +192,31 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
     },
     coverage: {
       is_clean: panelBoolean(coverage, "is_clean", "stewardship.coverage"),
-      total_agents: panelNumber(coverage, "total_agents", "stewardship.coverage"),
-      autonomous_agents: panelNumber(coverage, "autonomous_agents", "stewardship.coverage"),
-      maintainer_count: panelNumber(coverage, "maintainer_count", "stewardship.coverage"),
+      total_agents: panelNonNegativeInteger(coverage, "total_agents", "stewardship.coverage"),
+      autonomous_agents: panelNonNegativeInteger(coverage, "autonomous_agents", "stewardship.coverage"),
+      maintainer_count: panelNonNegativeInteger(coverage, "maintainer_count", "stewardship.coverage"),
       findings: panelArray(coverage["findings"], "stewardship.coverage.findings").map((value, index) => {
         const finding = panelRecord(value, `stewardship.coverage.findings[${index}]`);
         return {
-          code: panelString(finding, "code", "stewardship finding"),
+          code: stewardshipEnum(finding, "code", [
+            "maintainer_single",
+            "autonomous_no_steward",
+            "duty_derived",
+            "backup_missing",
+            "bus_factor_one",
+            "over_assigned",
+            "stale_oid",
+          ]),
           severity: stewardshipEnum(finding, "severity", ["warn", "info"]),
           message: panelString(finding, "message", "stewardship finding"),
           agent: panelNullableString(finding, "agent", "stewardship finding"),
         };
       }),
+    },
+    identity_health: {
+      status: identityHealthStatus,
+      checked_at: identityCheckedAt,
+      finding_count: identityFindingCount,
     },
   };
   const expectedNames = PANTHEON.map((agent) => agent.name);
@@ -181,8 +228,57 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
   ) {
     throw panelContractError("stewardship.map.agents MUST contain the fixed 15-agent pantheon exactly once");
   }
-  if (decoded.map.maintainer_count !== decoded.map.maintainers.length) {
-    throw panelContractError("stewardship.map.maintainer_count MUST match maintainers.length");
+  if (
+    decoded.map.maintainer_count !== decoded.map.maintainers.length ||
+    decoded.map.maintainer_count < 1 ||
+    decoded.map.maintainers.some((maintainer) => maintainer.trim().length === 0) ||
+    new Set(decoded.map.maintainers.filter((maintainer) => maintainer !== PLACEHOLDER_OID)).size !==
+      decoded.map.maintainers.filter((maintainer) => maintainer !== PLACEHOLDER_OID).length
+  ) {
+    throw panelContractError("stewardship.map maintainers MUST satisfy the non-empty distinct maintainer floor");
+  }
+  for (const agent of decoded.map.agents) {
+    const exactSubjects = agent.stewards.map((steward) => `${steward.kind}:${steward.id}`);
+    if (new Set(exactSubjects).size !== exactSubjects.length) {
+      throw panelContractError("stewardship agent stewards MUST contain distinct exact subjects");
+    }
+    const accountableUnits = new Set(
+      agent.stewards
+        .filter((steward) => steward.responsibility === "accountable")
+        .map((steward) => `${steward.kind}:${steward.id}`),
+    );
+    if (agent.bus_factor !== accountableUnits.size) {
+      throw panelContractError("stewardship agent.bus_factor MUST match distinct accountable subjects");
+    }
+    if (
+      agent.autonomous !== (agent.accept_autonomous_reason !== null) ||
+      agent.autonomous === (accountableUnits.size > 0) ||
+      (agent.accept_autonomous_reason !== null && agent.accept_autonomous_reason.trim().length === 0)
+    ) {
+      throw panelContractError("stewardship agent autonomy MUST be an accountable-ownership alternative");
+    }
+    for (const steward of agent.stewards) {
+      if (steward.responsibility === "informed" && steward.duty !== null) {
+        throw panelContractError("informed stewardship entries MUST NOT declare duty");
+      }
+      if (
+        decoded.map.version >= STEWARDSHIP_DUTY_VERSION &&
+        steward.responsibility === "accountable" &&
+        steward.duty === null
+      ) {
+        throw panelContractError("v2 accountable stewardship entries MUST declare duty");
+      }
+    }
+    if (
+      decoded.map.version >= STEWARDSHIP_DUTY_VERSION &&
+      !agent.autonomous &&
+      (
+        !agent.stewards.some((steward) => steward.responsibility === "accountable" && steward.duty === "primary") ||
+        !agent.stewards.some((steward) => steward.responsibility === "accountable" && (steward.duty === "backup" || steward.duty === "escalation"))
+      )
+    ) {
+      throw panelContractError("stewardship v2 non-autonomous agents MUST include Primary and distinct Backup or Escalation coverage");
+    }
   }
   if (
     decoded.coverage.total_agents !== decoded.map.agents.length ||
@@ -190,6 +286,44 @@ export function decodeStewardship(value: unknown): StewardshipResponse {
     decoded.coverage.autonomous_agents !== decoded.map.agents.filter((agent) => agent.autonomous).length
   ) {
     throw panelContractError("stewardship.coverage counts MUST match the handover map");
+  }
+  const pantheonNames = new Set(expectedNames);
+  const findingSeverity: Readonly<Record<FindingCode, FindingSeverity>> = {
+    maintainer_single: "warn",
+    autonomous_no_steward: "info",
+    duty_derived: "info",
+    backup_missing: "warn",
+    bus_factor_one: "warn",
+    over_assigned: "warn",
+    stale_oid: "warn",
+  };
+  const agentFindingCodes = new Set<FindingCode>([
+    "autonomous_no_steward",
+    "duty_derived",
+    "backup_missing",
+    "bus_factor_one",
+  ]);
+  const globalFindingCodes = new Set<FindingCode>(["maintainer_single", "over_assigned"]);
+  if (
+    decoded.coverage.findings.some((finding) => finding.agent !== null && !pantheonNames.has(finding.agent)) ||
+    decoded.coverage.findings.some((finding) => finding.severity !== findingSeverity[finding.code]) ||
+    decoded.coverage.findings.some((finding) => agentFindingCodes.has(finding.code) && finding.agent === null) ||
+    decoded.coverage.findings.some((finding) => globalFindingCodes.has(finding.code) && finding.agent !== null) ||
+    decoded.coverage.is_clean !== decoded.coverage.findings.every((finding) => finding.severity !== "warn")
+  ) {
+    throw panelContractError("stewardship.coverage findings MUST match canonical severity, scope, Pantheon references, and clean state");
+  }
+  const identityCheckCompleted = identityHealthStatus === "clean" || identityHealthStatus === "warn";
+  const staleIdentityFindings = decoded.coverage.findings.filter((finding) => finding.code === "stale_oid").length;
+  if (
+    identityCheckCompleted !== (identityCheckedAt !== null) ||
+    (identityCheckedAt !== null && !Number.isFinite(Date.parse(identityCheckedAt))) ||
+    (identityCheckCompleted && identityFindingCount !== staleIdentityFindings) ||
+    (!identityCheckCompleted && identityFindingCount !== null) ||
+    (identityHealthStatus === "clean" && staleIdentityFindings !== 0) ||
+    (identityHealthStatus === "warn" && staleIdentityFindings === 0)
+  ) {
+    throw panelContractError("stewardship.identity_health MUST match its completed check evidence");
   }
   return decoded;
 }
@@ -206,135 +340,5 @@ function stewardshipEnum<const T extends string>(
   return decoded as T;
 }
 
-function HandoverBody({
-  data,
-  client,
-  auth,
-}: {
-  readonly data: StewardshipResponse;
-  readonly client: OperatorApiClient;
-  readonly auth: AuthContext;
-}) {
-  const { map, coverage } = data;
-  usePublishViewContext(
-    () => ({
-      routeId: "handover",
-      routeLabel: t("route.handover"),
-      purpose: t("handover.subtitle"),
-      glossary: composeGlossary([agentTerm(), TERMS.hil]),
-      headline: `${map.agents.length} ${t("handover.agents")} - ${map.maintainer_count} ${t("handover.maintainers")}`,
-      capturedAt: new Date().toISOString(),
-      facts: [
-        { key: "agent_count", value: map.agents.length, group: "handover" },
-        { key: "maintainer_count", value: map.maintainer_count, group: "handover" },
-        { key: "autonomous_agents", value: coverage.autonomous_agents, group: "handover" },
-        { key: "coverage_clean", value: coverage.is_clean ? "yes" : "no", group: "handover" },
-      ],
-      records: {
-        agents: map.agents.map((a) => ({
-          name: a.name,
-          stewards: a.stewards.map((s) => `${s.kind}:${s.responsibility}`).join(", ") || "-",
-          bus_factor: a.bus_factor,
-          autonomous: a.autonomous ? "yes" : "no",
-        })),
-        findings: coverage.findings.map((f) => ({
-          code: f.code,
-          severity: f.severity,
-          agent: f.agent ?? "",
-          message: f.message,
-        })),
-      },
-    }),
-    [map, coverage],
-  );
-
-  const maintainerBanner =
-    map.maintainer_count < 1
-      ? { level: "fail", text: t("handover.noMaintainer") }
-      : map.maintainer_count === 1
-        ? { level: "warn", text: t("handover.oneMaintainer") }
-        : null;
-
-  return (
-    <div class="stack">
-      <KpiGrid>
-        <KpiCard href={routeHref("agents")} label={t("handover.agents")} value={map.agents.length} />
-        <KpiCard href={`${routeHref("handover")}#handover-map`} label={t("handover.maintainers")} value={map.maintainer_count} />
-        <KpiCard href={`${routeHref("handover")}#handover-map`} label={t("handover.autonomous")} value={coverage.autonomous_agents} />
-        <KpiCard
-          href={`${routeHref("handover")}#handover-coverage`}
-          label={t("handover.coverage")}
-          value={t(coverage.is_clean ? "handover.clean" : "handover.review")}
-        />
-      </KpiGrid>
-
-      {maintainerBanner ? (
-        <div class={`callout callout--${maintainerBanner.level === "fail" ? "danger" : "warn"}`}>
-          {maintainerBanner.text}
-        </div>
-      ) : null}
-
-      <HandoverProposalEditor client={client} auth={auth} />
-
-      <section id="handover-map" class="stack">
-        <h3>{t("handover.mapTitle")}</h3>
-        <div class="data-table-wrap">
-          <table class="cs-table">
-          <thead>
-            <tr>
-              <th>{t("handover.agent")}</th>
-              <th>{t("handover.owners")}</th>
-              <th>{t("handover.backupCoverage")}</th>
-              <th>{t("handover.mode")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {map.agents.map((a) => (
-              <tr key={a.name}>
-                <td><a href={routeHref("agents", { params: { agent: a.name } })}>{a.name}</a></td>
-                <td>
-                  {a.autonomous
-                    ? `${t("handover.autonomous")} (${a.accept_autonomous_reason ?? t("handover.noReason")})`
-                    : a.stewards
-                        .map((s) => `${s.kind} / ${s.responsibility}`)
-                        .join(", ") || "-"}
-                </td>
-                <td>{a.autonomous ? "-" : a.bus_factor}</td>
-                <td>{t(a.autonomous ? "handover.autonomous" : "handover.mapped")}</td>
-              </tr>
-            ))}
-          </tbody>
-          </table>
-        </div>
-      </section>
-
-      {coverage.findings.length > 0 ? (
-        <section id="handover-coverage" class="stack">
-          <h3>{t("handover.findingsTitle")}</h3>
-          <div class="data-table-wrap">
-            <table class="cs-table">
-            <thead>
-              <tr>
-                <th>{t("handover.severity")}</th>
-                <th>{t("handover.code")}</th>
-                <th>{t("handover.agent")}</th>
-                <th>{t("handover.message")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {coverage.findings.map((f, i) => (
-                <tr key={`${f.code}-${i}`}>
-                  <td>{f.severity}</td>
-                  <td>{f.code}</td>
-                  <td>{f.agent ? <a href={routeHref("agents", { params: { agent: f.agent } })}>{f.agent}</a> : "-"}</td>
-                  <td>{f.message}</td>
-                </tr>
-              ))}
-            </tbody>
-            </table>
-          </div>
-        </section>
-      ) : null}
-    </div>
-  );
-}
+const STEWARDSHIP_DUTY_VERSION = 2;
+const PLACEHOLDER_OID = "00000000-0000-0000-0000-000000000000";

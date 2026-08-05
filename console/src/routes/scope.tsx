@@ -27,15 +27,6 @@ import { t } from "./i18n/evidence";
 /**
  * Scope view. Read-only projection of the effective monitoring and
  * automated-action scope (which subscriptions / resource groups FDAI
-    {
-      key: "topology",
-      header: "Topology",
-      render: (item) => (
-        <a href={architectureHref(undefined, item.resource_group ?? item.subscription)}>
-          Open scope
-        </a>
-      ),
-    },
  * observes and may act on), plus the hard RG-scoped executor IAM
  * boundary. Authoring a scope change never writes from the console: the
  * builder generates a policy-as-code artifact the operator submits as a
@@ -48,6 +39,41 @@ interface Props {
 
 export function includedScopeEntryCount(entries: readonly ScopeEntry[]): number {
   return entries.filter((entry) => entry.state === "included").length;
+}
+
+export interface ScopeHierarchyNode {
+  readonly subscription: string;
+  readonly entries: readonly Readonly<{
+    axis: ScopeAxisName;
+    state: ScopeEntryState;
+    resourceGroup: string | null;
+    address: string;
+  }>[];
+}
+
+export function scopeHierarchy(data: EffectiveScope): readonly ScopeHierarchyNode[] {
+  const grouped = new Map<string, ScopeHierarchyNode["entries"][number][]>();
+  for (const axis of [data.monitoring, data.action]) {
+    for (const entry of axis.entries) {
+      const entries = grouped.get(entry.subscription) ?? [];
+      entries.push({
+        axis: axis.axis,
+        state: entry.state,
+        resourceGroup: entry.resource_group,
+        address: entry.address,
+      });
+      grouped.set(entry.subscription, entries);
+    }
+  }
+  return [...grouped.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([subscription, entries]) => ({
+      subscription,
+      entries: [...entries].sort((left, right) =>
+        left.axis.localeCompare(right.axis) ||
+        (left.resourceGroup ?? "").localeCompare(right.resourceGroup ?? "") ||
+        left.state.localeCompare(right.state)),
+    }));
 }
 
 export function ScopeRoute({ client }: Props) {
@@ -97,6 +123,7 @@ export function ScopeRoute({ client }: Props) {
 
 function ScopeBody({ data }: { readonly data: EffectiveScope }) {
   const org = useMemo(() => deriveOrg(data), [data]);
+  const hierarchy = useMemo(() => scopeHierarchy(data), [data]);
   const monitoringCount = includedScopeEntryCount(data.monitoring.entries);
   const actionCount = includedScopeEntryCount(data.action.entries);
 
@@ -144,7 +171,9 @@ function ScopeBody({ data }: { readonly data: EffectiveScope }) {
           tone={data.executor_boundary.resource_groups.length > 0 ? "warning" : "default"}
           hint={t("evidence.scope.executorHint")}
         />
+        <KpiCard href={`${routeHref("scope")}#scope-hierarchy`} label={t("scope.hierarchySubscriptions")} value={hierarchy.length} />
       </KpiGrid>
+      <ScopeHierarchy nodes={hierarchy} />
       <div class="scope-axis-grid">
         <ScopeAxisTable axis={data.monitoring} />
         <ScopeAxisTable axis={data.action} />
@@ -152,6 +181,33 @@ function ScopeBody({ data }: { readonly data: EffectiveScope }) {
       <ExecutorBoundaryCard boundary={data.executor_boundary} />
       <ScopeBuilder org={org} />
     </div>
+  );
+}
+
+function ScopeHierarchy({ nodes }: { readonly nodes: readonly ScopeHierarchyNode[] }) {
+  return (
+    <section id="scope-hierarchy" class="scope-hierarchy-section" aria-labelledby="scope-hierarchy-title">
+      <h3 id="scope-hierarchy-title" class="section-title">{t("scope.hierarchy")}</h3>
+      <p class="muted footnote">{t("scope.hierarchyHint")}</p>
+      {nodes.length === 0 ? <p class="muted">{t("scope.emptyAxis")}</p> : (
+        <ul class="scope-hierarchy-list">
+          {nodes.map((node) => (
+            <li key={node.subscription}>
+              <a class="scope-hierarchy-subscription mono" href={architectureHref(undefined, node.subscription)}>{node.subscription}</a>
+              <ul>
+                {node.entries.map((entry) => (
+                  <li key={`${entry.axis}:${entry.address}:${entry.state}`}>
+                    <a class="mono small" href={architectureHref(undefined, entry.resourceGroup ?? node.subscription)}>{entry.resourceGroup ?? t("scope.allRgs")}</a>
+                    <span>{t(`scope.axis.${entry.axis}`)}</span>
+                    <StatusPill kind={statePill(entry.state)} label={t(`scope.state.${entry.state}`)} />
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

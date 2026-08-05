@@ -1,8 +1,8 @@
 ---
 title: Operator Console - View Snapshot Contract
 translation_of: operator-console-view-snapshot.md
-translation_source_sha: 220b43ce0ff443bc8198f2891cbb9888292733e7
-translation_revised: 2026-08-03
+translation_source_sha: b29a5579ccda375fa5fa6cc496463909d91a9afe
+translation_revised: 2026-08-05
 ---
 
 # Operator Console - View Snapshot Contract
@@ -88,7 +88,10 @@ abstained 또는 citation 없는 hypothesis에서 incident cause를 단정하면
   호출합니다.
 4. 개념 정의에는 canonical FDAI glossary를 사용합니다. 영어 concept turn은
   deterministic `concept-glossary` fast path를 사용하며, localized turn에는 같은
-  선택 항목이 server-owned translation evidence로 제공됩니다.
+  선택 항목이 server-owned translation evidence로 제공됩니다. 근거 부족 또는 신뢰도
+  임계값 미달 처리에 관한 질문은 agent나 proposed change를 언급해도 이 경로를
+  유지합니다. 이러한 부수 용어는 agent delegation이나 action evidence를 시작하지
+  않습니다.
 5. 현재 화면에는 browser `ViewSnapshot`을 사용합니다.
 
 서버는 turn을 resolve하기 전에 client가 보낸 `_operational_evidence`,

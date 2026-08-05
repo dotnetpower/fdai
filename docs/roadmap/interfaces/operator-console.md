@@ -139,7 +139,9 @@ flowchart TD
   Full-workspace web chat opens transcript-first. Conversation history and the current-screen
   digest are toolbar panels rather than permanent columns. The Deck header shows the active route;
   the Digest toggle and header own record count, snapshot age, and stale refresh. The composer keeps
-  only attachments, question entry, and send or stop. A restored transcript shows its last recorded
+  only attachments, question entry, and send or stop. Sent images render inside the operator turn.
+  Browser transcript caches retain only image descriptors, while authenticated history reads load
+  bytes from the principal-scoped conversation image repository. A restored transcript shows its last recorded
   time and a new-conversation action. Tables render every bounded row without internal scrolling or
   expansion controls. On narrow screens, cells reflow while preserving native table semantics.
 - **Layer 2 (Coordinator)** owns intent classification, RBAC gating, tool
@@ -248,7 +250,7 @@ English and Korean presentation literals in these layers are authored as NFC UTF
 gate rejects escaped Hangul prose and matching tokens, with exact rationale-bearing exceptions only
 for code-point behavior. This source representation does not change machine values, evidence
 authority, locale selection, or the typed pipeline decision.
-- Scheduler Runs, Automation Blueprints, Scheduled Continuations, [governed trajectory datasets](governed-trajectory-datasets.md), and [execution backend status](execution-backends.md) expose read-only metadata. These views have no enable, submit, retry, cancel, cleanup, execute, or approval controls; omit credentials and Thor's identity; and keep commands outside the SPA.
+- Scheduler Runs, Automation Blueprints, Scheduled Continuations, [governed trajectory datasets](governed-trajectory-datasets.md), and [execution backend status](execution-backends.md) expose read-only metadata. Scheduler performance uses loaded-page publish rate and claim-to-close percentiles; `published` proves broker dispatch, not task execution or outcome success. These views have no enable, submit, retry, cancel, cleanup, execute, or approval controls; omit credentials and Thor's identity; and keep commands outside the SPA.
 - [`tools/chat.py`](../../../tools/chat.py) - headless JSONL development harness
   for the core coordinator. It is not a second policy implementation.
 
@@ -261,12 +263,7 @@ Tools are **pipeline-stage views**. A core tool has a stable name, bounded `argu
 floor, side-effect class, and documented failure surface. Web/provider-specific tools can add
 their own typed request contracts. New tools are additive; they never override a rule or policy.
 
-`RuntimeToolDiscovery` provides search and describe over installed narrator schemas. It
-intersects schema metadata with the actually installed tool names, applies the same RBAC ladder as
-the coordinator, and returns only name, verb, description, argument hint, RBAC floor, and
-side-effect class. A lower-role principal cannot discover a higher-role tool, and descriptors
-contain no handler or invocation capability. Discovery improves navigation; it grants no new
-authority.
+`RuntimeToolDiscovery` provides search and describe over installed narrator schemas. It intersects schema metadata with the actually installed tool names, applies the same RBAC ladder as the coordinator, and returns only name, verb, description, argument hint, RBAC floor, and side-effect class. A lower-role principal cannot discover a higher-role tool, and descriptors contain no handler or invocation capability. If an explicit request still resolves to a tool above the principal's role, the deterministic refusal names the tool, required role, and current role and confirms that no tool was called. Discovery improves navigation; it grants no new authority.
 
 The same projection is available through the deterministic channel verbs `search_tools` and
 `describe_tool`, and typed read RPC methods `tools.search` and `tools.describe`. Channel calls use
@@ -287,6 +284,9 @@ caller-supplied role parameter. Both surfaces return descriptors only and cannot
 | `query_t2_recovery()` | Read sanitized proposer attempt receipts from the server StateStore. Return the retained attempt count, recovery state, route roles, failure class, observation time, and explicit legacy-detail gaps without exposing provider error text. | Reader | `T2RecoveryStateReader` |
 | `query_configuration_baseline()` | Read one server-configured frozen configuration baseline, its current scoped observation, and the exact integrity-pinned DOCX citation. The caller cannot select scope, version, digest, document, or a mutation operation. Missing structured topology remains unknown. | Reader | `ConfigurationDriftService` + `KnowledgeSource` |
 | `capture_browser_evidence(policy_id, policy_version, source_url, stable_selectors)` | Submit a credential-free bounded capture under an exact server-owned policy. Returns an immutable artifact receipt; never returns a page or interaction API. | Reader | `BrowserEvidenceCaptureService` |
+Matched inventory result sets are sorted before the 40-record bound is applied. Lists use resource
+name order by default; an explicit status, type, or location grouping uses that grouping field and
+then resource name. The same order drives rendered rows and durable ordinal follow-ups.
 A concrete resource-type query with no complete lexical state match uses semantic planning only to propose a state concept. The server accepts canonical current-inventory states from the IQL catalog,
 preserves deterministic type, scope, and freshness, and discards planner-supplied type, scope, and lookback. Provider-observed status grounds the final predicate; an invalid state returns unavailable.
 An unfiltered summary still preserves every provider-observed resource, groups by provider-native type, and separates resource-group containers and topology-derived records from the resource total.

@@ -104,10 +104,20 @@ _DATA_WORD: Final = re.compile(
 
 _CONCEPT_DOMAIN: Final = re.compile(
     r"(?<![A-Za-z0-9_])(?:actiontype|abstain|blast radius|correlation id|exemption|grounding|hil|"
-    r"idempotency|kill-switch|ontology|override|pantheon|promotion gate|quality gate|"
+    r"idempotency|insufficient evidence|confidence threshold|kill-switch|ontology|override|"
+    r"pantheon|promotion gate|quality gate|"
     r"remediation pr|rollback contract|safety invariants?|shadow|trust router|"
     r"two-port|agent autonomy|autonomous agents?|t0|t1|t2|verifier|verticals?|what-if)"
     r"(?![A-Za-z0-9_])|스스로|자율|판테온",
+    re.IGNORECASE,
+)
+
+
+_INSUFFICIENT_EVIDENCE_CONCEPT: Final = re.compile(
+    r"\bevidence\b[\s\S]{0,120}\bconfidence\s+(?:threshold|bar)\b"
+    r"[\s\S]{0,180}\b(?:next|proceed|pause|escalat|request|gather|fetch|decid|action)\w*\b"
+    r"|\bconfidence\s+(?:threshold|bar)\b[\s\S]{0,120}\bevidence\b"
+    r"[\s\S]{0,180}\b(?:next|proceed|pause|escalat|request|gather|fetch|decid|action)\w*\b",
     re.IGNORECASE,
 )
 
@@ -165,6 +175,14 @@ def _is_concept_query(prompt: str) -> bool:
     return bool(_CONCEPT_PHRASING.search(prompt) and not _DATA_WORD.search(prompt))
 
 
+def _is_grounded_concept_query(prompt: str) -> bool:
+    """Return whether the canonical glossary owns this explanatory turn."""
+
+    return bool(_INSUFFICIENT_EVIDENCE_CONCEPT.search(prompt)) or (
+        _is_concept_query(prompt) and bool(_CONCEPT_DOMAIN.search(prompt))
+    )
+
+
 def _is_screen_explanation_query(prompt: str) -> bool:
     """Return whether the operator explicitly asks for a current-view walkthrough."""
 
@@ -206,6 +224,20 @@ def _glossary_matches(prompt: str) -> list[dict[str, str]]:
 def _with_concept_evidence(prompt: str, view_context: dict[str, Any]) -> dict[str, Any]:
     enriched = dict(view_context)
     enriched.pop("_concept_evidence", None)
+    grounded_concept = _is_grounded_concept_query(prompt)
+    if grounded_concept:
+        for key in (
+            "_behavior_evidence",
+            "_operational_evidence",
+            "_tool_evidence",
+            "_agent_evidence",
+            "_agent_session_target",
+            "_current_screen_tool",
+            "_screen_scope",
+            "_web_evidence",
+            "_intent_graph_evidence",
+        ):
+            enriched.pop(key, None)
     if any(
         key in enriched
         for key in (
@@ -217,7 +249,7 @@ def _with_concept_evidence(prompt: str, view_context: dict[str, Any]) -> dict[st
         )
     ):
         return enriched
-    if not _is_concept_query(prompt):
+    if not grounded_concept and not _is_concept_query(prompt):
         return enriched
     entries = _glossary_matches(prompt)
     if entries:

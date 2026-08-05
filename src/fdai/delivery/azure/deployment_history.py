@@ -72,6 +72,7 @@ _DEFAULT_MAX_PAGES: Final[int] = 32
 _DEFAULT_MAX_RECORDS: Final[int] = 10_000
 _DEFAULT_TIMEOUT_SECONDS: Final[float] = 30.0
 _WINDOW_TOKEN: Final[str] = "{window_seconds}"  # noqa: S105 - query placeholder, not a secret
+_COLUMN_NAME: Final[re.Pattern[str]] = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,127}$")
 
 # ISO-8601 duration (PnW nD T nH nM nS). At least one component required.
 _ISO8601_DURATION: Final[re.Pattern[str]] = re.compile(
@@ -97,6 +98,7 @@ class AzureDeploymentHistoryConfig:
     resource_ref_column: str = "resource_ref"
     status_column: str = "status"
     author_column: str = "author"
+    cursor_column: str = "row_id"
 
     arg_endpoint: str = _DEFAULT_ARG_ENDPOINT
     arg_api_version: str = _DEFAULT_ARG_API_VERSION
@@ -131,9 +133,10 @@ class AzureDeploymentHistoryConfig:
             ("resource_ref_column", self.resource_ref_column),
             ("status_column", self.status_column),
             ("author_column", self.author_column),
+            ("cursor_column", self.cursor_column),
         ):
-            if not column:
-                raise ValueError(f"AzureDeploymentHistoryConfig.{name} MUST be non-empty")
+            if _COLUMN_NAME.fullmatch(column) is None:
+                raise ValueError(f"AzureDeploymentHistoryConfig.{name} MUST be a Kusto identifier")
 
 
 class AzureResourceGraphDeploymentHistory:
@@ -162,6 +165,7 @@ class AzureResourceGraphDeploymentHistory:
         """
         window_seconds = _parse_window_seconds(window)
         query = self._config.kql_template.replace(_WINDOW_TOKEN, str(window_seconds))
+        query = f"{query} | order by {self._config.cursor_column} asc"
         rows = await self._fetch_all_pages(query=query)
 
         records: list[DeploymentRecord] = []
@@ -194,6 +198,9 @@ class AzureResourceGraphDeploymentHistory:
             error_type=DeploymentHistoryError,
             throttle_gate=self._throttle_gate,
         )
+        cursor_values = [self._require(row, self._config.cursor_column) for row in rows]
+        if len(set(cursor_values)) != len(cursor_values):
+            raise DeploymentHistoryError("ARG deployment history returned duplicate cursor values")
         return list(rows)
 
     def _map_row(self, row: Mapping[str, Any]) -> DeploymentRecord:

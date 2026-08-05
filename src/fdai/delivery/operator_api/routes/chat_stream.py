@@ -20,6 +20,10 @@ from fdai.core.conversation.busy_input_coordinator import BusyInputCoordinator
 from fdai.core.conversation_assurance import ConversationPolicyRuntime
 from fdai.core.metering import InvocationScope, with_invocation_scope
 from fdai.core.user_context_projection import UserContextOntologyProjector
+from fdai.delivery.conversation_images import (
+    ConversationImageConflictError,
+    ConversationImageStore,
+)
 from fdai.delivery.operator_api.routes.chat_action_context import (
     is_explicit_action_draft_request,
     needs_action_context,
@@ -97,6 +101,10 @@ from fdai.delivery.operator_api.routes.chat_history_context import (
     BackendChatHistoryCompressor,
     ChatHistoryPolicy,
 )
+from fdai.delivery.operator_api.routes.chat_image_history import (
+    image_turn_metadata,
+    persist_conversation_images,
+)
 from fdai.delivery.operator_api.routes.chat_intent_graph import (
     IntentGraph,
     IntentGraphPlanner,
@@ -124,6 +132,7 @@ from fdai.delivery.operator_api.routes.chat_presentation import (
 )
 from fdai.delivery.operator_api.routes.chat_prompt import (
     _concept_answer,
+    _is_grounded_concept_query,
     _ontology_browse_answer,
     _response_locale,
     _with_concept_evidence,
@@ -229,6 +238,7 @@ def make_chat_stream_route(
     conversation_policy_store: ConversationPolicyStore | None = None,
     conversation_assurance_runtime: ConversationPolicyRuntime | None = None,
     conversation_history_store: ConversationHistoryStore | None = None,
+    conversation_image_store: ConversationImageStore | None = None,
     user_context_ontology_projector: UserContextOntologyProjector | None = None,
     model_preference_resolver: ModelPreferenceResolver | None = None,
     answer_preference_resolver: AnswerPreferenceResolver | None = None,
@@ -358,6 +368,12 @@ def make_chat_stream_route(
             operator_turn = None
             completed_payload: dict[str, Any] | None = None
             if conversation_history_store is not None:
+                if prepared.vision_attachments and conversation_image_store is None:
+                    raise HTTPException(
+                        status_code=503,
+                        detail="conversation image storage is unavailable",
+                    )
+                operator_recorded_at = datetime.now(tz=UTC)
                 try:
                     operator_turn = await append_operator_turn(
                         store=conversation_history_store,
@@ -365,9 +381,10 @@ def make_chat_stream_route(
                         conversation_id=session_id,
                         request_id=request_id,
                         content=clean_prompt,
-                        recorded_at=datetime.now(tz=UTC),
+                        recorded_at=operator_recorded_at,
                         metadata={
                             "document_refs": list(document_evidence_refs),
+                            **image_turn_metadata(prepared.vision_attachments),
                             **history_metadata,
                         },
                         ontology_projector=user_context_ontology_projector,
@@ -377,6 +394,21 @@ def make_chat_stream_route(
                         status_code=409,
                         detail="chat request id conflicts with an existing turn",
                     ) from exc
+                if conversation_image_store is not None:
+                    try:
+                        await persist_conversation_images(
+                            store=conversation_image_store,
+                            attachments=prepared.vision_attachments,
+                            principal_id=user_id,
+                            conversation_id=session_id,
+                            request_id=request_id,
+                            created_at=operator_recorded_at,
+                        )
+                    except ConversationImageConflictError as exc:
+                        raise HTTPException(
+                            status_code=409,
+                            detail="chat image id conflicts with existing content",
+                        ) from exc
                 completed_turn = await conversation_history_store.get_turn_by_idempotency(
                     principal_id=user_id,
                     idempotency_key=f"{request_id}:assistant",
@@ -453,10 +485,14 @@ def make_chat_stream_route(
                     yield frame("done", completed_payload)
                     return
                 semantic_plan = None
-                if turn_planner is not None and (
-                    not deterministic_followup
-                    or semantic_inventory_completion
-                    or is_explicit_action_draft_request(clean_prompt)
+                if (
+                    turn_planner is not None
+                    and not _is_grounded_concept_query(clean_prompt)
+                    and (
+                        not deterministic_followup
+                        or semantic_inventory_completion
+                        or is_explicit_action_draft_request(clean_prompt)
+                    )
                 ):
                     semantic_plan_timing = turn_timing.begin("semantic_plan")
                     try:

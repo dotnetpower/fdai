@@ -18,6 +18,7 @@
  */
 
 import { useCallback, useRef, useState } from "preact/hooks";
+import type { OperatorApiClient } from "../api";
 import { t } from "../i18n";
 import { navigate } from "../router";
 import { type VerificationProgress } from "./backend";
@@ -63,7 +64,7 @@ import {
   useCommandDeckSessionState,
 } from "./use-command-deck-sessions";
 
-export function CommandDeck() {
+export function CommandDeck({ client }: { readonly client: OperatorApiClient }) {
   const snapshot = useViewContext();
   const deckUser = getDeckUser();
   const userScope = conversationUserScope(
@@ -292,6 +293,7 @@ export function CommandDeck() {
       dragging={dragging}
       routeLabel={routeLabel}
       health={health}
+      client={client}
       sessionLabel={sessionLabel}
       deckStyle={deckStyle}
       dockWidth={dockWidth}
@@ -333,6 +335,12 @@ export function CommandDeck() {
       onLoadMoreConversations={loadMoreConversations}
       onSelectLayout={selectLayoutMode}
       onRemoveConversation={removeCachedConversation}
+      onToggleFavorite={(conversation) => {
+        updateConversationIndex({
+          ...conversation,
+          favorite: conversation.favorite !== true,
+        });
+      }}
       onSelectConversation={(conversation) => {
         selectConversationWithRoute(conversation, currentPathname(), sessionKey, {
           navigate: (path) => runConversationRouteNavigation(

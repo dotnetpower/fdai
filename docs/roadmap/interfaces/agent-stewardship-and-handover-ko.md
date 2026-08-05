@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: 032f053c4544d9b37dfa822c23b3077b22373b5b
-translation_revised: 2026-08-01
+translation_source_sha: 222796546e161a5f5d4da94ae0aa93c91b366aea
+translation_revised: 2026-08-05
 title: 에이전트 스튜어드십과 인수인계
 ---
 # 에이전트 스튜어드십과 인수인계
@@ -49,6 +49,9 @@ RBAC은 "누가 FDAI를 조작할 수 있나"(Reader / Contributor / Approver / 
    ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)).
 6. **모든 변경은 통보되고 감사되어야 한다.** Core는 recipient와 audit payload를 결정론적으로
   계산합니다. Live PR/merge integration은 이 primitive를 notification/audit adapter에 배선해야 합니다.
+7. **자율 운영은 담당 체계의 대안입니다.** `accept_autonomous`는 Agent에 accountable owner가
+  없을 때만 유효합니다. 둘을 함께 선언하면 서로 모순된 에스컬레이션 경로가 생기므로 구성이
+  수락되지 않습니다.
 
 ## 2. 개념과 용어
 
@@ -261,8 +264,9 @@ Hard 에러(`StewardshipValidationError` 발생, 레이어의 clean 부팅 차�
 maintainer/steward OID가 여전히 활성 계정으로 해석되는지 확인한다. 없는 OID는 `stale_oid` 발견을
 만들고 그 사람은 live 에스컬레이션에서 제거된다(다음 tier / maintainer로 폴백). 이는 hot path
 바깥(스케줄)에서 실행되며 제어 루프에서 절대 인라인으로 돌지 않습니다. Production은
-transition-only health를 저장하고 최신 validated stale finding을 read-only `/stewardship` coverage
-response에 merge합니다.
+transition-only finding과 별도의 last-success heartbeat를 저장합니다. Read-only `/stewardship`
+response는 heartbeat가 만료되지 않고 동일한 state revision을 가리킬 때만 stale finding을
+merge합니다.
 
 ### 7.4 CI 게이트 (`scripts/governance/check-stewardship.sh`)
 
@@ -297,12 +301,23 @@ recipient 및 audit primitive로 lifecycle을 완료합니다.
 이로써 루프가 닫힌다: 어떤 에이전트를 책임지는 바로 그 사람들이 그 에이전트를 지배하는
 워크플로우가 바뀌려 할 때 통보받고, 변경은 영구히 기록된다.
 
-## 9. 콘솔 설정 표면
+## 9. Console Agent oversight 표면
 
-Handover route는 read-only projection과 governed proposal form을 함께 제공합니다.
+Governance > Agent oversight route는 read-only projection과 governed proposal form을 함께
+제공합니다.
 
 - **현재 담당 체계** - `GET /stewardship`에서 15개 agent, accountable owner, notification contact,
   backup coverage, autonomous status, FDAI maintainer count, validation finding을 표시합니다.
+- **프로젝션 검증** - Browser는 지원되는 정수 schema version, 음수가 아닌 정수 count, 양수 timeout과
+  assignment limit만 허용합니다. 고정 Pantheon map에서 aggregate count를 다시 계산하고,
+  maintainer 하한과 비어 있지 않은 exact subject 참조를 요구합니다. 중복된 실제 maintainer와
+  중복된 exact steward subject를 거부합니다. 불일치하면 health를 추정해 표시하지 않고
+  차단합니다. Version 2 non-autonomous projection에는 Primary와 서로 다른 Backup 또는 Escalation
+  coverage도 필요합니다.
+- **Finding 검증** - Coverage finding은 고정 code와 severity 용어를 사용하고, Agent가 있으면 고정
+  Pantheon Agent만 참조합니다. Warning finding이 없을 때만 clean 상태로 계산합니다. 각 code는
+  severity와 단일 Agent 또는 전체 map 범위도 고정합니다. 알 수 없거나 모순된 finding은
+  fail-closed로 차단합니다.
 - **담당자 등록** - Contributor, Approver, Owner는 canonical agent, 사람 또는 group의 display name이나
   email, subject kind, responsibility로 하나 이상의 행을 추가할 수 있습니다. Browser는 명시적인
   `agent`, `subject`, `identity`, `responsibility` tag를 생성하고 `handover_bootstrap` text document로

@@ -60,7 +60,10 @@ from fdai.delivery.operator_api.routes.chat_stream_request import read_chat_stre
 from fdai.delivery.operator_api.routes.chat_subscription_health import (
     needs_subscription_health_context,
 )
-from fdai.delivery.operator_api.routes.chat_vision_evidence import parse_vision_attachments
+from fdai.delivery.operator_api.routes.chat_vision_evidence import (
+    VisionAttachment,
+    parse_vision_attachments,
+)
 from fdai.shared.providers.document_ingestion import DocumentAccessDeniedError
 from fdai.shared.providers.user_context import (
     ConversationHistoryStore,
@@ -98,6 +101,7 @@ class PreparedChatStreamRequest:
     session_id: str
     request_id: str
     include_model_trace: bool
+    vision_attachments: list[VisionAttachment]
 
 
 async def prepare_chat_stream_request(
@@ -290,4 +294,5 @@ async def prepare_chat_stream_request(
         session_id=session_id,
         request_id=request_id,
         include_model_trace=include_model_trace,
+        vision_attachments=vision_attachments,
     )
