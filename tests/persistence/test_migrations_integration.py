@@ -46,6 +46,7 @@ EXPECTED_TABLES = {
     "case_history_revision",
     "case_history_chunk",
     "case_history_migration_state",
+    "conversation_image",
 }
 
 
