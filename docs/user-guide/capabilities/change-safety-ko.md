@@ -2,7 +2,7 @@
 title: 변경 안전성
 description: FDAI가 제안된 모든 변경을 안전하게 유지하는 방법 - 정책 게이트, 리스크 분류, 감사 가능한 pull request 전달.
 translation_of: change-safety.md
-translation_source_sha: ae52dc3a84562013d170d391e7013917325104ed
+translation_source_sha: 764e7be697a1de57c43bcb066c8057139a284396
 translation_revised: 2026-08-06
 ---
 
@@ -71,6 +71,6 @@ path를 기록합니다. Ontology declaration이나 conversation은 이 owner를
 - [결정론 우선](../concepts/deterministic-first-ko.md) - 반복 가능한 대다수가 규칙 기반으로 남는 이유.
 - [리스크 티어](../concepts/risk-tiers-ko.md) - 변경이 자동 실행, 사람 승인, 거부로 갈리는 방식.
 - [에이전트 기반 자동화](../concepts/ontology-driven-automation-ko.md) - 에이전트가 변경에 typed safety contract를 사용하는 방식.
-- [구성 드리프트 탐지](../sre/observability-detection-and-forecasting-ko.md) - 고정된 기준선과 검증된 주간 리뷰가 드리프트를 변경으로 커지기 전에 잡는 방식.
+- [구성 드리프트 탐지](../sre/observability-detection-and-forecasting-ko.md) - 고정된 기준선이 드리프트를 계획되지 않은 변경으로 커지기 전에 잡아내는 방식.
 - [변경 승인](../guides/approve-change-ko.md) - 사람 승인의 운영자 측면.
 - [배포와 온보딩](../../roadmap/deployment/deploy-and-onboard-ko.md) - FDAI를 환경에 도입하는 방법.

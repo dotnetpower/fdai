@@ -36,15 +36,23 @@ because they carry information and never authority.
 
 ## When a chat command is denied
 
-A3 commands are role-gated per command, not per channel. Before FDAI calls a tool on your behalf,
-it checks your role against that tool's required floor, even when a narrator translated your
-words into the command. A role that falls short never reaches the tool: FDAI denies the call and
-writes an auditable system turn explaining why, and no tool-call turn is created.
+A3 commands are gated per command, not per channel. Before FDAI calls a tool for you, it compares
+your role with the minimum role that tool requires. The same check applies when the narrator turns
+your words into a command, so plain language can't reach a tool your role can't use.
 
-Example: a Contributor asks Bragi to "approve the pending human-approval item," a command that
-needs the Approver role. FDAI replies: `Tool access denied: 'approve_hil' requires role 'approver';
-current role is 'contributor'. No tool was called.` Being on call or reachable through a paging
-channel never raises that floor.
+If your role is below that minimum, the tool isn't called. FDAI returns the denial, names the tool
+and both roles, and records an auditable system message. It doesn't present the denial as a system
+error or run part of the command.
+
+Example: a Contributor asks Bragi to approve a pending approval item, which requires the Approver
+role. FDAI replies:
+
+```text
+Tool access denied: 'approve_hil' requires role 'approver'; current role is 'contributor'.
+No tool was called.
+```
+
+Being on call, or reachable through a paging channel, doesn't lower that minimum.
 
 ## How an approval reaches you
 

@@ -73,6 +73,6 @@ gate.
 - [Deterministic first](../concepts/deterministic-first.md) - Why the repeatable majority stays rule-driven.
 - [Risk tiers](../concepts/risk-tiers.md) - How a change becomes auto, human approval, or deny.
 - [Agent-driven automation](../concepts/ontology-driven-automation.md) - How agents use typed safety contracts for changes.
-- [Detect configuration drift](../sre/observability-detection-and-forecasting.md) - How a frozen baseline and a verified weekly review catch drift before it becomes a change.
+- [Detect configuration drift](../sre/observability-detection-and-forecasting.md) - How a frozen baseline catches drift before it becomes an unplanned change.
 - [Approve a change](../guides/approve-change.md) - The operator view of an approval request.
 - [Deploy and onboard](../../roadmap/deployment/deploy-and-onboard.md) - Bring FDAI into your environment.

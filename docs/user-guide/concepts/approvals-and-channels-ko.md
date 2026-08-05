@@ -2,7 +2,7 @@
 title: 승인과 알림 채널(Approvals and channels)
 description: FDAI가 고위험 승인과 알림을 위해 사람에게 도달하는 방식. 어떤 채널을 쓰는지, 콘솔이 왜 실행하지 않는지, 아무도 응답하지 않으면 어떻게 되는지 설명합니다.
 translation_of: approvals-and-channels.md
-translation_source_sha: 82aff87c0918faafd4ec5627820a44b7ac3a8da4
+translation_source_sha: dcedf4816426de33088a6dbf06bb991c32f8c9e9
 translation_revised: 2026-08-06
 sidebar:
   order: 7
@@ -37,15 +37,24 @@ FDAI가 사람에게 보내는 모든 메시지는 **카테고리 태그**를 �
 
 ## 챗 명령이 거부될 때
 
-A3 명령은 채널이 아니라 명령 단위로 역할 게이팅됩니다. FDAI는 여러분을 대신해 도구를 호출하기
-전에, narrator가 자연어를 명령으로 번역한 경우에도 여러분의 역할을 그 도구가 요구하는 최소
-역할과 비교합니다. 역할이 미달하면 도구까지 도달하지 않습니다. FDAI는 호출을 거부하고 그 이유를
-설명하는 감사 가능한 시스템 turn을 기록하며, tool-call turn은 만들어지지 않습니다.
+A3 명령은 채널이 아니라 명령 단위로 제한됩니다. FDAI는 여러분을 대신해 도구를 호출하기
+전에 여러분의 역할과 그 도구가 요구하는 최소 역할을 비교합니다. 내레이터가 자연어를 명령으로
+바꿔 준 경우에도 같은 검사가 적용됩니다. 따라서 문장을 바꿔 요청한다고 해서 역할이 허용하지
+않는 도구에 닿지는 않습니다.
 
-예시: Contributor가 Bragi에게 "보류 중인 사람 승인 항목을 승인해줘"라고 요청했는데, 이 명령은
-Approver 역할이 필요합니다. FDAI는 이렇게 답합니다: `Tool access denied: 'approve_hil'
-requires role 'approver'; current role is 'contributor'. No tool was called.` 당직 중이거나
-페이징 채널로 연락 가능한 상태라고 해서 이 최소 역할이 올라가지는 않습니다.
+역할이 최소 기준에 미치지 못하면 도구는 호출되지 않습니다. FDAI는 거부 사유와 함께 도구 이름, 요구
+역할, 현재 역할을 알려 주고 감사 가능한 시스템 메시지를 남깁니다. 거부를 시스템 오류처럼
+보이게 바꾸거나 명령의 일부만 실행하지 않습니다.
+
+예시: Contributor가 Bragi에게 승인 대기 항목을 승인해 달라고 요청했지만, 이 명령에는 Approver
+역할이 필요합니다. FDAI는 다음과 같이 답합니다.
+
+```text
+Tool access denied: 'approve_hil' requires role 'approver'; current role is 'contributor'.
+No tool was called.
+```
+
+당직 중이거나 페이징 채널로 연락이 닿는 상태라고 해서 이 최소 기준이 낮아지지는 않습니다.
 
 ## 승인이 여러분에게 도달하는 방식
 

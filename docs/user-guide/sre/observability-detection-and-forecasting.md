@@ -86,25 +86,36 @@ and re-enters event ingest for stable deduplication before trust routing.
 
 ## Detect configuration drift against a frozen baseline
 
-Configuration drift compares the current configuration in one scope with a reviewed snapshot
-that was frozen as the intended state. A later observation never replaces the baseline by itself;
-a human reviews and re-freezes it. The report classifies each resource, attribute, or topology
-link as `added`, `removed`, `changed`, `unchanged`, `unknown`, or `unauthorized`.
+Configuration drift compares what a scope looks like now with a reviewed snapshot that was frozen
+as the intended state. A later observation never replaces that baseline on its own. Someone reviews
+the change and re-freezes the baseline.
 
-- **Pinned, not chosen.** The baseline version, digest, and scope are fixed by the deployment. A
-  caller cannot point the check at a different baseline or scope.
-- **No silent removal.** A partial snapshot cannot prove a resource was removed. Missing evidence
-  stays `unknown` until a complete source confirms it.
-- **One active baseline per scope.** An immutable registry holds candidate, active, superseded,
-  and archived baseline versions, and comparison always uses the active version.
-- **A weekly review needs three verified runs first.** Before FDAI proposes a recurring weekly
-  drift review, the same pinned baseline must pass three independent, read-only runs. A blocked or
-  unsafe run pauses the review, and the result is an inert governance blueprint for a human to
-  schedule, never a scheduler task or a fix FDAI starts on its own.
+The report classifies every resource, attribute, and topology link:
 
-Example: a resource-group scope is frozen as its Q3 baseline. A later scan finds a new inbound
-rule that isn't in the baseline. The report marks it `unauthorized`, cites the frozen document and
-its digest, and re-enters the same trust and risk pipeline as any other detected issue.
+| Result | Meaning |
+|--------|---------|
+| `unchanged` | Matches the frozen baseline |
+| `added`, `removed`, `changed` | Differs from the baseline, with the difference cited |
+| `unauthorized` | Present now, but not approved in the baseline |
+| `unknown` | The evidence isn't complete enough to classify |
+
+Three rules keep the comparison trustworthy:
+
+- **The baseline is pinned, not chosen.** Its version, digest, and scope come from the deployment.
+  A caller can't point the check at a different baseline or a different scope.
+- **Incomplete evidence never proves a removal.** A partial snapshot can't show that a resource is
+  gone, so the item stays `unknown` until a complete source confirms it.
+- **One baseline is active per scope.** An immutable registry keeps candidate, active, superseded,
+  and archived versions, and the comparison always uses the active one.
+
+Before FDAI proposes a recurring weekly drift review, the same pinned baseline has to pass three
+independent read-only runs. A blocked or unsafe run pauses the review. When all three pass, the
+result is a governance blueprint for someone to schedule. It isn't a scheduled task, and it isn't a
+fix FDAI starts on its own.
+
+Example: a resource-group scope is frozen as its Q3 baseline. A later scan finds an inbound rule
+that isn't in the baseline. The report marks it `unauthorized`, cites the frozen document and its
+digest, and re-enters the same trust and risk pipeline as any other detected issue.
 
 ## Distinguish absence from provider failure
 

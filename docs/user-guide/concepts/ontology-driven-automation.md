@@ -198,24 +198,34 @@ catalog counts, and operating-model status with its source revision and aggregat
 The endpoint doesn't expose deployment instance properties. The graph is for inspection and
 explanation, not mutation. The console's ontology views use the same projection.
 
-## Answering questions in plain language
+## Ask questions in plain language
 
-When you ask an inventory question in plain language, FDAI does not silently guess what you meant.
-Lexical, embedding, or model matching can propose an interpretation, but that proposal stays a
-**candidate**: it names the requested operation, the exact ontology target, and the arguments it
-inferred, alongside the exact catalog version it was matched against. A candidate carries no
-execution authority no matter how confident the match looks.
+When you ask an inventory question in plain language, FDAI proposes an interpretation instead of
+assuming one. Word matching, embeddings, or a model can suggest what you meant, but that suggestion
+stays a **candidate** until it is verified.
 
-If a term is unresolved, the catalog has moved on since the candidate was built, or the target
-isn't valid for the requested operation, FDAI holds and asks you to clarify instead of broadening
-the search or picking the closest match. Only reviewed, catalog-exact evidence can turn a candidate
-into a verified interpretation, and even a verified interpretation of an action stays a proposal:
-it still has to pass the same governed pipeline as any other `ActionType` instance before anything
-can run.
+Each candidate records what it would look up and what it based that on:
+
+| The candidate records | Why it matters |
+|-----------------------|----------------|
+| The requested operation and the ontology type it targets | You can see exactly what FDAI would query |
+| The arguments it inferred from your wording | You can catch a wrong assumption before it becomes a result |
+| The catalog version it was matched against | The same question replays later against the same meaning |
+
+A candidate never carries execution permission, however confident the match looks. FDAI holds the
+request for review and asks you to clarify when:
+
+- a term in your question doesn't resolve to anything in the catalog,
+- the catalog changed after the candidate was built, or
+- the target isn't valid for the operation you asked for.
+
+Only reviewed evidence that matches the catalog exactly turns a candidate into a verified
+interpretation. Even then, a verified interpretation of an action is still a proposal. It passes the
+same governed pipeline as any other `ActionType` instance before anything runs.
 
 Example: you ask "show me the databases in the payments service," and `payments-db-2` was renamed
-last week. FDAI reports the rename as an unresolved term and asks which service you mean, rather
-than returning a result built on a stale name.
+last week. FDAI reports the old name as unresolved and asks which service you mean, instead of
+answering from a stale name.
 
 ## Tip: From Aristotle to modern ontology
 
