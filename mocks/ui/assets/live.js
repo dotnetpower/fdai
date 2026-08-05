@@ -52,6 +52,8 @@
   var flowView = document.getElementById("flow-view");
   var queueButton = document.getElementById("view-queue");
   var flowButton = document.getElementById("view-flow");
+  var workWorkspace = document.getElementById("live-workspace");
+  var fullscreenButton = document.getElementById("live-fullscreen");
   var detailBackdrop = document.getElementById("detail-backdrop");
   var detailClose = document.getElementById("detail-close");
   var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -70,6 +72,57 @@
   var lastEventAt = Date.now();
   var lastOperationalRender = 0;
   var pulseTimers = new WeakMap();
+
+  function fullscreenActive() {
+    return document.fullscreenElement === workWorkspace || workWorkspace.classList.contains("is-fullscreen-fallback");
+  }
+
+  function fullscreenIcon(active) {
+    return active
+      ? '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7 H7 V3 M17 7 H13 V3 M17 13 H13 V17 M3 13 H7 V17" /></svg>'
+      : '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3 H3 V7 M13 3 H17 V7 M17 13 V17 H13 M7 17 H3 V13" /></svg>';
+  }
+
+  function syncFullscreen() {
+    var active = fullscreenActive();
+    var label = active ? "Exit full screen" : "View work full screen";
+    fullscreenButton.setAttribute("aria-label", label);
+    fullscreenButton.setAttribute("title", label);
+    fullscreenButton.setAttribute("aria-pressed", active ? "true" : "false");
+    fullscreenButton.innerHTML = fullscreenIcon(active);
+  }
+
+  function enterFallbackFullscreen() {
+    workWorkspace.classList.add("is-fullscreen-fallback");
+    document.body.classList.add("cs-live-fullscreen-fallback");
+    syncFullscreen();
+  }
+
+  function exitFallbackFullscreen() {
+    workWorkspace.classList.remove("is-fullscreen-fallback");
+    document.body.classList.remove("cs-live-fullscreen-fallback");
+    syncFullscreen();
+    fullscreenButton.focus();
+  }
+
+  function toggleFullscreen() {
+    if (workWorkspace.classList.contains("is-fullscreen-fallback")) {
+      exitFallbackFullscreen();
+      return;
+    }
+    if (document.fullscreenElement) {
+      document.exitFullscreen().then(function () {
+        syncFullscreen();
+        window.setTimeout(function () { fullscreenButton.focus(); }, 50);
+      }).catch(enterFallbackFullscreen);
+      return;
+    }
+    if (!workWorkspace.requestFullscreen) {
+      enterFallbackFullscreen();
+      return;
+    }
+    workWorkspace.requestFullscreen({ navigationUI: "hide" }).then(syncFullscreen).catch(enterFallbackFullscreen);
+  }
 
   // Sliding buckets for the last 60s
   var buckets = []; // each: { t0, t1, t2, auto, hil, abstain, deny }
@@ -703,6 +756,14 @@
   });
   queueButton.addEventListener("click", function () { setView("queue"); });
   flowButton.addEventListener("click", function () { setView("flow"); });
+  fullscreenButton.addEventListener("click", toggleFullscreen);
+  document.addEventListener("fullscreenchange", function () {
+    syncFullscreen();
+    if (!fullscreenActive()) {
+      window.setTimeout(function () { fullscreenButton.focus(); }, 0);
+    }
+  });
+  document.addEventListener("fullscreenerror", enterFallbackFullscreen);
   document.querySelectorAll("[data-live-filter]").forEach(function (button) {
     button.addEventListener("click", function () { setFilter(button.getAttribute("data-live-filter")); });
   });
@@ -739,6 +800,10 @@
     if (event.target === detailBackdrop) closeDetail();
   });
   document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && workWorkspace.classList.contains("is-fullscreen-fallback")) {
+      exitFallbackFullscreen();
+      return;
+    }
     if (detailBackdrop.hidden) return;
     if (event.key === "Escape") {
       event.preventDefault();
@@ -769,6 +834,7 @@
   initPool();
   setView("flow");
   setFilter("all");
+  syncFullscreen();
   // Timer-driven so the synthetic preview continues in integrated browser
   // tabs where requestAnimationFrame may pause when the iframe is hidden.
   window.setTimeout(function () {

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Live - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=live-human-work-v2" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=live-work-fullscreen-v2" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
 </head>
 <body>
@@ -72,33 +72,40 @@
       </a>
     </section>
 
-    <section class="cs-live-workbar">
-      <div><span>Current work</span><h2>Control-loop work</h2></div>
-      <div class="cs-live-filterbar" aria-label="Work filters">
-        <button type="button" class="is-active" data-live-filter="all" aria-pressed="true">All <span id="filter-all">0</span></button>
-        <button type="button" data-live-filter="hil" aria-pressed="false">Approval <span id="filter-hil">0</span></button>
-        <button type="button" data-live-filter="deny" aria-pressed="false">Deny <span id="filter-deny">0</span></button>
-        <button type="button" data-live-filter="failed" aria-pressed="false">Failed <span id="filter-failed">0</span></button>
-        <button type="button" data-live-filter="stuck" aria-pressed="false">Over budget <span id="filter-stuck">0</span></button>
+    <section class="cs-live-workspace" id="live-workspace">
+      <div class="cs-live-workbar">
+        <div><span>Current work</span><h2>Control-loop work</h2></div>
+        <div class="cs-live-filterbar" aria-label="Work filters">
+          <button type="button" class="is-active" data-live-filter="all" aria-pressed="true">All <span id="filter-all">0</span></button>
+          <button type="button" data-live-filter="hil" aria-pressed="false">Approval <span id="filter-hil">0</span></button>
+          <button type="button" data-live-filter="deny" aria-pressed="false">Deny <span id="filter-deny">0</span></button>
+          <button type="button" data-live-filter="failed" aria-pressed="false">Failed <span id="filter-failed">0</span></button>
+          <button type="button" data-live-filter="stuck" aria-pressed="false">Over budget <span id="filter-stuck">0</span></button>
+        </div>
+        <div class="cs-live-work-actions">
+          <div class="cs-live-view-toggle" role="group" aria-label="Work view">
+            <button type="button" id="view-queue" aria-pressed="false">Queue</button>
+            <button type="button" id="view-flow" class="is-active" aria-pressed="true">Flow</button>
+          </div>
+          <button class="cs-live-fullscreen" id="live-fullscreen" type="button" aria-label="View work full screen" title="View work full screen" aria-pressed="false">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3 H3 V7 M13 3 H17 V7 M17 13 V17 H13 M7 17 H3 V13" /></svg>
+          </button>
+        </div>
       </div>
-      <div class="cs-live-view-toggle" role="group" aria-label="Work view">
-        <button type="button" id="view-queue" aria-pressed="false">Queue</button>
-        <button type="button" id="view-flow" class="is-active" aria-pressed="true">Flow</button>
-      </div>
-    </section>
 
-    <section id="queue-view" aria-label="Control-loop work queue">
-      <div class="cs-live-queue-wrap">
-        <table class="cs-live-queue">
-          <thead><tr><th>Work</th><th>Why</th><th>Owner / stage</th><th>Age</th><th>Decision</th></tr></thead>
-          <tbody id="live-queue"></tbody>
-        </table>
-        <p class="cs-live-empty" id="queue-empty" hidden>No work matches this filter.</p>
-      </div>
-    </section>
+      <section id="queue-view" aria-label="Control-loop work queue">
+        <div class="cs-live-queue-wrap">
+          <table class="cs-live-queue">
+            <thead><tr><th>Work</th><th>Why</th><th>Owner / stage</th><th>Age</th><th>Decision</th></tr></thead>
+            <tbody id="live-queue"></tbody>
+          </table>
+          <p class="cs-live-empty" id="queue-empty" hidden>No work matches this filter.</p>
+        </div>
+      </section>
 
-    <section id="flow-view" aria-label="Control-loop flow">
-      <div class="cs-swarm" id="swarm"></div>
+      <section id="flow-view" aria-label="Control-loop flow">
+        <div class="cs-swarm" id="swarm"></div>
+      </section>
     </section>
 
     <div class="cs-live-detail-backdrop" id="detail-backdrop" hidden>
@@ -128,6 +135,6 @@
 
   </main>
 
-  <script src="assets/live.js?v=live-human-work-v4" defer></script>
+  <script src="assets/live.js?v=live-work-fullscreen-v5" defer></script>
 </body>
 </html>
