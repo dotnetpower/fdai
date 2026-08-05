@@ -7502,15 +7502,19 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   color: var(--fg);
 }
 .deck-turn-attachments {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
   width: min(420px, calc(100vw - 96px));
   margin: 0 0 8px;
   padding: 0;
   list-style: none;
 }
-.deck-turn-attachments li { min-width: 0; }
+.deck-turn-attachments li {
+  flex: 0 1 calc(50% - 3px);
+  min-width: 0;
+}
 .deck-turn-attachment-open {
   display: block;
   width: 100%;
