@@ -170,6 +170,19 @@ function QuoteBlock({ text }: { readonly text: string }) {
   );
 }
 
+function TableCellContent({ text }: { readonly text: string }) {
+  return (
+    <>
+      {text.split("\n").map((line, index) => (
+        <span key={index}>
+          {index > 0 ? <br /> : null}
+          <InlineContent text={line} />
+        </span>
+      ))}
+    </>
+  );
+}
+
 function TableBlock({
   headers,
   rows,
@@ -196,7 +209,9 @@ function TableBlock({
                     <span class="deck-table-cell-label" aria-hidden="true">
                       {headers[c] ?? ""}
                     </span>
-                    <span class="deck-table-cell-value">{row[c] ?? ""}</span>
+                    <span class="deck-table-cell-value">
+                      <TableCellContent text={row[c] ?? ""} />
+                    </span>
                   </td>
                 ))}
               </tr>

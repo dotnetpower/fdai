@@ -51,6 +51,7 @@ export type Segment =
 const TABLE_ROW = /^\s*\|(.+)\|\s*$/;
 // A markdown header/body separator: pipes plus dashes (and optional colons).
 const TABLE_SEP = /^\s*\|?[\s:|-]*-{2,}[\s:|-]*\|?\s*$/;
+const TABLE_BREAK = /<br\s*\/?>/gi;
 // Any fenced block open, capturing the info string (language / "chart").
 const FENCE_OPEN = /^\s*```([\w+#.-]*)\s*$/;
 const FENCE_CLOSE = /^\s*```\s*$/;
@@ -67,7 +68,7 @@ const SAFE_HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 function splitCells(line: string): string[] {
   const m = line.match(TABLE_ROW);
   const inner = m?.[1] ?? line;
-  return inner.split("|").map((c) => c.trim());
+  return inner.split("|").map((cell) => cell.trim().replace(TABLE_BREAK, "\n"));
 }
 
 function parseChartValue(parsed: unknown, strict: boolean): ChartSpec | null {

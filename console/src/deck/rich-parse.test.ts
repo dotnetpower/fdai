@@ -128,6 +128,16 @@ describe("parseAnswer - tables", () => {
     expect(segs[0]).toMatchObject({ headers: ["a", "b"], rows: [["1", "2"]] });
   });
 
+  it("normalizes safe break tags inside table cells without parsing other HTML", () => {
+    const md = "| item | details |\n| --- | --- |\n| signal | one<br>- two<br/>three<br />four <script> |";
+    const segs = parseAnswer(md);
+
+    expect(segs[0]).toMatchObject({
+      kind: "table",
+      rows: [["signal", "one\n- two\nthree\nfour <script>"]],
+    });
+  });
+
   it("does NOT treat pipe rows without a separator as a table", () => {
     const md = "| a | b |\n| 1 | 2 |";
     const segs = parseAnswer(md);

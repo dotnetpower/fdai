@@ -142,8 +142,8 @@ flowchart TD
   only attachments, question entry, and send or stop. Sent images render inside the operator turn, and validated image attachments bypass prompt-only semantic tool planning and omitted-subject
   LLM-usage refinement so the current image reaches vision narration. Terminal verification preserves the interpretation as unverified with a current `conversation-image` ref instead of treating it as screen-verified. Explicit measured LLM usage remains a deterministic tool request. Browser transcript caches retain only image descriptors, while authenticated history reads load
   bytes from the principal-scoped conversation image repository. A restored transcript shows its last recorded
-  time and a new-conversation action. Tables render every bounded row without internal scrolling or
-  expansion controls. On narrow screens, cells reflow while preserving native table semantics.
+  time and a new-conversation action. Tables render every bounded row without internal scrolling or expansion controls; cell-level `<br>` variants become safe line breaks while other raw HTML remains text.
+  On narrow screens, cells reflow while preserving native table semantics.
 - **Layer 2 (Coordinator)** owns intent classification, RBAC gating, tool
   dispatch, verifier re-check, and session bookkeeping. Core translation uses the `Narrator`
   Protocol. A narrator that also implements `GroundedAnswerNarrator` receives a completed

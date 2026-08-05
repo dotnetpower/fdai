@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 148fba5276db5071c2aaba5d257743dcb5651eb5
+translation_source_sha: 82c4b0b5479b34827e20e19e6aaed4ca984b4fe0
 translation_revised: 2026-08-05
 ---
 
@@ -141,7 +141,7 @@ flowchart TD
   attachment, 질문 입력 및 보내기 또는 중지만 유지합니다. 전송된 image는 operator turn 안에 표시되며 검증된 image attachment는 prompt-only semantic tool planning과
   주어가 생략된 LLM 사용량 refinement를 우회하여 현재 image를 vision narration에 전달합니다. Terminal verification은 해당 해석을 screen-verified로 취급하지 않고 현재 `conversation-image` ref가 있는 unverified 답변으로 보존합니다. 측정된 LLM 사용량을 명시한 요청은 deterministic tool request로 유지합니다. Browser transcript cache에는 image descriptor만 유지하고 인증된 history read가
   principal 범위 conversation image repository에서 byte를 load합니다. 복원된 transcript에는 마지막 기록 시각과
-  새 대화 작업을 표시합니다. 좁은 화면에서도 Markdown table은 native table semantics를 유지합니다.
+  새 대화 작업을 표시합니다. Table cell의 `<br>` 변형만 안전한 줄바꿈으로 바꾸고 다른 raw HTML은 text로 유지합니다. 좁은 화면에서도 Markdown table은 native table semantics를 유지합니다.
 - **Layer 2 (Coordinator)**는 intent classification, RBAC gating, tool
   dispatch, verifier re-check, 세션 bookkeeping을 소유합니다. Core translator는 `Narrator`
   Protocol을 사용합니다. `GroundedAnswerNarrator`도 구현하는 narrator는 완료된 성공
