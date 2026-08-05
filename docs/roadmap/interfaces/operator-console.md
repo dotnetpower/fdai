@@ -154,18 +154,26 @@ flowchart TD
   and the presence of prior conversation context. The current inbound/tool/result transaction is
   excluded from that prior context. Web generation uses the Operator API backend seam, so deployments
   can bind providers.
-  `AnswerPlan.format` treats `table` and `chart` as first-class presentation contracts. An explicit
-  request format or saved response preference wins. Otherwise, after inventory evidence resolves,
-  a bounded structured model call judges the presentation shape from record count, available
-  columns, category count, query kind, and the operator request. Comparable rows permit only
-  `table` or `chart`; bullets aren't a valid model choice for that shape. Category summaries permit
-  `chart` or `bullets`. The model receives no row values and cannot add content. The strict schema
-  rejects other keys and formats. Deterministic evidence selection and verification remain T0;
-  the model judges presentation only. The
-  deterministic inventory verifier then renders the complete Markdown table, fenced `chart` JSON,
-  or bullets from immutable evidence. Model failure or an invalid proposal falls back to a table
-  for multiple comparable records, so presentation failure never removes evidence or blocks the
-  answer.
+  `AnswerPlan.format` keeps `table`, `chart`, and `mixed` as presentation preferences. An explicit
+  request format or saved response preference wins only when the verified result can support that
+  shape without changing meaning. After eligible read evidence resolves, a bounded structured
+  model call may arrange a `PresentationPlan` from server-declared slots. The model receives only
+  shape metadata, allowed slot-component pairs, coverage classes, and the operator request. It
+  never receives row values and cannot emit titles, facts, units, thresholds, status, severity,
+  colors, links, or evidence references. The plan can choose slot order, one allowlisted component,
+  emphasis, and whether supporting detail starts collapsed. It cannot repeat or omit a required
+  slot.
+
+  The server validates the plan, then compiles immutable evidence into a bounded
+  `presentation_artifact` v1. The compiler enforces compatible units and threshold directions for
+  charts, keeps partial or truncated coverage visible, and binds every block reference to the
+  terminal verification receipt. A partial source never removes completed slots: the answer renders
+  every available verified fact and marks only the missing portion as unknown or unavailable.
+  Presentation planning can return no artifact only when no relevant verified slot exists. Model,
+  schema, timeout, or compiler failure uses the deterministic answer and default layout, so the
+  operator still receives the maximum evidence-supported answer. Existing Markdown table, fenced
+  chart, bullet, and prose output remains the compatibility contract for other channels and older
+  clients.
   The semantic turn planner projects only the bounded capabilities for that request into a strict
   structured-output schema. Every object rejects additional properties and marks its declared
   fields required. A tool's optional arguments are represented as nullable fields, and the

@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 2a5e5d649c6e8ecb7617486d8dd2f93e6c4485a1
+translation_source_sha: f3c9aba7b70ba16d7925331527ef8379ac749ec3
 translation_revised: 2026-08-05
 ---
 
@@ -151,17 +151,24 @@ flowchart TD
   class, evidence-reference count 및 prior conversation context 유무에서 결정론적으로 조립합니다.
   현재 inbound/tool/result transaction은 prior context에서 제외합니다. Web generation은 Operator API
   backend seam이므로 deployment가 provider를 바인딩할 수 있습니다.
-  `AnswerPlan.format`은 `table`과 `chart`를 first-class presentation contract로 취급합니다. 명시적인
-  request format 또는 저장된 response preference가 우선합니다. 그렇지 않으면 inventory evidence가
-  준비된 뒤 bounded structured model call이 record count, available column, category count, query
-  kind 및 operator request에서 presentation shape를 판단합니다. Comparable row는 `table` 또는 `chart`만
-  허용하며 bullet은 이 shape의 valid model choice가 아닙니다. Category summary는 `chart` 또는
-  `bullets`를 허용합니다. Model은 row value를 받지 않으며 content를 추가할 수 없습니다. Strict
-  schema는 다른 key와 format을 거부합니다. Deterministic evidence selection과 verification은 T0에
-  유지하고 model은 presentation만 판단합니다.
-  Deterministic inventory verifier는 immutable evidence에서 완전한 Markdown table, fenced `chart` JSON
-  또는 bullet을 렌더링합니다. Model 실패 또는 invalid proposal은 여러 comparable record를 table로
-  fallback하므로 presentation 실패가 evidence를 제거하거나 answer를 차단하지 않습니다.
+  `AnswerPlan.format`은 `table`, `chart`, `mixed`를 presentation preference로 유지합니다. 명시적인
+  request format 또는 저장된 response preference는 verified result가 의미를 바꾸지 않고 해당 shape를
+  지원할 때만 우선합니다. 적합한 read evidence가 준비되면 bounded structured model call이 server가
+  선언한 slot으로 `PresentationPlan`을 배치할 수 있습니다. Model은 shape metadata, 허용된
+  slot-component pair, coverage class 및 operator request만 받습니다. Row value를 받지 않으며 title,
+  fact, unit, threshold, status, severity, color, link 또는 evidence reference를 출력할 수 없습니다.
+  Plan은 slot 순서, allowlisted component 하나, emphasis 및 supporting detail의 초기 접힘 상태만 선택할
+  수 있습니다. Required slot을 반복하거나 생략할 수 없습니다.
+
+  Server는 plan을 검증한 뒤 immutable evidence를 bounded `presentation_artifact` v1으로 compile합니다.
+  Compiler는 chart의 compatible unit과 threshold direction을 강제하고 partial 또는 truncated coverage를
+  계속 표시하며 각 block reference를 terminal verification receipt에 바인딩합니다. Partial source가
+  completed slot을 제거하지 않습니다. Answer는 사용할 수 있는 verified fact를 모두 렌더링하고 누락된
+  부분만 unknown 또는 unavailable로 표시합니다. 관련 verified slot이 하나도 없을 때만 presentation
+  planning이 artifact를 반환하지 않을 수 있습니다. Model, schema, timeout 또는 compiler failure에는
+  deterministic answer와 default layout을 사용하므로 operator는 가능한 최대 evidence-supported answer를
+  계속 받습니다. 기존 Markdown table, fenced chart, bullet 및 prose output은 다른 channel과 이전
+  client를 위한 compatibility contract로 유지합니다.
   Semantic turn planner는 해당 request의 bounded capability만 strict structured-output schema로
   projection합니다. 모든 object는 additional property를 거부하고 declared field를 required로
   표시합니다. Tool의 optional argument는 nullable field로 표현하며 coordinator는 deterministic

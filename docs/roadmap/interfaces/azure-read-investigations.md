@@ -364,9 +364,12 @@ an unqueried metric. The deterministic renderer shows the value, comparison, and
 The terminal answer keeps every partial-coverage limitation. A positive finding whose state belongs
 to a typed requested group can complete one evidence check because that finding is directly grounded;
 empty groups say only that no match was observed in checked evidence. A partial result without a
-positive requested-state finding remains `unverified`. The response is deterministic and does not
-call the narrator model. A complete `matched` result reports one of one checks completed and retains
-the grounded terminal status.
+positive requested-state finding remains `unverified`. Evidence selection, factual rendering, and
+verification remain deterministic. An optional presentation-only mini model can arrange a
+shape-only slot profile after evidence collection, but it receives no finding or metric values and
+cannot change the terminal status. Invalid or unavailable planning falls back to the deterministic
+answer. A complete `matched` result reports one of one checks completed and retains the grounded
+terminal status.
 
 ## Evidence contract
 

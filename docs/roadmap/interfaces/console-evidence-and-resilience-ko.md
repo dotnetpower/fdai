@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: af298eb7a4636742c4f3a5593550482d4b647e08
+translation_source_sha: 00fbd4d246a4bc34b2bffaeab72a6f87e71411e4
 translation_revised: 2026-08-05
 ---
 
@@ -257,7 +257,14 @@ observed row를 재구성하고 live turn은 인과 순서로 이미 표시한 r
 trajectory summary를 확인할 수 있게 유지합니다. Bounded original operator prompt는 run record가
 접혀 있는 동안 숨기고 operator가 펼치면 표시합니다. Internal AnswerPlan intent 및
 detail label은 answer 위에 표시하지 않습니다. Run record decision context에는 유지하며 answer는
-operator-facing content와 verified evidence로 바로 시작합니다. Model-assisted format selection은 validation된 presentation shape만 변경합니다. Verified chart는 evidence reference가 포함된 bounded `chart_artifact` v1을 반환하며 transport는 answer text보다 먼저 이를 검증하고 렌더링합니다. Canonical fenced chart data는 compatibility fallback으로 유지합니다.
+operator-facing content와 verified evidence로 바로 시작합니다. Model-assisted planning은 validation된
+presentation shape만 변경합니다. Verified `presentation_artifact` v1은 server가 immutable evidence에서
+compile한 content를 사용해 summary, table, chart, coverage, callout, detail 및 evidence block을 mixed할 수
+있습니다. Browser는 unknown block, duplicate slot, invalid bound, incompatible chart 또는 terminal
+verification receipt 밖의 evidence reference를 거부한 뒤 canonical answer text를 렌더링합니다. Partial
+evidence는 valid block을 모두 유지하고 명시적인 limitation block을 추가합니다. 누락된 source 하나가
+answer의 나머지를 숨기지 않습니다. Legacy verified chart는 bounded `chart_artifact` v1을 계속 반환할 수
+있으며 canonical Markdown 또는 fenced chart data는 compatibility fallback으로 유지합니다.
 
 상태 개요는 완료, 수정 후 완료, 일부 저하, 실패, 검증 미완료, 진행 중 및 관측되지 않음을 구분하며
 record 존재를 성공으로 표시하지 않습니다. Result chip은 내부 event total 대신 관측된 query와

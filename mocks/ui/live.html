@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Live - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=live-mix-charts-v2" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=live-tier-beacons-v2" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
 </head>
 <body>
@@ -74,9 +74,9 @@
         <span class="cs-live-kpi-label">Tier mix</span>
         <a class="cs-live-kpi-detail" href="trust-routing.html" aria-label="Open trust routing" title="Open trust routing"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3 H13 V11 M13 3 L4 12" /></svg></a>
         <div class="cs-tier-plot" id="k-tier-chart" role="img" aria-label="Decision tier distribution on a zero to one hundred percent scale">
-          <div class="cs-tier-row is-t0"><span class="cs-tier-label"><b>T0</b><small>Rules</small></span><span class="cs-tier-track"><span class="cs-tier-stem" id="k-t0-stem"></span><span class="cs-tier-dot" id="k-t0-dot" data-live-chart-tip tabindex="0"></span></span><strong id="k-t0">0%</strong></div>
-          <div class="cs-tier-row is-t1"><span class="cs-tier-label"><b>T1</b><small>Similarity</small></span><span class="cs-tier-track"><span class="cs-tier-stem" id="k-t1-stem"></span><span class="cs-tier-dot" id="k-t1-dot" data-live-chart-tip tabindex="0"></span></span><strong id="k-t1">0%</strong></div>
-          <div class="cs-tier-row is-t2"><span class="cs-tier-label"><b>T2</b><small>Reasoning</small></span><span class="cs-tier-track"><span class="cs-tier-stem" id="k-t2-stem"></span><span class="cs-tier-dot" id="k-t2-dot" data-live-chart-tip tabindex="0"></span></span><strong id="k-t2">0%</strong></div>
+          <div class="cs-tier-row is-t0"><span class="cs-tier-label"><b>T0</b><small>Rules</small></span><span class="cs-tier-track"><span class="cs-tier-beacon" id="k-t0-beacon" data-live-chart-tip tabindex="0"></span></span><strong id="k-t0">0%</strong></div>
+          <div class="cs-tier-row is-t1"><span class="cs-tier-label"><b>T1</b><small>Similarity</small></span><span class="cs-tier-track"><span class="cs-tier-beacon" id="k-t1-beacon" data-live-chart-tip tabindex="0"></span></span><strong id="k-t1">0%</strong></div>
+          <div class="cs-tier-row is-t2"><span class="cs-tier-label"><b>T2</b><small>Reasoning</small></span><span class="cs-tier-track"><span class="cs-tier-beacon" id="k-t2-beacon" data-live-chart-tip tabindex="0"></span></span><strong id="k-t2">0%</strong></div>
           <div class="cs-tier-axis" aria-hidden="true"><span>0</span><span>50</span><span>100%</span></div>
         </div>
       </article>
@@ -146,6 +146,6 @@
 
   </main>
 
-  <script src="assets/live.js?v=live-mix-charts-v3" defer></script>
+  <script src="assets/live.js?v=live-tier-beacons-v1" defer></script>
 </body>
 </html>

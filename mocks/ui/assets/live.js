@@ -475,10 +475,9 @@
       var value = totals[key];
       var percentage = total > 0 ? (value / total) * 100 : 0;
       var text = tierLabels[key] + ": " + value + " events (" + precisePercent(value, total) + "%). " + tierMeanings[key] + ".";
-      document.getElementById("k-" + key + "-stem").style.width = percentage + "%";
-      var dot = document.getElementById("k-" + key + "-dot");
-      dot.style.left = percentage + "%";
-      setChartTip(dot, text);
+      var beacon = document.getElementById("k-" + key + "-beacon");
+      beacon.style.left = percentage + "%";
+      setChartTip(beacon, text);
     });
     tierChart.setAttribute("aria-label", tierKeys.map(function (key) {
       return tierLabels[key] + " " + precisePercent(totals[key], total) + "%";

@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: a12f0b0b41aefc9fa10ac1884f98e04b5f39c4a3
+translation_source_sha: 20ecb5b2cdd9373f3cc4a9bda9cc846c904746b0
 translation_revised: 2026-08-05
 ---
 
@@ -360,9 +360,11 @@ Deterministic renderer는 value, comparison 및 threshold를 표시합니다.
 Terminal answer는 모든 partial-coverage 제한을 유지합니다. Typed requested group에 속하는 상태의
 양성 finding은 해당 finding이 직접 grounded되므로 evidence check 1건을 완료할 수 있습니다. Empty
 group은 확인한 evidence에서 match가 관찰되지 않았다는 사실만 표시합니다. 양성 requested-state
-finding이 없는 partial result는 `unverified`로 유지됩니다. 응답은 결정적이며 narrator model을 호출하지
-않습니다. Complete `matched` result는 check 1건 중 1건을 완료했다고 보고하고 grounded terminal
-status를 유지합니다.
+finding이 없는 partial result는 `unverified`로 유지됩니다. Evidence selection, factual rendering 및
+verification은 deterministic하게 유지합니다. Optional presentation-only mini model은 evidence collection
+후 shape-only slot profile을 배치할 수 있지만 finding 또는 metric value를 받지 않으며 terminal status를
+바꿀 수 없습니다. Invalid 또는 unavailable planning은 deterministic answer로 fallback합니다. Complete
+`matched` result는 check 1건 중 1건을 완료했다고 보고하고 grounded terminal status를 유지합니다.
 
 ## Evidence 계약
 

@@ -1184,7 +1184,6 @@ body.cs-drawer-open { overflow: hidden; }
 .cs-spark-key.t1 i { background: var(--cs-teal); }
 .cs-spark-key.t2 i { background: var(--cs-plum); }
 .cs-spark-key b { color: var(--cs-text); font-weight: 600; font-variant-numeric: tabular-nums; }
-.cs-live-stack { height: 6px; margin-top: 3px; }
 .cs-gate-viz { display: grid; grid-template-columns: 66px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 67px; }
 .cs-gate-donut { position: relative; width: 64px; height: 64px; }
 .cs-gate-donut svg { display: block; width: 64px; height: 64px; overflow: visible; transform: rotate(-90deg); }
@@ -1217,10 +1216,11 @@ body.cs-drawer-open { overflow: hidden; }
 .cs-tier-label { display: flex; align-items: baseline; gap: 4px; min-width: 0; }
 .cs-tier-label b { color: var(--tier-color); font-size: 9px; }
 .cs-tier-label small { overflow: hidden; color: var(--cs-text-soft); font-size: 7.5px; text-overflow: ellipsis; white-space: nowrap; }
-.cs-tier-track { position: relative; height: 2px; border-radius: 999px; background: var(--cs-hairline); }
-.cs-tier-stem { position: absolute; top: 0; bottom: 0; left: 0; width: 0; border-radius: inherit; background: var(--tier-color); transition: width .3s ease; }
-.cs-tier-dot { position: absolute; top: 50%; left: 0; width: 10px; height: 10px; border: 2px solid var(--cs-card); border-radius: 50%; background: var(--tier-color); box-shadow: 0 0 0 1px var(--tier-color); cursor: help; transform: translate(-50%, -50%); transition: left .3s ease, transform .15s ease; }
-.cs-tier-dot:hover, .cs-tier-dot:focus { outline: none; transform: translate(-50%, -50%) scale(1.35); }
+.cs-tier-track { position: relative; height: 1px; background: repeating-linear-gradient(90deg, var(--cs-hairline) 0 3px, transparent 3px 7px); }
+.cs-tier-beacon { position: absolute; top: 50%; left: 0; width: 14px; height: 14px; border: 1px solid var(--tier-color); border-radius: 50%; background: color-mix(in srgb, var(--tier-color) 8%, var(--cs-card)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--tier-color) 16%, transparent), 0 0 10px color-mix(in srgb, var(--tier-color) 48%, transparent); color: var(--tier-color); cursor: help; transform: translate(-50%, -50%); transition: transform .15s ease, box-shadow .15s ease; }
+.cs-tier-beacon::before { content: ""; position: absolute; inset: 3px; border: 1px solid currentColor; border-radius: 50%; opacity: .75; }
+.cs-tier-beacon::after { content: ""; position: absolute; top: 50%; left: 50%; width: 3px; height: 3px; border-radius: 50%; background: currentColor; box-shadow: 0 0 5px currentColor; transform: translate(-50%, -50%); }
+.cs-tier-beacon:hover, .cs-tier-beacon:focus { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--tier-color) 22%, transparent), 0 0 14px color-mix(in srgb, var(--tier-color) 65%, transparent); transform: translate(-50%, -50%) scale(1.16); }
 .cs-tier-row > strong { font-size: 9px; font-variant-numeric: tabular-nums; text-align: right; }
 .cs-tier-axis { display: grid; grid-template-columns: repeat(3, 1fr); margin-left: 64px; margin-right: 36px; color: #AAA6A1; font-size: 7px; line-height: 1; }
 .cs-tier-axis span:nth-child(2) { text-align: center; }
@@ -1394,7 +1394,7 @@ body.cs-live-fullscreen-fallback { overflow: hidden; }
   .cs-live-heartbeat, .cs-live-connection i, .is-content-updated::after { animation: none; }
   .cs-tile, .cs-tile-bar > span { transition: none; }
   .cs-tile[data-state="active"] { animation: none; }
-  .cs-gate-segment, .cs-tier-stem, .cs-tier-dot { transition: none; }
+  .cs-gate-segment, .cs-tier-beacon { transition: none; }
 }
 
 @media (max-width: 1180px) {
