@@ -17,9 +17,9 @@
     t1: { auto: 0.83, hil: 0.10, abstain: 0.04, deny: 0.03 },
     t2: { auto: 0.35, hil: 0.42, abstain: 0.18, deny: 0.05 }
   };
-  var STAGES = ["route", "verify", "gate", "execute"];
+  var STAGES = ["route", "decide", "authorize", "execute", "effect", "audit"];
   // Per-tier total pipeline duration (ms). Randomised +/-25% per event.
-  var TIER_TOTAL_MS = { t0: 320, t1: 750, t2: 2100 };
+  var TIER_TOTAL_MS = { t0: 2400, t1: 3400, t2: 4800 };
   var BASE_RATE = 2; // events / sec, bounded for the six-card preview
   var FADE_1_MS = 900;
   var FADE_2_MS = 1600;
@@ -27,6 +27,7 @@
   var FLOW_POOL_SIZE = 6;
   var SPARK_BUCKETS = 60; // one second per bucket
   var SPARK_BUCKET_MS = 1000;
+  var PULSE_COOLDOWN_MS = 5000;
 
   var CATALOG = [
     { title: "Disable public blob access", target: "Web app storage", reason: "Public access violates storage policy", rule: "storage.public-blob.deny", at: "storage.public-blob.disable", scope: "rg-webapp", vertical: "change" },
@@ -72,6 +73,9 @@
   var lastEventAt = Date.now();
   var lastOperationalRender = 0;
   var pulseTimers = new WeakMap();
+  var lastPulseAt = new WeakMap();
+  var pauseStartedAt = 0;
+  var pauseStartedWallAt = 0;
 
   function fullscreenActive() {
     return document.fullscreenElement === workWorkspace || workWorkspace.classList.contains("is-fullscreen-fallback");
@@ -130,7 +134,7 @@
   var lastBucketAt = performance.now();
 
   // ---------- helpers ----------
-  function zeroBucket() { return { t0: 0, t1: 0, t2: 0, total: 0, auto: 0, hil: 0, abstain: 0, deny: 0 }; }
+  function zeroBucket() { return { t0: 0, t1: 0, t2: 0, total: 0, auto: 0, hil: 0, abstain: 0, deny: 0, dropped: 0 }; }
   function rng() { return Math.random(); }
   function pick(arr) { return arr[Math.floor(rng() * arr.length)]; }
   function pickAvailableWork() {
@@ -165,13 +169,48 @@
     return Math.floor(ms / 60000) + "m";
   }
   function pulse(element) {
-    if (!element || reduced || pulseTimers.has(element)) return;
+    var now = performance.now();
+    if (!element || reduced || pulseTimers.has(element) || now - (lastPulseAt.get(element) || -PULSE_COOLDOWN_MS) < PULSE_COOLDOWN_MS) return;
     element.classList.add("is-content-updated");
+    lastPulseAt.set(element, now);
     var timer = window.setTimeout(function () {
       pulseTimers.delete(element);
       element.classList.remove("is-content-updated");
     }, 1350);
     pulseTimers.set(element, timer);
+  }
+
+  function riskProfile(sample) {
+    var action = sample.at;
+    if (/failover|delete-orphan|cluster-admin|cert\.rotate/.test(action)) {
+      return { risk: "High", impact: "1 protected target", autonomy: "A3-H", slaMs: 30000 };
+    }
+    if (sample.vertical === "resilience" || /rbac|firewall|public-blob|dns/.test(action)) {
+      return { risk: "Medium", impact: "1 resource", autonomy: "A2", slaMs: 45000 };
+    }
+    return { risk: "Low", impact: "1 resource", autonomy: "A1", slaMs: 60000 };
+  }
+
+  function authorityLabel(ev) {
+    if (ev.outcome === "hil") return "A3-H";
+    if (ev.outcome === "deny") return "A4";
+    if (ev.outcome === "abstain" || ev.mode === "shadow") return "A0";
+    return ev.profile.autonomy;
+  }
+
+  function stagePath(ev) {
+    if (ev.outcome !== "auto" || ev.mode === "shadow") {
+      return ["route", "decide", "authorize", "audit"];
+    }
+    if (ev.failed) {
+      return ["route", "decide", "authorize", "execute", "audit"];
+    }
+    return STAGES;
+  }
+
+  function stageAt(ev, elapsedRatio) {
+    var path = stagePath(ev);
+    return path[Math.min(path.length - 1, Math.floor(elapsedRatio * path.length))];
   }
 
   // ---------- pool creation ----------
@@ -189,6 +228,7 @@
       + '<div class="cs-tile-inner">'
       +   '<div class="cs-tile-top">'
       +     '<span class="cs-tile-tier"></span>'
+      +     '<span class="cs-tile-mode"></span>'
       +     '<span class="cs-tile-stage"></span>'
       +   '</div>'
       +   '<div class="cs-tile-title"></div>'
@@ -203,6 +243,7 @@
     return {
       el: el,
       tierEl: el.querySelector(".cs-tile-tier"),
+      modeEl: el.querySelector(".cs-tile-mode"),
       stageEl: el.querySelector(".cs-tile-stage"),
       titleEl: el.querySelector(".cs-tile-title"),
       targetEl: el.querySelector(".cs-tile-target"),
@@ -241,18 +282,38 @@
 
   function spawn(now) {
     var slot = pickSlot();
-    if (!slot) return; // fully busy - drop; the swarm is at capacity
+    if (!slot) {
+      droppedFrames++;
+      buckets[buckets.length - 1].dropped++;
+      return false;
+    }
     var tier = weightedTier();
     var jitter = 0.75 + rng() * 0.5; // 75%..125%
     var total = Math.round(TIER_TOTAL_MS[tier] * jitter);
-    var outcome = weightedOutcome(tier);
     var sample = pickAvailableWork();
+    var profile = riskProfile(sample);
+    var outcome = weightedOutcome(tier);
+    if (profile.risk === "High" && outcome === "auto") outcome = "hil";
     var id = shortId();
-    var failed = rng() < 0.018;
-    var stuck = !failed && rng() < 0.025;
     var mode = outcome === "auto" ? (rng() < 0.22 ? "shadow" : "enforce") : "gated";
+    var failed = mode === "enforce" && rng() < 0.018;
+    var stuck = !failed && rng() < 0.025;
 
-    slot.ev = { tier: tier, outcome: outcome, sample: sample, id: id, total: total, emitAt: Date.now(), failed: failed, stuck: stuck, mode: mode };
+    slot.ev = {
+      tier: tier,
+      outcome: outcome,
+      sample: sample,
+      profile: profile,
+      id: id,
+      total: total,
+      emitAt: Date.now(),
+      failed: failed,
+      stuck: stuck,
+      mode: mode,
+      idempotencyKey: "preview:" + sample.rule + ":" + id,
+      targetRevision: "preview-rev-" + id.slice(4),
+      auditClosed: false
+    };
     slot.startedAt = now;
     slot.endsAt = now + total;
     slot.retiresAt = 0;
@@ -264,12 +325,14 @@
     el.setAttribute("data-state", "active");
     el.setAttribute("data-outcome", outcome);
     el.setAttribute("data-failed", failed ? "true" : "false");
+    el.setAttribute("data-mode", mode);
     el.setAttribute("data-event-id", id);
     el.setAttribute("tabindex", "0");
     el.setAttribute("aria-label", sample.title + ". Target: " + sample.target + ". Why: " + sample.reason + ". Huginn, route stage.");
     el.removeAttribute("data-fade");
     slot.tierEl.className = "cs-tile-tier " + tier;
     slot.tierEl.textContent = tier.toUpperCase();
+    slot.modeEl.textContent = "Pending";
     slot.stageEl.textContent = STAGES[0];
     slot.titleEl.textContent = sample.title;
     slot.titleEl.title = sample.at;
@@ -287,14 +350,7 @@
     }
 
     countInBucket(now, tier);
-  }
-
-  function stageIndex(elapsedRatio) {
-    // 0..0.35 route, 0.35..0.60 verify, 0.60..0.80 gate, 0.80..1.0 execute
-    if (elapsedRatio < 0.35) return 0;
-    if (elapsedRatio < 0.60) return 1;
-    if (elapsedRatio < 0.80) return 2;
-    return 3;
+    return true;
   }
 
   function finish(slot, now) {
@@ -302,10 +358,19 @@
     slot.retiresAt = now + RETIRE_MS;
     slot.el.setAttribute("data-state", "done");
     slot.barEl.style.width = "100%";
-    // Human-facing stage label reflects the outcome
-    var terminalLabel = slot.ev.failed ? "failed" : slot.ev.outcome === "auto" ? "auto" : slot.ev.outcome;
+    slot.ev.auditClosed = true;
+    var terminalLabel = slot.ev.failed
+      ? "execution failed"
+      : slot.ev.outcome === "auto" && slot.ev.mode === "enforce"
+        ? "preview verified"
+        : slot.ev.outcome === "auto"
+          ? "shadow recorded"
+          : slot.ev.outcome === "hil"
+            ? "approval required"
+            : slot.ev.outcome === "abstain" ? "held" : "denied";
     slot.stageEl.textContent = terminalLabel;
     slot.ownerEl.textContent = "Saga · Recorded";
+    slot.modeEl.textContent = authorityLabel(slot.ev) + " · " + slot.ev.mode.toUpperCase();
     slot.el.setAttribute("aria-label", slot.ev.sample.title + ". Target: " + slot.ev.sample.target + ". Why: " + slot.ev.sample.reason + ". Saga, recorded. Decision: " + terminalLabel + ".");
     pulse(slot.el);
 
@@ -322,6 +387,7 @@
     slot.el.removeAttribute("data-tier");
     slot.el.removeAttribute("data-fade");
     slot.el.removeAttribute("data-failed");
+    slot.el.removeAttribute("data-mode");
     slot.el.removeAttribute("data-event-id");
     slot.el.removeAttribute("aria-label");
     slot.el.setAttribute("tabindex", "-1");
@@ -334,11 +400,11 @@
       var dt = Math.min(200, now - lastFrame);
       lastFrame = now;
 
-      if (!paused) {
-        var rate = BASE_RATE;
-        emitAccum += (dt / 1000) * rate;
-        while (emitAccum >= 1) { spawn(now); emitAccum -= 1; }
-      }
+      if (paused) return;
+
+      var rate = BASE_RATE;
+      emitAccum += (dt / 1000) * rate;
+      while (emitAccum >= 1) { spawn(now); emitAccum -= 1; }
 
       // Advance tiles
       for (var i = 0; i < pool.length; i++) {
@@ -348,11 +414,12 @@
           var total = t.endsAt - t.startedAt;
           var ratio = Math.min(1, elapsed / total);
           t.barEl.style.width = (ratio * 100).toFixed(1) + "%";
-          var s = stageIndex(ratio);
-          if (t.stageEl.textContent !== STAGES[s]) {
-            t.stageEl.textContent = STAGES[s];
-            t.ownerEl.textContent = stageOwner(STAGES[s]) + " · " + titleCase(STAGES[s]);
-            t.el.setAttribute("aria-label", t.ev.sample.title + ". Target: " + t.ev.sample.target + ". Why: " + t.ev.sample.reason + ". " + stageOwner(STAGES[s]) + ", " + STAGES[s] + " stage.");
+          var stage = stageAt(t.ev, ratio);
+          if (t.stageEl.textContent !== stage) {
+            t.stageEl.textContent = stage;
+            t.ownerEl.textContent = stageOwner(stage) + " · " + titleCase(stage);
+            renderTileControl(t);
+            t.el.setAttribute("aria-label", t.ev.sample.title + ". Target: " + t.ev.sample.target + ". Why: " + t.ev.sample.reason + ". " + stageOwner(stage) + ", " + stage + " stage.");
             pulse(t.el);
           }
           if (elapsed >= total) finish(t, now);
@@ -363,7 +430,7 @@
           } else if (age > FADE_1_MS) {
             if (t.el.getAttribute("data-fade") !== "1") t.el.setAttribute("data-fade", "1");
           }
-          if (now >= t.retiresAt && !paused) {
+          if (now >= t.retiresAt) {
             retire(t);
             spawn(now);
           }
@@ -398,11 +465,12 @@
     b[outcome]++;
   }
   function windowTotals() {
-    var t = { t0: 0, t1: 0, t2: 0, total: 0, auto: 0, hil: 0, abstain: 0, deny: 0 };
+    var t = { t0: 0, t1: 0, t2: 0, total: 0, auto: 0, hil: 0, abstain: 0, deny: 0, dropped: 0 };
     for (var i = 0; i < buckets.length; i++) {
       var b = buckets[i];
       t.t0 += b.t0; t.t1 += b.t1; t.t2 += b.t2; t.total += b.total;
       t.auto += b.auto; t.hil += b.hil; t.abstain += b.abstain; t.deny += b.deny;
+      t.dropped += b.dropped;
     }
     return t;
   }
@@ -427,13 +495,13 @@
   var gateKeys = ["auto", "hil", "abstain", "deny"];
   var gateLabels = { auto: "Auto", hil: "Approval", abstain: "Review", deny: "Deny" };
   var gateMeanings = {
-    auto: "Verified without human approval",
+    auto: "Policy allowed without per-execution approval; execution and effect remain separate",
     hil: "Waiting for a human decision",
     abstain: "Held because confidence is insufficient",
     deny: "Blocked by policy"
   };
   var tierKeys = ["t0", "t1", "t2"];
-  var tierLabels = { t0: "T0 Rules", t1: "T1 Similarity", t2: "T2 Reasoning" };
+  var tierLabels = { t0: "T0 Deterministic", t1: "T1 Evidence-backed", t2: "T2 Adaptive" };
   var tierMeanings = {
     t0: "Deterministic rule decision",
     t1: "Prior-pattern similarity reuse",
@@ -446,6 +514,16 @@
     return percentage < 10 ? percentage.toFixed(1) : String(Math.round(percentage));
   }
 
+  function previewCoverageLabel(dropped) {
+    return dropped > 0 ? dropped + " omitted synthetic attempts" : "complete synthetic sample";
+  }
+
+  function previewWindowSentence(dropped) {
+    return dropped > 0
+      ? "Synthetic preview window omitted " + dropped + " generation attempts."
+      : "Complete synthetic preview window.";
+  }
+
   function setChartTip(anchor, text) {
     anchor.dataset.liveChartTip = text;
     anchor.setAttribute("aria-label", text);
@@ -456,7 +534,7 @@
     gateKeys.forEach(function (key) {
       var value = totals[key];
       var percentage = total > 0 ? (value / total) * 100 : 0;
-      var text = gateLabels[key] + ": " + value + " outcomes (" + precisePercent(value, total) + "%). " + gateMeanings[key] + ".";
+      var text = gateLabels[key] + ": " + value + " of " + total + " finalized decisions (" + precisePercent(value, total) + "%). " + gateMeanings[key] + ". " + previewWindowSentence(totals.dropped);
       var segment = document.querySelector('[data-gate-segment="' + key + '"]');
       var legend = document.querySelector('[data-gate-legend="' + key + '"]');
       segment.style.strokeDasharray = percentage + " " + (100 - percentage);
@@ -474,7 +552,7 @@
     tierKeys.forEach(function (key) {
       var value = totals[key];
       var percentage = total > 0 ? (value / total) * 100 : 0;
-      var text = tierLabels[key] + ": " + value + " events (" + precisePercent(value, total) + "%). " + tierMeanings[key] + ".";
+      var text = tierLabels[key] + ": " + value + " of " + total + " routed events (" + precisePercent(value, total) + "%). " + tierMeanings[key] + ". " + previewWindowSentence(totals.dropped);
       document.getElementById("k-" + key + "-stem").style.width = percentage + "%";
       setChartTip(document.getElementById("k-" + key + "-track"), text);
     });
@@ -534,9 +612,13 @@
     kT2.textContent = pct(t.t2, t.total) + "%";
     renderGateChart(t, outcomeTotal);
     renderTierChart(t, t.total);
+    var coverageLabel = previewCoverageLabel(t.dropped);
+    document.getElementById("k-eps-meta").textContent = "60s window · " + t.total + " events · " + coverageLabel;
+    document.getElementById("k-gate-meta").textContent = outcomeTotal + " finalized decisions · " + coverageLabel;
+    document.getElementById("k-tier-meta").textContent = t.total + " routed events · " + coverageLabel;
     var next = [eps, kAuto.textContent, kT0.textContent, kT1.textContent, kT2.textContent].join("|");
     if (spark) {
-      spark.setAttribute("aria-label", "Events per second over the last 60 seconds. Average " + eps + ". Focus and use left or right arrow keys to inspect each second.");
+      spark.setAttribute("aria-label", "Events per second over the last 60 seconds. " + t.total + " synthetic events and " + t.dropped + " omitted generation attempts. Average " + eps + ". Focus and use left or right arrow keys to inspect each second.");
     }
     if (previous !== next) {
       document.querySelectorAll(".cs-live-kpi").forEach(pulse);
@@ -667,7 +749,7 @@
     var bucket = buckets[index];
     var secondsAgo = buckets.length - 1 - index;
     var when = secondsAgo === 0 ? "Current second" : secondsAgo === 1 ? "1 second ago" : secondsAgo + " seconds ago";
-    return when + "\nTotal " + bucket.total + " events/s · T0 " + bucket.t0 + " · T1 " + bucket.t1 + " · T2 " + bucket.t2;
+    return when + "\nTotal " + bucket.total + " events/s · T0 " + bucket.t0 + " · T1 " + bucket.t1 + " · T2 " + bucket.t2 + "\nSynthetic bucket · " + previewCoverageLabel(bucket.dropped);
   }
 
   function inspectSparkBucket(index, clientX, clientY) {
@@ -714,12 +796,81 @@
     return Boolean(slot.ev && slot.ev.stuck && slot.state === "active" && now - slot.startedAt > 850);
   }
 
+  function stagePosition(slot) {
+    if (slot.state === "done") return STAGES.length;
+    var position = STAGES.indexOf(slot.stageEl.textContent);
+    return position < 0 ? 0 : position;
+  }
+
+  function decisionObserved(slot) {
+    return stagePosition(slot) >= STAGES.indexOf("authorize");
+  }
+
+  function controlState(slot) {
+    var ev = slot.ev;
+    var position = stagePosition(slot);
+    var decided = decisionObserved(slot);
+    var policy = !decided ? "Pending" : ev.outcome === "auto" ? "Allow" : ev.outcome === "hil" ? "Human approval" : ev.outcome === "abstain" ? "Hold" : "Deny";
+    var policyNote = !decided ? "Decision evidence not observed" : ev.outcome === "auto" ? "Policy gate allowed this candidate" : ev.outcome === "hil" ? "Per-execution approval required" : ev.outcome === "abstain" ? "Insufficient decision evidence" : "Policy blocked this candidate";
+    var authority = !decided ? "Pending" : authorityLabel(ev) + (ev.outcome === "hil" ? " pending" : ev.outcome === "deny" ? " denied" : ev.mode === "shadow" ? " shadow" : " delegated");
+    var authorityNote = !decided ? "Authority not evaluated" : ev.outcome === "hil" ? "Silence grants no authority" : ev.outcome === "deny" ? "Execution is prohibited" : ev.mode === "shadow" ? "Observation only; mutation disabled" : "Synthetic authority envelope only";
+    var execution = "Not started";
+    var executionNote = "No dispatch receipt";
+    if (ev.failed && slot.state === "done") {
+      execution = "Failed";
+      executionNote = "Synthetic terminal failure recorded";
+    } else if (decided && ev.outcome !== "auto") {
+      execution = "Not dispatched";
+      executionNote = "Decision path blocks execution";
+    } else if (decided && ev.mode === "shadow") {
+      execution = "Simulated";
+      executionNote = "Shadow mode cannot mutate";
+    } else if (position === STAGES.indexOf("execute")) {
+      execution = "In progress";
+      executionNote = "Synthetic dispatch frame observed";
+    } else if (position > STAGES.indexOf("execute")) {
+      execution = "Completed";
+      executionNote = "Dispatch receipt is synthetic, not effect proof";
+    }
+    var effect = "Not verified";
+    var effectNote = "Independent authoritative observation required";
+    if (decided && (ev.outcome !== "auto" || ev.mode === "shadow")) {
+      effect = "Not applicable";
+      effectNote = "No external mutation was eligible";
+    } else if (position === STAGES.indexOf("effect")) {
+      effect = "Observing";
+      effectNote = "Synthetic observer window is open";
+    } else if (position > STAGES.indexOf("effect") && !ev.failed) {
+      effect = "Preview verified";
+      effectNote = "Mechanics only; no operational success claim";
+    }
+    return {
+      policy: policy,
+      policyNote: policyNote,
+      authority: authority,
+      authorityNote: authorityNote,
+      execution: execution,
+      executionNote: executionNote,
+      effect: effect,
+      effectNote: effectNote
+    };
+  }
+
+  function renderTileControl(slot) {
+    if (!slot.ev) return;
+    var state = controlState(slot);
+    slot.modeEl.textContent = decisionObserved(slot)
+      ? state.authority.replace(" delegated", "").replace(" pending", "").replace(" denied", "").replace(" shadow", "") + " · " + slot.ev.mode.toUpperCase()
+      : "Pending";
+  }
+
   function slotStatus(slot, now) {
-    var decisionObserved = slot.state === "done" || slot.stageEl.textContent === "gate" || slot.stageEl.textContent === "execute";
+    var hasDecision = decisionObserved(slot);
     if (slot.ev.failed && slot.state === "done") return "failed";
     if (isSlotStuck(slot, now)) return "stuck";
-    if (decisionObserved && slot.ev.outcome === "hil") return "hil";
-    if (decisionObserved && slot.ev.outcome === "deny") return "deny";
+    if (hasDecision && slot.ev.outcome === "hil") return "hil";
+    if (hasDecision && slot.ev.outcome === "abstain") return "abstain";
+    if (hasDecision && slot.ev.outcome === "deny") return "deny";
     return slot.state === "done" ? "done" : "active";
   }
 
@@ -736,7 +887,17 @@
 
   function queueRank(slot, now) {
     var status = slotStatus(slot, now);
-    return status === "failed" ? 0 : status === "stuck" ? 1 : status === "hil" ? 2 : status === "deny" ? 3 : status === "active" ? 4 : 5;
+    return status === "failed" ? 0 : status === "stuck" ? 1 : status === "hil" ? 2 : status === "abstain" ? 3 : status === "deny" ? 4 : status === "active" ? 5 : 6;
+  }
+
+  function queueRiskRank(slot) {
+    return slot.ev.profile.risk === "High" ? 0 : slot.ev.profile.risk === "Medium" ? 1 : 2;
+  }
+
+  function slaLabel(slot) {
+    var elapsed = Date.now() - slot.ev.emitAt;
+    var remaining = Math.max(0, Math.ceil((slot.ev.profile.slaMs - elapsed) / 1000));
+    return remaining > 0 ? remaining + "s left" : "Budget exceeded";
   }
 
   function escapeHtml(value) {
@@ -750,36 +911,37 @@
   }
 
   function stageOwner(stage) {
-    return stage === "route" ? "Huginn" : stage === "verify" ? "Forseti" : stage === "gate" ? "Var" : "Thor";
+    return stage === "route" ? "Huginn" : stage === "decide" ? "Forseti" : stage === "authorize" ? "Var" : stage === "execute" ? "Thor" : stage === "effect" ? "Heimdall" : "Saga";
   }
 
   function renderQueue(now) {
     var visible = pool.filter(function (slot) { return matchesSlot(slot, currentFilter, now); });
     visible.sort(function (left, right) {
       var rank = queueRank(left, now) - queueRank(right, now);
-      return rank || right.ev.emitAt - left.ev.emitAt;
+      return rank || queueRiskRank(left) - queueRiskRank(right) || left.ev.emitAt - right.ev.emitAt;
     });
     visible = visible.slice(0, 12);
     queueEmpty.hidden = visible.length > 0;
     queueBody.innerHTML = visible.map(function (slot) {
       var ev = slot.ev;
       var status = slotStatus(slot, now);
-      var decisionObserved = slot.state === "done" || slot.stageEl.textContent === "gate" || slot.stageEl.textContent === "execute";
-      var decision = status === "failed" ? "Failed" : status === "stuck" ? "Pending" : !decisionObserved ? "Pending" : ev.outcome === "hil" ? "Approval" : ev.outcome === "deny" ? "Deny" : ev.outcome === "abstain" ? "Review" : "Auto";
-      var decisionClass = status === "failed" ? "deny" : decisionObserved ? ev.outcome : "";
-      var visibleMode = decisionObserved ? ev.mode : "-";
+      var state = controlState(slot);
+      var hasDecision = decisionObserved(slot);
+      var decisionClass = status === "failed" ? "deny" : hasDecision ? ev.outcome : "";
+      var attentionBasis = status === "failed" ? "Execution failed" : status === "stuck" ? "Stage budget exceeded" : status === "hil" ? "Human approval required" : status === "abstain" ? "Decision evidence is insufficient" : status === "deny" ? "Policy denial recorded" : ev.sample.reason;
       return '<tr data-status="' + status + '" data-event-id="' + escapeHtml(ev.id) + '">'
         + '<td><button class="cs-live-queue-action" type="button" data-select-event="' + escapeHtml(ev.id) + '"><strong>' + escapeHtml(ev.sample.title) + '</strong><span>' + escapeHtml(ev.sample.target) + ' · ' + escapeHtml(ev.sample.scope) + '</span></button></td>'
-        + '<td data-label="Why"><span class="cs-live-queue-reason">' + escapeHtml(ev.sample.reason) + '</span></td>'
+        + '<td data-label="Priority basis"><span class="cs-live-queue-reason">' + escapeHtml(attentionBasis) + '</span></td>'
         + '<td data-label="Owner / stage"><strong>' + escapeHtml(slot.state === "done" ? "Saga" : stageOwner(slot.stageEl.textContent)) + '</strong><br><small>' + escapeHtml(slot.state === "done" ? "Recorded" : titleCase(slot.stageEl.textContent)) + '</small></td>'
-        + '<td data-label="Age">' + ageLabel(Date.now() - ev.emitAt) + (status === "stuck" ? '<br><small>Over budget</small>' : '') + '</td>'
-        + '<td data-label="Decision"><span class="out ' + decisionClass + '">' + decision + '</span><br><small>' + ev.tier.toUpperCase() + (visibleMode === "-" ? "" : " · " + visibleMode) + '</small></td>'
+        + '<td data-label="Risk / impact"><strong>' + ev.profile.risk + '</strong><br><small>' + escapeHtml(ev.profile.impact) + '</small></td>'
+        + '<td data-label="Age / SLA">' + ageLabel(Date.now() - ev.emitAt) + '<br><small>' + slaLabel(slot) + '</small></td>'
+        + '<td data-label="Control state"><span class="out ' + decisionClass + '">' + escapeHtml(state.policy) + '</span><br><small>' + escapeHtml(state.authority) + ' · ' + escapeHtml(state.execution) + ' · ' + escapeHtml(state.effect) + '</small></td>'
         + '</tr>';
     }).join("");
   }
 
   function renderOperationalState(now) {
-    var counts = { all: 0, hil: 0, deny: 0, failed: 0, stuck: 0 };
+    var counts = { all: 0, hil: 0, abstain: 0, deny: 0, failed: 0, stuck: 0 };
     pool.forEach(function (slot) {
       if (!slot.ev || slot.state === "empty") return;
       counts.all++;
@@ -792,13 +954,14 @@
       var count = document.getElementById("filter-" + key);
       if (count) count.textContent = counts[key];
     });
-    ["hil", "deny", "failed", "stuck"].forEach(function (key) {
+    ["hil", "abstain", "deny", "failed", "stuck"].forEach(function (key) {
       document.getElementById("attention-" + key).textContent = counts[key];
       var button = document.querySelector('[data-attention-filter="' + key + '"]');
       if (button) button.hidden = counts[key] === 0;
     });
 
-    var attentionTotal = counts.hil + counts.deny + counts.failed + counts.stuck;
+    var attentionTotal = counts.hil + counts.abstain + counts.deny + counts.failed + counts.stuck;
+    document.getElementById("work-summary").textContent = counts.all + " active · " + attentionTotal + " need attention";
     var attention = document.getElementById("live-attention");
     document.getElementById("attention-calm").hidden = attentionTotal > 0;
     document.getElementById("attention-items").hidden = attentionTotal === 0;
@@ -808,8 +971,10 @@
     var secondsSinceEvent = Math.max(0, Math.floor((Date.now() - lastEventAt) / 1000));
     document.getElementById("health-last-event").textContent = secondsSinceEvent === 0 ? "Signal now" : secondsSinceEvent + "s ago";
     var backlog = document.getElementById("health-backlog");
-    backlog.textContent = droppedFrames > 0 ? droppedFrames + " dropped" : "Complete";
+    backlog.textContent = droppedFrames > 0 ? droppedFrames + " omitted" : "Intact";
     backlog.className = droppedFrames > 0 ? "is-warn" : "is-ok";
+    document.getElementById("health-coverage").textContent = droppedFrames > 0 ? "Partial synthetic" : "1/1 synthetic";
+    document.getElementById("health-watermark").textContent = paused ? "Frozen" : "0s synthetic";
 
     if (viewMode === "queue") renderQueue(now);
   }
@@ -870,13 +1035,16 @@
     detailPreviousFocus = document.activeElement;
     detailReturnEventId = slot.ev.id;
     var ev = slot.ev;
-    var currentStage = STAGES.indexOf(slot.stageEl.textContent);
-    if (currentStage < 0) currentStage = slot.state === "done" ? STAGES.length : 0;
-    var agents = { route: "Huginn", verify: "Forseti", gate: "Var", execute: "Thor" };
+    var path = stagePath(ev);
+    var currentStage = path.indexOf(slot.stageEl.textContent);
+    if (currentStage < 0) currentStage = slot.state === "done" ? path.length : 0;
+    var agents = { route: "Huginn", decide: "Forseti", authorize: "Var", execute: "Thor", effect: "Heimdall", audit: "Saga" };
     document.getElementById("detail-title").textContent = ev.sample.title;
-    document.getElementById("detail-trace").innerHTML = STAGES.map(function (stage, index) {
-      var css = slot.state === "done" || index < currentStage ? "is-done" : index === currentStage ? "is-current" : "";
-      var state = slot.state === "done" || index < currentStage ? "Observed" : index === currentStage ? "In progress" : "Not observed";
+    document.getElementById("detail-trace").innerHTML = STAGES.map(function (stage) {
+      var pathIndex = path.indexOf(stage);
+      var skipped = pathIndex < 0;
+      var css = skipped ? "is-skipped" : slot.state === "done" || pathIndex < currentStage ? "is-done" : pathIndex === currentStage ? "is-current" : "";
+      var state = skipped ? "Not applicable" : slot.state === "done" || pathIndex < currentStage ? "Observed" : pathIndex === currentStage ? "In progress" : "Not observed";
       return '<li class="' + css + '"><i aria-hidden="true"></i><div><strong>' + stage + '</strong><small>' + agents[stage] + ' - ' + state + '</small></div></li>';
     }).join("");
     document.getElementById("detail-event").textContent = ev.id;
@@ -889,10 +1057,30 @@
     document.getElementById("detail-vertical").textContent = ev.sample.vertical;
     document.getElementById("detail-scope").textContent = ev.sample.scope;
     document.getElementById("detail-tier").textContent = ev.tier.toUpperCase();
-    document.getElementById("detail-decision").textContent = slot.state === "done" ? (ev.failed ? "failed" : ev.outcome) : "pending";
+    document.getElementById("detail-decision").textContent = decisionObserved(slot) ? ev.outcome : "pending";
     document.getElementById("detail-age").textContent = ageLabel(Date.now() - ev.emitAt);
+    var state = controlState(slot);
+    ["policy", "authority", "execution", "effect"].forEach(function (key) {
+      document.getElementById("detail-" + key).textContent = state[key];
+      document.getElementById("detail-" + key + "-note").textContent = state[key + "Note"];
+    });
+    var observedAt = new Date(ev.emitAt).toISOString();
+    var recordedAt = new Date().toISOString();
+    document.getElementById("detail-source-time").textContent = observedAt + " / " + recordedAt;
+    var sourceAge = Date.now() - ev.emitAt;
+    document.getElementById("detail-source-freshness").textContent = ageLabel(sourceAge) + " old · " + (sourceAge <= 5000 ? "within" : "outside") + " 5s preview policy";
+    document.getElementById("detail-source-digest").textContent = "synthetic:" + ev.id.slice(4);
+    document.getElementById("detail-source-coverage").textContent = "1 synthetic generator · " + (droppedFrames > 0 ? droppedFrames + " omitted attempts since load" : "no omitted attempts since load");
+    document.getElementById("detail-impact").textContent = ev.profile.risk + " · synthetic receipt";
+    document.getElementById("detail-impact-note").textContent = ev.profile.impact + " inside the preview scope.";
+    document.getElementById("detail-lock").textContent = ev.targetRevision;
+    document.getElementById("detail-idempotency").textContent = "Synthetic receipt";
+    document.getElementById("detail-idempotency-note").textContent = ev.idempotencyKey;
+    document.getElementById("detail-audit-state").textContent = ev.auditClosed ? "Synthetic closure" : "Intent only";
+    document.getElementById("detail-audit-note").textContent = ev.auditClosed ? "Intent and terminal preview frames recorded." : "Terminal closure not observed.";
     document.getElementById("detail-trace-link").href = "rule-trace.html?correlation=corr-" + encodeURIComponent(ev.id.slice(4));
     document.getElementById("detail-audit-link").href = "audit.html?correlation=corr-" + encodeURIComponent(ev.id.slice(4));
+    document.getElementById("detail-audit-link").textContent = ev.auditClosed ? "Open synthetic audit" : "View audit intent";
     detailBackdrop.hidden = false;
     document.body.style.overflow = "hidden";
     detailClose.focus();
@@ -901,7 +1089,26 @@
   // ---------- controls ----------
   pauseBtn.addEventListener("click", function () {
     paused = !paused;
-    pauseBtn.textContent = paused ? "Resume" : "Freeze";
+    var now = performance.now();
+    var wallNow = Date.now();
+    if (paused) {
+      pauseStartedAt = now;
+      pauseStartedWallAt = wallNow;
+    } else {
+      var elapsed = now - pauseStartedAt;
+      var wallElapsed = wallNow - pauseStartedWallAt;
+      pool.forEach(function (slot) {
+        if (!slot.ev) return;
+        slot.startedAt += elapsed;
+        slot.endsAt += elapsed;
+        if (slot.retiresAt) slot.retiresAt += elapsed;
+        slot.ev.emitAt += wallElapsed;
+      });
+      lastBucketAt += elapsed;
+      lastEventAt += wallElapsed;
+      lastFrame = now;
+    }
+    pauseBtn.textContent = paused ? "Resume view" : "Freeze view";
     pauseBtn.setAttribute("aria-pressed", paused ? "true" : "false");
     document.querySelectorAll(".cs-live-connection i").forEach(function (indicator) {
       indicator.style.animationPlayState = paused ? "paused" : "";

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Live - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=live-tier-light-v1" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=live-evidence-v1" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
 </head>
 <body>
@@ -15,21 +15,31 @@
         <p class="cs-live-lead">Current control-loop activity and decisions.</p>
       </div>
       <div class="cs-live-controls">
-        <button class="cs-btn is-sm" id="live-pause" type="button" aria-pressed="false">Freeze</button>
-        <span class="cs-live-context"><strong>Synthetic preview</strong><span>60s</span><span class="cs-live-connection"><i aria-hidden="true"></i>Connected</span></span>
+        <button class="cs-btn is-sm" id="live-pause" type="button" aria-pressed="false">Freeze view</button>
+        <span class="cs-live-context"><strong>Synthetic preview</strong><span>A0 read-only</span><span>60s</span><span class="cs-live-connection"><i aria-hidden="true"></i>Preview running</span></span>
       </div>
     </header>
+
+    <section class="cs-live-scope" aria-label="Observation scope">
+      <span><strong>Scope</strong> Example environment</span>
+      <span><strong>Principal</strong> Operator / reader</span>
+      <span><strong>Evidence</strong> Synthetic runtime frames</span>
+      <span class="cs-live-scope-warning">Not valid for operational readiness or approval</span>
+    </section>
 
     <section class="cs-live-status-rail" aria-label="Live status and attention">
       <div class="cs-live-health" aria-label="Stream health">
         <div><span>Last signal</span><strong id="health-last-event">Now</strong></div>
-        <div><span>Backlog</span><strong class="is-ok" id="health-backlog">Complete</strong></div>
+        <div><span>Frame continuity</span><strong class="is-ok" id="health-backlog">Intact</strong></div>
+        <div><span>Source coverage</span><strong id="health-coverage">1/1 synthetic</strong></div>
+        <div><span>Projection lag</span><strong id="health-watermark">0s</strong></div>
       </div>
       <div class="cs-live-attention is-calm" id="live-attention" aria-label="Items needing attention">
-        <span class="cs-live-attention-calm" id="attention-calm"><i aria-hidden="true"></i>No attention needed</span>
+        <span class="cs-live-attention-calm" id="attention-calm"><i aria-hidden="true"></i><span><strong>No attention detected</strong><small>No current attention-state sample</small></span></span>
         <div class="cs-live-attention-items" id="attention-items" hidden>
           <strong>Attention</strong>
           <button type="button" data-attention-filter="hil">Approval <span id="attention-hil">0</span></button>
+          <button type="button" data-attention-filter="abstain">Review <span id="attention-abstain">0</span></button>
           <button type="button" data-attention-filter="deny">Deny <span id="attention-deny">0</span></button>
           <button type="button" data-attention-filter="failed">Failed <span id="attention-failed">0</span></button>
           <button type="button" data-attention-filter="stuck">Over budget <span id="attention-stuck">0</span></button>
@@ -48,6 +58,7 @@
           <span class="cs-spark-key t1"><i></i>T1 <b id="k-eps-t1">0</b></span>
           <span class="cs-spark-key t2"><i></i>T2 <b id="k-eps-t2">0</b></span>
         </div>
+        <span class="cs-live-kpi-meta" id="k-eps-meta">60s window · 0 events · synthetic sample</span>
       </article>
       <article class="cs-live-kpi">
         <span class="cs-live-kpi-label">Gate mix</span>
@@ -70,26 +81,29 @@
             <span class="deny" data-gate-legend="deny" data-live-chart-tip tabindex="0"><i></i>Deny <b id="k-deny-count">0</b></span>
           </div>
         </div>
+        <span class="cs-live-kpi-meta" id="k-gate-meta">0 finalized decisions · synthetic sample</span>
       </article>
       <article class="cs-live-kpi">
         <span class="cs-live-kpi-label">Tier mix</span>
         <a class="cs-live-kpi-detail" href="trust-routing.html" aria-label="Open trust routing" title="Open trust routing"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3 H13 V11 M13 3 L4 12" /></svg></a>
         <div class="cs-tier-plot" id="k-tier-chart" role="img" aria-label="Decision tier distribution on a zero to one hundred percent scale">
-          <div class="cs-tier-row is-t0"><span class="cs-tier-label"><b>T0</b><small>Rules</small></span><span class="cs-tier-track" id="k-t0-track" data-live-chart-tip tabindex="0"><span class="cs-tier-stem" id="k-t0-stem"></span></span><strong id="k-t0">0%</strong></div>
-          <div class="cs-tier-row is-t1"><span class="cs-tier-label"><b>T1</b><small>Similarity</small></span><span class="cs-tier-track" id="k-t1-track" data-live-chart-tip tabindex="0"><span class="cs-tier-stem" id="k-t1-stem"></span></span><strong id="k-t1">0%</strong></div>
-          <div class="cs-tier-row is-t2"><span class="cs-tier-label"><b>T2</b><small>Reasoning</small></span><span class="cs-tier-track" id="k-t2-track" data-live-chart-tip tabindex="0"><span class="cs-tier-stem" id="k-t2-stem"></span></span><strong id="k-t2">0%</strong></div>
+          <div class="cs-tier-row is-t0"><span class="cs-tier-label"><b>T0</b><small>Deterministic</small></span><span class="cs-tier-track" id="k-t0-track" data-live-chart-tip tabindex="0"><span class="cs-tier-stem" id="k-t0-stem"></span></span><strong id="k-t0">0%</strong></div>
+          <div class="cs-tier-row is-t1"><span class="cs-tier-label"><b>T1</b><small>Evidence-backed</small></span><span class="cs-tier-track" id="k-t1-track" data-live-chart-tip tabindex="0"><span class="cs-tier-stem" id="k-t1-stem"></span></span><strong id="k-t1">0%</strong></div>
+          <div class="cs-tier-row is-t2"><span class="cs-tier-label"><b>T2</b><small>Adaptive</small></span><span class="cs-tier-track" id="k-t2-track" data-live-chart-tip tabindex="0"><span class="cs-tier-stem" id="k-t2-stem"></span></span><strong id="k-t2">0%</strong></div>
           <div class="cs-tier-axis" aria-hidden="true"><span>0</span><span>50</span><span>100%</span></div>
         </div>
+        <span class="cs-live-kpi-meta" id="k-tier-meta">0 routed events · synthetic sample</span>
       </article>
     </section>
-    <div class="cs-live-chart-tooltip" id="live-chart-tooltip" role="tooltip" hidden></div>
+    <div class="cs-live-chart-tooltip" id="live-chart-tooltip" role="status" aria-live="polite" hidden></div>
 
     <section class="cs-live-workspace" id="live-workspace">
       <div class="cs-live-workbar">
-        <div><span>Current work</span><h2>Control-loop work</h2></div>
+        <div><span>Current work</span><h2>Control-loop work</h2><small id="work-summary">0 active · 0 need attention</small></div>
         <div class="cs-live-filterbar" aria-label="Work filters">
-          <button type="button" class="is-active" data-live-filter="all" aria-pressed="true">All <span id="filter-all">0</span></button>
+          <button type="button" class="is-active" data-live-filter="all" aria-pressed="true">Active <span id="filter-all">0</span></button>
           <button type="button" data-live-filter="hil" aria-pressed="false">Approval <span id="filter-hil">0</span></button>
+          <button type="button" data-live-filter="abstain" aria-pressed="false">Review <span id="filter-abstain">0</span></button>
           <button type="button" data-live-filter="deny" aria-pressed="false">Deny <span id="filter-deny">0</span></button>
           <button type="button" data-live-filter="failed" aria-pressed="false">Failed <span id="filter-failed">0</span></button>
           <button type="button" data-live-filter="stuck" aria-pressed="false">Over budget <span id="filter-stuck">0</span></button>
@@ -108,7 +122,7 @@
       <section id="queue-view" aria-label="Control-loop work queue">
         <div class="cs-live-queue-wrap">
           <table class="cs-live-queue">
-            <thead><tr><th>Work</th><th>Why</th><th>Owner / stage</th><th>Age</th><th>Decision</th></tr></thead>
+            <thead><tr><th>Work</th><th>Priority basis</th><th>Owner / stage</th><th>Risk / impact</th><th>Age / SLA</th><th>Control state</th></tr></thead>
             <tbody id="live-queue"></tbody>
           </table>
           <p class="cs-live-empty" id="queue-empty" hidden>No work matches this filter.</p>
@@ -123,7 +137,15 @@
     <div class="cs-live-detail-backdrop" id="detail-backdrop" hidden>
       <aside class="cs-live-detail" role="dialog" aria-modal="true" aria-labelledby="detail-title">
         <header><h3 id="detail-title">Control-loop work</h3><button type="button" id="detail-close" aria-label="Close details">x</button></header>
+        <p class="cs-live-detail-boundary" id="detail-evidence-boundary"><strong>Synthetic runtime observation</strong><span>Not durable audit evidence and not valid for operational approval.</span></p>
         <ol class="cs-live-detail-trace" id="detail-trace" aria-label="Control-loop stages"></ol>
+        <section class="cs-live-control-state" aria-labelledby="detail-state-heading">
+          <h4 id="detail-state-heading">Control state</h4>
+          <div><span>Policy decision</span><strong id="detail-policy">Pending</strong><small id="detail-policy-note">No decision observed</small></div>
+          <div><span>Authority</span><strong id="detail-authority">Pending</strong><small id="detail-authority-note">No authority observed</small></div>
+          <div><span>Execution</span><strong id="detail-execution">Not started</strong><small id="detail-execution-note">No dispatch receipt</small></div>
+          <div><span>Effect</span><strong id="detail-effect">Not verified</strong><small id="detail-effect-note">Independent observation required</small></div>
+        </section>
         <dl class="cs-live-detail-list">
           <dt>Event ID</dt><dd><code id="detail-event"></code></dd>
           <dt>Correlation ID</dt><dd><code id="detail-correlation"></code></dd>
@@ -138,15 +160,34 @@
           <dt>Gate decision</dt><dd id="detail-decision"></dd>
           <dt>Age</dt><dd id="detail-age"></dd>
         </dl>
+        <h4>Evidence provenance</h4>
+        <dl class="cs-live-detail-list is-provenance">
+          <dt>Authority class</dt><dd id="detail-source-authority">Synthetic fixture</dd>
+          <dt>Source identity</dt><dd id="detail-source-identity">preview-generator</dd>
+          <dt>Purpose</dt><dd>Interface mechanics only</dd>
+          <dt>Observed / recorded</dt><dd id="detail-source-time"></dd>
+          <dt>Freshness</dt><dd id="detail-source-freshness">Within 5s preview policy</dd>
+          <dt>Coverage</dt><dd id="detail-source-coverage">1 synthetic generator · no omitted attempts since load</dd>
+          <dt>Provenance digest</dt><dd><code id="detail-source-digest"></code></dd>
+          <dt>Synthetic</dt><dd>Yes · cannot satisfy live readiness</dd>
+        </dl>
         <h4>Safety evidence</h4>
-        <ul class="cs-live-detail-safety"><li>Stop condition registered</li><li>Rollback path available</li><li>Impact scope bounded</li><li>Audit intent recorded</li></ul>
+        <ul class="cs-live-detail-safety">
+          <li><span>Stop condition</span><strong>Synthetic receipt</strong><small>Abort when expected state or deadline diverges.</small></li>
+          <li><span>Rollback / recovery</span><strong>Synthetic receipt</strong><small>Bounded recovery path declared for the action type.</small></li>
+          <li><span>Impact scope</span><strong id="detail-impact">Synthetic receipt</strong><small id="detail-impact-note">One logical target inside the preview scope.</small></li>
+          <li><span>What-if / dry-run</span><strong>Synthetic receipt</strong><small>No provider readiness claim.</small></li>
+          <li><span>Logical-target lock</span><strong id="detail-lock">Synthetic receipt</strong><small>Pinned preview target revision.</small></li>
+          <li><span>Idempotency</span><strong id="detail-idempotency">Synthetic receipt</strong><small id="detail-idempotency-note"></small></li>
+          <li><span>Two-phase audit</span><strong id="detail-audit-state">Intent only</strong><small id="detail-audit-note">Terminal closure not observed.</small></li>
+        </ul>
         <p class="cs-muted">Read-only projection. The Console does not execute this action.</p>
-        <div class="cs-live-detail-actions"><a class="cs-btn is-sm" id="detail-trace-link" href="rule-trace.html">Open trace</a><a class="cs-btn is-sm" id="detail-audit-link" href="audit.html">Open audit</a><a class="cs-btn is-sm" href="service-map.html">Architecture</a></div>
+        <div class="cs-live-detail-actions"><a class="cs-btn is-sm" id="detail-trace-link" href="rule-trace.html">Open runtime trace</a><a class="cs-btn is-sm" id="detail-audit-link" href="audit.html">View audit intent</a><a class="cs-btn is-sm" href="service-map.html">Architecture</a></div>
       </aside>
     </div>
 
   </main>
 
-  <script src="assets/live.js?v=live-tier-stem-glow-v1" defer></script>
+  <script src="assets/live.js?v=live-evidence-v3" defer></script>
 </body>
 </html>

@@ -92,8 +92,10 @@ Report and kit:
   chart detail modals; no privileged calls. Direct page loads render the full navigation.
   Pages embedded by the kit landing suppress their local shell so the navigation is not nested.
 - [assets/live.js](assets/live.js) - Live cockpit only. Generates synthetic control-plane events,
-  routes them through T0 / T1 / T2 with the roadmap's distribution, and renders the swarm,
-  sparkline, and audit ticker. Pure client-side, no backend.
+  routes them through T0 / T1 / T2 with the roadmap's distribution, stops non-executable paths
+  before execution and effect observation, and reports omitted synthetic attempts when the preview
+  pool is saturated. It renders the swarm, sparkline, and audit ticker entirely client-side with no
+  backend.
 
 ## Usage
 
