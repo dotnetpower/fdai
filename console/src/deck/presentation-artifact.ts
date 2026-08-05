@@ -47,6 +47,70 @@ export function parsePresentationArtifact(
   return { schemaVersion: 1, layout: "stack", blocks, evidenceRefs };
 }
 
+export function presentationArtifactToWire(artifact: PresentationArtifact): Record<string, unknown> {
+  return {
+    schema_version: artifact.schemaVersion,
+    layout: artifact.layout,
+    evidence_refs: [...artifact.evidenceRefs],
+    blocks: artifact.blocks.map((block) => ({
+      slot_id: block.slotId,
+      kind: block.kind,
+      title: block.title,
+      emphasis: block.emphasis,
+      collapsed: block.collapsed,
+      evidence_refs: [...block.evidenceRefs],
+      data: block.kind === "table" || block.kind === "threshold_table" || block.kind === "list"
+        ? {
+            columns: block.data.columns.map((column) => ({ ...column })),
+            rows: block.data.rows.map((row) => ({ ...row })),
+            status_key: block.data.statusKey,
+          }
+        : block.kind === "callout"
+        ? { tone: block.data.tone, lines: [...block.data.lines] }
+        : { items: block.data.items.map((item) => ({ ...item })) },
+    })),
+  };
+}
+
+export function parsePersistedPresentationArtifact(
+  raw: unknown,
+  verification: AnswerVerification | undefined,
+): PresentationArtifact | undefined {
+  if (!isRecord(raw)) return undefined;
+  if ("schema_version" in raw) return parsePresentationArtifact(raw, verification);
+  if (!Array.isArray(raw.blocks) || !Array.isArray(raw.evidenceRefs)) return undefined;
+  const blocks: Record<string, unknown>[] = [];
+  for (const rawBlock of raw.blocks) {
+    if (!isRecord(rawBlock) || !isRecord(rawBlock.data)) return undefined;
+    let data: Record<string, unknown>;
+    if (rawBlock.kind === "table" || rawBlock.kind === "threshold_table" ||
+        rawBlock.kind === "list") {
+      data = {
+        columns: rawBlock.data.columns,
+        rows: rawBlock.data.rows,
+        status_key: rawBlock.data.statusKey,
+      };
+    } else {
+      data = { ...rawBlock.data };
+    }
+    blocks.push({
+      slot_id: rawBlock.slotId,
+      kind: rawBlock.kind,
+      title: rawBlock.title,
+      emphasis: rawBlock.emphasis,
+      collapsed: rawBlock.collapsed,
+      evidence_refs: rawBlock.evidenceRefs,
+      data,
+    });
+  }
+  return parsePresentationArtifact({
+    schema_version: raw.schemaVersion,
+    layout: raw.layout,
+    blocks,
+    evidence_refs: raw.evidenceRefs,
+  }, verification);
+}
+
 function parseBlock(raw: unknown, artifactRefs: ReadonlySet<string>): PresentationBlock | null {
   if (!isRecord(raw) || !hasExactKeys(
     raw,
@@ -97,12 +161,14 @@ function parseSummaryItems(data: Record<string, unknown>): PresentationSummaryIt
   if (!hasExactKeys(data, ["items"]) || !Array.isArray(data.items) ||
       data.items.length === 0 || data.items.length > MAX_ITEMS) return null;
   const items: PresentationSummaryItem[] = [];
+  const labels = new Set<string>();
   for (const rawItem of data.items) {
     if (!isRecord(rawItem) || !hasExactKeys(rawItem, ["label", "value", "tone"])) return null;
     const label = text(rawItem.label);
     const value = text(rawItem.value);
     const tone = rawItem.tone;
-    if (!label || !value || !TONES.has(tone as PresentationTone)) return null;
+    if (!label || !value || labels.has(label) || !TONES.has(tone as PresentationTone)) return null;
+    labels.add(label);
     items.push({ label, value, tone: tone as PresentationTone });
   }
   return items;
@@ -112,13 +178,15 @@ function parseChartItems(data: Record<string, unknown>): PresentationChartItem[]
   if (!hasExactKeys(data, ["items"]) || !Array.isArray(data.items) ||
       data.items.length === 0 || data.items.length > MAX_ITEMS) return null;
   const items: PresentationChartItem[] = [];
+  const labels = new Set<string>();
   for (const rawItem of data.items) {
     if (!isRecord(rawItem) || !hasExactKeys(rawItem, ["label", "value", "tone"])) return null;
     const label = text(rawItem.label);
     const value = rawItem.value;
     const tone = rawItem.tone;
-    if (!label || !Number.isSafeInteger(value) || (value as number) < 0 ||
+    if (!label || labels.has(label) || !Number.isSafeInteger(value) || (value as number) < 0 ||
         !TONES.has(tone as PresentationTone)) return null;
+    labels.add(label);
     items.push({ label, value: value as number, tone: tone as PresentationTone });
   }
   return items;
@@ -164,11 +232,13 @@ function parseLabelValues(data: Record<string, unknown>): { label: string; value
   if (!hasExactKeys(data, ["items"]) || !Array.isArray(data.items) ||
       data.items.length === 0 || data.items.length > MAX_ITEMS) return null;
   const items: { label: string; value: string }[] = [];
+  const labels = new Set<string>();
   for (const rawItem of data.items) {
     if (!isRecord(rawItem) || !hasExactKeys(rawItem, ["label", "value"])) return null;
     const label = text(rawItem.label);
     const value = text(rawItem.value);
-    if (!label || value === null) return null;
+    if (!label || value === null || labels.has(label)) return null;
+    labels.add(label);
     items.push({ label, value });
   }
   return items;
@@ -177,9 +247,8 @@ function parseLabelValues(data: Record<string, unknown>): { label: string; value
 function parseTextArray(raw: unknown): string[] | null {
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_ITEMS) return null;
   const values = raw.map((value) => text(value));
-  return values.every((value): value is string => value !== null && value.length > 0)
-    ? values
-    : null;
+  if (!values.every((value): value is string => value !== null && value.length > 0)) return null;
+  return new Set(values).size === values.length ? values : null;
 }
 
 function parseRefs(raw: unknown, allowed: ReadonlySet<string>): string[] | null {

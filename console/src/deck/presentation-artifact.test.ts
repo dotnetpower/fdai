@@ -95,4 +95,13 @@ describe("presentation artifact boundary", () => {
 
     expect(parsed).toBeDefined();
   });
+
+  it("rejects duplicate item labels used as renderer keys", () => {
+    const raw = artifact();
+    const blocks = raw.blocks as Record<string, unknown>[];
+    const data = blocks[1]!.data as { items: Record<string, unknown>[] };
+    data.items[1]!.label = "Checked";
+
+    expect(parsePresentationArtifact(raw, verification)).toBeUndefined();
+  });
 });

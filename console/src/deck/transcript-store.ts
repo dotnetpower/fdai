@@ -28,6 +28,7 @@ import {
   type InvestigationActivity,
   type IncidentCandidate,
   type ModelTrace,
+  type PresentationArtifact,
   type TurnTiming,
   type TrajectoryDetail,
   type ResourceContext,
@@ -39,6 +40,11 @@ import {
 } from "./backend-normalizers";
 import { parseTrajectoryDetail } from "./trajectory-detail";
 import { parseIntentGraph, parseIntentGraphEvidence } from "./intent-graph";
+import {
+  parsePersistedPresentationArtifact,
+  parsePresentationArtifact,
+  presentationArtifactToWire,
+} from "./presentation-artifact";
 import { parseTurnAttachments, type TurnAttachment } from "./turn-attachments";
 
 export const TRANSCRIPT_KEY = "fdai.deck.transcript.v1";
@@ -100,6 +106,7 @@ export interface PersistedTurn {
   readonly delegation?: DelegationMetadata;
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
   readonly incidentCandidates?: readonly IncidentCandidate[];
+  readonly presentationArtifact?: PresentationArtifact;
   readonly modelTrace?: ModelTrace;
   readonly turnTiming?: TurnTiming;
   readonly trajectoryDetail?: TrajectoryDetail;
@@ -161,6 +168,12 @@ export function serializeTurns(
       const resourceContext = parseResourceContext(t.resourceContext);
       const intentGraph = parseIntentGraph(t.intentGraph);
       const intentGraphEvidence = parseIntentGraphEvidence(t.intentGraphEvidence);
+      const presentationArtifact = verification && t.presentationArtifact
+        ? parsePresentationArtifact(
+            presentationArtifactToWire(t.presentationArtifact),
+            verification,
+          )
+        : undefined;
       const attachments = parseTurnAttachments(t.attachments);
       return {
         ...base,
@@ -184,6 +197,7 @@ export function serializeTurns(
         ...(delegation ? { delegation } : {}),
         ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
         ...(incidentCandidates.length > 0 ? { incidentCandidates } : {}),
+        ...(presentationArtifact ? { presentationArtifact } : {}),
         ...(modelTrace ? { modelTrace } : {}),
         ...(turnTiming ? { turnTiming } : {}),
         ...(trajectoryDetail ? { trajectoryDetail } : {}),
@@ -250,6 +264,9 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
     const turnTiming = parseTurnTiming(rec.turnTiming);
     const trajectoryDetail = parseTrajectoryDetail(rec.trajectoryDetail);
     const verification = parseAnswerVerification(rec.verification);
+    const presentationArtifact = verification && rec.presentationArtifact
+      ? parsePersistedPresentationArtifact(rec.presentationArtifact, verification)
+      : undefined;
     const resourceContext = parseResourceContext(rec.resourceContext);
     const intentGraph = parseIntentGraph(rec.intentGraph);
     const intentGraphEvidence = parseIntentGraphEvidence(rec.intentGraphEvidence);
@@ -281,6 +298,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
       ...(delegation ? { delegation } : {}),
       ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
       ...(incidentCandidates.length > 0 ? { incidentCandidates } : {}),
+      ...(presentationArtifact ? { presentationArtifact } : {}),
       ...(modelTrace ? { modelTrace } : {}),
       ...(turnTiming ? { turnTiming } : {}),
       ...(trajectoryDetail ? { trajectoryDetail } : {}),

@@ -21,6 +21,42 @@ describe("transcriptKeyFor", () => {
 });
 
 describe("serializeTurns", () => {
+    it("round-trips a verified mixed presentation", () => {
+      const evidenceRef = "subscription-health:test@2026-08-05T00:00:00Z";
+      const serialized = serializeTurns([{
+        id: "turn-presentation",
+        role: "deck",
+        text: "Canonical fallback",
+        at: "10:00:00",
+        terminal: true,
+        verification: {
+          status: "verified",
+          authority: "server_subscription_health",
+          checks_completed: 1,
+          checks_total: 1,
+          evidence_refs: [evidenceRef],
+          reason_code: "subscription_health_grounded",
+        },
+        presentationArtifact: {
+          schemaVersion: 1,
+          layout: "stack",
+          evidenceRefs: [evidenceRef],
+          blocks: [{
+            slotId: "overview",
+            kind: "summary",
+            title: "Azure scope health",
+            emphasis: "primary",
+            collapsed: false,
+            evidenceRefs: [evidenceRef],
+            data: { items: [{ label: "Resources checked", value: "454", tone: "neutral" }] },
+          }],
+        },
+      }]);
+
+      expect(parseTurns(serialized)[0]?.presentationArtifact?.blocks[0]?.slotId)
+        .toBe("overview");
+    });
+
   it("persists image descriptors without persisting inline image bytes", () => {
     const serialized = serializeTurns([{
       id: "turn-image",
