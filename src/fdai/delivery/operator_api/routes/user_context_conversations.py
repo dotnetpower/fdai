@@ -11,7 +11,7 @@ from starlette.requests import Request
 
 from fdai.shared.providers.user_context import ConversationHistoryStore
 
-CONVERSATION_PAGE_SIZE = 100
+CONVERSATION_PAGE_SIZE = 20
 _QUESTION_LIMIT = 512
 
 

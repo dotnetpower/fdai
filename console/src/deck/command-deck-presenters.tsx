@@ -1,6 +1,6 @@
 import { Tooltip } from "../components/tooltip";
 import { t } from "../i18n";
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import {
   type AnswerVerification,
   type ActionDraft,
@@ -87,9 +87,10 @@ export interface Turn {
 }
 
 export const DEFAULT_NARRATOR = "Bragi";
+export const CONVERSATION_VISIBLE_BATCH_SIZE = CONVERSATION_HISTORY_PAGE_SIZE;
 
 export function conversationCountLabel(count: number, hasMore: boolean): string {
-  return count >= CONVERSATION_HISTORY_PAGE_SIZE || hasMore
+  return hasMore
     ? `${CONVERSATION_HISTORY_PAGE_SIZE}+`
     : String(count);
 }
@@ -99,6 +100,23 @@ export function shouldLoadMoreConversations(
   hasMore: boolean,
 ): boolean {
   return hasMore && element.scrollHeight - element.scrollTop - element.clientHeight <= 120;
+}
+
+export function visibleConversationGroups(
+  groups: ReturnType<typeof conversationGroups>,
+  limit: number,
+): ReturnType<typeof conversationGroups> {
+  let remaining = Math.max(0, limit);
+  const take = (items: readonly ConversationSummary[]) => {
+    const visible = items.slice(0, remaining);
+    remaining -= visible.length;
+    return visible;
+  };
+  return {
+    current: take(groups.current),
+    other: take(groups.other),
+    agents: take(groups.agents),
+  };
 }
 
 function agentIconUrl(name: string): string {
@@ -304,6 +322,7 @@ export function ConversationSidebar({
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ConversationListFilter>("mine");
+  const [visibleLimit, setVisibleLimit] = useState(CONVERSATION_VISIBLE_BATCH_SIZE);
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const filteredConversations = conversations.filter((conversation) =>
     conversationMatchesFilter(conversation, filter));
@@ -311,7 +330,13 @@ export function ConversationSidebar({
     ? filteredConversations.filter((conversation) =>
         `${conversation.label} ${conversation.originLabel}`.toLocaleLowerCase().includes(normalizedQuery))
     : filteredConversations;
-  const groups = conversationGroups(visibleConversations, currentPath);
+  useEffect(() => {
+    setVisibleLimit(CONVERSATION_VISIBLE_BATCH_SIZE);
+  }, [filter, normalizedQuery]);
+  const groups = visibleConversationGroups(
+    conversationGroups(visibleConversations, currentPath),
+    visibleLimit,
+  );
   return (
     <aside
       class="deck-conversations"
@@ -360,7 +385,10 @@ export function ConversationSidebar({
         class="deck-conversation-list"
         onScroll={(event) => {
           const element = event.currentTarget;
-          if (shouldLoadMoreConversations(element, hasMore)) onLoadMore();
+          const hasLocalMore = visibleLimit < visibleConversations.length;
+          if (loading || !shouldLoadMoreConversations(element, hasLocalMore || hasMore)) return;
+          setVisibleLimit((current) => current + CONVERSATION_VISIBLE_BATCH_SIZE);
+          if (!hasLocalMore && hasMore) onLoadMore();
         }}
       >
         {visibleConversations.length === 0 ? (

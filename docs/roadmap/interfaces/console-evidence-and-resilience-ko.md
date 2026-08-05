@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 00fbd4d246a4bc34b2bffaeab72a6f87e71411e4
+translation_source_sha: fb21f3e29819dd4d5a57f2d2c6e0ea1d34bbe2bb
 translation_revised: 2026-08-05
 ---
 
@@ -41,8 +41,10 @@ Verified source-manifest answer는 bounded unavailable 또는 unknown entry를 `
 Full-workspace Command Deck session은 transcript만 열린 content column으로 시작합니다. 비어 있는 transcript는 상황별 suggestion을 유지하고 tool 선택이나 authority를 바꾸지 않는 localized Resilience, Change Safety 및 Cost Governance quick start를 추가합니다. Transcript
 toolbar는 workspace, docked 및 floating layout에서 filter 가능한 대화 이력을 제공합니다. 좁은
 layout에서는 transcript 폭을 줄이지 않고 그 위에 overlay로 엽니다. Workspace에서는 pointer 또는 keyboard separator로 대화 이력 폭을 180-360 px 범위에서 조절하고 마지막 폭을 local에 저장합니다. 좁은 layout은 separator를 숨깁니다. History header는 검색과 icon-only 새 대화를 compact한 한 줄에 배치하고 lightweight filter tab을 사용하며, control 대신 list만 scroll합니다. 현재 화면 digest는 workspace control로 유지됩니다. Deck은 열린 surface마다 composition-owned data-source manifest를 한 번 읽고 transcript 위에 Inventory, Incidents, Audit, Knowledge 및 Automation readiness link를 compact하게 표시합니다. 누락되거나 non-authoritative인 source는 `unknown`으로 유지합니다. Browser는 health를 추론하거나 raw provider detail을 노출하거나 route 존재로 manifest를 대체하지 않습니다. Loading은 stable skeleton을 사용하고 manifest failure는 conversation history를 차단하지 않으면서 Diagnostics로 연결합니다.
-History는 stable cursor 순서로 durable summary를 한 번에 100건씩 load합니다. 100건에 도달하면 count를
-`100+`로 표시하고 history scroll 경계에 가까워지면 다음 100건을 load합니다. Transcript body는 선택할
+History는 stable cursor 순서를 유지하지만 처음에는 summary 20건만 렌더링합니다. History scroll
+경계에 가까워지면 이미 load된 summary 중 다음 20건을 표시합니다. Local window를 모두 사용한 뒤에는
+같은 경계에서 server page 20건을 요청하고 기존 row를 교체하지 않고 이어서 표시합니다. 다음 page가
+있으면 count를 `20+`로 표시합니다. Transcript body는 선택할
 때만 hydrate합니다. Operator image는 전송된 turn 안에 표시됩니다. Browser cache serialization은
 inline byte를 제거하고 bounded descriptor만 유지하며, durable restoration은 인증된 principal 및
 conversation 범위 image route를 통해 binary를 fetch합니다. Browser 또는 durable history에서 복원된 transcript는 새 대화를 시작할 때까지

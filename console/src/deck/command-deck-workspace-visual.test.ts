@@ -11,6 +11,10 @@ const source = readFileSync(
   fileURLToPath(new URL("./command-deck-view.tsx", import.meta.url)),
   "utf8",
 );
+const presenters = readFileSync(
+  fileURLToPath(new URL("./command-deck-presenters.tsx", import.meta.url)),
+  "utf8",
+);
 const sessions = readFileSync(
   fileURLToPath(new URL("./use-command-deck-sessions.ts", import.meta.url)),
   "utf8",
@@ -30,6 +34,8 @@ describe("Command Deck workspace hierarchy", () => {
     expect(source).toContain("conversationCountLabel(conversations.length, conversationHasMore)");
     expect(sessions).toContain(".slice(0, CONVERSATION_HISTORY_PAGE_SIZE)");
     expect(sessions).toContain("setSessionLabel(agent);");
+    expect(presenters).toContain("CONVERSATION_VISIBLE_BATCH_SIZE");
+    expect(presenters).toContain("visibleLimit");
   });
 
   test("persists a bounded workspace conversation width", () => {

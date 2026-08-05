@@ -14,7 +14,7 @@ import type { ConversationSummaryPayload } from "../user-context-client";
 export const CONVERSATION_INDEX_KEY = "fdai.deck.conversations.v1";
 export const GENERAL_CONVERSATION_KEY = "screen";
 export const MAX_CONVERSATION_INDEX_ENTRIES = 1000;
-export const CONVERSATION_HISTORY_PAGE_SIZE = 100;
+export const CONVERSATION_HISTORY_PAGE_SIZE = 20;
 const PANTHEON_AGENT_NAMES = new Set(PANTHEON.map((agent) => agent.name));
 
 function newId(): string {

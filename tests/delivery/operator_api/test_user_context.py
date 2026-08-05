@@ -127,7 +127,7 @@ def test_conversation_image_read_is_conversation_scoped() -> None:
     assert client.get("/me/conversations/conversation-1/images/att-image-1").status_code == 404
 
 
-def test_context_pages_durable_conversations_in_hundreds() -> None:
+def test_context_pages_durable_conversations_twenty_at_a_time() -> None:
     conversations = InMemoryConversationHistoryStore()
 
     async def seed() -> None:
@@ -149,21 +149,27 @@ def test_context_pages_durable_conversations_in_hundreds() -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert len(payload["conversations"]) == 100
+    assert len(payload["conversations"]) == 20
     assert payload["conversation_page"]["has_more"] is True
     cursor = payload["conversation_page"]["next_cursor"]
+    seen = list(payload["conversations"])
 
-    next_response = _client(conversations).get(
-        "/me/conversations",
-        params={
-            "before_last_active": cursor["last_active"],
-            "before_conversation_id": cursor["conversation_id"],
-        },
-    )
+    while cursor is not None:
+        next_response = _client(conversations).get(
+            "/me/conversations",
+            params={
+                "before_last_active": cursor["last_active"],
+                "before_conversation_id": cursor["conversation_id"],
+            },
+        )
+        assert next_response.status_code == 200
+        page = next_response.json()
+        assert 1 <= len(page["conversations"]) <= 20
+        seen.extend(page["conversations"])
+        cursor = page["next_cursor"]
 
-    assert next_response.status_code == 200
-    assert len(next_response.json()["conversations"]) == 21
-    assert next_response.json()["has_more"] is False
+    assert len(seen) == 121
+    assert len({item["conversation_id"] for item in seen}) == 121
 
 
 def test_preference_ignores_client_principal_and_persists_timezone() -> None:

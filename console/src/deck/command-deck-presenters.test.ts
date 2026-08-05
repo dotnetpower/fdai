@@ -5,18 +5,20 @@ import { fileURLToPath } from "node:url";
 import {
   backendTooltip,
   backendTooltipView,
+  CONVERSATION_VISIBLE_BATCH_SIZE,
   conversationCountLabel,
   routerTooltip,
   shouldLoadMoreConversations,
+  visibleConversationGroups,
   verticalQuickStarts,
 } from "./command-deck-presenters";
 
 describe("conversation history paging", () => {
   it("shows a bounded count while more cursor pages exist", () => {
-    expect(conversationCountLabel(100, true)).toBe("100+");
-    expect(conversationCountLabel(200, true)).toBe("100+");
-    expect(conversationCountLabel(200, false)).toBe("100+");
-    expect(conversationCountLabel(73, false)).toBe("73");
+    expect(conversationCountLabel(20, true)).toBe("20+");
+    expect(conversationCountLabel(40, true)).toBe("20+");
+    expect(conversationCountLabel(40, false)).toBe("40");
+    expect(conversationCountLabel(13, false)).toBe("13");
   });
 
   it("loads the next page near the scroll boundary only when available", () => {
@@ -25,6 +27,26 @@ describe("conversation history paging", () => {
     expect(shouldLoadMoreConversations(nearBottom, true)).toBe(true);
     expect(shouldLoadMoreConversations(farFromBottom, true)).toBe(false);
     expect(shouldLoadMoreConversations(nearBottom, false)).toBe(false);
+  });
+
+  it("reveals 20 conversations at a time while preserving group order", () => {
+    const summary = (key: string) => ({ key }) as never;
+    const groups = {
+      current: Array.from({ length: 3 }, (_, index) => summary(`current-${index}`)),
+      other: Array.from({ length: 25 }, (_, index) => summary(`other-${index}`)),
+      agents: Array.from({ length: 4 }, (_, index) => summary(`agent-${index}`)),
+    };
+
+    expect(CONVERSATION_VISIBLE_BATCH_SIZE).toBe(20);
+    const first = visibleConversationGroups(groups, CONVERSATION_VISIBLE_BATCH_SIZE);
+    expect(first.current).toHaveLength(3);
+    expect(first.other).toHaveLength(17);
+    expect(first.agents).toHaveLength(0);
+
+    const second = visibleConversationGroups(groups, CONVERSATION_VISIBLE_BATCH_SIZE * 2);
+    expect(second.current).toHaveLength(3);
+    expect(second.other).toHaveLength(25);
+    expect(second.agents).toHaveLength(4);
   });
 });
 
