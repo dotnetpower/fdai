@@ -165,15 +165,17 @@ def build_local_data_sources(
         ),
         ReadDataSourceStatus(
             key="azure-inventory",
-            source="azure-resource-graph",
+            source="synthetic-test-fixtures" if test_fixtures else "azure-resource-graph",
             routes=("/inventory/graph",),
-            availability="unknown",
+            availability="available" if test_fixtures else "unknown",
             configured=True,
-            reachable=None,
-            authoritative=True,
+            reachable=True if test_fixtures else None,
+            authoritative=not test_fixtures,
             durable=False,
-            synthetic=False,
-            reason="Reachability is determined by each bounded Azure query.",
+            synthetic=test_fixtures,
+            reason=(
+                None if test_fixtures else "Reachability is determined by each bounded Azure query."
+            ),
         ),
         ReadDataSourceStatus(
             key="model-catalog",

@@ -227,6 +227,7 @@ def _with_concept_evidence(prompt: str, view_context: dict[str, Any]) -> dict[st
     grounded_concept = _is_grounded_concept_query(prompt)
     if grounded_concept:
         for key in (
+            "_document_evidence",
             "_behavior_evidence",
             "_operational_evidence",
             "_tool_evidence",
@@ -241,6 +242,7 @@ def _with_concept_evidence(prompt: str, view_context: dict[str, Any]) -> dict[st
     if any(
         key in enriched
         for key in (
+            "_document_evidence",
             "_behavior_evidence",
             "_operational_evidence",
             "_tool_evidence",

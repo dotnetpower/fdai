@@ -176,6 +176,9 @@ from fdai.delivery.operator_api.routes.chat_knowledge_context import (  # noqa: 
 from fdai.delivery.operator_api.routes.conversation_assurance_intake import (  # noqa: E402
     ConversationAssurancePostTurnSubmitter,
 )
+from fdai.delivery.operator_api.routes.demo_inventory_graph import (  # noqa: E402
+    demo_inventory_graph_provider,
+)
 from fdai.delivery.operator_api.routes.llm_cost import LlmCostPanel  # noqa: E402
 from fdai.delivery.operator_api.routes.measurement_summary import (  # noqa: E402
     AutonomyMeasurementPanel,
@@ -794,7 +797,9 @@ def build_local_app(
         durable=persistence is not None,
     )
     assignment_store = persistence.state_store if persistence is not None else models.settings.store
-    inventory_graph_provider = _build_inventory_graph_provider()
+    inventory_graph_provider = (
+        demo_inventory_graph_provider if test_fixtures else _build_inventory_graph_provider()
+    )
     from fdai.delivery.operator_api.routes.chat_inventory_ontology import (
         inventory_query_function_type,
     )
