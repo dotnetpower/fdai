@@ -58,7 +58,6 @@ Optional (respect defaults):
 from __future__ import annotations
 
 import os
-import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
@@ -78,26 +77,10 @@ from fdai.core.conversation_assurance import (
     HoldingOntologyAdequacyInvestigator,
     PromotionConfig,
 )
-from fdai.core.execution_authorization import AccessGrantRequestService
-from fdai.core.human_assignment import AssignmentCaseService, HandoverGoalService
 from fdai.core.metering.budget import InMemoryBudgetLedger, ModelBudget
-from fdai.core.rbac.access_request import AccessRequestService
-from fdai.core.rbac.kill_switch_command import KillSwitchCommandService
 from fdai.core.stewardship import load_stewardship_from_yaml
-from fdai.delivery.catalog_search import (
-    load_shipped_catalog_search_sources,
-)
-from fdai.delivery.configuration_review_store import (
-    StateStoreConfigurationReviewCampaignStore,
-)
 from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
-from fdai.delivery.handover_events import EventBusHandoverAvailabilityPublisher
-from fdai.delivery.ingestion_gateway.chat_evidence import UploaderDocumentEvidenceResolver
-from fdai.delivery.operator_api.app.catalog_reference import (
-    load_best_practice_reference,
-    load_mcsb_reference,
-)
-from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
+from fdai.delivery.operator_api.main import build_app
 from fdai.delivery.operator_api.production import env_contract as _env
 from fdai.delivery.operator_api.production.catalog_search import (
     ProductionCatalogSearch,
@@ -110,27 +93,26 @@ from fdai.delivery.operator_api.production.config import (
     _parse_positive_int,
     build_prod_read_model,
 )
-from fdai.delivery.operator_api.production.configuration_drift import (
-    build_production_configuration_drift_context,
-    build_production_configuration_review,
-)
-from fdai.delivery.operator_api.production.data_sources import build_production_data_sources
 from fdai.delivery.operator_api.production.identity import build_production_identity
 from fdai.delivery.operator_api.production.knowledge_context import (
     build_production_knowledge_context,
 )
 from fdai.delivery.operator_api.production.onboarding import build_production_onboarding
-from fdai.delivery.operator_api.production.panels import build_production_panels
+from fdai.delivery.operator_api.production.operator_config import (
+    ProductionOperatorConfigInputs,
+    build_production_operator_config,
+)
 from fdai.delivery.operator_api.production.persistence import build_production_persistence
 from fdai.delivery.operator_api.production.python_tasks import build_production_python_tasks
+from fdai.delivery.operator_api.production.read_investigation import (
+    build_production_read_investigation,
+)
 from fdai.delivery.operator_api.production.runtime_wiring import build_production_runtime
 from fdai.delivery.operator_api.production.scope import build_production_scope_source
 from fdai.delivery.operator_api.production.skill_sources import build_production_skill_sources
 from fdai.delivery.operator_api.production.skills import build_production_skill_runtime
 from fdai.delivery.operator_api.production.user_context import build_production_user_context
 from fdai.delivery.operator_api.production.views import _build_dynamic_views
-from fdai.delivery.operator_api.routes.arb_status import ArchitectureReviewStatusPanel
-from fdai.delivery.operator_api.routes.background_runtime import build_background_task_runtime
 from fdai.delivery.operator_api.routes.busy_input_runtime import build_postgres_busy_input_runtime
 from fdai.delivery.operator_api.routes.chat import backend_from_env
 from fdai.delivery.operator_api.routes.chat_inventory_ontology import (
@@ -140,9 +122,6 @@ from fdai.delivery.operator_api.routes.chat_inventory_semantic_retrieval import 
     EmbeddingInventorySemanticResolver,
 )
 from fdai.delivery.operator_api.routes.chat_web_search import chat_web_search_from_env
-from fdai.delivery.operator_api.routes.configuration_baselines import (
-    ConfigurationBaselinesPanel,
-)
 from fdai.delivery.operator_api.routes.conversation_assurance_intake import (
     ConversationAssurancePostTurnSubmitter,
 )
@@ -155,8 +134,6 @@ from fdai.delivery.persistence import (
     PostgresConversationPolicyCandidateStoreConfig,
     PostgresModelHealthTransitionSink,
     PostgresModelHealthTransitionSinkConfig,
-    PostgresReadInvestigationRunStore,
-    PostgresReadInvestigationRunStoreConfig,
     StateStoreOntologyAdequacyReviewSink,
 )
 from fdai.delivery.persistence.postgres_conversation_assurance_runtime import (
@@ -167,27 +144,14 @@ from fdai.delivery.persistence.postgres_conversation_delivery import (
     PostgresConversationDeliveryStore,
     PostgresConversationDeliveryStoreConfig,
 )
-from fdai.delivery.persistence.postgres_document_ingestion import (
-    PostgresDocumentMetadataStore,
-    PostgresDocumentMetadataStoreConfig,
-)
-from fdai.delivery.persistence.postgres_inventory_snapshot import (
-    PostgresInventoryGraphProvider,
-    PostgresInventorySnapshotStoreConfig,
-)
 from fdai.delivery.persistence.postgres_principal_binding import (
     PostgresPrincipalConversationBindingStore,
     PostgresPrincipalConversationBindingStoreConfig,
-)
-from fdai.delivery.persistence.postgres_task_worker import (
-    PostgresTaskWorkerStore,
-    PostgresTaskWorkerStoreConfig,
 )
 from fdai.delivery.stewardship import (
     HumanIdentityLivenessDirectory,
     StewardshipHealthMonitor,
 )
-from fdai.rule_catalog.schema.catalog_search import build_catalog_search_documents
 from fdai.runtime.conversation_assurance import (
     build_azure_conversation_assurance_evaluators,
     build_conversation_assurance_coordinator,
@@ -262,7 +226,6 @@ def build_prod_app(
     authenticator = identity.authenticator
     group_mapping = identity.group_mapping
     iam_directory = identity.iam_directory
-    iam_provider = identity.iam_provider
     shutdown_callbacks = identity.shutdown_callbacks
     catalog_search = (
         ProductionCatalogSearch(index=catalog_semantic_index)
@@ -322,10 +285,7 @@ def build_prod_app(
         promoted_workflows=enforce_workflows,
     )
     conversation_history_store = user_context_group.conversation_history_store
-    conversation_policy_store = user_context_group.conversation_policy_store
-    user_context_ontology_projector = user_context_group.ontology_projector
     user_context = user_context_group.routes
-    workflow_definitions = user_context_group.workflow_definitions
     skill_runtime = build_production_skill_runtime(
         env=env,
         dsn=read_model._config.dsn,
@@ -606,262 +566,18 @@ def build_prod_app(
             or "fdai-background-delivery"
         ),
     )
-    background_executor = None
-    read_investigation_service = None
-    subscription_health_provider = None
-    read_latency_store = None
-    read_investigation_run_store = None
-    read_investigation_ledger_config = None
-    inventory_activity_provider = None
-    reader_startup_callbacks: tuple[Callable[[], Awaitable[None]], ...] = ()
-    reader_scope_ref = None
-    reader_identity = None
-    reader_http = None
-    reader_subscription = env.get("FDAI_AZURE_READER_SUBSCRIPTION_ID", "").strip()
-    reader_client_id = env.get("FDAI_AZURE_READER_CLIENT_ID", "").strip()
-    reader_resource_groups = tuple(
-        dict.fromkeys(
-            value.strip()
-            for value in env.get("FDAI_AZURE_READER_RESOURCE_GROUPS", "").split(",")
-            if value.strip()
-        )
-    )
-    if reader_subscription and reader_client_id and reader_resource_groups:
-        from fdai.core.read_investigation import ReadInvestigationService
-        from fdai.delivery.azure.read_investigation import (
-            AzureReadInvestigationProvider,
-            AzureReadRestConfig,
-            AzureReadScopeBinding,
-            AzureRestReadTransport,
-            build_azure_mcp_read_wiring,
-        )
-        from fdai.delivery.azure.subscription_health import (
-            AzureSubscriptionHealthConfig,
-            AzureSubscriptionHealthProvider,
-        )
-        from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
-        from fdai.delivery.operator_api.routes.background_executor import (
-            ReadInvestigationBackgroundTaskExecutor,
-            ServerOwnedReadInvestigationRequestFactory,
-        )
-        from fdai.delivery.operator_api.routes.read_investigations import (
-            ReadInvestigationRunLedgerConfig,
-        )
-        from fdai.delivery.persistence import StateStoreReadLatencyProfileStore
-
-        read_investigation_run_store = PostgresReadInvestigationRunStore(
-            config=PostgresReadInvestigationRunStoreConfig(
-                dsn=read_model._config.dsn,
-                statement_timeout_ms=read_model._config.statement_timeout_ms,
-                connect_timeout_s=read_model._config.connect_timeout_s,
-            )
-        )
-        read_investigation_ledger_config = ReadInvestigationRunLedgerConfig(
-            lease_seconds=_parse_positive_int(env, _env.READ_INVESTIGATION_LEASE_SECONDS_ENV, 30),
-            retention_seconds=_parse_positive_int(
-                env,
-                _env.READ_INVESTIGATION_RETENTION_SECONDS_ENV,
-                3_600,
-            ),
-            retry_after_seconds=_parse_positive_int(
-                env,
-                _env.READ_INVESTIGATION_RETRY_AFTER_SECONDS_ENV,
-                3,
-            ),
-            reconcile_limit=_parse_positive_int(
-                env,
-                _env.READ_INVESTIGATION_RECONCILE_LIMIT_ENV,
-                25,
-            ),
-            purge_limit=_parse_positive_int(
-                env,
-                _env.READ_INVESTIGATION_PURGE_LIMIT_ENV,
-                25,
-            ),
-        )
-
-        reader_scope_ref = "azure-reader-default"
-        reader_http = httpx.AsyncClient(
-            timeout=httpx.Timeout(connect=5.0, read=35.0, write=10.0, pool=5.0)
-        )
-        reader_identity = ManagedIdentityWorkloadIdentity.from_env(
-            http_client=reader_http,
-            env=env,
-            client_id_env="FDAI_AZURE_READER_CLIENT_ID",
-        )
-        reader_transport = AzureRestReadTransport(
-            config=AzureReadRestConfig(
-                scopes=(
-                    AzureReadScopeBinding(
-                        scope_ref=reader_scope_ref,
-                        subscription_id=reader_subscription,
-                        resource_groups=reader_resource_groups,
-                        workspace_id=env.get("FDAI_MONITOR_WORKSPACE_ID", "").strip() or None,
-                    ),
-                ),
-                resource_type_map=(
-                    ("Microsoft.Compute/virtualMachines", "compute.vm"),
-                    ("Microsoft.DBforPostgreSQL/flexibleServers", "postgresql-server"),
-                    ("Microsoft.Network/networkSecurityGroups", "network.nsg"),
-                    ("Microsoft.Network/virtualNetworks", "network.vnet"),
-                ),
-            ),
-            identity=reader_identity,
-            http_client=reader_http,
-        )
-
-        async def _inventory_activity_provider(
-            lookback_seconds: int,
-            max_events: int,
-        ) -> Mapping[str, object]:
-            return await reader_transport.query_scope_activity(
-                reader_scope_ref,
-                lookback_seconds=lookback_seconds,
-                max_events=max_events,
-            )
-
-        inventory_activity_provider = _inventory_activity_provider
-        mcp_wiring = build_azure_mcp_read_wiring(
-            fallback=reader_transport,
-            environment=env,
-            reader_client_id=reader_client_id,
-            subscription_id=reader_subscription,
-        )
-        reader_startup_callbacks = (mcp_wiring.start,)
-        read_latency_store = StateStoreReadLatencyProfileStore(store=state_store)
-        read_investigation_service = ReadInvestigationService(
-            AzureReadInvestigationProvider(mcp_wiring.transport),
-            latency_store=read_latency_store,
-        )
-        subscription_health_provider = AzureSubscriptionHealthProvider(
-            config=AzureSubscriptionHealthConfig(
-                subscription_id=reader_subscription,
-                resource_groups=reader_resource_groups,
-            ),
-            identity=reader_identity,
-            http_client=reader_http,
-        )
-        background_executor = ReadInvestigationBackgroundTaskExecutor(
-            service=read_investigation_service,
-            request_factory=ServerOwnedReadInvestigationRequestFactory(scope_ref=reader_scope_ref),
-        )
-
-        async def _close_reader_http() -> None:
-            await mcp_wiring.close()
-            await reader_http.aclose()
-
-        shutdown_callbacks = (*shutdown_callbacks, _close_reader_http)
-    configuration_drift_requested = any(
-        env.get(name, "").strip()
-        for name in (
-            _env.CONFIGURATION_BASELINE_JSON_ENV,
-            _env.CONFIGURATION_BASELINE_DOCX_ENV,
-            _env.CONFIGURATION_BASELINE_RESOURCE_GROUP_ENV,
-        )
-    )
-    if configuration_drift_requested and (reader_identity is None or reader_http is None):
-        raise ProdOperatorApiConfigError(
-            "production configuration baseline requires the complete Azure reader binding"
-        )
-    try:
-        configuration_drift_context = (
-            None
-            if reader_identity is None or reader_http is None
-            else build_production_configuration_drift_context(
-                environ=env,
-                subscription_id=reader_subscription,
-                allowed_resource_groups=reader_resource_groups,
-                identity=reader_identity,
-                http_client=reader_http,
-            )
-        )
-    except (OSError, ValueError) as exc:
-        raise ProdOperatorApiConfigError(str(exc)) from exc
-    configuration_review = (
-        None
-        if configuration_drift_context is None
-        else build_production_configuration_review(
-            context=configuration_drift_context,
-            state_store=state_store,
-            dsn=read_model._config.dsn,
-            statement_timeout_ms=read_model._config.statement_timeout_ms,
-            connect_timeout_s=read_model._config.connect_timeout_s,
-        )
-    )
-    background_runtime = build_background_task_runtime(
-        executor=background_executor,
-        state_store=state_store,
-        conversation_history=conversation_history_store,
-        dsn=read_model._config.dsn,
-        statement_timeout_ms=read_model._config.statement_timeout_ms,
-        connect_timeout_s=read_model._config.connect_timeout_s,
+    read_investigation = build_production_read_investigation(
         env=env,
-        outbound_delivery=background_outbound_delivery,
-        binding_store=principal_binding_store,
+        repo_root=_REPO_ROOT,
+        read_model=read_model,
+        state_store=state_store,
+        conversation_history_store=conversation_history_store,
+        background_outbound_delivery=background_outbound_delivery,
+        principal_binding_store=principal_binding_store,
+        event_bus=runtime.event_bus,
+        shutdown_callbacks=shutdown_callbacks,
     )
-    if background_runtime is not None:
-        shutdown_callbacks = (*shutdown_callbacks, background_runtime.coordinator.shutdown)
-    read_investigation_routes = None
-    read_investigation_chat_delegate = None
-    if (
-        background_runtime is not None
-        and read_investigation_service is not None
-        and read_latency_store is not None
-        and read_investigation_run_store is not None
-        and read_investigation_ledger_config is not None
-        and reader_scope_ref is not None
-    ):
-        from fdai.core.read_investigation import interactive_investigation_policy
-        from fdai.delivery.operator_api.routes.read_investigation_catalog import (
-            load_bound_investigation_intents,
-        )
-        from fdai.delivery.operator_api.routes.read_investigation_responder import (
-            HeimdallReadInvestigationChatDelegate,
-            HeimdallReadInvestigationResponder,
-        )
-        from fdai.delivery.operator_api.routes.read_investigations import (
-            IdempotentReadInvestigationExecutor,
-            ReadInvestigationRoutesConfig,
-        )
-
-        load_bound_investigation_intents(_REPO_ROOT)
-        read_investigation_routes = ReadInvestigationRoutesConfig(
-            service=read_investigation_service,
-            run_store=read_investigation_run_store,
-            latency_store=read_latency_store,
-            background=background_runtime.routes,
-            scope_ref=reader_scope_ref,
-            run_ledger=read_investigation_ledger_config,
-        )
-        read_investigation_chat_delegate = HeimdallReadInvestigationChatDelegate(
-            responder=HeimdallReadInvestigationResponder(
-                executor=IdempotentReadInvestigationExecutor(read_investigation_routes),
-                latency_store=read_latency_store,
-                scope_ref=reader_scope_ref,
-                scope_activity_provider=inventory_activity_provider,
-                policy=interactive_investigation_policy(),
-            )
-        )
-    remote_agent_delegate = None
-    if runtime.event_bus is not None:
-        from fdai.delivery.agent_introspection_bus import (
-            AGENT_INTROSPECTION_TOPICS,
-            EventBusAgentIntrospectionClient,
-        )
-
-        remote_agent_delegate = EventBusAgentIntrospectionClient(
-            event_bus=MultiplexedEventBus(
-                bus=runtime.event_bus,
-                logical_topics=AGENT_INTROSPECTION_TOPICS,
-                physical_topic=env.get(
-                    "FDAI_PANTHEON_OBJECT_TOPIC",
-                    "aw.pantheon.objects",
-                ).strip(),
-            ),
-            instance_id=f"operator-api-{uuid.uuid4().hex[:16]}",
-            fallback_delegate=read_investigation_chat_delegate,
-        )
-        shutdown_callbacks = (remote_agent_delegate.stop, *shutdown_callbacks)
+    shutdown_callbacks = read_investigation.shutdown_callbacks
     busy_input_runtime = (
         build_postgres_busy_input_runtime(
             dsn=read_model._config.dsn,
@@ -897,184 +613,48 @@ def build_prod_app(
         )
         stewardship_startup_callbacks = (stewardship_health.start,)
         shutdown_callbacks = (stewardship_health.stop, *shutdown_callbacks)
-    catalog_search_sources = load_shipped_catalog_search_sources(repo_root=_REPO_ROOT)
-    catalog_search_documents = build_catalog_search_documents(
-        rules=catalog_search_sources.rules,
-        action_types=catalog_search_sources.action_types,
-        policy_semantics=catalog_search_sources.policy_semantics,
-    )
-
-    async def _seed_catalog_semantic_index() -> None:
-        if catalog_semantic_index is not None:
-            await catalog_semantic_index.synchronize(catalog_search_documents)
-
-    config = OperatorApiConfig(
-        dev_mode=False,
-        cors_allow_origins=cors_origins,
-        ontology_object_types=object_types,
-        ontology_link_types=link_types,
-        ontology_action_types=action_types,
-        ontology_function_types=ontology_function_types,
-        operating_model_status_reader=state_store,
-        inventory_graph_provider=PostgresInventoryGraphProvider(
-            config=PostgresInventorySnapshotStoreConfig(
-                dsn=read_model._config.dsn,
-                freshness_budget_seconds=_parse_positive_int(
-                    env, _env.INVENTORY_FRESHNESS_ENV, 86_400
-                ),
-                statement_timeout_ms=read_model._config.statement_timeout_ms,
-                connect_timeout_s=read_model._config.connect_timeout_s,
-            )
-        ),
-        inventory_semantic_resolver=inventory_semantic_resolver,
-        inventory_activity_provider=inventory_activity_provider,
-        subscription_health_provider=subscription_health_provider,
-        detection_readiness_reader=state_store,
-        execution_access_grants=AccessGrantRequestService(store=state_store),
-        t2_recovery_reader=state_store,
-        best_practice_controls=load_best_practice_reference(_REPO_ROOT),
-        mcsb_catalogs=load_mcsb_reference(_REPO_ROOT),
-        rule_catalog_rules=catalog_search_sources.rules,
-        rule_catalog_policies_root=_REPO_ROOT / "policies",
-        rule_catalog_remediation_root=_REPO_ROOT / "rule-catalog" / "remediation",
-        rule_catalog_semantic_index=catalog_semantic_index,
-        scope_source=scope_source,
-        log_query_provider=log_query_provider,
-        reporting=reporting,
-        process_views=process_views,
-        workflow_authoring=workflow_authoring,
-        workflow_execution=workflow_execution,
-        workflow_definitions=workflow_definitions,
-        stewardship_map=stewardship_map,
-        stewardship_health_reader=state_store,
-        user_context=user_context,
-        model_settings=model_settings,
-        runtime_settings=runtime_settings,
-        python_tasks=python_tasks,
-        chat=chat,
-        llm_usage_reader=metering_sink,
-        chat_document_evidence=UploaderDocumentEvidenceResolver(
-            metadata=PostgresDocumentMetadataStore(
-                config=PostgresDocumentMetadataStoreConfig(
-                    dsn=read_model._config.dsn,
-                    statement_timeout_ms=read_model._config.statement_timeout_ms,
-                    connect_timeout_s=read_model._config.connect_timeout_s,
-                )
-            )
-        ),
-        chat_agent_delegate=remote_agent_delegate or read_investigation_chat_delegate,
-        skill_disclosure=skill_runtime.disclosure,
-        skill_sources=skill_sources.routes,
-        knowledge_context=knowledge_context,
-        configuration_drift_context=configuration_drift_context,
-        configuration_review_runtime=(
-            configuration_review.runtime if configuration_review is not None else None
-        ),
-        automation_blueprint_review=(
-            configuration_review.blueprints if configuration_review is not None else None
-        ),
-        busy_input_runtime=busy_input_runtime,
-        conversation_delivery_store=conversation_delivery_store,
-        chat_web_search=chat_web_search,
-        chat_probe_interval_seconds=_parse_positive_int(
-            env,
-            "FDAI_NARRATOR_PROBE_INTERVAL_SECONDS",
-            300,
-        ),
-        conversation_history_store=conversation_history_store,
-        conversation_assurance_ledger=assurance_ledger,
-        conversation_assurance_runtime=assurance_policy_runtime,
-        conversation_search=user_context.conversation_search,
-        conversation_policy_store=conversation_policy_store,
-        user_context_ontology_projector=user_context_ontology_projector,
-        post_turn_review_submitter=assurance_submitter,
-        task_worker_store=PostgresTaskWorkerStore(
-            config=PostgresTaskWorkerStoreConfig(
-                dsn=read_model._config.dsn,
-                statement_timeout_ms=read_model._config.statement_timeout_ms,
-                connect_timeout_s=read_model._config.connect_timeout_s,
-            )
-        ),
-        background_tasks=(background_runtime.routes if background_runtime is not None else None),
-        read_investigations=read_investigation_routes,
-        extra_panels=(
-            *build_production_panels(
-                read_model=read_model,
-                onboarding_probe=onboarding.probe,
-                onboarding_configured=onboarding.configured,
-                state_store=state_store,
-                action_types=action_types,
-                active_rule_count=sum(
-                    1 for _ in (_REPO_ROOT / "rule-catalog" / "catalog").glob("*.yaml")
-                ),
-            ),
-            *(
-                (
-                    ConfigurationBaselinesPanel(
-                        configuration_drift_context,
-                        review_store=StateStoreConfigurationReviewCampaignStore(state_store),
-                    ),
-                )
-                if configuration_drift_context is not None
-                else ()
-            ),
-            skill_runtime.panel,
-            ArchitectureReviewStatusPanel(
-                manifest_path=_REPO_ROOT / "config" / "architecture-review.yaml",
-                repo_root=_REPO_ROOT,
-                engine=process_views.engine,
-            ),
-        ),
-        hil_callback=runtime.hil_callback,
-        hil_registry=runtime.hil_registry,
-        hil_decision_publisher=runtime.hil_decision_publisher,
-        console_action=runtime.console_action,
-        kill_switch_command=KillSwitchCommandService(store=state_store),
-        iam_access=AccessRequestService(store=state_store),
-        iam_directory=iam_directory,
-        iam_identity_provider=iam_provider or "entra",
-        iam_role_group_ids={
-            "Reader": group_mapping.reader_group_id,
-            "Contributor": group_mapping.contributor_group_id,
-            "Approver": group_mapping.approver_group_id,
-            "Owner": group_mapping.owner_group_id,
-            "BreakGlass": group_mapping.break_glass_group_id,
-        },
-        human_assignments=AssignmentCaseService(store=state_store),
-        handover_goals=HandoverGoalService(
-            store=state_store,
-            assignments=AssignmentCaseService(store=state_store),
-        ),
-        handover_availability_publisher=(
-            EventBusHandoverAvailabilityPublisher(
-                event_bus=runtime.event_bus,
-                topic=runtime.event_topic,
-            )
-            if runtime.event_bus is not None and runtime.event_topic
-            else None
-        ),
-        live_stream=runtime.live_stream,
-        agent_activity=runtime.agent_activity,
-        data_sources=build_production_data_sources(
-            scope_configured=scope_source is not None,
-            onboarding_configured=onboarding.configured,
-            model_settings_configured=model_settings is not None,
-            streams_configured=runtime.live_stream is not None,
-        ),
-        startup_callbacks=(
-            read_model.verify_connection,
-            *(
-                (read_investigation_run_store.verify_schema,)
-                if read_investigation_run_store is not None
-                else ()
-            ),
-            *reader_startup_callbacks,
-            _seed_catalog_semantic_index,
-            *runtime.startup_callbacks,
-            *((remote_agent_delegate.start,) if remote_agent_delegate is not None else ()),
-            *stewardship_startup_callbacks,
-        ),
-        shutdown_callbacks=shutdown_callbacks,
+    config = build_production_operator_config(
+        ProductionOperatorConfigInputs(
+            env=env,
+            repo_root=_REPO_ROOT,
+            read_model=read_model,
+            state_store=state_store,
+            cors_origins=cors_origins,
+            object_types=object_types,
+            link_types=link_types,
+            action_types=action_types,
+            ontology_function_types=ontology_function_types,
+            inventory_semantic_resolver=inventory_semantic_resolver,
+            catalog_semantic_index=catalog_semantic_index,
+            scope_source=scope_source,
+            log_query_provider=log_query_provider,
+            reporting=reporting,
+            process_views=process_views,
+            workflow_authoring=workflow_authoring,
+            workflow_execution=workflow_execution,
+            stewardship_map=stewardship_map,
+            stewardship_startup_callbacks=stewardship_startup_callbacks,
+            user_context_group=user_context_group,
+            model_settings=model_settings,
+            runtime_settings=runtime_settings,
+            python_tasks=python_tasks,
+            chat=chat,
+            metering_sink=metering_sink,
+            skill_runtime=skill_runtime,
+            skill_sources=skill_sources,
+            knowledge_context=knowledge_context,
+            read_investigation=read_investigation,
+            busy_input_runtime=busy_input_runtime,
+            conversation_delivery_store=conversation_delivery_store,
+            chat_web_search=chat_web_search,
+            assurance_ledger=assurance_ledger,
+            assurance_policy_runtime=assurance_policy_runtime,
+            assurance_submitter=assurance_submitter,
+            runtime=runtime,
+            onboarding=onboarding,
+            identity=identity,
+            shutdown_callbacks=shutdown_callbacks,
+        )
     )
     application = build_app(authenticator=authenticator, read_model=read_model, config=config)
     application.state.skill_disclosure = skill_runtime.disclosure

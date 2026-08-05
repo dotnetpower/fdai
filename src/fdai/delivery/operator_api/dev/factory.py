@@ -46,35 +46,23 @@ from fdai.core.conversation_assurance import (  # noqa: E402
     HoldingOntologyAdequacyInvestigator,
     InMemoryConversationAssuranceLedger,
 )
-from fdai.core.execution_authorization import AccessGrantRequestService  # noqa: E402
-from fdai.core.human_assignment import AssignmentCaseService  # noqa: E402
-from fdai.core.measurement.promotion_gate import (  # noqa: E402
-    InMemoryShadowVerdictSource,
-)
 from fdai.core.metering import (  # noqa: E402
     InMemoryMeteringSink,
 )
 from fdai.core.onboarding import EmptyResourceProbe  # noqa: E402
-from fdai.core.operator_memory import (  # noqa: E402
-    InMemoryMemoryCompactionRepository,
-    InMemoryOperatorMemoryStore,
-    OperatorMemoryReviewService,
-)
-from fdai.core.rbac.access_request import AccessRequestService  # noqa: E402
 from fdai.core.rbac.resolver import RoleResolver  # noqa: E402
-from fdai.core.scheduler import (  # noqa: E402
-    InMemoryScheduleRunLedger,
-    ScheduleRunHistoryService,
-)
 from fdai.delivery.event_bus_multiplex import MultiplexedEventBus  # noqa: E402
 from fdai.delivery.operator_api.app.authoritative_proxy import (  # noqa: E402
     AUTHORITATIVE_OPERATOR_API_ENV,
     authoritative_read_proxy_from_env,
 )
-from fdai.delivery.operator_api.app.catalog_reference import load_mcsb_reference  # noqa: E402
 from fdai.delivery.operator_api.auth import (  # noqa: E402
     UnsafeClaimsExtractor,
     build_authenticator,
+)
+from fdai.delivery.operator_api.dev.app_config import (  # noqa: E402
+    LocalAppConfigDependencies,
+    build_local_operator_api_config,
 )
 from fdai.delivery.operator_api.dev.azure_cli_identity import (  # noqa: E402
     resolve_azure_cli_identity,
@@ -94,14 +82,12 @@ from fdai.delivery.operator_api.dev.config import (  # noqa: E402
 )
 from fdai.delivery.operator_api.dev.data_sources import build_local_data_sources  # noqa: E402
 from fdai.delivery.operator_api.dev.fixtures.dynamic_views import (  # noqa: E402
-    _build_blast_radius_graph,
     _build_scope_view,
     _DemoTighterTagsEvaluator,
 )
 from fdai.delivery.operator_api.dev.fixtures.seed_data import (  # noqa: E402
     _seed,
     _synthetic_llm_invocations,
-    _synthetic_verdicts,
 )
 from fdai.delivery.operator_api.dev.helpers import (  # noqa: E402
     build_agent_streams as _build_agent_streams,
@@ -145,7 +131,7 @@ from fdai.delivery.operator_api.dev.view_wiring import build_local_view_wiring  
 from fdai.delivery.operator_api.entra_verifier import (  # noqa: E402
     EntraJwtVerifier,
 )
-from fdai.delivery.operator_api.main import OperatorApiConfig, build_app  # noqa: E402
+from fdai.delivery.operator_api.main import build_app  # noqa: E402
 from fdai.delivery.operator_api.postgres_read_model import PostgresConsoleReadModel  # noqa: E402
 from fdai.delivery.operator_api.production.config import build_prod_read_model  # noqa: E402
 from fdai.delivery.operator_api.production.knowledge_context import (  # noqa: E402
@@ -164,9 +150,6 @@ from fdai.delivery.operator_api.read_model import (  # noqa: E402
     ConsoleReadModel,
     InMemoryConsoleReadModel,
 )
-from fdai.delivery.operator_api.routes.arb_status import (  # noqa: E402
-    ArchitectureReviewStatusPanel,
-)
 from fdai.delivery.operator_api.routes.chat_agent_delegate import (  # noqa: E402
     PantheonChatDelegate,
 )
@@ -179,17 +162,7 @@ from fdai.delivery.operator_api.routes.conversation_assurance_intake import (  #
 from fdai.delivery.operator_api.routes.demo_inventory_graph import (  # noqa: E402
     demo_inventory_graph_provider,
 )
-from fdai.delivery.operator_api.routes.llm_cost import LlmCostPanel  # noqa: E402
-from fdai.delivery.operator_api.routes.measurement_summary import (  # noqa: E402
-    AutonomyMeasurementPanel,
-)
-from fdai.delivery.operator_api.routes.onboarding import OnboardingPanel  # noqa: E402
-from fdai.delivery.operator_api.routes.operator_memory import OperatorMemoryPanel  # noqa: E402
-from fdai.delivery.operator_api.routes.panels import (  # noqa: E402
-    CapabilityCatalogPanel,
-    ExampleFinOpsPanel,
-    ReadPanel,
-)
+from fdai.delivery.operator_api.routes.panels import ReadPanel  # noqa: E402
 from fdai.delivery.operator_api.routes.post_turn_event_bus import (  # noqa: E402
     EventBusPostTurnReviewIntake,
 )
@@ -197,20 +170,15 @@ from fdai.delivery.operator_api.routes.post_turn_review import PostTurnReviewQue
 from fdai.delivery.operator_api.routes.rule_fire_trace_reader import (  # noqa: E402
     ConsoleReadModelTraceReader,
 )
-from fdai.delivery.operator_api.routes.scheduler_runs import SchedulerRunsPanel  # noqa: E402
 from fdai.delivery.operator_api.routes.skill_runtime import (  # noqa: E402
     empty_runtime_skill_disclosure,
 )
-from fdai.delivery.operator_api.routes.skills import RuntimeSkillsPanel  # noqa: E402
 from fdai.delivery.operator_api.streaming.agent_activity_stream import (  # noqa: E402
     SseAgentActivityPublisher,
     runtime_agent_state_snapshot,
 )
 from fdai.delivery.operator_api.streaming.pantheon_activity_observer import (  # noqa: E402
     PantheonActivityObserver,
-)
-from fdai.delivery.operator_api.streaming.provision_stream import (  # noqa: E402
-    ProvisionStreamConfig,
 )
 from fdai.delivery.persistence import (  # noqa: E402
     PostgresConversationAssuranceLedger,
@@ -393,6 +361,7 @@ def build_local_app(
     scope_source = _build_scope_view() if test_fixtures else None
     conversation_delivery_store = None
     persistence = None
+    postgres_read_model: PostgresConsoleReadModel | None = None
     durable_panels: tuple[ReadPanel, ...] = ()
     if local_database_configured and not test_fixtures:
         postgres_read_model = cast(PostgresConsoleReadModel, read_model)
@@ -491,9 +460,13 @@ def build_local_app(
             state_store=persistence.state_store,
             run_store=PostgresReadInvestigationRunStore(
                 config=PostgresReadInvestigationRunStoreConfig(
-                    dsn=postgres_read_model._config.dsn,
-                    statement_timeout_ms=postgres_read_model._config.statement_timeout_ms,
-                    connect_timeout_s=postgres_read_model._config.connect_timeout_s,
+                    dsn=cast(PostgresConsoleReadModel, read_model)._config.dsn,
+                    statement_timeout_ms=cast(
+                        PostgresConsoleReadModel, read_model
+                    )._config.statement_timeout_ms,
+                    connect_timeout_s=cast(
+                        PostgresConsoleReadModel, read_model
+                    )._config.connect_timeout_s,
                 )
             ),
             environ=os.environ,
@@ -701,293 +674,90 @@ def build_local_app(
             user_memories=user_context.memories,
         )
     )
-    from fdai.delivery.configuration_review_store import (
-        StateStoreConfigurationReviewCampaignStore,
-    )
     from fdai.delivery.operator_api.dev.configuration_drift import (
         build_local_configuration_drift_context,
-    )
-    from fdai.delivery.operator_api.routes.configuration_baselines import (
-        ConfigurationBaselinesPanel,
     )
 
     configuration_drift_context = build_local_configuration_drift_context(
         environ=os.environ,
         repo_root=_REPO_ROOT,
     )
-    arb_status_panels = (
-        (
-            ArchitectureReviewStatusPanel(
-                manifest_path=_REPO_ROOT / "config" / "architecture-review.yaml",
-                repo_root=_REPO_ROOT,
-                engine=process_views.engine,
-            ),
-        )
-        if process_views is not None
-        else ()
-    )
-
-    async def open_narrator_endpoint() -> None:
-        """Local-dev startup hook (on by default; disable with
-        ``FDAI_NARRATOR_AUTO_OPEN_AOAI=0``): ensure the narrator's Azure OpenAI
-        account allows this machine's IP so the CommandDeck LLM path is
-        reachable instead of falling back to the deterministic answerer.
-        Best-effort and fail-safe - see
-        :mod:`fdai.delivery.operator_api.dev.narrator_endpoint_access`."""
-        from fdai.delivery.operator_api.dev.narrator_endpoint_access import (
-            ensure_narrator_endpoint_open,
-        )
-
-        await ensure_narrator_endpoint_open(models.backend)
-
-    fixture_panels: tuple[ReadPanel, ...] = (
-        (
-            ExampleFinOpsPanel(read_model),
-            AutonomyMeasurementPanel(read_model),
-            OperatorMemoryPanel(
-                service=OperatorMemoryReviewService(store=InMemoryOperatorMemoryStore()),
-                compactions=InMemoryMemoryCompactionRepository(),
-            ),
-            SchedulerRunsPanel(
-                service=ScheduleRunHistoryService(ledger=InMemoryScheduleRunLedger()),
-                source="synthetic-dev",
-                durable=False,
-            ),
-        )
-        if test_fixtures
-        else ()
-    )
-    local_panels: tuple[ReadPanel, ...] = (
-        durable_panels
-        if durable_panels
-        else (
-            CapabilityCatalogPanel(),
-            OnboardingPanel(probe=EmptyResourceProbe(), configured=False),
-            LlmCostPanel(
-                metering,
-                source="synthetic-dev" if test_fixtures else "local-process",
-            ),
-        )
-    )
-    extra_panels = (
-        fixture_panels
-        + local_panels
-        + (
-            RuntimeSkillsPanel(skill_disclosure),
-            *arb_status_panels,
-        )
-        + (
-            (
-                ConfigurationBaselinesPanel(
-                    configuration_drift_context,
-                    review_store=(
-                        StateStoreConfigurationReviewCampaignStore(persistence.state_store)
-                        if persistence is not None
-                        else None
-                    ),
-                ),
-            )
-            if configuration_drift_context is not None
-            else ()
-        )
-    )
-    runtime_settings = RuntimeSettingsService(
-        store=persistence.state_store if persistence is not None else models.settings.store,
-        env=os.environ,
-        durable=persistence is not None,
-    )
-    assignment_store = persistence.state_store if persistence is not None else models.settings.store
     inventory_graph_provider = (
         demo_inventory_graph_provider if test_fixtures else _build_inventory_graph_provider()
     )
-    from fdai.delivery.kubernetes.ontology_functions import diagnostic_function_types
-    from fdai.delivery.operator_api.routes.chat_inventory_ontology import (
-        inventory_query_function_type,
-    )
-
-    ontology_function_types = (inventory_query_function_type(), *diagnostic_function_types())
-    from fdai.delivery.operator_api.routes.chat_inventory_semantic_retrieval import (
-        EmbeddingInventorySemanticResolver,
-    )
-    from fdai.shared.contracts.models import OntologyDeclarationKind
-    from fdai.shared.ontology.release import build_ontology_release
-
-    local_ontology_release = build_ontology_release(
-        object_types=tuple(ontology_object_types),
-        link_types=tuple(ontology_link_types),
-        action_types=tuple(action_types),
-        function_types=ontology_function_types,
-    )
-    inventory_semantic_resolver = (
-        EmbeddingInventorySemanticResolver(
-            embedder=models.embedder,
-            target_ref=local_ontology_release.type_ref(
-                OntologyDeclarationKind.FUNCTION,
-                "inventory.select_resources",
-            ),
-        )
-        if models.embedder is not None
-        else None
-    )
-    inventory_startup_callbacks, inventory_shutdown_callbacks = _inventory_lifecycle_callbacks(
-        inventory_graph_provider
-    )
-    application = build_app(
-        authenticator=authenticator,
-        read_model=read_model,
-        config=OperatorApiConfig(
+    local_config = build_local_operator_api_config(
+        LocalAppConfigDependencies(
+            repo_root=_REPO_ROOT,
+            environ=os.environ,
             dev_mode=dev_mode,
-            local_cli_principal=(
-                local_cli_identity.principal if local_cli_identity is not None else None
-            ),
-            local_cli_profile=(
-                local_cli_identity.to_dict() if local_cli_identity is not None else None
-            ),
-            cors_allow_origins=_cors_origins_from_env(),
-            live_stream=live_stream_config,
-            provision_stream=ProvisionStreamConfig() if test_fixtures else None,
-            agent_activity=agent_activity_config,
-            blast_radius_graph=_build_blast_radius_graph() if test_fixtures else None,
-            ontology_object_types=tuple(ontology_object_types),
-            ontology_link_types=tuple(ontology_link_types),
-            ontology_action_types=tuple(action_types),
-            ontology_function_types=ontology_function_types,
+            test_fixtures=test_fixtures,
+            local_database_configured=local_database_configured,
+            local_cli_identity=local_cli_identity,
+            read_model=read_model,
+            postgres_read_model=postgres_read_model,
+            persistence=persistence,
+            authoritative_read_proxy=authoritative_read_proxy,
+            live_stream_config=live_stream_config,
+            agent_activity_config=agent_activity_config,
             conversation_history_store=conversation_history_store,
-            conversation_assurance_ledger=assurance_ledger,
-            conversation_assurance_runtime=assurance_policy_runtime,
-            conversation_search=user_context.conversation_search,
+            assurance_ledger=assurance_ledger,
+            assurance_policy_runtime=assurance_policy_runtime,
+            user_context=user_context,
             conversation_policy_store=conversation_policy_store,
             user_context_ontology_projector=user_context_ontology_projector,
-            post_turn_review_submitter=assurance_submitter,
-            user_context=user_context,
-            model_settings=models.settings,
-            runtime_settings=runtime_settings,
+            assurance_submitter=assurance_submitter,
             workflow_definitions=workflow_definitions,
+            models=models,
+            workflow_authoring=workflow_authoring,
+            workflow_execution=workflow_execution,
             inventory_graph_provider=inventory_graph_provider,
-            inventory_semantic_resolver=inventory_semantic_resolver,
             inventory_activity_provider=(
                 local_read_investigation.inventory_activity_provider
                 if local_read_investigation is not None
                 else None
             ),
             kubernetes_workload_provider=_build_kubernetes_workload_provider(),
-            detection_readiness_reader=(
-                persistence.state_store if persistence is not None else None
-            ),
-            t2_recovery_reader=(persistence.state_store if persistence is not None else None),
-            subscription_health_provider=(
-                local_read_investigation.subscription_health_provider
-                if local_read_investigation is not None
-                else None
-            ),
+            local_read_investigation=local_read_investigation,
             log_query_provider=log_query_provider,
-            network_reachability_provider=(
-                local_read_investigation.network_reachability_provider
-                if local_read_investigation is not None
-                else None
-            ),
             best_practice_controls=tuple(best_practice_controls),
-            mcsb_catalogs=load_mcsb_reference(_REPO_ROOT),
             rule_catalog_rules=tuple(rule_catalog_rules),
-            rule_catalog_collected_rules=tuple(rule_catalog_collected),
-            rule_catalog_policies_root=policies_root if policies_root.is_dir() else None,
-            rule_catalog_remediation_root=(remediation_root if remediation_root.is_dir() else None),
+            rule_catalog_collected=tuple(rule_catalog_collected),
+            policies_root=policies_root,
+            remediation_root=remediation_root,
             rule_catalog_findings_provider=rule_catalog_findings_provider,
             rule_catalog_findings_summary_provider=rule_catalog_findings_summary_provider,
-            promotion_gate_action_types=tuple(action_types) if test_fixtures else (),
-            promotion_gate_source=(
-                InMemoryShadowVerdictSource(verdicts=_synthetic_verdicts())
-                if test_fixtures
-                else None
-            ),
             scope_source=scope_source,
-            extra_panels=extra_panels,
+            durable_panels=durable_panels,
             conversation_delivery_store=conversation_delivery_store,
-            data_sources=build_local_data_sources(
-                test_fixtures=test_fixtures,
-                authoritative_proxy_configured=authoritative_read_proxy is not None,
-                local_database_configured=local_database_configured,
-                local_database_startup_verified=local_database_configured,
-                runtime_streams_configured=(
-                    live_stream_config is not None and agent_activity_config is not None
-                ),
-                scope_configured=scope_source is not None,
-                python_tasks_configured=runtime is not None and runtime.python_tasks is not None,
-            ),
-            authoritative_read_proxy=authoritative_read_proxy,
-            trace_reader=trace_reader if test_fixtures else None,
-            bitemporal_reader=trace_reader if test_fixtures else None,
-            what_if_reader=trace_reader if test_fixtures else None,
-            what_if_evaluators=what_if_evaluators if test_fixtures else {},
-            chat=models.backend,
-            llm_usage_reader=metering,
+            trace_reader=trace_reader,
+            what_if_evaluators=what_if_evaluators,
+            metering=metering,
             skill_disclosure=skill_disclosure,
             knowledge_context=knowledge_context,
             configuration_drift_context=configuration_drift_context,
-            chat_web_search=models.web_search,
-            chat_probe_interval_seconds=_chat_probe_interval_seconds(),
-            chat_agent_delegate=(
-                remote_agent_delegate
-                if remote_agent_delegate is not None
-                else local_read_investigation.chat_delegate
-                if local_read_investigation is not None
-                else PantheonChatDelegate(runtime.pantheon_runtime)
-                if test_fixtures and runtime is not None
-                else None
-            ),
-            console_action=(
-                runtime.console_action
-                if runtime is not None and runtime.console_action is not None
-                else command_transport.console_action
-                if command_transport is not None
-                else None
-            ),
-            iam_access=AccessRequestService(store=assignment_store),
-            execution_access_grants=AccessGrantRequestService(store=assignment_store),
-            iam_directory=iam.directory,
-            iam_role_group_ids=iam.role_group_ids,
-            human_assignments=AssignmentCaseService(store=assignment_store),
-            expose_pantheon=True,
-            stewardship_map=_build_stewardship_map(),
-            workflow_authoring=workflow_authoring,
-            workflow_execution=workflow_execution,
-            python_tasks=runtime.python_tasks if runtime is not None else None,
+            remote_agent_delegate=remote_agent_delegate,
+            runtime=runtime,
+            command_transport=command_transport,
+            iam=iam,
             reporting=reporting,
             process_views=process_views,
-            startup_callbacks=inventory_startup_callbacks
-            + (
-                (postgres_read_model.verify_connection,)
-                if local_database_configured and not test_fixtures
-                else ()
-            )
-            + user_context_startup_callbacks
-            + (open_narrator_endpoint,)
-            + ((local_read_investigation.start,) if local_read_investigation is not None else ())
-            + ((remote_agent_delegate.start,) if remote_agent_delegate is not None else ())
-            + ((runtime.start_pantheon_runtime,) if runtime is not None else ())
-            + ((command_transport.start,) if command_transport is not None else ())
-            + (
-                (runtime.operator_runtime.start,)
-                if runtime is not None and runtime.operator_runtime is not None
-                else ()
-            ),
-            shutdown_callbacks=inventory_shutdown_callbacks
-            + ((runtime.stop_pantheon_runtime,) if runtime is not None else ())
-            + ((remote_agent_delegate.stop,) if remote_agent_delegate is not None else ())
-            + ((post_turn_review_queue.close,) if post_turn_review_queue is not None else ())
-            + (assurance_submitter.close,)
-            + (
-                (runtime.operator_runtime.stop,)
-                if runtime is not None and runtime.operator_runtime is not None
-                else ()
-            )
-            + ((command_transport.shutdown,) if command_transport is not None else ())
-            + ((authoritative_read_proxy.aclose,) if authoritative_read_proxy is not None else ())
-            + ((local_read_investigation.close,) if local_read_investigation is not None else ())
-            + log_query_shutdown_callbacks
-            + models.shutdown_callbacks
-            + iam.shutdown_callbacks,
-        ),
+            user_context_startup_callbacks=user_context_startup_callbacks,
+            post_turn_review_queue=post_turn_review_queue,
+            log_query_shutdown_callbacks=log_query_shutdown_callbacks,
+            ontology_object_types=tuple(ontology_object_types),
+            ontology_link_types=tuple(ontology_link_types),
+            action_types=tuple(action_types),
+            data_source_builder=build_local_data_sources,
+            inventory_lifecycle_builder=_inventory_lifecycle_callbacks,
+            cors_allow_origins=_cors_origins_from_env(),
+            stewardship_map=_build_stewardship_map(),
+            chat_probe_interval_seconds=_chat_probe_interval_seconds(),
+        )
+    )
+    application = build_app(
+        authenticator=authenticator,
+        read_model=read_model,
+        config=local_config,
     )
     application.state.pantheon_runtime = runtime.pantheon_runtime if runtime is not None else None
     application.state.chat_agent_delegate = (
