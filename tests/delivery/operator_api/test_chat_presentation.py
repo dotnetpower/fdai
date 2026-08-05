@@ -422,7 +422,7 @@ async def test_health_presentation_selects_mixed_slots_without_evidence_values()
         view_context=_health_context(),
     )
 
-    assert decision.answer_plan.format is AnswerFormat.MIXED
+    assert decision.answer_plan.format is AnswerFormat.PROSE
     assert decision.presentation_plan is not None
     assert [item.slot_id for item in decision.presentation_plan.placements] == [
         "overview",
@@ -479,7 +479,7 @@ async def test_saved_plain_preference_suppresses_structured_artifact() -> None:
     assert decision.presentation_plan is None
 
 
-async def test_unsupported_saved_chart_preference_reports_actual_table_shape() -> None:
+async def test_saved_chart_preference_keeps_legacy_renderer_contract() -> None:
     decision = await select_answer_presentation(
         backend=_StructuredBackend({}),
         prompt="show databases",
@@ -487,11 +487,8 @@ async def test_unsupported_saved_chart_preference_reports_actual_table_shape() -
         view_context=_inventory_context(),
     )
 
-    assert decision.answer_plan.format is AnswerFormat.TABLE
-    assert decision.presentation_plan is not None
-    assert any(
-        placement.component == "data_table" for placement in decision.presentation_plan.placements
-    )
+    assert decision.answer_plan.format is AnswerFormat.CHART
+    assert decision.presentation_plan is None
 
 
 async def test_health_plan_compiles_every_available_slot_into_grounded_blocks() -> None:
@@ -612,7 +609,7 @@ async def test_inventory_plan_preserves_table_fallback_and_compiles_mixed_artifa
         view_context=context,
     )
     assert decision.presentation_plan is not None
-    assert decision.answer_plan.format is AnswerFormat.TABLE
+    assert decision.answer_plan.format is AnswerFormat.PROSE
     context["_presentation_plan"] = decision.presentation_plan.to_dict()
 
     artifact = response_presentation_artifact(

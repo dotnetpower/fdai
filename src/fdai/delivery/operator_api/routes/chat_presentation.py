@@ -93,15 +93,9 @@ async def select_answer_presentation(
     if _plain_presentation_requested(plan):
         return PresentationDecision(answer_plan=plan, presentation_plan=None)
     if plan.explicit_overrides or plan.preference_applied:
-        return PresentationDecision(
-            answer_plan=_answer_plan_for_presentation(plan, profile.kind, fallback),
-            presentation_plan=fallback,
-        )
+        return PresentationDecision(answer_plan=plan, presentation_plan=None)
     if not isinstance(backend, StructuredCompletionBackend):
-        return PresentationDecision(
-            answer_plan=_answer_plan_for_presentation(plan, profile.kind, fallback),
-            presentation_plan=fallback,
-        )
+        return PresentationDecision(answer_plan=plan, presentation_plan=fallback)
     user_content = json.dumps(
         {
             "operator_request": prompt[:512],
@@ -125,31 +119,13 @@ async def select_answer_presentation(
             "chat structured presentation unavailable",
             extra={"error_type": type(exc).__name__},
         )
-        return PresentationDecision(
-            answer_plan=_answer_plan_for_presentation(plan, profile.kind, fallback),
-            presentation_plan=fallback,
-        )
+        return PresentationDecision(answer_plan=plan, presentation_plan=fallback)
     parsed = parse_presentation_plan(proposed, profile)
     presentation_plan = parsed if parsed is not None else fallback
     return PresentationDecision(
-        answer_plan=_answer_plan_for_presentation(plan, profile.kind, presentation_plan),
+        answer_plan=plan,
         presentation_plan=presentation_plan,
     )
-
-
-def _answer_plan_for_presentation(
-    plan: AnswerPlan,
-    profile_kind: str,
-    presentation_plan: PresentationPlan,
-) -> AnswerPlan:
-    if profile_kind == "subscription_health":
-        return replace(plan, format=AnswerFormat.MIXED)
-    components = {placement.component for placement in presentation_plan.placements}
-    if "bar_chart" in components or "line_chart" in components:
-        return replace(plan, format=AnswerFormat.CHART)
-    if components & {"data_table", "status_table", "threshold_table"}:
-        return replace(plan, format=AnswerFormat.TABLE)
-    return replace(plan, format=AnswerFormat.BULLETS)
 
 
 def _plain_presentation_requested(plan: AnswerPlan) -> bool:
