@@ -87,6 +87,10 @@ class ConversationImage:
 class ConversationImageStore(Protocol):
     async def put(self, image: ConversationImage) -> ConversationImage: ...
 
+    async def put_many(
+        self, images: tuple[ConversationImage, ...]
+    ) -> tuple[ConversationImage, ...]: ...
+
     async def get(
         self,
         *,
@@ -101,16 +105,27 @@ class InMemoryConversationImageStore:
         self._images: dict[tuple[str, str, str], ConversationImage] = {}
 
     async def put(self, image: ConversationImage) -> ConversationImage:
-        key = (image.principal_id, image.conversation_id, image.image_id)
-        existing = self._images.get(key)
-        if existing is not None:
-            if not existing.has_same_intent(image):
-                raise ConversationImageConflictError(
-                    "conversation image id conflicts with existing content"
-                )
-            return existing
-        self._images[key] = image
-        return image
+        return (await self.put_many((image,)))[0]
+
+    async def put_many(
+        self, images: tuple[ConversationImage, ...]
+    ) -> tuple[ConversationImage, ...]:
+        stored: list[ConversationImage] = []
+        pending: dict[tuple[str, str, str], ConversationImage] = {}
+        for image in images:
+            key = (image.principal_id, image.conversation_id, image.image_id)
+            existing = self._images.get(key) or pending.get(key)
+            if existing is not None:
+                if not existing.has_same_intent(image):
+                    raise ConversationImageConflictError(
+                        "conversation image id conflicts with existing content"
+                    )
+                stored.append(existing)
+                continue
+            pending[key] = image
+            stored.append(image)
+        self._images.update(pending)
+        return tuple(stored)
 
     async def get(
         self,

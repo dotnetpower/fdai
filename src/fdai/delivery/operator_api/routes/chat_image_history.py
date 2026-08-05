@@ -36,8 +36,8 @@ async def persist_conversation_images(
     request_id: str,
     created_at: datetime,
 ) -> None:
-    for attachment in attachments:
-        await store.put(
+    await store.put_many(
+        tuple(
             ConversationImage.create(
                 image_id=attachment.attachment_id,
                 principal_id=principal_id,
@@ -48,7 +48,9 @@ async def persist_conversation_images(
                 content=attachment.content,
                 created_at=created_at,
             )
+            for attachment in attachments
         )
+    )
 
 
 __all__ = ["image_turn_metadata", "persist_conversation_images"]

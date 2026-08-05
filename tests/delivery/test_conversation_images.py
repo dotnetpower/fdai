@@ -12,9 +12,14 @@ from fdai.delivery.conversation_images import (
 )
 
 
-def _image(*, principal_id: str = "principal-a", content: bytes = b"png") -> ConversationImage:
+def _image(
+    *,
+    image_id: str = "att-image-1",
+    principal_id: str = "principal-a",
+    content: bytes = b"png",
+) -> ConversationImage:
     return ConversationImage.create(
-        image_id="att-image-1",
+        image_id=image_id,
         principal_id=principal_id,
         conversation_id="conversation-1",
         request_id="request-1",
@@ -64,3 +69,25 @@ async def test_image_store_rejects_id_reuse_with_different_bytes() -> None:
 
     with pytest.raises(ConversationImageConflictError):
         await store.put(_image(content=b"other"))
+
+
+async def test_image_store_batch_conflict_is_atomic() -> None:
+    store = InMemoryConversationImageStore()
+    await store.put(_image(image_id="att-existing"))
+
+    with pytest.raises(ConversationImageConflictError):
+        await store.put_many(
+            (
+                _image(image_id="att-new"),
+                _image(image_id="att-existing", content=b"other"),
+            )
+        )
+
+    assert (
+        await store.get(
+            principal_id="principal-a",
+            conversation_id="conversation-1",
+            image_id="att-new",
+        )
+        is None
+    )

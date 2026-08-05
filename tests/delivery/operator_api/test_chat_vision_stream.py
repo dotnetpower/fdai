@@ -50,8 +50,8 @@ class _Backend:
 
 
 class _FailingImageStore(InMemoryConversationImageStore):
-    async def put(self, image: Any) -> Any:
-        del image
+    async def put_many(self, images: Any) -> Any:
+        del images
         raise RuntimeError("image store unavailable")
 
 

@@ -19,40 +19,48 @@ class PostgresConversationImageStore(_PostgresBase):
         super().__init__(config=config)
 
     async def put(self, image: ConversationImage) -> ConversationImage:
+        return (await self.put_many((image,)))[0]
+
+    async def put_many(
+        self, images: tuple[ConversationImage, ...]
+    ) -> tuple[ConversationImage, ...]:
         async with await self._connect() as connection, connection.transaction():
             await self._timeout(connection)
-            cursor = await connection.execute(
-                "INSERT INTO conversation_image "
-                "(principal_id, image_id, conversation_id, request_id, name, media_type, "
-                "content, content_sha256, created_at) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
-                "ON CONFLICT (principal_id, conversation_id, image_id) "
-                "DO NOTHING RETURNING image_id",
-                (
-                    image.principal_id,
-                    image.image_id,
-                    image.conversation_id,
-                    image.request_id,
-                    image.name,
-                    image.media_type,
-                    image.content,
-                    image.content_sha256,
-                    image.created_at,
-                ),
+            return tuple([await self._put(connection, image) for image in images])
+
+    async def _put(self, connection: Any, image: ConversationImage) -> ConversationImage:
+        cursor = await connection.execute(
+            "INSERT INTO conversation_image "
+            "(principal_id, image_id, conversation_id, request_id, name, media_type, "
+            "content, content_sha256, created_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "ON CONFLICT (principal_id, conversation_id, image_id) "
+            "DO NOTHING RETURNING image_id",
+            (
+                image.principal_id,
+                image.image_id,
+                image.conversation_id,
+                image.request_id,
+                image.name,
+                image.media_type,
+                image.content,
+                image.content_sha256,
+                image.created_at,
+            ),
+        )
+        if await cursor.fetchone() is not None:
+            return image
+        existing = await self._get(
+            connection,
+            principal_id=image.principal_id,
+            conversation_id=image.conversation_id,
+            image_id=image.image_id,
+        )
+        if existing is None or not existing.has_same_intent(image):
+            raise ConversationImageConflictError(
+                "conversation image id conflicts with existing content"
             )
-            if await cursor.fetchone() is not None:
-                return image
-            existing = await self._get(
-                connection,
-                principal_id=image.principal_id,
-                conversation_id=image.conversation_id,
-                image_id=image.image_id,
-            )
-            if existing is None or not existing.has_same_intent(image):
-                raise ConversationImageConflictError(
-                    "conversation image id conflicts with existing content"
-                )
-            return existing
+        return existing
 
     async def get(
         self,
