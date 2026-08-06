@@ -204,6 +204,9 @@ from fdai.delivery.persistence.state_store_operational_promotion import (
 from fdai.delivery.persistence.state_store_preconditions import (
     StateStoreOpenActionEvidenceProvider,
 )
+from fdai.delivery.persistence.state_store_semantic_feedback import (
+    StateStoreSemanticFeedbackCandidateStore,
+)
 
 __all__ = [
     "PgVectorPatternLibrary",
@@ -304,5 +307,6 @@ __all__ = [
     "StateStoreOpenActionEvidenceProvider",
     "StateStoreOperationalPromotionReceiptStore",
     "StateStoreOntologyAdequacyReviewSink",
+    "StateStoreSemanticFeedbackCandidateStore",
     "add_pending_approval",
 ]
