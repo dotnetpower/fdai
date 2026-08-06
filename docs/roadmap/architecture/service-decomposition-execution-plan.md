@@ -41,8 +41,8 @@ subscribers inside their owning runtime service.
 | State | Count | Meaning |
 |-------|-------|---------|
 | Completed | 1 | Exit evidence and focused validation are recorded. |
-| In progress | 0 | No work package is currently active in the integration worktree. |
-| Planned | 9 | Dependencies or ownership handoff have not completed. |
+| In progress | 4 | SD-01 through SD-04 are running in isolated worktrees. |
+| Planned | 5 | Dependencies or ownership handoff have not completed. |
 | Blocked | 0 | A named gate currently prevents progress. |
 
 Last updated: 2026-08-07.
@@ -92,6 +92,10 @@ state. For each transition:
 | Date | Work package | State | Commit or receipt | Evidence and residual work |
 |------|--------------|-------|-------------------|----------------------------|
 | 2026-08-07 | SD-00 | Completed | `config/service-decomposition.json` at `95bd58718` | Five-service target and work-package DAG accepted. Baseline packs recorded 918 passed and 2 PostgreSQL-only skips; the live checks remain owned by SD-03 and SD-05. |
+| 2026-08-07 | SD-01 | In progress | Start `ccfa3c3dd` | Claims-family package move is the first Operator slice. |
+| 2026-08-07 | SD-02 | In progress | Start `ccfa3c3dd` | Thor execution port and receipt contract isolation started. |
+| 2026-08-07 | SD-03 | In progress | Start `ccfa3c3dd` | Ingestion identity and storage-role verification started. |
+| 2026-08-07 | SD-04 | In progress | Start `ccfa3c3dd` | Cross-service ontology release compatibility gate started. |
 
 ## Related documents
 

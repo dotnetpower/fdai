@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 0a815dbfa8f2f2e9f627b4b6df68b151c6b4f5d0
+translation_source_sha: 233003000fb5985f4afee1a63c65c116016f1d66
 translation_revised: 2026-08-07
 ---
 # 서비스 분해 실행 계획
@@ -39,8 +39,8 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 | 상태 | 개수 | 의미 |
 |------|------|------|
 | 완료 | 1 | Exit evidence와 focused validation을 기록했습니다. |
-| 진행 중 | 0 | Integration worktree에서 현재 실행 중인 work package가 없습니다. |
-| 계획됨 | 9 | Dependency 또는 ownership handoff가 완료되지 않았습니다. |
+| 진행 중 | 4 | SD-01부터 SD-04까지 isolated worktree에서 실행 중입니다. |
+| 계획됨 | 5 | Dependency 또는 ownership handoff가 완료되지 않았습니다. |
 | 차단됨 | 0 | 이름이 지정된 gate가 현재 진행을 막고 있습니다. |
 
 마지막 업데이트: 2026-08-07.
@@ -88,6 +88,10 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 날짜 | Work package | 상태 | Commit 또는 receipt | Evidence와 residual work |
 |------|--------------|------|-------------------|--------------------------|
 | 2026-08-07 | SD-00 | 완료 | `config/service-decomposition.json` at `95bd58718` | 5개 service 목표와 work-package DAG를 승인했습니다. Baseline pack은 918 passed와 PostgreSQL 전용 skip 2건을 기록했으며 live check는 SD-03과 SD-05가 소유합니다. |
+| 2026-08-07 | SD-01 | 진행 중 | Start `ccfa3c3dd` | 첫 Operator slice로 claims-family package 이동을 시작했습니다. |
+| 2026-08-07 | SD-02 | 진행 중 | Start `ccfa3c3dd` | Thor execution port와 receipt contract 분리를 시작했습니다. |
+| 2026-08-07 | SD-03 | 진행 중 | Start `ccfa3c3dd` | Ingestion identity와 storage-role 검증을 시작했습니다. |
+| 2026-08-07 | SD-04 | 진행 중 | Start `ccfa3c3dd` | Cross-service ontology release compatibility gate를 시작했습니다. |
 
 ## 관련 문서
 

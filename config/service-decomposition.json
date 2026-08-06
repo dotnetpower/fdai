@@ -37,25 +37,25 @@
     },
     {
       "id": "SD-01",
-      "status": "planned",
+      "status": "in_progress",
       "dependencies": ["SD-00"],
       "parallel_lane": "A"
     },
     {
       "id": "SD-02",
-      "status": "planned",
+      "status": "in_progress",
       "dependencies": ["SD-00"],
       "parallel_lane": "A"
     },
     {
       "id": "SD-03",
-      "status": "planned",
+      "status": "in_progress",
       "dependencies": ["SD-00"],
       "parallel_lane": "A"
     },
     {
       "id": "SD-04",
-      "status": "planned",
+      "status": "in_progress",
       "dependencies": ["SD-00"],
       "parallel_lane": "B"
     },
