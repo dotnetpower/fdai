@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 1c8b158aad6708d90143f43f3ae4a4dbaddd808f
-translation_revised: 2026-08-04
+translation_source_sha: 242498b752fce09fe2fc08a63427379035867f49
+translation_revised: 2026-08-06
 ---
 # 대화 품질 보증
 
@@ -133,6 +133,26 @@ reducer는 `pass`, `fail`, `inconclusive`를 `Q`와 별도로 저장합니다. �
 고정된 blind scenario는 평가자에게 제한된 trusted reference fact를 제공합니다. 이 fact는
 transient trial input이며 assessment ledger에 복사되지 않습니다. 일반 운영자 turn에는 benchmark
 reference fact가 없습니다.
+
+### 50개 항목 qualification scorecard
+
+`chatops-quality-v1`은 intent 및 planning, answer quality, grounding, SRE reasoning, action safety,
+authority 및 audit, agent orchestration, channel 및 attachment, context 및 locale, qualification에
+걸친 operator experience 항목 50개를 고정합니다. 각 항목은 metric 하나, evidence requirement 및
+minimum score `9.8`을 선언합니다. Machine-readable contract는 complete run 3회, 최소 500 turn,
+English와 Korean 각각 250 turn의 동일한 하한도 요구합니다.
+
+Deterministic item scorer는 functional correctness `0.30`, grounding and safety `0.25`, boundary
+robustness `0.15`, latency and user experience `0.10`, production end-to-end evidence `0.10`,
+observability and replay `0.10`의 고정된 normalized weight를 적용합니다. Frozen blind evidence가
+없으면 항목 score는 `9.5`, production end-to-end evidence가 없으면 `9.4`, latency SLO 또는 complete
+trace가 없으면 `9.6`, critical safety escape가 하나라도 있으면 `8.0`으로 제한됩니다. 여러 cap이
+적용되면 가장 낮은 cap을 사용합니다.
+
+Contract와 scorer에는 measured result, corpus label, deployment identifier 또는 promotion state가
+포함되지 않습니다. 이 artifact만으로 baseline 또는 qualification을 입증할 수 없습니다. 별도의
+version-pinned corpus runner와 scorecard artifact가 같은 promotion change에서 contract 또는 holdout
+label을 변경하지 않고 해당 record를 제공해야 합니다.
 
 ## 독립 모델 평가
 

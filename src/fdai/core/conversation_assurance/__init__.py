@@ -61,6 +61,16 @@ from fdai.core.conversation_assurance.promotion import (
     PromotionConfig,
     evaluate_policy_transition,
 )
+from fdai.core.conversation_assurance.quality_scorecard import (
+    CHATOPS_QUALITY_CONTRACT_V1,
+    ChatOpsQualityContract,
+    QualityDimension,
+    QualityHardCap,
+    QualityItemMeasurement,
+    QualityItemScore,
+    QualityRubricItem,
+    score_quality_item,
+)
 from fdai.core.conversation_assurance.runtime_policy import (
     BASE_POLICY_DIGEST,
     AppliedChatPolicy,
@@ -111,10 +121,17 @@ __all__ = [
     "TurnAssessmentInput",
     "ChatPolicyCandidate",
     "ChatPolicyTarget",
+    "ChatOpsQualityContract",
+    "CHATOPS_QUALITY_CONTRACT_V1",
     "PolicyStage",
     "PolicyTransition",
     "PolicyTrialMetrics",
     "PromotionConfig",
+    "QualityDimension",
+    "QualityHardCap",
+    "QualityItemMeasurement",
+    "QualityItemScore",
+    "QualityRubricItem",
     "assess_deterministically",
     "attribute_answer_failure",
     "assurance_principal_scope",
@@ -122,4 +139,5 @@ __all__ = [
     "build_ontology_adequacy_review",
     "evaluate_policy_transition",
     "policy_is_assigned",
+    "score_quality_item",
 ]
