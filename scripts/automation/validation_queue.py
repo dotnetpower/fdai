@@ -146,6 +146,20 @@ def _link_local_path(source: Path, destination: Path) -> None:
         destination.symlink_to(source, target_is_directory=source.is_dir())
 
 
+def _local_worktree_path(paths: QueuePaths, relative: Path) -> Path:
+    output = _git("worktree", "list", "--porcelain", cwd=paths.repo_root).stdout
+    roots = [
+        Path(line.removeprefix("worktree "))
+        for line in output.splitlines()
+        if line.startswith("worktree ")
+    ]
+    candidates = dict.fromkeys((paths.repo_root, *roots))
+    return next(
+        (root / relative for root in candidates if (root / relative).exists()),
+        paths.repo_root / relative,
+    )
+
+
 def _run_command(arguments: list[str], *, cwd: Path, env: dict[str, str]) -> int:
     completed = subprocess.run(arguments, cwd=cwd, env=env, check=False)
     return completed.returncode
@@ -214,12 +228,16 @@ def _run_locked(paths: QueuePaths, mode: str) -> int:
             cwd=paths.repo_root,
         )
         added = True
-        _link_local_path(
-            paths.repo_root / "console" / "node_modules",
-            validation_root / "console" / "node_modules",
-        )
+        for package_root in ("console", "cli"):
+            _link_local_path(
+                _local_worktree_path(paths, Path(package_root) / "node_modules"),
+                validation_root / package_root / "node_modules",
+            )
         for filename in ("resolved-models.json", "resolved-models-local.json"):
-            _link_local_path(paths.repo_root / filename, validation_root / filename)
+            _link_local_path(
+                _local_worktree_path(paths, Path(filename)),
+                validation_root / filename,
+            )
         environment = _validation_environment(paths)
         sync_status = _run_command(
             [

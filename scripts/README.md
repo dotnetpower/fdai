@@ -90,11 +90,12 @@ make validation-run
 ```
 
 The runner takes a non-blocking repository-wide lock, creates an isolated detached
-worktree at the current integration `HEAD`, reuses local dependency caches, caps
-changed-test workers at two by default, and runs changed tests plus the fast gates
-once for the entire reachable pending batch. A failed gate leaves the commits
-pending. A successful run writes per-commit receipts, and the pre-push hook blocks
-outgoing commits without those receipts.
+worktree at the current integration `HEAD`, reuses local Python caches and the
+installed Console and CLI dependency trees from any available linked worktree,
+caps changed-test workers at two by default, and runs changed tests plus the fast
+gates once for the entire reachable pending batch. A failed gate leaves the
+commits pending. A successful run writes per-commit receipts, and the pre-push
+hook blocks outgoing commits without those receipts.
 
 Run the whole repository suite only at an explicit merge or release boundary:
 

@@ -9,6 +9,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+pytestmark = pytest.mark.no_cover
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 QUEUE_SCRIPT = REPO_ROOT / "scripts" / "automation" / "validation_queue.py"
 POST_COMMIT_HOOK = REPO_ROOT / ".githooks" / "post-commit"
@@ -37,6 +39,10 @@ def _run(
 def git_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
     (repo / "bin").mkdir(parents=True)
+    for package_root in ("console", "cli"):
+        modules = repo / package_root / "node_modules"
+        modules.mkdir(parents=True)
+        (modules / ".validation-marker").write_text("ready\n", encoding="utf-8")
     (repo / "bin" / "uv").write_text(
         "#!/usr/bin/env bash\n"
         'test "$1" = sync || exit 11\n'
@@ -60,6 +66,8 @@ def git_repo(tmp_path: Path) -> Path:
     (repo / "scripts" / "verify.sh").write_text(
         "#!/usr/bin/env bash\n"
         "test -f resolved-models.json || exit 9\n"
+        "test -f console/node_modules/.validation-marker || exit 14\n"
+        "test -f cli/node_modules/.validation-marker || exit 15\n"
         'case "$UV_PROJECT_ENVIRONMENT" in */fdai-validation-queue/venv) ;; *) exit 10 ;; esac\n'
         'test "$UV_NO_SYNC" = 1 || exit 13\n'
         'printf "verify:%s\\n" "$*" >> "$FDAI_VALIDATION_TEST_LOG"\n',
@@ -120,13 +128,23 @@ def test_linked_worktree_uses_the_shared_git_queue(git_repo: Path, tmp_path: Pat
         _run(git_repo, "git", "worktree", "add", "--quiet", "--detach", str(linked)).returncode == 0
     )
     script = linked / "scripts" / "automation" / "validation_queue.py"
+    log_path = tmp_path / "linked-validation.log"
 
     enqueued = _run(linked, "python3", str(script), "enqueue", "HEAD")
     status = _run(git_repo, "python3", str(script), "status")
+    validated = _run(
+        linked,
+        "python3",
+        str(script),
+        "run",
+        env={"FDAI_VALIDATION_TEST_LOG": str(log_path)},
+    )
 
     assert enqueued.returncode == 0, enqueued.stderr
     assert status.returncode == 0, status.stderr
     assert "1 pending commit(s)" in status.stdout
+    assert validated.returncode == 0, validated.stderr
+    assert log_path.read_text(encoding="utf-8").splitlines()[-1] == "verify:--fast"
 
 
 def test_concurrent_enqueue_of_same_commit_is_atomic(git_repo: Path) -> None:
