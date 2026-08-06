@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: ceb97b6b4bc776fdc749938599e4b96288cbcfdf
-translation_revised: 2026-08-06
+translation_source_sha: 41bc75a0c6dbef92d5cd7bf6c2383868482145df
+translation_revised: 2026-08-07
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -16,6 +16,10 @@ identity, migration을 할당합니다.
 > **Evidence 범위:** Synthetic test는 mechanics를 증명합니다. Production scale 증가는 승격할
 > 정확한 image, topology, identity, schema, contract version의 현재 staging 또는 live smoke
 > evidence가 필요합니다.
+>
+> **프로그램 목표:** 현재 decomposition 프로그램은 5개 runtime service로 완료합니다. Isolated
+> Executor는 필수 목표이지만 모든 binary gate를 통과한 후에만 effect authority를 받습니다.
+> Evidence가 부족하면 안전하지 않은 cutover를 허용하지 않고 프로그램 완료를 차단합니다.
 
 ## 설계 개요
 
@@ -23,7 +27,9 @@ Candidate는 scaling, privilege isolation, failure isolation trigger 중 하나 
 contract, durability, observability, cost, rollback gate를 통과해야 **승인**됩니다. Trigger가 측정되지
 않았거나 evidence가 불완전하면 **보류**됩니다. Direct agent call, shared mutable coordination,
 multiple writer, executor identity 확산, unversioned wire contract 또는 테스트된 rollback 부재를
-만들면 **거절**됩니다.
+만들면 **거절**됩니다. 현재 deployment에는 4개 runtime service가 있습니다. 추적되는 목표는
+Isolated Executor를 다섯 번째 service로 추가하고 authority cutover에서 Core의 mutation role을
+제거합니다.
 
 ## 승격 scorecard
 
@@ -54,6 +60,7 @@ scorecard를 적용한 결과입니다.
 
 | Candidate | 현재 결정 | 이유와 다음 evidence |
 |-----------|-----------|----------------------|
+| Isolated Executor | 필수 프로그램 목표, cutover는 gate 적용 | Privilege isolation이 forcing trigger입니다. Effect authority를 Core에서 이동하기 전에 versioned command/receipt transport, durable duplicate/reorder/restart behavior, independent telemetry, cost, effective access, exact-topology smoke, timed rollback을 통과해야 합니다. |
 | Operator API `application` service | 보류 | Typed in-process boundary가 있지만 독립 scale, privilege, failure trigger가 측정되지 않았습니다. |
 | Operator API read projection | 보류 | Read-only package ownership은 명확하지만 scale trigger 또는 독립 store가 정당화되지 않았습니다. |
 | Operator API SSE streaming | 보류 | Versioned relay/replay contract와 측정된 connection isolation benefit이 필요합니다. |
@@ -111,7 +118,8 @@ DLQ를 [Event Hubs module](../../../infra/modules/event-bus/event-hubs-kafka/mai
 
 | Deployment role | Identity와 permission | Executor authority | Ingress / shape |
 |-----------------|-----------------------|--------------------|-----------------|
-| Core executor (Thor boundary) | Executor UAMI와 등록된 action-specific role | 유일한 eligible holder | Internal headless Container App |
+| Core Control Plane | Decision, audit-intent, recovery, event-transport role. 현재 deployment는 cutover 전까지 executor UAMI를 임시로 보유 | Cutover 후 없음 | Internal headless Container App |
+| Isolated Executor | Executor UAMI와 등록된 action-specific role | Cutover 후 유일한 보유자 | Internal event-driven Container App |
 | Operator API read role | Read UAMI, projection store, command transport 없음 | 없음 | 인증된 public API |
 | Operator API command role | Governed request의 event-transport send/receive만 허용 | 없음, request는 typed gate로 재진입 | Operator API composition에 attached |
 | Ingestion API | Upload/search DB role, ADLS upload/delete, Event Hubs send | 없음 | Public HTTPS Container App |
@@ -146,6 +154,7 @@ stale로 처리되어 checker가 실패합니다. AST checker 통과는 structur
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
+| 5개 service work package와 진행 상태 | [서비스 분해 실행 계획](service-decomposition-execution-plan-ko.md) |
 | Repository package와 dependency boundary | [프로젝트 구조](project-structure-ko.md) |
 | Azure process shape와 rollback | [배포 및 온보딩](../deployment/deploy-and-onboard-ko.md) |
 | Operator API baseline inventory | [Operator Console Module Map](../interfaces/operator-console-module-map-ko.md) |

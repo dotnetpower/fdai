@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d03a362cf4e93759f43e37771da9bfc54b734419
-translation_revised: 2026-08-06
+translation_source_sha: 35e199c357b43a7b8513221917823b57dfad3185
+translation_revised: 2026-08-07
 ---
 
 # 프로젝트 구조
@@ -16,7 +16,7 @@ translation_revised: 2026-08-06
 Control plane은 agent-driven입니다. 고정된 15개 에이전트가 typed event를 통해 sensing, judgment,
 arbitration, approval, execution, verification, recovery, audit, learning을 소유합니다. Core module은
 해당 capability를 구현하며 두 번째 central orchestrator를 만들지 않습니다.
-Process split은 [서비스 승격과 데이터 소유권](service-graduation-and-ownership-ko.md)을 따르며 package boundary만으로 service를 만들지 않습니다.
+Process split은 [서비스 승격과 데이터 소유권](service-graduation-and-ownership-ko.md)을 따르고 현재 5개 service migration은 [서비스 분해 실행 계획](service-decomposition-execution-plan-ko.md)에서 추적하며 package boundary만으로 service를 만들지 않습니다.
 
 ## 모노레포 레이아웃
 

@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: c07fc9189d2409c67d5c59e6582842ddeedb8a28
-translation_revised: 2026-08-06
+translation_source_sha: 51348b76d32aef72fc9ea483cd20366f32f78f96
+translation_revised: 2026-08-07
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
@@ -324,7 +324,7 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 | # | 리소스 | 티어 | 목적 | 노트 |
 |---|--------|------|------|------|
 | 1 | **Container Apps environment** | Consumption | 공유 서버리스 컴퓨트 호스트 | 코어 앱과 예약 작업이 하나의 environment를 공유하며 [Runtime 계약](../architecture/csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트)을 구현합니다. |
-| 2 | **Container App** (통합 코어) | 1 앱, `minReplicas: 1`, 기본 최대 3 | 하나의 모듈식 프로세스가 `event-ingest`, `trust-router`, `executor`, `audit`를 구성합니다. | 자격 증명 없는 scaler 인증을 검증할 때까지 Kafka lag 기반 scale-to-zero는 연기합니다. [Compute Shape](#compute-shape-single-modular-process)를 참조하세요. |
+| 2 | **Container Apps** (현재 Core와 목표 Executor) | 현재 Core app은 `minReplicas: 1`, 목표는 internal app 1개 추가 | Transition baseline은 Core에서 execution을 구성하고 완료된 5개 service topology는 Executor를 격리합니다. | 모든 graduation gate 통과 후에만 Executor가 effect authority를 받습니다. [Compute Shape](#compute-shape-current-core와-5개-service-목표)를 참조하세요. |
 | 3 | **Container Apps Job** | Consumption | 스케줄 프로브와 out-of-band 변경 감지 | Azure Functions 대체; environment 공유 |
 | 4 | **Event Hubs namespace shard** | Standard 2개 (각 1 TU, auto-inflate off) | Kafka-와이어 이벤트 버스 (`:9093` endpoint) | primary는 governed ingress, DLQ, HIL, stage를 소유하고 operational은 canary + DLQ, raw inventory 및 전용 startup round-trip topic을 소유합니다. Governed, synthetic 및 parser별 payload를 섞지 않으면서 Standard의 namespace당 entity 10개 제한을 지킵니다. |
 | 5 | **Event Grid inventory system topic + subscription + Diagnostic Settings** | global subscription event delivery / Log Analytics | Resource write/delete를 `aw.inventory.raw`로 보내고 플랫폼 진단을 workspace로 보냄 | Terraform은 Azure canonical lowercase type으로 tracked topic 하나를 adopt하고 send-only inventory UAMI를 할당하며 dedicated system-topic subscription API를 사용합니다. Discovery가 모호하면 plan을 차단합니다. |
@@ -417,12 +417,12 @@ Identity를 사용하며 connection string 또는 Storage account key를 만들�
 - DR용 secondary-region 리소스 (Phase 4 - TBD;
   [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must) 참조).
 
-### Compute Shape (control-loop core의 단일 모듈식 프로세스)
+### Compute Shape (현재 Core와 5개 service 목표)
 
-권위 있는 control-loop core는 하나의 Container App 안에서 서명된 이미지 하나와 Python
-프로세스 하나로 배포됩니다. Opt-in Operator API, ingestion API, ingestion worker는 identity,
-ingress, scaling 경계 때문에 별도 Container App입니다. 코드 수준의 core 경계는 Protocol과 composition
-root로 유지되며, 문서화되지 않은 localhost IPC는 없습니다.
+현재 control-loop Core는 서명된 이미지와 Python process 하나로 배포됩니다. 5개 service 목표는
+internal Isolated Executor를 추가하고 cutover에서 Core의 executor role을 제거합니다. Operator,
+ingestion API, ingestion worker는 별도이며 이전 topology는 rollback artifact입니다. 모든 gate는
+[실행 계획](../architecture/service-decomposition-execution-plan-ko.md)에서 추적합니다.
 
 - **Runtime**: `python -m fdai`가 Kafka consumer를 시작하고 routing, quality, risk, execution,
   audit stage를 하나의 프로세스에서 구성합니다.
@@ -430,7 +430,8 @@ root로 유지되며, 문서화되지 않은 localhost IPC는 없습니다.
   `/live`와 `/ready`를 사용합니다.
 - **Replica floor**: 기본값은 replica 하나입니다. 검증된 Kafka scaler 없이 0으로 설정하면 Event
   Hubs 데이터로 깨어나지 않으므로 Terraform은 scale-to-zero를 주장하지 않습니다.
-- **분리 기준**: [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)의 measured trigger, binary gate, ownership, contract, identity, rollback matrix로 split을 승인, 보류 또는 거절합니다.
+- **분리 기준**: 목표는 Core, Operator, Ingestion API, Processing Worker, Isolated Executor이며
+  authority cutover는 [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)의 모든 gate를 따릅니다.
 - **Identity 분리**: Operator API read/command와 ingestion API/worker/migration principal을
   분리합니다. Worker는 `aw.pantheon.objects`에서 Saga/Muninn object만 receive하고 `aw.pipeline.stages`로 stage fact를 send합니다. `ingestion_cohost_worker=true`는 두 scope를 API identity로 돌립니다.
 
@@ -615,9 +616,8 @@ backstop으로 계속 필요합니다.
    replication, private-endpoint premium 기능은 연기.
 5. **사용 사례를 커버하는 곳에서 Free 티어** - Static Web Apps (콘솔), Azure Bot (HIL
    Adaptive Cards), workload identity federation (CI/CD) 모두 Free 티어.
-6. **단일 모듈식 프로세스** - 하나의 Container App이 코어 composition을 실행합니다.
-  ([Compute Shape](#compute-shape-single-modular-process)). SRP는 코드 수준에서 적용되며, 이후
-  프로세스 분리에는 typed transport와 측정된 근거가 필요합니다.
+6. **단계적 5개 service 목표** - Executor evidence를 구축하는 동안 Core는 modular 상태를
+  유지합니다. 완료 topology는 둘을 분리하며 다른 package는 자체 gate 없이는 in-process입니다.
 7. **모델 예산 상한** - T2 추론은 이벤트의 ~5-10%에 도달하도록 설계; token/spend 예산은 강제
    되고 overflow는 uncapped inference가 아니라 HIL로 강등.
 8. **카탈로그는 git-hosted, 서비스가 아님** - rule 카탈로그는 관리 저장소가 아니라 git 저장소에
@@ -646,5 +646,5 @@ backstop으로 계속 필요합니다.
   유지할 수 있으며 ACR/Event Hubs private endpoint는 tenant policy에 따라 추가합니다.
 - [ ] 완전한 런타임 config 키 리스트 (값 매트릭스 확장).
 - [ ] 첫날 시드 규칙 세트(어떤 소스, 어떤 규칙 id) - Phase 1과 교차 링크.
-- [ ] 단일 프로세스 -> 별도 Container App **분리 트리거**: 서브시스템에 자체 scale unit,
-  typed transport, 권한 경계가 필요함을 나타내는 메트릭.
+- [x] Core -> Isolated Executor **목표 boundary** - 5개 service 프로그램에 필수이며 authority
+  cutover는 모든 binary gate와 rollback receipt를 기다립니다.

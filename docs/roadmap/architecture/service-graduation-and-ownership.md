@@ -14,6 +14,10 @@ create hidden authority or a second writer.
 > **Evidence scope:** Synthetic tests prove mechanics. Production scale increases require current
 > staging or live smoke evidence from the exact image, topology, identity, schema, and contract
 > versions being promoted.
+>
+> **Program target:** The active decomposition program ends with five runtime services. The
+> Isolated Executor is a required target, but it receives effect authority only after every binary
+> gate passes. Missing evidence blocks program completion; it does not authorize an unsafe cutover.
 
 ## Design at a glance
 
@@ -21,7 +25,9 @@ A candidate is **approved** only when at least one scaling, privilege-isolation,
 trigger is met and every contract, durability, observability, cost, and rollback gate passes. It is
 **deferred** when no trigger is measured or evidence is incomplete. It is **rejected** when the split
 would create direct agent calls, shared mutable coordination, multiple writers, executor-identity
-spread, an unversioned wire contract, or no tested rollback.
+spread, an unversioned wire contract, or no tested rollback. The current deployment has four runtime
+services; the tracked target adds an Isolated Executor as the fifth service and removes mutation
+roles from Core at the authority cutover.
 
 ## Graduation scorecard
 
@@ -52,6 +58,7 @@ API inventory and deployed application shape.
 
 | Candidate | Current decision | Reason and next evidence |
 |-----------|------------------|--------------------------|
+| Isolated Executor | Required program target; cutover gated | Privilege isolation is the forcing trigger. Versioned command/receipt transport, durable duplicate/reorder/restart behavior, independent telemetry, cost, effective access, exact-topology smoke, and timed rollback must pass before effect authority moves from Core. |
 | Operator API `application` services | Deferred | Typed in-process boundary exists; no independent scale, privilege, or failure trigger is measured. |
 | Operator API read projections | Deferred | Read-only package ownership is clear, but no scale trigger or independent store is justified. |
 | Operator API SSE streaming | Deferred | Requires a versioned relay/replay contract and measured connection isolation benefit. |
@@ -109,7 +116,8 @@ and sibling DLQs for 7 days in the [Event Hubs module](../../../infra/modules/ev
 
 | Deployment role | Identity and permissions | Executor authority | Ingress / shape |
 |-----------------|--------------------------|--------------------|-----------------|
-| Core executor (Thor boundary) | Executor UAMI plus registered action-specific roles | Sole eligible holder | Internal headless Container App |
+| Core Control Plane | Decision, audit-intent, recovery, and event-transport roles; the current deployment temporarily carries the executor UAMI until cutover | None after cutover | Internal headless Container App |
+| Isolated Executor | Executor UAMI plus registered action-specific roles | Sole eligible holder after cutover | Internal event-driven Container App |
 | Operator API read role | Read UAMI, projection stores, no command transport | None | Authenticated public API |
 | Operator API command role | Event-transport send/receive only for governed requests | None; requests re-enter typed gates | Attached to Operator API composition |
 | Ingestion API | Upload/search DB role, ADLS upload/delete, Event Hubs send | None | Public HTTPS Container App |
@@ -144,6 +152,7 @@ architecture review and executable tests remain responsible for semantic accurac
 
 | To learn about | Read |
 |----------------|------|
+| Five-service work packages and progress | [Service Decomposition Execution Plan](service-decomposition-execution-plan.md) |
 | Repository packages and dependency boundaries | [Project Structure](project-structure.md) |
 | Azure process shape and rollback | [Deploy and Onboard](../deployment/deploy-and-onboard.md) |
 | Operator API baseline inventory | [Operator Console Module Map](../interfaces/operator-console-module-map.md) |

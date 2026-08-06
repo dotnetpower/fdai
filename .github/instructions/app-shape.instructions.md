@@ -16,7 +16,7 @@ scale independently. See [Architecture](architecture.instructions.md) for trust 
 
 | # | Layer | Shape | Scales to zero | Rationale |
 |---|-------|-------|----------------|-----------|
-| 1 | **Core engine** | headless, event-driven backend (no UI) - trust router, T0/T1/T2, risk gate, executor | not yet | current Azure baseline keeps one replica until a credential-free Kafka-lag scaler is verified; scheduled jobs scale to zero |
+| 1 | **Core engine** | headless, event-driven backend (no UI) - trust router, T0/T1/T2, risk gate, audit, and recovery; executor remains co-located only until the tracked cutover | not yet | current Azure baseline keeps one replica until a credential-free Kafka-lag scaler is verified; scheduled jobs scale to zero |
 | 2 | **Action delivery** | GitOps / PR-native (GitHub App or Azure DevOps) - actions are remediation PRs/IaC | n/a (git-hosted) | audit, rollback, and approval already exist in git |
 | 3 | **FDAI Console** | thin SPA - query projections plus bounded operational requests | yes (static hosting) | one product surface; never executes managed-resource actions itself |
 | 4 | **Human channel** | ChatOps (Teams bot + Adaptive Cards) - high-risk HIL approvals and alerts | yes (event-driven) | reach operators where they already are |
@@ -181,12 +181,17 @@ Recommended mapping:
   subscription resource-write/delete signals into a raw Event Hub. It is not a core contract,
   broker, or decision surface. Huginn normalizes those records after Kafka ingress, so the core
   still sees Kafka only. Event Hubs local authentication remains disabled.
-- Core consumer: **Azure Container Apps** (Consumption) - **one app with one modular Python process**
-  behind internal interfaces. The current Terraform baseline keeps `minReplicas = 1`; scale-to-zero
-  remains blocked until an Event Hubs Kafka-lag scaler authenticates without a long-lived secret.
-  AKS is reserved for a measured heavier profile. The app ships as an **OCI image + a
-  Knative-compatible manifest subset**, rendered into `containerapp` resources by IaC. **Dapr
-  sidecars and Envoy-specific ingress rules are prohibited** to keep the runtime contract portable.
+- Core and Executor consumers: **Azure Container Apps** (Consumption). The current Terraform
+  baseline starts with one modular Core app. The active decomposition program ends with a
+  non-privileged Core app and an internal Isolated Executor app as the fifth runtime service.
+  Effect authority moves only after the versioned transport, durability, identity, observability,
+  exact-topology smoke, and rollback gates pass. Until then, the prior in-process path remains the
+  rollback artifact. The Core baseline keeps `minReplicas = 1`; scale-to-zero remains blocked until
+  an Event Hubs Kafka-lag scaler authenticates without a long-lived secret. AKS is reserved for a
+  measured heavier profile. Both apps ship as an **OCI image + a Knative-compatible manifest
+  subset**, rendered into `containerapp` resources by IaC. **Dapr sidecars and Envoy-specific
+  ingress rules are prohibited** to keep the runtime contract portable. Track the cutover in
+  [../../docs/roadmap/architecture/service-decomposition-execution-plan.md](../../docs/roadmap/architecture/service-decomposition-execution-plan.md).
 - Light triggers: **Container Apps Jobs** in the same environment for out-of-band change detection
   and cost-anomaly probes; the same manifest renders a K8s `CronJob` on non-Azure targets.
 - Audit/state/KPI + T1 vectors: **PostgreSQL Flexible** with **pgvector** co-located. Dev uses Burstable

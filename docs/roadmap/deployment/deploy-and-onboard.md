@@ -320,7 +320,7 @@ replica caps are still **deployment-specific** and tuned per environment; the sh
 | # | Resource | Tier | Purpose | Notes |
 |---|----------|------|---------|-------|
 | 1 | **Container Apps environment** | Consumption | shared serverless compute host | one environment shared by the core app and scheduled jobs; realizes the [Runtime contract](../architecture/csp-neutrality.md#2-runtime-contract--oci-image--knative-compatible-manifest) |
-| 2 | **Container App** (unified core) | 1 app, `minReplicas: 1`, max 3 by default | one modular process composes `event-ingest`, `trust-router`, `executor`, and `audit` | Kafka-lag scale-to-zero remains deferred until credential-free scaler authentication is verified; see [Compute Shape](#compute-shape-single-modular-process) |
+| 2 | **Container Apps** (current Core and target Executor) | current Core app uses `minReplicas: 1`; target adds 1 internal app | transition baseline composes execution in Core; completed five-service topology isolates Executor | Executor receives effect authority only after every graduation gate passes; see [Compute Shape](#compute-shape-current-core-and-five-service-target) |
 | 3 | **Container Apps Job** | Consumption | scheduled probes and out-of-band change detection | replaces Azure Functions; shares the environment |
 | 4 | **Event Hubs namespace shards** | 2 x Standard (1 TU, auto-inflate off) | Kafka-wire event bus (endpoints on `:9093`) | primary owns governed ingress, DLQs, HIL, and stages; operational owns canary + DLQ, raw inventory, and the dedicated startup round-trip topic, keeping each namespace within the Standard 10-entity limit without mixing governed, synthetic, or parser-specific payloads |
 | 5 | **Event Grid inventory system topic + subscription + Diagnostic Settings** | global subscription event delivery / Log Analytics | send resource writes/deletes to `aw.inventory.raw` and platform diagnostics to the workspace | Terraform adopts one tracked topic with Azure's canonical lowercase type, assigns the send-only inventory UAMI, and uses the dedicated system-topic subscription API; ambiguous discovery blocks the plan |
@@ -416,12 +416,12 @@ justifies them):
 - Secondary-region resources for DR (Phase 4 - TBD; see
   [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must)).
 
-### Compute Shape (single modular control-loop core)
+### Compute Shape (current core and five-service target)
 
-The authoritative control-loop core deploys as one signed image and one Python process inside one
-Container App. The opt-in Operator API, ingestion API, and ingestion worker are separate Container Apps
-for identity, ingress, and scaling boundaries. Core boundaries remain explicit through Protocols
-and the composition root; there is no undocumented localhost IPC.
+The current control-loop Core deploys as one signed image and one Python process. The five-service
+target adds an internal Isolated Executor and removes executor roles from Core at cutover; Operator,
+ingestion API, and ingestion worker remain separate. The prior topology is the rollback artifact,
+and the [execution plan](../architecture/service-decomposition-execution-plan.md) tracks every gate.
 
 - **Runtime**: `python -m fdai` starts the Kafka consumer and composes routing, quality, risk,
   execution, and audit stages in one process.
@@ -429,8 +429,8 @@ and the composition root; there is no undocumented localhost IPC.
   is assembled. The ingestion API uses `/healthz`; its internal worker uses `/live` and `/ready`.
 - **Replica floor**: the default is one replica. A zero floor without a verified Kafka scaler
   would never wake on Event Hubs data, so Terraform does not claim scale-to-zero.
-- **Graduation rule**: approve, defer, or reject a split through the measured triggers, binary
-  gates, ownership, contract, identity, and rollback matrix in [Service Graduation and Data Ownership](../architecture/service-graduation-and-ownership.md).
+- **Graduation rule**: the target is Core, Operator, Ingestion API, Processing Worker, and Isolated
+  Executor; authority cutover follows every gate in [Service Graduation and Data Ownership](../architecture/service-graduation-and-ownership.md).
 - **Identity split**: Operator API read/command and ingestion API/worker/migration principals stay
   distinct. The worker receives Saga/Muninn objects only from `aw.pantheon.objects` and sends stage facts to `aw.pipeline.stages`; `ingestion_cohost_worker=true` returns both scopes to the API identity.
 
@@ -618,9 +618,8 @@ results from these principles is in [cost-model.md](../interfaces/cost-model.md)
    variants, geo-replication, and private-endpoint premium features are deferred.
 5. **Free tiers where they cover the use case** - Static Web Apps (console), Azure Bot
    (HIL Adaptive Cards), and workload identity federation (CI/CD) are all Free tier.
-6. **Single modular process** - one Container App runs the core composition
-  ([Compute Shape](#compute-shape-single-modular-process)). SRP is enforced at the code level;
-  a later process split requires a typed transport and measured justification.
+6. **Staged five-service target** - Core remains modular while Executor evidence is built; the
+  completed topology separates them, and other packages stay in-process without their own gates.
 7. **Model budget cap** - T2 inference is designed to reach ~5-10% of events; token/spend
    budgets are enforced and overflow degrades to HIL, never to uncapped inference.
 8. **Catalog is git-hosted, not a service** - the rule catalog lives in a git repository, not
@@ -649,5 +648,5 @@ results from these principles is in [cost-model.md](../interfaces/cost-model.md)
   PostgreSQL path; ACR/Event Hubs private endpoints remain tenant-policy-driven additions.
 - [ ] Full runtime config key list (values matrix expanded).
 - [ ] Day-zero seed rule set (which sources, which rule ids) - cross-linked to Phase 1.
-- [ ] Single process -> separate Container App **graduation triggers**: metrics that indicate a
-  subsystem needs its own scale unit, typed transport, and privilege boundary.
+- [x] Core -> Isolated Executor **target boundary** - required for the five-service program;
+  authority cutover waits for every binary gate and rollback receipt.

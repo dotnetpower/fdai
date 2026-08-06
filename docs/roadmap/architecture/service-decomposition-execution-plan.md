@@ -1,0 +1,104 @@
+---
+title: Service Decomposition Execution Plan
+---
+# Service Decomposition Execution Plan
+
+This document tracks the implementation that moves FDAI to five independently
+deployable runtime services. It is the durable progress record for the refactor;
+design details remain in the owning architecture documents.
+
+> **Target:** The program is complete only when all five services are deployed
+> with distinct entry points, health checks, identities, and typed transport.
+> An unmet Executor gate blocks completion instead of reducing the target back
+> to four services.
+>
+> **Safety:** A checked item means its exit evidence exists. Planning text,
+> package movement, or a passing unit test alone does not prove a process
+> boundary is ready for authority cutover.
+
+## Design at a glance
+
+FDAI will finish this program with five runtime services. The first four roles
+already exist, although their internal package and deployment boundaries still
+need hardening. The fifth service extracts Thor-owned execution from Core so
+only the isolated Executor holds mutation-capable workload identity.
+
+| # | Runtime service | Target responsibility | Ingress | Executor authority |
+|---|-----------------|-----------------------|---------|--------------------|
+| 1 | Core Control Plane | Agent runtime, decisioning, approval joins, audit intent, recovery coordination | Internal event bus | None after cutover |
+| 2 | Operator Service | Authenticated queries, conversations, projections, and governed request submission | External HTTPS and event bus | None |
+| 3 | Document Ingestion API | Authenticated upload intake and API-owned document transitions | External HTTPS and event bus | None |
+| 4 | Document Processing Worker | Durable inspection, extraction, indexing, claims, and reconciliation | Internal event bus and probes | None |
+| 5 | Isolated Executor | Thor-owned command validation, target lock, provider effect, rollback attempt, and execution receipt | Internal event bus and probes | Sole holder |
+
+The ontology, Rule Catalog, Rego build pipeline, Console, scheduled jobs, and
+the 15 agents do not become separate services in this program. They remain
+contracts, packages, static clients, jobs, or independently runnable event
+subscribers inside their owning runtime service.
+
+## Status summary
+
+| State | Count | Meaning |
+|-------|-------|---------|
+| Completed | 0 | Exit evidence and focused validation are recorded. |
+| In progress | 1 | The baseline and canonical decision package is being prepared. |
+| Planned | 9 | Dependencies or ownership handoff have not completed. |
+| Blocked | 0 | A named gate currently prevents progress. |
+
+Last updated: 2026-08-07.
+
+## Execution checklist
+
+| Done | ID | Work package | Dependencies | Parallel lane | Exit evidence |
+|------|----|--------------|--------------|---------------|---------------|
+| [ ] | SD-00 | Freeze the five-service topology, owners, contracts, writers, identities, baseline tests, and rollback units in canonical documents and machine manifests. | None | Serial | Reviewed topology and ownership records; baseline check receipt |
+| [ ] | SD-01 | Decompose Operator route families into transport, application, projection, adapter, streaming, and persistence packages without changing JSON, SSE, authentication, or history behavior. | SD-00 | A | Frozen route contracts and package-boundary checks |
+| [ ] | SD-02 | Isolate Core composition, Thor execution, Saga audit intent and closure, and Vidar recovery behind explicit injected ports. | SD-00 | A | Authority regression and import-boundary receipts |
+| [ ] | SD-03 | Harden the Ingestion API and Worker identities, database grants, claims, duplicate/reorder behavior, restart recovery, probes, and co-host rollback. | SD-00 | A | Role tests and a rollback rehearsal within 15 minutes |
+| [ ] | SD-04 | Add canonical ontology release distribution, exact reference pinning, N/N-1 compatibility, projection-writer ownership, mismatch rejection, replay, and rollback. | SD-00 | B | Cross-service ontology compatibility and semantic regression receipts |
+| [ ] | SD-05 | Build the Rego knowledge path from canonical AST analysis through catalog build, semantic validation, ontology/vector generations, incremental parity, exact applicability, evaluation, and governed feedback. | SD-04 | B | Query-to-exact-Rego contract tests and generation rollback receipt |
+| [ ] | SD-06 | Add canonical Change lineage, provider adapters, decision trace, delivery/outcome joins, resilience coverage, candidate-only learning, and the read-only Operator projection. | SD-02, SD-04, SD-05 | C | Replayable lineage and authority non-escalation receipts |
+| [ ] | SD-07 | Implement the Isolated Executor command and receipt contracts, durable attempt mechanics, shadow consumer, health, telemetry, identity, and Container App without effect authority. | SD-02, SD-04 | C | Duplicate, reorder, restart, deadline, lock, and shadow receipts |
+| [ ] | SD-08 | Cut mutation authority over to the Isolated Executor, remove executor roles from Core, verify independent effects, and rehearse return to the in-process topology. | SD-07 | Serial | Effective-access proof, exact-topology smoke, and timed rollback receipt |
+| [ ] | SD-09 | Remove expired compatibility paths, enforce boundaries, update canonical documentation, run centralized stable-batch validation, and close residual work. | SD-01 through SD-08 | Serial | Green validation receipt for the exact commit range |
+
+## Parallel execution rules
+
+- **Lane A:** Operator, Core boundary, and ingestion work may run in separate
+  worktrees after SD-00 when owned paths do not overlap.
+- **Lane B:** Ontology boundary hardening may overlap package work. Rego
+  generation waits for the canonical ontology release and semantic validation.
+- **Lane C:** Change lineage and Executor shadow implementation may overlap only
+  when shared contracts, pantheon role files, composition, and infrastructure
+  identity files have one serial integration owner.
+- **Serial joins:** Shared contracts, writer cutovers, production composition,
+  identity cutover, rollback rehearsal, and stable-batch validation never run in
+  competing sessions.
+
+## Progress update contract
+
+Update this document in the same focused commit that changes a work package's
+state. For each transition:
+
+1. Update the status summary counts and the `Last updated` date.
+2. Check an item only after its exit evidence exists.
+3. Add the commit and focused check receipt to the evidence log.
+4. Record a blocker with its owning gate and next disconfirming check.
+5. Do not mark a parent item complete while a dependency or residual authority
+   cutover remains open.
+
+## Evidence log
+
+| Date | Work package | State | Commit or receipt | Evidence and residual work |
+|------|--------------|-------|-------------------|----------------------------|
+| 2026-08-07 | SD-00 | In progress | Planning baseline | Five-service target, canonical documents, design route, and machine manifests aligned; baseline acceptance receipt remains open. |
+
+## Related documents
+
+| To learn about | Read |
+|----------------|------|
+| Graduation, ownership, and rollback gates | [Service Graduation and Data Ownership](service-graduation-and-ownership.md) |
+| Repository package boundaries | [Project Structure](project-structure.md) |
+| Azure runtime and identity deployment | [Deploy and Onboard](../deployment/deploy-and-onboard.md) |
+| Operating ontology release boundaries | [Operating Ontology Platform](operating-ontology-platform.md) |
+| Operator package ownership | [Operator Console Module Map](../interfaces/operator-console-module-map.md) |
