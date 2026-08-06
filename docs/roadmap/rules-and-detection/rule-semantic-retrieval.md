@@ -256,6 +256,10 @@ activates a generation.
 | Evaluation evidence is missing or stale | Hold without running OPA or producing a Finding |
 | Feedback attribution is unresolved | Retain evidence only; create no semantic candidate |
 
+Operator-facing degradation uses stable machine reasons such as `generation-unavailable`,
+`generation-stale`, and `provider-unavailable`. Provider messages and Python exception names never
+cross the API boundary.
+
 ## Delivery sequence
 
 | Batch | Deliverable | Exit criteria |

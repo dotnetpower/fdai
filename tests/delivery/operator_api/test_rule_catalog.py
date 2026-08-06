@@ -318,7 +318,8 @@ def test_rules_degrade_to_substring_when_semantic_index_fails() -> None:
     assert response.status_code == 200
     assert response.json()["search_mode"] == "degraded"
     assert response.json()["semantic_state"] == "unavailable"
-    assert response.json()["semantic_reason"] == "RuntimeError"
+    assert response.json()["semantic_reason"] == "provider-unavailable"
+    assert "index offline" not in response.text
 
 
 def test_rules_report_stale_when_active_generation_is_missing() -> None:
@@ -327,6 +328,7 @@ def test_rules_report_stale_when_active_generation_is_missing() -> None:
     assert response.status_code == 200
     assert response.json()["search_mode"] == "degraded"
     assert response.json()["semantic_state"] == "stale"
+    assert response.json()["semantic_reason"] == "generation-unavailable"
     assert [item["id"] for item in response.json()["rules"]] == ["disk.unattached"]
 
 
@@ -378,9 +380,7 @@ def test_concept_search_rejects_invalid_shape_before_provider_call() -> None:
     )
 
     assert response.status_code == 400
-    assert response.json()["error"]["message"] == (
-        "ontology function arguments violate input_schema"
-    )
+    assert response.json()["error"]["message"] == "catalog query violates the function contract"
 
 
 def test_concept_search_rejects_array_control_characters_before_provider_call() -> None:
@@ -399,9 +399,7 @@ def test_concept_search_rejects_array_control_characters_before_provider_call() 
     )
 
     assert response.status_code == 400
-    assert response.json()["error"]["message"] == (
-        "ontology function arguments violate input_schema"
-    )
+    assert response.json()["error"]["message"] == "catalog query violates the function contract"
 
 
 def test_concept_search_reports_unavailable_without_registry() -> None:

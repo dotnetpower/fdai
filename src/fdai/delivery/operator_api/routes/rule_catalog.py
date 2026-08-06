@@ -407,8 +407,8 @@ def make_rule_catalog_routes(
                     purposes=("rule_lookup",),
                 ),
             )
-        except (TypeError, ValueError) as exc:
-            return _bad_request(str(exc))
+        except (TypeError, ValueError):
+            return _bad_request("catalog query violates the function contract")
         return JSONResponse(
             {
                 "result": result,
@@ -449,7 +449,8 @@ def make_rule_catalog_routes(
                 semantic_limit = min(max(total, 1), MAX_SEMANTIC_CANDIDATES)
                 active_generation = await semantic_index.active_generation(corpus)
                 if active_generation is None:
-                    raise CatalogGenerationStaleError("active generation unavailable")
+                    semantic_reason = "generation-unavailable"
+                    raise CatalogGenerationStaleError(semantic_reason)
                 semantic_results = await semantic_index.search(
                     needle,
                     k=semantic_limit,
@@ -462,12 +463,12 @@ def make_rule_catalog_routes(
                     "catalog_digest": active_generation.catalog_digest,
                     "corpus": active_generation.corpus,
                 }
-            except CatalogGenerationStaleError as exc:
+            except CatalogGenerationStaleError:
                 semantic_state = "stale"
-                semantic_reason = type(exc).__name__
-            except Exception as exc:  # noqa: BLE001 - lexical projection remains available
+                semantic_reason = semantic_reason or "generation-stale"
+            except Exception:  # noqa: BLE001 - lexical projection remains available
                 semantic_state = "unavailable"
-                semantic_reason = type(exc).__name__
+                semantic_reason = "provider-unavailable"
             else:
                 semantic_rank = {
                     result.rule_id: rank for rank, result in enumerate(semantic_results)

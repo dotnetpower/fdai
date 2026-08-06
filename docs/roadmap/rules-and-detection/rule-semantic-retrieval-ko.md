@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 6fb241416b9f01b4b7be042dabd620a7e2d81f8c
+translation_source_sha: 542df53d3ad7c3497e3ec502cff7a4fba40750a0
 translation_revised: 2026-08-06
 ---
 # Rule 의미 검색
@@ -259,6 +259,10 @@ Build worker는 Mimir가 소유하는 기계적 capability입니다. 권한이 �
 | Candidate ambiguity가 남음 | 평가 없이 clarification을 요청하거나 제한된 candidate list를 반환 |
 | Evaluation evidence가 누락되었거나 오래됨 | OPA를 실행하거나 Finding을 만들지 않고 보류 |
 | Feedback attribution을 결정할 수 없음 | Evidence만 유지하고 semantic candidate는 생성하지 않음 |
+
+Operator-facing degradation은 `generation-unavailable`, `generation-stale` 및
+`provider-unavailable` 같은 stable machine reason을 사용합니다. Provider message와 Python exception
+name은 API boundary를 통과하지 않습니다.
 
 ## 제공 순서
 
