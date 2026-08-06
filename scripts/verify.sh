@@ -115,6 +115,7 @@ run_gate "design-doc-impact" python3 scripts/quality/architecture/check-design-d
 run_gate "fork-runtime-independence" python3 scripts/quality/architecture/check-fork-runtime-independence.py
 run_gate "evaluation-boundaries" python3 scripts/quality/architecture/check-evaluation-boundaries.py
 run_gate "chat-semantic-routing" python3 scripts/quality/architecture/check-chat-semantic-routing.py
+run_gate "boundary-docstrings" python3 scripts/quality/architecture/check-boundary-docstrings.py
 run_gate "document-size" python3 scripts/quality/architecture/check-document-size.py
 run_gate "display-terminology" python3 scripts/quality/documentation/check-display-terminology.py
 

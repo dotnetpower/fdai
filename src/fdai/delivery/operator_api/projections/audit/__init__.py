@@ -1,11 +1,20 @@
 """Audit query and measurement read-projection facade.
 
-Responsibility: expose the cohesive audit projection family through its owned
-package. Authority: read-only; it owns no route registration, authorization,
-CORS, lifespan, persistence, approval, or execution behavior. State and
-provenance come from the injected Operator API read model. Deployment role:
-used by app and panel composition while per-module route shims preserve old
-imports.
+Responsibility:
+Expose the cohesive audit projection family through one lazy public package.
+
+Boundary:
+Own no route registration, authorization, CORS, lifespan, or persistence.
+
+Authority and state:
+Read-only, with no approval or execution authority. State and provenance come
+from the injected Operator API read model.
+
+Dependencies:
+Focused audit projection modules loaded only for requested public symbols.
+
+Deployment:
+Used by app and panel composition while route shims preserve older imports.
 """
 
 from typing import TYPE_CHECKING, Any

@@ -119,6 +119,34 @@
       ]
     },
     {
+      "id": "service-graduation",
+      "paths": [
+        "docs/roadmap/architecture/service-graduation-and-ownership*.md",
+        "scripts/quality/architecture/check-boundary-docstrings.py",
+        "scripts/quality/architecture/.boundary-docstring-*",
+        "tests/scripts/test_boundary_docstrings.py",
+        "src/fdai/delivery/operator_api/**/__init__.py"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/architecture/service-graduation-and-ownership.md",
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/deployment/deploy-and-onboard.md",
+        "docs/roadmap/interfaces/operator-console-module-map.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/architecture/service-graduation-and-ownership.md",
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/deployment/deploy-and-onboard.md",
+        "docs/roadmap/interfaces/operator-console-module-map.md"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-boundary-docstrings.py",
+        "uv run pytest -q --no-cov tests/scripts/test_boundary_docstrings.py"
+      ]
+    },
+    {
       "id": "document-ontology-distillation",
       "paths": [
         "docs/roadmap/rules-and-detection/document-ontology-distillation*.md",
@@ -1002,6 +1030,7 @@
       ],
       "must_read": [
         ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/architecture/service-graduation-and-ownership.md",
         "docs/roadmap/interfaces/operator-console.md",
         "docs/roadmap/interfaces/operator-console-module-map.md",
         "docs/roadmap/interfaces/operator-console-progressive-conversations.md",
@@ -1010,6 +1039,7 @@
         "docs/roadmap/interfaces/console-evidence-and-resilience.md"
       ],
       "docs_update": [
+        "docs/roadmap/architecture/service-graduation-and-ownership.md",
         "docs/roadmap/interfaces/operator-console.md",
         "docs/roadmap/interfaces/operator-console-module-map.md",
         "docs/roadmap/interfaces/operator-console-progressive-conversations.md",

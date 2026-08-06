@@ -11,6 +11,7 @@ Module names and the control loop follow
 The control plane is agent-driven: 15 fixed agents own sensing, judgment, arbitration, approval,
 execution, verification, recovery, audit, and learning through typed events. Core modules implement
 those owned capabilities; they do not form a second central orchestrator.
+Process splits follow [Service Graduation and Data Ownership](service-graduation-and-ownership.md); a package boundary alone never creates a service.
 
 ## Monorepo Layout
 

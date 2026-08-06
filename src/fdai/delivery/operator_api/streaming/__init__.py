@@ -1,10 +1,20 @@
-"""Server-Sent Events (SSE) streaming endpoints for the read-only ASGI (G-5).
+"""Operator API Server-Sent Events streaming boundary.
 
-SSE fan-out modules live here so the routes/ directory stays HTTP-only
-and the streaming lifecycle (long-lived request, StagePublisher hookup,
-back-pressure) is grouped in one place.
+Responsibility:
+Own long-lived SSE request lifecycle, bounded fan-out, and backpressure.
 
-- :mod:`.live_stream` - the operator-console live event stream.
-- :mod:`.live_control_loop` - control-loop stage-by-stage progress fan-out.
-- :mod:`.provision_stream` - deployment/provisioning progress SSE.
+Boundary:
+Relay server-owned progress and evidence frames without inventing events,
+replaying work, or moving HTTP policy into providers.
+
+Authority and state:
+Presentation only. Streams hold connection-local state and no approval,
+execution, or durable workflow authority.
+
+Dependencies:
+Starlette responses, stage publishers, typed activity frames, and cancellation
+callbacks supplied by application composition.
+
+Deployment:
+Loaded only by Operator API ASGI processes for web streaming routes.
 """

@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 819aa6ceb3c7d7c2789ae6e8798ad8299e9b7952
+translation_source_sha: 3387187e2e28acf6e9de8d343389d7b69b564469
 translation_revised: 2026-08-06
 ---
 # Operator Console Module Map and Boundaries
@@ -15,6 +15,7 @@ Main console contract를 확장하지 않고 source ownership을 찾을 수 있�
 package 책임, route family 분류, 후보 destination 및 import surface 상태를 기록합니다. 이 inventory는
 file-count 목표가 아닌 설명 기준이지만, executable completeness gate는 현재 모든 module directory와
 route module을 분류된 상태로 유지하도록 요구합니다.
+Candidate destination은 package hint입니다. 새 process, identity, transport 또는 data owner의 gate는 [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)입니다.
 [`test_operator_api_layout.py`](../../../tests/delivery/operator_api/test_operator_api_layout.py)는 현재 모든
 package와 route module이 분류된 상태인지 확인하고, exact 기본 method, path, route-name set 및 대표 HTTP
 envelope를 고정합니다. 의도적인 기본 route 추가는 같은 변경에서 검토된 baseline을 갱신합니다.
@@ -41,6 +42,11 @@ Enforced finding은 dependency를 neutral contract 또는 provider seam으로 �
 root에서 implementation을 bind하여 해결합니다. Reverse service import를 위해 allowlist entry를 추가하지
 않습니다. Report-only finding은 migration inventory이며 owning package가 정리된 후에만 enforce 대상으로
 전환합니다.
+
+`check-boundary-docstrings.py`는 exact reviewed package module에서 non-empty Responsibility,
+Boundary, Authority and state, Dependencies, Deployment section을 검사합니다. Scope는 report
+mode로 시작하고 review 후에만 enforce로 이동합니다. Justified exclusion은 missing, out of scope
+또는 불필요한 상태가 되면 실패합니다. 이 structural AST check는 semantic truth를 증명하지 않습니다.
 
 ### 첫 reversible family migration
 

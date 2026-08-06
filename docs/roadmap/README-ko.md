@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: e10bbf438d1bb88b0414f0691af0e1ab72a15cc2
-translation_revised: 2026-08-05
+translation_source_sha: 53438b593fd62a626b3b0de0f068efe0eb51d127
+translation_revised: 2026-08-06
 ---
 # FDAI 로드맵
 
@@ -59,6 +59,7 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 7b | [data-governance-ko.md](architecture/data-governance-ko.md) | Data inventory, classification, lifecycle, privacy assessment, model-provider/compliance evidence |
 | 7c | [Architecture Decision Record](architecture/decisions/README-ko.md) | ADR register와 승인된 Azure day-zero platform baseline |
 | 7d | [mscp-operational-profile-ko.md](architecture/mscp-operational-profile-ko.md) | 전체 conformance 주장 없이 선택적으로 차용한 MSCP effect, cycle 및 runtime-integrity policy |
+| 7e | [service-graduation-and-ownership-ko.md](architecture/service-graduation-and-ownership-ko.md) | 측정된 service split gate, single-writer data ownership, contract, identity, rollback, boundary docstring |
 
 ### 규칙, 탐지, 운영
 

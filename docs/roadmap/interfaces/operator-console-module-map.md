@@ -13,6 +13,7 @@ current Operator API package responsibilities, route-family classifications, can
 destinations, and import-surface status. It is descriptive rather than a file-count target, but an
 executable completeness gate requires every current module directory and route module to remain
 classified.
+Candidate destinations remain package hints. [Service Graduation and Data Ownership](../architecture/service-graduation-and-ownership.md) is the gate for a new process, identity, transport, or data owner.
 [`test_operator_api_layout.py`](../../../tests/delivery/operator_api/test_operator_api_layout.py)
 also pins the exact default method, path, and route-name set plus representative HTTP envelopes.
 An intentional default route addition updates this reviewed baseline in the same change.
@@ -39,6 +40,11 @@ Fix an enforced finding by moving the dependency to a neutral contract or provid
 binding its implementation at a reviewed composition root. Don't add an allowlist entry for a
 reverse service import. Report-only findings are migration inventory and become enforceable only
 after their owning package is cleaned.
+
+`check-boundary-docstrings.py` checks exact reviewed package modules for non-empty Responsibility,
+Boundary, Authority and state, Dependencies, and Deployment sections. Scopes start in report mode
+and move to enforcement only after review. Justified exclusions fail when missing, out of scope,
+or no longer needed. This structural AST check does not prove semantic truth.
 
 ### First reversible family migration
 

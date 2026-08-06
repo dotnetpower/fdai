@@ -430,8 +430,8 @@ and the composition root; there is no undocumented localhost IPC.
   is assembled. The ingestion API uses `/healthz`; its internal worker uses `/live` and `/ready`.
 - **Replica floor**: the default is one replica. A zero floor without a verified Kafka scaler
   would never wake on Event Hubs data, so Terraform does not claim scale-to-zero.
-- **Graduation rule**: split a subsystem into another Container App only after measured load or
-  privilege isolation requires an independent scale unit and a typed transport is available.
+- **Graduation rule**: approve, defer, or reject a split through the measured triggers, binary
+  gates, ownership, contract, identity, and rollback matrix in [Service Graduation and Data Ownership](../architecture/service-graduation-and-ownership.md).
 - **Identity split**: Operator API read/command and ingestion API/worker/migration principals stay
   distinct. `ingestion_cohost_worker=true` is the bounded rollback to the previous single app.
 

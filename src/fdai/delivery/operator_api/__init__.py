@@ -1,24 +1,23 @@
-"""Read-only console API.
+"""Public facade for the FDAI Console Operator API.
 
-Public surface:
+Responsibility:
+Expose stable authentication, read-model, and busy-input application symbols.
 
-- :mod:`.auth` - extract a :class:`~fdai.core.rbac.resolver.Principal`
-  from an HTTP ``Authorization`` header and glue in
-  :class:`~fdai.core.rbac.enforcer.RoleEnforcer`. Framework-neutral;
-  no ASGI framework is imported at module load.
-- :mod:`.entra_verifier` - production :class:`~.auth.ClaimsVerifier`:
-  JWKS signature + ``aud`` + ``iss`` + ``exp`` validation via PyJWT.
-  Generic (tenant / audience / issuer from env); the fork only supplies
-  values, not code.
-- :mod:`.read_model` - projection Protocol + in-memory fake the console
-  handlers read through.
-- :mod:`.main` - Starlette app factory. This is the ONLY place Starlette
-  is imported in the codebase; importing this sub-module pulls Starlette
-  into the process, so tests that do not need the HTTP layer keep using
-  the primitives in :mod:`.auth` / :mod:`.read_model` directly.
+Boundary:
+HTTP adapters may submit governed requests, but managed-resource effects must
+re-enter typed agent, risk, approval, execution, recovery, and audit paths.
 
-See ``app-shape.instructions.md § Operator console`` for the read-only
-invariant enforced here.
+Authority and state:
+No executor authority. Durable state remains in injected providers; this
+package does not make browser claims or package imports authoritative.
+
+Dependencies:
+Core RBAC contracts, shared provider contracts, and delivery implementations
+selected by app, development, or production composition roots.
+
+Deployment:
+Imported by the non-privileged Operator API process and by clients that need
+its stable Python facade; it is not a second service or executor.
 """
 
 from __future__ import annotations

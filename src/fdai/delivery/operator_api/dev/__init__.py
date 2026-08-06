@@ -1,10 +1,22 @@
-"""Development-only helpers for the read-only ASGI (G-5).
+"""Development-only Operator API composition boundary.
 
-Physically separated from the production route code so a packaging /
-container build can drop the whole subpackage from the production image.
-Nothing here is imported at production runtime.
+Responsibility:
+Compose local Azure-backed Operator API development adapters and explicit test
+fixtures.
 
-- :mod:`.local` - the Azure CLI-backed interactive factory. It reads actual
-  Azure development resources and never seeds runtime evidence. Pytest may
-  opt into isolated fixtures explicitly through ``test_fixtures=True``.
+Boundary:
+Keep local credential/debug behavior physically separate from production and
+never present synthetic fixtures as observed Azure state.
+
+Authority and state:
+No executor authority. Local CLI credentials are read-provider credentials;
+test fixtures remain opt-in and isolated.
+
+Dependencies:
+Local configuration, Azure CLI read adapters, production-compatible app wiring,
+and explicit fixture builders.
+
+Deployment:
+Excluded from production runtime composition and used only for local or pytest
+processes.
 """

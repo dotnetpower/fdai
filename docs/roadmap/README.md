@@ -62,6 +62,7 @@ Read the reference docs first, then the phases in order.
 | 7b | [data-governance.md](architecture/data-governance.md) | data inventory, classification, lifecycle, privacy assessment, model-provider and compliance evidence |
 | 7c | [Architecture Decision Records](architecture/decisions/README.md) | ADR register and accepted Azure day-zero platform baseline |
 | 7d | [mscp-operational-profile.md](architecture/mscp-operational-profile.md) | selective MSCP-derived effect, cycle, and runtime-integrity policies without a full conformance claim |
+| 7e | [service-graduation-and-ownership.md](architecture/service-graduation-and-ownership.md) | measured service-split gates, single-writer data ownership, contracts, identities, rollback, and boundary docstrings |
 
 ### Rules, detection, and operations
 
