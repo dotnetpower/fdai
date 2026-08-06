@@ -409,6 +409,11 @@ def make_rule_catalog_routes(
             )
         except (TypeError, ValueError):
             return _bad_request("catalog query violates the function contract")
+        except Exception:  # noqa: BLE001 - provider details stay server-side
+            return JSONResponse(
+                {"error": {"status": 503, "message": "catalog concept search is unavailable"}},
+                status_code=503,
+            )
         return JSONResponse(
             {
                 "result": result,

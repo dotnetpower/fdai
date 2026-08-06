@@ -263,6 +263,8 @@ Operator-facing degradation uses stable machine reasons such as `generation-unav
 `generation-stale`, and `provider-unavailable`. Provider messages and Python exception names never
 cross the API boundary. When an active generation was observed before failure, the degraded
 response retains its generation, catalog, semantic schema, ontology release, and corpus identity.
+Catalog-reference `GET /rules` degrades to lexical results. Typed `POST /rules/search` returns a
+generic `503` when its exact function registry or provider is unavailable.
 
 ## Delivery sequence
 

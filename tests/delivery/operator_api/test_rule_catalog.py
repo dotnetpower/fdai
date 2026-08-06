@@ -212,6 +212,12 @@ class _MissingGenerationIndex(_SemanticIndex):
         return None
 
 
+class _FailingGenerationLookupIndex(_SemanticIndex):
+    async def active_generation(self, corpus="active"):  # type: ignore[no-untyped-def]
+        del corpus
+        raise RuntimeError("database endpoint and internal details")
+
+
 class _ConceptSemanticIndex(_SemanticIndex):
     async def search(  # type: ignore[no-untyped-def]
         self,
@@ -431,6 +437,26 @@ def test_concept_search_reports_unavailable_without_registry() -> None:
 
     assert response.status_code == 503
     assert response.json()["error"]["message"] == "catalog concept search is unavailable"
+
+
+def test_concept_search_hides_provider_failure_details() -> None:
+    response = _semantic_client(_FailingGenerationLookupIndex(), concept_search=True).post(
+        "/rules/search",
+        json={
+            "text": "Explain public storage policy",
+            "operation": "explain",
+            "corpus": "active",
+            "intent_ids": [],
+            "concept_refs": [],
+            "resource_types": [],
+            "categories": [],
+            "max_results": 20,
+        },
+    )
+
+    assert response.status_code == 503
+    assert response.json()["error"]["message"] == "catalog concept search is unavailable"
+    assert "database endpoint" not in response.text
 
 
 def test_rules_tagged_with_origin() -> None:

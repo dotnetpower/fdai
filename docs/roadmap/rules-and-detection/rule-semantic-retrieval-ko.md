@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 1d67147f765dd613ea4a14cd5e723ccb67be1dff
+translation_source_sha: 1f2edfaa9f1df50630b1d888ec826863a938d1b2
 translation_revised: 2026-08-06
 ---
 # Rule 의미 검색
@@ -267,6 +267,8 @@ Operator-facing degradation은 `generation-unavailable`, `generation-stale` 및
 `provider-unavailable` 같은 stable machine reason을 사용합니다. Provider message와 Python exception
 name은 API boundary를 통과하지 않습니다. Failure 전에 active generation이 관측되었으면 degraded
 response는 generation, catalog, semantic schema, ontology release 및 corpus identity를 유지합니다.
+Catalog reference `GET /rules`는 lexical result로 degrade합니다. Typed `POST /rules/search`는 exact
+function registry 또는 provider를 사용할 수 없을 때 generic `503`을 반환합니다.
 
 ## 제공 순서
 
