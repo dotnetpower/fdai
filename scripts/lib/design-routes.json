@@ -1315,7 +1315,7 @@
         "alembic/versions/*catalog_semantic*.py",
         "tests/delivery/catalog_search/**",
         "tests/delivery/operator_api/test_rule_catalog.py",
-        "tests/rule_catalog/**/*rule_semantic*.py"
+        "tests/rule_catalog/test_rule_semantic*.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
