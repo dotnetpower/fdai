@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 80f164d8f135d2565332320d25bf832169b06b1f
+translation_source_sha: 6b88bc9d1eb178dd100c7c436b8c1fd58ab28dc1
 translation_revised: 2026-08-07
 ---
 # 서비스 분해 실행 계획
@@ -87,7 +87,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 
 | 날짜 | Work package | 상태 | Commit 또는 receipt | Evidence와 residual work |
 |------|--------------|------|-------------------|--------------------------|
-| 2026-08-07 | SD-00 | 진행 중 | Planning baseline | 5개 service 목표, canonical 문서, design route, machine manifest를 정렬했습니다. Baseline acceptance receipt가 남아 있습니다. |
+| 2026-08-07 | SD-00 | 진행 중 | `b25d09cbe` | 5개 service 목표, canonical 문서, design route, machine manifest를 정렬했고 diff-scoped test 496개가 통과했습니다. Baseline acceptance receipt가 남아 있습니다. |
 
 ## 관련 문서
 

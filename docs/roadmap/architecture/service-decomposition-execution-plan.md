@@ -91,7 +91,7 @@ state. For each transition:
 
 | Date | Work package | State | Commit or receipt | Evidence and residual work |
 |------|--------------|-------|-------------------|----------------------------|
-| 2026-08-07 | SD-00 | In progress | Planning baseline | Five-service target, canonical documents, design route, and machine manifests aligned; baseline acceptance receipt remains open. |
+| 2026-08-07 | SD-00 | In progress | `b25d09cbe` | Five-service target, canonical documents, design route, and machine manifests aligned; 496 diff-scoped tests passed. Baseline acceptance receipt remains open. |
 
 ## Related documents
 
