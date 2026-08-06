@@ -64,6 +64,7 @@ from fdai.agents._framework.introspection import (
     capped_list,
 )
 from fdai.agents._framework.norns_consensus import NornsConsensus
+from fdai.agents._framework.norns_deployment_learning import NornsDeploymentLearning
 from fdai.agents._framework.pantheon import _NORNS
 from fdai.core.case_history import CaseHistoryAnalyzer
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
@@ -122,8 +123,6 @@ class Norns(Agent):
             raise ValueError("override_retire_threshold MUST be >= 1")
         if rejection_revise_threshold < 1:
             raise ValueError("rejection_revise_threshold MUST be >= 1")
-        if preflight_blocker_threshold < 2:
-            raise ValueError("preflight_blocker_threshold MUST be >= 2")
         if forecast_error_threshold < 1:
             raise ValueError("forecast_error_threshold MUST be >= 1")
         if max_pending_candidates < 1:
@@ -176,21 +175,13 @@ class Norns(Agent):
         self._approval_counts: dict[str, dict[str, int]] = {}
         self._approval_proposed: set[str] = set()
         self._counted_approvals: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
-        self._preflight_blocker_threshold = preflight_blocker_threshold
-        self._preflight_blocker_scopes: BoundedLruDict[str, frozenset[str]] = BoundedLruDict(
-            _MAX_TRACKED
+        self._deployment_learning = NornsDeploymentLearning(
+            coverage_aggregator=coverage_aggregator,
+            preflight_blocker_threshold=preflight_blocker_threshold,
+            max_tracked=_MAX_TRACKED,
         )
-        self._preflight_blocker_proposed: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._post_turn_hint_proposed: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._reviewed_trajectory_manifests: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
-        # Scenario-coverage learner (optional; composition root wires it).
-        # When bound, live incident symptoms that the compiled
-        # chaos-scenarios symptom index cannot match accumulate here and
-        # emit `scenario-coverage-gap` candidates onto pending_candidates
-        # once the aggregator's gap_threshold is crossed. When None, the
-        # public `observe_incident_symptom` method is a no-op - the same
-        # discipline as the other learners: never mutate the catalog.
-        self._coverage_aggregator = coverage_aggregator
         self._post_turn_review = post_turn_review
         self._forecast_error_threshold = forecast_error_threshold
         self._forecast_error_counts: BoundedLruDict[str, int] = BoundedLruDict(_MAX_TRACKED)
@@ -543,14 +534,8 @@ class Norns(Agent):
     def _observe_approval(self, payload: dict[str, Any]) -> None:
         """Learn from a HIL approval decision.
 
-        Var emits one ``object.approval`` per final decision with a ``state``
-        of ``approved`` or ``rejected``. Recurring rejections of the same
-        action type mean humans consistently refuse it - a signal the action
-        (or its risk classification) is a poor fit - so once the rejection
-        count crosses the threshold the learner proposes an inert ``revision``
-        candidate. Approvals are counted for evidence (the sample the
-        rejection rate is measured against); the learner never proposes
-        auto-promotion, which stays an explicit, quality-gated decision.
+        Recurring rejections propose an inert revision. Approvals contribute
+        evidence only and never trigger automatic promotion.
         """
         action_type = str(payload.get("action_type") or "")
         state = str(payload.get("state", "")).strip().lower()
@@ -588,12 +573,9 @@ class Norns(Agent):
     def observe_override(self, payload: dict[str, Any]) -> None:
         """Learn from recurring operator overrides on a rule.
 
-        Public entry point: ``object.override`` is not a pantheon bus topic
-        (overrides flow through the exemption / rule-catalog machinery), so
-        that machinery calls this method directly rather than publishing a
-        topic Norns subscribes to. Repeated overrides mean the rule is a poor
-        fit for the scope; a `disabled` mode proposes retirement, anything
-        else a revision.
+        The exemption machinery calls this directly because ``object.override``
+        is not a Pantheon topic. Disabled rules propose retirement; other
+        recurring overrides propose revision.
         """
         self._ensure_pending_capacity()
         rule_id = str(payload.get("rule_id") or payload.get("target_rule_id") or "")
@@ -633,41 +615,16 @@ class Norns(Agent):
         target_type: str,
         severity: str,
     ) -> None:
-        """Feed one live incident's symptom to the scenario-coverage learner.
-
-        Public entry point: the sensing layer (`Huginn` / `Heimdall`
-        analyzers) calls this per-incident so uncovered symptoms
-        accumulate. No-op when `coverage_aggregator` was not injected
-        at construction (`None`).
-
-        Any threshold-crossing proposals are appended to
-        ``pending_candidates`` as `candidate_type: scenario-coverage-gap`,
-        alongside the fingerprint / outcome / override candidates. Mimir's
-        `CandidateGuard` treats them identically - grounded provenance,
-        same quality gate.
-        """
+        """Aggregate one incident symptom into an optional inert scenario-gap candidate."""
         self._ensure_pending_capacity()
-        if self._coverage_aggregator is None:
-            return
-        self._coverage_aggregator.observe(
+        candidates = self._deployment_learning.observe_incident_symptom(
             incident_id=incident_id,
             signal=signal,
             target_type=target_type,
             severity=severity,
         )
-        for candidate in self._coverage_aggregator.drain_proposals():
-            self._append_candidate(
-                {
-                    "source_signal": "scenario_coverage_gap",
-                    "evidence": candidate["target_symptom"],
-                    "provenance": candidate["provenance"],
-                    "proposed_by": "Norns",
-                    "proposal_kind": "new-scenario",
-                    "candidate_type": candidate["candidate_type"],
-                    "proposed_scenario_id": candidate["proposed_scenario_id"],
-                    "notes": candidate["notes"],
-                }
-            )
+        for candidate in candidates:
+            self._append_candidate(candidate)
 
     def observe_preflight_manual_blocker(
         self,
@@ -680,51 +637,14 @@ class Norns(Agent):
         """Propose an inert toggle-gap candidate after distinct scopes repeat a blocker."""
 
         self._ensure_pending_capacity()
-        values = {
-            "finding_id": finding_id,
-            "category": category,
-            "evidence_source": evidence_source,
-            "scope": scope,
-        }
-        for name, value in values.items():
-            if not value or len(value) > 512 or "\n" in value or "\r" in value:
-                raise ValueError(f"preflight manual blocker {name} is invalid")
-        blocker_digest = hashlib.sha256(
-            "\0".join((category, finding_id, evidence_source)).encode()
-        ).hexdigest()
-        scope_digest = hashlib.sha256(scope.encode()).hexdigest()
-        observed = set(self._preflight_blocker_scopes.get(blocker_digest) or ())
-        if scope_digest in observed:
-            return
-        observed.add(scope_digest)
-        self._preflight_blocker_scopes.set(blocker_digest, frozenset(observed))
-        if (
-            len(observed) < self._preflight_blocker_threshold
-            or blocker_digest in self._preflight_blocker_proposed
-        ):
-            return
-        self._preflight_blocker_proposed.add(blocker_digest)
-        self._append_candidate(
-            {
-                "source_signal": "recurring_preflight_manual_blocker",
-                "evidence": {
-                    "finding_id": finding_id,
-                    "category": category,
-                    "source_ref": evidence_source,
-                    "occurrence_count": len(observed),
-                    "scope_digests": sorted(observed),
-                },
-                "provenance": {
-                    "source": "deployment_preflight",
-                    "blocker_digest": blocker_digest,
-                },
-                "proposed_by": self.spec.name,
-                "proposal_kind": "new",
-                "candidate_type": "preflight-toggle-gap",
-                "target_rule_id": f"preflight-toggle-gap.{blocker_digest[:24]}",
-                "suggested_pattern": "add_reviewed_preflight_alternate_rendering",
-            }
+        candidate = self._deployment_learning.observe_preflight_manual_blocker(
+            finding_id=finding_id,
+            category=category,
+            evidence_source=evidence_source,
+            scope=scope,
         )
+        if candidate is not None:
+            self._append_candidate(candidate)
 
     async def submit_rule_hint(
         self,

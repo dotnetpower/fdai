@@ -1,7 +1,5 @@
 # Existing decomposition debt tracked by issue #14; growth above each exact cap is blocked.
 1010 src/fdai/agents/forseti.py
-# Norns learner orchestration awaits the agent-family decomposition tracked by issue #14.
-806 src/fdai/agents/norns.py
 # HIL resume coordination awaits the approval-lifecycle decomposition tracked by issue #14.
 937 src/fdai/core/hil_resume/coordinator.py
 # Subscription health composition awaits the Azure evidence-family decomposition tracked by issue #14.
