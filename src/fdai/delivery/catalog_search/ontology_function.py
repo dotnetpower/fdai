@@ -134,6 +134,7 @@ def build_catalog_query_function_registry(
         query = CatalogConceptQuery(
             text=str(arguments["text"]),
             operation=RetrievalOperation(str(arguments["operation"])),
+            ontology_release_ref=release.ref(),
             corpus=RuleCorpus(str(arguments["corpus"])),
             intent_ids=_string_tuple(arguments, "intent_ids"),
             concept_refs=_string_tuple(arguments, "concept_refs"),

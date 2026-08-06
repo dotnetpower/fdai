@@ -82,10 +82,25 @@ class OntologyTypeRef(ContractBase):
     catalog_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
 
 
+class OntologyReleaseRef(ContractBase):
+    """Compact exact identity for cross-service ontology-aware records."""
+
+    schema_version: SemVer = "1.0.0"
+    digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
+
+
 class OntologyRelease(ContractBase):
     schema_version: SemVer = "1.0.0"
     digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     declarations: tuple[OntologyDeclarationRef, ...]
+
+    def ref(self) -> OntologyReleaseRef:
+        """Return the compact exact identity used on semantic wire records."""
+
+        return OntologyReleaseRef(
+            schema_version=self.schema_version,
+            digest=self.digest,
+        )
 
     def type_ref(self, kind: OntologyDeclarationKind, name: str) -> OntologyTypeRef:
         for declaration in self.declarations:
@@ -105,6 +120,7 @@ __all__ = [
     "OntologyDeclarationKind",
     "OntologyDeclarationRef",
     "OntologyRelease",
+    "OntologyReleaseRef",
     "OntologyTypeRef",
     "SemVer",
     "_Base",

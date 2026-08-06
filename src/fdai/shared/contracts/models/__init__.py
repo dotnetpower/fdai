@@ -142,6 +142,7 @@ from .ontology_identity import (
     OntologyDeclarationKind,
     OntologyDeclarationRef,
     OntologyRelease,
+    OntologyReleaseRef,
     OntologyTypeRef,
 )
 from .response_outcome import (
@@ -225,6 +226,7 @@ __all__ = [
     "OntologyDeclarationKind",
     "OntologyDeclarationRef",
     "OntologyRelease",
+    "OntologyReleaseRef",
     "OntologyTypeRef",
     "OntologyActionType",
     "OntologyFunctionKind",

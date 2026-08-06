@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/ontology/release-ref/1.0.0",
+  "title": "OntologyReleaseRef",
+  "description": "Compact exact ontology release identity for cross-service semantic records.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "digest"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  }
+}

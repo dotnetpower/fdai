@@ -92,6 +92,12 @@ an exact reference. Compatibility checking returns `compatible`, `migration_requ
 `incompatible`. A release cannot replace a declaration in place when existing records would be
 reinterpreted.
 
+Cross-service semantic records use `OntologyReleaseRef`, a compact envelope containing the
+contract `schema_version` and exact release `digest` without copying the declaration set. Legacy
+discovery and explanation records may omit the envelope while they migrate. Decision-critical
+`evaluate` and `action_draft` consumers require it, and any supplied mismatch is rejected before
+semantic-index or provider I/O.
+
 ## Proof-carrying semantic interpretation
 
 Lexical matching, embeddings, and models can produce a `SemanticInterpretationCandidate`. The

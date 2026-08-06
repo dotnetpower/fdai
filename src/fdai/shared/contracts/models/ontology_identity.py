@@ -4,6 +4,7 @@ from ._base import (
     OntologyDeclarationKind,
     OntologyDeclarationRef,
     OntologyRelease,
+    OntologyReleaseRef,
     OntologyTypeRef,
 )
 
@@ -11,5 +12,6 @@ __all__ = [
     "OntologyDeclarationKind",
     "OntologyDeclarationRef",
     "OntologyRelease",
+    "OntologyReleaseRef",
     "OntologyTypeRef",
 ]

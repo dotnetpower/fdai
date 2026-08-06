@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: a62ba45c0e65fda468abfaadd3dca8cb261b9b37
-translation_revised: 2026-08-05
+translation_source_sha: 284b6c66db3fec81afb82923ac60df95fffc3220
+translation_revised: 2026-08-07
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -94,6 +94,12 @@ type_ref:
 `Action`, `ActionRun`, ontology object, ontology link, audit record, generated plan은 exact reference를
 보존합니다. Compatibility check는 `compatible`, `migration_required`, `incompatible` 중 하나를
 반환합니다. 기존 record를 재해석하는 방식으로 release가 declaration을 in-place 교체할 수 없습니다.
+
+Cross-service semantic record는 declaration set을 복사하지 않고 contract `schema_version`과 exact
+release `digest`를 담는 compact envelope인 `OntologyReleaseRef`를 사용합니다. Legacy discovery와
+explanation record는 migration 동안 이 envelope를 생략할 수 있습니다. Decision-critical
+`evaluate` 및 `action_draft` consumer는 이를 요구하며, 제공된 값이 일치하지 않으면 semantic-index
+또는 provider I/O 전에 차단됩니다.
 
 ## Proof를 포함한 semantic interpretation
 

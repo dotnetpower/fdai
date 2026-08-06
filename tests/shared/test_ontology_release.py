@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 import pytest
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import ValidationError
 
 from fdai.shared.contracts.models import (
     OntologyActionType,
     OntologyDeclarationKind,
     OntologyFunctionKind,
     OntologyFunctionType,
+    OntologyReleaseRef,
     Operation,
     PromotionGate,
     RollbackKind,
 )
+from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.ontology.release import build_ontology_release
 
 
@@ -51,6 +55,28 @@ def test_release_returns_exact_type_reference() -> None:
 
     assert reference.version == "1.0.0"
     assert reference.catalog_digest == release.digest
+
+
+def test_release_reference_round_trips_through_wire_schema() -> None:
+    reference = build_ontology_release(action_types=(_action("ops.alpha"),)).ref()
+    payload = reference.model_dump(mode="json")
+    schema = PackageResourceSchemaRegistry().get("ontology/release-ref")
+
+    Draft202012Validator(schema).validate(payload)
+    decoded = OntologyReleaseRef.model_validate_json(reference.model_dump_json())
+
+    assert decoded == reference
+    assert payload == {"schema_version": "1.0.0", "digest": reference.digest}
+
+
+def test_release_reference_rejects_missing_or_invalid_digest() -> None:
+    schema = PackageResourceSchemaRegistry().get("ontology/release-ref")
+    validator = Draft202012Validator(schema)
+
+    with pytest.raises(ValidationError):
+        validator.validate({"schema_version": "1.0.0"})
+    with pytest.raises(ValueError, match="digest"):
+        OntologyReleaseRef(digest="sha256:not-a-digest")
 
 
 def test_release_rejects_duplicate_declaration_identity() -> None:

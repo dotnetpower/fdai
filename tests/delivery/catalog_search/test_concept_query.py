@@ -19,7 +19,7 @@ from fdai.delivery.catalog_search.ontology_function import (
 )
 from fdai.rule_catalog.schema.rule_semantic_generation import RetrievalOperation
 from fdai.rule_catalog.schema.rule_semantic_retrieval import RuleCorpus
-from fdai.shared.contracts.models import CeilingRole
+from fdai.shared.contracts.models import CeilingRole, OntologyReleaseRef
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.catalog_search import (
     CatalogGenerationMetadata,
@@ -38,7 +38,7 @@ class _Embedder:
         return (1.0, 0.0, 0.0) if "public" in text.casefold() else (0.0, 1.0, 0.0)
 
 
-async def _resolver() -> ConceptFirstCatalogRetriever:
+async def _resolver(*, ontology_release_digest: str = _RELEASE) -> ConceptFirstCatalogRetriever:
     index = InMemoryCatalogSemanticIndex(embedder=_Embedder())
     metadata = CatalogGenerationMetadata(
         generation_id="generation-active",
@@ -46,7 +46,7 @@ async def _resolver() -> ConceptFirstCatalogRetriever:
         corpus="active",
         catalog_digest=_CATALOG,
         semantic_schema_digest=_SCHEMA,
-        ontology_release_digest=_RELEASE,
+        ontology_release_digest=ontology_release_digest,
         embedding_space_id="catalog-search-3",
         embedding_model_version="test:1",
         embedding_dimension=3,
@@ -75,7 +75,7 @@ async def _resolver() -> ConceptFirstCatalogRetriever:
     return ConceptFirstCatalogRetriever(
         index=index,
         catalog_digest=_CATALOG,
-        ontology_release_digest=_RELEASE,
+        ontology_release_digest=ontology_release_digest,
         concepts={
             "concept.public-access": frozenset({"object-storage.public-access.deny"}),
             "concept.object-storage": frozenset(
@@ -132,7 +132,7 @@ async def test_unknown_concept_requires_clarification_without_results() -> None:
 
 async def test_stale_ontology_release_blocks_ranking() -> None:
     resolver = await _resolver()
-    resolver._ontology_release_digest = "sha256:" + "f" * 64
+    resolver._ontology_release_ref = OntologyReleaseRef(digest="sha256:" + "f" * 64)
 
     receipt = await resolver.resolve(
         CatalogConceptQuery(
@@ -144,6 +144,53 @@ async def test_stale_ontology_release_blocks_ranking() -> None:
     assert receipt.semantic_state.value == "stale"
     assert receipt.degraded_reason == "ontology-release-stale"
     assert receipt.results == ()
+
+
+class _ProviderMustNotBeCalled:
+    calls = 0
+
+    async def active_generation(self, corpus: str = "active") -> None:
+        del corpus
+        self.calls += 1
+        raise AssertionError("release rejection must happen before provider I/O")
+
+
+@pytest.mark.parametrize(
+    ("operation", "release_ref", "expected_reason"),
+    (
+        (RetrievalOperation.EVALUATE, None, "ontology-release-required"),
+        (
+            RetrievalOperation.EXPLAIN,
+            OntologyReleaseRef(digest="sha256:" + "f" * 64),
+            "ontology-release-mismatch",
+        ),
+    ),
+)
+async def test_release_rejection_happens_before_provider_io(
+    operation: RetrievalOperation,
+    release_ref: OntologyReleaseRef | None,
+    expected_reason: str,
+) -> None:
+    provider = _ProviderMustNotBeCalled()
+    resolver = ConceptFirstCatalogRetriever(
+        index=provider,  # type: ignore[arg-type]
+        catalog_digest=_CATALOG,
+        ontology_release_digest=_RELEASE,
+        concepts={},
+        facets={},
+    )
+
+    receipt = await resolver.resolve(
+        CatalogConceptQuery(
+            text="Evaluate the active catalog",
+            operation=operation,
+            ontology_release_ref=release_ref,
+        )
+    )
+
+    assert receipt.degraded_reason == expected_reason
+    assert receipt.results == ()
+    assert provider.calls == 0
 
 
 def test_discovery_corpus_cannot_request_evaluation() -> None:
@@ -186,9 +233,10 @@ async def test_catalog_query_function_projection_is_strict_and_read_only() -> No
 
 async def test_catalog_query_function_registry_invokes_with_exact_release_receipt() -> None:
     declaration = catalog_query_function_type()
+    release = build_ontology_release(function_types=(declaration,))
     registry = build_catalog_query_function_registry(
-        retriever=await _resolver(),
-        release=build_ontology_release(function_types=(declaration,)),
+        retriever=await _resolver(ontology_release_digest=release.digest),
+        release=release,
     )
 
     result, receipt = await registry.invoke_with_receipt(

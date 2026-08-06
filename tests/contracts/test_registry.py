@@ -79,6 +79,7 @@ def test_registry_names_covers_expected_set(
         "ontology/object-type",
         "ontology/link-type",
         "ontology/action-type",
+        "ontology/release-ref",
     }
     assert set(registry.names()) == expected
 

@@ -12,7 +12,7 @@ from fdai.rule_catalog.schema.rule_semantic_generation import (
     SemanticAvailability,
 )
 from fdai.rule_catalog.schema.rule_semantic_retrieval import RuleCorpus, query_digest
-from fdai.shared.contracts.models import Rule
+from fdai.shared.contracts.models import OntologyReleaseRef, Rule
 from fdai.shared.providers.catalog_search import (
     CatalogCorpus,
     CatalogGenerationStaleError,
@@ -28,6 +28,7 @@ class CatalogConceptQuery:
 
     text: str
     operation: RetrievalOperation
+    ontology_release_ref: OntologyReleaseRef | None = None
     corpus: RuleCorpus = RuleCorpus.ACTIVE
     intent_ids: tuple[str, ...] = ()
     concept_refs: tuple[str, ...] = ()
@@ -115,11 +116,27 @@ class ConceptFirstCatalogRetriever:
     ) -> None:
         self._index = index
         self._catalog_digest = catalog_digest
-        self._ontology_release_digest = ontology_release_digest
+        self._ontology_release_ref = OntologyReleaseRef(digest=ontology_release_digest)
         self._concepts = dict(concepts)
         self._facets = dict(facets)
 
     async def resolve(self, query: CatalogConceptQuery) -> CatalogRetrievalReceipt:
+        if query.ontology_release_ref is None:
+            if query.operation in {
+                RetrievalOperation.EVALUATE,
+                RetrievalOperation.ACTION_DRAFT,
+            }:
+                return self._degraded(
+                    query,
+                    SemanticAvailability.UNAVAILABLE,
+                    "ontology-release-required",
+                )
+        elif query.ontology_release_ref != self._ontology_release_ref:
+            return self._degraded(
+                query,
+                SemanticAvailability.STALE,
+                "ontology-release-mismatch",
+            )
         unresolved = tuple(sorted(set(query.concept_refs) - self._concepts.keys()))
         if unresolved:
             return CatalogRetrievalReceipt(
@@ -144,7 +161,7 @@ class ConceptFirstCatalogRetriever:
                 "generation-stale",
                 generation_digest=generation.generation_digest,
             )
-        if generation.ontology_release_digest != self._ontology_release_digest:
+        if generation.ontology_release_digest != self._ontology_release_ref.digest:
             return self._degraded(
                 query,
                 SemanticAvailability.STALE,
