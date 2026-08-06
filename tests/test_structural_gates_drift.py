@@ -95,7 +95,8 @@ def test_operator_api_boundary_gate_is_in_executed_pre_push_loop() -> None:
     loop_paths = body[loop_start:loop_end]
     assert "scripts/quality/architecture/check-operator-api-boundaries.py \\\n" in loop_paths
     execution_block = body[loop_end : body.index("done", loop_end)]
-    assert 'gate_command=(python3 "$gate_path")' in execution_block
+    assert 'gate_command=(uv run python "$gate_path")' in execution_block
+    assert 'gate_command=(python3 "$gate_path")' not in execution_block
     assert (
         'if ! CHECK_QUIET=1 "${gate_command[@]}" > '
         "/tmp/pre-push-${gate}.out 2>&1; then" in execution_block
