@@ -14,8 +14,11 @@ from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.rego_semantics import RegoSemantics, load_rego_semantics
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.rule_catalog.schema.rule import load_rule_catalog
+from fdai.rule_catalog.schema.rule_semantic_manifest import build_rego_semantic_manifest
+from fdai.rule_catalog.schema.rule_semantic_retrieval import RuleSemanticManifest
 from fdai.shared.contracts.models import OntologyActionType, Rule
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.catalog_search import CatalogSearchDocument, CatalogSemanticIndex
 
 
@@ -24,6 +27,7 @@ class ShippedCatalogSearchSources:
     rules: tuple[Rule, ...]
     action_types: tuple[OntologyActionType, ...]
     policy_semantics: Mapping[str, RegoSemantics]
+    semantic_manifests: Mapping[str, RuleSemanticManifest]
 
 
 async def index_shipped_catalog(
@@ -97,10 +101,24 @@ def load_shipped_catalog_search_sources(
             policy_path,
             opa_binary=opa_binary,
         )
+    release = build_ontology_release(
+        object_types=ontology.object_types,
+        link_types=ontology.link_types,
+        action_types=ontology.action_types,
+    )
+    semantic_manifests = {
+        rule.id: build_rego_semantic_manifest(
+            rule,
+            policy_semantics[rule.check_logic.reference],
+            ontology_release_digest=release.digest,
+        )
+        for rule in rules
+    }
     return ShippedCatalogSearchSources(
         rules=rules,
         action_types=ontology.action_types,
         policy_semantics=policy_semantics,
+        semantic_manifests=semantic_manifests,
     )
 
 

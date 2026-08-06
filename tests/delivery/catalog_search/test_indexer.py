@@ -36,3 +36,14 @@ async def test_shipped_catalog_indexing_is_grounded_and_deterministic() -> None:
     )
     assert all(document.text and document.neighbor_ids for document in index.documents)
     assert all(not document.embedding for document in index.documents)
+
+
+def test_shipped_catalog_sources_include_exact_manifest_per_rule() -> None:
+    from fdai.delivery.catalog_search import load_shipped_catalog_search_sources
+
+    sources = load_shipped_catalog_search_sources(repo_root=_REPO_ROOT)
+
+    assert set(sources.semantic_manifests) == {rule.id for rule in sources.rules}
+    assert all(
+        manifest.corpus.value == "active" for manifest in sources.semantic_manifests.values()
+    )

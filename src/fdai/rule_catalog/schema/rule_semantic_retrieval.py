@@ -91,8 +91,9 @@ class RuleSemanticManifest:
             ("ontology_release_digest", self.ontology_release_digest),
         ):
             _require_digest(name, value)
-        _ordered_unique("signal_refs", self.signal_refs, allow_empty=False)
-        _ordered_unique("property_refs", self.property_refs, allow_empty=False)
+        allow_unknown = self.corpus is RuleCorpus.DISCOVERY
+        _ordered_unique("signal_refs", self.signal_refs, allow_empty=allow_unknown)
+        _ordered_unique("property_refs", self.property_refs, allow_empty=allow_unknown)
         _ordered_unique("predicate_refs", self.predicate_refs, allow_empty=True)
 
     @property
