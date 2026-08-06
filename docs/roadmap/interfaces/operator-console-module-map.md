@@ -95,11 +95,26 @@ matching, manifest construction, and frozen-corpus evaluation run in-process and
 state only. Route adapters continue to own authentication, HTTP status mapping, JSON envelopes,
 SSE sequencing, cancellation, and terminal rendering.
 
-`routes.chat_verification` imports the explicit claims package facade. Repository-wide consumers
+The owned terminal verifier imports the explicit claims package facade. Repository-wide consumers
 of the former `routes.chat_claim*` modules were internal implementation or test imports and moved
-in the same slice, so no route compatibility shim remains. Rollback restores the implementation
+in the same slice, so no claim compatibility shim remains. Rollback restores the implementation
 modules and facade under `routes/`, then redirects the claims package facade to that restored
 owner without changing the JSON or SSE wire contracts.
+
+### Conversation verification application boundary
+
+The SD-01 verification slice owns terminal answer verification under
+`fdai.delivery.operator_api.application.conversation.verification`. The package contains the
+canonical result, text-integrity checks, deterministic claim and evidence coordination, bounded
+incident and agent-activity rendering, and tool/operational verification handlers. It is
+request-local and keeps HTTP status mapping, JSON envelopes, SSE sequencing, authentication,
+cancellation, and terminal frame assembly in routes.
+
+Internal route and test consumers import the explicit package facade. The only retained
+`routes.chat_verification` module is a compatibility facade because the capability catalog still
+names that source path; it contains no verification implementation. Rollback restores the moved
+modules under `routes/` and redirects the package facade without changing JSON, SSE, authentication,
+or conversation-history behavior.
 
 ### Immutable app composition
 
@@ -130,6 +145,7 @@ reverses physical ownership without a wire or caller migration.
 | `application/` | Typed process-local, non-authoritative application coordination | Retain until service-graduation evidence justifies a process boundary. |
 | `application/conversation/` | Process-local conversation capabilities outside HTTP transport | Retain in-process until service-graduation evidence exists. |
 | `application/conversation/claims/` | Deterministic answer-claim extraction and bounded evidence verification | Import through its explicit package facade; keep JSON, SSE, and authentication in routes. |
+| `application/conversation/verification/` | Deterministic terminal answer verification and bounded evidence rendering | Import through its explicit package facade; keep wire behavior and authentication in routes. |
 | `dev/` | Interactive local and test-only provider composition | Keep unavailable to production imports. |
 | `dev/fixtures/` | Synthetic pytest-only fixtures | Keep outside production composition. |
 | `persistence/` | Operator API read-model implementations and projections | Retain behind owned read contracts. |
@@ -147,8 +163,9 @@ The `main` facade's `busy_input_runtime` re-export is a transitional public seam
 runtime ownership claim.
 `routes.panels` and `routes.reporting` remain transitional public extension seams because current
 fork and reporting guidance imports them directly. Other individual `routes.*` modules are
-internal implementation paths; a migration uses a per-module forwarding shim only when a
-classified compatibility need exists. Runtime-owned agent-state records and event-bus publication
+internal implementation paths; `routes.chat_verification` is the classified source-path facade for
+the capability catalog. A migration uses a per-module forwarding shim only when a classified
+compatibility need exists. Runtime-owned agent-state records and event-bus publication
 live in `fdai.delivery.agent_activity`, so the headless runtime imports no Operator API streaming
 implementation. Provisioning's `streaming.provision_stream` compatibility remains classified
 separately. Issue 71 closes the chat wire debts recorded by the baseline. Version 1 semantic frames
@@ -196,13 +213,15 @@ a separately reviewed boundary.
 
 - `application/conversation/claims/` owns deterministic claim extraction, evidence matching, and
   evidence manifests. It does not own HTTP, SSE, authentication, or durable state.
+- `application/conversation/verification/` owns terminal answer integrity, deterministic evidence
+  verification, and bounded verification prose. It does not own HTTP, SSE, authentication,
+  cancellation, or durable state.
 - `chat_stream_setup.py` owns authenticated request, evidence, history, and answer-plan validation.
 - `chat_stream_terminal.py` owns pure terminal verification-frame and replay-payload assembly.
 - `chat_trajectory_detail.py` owns bounded final progress projection for durable trajectory replay.
 - `chat_knowledge_context.py` reads exact prior-turn runbooks, source freshness, consented memory,
   and materialized learning without writing state.
 - `chat_vision_prompt.py` projects validated images.
-- `chat_verification_text.py` and `chat_verification_rendering.py` own terminal integrity and prose.
 - `read_investigation_responder.py` renders registered Heimdall read intents from typed evidence.
   Missing evidence produces an explicit unavailable answer. `read_investigation_catalog.py` blocks
   startup when catalog IDs, ownership, or plan bindings drift.

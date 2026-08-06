@@ -20,6 +20,10 @@ from fdai.delivery.operator_api.application import (
     ConversationTurnApplicationService,
     ConversationTurnExecution,
 )
+from fdai.delivery.operator_api.application.conversation.verification import (
+    AnswerVerification,
+    verify_answer,
+)
 from fdai.delivery.operator_api.routes.chat_answer_planning import planning_metadata
 from fdai.delivery.operator_api.routes.chat_answer_quality import (
     AnswerQualityInvoke,
@@ -58,10 +62,6 @@ from fdai.delivery.operator_api.routes.chat_stream_terminal import (
 from fdai.delivery.operator_api.routes.chat_trajectory_detail import (
     TrajectoryDetailCollector,
     trajectory_detail_budget,
-)
-from fdai.delivery.operator_api.routes.chat_verification import (
-    AnswerVerification,
-    verify_answer,
 )
 from fdai.delivery.operator_api.routes.post_turn_review import (
     PostTurnReviewSubmission,

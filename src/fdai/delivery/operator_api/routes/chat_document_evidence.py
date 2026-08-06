@@ -7,7 +7,7 @@ from dataclasses import replace
 from typing import Any, Protocol
 from uuid import UUID
 
-from fdai.delivery.operator_api.routes.chat_verification import AnswerVerification
+from fdai.delivery.operator_api.application.conversation.verification import AnswerVerification
 from fdai.shared.providers.document_ingestion import ChatDocumentRef
 
 _MAX_DOCUMENT_REFS = 8

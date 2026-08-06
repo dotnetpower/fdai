@@ -10,7 +10,10 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final, Literal
 
-from fdai.delivery.operator_api.routes.chat_verification import AnswerVerification, verify_answer
+from fdai.delivery.operator_api.application.conversation.verification import (
+    AnswerVerification,
+    verify_answer,
+)
 
 AnswerQualityStatus = Literal[
     "not_applicable",

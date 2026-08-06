@@ -4,9 +4,9 @@ from collections.abc import Sequence
 
 import pytest
 
-from fdai.delivery.operator_api.routes.chat_verification import (
-    _agent_activity_lines,
-    verify_answer,
+from fdai.delivery.operator_api.application.conversation.verification import verify_answer
+from fdai.delivery.operator_api.application.conversation.verification.rendering import (
+    agent_activity_lines as _agent_activity_lines,
 )
 
 

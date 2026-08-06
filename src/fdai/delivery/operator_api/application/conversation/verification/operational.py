@@ -5,8 +5,11 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from fdai.delivery.operator_api.routes.chat_incident_dossier import render_incident_dossier
-from fdai.delivery.operator_api.routes.chat_verification_rendering import (
+from fdai.delivery.operator_api.application.conversation.verification.models import (
+    VerificationPayload,
+    VerificationStatus,
+)
+from fdai.delivery.operator_api.application.conversation.verification.rendering import (
     agent_activity_lines,
     incident_summary_line,
     integer,
@@ -19,10 +22,7 @@ from fdai.delivery.operator_api.routes.chat_verification_rendering import (
     text,
     topic_text,
 )
-from fdai.delivery.operator_api.routes.chat_verification_result import (
-    VerificationPayload,
-    VerificationStatus,
-)
+from fdai.delivery.operator_api.routes.chat_incident_dossier import render_incident_dossier
 
 Changed = Callable[[str, str], VerificationStatus]
 

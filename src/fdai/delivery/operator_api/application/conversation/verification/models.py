@@ -5,12 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-VerificationStatus = Literal["verified", "consistent", "corrected", "unverified"]
+VerificationStatus = Literal["verified", "corrected", "consistent", "unverified"]
 
 
 @dataclass(frozen=True, slots=True)
 class VerificationPayload:
-    """Dependency-free result returned by extracted verification branches."""
+    """Handler result converted into the public answer verification contract."""
 
     status: VerificationStatus
     answer: str

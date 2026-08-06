@@ -3,11 +3,11 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from fdai.delivery.operator_api.application.conversation.verification import verify_answer
 from fdai.delivery.operator_api.routes.chat_t2_recovery import (
     T2RecoveryChatTools,
     needs_t2_recovery_evidence,
 )
-from fdai.delivery.operator_api.routes.chat_verification import verify_answer
 
 
 class _Reader:

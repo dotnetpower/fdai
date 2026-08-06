@@ -10,12 +10,12 @@ from fdai.core.readiness import (
     detection_readiness_state_key,
     reduce_detection_readiness,
 )
+from fdai.delivery.operator_api.application.conversation.verification import verify_answer
 from fdai.delivery.operator_api.routes.chat_detection_readiness import (
     DetectionReadinessChatTools,
     needs_detection_readiness,
     render_detection_readiness_answer,
 )
-from fdai.delivery.operator_api.routes.chat_verification import verify_answer
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 7, 24, 1, 0, tzinfo=UTC)

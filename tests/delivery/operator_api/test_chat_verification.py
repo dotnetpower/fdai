@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import unicodedata
 
+from fdai.delivery.operator_api.application.conversation.verification import verify_answer
+from fdai.delivery.operator_api.application.conversation.verification.verifier import _changed
 from fdai.delivery.operator_api.routes.chat_stream_terminal import response_incident_candidates
-from fdai.delivery.operator_api.routes.chat_verification import _changed, verify_answer
 
 
 def _context(evidence: dict[str, object]) -> dict[str, object]:

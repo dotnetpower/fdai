@@ -30,6 +30,10 @@ from fdai.delivery.operator_api.application import (
     ConversationTurnInput,
     ConversationTurnTerminalStatus,
 )
+from fdai.delivery.operator_api.application.conversation.verification import (
+    AnswerVerification,
+    verify_answer,
+)
 from fdai.delivery.operator_api.routes.chat_action_context import (
     is_explicit_action_draft_request,
     needs_action_context,
@@ -177,7 +181,6 @@ from fdai.delivery.operator_api.routes.chat_turn_plan import (
     TurnTool,
     apply_turn_plan_to_answer_plan,
 )
-from fdai.delivery.operator_api.routes.chat_verification import AnswerVerification, verify_answer
 from fdai.delivery.operator_api.routes.chat_vision_evidence import (
     vision_source_previews,
 )

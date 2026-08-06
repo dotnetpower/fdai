@@ -11,7 +11,7 @@ from fdai.core.read_investigation.routing import (
     classify_read_investigation_intent,
     resource_name_from_question,
 )
-from fdai.delivery.operator_api.routes.chat_verification import AnswerVerification
+from fdai.delivery.operator_api.application.conversation.verification import AnswerVerification
 from fdai.shared.providers.read_investigation import ReadInvestigationIntent
 
 _RESOURCE_NAME: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.()-]{1,127}$")

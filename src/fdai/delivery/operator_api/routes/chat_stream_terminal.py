@@ -10,6 +10,7 @@ from typing import Any, Final, Literal
 
 from fdai.core.conversation.answer_plan import AnswerPlan
 from fdai.core.python_task.grounded_code import extract_grounded_code
+from fdai.delivery.operator_api.application.conversation.verification import AnswerVerification
 from fdai.delivery.operator_api.routes.chat_answer_quality import AnswerQualityResult
 from fdai.delivery.operator_api.routes.chat_evidence_enrichment import _web_search_summary
 from fdai.delivery.operator_api.routes.chat_freshness_context import EvidenceFreshnessContext
@@ -30,7 +31,6 @@ from fdai.delivery.operator_api.routes.chat_route_common import assurance_policy
 from fdai.delivery.operator_api.routes.chat_source_failure_context import (
     response_source_failure_context,
 )
-from fdai.delivery.operator_api.routes.chat_verification import AnswerVerification
 
 TurnTimingPhase = Literal[
     "semantic_plan",

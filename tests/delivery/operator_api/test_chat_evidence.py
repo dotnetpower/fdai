@@ -11,6 +11,7 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
+from fdai.delivery.operator_api.application.conversation.verification import verify_answer
 from fdai.delivery.operator_api.read_model import AuditItem, InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
 from fdai.delivery.operator_api.routes.chat_evidence import (
@@ -27,7 +28,6 @@ from fdai.delivery.operator_api.routes.chat_incident_dossier import (
     classify_incident_dossier_intent,
 )
 from fdai.delivery.operator_api.routes.chat_route_common import _uses_evidence_fast_path
-from fdai.delivery.operator_api.routes.chat_verification import verify_answer
 
 
 @dataclass(frozen=True, slots=True)

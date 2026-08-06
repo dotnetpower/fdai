@@ -35,6 +35,12 @@
       "candidate_destination": "retain behind the explicit claims package facade"
     },
     {
+      "path": "application/conversation/verification",
+      "responsibility": "Deterministic terminal answer verification and bounded evidence rendering",
+      "classification": "application-coordination",
+      "candidate_destination": "retain behind the explicit verification package facade"
+    },
+    {
       "path": "dev",
       "responsibility": "Interactive local and test-only provider composition",
       "classification": "composition",
@@ -108,7 +114,7 @@
   "route_families": [
     {
       "pattern": "chat*.py",
-      "responsibility": "Conversation HTTP, coordination, evidence, verification, presentation, and provider integration",
+      "responsibility": "Conversation HTTP, coordination, evidence, presentation, provider integration, and the classified chat_verification source-path facade",
       "classification": "mixed-transitional",
       "candidate_destination": "issue 71 defines the typed application-service boundary before any bulk move"
     },
@@ -230,6 +236,16 @@
       "module": "fdai.delivery.operator_api.application.conversation.claims",
       "classification": "internal-implementation",
       "migration": "owned deterministic claim-verification facade for conversation application consumers"
+    },
+    {
+      "module": "fdai.delivery.operator_api.application.conversation.verification",
+      "classification": "internal-implementation",
+      "migration": "owned terminal answer-verification facade for route and application consumers"
+    },
+    {
+      "module": "fdai.delivery.operator_api.routes.chat_verification",
+      "classification": "public-compatibility-facade",
+      "migration": "preserve the capability-catalog source path while runtime consumers import the owned verification package"
     },
     {
       "module": "fdai.delivery.operator_api.routes.audit_finops",

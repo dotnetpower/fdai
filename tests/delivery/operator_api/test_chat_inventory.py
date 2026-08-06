@@ -14,6 +14,7 @@ from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from fdai.core.conversation.answer_plan import AnswerIntent
+from fdai.delivery.operator_api.application.conversation.verification import verify_answer
 from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
 from fdai.delivery.operator_api.routes.chat_behavior_evidence import (
     RepositoryBehaviorEvidenceResolver,
@@ -50,7 +51,6 @@ from fdai.delivery.operator_api.routes.chat_resource_context import (
 )
 from fdai.delivery.operator_api.routes.chat_subscription_health import SubscriptionHealthChatTools
 from fdai.delivery.operator_api.routes.chat_turn_plan import parse_turn_plan
-from fdai.delivery.operator_api.routes.chat_verification import verify_answer
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 

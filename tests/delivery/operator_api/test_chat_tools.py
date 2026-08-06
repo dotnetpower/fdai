@@ -5,9 +5,9 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 
+from fdai.delivery.operator_api.application.conversation.verification import verify_answer
 from fdai.delivery.operator_api.read_model import HilQueueItem, InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes.chat_tools import ReadModelChatTools
-from fdai.delivery.operator_api.routes.chat_verification import verify_answer
 from fdai.shared.providers import (
     ConversationRecord,
     ConversationTurnRecord,
