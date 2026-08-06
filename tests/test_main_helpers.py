@@ -33,6 +33,7 @@ from fdai.__main__ import (
     _summarize_config,
 )
 from fdai.core.control_loop import ControlLoopOutcome, ControlLoopResult
+from fdai.core.executor import MutationDependencyReadiness
 from fdai.core.notifications.matrix import load_matrix_from_yaml
 from fdai.core.notifications.router import ChannelRegistry
 from fdai.runtime.bootstrap import _operational_event_bus
@@ -40,6 +41,11 @@ from fdai.runtime.delivery import _incident_roster_url, _validate_incident_notif
 from fdai.shared.config import AppConfig
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
+
+_SHADOW_MUTATION_READINESS = MutationDependencyReadiness(
+    saga_audit_durable=False,
+    vidar_recovery_contracts=frozenset(),
+)
 
 
 @pytest.fixture()
@@ -1199,7 +1205,11 @@ def test_build_control_loop_wires_rca_and_correlator(
     from fdai.composition import default_container
 
     container = default_container(app_config)
-    loop = _build_control_loop(container, http_client=None)
+    loop = _build_control_loop(
+        container,
+        http_client=None,
+        mutation_dependency_readiness=_SHADOW_MUTATION_READINESS,
+    )
     assert loop._rca_coordinator is not None
     assert loop._rca_coordinator.has_symptom_index
     assert loop._event_correlator is not None
@@ -1237,7 +1247,11 @@ def test_build_control_loop_uses_configured_tier_thresholds(app_config: AppConfi
         }
     )
 
-    loop = _build_control_loop(default_container(tuned), http_client=None)
+    loop = _build_control_loop(
+        default_container(tuned),
+        http_client=None,
+        mutation_dependency_readiness=_SHADOW_MUTATION_READINESS,
+    )
 
     assert loop._t1_engine._config.similarity_threshold == 0.86
     assert loop._t1_engine._config.min_success_rate == 0.94
@@ -1257,7 +1271,11 @@ def test_build_control_loop_requires_opa_in_production(
     monkeypatch.setattr(opa_evaluator.shutil, "which", lambda _binary: None)
 
     with pytest.raises(RuntimeError, match="requires the OPA binary"):
-        _build_control_loop(default_container(app_config), http_client=None)
+        _build_control_loop(
+            default_container(app_config),
+            http_client=None,
+            mutation_dependency_readiness=_SHADOW_MUTATION_READINESS,
+        )
 
 
 def test_build_control_loop_keeps_opa_abstain_fallback_in_dev(
@@ -1271,7 +1289,11 @@ def test_build_control_loop_keeps_opa_abstain_fallback_in_dev(
     monkeypatch.setenv("RUNTIME_ENV", "dev")
     monkeypatch.setattr(opa_evaluator.shutil, "which", lambda _binary: None)
 
-    loop = _build_control_loop(default_container(app_config), http_client=None)
+    loop = _build_control_loop(
+        default_container(app_config),
+        http_client=None,
+        mutation_dependency_readiness=_SHADOW_MUTATION_READINESS,
+    )
 
     assert isinstance(loop._t0_engine._evaluator, AbstainEvaluator)
 
@@ -1286,6 +1308,7 @@ def test_build_control_loop_uses_injected_symptom_index(app_config: AppConfig) -
         default_container(app_config),
         http_client=None,
         symptom_index=symptom_index,
+        mutation_dependency_readiness=_SHADOW_MUTATION_READINESS,
     )
 
     assert loop._rca_coordinator._symptom_index is symptom_index  # noqa: SLF001
@@ -1303,6 +1326,7 @@ def test_build_control_loop_uses_injected_stage_publisher(
         default_container(app_config),
         http_client=None,
         stage_publisher=publisher,
+        mutation_dependency_readiness=_SHADOW_MUTATION_READINESS,
     )
 
     assert loop._stage_publisher is publisher
@@ -1315,7 +1339,11 @@ def test_build_control_loop_wires_inventory_age_provider(
     from fdai.__main__ import _build_control_loop
     from fdai.composition import default_container
 
-    loop = _build_control_loop(default_container(app_config), http_client=None)
+    loop = _build_control_loop(
+        default_container(app_config),
+        http_client=None,
+        mutation_dependency_readiness=_SHADOW_MUTATION_READINESS,
+    )
     assert loop._inventory_age_provider is not None
     # No push channel configured -> coordinator still parks durably for
     # the persisted queue/callback path.
@@ -1331,7 +1359,11 @@ def test_build_control_loop_wires_hil_coordinator_when_webhook_set(
     from fdai.__main__ import _build_control_loop
     from fdai.composition import default_container
 
-    loop = _build_control_loop(default_container(app_config), http_client=httpx.AsyncClient())
+    loop = _build_control_loop(
+        default_container(app_config),
+        http_client=httpx.AsyncClient(),
+        mutation_dependency_readiness=_SHADOW_MUTATION_READINESS,
+    )
     assert loop._hil_resume_coordinator is not None
     assert loop._hil_resume_coordinator.reminder_dispatcher is not None
     supervisor = loop._hil_resume_coordinator.escalation_supervisor

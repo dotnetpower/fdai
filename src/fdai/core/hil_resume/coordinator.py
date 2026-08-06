@@ -50,10 +50,15 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
-from fdai.core.executor import ExecutionResult, ShadowExecutor
+from fdai.core.executor import (
+    ExecutionResult,
+    MutationDependencyReadiness,
+    ShadowExecutor,
+    ThorExecutionPort,
+)
 from fdai.core.executor.direct_api import (
     DirectApiExecutionResult,
     DirectApiShadowExecutor,
@@ -234,8 +239,32 @@ class HilResumeCoordinator:
         approval_reminder_dispatcher: ApprovalReminderDispatcher | None = None,
         escalation_supervisor: HumanNonResponseSupervisor | None = None,
         default_escalation_rungs: Sequence[EscalationRung] = (),
+        thor_execution_port: ThorExecutionPort | None = None,
+        mutation_dependency_readiness: MutationDependencyReadiness | None = None,
     ) -> None:
+        if (thor_execution_port is None) != (mutation_dependency_readiness is None):
+            raise ValueError(
+                "thor_execution_port and mutation_dependency_readiness MUST be bound together"
+            )
+        if thor_execution_port is not None:
+            port_executor = cast(ShadowExecutor, thor_execution_port.pr_native)
+            port_direct_api = cast(
+                DirectApiShadowExecutor | None,
+                thor_execution_port.direct_api,
+            )
+            port_tool = cast(
+                ToolCallShadowExecutor | None,
+                thor_execution_port.tool_call,
+            )
+            if (
+                executor is not port_executor
+                or direct_api_executor is not port_direct_api
+                or tool_executor is not port_tool
+            ):
+                raise ValueError("HIL executor bindings MUST come from thor_execution_port")
         self._state_store = state_store
+        self._thor_execution_port = thor_execution_port
+        self._mutation_dependency_readiness = mutation_dependency_readiness
         self._executor = executor
         self._hil_channel = hil_channel
         self._rules_by_id = dict(rules_by_id)

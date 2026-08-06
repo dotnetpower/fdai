@@ -45,7 +45,7 @@ class _ToolCallExecutionPort(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
-class ThorSafetyDependencyReadiness:
+class MutationDependencyReadiness:
     """Record whether Thor's existing Saga and Vidar bindings permit mutation."""
 
     saga_audit_durable: bool
@@ -108,8 +108,12 @@ class InProcessThorExecutionPort:
     tool_call: ToolCallShadowExecutor | None = None
 
 
+ThorSafetyDependencyReadiness = MutationDependencyReadiness
+
+
 __all__ = [
     "InProcessThorExecutionPort",
+    "MutationDependencyReadiness",
     "ThorExecutionPort",
     "ThorSafetyDependencyReadiness",
 ]

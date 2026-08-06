@@ -10,7 +10,7 @@ import logging
 import math
 from collections.abc import Awaitable, Callable, Iterable, Mapping
 from datetime import timedelta
-from typing import Any
+from typing import Any, cast
 
 from fdai.core.assurance_twin import DynamicRuntimeCoordinator, GraphDynamicRuntimeCoordinator
 from fdai.core.control_loop._boundary import ControlLoopBoundaryMixin
@@ -21,7 +21,11 @@ from fdai.core.control_loop._process import process_event
 from fdai.core.control_loop._rca import ControlLoopRcaMixin
 from fdai.core.control_loop.models import ControlLoopResult
 from fdai.core.event_ingest import EventCorrelator, EventIngest
-from fdai.core.executor import ShadowExecutor
+from fdai.core.executor import (
+    MutationDependencyReadiness,
+    ShadowExecutor,
+    ThorExecutionPort,
+)
 from fdai.core.executor.action_builder import ActionBuilder
 from fdai.core.executor.direct_api import DirectApiShadowExecutor
 from fdai.core.executor.tool_call import ToolCallShadowExecutor
@@ -125,7 +129,29 @@ class ControlLoop(
         execution_authorization_evaluator: ExecutionAuthorizationEvaluator | None = None,
         execution_access_grant_sink: ExecutionAccessGrantSink | None = None,
         execution_authorization_required: bool = False,
+        thor_execution_port: ThorExecutionPort | None = None,
+        mutation_dependency_readiness: MutationDependencyReadiness | None = None,
     ) -> None:
+        if (thor_execution_port is None) != (mutation_dependency_readiness is None):
+            raise ValueError(
+                "thor_execution_port and mutation_dependency_readiness MUST be bound together"
+            )
+        if thor_execution_port is not None:
+            port_executor = cast(ShadowExecutor, thor_execution_port.pr_native)
+            port_direct_api = cast(
+                DirectApiShadowExecutor | None,
+                thor_execution_port.direct_api,
+            )
+            port_tool = cast(
+                ToolCallShadowExecutor | None,
+                thor_execution_port.tool_call,
+            )
+            if (
+                executor is not port_executor
+                or direct_api_executor is not port_direct_api
+                or tool_executor is not port_tool
+            ):
+                raise ValueError("Core executor bindings MUST come from thor_execution_port")
         if (mscp_expected_effect_provider is None) != (mscp_effect_observer is None):
             raise ValueError(
                 "mscp_expected_effect_provider and mscp_effect_observer MUST be bound together"
@@ -138,6 +164,8 @@ class ControlLoop(
         self._trust_router = trust_router
         self._t0_engine = t0_engine
         self._action_builder = action_builder
+        self._thor_execution_port = thor_execution_port
+        self._mutation_dependency_readiness = mutation_dependency_readiness
         self._executor = executor
         self._audit_store = audit_store
         self._rules_by_id = dict(rules_by_id)

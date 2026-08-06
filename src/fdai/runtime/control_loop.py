@@ -31,6 +31,7 @@ from fdai.core.event_ingest import EventCorrelator, EventIngest
 from fdai.core.executor import (
     DirectApiShadowExecutor,
     InProcessThorExecutionPort,
+    MutationDependencyReadiness,
     ShadowExecutor,
     ThorExecutionPort,
     ToolCallShadowExecutor,
@@ -317,6 +318,7 @@ def _build_control_loop(
     human_access_enabled: bool = True,
     execution_identities: Mapping[str, WorkloadIdentity] | None = None,
     thor_execution_port: ThorExecutionPort | None = None,
+    mutation_dependency_readiness: MutationDependencyReadiness,
 ) -> ControlLoop:
     """Load rule / action / policy catalogs and wire the P1 control loop.
 
@@ -627,6 +629,8 @@ def _build_control_loop(
         approval_reminder_dispatcher=approval_reminder_dispatcher,
         escalation_supervisor=escalation_supervisor,
         default_escalation_rungs=escalation_rungs,
+        thor_execution_port=thor_execution_port,
+        mutation_dependency_readiness=mutation_dependency_readiness,
     )
     kill_switch = StateStoreKillSwitch(store=audit_store)
 
@@ -739,6 +743,8 @@ def _build_control_loop(
         execution_authorization_evaluator=container.execution_authorization_evaluator,
         execution_access_grant_sink=container.execution_access_grant_sink,
         execution_authorization_required=container.execution_authorization_required,
+        thor_execution_port=thor_execution_port,
+        mutation_dependency_readiness=mutation_dependency_readiness,
     )
 
 

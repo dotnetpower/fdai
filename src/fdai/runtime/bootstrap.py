@@ -60,10 +60,10 @@ from fdai.runtime.bootstrap_bindings import (
     operational_event_bus as _operational_event_bus,
 )
 from fdai.runtime.bootstrap_lifecycle import (
-    build_runtime_saga as _build_runtime_saga,
+    build_mutation_dependency_readiness as _build_mutation_dependency_readiness,
 )
 from fdai.runtime.bootstrap_lifecycle import (
-    build_thor_safety_dependency_readiness as _build_thor_safety_dependency_readiness,
+    build_runtime_saga as _build_runtime_saga,
 )
 from fdai.runtime.bootstrap_lifecycle import (
     install_shutdown_signals as _install_shutdown_signals,
@@ -404,6 +404,11 @@ async def _run() -> int:
                 state_store=incident_audit_store,
                 environ=os.environ,
             )
+            runtime_saga = _build_runtime_saga(incident_audit_store)
+            core_mutation_readiness = _build_mutation_dependency_readiness(
+                saga=runtime_saga,
+                rollback_executors=None,
+            )
             control_loop = _build_control_loop(
                 container,
                 http_client=http_client,
@@ -417,6 +422,7 @@ async def _run() -> int:
                 ),
                 response_outcome_sink=_relay_response_outcome,
                 human_access_enabled=runtime_values["human_access.enabled"] is True,
+                mutation_dependency_readiness=core_mutation_readiness,
             )
             catalog_projection_result = await project_catalog_ontology(control_loop)
             operating_model_result = await project_operating_model_from_env(
@@ -632,13 +638,12 @@ async def _run() -> int:
                         recorder=ProcessPlanningRecorder(store=process_store),
                     )
                 thor_mutation_bound = pantheon_enforce and t2_route_selector_bound
-                runtime_saga = _build_runtime_saga(incident_audit_store)
                 rollback_executors: dict[str, RollbackExecutor] | None = (
                     {"state_forward_only": t2_route_registry.rollback}
                     if thor_mutation_bound
                     else None
                 )
-                thor_safety_readiness = _build_thor_safety_dependency_readiness(
+                thor_safety_readiness = _build_mutation_dependency_readiness(
                     saga=runtime_saga,
                     rollback_executors=rollback_executors,
                 )

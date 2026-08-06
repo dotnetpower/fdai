@@ -8,6 +8,7 @@ import pytest
 
 from fdai.core.rca import RcaTier, RootCauseHypothesis
 from fdai.runtime.evaluation_runner_cli import (
+    _EVALUATION_MUTATION_READINESS,
     _cluster_identity,
     _kubernetes_config,
     _probe_kubernetes_evidence,
@@ -16,6 +17,10 @@ from fdai.runtime.evaluation_runner_cli import (
     main,
 )
 from fdai.shared.config.models import LlmMode
+
+
+def test_evaluation_runtime_declares_shadow_only_mutation_readiness() -> None:
+    assert _EVALUATION_MUTATION_READINESS.mutation_ready is False
 
 
 def test_kubernetes_config_requires_complete_exact_scope(tmp_path: Path) -> None:

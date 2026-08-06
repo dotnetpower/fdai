@@ -15,7 +15,7 @@ from typing import IO, Any
 from fdai.agents import Saga, SemanticRouterConfig, StateStoreAuditChainAdapter
 from fdai.agents.vidar import RollbackExecutor
 from fdai.core.control_loop import ControlLoop
-from fdai.core.executor import ThorSafetyDependencyReadiness
+from fdai.core.executor import MutationDependencyReadiness
 from fdai.runtime.health import RuntimeHealthServer
 from fdai.runtime.readiness import StartupReadinessRuntime
 from fdai.shared.providers.state_store import StateStore
@@ -43,16 +43,19 @@ def build_runtime_saga(state_store: StateStore) -> Saga:
     return Saga(audit_chain=StateStoreAuditChainAdapter(store=state_store))
 
 
-def build_thor_safety_dependency_readiness(
+def build_mutation_dependency_readiness(
     *,
     saga: Saga,
     rollback_executors: Mapping[str, RollbackExecutor] | None,
-) -> ThorSafetyDependencyReadiness:
+) -> MutationDependencyReadiness:
     """Project existing Saga and Vidar bindings into mutation readiness evidence."""
-    return ThorSafetyDependencyReadiness(
+    return MutationDependencyReadiness(
         saga_audit_durable=saga.durable_audit,
         vidar_recovery_contracts=frozenset(rollback_executors or ()),
     )
+
+
+build_thor_safety_dependency_readiness = build_mutation_dependency_readiness
 
 
 def raise_required_task_failure(done: set[asyncio.Task[Any]]) -> None:

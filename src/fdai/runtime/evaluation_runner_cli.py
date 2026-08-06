@@ -20,6 +20,7 @@ import yaml
 from fdai_evaluation_sdk import EvaluationRunner, EvaluationTask, ResourceLimits, TargetRef
 
 from fdai.composition import default_container_from_env
+from fdai.core.executor import MutationDependencyReadiness
 from fdai.core.rca import Citation, CitationKind, RcaReasoner
 from fdai.delivery.evaluation import KubectlEvidenceClient, KubectlEvidenceConfig
 from fdai.evaluation.plugins import load_evaluation_adapter
@@ -49,6 +50,10 @@ _REQUIRED_KUBERNETES_LIVE_CHECKS = frozenset(
         "kubernetes_owners_live_probe",
         "kubernetes_metrics_live_probe",
     }
+)
+_EVALUATION_MUTATION_READINESS = MutationDependencyReadiness(
+    saga_audit_durable=False,
+    vidar_recovery_contracts=frozenset(),
 )
 
 
@@ -281,7 +286,10 @@ async def _run(command: str, adapter_name: str, environ: Mapping[str, str]) -> i
         if command == "check" or not payload["ready"]:
             print(json.dumps(payload, sort_keys=True))
             return 0 if payload["ready"] else 2
-        control_loop = _build_control_loop(container)
+        control_loop = _build_control_loop(
+            container,
+            mutation_dependency_readiness=_EVALUATION_MUTATION_READINESS,
+        )
         await project_catalog_ontology(control_loop)
         host, _ = build_sregym_evaluation_host(
             processor=control_loop,
