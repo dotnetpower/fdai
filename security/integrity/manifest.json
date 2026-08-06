@@ -852,7 +852,7 @@
     "src/fdai/shared/providers/briefing.py": "1b13954dcd60aaccaae74d573ad3aab48c6c8c119c0190186ab32c320e3657a0",
     "src/fdai/shared/providers/browser_evidence.py": "3d4dd39df08e9536aafefd82991bbce3aeeae0f2b9e5d06502c208fb692fb399",
     "src/fdai/shared/providers/case_history.py": "186ba526523042d7fa5ed6b689b1dbf46468f844404d7a0414577adc21d8c6da",
-    "src/fdai/shared/providers/catalog_search.py": "846378d4c8ee895dcc111ae9336660604b0eb8bb7b8286da8766786986dc5f31",
+    "src/fdai/shared/providers/catalog_search.py": "7b5ebc09da3828ee97b0e5daea63dac65f5f1ce2b5c4934b6bb04a0f1f3dbd7a",
     "src/fdai/shared/providers/change_feed.py": "ebfe441da9666134bcf9b31ff738bb87b86a969eaec42ebb5f2e1e8143723ec3",
     "src/fdai/shared/providers/code_workspace.py": "771ae67947f82224dce98a25c9bdbfa379f9993d42a660d36e6bb23e469ecc6b",
     "src/fdai/shared/providers/command_runner.py": "0281d98163be8b2cdd455c65f8994482bd57a48b6214df2c2770b91fef39b129",
@@ -981,7 +981,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-06T10:36:36Z",
+  "generated_at": "2026-08-06T11:53:06Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

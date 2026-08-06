@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
 from collections.abc import Sequence
 from dataclasses import replace
+from datetime import datetime
 
 from fdai.shared.providers.catalog_search import (
+    CatalogCorpus,
+    CatalogGenerationMetadata,
+    CatalogGenerationStaleError,
     CatalogSearchDocument,
     CatalogSearchMatch,
     CatalogSearchResult,
@@ -33,6 +38,11 @@ class InMemoryCatalogSemanticIndex:
     def __init__(self, *, embedder: Embedder | None = None) -> None:
         self._embedder = embedder
         self._documents: dict[str, CatalogSearchDocument] = {}
+        self._generations: dict[
+            str, tuple[CatalogGenerationMetadata, tuple[CatalogSearchDocument, ...]]
+        ] = {}
+        self._active_generation_ids: dict[CatalogCorpus, str] = {}
+        self._generation_lock = asyncio.Lock()
 
     async def upsert(self, documents: Sequence[CatalogSearchDocument]) -> int:
         changed = 0
@@ -55,19 +65,96 @@ class InMemoryCatalogSemanticIndex:
             del self._documents[rule_id]
         return len(removed_ids) + await self.upsert(documents)
 
-    async def search(self, query: str, *, k: int = 20) -> Sequence[CatalogSearchResult]:
-        if not query.strip() or k <= 0 or not self._documents:
+    async def stage_generation(
+        self,
+        metadata: CatalogGenerationMetadata,
+        documents: Sequence[CatalogSearchDocument],
+    ) -> int:
+        """Stage one complete generation without changing visible search results."""
+
+        if metadata.state != "staged":
+            raise ValueError("only staged catalog generations can be written")
+        if not documents:
+            raise ValueError("catalog generation documents MUST be non-empty")
+        if len({item.rule_id for item in documents}) != len(documents):
+            raise ValueError("catalog generation Rule ids MUST be unique")
+        prepared_rows: list[CatalogSearchDocument] = []
+        for item in documents:
+            prepared_rows.append(
+                await self._prepare_document(
+                    replace(item, corpus=metadata.corpus, generation_id=metadata.generation_id)
+                )
+            )
+        prepared = tuple(prepared_rows)
+        async with self._generation_lock:
+            prior = self._generations.get(metadata.generation_id)
+            if prior is not None:
+                if prior != (metadata, prepared):
+                    raise ValueError("catalog generation id payload conflict")
+                return 0
+            self._generations[metadata.generation_id] = metadata, prepared
+            return len(prepared)
+
+    async def activate_generation(
+        self,
+        generation_id: str,
+        *,
+        expected_generation_digest: str,
+        activated_at: datetime,
+    ) -> CatalogGenerationMetadata:
+        """Atomically replace one corpus active pointer after validation."""
+
+        async with self._generation_lock:
+            try:
+                metadata, documents = self._generations[generation_id]
+            except KeyError as exc:
+                raise ValueError("catalog generation is unavailable") from exc
+            if metadata.generation_digest != expected_generation_digest:
+                raise ValueError("catalog generation digest mismatch")
+            if metadata.validation_receipt_digest is None:
+                raise ValueError("catalog generation validation receipt is unavailable")
+            active = replace(metadata, state="active", activated_at=activated_at)
+            self._generations[generation_id] = active, documents
+            self._active_generation_ids[metadata.corpus] = generation_id
+            return active
+
+    async def active_generation(
+        self, corpus: CatalogCorpus = "active"
+    ) -> CatalogGenerationMetadata | None:
+        generation_id = self._active_generation_ids.get(corpus)
+        return self._generations[generation_id][0] if generation_id is not None else None
+
+    async def search(
+        self,
+        query: str,
+        *,
+        k: int = 20,
+        corpus: CatalogCorpus = "active",
+        expected_catalog_digest: str | None = None,
+    ) -> Sequence[CatalogSearchResult]:
+        documents = tuple(self._documents.values())
+        generation = await self.active_generation(corpus)
+        if generation is not None:
+            if (
+                expected_catalog_digest is not None
+                and generation.catalog_digest != expected_catalog_digest
+            ):
+                raise CatalogGenerationStaleError("active catalog generation is stale")
+            documents = self._generations[generation.generation_id][1]
+        elif expected_catalog_digest is not None:
+            raise CatalogGenerationStaleError("active catalog generation is unavailable")
+        if not query.strip() or k <= 0 or not documents:
             return ()
         query_tokens = _tokens(query)
         query_vector = (
             tuple(await self._embedder.embed(query)) if self._embedder is not None else ()
         )
         lexical = sorted(
-            self._documents.values(),
+            documents,
             key=lambda item: (-self._lexical_score(item, query_tokens), item.rule_id),
         )
         semantic = sorted(
-            self._documents.values(),
+            documents,
             key=lambda item: (-cosine_similarity(query_vector, item.embedding), item.rule_id),
         )
         lexical_rank = {item.rule_id: rank for rank, item in enumerate(lexical, start=1)}
@@ -75,7 +162,7 @@ class InMemoryCatalogSemanticIndex:
 
         ranked: list[tuple[tuple[float, ...], CatalogSearchDocument, CatalogSearchMatch]] = []
         normalized_query = query.strip().casefold()
-        for document in self._documents.values():
+        for document in documents:
             exact = normalized_query == document.rule_id.casefold()
             lexical_score = self._lexical_score(document, query_tokens)
             semantic_score = cosine_similarity(query_vector, document.embedding)
@@ -115,9 +202,18 @@ class InMemoryCatalogSemanticIndex:
                     "lexical": key[3],
                     "semantic": key[4],
                 },
+                corpus=document.corpus,
+                generation_id=document.generation_id,
+                generation_digest=generation.generation_digest if generation else None,
+                catalog_digest=generation.catalog_digest if generation else None,
             )
             for key, document, match in ranked[:k]
         )
+
+    async def _prepare_document(self, document: CatalogSearchDocument) -> CatalogSearchDocument:
+        if document.embedding or self._embedder is None:
+            return document
+        return replace(document, embedding=tuple(await self._embedder.embed(document.text)))
 
     @staticmethod
     def _lexical_score(

@@ -1,9 +1,21 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import UTC, datetime
+
+import pytest
 
 from fdai.delivery.catalog_search import InMemoryCatalogSemanticIndex
-from fdai.shared.providers.catalog_search import CatalogSearchDocument
+from fdai.shared.providers.catalog_search import (
+    CatalogGenerationMetadata,
+    CatalogGenerationStaleError,
+    CatalogSearchDocument,
+)
+
+_A = "sha256:" + "a" * 64
+_B = "sha256:" + "b" * 64
+_C = "sha256:" + "c" * 64
+_D = "sha256:" + "d" * 64
 
 
 class _BilingualEmbedder:
@@ -76,3 +88,91 @@ async def test_hybrid_index_retrieves_typed_neighbor_without_text_match() -> Non
     results = await index.search("typed.target")
 
     assert tuple(result.rule_id for result in results) == ("rule.one",)
+
+
+def _generation(generation_id: str, *, corpus: str = "active") -> CatalogGenerationMetadata:
+    return CatalogGenerationMetadata(
+        generation_id=generation_id,
+        generation_digest=_A if generation_id == "gen-a" else _B,
+        corpus=corpus,  # type: ignore[arg-type]
+        catalog_digest=_C,
+        semantic_schema_digest=_D,
+        ontology_release_digest=_A,
+        embedding_space_id="catalog-search-3",
+        embedding_model_version="test-embedder:1",
+        embedding_dimension=3,
+        validation_receipt_digest=_B,
+    )
+
+
+async def test_staged_generation_is_invisible_until_atomic_activation() -> None:
+    index = InMemoryCatalogSemanticIndex(embedder=_BilingualEmbedder())
+    await index.upsert((CatalogSearchDocument("rule.legacy", "legacy words", ("legacy",)),))
+    metadata = _generation("gen-a")
+    assert (
+        await index.stage_generation(
+            metadata,
+            (CatalogSearchDocument("rule.new", "remote desktop rule", ("network.nsg",)),),
+        )
+        == 1
+    )
+
+    assert (await index.search("legacy words"))[0].rule_id == "rule.legacy"
+    with pytest.raises(CatalogGenerationStaleError):
+        await index.search("remote desktop", expected_catalog_digest=_C)
+
+    active = await index.activate_generation(
+        "gen-a",
+        expected_generation_digest=_A,
+        activated_at=datetime(2026, 8, 6, tzinfo=UTC),
+    )
+    results = await index.search("remote desktop", expected_catalog_digest=_C)
+
+    assert active.state == "active"
+    assert results[0].rule_id == "rule.new"
+    assert results[0].generation_id == "gen-a"
+    assert results[0].generation_digest == _A
+
+
+async def test_generation_activation_replaces_complete_corpus() -> None:
+    index = InMemoryCatalogSemanticIndex(embedder=_BilingualEmbedder())
+    for generation_id, rule_id, text in (
+        ("gen-a", "rule.a", "remote desktop"),
+        ("gen-b", "rule.b", "public blob"),
+    ):
+        metadata = _generation(generation_id)
+        await index.stage_generation(
+            metadata,
+            (CatalogSearchDocument(rule_id, text, ("resource",)),),
+        )
+        await index.activate_generation(
+            generation_id,
+            expected_generation_digest=metadata.generation_digest,
+            activated_at=datetime(2026, 8, 6, tzinfo=UTC),
+        )
+
+    assert (await index.search("public blob"))[0].rule_id == "rule.b"
+    assert all(item.rule_id != "rule.a" for item in await index.search("remote desktop"))
+
+
+async def test_generation_corpus_and_catalog_identity_are_enforced() -> None:
+    index = InMemoryCatalogSemanticIndex(embedder=_BilingualEmbedder())
+    metadata = _generation("gen-a", corpus="discovery")
+    await index.stage_generation(
+        metadata,
+        (CatalogSearchDocument("rule.candidate", "public blob candidate", ("resource",)),),
+    )
+    await index.activate_generation(
+        "gen-a",
+        expected_generation_digest=_A,
+        activated_at=datetime(2026, 8, 6, tzinfo=UTC),
+    )
+
+    assert await index.search("public blob", corpus="active") == ()
+    assert (await index.search("public blob", corpus="discovery"))[0].corpus == "discovery"
+    with pytest.raises(CatalogGenerationStaleError):
+        await index.search(
+            "public blob",
+            corpus="discovery",
+            expected_catalog_digest=_D,
+        )
