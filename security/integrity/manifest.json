@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 974,
+  "file_count": 975,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "22f8e22e3fd307e30886805683b0f38c39442deeb24a45026471d71084b4ea99",
     ".github/instructions/agent-stewardship.instructions.md": "574518fca728a9a6c8d3b50e0cf4aa53a1ed5bf85d5c52e5da67a0486bf31a43",
@@ -196,6 +196,7 @@
     "src/fdai/core/conversation/adapter_health.py": "cde8871557416e5757b4138a2f7272c1eb74c5f04d46f71e18980e4eb7565fe3",
     "src/fdai/core/conversation/answer_plan.py": "582903676321835a726979818345bab7f58561decae823e4c4332896dbabdcf4",
     "src/fdai/core/conversation/answer_planning.py": "a80ac28b96baea5701be63955653daa53d584e9c0be54f964fce056f8cfb1ef4",
+    "src/fdai/core/conversation/answer_planning_qualification.py": "1b6aa6124948962c83e6d11da80e4dfe88ec3b51b2b2b3a6f71f912c7104e699",
     "src/fdai/core/conversation/answer_preferences.py": "9f398dc1f438fde5ec51d97c14cddd815849c34a3a6d7252368ee861d177e041",
     "src/fdai/core/conversation/attachment_directive.py": "7349c3fd7d4aa72b877457ad47ba5ddbbe5490ba3e7d44cd1e86b87399b81c6c",
     "src/fdai/core/conversation/binding_delivery_context.py": "acff251615c1897322c449188618921ca3cd9cd181ae24983ce52d8db470a2e9",
@@ -977,7 +978,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-06T09:39:39Z",
+  "generated_at": "2026-08-06T09:53:00Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

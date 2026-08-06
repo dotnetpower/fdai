@@ -320,6 +320,14 @@ Promotion requires the frozen bilingual evaluation set, zero unsupported-claim e
 authority violations, no clean-answer regression, and measured latency, token-cost, unique-
 evidence, correction-rate, and follow-up-rate gates from this shadow baseline.
 
+The pure `answer_planning_qualification` evaluator consumes a version-pinned immutable batch and
+returns a content-addressed readiness receipt. The default review floor is 100 cases with at least
+50 English and 50 Korean cases. Unsupported-claim escapes, authority violations, and clean-answer
+regressions must remain zero. Planning p95 must remain within `1200 ms`, no case may exceed `800`
+added tokens, at least half of cases must add unique evidence, and correction and follow-up rates
+must not regress from the primary-only baseline. The receipt reports readiness for a separate
+review only. It cannot activate planning, change a terminal answer, or modify promotion state.
+
 #### 13.4.3 Live observation contract
 
 The read-only SPA exposes **Now > Live** as the current-state entry point. It

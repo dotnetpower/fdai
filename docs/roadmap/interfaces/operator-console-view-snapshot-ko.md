@@ -1,8 +1,8 @@
 ---
 title: Operator Console - View Snapshot Contract
 translation_of: operator-console-view-snapshot.md
-translation_source_sha: b29a5579ccda375fa5fa6cc496463909d91a9afe
-translation_revised: 2026-08-05
+translation_source_sha: 9b99a3e29d8d34eb85d3be7f3e0580573da9e08d
+translation_revised: 2026-08-06
 ---
 
 # Operator Console - View Snapshot Contract
@@ -307,6 +307,15 @@ Phase D selective activation과 Phase E cross-domain conflict handling은 아직
 Promotion하려면 frozen bilingual evaluation set, unsupported-claim escape 및 authority violation 0건,
 clean-answer regression 없음, 그리고 이 shadow baseline에서 측정한 latency, token cost, unique-evidence,
 correction-rate, follow-up-rate gate를 통과해야 합니다.
+
+순수 `answer_planning_qualification` evaluator는 version이 고정된 immutable batch를 입력받아 content
+address가 지정된 readiness receipt를 반환합니다. 기본 review 하한은 100개 case이며 English와 Korean
+case가 각각 50개 이상이어야 합니다. Unsupported-claim escape, authority violation, clean-answer
+regression은 모두 0이어야 합니다. Planning p95는 `1200 ms` 이내여야 하고 어떤 case도 추가 token
+`800`개를 초과할 수 없습니다. Case의 절반 이상에서 unique evidence가 늘어나야 하며 correction 및
+follow-up rate는 primary-only baseline보다 나빠지지 않아야 합니다. Receipt는 별도 review를 위한
+readiness만 보고합니다. Planning을 활성화하거나 terminal answer 또는 promotion state를 변경할 수
+없습니다.
 
 #### 13.4.3 실시간 관찰 계약
 
