@@ -22,7 +22,14 @@ from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_f
 from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.rule_catalog.schema.rule_semantic_generation import CatalogSearchGeneration
 from fdai.rule_catalog.schema.rule_semantic_manifest import build_rego_semantic_manifest
-from fdai.rule_catalog.schema.rule_semantic_retrieval import RuleCorpus, RuleSemanticManifest
+from fdai.rule_catalog.schema.rule_semantic_retrieval import (
+    RuleCorpus,
+    RuleSemanticManifest,
+    RuleSemanticSurface,
+)
+from fdai.rule_catalog.schema.rule_semantic_surface_catalog import (
+    load_promoted_semantic_surfaces,
+)
 from fdai.shared.contracts.models import OntologyActionType, Rule
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.ontology.release import build_ontology_release
@@ -48,6 +55,7 @@ class ShippedCatalogSearchSources:
     action_types: tuple[OntologyActionType, ...]
     policy_semantics: Mapping[str, RegoSemantics]
     semantic_manifests: Mapping[str, RuleSemanticManifest]
+    semantic_surfaces: Mapping[str, tuple[RuleSemanticSurface, ...]]
 
 
 async def index_shipped_catalog(
@@ -81,6 +89,7 @@ def load_shipped_catalog_search_documents(
         action_types=sources.action_types,
         policy_semantics=sources.policy_semantics,
         semantic_manifests=sources.semantic_manifests,
+        semantic_surfaces=sources.semantic_surfaces,
     )
 
 
@@ -146,11 +155,24 @@ def load_shipped_catalog_search_sources(
         )
         for rule in references.rules
     }
+    loaded_surfaces = load_promoted_semantic_surfaces(
+        repo_root / "rule-catalog" / "semantic-surfaces",
+        manifests=semantic_manifests,
+    )
+    rule_id_by_manifest = {item.digest: rule_id for rule_id, item in semantic_manifests.items()}
+    surfaces_by_rule: dict[str, list[RuleSemanticSurface]] = {}
+    for surface in loaded_surfaces:
+        rule_id = rule_id_by_manifest[surface.manifest_digest]
+        surfaces_by_rule.setdefault(rule_id, []).append(surface)
     return ShippedCatalogSearchSources(
         rules=references.rules,
         action_types=references.action_types,
         policy_semantics=policy_semantics,
         semantic_manifests=semantic_manifests,
+        semantic_surfaces={
+            rule_id: tuple(sorted(items, key=lambda item: item.surface_id))
+            for rule_id, items in surfaces_by_rule.items()
+        },
     )
 
 
@@ -173,6 +195,7 @@ async def publish_shipped_catalog_generation(
         action_types=sources.action_types,
         policy_semantics=sources.policy_semantics,
         semantic_manifests=sources.semantic_manifests,
+        semantic_surfaces=sources.semantic_surfaces,
     )
     catalog_digest = rule_reference_catalog_digest(sources.rules)
     document_digests = tuple(sorted(catalog_search_document_digest(item) for item in documents))

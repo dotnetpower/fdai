@@ -83,6 +83,7 @@ def test_shipped_catalog_sources_include_exact_manifest_per_rule() -> None:
     sources = load_shipped_catalog_search_sources(repo_root=_REPO_ROOT)
 
     assert set(sources.semantic_manifests) == {rule.id for rule in sources.rules}
+    assert sources.semantic_surfaces == {}
     assert all(
         manifest.corpus.value == "active" for manifest in sources.semantic_manifests.values()
     )
