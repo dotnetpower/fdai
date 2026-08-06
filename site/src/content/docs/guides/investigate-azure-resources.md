@@ -1,0 +1,1 @@
+../../../../../docs/user-guide/guides/investigate-azure-resources.md

@@ -1,0 +1,1 @@
+../../../../../docs/user-guide/concepts/ownership-and-handover.md

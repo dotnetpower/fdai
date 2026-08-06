@@ -1,0 +1,1 @@
+../../../../../../docs/user-guide/guides/use-console-operations-ko.md
