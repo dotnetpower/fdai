@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ from fdai.delivery.operator_api.auth import build_authenticator
 from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes.rule_catalog import _parse_rego_metadata
+from fdai.rule_catalog.schema.catalog_search import rule_reference_catalog_digest
 from fdai.shared.contracts.models import (
     Category,
     CheckLogic,
@@ -22,7 +24,7 @@ from fdai.shared.contracts.models import (
     RuleSource,
     Severity,
 )
-from fdai.shared.providers.catalog_search import CatalogSearchResult
+from fdai.shared.providers.catalog_search import CatalogGenerationMetadata, CatalogSearchResult
 
 
 @pytest.fixture(autouse=True)
@@ -128,9 +130,35 @@ class _SemanticIndex:
     async def synchronize(self, documents):  # type: ignore[no-untyped-def]
         return await self.upsert(documents)
 
-    async def search(self, query: str, *, k: int = 20):  # type: ignore[no-untyped-def]
+    async def active_generation(self, corpus="active"):  # type: ignore[no-untyped-def]
+        rules = _collected() if corpus == "discovery" else _active()
+        return CatalogGenerationMetadata(
+            generation_id=f"generation-{corpus}",
+            generation_digest="sha256:" + "a" * 64,
+            corpus=corpus,
+            catalog_digest=rule_reference_catalog_digest(rules),
+            semantic_schema_digest="sha256:" + "b" * 64,
+            ontology_release_digest="sha256:" + "c" * 64,
+            embedding_space_id="catalog-search-384",
+            embedding_model_version="test:1",
+            embedding_dimension=384,
+            state="active",
+            validation_receipt_digest="sha256:" + "d" * 64,
+            activated_at=datetime(2026, 8, 6, tzinfo=UTC),
+        )
+
+    async def search(  # type: ignore[no-untyped-def]
+        self,
+        query: str,
+        *,
+        k: int = 20,
+        corpus="active",
+        expected_catalog_digest=None,
+    ):
         assert query == "remote desktop"
         assert k == 5
+        assert corpus == "active"
+        assert expected_catalog_digest == rule_reference_catalog_digest(_active())
         return (
             CatalogSearchResult(
                 rule_id="disk.unattached",
@@ -147,13 +175,21 @@ class _SemanticIndex:
 
 
 class _FailingSemanticIndex(_SemanticIndex):
-    async def search(self, query: str, *, k: int = 20):  # type: ignore[no-untyped-def]
+    async def search(self, query: str, *, k: int = 20, **kwargs):  # type: ignore[no-untyped-def]
+        del query, k, kwargs
         raise RuntimeError("index offline")
 
 
 class _UnexpectedSemanticIndex(_SemanticIndex):
-    async def search(self, query: str, *, k: int = 20):  # type: ignore[no-untyped-def]
+    async def search(self, query: str, *, k: int = 20, **kwargs):  # type: ignore[no-untyped-def]
+        del query, k, kwargs
         raise AssertionError("semantic index MUST NOT run for invalid pagination")
+
+
+class _MissingGenerationIndex(_SemanticIndex):
+    async def active_generation(self, corpus="active"):  # type: ignore[no-untyped-def]
+        del corpus
+        return None
 
 
 def _semantic_client(index: object) -> TestClient:
@@ -214,6 +250,8 @@ def test_rules_use_semantic_rank_when_index_is_bound() -> None:
 
     assert response.status_code == 200
     assert body["search_mode"] == "semantic"
+    assert body["semantic_state"] == "available"
+    assert body["semantic_generation"]["generation_id"] == "generation-active"
     assert [item["id"] for item in body["rules"]] == [
         "disk.unattached",
         "object-storage.public-access.deny",
@@ -225,13 +263,24 @@ def test_rules_use_semantic_rank_when_index_is_bound() -> None:
     }
 
 
-def test_rules_report_configured_semantic_index_failure() -> None:
+def test_rules_degrade_to_substring_when_semantic_index_fails() -> None:
     response = _semantic_client(_FailingSemanticIndex()).get(
         "/rules", params={"q": "remote desktop"}
     )
 
-    assert response.status_code == 503
-    assert response.json()["error"]["reason"] == "RuntimeError"
+    assert response.status_code == 200
+    assert response.json()["search_mode"] == "degraded"
+    assert response.json()["semantic_state"] == "unavailable"
+    assert response.json()["semantic_reason"] == "RuntimeError"
+
+
+def test_rules_report_stale_when_active_generation_is_missing() -> None:
+    response = _semantic_client(_MissingGenerationIndex()).get("/rules", params={"q": "disk"})
+
+    assert response.status_code == 200
+    assert response.json()["search_mode"] == "degraded"
+    assert response.json()["semantic_state"] == "stale"
+    assert [item["id"] for item in response.json()["rules"]] == ["disk.unattached"]
 
 
 def test_invalid_pagination_is_rejected_before_semantic_search() -> None:

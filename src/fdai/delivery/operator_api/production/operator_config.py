@@ -11,7 +11,7 @@ from fdai.core.execution_authorization import AccessGrantRequestService
 from fdai.core.human_assignment import AssignmentCaseService, HandoverGoalService
 from fdai.core.rbac.access_request import AccessRequestService
 from fdai.core.rbac.kill_switch_command import KillSwitchCommandService
-from fdai.delivery.catalog_search import load_shipped_catalog_search_sources
+from fdai.delivery.catalog_search import load_shipped_catalog_reference_sources
 from fdai.delivery.configuration_review_store import (
     StateStoreConfigurationReviewCampaignStore,
 )
@@ -42,7 +42,6 @@ from fdai.delivery.persistence.postgres_task_worker import (
     PostgresTaskWorkerStore,
     PostgresTaskWorkerStoreConfig,
 )
-from fdai.rule_catalog.schema.catalog_search import build_catalog_search_documents
 
 _AsyncCallback = Callable[[], Awaitable[None]]
 
@@ -96,16 +95,7 @@ def build_production_operator_config(
     inputs: ProductionOperatorConfigInputs,
 ) -> OperatorApiConfig:
     """Assemble the final route configuration from production wiring bundles."""
-    catalog_search_sources = load_shipped_catalog_search_sources(repo_root=inputs.repo_root)
-    catalog_search_documents = build_catalog_search_documents(
-        rules=catalog_search_sources.rules,
-        action_types=catalog_search_sources.action_types,
-        policy_semantics=catalog_search_sources.policy_semantics,
-    )
-
-    async def _seed_catalog_semantic_index() -> None:
-        if inputs.catalog_semantic_index is not None:
-            await inputs.catalog_semantic_index.synchronize(catalog_search_documents)
+    catalog_reference_sources = load_shipped_catalog_reference_sources(repo_root=inputs.repo_root)
 
     read_investigation = inputs.read_investigation
     runtime = inputs.runtime
@@ -140,7 +130,7 @@ def build_production_operator_config(
         t2_recovery_reader=inputs.state_store,
         best_practice_controls=load_best_practice_reference(inputs.repo_root),
         mcsb_catalogs=load_mcsb_reference(inputs.repo_root),
-        rule_catalog_rules=catalog_search_sources.rules,
+        rule_catalog_rules=catalog_reference_sources.rules,
         rule_catalog_policies_root=inputs.repo_root / "policies",
         rule_catalog_remediation_root=inputs.repo_root / "rule-catalog" / "remediation",
         rule_catalog_semantic_index=inputs.catalog_semantic_index,
@@ -275,7 +265,6 @@ def build_production_operator_config(
             inputs.read_model.verify_connection,
             *read_investigation.schema_verification_callbacks,
             *read_investigation.reader_startup_callbacks,
-            _seed_catalog_semantic_index,
             *runtime.startup_callbacks,
             *read_investigation.delegate_startup_callbacks,
             *inputs.stewardship_startup_callbacks,

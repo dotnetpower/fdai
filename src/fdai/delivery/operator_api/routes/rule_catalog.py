@@ -34,8 +34,13 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
+from fdai.rule_catalog.schema.catalog_search import rule_reference_catalog_digest
 from fdai.shared.contracts.models import Rule
-from fdai.shared.providers.catalog_search import CatalogSemanticIndex
+from fdai.shared.providers.catalog_search import (
+    CatalogCorpus,
+    CatalogGenerationStaleError,
+    CatalogSemanticIndex,
+)
 
 DEFAULT_ROUTE_PATH = "/rules"
 DETAIL_ROUTE_PATH = "/rules/{rule_id}"
@@ -68,6 +73,8 @@ MAX_BODY_BYTES = 512_000
 # imported upstream corpus (candidate / reference material).
 ORIGIN_ACTIVE = "active"
 ORIGIN_COLLECTED = "collected"
+CORPUS_ACTIVE: CatalogCorpus = "active"
+CORPUS_DISCOVERY: CatalogCorpus = "discovery"
 
 _SEVERITY_RANK = {"critical": 4, "high": 3, "medium": 2, "low": 1}
 
@@ -360,6 +367,10 @@ def make_rule_catalog_routes(
         "by_source": _sorted_counts(Counter(ir.source for ir in indexed)),
     }
     resource_type_count = len({ir.payload["resource_type"] for ir in indexed})
+    corpus_digests = {
+        CORPUS_ACTIVE: rule_reference_catalog_digest(active_rules),
+        CORPUS_DISCOVERY: rule_reference_catalog_digest(collected_rules),
+    }
 
     def _bad_request(message: str) -> Response:
         return JSONResponse({"error": {"status": 400, "message": message}}, status_code=400)
@@ -386,31 +397,49 @@ def make_rule_catalog_routes(
         semantic_rank: dict[str, int] | None = None
         semantic_evidence: dict[str, object] = {}
         semantic_truncated = False
+        semantic_state = "disabled" if semantic_index is None else "available"
+        semantic_reason: str | None = None
+        semantic_generation: dict[str, object] | None = None
         if needle and semantic_index is not None:
+            corpus: CatalogCorpus = (
+                CORPUS_DISCOVERY if origin == ORIGIN_COLLECTED else CORPUS_ACTIVE
+            )
             try:
                 semantic_limit = min(max(total, 1), MAX_SEMANTIC_CANDIDATES)
-                semantic_results = await semantic_index.search(needle, k=semantic_limit)
-            except Exception as exc:  # noqa: BLE001 - read capability must report unavailability
-                return JSONResponse(
-                    {
-                        "error": {
-                            "status": 503,
-                            "message": "catalog semantic search is unavailable",
-                            "reason": type(exc).__name__,
-                        }
-                    },
-                    status_code=503,
+                active_generation = await semantic_index.active_generation(corpus)
+                if active_generation is None:
+                    raise CatalogGenerationStaleError("active generation unavailable")
+                semantic_results = await semantic_index.search(
+                    needle,
+                    k=semantic_limit,
+                    corpus=corpus,
+                    expected_catalog_digest=corpus_digests[corpus],
                 )
-            semantic_rank = {result.rule_id: rank for rank, result in enumerate(semantic_results)}
-            semantic_evidence = {
-                result.rule_id: {
-                    "score": result.score,
-                    "match": result.match,
-                    "components": dict(result.components),
+                semantic_generation = {
+                    "generation_id": active_generation.generation_id,
+                    "generation_digest": active_generation.generation_digest,
+                    "catalog_digest": active_generation.catalog_digest,
+                    "corpus": active_generation.corpus,
                 }
-                for result in semantic_results
-            }
-            semantic_truncated = total > semantic_limit
+            except CatalogGenerationStaleError as exc:
+                semantic_state = "stale"
+                semantic_reason = type(exc).__name__
+            except Exception as exc:  # noqa: BLE001 - lexical projection remains available
+                semantic_state = "unavailable"
+                semantic_reason = type(exc).__name__
+            else:
+                semantic_rank = {
+                    result.rule_id: rank for rank, result in enumerate(semantic_results)
+                }
+                semantic_evidence = {
+                    result.rule_id: {
+                        "score": result.score,
+                        "match": result.match,
+                        "components": dict(result.components),
+                    }
+                    for result in semantic_results
+                }
+                semantic_truncated = total > semantic_limit
 
         matched = [
             ir
@@ -436,7 +465,16 @@ def make_rule_catalog_routes(
                 "offset": offset,
                 "limit": limit,
                 "resource_type_count": resource_type_count,
-                "search_mode": "semantic" if semantic_rank is not None else "substring",
+                "search_mode": (
+                    "semantic"
+                    if semantic_rank is not None
+                    else "degraded"
+                    if needle and semantic_index is not None
+                    else "substring"
+                ),
+                "semantic_state": semantic_state,
+                "semantic_reason": semantic_reason,
+                "semantic_generation": semantic_generation,
                 "search_truncated": semantic_truncated,
                 "facets": facets,
                 "rules": [

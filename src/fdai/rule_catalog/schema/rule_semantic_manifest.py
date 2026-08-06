@@ -121,6 +121,16 @@ def build_surface_candidate(
     )
 
 
+def semantic_manifest_catalog_digest(manifests: Iterable[RuleSemanticManifest]) -> str:
+    """Hash one ordered manifest set as the exact searchable catalog identity."""
+
+    rows = tuple(sorted((item.rule_id, item.rule_version, item.digest) for item in manifests))
+    if not rows or len({item[0] for item in rows}) != len(rows):
+        raise ValueError("semantic manifest catalog MUST be non-empty with unique Rule ids")
+    encoded = json.dumps(rows, separators=(",", ":")).encode()
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
 def _concrete_refs(values: Iterable[str]) -> tuple[str, ...]:
     return tuple(sorted({value for value in values if value != "*"}))
 
@@ -144,4 +154,5 @@ __all__ = [
     "build_expression_semantic_manifest",
     "build_rego_semantic_manifest",
     "build_surface_candidate",
+    "semantic_manifest_catalog_digest",
 ]
