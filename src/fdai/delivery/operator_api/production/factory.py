@@ -79,6 +79,7 @@ from fdai.core.conversation_assurance import (
 )
 from fdai.core.metering.budget import InMemoryBudgetLedger, ModelBudget
 from fdai.core.stewardship import load_stewardship_from_yaml
+from fdai.delivery.catalog_search.ontology_function import catalog_query_function_type
 from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
 from fdai.delivery.operator_api.main import build_app
 from fdai.delivery.operator_api.production import env_contract as _env
@@ -253,7 +254,11 @@ def build_prod_app(
     )
     from fdai.delivery.kubernetes.ontology_functions import diagnostic_function_types
 
-    ontology_function_types = (inventory_query_function_type(), *diagnostic_function_types())
+    ontology_function_types = (
+        inventory_query_function_type(),
+        catalog_query_function_type(),
+        *diagnostic_function_types(),
+    )
     ontology_release = build_ontology_release(
         object_types=object_types,
         link_types=link_types,

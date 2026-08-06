@@ -1,0 +1,154 @@
+from __future__ import annotations
+
+from datetime import UTC, datetime
+
+import pytest
+from jsonschema import Draft202012Validator
+
+from fdai.delivery.catalog_search import InMemoryCatalogSemanticIndex
+from fdai.delivery.catalog_search.concept_query import (
+    CatalogConceptQuery,
+    ConceptFirstCatalogRetriever,
+    RuleSearchFacet,
+)
+from fdai.delivery.catalog_search.ontology_function import (
+    catalog_query_function_type,
+    project_catalog_retrieval_receipt,
+)
+from fdai.rule_catalog.schema.rule_semantic_generation import RetrievalOperation
+from fdai.rule_catalog.schema.rule_semantic_retrieval import RuleCorpus
+from fdai.shared.providers.catalog_search import (
+    CatalogGenerationMetadata,
+    CatalogSearchDocument,
+)
+
+_CATALOG = "sha256:" + "a" * 64
+_GENERATION = "sha256:" + "b" * 64
+_SCHEMA = "sha256:" + "c" * 64
+_RELEASE = "sha256:" + "d" * 64
+_VALIDATION = "sha256:" + "e" * 64
+
+
+class _Embedder:
+    async def embed(self, text: str):  # type: ignore[no-untyped-def]
+        return (1.0, 0.0, 0.0) if "public" in text.casefold() else (0.0, 1.0, 0.0)
+
+
+async def _resolver() -> ConceptFirstCatalogRetriever:
+    index = InMemoryCatalogSemanticIndex(embedder=_Embedder())
+    metadata = CatalogGenerationMetadata(
+        generation_id="generation-active",
+        generation_digest=_GENERATION,
+        corpus="active",
+        catalog_digest=_CATALOG,
+        semantic_schema_digest=_SCHEMA,
+        ontology_release_digest=_RELEASE,
+        embedding_space_id="catalog-search-3",
+        embedding_model_version="test:1",
+        embedding_dimension=3,
+        validation_receipt_digest=_VALIDATION,
+    )
+    await index.stage_generation(
+        metadata,
+        (
+            CatalogSearchDocument(
+                "object-storage.public-access.deny",
+                "Block public object storage access",
+                ("object-storage", "property.object-storage.public_access"),
+            ),
+            CatalogSearchDocument(
+                "object-storage.versioning-enabled",
+                "Enable object storage versioning",
+                ("object-storage", "property.object-storage.versioning"),
+            ),
+        ),
+    )
+    await index.activate_generation(
+        metadata.generation_id,
+        expected_generation_digest=metadata.generation_digest,
+        activated_at=datetime(2026, 8, 6, tzinfo=UTC),
+    )
+    return ConceptFirstCatalogRetriever(
+        index=index,
+        catalog_digest=_CATALOG,
+        concepts={
+            "concept.public-access": frozenset({"object-storage.public-access.deny"}),
+            "concept.object-storage": frozenset(
+                {
+                    "object-storage.public-access.deny",
+                    "object-storage.versioning-enabled",
+                }
+            ),
+        },
+        facets={
+            "object-storage.public-access.deny": RuleSearchFacet(
+                "object-storage.public-access.deny", "1.0.0", "object-storage", "security"
+            ),
+            "object-storage.versioning-enabled": RuleSearchFacet(
+                "object-storage.versioning-enabled", "1.0.0", "object-storage", "reliability"
+            ),
+        },
+    )
+
+
+async def test_concept_first_query_limits_hybrid_results() -> None:
+    resolver = await _resolver()
+    receipt = await resolver.resolve(
+        CatalogConceptQuery(
+            text="Which policy blocks public storage?",
+            operation=RetrievalOperation.EXPLAIN,
+            concept_refs=("concept.object-storage", "concept.public-access"),
+            resource_types=("object-storage",),
+            categories=("security",),
+        )
+    )
+
+    assert [item.rule_ref for item in receipt.results] == [
+        "rule:object-storage.public-access.deny@1.0.0"
+    ]
+    assert receipt.execution_authority is False
+    assert receipt.generation_digest == _GENERATION
+
+
+async def test_unknown_concept_requires_clarification_without_results() -> None:
+    resolver = await _resolver()
+    receipt = await resolver.resolve(
+        CatalogConceptQuery(
+            text="Find the quantum policy",
+            operation=RetrievalOperation.DISCOVER,
+            concept_refs=("concept.unknown",),
+        )
+    )
+
+    assert receipt.clarification_required is True
+    assert receipt.unresolved_terms == ("concept.unknown",)
+    assert receipt.results == ()
+
+
+def test_discovery_corpus_cannot_request_evaluation() -> None:
+    with pytest.raises(ValueError, match="active corpus"):
+        CatalogConceptQuery(
+            text="Evaluate this candidate",
+            operation=RetrievalOperation.EVALUATE,
+            corpus=RuleCorpus.DISCOVERY,
+        )
+
+
+async def test_catalog_query_function_projection_is_strict_and_read_only() -> None:
+    resolver = await _resolver()
+    receipt = await resolver.resolve(
+        CatalogConceptQuery(
+            text="Explain public storage policy",
+            operation=RetrievalOperation.EXPLAIN,
+            concept_refs=("concept.public-access",),
+        )
+    )
+    projected = project_catalog_retrieval_receipt(receipt)
+    declaration = catalog_query_function_type()
+
+    Draft202012Validator(declaration.output_schema).validate(projected)
+    assert declaration.name == "catalog.search_rules"
+    assert declaration.kind.value == "query"
+    assert declaration.network_allowed is False
+    assert declaration.credentials_allowed is False
+    assert projected["execution_authority"] is False

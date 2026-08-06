@@ -141,6 +141,8 @@ class CatalogRetrievalReceipt:
     results: tuple[RetrievalRank, ...]
     generation_digest: str | None = None
     degraded_reason: str | None = None
+    unresolved_terms: tuple[str, ...] = ()
+    clarification_required: bool = False
     truncated: bool = False
     execution_authority: bool = False
     schema_version: str = "1.0.0"
@@ -166,6 +168,14 @@ class CatalogRetrievalReceipt:
             if self.degraded_reason is None:
                 raise ValueError("degraded semantic retrieval MUST include a reason")
             _bounded_identifier("degraded_reason", self.degraded_reason)
+        if self.unresolved_terms != tuple(sorted(set(self.unresolved_terms))):
+            raise ValueError("retrieval unresolved_terms MUST be unique and ordered")
+        for value in self.unresolved_terms:
+            _bounded_identifier("unresolved_term", value)
+        if self.unresolved_terms and not self.clarification_required:
+            raise ValueError("unresolved retrieval terms MUST require clarification")
+        if self.clarification_required and self.results:
+            raise ValueError("clarification receipt MUST NOT claim ranked Rule results")
         if (
             self.operation
             in {
@@ -197,6 +207,8 @@ class CatalogRetrievalReceipt:
                 "generation_digest": self.generation_digest,
                 "results": [(item.rule_ref, item.rank, item.components) for item in self.results],
                 "degraded_reason": self.degraded_reason,
+                "unresolved_terms": self.unresolved_terms,
+                "clarification_required": self.clarification_required,
                 "truncated": self.truncated,
                 "execution_authority": self.execution_authority,
             }

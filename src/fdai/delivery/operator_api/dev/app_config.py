@@ -242,6 +242,7 @@ def build_local_operator_api_config(
         else dependencies.models.settings.store
     )
 
+    from fdai.delivery.catalog_search.ontology_function import catalog_query_function_type
     from fdai.delivery.kubernetes.ontology_functions import diagnostic_function_types
     from fdai.delivery.operator_api.routes.chat_inventory_ontology import (
         inventory_query_function_type,
@@ -252,6 +253,7 @@ def build_local_operator_api_config(
 
     ontology_function_types = (
         inventory_query_function_type(),
+        catalog_query_function_type(),
         *diagnostic_function_types(),
     )
     local_ontology_release = build_ontology_release(
