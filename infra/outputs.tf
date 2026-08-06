@@ -300,3 +300,177 @@ output "ingestion_migration_identity_principal_id" {
   description = "Dedicated document-ingestion migration Managed Identity object id."
   value       = length(module.ingestion_migration_identity) > 0 ? module.ingestion_migration_identity[0].principal_id : ""
 }
+
+locals {
+  ingestion_executor_authority_role_names = toset([
+    "Azure Event Hubs Data Owner",
+  ])
+  ingestion_api_principal_id       = try(module.ingestion_identity[0].principal_id, "")
+  ingestion_worker_principal_id    = try(module.ingestion_worker_identity[0].principal_id, "")
+  ingestion_migration_principal_id = try(module.ingestion_migration_identity[0].principal_id, "")
+  ingestion_api_role_ceiling = !var.enable_document_ingestion ? [] : concat(
+    [
+      {
+        role_name = azurerm_role_assignment.ingestion_acr_pull[0].role_definition_name
+        scope     = azurerm_role_assignment.ingestion_acr_pull[0].scope
+      },
+      {
+        role_name = azurerm_role_assignment.ingestion_eventhubs_sender[0].role_definition_name
+        scope     = azurerm_role_assignment.ingestion_eventhubs_sender[0].scope
+      },
+      {
+        role_name = azurerm_role_assignment.ingestion_document_data[0].role_definition_name
+        scope     = azurerm_role_assignment.ingestion_document_data[0].scope
+      },
+      {
+        role_name = "Cognitive Services OpenAI User"
+        scope     = module.llm_azure_openai[0].resource_id
+      },
+    ],
+    var.ingestion_cohost_worker ? [
+      {
+        role_name = azurerm_role_assignment.ingestion_eventhubs_receiver[0].role_definition_name
+        scope     = azurerm_role_assignment.ingestion_eventhubs_receiver[0].scope
+      },
+      {
+        role_name = azurerm_role_assignment.ingestion_kv_secrets_user[0].role_definition_name
+        scope     = azurerm_role_assignment.ingestion_kv_secrets_user[0].scope
+      },
+      ] : [
+      {
+        role_name = azurerm_role_assignment.ingestion_api_kv_secrets_user[0].role_definition_name
+        scope     = azurerm_role_assignment.ingestion_api_kv_secrets_user[0].scope
+      },
+    ],
+    var.ingestion_cohost_worker && var.document_ocr_resource_id != "" ? [
+      {
+        role_name = azurerm_role_assignment.ingestion_ocr_user[0].role_definition_name
+        scope     = azurerm_role_assignment.ingestion_ocr_user[0].scope
+      },
+    ] : [],
+  )
+  ingestion_worker_role_ceiling = !var.enable_document_ingestion || var.ingestion_cohost_worker ? [] : concat(
+    [
+      {
+        role_name = azurerm_role_assignment.ingestion_worker_acr_pull[0].role_definition_name
+        scope     = azurerm_role_assignment.ingestion_worker_acr_pull[0].scope
+      },
+      {
+        role_name = azurerm_role_assignment.ingestion_worker_eventhubs_sender[0].role_definition_name
+        scope     = azurerm_role_assignment.ingestion_worker_eventhubs_sender[0].scope
+      },
+      {
+        role_name = azurerm_role_assignment.ingestion_worker_pantheon_receiver[0].role_definition_name
+        scope     = azurerm_role_assignment.ingestion_worker_pantheon_receiver[0].scope
+      },
+      {
+        role_name = azurerm_role_assignment.ingestion_worker_kv_secrets_user[0].role_definition_name
+        scope     = azurerm_role_assignment.ingestion_worker_kv_secrets_user[0].scope
+      },
+      {
+        role_name = azurerm_role_assignment.ingestion_worker_document_data[0].role_definition_name
+        scope     = azurerm_role_assignment.ingestion_worker_document_data[0].scope
+      },
+      {
+        role_name = "Cognitive Services OpenAI User"
+        scope     = module.llm_azure_openai[0].resource_id
+      },
+    ],
+    var.document_ocr_resource_id != "" ? [
+      {
+        role_name = azurerm_role_assignment.ingestion_ocr_user[0].role_definition_name
+        scope     = azurerm_role_assignment.ingestion_ocr_user[0].scope
+      },
+    ] : [],
+  )
+  ingestion_migration_role_ceiling = !var.enable_document_ingestion ? [] : [
+    {
+      role_name = azurerm_role_assignment.ingestion_migration_acr_pull[0].role_definition_name
+      scope     = azurerm_role_assignment.ingestion_migration_acr_pull[0].scope
+    },
+    {
+      role_name = azurerm_role_assignment.ingestion_migration_kv_secrets_user[0].role_definition_name
+      scope     = azurerm_role_assignment.ingestion_migration_kv_secrets_user[0].scope
+    },
+  ]
+  ingestion_runtime_role_names = toset([
+    for assignment in concat(
+      local.ingestion_api_role_ceiling,
+      local.ingestion_worker_role_ceiling,
+      local.ingestion_migration_role_ceiling,
+    ) : assignment.role_name
+  ])
+}
+
+output "ingestion_effective_access_evidence" {
+  description = "Static expected-access contract for ingestion identities; use the read-only evidence gate to compare it with live Azure RBAC and PostgreSQL roles."
+  sensitive   = true
+  value = {
+    contract_version = "1.0"
+    evidence_class   = "terraform-static"
+    enabled          = var.enable_document_ingestion
+    topology         = var.ingestion_cohost_worker ? "cohost" : "split"
+    executor = {
+      principal_id         = module.identity.principal_id
+      authority_role_names = sort(tolist(local.ingestion_executor_authority_role_names))
+    }
+    identities = {
+      api = {
+        present                   = var.enable_document_ingestion
+        principal_id              = local.ingestion_api_principal_id
+        database_role             = var.ingestion_cohost_worker ? "fdai_ingestion_cohost" : "fdai_ingestion_api"
+        expected_role_assignments = local.ingestion_api_role_ceiling
+      }
+      worker = {
+        present                   = var.enable_document_ingestion && !var.ingestion_cohost_worker
+        principal_id              = local.ingestion_worker_principal_id
+        database_role             = "fdai_ingestion_worker"
+        expected_role_assignments = local.ingestion_worker_role_ceiling
+      }
+      migration = {
+        present                   = var.enable_document_ingestion
+        principal_id              = local.ingestion_migration_principal_id
+        database_role             = var.postgres_admin_login
+        expected_role_assignments = local.ingestion_migration_role_ceiling
+      }
+    }
+    checks = {
+      identities_distinct_from_executor = var.enable_document_ingestion && (
+        local.ingestion_api_principal_id != module.identity.principal_id &&
+        local.ingestion_migration_principal_id != module.identity.principal_id &&
+        (
+          var.ingestion_cohost_worker ||
+          local.ingestion_worker_principal_id != module.identity.principal_id
+        )
+      )
+      runtime_identities_are_distinct = var.enable_document_ingestion && (
+        local.ingestion_api_principal_id != local.ingestion_migration_principal_id &&
+        (
+          var.ingestion_cohost_worker ||
+          (
+            local.ingestion_worker_principal_id != local.ingestion_api_principal_id &&
+            local.ingestion_worker_principal_id != local.ingestion_migration_principal_id
+          )
+        )
+      )
+      executor_authority_role_overlap = sort(tolist(setintersection(
+        local.ingestion_runtime_role_names,
+        local.ingestion_executor_authority_role_names,
+      )))
+    }
+    cohost_rollback = {
+      flag                              = "ingestion_cohost_worker"
+      api_database_role                 = "fdai_ingestion_cohost"
+      adls_owner                        = "api"
+      eventhubs_receive_owner           = "api"
+      worker_identity_present           = false
+      migration_identity_preserved      = true
+      executor_identity_preserved       = true
+      independent_worker_restore_target = "split"
+    }
+    live_evidence_required = [
+      "Azure effective role assignments including inherited scopes",
+      "PostgreSQL role existence and non-privileged runtime attributes",
+    ]
+  }
+}
