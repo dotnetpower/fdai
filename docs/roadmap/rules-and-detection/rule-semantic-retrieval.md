@@ -21,6 +21,8 @@ evaluation gates, and failed-query feedback loop.
 > concept-first bounded retrieval, lexical degradation, and a durable StateStore challenger store.
 > Generation publishing runs off the Operator API startup path. The PostgreSQL generation adapter
 > has focused contract coverage; its live-database test requires `FDAI_DATABASE_URL`.
+> The one-shot `fdai-catalog-generation` process publishes a validated generation from a scheduled
+> job or deployment step and fails closed when its PostgreSQL or embedding binding is unavailable.
 
 ## Design at a glance
 

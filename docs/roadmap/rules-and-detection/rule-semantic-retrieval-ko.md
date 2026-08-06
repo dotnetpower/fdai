@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: d54534418dc1425d7ffb5930c5855405ec4dc26d
+translation_source_sha: 887fa8067111d60835269be59cbb929bf781ea5f
 translation_revised: 2026-08-06
 ---
 # Rule 의미 검색
@@ -23,6 +23,8 @@ translation_revised: 2026-08-06
 > Generation publishing은 Operator API startup 경로 밖에서 실행됩니다. PostgreSQL generation
 > adapter에는 focused contract coverage가 있으며 live database test에는 `FDAI_DATABASE_URL`이
 > 필요합니다.
+> One-shot `fdai-catalog-generation` process는 scheduled job 또는 deployment step에서 validated
+> generation을 publish하며 PostgreSQL 또는 embedding binding을 사용할 수 없으면 fail closed합니다.
 
 ## 설계 개요
 
