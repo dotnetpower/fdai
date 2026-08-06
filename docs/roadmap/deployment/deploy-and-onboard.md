@@ -432,7 +432,7 @@ and the composition root; there is no undocumented localhost IPC.
 - **Graduation rule**: approve, defer, or reject a split through the measured triggers, binary
   gates, ownership, contract, identity, and rollback matrix in [Service Graduation and Data Ownership](../architecture/service-graduation-and-ownership.md).
 - **Identity split**: Operator API read/command and ingestion API/worker/migration principals stay
-  distinct. `ingestion_cohost_worker=true` is the bounded rollback to the previous single app.
+  distinct. The worker receives Saga/Muninn objects only from `aw.pantheon.objects` and sends stage facts to `aw.pipeline.stages`; `ingestion_cohost_worker=true` returns both scopes to the API identity.
 
 ## Bootstrap Sequence
 

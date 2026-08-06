@@ -673,7 +673,7 @@ def test_runner_live_preflight_workflow_is_structurally_executable() -> None:
                     "change": {"actions": ["delete"]},
                 },
                 {
-                    "address": ("azurerm_role_assignment.ingestion_worker_eventhubs_receiver[0]"),
+                    "address": ("azurerm_role_assignment.ingestion_worker_pantheon_receiver[0]"),
                     "change": {"actions": ["create"]},
                 },
             ],
@@ -687,6 +687,32 @@ def test_runner_live_preflight_workflow_is_structurally_executable() -> None:
                 }
             ],
             1,
+        ),
+        (
+            [
+                {
+                    "address": ("azurerm_role_assignment.ingestion_worker_eventhubs_receiver[0]"),
+                    "change": {"actions": ["delete"]},
+                },
+                {
+                    "address": ("azurerm_role_assignment.ingestion_worker_pantheon_receiver[0]"),
+                    "change": {"actions": ["create"]},
+                },
+            ],
+            0,
+        ),
+        (
+            [
+                {
+                    "address": ("azurerm_role_assignment.ingestion_worker_pantheon_receiver[0]"),
+                    "change": {"actions": ["delete"]},
+                },
+                {
+                    "address": "azurerm_role_assignment.ingestion_eventhubs_receiver[0]",
+                    "change": {"actions": ["create"]},
+                },
+            ],
+            0,
         ),
         (
             [

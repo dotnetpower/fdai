@@ -1,6 +1,6 @@
 ---
 translation_of: document-ingestion-agent-ownership.md
-translation_source_sha: a375699b706f1dd505e66dfee79d32297aaf8c98
+translation_source_sha: 11c087b495e0c194a2b64adcb8c4d0d2d8f9e0b3
 translation_revised: 2026-08-06
 ---
 
@@ -109,7 +109,9 @@ PostgreSQL claim을 획득합니다. Claim은 worker owner, attempt id, revision
 Production은 upload API와 worker를 별도 Container App으로 schedule합니다. 이 분리는 process
 lifetime, scaling, managed identity, database grant만 변경합니다. API는 worker consumer group을
 subscribe하지 않고 worker는 upload ingress를 노출하지 않으며, 어느 process도 deployment role에서
-judgment, approval, audit, memory 또는 executor authority를 얻지 않습니다.
+judgment, approval, audit, memory 또는 executor authority를 얻지 않습니다. Topic-scoped RBAC는
+worker가 `aw.pantheon.objects`에서 Saga와 Muninn object를 receive하고 `aw.pipeline.stages`로 stage
+fact를 send하게 하며, split mode의 API identity에는 worker receive grant를 부여하지 않습니다.
 
 ## 관련 문서
 

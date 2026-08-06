@@ -102,7 +102,9 @@ It does not add worker authority to `UploadSession` and does not replace the Sag
 Production schedules the upload API and worker as separate Container Apps. This split changes
 process lifetime, scaling, managed identity, and database grants only. The API never subscribes to
 worker consumer groups, the worker exposes no upload ingress, and neither process gains judgment,
-approval, audit, memory, or executor authority from its deployment role.
+approval, audit, memory, or executor authority from its deployment role. Topic-scoped RBAC lets the
+worker receive Saga and Muninn objects from `aw.pantheon.objects` and send stage facts to
+`aw.pipeline.stages`; the API identity has no worker receive grant in split mode.
 
 ## Related docs
 

@@ -525,14 +525,23 @@ resource "azurerm_role_assignment" "ingestion_worker_eventhubs_sender" {
 
 resource "azurerm_role_assignment" "ingestion_eventhubs_receiver" {
   count                = var.enable_document_ingestion && var.ingestion_cohost_worker ? 1 : 0
-  scope                = module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]
+  scope                = module.event_bus.topic_ids["aw.pantheon.objects"]
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = module.ingestion_identity[0].principal_id
 }
 
+# Keep the prior split-worker address until every deployment has retired its
+# pipeline-stage receiver through the protected successor-pair plan gate.
 resource "azurerm_role_assignment" "ingestion_worker_eventhubs_receiver" {
-  count                = var.enable_document_ingestion && !var.ingestion_cohost_worker ? 1 : 0
+  count                = 0
   scope                = module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]
+  role_definition_name = "Azure Event Hubs Data Receiver"
+  principal_id         = module.ingestion_worker_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "ingestion_worker_pantheon_receiver" {
+  count                = var.enable_document_ingestion && !var.ingestion_cohost_worker ? 1 : 0
+  scope                = module.event_bus.topic_ids["aw.pantheon.objects"]
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = module.ingestion_worker_identity[0].principal_id
 }
@@ -2072,6 +2081,7 @@ module "ingestion_gateway" {
     azurerm_role_assignment.ingestion_worker_eventhubs_sender,
     azurerm_role_assignment.ingestion_eventhubs_receiver,
     azurerm_role_assignment.ingestion_worker_eventhubs_receiver,
+    azurerm_role_assignment.ingestion_worker_pantheon_receiver,
     azurerm_role_assignment.ingestion_kv_secrets_user,
     azurerm_role_assignment.ingestion_api_kv_secrets_user,
     azurerm_role_assignment.ingestion_worker_kv_secrets_user,

@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: fe7388933e8e276988199b6433bc3a8dbcfa60af
+translation_source_sha: c07fc9189d2409c67d5c59e6582842ddeedb8a28
 translation_revised: 2026-08-06
 ---
 
@@ -432,7 +432,7 @@ root로 유지되며, 문서화되지 않은 localhost IPC는 없습니다.
   Hubs 데이터로 깨어나지 않으므로 Terraform은 scale-to-zero를 주장하지 않습니다.
 - **분리 기준**: [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)의 measured trigger, binary gate, ownership, contract, identity, rollback matrix로 split을 승인, 보류 또는 거절합니다.
 - **Identity 분리**: Operator API read/command와 ingestion API/worker/migration principal을
-  분리합니다. `ingestion_cohost_worker=true`는 이전 single app으로 돌아가는 제한된 rollback입니다.
+  분리합니다. Worker는 `aw.pantheon.objects`에서 Saga/Muninn object만 receive하고 `aw.pipeline.stages`로 stage fact를 send합니다. `ingestion_cohost_worker=true`는 두 scope를 API identity로 돌립니다.
 
 ## 부트스트랩 순서
 
