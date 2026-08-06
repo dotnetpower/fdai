@@ -75,6 +75,7 @@ async def _resolver() -> ConceptFirstCatalogRetriever:
     return ConceptFirstCatalogRetriever(
         index=index,
         catalog_digest=_CATALOG,
+        ontology_release_digest=_RELEASE,
         concepts={
             "concept.public-access": frozenset({"object-storage.public-access.deny"}),
             "concept.object-storage": frozenset(
@@ -126,6 +127,22 @@ async def test_unknown_concept_requires_clarification_without_results() -> None:
 
     assert receipt.clarification_required is True
     assert receipt.unresolved_terms == ("concept.unknown",)
+    assert receipt.results == ()
+
+
+async def test_stale_ontology_release_blocks_ranking() -> None:
+    resolver = await _resolver()
+    resolver._ontology_release_digest = "sha256:" + "f" * 64
+
+    receipt = await resolver.resolve(
+        CatalogConceptQuery(
+            text="Explain public storage policy",
+            operation=RetrievalOperation.EXPLAIN,
+        )
+    )
+
+    assert receipt.semantic_state.value == "stale"
+    assert receipt.degraded_reason == "ontology-release-stale"
     assert receipt.results == ()
 
 

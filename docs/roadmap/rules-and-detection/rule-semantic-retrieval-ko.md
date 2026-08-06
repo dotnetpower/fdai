@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: f939d5c1fa56a0ea809ad3711996f43d2f1851c8
+translation_source_sha: 6fb241416b9f01b4b7be042dabd620a7e2d81f8c
 translation_revised: 2026-08-06
 ---
 # Rule 의미 검색
@@ -182,7 +182,7 @@ property, category 및 corpus filter를 받습니다. 검증된 semantic plan도
 2. Intent와 ontology concept 후보를 제안합니다.
 3. Node 및 depth 제한 안에서 허용 목록의 typed link만 확장합니다.
 4. 결과 후보 집합 안에서 hybrid ranking을 실행합니다.
-5. 활성 catalog 및 generation ID를 검증합니다.
+5. 활성 catalog, generation 및 현재 ontology release ID를 검증합니다.
 6. 후보를 반환하거나, 명확화를 요청하거나, 근거가 부족하면 보류합니다.
 
 평가 요청은 정확한 활성 Rule과 현재 resource evidence를 사용해 기존 T0 경로로 다시 들어갑니다.

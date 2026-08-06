@@ -234,6 +234,7 @@ def _semantic_client(index: object, *, concept_search: bool = False) -> TestClie
             retriever=ConceptFirstCatalogRetriever(
                 index=index,  # type: ignore[arg-type]
                 catalog_digest=rule_reference_catalog_digest(_active()),
+                ontology_release_digest="sha256:" + "c" * 64,
                 concepts=build_rule_concept_bindings(_active()),
                 facets=build_rule_search_facets(_active()),
             ),

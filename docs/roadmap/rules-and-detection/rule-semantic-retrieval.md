@@ -177,7 +177,7 @@ The query path uses this order:
 2. Propose intent and ontology concept candidates.
 3. Expand only allowlisted typed links under a node and depth bound.
 4. Run hybrid ranking inside the resulting candidate set.
-5. Verify active catalog and generation identity.
+5. Verify active catalog, generation, and current ontology release identity.
 6. Return candidates, ask for clarification, or hold when evidence is insufficient.
 
 An evaluation request re-enters the existing T0 path with an exact active Rule and current

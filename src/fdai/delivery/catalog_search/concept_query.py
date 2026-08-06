@@ -109,11 +109,13 @@ class ConceptFirstCatalogRetriever:
         *,
         index: CatalogSemanticIndex,
         catalog_digest: str,
+        ontology_release_digest: str,
         concepts: Mapping[str, frozenset[str]],
         facets: Mapping[str, RuleSearchFacet],
     ) -> None:
         self._index = index
         self._catalog_digest = catalog_digest
+        self._ontology_release_digest = ontology_release_digest
         self._concepts = dict(concepts)
         self._facets = dict(facets)
 
@@ -140,6 +142,13 @@ class ConceptFirstCatalogRetriever:
                 query,
                 SemanticAvailability.STALE,
                 "generation-stale",
+                generation_digest=generation.generation_digest,
+            )
+        if generation.ontology_release_digest != self._ontology_release_digest:
+            return self._degraded(
+                query,
+                SemanticAvailability.STALE,
+                "ontology-release-stale",
                 generation_digest=generation.generation_digest,
             )
         allowed: set[str] | None = None

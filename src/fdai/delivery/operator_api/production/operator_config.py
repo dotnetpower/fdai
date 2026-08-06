@@ -112,6 +112,7 @@ def build_production_operator_config(
             retriever=ConceptFirstCatalogRetriever(
                 index=inputs.catalog_semantic_index,
                 catalog_digest=rule_reference_catalog_digest(catalog_reference_sources.rules),
+                ontology_release_digest=inputs.ontology_release.digest,
                 concepts=build_rule_concept_bindings(catalog_reference_sources.rules),
                 facets=build_rule_search_facets(catalog_reference_sources.rules),
             ),
