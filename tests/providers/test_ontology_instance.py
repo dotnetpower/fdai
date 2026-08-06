@@ -159,6 +159,52 @@ async def test_revision_mismatch_fails_closed() -> None:
         )
 
 
+async def test_replace_subgraph_rejects_unpinned_overwrite() -> None:
+    store = _store()
+    await store.replace_subgraph(
+        objects=(
+            OntologyObjectRecord(
+                id="review-1",
+                object_type="ReviewCase",
+                properties={"id": "review-1", "status": "authority-a"},
+            ),
+        ),
+        links=(),
+    )
+
+    with pytest.raises(OntologyInstanceValidationError, match="revision fence"):
+        await store.replace_subgraph(
+            objects=(
+                OntologyObjectRecord(
+                    id="review-1",
+                    object_type="ReviewCase",
+                    properties={"id": "review-1", "status": "authority-b"},
+                ),
+            ),
+            links=(),
+        )
+
+    current = await store.get_object("review-1")
+    assert current is not None
+    assert current.properties["status"] == "authority-a"
+
+    await store.replace_subgraph(
+        objects=(
+            OntologyObjectRecord(
+                id="review-1",
+                object_type="ReviewCase",
+                properties={"id": "review-1", "status": "authority-a-updated"},
+                revision=current.revision,
+            ),
+        ),
+        links=(),
+    )
+    updated = await store.get_object("review-1")
+    assert updated is not None
+    assert updated.revision == 2
+    assert updated.properties["status"] == "authority-a-updated"
+
+
 async def test_link_validation_query_and_traversal() -> None:
     store = _store()
     await _upsert(store, "review-1", "ReviewCase", "open")

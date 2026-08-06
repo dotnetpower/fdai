@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from fdai.shared.contracts.models import OntologyLinkType, OntologyObjectType
-from fdai.shared.providers.ontology_instance import OntologyInstanceStore
+from fdai.shared.providers.ontology_instance import (
+    OntologyInstanceStore,
+    OntologyInstanceValidationError,
+)
 from fdai.shared.providers.operating_model import OperatingModelSnapshot
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
 
@@ -48,8 +51,21 @@ class OperatingModelProjector:
         for link in snapshot.links:
             await validator.upsert_link(link)
 
+        owned_ids = set(previous_object_ids)
+        pinned_objects = []
+        for record in snapshot.objects:
+            current = await self._store.get_object(record.id)
+            if current is None:
+                pinned_objects.append(record)
+                continue
+            if record.id not in owned_ids:
+                raise OntologyInstanceValidationError(
+                    f"operating model object {record.id!r} is owned by another projection"
+                )
+            pinned_objects.append(replace(record, revision=current.revision))
+
         await self._store.replace_subgraph(
-            objects=snapshot.objects,
+            objects=tuple(pinned_objects),
             links=snapshot.links,
             previous_object_ids=previous_object_ids,
             previous_link_keys=previous_link_keys,

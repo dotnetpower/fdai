@@ -65,11 +65,13 @@ class PostgresOntologyInstanceStore:
         config: PostgresOntologyInstanceStoreConfig,
         object_types: Sequence[OntologyObjectType],
         link_types: Sequence[OntologyLinkType],
+        historical_releases: Sequence[OntologyRelease] = (),
     ) -> None:
         self._config = config
         self._object_types = {item.name: item for item in object_types}
         self._link_types = {item.name: item for item in link_types}
         self._release = build_ontology_release(object_types=object_types, link_types=link_types)
+        self._releases = {item.digest: item for item in (*historical_releases, self._release)}
 
     async def sync_catalog(self) -> None:
         """Upsert Git-owned type declarations before writing graph instances."""
@@ -300,6 +302,11 @@ class PostgresOntologyInstanceStore:
                     )
                     existing = await cursor.fetchone()
                     if existing is None:
+                        _require_projection_revision(
+                            object_id=object_record.id,
+                            expected=object_record.revision,
+                            current=0,
+                        )
                         await connection.execute(
                             "INSERT INTO ontology_resource "
                             "(id, object_type, properties, revision, type_version, catalog_digest) "
@@ -316,11 +323,16 @@ class PostgresOntologyInstanceStore:
                             ),
                         )
                     else:
+                        _require_projection_revision(
+                            object_id=object_record.id,
+                            expected=object_record.revision,
+                            current=int(existing["revision"]),
+                        )
                         await self._update_existing(
                             connection,
                             record=object_record,
                             existing=existing,
-                            expected_revision=None,
+                            expected_revision=object_record.revision,
                         )
                 for from_id, link_type, to_id in previous_link_keys:
                     await connection.execute(
@@ -424,7 +436,7 @@ class PostgresOntologyInstanceStore:
             )
             rows = await cursor.fetchall()
             truncated = len(rows) > limit
-            objects = tuple(_object_from_row(row, self._release) for row in rows[:limit])
+            objects = tuple(_object_from_row(row, releases=self._releases) for row in rows[:limit])
             objects_by_id = {item.id: item for item in objects}
             raw_links = await self._links_within(connection, tuple(objects_by_id))
             links = tuple(
@@ -545,7 +557,8 @@ class PostgresOntologyInstanceStore:
             (list(identifiers),),
         )
         return {
-            str(row["id"]): _object_from_row(row, self._release) for row in await cursor.fetchall()
+            str(row["id"]): _object_from_row(row, releases=self._releases)
+            for row in await cursor.fetchall()
         }
 
     async def _links_within(
@@ -562,7 +575,9 @@ class PostgresOntologyInstanceStore:
             "ORDER BY from_id, link_type, to_id",
             (list(identifiers), list(identifiers)),
         )
-        return tuple(_link_from_row(row, self._release) for row in await cursor.fetchall())
+        return tuple(
+            _link_from_row(row, releases=self._releases) for row in await cursor.fetchall()
+        )
 
     async def _cardinality_links(
         self,
@@ -576,7 +591,9 @@ class PostgresOntologyInstanceStore:
             "ORDER BY from_id, to_id",
             (record.link_type, record.from_id, record.to_id),
         )
-        return tuple(_link_from_row(row, self._release) for row in await cursor.fetchall())
+        return tuple(
+            _link_from_row(row, releases=self._releases) for row in await cursor.fetchall()
+        )
 
     async def _adjacent_links(
         self,
@@ -608,7 +625,9 @@ class PostgresOntologyInstanceStore:
             ).format(direction_clause, type_clause),
             tuple(params),
         )
-        return tuple(_link_from_row(row, self._release) for row in await cursor.fetchall())
+        return tuple(
+            _link_from_row(row, releases=self._releases) for row in await cursor.fetchall()
+        )
 
 
 def _next_endpoint(
@@ -626,7 +645,8 @@ def _next_endpoint(
 
 def _object_from_row(
     row: Mapping[str, Any],
-    release: OntologyRelease | None = None,
+    *,
+    releases: Mapping[str, OntologyRelease] | None = None,
 ) -> OntologyObjectRecord:
     properties = row["properties"]
     if isinstance(properties, str):
@@ -645,14 +665,15 @@ def _object_from_row(
             row,
             kind=OntologyDeclarationKind.OBJECT,
             name=str(row["object_type"]),
-            release=release,
+            releases=releases,
         ),
     )
 
 
 def _link_from_row(
     row: Mapping[str, Any],
-    release: OntologyRelease | None = None,
+    *,
+    releases: Mapping[str, OntologyRelease] | None = None,
 ) -> OntologyLinkRecord:
     properties = row["properties"]
     if isinstance(properties, str):
@@ -671,7 +692,7 @@ def _link_from_row(
             row,
             kind=OntologyDeclarationKind.LINK,
             name=str(row["link_type"]),
-            release=release,
+            releases=releases,
         ),
     )
 
@@ -687,12 +708,20 @@ def _require_type_ref(value: OntologyTypeRef | None) -> OntologyTypeRef:
     return value
 
 
+def _require_projection_revision(*, object_id: str, expected: int, current: int) -> None:
+    if expected != current:
+        raise OntologyInstanceValidationError(
+            f"ontology projection {object_id!r} revision fence mismatch: "
+            f"expected {expected}, current {current}"
+        )
+
+
 def _row_type_ref(
     row: Mapping[str, Any],
     *,
     kind: OntologyDeclarationKind,
     name: str,
-    release: OntologyRelease | None,
+    releases: Mapping[str, OntologyRelease] | None,
 ) -> OntologyTypeRef | None:
     version = row.get("type_version")
     digest = row.get("catalog_digest")
@@ -700,7 +729,23 @@ def _row_type_ref(
         return None
     if not isinstance(version, str) or not isinstance(digest, str):
         raise RuntimeError("persisted ontology type reference is incomplete")
-    return OntologyTypeRef(kind=kind, name=name, version=version, catalog_digest=digest)
+    if releases is None:
+        return OntologyTypeRef(kind=kind, name=name, version=version, catalog_digest=digest)
+    release = releases.get(digest)
+    if release is None:
+        raise RuntimeError(f"persisted ontology release {digest!r} is unavailable")
+    try:
+        reference = release.type_ref(kind, name)
+    except KeyError as exc:
+        raise RuntimeError(
+            f"persisted ontology release {digest!r} has no {kind.value} declaration {name!r}"
+        ) from exc
+    if reference.version != version:
+        raise RuntimeError(
+            f"persisted ontology type reference version {version!r} does not match "
+            f"release {digest!r}"
+        )
+    return reference
 
 
 __all__ = ["PostgresOntologyInstanceStore", "PostgresOntologyInstanceStoreConfig"]

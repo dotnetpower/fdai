@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from fdai.rule_catalog.schema.rego_semantics import RegoSemantics, property_path
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
@@ -219,7 +219,7 @@ class CatalogOntologyProjector:
             ):
                 if record.object_type in _APPEND_ONLY_OBJECT_TYPES:
                     raise ValueError("immutable catalog receipt content changed")
-                changed_objects.append(record)
+                changed_objects.append(replace(record, revision=existing.revision))
         stale_object_ids = tuple(
             record.id
             for record in previous.objects

@@ -370,7 +370,11 @@ class OntologyInstanceStore(Protocol):
         previous_object_ids: Sequence[str] = (),
         previous_link_keys: Sequence[tuple[str, str, str]] = (),
     ) -> None:
-        """Atomically replace one caller-owned subgraph or write nothing."""
+        """Atomically replace one caller-owned subgraph or write nothing.
+
+        Existing objects require their exact current revision on the candidate
+        record so a stale or unrelated projection writer fails closed.
+        """
         ...
 
     async def get_object(self, object_id: str) -> OntologyObjectRecord | None:

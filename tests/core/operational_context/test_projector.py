@@ -108,6 +108,25 @@ async def test_valid_snapshot_projects_objects_and_links() -> None:
     assert {item.id for item in graph.objects} == {"service-example", "workload-example"}
 
 
+async def test_snapshot_cannot_overwrite_another_projection_owned_object() -> None:
+    projector, store = _projector()
+    foreign = _objects()[0]
+    await store.replace_subgraph(objects=(foreign,), links=())
+    snapshot = OperatingModelSnapshot(
+        source_revision="revision-1",
+        objects=(foreign,),
+        links=(),
+    )
+
+    with pytest.raises(OntologyInstanceValidationError, match="owned by another projection"):
+        await projector.project(snapshot)
+
+    current = await store.get_object(foreign.id)
+    assert current is not None
+    assert current.revision == 1
+    assert current.properties == foreign.properties
+
+
 async def test_new_snapshot_atomically_removes_prior_owned_records() -> None:
     projector, store = _projector()
     initial = OperatingModelSnapshot(

@@ -112,6 +112,16 @@ class InMemoryOntologyInstanceStore:
                     f"ontology object {object_record.id!r} cannot change type "
                     f"from {existing.object_type} to {object_record.object_type}"
                 )
+            if existing is not None and object_record.revision != existing.revision:
+                raise OntologyInstanceValidationError(
+                    f"ontology projection {object_record.id!r} revision fence mismatch: "
+                    f"expected {object_record.revision}, current {existing.revision}"
+                )
+            if existing is None and object_record.revision != 0:
+                raise OntologyInstanceValidationError(
+                    f"ontology projection {object_record.id!r} revision fence mismatch: "
+                    f"expected {object_record.revision}, current 0"
+                )
             revision = existing.revision + 1 if existing is not None else 1
             working_objects[object_record.id] = replace(object_record, revision=revision)
         for link_record in normalized_links:

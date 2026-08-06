@@ -146,9 +146,18 @@ async def test_postgres_replace_subgraph_removes_prior_owned_records() -> None:
         to_id=check_id,
     )
     await store.replace_subgraph(objects=(review, check), links=(link,))
+    stored_review = await store.get_object(review_id)
+    assert stored_review is not None
 
     await store.replace_subgraph(
-        objects=(review,),
+        objects=(
+            OntologyObjectRecord(
+                id=review.id,
+                object_type=review.object_type,
+                properties=review.properties,
+                revision=stored_review.revision,
+            ),
+        ),
         links=(),
         previous_object_ids=(review_id, check_id),
         previous_link_keys=((review_id, "contains_check", check_id),),
