@@ -186,6 +186,17 @@ class PgvectorCatalogGenerationStore:
             async with connection.transaction():
                 await self._set_session_knobs(connection)
                 cursor = await connection.execute(
+                    f"SELECT corpus FROM {table} WHERE generation_id = %s",  # noqa: S608
+                    (generation_id,),
+                )
+                identity = await cursor.fetchone()
+                if identity is None:
+                    raise ValueError("catalog generation is unavailable")
+                await connection.execute(
+                    _activation_lock_sql(),
+                    (f"catalog-search:{identity['corpus']}",),
+                )
+                cursor = await connection.execute(
                     f"SELECT * FROM {table} WHERE generation_id = %s FOR UPDATE",  # noqa: S608
                     (generation_id,),
                 )
@@ -316,6 +327,12 @@ def _generation_search_sql(table: str) -> str:
                   lexical_score DESC, semantic_score DESC, rule_id ASC
          LIMIT %s
         """  # noqa: S608
+
+
+def _activation_lock_sql() -> str:
+    """Return the transaction lock used to serialize one corpus pointer."""
+
+    return "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))"
 
 
 def _row_to_metadata(row: Mapping[str, Any]) -> CatalogGenerationMetadata:

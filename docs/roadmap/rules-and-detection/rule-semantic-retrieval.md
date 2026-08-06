@@ -111,6 +111,8 @@ A generation pins one complete searchable corpus:
 
 Only one generation per corpus is active. A worker builds and validates an inactive generation,
 then atomically changes the active pointer. A failed build leaves the prior generation unchanged.
+PostgreSQL activation also holds one transaction-scoped lock per corpus, so concurrent publishers
+serialize before retiring or activating a pointer.
 
 ### CatalogRetrievalReceipt
 

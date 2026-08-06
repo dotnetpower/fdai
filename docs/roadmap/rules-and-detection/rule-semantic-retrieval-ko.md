@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 16ede0b855d7f9a3b10a50d705da233a4e071c9d
+translation_source_sha: 1d67147f765dd613ea4a14cd5e723ccb67be1dff
 translation_revised: 2026-08-06
 ---
 # Rule 의미 검색
@@ -117,6 +117,8 @@ validation receipt와 content digest를 기록합니다. 상태는 `candidate`, 
 코퍼스마다 하나의 generation만 활성화됩니다. Worker는 비활성 generation을 만들고 검증한
 다음 active pointer를 원자적으로 변경합니다. Build가 실패하면 이전 generation은 변경되지
 않습니다.
+PostgreSQL activation은 corpus마다 하나의 transaction-scoped lock도 유지하므로 concurrent
+publisher는 pointer를 retire하거나 activate하기 전에 serialize됩니다.
 
 ### CatalogRetrievalReceipt
 

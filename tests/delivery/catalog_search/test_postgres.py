@@ -16,6 +16,7 @@ from fdai.delivery.catalog_search.postgres import (
 )
 from fdai.delivery.catalog_search.postgres_generation import (
     PgvectorCatalogGenerationConfig,
+    _activation_lock_sql,
     _generation_search_sql,
 )
 from fdai.shared.providers.catalog_search import CatalogSearchDocument
@@ -87,6 +88,10 @@ def test_generation_search_sql_pins_one_complete_generation() -> None:
     assert "WHERE document.generation_id = %s" in sql
     assert "document.embedding <=> %s::vector" in sql
     assert "ORDER BY exact_id DESC" in sql
+
+
+def test_generation_activation_uses_transaction_scoped_corpus_lock() -> None:
+    assert _activation_lock_sql() == ("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))")
 
 
 def test_content_hash_is_stable_and_neighbor_sensitive() -> None:
