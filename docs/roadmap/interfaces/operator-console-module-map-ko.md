@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 3387187e2e28acf6e9de8d343389d7b69b564469
+translation_source_sha: f885dd74d5b1bb8c4472b72f6f417ec3573deb93
 translation_revised: 2026-08-06
 ---
 # Operator Console Module Map and Boundaries
@@ -187,6 +187,9 @@ frame을 거부합니다.
 - `read_investigation_responder.py`는 registered Heimdall read intent를 typed evidence에서 렌더링합니다.
   Evidence가 없으면 explicit unavailable answer를 반환합니다. `read_investigation_catalog.py`는 catalog
   ID, ownership 또는 plan binding drift 시 startup을 차단합니다.
+- `routes/rule_catalog.py`는 read-only active/discovery Rule reference projection을 제공합니다.
+  Catalog와 일치하는 active generation에서만 semantic ranking을 사용하고, 그 외에는 명시적인
+  degraded state와 함께 lexical result를 반환합니다. Generation publishing은 API startup 밖에 유지합니다.
 
 영어 및 한국어 presentation literal은 NFC UTF-8을 사용합니다. Escaped Hangul은 정확한 rationale이 있는
 code-point behavior에만 허용됩니다. 이 표현은 machine value, evidence authority, locale selection 또는

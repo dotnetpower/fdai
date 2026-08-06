@@ -15,10 +15,12 @@ evaluation gates, and failed-query feedback loop.
 > **Safety boundary:** Rule discovery and policy evaluation are separate operations. OPA evaluates
 > only an exact active Rule against schema-valid, current evidence through the existing T0 path.
 >
-> **Implementation baseline:** FDAI currently projects grounded active Rule documents into a
-> hybrid lexical and pgvector index. The governed surfaces, atomic generation lifecycle,
-> concept-first typed query, and challenger feedback contracts in this document are the next
-> implementation steps.
+> **Implementation status (2026-08-06):** FDAI ships deterministic Rego and expression manifests,
+> strict promoted-surface loading, held-out cohort evaluation, privacy-safe challenger feedback,
+> atomic in-memory and PostgreSQL generations, the read-only `catalog.search_rules` function,
+> concept-first bounded retrieval, lexical degradation, and a durable StateStore challenger store.
+> Generation publishing runs off the Operator API startup path. The PostgreSQL generation adapter
+> has focused contract coverage; its live-database test requires `FDAI_DATABASE_URL`.
 
 ## Design at a glance
 

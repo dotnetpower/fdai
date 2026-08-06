@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: a1c8b188a1865819782f7bd2d2bc8b7c816816a4
-translation_revised: 2026-08-04
+translation_source_sha: b18d3c99adf1c70d24524e51092dc6ffebe646d2
+translation_revised: 2026-08-06
 ---
 
 # 규칙 거버넌스(Rule Governance)
@@ -37,12 +37,13 @@ shadow-before-enforce 및 안전 불변식을 준수.
 이웃 유사도를 결정론적 reciprocal rank fusion(RRF)으로 결합합니다. 점수가 같으면 안정적인 Rule
 id 순서로 결정합니다.
 
-인덱스 재구축은 요청 경로 밖에서 실행합니다. 인덱싱 서비스는 제공되는 Rules와 ActionTypes를
-다시 로드하고, 참조된 각 Rego 정책을 OPA로 파싱한 다음 `build_catalog_search_documents`를 호출해
-콘텐츠 해시가 변경된 행만 upsert합니다. Rule, Rego 또는 ActionType 근거가 누락되거나 일치하지
-않으면 인덱싱을 차단합니다. 프로덕션 Operator API composition은 기존 읽기 전용 `/rules` 경로에
-persistent provider를 주입할 수 있습니다. provider를 설정하지 않으면 fallback이나 새 credential
-경로를 만들지 않고 semantic retrieval을 사용할 수 없는 상태로 유지합니다.
+인덱스는 request 및 Operator API startup 경로 밖에서 build합니다. 기계적 worker는 정확한 Rule,
+ActionType, Rego, ontology release 및 promoted surface evidence를 로드하고 하나의 완전한 generation을
+stage한 다음 독립된 validation receipt가 있을 때만 active corpus pointer를 변경합니다. 근거가
+누락되거나 일치하지 않으면 이전 generation을 활성 상태로 유지합니다. 읽기 전용 `/rules` route는
+active generation이 현재 Git catalog와 일치할 때만 semantic ranking을 사용합니다. 그렇지 않으면
+명시적인 stale 또는 unavailable state와 함께 현재 lexical projection을 반환합니다. 전체 계약은
+[Rule 의미 검색](rule-semantic-retrieval-ko.md)을 참조하세요.
 
 ## 모델 (Azure Policy처럼 세 레이어)
 

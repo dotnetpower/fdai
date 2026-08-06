@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 785b85e1c57ccf2c9eace96dbefbbcf76a86a641
+translation_source_sha: d03a362cf4e93759f43e37771da9bfc54b734419
 translation_revised: 2026-08-06
 ---
 
@@ -108,6 +108,7 @@ fdai/
 │   │   ├── operating_model/    # bounded JSON deployment operating-model adapter; startup-only, all-before-write
 │   │   ├── runtime_settings.py  # allowlist된 env default + revisioned StateStore override; executor identity 또는 promotion authority 없음
 │   │   ├── behavior_knowledge/ # in-memory hybrid behavior index, tracked-source freshness, built-in behavior seed
+│   │   ├── catalog_search/     # grounded Rule manifest, promoted surface, atomic pgvector generation 및 read-only concept query
 │   │   ├── pgvector/           # persistent document 및 behavior vector index
 │   │   ├── azure/              # bounded log/metric/App Insights trace와 promoted inventory 기반 strict operational-learning evidence를 포함한 Azure 전용 adapter
 │   │   │                       #   `case_history_artifacts.py`는 workload identity로 private Blob에 content-addressed case revision 저장
@@ -125,7 +126,7 @@ fdai/
 │   │   ├── provisioning/       # surface-A Genesis 부트스트랩: 순수 `terraform_bridge.py` (terraform `-json` → `provision.*`) + `serve.py` harness (`aiter_json_lines` + `pump_provision_events`, I/O 주입, subprocess 없음)
 │   │   └── scheduler_tick_cli.py  # cron / Container Apps Job에서 스케줄러 tick을 구동하는 독립 엔트리 포인트
 │   ├── rule_catalog/          # rule-catalog 파이프라인 코드
-│   │   ├── schema/             # 룰, Best Practice, governance 및 온톨로지 스키마 + 검증
+│   │   ├── schema/             # Rule, Best Practice, governance, ontology 및 semantic retrieval schema + validation
 │   │   ├── sources/            # 소스별 컬렉터 (WAF, CIS, OPA, IaC scanners, ...)
 │   │   ├── pipeline/           # watch -> collect -> shadow/regression; distill은 DocumentEnvelope provenance bridge, cross-format equivalence 및 review-only ontology gate 추가
 │   │   └── codegen/            # 저작 헬퍼 (`new_action_type`, `new_object_type`) - 스캐폴드 생성만, 라이브 카탈로그 변경 안 함

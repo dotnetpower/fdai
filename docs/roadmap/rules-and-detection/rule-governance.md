@@ -33,12 +33,13 @@ production `CatalogSemanticIndex` adapter stores grounded Rule documents in Post
 rank, and typed-neighbor similarity through deterministic reciprocal rank fusion (RRF). Stable
 Rule id ordering resolves score ties.
 
-The index is rebuilt off the request path. The indexing service reloads shipped Rules and
-ActionTypes, parses each referenced Rego policy through OPA, calls
-`build_catalog_search_documents`, and upserts only changed content hashes. Missing or mismatched
-Rule, Rego, or ActionType evidence blocks indexing. Production Operator API composition can inject
-the persistent provider into the existing read-only `/rules` route; leaving the provider unset
-keeps semantic retrieval unavailable without creating a fallback or new credential path.
+The index is built off the request and Operator API startup paths. A mechanical worker loads exact
+Rule, ActionType, Rego, ontology-release, and promoted-surface evidence, stages one complete
+generation, and changes the active corpus pointer only after an independent validation receipt.
+Missing or mismatched evidence leaves the prior generation active. The read-only `/rules` route
+uses semantic ranking only when the active generation matches the current Git catalog; otherwise
+it returns the current lexical projection with an explicit stale or unavailable state. The full
+contract is [Rule Semantic Retrieval](rule-semantic-retrieval.md).
 
 ## Model (three layers, like Azure Policy)
 

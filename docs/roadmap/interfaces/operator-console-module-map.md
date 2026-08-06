@@ -188,6 +188,9 @@ a separately reviewed boundary.
 - `read_investigation_responder.py` renders registered Heimdall read intents from typed evidence.
   Missing evidence produces an explicit unavailable answer. `read_investigation_catalog.py` blocks
   startup when catalog IDs, ownership, or plan bindings drift.
+- `routes/rule_catalog.py` exposes a read-only active/discovery Rule reference projection. It uses
+  semantic ranking only from a catalog-matched active generation and otherwise returns lexical
+  results with an explicit degraded state. Generation publishing remains outside API startup.
 
 English and Korean presentation literals use NFC UTF-8. Escaped Hangul is accepted only for exact,
 rationale-bearing code-point behavior. This representation does not change machine values,

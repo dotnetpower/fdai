@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 896699e35291427bf18f12bedbc1b24a32a9273c
+translation_source_sha: d54534418dc1425d7ffb5930c5855405ec4dc26d
 translation_revised: 2026-08-06
 ---
 # Rule 의미 검색
@@ -16,9 +16,13 @@ translation_revised: 2026-08-06
 > **안전 경계:** Rule 발견과 정책 평가는 별개의 작업입니다. OPA는 기존 T0 경로를 통해
 > 스키마에 맞고 현재 상태인 근거를 사용하는 정확한 활성 Rule만 평가합니다.
 >
-> **구현 기준선:** FDAI는 현재 근거가 확인된 활성 Rule 문서를 lexical 및 pgvector 혼합
-> 인덱스로 projection합니다. 이 문서의 관리되는 surface, 원자적 generation 수명 주기,
-> 개념 우선 typed query 및 challenger 피드백 계약은 다음 구현 단계입니다.
+> **구현 상태 (2026-08-06):** FDAI는 결정론적 Rego 및 expression manifest, strict promoted
+> surface loading, held-out cohort evaluation, privacy-safe challenger feedback, atomic in-memory
+> 및 PostgreSQL generation, read-only `catalog.search_rules` function, concept-first bounded
+> retrieval, lexical degradation 및 durable StateStore challenger store를 제공합니다.
+> Generation publishing은 Operator API startup 경로 밖에서 실행됩니다. PostgreSQL generation
+> adapter에는 focused contract coverage가 있으며 live database test에는 `FDAI_DATABASE_URL`이
+> 필요합니다.
 
 ## 설계 개요
 

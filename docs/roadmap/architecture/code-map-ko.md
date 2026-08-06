@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 7e0cfd18bbae51894215e564566a34124661a528
+translation_source_sha: 2487eab03c6317c826c3ce6eb40aed2056dd29b5
 translation_revised: 2026-08-06
 ---
 # 코드 맵
@@ -282,7 +282,8 @@ agent는 owned advisory topic을 publish하기 전에 이 canonical Event를 con
 | [src/fdai/composition/wire_metric_provider.py](../../../src/fdai/composition/wire_metric_provider.py) | `MetricProvider` 바인더 (`FDAI_MONITOR_WORKSPACE_ID` 세팅 시 Azure Monitor Logs 자동 바인드); LOC 상한 유지를 위해 `wire_azure`에서 분리 (G-4). |
 | [src/fdai/composition/wire_trajectory.py](../../../src/fdai/composition/wire_trajectory.py) | 기본 container에서 feature를 활성화하지 않고 authorization-first source join, dataset metadata, quarantine export, read-only administration을 bind. |
 | [src/fdai/composition/wire_execution_backends.py](../../../src/fdai/composition/wire_execution_backends.py) | Server-selected profile을 validate하고 required backend 및 durable ledger를 bind하며 profile은 기본적으로 enable하지 않습니다. |
-| [src/fdai/rule_catalog/](../../../src/fdai/rule_catalog/) | Rule, Best Practice, governance artifact 및 나머지 `rule-catalog/` YAML 트리의 strict loader. |
+| [src/fdai/rule_catalog/](../../../src/fdai/rule_catalog/) | Rule, Best Practice, governance artifact, promoted Rule semantic surface, held-out retrieval evidence 및 나머지 `rule-catalog/` YAML 트리의 strict loader. |
+| [src/fdai/delivery/catalog_search/](../../../src/fdai/delivery/catalog_search/) | Deterministic Rule manifest, concept-first `catalog.search_rules`, atomic in-memory/PostgreSQL generation, OPA-free API reference loading 및 safe lexical degradation. |
 | [src/fdai/rule_catalog/pipeline/distill/](../../../src/fdai/rule_catalog/pipeline/distill/) | Build-time manual compilation, `DocumentEnvelope` provenance bridge, normalized cross-format graph 비교, review-only ontology proposal, partition release gate, provider conformance 및 lifecycle/evaluation plan. Local parser resource ceiling은 `shared/providers/local/document_limits.py`에 있으며 content-free pinned corpus manifest가 `scripts/evaluation/document_ontology_public_corpus.py`를 구동합니다. |
 | [rule-catalog/](../../../rule-catalog/) | Rule, Best Practice, policy, rule-set 및 action-type 카탈로그 (데이터). |
 

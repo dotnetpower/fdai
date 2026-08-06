@@ -103,6 +103,7 @@ fdai/
 │   │   ├── operating_model/    # bounded JSON deployment operating-model adapter; startup-only and all-before-write
 │   │   ├── runtime_settings.py  # allowlisted env defaults + revisioned StateStore overrides; no executor identity or promotion authority
 │   │   ├── behavior_knowledge/ # in-memory hybrid behavior index, tracked-source freshness, and built-in behavior seeds
+│   │   ├── catalog_search/     # grounded Rule manifests, promoted surfaces, atomic pgvector generations, and read-only concept queries
 │   │   ├── pgvector/           # persistent document and behavior vector indexes
 │   │   ├── azure/              # Azure-specific adapters, including bounded logs/metrics/App Insights traces and strict operational-learning evidence over promoted inventory
 │   │   │                       #   `case_history_artifacts.py` stores content-addressed case revisions in private Blob through workload identity
@@ -120,7 +121,7 @@ fdai/
 │   │   ├── provisioning/       # surface-A Genesis bootstrap: pure `terraform_bridge.py` (terraform `-json` → `provision.*`) + `serve.py` harness (`aiter_json_lines` + `pump_provision_events`, I/O injected, no subprocess)
 │   │   └── scheduler_tick_cli.py  # standalone entry point that drives the scheduler tick from a cron / Container Apps Job
 │   ├── rule_catalog/          # rule-catalog PIPELINE code
-│   │   ├── schema/             # rule, Best Practice, governance, and ontology schemas + validation
+│   │   ├── schema/             # rule, Best Practice, governance, ontology, and semantic retrieval schemas + validation
 │   │   ├── sources/            # per-source collectors (WAF, CIS, OPA, IaC scanners, ...)
 │   │   ├── pipeline/           # watch -> collect -> shadow/regression; distill adds the DocumentEnvelope provenance bridge, cross-format equivalence, and review-only ontology gates
 │   │   └── codegen/            # authoring helpers (`new_action_type`, `new_object_type`) - generate scaffolds, never mutate the live catalog
