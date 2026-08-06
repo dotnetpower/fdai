@@ -116,6 +116,7 @@ def test_registry_lookup_owner_of_object_type() -> None:
     assert reg.owner_of_object_type("AuditEntry") == "Saga"
     assert reg.owner_of_object_type("Rule") == "Mimir"
     assert reg.owner_of_object_type("Change") == "Huginn"
+    assert reg.owner_of_object_type("RetrievalValidation") == "Heimdall"
 
 
 def test_registry_lookup_owner_of_topic() -> None:
@@ -124,6 +125,7 @@ def test_registry_lookup_owner_of_topic() -> None:
     assert reg.owner_of_topic("object.verdict") == "Forseti"
     assert reg.owner_of_topic("object.audit-entry") == "Saga"
     assert reg.owner_of_topic("object.change") == "Huginn"
+    assert reg.owner_of_topic("object.retrieval-validation") == "Heimdall"
 
 
 def test_publish_authorization_accepts_owner() -> None:
@@ -133,6 +135,7 @@ def test_publish_authorization_accepts_owner() -> None:
     reg.assert_can_publish("Forseti", "object.verdict")
     reg.assert_can_publish("Saga", "object.audit-entry")
     reg.assert_can_publish("Bragi", "object.handoff-escalation")
+    reg.assert_can_publish("Heimdall", "object.retrieval-validation")
 
 
 def test_publish_authorization_rejects_non_owner() -> None:

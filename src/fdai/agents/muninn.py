@@ -29,6 +29,11 @@ from fdai.core.case_history import (
 )
 from fdai.core.operational_learning import PatternCase, pattern_case_from_operational_case
 from fdai.core.readiness import DetectionReadinessSnapshot, detection_readiness_state_key
+from fdai.rule_catalog.schema.rule_semantic_feedback import (
+    build_feedback_candidate,
+    query_failure_evidence_from_mapping,
+    query_failure_evidence_to_mapping,
+)
 from fdai.shared.contracts.models import ForecastOutcome, ResponseOutcome
 from fdai.shared.providers.state_store import StateStore
 
@@ -97,6 +102,8 @@ class Muninn(Agent):
             await self._request_document_index(payload)
         elif topic == "object.forecast-outcome":
             await self._materialize_forecast_outcome(payload)
+        elif topic == "object.retrieval-validation":
+            await self._materialize_retrieval_validation(payload)
         elif (
             topic == "object.event" and payload.get("event_type") == "measurement.action_outcome.v1"
         ):
@@ -111,6 +118,32 @@ class Muninn(Agent):
             await self._apply_case_history_retention(payload)
         elif topic == "object.change":
             self._materialize_change(payload)
+
+    async def _materialize_retrieval_validation(self, payload: dict[str, Any]) -> None:
+        if payload.get("producer_principal") != "Heimdall":
+            raise ValueError("retrieval validation MUST be published by Heimdall")
+        raw_failure = payload.get("failure")
+        if not isinstance(raw_failure, Mapping):
+            raise ValueError("retrieval validation MUST contain failure evidence")
+        evidence = query_failure_evidence_from_mapping(raw_failure)
+        candidate = build_feedback_candidate(evidence)
+        if payload.get("candidate_id") != candidate.candidate_id:
+            raise ValueError("retrieval validation candidate identity mismatch")
+        if self.bus is None:
+            raise RuntimeError("Muninn context-index bus is unavailable")
+        await self.bus.publish(
+            "Muninn",
+            "object.context-index",
+            {
+                "producer_principal": "Muninn",
+                "kind": "semantic_retrieval_failure",
+                "correlation_id": str(payload.get("correlation_id") or evidence.attempt_id),
+                "idempotency_key": f"semantic-feedback:{candidate.candidate_id}",
+                "candidate_id": candidate.candidate_id,
+                "failure": query_failure_evidence_to_mapping(evidence),
+            },
+        )
+        self.record_behavior("semantic_retrieval_failure:published")
 
     def _materialize_change(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Huginn":

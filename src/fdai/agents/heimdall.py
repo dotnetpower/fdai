@@ -22,6 +22,9 @@ from fdai.agents._framework.action_semantics import ActionSemanticsCatalog, is_i
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.heimdall_forecast import HeimdallForecastMixin
+from fdai.agents._framework.heimdall_retrieval_validation import (
+    retrieval_validation_from_event,
+)
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     capability_facts,
@@ -188,6 +191,10 @@ class Heimdall(HeimdallForecastMixin, Agent):
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.event":
+            retrieval_validation = retrieval_validation_from_event(payload)
+            if retrieval_validation is not None:
+                await self._publish_retrieval_validation(retrieval_validation)
+                return
             if str(payload.get("event_type") or "").startswith(SPECIALIST_EVENT_PREFIX):
                 self.record_behavior("specialist_signal:deferred")
                 return
@@ -213,6 +220,12 @@ class Heimdall(HeimdallForecastMixin, Agent):
             severity = await self._maybe_classify_severity(payload)
             if severity in ("high", "critical") and self._alerter_hook is not None:
                 await self._maybe_send_admin_card(payload, severity)
+
+    async def _publish_retrieval_validation(self, payload: dict[str, object]) -> None:
+        self.record_behavior("semantic_retrieval_validation:accepted")
+        if self.bus is None:
+            raise RuntimeError("Heimdall retrieval validation bus is unavailable")
+        await self.bus.publish("Heimdall", "object.retrieval-validation", payload)
 
     async def _observe_chaos_experiment(self, proposal: dict[str, Any]) -> None:
         experiment_id = str(proposal.get("experiment_id") or "")

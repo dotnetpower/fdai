@@ -133,10 +133,12 @@ scoring, human-approval margins, planning receipts, and temporal policy are owne
 Norns remains the sole writer of inert `RuleCandidate` proposals. Its three-perspective consensus,
 balanced cohort limits, pending queue, Mimir review, and catalog activation boundary are owned by
 [Operational Learning Ontology](../rules-and-detection/operational-learning-ontology.md#norns-consensus-and-catalog-boundary). The private `norns_deployment_learning.py` helper holds only bounded scenario-gap and preflight-blocker aggregation state; Norns still creates and publishes every candidate through its consensus and rate-limit boundary. Caller-supplied recurring preflight manual blockers become scope-deduplicated inert `preflight-toggle-gap` candidates and never create a toggle or change deployment authority.
-Reproduced Rule-retrieval failures arrive as Muninn-owned `object.context-index` evidence. Norns
-strictly rejects raw text, unverified failures, non-retrieval causes, and targets without an exact
-Rule version; it durably records the remaining challenger before using the same consensus and
-`object.rule-candidate` path. A missing durable sink backpressures the event instead of dropping it.
+Reproduced Rule-retrieval failures enter as Huginn-owned events. Heimdall independently validates
+the exact failure and publishes `object.retrieval-validation`; Saga audits that evidence and Muninn
+materializes it as `object.context-index`. Norns strictly rejects raw text, unverified failures,
+non-retrieval causes, and targets without an exact Rule version; it durably records the remaining
+challenger before using the same consensus and `object.rule-candidate` path. A missing durable sink
+backpressures the event instead of dropping it.
 
 ## 4. Agent catalog
 
@@ -157,7 +159,7 @@ operations / interface), `3` = governance staff.
 | Thor | Responder | 2 | ActionRun, ActionAttempt | (dispatches; owns none directly - see §7.1) | no |
 | Forseti | Judge | 2 | Verdict, RCA, SecurityEvent, ArbitrationRequest | produces verdicts; optional context can only lower autonomy; no executor role | yes (T2 abstain only) |
 | Huginn | Event Collector / Real-time Resource Discovery | 2 | Event, Change | ingest_event, normalize_change | no |
-| Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome | detect_anomaly, detect_drift, forecast, close_forecast_outcome, notify_admin_privilege_violation | no |
+| Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation | detect_anomaly, detect_drift, forecast, close_forecast_outcome, validate_retrieval_failure, notify_admin_privilege_violation | no |
 | Vidar | Recovery | 2 | Rollback | perform_rollback, dr_failover | no |
 | Var | Approver | 2 | Approval | approve_action, reject_action | no |
 | Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent | yes (translator only) |
@@ -368,6 +370,7 @@ Dead-letter writes retry with bounded backoff before consumer restart. Operator 
 | object.change | Huginn | Muninn (immutable change revisions) |
 | object.anomaly, object.drift, object.forecast | Heimdall | Forseti; Muninn reads detection-readiness drift only |
 | object.forecast-outcome | Heimdall | Saga, Muninn |
+| object.retrieval-validation | Heimdall | Saga, Muninn |
 | object.security-event | Forseti | Heimdall (correlation), Saga |
 | object.verdict | Forseti | Thor, Saga, Odin |
 | object.arbitration-request | Forseti | Odin |

@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 542df53d3ad7c3497e3ec502cff7a4fba40750a0
+translation_source_sha: 40adb2d36fd21c37e9bbbb1b4712ba4ec1aef072
 translation_revised: 2026-08-06
 ---
 # Rule 의미 검색
@@ -28,8 +28,9 @@ translation_revised: 2026-08-06
 > Production은 `catalog.search_rules`를 complete ontology release에 bind하고 Reader-gated
 > `POST /rules/search`를 통해 expose합니다. Response는 retrieval 및 function invocation receipt를
 > 모두 포함하며 항상 `execution_authority: false`를 유지합니다.
-> 재현된 retrieval-owned failure는 Muninn의 기존 context-index topic을 통해 Norns로 전달됩니다.
-> Norns는 일반 consensus 및 Mimir intake 전에 shadow audit와 함께 inert challenger를 persist합니다.
+> 재현된 retrieval-owned failure는 Huginn ingress, Heimdall validation, Saga audit 및 Muninn context
+> materialization을 거칩니다. Norns는 일반 consensus 및 Mimir intake 전에 shadow audit와 함께 inert
+> challenger를 persist합니다.
 
 ## 설계 개요
 

@@ -1,7 +1,7 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: 3303b25ee9d01c2ca53bc77af19cbc5e79fff20c
+translation_source_sha: bfe5374429be46c171157caf2bf8ee90fda29f77
 translation_revised: 2026-08-06
 ---
 # 운영 학습 온톨로지
@@ -30,9 +30,10 @@ translation_revised: 2026-08-06
 > Deployment는 O3 validator와 PR publisher, Forseti-owned causal projection, frozen/live evidence source,
 > receipt verifier를 bind해야 합니다. Mimir는 owned rule topic으로 review outcome을 emit하고 Saga는
 > owned audit topic에 이를 seal합니다.
-> 재현된 semantic retrieval failure는 이제 Muninn의 기존 context-index topic을 통해 Norns에
-> 들어오며 shadow audit가 포함된 challenger-only StateStore record로 persist된 뒤 일반 consensus 및
-> Mimir candidate guard를 재사용합니다. Raw query text와 online ranking mutation은 계속 제외됩니다.
+> 재현된 semantic retrieval failure는 Huginn을 통해 들어와 Heimdall-owned independent validation
+> evidence가 되고 Saga가 audit하며 Muninn이 context-index topic으로 materialize합니다. Norns는 shadow
+> audit가 포함된 challenger-only StateStore record로 persist한 뒤 일반 consensus 및 Mimir candidate
+> guard를 재사용합니다. Raw query text와 online ranking mutation은 계속 제외됩니다.
 
 ## 한눈에 보는 설계
 

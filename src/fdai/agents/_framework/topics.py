@@ -63,6 +63,7 @@ OWNED_OBJECT_TOPICS: frozenset[str] = frozenset(
         "object.drift",
         "object.forecast",
         "object.forecast-outcome",
+        "object.retrieval-validation",
         # Judgment + arbitration
         "object.verdict",
         "object.rca",

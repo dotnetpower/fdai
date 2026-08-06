@@ -208,7 +208,7 @@ _HEIMDALL = AgentSpec(
     name="Heimdall",
     layer=Layer.PIPELINE,
     reports_to="Forseti",
-    owns=("Anomaly", "Drift", "Forecast", "ForecastOutcome"),
+    owns=("Anomaly", "Drift", "Forecast", "ForecastOutcome", "RetrievalValidation"),
     conversation=conversation_charter(
         "Heimdall",
         "Explain observed signals, anomalies, drift, and forecasts.",
@@ -406,6 +406,7 @@ _SAGA = AgentSpec(
         "object.state-snapshot",
         "object.issue",
         "object.forecast-outcome",
+        "object.retrieval-validation",
         "object.handoff-escalation",
         "object.rule",
     ),
@@ -494,6 +495,7 @@ _MUNINN = AgentSpec(
         "object.forecast-outcome",
         "object.event",
         "object.change",
+        "object.retrieval-validation",
     ),
     question_domains=(
         "current_state",

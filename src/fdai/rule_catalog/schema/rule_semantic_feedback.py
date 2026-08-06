@@ -150,6 +150,24 @@ def query_failure_evidence_from_mapping(raw: Mapping[str, Any]) -> QueryFailureE
     )
 
 
+def query_failure_evidence_to_mapping(evidence: QueryFailureEvidence) -> dict[str, object]:
+    """Project validated failure evidence without raw operator text."""
+
+    return {
+        "attempt_id": evidence.attempt_id,
+        "query_digest": evidence.query_digest,
+        "principal_scope_digest": evidence.principal_scope_digest,
+        "catalog_digest": evidence.catalog_digest,
+        "reason_code": evidence.reason_code,
+        "layer": evidence.layer.value,
+        "reproduced": evidence.reproduced,
+        "evidence_refs": list(evidence.evidence_refs),
+        "exact_target_rule_ref": evidence.exact_target_rule_ref,
+        "user_correction_ref": evidence.user_correction_ref,
+        "raw_text_retained": False,
+    }
+
+
 def build_feedback_candidate(evidence: QueryFailureEvidence) -> SemanticFeedbackCandidate:
     """Create a challenger only for reproduced, exact, retrieval-owned failures."""
 
@@ -211,4 +229,5 @@ __all__ = [
     "SemanticFeedbackCandidateSink",
     "build_feedback_candidate",
     "query_failure_evidence_from_mapping",
+    "query_failure_evidence_to_mapping",
 ]

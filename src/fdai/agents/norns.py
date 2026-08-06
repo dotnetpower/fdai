@@ -1,20 +1,14 @@
 """Norns - Learner (Wave 2 behavior).
 
-Norns watches the audit stream and turns operational signals into
-inert RuleCandidate proposals for Mimir. It never mutates the catalog
-or any threshold directly: every proposal is data that must pass the
-quality gate before it can take effect (see
+Norns turns operational signals into inert RuleCandidate proposals for Mimir. It never mutates
+the catalog or thresholds: every proposal must pass the quality gate (see
 `docs/roadmap/rules-and-detection/rule-governance.md` and the discovery loop in
 `architecture.instructions.md`).
 
-Every candidate passes the internal Urd (past evidence), Verdandi (current
-contract), and Skuld (future safety) perspectives before publication. These
-perspectives are not agents or principals. Norns publishes one aggregate
-consensus result only when all three agree and retains disagreements as
-bounded hold records.
+Every candidate passes the internal Urd, Verdandi, and Skuld perspectives. These are not agents or
+principals. Norns publishes one aggregate only on unanimous agreement and bounds held records.
 
-Four deterministic (T0) learners run here; T1 clustering and T2 batch
-summary land in later waves:
+Deterministic learners run here; T1 clustering and T2 summary remain off-path:
 
 1. **Fingerprint aggregator** - repeated handoff fingerprints propose a
    *new* rule (Wave 2 baseline).
@@ -31,8 +25,6 @@ summary land in later waves:
    it, so the action or its risk classification is a poor fit). Same safe,
    autonomy-lowering direction as the override learner; approvals are
    counted for evidence only, never a proposal to auto-promote.
-
-Optional scenario-coverage learner:
 
 5. **Scenario-coverage aggregator** (optional, active when a composition
     root supplies it) - repeated live incidents whose symptom the compiled

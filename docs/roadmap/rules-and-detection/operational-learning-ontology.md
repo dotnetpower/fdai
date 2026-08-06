@@ -27,8 +27,9 @@ rule and action catalogs for governed reuse instead of creating a benchmark-only
 > verified immutable O7 receipt. Deployments still bind the O3 validator and PR publisher,
 > Forseti-owned causal projection, frozen/live evidence source, and receipt verifiers. Mimir emits
 > review outcomes on its owned rule topic, and Saga seals them on its owned audit topic.
-> Reproduced semantic-retrieval failures now enter Norns through Muninn's existing context-index
-> topic, persist as challenger-only StateStore records with shadow audit, and reuse the ordinary
+> Reproduced semantic-retrieval failures enter through Huginn, become Heimdall-owned independent
+> validation evidence audited by Saga, and are materialized by Muninn on the context-index topic.
+> Norns persists challenger-only StateStore records with shadow audit and reuses the ordinary
 > consensus and Mimir candidate guard. Raw query text and online ranking mutation remain excluded.
 
 ## Design at a glance
