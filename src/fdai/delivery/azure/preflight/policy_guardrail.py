@@ -215,17 +215,54 @@ def _parse_definition(
     if not isinstance(condition, Mapping):
         return None
     policy_ref = _policy_ref(definition)
+    parsed_condition = _parse_type_condition(condition, params)
+    if parsed_condition is None:
+        return None
+    mode, types = parsed_condition
+    return mode, types, policy_ref
 
+
+def _parse_type_condition(
+    condition: Mapping[str, Any],
+    params: Mapping[str, Any],
+) -> tuple[str, frozenset[str]] | None:
     negated = _unwrap(condition.get("not"))
     if isinstance(negated, Mapping):
         types = _type_in_values(negated, params)
-        if types is not None:
-            return "allowed", types, policy_ref
-        return None
+        return None if types is None else ("allowed", types)
+
     types = _type_in_values(condition, params)
     if types is not None:
-        return "not_allowed", types, policy_ref
-    return None
+        return "not_allowed", types
+
+    children = condition.get("allOf")
+    if not isinstance(children, list) or not 1 <= len(children) <= 8:
+        return None
+    parsed: tuple[str, frozenset[str]] | None = None
+    for child in children:
+        unwrapped = _unwrap(child)
+        if not isinstance(unwrapped, Mapping):
+            return None
+        child_types = _type_in_values(unwrapped, params)
+        if child_types is not None:
+            if parsed is not None:
+                return None
+            parsed = ("not_allowed", child_types)
+            continue
+        child_negated = _unwrap(unwrapped.get("not"))
+        if isinstance(child_negated, Mapping):
+            child_types = _type_in_values(child_negated, params)
+            if child_types is None or parsed is not None:
+                return None
+            parsed = ("allowed", child_types)
+            continue
+        if not _is_type_exists_guard(unwrapped):
+            return None
+    return parsed
+
+
+def _is_type_exists_guard(condition: Mapping[str, Any]) -> bool:
+    return condition == {"value": "[field('type')]", "exists": True}
 
 
 def _type_in_values(

@@ -210,13 +210,13 @@ Forseti reasons; Norns closes the discovery loop.
   the internal Urd (past evidence), Verdandi (current contract), and Skuld
   (future safety) perspectives. They are not agents or principals; Norns
   emits one aggregate consensus result and retains disagreements as bounded
-  hold records.
+  hold records. A caller-supplied preflight observation may aggregate the same manual blocker across distinct scope digests into one inert `preflight-toggle-gap` candidate; Norns never creates the toggle itself.
 
 **Tests**
 
 - `test_wave2_governance.py` covers Saga audit/issue behavior, Mimir rule
   governance, Muninn state, and Norns candidate flow.
-- `test_candidate_guard.py` and `test_norns_coverage.py` cover inert candidate
+- `test_candidate_guard.py`, `test_norns_coverage.py`, and `test_norns_preflight.py` cover inert candidate
   safety and bounded learning behavior.
 - `test_norns_consensus.py` covers unanimous publication and disagreement
   hold behavior at the Norns single-writer boundary.

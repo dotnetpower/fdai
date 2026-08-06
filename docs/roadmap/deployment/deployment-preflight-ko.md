@@ -1,8 +1,8 @@
 ---
 title: 배포 프리플라이트 (배포 가능성 및 blocker 수집)
 translation_of: deployment-preflight.md
-translation_source_sha: 91114276cbd3287a11819989707c6d0f63457e21
-translation_revised: 2026-07-22
+translation_source_sha: 5fa284992380cc0e6361bcbce941c8b3dda3f882
+translation_revised: 2026-08-06
 ---
 # 배포 프리플라이트 (배포 가능성 및 blocker 수집)
 
@@ -152,7 +152,11 @@ seam을 통해 주입됩니다. 상류 기본값은 프로브를 바인딩하지
    클라이언트(`AzureArmClient`, 주입된 `httpx.AsyncClient` + `WorkloadIdentity` bearer
    토큰, fail-closed)와 `AzurePolicyGuardrailProbe`(실제 Azure Policy `deny` 가드레일 -
    `Not allowed` / `Allowed resource types`), `AzureQuotaProbe`(구독 + 위치별 Compute
-  usage)가 mock-HTTP 유닛 테스트와 함께 landed. `fdaictl deploy preflight
+  usage)가 mock-HTTP 유닛 테스트와 함께 landed. Policy parser는 모든 sibling이 canonical
+  type-exists guard인 경우에만 built-in `allOf` type constraint를 허용하며 unknown sibling은
+  fail-closed로 유지합니다. 격리된 live 검증에서 RG-scoped disk deny는
+  `disk_provisioning=attach_existing`로 매핑됐고 실제 quota 부족은 manual blocker로 남았으며,
+  temporary assignment는 검토된 rollback으로 제거됐습니다. `fdaictl deploy preflight
   --environment-config`는 Azure CLI workload identity, bounded read-only ARM transport,
   neutral-to-ARM type mapping, sanitized fail-closed error와 함께 두 probe를 같은 analyzer에
   조립합니다. 기존 Resource Graph role observer도 `AzureIdentityRbacProbe`를 통해 조립되어

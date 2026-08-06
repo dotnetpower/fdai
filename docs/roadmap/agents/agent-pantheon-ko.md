@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 413676d5509fa7aff37106c1f72509703868e3da
+translation_source_sha: 7d1e45fc88c7f1fbd2d5e46ae7dbf6ce05bfe09c
 translation_revised: 2026-08-06
 ---
 
@@ -133,7 +133,7 @@ margin, planning receipt 및 temporal policy는
 
 Norns는 inert `RuleCandidate` proposal의 sole writer로 유지됩니다. Three-perspective consensus, balanced
 cohort limit, pending queue, Mimir review 및 catalog activation boundary는
-[Operational Learning Ontology](../rules-and-detection/operational-learning-ontology-ko.md#norns-consensus-및-catalog-boundary)가 소유합니다.
+[Operational Learning Ontology](../rules-and-detection/operational-learning-ontology-ko.md#norns-consensus-및-catalog-boundary)가 소유합니다. Caller-supplied recurring preflight manual blocker는 scope-deduplicate된 inert `preflight-toggle-gap` candidate가 되며 toggle을 만들거나 deployment authority를 변경하지 않습니다.
 ## 4. 에이전트 카탈로그
 > **머신 판독용 원본 (single source of truth)**: `PANTHEON_SPECS`
 > ([`src/fdai/agents/_framework/pantheon.py`](../../../src/fdai/agents/_framework/pantheon.py)).

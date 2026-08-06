@@ -1,8 +1,8 @@
 ---
 title: 프리플라이트 능동 플랜 재조립 (policy blocker에서 재렌더된 terraform으로)
 translation_of: preflight-active-reassembly.md
-translation_source_sha: 8a9eb45168bf54d285b8cd0e9b16f32de038ace2
-translation_revised: 2026-08-01
+translation_source_sha: 7af77fb0bbc8555d25b09790544c3fec32d5f51c
+translation_revised: 2026-08-06
 ---
 # 프리플라이트 능동 플랜 재조립 (policy blocker에서 재렌더된 terraform으로)
 
@@ -160,9 +160,11 @@ escalate된 outcome은 proposal을 내지 않습니다 - 호출자가 `hil`로 �
   거버넌스 결정인 가드레일. 이들은 `MANUAL` resolution을 emit하며 절대 자동 재조립하지
   않습니다.
 
-discovery 루프는 환경 전반에서 반복되는 `MANUAL` blocker를 **새로운** 토글(새 기본 대체
-렌더링)을 제안하라는 신호로 취급하며, 이는 표준 quality gate를 통해 카탈로그에
-진입합니다
+Preflight composition은 bounded finding id, category, evidence source, scope와 함께 반복되는
+`MANUAL` blocker를 Norns에 보고할 수 있습니다. Norns는 scope digest를 deduplicate하고 기본
+세 개의 distinct scope 이후 inert `preflight-toggle-gap` candidate 하나를 제안합니다. Candidate는
+**새로운** 검토된 alternate rendering을 제안하고 표준 quality gate에 진입하지만 toggle을
+만들거나 deployment authority를 높이지 않습니다
 ([architecture.instructions.md § Rule Catalog](../../../.github/instructions/architecture.instructions.md#rule-catalog)).
 
 ## 안전 불변식
@@ -194,6 +196,7 @@ draft입니다.
 | 수렴 루프 + stop-condition | [core/deploy_preflight/reassemble.py](../../../src/fdai/core/deploy_preflight/reassemble.py) | 완료 |
 | `remediate.apply-preflight-toggle` ActionType | [rule-catalog/action-types/](../../../rule-catalog/action-types/remediate.apply-preflight-toggle.yaml) | 완료 |
 | overrides -> Action proposal (토글당 하나) | [core/deploy_preflight/reassembly_proposals.py](../../../src/fdai/core/deploy_preflight/reassembly_proposals.py) | 완료 |
+| 반복 manual blocker -> inert candidate | [agents/norns.py](../../../src/fdai/agents/norns.py) | 완료 (caller-supplied observation) |
 | 참조 consumer 배선 (토글 하나) | [infra/modules/preflight-toggles/reference-disk-consumer/](../../../infra/modules/preflight-toggles/reference-disk-consumer/README.md) | 완료 (포크가 복사) |
 | **composition 배선: `ProposalSink` + 라이브 트리거** | composition root + `delivery/azure/preflight/` | **남음** |
 

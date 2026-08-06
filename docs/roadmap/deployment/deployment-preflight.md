@@ -163,7 +163,11 @@ Shipped: the probe seam, generic deterministic probes, analyzer + report, Azure 
    `httpx.AsyncClient` + `WorkloadIdentity` bearer token, fail-closed) plus the
    `AzurePolicyGuardrailProbe` (real Azure Policy `deny` guardrails - `Not
    allowed` / `Allowed resource types`) and the `AzureQuotaProbe` (Compute
-  usages per subscription + location) have landed with mock-HTTP unit tests.
+  usages per subscription + location) have landed with mock-HTTP unit tests. The policy parser
+  accepts the built-in `allOf` type constraint only when every sibling is the canonical
+  type-exists guard; unknown siblings remain fail-closed. Isolated live validation proved one
+  RG-scoped disk deny maps to `disk_provisioning=attach_existing`, while a real quota shortage
+  remains a manual blocker; the temporary assignment was removed through its reviewed rollback.
   `fdaictl deploy preflight --environment-config` composes both through the same
   analyzer with Azure CLI workload identity, bounded read-only ARM transport,
   neutral-to-ARM type mapping, and sanitized fail-closed errors. The existing

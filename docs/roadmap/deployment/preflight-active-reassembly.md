@@ -164,9 +164,11 @@ Honesty about the boundary is a safety property, not a caveat:
   exemption or a governance decision. These emit a `MANUAL` resolution and never
   auto-reassemble.
 
-The discovery loop treats a recurring `MANUAL` blocker across environments as a
-signal to propose a **new** toggle (a new default alternate rendering), which
-then enters the catalog through the standard quality gate
+The preflight composition can report a recurring `MANUAL` blocker to Norns with a bounded
+finding id, category, evidence source, and scope. Norns deduplicates scope digests and, after
+three distinct scopes by default, proposes one inert `preflight-toggle-gap` candidate. The
+candidate suggests a **new** reviewed alternate rendering and enters the standard quality gate;
+it never creates a toggle or raises deployment authority
 ([architecture.instructions.md § Rule Catalog](../../../.github/instructions/architecture.instructions.md#rule-catalog)).
 
 ## Safety Invariants
@@ -198,6 +200,7 @@ category is explicitly promoted to enforce.
 | Convergence loop + stop-conditions | [core/deploy_preflight/reassemble.py](../../../src/fdai/core/deploy_preflight/reassemble.py) | shipped |
 | `remediate.apply-preflight-toggle` ActionType | [rule-catalog/action-types/](../../../rule-catalog/action-types/remediate.apply-preflight-toggle.yaml) | shipped |
 | Overrides -> Action proposals (one per toggle) | [core/deploy_preflight/reassembly_proposals.py](../../../src/fdai/core/deploy_preflight/reassembly_proposals.py) | shipped |
+| Recurring manual blocker -> inert candidate | [agents/norns.py](../../../src/fdai/agents/norns.py) | shipped (caller-supplied observation) |
 | Reference consumer wiring (one toggle) | [infra/modules/preflight-toggles/reference-disk-consumer/](../../../infra/modules/preflight-toggles/reference-disk-consumer/README.md) | shipped (fork copies it) |
 | **Composition wiring: `ProposalSink` + live trigger** | composition root + `delivery/azure/preflight/` | **remaining** |
 

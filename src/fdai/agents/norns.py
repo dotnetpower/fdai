@@ -40,6 +40,10 @@ Optional scenario-coverage learner:
    candidate. Same discipline: never mutates the catalog. See
    :class:`fdai.core.chaos.coverage.ScenarioCoverageAggregator` and
    `docs/internals/sre-scenario-library-scaling.md`.
+
+6. **Preflight toggle-gap learner** - repeated manual deployment blockers
+    across distinct scopes propose an inert candidate for a reviewed alternate
+    rendering. It never creates a toggle or changes deployment authority.
 """
 
 from __future__ import annotations
@@ -97,6 +101,7 @@ class Norns(Agent):
         min_outcome_samples: int = 20,
         override_retire_threshold: int = 5,
         rejection_revise_threshold: int = 5,
+        preflight_blocker_threshold: int = 3,
         coverage_aggregator: ScenarioCoverageAggregator | None = None,
         post_turn_review: PostTurnReviewCoordinator | None = None,
         forecast_error_threshold: int = 3,
@@ -117,6 +122,8 @@ class Norns(Agent):
             raise ValueError("override_retire_threshold MUST be >= 1")
         if rejection_revise_threshold < 1:
             raise ValueError("rejection_revise_threshold MUST be >= 1")
+        if preflight_blocker_threshold < 2:
+            raise ValueError("preflight_blocker_threshold MUST be >= 2")
         if forecast_error_threshold < 1:
             raise ValueError("forecast_error_threshold MUST be >= 1")
         if max_pending_candidates < 1:
@@ -169,6 +176,11 @@ class Norns(Agent):
         self._approval_counts: dict[str, dict[str, int]] = {}
         self._approval_proposed: set[str] = set()
         self._counted_approvals: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
+        self._preflight_blocker_threshold = preflight_blocker_threshold
+        self._preflight_blocker_scopes: BoundedLruDict[str, frozenset[str]] = BoundedLruDict(
+            _MAX_TRACKED
+        )
+        self._preflight_blocker_proposed: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._post_turn_hint_proposed: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._reviewed_trajectory_manifests: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         # Scenario-coverage learner (optional; composition root wires it).
@@ -656,6 +668,63 @@ class Norns(Agent):
                     "notes": candidate["notes"],
                 }
             )
+
+    def observe_preflight_manual_blocker(
+        self,
+        *,
+        finding_id: str,
+        category: str,
+        evidence_source: str,
+        scope: str,
+    ) -> None:
+        """Propose an inert toggle-gap candidate after distinct scopes repeat a blocker."""
+
+        self._ensure_pending_capacity()
+        values = {
+            "finding_id": finding_id,
+            "category": category,
+            "evidence_source": evidence_source,
+            "scope": scope,
+        }
+        for name, value in values.items():
+            if not value or len(value) > 512 or "\n" in value or "\r" in value:
+                raise ValueError(f"preflight manual blocker {name} is invalid")
+        blocker_digest = hashlib.sha256(
+            "\0".join((category, finding_id, evidence_source)).encode()
+        ).hexdigest()
+        scope_digest = hashlib.sha256(scope.encode()).hexdigest()
+        observed = set(self._preflight_blocker_scopes.get(blocker_digest) or ())
+        if scope_digest in observed:
+            return
+        observed.add(scope_digest)
+        self._preflight_blocker_scopes.set(blocker_digest, frozenset(observed))
+        if (
+            len(observed) < self._preflight_blocker_threshold
+            or blocker_digest in self._preflight_blocker_proposed
+        ):
+            return
+        self._preflight_blocker_proposed.add(blocker_digest)
+        self._append_candidate(
+            {
+                "source_signal": "recurring_preflight_manual_blocker",
+                "evidence": {
+                    "finding_id": finding_id,
+                    "category": category,
+                    "source_ref": evidence_source,
+                    "occurrence_count": len(observed),
+                    "scope_digests": sorted(observed),
+                },
+                "provenance": {
+                    "source": "deployment_preflight",
+                    "blocker_digest": blocker_digest,
+                },
+                "proposed_by": self.spec.name,
+                "proposal_kind": "new",
+                "candidate_type": "preflight-toggle-gap",
+                "target_rule_id": f"preflight-toggle-gap.{blocker_digest[:24]}",
+                "suggested_pattern": "add_reviewed_preflight_alternate_rendering",
+            }
+        )
 
     async def submit_rule_hint(
         self,

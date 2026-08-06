@@ -141,6 +141,83 @@ async def test_not_allowed_resource_type_denied_maps_to_toggle() -> None:
     assert finding.resolution.autofix is True
 
 
+async def test_builtin_not_allowed_all_of_type_exists_guard_is_parsed() -> None:
+    builtin_definition = {
+        "name": "not-allowed-types",
+        "properties": {
+            "parameters": {
+                "effect": {"defaultValue": "Deny"},
+                "listOfResourceTypesNotAllowed": {"defaultValue": []},
+            },
+            "policyRule": {
+                "if": {
+                    "allOf": [
+                        {
+                            "field": "type",
+                            "in": "[parameters('listOfResourceTypesNotAllowed')]",
+                        },
+                        {"value": "[field('type')]", "exists": True},
+                    ]
+                },
+                "then": {"effect": "[parameters('effect')]"},
+            },
+        },
+    }
+    handler = _handler(
+        {
+            "policyAssignments": _assignments(
+                (
+                    _NOT_ALLOWED_DEF_ID,
+                    {
+                        "effect": {"value": "Deny"},
+                        "listOfResourceTypesNotAllowed": {"value": [_DISK]},
+                    },
+                ),
+            ),
+            "policyDefinitions/not-allowed-types": builtin_definition,
+        }
+    )
+    probe = _probe(handler, _config())
+
+    findings = await probe.evaluate(PreflightTarget(scope="rg:app", resource_types=(_DISK,)))
+
+    assert len(findings) == 1
+    assert findings[0].evidence.source == "policy:not-allowed-types"
+
+
+async def test_unknown_all_of_guard_is_not_ignored() -> None:
+    guarded_definition = {
+        "name": "guarded-types",
+        "properties": {
+            "policyRule": {
+                "if": {
+                    "allOf": [
+                        {"field": "type", "in": [_DISK]},
+                        {"field": "location", "equals": "koreacentral"},
+                    ]
+                },
+                "then": {"effect": "deny"},
+            }
+        },
+    }
+    handler = _handler(
+        {
+            "policyAssignments": _assignments(
+                (
+                    "/providers/Microsoft.Authorization/policyDefinitions/guarded-types",
+                    {},
+                ),
+            ),
+            "policyDefinitions/guarded-types": guarded_definition,
+        }
+    )
+    probe = _probe(handler, _config())
+
+    findings = await probe.evaluate(PreflightTarget(scope="rg:app", resource_types=(_DISK,)))
+
+    assert findings == ()
+
+
 async def test_not_allowed_without_resolution_is_manual() -> None:
     handler = _handler(
         {
