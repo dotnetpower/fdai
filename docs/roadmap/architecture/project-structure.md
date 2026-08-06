@@ -31,7 +31,7 @@ fdai/
 │   │   ├── browser_evidence/   # read-only origin/DNS policy, redaction, immutable artifacts, custody, and shadow comparison
 │   │   ├── operator_memory/    # HIL-approved operator memory injected as untrusted `<operator_note>` data
 │   │   ├── learning/           # consent-gated off-path turn eligibility, consensus, dedup ledger, and inert proposal routing
-│   │   ├── conversation_assurance/ # deterministic-first completed-turn scoring, exact failure attribution, hold-first ontology adequacy review, mixed-family review, scoped disputes, subscription learning, and chat-policy promotion/rollback
+│   │   ├── conversation_assurance/ # deterministic-first completed-turn scoring, exact failure attribution, hold-first ontology adequacy review, mixed-family review, scoped disputes, subscription learning, chat-policy promotion/rollback, and the versioned 50-item hard-cap quality scorecard
 │   │   ├── trajectory/         # authorization-first observable trajectory projection, version policy, reviewed aggregate, and offline validation
 │   │   ├── case_history/       # canonical revisions, strict operational receipts, artifact-first intake, scoped retrieval, backfill, and retention
 │   │   ├── task_worker/        # isolated depth-one read-only workers: capability attenuation, lifecycle, durable state, and parent synthesis
@@ -66,12 +66,12 @@ fdai/
 │   │   ├── postmortem/         # LLM-optional postmortem / PIR draft generator
 │   │   ├── rule_catalog_profiles/  # profile / pack layer - named rule bundles with `extends` chains + overrides
 │   │   ├── measurement/        # Continuous measurement plus immutable revision/scenario operational-promotion receipts with confidence and guard gates
-│   │   ├── mscp_profile/       # pure mscp-operational-v1 provenance, effect verification, cycle guard, and runtime-integrity policies; no execution authority
+│   │   ├── mscp_profile/       # pure mscp-operational-v1 provenance, effect verification, cycle guard, runtime-integrity policies, and a never-raising authority ceiling; no execution authority
 │   │   ├── deploy_preflight/   # pre-deployment feasibility probes → grounded readiness report
 │   │   ├── readiness/          # operational handoff + startup and monitored-target readiness contracts, fail-closed reducers, evidence expiry, and authority ceilings
 │   │   ├── assurance_twin/     # read-only ontology twin: text-to-query, scalar/graph active-challenger models, required invariants, durable trajectory episodes, deterministic simulation, and off-path outcome closure (never executes or promotes)
 │   │   ├── ontology_platform/   # exact releases, semantic interfaces, bounded object sets, immutable diagnostic ledger/result projection, mutation plans, typed functions, reconciliation, and proposal-only SDK generation
-│   │   ├── conversation/       # Bragi-owned model-free screen T0, operator-console intent/tool coordination, conflict-aware read plans, grounded narration, per-turn isolation, durable delivery, and busy-input arbitration
+│   │   ├── conversation/       # Bragi-owned model-free screen T0, operator-console intent/tool coordination, conflict-aware read plans, grounded narration, shadow planning qualification receipts, per-turn isolation, durable delivery, and busy-input arbitration
 │   │   ├── user_context_projection.py  # metadata-only principal context / workflow binding projection into runtime ontology
 │   │   ├── console_request/    # operator-console write-direction re-request policy (Scenario B deny-override), a single pure `evaluate_operator_rerequest`
 │   │   ├── verticals/          # Resilience / Change Safety / Cost Governance (P3 integration surface); Resilience includes the control-plane recovery plan, record codec, epoch-fenced reducer, and durable CAS coordinator; each vertical is a sub-package (G-6) with its own orchestrator + submodules, plus the shared `Vertical` Protocol in `base.py` and the `VerticalRegistry` seam

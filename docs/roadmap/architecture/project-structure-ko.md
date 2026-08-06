@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 5df3278c8b7d655ce165a0cb1545b94a5fecca72
+translation_source_sha: 785b85e1c57ccf2c9eace96dbefbbcf76a86a641
 translation_revised: 2026-08-06
 ---
 
@@ -36,7 +36,7 @@ fdai/
 │   │   ├── browser_evidence/   # 읽기 전용 origin/DNS policy, redaction, immutable artifact, custody, shadow comparison
 │   │   ├── operator_memory/    # HIL 승인된 오퍼레이터 메모리를 untrusted `<operator_note>` 데이터로 주입
 │   │   ├── learning/           # 동의 기반 off-path turn eligibility, consensus, dedup ledger, 비활성 proposal routing
-│   │   ├── conversation_assurance/ # deterministic-first 완료 turn 점수, exact failure attribution, hold-first ontology adequacy review, mixed-family 평가, 범위 제한 이의 제기, 구독별 학습, chat-policy 승격 및 롤백
+│   │   ├── conversation_assurance/ # deterministic-first 완료 turn 점수, exact failure attribution, hold-first ontology adequacy review, mixed-family 평가, 범위 제한 이의 제기, 구독별 학습, chat-policy 승격 및 롤백, versioned 50-item hard-cap quality scorecard
 │   │   ├── trajectory/         # authorization-first observable trajectory projection, version policy, reviewed aggregate, offline validation
 │   │   ├── case_history/       # canonical revision, strict operational receipt, artifact-first intake, scoped retrieval, backfill 및 retention
 │   │   ├── task_worker/        # 격리된 depth-one 읽기 전용 worker: capability 축소, lifecycle, 영구 state, parent synthesis
@@ -71,12 +71,12 @@ fdai/
 │   │   ├── postmortem/         # LLM 옵션 postmortem / PIR 드래프트 생성기
 │   │   ├── rule_catalog_profiles/  # 프로파일 / 팩 레이어 - 이름 붙은 룰 번들 (`extends` 체인 + overrides)
 │   │   ├── measurement/        # 지속 측정 및 confidence/guard gate를 포함한 immutable revision/scenario operational-promotion receipt
-│   │   ├── mscp_profile/       # 실행 authority 없는 순수 mscp-operational-v1 provenance, effect verification, cycle guard 및 runtime-integrity policy
+│   │   ├── mscp_profile/       # 실행 authority 없는 순수 mscp-operational-v1 provenance, effect verification, cycle guard, runtime-integrity policy 및 never-raising authority ceiling
 │   │   ├── deploy_preflight/   # 배포 전 feasibility 프로브 → grounded readiness 리포트
 │   │   ├── readiness/          # 운영 handoff + startup 및 monitored-target readiness contract, fail-closed reducer, evidence expiry 및 authority ceiling
 │   │   ├── assurance_twin/     # 읽기 전용 온톨로지 트윈: text-to-query, scalar/graph active-challenger model, 필수 invariant, durable trajectory episode, 결정론적 simulation, off-path outcome closure (실행 또는 promotion 안 함)
 │   │   ├── ontology_platform/   # exact release, semantic interface, bounded object set, immutable diagnostic ledger/result projection, mutation plan, typed function, reconciliation, proposal-only SDK generation
-│   │   ├── conversation/       # Bragi-owned model-free screen T0, operator console intent/tool 조정, conflict-aware read plan, grounded narration, per-turn isolation, durable delivery 및 busy-input arbitration
+│   │   ├── conversation/       # Bragi-owned model-free screen T0, operator console intent/tool 조정, conflict-aware read plan, grounded narration, shadow planning qualification receipt, per-turn isolation, durable delivery 및 busy-input arbitration
 │   │   ├── user_context_projection.py  # principal context / workflow binding metadata만 runtime ontology에 projection
 │   │   ├── console_request/    # 오퍼레이터 콘솔 write-direction 재요청 정책 (Scenario B deny-override), 순수 함수 `evaluate_operator_rerequest` 하나
 │   │   ├── verticals/          # Resilience / Change Safety / Cost Governance (P3 통합 지점); Resilience는 control-plane recovery plan, record codec, epoch-fenced reducer 및 durable CAS coordinator를 포함하고, 각 vertical 은 sub-package (G-6) 로 자체 orchestrator + 서브모듈 을 가지며 공유 `Vertical` Protocol 은 `base.py`, `VerticalRegistry` seam 도 함께 제공
