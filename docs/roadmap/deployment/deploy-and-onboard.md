@@ -107,9 +107,8 @@ DSN secrets during apply. Deploys run through the [`deploy-dev` workflow](../../
 on the `[self-hosted, fdai-deploy]` runner (plan-only by default; the `apply` input enforces).
 Repository workflows allow only reviewed remote actions pinned to exact Node 24-compatible release
 refs; container supply-chain actions use immutable commit SHAs. The CI contract rejects unknown
-actions and mismatched refs. Upgrades must verify direct and composite action runtime metadata, and
-the self-hosted runner must remain at version 2.327.1 or newer.
-When private networking is enabled, PostgreSQL public access and the broad Azure-services firewall
+actions and mismatched refs. Terraform fixture tests use syntax accepted at the declared `>= 1.9`
+floor. The exact CI version proves parsing and plan assertions. Upgrades verify action runtime metadata, and the runner remains at version 2.327.1 or newer. When private networking is enabled, PostgreSQL public access and the broad Azure-services firewall
 are disabled. Dev uses its approved private endpoint; delegated-subnet mode remains available for
 production.
 Protected requests checkout `commit_sha` explicitly and compare it with `git rev-parse HEAD`, so a

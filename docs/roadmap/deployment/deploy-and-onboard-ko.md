@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 5b7aecd5e8d30796f866590c3ff91e9976421429
+translation_source_sha: 98fb704e179b9e839e81abfdc530bfb40973240e
 translation_revised: 2026-08-06
 ---
 
@@ -110,9 +110,8 @@ residue가 exact-commit clean을 막지 않게 합니다. 해당 step은 Azure C
 로 실행한다(기본 plan-only; `apply` 입력이 enforce).
 Repository workflow는 review된 remote action만 허용하고 exact Node 24-compatible release ref로
 pin하며 container supply-chain action은 immutable commit SHA를 사용합니다. CI contract는 unknown
-action과 mismatched ref를 거부합니다. Upgrade는 direct 및 composite action runtime metadata를
-검증해야 하며 self-hosted runner는 version 2.327.1 이상을 유지해야 합니다.
-Private networking이 enabled이면 PostgreSQL public access와 broad Azure-services firewall을
+action과 mismatched ref를 차단합니다. Terraform fixture test는 선언된 `>= 1.9` floor에서 허용되는
+syntax만 사용합니다. Exact CI version이 parsing과 plan assertion을 검증합니다. Upgrade는 action runtime metadata를 검증하고 runner는 version 2.327.1 이상을 유지합니다. Private networking이 enabled이면 PostgreSQL public access와 broad Azure-services firewall을
 비활성화합니다. Dev는 approved private endpoint를 사용하고 production은 delegated-subnet mode를
 계속 선택할 수 있습니다.
 Protected request는 `commit_sha`를 명시적으로 checkout하고 `git rev-parse HEAD`와 비교합니다.

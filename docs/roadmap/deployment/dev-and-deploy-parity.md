@@ -18,8 +18,8 @@ session shows the operator's actual Azure development environment. Azure deploym
   `{capability → deployment}` mapping plus resolver input provenance in the artifact.
 
 All profiles share **one control path**: only composition-root adapters and credentials differ
-([project-structure.md § Customization via Dependency Injection](../architecture/project-structure.md#customization-via-dependency-injection)).
-Adding a real Azure client is a fork-side injection; it MUST NOT edit `core/`.
+([project-structure.md § Customization via Dependency Injection](../architecture/project-structure.md#customization-via-dependency-injection)). Its reviewed docstring records the existing boundary and does not create a runtime,
+change state ownership, or allow fixtures. Adding a real Azure client is a fork-side injection; it MUST NOT edit `core/`.
 
 ## Audit - What Works Local, What Needs Azure
 

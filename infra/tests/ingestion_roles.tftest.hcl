@@ -11,7 +11,6 @@ override_module {
     client_id    = "executor-client"
     principal_id = "executor-principal"
   }
-  override_during = plan
 }
 
 override_module {
@@ -21,7 +20,6 @@ override_module {
     client_id    = "api-client"
     principal_id = "api-principal"
   }
-  override_during = plan
 }
 
 override_module {
@@ -31,7 +29,6 @@ override_module {
     client_id    = "worker-client"
     principal_id = "worker-principal"
   }
-  override_during = plan
 }
 
 override_module {
@@ -41,7 +38,6 @@ override_module {
     client_id    = "migration-client"
     principal_id = "migration-principal"
   }
-  override_during = plan
 }
 
 variables {

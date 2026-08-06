@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: c71caef73a73005497236b0448040a1c7053ce9f
-translation_revised: 2026-08-05
+translation_source_sha: 882f0bdba6f60d415a8ee97b0eddb5a056c1d970
+translation_revised: 2026-08-06
 ---
 
 # Runtime Parity - Authoritative Local Development 및 Test Fixture
@@ -21,8 +21,8 @@ translation_revised: 2026-08-05
   `{capability → deployment}` 매핑과 resolver 입력 provenance를 artifact에 기록합니다.
 
 모든 profile은 **하나의 control path**를 공유하며 composition-root adapter와 credential만 다릅니다.
-([project-structure.md § Customization via Dependency Injection](../architecture/project-structure-ko.md#customization-via-dependency-injection)).
-실제 Azure 클라이언트 추가는 fork-side injection이고 `core/` 는 절대 안 건드림.
+([project-structure.md § Customization via Dependency Injection](../architecture/project-structure-ko.md#customization-via-dependency-injection)). 검토된 docstring은 기존 boundary를 기록하며 별도 runtime을 만들거나
+state ownership을 변경하거나 fixture를 허용하지 않습니다. 실제 Azure 클라이언트 추가는 fork-side injection이며 `core/`를 편집하지 않습니다.
 
 ## 전수조사 - 로컬 동작 vs Azure 필요
 
