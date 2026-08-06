@@ -117,6 +117,7 @@ def append_projection_routes(
             DETAIL_ROUTE_PATH,
             FINDINGS_ROUTE_PATH,
             FINDINGS_SUMMARY_ROUTE_PATH,
+            SEARCH_ROUTE_PATH,
             make_rule_catalog_routes,
         )
 
@@ -125,6 +126,7 @@ def append_projection_routes(
             DETAIL_ROUTE_PATH,
             FINDINGS_ROUTE_PATH,
             FINDINGS_SUMMARY_ROUTE_PATH,
+            SEARCH_ROUTE_PATH,
         ):
             _ensure_available(path, "rule-catalog path", core_paths, panel_paths)
         routes.extend(
@@ -137,6 +139,7 @@ def append_projection_routes(
                 findings_provider=bindings.rule_catalog_findings_provider,
                 findings_summary_provider=bindings.rule_catalog_findings_summary_provider,
                 semantic_index=bindings.rule_catalog_semantic_index,
+                query_registry=bindings.rule_catalog_query_registry,
             )
         )
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from fdai.rule_catalog.schema.rule_semantic_generation import (
@@ -12,6 +12,7 @@ from fdai.rule_catalog.schema.rule_semantic_generation import (
     SemanticAvailability,
 )
 from fdai.rule_catalog.schema.rule_semantic_retrieval import RuleCorpus, query_digest
+from fdai.shared.contracts.models import Rule
 from fdai.shared.providers.catalog_search import (
     CatalogCorpus,
     CatalogGenerationStaleError,
@@ -62,6 +63,36 @@ class RuleSearchFacet:
     rule_version: str
     resource_type: str
     category: str
+
+
+def build_rule_search_facets(rules: Sequence[Rule]) -> Mapping[str, RuleSearchFacet]:
+    """Project exact active Rule identity and deterministic filter facets."""
+
+    return {
+        rule.id: RuleSearchFacet(
+            rule_id=rule.id,
+            rule_version=str(rule.version),
+            resource_type=rule.resource_type,
+            category=rule.category.value,
+        )
+        for rule in rules
+    }
+
+
+def build_rule_concept_bindings(rules: Sequence[Rule]) -> Mapping[str, frozenset[str]]:
+    """Build OPA-free exact catalog adjacency for reviewed Rule references."""
+
+    bindings: dict[str, set[str]] = {}
+    for rule in rules:
+        references = {
+            rule.resource_type,
+            rule.remediates,
+            *rule.triggered_by,
+            *rule.evaluates,
+        }
+        for reference in references:
+            bindings.setdefault(reference, set()).add(rule.id)
+    return {reference: frozenset(rule_ids) for reference, rule_ids in sorted(bindings.items())}
 
 
 class ConceptFirstCatalogRetriever:
@@ -183,4 +214,10 @@ class ConceptFirstCatalogRetriever:
         )
 
 
-__all__ = ["CatalogConceptQuery", "ConceptFirstCatalogRetriever", "RuleSearchFacet"]
+__all__ = [
+    "CatalogConceptQuery",
+    "ConceptFirstCatalogRetriever",
+    "RuleSearchFacet",
+    "build_rule_concept_bindings",
+    "build_rule_search_facets",
+]

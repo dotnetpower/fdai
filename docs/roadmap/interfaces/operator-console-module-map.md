@@ -190,7 +190,9 @@ a separately reviewed boundary.
   startup when catalog IDs, ownership, or plan bindings drift.
 - `routes/rule_catalog.py` exposes a read-only active/discovery Rule reference projection. It uses
   semantic ranking only from a catalog-matched active generation and otherwise returns lexical
-  results with an explicit degraded state. Generation publishing remains outside API startup.
+  results with an explicit degraded state. Reader-gated `POST /rules/search` invokes the exact
+  `catalog.search_rules` ontology function and returns retrieval plus function receipts without
+  evaluation or execution authority. Generation publishing remains outside API startup.
 
 English and Korean presentation literals use NFC UTF-8. Escaped Hangul is accepted only for exact,
 rationale-bearing code-point behavior. This representation does not change machine values,

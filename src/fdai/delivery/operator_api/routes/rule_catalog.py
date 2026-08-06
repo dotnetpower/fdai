@@ -24,6 +24,7 @@ every console route this is a pure projection - it never mutates state
 
 from __future__ import annotations
 
+import json
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from pathlib import Path
@@ -34,8 +35,9 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
+from fdai.core.ontology_platform import FunctionInvocationContext, OntologyFunctionRegistry
 from fdai.rule_catalog.schema.catalog_search import rule_reference_catalog_digest
-from fdai.shared.contracts.models import Rule
+from fdai.shared.contracts.models import CeilingRole, Rule
 from fdai.shared.providers.catalog_search import (
     CatalogCorpus,
     CatalogGenerationStaleError,
@@ -43,6 +45,7 @@ from fdai.shared.providers.catalog_search import (
 )
 
 DEFAULT_ROUTE_PATH = "/rules"
+SEARCH_ROUTE_PATH = "/rules/search"
 DETAIL_ROUTE_PATH = "/rules/{rule_id}"
 FINDINGS_ROUTE_PATH = "/rules/{rule_id}/findings"
 FINDINGS_SUMMARY_ROUTE_PATH = "/rules/findings-summary"
@@ -51,6 +54,7 @@ DEFAULT_LIMIT = 100
 MAX_LIMIT = 500
 MAX_FINDINGS = 200
 MAX_SEMANTIC_CANDIDATES = 1000
+MAX_QUERY_BODY_BYTES = 32_768
 
 # A findings provider maps (rule_id, origin) -> the resources currently
 # violating that rule, each with the specific attribute at fault. It is
@@ -323,7 +327,9 @@ def make_rule_catalog_routes(
     findings_provider: FindingsProvider | None = None,
     findings_summary_provider: FindingsSummaryProvider | None = None,
     semantic_index: CatalogSemanticIndex | None = None,
+    query_registry: OntologyFunctionRegistry | None = None,
     path: str = DEFAULT_ROUTE_PATH,
+    search_path: str = SEARCH_ROUTE_PATH,
     detail_path: str = DETAIL_ROUTE_PATH,
     findings_path: str = FINDINGS_ROUTE_PATH,
     findings_summary_path: str = FINDINGS_SUMMARY_ROUTE_PATH,
@@ -374,6 +380,41 @@ def make_rule_catalog_routes(
 
     def _bad_request(message: str) -> Response:
         return JSONResponse({"error": {"status": 400, "message": message}}, status_code=400)
+
+    async def search_handler(request: Request) -> Response:
+        await authorize(request)
+        if query_registry is None:
+            return JSONResponse(
+                {"error": {"status": 503, "message": "catalog concept search is unavailable"}},
+                status_code=503,
+            )
+        body = await request.body()
+        if len(body) > MAX_QUERY_BODY_BYTES:
+            return _bad_request("catalog query body exceeds the maximum size")
+        try:
+            arguments = json.loads(body)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return _bad_request("catalog query body MUST be valid JSON")
+        if not isinstance(arguments, dict):
+            return _bad_request("catalog query body MUST be an object")
+        try:
+            result, receipt = await query_registry.invoke_with_receipt(
+                "catalog.search_rules",
+                arguments,
+                context=FunctionInvocationContext(
+                    caller_agent="Mimir",
+                    caller_role=CeilingRole.READER,
+                    purposes=("rule_lookup",),
+                ),
+            )
+        except (TypeError, ValueError) as exc:
+            return _bad_request(str(exc))
+        return JSONResponse(
+            {
+                "result": result,
+                "invocation": receipt.model_dump(mode="json"),
+            }
+        )
 
     async def list_handler(request: Request) -> Response:
         await authorize(request)
@@ -562,6 +603,7 @@ def make_rule_catalog_routes(
 
     return [
         Route(path, endpoint=list_handler, methods=["GET"]),
+        Route(search_path, endpoint=search_handler, methods=["POST"]),
         Route(findings_summary_path, endpoint=summary_handler, methods=["GET"]),
         Route(findings_path, endpoint=findings_handler, methods=["GET"]),
         Route(detail_path, endpoint=detail_handler, methods=["GET"]),

@@ -347,6 +347,9 @@ class OperatorApiConfig:
     rule_catalog_semantic_index: Any = None
     """Optional async semantic index for ranked Rule catalog queries."""
 
+    rule_catalog_query_registry: Any = None
+    """Optional exact-release registry for ``POST /rules/search``."""
+
     promotion_gate_action_types: tuple[Any, ...] = ()
     """Opt-in promotion-gate dashboard input: tuple of
     :class:`~fdai.shared.contracts.models.OntologyActionType`."""
@@ -671,6 +674,7 @@ class OperatorApiConfig:
                         self.rule_catalog_findings_summary_provider
                     ),
                     rule_catalog_semantic_index=self.rule_catalog_semantic_index,
+                    rule_catalog_query_registry=self.rule_catalog_query_registry,
                     promotion_gate_action_types=self.promotion_gate_action_types,
                     promotion_gate_source=self.promotion_gate_source,
                     scope_source=self.scope_source,

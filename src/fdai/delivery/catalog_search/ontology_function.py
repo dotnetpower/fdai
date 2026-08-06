@@ -3,12 +3,24 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
+from typing import Any
 
-from fdai.rule_catalog.schema.rule_semantic_generation import CatalogRetrievalReceipt
+from fdai.core.ontology_platform import OntologyFunctionRegistry
+from fdai.delivery.catalog_search.concept_query import (
+    CatalogConceptQuery,
+    ConceptFirstCatalogRetriever,
+)
+from fdai.rule_catalog.schema.rule_semantic_generation import (
+    CatalogRetrievalReceipt,
+    RetrievalOperation,
+)
+from fdai.rule_catalog.schema.rule_semantic_retrieval import RuleCorpus
 from fdai.shared.contracts.models import (
     CeilingRole,
     OntologyFunctionKind,
     OntologyFunctionType,
+    OntologyRelease,
 )
 
 _FUNCTION_NAME = "catalog.search_rules"
@@ -103,6 +115,40 @@ def project_catalog_retrieval_receipt(receipt: CatalogRetrievalReceipt) -> dict[
     }
 
 
+def build_catalog_query_function_registry(
+    *,
+    retriever: ConceptFirstCatalogRetriever,
+    release: OntologyRelease,
+) -> OntologyFunctionRegistry:
+    """Bind concept-first Rule retrieval to its declaration in one exact release."""
+
+    declaration = catalog_query_function_type()
+    registry = OntologyFunctionRegistry(release=release)
+
+    async def invoke(arguments: Mapping[str, Any]) -> dict[str, object]:
+        query = CatalogConceptQuery(
+            text=str(arguments["text"]),
+            operation=RetrievalOperation(str(arguments["operation"])),
+            corpus=RuleCorpus(str(arguments["corpus"])),
+            intent_ids=_string_tuple(arguments, "intent_ids"),
+            concept_refs=_string_tuple(arguments, "concept_refs"),
+            resource_types=_string_tuple(arguments, "resource_types"),
+            categories=_string_tuple(arguments, "categories"),
+            max_results=int(arguments["max_results"]),
+        )
+        return project_catalog_retrieval_receipt(await retriever.resolve(query))
+
+    registry.register(declaration, invoke)
+    return registry
+
+
+def _string_tuple(arguments: Mapping[str, Any], name: str) -> tuple[str, ...]:
+    value = arguments[name]
+    if not isinstance(value, list):
+        raise TypeError(f"catalog query {name} MUST be an array")
+    return tuple(str(item) for item in value)
+
+
 def _output_schema() -> dict[str, object]:
     nullable_digest = {
         "anyOf": [
@@ -182,4 +228,8 @@ def _output_schema() -> dict[str, object]:
     }
 
 
-__all__ = ["catalog_query_function_type", "project_catalog_retrieval_receipt"]
+__all__ = [
+    "build_catalog_query_function_registry",
+    "catalog_query_function_type",
+    "project_catalog_retrieval_receipt",
+]

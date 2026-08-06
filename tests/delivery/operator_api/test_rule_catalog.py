@@ -8,6 +8,15 @@ from pathlib import Path
 import pytest
 from starlette.testclient import TestClient
 
+from fdai.delivery.catalog_search.concept_query import (
+    ConceptFirstCatalogRetriever,
+    build_rule_concept_bindings,
+    build_rule_search_facets,
+)
+from fdai.delivery.catalog_search.ontology_function import (
+    build_catalog_query_function_registry,
+    catalog_query_function_type,
+)
 from fdai.delivery.operator_api.auth import build_authenticator
 from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
@@ -24,6 +33,7 @@ from fdai.shared.contracts.models import (
     RuleSource,
     Severity,
 )
+from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.catalog_search import CatalogGenerationMetadata, CatalogSearchResult
 
 
@@ -192,8 +202,43 @@ class _MissingGenerationIndex(_SemanticIndex):
         return None
 
 
-def _semantic_client(index: object) -> TestClient:
+class _ConceptSemanticIndex(_SemanticIndex):
+    async def search(  # type: ignore[no-untyped-def]
+        self,
+        query: str,
+        *,
+        k: int = 20,
+        corpus="active",
+        expected_catalog_digest=None,
+    ):
+        assert "public storage" in query
+        assert k == 80
+        assert corpus == "active"
+        assert expected_catalog_digest == rule_reference_catalog_digest(_active())
+        return (
+            CatalogSearchResult(
+                rule_id="object-storage.public-access.deny",
+                score=0.9,
+                match="hybrid",
+                components={"semantic": 0.9},
+            ),
+        )
+
+
+def _semantic_client(index: object, *, concept_search: bool = False) -> TestClient:
     auth = build_authenticator(verifier=lambda t: {"oid": "u"}, resolver=lambda claims: None)
+    query_registry = None
+    if concept_search:
+        declaration = catalog_query_function_type()
+        query_registry = build_catalog_query_function_registry(
+            retriever=ConceptFirstCatalogRetriever(
+                index=index,  # type: ignore[arg-type]
+                catalog_digest=rule_reference_catalog_digest(_active()),
+                concepts=build_rule_concept_bindings(_active()),
+                facets=build_rule_search_facets(_active()),
+            ),
+            release=build_ontology_release(function_types=(declaration,)),
+        )
     app = build_app(
         authenticator=auth,
         read_model=InMemoryConsoleReadModel(),
@@ -202,6 +247,7 @@ def _semantic_client(index: object) -> TestClient:
             rule_catalog_rules=_active(),
             rule_catalog_collected_rules=_collected(),
             rule_catalog_semantic_index=index,
+            rule_catalog_query_registry=query_registry,
         ),
     )
     return TestClient(app)
@@ -290,6 +336,57 @@ def test_invalid_pagination_is_rejected_before_semantic_search() -> None:
 
     assert response.status_code == 400
     assert response.json()["error"]["message"] == "limit MUST be between 1 and 500"
+
+
+def test_concept_search_returns_retrieval_and_exact_function_receipts() -> None:
+    response = _semantic_client(_ConceptSemanticIndex(), concept_search=True).post(
+        "/rules/search",
+        json={
+            "text": "Explain public storage policy",
+            "operation": "explain",
+            "corpus": "active",
+            "intent_ids": [],
+            "concept_refs": ["object-storage"],
+            "resource_types": ["object-storage"],
+            "categories": ["security"],
+            "max_results": 20,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["result"]["execution_authority"] is False
+    assert body["result"]["results"][0]["rule_ref"].startswith(
+        "rule:object-storage.public-access.deny@"
+    )
+    assert body["invocation"]["function_ref"]["name"] == "catalog.search_rules"
+
+
+def test_concept_search_rejects_invalid_shape_before_provider_call() -> None:
+    response = _semantic_client(_UnexpectedSemanticIndex(), concept_search=True).post(
+        "/rules/search",
+        json={
+            "text": "Explain public storage policy",
+            "operation": "explain",
+            "corpus": "active",
+            "intent_ids": [],
+            "concept_refs": [],
+            "resource_types": [],
+            "categories": [],
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["message"] == (
+        "ontology function arguments violate input_schema"
+    )
+
+
+def test_concept_search_reports_unavailable_without_registry() -> None:
+    response = _semantic_client(_SemanticIndex()).post("/rules/search", json={})
+
+    assert response.status_code == 503
+    assert response.json()["error"]["message"] == "catalog concept search is unavailable"
 
 
 def test_rules_tagged_with_origin() -> None:

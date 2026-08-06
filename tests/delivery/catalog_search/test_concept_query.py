@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 import pytest
 from jsonschema import Draft202012Validator
 
+from fdai.core.ontology_platform import FunctionInvocationContext
 from fdai.delivery.catalog_search import InMemoryCatalogSemanticIndex
 from fdai.delivery.catalog_search.concept_query import (
     CatalogConceptQuery,
@@ -12,11 +13,14 @@ from fdai.delivery.catalog_search.concept_query import (
     RuleSearchFacet,
 )
 from fdai.delivery.catalog_search.ontology_function import (
+    build_catalog_query_function_registry,
     catalog_query_function_type,
     project_catalog_retrieval_receipt,
 )
 from fdai.rule_catalog.schema.rule_semantic_generation import RetrievalOperation
 from fdai.rule_catalog.schema.rule_semantic_retrieval import RuleCorpus
+from fdai.shared.contracts.models import CeilingRole
+from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.catalog_search import (
     CatalogGenerationMetadata,
     CatalogSearchDocument,
@@ -152,3 +156,63 @@ async def test_catalog_query_function_projection_is_strict_and_read_only() -> No
     assert declaration.network_allowed is False
     assert declaration.credentials_allowed is False
     assert projected["execution_authority"] is False
+
+
+async def test_catalog_query_function_registry_invokes_with_exact_release_receipt() -> None:
+    declaration = catalog_query_function_type()
+    registry = build_catalog_query_function_registry(
+        retriever=await _resolver(),
+        release=build_ontology_release(function_types=(declaration,)),
+    )
+
+    result, receipt = await registry.invoke_with_receipt(
+        declaration.name,
+        {
+            "text": "Explain public storage policy",
+            "operation": "explain",
+            "corpus": "active",
+            "intent_ids": [],
+            "concept_refs": ["concept.public-access"],
+            "resource_types": [],
+            "categories": [],
+            "max_results": 20,
+        },
+        context=FunctionInvocationContext(
+            caller_agent="Bragi",
+            caller_role=CeilingRole.READER,
+            purposes=("rule_lookup",),
+        ),
+    )
+
+    assert isinstance(result, dict)
+    assert result["status"] == "matched"
+    assert result["execution_authority"] is False
+    assert receipt.function_ref.name == "catalog.search_rules"
+
+
+async def test_catalog_query_function_registry_rejects_unowned_agent() -> None:
+    declaration = catalog_query_function_type()
+    registry = build_catalog_query_function_registry(
+        retriever=await _resolver(),
+        release=build_ontology_release(function_types=(declaration,)),
+    )
+
+    with pytest.raises(PermissionError, match="agent is not allowed"):
+        await registry.invoke_with_receipt(
+            declaration.name,
+            {
+                "text": "Explain public storage policy",
+                "operation": "explain",
+                "corpus": "active",
+                "intent_ids": [],
+                "concept_refs": [],
+                "resource_types": [],
+                "categories": [],
+                "max_results": 20,
+            },
+            context=FunctionInvocationContext(
+                caller_agent="Thor",
+                caller_role=CeilingRole.READER,
+                purposes=("rule_lookup",),
+            ),
+        )

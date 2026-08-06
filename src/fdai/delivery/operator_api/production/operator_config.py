@@ -11,7 +11,15 @@ from fdai.core.execution_authorization import AccessGrantRequestService
 from fdai.core.human_assignment import AssignmentCaseService, HandoverGoalService
 from fdai.core.rbac.access_request import AccessRequestService
 from fdai.core.rbac.kill_switch_command import KillSwitchCommandService
-from fdai.delivery.catalog_search import load_shipped_catalog_reference_sources
+from fdai.delivery.catalog_search import (
+    build_catalog_query_function_registry,
+    load_shipped_catalog_reference_sources,
+)
+from fdai.delivery.catalog_search.concept_query import (
+    ConceptFirstCatalogRetriever,
+    build_rule_concept_bindings,
+    build_rule_search_facets,
+)
 from fdai.delivery.configuration_review_store import (
     StateStoreConfigurationReviewCampaignStore,
 )
@@ -42,6 +50,7 @@ from fdai.delivery.persistence.postgres_task_worker import (
     PostgresTaskWorkerStore,
     PostgresTaskWorkerStoreConfig,
 )
+from fdai.rule_catalog.schema.catalog_search import rule_reference_catalog_digest
 
 _AsyncCallback = Callable[[], Awaitable[None]]
 
@@ -59,6 +68,7 @@ class ProductionOperatorConfigInputs:
     link_types: Any
     action_types: Any
     ontology_function_types: Any
+    ontology_release: Any
     inventory_semantic_resolver: Any
     catalog_semantic_index: Any
     scope_source: Any
@@ -96,6 +106,17 @@ def build_production_operator_config(
 ) -> OperatorApiConfig:
     """Assemble the final route configuration from production wiring bundles."""
     catalog_reference_sources = load_shipped_catalog_reference_sources(repo_root=inputs.repo_root)
+    catalog_query_registry = None
+    if inputs.catalog_semantic_index is not None:
+        catalog_query_registry = build_catalog_query_function_registry(
+            retriever=ConceptFirstCatalogRetriever(
+                index=inputs.catalog_semantic_index,
+                catalog_digest=rule_reference_catalog_digest(catalog_reference_sources.rules),
+                concepts=build_rule_concept_bindings(catalog_reference_sources.rules),
+                facets=build_rule_search_facets(catalog_reference_sources.rules),
+            ),
+            release=inputs.ontology_release,
+        )
 
     read_investigation = inputs.read_investigation
     runtime = inputs.runtime
@@ -134,6 +155,7 @@ def build_production_operator_config(
         rule_catalog_policies_root=inputs.repo_root / "policies",
         rule_catalog_remediation_root=inputs.repo_root / "rule-catalog" / "remediation",
         rule_catalog_semantic_index=inputs.catalog_semantic_index,
+        rule_catalog_query_registry=catalog_query_registry,
         scope_source=inputs.scope_source,
         log_query_provider=inputs.log_query_provider,
         reporting=inputs.reporting,

@@ -23,6 +23,9 @@ evaluation gates, and failed-query feedback loop.
 > has focused contract coverage; its live-database test requires `FDAI_DATABASE_URL`.
 > The one-shot `fdai-catalog-generation` process publishes a validated generation from a scheduled
 > job or deployment step and fails closed when its PostgreSQL or embedding binding is unavailable.
+> Production binds `catalog.search_rules` to the complete ontology release and exposes it through
+> Reader-gated `POST /rules/search`. The response carries both retrieval and function-invocation
+> receipts and always retains `execution_authority: false`.
 
 ## Design at a glance
 

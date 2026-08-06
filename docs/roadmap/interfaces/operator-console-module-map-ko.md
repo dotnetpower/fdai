@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: f885dd74d5b1bb8c4472b72f6f417ec3573deb93
+translation_source_sha: eee9c6799604ccb45f7ab99a77c75a257502a5e2
 translation_revised: 2026-08-06
 ---
 # Operator Console Module Map and Boundaries
@@ -189,7 +189,9 @@ frame을 거부합니다.
   ID, ownership 또는 plan binding drift 시 startup을 차단합니다.
 - `routes/rule_catalog.py`는 read-only active/discovery Rule reference projection을 제공합니다.
   Catalog와 일치하는 active generation에서만 semantic ranking을 사용하고, 그 외에는 명시적인
-  degraded state와 함께 lexical result를 반환합니다. Generation publishing은 API startup 밖에 유지합니다.
+  degraded state와 함께 lexical result를 반환합니다. Reader-gated `POST /rules/search`는 exact
+  `catalog.search_rules` ontology function을 invoke하고 evaluation 또는 execution authority 없이
+  retrieval 및 function receipt를 반환합니다. Generation publishing은 API startup 밖에 유지합니다.
 
 영어 및 한국어 presentation literal은 NFC UTF-8을 사용합니다. Escaped Hangul은 정확한 rationale이 있는
 code-point behavior에만 허용됩니다. 이 표현은 machine value, evidence authority, locale selection 또는

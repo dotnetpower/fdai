@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 887fa8067111d60835269be59cbb929bf781ea5f
+translation_source_sha: 4b347d43f9a0ce67794778bff8e88be792c08b71
 translation_revised: 2026-08-06
 ---
 # Rule 의미 검색
@@ -25,6 +25,9 @@ translation_revised: 2026-08-06
 > 필요합니다.
 > One-shot `fdai-catalog-generation` process는 scheduled job 또는 deployment step에서 validated
 > generation을 publish하며 PostgreSQL 또는 embedding binding을 사용할 수 없으면 fail closed합니다.
+> Production은 `catalog.search_rules`를 complete ontology release에 bind하고 Reader-gated
+> `POST /rules/search`를 통해 expose합니다. Response는 retrieval 및 function invocation receipt를
+> 모두 포함하며 항상 `execution_authority: false`를 유지합니다.
 
 ## 설계 개요
 

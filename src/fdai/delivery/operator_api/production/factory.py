@@ -629,6 +629,7 @@ def build_prod_app(
             link_types=link_types,
             action_types=action_types,
             ontology_function_types=ontology_function_types,
+            ontology_release=ontology_release,
             inventory_semantic_resolver=inventory_semantic_resolver,
             catalog_semantic_index=catalog_semantic_index,
             scope_source=scope_source,

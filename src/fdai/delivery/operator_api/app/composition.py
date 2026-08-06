@@ -96,6 +96,7 @@ class ProjectionRouteBindings:
     rule_catalog_findings_provider: Any = None
     rule_catalog_findings_summary_provider: Any = None
     rule_catalog_semantic_index: Any = None
+    rule_catalog_query_registry: Any = None
     promotion_gate_action_types: tuple[Any, ...] = ()
     promotion_gate_source: Any = None
     scope_source: Any = None
