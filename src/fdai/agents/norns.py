@@ -65,6 +65,7 @@ from fdai.agents._framework.introspection import (
 )
 from fdai.agents._framework.norns_consensus import NornsConsensus
 from fdai.agents._framework.norns_deployment_learning import NornsDeploymentLearning
+from fdai.agents._framework.norns_semantic_feedback import NornsSemanticFeedbackLearning
 from fdai.agents._framework.pantheon import _NORNS
 from fdai.core.case_history import CaseHistoryAnalyzer
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
@@ -75,6 +76,7 @@ from fdai.core.learning import (
 )
 from fdai.core.operational_learning import OperatingPatternCompiler, PatternCase
 from fdai.core.trajectory import ReviewedTrajectoryDataset
+from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCandidateSink
 
 # Adverse outcomes that count against an action's success record.
 _ADVERSE_RESULTS: frozenset[str] = frozenset({"rollback", "failure", "reverted"})
@@ -108,6 +110,7 @@ class Norns(Agent):
         forecast_error_threshold: int = 3,
         case_history_analyzer: CaseHistoryAnalyzer | None = None,
         operating_pattern_compiler: OperatingPatternCompiler | None = None,
+        semantic_feedback_store: SemanticFeedbackCandidateSink | None = None,
         max_pending_candidates: int = _MAX_PENDING_CANDIDATES,
     ) -> None:  # Fail fast on misconfiguration: a non-positive threshold or a
         # rate outside [0, 1] would make the learner propose on thin or
@@ -190,6 +193,7 @@ class Norns(Agent):
         self._case_history_analyzer = case_history_analyzer
         self._operating_pattern_compiler = operating_pattern_compiler or OperatingPatternCompiler()
         self._operating_pattern_ids: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
+        self._semantic_feedback = NornsSemanticFeedbackLearning(semantic_feedback_store)
 
     def observe_reviewed_trajectory_dataset(self, dataset: ReviewedTrajectoryDataset) -> bool:
         """Consume one reviewed aggregate without training or promoting anything.
@@ -230,6 +234,13 @@ class Norns(Agent):
         elif topic == "object.context-index":
             if payload.get("kind") == "operational_case_fingerprint_cohort":
                 self._observe_operational_case_cohort(payload)
+            elif payload.get("kind") == "semantic_retrieval_failure":
+                candidate = await self._semantic_feedback.observe(payload)
+                if candidate is None:
+                    self.record_behavior("semantic_feedback_candidate_duplicate")
+                else:
+                    self._append_candidate(candidate)
+                    self.record_behavior("semantic_feedback_candidate_created")
             else:
                 await self._observe_forecast_case(payload)
         # object.override is deliberately NOT handled here: it is not a pantheon

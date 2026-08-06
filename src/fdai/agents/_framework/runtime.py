@@ -1,19 +1,15 @@
 """Composition-root wiring for the pantheon runtime.
 
-``PantheonRuntime`` wires all 15 agents to an injected
-:class:`~fdai.shared.providers.event_bus.EventBus` provider. It:
+``PantheonRuntime`` wires all 15 agents to an injected EventBus provider. It:
 
 - instantiate the 15 agents (:func:`fdai.agents._framework.factory.instantiate_pantheon`),
 - bind every publishing agent to one injected ``EventBusBridge``,
 - register declared typed subscriptions with distinct consumer groups,
 - route raw ingress through Huginn, which normalizes and republishes ``object.event``.
 
-The runtime is **shadow by default**: it forces Thor into shadow mode
-(``enforce=False``) so the pantheon never double-executes alongside the
-P1 control loop, and the agents use the in-memory audit / issue / admin
-adapters from :mod:`fdai.agents.adapters`. A fork promotes to enforce
-explicitly (``enforce=True``) and swaps the in-memory adapters for
-durable backends by injecting its own ``Saga`` - see
+The runtime is **shadow by default**: it forces Thor into shadow mode so the pantheon never
+double-executes alongside the P1 control loop. A fork promotes explicitly and injects durable
+backends, including its own ``Saga`` - see
 ``docs/roadmap/agents/agent-pantheon-implementation.md``.
 """
 
@@ -83,6 +79,7 @@ from fdai.core.metering.sink import MeteringSink
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_learning import OperatingPatternCompiler
 from fdai.core.tiers.t1_lightweight.tier import EmbeddingModel
+from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCandidateSink
 from fdai.shared.contracts.models import OntologyActionType
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.state_store import StateStore
@@ -147,6 +144,7 @@ class PantheonRuntime:
         post_turn_review: PostTurnReviewCoordinator | None = None,
         case_history_materializer: CaseHistoryMaterializer | None = None,
         operating_pattern_compiler: OperatingPatternCompiler | None = None,
+        semantic_feedback_store: SemanticFeedbackCandidateSink | None = None,
         case_history_analyzer: CaseHistoryAnalyzer | None = None,
         operational_context_materializer: OperationalContextMaterializer | None = None,
         operational_planner: factory.PlanningCoordinator | None = None,
@@ -256,12 +254,14 @@ class PantheonRuntime:
             or post_turn_review is not None
             or case_history_analyzer is not None
             or operating_pattern_compiler is not None
+            or semantic_feedback_store is not None
         ):
             instantiated["Norns"] = Norns(
                 coverage_aggregator=scenario_coverage_aggregator,
                 post_turn_review=post_turn_review,
                 case_history_analyzer=case_history_analyzer,
                 operating_pattern_compiler=operating_pattern_compiler,
+                semantic_feedback_store=semantic_feedback_store,
             )
         if (
             muninn_state_store is not None

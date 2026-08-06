@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: 5033a9a85427efc365453047858d78e5c65b4b22
-translation_revised: 2026-08-05
+translation_source_sha: 3303b25ee9d01c2ca53bc77af19cbc5e79fff20c
+translation_revised: 2026-08-06
 ---
 # 운영 학습 온톨로지
 
@@ -30,6 +30,9 @@ translation_revised: 2026-08-05
 > Deployment는 O3 validator와 PR publisher, Forseti-owned causal projection, frozen/live evidence source,
 > receipt verifier를 bind해야 합니다. Mimir는 owned rule topic으로 review outcome을 emit하고 Saga는
 > owned audit topic에 이를 seal합니다.
+> 재현된 semantic retrieval failure는 이제 Muninn의 기존 context-index topic을 통해 Norns에
+> 들어오며 shadow audit가 포함된 challenger-only StateStore record로 persist된 뒤 일반 consensus 및
+> Mimir candidate guard를 재사용합니다. Raw query text와 online ranking mutation은 계속 제외됩니다.
 
 ## 한눈에 보는 설계
 
@@ -273,6 +276,8 @@ Norns는 catalog 또는 threshold를 변경하지 않고 Saga-to-learning loop�
 bounded `norns_consensus` 하나를 emit하고 disagreement는 free-form reasoning 없이 aggregate hold를
 유지합니다. Deterministic candidate source에는 repeated fingerprint, rollback-rate adjustment, override 또는
 approval rejection, retirement 및 optional scenario gap이 포함됩니다.
+독립적으로 재현되고 exact versioned target Rule을 가진 semantic retrieval gap도 포함됩니다. 해당
+candidate는 publication 전에 persist되며 promotion authority를 갖지 않습니다.
 
 Trajectory intake는 reviewed aggregate만 받습니다. Muninn은 strict operational case를 seal하고 bounded
 failure-fingerprint cohort를 publish합니다. Norns는 materialization 전에 100개 초과 cohort를 차단하고 하나의

@@ -6,6 +6,7 @@ from fdai.rule_catalog.schema.rule_semantic_feedback import (
     QueryFailureEvidence,
     RetrievalFailureLayer,
     build_feedback_candidate,
+    query_failure_evidence_from_mapping,
 )
 
 _A = "sha256:" + "a" * 64
@@ -61,3 +62,38 @@ def test_user_correction_without_exact_target_is_not_an_oracle() -> None:
 def test_feedback_contract_never_retains_raw_text() -> None:
     with pytest.raises(ValueError, match="raw operator text"):
         _evidence(raw_text_retained=True)
+
+
+def test_failure_mapping_rejects_unknown_raw_content() -> None:
+    raw = {
+        "attempt_id": "attempt:1",
+        "query_digest": _A,
+        "principal_scope_digest": _B,
+        "catalog_digest": _C,
+        "reason_code": "target-not-retrieved",
+        "layer": "ranking_error",
+        "reproduced": True,
+        "evidence_refs": ["receipt:retrieval:1"],
+        "exact_target_rule_ref": "rule:public-access@1",
+        "raw_query": "operator text must not cross this boundary",
+    }
+
+    with pytest.raises(ValueError, match="unknown fields"):
+        query_failure_evidence_from_mapping(raw)
+
+
+def test_failure_mapping_requires_boolean_reproduction_evidence() -> None:
+    raw = {
+        "attempt_id": "attempt:1",
+        "query_digest": _A,
+        "principal_scope_digest": _B,
+        "catalog_digest": _C,
+        "reason_code": "target-not-retrieved",
+        "layer": "ranking_error",
+        "reproduced": 1,
+        "evidence_refs": ["receipt:retrieval:1"],
+        "exact_target_rule_ref": "rule:public-access@1",
+    }
+
+    with pytest.raises(ValueError, match="MUST be a boolean"):
+        query_failure_evidence_from_mapping(raw)

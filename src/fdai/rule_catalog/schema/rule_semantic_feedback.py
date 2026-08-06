@@ -5,8 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Any, Protocol
 
 _DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,511}$")
@@ -97,6 +99,57 @@ class SemanticFeedbackCandidate:
             raise ValueError("semantic feedback candidate MUST remain challenger_only")
 
 
+class SemanticFeedbackCandidateSink(Protocol):
+    """Durable sink used by Norns after deterministic feedback attribution."""
+
+    async def put(self, candidate: SemanticFeedbackCandidate) -> bool: ...
+
+
+def query_failure_evidence_from_mapping(raw: Mapping[str, Any]) -> QueryFailureEvidence:
+    """Decode one exact privacy-safe failure record from a typed context event."""
+
+    required = {
+        "attempt_id",
+        "query_digest",
+        "principal_scope_digest",
+        "catalog_digest",
+        "reason_code",
+        "layer",
+        "reproduced",
+        "evidence_refs",
+    }
+    optional = {"exact_target_rule_ref", "user_correction_ref", "raw_text_retained"}
+    fields = set(raw)
+    if fields - required - optional:
+        raise ValueError("query failure evidence contains unknown fields")
+    if required - fields:
+        raise ValueError("query failure evidence is missing required fields")
+    reproduced = raw["reproduced"]
+    if not isinstance(reproduced, bool):
+        raise ValueError("query failure evidence reproduced MUST be a boolean")
+    evidence_refs = raw["evidence_refs"]
+    if not isinstance(evidence_refs, list) or any(
+        not isinstance(item, str) for item in evidence_refs
+    ):
+        raise ValueError("query failure evidence refs MUST be an array of strings")
+    raw_text_retained = raw.get("raw_text_retained", False)
+    if not isinstance(raw_text_retained, bool):
+        raise ValueError("query failure raw_text_retained MUST be a boolean")
+    return QueryFailureEvidence(
+        attempt_id=_text(raw, "attempt_id"),
+        query_digest=_text(raw, "query_digest"),
+        principal_scope_digest=_text(raw, "principal_scope_digest"),
+        catalog_digest=_text(raw, "catalog_digest"),
+        reason_code=_text(raw, "reason_code"),
+        layer=RetrievalFailureLayer(_text(raw, "layer")),
+        reproduced=reproduced,
+        evidence_refs=tuple(evidence_refs),
+        exact_target_rule_ref=_optional_text(raw, "exact_target_rule_ref"),
+        user_correction_ref=_optional_text(raw, "user_correction_ref"),
+        raw_text_retained=raw_text_retained,
+    )
+
+
 def build_feedback_candidate(evidence: QueryFailureEvidence) -> SemanticFeedbackCandidate:
     """Create a challenger only for reproduced, exact, retrieval-owned failures."""
 
@@ -135,9 +188,27 @@ def _digest(name: str, value: str) -> None:
         raise ValueError(f"{name} MUST be a sha256 digest")
 
 
+def _text(raw: Mapping[str, Any], name: str) -> str:
+    value = raw.get(name)
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"query failure evidence {name} MUST be a non-empty string")
+    return value
+
+
+def _optional_text(raw: Mapping[str, Any], name: str) -> str | None:
+    value = raw.get(name)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"query failure evidence {name} MUST be null or non-empty string")
+    return value
+
+
 __all__ = [
     "QueryFailureEvidence",
     "RetrievalFailureLayer",
     "SemanticFeedbackCandidate",
+    "SemanticFeedbackCandidateSink",
     "build_feedback_candidate",
+    "query_failure_evidence_from_mapping",
 ]

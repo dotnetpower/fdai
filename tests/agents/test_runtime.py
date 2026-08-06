@@ -38,6 +38,7 @@ from fdai.core.chaos.symptom_index import build_from_entries
 from fdai.core.impact_analysis import ChangeAssessmentService
 from fdai.core.learning import PostTurnReviewInput, review_input_to_mapping
 from fdai.core.operational_planning import SpecialistPlanningCoordinator
+from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCandidate
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
@@ -329,6 +330,21 @@ def test_runtime_injects_post_turn_review_into_norns() -> None:
 
     asyncio.run(_drive())
     assert coordinator.inputs == [review_input]
+
+
+def test_runtime_injects_semantic_feedback_store_into_norns() -> None:
+    class _Store:
+        async def put(self, candidate: SemanticFeedbackCandidate) -> bool:
+            del candidate
+            return True
+
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        semantic_feedback_store=_Store(),
+    )
+
+    assert isinstance(runtime.agents["Norns"], Norns)
 
 
 def test_publishing_agents_are_bound_to_the_bridge() -> None:

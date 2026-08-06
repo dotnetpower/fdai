@@ -47,6 +47,9 @@ from fdai.delivery.persistence.postgres_case_history import (
     PostgresCaseHistoryMetadataStore,
     PostgresCaseHistoryMetadataStoreConfig,
 )
+from fdai.delivery.persistence.state_store_semantic_feedback import (
+    StateStoreSemanticFeedbackCandidateStore,
+)
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
@@ -651,6 +654,9 @@ async def _run() -> int:
                     ),
                     saga=_build_runtime_saga(incident_audit_store),
                     muninn_state_store=incident_audit_store,
+                    semantic_feedback_store=StateStoreSemanticFeedbackCandidateStore(
+                        incident_audit_store
+                    ),
                     disabled_agents=disabled_agents,
                     divergence=divergence_ledger,
                     incident_candidate_hook=_open_incident_candidate,

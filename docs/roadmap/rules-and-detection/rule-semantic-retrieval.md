@@ -26,6 +26,8 @@ evaluation gates, and failed-query feedback loop.
 > Production binds `catalog.search_rules` to the complete ontology release and exposes it through
 > Reader-gated `POST /rules/search`. The response carries both retrieval and function-invocation
 > receipts and always retains `execution_authority: false`.
+> Reproduced retrieval-owned failures flow through Muninn's existing context-index topic to Norns,
+> which persists an inert challenger with shadow audit before ordinary consensus and Mimir intake.
 
 ## Design at a glance
 

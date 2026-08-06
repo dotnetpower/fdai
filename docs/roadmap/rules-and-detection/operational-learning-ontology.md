@@ -27,6 +27,9 @@ rule and action catalogs for governed reuse instead of creating a benchmark-only
 > verified immutable O7 receipt. Deployments still bind the O3 validator and PR publisher,
 > Forseti-owned causal projection, frozen/live evidence source, and receipt verifiers. Mimir emits
 > review outcomes on its owned rule topic, and Saga seals them on its owned audit topic.
+> Reproduced semantic-retrieval failures now enter Norns through Muninn's existing context-index
+> topic, persist as challenger-only StateStore records with shadow audit, and reuse the ordinary
+> consensus and Mimir candidate guard. Raw query text and online ranking mutation remain excluded.
 
 ## Design at a glance
 
@@ -268,6 +271,8 @@ These perspectives are not agents or bus principals. Norns remains the sole writ
 agreement emits one bounded `norns_consensus`; disagreement retains an aggregate hold without
 free-form reasoning. Deterministic candidate sources include repeated fingerprints, rollback-rate
 adjustment, overrides or approval rejections, retirement, and optional scenario gaps.
+They also include independently reproduced semantic retrieval gaps with an exact versioned target
+Rule. Those candidates are persisted before publication and carry no promotion authority.
 
 Trajectory intake accepts reviewed aggregates only. Muninn seals strict operational cases and
 publishes bounded failure-fingerprint cohorts. Norns rejects cohorts over 100 cases before
