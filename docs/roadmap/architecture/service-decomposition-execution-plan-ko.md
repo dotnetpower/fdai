@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 6b88bc9d1eb178dd100c7c436b8c1fd58ab28dc1
+translation_source_sha: 0a815dbfa8f2f2e9f627b4b6df68b151c6b4f5d0
 translation_revised: 2026-08-07
 ---
 # 서비스 분해 실행 계획
@@ -38,8 +38,8 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 
 | 상태 | 개수 | 의미 |
 |------|------|------|
-| 완료 | 0 | Exit evidence와 focused validation을 기록했습니다. |
-| 진행 중 | 1 | Baseline과 canonical decision package를 준비하고 있습니다. |
+| 완료 | 1 | Exit evidence와 focused validation을 기록했습니다. |
+| 진행 중 | 0 | Integration worktree에서 현재 실행 중인 work package가 없습니다. |
 | 계획됨 | 9 | Dependency 또는 ownership handoff가 완료되지 않았습니다. |
 | 차단됨 | 0 | 이름이 지정된 gate가 현재 진행을 막고 있습니다. |
 
@@ -49,7 +49,7 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 
 | 완료 | ID | Work package | Dependency | 병렬 lane | Exit evidence |
 |------|----|--------------|------------|-----------|---------------|
-| [ ] | SD-00 | Canonical 문서와 machine manifest에서 5개 service topology, owner, contract, writer, identity, baseline test, rollback unit을 고정합니다. | 없음 | 직렬 | 검토된 topology와 ownership record, baseline check receipt |
+| [x] | SD-00 | Canonical 문서와 machine manifest에서 5개 service topology, owner, contract, writer, identity, baseline test, rollback unit을 고정합니다. | 없음 | 직렬 | 검토된 topology와 ownership record, baseline check receipt |
 | [ ] | SD-01 | JSON, SSE, authentication, history behavior를 변경하지 않고 Operator route family를 transport, application, projection, adapter, streaming, persistence package로 분해합니다. | SD-00 | A | 고정된 route contract와 package-boundary check |
 | [ ] | SD-02 | Core composition, Thor execution, Saga audit intent와 closure, Vidar recovery를 명시적으로 주입된 port 뒤로 분리합니다. | SD-00 | A | Authority regression과 import-boundary receipt |
 | [ ] | SD-03 | Ingestion API와 Worker identity, database grant, claim, duplicate/reorder behavior, restart recovery, probe, co-host rollback을 강화합니다. | SD-00 | A | Role test와 15분 이내 rollback rehearsal |
@@ -87,7 +87,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 
 | 날짜 | Work package | 상태 | Commit 또는 receipt | Evidence와 residual work |
 |------|--------------|------|-------------------|--------------------------|
-| 2026-08-07 | SD-00 | 진행 중 | `b25d09cbe` | 5개 service 목표, canonical 문서, design route, machine manifest를 정렬했고 diff-scoped test 496개가 통과했습니다. Baseline acceptance receipt가 남아 있습니다. |
+| 2026-08-07 | SD-00 | 완료 | `config/service-decomposition.json` at `95bd58718` | 5개 service 목표와 work-package DAG를 승인했습니다. Baseline pack은 918 passed와 PostgreSQL 전용 skip 2건을 기록했으며 live check는 SD-03과 SD-05가 소유합니다. |
 
 ## 관련 문서
 

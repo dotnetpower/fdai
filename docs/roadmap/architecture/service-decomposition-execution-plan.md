@@ -40,8 +40,8 @@ subscribers inside their owning runtime service.
 
 | State | Count | Meaning |
 |-------|-------|---------|
-| Completed | 0 | Exit evidence and focused validation are recorded. |
-| In progress | 1 | The baseline and canonical decision package is being prepared. |
+| Completed | 1 | Exit evidence and focused validation are recorded. |
+| In progress | 0 | No work package is currently active in the integration worktree. |
 | Planned | 9 | Dependencies or ownership handoff have not completed. |
 | Blocked | 0 | A named gate currently prevents progress. |
 
@@ -51,7 +51,7 @@ Last updated: 2026-08-07.
 
 | Done | ID | Work package | Dependencies | Parallel lane | Exit evidence |
 |------|----|--------------|--------------|---------------|---------------|
-| [ ] | SD-00 | Freeze the five-service topology, owners, contracts, writers, identities, baseline tests, and rollback units in canonical documents and machine manifests. | None | Serial | Reviewed topology and ownership records; baseline check receipt |
+| [x] | SD-00 | Freeze the five-service topology, owners, contracts, writers, identities, baseline tests, and rollback units in canonical documents and machine manifests. | None | Serial | Reviewed topology and ownership records; baseline check receipt |
 | [ ] | SD-01 | Decompose Operator route families into transport, application, projection, adapter, streaming, and persistence packages without changing JSON, SSE, authentication, or history behavior. | SD-00 | A | Frozen route contracts and package-boundary checks |
 | [ ] | SD-02 | Isolate Core composition, Thor execution, Saga audit intent and closure, and Vidar recovery behind explicit injected ports. | SD-00 | A | Authority regression and import-boundary receipts |
 | [ ] | SD-03 | Harden the Ingestion API and Worker identities, database grants, claims, duplicate/reorder behavior, restart recovery, probes, and co-host rollback. | SD-00 | A | Role tests and a rollback rehearsal within 15 minutes |
@@ -91,7 +91,7 @@ state. For each transition:
 
 | Date | Work package | State | Commit or receipt | Evidence and residual work |
 |------|--------------|-------|-------------------|----------------------------|
-| 2026-08-07 | SD-00 | In progress | `b25d09cbe` | Five-service target, canonical documents, design route, and machine manifests aligned; 496 diff-scoped tests passed. Baseline acceptance receipt remains open. |
+| 2026-08-07 | SD-00 | Completed | `config/service-decomposition.json` at `95bd58718` | Five-service target and work-package DAG accepted. Baseline packs recorded 918 passed and 2 PostgreSQL-only skips; the live checks remain owned by SD-03 and SD-05. |
 
 ## Related documents
 

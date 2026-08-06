@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "target_service_count": 5,
+  "services": [
+    {
+      "id": "core-control-plane",
+      "current_state": "deployed-with-executor",
+      "target_state": "deployed-without-executor-authority"
+    },
+    {
+      "id": "operator-service",
+      "current_state": "deployed",
+      "target_state": "deployed"
+    },
+    {
+      "id": "document-ingestion-api",
+      "current_state": "deployed-optional",
+      "target_state": "deployed"
+    },
+    {
+      "id": "document-processing-worker",
+      "current_state": "deployed-optional",
+      "target_state": "deployed"
+    },
+    {
+      "id": "isolated-executor",
+      "current_state": "not-deployed",
+      "target_state": "deployed-sole-executor-identity"
+    }
+  ],
+  "work_packages": [
+    {
+      "id": "SD-00",
+      "status": "completed",
+      "dependencies": [],
+      "parallel_lane": null
+    },
+    {
+      "id": "SD-01",
+      "status": "planned",
+      "dependencies": ["SD-00"],
+      "parallel_lane": "A"
+    },
+    {
+      "id": "SD-02",
+      "status": "planned",
+      "dependencies": ["SD-00"],
+      "parallel_lane": "A"
+    },
+    {
+      "id": "SD-03",
+      "status": "planned",
+      "dependencies": ["SD-00"],
+      "parallel_lane": "A"
+    },
+    {
+      "id": "SD-04",
+      "status": "planned",
+      "dependencies": ["SD-00"],
+      "parallel_lane": "B"
+    },
+    {
+      "id": "SD-05",
+      "status": "planned",
+      "dependencies": ["SD-04"],
+      "parallel_lane": "B"
+    },
+    {
+      "id": "SD-06",
+      "status": "planned",
+      "dependencies": ["SD-02", "SD-04", "SD-05"],
+      "parallel_lane": "C"
+    },
+    {
+      "id": "SD-07",
+      "status": "planned",
+      "dependencies": ["SD-02", "SD-04"],
+      "parallel_lane": "C"
+    },
+    {
+      "id": "SD-08",
+      "status": "planned",
+      "dependencies": ["SD-07"],
+      "parallel_lane": null
+    },
+    {
+      "id": "SD-09",
+      "status": "planned",
+      "dependencies": [
+        "SD-01",
+        "SD-02",
+        "SD-03",
+        "SD-04",
+        "SD-05",
+        "SD-06",
+        "SD-07",
+        "SD-08"
+      ],
+      "parallel_lane": null
+    }
+  ],
+  "baseline_receipt": {
+    "revision": "95bd58718",
+    "measured_on": "2026-08-07",
+    "accepted": true,
+    "checks": [
+      {
+        "id": "operator-wire-and-structure",
+        "passed": 174,
+        "skipped": 0
+      },
+      {
+        "id": "core-authority",
+        "passed": 391,
+        "skipped": 0
+      },
+      {
+        "id": "ingestion-mechanics",
+        "passed": 36,
+        "skipped": 1
+      },
+      {
+        "id": "ontology-release-and-compatibility",
+        "passed": 103,
+        "skipped": 0
+      },
+      {
+        "id": "rego-knowledge-path",
+        "passed": 103,
+        "skipped": 1
+      },
+      {
+        "id": "change-lineage",
+        "passed": 37,
+        "skipped": 0
+      },
+      {
+        "id": "platform-guards",
+        "passed": 71,
+        "skipped": 0
+      },
+      {
+        "id": "ingestion-terraform-roles",
+        "passed": 3,
+        "skipped": 0
+      }
+    ],
+    "open_live_evidence": [
+      "ingestion-postgresql-role-isolation",
+      "catalog-search-postgresql-generation"
+    ]
+  },
+  "completion_constraints": [
+    "one-durable-writer-per-transition",
+    "typed-versioned-event-bus-transport",
+    "no-direct-agent-calls",
+    "no-shared-mutable-workflow-state",
+    "executor-identity-only-on-isolated-executor-after-cutover",
+    "rollback-within-15-minutes-without-offset-reset-or-duplicate-effect",
+    "independent-effect-verification-before-success"
+  ]
+}
