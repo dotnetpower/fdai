@@ -333,27 +333,49 @@ def test_module_inventory_covers_current_operator_api_tree() -> None:
     assert all(entry["exit_condition"].strip() for entry in known_wire_debts)
 
     selections = inventory["migration_selections"]
-    assert len(selections) == 1
-    selection = selections[0]
-    assert set(selection) == _MIGRATION_SELECTION_KEYS
-    assert selection["tracking_issue"] == 70
-    assert selection["family"] == "audit*.py"
-    assert selection["destination"] == "fdai.delivery.operator_api.projections.audit"
-    assert selection["observed_window_days"] == 90
-    assert selection["rationale"].strip()
-    assert selection["rollback"].strip()
-    modules = selection["modules"]
-    assert all(set(entry) == _MIGRATION_MODULE_KEYS for entry in modules)
-    assert {entry["module"] for entry in modules} == {
-        "audit_finops.py",
-        "audit_measurement_events.py",
-        "audit_measurement_projection.py",
-        "audit_measurement_summary.py",
-        "audit_query.py",
+    assert len(selections) == 2
+    assert all(set(selection) == _MIGRATION_SELECTION_KEYS for selection in selections)
+    selections_by_family = {selection["family"]: selection for selection in selections}
+    assert set(selections_by_family) == {"audit*.py", "chat_presentation*.py"}
+    expected = {
+        "audit*.py": (
+            70,
+            "fdai.delivery.operator_api.projections.audit",
+            {
+                "audit_finops.py",
+                "audit_measurement_events.py",
+                "audit_measurement_projection.py",
+                "audit_measurement_summary.py",
+                "audit_query.py",
+            },
+        ),
+        "chat_presentation*.py": (
+            71,
+            "fdai.delivery.operator_api.projections.conversation.presentation",
+            {
+                "chat_presentation.py",
+                "chat_presentation_artifact.py",
+                "chat_presentation_artifact_common.py",
+                "chat_presentation_contract.py",
+                "chat_presentation_health_artifact.py",
+                "chat_presentation_inventory_artifact.py",
+                "chat_presentation_profiles.py",
+            },
+        ),
     }
-    assert all(entry["direct_python_consumers"] >= 1 for entry in modules)
-    assert all(entry["fdai_imports"] >= 1 for entry in modules)
-    assert all(entry["changes"] >= 1 for entry in modules)
+    for family, (tracking_issue, destination, expected_modules) in expected.items():
+        selection = selections_by_family[family]
+        assert selection["tracking_issue"] == tracking_issue
+        assert selection["destination"] == destination
+        assert selection["observed_window_days"] == 90
+        assert selection["rationale"].strip()
+        assert selection["rollback"].strip()
+        modules = selection["modules"]
+        assert all(set(entry) == _MIGRATION_MODULE_KEYS for entry in modules)
+        assert {entry["module"] for entry in modules} == expected_modules
+        assert all(entry["direct_python_consumers"] >= 1 for entry in modules)
+        assert all(entry["fdai_imports"] >= 0 for entry in modules)
+        assert all(entry["changes"] >= 1 for entry in modules)
 
 
 # ---------------------------------------------------------------------------

@@ -5,7 +5,9 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, Final
 
-from fdai.delivery.operator_api.routes.chat_presentation_contract import PresentationPlacement
+from fdai.delivery.operator_api.projections.conversation.presentation.contract import (
+    PresentationPlacement,
+)
 
 MAX_ARTIFACT_REFS: Final = 8
 MAX_TABLE_ROWS: Final = 40

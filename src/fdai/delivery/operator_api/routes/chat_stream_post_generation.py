@@ -24,6 +24,7 @@ from fdai.delivery.operator_api.application.conversation.verification import (
     AnswerVerification,
     verify_answer,
 )
+from fdai.delivery.operator_api.projections.conversation.presentation import PresentationDecision
 from fdai.delivery.operator_api.routes.chat_answer_planning import planning_metadata
 from fdai.delivery.operator_api.routes.chat_answer_quality import (
     AnswerQualityInvoke,
@@ -41,7 +42,6 @@ from fdai.delivery.operator_api.routes.chat_history import (
     append_assistant_turn,
     replay_metadata,
 )
-from fdai.delivery.operator_api.routes.chat_presentation import PresentationDecision
 from fdai.delivery.operator_api.routes.chat_resource_context import response_resource_context
 from fdai.delivery.operator_api.routes.chat_route_common import (
     _metering_correlation_id,

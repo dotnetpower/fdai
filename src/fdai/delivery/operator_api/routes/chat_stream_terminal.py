@@ -11,6 +11,9 @@ from typing import Any, Final, Literal
 from fdai.core.conversation.answer_plan import AnswerPlan
 from fdai.core.python_task.grounded_code import extract_grounded_code
 from fdai.delivery.operator_api.application.conversation.verification import AnswerVerification
+from fdai.delivery.operator_api.projections.conversation.presentation import (
+    response_presentation_artifact,
+)
 from fdai.delivery.operator_api.routes.chat_answer_quality import AnswerQualityResult
 from fdai.delivery.operator_api.routes.chat_evidence_enrichment import _web_search_summary
 from fdai.delivery.operator_api.routes.chat_freshness_context import EvidenceFreshnessContext
@@ -20,9 +23,6 @@ from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
 from fdai.delivery.operator_api.routes.chat_llm_usage_rendering import (
     response_llm_usage_analysis_context,
     response_llm_usage_chart_artifact,
-)
-from fdai.delivery.operator_api.routes.chat_presentation_artifact import (
-    response_presentation_artifact,
 )
 from fdai.delivery.operator_api.routes.chat_resource_result_context import (
     response_resource_result_context,

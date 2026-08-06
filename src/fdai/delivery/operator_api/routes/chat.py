@@ -42,6 +42,10 @@ from fdai.delivery.operator_api.application.conversation.verification import (
     AnswerVerification,
     verify_answer,
 )
+from fdai.delivery.operator_api.projections.conversation.presentation import (
+    response_presentation_artifact,
+    select_answer_presentation,
+)
 from fdai.delivery.operator_api.routes.chat_action_context import (
     is_explicit_action_draft_request,
     needs_action_context,
@@ -194,12 +198,6 @@ from fdai.delivery.operator_api.routes.chat_llm_usage_rendering import (
 from fdai.delivery.operator_api.routes.chat_log_query import (
     needs_log_query,
     needs_log_query_context,
-)
-from fdai.delivery.operator_api.routes.chat_presentation import (
-    select_answer_presentation,
-)
-from fdai.delivery.operator_api.routes.chat_presentation_artifact import (
-    response_presentation_artifact,
 )
 from fdai.delivery.operator_api.routes.chat_prompt import (
     _AGENT_EVIDENCE_DIRECTIVE,

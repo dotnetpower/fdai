@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 89ffaf2799b96e248986a7d11a98da1ea7706a87
+translation_source_sha: 9edf3aef34cfd629f5afbc13d6aea3a95c278af0
 translation_revised: 2026-08-07
 ---
 # 코드 맵
@@ -142,9 +142,10 @@ Focused coverage는 [`test_chat_llm_usage.py`](../../../tests/delivery/operator_
 Presentation intent는
 [`answer_plan.py`](../../../src/fdai/core/conversation/answer_plan.py)에서 typed contract로
 관리합니다. 명시적인 table 및 chart format과
-[`chat_presentation.py`](../../../src/fdai/delivery/operator_api/routes/chat_presentation.py)의
-strict shape-only model selection은 `chat_verification.py`를 거쳐 deterministic
-inventory rendering에 전달됩니다. `chat_evidence_enrichment.py`는 내부 inventory read를
+[`presentation/`](../../../src/fdai/delivery/operator_api/projections/conversation/presentation/)의
+strict shape-only model selection은 explicit package facade 뒤의 request-local read projection으로
+유지되며 terminal verification을 거쳐 deterministic inventory rendering에 전달됩니다.
+`chat_evidence_enrichment.py`는 내부 inventory read를
 provider command를 만들지 않고 verifier가 승인한 typed query 및 snapshot provenance를
 channel-neutral query activity row로 projection합니다.
 

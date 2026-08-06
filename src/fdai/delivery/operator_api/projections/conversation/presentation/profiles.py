@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from typing import Literal
 
 from fdai.core.conversation.answer_plan import AnswerFormat, AnswerPlan
-from fdai.delivery.operator_api.routes.chat_presentation_contract import (
+from fdai.delivery.operator_api.projections.conversation.presentation.contract import (
     PresentationComponent,
     PresentationEmphasis,
     PresentationProfile,

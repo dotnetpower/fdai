@@ -139,8 +139,9 @@ Focused coverage lives in [`test_chat_llm_usage.py`](../../../tests/delivery/ope
 Presentation intent is typed in
 [`answer_plan.py`](../../../src/fdai/core/conversation/answer_plan.py). Explicit table and chart
 formats and strict shape-only model selection in
-[`chat_presentation.py`](../../../src/fdai/delivery/operator_api/routes/chat_presentation.py) flow
-through `chat_verification.py` into deterministic inventory rendering, while
+[`presentation/`](../../../src/fdai/delivery/operator_api/projections/conversation/presentation/)
+remain request-local read projections behind the explicit package facade and flow through terminal
+verification into deterministic inventory rendering, while
 `chat_evidence_enrichment.py` projects the verifier-accepted typed query and snapshot provenance
 into a channel-neutral query activity row without fabricating provider commands.
 

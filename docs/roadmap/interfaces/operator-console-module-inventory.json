@@ -65,6 +65,18 @@
       "candidate_destination": "retain as the owner of migrated projection families"
     },
     {
+      "path": "projections/conversation",
+      "responsibility": "Read-only request-local conversation projections outside HTTP transport",
+      "classification": "read-projection",
+      "candidate_destination": "retain in-process until conversation service-graduation evidence exists"
+    },
+    {
+      "path": "projections/conversation/presentation",
+      "responsibility": "Value-free presentation planning and verified evidence artifact compilation",
+      "classification": "read-projection",
+      "candidate_destination": "retain behind the explicit presentation package facade"
+    },
+    {
       "path": "projections/audit",
       "responsibility": "Audit query and measurement read projections",
       "classification": "read-projection",
@@ -114,9 +126,9 @@
   "route_families": [
     {
       "pattern": "chat*.py",
-      "responsibility": "Conversation HTTP, coordination, evidence, presentation, provider integration, and the classified chat_verification source-path facade",
+      "responsibility": "Conversation HTTP, SSE, coordination, evidence, provider integration, and the classified chat_verification source-path facade",
       "classification": "mixed-transitional",
-      "candidate_destination": "issue 71 defines the typed application-service boundary before any bulk move"
+      "candidate_destination": "move bounded internal families behind typed application or projection owners while routes retain wire behavior"
     },
     {
       "pattern": "audit*.py",
@@ -158,6 +170,23 @@
       ],
       "rationale": "lowest classified cohesive read-only family after issue 69",
       "rollback": "restore route implementations and reverse the new leaf modules into exact forwarding shims"
+    },
+    {
+      "tracking_issue": 71,
+      "family": "chat_presentation*.py",
+      "destination": "fdai.delivery.operator_api.projections.conversation.presentation",
+      "observed_window_days": 90,
+      "modules": [
+        {"module": "chat_presentation.py", "direct_python_consumers": 4, "fdai_imports": 4, "changes": 7},
+        {"module": "chat_presentation_artifact.py", "direct_python_consumers": 3, "fdai_imports": 5, "changes": 2},
+        {"module": "chat_presentation_artifact_common.py", "direct_python_consumers": 3, "fdai_imports": 1, "changes": 2},
+        {"module": "chat_presentation_contract.py", "direct_python_consumers": 7, "fdai_imports": 0, "changes": 1},
+        {"module": "chat_presentation_health_artifact.py", "direct_python_consumers": 1, "fdai_imports": 3, "changes": 2},
+        {"module": "chat_presentation_inventory_artifact.py", "direct_python_consumers": 1, "fdai_imports": 2, "changes": 2},
+        {"module": "chat_presentation_profiles.py", "direct_python_consumers": 3, "fdai_imports": 3, "changes": 3}
+      ],
+      "rationale": "request-local read-only presentation family after the typed conversation boundary",
+      "rollback": "restore route implementations and redirect the presentation facade without changing JSON or SSE contracts"
     }
   ],
   "reviewed_fallback_modules": [
@@ -231,6 +260,11 @@
       "module": "fdai.delivery.operator_api.projections.audit",
       "classification": "public-delivery-contract",
       "migration": "owned audit read-projection facade for app and panel composition"
+    },
+    {
+      "module": "fdai.delivery.operator_api.projections.conversation.presentation",
+      "classification": "internal-implementation",
+      "migration": "owned value-free layout and verified presentation-artifact facade for conversation consumers"
     },
     {
       "module": "fdai.delivery.operator_api.application.conversation.claims",

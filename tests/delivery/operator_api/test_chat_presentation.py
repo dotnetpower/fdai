@@ -12,22 +12,16 @@ from fdai.core.conversation.answer_plan import (
     DiscussPolicy,
     EvidenceRequirement,
 )
-from fdai.delivery.operator_api.routes.chat_presentation import (
-    adapt_answer_plan_for_presentation,
-    select_answer_presentation,
-)
-from fdai.delivery.operator_api.routes.chat_presentation_artifact import (
-    response_presentation_artifact,
-)
-from fdai.delivery.operator_api.routes.chat_presentation_contract import (
+from fdai.delivery.operator_api.projections.conversation.presentation import (
     PresentationProfile,
     PresentationSlot,
+    adapt_answer_plan_for_presentation,
     default_presentation_plan,
     parse_presentation_plan,
     presentation_plan_schema,
-)
-from fdai.delivery.operator_api.routes.chat_presentation_profiles import (
     presentation_profile,
+    response_presentation_artifact,
+    select_answer_presentation,
 )
 
 

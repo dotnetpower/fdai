@@ -34,6 +34,10 @@ from fdai.delivery.operator_api.application.conversation.verification import (
     AnswerVerification,
     verify_answer,
 )
+from fdai.delivery.operator_api.projections.conversation.presentation import (
+    PresentationDecision,
+    select_answer_presentation,
+)
 from fdai.delivery.operator_api.routes.chat_action_context import (
     is_explicit_action_draft_request,
     needs_action_context,
@@ -129,10 +133,6 @@ from fdai.delivery.operator_api.routes.chat_model_trace import (
     activate_model_trace,
     deactivate_model_trace,
     snapshot_model_trace,
-)
-from fdai.delivery.operator_api.routes.chat_presentation import (
-    PresentationDecision,
-    select_answer_presentation,
 )
 from fdai.delivery.operator_api.routes.chat_prompt import (
     _concept_answer,

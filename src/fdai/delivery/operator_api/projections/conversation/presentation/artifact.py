@@ -7,15 +7,21 @@ from collections.abc import Mapping, Sequence
 from typing import Any, Final
 
 from fdai.core.conversation.answer_plan import AnswerPlan
-from fdai.delivery.operator_api.routes.chat_presentation_artifact_common import bounded_refs
-from fdai.delivery.operator_api.routes.chat_presentation_contract import parse_presentation_plan
-from fdai.delivery.operator_api.routes.chat_presentation_health_artifact import (
+from fdai.delivery.operator_api.projections.conversation.presentation.artifact_common import (
+    bounded_refs,
+)
+from fdai.delivery.operator_api.projections.conversation.presentation.contract import (
+    parse_presentation_plan,
+)
+from fdai.delivery.operator_api.projections.conversation.presentation.health_artifact import (
     subscription_health_blocks,
 )
-from fdai.delivery.operator_api.routes.chat_presentation_inventory_artifact import (
+from fdai.delivery.operator_api.projections.conversation.presentation.inventory_artifact import (
     inventory_blocks,
 )
-from fdai.delivery.operator_api.routes.chat_presentation_profiles import presentation_profile
+from fdai.delivery.operator_api.projections.conversation.presentation.profiles import (
+    presentation_profile,
+)
 
 _VERIFIED_PRESENTATION_STATUSES: Final = frozenset(
     {"verified", "consistent", "corrected", "unverified"}

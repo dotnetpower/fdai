@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 5b3f0f716c9e36ac5b155c4c9a427aae10af730a
+translation_source_sha: 7e0794fa71666f2150fd250ae55d7e7153fda50d
 translation_revised: 2026-08-07
 ---
 # Operator Console Module Map and Boundaries
@@ -116,6 +116,22 @@ implementation은 포함하지 않습니다. Rollback은 이동한 module을 `ro
 facade가 복원된 owner를 가리키게 합니다. JSON, SSE, authentication 또는 conversation-history behavior는
 변경하지 않습니다.
 
+### Conversation presentation projection boundary
+
+SD-01 presentation slice는
+`fdai.delivery.operator_api.projections.conversation.presentation` 아래에서 value-free layout
+selection과 검증된 evidence artifact compilation을 소유합니다. 이 package에는 presentation contract,
+shape profile, bounded planner, deterministic inventory 및 subscription-health artifact compiler가
+포함됩니다. Read-only이며 request-local입니다.
+
+JSON 및 SSE route는 explicit presentation facade를 import하며 authentication, HTTP status mapping,
+JSON envelope, SSE sequence와 revision, cancellation, terminal assembly 및 conversation history를
+계속 소유합니다. 기존 `routes.chat_presentation*` module은 internal import path였으므로 compatibility
+shim을 남기지 않습니다. 이 이동은 canonical text fallback, artifact schema, localized label,
+evidence reference, byte bound 및 planner degradation을 정확히 보존합니다. Rollback은 route
+implementation module을 복원하고 wire contract를 변경하지 않은 채 presentation facade가 복원된
+owner를 가리키게 합니다.
+
 ### Immutable app composition
 
 Issue 72는 `OperatorApiConfig(**kwargs)`를 bounded compatibility constructor로 유지하고 route를 등록하기
@@ -149,6 +165,8 @@ signature를 그대로 유지합니다. 이 절차는 wire 또는 caller migrati
 | `persistence/` | Operator API read-model implementation 및 projection | 소유된 read contract 뒤에 유지합니다. |
 | `projections/` | HTTP route 밖의 read-only projection ownership | Migrated family의 owner로 유지합니다. |
 | `projections/audit/` | Audit query 및 autonomy/FinOps measurement projection | Explicit facade를 통해 import하고 기존 route module은 shim으로 유지합니다. |
+| `projections/conversation/` | HTTP transport 밖의 request-local conversation read projection | Service-graduation evidence가 준비될 때까지 process 안에 유지합니다. |
+| `projections/conversation/presentation/` | Value-free layout selection 및 검증된 evidence artifact compilation | Explicit facade로 import하고 JSON 및 SSE behavior는 route에 유지합니다. |
 | `production/` | Production provider construction 및 binding | Wire behavior를 변경하지 않고 fanout을 점진적으로 줄입니다. |
 | `routes/` | HTTP adapter, coordination, projection 및 policy helper가 혼재 | 측정된 family 하나씩 이동하며 typed service boundary 전에 chat을 일괄 이동하지 않습니다. |
 | `streaming/` | Read-only SSE transport, redaction, fanout 및 runtime projection | Versioned relay 및 replay contract가 준비될 때까지 유지합니다. |
@@ -214,6 +232,9 @@ frame을 거부합니다.
 - `application/conversation/verification/`은 terminal answer integrity, deterministic evidence
   verification 및 bounded verification prose를 소유합니다. HTTP, SSE, authentication, cancellation
   또는 durable state는 소유하지 않습니다.
+- `projections/conversation/presentation/`은 value-free presentation plan, 검증된 evidence artifact
+  compilation, bound 및 localized label을 소유합니다. HTTP, SSE, authentication, cancellation,
+  terminal delivery 또는 durable state는 소유하지 않습니다.
 - `chat_stream_setup.py`는 authenticated request, evidence, history 및 answer-plan validation을 소유합니다.
 - `chat_stream_terminal.py`는 pure terminal verification-frame 및 replay-payload assembly를 소유합니다.
 - `chat_trajectory_detail.py`는 durable trajectory replay용 bounded final progress projection을 소유합니다.

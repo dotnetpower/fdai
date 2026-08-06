@@ -116,6 +116,21 @@ names that source path; it contains no verification implementation. Rollback res
 modules under `routes/` and redirects the package facade without changing JSON, SSE, authentication,
 or conversation-history behavior.
 
+### Conversation presentation projection boundary
+
+The SD-01 presentation slice owns value-free layout selection and verified evidence artifact
+compilation under `fdai.delivery.operator_api.projections.conversation.presentation`. The package
+contains the presentation contract, shape profiles, bounded planner, and deterministic inventory
+and subscription-health artifact compilers. It is read-only and request-local.
+
+JSON and SSE routes import the explicit presentation facade and continue to own authentication,
+HTTP status mapping, JSON envelopes, SSE sequence and revision, cancellation, terminal assembly,
+and conversation history. The former `routes.chat_presentation*` modules were internal import
+paths, so no compatibility shim remains. The move preserves the exact canonical text fallback,
+artifact schema, localized labels, evidence references, byte bounds, and planner degradation.
+Rollback restores the route implementation modules and redirects the presentation facade without
+changing either wire contract.
+
 ### Immutable app composition
 
 Issue 72 keeps `OperatorApiConfig(**kwargs)` as the bounded compatibility constructor and projects
@@ -151,6 +166,8 @@ reverses physical ownership without a wire or caller migration.
 | `persistence/` | Operator API read-model implementations and projections | Retain behind owned read contracts. |
 | `projections/` | Read-only projection ownership outside HTTP routes | Retain as the owner of migrated families. |
 | `projections/audit/` | Audit query and autonomy/FinOps measurement projections | Import through its explicit facade; keep old route modules as shims. |
+| `projections/conversation/` | Request-local conversation read projections outside HTTP transport | Retain in-process until service-graduation evidence exists. |
+| `projections/conversation/presentation/` | Value-free layout selection and verified evidence artifact compilation | Import through its explicit facade; keep JSON and SSE behavior in routes. |
 | `production/` | Production provider construction and bindings | Reduce fanout incrementally without changing wire behavior. |
 | `routes/` | Mixed HTTP adapters, coordination, projections, and policy helpers | Move one measured family at a time; don't bulk-move chat before its typed service boundary. |
 | `streaming/` | Read-only SSE transport, redaction, fanout, and runtime projection | Retain until versioned relay and replay contracts exist. |
@@ -216,6 +233,9 @@ a separately reviewed boundary.
 - `application/conversation/verification/` owns terminal answer integrity, deterministic evidence
   verification, and bounded verification prose. It does not own HTTP, SSE, authentication,
   cancellation, or durable state.
+- `projections/conversation/presentation/` owns value-free presentation plans, verified evidence
+  artifact compilation, bounds, and localized labels. It does not own HTTP, SSE, authentication,
+  cancellation, terminal delivery, or durable state.
 - `chat_stream_setup.py` owns authenticated request, evidence, history, and answer-plan validation.
 - `chat_stream_terminal.py` owns pure terminal verification-frame and replay-payload assembly.
 - `chat_trajectory_detail.py` owns bounded final progress projection for durable trajectory replay.

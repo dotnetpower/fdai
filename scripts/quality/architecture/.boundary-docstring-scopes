@@ -18,6 +18,10 @@ report|src/fdai/delivery/operator_api/persistence/__init__.py
 report|src/fdai/delivery/operator_api/projections/__init__.py
 # Audit projection facade begins in report mode pending lazy-export review.
 report|src/fdai/delivery/operator_api/projections/audit/__init__.py
+# Conversation projections remain request-local and outside HTTP transport.
+report|src/fdai/delivery/operator_api/projections/conversation/__init__.py
+# Presentation projections arrange and compile verified evidence without authority.
+report|src/fdai/delivery/operator_api/projections/conversation/presentation/__init__.py
 # Route registration begins in report mode while route families are decomposed.
 report|src/fdai/delivery/operator_api/routes/__init__.py
 # Streaming lifecycle begins in report mode pending endpoint decomposition.
