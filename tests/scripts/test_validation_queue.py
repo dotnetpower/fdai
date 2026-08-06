@@ -206,6 +206,8 @@ def test_pre_push_requires_central_validation_receipts() -> None:
     worktree_offset = hook.index("git worktree add")
 
     assert ensure_offset < check_offset < worktree_offset
+    assert 'gate_command=(uv run python "$gate_path")' in hook
+    assert 'gate_command=(python3 "$gate_path")' not in hook
 
 
 def test_validator_agent_is_read_execute_only_and_uses_make_facade() -> None:

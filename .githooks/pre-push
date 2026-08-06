@@ -216,7 +216,11 @@ do
   # give them their loud voices in CI); suppress per-file lines with
   # CHECK_QUIET so a routine push does not flood the terminal.
   if [[ "$gate_path" == *.py ]]; then
-    gate_command=(python3 "$gate_path")
+    if ! command -v uv >/dev/null 2>&1; then
+      echo "pre-push: BLOCKED - uv is required for project-version Python gates."
+      exit 1
+    fi
+    gate_command=(uv run python "$gate_path")
   else
     gate_command=(bash "$gate_path")
   fi

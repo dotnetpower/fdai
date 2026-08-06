@@ -106,7 +106,9 @@ make validation-all
 Worker sessions may still use `bash scripts/verify.sh --full <path>` for one
 focused pytest target. Direct fast/all verification and unscoped test-tool runs
 are denied by the workspace `PreToolUse` hook so parallel sessions cannot duplicate
-the centralized load.
+the centralized load. The pre-push hook runs Python structural gates with the
+project interpreter selected by `uv`, so those gates parse the same supported
+language version as centralized validation.
 
 ## Roadmap implementation verification
 
