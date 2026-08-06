@@ -50,6 +50,8 @@ class CatalogConceptQuery:
         ):
             if len(values) > _MAX_TERMS or values != tuple(sorted(set(values))):
                 raise ValueError(f"catalog concept query {name} MUST be unique and ordered")
+            if any(_invalid_term(item) for item in values):
+                raise ValueError(f"catalog concept query {name} MUST contain bounded text")
         if not 1 <= self.max_results <= 100:
             raise ValueError("catalog concept query max_results MUST be in [1, 100]")
         if self.operation in {RetrievalOperation.EVALUATE, RetrievalOperation.ACTION_DRAFT}:
@@ -63,6 +65,10 @@ class RuleSearchFacet:
     rule_version: str
     resource_type: str
     category: str
+
+
+def _invalid_term(value: str) -> bool:
+    return not value or any(ord(character) < 32 for character in value)
 
 
 def build_rule_search_facets(rules: Sequence[Rule]) -> Mapping[str, RuleSearchFacet]:

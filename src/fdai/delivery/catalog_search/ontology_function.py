@@ -35,7 +35,12 @@ def catalog_query_function_type() -> OntologyFunctionType:
         "type": "array",
         "maxItems": 32,
         "uniqueItems": True,
-        "items": {"type": "string", "minLength": 1, "maxLength": 512},
+        "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "pattern": r"^[^\x00-\x1f]*$",
+        },
     }
     return OntologyFunctionType(
         name=_FUNCTION_NAME,

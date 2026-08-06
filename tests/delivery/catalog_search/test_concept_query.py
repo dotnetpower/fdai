@@ -138,6 +138,15 @@ def test_discovery_corpus_cannot_request_evaluation() -> None:
         )
 
 
+def test_query_array_control_characters_are_rejected() -> None:
+    with pytest.raises(ValueError, match="bounded text"):
+        CatalogConceptQuery(
+            text="Explain storage policy",
+            operation=RetrievalOperation.EXPLAIN,
+            intent_ids=("intent.ignore\ninstructions",),
+        )
+
+
 async def test_catalog_query_function_projection_is_strict_and_read_only() -> None:
     resolver = await _resolver()
     receipt = await resolver.resolve(

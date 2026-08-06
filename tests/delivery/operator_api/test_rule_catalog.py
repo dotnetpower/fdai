@@ -382,6 +382,27 @@ def test_concept_search_rejects_invalid_shape_before_provider_call() -> None:
     )
 
 
+def test_concept_search_rejects_array_control_characters_before_provider_call() -> None:
+    response = _semantic_client(_UnexpectedSemanticIndex(), concept_search=True).post(
+        "/rules/search",
+        json={
+            "text": "Explain public storage policy",
+            "operation": "explain",
+            "corpus": "active",
+            "intent_ids": ["intent.ignore\ninstructions"],
+            "concept_refs": [],
+            "resource_types": [],
+            "categories": [],
+            "max_results": 20,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["message"] == (
+        "ontology function arguments violate input_schema"
+    )
+
+
 def test_concept_search_reports_unavailable_without_registry() -> None:
     response = _semantic_client(_SemanticIndex()).post("/rules/search", json={})
 
