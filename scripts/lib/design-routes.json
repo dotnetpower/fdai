@@ -1303,6 +1303,44 @@
       ]
     },
     {
+      "id": "rule-semantic-retrieval",
+      "paths": [
+        "docs/roadmap/rules-and-detection/rule-semantic-retrieval*.md",
+        "src/fdai/rule_catalog/schema/rule_semantic*.py",
+        "src/fdai/shared/providers/catalog_search.py",
+        "src/fdai/delivery/catalog_search/**",
+        "src/fdai/delivery/operator_api/routes/rule_catalog.py",
+        "src/fdai/delivery/operator_api/production/catalog_search.py",
+        "src/fdai/delivery/operator_api/production/operator_config.py",
+        "alembic/versions/*catalog_semantic*.py",
+        "tests/delivery/catalog_search/**",
+        "tests/delivery/operator_api/test_rule_catalog.py",
+        "tests/rule_catalog/**/*rule_semantic*.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/rules-and-detection/rule-semantic-retrieval.md",
+        "docs/roadmap/rules-and-detection/rule-governance.md",
+        "docs/roadmap/rules-and-detection/rule-catalog-collection.md",
+        "docs/roadmap/architecture/operating-ontology-platform.md",
+        "docs/roadmap/interfaces/operator-console.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/rules-and-detection/rule-semantic-retrieval.md",
+        "docs/roadmap/rules-and-detection/rule-governance.md",
+        "docs/roadmap/architecture/code-map.md",
+        "docs/roadmap/architecture/project-structure.md",
+        "docs/roadmap/interfaces/operator-console-module-map.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/delivery/catalog_search tests/delivery/operator_api/test_rule_catalog.py tests/rule_catalog/test_rule_semantic_retrieval.py",
+        "uv run ruff check src/fdai/rule_catalog/schema/rule_semantic_retrieval.py src/fdai/shared/providers/catalog_search.py src/fdai/delivery/catalog_search tests/delivery/catalog_search tests/delivery/operator_api/test_rule_catalog.py tests/rule_catalog/test_rule_semantic_retrieval.py",
+        "uv run mypy --strict src/fdai/rule_catalog/schema/rule_semantic_retrieval.py src/fdai/shared/providers/catalog_search.py src/fdai/delivery/catalog_search"
+      ]
+    },
+    {
       "id": "catalog",
       "paths": ["rule-catalog/**", "policies/**", "src/fdai/rule_catalog/**"],
       "must_read": [
