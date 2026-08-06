@@ -43,11 +43,9 @@ from fdai.delivery.agent_activity import (
     runtime_agent_state_snapshot,
 )
 from fdai.delivery.agent_introspection_bus import AGENT_INTROSPECTION_TOPICS
-from fdai.delivery.persistence.postgres_case_history import (
+from fdai.delivery.persistence import (
     PostgresCaseHistoryMetadataStore,
     PostgresCaseHistoryMetadataStoreConfig,
-)
-from fdai.delivery.persistence.state_store_semantic_feedback import (
     StateStoreSemanticFeedbackCandidateStore,
 )
 from fdai.delivery.startup_probe import OpaCompileStartupProbe

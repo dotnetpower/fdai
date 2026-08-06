@@ -79,13 +79,13 @@ from fdai.core.conversation_assurance import (
 )
 from fdai.core.metering.budget import InMemoryBudgetLedger, ModelBudget
 from fdai.core.stewardship import load_stewardship_from_yaml
-from fdai.delivery.catalog_search.ontology_function import catalog_query_function_type
 from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
 from fdai.delivery.operator_api.main import build_app
 from fdai.delivery.operator_api.production import env_contract as _env
 from fdai.delivery.operator_api.production.catalog_search import (
     ProductionCatalogSearch,
     build_production_catalog_search,
+    catalog_query_function_type,
 )
 from fdai.delivery.operator_api.production.config import (
     ProdOperatorApiConfigError,

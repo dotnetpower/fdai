@@ -37,6 +37,10 @@ from fdai.delivery.persistence.postgres_busy_input import (
     PostgresBusyInputStore,
     PostgresBusyInputStoreConfig,
 )
+from fdai.delivery.persistence.postgres_case_history import (
+    PostgresCaseHistoryMetadataStore,
+    PostgresCaseHistoryMetadataStoreConfig,
+)
 from fdai.delivery.persistence.postgres_channel_identity_link import (
     PostgresChannelIdentityLinkStore,
     PostgresChannelIdentityLinkStoreConfig,
@@ -222,6 +226,8 @@ __all__ = [
     "PostgresAutomationBlueprintStoreConfig",
     "PostgresBusyInputStore",
     "PostgresBusyInputStoreConfig",
+    "PostgresCaseHistoryMetadataStore",
+    "PostgresCaseHistoryMetadataStoreConfig",
     "PostgresBriefingRunStore",
     "PostgresBriefingStoreConfig",
     "PostgresBriefingSubscriptionStore",

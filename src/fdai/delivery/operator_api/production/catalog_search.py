@@ -15,6 +15,7 @@ from fdai.delivery.azure.workload_identity import (
 from fdai.delivery.catalog_search import (
     PgvectorCatalogSemanticIndex,
     PgvectorCatalogSemanticIndexConfig,
+    catalog_query_function_type,
 )
 from fdai.delivery.operator_api.production.config import ProdOperatorApiConfigError
 from fdai.shared.providers.catalog_search import CatalogSemanticIndex
@@ -114,4 +115,8 @@ def build_production_catalog_search(
     )
 
 
-__all__ = ["ProductionCatalogSearch", "build_production_catalog_search"]
+__all__ = [
+    "ProductionCatalogSearch",
+    "build_production_catalog_search",
+    "catalog_query_function_type",
+]
