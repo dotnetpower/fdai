@@ -40,6 +40,18 @@ override_module {
   }
 }
 
+override_module {
+  target = module.document_storage
+  outputs = {
+    id                    = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.Storage/storageAccounts/stfdaidoc"
+    name                  = "stfdaidoc"
+    primary_dfs_endpoint  = "https://stfdaidoc.dfs.example.com/"
+    primary_blob_endpoint = "https://stfdaidoc.blob.example.com/"
+    source_file_system    = "documents"
+    derived_file_system   = "derived"
+  }
+}
+
 variables {
   region                         = "koreacentral"
   tenant_id                      = "00000000-0000-0000-0000-000000000000"
@@ -110,6 +122,36 @@ run "split_roles_are_independent_by_default" {
 
   assert {
     condition = (
+      length(azurerm_role_assignment.ingestion_document_data) == 1 &&
+      azurerm_role_assignment.ingestion_document_data[0].role_definition_name ==
+      "Storage Blob Data Contributor" &&
+      azurerm_role_assignment.ingestion_document_data[0].scope ==
+      module.document_storage[0].id &&
+      azurerm_role_assignment.ingestion_document_data[0].principal_id ==
+      module.ingestion_identity[0].principal_id &&
+      azurerm_role_assignment.ingestion_document_data[0].principal_id !=
+      module.identity.principal_id
+    )
+    error_message = "the API must have exactly one account-scoped ADLS contributor role without executor spread"
+  }
+
+  assert {
+    condition = (
+      length(azurerm_role_assignment.ingestion_worker_document_data) == 1 &&
+      azurerm_role_assignment.ingestion_worker_document_data[0].role_definition_name ==
+      "Storage Blob Data Contributor" &&
+      azurerm_role_assignment.ingestion_worker_document_data[0].scope ==
+      module.document_storage[0].id &&
+      azurerm_role_assignment.ingestion_worker_document_data[0].principal_id ==
+      module.ingestion_worker_identity[0].principal_id &&
+      azurerm_role_assignment.ingestion_worker_document_data[0].principal_id !=
+      module.identity.principal_id
+    )
+    error_message = "the worker must have exactly one account-scoped ADLS contributor role without executor spread"
+  }
+
+  assert {
+    condition = (
       azurerm_role_assignment.ingestion_migration_kv_secrets_user[0].principal_id ==
       module.ingestion_migration_identity[0].principal_id
     )
@@ -140,6 +182,26 @@ run "cohost_flag_restores_single_app_rollback" {
       module.ingestion_identity[0].principal_id
     )
     error_message = "co-host rollback must return receive permission to the API identity"
+  }
+
+  assert {
+    condition = (
+      length(azurerm_role_assignment.ingestion_document_data) == 1 &&
+      azurerm_role_assignment.ingestion_document_data[0].role_definition_name ==
+      "Storage Blob Data Contributor" &&
+      azurerm_role_assignment.ingestion_document_data[0].scope ==
+      module.document_storage[0].id &&
+      azurerm_role_assignment.ingestion_document_data[0].principal_id ==
+      module.ingestion_identity[0].principal_id &&
+      azurerm_role_assignment.ingestion_document_data[0].principal_id !=
+      module.identity.principal_id
+    )
+    error_message = "co-host rollback must keep one API-owned ADLS contributor role without executor spread"
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.ingestion_worker_document_data) == 0
+    error_message = "co-host rollback must not retain a separate worker ADLS role"
   }
 }
 
