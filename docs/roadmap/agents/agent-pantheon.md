@@ -132,12 +132,7 @@ scoring, human-approval margins, planning receipts, and temporal policy are owne
 
 Norns remains the sole writer of inert `RuleCandidate` proposals. Its three-perspective consensus,
 balanced cohort limits, pending queue, Mimir review, and catalog activation boundary are owned by
-[Operational Learning Ontology](../rules-and-detection/operational-learning-ontology.md#norns-consensus-and-catalog-boundary).
-The private `norns_deployment_learning.py` helper holds only bounded scenario-gap and preflight-
-blocker aggregation state. Norns still creates and publishes every candidate through its consensus
-and rate-limit boundary. Caller-supplied recurring preflight manual blockers become scope-
-deduplicated inert `preflight-toggle-gap` candidates and never create a toggle or change deployment
-authority.
+[Operational Learning Ontology](../rules-and-detection/operational-learning-ontology.md#norns-consensus-and-catalog-boundary). The private `norns_deployment_learning.py` helper holds only bounded scenario-gap and preflight-blocker aggregation state; Norns still creates and publishes every candidate through its consensus and rate-limit boundary. Caller-supplied recurring preflight manual blockers become scope-deduplicated inert `preflight-toggle-gap` candidates and never create a toggle or change deployment authority.
 
 ## 4. Agent catalog
 

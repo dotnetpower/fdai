@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 28413129e954ab74fcfe042dd0cfc8b9e46d45f2
+translation_source_sha: f28cc16a1b2cbab346b3ad223e8e0e8ee0efaa98
 translation_revised: 2026-08-06
 ---
 
@@ -207,12 +207,7 @@ discovery loop 를 닫는다.
   은 W7 에 남겨둠. `RuleCandidate` 와 `close_issue` action 발행. Publish 전에
   내부 Urd (과거 근거), Verdandi (현재 계약), Skuld (미래 안전성) 관점의 `3/3`
   합의를 요구합니다. 이들은 agent 또는 principal이 아닙니다. Norns는 하나의
-  aggregate consensus result만 내보내고 불일치는 bounded hold record로 보관합니다. Private
-  `norns_deployment_learning.py` helper는 bounded scenario-gap 및 preflight-blocker aggregation만
-  소유합니다. 모든 candidate 생성과 publish는 계속 Norns가 기존 consensus boundary를 통해
-  수행합니다. Caller-supplied preflight observation은 distinct scope digest 전반의 같은 manual
-  blocker를 inert `preflight-toggle-gap` candidate 하나로 aggregate할 수 있으며 Norns 자체는
-  toggle을 만들지 않습니다.
+  aggregate consensus result만 내보내고 불일치는 bounded hold record로 보관합니다. Private `norns_deployment_learning.py` helper는 bounded scenario-gap 및 preflight-blocker aggregation만 소유합니다. 모든 candidate 생성과 publish는 계속 Norns가 기존 consensus boundary를 통해 수행합니다. Caller-supplied preflight observation은 distinct scope digest 전반의 같은 manual blocker를 inert `preflight-toggle-gap` candidate 하나로 aggregate할 수 있으며 Norns 자체는 toggle을 만들지 않습니다.
 
 **테스트**
 

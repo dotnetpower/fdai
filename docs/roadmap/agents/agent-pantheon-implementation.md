@@ -210,12 +210,7 @@ Forseti reasons; Norns closes the discovery loop.
   the internal Urd (past evidence), Verdandi (current contract), and Skuld
   (future safety) perspectives. They are not agents or principals; Norns
   emits one aggregate consensus result and retains disagreements as bounded
-  hold records. The private `norns_deployment_learning.py` helper owns bounded
-  scenario-gap and preflight-blocker aggregation only; Norns still creates and
-  publishes every candidate through its existing consensus boundary. A
-  caller-supplied preflight observation may aggregate the same manual blocker
-  across distinct scope digests into one inert `preflight-toggle-gap` candidate;
-  Norns never creates the toggle itself.
+  hold records. The private `norns_deployment_learning.py` helper owns bounded scenario-gap and preflight-blocker aggregation only; Norns still creates and publishes every candidate through its consensus boundary. A caller-supplied preflight observation may aggregate the same manual blocker across distinct scope digests into one inert `preflight-toggle-gap` candidate; Norns never creates the toggle itself.
 
 **Tests**
 
