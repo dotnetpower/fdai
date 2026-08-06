@@ -1,8 +1,8 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: 8cb4affddc9b6a243cce89d97c5a4bc3e18be190
-translation_revised: 2026-08-03
+translation_source_sha: 3e25d73c6238a9385313f82b5ef7d6f0bd35d604
+translation_revised: 2026-08-06
 ---
 # 문서 인제스트와 Drop Zone
 
@@ -333,6 +333,22 @@ consumer group이 worker를 at-least-once로 실행하며 commit되지 않은 fa
 retry합니다. ClamAV는 replica-local sidecar로 실행되고 clean 문서만 extraction, pgvector
 indexing, quarantine-to-governed atomic rename에 도달합니다.
 
+### Production process role
+
+Production은 같은 image를 독립적으로 revision되는 두 Container App으로 실행합니다. Public API는
+upload, status, search, governed deletion을 처리하지만 inspection, extraction, reconciliation,
+indexing loop를 시작하지 않습니다. Internal worker는 `/live`와 `/ready`만 노출하고 세 durable
+consumer/reconciliation loop를 소유하며 ClamAV를 replica-local로 유지합니다.
+
+API, worker, migration job은 서로 다른 managed identity와 PostgreSQL role을 사용합니다. Worker만
+Event Hubs receive와 OCR 권한을 받고 migration만 administrator DSN을 읽습니다. 두 runtime role은
+lifecycle record를 publish할 수 있으며 필요한 document table에만 접근합니다. API와 worker의 CPU,
+memory, replica 범위는 독립적이며 `SELECT current_user`가 role-scoped DSN을 확인한 뒤에만 ready가
+됩니다. Worker 기본값은 replica 하나입니다. Production scale-out 전에는
+restart, redelivery, DLQ, durable-claim smoke evidence를 기록합니다. `ingestion_cohost_worker=true`는
+topic, consumer group, offset, storage path, public route를 바꾸지 않고 이전 co-host topology를
+복원합니다. Local interactive topology는 변경되지 않습니다.
+
 ### 지연된 non-Azure storage 권장 사항
 
 Azure만 구현 대상입니다. 다음 항목은 future phase를 위한 문서상 권장 사항이며 이 roadmap에서
@@ -482,8 +498,8 @@ OpenAI는 로컬 대체가 없으므로 malware scan은 deterministic stub로 �
 모델을 사용합니다. `Console Web: Ingestion Gateway (persistent)` launch profile이 이를
 배선합니다.
 
-Production gateway는 `handover_bootstrap` consumer를 durable `PostgresStateStore`
-projection에 bind하고 gateway managed identity로 Microsoft Graph의 정확한 user/group display
+Production worker는 `handover_bootstrap` consumer를 durable `PostgresStateStore`
+projection에 bind하고 worker managed identity로 Microsoft Graph의 정확한 user/group display
 name을 해석합니다. Identity에는 최소 권한 Graph application role인 `User.Read.All`과
 `Group.Read.All`이 필요합니다. 일치 항목이 없거나 모호하면 사람 검토를 위해 unresolved로
 남깁니다. Grounded mixed-model `HandoverInterpreter`가 구성되지 않으면 interpreter는

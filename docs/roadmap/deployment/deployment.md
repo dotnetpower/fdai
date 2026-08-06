@@ -59,8 +59,8 @@ prod topology so shadow evaluation is representative.
     App** for `event-ingest` + `trust-router` + `executor` +
     `audit-writer`, deployed from an **OCI image + Knative-compatible manifest subset** so
     the runtime is portable ([csp-neutrality.md § Runtime contract](../architecture/csp-neutrality.md#2-runtime-contract--oci-image--knative-compatible-manifest)).
-    The core has no sidecar or ingress. The opt-in Operator API and ingestion gateway with its
-    ClamAV sidecar are separate Container Apps.
+    The core has no sidecar or ingress. The opt-in Operator API, public ingestion API, and internal
+    ingestion worker with its ClamAV sidecar are separate Container Apps.
   - **Container Apps Jobs** in the same environment for scheduled probes and light triggers
     (replaces Azure Functions for runtime scheduling). An opt-in development-only FC1 Function
     App is the narrow exception: it relays registered operations to private resources and is not a
@@ -86,7 +86,7 @@ prod topology so shadow evaluation is representative.
     [security-and-identity.md](../architecture/security-and-identity.md) and
     [csp-neutrality.md § Workload identity contract](../architecture/csp-neutrality.md#4-workload-identity-contract--oidc-token).
     Executor, inventory, canary, and three vertical identities ship by default; read, command,
-    ingestion, and notification identities are feature opt-ins.
+    ingestion API, ingestion worker, ingestion migration, and notification identities are opt-ins.
   - **Log Analytics workspace + workspace-based Application Insights** (30-day default).
   - **Azure Container Registry** (Basic) for signed images.
   - Free-tier / non-billable elements: opt-in Static Web Apps (console), workload identity
@@ -167,6 +167,8 @@ blast-radius limit, dry-run, resource lock, idempotency, audit entry) from
 deployment rollback complements, not replaces, per-action rollback.
 
 - **Application rollback**: shift traffic back to the previous container revision.
+- **Ingestion topology rollback**: set `ingestion_cohost_worker=true` to remove the split worker and
+  restore its loops and ClamAV sidecar to the API app without changing consumer groups or offsets.
 - **Action rollback**: PR-native actions revert via git; stateful actions (e.g. DB DR) follow
   the per-action rollback path (snapshot/replica restore) and **verify** the restore against
   the action's stop-condition before closing.

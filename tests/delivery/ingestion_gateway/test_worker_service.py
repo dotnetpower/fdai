@@ -525,6 +525,45 @@ async def test_worker_holds_after_saga_sealed_document_rejection() -> None:
     assert worker.decisions == [(upload_id, "rejected", "human_approval")]
 
 
+async def test_worker_dead_letters_invalid_audit_event_without_lifecycle_effect() -> None:
+    bus = InMemoryEventBus()
+    worker = _Worker()
+    await bus.publish(
+        "object.audit-entry",
+        "doc",
+        {
+            "producer_principal": "Saga",
+            "kind": "document_ingestion",
+            "audited_topic": "object.verdict",
+            "stage": "received",
+            "decision": "admit",
+            "upload_id": "not-a-uuid",
+        },
+    )
+    consumer = DocumentIngestionEventConsumer(
+        event_bus=bus,
+        worker=worker,  # type: ignore[arg-type]
+        metadata=InMemoryDocumentMetadataStore(),
+        topic="object.audit-entry",
+        retry_seconds=0.01,
+    )
+
+    task = asyncio.create_task(consumer.run())
+    for _ in range(20):
+        records = [event async for event in bus.subscribe("object.audit-entry.dlq", "dlq-observer")]
+        if records:
+            break
+        await asyncio.sleep(0)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert worker.inspected == []
+    assert worker.decisions == []
+    assert len(records) == 1
+    assert records[0].payload["reason"] == "invalid_document_worker_audit_event"
+
+
 async def test_reconcile_processes_only_post_admission_uploads() -> None:
     upload_id = UUID("00000000-0000-0000-0000-000000000402")
     worker = _Worker()

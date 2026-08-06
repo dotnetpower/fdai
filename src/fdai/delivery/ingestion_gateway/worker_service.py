@@ -10,6 +10,8 @@ from functools import partial
 from typing import Final
 from uuid import UUID, uuid4
 
+from pydantic import ValidationError
+
 from fdai.core.document_ingestion import DocumentIngestionWorker
 from fdai.shared.contracts import (
     DocumentState,
@@ -22,7 +24,7 @@ from fdai.shared.providers.document_ingestion import (
     DocumentMetadataStore,
     DocumentWorkerClaimConflictError,
 )
-from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.event_bus import EventBus, EventEnvelope
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -82,7 +84,14 @@ class DocumentIngestionEventConsumer:
                         "audited_topic"
                     ) not in {"object.verdict", "object.approval"}:
                         continue
-                    command = DocumentWorkerAuditEvent.model_validate(event.payload)
+                    try:
+                        command = DocumentWorkerAuditEvent.model_validate(event.payload)
+                    except ValidationError:
+                        await self._dead_letter_invalid(
+                            event,
+                            reason="invalid_document_worker_audit_event",
+                        )
+                        continue
                     if command.stage == "received" and command.decision == "admit":
                         await self._run_once(
                             command.upload_id,
@@ -127,7 +136,14 @@ class DocumentIngestionEventConsumer:
                         or event.payload.get("command") != "index"
                     ):
                         continue
-                    command = DocumentWorkerIndexCommand.model_validate(event.payload)
+                    try:
+                        command = DocumentWorkerIndexCommand.model_validate(event.payload)
+                    except ValidationError:
+                        await self._dead_letter_invalid(
+                            event,
+                            reason="invalid_document_worker_index_command",
+                        )
+                        continue
                     await self._run_once(
                         command.upload_id,
                         DocumentWorkerStage.INDEXING,
@@ -330,6 +346,23 @@ class DocumentIngestionEventConsumer:
                 "document_worker_claim_release_conflict",
                 extra={"upload_id": str(upload_id), "stage": stage.value},
             )
+
+    async def _dead_letter_invalid(self, event: EventEnvelope, *, reason: str) -> None:
+        await self._event_bus.dead_letter(
+            event.topic,
+            event.key,
+            event.payload,
+            reason,
+        )
+        _LOGGER.warning(
+            "document_worker_message_dead_lettered",
+            extra={
+                "topic": event.topic,
+                "key": event.key,
+                "offset": event.offset,
+                "reason": reason,
+            },
+        )
 
     async def _release_claim_safely(
         self,

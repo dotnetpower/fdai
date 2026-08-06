@@ -1293,6 +1293,8 @@ jobs:
           if [ "${{ inputs.deploy_document_ingestion }}" = "true" ]; then
             apps+=("$(terraform output -raw ingestion_gateway_name)")
             targets+=("https://$(terraform output -raw ingestion_gateway_fqdn)/healthz")
+            worker="$(terraform output -raw ingestion_worker_name)"
+            [ -z "$worker" ] || apps+=("$worker")
           fi
           for app in "${apps[@]}"; do
             revision="$(az containerapp show --name "$app" --resource-group "$rg" \

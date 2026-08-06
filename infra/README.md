@@ -62,7 +62,7 @@ infra/
 │   ├── storage/
 │   │   └── adls-gen2/           # opt-in governed document source + artifacts (HNS)
 │   ├── ingestion-gateway/
-│   │   └── container-app/       # opt-in upload gateway + ClamAV sidecar + migration job
+│   │   └── container-app/       # opt-in upload API + internal worker/ClamAV + migration job
 │   ├── vm-task-host/            # opt-in custom Linux/GPU VM cloud-init profile
 │   ├── vm-task-rbac/            # target-VM-scoped Managed Run Command RBAC
 │   └── observability/

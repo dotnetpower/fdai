@@ -93,9 +93,16 @@ It does not add worker authority to `UploadSession` and does not replace the Sag
   expires. An explicitly released claim can be retried immediately with a new attempt and revision.
 - **Terminal deduplication:** A completed claim cannot be reacquired. Duplicate broker deliveries
   and reconciliation therefore reuse the durable terminal result instead of repeating the stage.
+- **Recovery convergence:** Broker redelivery and state reconciliation may race after restart or
+  scale-in, but both must acquire the same stage claim before any lifecycle effect.
 - **Gate preservation:** Received and protection reconciliation only republishes persisted facts.
   Inspection still requires a Saga-audited admission, and indexing still requires a Muninn-owned
   command or recovery from an already started post-decision state.
+
+Production schedules the upload API and worker as separate Container Apps. This split changes
+process lifetime, scaling, managed identity, and database grants only. The API never subscribes to
+worker consumer groups, the worker exposes no upload ingress, and neither process gains judgment,
+approval, audit, memory, or executor authority from its deployment role.
 
 ## Related docs
 

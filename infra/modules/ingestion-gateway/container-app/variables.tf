@@ -1,4 +1,5 @@
 variable "name" { type = string }
+variable "worker_name" { type = string }
 variable "migrate_job_name" { type = string }
 variable "container_app_environment_id" { type = string }
 variable "location" { type = string }
@@ -8,6 +9,29 @@ variable "clamav_image" { type = string }
 variable "identity_id" { type = string }
 variable "identity_client_id" { type = string }
 variable "database_dsn_secret_id" { type = string }
+variable "api_database_role" {
+  type    = string
+  default = "fdai_ingestion_api"
+}
+variable "worker_identity_id" {
+  type    = string
+  default = ""
+}
+variable "worker_identity_client_id" {
+  type    = string
+  default = ""
+}
+variable "migration_identity_id" { type = string }
+variable "migration_identity_client_id" { type = string }
+variable "worker_database_dsn_secret_id" {
+  type    = string
+  default = ""
+}
+variable "migration_database_dsn_secret_id" { type = string }
+variable "cohost_worker" {
+  type    = bool
+  default = false
+}
 variable "stewardship_governance_enabled" { type = bool }
 variable "gitops_owner" { type = string }
 variable "gitops_repo" { type = string }
@@ -110,6 +134,41 @@ variable "gateway_cpu" {
 }
 
 variable "gateway_memory" {
+  type    = string
+  default = "2Gi"
+}
+
+variable "worker_min_replicas" {
+  type    = number
+  default = 1
+
+  validation {
+    condition     = var.worker_min_replicas >= 1
+    error_message = "worker_min_replicas must remain at least 1 until a Kafka wake-up scaler is verified."
+  }
+}
+
+variable "worker_max_replicas" {
+  type    = number
+  default = 1
+
+  validation {
+    condition     = var.worker_max_replicas >= 1 && var.worker_max_replicas >= var.worker_min_replicas
+    error_message = "worker_max_replicas must be positive and at least worker_min_replicas."
+  }
+}
+
+variable "worker_cpu" {
+  type    = number
+  default = 1
+
+  validation {
+    condition     = var.worker_cpu > 0
+    error_message = "worker_cpu must be positive."
+  }
+}
+
+variable "worker_memory" {
   type    = string
   default = "2Gi"
 }

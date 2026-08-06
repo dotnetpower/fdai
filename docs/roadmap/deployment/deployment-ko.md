@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 904d27c79e61ce657ca07f83192283e6c36f88ec
-translation_revised: 2026-08-04
+translation_source_sha: cdbc02c25a2922887da629c16431914ce82434df
+translation_revised: 2026-08-06
 ---
 
 # 배포(Deployment)
@@ -61,8 +61,8 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
     Container App** 으로 `event-ingest` + `trust-router` + `executor`
     + `audit-writer`, 런타임이 이식 가능하도록 **OCI 이미지 + Knative 호환 매니페스트 서브셋**
     에서 배포 ([csp-neutrality-ko.md § 런타임 계약](../architecture/csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트)).
-    Core에는 sidecar/ingress가 없습니다. Opt-in Operator API와 ClamAV sidecar를 가진 ingestion
-    gateway는 별도 Container App입니다.
+    Core에는 sidecar/ingress가 없습니다. Opt-in Operator API, public ingestion API, ClamAV
+    sidecar를 가진 internal ingestion worker는 별도 Container App입니다.
   - **Container Apps Jobs** (같은 environment) 로 스케줄 프로브와 경량 트리거를 실행하며 runtime
     scheduling에서 Azure Functions를 대체합니다. Opt-in 개발 전용 FC1 Function App은 예외이며,
     private resource에 registered operation을 relay할 뿐 scheduler나 control-loop runtime이 아닙니다.
@@ -86,8 +86,8 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
   - **여러 User-assigned Managed Identity** + 범위된 롤 할당, `WorkloadIdentity` 인터페이스
     (OIDC 토큰) 로 코어에 노출 - [security-and-identity-ko.md](../architecture/security-and-identity-ko.md)
     및 [csp-neutrality-ko.md § 워크로드 아이덴티티 계약](../architecture/csp-neutrality-ko.md#4-워크로드-아이덴티티-계약--oidc-토큰) 참조.
-    Executor, inventory, canary, 세 vertical identity가 기본 배포되고 read/command/ingestion/
-    notification identity는 기능별 opt-in입니다.
+    Executor, inventory, canary, 세 vertical identity가 기본 배포되고 read/command/ingestion API/
+    ingestion worker/ingestion migration/notification identity는 기능별 opt-in입니다.
   - **Log Analytics workspace + workspace-based Application Insights** (기본 30일 보존).
   - **Azure Container Registry** (Basic) 로 서명된 이미지.
   - 무료 티어 / 비-과금 요소: opt-in Static Web Apps (콘솔), workload identity federation
@@ -168,6 +168,8 @@ idempotency, audit entry)을
 운반합니다; 배포 롤백은 액션당 롤백을 대체하지 않고 보완합니다.
 
 - **애플리케이션 롤백**: 이전 컨테이너 revision으로 트래픽 시프트.
+- **Ingestion topology 롤백**: `ingestion_cohost_worker=true`로 split worker를 제거하고 consumer
+  group이나 offset 변경 없이 worker loop와 ClamAV sidecar를 API app으로 복원합니다.
 - **액션 롤백**: PR-네이티브 액션은 git으로 되돌림; stateful 액션(예: DB DR)은 액션당 롤백 경로
   (스냅샷/replica restore)를 따르고 종료 전에 액션의 stop-condition에 대해 **restore를 검증**.
 - **Rule-catalog 롤백**: 규칙은 catalog-as-code이며 버전 관리; 나쁜 규칙 세트는 업데이트

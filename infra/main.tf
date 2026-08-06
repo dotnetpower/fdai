@@ -347,7 +347,25 @@ module "ingestion_identity" {
   name                = "id-${var.workload}${local.full_suffix}-ingestion"
   resource_group_name = module.resource_group.name
   location            = var.region
-  tags                = merge(local.tags, { "fdai:component" = "document-ingestion" })
+  tags                = merge(local.tags, { "fdai:component" = "document-ingestion-api" })
+}
+
+module "ingestion_worker_identity" {
+  count               = var.enable_document_ingestion && !var.ingestion_cohost_worker ? 1 : 0
+  source              = "./modules/identity/user-assigned-mi"
+  name                = "id-${var.workload}${local.full_suffix}-ingestion-worker"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  tags                = merge(local.tags, { "fdai:component" = "document-ingestion-worker" })
+}
+
+module "ingestion_migration_identity" {
+  count               = var.enable_document_ingestion ? 1 : 0
+  source              = "./modules/identity/user-assigned-mi"
+  name                = "id-${var.workload}${local.full_suffix}-ingestion-migration"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  tags                = merge(local.tags, { "fdai:component" = "document-ingestion-migration" })
 }
 
 module "case_history_identity" {
@@ -477,6 +495,20 @@ resource "azurerm_role_assignment" "ingestion_acr_pull" {
   principal_id         = module.ingestion_identity[0].principal_id
 }
 
+resource "azurerm_role_assignment" "ingestion_worker_acr_pull" {
+  count                = var.enable_document_ingestion && !var.ingestion_cohost_worker ? 1 : 0
+  scope                = module.container_registry.id
+  role_definition_name = "AcrPull"
+  principal_id         = module.ingestion_worker_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "ingestion_migration_acr_pull" {
+  count                = var.enable_document_ingestion ? 1 : 0
+  scope                = module.container_registry.id
+  role_definition_name = "AcrPull"
+  principal_id         = module.ingestion_migration_identity[0].principal_id
+}
+
 resource "azurerm_role_assignment" "ingestion_eventhubs_sender" {
   count                = var.enable_document_ingestion ? 1 : 0
   scope                = module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]
@@ -484,18 +516,29 @@ resource "azurerm_role_assignment" "ingestion_eventhubs_sender" {
   principal_id         = module.ingestion_identity[0].principal_id
 }
 
+resource "azurerm_role_assignment" "ingestion_worker_eventhubs_sender" {
+  count                = var.enable_document_ingestion && !var.ingestion_cohost_worker ? 1 : 0
+  scope                = module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]
+  role_definition_name = "Azure Event Hubs Data Sender"
+  principal_id         = module.ingestion_worker_identity[0].principal_id
+}
+
 resource "azurerm_role_assignment" "ingestion_eventhubs_receiver" {
   count                = var.enable_document_ingestion ? 1 : 0
   scope                = module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]
   role_definition_name = "Azure Event Hubs Data Receiver"
-  principal_id         = module.ingestion_identity[0].principal_id
+  principal_id = var.ingestion_cohost_worker ? (
+    module.ingestion_identity[0].principal_id
+  ) : module.ingestion_worker_identity[0].principal_id
 }
 
 resource "azurerm_role_assignment" "ingestion_ocr_user" {
   count                = var.enable_document_ingestion && var.document_ocr_resource_id != "" ? 1 : 0
   scope                = var.document_ocr_resource_id
   role_definition_name = "Cognitive Services User"
-  principal_id         = module.ingestion_identity[0].principal_id
+  principal_id = var.ingestion_cohost_worker ? (
+    module.ingestion_identity[0].principal_id
+  ) : module.ingestion_worker_identity[0].principal_id
 }
 
 resource "azurerm_role_assignment" "inventory_reader" {
@@ -720,10 +763,26 @@ resource "azurerm_role_assignment" "operator_api_kv_secrets_user" {
 }
 
 resource "azurerm_role_assignment" "ingestion_kv_secrets_user" {
+  count = var.enable_document_ingestion ? 1 : 0
+  scope = var.ingestion_cohost_worker ? (
+    azurerm_key_vault_secret.ingestion_cohost_dsn[0].resource_versionless_id
+  ) : azurerm_key_vault_secret.ingestion_api_dsn[0].resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.ingestion_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "ingestion_worker_kv_secrets_user" {
+  count                = var.enable_document_ingestion && !var.ingestion_cohost_worker ? 1 : 0
+  scope                = azurerm_key_vault_secret.ingestion_worker_dsn[0].resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.ingestion_worker_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "ingestion_migration_kv_secrets_user" {
   count                = var.enable_document_ingestion ? 1 : 0
   scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
-  principal_id         = module.ingestion_identity[0].principal_id
+  principal_id         = module.ingestion_migration_identity[0].principal_id
 }
 
 # -----------------------------------------------------------------------
@@ -757,6 +816,13 @@ resource "azurerm_role_assignment" "ingestion_document_data" {
   scope                = module.document_storage[0].id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = module.ingestion_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "ingestion_worker_document_data" {
+  count                = var.enable_document_ingestion && !var.ingestion_cohost_worker ? 1 : 0
+  scope                = module.document_storage[0].id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = module.ingestion_worker_identity[0].principal_id
 }
 
 # -----------------------------------------------------------------------
@@ -1283,6 +1349,39 @@ resource "azurerm_key_vault_secret" "state_store_dsn" {
   depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
 }
 
+resource "azurerm_key_vault_secret" "ingestion_api_dsn" {
+  count        = var.enable_document_ingestion && !var.ingestion_cohost_worker ? 1 : 0
+  name         = "fdai-ingestion-api-dsn"
+  value        = "${module.state_store.application_dsn}&options=-c%20role%3Dfdai_ingestion_api"
+  key_vault_id = module.key_vault.id
+  content_type = "postgres-dsn-role-fdai-ingestion-api"
+  tags         = local.tags
+
+  depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
+}
+
+resource "azurerm_key_vault_secret" "ingestion_worker_dsn" {
+  count        = var.enable_document_ingestion && !var.ingestion_cohost_worker ? 1 : 0
+  name         = "fdai-ingestion-worker-dsn"
+  value        = "${module.state_store.application_dsn}&options=-c%20role%3Dfdai_ingestion_worker"
+  key_vault_id = module.key_vault.id
+  content_type = "postgres-dsn-role-fdai-ingestion-worker"
+  tags         = local.tags
+
+  depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
+}
+
+resource "azurerm_key_vault_secret" "ingestion_cohost_dsn" {
+  count        = var.enable_document_ingestion && var.ingestion_cohost_worker ? 1 : 0
+  name         = "fdai-ingestion-cohost-dsn"
+  value        = "${module.state_store.application_dsn}&options=-c%20role%3Dfdai_ingestion_cohost"
+  key_vault_id = module.key_vault.id
+  content_type = "postgres-dsn-role-fdai-ingestion-cohost"
+  tags         = local.tags
+
+  depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
+}
+
 resource "azurerm_key_vault_secret" "chatops_webhook_url" {
   count        = var.enable_chatops_hil ? 1 : 0
   name         = "fdai-chatops-webhook-url"
@@ -1557,7 +1656,12 @@ module "llm_azure_openai" {
       ? { operator_api = module.operator_api_identity[0].principal_id }
       : {},
       var.enable_document_ingestion
-      ? { ingestion = module.ingestion_identity[0].principal_id }
+      ? merge(
+        { ingestion_api = module.ingestion_identity[0].principal_id },
+        var.ingestion_cohost_worker
+        ? {}
+        : { ingestion_worker = module.ingestion_worker_identity[0].principal_id },
+      )
       : {},
     )
   )
@@ -1870,19 +1974,38 @@ module "ingestion_gateway" {
   count  = var.enable_document_ingestion ? 1 : 0
   source = "./modules/ingestion-gateway/container-app"
 
-  name                           = "ca-${var.workload}${local.full_suffix}-ingestion"
-  migrate_job_name               = "caj-${var.workload}${local.full_suffix}-docmig"
-  container_app_environment_id   = module.compute.environment_id
-  location                       = var.region
-  resource_group_name            = module.resource_group.name
-  image                          = var.ingestion_image == "" ? var.core_image : var.ingestion_image
-  clamav_image                   = var.clamav_image
-  identity_id                    = module.ingestion_identity[0].resource_id
-  identity_client_id             = module.ingestion_identity[0].client_id
-  database_dsn_secret_id         = azurerm_key_vault_secret.state_store_dsn.id
-  stewardship_governance_enabled = var.enable_stewardship_governance
-  gitops_owner                   = var.gitops_owner
-  gitops_repo                    = var.gitops_repo
+  name                         = "ca-${var.workload}${local.full_suffix}-ingestion"
+  worker_name                  = "ca-${var.workload}${local.full_suffix}-ingestion-worker"
+  migrate_job_name             = "caj-${var.workload}${local.full_suffix}-docmig"
+  container_app_environment_id = module.compute.environment_id
+  location                     = var.region
+  resource_group_name          = module.resource_group.name
+  image                        = var.ingestion_image == "" ? var.core_image : var.ingestion_image
+  clamav_image                 = var.clamav_image
+  identity_id                  = module.ingestion_identity[0].resource_id
+  identity_client_id           = module.ingestion_identity[0].client_id
+  worker_identity_id = var.ingestion_cohost_worker ? "" : (
+    module.ingestion_worker_identity[0].resource_id
+  )
+  worker_identity_client_id = var.ingestion_cohost_worker ? "" : (
+    module.ingestion_worker_identity[0].client_id
+  )
+  migration_identity_id        = module.ingestion_migration_identity[0].resource_id
+  migration_identity_client_id = module.ingestion_migration_identity[0].client_id
+  database_dsn_secret_id = var.ingestion_cohost_worker ? (
+    azurerm_key_vault_secret.ingestion_cohost_dsn[0].id
+  ) : azurerm_key_vault_secret.ingestion_api_dsn[0].id
+  api_database_role = (
+    var.ingestion_cohost_worker ? "fdai_ingestion_cohost" : "fdai_ingestion_api"
+  )
+  worker_database_dsn_secret_id = var.ingestion_cohost_worker ? "" : (
+    azurerm_key_vault_secret.ingestion_worker_dsn[0].id
+  )
+  migration_database_dsn_secret_id = azurerm_key_vault_secret.state_store_dsn.id
+  cohost_worker                    = var.ingestion_cohost_worker
+  stewardship_governance_enabled   = var.enable_stewardship_governance
+  gitops_owner                     = var.gitops_owner
+  gitops_repo                      = var.gitops_repo
   gitops_token_secret_id = (
     var.enable_stewardship_governance ? azurerm_key_vault_secret.gitops_token[0].id : ""
   )
@@ -1922,18 +2045,30 @@ module "ingestion_gateway" {
   document_collections           = var.document_collections
   min_replicas                   = var.ingestion_min_replicas
   max_replicas                   = var.ingestion_max_replicas
+  gateway_cpu                    = var.ingestion_api_cpu
+  gateway_memory                 = var.ingestion_api_memory
+  worker_min_replicas            = var.ingestion_worker_min_replicas
+  worker_max_replicas            = var.ingestion_worker_max_replicas
+  worker_cpu                     = var.ingestion_worker_cpu
+  worker_memory                  = var.ingestion_worker_memory
   acr_login_server               = module.container_registry.login_server
   tags                           = merge(local.tags, { "fdai:component" = "document-ingestion" })
 
   depends_on = [
     azurerm_role_assignment.ingestion_acr_pull,
+    azurerm_role_assignment.ingestion_worker_acr_pull,
+    azurerm_role_assignment.ingestion_migration_acr_pull,
     azurerm_role_assignment.ingestion_eventhubs_sender,
+    azurerm_role_assignment.ingestion_worker_eventhubs_sender,
     azurerm_role_assignment.ingestion_eventhubs_receiver,
     azurerm_role_assignment.ingestion_kv_secrets_user,
+    azurerm_role_assignment.ingestion_worker_kv_secrets_user,
+    azurerm_role_assignment.ingestion_migration_kv_secrets_user,
     azurerm_role_assignment.ingestion_ocr_user,
     azurerm_key_vault_secret.gitops_token,
     azurerm_key_vault_secret.github_webhook_secret,
     azurerm_role_assignment.ingestion_document_data,
+    azurerm_role_assignment.ingestion_worker_document_data,
     module.document_blob_private_endpoint,
     module.document_dfs_private_endpoint,
   ]

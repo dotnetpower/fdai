@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 22f69340f88a431e556ec66bfe00e97235e7bfeb
+translation_source_sha: 770cedfcba0df9a90de5b3979bc224ee4dc87006
 translation_revised: 2026-08-06
 ---
 
@@ -337,7 +337,7 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 | 11 | **Azure OpenAI account + Foundry account/project** (**opt-in**, `var.enable_llm`) | Standard | T1 embedding + T2 mixed-model deployment 및 100K TPM의 전용 GPT-4.1-nano web-search prompt agent | 프로비저닝에는 deployer 권한과 리전 family capacity가 필요하며, 그렇지 않으면 해당 capability가 **`hil-only`**로 강등됩니다. [dev-and-deploy-parity-ko.md § 배포자-스코프 LLM 프로비저닝](dev-and-deploy-parity-ko.md#배포자-스코프-llm-프로비저닝)을 참조하세요. Web search를 활성화하면 Terraform이 deployment region에 별도 `AIServices` Foundry account, project 및 `t1.web_search` deployment를 만들고 deployer와 활성화된 Operator API identity에 `Azure AI User`를 부여합니다. 보호된 post-apply 단계는 실제 tool readiness probe 전에 정확한 domain allowlist로 `fdai-web-search`를 reconcile합니다. Private mode는 `privatelink.services.ai.azure.com`을 추가하며 tenant policy가 소유하는 deny ACL 세부 정보는 Terraform이 보존합니다. |
 | 12 | **ADLS Gen2 document account** (**opt-in**, `enable_document_ingestion`) | StorageV2 Standard ZRS, HNS | private quarantine, immutable governed version, derived envelope | Private mode에서 Shared Key와 public access 비활성화; soft delete + lifecycle; `blob`과 `dfs` private endpoint |
 | 13 | **Case-history Blob account** (`enable_case_history`) | StorageV2 Standard ZRS | Replay 및 governed Norns 분석용 content-addressed prediction/incident case revision | Shared Key 비활성화, private container, versioning, change feed, soft delete, bounded old-version lifecycle, 전용 case-history UAMI data role, `blob` private endpoint. Executor MI에는 Blob role을 부여하지 않습니다. |
-| 14 | **Document ingestion Container App** (**opt-in**) | Consumption, gateway + ClamAV sidecar | 인증된 bounded upload relay, safety scan, extraction, pgvector indexing, lifecycle event | Dedicated UAMI를 사용하며 external HTTPS gateway에는 executor permission이 없습니다. Durable worker는 shared `aw.pipeline.stages`의 document lifecycle record를 consume합니다. |
+| 14 | **Document ingestion Container Apps** (**opt-in**) | Consumption, public API + ClamAV를 포함한 internal worker | 인증된 bounded upload relay와 독립적으로 scale되는 safety scan, extraction, pgvector indexing, lifecycle event | API, worker, migration UAMI를 분리합니다. Worker만 Event Hubs receive와 OCR 권한을 받으며 runtime identity에는 executor permission이 없습니다. |
 | 15 | **Control-loop canary Job** | Consumption, 5분마다 실행 | `aw.control.canary`에 멱등 이벤트 하나를 게시합니다. | 전용 UAMI에는 ACR pull과 Event Hubs send만 있으며, 코어는 별도 consumer 경로에서 no-op audit을 기록합니다. |
 | 16 | **Development operations Function App** (**opt-in**, `enable_dev_operations_gateway`) | Flex Consumption FC1 | 로컬 개발에서 private resource로 registered read, write, execute operation을 relay합니다. | dev 및 private-networking 전용이며 lifecycle precondition으로 강제되고 `infra/tests/dev_operations_gateway.tftest.hcl`이 이를 검증합니다. Easy Auth 뒤에서 **public** inbound endpoint를 종단합니다. 개발자가 도달해야 하기 때문이며, 따라서 폐쇄망에서는 꺼둔 채로 둡니다. 전용 `/27` subnet, private AAD-only deployment 및 idempotency storage, Easy Auth, 분리된 reader/executor UAMI, 일회용 server-issued mutation plan receipt를 사용합니다. 임의 URL, ARM path, command, query surface는 제공하지 않습니다. |
 추가 identity/channel/console 요소는 deployment 또는 opt-in 기능이 소유합니다:
@@ -387,18 +387,18 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 console API audience, Entra RBAC group id 5개, 명시적인 ingestion CORS origin과 함께 설정합니다.
 Terraform은 다음 항목을 프로비저닝합니다.
 
-- ACR pull, Key Vault DSN read, Event Hubs send, ADLS data, Azure OpenAI invoke 및 optional
-  resource-scoped Document Intelligence OCR role만 가진 dedicated ingestion UAMI
+- 별도 API, worker, migration UAMI와 role-scoped PostgreSQL DSN. API는 stage를 publish하지만
+  consume하지 않으며 worker만 stage receive와 optional Document Intelligence OCR 권한을 가집니다.
 - HNS, `documents`와 `derived` filesystem, lifecycle control, Shared Key 비활성화와
   Terraform-owned Defender scanner private-link access를 적용한 StorageV2 account
 - `blob` 및 `dfs` private endpoint. App VNet은 endpoint zone에 link하고, ops runner는 기존
   central Blob zone의 A record로 Blob을 resolve합니다. DFS zone은 두 VNet에 link합니다.
   이 방식은 한 VNet을 같은 namespace의 중복 zone에 link하지 않습니다.
-- FDAI gateway와 replica-local ClamAV sidecar가 포함된 ingestion Container App
+- Public ingestion API Container App과 replica-local ClamAV를 포함한 internal worker app
 - Traffic 전에 document metadata와 pgvector schema를 적용하는 manual migration job
 
 `deploy-dev` workflow는 `deploy_document_ingestion` input을 제공합니다. 기본 동작은 plan이며,
-apply는 ingestion migration job을 실행하고 `ingestion_gateway_fqdn`을 출력합니다. Console은
+apply는 migration job을 실행하고 두 revision을 검증한 뒤 `ingestion_gateway_fqdn`을 출력합니다. Console은
 `VITE_INGESTION_API_BASE_URL=https://<fqdn>`으로 build합니다. Production gate는 private
 networking과 digest-pinned FDAI 및 ClamAV image를 요구합니다.
 
@@ -421,20 +421,20 @@ Identity를 사용하며 connection string 또는 Storage account key를 만들�
 ### Compute Shape (control-loop core의 단일 모듈식 프로세스)
 
 권위 있는 control-loop core는 하나의 Container App 안에서 서명된 이미지 하나와 Python
-프로세스 하나로 배포됩니다. Opt-in Operator API와 document-ingestion gateway는 권한/ingress
-경계 때문에 별도 Container App입니다. 코드 수준의 core 경계는 Protocol과 composition
+프로세스 하나로 배포됩니다. Opt-in Operator API, ingestion API, ingestion worker는 identity,
+ingress, scaling 경계 때문에 별도 Container App입니다. 코드 수준의 core 경계는 Protocol과 composition
 root로 유지되며, 문서화되지 않은 localhost IPC는 없습니다.
 
 - **Runtime**: `python -m fdai`가 Kafka consumer를 시작하고 routing, quality, risk, execution,
   audit stage를 하나의 프로세스에서 구성합니다.
-- **Health**: 내부 `/live`와 `/ready` probe는 권위 있는 control loop가 조립된 후에만 열립니다.
-  앱은 public ingress를 노출하지 않습니다.
+- **Health**: Core는 내부 `/live`와 `/ready`, ingestion API는 `/healthz`, internal worker는
+  `/live`와 `/ready`를 사용합니다.
 - **Replica floor**: 기본값은 replica 하나입니다. 검증된 Kafka scaler 없이 0으로 설정하면 Event
   Hubs 데이터로 깨어나지 않으므로 Terraform은 scale-to-zero를 주장하지 않습니다.
 - **분리 기준**: 측정된 부하 또는 권한 격리에 독립 scale unit이 필요하고 typed transport가
   준비된 경우에만 서브시스템을 별도 Container App으로 분리합니다.
-- **Identity 분리**: 별도 Operator API에는 read UAMI와 command-transport UAMI가 연결됩니다. Event
-  Hubs send/receive 권한은 read principal에 속하지 않습니다.
+- **Identity 분리**: Operator API read/command와 ingestion API/worker/migration principal을
+  분리합니다. `ingestion_cohost_worker=true`는 이전 single app으로 돌아가는 제한된 rollback입니다.
 
 ## 부트스트랩 순서
 

@@ -125,6 +125,17 @@ check "production_ingestion_is_private_and_pinned" {
   }
 }
 
+check "production_ingestion_worker_scale_requires_evidence" {
+  assert {
+    condition = var.env != "prod" || (
+      !var.enable_document_ingestion ||
+      var.ingestion_worker_max_replicas == 1 ||
+      var.ingestion_worker_scale_out_verified
+    )
+    error_message = "production ingestion worker scale-out requires verified restart, redelivery, DLQ, and durable-claim smoke evidence."
+  }
+}
+
 check "production_control_plane_hardening" {
   assert {
     condition = var.env != "prod" || (

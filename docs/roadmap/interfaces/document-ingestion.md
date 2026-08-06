@@ -329,6 +329,22 @@ consumer group runs the worker at least once; uncommitted failures are retried a
 ClamAV runs as a replica-local sidecar, and only a clean document reaches extraction, pgvector
 indexing, and the atomic quarantine-to-governed rename.
 
+### Production process roles
+
+Production runs the same image as two independently revised Container Apps. The public API accepts
+uploads, status, search, and governed deletion, but starts no inspection, extraction,
+reconciliation, or indexing loops. The internal worker exposes only `/live` and `/ready`, owns the
+three durable consumer/reconciliation loops, and keeps ClamAV replica-local.
+
+The API, worker, and migration job use distinct managed identities and PostgreSQL roles. Only the
+worker receives Event Hubs receive and OCR access; only migration can read the administrator DSN.
+Both runtime roles can publish lifecycle records and access only their required document tables.
+Neither becomes ready until `SELECT current_user` confirms its role-scoped DSN.
+API and worker CPU, memory, and replica ranges are independent, with one worker replica by default.
+Production scale-out requires recorded restart, redelivery, DLQ, and durable-claim smoke evidence.
+`ingestion_cohost_worker=true` restores the prior co-hosted topology without changing topics,
+consumer groups, offsets, storage paths, or public routes. Local interactive topology is unchanged.
+
 ### Deferred non-Azure storage recommendations
 
 Azure is the only implemented target. The following entries are documentation-only recommendations
@@ -478,7 +494,7 @@ The `Console Web: Ingestion Gateway (persistent)` launch profile wires this.
 
 The production gateway binds the `handover_bootstrap` consumer to a durable
 `PostgresStateStore` projection and resolves exact user/group display names through
-Microsoft Graph with the gateway managed identity. The identity needs the least
+Microsoft Graph with the worker managed identity. The identity needs the least
 privileged Graph application roles `User.Read.All` and `Group.Read.All`. Zero or
 ambiguous matches remain unresolved for human review. When no grounded mixed-model
 `HandoverInterpreter` is configured, the interpreter abstains and deterministic

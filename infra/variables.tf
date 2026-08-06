@@ -1013,18 +1013,83 @@ variable "document_collections" {
 }
 
 variable "ingestion_min_replicas" {
-  type    = number
-  default = 1
+  description = "Minimum replicas for the public ingestion API role."
+  type        = number
+  default     = 1
 }
 
 variable "ingestion_max_replicas" {
-  type    = number
-  default = 1
+  description = "Maximum replicas for the public ingestion API role."
+  type        = number
+  default     = 1
 
   validation {
-    condition     = var.ingestion_max_replicas == 1
-    error_message = "ingestion_max_replicas MUST remain 1 until distributed upload claiming is implemented."
+    condition     = var.ingestion_max_replicas >= 1 && var.ingestion_max_replicas >= var.ingestion_min_replicas
+    error_message = "ingestion_max_replicas MUST be positive and at least ingestion_min_replicas."
   }
+}
+
+variable "ingestion_api_cpu" {
+  description = "CPU cores assigned to each ingestion API replica."
+  type        = number
+  default     = 1
+}
+
+variable "ingestion_api_memory" {
+  description = "Memory assigned to each ingestion API replica."
+  type        = string
+  default     = "2Gi"
+}
+
+variable "ingestion_worker_min_replicas" {
+  description = "Minimum replicas for the internal ingestion worker role."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.ingestion_worker_min_replicas >= 1
+    error_message = "ingestion_worker_min_replicas MUST remain at least 1 until a Kafka wake-up scaler is verified."
+  }
+}
+
+variable "ingestion_worker_max_replicas" {
+  description = "Maximum replicas for the internal ingestion worker role; increase only after live durable-claim smoke checks."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.ingestion_worker_max_replicas >= 1 && var.ingestion_worker_max_replicas >= var.ingestion_worker_min_replicas
+    error_message = "ingestion_worker_max_replicas MUST be positive and at least ingestion_worker_min_replicas."
+  }
+}
+
+variable "ingestion_worker_cpu" {
+  description = "CPU cores assigned to each ingestion worker replica, excluding ClamAV."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.ingestion_worker_cpu > 0
+    error_message = "ingestion_worker_cpu MUST be positive."
+  }
+}
+
+variable "ingestion_worker_memory" {
+  description = "Memory assigned to each ingestion worker replica, excluding ClamAV."
+  type        = string
+  default     = "2Gi"
+}
+
+variable "ingestion_worker_scale_out_verified" {
+  description = "Acknowledge that restart, redelivery, DLQ, and multi-worker durable-claim smoke checks passed before production scale-out."
+  type        = bool
+  default     = false
+}
+
+variable "ingestion_cohost_worker" {
+  description = "Rollback-only switch that restores worker loops and ClamAV to the API app and removes the split worker app."
+  type        = bool
+  default     = false
 }
 
 # ---------------------------------------------------------------------------

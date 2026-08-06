@@ -1,0 +1,158 @@
+# Plan-level evidence for independent ingestion API, worker, and migration roles.
+# All values are synthetic; mock providers perform no Azure operations.
+
+mock_provider "azurerm" {}
+mock_provider "archive" {}
+
+override_module {
+  target = module.identity
+  outputs = {
+    resource_id  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-fdai-executor"
+    client_id    = "executor-client"
+    principal_id = "executor-principal"
+  }
+  override_during = plan
+}
+
+override_module {
+  target = module.ingestion_identity
+  outputs = {
+    resource_id  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-fdai-ingestion"
+    client_id    = "api-client"
+    principal_id = "api-principal"
+  }
+  override_during = plan
+}
+
+override_module {
+  target = module.ingestion_worker_identity
+  outputs = {
+    resource_id  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-fdai-ingestion-worker"
+    client_id    = "worker-client"
+    principal_id = "worker-principal"
+  }
+  override_during = plan
+}
+
+override_module {
+  target = module.ingestion_migration_identity
+  outputs = {
+    resource_id  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-fdai-ingestion-migration"
+    client_id    = "migration-client"
+    principal_id = "migration-principal"
+  }
+  override_during = plan
+}
+
+variables {
+  region                         = "koreacentral"
+  tenant_id                      = "00000000-0000-0000-0000-000000000000"
+  postgres_admin_login           = "fdaiadmin"
+  postgres_admin_password        = "terraform-test-placeholder-value"
+  core_image                     = "mcr.microsoft.com/example/fdai@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  enable_document_ingestion      = true
+  enable_llm                     = true
+  operator_api_audience          = "00000000-0000-0000-0000-000000000000"
+  rbac_readers_group_id          = "00000000-0000-0000-0000-000000000000"
+  rbac_contributors_group_id     = "00000000-0000-0000-0000-000000000000"
+  rbac_approvers_group_id        = "00000000-0000-0000-0000-000000000000"
+  rbac_owners_group_id           = "00000000-0000-0000-0000-000000000000"
+  rbac_break_glass_group_id      = "00000000-0000-0000-0000-000000000000"
+  ingestion_cors_allow_origins   = "https://console.example.com"
+  ingestion_embedding_capability = "t1.embedding"
+  resolved_capabilities = [{
+    name         = "t1.embedding"
+    family       = "text-embedding-3-small"
+    sku          = "Standard"
+    capacity_tpm = 10000
+  }]
+}
+
+run "split_roles_are_independent_by_default" {
+  command = plan
+
+  variables {
+    ingestion_worker_min_replicas = 1
+    ingestion_worker_max_replicas = 2
+    ingestion_worker_cpu          = 2
+    ingestion_worker_memory       = "4Gi"
+  }
+
+  assert {
+    condition     = length(module.ingestion_worker_identity) == 1
+    error_message = "split mode must provision a dedicated worker identity"
+  }
+
+  assert {
+    condition     = module.ingestion_gateway[0].worker_name != ""
+    error_message = "split mode must provision the internal worker Container App"
+  }
+
+  assert {
+    condition = (
+      module.ingestion_identity[0].principal_id != module.identity.principal_id &&
+      module.ingestion_worker_identity[0].principal_id != module.identity.principal_id
+    )
+    error_message = "ingestion API and worker identities must remain distinct from Thor's executor"
+  }
+
+  assert {
+    condition = (
+      azurerm_role_assignment.ingestion_eventhubs_receiver[0].principal_id ==
+      module.ingestion_worker_identity[0].principal_id
+    )
+    error_message = "Event Hubs receive must belong to the worker identity"
+  }
+
+  assert {
+    condition = (
+      azurerm_role_assignment.ingestion_eventhubs_sender[0].principal_id ==
+      module.ingestion_identity[0].principal_id
+    )
+    error_message = "the API identity must retain send-only event publication"
+  }
+
+  assert {
+    condition = (
+      azurerm_role_assignment.ingestion_migration_kv_secrets_user[0].principal_id ==
+      module.ingestion_migration_identity[0].principal_id
+    )
+    error_message = "the administrator DSN must belong only to the migration identity"
+  }
+}
+
+run "cohost_flag_restores_single_app_rollback" {
+  command = plan
+
+  variables {
+    ingestion_cohost_worker = true
+  }
+
+  assert {
+    condition     = length(module.ingestion_worker_identity) == 0
+    error_message = "co-host rollback must remove the split worker identity"
+  }
+
+  assert {
+    condition     = module.ingestion_gateway[0].worker_name == ""
+    error_message = "co-host rollback must remove the split worker Container App"
+  }
+
+  assert {
+    condition = (
+      azurerm_role_assignment.ingestion_eventhubs_receiver[0].principal_id ==
+      module.ingestion_identity[0].principal_id
+    )
+    error_message = "co-host rollback must return receive permission to the API identity"
+  }
+}
+
+run "worker_scale_to_zero_is_rejected_without_kafka_scaler" {
+  command = plan
+
+  variables {
+    ingestion_worker_min_replicas = 0
+  }
+
+  expect_failures = [var.ingestion_worker_min_replicas]
+}

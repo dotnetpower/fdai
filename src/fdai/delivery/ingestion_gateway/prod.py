@@ -1,13 +1,16 @@
-"""Production composition for the dedicated document-ingestion gateway."""
+"""Production composition shared by independent ingestion deployment roles."""
 
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import Final
 
 import httpx
+import psycopg
 from starlette.applications import Starlette
 
 from fdai.agents import OWNED_OBJECT_TOPICS
@@ -55,6 +58,7 @@ from fdai.delivery.pgvector.document_index import (
 )
 from fdai.delivery.stewardship import GraphPersonDirectory
 from fdai.delivery.stewardship.production import (
+    ProductionStewardshipGovernance,
     build_production_stewardship_governance,
 )
 from fdai.shared.contracts import IngestionCapabilities, SourceStorageMode
@@ -64,8 +68,18 @@ from fdai.shared.providers.local.document_ingestion import (
 )
 from fdai.shared.providers.local.secret import EnvSecretProvider
 
-_REQUIRED_ENV: Final[tuple[str, ...]] = (
+_COMMON_REQUIRED_ENV: Final[tuple[str, ...]] = (
     "FDAI_DATABASE_URL",
+    "FDAI_DATABASE_ROLE",
+    "FDAI_INGESTION_DEPLOYMENT_ROLE",
+    "FDAI_ADLS_ACCOUNT_NAME",
+    "FDAI_ADLS_ACCOUNT_URL",
+    "FDAI_EMBEDDING_ENDPOINT",
+    "FDAI_EMBEDDING_DEPLOYMENT",
+    "FDAI_KAFKA_BOOTSTRAP_SERVERS",
+    "FDAI_DOCUMENT_EVENT_TOPIC",
+)
+_API_REQUIRED_ENV: Final[tuple[str, ...]] = (
     "FDAI_ENTRA_TENANT_ID",
     "FDAI_API_AUDIENCE",
     "FDAI_RBAC_READERS_GROUP_ID",
@@ -73,12 +87,6 @@ _REQUIRED_ENV: Final[tuple[str, ...]] = (
     "FDAI_RBAC_APPROVERS_GROUP_ID",
     "FDAI_RBAC_OWNERS_GROUP_ID",
     "FDAI_RBAC_BREAK_GLASS_GROUP_ID",
-    "FDAI_ADLS_ACCOUNT_NAME",
-    "FDAI_ADLS_ACCOUNT_URL",
-    "FDAI_EMBEDDING_ENDPOINT",
-    "FDAI_EMBEDDING_DEPLOYMENT",
-    "FDAI_KAFKA_BOOTSTRAP_SERVERS",
-    "FDAI_DOCUMENT_EVENT_TOPIC",
     "FDAI_INGESTION_CORS_ALLOW_ORIGINS",
 )
 
@@ -87,14 +95,64 @@ class ProdIngestionConfigError(ValueError):
     """Raised when the production ingestion environment is incomplete."""
 
 
-def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
+class IngestionDeploymentRole(StrEnum):
+    """Independent process roles that share the ingestion distribution."""
+
+    API = "api"
+    WORKER = "worker"
+
+
+@dataclass(frozen=True, slots=True)
+class ProductionIngestionRuntime:
+    """Owned provider graph used by one API or worker process."""
+
+    env: dict[str, str]
+    service: DocumentIngestionService
+    worker: DocumentIngestionWorker
+    document_index: PgvectorDocumentIndex
+    handover_drafts: StateStoreHandoverDraftStore
+    stewardship_governance: ProductionStewardshipGovernance | None
+    worker_service: DocumentIngestionEventConsumer
+    startup_checks: tuple[Callable[[], Awaitable[None]], ...]
+    shutdown_callbacks: tuple[Callable[[], Awaitable[None]], ...]
+
+
+def build_prod_runtime(
+    environ: Mapping[str, str] | None = None,
+    *,
+    role: IngestionDeploymentRole,
+) -> ProductionIngestionRuntime:
+    """Compose providers for one role without starting any lifecycle task."""
     env = dict(environ if environ is not None else os.environ)
-    missing = [key for key in _REQUIRED_ENV if not env.get(key, "").strip()]
+    required = _COMMON_REQUIRED_ENV + (
+        _API_REQUIRED_ENV if role is IngestionDeploymentRole.API else ()
+    )
+    missing = [key for key in required if not env.get(key, "").strip()]
     if missing:
         raise ProdIngestionConfigError(
             "production ingestion environment is missing: " + ", ".join(missing)
         )
+    configured_role = env["FDAI_INGESTION_DEPLOYMENT_ROLE"].strip()
+    if configured_role != role.value:
+        raise ProdIngestionConfigError(
+            "FDAI_INGESTION_DEPLOYMENT_ROLE does not match the process role"
+        )
+    expected_database_role = (
+        "fdai_ingestion_worker"
+        if role is IngestionDeploymentRole.WORKER
+        else (
+            "fdai_ingestion_cohost"
+            if _boolean(env, "FDAI_INGESTION_COHOST_WORKER", False)
+            else "fdai_ingestion_api"
+        )
+    )
+    if env["FDAI_DATABASE_ROLE"].strip() != expected_database_role:
+        raise ProdIngestionConfigError("FDAI_DATABASE_ROLE does not match the process role")
     dsn = env["FDAI_DATABASE_URL"].strip()
+
+    async def verify_database_role() -> None:
+        await _verify_database_role(dsn, expected_database_role)
+
     http_client = httpx.AsyncClient(
         timeout=httpx.Timeout(connect=10.0, read=60.0, write=60.0, pool=10.0)
     )
@@ -255,37 +313,63 @@ def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
         worker=worker,
         metadata=metadata,
         topic="object.audit-entry",
+        worker_owner=env.get("FDAI_INGESTION_WORKER_OWNER", "").strip() or None,
+        lease_seconds=_positive_int(env, "FDAI_INGESTION_WORKER_LEASE_SECONDS", 120),
     )
+    return ProductionIngestionRuntime(
+        env=env,
+        service=service,
+        worker=worker,
+        document_index=document_index,
+        handover_drafts=handover_drafts,
+        stewardship_governance=stewardship_governance,
+        worker_service=worker_service,
+        startup_checks=(verify_database_role,),
+        shutdown_callbacks=(
+            event_bus.close,
+            object_store.close,
+            artifact_store.close,
+            http_client.aclose,
+        ),
+    )
+
+
+def build_prod_app(environ: Mapping[str, str] | None = None) -> Starlette:
+    """Build the public API role; worker loops require an explicit rollback flag."""
+    runtime = build_prod_runtime(environ, role=IngestionDeploymentRole.API)
+    env = runtime.env
     verifier = EntraJwtVerifier.from_env(env)
     resolver = RoleResolver(group_mapping=_group_mapping(env))
     authenticator = build_authenticator(verifier=verifier, resolver=resolver)
     return build_app(
         authenticator=authenticator,
-        service=service,
-        worker=worker,
-        search_index=document_index,
-        handover_drafts=handover_drafts,
+        service=runtime.service,
+        worker=runtime.worker,
+        search_index=runtime.document_index,
+        handover_drafts=runtime.handover_drafts,
         stewardship_webhook=(
-            stewardship_governance.webhook if stewardship_governance is not None else None
+            runtime.stewardship_governance.webhook
+            if runtime.stewardship_governance is not None
+            else None
         ),
         config=IngestionGatewayConfig(
             proxy_upload=True,
+            startup_checks=runtime.startup_checks,
             background_services=(
-                worker_service.run,
-                worker_service.run_index_commands,
-                worker_service.reconcile,
+                (
+                    runtime.worker_service.run,
+                    runtime.worker_service.run_index_commands,
+                    runtime.worker_service.reconcile,
+                )
+                if _boolean(env, "FDAI_INGESTION_COHOST_WORKER", False)
+                else ()
             ),
             cors_allow_origins=_origins(env["FDAI_INGESTION_CORS_ALLOW_ORIGINS"]),
             default_reader_groups=(env["FDAI_RBAC_READERS_GROUP_ID"].strip(),),
             allowed_collections=_collections(
                 env.get("FDAI_DOCUMENT_COLLECTIONS", "shared-knowledge")
             ),
-            shutdown_callbacks=(
-                event_bus.close,
-                object_store.close,
-                artifact_store.close,
-                http_client.aclose,
-            ),
+            shutdown_callbacks=runtime.shutdown_callbacks,
         ),
     )
 
@@ -332,4 +416,31 @@ def _nonnegative_int(env: Mapping[str, str], key: str, default: int) -> int:
     return value
 
 
-__all__ = ["ProdIngestionConfigError", "app", "build_prod_app"]
+def _boolean(env: Mapping[str, str], key: str, default: bool) -> bool:
+    raw = env.get(key, "").strip().casefold()
+    if not raw:
+        return default
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    raise ProdIngestionConfigError(f"{key} MUST be a boolean")
+
+
+async def _verify_database_role(dsn: str, expected_role: str) -> None:
+    async with await psycopg.AsyncConnection.connect(dsn, connect_timeout=10) as connection:
+        row = await (await connection.execute("SELECT current_user")).fetchone()
+    if row is None or str(row[0]) != expected_role:
+        raise ProdIngestionConfigError(
+            "effective PostgreSQL role does not match FDAI_DATABASE_ROLE"
+        )
+
+
+__all__ = [
+    "IngestionDeploymentRole",
+    "ProdIngestionConfigError",
+    "ProductionIngestionRuntime",
+    "app",
+    "build_prod_app",
+    "build_prod_runtime",
+]

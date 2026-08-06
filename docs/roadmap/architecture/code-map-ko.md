@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: dfe6f674c73184e218b1aad91429998fe1e689d3
-translation_revised: 2026-08-05
+translation_source_sha: 7e0cfd18bbae51894215e564566a34124661a528
+translation_revised: 2026-08-06
 ---
 # 코드 맵
 
@@ -74,7 +74,7 @@ shared 패키지를 커버한다.
 | 서브시스템 | 책임 | 소스 | 테스트 |
 |-----------|------|------|--------|
 | knowledge | 장기 지식 저장소 seam | [src/fdai/core/knowledge/](../../../src/fdai/core/knowledge/) | [tests/core/knowledge/](../../../tests/core/knowledge/) |
-| document_ingestion | 에이전트 gate를 적용한 upload lifecycle: scan/protection inspection, Forseti/Saga decision, Var HIL, Muninn indexing, replay-only gated-state recovery ([설계](../interfaces/document-ingestion-agent-ownership-ko.md)) | [src/fdai/core/document_ingestion/](../../../src/fdai/core/document_ingestion/) 및 [src/fdai/delivery/ingestion_gateway/](../../../src/fdai/delivery/ingestion_gateway/) | [tests/core/document_ingestion/](../../../tests/core/document_ingestion/) 및 [tests/delivery/ingestion_gateway/](../../../tests/delivery/ingestion_gateway/) |
+| document_ingestion | 독립 API/worker role, durable claim, Forseti/Saga decision, Var HIL, Muninn indexing, gated-state recovery를 적용한 upload lifecycle ([설계](../interfaces/document-ingestion-agent-ownership-ko.md)) | [src/fdai/core/document_ingestion/](../../../src/fdai/core/document_ingestion/) 및 [src/fdai/delivery/ingestion_gateway/](../../../src/fdai/delivery/ingestion_gateway/) | [tests/core/document_ingestion/](../../../tests/core/document_ingestion/) 및 [tests/delivery/ingestion_gateway/](../../../tests/delivery/ingestion_gateway/) |
 | operator_memory | HIL 승인된 오퍼레이터 노트 저장소 | [src/fdai/core/operator_memory/](../../../src/fdai/core/operator_memory/) | [tests/core/operator_memory/](../../../tests/core/operator_memory/) |
 | learning | 동의 기반 off-path post-turn eligibility, mixed-family consensus, 중복 제거, 비활성 proposal routing ([설계](../decisioning/post-turn-improvement-review-ko.md)) | [src/fdai/core/learning/](../../../src/fdai/core/learning/) | [tests/core/learning/](../../../tests/core/learning/) |
 | conversation_assurance | 결정론적 terminal 검사, exact failure attribution, hold-first ontology adequacy review, 독립 모델 점수, append-only 평가와 이의 제기, 구독별 사후 분포 학습, chat-policy 승격 및 롤백 ([설계](../decisioning/conversation-assurance-ko.md)) | [src/fdai/core/conversation_assurance/](../../../src/fdai/core/conversation_assurance/), [conversation_assurance.py](../../../src/fdai/delivery/azure/llm/conversation_assurance.py), [postgres_conversation_assurance.py](../../../src/fdai/delivery/persistence/postgres_conversation_assurance.py) | [tests/core/conversation_assurance/](../../../tests/core/conversation_assurance/), [test_conversation_assurance.py](../../../tests/delivery/operator_api/test_conversation_assurance.py), adapter/runtime 집중 테스트 |

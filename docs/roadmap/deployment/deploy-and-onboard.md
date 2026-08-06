@@ -333,7 +333,7 @@ replica caps are still **deployment-specific** and tuned per environment; the sh
 | 11 | **Azure OpenAI accounts + Foundry account/project** (**opt-in**, `var.enable_llm`) | Standard | T1 embedding + T2 mixed-model deployments, plus a dedicated GPT-4.1-nano web-search prompt agent at 100K TPM | Provisioning requires deployer permission and regional family capacity; otherwise the affected capability degrades to **`hil-only`** (see [dev-and-deploy-parity.md § Deployer-Scoped LLM Provisioning](dev-and-deploy-parity.md#deployer-scoped-llm-provisioning)). When web search is enabled, Terraform creates a separate `AIServices` Foundry account, project, and `t1.web_search` deployment in the deployment region, grants `Azure AI User` to the deployer and enabled Operator API identity, and the protected post-apply stage reconciles `fdai-web-search` with the exact domain allowlist before a real-tool readiness probe. Private mode adds `privatelink.services.ai.azure.com`; tenant policy owns deny ACL details, which Terraform preserves. |
 | 12 | **ADLS Gen2 document account** (**opt-in**, `enable_document_ingestion`) | StorageV2 Standard ZRS, HNS | private quarantine, immutable governed versions, derived envelopes | Shared Key and public access disabled in private mode; soft delete + lifecycle; `blob` and `dfs` private endpoints |
 | 13 | **Case-history Blob account** (`enable_case_history`) | StorageV2 Standard ZRS | content-addressed prediction/incident case revisions for replay and governed Norns analysis | Shared Key disabled; private container, versioning, change feed, soft delete, bounded old-version lifecycle, dedicated case-history UAMI data role, and `blob` private endpoint; the executor MI receives no Blob role |
-| 14 | **Document ingestion Container App** (**opt-in**) | Consumption, gateway + ClamAV sidecar | authenticated bounded upload relay, safety scan, extraction, pgvector indexing, lifecycle events | dedicated UAMI; external HTTPS gateway cannot access executor permissions; durable worker consumes document lifecycle records from shared `aw.pipeline.stages` |
+| 14 | **Document ingestion Container Apps** (**opt-in**) | Consumption, public API + internal worker with ClamAV | authenticated bounded upload relay plus independently scaled safety scan, extraction, pgvector indexing, and lifecycle events | API, worker, and migration UAMIs are distinct; only the worker receives Event Hubs receive and OCR; neither runtime identity receives executor permissions |
 | 15 | **Control-loop canary Job** | Consumption, every 5 minutes | publishes one idempotent event to `aw.control.canary` | dedicated UAMI has only ACR pull and Event Hubs send; the core records a no-op audit through a separate consumer path |
 | 16 | **Development operations Function App** (**opt-in**, `enable_dev_operations_gateway`) | Flex Consumption FC1 | relays registered read, write, and execute operations from local development to private resources | dev and private-networking only, enforced by a lifecycle precondition and covered by `infra/tests/dev_operations_gateway.tftest.hcl`; terminates a **public** inbound endpoint behind Easy Auth - a developer has to reach it - so it stays off on a closed network; dedicated `/27` subnet, private AAD-only deployment and idempotency storage, Easy Auth, separate reader/executor UAMIs, one-time server-issued mutation plan receipts, and no arbitrary URL, ARM path, command, or query surface |
 Additional identity, channel, and console elements are deployment-owned or opt-in:
@@ -385,18 +385,18 @@ Set `enable_document_ingestion=true` only with `enable_llm=true`, a resolved
 `t1.embedding` capability, the console API audience, all five Entra RBAC group ids, and explicit
 ingestion CORS origins. Terraform then provisions:
 
-- a dedicated ingestion UAMI with only ACR pull, Key Vault DSN read, Event Hubs send, ADLS data,
-  Azure OpenAI invoke, and optional resource-scoped Document Intelligence OCR roles;
+- distinct API, worker, and migration UAMIs plus role-scoped PostgreSQL DSNs. API can publish but
+  not consume stages; worker alone receives stages and optional Document Intelligence OCR access;
 - a StorageV2 account with HNS, the `documents` and `derived` filesystems, lifecycle controls,
   no Shared Key, and Terraform-owned Defender scanner private-link access;
 - `blob` and `dfs` private endpoints. The app VNet links to the endpoint zones; the ops runner
   resolves Blob through an A record in its existing central Blob zone, while the DFS zone links
   to both VNets. This avoids linking one VNet to duplicate zones with the same namespace;
-- an ingestion Container App with the FDAI gateway and replica-local ClamAV sidecar;
+- a public ingestion API Container App and an internal worker app with replica-local ClamAV;
 - a manual migration job that applies the document metadata and pgvector schema before traffic.
 
 The `deploy-dev` workflow exposes `deploy_document_ingestion`. Plan remains the default. An apply
-runs the ingestion migration job and publishes `ingestion_gateway_fqdn`; build the console with
+runs the migration job, verifies both revisions, and publishes `ingestion_gateway_fqdn`; build with
 `VITE_INGESTION_API_BASE_URL=https://<fqdn>`. Production gates require private networking and
 digest-pinned FDAI plus ClamAV images.
 
@@ -420,20 +420,20 @@ justifies them):
 ### Compute Shape (single modular control-loop core)
 
 The authoritative control-loop core deploys as one signed image and one Python process inside one
-Container App. The opt-in Operator API and document-ingestion gateway are separate Container Apps for
-their identity and ingress boundaries. Core subsystem boundaries remain explicit through Protocols
+Container App. The opt-in Operator API, ingestion API, and ingestion worker are separate Container Apps
+for identity, ingress, and scaling boundaries. Core boundaries remain explicit through Protocols
 and the composition root; there is no undocumented localhost IPC.
 
 - **Runtime**: `python -m fdai` starts the Kafka consumer and composes routing, quality, risk,
   execution, and audit stages in one process.
 - **Health**: internal `/live` and `/ready` probes open only after the authoritative control loop
-  is assembled. The app exposes no public ingress.
+  is assembled. The ingestion API uses `/healthz`; its internal worker uses `/live` and `/ready`.
 - **Replica floor**: the default is one replica. A zero floor without a verified Kafka scaler
   would never wake on Event Hubs data, so Terraform does not claim scale-to-zero.
 - **Graduation rule**: split a subsystem into another Container App only after measured load or
   privilege isolation requires an independent scale unit and a typed transport is available.
-- **Identity split**: the separate Operator API attaches a read UAMI and a command-transport UAMI;
-  Event Hubs send/receive does not belong to the read principal.
+- **Identity split**: Operator API read/command and ingestion API/worker/migration principals stay
+  distinct. `ingestion_cohost_worker=true` is the bounded rollback to the previous single app.
 
 ## Bootstrap Sequence
 

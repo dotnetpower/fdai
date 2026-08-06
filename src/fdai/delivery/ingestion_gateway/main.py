@@ -55,6 +55,7 @@ class IngestionGatewayConfig:
     default_reader_groups: tuple[str, ...] = ()
     allowed_collections: tuple[str, ...] = ()
     process_after_complete: bool = False
+    startup_checks: tuple[Callable[[], Awaitable[None]], ...] = ()
     background_services: tuple[Callable[[], Coroutine[Any, Any, None]], ...] = ()
     shutdown_callbacks: tuple[Callable[[], Awaitable[None]], ...] = ()
 
@@ -361,6 +362,8 @@ def build_app(
 
     @asynccontextmanager
     async def lifespan(_app: Starlette) -> AsyncIterator[None]:
+        for check in resolved.startup_checks:
+            await check()
         tasks: list[asyncio.Task[None]] = [
             asyncio.create_task(service()) for service in resolved.background_services
         ]

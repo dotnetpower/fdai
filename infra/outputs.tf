@@ -276,12 +276,27 @@ output "ingestion_gateway_name" {
   value       = length(module.ingestion_gateway) > 0 ? module.ingestion_gateway[0].name : ""
 }
 
+output "ingestion_worker_name" {
+  description = "Internal ingestion worker Container App resource name; empty in co-host rollback mode."
+  value       = length(module.ingestion_gateway) > 0 ? module.ingestion_gateway[0].worker_name : ""
+}
+
 output "ingestion_migrate_job_name" {
   description = "Ingestion schema migration job name."
   value       = length(module.ingestion_gateway) > 0 ? module.ingestion_gateway[0].migrate_job_name : ""
 }
 
 output "ingestion_identity_principal_id" {
-  description = "Dedicated document-ingestion Managed Identity object id."
+  description = "Dedicated document-ingestion API Managed Identity object id."
   value       = length(module.ingestion_identity) > 0 ? module.ingestion_identity[0].principal_id : ""
+}
+
+output "ingestion_worker_identity_principal_id" {
+  description = "Dedicated document-ingestion worker Managed Identity object id; empty in co-host rollback mode."
+  value       = length(module.ingestion_worker_identity) > 0 ? module.ingestion_worker_identity[0].principal_id : ""
+}
+
+output "ingestion_migration_identity_principal_id" {
+  description = "Dedicated document-ingestion migration Managed Identity object id."
+  value       = length(module.ingestion_migration_identity) > 0 ? module.ingestion_migration_identity[0].principal_id : ""
 }

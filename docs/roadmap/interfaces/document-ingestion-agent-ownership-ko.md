@@ -1,6 +1,6 @@
 ---
 translation_of: document-ingestion-agent-ownership.md
-translation_source_sha: 5c51c89bc3ee3d64759f0610a5d2db2040de4ef9
+translation_source_sha: a375699b706f1dd505e66dfee79d32297aaf8c98
 translation_revised: 2026-08-06
 ---
 
@@ -100,9 +100,16 @@ PostgreSQL claim을 획득합니다. Claim은 worker owner, attempt id, revision
   있습니다.
 - **Terminal 중복 제거:** completed claim은 다시 획득할 수 없습니다. 따라서 중복 broker delivery와
   reconciliation은 stage를 반복하는 대신 지속성 있는 terminal 결과를 재사용합니다.
+- **Recovery 수렴:** Restart 또는 scale-in 후 broker redelivery와 state reconciliation이 경합할 수
+  있지만 lifecycle effect 전에 둘 다 동일한 stage claim을 획득해야 합니다.
 - **Gate 보존:** received 및 protection reconciliation은 저장된 사실만 재발행합니다. Inspection에는
   여전히 Saga가 감사한 admission이 필요하며, indexing에는 Muninn 소유 command 또는 이미 시작된
   post-decision state의 recovery가 필요합니다.
+
+Production은 upload API와 worker를 별도 Container App으로 schedule합니다. 이 분리는 process
+lifetime, scaling, managed identity, database grant만 변경합니다. API는 worker consumer group을
+subscribe하지 않고 worker는 upload ingress를 노출하지 않으며, 어느 process도 deployment role에서
+judgment, approval, audit, memory 또는 executor authority를 얻지 않습니다.
 
 ## 관련 문서
 
