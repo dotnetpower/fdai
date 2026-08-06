@@ -28,6 +28,7 @@ from fdai.shared.contracts.models import OntologyTypeRef
 from fdai.shared.providers.knowledge import Embedder, cosine_similarity
 
 _LOG = logging.getLogger(__name__)
+_MAX_PROMPT_CHARS = 4096
 
 
 class InventorySemanticKind(StrEnum):
@@ -116,7 +117,11 @@ class EmbeddingInventorySemanticResolver:
         self._lock = asyncio.Lock()
 
     async def resolve(self, prompt: str) -> tuple[InventorySemanticMatch, ...]:
-        if not prompt.strip():
+        if (
+            not prompt.strip()
+            or len(prompt) > _MAX_PROMPT_CHARS
+            or any(ord(character) < 32 or ord(character) == 127 for character in prompt)
+        ):
             return ()
         try:
             vectors = await self._catalog_vectors()

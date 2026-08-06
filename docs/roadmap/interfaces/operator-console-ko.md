@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: eb7d205e5dc6c5b8de248e3ad84229ecff807f6b
+translation_source_sha: d85be69b3a282c4b6aee182a54b8642930b0889d
 translation_revised: 2026-08-06
 ---
 
@@ -275,6 +275,8 @@ Exact catalog term은 유일한 entry gate가 아니라 T0 latency optimization�
 검색합니다. Retrieved concept는 `candidate_only`를 유지하고 inventory를 query하지 않은 채 localized
 clarification을 만듭니다. Embedder가 없거나 실패하면 resolver는 candidate를 반환하지 않고
 deterministic hold가 authoritative 상태를 유지합니다.
+Resolver는 catalog vector를 build하거나 query embedder를 호출하기 전에 empty prompt, control
+character 및 4,096자를 초과하는 text를 거부합니다.
 `FDAI_INVENTORY_SEMANTIC_ENABLED`는 이 clarification capability를
 `FDAI_CATALOG_SEARCH_ENABLED`와 독립적으로 제어합니다. Rule search를 비활성화해도 inventory
 semantic retrieval이 암묵적으로 비활성화되지 않습니다.

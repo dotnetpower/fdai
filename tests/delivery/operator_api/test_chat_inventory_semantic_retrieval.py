@@ -68,6 +68,15 @@ class FailingEmbedder:
         raise RuntimeError("embedding unavailable")
 
 
+class RecordingEmbedder:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    async def embed(self, text: str) -> Sequence[float]:
+        self.calls.append(text)
+        return (1.0, 0.0, 0.0)
+
+
 def test_default_threshold_allows_measured_candidate_only_paraphrases() -> None:
     config = InventorySemanticConfig()
 
@@ -116,6 +125,25 @@ async def test_embedding_failure_returns_no_candidate() -> None:
     )
 
     assert await resolver.resolve("machines still serving traffic") == ()
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "machines\x00still serving traffic",
+        "machines\x7fstill serving traffic",
+        "x" * 4097,
+    ),
+)
+async def test_invalid_semantic_prompt_is_rejected_before_embedding(prompt: str) -> None:
+    embedder = RecordingEmbedder()
+    resolver = EmbeddingInventorySemanticResolver(
+        embedder=embedder,
+        target_ref=_target_ref(),
+    )
+
+    assert await resolver.resolve(prompt) == ()
+    assert embedder.calls == []
 
 
 class FixedResolver:
