@@ -4,17 +4,19 @@ from datetime import UTC, datetime
 
 import pytest
 
-from fdai.rule_catalog.schema.rule_semantic_retrieval import (
+from fdai.rule_catalog.schema.rule_semantic_generation import (
     CatalogRetrievalReceipt,
     CatalogSearchGeneration,
-    CohortMetric,
     GenerationState,
     RetrievalOperation,
     RetrievalRank,
+    SemanticAvailability,
+)
+from fdai.rule_catalog.schema.rule_semantic_retrieval import (
+    CohortMetric,
     RuleCorpus,
     RuleSemanticManifest,
     RuleSemanticSurface,
-    SemanticAvailability,
     SurfaceOrigin,
     SurfaceState,
     SurfaceValidationReceipt,
