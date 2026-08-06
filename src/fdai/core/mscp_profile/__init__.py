@@ -5,6 +5,12 @@ not claim full MSCP conformance and does not replace FDAI's existing risk,
 execution, approval, rollback, or audit authorities.
 """
 
+from fdai.core.mscp_profile.authority_ceiling import (
+    MscpAuthorityCeiling,
+    MscpAuthorityDecision,
+    MscpAuthorityReason,
+    combine_mscp_authority,
+)
 from fdai.core.mscp_profile.cycle_guard import (
     CycleBudget,
     CycleGuardDecision,
@@ -54,6 +60,9 @@ __all__ = [
     "ExpectedEffect",
     "ExpectedEffectProvider",
     "IndependentEffectObserver",
+    "MscpAuthorityCeiling",
+    "MscpAuthorityDecision",
+    "MscpAuthorityReason",
     "ObservedEffect",
     "OperationalProfile",
     "OscillationPolicy",
@@ -64,6 +73,7 @@ __all__ = [
     "default_runtime_manifest",
     "build_shadow_effect_audit",
     "build_response_outcome",
+    "combine_mscp_authority",
     "evaluate_cycle_guard",
     "response_outcome_audit_entry",
     "verify_effect",

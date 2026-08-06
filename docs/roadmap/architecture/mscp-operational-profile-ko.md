@@ -1,8 +1,8 @@
 ---
 title: MSCP Operational Profile
 translation_of: mscp-operational-profile.md
-translation_source_sha: c0c5bffd0ab03fedf47c47b077fe4e3a5e212556
-translation_revised: 2026-07-31
+translation_source_sha: 7e5326c1a60a62bfd0c9254f23c22e6c6b9c2469
+translation_revised: 2026-08-06
 ---
 # MSCP Operational Profile
 
@@ -123,6 +123,14 @@ Shadow observation에서 gating으로 전환하는 작업은 별도의 향후 go
 evidence window, rollback target 및 profile이 기존 authority decision을 유지하거나 낮출 수만 있다는
 증명이 필요합니다.
 
+순수 `combine_mscp_authority` 함수는 이 never-raising proof surface를 제공합니다. `preserve`,
+`human_approval`, `hold`, `deny` ceiling을 canonical FDAI authority ladder에 매핑하고 `min(existing
+FDAI authority, MSCP ceiling)`을 적용합니다. Immutable result는 complete unified risk decision을
+보존하고 profile, existing decision, ceiling, reason, final decision 및 authority 감소 여부가 포함된
+audit projection을 추가합니다. 함수는 I/O를 수행하지 않으며 risk gate, human approval, executor,
+rollback 또는 audit owner를 우회할 수 없습니다. Measured readiness window와 governed profile
+lifecycle이 없는 동안에는 ControlLoop에 연결하지 않습니다.
+
 ## 독립적인 축
 
 이 프로파일은 [ADR-0002](decisions/0002-independent-runtime-axes-ko.md)의 runtime axis와
@@ -144,6 +152,7 @@ distribution은 safety profile을 선택하거나 변경하지 않습니다. 특
 - Strict `ResponseOutcome` schema parity 및 privacy-minimized audit projection
 - Default-off composition, pair-only activation 및 predict-execute-observe 순서
 - Mismatch, provider failure 또는 shadow audit failure에서도 변경되지 않는 executor result
+- 모든 finite-domain 조합에서 MSCP ceiling이 unified authority를 높이지 않는다는 증명
 - Caller 소유 cycle budget 및 bounded sign-change detection
 - 순서와 독립적인 runtime manifest hashing 및 component drift reporting
 - non-finite value, malformed digest 및 invalid limit의 fail-closed validation

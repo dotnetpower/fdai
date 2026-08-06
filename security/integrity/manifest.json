@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 975,
+  "file_count": 976,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "22f8e22e3fd307e30886805683b0f38c39442deeb24a45026471d71084b4ea99",
     ".github/instructions/agent-stewardship.instructions.md": "574518fca728a9a6c8d3b50e0cf4aa53a1ed5bf85d5c52e5da67a0486bf31a43",
@@ -403,7 +403,8 @@
     "src/fdai/core/metering/records.py": "8c6c35cf2c175b8120a4ae5b1de7154854fef07e1ffea7f942696daffbdd3983",
     "src/fdai/core/metering/sink.py": "585b2d852c56d17164965fc626c2cd8e2823b91ff0ef2b61889f2239f51d65f5",
     "src/fdai/core/metering/usage.py": "dc5fea32ea99782a50632f9a7f1527cd04c3f5a3a4ef26bc3357b72c8c5f6cb1",
-    "src/fdai/core/mscp_profile/__init__.py": "76367d1e50b9f53909045afa5183dc15e00e20e09f73087afcd6026653e115e9",
+    "src/fdai/core/mscp_profile/__init__.py": "0f2d912628af0867164183ceeb5ee7d37aec053fe4cba701faf9bef2272cbff4",
+    "src/fdai/core/mscp_profile/authority_ceiling.py": "847b9758c6a837cda297796c6a199928bfbe7431bc2ee1201e962b7a09b9fbbe",
     "src/fdai/core/mscp_profile/cycle_guard.py": "ec767fa35b14b04fd816c7f1cad1949ec5dbe684a5c13f54c4b9de1bbfc4c006",
     "src/fdai/core/mscp_profile/effect_verification.py": "ad1e0507bbdc03c069826bfdcbd6d441899229246f853f1289cd106d9e4c13df",
     "src/fdai/core/mscp_profile/profile.py": "479d23c9f33d87ce2e71f72c1dfbf12fe1703d7ad29762f385a7c084e2f5835a",
@@ -978,7 +979,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-06T09:53:00Z",
+  "generated_at": "2026-08-06T10:00:40Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

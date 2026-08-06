@@ -120,6 +120,14 @@ Moving from shadow observation to gating is a separate, future governed change. 
 measured evidence window, a rollback target, and a proof that the profile can only preserve or lower
 the existing authority decision.
 
+The pure `combine_mscp_authority` function supplies that never-raising proof surface. It maps
+`preserve`, `human_approval`, `hold`, and `deny` ceilings onto the canonical FDAI authority ladder
+and takes `min(existing FDAI authority, MSCP ceiling)`. Its immutable result preserves the complete
+unified risk decision and adds an audit projection with the profile, existing decision, ceiling,
+reason, final decision, and whether authority was lowered. The function performs no I/O and cannot
+bypass the risk gate, human approval, executor, rollback, or audit owners. It is not connected to
+the ControlLoop while the measured readiness window and governed profile lifecycle remain absent.
+
 ## Independent axes
 
 The profile is independent from the runtime axes in
@@ -142,6 +150,7 @@ Focused tests under `tests/core/mscp_profile/` cover:
 - strict `ResponseOutcome` schema parity and privacy-minimized audit projection;
 - default-off composition, pair-only activation, and predict-execute-observe ordering;
 - unchanged executor results across mismatch and provider or shadow-audit failure;
+- exhaustive finite-domain combinations proving the MSCP ceiling never raises unified authority;
 - caller-owned cycle budgets and bounded sign-change detection;
 - order-independent runtime manifest hashing and component drift reporting; and
 - fail-closed validation of non-finite values, malformed digests, and invalid limits.
