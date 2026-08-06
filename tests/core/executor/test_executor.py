@@ -25,9 +25,11 @@ import pytest
 from fdai.core.executor import (
     ExecutorConfig,
     ExecutorOutcome,
+    InProcessThorExecutionPort,
     ResourceLockManager,
     ShadowExecutor,
     TemplateRenderer,
+    ThorExecutionPort,
 )
 from fdai.shared.contracts.models import (
     Action,
@@ -174,6 +176,23 @@ async def test_publishes_shadow_pr_and_writes_audit() -> None:
     assert entries[1]["entry"]["outcome"] == "published"
     assert entries[0]["entry"]["dry_run_receipt"] == entries[1]["entry"]["dry_run_receipt"]
     assert pr.metadata["dry_run_receipt"] == entries[0]["entry"]["dry_run_receipt"]
+
+
+@pytest.mark.asyncio
+async def test_in_process_thor_port_preserves_pr_native_audit_and_idempotency() -> None:
+    executor, publisher, audit = _executor()
+    port: ThorExecutionPort = InProcessThorExecutionPort(pr_native=executor)
+    action = _action(idempotency_key="thor-port")
+
+    first = await port.pr_native.execute(action=action, rule=_rule())
+    second = await port.pr_native.execute(action=action, rule=_rule())
+
+    assert second is first
+    assert len(publisher.records) == 1
+    assert [row["entry"]["audit_phase"] for row in audit.audit_entries] == [
+        "intent",
+        "terminal",
+    ]
 
 
 @pytest.mark.asyncio

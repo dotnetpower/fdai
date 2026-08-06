@@ -8,7 +8,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import yaml
@@ -28,7 +28,13 @@ from fdai.core.assurance_twin import (
 from fdai.core.chaos.symptom_index import SymptomIndex, build_from_promoted
 from fdai.core.control_loop import ControlLoop
 from fdai.core.event_ingest import EventCorrelator, EventIngest
-from fdai.core.executor import ShadowExecutor
+from fdai.core.executor import (
+    DirectApiShadowExecutor,
+    InProcessThorExecutionPort,
+    ShadowExecutor,
+    ThorExecutionPort,
+    ToolCallShadowExecutor,
+)
 from fdai.core.executor.action_builder import ActionBuilder
 from fdai.core.executor.renderer import TemplateRenderer
 from fdai.core.executor.tool_call import ToolReceiptObserver
@@ -134,6 +140,21 @@ from fdai.shared.resilience import StateStoreKillSwitch
 
 _LOGGER = logging.getLogger("fdai.startup")
 _TEMPORAL_CAUSAL_METHOD_VERSION = "temporal-causality-v1"
+
+
+def _legacy_executor_bindings(
+    port: ThorExecutionPort,
+) -> tuple[
+    ShadowExecutor,
+    DirectApiShadowExecutor | None,
+    ToolCallShadowExecutor | None,
+]:
+    """Adapt the injected Thor port to the unchanged Core and HIL APIs."""
+    return (
+        cast(ShadowExecutor, port.pr_native),
+        cast(DirectApiShadowExecutor | None, port.direct_api),
+        cast(ToolCallShadowExecutor | None, port.tool_call),
+    )
 
 
 async def _pending_index_writer(store: Any, approval_id: str) -> None:
@@ -295,6 +316,7 @@ def _build_control_loop(
     graph_dynamic_runtime_coordinator: GraphDynamicRuntimeCoordinator | None = None,
     human_access_enabled: bool = True,
     execution_identities: Mapping[str, WorkloadIdentity] | None = None,
+    thor_execution_port: ThorExecutionPort | None = None,
 ) -> ControlLoop:
     """Load rule / action / policy catalogs and wire the P1 control loop.
 
@@ -407,10 +429,15 @@ def _build_control_loop(
     )
 
     audit_store = audit_store or _build_audit_store()
-    publisher = _build_publisher(http_client)
-    renderer = TemplateRenderer(remediation_root=remediation_root)
-    resource_lock = _build_resource_lock()
-    idempotency_store = _build_idempotency_store()
+    publisher: Any = None
+    renderer: TemplateRenderer | None = None
+    resource_lock: Any = None
+    idempotency_store: Any = None
+    if thor_execution_port is None:
+        publisher = _build_publisher(http_client)
+        renderer = TemplateRenderer(remediation_root=remediation_root)
+        resource_lock = _build_resource_lock()
+        idempotency_store = _build_idempotency_store()
     risk_table = load_risk_table(catalog_root / "risk-classification.yaml")
     promotion_registry: ActionPromotionRegistry
     promotion_state_refresher = None
@@ -461,33 +488,40 @@ def _build_control_loop(
         quality_gate=quality_gate,
     )
 
-    executor = ShadowExecutor(
-        publisher=publisher,
-        audit_store=audit_store,
-        renderer=renderer,
-        resource_lock=resource_lock,
-        idempotency=idempotency_store,
-    )
-    direct_api_executor = _build_direct_api_executor(
-        audit_store=audit_store,
-        resource_lock=resource_lock,
-        idempotency=idempotency_store,
-        http_client=http_client,
-        identity=identity,
-        human_access_enabled=human_access_enabled,
-        promotion_registry=promotion_registry,
-        action_types_by_name=action_types_by_name,
-        execution_identities=execution_identities,
-    )
-    tool_executor = _build_tool_executor(
-        audit_store=audit_store,
-        resource_lock=resource_lock,
-        idempotency=idempotency_store,
-        receipt_observer=tool_receipt_observer,
-        http_client=http_client,
-        metric_provider=container.metric_provider,
-        chaos_catalog_root=catalog_root / "chaos-scenarios",
-    )
+    if thor_execution_port is None:
+        executor = ShadowExecutor(
+            publisher=publisher,
+            audit_store=audit_store,
+            renderer=cast(TemplateRenderer, renderer),
+            resource_lock=resource_lock,
+            idempotency=idempotency_store,
+        )
+        direct_api_executor = _build_direct_api_executor(
+            audit_store=audit_store,
+            resource_lock=resource_lock,
+            idempotency=idempotency_store,
+            http_client=http_client,
+            identity=identity,
+            human_access_enabled=human_access_enabled,
+            promotion_registry=promotion_registry,
+            action_types_by_name=action_types_by_name,
+            execution_identities=execution_identities,
+        )
+        tool_executor = _build_tool_executor(
+            audit_store=audit_store,
+            resource_lock=resource_lock,
+            idempotency=idempotency_store,
+            receipt_observer=tool_receipt_observer,
+            http_client=http_client,
+            metric_provider=container.metric_provider,
+            chaos_catalog_root=catalog_root / "chaos-scenarios",
+        )
+        thor_execution_port = InProcessThorExecutionPort(
+            pr_native=executor,
+            direct_api=direct_api_executor,
+            tool_call=tool_executor,
+        )
+    executor, direct_api_executor, tool_executor = _legacy_executor_bindings(thor_execution_port)
 
     # Detection-and-explanation seams (observability-and-detection.md).
     # EventCorrelator groups an event storm into one incident id; the
