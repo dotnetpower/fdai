@@ -145,10 +145,10 @@ and `Healthy` before an apply receipt can be recorded. Selected Operator API and
 revisions must also be healthy, and their shared ingress `/healthz` responses must return the
 fixed success payload. Design-mocks-only applies are the sole exception because they do not plan
 the runtime.
-The protected-plan delete gate permits one built-in security retirement: a pure delete of the
-broad PostgreSQL Azure-services firewall rule when private networking removes that public path.
-The same address as a replacement and every other delete remain blocked, so this transition does
-not create a general destruction bypass.
+The protected-plan delete gate permits only bounded security retirements: closing the broad
+PostgreSQL Azure-services firewall path, or deleting one of the reviewed pre-split ingestion grants
+when every exact API or worker successor is pure-created in the same plan. A replacement at the old
+address, a missing or non-create successor, and every other delete remain blocked.
 Full runbook: [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).
 Scheduled drivers remain Terraform-owned. `SCHEDULER_TICK_CRON_EXPRESSION` and
 `ANALYZER_TICK_CRON_EXPRESSION` configure the existing jobs; `forecast_tick_cron_expression` and

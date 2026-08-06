@@ -524,12 +524,17 @@ resource "azurerm_role_assignment" "ingestion_worker_eventhubs_sender" {
 }
 
 resource "azurerm_role_assignment" "ingestion_eventhubs_receiver" {
-  count                = var.enable_document_ingestion ? 1 : 0
+  count                = var.enable_document_ingestion && var.ingestion_cohost_worker ? 1 : 0
   scope                = module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]
   role_definition_name = "Azure Event Hubs Data Receiver"
-  principal_id = var.ingestion_cohost_worker ? (
-    module.ingestion_identity[0].principal_id
-  ) : module.ingestion_worker_identity[0].principal_id
+  principal_id         = module.ingestion_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "ingestion_worker_eventhubs_receiver" {
+  count                = var.enable_document_ingestion && !var.ingestion_cohost_worker ? 1 : 0
+  scope                = module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]
+  role_definition_name = "Azure Event Hubs Data Receiver"
+  principal_id         = module.ingestion_worker_identity[0].principal_id
 }
 
 resource "azurerm_role_assignment" "ingestion_ocr_user" {
@@ -763,10 +768,15 @@ resource "azurerm_role_assignment" "operator_api_kv_secrets_user" {
 }
 
 resource "azurerm_role_assignment" "ingestion_kv_secrets_user" {
-  count = var.enable_document_ingestion ? 1 : 0
-  scope = var.ingestion_cohost_worker ? (
-    azurerm_key_vault_secret.ingestion_cohost_dsn[0].resource_versionless_id
-  ) : azurerm_key_vault_secret.ingestion_api_dsn[0].resource_versionless_id
+  count                = var.enable_document_ingestion && var.ingestion_cohost_worker ? 1 : 0
+  scope                = azurerm_key_vault_secret.ingestion_cohost_dsn[0].resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.ingestion_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "ingestion_api_kv_secrets_user" {
+  count                = var.enable_document_ingestion && !var.ingestion_cohost_worker ? 1 : 0
+  scope                = azurerm_key_vault_secret.ingestion_api_dsn[0].resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.ingestion_identity[0].principal_id
 }
@@ -2061,7 +2071,9 @@ module "ingestion_gateway" {
     azurerm_role_assignment.ingestion_eventhubs_sender,
     azurerm_role_assignment.ingestion_worker_eventhubs_sender,
     azurerm_role_assignment.ingestion_eventhubs_receiver,
+    azurerm_role_assignment.ingestion_worker_eventhubs_receiver,
     azurerm_role_assignment.ingestion_kv_secrets_user,
+    azurerm_role_assignment.ingestion_api_kv_secrets_user,
     azurerm_role_assignment.ingestion_worker_kv_secrets_user,
     azurerm_role_assignment.ingestion_migration_kv_secrets_user,
     azurerm_role_assignment.ingestion_ocr_user,

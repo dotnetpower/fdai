@@ -622,7 +622,26 @@ jobs:
             plan = json.load(stream)
           permitted_retirements = {
             "module.state_store.azurerm_postgresql_flexible_server_firewall_rule."
-            "allow_azure_services[0]",
+            "allow_azure_services[0]": (),
+            "azurerm_role_assignment.ingestion_eventhubs_receiver[0]": (
+              "azurerm_role_assignment.ingestion_worker_eventhubs_receiver[0]",
+            ),
+            "azurerm_role_assignment.ingestion_kv_secrets_user[0]": (
+              "azurerm_role_assignment.ingestion_api_kv_secrets_user[0]",
+            ),
+            "module.llm_azure_openai[0].azurerm_role_assignment."
+            "additional_openai_user[\"ingestion\"]": (
+              "module.llm_azure_openai[0].azurerm_role_assignment."
+              "additional_openai_user[\"ingestion_api\"]",
+              "module.llm_azure_openai[0].azurerm_role_assignment."
+              "additional_openai_user[\"ingestion_worker\"]",
+            ),
+          }
+          actions_by_address = {
+            str(change.get("address", "unknown")): tuple(
+              change.get("change", {}).get("actions", [])
+            )
+            for change in plan.get("resource_changes", [])
           }
           destructive = sorted(
             (
@@ -635,7 +654,14 @@ jobs:
           unexpected = [
             address
             for address, actions in destructive
-            if address not in permitted_retirements or actions != ("delete",)
+            if (
+              address not in permitted_retirements
+              or actions != ("delete",)
+              or any(
+                actions_by_address.get(successor) != ("create",)
+                for successor in permitted_retirements.get(address, ())
+              )
+            )
           ]
           if unexpected:
             print("Protected plans reject delete or replacement actions:")
@@ -643,7 +669,12 @@ jobs:
               print(f"- {address}")
             raise SystemExit(1)
           for address, _actions in destructive:
-            print(f"Protected plan permits bounded security retirement: {address}")
+            successors = permitted_retirements[address]
+            successor_text = ", ".join(successors) if successors else "closed public path"
+            print(
+              "Protected plan permits bounded security retirement: "
+              f"{address} -> {successor_text}"
+            )
           PY
 
       - name: Install pinned uv for live preflight

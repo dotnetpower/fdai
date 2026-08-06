@@ -94,7 +94,7 @@ run "split_roles_are_independent_by_default" {
 
   assert {
     condition = (
-      azurerm_role_assignment.ingestion_eventhubs_receiver[0].principal_id ==
+      azurerm_role_assignment.ingestion_worker_eventhubs_receiver[0].principal_id ==
       module.ingestion_worker_identity[0].principal_id
     )
     error_message = "Event Hubs receive must belong to the worker identity"

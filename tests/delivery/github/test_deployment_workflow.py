@@ -631,27 +631,107 @@ def test_runner_live_preflight_workflow_is_structurally_executable() -> None:
 
 
 @pytest.mark.parametrize(
-    ("address", "actions", "expected_exit"),
+    ("resource_changes", "expected_exit"),
     (
         (
-            "module.state_store.azurerm_postgresql_flexible_server_firewall_rule."
-            "allow_azure_services[0]",
-            ["delete"],
+            [
+                {
+                    "address": (
+                        "module.state_store.azurerm_postgresql_flexible_server_firewall_rule."
+                        "allow_azure_services[0]"
+                    ),
+                    "change": {"actions": ["delete"]},
+                }
+            ],
             0,
         ),
-        ("module.compute.azurerm_container_app.core", ["delete"], 1),
         (
-            "module.state_store.azurerm_postgresql_flexible_server_firewall_rule."
-            "allow_azure_services[0]",
-            ["delete", "create"],
+            [
+                {
+                    "address": "module.compute.azurerm_container_app.core",
+                    "change": {"actions": ["delete"]},
+                }
+            ],
             1,
+        ),
+        (
+            [
+                {
+                    "address": (
+                        "module.state_store.azurerm_postgresql_flexible_server_firewall_rule."
+                        "allow_azure_services[0]"
+                    ),
+                    "change": {"actions": ["delete", "create"]},
+                }
+            ],
+            1,
+        ),
+        (
+            [
+                {
+                    "address": "azurerm_role_assignment.ingestion_eventhubs_receiver[0]",
+                    "change": {"actions": ["delete"]},
+                },
+                {
+                    "address": ("azurerm_role_assignment.ingestion_worker_eventhubs_receiver[0]"),
+                    "change": {"actions": ["create"]},
+                },
+            ],
+            0,
+        ),
+        (
+            [
+                {
+                    "address": "azurerm_role_assignment.ingestion_eventhubs_receiver[0]",
+                    "change": {"actions": ["delete"]},
+                }
+            ],
+            1,
+        ),
+        (
+            [
+                {
+                    "address": "azurerm_role_assignment.ingestion_kv_secrets_user[0]",
+                    "change": {"actions": ["delete"]},
+                },
+                {
+                    "address": "azurerm_role_assignment.ingestion_api_kv_secrets_user[0]",
+                    "change": {"actions": ["create"]},
+                },
+            ],
+            0,
+        ),
+        (
+            [
+                {
+                    "address": (
+                        "module.llm_azure_openai[0].azurerm_role_assignment."
+                        'additional_openai_user["ingestion"]'
+                    ),
+                    "change": {"actions": ["delete"]},
+                },
+                {
+                    "address": (
+                        "module.llm_azure_openai[0].azurerm_role_assignment."
+                        'additional_openai_user["ingestion_api"]'
+                    ),
+                    "change": {"actions": ["create"]},
+                },
+                {
+                    "address": (
+                        "module.llm_azure_openai[0].azurerm_role_assignment."
+                        'additional_openai_user["ingestion_worker"]'
+                    ),
+                    "change": {"actions": ["create"]},
+                },
+            ],
+            0,
         ),
     ),
 )
 def test_protected_plan_delete_gate_allows_only_bounded_security_retirement(
     tmp_path: Path,
-    address: str,
-    actions: list[str],
+    resource_changes: list[dict[str, object]],
     expected_exit: int,
 ) -> None:
     workflow_path = Path(__file__).resolve().parents[3] / ".github" / "workflows" / "deploy-dev.yml"
@@ -663,7 +743,7 @@ def test_protected_plan_delete_gate_allows_only_bounded_security_retirement(
     )
     marker = "python3 - <<'PY'\n"
     source = step["run"].split(marker, maxsplit=1)[1].partition("\nPY\n")[0]
-    plan = {"resource_changes": [{"address": address, "change": {"actions": actions}}]}
+    plan = {"resource_changes": resource_changes}
     (tmp_path / "dev.plan.review.json").write_text(json.dumps(plan), encoding="utf-8")
 
     completed = subprocess.run(  # noqa: S603 - static repository-owned script
