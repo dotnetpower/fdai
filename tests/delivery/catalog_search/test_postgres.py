@@ -14,6 +14,10 @@ from fdai.delivery.catalog_search.postgres import (
     _content_hash,
     _search_sql,
 )
+from fdai.delivery.catalog_search.postgres_generation import (
+    PgvectorCatalogGenerationConfig,
+    _generation_search_sql,
+)
 from fdai.shared.providers.catalog_search import CatalogSearchDocument
 from fdai.shared.providers.secret_provider import SecretNotFoundError, SecretProvider
 
@@ -46,6 +50,8 @@ def test_config_rejects_unsafe_values() -> None:
         PgvectorCatalogSemanticIndexConfig(dsn_secret="db", connect_timeout_s=0)
     with pytest.raises(ValueError, match="ivfflat_probes"):
         PgvectorCatalogSemanticIndexConfig(dsn_secret="db", ivfflat_probes=0)
+    with pytest.raises(ValueError, match="identifiers"):
+        PgvectorCatalogGenerationConfig(dsn_secret="db", generation_table="bad;drop")
 
 
 async def test_empty_operations_do_not_resolve_credentials() -> None:
@@ -73,6 +79,14 @@ def test_search_sql_carries_hybrid_and_deterministic_rank_contract() -> None:
     assert "OR neighbor_score >= 0.3" in sql
     assert "ORDER BY exact_id DESC" in sql
     assert "rule_id ASC" in sql
+
+
+def test_generation_search_sql_pins_one_complete_generation() -> None:
+    sql = _generation_search_sql("catalog_search_generation_document")
+
+    assert "WHERE document.generation_id = %s" in sql
+    assert "document.embedding <=> %s::vector" in sql
+    assert "ORDER BY exact_id DESC" in sql
 
 
 def test_content_hash_is_stable_and_neighbor_sensitive() -> None:

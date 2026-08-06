@@ -7,13 +7,20 @@ import json
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
+from datetime import datetime
 from typing import Any, Final
 
 import psycopg
 from psycopg.rows import dict_row
 
+from fdai.delivery.catalog_search.postgres_generation import (
+    PgvectorCatalogGenerationConfig,
+    PgvectorCatalogGenerationStore,
+)
 from fdai.delivery.pgvector.knowledge import _encode_vector
 from fdai.shared.providers.catalog_search import (
+    CatalogCorpus,
+    CatalogGenerationMetadata,
     CatalogSearchDocument,
     CatalogSearchMatch,
     CatalogSearchResult,
@@ -31,6 +38,8 @@ class PgvectorCatalogSemanticIndexConfig:
 
     dsn_secret: str
     table: str = "catalog_search_document"
+    generation_table: str = "catalog_search_generation"
+    generation_document_table: str = "catalog_search_generation_document"
     embedding_dim: int = 384
     statement_timeout_ms: int = 15_000
     connect_timeout_s: int = 10
@@ -39,8 +48,9 @@ class PgvectorCatalogSemanticIndexConfig:
     def __post_init__(self) -> None:
         if not self.dsn_secret:
             raise ValueError("dsn_secret MUST be non-empty")
-        if not _IDENTIFIER_RE.fullmatch(self.table):
-            raise ValueError("table MUST be a plain ASCII SQL identifier")
+        for table in (self.table, self.generation_table, self.generation_document_table):
+            if not _IDENTIFIER_RE.fullmatch(table):
+                raise ValueError("table MUST be a plain ASCII SQL identifier")
         if self.embedding_dim < 1:
             raise ValueError("embedding_dim MUST be >= 1")
         if self.statement_timeout_ms < 1:
@@ -64,6 +74,19 @@ class PgvectorCatalogSemanticIndex(CatalogSemanticIndex):
         self._config = config
         self._embedder = embedder
         self._secrets = secrets
+        self._generations = PgvectorCatalogGenerationStore(
+            config=PgvectorCatalogGenerationConfig(
+                dsn_secret=config.dsn_secret,
+                generation_table=config.generation_table,
+                document_table=config.generation_document_table,
+                embedding_dim=config.embedding_dim,
+                statement_timeout_ms=config.statement_timeout_ms,
+                connect_timeout_s=config.connect_timeout_s,
+                ivfflat_probes=config.ivfflat_probes,
+            ),
+            embedder=embedder,
+            secrets=secrets,
+        )
 
     async def upsert(self, documents: Sequence[CatalogSearchDocument]) -> int:
         if not documents:
@@ -150,10 +173,50 @@ class PgvectorCatalogSemanticIndex(CatalogSemanticIndex):
                 removed = cursor.rowcount or 0
         return changed + removed
 
-    async def search(self, query: str, *, k: int = 20) -> Sequence[CatalogSearchResult]:
+    async def stage_generation(
+        self,
+        metadata: CatalogGenerationMetadata,
+        documents: Sequence[CatalogSearchDocument],
+    ) -> int:
+        return await self._generations.stage_generation(metadata, documents)
+
+    async def activate_generation(
+        self,
+        generation_id: str,
+        *,
+        expected_generation_digest: str,
+        activated_at: datetime,
+    ) -> CatalogGenerationMetadata:
+        return await self._generations.activate_generation(
+            generation_id,
+            expected_generation_digest=expected_generation_digest,
+            activated_at=activated_at,
+        )
+
+    async def active_generation(
+        self, corpus: CatalogCorpus = "active"
+    ) -> CatalogGenerationMetadata | None:
+        return await self._generations.active_generation(corpus)
+
+    async def search(
+        self,
+        query: str,
+        *,
+        k: int = 20,
+        corpus: CatalogCorpus = "active",
+        expected_catalog_digest: str | None = None,
+    ) -> Sequence[CatalogSearchResult]:
         normalized_query = query.strip()
         if not normalized_query or k <= 0:
             return ()
+        generation = await self.active_generation(corpus)
+        if generation is not None or expected_catalog_digest is not None:
+            return await self._generations.search(
+                normalized_query,
+                k=k,
+                corpus=corpus,
+                expected_catalog_digest=expected_catalog_digest,
+            )
         query_vector = await self._embedder.embed(normalized_query)
         literal = _encode_vector(query_vector, dim=self._config.embedding_dim)
         dsn = await self._secrets.get(self._config.dsn_secret)
