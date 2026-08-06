@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 090d36d1a6177502dbcca5f11a8bc577e9a9976b
+translation_source_sha: 8c6cdb65c8c9df81575510fdc38c14b34e1bb68b
 translation_revised: 2026-08-06
 ---
 
@@ -131,15 +131,8 @@ margin, planning receipt 및 temporal policy는
 
 ### 3.2 발견 루프 학습기 (Norns)
 
-Norns는 inert `RuleCandidate` proposal의 sole writer로 유지됩니다. Three-perspective consensus, balanced
-cohort limit, pending queue, Mimir review 및 catalog activation boundary는
-[Operational Learning Ontology](../rules-and-detection/operational-learning-ontology-ko.md#norns-consensus-및-catalog-boundary)가 소유합니다. Private `norns_deployment_learning.py` helper는 bounded scenario-gap 및 preflight-blocker aggregation state만 보유합니다. 모든 candidate 생성과 publish는 계속 Norns가 consensus 및 rate-limit boundary를 통해 수행합니다. Caller-supplied recurring preflight manual blocker는 scope-deduplicate된 inert `preflight-toggle-gap` candidate가 되며 toggle을 만들거나 deployment authority를 변경하지 않습니다.
-재현된 Rule retrieval failure는 Huginn-owned event로 들어옵니다. Heimdall은 exact failure를
-독립적으로 validate하고 `object.retrieval-validation`을 publish하며, Saga는 해당 evidence를 audit하고
-Muninn은 `object.context-index`로 materialize합니다. Norns는 raw text, 검증되지 않은 failure,
-retrieval 외 원인 및 exact Rule version이 없는 target을 strict하게 거부합니다. 남은 challenger를
-durable하게 기록한 뒤 동일한 consensus 및 `object.rule-candidate` 경로를 사용합니다. Durable sink가
-없으면 event를 drop하지 않고 backpressure합니다.
+Norns는 inert `RuleCandidate` proposal의 sole writer로 유지됩니다. Three-perspective consensus, balanced cohort limit, pending queue, Mimir review 및 catalog activation boundary는
+[Operational Learning Ontology](../rules-and-detection/operational-learning-ontology-ko.md#norns-consensus-및-catalog-boundary)가 소유합니다. Private `norns_deployment_learning.py` helper는 bounded scenario-gap 및 preflight-blocker aggregation state만 보유합니다. 모든 candidate 생성과 publish는 계속 Norns가 consensus 및 rate-limit boundary를 통해 수행합니다. Caller-supplied recurring preflight manual blocker는 scope-deduplicate된 inert `preflight-toggle-gap` candidate가 되며 toggle을 만들거나 deployment authority를 변경하지 않습니다. 재현된 Rule retrieval failure는 Huginn-owned event로 들어옵니다. Heimdall은 exact failure를 독립적으로 validate하고 `object.retrieval-validation`을 publish하며, Saga는 해당 evidence를 audit하고 Muninn은 `object.context-index`로 materialize합니다. Norns는 raw text, 검증되지 않은 failure, retrieval 외 원인 및 exact Rule version이 없는 target을 strict하게 거부합니다. 남은 challenger를 durable하게 기록한 뒤 동일한 consensus 및 `object.rule-candidate` 경로를 사용합니다. Durable sink가 없으면 event를 drop하지 않고 backpressure합니다.
 ## 4. 에이전트 카탈로그
 > **머신 판독용 원본 (single source of truth)**: `PANTHEON_SPECS`
 > ([`src/fdai/agents/_framework/pantheon.py`](../../../src/fdai/agents/_framework/pantheon.py)).

@@ -279,9 +279,7 @@ Exact catalog terms remain a T0 latency optimization, not the only entry gate. W
 the existing T1 embedding binding, the same credential path retrieves state and operation
 descriptions and examples. A retrieved concept remains `candidate_only` and causes a localized
 clarification without querying inventory. If the embedder is absent or fails, the resolver returns
-no candidate and the deterministic hold remains authoritative.
-The resolver rejects empty prompts, control characters, and text over 4,096 characters before
-building catalog vectors or calling the query embedder.
+no candidate and the deterministic hold remains authoritative. The resolver rejects empty prompts, control characters, and text over 4,096 characters before building catalog vectors or calling the query embedder.
 `FDAI_INVENTORY_SEMANTIC_ENABLED` controls this clarification capability independently from
 `FDAI_CATALOG_SEARCH_ENABLED`; disabling Rule search does not silently disable inventory semantic
 retrieval.

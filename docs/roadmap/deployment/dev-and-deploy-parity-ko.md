@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 882f0bdba6f60d415a8ee97b0eddb5a056c1d970
+translation_source_sha: ba4b4bc849a60d2af9187ab26ded8520bc2a187d
 translation_revised: 2026-08-06
 ---
 
@@ -344,6 +344,8 @@ Local 및 deployed Operator API factory는 Rules의 `Controls` reference view를
 Best Practice 정의를 로드합니다. 이 parity는 runtime claim을 만들지 않습니다. Authoritative
 evidence provider가 없으면 두 factory 모두 모든 control과 requirement를 `Unknown`, source는
 `not_connected`로 노출합니다.
+두 factory는 같은 ontology release에 read-only catalog query function도 등록하므로 local 및 deployed
+Command Deck turn은 동일한 typed, bounded, non-mutating evidence contract를 사용합니다.
 
 Local API는 `GET /system/data-sources`를 제공합니다. Standard full stack에서는 production
 PostgreSQL read-model adapter가 local pgvector를 사용합니다. Local Operator API는 traffic을 받기 전에

@@ -340,6 +340,8 @@ Local and deployed Operator API factories load the same validated Best Practice 
 Rules `Controls` reference view. This parity does not create a runtime claim: without an
 authoritative evidence provider, both factories expose every control and requirement as `Unknown`
 with source `not_connected`.
+Both factories also register the read-only catalog query function in the same ontology release, so
+local and deployed Command Deck turns share its typed, bounded, non-mutating evidence contract.
 
 The local API exposes `GET /system/data-sources`. In the standard full stack, the production
 PostgreSQL read-model adapter points to local pgvector. Before accepting traffic, the local Operator API
