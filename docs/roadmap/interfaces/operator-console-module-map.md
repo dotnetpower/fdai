@@ -87,6 +87,20 @@ select provider scope, or receive Thor's identity. HTTP status mapping, SSE sequ
 headers, route names, authorization, and cancellation transport remain route-owned. Bragi remains
 the presentation translator, and authority-bearing agent work continues through typed pub/sub.
 
+### Conversation claims application boundary
+
+The SD-01 claims slice owns deterministic answer-claim verification under
+`fdai.delivery.operator_api.application.conversation.claims`. Extraction, evidence collection,
+matching, manifest construction, and frozen-corpus evaluation run in-process and keep request-local
+state only. Route adapters continue to own authentication, HTTP status mapping, JSON envelopes,
+SSE sequencing, cancellation, and terminal rendering.
+
+`routes.chat_verification` imports the explicit claims package facade. Repository-wide consumers
+of the former `routes.chat_claim*` modules were internal implementation or test imports and moved
+in the same slice, so no route compatibility shim remains. Rollback restores the implementation
+modules and facade under `routes/`, then redirects the claims package facade to that restored
+owner without changing the JSON or SSE wire contracts.
+
 ### Immutable app composition
 
 Issue 72 keeps `OperatorApiConfig(**kwargs)` as the bounded compatibility constructor and projects
@@ -114,6 +128,8 @@ reverses physical ownership without a wire or caller migration.
 | Root | Public facades and foundational contracts | Preserve until a classified replacement exists. |
 | `app/` | Shared ASGI assembly, middleware, registration, and lifespan | Retain as the HTTP composition boundary. |
 | `application/` | Typed process-local, non-authoritative application coordination | Retain until service-graduation evidence justifies a process boundary. |
+| `application/conversation/` | Process-local conversation capabilities outside HTTP transport | Retain in-process until service-graduation evidence exists. |
+| `application/conversation/claims/` | Deterministic answer-claim extraction and bounded evidence verification | Import through its explicit package facade; keep JSON, SSE, and authentication in routes. |
 | `dev/` | Interactive local and test-only provider composition | Keep unavailable to production imports. |
 | `dev/fixtures/` | Synthetic pytest-only fixtures | Keep outside production composition. |
 | `persistence/` | Operator API read-model implementations and projections | Retain behind owned read contracts. |
@@ -178,6 +194,8 @@ a separately reviewed boundary.
 
 ## Operator API route ownership
 
+- `application/conversation/claims/` owns deterministic claim extraction, evidence matching, and
+  evidence manifests. It does not own HTTP, SSE, authentication, or durable state.
 - `chat_stream_setup.py` owns authenticated request, evidence, history, and answer-plan validation.
 - `chat_stream_terminal.py` owns pure terminal verification-frame and replay-payload assembly.
 - `chat_trajectory_detail.py` owns bounded final progress projection for durable trajectory replay.

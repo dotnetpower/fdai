@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from typing import Final
 
-from fdai.delivery.operator_api.routes.chat_claim_models import ClaimDraft
-from fdai.delivery.operator_api.routes.chat_claim_text import (
+from fdai.delivery.operator_api.application.conversation.claims.models import ClaimDraft
+from fdai.delivery.operator_api.application.conversation.claims.text import (
     ID_RE,
     NUMBER_RE,
     PERCENT_RE,

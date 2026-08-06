@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from fdai.delivery.operator_api.routes.chat_claim_eval import (
+from fdai.delivery.operator_api.application.conversation.claims.eval import (
     ClaimEvalCase,
     evaluate_claim_cases,
 )

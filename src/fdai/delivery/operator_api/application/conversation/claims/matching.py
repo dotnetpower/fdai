@@ -6,14 +6,16 @@ import re
 import unicodedata
 from typing import Final
 
-from fdai.delivery.operator_api.routes.chat_claim_extraction import SCREEN_ABSENCE_RE
-from fdai.delivery.operator_api.routes.chat_claim_models import (
+from fdai.delivery.operator_api.application.conversation.claims.extraction import (
+    SCREEN_ABSENCE_RE,
+)
+from fdai.delivery.operator_api.application.conversation.claims.models import (
     AtomicClaim,
     ClaimDraft,
     ClaimStatus,
     EvidenceEntry,
 )
-from fdai.delivery.operator_api.routes.chat_claim_text import (
+from fdai.delivery.operator_api.application.conversation.claims.text import (
     anchor_overlap,
     anchor_score,
     anchors,

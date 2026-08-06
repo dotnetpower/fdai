@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fdai.delivery.operator_api.routes.chat_claims import verify_screen_claims
+from fdai.delivery.operator_api.application.conversation.claims import verify_screen_claims
 
 
 def _context(*, facts: list[dict] | None = None, records: dict | None = None) -> dict:

@@ -23,6 +23,18 @@
       "candidate_destination": "retain until service-graduation evidence justifies a process boundary"
     },
     {
+      "path": "application/conversation",
+      "responsibility": "Process-local conversation application capabilities outside HTTP transport",
+      "classification": "application-coordination",
+      "candidate_destination": "retain in-process until conversation service-graduation evidence exists"
+    },
+    {
+      "path": "application/conversation/claims",
+      "responsibility": "Deterministic answer-claim extraction and bounded evidence verification",
+      "classification": "application-coordination",
+      "candidate_destination": "retain behind the explicit claims package facade"
+    },
+    {
       "path": "dev",
       "responsibility": "Interactive local and test-only provider composition",
       "classification": "composition",
@@ -213,6 +225,11 @@
       "module": "fdai.delivery.operator_api.projections.audit",
       "classification": "public-delivery-contract",
       "migration": "owned audit read-projection facade for app and panel composition"
+    },
+    {
+      "module": "fdai.delivery.operator_api.application.conversation.claims",
+      "classification": "internal-implementation",
+      "migration": "owned deterministic claim-verification facade for conversation application consumers"
     },
     {
       "module": "fdai.delivery.operator_api.routes.audit_finops",

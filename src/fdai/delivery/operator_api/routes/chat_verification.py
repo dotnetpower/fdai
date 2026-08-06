@@ -7,16 +7,16 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from fdai.delivery.operator_api.routes import chat_verification_rendering as _rendering
-from fdai.delivery.operator_api.routes.chat_behavior_evidence import (
-    behavior_evidence_refs,
-    render_behavior_answer,
-)
-from fdai.delivery.operator_api.routes.chat_claims import (
+from fdai.delivery.operator_api.application.conversation.claims import (
     AtomicClaim,
     EvidenceManifest,
     ScreenClaimResult,
     verify_screen_claims,
+)
+from fdai.delivery.operator_api.routes import chat_verification_rendering as _rendering
+from fdai.delivery.operator_api.routes.chat_behavior_evidence import (
+    behavior_evidence_refs,
+    render_behavior_answer,
 )
 from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
     public_intent_graph_evidence,

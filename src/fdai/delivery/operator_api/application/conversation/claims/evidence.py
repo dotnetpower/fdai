@@ -6,8 +6,8 @@ from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from typing import Any, Final
 
-from fdai.delivery.operator_api.routes.chat_claim_models import EvidenceEntry
-from fdai.delivery.operator_api.routes.chat_claim_text import (
+from fdai.delivery.operator_api.application.conversation.claims.models import EvidenceEntry
+from fdai.delivery.operator_api.application.conversation.claims.text import (
     ID_RE,
     NUMBER_RE,
     PERCENT_RE,

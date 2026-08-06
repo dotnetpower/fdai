@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: eee9c6799604ccb45f7ab99a77c75a257502a5e2
-translation_revised: 2026-08-06
+translation_source_sha: ebbc2f9b10e3992613733779f1dc44ffd226cace
+translation_revised: 2026-08-07
 ---
 # Operator Console Module Map and Boundaries
 
@@ -88,6 +88,20 @@ provider scope 선택을 수행할 수 없고 Thor identity를 받을 수 없습
 sequence/revision, header, route name, authorization 및 cancellation transport는 route가 계속 소유합니다.
 Bragi는 presentation translator로 유지되고 authority-bearing agent work는 typed pub/sub을 계속 사용합니다.
 
+### Conversation claims application boundary
+
+SD-01 claims slice는 `fdai.delivery.operator_api.application.conversation.claims` 아래에서
+deterministic answer-claim verification을 소유합니다. Extraction, evidence collection, matching,
+manifest construction 및 frozen-corpus evaluation은 process 안에서 실행되며 request-local state만
+유지합니다. Route adapter는 authentication, HTTP status mapping, JSON envelope, SSE sequencing,
+cancellation 및 terminal rendering을 계속 소유합니다.
+
+`routes.chat_verification`은 explicit claims package facade를 import합니다. 기존
+`routes.chat_claim*` module의 repository-wide consumer는 internal implementation 또는 test import였고
+같은 slice에서 이동했으므로 route compatibility shim은 남기지 않습니다. Rollback은 implementation
+module과 facade를 `routes/` 아래에 복원한 다음 claims package facade가 복원된 owner를 가리키게 합니다.
+이 과정에서 JSON 또는 SSE wire contract는 변경하지 않습니다.
+
 ### Immutable app composition
 
 Issue 72는 `OperatorApiConfig(**kwargs)`를 bounded compatibility constructor로 유지하고 route를 등록하기
@@ -113,6 +127,8 @@ signature를 그대로 유지합니다. 이 절차는 wire 또는 caller migrati
 | Root | Public facade 및 foundational contract | 분류된 replacement가 준비될 때까지 유지합니다. |
 | `app/` | Shared ASGI assembly, middleware, registration 및 lifespan | HTTP composition boundary로 유지합니다. |
 | `application/` | Typed process-local, non-authoritative application coordination | Service-graduation evidence가 process boundary를 정당화할 때까지 유지합니다. |
+| `application/conversation/` | HTTP transport 밖의 process-local conversation capability | Service-graduation evidence가 준비될 때까지 process 안에 유지합니다. |
+| `application/conversation/claims/` | Deterministic answer-claim extraction 및 bounded evidence verification | Explicit package facade로 import하고 JSON, SSE 및 authentication은 route에 유지합니다. |
 | `dev/` | Interactive local 및 test-only provider composition | Production import에서 사용할 수 없게 유지합니다. |
 | `dev/fixtures/` | Synthetic pytest-only fixture | Production composition 밖에 유지합니다. |
 | `persistence/` | Operator API read-model implementation 및 projection | 소유된 read contract 뒤에 유지합니다. |
@@ -177,6 +193,8 @@ frame을 거부합니다.
 
 ## Operator API route ownership
 
+- `application/conversation/claims/`는 deterministic claim extraction, evidence matching 및 evidence
+  manifest를 소유합니다. HTTP, SSE, authentication 또는 durable state는 소유하지 않습니다.
 - `chat_stream_setup.py`는 authenticated request, evidence, history 및 answer-plan validation을 소유합니다.
 - `chat_stream_terminal.py`는 pure terminal verification-frame 및 replay-payload assembly를 소유합니다.
 - `chat_trajectory_detail.py`는 durable trajectory replay용 bounded final progress projection을 소유합니다.

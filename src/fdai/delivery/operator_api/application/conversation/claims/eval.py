@@ -6,7 +6,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from fdai.delivery.operator_api.routes.chat_claims import verify_screen_claims
+from fdai.delivery.operator_api.application.conversation.claims.verifier import (
+    verify_screen_claims,
+)
 
 
 @dataclass(frozen=True, slots=True)

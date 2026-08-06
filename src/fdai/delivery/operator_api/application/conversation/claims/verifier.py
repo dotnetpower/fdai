@@ -5,11 +5,13 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from fdai.delivery.operator_api.routes.chat_claim_evidence import collect_evidence
-from fdai.delivery.operator_api.routes.chat_claim_extraction import extract_claims
-from fdai.delivery.operator_api.routes.chat_claim_manifest import build_evidence_manifest
-from fdai.delivery.operator_api.routes.chat_claim_matching import verify_claim
-from fdai.delivery.operator_api.routes.chat_claim_models import ScreenClaimResult
+from fdai.delivery.operator_api.application.conversation.claims.evidence import collect_evidence
+from fdai.delivery.operator_api.application.conversation.claims.extraction import extract_claims
+from fdai.delivery.operator_api.application.conversation.claims.manifest import (
+    build_evidence_manifest,
+)
+from fdai.delivery.operator_api.application.conversation.claims.matching import verify_claim
+from fdai.delivery.operator_api.application.conversation.claims.models import ScreenClaimResult
 
 
 def verify_screen_claims(answer: str, view_context: Mapping[str, Any]) -> ScreenClaimResult:

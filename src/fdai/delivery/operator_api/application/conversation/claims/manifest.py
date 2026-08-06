@@ -7,12 +7,12 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from fdai.delivery.operator_api.routes.chat_claim_models import (
+from fdai.delivery.operator_api.application.conversation.claims.models import (
     AtomicClaim,
     EvidenceEntry,
     EvidenceManifest,
 )
-from fdai.delivery.operator_api.routes.chat_claim_text import optional_text
+from fdai.delivery.operator_api.application.conversation.claims.text import optional_text
 
 
 def build_evidence_manifest(

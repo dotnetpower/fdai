@@ -10,12 +10,12 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
+from fdai.delivery.operator_api.application.conversation.claims import verify_screen_claims
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes.chat import (
     make_chat_route,
     make_chat_stream_route,
 )
-from fdai.delivery.operator_api.routes.chat_claims import verify_screen_claims
 from fdai.delivery.operator_api.routes.chat_evidence_enrichment import _with_tool_evidence
 from fdai.delivery.operator_api.routes.chat_system_health import (
     SystemHealthChatTools,
