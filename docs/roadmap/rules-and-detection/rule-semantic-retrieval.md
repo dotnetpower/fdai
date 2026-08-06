@@ -259,7 +259,8 @@ activates a generation.
 
 Operator-facing degradation uses stable machine reasons such as `generation-unavailable`,
 `generation-stale`, and `provider-unavailable`. Provider messages and Python exception names never
-cross the API boundary.
+cross the API boundary. When an active generation was observed before failure, the degraded
+response retains its generation, catalog, semantic schema, ontology release, and corpus identity.
 
 ## Delivery sequence
 

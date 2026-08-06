@@ -451,18 +451,20 @@ def make_rule_catalog_routes(
                 if active_generation is None:
                     semantic_reason = "generation-unavailable"
                     raise CatalogGenerationStaleError(semantic_reason)
+                semantic_generation = {
+                    "generation_id": active_generation.generation_id,
+                    "generation_digest": active_generation.generation_digest,
+                    "catalog_digest": active_generation.catalog_digest,
+                    "ontology_release_digest": active_generation.ontology_release_digest,
+                    "semantic_schema_digest": active_generation.semantic_schema_digest,
+                    "corpus": active_generation.corpus,
+                }
                 semantic_results = await semantic_index.search(
                     needle,
                     k=semantic_limit,
                     corpus=corpus,
                     expected_catalog_digest=corpus_digests[corpus],
                 )
-                semantic_generation = {
-                    "generation_id": active_generation.generation_id,
-                    "generation_digest": active_generation.generation_digest,
-                    "catalog_digest": active_generation.catalog_digest,
-                    "corpus": active_generation.corpus,
-                }
             except CatalogGenerationStaleError:
                 semantic_state = "stale"
                 semantic_reason = semantic_reason or "generation-stale"

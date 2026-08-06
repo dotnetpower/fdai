@@ -34,7 +34,11 @@ from fdai.shared.contracts.models import (
     Severity,
 )
 from fdai.shared.ontology.release import build_ontology_release
-from fdai.shared.providers.catalog_search import CatalogGenerationMetadata, CatalogSearchResult
+from fdai.shared.providers.catalog_search import (
+    CatalogGenerationMetadata,
+    CatalogGenerationStaleError,
+    CatalogSearchResult,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -190,6 +194,12 @@ class _FailingSemanticIndex(_SemanticIndex):
         raise RuntimeError("index offline")
 
 
+class _StaleSemanticIndex(_SemanticIndex):
+    async def search(self, query: str, *, k: int = 20, **kwargs):  # type: ignore[no-untyped-def]
+        del query, k, kwargs
+        raise CatalogGenerationStaleError("internal stale detail")
+
+
 class _UnexpectedSemanticIndex(_SemanticIndex):
     async def search(self, query: str, *, k: int = 20, **kwargs):  # type: ignore[no-untyped-def]
         del query, k, kwargs
@@ -319,7 +329,21 @@ def test_rules_degrade_to_substring_when_semantic_index_fails() -> None:
     assert response.json()["search_mode"] == "degraded"
     assert response.json()["semantic_state"] == "unavailable"
     assert response.json()["semantic_reason"] == "provider-unavailable"
+    assert response.json()["semantic_generation"]["generation_id"] == "generation-active"
+    assert response.json()["semantic_generation"]["ontology_release_digest"] == (
+        "sha256:" + "c" * 64
+    )
     assert "index offline" not in response.text
+
+
+def test_rules_preserve_generation_identity_when_search_reports_stale() -> None:
+    response = _semantic_client(_StaleSemanticIndex()).get("/rules", params={"q": "remote desktop"})
+
+    assert response.status_code == 200
+    assert response.json()["semantic_state"] == "stale"
+    assert response.json()["semantic_reason"] == "generation-stale"
+    assert response.json()["semantic_generation"]["generation_digest"] == ("sha256:" + "a" * 64)
+    assert "internal stale detail" not in response.text
 
 
 def test_rules_report_stale_when_active_generation_is_missing() -> None:

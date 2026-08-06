@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 40adb2d36fd21c37e9bbbb1b4712ba4ec1aef072
+translation_source_sha: 16ede0b855d7f9a3b10a50d705da233a4e071c9d
 translation_revised: 2026-08-06
 ---
 # Rule 의미 검색
@@ -263,7 +263,8 @@ Build worker는 Mimir가 소유하는 기계적 capability입니다. 권한이 �
 
 Operator-facing degradation은 `generation-unavailable`, `generation-stale` 및
 `provider-unavailable` 같은 stable machine reason을 사용합니다. Provider message와 Python exception
-name은 API boundary를 통과하지 않습니다.
+name은 API boundary를 통과하지 않습니다. Failure 전에 active generation이 관측되었으면 degraded
+response는 generation, catalog, semantic schema, ontology release 및 corpus identity를 유지합니다.
 
 ## 제공 순서
 
