@@ -11,6 +11,8 @@ Public exports (P1 W-3 Step 3e):
   callers audit against.
 - :class:`~fdai.core.executor.port.ThorExecutionPort` - injected composition
   boundary for the existing in-process execution surfaces.
+- :class:`~fdai.core.executor.port.ThorSafetyDependencyReadiness` - immutable
+  Saga durability and Vidar recovery-binding evidence for runtime composition.
 - :class:`~fdai.core.executor.lock.ResourceLockManager` - per-resource
   serialization.
 - :class:`~fdai.core.executor.renderer.TemplateRenderer` /
@@ -36,7 +38,11 @@ from fdai.core.executor.path_selection import (
     is_strictly_stricter_than,
     strictest_execution_path,
 )
-from fdai.core.executor.port import InProcessThorExecutionPort, ThorExecutionPort
+from fdai.core.executor.port import (
+    InProcessThorExecutionPort,
+    ThorExecutionPort,
+    ThorSafetyDependencyReadiness,
+)
 from fdai.core.executor.renderer import (
     RenderError,
     RenderRequest,
@@ -63,6 +69,7 @@ __all__ = [
     "ShadowExecutor",
     "TemplateRenderer",
     "ThorExecutionPort",
+    "ThorSafetyDependencyReadiness",
     "ToolCallExecutionOutcome",
     "ToolCallExecutionResult",
     "ToolCallShadowExecutor",

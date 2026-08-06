@@ -4,10 +4,13 @@ Responsibility: expose the existing PR-native, direct-API, and tool-call
 execution surfaces as one composition input.
 Boundary: this module defines no transport and performs no routing or effects;
 callers continue to use the existing executor contracts and result types.
+Safety readiness is immutable composition evidence, not an audit or recovery
+callback.
 Authority and state: Thor remains the sole execution owner. The bound executors
 retain Saga audit persistence, Vidar recovery, shadow, lock, and idempotency
 behavior without sharing mutable state through this port.
-Dependencies: only the Core executor surfaces are accepted.
+Dependencies: only Core executor surfaces and primitive readiness facts are
+accepted; agent implementations are not imported.
 Deployment: ``InProcessThorExecutionPort`` is the rollback-compatible Core
 binding and does not create a network or process boundary.
 """
@@ -39,6 +42,36 @@ class _DirectApiExecutionPort(Protocol):
 
 class _ToolCallExecutionPort(Protocol):
     async def execute(self, *, action: Action) -> ToolCallExecutionResult: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ThorSafetyDependencyReadiness:
+    """Record whether Thor's existing Saga and Vidar bindings permit mutation."""
+
+    saga_audit_durable: bool
+    vidar_recovery_contracts: frozenset[str]
+
+    @property
+    def mutation_ready(self) -> bool:
+        """Return true only when durable audit and recovery are both bound."""
+        return self.saga_audit_durable and bool(self.vidar_recovery_contracts)
+
+    def require_for_mode(self, *, enforce: bool) -> None:
+        """Reject mutation when either hard dependency is unavailable.
+
+        Shadow composition remains valid without either binding because it
+        performs no mutation.
+        """
+        if not enforce or self.mutation_ready:
+            return
+        missing: list[str] = []
+        if not self.saga_audit_durable:
+            missing.append("durable_saga")
+        if not self.vidar_recovery_contracts:
+            missing.append("rollback_executors")
+        raise ValueError(
+            "Thor mutation requires explicit durable safety bindings: " + ", ".join(missing)
+        )
 
 
 @runtime_checkable
@@ -75,4 +108,8 @@ class InProcessThorExecutionPort:
     tool_call: ToolCallShadowExecutor | None = None
 
 
-__all__ = ["InProcessThorExecutionPort", "ThorExecutionPort"]
+__all__ = [
+    "InProcessThorExecutionPort",
+    "ThorExecutionPort",
+    "ThorSafetyDependencyReadiness",
+]

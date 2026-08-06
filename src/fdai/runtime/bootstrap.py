@@ -17,6 +17,7 @@ from fdai.agents import (
     ShadowDivergenceLedger,
     StateStoreActionRunStore,
 )
+from fdai.agents.vidar import RollbackExecutor
 from fdai.composition import (
     LlmBindings,
     default_container_from_env,
@@ -60,6 +61,9 @@ from fdai.runtime.bootstrap_bindings import (
 )
 from fdai.runtime.bootstrap_lifecycle import (
     build_runtime_saga as _build_runtime_saga,
+)
+from fdai.runtime.bootstrap_lifecycle import (
+    build_thor_safety_dependency_readiness as _build_thor_safety_dependency_readiness,
 )
 from fdai.runtime.bootstrap_lifecycle import (
     install_shutdown_signals as _install_shutdown_signals,
@@ -627,6 +631,28 @@ async def _run() -> int:
                         ),
                         recorder=ProcessPlanningRecorder(store=process_store),
                     )
+                thor_mutation_bound = pantheon_enforce and t2_route_selector_bound
+                runtime_saga = _build_runtime_saga(incident_audit_store)
+                rollback_executors: dict[str, RollbackExecutor] | None = (
+                    {"state_forward_only": t2_route_registry.rollback}
+                    if thor_mutation_bound
+                    else None
+                )
+                thor_safety_readiness = _build_thor_safety_dependency_readiness(
+                    saga=runtime_saga,
+                    rollback_executors=rollback_executors,
+                )
+                thor_safety_readiness.require_for_mode(enforce=thor_mutation_bound)
+                _LOGGER.info(
+                    "thor_safety_dependency_readiness",
+                    extra={
+                        "mutation_ready": thor_safety_readiness.mutation_ready,
+                        "saga_audit_durable": thor_safety_readiness.saga_audit_durable,
+                        "vidar_recovery_contracts": sorted(
+                            thor_safety_readiness.vidar_recovery_contracts
+                        ),
+                    },
+                )
                 pantheon_runtime = PantheonRuntime.build(
                     provider=bus,
                     raw_event_topic=container.config.kafka.topic_events,
@@ -635,22 +661,14 @@ async def _run() -> int:
                         "fdai-pantheon",
                     ).strip(),
                     enforce=pantheon_enforce,
-                    thor_executor=(
-                        t2_route_registry.execute
-                        if pantheon_enforce and t2_route_selector_bound
-                        else None
-                    ),
+                    thor_executor=(t2_route_registry.execute if thor_mutation_bound else None),
                     thor_state_store=(
                         StateStoreActionRunStore(incident_audit_store)
-                        if pantheon_enforce and t2_route_selector_bound
+                        if thor_mutation_bound
                         else None
                     ),
-                    rollback_executors=(
-                        {"state_forward_only": t2_route_registry.rollback}
-                        if pantheon_enforce and t2_route_selector_bound
-                        else None
-                    ),
-                    saga=_build_runtime_saga(incident_audit_store),
+                    rollback_executors=rollback_executors,
+                    saga=runtime_saga,
                     muninn_state_store=incident_audit_store,
                     semantic_feedback_store=StateStoreSemanticFeedbackCandidateStore(
                         incident_audit_store
