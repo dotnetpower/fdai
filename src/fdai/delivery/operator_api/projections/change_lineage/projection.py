@@ -39,6 +39,19 @@ class ChangeLineageSummaryProjection:
     promotion_authority: bool = False
 
     def __post_init__(self) -> None:
+        _identity("lineage_id", self.lineage_id)
+        _identity("candidate_id", self.candidate_id)
+        _identity("change_id", self.change_id)
+        _identity("change_source", self.change_source, limit=_MAX_SOURCE_CHARS)
+        _identity("change_ref", self.change_ref)
+        _identity("action_type_id", self.action_type_id, limit=_MAX_ACTION_TYPE_CHARS)
+        _identity("outcome_label", self.outcome_label, limit=_MAX_SOURCE_CHARS)
+        _identity("execution_mode", self.execution_mode, limit=_MAX_SOURCE_CHARS)
+        _identity(
+            "verification_status",
+            self.verification_status,
+            limit=_MAX_SOURCE_CHARS,
+        )
         if self.outcome_at.tzinfo is None:
             raise ValueError("change lineage summary outcome_at MUST be timezone-aware")
         if (
@@ -259,7 +272,7 @@ def project_change_lineage_detail(
 
 
 def _identity(name: str, value: str, *, limit: int = _MAX_IDENTIFIER_CHARS) -> str:
-    if not value or len(value) > limit:
+    if not value.strip() or len(value) > limit:
         raise ValueError(f"change lineage projection {name} MUST be in [1, {limit}] characters")
     return value
 

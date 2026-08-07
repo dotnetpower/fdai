@@ -178,6 +178,17 @@ def test_projection_rejects_oversized_identity_instead_of_truncating_it() -> Non
         )
 
 
+def test_summary_projection_rejects_direct_identity_bound_bypass() -> None:
+    summary = project_change_lineage_summary(_lineage())
+
+    with pytest.raises(ValueError, match="change_source"):
+        replace(summary, change_source="   ")
+    with pytest.raises(ValueError, match="change_ref"):
+        replace(summary, change_ref="x" * 513)
+    with pytest.raises(ValueError, match="action_type_id"):
+        replace(summary, action_type_id="x" * 129)
+
+
 def test_projection_package_has_no_http_route_or_persistence_dependencies() -> None:
     package = _ROOT / "src/fdai/delivery/operator_api/projections/change_lineage"
     forbidden = (
