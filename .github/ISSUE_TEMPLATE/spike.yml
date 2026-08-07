@@ -1,0 +1,59 @@
+name: Spike
+description: Time-box an investigation whose deliverable is a decision, not shipped behavior.
+title: "spike: "
+labels: ["type:spike", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issues are English-only and customer-agnostic. Add at least one `area:` label and one
+        `priority:` label after creation. A spike never ships production behavior; it ends with a
+        recorded decision and the follow-up issues that decision creates.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question to answer
+      description: State the single decision this spike must unblock.
+      placeholder: Which approach do we adopt for X, and on what evidence?
+    validations:
+      required: true
+  - type: input
+    id: timebox
+    attributes:
+      label: Time box
+      description: The maximum effort before the spike stops and reports what it learned.
+      placeholder: "2 days"
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Options under consideration
+      description: List the candidate approaches and the criteria that will separate them.
+    validations:
+      required: true
+  - type: textarea
+    id: deliverable
+    attributes:
+      label: Deliverable
+      description: Name the artifact - a design document, an ADR, a prototype branch, or a measurement report - and where it will live.
+    validations:
+      required: true
+  - type: textarea
+    id: exit_criteria
+    attributes:
+      label: Exit criteria
+      description: Add one or more observable, binary checkbox items. The issue remains open until every item is satisfied.
+      placeholder: |
+        - [ ] The deliverable is committed or linked.
+        - [ ] The decision and its rationale are recorded in a comment.
+        - [ ] Follow-up stories or tasks are opened, or the spike records that none are needed.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety and scope declaration
+      options:
+        - label: I have not included customer-identifying values, secrets, private endpoints, or security findings.
+          required: true

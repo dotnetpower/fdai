@@ -1,0 +1,67 @@
+name: Bug report
+description: Report incorrect, unsafe, or unverifiable behavior with a reproduction.
+title: "bug: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issues are English-only and customer-agnostic. Add at least one `area:` label and one
+        `priority:` label after creation. Do not report a security finding here - use the private
+        advisory link on the issue chooser instead.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: State the incorrect behavior in one or two sentences.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Give the exact commands, request, or scenario that reproduces the defect, plus the surface (core runtime, Operator API, console, CLI, ChatOps, infra) and the version or commit.
+      placeholder: |
+        1. Run `...`
+        2. Observe `...`
+    validations:
+      required: true
+  - type: textarea
+    id: expected_actual
+    attributes:
+      label: Expected and actual behavior
+      description: Contrast the contract-conformant result with what actually happened.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: State who or what is affected, whether a safety invariant, an autonomy boundary, an evidence receipt, or an audit record is involved, and any known workaround.
+    validations:
+      required: true
+  - type: textarea
+    id: exit_criteria
+    attributes:
+      label: Exit criteria
+      description: Add one or more observable, binary checkbox items. The issue remains open until every item is satisfied.
+      placeholder: |
+        - [ ] A regression test reproduces the defect and fails before the fix.
+        - [ ] The fix makes that test pass without weakening an existing gate.
+        - [ ] Affected documentation is updated when behavior changed.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Verification evidence
+      description: Attach redacted logs, failing test output, or measurements. Remove tenant ids, subscription ids, resource names, endpoints, and secrets first.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety and scope declaration
+      options:
+        - label: I have not included customer-identifying values, secrets, private endpoints, or security findings.
+          required: true

@@ -1,0 +1,74 @@
+name: User story
+description: Track a user-visible outcome that one maintainer can deliver inside a single iteration.
+title: "story: "
+labels: ["type:story", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issues are English-only and customer-agnostic. Add at least one `area:` label and one
+        `priority:` label after creation. A story that cannot fit in one iteration belongs in an
+        epic instead. Link this story to its parent epic through GitHub sub-issues so board
+        progress stays automatic.
+  - type: input
+    id: parent_epic
+    attributes:
+      label: Parent epic
+      description: Issue number of the parent epic, or `none` for standalone work.
+      placeholder: "#123"
+    validations:
+      required: true
+  - type: textarea
+    id: story
+    attributes:
+      label: Story
+      description: State the role, the capability, and the benefit.
+      value: |
+        As a <role - operator, maintainer, approver, auditor, downstream fork owner>,
+        I want <capability>,
+        so that <measurable benefit>.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Describe observable behavior in Given / When / Then form. One scenario per behavior, including the unhappy path.
+      placeholder: |
+        - Given <precondition>, when <action>, then <observable result>.
+        - Given <missing or stale evidence>, when <action>, then <abstain, deny, or escalate>.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and constraints
+      description: Name the intended scope, important boundaries, and explicit non-goals. Include safety, autonomy-mode, compatibility, and rollout constraints where relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: exit_criteria
+    attributes:
+      label: Exit criteria
+      description: Add one or more observable, binary checkbox items. The issue remains open until every item is satisfied.
+      placeholder: |
+        - [ ] Every acceptance criterion is covered by a focused test.
+        - [ ] Affected English and Korean documentation is updated.
+        - [ ] Required verification commands pass.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Verification evidence
+      description: List the commands, scenarios, metrics, or artifacts that will prove the exit criteria.
+      placeholder: Tests, screenshots, logs, measurements, or review evidence.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety and scope declaration
+      options:
+        - label: I have not included customer-identifying values, secrets, private endpoints, or security findings.
+          required: true

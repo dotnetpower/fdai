@@ -134,10 +134,73 @@ make test
 make dev-down                     # stops (volumes preserved)
 ```
 
+## Planning and tracking work
+
+Planning happens in GitHub issues; the
+[FDAI delivery board](https://github.com/users/dotnetpower/projects/7) is the single view over
+them. Every repository issue is added to the board automatically, so an issue that is not on the
+board is a bug in the automation, not a work item that escaped tracking.
+
+### Work item hierarchy
+
+| Level | Label | Size | Owns |
+|-------|-------|------|------|
+| Epic | `type:epic` | one or more iterations | an outcome; child stories as GitHub sub-issues |
+| Story | `type:story` | one iteration, one maintainer | a user-visible outcome with acceptance criteria |
+| Task | `type:task` | one to three days | an implementation unit under a story, or standalone |
+| Spike | `type:spike` | an explicit time box | a decision or a document, never shipped behavior |
+| Bug | `bug` | whatever the defect costs | a reproduction plus the regression test that pins it |
+
+Link children to their parent through **sub-issues** (`Add sub-issue` on the parent), not a manual
+checklist in the body. The board's `Sub-issues progress` field then reports epic progress without
+anyone updating it. A story that cannot finish inside one iteration is an epic that has not been
+split yet.
+
+### Board columns
+
+| Status | Meaning | Leaves the column when |
+|--------|---------|------------------------|
+| `Backlog` | accepted, not scheduled | triage assigns a `priority:` and a Size |
+| `Ready` | triaged, sized, unblocked | someone assigns themselves |
+| `In progress` | assigned and actively worked | the exit criteria are satisfied |
+| `In review` | exit criteria met, evidence posted | the author or a reviewer confirms |
+| `Blocked` | a named external dependency is missing | that dependency clears |
+| `Done` | every exit criterion satisfied, issue closed | never |
+
+`Blocked` requires the `blocked` label **and** a comment naming the dependency and who owns it.
+"Waiting for a live Azure environment" is `needs-live-azure`, not `blocked`.
+
+### Working agreement
+
+- **Work starts from an issue.** An unassigned issue is unclaimed. Assign yourself before you
+  start so nobody duplicates the work.
+- **WIP limit is two.** At most two items per person in `In progress`. Finish or hand one back
+  before pulling a third.
+- **Priority is a commitment, not a wish.** `priority:p0` blocks a release, a safety invariant, or
+  another maintainer; `priority:p1` is committed to the current or next iteration; `priority:p2`
+  and `priority:p3` are not scheduled.
+- **A pull request closes its issue.** Write `Closes #<n>` in the PR body; merging moves the board
+  item to `Done` automatically. A PR without a linked issue needs a one-line reason in its
+  description.
+- **Triage weekly.** Anything with an empty `Priority` or the `needs-triage` label is reviewed,
+  given a type, a priority, an `area:`, and exit criteria, or closed as `not planned`.
+- The board mirrors public issues only. Never put a tenant id, subscription id, resource name,
+  endpoint, or secret in an issue, a comment, or a board field
+  ([generic-scope.instructions.md](.github/instructions/generic-scope.instructions.md)).
+
+### Board fields
+
+`Status`, `Priority`, `Size`, and `Work type` mirror the labels above so the board stays usable
+without opening every issue. `Iteration` drives the sprint board and `Quarter` drives the roadmap
+view; set `Start date` and `Target date` on epics so they render on the roadmap timeline.
+
 ## Opening issues
 
 Issues are English-only project-tracking artifacts (never translated - see
 [language.instructions.md](.github/instructions/language.instructions.md)).
+Start from the form that matches the work - **Epic**, **User story**, **Bug report**, **Spike**, or
+the generic **FDAI work item**. Each form applies its `type:` label and `needs-triage`, and each
+one requires exit criteria.
 **Always apply at least one domain label** so triage and filtering work; the
 catalog uses a `prefix:` convention so related labels group together.
 
@@ -145,18 +208,20 @@ Pick labels along these axes (add as many as apply):
 
 | Group | Labels | When to use |
 |-------|--------|-------------|
+| `type:` (hierarchy) | `epic`, `story`, `task`, `spike` | the work-item level - applied by the issue form, one is expected |
+| `priority:` | `p0`, `p1`, `p2`, `p3` | the scheduling commitment - assigned at triage, one is expected |
 | `area:` (subsystem) | `core-engine`, `trust-router`, `rule-catalog`, `risk-gate`, `quality-gate`, `executor`, `deploy-preflight`, `assurance-twin`, `agents`, `operator-console`, `chatops`, `detection`, `infra`, `delivery` | the subsystem the issue touches - **at least one is expected** |
 | `tier:` | `T0`, `T1`, `T2` | when the issue is specific to a trust tier |
 | `vertical:` | `resilience`, `change-safety`, `cost-governance` | the product vertical it serves |
 | safety / governance | `safety-invariant`, `shadow-mode`, `hil`, `security`, `rule-governance` | when a safety or governance concern is central |
 | cross-cutting | `i18n`, `csp-neutral`, `discovery-loop`, `needs-live-azure`, `shadow-to-enforce` | translation, provider-neutrality, discovery, or work that needs a live Azure setup / an enforce-promotion gate |
-| lifecycle | `needs-exit-criteria`, `completed`, `review-needed` | invalid work-item contract, all criteria satisfied, or waiting for author/reviewer confirmation |
-| type (built-in) | `bug`, `enhancement`, `documentation`, `question`, `help wanted` | the nature of the work |
+| lifecycle | `needs-triage`, `needs-exit-criteria`, `blocked`, `completed`, `review-needed` | not triaged yet, invalid work-item contract, waiting on a named dependency, all criteria satisfied, or waiting for author/reviewer confirmation |
+| nature (built-in) | `bug`, `enhancement`, `documentation`, `question`, `help wanted` | the nature of the work, orthogonal to `type:` |
 
 Guidance:
 
-- A good default is **one `area:` + one type** label; add `tier:` / `vertical:`
-  / safety labels when they are central to the issue.
+- A good default is **one `type:` + one `priority:` + one `area:`**; add `tier:` / `vertical:` /
+  safety labels when they are central to the issue.
 - Use `needs-live-azure` for anything that cannot be validated without a live
   (or emulated) Azure policy / resource setup, so those are easy to batch.
 - Do NOT invent one-off labels; extend the catalog with a short PR that also

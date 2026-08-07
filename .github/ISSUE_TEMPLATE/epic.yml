@@ -1,0 +1,69 @@
+name: Epic
+description: Track an outcome that spans several stories and one or more iterations.
+title: "epic: "
+labels: ["type:epic", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issues are English-only and customer-agnostic. Add at least one `area:` label and one
+        `priority:` label after creation. An epic is the roadmap unit: it appears on the roadmap
+        view, owns child stories as sub-issues, and closes only when every child closes.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: State the operator-visible or system-level outcome this epic delivers.
+      placeholder: When this epic is done, what is true that is not true today?
+    validations:
+      required: true
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Why now
+      description: Name the driver - a constitutional requirement, a safety gap, a vertical commitment, or a dependency that unblocks other work.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and non-goals
+      description: Name the included surfaces and the explicit non-goals so child stories stay inside the boundary.
+    validations:
+      required: true
+  - type: textarea
+    id: stories
+    attributes:
+      label: Child stories
+      description: List the planned stories. Convert each line into a sub-issue after creation so the board tracks progress automatically.
+      placeholder: |
+        - [ ] story: ...
+        - [ ] story: ...
+    validations:
+      required: true
+  - type: textarea
+    id: success_metrics
+    attributes:
+      label: Success metrics
+      description: Give measurable signals that prove the outcome, not the activity.
+      placeholder: Coverage, latency, rubric score, gate status, or scenario-pack result.
+    validations:
+      required: true
+  - type: textarea
+    id: exit_criteria
+    attributes:
+      label: Exit criteria
+      description: Add observable, binary checkbox items. The epic stays open until every item is satisfied.
+      placeholder: |
+        - [ ] Every child story is closed with evidence.
+        - [ ] The success metrics are measured and recorded.
+        - [ ] Affected English and Korean documentation is updated.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety and scope declaration
+      options:
+        - label: I have not included customer-identifying values, secrets, private endpoints, or security findings.
+          required: true
