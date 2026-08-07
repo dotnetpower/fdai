@@ -31,6 +31,7 @@ from .kinetics import (
 from .models import (
     InterfaceImplementation,
     ObjectPredicate,
+    ObjectPredicateOperator,
     ObjectSelector,
     ObjectSelectorKind,
     ObjectSetDefinition,
@@ -67,6 +68,7 @@ __all__ = [
     "InterfaceImplementation",
     "InterpretationCandidateSource",
     "ObjectPredicate",
+    "ObjectPredicateOperator",
     "ObjectSelector",
     "ObjectSelectorKind",
     "ObjectSetDefinition",

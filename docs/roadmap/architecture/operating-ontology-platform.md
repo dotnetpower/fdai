@@ -134,6 +134,13 @@ purpose, and a hard result limit. It does not accept free-form Cypher, SPARQL, S
 Every materialization records the release digest, cutoff, source watermarks, truncation reason,
 and redaction summary.
 
+Property predicates support `equals`, `not_equals`, `in`, `exists`, `absent`, `at_least`,
+`at_most`, and `contains`. Single-value operators use `equals`, `in` uses a non-empty `values`
+tuple, and presence operators accept no operand. The store receives only `equals` predicates for
+indexed pushdown. Both direct queries and traversals apply every predicate again to the bounded
+candidate graph, remove links whose endpoints were filtered out, and preserve a truncation receipt
+when either the candidate ceiling or requested result limit is reached.
+
 ## Semantic actions and mutation plans
 
 `ActionType` retains its stop conditions, rollback, impact scope, execution path, promotion gate,

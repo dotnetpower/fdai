@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
-from pydantic import Field, model_validator
+from pydantic import Field, SerializerFunctionWrapHandler, model_serializer, model_validator
 
 from fdai.shared.contracts.models import ContractBase, PropertyDecl, SemVer
 from fdai.shared.providers.ontology_instance import OntologyDirection, OntologyGraphSnapshot
@@ -36,9 +36,59 @@ class ObjectSelector(ContractBase):
     name: Annotated[str, Field(min_length=1)]
 
 
+class ObjectPredicateOperator(StrEnum):
+    EQUALS = "equals"
+    NOT_EQUALS = "not_equals"
+    IN = "in"
+    EXISTS = "exists"
+    ABSENT = "absent"
+    AT_LEAST = "at_least"
+    AT_MOST = "at_most"
+    CONTAINS = "contains"
+
+
 class ObjectPredicate(ContractBase):
     property: Annotated[str, Field(min_length=1)]
-    equals: Any
+    operator: ObjectPredicateOperator = ObjectPredicateOperator.EQUALS
+    equals: Any = None
+    values: tuple[Any, ...] = ()
+
+    @model_validator(mode="after")
+    def _operands_match_operator(self) -> ObjectPredicate:
+        has_equals = "equals" in self.model_fields_set
+        single_operand = {
+            ObjectPredicateOperator.EQUALS,
+            ObjectPredicateOperator.NOT_EQUALS,
+            ObjectPredicateOperator.AT_LEAST,
+            ObjectPredicateOperator.AT_MOST,
+            ObjectPredicateOperator.CONTAINS,
+        }
+        if self.operator in single_operand:
+            if not has_equals or self.values:
+                raise ValueError(
+                    f"object predicate {self.operator.value} requires equals and forbids values"
+                )
+        elif self.operator is ObjectPredicateOperator.IN:
+            if has_equals or not self.values:
+                raise ValueError("object predicate in requires non-empty values and forbids equals")
+        elif has_equals or self.values:
+            raise ValueError(f"object predicate {self.operator.value} does not accept operands")
+        return self
+
+    @model_serializer(mode="wrap")
+    def _serialize_operands(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        serialized = cast(dict[str, Any], handler(self))
+        if self.operator is ObjectPredicateOperator.IN:
+            serialized.pop("equals", None)
+        elif self.operator in {
+            ObjectPredicateOperator.EXISTS,
+            ObjectPredicateOperator.ABSENT,
+        }:
+            serialized.pop("equals", None)
+            serialized.pop("values", None)
+        else:
+            serialized.pop("values", None)
+        return serialized
 
 
 class ObjectTraversal(ContractBase):
@@ -82,6 +132,7 @@ class ObjectSetMaterialization(ContractBase):
 __all__ = [
     "InterfaceImplementation",
     "ObjectPredicate",
+    "ObjectPredicateOperator",
     "ObjectSelector",
     "ObjectSelectorKind",
     "ObjectSetDefinition",

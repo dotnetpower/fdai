@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 284b6c66db3fec81afb82923ac60df95fffc3220
+translation_source_sha: 0985b711a640cc5aac026550ffa7021ed83b442b
 translation_revised: 2026-08-07
 ---
 # FDAI 온톨로지 안전 인프라
@@ -136,6 +136,13 @@ predicate, named-link traversal, deterministic ordering, `as_of` cutoff, freshne
 result limit를 지원합니다. Free-form Cypher, SPARQL, SQL 또는 model text를 받지 않습니다. 모든
 materialization은 release digest, cutoff, source watermark, truncation reason, redaction summary를
 기록합니다.
+
+Property predicate는 `equals`, `not_equals`, `in`, `exists`, `absent`, `at_least`, `at_most`,
+`contains`를 지원합니다. Single-value operator는 `equals`를 사용하고, `in`은 비어 있지 않은
+`values` tuple을 사용하며, presence operator는 operand를 받지 않습니다. Store에는 index
+pushdown을 위해 `equals` predicate만 전달합니다. Direct query와 traversal은 모두 bounded candidate
+graph에 모든 predicate를 다시 적용하고, filter된 endpoint가 있는 link를 제거하며, candidate ceiling
+또는 요청한 result limit에 도달하면 truncation receipt를 유지합니다.
 
 ## Semantic action과 mutation plan
 
