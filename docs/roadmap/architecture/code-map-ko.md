@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 99260e4375e7285891c01a01dbd71c9afab5a2a3
+translation_source_sha: 4bf06b0c3fad7262da449e054b7c66a6c6d8565a
 translation_revised: 2026-08-07
 ---
 # 코드 맵
@@ -145,7 +145,8 @@ Presentation intent는
 [`presentation/`](../../../src/fdai/delivery/operator_api/projections/conversation/presentation/)의
 strict shape-only model selection은 explicit package facade 뒤의 request-local read projection으로
 유지되며 terminal verification을 거쳐 deterministic inventory rendering에 전달됩니다.
-`chat_evidence_enrichment.py`는 내부 inventory read를
+[`evidence/enrichment.py`](../../../src/fdai/delivery/operator_api/application/conversation/evidence/enrichment.py)는
+내부 inventory read를
 provider command를 만들지 않고 verifier가 승인한 typed query 및 snapshot provenance를
 channel-neutral query activity row로 projection합니다.
 

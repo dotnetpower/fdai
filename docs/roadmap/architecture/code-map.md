@@ -142,7 +142,8 @@ formats and strict shape-only model selection in
 [`presentation/`](../../../src/fdai/delivery/operator_api/projections/conversation/presentation/)
 remain request-local read projections behind the explicit package facade and flow through terminal
 verification into deterministic inventory rendering, while
-`chat_evidence_enrichment.py` projects the verifier-accepted typed query and snapshot provenance
+[`evidence/enrichment.py`](../../../src/fdai/delivery/operator_api/application/conversation/evidence/enrichment.py)
+projects the verifier-accepted typed query and snapshot provenance
 into a channel-neutral query activity row without fabricating provider commands.
 
 ## Rule catalog, deploy, and platform

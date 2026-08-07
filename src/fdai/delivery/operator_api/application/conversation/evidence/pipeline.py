@@ -17,26 +17,13 @@ from fdai.delivery.operator_api.application.conversation.capabilities.inventory.
     SemanticInventoryStatusError,
     validate_semantic_inventory_status_arguments,
 )
-from fdai.delivery.operator_api.projections.conversation.inventory import (
-    needs_inventory_evidence,
-)
-from fdai.delivery.operator_api.routes.chat_action_context import (
-    is_explicit_action_draft_request,
-    needs_action_context,
-)
-from fdai.delivery.operator_api.routes.chat_conversation_context import (
-    needs_conversation_context,
-)
-from fdai.delivery.operator_api.routes.chat_current_time import needs_current_time
-from fdai.delivery.operator_api.routes.chat_data_sources import needs_read_source_evidence
-from fdai.delivery.operator_api.routes.chat_evidence import needs_operational_evidence
-from fdai.delivery.operator_api.routes.chat_evidence_branches import (
+from fdai.delivery.operator_api.application.conversation.evidence.branches import (
     BranchProgressObserver,
     EvidenceBranchKind,
     EvidenceBranchSpec,
     resolve_evidence_branches,
 )
-from fdai.delivery.operator_api.routes.chat_evidence_enrichment import (
+from fdai.delivery.operator_api.application.conversation.evidence.enrichment import (
     AgentChatDelegate,
     ChatToolResolver,
     ChatWebSearchEvidenceResolver,
@@ -51,10 +38,22 @@ from fdai.delivery.operator_api.routes.chat_evidence_enrichment import (
     _with_web_evidence,
     merge_evidence_branch_results,
 )
-from fdai.delivery.operator_api.routes.chat_intent_graph import IntentGraph
-from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
-    resolve_intent_graph_evidence,
+from fdai.delivery.operator_api.application.conversation.evidence.operational import (
+    needs_operational_evidence,
 )
+from fdai.delivery.operator_api.projections.conversation.inventory import (
+    needs_inventory_evidence,
+)
+from fdai.delivery.operator_api.routes.chat_action_context import (
+    is_explicit_action_draft_request,
+    needs_action_context,
+)
+from fdai.delivery.operator_api.routes.chat_conversation_context import (
+    needs_conversation_context,
+)
+from fdai.delivery.operator_api.routes.chat_current_time import needs_current_time
+from fdai.delivery.operator_api.routes.chat_data_sources import needs_read_source_evidence
+from fdai.delivery.operator_api.routes.chat_intent_graph import IntentGraph
 from fdai.delivery.operator_api.routes.chat_log_query import needs_log_query
 from fdai.delivery.operator_api.routes.chat_preincident_activity import parse_preincident_activity
 from fdai.delivery.operator_api.routes.chat_subscription_health import needs_subscription_health
@@ -120,6 +119,10 @@ async def resolve_parallel_chat_evidence(
     intent_graph: IntentGraph | None = None,
 ) -> dict[str, Any]:
     """Resolve independent evidence snapshots and merge established authority order."""
+
+    from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
+        resolve_intent_graph_evidence,
+    )
 
     base_context = dict(view_context)
     for key in (

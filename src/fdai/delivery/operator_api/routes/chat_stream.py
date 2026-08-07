@@ -40,6 +40,24 @@ from fdai.delivery.operator_api.application.conversation.capabilities.inventory.
     compile_inventory_query,
     inventory_query_requires_semantic_completion,
 )
+from fdai.delivery.operator_api.application.conversation.evidence import (
+    AgentChatDelegate,
+    ChatBehaviorEvidenceResolver,
+    ChatToolResolver,
+    ChatWebSearchEvidenceResolver,
+    OperationalEvidenceResolverProtocol,
+    PlannedChatToolResolver,
+    has_bound_incident_analysis_context,
+    has_screen_incident_analysis_context,
+    needs_operational_evidence,
+    resolve_parallel_chat_evidence,
+)
+from fdai.delivery.operator_api.application.conversation.evidence.enrichment import (
+    _delegation_summary,
+    _retrieval_source_previews,
+    _with_behavior_evidence,
+    _with_screen_scope,
+)
 from fdai.delivery.operator_api.application.conversation.verification import (
     AnswerVerification,
     verify_answer,
@@ -79,24 +97,6 @@ from fdai.delivery.operator_api.routes.chat_current_time import needs_current_ti
 from fdai.delivery.operator_api.routes.chat_document_evidence import (
     ChatDocumentEvidenceResolver,
     with_document_evidence,
-)
-from fdai.delivery.operator_api.routes.chat_evidence import needs_operational_evidence
-from fdai.delivery.operator_api.routes.chat_evidence_enrichment import (
-    AgentChatDelegate,
-    ChatBehaviorEvidenceResolver,
-    ChatToolResolver,
-    ChatWebSearchEvidenceResolver,
-    OperationalEvidenceResolverProtocol,
-    PlannedChatToolResolver,
-    _delegation_summary,
-    _retrieval_source_previews,
-    _with_behavior_evidence,
-    _with_screen_scope,
-)
-from fdai.delivery.operator_api.routes.chat_evidence_pipeline import (
-    has_bound_incident_analysis_context,
-    has_screen_incident_analysis_context,
-    resolve_parallel_chat_evidence,
 )
 from fdai.delivery.operator_api.routes.chat_freshness_context import (
     freshness_evidence_refs,

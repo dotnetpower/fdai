@@ -17,8 +17,10 @@ from fdai.delivery.operator_api.application.conversation.capabilities.inventory.
     SemanticInventoryStatusError,
     validate_semantic_inventory_status_arguments,
 )
-from fdai.delivery.operator_api.routes.chat_evidence_branches import BranchProgressObserver
-from fdai.delivery.operator_api.routes.chat_evidence_enrichment import (
+from fdai.delivery.operator_api.application.conversation.evidence.branches import (
+    BranchProgressObserver,
+)
+from fdai.delivery.operator_api.application.conversation.evidence.enrichment import (
     AgentChatDelegate,
     ChatWebSearchEvidenceResolver,
     PlannedChatToolResolver,

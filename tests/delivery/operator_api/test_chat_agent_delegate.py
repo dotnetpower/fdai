@@ -7,8 +7,10 @@ from types import MethodType, SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from fdai.agents import PANTHEON_SPECS, PantheonRuntime
+from fdai.delivery.operator_api.application.conversation.evidence.enrichment import (
+    _with_agent_evidence,
+)
 from fdai.delivery.operator_api.routes.chat_agent_delegate import PantheonChatDelegate
-from fdai.delivery.operator_api.routes.chat_evidence_enrichment import _with_agent_evidence
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
 

@@ -10,8 +10,10 @@ from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from fdai.core.web_search import WebSearchQuery, WebSearchResult, WebSnippet
+from fdai.delivery.operator_api.application.conversation.evidence.enrichment import (
+    _with_web_evidence,
+)
 from fdai.delivery.operator_api.routes.chat import make_chat_stream_route
-from fdai.delivery.operator_api.routes.chat_evidence_enrichment import _with_web_evidence
 from fdai.delivery.operator_api.routes.chat_web_search import (
     ChatWebSearchConfig,
     ChatWebSearchResolver,

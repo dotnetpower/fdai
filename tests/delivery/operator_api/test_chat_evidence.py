@@ -11,15 +11,15 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
-from fdai.delivery.operator_api.application.conversation.verification import verify_answer
-from fdai.delivery.operator_api.read_model import AuditItem, InMemoryConsoleReadModel
-from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
-from fdai.delivery.operator_api.routes.chat_evidence import (
+from fdai.delivery.operator_api.application.conversation.evidence.operational import (
     OperationalEvidenceResolver,
     _compact_audit,
     _is_memory_incident_text,
     needs_operational_evidence,
 )
+from fdai.delivery.operator_api.application.conversation.verification import verify_answer
+from fdai.delivery.operator_api.read_model import AuditItem, InMemoryConsoleReadModel
+from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
 from fdai.delivery.operator_api.routes.chat_freshness_context import (
     response_evidence_freshness_context,
 )

@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: cd95786c686ab69fa75d21536acb702216996de1
+translation_source_sha: b8efaf352187558f86d716f2e92a4956af5d0bf7
 translation_revised: 2026-08-07
 ---
 # Operator Console Module Map and Boundaries
@@ -169,6 +169,23 @@ test import였으므로 compatibility shim을 남기지 않습니다.
 Rollback은 다섯 backend module을 `routes/` 아래에 복원한 다음 application 및 adapter facade가 복원된
 owner를 가리키게 합니다. Auth, provider scope, JSON 또는 SSE는 변경하지 않습니다.
 
+### Conversation evidence application boundary
+
+SD-01 evidence slice는
+`fdai.delivery.operator_api.application.conversation.evidence` 아래에서 read-only operational
+evidence resolution, provenance projection, bounded branch lifecycle 및 authority-preserving result
+merge를 소유합니다. Operational lookup은 authorized server read model을 계속 읽으며 정확한
+`matched`, `summary`, `ambiguous`, `none`, `unavailable` outcome을 유지합니다. Evidence가 없거나
+충돌하거나 선택되지 않은 경우 unsupported answer로 넘어가지 않고 명시적으로 유지합니다.
+
+독립 branch는 계속 concurrent하게 완료되며 canonical specification order로 반환됩니다. Merge는 기존
+tool, operational, agent 및 public-web authority precedence를 유지합니다. JSON 및 SSE route는
+authentication, request parsing, HTTP status mapping, frame sequence와 revision, cancellation,
+terminal assembly 및 conversation history를 계속 소유합니다. 기존 `routes.chat_evidence*` consumer는
+모두 internal source 또는 test import였고 이 slice에서 이동했으므로 compatibility shim은 남기지
+않습니다. Rollback은 다섯 route implementation을 복원하고 JSON, SSE, authentication, evidence
+authority 또는 history를 변경하지 않은 채 evidence facade가 복원된 owner를 가리키게 합니다.
+
 ### Immutable app composition
 
 Issue 72는 `OperatorApiConfig(**kwargs)`를 bounded compatibility constructor로 유지하고 route를 등록하기
@@ -202,6 +219,7 @@ signature를 그대로 유지합니다. 이 절차는 wire 또는 caller migrati
 | `application/conversation/backend/` | Provider-neutral backend contract 및 request-local latency routing | Explicit facade로 import하고 provider implementation은 adapter에 유지합니다. |
 | `application/conversation/claims/` | Deterministic answer-claim extraction 및 bounded evidence verification | Explicit package facade로 import하고 JSON, SSE 및 authentication은 route에 유지합니다. |
 | `application/conversation/verification/` | Deterministic terminal answer verification 및 bounded evidence rendering | Explicit package facade로 import하고 wire behavior와 authentication은 route에 유지합니다. |
+| `application/conversation/evidence/` | Operational evidence resolution, provenance, branch lifecycle 및 authority-preserving merge | Explicit package facade로 import하고 JSON, SSE, authentication, cancellation 및 history는 route에 유지합니다. |
 | `dev/` | Interactive local 및 test-only provider composition | Production import에서 사용할 수 없게 유지합니다. |
 | `dev/fixtures/` | Synthetic pytest-only fixture | Production composition 밖에 유지합니다. |
 | `persistence/` | Operator API read-model implementation 및 projection | 소유된 read contract 뒤에 유지합니다. |
@@ -284,6 +302,9 @@ frame을 거부합니다.
 - `application/conversation/capabilities/inventory/`는 typed inventory query, compilation,
   semantic grounding 및 provider-read coordination을 소유합니다. HTTP, SSE, authentication,
   history, rendering 또는 inventory write는 소유하지 않습니다.
+- `application/conversation/evidence/`는 read-only operational evidence resolution, provenance,
+  canonical branch ordering 및 authority-preserving merge를 소유합니다. HTTP, SSE, authentication,
+  cancellation, history 또는 durable state는 소유하지 않습니다.
 - `projections/conversation/presentation/`은 value-free presentation plan, 검증된 evidence artifact
   compilation, bound 및 localized label을 소유합니다. HTTP, SSE, authentication, cancellation,
   terminal delivery 또는 durable state는 소유하지 않습니다.

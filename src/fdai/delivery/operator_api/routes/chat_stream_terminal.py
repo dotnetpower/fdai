@@ -10,12 +10,14 @@ from typing import Any, Final, Literal
 
 from fdai.core.conversation.answer_plan import AnswerPlan
 from fdai.core.python_task.grounded_code import extract_grounded_code
+from fdai.delivery.operator_api.application.conversation.evidence.provenance import (
+    _web_search_summary,
+)
 from fdai.delivery.operator_api.application.conversation.verification import AnswerVerification
 from fdai.delivery.operator_api.projections.conversation.presentation import (
     response_presentation_artifact,
 )
 from fdai.delivery.operator_api.routes.chat_answer_quality import AnswerQualityResult
-from fdai.delivery.operator_api.routes.chat_evidence_enrichment import _web_search_summary
 from fdai.delivery.operator_api.routes.chat_freshness_context import EvidenceFreshnessContext
 from fdai.delivery.operator_api.routes.chat_intent_graph_execution import (
     public_intent_graph_evidence,

@@ -71,6 +71,12 @@
       "candidate_destination": "retain behind the explicit verification package facade"
     },
     {
+      "path": "application/conversation/evidence",
+      "responsibility": "Read-only operational evidence resolution, provenance, branch ordering, and authority-preserving merge coordination",
+      "classification": "application-coordination",
+      "candidate_destination": "retain behind the explicit evidence package facade"
+    },
+    {
       "path": "dev",
       "responsibility": "Interactive local and test-only provider composition",
       "classification": "composition",
@@ -246,6 +252,21 @@
       ],
       "rationale": "cohesive typed inventory capability and read-only projection family after the conversation application boundary",
       "rollback": "restore route implementations and redirect the two inventory facades without changing JSON, SSE, authentication, or history contracts"
+        },
+        {
+      "tracking_issue": 71,
+      "family": "chat_evidence*.py",
+      "destination": "fdai.delivery.operator_api.application.conversation.evidence",
+      "observed_window_days": 90,
+      "modules": [
+        {"module": "chat_evidence.py", "direct_python_consumers": 17, "fdai_imports": 5, "changes": 6},
+        {"module": "chat_evidence_branches.py", "direct_python_consumers": 4, "fdai_imports": 0, "changes": 2},
+        {"module": "chat_evidence_enrichment.py", "direct_python_consumers": 11, "fdai_imports": 24, "changes": 16},
+        {"module": "chat_evidence_pipeline.py", "direct_python_consumers": 5, "fdai_imports": 17, "changes": 11},
+        {"module": "chat_evidence_provenance.py", "direct_python_consumers": 1, "fdai_imports": 1, "changes": 1}
+      ],
+      "rationale": "request-local read-only evidence family after claims, verification, and presentation ownership were established",
+      "rollback": "restore route implementations and redirect the evidence facade without changing JSON, SSE, authentication, or history contracts"
     }
   ],
   "reviewed_fallback_modules": [
@@ -354,6 +375,11 @@
       "module": "fdai.delivery.operator_api.projections.conversation.inventory",
       "classification": "internal-implementation",
       "migration": "owned read-only inventory result and deterministic rendering facade"
+        },
+        {
+      "module": "fdai.delivery.operator_api.application.conversation.evidence",
+      "classification": "internal-implementation",
+      "migration": "owned read-only evidence resolution and authority-preserving merge facade for conversation consumers"
     },
     {
       "module": "fdai.delivery.operator_api.routes.chat_verification",

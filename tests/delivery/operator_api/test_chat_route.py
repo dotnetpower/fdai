@@ -51,13 +51,15 @@ from fdai.delivery.operator_api.application.conversation.backend import (
     ChatBackendUnavailableError,
     ChatContentPolicyError,
 )
+from fdai.delivery.operator_api.application.conversation.evidence import (
+    OperationalEvidenceResolver,
+)
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes import chat_registration
 from fdai.delivery.operator_api.routes.chat import (
     make_chat_route,
     make_chat_stream_route,
 )
-from fdai.delivery.operator_api.routes.chat_evidence import OperationalEvidenceResolver
 from fdai.delivery.operator_api.routes.chat_registration import append_chat_routes
 from fdai.shared.providers.conversation_channel import ChannelAttachment
 from fdai.shared.providers.document_ingestion import DocumentAccessDeniedError

@@ -16,6 +16,26 @@ from fdai.core.read_investigation import (
     resource_name_from_question,
 )
 from fdai.delivery.agent_introspection_bus import addressed_agent
+from fdai.delivery.operator_api.application.conversation.evidence.branches import (
+    EvidenceBranchKind,
+    EvidenceBranchResult,
+    EvidenceBranchStatus,
+)
+from fdai.delivery.operator_api.application.conversation.evidence.operational import (
+    needs_operational_evidence,
+)
+from fdai.delivery.operator_api.application.conversation.evidence.provenance import (
+    _delegation_summary as _delegation_summary,
+)
+from fdai.delivery.operator_api.application.conversation.evidence.provenance import (
+    _retrieval_source_previews as _retrieval_source_previews,
+)
+from fdai.delivery.operator_api.application.conversation.evidence.provenance import (
+    _tool_matches_current_route as _tool_matches_current_route,
+)
+from fdai.delivery.operator_api.application.conversation.evidence.provenance import (
+    _web_search_summary as _web_search_summary,
+)
 from fdai.delivery.operator_api.projections.conversation.inventory import (
     inventory_screen_scope_unavailable_evidence,
     needs_inventory_evidence,
@@ -25,24 +45,6 @@ from fdai.delivery.operator_api.routes.chat_conversation_context import (
     needs_conversation_context,
 )
 from fdai.delivery.operator_api.routes.chat_data_sources import needs_read_source_evidence
-from fdai.delivery.operator_api.routes.chat_evidence import needs_operational_evidence
-from fdai.delivery.operator_api.routes.chat_evidence_branches import (
-    EvidenceBranchKind,
-    EvidenceBranchResult,
-    EvidenceBranchStatus,
-)
-from fdai.delivery.operator_api.routes.chat_evidence_provenance import (
-    _delegation_summary as _delegation_summary,
-)
-from fdai.delivery.operator_api.routes.chat_evidence_provenance import (
-    _retrieval_source_previews as _retrieval_source_previews,
-)
-from fdai.delivery.operator_api.routes.chat_evidence_provenance import (
-    _tool_matches_current_route as _tool_matches_current_route,
-)
-from fdai.delivery.operator_api.routes.chat_evidence_provenance import (
-    _web_search_summary as _web_search_summary,
-)
 from fdai.delivery.operator_api.routes.chat_llm_usage import (
     is_llm_usage_followup,
     needs_llm_usage,

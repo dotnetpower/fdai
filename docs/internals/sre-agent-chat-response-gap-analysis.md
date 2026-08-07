@@ -264,7 +264,7 @@ FDAI implementation evidence:
 - `src/fdai/core/read_investigation/routing.py`
 - `src/fdai/core/conversation/answer_plan.py`
 - `src/fdai/delivery/operator_api/routes/read_investigation_responder.py`
-- `src/fdai/delivery/operator_api/routes/chat_evidence.py`
+- `src/fdai/delivery/operator_api/application/conversation/evidence/operational.py`
 - `src/fdai/delivery/operator_api/routes/chat_inventory.py`
 - `src/fdai/delivery/operator_api/routes/chat_log_query.py`
 - `src/fdai/delivery/operator_api/routes/chat_subscription_health.py`

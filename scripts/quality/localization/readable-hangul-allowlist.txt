@@ -2,6 +2,8 @@
 src/fdai/delivery/operator_api/routes/chat_answer_quality.py	[\u1100-\u11ff\u3130-\u318f\uac00-\ud7a3]
 # Unicode block boundaries keep word-token extraction explicit and reviewable.
 src/fdai/delivery/operator_api/application/conversation/claims/text.py	[\uac00-\ud7a3]
+# Conversation evidence uses readable NFC UTF-8 terms and requires no escape exception.
+# Keep src/fdai/delivery/operator_api/application/conversation/evidence/ out of this allowlist.
 # Unicode block boundaries classify Korean script independently of display wording.
 src/fdai/delivery/operator_api/routes/chat_prompt.py	[\u1100-\u11ff\u3130-\u318f\uac00-\ud7a3]
 # Unicode block boundaries select Korean locale without embedding a prose token.

@@ -1,6 +1,6 @@
 import json
 
-from fdai.delivery.operator_api.routes.chat_evidence_enrichment import (
+from fdai.delivery.operator_api.application.conversation.evidence.enrichment import (
     _inventory_provider_progress_events,
 )
 

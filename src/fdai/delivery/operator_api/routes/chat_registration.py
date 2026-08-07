@@ -30,6 +30,9 @@ from fdai.delivery.operator_api.application.conversation.capabilities.inventory 
     InventorySemanticResolver,
     KubernetesWorkloadProvider,
 )
+from fdai.delivery.operator_api.application.conversation.evidence import (
+    OperationalEvidenceResolver,
+)
 from fdai.delivery.operator_api.read_model import ConsoleReadModel
 from fdai.delivery.operator_api.routes.busy_input import make_busy_input_routes
 from fdai.delivery.operator_api.routes.busy_input_runtime import BusyInputRuntime
@@ -55,7 +58,6 @@ from fdai.delivery.operator_api.routes.chat_current_time import CurrentTimeChatT
 from fdai.delivery.operator_api.routes.chat_data_sources import DataSourceChatTools
 from fdai.delivery.operator_api.routes.chat_detection_readiness import DetectionReadinessChatTools
 from fdai.delivery.operator_api.routes.chat_document_evidence import ChatDocumentEvidenceResolver
-from fdai.delivery.operator_api.routes.chat_evidence import OperationalEvidenceResolver
 from fdai.delivery.operator_api.routes.chat_intent_graph import BackendIntentGraphPlanner
 from fdai.delivery.operator_api.routes.chat_llm_usage import (
     LlmUsageChatTools,

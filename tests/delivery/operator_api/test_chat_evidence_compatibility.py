@@ -9,8 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from fdai.agents import PantheonRuntime
-from fdai.delivery.operator_api.routes.chat_agent_delegate import PantheonChatDelegate
-from fdai.delivery.operator_api.routes.chat_evidence_enrichment import (
+from fdai.delivery.operator_api.application.conversation.evidence.enrichment import (
     _tool_execution_progress_event,
     _tool_execution_progress_events,
     _with_agent_evidence,
@@ -18,6 +17,7 @@ from fdai.delivery.operator_api.routes.chat_evidence_enrichment import (
     _with_screen_scope,
     _with_web_evidence,
 )
+from fdai.delivery.operator_api.routes.chat_agent_delegate import PantheonChatDelegate
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
 CONTEXT = {
@@ -343,7 +343,7 @@ async def test_uninspectable_resolver_uses_current_context_contract() -> None:
     resolver = _ContextResolver()
 
     with patch(
-        "fdai.delivery.operator_api.routes.chat_evidence_enrichment.signature",
+        "fdai.delivery.operator_api.application.conversation.evidence.enrichment.signature",
         side_effect=ValueError("signature unavailable"),
     ):
         await _with_operational_evidence(

@@ -12,14 +12,14 @@ from starlette.testclient import TestClient
 from fdai.core.conversation.answer_plan import AnswerIntent
 from fdai.core.rbac.resolver import GroupMapping, RoleResolver
 from fdai.delivery.operator_api.app.config import OperatorApiConfig
+from fdai.delivery.operator_api.application.conversation.evidence import (
+    resolve_parallel_chat_evidence,
+)
 from fdai.delivery.operator_api.auth import UnsafeClaimsExtractor, build_authenticator
 from fdai.delivery.operator_api.dev.data_sources import build_local_data_sources
 from fdai.delivery.operator_api.main import build_app
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes.chat_data_sources import DataSourceChatTools
-from fdai.delivery.operator_api.routes.chat_evidence_pipeline import (
-    resolve_parallel_chat_evidence,
-)
 from fdai.delivery.operator_api.routes.chat_intent_graph import (
     ActionPosture,
     EvidenceMode,

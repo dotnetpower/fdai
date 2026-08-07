@@ -170,6 +170,23 @@ internal implementation or test imports, so no compatibility shim remains.
 Rollback restores the five backend modules under `routes/`, then redirects the application and
 adapter facades to those restored owners without changing auth, provider scope, JSON, or SSE.
 
+### Conversation evidence application boundary
+
+The SD-01 evidence slice owns read-only operational evidence resolution, provenance projection,
+bounded branch lifecycle, and authority-preserving result merge under
+`fdai.delivery.operator_api.application.conversation.evidence`. Operational lookup continues to
+read the authorized server read model and retains the exact `matched`, `summary`, `ambiguous`,
+`none`, and `unavailable` outcomes. Missing, conflicting, or unselected evidence remains explicit
+instead of falling through to an unsupported answer.
+
+Independent branches still complete concurrently and return in canonical specification order. The
+merge keeps the established tool, operational, agent, and public-web authority precedence, while
+JSON and SSE routes continue to own authentication, request parsing, HTTP status mapping, frame
+sequence and revision, cancellation, terminal assembly, and conversation history. All old
+`routes.chat_evidence*` consumers were internal source or test imports and moved in this slice, so
+no compatibility shim remains. Rollback restores the five route implementations and redirects the
+evidence facade without changing JSON, SSE, authentication, evidence authority, or history.
+
 ### Immutable app composition
 
 Issue 72 keeps `OperatorApiConfig(**kwargs)` as the bounded compatibility constructor and projects
@@ -205,6 +222,7 @@ reverses physical ownership without a wire or caller migration.
 | `application/conversation/backend/` | Provider-neutral backend contracts and request-local latency routing | Import through its explicit facade; keep provider implementations in adapters. |
 | `application/conversation/claims/` | Deterministic answer-claim extraction and bounded evidence verification | Import through its explicit package facade; keep JSON, SSE, and authentication in routes. |
 | `application/conversation/verification/` | Deterministic terminal answer verification and bounded evidence rendering | Import through its explicit package facade; keep wire behavior and authentication in routes. |
+| `application/conversation/evidence/` | Operational evidence resolution, provenance, branch lifecycle, and authority-preserving merge | Import through its explicit package facade; keep JSON, SSE, authentication, cancellation, and history in routes. |
 | `dev/` | Interactive local and test-only provider composition | Keep unavailable to production imports. |
 | `dev/fixtures/` | Synthetic pytest-only fixtures | Keep outside production composition. |
 | `persistence/` | Operator API read-model implementations and projections | Retain behind owned read contracts. |
@@ -287,6 +305,9 @@ a separately reviewed boundary.
 - `application/conversation/capabilities/inventory/` owns typed inventory queries, compilation,
   semantic grounding, and provider-read coordination. It does not own HTTP, SSE, authentication,
   history, rendering, or inventory writes.
+- `application/conversation/evidence/` owns read-only operational evidence resolution, provenance,
+  canonical branch ordering, and authority-preserving merge. It does not own HTTP, SSE,
+  authentication, cancellation, history, or durable state.
 - `projections/conversation/presentation/` owns value-free presentation plans, verified evidence
   artifact compilation, bounds, and localized labels. It does not own HTTP, SSE, authentication,
   cancellation, terminal delivery, or durable state.

@@ -19,9 +19,11 @@ from fdai.delivery.operator_api.adapters.conversation import (
     OpenAiCompatibleChatBackendConfig,
 )
 from fdai.delivery.operator_api.application.conversation.backend import LatencyRoutedChatBackend
+from fdai.delivery.operator_api.application.conversation.evidence import (
+    resolve_parallel_chat_evidence,
+)
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes.chat import make_chat_route
-from fdai.delivery.operator_api.routes.chat_evidence_pipeline import resolve_parallel_chat_evidence
 from fdai.delivery.operator_api.routes.chat_intent_graph import IntentGraph, parse_intent_graph
 from fdai.delivery.operator_api.routes.chat_model_trace import (
     activate_model_trace,

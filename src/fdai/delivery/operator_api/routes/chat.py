@@ -54,6 +54,32 @@ from fdai.delivery.operator_api.application.conversation.capabilities.inventory.
     contextualize_inventory_scope_followup,
     contextualize_inventory_screen_scope,
 )
+from fdai.delivery.operator_api.application.conversation.evidence import (
+    AgentChatDelegate,
+    ChatBehaviorEvidenceResolver,
+    ChatToolResolver,
+    ChatWebSearchEvidenceResolver,
+    OperationalEvidenceResolverProtocol,
+    PlannedChatToolResolver,
+    has_bound_incident_analysis_context,
+    has_screen_incident_analysis_context,
+    needs_operational_evidence,
+    resolve_parallel_chat_evidence,
+)
+from fdai.delivery.operator_api.application.conversation.evidence.enrichment import (
+    _delegation_summary,
+    _explicit_agent_requested,
+    _retrieval_source_previews,
+    _screen_incident_context,
+    _tool_matches_current_route,
+    _web_search_summary,
+    _with_agent_evidence,
+    _with_behavior_evidence,
+    _with_operational_evidence,
+    _with_screen_scope,
+    _with_tool_evidence,
+    _with_web_evidence,
+)
 from fdai.delivery.operator_api.application.conversation.verification import (
     AnswerVerification,
     verify_answer,
@@ -94,32 +120,6 @@ from fdai.delivery.operator_api.routes.chat_document_evidence import (
     merge_document_verification,
     resolve_document_refs,
     with_document_evidence,
-)
-from fdai.delivery.operator_api.routes.chat_evidence import needs_operational_evidence
-from fdai.delivery.operator_api.routes.chat_evidence_enrichment import (
-    AgentChatDelegate,
-    ChatBehaviorEvidenceResolver,
-    ChatToolResolver,
-    ChatWebSearchEvidenceResolver,
-    OperationalEvidenceResolverProtocol,
-    PlannedChatToolResolver,
-    _delegation_summary,
-    _explicit_agent_requested,
-    _retrieval_source_previews,
-    _screen_incident_context,
-    _tool_matches_current_route,
-    _web_search_summary,
-    _with_agent_evidence,
-    _with_behavior_evidence,
-    _with_operational_evidence,
-    _with_screen_scope,
-    _with_tool_evidence,
-    _with_web_evidence,
-)
-from fdai.delivery.operator_api.routes.chat_evidence_pipeline import (
-    has_bound_incident_analysis_context,
-    has_screen_incident_analysis_context,
-    resolve_parallel_chat_evidence,
 )
 from fdai.delivery.operator_api.routes.chat_freshness_context import (
     freshness_evidence_refs,

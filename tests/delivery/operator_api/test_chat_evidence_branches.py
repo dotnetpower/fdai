@@ -9,18 +9,16 @@ from typing import Any
 
 import pytest
 
-from fdai.delivery.operator_api.routes.chat_evidence_branches import (
+from fdai.delivery.operator_api.application.conversation.evidence import (
     EvidenceBranchKind,
     EvidenceBranchResult,
     EvidenceBranchSpec,
     EvidenceBranchStatus,
     resolve_evidence_branches,
-)
-from fdai.delivery.operator_api.routes.chat_evidence_enrichment import (
-    merge_evidence_branch_results,
-)
-from fdai.delivery.operator_api.routes.chat_evidence_pipeline import (
     resolve_parallel_chat_evidence,
+)
+from fdai.delivery.operator_api.application.conversation.evidence.enrichment import (
+    merge_evidence_branch_results,
 )
 
 
@@ -154,7 +152,7 @@ async def test_validation_rejection_is_unavailable_without_warning(
 
     with caplog.at_level(
         logging.INFO,
-        logger="fdai.delivery.operator_api.routes.chat_evidence_branches",
+        logger="fdai.delivery.operator_api.application.conversation.evidence.branches",
     ):
         results = await resolve_evidence_branches(
             request_id="request-rejected",
