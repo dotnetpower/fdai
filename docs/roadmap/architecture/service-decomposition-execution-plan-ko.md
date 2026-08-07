@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 71fc90a083369bb3f8632f62946b9b174c7c1281
+translation_source_sha: ca22c53915c64137e4f6f26ca5b1ae77916393f0
 translation_revised: 2026-08-07
 ---
 # 서비스 분해 실행 계획
@@ -38,9 +38,9 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 
 | 상태 | 개수 | 의미 |
 |------|------|------|
-| 완료 | 5 | Exit evidence와 focused validation을 기록했습니다. |
-| 진행 중 | 2 | SD-01과 SD-03은 persistent isolated worktree에서 실행 중입니다. |
-| 계획됨 | 2 | 작업을 시작하지 않았거나 ownership handoff가 대기 중입니다. |
+| 완료 | 6 | SD-00, SD-01, SD-02, SD-04, SD-05, SD-06의 exit evidence와 focused validation을 기록했습니다. |
+| 진행 중 | 1 | SD-03은 persistent isolated worktree에서 계속 진행 중입니다. |
+| 계획됨 | 2 | SD-08과 SD-09는 시작하지 않았습니다. |
 | 차단됨 | 1 | SD-07은 live dispatch 전에 centralized validation receipt와 push 가능한 remote commit을 기다립니다. |
 
 마지막 업데이트: 2026-08-07.
@@ -50,7 +50,7 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 | 완료 | ID | Work package | Dependency | 병렬 lane | Exit evidence |
 |------|----|--------------|------------|-----------|---------------|
 | [x] | SD-00 | Canonical 문서와 machine manifest에서 5개 service topology, owner, contract, writer, identity, baseline test, rollback unit을 고정합니다. | 없음 | 직렬 | 검토된 topology와 ownership record, baseline check receipt |
-| [ ] | SD-01 | JSON, SSE, authentication, history behavior를 변경하지 않고 Operator route family를 transport, application, projection, adapter, streaming, persistence package로 분해합니다. | SD-00 | A | 고정된 route contract와 package-boundary check |
+| [x] | SD-01 | JSON, SSE, authentication, history behavior를 변경하지 않고 Operator route family를 transport, application, projection, adapter, streaming, persistence package로 분해합니다. | SD-00 | A | 고정된 route contract와 package-boundary check |
 | [x] | SD-02 | Core composition, Thor execution, Saga audit intent와 closure, Vidar recovery를 명시적으로 주입된 port 뒤로 분리합니다. | SD-00 | A | Authority regression과 import-boundary receipt |
 | [ ] | SD-03 | Ingestion API와 Worker identity, database grant, claim, duplicate/reorder behavior, restart recovery, probe, co-host rollback을 강화합니다. | SD-00 | A | Role test와 15분 이내 rollback rehearsal |
 | [x] | SD-04 | Canonical ontology release 배포, exact reference pinning, N/N-1 compatibility, projection-writer ownership, mismatch rejection, replay, rollback을 추가합니다. | SD-00 | B | Cross-service ontology compatibility와 semantic regression receipt |
@@ -97,7 +97,7 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 
 | 예약 | 현재 owner | 예약 path | 해제 조건 |
 |------|------------|-----------|-----------|
-| SD-01 final route closure | `/home/moonchoi/dev/fdai-worktrees/sd01-turn-execution`의 persistent worker | `routes/chat.py`, `routes/chat_stream.py`, `application/conversation` 아래의 새롭거나 기존인 explicit typed application coordinator destination(구현 후 `turn_execution` 또는 `turn_runtime` naming 선호), 해당 JSON/SSE test, structural boundary test, Operator module inventory/map 쌍 및 SD-01 evidence | 두 route body에 transport, authentication, request parsing, status, frame 및 cancellation 책임만 남고 planning, evidence, persistence 또는 metering lifecycle orchestration이 없어졌을 때만 해제합니다. JSON, SSE, authentication, cancellation, history 및 route contract를 변경하지 않고 application/projection/persistence-to-route import 0을 유지합니다. |
+| SD-01 completed route closure | `main`의 integration owner가 관리하며 handoff된 worker는 `/home/moonchoi/dev/fdai-worktrees/sd01-turn-execution`에 read-only로 유지합니다. | 예약된 source path가 없습니다. 이전 `/home/moonchoi/dev/fdai-worktrees/sd01-route-closure` worktree는 read-only이며 예약되지 않은 상태로 유지합니다. 이 worktree의 untracked worker-local `chat_route_common.py` artifact를 부수적으로 merge하거나 정리하지 않습니다. | Transport-only route ownership, application lifecycle ownership, 변경되지 않은 wire behavior, reverse import 0이 focused validation과 독립 review를 통과한 후 완료하고 해제했습니다. |
 | SD-03 effective access와 rollback | `/home/moonchoi/dev/fdai-worktrees/sd03-effective-access`의 기존 SD-03 isolated session | Ingestion runtime, ingestion 전용 Terraform, access probe와 해당 test | Effective-access proof와 rollback evidence를 integration owner에게 handoff |
 | SD-06 completed lineage | `main`의 integration owner. 이전 core, projection, hardening worker는 read-only로 유지합니다. | `d4e430d60` 후 모든 SD-06 구현 path를 해제했습니다. | Canonical lineage, provider compatibility, decision/resilience trace, candidate-only learning, bounded Operator projection 및 critique round 14회가 focused validation을 통과하고 Medium 이상 residual이 없음을 증명합니다. Execution 및 promotion authority는 0을 유지합니다. |
 | SD-07 serial finish | `main`의 integration owner. 이전 worker는 `/home/moonchoi/dev/fdai-worktrees/sd07-shadow-executor`에 유지합니다. | `infra/modules/isolated-executor/**`, `infra/main.tf`/`infra/variables.tf`/`infra/outputs.tf`의 SD-07 전용 block, `.github/workflows/deploy-dev.yml`의 `deploy_isolated_executor` block, 해당 Terraform/workflow test, production composition 및 paired docs | Effect authority 없이 shadow deployment evidence를 기록하고 ingestion module과 모든 SD-03 소유 Terraform hunk를 피하며 handoff 후 해제된 worker는 read-only로 유지합니다. |
@@ -152,6 +152,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-07 | SD-07 | 차단됨 | `f3eb25593`, live gate | Private-runner workflow가 `deploy_isolated_executor`를 노출하고 plan-only 기본값과 design-mocks exclusivity를 보존하며 apply 후 app revision을 검증합니다. Workflow test 24개가 통과했습니다. 상태 commit 직전 측정에서 shared queue pending commit 575개와 `origin/main`보다 50 commit 앞선 local `main`을 기록했으므로 live dispatch는 Integration Validator를 기다립니다. 다음 반증 check는 SD-07 commit의 exact validation receipt와 성공한 push이며 그 후에만 plan-only workflow를 실행합니다. |
 | 2026-08-07 | SD-06 | 완료 | `3d601afbe`, Low residual 후속 조치 | 잘못된 GitHub deployment timestamp는 계속 fail closed하며 이제 provider, record type, reason field만 포함하는 redacted structured warning 하나를 기록합니다. Provider row value, repository identity 및 commit ref는 log에 남기지 않습니다. GitHub change-feed test 9개, Ruff 및 strict mypy가 통과했습니다. 남은 Low residual은 authorized detail projection의 content digest와 400줄 advisory를 1줄 넘는 lineage model입니다. |
 | 2026-08-07 | SD-06 | 완료 | `7dca0e720`, `fe1664664`, `e70273d45`, 최종 Low-only 후속 조치 | Canonical identity serialization을 focused module로 이동하고 exact digest snapshot을 추가해 aggregate lineage model을 401줄에서 340줄로 줄였습니다. Summary/detail direct construction은 forged lineage, candidate, assessment 및 target digest shape를 차단하며 bounded evidence는 canonical assessment reference를 항상 보존합니다. Exact `main`에서 focused lineage/projection/GitHub test 46개, Ruff, strict mypy, Operator boundary gate, signed framework integrity 및 editor diagnostics가 통과했습니다. 독립 review는 Medium 이상 또는 재현 가능한 Low defect가 없음을 확인했습니다. Coarse clock을 위한 non-decreasing equal timestamp는 계속 유효하고 긴 provider identity는 core에서 유효하지만 Operator projection은 display bound를 넘으면 거부하며 authorized content-digest visibility는 HTTP, persistence, provider I/O, execution 또는 promotion path가 없는 의도된 Low replay reference로 유지합니다. |
+| 2026-08-07 | SD-01 | 완료 | `e141ab07e`, `d741d40e4`, `2de2c15f1`, `2c9bbd89f`, 최종 독립 review | `e141ab07e`에서 partial structural closure를 수립하고 `d741d40e4`에서 typed JSON execution, `2de2c15f1`에서 typed SSE execution, `2c9bbd89f`에서 structural boundary와 문서를 고정했습니다. SSE 통합 후 main union test 283개와 focused structural closure test 114개가 통과했습니다. 정확한 route inventory는 `chat.py`, `chat_registration.py`, `chat_stream.py`, `chat_stream_protocol.py`, `chat_stream_request.py`, `chat_verification.py`이며 `chat.py`는 259 LOC, `chat_stream.py`는 211 LOC입니다. Application, projection, persistence의 routes reverse import는 0이고 `turn_execution`의 Starlette, routes, concrete adapter import도 0입니다. Ruff와 strict mypy가 green이며 translation은 175/175를 통과했습니다. JSON/SSE transport, authentication, request parsing, status mapping, frame sequencing, cancellation은 route가 소유하고 planning, evidence, generation, verification, persistence, metering lifecycle coordination은 application이 소유합니다. Wire, replay, interruption, history behavior를 보존했습니다. 최종 독립 review는 Medium 이상 finding 0건과 Low residual 1건을 확인했습니다. 구현이 없는 `routes/chat_verification.py` compatibility facade는 catalog/source-path compatibility를 위해 남아 있으며 SD-09 cleanup candidate이고 완료 blocker가 아닙니다. |
 
 ## 관련 문서
 

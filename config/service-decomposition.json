@@ -37,7 +37,7 @@
     },
     {
       "id": "SD-01",
-      "status": "in_progress",
+      "status": "completed",
       "dependencies": ["SD-00"],
       "parallel_lane": "A"
     },
