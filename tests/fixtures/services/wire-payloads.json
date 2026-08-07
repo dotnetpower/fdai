@@ -1,0 +1,131 @@
+[
+  {
+    "contract_id": "operator-core-request",
+    "producer_release": "N",
+    "payload": {
+      "schema_version": "1.1.0",
+      "request_id": "00000000-0000-0000-0000-000000000101",
+      "correlation_id": "correlation-101",
+      "idempotency_key": "operator-request-101",
+      "resource_ref": "resource:example-101",
+      "request_kind": "proposal",
+      "requested_at": "2026-08-08T01:00:00Z",
+      "context_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  {
+    "contract_id": "core-operator-projection",
+    "producer_release": "N",
+    "payload": {
+      "schema_version": "1.1.0",
+      "projection_id": "00000000-0000-0000-0000-000000000102",
+      "request_id": "00000000-0000-0000-0000-000000000101",
+      "correlation_id": "correlation-101",
+      "idempotency_key": "core-projection-102",
+      "status": "accepted",
+      "recorded_at": "2026-08-08T01:00:01Z",
+      "payload": {"decision_ref": "decision:example-102"},
+      "evidence_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  },
+  {
+    "contract_id": "document-ingestion-activity",
+    "producer_release": "N",
+    "payload": {
+      "schema_version": "1.1.0",
+      "activity_id": "00000000-0000-0000-0000-000000000103",
+      "upload_id": "00000000-0000-0000-0000-000000000104",
+      "document_id": "document-example-104",
+      "idempotency_key": "document.received:version-104",
+      "sequence": 1,
+      "action": "document.received",
+      "occurred_at": "2026-08-08T01:00:02Z",
+      "record": {"version_id": "version-104"},
+      "record_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  },
+  {
+    "contract_id": "document-worker-audit",
+    "producer_release": "N",
+    "payload": {
+      "schema_version": "1.0.0",
+      "producer_principal": "Saga",
+      "kind": "document_ingestion",
+      "audited_topic": "object.verdict",
+      "correlation_id": "correlation-104",
+      "idempotency_key": "audit-104",
+      "stage": "received",
+      "decision": "admit",
+      "document_id": "document-example-104",
+      "upload_id": "00000000-0000-0000-0000-000000000104"
+    }
+  },
+  {
+    "contract_id": "document-worker-index",
+    "producer_release": "N",
+    "payload": {
+      "schema_version": "1.0.0",
+      "producer_principal": "Muninn",
+      "kind": "document_ingestion",
+      "stage": "indexing",
+      "command": "index",
+      "correlation_id": "correlation-104",
+      "idempotency_key": "index-104",
+      "resource_id": "resource:document-104",
+      "document_id": "document-example-104",
+      "upload_id": "00000000-0000-0000-0000-000000000104"
+    }
+  },
+  {
+    "contract_id": "executor-command",
+    "producer_release": "N",
+    "payload": {
+      "schema_version": "1.0.0",
+      "command_id": "00000000-0000-0000-0000-000000000105",
+      "action_schema_version": "1.0.0",
+      "action_id": "00000000-0000-0000-0000-000000000106",
+      "event_id": "00000000-0000-0000-0000-000000000107",
+      "idempotency_key": "executor-action-106",
+      "target_resource_ref": "resource:example-106",
+      "partition_key": "resource:example-106",
+      "execution_path": "direct_api",
+      "requested_mode": "shadow",
+      "attempt": 1,
+      "issued_at": "2026-08-08T01:00:03Z",
+      "deadline_at": "2026-08-08T01:01:03Z",
+      "action_payload_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "action_payload": {
+        "schema_version": "1.0.0",
+        "action_id": "00000000-0000-0000-0000-000000000106",
+        "event_id": "00000000-0000-0000-0000-000000000107",
+        "idempotency_key": "executor-action-106",
+        "target_resource_ref": "resource:example-106",
+        "mode": "shadow"
+      }
+    }
+  },
+  {
+    "contract_id": "executor-receipt",
+    "producer_release": "N",
+    "payload": {
+      "schema_version": "1.1.0",
+      "receipt_id": "00000000-0000-0000-0000-000000000108",
+      "command_id": "00000000-0000-0000-0000-000000000105",
+      "action_id": "00000000-0000-0000-0000-000000000106",
+      "idempotency_key": "executor-action-106",
+      "attempt": 1,
+      "action_payload_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "requested_mode": "shadow",
+      "status": "dispatched",
+      "reason": null,
+      "executor_instance_id": "executor-instance-example",
+      "received_at": "2026-08-08T01:00:04Z",
+      "completed_at": "2026-08-08T01:00:05Z",
+      "effect_applied": true,
+      "effect_verified": false,
+      "rollback_succeeded": null,
+      "provider_receipt_ref": "provider-receipt:example-108",
+      "audit_ref": "audit:example-108"
+    }
+  }
+]

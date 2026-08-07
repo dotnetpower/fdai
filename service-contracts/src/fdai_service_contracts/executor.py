@@ -41,9 +41,9 @@ class DirectApiExecutionResultLike(Protocol):
 
 __all__ = [
     "CORE_EXECUTOR_RECEIPT_CONSUMER_GROUP",
-    "DirectApiExecutionResultLike",
     "EXECUTOR_COMMAND_TOPIC",
     "EXECUTOR_CONSUMER_GROUP",
     "EXECUTOR_RECEIPT_TOPIC",
+    "DirectApiExecutionResultLike",
     "ExecutionOutcomeValue",
 ]

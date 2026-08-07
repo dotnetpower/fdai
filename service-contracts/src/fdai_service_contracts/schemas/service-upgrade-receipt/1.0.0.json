@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/service-upgrade-receipt/1.0.0",
+  "title": "ServiceUpgradeReceipt",
+  "description": "Peer-stable evidence for one independent service migration or rollback.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_version",
+    "receipt_id",
+    "service_id",
+    "direction",
+    "from_version",
+    "to_version",
+    "idempotency_key",
+    "matrix_digest",
+    "peer_versions_before",
+    "peer_versions_after",
+    "peer_restart_count",
+    "duplicate_terminal_effects",
+    "offsets_preserved",
+    "checks",
+    "started_at",
+    "completed_at",
+    "proof_kind",
+    "outcome"
+  ],
+  "properties": {
+    "receipt_version": {"const": "1.0.0"},
+    "receipt_id": {"type": "string", "format": "uuid"},
+    "service_id": {
+      "type": "string",
+      "enum": [
+        "core-control-plane",
+        "operator-service",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor"
+      ]
+    },
+    "direction": {"type": "string", "enum": ["migration", "rollback"]},
+    "from_version": {"type": "string", "pattern": "^1\\.\\d+\\.\\d+$"},
+    "to_version": {"type": "string", "pattern": "^1\\.\\d+\\.\\d+$"},
+    "idempotency_key": {"type": "string", "minLength": 1, "maxLength": 512},
+    "matrix_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+    "peer_versions_before": {"$ref": "#/$defs/peerVersions"},
+    "peer_versions_after": {"$ref": "#/$defs/peerVersions"},
+    "peer_restart_count": {"const": 0},
+    "duplicate_terminal_effects": {"const": 0},
+    "offsets_preserved": {"const": true},
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "additive_fields",
+        "duplicate_delivery",
+        "health",
+        "idempotency",
+        "matrix",
+        "reordered_delivery",
+        "unsupported_major_rejection"
+      ],
+      "properties": {
+        "additive_fields": {"const": true},
+        "duplicate_delivery": {"const": true},
+        "health": {"const": true},
+        "idempotency": {"const": true},
+        "matrix": {"const": true},
+        "reordered_delivery": {"const": true},
+        "unsupported_major_rejection": {"const": true}
+      }
+    },
+    "started_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": "string", "format": "date-time"},
+    "proof_kind": {"type": "string", "enum": ["focused", "live"]},
+    "outcome": {"const": "stable"}
+  },
+  "$defs": {
+    "peerVersions": {
+      "type": "object",
+      "minProperties": 4,
+      "maxProperties": 4,
+      "propertyNames": {
+        "enum": [
+          "core-control-plane",
+          "operator-service",
+          "document-ingestion-api",
+          "document-processing-worker",
+          "isolated-executor"
+        ]
+      },
+      "additionalProperties": {"type": "string", "pattern": "^1\\.\\d+\\.\\d+$"}
+    }
+  }
+}
