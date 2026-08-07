@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -73,7 +75,9 @@ async def test_empty_change_feed_returns_nothing() -> None:
     assert out == ()
 
 
-def _feed(handler) -> tuple[GitHubChangeFeed, httpx.AsyncClient]:
+def _feed(
+    handler: Callable[[httpx.Request], Coroutine[None, None, httpx.Response]],
+) -> tuple[GitHubChangeFeed, httpx.AsyncClient]:
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     feed = GitHubChangeFeed(
         config=GitHubChangeFeedConfig(repository="acme/app", environment="production"),
@@ -140,6 +144,43 @@ async def test_github_feed_http_error_fails_closed() -> None:
             await feed.recent(since=_INCIDENT_AT - timedelta(hours=1), until=_INCIDENT_AT)
     finally:
         await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_github_feed_warns_when_invalid_timestamp_is_skipped(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "id": 7,
+                    "sha": "sensitive-provider-value",
+                    "environment": "production",
+                    "created_at": "not-a-timestamp",
+                }
+            ],
+        )
+
+    feed, client = _feed(handler)
+    try:
+        with caplog.at_level(logging.WARNING, logger="fdai.delivery.github.change_feed"):
+            records = await feed.recent(
+                since=_INCIDENT_AT - timedelta(hours=1),
+                until=_INCIDENT_AT,
+            )
+    finally:
+        await client.aclose()
+
+    assert records == []
+    assert len(caplog.records) == 1
+    warning = caplog.records[0]
+    assert warning.message == "github_change_feed_record_skipped"
+    assert warning.__dict__["provider"] == "github"
+    assert warning.__dict__["record_type"] == "deployment"
+    assert warning.__dict__["reason"] == "invalid_created_at"
+    assert "sensitive-provider-value" not in caplog.text
 
 
 def test_github_config_validation() -> None:

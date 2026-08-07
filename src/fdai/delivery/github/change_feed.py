@@ -15,13 +15,15 @@ Design boundaries mirror the other ``delivery`` adapters:
   callable so a fork can source it from Key Vault, a GitHub App installation
   token, or a workload identity federation exchange without this module
   importing any secret SDK.
-- Fail-closed: a non-2xx response or malformed payload raises
-  :class:`ChangeFeedError`; RCA then correlates over whatever it already
-  has rather than blocking on the feed.
+- Fail-closed: a non-2xx response or malformed payload envelope raises
+    :class:`ChangeFeedError`; malformed deployment records are skipped with a
+    redacted structured warning. RCA then correlates over whatever it already
+    has rather than blocking on the feed.
 """
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -34,6 +36,7 @@ from fdai.shared.providers.change_feed import ChangeFeedError, ChangeRecord
 _DEFAULT_API: Final[str] = "https://api.github.com"
 _DEFAULT_TIMEOUT_SECONDS: Final[float] = 20.0
 _DEFAULT_MAX_RECORDS: Final[int] = 200
+_LOGGER = logging.getLogger(__name__)
 
 TokenProvider = Callable[[], Awaitable[str]]
 
@@ -154,6 +157,14 @@ class GitHubChangeFeed:
             return None
         at = _parse_ts(row.get("created_at"))
         if at is None:
+            _LOGGER.warning(
+                "github_change_feed_record_skipped",
+                extra={
+                    "provider": "github",
+                    "record_type": "deployment",
+                    "reason": "invalid_created_at",
+                },
+            )
             return None
         sha = str(row.get("sha", ""))[:12]
         env = str(row.get("environment", ""))
