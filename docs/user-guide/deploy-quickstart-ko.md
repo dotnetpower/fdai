@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: f5eb24d6ce47869248b894539f96d98fe397a3b4
+translation_source_sha: cf05a20ef496a0d5b4200d93a28c9f3d01f1e6fa
 translation_revised: 2026-08-07
 ---
 
@@ -47,7 +47,8 @@ Azure-services 방화벽 규칙을 없애는 것 하나뿐입니다. plan에 같
 
 개발 운영 gateway가 보호된 targeted plan을 사용한다면 AI account와 role collection이 모두
 포함됐는지 확인하세요. 그래야 network 및 authorization 변경이 같은 apply에서 수렴하고
-post-apply plan이 남지 않습니다.
+post-apply plan이 남지 않습니다. `deploy_isolated_executor`도 선택했다면 isolated Executor
+module과 해당 dependency graph가 targeted plan에 나타나는지 확인하세요.
 
 <!-- fdai:tabs -->
 

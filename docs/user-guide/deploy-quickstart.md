@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 3518a52d8e32382ccdf79f7e0e87f0cc6422ba18 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: d2d0d186812839c409e944c84db0deabb394de05 }]
 ---
 
 # Deploy Quickstart
@@ -50,7 +50,9 @@ replacement at that address, or any other delete, stop the apply.
 
 When the development operations gateway uses a protected targeted plan, verify that the AI
 account and its role collection are both present. This lets network and authorization changes
-converge in the same apply instead of leaving a post-apply plan behind.
+converge in the same apply instead of leaving a post-apply plan behind. When you also select
+`deploy_isolated_executor`, verify that the isolated Executor module and its dependency graph
+appear in that targeted plan.
 
 <!-- fdai:tabs -->
 

@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 3518a52d8e32382ccdf79f7e0e87f0cc6422ba18
+translation_source_sha: d2d0d186812839c409e944c84db0deabb394de05
 translation_revised: 2026-08-07
 ---
 
@@ -126,8 +126,8 @@ Protected plan은 binary Terraform plan, bounded preflight evidence, Function so
 preflight, claim, receipt blob만 선택합니다. 1001개 미만을 scan하고 worker 8개로 최대 1000개를
 삭제하며 selection이 incomplete이거나 delete가 하나라도 실패하면 plan을 중지합니다.
 Development operations gateway를 선택하면 Terraform은 해당 Function, core, Operator API,
-ingestion, operational canary, inventory reconciliation Job, realtime inventory publisher 및 해당
-dependency graph를 target합니다. 이렇게 하면 관련 없는 runtime resource 변경은 plan에서
+ingestion, 선택된 경우 isolated Executor, operational canary, inventory reconciliation Job,
+realtime inventory publisher 및 해당 dependency graph를 target합니다. 이렇게 하면 관련 없는 runtime resource 변경은 plan에서
 제외하면서 Job image와 required shared runtime config를 수렴 상태로 유지합니다. Target set에는
 활성 Terraform `moved` block의 source 및 destination address가 모두 포함됩니다. Workflow contract
 test는 이 address를 동기화하여 state migration 때문에 protected plan이 무효화되지 않도록 합니다.

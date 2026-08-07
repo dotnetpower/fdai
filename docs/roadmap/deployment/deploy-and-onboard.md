@@ -122,9 +122,10 @@ Before storing a new plan, the runner selects only allowlisted plan, metadata, s
 claim, and receipt blobs older than 24 hours. It scans fewer than 1001, deletes at most 1000 with
 eight workers, and fails the plan if selection is incomplete or any delete fails.
 When the development operations gateway is selected, Terraform targets that Function, core, Operator API,
-ingestion, operational canary, inventory reconciliation Job, realtime inventory publishers, and their
-dependency graphs. This keeps the Job's image and required shared runtime configuration converged while
-unrelated runtime-resource changes stay outside the plan. The target set includes both source and
+ingestion, the isolated Executor when selected, operational canary, inventory reconciliation Job,
+realtime inventory publishers, and their dependency graphs. This keeps the Job's image and required
+shared runtime configuration converged while unrelated runtime-resource changes stay outside the plan.
+The target set includes both source and
 destination addresses from active Terraform `moved` blocks, and the workflow contract test keeps
 those addresses synchronized so state migrations cannot invalidate a protected plan. A `for_each`
 key rename uses an explicit `moved` block so Terraform preserves the existing resource instead of
