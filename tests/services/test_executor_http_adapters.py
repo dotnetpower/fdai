@@ -17,16 +17,15 @@ from fdai_executor_service.adapters.workload_identity import (
     ManagedIdentityWorkloadIdentity,
     ManagedIdentityWorkloadIdentityConfig,
 )
-
-from fdai.shared.contracts.models import Mode
-from fdai.shared.providers.direct_api import (
+from fdai_service_contracts.executor import (
     DirectApiAuthenticationError,
     DirectApiOutcome,
     DirectApiPermissionDeniedError,
     DirectApiPreconditionError,
     DirectApiRequest,
+    IdentityToken,
+    Mode,
 )
-from fdai.shared.providers.workload_identity import IdentityToken
 
 
 def _future_epoch(seconds: int = 3600) -> int:

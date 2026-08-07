@@ -3,7 +3,7 @@ name = "fdai-service-contracts"
 version = "0.1.0"
 description = "Implementation-free contracts for independently released FDAI services"
 requires-python = ">=3.12"
-dependencies = ["pydantic>=2.11,<3"]
+dependencies = ["jsonschema>=4.23,<5", "pydantic>=2.11,<3"]
 
 [build-system]
 requires = ["hatchling>=1.24"]

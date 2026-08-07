@@ -10,8 +10,8 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from fdai.shared.contracts.models import Action, Mode
-from fdai.shared.providers.direct_api import (
+from fdai_service_contracts.executor import (
+    Action,
     DirectApiAuthenticationError,
     DirectApiError,
     DirectApiExecutor,
@@ -22,9 +22,11 @@ from fdai.shared.providers.direct_api import (
     DirectApiPreconditionError,
     DirectApiPromotionError,
     DirectApiReceipt,
+    IdempotencyStore,
+    Mode,
+    ResourceLock,
 )
-from fdai.shared.providers.idempotency import IdempotencyStore
-from fdai.shared.providers.resource_lock import ResourceLock
+
 from fdai_executor_service.effect_safety import (
     action_fingerprint,
     blast_radius_refusal,

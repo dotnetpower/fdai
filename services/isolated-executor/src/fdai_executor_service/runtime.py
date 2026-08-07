@@ -18,15 +18,16 @@ from fdai_service_contracts import (
     EXECUTOR_CONSUMER_GROUP,
     EXECUTOR_RECEIPT_TOPIC,
 )
-from pydantic import ValidationError
-
-from fdai.shared.contracts import (
+from fdai_service_contracts.executor import (
+    EventBus,
+    EventEnvelope,
     ExecutorCommand,
     ExecutorEffectReceipt,
     ExecutorShadowReceipt,
 )
-from fdai.shared.contracts.validation import ContractValidationError
-from fdai.shared.providers.event_bus import EventBus, EventEnvelope
+from fdai_service_contracts.schema import ContractValidationError
+from pydantic import ValidationError
+
 from fdai_executor_service.health import RuntimeHealthServer
 from fdai_executor_service.lock import ExecutorShadowCommandHandler
 from fdai_executor_service.service import ExecutorCommandConflictError

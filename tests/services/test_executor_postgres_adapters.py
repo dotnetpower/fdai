@@ -22,9 +22,7 @@ from fdai_executor_service.adapters.postgres_state import (
     _canonical,
     _next_hash,
 )
-
-from fdai.shared.providers.idempotency import IdempotencyStore
-from fdai.shared.providers.resource_lock import ResourceLock
+from fdai_service_contracts.executor import IdempotencyStore, ResourceLock
 
 
 class _Cursor:

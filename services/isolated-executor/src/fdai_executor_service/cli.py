@@ -17,9 +17,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 import httpx
+from fdai_service_contracts.schema import (
+    JsonSchemaContractValidator,
+    PackageResourceSchemaRegistry,
+)
 
-from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
-from fdai.shared.contracts.validation import JsonSchemaContractValidator
 from fdai_executor_service.adapters.event_hubs_kafka import (
     EventHubsKafkaBus,
     EventHubsKafkaBusConfig,

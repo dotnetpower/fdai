@@ -20,10 +20,10 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import NAMESPACE_URL, uuid5
 
-from fdai_service_contracts import DirectApiExecutionResultLike
-
-from fdai.shared.contracts import (
-    ContractValidator,
+from fdai_service_contracts.executor import (
+    Action,
+    DirectApiExecutionResultLike,
+    ExecutionPath,
     ExecutorCommand,
     ExecutorEffectReceipt,
     ExecutorEffectReceiptStatus,
@@ -31,7 +31,8 @@ from fdai.shared.contracts import (
     ExecutorShadowReceiptStatus,
     Mode,
 )
-from fdai.shared.contracts.models import Action, ExecutionPath
+from fdai_service_contracts.schema import ContractValidator
+
 from fdai_executor_service.ports import ExecutorStateStore
 
 _ATTEMPT_PREFIX = "isolated_executor_attempt:"

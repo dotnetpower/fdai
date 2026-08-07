@@ -5,10 +5,8 @@ from __future__ import annotations
 import os
 
 import httpx
+from fdai_service_contracts.executor import IdempotencyStore, ResourceLock, WorkloadIdentity
 
-from fdai.shared.providers.idempotency import IdempotencyStore
-from fdai.shared.providers.resource_lock import ResourceLock
-from fdai.shared.providers.workload_identity import WorkloadIdentity
 from fdai_executor_service.adapters.gateway_direct_api import (
     AzureGatewayDirectApiConfig,
     AzureGatewayDirectApiExecutor,

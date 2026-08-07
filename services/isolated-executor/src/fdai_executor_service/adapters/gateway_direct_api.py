@@ -9,9 +9,7 @@ from dataclasses import dataclass
 from urllib.parse import urlparse
 
 import httpx
-
-from fdai.shared.contracts.models import Mode
-from fdai.shared.providers.direct_api import (
+from fdai_service_contracts.executor import (
     DirectApiAuthenticationError,
     DirectApiError,
     DirectApiOutcome,
@@ -20,8 +18,9 @@ from fdai.shared.providers.direct_api import (
     DirectApiPromotionError,
     DirectApiReceipt,
     DirectApiRequest,
+    Mode,
+    WorkloadIdentity,
 )
-from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _MAX_RESPONSE_BYTES = 262_144
 _ACTION_OPERATIONS = {

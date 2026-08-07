@@ -6,8 +6,7 @@ import hashlib
 import json
 from typing import Protocol
 
-from fdai.shared.contracts.models import Action, Mode
-from fdai.shared.providers.direct_api import DirectApiRequest
+from fdai_service_contracts.executor import Action, DirectApiRequest, Mode
 
 
 class EffectCeilings(Protocol):

@@ -18,8 +18,7 @@ from fdai_executor_service.adapters.event_hubs_kafka import (
     _EntraTokenProvider,
     _iter_consumer,
 )
-
-from fdai.shared.providers.workload_identity import IdentityToken
+from fdai_service_contracts.executor import IdentityToken
 
 
 class _Identity:

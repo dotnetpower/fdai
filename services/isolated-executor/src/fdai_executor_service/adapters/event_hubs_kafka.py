@@ -14,9 +14,12 @@ from typing import Any, ClassVar, Final
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.abc import AbstractTokenProvider
-
-from fdai.shared.providers.event_bus import EventBus, EventEnvelope, PublishReceipt
-from fdai.shared.providers.workload_identity import WorkloadIdentity
+from fdai_service_contracts.executor import (
+    EventBus,
+    EventEnvelope,
+    PublishReceipt,
+    WorkloadIdentity,
+)
 
 _LOGGER = logging.getLogger("fdai.isolated_executor.event_bus")
 

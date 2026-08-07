@@ -9,8 +9,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from fdai.shared.contracts import ExecutorCommand, ExecutorShadowReceipt
-from fdai.shared.providers.resource_lock import ResourceLock
+from fdai_service_contracts.executor import ExecutorCommand, ExecutorShadowReceipt, ResourceLock
 
 
 class ExecutorShadowCommandHandler(Protocol):

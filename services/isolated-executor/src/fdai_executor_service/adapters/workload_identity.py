@@ -10,8 +10,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Final
 
 import httpx
-
-from fdai.shared.providers.workload_identity import IdentityToken
+from fdai_service_contracts.executor import IdentityToken
 
 _API_VERSION: Final[str] = "2019-08-01"
 _MIN_TTL_SECONDS: Final[int] = 60

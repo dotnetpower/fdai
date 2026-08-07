@@ -159,8 +159,8 @@
       "consumer": "isolated-executor",
       "compatibility_policy": "stable",
       "producer_schemas": {
-        "N-1": {"version": "1.0.0", "path": "src/fdai/shared/contracts/executor-command/schema.json"},
-        "N": {"version": "1.0.0", "path": "src/fdai/shared/contracts/executor-command/schema.json"}
+        "N-1": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/executor-command/1.0.0.json"},
+        "N": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/executor-command/1.0.0.json"}
       },
       "consumer_accepts": {"N-1": ["1.0.0"], "N": ["1.0.0"]},
       "delivery": {
@@ -180,8 +180,8 @@
       "consumer": "core-control-plane",
       "compatibility_policy": "version-negotiated",
       "producer_schemas": {
-        "N-1": {"version": "1.0.0", "path": "src/fdai/shared/contracts/executor-receipt/schema.json"},
-        "N": {"version": "1.1.0", "path": "src/fdai/shared/contracts/executor-receipt/schema-1.1.0.json"}
+        "N-1": {"version": "1.0.0", "path": "service-contracts/src/fdai_service_contracts/schemas/executor-receipt/1.0.0.json"},
+        "N": {"version": "1.1.0", "path": "service-contracts/src/fdai_service_contracts/schemas/executor-receipt/1.1.0.json"}
       },
       "consumer_accepts": {"N-1": ["1.0.0", "1.1.0"], "N": ["1.0.0", "1.1.0"]},
       "delivery": {
