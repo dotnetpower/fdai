@@ -16,19 +16,15 @@ class RouteParity:
 
 
 ROUTE_PARITY: tuple[RouteParity, ...] = (
-    RouteParity("/audit", "blocked", "authoritative audit projection adapter"),
-    RouteParity(
-        "/audit/{correlation_id}/trace",
-        "blocked",
-        "service-local rule-fire trace projection",
-    ),
+    RouteParity("/audit", "service-owned"),
+    RouteParity("/audit/{correlation_id}/trace", "service-owned"),
     RouteParity("/healthz", "service-owned"),
-    RouteParity("/hil-queue", "blocked", "authoritative approval projection adapter"),
-    RouteParity("/incidents", "blocked", "service-local incident projection"),
-    RouteParity("/incidents/stream", "blocked", "durable event replay and SSE relay"),
-    RouteParity("/kpi", "blocked", "authoritative KPI projection adapter"),
+    RouteParity("/hil-queue", "service-owned"),
+    RouteParity("/incidents", "service-owned"),
+    RouteParity("/incidents/stream", "service-owned"),
+    RouteParity("/kpi", "service-owned"),
     RouteParity("/notification-templates/incident-opened", "service-owned"),
-    RouteParity("/rca", "blocked", "service-local RCA projection"),
+    RouteParity("/rca", "service-owned"),
     RouteParity("/system/data-sources", "service-owned"),
 )
 

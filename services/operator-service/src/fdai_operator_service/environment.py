@@ -15,8 +15,13 @@ AUDIENCE_ENV = "FDAI_API_AUDIENCE"
 ISSUER_ENV = "FDAI_ENTRA_ISSUER"
 JWKS_URI_ENV = "FDAI_ENTRA_JWKS_URI"
 CORS_ORIGINS_ENV = "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS"
+DATABASE_URL_ENV = "FDAI_DATABASE_URL"
+DATABASE_STATEMENT_TIMEOUT_ENV = "FDAI_OPERATOR_DATABASE_STATEMENT_TIMEOUT_MS"
+DATABASE_CONNECT_TIMEOUT_ENV = "FDAI_OPERATOR_DATABASE_CONNECT_TIMEOUT_S"
 DEFAULT_HOST = "0.0.0.0"  # noqa: S104 - Container ingress terminates external HTTPS.
 DEFAULT_PORT = 8000
+DEFAULT_DATABASE_STATEMENT_TIMEOUT_MS = 20_000
+DEFAULT_DATABASE_CONNECT_TIMEOUT_S = 10
 
 GROUP_ENV: Mapping[OperatorRole, str] = MappingProxyType(
     {
@@ -46,6 +51,9 @@ class OperatorEnvironment:
     jwks_uri: str
     group_ids: Mapping[OperatorRole, str]
     cors_allow_origins: tuple[str, ...]
+    database_url: str | None
+    database_statement_timeout_ms: int
+    database_connect_timeout_s: int
 
     @classmethod
     def parse(cls, environ: Mapping[str, str]) -> OperatorEnvironment:
@@ -85,6 +93,18 @@ class OperatorEnvironment:
                 f"{CORS_ORIGINS_ENV} MUST NOT contain a wildcard origin"
             )
 
+        database_url = values.get(DATABASE_URL_ENV, "").strip() or None
+        database_statement_timeout_ms = _positive_int(
+            values,
+            DATABASE_STATEMENT_TIMEOUT_ENV,
+            DEFAULT_DATABASE_STATEMENT_TIMEOUT_MS,
+        )
+        database_connect_timeout_s = _positive_int(
+            values,
+            DATABASE_CONNECT_TIMEOUT_ENV,
+            DEFAULT_DATABASE_CONNECT_TIMEOUT_S,
+        )
+
         return cls(
             values=MappingProxyType(values),
             host=host,
@@ -95,6 +115,9 @@ class OperatorEnvironment:
             jwks_uri=jwks_uri,
             group_ids=MappingProxyType(group_ids),
             cors_allow_origins=cors_allow_origins,
+            database_url=database_url,
+            database_statement_timeout_ms=database_statement_timeout_ms,
+            database_connect_timeout_s=database_connect_timeout_s,
         )
 
 
@@ -105,9 +128,23 @@ def _require(environ: Mapping[str, str], key: str) -> str:
     return value
 
 
+def _positive_int(environ: Mapping[str, str], key: str, default: int) -> int:
+    raw = environ.get(key, str(default)).strip()
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise OperatorServiceConfigurationError(f"{key} MUST be an integer") from exc
+    if value < 1:
+        raise OperatorServiceConfigurationError(f"{key} MUST be positive")
+    return value
+
+
 __all__ = [
     "AUDIENCE_ENV",
     "CORS_ORIGINS_ENV",
+    "DATABASE_CONNECT_TIMEOUT_ENV",
+    "DATABASE_STATEMENT_TIMEOUT_ENV",
+    "DATABASE_URL_ENV",
     "DEFAULT_HOST",
     "DEFAULT_PORT",
     "GROUP_ENV",

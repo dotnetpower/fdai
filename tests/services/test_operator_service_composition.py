@@ -13,6 +13,7 @@ from fdai_operator_service.composition import ProductionOperatorComposition
 from fdai_operator_service.environment import (
     AUDIENCE_ENV,
     CORS_ORIGINS_ENV,
+    DATABASE_URL_ENV,
     GROUP_ENV,
     HOST_ENV,
     PORT_ENV,
@@ -21,11 +22,15 @@ from fdai_operator_service.environment import (
 )
 from fdai_operator_service.main import SERVICE
 from fdai_operator_service.parity import BLOCKED_ROUTE_PATHS, PARITY_COMPLETE, ROUTE_PARITY
+from fdai_operator_service.postgres import PostgresOperatorReadModel
 from fdai_operator_service.production import serve
 from fdai_service_contracts import (
     AuditQuery,
     HilQueueProjection,
     HilQueueQuery,
+    IncidentAttentionProjection,
+    IncidentAttentionQuery,
+    IncidentQuery,
     JsonProjection,
     OperatorReadModel,
     OperatorRole,
@@ -74,11 +79,22 @@ class EmptyReadModel(OperatorReadModel):
         del query
         return HilQueueProjection(items=(), total=0)
 
-    async def list_incidents(self) -> JsonProjection:
-        return JsonProjection({"items": [], "next_cursor": None})
+    async def list_incidents(self, query: IncidentQuery) -> PageProjection:
+        del query
+        return PageProjection(items=(), next_cursor=None)
 
-    async def get_rca(self) -> JsonProjection:
-        return JsonProjection({"items": []})
+    async def incident_attention(
+        self, query: IncidentAttentionQuery
+    ) -> IncidentAttentionProjection | None:
+        del query
+        return IncidentAttentionProjection(
+            sequence=0,
+            payload={"event": "incident_attention.snapshot", "ts": "", "incidents": []},
+        )
+
+    async def get_rca(self, correlation_id: str) -> JsonProjection | None:
+        del correlation_id
+        return None
 
     async def get_rule_fire_trace(self, correlation_id: str) -> JsonProjection | None:
         del correlation_id
@@ -246,19 +262,48 @@ def test_unbound_projection_fails_closed_instead_of_returning_empty_live_state()
     )
 
 
-def test_route_parity_manifest_keeps_remaining_extraction_blocked() -> None:
+def test_database_url_binds_service_owned_postgres_projection() -> None:
+    composition = ProductionOperatorComposition(verifier_factory=lambda environment: _verify)
+    runtime = composition.build_runtime(
+        {**BASE_ENV, DATABASE_URL_ENV: "postgresql://example.invalid/fdai"}
+    )
+
+    assert isinstance(runtime.read_model, PostgresOperatorReadModel)
+    source = next(item for item in runtime.data_sources if item.key == "operational-state")
+    assert source.configured is True
+    assert source.authoritative is True
+
+
+def test_incident_and_rca_queries_preserve_stable_error_envelopes() -> None:
+    client = _client(read_model=EmptyReadModel())
+    headers = {"Authorization": "Bearer reader"}
+
+    bad_status = client.get("/incidents?status=closed", headers=headers)
+    bad_vertical = client.get("/incidents?vertical=other", headers=headers)
+    missing_rca = client.get("/rca", headers=headers)
+    unknown_rca = client.get("/rca?correlation=corr-unknown", headers=headers)
+    bad_replay = client.get("/incidents/stream", headers={**headers, "Last-Event-ID": "bad"})
+
+    assert bad_status.status_code == 400
+    assert bad_vertical.status_code == 400
+    assert missing_rca.status_code == 400
+    assert (unknown_rca.status_code, unknown_rca.json()) == (
+        404,
+        {
+            "error": {
+                "status": 404,
+                "message": "no audit evidence for correlation 'corr-unknown'",
+            }
+        },
+    )
+    assert bad_replay.status_code == 400
+
+
+def test_route_parity_manifest_owns_the_frozen_minimal_surface() -> None:
     assert {route.path for route in ROUTE_PARITY} == {route[1] for route in EXPECTED_ROUTES}
-    assert not PARITY_COMPLETE
-    assert BLOCKED_ROUTE_PATHS == {
-        "/audit",
-        "/audit/{correlation_id}/trace",
-        "/hil-queue",
-        "/incidents",
-        "/incidents/stream",
-        "/kpi",
-        "/rca",
-    }
-    assert all(route.remaining_debt for route in ROUTE_PARITY if route.status == "blocked")
+    assert PARITY_COMPLETE
+    assert BLOCKED_ROUTE_PATHS == set()
+    assert all(route.status == "service-owned" for route in ROUTE_PARITY)
 
 
 def test_server_lifecycle_uses_validated_listener_without_starting_uvicorn() -> None:

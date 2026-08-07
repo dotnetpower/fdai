@@ -9,6 +9,9 @@ from fdai_service_contracts import (
     AuditQuery,
     HilQueueProjection,
     HilQueueQuery,
+    IncidentAttentionProjection,
+    IncidentAttentionQuery,
+    IncidentQuery,
     JsonProjection,
     PageProjection,
 )
@@ -38,10 +41,18 @@ class UnavailableOperatorReadModel:
         del query
         self._raise()
 
-    async def list_incidents(self) -> JsonProjection:
+    async def list_incidents(self, query: IncidentQuery) -> PageProjection:
+        del query
         self._raise()
 
-    async def get_rca(self) -> JsonProjection:
+    async def incident_attention(
+        self, query: IncidentAttentionQuery
+    ) -> IncidentAttentionProjection | None:
+        del query
+        self._raise()
+
+    async def get_rca(self, correlation_id: str) -> JsonProjection | None:
+        del correlation_id
         self._raise()
 
     async def get_rule_fire_trace(self, correlation_id: str) -> JsonProjection | None:

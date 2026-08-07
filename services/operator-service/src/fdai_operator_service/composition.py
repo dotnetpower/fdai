@@ -11,6 +11,10 @@ from fdai_service_contracts import OperatorReadModel, OperatorTokenVerifier, Rea
 
 from fdai_operator_service.auth import EntraJwtVerifier, OperatorAuthenticator
 from fdai_operator_service.environment import OperatorEnvironment
+from fdai_operator_service.postgres import (
+    PostgresOperatorReadModel,
+    PostgresOperatorReadModelConfig,
+)
 from fdai_operator_service.projections import UnavailableOperatorReadModel
 from fdai_operator_service.runtime import OperatorRuntime
 
@@ -41,7 +45,7 @@ class ProductionOperatorComposition:
     def build_runtime(self, environ: Mapping[str, str] | None = None) -> OperatorRuntime:
         """Bind a validated environment snapshot to service-owned HTTP dependencies."""
         environment = OperatorEnvironment.parse(os.environ if environ is None else environ)
-        configured_read_model = self.read_model
+        configured_read_model = self.read_model or _postgres_read_model(environment)
         return OperatorRuntime(
             environment=environment,
             authenticator=OperatorAuthenticator(
@@ -51,6 +55,18 @@ class ProductionOperatorComposition:
             read_model=configured_read_model or UnavailableOperatorReadModel(),
             data_sources=_build_data_sources(configured=configured_read_model is not None),
         )
+
+
+def _postgres_read_model(environment: OperatorEnvironment) -> OperatorReadModel | None:
+    if environment.database_url is None:
+        return None
+    return PostgresOperatorReadModel(
+        PostgresOperatorReadModelConfig(
+            dsn=environment.database_url,
+            statement_timeout_ms=environment.database_statement_timeout_ms,
+            connect_timeout_s=environment.database_connect_timeout_s,
+        )
+    )
 
 
 def _build_data_sources(*, configured: bool) -> tuple[ReadDataSource, ...]:

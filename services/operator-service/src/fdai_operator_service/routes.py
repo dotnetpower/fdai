@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import Final
+import asyncio
+import json
+from collections.abc import AsyncIterator, Sequence
+from typing import Final, Literal, cast
 
 from fdai_service_contracts import (
     AuditQuery,
     HilQueueQuery,
+    IncidentAttentionProjection,
+    IncidentAttentionQuery,
+    IncidentQuery,
     JsonObject,
     OperatorPrincipal,
     OperatorReadModel,
@@ -18,7 +23,7 @@ from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -82,13 +87,16 @@ def build_operator_app(
 
     async def get_audit(request: Request) -> Response:
         authorize(request)
-        page = await read_model.list_audit(
-            AuditQuery(
-                limit=_parse_limit(request),
-                cursor=_bounded_query(request, "cursor", maximum=1024),
-                correlation_id=_bounded_query(request, "correlation_id", maximum=256),
+        try:
+            page = await read_model.list_audit(
+                AuditQuery(
+                    limit=_parse_limit(request),
+                    cursor=_bounded_query(request, "cursor", maximum=1024),
+                    correlation_id=_bounded_query(request, "correlation_id", maximum=256),
+                )
             )
-        )
+        except ValueError as exc:
+            raise _BadQueryError(str(exc)) from exc
         return JSONResponse(page.to_dict())
 
     async def get_kpi(request: Request) -> Response:
@@ -110,15 +118,55 @@ def build_operator_app(
 
     async def get_incidents(request: Request) -> Response:
         authorize(request)
-        return JSONResponse((await read_model.list_incidents()).to_dict())
+        query = _incident_query(request)
+        try:
+            projection = await read_model.list_incidents(query)
+        except ValueError as exc:
+            raise _BadQueryError(str(exc)) from exc
+        return JSONResponse(projection.to_dict())
 
     async def incident_attention_stream(request: Request) -> Response:
         authorize(request)
-        raise ProjectionUnavailableError("service-local incident stream relay is not ported")
+        after_seq = _last_event_id(request)
+        initial = await read_model.incident_attention(
+            IncidentAttentionQuery(after_seq=after_seq, limit=50)
+        )
+
+        async def events() -> AsyncIterator[bytes]:
+            current = after_seq
+            projection = initial
+            while not await request.is_disconnected():
+                if projection is not None:
+                    current = projection.sequence
+                    yield _sse_frame(projection)
+                else:
+                    yield b": keepalive\n\n"
+                await asyncio.sleep(2.0)
+                projection = await read_model.incident_attention(
+                    IncidentAttentionQuery(after_seq=current, limit=50)
+                )
+
+        return StreamingResponse(
+            events(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache, no-transform",
+                "X-Accel-Buffering": "no",
+                "Connection": "keep-alive",
+            },
+        )
 
     async def get_rca(request: Request) -> Response:
         authorize(request)
-        return JSONResponse((await read_model.get_rca()).to_dict())
+        correlation_id = _bounded_query(request, "correlation", maximum=256) or _bounded_query(
+            request, "correlation_id", maximum=256
+        )
+        if correlation_id is None:
+            raise _BadQueryError("correlation MUST be provided")
+        projection = await read_model.get_rca(correlation_id)
+        if projection is None:
+            return _error(404, f"no audit evidence for correlation {correlation_id!r}")
+        return JSONResponse(projection.to_dict())
 
     async def rule_fire_trace(request: Request) -> Response:
         authorize(request)
@@ -232,6 +280,42 @@ def _bounded_query(request: Request, name: str, *, maximum: int) -> str | None:
     if value is not None and len(value) > maximum:
         raise _BadQueryError(f"{name} MUST be at most {maximum} characters")
     return value or None
+
+
+def _incident_query(request: Request) -> IncidentQuery:
+    status = request.query_params.get("status", "active")
+    if status not in {"active", "resolved", "all"}:
+        raise _BadQueryError("status MUST be one of: active, resolved, all")
+    vertical = (request.query_params.get("vertical") or "").replace("-", "_") or None
+    if vertical not in {None, "resilience", "change_safety", "cost_governance", "unknown"}:
+        raise _BadQueryError(
+            "vertical MUST be one of: resilience, change-safety, cost-governance, unknown"
+        )
+    return IncidentQuery(
+        status=cast(Literal["active", "resolved", "all"], status),
+        limit=_parse_limit(request),
+        cursor=_bounded_query(request, "cursor", maximum=1024),
+        vertical=vertical,
+        correlation_id=_bounded_query(request, "correlation_id", maximum=256),
+    )
+
+
+def _last_event_id(request: Request) -> int | None:
+    value = request.headers.get("last-event-id")
+    if value is None or value == "":
+        return None
+    try:
+        sequence = int(value)
+    except ValueError as exc:
+        raise _BadQueryError("Last-Event-ID MUST be a non-negative integer") from exc
+    if sequence < 0:
+        raise _BadQueryError("Last-Event-ID MUST be a non-negative integer")
+    return sequence
+
+
+def _sse_frame(projection: IncidentAttentionProjection) -> bytes:
+    data = json.dumps(projection.to_dict(), separators=(",", ":"), sort_keys=True)
+    return f"id: {projection.sequence}\nevent: incident-attention\ndata: {data}\n\n".encode()
 
 
 class _BadQueryError(ValueError):

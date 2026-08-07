@@ -1,0 +1,256 @@
+"""Focused PostgreSQL projection parity tests for Operator Service."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from datetime import UTC, datetime
+from typing import Any
+
+import pytest
+from fdai_operator_service.postgres import (
+    PostgresOperatorReadModel,
+    PostgresOperatorReadModelConfig,
+    _psycopg_dsn,
+)
+from fdai_operator_service.postgres_sql import (
+    AUDIT_PAGE_SQL,
+    HIL_COUNT_SQL,
+    HIL_PAGE_SQL,
+    INCIDENT_PAGE_SQL,
+    KPI_SAMPLE_SQL,
+)
+from fdai_operator_service.routes import _sse_frame
+from fdai_service_contracts import (
+    AuditQuery,
+    HilQueueQuery,
+    IncidentAttentionQuery,
+    IncidentQuery,
+)
+
+_NOW = datetime(2026, 8, 8, tzinfo=UTC)
+
+
+def test_sqlalchemy_psycopg_dsn_is_normalized_for_direct_driver_use() -> None:
+    assert _psycopg_dsn("postgresql+psycopg://user@example.invalid/db") == (
+        "postgresql://user@example.invalid/db"
+    )
+    assert _psycopg_dsn("postgresql://user@example.invalid/db") == (
+        "postgresql://user@example.invalid/db"
+    )
+
+
+def _audit_row(
+    seq: int,
+    *,
+    correlation_id: str = "corr-1",
+    action_kind: str = "control.stage",
+    entry: Mapping[str, object] | None = None,
+) -> dict[str, object]:
+    return {
+        "seq": seq,
+        "event_id": "00000000-0000-0000-0000-000000000001",
+        "correlation_id": correlation_id,
+        "actor": "operator-test",
+        "action_kind": action_kind,
+        "mode": "shadow",
+        "entry": dict(entry or {}),
+        "previous_hash": f"hash-{seq - 1}",
+        "entry_hash": f"hash-{seq}",
+        "created_at": _NOW,
+    }
+
+
+class StubPostgresReadModel(PostgresOperatorReadModel):
+    """Return deterministic rows while recording SQL parameter boundaries."""
+
+    def __init__(self) -> None:
+        super().__init__(PostgresOperatorReadModelConfig(dsn="postgresql://example.invalid/db"))
+        self.calls: list[tuple[str, Mapping[str, object]]] = []
+        self.audit_rows: list[dict[str, object]] = []
+        self.hil_rows: list[dict[str, object]] = []
+        self.incident_rows: list[dict[str, object]] = []
+
+    async def _fetch_all(
+        self,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, Any]]:
+        self.calls.append((statement, parameters))
+        if statement == AUDIT_PAGE_SQL:
+            return self.audit_rows
+        if statement == KPI_SAMPLE_SQL:
+            return self.audit_rows
+        if statement == HIL_COUNT_SQL:
+            return [{"total_count": len(self.hil_rows)}]
+        if statement == HIL_PAGE_SQL:
+            return self.hil_rows
+        if statement == INCIDENT_PAGE_SQL:
+            return self.incident_rows
+        raise AssertionError("unexpected SQL statement")
+
+
+@pytest.mark.asyncio
+async def test_audit_query_is_parameterized_paginated_and_redacted() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(
+            3,
+            entry={
+                "token": "secret-value",
+                "client-secret": "also-hidden",
+                "nested": {"password": "hidden"},
+            },
+        ),
+        _audit_row(2),
+    ]
+    attack = "corr' OR TRUE --"
+
+    page = await model.list_audit(AuditQuery(limit=1, correlation_id=attack))
+
+    assert page.next_cursor == "3"
+    assert page.items[0]["entry"] == {
+        "token": "[REDACTED]",
+        "client-secret": "[REDACTED]",
+        "nested": {"password": "[REDACTED]"},
+    }
+    statement, parameters = model.calls[0]
+    assert attack not in statement
+    assert parameters["correlation_id"] == attack
+    assert parameters["fetch"] == 2
+
+
+@pytest.mark.asyncio
+async def test_hil_reader_gets_count_only_and_approver_gets_redacted_detail() -> None:
+    model = StubPostgresReadModel()
+    model.hil_rows = [
+        {
+            "total_count": 1,
+            "updated_at": _NOW,
+            "value": {
+                "approval_id": "approval-1",
+                "parked_at": _NOW.isoformat(),
+                "idempotency_key": "idem-1",
+                "action": {
+                    "event_id": "00000000-0000-0000-0000-000000000001",
+                    "action_type": "compute.restart",
+                    "target_resource_ref": "resource-1",
+                    "credential": "must-not-leak",
+                },
+            },
+        }
+    ]
+
+    count_only = await model.list_hil_queue(
+        HilQueueQuery(limit=50, search=None, include_details=False)
+    )
+    details = await model.list_hil_queue(
+        HilQueueQuery(limit=50, search="resource-1", include_details=True)
+    )
+
+    assert count_only.to_dict(include_details=False) == {
+        "items": [],
+        "total": 1,
+        "detail_level": "count_only",
+    }
+    assert details.items[0]["target_resource_ref"] == "resource-1"
+    assert "credential" not in details.items[0]
+    detail_call = next(call for call in model.calls if call[0] == HIL_PAGE_SQL)
+    assert detail_call[1]["search"] == "resource-1"
+    assert detail_call[1]["search_pattern"] == "%resource-1%"
+
+
+@pytest.mark.asyncio
+async def test_malformed_authoritative_hil_row_fails_closed() -> None:
+    model = StubPostgresReadModel()
+    model.hil_rows = [{"total_count": 1, "value": {"approval_id": "incomplete"}}]
+
+    with pytest.raises(RuntimeError, match="HIL row is malformed"):
+        await model.list_hil_queue(HilQueueQuery(limit=50, search=None, include_details=True))
+
+
+@pytest.mark.asyncio
+async def test_kpi_uses_bounded_sample_and_authoritative_hil_count() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(1, action_kind="rule.evaluate", entry={"outcome": "hil", "tier": "T0"})
+    ]
+    model.hil_rows = [{"value": {}}]
+
+    payload = (await model.dashboard_metrics()).to_dict()
+
+    assert payload["event_count"] == 1
+    assert payload["hil_pending"] == 1
+    assert payload["by_tier"] == {"t0": 1}
+    kpi_call = next(call for call in model.calls if call[0] == KPI_SAMPLE_SQL)
+    assert kpi_call[1]["limit"] == 500
+
+
+@pytest.mark.asyncio
+async def test_incident_page_and_attention_replay_use_durable_sequence() -> None:
+    model = StubPostgresReadModel()
+    row = _audit_row(
+        7,
+        entry={
+            "kind": "incident.open",
+            "incident_id": "INC-1",
+            "severity": "high",
+            "state": "open",
+            "opened_at": _NOW.isoformat(),
+            "correlation_keys": ["resource:example-app"],
+        },
+    )
+    row.update(
+        {
+            "normalized_correlation_id": "corr-1",
+            "group_last_seq": 7,
+            "group_history_count": 1,
+            "snapshot_seq": 7,
+        }
+    )
+    model.incident_rows = [row]
+
+    page = await model.list_incidents(IncidentQuery(status="active", limit=50))
+    initial = await model.incident_attention(IncidentAttentionQuery(after_seq=None, limit=50))
+    replayed = await model.incident_attention(IncidentAttentionQuery(after_seq=7, limit=50))
+
+    assert page.items[0]["title"] == "Resource example-app"
+    assert page.items[0]["status"] == "open"
+    assert initial is not None
+    assert initial.sequence == 7
+    assert initial.to_dict()["incidents"][0]["incident_id"] == "INC-1"
+    assert replayed is None
+    assert _sse_frame(initial).startswith(
+        b'id: 7\nevent: incident-attention\ndata: {"event":"incident_attention.snapshot"'
+    )
+
+
+@pytest.mark.asyncio
+async def test_trace_and_rca_preserve_frozen_envelopes() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(
+            2,
+            action_kind="risk_gate.shadow_authority",
+            entry={"stage": "gate", "decision": "auto", "rollback_reference": "pr-7"},
+        ),
+        _audit_row(
+            1,
+            action_kind="rca.hypothesis",
+            entry={
+                "rca_outcome": "grounded",
+                "rca_tier": "t0",
+                "rca_cause": "public access open",
+                "rca_confidence": 0.95,
+                "rca_citations": [{"kind": "rule", "ref": "storage.public-access"}],
+            },
+        ),
+    ]
+
+    trace = await model.get_rule_fire_trace("corr-1")
+    rca = await model.get_rca("corr-1")
+
+    assert trace is not None
+    assert trace.to_dict()["terminal_stage"] == "gate"
+    assert rca is not None
+    assert rca.to_dict()["hypotheses"][0]["tier"] == "t0"
+    assert rca.to_dict()["response"]["verdict"] == "auto"

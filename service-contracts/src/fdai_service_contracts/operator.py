@@ -55,6 +55,37 @@ class HilQueueQuery:
 
 
 @dataclass(frozen=True, slots=True)
+class IncidentQuery:
+    """Bounded incident page request over the durable audit projection."""
+
+    status: Literal["active", "resolved", "all"]
+    limit: int
+    cursor: str | None = None
+    vertical: str | None = None
+    correlation_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class IncidentAttentionQuery:
+    """Durable incident-attention snapshot request for SSE replay."""
+
+    after_seq: int | None
+    limit: int
+
+
+@dataclass(frozen=True, slots=True)
+class IncidentAttentionProjection:
+    """One durable SSE snapshot with its audit replay sequence."""
+
+    sequence: int
+    payload: Mapping[str, JsonValue]
+
+    def to_dict(self) -> JsonObject:
+        """Copy the frozen snapshot payload without adding transport metadata."""
+        return dict(self.payload)
+
+
+@dataclass(frozen=True, slots=True)
 class PageProjection:
     """Opaque-cursor JSON page returned by a service-owned projection adapter."""
 
@@ -156,9 +187,13 @@ class OperatorReadModel(Protocol):
 
     async def list_hil_queue(self, query: HilQueueQuery) -> HilQueueProjection: ...
 
-    async def list_incidents(self) -> JsonProjection: ...
+    async def list_incidents(self, query: IncidentQuery) -> PageProjection: ...
 
-    async def get_rca(self) -> JsonProjection: ...
+    async def incident_attention(
+        self, query: IncidentAttentionQuery
+    ) -> IncidentAttentionProjection | None: ...
+
+    async def get_rca(self, correlation_id: str) -> JsonProjection | None: ...
 
     async def get_rule_fire_trace(self, correlation_id: str) -> JsonProjection | None: ...
 
@@ -167,6 +202,9 @@ __all__ = [
     "AuditQuery",
     "HilQueueProjection",
     "HilQueueQuery",
+    "IncidentAttentionQuery",
+    "IncidentAttentionProjection",
+    "IncidentQuery",
     "JsonObject",
     "JsonProjection",
     "JsonScalar",
