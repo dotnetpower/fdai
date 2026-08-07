@@ -1,5 +1,20 @@
 {
   "schema_version": 1,
+  "coverage": {
+    "source_patterns": [
+      "src/fdai/core/**/*.py",
+      "src/fdai/agents/**/*.py",
+      "src/fdai/delivery/operator_api/**/*.py",
+      "src/fdai/delivery/ingestion_gateway/*.py",
+      "src/fdai/runtime/isolated_executor*.py"
+    ],
+    "test_patterns": [
+      "tests/contracts/test_*.py",
+      "tests/delivery/ingestion_gateway/test_*.py",
+      "tests/infra/test_isolated_executor*.py",
+      "tests/runtime/test_isolated_executor*.py"
+    ]
+  },
   "services": [
     {
       "id": "core-control-plane",
@@ -14,7 +29,10 @@
         ],
         "contract": [
           "tests/contracts/test_compatibility.py",
+          "tests/contracts/test_forecast_outcome.py",
           "tests/contracts/test_models_roundtrip.py",
+          "tests/contracts/test_registry.py",
+          "tests/contracts/test_schemas_valid.py",
           "tests/contracts/test_validation.py"
         ],
         "integration": [
@@ -102,6 +120,7 @@
       "source_roots": [
         "src/fdai/runtime/isolated_executor.py",
         "src/fdai/runtime/isolated_executor_cli.py",
+        "src/fdai/runtime/isolated_executor_lock.py",
         "src/fdai/runtime/isolated_executor_runtime.py"
       ],
       "test_groups": {

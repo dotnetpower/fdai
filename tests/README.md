@@ -30,3 +30,9 @@ uv run python scripts/automation/run-service-tests.py isolated-executor --list
 
 `--list` can't be combined with pytest arguments. A malformed manifest, an empty service suite,
 an out-of-repository path, or a path that overlaps another service fails before pytest starts.
+The runner also requires the manifest's service ids and order to match
+`config/service-decomposition.json` exactly. Unknown manifest keys fail instead of being ignored.
+
+Coverage patterns require every service source and every test in the shared-contract,
+ingestion-gateway, isolated-Executor runtime, and isolated-Executor infrastructure cohorts to have
+exactly one owner. A new file in one of these file-owned cohorts can't bypass its service suite.

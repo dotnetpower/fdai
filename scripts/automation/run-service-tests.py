@@ -14,6 +14,7 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = REPO_ROOT / "tests" / "service-suites.json"
+SERVICE_PLAN_PATH = REPO_ROOT / "config" / "service-decomposition.json"
 GROUPS = ("unit", "contract", "integration", "smoke")
 _SERVICE_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _PYTEST_FLAGS = frozenset(
@@ -73,6 +74,11 @@ def _load_services() -> dict[str, dict[str, Any]]:
     services = manifest.get("services")
     if not isinstance(services, list):
         raise ValueError("service test suite manifest services MUST be an array")
+    _validate_exact_keys(
+        manifest,
+        expected={"schema_version", "coverage", "services"},
+        label="service test suite manifest",
+    )
     if not services:
         raise ValueError("service test suite manifest MUST declare at least one service")
     loaded: dict[str, dict[str, Any]] = {}
@@ -90,10 +96,102 @@ def _load_services() -> dict[str, dict[str, Any]]:
         for test_path in _test_paths(service):
             _claim_path(Path(test_path), service_id, test_claims, "test")
         loaded[service_id] = service
+    canonical_ids = _canonical_service_ids()
+    if tuple(loaded) != canonical_ids:
+        raise ValueError(
+            f"service test suites MUST match canonical service ids and order: {list(canonical_ids)}"
+        )
+    _validate_coverage(manifest.get("coverage"), source_claims, test_claims)
     return loaded
 
 
+def _canonical_service_ids() -> tuple[str, ...]:
+    try:
+        plan = json.loads(SERVICE_PLAN_PATH.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise ValueError(f"service decomposition plan is unreadable: {SERVICE_PLAN_PATH}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"service decomposition plan is invalid JSON: {SERVICE_PLAN_PATH}:{exc.lineno}"
+        ) from exc
+    if not isinstance(plan, dict) or not isinstance(plan.get("services"), list):
+        raise ValueError("service decomposition plan services MUST be an array")
+    service_ids: list[str] = []
+    for service in plan["services"]:
+        if not isinstance(service, dict) or not isinstance(service.get("id"), str):
+            raise ValueError("service decomposition plan entries MUST declare string ids")
+        service_ids.append(service["id"])
+    if plan.get("target_service_count") != len(service_ids):
+        raise ValueError("service decomposition target count MUST match its service entries")
+    return tuple(service_ids)
+
+
+def _validate_coverage(
+    value: object,
+    source_claims: list[tuple[Path, str]],
+    test_claims: list[tuple[Path, str]],
+) -> None:
+    if not isinstance(value, dict) or set(value) != {"source_patterns", "test_patterns"}:
+        raise ValueError(
+            "service test suite coverage MUST declare source_patterns and test_patterns"
+        )
+    for label, patterns, allowed_root, claims in (
+        ("source", value["source_patterns"], REPO_ROOT / "src" / "fdai", source_claims),
+        ("test", value["test_patterns"], REPO_ROOT / "tests", test_claims),
+    ):
+        if (
+            not isinstance(patterns, list)
+            or not patterns
+            or not all(isinstance(pattern, str) for pattern in patterns)
+        ):
+            raise ValueError(
+                f"service test suite {label}_patterns MUST be a non-empty string array"
+            )
+        for pattern in patterns:
+            _validate_coverage_pattern(
+                pattern,
+                label=label,
+                allowed_root=allowed_root,
+                claims=claims,
+            )
+
+
+def _validate_coverage_pattern(
+    pattern: str,
+    *,
+    label: str,
+    allowed_root: Path,
+    claims: list[tuple[Path, str]],
+) -> None:
+    relative = Path(pattern)
+    if relative.is_absolute() or not relative.parts or ".." in relative.parts:
+        raise ValueError(f"service {label} coverage pattern MUST stay within the repository")
+    matches = tuple(path for path in REPO_ROOT.glob(pattern) if path.is_file())
+    if not matches:
+        raise ValueError(f"service {label} coverage pattern matched no files: {pattern}")
+    for matched in matches:
+        resolved = matched.resolve(strict=True)
+        if not resolved.is_relative_to(allowed_root.resolve()):
+            raise ValueError(f"service {label} coverage pattern escaped its root: {pattern}")
+        relative_match = resolved.relative_to(REPO_ROOT)
+        owners = {
+            owner
+            for claimed_path, owner in claims
+            if relative_match == claimed_path or relative_match.is_relative_to(claimed_path)
+        }
+        if len(owners) != 1:
+            raise ValueError(
+                f"service {label} coverage requires one owner for "
+                f"{relative_match.as_posix()}; got {sorted(owners)}"
+            )
+
+
 def _validated_service(entry: Mapping[str, object]) -> dict[str, Any]:
+    _validate_exact_keys(
+        entry,
+        expected={"id", "source_roots", "test_groups"},
+        label="service test suite entry",
+    )
     service_id = entry.get("id")
     if not isinstance(service_id, str) or _SERVICE_ID.fullmatch(service_id) is None:
         raise ValueError("service id MUST use lowercase kebab-case")
@@ -122,6 +220,21 @@ def _validated_service(entry: Mapping[str, object]) -> dict[str, Any]:
     if not _test_paths(service):
         raise ValueError(f"service {service_id} MUST own at least one test path")
     return service
+
+
+def _validate_exact_keys(
+    value: Mapping[str, object],
+    *,
+    expected: set[str],
+    label: str,
+) -> None:
+    actual = set(value)
+    missing = sorted(expected - actual)
+    unexpected = sorted(actual - expected)
+    if missing or unexpected:
+        raise ValueError(
+            f"{label} has invalid keys; missing keys: {missing}; unexpected keys: {unexpected}"
+        )
 
 
 def _validated_paths(

@@ -28,9 +28,24 @@ def _runner_namespace() -> dict[str, Any]:
 def _write_manifest(tmp_path: Path, services: list[object]) -> Path:
     path = tmp_path / "service-suites.json"
     path.write_text(
-        json.dumps({"schema_version": 1, "services": services}),
+        json.dumps(
+            {
+                "schema_version": 1,
+                "coverage": {
+                    "source_patterns": ["src/fdai/runtime/isolated_executor.py"],
+                    "test_patterns": ["tests/runtime/test_isolated_executor_shadow.py"],
+                },
+                "services": services,
+            }
+        ),
         encoding="utf-8",
     )
+    return path
+
+
+def _write_suite_plan(tmp_path: Path, suite_plan: dict[str, Any]) -> Path:
+    path = tmp_path / "service-suites.json"
+    path.write_text(json.dumps(suite_plan), encoding="utf-8")
     return path
 
 
@@ -84,6 +99,86 @@ def test_service_suite_paths_exist_and_have_one_owner() -> None:
                 test_owners.append((Path(test_path), service_id))
 
 
+def test_service_suite_coverage_patterns_have_exactly_one_owner() -> None:
+    suite_plan = _load(SUITE_PATH)
+    coverage = suite_plan["coverage"]
+    source_claims = _claims(suite_plan, key="source_roots")
+    test_claims = _claims(suite_plan, key="test_groups")
+
+    _assert_pattern_coverage(coverage["source_patterns"], source_claims)
+    _assert_pattern_coverage(coverage["test_patterns"], test_claims)
+
+
+def test_service_suite_coverage_rejects_new_unowned_runtime_test(tmp_path: Path) -> None:
+    namespace = _runner_namespace()
+    orphan = REPO_ROOT / "tests" / "runtime" / "test_isolated_executor_unowned.py"
+    orphan.write_text("def test_orphan(): pass\n", encoding="utf-8")
+    try:
+        with pytest.raises(ValueError, match="coverage requires one owner"):
+            namespace["_load_services"]()
+    finally:
+        orphan.unlink(missing_ok=True)
+
+
+def test_service_suite_manifest_rejects_canonical_service_order_drift(
+    tmp_path: Path,
+) -> None:
+    namespace = _runner_namespace()
+    suite_plan = _load(SUITE_PATH)
+    services = suite_plan["services"]
+    services[0], services[1] = services[1], services[0]
+    manifest = _write_suite_plan(tmp_path, suite_plan)
+    namespace["_load_services"].__globals__["MANIFEST_PATH"] = manifest
+
+    with pytest.raises(ValueError, match="canonical service ids and order"):
+        namespace["_load_services"]()
+
+
+@pytest.mark.parametrize("target", ("root", "service"))
+def test_service_suite_manifest_rejects_unknown_keys(tmp_path: Path, target: str) -> None:
+    namespace = _runner_namespace()
+    suite_plan = _load(SUITE_PATH)
+    if target == "root":
+        suite_plan["schema_verison"] = 1
+    else:
+        suite_plan["services"][0]["source_root"] = "src/fdai/core"
+    manifest = _write_suite_plan(tmp_path, suite_plan)
+    namespace["_load_services"].__globals__["MANIFEST_PATH"] = manifest
+
+    with pytest.raises(ValueError, match="unexpected keys"):
+        namespace["_load_services"]()
+
+
+def _claims(
+    suite_plan: dict[str, Any],
+    *,
+    key: str,
+) -> list[tuple[Path, str]]:
+    claims: list[tuple[Path, str]] = []
+    for service in suite_plan["services"]:
+        values = service[key]
+        if key == "test_groups":
+            values = [path for group in GROUPS for path in values[group]]
+        claims.extend((REPO_ROOT / path, service["id"]) for path in values)
+    return claims
+
+
+def _assert_pattern_coverage(
+    patterns: list[str],
+    claims: list[tuple[Path, str]],
+) -> None:
+    for pattern in patterns:
+        matched = tuple(path for path in REPO_ROOT.glob(pattern) if path.is_file())
+        assert matched, pattern
+        for path in matched:
+            owners = {
+                owner
+                for claimed_path, owner in claims
+                if path == claimed_path or path.is_relative_to(claimed_path)
+            }
+            assert len(owners) == 1, (path.relative_to(REPO_ROOT).as_posix(), sorted(owners))
+
+
 def _assert_exclusive(
     claimed_path: Path,
     service_id: str,
@@ -128,6 +223,36 @@ def test_service_test_runner_rejects_foreign_pytest_path(
 
     assert namespace["main"](["isolated-executor", "--", "tests/delivery/operator_api"]) == 2
     assert "pytest argument is not allowed" in capsys.readouterr().err
+
+
+def test_service_test_runner_rejects_pytest_args_with_list(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    namespace = _runner_namespace()
+
+    def fail_if_called(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        del args, kwargs
+        raise AssertionError("pytest MUST NOT run while listing owned paths")
+
+    monkeypatch.setattr(subprocess, "run", fail_if_called)
+
+    assert namespace["main"](["isolated-executor", "--list", "-q"]) == 2
+    assert "cannot be combined with --list" in capsys.readouterr().err
+
+
+def test_service_test_runner_propagates_pytest_exit_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    namespace = _runner_namespace()
+
+    def completed(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        del args, kwargs
+        return subprocess.CompletedProcess(args=(), returncode=7)
+
+    monkeypatch.setattr(subprocess, "run", completed)
+
+    assert namespace["main"](["isolated-executor", "-q"]) == 7
 
 
 @pytest.mark.parametrize(
