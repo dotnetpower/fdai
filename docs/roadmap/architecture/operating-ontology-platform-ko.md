@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: faae2cb6340e06b41509e81e6d3647e9e776d001
-translation_revised: 2026-08-07
+translation_source_sha: 29147c16f3fe7be94c35bf593383837d51efde2c
+translation_revised: 2026-08-08
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -304,6 +304,7 @@ Ontology release는 scoped Python/TypeScript SDK와 OpenAPI metadata를 생성�
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
+| Declaration kind 및 runtime State/Context boundary | [운영 온톨로지 메타모델](operating-ontology-metamodel-ko.md) |
 | 기존 semantic 및 authority model | [FDAI 운영 온톨로지](operating-ontology-ko.md) |
 | 기존 ActionType safety contract | [Action 온톨로지](../decisioning/action-ontology-ko.md) |
 | Runtime execution authority | [실행 모델](../decisioning/execution-model-ko.md) |

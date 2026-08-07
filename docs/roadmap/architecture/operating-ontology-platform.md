@@ -302,6 +302,7 @@ decoding is removed only after retained audit and instance fixtures replay under
 
 | To learn about | Read |
 |----------------|------|
+| Declaration kinds and runtime State/Context boundaries | [Operating Ontology Metamodel](operating-ontology-metamodel.md) |
 | Existing semantic and authority model | [FDAI Operating Ontology](operating-ontology.md) |
 | Existing ActionType safety contract | [Action Ontology](../decisioning/action-ontology.md) |
 | Runtime execution authority | [Execution Model](../decisioning/execution-model.md) |

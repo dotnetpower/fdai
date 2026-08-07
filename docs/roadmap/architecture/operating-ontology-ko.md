@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: ee152fdc11bb4dce173d633bcdcad8a7e4f69170
-translation_revised: 2026-08-05
+translation_source_sha: 93dea6676c00f6934382e3b834c1e1f58507edd1
+translation_revised: 2026-08-08
 ---
 # FDAI 운영 온톨로지
 
@@ -440,6 +440,7 @@ O0 이후 첫 code slice는 semantic-spine declaration, link constraint, query f
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
+| Declaration kind, operational lens, state 및 context boundary | [운영 온톨로지 메타모델](operating-ontology-metamodel-ko.md) |
 | 현재 resource, rule, signal, finding foundation | [LLM strategy](llm-strategy-ko.md#ontology-foundation) |
 | Runtime ontology storage | [Rule lookup ontology storage](rule-lookup-ontology-storage-ko.md) |
 | Action safety contract | [Action ontology](../decisioning/action-ontology-ko.md) |

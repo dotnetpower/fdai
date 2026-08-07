@@ -34,7 +34,7 @@
     {
       "id": "FDAI-CONST-004",
       "status": "partial",
-      "owner_docs": ["docs/roadmap/architecture/operating-ontology.md", "docs/roadmap/rules-and-detection/rule-governance.md"],
+      "owner_docs": ["docs/roadmap/architecture/operating-ontology.md", "docs/roadmap/architecture/operating-ontology-metamodel.md", "docs/roadmap/rules-and-detection/rule-governance.md"],
       "implementation": ["src/fdai/shared/ontology", "src/fdai/core/operational_learning"],
       "schemas": ["src/fdai/shared/contracts/ontology/object-type.json", "src/fdai/shared/contracts/ontology/action-type.json"],
       "tests": ["tests/agents/test_ontology_alignment.py", "tests/core/operational_learning"],

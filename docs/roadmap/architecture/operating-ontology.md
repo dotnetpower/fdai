@@ -443,6 +443,7 @@ separately validated slices.
 
 | To learn about | Read |
 |----------------|------|
+| Declaration kinds, operational lenses, state, and context boundaries | [Operating Ontology Metamodel](operating-ontology-metamodel.md) |
 | Current resource, rule, signal, and finding foundation | [LLM strategy](llm-strategy.md#ontology-foundation) |
 | Runtime ontology storage | [Rule lookup ontology storage](rule-lookup-ontology-storage.md) |
 | Action safety contract | [Action ontology](../decisioning/action-ontology.md) |
