@@ -2,19 +2,22 @@ from __future__ import annotations
 
 import json
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
 from fdai.core.metering import InMemoryMeteringSink, PricingTable, TokenUsage
-from fdai.delivery.operator_api.routes.chat_backend_factory import (
+from fdai.delivery.operator_api.adapters.conversation.factory import (
     _DEFAULT_NARRATOR_TURN_TIMEOUT_SECONDS,
     _chat_metering,
     _narrator_turn_timeout_seconds,
     _resolve_disk_azure_backend,
     _resolved_model_keys,
+)
+from fdai.delivery.operator_api.application.conversation.backend import (
+    LatencyRoutedChatBackend,
     describe_backend,
 )
-from fdai.delivery.operator_api.routes.chat_backend_router import LatencyRoutedChatBackend
 
 
 @pytest.mark.parametrize(
@@ -123,13 +126,16 @@ async def test_chat_metering_can_attribute_vision_capability() -> None:
     assert record.capability_id == "t1.vision"
 
 
-def test_resolved_artifact_binds_a_separate_vision_pool(tmp_path) -> None:
+def test_resolved_artifact_binds_a_separate_vision_pool(tmp_path: Path) -> None:
     endpoint = "https://example.openai.azure.com/"
-    candidate = lambda deployment: {  # noqa: E731 - compact fixture builder
-        "endpoint": endpoint,
-        "deployment": deployment,
-        "api_version": "2024-08-01-preview",
-    }
+
+    def candidate(deployment: str) -> dict[str, str]:
+        return {
+            "endpoint": endpoint,
+            "deployment": deployment,
+            "api_version": "2024-08-01-preview",
+        }
+
     path = tmp_path / "resolved-models.json"
     path.write_text(
         json.dumps(
@@ -155,7 +161,7 @@ def test_resolved_artifact_binds_a_separate_vision_pool(tmp_path) -> None:
     }
 
 
-def test_single_narrator_binds_a_separate_vision_backend(tmp_path) -> None:
+def test_single_narrator_binds_a_separate_vision_backend(tmp_path: Path) -> None:
     endpoint = "https://example.openai.azure.com/"
     candidate = {
         "endpoint": endpoint,
@@ -183,7 +189,7 @@ def test_single_narrator_binds_a_separate_vision_backend(tmp_path) -> None:
     assert vision.candidate_names() == ("shared-mini",)
 
 
-def test_runtime_rejects_vision_route_that_does_not_reuse_narrator(tmp_path) -> None:
+def test_runtime_rejects_vision_route_that_does_not_reuse_narrator(tmp_path: Path) -> None:
     endpoint = "https://example.openai.azure.com/"
     narrator = {
         "endpoint": endpoint,

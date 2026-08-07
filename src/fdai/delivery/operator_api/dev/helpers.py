@@ -45,7 +45,7 @@ def build_chat_backend(
     metering_sink: MeteringSink | None = None,
     pricing: PricingTable | None = None,
 ) -> Any:
-    from fdai.delivery.operator_api.routes.chat import backend_from_env
+    from fdai.delivery.operator_api.adapters.conversation import backend_from_env
 
     return backend_from_env(metering_sink=metering_sink, pricing=pricing)
 

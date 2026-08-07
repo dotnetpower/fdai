@@ -19,6 +19,11 @@ from fdai.core.skills import RuntimeSkillDisclosure
 from fdai.core.user_context_projection import UserContextOntologyProjector
 from fdai.delivery.handover_events import HandoverAvailabilityPublisher
 from fdai.delivery.operator_api.application import ConversationTurnApplicationService
+from fdai.delivery.operator_api.application.conversation.backend import (
+    ChatBackend,
+    LatencyRoutedChatBackend,
+    describe_backend,
+)
 from fdai.delivery.operator_api.application.conversation.capabilities.inventory import (
     InventoryActivityProvider,
     InventoryChatTools,
@@ -31,10 +36,7 @@ from fdai.delivery.operator_api.routes.busy_input_runtime import BusyInputRuntim
 from fdai.delivery.operator_api.routes.chat import (
     DEFAULT_ROUTE_PATH,
     AgentChatDelegate,
-    ChatBackend,
     ChatWebSearchEvidenceResolver,
-    LatencyRoutedChatBackend,
-    describe_backend,
     make_chat_health_route,
     make_chat_route,
     make_chat_stream_route,

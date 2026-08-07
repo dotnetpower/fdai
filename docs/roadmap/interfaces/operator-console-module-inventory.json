@@ -11,6 +11,18 @@
       "candidate_destination": "retain until a classified replacement is available"
     },
     {
+      "path": "adapters",
+      "responsibility": "Concrete Operator API provider adapters outside HTTP transport",
+      "classification": "provider-adapter",
+      "candidate_destination": "retain as the provider implementation boundary"
+    },
+    {
+      "path": "adapters/conversation",
+      "responsibility": "Azure and OpenAI-compatible narrator transports and startup composition",
+      "classification": "provider-adapter",
+      "candidate_destination": "retain behind the explicit conversation adapter facade"
+    },
+    {
       "path": "app",
       "responsibility": "Shared ASGI assembly, middleware, route registration, and lifespan",
       "classification": "composition",
@@ -39,6 +51,12 @@
       "responsibility": "Typed inventory queries, deterministic compilation, semantic grounding, and provider-read coordination",
       "classification": "application-coordination",
       "candidate_destination": "retain behind the explicit inventory capability facade"
+        },
+        {
+      "path": "application/conversation/backend",
+      "responsibility": "Provider-neutral chat backend contracts and request-local latency routing",
+      "classification": "application-coordination",
+      "candidate_destination": "retain behind the explicit backend application facade"
     },
     {
       "path": "application/conversation/claims",
@@ -144,7 +162,7 @@
   "route_families": [
     {
       "pattern": "chat*.py",
-      "responsibility": "Conversation HTTP, SSE, coordination, evidence, provider integration, and the classified chat_verification source-path facade",
+      "responsibility": "Conversation HTTP, SSE, coordination, evidence, and the classified chat_verification source-path facade",
       "classification": "mixed-transitional",
       "candidate_destination": "move bounded internal families behind typed application or projection owners while routes retain wire behavior"
     },
@@ -306,6 +324,16 @@
       "module": "fdai.delivery.operator_api.projections.conversation.presentation",
       "classification": "internal-implementation",
       "migration": "owned value-free layout and verified presentation-artifact facade for conversation consumers"
+    },
+    {
+      "module": "fdai.delivery.operator_api.adapters.conversation",
+      "classification": "internal-implementation",
+      "migration": "owned Azure and OpenAI-compatible narrator adapter facade for composition consumers"
+    },
+    {
+      "module": "fdai.delivery.operator_api.application.conversation.backend",
+      "classification": "internal-implementation",
+      "migration": "owned provider-neutral backend contract and latency-routing facade for conversation consumers"
     },
     {
       "module": "fdai.delivery.operator_api.application.conversation.claims",

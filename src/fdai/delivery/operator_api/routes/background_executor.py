@@ -22,7 +22,7 @@ from fdai.core.read_investigation import (
     plan_read_investigation,
     resource_name_from_question,
 )
-from fdai.delivery.operator_api.routes.chat_backend_common import ChatBackend
+from fdai.delivery.operator_api.application.conversation.backend import ChatBackend
 from fdai.shared.providers.read_investigation import ResourceSelector
 
 _DEEP = re.compile(r"\b(?:deep|thorough|comprehensive)\b|(?:심층|자세히|종합)", re.IGNORECASE)

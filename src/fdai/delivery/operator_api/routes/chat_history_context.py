@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-from fdai.delivery.operator_api.routes.chat_backend_common import (
+from fdai.delivery.operator_api.application.conversation.backend import (
     ChatBackend,
     ChatContentPolicyError,
 )

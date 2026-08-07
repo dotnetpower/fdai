@@ -23,7 +23,7 @@ from fdai.delivery.azure.llm.model_catalog import (
     GptModelCatalogSnapshot,
     ModelCatalogUnavailableError,
 )
-from fdai.delivery.operator_api.routes.chat import LatencyRoutedChatBackend
+from fdai.delivery.operator_api.application.conversation.backend import LatencyRoutedChatBackend
 from fdai.rule_catalog.schema.llm_registry import (
     LlmRegistry,
     LlmRegistryError,

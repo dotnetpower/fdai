@@ -13,16 +13,16 @@ from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from fdai.core.conversation.answer_plan import AnswerIntent, AnswerSection, build_answer_plan
-from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
-from fdai.delivery.operator_api.routes.chat import make_chat_route
-from fdai.delivery.operator_api.routes.chat_backend_azure import AzureAdChatBackend
-from fdai.delivery.operator_api.routes.chat_backend_openai import (
+from fdai.delivery.operator_api.adapters.conversation import (
+    AzureAdChatBackend,
     OpenAiCompatibleChatBackend,
     OpenAiCompatibleChatBackendConfig,
 )
-from fdai.delivery.operator_api.routes.chat_backend_router import LatencyRoutedChatBackend
+from fdai.delivery.operator_api.application.conversation.backend import LatencyRoutedChatBackend
+from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.operator_api.routes.chat import make_chat_route
 from fdai.delivery.operator_api.routes.chat_evidence_pipeline import resolve_parallel_chat_evidence
-from fdai.delivery.operator_api.routes.chat_intent_graph import parse_intent_graph
+from fdai.delivery.operator_api.routes.chat_intent_graph import IntentGraph, parse_intent_graph
 from fdai.delivery.operator_api.routes.chat_model_trace import (
     activate_model_trace,
     deactivate_model_trace,
@@ -125,7 +125,7 @@ class _GraphPlanner:
             tools=tools,
         )
 
-    async def plan_turn(self, **_kwargs: object):
+    async def plan_turn(self, **_kwargs: object) -> IntentGraph:
         self.calls += 1
         return self.result
 
@@ -557,7 +557,7 @@ def test_insufficient_evidence_concept_bypasses_agent_intent_graph(
             authorize=_allow,
             turn_planner=planner,
             turn_tools=(*default_read_turn_tools(), *agent_turn_tools()),
-            agent_delegate=delegate,  # type: ignore[arg-type]
+            agent_delegate=delegate,
         )
         if stream
         else make_chat_route(
@@ -565,7 +565,7 @@ def test_insufficient_evidence_concept_bypasses_agent_intent_graph(
             authorize=_allow,
             turn_planner=planner,
             turn_tools=(*default_read_turn_tools(), *agent_turn_tools()),
-            agent_delegate=delegate,  # type: ignore[arg-type]
+            agent_delegate=delegate,
         )
     )
 
@@ -642,7 +642,7 @@ def test_insufficient_evidence_concept_bypasses_agent_intent_graph_korean(
             authorize=_allow,
             turn_planner=planner,
             turn_tools=(*default_read_turn_tools(), *agent_turn_tools()),
-            agent_delegate=delegate,  # type: ignore[arg-type]
+            agent_delegate=delegate,
         )
         if stream
         else make_chat_route(
@@ -650,7 +650,7 @@ def test_insufficient_evidence_concept_bypasses_agent_intent_graph_korean(
             authorize=_allow,
             turn_planner=planner,
             turn_tools=(*default_read_turn_tools(), *agent_turn_tools()),
-            agent_delegate=delegate,  # type: ignore[arg-type]
+            agent_delegate=delegate,
         )
     )
 
@@ -895,7 +895,7 @@ def test_graph_draft_rechecks_current_capability_manifest(stream: bool) -> None:
     )
 
     class DraftPlanner:
-        async def plan_turn(self, **_kwargs: object):
+        async def plan_turn(self, **_kwargs: object) -> IntentGraph:
             return graph
 
     manifest_reads = 0

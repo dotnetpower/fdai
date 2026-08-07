@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from collections.abc import Mapping
-from typing import Any, Final, Literal, NoReturn, Protocol
+from typing import Any, Final, NoReturn
 
 import httpx
 from starlette.exceptions import HTTPException
@@ -16,6 +15,9 @@ from fdai.core.metering.records import InvocationScope
 from fdai.core.metering.usage import TokenUsage
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.request_target import COGNITIVE_SERVICES_SCOPE
+from fdai.delivery.operator_api.application.conversation.backend.contracts import (
+    ChatContentPolicyError,
+)
 
 _LOG = logging.getLogger(__name__)
 
@@ -60,32 +62,6 @@ _CONTENT_FILTER_MARKERS: Final[tuple[str, ...]] = (
     "content management policy",
 )
 _COMPLETE_FINISH_REASONS: Final[frozenset[str]] = frozenset({"stop"})
-
-ContentPolicyStage = Literal["input", "output", "history_compaction", "unknown"]
-
-
-class ChatContentPolicyError(Exception):
-    """A non-retryable provider content-policy decision with no copied body."""
-
-    def __init__(self, *, stage: ContentPolicyStage = "unknown") -> None:
-        self.stage = stage
-        super().__init__("chat request blocked by content policy")
-
-
-_DIRECT_OVERRIDE: Final = re.compile(
-    r"\bignore\s+(?:all\s+)?(?:previous\s+)?(?:instructions?|rules?|system)\b"
-    r"|\bdisregard\s+(?:all\s+)?(?:previous\s+)?(?:instructions?|rules?|system)\b"
-    "|모든\\s+지시\\s+무시"
-    "|이전\\s+지시\\s+무시",
-    re.IGNORECASE,
-)
-
-
-def _reject_direct_override(prompt: str) -> None:
-    """Block explicit attempts to replace the trusted instruction hierarchy."""
-
-    if _DIRECT_OVERRIDE.search(prompt):
-        raise ChatContentPolicyError(stage="input")
 
 
 def _raise_upstream_error(status_code: int, body_text: str) -> NoReturn:
@@ -165,42 +141,6 @@ def _contains_filter_signal(value: object) -> bool:
     if isinstance(value, list):
         return any(_contains_filter_signal(item) for item in value)
     return False
-
-
-class ChatBackend(Protocol):
-    """Async chat backend seam.
-
-    The backend receives the user's prompt, the current view context
-    (arbitrary JSON), and exact or compacted principal-scoped conversation history. It returns a
-    payload that MUST include ``answer`` (str) and ``model`` (str); it
-    MAY include additional JSON-safe fields (e.g. ``router`` metadata
-    from :class:`LatencyRoutedChatBackend`).
-    """
-
-    async def answer(
-        self,
-        *,
-        prompt: str,
-        view_context: dict[str, Any],
-        history: list[dict[str, str]],
-    ) -> dict[str, Any]: ...
-
-
-class ChatBackendUnavailableError(Exception):
-    """Raised by a backend when no upstream LLM is configured."""
-
-
-class DisabledChatBackend:
-    """No-op backend that always raises. Wired when no LLM env is set."""
-
-    async def answer(
-        self,
-        *,
-        prompt: str,  # noqa: ARG002 - required by Protocol
-        view_context: dict[str, Any],  # noqa: ARG002
-        history: list[dict[str, str]],  # noqa: ARG002
-    ) -> dict[str, Any]:
-        raise ChatBackendUnavailableError("no chat backend configured")
 
 
 _COMPLETION_TOKEN_PARAM_MODELS: Final[tuple[str, ...]] = ("gpt-5", "o1", "o3", "o4")

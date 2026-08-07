@@ -15,7 +15,7 @@ from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
     ModelRequestTarget,
 )
-from fdai.delivery.operator_api.routes.chat_backend_common import (
+from fdai.delivery.operator_api.adapters.conversation.transport import (
     _completion_body_params,
     _default_chat_http_client,
     _metering_scope,
@@ -83,6 +83,24 @@ class AzureAdChatBackend:
         # Lazy identity - defer import so this module stays importable
         # in tests that never touch Azure.
         self._identity_cached: Any = None
+
+    @property
+    def endpoint(self) -> str:
+        """Return the configured provider endpoint without credentials."""
+
+        return self._endpoint
+
+    @property
+    def mode(self) -> str:
+        """Return the public authentication mode label."""
+
+        return "azure-ad"
+
+    @property
+    def model(self) -> str:
+        """Return the configured deployment name."""
+
+        return self._deployment
 
     def _identity(self) -> Any:
         if self._identity_cached is None:

@@ -1,8 +1,8 @@
 ---
 title: Narrator Routing and Latency
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: ed8ccc1bf78902c73e1bde7732bd29780ff05452
-translation_revised: 2026-08-05
+translation_source_sha: beefffedcf1647c0fd6dbf4902e643d6935cc059
+translation_revised: 2026-08-07
 ---
 # Narrator Routing and Latency
 
@@ -12,11 +12,12 @@ pool 동작을 소유합니다. T1 narration과 system-governed T2 reasoning의 
 ## Narrator latency routing
 
 Console chat backend
-(`fdai.delivery.operator_api.routes.chat_backend_router.LatencyRoutedChatBackend`)는 `t1.judge`
+(`fdai.delivery.operator_api.application.conversation.backend.LatencyRoutedChatBackend`)는 `t1.judge`
 mini-stack deployment를 감싸고 각 turn에서 rolling p50 latency가 가장 낮은 후보를 선택합니다.
 `resolved-models.json`에 `narrator_candidates`가 두 개 이상 있으면 활성화되고, 하나만 있으면
 vision routing에 one-candidate latency wrapper가 필요하지 않은 한 `AzureAdChatBackend`를 직접
-사용합니다.
+사용합니다. Concrete Azure 및 OpenAI-compatible transport는
+`fdai.delivery.operator_api.adapters.conversation` 뒤에 있습니다.
 
 Router는 T1 narrator traffic 전용입니다. T2 capability로 latency routing을 확장하려면 별도 설계
 검토가 필요합니다. `t2.reasoner.primary` slot의 검토된 same-publisher 예외는

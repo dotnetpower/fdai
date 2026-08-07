@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: b0768d6b370330ac39299f307c73758542b731af
+translation_source_sha: cd95786c686ab69fa75d21536acb702216996de1
 translation_revised: 2026-08-07
 ---
 # Operator Console Module Map and Boundaries
@@ -23,8 +23,9 @@ envelope를 고정합니다. 의도적인 기본 route 추가는 같은 변경�
 ### Dependency-direction gate
 
 `check-operator-api-boundaries.py`는 application code를 로드하지 않고 import를 파싱합니다. 정리된
-core-to-delivery, runtime-to-Operator API, ingestion-to-Operator API 및 shared
-delivery-to-application 방향은 enforced check로 유지합니다. 기존 route-to-core policy import와 반대
+core-to-delivery, runtime-to-Operator API, ingestion-to-Operator API, shared
+delivery-to-application, application-to-provider-adapter 및 route-to-provider-adapter 방향은 enforced
+check로 유지합니다. 기존 route-to-core policy import와 반대
 방향의 Operator API service import는 report-only debt로 유지하므로 이후 migration issue가 이를 줄이는
 동안 관련 없는 작업을 차단하지 않습니다.
 
@@ -151,6 +152,23 @@ Rollback은 inventory implementation module을 `routes/` 아래에 복원하고 
 facade가 복원된 owner를 가리키게 합니다. Wire contract와 authoritative inventory provider는
 변경하지 않습니다.
 
+### Conversation backend application 및 adapter boundary
+
+SD-01 backend slice는 `fdai.delivery.operator_api.application.conversation.backend` 아래에서
+provider-neutral contract와 request-local latency routing을 소유합니다. Application package는 injected
+backend 중 하나를 선택하고 bounded failover와 multimodal dispatch를 보존하며 credential이 없는 endpoint
+metadata만 노출합니다. Azure 또는 OpenAI implementation은 import하지 않습니다.
+
+Concrete Azure workload-identity 및 OpenAI-compatible HTTP implementation, shared response validation,
+metering transport, resolved-model loading 및 startup construction은
+`fdai.delivery.operator_api.adapters.conversation` 아래에 있습니다. JSON 및 SSE route는 authentication,
+HTTP status mapping, sequence와 revision, cancellation, terminal delivery 및 conversation history를 계속
+소유합니다. 기존 `routes.chat_backend_*` module의 repository consumer는 모두 internal implementation 또는
+test import였으므로 compatibility shim을 남기지 않습니다.
+
+Rollback은 다섯 backend module을 `routes/` 아래에 복원한 다음 application 및 adapter facade가 복원된
+owner를 가리키게 합니다. Auth, provider scope, JSON 또는 SSE는 변경하지 않습니다.
+
 ### Immutable app composition
 
 Issue 72는 `OperatorApiConfig(**kwargs)`를 bounded compatibility constructor로 유지하고 route를 등록하기
@@ -174,11 +192,14 @@ signature를 그대로 유지합니다. 이 절차는 wire 또는 caller migrati
 | Package | 현재 책임 | Migration 규칙 |
 |---------|-----------|----------------|
 | Root | Public facade 및 foundational contract | 분류된 replacement가 준비될 때까지 유지합니다. |
+| `adapters/` | HTTP route 밖의 concrete Operator API provider implementation | Provider I/O를 application contract 뒤에 유지합니다. |
+| `adapters/conversation/` | Azure 및 OpenAI-compatible narrator transport와 startup construction | Explicit facade로 import하고 credential과 transport는 route 밖에 유지합니다. |
 | `app/` | Shared ASGI assembly, middleware, registration 및 lifespan | HTTP composition boundary로 유지합니다. |
 | `application/` | Typed process-local, non-authoritative application coordination | Service-graduation evidence가 process boundary를 정당화할 때까지 유지합니다. |
 | `application/conversation/` | HTTP transport 밖의 process-local conversation capability | Service-graduation evidence가 준비될 때까지 process 안에 유지합니다. |
 | `application/conversation/capabilities/` | Domain별 typed process-local conversation capability | Non-authoritative capability owner로 유지합니다. |
 | `application/conversation/capabilities/inventory/` | Typed inventory query, deterministic compilation, semantic grounding 및 provider-read coordination | Explicit package facade로 import하고 JSON, SSE, authentication 및 history는 route에 유지합니다. |
+| `application/conversation/backend/` | Provider-neutral backend contract 및 request-local latency routing | Explicit facade로 import하고 provider implementation은 adapter에 유지합니다. |
 | `application/conversation/claims/` | Deterministic answer-claim extraction 및 bounded evidence verification | Explicit package facade로 import하고 JSON, SSE 및 authentication은 route에 유지합니다. |
 | `application/conversation/verification/` | Deterministic terminal answer verification 및 bounded evidence rendering | Explicit package facade로 import하고 wire behavior와 authentication은 route에 유지합니다. |
 | `dev/` | Interactive local 및 test-only provider composition | Production import에서 사용할 수 없게 유지합니다. |
@@ -249,6 +270,12 @@ frame을 거부합니다.
 
 ## Operator API route ownership
 
+- `application/conversation/backend/`는 provider-neutral backend contract, prompt-policy error, bounded
+  latency routing, failover 및 multimodal dispatch를 소유합니다. Provider I/O, HTTP, SSE, authentication 또는
+  durable state는 소유하지 않습니다.
+- `adapters/conversation/`은 Azure workload-identity 및 OpenAI-compatible provider call, response validation,
+  metering transport, resolved-model loading 및 backend construction을 소유합니다. Route authorization, JSON
+  또는 SSE delivery, conversation history는 소유하지 않습니다.
 - `application/conversation/claims/`는 deterministic claim extraction, evidence matching 및 evidence
   manifest를 소유합니다. HTTP, SSE, authentication 또는 durable state는 소유하지 않습니다.
 - `application/conversation/verification/`은 terminal answer integrity, deterministic evidence

@@ -20,11 +20,11 @@ from fdai.delivery.operator_api.application import (
     ConversationTurnResult,
     ConversationTurnTerminalStatus,
 )
-from fdai.delivery.operator_api.routes.chat import make_chat_route
-from fdai.delivery.operator_api.routes.chat_backend_common import (
+from fdai.delivery.operator_api.application.conversation.backend import (
     ChatBackendUnavailableError,
     ChatContentPolicyError,
 )
+from fdai.delivery.operator_api.routes.chat import make_chat_route
 from fdai.delivery.operator_api.routes.chat_stream import make_chat_stream_route
 
 _ROOT = Path(__file__).resolve().parents[3]

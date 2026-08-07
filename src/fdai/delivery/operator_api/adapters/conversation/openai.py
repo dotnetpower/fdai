@@ -11,7 +11,7 @@ import httpx
 from starlette.exceptions import HTTPException
 
 from fdai.core.metering.emitter import MeteringEmitter
-from fdai.delivery.operator_api.routes.chat_backend_common import (
+from fdai.delivery.operator_api.adapters.conversation.transport import (
     _completion_body_params,
     _default_chat_http_client,
     _metering_scope,
@@ -77,6 +77,24 @@ class OpenAiCompatibleChatBackend:
         self._config = config
         self._http = http_client if http_client is not None else _default_chat_http_client()
         self._metering = metering
+
+    @property
+    def endpoint(self) -> str:
+        """Return the configured provider endpoint without credentials."""
+
+        return self._config.base_url
+
+    @property
+    def mode(self) -> str:
+        """Return the public provider mode label."""
+
+        return f"openai-compat:{self._config.provider}"
+
+    @property
+    def model(self) -> str:
+        """Return the configured model or deployment name."""
+
+        return self._config.model
 
     def _url(self) -> str:
         base = self._config.base_url.rstrip("/")

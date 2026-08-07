@@ -38,6 +38,14 @@ from fdai.delivery.operator_api.application import (
     ConversationTurnInput,
     ConversationTurnTerminalStatus,
 )
+from fdai.delivery.operator_api.application.conversation.backend import (
+    ChatBackend,
+    ChatBackendUnavailableError,
+    ChatContentPolicyError,
+    LatencyRoutedChatBackend,
+    describe_backend,
+    reject_direct_override,
+)
 from fdai.delivery.operator_api.application.conversation.capabilities.inventory.compiler import (
     compile_inventory_query,
     inventory_query_requires_semantic_completion,
@@ -67,44 +75,6 @@ from fdai.delivery.operator_api.routes.chat_answer_planning import (
 from fdai.delivery.operator_api.routes.chat_answer_quality import (
     review_korean_narrator_answer,
     verify_quality_result,
-)
-from fdai.delivery.operator_api.routes.chat_backend_azure import AzureAdChatBackend
-from fdai.delivery.operator_api.routes.chat_backend_common import (
-    _COGNITIVE_SCOPE,
-    _COMPLETION_TOKEN_PARAM_MODELS,
-    _CONTENT_FILTER_MARKERS,
-    _DIRECT_OVERRIDE,
-    ChatBackend,
-    ChatBackendUnavailableError,
-    ChatContentPolicyError,
-    DisabledChatBackend,
-    _completion_body_params,
-    _default_chat_http_client,
-    _raise_upstream_error,
-    _reject_direct_override,
-    _usage_summary,
-)
-from fdai.delivery.operator_api.routes.chat_backend_factory import (
-    _build_routed_backend,
-    _build_single_azure_backend,
-    _find_resolved_models,
-    _host_of,
-    _resolve_disk_azure_backend,
-    _search_roots,
-    backend_from_env,
-    describe_backend,
-)
-from fdai.delivery.operator_api.routes.chat_backend_openai import (
-    OpenAiCompatibleChatBackend,
-    OpenAiCompatibleChatBackendConfig,
-)
-from fdai.delivery.operator_api.routes.chat_backend_router import (
-    _ROUTER_FAILURE_PENALTY_MS,
-    _ROUTER_WARMUP_SAMPLES,
-    _ROUTER_WINDOW_SIZE,
-    LatencyRoutedChatBackend,
-    _p50,
-    _p95,
 )
 from fdai.delivery.operator_api.routes.chat_busy_input import (
     ChatTurnInterruptedError,
@@ -479,7 +449,7 @@ def make_chat_route(
         )
         turn_service = resolved_turn_service
         try:
-            _reject_direct_override(clean_prompt)
+            reject_direct_override(clean_prompt)
         except ChatContentPolicyError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         if conversation_history_store is not None:
@@ -1237,11 +1207,7 @@ def _log_handover_availability_failure(task: asyncio.Task[object]) -> None:
 
 __all__ = [
     "AgentChatDelegate",
-    "ChatBackend",
     "ChatWebSearchEvidenceResolver",
-    "LatencyRoutedChatBackend",
-    "backend_from_env",
-    "describe_backend",
     "make_chat_health_route",
     "make_chat_route",
     "make_chat_stream_route",

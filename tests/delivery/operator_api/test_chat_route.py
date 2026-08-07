@@ -41,18 +41,22 @@ from fdai.core.metering import (
     MeteringEmitter,
     with_invocation_scope,
 )
+from fdai.delivery.operator_api.adapters.conversation import (
+    AzureAdChatBackend,
+    OpenAiCompatibleChatBackend,
+    OpenAiCompatibleChatBackendConfig,
+)
+from fdai.delivery.operator_api.application.conversation.backend import (
+    ChatBackend,
+    ChatBackendUnavailableError,
+    ChatContentPolicyError,
+)
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes import chat_registration
 from fdai.delivery.operator_api.routes.chat import (
-    AzureAdChatBackend,
-    ChatBackend,
-    ChatBackendUnavailableError,
-    OpenAiCompatibleChatBackend,
-    OpenAiCompatibleChatBackendConfig,
     make_chat_route,
     make_chat_stream_route,
 )
-from fdai.delivery.operator_api.routes.chat_backend_common import ChatContentPolicyError
 from fdai.delivery.operator_api.routes.chat_evidence import OperationalEvidenceResolver
 from fdai.delivery.operator_api.routes.chat_registration import append_chat_routes
 from fdai.shared.providers.conversation_channel import ChannelAttachment

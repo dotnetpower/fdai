@@ -19,6 +19,11 @@ import pytest
 from starlette.exceptions import HTTPException
 
 from fdai.agents import BASELINE_LAYER_IDS, PANTHEON_SPECS
+from fdai.delivery.operator_api.adapters.conversation.transport import (
+    _raise_if_content_filtered,
+    _raise_upstream_error,
+)
+from fdai.delivery.operator_api.application.conversation.backend import ChatContentPolicyError
 from fdai.delivery.operator_api.routes.chat import (
     _CAPABILITIES,
     _GLOSSARY,
@@ -28,12 +33,7 @@ from fdai.delivery.operator_api.routes.chat import (
     _build_messages,
     _is_capability_query,
     _is_concept_query,
-    _raise_upstream_error,
     _trim_view_context,
-)
-from fdai.delivery.operator_api.routes.chat_backend_common import (
-    ChatContentPolicyError,
-    _raise_if_content_filtered,
 )
 from fdai.delivery.operator_api.routes.chat_prompt import _with_concept_evidence
 from fdai.delivery.operator_api.routes.chat_prompt_content import (

@@ -10,15 +10,15 @@ from starlette.requests import Request
 
 from fdai.core.conversation.answer_plan import AnswerPlan, build_answer_plan
 from fdai.core.conversation.answer_preferences import ResponsePreferenceProfile
+from fdai.delivery.operator_api.application.conversation.backend import (
+    ChatContentPolicyError,
+    reject_direct_override,
+)
 from fdai.delivery.operator_api.application.conversation.capabilities.inventory.followup import (
     contextualize_inventory_scope_followup,
     contextualize_inventory_screen_scope,
 )
 from fdai.delivery.operator_api.routes.chat_action_context import needs_action_context
-from fdai.delivery.operator_api.routes.chat_backend_common import (
-    ChatContentPolicyError,
-    _reject_direct_override,
-)
 from fdai.delivery.operator_api.routes.chat_conversation_context import (
     load_verified_prior_context,
     needs_conversation_context,
@@ -124,7 +124,7 @@ async def prepare_chat_stream_request(
         raise HTTPException(status_code=400, detail="prompt MUST be a non-empty string")
     clean_prompt = prompt.strip()
     try:
-        _reject_direct_override(clean_prompt)
+        reject_direct_override(clean_prompt)
     except ChatContentPolicyError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     session_id = _session_id(body)

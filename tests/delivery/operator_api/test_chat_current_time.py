@@ -9,9 +9,9 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
+from fdai.delivery.operator_api.application.conversation.backend import ChatBackend
 from fdai.delivery.operator_api.application.conversation.verification import verify_answer
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
-from fdai.delivery.operator_api.routes.chat import ChatBackend
 from fdai.delivery.operator_api.routes.chat_current_time import (
     CurrentTimeChatTools,
     current_time_evidence_refs,

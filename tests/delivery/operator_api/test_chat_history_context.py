@@ -9,8 +9,8 @@ from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
+from fdai.delivery.operator_api.application.conversation.backend import ChatContentPolicyError
 from fdai.delivery.operator_api.routes.chat import make_chat_route
-from fdai.delivery.operator_api.routes.chat_backend_common import ChatContentPolicyError
 from fdai.delivery.operator_api.routes.chat_content_policy import (
     answer_with_content_policy_recovery,
     collect_stream_with_content_policy_recovery,

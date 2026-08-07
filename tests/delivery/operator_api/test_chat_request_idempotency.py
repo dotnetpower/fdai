@@ -10,8 +10,8 @@ from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from fdai.delivery.conversation_images import InMemoryConversationImageStore
+from fdai.delivery.operator_api.application.conversation.backend import ChatBackend
 from fdai.delivery.operator_api.routes.chat import (
-    ChatBackend,
     make_chat_route,
     make_chat_stream_route,
 )

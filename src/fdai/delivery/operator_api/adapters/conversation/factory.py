@@ -11,13 +11,16 @@ import httpx
 
 from fdai.core.metering import MeteringEmitter, MeteringSink, PricingTable
 from fdai.delivery.azure.llm.request_target import COGNITIVE_SERVICES_SCOPE
-from fdai.delivery.operator_api.routes.chat_backend_azure import AzureAdChatBackend
-from fdai.delivery.operator_api.routes.chat_backend_common import ChatBackend, DisabledChatBackend
-from fdai.delivery.operator_api.routes.chat_backend_openai import (
+from fdai.delivery.operator_api.adapters.conversation.azure import AzureAdChatBackend
+from fdai.delivery.operator_api.adapters.conversation.openai import (
     OpenAiCompatibleChatBackend,
     OpenAiCompatibleChatBackendConfig,
 )
-from fdai.delivery.operator_api.routes.chat_backend_router import LatencyRoutedChatBackend
+from fdai.delivery.operator_api.application.conversation.backend import (
+    ChatBackend,
+    DisabledChatBackend,
+    LatencyRoutedChatBackend,
+)
 from fdai.rule_catalog.schema.model_endpoint import ModelApiStyle
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -528,76 +531,3 @@ def _search_roots() -> list[str]:
     except OSError:
         pass
     return roots
-
-
-def describe_backend(backend: ChatBackend) -> dict[str, Any]:
-    """Return a small JSON-safe descriptor of the wired backend.
-
-    Contains only public metadata (provider, model / deployment,
-    endpoint host) - never the API key or bearer token.
-    """
-    if isinstance(backend, DisabledChatBackend):
-        return {"available": False, "mode": "disabled", "model": None, "endpoint": None}
-    if isinstance(backend, LatencyRoutedChatBackend):
-        # The router is warm-up-driven; expose the current candidate stats
-        # so the deck header can show ``LLM · auto(3) · fastest gpt-5.4-mini``
-        # from a single ``GET /chat/health`` call, before any turn.
-        stats = backend.stats()
-        chose = backend.current_pick_name()
-        vision_backend = backend.vision_backend()
-        if isinstance(vision_backend, LatencyRoutedChatBackend):
-            vision_chose = vision_backend.current_pick_name()
-            vision = {
-                "available": vision_backend.has_available_candidate(),
-                "chose": vision_chose,
-                "candidates": vision_backend.stats(),
-            }
-        elif isinstance(vision_backend, AzureAdChatBackend):
-            vision = {
-                "available": True,
-                "chose": vision_backend._deployment,  # noqa: SLF001
-                "candidates": [{"deployment": vision_backend._deployment}],  # noqa: SLF001
-            }
-        else:
-            vision = {"available": False, "chose": None, "candidates": []}
-        return {
-            "available": backend.has_available_candidate(),
-            "mode": (
-                "azure-ad-routed"
-                if backend.has_available_candidate()
-                else "azure-ad-routed-unavailable"
-            ),
-            "model": chose if backend.has_available_candidate() else None,
-            "endpoint": _host_of(backend.endpoints()[0]) if backend.endpoints() else None,
-            "router": {
-                "chose": chose,
-                "candidates": stats,
-                "vision": vision,
-            },
-        }
-    if isinstance(backend, AzureAdChatBackend):
-        return {
-            "available": True,
-            "mode": "azure-ad",
-            "model": backend._deployment,  # noqa: SLF001 - deliberate readonly peek
-            "endpoint": _host_of(backend._endpoint),  # noqa: SLF001
-        }
-    if isinstance(backend, OpenAiCompatibleChatBackend):
-        cfg = backend._config  # noqa: SLF001 - deliberate readonly peek
-        return {
-            "available": True,
-            "mode": f"openai-compat:{cfg.provider}",
-            "model": cfg.model,
-            "endpoint": _host_of(cfg.base_url),
-        }
-    return {"available": True, "mode": type(backend).__name__, "model": None, "endpoint": None}
-
-
-def _host_of(url: str) -> str:
-    """Extract host from a URL, defensively - never returns None."""
-    from urllib.parse import urlparse
-
-    try:
-        return urlparse(url).netloc or url
-    except ValueError:
-        return url

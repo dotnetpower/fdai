@@ -20,6 +20,10 @@ from fdai.delivery.operator_api.application import (
     ConversationTurnApplicationService,
     ConversationTurnExecution,
 )
+from fdai.delivery.operator_api.application.conversation.backend import (
+    ChatBackend,
+    LatencyRoutedChatBackend,
+)
 from fdai.delivery.operator_api.application.conversation.verification import (
     AnswerVerification,
     verify_answer,
@@ -30,8 +34,6 @@ from fdai.delivery.operator_api.routes.chat_answer_quality import (
     AnswerQualityInvoke,
     AnswerQualityResult,
 )
-from fdai.delivery.operator_api.routes.chat_backend_common import ChatBackend
-from fdai.delivery.operator_api.routes.chat_backend_router import LatencyRoutedChatBackend
 from fdai.delivery.operator_api.routes.chat_busy_input import interruptible_events
 from fdai.delivery.operator_api.routes.chat_document_evidence import merge_document_verification
 from fdai.delivery.operator_api.routes.chat_freshness_context import (

@@ -8,10 +8,11 @@ from typing import Any
 
 import pytest
 
-from fdai.delivery.operator_api.routes.chat import LatencyRoutedChatBackend, describe_backend
-from fdai.delivery.operator_api.routes.chat_backend_common import (
+from fdai.delivery.operator_api.application.conversation.backend import (
     ChatBackendUnavailableError,
     ChatContentPolicyError,
+    LatencyRoutedChatBackend,
+    describe_backend,
 )
 
 
@@ -753,7 +754,9 @@ class TestRouterCleanup:
 
 class TestRouterBenchmark:
     async def test_benchmark_measures_all_and_returns_fastest(self) -> None:
-        from fdai.delivery.operator_api.routes.chat import _ROUTER_WARMUP_SAMPLES
+        from fdai.delivery.operator_api.application.conversation.backend.router import (
+            _ROUTER_WARMUP_SAMPLES,
+        )
 
         fast = _FixedLatencyBackend(model="fast", delay_ms=5)
         slow = _FixedLatencyBackend(model="slow", delay_ms=40)
@@ -795,14 +798,18 @@ class TestRouterBenchmark:
 
 class TestCompletionBodyParams:
     def test_classic_models_use_max_tokens_and_temperature(self) -> None:
-        from fdai.delivery.operator_api.routes.chat import _completion_body_params
+        from fdai.delivery.operator_api.adapters.conversation.transport import (
+            _completion_body_params,
+        )
 
         for model in ("gpt-4o-mini", "gpt-4.1-mini", "gpt-4o"):
             params = _completion_body_params(model, temperature=0.2, max_tokens=800)
             assert params == {"temperature": 0.2, "max_tokens": 800}
 
     def test_new_models_use_max_completion_tokens_and_no_temperature(self) -> None:
-        from fdai.delivery.operator_api.routes.chat import _completion_body_params
+        from fdai.delivery.operator_api.adapters.conversation.transport import (
+            _completion_body_params,
+        )
 
         for model in (
             "gpt-5-mini",

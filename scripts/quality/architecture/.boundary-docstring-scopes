@@ -1,5 +1,9 @@
 # Public Operator API package facade reviewed as an enforced boundary.
 enforce|src/fdai/delivery/operator_api/__init__.py
+# Concrete provider integrations stay outside route and application ownership.
+report|src/fdai/delivery/operator_api/adapters/__init__.py
+# Narrator adapters own Azure and OpenAI-compatible provider transport.
+report|src/fdai/delivery/operator_api/adapters/conversation/__init__.py
 # Application assembly owns route and lifespan wiring.
 enforce|src/fdai/delivery/operator_api/app/__init__.py
 # Typed application services are the transport-to-workflow boundary.
@@ -10,6 +14,8 @@ report|src/fdai/delivery/operator_api/application/conversation/__init__.py
 report|src/fdai/delivery/operator_api/application/conversation/capabilities/__init__.py
 # Inventory query and semantic coordination is read-only application logic.
 report|src/fdai/delivery/operator_api/application/conversation/capabilities/inventory/__init__.py
+# Backend contracts and latency routing remain provider-neutral and request-local.
+report|src/fdai/delivery/operator_api/application/conversation/backend/__init__.py
 # Claim verification is read-only application logic outside route ownership.
 report|src/fdai/delivery/operator_api/application/conversation/claims/__init__.py
 # Terminal answer verification is request-local application logic outside route ownership.

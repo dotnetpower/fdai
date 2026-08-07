@@ -21,7 +21,8 @@ from fdai.delivery.azure.llm.model_catalog import (
     GptModelCatalogSnapshot,
     ModelSkuAvailability,
 )
-from fdai.delivery.operator_api.routes.chat import LatencyRoutedChatBackend, make_chat_route
+from fdai.delivery.operator_api.application.conversation.backend import LatencyRoutedChatBackend
+from fdai.delivery.operator_api.routes.chat import make_chat_route
 from fdai.delivery.operator_api.routes.model_settings import (
     ModelSettingsService,
     ModelSettingsUnavailableError,

@@ -240,6 +240,22 @@ def _classify(ref: ImportRef) -> Finding | None:
             ref,
             "shared delivery contracts must remain application-neutral",
         )
+    if path.startswith("src/fdai/delivery/operator_api/application/") and _module_is(
+        module, "fdai.delivery.operator_api.adapters"
+    ):
+        return Finding(
+            "operator-application-to-adapter",
+            ref,
+            "Operator application code must depend on contracts, not provider adapters",
+        )
+    if path.startswith("src/fdai/delivery/operator_api/routes/") and _module_is(
+        module, "fdai.delivery.operator_api.adapters"
+    ):
+        return Finding(
+            "operator-route-to-adapter",
+            ref,
+            "Operator routes must depend on application contracts, not provider adapters",
+        )
     if path.startswith("src/fdai/delivery/operator_api/routes/") and _module_is(
         module, "fdai.core"
     ):

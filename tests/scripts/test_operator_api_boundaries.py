@@ -130,6 +130,16 @@ def test_clean_dependency_directions_pass(tmp_path: Path) -> None:
             "from fdai.delivery.operator_api.routes.audit import route\n",
             "shared-delivery-to-application",
         ),
+        (
+            "src/fdai/delivery/operator_api/application/conversation/backend/router.py",
+            "from fdai.delivery.operator_api.adapters.conversation import AzureAdChatBackend\n",
+            "operator-application-to-adapter",
+        ),
+        (
+            "src/fdai/delivery/operator_api/routes/chat.py",
+            "from fdai.delivery.operator_api.adapters.conversation import backend_from_env\n",
+            "operator-route-to-adapter",
+        ),
     ),
 )
 def test_enforced_violation_is_detected(

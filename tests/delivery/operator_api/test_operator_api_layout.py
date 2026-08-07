@@ -23,6 +23,7 @@ _MODULE_INVENTORY_PATH = (
 
 _REQUIRED_SUBPACKAGES = frozenset(
     {
+        "adapters",
         "app",
         "application",
         "dev",

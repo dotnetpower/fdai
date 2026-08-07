@@ -9,9 +9,9 @@ from collections import deque
 from collections.abc import AsyncIterator, Mapping
 from typing import Any, Final
 
-from fdai.delivery.operator_api.routes.chat_backend_azure import AzureAdChatBackend
-from fdai.delivery.operator_api.routes.chat_backend_common import (
+from fdai.delivery.operator_api.application.conversation.backend.contracts import (
     ChatBackend,
+    ChatBackendMetadata,
     ChatBackendUnavailableError,
     ChatContentPolicyError,
 )
@@ -173,11 +173,11 @@ class LatencyRoutedChatBackend:
         )
 
     def endpoints(self) -> list[str]:
-        """Endpoint hosts (best-effort - only Azure-AD backends expose one)."""
+        """Return public endpoint values exposed by provider adapters."""
         out: list[str] = []
-        for _, be in self._candidates:
-            if isinstance(be, AzureAdChatBackend):
-                out.append(be._endpoint)  # noqa: SLF001 - deliberate peek
+        for _, backend in self._candidates:
+            if isinstance(backend, ChatBackendMetadata):
+                out.append(backend.endpoint)
         return out
 
     async def benchmark(

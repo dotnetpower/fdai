@@ -21,8 +21,9 @@ An intentional default route addition updates this reviewed baseline in the same
 ### Dependency-direction gate
 
 `check-operator-api-boundaries.py` parses imports without loading application code. It enforces
-the cleaned core-to-delivery, runtime-to-Operator API, ingestion-to-Operator API, and shared
-delivery-to-application directions. Existing route-to-core policy imports and opposite-direction
+the cleaned core-to-delivery, runtime-to-Operator API, ingestion-to-Operator API, shared
+delivery-to-application, application-to-provider-adapter, and route-to-provider-adapter
+directions. Existing route-to-core policy imports and opposite-direction
 Operator API service imports remain report-only debt, so unrelated work isn't blocked while the
 later migration issues reduce them.
 
@@ -152,6 +153,23 @@ Rollback restores the inventory implementation modules under `routes/` and redir
 inventory package facades to those restored owners. It does not change either wire contract or the
 authoritative inventory providers.
 
+### Conversation backend application and adapter boundaries
+
+The SD-01 backend slice owns provider-neutral contracts and request-local latency routing under
+`fdai.delivery.operator_api.application.conversation.backend`. The application package selects
+among injected backends, preserves bounded failover and multimodal dispatch, and exposes only
+credential-free endpoint metadata. It does not import Azure or OpenAI implementations.
+
+Concrete Azure workload-identity and OpenAI-compatible HTTP implementations, shared response
+validation, metering transport, resolved-model loading, and startup construction live under
+`fdai.delivery.operator_api.adapters.conversation`. JSON and SSE routes continue to own
+authentication, HTTP status mapping, sequence and revision, cancellation, terminal delivery, and
+conversation history. All repository consumers of the former `routes.chat_backend_*` modules were
+internal implementation or test imports, so no compatibility shim remains.
+
+Rollback restores the five backend modules under `routes/`, then redirects the application and
+adapter facades to those restored owners without changing auth, provider scope, JSON, or SSE.
+
 ### Immutable app composition
 
 Issue 72 keeps `OperatorApiConfig(**kwargs)` as the bounded compatibility constructor and projects
@@ -177,11 +195,14 @@ reverses physical ownership without a wire or caller migration.
 | Package | Current responsibility | Migration rule |
 |---------|------------------------|----------------|
 | Root | Public facades and foundational contracts | Preserve until a classified replacement exists. |
+| `adapters/` | Concrete Operator API provider implementations outside HTTP routes | Keep provider I/O behind application contracts. |
+| `adapters/conversation/` | Azure and OpenAI-compatible narrator transports and startup construction | Import through its explicit facade; keep credentials and transport outside routes. |
 | `app/` | Shared ASGI assembly, middleware, registration, and lifespan | Retain as the HTTP composition boundary. |
 | `application/` | Typed process-local, non-authoritative application coordination | Retain until service-graduation evidence justifies a process boundary. |
 | `application/conversation/` | Process-local conversation capabilities outside HTTP transport | Retain in-process until service-graduation evidence exists. |
 | `application/conversation/capabilities/` | Typed process-local conversation capabilities grouped by domain | Retain as the non-authoritative capability owner. |
 | `application/conversation/capabilities/inventory/` | Typed inventory queries, deterministic compilation, semantic grounding, and provider-read coordination | Import through its explicit package facade; keep JSON, SSE, authentication, and history in routes. |
+| `application/conversation/backend/` | Provider-neutral backend contracts and request-local latency routing | Import through its explicit facade; keep provider implementations in adapters. |
 | `application/conversation/claims/` | Deterministic answer-claim extraction and bounded evidence verification | Import through its explicit package facade; keep JSON, SSE, and authentication in routes. |
 | `application/conversation/verification/` | Deterministic terminal answer verification and bounded evidence rendering | Import through its explicit package facade; keep wire behavior and authentication in routes. |
 | `dev/` | Interactive local and test-only provider composition | Keep unavailable to production imports. |
@@ -252,6 +273,12 @@ a separately reviewed boundary.
 
 ## Operator API route ownership
 
+- `application/conversation/backend/` owns the provider-neutral backend contract, prompt-policy
+  error, bounded latency routing, failover, and multimodal dispatch. It does not own provider I/O,
+  HTTP, SSE, authentication, or durable state.
+- `adapters/conversation/` owns Azure workload-identity and OpenAI-compatible provider calls,
+  response validation, metering transport, resolved-model loading, and backend construction. It
+  does not own route authorization, JSON or SSE delivery, or conversation history.
 - `application/conversation/claims/` owns deterministic claim extraction, evidence matching, and
   evidence manifests. It does not own HTTP, SSE, authentication, or durable state.
 - `application/conversation/verification/` owns terminal answer integrity, deterministic evidence
