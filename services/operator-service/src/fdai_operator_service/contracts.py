@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping, MutableMapping
-from typing import Any, Protocol
+from typing import Any, Protocol, TypeAlias
 
-type AsgiScope = MutableMapping[str, Any]
-type AsgiMessage = MutableMapping[str, Any]
-type AsgiReceive = Callable[[], Awaitable[AsgiMessage]]
-type AsgiSend = Callable[[AsgiMessage], Awaitable[None]]
+AsgiScope: TypeAlias = MutableMapping[str, Any]  # noqa: UP040
+AsgiMessage: TypeAlias = MutableMapping[str, Any]  # noqa: UP040
+AsgiReceive: TypeAlias = Callable[[], Awaitable[AsgiMessage]]  # noqa: UP040
+AsgiSend: TypeAlias = Callable[[AsgiMessage], Awaitable[None]]  # noqa: UP040
 
 
 class AsgiApplication(Protocol):

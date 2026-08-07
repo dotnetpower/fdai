@@ -78,6 +78,21 @@ from fdai_service_contracts.executor import (
     ExecutionOutcomeValue,
 )
 from fdai_service_contracts.manifest import CompatibilitySummary, validate_manifest
+from fdai_service_contracts.operator import (
+    AuditQuery,
+    HilQueueProjection,
+    HilQueueQuery,
+    JsonObject,
+    JsonProjection,
+    JsonScalar,
+    JsonValue,
+    OperatorPrincipal,
+    OperatorReadModel,
+    OperatorRole,
+    OperatorTokenVerifier,
+    PageProjection,
+    ReadDataSource,
+)
 
 __all__ = [
     "AUDIT_APPEND_LOCK_KEY",
@@ -87,6 +102,7 @@ __all__ = [
     "EXECUTOR_COMMAND_TOPIC",
     "EXECUTOR_CONSUMER_GROUP",
     "EXECUTOR_RECEIPT_TOPIC",
+    "AuditQuery",
     "CompatibilityError",
     "CompatibilitySummary",
     "DirectUploadStore",
@@ -129,6 +145,18 @@ __all__ = [
     "PromotableDocumentObjectStore",
     "ProviderUnavailableError",
     "RetentionPolicy",
+    "HilQueueProjection",
+    "HilQueueQuery",
+    "JsonObject",
+    "JsonProjection",
+    "JsonScalar",
+    "JsonValue",
+    "OperatorPrincipal",
+    "OperatorReadModel",
+    "OperatorRole",
+    "OperatorTokenVerifier",
+    "PageProjection",
+    "ReadDataSource",
     "SemVer",
     "ServiceDescriptor",
     "ServiceKind",

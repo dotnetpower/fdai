@@ -4,17 +4,28 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fdai_operator_service.contracts import ApplicationFactory, AsgiApplication
+from fdai_service_contracts import OperatorReadModel, ReadDataSource
+
+from fdai_operator_service.auth import OperatorAuthenticator
+from fdai_operator_service.contracts import AsgiApplication
 from fdai_operator_service.environment import OperatorEnvironment
+from fdai_operator_service.routes import build_operator_app
 
 
 @dataclass(frozen=True, slots=True)
 class OperatorRuntime:
-    """Bind validated process configuration to one injected application factory."""
+    """Bind validated HTTP configuration to non-privileged Operator dependencies."""
 
     environment: OperatorEnvironment
-    application_factory: ApplicationFactory
+    authenticator: OperatorAuthenticator
+    read_model: OperatorReadModel
+    data_sources: tuple[ReadDataSource, ...]
 
     def create_app(self) -> AsgiApplication:
-        """Create an ASGI application without starting its external providers eagerly."""
-        return self.application_factory(self.environment.values)
+        """Create the service-owned Starlette application without privileged identity."""
+        return build_operator_app(
+            authenticator=self.authenticator,
+            read_model=self.read_model,
+            data_sources=self.data_sources,
+            cors_allow_origins=self.environment.cors_allow_origins,
+        )
