@@ -418,31 +418,14 @@ justifies them):
 
 ### Compute Shape (current core and five-service target)
 
-The current control-loop Core deploys as one signed image and one Python process. The five-service
-target adds an internal Isolated Executor and removes executor roles from Core at cutover; Operator,
-ingestion API, and ingestion worker remain separate. The prior topology is the rollback artifact,
-and the [execution plan](../architecture/service-decomposition-execution-plan.md) tracks every gate.
+The current control-loop Core deploys as one signed image and one Python process. The five-service target adds an internal Isolated Executor and removes executor roles from Core at cutover; Operator, ingestion API, and ingestion worker remain separate. The prior topology is the rollback artifact, and the [execution plan](../architecture/service-decomposition-execution-plan.md) tracks every gate.
 
-- **Runtime**: `python -m fdai` starts the Kafka consumer and composes routing, quality, risk,
-  execution, and audit stages in one process. The isolated shadow process uses
-  `fdai-isolated-executor`; it requires the explicit deployed-process marker, a durable state DSN,
-  and a dedicated non-effect identity, consumes commands from the earliest retained offset, and
-  imports no provider effect adapter. Deployment venue and `RUNTIME_ENV` remain independent.
-- **Health**: internal `/live` and `/ready` probes open only after the authoritative control loop
-  is assembled. The isolated Executor uses the same internal `/live` and `/ready` contract on
-  `FDAI_ISOLATED_EXECUTOR_HEALTH_PORT`. The ingestion API uses `/healthz`; its internal worker uses
-  `/live` and `/ready`.
-- **Replica floor**: the default is one replica. A zero floor without a verified Kafka scaler
-  would never wake on Event Hubs data, so Terraform does not claim scale-to-zero.
-- **Graduation rule**: the target is Core, Operator, Ingestion API, Processing Worker, and Isolated
-  Executor; authority cutover follows every gate in [Service Graduation and Data Ownership](../architecture/service-graduation-and-ownership.md).
-- **Identity split**: Operator API read/command and ingestion API/worker/migration principals stay
-  distinct. The worker receives Saga/Muninn objects only from `aw.pantheon.objects` and sends stage facts to `aw.pipeline.stages`; `ingestion_cohost_worker=true` returns both scopes to the API identity.
-- **Executor shadow deployment**: `enable_isolated_executor=true` provisions the internal app and
-  a dedicated UAMI with ACR pull, command receive, receipt/DLQ send, and state-secret read only.
-  The default is `false`; no action-specific effect role is assigned in SD-07. The private-runner
-  workflow exposes this as `deploy_isolated_executor`, remains plan-only by default, and includes
-  the app's latest revision in post-apply health verification.
+- **Runtime**: `python -m fdai` starts the Kafka consumer and composes routing, quality, risk, execution, and audit stages in one process. The isolated shadow process uses `fdai-isolated-executor`; it requires the explicit deployed-process marker, a durable state DSN, and a dedicated non-effect identity, consumes commands from the earliest retained offset, and imports no provider effect adapter. Deployment venue and `RUNTIME_ENV` remain independent.
+- **Health**: internal `/live` and `/ready` probes open only after the authoritative control loop is assembled. The isolated Executor uses the same internal `/live` and `/ready` contract on `FDAI_ISOLATED_EXECUTOR_HEALTH_PORT`. The ingestion API uses `/healthz`; its internal worker uses `/live` and `/ready`.
+- **Replica floor**: the default is one replica. A zero floor without a verified Kafka scaler would never wake on Event Hubs data, so Terraform does not claim scale-to-zero.
+- **Graduation rule**: the target is Core, Operator, Ingestion API, Processing Worker, and Isolated Executor; authority cutover follows every gate in [Service Graduation and Data Ownership](../architecture/service-graduation-and-ownership.md).
+- **Identity split**: Operator API read/command and ingestion API/worker/migration principals stay distinct. The worker receives Saga/Muninn objects only from `aw.pantheon.objects` and sends stage facts to `aw.pipeline.stages`; `ingestion_cohost_worker=true` returns both scopes to the API identity.
+- **Executor shadow deployment**: `enable_isolated_executor=true` provisions the internal app and a dedicated UAMI with ACR pull, command receive, receipt/DLQ send, and state-secret read only. The default is `false`; no action-specific effect role is assigned in SD-07. The private-runner workflow exposes this as `deploy_isolated_executor`, remains plan-only by default, and includes the app's latest revision in post-apply health verification.
 
 ## Bootstrap Sequence
 
