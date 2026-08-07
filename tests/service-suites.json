@@ -118,8 +118,10 @@
     {
       "id": "isolated-executor",
       "source_roots": [
+        "src/fdai/runtime/executor_authority_probe_cli.py",
         "src/fdai/runtime/isolated_executor.py",
         "src/fdai/runtime/isolated_executor_cli.py",
+        "src/fdai/runtime/isolated_executor_client.py",
         "src/fdai/runtime/isolated_executor_lock.py",
         "src/fdai/runtime/isolated_executor_runtime.py"
       ],
@@ -132,9 +134,11 @@
           "tests/contracts/test_executor_transport.py"
         ],
         "integration": [
+          "tests/runtime/test_isolated_executor_effect.py",
           "tests/runtime/test_isolated_executor_runtime.py"
         ],
         "smoke": [
+          "tests/runtime/test_executor_authority_probe_cli.py",
           "tests/runtime/test_isolated_executor_cli.py",
           "tests/infra/test_isolated_executor_boundary.py"
         ]
