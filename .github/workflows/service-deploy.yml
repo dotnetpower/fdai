@@ -1,0 +1,366 @@
+name: service-deploy
+
+# Plans or applies exactly one independently owned service root. Shared platform
+# resources remain owned by deploy-dev.yml and are never present in this plan.
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Independent runtime service to deploy."
+        type: choice
+        options:
+          - core-control-plane
+          - operator-service
+          - document-ingestion-api
+          - document-processing-worker
+          - isolated-executor
+        required: true
+      environment:
+        description: "Target deployment environment."
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+        required: true
+      commit_sha:
+        description: "Exact lowercase 40-character commit to plan or apply."
+        type: string
+        required: true
+      image_ref:
+        description: "Selected service GHCR image pinned by sha256 digest."
+        type: string
+        required: true
+      apply:
+        description: "Explicitly apply a previously protected plan. Defaults to plan-only."
+        type: boolean
+        default: false
+      plan_run_id:
+        description: "Plan workflow run id. Required only for apply."
+        type: string
+        required: false
+      plan_digest:
+        description: "Binary Terraform plan SHA-256. Required only for apply."
+        type: string
+        required: false
+      context_digest:
+        description: "Sealed service deployment context SHA-256. Required only for apply."
+        type: string
+        required: false
+
+permissions:
+  actions: read
+  attestations: read
+  contents: read
+  packages: read
+
+concurrency:
+  group: service-deploy-${{ inputs.service }}-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  protected-service-deploy:
+    runs-on: [self-hosted, fdai-deploy]
+    environment: ${{ inputs.apply && format('service-apply-{0}', inputs.environment) || 'plan-only' }}
+    env:
+      ARM_USE_AZUREAD: "true"
+      ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      STATE_RESOURCE_GROUP: ${{ vars.STATE_RESOURCE_GROUP }}
+      STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
+      STATE_CONTAINER: ${{ vars.STATE_CONTAINER || 'tfstate' }}
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 1
+          clean: true
+
+      - name: Verify exact checkout and explicit apply inputs
+        env:
+          APPLY: ${{ inputs.apply }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+          PLAN_RUN_ID: ${{ inputs.plan_run_id }}
+          PLAN_DIGEST: ${{ inputs.plan_digest }}
+          CONTEXT_DIGEST: ${{ inputs.context_digest }}
+        run: |
+          set -euo pipefail
+          [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "commit_sha must be a lowercase 40-character git SHA." >&2
+            exit 1
+          }
+          [[ "$(git rev-parse HEAD)" == "$COMMIT_SHA" ]] || {
+            echo "checked out commit does not match commit_sha." >&2
+            exit 1
+          }
+          if [[ "$APPLY" == "true" ]]; then
+            [[ "$PLAN_RUN_ID" =~ ^[0-9]+$ ]] || {
+              echo "apply requires a numeric plan_run_id." >&2
+              exit 1
+            }
+            [[ "$PLAN_DIGEST" =~ ^[0-9a-f]{64}$ ]] || {
+              echo "apply requires a lowercase SHA-256 plan_digest." >&2
+              exit 1
+            }
+            [[ "$CONTEXT_DIGEST" =~ ^[0-9a-f]{64}$ ]] || {
+              echo "apply requires a lowercase SHA-256 context_digest." >&2
+              exit 1
+            }
+          elif [[ -n "$PLAN_RUN_ID$PLAN_DIGEST$CONTEXT_DIGEST" ]]; then
+            echo "plan-only requests must not supply apply artifact inputs." >&2
+            exit 1
+          fi
+
+      - name: Resolve closed service contract
+        id: contract
+        env:
+          IMAGE_REF: ${{ inputs.image_ref }}
+        run: |
+          set -euo pipefail
+          python3 scripts/deployment/service/service_contract.py \
+            --service "${{ inputs.service }}" \
+            --environment "${{ inputs.environment }}" \
+            --repository "$GITHUB_REPOSITORY" \
+            --image "$IMAGE_REF" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Verify immutable service image attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GHCR_TOKEN: ${{ github.token }}
+          IMAGE_REF: ${{ inputs.image_ref }}
+          IMAGE_DIGEST: ${{ steps.contract.outputs.image_digest }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          image_path="${IMAGE_REF#ghcr.io/}"
+          image_path="${image_path%@sha256:*}"
+          registry_token="$(
+            curl --fail --silent --show-error --retry 3 --retry-delay 2 \
+              --retry-all-errors --connect-timeout 5 --max-time 30 \
+              --user "$GITHUB_ACTOR:$GHCR_TOKEN" \
+              "https://ghcr.io/token?scope=repository:${image_path}:pull" \
+              | python3 -c 'import json, sys; print(json.load(sys.stdin)["token"])'
+          )"
+          commit_digest="$(
+            curl --fail --silent --show-error --head --retry 3 --retry-delay 2 \
+              --retry-all-errors --connect-timeout 5 --max-time 30 \
+              -H "Authorization: Bearer $registry_token" \
+              -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
+              "https://ghcr.io/v2/${image_path}/manifests/sha-${COMMIT_SHA}" \
+              | tr -d '\r' \
+              | awk -F': ' 'tolower($1) == "docker-content-digest" {print $2}'
+          )"
+          [[ "$commit_digest" == "$IMAGE_DIGEST" ]] || {
+            echo "service image digest does not match the exact commit build." >&2
+            exit 1
+          }
+          timeout 60s gh attestation verify \
+            "oci://${IMAGE_REF}" \
+            --repo "$GITHUB_REPOSITORY" >/dev/null
+
+      - name: Authenticate runner managed identity
+        run: |
+          set -euo pipefail
+          [[ -n "$ARM_SUBSCRIPTION_ID" && -n "$ARM_TENANT_ID" ]] || {
+            echo "ARM_SUBSCRIPTION_ID and AZURE_TENANT_ID repository variables are required." >&2
+            exit 1
+          }
+          azure_config="$RUNNER_TEMP/service-deploy-azure"
+          rm -rf "$azure_config"
+          mkdir -m 700 "$azure_config"
+          echo "AZURE_CONFIG_DIR=$azure_config" >> "$GITHUB_ENV"
+          export AZURE_CONFIG_DIR="$azure_config"
+          az account clear >/dev/null 2>&1 || true
+          az login --identity --allow-no-subscriptions --output none
+          az account set --subscription "$ARM_SUBSCRIPTION_ID"
+          actual_subscription="$(az account show --query id --output tsv)"
+          actual_tenant="$(az account show --query tenantId --output tsv)"
+          [[ "$actual_subscription" == "$ARM_SUBSCRIPTION_ID" ]] || {
+            echo "runner identity is authenticated to the wrong subscription." >&2
+            exit 1
+          }
+          [[ "$actual_tenant" == "$ARM_TENANT_ID" ]] || {
+            echo "runner identity is authenticated to the wrong tenant." >&2
+            exit 1
+          }
+
+      - name: Validate isolated backend mapping
+        env:
+          BACKEND_KEY: ${{ steps.contract.outputs.backend_key }}
+        run: |
+          set -euo pipefail
+          [[ -n "$STATE_RESOURCE_GROUP" && -n "$STATE_STORAGE_ACCOUNT" && -n "$STATE_CONTAINER" ]] || {
+            echo "STATE_RESOURCE_GROUP, STATE_STORAGE_ACCOUNT, and STATE_CONTAINER are required." >&2
+            exit 1
+          }
+          terraform -chdir="${{ steps.contract.outputs.terraform_root }}" init \
+            -input=false \
+            -backend-config="resource_group_name=$STATE_RESOURCE_GROUP" \
+            -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$STATE_CONTAINER" \
+            -backend-config="key=$BACKEND_KEY" \
+            -backend-config="use_azuread_auth=true"
+          terraform -chdir="${{ steps.contract.outputs.terraform_root }}" validate
+
+      - name: Materialize selected service inputs
+        if: ${{ !inputs.apply }}
+        env:
+          SERVICE_TFVARS_JSON: ${{ secrets.SERVICE_DEPLOY_TFVARS_JSON }}
+        run: |
+          set -euo pipefail
+          [[ -n "$SERVICE_TFVARS_JSON" ]] || {
+            echo "SERVICE_DEPLOY_TFVARS_JSON is required for planning." >&2
+            exit 1
+          }
+          printf '%s' "$SERVICE_TFVARS_JSON" \
+            | python3 scripts/deployment/service/materialize_tfvars.py \
+                --service "${{ inputs.service }}" \
+                --environment "${{ inputs.environment }}" \
+                --output "$RUNNER_TEMP/service.tfvars.json"
+
+      - name: Create and guard service plan
+        if: ${{ !inputs.apply }}
+        env:
+          IMAGE_REF: ${{ inputs.image_ref }}
+        run: |
+          set -euo pipefail
+          terraform -chdir="${{ steps.contract.outputs.terraform_root }}" plan \
+            -input=false \
+            -lock-timeout=5m \
+            -out="$RUNNER_TEMP/service.plan" \
+            -var-file="$RUNNER_TEMP/service.tfvars.json" \
+            -var="image=$IMAGE_REF"
+          terraform -chdir="${{ steps.contract.outputs.terraform_root }}" show \
+            -json "$RUNNER_TEMP/service.plan" > "$RUNNER_TEMP/service-plan.json"
+          python3 scripts/deployment/service/guard_plan.py \
+            --plan-json "$RUNNER_TEMP/service-plan.json" \
+            --service "${{ inputs.service }}" \
+            --environment "${{ inputs.environment }}" \
+            --image-ref "$IMAGE_REF"
+
+      - name: Seal plan artifact and context
+        if: ${{ !inputs.apply }}
+        id: seal
+        env:
+          IMAGE_REF: ${{ inputs.image_ref }}
+        run: |
+          set -euo pipefail
+          python3 scripts/deployment/service/plan_bundle.py create \
+            --plan "$RUNNER_TEMP/service.plan" \
+            --plan-json "$RUNNER_TEMP/service-plan.json" \
+            --context "$RUNNER_TEMP/service-context.json" \
+            --metadata "$RUNNER_TEMP/service-plan-metadata.json" \
+            --service "${{ inputs.service }}" \
+            --environment "${{ inputs.environment }}" \
+            --repository "$GITHUB_REPOSITORY" \
+            --commit-sha "${{ inputs.commit_sha }}" \
+            --image-ref "$IMAGE_REF" \
+            --workflow-run-id "$GITHUB_RUN_ID" >/dev/null
+          python3 - "$RUNNER_TEMP/service-plan-metadata.json" "$GITHUB_OUTPUT" <<'PY'
+          import json
+          import sys
+
+          metadata = json.load(open(sys.argv[1], encoding="utf-8"))
+          with open(sys.argv[2], "a", encoding="utf-8") as output:
+              output.write(f"plan_digest={metadata['plan_digest']}\n")
+              output.write(f"context_digest={metadata['context_digest']}\n")
+          PY
+
+      - name: Upload protected service plan
+        if: ${{ !inputs.apply }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: service-plan-${{ inputs.service }}-${{ inputs.environment }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/service.plan
+            ${{ runner.temp }}/service-plan.json
+            ${{ runner.temp }}/service-context.json
+            ${{ runner.temp }}/service-plan-metadata.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Report protected plan coordinates
+        if: ${{ !inputs.apply }}
+        run: |
+          {
+            echo "### Protected service plan"
+            echo "- Service: \`${{ inputs.service }}\`"
+            echo "- Environment: \`${{ inputs.environment }}\`"
+            echo "- Commit: \`${{ inputs.commit_sha }}\`"
+            echo "- Plan run id: \`$GITHUB_RUN_ID\`"
+            echo "- Plan digest: \`${{ steps.seal.outputs.plan_digest }}\`"
+            echo "- Context digest: \`${{ steps.seal.outputs.context_digest }}\`"
+            echo "- Backend key: \`${{ steps.contract.outputs.backend_key }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Download exact protected service plan
+        if: ${{ inputs.apply }}
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: service-plan-${{ inputs.service }}-${{ inputs.environment }}-${{ inputs.plan_run_id }}
+          path: ${{ runner.temp }}/service-plan-bundle
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.plan_run_id }}
+
+      - name: Verify exact plan bundle and action boundary
+        if: ${{ inputs.apply }}
+        env:
+          IMAGE_REF: ${{ inputs.image_ref }}
+        run: |
+          set -euo pipefail
+          bundle="$RUNNER_TEMP/service-plan-bundle"
+          python3 scripts/deployment/service/plan_bundle.py verify \
+            --plan "$bundle/service.plan" \
+            --plan-json "$bundle/service-plan.json" \
+            --context "$bundle/service-context.json" \
+            --metadata "$bundle/service-plan-metadata.json" \
+            --service "${{ inputs.service }}" \
+            --environment "${{ inputs.environment }}" \
+            --repository "$GITHUB_REPOSITORY" \
+            --commit-sha "${{ inputs.commit_sha }}" \
+            --image-ref "$IMAGE_REF" \
+            --plan-digest "${{ inputs.plan_digest }}" \
+            --context-digest "${{ inputs.context_digest }}" \
+            --plan-run-id "${{ inputs.plan_run_id }}" >/dev/null
+          terraform -chdir="${{ steps.contract.outputs.terraform_root }}" show \
+            -json "$bundle/service.plan" > "$RUNNER_TEMP/replayed-service-plan.json"
+          cmp "$bundle/service-plan.json" "$RUNNER_TEMP/replayed-service-plan.json" || {
+            echo "binary plan and sealed plan JSON disagree." >&2
+            exit 1
+          }
+          python3 scripts/deployment/service/guard_plan.py \
+            --plan-json "$RUNNER_TEMP/replayed-service-plan.json" \
+            --service "${{ inputs.service }}" \
+            --environment "${{ inputs.environment }}" \
+            --image-ref "$IMAGE_REF"
+
+      - name: Apply exact protected service plan
+        if: ${{ inputs.apply }}
+        run: |
+          set -euo pipefail
+          terraform -chdir="${{ steps.contract.outputs.terraform_root }}" apply \
+            -input=false \
+            -lock-timeout=5m \
+            "$RUNNER_TEMP/service-plan-bundle/service.plan"
+
+      - name: Verify post-apply service health
+        if: ${{ inputs.apply }}
+        run: |
+          set -euo pipefail
+          cd "${{ steps.contract.outputs.terraform_root }}"
+          "$GITHUB_WORKSPACE/scripts/deployment/service/verify_health.sh"
+
+      - name: Remove temporary deployment material
+        if: ${{ always() }}
+        run: |
+          rm -f \
+            "$RUNNER_TEMP/service.tfvars.json" \
+            "$RUNNER_TEMP/service.plan" \
+            "$RUNNER_TEMP/service-plan.json" \
+            "$RUNNER_TEMP/service-context.json" \
+            "$RUNNER_TEMP/service-plan-metadata.json" \
+            "$RUNNER_TEMP/replayed-service-plan.json"
+          rm -rf "$RUNNER_TEMP/service-plan-bundle" "$RUNNER_TEMP/service-deploy-azure"

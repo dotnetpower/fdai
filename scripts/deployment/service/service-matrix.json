@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0.0",
+  "services": {
+    "core-control-plane": {
+      "allowed_resource_address": "module.core_control_plane.module.container_app.azurerm_container_app.service",
+      "backend_key_template": "services/core-control-plane/{environment}.tfstate",
+      "image_repository": "fdai-core-control-plane",
+      "terraform_root": "infra/services/core-control-plane"
+    },
+    "document-ingestion-api": {
+      "allowed_resource_address": "module.document_ingestion_api.module.container_app.azurerm_container_app.service",
+      "backend_key_template": "services/document-ingestion-api/{environment}.tfstate",
+      "image_repository": "fdai-document-ingestion-api",
+      "terraform_root": "infra/services/document-ingestion-api"
+    },
+    "document-processing-worker": {
+      "allowed_resource_address": "module.document_processing_worker.module.container_app.azurerm_container_app.service",
+      "backend_key_template": "services/document-processing-worker/{environment}.tfstate",
+      "image_repository": "fdai-document-processing-worker",
+      "terraform_root": "infra/services/document-processing-worker"
+    },
+    "isolated-executor": {
+      "allowed_resource_address": "module.isolated_executor.module.container_app.azurerm_container_app.service",
+      "backend_key_template": "services/isolated-executor/{environment}.tfstate",
+      "image_repository": "fdai-isolated-executor",
+      "terraform_root": "infra/services/isolated-executor"
+    },
+    "operator-service": {
+      "allowed_resource_address": "module.operator_service.module.container_app.azurerm_container_app.service",
+      "backend_key_template": "services/operator-service/{environment}.tfstate",
+      "image_repository": "fdai-operator-service",
+      "terraform_root": "infra/services/operator-service"
+    }
+  }
+}
