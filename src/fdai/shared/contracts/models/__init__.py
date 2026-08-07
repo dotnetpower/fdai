@@ -108,6 +108,11 @@ from .enums import (
     WorkflowTriggerKind,
 )
 from .event import Event
+from .executor_transport import (
+    ExecutorCommand,
+    ExecutorShadowReceipt,
+    ExecutorShadowReceiptStatus,
+)
 from .forecast_outcome import (
     ForecastMissOrigin,
     ForecastOutcome,
@@ -211,6 +216,9 @@ __all__ = [
     "CeilingByTier",
     "CheckLogic",
     "Event",
+    "ExecutorCommand",
+    "ExecutorShadowReceipt",
+    "ExecutorShadowReceiptStatus",
     "ForecastOutcome",
     "ForecastOutcomeLabel",
     "ForecastMissOrigin",

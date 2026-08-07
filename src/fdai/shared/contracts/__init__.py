@@ -38,6 +38,9 @@ from .models import (
     DocumentWorkerIndexCommand,
     DocumentWorkerStage,
     Event,
+    ExecutorCommand,
+    ExecutorShadowReceipt,
+    ExecutorShadowReceiptStatus,
     ForecastMissOrigin,
     ForecastOutcome,
     ForecastOutcomeLabel,
@@ -92,6 +95,7 @@ from .models import (
     Tier,
     UploadSession,
 )
+from .models.executor_transport import executor_action_payload_digest
 from .registry import SchemaNotFoundError, SchemaRegistry
 from .validation import (
     ContractValidationError,
@@ -133,6 +137,10 @@ __all__ = [
     "BlastRadius",
     "CheckLogic",
     "Event",
+    "ExecutorCommand",
+    "ExecutorShadowReceipt",
+    "ExecutorShadowReceiptStatus",
+    "executor_action_payload_digest",
     "ForecastOutcome",
     "ForecastOutcomeLabel",
     "ForecastMissOrigin",

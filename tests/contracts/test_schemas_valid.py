@@ -24,6 +24,8 @@ SCHEMA_NAMES = [
     "profile",
     "document-worker-audit",
     "document-worker-index",
+    "executor-command",
+    "executor-receipt",
     "ontology/object-type",
     "ontology/link-type",
     "ontology/action-type",
