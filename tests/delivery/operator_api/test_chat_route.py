@@ -349,7 +349,64 @@ def test_chat_rejects_resolver_citation_substitution() -> None:
     )
 
     assert response.status_code == 501
-    assert "invalid citations" in response.text
+    assert "document evidence is unavailable" in response.text
+
+
+def test_chat_document_resolver_failure_redacts_provider_detail() -> None:
+    class Resolver:
+        async def resolve(
+            self,
+            *,
+            principal_id: str,
+            references: tuple[Any, ...],
+        ) -> tuple[str, ...]:
+            raise RuntimeError("provider failed at https://internal.example/token-secret")
+
+    apps = (
+        (
+            "/chat",
+            Starlette(
+                routes=[
+                    make_chat_route(
+                        backend=_RecordingBackend(model="test", delay_ms=0),
+                        authorize=_allow,
+                        document_evidence_resolver=Resolver(),
+                    )
+                ]
+            ),
+        ),
+        (
+            "/chat/stream",
+            Starlette(
+                routes=[
+                    make_chat_stream_route(
+                        backend=_RecordingBackend(model="test", delay_ms=0),
+                        authorize=_allow,
+                        document_evidence_resolver=Resolver(),
+                    )
+                ]
+            ),
+        ),
+    )
+
+    for path, app in apps:
+        response = TestClient(app).post(
+            path,
+            json={
+                "prompt": "Read this",
+                "document_refs": [
+                    {
+                        "document_id": str(UUID(int=1)),
+                        "version_id": str(UUID(int=2)),
+                    }
+                ],
+            },
+        )
+
+        assert response.status_code == 501
+        assert "document evidence is unavailable" in response.text
+        assert "internal.example" not in response.text
+        assert "token-secret" not in response.text
 
 
 @pytest.mark.parametrize(

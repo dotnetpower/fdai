@@ -246,6 +246,10 @@ contracts and helpers. The former route-owned history module moved in full; docu
 resource-context, and identity helpers split from their mixed route modules. Every consumer was an
 internal source or test import, so no compatibility shim remains.
 
+Document resolver failures become one fixed unavailable detail at the application boundary for
+both JSON and SSE. Exception chaining preserves internal diagnostics, but provider URLs, tokens,
+and error text never cross the HTTP boundary.
+
 Rollback restores the history and preparation helpers under `routes/`, restores
 `chat_stream_setup.py`, and redirects JSON and SSE imports without changing authentication, status
 codes, body bounds, content-policy replay, history, document access, answer plans, or either wire

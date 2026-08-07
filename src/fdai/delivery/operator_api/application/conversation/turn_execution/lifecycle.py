@@ -104,7 +104,10 @@ class JsonTurnLifecycle:
         except DocumentAccessDeniedError as exc:
             raise _error("document_access_denied", "document reference access denied") from exc
         except RuntimeError as exc:
-            raise _error("document_evidence_unavailable", str(exc)) from exc
+            raise _error(
+                "document_evidence_unavailable",
+                "web chat document evidence is unavailable",
+            ) from exc
 
     async def enforce_input_policy(
         self,

@@ -202,7 +202,9 @@ async def prepare_chat_request(
     except DocumentAccessDeniedError as exc:
         raise ChatDocumentAccessDeniedError("document reference access denied") from exc
     except RuntimeError as exc:
-        raise ChatDocumentEvidenceUnavailableError(str(exc)) from exc
+        raise ChatDocumentEvidenceUnavailableError(
+            "web chat document evidence is unavailable"
+        ) from exc
 
     view_context = body.get("view_context")
     if view_context is None:

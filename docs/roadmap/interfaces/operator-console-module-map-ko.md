@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 94de3323bf554d89253dd96e5da71f7b78d43762
+translation_source_sha: fc6e6012f4e69ba0ea0f1dadac246b249cd92a1c
 translation_revised: 2026-08-07
 ---
 # Operator Console Module Map and Boundaries
@@ -245,6 +245,10 @@ JSON chat은 기존 transport 순서를 유지하면서 같은 preparation contr
 기존 route-owned history module은 전체 이동했고 document, replay, resource-context, identity helper는
 혼합 route module에서 분리했습니다. 모든 consumer가 internal source 또는 test import였으므로
 compatibility shim은 남기지 않았습니다.
+
+Document resolver 실패는 JSON과 SSE 모두 application boundary에서 하나의 고정된 unavailable
+detail로 변환됩니다. Exception chaining은 내부 진단을 보존하지만 provider URL, token 및 error
+text는 HTTP boundary를 넘지 않습니다.
 
 Rollback은 history와 preparation helper를 `routes/` 아래에 복원하고 `chat_stream_setup.py`를
 복원한 뒤 JSON과 SSE import를 되돌립니다. Authentication, status code, body bound,
