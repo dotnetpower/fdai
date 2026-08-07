@@ -9,14 +9,14 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
-from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
-from fdai.delivery.operator_api.routes.chat_resource_context import contextualize_resource_followup
-from fdai.delivery.operator_api.routes.chat_subscription_health import (
+from fdai.delivery.operator_api.application.conversation.capabilities.subscription_health import (
     SubscriptionHealthChatTools,
     needs_subscription_context,
     needs_subscription_health,
     render_subscription_health_answer,
 )
+from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
+from fdai.delivery.operator_api.routes.chat_resource_context import contextualize_resource_followup
 
 
 class _Backend:

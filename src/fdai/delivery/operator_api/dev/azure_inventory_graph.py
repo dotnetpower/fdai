@@ -23,11 +23,11 @@ from fdai.delivery.inventory_cache_invalidation import (
     inventory_invalidation_path,
 )
 from fdai.delivery.inventory_schedule import VM_SHUTDOWN_SCHEDULE_TYPE
+from fdai.delivery.operator_api.projections.conversation.inventory_provider_execution import (
+    project_inventory_provider_execution,
+)
 from fdai.delivery.operator_api.routes.inventory_graph_bounds import (
     project_bounded_inventory_neighborhood,
-)
-from fdai.delivery.operator_api.routes.inventory_provider_execution import (
-    project_inventory_provider_execution,
 )
 from fdai.shared.providers.inventory import Inventory, LinkRecord, ResourceRecord
 

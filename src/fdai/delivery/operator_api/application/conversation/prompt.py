@@ -15,16 +15,16 @@ from fdai.core.conversation.answer_plan import (
     DetailLevel,
     build_answer_plan,
 )
-from fdai.delivery.operator_api.routes.chat_agent_charter import (
+from fdai.delivery.operator_api.application.conversation.agent_charter import (
     _TURN_CONSTRAINTS,
 )
-from fdai.delivery.operator_api.routes.chat_agent_charter import (
+from fdai.delivery.operator_api.application.conversation.agent_charter import (
     agent_turn_constraints as _render_agent_turn_constraints,
 )
-from fdai.delivery.operator_api.routes.chat_agent_charter import (
+from fdai.delivery.operator_api.application.conversation.agent_charter import (
     selected_agent_charter as _render_selected_agent_charter,
 )
-from fdai.delivery.operator_api.routes.chat_prompt_content import (
+from fdai.delivery.operator_api.application.conversation.prompt_content import (
     _AGENT_EVIDENCE_DIRECTIVE,
     _AGENT_SESSION_EVIDENCE_DIRECTIVE,
     _ANSWER_QUALITY_REVIEW_DIRECTIVE,
@@ -42,12 +42,12 @@ from fdai.delivery.operator_api.routes.chat_prompt_content import (
     _VISION_EVIDENCE_DIRECTIVE,
     _WEB_EVIDENCE_DIRECTIVE,
 )
-from fdai.delivery.operator_api.routes.chat_prompt_ontology import (
+from fdai.delivery.operator_api.application.conversation.prompt_ontology import (
     _ONTOLOGY_BROWSE_INTENT,
     _ontology_browse_answer,
     _project_ontology_browse_context,
 )
-from fdai.delivery.operator_api.routes.chat_vision_prompt import (
+from fdai.delivery.operator_api.application.conversation.vision_prompt import (
     vision_user_content as _vision_user_content,
 )
 

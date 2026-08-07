@@ -9,12 +9,15 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import datetime
-from typing import Any, Protocol, TypeGuard
+from typing import Any, TypeGuard
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.contracts import (
+    InventoryGraphProvider,
+)
 from fdai.shared.providers.inventory import InventoryGraphViewNotFoundError
 
 DEFAULT_ROUTE_PATH = "/inventory/graph"
@@ -30,18 +33,6 @@ _FRESHNESS_VALUES = frozenset({"fresh", "stale", "unknown"})
 _TRUNCATION_REASONS = frozenset(
     {"resource_limit", "adjacent_edge_limit", "internal_edge_limit", "source_limit"}
 )
-
-
-class InventoryGraphProvider(Protocol):
-    async def __call__(
-        self,
-        scope: str | None,
-        depth: int,
-        link_types: tuple[str, ...],
-        *,
-        root: str | None = None,
-        limit: int = _DEFAULT_LIMIT,
-    ) -> Mapping[str, Any]: ...
 
 
 def make_inventory_graph_route(

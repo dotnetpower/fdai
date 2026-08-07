@@ -6,7 +6,7 @@ import base64
 
 import pytest
 
-from fdai.delivery.operator_api.routes.chat_vision_evidence import (
+from fdai.delivery.operator_api.application.conversation.vision_evidence import (
     VisionAttachment,
     _clean_name,
     _format_bytes,
@@ -287,7 +287,7 @@ def test_borderline_over_cap_is_rejected_before_decode(monkeypatch: pytest.Monke
     body = {"attachments": [_attachment("image/png", _PNG)]}
     cap = len(_PNG) - 1
     monkeypatch.setattr(
-        "fdai.delivery.operator_api.routes.chat_vision_evidence.base64.b64decode",
+        "fdai.delivery.operator_api.application.conversation.vision_evidence.base64.b64decode",
         lambda *_args, **_kwargs: pytest.fail("oversized payload reached base64 decode"),
     )
     with pytest.raises(ValueError, match=rf"exceeds size cap \(>{cap}\)"):

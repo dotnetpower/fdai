@@ -10,13 +10,13 @@ from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from fdai.delivery.operator_api.application.conversation.backend import ChatBackend
-from fdai.delivery.operator_api.application.conversation.verification import verify_answer
-from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
-from fdai.delivery.operator_api.routes.chat_current_time import (
+from fdai.delivery.operator_api.application.conversation.capabilities.current_time import (
     CurrentTimeChatTools,
     current_time_evidence_refs,
     render_current_time_answer,
 )
+from fdai.delivery.operator_api.application.conversation.verification import verify_answer
+from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes.chat_registration import append_chat_routes
 from fdai.delivery.operator_api.routes.chat_route_common import _uses_evidence_fast_path
 from fdai.shared.providers.testing import InMemoryUserPreferenceStore

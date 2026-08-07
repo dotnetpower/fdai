@@ -13,7 +13,9 @@ from typing import Any, Final
 from fdai.delivery.operator_api.application.conversation.capabilities.inventory.language import (
     default_inventory_query_language_resolver,
 )
-from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
+from fdai.delivery.operator_api.application.conversation.capabilities.system_health import (
+    ChatToolResolver,
+)
 from fdai.shared.providers.observation import LogQueryProvider, ObservationError
 
 _MAX_CHAT_ROWS = 100

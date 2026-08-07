@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fdai.delivery.operator_api.routes.chat_prompt import _build_messages
+from fdai.delivery.operator_api.application.conversation.prompt import _build_messages
 
 
 def _system_text(prompt: str, view_context: dict[str, object]) -> str:

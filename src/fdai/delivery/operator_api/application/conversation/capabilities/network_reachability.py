@@ -7,7 +7,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Final, Protocol
 
-from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
+from fdai.delivery.operator_api.application.conversation.capabilities.system_health import (
+    ChatToolResolver,
+)
 
 _APPLICATION: Final = re.compile(r"\b(?:application|app)\b|애플리케이션|앱", re.IGNORECASE)
 _DATABASE: Final = re.compile(r"\b(?:database|db)\b|데이터베이스", re.IGNORECASE)

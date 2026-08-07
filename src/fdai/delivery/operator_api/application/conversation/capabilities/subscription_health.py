@@ -20,29 +20,34 @@ from fdai.delivery.operator_api.application.conversation.capabilities.inventory.
 from fdai.delivery.operator_api.application.conversation.capabilities.inventory.language import (
     default_inventory_query_language_resolver,
 )
-from fdai.delivery.operator_api.routes.chat_log_query import needs_log_query
-from fdai.delivery.operator_api.routes.chat_subscription_health_metrics import (
-    correlation_result as _correlation_result,
+from fdai.delivery.operator_api.application.conversation.capabilities.log_query import (
+    needs_log_query,
 )
-from fdai.delivery.operator_api.routes.chat_subscription_health_metrics import (
-    diagnostic_metric as _diagnostic_metric,
+from fdai.delivery.operator_api.application.conversation.capabilities.system_health import (
+    ChatToolResolver,
 )
-from fdai.delivery.operator_api.routes.chat_subscription_health_metrics import (
-    is_before_after_comparison_prompt as _is_before_after_comparison_prompt,
-)
-from fdai.delivery.operator_api.routes.chat_subscription_health_metrics import (
-    is_error_change_correlation_prompt as _is_error_change_correlation_prompt,
-)
-from fdai.delivery.operator_api.routes.chat_subscription_health_metrics import (
-    kql_text as _kql_text,
-)
-from fdai.delivery.operator_api.routes.chat_subscription_health_metrics import (
-    render_metric_change_answer as _render_metric_change_answer,
-)
-from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
-from fdai.delivery.operator_api.routes.chat_turn_plan import TurnTool
+from fdai.delivery.operator_api.application.conversation.turn_plan import TurnTool
 from fdai.rule_catalog.schema.inventory_query_language import QueryEvidenceAuthority
 from fdai.shared.providers.observation import LogQueryProvider, ObservationError
+
+from .subscription_health_metrics import (
+    correlation_result as _correlation_result,
+)
+from .subscription_health_metrics import (
+    diagnostic_metric as _diagnostic_metric,
+)
+from .subscription_health_metrics import (
+    is_before_after_comparison_prompt as _is_before_after_comparison_prompt,
+)
+from .subscription_health_metrics import (
+    is_error_change_correlation_prompt as _is_error_change_correlation_prompt,
+)
+from .subscription_health_metrics import (
+    kql_text as _kql_text,
+)
+from .subscription_health_metrics import (
+    render_metric_change_answer as _render_metric_change_answer,
+)
 
 _SCOPE: Final = re.compile(
     r"\b(?:azure\s+)?subscriptions?\b|구독"

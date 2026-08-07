@@ -12,6 +12,9 @@ from fdai.delivery.operator_api.application.conversation.capabilities.inventory.
     inventory_query_requires_semantic_completion,
     inventory_query_scope,
 )
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.contracts import (
+    InventoryGraphProvider,
+)
 from fdai.delivery.operator_api.application.conversation.capabilities.inventory.followup import (
     SUBSCRIPTION_ROOT,
     SUBSCRIPTION_ROOT_LIMIT,
@@ -31,6 +34,11 @@ from fdai.delivery.operator_api.application.conversation.capabilities.inventory.
     canonicalize_semantic_inventory_status_arguments,
     ground_inventory_status_query,
 )
+from fdai.delivery.operator_api.application.conversation.capabilities.system_health import (
+    ChatToolResolver,
+)
+from fdai.delivery.operator_api.application.conversation.intents import is_topology_question
+from fdai.delivery.operator_api.application.conversation.turn_plan import TurnTool
 from fdai.delivery.operator_api.projections.conversation.inventory.activity import (
     MAX_ACTIVITY_EVENTS,
 )
@@ -44,10 +52,6 @@ from fdai.delivery.operator_api.projections.conversation.inventory.projection im
 from fdai.delivery.operator_api.projections.conversation.inventory.schedule import (
     schedule_reference_is_current,
 )
-from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
-from fdai.delivery.operator_api.routes.chat_topology_intent import is_topology_question
-from fdai.delivery.operator_api.routes.chat_turn_plan import TurnTool
-from fdai.delivery.operator_api.routes.inventory_graph import InventoryGraphProvider
 
 from .resource_types import (
     default_inventory_resource_type_resolver,

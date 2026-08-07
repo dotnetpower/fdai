@@ -36,9 +36,32 @@ from fdai.delivery.operator_api.application.conversation.backend import (
     ChatContentPolicyError,
     LatencyRoutedChatBackend,
 )
+from fdai.delivery.operator_api.application.conversation.capabilities.action_context import (
+    is_explicit_action_draft_request,
+    needs_action_context,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.conversation_context import (
+    needs_conversation_context,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.current_time import (
+    needs_current_time,
+)
 from fdai.delivery.operator_api.application.conversation.capabilities.inventory.compiler import (
     compile_inventory_query,
     inventory_query_requires_semantic_completion,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.llm_usage import (
+    is_llm_usage_followup,
+    needs_llm_usage,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.log_query import (
+    needs_log_query,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.subscription_health import (
+    needs_subscription_health,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.system_health import (
+    render_system_health_answer,
 )
 from fdai.delivery.operator_api.application.conversation.evidence import (
     AgentChatDelegate,
@@ -58,15 +81,48 @@ from fdai.delivery.operator_api.application.conversation.evidence.enrichment imp
     _with_behavior_evidence,
     _with_screen_scope,
 )
+from fdai.delivery.operator_api.application.conversation.freshness_context import (
+    freshness_evidence_refs,
+    needs_evidence_freshness_context,
+    render_evidence_freshness_answer,
+    response_evidence_freshness_context,
+)
+from fdai.delivery.operator_api.application.conversation.intent_graph import (
+    IntentGraph,
+    IntentGraphPlanner,
+    apply_intent_graph_to_answer_plan,
+    draft_capability_available,
+    plan_semantic_turn,
+    planner_context_envelope,
+)
+from fdai.delivery.operator_api.application.conversation.intents import is_topology_question
 from fdai.delivery.operator_api.application.conversation.post_generation import (
     PostGenerationContext,
     PostGenerationDependencies,
     evidence_timing_status,
     finalize_post_generation,
 )
+from fdai.delivery.operator_api.application.conversation.prompt import (
+    _concept_answer,
+    _is_grounded_concept_query,
+    _ontology_browse_answer,
+    _response_locale,
+    _with_concept_evidence,
+)
+from fdai.delivery.operator_api.application.conversation.prompt_ontology import (
+    _with_ontology_storage_contract,
+)
+from fdai.delivery.operator_api.application.conversation.turn_plan import (
+    TurnPlanner,
+    TurnTool,
+    apply_turn_plan_to_answer_plan,
+)
 from fdai.delivery.operator_api.application.conversation.verification import (
     AnswerVerification,
     verify_answer,
+)
+from fdai.delivery.operator_api.application.conversation.vision_evidence import (
+    vision_source_previews,
 )
 from fdai.delivery.operator_api.projections.conversation.presentation import (
     PresentationDecision,
@@ -75,10 +131,9 @@ from fdai.delivery.operator_api.projections.conversation.presentation import (
 from fdai.delivery.operator_api.projections.conversation.stream_metrics import (
     record_enqueued_progress_metrics,
 )
-from fdai.delivery.operator_api.projections.conversation.terminal import TurnTimingRecorder
-from fdai.delivery.operator_api.routes.chat_action_context import (
-    is_explicit_action_draft_request,
-    needs_action_context,
+from fdai.delivery.operator_api.projections.conversation.terminal import (
+    TurnTimingRecorder,
+    completed_replay_payload,
 )
 from fdai.delivery.operator_api.routes.chat_answer_planning import (
     AnswerPlanningDelegate,
@@ -101,25 +156,14 @@ from fdai.delivery.operator_api.routes.chat_content_policy import (
     answer_with_content_policy_recovery,
     collect_stream_with_content_policy_recovery,
 )
-from fdai.delivery.operator_api.routes.chat_conversation_context import (
-    needs_conversation_context,
-)
-from fdai.delivery.operator_api.routes.chat_current_time import needs_current_time
 from fdai.delivery.operator_api.routes.chat_document_evidence import (
     ChatDocumentEvidenceResolver,
     merge_document_verification,
     with_document_evidence,
 )
-from fdai.delivery.operator_api.routes.chat_freshness_context import (
-    freshness_evidence_refs,
-    needs_evidence_freshness_context,
-    render_evidence_freshness_answer,
-    response_evidence_freshness_context,
-)
 from fdai.delivery.operator_api.routes.chat_history import (
     append_assistant_turn,
     append_content_policy_receipt,
-    completed_replay_payload,
     replay_metadata,
 )
 from fdai.delivery.operator_api.routes.chat_history_context import (
@@ -131,32 +175,11 @@ from fdai.delivery.operator_api.routes.chat_image_history import (
     image_turn_metadata,
     persist_operator_turn_with_images,
 )
-from fdai.delivery.operator_api.routes.chat_intent_graph import (
-    IntentGraph,
-    IntentGraphPlanner,
-    apply_intent_graph_to_answer_plan,
-    draft_capability_available,
-    plan_semantic_turn,
-    planner_context_envelope,
-)
-from fdai.delivery.operator_api.routes.chat_llm_usage import (
-    is_llm_usage_followup,
-    needs_llm_usage,
-)
-from fdai.delivery.operator_api.routes.chat_log_query import needs_log_query
 from fdai.delivery.operator_api.routes.chat_model_trace import (
     activate_model_trace,
     deactivate_model_trace,
     snapshot_model_trace,
 )
-from fdai.delivery.operator_api.routes.chat_prompt import (
-    _concept_answer,
-    _is_grounded_concept_query,
-    _ontology_browse_answer,
-    _response_locale,
-    _with_concept_evidence,
-)
-from fdai.delivery.operator_api.routes.chat_prompt_ontology import _with_ontology_storage_contract
 from fdai.delivery.operator_api.routes.chat_resource_context import (
     resource_followup_verification,
     response_resource_context,
@@ -184,20 +207,9 @@ from fdai.delivery.operator_api.routes.chat_stream_setup import (
     ContentPolicyReplayRequest,
     prepare_chat_stream_request,
 )
-from fdai.delivery.operator_api.routes.chat_subscription_health import needs_subscription_health
-from fdai.delivery.operator_api.routes.chat_system_health import render_system_health_answer
-from fdai.delivery.operator_api.routes.chat_topology_intent import is_topology_question
 from fdai.delivery.operator_api.routes.chat_trajectory_detail import (
     TrajectoryDetailCollector,
     trajectory_detail_budget,
-)
-from fdai.delivery.operator_api.routes.chat_turn_plan import (
-    TurnPlanner,
-    TurnTool,
-    apply_turn_plan_to_answer_plan,
-)
-from fdai.delivery.operator_api.routes.chat_vision_evidence import (
-    vision_source_previews,
 )
 from fdai.delivery.operator_api.routes.post_turn_review import (
     PostTurnReviewSubmission,

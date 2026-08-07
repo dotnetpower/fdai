@@ -24,14 +24,54 @@ from fdai.delivery.operator_api.application.conversation.backend import (
     LatencyRoutedChatBackend,
     describe_backend,
 )
+from fdai.delivery.operator_api.application.conversation.capabilities.behavior_evidence import (
+    RepositoryBehaviorEvidenceResolver,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.current_time import (
+    CurrentTimeChatTools,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.data_sources import (
+    DataSourceChatTools,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.detection_readiness import (
+    DetectionReadinessChatTools,
+)
 from fdai.delivery.operator_api.application.conversation.capabilities.inventory import (
     InventoryActivityProvider,
     InventoryChatTools,
     InventorySemanticResolver,
     KubernetesWorkloadProvider,
 )
+from fdai.delivery.operator_api.application.conversation.capabilities.llm_usage import (
+    LlmUsageChatTools,
+    is_llm_usage_followup,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.log_query import (
+    LogQueryChatTools,
+    needs_log_query_context,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.read_model_tools import (
+    ReadModelChatTools,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.subscription_health import (
+    SubscriptionHealthChatTools,
+    SubscriptionHealthProvider,
+    needs_subscription_health_context,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.system_health import (
+    SystemHealthChatTools,
+)
 from fdai.delivery.operator_api.application.conversation.evidence import (
     OperationalEvidenceResolver,
+)
+from fdai.delivery.operator_api.application.conversation.intent_graph import (
+    BackendIntentGraphPlanner,
+)
+from fdai.delivery.operator_api.application.conversation.turn_plan import (
+    StructuredCompletionBackend,
+    action_turn_tools,
+    agent_turn_tools,
+    web_search_turn_tool,
 )
 from fdai.delivery.operator_api.read_model import ConsoleReadModel
 from fdai.delivery.operator_api.routes.busy_input import make_busy_input_routes
@@ -45,42 +85,14 @@ from fdai.delivery.operator_api.routes.chat import (
     make_chat_stream_route,
 )
 from fdai.delivery.operator_api.routes.chat_answer_planning import compatible_planning_delegate
-from fdai.delivery.operator_api.routes.chat_behavior_evidence import (
-    RepositoryBehaviorEvidenceResolver,
-)
 from fdai.delivery.operator_api.routes.chat_capability_registry import (
     ConversationCapability,
     ConversationCapabilityRegistry,
     static_capabilities,
     validate_panel_chat_bindings,
 )
-from fdai.delivery.operator_api.routes.chat_current_time import CurrentTimeChatTools
-from fdai.delivery.operator_api.routes.chat_data_sources import DataSourceChatTools
-from fdai.delivery.operator_api.routes.chat_detection_readiness import DetectionReadinessChatTools
 from fdai.delivery.operator_api.routes.chat_document_evidence import ChatDocumentEvidenceResolver
-from fdai.delivery.operator_api.routes.chat_intent_graph import BackendIntentGraphPlanner
-from fdai.delivery.operator_api.routes.chat_llm_usage import (
-    LlmUsageChatTools,
-    is_llm_usage_followup,
-)
-from fdai.delivery.operator_api.routes.chat_log_query import (
-    LogQueryChatTools,
-    needs_log_query_context,
-)
 from fdai.delivery.operator_api.routes.chat_skills import RuntimeSkillChatTools
-from fdai.delivery.operator_api.routes.chat_subscription_health import (
-    SubscriptionHealthChatTools,
-    SubscriptionHealthProvider,
-    needs_subscription_health_context,
-)
-from fdai.delivery.operator_api.routes.chat_system_health import SystemHealthChatTools
-from fdai.delivery.operator_api.routes.chat_tools import ReadModelChatTools
-from fdai.delivery.operator_api.routes.chat_turn_plan import (
-    StructuredCompletionBackend,
-    action_turn_tools,
-    agent_turn_tools,
-    web_search_turn_tool,
-)
 from fdai.delivery.operator_api.routes.data_sources import ReadDataSourceStatus
 from fdai.delivery.operator_api.routes.detection_readiness import DetectionReadinessReader
 from fdai.delivery.operator_api.routes.inventory_graph import InventoryGraphProvider
@@ -190,11 +202,11 @@ def append_chat_routes(
             log_query_provider=log_query_provider,
         )
     )
-    from fdai.delivery.operator_api.routes.chat_network_reachability import (
-        NetworkReachabilityChatTools,
+    from fdai.delivery.operator_api.application.conversation.capabilities import (
+        network_reachability as network_reachability_capability,
     )
 
-    network_reachability_tools = NetworkReachabilityChatTools(
+    network_reachability_tools = network_reachability_capability.NetworkReachabilityChatTools(
         network_reachability_provider,
         fallback=subscription_health_tools,
     )
@@ -206,7 +218,9 @@ def append_chat_routes(
             fallback=network_reachability_tools,
         )
     )
-    from fdai.delivery.operator_api.routes.chat_t2_recovery import T2RecoveryChatTools
+    from fdai.delivery.operator_api.application.conversation.capabilities.t2_recovery import (
+        T2RecoveryChatTools,
+    )
 
     t2_recovery_tools = (
         detection_readiness_tools
@@ -223,7 +237,7 @@ def append_chat_routes(
         read_model,
         data_source_tools,
     )
-    from fdai.delivery.operator_api.routes.chat_action_context import (
+    from fdai.delivery.operator_api.application.conversation.capabilities.action_context import (
         ActionContextChatTools,
         needs_action_context,
     )
@@ -242,8 +256,8 @@ def append_chat_routes(
         if isinstance(configuration_drift_context, ConfigurationDriftChatTools)
         else action_context_tools
     )
-    from fdai.delivery.operator_api.routes.chat_conversation_context import (
-        ConversationContextChatTools,
+    from fdai.delivery.operator_api.application.conversation.capabilities import (
+        conversation_context as conversation_context_capability,
     )
 
     current_time_tools = CurrentTimeChatTools(
@@ -255,7 +269,7 @@ def append_chat_routes(
         if llm_usage_reader is None
         else LlmUsageChatTools(llm_usage_reader, fallback=current_time_tools)
     )
-    tools = ConversationContextChatTools(
+    tools = conversation_context_capability.ConversationContextChatTools(
         fallback=llm_usage_tools,
         analysis_context=(
             llm_usage_tools if isinstance(llm_usage_tools, LlmUsageChatTools) else None

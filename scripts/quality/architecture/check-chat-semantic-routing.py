@@ -25,10 +25,10 @@ LEGACY_REGEX_PATHS = frozenset(
     {
         "src/fdai/delivery/operator_api/application/conversation/evidence/enrichment.py",
         "src/fdai/delivery/operator_api/application/conversation/evidence/operational.py",
-        "src/fdai/delivery/operator_api/routes/chat_behavior_evidence.py",
-        "src/fdai/delivery/operator_api/routes/chat_data_sources.py",
-        "src/fdai/delivery/operator_api/routes/chat_prompt.py",
-        "src/fdai/delivery/operator_api/routes/chat_prompt_ontology.py",
+        "src/fdai.delivery.operator_api.application.conversation.capabilities.behavior_evidence.py",
+        "src/fdai.delivery.operator_api.application.conversation.capabilities.data_sources.py",
+        "src/fdai.delivery.operator_api.application.conversation.prompt.py",
+        "src/fdai.delivery.operator_api.application.conversation.prompt_ontology.py",
     }
 )
 SEMANTIC_REGEX = re.compile(

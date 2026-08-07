@@ -9,6 +9,9 @@ from dataclasses import dataclass, replace
 from typing import Any, Final
 
 from fdai.core.conversation.answer_plan import AnswerFormat, AnswerPlan
+from fdai.delivery.operator_api.application.conversation.turn_plan import (
+    StructuredCompletionBackend,
+)
 from fdai.delivery.operator_api.projections.conversation.presentation.contract import (
     PresentationPlan,
     PresentationProfile,
@@ -19,7 +22,6 @@ from fdai.delivery.operator_api.projections.conversation.presentation.contract i
 from fdai.delivery.operator_api.projections.conversation.presentation.profiles import (
     presentation_profile,
 )
-from fdai.delivery.operator_api.routes.chat_turn_plan import StructuredCompletionBackend
 
 _LOG = logging.getLogger(__name__)
 

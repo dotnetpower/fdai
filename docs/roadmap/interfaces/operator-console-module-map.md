@@ -331,7 +331,7 @@ a separately reviewed boundary.
   - Slack, Teams, and web attachment contracts converge through
     [conversation attachments](conversation-attachments.md). A dedicated WebSocket adapter remains
     optional.
-- [`chat_current_time.py`](../../../src/fdai/delivery/operator_api/routes/chat_current_time.py)
+- [`current_time.py`](../../../src/fdai/delivery/operator_api/application/conversation/capabilities/current_time.py)
   resolves current-time questions from an injected aware clock and principal IANA timezone.
 
 ## Operator API route ownership
@@ -357,6 +357,10 @@ a separately reviewed boundary.
   validation, history persistence coordination, and post-turn review. It does not own HTTP,
   authentication, request parsing, heartbeat framing, SSE sequencing, connection cancellation, or
   transport delivery.
+- `application/conversation/capabilities/` owns action, prior-context, current-time, source,
+  readiness, knowledge, metering, log, network, subscription-health, T2 recovery, behavior, and
+  read-model helpers. `application/conversation/` owns turn and intent-graph planning, prompt
+  assembly, public-web intent, and vision validation. Neither package imports `routes`.
 - `projections/conversation/presentation/` owns value-free presentation plans, verified evidence
   artifact compilation, bounds, and localized labels. It does not own HTTP, SSE, authentication,
   cancellation, terminal delivery, or durable state.
@@ -368,11 +372,17 @@ a separately reviewed boundary.
   does not own HTTP, SSE sequencing, authentication, cancellation, history, or durable state.
 - `projections/conversation/stream_metrics.py` owns queue-accepted aggregate progress reduction.
   It does not own frame sequencing, queue admission, cancellation, transport, or durable state.
+- `projections/conversation/` owns incident-dossier and RCA rendering, bounded execution-output
+  projection, provider-receipt projection, and tool-progress reduction. These moved internal
+  helpers have no compatibility shims.
 - `chat_stream_setup.py` owns authenticated request, evidence, history, and answer-plan validation.
 - `chat_trajectory_detail.py` owns bounded final progress projection for durable trajectory replay.
-- `chat_knowledge_context.py` reads exact prior-turn runbooks, source freshness, consented memory,
+- `application/conversation/capabilities/knowledge_context.py` reads exact prior-turn runbooks,
+  source freshness, consented memory,
   and materialized learning without writing state.
-- `chat_vision_prompt.py` projects validated images.
+- `application/conversation/vision_prompt.py` projects validated images.
+- `routes/` retains JSON and SSE envelopes, authentication, cancellation, history transport, and
+  HTTP handlers for graph, data-source, and readiness projections.
 - `read_investigation_responder.py` renders registered Heimdall read intents from typed evidence.
   Missing evidence produces an explicit unavailable answer. `read_investigation_catalog.py` blocks
   startup when catalog IDs, ownership, or plan bindings drift.

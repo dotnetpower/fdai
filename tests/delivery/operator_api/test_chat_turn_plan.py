@@ -19,20 +19,17 @@ from fdai.delivery.operator_api.adapters.conversation import (
     OpenAiCompatibleChatBackendConfig,
 )
 from fdai.delivery.operator_api.application.conversation.backend import LatencyRoutedChatBackend
+from fdai.delivery.operator_api.application.conversation.capabilities.read_model_tools import (
+    ReadModelChatTools,
+)
 from fdai.delivery.operator_api.application.conversation.evidence import (
     resolve_parallel_chat_evidence,
 )
-from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
-from fdai.delivery.operator_api.routes.chat import make_chat_route
-from fdai.delivery.operator_api.routes.chat_intent_graph import IntentGraph, parse_intent_graph
-from fdai.delivery.operator_api.routes.chat_model_trace import (
-    activate_model_trace,
-    deactivate_model_trace,
-    snapshot_model_trace,
+from fdai.delivery.operator_api.application.conversation.intent_graph import (
+    IntentGraph,
+    parse_intent_graph,
 )
-from fdai.delivery.operator_api.routes.chat_stream import make_chat_stream_route
-from fdai.delivery.operator_api.routes.chat_tools import ReadModelChatTools
-from fdai.delivery.operator_api.routes.chat_turn_plan import (
+from fdai.delivery.operator_api.application.conversation.turn_plan import (
     BackendTurnPlanner,
     TurnKind,
     TurnPlan,
@@ -42,6 +39,14 @@ from fdai.delivery.operator_api.routes.chat_turn_plan import (
     default_read_turn_tools,
     parse_turn_plan,
 )
+from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
+from fdai.delivery.operator_api.routes.chat import make_chat_route
+from fdai.delivery.operator_api.routes.chat_model_trace import (
+    activate_model_trace,
+    deactivate_model_trace,
+    snapshot_model_trace,
+)
+from fdai.delivery.operator_api.routes.chat_stream import make_chat_stream_route
 from fdai.shared.providers.workload_identity import IdentityToken
 
 

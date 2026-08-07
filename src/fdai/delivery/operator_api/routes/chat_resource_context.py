@@ -5,16 +5,18 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Any, Final, TypeGuard
+from typing import Any, Final
 
 from fdai.core.read_investigation.routing import (
     classify_read_investigation_intent,
     resource_name_from_question,
 )
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.contracts import (
+    is_bounded_resource_name,
+)
 from fdai.delivery.operator_api.application.conversation.verification import AnswerVerification
 from fdai.shared.providers.read_investigation import ReadInvestigationIntent
 
-_RESOURCE_NAME: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.()-]{1,127}$")
 _RESOURCE_TYPE: Final = re.compile(r"^[a-z0-9][a-z0-9_.-]{1,127}$")
 _RESOURCE_GROUP: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.()-]{1,127}$")
 _EVENT_STATUS: Final = re.compile(r"^[A-Za-z][A-Za-z0-9 _.-]{1,63}$")
@@ -57,12 +59,6 @@ _READ_AVAILABILITY_FOLLOWUP: Final = re.compile(
     r"(?:이 리소스.{0,24})?(?:읽기 권한|권한|범위).{0,24}(?:제한|막힌|설명)",
     re.IGNORECASE,
 )
-
-
-def is_bounded_resource_name(value: object) -> TypeGuard[str]:
-    """Return whether a selector value is a bounded resource name."""
-
-    return isinstance(value, str) and _RESOURCE_NAME.fullmatch(value) is not None
 
 
 def parse_resource_context(raw: object) -> dict[str, str] | None:

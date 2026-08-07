@@ -1,4 +1,4 @@
-from fdai.delivery.operator_api.routes.inventory_provider_execution import (
+from fdai.delivery.operator_api.projections.conversation.inventory_provider_execution import (
     project_inventory_provider_execution,
 )
 

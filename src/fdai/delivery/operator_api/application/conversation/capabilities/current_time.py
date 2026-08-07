@@ -9,7 +9,9 @@ from datetime import UTC, datetime
 from typing import Any, Final
 from zoneinfo import ZoneInfo
 
-from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
+from fdai.delivery.operator_api.application.conversation.capabilities.system_health import (
+    ChatToolResolver,
+)
 from fdai.shared.providers.user_context import UserPreferenceStore
 
 _CURRENT_TIME: Final = re.compile(

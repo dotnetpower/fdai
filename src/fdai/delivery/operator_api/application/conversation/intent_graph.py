@@ -12,14 +12,14 @@ from typing import Final, Protocol
 from jsonschema import Draft202012Validator
 
 from fdai.core.conversation.answer_plan import AnswerIntent, AnswerPlan
-from fdai.delivery.operator_api.routes.chat_turn_plan import (
+from fdai.delivery.operator_api.application.conversation.turn_plan import (
     StructuredCompletionBackend,
     TurnPlan,
     TurnTool,
     _argument_union_schema,
     apply_answer_intent_to_plan,
 )
-from fdai.delivery.operator_api.routes.chat_vision_prompt import vision_user_content
+from fdai.delivery.operator_api.application.conversation.vision_prompt import vision_user_content
 
 
 class ActionPosture(StrEnum):

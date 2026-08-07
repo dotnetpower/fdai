@@ -5,6 +5,56 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from fdai.delivery.operator_api.application.conversation.capabilities.action_context import (
+    action_context_evidence_refs,
+    render_action_context_answer,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.conversation_context import (
+    conversation_context_evidence_refs,
+    render_conversation_context_answer,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.current_time import (
+    current_time_evidence_refs,
+    render_current_time_answer,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.data_sources import (
+    read_source_evidence_refs,
+    render_read_source_answer,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.detection_readiness import (
+    detection_readiness_evidence_refs,
+    render_detection_readiness_answer,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.knowledge_context import (
+    knowledge_context_evidence_refs,
+    render_knowledge_context_answer,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.log_query import (
+    log_query_evidence_refs,
+    render_log_query_answer,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.network_reachability import (
+    network_reachability_evidence_refs,
+    render_network_reachability_answer,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.read_model_tools import (
+    read_model_evidence_refs,
+    render_read_model_answer,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.subscription_health import (
+    render_subscription_health_answer,
+    render_subscription_scope_answer,
+    requested_subscription_health_findings_are_grounded,
+    subscription_health_evidence_refs,
+    subscription_scope_evidence_refs,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.t2_recovery import (
+    render_t2_recovery_answer,
+    t2_recovery_evidence_refs,
+)
+from fdai.delivery.operator_api.application.conversation.prompt_ontology import (
+    _render_ontology_storage_answer,
+)
 from fdai.delivery.operator_api.application.conversation.verification.models import (
     VerificationPayload,
     VerificationStatus,
@@ -17,56 +67,6 @@ from fdai.delivery.operator_api.projections.conversation.inventory import (
 from fdai.delivery.operator_api.projections.conversation.terminal import (
     llm_usage_evidence_refs,
     render_llm_usage_answer,
-)
-from fdai.delivery.operator_api.routes.chat_action_context import (
-    action_context_evidence_refs,
-    render_action_context_answer,
-)
-from fdai.delivery.operator_api.routes.chat_conversation_context import (
-    conversation_context_evidence_refs,
-    render_conversation_context_answer,
-)
-from fdai.delivery.operator_api.routes.chat_current_time import (
-    current_time_evidence_refs,
-    render_current_time_answer,
-)
-from fdai.delivery.operator_api.routes.chat_data_sources import (
-    read_source_evidence_refs,
-    render_read_source_answer,
-)
-from fdai.delivery.operator_api.routes.chat_detection_readiness import (
-    detection_readiness_evidence_refs,
-    render_detection_readiness_answer,
-)
-from fdai.delivery.operator_api.routes.chat_knowledge_context import (
-    knowledge_context_evidence_refs,
-    render_knowledge_context_answer,
-)
-from fdai.delivery.operator_api.routes.chat_log_query import (
-    log_query_evidence_refs,
-    render_log_query_answer,
-)
-from fdai.delivery.operator_api.routes.chat_network_reachability import (
-    network_reachability_evidence_refs,
-    render_network_reachability_answer,
-)
-from fdai.delivery.operator_api.routes.chat_prompt_ontology import (
-    _render_ontology_storage_answer,
-)
-from fdai.delivery.operator_api.routes.chat_subscription_health import (
-    render_subscription_health_answer,
-    render_subscription_scope_answer,
-    requested_subscription_health_findings_are_grounded,
-    subscription_health_evidence_refs,
-    subscription_scope_evidence_refs,
-)
-from fdai.delivery.operator_api.routes.chat_t2_recovery import (
-    render_t2_recovery_answer,
-    t2_recovery_evidence_refs,
-)
-from fdai.delivery.operator_api.routes.chat_tools import (
-    read_model_evidence_refs,
-    render_read_model_answer,
 )
 
 Changed = Callable[[str, str], VerificationStatus]

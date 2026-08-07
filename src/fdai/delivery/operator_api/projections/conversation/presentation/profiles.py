@@ -6,6 +6,9 @@ from collections.abc import Mapping
 from typing import Literal
 
 from fdai.core.conversation.answer_plan import AnswerFormat, AnswerPlan
+from fdai.delivery.operator_api.application.conversation.capabilities.subscription_health import (
+    subscription_health_findings,
+)
 from fdai.delivery.operator_api.projections.conversation.presentation.contract import (
     PresentationComponent,
     PresentationEmphasis,
@@ -13,9 +16,6 @@ from fdai.delivery.operator_api.projections.conversation.presentation.contract i
     PresentationRationale,
     PresentationSlot,
     record_count_bucket,
-)
-from fdai.delivery.operator_api.routes.chat_subscription_health import (
-    subscription_health_findings,
 )
 
 _SPECIAL_INVENTORY_RESULTS = (

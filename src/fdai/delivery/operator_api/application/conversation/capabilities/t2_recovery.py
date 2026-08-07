@@ -7,7 +7,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final, Protocol
 
-from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
+from fdai.delivery.operator_api.application.conversation.capabilities.system_health import (
+    ChatToolResolver,
+)
 
 _RECOVERY_QUESTION: Final = re.compile(
     r"\bt2[_ .-]*proposer(?:[_ .-]*(?:error|failure|recovery))?\b|"

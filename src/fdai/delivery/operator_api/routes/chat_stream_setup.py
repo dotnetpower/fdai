@@ -14,24 +14,39 @@ from fdai.delivery.operator_api.application.conversation.backend import (
     ChatContentPolicyError,
     reject_direct_override,
 )
+from fdai.delivery.operator_api.application.conversation.capabilities.action_context import (
+    needs_action_context,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.conversation_context import (
+    load_verified_prior_context,
+    needs_conversation_context,
+)
 from fdai.delivery.operator_api.application.conversation.capabilities.inventory.followup import (
     contextualize_inventory_scope_followup,
     contextualize_inventory_screen_scope,
 )
-from fdai.delivery.operator_api.routes.chat_action_context import needs_action_context
-from fdai.delivery.operator_api.routes.chat_conversation_context import (
-    load_verified_prior_context,
-    needs_conversation_context,
+from fdai.delivery.operator_api.application.conversation.capabilities.llm_usage import (
+    is_llm_usage_followup,
 )
-from fdai.delivery.operator_api.routes.chat_document_evidence import (
-    ChatDocumentEvidenceResolver,
-    resolve_document_refs,
+from fdai.delivery.operator_api.application.conversation.capabilities.log_query import (
+    needs_log_query_context,
 )
-from fdai.delivery.operator_api.routes.chat_freshness_context import (
+from fdai.delivery.operator_api.application.conversation.capabilities.subscription_health import (
+    needs_subscription_health_context,
+)
+from fdai.delivery.operator_api.application.conversation.freshness_context import (
     EvidenceFreshnessContext,
     missing_evidence_freshness_context_evidence,
     needs_evidence_freshness_context,
     parse_evidence_freshness_context,
+)
+from fdai.delivery.operator_api.application.conversation.vision_evidence import (
+    VisionAttachment,
+    parse_vision_attachments,
+)
+from fdai.delivery.operator_api.routes.chat_document_evidence import (
+    ChatDocumentEvidenceResolver,
+    resolve_document_refs,
 )
 from fdai.delivery.operator_api.routes.chat_history import content_policy_replay_stage
 from fdai.delivery.operator_api.routes.chat_history_context import (
@@ -40,8 +55,6 @@ from fdai.delivery.operator_api.routes.chat_history_context import (
     ChatHistoryPolicy,
     resolve_chat_history_result,
 )
-from fdai.delivery.operator_api.routes.chat_llm_usage import is_llm_usage_followup
-from fdai.delivery.operator_api.routes.chat_log_query import needs_log_query_context
 from fdai.delivery.operator_api.routes.chat_resource_context import (
     contextualize_resource_followup,
     missing_read_investigation_context_evidence,
@@ -57,13 +70,6 @@ from fdai.delivery.operator_api.routes.chat_route_common import (
     _target_agent,
 )
 from fdai.delivery.operator_api.routes.chat_stream_request import read_chat_stream_body
-from fdai.delivery.operator_api.routes.chat_subscription_health import (
-    needs_subscription_health_context,
-)
-from fdai.delivery.operator_api.routes.chat_vision_evidence import (
-    VisionAttachment,
-    parse_vision_attachments,
-)
 from fdai.shared.providers.document_ingestion import DocumentAccessDeniedError
 from fdai.shared.providers.user_context import (
     ConversationHistoryStore,

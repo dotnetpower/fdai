@@ -38,10 +38,12 @@ from fdai.core.skills.source_registry import (
     SkillSourceTrustTier,
 )
 from fdai.core.supply_chain.skill_quarantine import SkillSourceRefreshState
+from fdai.delivery.operator_api.application.conversation.capabilities.knowledge_context import (
+    KnowledgeContextChatTools,
+)
 from fdai.delivery.operator_api.production.knowledge_context import (
     build_production_knowledge_context,
 )
-from fdai.delivery.operator_api.routes.chat_knowledge_context import KnowledgeContextChatTools
 from fdai.delivery.persistence import (
     PostgresSkillSourceRefreshStateStore,
     PostgresSkillSourceStore,

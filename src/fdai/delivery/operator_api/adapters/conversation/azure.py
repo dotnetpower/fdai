@@ -28,11 +28,11 @@ from fdai.delivery.operator_api.adapters.conversation.transport import (
     _token_usage,
     _usage_summary,
 )
+from fdai.delivery.operator_api.application.conversation.prompt import _build_messages
 from fdai.delivery.operator_api.routes.chat_model_trace import (
     begin_model_call,
     complete_model_call,
 )
-from fdai.delivery.operator_api.routes.chat_prompt import _build_messages
 from fdai.rule_catalog.schema.model_endpoint import ModelApiStyle
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 

@@ -9,6 +9,9 @@ from enum import StrEnum
 from hashlib import sha256
 from typing import Any, Final
 
+from fdai.delivery.operator_api.application.conversation.capabilities.system_health import (
+    ChatToolResolver,
+)
 from fdai.delivery.operator_api.read_model import (
     MAX_LIMIT,
     AuditItem,
@@ -16,7 +19,6 @@ from fdai.delivery.operator_api.read_model import (
     ConsoleReadModel,
     HilQueueItem,
 )
-from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
 
 _ACTION_CONTEXT: Final = re.compile(
     r"\b(?:propos(?:e|al)|mitigation|impact\s+limit|stop\s+condition|dry\s+run|rollback|"

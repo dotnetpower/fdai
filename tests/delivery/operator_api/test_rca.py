@@ -10,8 +10,8 @@ from starlette.testclient import TestClient
 from fdai.core.rbac.resolver import GroupMapping, RoleResolver
 from fdai.delivery.operator_api.auth import build_authenticator
 from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
+from fdai.delivery.operator_api.projections.conversation.rca import project_rca
 from fdai.delivery.operator_api.read_model import AuditItem, InMemoryConsoleReadModel
-from fdai.delivery.operator_api.routes.rca_projection import project_rca
 
 
 def _item(

@@ -22,7 +22,9 @@ from fdai.delivery.operator_api.application.conversation.verification.rendering 
     text,
     topic_text,
 )
-from fdai.delivery.operator_api.routes.chat_incident_dossier import render_incident_dossier
+from fdai.delivery.operator_api.projections.conversation.incident_dossier import (
+    render_incident_dossier,
+)
 
 Changed = Callable[[str, str], VerificationStatus]
 

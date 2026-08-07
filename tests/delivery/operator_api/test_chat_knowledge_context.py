@@ -43,15 +43,15 @@ from fdai.core.skills.source_registry import (
     SkillSourceTrustTier,
 )
 from fdai.core.supply_chain.skill_quarantine import SkillSourceRefreshState
-from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
-from fdai.delivery.operator_api.routes.chat_conversation_context import (
+from fdai.delivery.operator_api.application.conversation.capabilities.conversation_context import (
     ConversationContextChatTools,
 )
-from fdai.delivery.operator_api.routes.chat_history import replay_metadata
-from fdai.delivery.operator_api.routes.chat_knowledge_context import (
+from fdai.delivery.operator_api.application.conversation.capabilities.knowledge_context import (
     KnowledgeContextChatTools,
     render_knowledge_context_answer,
 )
+from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
+from fdai.delivery.operator_api.routes.chat_history import replay_metadata
 from fdai.shared.providers.testing.user_context import (
     InMemoryConversationHistoryStore,
     InMemoryUserMemoryStore,

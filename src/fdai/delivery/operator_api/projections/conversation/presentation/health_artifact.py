@@ -5,6 +5,9 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from fdai.delivery.operator_api.application.conversation.capabilities.subscription_health import (
+    subscription_health_findings,
+)
 from fdai.delivery.operator_api.projections.conversation.presentation.artifact_common import (
     MAX_TABLE_ROWS,
     block,
@@ -18,9 +21,6 @@ from fdai.delivery.operator_api.projections.conversation.presentation.artifact_c
 )
 from fdai.delivery.operator_api.projections.conversation.presentation.contract import (
     PresentationPlacement,
-)
-from fdai.delivery.operator_api.routes.chat_subscription_health import (
-    subscription_health_findings,
 )
 
 

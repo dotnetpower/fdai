@@ -14,11 +14,11 @@ from fdai.delivery.conversation_images import (
     ConversationImage,
     ConversationImageStore,
 )
+from fdai.delivery.operator_api.application.conversation.vision_evidence import VisionAttachment
 from fdai.delivery.operator_api.routes.chat_history import (
     append_operator_turn,
     ensure_conversation,
 )
-from fdai.delivery.operator_api.routes.chat_vision_evidence import VisionAttachment
 from fdai.shared.providers.user_context import ConversationHistoryStore, ConversationTurnRecord
 
 _LOG = logging.getLogger(__name__)

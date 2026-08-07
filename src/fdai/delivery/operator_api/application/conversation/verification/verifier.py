@@ -7,6 +7,10 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from fdai.delivery.operator_api.application.conversation.capabilities.behavior_evidence import (
+    behavior_evidence_refs,
+    render_behavior_answer,
+)
 from fdai.delivery.operator_api.application.conversation.claims import (
     AtomicClaim,
     EvidenceManifest,
@@ -28,14 +32,10 @@ from fdai.delivery.operator_api.application.conversation.verification.text impor
 from fdai.delivery.operator_api.application.conversation.verification.tools import (
     verify_tool_contract,
 )
+from fdai.delivery.operator_api.application.conversation.vision_evidence import vision_evidence_refs
 from fdai.delivery.operator_api.projections.conversation.terminal import (
     public_intent_graph_evidence,
 )
-from fdai.delivery.operator_api.routes.chat_behavior_evidence import (
-    behavior_evidence_refs,
-    render_behavior_answer,
-)
-from fdai.delivery.operator_api.routes.chat_vision_evidence import vision_evidence_refs
 
 _agent_activity_lines = _rendering.agent_activity_lines
 _incident_summary_line = _rendering.incident_summary_line

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from fdai.delivery.operator_api.routes.chat_preincident_activity import (
+from fdai.delivery.operator_api.application.conversation.capabilities.preincident_activity import (
     PreIncidentActivityRequest,
     parse_preincident_activity,
     resolve_preincident_activity,

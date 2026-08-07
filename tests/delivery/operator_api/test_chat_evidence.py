@@ -17,16 +17,16 @@ from fdai.delivery.operator_api.application.conversation.evidence.operational im
     _is_memory_incident_text,
     needs_operational_evidence,
 )
-from fdai.delivery.operator_api.application.conversation.verification import verify_answer
-from fdai.delivery.operator_api.read_model import AuditItem, InMemoryConsoleReadModel
-from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
-from fdai.delivery.operator_api.routes.chat_freshness_context import (
+from fdai.delivery.operator_api.application.conversation.freshness_context import (
     response_evidence_freshness_context,
 )
-from fdai.delivery.operator_api.routes.chat_incident_dossier import (
+from fdai.delivery.operator_api.application.conversation.verification import verify_answer
+from fdai.delivery.operator_api.projections.conversation.incident_dossier import (
     IncidentDossierIntent,
     classify_incident_dossier_intent,
 )
+from fdai.delivery.operator_api.read_model import AuditItem, InMemoryConsoleReadModel
+from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
 from fdai.delivery.operator_api.routes.chat_route_common import _uses_evidence_fast_path
 
 

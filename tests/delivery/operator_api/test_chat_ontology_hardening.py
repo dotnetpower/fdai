@@ -6,7 +6,7 @@ from copy import deepcopy
 
 import pytest
 
-from fdai.delivery.operator_api.routes.chat_prompt import (
+from fdai.delivery.operator_api.application.conversation.prompt import (
     _ontology_browse_answer,
     _trim_view_context,
 )

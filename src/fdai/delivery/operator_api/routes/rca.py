@@ -17,12 +17,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from fdai.delivery.operator_api.projections.conversation.rca import project_rca
 from fdai.delivery.operator_api.read_model import (
     MAX_LIMIT,
     ConsoleReadModel,
 )
 from fdai.delivery.operator_api.routes.panels import PanelNotFoundError, PanelQueryError
-from fdai.delivery.operator_api.routes.rca_projection import project_rca
 
 
 class RcaPanel:

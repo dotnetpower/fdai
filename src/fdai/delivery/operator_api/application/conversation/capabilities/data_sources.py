@@ -7,8 +7,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Final
 
-from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
-from fdai.delivery.operator_api.routes.data_sources import ReadDataSourceStatus
+from fdai.delivery.operator_api.application.conversation.capabilities.data_source_contract import (
+    ReadDataSourceStatus,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.system_health import (
+    ChatToolResolver,
+)
 
 _READ_SOURCE_INTENT: Final = re.compile(
     r"\b(?:read|data|evidence)[\s_-]+sources?\b|"

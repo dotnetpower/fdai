@@ -24,6 +24,13 @@ from fdai.delivery.operator_api.adapters.conversation.transport import (
     _raise_upstream_error,
 )
 from fdai.delivery.operator_api.application.conversation.backend import ChatContentPolicyError
+from fdai.delivery.operator_api.application.conversation.prompt import _with_concept_evidence
+from fdai.delivery.operator_api.application.conversation.prompt_content import (
+    _AGENT_EVIDENCE_DIRECTIVE,
+    _AGENT_SESSION_EVIDENCE_DIRECTIVE,
+    _SCREEN_SCOPE_DIRECTIVE,
+    _WEB_EVIDENCE_DIRECTIVE,
+)
 from fdai.delivery.operator_api.routes.chat import (
     _CAPABILITIES,
     _GLOSSARY,
@@ -34,13 +41,6 @@ from fdai.delivery.operator_api.routes.chat import (
     _is_capability_query,
     _is_concept_query,
     _trim_view_context,
-)
-from fdai.delivery.operator_api.routes.chat_prompt import _with_concept_evidence
-from fdai.delivery.operator_api.routes.chat_prompt_content import (
-    _AGENT_EVIDENCE_DIRECTIVE,
-    _AGENT_SESSION_EVIDENCE_DIRECTIVE,
-    _SCREEN_SCOPE_DIRECTIVE,
-    _WEB_EVIDENCE_DIRECTIVE,
 )
 
 _GLOSSARY_MARKER = _GLOSSARY.splitlines()[0]
@@ -1415,6 +1415,6 @@ def test_a_turn_without_constraints_adds_no_constraint_line() -> None:
 def test_narrator_constraint_map_uses_only_real_layer_ids() -> None:
     """A renamed layer MUST NOT silently stop reaching the narrator."""
     from fdai.agents import CONSTRAINT_LAYER_IDS
-    from fdai.delivery.operator_api.routes.chat_prompt import _TURN_CONSTRAINTS
+    from fdai.delivery.operator_api.application.conversation.prompt import _TURN_CONSTRAINTS
 
     assert set(_TURN_CONSTRAINTS) <= set(CONSTRAINT_LAYER_IDS)

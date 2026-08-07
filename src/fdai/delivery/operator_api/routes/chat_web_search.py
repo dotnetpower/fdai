@@ -30,14 +30,14 @@ from fdai.delivery.azure.web_search import (
     LatencyRoutedWebSearchProvider,
     WebSearchModelCandidate,
 )
-from fdai.delivery.operator_api.routes.chat_web_search_intent import (
+from fdai.delivery.operator_api.application.conversation.web_search_intent import (
     SearchGoal,
     SearchIntentDecision,
     alternative_search_requested,
     semantic_search_intent,
     semantic_search_intent_eligible,
 )
-from fdai.delivery.operator_api.routes.chat_web_search_intent import (
+from fdai.delivery.operator_api.application.conversation.web_search_intent import (
     classify_search_intent as _classify_search_intent,
 )
 from fdai.shared.providers.workload_identity import WorkloadIdentity

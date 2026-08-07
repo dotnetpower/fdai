@@ -20,7 +20,7 @@ from fdai.core.conversation_assurance import (
     assurance_principal_scope,
     attribute_answer_failure,
 )
-from fdai.delivery.operator_api.routes.chat_history import completed_replay_payload
+from fdai.delivery.operator_api.projections.conversation.terminal import completed_replay_payload
 from fdai.delivery.operator_api.routes.post_turn_review import (
     PostTurnReviewSubmission,
     PostTurnReviewSubmitter,

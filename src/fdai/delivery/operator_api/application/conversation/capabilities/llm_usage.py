@@ -18,11 +18,13 @@ from fdai.core.metering.aggregate import (
 )
 from fdai.core.metering.records import InvocationScope
 from fdai.core.metering.sink import MeteringReader
+from fdai.delivery.operator_api.application.conversation.capabilities.system_health import (
+    ChatToolResolver,
+)
+from fdai.delivery.operator_api.application.conversation.turn_plan import TurnTool
 from fdai.delivery.operator_api.projections.conversation.terminal import (
     parse_llm_usage_analysis_context,
 )
-from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
-from fdai.delivery.operator_api.routes.chat_turn_plan import TurnTool
 
 _EXPLICIT_USAGE: Final = re.compile(
     r"\b(?:llm|model|token)\b.{0,32}\b(?:usage|consumption|tokens?|calls?)\b|"

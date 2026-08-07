@@ -10,11 +10,13 @@ from __future__ import annotations
 import base64
 from typing import Any
 
-from fdai.delivery.operator_api.routes.chat_prompt import (
+from fdai.delivery.operator_api.application.conversation.prompt import (
     _build_messages,
     _vision_user_content,
 )
-from fdai.delivery.operator_api.routes.chat_prompt_content import _VISION_EVIDENCE_DIRECTIVE
+from fdai.delivery.operator_api.application.conversation.prompt_content import (
+    _VISION_EVIDENCE_DIRECTIVE,
+)
 
 _PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
 _DATA_URL = f"data:image/png;base64,{base64.b64encode(_PNG).decode()}"

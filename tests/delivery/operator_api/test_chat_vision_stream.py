@@ -19,11 +19,13 @@ from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from fdai.delivery.conversation_images import InMemoryConversationImageStore
-from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
-from fdai.delivery.operator_api.routes.chat_conversation_context import (
+from fdai.delivery.operator_api.application.conversation.capabilities.conversation_context import (
     ConversationContextChatTools,
 )
-from fdai.delivery.operator_api.routes.chat_llm_usage import is_llm_usage_followup
+from fdai.delivery.operator_api.application.conversation.capabilities.llm_usage import (
+    is_llm_usage_followup,
+)
+from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
 from fdai.shared.providers.testing.user_context import InMemoryConversationHistoryStore
 
 _PNG = (

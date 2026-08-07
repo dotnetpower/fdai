@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 525cb8ae8b8bd83add0866012048fa349ff52194
+translation_source_sha: e0c821db5fffda96fbee006b4ed26c6815e19014
 translation_revised: 2026-08-07
 ---
 # Operator Console Module Map and Boundaries
@@ -328,7 +328,7 @@ frame을 거부합니다.
   - Slack, Teams 및 web attachment contract는
     [conversation attachment](conversation-attachments-ko.md)를 통해 수렴합니다. Dedicated WebSocket
     adapter는 optional입니다.
-- [`chat_current_time.py`](../../../src/fdai/delivery/operator_api/routes/chat_current_time.py)는 injected
+- [`current_time.py`](../../../src/fdai/delivery/operator_api/application/conversation/capabilities/current_time.py)는 injected
   aware clock과 principal IANA timezone에서 current-time 질문을 resolve합니다.
 
 ## Operator API route ownership
@@ -354,6 +354,11 @@ frame을 거부합니다.
   validation, history persistence coordination 및 post-turn review를 소유합니다. HTTP,
   authentication, request parsing, heartbeat framing, SSE sequencing, connection cancellation 또는
   transport delivery는 소유하지 않습니다.
+- `application/conversation/capabilities/`는 action, prior-context, current-time, source,
+  readiness, knowledge, metering, log, network, subscription-health, T2 recovery, behavior 및
+  read-model helper를 소유합니다. `application/conversation/`은 turn/intent-graph planning, prompt
+  assembly, public-web intent 및 vision validation을 소유합니다. 두 package 모두 `routes`를 import하지
+  않습니다.
 - `projections/conversation/presentation/`은 value-free presentation plan, 검증된 evidence artifact
   compilation, bound 및 localized label을 소유합니다. HTTP, SSE, authentication, cancellation,
   terminal delivery 또는 durable state는 소유하지 않습니다.
@@ -366,11 +371,17 @@ frame을 거부합니다.
 - `projections/conversation/stream_metrics.py`는 queue에 수락된 aggregate progress reduction을
   소유합니다. Frame sequencing, queue admission, cancellation, transport 또는 durable state는
   소유하지 않습니다.
+- `projections/conversation/`은 incident-dossier와 RCA rendering, bounded execution-output
+  projection, provider-receipt projection 및 tool-progress reduction을 소유합니다. 이동된 internal
+  helper에는 compatibility shim이 없습니다.
 - `chat_stream_setup.py`는 authenticated request, evidence, history 및 answer-plan validation을 소유합니다.
 - `chat_trajectory_detail.py`는 durable trajectory replay용 bounded final progress projection을 소유합니다.
-- `chat_knowledge_context.py`는 state write 없이 exact prior-turn runbook, source freshness, consented
+- `application/conversation/capabilities/knowledge_context.py`는 state write 없이 exact prior-turn
+  runbook, source freshness, consented
   memory 및 materialized learning을 읽습니다.
-- `chat_vision_prompt.py`는 validated image를 projection합니다.
+- `application/conversation/vision_prompt.py`는 validated image를 projection합니다.
+- `routes/`는 JSON/SSE envelope, authentication, cancellation, history transport와 graph,
+  data-source, readiness projection의 HTTP handler를 유지합니다.
 - `read_investigation_responder.py`는 registered Heimdall read intent를 typed evidence에서 렌더링합니다.
   Evidence가 없으면 explicit unavailable answer를 반환합니다. `read_investigation_catalog.py`는 catalog
   ID, ownership 또는 plan binding drift 시 startup을 차단합니다.

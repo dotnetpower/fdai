@@ -189,7 +189,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         _DIAGNOSE,
         (
             "src/fdai/delivery/azure/log_query.py",
-            "src/fdai/delivery/operator_api/routes/chat_log_query.py",
+            "src/fdai.delivery.operator_api.application.conversation.capabilities.log_query.py",
         ),
     ),
     _parity(
@@ -450,7 +450,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         _TOOLS,
         (
             "src/fdai/delivery/azure/demo_queries.py",
-            "src/fdai/delivery/operator_api/routes/chat_log_query.py",
+            "src/fdai.delivery.operator_api.application.conversation.capabilities.log_query.py",
         ),
         status=CapabilityParity.SAFER_ALTERNATIVE,
     ),

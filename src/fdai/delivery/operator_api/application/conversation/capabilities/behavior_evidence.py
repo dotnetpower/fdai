@@ -14,7 +14,7 @@ from fdai.delivery.behavior_knowledge.seeds import (
     build_seed_behavior_specs,
 )
 from fdai.delivery.behavior_knowledge.source_freshness import GitTrackedSourceValidator
-from fdai.delivery.operator_api.routes.chat_incident_dossier import (
+from fdai.delivery.operator_api.projections.conversation.incident_dossier import (
     classify_incident_dossier_intent,
 )
 from fdai.shared.providers.behavior_knowledge import BehaviorKnowledgeIndex, BehaviorSpec

@@ -10,9 +10,11 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
+from fdai.delivery.operator_api.application.conversation.capabilities.action_context import (
+    ActionContextChatTools,
+)
 from fdai.delivery.operator_api.read_model import HilQueueItem, InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
-from fdai.delivery.operator_api.routes.chat_action_context import ActionContextChatTools
 
 
 class Backend:

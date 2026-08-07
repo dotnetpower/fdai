@@ -14,7 +14,9 @@ from fdai.core.detection.configuration_drift_service import (
     ConfigurationBaselineSource,
     ConfigurationDriftService,
 )
-from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
+from fdai.delivery.operator_api.application.conversation.capabilities.system_health import (
+    ChatToolResolver,
+)
 
 _BASELINE_DOCUMENT_REF: Final = "sre-s13-workload-infrastructure-baseline.docx"
 

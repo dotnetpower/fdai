@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from fdai.delivery.operator_api.routes.chat_knowledge_context import KnowledgeContextChatTools
+from fdai.delivery.operator_api.application.conversation.capabilities.knowledge_context import (
+    KnowledgeContextChatTools,
+)
 from fdai.delivery.persistence import (
     PostgresOperatorMemoryProposalStore,
     PostgresOperatorMemoryProposalStoreConfig,

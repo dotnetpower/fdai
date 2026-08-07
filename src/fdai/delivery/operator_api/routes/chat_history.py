@@ -228,27 +228,10 @@ def replay_metadata(
     return metadata
 
 
-def completed_replay_payload(turn: ConversationTurnRecord) -> dict[str, Any]:
-    raw = turn.metadata.get(_REPLAY_PAYLOAD_KEY)
-    if isinstance(raw, str):
-        try:
-            payload = json.loads(raw)
-        except json.JSONDecodeError:
-            payload = None
-        if isinstance(payload, dict) and payload.get("answer") == turn.content:
-            return payload
-    return {
-        "answer": turn.content,
-        "model": str(turn.metadata.get("model") or "unknown"),
-        "source": "conversation-history",
-    }
-
-
 __all__ = [
     "append_assistant_turn",
     "append_content_policy_receipt",
     "append_operator_turn",
-    "completed_replay_payload",
     "content_policy_replay_stage",
     "replay_metadata",
 ]

@@ -8,8 +8,8 @@ from dataclasses import asdict, dataclass
 from typing import Any, Final, Literal, cast
 
 from fdai.agents import PANTHEON_NAMES
+from fdai.delivery.operator_api.application.conversation.turn_plan import TurnTool
 from fdai.delivery.operator_api.read_model import ConsoleReadModel
-from fdai.delivery.operator_api.routes.chat_turn_plan import TurnTool
 from fdai.shared.providers.conversation_search import (
     ConversationSearch,
     ConversationSearchQuery,

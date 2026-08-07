@@ -37,6 +37,9 @@ from fdai.delivery.operator_api.projections.conversation.terminal.payload import
     response_incident_candidates,
     verification_events,
 )
+from fdai.delivery.operator_api.projections.conversation.terminal.replay import (
+    completed_replay_payload,
+)
 from fdai.delivery.operator_api.projections.conversation.terminal.resource_context import (
     ambiguous_resource_candidates,
     ordinal_inventory_arguments,
@@ -56,6 +59,7 @@ __all__ = [
     "ambiguous_resource_candidates",
     "assurance_policy_summary",
     "build_done_payload",
+    "completed_replay_payload",
     "llm_usage_evidence_refs",
     "ordinal_inventory_arguments",
     "parse_llm_usage_analysis_context",

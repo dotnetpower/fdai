@@ -36,13 +36,13 @@
     },
     {
       "path": "application/conversation",
-      "responsibility": "Process-local conversation application capabilities outside HTTP transport",
+      "responsibility": "Process-local conversation planning, prompt, vision, and application capabilities outside HTTP transport",
       "classification": "application-coordination",
       "candidate_destination": "retain in-process until conversation service-graduation evidence exists"
     },
     {
       "path": "application/conversation/capabilities",
-      "responsibility": "Process-local typed conversation capabilities outside HTTP transport",
+      "responsibility": "Typed action, context, time, source, readiness, knowledge, metering, log, health, and read-model conversation capabilities",
       "classification": "application-coordination",
       "candidate_destination": "retain as the domain capability owner"
     },
@@ -108,7 +108,7 @@
     },
     {
       "path": "projections/conversation",
-      "responsibility": "Read-only request-local conversation projections and queue-accepted progress metric reduction outside HTTP transport",
+      "responsibility": "Read-only incident, RCA, execution, tool-progress, and request-local conversation projections outside HTTP transport",
       "classification": "read-projection",
       "candidate_destination": "retain in-process until conversation service-graduation evidence exists"
     },
@@ -144,7 +144,7 @@
     },
     {
       "path": "routes",
-      "responsibility": "Mixed HTTP adapters, application coordination, projections, and policy helpers",
+      "responsibility": "HTTP and SSE adapters, authentication, cancellation, history transport, and classified compatibility paths",
       "classification": "mixed-transitional",
       "candidate_destination": "classify and migrate one bounded family at a time under issues 69-72"
     },
@@ -180,7 +180,7 @@
   "route_families": [
     {
       "pattern": "chat*.py",
-      "responsibility": "Conversation HTTP, SSE, coordination, evidence, and the classified chat_verification source-path facade",
+      "responsibility": "Conversation JSON and SSE transport, authentication, cancellation, history, and the classified chat_verification source-path facade",
       "classification": "mixed-transitional",
       "candidate_destination": "move bounded internal families behind typed application or projection owners while routes retain wire behavior"
     },
@@ -309,13 +309,13 @@
     "forecast_learning.py", "handover_goals.py", "hil_callback.py",
     "human_assignments.py", "iam.py", "incident_attention_stream.py", "incident_chat.py",
     "incident_projection.py", "incidents.py", "inventory_graph.py",
-    "inventory_graph_bounds.py", "inventory_provider_execution.py", "kill_switch.py",
+    "inventory_graph_bounds.py", "kill_switch.py",
     "llm_cost.py", "mcsb_controls.py", "measurement_summary.py", "model_settings.py",
     "notification_templates.py", "onboarding.py", "ontology_graph.py", "operator_memory.py",
     "panels.py", "pantheon.py", "persisted_promotion_gates.py", "post_turn_event_bus.py",
     "post_turn_review.py", "post_turn_review_panel.py", "process_views.py",
     "promotion_gates.py", "provenance.py", "python_tasks.py", "rca.py",
-    "rca_projection.py", "reporting.py", "rule_catalog.py", "rule_fire_trace.py",
+    "reporting.py", "rule_catalog.py", "rule_fire_trace.py",
     "rule_fire_trace_reader.py", "runtime_settings.py", "scheduler_runs.py", "scope.py",
     "skill_runtime.py", "skill_sources.py", "skills.py", "stewardship.py",
     "task_workers.py", "trajectory_datasets.py", "user_context.py",
@@ -398,6 +398,16 @@
       "migration": "owned typed inventory query, semantic, compilation, and provider-read coordination facade"
     },
     {
+      "module": "fdai.delivery.operator_api.application.conversation.capabilities.*",
+      "classification": "internal-implementation",
+      "migration": "owned typed conversation capability implementations; route adapters import these owners"
+    },
+    {
+      "module": "fdai.delivery.operator_api.application.conversation.*",
+      "classification": "internal-implementation",
+      "migration": "owned request-local planning and prompt implementation with no route imports"
+    },
+    {
       "module": "fdai.delivery.operator_api.projections.conversation.inventory",
       "classification": "internal-implementation",
       "migration": "owned read-only inventory result and deterministic rendering facade"
@@ -407,6 +417,11 @@
       "classification": "internal-implementation",
       "migration": "owned read-only evidence resolution and authority-preserving merge facade for conversation consumers"
     },
+        {
+          "module": "fdai.delivery.operator_api.projections.conversation.*",
+          "classification": "internal-implementation",
+          "migration": "owned read-only operational and execution evidence projections; no route compatibility shim retained"
+        },
     {
       "module": "fdai.delivery.operator_api.routes.chat_verification",
       "classification": "public-compatibility-facade",

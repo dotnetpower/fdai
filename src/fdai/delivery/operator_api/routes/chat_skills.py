@@ -19,7 +19,9 @@ from fdai.core.conversation import (
 )
 from fdai.core.conversation.tools import SystemConsoleTool
 from fdai.core.skills import RuntimeSkillDisclosure
-from fdai.delivery.operator_api.routes.chat_system_health import ChatToolResolver
+from fdai.delivery.operator_api.application.conversation.capabilities.system_health import (
+    ChatToolResolver,
+)
 
 _SKILL_VERBS = frozenset(
     {

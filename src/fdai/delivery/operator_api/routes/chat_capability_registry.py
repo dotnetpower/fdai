@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from fdai.delivery.operator_api.routes.chat_turn_plan import TurnTool
+from fdai.delivery.operator_api.application.conversation.turn_plan import TurnTool
 
 
 @dataclass(frozen=True, slots=True)

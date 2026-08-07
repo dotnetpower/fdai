@@ -17,13 +17,13 @@ from dataclasses import dataclass
 from typing import Any, Final
 
 from fdai.agents import PANTHEON_NAMES
-from fdai.delivery.operator_api.read_model import AuditItem, ConsoleReadModel, IncidentSummary
-from fdai.delivery.operator_api.routes.chat_incident_dossier import (
+from fdai.delivery.operator_api.application.conversation.intents import is_topology_question
+from fdai.delivery.operator_api.projections.conversation.incident_dossier import (
     IncidentDossierIntent,
     classify_incident_dossier_intent,
 )
-from fdai.delivery.operator_api.routes.chat_topology_intent import is_topology_question
-from fdai.delivery.operator_api.routes.rca_projection import project_rca
+from fdai.delivery.operator_api.projections.conversation.rca import project_rca
+from fdai.delivery.operator_api.read_model import AuditItem, ConsoleReadModel, IncidentSummary
 
 _LOG = logging.getLogger(__name__)
 

@@ -25,7 +25,7 @@ from fdai.delivery.operator_api.application.conversation.evidence.enrichment imp
     ChatWebSearchEvidenceResolver,
     PlannedChatToolResolver,
 )
-from fdai.delivery.operator_api.routes.chat_intent_graph import (
+from fdai.delivery.operator_api.application.conversation.intent_graph import (
     EvidenceMode,
     IntentGoal,
     IntentGraph,

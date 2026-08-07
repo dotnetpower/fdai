@@ -17,15 +17,15 @@ from fdai.delivery.behavior_knowledge.seeds import (
     SEED_SOURCE_PATHS,
     build_seed_behavior_specs,
 )
-from fdai.delivery.operator_api.application.conversation.verification import verify_answer
-from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
-from fdai.delivery.operator_api.routes.chat_behavior_evidence import (
+from fdai.delivery.operator_api.application.conversation.capabilities.behavior_evidence import (
     BehaviorEvidenceResolver,
     RepositoryBehaviorEvidenceResolver,
     behavior_evidence_refs,
     is_behavior_question,
     render_behavior_answer,
 )
+from fdai.delivery.operator_api.application.conversation.verification import verify_answer
+from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
 from fdai.shared.providers.behavior_knowledge import BehaviorFreshness, BehaviorSource
 
 

@@ -16,6 +16,31 @@ from fdai.core.read_investigation import (
     resource_name_from_question,
 )
 from fdai.delivery.agent_introspection_bus import addressed_agent
+from fdai.delivery.operator_api.application.conversation.capabilities.action_context import (
+    needs_action_context,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.conversation_context import (
+    needs_conversation_context,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.data_sources import (
+    needs_read_source_evidence,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.llm_usage import (
+    is_llm_usage_followup,
+    needs_llm_usage,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.log_query import (
+    needs_log_query,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.preincident_activity import (
+    parse_preincident_activity,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.subscription_health import (
+    needs_subscription_health,
+)
+from fdai.delivery.operator_api.application.conversation.capabilities.t2_recovery import (
+    needs_t2_recovery_evidence,
+)
 from fdai.delivery.operator_api.application.conversation.evidence.branches import (
     EvidenceBranchKind,
     EvidenceBranchResult,
@@ -33,37 +58,24 @@ from fdai.delivery.operator_api.application.conversation.evidence.provenance imp
 from fdai.delivery.operator_api.application.conversation.evidence.provenance import (
     _tool_matches_current_route as _tool_matches_current_route,
 )
+from fdai.delivery.operator_api.application.conversation.prompt import (
+    _AGENT_NAME_TOKEN,
+    _is_grounded_concept_query,
+)
 from fdai.delivery.operator_api.projections.conversation.inventory import (
     inventory_screen_scope_unavailable_evidence,
     needs_inventory_evidence,
 )
-from fdai.delivery.operator_api.routes.chat_action_context import needs_action_context
-from fdai.delivery.operator_api.routes.chat_conversation_context import (
-    needs_conversation_context,
-)
-from fdai.delivery.operator_api.routes.chat_data_sources import needs_read_source_evidence
-from fdai.delivery.operator_api.routes.chat_llm_usage import (
-    is_llm_usage_followup,
-    needs_llm_usage,
-)
-from fdai.delivery.operator_api.routes.chat_log_query import needs_log_query
-from fdai.delivery.operator_api.routes.chat_preincident_activity import parse_preincident_activity
-from fdai.delivery.operator_api.routes.chat_prompt import (
-    _AGENT_NAME_TOKEN,
-    _is_grounded_concept_query,
-)
-from fdai.delivery.operator_api.routes.chat_subscription_health import needs_subscription_health
-from fdai.delivery.operator_api.routes.chat_t2_recovery import needs_t2_recovery_evidence
-from fdai.delivery.operator_api.routes.chat_tool_progress_projection import (
+from fdai.delivery.operator_api.projections.conversation.tool_progress import (
     _inventory_provider_progress_events as _inventory_provider_progress_events,
 )
-from fdai.delivery.operator_api.routes.chat_tool_progress_projection import (
+from fdai.delivery.operator_api.projections.conversation.tool_progress import (
     _tool_execution_detail as _tool_execution_detail,
 )
-from fdai.delivery.operator_api.routes.chat_tool_progress_projection import (
+from fdai.delivery.operator_api.projections.conversation.tool_progress import (
     _tool_execution_progress_event as _tool_execution_progress_event,
 )
-from fdai.delivery.operator_api.routes.chat_tool_progress_projection import (
+from fdai.delivery.operator_api.projections.conversation.tool_progress import (
     _tool_execution_progress_events as _tool_execution_progress_events,
 )
 

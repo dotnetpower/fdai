@@ -61,6 +61,9 @@ from fdai.delivery.operator_api.app.authoritative_proxy import (  # noqa: E402
     AUTHORITATIVE_OPERATOR_API_ENV,
     authoritative_read_proxy_from_env,
 )
+from fdai.delivery.operator_api.application.conversation.capabilities.knowledge_context import (  # noqa: E402
+    KnowledgeContextChatTools,
+)
 from fdai.delivery.operator_api.dev.app_config import (  # noqa: E402
     LocalAppConfigDependencies,
     build_local_operator_api_config,
@@ -150,9 +153,6 @@ from fdai.delivery.operator_api.read_model import (  # noqa: E402
 )
 from fdai.delivery.operator_api.routes.chat_agent_delegate import (  # noqa: E402
     PantheonChatDelegate,
-)
-from fdai.delivery.operator_api.routes.chat_knowledge_context import (  # noqa: E402
-    KnowledgeContextChatTools,
 )
 from fdai.delivery.operator_api.routes.conversation_assurance_intake import (  # noqa: E402
     ConversationAssurancePostTurnSubmitter,

@@ -9,6 +9,9 @@ from enum import StrEnum
 from fdai.delivery.operator_api.application.conversation.capabilities.inventory.compiler import (
     is_inventory_question,
 )
+from fdai.delivery.operator_api.application.conversation.capabilities.inventory.contracts import (
+    is_bounded_resource_name,
+)
 from fdai.delivery.operator_api.application.conversation.capabilities.inventory.language import (
     default_inventory_query_language_resolver,
 )
@@ -65,8 +68,6 @@ def contextualize_inventory_screen_scope(
     view_context: Mapping[str, object],
 ) -> tuple[str, InventoryScreenScopeResolution | None]:
     """Bind a current-screen inventory question to one selected resource group hint."""
-
-    from fdai.delivery.operator_api.routes.chat_resource_context import is_bounded_resource_name
 
     resolver = default_inventory_query_language_resolver()
     selected_scope = resolver.has(resolver.registry.scopes, "active_view", prompt) or resolver.has(

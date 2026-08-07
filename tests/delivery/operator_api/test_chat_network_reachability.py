@@ -4,12 +4,12 @@ import asyncio
 from collections.abc import Mapping
 from typing import Any
 
-from fdai.delivery.operator_api.application.conversation.verification import verify_answer
-from fdai.delivery.operator_api.routes.chat_network_reachability import (
+from fdai.delivery.operator_api.application.conversation.capabilities.network_reachability import (
     NetworkReachabilityChatTools,
     needs_network_reachability,
     render_network_reachability_answer,
 )
+from fdai.delivery.operator_api.application.conversation.verification import verify_answer
 
 
 class _Provider:

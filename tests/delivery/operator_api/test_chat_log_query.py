@@ -10,15 +10,15 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
-from fdai.delivery.operator_api.routes.chat import make_chat_route
-from fdai.delivery.operator_api.routes.chat_log_query import (
+from fdai.delivery.operator_api.application.conversation.capabilities.log_query import (
     LogQueryChatTools,
     render_log_query_answer,
 )
-from fdai.delivery.operator_api.routes.chat_subscription_health import (
+from fdai.delivery.operator_api.application.conversation.capabilities.subscription_health import (
     SubscriptionHealthChatTools,
     needs_subscription_health,
 )
+from fdai.delivery.operator_api.routes.chat import make_chat_route
 from fdai.shared.providers.observation import LogQueryError, LogQueryResult
 
 

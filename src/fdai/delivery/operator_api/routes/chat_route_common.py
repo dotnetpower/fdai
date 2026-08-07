@@ -18,7 +18,7 @@ from fdai.core.conversation_assurance import (
     ConversationPolicyRuntime,
     assurance_principal_scope,
 )
-from fdai.delivery.operator_api.routes.chat_prompt import (
+from fdai.delivery.operator_api.application.conversation.prompt import (
     _ASSURANCE_POLICY_KEY,
     _COMPILED_USER_POLICY_KEY,
 )

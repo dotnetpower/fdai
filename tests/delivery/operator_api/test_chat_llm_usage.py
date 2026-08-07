@@ -10,13 +10,13 @@ from fdai.core.metering.records import InvocationMode, InvocationScope, LlmInvoc
 from fdai.core.metering.sink import InMemoryMeteringSink
 from fdai.core.metering.usage import TokenUsage
 from fdai.core.rbac.resolver import GroupMapping, RoleResolver
-from fdai.delivery.operator_api.auth import UnsafeClaimsExtractor, build_authenticator
-from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
-from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
-from fdai.delivery.operator_api.routes.chat_llm_usage import (
+from fdai.delivery.operator_api.application.conversation.capabilities.llm_usage import (
     is_llm_usage_followup,
     needs_llm_usage,
 )
+from fdai.delivery.operator_api.auth import UnsafeClaimsExtractor, build_authenticator
+from fdai.delivery.operator_api.main import OperatorApiConfig, build_app
+from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.shared.providers.testing.user_context import InMemoryConversationHistoryStore
 
 

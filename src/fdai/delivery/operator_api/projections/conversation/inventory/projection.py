@@ -20,6 +20,7 @@ from fdai.delivery.operator_api.application.conversation.capabilities.inventory.
     inventory_query_matches,
     normalize_inventory_value,
 )
+from fdai.delivery.operator_api.application.conversation.intents import is_topology_question
 from fdai.delivery.operator_api.projections.conversation.inventory.activity import (
     project_inventory_activity,
 )
@@ -27,8 +28,7 @@ from fdai.delivery.operator_api.projections.conversation.inventory.schedule impo
     ScheduledShutdownEvidenceError,
     project_scheduled_shutdown_result,
 )
-from fdai.delivery.operator_api.routes.chat_topology_intent import is_topology_question
-from fdai.delivery.operator_api.routes.inventory_provider_execution import (
+from fdai.delivery.operator_api.projections.conversation.inventory_provider_execution import (
     project_inventory_provider_execution,
 )
 

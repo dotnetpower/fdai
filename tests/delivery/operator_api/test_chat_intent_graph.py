@@ -5,14 +5,14 @@ from collections.abc import Mapping
 
 import pytest
 
-from fdai.delivery.operator_api.routes.chat_intent_graph import (
+from fdai.delivery.operator_api.application.conversation.intent_graph import (
     ActionPosture,
     BackendIntentGraphPlanner,
     EvidenceMode,
     parse_intent_graph,
     planner_context_envelope,
 )
-from fdai.delivery.operator_api.routes.chat_turn_plan import TurnTool
+from fdai.delivery.operator_api.application.conversation.turn_plan import TurnTool
 
 
 class _StructuredBackend:

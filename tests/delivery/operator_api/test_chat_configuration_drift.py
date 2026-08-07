@@ -16,11 +16,11 @@ from fdai.core.detection.configuration_drift_service import ConfigurationDriftSe
 from fdai.delivery.configuration_drift_knowledge import (
     PinnedConfigurationBaselineKnowledgeSource,
 )
-from fdai.delivery.operator_api.routes.chat import make_chat_route
-from fdai.delivery.operator_api.routes.chat_action_context import (
+from fdai.delivery.operator_api.application.conversation.capabilities.action_context import (
     ActionContextChatTools,
     needs_action_context,
 )
+from fdai.delivery.operator_api.routes.chat import make_chat_route
 from fdai.delivery.operator_api.routes.chat_configuration_drift import (
     ConfigurationDriftChatTools,
     needs_configuration_drift_context,
