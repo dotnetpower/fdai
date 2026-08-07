@@ -432,6 +432,23 @@ jobs:
             -backend-config="container_name=tfstate" \
             -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
 
+      - name: Install pinned GitHub CLI for image verification
+        if: ${{ !inputs.apply && inputs.deploy_isolated_executor }}
+        env:
+          GH_VERSION: "2.97.0"
+          GH_LINUX_AMD64_SHA256: "a2c9b8497e1f85b1ad0dfcb78b5a622e098801b8e461e459e88e1ee12f018112"
+        run: |
+          set -euo pipefail
+          archive="gh_${GH_VERSION}_linux_amd64.tar.gz"
+          curl --fail --location --silent --show-error --retry 3 --retry-delay 2 \
+            --retry-all-errors --connect-timeout 5 --max-time 120 \
+            "https://github.com/cli/cli/releases/download/v${GH_VERSION}/${archive}" \
+            --output "$RUNNER_TEMP/$archive"
+          printf '%s  %s\n' "$GH_LINUX_AMD64_SHA256" "$RUNNER_TEMP/$archive" \
+            | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/gh_${GH_VERSION}_linux_amd64/bin" >> "$GITHUB_PATH"
+
       - name: Bind exact isolated Executor runtime image
         if: ${{ !inputs.apply && inputs.deploy_isolated_executor }}
         env:

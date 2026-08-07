@@ -341,6 +341,10 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "verify_executor_effect:" in workflow
     assert "runtime_image_revision:" in workflow
     assert "promote_runtime_image:" in workflow
+    assert "Install pinned GitHub CLI for image verification" in workflow
+    assert 'GH_VERSION: "2.97.0"' in workflow
+    assert "GH_LINUX_AMD64_SHA256" in workflow
+    assert "sha256sum --check --strict" in workflow
     assert "TF_VAR_enable_isolated_executor: ${{ inputs.deploy_isolated_executor }}" in workflow
     assert (
         "TF_VAR_enable_isolated_executor_authority_cutover: "
