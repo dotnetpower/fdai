@@ -77,6 +77,12 @@
       "candidate_destination": "retain behind the explicit evidence package facade"
     },
     {
+      "path": "application/conversation/post_generation",
+      "responsibility": "Post-generation quality review, verification, history persistence coordination, terminal payload construction, and post-turn review",
+      "classification": "application-coordination",
+      "candidate_destination": "retain behind the explicit post-generation package facade"
+    },
+    {
       "path": "dev",
       "responsibility": "Interactive local and test-only provider composition",
       "classification": "composition",

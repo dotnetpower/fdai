@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 3b54a2aee165bc10c2b4884b88ab6971bd2a9837
+translation_source_sha: 1a357072411ba34b3a29f21a02f3020dffc7702b
 translation_revised: 2026-08-07
 ---
 # 코드 맵
@@ -149,6 +149,12 @@ strict shape-only model selection은 explicit package facade 뒤의 request-loca
 내부 inventory read를
 provider command를 만들지 않고 verifier가 승인한 typed query 및 snapshot provenance를
 channel-neutral query activity row로 projection합니다.
+
+Streamed turn completion은 explicit
+[`post_generation/`](../../../src/fdai/delivery/operator_api/application/conversation/post_generation/)
+application facade 뒤에 있습니다. 이 facade는 quality review, verification, terminal payload
+validation, history persistence 및 post-turn review를 조정합니다. `chat_stream.py`는 authorization,
+request parsing, heartbeat framing, sequence와 revision, cancellation 및 SSE delivery를 유지합니다.
 
 ## 룰 카탈로그, 배포, 플랫폼
 

@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 78ceb685afd17fe054474cff1ba46285956a3d9b
+translation_source_sha: 525cb8ae8b8bd83add0866012048fa349ff52194
 translation_revised: 2026-08-07
 ---
 # Operator Console Module Map and Boundaries
@@ -213,6 +213,22 @@ consumer는 explicit terminal facade로 이동했고 package는 `fdai.delivery.o
 않으므로 compatibility shim이 남지 않습니다. Rollback은 route 구현 4개를 복원하고 terminal facade를
 redirect하며 두 wire contract는 변경하지 않습니다.
 
+### Conversation post-generation application boundary
+
+SD-01 post-generation slice는
+`fdai.delivery.operator_api.application.conversation.post_generation` 아래에서 streamed turn
+completion을 소유합니다. Answer generation 이후 이 package는 기존 순서대로 bounded quality review,
+deterministic verification, terminal payload validation, principal 범위 assistant-turn persistence 및
+off-path post-turn review를 조정합니다. Pure payload compilation은
+`projections.conversation.terminal`에 위임하고 durable history는 injected persister를 통해서만 씁니다.
+
+SSE route는 authorization, request parsing, heartbeat framing, connection 및 busy-input cancellation,
+request sequence와 revision, trajectory projection 및 최종 transport delivery를 계속 소유합니다. 이
+package는 `fdai.delivery.operator_api.routes` module을 import하지 않습니다. 기존
+`routes.chat_stream_post_generation` path는 internal이었으므로 compatibility shim을 남기지 않습니다.
+Rollback은 해당 route module을 복원하고 stream-route import를 변경하며 frame order, JSON 또는 SSE
+terminal payload, verification, history 및 post-turn review behavior는 변경하지 않습니다.
+
 ### Immutable app composition
 
 Issue 72는 `OperatorApiConfig(**kwargs)`를 bounded compatibility constructor로 유지하고 route를 등록하기
@@ -247,6 +263,7 @@ signature를 그대로 유지합니다. 이 절차는 wire 또는 caller migrati
 | `application/conversation/claims/` | Deterministic answer-claim extraction 및 bounded evidence verification | Explicit package facade로 import하고 JSON, SSE 및 authentication은 route에 유지합니다. |
 | `application/conversation/verification/` | Deterministic terminal answer verification 및 bounded evidence rendering | Explicit package facade로 import하고 wire behavior와 authentication은 route에 유지합니다. |
 | `application/conversation/evidence/` | Operational evidence resolution, provenance, branch lifecycle 및 authority-preserving merge | Explicit package facade로 import하고 JSON, SSE, authentication, cancellation 및 history는 route에 유지합니다. |
+| `application/conversation/post_generation/` | Quality review, verification, history persistence coordination, terminal payload validation 및 post-turn review | Explicit package facade로 import하고 authorization, request parsing, heartbeat framing, sequencing, cancellation 및 SSE delivery는 route에 유지합니다. |
 | `dev/` | Interactive local 및 test-only provider composition | Production import에서 사용할 수 없게 유지합니다. |
 | `dev/fixtures/` | Synthetic pytest-only fixture | Production composition 밖에 유지합니다. |
 | `persistence/` | Operator API read-model implementation 및 projection | 소유된 read contract 뒤에 유지합니다. |
@@ -333,6 +350,10 @@ frame을 거부합니다.
 - `application/conversation/evidence/`는 read-only operational evidence resolution, provenance,
   canonical branch ordering 및 authority-preserving merge를 소유합니다. HTTP, SSE, authentication,
   cancellation, history 또는 durable state는 소유하지 않습니다.
+- `application/conversation/post_generation/`은 ordered quality review, verification, terminal
+  validation, history persistence coordination 및 post-turn review를 소유합니다. HTTP,
+  authentication, request parsing, heartbeat framing, SSE sequencing, connection cancellation 또는
+  transport delivery는 소유하지 않습니다.
 - `projections/conversation/presentation/`은 value-free presentation plan, 검증된 evidence artifact
   compilation, bound 및 localized label을 소유합니다. HTTP, SSE, authentication, cancellation,
   terminal delivery 또는 durable state는 소유하지 않습니다.

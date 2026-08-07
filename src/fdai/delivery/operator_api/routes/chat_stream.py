@@ -58,6 +58,12 @@ from fdai.delivery.operator_api.application.conversation.evidence.enrichment imp
     _with_behavior_evidence,
     _with_screen_scope,
 )
+from fdai.delivery.operator_api.application.conversation.post_generation import (
+    PostGenerationContext,
+    PostGenerationDependencies,
+    evidence_timing_status,
+    finalize_post_generation,
+)
 from fdai.delivery.operator_api.application.conversation.verification import (
     AnswerVerification,
     verify_answer,
@@ -77,6 +83,7 @@ from fdai.delivery.operator_api.routes.chat_action_context import (
 from fdai.delivery.operator_api.routes.chat_answer_planning import (
     AnswerPlanningDelegate,
     cancel_planning,
+    planning_metadata,
     start_shadow_answer_planning,
 )
 from fdai.delivery.operator_api.routes.chat_answer_quality import (
@@ -100,16 +107,20 @@ from fdai.delivery.operator_api.routes.chat_conversation_context import (
 from fdai.delivery.operator_api.routes.chat_current_time import needs_current_time
 from fdai.delivery.operator_api.routes.chat_document_evidence import (
     ChatDocumentEvidenceResolver,
+    merge_document_verification,
     with_document_evidence,
 )
 from fdai.delivery.operator_api.routes.chat_freshness_context import (
     freshness_evidence_refs,
     needs_evidence_freshness_context,
     render_evidence_freshness_answer,
+    response_evidence_freshness_context,
 )
 from fdai.delivery.operator_api.routes.chat_history import (
+    append_assistant_turn,
     append_content_policy_receipt,
     completed_replay_payload,
+    replay_metadata,
 )
 from fdai.delivery.operator_api.routes.chat_history_context import (
     DEFAULT_CHAT_HISTORY_POLICY,
@@ -146,23 +157,22 @@ from fdai.delivery.operator_api.routes.chat_prompt import (
     _with_concept_evidence,
 )
 from fdai.delivery.operator_api.routes.chat_prompt_ontology import _with_ontology_storage_contract
-from fdai.delivery.operator_api.routes.chat_resource_context import resource_followup_verification
+from fdai.delivery.operator_api.routes.chat_resource_context import (
+    resource_followup_verification,
+    response_resource_context,
+)
 from fdai.delivery.operator_api.routes.chat_route_common import (
     DEFAULT_MAX_CHAT_BODY_BYTES,
     AnswerPreferenceResolver,
     AuthorizeFn,
     ModelPreferenceResolver,
     _metering_correlation_id,
+    _turn_metadata,
     _uses_evidence_fast_path,
     _with_assurance_policy,
     _with_compiled_user_policy,
 )
 from fdai.delivery.operator_api.routes.chat_screen_data import render_screen_data_answer
-from fdai.delivery.operator_api.routes.chat_stream_post_generation import (
-    PostGenerationContext,
-    evidence_timing_status,
-    finalize_post_generation,
-)
 from fdai.delivery.operator_api.routes.chat_stream_protocol import (
     DEFAULT_STREAM_HEARTBEAT_S,
     _chunk_answer_for_stream,
@@ -177,7 +187,10 @@ from fdai.delivery.operator_api.routes.chat_stream_setup import (
 from fdai.delivery.operator_api.routes.chat_subscription_health import needs_subscription_health
 from fdai.delivery.operator_api.routes.chat_system_health import render_system_health_answer
 from fdai.delivery.operator_api.routes.chat_topology_intent import is_topology_question
-from fdai.delivery.operator_api.routes.chat_trajectory_detail import TrajectoryDetailCollector
+from fdai.delivery.operator_api.routes.chat_trajectory_detail import (
+    TrajectoryDetailCollector,
+    trajectory_detail_budget,
+)
 from fdai.delivery.operator_api.routes.chat_turn_plan import (
     TurnPlanner,
     TurnTool,
@@ -186,9 +199,17 @@ from fdai.delivery.operator_api.routes.chat_turn_plan import (
 from fdai.delivery.operator_api.routes.chat_vision_evidence import (
     vision_source_previews,
 )
-from fdai.delivery.operator_api.routes.post_turn_review import PostTurnReviewSubmitter
+from fdai.delivery.operator_api.routes.post_turn_review import (
+    PostTurnReviewSubmission,
+    PostTurnReviewSubmitter,
+    explicit_corrections,
+)
 from fdai.shared.providers.briefing import ConversationPolicyStore
-from fdai.shared.providers.user_context import ConversationHistoryStore, UserContextConflictError
+from fdai.shared.providers.user_context import (
+    ConversationHistoryStore,
+    ConversationTurnRecord,
+    UserContextConflictError,
+)
 from fdai.shared.telemetry import ConversationProgressMetrics, with_correlation
 
 _LOG = logging.getLogger(__name__)
@@ -1084,6 +1105,63 @@ def make_chat_stream_route(
                     terminal_router = reply.get("router")
                     terminal_usage = reply.get("usage")
 
+                async def quality_events(
+                    source: AsyncIterator[dict[str, Any]],
+                ) -> AsyncIterator[dict[str, Any] | None]:
+                    events = _with_sse_heartbeats(
+                        source,
+                        interval=DEFAULT_STREAM_HEARTBEAT_S,
+                    )
+                    async for quality_event in interruptible_events(
+                        events,
+                        active_turn=active_turn,
+                    ):
+                        yield quality_event
+
+                async def persist_assistant_turn(
+                    *,
+                    answer: str,
+                    terminal_payload: Mapping[str, Any],
+                    answer_planning: Mapping[str, object] | None,
+                ) -> ConversationTurnRecord | None:
+                    if conversation_history_store is None:
+                        return None
+                    return await append_assistant_turn(
+                        store=conversation_history_store,
+                        principal_id=user_id,
+                        conversation_id=session_id,
+                        request_id=request_id,
+                        content=answer,
+                        recorded_at=datetime.now(tz=UTC),
+                        metadata=replay_metadata(
+                            model=str(terminal_model or "unknown"),
+                            payload=terminal_payload,
+                            additional=_turn_metadata(
+                                model=str(terminal_model or "unknown"),
+                                view_context=enriched_context,
+                                answer_planning=answer_planning,
+                            )
+                            | history_metadata,
+                        ),
+                        ontology_projector=user_context_ontology_projector,
+                    )
+
+                def submit_post_turn_review(
+                    assistant_turn: ConversationTurnRecord,
+                    verification: AnswerVerification,
+                ) -> None:
+                    if post_turn_review_submitter is None or operator_turn is None:
+                        return
+                    post_turn_review_submitter.submit_nowait(
+                        operator_turn=operator_turn,
+                        assistant_turn=assistant_turn,
+                        submission=PostTurnReviewSubmission(
+                            validation_outcomes=(verification.status,),
+                            evidence_refs=verification.evidence_refs,
+                            explicit_corrections=explicit_corrections(clean_prompt),
+                        ),
+                    )
+
                 post_generation = finalize_post_generation(
                     PostGenerationContext(
                         backend=backend,
@@ -1101,11 +1179,7 @@ def make_chat_stream_route(
                         model_generated=model_generated,
                         preferred_model=preferred_model,
                         response_locale=response_locale,
-                        active_turn=active_turn,
-                        user_id=user_id,
-                        session_id=session_id,
-                        request_id=request_id,
-                        clean_prompt=clean_prompt,
+                        metering_correlation_id=_metering_correlation_id(user_id, session_id),
                         review_quality=review_korean_narrator_answer,
                         verify_quality=verify_quality_result,
                         freshness_verification=freshness_verification,
@@ -1122,20 +1196,31 @@ def make_chat_stream_route(
                         contextual_answer=contextual_answer,
                         freshness_answer=freshness_answer,
                         delegation=delegation,
-                        resource_context=resource_context,
-                        freshness_context=freshness_context,
+                        response_resource_context=response_resource_context(
+                            enriched_context,
+                            resource_context,
+                        ),
+                        response_freshness_context=response_evidence_freshness_context(
+                            enriched_context,
+                            freshness_context,
+                        ),
                         model_trace_snapshot=lambda: snapshot_model_trace(
                             model_trace_scope.collector
                         ),
                         history_metadata=history_metadata,
-                        trajectory_detail=trajectory_detail,
-                        conversation_history_store=conversation_history_store,
-                        user_context_ontology_projector=user_context_ontology_projector,
-                        operator_turn=operator_turn,
-                        post_turn_review_submitter=post_turn_review_submitter,
                         cleanup=cleanup,
                         turn_service=resolved_turn_service,
                         turn_execution=turn_execution,
+                        dependencies=PostGenerationDependencies(
+                            quality_events=quality_events,
+                            planning_metadata=planning_metadata,
+                            merge_document_verification=merge_document_verification,
+                            persist_assistant_turn=persist_assistant_turn,
+                            submit_post_turn_review=submit_post_turn_review,
+                            trajectory_detail_snapshot=lambda payload: trajectory_detail.snapshot(
+                                max_bytes=trajectory_detail_budget(payload)
+                            ),
+                        ),
                     )
                 )
                 async for terminal_frame in post_generation:

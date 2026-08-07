@@ -1,4 +1,4 @@
-"""Post-generation review and terminal presentation for streamed chat turns."""
+"""Coordinate verified terminal state after streamed answer generation."""
 
 from __future__ import annotations
 
@@ -8,14 +8,11 @@ import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import suppress
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import Any, Protocol
 
-from fdai.core.conversation import ActiveConversationTurn
 from fdai.core.conversation.answer_plan import AnswerPlan
 from fdai.core.conversation.answer_planning import AnswerPlanningResult
 from fdai.core.metering import InvocationScope, with_invocation_scope
-from fdai.core.user_context_projection import UserContextOntologyProjector
 from fdai.delivery.operator_api.application import (
     ConversationTurnApplicationService,
     ConversationTurnExecution,
@@ -36,44 +33,7 @@ from fdai.delivery.operator_api.projections.conversation.terminal import (
     build_done_payload,
     verification_events,
 )
-from fdai.delivery.operator_api.routes.chat_answer_planning import planning_metadata
-from fdai.delivery.operator_api.routes.chat_answer_quality import (
-    AnswerQualityInvoke,
-    AnswerQualityResult,
-)
-from fdai.delivery.operator_api.routes.chat_busy_input import interruptible_events
-from fdai.delivery.operator_api.routes.chat_document_evidence import merge_document_verification
-from fdai.delivery.operator_api.routes.chat_freshness_context import (
-    EvidenceFreshnessContext,
-    response_evidence_freshness_context,
-)
-from fdai.delivery.operator_api.routes.chat_history import (
-    append_assistant_turn,
-    replay_metadata,
-)
-from fdai.delivery.operator_api.routes.chat_resource_context import response_resource_context
-from fdai.delivery.operator_api.routes.chat_route_common import (
-    _metering_correlation_id,
-    _turn_metadata,
-)
-from fdai.delivery.operator_api.routes.chat_stream_protocol import (
-    DEFAULT_STREAM_HEARTBEAT_S,
-    _sse,
-    _with_sse_heartbeats,
-)
-from fdai.delivery.operator_api.routes.chat_trajectory_detail import (
-    TrajectoryDetailCollector,
-    trajectory_detail_budget,
-)
-from fdai.delivery.operator_api.routes.post_turn_review import (
-    PostTurnReviewSubmission,
-    PostTurnReviewSubmitter,
-    explicit_corrections,
-)
-from fdai.shared.providers.user_context import (
-    ConversationHistoryStore,
-    ConversationTurnRecord,
-)
+from fdai.shared.providers.user_context import ConversationTurnRecord
 from fdai.shared.telemetry import ConversationProgressMetrics, with_correlation
 
 _LOG = logging.getLogger(__name__)
@@ -86,18 +46,78 @@ class QualityReviewFn(Protocol):
         answer: str,
         view_context: Mapping[str, Any],
         locale: str | None,
-        invoke: AnswerQualityInvoke,
-    ) -> Awaitable[AnswerQualityResult]: ...
+        invoke: Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]],
+    ) -> Awaitable[Any]: ...
 
 
 class QualityVerifyFn(Protocol):
     def __call__(
         self,
-        result: AnswerQualityResult,
+        result: Any,
         view_context: Mapping[str, Any],
         *,
         locale: str | None,
     ) -> AnswerVerification: ...
+
+
+class QualityEventAdapter(Protocol):
+    def __call__(
+        self,
+        source: AsyncIterator[dict[str, Any]],
+    ) -> AsyncIterator[dict[str, Any] | None]: ...
+
+
+class PlanningMetadataResolver(Protocol):
+    def __call__(
+        self,
+        task: asyncio.Task[AnswerPlanningResult] | None,
+    ) -> Awaitable[dict[str, object] | None]: ...
+
+
+class DocumentVerificationMerger(Protocol):
+    def __call__(
+        self,
+        verification: AnswerVerification,
+        evidence_refs: tuple[str, ...],
+    ) -> AnswerVerification: ...
+
+
+class AssistantTurnPersister(Protocol):
+    def __call__(
+        self,
+        *,
+        answer: str,
+        terminal_payload: Mapping[str, Any],
+        answer_planning: Mapping[str, object] | None,
+    ) -> Awaitable[ConversationTurnRecord | None]: ...
+
+
+class PostTurnReviewSubmitter(Protocol):
+    def __call__(
+        self,
+        assistant_turn: ConversationTurnRecord,
+        verification: AnswerVerification,
+    ) -> None: ...
+
+
+class TrajectoryDetailSnapshot(Protocol):
+    def __call__(self, payload: Mapping[str, Any]) -> Mapping[str, Any] | None: ...
+
+
+class FreshnessProjection(Protocol):
+    def to_dict(self) -> dict[str, object]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class PostGenerationDependencies:
+    """Injected process-local implementations used by terminal orchestration."""
+
+    quality_events: QualityEventAdapter
+    planning_metadata: PlanningMetadataResolver
+    merge_document_verification: DocumentVerificationMerger
+    persist_assistant_turn: AssistantTurnPersister
+    submit_post_turn_review: PostTurnReviewSubmitter
+    trajectory_detail_snapshot: TrajectoryDetailSnapshot
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,11 +148,7 @@ class PostGenerationContext:
     model_generated: bool
     preferred_model: str | None
     response_locale: str | None
-    active_turn: ActiveConversationTurn | None
-    user_id: str
-    session_id: str
-    request_id: str
-    clean_prompt: str
+    metering_correlation_id: str
     review_quality: QualityReviewFn
     verify_quality: QualityVerifyFn
     freshness_verification: AnswerVerification | None
@@ -149,18 +165,14 @@ class PostGenerationContext:
     contextual_answer: str | None
     freshness_answer: str | None
     delegation: Mapping[str, Any] | None
-    resource_context: Mapping[str, str] | None
-    freshness_context: EvidenceFreshnessContext | None
+    response_resource_context: Mapping[str, str] | None
+    response_freshness_context: FreshnessProjection | None
     model_trace_snapshot: Callable[[], Mapping[str, Any] | None]
     history_metadata: dict[str, Any]
-    trajectory_detail: TrajectoryDetailCollector
-    conversation_history_store: ConversationHistoryStore | None
-    user_context_ontology_projector: UserContextOntologyProjector | None
-    operator_turn: ConversationTurnRecord | None
-    post_turn_review_submitter: PostTurnReviewSubmitter | None
     cleanup: Callable[[], Awaitable[None]]
     turn_service: ConversationTurnApplicationService
     turn_execution: ConversationTurnExecution
+    dependencies: PostGenerationDependencies
 
 
 def evidence_timing_status(outcomes: list[str]) -> TurnTimingStatus:
@@ -228,7 +240,7 @@ async def finalize_post_generation(
         revision=context.revision,
     )
 
-    quality: AnswerQualityResult | None = None
+    quality: Any | None = None
     if context.model_generated:
         quality_timing = context.turn_timing.begin("quality_review")
 
@@ -252,7 +264,7 @@ async def finalize_post_generation(
 
         async def quality_source() -> AsyncIterator[dict[str, Any]]:
             with (
-                with_correlation(_metering_correlation_id(context.user_id, context.session_id)),
+                with_correlation(context.metering_correlation_id),
                 with_invocation_scope(InvocationScope.OPERATOR_CHAT),
             ):
                 result = await context.review_quality(
@@ -263,11 +275,7 @@ async def finalize_post_generation(
                 )
             yield {"result": result}
 
-        quality_events = _with_sse_heartbeats(quality_source(), interval=DEFAULT_STREAM_HEARTBEAT_S)
-        async for quality_event in interruptible_events(
-            quality_events,
-            active_turn=context.active_turn,
-        ):
+        async for quality_event in context.dependencies.quality_events(quality_source()):
             if quality_event is None:
                 yield PostGenerationFrame(
                     event=None,
@@ -276,7 +284,7 @@ async def finalize_post_generation(
                 )
                 continue
             candidate = quality_event.get("result")
-            if isinstance(candidate, AnswerQualityResult):
+            if candidate is not None:
                 quality = candidate
         context.turn_timing.complete(
             quality_timing,
@@ -301,7 +309,7 @@ async def finalize_post_generation(
             locale=context.response_locale,
         )
     )
-    verification = merge_document_verification(
+    verification = context.dependencies.merge_document_verification(
         verification,
         context.document_evidence_refs,
     )
@@ -343,7 +351,7 @@ async def finalize_post_generation(
             revision=revision,
         )
 
-    answer_planning = await planning_metadata(context.planning_task)
+    answer_planning = await context.dependencies.planning_metadata(context.planning_task)
     done_payload = build_done_payload(
         verification=verification,
         terminal_model=context.terminal_model,
@@ -363,22 +371,14 @@ async def finalize_post_generation(
         answer_plan=answer_plan,
         answer_planning=answer_planning,
         quality=quality,
-        resource_context=response_resource_context(
-            context.enriched_context,
-            context.resource_context,
-        ),
-        freshness_context=response_evidence_freshness_context(
-            context.enriched_context,
-            context.freshness_context,
-        ),
+        resource_context=context.response_resource_context,
+        freshness_context=context.response_freshness_context,
         model_trace=context.model_trace_snapshot(),
         turn_timing=context.turn_timing.snapshot(),
         trajectory_detail=None,
     )
     done_payload["history_context"] = context.history_metadata
-    trajectory_detail_snapshot = context.trajectory_detail.snapshot(
-        max_bytes=trajectory_detail_budget(done_payload)
-    )
+    trajectory_detail_snapshot = context.dependencies.trajectory_detail_snapshot(done_payload)
     if trajectory_detail_snapshot is not None:
         done_payload["trajectory_detail"] = trajectory_detail_snapshot
     validated_result = context.turn_service.validate_turn_result(
@@ -386,46 +386,13 @@ async def finalize_post_generation(
         done_payload,
     )
     terminal_payload = validated_result.to_wire_payload()
-    _sse(
-        "done",
-        {
-            **terminal_payload,
-            "v": 1,
-            "request_id": context.request_id,
-            "seq": 9_223_372_036_854_775_807,
-            "revision": revision,
-        },
+    assistant_turn = await context.dependencies.persist_assistant_turn(
+        answer=verification.answer,
+        terminal_payload=terminal_payload,
+        answer_planning=answer_planning,
     )
-    if context.conversation_history_store is not None:
-        assistant_turn = await append_assistant_turn(
-            store=context.conversation_history_store,
-            principal_id=context.user_id,
-            conversation_id=context.session_id,
-            request_id=context.request_id,
-            content=verification.answer,
-            recorded_at=datetime.now(tz=UTC),
-            metadata=replay_metadata(
-                model=str(context.terminal_model or "unknown"),
-                payload=terminal_payload,
-                additional=_turn_metadata(
-                    model=str(context.terminal_model or "unknown"),
-                    view_context=context.enriched_context,
-                    answer_planning=answer_planning,
-                )
-                | context.history_metadata,
-            ),
-            ontology_projector=context.user_context_ontology_projector,
-        )
-        if context.post_turn_review_submitter is not None and context.operator_turn is not None:
-            context.post_turn_review_submitter.submit_nowait(
-                operator_turn=context.operator_turn,
-                assistant_turn=assistant_turn,
-                submission=PostTurnReviewSubmission(
-                    validation_outcomes=(verification.status,),
-                    evidence_refs=verification.evidence_refs,
-                    explicit_corrections=explicit_corrections(context.clean_prompt),
-                ),
-            )
+    if assistant_turn is not None:
+        context.dependencies.submit_post_turn_review(assistant_turn, verification)
     result = context.turn_service.complete_turn(context.turn_execution, terminal_payload)
     terminal_payload = result.to_wire_payload()
     await context.cleanup()
@@ -440,6 +407,7 @@ async def finalize_post_generation(
 
 __all__ = [
     "PostGenerationContext",
+    "PostGenerationDependencies",
     "PostGenerationFrame",
     "evidence_timing_status",
     "finalize_post_generation",

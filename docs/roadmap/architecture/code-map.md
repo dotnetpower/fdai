@@ -146,6 +146,12 @@ verification into deterministic inventory rendering, while
 projects the verifier-accepted typed query and snapshot provenance
 into a channel-neutral query activity row without fabricating provider commands.
 
+Streamed turn completion lives behind the explicit
+[`post_generation/`](../../../src/fdai/delivery/operator_api/application/conversation/post_generation/)
+application facade. It coordinates quality review, verification, terminal payload validation,
+history persistence, and post-turn review. `chat_stream.py` retains authorization, request parsing,
+heartbeat framing, sequence and revision, cancellation, and SSE delivery.
+
 ## Rule catalog, deploy, and platform
 
 | Subsystem | Responsibility | Source | Tests |

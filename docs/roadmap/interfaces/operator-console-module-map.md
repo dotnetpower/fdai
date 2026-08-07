@@ -214,6 +214,22 @@ imports no `fdai.delivery.operator_api.routes` module, so no compatibility shim 
 restores the four route implementations and redirects the terminal facade without changing either
 wire contract.
 
+### Conversation post-generation application boundary
+
+The SD-01 post-generation slice owns streamed turn completion under
+`fdai.delivery.operator_api.application.conversation.post_generation`. After answer generation,
+the package coordinates bounded quality review, deterministic verification, terminal payload
+validation, principal-scoped assistant-turn persistence, and off-path post-turn review in the
+established order. It delegates pure payload compilation to `projections.conversation.terminal`
+and writes durable history only through an injected persister.
+
+The SSE route retains authorization, request parsing, heartbeat framing, connection and busy-input
+cancellation, request sequence and revision, trajectory projection, and final transport delivery.
+The package imports no `fdai.delivery.operator_api.routes` module. The former
+`routes.chat_stream_post_generation` path was internal, so no compatibility shim remains. Rollback
+restores that route module and changes the stream-route import without changing frame order, JSON
+or SSE terminal payloads, verification, history, or post-turn review behavior.
+
 ### Immutable app composition
 
 Issue 72 keeps `OperatorApiConfig(**kwargs)` as the bounded compatibility constructor and projects
@@ -250,6 +266,7 @@ reverses physical ownership without a wire or caller migration.
 | `application/conversation/claims/` | Deterministic answer-claim extraction and bounded evidence verification | Import through its explicit package facade; keep JSON, SSE, and authentication in routes. |
 | `application/conversation/verification/` | Deterministic terminal answer verification and bounded evidence rendering | Import through its explicit package facade; keep wire behavior and authentication in routes. |
 | `application/conversation/evidence/` | Operational evidence resolution, provenance, branch lifecycle, and authority-preserving merge | Import through its explicit package facade; keep JSON, SSE, authentication, cancellation, and history in routes. |
+| `application/conversation/post_generation/` | Quality review, verification, history persistence coordination, terminal payload validation, and post-turn review | Import through its explicit package facade; keep authorization, request parsing, heartbeat framing, sequencing, cancellation, and SSE delivery in routes. |
 | `dev/` | Interactive local and test-only provider composition | Keep unavailable to production imports. |
 | `dev/fixtures/` | Synthetic pytest-only fixtures | Keep outside production composition. |
 | `persistence/` | Operator API read-model implementations and projections | Retain behind owned read contracts. |
@@ -336,6 +353,10 @@ a separately reviewed boundary.
 - `application/conversation/evidence/` owns read-only operational evidence resolution, provenance,
   canonical branch ordering, and authority-preserving merge. It does not own HTTP, SSE,
   authentication, cancellation, history, or durable state.
+- `application/conversation/post_generation/` owns ordered quality review, verification, terminal
+  validation, history persistence coordination, and post-turn review. It does not own HTTP,
+  authentication, request parsing, heartbeat framing, SSE sequencing, connection cancellation, or
+  transport delivery.
 - `projections/conversation/presentation/` owns value-free presentation plans, verified evidence
   artifact compilation, bounds, and localized labels. It does not own HTTP, SSE, authentication,
   cancellation, terminal delivery, or durable state.
