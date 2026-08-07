@@ -1,8 +1,9 @@
-"""Operator Service entry point and ASGI factory."""
-
-from typing import Any
+"""Operator Service process entry point and public ASGI factory."""
 
 from fdai_service_contracts import ServiceDescriptor, ServiceKind
+
+from fdai_operator_service.application import create_app as create_app
+from fdai_operator_service.production import serve
 
 SERVICE = ServiceDescriptor(
     service_id="operator-service",
@@ -13,21 +14,6 @@ SERVICE = ServiceDescriptor(
 )
 
 
-def create_app() -> Any:
-    """Build the production Operator ASGI app through its owned entry point."""
-    from fdai.delivery.operator_api.prod import app
-
-    return app()
-
-
 def main() -> int:
     """Serve the production Operator API."""
-    import uvicorn
-
-    uvicorn.run(
-        "fdai_operator_service.main:create_app",
-        factory=True,
-        host="0.0.0.0",  # noqa: S104 - Container App ingress terminates external HTTPS.
-        port=8000,
-    )
-    return 0
+    return serve("fdai_operator_service.main:create_app")
