@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 985,
+  "file_count": 990,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "21bb2ece6a127b4d706dbf8a33891b563fb0c85123d38865f64b44d8ccb6741a",
     ".github/instructions/agent-stewardship.instructions.md": "574518fca728a9a6c8d3b50e0cf4aa53a1ed5bf85d5c52e5da67a0486bf31a43",
@@ -148,6 +148,11 @@
     "src/fdai/core/case_history/operational_case.py": "67a8ba29ad74b6705cf00dea9685514da3aedd6c14df299db29e5a0ad278d324",
     "src/fdai/core/case_history/service.py": "ab2e7eb77bae1d63d9e0ff061a8692eb64c5eb712627b0d6766dc07250420924",
     "src/fdai/core/case_history/testing.py": "dc26fd746f82cc1618c3a8d3f5b0cd93bba6d621ff53615edd44a8938d212d09",
+    "src/fdai/core/change_lineage/__init__.py": "4c4af5f0c253d69790badc22b824d2c9842758e9964168b4d78a15a26c6c7306",
+    "src/fdai/core/change_lineage/candidate.py": "aa1c80c32a463253160841c8b3cabc763d73803f75a6b5f2a909714267bea458",
+    "src/fdai/core/change_lineage/identity.py": "68026601ce457aca4c8ebc9fa0960bbd85c9cabdcdbb044f7aba8111cb9f775b",
+    "src/fdai/core/change_lineage/models.py": "0e44a983200928eed5739463d9757dc69bf9037801afb77be31bf16dd084ac9e",
+    "src/fdai/core/change_lineage/traces.py": "769e97f50305d23a9d4c71034072f2be695b5125125725e46e1bb201e0164416",
     "src/fdai/core/chaos/__init__.py": "68e6f00020d7994fb5496fb4b97ab7427cb63166d4c522172cb4710d6adf22c9",
     "src/fdai/core/chaos/catalog_evidence.py": "e44153b12ceb922c6aabddc35e2321d4b88d549f346b0c1be82507ee562f75b1",
     "src/fdai/core/chaos/contract.py": "36c242d81f666fa8f04148a393026171e0559d3ce92d51d90c090c0d79c83e9a",
@@ -988,7 +993,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-07T05:03:47Z",
+  "generated_at": "2026-08-07T08:50:01Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

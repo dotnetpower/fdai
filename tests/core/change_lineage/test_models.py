@@ -177,7 +177,9 @@ def test_builds_replay_stable_authority_free_lineage() -> None:
     )
 
     assert first == second
-    assert first.lineage_id.startswith("change-lineage:")
+    assert first.lineage_id == (
+        "change-lineage:639c1ae08f64cfba55fb2e398fe8a5065631a7b56de7035828f399e32399ac1e"
+    )
     assert first.execution_authority is first.promotion_authority is False
     assert first.to_mapping()["execution_authority"] is False
     with pytest.raises(FrozenInstanceError):
