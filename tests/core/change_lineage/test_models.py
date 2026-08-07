@@ -403,3 +403,18 @@ def test_record_rejects_lineage_digest_material_mismatch() -> None:
         replace(lineage, action_type_id="ops.restart")
     with pytest.raises(ValueError, match="identity material"):
         replace(lineage, evidence_refs=(*lineage.evidence_refs, "evidence:z"))
+
+
+def test_record_rejects_causal_timestamp_identity_mismatch() -> None:
+    change, assessment, decision_case, selection, action, outcome = _fixtures()
+    lineage = build_change_lineage(
+        change=change,
+        assessment=assessment,
+        decision_case=decision_case,
+        selection=selection,
+        action=action,
+        outcome=outcome,
+    )
+
+    with pytest.raises(ValueError, match="identity material"):
+        replace(lineage, outcome_at=lineage.outcome_at + timedelta(seconds=1))
