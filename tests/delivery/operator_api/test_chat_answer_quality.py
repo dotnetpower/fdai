@@ -6,11 +6,11 @@ import asyncio
 import json
 from typing import Any
 
-from fdai.delivery.operator_api.application.conversation.prompt import _build_messages
-from fdai.delivery.operator_api.routes.chat_answer_quality import (
+from fdai.delivery.operator_api.application.conversation.post_generation import (
     review_korean_narrator_answer,
     verify_quality_result,
 )
+from fdai.delivery.operator_api.application.conversation.prompt import _build_messages
 
 
 def test_quality_context_adds_strict_directive_without_changing_normal_prompt() -> None:

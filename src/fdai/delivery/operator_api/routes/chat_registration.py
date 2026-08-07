@@ -67,6 +67,9 @@ from fdai.delivery.operator_api.application.conversation.evidence import (
 from fdai.delivery.operator_api.application.conversation.intent_graph import (
     BackendIntentGraphPlanner,
 )
+from fdai.delivery.operator_api.application.conversation.planning import (
+    compatible_planning_delegate,
+)
 from fdai.delivery.operator_api.application.conversation.request_preparation import (
     ChatDocumentEvidenceResolver,
 )
@@ -87,7 +90,6 @@ from fdai.delivery.operator_api.routes.chat import (
     make_chat_route,
     make_chat_stream_route,
 )
-from fdai.delivery.operator_api.routes.chat_answer_planning import compatible_planning_delegate
 from fdai.delivery.operator_api.routes.chat_capability_registry import (
     ConversationCapability,
     ConversationCapabilityRegistry,

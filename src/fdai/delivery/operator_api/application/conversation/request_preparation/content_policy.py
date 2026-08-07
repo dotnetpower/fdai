@@ -1,4 +1,4 @@
-"""Bounded content-policy recovery for model-backed chat answers."""
+"""Recover input content-policy blocks with bounded history reduction."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from typing import Any
 
 from fdai.delivery.operator_api.application.conversation.backend import ChatContentPolicyError
-from fdai.delivery.operator_api.application.conversation.request_preparation import (
+from fdai.delivery.operator_api.application.conversation.request_preparation.history import (
     ChatHistoryCompressor,
     ChatHistoryPolicy,
     ResolvedChatHistory,
@@ -27,7 +27,7 @@ async def answer_with_content_policy_recovery(
     compressor: ChatHistoryCompressor,
     policy: ChatHistoryPolicy,
 ) -> tuple[dict[str, Any], ResolvedChatHistory | None]:
-    """Retry only with less history; never retry output-policy decisions."""
+    """Retry input-policy blocks with less history; never retry output blocks."""
 
     try:
         return await invoke(list(history)), None
@@ -172,6 +172,8 @@ def _log_recovery(receipt: ResolvedChatHistory) -> None:
 
 
 __all__ = [
+    "AnswerInvoker",
+    "StreamInvoker",
     "answer_with_content_policy_recovery",
     "collect_stream_with_content_policy_recovery",
 ]

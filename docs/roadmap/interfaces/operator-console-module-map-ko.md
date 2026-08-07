@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 35ffbbd83fefb3e5bc75c4172fb2e3ecbf7651ea
+translation_source_sha: 1303953b04b30e3e1da2c4b08c6ef1c5787e5fbd
 translation_revised: 2026-08-07
 ---
 # Operator Console Module Map and Boundaries
@@ -250,6 +250,25 @@ Rollback은 history와 preparation helper를 `routes/` 아래에 복원하고 `c
 복원한 뒤 JSON과 SSE import를 되돌립니다. Authentication, status code, body bound,
 content-policy replay, history, document access, answer plan 및 두 wire contract는 변경하지 않습니다.
 
+### Conversation lifecycle application boundary
+
+SD-01 lifecycle slice는 shadow answer-planning task coordination을
+`application.conversation.planning`으로, Korean narrator review를
+`application.conversation.post_generation.quality`로, input content-policy recovery를
+`application.conversation.request_preparation.content_policy`로, request-local steer 및 active
+narrator interruption coordination을 `application.conversation.busy_input`으로 이동합니다. 이 module들은
+bounded process-local state만 유지하며 `operator_api.routes` module을 import하지 않습니다.
+
+`BusyInputCoordinator`는 active-turn registration과 arbitration을 담당하는 core authority로 유지됩니다.
+Application helper는 safe-boundary와 cancel-event contract만 사용하며 conversation cancellation을 Thor,
+ActionType 또는 managed-resource state에 연결하지 않습니다. JSON 및 SSE route는 authentication, HTTP/SSE
+status mapping, frame sequence와 revision, connection cancellation, history transport 및 최종 delivery를
+계속 소유합니다.
+
+이전 route module consumer는 모두 internal source 또는 test code였으므로 compatibility shim은 남기지
+않습니다. Rollback은 네 route implementation을 복원하고 internal import를 되돌리며 planning bound,
+quality verification, policy recovery, steering, interruption, JSON 또는 SSE behavior는 변경하지 않습니다.
+
 ### Conversation terminal support projection 경계
 
 SD-01 terminal support slice는 bounded trajectory-detail replay, deterministic current-screen T0
@@ -293,7 +312,7 @@ signature를 그대로 유지합니다. 이 절차는 wire 또는 caller migrati
 | `adapters/conversation/` | Azure 및 OpenAI-compatible narrator transport와 startup construction | Explicit facade로 import하고 credential과 transport는 route 밖에 유지합니다. |
 | `app/` | Shared ASGI assembly, middleware, registration 및 lifespan | HTTP composition boundary로 유지합니다. |
 | `application/` | Typed process-local, non-authoritative application coordination | Service-graduation evidence가 process boundary를 정당화할 때까지 유지합니다. |
-| `application/conversation/` | HTTP transport 밖의 process-local conversation capability | Service-graduation evidence가 준비될 때까지 process 안에 유지합니다. |
+| `application/conversation/` | HTTP transport 밖의 process-local conversation planning, busy-input steering, interruption 및 capability | Service-graduation evidence가 준비될 때까지 process 안에 유지하고 connection cancellation과 wire delivery는 route에 둡니다. |
 | `application/conversation/capabilities/` | Domain별 typed process-local conversation capability | Non-authoritative capability owner로 유지합니다. |
 | `application/conversation/capabilities/inventory/` | Typed inventory query, deterministic compilation, semantic grounding 및 provider-read coordination | Explicit package facade로 import하고 JSON, SSE, authentication 및 history는 route에 유지합니다. |
 | `application/conversation/backend/` | Provider-neutral backend contract 및 request-local latency routing | Explicit facade로 import하고 provider implementation은 adapter에 유지합니다. |
@@ -396,6 +415,10 @@ frame을 거부합니다.
   preference, document ref, history 조립, verified prior context, resource와 freshness context,
   follow-up scope, answer planning 및 target-agent 파생을 소유합니다. Request, HTTP status mapping,
   authorization, SSE sequencing, cancellation 또는 transport delivery는 소유하지 않습니다.
+- `application/conversation/planning.py`는 bounded shadow planning task start, metadata 및 drain을
+  소유합니다. `application/conversation/busy_input.py`는 safe-boundary steering과 active narrator
+  interruption만 소유합니다. 두 module 모두 connection cancellation, core busy-input authority,
+  action state 또는 durable state를 소유하지 않습니다.
 - `application/conversation/capabilities/`는 action, prior-context, current-time, source,
   readiness, knowledge, metering, log, network, subscription-health, T2 recovery, behavior 및
   read-model helper를 소유합니다. `application/conversation/`은 turn/intent-graph planning, prompt
@@ -423,8 +446,9 @@ frame을 거부합니다.
   runbook, source freshness, consented
   memory 및 materialized learning을 읽습니다.
 - `application/conversation/vision_prompt.py`는 validated image를 projection합니다.
-- `routes/`는 JSON/SSE envelope, authentication, cancellation, history transport와 graph,
-  data-source, readiness projection의 HTTP handler를 유지합니다.
+- `routes/`는 JSON/SSE envelope, authentication, HTTP/SSE status mapping, frame sequencing,
+  connection cancellation, history transport와 graph, data-source, readiness projection의 HTTP
+  handler를 유지합니다.
 - `read_investigation_responder.py`는 registered Heimdall read intent를 typed evidence에서 렌더링합니다.
   Evidence가 없으면 explicit unavailable answer를 반환합니다. `read_investigation_catalog.py`는 catalog
   ID, ownership 또는 plan binding drift 시 startup을 차단합니다.

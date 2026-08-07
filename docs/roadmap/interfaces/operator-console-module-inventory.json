@@ -36,7 +36,7 @@
     },
     {
       "path": "application/conversation",
-      "responsibility": "Process-local conversation planning, prompt, vision, and application capabilities outside HTTP transport",
+      "responsibility": "Process-local shadow answer planning, busy-input steering and interruption, prompt, vision, and application capabilities outside HTTP transport",
       "classification": "application-coordination",
       "candidate_destination": "retain in-process until conversation service-graduation evidence exists"
     },
@@ -313,6 +313,20 @@
       ],
       "rationale": "pure request-local terminal support projections after request preparation and terminal verification ownership were established",
       "rollback": "restore route implementations and redirect internal consumers without changing JSON, SSE, authentication, cancellation, or history contracts"
+    },
+    {
+      "tracking_issue": 71,
+      "family": "chat conversation lifecycle",
+      "destination": "fdai.delivery.operator_api.application.conversation.planning, fdai.delivery.operator_api.application.conversation.post_generation, fdai.delivery.operator_api.application.conversation.request_preparation, and fdai.delivery.operator_api.application.conversation.busy_input",
+      "observed_window_days": 90,
+      "modules": [
+        {"module": "chat_answer_planning.py", "direct_python_consumers": 3, "fdai_imports": 2, "changes": 1},
+        {"module": "chat_answer_quality.py", "direct_python_consumers": 3, "fdai_imports": 1, "changes": 2},
+        {"module": "chat_content_policy.py", "direct_python_consumers": 3, "fdai_imports": 2, "changes": 3},
+        {"module": "chat_busy_input.py", "direct_python_consumers": 2, "fdai_imports": 1, "changes": 1}
+      ],
+      "rationale": "request-local planning, post-generation quality, input-policy recovery, and steer or interrupt coordination after their owning application boundaries were established",
+      "rollback": "restore the four route implementations and redirect internal consumers without changing JSON, SSE, authentication, frame sequencing, connection cancellation, or history contracts"
     }
   ],
   "reviewed_fallback_modules": [
@@ -421,6 +435,26 @@
       "module": "fdai.delivery.operator_api.application.conversation.capabilities.*",
       "classification": "internal-implementation",
       "migration": "owned typed conversation capability implementations; route adapters import these owners"
+    },
+    {
+      "module": "fdai.delivery.operator_api.application.conversation.planning",
+      "classification": "internal-implementation",
+      "migration": "owned shadow planning task lifecycle and bounded metadata facade for conversation consumers"
+    },
+    {
+      "module": "fdai.delivery.operator_api.application.conversation.busy_input",
+      "classification": "internal-implementation",
+      "migration": "owned request-local steer and active narrator interruption coordination; core busy-input authority remains unchanged"
+    },
+    {
+      "module": "fdai.delivery.operator_api.application.conversation.post_generation",
+      "classification": "internal-implementation",
+      "migration": "owned quality review and streamed post-generation orchestration facade"
+    },
+    {
+      "module": "fdai.delivery.operator_api.application.conversation.request_preparation",
+      "classification": "internal-implementation",
+      "migration": "owned input content-policy recovery and authenticated request preparation facade"
     },
     {
       "module": "fdai.delivery.operator_api.application.conversation.*",

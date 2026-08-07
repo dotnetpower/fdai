@@ -46,6 +46,11 @@ from fdai.delivery.operator_api.application.conversation.backend import (
     describe_backend,
     reject_direct_override,
 )
+from fdai.delivery.operator_api.application.conversation.busy_input import (
+    ChatTurnInterruptedError,
+    answer_with_busy_input,
+    await_with_interrupt,
+)
 from fdai.delivery.operator_api.application.conversation.capabilities.action_context import (
     is_explicit_action_draft_request,
     needs_action_context,
@@ -122,6 +127,16 @@ from fdai.delivery.operator_api.application.conversation.intent_graph import (
     planner_context_envelope,
 )
 from fdai.delivery.operator_api.application.conversation.intents import is_topology_question
+from fdai.delivery.operator_api.application.conversation.planning import (
+    AnswerPlanningDelegate,
+    cancel_planning,
+    planning_metadata,
+    start_shadow_answer_planning,
+)
+from fdai.delivery.operator_api.application.conversation.post_generation import (
+    review_korean_narrator_answer,
+    verify_quality_result,
+)
 from fdai.delivery.operator_api.application.conversation.prompt import (
     _AGENT_EVIDENCE_DIRECTIVE,
     _AGENT_NAME_TOKEN,
@@ -175,6 +190,7 @@ from fdai.delivery.operator_api.application.conversation.request_preparation imp
     ChatDocumentEvidenceResolver,
     ChatHistoryPolicy,
     ModelPreferenceResolver,
+    answer_with_content_policy_recovery,
     content_policy_replay_stage,
     contextualize_resource_followup,
     missing_read_investigation_context_evidence,
@@ -221,24 +237,6 @@ from fdai.delivery.operator_api.projections.conversation.terminal import (
     response_llm_usage_chart_artifact,
     response_resource_result_context,
     response_source_failure_context,
-)
-from fdai.delivery.operator_api.routes.chat_answer_planning import (
-    AnswerPlanningDelegate,
-    cancel_planning,
-    planning_metadata,
-    start_shadow_answer_planning,
-)
-from fdai.delivery.operator_api.routes.chat_answer_quality import (
-    review_korean_narrator_answer,
-    verify_quality_result,
-)
-from fdai.delivery.operator_api.routes.chat_busy_input import (
-    ChatTurnInterruptedError,
-    answer_with_busy_input,
-    await_with_interrupt,
-)
-from fdai.delivery.operator_api.routes.chat_content_policy import (
-    answer_with_content_policy_recovery,
 )
 from fdai.delivery.operator_api.routes.chat_document_evidence import (
     merge_document_verification,

@@ -1,4 +1,4 @@
-"""Shadow Answer Planning Round integration for Command Deck chat routes."""
+"""Coordinate one bounded shadow answer-planning task outside HTTP transport."""
 
 from __future__ import annotations
 
@@ -23,10 +23,14 @@ _LOG = logging.getLogger(__name__)
 
 
 class AnswerPlanningDelegate(AnswerPlanningProvider, Protocol):
+    """Provide routing metadata and bounded contributions for shadow planning."""
+
     def route_answer_planning(self, prompt: str) -> AnswerPlanningRoute: ...
 
 
 def compatible_planning_delegate(value: object | None) -> AnswerPlanningDelegate | None:
+    """Return a structurally compatible planning delegate when one is configured."""
+
     if value is None:
         return None
     if not callable(getattr(value, "route_answer_planning", None)):
@@ -43,6 +47,8 @@ def start_shadow_answer_planning(
     delegate: AnswerPlanningDelegate | None,
     config: AnswerPlanningConfig | None = None,
 ) -> tuple[AnswerPlan, asyncio.Task[AnswerPlanningResult] | None]:
+    """Start eligible shadow planning without blocking the supported answer path."""
+
     if delegate is None:
         return plan, None
     try:
@@ -67,6 +73,8 @@ def start_shadow_answer_planning(
 async def planning_metadata(
     task: asyncio.Task[AnswerPlanningResult] | None,
 ) -> dict[str, object] | None:
+    """Resolve bounded planning metadata while preserving caller cancellation."""
+
     if task is None:
         return None
     try:
@@ -94,6 +102,8 @@ async def planning_metadata(
 
 
 async def cancel_planning(task: asyncio.Task[AnswerPlanningResult] | None) -> None:
+    """Cancel and drain an unfinished request-local planning task."""
+
     if task is None or task.done():
         return
     task.cancel()

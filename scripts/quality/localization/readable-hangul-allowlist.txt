@@ -1,5 +1,5 @@
 # Unicode block boundaries are the behavior under test, not hidden Korean prose.
-src/fdai/delivery/operator_api/routes/chat_answer_quality.py	[\u1100-\u11ff\u3130-\u318f\uac00-\ud7a3]
+src/fdai/delivery/operator_api/application/conversation/post_generation/quality.py	[\u1100-\u11ff\u3130-\u318f\uac00-\ud7a3]
 # Unicode block boundaries keep word-token extraction explicit and reviewable.
 src/fdai/delivery/operator_api/application/conversation/claims/text.py	[\uac00-\ud7a3]
 # Conversation evidence uses readable NFC UTF-8 terms and requires no escape exception.

@@ -251,6 +251,26 @@ Rollback restores the history and preparation helpers under `routes/`, restores
 codes, body bounds, content-policy replay, history, document access, answer plans, or either wire
 contract.
 
+### Conversation lifecycle application boundary
+
+The SD-01 lifecycle slice moves shadow answer-planning task coordination to
+`application.conversation.planning`, Korean narrator review to
+`application.conversation.post_generation.quality`, input content-policy recovery to
+`application.conversation.request_preparation.content_policy`, and request-local steer and active
+narrator interruption coordination to `application.conversation.busy_input`. These modules keep
+only bounded process-local state and import no `operator_api.routes` module.
+
+`BusyInputCoordinator` remains the core authority for active-turn registration and arbitration.
+The application helper only consumes its safe-boundary and cancel-event contracts; it does not
+connect conversation cancellation to Thor, an ActionType, or managed-resource state. JSON and SSE
+routes retain authentication, HTTP and SSE status mapping, frame sequence and revision, connection
+cancellation, history transport, and final delivery.
+
+Every former route-module consumer was internal source or test code, so no compatibility shim
+remains. Rollback restores the four route implementations and redirects those internal imports
+without changing planning bounds, quality verification, policy recovery, steering, interruption,
+JSON, or SSE behavior.
+
 ### Conversation terminal support projection boundary
 
 The SD-01 terminal support slice owns bounded trajectory-detail replay, deterministic current-screen
@@ -297,7 +317,7 @@ reverses physical ownership without a wire or caller migration.
 | `adapters/conversation/` | Azure and OpenAI-compatible narrator transports and startup construction | Import through its explicit facade; keep credentials and transport outside routes. |
 | `app/` | Shared ASGI assembly, middleware, registration, and lifespan | Retain as the HTTP composition boundary. |
 | `application/` | Typed process-local, non-authoritative application coordination | Retain until service-graduation evidence justifies a process boundary. |
-| `application/conversation/` | Process-local conversation capabilities outside HTTP transport | Retain in-process until service-graduation evidence exists. |
+| `application/conversation/` | Process-local conversation planning, busy-input steering and interruption, and capabilities outside HTTP transport | Retain in-process until service-graduation evidence exists; keep connection cancellation and wire delivery in routes. |
 | `application/conversation/capabilities/` | Typed process-local conversation capabilities grouped by domain | Retain as the non-authoritative capability owner. |
 | `application/conversation/capabilities/inventory/` | Typed inventory queries, deterministic compilation, semantic grounding, and provider-read coordination | Import through its explicit package facade; keep JSON, SSE, authentication, and history in routes. |
 | `application/conversation/backend/` | Provider-neutral backend contracts and request-local latency routing | Import through its explicit facade; keep provider implementations in adapters. |
@@ -400,6 +420,10 @@ a separately reviewed boundary.
   preferences, document refs, history assembly, verified prior context, resource and freshness
   context, follow-up scope, answer planning, and target-agent derivation. It does not own Request,
   HTTP status mapping, authorization, SSE sequencing, cancellation, or transport delivery.
+- `application/conversation/planning.py` owns bounded shadow planning task start, metadata, and
+  drain. `application/conversation/busy_input.py` owns safe-boundary steering and active narrator
+  interruption only. Neither owns connection cancellation, core busy-input authority, action
+  state, or durable state.
 - `application/conversation/capabilities/` owns action, prior-context, current-time, source,
   readiness, knowledge, metering, log, network, subscription-health, T2 recovery, behavior, and
   read-model helpers. `application/conversation/` owns turn and intent-graph planning, prompt
@@ -425,8 +449,9 @@ a separately reviewed boundary.
   source freshness, consented memory,
   and materialized learning without writing state.
 - `application/conversation/vision_prompt.py` projects validated images.
-- `routes/` retains JSON and SSE envelopes, authentication, cancellation, history transport, and
-  HTTP handlers for graph, data-source, and readiness projections.
+- `routes/` retains JSON and SSE envelopes, authentication, HTTP and SSE status mapping, frame
+  sequencing, connection cancellation, history transport, and HTTP handlers for graph,
+  data-source, and readiness projections.
 - `read_investigation_responder.py` renders registered Heimdall read intents from typed evidence.
   Missing evidence produces an explicit unavailable answer. `read_investigation_catalog.py` blocks
   startup when catalog IDs, ownership, or plan bindings drift.

@@ -334,7 +334,7 @@ def test_module_inventory_covers_current_operator_api_tree() -> None:
     assert all(entry["exit_condition"].strip() for entry in known_wire_debts)
 
     selections = inventory["migration_selections"]
-    assert len(selections) == 6
+    assert len(selections) == 7
     assert all(set(selection) == _MIGRATION_SELECTION_KEYS for selection in selections)
     selections_by_family = {selection["family"]: selection for selection in selections}
     assert set(selections_by_family) == {
@@ -344,6 +344,7 @@ def test_module_inventory_covers_current_operator_api_tree() -> None:
         "chat_presentation*.py",
         "chat terminal projections",
         "chat terminal support projections",
+        "chat conversation lifecycle",
     }
     expected = {
         "audit*.py": (
@@ -421,6 +422,21 @@ def test_module_inventory_covers_current_operator_api_tree() -> None:
                 "chat_screen_data.py",
                 "chat_model_trace.py",
                 "chat_resource_context.py",
+            },
+        ),
+        "chat conversation lifecycle": (
+            71,
+            (
+                "fdai.delivery.operator_api.application.conversation.planning, "
+                "fdai.delivery.operator_api.application.conversation.post_generation, "
+                "fdai.delivery.operator_api.application.conversation.request_preparation, "
+                "and fdai.delivery.operator_api.application.conversation.busy_input"
+            ),
+            {
+                "chat_answer_planning.py",
+                "chat_answer_quality.py",
+                "chat_content_policy.py",
+                "chat_busy_input.py",
             },
         ),
     }

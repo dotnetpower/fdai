@@ -9,6 +9,12 @@ providers.
 Deployment: Runs in-process with the Operator API and creates no network boundary.
 """
 
+from .content_policy import (
+    AnswerInvoker,
+    StreamInvoker,
+    answer_with_content_policy_recovery,
+    collect_stream_with_content_policy_recovery,
+)
 from .document_evidence import (
     ChatDocumentEvidenceResolver,
     ChatDocumentRef,
@@ -53,6 +59,7 @@ from .service import (
 )
 
 __all__ = [
+    "AnswerInvoker",
     "AnswerPreferenceResolver",
     "BackendChatHistoryCompressor",
     "ChatContentRejectedError",
@@ -71,6 +78,9 @@ __all__ = [
     "ModelPreferenceResolver",
     "PreparedChatStreamRequest",
     "ResolvedChatHistory",
+    "StreamInvoker",
+    "answer_with_content_policy_recovery",
+    "collect_stream_with_content_policy_recovery",
     "compact_history_for_content_policy",
     "content_policy_replay_stage",
     "contextualize_resource_followup",

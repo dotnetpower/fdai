@@ -1,4 +1,4 @@
-"""Busy-input lifecycle helpers shared by one-shot and streaming chat routes."""
+"""Coordinate request-local busy-input steering and narrator interruption."""
 
 from __future__ import annotations
 
@@ -20,6 +20,8 @@ async def await_with_interrupt[T](
     *,
     active_turn: ActiveConversationTurn | None,
 ) -> T:
+    """Await one narrator operation while honoring its conversation cancel event."""
+
     if active_turn is None:
         return await awaitable
     backend_task = asyncio.ensure_future(awaitable)
@@ -46,6 +48,8 @@ async def answer_with_busy_input(
     coordinator: BusyInputCoordinator | None,
     active_turn: ActiveConversationTurn | None,
 ) -> dict[str, Any]:
+    """Apply bounded queued steering at safe boundaries around narrator calls."""
+
     steers_used = 0
     while steers_used < MAX_STEER_RERUNS and await append_next_steer(
         history=history,
@@ -70,6 +74,8 @@ async def append_next_steer(
     coordinator: BusyInputCoordinator | None,
     active_turn: ActiveConversationTurn | None,
 ) -> bool:
+    """Append one coordinator-authorized steer at a request-local safe boundary."""
+
     if coordinator is None or active_turn is None:
         return False
     guidance = await coordinator.safe_boundary(
@@ -87,6 +93,8 @@ async def interruptible_events[T](
     *,
     active_turn: ActiveConversationTurn | None,
 ) -> AsyncIterator[T]:
+    """Yield provider events until completion or authenticated turn interruption."""
+
     iterator = source.__aiter__()
     while True:
         try:
