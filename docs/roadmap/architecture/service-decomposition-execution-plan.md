@@ -62,6 +62,37 @@ Last updated: 2026-08-08.
 | [x] | SD-08 | Cut mutation authority over to the Isolated Executor, remove executor roles from Core, verify independent effects, and rehearse return to the in-process topology. | SD-07 | Serial | Effective-access proof, exact-topology smoke, and timed rollback receipt |
 | [x] | SD-09 | Remove expired compatibility paths, enforce boundaries, update canonical documentation, run centralized stable-batch validation, and close residual work. | SD-01 through SD-08 | Serial | Green validation receipt for the exact commit range |
 
+## Independent service extraction
+
+The completed SD program proves five deployed process, health, transport, and identity boundaries.
+The IS program now makes those five roles independently buildable and releasable. Completion
+requires five Python distributions, images, Terraform roots, migration branches, and isolated
+upgrade/rollback proofs. A service may import only versioned shared contracts, provider Protocols,
+and telemetry primitives from another distribution; importing another service implementation is
+not supported.
+
+| Done | ID | Work package | Dependencies | Exit evidence |
+|------|----|--------------|--------------|---------------|
+| [x] | IS-00 | Freeze current implementation-import debt and exact package, image, state, migration, and rollback targets. | None | Machine manifest and non-growth gate |
+| [ ] | IS-01 | Extract the versioned shared contract SDK without service implementations. | IS-00 | Five consumers install and validate the same SDK |
+| [ ] | IS-02 | Add five independently executable service distributions and composition roots. | IS-01 | Five isolated wheel and cold-start receipts |
+| [ ] | IS-03 | Remove every cross-service implementation import. | IS-01, IS-02 | Import count zero and enforced boundary gate |
+| [ ] | IS-04 | Split durable writer grants and migration branches by service. | IS-02 | Five migration heads and zero writer overlap |
+| [ ] | IS-05 | Build, scan, attest, and publish five minimal service images. | IS-02, IS-03 | Five immutable image, SBOM, and startup receipts |
+| [ ] | IS-06 | Split service Terraform roots, state, and deployment workflows from the shared platform. | IS-04, IS-05 | Each service plans/applies without changing peers |
+| [ ] | IS-07 | Prove N/N-1 contracts and independent upgrade/rollback for each service. | IS-03, IS-06 | Five peer-stable rolling receipts |
+| [ ] | IS-08 | Remove co-host, in-process authority, shared-image, and shared-migration compatibility paths. | IS-07 | No topology compatibility path remains |
+| [ ] | IS-09 | Run at least ten independent critique-and-hardening rounds and close the program. | IS-08 | Medium-or-higher residual count zero |
+
+The machine source of truth is `config/independent-services.json`. Every migration wave updates its
+status and evidence in the same focused commit. Shared Event Hubs, PostgreSQL hosting, ACR, Key
+Vault, networking, and observability remain platform resources; logical ownership, credentials,
+schemas, migration history, deployment state, and rollback are service-specific.
+
+The accepted IS-00 AST baseline is 140 Operator files, 5 ingestion files, and 2 isolated Executor
+files importing `fdai.core`. These are migration debts, not permitted target dependencies. The
+non-growth gate blocks an increase while later work packages reduce every count to zero.
+
 ## Parallel execution rules
 
 - **Lane A:** Operator, Core boundary, and ingestion work may run in separate

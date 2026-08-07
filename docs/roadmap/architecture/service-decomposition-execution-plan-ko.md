@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 6ff63a45fe059d264e71d4a93f8728b5eddf9743
+translation_source_sha: afa96043aa323a9325aaca06115b1f7239712a20
 translation_revised: 2026-08-08
 ---
 # 서비스 분해 실행 계획
@@ -59,6 +59,36 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 | [x] | SD-07 | Effect authority 없이 Isolated Executor command와 receipt contract, durable attempt mechanics, shadow consumer, health, telemetry, identity, Container App을 구현합니다. | SD-02, SD-04 | C | Duplicate, reorder, restart, deadline, lock, shadow receipt |
 | [x] | SD-08 | Mutation authority를 Isolated Executor로 cutover하고 Core에서 executor role을 제거하며 independent effect를 검증하고 in-process topology 복귀를 rehearsal합니다. | SD-07 | 직렬 | Effective-access proof, exact-topology smoke, timed rollback receipt |
 | [x] | SD-09 | 만료된 compatibility path를 제거하고 boundary를 enforce하며 canonical 문서를 업데이트하고 centralized stable-batch validation을 실행한 뒤 residual work를 종료합니다. | SD-01부터 SD-08 | 직렬 | Exact commit range의 green validation receipt |
+
+## 독립 service 추출
+
+완료한 SD program은 배포된 process 5개와 health, transport, identity boundary를 증명합니다. 이제 IS
+program은 이 5개 role을 독립적으로 build하고 release할 수 있게 만듭니다. 완료하려면 Python
+distribution, image, Terraform root, migration branch 및 독립 upgrade/rollback proof가 각각 5개여야
+합니다. Service는 다른 distribution에서 versioned shared contract, provider Protocol 및 telemetry
+primitive만 import할 수 있으며 다른 service implementation import는 지원하지 않습니다.
+
+| 완료 | ID | Work package | Dependency | Exit evidence |
+|------|----|--------------|------------|---------------|
+| [x] | IS-00 | 현재 implementation-import debt와 정확한 package, image, state, migration, rollback 목표를 고정합니다. | 없음 | Machine manifest와 non-growth gate |
+| [ ] | IS-01 | Service implementation이 없는 versioned shared contract SDK를 추출합니다. | IS-00 | Consumer 5개가 같은 SDK를 install하고 validate한 receipt |
+| [ ] | IS-02 | 독립 실행 가능한 service distribution과 composition root 5개를 추가합니다. | IS-01 | 독립 wheel 및 cold-start receipt 5개 |
+| [ ] | IS-03 | Cross-service implementation import를 모두 제거합니다. | IS-01, IS-02 | Import count 0과 enforced boundary gate |
+| [ ] | IS-04 | Durable writer grant와 migration branch를 service별로 분리합니다. | IS-02 | Migration head 5개와 writer overlap 0 |
+| [ ] | IS-05 | 최소 service image 5개를 build, scan, attest, publish합니다. | IS-02, IS-03 | Immutable image, SBOM, startup receipt 5개 |
+| [ ] | IS-06 | Shared platform에서 service Terraform root, state 및 deployment workflow를 분리합니다. | IS-04, IS-05 | 각 service가 peer 변경 없이 plan/apply한 receipt |
+| [ ] | IS-07 | 각 service의 N/N-1 contract와 독립 upgrade/rollback을 증명합니다. | IS-03, IS-06 | Peer를 유지한 rolling receipt 5개 |
+| [ ] | IS-08 | Co-host, in-process authority, shared-image 및 shared-migration compatibility path를 제거합니다. | IS-07 | Topology compatibility path 0 |
+| [ ] | IS-09 | 독립 critique-and-hardening round를 10회 이상 실행하고 program을 종료합니다. | IS-08 | Medium 이상 residual 0 |
+
+Machine source of truth는 `config/independent-services.json`입니다. 각 migration wave는 같은 focused
+commit에서 status와 evidence를 업데이트합니다. Shared Event Hubs, PostgreSQL hosting, ACR, Key Vault,
+networking 및 observability는 platform resource로 유지하지만 logical ownership, credential, schema,
+migration history, deployment state 및 rollback은 service별로 분리합니다.
+
+승인된 IS-00 AST baseline은 `fdai.core`를 import하는 Operator file 140개, ingestion file 5개,
+isolated Executor file 2개입니다. 이 값은 허용된 target dependency가 아니라 migration debt입니다.
+Non-growth gate는 증가를 차단하고 이후 work package는 모든 count를 0으로 줄입니다.
 
 ## 병렬 실행 규칙
 
