@@ -38,10 +38,13 @@ import {
   EDGE_FONT_SIZE,
   EDGE_LINE_HEIGHT,
   GROUP_FONT_SIZE,
+  NODE_BODY_FONT_SIZE,
+  NODE_BODY_LINE_HEIGHT,
   NODE_FONT_SIZE,
   NODE_LINE_HEIGHT,
   edgeLabelGeometry,
   estimatedTextWidth,
+  nodeBodyLines,
   nodeGeometry,
   wrapText,
 } from "../model/text.js";
@@ -55,7 +58,20 @@ const edgeStyles: Record<EdgeKind, { color: string; dash: string; width: number 
   rollback: { color: "#a4262c", dash: "9 4 2 4", width: 2.6 },
   read: { color: "#008272", dash: "5 4", width: 2.2 },
   write: { color: "#5c2d91", dash: "none", width: 2.6 },
+  feedback: { color: "#6b4eff", dash: "8 4", width: 2.6 },
 };
+
+const toneStyles = {
+  input: { fill: "#f4f8ff", stroke: "#2563eb" },
+  interpretation: { fill: "#eef6ff", stroke: "#0f6cbd" },
+  model: { fill: "#eefbf7", stroke: "#008272" },
+  policy: { fill: "#f1faef", stroke: "#2e7d32" },
+  decision: { fill: "#fff8e6", stroke: "#b77900" },
+  execution: { fill: "#f7f2ff", stroke: "#6b46c1" },
+  feedback: { fill: "#f5f2ff", stroke: "#6b4eff" },
+  store: { fill: "#f6f7f8", stroke: "#5f6b7a" },
+  neutral: { fill: "#ffffff", stroke: "#7a8699" },
+} as const;
 
 const edgeKindLabels: Record<EdgeKind, Record<Locale, string>> = {
   request: { en: "Decision request", ko: "결정 요청" },
@@ -66,6 +82,7 @@ const edgeKindLabels: Record<EdgeKind, Record<Locale, string>> = {
   rollback: { en: "Rollback path", ko: "롤백 경로" },
   read: { en: "Read projection", ko: "읽기 projection" },
   write: { en: "Write", ko: "쓰기" },
+  feedback: { en: "Feedback loop", ko: "피드백 루프" },
 };
 
 interface IconEntry {
@@ -228,12 +245,56 @@ async function renderNode(
   const x = shape.x + shape.width / 2;
   const labelLines = wrapText(node.label[locale], geometry.maxLabelUnits);
   const labelStart = shape.y + geometry.labelTop + NODE_FONT_SIZE;
+  const bodyLines = nodeBodyLines(node, locale, geometry.maxBodyUnits);
+  const bodyMarkup = bodyLines.length
+    ? textLines(
+        bodyLines,
+        shape.x + 14,
+        shape.y + geometry.bodyTop + NODE_BODY_FONT_SIZE,
+        "node-body",
+        NODE_BODY_LINE_HEIGHT,
+        "start",
+      )
+    : "";
   const iconMarkup = icon
     ? `<image${node.kind === "agent" ? ' class="agent-icon"' : ""} href="${icon}" x="${x - geometry.iconSize / 2}" y="${shape.y + geometry.iconTop}" width="${geometry.iconSize}" height="${geometry.iconSize}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"/>`
     : "";
   const description = node.description?.[locale] ?? node.label[locale];
   const presentation = node.presentation ?? "card";
-  return `<g class="diagram-node node-${node.kind}" data-node-id="${node.id}" data-presentation="${presentation}" role="button" tabindex="0" aria-label="${escapeXml(`${node.label[locale]}. ${description}`)}"><rect x="${shape.x}" y="${shape.y}" width="${shape.width}" height="${shape.height}" rx="${presentation === "icon" ? 4 : 8}"/>${iconMarkup}${textLines(labelLines, x, labelStart, "node-label")}</g>`;
+  const nodeShape = node.shape ?? "card";
+  const surface = nodeShapeMarkup(nodeShape, shape, presentation);
+  const badgeMarkup = node.badge
+    ? `<g class="node-badge" transform="translate(${shape.x + 14} ${shape.y + 14})" aria-hidden="true"><circle r="12"/><text y="4">${node.badge}</text></g>`
+    : "";
+  return `<g class="diagram-node node-${node.kind}" data-node-id="${node.id}" data-presentation="${presentation}" data-shape="${nodeShape}" data-tone="${node.tone ?? "neutral"}" role="button" tabindex="0" aria-label="${escapeXml(`${node.label[locale]}. ${description}`)}">${surface}${iconMarkup}${textLines(labelLines, x, labelStart, "node-label")}${bodyMarkup}${badgeMarkup}</g>`;
+}
+
+function nodeShapeMarkup(
+  shapeKind: NonNullable<DiagramNode["shape"]>,
+  shape: PositionedShape,
+  presentation: NonNullable<DiagramNode["presentation"]> | "card",
+): string {
+  const { x, y, width, height } = shape;
+  if (shapeKind === "diamond") {
+    return `<polygon class="node-surface" points="${x + width / 2},${y} ${x + width},${y + height / 2} ${x + width / 2},${y + height} ${x},${y + height / 2}"/>`;
+  }
+  if (shapeKind === "circle") {
+    return `<ellipse class="node-surface" cx="${x + width / 2}" cy="${y + height / 2}" rx="${width / 2}" ry="${height / 2}"/>`;
+  }
+  if (shapeKind === "database") {
+    const curve = Math.min(14, height / 5);
+    return `<path class="node-surface" d="M${x} ${y + curve} C${x} ${y} ${x + width} ${y} ${x + width} ${y + curve} L${x + width} ${y + height - curve} C${x + width} ${y + height} ${x} ${y + height} ${x} ${y + height - curve} Z"/><path class="node-detail" d="M${x} ${y + curve} C${x} ${y + curve * 2} ${x + width} ${y + curve * 2} ${x + width} ${y + curve}"/>`;
+  }
+  if (shapeKind === "document") {
+    const fold = Math.min(18, width / 5, height / 4);
+    return `<path class="node-surface" d="M${x} ${y} H${x + width - fold} L${x + width} ${y + fold} V${y + height} H${x} Z"/><path class="node-detail" d="M${x + width - fold} ${y} V${y + fold} H${x + width}"/>`;
+  }
+  const radius = shapeKind === "terminator"
+    ? height / 2
+    : presentation === "icon"
+      ? 4
+      : 8;
+  return `<rect class="node-surface" x="${x}" y="${y}" width="${width}" height="${height}" rx="${radius}"/>`;
 }
 
 function distance(left: ElkPoint, right: ElkPoint): number {
@@ -380,10 +441,12 @@ function renderLegend(spec: DiagramSpec, locale: Locale, y: number): string {
   if (!spec.legend?.length) return "";
   let x = 48;
   const items = spec.legend.map((item) => {
-    const style = edgeStyles[item.kind];
     const label = item.label[locale];
     const width = Math.max(120, estimatedTextWidth(label, 12) + 58);
-    const markup = `<g class="legend-item" transform="translate(${x} ${y})"><line x1="0" y1="0" x2="34" y2="0" stroke="${style.color}" stroke-width="${style.width}" stroke-dasharray="${style.dash}" marker-end="url(#arrow-${item.kind})"/><text x="45" y="5">${escapeXml(label)}</text></g>`;
+    const symbol = item.kind
+      ? `<line x1="0" y1="0" x2="34" y2="0" stroke="${edgeStyles[item.kind].color}" stroke-width="${edgeStyles[item.kind].width}" stroke-dasharray="${edgeStyles[item.kind].dash}" marker-end="url(#arrow-${item.kind})"/>`
+      : `<rect class="legend-swatch" x="0" y="-10" width="28" height="18" rx="3" fill="${toneStyles[item.tone].fill}" stroke="${toneStyles[item.tone].stroke}"/>`;
+    const markup = `<g class="legend-item" transform="translate(${x} ${y})">${symbol}<text x="45" y="5">${escapeXml(label)}</text></g>`;
     x += width;
     return markup;
   });
@@ -489,10 +552,16 @@ export async function renderSvg(
     .diagram-group[data-group-id="operator-console-layer"] .group-header { fill: var(--fdai-diagram-delivery-header, #d9f8ff); }
     .diagram-group.group-network .group-surface, .diagram-group.group-subnet .group-surface { fill: var(--fdai-diagram-delivery-surface, #f0fbfd); stroke: #008272; }
     .group-label { font-size: ${GROUP_FONT_SIZE}px; font-weight: 650; fill: var(--fdai-diagram-muted, #605e5c); }
-    .diagram-node > rect { fill: var(--fdai-diagram-node, #ffffff); stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1.25; filter: url(#node-shadow); }
-    .diagram-node:hover > rect, .diagram-node:focus > rect, .diagram-node.is-active > rect { stroke: var(--fdai-diagram-azure-dark, #005a9e); stroke-width: 3; }
+    .diagram-node > rect, .diagram-node > .node-surface { fill: var(--fdai-diagram-node, #ffffff); stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1.25; filter: url(#node-shadow); }
+    .diagram-node:hover > rect, .diagram-node:focus > rect, .diagram-node.is-active > rect,
+    .diagram-node:hover > .node-surface, .diagram-node:focus > .node-surface, .diagram-node.is-active > .node-surface { stroke: var(--fdai-diagram-azure-dark, #005a9e); stroke-width: 3; }
     .diagram-node:focus { outline: none; }
     .node-label { font-size: ${NODE_FONT_SIZE}px; font-weight: 650; fill: var(--fdai-diagram-text, #323130); letter-spacing: 0; }
+    .node-body { font-size: ${NODE_BODY_FONT_SIZE}px; font-weight: 450; fill: var(--fdai-diagram-muted, #605e5c); letter-spacing: 0; }
+    .node-detail { fill: none; stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1.25; }
+    .node-badge circle { fill: #173b6c; stroke: #ffffff; stroke-width: 2; }
+    .node-badge text { fill: #ffffff; font-size: 11px; font-weight: 700; text-anchor: middle; }
+    ${Object.entries(toneStyles).map(([tone, style]) => `.diagram-node[data-tone="${tone}"] > .node-surface { fill: ${style.fill}; stroke: ${style.stroke}; }`).join("\n    ")}
     .edge-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
     .edge-path { pointer-events: stroke; transition: stroke-width 140ms ease, opacity 140ms ease; }
     .diagram-edge[data-edge-route="orthogonal-above"][data-edge-step] > .edge-path { opacity: 0.52; stroke-width: 2; }
@@ -507,6 +576,11 @@ export async function renderSvg(
     .diagram-edge:hover .edge-label-text { fill: var(--fdai-diagram-text, #323130); font-weight: 700; }
     .edge-step circle { fill: #107c10; stroke: #ffffff; stroke-width: 2; }
     .edge-step text { fill: #ffffff; font-size: 12px; font-weight: 700; text-anchor: middle; }
+    svg[data-profile="conceptual"] .diagram-group .group-surface { stroke-dasharray: none; }
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="lane"] .group-surface { fill: #ffffff; stroke: #9fb3c8; }
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="sidebar"] .group-surface { fill: #f7f5ff; stroke: #7c5ce7; }
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="feedback"] .group-surface { fill: #faf8ff; stroke: #6b4eff; }
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="datastore"] .group-surface { fill: #f7f8fa; stroke: #6b7280; }
     svg[data-profile="azure-reference"] .diagram-title { font-size: 24px; }
     svg[data-profile="azure-reference"] .diagram-group .group-surface { stroke-dasharray: none; }
     svg[data-profile="azure-reference"] .diagram-group .group-header { fill: transparent; }
@@ -533,7 +607,7 @@ export async function renderSvg(
     svg[data-profile="azure-reference"] .edge-label-text,
     svg[data-profile="azure-reference"] .legend-item text { fill: #484644; font-weight: 650; }
   </style>
-  <rect class="diagram-background" width="${width}" height="${height}" fill="${spec.canvas.profile === "azure-reference" ? "#ffffff" : "var(--fdai-diagram-canvas, #faf9f8)"}"/>
+  <rect class="diagram-background" width="${width}" height="${height}" fill="${spec.canvas.profile === "azure-reference" || spec.canvas.profile === "conceptual" ? "#ffffff" : "var(--fdai-diagram-canvas, #faf9f8)"}"/>
   <text class="diagram-title" x="48" y="45">${escapeXml(spec.locales[locale].title)}</text>
   <text class="diagram-subtitle" x="48" y="72">${escapeXml(spec.locales[locale].description)}</text>
   <g data-diagram-viewport="">${groups}${edges}${nodes}${renderLegend(spec, locale, height - 30)}</g>

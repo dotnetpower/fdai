@@ -14,6 +14,7 @@ test("registers every supported diagram kind", () => {
     "deployment",
     "data-flow",
     "network",
+    "conceptual-flow",
   ]);
 });
 

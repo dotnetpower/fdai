@@ -7,7 +7,27 @@ export type DiagramKind =
   | "component"
   | "deployment"
   | "data-flow"
-  | "network";
+  | "network"
+  | "conceptual-flow";
+
+export type DiagramNodeShape =
+  | "card"
+  | "diamond"
+  | "terminator"
+  | "database"
+  | "document"
+  | "circle";
+
+export type DiagramTone =
+  | "input"
+  | "interpretation"
+  | "model"
+  | "policy"
+  | "decision"
+  | "execution"
+  | "feedback"
+  | "store"
+  | "neutral";
 
 export interface DiagramDocumentText {
   title: string;
@@ -19,7 +39,7 @@ export interface DiagramGroup {
   id: string;
   parent?: string;
   kind: "system" | "cloud" | "region" | "network" | "subnet" | "cluster" | "layer";
-  presentation?: "boundary" | "band" | "panel";
+  presentation?: "boundary" | "band" | "panel" | "lane" | "sidebar" | "feedback" | "datastore";
   label: LocalizedText;
   description?: LocalizedText;
   direction?: Direction;
@@ -42,9 +62,13 @@ export interface DiagramNode {
   parent?: string;
   kind: "azure-service" | "service" | "process" | "store" | "external" | "person" | "agent" | "decision";
   presentation?: "card" | "icon";
+  shape?: DiagramNodeShape;
+  tone?: DiagramTone;
+  badge?: number;
   icon?: string;
   label: LocalizedText;
   description?: LocalizedText;
+  content?: LocalizedText[];
   width?: number;
   height?: number;
   ports?: DiagramPort[];
@@ -58,7 +82,8 @@ export type EdgeKind =
   | "audit"
   | "rollback"
   | "read"
-  | "write";
+  | "write"
+  | "feedback";
 
 export interface DiagramEdge {
   id: string;
@@ -94,11 +119,14 @@ export interface DiagramSpec {
     direction: Direction;
     rootLayout?: "row" | "column";
     padding?: number;
-    profile?: "default" | "azure-reference";
+    profile?: "default" | "azure-reference" | "conceptual";
   };
   groups: DiagramGroup[];
   nodes: DiagramNode[];
   edges: DiagramEdge[];
-  legend?: Array<{ kind: EdgeKind; label: LocalizedText }>;
+  legend?: Array<
+    | { kind: EdgeKind; tone?: never; label: LocalizedText }
+    | { kind?: never; tone: DiagramTone; label: LocalizedText }
+  >;
   references?: Array<{ label: LocalizedText; url: string }>;
 }

@@ -87,3 +87,19 @@ test("explicit node width overrides the presentation default", () => {
 
   assert.equal(geometry.width, 100);
 });
+
+test("node geometry expands for localized body content", () => {
+  const geometry = nodeGeometry({
+    id: "process",
+    kind: "process",
+    label: { en: "Interpret", ko: "해석" },
+    content: [
+      { en: "Extract intent and entities", ko: "의도와 엔터티 추출" },
+      { en: "Capture context", ko: "컨텍스트 파악" },
+    ],
+  });
+
+  assert.equal(geometry.width, 220);
+  assert.ok(geometry.bodyTop > geometry.labelTop);
+  assert.ok(geometry.height > 75);
+});

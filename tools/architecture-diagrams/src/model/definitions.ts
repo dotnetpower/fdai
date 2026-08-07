@@ -39,6 +39,11 @@ const diagramDefinitions: Record<DiagramKind, DiagramDefinition> = {
     layoutStrategy: "layered",
     hierarchyHandling: "SEPARATE_CHILDREN",
   },
+  "conceptual-flow": {
+    kind: "conceptual-flow",
+    layoutStrategy: "layered",
+    hierarchyHandling: "SEPARATE_CHILDREN",
+  },
 };
 
 export function diagramDefinition(kind: DiagramKind): DiagramDefinition {

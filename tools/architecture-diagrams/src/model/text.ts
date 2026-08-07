@@ -8,6 +8,8 @@ import type {
 export const GROUP_FONT_SIZE = 14;
 export const NODE_FONT_SIZE = 13;
 export const NODE_LINE_HEIGHT = 17;
+export const NODE_BODY_FONT_SIZE = 11;
+export const NODE_BODY_LINE_HEIGHT = 15;
 export const NODE_ICON_SIZE = 42;
 export const NODE_ICON_TOP = 12;
 export const NODE_LABEL_GAP = 10;
@@ -79,6 +81,17 @@ function maxLocaleLineCount(
   );
 }
 
+export function nodeBodyLines(
+  node: DiagramNode,
+  locale: Locale,
+  maxUnits: number,
+): string[] {
+  return (node.content ?? []).flatMap((item) => {
+    const lines = wrapText(item[locale], Math.max(4, maxUnits - 2));
+    return lines.map((line, index) => `${index === 0 ? "- " : "  "}${line}`);
+  });
+}
+
 export interface NodeGeometry {
   width: number;
   height: number;
@@ -86,31 +99,51 @@ export interface NodeGeometry {
   iconSize: number;
   iconTop: number;
   labelTop: number;
+  bodyTop: number;
   maxLabelUnits: number;
+  maxBodyUnits: number;
 }
 
 export function nodeGeometry(node: DiagramNode): NodeGeometry {
   const iconPresentation = node.presentation === "icon";
-  const width = node.width ?? (iconPresentation ? 116 : 148);
+  const width = node.width ?? (iconPresentation ? 116 : node.content?.length ? 220 : 148);
   const maxLabelUnits = (width - (iconPresentation ? 12 : 20)) / NODE_FONT_SIZE;
+  const maxBodyUnits = (width - 24) / NODE_BODY_FONT_SIZE;
   const lineCount = maxLocaleLineCount(node.label, maxLabelUnits);
+  const bodyLineCount = Math.max(
+    ...(["en", "ko"] satisfies Locale[]).map(
+      (locale) => nodeBodyLines(node, locale, maxBodyUnits).length,
+    ),
+  );
   const hasIcon = Boolean(node.icon) || node.kind === "agent";
   const textHeight = lineCount * NODE_LINE_HEIGHT;
+  const bodyHeight = bodyLineCount * NODE_BODY_LINE_HEIGHT;
   const iconSize = iconPresentation ? REFERENCE_NODE_ICON_SIZE : NODE_ICON_SIZE;
   const iconTop = iconPresentation ? 8 : NODE_ICON_TOP;
   const labelGap = iconPresentation ? 6 : NODE_LABEL_GAP;
   const bottomPadding = iconPresentation ? 8 : NODE_BOTTOM_PADDING;
   const iconLabelTop = iconTop + iconSize + labelGap;
-  const requiredHeight = iconLabelTop + textHeight + bottomPadding;
+  const naturalLabelTop = hasIcon ? iconLabelTop : 14;
+  const bodyGap = bodyLineCount ? 8 : 0;
+  const requiredHeight = bodyLineCount
+    ? naturalLabelTop + textHeight + bodyGap + bodyHeight + bottomPadding
+    : iconLabelTop + textHeight + bottomPadding;
   const height = Math.max(requiredHeight, node.height ?? 0);
+  const labelTop = hasIcon
+    ? iconLabelTop
+    : bodyLineCount
+      ? naturalLabelTop
+      : (height - textHeight) / 2;
   return {
     width,
     height,
     hasIcon,
     iconSize: hasIcon ? iconSize : 0,
     iconTop: hasIcon ? iconTop : 0,
-    labelTop: hasIcon ? iconLabelTop : (height - textHeight) / 2,
+    labelTop,
+    bodyTop: labelTop + textHeight + bodyGap,
     maxLabelUnits,
+    maxBodyUnits,
   };
 }
 
