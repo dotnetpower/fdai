@@ -334,7 +334,7 @@ def test_module_inventory_covers_current_operator_api_tree() -> None:
     assert all(entry["exit_condition"].strip() for entry in known_wire_debts)
 
     selections = inventory["migration_selections"]
-    assert len(selections) == 7
+    assert len(selections) == 8
     assert all(set(selection) == _MIGRATION_SELECTION_KEYS for selection in selections)
     selections_by_family = {selection["family"]: selection for selection in selections}
     assert set(selections_by_family) == {
@@ -345,6 +345,7 @@ def test_module_inventory_covers_current_operator_api_tree() -> None:
         "chat terminal projections",
         "chat terminal support projections",
         "chat conversation lifecycle",
+        "chat application capabilities",
     }
     expected = {
         "audit*.py": (
@@ -439,6 +440,22 @@ def test_module_inventory_covers_current_operator_api_tree() -> None:
                 "chat_busy_input.py",
             },
         ),
+        "chat application capabilities": (
+            71,
+            (
+                "fdai.delivery.operator_api.application.conversation, "
+                "fdai.delivery.operator_api.application.conversation.capabilities, "
+                "and fdai.delivery.operator_api.adapters.conversation.web_search"
+            ),
+            {
+                "chat_agent_delegate.py",
+                "chat_skills.py",
+                "chat_configuration_drift.py",
+                "chat_web_search.py",
+                "chat_capability_registry.py",
+                "chat_topology_intent.py",
+            },
+        ),
     }
     for family, (tracking_issue, destination, expected_modules) in expected.items():
         selection = selections_by_family[family]
@@ -450,7 +467,7 @@ def test_module_inventory_covers_current_operator_api_tree() -> None:
         modules = selection["modules"]
         assert all(set(entry) == _MIGRATION_MODULE_KEYS for entry in modules)
         assert {entry["module"] for entry in modules} == expected_modules
-        assert all(entry["direct_python_consumers"] >= 1 for entry in modules)
+        assert all(entry["direct_python_consumers"] >= 0 for entry in modules)
         assert all(entry["fdai_imports"] >= 0 for entry in modules)
         assert all(entry["changes"] >= 1 for entry in modules)
 

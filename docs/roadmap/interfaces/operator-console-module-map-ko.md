@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 1303953b04b30e3e1da2c4b08c6ef1c5787e5fbd
+translation_source_sha: 78ecde362f8e77f8190255808b09b75c1f2e1da0
 translation_revised: 2026-08-07
 ---
 # Operator Console Module Map and Boundaries
@@ -285,6 +285,29 @@ revision, cancellation, terminal delivery, conversation history를 유지합니�
 internal이므로 compatibility shim은 남기지 않습니다. Rollback은 네 route implementation을 복원하고
 internal consumer를 redirect하며 wire contract는 변경하지 않습니다.
 
+### Conversation capability application 경계
+
+SD-01 capability slice는 bounded Pantheon delegation, runtime-skill disclosure,
+configuration-baseline read, public-web evidence resolution, request-time capability visibility 및 strict
+topology intent를 `fdai.delivery.operator_api.application.conversation` 아래에서 소유합니다. Agent
+delegation은 기존 runtime 및 bridge contract를 사용하는 read-only adapter로 유지됩니다. Action proposal과
+handoff materialization을 비활성화하며 Pantheon의 judgment, approval, execution, recovery 또는 audit authority를
+Operator API로 옮기지 않습니다.
+
+Provider-neutral web-search resolver는 deterministic 및 semantic intent precedence, sanitization, bounded
+timeout, availability, progress 및 fail-closed provider error를
+`application.conversation.capabilities.web_search` 아래에서 소유합니다. Azure candidate construction과
+environment loading은 `adapters.conversation.web_search`에 둡니다. Caller text는 provider scope, allowed
+domain, endpoint, deployment 또는 credential을 제공하지 않습니다. Configuration drift는 정확한 server-pinned
+document route를 action-context phrase보다 먼저 유지하고, topology intent는 계속 exact server-owned
+selector를 요구합니다.
+
+JSON 및 SSE route는 authentication, request parsing, HTTP status mapping, frame sequence와 revision,
+cancellation, terminal delivery 및 conversation history를 유지합니다. 이전 route module 6개의 consumer는
+모두 internal source 또는 test import였으므로 compatibility shim을 남기지 않습니다. Rollback은 해당
+implementation을 `routes/` 아래에 복원하고 internal import를 되돌리며 authority classification, provider
+scope, intent precedence 또는 wire contract는 변경하지 않습니다.
+
 ### Immutable app composition
 
 Issue 72는 `OperatorApiConfig(**kwargs)`를 bounded compatibility constructor로 유지하고 route를 등록하기
@@ -309,11 +332,11 @@ signature를 그대로 유지합니다. 이 절차는 wire 또는 caller migrati
 |---------|-----------|----------------|
 | Root | Public facade 및 foundational contract | 분류된 replacement가 준비될 때까지 유지합니다. |
 | `adapters/` | HTTP route 밖의 concrete Operator API provider implementation | Provider I/O를 application contract 뒤에 유지합니다. |
-| `adapters/conversation/` | Azure 및 OpenAI-compatible narrator transport와 startup construction | Explicit facade로 import하고 credential과 transport는 route 밖에 유지합니다. |
+| `adapters/conversation/` | Azure 및 OpenAI-compatible narrator transport와 web-search startup construction | Explicit module로 import하고 credential, endpoint, deployment selection 및 transport는 application과 route 밖에 유지합니다. |
 | `app/` | Shared ASGI assembly, middleware, registration 및 lifespan | HTTP composition boundary로 유지합니다. |
 | `application/` | Typed process-local, non-authoritative application coordination | Service-graduation evidence가 process boundary를 정당화할 때까지 유지합니다. |
-| `application/conversation/` | HTTP transport 밖의 process-local conversation planning, busy-input steering, interruption 및 capability | Service-graduation evidence가 준비될 때까지 process 안에 유지하고 connection cancellation과 wire delivery는 route에 둡니다. |
-| `application/conversation/capabilities/` | Domain별 typed process-local conversation capability | Non-authoritative capability owner로 유지합니다. |
+| `application/conversation/` | HTTP transport 밖의 process-local conversation planning, capability visibility, strict intent classification, busy-input steering, interruption 및 capability | Service-graduation evidence가 준비될 때까지 process 안에 유지하고 connection cancellation과 wire delivery는 route에 둡니다. |
+| `application/conversation/capabilities/` | Domain별 typed process-local agent delegation, runtime-skill, configuration-drift, web-search 및 read-model capability | Non-authoritative capability owner로 유지하고 injected read-only runtime과 provider contract를 사용합니다. |
 | `application/conversation/capabilities/inventory/` | Typed inventory query, deterministic compilation, semantic grounding 및 provider-read coordination | Explicit package facade로 import하고 JSON, SSE, authentication 및 history는 route에 유지합니다. |
 | `application/conversation/backend/` | Provider-neutral backend contract 및 request-local latency routing | Explicit facade로 import하고 provider implementation은 adapter에 유지합니다. |
 | `application/conversation/claims/` | Deterministic answer-claim extraction 및 bounded evidence verification | Explicit package facade로 import하고 JSON, SSE 및 authentication은 route에 유지합니다. |

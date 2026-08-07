@@ -1,7 +1,7 @@
 ---
 title: Narrator Routing and Latency
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: beefffedcf1647c0fd6dbf4902e643d6935cc059
+translation_source_sha: 640dd3817882fa2e37417c9d66386b6118a6e22a
 translation_revised: 2026-08-07
 ---
 # Narrator Routing and Latency
@@ -80,6 +80,12 @@ Public-web lookup은 별도 Chat T2 tool invocation이며 T1 judgment나 action 
 활성화하면 Azure Responses `WebSearchProvider`가 별도 `web_search_candidates` function-calling
 pool을 사용하고 rolling p50이 가장 낮은 후보를 선택하며 나머지 후보로 failover합니다.
 Deterministic web-search policy가 provider 호출 전에 turn을 승격합니다.
+
+Local 및 deployed Operator API composition은
+`application.conversation.capabilities.web_search`의 동일한 provider-neutral resolver를 사용합니다.
+Environment loading, resolved-model candidate selection 및 Azure construction은
+`adapters.conversation.web_search`에 유지합니다. Resolver는 server-owned allowlist와 injected provider만
+받으며 operator text는 endpoint, deployment, credential 또는 provider scope를 선택할 수 없습니다.
 
 Web-search pool은 같은 warm-up 및 periodic measurement pattern을 사용합니다. Periodic probe는
 `web_search` tool 없이 minimal model response를 요청하고 실제 search는 end-to-end latency를 같은

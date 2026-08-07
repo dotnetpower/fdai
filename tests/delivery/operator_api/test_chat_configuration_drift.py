@@ -20,11 +20,11 @@ from fdai.delivery.operator_api.application.conversation.capabilities.action_con
     ActionContextChatTools,
     needs_action_context,
 )
-from fdai.delivery.operator_api.routes.chat import make_chat_route
-from fdai.delivery.operator_api.routes.chat_configuration_drift import (
+from fdai.delivery.operator_api.application.conversation.capabilities.configuration_drift import (
     ConfigurationDriftChatTools,
     needs_configuration_drift_context,
 )
+from fdai.delivery.operator_api.routes.chat import make_chat_route
 from fdai.shared.providers.knowledge import KnowledgeDocument
 
 _NOW = datetime(2026, 8, 4, tzinfo=UTC)

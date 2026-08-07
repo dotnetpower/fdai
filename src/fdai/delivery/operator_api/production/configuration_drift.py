@@ -36,10 +36,10 @@ from fdai.delivery.configuration_review_runtime import ConfigurationReviewRuntim
 from fdai.delivery.configuration_review_store import (
     StateStoreConfigurationReviewCampaignStore,
 )
-from fdai.delivery.operator_api.production import env_contract as _env
-from fdai.delivery.operator_api.routes.chat_configuration_drift import (
+from fdai.delivery.operator_api.application.conversation.capabilities.configuration_drift import (
     ConfigurationDriftChatTools,
 )
+from fdai.delivery.operator_api.production import env_contract as _env
 from fdai.delivery.persistence import (
     PostgresAutomationBlueprintStore,
     PostgresAutomationBlueprintStoreConfig,

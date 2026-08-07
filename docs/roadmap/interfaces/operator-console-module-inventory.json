@@ -18,7 +18,7 @@
     },
     {
       "path": "adapters/conversation",
-      "responsibility": "Azure and OpenAI-compatible narrator transports and startup composition",
+      "responsibility": "Azure and OpenAI-compatible narrator transports plus web-search startup composition",
       "classification": "provider-adapter",
       "candidate_destination": "retain behind the explicit conversation adapter facade"
     },
@@ -36,13 +36,13 @@
     },
     {
       "path": "application/conversation",
-      "responsibility": "Process-local shadow answer planning, busy-input steering and interruption, prompt, vision, and application capabilities outside HTTP transport",
+      "responsibility": "Process-local shadow answer planning, capability visibility, intent classification, busy-input steering and interruption, prompt, vision, and application capabilities outside HTTP transport",
       "classification": "application-coordination",
       "candidate_destination": "retain in-process until conversation service-graduation evidence exists"
     },
     {
       "path": "application/conversation/capabilities",
-      "responsibility": "Typed action, context, time, source, readiness, knowledge, metering, log, health, and read-model conversation capabilities",
+      "responsibility": "Typed agent delegation, runtime skill, configuration drift, web-search, action, context, time, source, readiness, knowledge, metering, log, health, and read-model conversation capabilities",
       "classification": "application-coordination",
       "candidate_destination": "retain as the domain capability owner"
     },
@@ -327,6 +327,22 @@
       ],
       "rationale": "request-local planning, post-generation quality, input-policy recovery, and steer or interrupt coordination after their owning application boundaries were established",
       "rollback": "restore the four route implementations and redirect internal consumers without changing JSON, SSE, authentication, frame sequencing, connection cancellation, or history contracts"
+    },
+    {
+      "tracking_issue": 71,
+      "family": "chat application capabilities",
+      "destination": "fdai.delivery.operator_api.application.conversation, fdai.delivery.operator_api.application.conversation.capabilities, and fdai.delivery.operator_api.adapters.conversation.web_search",
+      "observed_window_days": 90,
+      "modules": [
+        {"module": "chat_agent_delegate.py", "direct_python_consumers": 6, "fdai_imports": 3, "changes": 2},
+        {"module": "chat_skills.py", "direct_python_consumers": 2, "fdai_imports": 4, "changes": 2},
+        {"module": "chat_configuration_drift.py", "direct_python_consumers": 6, "fdai_imports": 3, "changes": 4},
+        {"module": "chat_web_search.py", "direct_python_consumers": 4, "fdai_imports": 5, "changes": 4},
+        {"module": "chat_capability_registry.py", "direct_python_consumers": 2, "fdai_imports": 1, "changes": 3},
+        {"module": "chat_topology_intent.py", "direct_python_consumers": 0, "fdai_imports": 0, "changes": 3}
+      ],
+      "rationale": "non-authoritative capability logic belongs outside HTTP routes after the conversation application boundary was established",
+      "rollback": "restore the six route implementations and redirect internal consumers without changing agent authority, provider scope, intent precedence, JSON, SSE, authentication, or history contracts"
     }
   ],
   "reviewed_fallback_modules": [

@@ -24,6 +24,9 @@ from fdai.delivery.operator_api.application.conversation.backend import (
     LatencyRoutedChatBackend,
     describe_backend,
 )
+from fdai.delivery.operator_api.application.conversation.capabilities import (
+    configuration_drift as configuration_drift_capability,
+)
 from fdai.delivery.operator_api.application.conversation.capabilities.behavior_evidence import (
     RepositoryBehaviorEvidenceResolver,
 )
@@ -53,6 +56,9 @@ from fdai.delivery.operator_api.application.conversation.capabilities.log_query 
 from fdai.delivery.operator_api.application.conversation.capabilities.read_model_tools import (
     ReadModelChatTools,
 )
+from fdai.delivery.operator_api.application.conversation.capabilities.runtime_skills import (
+    RuntimeSkillChatTools,
+)
 from fdai.delivery.operator_api.application.conversation.capabilities.subscription_health import (
     SubscriptionHealthChatTools,
     SubscriptionHealthProvider,
@@ -60,6 +66,12 @@ from fdai.delivery.operator_api.application.conversation.capabilities.subscripti
 )
 from fdai.delivery.operator_api.application.conversation.capabilities.system_health import (
     SystemHealthChatTools,
+)
+from fdai.delivery.operator_api.application.conversation.capability_registry import (
+    ConversationCapability,
+    ConversationCapabilityRegistry,
+    static_capabilities,
+    validate_panel_chat_bindings,
 )
 from fdai.delivery.operator_api.application.conversation.evidence import (
     OperationalEvidenceResolver,
@@ -90,13 +102,6 @@ from fdai.delivery.operator_api.routes.chat import (
     make_chat_route,
     make_chat_stream_route,
 )
-from fdai.delivery.operator_api.routes.chat_capability_registry import (
-    ConversationCapability,
-    ConversationCapabilityRegistry,
-    static_capabilities,
-    validate_panel_chat_bindings,
-)
-from fdai.delivery.operator_api.routes.chat_skills import RuntimeSkillChatTools
 from fdai.delivery.operator_api.routes.data_sources import ReadDataSourceStatus
 from fdai.delivery.operator_api.routes.detection_readiness import DetectionReadinessReader
 from fdai.delivery.operator_api.routes.inventory_graph import InventoryGraphProvider
@@ -250,14 +255,12 @@ def append_chat_routes(
         read_model=read_model,
         fallback=system_health_tools,
     )
-    from fdai.delivery.operator_api.routes.chat_configuration_drift import (
-        ConfigurationDriftChatTools,
-        needs_configuration_drift_context,
-    )
-
     configuration_drift_tools = (
         configuration_drift_context.with_fallback(action_context_tools)
-        if isinstance(configuration_drift_context, ConfigurationDriftChatTools)
+        if isinstance(
+            configuration_drift_context,
+            configuration_drift_capability.ConfigurationDriftChatTools,
+        )
         else action_context_tools
     )
     from fdai.delivery.operator_api.application.conversation.capabilities import (
@@ -282,7 +285,10 @@ def append_chat_routes(
         knowledge_context=knowledge_context,
         inventory_context=inventory_chat_tools,
         contextual_routes=(
-            (needs_configuration_drift_context, configuration_drift_tools),
+            (
+                configuration_drift_capability.needs_configuration_drift_context,
+                configuration_drift_tools,
+            ),
             (needs_action_context, action_context_tools),
             (needs_subscription_health_context, subscription_health_tools),
             (needs_log_query_context, log_tools),

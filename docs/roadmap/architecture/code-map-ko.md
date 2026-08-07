@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 1f7d2061c563757eb323d0e56c62e9fc29b0407a
+translation_source_sha: 5eb6b69f4ea88cfe5c761df58879ba9d72678769
 translation_revised: 2026-08-07
 ---
 # 코드 맵
@@ -124,6 +124,17 @@ Provider 전체 Azure discovery, 정제된 reproduction command 및 명시적 co
 | rbac | Operator API 인간 RBAC. Principal identity를 대소문자 구분 없이 비교하므로 요청자가 다른 표기로 자기 요청을 승인할 수 없습니다. | [src/fdai/core/rbac/](../../../src/fdai/core/rbac/) | [tests/core/](../../../tests/core/) |
 | human_assignment | 변경 불가능한 role/duty 의도, 독립 검토, 리비전 기반 effect, shadow-first Entra 적용, 재시작 안전 피로도 예산과 evidence-only review를 갖춘 handover goal | [src/fdai/core/human_assignment/](../../../src/fdai/core/human_assignment/), [human_assignments.py](../../../src/fdai/delivery/operator_api/routes/human_assignments.py), [handover_goals.py](../../../src/fdai/delivery/operator_api/routes/handover_goals.py), [identity/](../../../src/fdai/delivery/identity/), [human_access.py](../../../src/fdai/runtime/human_access.py) | [tests/core/human_assignment/](../../../tests/core/human_assignment/), [test_human_assignments.py](../../../tests/delivery/operator_api/test_human_assignments.py), [test_handover_goals.py](../../../tests/delivery/operator_api/test_handover_goals.py), [tests/delivery/identity/](../../../tests/delivery/identity/), [settings-iam-assignments.test.tsx](../../../console/src/routes/settings-iam-assignments.test.tsx) |
 | stewardship | 사람 <-> agent handover map, authoritative structured assignment extraction, deterministic diff/notification, scheduled identity health, persisted idempotent draft-PR receipt, signed merge audit | [src/fdai/core/stewardship/](../../../src/fdai/core/stewardship/) 및 [src/fdai/delivery/stewardship/](../../../src/fdai/delivery/stewardship/) | [tests/core/stewardship/](../../../tests/core/stewardship/) 및 [tests/delivery/stewardship/](../../../tests/delivery/stewardship/) |
+
+Operator conversation capability는
+[`application/conversation/capabilities/`](../../../src/fdai/delivery/operator_api/application/conversation/capabilities/)에서
+소유합니다. 이 package에는 bounded agent delegation, runtime-skill disclosure,
+configuration-baseline read 및 provider-neutral public-web evidence resolution이 있습니다.
+Request-time capability visibility와 strict topology intent는 인접한
+[`capability_registry.py`](../../../src/fdai/delivery/operator_api/application/conversation/capability_registry.py)와
+[`intents.py`](../../../src/fdai/delivery/operator_api/application/conversation/intents.py)에 있습니다.
+Azure web-search startup construction은
+[`web_search.py`](../../../src/fdai/delivery/operator_api/adapters/conversation/web_search.py)에서
+adapter가 계속 소유합니다.
 
 `conversation` 행의 owner-tool 세부 동작은 후처리 첨부가 아니라 인과적 경로입니다. Bragi가
 최종 T0/T1 owner route를 완료하고, 점수가 유일하게 가장 높은 owned read 하나를 실행한 다음,

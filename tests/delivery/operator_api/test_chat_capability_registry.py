@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from fdai.delivery.operator_api.application.conversation.turn_plan import TurnTool
-from fdai.delivery.operator_api.routes.chat_capability_registry import (
+from fdai.delivery.operator_api.application.conversation.capability_registry import (
     ConversationCapability,
     ConversationCapabilityRegistry,
     validate_panel_chat_bindings,
 )
+from fdai.delivery.operator_api.application.conversation.turn_plan import TurnTool
 
 
 def _tool(name: str) -> TurnTool:

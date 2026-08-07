@@ -81,6 +81,7 @@ from fdai.core.metering.budget import InMemoryBudgetLedger, ModelBudget
 from fdai.core.stewardship import load_stewardship_from_yaml
 from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
 from fdai.delivery.operator_api.adapters.conversation import backend_from_env
+from fdai.delivery.operator_api.adapters.conversation.web_search import chat_web_search_from_env
 from fdai.delivery.operator_api.application.conversation.capabilities.inventory import (
     EmbeddingInventorySemanticResolver,
     inventory_query_function_type,
@@ -120,7 +121,6 @@ from fdai.delivery.operator_api.production.skills import build_production_skill_
 from fdai.delivery.operator_api.production.user_context import build_production_user_context
 from fdai.delivery.operator_api.production.views import _build_dynamic_views
 from fdai.delivery.operator_api.routes.busy_input_runtime import build_postgres_busy_input_runtime
-from fdai.delivery.operator_api.routes.chat_web_search import chat_web_search_from_env
 from fdai.delivery.operator_api.routes.conversation_assurance_intake import (
     ConversationAssurancePostTurnSubmitter,
 )

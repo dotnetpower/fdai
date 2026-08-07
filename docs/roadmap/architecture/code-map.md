@@ -124,6 +124,16 @@ They extend the implemented `read_investigation` row above and are not yet a shi
 | human_assignment | Immutable role/duty intent, independent review, revisioned effects, shadow-first Entra apply, and restart-safe handover goals with fatigue budgets and evidence-only review | [src/fdai/core/human_assignment/](../../../src/fdai/core/human_assignment/), [human_assignments.py](../../../src/fdai/delivery/operator_api/routes/human_assignments.py), [handover_goals.py](../../../src/fdai/delivery/operator_api/routes/handover_goals.py), [identity/](../../../src/fdai/delivery/identity/), and [human_access.py](../../../src/fdai/runtime/human_access.py) | [tests/core/human_assignment/](../../../tests/core/human_assignment/), [test_human_assignments.py](../../../tests/delivery/operator_api/test_human_assignments.py), [test_handover_goals.py](../../../tests/delivery/operator_api/test_handover_goals.py), [tests/delivery/identity/](../../../tests/delivery/identity/), and [settings-iam-assignments.test.tsx](../../../console/src/routes/settings-iam-assignments.test.tsx) |
 | stewardship | Human <-> agent handover map, authoritative structured assignment extraction, deterministic diff/notification, scheduled identity health, persisted idempotent draft-PR receipt, and signed merge audit | [src/fdai/core/stewardship/](../../../src/fdai/core/stewardship/) and [src/fdai/delivery/stewardship/](../../../src/fdai/delivery/stewardship/) | [tests/core/stewardship/](../../../tests/core/stewardship/) and [tests/delivery/stewardship/](../../../tests/delivery/stewardship/) |
 
+Operator conversation capabilities are owned by
+[`application/conversation/capabilities/`](../../../src/fdai/delivery/operator_api/application/conversation/capabilities/).
+The package contains bounded agent delegation, runtime-skill disclosure, configuration-baseline
+reads, and provider-neutral public-web evidence resolution. Request-time capability visibility and
+strict topology intent live beside it in
+[`capability_registry.py`](../../../src/fdai/delivery/operator_api/application/conversation/capability_registry.py)
+and [`intents.py`](../../../src/fdai/delivery/operator_api/application/conversation/intents.py).
+Azure web-search startup construction remains adapter-owned in
+[`web_search.py`](../../../src/fdai/delivery/operator_api/adapters/conversation/web_search.py).
+
 The `conversation` owner-tool detail is causal, not a post-processing attachment. Bragi completes
 the final T0/T1 owner route, runs one uniquely highest-scoring owned read, and uses that completed
 result as the primary answer. A selected read failure hands off without generic or contributor

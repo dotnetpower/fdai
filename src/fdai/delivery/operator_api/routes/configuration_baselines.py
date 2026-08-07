@@ -16,7 +16,7 @@ from fdai.core.detection.configuration_drift import (
 )
 from fdai.core.detection.configuration_review import ConfigurationReviewCampaignStore
 from fdai.delivery.configuration_review_store import configuration_review_campaign_id
-from fdai.delivery.operator_api.routes.chat_configuration_drift import (
+from fdai.delivery.operator_api.application.conversation.capabilities.configuration_drift import (
     ConfigurationDriftChatTools,
 )
 

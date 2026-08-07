@@ -14,13 +14,15 @@ from starlette.testclient import TestClient
 from fdai.core.conversation.answer_plan import build_answer_plan
 from fdai.core.web_search import WebSearchQuery, WebSearchResult, WebSnippet
 from fdai.delivery.azure.web_search import AzureWebSearchRequestError
-from fdai.delivery.operator_api.routes.chat import make_chat_health_route, make_chat_route
-from fdai.delivery.operator_api.routes.chat_web_search import (
+from fdai.delivery.operator_api.adapters.conversation.web_search import chat_web_search_from_env
+from fdai.delivery.operator_api.application.conversation.capabilities.web_search import (
     ChatWebSearchConfig,
     ChatWebSearchResolver,
-    _classify_search_intent,
-    chat_web_search_from_env,
 )
+from fdai.delivery.operator_api.application.conversation.web_search_intent import (
+    classify_search_intent as _classify_search_intent,
+)
+from fdai.delivery.operator_api.routes.chat import make_chat_health_route, make_chat_route
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +94,14 @@ class _BlockedProvider:
     async def check_readiness(self, query: WebSearchQuery) -> str:
         await self.search(query)
         raise AssertionError("unreachable")
+
+
+class _UnclassifiedProvider:
+    async def search(self, query: WebSearchQuery) -> WebSearchResult:
+        del query
+        error = RuntimeError("private provider detail")
+        error.reason = "private_provider_detail"  # type: ignore[attr-defined]
+        raise error
 
 
 class _IntentClassifier:
@@ -311,6 +321,24 @@ async def test_blocked_provider_returns_stable_unavailable_reason() -> None:
     }
 
 
+async def test_unclassified_provider_reason_is_not_exposed() -> None:
+    resolver = ChatWebSearchResolver(
+        provider=_UnclassifiedProvider(),
+        config=ChatWebSearchConfig(allowed_domains=("learn.microsoft.com",)),
+    )
+
+    evidence = await resolver.resolve(
+        "Search the web for the latest Azure SDK version.",
+        {},
+    )
+
+    assert evidence == {
+        "status": "unavailable",
+        "reason": "provider_error",
+        "sources": [],
+    }
+
+
 async def test_readiness_marks_blocked_tool_unavailable_without_retrying() -> None:
     provider = _BlockedProvider()
     resolver = ChatWebSearchResolver(
@@ -484,7 +512,7 @@ async def test_semantic_classifier_cannot_override_local_or_sensitive_boundaries
 
 async def test_semantic_classifier_fails_closed_on_local_low_confidence_or_malformed() -> None:
     context = {"_answer_plan": {"intent": "open_question"}}
-    results = (
+    results: tuple[dict[str, object], ...] = (
         {
             "route": "local",
             "confidence": 0.95,

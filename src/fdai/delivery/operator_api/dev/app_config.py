@@ -26,6 +26,9 @@ from fdai.delivery.configuration_review_store import (
     StateStoreConfigurationReviewCampaignStore,
 )
 from fdai.delivery.operator_api.app.catalog_reference import load_mcsb_reference
+from fdai.delivery.operator_api.application.conversation.capabilities.agent_delegate import (
+    PantheonChatDelegate,
+)
 from fdai.delivery.operator_api.dev.azure_cli_identity import LocalAzureCliIdentity
 from fdai.delivery.operator_api.dev.command_transport import LocalCommandTransport
 from fdai.delivery.operator_api.dev.fixtures.dynamic_views import _build_blast_radius_graph
@@ -39,7 +42,6 @@ from fdai.delivery.operator_api.postgres_read_model import PostgresConsoleReadMo
 from fdai.delivery.operator_api.production.persistence import ProductionPersistence
 from fdai.delivery.operator_api.read_model import ConsoleReadModel
 from fdai.delivery.operator_api.routes.arb_status import ArchitectureReviewStatusPanel
-from fdai.delivery.operator_api.routes.chat_agent_delegate import PantheonChatDelegate
 from fdai.delivery.operator_api.routes.configuration_baselines import ConfigurationBaselinesPanel
 from fdai.delivery.operator_api.routes.data_sources import ReadDataSourceStatus
 from fdai.delivery.operator_api.routes.llm_cost import LlmCostPanel

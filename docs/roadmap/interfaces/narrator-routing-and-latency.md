@@ -82,6 +82,12 @@ quality-gate pair. When enabled, the Azure Responses `WebSearchProvider` uses th
 across the remaining candidates. The deterministic web-search policy promotes the turn before the
 provider is called.
 
+Local and deployed Operator API composition use the same provider-neutral resolver in
+`application.conversation.capabilities.web_search`. Environment loading, resolved-model candidate
+selection, and Azure construction remain in `adapters.conversation.web_search`. The resolver
+receives only the server-owned allowlist and injected provider; operator text cannot choose an
+endpoint, deployment, credential, or provider scope.
+
 The web-search pool uses the same warm-up and periodic measurement pattern. Its periodic probe asks
 for a minimal model response without the `web_search` tool; actual searches add end-to-end latency
 to the same window. `FDAI_WEB_SEARCH_PROBE_INTERVAL_SECONDS` defaults to `300` and cannot be below

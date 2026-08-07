@@ -1,4 +1,4 @@
-"""Read-only adapter from Command Deck chat to the pantheon runtime."""
+"""Read-only adapter from Operator Console chat to the pantheon runtime."""
 
 from __future__ import annotations
 
@@ -79,10 +79,6 @@ class PantheonChatDelegate:
             "conversation_policy": (
                 dict(conversation_policy) if isinstance(conversation_policy, dict) else {}
             ),
-            # Which prompt layers governed the agent's turn, by id and
-            # digest only. The charter policy above is the immutable
-            # contract; this is what actually ran, so the answer stays
-            # attributable and replayable end to end.
             "prompt_composition": (
                 dict(prompt_composition) if isinstance(prompt_composition, dict) else {}
             ),

@@ -24,6 +24,9 @@ from fdai.core.detection.configuration_drift import (
 )
 from fdai.delivery.agent_introspection_bus import EventBusAgentIntrospectionClient
 from fdai.delivery.configuration_baseline_docx import render_configuration_baseline_docx
+from fdai.delivery.operator_api.application.conversation.capabilities.agent_delegate import (
+    PantheonChatDelegate,
+)
 from fdai.delivery.operator_api.prod import (
     ProdOperatorApiConfigError,
     _parse_cors_origins,
@@ -32,7 +35,6 @@ from fdai.delivery.operator_api.prod import (
     build_prod_app,
     build_prod_read_model,
 )
-from fdai.delivery.operator_api.routes.chat_agent_delegate import PantheonChatDelegate
 from fdai.delivery.persistence import PostgresReadInvestigationRunStore
 
 _GOOD_ENV: Final[dict[str, str]] = {

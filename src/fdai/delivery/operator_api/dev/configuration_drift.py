@@ -21,7 +21,7 @@ from fdai.delivery.configuration_drift_knowledge import (
     PinnedConfigurationBaselineKnowledgeSource,
     configuration_baseline_document,
 )
-from fdai.delivery.operator_api.routes.chat_configuration_drift import (
+from fdai.delivery.operator_api.application.conversation.capabilities.configuration_drift import (
     ConfigurationDriftChatTools,
 )
 

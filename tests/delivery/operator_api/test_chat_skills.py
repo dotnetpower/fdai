@@ -13,9 +13,11 @@ from starlette.testclient import TestClient
 from fdai.core.skills import RuntimeSkill, RuntimeSkillDisclosure, SkillCatalog, skill_body_digest
 from fdai.core.skills.bundle_catalog import SkillBundleCatalog
 from fdai.core.skills.bundle_manifest import RuntimeSkillBundle, encode_skill_bundle_manifest
+from fdai.delivery.operator_api.application.conversation.capabilities.runtime_skills import (
+    RuntimeSkillChatTools,
+)
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes.chat_registration import append_chat_routes
-from fdai.delivery.operator_api.routes.chat_skills import RuntimeSkillChatTools
 from fdai.delivery.operator_api.routes.skills import RuntimeSkillsPanel
 
 

@@ -51,7 +51,7 @@ def build_chat_backend(
 
 
 def build_chat_web_search() -> Any:
-    from fdai.delivery.operator_api.routes.chat_web_search import chat_web_search_from_env
+    from fdai.delivery.operator_api.adapters.conversation.web_search import chat_web_search_from_env
 
     return chat_web_search_from_env()
 

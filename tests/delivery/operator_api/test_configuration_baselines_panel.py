@@ -20,7 +20,7 @@ from fdai.delivery.configuration_review_store import (
     StateStoreConfigurationReviewCampaignStore,
     configuration_review_campaign_id,
 )
-from fdai.delivery.operator_api.routes.chat_configuration_drift import (
+from fdai.delivery.operator_api.application.conversation.capabilities.configuration_drift import (
     ConfigurationDriftChatTools,
 )
 from fdai.delivery.operator_api.routes.configuration_baselines import (

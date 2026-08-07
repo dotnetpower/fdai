@@ -9,6 +9,9 @@ from unittest.mock import patch
 import pytest
 
 from fdai.agents import PantheonRuntime
+from fdai.delivery.operator_api.application.conversation.capabilities.agent_delegate import (
+    PantheonChatDelegate,
+)
 from fdai.delivery.operator_api.application.conversation.evidence.enrichment import (
     _tool_execution_progress_event,
     _tool_execution_progress_events,
@@ -17,7 +20,6 @@ from fdai.delivery.operator_api.application.conversation.evidence.enrichment imp
     _with_screen_scope,
     _with_web_evidence,
 )
-from fdai.delivery.operator_api.routes.chat_agent_delegate import PantheonChatDelegate
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
 CONTEXT = {

@@ -288,6 +288,29 @@ history. Every former route consumer was internal, so no compatibility shim rema
 restores the four route implementations and redirects internal consumers without changing either
 wire contract.
 
+### Conversation capability application boundary
+
+The SD-01 capability slice owns bounded Pantheon delegation, runtime-skill disclosure,
+configuration-baseline reads, public-web evidence resolution, request-time capability visibility,
+and strict topology intent under `fdai.delivery.operator_api.application.conversation`. Agent
+delegation remains a read-only adapter over the existing runtime and bridge contract. It disables
+action proposals and handoff materialization and does not move Pantheon judgment, approval,
+execution, recovery, or audit authority into the Operator API.
+
+The provider-neutral web-search resolver owns deterministic and semantic intent precedence,
+sanitization, bounded timeouts, availability, progress, and fail-closed provider errors under
+`application.conversation.capabilities.web_search`. Azure candidate construction and environment
+loading live in `adapters.conversation.web_search`; caller text never supplies provider scope,
+allowed domains, endpoint, deployment, or credentials. Configuration drift keeps the exact
+server-pinned document route ahead of action-context phrases, and topology intent continues to
+require exact server-owned selectors.
+
+JSON and SSE routes retain authentication, request parsing, HTTP status mapping, frame sequence and
+revision, cancellation, terminal delivery, and conversation history. All consumers of the six
+former route modules were internal source or test imports, so no compatibility shim remains.
+Rollback restores those implementations under `routes/` and redirects internal imports without
+changing authority classification, provider scope, intent precedence, or either wire contract.
+
 ### Immutable app composition
 
 Issue 72 keeps `OperatorApiConfig(**kwargs)` as the bounded compatibility constructor and projects
@@ -314,11 +337,11 @@ reverses physical ownership without a wire or caller migration.
 |---------|------------------------|----------------|
 | Root | Public facades and foundational contracts | Preserve until a classified replacement exists. |
 | `adapters/` | Concrete Operator API provider implementations outside HTTP routes | Keep provider I/O behind application contracts. |
-| `adapters/conversation/` | Azure and OpenAI-compatible narrator transports and startup construction | Import through its explicit facade; keep credentials and transport outside routes. |
+| `adapters/conversation/` | Azure and OpenAI-compatible narrator transports plus web-search startup construction | Import through explicit modules; keep credentials, endpoints, deployment selection, and transport outside application and routes. |
 | `app/` | Shared ASGI assembly, middleware, registration, and lifespan | Retain as the HTTP composition boundary. |
 | `application/` | Typed process-local, non-authoritative application coordination | Retain until service-graduation evidence justifies a process boundary. |
-| `application/conversation/` | Process-local conversation planning, busy-input steering and interruption, and capabilities outside HTTP transport | Retain in-process until service-graduation evidence exists; keep connection cancellation and wire delivery in routes. |
-| `application/conversation/capabilities/` | Typed process-local conversation capabilities grouped by domain | Retain as the non-authoritative capability owner. |
+| `application/conversation/` | Process-local conversation planning, capability visibility, strict intent classification, busy-input steering and interruption, and capabilities outside HTTP transport | Retain in-process until service-graduation evidence exists; keep connection cancellation and wire delivery in routes. |
+| `application/conversation/capabilities/` | Typed process-local agent delegation, runtime-skill, configuration-drift, web-search, and read-model capabilities grouped by domain | Retain as the non-authoritative capability owner; use injected read-only runtime and provider contracts. |
 | `application/conversation/capabilities/inventory/` | Typed inventory queries, deterministic compilation, semantic grounding, and provider-read coordination | Import through its explicit package facade; keep JSON, SSE, authentication, and history in routes. |
 | `application/conversation/backend/` | Provider-neutral backend contracts and request-local latency routing | Import through its explicit facade; keep provider implementations in adapters. |
 | `application/conversation/claims/` | Deterministic answer-claim extraction and bounded evidence verification | Import through its explicit package facade; keep JSON, SSE, and authentication in routes. |
