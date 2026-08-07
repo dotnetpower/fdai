@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "services": [
+    {
+      "id": "core-control-plane",
+      "source_roots": [
+        "src/fdai/core",
+        "src/fdai/agents"
+      ],
+      "test_groups": {
+        "unit": [
+          "tests/core",
+          "tests/agents"
+        ],
+        "contract": [
+          "tests/contracts/test_compatibility.py",
+          "tests/contracts/test_models_roundtrip.py",
+          "tests/contracts/test_validation.py"
+        ],
+        "integration": [
+          "tests/pipeline"
+        ],
+        "smoke": [
+          "tests/runtime/test_health.py",
+          "tests/runtime/test_thor_execution_port.py"
+        ]
+      }
+    },
+    {
+      "id": "operator-service",
+      "source_roots": [
+        "src/fdai/delivery/operator_api"
+      ],
+      "test_groups": {
+        "unit": [
+          "tests/conversation"
+        ],
+        "contract": [
+          "tests/contracts/test_response_outcome.py"
+        ],
+        "integration": [
+          "tests/delivery/operator_api"
+        ],
+        "smoke": [
+          "tests/test_dev_deploy_parity.py"
+        ]
+      }
+    },
+    {
+      "id": "document-ingestion-api",
+      "source_roots": [
+        "src/fdai/delivery/ingestion_gateway/__init__.py",
+        "src/fdai/delivery/ingestion_gateway/access.py",
+        "src/fdai/delivery/ingestion_gateway/chat_evidence.py",
+        "src/fdai/delivery/ingestion_gateway/dev.py",
+        "src/fdai/delivery/ingestion_gateway/main.py",
+        "src/fdai/delivery/ingestion_gateway/prod.py"
+      ],
+      "test_groups": {
+        "unit": [
+          "tests/delivery/ingestion_gateway/test_access.py",
+          "tests/delivery/ingestion_gateway/test_chat_evidence.py"
+        ],
+        "contract": [],
+        "integration": [
+          "tests/delivery/ingestion_gateway/test_dev.py",
+          "tests/delivery/ingestion_gateway/test_main.py"
+        ],
+        "smoke": [
+          "tests/delivery/ingestion_gateway/test_prod.py"
+        ]
+      }
+    },
+    {
+      "id": "document-processing-worker",
+      "source_roots": [
+        "src/fdai/delivery/ingestion_gateway/activity.py",
+        "src/fdai/delivery/ingestion_gateway/handover.py",
+        "src/fdai/delivery/ingestion_gateway/pantheon_events.py",
+        "src/fdai/delivery/ingestion_gateway/worker.py",
+        "src/fdai/delivery/ingestion_gateway/worker_service.py"
+      ],
+      "test_groups": {
+        "unit": [
+          "tests/delivery/ingestion_gateway/test_activity.py",
+          "tests/delivery/ingestion_gateway/test_pantheon_events.py",
+          "tests/delivery/ingestion_gateway/test_worker.py"
+        ],
+        "contract": [
+          "tests/contracts/test_document_worker_contracts.py"
+        ],
+        "integration": [
+          "tests/delivery/ingestion_gateway/test_worker_service.py"
+        ],
+        "smoke": [
+          "tests/delivery/ingestion_gateway/test_handover.py"
+        ]
+      }
+    },
+    {
+      "id": "isolated-executor",
+      "source_roots": [
+        "src/fdai/runtime/isolated_executor.py",
+        "src/fdai/runtime/isolated_executor_cli.py",
+        "src/fdai/runtime/isolated_executor_runtime.py"
+      ],
+      "test_groups": {
+        "unit": [
+          "tests/runtime/test_isolated_executor_lock.py",
+          "tests/runtime/test_isolated_executor_shadow.py"
+        ],
+        "contract": [
+          "tests/contracts/test_executor_transport.py"
+        ],
+        "integration": [
+          "tests/runtime/test_isolated_executor_runtime.py"
+        ],
+        "smoke": [
+          "tests/runtime/test_isolated_executor_cli.py",
+          "tests/infra/test_isolated_executor_boundary.py"
+        ]
+      }
+    }
+  ]
+}

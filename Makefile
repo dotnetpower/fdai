@@ -6,7 +6,7 @@
 # Real deployment lives under `infra/` (Terraform); see the roadmap.
 
 .PHONY: dev-up dev-down dev-logs dev-nuke help \
-	lint format test test-changed operator gates check validation-status validation-run \
+	lint format test test-changed service-test operator gates check validation-status validation-run \
 	validation-all roadmap-verification-sync roadmap-verification-status \
 	roadmap-verification-report roadmap-verification-apply pre-commit-install hooks-install \
         azd-up genesis-up
@@ -51,6 +51,10 @@ test: ## pytest with safety-core branch coverage (--cov-fail-under=90 matches CI
 
 test-changed: ## pytest paths affected by changes (optional: DIFF=origin/main...HEAD)
 	@bash scripts/automation/tests-for-diff.sh --run $(DIFF)
+
+service-test: ## run one deployable service suite (SERVICE=<service-id>, optional PYTEST_ARGS="-q")
+	@test -n "$(SERVICE)" || (echo "SERVICE is required" >&2; exit 2)
+	@uv run --extra dev python scripts/automation/run-service-tests.py "$(SERVICE)" -- $(PYTEST_ARGS)
 
 operator: ## console + CLI tests, typecheck, build, and entry-bundle budget
 	bash scripts/quality/ci/run-operator-surfaces.sh
