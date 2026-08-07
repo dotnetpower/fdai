@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 09728ba11dc5e64da479f3fd69e67aeb49a1608e
+translation_source_sha: 49e67632ca38e4a791a813a1c56443811d84696a
 translation_revised: 2026-08-07
 ---
 # 서비스 분해 실행 계획
@@ -39,8 +39,8 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 | 상태 | 개수 | 의미 |
 |------|------|------|
 | 완료 | 3 | Exit evidence와 focused validation을 기록했습니다. |
-| 진행 중 | 2 | SD-01과 SD-03을 isolated worktree에서 실행 중입니다. |
-| 계획됨 | 5 | Dependency 또는 ownership handoff가 완료되지 않았습니다. |
+| 진행 중 | 3 | SD-01, SD-03, SD-07을 isolated worktree에서 실행 중입니다. |
+| 계획됨 | 4 | Dependency 또는 ownership handoff가 완료되지 않았습니다. |
 | 차단됨 | 0 | 이름이 지정된 gate가 현재 진행을 막고 있습니다. |
 
 마지막 업데이트: 2026-08-07.
@@ -96,7 +96,7 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 |------|------------|-----------|-----------|
 | SD-01 application route debt | 기존 SD-01 isolated session | `src/fdai/delivery/operator_api/**`, 해당 Operator API test와 module-map 업데이트 | Route boundary focused commit과 receipt를 integration owner에게 handoff |
 | SD-03 effective access와 rollback | 기존 SD-03 isolated session | Ingestion runtime, ingestion 전용 Terraform, access probe와 해당 test | Effective-access proof와 rollback evidence를 integration owner에게 handoff |
-| SD-04 완료 path | Downstream handoff 전까지 integration owner | Ontology release, catalog-search generation, compatibility test와 담당 ontology 문서 | SD-05 또는 SD-07 owner가 겹치지 않는 예약을 기록 |
+| SD-07 shadow Executor | `/tmp/fdai-sd07`의 `work/sd07-shadow-executor` | Executor command/receipt transport, durable shadow attempt, service probe, telemetry와 해당 test | Focused shadow receipt를 integration owner에게 handoff하며 effect authority, production composition, pantheon role, identity cutover는 포함하지 않음 |
 | Serial integration | Integration owner | 이 계획 문서 쌍, machine status manifest, package 간 contract, production composition, pantheon role, executor identity cutover | Focused package handoff를 수락하고 dependency 상태를 업데이트 |
 
 ## 진행 상태 업데이트 contract
@@ -121,6 +121,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-07 | SD-04 | 진행 중 | Start `ccfa3c3dd` | Cross-service ontology release compatibility gate를 시작했습니다. |
 | 2026-08-07 | SD-02 | 완료 | `2a82507cb`, `7e15ba084`, `7a48288cb` | Shared execution instance, durable Saga audit readiness, Vidar recovery readiness, normal dispatch, HIL resume를 명시적 composition evidence로 고정했고 union test 122개가 통과했습니다. |
 | 2026-08-07 | SD-04 | 완료 | `f5cf51e3a`, `91c88f2a3`, `a5350296e`, `b24c2d90d`, `07161a96c` | Exact release ref, additive N/N-1 compatibility, revision-fenced projection writer, provider I/O 전 mismatch rejection, replay-stable atomic generation rollback이 focused union test 142개를 통과했습니다. `FDAI_DATABASE_URL`이 설정되지 않아 PostgreSQL live case 8개는 skip 상태이며, baseline은 이 live generation receipt를 SD-05에 할당합니다. |
+| 2026-08-07 | SD-07 | 진행 중 | `work/sd07-shadow-executor`의 Start `03f6ef265` | `/tmp/fdai-sd07`에서 command/receipt transport와 durable shadow-attempt mechanics를 시작했습니다. Effect authority, production composition, pantheon role, identity cutover는 serial integration 예약으로 유지합니다. |
 
 ## 관련 문서
 
