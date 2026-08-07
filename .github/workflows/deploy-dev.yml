@@ -431,13 +431,15 @@ jobs:
 
           source_repository="${GITHUB_REPOSITORY,,}"
           registry_token="$(
-            curl --fail --silent --show-error \
+            curl --fail --silent --show-error --retry 3 --retry-delay 2 \
+              --retry-all-errors --connect-timeout 5 --max-time 30 \
               --user "$GITHUB_ACTOR:$GHCR_TOKEN" \
               "https://ghcr.io/token?scope=repository:${source_repository}:pull" \
               | python3 -c 'import json, sys; print(json.load(sys.stdin)["token"])'
           )"
           source_digest="$(
-            curl --fail --silent --show-error --head \
+            curl --fail --silent --show-error --head --retry 3 --retry-delay 2 \
+              --retry-all-errors --connect-timeout 5 --max-time 30 \
               -H "Authorization: Bearer $registry_token" \
               -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
               "https://ghcr.io/v2/${source_repository}/manifests/sha-${revision}" \
@@ -448,7 +450,7 @@ jobs:
             echo "verified runtime image tag did not resolve to one manifest digest." >&2
             exit 1
           fi
-          gh attestation verify \
+          timeout 60s gh attestation verify \
             "oci://ghcr.io/${source_repository}@${source_digest}" \
             --repo "$GITHUB_REPOSITORY" >/dev/null
 
@@ -459,7 +461,7 @@ jobs:
             exit 1
           fi
           if [[ "$PROMOTE_RUNTIME_IMAGE" == "true" ]]; then
-            az acr import \
+            timeout 600s az acr import \
               --name "$registry_name" \
               --source "ghcr.io/${source_repository}@${source_digest}" \
               --image "fdai:sha-${revision}" \
@@ -467,13 +469,20 @@ jobs:
               --password "$GHCR_TOKEN" \
               --force --only-show-errors --output none
           fi
-          target_digest="$(
-            az acr manifest list-metadata \
-              --registry "$registry_name" \
-              --name fdai \
-              --query "[?tags != null && contains(tags, 'sha-${revision}')].digest | [0]" \
-              --output tsv --only-show-errors
-          )"
+          target_digest=""
+          for attempt in 1 2 3 4 5; do
+            target_digest="$(
+              timeout 30s az acr manifest list-metadata \
+                --registry "$registry_name" \
+                --name fdai \
+                --query "[?tags != null && contains(tags, 'sha-${revision}')].digest | [0]" \
+                --output tsv --only-show-errors || true
+            )"
+            if [[ "$target_digest" == "$source_digest" ]]; then
+              break
+            fi
+            sleep "$((attempt * 2))"
+          done
           if [[ "$target_digest" != "$source_digest" ]]; then
             echo "ACR runtime image digest does not match the verified GHCR subject." >&2
             exit 1

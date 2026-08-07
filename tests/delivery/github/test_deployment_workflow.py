@@ -462,9 +462,12 @@ def test_runner_promotes_only_an_exact_attested_executor_image_before_plan() -> 
     assert "if: ${{ !inputs.apply && inputs.deploy_isolated_executor }}" in step
     assert 'git merge-base --is-ancestor "$revision" "$checkout_revision"' in step
     assert "https://ghcr.io/token?scope=repository:${source_repository}:pull" in step
+    assert step.count("--connect-timeout 5 --max-time 30") == 2
     assert "docker-content-digest" in step
-    assert "gh attestation verify" in step
-    assert "az acr import \\" in step
+    assert "timeout 60s gh attestation verify" in step
+    assert "timeout 600s az acr import \\" in step
+    assert "for attempt in 1 2 3 4 5" in step
+    assert "timeout 30s az acr manifest list-metadata" in step
     assert '--source "ghcr.io/${source_repository}@${source_digest}"' in step
     assert '--image "fdai:sha-${revision}"' in step
     assert 'if [[ "$target_digest" != "$source_digest" ]]' in step
