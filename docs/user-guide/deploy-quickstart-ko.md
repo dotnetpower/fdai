@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 154191ed98e660707c1560282ce52689637c44e1
+translation_source_sha: f5e82151a7059528a957bb06d022f4dadcaaa246
 translation_revised: 2026-08-07
 ---
 
@@ -23,9 +23,10 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
 - 승인된 대상을 `AZURE_SUBSCRIPTION_ID`와 `AZURE_TENANT_ID`로 export합니다. 현재 자격
   증명이나 선택된 `azd` 환경이 이 조합과 다르면, 부트스트랩과 턴키 헬퍼가 아무것도 바꾸기
   전에 중단합니다.
-- 저장소 `Dockerfile`로 빌드한 FDAI 런타임 이미지가 필요합니다.
-  `container-supply-chain.yml`이 생성한 커밋 태그를 `core_image`에 설정하세요. 프로덕션은
-  증명된 다이제스트를 사용하며, Terraform은 예전 Azure CLI 자리표시자를 거부합니다.
+- `container-supply-chain.yml`이 증명한 FDAI runtime image가 필요합니다. Executor plan은
+  `runtime_image_revision`의 GHCR attestation을 검증하고 ACR에 이미 존재하는 동일 digest를
+  bind합니다. 검증된 digest를 plan 전에 import할 때만 `promote_runtime_image=true`를 사용하세요.
+  Exact apply는 image를 promote하거나 rebuild하지 않습니다.
 - 배포 호스트에서 모든 private endpoint로 연결할 수 있어야 합니다. 프라이빗 전용 환경에서는
   운영자 워크스테이션 대신 VNet에 연결된 배포 러너에서 Terraform을 실행하세요. 그 환경의
   Premium 레지스트리도 프라이빗이므로 이미지 빌드와 푸시도 같은 러너에서 하세요.
