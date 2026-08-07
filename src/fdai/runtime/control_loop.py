@@ -121,6 +121,9 @@ from fdai.runtime.delivery import (
     _build_publisher,
     _build_tool_executor,
 )
+from fdai.runtime.isolated_executor_client import (
+    EventBusDirectApiExecutionClient as EventBusDirectApiExecutionClient,
+)
 from fdai.runtime.providers import (
     _build_audit_store,
     _build_idempotency_store,

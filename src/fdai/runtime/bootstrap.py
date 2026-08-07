@@ -108,6 +108,7 @@ from fdai.runtime.consumers import (
     _log_pantheon_exit,
 )
 from fdai.runtime.control_loop import (
+    EventBusDirectApiExecutionClient,
     _build_control_loop,
     _build_irp_event_handler,
     _load_resource_types,
@@ -321,10 +322,6 @@ async def _run() -> int:
                     raise RuntimeError(
                         "isolated Executor authority cutover requires the auxiliary EventBus"
                     )
-                from fdai.runtime.isolated_executor_client import (
-                    EventBusDirectApiExecutionClient,
-                )
-
                 isolated_executor_client = EventBusDirectApiExecutionClient(
                     event_bus=auxiliary_bus,
                     audit_store=incident_audit_store,
