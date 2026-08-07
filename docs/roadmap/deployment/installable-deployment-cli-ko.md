@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: b55c7dc08932bcad14e7cbd791aae25393b436c3
-translation_revised: 2026-08-07
+translation_source_sha: b85389aa73305d590a1db9a315c191a894336a5d
+translation_revised: 2026-08-08
 ---
 # 설치형 배포 CLI
 
@@ -252,8 +252,9 @@ network call을 수행하지 않으며 analyzer의 stable ordering과 shadow-ver
 유지합니다. Machine-readable `terraform show -json` output은 `--terraform-plan`으로 전달합니다.
 Input의 explicit `terraform_resource_type_map`은 `create` action이 있는 managed resource만
 replacement를 포함해 CSP-neutral type으로 변환합니다. Data source, no-op, read, update-only,
-delete-only change는 제외합니다. Mapping되지 않은 created type이 있으면 run은 incomplete가
-되며 resource address 또는 planned value는 report에 들어가지 않습니다.
+delete-only change와 `terraform_data` 같은 Terraform built-in metadata는 제외합니다. Mapping되지
+않은 created provider resource가 있으면 run은 incomplete가 되며 resource address 또는 planned
+value는 report에 들어가지 않습니다.
 
 Bounded live Azure check를 추가하려면 `--environment-config`를 전달합니다. CLI는 validated
 onboarding target을 읽고 local Azure CLI identity를 통해 short-lived ARM token을 얻은 다음,

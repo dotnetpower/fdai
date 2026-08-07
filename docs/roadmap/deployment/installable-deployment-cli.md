@@ -248,8 +248,9 @@ deterministic local probes, performs no network call, and preserves the analyzer
 and shadow-versus-enforce semantics. Pass machine-readable `terraform show -json` output with
 `--terraform-plan`. The input's explicit `terraform_resource_type_map` converts only managed
 resources with a `create` action, including replacements, to CSP-neutral types. Data sources,
-no-op, read, update-only, and delete-only changes are ignored. An unmapped created type makes the
-run incomplete, and resource addresses or planned values never enter the report.
+no-op, read, update-only, delete-only, and Terraform built-in metadata such as `terraform_data`
+are ignored. An unmapped created provider resource makes the run incomplete, and resource
+addresses or planned values never enter the report.
 
 Pass `--environment-config` to add bounded live Azure checks. The CLI reads the validated
 onboarding target, obtains a short-lived ARM token through the local Azure CLI identity, and runs

@@ -179,6 +179,37 @@ def test_plan_conversion_fails_closed_on_unmapped_created_type(tmp_path: Path) -
         load_terraform_plan_resource_types(path, resource_type_map={})
 
 
+def test_plan_conversion_ignores_builtin_terraform_metadata(tmp_path: Path) -> None:
+    path = tmp_path / "plan.json"
+    path.write_text(
+        json.dumps(
+            {
+                "format_version": "1.2",
+                "resource_changes": [
+                    {
+                        "mode": "managed",
+                        "type": "terraform_data",
+                        "change": {"actions": ["create"]},
+                    },
+                    {
+                        "mode": "managed",
+                        "type": "azurerm_managed_disk",
+                        "change": {"actions": ["create"]},
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    resource_types = load_terraform_plan_resource_types(
+        path,
+        resource_type_map={"azurerm_managed_disk": "compute.disk"},
+    )
+
+    assert resource_types == ("compute.disk",)
+
+
 def test_cli_plan_preflight_merges_plan_types_without_exposing_addresses(
     tmp_path: Path,
 ) -> None:

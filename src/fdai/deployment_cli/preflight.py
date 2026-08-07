@@ -37,6 +37,7 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 PREFLIGHT_INPUT_SCHEMA: Final = "fdai.deployment.preflight-input.v1"
 PREFLIGHT_OUTPUT_SCHEMA: Final = "fdai.deployment-cli.preflight.v1"
+_NON_CLOUD_TERRAFORM_RESOURCE_TYPES: Final = frozenset({"terraform_data"})
 
 
 class _PreflightModel(BaseModel):
@@ -218,6 +219,8 @@ def load_terraform_plan_resource_types(
         if resource_change.mode != "managed":
             continue
         if "create" not in resource_change.change.actions:
+            continue
+        if resource_change.type in _NON_CLOUD_TERRAFORM_RESOURCE_TYPES:
             continue
         neutral_type = resource_type_map.get(resource_change.type)
         if neutral_type is None:
