@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FDAI 15-Agent Pantheon Runtime</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #142b3d;
+      --muted: #536979;
+      --page: #edf3f5;
+      --blue: #176baf;
+      --blue-soft: #e9f4fc;
+      --teal: #087f78;
+      --teal-soft: #e5f6f3;
+      --green: #357a38;
+      --green-soft: #edf7ea;
+      --orange: #b65b17;
+      --orange-soft: #fff2e5;
+      --violet: #6550a4;
+      --violet-soft: #f1edfb;
+      --red: #a63d47;
+      --red-soft: #fcecef;
+      --navy: #324c69;
+      --navy-soft: #edf1f6;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        linear-gradient(rgba(33, 78, 98, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(33, 78, 98, 0.045) 1px, transparent 1px),
+        var(--page);
+      background-size: 24px 24px;
+      color: var(--ink);
+      font-family: "Pretendard", "Noto Sans KR", "IBM Plex Sans KR", sans-serif;
+    }
+
+    main { width: min(100%, 1740px); margin: 0 auto; padding: 24px; }
+
+    .diagram-shell {
+      overflow: auto;
+      border: 1px solid #c5d2d9;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.98);
+      box-shadow: 0 18px 60px rgba(20, 43, 61, 0.14);
+    }
+
+    svg { display: block; width: 100%; min-width: 1180px; height: auto; }
+    .title { font-size: 34px; font-weight: 800; fill: var(--ink); }
+    .subtitle { font-size: 15px; font-weight: 550; fill: var(--muted); }
+    .section-label { font-size: 14px; font-weight: 800; fill: var(--ink); }
+    .section-note { font-size: 12px; font-weight: 550; fill: var(--muted); }
+    .agent-name { font-size: 18px; font-weight: 800; fill: var(--ink); }
+    .agent-role { font-size: 12px; font-weight: 750; fill: var(--muted); }
+    .agent-copy { font-size: 12px; font-weight: 550; fill: var(--ink); }
+    .agent-object { font-size: 10.5px; font-weight: 650; fill: var(--muted); }
+    .flow-label { font-size: 10.5px; font-weight: 700; fill: var(--muted); }
+    .platform-title { font-size: 13px; font-weight: 800; fill: var(--ink); }
+    .platform-copy { font-size: 10.5px; font-weight: 550; fill: var(--muted); }
+    .legend-text { font-size: 11px; font-weight: 650; fill: var(--muted); }
+    .boundary-title { font-size: 12px; font-weight: 800; fill: var(--navy); }
+    .boundary-copy { font-size: 10.5px; font-weight: 600; fill: var(--muted); }
+
+    .lane { stroke-width: 1.2; rx: 8; }
+    .lane-operational { fill: #f8fbfc; stroke: #c4d3da; }
+    .lane-domain { fill: #f2faf8; stroke: #9ccdc5; }
+    .lane-governance { fill: #f5f6fa; stroke: #b7c1d0; }
+    .lane-recovery { fill: #fbf7fd; stroke: #c4b8df; }
+
+    .agent-card { fill: #fff; stroke-width: 1.6; rx: 7; filter: url(#shadow); }
+    .card-conversation { stroke: var(--blue); }
+    .card-sensing { stroke: var(--teal); }
+    .card-judgment { stroke: var(--green); }
+    .card-action { stroke: var(--orange); }
+    .card-recovery { stroke: var(--violet); }
+    .card-governance { stroke: var(--navy); }
+
+    .icon-disc { stroke-width: 1.4; }
+    .disc-conversation { fill: var(--blue-soft); stroke: var(--blue); }
+    .disc-sensing { fill: var(--teal-soft); stroke: var(--teal); }
+    .disc-judgment { fill: var(--green-soft); stroke: var(--green); }
+    .disc-action { fill: var(--orange-soft); stroke: var(--orange); }
+    .disc-recovery { fill: var(--violet-soft); stroke: var(--violet); }
+    .disc-governance { fill: var(--navy-soft); stroke: var(--navy); }
+    .icon-letter { font-size: 13px; font-weight: 850; text-anchor: middle; dominant-baseline: central; }
+
+    .edge { fill: none; stroke-width: 2.2; }
+    .edge-event { stroke: var(--teal); marker-end: url(#arrow-event); }
+    .edge-request { stroke: var(--blue); marker-end: url(#arrow-request); }
+    .edge-decision { stroke: var(--green); marker-end: url(#arrow-decision); }
+    .edge-approval { stroke: var(--orange); marker-end: url(#arrow-approval); }
+    .edge-recovery { stroke: var(--violet); marker-end: url(#arrow-recovery); }
+    .edge-audit { stroke: var(--navy); marker-end: url(#arrow-audit); }
+    .edge-read { stroke: #56717f; stroke-dasharray: 6 5; marker-end: url(#arrow-read); }
+    .edge-learning { stroke: var(--red); stroke-dasharray: 7 5; marker-end: url(#arrow-learning); }
+    .edge-bidirectional { marker-start: url(#arrow-small); }
+    .edge-muted { opacity: 0.8; }
+    .pill { rx: 12; }
+    .pill-text { font-size: 10.5px; font-weight: 800; text-anchor: middle; }
+    .platform-card { fill: #fbfcfd; stroke: #acbdc7; stroke-width: 1.2; rx: 6; }
+    .hard-stop { fill: var(--red-soft); stroke: #d7959b; stroke-width: 1.1; rx: 6; }
+
+    @media (max-width: 720px) {
+      main { padding: 8px; }
+      .diagram-shell { border-radius: 4px; }
+      svg { min-width: 1060px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="diagram-shell">
+      <svg viewBox="0 0 1600 1160" role="img" aria-labelledby="diagram-title diagram-description">
+        <title id="diagram-title">FDAI 15개 에이전트의 권한 분리와 typed event 기반 런타임</title>
+        <desc id="diagram-description">Huginn과 Heimdall이 감지하고 Forseti가 판단합니다. Odin은 충돌할 때만 중재합니다. Var는 사람 승인을 전달하고 Thor만 실행합니다. Vidar는 복구하고 Saga는 감사합니다. Njord, Freyr, Loki는 전문 근거를 공급하고 Muninn, Norns, Mimir는 기억, 학습 후보, 규칙 수명 주기를 담당합니다. Bragi는 대화를 typed request로 번역합니다.</desc>
+
+        <defs>
+          <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#142b3d" flood-opacity="0.12"/></filter>
+          <marker id="arrow-event" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#087f78"/></marker>
+          <marker id="arrow-request" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#176baf"/></marker>
+          <marker id="arrow-decision" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#357a38"/></marker>
+          <marker id="arrow-approval" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#b65b17"/></marker>
+          <marker id="arrow-recovery" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#6550a4"/></marker>
+          <marker id="arrow-audit" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#324c69"/></marker>
+          <marker id="arrow-read" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#56717f"/></marker>
+          <marker id="arrow-learning" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#a63d47"/></marker>
+          <marker id="arrow-small" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M10 0L0 5L10 10z" fill="#56717f"/></marker>
+        </defs>
+
+        <rect width="1600" height="1160" fill="#fff"/>
+        <text x="54" y="60" class="title">FDAI 15-Agent Pantheon Runtime</text>
+        <text x="54" y="88" class="subtitle">각 에이전트는 독립적으로 실행되며, 권한을 가진 상태 전이는 schema-validated typed event로만 협업합니다.</text>
+
+        <g transform="translate(1110 32)">
+          <rect width="436" height="70" rx="7" fill="#f5f8fa" stroke="#b8c7d0"/>
+          <text x="20" y="27" class="boundary-title">절대 권한 경계</text>
+          <text x="20" y="49" class="boundary-copy">Forseti 판단 | Var 사람 승인 | Thor 실행 | Vidar 복구 | Saga 감사</text>
+        </g>
+
+        <g aria-label="범례" transform="translate(54 116)">
+          <line x1="0" y1="10" x2="36" y2="10" class="edge edge-event"/><text x="46" y="14" class="legend-text">관찰 event</text>
+          <line x1="150" y1="10" x2="186" y2="10" class="edge edge-decision"/><text x="196" y="14" class="legend-text">판단/결정</text>
+          <line x1="298" y1="10" x2="334" y2="10" class="edge edge-approval"/><text x="344" y="14" class="legend-text">사람 승인</text>
+          <line x1="446" y1="10" x2="482" y2="10" class="edge edge-recovery"/><text x="492" y="14" class="legend-text">복구</text>
+          <line x1="558" y1="10" x2="594" y2="10" class="edge edge-read"/><text x="604" y="14" class="legend-text">읽기/자문</text>
+          <line x1="710" y1="10" x2="746" y2="10" class="edge edge-learning"/><text x="756" y="14" class="legend-text">학습 후보</text>
+        </g>
+
+        <rect x="218" y="300" width="1328" height="220" class="lane lane-operational"/>
+        <text x="238" y="327" class="section-label">권한 경로</text>
+        <text x="325" y="327" class="section-note">감지와 관찰은 실행 권한이 없고, 판단과 실행은 서로 다른 principal입니다.</text>
+        <rect x="478" y="548" width="660" height="176" class="lane lane-domain"/>
+        <text x="498" y="575" class="section-label">도메인 전문 근거</text>
+        <text x="624" y="575" class="section-note">조언만 하며 직접 실행하지 않습니다.</text>
+        <rect x="218" y="766" width="930" height="184" class="lane lane-governance"/>
+        <text x="238" y="793" class="section-label">증거, 기억, 학습, 규칙 거버넌스</text>
+        <rect x="1168" y="548" width="378" height="402" class="lane lane-recovery"/>
+        <text x="1188" y="575" class="section-label">승인과 복구</text>
+
+        <!-- Typed topic flow. These arrows are not direct calls. -->
+        <path d="M178 387H238" class="edge edge-event"/><text x="183" y="374" class="flow-label">외부 signal</text>
+        <path d="M178 220H238" class="edge edge-request"/>
+        <path d="M348 278V300Q348 318 330 318H300V340" class="edge edge-request"/><text x="356" y="298" class="flow-label">typed action proposal</text>
+        <path d="M458 410H518" class="edge edge-event"/><text x="472" y="396" class="flow-label">object.event</text>
+        <path d="M738 410H838" class="edge edge-event"/><text x="753" y="396" class="flow-label">finding</text>
+        <path d="M1058 410H1158" class="edge edge-decision"/><text x="1068" y="396" class="flow-label">auto/hil verdict</text>
+        <path d="M1378 410H1420" class="edge edge-approval"/><text x="1384" y="396" class="flow-label">effect</text>
+        <path d="M1482 478V510H1580V286H138Q110 286 110 316V340" class="edge edge-event edge-muted"/>
+        <text x="1215" y="504" class="flow-label">authoritative effect observation returns through ingress</text>
+        <path d="M948 340V278" class="edge edge-read edge-bidirectional"/><text x="962" y="295" class="flow-label">충돌 시에만 arbitration</text>
+
+        <path d="M348 480V534H590V590" class="edge edge-event"/>
+        <path d="M348 534H806V590" class="edge edge-event"/>
+        <path d="M348 534H1022V590" class="edge edge-event"/>
+        <text x="365" y="525" class="flow-label">bounded event samples / schedule trigger</text>
+        <path d="M590 694V738H858V480" class="edge edge-read"/>
+        <path d="M806 694V738" class="edge edge-read"/>
+        <path d="M1022 590V542H628V480" class="edge edge-event"/>
+        <text x="604" y="728" class="flow-label">cost anomaly + capacity forecast</text>
+        <text x="822" y="550" class="flow-label">chaos experiment</text>
+
+        <path d="M1268 480V590" class="edge edge-approval edge-bidirectional"/><text x="1282" y="542" class="flow-label">HIL only</text>
+        <path d="M1378 450Q1452 450 1452 510V590" class="edge edge-recovery"/><text x="1404" y="482" class="flow-label">failed ActionRun</text>
+        <path d="M1362 660H1344Q1328 660 1328 644V502Q1328 480 1306 480" class="edge edge-recovery"/><text x="1338" y="535" class="flow-label">rollback result</text>
+
+        <path d="M348 278V750H344V808" class="edge edge-read"/><text x="360" y="752" class="flow-label">read-only context</text>
+        <path d="M480 858H454" class="edge edge-audit"/>
+        <path d="M700 858H726" class="edge edge-learning"/><text x="703" y="844" class="flow-label">outcomes</text>
+        <path d="M946 858H972" class="edge edge-learning"/><text x="948" y="844" class="flow-label">inert candidate</text>
+        <path d="M1138 808V754H948V480" class="edge edge-read"/><text x="1042" y="744" class="flow-label">reviewed Rule/Policy</text>
+        <path d="M454 818V756H890V480" class="edge edge-read"/><text x="572" y="748" class="flow-label">state snapshot + context index</text>
+        <path d="M948 480V748H590V808" class="edge edge-audit edge-muted"/>
+        <path d="M1208 480V744H620V808" class="edge edge-audit edge-muted"/>
+        <path d="M1268 694V748H650V808" class="edge edge-audit edge-muted"/>
+        <path d="M1452 694V756H680V808" class="edge edge-audit edge-muted"/>
+        <text x="716" y="777" class="flow-label">decision, approval, execution, recovery, terminal evidence</text>
+
+        <g aria-label="외부 신호와 운영자" transform="translate(42 178)">
+          <rect width="136" height="300" rx="7" fill="#f7fafb" stroke="#9dafba" stroke-width="1.4"/>
+          <text x="16" y="30" class="section-label">External</text><text x="16" y="49" class="section-label">sources</text>
+          <line x1="16" y1="64" x2="120" y2="64" stroke="#d3dde2"/>
+          <text x="16" y="91" class="agent-copy">운영자 질문</text><text x="16" y="122" class="agent-copy">Event / Change</text>
+          <text x="16" y="153" class="agent-copy">Metric / Log</text><text x="16" y="184" class="agent-copy">Inventory signal</text>
+          <text x="16" y="215" class="agent-copy">Schedule trigger</text><text x="16" y="246" class="agent-copy">Provider outcome</text>
+          <rect x="16" y="265" width="104" height="20" class="pill" fill="#e9f4fc"/><text x="68" y="279" class="pill-text" fill="#176baf">권한 없음</text>
+        </g>
+
+        <g id="agent-bragi" data-agent="Bragi" transform="translate(238 162)">
+          <rect width="220" height="116" class="agent-card card-conversation"/><circle cx="28" cy="28" r="16" class="icon-disc disc-conversation"/>
+          <text x="28" y="28" class="icon-letter" fill="#176baf">B</text><text x="52" y="25" class="agent-name">Bragi</text><text x="52" y="43" class="agent-role">Narrator / 대화 번역</text>
+          <text x="16" y="70" class="agent-copy">자연어와 typed tool 사이를 번역</text><text x="16" y="91" class="agent-object">Conversation, Turn, Preference</text><text x="16" y="106" class="agent-object">판단, 승인, 실행 권한 없음</text>
+        </g>
+
+        <g id="agent-odin" data-agent="Odin" transform="translate(838 162)">
+          <rect width="220" height="116" class="agent-card card-judgment"/><circle cx="28" cy="28" r="16" class="icon-disc disc-judgment"/>
+          <text x="28" y="28" class="icon-letter" fill="#357a38">O</text><text x="52" y="25" class="agent-name">Odin</text><text x="52" y="43" class="agent-role">Master Planner / 목표 중재</text>
+          <text x="16" y="70" class="agent-copy">헌법상 가능한 선택지의 충돌 중재</text><text x="16" y="91" class="agent-object">ArbitrationDecision</text><text x="16" y="106" class="agent-object">상시 직렬 단계가 아닌 조건부 경로</text>
+        </g>
+
+        <g id="agent-huginn" data-agent="Huginn" transform="translate(238 340)">
+          <rect width="220" height="140" class="agent-card card-sensing"/><circle cx="28" cy="28" r="16" class="icon-disc disc-sensing"/>
+          <text x="28" y="28" class="icon-letter" fill="#087f78">H</text><text x="52" y="25" class="agent-name">Huginn</text><text x="52" y="43" class="agent-role">Event Collector</text>
+          <text x="16" y="72" class="agent-copy">수집, 정규화, 중복 제거, 상관 분석</text><text x="16" y="94" class="agent-copy">실시간 resource discovery ingress</text>
+          <text x="16" y="119" class="agent-object">owns: Event, Change</text><text x="16" y="134" class="agent-object">판단 또는 실행하지 않음</text>
+        </g>
+
+        <g id="agent-heimdall" data-agent="Heimdall" transform="translate(518 340)">
+          <rect width="220" height="140" class="agent-card card-sensing"/><circle cx="28" cy="28" r="16" class="icon-disc disc-sensing"/>
+          <text x="28" y="28" class="icon-letter" fill="#087f78">H</text><text x="52" y="25" class="agent-name">Heimdall</text><text x="52" y="43" class="agent-role">Observer / 독립 관찰</text>
+          <text x="16" y="72" class="agent-copy">이상, drift, forecast 탐지</text><text x="16" y="94" class="agent-copy">외부 효과를 독립적으로 검증</text>
+          <text x="16" y="119" class="agent-object">owns: Anomaly, Drift, Forecast</text><text x="16" y="134" class="agent-object">ForecastOutcome, RetrievalValidation</text>
+        </g>
+
+        <g id="agent-forseti" data-agent="Forseti" transform="translate(838 340)">
+          <rect width="220" height="140" class="agent-card card-judgment"/><circle cx="28" cy="28" r="16" class="icon-disc disc-judgment"/>
+          <text x="28" y="28" class="icon-letter" fill="#357a38">F</text><text x="52" y="25" class="agent-name">Forseti</text><text x="52" y="43" class="agent-role">Judge / 결정 소유자</text>
+          <text x="16" y="72" class="agent-copy">근거, policy, risk를 평가</text><text x="16" y="94" class="agent-copy">auto / hil / deny verdict 발행</text>
+          <text x="16" y="119" class="agent-object">owns: Verdict, RCA, SecurityEvent</text><text x="16" y="134" class="agent-object">승인 또는 실행하지 않음</text>
+        </g>
+
+        <g id="agent-thor" data-agent="Thor" transform="translate(1158 340)">
+          <rect width="220" height="140" class="agent-card card-action"/><circle cx="28" cy="28" r="16" class="icon-disc disc-action"/>
+          <text x="28" y="28" class="icon-letter" fill="#b65b17">T</text><text x="52" y="25" class="agent-name">Thor</text><text x="52" y="43" class="agent-role">Responder / 유일한 실행자</text>
+          <text x="16" y="72" class="agent-copy">검증된 verdict와 approval을 dispatch</text><text x="16" y="94" class="agent-copy">provider effect를 만드는 sole principal</text>
+          <text x="16" y="119" class="agent-object">owns: ActionRun, ActionAttempt</text><text x="16" y="134" class="agent-object">판단 또는 자기 승인 금지</text>
+        </g>
+
+        <g transform="translate(1420 340)">
+          <rect width="112" height="140" class="platform-card"/><text x="16" y="27" class="platform-title">Provider</text><text x="16" y="46" class="platform-title">targets</text>
+          <text x="16" y="76" class="platform-copy">Azure</text><text x="16" y="95" class="platform-copy">Kubernetes</text><text x="16" y="114" class="platform-copy">Automation</text><text x="16" y="133" class="platform-copy">External API</text>
+        </g>
+
+        <g id="agent-njord" data-agent="Njord" transform="translate(500 590)">
+          <rect width="180" height="104" class="agent-card card-sensing"/><circle cx="26" cy="26" r="14" class="icon-disc disc-sensing"/><text x="26" y="26" class="icon-letter" fill="#087f78">N</text>
+          <text x="48" y="24" class="agent-name">Njord</text><text x="48" y="41" class="agent-role">Cost specialist</text><text x="14" y="67" class="agent-copy">비용 이상과 budget 근거</text><text x="14" y="88" class="agent-object">CostAnomaly, Budget</text>
+        </g>
+
+        <g id="agent-freyr" data-agent="Freyr" transform="translate(716 590)">
+          <rect width="180" height="104" class="agent-card card-sensing"/><circle cx="26" cy="26" r="14" class="icon-disc disc-sensing"/><text x="26" y="26" class="icon-letter" fill="#087f78">F</text>
+          <text x="48" y="24" class="agent-name">Freyr</text><text x="48" y="41" class="agent-role">Capacity specialist</text><text x="14" y="63" class="agent-copy">용량 예측과 sizing 근거</text><text x="14" y="82" class="agent-object">CapacityForecast</text><text x="14" y="96" class="agent-object">SizingRecommendation</text>
+        </g>
+
+        <g id="agent-loki" data-agent="Loki" transform="translate(932 590)">
+          <rect width="180" height="104" class="agent-card card-sensing"/><circle cx="26" cy="26" r="14" class="icon-disc disc-sensing"/><text x="26" y="26" class="icon-letter" fill="#087f78">L</text>
+          <text x="48" y="24" class="agent-name">Loki</text><text x="48" y="41" class="agent-role">Chaos specialist</text><text x="14" y="63" class="agent-copy">복원력 실험 제안, 항상 HIL</text><text x="14" y="82" class="agent-object">ChaosExperiment</text><text x="14" y="96" class="agent-object">ResilienceScore</text>
+        </g>
+
+        <g id="agent-var" data-agent="Var" transform="translate(1188 590)">
+          <rect width="160" height="104" class="agent-card card-action"/><circle cx="26" cy="26" r="14" class="icon-disc disc-action"/><text x="26" y="26" class="icon-letter" fill="#b65b17">V</text>
+          <text x="48" y="24" class="agent-name">Var</text><text x="48" y="41" class="agent-role">Approver</text><text x="14" y="67" class="agent-copy">사람의 승인/거절 전달</text><text x="14" y="88" class="agent-object">owns: Approval</text>
+        </g>
+
+        <g id="agent-vidar" data-agent="Vidar" transform="translate(1362 590)">
+          <rect width="160" height="104" class="agent-card card-recovery"/><circle cx="26" cy="26" r="14" class="icon-disc disc-recovery"/><text x="26" y="26" class="icon-letter" fill="#6550a4">V</text>
+          <text x="48" y="24" class="agent-name">Vidar</text><text x="48" y="41" class="agent-role">Recovery</text><text x="14" y="67" class="agent-copy">rollback과 DR failover</text><text x="14" y="88" class="agent-object">owns: Rollback</text>
+        </g>
+
+        <g transform="translate(1188 728)">
+          <rect width="334" height="112" class="hard-stop"/><text x="16" y="27" class="boundary-title" fill="#7d2730">Mutation fail-closed</text>
+          <text x="16" y="51" class="boundary-copy">Saga 또는 Vidar health receipt가 없으면</text><text x="16" y="70" class="boundary-copy">Thor는 state-changing action을 시작하지 않습니다.</text><text x="16" y="94" class="boundary-copy">실패 시 shadow/no-op으로 낮추고 fail-open하지 않습니다.</text>
+        </g>
+
+        <g id="agent-muninn" data-agent="Muninn" transform="translate(238 808)">
+          <rect width="216" height="112" class="agent-card card-governance"/><circle cx="26" cy="26" r="14" class="icon-disc disc-governance"/><text x="26" y="26" class="icon-letter" fill="#324c69">M</text>
+          <text x="48" y="24" class="agent-name">Muninn</text><text x="48" y="41" class="agent-role">Memory</text><text x="14" y="67" class="agent-copy">상태, context, 사례 이력 보존</text><text x="14" y="89" class="agent-object">StateSnapshot, ContextIndex</text>
+        </g>
+
+        <g id="agent-saga" data-agent="Saga" transform="translate(480 808)">
+          <rect width="220" height="112" class="agent-card card-governance"/><circle cx="26" cy="26" r="14" class="icon-disc disc-governance"/><text x="26" y="26" class="icon-letter" fill="#324c69">S</text>
+          <text x="48" y="24" class="agent-name">Saga</text><text x="48" y="41" class="agent-role">Auditor</text><text x="14" y="67" class="agent-copy">append-only audit와 issue handoff</text><text x="14" y="89" class="agent-object">owns: AuditEntry, Issue</text>
+        </g>
+
+        <g id="agent-norns" data-agent="Norns" transform="translate(726 808)">
+          <rect width="220" height="112" class="agent-card card-governance"/><circle cx="26" cy="26" r="14" class="icon-disc disc-governance"/><text x="26" y="26" class="icon-letter" fill="#324c69">N</text>
+          <text x="48" y="24" class="agent-name">Norns</text><text x="48" y="41" class="agent-role">Learner</text><text x="14" y="67" class="agent-copy">반복 근거에서 비활성 후보 제안</text><text x="14" y="89" class="agent-object">RuleCandidate, PatternObservation</text>
+        </g>
+
+        <g id="agent-mimir" data-agent="Mimir" transform="translate(972 808)">
+          <rect width="166" height="112" class="agent-card card-governance"/><circle cx="26" cy="26" r="14" class="icon-disc disc-governance"/><text x="26" y="26" class="icon-letter" fill="#324c69">M</text>
+          <text x="48" y="24" class="agent-name">Mimir</text><text x="48" y="41" class="agent-role">Rule Steward</text><text x="14" y="67" class="agent-copy">규칙 검토, 승격, 폐기</text><text x="14" y="89" class="agent-object">owns: Rule, Policy</text>
+        </g>
+
+        <g transform="translate(238 963)">
+          <rect width="1284" height="44" rx="6" fill="#edf4f7" stroke="#8fa7b4" stroke-dasharray="5 4"/>
+          <text x="642" y="18" text-anchor="middle" class="boundary-title">Shared Typed Event Bus</text>
+          <text x="642" y="35" text-anchor="middle" class="boundary-copy">화살표는 직접 호출이 아니라 schema-validated publish/subscribe topic 흐름을 뜻합니다.</text>
+        </g>
+
+        <text x="54" y="1045" class="section-label">기반 구성요소</text><text x="148" y="1045" class="section-note">에이전트를 지원하고 제약하지만 스스로 판단하거나 권한을 행사하지 않습니다.</text>
+        <g transform="translate(54 1062)"><rect width="286" height="70" class="platform-card"/><text x="16" y="25" class="platform-title">Operating Ontology</text><text x="16" y="46" class="platform-copy">의미, identity, 관계, 상태, evidence semantic</text><text x="16" y="62" class="platform-copy">권한을 부여하지 않음</text></g>
+        <g transform="translate(356 1062)"><rect width="286" height="70" class="platform-card"/><text x="16" y="25" class="platform-title">Policy engine - OPA/Rego</text><text x="16" y="46" class="platform-copy">Rule 평가 엔진이며 Pantheon agent가 아님</text><text x="16" y="62" class="platform-copy">최종 Verdict owner는 Forseti</text></g>
+        <g transform="translate(658 1062)"><rect width="286" height="70" class="platform-card"/><text x="16" y="25" class="platform-title">Action Ontology</text><text x="16" y="46" class="platform-copy">허용 action, safeguard, expected effect 정의</text><text x="16" y="62" class="platform-copy">action을 선택하거나 실행하지 않음</text></g>
+        <g transform="translate(960 1062)"><rect width="286" height="70" class="platform-card"/><text x="16" y="25" class="platform-title">Evidence and State Stores</text><text x="16" y="46" class="platform-copy">PostgreSQL, event/audit log, context index</text><text x="16" y="62" class="platform-copy">저장은 외부 사실을 스스로 증명하지 않음</text></g>
+        <g transform="translate(1262 1062)"><rect width="284" height="70" class="platform-card"/><text x="16" y="25" class="platform-title">Provider Adapters</text><text x="16" y="46" class="platform-copy">Azure parsing, enrichment, effect delivery</text><text x="16" y="62" class="platform-copy">판단과 승인 권한 없음</text></g>
+      </svg>
+    </div>
+  </main>
+</body>
+</html>
