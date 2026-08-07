@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 8dbb6bc828ba5cb4539decdd3478198bed796a7d
+translation_source_sha: 71fc90a083369bb3f8632f62946b9b174c7c1281
 translation_revised: 2026-08-07
 ---
 # 서비스 분해 실행 계획
@@ -151,6 +151,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-07 | SD-07 | 진행 중 | `0c52be49d` | Opt-in internal Container App IaC, effect 권한이 없는 전용 UAMI, operational command/DLQ/receipt entity, Key Vault-backed durable state, distributed lock DSN 및 internal probe를 구현했습니다. Root Terraform validate, module shadow-boundary test 1/1, authority test 3/3이 통과했고 SD-03 path 변경은 없습니다. Live runner plan/apply, exact-topology smoke 및 timed rollback은 남아 있습니다. |
 | 2026-08-07 | SD-07 | 차단됨 | `f3eb25593`, live gate | Private-runner workflow가 `deploy_isolated_executor`를 노출하고 plan-only 기본값과 design-mocks exclusivity를 보존하며 apply 후 app revision을 검증합니다. Workflow test 24개가 통과했습니다. 상태 commit 직전 측정에서 shared queue pending commit 575개와 `origin/main`보다 50 commit 앞선 local `main`을 기록했으므로 live dispatch는 Integration Validator를 기다립니다. 다음 반증 check는 SD-07 commit의 exact validation receipt와 성공한 push이며 그 후에만 plan-only workflow를 실행합니다. |
 | 2026-08-07 | SD-06 | 완료 | `3d601afbe`, Low residual 후속 조치 | 잘못된 GitHub deployment timestamp는 계속 fail closed하며 이제 provider, record type, reason field만 포함하는 redacted structured warning 하나를 기록합니다. Provider row value, repository identity 및 commit ref는 log에 남기지 않습니다. GitHub change-feed test 9개, Ruff 및 strict mypy가 통과했습니다. 남은 Low residual은 authorized detail projection의 content digest와 400줄 advisory를 1줄 넘는 lineage model입니다. |
+| 2026-08-07 | SD-06 | 완료 | `7dca0e720`, `fe1664664`, `e70273d45`, 최종 Low-only 후속 조치 | Canonical identity serialization을 focused module로 이동하고 exact digest snapshot을 추가해 aggregate lineage model을 401줄에서 340줄로 줄였습니다. Summary/detail direct construction은 forged lineage, candidate, assessment 및 target digest shape를 차단하며 bounded evidence는 canonical assessment reference를 항상 보존합니다. Exact `main`에서 focused lineage/projection/GitHub test 46개, Ruff, strict mypy, Operator boundary gate, signed framework integrity 및 editor diagnostics가 통과했습니다. 독립 review는 Medium 이상 또는 재현 가능한 Low defect가 없음을 확인했습니다. Coarse clock을 위한 non-decreasing equal timestamp는 계속 유효하고 긴 provider identity는 core에서 유효하지만 Operator projection은 display bound를 넘으면 거부하며 authorized content-digest visibility는 HTTP, persistence, provider I/O, execution 또는 promotion path가 없는 의도된 Low replay reference로 유지합니다. |
 
 ## 관련 문서
 
