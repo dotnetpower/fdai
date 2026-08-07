@@ -16,6 +16,8 @@ _MAX_REASON_CHARS = 512
 _MAX_EVIDENCE_REFS = 32
 _MAX_OBJECTIVES = 16
 _MAX_CONSTRAINTS = 32
+_LINEAGE_PREFIX = "change-lineage:"
+_CANDIDATE_PREFIX = "change-learning-candidate:"
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,8 +42,8 @@ class ChangeLineageSummaryProjection:
     promotion_authority: bool = False
 
     def __post_init__(self) -> None:
-        _identity("lineage_id", self.lineage_id)
-        _identity("candidate_id", self.candidate_id)
+        _prefixed_digest("lineage_id", self.lineage_id, prefix=_LINEAGE_PREFIX)
+        _prefixed_digest("candidate_id", self.candidate_id, prefix=_CANDIDATE_PREFIX)
         _identity("change_id", self.change_id)
         _identity("change_source", self.change_source, limit=_MAX_SOURCE_CHARS)
         _identity("change_ref", self.change_ref)
@@ -125,15 +127,15 @@ class ChangeLineageDetailProjection:
     def __post_init__(self) -> None:
         for name, value in (
             ("correlation_id", self.correlation_id),
-            ("assessment_digest", self.assessment_digest),
             ("decision_case_id", self.decision_case_id),
             ("selected_option_id", self.selected_option_id),
             ("action_id", self.action_id),
             ("event_id", self.event_id),
-            ("target_digest", self.target_digest),
             ("outcome_id", self.outcome_id),
         ):
             _identity(name, value)
+        _digest("assessment_digest", self.assessment_digest)
+        _digest("target_digest", self.target_digest)
         _bounded_text(self.decision_reason, _MAX_REASON_CHARS)
         if len(self.decision_reason) > _MAX_REASON_CHARS:
             raise ValueError("change lineage detail decision reason exceeds its reason bound")
@@ -343,6 +345,19 @@ def project_change_lineage_detail(
 def _identity(name: str, value: str, *, limit: int = _MAX_IDENTIFIER_CHARS) -> str:
     if not value.strip() or len(value) > limit:
         raise ValueError(f"change lineage projection {name} MUST be in [1, {limit}] characters")
+    return value
+
+
+def _digest(name: str, value: str) -> str:
+    if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
+        raise ValueError(f"change lineage projection {name} MUST be a lowercase SHA-256 digest")
+    return value
+
+
+def _prefixed_digest(name: str, value: str, *, prefix: str) -> str:
+    if not value.startswith(prefix):
+        raise ValueError(f"change lineage projection {name} MUST start with {prefix!r}")
+    _digest(name, value.removeprefix(prefix))
     return value
 
 

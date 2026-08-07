@@ -185,12 +185,25 @@ def test_projection_rejects_oversized_identity_instead_of_truncating_it() -> Non
 def test_summary_projection_rejects_direct_identity_bound_bypass() -> None:
     summary = project_change_lineage_summary(_lineage())
 
+    with pytest.raises(ValueError, match="lineage_id"):
+        replace(summary, lineage_id="lineage:forged")
+    with pytest.raises(ValueError, match="candidate_id"):
+        replace(summary, candidate_id="candidate:forged")
     with pytest.raises(ValueError, match="change_source"):
         replace(summary, change_source="   ")
     with pytest.raises(ValueError, match="change_ref"):
         replace(summary, change_ref="x" * 513)
     with pytest.raises(ValueError, match="action_type_id"):
         replace(summary, action_type_id="x" * 129)
+
+
+def test_detail_projection_rejects_noncanonical_digest_shapes() -> None:
+    detail = project_change_lineage_detail(_lineage())
+
+    with pytest.raises(ValueError, match="assessment_digest"):
+        replace(detail, assessment_digest="not-a-digest")
+    with pytest.raises(ValueError, match="target_digest"):
+        replace(detail, target_digest="A" * 64)
 
 
 def test_detail_preserves_separate_constraint_counts_when_truncated() -> None:
