@@ -19,12 +19,16 @@ def _fake_az(tmp_path: Path) -> tuple[Path, Path]:
 set -euo pipefail
 printf '%s\n' "$*" >> "$FAKE_AZ_CALLS"
 if [[ "$1 $2" == "account show" ]]; then
-  if [[ "${FAKE_AZ_SHOW_FAIL:-0}" == "1" ]]; then
-    exit 1
-  fi
-  # Real `az ... --query '[id,tenantId]' --output tsv` prints one element per
-  # line. A tab-joined fake hides a parser that only ever reads the first line.
-  printf '%s\n%s\n' "$FAKE_AZ_SUBSCRIPTION" "$FAKE_AZ_TENANT"
+    if [[ " $* " == *" --subscription "* ]]; then
+        if [[ "${FAKE_AZ_SHOW_FAIL:-0}" == "1" ]]; then
+            exit 1
+        fi
+        # Real `az ... --query '[id,tenantId]' --output tsv` prints one element per
+        # line. A tab-joined fake hides a parser that only ever reads the first line.
+        printf '%s\n%s\n' "$FAKE_AZ_SUBSCRIPTION" "$FAKE_AZ_TENANT"
+    else
+        printf '%s\n' "${FAKE_AZ_ACTIVE_TENANT:-$FAKE_AZ_TENANT}"
+    fi
 elif [[ "$1 $2" == "account set" ]]; then
   exit 0
 else
@@ -42,6 +46,7 @@ def _run(
     *,
     actual_subscription: str = "sub-expected",
     actual_tenant: str = "tenant-expected",
+    active_tenant: str | None = None,
     show_fails: bool = False,
 ) -> tuple[subprocess.CompletedProcess[str], str]:
     _binary, calls = _fake_az(tmp_path)
@@ -51,6 +56,7 @@ def _run(
         "FAKE_AZ_CALLS": str(calls),
         "FAKE_AZ_SUBSCRIPTION": actual_subscription,
         "FAKE_AZ_TENANT": actual_tenant,
+        "FAKE_AZ_ACTIVE_TENANT": active_tenant or actual_tenant,
         "FAKE_AZ_SHOW_FAIL": "1" if show_fails else "0",
     }
     result = subprocess.run(  # noqa: S603 - controlled repository script
@@ -69,8 +75,20 @@ def test_exact_context_is_selected_only_after_both_axes_match(tmp_path: Path) ->
 
     assert result.returncode == 0
     assert "exact subscription and tenant verified" in result.stdout
+    assert "account show --query tenantId" in calls
     assert "account show --subscription sub-expected" in calls
     assert "account set --subscription sub-expected" in calls
+
+
+def test_active_tenant_mismatch_blocks_cross_profile_subscription_lookup(
+    tmp_path: Path,
+) -> None:
+    result, calls = _run(tmp_path, active_tenant="tenant-other")
+
+    assert result.returncode == 1
+    assert "active tenant does not match" in result.stderr
+    assert "account show --subscription" not in calls
+    assert "account set" not in calls
 
 
 @pytest.mark.parametrize(

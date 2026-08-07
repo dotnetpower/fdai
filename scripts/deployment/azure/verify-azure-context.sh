@@ -11,6 +11,20 @@ if [[ -z "$expected_subscription" || -z "$expected_tenant" ]]; then
   exit 2
 fi
 
+active_tenant="$({
+  az account show \
+    --query 'tenantId' \
+    --output tsv \
+    --only-show-errors
+} 2>/dev/null)" || {
+  echo "verify-azure-context: active Azure context is unavailable." >&2
+  exit 1
+}
+if [[ -z "$active_tenant" || "$active_tenant" != "$expected_tenant" ]]; then
+  echo "verify-azure-context: active tenant does not match the expected target." >&2
+  exit 1
+fi
+
 account="$({
   az account show \
     --subscription "$expected_subscription" \
