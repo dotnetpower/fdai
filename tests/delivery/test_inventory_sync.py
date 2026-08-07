@@ -8,7 +8,11 @@ from typing import Any
 import httpx
 import pytest
 
-from fdai.delivery.inventory_sync import InventoryStreamError, InventorySyncCoordinator
+from fdai.delivery.inventory_sync import (
+    InventoryStreamError,
+    InventorySyncCoordinator,
+    PromotedInventoryObservation,
+)
 from fdai.shared.providers.inventory import InventoryBatch, ResourceRecord
 from fdai.shared.providers.inventory_snapshot import (
     InventoryAttemptFailure,
@@ -108,6 +112,49 @@ async def test_data_after_fence_is_rejected() -> None:
             ]
         )
     assert error.value.failures[0].code is InventoryFailureCode.PARTIAL
+
+
+async def test_promotion_observer_receives_the_promoted_generation() -> None:
+    store = _Store()
+    observed: list[PromotedInventoryObservation] = []
+
+    async def _record(observation: PromotedInventoryObservation) -> None:
+        observed.append(observation)
+
+    resource = ResourceRecord(resource_id="vm-1", type="compute.vm")
+    await InventorySyncCoordinator(store=store, promotion_observer=_record).run(
+        [_source("arg", _Inventory([InventoryBatch(resources=(resource,), final=True)]))]
+    )
+    assert [item.generation for item in observed] == ["attempt-1"]
+    assert observed[0].resources == (resource,)
+    assert observed[0].complete is True
+
+
+async def test_promotion_observer_is_not_called_for_a_failed_stream() -> None:
+    store = _Store()
+    observed: list[PromotedInventoryObservation] = []
+
+    async def _record(observation: PromotedInventoryObservation) -> None:
+        observed.append(observation)
+
+    with pytest.raises(InventorySourcesExhaustedError):
+        await InventorySyncCoordinator(store=store, promotion_observer=_record).run(
+            [_source("arg", _Inventory([InventoryBatch()]))]
+        )
+    assert observed == []
+
+
+async def test_observer_failure_leaves_the_promotion_intact() -> None:
+    store = _Store()
+
+    async def _explode(observation: PromotedInventoryObservation) -> None:
+        raise RuntimeError("derived projection unavailable")
+
+    result = await InventorySyncCoordinator(store=store, promotion_observer=_explode).run(
+        [_source("arg", _Inventory([InventoryBatch(final=True)]))]
+    )
+    assert result.source == "arg"
+    assert store.promoted == ["attempt-1"]
     assert isinstance(InventoryStreamError("example"), RuntimeError)
 
 

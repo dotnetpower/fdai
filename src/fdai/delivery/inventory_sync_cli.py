@@ -27,18 +27,29 @@ from fdai.delivery.azure.inventory import AzureInventoryConfig, AzureResourceGra
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.event_publisher import EventPublisherContext
 from fdai.delivery.inventory_delta import forward_inventory_delta
-from fdai.delivery.inventory_sync import InventorySyncCoordinator
+from fdai.delivery.inventory_sync import (
+    InventoryPromotionObserver,
+    InventorySyncCoordinator,
+    PromotedInventoryObservation,
+)
 from fdai.delivery.persistence.postgres import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventoryReconciliationGate,
     PostgresInventorySnapshotStore,
     PostgresInventorySnapshotStoreConfig,
 )
+from fdai.delivery.persistence.postgres_ontology import (
+    PostgresOntologyInstanceStore,
+    PostgresOntologyInstanceStoreConfig,
+)
+from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
     load_resource_type_registry_from_mapping,
 )
+from fdai.runtime.inventory_ontology import InventoryOntologyProjector
 from fdai.shared.config.loader import load_config_from_env
+from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.declarative_inventory import (
     DeclarativeInventory,
     DeclarativeInventoryConfig,
@@ -140,6 +151,34 @@ class InventoryJobConfig:
         )
 
 
+def _build_ontology_observer(config: InventoryJobConfig) -> InventoryPromotionObserver | None:
+    """Bind the derived provider-observed subgraph writer for promoted generations.
+
+    The projection is a read model, so an unavailable catalog leaves it unbound
+    instead of blocking authoritative snapshot promotion.
+    """
+    if not _bool_env(os.environ, "FDAI_INVENTORY_ONTOLOGY_PROJECTION", True):
+        return None
+    catalog = load_ontology_catalog(
+        _REPO_ROOT / "rule-catalog",
+        schema_registry=PackageResourceSchemaRegistry(),
+        probes_root=_REPO_ROOT / "rule-catalog" / "probes",
+    )
+    projector = InventoryOntologyProjector(
+        store=PostgresOntologyInstanceStore(
+            config=PostgresOntologyInstanceStoreConfig(dsn=config.dsn),
+            object_types=catalog.object_types,
+            link_types=catalog.link_types,
+        ),
+        status_store=PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn)),
+    )
+
+    async def _observe(observation: PromotedInventoryObservation) -> None:
+        await projector.apply(observation)
+
+    return _observe
+
+
 async def run(config: InventoryJobConfig) -> str:
     """Build configured sources, run ordered fallback, and return the active source."""
 
@@ -227,7 +266,10 @@ async def run(config: InventoryJobConfig) -> str:
                     ),
                 )
             )
-        result = await InventorySyncCoordinator(store=store).run(sources)
+        result = await InventorySyncCoordinator(
+            store=store,
+            promotion_observer=_build_ontology_observer(config),
+        ).run(sources)
         if config.recovery_delta_enabled:
             await _forward_recovery_deltas(
                 config=config,
