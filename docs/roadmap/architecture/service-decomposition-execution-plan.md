@@ -41,9 +41,9 @@ subscribers inside their owning runtime service.
 | State | Count | Meaning |
 |-------|-------|---------|
 | Completed | 4 | Exit evidence and focused validation are recorded. |
-| In progress | 3 | SD-01 and SD-03 run in isolated worktrees; SD-07 runs as serial integration on `main`. |
+| In progress | 2 | SD-01 and SD-03 run in isolated worktrees. |
 | Planned | 3 | Work has not started or an ownership handoff is pending. |
-| Blocked | 0 | A named gate currently prevents progress. |
+| Blocked | 1 | SD-07 waits for centralized validation receipts and a pushable remote commit before live dispatch. |
 
 Last updated: 2026-08-07.
 
@@ -131,7 +131,7 @@ state. For each transition:
 | 2026-08-07 | SD-07 | In progress | `9ff088aec` | The existing `ResourceLock` seam now serializes same-target shadow commands while different targets overlap, exact target identity is used, and handler failure releases the lock. The 59-test focused union passed on the worker and the lock handoff is integrated. Production composition, workload identity, Container App deployment, and live shadow smoke remain open. |
 | 2026-08-07 | SD-07 | In progress | Serial start `b813a227f` | The packaged shadow entry point and explicit deployed-process marker are integrated. Serial IaC now owns only the reserved isolated-Executor module and SD-07-specific root blocks; SD-03 ingestion Terraform remains untouched. |
 | 2026-08-07 | SD-07 | In progress | `0c52be49d` | Opt-in internal Container App IaC, a dedicated no-effect UAMI, operational command/DLQ/receipt entities, Key Vault-backed durable state, distributed lock DSN, and internal probes are implemented. Root Terraform validate passed, the module shadow-boundary test passed 1/1, and authority tests passed 3/3 with no SD-03 path changes. Live runner plan/apply, exact-topology smoke, and timed rollback remain open. |
-| 2026-08-07 | SD-07 | In progress | `f3eb25593`; live gate | The private-runner workflow exposes `deploy_isolated_executor`, preserves plan-only default and design-mocks exclusivity, and verifies the app revision after apply; 24 workflow tests passed. Live dispatch is waiting on the Integration Validator because the shared queue measured 568 pending commits and local `main` is 47 commits ahead of `origin/main`. The next disconfirming check is an exact validation receipt for the SD-07 commits followed by a successful push; only then run the plan-only workflow. |
+| 2026-08-07 | SD-07 | Blocked | `f3eb25593`; live gate | The private-runner workflow exposes `deploy_isolated_executor`, preserves plan-only default and design-mocks exclusivity, and verifies the app revision after apply; 24 workflow tests passed. The pre-status measurement recorded 575 pending commits in the shared queue and local `main` 50 commits ahead of `origin/main`, so live dispatch waits for the Integration Validator. The next disconfirming check is an exact validation receipt for the SD-07 commits followed by a successful push; only then run the plan-only workflow. |
 
 ## Related documents
 
