@@ -77,14 +77,17 @@ cat >"${work_dir}/evidence.json" <<'EOF'
 EOF
 
 jq '[.identities.api.expected_role_assignments[] | {
+  principalId: "api-principal",
   roleDefinitionName: .role_name,
   scope: .scope
 }]' "${work_dir}/evidence.json" >"${work_dir}/api.json"
 jq '[.identities.worker.expected_role_assignments[] | {
+  principalId: "worker-principal",
   roleDefinitionName: .role_name,
   scope: .scope
 }]' "${work_dir}/evidence.json" >"${work_dir}/worker.json"
 jq '[.identities.migration.expected_role_assignments[] | {
+  principalId: "migration-principal",
   roleDefinitionName: .role_name,
   scope: .scope
 }]' "${work_dir}/evidence.json" >"${work_dir}/migration.json"
@@ -92,21 +95,10 @@ jq '[.identities.migration.expected_role_assignments[] | {
 cat >"${work_dir}/bin/az" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-principal=""
-while (( $# > 0 )); do
-  if [[ "$1" == "--assignee" ]]; then
-    principal="$2"
-    break
-  fi
-  shift
-done
-case "${principal}" in
-  api-principal) file="${MOCK_EVIDENCE_DIR}/api.json" ;;
-  worker-principal) file="${MOCK_EVIDENCE_DIR}/worker.json" ;;
-  migration-principal) file="${MOCK_EVIDENCE_DIR}/migration.json" ;;
-  *) exit 2 ;;
-esac
-cat "${file}"
+jq -s 'add' \
+  "${MOCK_EVIDENCE_DIR}/api.json" \
+  "${MOCK_EVIDENCE_DIR}/worker.json" \
+  "${MOCK_EVIDENCE_DIR}/migration.json"
 EOF
 chmod +x "${work_dir}/bin/az"
 
@@ -147,7 +139,11 @@ if bash "${gate}" --evidence-file "${work_dir}/identity-overlap.json" >/dev/null
   exit 1
 fi
 
-jq '. += [{"roleDefinitionName": "Reader", "scope": "/subscriptions/example"}]' \
+jq '. += [{
+  "principalId": "api-principal",
+  "roleDefinitionName": "Reader",
+  "scope": "/subscriptions/example"
+}]' \
   "${work_dir}/api.json" >"${work_dir}/api-extra.json"
 mv "${work_dir}/api-extra.json" "${work_dir}/api.json"
 if PATH="${work_dir}/bin:${PATH}" \

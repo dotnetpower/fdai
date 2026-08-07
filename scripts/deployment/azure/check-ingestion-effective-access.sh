@@ -175,13 +175,13 @@ for identity_name in api worker migration; do
   )"
   actual_raw="$(
     az role assignment list \
-      --assignee "${principal_id}" \
-      --include-inherited \
+      --all \
       --output json \
       --only-show-errors
   )" || fail "Azure RBAC query failed for ${identity_name}"
   actual_assignments="$(
-    jq -ce '
+    jq -ce --arg principal_id "${principal_id}" '
+      map(select((.principalId // "" | ascii_downcase) == ($principal_id | ascii_downcase))) |
       map({role_name: .roleDefinitionName, scope: (.scope | ascii_downcase)}) |
       unique |
       sort_by(.role_name, .scope)
