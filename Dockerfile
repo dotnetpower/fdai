@@ -97,4 +97,6 @@ COPY --chown=65532:65532 alembic/ /app/alembic/
 COPY --chown=65532:65532 alembic.ini /app/alembic.ini
 
 USER 65532
+RUN test -x /app/.venv/bin/fdai-isolated-executor \
+    && python -c "import fdai.runtime.isolated_executor_cli"
 ENTRYPOINT ["python", "-m", "fdai"]

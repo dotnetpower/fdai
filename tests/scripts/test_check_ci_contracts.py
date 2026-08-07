@@ -167,6 +167,11 @@ def test_dockerfile_installs_only_runtime_workspace_packages() -> None:
     assert "COPY benchmarks/cybergym/pyproject.toml" in dockerfile
     assert "uv sync --frozen --package fdai" in dockerfile
     assert "RUN test -x /app/.venv/bin/fdai-isolated-executor" in dockerfile
+    runtime_stage = dockerfile[dockerfile.index("FROM ${BASE_IMAGE_REGISTRY}/library/python@") :]
+    assert runtime_stage.index("USER 65532") < runtime_stage.rindex(
+        "RUN test -x /app/.venv/bin/fdai-isolated-executor"
+    )
+    assert 'python -c "import fdai.runtime.isolated_executor_cli"' in runtime_stage
 
 
 def test_ci_installs_and_audits_the_frozen_runtime_workspace() -> None:
