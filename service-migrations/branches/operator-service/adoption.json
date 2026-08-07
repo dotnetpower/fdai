@@ -1,0 +1,17 @@
+{
+  "service_id": "operator-service",
+  "baseline_revision": "operator_base_20260808",
+  "service_version_table": "alembic_version_operator_service",
+  "adoption_method": "verify-legacy-head-then-stamp",
+  "legacy": {
+    "version_table": "alembic_version",
+    "required_head": "20260806_0077",
+    "revision_count": 79
+  },
+  "rollback": {
+    "required": true,
+    "strategy": "delete-service-version-row",
+    "preserves_legacy_schema": true,
+    "requires_reference": true
+  }
+}

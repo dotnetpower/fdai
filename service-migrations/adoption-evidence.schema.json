@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/fdai/service-migration-adoption-evidence.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "service_id",
+    "observed_legacy_head",
+    "observed_legacy_revision_count",
+    "verified_at",
+    "rollback_reference"
+  ],
+  "properties": {
+    "service_id": {
+      "enum": [
+        "core-control-plane",
+        "operator-service",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor"
+      ]
+    },
+    "observed_legacy_head": {
+      "const": "20260806_0077"
+    },
+    "observed_legacy_revision_count": {
+      "const": 79
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "rollback_reference": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
