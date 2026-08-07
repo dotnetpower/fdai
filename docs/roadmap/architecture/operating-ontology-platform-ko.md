@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 0985b711a640cc5aac026550ffa7021ed83b442b
+translation_source_sha: faae2cb6340e06b41509e81e6d3647e9e776d001
 translation_revised: 2026-08-07
 ---
 # FDAI 온톨로지 안전 인프라
@@ -139,10 +139,20 @@ materialization은 release digest, cutoff, source watermark, truncation reason, 
 
 Property predicate는 `equals`, `not_equals`, `in`, `exists`, `absent`, `at_least`, `at_most`,
 `contains`를 지원합니다. Single-value operator는 `equals`를 사용하고, `in`은 비어 있지 않은
-`values` tuple을 사용하며, presence operator는 operand를 받지 않습니다. Store에는 index
-pushdown을 위해 `equals` predicate만 전달합니다. Direct query와 traversal은 모두 bounded candidate
-graph에 모든 predicate를 다시 적용하고, filter된 endpoint가 있는 link를 제거하며, candidate ceiling
-또는 요청한 result limit에 도달하면 truncation receipt를 유지합니다.
+`values` tuple을 사용하며, single-value operand는 null일 수 없고, presence operator는 operand를
+받지 않습니다. Store에는 index pushdown을 위해 `equals` predicate만 전달합니다. Direct query와
+traversal은 모두 bounded candidate graph에 모든 predicate를 다시 적용하고 filter된 endpoint가 있는
+link를 제거합니다. Predicate operand는 finite number, 최대 32 nesting level, 최대 64 KiB encoded
+data를 갖는 canonical JSON입니다.
+하나의 definition은 최대 32 predicate를 받고, 하나의 `in` predicate는 최대 1000 value를 받으며,
+하나의 traversal은 최대 1000 root와 64 named link type을 받습니다. Traversal 없는 root id와 named
+link type 없는 traversal은 store I/O 전에 차단됩니다.
+
+Materialization은 `result_limit`, `candidate_limit`, `traversal_limit`을 구분합니다.
+`candidate_limit`은 memory filtering이 처음 1000개 store candidate만 확인했다는 뜻이므로 비어 있거나
+짧은 결과를 complete absence claim으로 사용할 수 없습니다. `traversal_limit`은 graph expansion이
+object ceiling에 도달했다는 뜻입니다. In-memory 및 PostgreSQL store는 reached object뿐 아니라 initial
+root에도 요청한 object limit를 동일하게 적용합니다.
 
 ## Semantic action과 mutation plan
 

@@ -36,6 +36,7 @@ from .models import (
     ObjectSelectorKind,
     ObjectSetDefinition,
     ObjectSetMaterialization,
+    ObjectSetTruncationReason,
     ObjectTraversal,
     OntologyInterfaceType,
 )
@@ -73,6 +74,7 @@ __all__ = [
     "ObjectSelectorKind",
     "ObjectSetDefinition",
     "ObjectSetMaterialization",
+    "ObjectSetTruncationReason",
     "ObjectSetService",
     "ObjectTraversal",
     "MutationEffect",

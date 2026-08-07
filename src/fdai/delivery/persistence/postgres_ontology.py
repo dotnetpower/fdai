@@ -468,11 +468,17 @@ class PostgresOntologyInstanceStore:
         async with await self._connect() as connection:
             await self._set_timeout(connection)
             roots = await self._load_objects(connection, identifiers=tuple(root_ids))
-            visited = set(roots)
-            frontier: set[tuple[str, str | None]] = {(root_id, None) for root_id in roots}
+            ordered_root_ids = tuple(
+                dict.fromkeys(root_id for root_id in root_ids if root_id in roots)
+            )
+            allowed_root_ids = ordered_root_ids[:limit]
+            visited = set(allowed_root_ids)
+            frontier: set[tuple[str, str | None]] = {
+                (root_id, None) for root_id in allowed_root_ids
+            }
             expanded: set[tuple[str, str | None]] = set()
             selected_links: dict[tuple[str, str, str], OntologyLinkRecord] = {}
-            truncated = False
+            truncated = len(ordered_root_ids) > limit
             for _ in range(max_depth):
                 states = frontier - expanded
                 if not states:
@@ -508,7 +514,7 @@ class PostgresOntologyInstanceStore:
                     for state in next_states
                     if state[0] in visited or state[0] in allowed_new_ids
                 }
-                if len(edges) > limit or len(visited) >= limit:
+                if len(edges) > limit or truncated:
                     truncated = True
                     break
             objects_by_id = await self._load_objects(connection, identifiers=tuple(sorted(visited)))

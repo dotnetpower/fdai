@@ -136,10 +136,20 @@ and redaction summary.
 
 Property predicates support `equals`, `not_equals`, `in`, `exists`, `absent`, `at_least`,
 `at_most`, and `contains`. Single-value operators use `equals`, `in` uses a non-empty `values`
-tuple, and presence operators accept no operand. The store receives only `equals` predicates for
-indexed pushdown. Both direct queries and traversals apply every predicate again to the bounded
-candidate graph, remove links whose endpoints were filtered out, and preserve a truncation receipt
-when either the candidate ceiling or requested result limit is reached.
+tuple, single-value operands cannot be null, and presence operators accept no operand. The store
+receives only `equals` predicates for indexed pushdown. Both direct queries and traversals apply
+every predicate again to the bounded candidate graph and remove links whose endpoints were
+filtered out. Predicate operands are canonical JSON with finite numbers, at most 32 nesting
+levels, and at most 64 KiB of encoded data.
+One definition accepts at most 32 predicates, one `in` predicate accepts at most 1000 values, and
+one traversal accepts at most 1000 roots and 64 named link types. Root ids without a traversal and
+traversals without a named link type are rejected before store I/O.
+
+Materialization distinguishes `result_limit`, `candidate_limit`, and `traversal_limit`. A
+`candidate_limit` means memory filtering saw only the first 1000 store candidates, so an empty or
+short result is incomplete evidence rather than a complete absence claim. A `traversal_limit`
+means graph expansion reached its object ceiling. The in-memory and PostgreSQL stores both apply
+the requested object limit to initial roots as well as reached objects.
 
 ## Semantic actions and mutation plans
 

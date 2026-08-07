@@ -18,6 +18,7 @@ from .models import (
     ObjectSelectorKind,
     ObjectSetDefinition,
     ObjectSetMaterialization,
+    ObjectSetTruncationReason,
 )
 
 _STORE_QUERY_LIMIT = 1000
@@ -37,6 +38,7 @@ class ObjectSetService:
 
     async def materialize(self, definition: ObjectSetDefinition) -> ObjectSetMaterialization:
         concrete_types = self._resolve_types(definition)
+        source_truncation_reason: ObjectSetTruncationReason | None = None
         if definition.traversal is not None:
             graph = await self._store.traverse(
                 root_ids=definition.root_ids,
@@ -45,6 +47,8 @@ class ObjectSetService:
                 max_depth=definition.traversal.max_depth,
                 limit=definition.limit,
             )
+            if graph.truncated:
+                source_truncation_reason = ObjectSetTruncationReason.TRAVERSAL_LIMIT
         else:
             filters = {
                 item.property: item.equals
@@ -57,18 +61,27 @@ class ObjectSetService:
                 property_equals=filters,
                 limit=_STORE_QUERY_LIMIT if has_memory_predicates else definition.limit,
             )
-        graph = _filter_graph(
+            if graph.truncated:
+                source_truncation_reason = (
+                    ObjectSetTruncationReason.CANDIDATE_LIMIT
+                    if has_memory_predicates
+                    else ObjectSetTruncationReason.RESULT_LIMIT
+                )
+        graph, result_limited = _filter_graph(
             graph,
             concrete_types=concrete_types,
             predicates=definition.predicates,
             limit=definition.limit,
         )
+        truncation_reason = source_truncation_reason
+        if truncation_reason is None and result_limited:
+            truncation_reason = ObjectSetTruncationReason.RESULT_LIMIT
         return ObjectSetMaterialization(
             definition=definition,
             graph=graph,
             concrete_types=concrete_types,
             truncated=graph.truncated,
-            truncation_reason="result_limit" if graph.truncated else None,
+            truncation_reason=truncation_reason,
         )
 
     def _resolve_types(self, definition: ObjectSetDefinition) -> tuple[str, ...]:
@@ -86,20 +99,21 @@ def _filter_graph(
     concrete_types: Sequence[str],
     predicates: Sequence[ObjectPredicate],
     limit: int,
-) -> OntologyGraphSnapshot:
+) -> tuple[OntologyGraphSnapshot, bool]:
     selected_types = set(concrete_types)
     matches = tuple(
         item
         for item in graph.objects
         if item.object_type in selected_types and _matches_all(item, predicates)
     )
-    truncated = graph.truncated or len(matches) > limit
+    result_limited = len(matches) > limit
+    truncated = graph.truncated or result_limited
     selected = matches[:limit]
     selected_ids = {item.id for item in selected}
     links = tuple(
         link for link in graph.links if link.from_id in selected_ids and link.to_id in selected_ids
     )
-    return OntologyGraphSnapshot(objects=selected, links=links, truncated=truncated)
+    return OntologyGraphSnapshot(objects=selected, links=links, truncated=truncated), result_limited
 
 
 def _matches_all(

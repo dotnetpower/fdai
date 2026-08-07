@@ -16,6 +16,7 @@ from fdai.core.ontology_platform import (
     ObjectSelectorKind,
     ObjectSetDefinition,
     ObjectSetService,
+    ObjectSetTruncationReason,
     ObjectTraversal,
     compile_interfaces,
 )
@@ -39,6 +40,7 @@ class _RecordingStore(InMemoryOntologyInstanceStore):
         super().__init__(object_types=object_types, link_types=())
         self.last_property_equals: Mapping[str, Any] | None = None
         self.last_limit: int | None = None
+        self.force_truncated = False
 
     async def query_objects(
         self,
@@ -49,11 +51,18 @@ class _RecordingStore(InMemoryOntologyInstanceStore):
     ) -> OntologyGraphSnapshot:
         self.last_property_equals = property_equals
         self.last_limit = limit
-        return await super().query_objects(
+        graph = await super().query_objects(
             object_types=object_types,
             property_equals=property_equals,
             limit=limit,
         )
+        if self.force_truncated:
+            return OntologyGraphSnapshot(
+                objects=graph.objects,
+                links=graph.links,
+                truncated=True,
+            )
+        return graph
 
 
 def _object_type(name: str = "Resource") -> OntologyObjectType:
@@ -146,10 +155,11 @@ def test_object_predicate_preserves_legacy_equals_and_validates_operands() -> No
     exists = ObjectPredicate(property="note", operator=ObjectPredicateOperator.EXISTS)
 
     assert legacy.operator is ObjectPredicateOperator.EQUALS
-    assert ObjectPredicate(property="status", equals=None).equals is None
     assert member_of.values == ("ready", "blocked")
     for predicate in (legacy, member_of, exists):
         assert ObjectPredicate.model_validate(predicate.model_dump()) == predicate
+        assert ObjectPredicate.model_validate(predicate.model_dump(exclude_none=True)) == predicate
+        assert ObjectPredicate.model_validate_json(predicate.model_dump_json()) == predicate
 
     invalid = (
         {"property": "status"},
@@ -157,10 +167,34 @@ def test_object_predicate_preserves_legacy_equals_and_validates_operands() -> No
         {"property": "status", "operator": "in", "values": ()},
         {"property": "status", "operator": "exists", "equals": "ready"},
         {"property": "status", "operator": "not_equals", "values": ("ready",)},
+        {"property": "status", "equals": None},
     )
     for payload in invalid:
         with pytest.raises(ValidationError, match="object predicate"):
             ObjectPredicate.model_validate(payload)
+
+
+def test_object_predicate_rejects_noncanonical_or_unbounded_operands() -> None:
+    invalid = (
+        {"property": "score", "equals": float("nan")},
+        {"property": "status", "operator": "in", "values": tuple(range(1001))},
+        {"property": "x" * 257, "equals": "value"},
+        {"property": "metadata", "equals": "x" * 65_537},
+    )
+    for payload in invalid:
+        with pytest.raises(ValidationError):
+            ObjectPredicate.model_validate(payload)
+
+
+def test_object_set_rejects_unbounded_or_ignored_query_inputs() -> None:
+    with pytest.raises(ValidationError):
+        _definition(*[ObjectPredicate(property="status", equals="ready")] * 33)
+    with pytest.raises(ValidationError, match="root_ids require traversal"):
+        ObjectSetDefinition.model_validate(
+            {**_definition().model_dump(), "root_ids": ("resource-a",)}
+        )
+    with pytest.raises(ValidationError):
+        ObjectTraversal(link_types=())
 
 
 @pytest.mark.parametrize(
@@ -231,7 +265,27 @@ async def test_query_pushes_down_only_equals_and_reports_post_filter_truncation(
     assert store.last_limit == 1000
     assert [item.id for item in result.graph.objects] == ["resource-a"]
     assert result.truncated is True
-    assert result.truncation_reason == "result_limit"
+    assert result.truncation_reason is ObjectSetTruncationReason.RESULT_LIMIT
+
+
+async def test_query_reports_candidate_limit_before_memory_filtering() -> None:
+    object_type = _object_type()
+    store = _RecordingStore(object_types=(object_type,))
+    await _seed(store)
+    store.force_truncated = True
+
+    result = await _service(store, object_type).materialize(
+        _definition(
+            ObjectPredicate(
+                property="score", operator=ObjectPredicateOperator.AT_LEAST, equals=100
+            ),
+            limit=10,
+        )
+    )
+
+    assert result.graph.objects == ()
+    assert result.truncated is True
+    assert result.truncation_reason is ObjectSetTruncationReason.CANDIDATE_LIMIT
 
 
 async def test_traversal_branch_applies_predicates_and_removes_dangling_links() -> None:
@@ -267,3 +321,20 @@ async def test_traversal_branch_applies_predicates_and_removes_dangling_links() 
     assert [(item.from_id, item.to_id) for item in result.graph.links] == [
         ("resource-c", "resource-b")
     ]
+
+
+async def test_traversal_reports_its_own_limit() -> None:
+    object_type = _object_type()
+    store = InMemoryOntologyInstanceStore(object_types=(object_type,), link_types=())
+    await _seed(store)
+    result = await _service(store, object_type).materialize(
+        _definition(limit=1).model_copy(
+            update={
+                "traversal": ObjectTraversal(link_types=("depends_on",)),
+                "root_ids": ("resource-a", "resource-b"),
+            }
+        )
+    )
+
+    assert result.truncated is True
+    assert result.truncation_reason is ObjectSetTruncationReason.TRAVERSAL_LIMIT
