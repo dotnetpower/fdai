@@ -13,11 +13,12 @@ from pathlib import Path
 from typing import Final
 
 _DIGEST = re.compile(r"^[a-f0-9]{64}$")
+_OCI_DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 _COMMIT = re.compile(r"^[a-f0-9]{40}$")
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
 _MAX_PLAN_BYTES: Final[int] = 512 * 1024 * 1024
 _MAX_METADATA_BYTES: Final[int] = 64 * 1024
-_METADATA_FIELDS = frozenset(
+_BASE_METADATA_FIELDS = frozenset(
     {
         "schema_version",
         "plan_id",
@@ -35,6 +36,7 @@ _METADATA_FIELDS = frozenset(
         "workflow_run_id",
     }
 )
+_RUNTIME_IMAGE_FIELDS = frozenset({"source_revision", "digest"})
 
 
 class PlanVerificationError(RuntimeError):
@@ -70,7 +72,10 @@ def verify_plan(
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise PlanVerificationError("plan metadata is invalid JSON") from exc
-    if not isinstance(metadata, dict) or set(metadata) != _METADATA_FIELDS:
+    if not isinstance(metadata, dict) or set(metadata) not in {
+        _BASE_METADATA_FIELDS,
+        _BASE_METADATA_FIELDS | {"runtime_image"},
+    }:
         raise PlanVerificationError("plan metadata has an unexpected schema")
     if metadata.get("schema_version") != "fdai.deployment-plan.v1":
         raise PlanVerificationError("plan metadata schema version is unsupported")
@@ -101,6 +106,16 @@ def verify_plan(
     if metadata.get("preflight_blocks") is not False:
         raise PlanVerificationError("plan is blocked by deployment preflight")
     _expect(metadata, "commit_sha", expected_commit_sha, _COMMIT)
+    runtime_image = metadata.get("runtime_image")
+    if runtime_image is not None:
+        if not isinstance(runtime_image, dict) or set(runtime_image) != _RUNTIME_IMAGE_FIELDS:
+            raise PlanVerificationError("plan metadata runtime image has an unexpected schema")
+        source_revision = runtime_image.get("source_revision")
+        image_digest = runtime_image.get("digest")
+        if not isinstance(source_revision, str) or _COMMIT.fullmatch(source_revision) is None:
+            raise PlanVerificationError("plan metadata runtime image revision is invalid")
+        if not isinstance(image_digest, str) or _OCI_DIGEST.fullmatch(image_digest) is None:
+            raise PlanVerificationError("plan metadata runtime image digest is invalid")
     if metadata.get("status") != "ready":
         raise PlanVerificationError("plan metadata status is not ready")
     expires_at = _timestamp(metadata.get("expires_at"))

@@ -8,6 +8,7 @@ import re
 import subprocess
 import sys
 import zipfile
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID
@@ -169,7 +170,7 @@ async def test_submit_apply_dispatches_verification_resume() -> None:
     assert submission.submission_id == "125"
 
 
-def _metadata_archive(metadata: dict[str, object]) -> bytes:
+def _metadata_archive(metadata: Mapping[str, object]) -> bytes:
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w") as archive:
         archive.writestr("plan-metadata.json", json.dumps(metadata))
@@ -189,6 +190,10 @@ async def test_get_plan_reads_bounded_digest_only_metadata() -> None:
         "expires_at": (now + timedelta(hours=1)).isoformat().replace("+00:00", "Z"),
         "status": "ready",
         "workflow_run_id": "123",
+        "runtime_image": {
+            "source_revision": "a" * 40,
+            "digest": f"sha256:{'d' * 64}",
+        },
     }
     archive = _metadata_archive(metadata)
 
@@ -218,6 +223,8 @@ async def test_get_plan_reads_bounded_digest_only_metadata() -> None:
     assert record.context is None
     assert record.context_digest == deployment_context_digest(_context())
     assert record.plan_digest == "c" * 64
+    assert record.runtime_image_revision == "a" * 40
+    assert record.runtime_image_digest == f"sha256:{'d' * 64}"
     assert record.status is PlanStatus.READY
 
 

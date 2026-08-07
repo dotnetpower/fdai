@@ -39,6 +39,7 @@ def _write_artifacts(
     root: Path,
     *,
     expires_at: datetime,
+    runtime_image: dict[str, str] | None = None,
 ) -> tuple[Path, Path, Path, Path, Path, str]:
     plan = root / "terraform.plan"
     plan.write_bytes(b"deterministic-plan")
@@ -50,29 +51,25 @@ def _write_artifacts(
     azure_preflight = root / "azure-preflight-evidence.json"
     azure_preflight.write_text('{"schema":"azure.v1"}\n', encoding="utf-8")
     metadata = root / "metadata.json"
-    metadata.write_text(
-        json.dumps(
-            {
-                "schema_version": "fdai.deployment-plan.v1",
-                "plan_id": _PLAN_ID,
-                "plan_digest": digest,
-                "source_artifact_digest": hashlib.sha256(source_artifact.read_bytes()).hexdigest(),
-                "context_digest": _CONTEXT_DIGEST,
-                "preflight_evidence_digest": hashlib.sha256(preflight.read_bytes()).hexdigest(),
-                "azure_preflight_evidence_digest": hashlib.sha256(
-                    azure_preflight.read_bytes()
-                ).hexdigest(),
-                "preflight_blocks": False,
-                "commit_sha": _COMMIT_SHA,
-                "request_id": "plan-request",
-                "created_at": (_NOW - timedelta(minutes=5)).isoformat(),
-                "expires_at": expires_at.isoformat(),
-                "status": "ready",
-                "workflow_run_id": "123",
-            }
-        ),
-        encoding="utf-8",
-    )
+    metadata_payload: dict[str, object] = {
+        "schema_version": "fdai.deployment-plan.v1",
+        "plan_id": _PLAN_ID,
+        "plan_digest": digest,
+        "source_artifact_digest": hashlib.sha256(source_artifact.read_bytes()).hexdigest(),
+        "context_digest": _CONTEXT_DIGEST,
+        "preflight_evidence_digest": hashlib.sha256(preflight.read_bytes()).hexdigest(),
+        "azure_preflight_evidence_digest": hashlib.sha256(azure_preflight.read_bytes()).hexdigest(),
+        "preflight_blocks": False,
+        "commit_sha": _COMMIT_SHA,
+        "request_id": "plan-request",
+        "created_at": (_NOW - timedelta(minutes=5)).isoformat(),
+        "expires_at": expires_at.isoformat(),
+        "status": "ready",
+        "workflow_run_id": "123",
+    }
+    if runtime_image is not None:
+        metadata_payload["runtime_image"] = runtime_image
+    metadata.write_text(json.dumps(metadata_payload), encoding="utf-8")
     return plan, source_artifact, metadata, preflight, azure_preflight, digest
 
 
@@ -114,6 +111,58 @@ def test_matching_unexpired_plan_passes(verify_module: ModuleType, tmp_path: Pat
         azure_preflight,
         digest,
     )
+
+
+def test_matching_runtime_image_evidence_passes(
+    verify_module: ModuleType,
+    tmp_path: Path,
+) -> None:
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
+        tmp_path,
+        expires_at=_NOW + timedelta(minutes=30),
+        runtime_image={"source_revision": "a" * 40, "digest": f"sha256:{'c' * 64}"},
+    )
+
+    _verify(
+        verify_module,
+        plan,
+        source_artifact,
+        metadata,
+        preflight,
+        azure_preflight,
+        digest,
+    )
+
+
+@pytest.mark.parametrize(
+    "runtime_image",
+    [
+        {"source_revision": "bad", "digest": f"sha256:{'c' * 64}"},
+        {"source_revision": "a" * 40, "digest": "bad"},
+        {"source_revision": "a" * 40, "digest": f"sha256:{'c' * 64}", "extra": "x"},
+    ],
+)
+def test_invalid_runtime_image_evidence_fails(
+    verify_module: ModuleType,
+    tmp_path: Path,
+    runtime_image: dict[str, str],
+) -> None:
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
+        tmp_path,
+        expires_at=_NOW + timedelta(minutes=30),
+        runtime_image=runtime_image,
+    )
+
+    with pytest.raises(verify_module.PlanVerificationError, match="runtime image"):
+        _verify(
+            verify_module,
+            plan,
+            source_artifact,
+            metadata,
+            preflight,
+            azure_preflight,
+            digest,
+        )
 
 
 def test_binary_digest_mismatch_fails(verify_module: ModuleType, tmp_path: Path) -> None:

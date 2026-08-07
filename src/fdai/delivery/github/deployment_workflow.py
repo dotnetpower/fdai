@@ -318,6 +318,11 @@ def _plan_record(
     run_id = metadata.get("workflow_run_id")
     if not isinstance(run_id, str) or not run_id.isdigit():
         raise RemoteDeploymentError("GitHub plan metadata workflow run id is invalid")
+    runtime_image = metadata.get("runtime_image")
+    if runtime_image is not None and (
+        not isinstance(runtime_image, dict) or set(runtime_image) != {"source_revision", "digest"}
+    ):
+        raise RemoteDeploymentError("GitHub plan runtime image evidence is malformed")
     try:
         created_at = _timestamp(metadata.get("created_at"))
         expires_at = _timestamp(metadata.get("expires_at"))
@@ -331,6 +336,12 @@ def _plan_record(
             expires_at=expires_at,
             status=status,
             workflow_url=f"https://github.com/{repository}/actions/runs/{run_id}",
+            runtime_image_revision=(
+                str(runtime_image.get("source_revision")) if runtime_image is not None else None
+            ),
+            runtime_image_digest=(
+                str(runtime_image.get("digest")) if runtime_image is not None else None
+            ),
         )
     except (TypeError, ValueError) as exc:
         raise RemoteDeploymentError("GitHub plan metadata fields are invalid") from exc

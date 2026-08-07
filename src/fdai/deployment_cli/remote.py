@@ -77,6 +77,8 @@ class DeploymentPlanRecord:
     status: PlanStatus
     workflow_url: str
     context_digest: str | None = None
+    runtime_image_revision: str | None = None
+    runtime_image_digest: str | None = None
     preflight_blocks: bool = False
     runner_available: bool = True
 
@@ -89,6 +91,22 @@ class DeploymentPlanRecord:
             raise ValueError("plan record MUST include context or context_digest")
         if self.context_digest is not None and _DIGEST.fullmatch(self.context_digest) is None:
             raise ValueError("context_digest MUST be a lowercase SHA-256 digest")
+        if (self.runtime_image_revision is None) != (self.runtime_image_digest is None):
+            raise ValueError("runtime image revision and digest MUST be provided together")
+        if (
+            self.runtime_image_revision is not None
+            and _COMMIT.fullmatch(self.runtime_image_revision) is None
+        ):
+            raise ValueError("runtime_image_revision MUST be a lowercase git SHA")
+        if (
+            self.runtime_image_digest is not None
+            and re.fullmatch(
+                r"sha256:[a-f0-9]{64}",
+                self.runtime_image_digest,
+            )
+            is None
+        ):
+            raise ValueError("runtime_image_digest MUST be a lowercase OCI digest")
         if (
             self.context is not None
             and self.context_digest is not None

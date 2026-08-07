@@ -503,8 +503,10 @@ sensitive state-derived values. The runner stores CLI-requested plans and saniti
 private `deployment-plans` Blob container beside the remote-state container. Uploads use the
 runner managed identity, public access is off, and `overwrite=false` makes each run path immutable.
 Metadata records the plan digest, context digest, exact commit, workflow run, and a one-hour logical
-expiry without tenant, subscription, backend, runner, or secret values. `deploy plan` returns the
-derived plan id, and `deploy status --plan-id <id>` reads the bounded metadata-only artifact. Each
+expiry without tenant, subscription, backend, runner, or secret values. An isolated Executor plan
+also records the verified runtime source revision and OCI digest without a registry endpoint or
+mutable tag. `deploy plan` returns the derived plan id, and `deploy status --plan-id <id>` reads the
+bounded metadata-only artifact, including that optional runtime image evidence. Each
 new plan run scans at most 1001 private blobs and deletes at most 1000 allowlisted plan paths older
 than 24 hours; reaching either bound fails closed without deleting unknown paths.
 

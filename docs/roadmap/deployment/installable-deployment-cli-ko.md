@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 433a4f9602873a437820affba353174a3a3a9149
-translation_revised: 2026-08-03
+translation_source_sha: b55c7dc08932bcad14e7cbd791aae25393b436c3
+translation_revised: 2026-08-07
 ---
 # 설치형 배포 CLI
 
@@ -505,8 +505,10 @@ metadata를 private remote-state container 옆의 `deployment-plans` Blob contai
 Upload는 runner managed identity를 사용하고 public access는 off이며 `overwrite=false`가 각 run
 path를 immutable하게 유지합니다. Metadata는 tenant, subscription, backend, runner, secret value
 없이 plan digest, context digest, exact commit, workflow run, 1시간 logical expiry를 기록합니다.
-`deploy plan`은 derived plan id를 반환하고 `deploy status --plan-id <id>`는 bounded
-metadata-only artifact를 읽습니다. 각 새 plan run은 private blob을 최대 1001개 scan하고 24시간
+Isolated Executor plan은 registry endpoint 또는 mutable tag 없이 verified runtime source revision과
+OCI digest도 기록합니다. `deploy plan`은 derived plan id를 반환하고 `deploy status --plan-id
+<id>`는 해당 optional runtime image evidence를 포함한 bounded metadata-only artifact를 읽습니다.
+각 새 plan run은 private blob을 최대 1001개 scan하고 24시간
 지난 allowlisted plan path를 최대 1000개 삭제합니다. 두 bound 중 하나에 도달하면 unknown
 path를 삭제하지 않고 fail closed합니다.
 
