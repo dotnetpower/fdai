@@ -41,7 +41,7 @@ subscribers inside their owning runtime service.
 | State | Count | Meaning |
 |-------|-------|---------|
 | Completed | 3 | Exit evidence and focused validation are recorded. |
-| In progress | 3 | SD-01, SD-03, and SD-07 are running in isolated worktrees. |
+| In progress | 3 | SD-01 and SD-03 run in isolated worktrees; SD-07 runs as serial integration on `main`. |
 | Planned | 4 | Dependencies or ownership handoff have not completed. |
 | Blocked | 0 | A named gate currently prevents progress. |
 
@@ -99,7 +99,7 @@ sessions use different branches.
 |-------------|---------------|----------------|-------------------|
 | SD-01 application route debt | Existing SD-01 isolated session | `src/fdai/delivery/operator_api/**`, matching Operator API tests and module-map updates | Route-boundary focused commit and receipt handed to the integration owner |
 | SD-03 effective access and rollback | Existing SD-03 isolated session | Ingestion runtime, ingestion-specific Terraform, access probe, and matching tests | Effective-access proof and rollback evidence handed to the integration owner |
-| SD-07 serial finish | Integration owner | Production adapter composition, workload identity, internal Container App, exact-topology shadow smoke, and rollback evidence | Shadow deployment evidence recorded without effect authority; the released `/tmp/fdai-sd07` worker is read-only |
+| SD-07 serial finish | Integration owner on `main` | `infra/modules/isolated-executor/**`; SD-07-only blocks in `infra/main.tf`, `infra/variables.tf`, and `infra/outputs.tf`; matching Terraform tests; production composition and paired docs | Shadow deployment evidence recorded without effect authority; avoid ingestion modules and every SD-03-owned Terraform hunk; the released `/tmp/fdai-sd07` worker is read-only |
 | Serial integration | Integration owner | This plan pair, machine status manifest, cross-package contracts, production composition, pantheon roles, and executor identity cutover | Focused package handoff accepted and dependency status updated |
 
 ## Progress update contract
@@ -128,6 +128,7 @@ state. For each transition:
 | 2026-08-07 | SD-07 | In progress | Start `03f6ef265` on `work/sd07-shadow-executor` | Command/receipt transport and durable shadow-attempt mechanics started in `/tmp/fdai-sd07`. Effect authority, production composition, pantheon roles, and identity cutover remain reserved for serial integration. |
 | 2026-08-07 | SD-07 | In progress | `3b84ee15a`, `800eee04b` | Versioned command/receipt schemas, durable duplicate/reorder/restart/deadline closure, poison-record DLQ, at-least-once receipt publication, supervised health, and no-effect telemetry passed a 55-test focused union on `main`. Logical-target lock evidence, production composition, workload identity, and Container App deployment remain open; effect authority stays unavailable until SD-08. |
 | 2026-08-07 | SD-07 | In progress | `9ff088aec` | The existing `ResourceLock` seam now serializes same-target shadow commands while different targets overlap, exact target identity is used, and handler failure releases the lock. The 59-test focused union passed on the worker and the lock handoff is integrated. Production composition, workload identity, Container App deployment, and live shadow smoke remain open. |
+| 2026-08-07 | SD-07 | In progress | Serial start `b813a227f` | The packaged shadow entry point and explicit deployed-process marker are integrated. Serial IaC now owns only the reserved isolated-Executor module and SD-07-specific root blocks; SD-03 ingestion Terraform remains untouched. |
 
 ## Related documents
 
