@@ -535,6 +535,20 @@ def test_runner_promotes_only_an_exact_attested_executor_image_before_plan() -> 
     )
 
 
+def test_deployment_workflow_embedded_python_is_syntax_valid() -> None:
+    workflow_path = Path(__file__).resolve().parents[3] / ".github" / "workflows" / "deploy-dev.yml"
+    workflow = workflow_path.read_text(encoding="utf-8")
+    snippets = re.findall(r"python3 - <<'PY'\n(?P<body>.*?)\n\s*PY$", workflow, re.M | re.S)
+
+    assert snippets
+    for index, snippet in enumerate(snippets):
+        indentation = min(
+            len(line) - len(line.lstrip()) for line in snippet.splitlines() if line.strip()
+        )
+        source = "\n".join(line[indentation:] for line in snippet.splitlines()) + "\n"
+        compile(source, f"{workflow_path}:heredoc-{index}", "exec")
+
+
 def test_gateway_source_deployment_is_owned_by_the_workflow() -> None:
     root = Path(__file__).resolve().parents[3]
     terraform = (root / "infra" / "main.tf").read_text(encoding="utf-8")

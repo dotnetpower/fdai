@@ -1017,9 +1017,9 @@ jobs:
           import json
           import os
 
-            runtime_image_revision = os.environ.get("FDAI_RUNTIME_IMAGE_REVISION", "")
-            runtime_image_digest = os.environ.get("FDAI_RUNTIME_IMAGE_DIGEST", "")
-            if bool(runtime_image_revision) != bool(runtime_image_digest):
+          runtime_image_revision = os.environ.get("FDAI_RUNTIME_IMAGE_REVISION", "")
+          runtime_image_digest = os.environ.get("FDAI_RUNTIME_IMAGE_DIGEST", "")
+          if bool(runtime_image_revision) != bool(runtime_image_digest):
               raise SystemExit("runtime image plan evidence is incomplete")
           metadata = {
               "schema_version": "fdai.deployment-plan.v1",
@@ -1028,9 +1028,9 @@ jobs:
               "source_artifact_digest": os.environ["SOURCE_ARTIFACT_DIGEST"],
               "context_digest": os.environ["PLAN_CONTEXT_DIGEST"],
               "preflight_evidence_digest": os.environ["PREFLIGHT_EVIDENCE_DIGEST"],
-                "azure_preflight_evidence_digest": os.environ[
+              "azure_preflight_evidence_digest": os.environ[
                   "AZURE_PREFLIGHT_EVIDENCE_DIGEST"
-                ],
+              ],
               "preflight_blocks": False,
               "commit_sha": os.environ["PLAN_COMMIT_SHA"],
               "request_id": os.environ["PLAN_REQUEST_ID"],
@@ -1039,11 +1039,11 @@ jobs:
               "status": "ready",
               "workflow_run_id": os.environ["GITHUB_RUN_ID"],
           }
-              if runtime_image_revision:
-                metadata["runtime_image"] = {
+          if runtime_image_revision:
+              metadata["runtime_image"] = {
                   "source_revision": runtime_image_revision,
                   "digest": runtime_image_digest,
-                }
+              }
           with open("plan-metadata.json", "w", encoding="utf-8") as stream:
               json.dump(metadata, stream, sort_keys=True, separators=(",", ":"))
               stream.write("\n")

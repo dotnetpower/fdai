@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 49a9f4cde34819d17c1b7304a0f5a29c7e7606fa
+translation_source_sha: 260880f7fe5076c1eb31e9e26cfa4e8a2a3cd35c
 translation_revised: 2026-08-08
 ---
 
@@ -426,7 +426,7 @@ Identity를 사용하며 connection string 또는 Storage account key를 만들�
 - **Replica floor**: 기본값은 replica 하나입니다. 검증된 Kafka scaler 없이 0으로 설정하면 Event Hubs 데이터로 깨어나지 않으므로 Terraform은 scale-to-zero를 주장하지 않습니다.
 - **분리 기준**: 목표는 Core, Operator, Ingestion API, Processing Worker, Isolated Executor이며 authority cutover는 [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)의 모든 gate를 따릅니다.
 - **Identity 분리**: Operator API read/command와 ingestion API/worker/migration principal을 분리합니다. Worker는 `aw.pantheon.objects`에서 Saga/Muninn object만 receive하고 `aw.pipeline.stages`로 stage fact를 send합니다. `ingestion_cohost_worker=true`는 두 scope를 API identity로 돌립니다.
-- **Executor 배포와 cutover**: `enable_isolated_executor=true`는 internal app과 ACR pull, command receive, receipt/DLQ send, state-secret read만 가진 전용 UAMI를 프로비저닝합니다. 기본값은 `false`이며 private-runner workflow는 기본 plan-only를 유지하고 attestation 검증용 checksum-pinned GitHub CLI를 설치하며 동일한 ACR digest를 binding하고 latest revision을 health check에 포함합니다. `promote_runtime_image=true`는 rebuild 없이 verified digest를 import하지만 exact apply는 promotion을 거부하고 protected plan만 사용합니다. `enable_isolated_executor_authority_cutover=true`는 development operations gateway도 요구하며 Core의 gateway 및 vertical effect access를 제거하고 isolated identity를 승인하며 Core에는 transport/read access만 유지합니다. `verify_executor_effect=true`는 reversible NSG rule probe를 실행하고 Azure Resource Manager에서 확인하며 duplicate write를 차단하고 offset과 terminal receipt를 기록한 뒤 정리합니다. 900초가 지나면 실패합니다.
+- **Executor 배포와 cutover**: `enable_isolated_executor=true`는 internal app과 ACR pull, command receive, receipt/DLQ send, state-secret read만 가진 전용 UAMI를 프로비저닝합니다. 기본값은 `false`이며 private-runner workflow는 기본 plan-only를 유지하고 checksum-pinned GitHub CLI를 설치하며 embedded plan-metadata code를 syntax-check하고 attestation을 검증한 뒤 동일한 ACR digest를 binding하고 latest revision을 health check에 포함합니다. `promote_runtime_image=true`는 rebuild 없이 verified digest를 import하지만 exact apply는 promotion을 거부하고 protected plan만 사용합니다. `enable_isolated_executor_authority_cutover=true`는 development operations gateway도 요구하며 Core의 gateway 및 vertical effect access를 제거하고 isolated identity를 승인하며 Core에는 transport/read access만 유지합니다. `verify_executor_effect=true`는 reversible NSG rule probe를 실행하고 Azure Resource Manager에서 확인하며 duplicate write를 차단하고 offset과 terminal receipt를 기록한 뒤 정리합니다. 900초가 지나면 실패합니다.
 
 ## 부트스트랩 순서
 
