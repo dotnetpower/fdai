@@ -459,7 +459,7 @@ def build_architecture_behavior_specs(
                     "doc",
                     ".github/instructions/app-shape.instructions.md",
                     "Layer Boundaries (security)",
-                    33,
+                    28,
                     50,
                     authority_role="configuration",
                 ),
