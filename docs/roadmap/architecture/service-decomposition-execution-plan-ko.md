@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 039f026ab22d57b66f541ff16b0553266c382ce9
+translation_source_sha: 6e2b40125ba9587da65be4d29695eb280554a0ec
 translation_revised: 2026-08-07
 ---
 # 서비스 분해 실행 계획
@@ -148,6 +148,7 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-07 | SD-07 | 진행 중 | Serial start `b813a227f` | Package된 shadow entrypoint와 명시적 deployed-process marker를 통합했습니다. Serial IaC는 예약된 isolated-Executor module과 SD-07 전용 root block만 소유하며 SD-03 ingestion Terraform은 변경하지 않습니다. |
 | 2026-08-07 | SD-07 | 진행 중 | `0c52be49d` | Opt-in internal Container App IaC, effect 권한이 없는 전용 UAMI, operational command/DLQ/receipt entity, Key Vault-backed durable state, distributed lock DSN 및 internal probe를 구현했습니다. Root Terraform validate, module shadow-boundary test 1/1, authority test 3/3이 통과했고 SD-03 path 변경은 없습니다. Live runner plan/apply, exact-topology smoke 및 timed rollback은 남아 있습니다. |
 | 2026-08-07 | SD-07 | 차단됨 | `f3eb25593`, live gate | Private-runner workflow가 `deploy_isolated_executor`를 노출하고 plan-only 기본값과 design-mocks exclusivity를 보존하며 apply 후 app revision을 검증합니다. Workflow test 24개가 통과했습니다. 상태 commit 직전 측정에서 shared queue pending commit 575개와 `origin/main`보다 50 commit 앞선 local `main`을 기록했으므로 live dispatch는 Integration Validator를 기다립니다. 다음 반증 check는 SD-07 commit의 exact validation receipt와 성공한 push이며 그 후에만 plan-only workflow를 실행합니다. |
+| 2026-08-07 | SD-06 | 완료 | `3d601afbe`, Low residual 후속 조치 | 잘못된 GitHub deployment timestamp는 계속 fail closed하며 이제 provider, record type, reason field만 포함하는 redacted structured warning 하나를 기록합니다. Provider row value, repository identity 및 commit ref는 log에 남기지 않습니다. GitHub change-feed test 9개, Ruff 및 strict mypy가 통과했습니다. 남은 Low residual은 authorized detail projection의 content digest와 400줄 advisory를 1줄 넘는 lineage model입니다. |
 
 ## 관련 문서
 
