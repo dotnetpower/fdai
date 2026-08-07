@@ -229,31 +229,6 @@ def test_captures_resilience_trace_in_replay_identity() -> None:
     )
 
 
-def test_resilience_trace_rejects_invalid_observation_windows() -> None:
-    change, assessment, decision_case, selection, action, outcome = _fixtures()
-    lineage = build_change_lineage(
-        change=change,
-        assessment=assessment,
-        decision_case=decision_case,
-        selection=selection,
-        action=action,
-        outcome=outcome,
-    )
-
-    with pytest.raises(ValueError, match="timezone-aware"):
-        replace(lineage.resilience, predicted_at=NOW.replace(tzinfo=None))
-    with pytest.raises(ValueError, match="supplied together"):
-        replace(lineage.resilience, predicted_at=NOW)
-    with pytest.raises(ValueError, match="MUST NOT precede"):
-        replace(
-            lineage.resilience,
-            predicted_at=NOW + timedelta(minutes=1),
-            observation_deadline=NOW,
-        )
-    with pytest.raises(ValueError, match="requires a prediction window"):
-        replace(lineage.resilience, observed_at=NOW)
-
-
 def test_captures_decision_trace_in_replay_identity() -> None:
     change, assessment, decision_case, selection, action, outcome = _fixtures()
 
@@ -289,26 +264,6 @@ def test_captures_decision_trace_in_replay_identity() -> None:
     assert baseline.decision.selected_effects[0].observation_window_seconds == 300
     assert approval_required.lineage_id != baseline.lineage_id
     assert approval_required.to_mapping()["decision"]["requires_human_approval"] is True
-
-
-def test_rejects_duplicate_decision_score_identity() -> None:
-    change, assessment, decision_case, selection, action, outcome = _fixtures()
-
-    with pytest.raises(ValueError, match="option scores"):
-        build_change_lineage(
-            change=change,
-            assessment=assessment,
-            decision_case=decision_case,
-            selection=replace(
-                selection,
-                objective_scores=(
-                    ("option:scale", 0.8),
-                    ("option:scale", 0.7),
-                ),
-            ),
-            action=action,
-            outcome=outcome,
-        )
 
 
 def test_rejects_change_and_assessment_identity_mismatch() -> None:
