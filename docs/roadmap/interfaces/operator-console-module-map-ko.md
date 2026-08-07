@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 6cce4874caddb63478699ff17544a6d94f580c00
+translation_source_sha: d6426c525e99b04e516b4a8e6556f7e2849be3b9
 translation_revised: 2026-08-07
 ---
 # Operator Console Module Map and Boundaries
@@ -331,19 +331,20 @@ scope, intent precedence 또는 wire contract는 변경하지 않습니다.
 
 ### 최종 conversation route closure
 
-최종 SD-01 slice는 compiled user policy와 assurance policy resolution을
-`application.conversation.policy`로 이동합니다. One-shot response enrichment, replay metadata,
-opaque metering identity, persistence coordination 및 turn closure는
-`application.conversation.response_completion`에 둡니다. Pure terminal summary와 payload value는
-`projections.conversation.terminal`에 유지합니다. Application coordinator는 transport-neutral payload를
-반환하고 JSON route만 `JSONResponse`를 생성합니다.
+Commit `e141ab07e`은 여섯 file의 structural inventory를 확립하고 compiled user policy,
+assurance policy 및 one-shot response completion을 explicit application owner 뒤로 이동했습니다. Pure
+terminal summary와 payload value는 `projections.conversation.terminal`에 유지하며 conversation
+application, projection 및 persistence package는 route module을 import하지 않습니다.
 
-`chat*.py` route family는 정확히 여섯 file로 구성된 `transport-and-facades` 분류로 닫힙니다:
-`chat.py`, `chat_registration.py`, `chat_stream.py`, `chat_stream_protocol.py`,
-`chat_stream_request.py`, `chat_verification.py`. 앞의 다섯 file은 JSON/SSE transport, registration,
-request parsing, framing, status mapping 및 cancellation을 소유합니다. `chat_verification.py`는 검토된
-source-path facade이고 verification implementation을 포함하지 않습니다. Conversation application,
-projection 및 persistence package는 route module을 import하지 않습니다.
+이는 partial structural closure이며 최종 SD-01 완료가 아닙니다. `chat.py`와 `chat_stream.py`의
+route body는 JSON/SSE transport와 함께 planning, evidence, persistence 및 metering lifecycle 작업을
+여전히 조정하므로 transitional 상태입니다. 나머지 네 file의 structural role은 명시적입니다.
+`chat_registration.py`는 registration, `chat_stream_protocol.py`는 SSE protocol,
+`chat_stream_request.py`는 request transport를 소유하고 `chat_verification.py`는 implementation이 없는
+compatibility facade입니다. `application/conversation/turn_execution` 또는
+`application/conversation/turn_runtime` 아래의 typed application coordination이 두 main route body에서
+lifecycle orchestration을 제거하고 JSON, SSE, authentication, status, frame, cancellation 및 history
+behavior를 보존한 후에만 이 family를 transport-only로 분류합니다.
 
 ### Change lineage projection 경계
 
@@ -379,7 +380,7 @@ signature를 그대로 유지합니다. 이 절차는 wire 또는 caller migrati
 | `adapters/conversation/` | Azure 및 OpenAI-compatible narrator transport와 web-search startup construction | Explicit module로 import하고 credential, endpoint, deployment selection 및 transport는 application과 route 밖에 유지합니다. |
 | `app/` | Shared ASGI assembly, middleware, registration 및 lifespan | HTTP composition boundary로 유지합니다. |
 | `application/` | Typed process-local, non-authoritative application coordination | Service-graduation evidence가 process boundary를 정당화할 때까지 유지합니다. |
-| `application/conversation/` | HTTP transport 밖의 process-local conversation planning, server policy resolution, one-shot response completion, capability visibility, strict intent classification, busy-input steering, interruption 및 capability | Service-graduation evidence가 준비될 때까지 process 안에 유지하고 response construction, connection cancellation과 wire delivery는 route에 둡니다. |
+| `application/conversation/` | HTTP transport 밖의 process-local conversation planning, server policy resolution, one-shot response completion, capability visibility, strict intent classification, busy-input steering, interruption 및 capability. Typed turn execution/runtime coordination은 `chat.py`와 `chat_stream.py`에 남은 lifecycle 작업의 SD-01 destination입니다. | Service-graduation evidence가 준비될 때까지 process 안에 유지합니다. 두 main route body에서 planning, evidence, persistence 및 metering lifecycle orchestration을 추출하고 response construction, connection cancellation과 wire delivery는 route에 둡니다. |
 | `application/conversation/capabilities/` | Domain별 typed process-local agent delegation, runtime-skill, configuration-drift, web-search 및 read-model capability | Non-authoritative capability owner로 유지하고 injected read-only runtime과 provider contract를 사용합니다. |
 | `application/conversation/capabilities/inventory/` | Typed inventory query, deterministic compilation, semantic grounding 및 provider-read coordination | Explicit package facade로 import하고 JSON, SSE, authentication 및 history는 route에 유지합니다. |
 | `application/conversation/backend/` | Provider-neutral backend contract 및 request-local latency routing | Explicit facade로 import하고 provider implementation은 adapter에 유지합니다. |
@@ -400,7 +401,7 @@ signature를 그대로 유지합니다. 이 절차는 wire 또는 caller migrati
 | `projections/conversation/inventory/` | Inventory evidence sanitization, result projection 및 deterministic rendering | Explicit facade로 import하고 query compilation과 provider coordination은 application package에 유지합니다. |
 | `projections/conversation/terminal/` | Terminal payload, LLM usage, resource-result 및 source-failure projection | Explicit facade로 import하고 JSON, SSE, authentication, cancellation 및 history는 route에 유지합니다. |
 | `production/` | Production provider construction 및 binding | Wire behavior를 변경하지 않고 fanout을 점진적으로 줄입니다. |
-| `routes/` | HTTP/SSE transport, route registration, domain request adapter 및 분류된 compatibility facade | Transport 및 검토된 facade boundary로 유지하고 non-transport conversation behavior는 application, projection 또는 persistence owner에 둡니다. |
+| `routes/` | HTTP/SSE transport, route registration, domain request adapter, 분류된 compatibility facade 및 `chat.py`와 `chat_stream.py`에 아직 남은 transitional lifecycle coordination | Transport 및 검토된 facade boundary로 유지하되 transport-only route ownership을 주장하기 전에 남은 planning, evidence, persistence 및 metering lifecycle orchestration을 제거합니다. |
 | `streaming/` | Read-only SSE transport, redaction, fanout 및 runtime projection | Versioned relay 및 replay contract가 준비될 때까지 유지합니다. |
 
 `fdai.delivery.operator_api.main`은 public app facade입니다. `read_model`은 검토된 replacement가 준비될
@@ -511,9 +512,12 @@ frame을 거부합니다.
   이동된 internal helper에는 compatibility shim이 없습니다.
 - `routes/chat_stream_request.py`는 authorization, Content-Length와 raw-body bound, JSON-object
   parsing, application error의 HTTP mapping 및 SSE preparation adapter를 소유합니다.
-- 닫힌 `chat*.py` family에는 `chat.py`, `chat_registration.py`, `chat_stream.py`,
-  `chat_stream_protocol.py`, `chat_stream_request.py` 및 implementation이 없는
-  `chat_verification.py` source-path facade만 포함됩니다.
+- 여섯 file의 `chat*.py` structural inventory에는 `chat.py`, `chat_registration.py`,
+  `chat_stream.py`, `chat_stream_protocol.py`, `chat_stream_request.py` 및 implementation이 없는
+  `chat_verification.py` source-path facade가 포함됩니다. `chat.py`와 `chat_stream.py`는 typed
+  application coordination이 planning, evidence, persistence 및 metering lifecycle 작업을 소유할 때까지
+  transitional 상태입니다. 나머지 네 file은 각각 registration, SSE protocol, request transport 및
+  compatibility-facade owner로 유지됩니다.
 - `application/conversation/capabilities/knowledge_context.py`는 state write 없이 exact prior-turn
   runbook, source freshness, consented
   memory 및 materialized learning을 읽습니다.
