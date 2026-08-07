@@ -41,7 +41,7 @@ subscribers inside their owning runtime service.
 | State | Count | Meaning |
 |-------|-------|---------|
 | Completed | 4 | Exit evidence and focused validation are recorded. |
-| In progress | 2 | SD-01 and SD-03 run in isolated worktrees. |
+| In progress | 2 | SD-01 and SD-03 use persistent isolated worktrees. |
 | Planned | 3 | Work has not started or an ownership handoff is pending. |
 | Blocked | 1 | SD-07 waits for centralized validation receipts and a pushable remote commit before live dispatch. |
 
@@ -94,12 +94,15 @@ sessions use different branches.
   and dependency release; worker sessions do not race those joins.
 - **Validation isolation:** A worker validates only its committed diff or reserved worktree. It
   does not run a changed-file selector over another session's dirty tree.
+- **Persistent worktrees:** Every active worker uses a path under
+  `/home/moonchoi/dev/fdai-worktrees/`. New reservations cannot use `/tmp` because host restart or
+  cleanup can remove a worktree before its handoff evidence is integrated.
 
 | Reservation | Current owner | Reserved paths | Release condition |
 |-------------|---------------|----------------|-------------------|
-| SD-01 application route debt | Existing SD-01 isolated session | `src/fdai/delivery/operator_api/**`, matching Operator API tests and module-map updates | Route-boundary focused commit and receipt handed to the integration owner |
-| SD-03 effective access and rollback | Existing SD-03 isolated session | Ingestion runtime, ingestion-specific Terraform, access probe, and matching tests | Effective-access proof and rollback evidence handed to the integration owner |
-| SD-07 serial finish | Integration owner on `main` | `infra/modules/isolated-executor/**`; SD-07-only blocks in `infra/main.tf`, `infra/variables.tf`, and `infra/outputs.tf`; `deploy_isolated_executor` blocks in `.github/workflows/deploy-dev.yml`; matching Terraform/workflow tests; production composition and paired docs | Shadow deployment evidence recorded without effect authority; avoid ingestion modules and every SD-03-owned Terraform hunk; the released `/tmp/fdai-sd07` worker is read-only |
+| SD-01 remaining route families | Integration owner after the request-preparation handoff | `src/fdai/delivery/operator_api/**`, matching Operator API tests and module-map updates; completed handoffs stay under `/home/moonchoi/dev/fdai-worktrees/` | Reserve the next persistent worker before editing, then hand off one focused route-boundary commit and receipt |
+| SD-03 effective access and rollback | Existing SD-03 isolated session at `/home/moonchoi/dev/fdai-worktrees/sd03-effective-access` | Ingestion runtime, ingestion-specific Terraform, access probe, and matching tests | Effective-access proof and rollback evidence handed to the integration owner |
+| SD-07 serial finish | Integration owner on `main`; prior worker retained at `/home/moonchoi/dev/fdai-worktrees/sd07-shadow-executor` | `infra/modules/isolated-executor/**`; SD-07-only blocks in `infra/main.tf`, `infra/variables.tf`, and `infra/outputs.tf`; `deploy_isolated_executor` blocks in `.github/workflows/deploy-dev.yml`; matching Terraform/workflow tests; production composition and paired docs | Shadow deployment evidence recorded without effect authority; avoid ingestion modules and every SD-03-owned Terraform hunk; the released worker is read-only |
 | Serial integration | Integration owner | This plan pair, machine status manifest, cross-package contracts, production composition, pantheon roles, and executor identity cutover | Focused package handoff accepted and dependency status updated |
 
 ## Progress update contract
@@ -126,6 +129,8 @@ state. For each transition:
 | 2026-08-07 | SD-02 | Completed | `2a82507cb`, `7e15ba084`, `7a48288cb` | Shared execution instances, durable Saga audit readiness, Vidar recovery readiness, normal dispatch, and HIL resume are explicit composition evidence; 122 union tests passed. |
 | 2026-08-07 | SD-04 | Completed | `f5cf51e3a`, `91c88f2a3`, `a5350296e`, `b24c2d90d`, `07161a96c` | Exact release refs, additive N/N-1 compatibility, revision-fenced projection writers, mismatch rejection before provider I/O, and replay-stable atomic generation rollback passed a 142-test focused union. Eight PostgreSQL live cases remained skipped because `FDAI_DATABASE_URL` was unset; the baseline assigns that live generation receipt to SD-05. |
 | 2026-08-07 | SD-05 | Completed | `1c9ce4e94` through `d211570c6`, `b24c2d90d`, `4f01a02e8` | Canonical AST manifests, promoted surfaces, held-out evaluation, concept-first exact Rule refs, atomic generations, rollback, and governed feedback are complete. The focused route passed 105 tests, the lifecycle pack passed 43 tests, and all 12 PostgreSQL generation and parity tests ran without skips. Retrieval retained `execution_authority: false`; SD-06 is dependency-ready. |
+| 2026-08-07 | SD-01 | In progress | `f220eb06f`, `2739e2be6`, `7c18ed513`, `0ab723835`, `64955ba87` | Stream metrics, terminal projections, post-generation orchestration, application capability ownership, and authenticated request preparation moved behind explicit application or projection packages. The latest request-preparation union passed 192 tests, the application/projection reverse-import count is zero, and the scoped boundary gate is green. JSON, SSE, authentication, cancellation, and history wire behavior remain route-owned. Remaining route families and final compatibility classification keep SD-01 open. |
+| 2026-08-07 | Parallel sessions | In progress | Persistent worktree migration | Active SD-03 and retained SD-07 workers moved to `/home/moonchoi/dev/fdai-worktrees/`; all new workers use that persistent root. Temporary worktree paths are no longer valid reservations. |
 | 2026-08-07 | SD-07 | In progress | Start `03f6ef265` on `work/sd07-shadow-executor` | Command/receipt transport and durable shadow-attempt mechanics started in `/tmp/fdai-sd07`. Effect authority, production composition, pantheon roles, and identity cutover remain reserved for serial integration. |
 | 2026-08-07 | SD-07 | In progress | `3b84ee15a`, `800eee04b` | Versioned command/receipt schemas, durable duplicate/reorder/restart/deadline closure, poison-record DLQ, at-least-once receipt publication, supervised health, and no-effect telemetry passed a 55-test focused union on `main`. Logical-target lock evidence, production composition, workload identity, and Container App deployment remain open; effect authority stays unavailable until SD-08. |
 | 2026-08-07 | SD-07 | In progress | `9ff088aec` | The existing `ResourceLock` seam now serializes same-target shadow commands while different targets overlap, exact target identity is used, and handler failure releases the lock. The 59-test focused union passed on the worker and the lock handoff is integrated. Production composition, workload identity, Container App deployment, and live shadow smoke remain open. |
