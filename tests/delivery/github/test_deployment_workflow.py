@@ -357,6 +357,9 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert '"effect_verified": True' in workflow
     assert '"rollback_verified": True' in workflow
     assert "authority-effect-receipt.json" in workflow
+    assert "APPLY_RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}" in workflow
+    assert "protected plan runtime image evidence does not match apply input" in workflow
+    assert 'echo "TF_VAR_core_image=${login_server}/fdai@${runtime_digest}"' in workflow
     assert "DEPLOY_ISOLATED_EXECUTOR: ${{ inputs.deploy_isolated_executor }}" in workflow
     assert '|| "$DEPLOY_ISOLATED_EXECUTOR" == "true"' in workflow
     assert "ref: ${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}" in workflow

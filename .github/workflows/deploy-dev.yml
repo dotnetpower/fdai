@@ -1101,6 +1101,7 @@ jobs:
           APPLY_COMMIT_SHA: ${{ inputs.commit_sha }}
           APPLY_PLAN_ID: ${{ inputs.plan_id }}
           APPLY_PLAN_DIGEST: ${{ inputs.plan_digest }}
+          APPLY_RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
         run: |
           set -euo pipefail
           blob_prefix="${TF_VAR_env}/${APPLY_PLAN_ID}"
@@ -1139,6 +1140,21 @@ jobs:
             --azure-preflight-evidence plan-azure-preflight-evidence.json \
             --plan-id "$APPLY_PLAN_ID" --plan-digest "$APPLY_PLAN_DIGEST" \
             --context-digest "$APPLY_CONTEXT_DIGEST" --commit-sha "$APPLY_COMMIT_SHA"
+          read -r runtime_revision runtime_digest < <(
+            python3 -c 'import json; runtime=json.load(open("plan-metadata.json", encoding="utf-8")).get("runtime_image"); isinstance(runtime, dict) or (_ for _ in ()).throw(SystemExit("protected plan runtime image evidence is missing")); print(runtime.get("source_revision", ""), runtime.get("digest", ""))'
+          )
+          if [[ "$runtime_revision" != "$APPLY_RUNTIME_IMAGE_REVISION" \
+            || ! "$runtime_revision" =~ ^[0-9a-f]{40}$ \
+            || ! "$runtime_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "protected plan runtime image evidence does not match apply input." >&2
+            exit 1
+          fi
+          login_server="$(terraform output -raw container_registry_login_server)"
+          {
+            echo "TF_VAR_core_image=${login_server}/fdai@${runtime_digest}"
+            echo "FDAI_RUNTIME_IMAGE_REVISION=${runtime_revision}"
+            echo "FDAI_RUNTIME_IMAGE_DIGEST=${runtime_digest}"
+          } >> "$GITHUB_ENV"
 
       - name: Claim exact plan apply
         if: ${{ inputs.apply && !inputs.resume_verification }}
