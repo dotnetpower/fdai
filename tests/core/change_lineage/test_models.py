@@ -483,3 +483,45 @@ def test_record_requires_canonical_assessment_evidence_ref() -> None:
 
     with pytest.raises(ValueError, match="assessment evidence"):
         replace(lineage, lineage_id=lineage_id, evidence_refs=evidence_refs)
+
+
+def test_record_rejects_conflicting_selected_option_identities() -> None:
+    change, assessment, decision_case, selection, action, outcome = _fixtures()
+    lineage = build_change_lineage(
+        change=change,
+        assessment=assessment,
+        decision_case=decision_case,
+        selection=selection,
+        action=action,
+        outcome=outcome,
+    )
+    selected_option_id = "option:other"
+    lineage_id = compute_change_lineage_id(
+        change_id=lineage.change_id,
+        change_source=lineage.change_source,
+        change_ref=lineage.change_ref,
+        correlation_id=lineage.correlation_id,
+        assessment_digest=lineage.assessment_digest,
+        decision_case_id=lineage.decision_case_id,
+        selected_option_id=selected_option_id,
+        action_id=lineage.action_id,
+        event_id=lineage.event_id,
+        action_type_id=lineage.action_type_id,
+        target_digest=lineage.target_digest,
+        outcome_id=lineage.outcome_id,
+        outcome_label=lineage.outcome_label,
+        change_at=lineage.change_at,
+        decision_at=lineage.decision_at,
+        action_at=lineage.action_at,
+        outcome_at=lineage.outcome_at,
+        decision=lineage.decision,
+        resilience=lineage.resilience,
+        evidence_refs=lineage.evidence_refs,
+    )
+
+    with pytest.raises(ValueError, match="selected option"):
+        replace(
+            lineage,
+            lineage_id=lineage_id,
+            selected_option_id=selected_option_id,
+        )

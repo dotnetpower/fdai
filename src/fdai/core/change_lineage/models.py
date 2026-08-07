@@ -96,6 +96,8 @@ class ChangeLineageRecord:
         )
         if self.lineage_id != expected_lineage_id:
             raise ValueError("change lineage lineage_id does not match its identity material")
+        if self.selected_option_id != self.decision.selected_option_id:
+            raise ValueError("change lineage selected option identities MUST match")
         if any(
             value.tzinfo is None
             for value in (self.change_at, self.decision_at, self.action_at, self.outcome_at)
