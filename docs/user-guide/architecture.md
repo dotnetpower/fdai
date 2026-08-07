@@ -22,6 +22,23 @@ its deterministic safety checks.
 > contract, so the core never imports an Azure SDK and you can move to another
 > host without rewriting decision logic.
 
+## Governed automation flow
+
+Start with the conceptual view when you need to explain how an operator's
+natural-language intent becomes a governed action. It separates language
+understanding, semantic context, policy judgment, action selection, execution,
+feedback, and durable stores without tying the explanation to Azure resource
+placement.
+
+<fdai-architecture-diagram manifest="../diagrams/generated/fdai-conceptual-control-loop.manifest.json" locale="en" style="display:block">
+  <img src="../diagrams/generated/fdai-conceptual-control-loop.en.svg" alt="Six stages run from an operator question through language understanding, dynamic ontology, policy evaluation, action selection, and execution. Shared context supports an ontology, policy engine, action catalog, and execution targets. Results flow through a feedback loop into four governed data stores." loading="eager" style="display:block;width:100%;height:auto" />
+</fdai-architecture-diagram>
+
+The numbered cards show the primary path. The lower surfaces expand the same
+concepts into shared context, typed semantics, deterministic policy, registered
+actions, execution targets, measured outcomes, and durable evidence. Use the
+reference architecture next when you need authority and deployment boundaries.
+
 ## Reference architecture
 
 Use the reference view to identify system scope, authority boundaries, and

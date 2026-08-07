@@ -11,14 +11,20 @@ test("architecture pages keep localized static fallbacks", async () => {
   ]);
 
   assert.match(english, /diagrams\/generated\/fdai-system-overview\.manifest\.json/);
+  assert.match(
+    english,
+    /diagrams\/generated\/fdai-conceptual-control-loop\.manifest\.json/,
+  );
   assert.match(english, /fdai-system-overview\.en\.svg/);
+  assert.match(english, /fdai-conceptual-control-loop\.en\.svg/);
   assert.match(english, /locale="en"/);
   assert.match(korean, /diagrams\/generated\/fdai-system-overview\.ko\.svg/);
+  assert.match(korean, /fdai-conceptual-control-loop\.ko\.svg/);
   assert.match(korean, /locale="ko"/);
 });
 
 test("generated viewer and bilingual manifest are present", async () => {
-  const [viewer, manifestSource] = await Promise.all([
+  const [viewer, manifestSource, conceptualManifestSource] = await Promise.all([
     readFile(new URL("public/diagrams/architecture-diagram.js", root), "utf8"),
     readFile(
       new URL(
@@ -27,11 +33,24 @@ test("generated viewer and bilingual manifest are present", async () => {
       ),
       "utf8",
     ),
+    readFile(
+      new URL(
+        "public/diagrams/generated/fdai-conceptual-control-loop.manifest.json",
+        root,
+      ),
+      "utf8",
+    ),
   ]);
   const manifest = JSON.parse(manifestSource);
+  const conceptualManifest = JSON.parse(conceptualManifestSource);
 
   assert.match(viewer, /fdai-architecture-diagram/);
   assert.equal(manifest.assets.en.svg, "fdai-system-overview.en.svg");
   assert.equal(manifest.assets.ko.svg, "fdai-system-overview.ko.svg");
   assert.ok(manifest.nodes.length > 10);
+  assert.equal(
+    conceptualManifest.assets.ko.svg,
+    "fdai-conceptual-control-loop.ko.svg",
+  );
+  assert.ok(conceptualManifest.nodes.some((node) => node.content?.length));
 });

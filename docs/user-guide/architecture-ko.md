@@ -4,8 +4,8 @@ description: FDAI의 15개 에이전트 조직이 이벤트 기반 컨트롤 플
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: b44e6fc6ae9c95e22ceb4288765342460e4850ef
-translation_revised: 2026-08-03
+translation_source_sha: 62ce6d7dbec9ecaec2bf88320a46a55307ff3dbe
+translation_revised: 2026-08-08
 ---
 
 # FDAI 아키텍처
@@ -23,6 +23,20 @@ request로 도착하고, 승인은 채팅에서 이루어집니다.
 > 구현 대상은 Azure입니다. 모든 클라우드 호출은 provider 계약을 거치므로 core는 Azure
 > SDK를 직접 가져오지 않고, 나중에 다른 호스트로 옮겨도 판단 로직을 다시 쓸 필요가
 > 없습니다.
+
+## 통제형 자동화 흐름
+
+운영자의 자연어 의도가 통제된 작업으로 바뀌는 과정을 설명할 때는 개념 보기를 먼저
+사용하세요. 언어 이해, 의미 컨텍스트, 정책 판단, 작업 선택, 실행, 피드백 및 영구 저장소를
+Azure 리소스 배치와 분리해서 보여 줍니다.
+
+<fdai-architecture-diagram manifest="../../diagrams/generated/fdai-conceptual-control-loop.manifest.json" locale="ko" style="display:block">
+  <img src="../../diagrams/generated/fdai-conceptual-control-loop.ko.svg" alt="운영자 질문이 언어 이해, 동적 온톨로지, 정책 평가, 작업 선택, 실행의 여섯 단계를 통과합니다. 공유 컨텍스트가 온톨로지, 정책 엔진, 작업 카탈로그, 실행 대상을 지원하며 실행 결과는 피드백 루프를 거쳐 네 개의 통제된 데이터 저장소에 기록됩니다." loading="eager" style="display:block;width:100%;height:auto" />
+</fdai-architecture-diagram>
+
+번호가 있는 카드는 기본 경로를 보여 줍니다. 아래 영역은 같은 개념을 공유 컨텍스트,
+타입 의미 체계, 결정론적 정책, 등록된 작업, 실행 대상, 측정된 결과 및 영구 근거로
+확장합니다. 권한과 배포 경계를 확인하려면 이어서 참조 아키텍처를 사용하세요.
 
 ## 참조 아키텍처
 
