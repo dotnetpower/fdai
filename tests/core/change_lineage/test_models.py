@@ -254,6 +254,63 @@ def test_resilience_trace_rejects_invalid_observation_windows() -> None:
         replace(lineage.resilience, observed_at=NOW)
 
 
+def test_captures_decision_trace_in_replay_identity() -> None:
+    change, assessment, decision_case, selection, action, outcome = _fixtures()
+
+    baseline = build_change_lineage(
+        change=change,
+        assessment=assessment,
+        decision_case=decision_case,
+        selection=selection,
+        action=action,
+        outcome=outcome,
+    )
+    approval_required = build_change_lineage(
+        change=change,
+        assessment=assessment,
+        decision_case=decision_case,
+        selection=replace(
+            selection,
+            requires_human_approval=True,
+            reason="selected after human review",
+        ),
+        action=action,
+        outcome=outcome,
+    )
+
+    assert baseline.decision.context_snapshot_id == "context:1"
+    assert baseline.decision.option_scores == (("option:scale", 0.8),)
+    assert baseline.decision.margin == 0.8
+    assert baseline.decision.requires_human_approval is False
+    assert baseline.decision.reason == "selected"
+    assert baseline.decision.protected_objective_ids == ("objective:availability",)
+    assert baseline.decision.active_constraint_ids == ("constraint:one",)
+    assert baseline.decision.selected_effects[0].objective_id == "objective:availability"
+    assert baseline.decision.selected_effects[0].observation_window_seconds == 300
+    assert approval_required.lineage_id != baseline.lineage_id
+    assert approval_required.to_mapping()["decision"]["requires_human_approval"] is True
+
+
+def test_rejects_duplicate_decision_score_identity() -> None:
+    change, assessment, decision_case, selection, action, outcome = _fixtures()
+
+    with pytest.raises(ValueError, match="option scores"):
+        build_change_lineage(
+            change=change,
+            assessment=assessment,
+            decision_case=decision_case,
+            selection=replace(
+                selection,
+                objective_scores=(
+                    ("option:scale", 0.8),
+                    ("option:scale", 0.7),
+                ),
+            ),
+            action=action,
+            outcome=outcome,
+        )
+
+
 def test_rejects_change_and_assessment_identity_mismatch() -> None:
     change, assessment, decision_case, selection, action, outcome = _fixtures()
 
