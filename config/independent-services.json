@@ -40,7 +40,7 @@
     },
     {
       "id": "isolated-executor",
-      "current_source_roots": ["src/fdai/runtime/isolated_executor.py", "src/fdai/runtime/isolated_executor_cli.py", "src/fdai/runtime/isolated_executor_runtime.py"],
+      "current_source_roots": ["services/isolated-executor/src/fdai_executor_service"],
       "target_package": "services/isolated-executor",
       "entrypoint": "fdai-isolated-executor",
       "target_image": "fdai-isolated-executor",
@@ -66,21 +66,21 @@
     "ingestion_files_importing_core": 5,
     "executor_files_importing_core": 2,
     "service_python_distributions": 5,
-    "service_images": 0,
-    "service_terraform_roots": 0,
-    "service_migration_branches": 0,
+    "service_images": 5,
+    "service_terraform_roots": 5,
+    "service_migration_branches": 5,
     "independent_upgrade_and_rollback_proofs": 0,
-    "service_wrapper_implementation_imports": 5
+    "service_forbidden_implementation_import_files": 6
   },
   "work_packages": [
     {"id": "IS-00", "status": "completed", "dependencies": []},
     {"id": "IS-01", "status": "completed", "dependencies": ["IS-00"]},
     {"id": "IS-02", "status": "completed", "dependencies": ["IS-01"]},
     {"id": "IS-03", "status": "planned", "dependencies": ["IS-01", "IS-02"]},
-    {"id": "IS-04", "status": "planned", "dependencies": ["IS-02"]},
-    {"id": "IS-05", "status": "planned", "dependencies": ["IS-02", "IS-03"]},
-    {"id": "IS-06", "status": "planned", "dependencies": ["IS-04", "IS-05"]},
-    {"id": "IS-07", "status": "planned", "dependencies": ["IS-03", "IS-06"]},
+    {"id": "IS-04", "status": "in_progress", "dependencies": ["IS-02"]},
+    {"id": "IS-05", "status": "in_progress", "dependencies": ["IS-02", "IS-03"]},
+    {"id": "IS-06", "status": "in_progress", "dependencies": ["IS-04", "IS-05"]},
+    {"id": "IS-07", "status": "in_progress", "dependencies": ["IS-03", "IS-06"]},
     {"id": "IS-08", "status": "planned", "dependencies": ["IS-07"]},
     {"id": "IS-09", "status": "planned", "dependencies": ["IS-08"]}
   ]

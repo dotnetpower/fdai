@@ -35,11 +35,12 @@ def _count_files_importing(root: Path, prefix: str, pattern: str = "*.py") -> in
     return sum(1 for path in root.rglob(pattern) if _imports_prefix(path, prefix))
 
 
-def _count_service_wrapper_imports() -> int:
+def _count_service_forbidden_imports() -> int:
+    forbidden = ("fdai.core", "fdai.agents", "fdai.runtime", "fdai.delivery")
     return sum(
         1
-        for path in (REPO_ROOT / "services").glob("*/src/*/main.py")
-        if _imports_prefix(path, "fdai.")
+        for path in set((REPO_ROOT / "services").glob("*/src/**/*.py"))
+        if any(_imports_prefix(path, prefix) for prefix in forbidden)
     )
 
 
@@ -103,11 +104,11 @@ def validate() -> None:
     for key, value in measured.items():
         if value > int(baseline[key]):
             raise ValueError(f"{key} grew from {baseline[key]} to {value}")
-    wrapper_imports = _count_service_wrapper_imports()
-    if wrapper_imports > int(baseline["service_wrapper_implementation_imports"]):
+    forbidden_imports = _count_service_forbidden_imports()
+    if forbidden_imports > int(baseline["service_forbidden_implementation_import_files"]):
         raise ValueError(
-            "service_wrapper_implementation_imports grew from "
-            f"{baseline['service_wrapper_implementation_imports']} to {wrapper_imports}"
+            "service_forbidden_implementation_import_files grew from "
+            f"{baseline['service_forbidden_implementation_import_files']} to {forbidden_imports}"
         )
     targets = manifest["independence_targets"]
     if targets["cross_service_implementation_imports"] != 0:
@@ -128,7 +129,7 @@ def validate() -> None:
         f"(services=5 operator_core={measured['operator_files_importing_core']} "
         f"ingestion_core={measured['ingestion_files_importing_core']} "
         f"executor_core={measured['executor_files_importing_core']} "
-        f"wrapper_impl={wrapper_imports})"
+        f"service_forbidden={forbidden_imports})"
     )
 
 
