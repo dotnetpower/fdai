@@ -1586,10 +1586,11 @@ jobs:
           run_probe() {
             local operation="$1"
             local key="$2"
+            local issued_at="$3"
             local exec_command
             printf -v exec_command '%q ' az containerapp exec \
               --name "$core_app" --resource-group "$rg" \
-              --command "fdai-executor-authority-probe --transport $transport --operation $operation --resource-group $rg --nsg-name $nsg --rule-name $rule --idempotency-key $key --issued-at $observed_started_at"
+              --command "fdai-executor-authority-probe --transport $transport --operation $operation --resource-group $rg --nsg-name $nsg --rule-name $rule --idempotency-key $key --issued-at $issued_at"
             script --quiet --return --command "$exec_command" /dev/null
           }
           json_line() {
@@ -1626,12 +1627,12 @@ jobs:
           }
 
           upsert_key="sd08-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-upsert"
-          upsert_output="$(run_probe upsert "$upsert_key")"
+          upsert_output="$(run_probe upsert "$upsert_key" "$observed_started_at")"
           upsert_json="$(printf '%s\n' "$upsert_output" | json_line | tail -1)"
           [[ -n "$upsert_json" ]] || { echo "authority probe returned no receipt" >&2; exit 1; }
           wait_present || { echo "independent ARM observer did not see the probe rule" >&2; exit 1; }
 
-          duplicate_output="$(run_probe upsert "$upsert_key")"
+          duplicate_output="$(run_probe upsert "$upsert_key" "$observed_started_at")"
           duplicate_json="$(printf '%s\n' "$duplicate_output" | json_line | tail -1)"
           [[ -n "$duplicate_json" ]] || { echo "duplicate authority probe returned no receipt" >&2; exit 1; }
 
@@ -1679,7 +1680,8 @@ jobs:
           }
 
           delete_key="sd08-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-delete"
-          delete_output="$(run_probe delete "$delete_key")"
+          delete_issued_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          delete_output="$(run_probe delete "$delete_key" "$delete_issued_at")"
           delete_json="$(printf '%s\n' "$delete_output" | json_line | tail -1)"
           [[ -n "$delete_json" ]] || { echo "cleanup probe returned no receipt" >&2; exit 1; }
           wait_absent || { echo "independent ARM observer still sees the probe rule" >&2; exit 1; }

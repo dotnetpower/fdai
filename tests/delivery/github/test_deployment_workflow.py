@@ -359,7 +359,10 @@ def test_runner_workflow_declares_and_validates_dispatch_context() -> None:
     assert "authority-effect-receipt.json" in workflow
     assert "printf -v exec_command '%q ' az containerapp exec" in workflow
     assert 'script --quiet --return --command "$exec_command" /dev/null' in workflow
-    assert "--issued-at $observed_started_at" in workflow
+    assert 'run_probe upsert "$upsert_key" "$observed_started_at"' in workflow
+    assert workflow.count('run_probe upsert "$upsert_key" "$observed_started_at"') == 2
+    assert 'delete_issued_at="$(date -u' in workflow
+    assert 'run_probe delete "$delete_key" "$delete_issued_at"' in workflow
     assert "APPLY_RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}" in workflow
     assert "protected plan runtime image evidence does not match apply input" in workflow
     assert 'echo "TF_VAR_core_image=${login_server}/fdai@${runtime_digest}"' in workflow
