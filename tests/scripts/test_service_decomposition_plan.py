@@ -62,7 +62,6 @@ def test_service_decomposition_baseline_receipt_is_explicit() -> None:
     assert sum(check["skipped"] for check in receipt["checks"]) == 2
     assert receipt["open_live_evidence"] == [
         "ingestion-postgresql-role-isolation",
-        "catalog-search-postgresql-generation",
     ]
 
 

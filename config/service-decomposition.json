@@ -61,7 +61,7 @@
     },
     {
       "id": "SD-05",
-      "status": "planned",
+      "status": "completed",
       "dependencies": ["SD-04"],
       "parallel_lane": "B"
     },
@@ -146,8 +146,7 @@
       }
     ],
     "open_live_evidence": [
-      "ingestion-postgresql-role-isolation",
-      "catalog-search-postgresql-generation"
+      "ingestion-postgresql-role-isolation"
     ]
   },
   "completion_constraints": [
