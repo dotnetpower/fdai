@@ -10,9 +10,3 @@ class WorkerFactory(Protocol):
     """Run one worker process from a validated environment snapshot."""
 
     def __call__(self, environ: Mapping[str, str]) -> int: ...
-
-
-class WorkerFactoryResolver(Protocol):
-    """Resolve a configured worker factory without owning its implementation."""
-
-    def __call__(self, reference: str) -> WorkerFactory: ...

@@ -2,20 +2,16 @@
 
 from __future__ import annotations
 
-import importlib
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Protocol, cast
+from typing import Protocol
 
 from fdai_ingestion_api_service.providers import (
     ApplicationFactory,
-    ApplicationFactoryResolver,
 )
 from fdai_ingestion_api_service.runtime import IngestionApiRuntime
 
-FACTORY_ENV = "FDAI_INGESTION_API_FACTORY"
-DEFAULT_FACTORY = "fdai_ingestion_api_service.adapters.legacy_fdai:create_app"
 _ROLE_ENV = "FDAI_INGESTION_DEPLOYMENT_ROLE"
 _EXPECTED_ROLE = "api"
 
@@ -33,25 +29,18 @@ class IngestionApiComposition(Protocol):
     ) -> IngestionApiRuntime: ...
 
 
-def resolve_application_factory(reference: str) -> ApplicationFactory:
-    """Resolve a ``module:attribute`` application factory reference."""
-    module_name, separator, attribute_name = reference.strip().partition(":")
-    if not separator or not module_name or not attribute_name:
-        raise IngestionApiConfigurationError(f"{FACTORY_ENV} MUST use a module:attribute reference")
-    try:
-        candidate = getattr(importlib.import_module(module_name), attribute_name)
-    except (AttributeError, ImportError) as exc:
-        raise IngestionApiConfigurationError(f"{FACTORY_ENV} could not be resolved") from exc
-    if not callable(candidate):
-        raise IngestionApiConfigurationError(f"{FACTORY_ENV} MUST resolve to a callable")
-    return cast(ApplicationFactory, candidate)
+def build_default_application(environ: Mapping[str, str]) -> object:
+    """Build production providers only when the default factory is invoked."""
+    from fdai_ingestion_api_service.production import build_application
+
+    return build_application(environ)
 
 
 @dataclass(frozen=True, slots=True)
 class ConfiguredIngestionApiComposition:
-    """Resolve the configured factory after enforcing the API process role."""
+    """Bind the service-owned factory after enforcing the API process role."""
 
-    resolver: ApplicationFactoryResolver = resolve_application_factory
+    application_factory: ApplicationFactory = build_default_application
 
     def build_runtime(
         self,
@@ -64,10 +53,7 @@ class ConfiguredIngestionApiComposition:
             raise IngestionApiConfigurationError(
                 f"{_ROLE_ENV} does not match the document ingestion API role"
             )
-        reference = env.get(FACTORY_ENV, DEFAULT_FACTORY).strip()
-        if not reference:
-            raise IngestionApiConfigurationError(f"{FACTORY_ENV} MUST be non-empty")
         return IngestionApiRuntime(
             environ=env,
-            application_factory=self.resolver(reference),
+            application_factory=self.application_factory,
         )

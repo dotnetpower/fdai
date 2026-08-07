@@ -3,7 +3,16 @@ name = "fdai-document-processing-worker"
 version = "0.1.0"
 description = "FDAI Document Processing Worker service"
 requires-python = ">=3.12"
-dependencies = ["fdai==0.1.180", "fdai-service-contracts==0.1.0"]
+dependencies = [
+	"aiokafka>=0.12,<1",
+	"azure-identity>=1.23,<2",
+	"azure-storage-file-datalake>=12.21,<13",
+	"defusedxml>=0.7,<1",
+	"fdai-service-contracts==0.1.0",
+	"httpx>=0.28,<1",
+	"psycopg[binary]>=3.2,<4",
+	"pypdf>=5.7,<7",
+]
 
 [project.scripts]
 fdai-document-processing-worker = "fdai_document_worker_service.main:main"
@@ -13,7 +22,6 @@ requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
 
 [tool.uv.sources]
-fdai = { workspace = true }
 fdai-service-contracts = { workspace = true }
 
 [tool.hatch.build.targets.wheel]

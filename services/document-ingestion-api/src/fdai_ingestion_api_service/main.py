@@ -16,4 +16,4 @@ SERVICE = ServiceDescriptor(
 
 def main() -> int:
     """Serve the production Document Ingestion API."""
-    return serve("fdai_ingestion_api_service.main:create_app")
+    return serve(create_app())

@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-import importlib
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Protocol, cast
+from typing import Protocol
 
-from fdai_document_worker_service.providers import WorkerFactory, WorkerFactoryResolver
+from fdai_document_worker_service.providers import WorkerFactory
 from fdai_document_worker_service.runtime import DocumentWorkerRuntime
 
-FACTORY_ENV = "FDAI_DOCUMENT_WORKER_FACTORY"
-DEFAULT_FACTORY = "fdai_document_worker_service.adapters.legacy_fdai:run_worker"
 _ROLE_ENV = "FDAI_INGESTION_DEPLOYMENT_ROLE"
 _EXPECTED_ROLE = "worker"
 
@@ -30,27 +27,18 @@ class DocumentWorkerComposition(Protocol):
     ) -> DocumentWorkerRuntime: ...
 
 
-def resolve_worker_factory(reference: str) -> WorkerFactory:
-    """Resolve a ``module:attribute`` worker factory reference."""
-    module_name, separator, attribute_name = reference.strip().partition(":")
-    if not separator or not module_name or not attribute_name:
-        raise DocumentWorkerConfigurationError(
-            f"{FACTORY_ENV} MUST use a module:attribute reference"
-        )
-    try:
-        candidate = getattr(importlib.import_module(module_name), attribute_name)
-    except (AttributeError, ImportError) as exc:
-        raise DocumentWorkerConfigurationError(f"{FACTORY_ENV} could not be resolved") from exc
-    if not callable(candidate):
-        raise DocumentWorkerConfigurationError(f"{FACTORY_ENV} MUST resolve to a callable")
-    return cast(WorkerFactory, candidate)
+def run_default_worker(environ: Mapping[str, str]) -> int:
+    """Build production providers only when the default factory is invoked."""
+    from fdai_document_worker_service.production import run_production_worker
+
+    return run_production_worker(environ)
 
 
 @dataclass(frozen=True, slots=True)
 class ConfiguredDocumentWorkerComposition:
-    """Resolve the configured factory after enforcing the worker process role."""
+    """Bind the service-owned factory after enforcing the worker process role."""
 
-    resolver: WorkerFactoryResolver = resolve_worker_factory
+    worker_factory: WorkerFactory = run_default_worker
 
     def build_runtime(
         self,
@@ -63,10 +51,7 @@ class ConfiguredDocumentWorkerComposition:
             raise DocumentWorkerConfigurationError(
                 f"{_ROLE_ENV} does not match the document processing worker role"
             )
-        reference = env.get(FACTORY_ENV, DEFAULT_FACTORY).strip()
-        if not reference:
-            raise DocumentWorkerConfigurationError(f"{FACTORY_ENV} MUST be non-empty")
         return DocumentWorkerRuntime(
             environ=env,
-            worker_factory=self.resolver(reference),
+            worker_factory=self.worker_factory,
         )

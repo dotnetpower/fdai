@@ -1,36 +1,28 @@
-"""Service-local composition boundaries for the independent ingestion roles."""
+"""Independent composition and import boundaries for both ingestion services."""
 
 from __future__ import annotations
 
 import ast
+import tomllib
 from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
 from fdai_document_worker_service.application import run_worker
 from fdai_document_worker_service.composition import (
-    DEFAULT_FACTORY as DEFAULT_WORKER_FACTORY,
-)
-from fdai_document_worker_service.composition import (
     ConfiguredDocumentWorkerComposition,
     DocumentWorkerConfigurationError,
 )
-from fdai_document_worker_service.providers import WorkerFactory
 from fdai_ingestion_api_service.application import create_app
-from fdai_ingestion_api_service.composition import (
-    DEFAULT_FACTORY as DEFAULT_API_FACTORY,
-)
 from fdai_ingestion_api_service.composition import (
     ConfiguredIngestionApiComposition,
     IngestionApiConfigurationError,
 )
-from fdai_ingestion_api_service.providers import ApplicationFactory
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SERVICE_SOURCES = (
-    REPO_ROOT / "services/document-ingestion-api/src/fdai_ingestion_api_service",
-    REPO_ROOT / "services/document-processing-worker/src/fdai_document_worker_service",
-)
+API_SOURCE = REPO_ROOT / "services/document-ingestion-api/src/fdai_ingestion_api_service"
+WORKER_SOURCE = REPO_ROOT / "services/document-processing-worker/src/fdai_document_worker_service"
+SERVICE_SOURCES = (API_SOURCE, WORKER_SOURCE)
 
 
 def _imports(path: Path) -> set[str]:
@@ -45,170 +37,135 @@ def _imports(path: Path) -> set[str]:
 
 
 @pytest.mark.parametrize("source", SERVICE_SOURCES)
-@pytest.mark.parametrize("layer", ["main.py", "application.py"])
-def test_main_and_application_layers_import_no_fdai_implementation(
-    source: Path,
-    layer: str,
-) -> None:
-    imports = _imports(source / layer)
-    assert {name for name in imports if name == "fdai" or name.startswith("fdai.")} == set()
+def test_service_package_has_no_fdai_implementation_import(source: Path) -> None:
+    offenders = {
+        path.relative_to(source): sorted(
+            name for name in _imports(path) if name == "fdai" or name.startswith("fdai.")
+        )
+        for path in source.rglob("*.py")
+        if any(name == "fdai" or name.startswith("fdai.") for name in _imports(path))
+    }
+    assert offenders == {}
 
 
-@pytest.mark.parametrize(
-    ("source", "service_package"),
-    [
-        (SERVICE_SOURCES[0], "fdai_ingestion_api_service"),
-        (SERVICE_SOURCES[1], "fdai_document_worker_service"),
-    ],
-)
-def test_main_imports_only_service_local_code_and_contract_sdk(
-    source: Path,
-    service_package: str,
-) -> None:
+@pytest.mark.parametrize("source", SERVICE_SOURCES)
+def test_service_package_has_no_dynamic_import_loading(source: Path) -> None:
+    offenders: list[Path] = []
+    for path in source.rglob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        if any(
+            isinstance(node, ast.Call)
+            and (
+                isinstance(node.func, ast.Name)
+                and node.func.id == "__import__"
+                or isinstance(node.func, ast.Attribute)
+                and node.func.attr == "import_module"
+            )
+            for node in ast.walk(tree)
+        ):
+            offenders.append(path.relative_to(source))
+    assert offenders == []
+
+
+def test_services_do_not_import_each_other() -> None:
     assert all(
-        name == "fdai_service_contracts"
-        or name == service_package
-        or name.startswith(f"{service_package}.")
-        for name in _imports(source / "main.py")
+        not name.startswith("fdai_document_worker_service")
+        for path in API_SOURCE.rglob("*.py")
+        for name in _imports(path)
+    )
+    assert all(
+        not name.startswith("fdai_ingestion_api_service")
+        for path in WORKER_SOURCE.rglob("*.py")
+        for name in _imports(path)
     )
 
 
 @pytest.mark.parametrize(
-    ("source", "expected_import"),
+    "project",
     [
-        (SERVICE_SOURCES[0], "fdai.delivery.ingestion_gateway.prod"),
-        (SERVICE_SOURCES[1], "fdai.delivery.ingestion_gateway.worker"),
+        REPO_ROOT / "services/document-ingestion-api/pyproject.toml",
+        REPO_ROOT / "services/document-processing-worker/pyproject.toml",
     ],
 )
-def test_fdai_implementation_import_is_isolated_to_legacy_adapter(
-    source: Path,
-    expected_import: str,
-) -> None:
-    adapter = source / "adapters/legacy_fdai.py"
-    for path in source.rglob("*.py"):
-        implementation_imports = {
-            name for name in _imports(path) if name == "fdai" or name.startswith("fdai.")
-        }
-        if path == adapter:
-            assert implementation_imports == {expected_import}
-        else:
-            assert implementation_imports == set()
+def test_service_distribution_has_no_fdai_dependency(project: Path) -> None:
+    document = tomllib.loads(project.read_text(encoding="utf-8"))
+    dependencies = document["project"]["dependencies"]
+    assert all(
+        not value.startswith("fdai==") and not value.startswith("fdai[") for value in dependencies
+    )
+    assert "fdai" not in document.get("tool", {}).get("uv", {}).get("sources", {})
 
 
 @pytest.mark.parametrize("role", [None, "worker"])
-def test_api_role_mismatch_prevents_factory_resolution(role: str | None) -> None:
-    references: list[str] = []
+def test_api_role_mismatch_prevents_factory_call(role: str | None) -> None:
+    called = False
 
-    def resolve(reference: str) -> ApplicationFactory:
-        references.append(reference)
-        raise AssertionError("mismatched role MUST fail before factory resolution")
+    def factory(_environ: Mapping[str, str]) -> object:
+        nonlocal called
+        called = True
+        return object()
 
     env = {} if role is None else {"FDAI_INGESTION_DEPLOYMENT_ROLE": role}
-    composition = ConfiguredIngestionApiComposition(resolver=resolve)
-
     with pytest.raises(IngestionApiConfigurationError, match="does not match"):
-        create_app(env, composition=composition)
-    assert references == []
+        create_app(
+            env,
+            composition=ConfiguredIngestionApiComposition(application_factory=factory),
+        )
+    assert not called
 
 
-def test_api_delegates_to_configured_factory_with_environment_snapshot() -> None:
+def test_api_fixed_factory_receives_environment_snapshot() -> None:
     marker = object()
-    resolved: list[str] = []
     received: list[Mapping[str, str]] = []
 
     def factory(environ: Mapping[str, str]) -> object:
         received.append(environ)
         return marker
 
-    def resolve(reference: str) -> ApplicationFactory:
-        resolved.append(reference)
-        return factory
-
-    env = {
-        "FDAI_INGESTION_DEPLOYMENT_ROLE": "api",
-        "FDAI_INGESTION_API_FACTORY": "example.api:create_app",
-    }
-
+    env = {"FDAI_INGESTION_DEPLOYMENT_ROLE": "api"}
     assert (
-        create_app(env, composition=ConfiguredIngestionApiComposition(resolver=resolve)) is marker
+        create_app(
+            env,
+            composition=ConfiguredIngestionApiComposition(application_factory=factory),
+        )
+        is marker
     )
-    assert resolved == ["example.api:create_app"]
     assert received == [env]
     assert received[0] is not env
 
 
-def test_api_uses_explicit_legacy_adapter_by_default() -> None:
-    resolved: list[str] = []
-
-    def factory(_environ: Mapping[str, str]) -> object:
-        return object()
-
-    def resolve(reference: str) -> ApplicationFactory:
-        resolved.append(reference)
-        return factory
-
-    create_app(
-        {"FDAI_INGESTION_DEPLOYMENT_ROLE": "api"},
-        composition=ConfiguredIngestionApiComposition(resolver=resolve),
-    )
-
-    assert resolved == [DEFAULT_API_FACTORY]
-
-
 @pytest.mark.parametrize("role", [None, "api"])
-def test_worker_role_mismatch_prevents_factory_resolution(role: str | None) -> None:
-    references: list[str] = []
+def test_worker_role_mismatch_prevents_factory_call(role: str | None) -> None:
+    called = False
 
-    def resolve(reference: str) -> WorkerFactory:
-        references.append(reference)
-        raise AssertionError("mismatched role MUST fail before factory resolution")
+    def factory(_environ: Mapping[str, str]) -> int:
+        nonlocal called
+        called = True
+        return 0
 
     env = {} if role is None else {"FDAI_INGESTION_DEPLOYMENT_ROLE": role}
-    composition = ConfiguredDocumentWorkerComposition(resolver=resolve)
-
     with pytest.raises(DocumentWorkerConfigurationError, match="does not match"):
-        run_worker(env, composition=composition)
-    assert references == []
+        run_worker(
+            env,
+            composition=ConfiguredDocumentWorkerComposition(worker_factory=factory),
+        )
+    assert not called
 
 
-def test_worker_delegates_to_configured_factory_with_environment_snapshot() -> None:
-    resolved: list[str] = []
+def test_worker_fixed_factory_receives_environment_snapshot() -> None:
     received: list[Mapping[str, str]] = []
 
     def factory(environ: Mapping[str, str]) -> int:
         received.append(environ)
         return 17
 
-    def resolve(reference: str) -> WorkerFactory:
-        resolved.append(reference)
-        return factory
-
-    env = {
-        "FDAI_INGESTION_DEPLOYMENT_ROLE": "worker",
-        "FDAI_DOCUMENT_WORKER_FACTORY": "example.worker:run",
-    }
-
-    assert run_worker(env, composition=ConfiguredDocumentWorkerComposition(resolver=resolve)) == 17
-    assert resolved == ["example.worker:run"]
-    assert received == [env]
-    assert received[0] is not env
-
-
-def test_worker_uses_explicit_legacy_adapter_by_default() -> None:
-    resolved: list[str] = []
-
-    def factory(_environ: Mapping[str, str]) -> int:
-        return 0
-
-    def resolve(reference: str) -> WorkerFactory:
-        resolved.append(reference)
-        return factory
-
+    env = {"FDAI_INGESTION_DEPLOYMENT_ROLE": "worker"}
     assert (
         run_worker(
-            {"FDAI_INGESTION_DEPLOYMENT_ROLE": "worker"},
-            composition=ConfiguredDocumentWorkerComposition(resolver=resolve),
+            env,
+            composition=ConfiguredDocumentWorkerComposition(worker_factory=factory),
         )
-        == 0
+        == 17
     )
-    assert resolved == [DEFAULT_WORKER_FACTORY]
+    assert received == [env]
+    assert received[0] is not env
