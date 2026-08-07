@@ -22,6 +22,7 @@ from fdai.shared.providers.testing import InMemoryEventBus, InMemoryStateStore
 def _environment(**changes: str) -> dict[str, str]:
     values = {
         "RUNTIME_ENV": "staging",
+        "FDAI_ISOLATED_EXECUTOR_DEPLOYED": "1",
         "KAFKA_BOOTSTRAP_SERVERS": "example.servicebus.windows.net:9093",
         "KAFKA_TOPIC_DLQ_SUFFIX": ".dlq",
         "FDAI_STATE_STORE_DSN": "postgresql://example.invalid/fdai",
@@ -43,8 +44,11 @@ def test_config_requires_deployed_shadow_identity_and_durability() -> None:
         with pytest.raises(RuntimeError, match=missing):
             IsolatedExecutorRuntimeConfig.from_env(environment)
 
-    with pytest.raises(RuntimeError, match="RUNTIME_ENV"):
-        IsolatedExecutorRuntimeConfig.from_env(_environment(RUNTIME_ENV="dev"))
+    with pytest.raises(RuntimeError, match="FDAI_ISOLATED_EXECUTOR_DEPLOYED"):
+        IsolatedExecutorRuntimeConfig.from_env(_environment(FDAI_ISOLATED_EXECUTOR_DEPLOYED="0"))
+
+    config = IsolatedExecutorRuntimeConfig.from_env(_environment(RUNTIME_ENV="dev"))
+    assert config.executor_instance_id == "executor-shadow-1"
 
 
 def test_config_rejects_ambiguous_topics_and_invalid_health_port() -> None:

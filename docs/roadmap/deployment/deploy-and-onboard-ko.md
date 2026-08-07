@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: b214b2a5ddbb2e038834da1c0e4b84d26762853a
+translation_source_sha: e5e8f2d12baaad793c5e22b4606bd327968204be
 translation_revised: 2026-08-07
 ---
 
@@ -426,9 +426,10 @@ ingestion API, ingestion worker는 별도이며 이전 topology는 rollback arti
 
 - **Runtime**: `python -m fdai`가 Kafka consumer를 시작하고 routing, quality, risk, execution,
   audit stage를 하나의 프로세스에서 구성합니다. Isolated shadow process는
-  `fdai-isolated-executor`를 사용합니다. `RUNTIME_ENV=staging|prod`, durable state DSN, effect
-  권한이 없는 전용 identity만 수락하고 earliest retained offset부터 command를 consume하며
-  provider effect adapter를 import하지 않습니다.
+  `fdai-isolated-executor`를 사용합니다. 명시적인 deployed-process marker, durable state DSN,
+  effect 권한이 없는 전용 identity를 요구하고 earliest retained offset부터 command를
+  consume하며 provider effect adapter를 import하지 않습니다. Deployment venue와
+  `RUNTIME_ENV`는 독립적으로 유지합니다.
 - **Health**: Core는 내부 `/live`와 `/ready`, ingestion API는 `/healthz`, internal worker는
   `/live`와 `/ready`를 사용합니다. Isolated Executor도
   `FDAI_ISOLATED_EXECUTOR_HEALTH_PORT`에서 내부 `/live`와 `/ready` contract를 사용합니다.
@@ -522,6 +523,7 @@ promotion 및 test-only key는 editable surface에 포함되지 않습니다.
 | `KAFKA_TOPIC_DLQ_SUFFIX` | env | deployment | dead-letter suffix (기본 `.dlq`) |
 | `FDAI_EXECUTOR_COMMAND_TOPIC` / `FDAI_EXECUTOR_RECEIPT_TOPIC` | env | upstream / deployment | Isolated Executor command 및 terminal shadow-receipt topic입니다. 기본값은 `object.executor-command`, `object.executor-receipt`이며 서로 달라야 합니다. |
 | `FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID` | env | deployment | Isolated Executor에만 attach하는 전용 shadow transport identity입니다. SD-07에서는 Event Hubs, state-secret reference 및 PostgreSQL connectivity만 부여하며 action-specific effect role은 부여하지 않습니다. |
+| `FDAI_ISOLATED_EXECUTOR_DEPLOYED` | env | upstream / deployment | 독립 배포 process의 exact opt-in marker입니다. `1`일 때만 이 entrypoint를 시작하며 environment 이름은 deployment venue 또는 authority를 의미하지 않습니다. |
 | `FDAI_ISOLATED_EXECUTOR_HEALTH_PORT` / `FDAI_ISOLATED_EXECUTOR_INSTANCE_ID` | env | upstream / deployment | 내부 health port(기본 `8000`)와 receipt attribution용 bounded instance id입니다. Explicit instance id가 없으면 Container Apps의 `HOSTNAME`을 사용합니다. |
 | `LLM_MODE` | env | deployment | 명시적 test/mock용 `local-fake` 또는 authoritative profile용 `azure`. Environment는 binding을 선택하지 않습니다. [dev-and-deploy-parity-ko.md § Parity 컨트랙트](dev-and-deploy-parity-ko.md#parity-컨트랙트-must) 참조. |
 | `LLM_RESOLVED_MODELS_PATH` | KV ref | deployment | `LLM_MODE=azure` 시 필수; 부트스트랩 resolver가 쓴 `resolved-models.json`을 가리킴 |

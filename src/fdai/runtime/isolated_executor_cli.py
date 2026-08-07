@@ -36,7 +36,7 @@ from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.contracts.validation import JsonSchemaContractValidator
 
 _SHADOW_IDENTITY_ENV = "FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID"
-_SUPPORTED_RUNTIME_ENVS = frozenset({"staging", "prod"})
+_DEPLOYED_MARKER_ENV = "FDAI_ISOLATED_EXECUTOR_DEPLOYED"
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,9 +58,11 @@ class IsolatedExecutorRuntimeConfig:
         """Load a durable, dedicated-identity shadow configuration."""
 
         values = environment or os.environ
-        runtime_env = values.get("RUNTIME_ENV", "").strip().lower()
-        if runtime_env not in _SUPPORTED_RUNTIME_ENVS:
-            raise RuntimeError("isolated Executor requires RUNTIME_ENV=staging or prod")
+        _required(values, "RUNTIME_ENV")
+        if values.get(_DEPLOYED_MARKER_ENV, "").strip() != "1":
+            raise RuntimeError(
+                f"{_DEPLOYED_MARKER_ENV}=1 MUST select the deployed isolated Executor"
+            )
         bootstrap_servers = _required(values, "KAFKA_BOOTSTRAP_SERVERS")
         _required(values, "FDAI_STATE_STORE_DSN")
         _required(values, _SHADOW_IDENTITY_ENV)
