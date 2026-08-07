@@ -99,7 +99,7 @@ sessions use different branches.
 |-------------|---------------|----------------|-------------------|
 | SD-01 application route debt | Existing SD-01 isolated session | `src/fdai/delivery/operator_api/**`, matching Operator API tests and module-map updates | Route-boundary focused commit and receipt handed to the integration owner |
 | SD-03 effective access and rollback | Existing SD-03 isolated session | Ingestion runtime, ingestion-specific Terraform, access probe, and matching tests | Effective-access proof and rollback evidence handed to the integration owner |
-| SD-07 serial finish | Integration owner on `main` | `infra/modules/isolated-executor/**`; SD-07-only blocks in `infra/main.tf`, `infra/variables.tf`, and `infra/outputs.tf`; matching Terraform tests; production composition and paired docs | Shadow deployment evidence recorded without effect authority; avoid ingestion modules and every SD-03-owned Terraform hunk; the released `/tmp/fdai-sd07` worker is read-only |
+| SD-07 serial finish | Integration owner on `main` | `infra/modules/isolated-executor/**`; SD-07-only blocks in `infra/main.tf`, `infra/variables.tf`, and `infra/outputs.tf`; `deploy_isolated_executor` blocks in `.github/workflows/deploy-dev.yml`; matching Terraform/workflow tests; production composition and paired docs | Shadow deployment evidence recorded without effect authority; avoid ingestion modules and every SD-03-owned Terraform hunk; the released `/tmp/fdai-sd07` worker is read-only |
 | Serial integration | Integration owner | This plan pair, machine status manifest, cross-package contracts, production composition, pantheon roles, and executor identity cutover | Focused package handoff accepted and dependency status updated |
 
 ## Progress update contract

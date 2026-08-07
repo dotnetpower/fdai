@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 81b885f41a99b960630bc6a6e7c2ae8573f90515
+translation_source_sha: f8bf9133eb0b14335548c970fda6dba82adeea7b
 translation_revised: 2026-08-07
 ---
 # 서비스 분해 실행 계획
@@ -96,7 +96,7 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 |------|------------|-----------|-----------|
 | SD-01 application route debt | 기존 SD-01 isolated session | `src/fdai/delivery/operator_api/**`, 해당 Operator API test와 module-map 업데이트 | Route boundary focused commit과 receipt를 integration owner에게 handoff |
 | SD-03 effective access와 rollback | 기존 SD-03 isolated session | Ingestion runtime, ingestion 전용 Terraform, access probe와 해당 test | Effective-access proof와 rollback evidence를 integration owner에게 handoff |
-| SD-07 serial finish | `main`의 integration owner | `infra/modules/isolated-executor/**`, `infra/main.tf`/`infra/variables.tf`/`infra/outputs.tf`의 SD-07 전용 block, 해당 Terraform test, production composition 및 paired docs | Effect authority 없이 shadow deployment evidence를 기록하고 ingestion module과 모든 SD-03 소유 Terraform hunk를 피하며 해제된 `/tmp/fdai-sd07` worker는 read-only |
+| SD-07 serial finish | `main`의 integration owner | `infra/modules/isolated-executor/**`, `infra/main.tf`/`infra/variables.tf`/`infra/outputs.tf`의 SD-07 전용 block, `.github/workflows/deploy-dev.yml`의 `deploy_isolated_executor` block, 해당 Terraform/workflow test, production composition 및 paired docs | Effect authority 없이 shadow deployment evidence를 기록하고 ingestion module과 모든 SD-03 소유 Terraform hunk를 피하며 해제된 `/tmp/fdai-sd07` worker는 read-only |
 | Serial integration | Integration owner | 이 계획 문서 쌍, machine status manifest, package 간 contract, production composition, pantheon role, executor identity cutover | Focused package handoff를 수락하고 dependency 상태를 업데이트 |
 
 ## 진행 상태 업데이트 contract
