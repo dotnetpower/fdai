@@ -9,8 +9,8 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.testclient import TestClient
 
+from fdai.delivery.operator_api.persistence.conversation import replay_metadata
 from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
-from fdai.delivery.operator_api.routes.chat_history import replay_metadata
 from fdai.shared.providers.testing.user_context import InMemoryConversationHistoryStore
 from fdai.shared.providers.user_context import (
     ConversationRecord,

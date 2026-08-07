@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime, timedelta
 
-from fdai.delivery.operator_api.routes.chat_history import (
+from fdai.delivery.operator_api.persistence.conversation import (
     append_assistant_turn,
     append_operator_turn,
 )

@@ -15,7 +15,7 @@ from fdai.core.conversation_assurance import (
     OntologyAdequacyReview,
     assurance_principal_scope,
 )
-from fdai.delivery.operator_api.routes.chat_history import replay_metadata
+from fdai.delivery.operator_api.persistence.conversation import replay_metadata
 from fdai.delivery.operator_api.routes.conversation_assurance_intake import (
     ConversationAssurancePostTurnSubmitter,
     ConversationAssuranceQueueConfig,

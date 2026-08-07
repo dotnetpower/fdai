@@ -1,4 +1,4 @@
-"""Validated immutable document references for web chat turns."""
+"""Project exact governed-document references into conversation responses."""
 
 from __future__ import annotations
 

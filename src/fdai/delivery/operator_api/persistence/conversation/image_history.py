@@ -1,4 +1,4 @@
-"""Persist validated chat images and serialize content-free turn metadata."""
+"""Persist validated chat images and content-free turn descriptors."""
 
 from __future__ import annotations
 
@@ -15,11 +15,9 @@ from fdai.delivery.conversation_images import (
     ConversationImageStore,
 )
 from fdai.delivery.operator_api.application.conversation.vision_evidence import VisionAttachment
-from fdai.delivery.operator_api.routes.chat_history import (
-    append_operator_turn,
-    ensure_conversation,
-)
 from fdai.shared.providers.user_context import ConversationHistoryStore, ConversationTurnRecord
+
+from .history import append_operator_turn, ensure_conversation
 
 _LOG = logging.getLogger(__name__)
 

@@ -1,4 +1,4 @@
-"""Durable principal-scoped transcript writes for Command Deck chat routes."""
+"""Durable principal-scoped transcript writes for Operator API conversations."""
 
 from __future__ import annotations
 

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 0c9d86c5714b16e9602c85e33f5204974e045e0b
+translation_source_sha: 8ff9294b397fddbe58b48ce6101566bd8d019549
 translation_revised: 2026-08-07
 ---
 # 코드 맵
@@ -167,6 +167,14 @@ Streamed turn completion은 explicit
 application facade 뒤에 있습니다. 이 facade는 quality review, verification, terminal payload
 validation, history persistence 및 post-turn review를 조정합니다. `chat_stream.py`는 authorization,
 request parsing, heartbeat framing, sequence와 revision, cancellation 및 SSE delivery를 유지합니다.
+
+Principal 범위 transcript write, content-free policy receipt, replay metadata 및 pending create,
+compensate, finalize image lifecycle은
+[`persistence/conversation/`](../../../src/fdai/delivery/operator_api/persistence/conversation/) facade 뒤에
+있습니다. Exact governed-document context와 verification ref는
+[`document_evidence.py`](../../../src/fdai/delivery/operator_api/projections/conversation/document_evidence.py)의
+pure projection입니다. JSON 및 SSE route는 authentication, status mapping, sequencing, cancellation 및
+transport를 유지합니다.
 
 Shadow answer-planning task lifecycle, input content-policy recovery, request-local steer 및 active
 narrator interruption은 [`planning.py`](../../../src/fdai/delivery/operator_api/application/conversation/planning.py),

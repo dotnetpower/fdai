@@ -50,8 +50,8 @@ from fdai.delivery.operator_api.application.conversation.capabilities.knowledge_
     KnowledgeContextChatTools,
     render_knowledge_context_answer,
 )
+from fdai.delivery.operator_api.persistence.conversation import replay_metadata
 from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
-from fdai.delivery.operator_api.routes.chat_history import replay_metadata
 from fdai.shared.providers.testing.user_context import (
     InMemoryConversationHistoryStore,
     InMemoryUserMemoryStore,

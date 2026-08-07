@@ -102,9 +102,15 @@
     },
     {
       "path": "persistence",
-      "responsibility": "Operator API-owned read-model implementations and projections",
+      "responsibility": "Operator API-owned read-model and conversation-state persistence implementations",
       "classification": "provider-adapter",
       "candidate_destination": "retain"
+    },
+    {
+      "path": "persistence/conversation",
+      "responsibility": "Principal-scoped transcript, content-policy receipt, replay metadata, and conversation-image lifecycle persistence",
+      "classification": "provider-adapter",
+      "candidate_destination": "retain behind the explicit conversation persistence facade"
     },
     {
       "path": "projections",
@@ -114,7 +120,7 @@
     },
     {
       "path": "projections/conversation",
-      "responsibility": "Read-only incident, RCA, execution, tool-progress, screen-data, model-trace, trajectory-detail, resource-response, and request-local conversation projections outside HTTP transport",
+      "responsibility": "Read-only incident, RCA, execution, tool-progress, screen-data, document-evidence, model-trace, trajectory-detail, resource-response, and request-local conversation projections outside HTTP transport",
       "classification": "read-projection",
       "candidate_destination": "retain in-process until conversation service-graduation evidence exists"
     },
@@ -186,7 +192,7 @@
   "route_families": [
     {
       "pattern": "chat*.py",
-      "responsibility": "Conversation JSON and SSE transport, authentication, cancellation, history, and the classified chat_verification source-path facade",
+      "responsibility": "Conversation JSON and SSE transport, authentication, status mapping, cancellation, and the classified chat_verification source-path facade",
       "classification": "mixed-transitional",
       "candidate_destination": "move bounded internal families behind typed application or projection owners while routes retain wire behavior"
     },

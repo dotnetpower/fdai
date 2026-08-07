@@ -214,6 +214,17 @@ from fdai.delivery.operator_api.application.conversation.verification import (
 from fdai.delivery.operator_api.application.conversation.vision_evidence import (
     parse_vision_attachments,
 )
+from fdai.delivery.operator_api.persistence.conversation import (
+    append_assistant_turn,
+    append_content_policy_receipt,
+    image_turn_metadata,
+    persist_operator_turn_with_images,
+    replay_metadata,
+)
+from fdai.delivery.operator_api.projections.conversation.document_evidence import (
+    merge_document_verification,
+    with_document_evidence,
+)
 from fdai.delivery.operator_api.projections.conversation.presentation import (
     response_presentation_artifact,
     select_answer_presentation,
@@ -237,19 +248,6 @@ from fdai.delivery.operator_api.projections.conversation.terminal import (
     response_llm_usage_chart_artifact,
     response_resource_result_context,
     response_source_failure_context,
-)
-from fdai.delivery.operator_api.routes.chat_document_evidence import (
-    merge_document_verification,
-    with_document_evidence,
-)
-from fdai.delivery.operator_api.routes.chat_history import (
-    append_assistant_turn,
-    append_content_policy_receipt,
-    replay_metadata,
-)
-from fdai.delivery.operator_api.routes.chat_image_history import (
-    image_turn_metadata,
-    persist_operator_turn_with_images,
 )
 from fdai.delivery.operator_api.routes.chat_response_tail import (
     ChatResponseTailContext,

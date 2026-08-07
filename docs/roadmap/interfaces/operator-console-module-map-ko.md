@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 78ecde362f8e77f8190255808b09b75c1f2e1da0
+translation_source_sha: 78338a426318dad34e68a32525ce56ffbc02cd15
 translation_revised: 2026-08-07
 ---
 # Operator Console Module Map and Boundaries
@@ -285,6 +285,27 @@ revision, cancellation, terminal delivery, conversation history를 유지합니�
 internal이므로 compatibility shim은 남기지 않습니다. Rollback은 네 route implementation을 복원하고
 internal consumer를 redirect하며 wire contract는 변경하지 않습니다.
 
+### Conversation persistence 및 document evidence 경계
+
+SD-01 persistence slice는 principal 범위 transcript write, content-free policy receipt, replay
+metadata 및 conversation-image lifecycle을
+`fdai.delivery.operator_api.persistence.conversation` 아래에서 소유합니다. Explicit facade는 stable
+operator/assistant idempotency key, ordered turn allocation 및 bounded ontology projection을
+보존합니다. Assistant projection timeout 또는 실패는 durable answer write 이후 logged degradation으로
+유지되며 저장된 answer 또는 terminal response를 변경하지 않습니다.
+
+Validated image는 기존 pending create, exact-attempt compensation 및 durable finalization 순서를
+유지합니다. Turn metadata에는 image id, display name 및 검증된 media type만 포함됩니다. Image byte는
+principal과 conversation 범위 image repository에 유지됩니다. Pure governed document context 및
+verification merge는 `projections.conversation.document_evidence`에 있으며 exact citation value와
+duplicate ref 제거 시 stable first-occurrence order를 보존합니다.
+
+JSON 및 SSE route는 authentication, request parsing, HTTP status mapping, frame sequence와 revision,
+cancellation 및 transport delivery를 유지합니다. 이전 route-module consumer는 모두 internal source 또는
+test code였으므로 compatibility shim은 남기지 않습니다. Rollback은 세 implementation을 `routes/` 아래에
+복원하고 internal import를 되돌리며 transcript identity, image expiry, document ref, JSON 또는 SSE behavior는
+변경하지 않습니다.
+
 ### Conversation capability application 경계
 
 SD-01 capability slice는 bounded Pantheon delegation, runtime-skill disclosure,
@@ -346,10 +367,11 @@ signature를 그대로 유지합니다. 이 절차는 wire 또는 caller migrati
 | `application/conversation/request_preparation/` | Content policy와 replay, preference, document ref, history, prior context, resource와 freshness context, follow-up scope, answer plan 및 target-agent 파생 | Explicit package facade로 import하고 authorization, bounded body parsing, HTTP mapping, SSE sequencing 및 transport delivery는 route에 유지합니다. |
 | `dev/` | Interactive local 및 test-only provider composition | Production import에서 사용할 수 없게 유지합니다. |
 | `dev/fixtures/` | Synthetic pytest-only fixture | Production composition 밖에 유지합니다. |
-| `persistence/` | Operator API read-model implementation 및 projection | 소유된 read contract 뒤에 유지합니다. |
+| `persistence/` | Operator API read-model 및 conversation-state persistence implementation | 소유된 store contract 뒤에 유지합니다. |
+| `persistence/conversation/` | Principal 범위 transcript, policy receipt, replay metadata 및 conversation-image lifecycle persistence | Explicit facade로 import하고 HTTP, SSE, authentication, status mapping 및 transport는 route에 유지합니다. |
 | `projections/` | HTTP route 밖의 read-only projection ownership | Migrated family의 owner로 유지합니다. |
 | `projections/audit/` | Audit query 및 autonomy/FinOps measurement projection | Explicit facade를 통해 import하고 기존 route module은 shim으로 유지합니다. |
-| `projections/conversation/` | Screen data, model trace, trajectory detail, resource response context 및 queue에 수락된 progress metric reduction을 포함하는 request-local conversation read projection | Service-graduation evidence가 준비될 때까지 process 안에 유지합니다. |
+| `projections/conversation/` | Screen data, exact document evidence, model trace, trajectory detail, resource response context 및 queue에 수락된 progress metric reduction을 포함하는 request-local conversation read projection | Service-graduation evidence가 준비될 때까지 process 안에 유지합니다. |
 | `projections/conversation/presentation/` | Value-free layout selection 및 검증된 evidence artifact compilation | Explicit facade로 import하고 JSON 및 SSE behavior는 route에 유지합니다. |
 | `projections/conversation/inventory/` | Inventory evidence sanitization, result projection 및 deterministic rendering | Explicit facade로 import하고 query compilation과 provider coordination은 application package에 유지합니다. |
 | `projections/conversation/terminal/` | Terminal payload, LLM usage, resource-result 및 source-failure projection | Explicit facade로 import하고 JSON, SSE, authentication, cancellation 및 history는 route에 유지합니다. |

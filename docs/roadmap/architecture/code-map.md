@@ -163,6 +163,13 @@ application facade. It coordinates quality review, verification, terminal payloa
 history persistence, and post-turn review. `chat_stream.py` retains authorization, request parsing,
 heartbeat framing, sequence and revision, cancellation, and SSE delivery.
 
+Principal-scoped transcript writes, content-free policy receipts, replay metadata, and the pending
+create, compensate, and finalize image lifecycle live behind
+[`persistence/conversation/`](../../../src/fdai/delivery/operator_api/persistence/conversation/).
+Exact governed-document context and verification refs are pure projections in
+[`document_evidence.py`](../../../src/fdai/delivery/operator_api/projections/conversation/document_evidence.py).
+JSON and SSE routes retain authentication, status mapping, sequencing, cancellation, and transport.
+
 Shadow answer-planning task lifecycle, input content-policy recovery, and request-local steer or
 active narrator interruption live in [`planning.py`](../../../src/fdai/delivery/operator_api/application/conversation/planning.py),
 [`request_preparation/content_policy.py`](../../../src/fdai/delivery/operator_api/application/conversation/request_preparation/content_policy.py),

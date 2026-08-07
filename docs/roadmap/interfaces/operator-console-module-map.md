@@ -288,6 +288,28 @@ history. Every former route consumer was internal, so no compatibility shim rema
 restores the four route implementations and redirects internal consumers without changing either
 wire contract.
 
+### Conversation persistence and document evidence boundaries
+
+The SD-01 persistence slice owns principal-scoped transcript writes, content-free policy receipts,
+replay metadata, and the conversation-image lifecycle under
+`fdai.delivery.operator_api.persistence.conversation`. Its explicit facade preserves stable
+operator and assistant idempotency keys, ordered turn allocation, and bounded ontology projection.
+An assistant projection timeout or failure remains a logged degradation after the durable answer
+write. It does not change the stored answer or terminal response.
+
+Validated images keep the established pending create, exact-attempt compensation, and durable
+finalization sequence. Turn metadata contains only image id, display name, and validated media
+type. Image bytes remain in the principal and conversation-scoped image repository. Pure governed
+document context and verification merging live in
+`projections.conversation.document_evidence`, which preserves exact citation values and stable
+first-occurrence order when duplicate refs are removed.
+
+JSON and SSE routes retain authentication, request parsing, HTTP status mapping, frame sequence and
+revision, cancellation, and transport delivery. Every former route-module consumer was internal
+source or test code, so no compatibility shim remains. Rollback restores the three implementations
+under `routes/` and redirects internal imports without changing transcript identity, image expiry,
+document refs, JSON, or SSE behavior.
+
 ### Conversation capability application boundary
 
 The SD-01 capability slice owns bounded Pantheon delegation, runtime-skill disclosure,
@@ -351,10 +373,11 @@ reverses physical ownership without a wire or caller migration.
 | `application/conversation/request_preparation/` | Content policy and replay, preferences, document refs, history, prior context, resource and freshness context, follow-up scope, answer plans, and target-agent derivation | Import through its explicit package facade; keep authorization, bounded body parsing, HTTP mapping, SSE sequencing, and transport delivery in routes. |
 | `dev/` | Interactive local and test-only provider composition | Keep unavailable to production imports. |
 | `dev/fixtures/` | Synthetic pytest-only fixtures | Keep outside production composition. |
-| `persistence/` | Operator API read-model implementations and projections | Retain behind owned read contracts. |
+| `persistence/` | Operator API read-model and conversation-state persistence implementations | Retain behind owned store contracts. |
+| `persistence/conversation/` | Principal-scoped transcript, policy-receipt, replay-metadata, and conversation-image lifecycle persistence | Import through the explicit facade and keep HTTP, SSE, authentication, status mapping, and transport in routes. |
 | `projections/` | Read-only projection ownership outside HTTP routes | Retain as the owner of migrated families. |
 | `projections/audit/` | Audit query and autonomy/FinOps measurement projections | Import through its explicit facade; keep old route modules as shims. |
-| `projections/conversation/` | Request-local conversation read projections, including screen data, model traces, trajectory detail, resource response context, and queue-accepted progress metric reduction | Retain in-process until service-graduation evidence exists. |
+| `projections/conversation/` | Request-local conversation read projections, including screen data, exact document evidence, model traces, trajectory detail, resource response context, and queue-accepted progress metric reduction | Retain in-process until service-graduation evidence exists. |
 | `projections/conversation/presentation/` | Value-free layout selection and verified evidence artifact compilation | Import through its explicit facade; keep JSON and SSE behavior in routes. |
 | `projections/conversation/inventory/` | Inventory evidence sanitization, result projection, and deterministic rendering | Import through its explicit facade; keep query compilation and provider coordination in the application package. |
 | `projections/conversation/terminal/` | Terminal payload, LLM usage, resource-result, and source-failure projections | Import through its explicit facade; keep JSON, SSE, authentication, cancellation, and history in routes. |
