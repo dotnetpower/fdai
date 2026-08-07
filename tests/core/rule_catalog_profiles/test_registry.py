@@ -320,3 +320,15 @@ def test_from_directories_skips_hidden_files(tmp_path: Path) -> None:
     reg = ProfileRegistry.from_directories(upstream=tmp_path)
     assert reg.get("hidden") is None
     assert reg.all() == ()
+
+
+def test_from_directories_allows_hidden_ancestor_outside_profile_root(tmp_path: Path) -> None:
+    profiles = tmp_path / ".validation-state" / "worktree" / "profiles"
+    profiles.parent.mkdir(parents=True)
+    _write_baseline_profile(profiles, "Visible baseline")
+
+    registry = ProfileRegistry.from_directories(upstream=profiles)
+
+    baseline = registry.get("baseline")
+    assert baseline is not None
+    assert baseline.title == "Visible baseline"

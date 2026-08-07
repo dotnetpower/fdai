@@ -198,9 +198,9 @@ class ProfileRegistry:
         Overlay authors that want to keep a private, non-loaded
         directory alongside their profiles should place it under a
         sibling path (e.g. ``profiles-overrides.drafts/``) rather
-        than under the loaded directory. Files with a leading ``.``
-        (Unix "hidden") are skipped so editor autosaves and
-        ``.git/**`` remnants do not accidentally join the load.
+        than under the loaded directory. Files or directories with a
+        leading ``.`` inside the configured root are skipped so editor
+        autosaves and nested ``.git/**`` remnants do not join the load.
         """
         validator = _schema_validator()
         merged: dict[str, Profile] = {}
@@ -215,7 +215,8 @@ class ProfileRegistry:
                 # Skip hidden files / directories (e.g. `.git`, `.DS_Store`,
                 # editor swap files) - they are never part of a shipped
                 # profile.
-                if any(part.startswith(".") for part in path.parts):
+                relative_path = path.relative_to(base)
+                if any(part.startswith(".") for part in relative_path.parts):
                     continue
                 raw = yaml.safe_load(path.read_text(encoding="utf-8"))
                 if raw is None:

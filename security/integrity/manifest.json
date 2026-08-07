@@ -636,7 +636,7 @@
     "src/fdai/core/rpc/tool_discovery.py": "e136011a5d5f55d862a361ade40a807c4960ed26a7dca61d294ccce29bb0f3ec",
     "src/fdai/core/rule_catalog_profiles/__init__.py": "6842d30727c63104d722a07fdc3a0ffeaadd701bae1aa9d83095c563dfa9b144",
     "src/fdai/core/rule_catalog_profiles/models.py": "9cdf4a24e4ccf6e1f1739f014a525ae081d086fe6d1043a1e08f64b1afba3f6b",
-    "src/fdai/core/rule_catalog_profiles/registry.py": "fbfdb3b3ed28f81832241001a6667b2f20b5458a734db04cd8b7696d38a75604",
+    "src/fdai/core/rule_catalog_profiles/registry.py": "b51ac6fa8761f641a2b5c874dae056817c117a3a33a5d9c35ad9af82edd8e499",
     "src/fdai/core/runbook/__init__.py": "c0ed326649a9eaf3d50a8e38e306d7ac5581ba1b8da6cddf40a6a05920acaeeb",
     "src/fdai/core/runbook/models.py": "28f85b5fd61d5da04604c477b8315a50b3c570119d8ea680c87d0a3806bd9065",
     "src/fdai/core/runbook/runner.py": "dc4e190542d5542257724ba9e8eea8f0b054b84bf2805ff838284154f13d4833",
@@ -995,7 +995,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-07T20:57:28Z",
+  "generated_at": "2026-08-07T21:20:40Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",
