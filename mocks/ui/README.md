@@ -65,6 +65,12 @@ Chat surfaces:
 | [deck.html](deck.html) | Command deck (chat) - 3-column shell with visible Bragi-to-agent handoffs, grounded citations, observed read-command evidence with collapsible output and timestamps, evidence attachments, and a right-side retrieval trace |
 | [deck-sources.html](deck-sources.html) | Same conversation surface zoomed into how Bragi streams retrieval + citations into an in-progress reply |
 
+Presentation wireframes (offline, not part of the console shell):
+
+| File | Purpose |
+|------|---------|
+| [roadmap-slide-wireframe.html](roadmap-slide-wireframe.html) | Low-fidelity 16:9 PPT roadmap draft: an overview slide with five function cards (SRE, ARB, Change Management, FinOps, Chaos/DR) and a phase-by-function swimlane timeline slide, both numbered-annotated for hand-off into an actual deck. All milestones and status colors are synthetic placeholders. |
+
 Report and kit:
 
 | File | Purpose |
