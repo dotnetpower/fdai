@@ -736,7 +736,44 @@ def test_json_turn_execution_imports_no_transport_or_provider_adapters() -> None
         if module == forbidden[0] or module.startswith(forbidden)
     ]
     assert not offenders, (
-        f"JSON turn execution must stay transport-neutral and provider-neutral: {offenders}"
+        f"Turn execution must stay transport-neutral and provider-neutral: {offenders}"
+    )
+
+
+def test_chat_stream_handler_has_no_lifecycle_orchestration_calls() -> None:
+    path = _OPERATOR_API_DIR / "routes" / "chat_stream.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    handler = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "handler"
+    )
+    forbidden = {
+        "append_assistant_turn",
+        "append_content_policy_receipt",
+        "finalize_post_generation",
+        "metering_correlation_id",
+        "persist_operator_turn_with_images",
+        "plan_semantic_turn",
+        "resolve_parallel_chat_evidence",
+        "start_shadow_answer_planning",
+        "with_assurance_policy",
+        "with_compiled_user_policy",
+        "with_invocation_scope",
+    }
+    called = {
+        call.func.id
+        if isinstance(call.func, ast.Name)
+        else call.func.attr
+        if isinstance(call.func, ast.Attribute)
+        else ""
+        for call in ast.walk(handler)
+        if isinstance(call, ast.Call)
+    }
+
+    assert called.isdisjoint(forbidden), (
+        "chat_stream.handler must remain a transport adapter; direct lifecycle calls: "
+        f"{sorted(called & forbidden)}"
     )
 
 

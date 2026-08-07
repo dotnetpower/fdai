@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -22,6 +23,33 @@ class JsonTurnExecutionResult:
 
     payload: dict[str, Any]
     outcome: JsonTurnOutcome = JsonTurnOutcome.COMPLETED
+
+
+@dataclass(frozen=True, slots=True)
+class StreamTurnEvent:
+    """One transport-neutral semantic event from streaming turn execution."""
+
+    event: str | None
+    payload: dict[str, Any] | None = None
+    revision: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class StreamTurnExecution:
+    """Single-use semantic event stream prepared before HTTP delivery starts."""
+
+    request_id: str
+    events: AsyncIterator[StreamTurnEvent]
+    recover_transport_error: Callable[[BaseException], Awaitable[StreamTurnEvent | None]]
+
+
+class StreamTurnExecutionError(RuntimeError):
+    """Typed pre-stream failure mapped to HTTP only by the route adapter."""
+
+    def __init__(self, *, code: str, detail: str) -> None:
+        super().__init__(detail)
+        self.code = code
+        self.detail = detail
 
 
 class JsonTurnExecutionError(RuntimeError):

@@ -177,12 +177,13 @@ and [`busy_input.py`](../../../src/fdai/delivery/operator_api/application/conver
 Core retains `BusyInputCoordinator` authority, while JSON and SSE routes retain status mapping,
 frame sequencing, authentication, connection cancellation, history transport, and delivery.
 
-One-shot JSON turn lifecycle coordination lives in
+JSON and streamed turn lifecycle coordination lives in
 [`turn_execution/`](../../../src/fdai/delivery/operator_api/application/conversation/turn_execution/).
-The typed service owns request preparation, planning, evidence, generation, verification,
-persistence, metering, and completion. `chat.py` retains authentication, bounded JSON parsing,
-HTTP status mapping, response delivery, and factory binding. SSE lifecycle extraction remains the
-next `chat_stream.py` slice.
+The typed services own request preparation, planning, evidence, generation and stream collection,
+verification, persistence, metering, and completion. `chat.py` retains JSON authentication,
+bounded parsing, status mapping, response delivery, and factory binding. `chat_stream.py` retains
+SSE authentication, bounded request transport, status mapping, framing, heartbeat, sequence,
+revision, connection-close cancellation, and response construction.
 
 ## Rule catalog, deploy, and platform
 

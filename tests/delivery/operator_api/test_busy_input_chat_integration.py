@@ -303,6 +303,7 @@ async def test_stream_interrupt_emits_no_done_and_skips_assistant_history() -> N
     )
     assert response.status_code == 200
     assert "event: interrupted" in response.text
+    assert "event: confirmed" not in response.text
     assert "event: done" not in response.text
     assert backend.cancelled.is_set()
     assert [turn.role for turn in turns] == [ConversationTurnRole.OPERATOR]

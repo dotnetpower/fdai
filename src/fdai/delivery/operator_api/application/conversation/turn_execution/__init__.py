@@ -19,12 +19,24 @@ Deployment:
 Runs in-process inside the Operator API and creates no network boundary.
 """
 
-from .models import JsonTurnExecutionError, JsonTurnExecutionResult, JsonTurnOutcome
+from .models import (
+    JsonTurnExecutionError,
+    JsonTurnExecutionResult,
+    JsonTurnOutcome,
+    StreamTurnEvent,
+    StreamTurnExecution,
+    StreamTurnExecutionError,
+)
 from .service import JsonTurnExecutionService
+from .stream_service import StreamTurnExecutionService
 
 __all__ = [
     "JsonTurnExecutionError",
     "JsonTurnExecutionResult",
     "JsonTurnExecutionService",
     "JsonTurnOutcome",
+    "StreamTurnEvent",
+    "StreamTurnExecution",
+    "StreamTurnExecutionError",
+    "StreamTurnExecutionService",
 ]

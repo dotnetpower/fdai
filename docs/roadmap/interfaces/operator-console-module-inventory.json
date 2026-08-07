@@ -42,9 +42,9 @@
     },
     {
       "path": "application/conversation/turn_execution",
-      "responsibility": "Typed one-shot JSON request preparation, planning, evidence, generation, verification, persistence, metering, and completion coordination",
+      "responsibility": "Typed JSON and streamed turn request preparation, planning, evidence, generation, verification, persistence, metering, and completion coordination",
       "classification": "application-coordination",
-      "candidate_destination": "retain as the Starlette-free JSON turn lifecycle owner"
+      "candidate_destination": "retain as the Starlette-free JSON and streamed turn lifecycle owner"
     },
     {
       "path": "application/conversation/capabilities",

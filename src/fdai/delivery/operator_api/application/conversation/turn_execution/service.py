@@ -215,7 +215,9 @@ class JsonTurnExecutionService:
         self._model_preference_resolver = model_preference_resolver
         self._answer_preference_resolver = answer_preference_resolver
         self._post_turn_review_submitter = post_turn_review_submitter
-        self._turn_service = turn_service or ConversationTurnApplicationService()
+        self._turn_service = (
+            turn_service if turn_service is not None else ConversationTurnApplicationService()
+        )
         history_compressor = BackendChatHistoryCompressor(
             backend=backend,
             max_summary_chars=history_policy.max_summary_chars,
