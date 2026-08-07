@@ -505,7 +505,7 @@
         "src/fdai/delivery/azure/read_investigation/**",
         "src/fdai/delivery/azure/subscription_health.py",
         "src/fdai/delivery/persistence/read_investigation_latency.py",
-        "src/fdai/delivery/operator_api/routes/chat_subscription_health.py",
+        "src/fdai/delivery/operator_api/application/conversation/capabilities/subscription_health.py",
         "src/fdai/delivery/operator_api/routes/read_investigation_catalog.py",
         "src/fdai/delivery/operator_api/routes/read_investigations.py",
         "rule-catalog/vocabulary/investigation-intents.yaml",
@@ -541,8 +541,8 @@
       ],
       "validate": [
         "uv run pytest -q --no-cov tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/azure/test_subscription_health.py tests/delivery/operator_api/test_read_investigations.py tests/delivery/operator_api/test_chat_subscription_health.py tests/agents/test_read_investigation_routing.py",
-        "uv run ruff check src/fdai/core/read_investigation src/fdai/shared/providers/read_investigation.py src/fdai/delivery/azure/read_investigation src/fdai/delivery/azure/subscription_health.py src/fdai/delivery/persistence/read_investigation_latency.py src/fdai/delivery/operator_api/routes/read_investigations.py src/fdai/delivery/operator_api/routes/chat_subscription_health.py tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/azure/test_subscription_health.py tests/delivery/operator_api/test_read_investigations.py tests/delivery/operator_api/test_chat_subscription_health.py tests/agents/test_read_investigation_routing.py",
-        "uv run mypy src/fdai/core/read_investigation src/fdai/shared/providers/read_investigation.py src/fdai/delivery/azure/read_investigation src/fdai/delivery/azure/subscription_health.py src/fdai/delivery/persistence/read_investigation_latency.py src/fdai/delivery/operator_api/routes/read_investigations.py src/fdai/delivery/operator_api/routes/chat_subscription_health.py tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/azure/test_subscription_health.py tests/delivery/operator_api/test_read_investigations.py tests/delivery/operator_api/test_chat_subscription_health.py tests/agents/test_read_investigation_routing.py"
+        "uv run ruff check src/fdai/core/read_investigation src/fdai/shared/providers/read_investigation.py src/fdai/delivery/azure/read_investigation src/fdai/delivery/azure/subscription_health.py src/fdai/delivery/persistence/read_investigation_latency.py src/fdai/delivery/operator_api/routes/read_investigations.py src/fdai/delivery/operator_api/application/conversation/capabilities/subscription_health.py tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/azure/test_subscription_health.py tests/delivery/operator_api/test_read_investigations.py tests/delivery/operator_api/test_chat_subscription_health.py tests/agents/test_read_investigation_routing.py",
+        "uv run mypy src/fdai/core/read_investigation src/fdai/shared/providers/read_investigation.py src/fdai/delivery/azure/read_investigation src/fdai/delivery/azure/subscription_health.py src/fdai/delivery/persistence/read_investigation_latency.py src/fdai/delivery/operator_api/routes/read_investigations.py src/fdai/delivery/operator_api/application/conversation/capabilities/subscription_health.py tests/core/read_investigation tests/delivery/azure/read_investigation tests/delivery/azure/test_subscription_health.py tests/delivery/operator_api/test_read_investigations.py tests/delivery/operator_api/test_chat_subscription_health.py tests/agents/test_read_investigation_routing.py"
       ]
     },
     {
@@ -1093,7 +1093,7 @@
         "src/fdai/shared/providers/behavior_knowledge.py",
         "src/fdai/delivery/behavior_knowledge/**",
         "src/fdai/delivery/pgvector/behavior_knowledge.py",
-        "src/fdai/delivery/operator_api/routes/chat_behavior_evidence.py",
+        "src/fdai/delivery/operator_api/application/conversation/capabilities/behavior_evidence.py",
         "tests/delivery/behavior_knowledge/**",
         "tests/delivery/pgvector/test_behavior_knowledge.py",
         "tests/delivery/operator_api/test_chat_behavior_evidence.py"

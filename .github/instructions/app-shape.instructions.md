@@ -4,12 +4,9 @@ applyTo: ".vscode/**,console/**,src/fdai/delivery/operator_api/**,src/fdai/runti
 ---
 
 # App Shape
-Not one big web app. The system is a **headless control plane + thin console + ChatOps**, serving
-Resilience, Change Safety, and Cost Governance. SRE is their operating model and ARB is cross-domain
-governance. A large always-on UI would contradict the "minimize human intervention" goal.
+Not one big web app. The system is a **headless control plane + thin console + ChatOps**, serving Resilience, Change Safety, and Cost Governance. SRE is their operating model and ARB is cross-domain governance. A large always-on UI would contradict the "minimize human intervention" goal.
 
-The layers communicate through the event bus and git, not direct in-process calls, so they fail and
-scale independently. See [Architecture](architecture.instructions.md) for trust routing and
+The layers communicate through the event bus and git, not direct in-process calls, so they fail and scale independently. See [Architecture](architecture.instructions.md) for trust routing and
 [Deployment](../../docs/roadmap/deployment/deployment.md) for environment and CI/CD mapping.
 
 ## Layers
@@ -22,12 +19,10 @@ scale independently. See [Architecture](architecture.instructions.md) for trust 
 | 4 | **Human channel** | ChatOps (Teams bot + Adaptive Cards) - high-risk HIL approvals and alerts | yes (event-driven) | reach operators where they already are |
 | 5 | **Rule catalog** | catalog-as-code (git repo) - versioned rules | n/a (git-hosted) | the update pipeline lands rules via PR |
 
-- **Brain = core engine (1); hands = action delivery (2); human touchpoints = console (3) +
-  ChatOps (4); memory = rule catalog (5).**
-- The core is **CSP-neutral by design**: cloud access sits behind adapters (policy in OPA,
-  IaC in Terraform). **Azure is the only implemented target**; non-Azure providers are
-  TBD (see [Implementation Focus](../copilot-instructions.md#implementation-focus-must)) and
-  the neutral abstractions exist so a future adapter can be added without a core rewrite.
+- **Brain = core engine (1); hands = action delivery (2); human touchpoints = console (3) + ChatOps (4); memory = rule catalog (5).**
+- The core is **CSP-neutral by design**: cloud access sits behind adapters (policy in OPA, IaC in Terraform).
+  **Azure is the only implemented target**; non-Azure providers are TBD (see [Implementation Focus](../copilot-instructions.md#implementation-focus-must)), and the neutral abstractions let a future adapter
+  be added without a core rewrite.
   See [../../docs/roadmap/architecture/tech-stack.md](../../docs/roadmap/architecture/tech-stack.md).
 
 ## Layer Boundaries (security)

@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 8a8084abb6daf7b4fd456da93fb88d1165cd44c1
-translation_revised: 2026-08-06
+translation_source_sha: 9b927c4d47b6d14d7e8646725c144d2f6296ec1c
+translation_revised: 2026-08-07
 ---
 
 # 배포 빠른 시작
@@ -32,6 +32,9 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
 - 보호된 원격 plan을 쓰려면 비밀이 아닌 `DEPLOY_PREFLIGHT_INPUT_JSON` 저장소 변수에 필요한
   라이브 카테고리를 모두 설정하세요. 프로필이 없으면 Azure 로그인 전에 중단하고, 프로브가
   차단되면 정제된 점검 결과와 발견된 문제만 로그에 남습니다.
+- 내부 Isolated Executor를 미리보려면 private-runner workflow에서
+  `deploy_isolated_executor`를 선택하세요. 별도로 apply를 승인하기 전까지 plan-only 상태이며,
+  shadow 자격 증명에는 작업별 effect 역할이 없습니다.
 
 ## 최소 인벤토리 프로비저닝
 
@@ -99,6 +102,9 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    확인합니다.
    - **Operator API**: 브라우저 Entra 앱 역할이 동작하고, 읽기와 명령 자격 증명이 Thor의 실행기
      관리 자격 증명과 분리돼 있습니다.
+   - **Isolated Executor**: 활성화한 경우 내부 `/live`와 `/ready` 프로브가 통과하고 최신 revision이
+     활성 상태이며, 전용 자격 증명에는 image pull, command receive, receipt 또는 DLQ send,
+     state-secret read만 있습니다. Authority cutover 전에는 작업별 effect 역할이 없습니다.
    - **Email 알림**: incident-open message가 multipart HTML과 plain text로 도착합니다. Console을
      활성화한 경우 detail link는 Static Web App origin을 사용하고 Settings > Integrations는 합성
      placeholder로 동일한 renderer를 표시합니다.

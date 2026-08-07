@@ -4,7 +4,7 @@
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "21bb2ece6a127b4d706dbf8a33891b563fb0c85123d38865f64b44d8ccb6741a",
     ".github/instructions/agent-stewardship.instructions.md": "574518fca728a9a6c8d3b50e0cf4aa53a1ed5bf85d5c52e5da67a0486bf31a43",
-    ".github/instructions/app-shape.instructions.md": "4826cf4cc5080ea23118fd68471555209a98a0273b238d67e67937b538e07146",
+    ".github/instructions/app-shape.instructions.md": "431e65185f8c929e172b6827a103dde201be776ff8735d879727d722b1b24e5f",
     ".github/instructions/architecture.instructions.md": "e0b6a3a3ffee5b05c4e374fa8d81fc812eac382afd6440616fbc5017425a16ff",
     ".github/instructions/coding-conventions.instructions.md": "820d518048d8e883a881ccc4b6bf50e7872d01385fbf0d4c6db2a473b603cd5e",
     ".github/instructions/documentation-style.instructions.md": "23ecedf5def4184f63f5b2b9b70296b5426474122ca9fb048aedf3babca72557",
@@ -993,7 +993,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-07T08:50:01Z",
+  "generated_at": "2026-08-07T11:07:31Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: c07fc9189d2409c67d5c59e6582842ddeedb8a28 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: b89ace01c8e09c1c83adda6246a12641e6ce23cd }]
 ---
 
 # Deploy Quickstart
@@ -35,6 +35,9 @@ first, so you can review the plan before you run the separate apply step.
   repository variable with every required live category. A missing profile stops
   the run before Azure login, and a blocked probe logs only sanitized check
   results and detected issues.
+- To preview the internal Isolated Executor, select `deploy_isolated_executor`
+  in the private-runner workflow. It remains plan-only until you separately
+  approve apply, and the shadow identity receives no action-specific effect role.
 
 ## Provision the minimum inventory
 
@@ -103,6 +106,10 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    publisher Job finished. Then check the features you enabled:
    - **Operator API**: browser Entra App Roles work, and its read and command
      credentials stay separate from Thor's executor managed identity.
+   - **Isolated Executor**: when enabled, its internal `/live` and `/ready`
+     probes pass, its latest revision is active, and its dedicated identity has
+     only image pull, command receive, receipt or DLQ send, and state-secret read.
+     It has no action-specific effect role before authority cutover.
    - **Email notifications**: an incident-open message arrives as multipart HTML and plain text.
      When the Console is enabled, its detail link uses the Static Web App origin and Settings >
      Integrations shows the same renderer with synthetic placeholders.
