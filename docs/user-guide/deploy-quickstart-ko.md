@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: cf05a20ef496a0d5b4200d93a28c9f3d01f1e6fa
+translation_source_sha: 154191ed98e660707c1560282ce52689637c44e1
 translation_revised: 2026-08-07
 ---
 
@@ -112,8 +112,9 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    - **문서 OCR**: 수집 자격 증명이 지정된 Document Intelligence 리소스에만
      `Cognitive Services User` 역할을 갖습니다.
    - **케이스 히스토리**: 전용 관리 자격 증명만 Blob 데이터에 접근하고, 실행기에는
-     케이스 히스토리 Blob 역할이 없으며, `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS`가 승인된
-     삭제 주기와 일치합니다.
+     케이스 히스토리 Blob 역할이 없으며, private network rule은 Defender scanner
+     private-link access를 유지하고, `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS`가 승인된 삭제
+     주기와 일치합니다.
    - **예측 학습**: 옵트인 Job이 원시 tick만 발행하고, 코어에 검토된
      `FDAI_FORECAST_TARGETS_JSON` 문서가 있습니다.
 3. **개발 운영 게이트웨이 검증.** 이것은 개발 도구입니다. Easy Auth 뒤에서 public

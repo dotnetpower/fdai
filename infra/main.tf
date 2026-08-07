@@ -902,7 +902,13 @@ module "case_history_storage" {
   public_network_access_enabled = !var.enable_private_networking
   soft_delete_retention_days    = var.case_history_retention_days
   version_retention_days        = var.case_history_version_retention_days
-  tags                          = merge(local.tags, { "fdai:component" = "case-history" })
+  private_link_access = var.enable_private_networking ? {
+    defender_storage_data_scanner = {
+      endpoint_resource_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Security/datascanners/StorageDataScanner"
+      endpoint_tenant_id   = var.tenant_id
+    }
+  } : {}
+  tags = merge(local.tags, { "fdai:component" = "case-history" })
 }
 
 # Key Vault private endpoint + private DNS (privatelink.vaultcore.azure.net).

@@ -41,6 +41,15 @@ variable "public_network_access_enabled" {
   default = false
 }
 
+variable "private_link_access" {
+  description = "Private-link resource and tenant pairs allowed through storage network rules."
+  type = map(object({
+    endpoint_resource_id = string
+    endpoint_tenant_id   = string
+  }))
+  default = {}
+}
+
 variable "container_name" {
   type    = string
   default = "case-history"

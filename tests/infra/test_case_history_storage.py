@@ -14,6 +14,8 @@ def test_case_history_storage_is_private_versioned_and_keyless() -> None:
     assert 'role_definition_name = "Storage Blob Data Contributor"' in module
     assert "delete_after_days_since_creation = var.version_retention_days" in module
     assert 'bypass         = ["None"]' in module
+    assert 'dynamic "private_link_access"' in module
+    assert "for_each = var.private_link_access" in module
 
 
 def test_root_wires_case_history_private_endpoint_and_core_environment() -> None:
@@ -23,6 +25,8 @@ def test_root_wires_case_history_private_endpoint_and_core_environment() -> None
     assert 'module "case_history_storage"' in root
     assert 'module "case_history_identity"' in root
     assert "runtime_principal_id          = module.case_history_identity[0].principal_id" in root
+    assert "private_link_access = var.enable_private_networking ? {" in root
+    assert "Microsoft.Security/datascanners/StorageDataScanner" in root
     assert "module.case_history_identity[0].resource_id" in root
     assert 'module "case_history_blob_private_endpoint"' in root
     assert 'private_dns_zone_name = "privatelink.blob.core.windows.net"' in root

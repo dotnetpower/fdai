@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: d2d0d186812839c409e944c84db0deabb394de05 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 729e1a0da575c70ff76dfd996cc5a0afaeb25901 }]
 ---
 
 # Deploy Quickstart
@@ -118,7 +118,8 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    - **Document OCR**: the ingestion identity has `Cognitive Services User` only
      on the configured Document Intelligence resource.
    - **Case history**: only its dedicated managed identity has Blob data access,
-     the executor has no case-history Blob role, and
+     its private network rules retain Defender scanner private-link access, the
+     executor has no case-history Blob role, and
      `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS` matches the approved deletion
      cadence.
    - **Forecast learning**: its opt-in Job publishes raw ticks only, and the core
