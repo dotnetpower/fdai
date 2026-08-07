@@ -188,6 +188,26 @@ split yet.
   endpoint, or secret in an issue, a comment, or a board field
   ([generic-scope.instructions.md](.github/instructions/generic-scope.instructions.md)).
 
+### Delivery milestones
+
+Milestones are the release axis. Each one names an outcome and the evidence that closes it, and
+each is measured against a machine-readable source rather than a status opinion.
+
+| Milestone | Due | Outcome | Closes when |
+|-----------|-----|---------|-------------|
+| M1 - Evidence spine | 2026-08-31 | measurement becomes claimable | the SRE capability pack is complete and the recorded baseline is claim-eligible |
+| M2 - Authority spine | 2026-09-30 | promotion becomes possible | the shared safeguard contract, A3-E authority, and the isolated executor are in place |
+| M3 - Closure | 2026-10-30 | every capability carries a verdict | all coverage cells, all constitutional requirements, and every workflow promotion decision are closed |
+
+Work is organized into four lanes that run in parallel through every milestone rather than in
+sequence: **Evidence** (scenario coverage and baselines), **Authority** (safety contracts and
+promotion), **Integration** (service decomposition and adapters), and **Experience** (console,
+builder, and documentation). Each milestone has one epic per lane, so a slipping lane never blocks
+the other three.
+
+Sprints are two weeks and named after the increment they deliver, not numbered abstractly. A
+milestone spans two sprints.
+
 ### Board fields
 
 `Status`, `Priority`, `Size`, and `Work type` mirror the labels above so the board stays usable
