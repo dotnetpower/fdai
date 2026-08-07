@@ -12,17 +12,23 @@ import pytest
 from fdai_document_worker_service.consumer import DocumentIngestionEventConsumer
 from fdai_document_worker_service.supervisor import IngestionWorkerSupervisor
 from fdai_ingestion_api_service.access import ClaimsDocumentAccessProvider
+from fdai_ingestion_api_service.adapters.postgres import PostgresApiConfig
 from fdai_ingestion_api_service.auth import Authenticator, GroupMapping
+from fdai_ingestion_api_service.deletion import ApiDocumentDeletionService
 from fdai_ingestion_api_service.http import IngestionGatewayConfig, build_app
 from fdai_ingestion_api_service.ingestion import DocumentIngestionService
 from fdai_service_contracts import (
     AUDIT_APPEND_LOCK_KEY,
     AUDIT_GENESIS_HASH,
+    AccessDescriptor,
+    DocumentPurpose,
+    DocumentState,
     DocumentVersion,
     DocumentWorkerClaim,
     DocumentWorkerClaimStatus,
     DocumentWorkerStage,
     IngestionCapabilities,
+    RetentionPolicy,
     SourceStorageMode,
     StoredObjectInfo,
     UploadGrant,
@@ -164,6 +170,9 @@ class MemoryObjects:
     async def delete(self, object_key: str) -> None:
         self.content.pop(object_key, None)
 
+    async def delete_artifact(self, document_id: UUID, version_id: UUID) -> None:
+        return None
+
 
 class Activity:
     def __init__(self) -> None:
@@ -179,6 +188,81 @@ class Activity:
 class NoDeletion:
     async def delete(self, **_kwargs: object) -> DocumentVersion:
         raise AssertionError("delete is not expected")
+
+
+@pytest.mark.asyncio
+async def test_api_owned_deletion_records_terminal_activity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    metadata = MemoryMetadata()
+    objects = MemoryObjects()
+    activity = Activity()
+    now = datetime.now(UTC)
+    upload_id = uuid4()
+    document_id = uuid4()
+    version_id = uuid4()
+    access = AccessDescriptor(reference="collection:shared", collection_id="shared")
+    retention = RetentionPolicy(policy_version="test")
+    session = UploadSession(
+        upload_id=upload_id,
+        document_id=document_id,
+        version_id=version_id,
+        actor_id="operator",
+        source_name="note.txt",
+        collection_id="shared",
+        object_key="governed/source",
+        media_type_hint="text/plain",
+        expected_size=5,
+        expected_sha256=hashlib.sha256(b"hello").hexdigest(),
+        state=DocumentState.READY,
+        storage_mode=SourceStorageMode.MANAGED_COPY,
+        purposes=(DocumentPurpose.KNOWLEDGE_BASE,),
+        access=access,
+        retention=retention,
+        created_at=now,
+        expires_at=now + timedelta(minutes=15),
+    )
+    version = DocumentVersion(
+        document_id=document_id,
+        version_id=version_id,
+        upload_id=upload_id,
+        source_name="note.txt",
+        source_sha256=session.expected_sha256,
+        size_bytes=5,
+        media_type="text/plain",
+        state=DocumentState.READY,
+        access=access,
+        retention=retention,
+        purposes=session.purposes,
+        uploader_id="operator",
+        created_at=now,
+        updated_at=now,
+        active=True,
+        available=True,
+    )
+    await metadata.create(session, version)
+    objects.content[session.object_key] = b"hello"
+    deletion = ApiDocumentDeletionService(
+        access=ClaimsDocumentAccessProvider(),
+        metadata=metadata,  # type: ignore[arg-type]
+        objects=objects,  # type: ignore[arg-type]
+        database=PostgresApiConfig(dsn="postgresql://unused"),
+        activity=activity,
+    )
+
+    async def no_chunks(_document_id: UUID, _version_id: UUID) -> None:
+        return None
+
+    monkeypatch.setattr(deletion, "_delete_chunks", no_chunks)
+    deleted = await deletion.delete(
+        actor_id="operator",
+        actor_groups=frozenset(),
+        document_id=document_id,
+        version_id=version_id,
+    )
+    assert deleted.state is DocumentState.DELETED
+    assert session.object_key not in objects.content
+    assert [record["action"] for record in activity.records] == ["document.deleted"]
 
 
 def test_http_upload_content_and_complete_preserve_wire_contract(

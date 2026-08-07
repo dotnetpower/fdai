@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 import psycopg
-from fdai_service_contracts import DocumentAccessProvider, DocumentState, DocumentVersion
+from fdai_service_contracts import (
+    DocumentAccessProvider,
+    DocumentActivitySink,
+    DocumentState,
+    DocumentVersion,
+    UploadSession,
+)
 
 from fdai_ingestion_api_service.adapters.postgres import (
     PostgresApiConfig,
@@ -25,11 +32,13 @@ class ApiDocumentDeletionService:
         metadata: PostgresDocumentMetadataStore,
         objects: AzureDataLakeObjectStore,
         database: PostgresApiConfig,
+        activity: DocumentActivitySink,
     ) -> None:
         self._access = access
         self._metadata = metadata
         self._objects = objects
         self._database = database
+        self._activity = activity
 
     async def delete(
         self,
@@ -49,18 +58,28 @@ class ApiDocumentDeletionService:
         deleting = transition(version.state, DocumentState.DELETING)
         session = session.model_copy(update={"state": deleting})
         version = version.model_copy(
-            update={"state": deleting, "available": False, "active": False}
+            update={
+                "state": deleting,
+                "available": False,
+                "active": False,
+                "updated_at": datetime.now(tz=UTC),
+            }
         )
         await self._metadata.save_upload(session)
         await self._metadata.save_version(version)
-        await self._delete_chunks(document_id, version_id)
-        await self._objects.delete_artifact(document_id, version_id)
-        await self._objects.delete(session.object_key)
+        try:
+            await self._delete_chunks(document_id, version_id)
+            await self._objects.delete_artifact(document_id, version_id)
+            await self._objects.delete(session.object_key)
+        except Exception:
+            await self._record(session, version, "document.deletion_pending", actor_id)
+            raise
         deleted = transition(deleting, DocumentState.DELETED)
         session = session.model_copy(update={"state": deleted})
-        version = version.model_copy(update={"state": deleted})
+        version = version.model_copy(update={"state": deleted, "updated_at": datetime.now(tz=UTC)})
         await self._metadata.save_upload(session)
         await self._metadata.save_version(version)
+        await self._record(session, version, "document.deleted", actor_id)
         return version
 
     async def _delete_chunks(self, document_id: UUID, version_id: UUID) -> None:
@@ -73,3 +92,24 @@ class ApiDocumentDeletionService:
                 "AND metadata->>'version_id' = %s",
                 (str(document_id), str(version_id)),
             )
+
+    async def _record(
+        self,
+        session: UploadSession,
+        version: DocumentVersion,
+        action: str,
+        actor_id: str,
+    ) -> None:
+        record: dict[str, object] = {
+            "action": action,
+            "actor_id": actor_id,
+            "collection_id": session.collection_id,
+            "document_id": str(version.document_id),
+            "version_id": str(version.version_id),
+            "source_sha256": version.source_sha256,
+            "state": version.state.value,
+            "policy_version": version.retention.policy_version,
+            "access_descriptor_ref": version.access.reference,
+        }
+        await self._activity.audit(record)
+        await self._activity.publish(action, str(version.document_id), record)

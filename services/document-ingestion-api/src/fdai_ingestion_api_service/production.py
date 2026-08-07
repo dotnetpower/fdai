@@ -138,6 +138,7 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
             metadata=metadata,
             objects=storage,
             database=database,
+            activity=activity,
         ),
         search_index=PostgresDocumentSearch(
             config=database,
