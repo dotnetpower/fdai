@@ -34,6 +34,8 @@ dependencies = [
     # Public evaluation contracts are released independently from the FDAI
     # implementation. The local workspace member mirrors that release boundary.
     "fdai-evaluation-sdk>=0.1,<0.2",
+    # Cross-process service constants and Protocols stay implementation-free.
+    "fdai-service-contracts==0.1.0",
     # W1.2 - contracts: typed models + JSON Schema validation at boundaries only.
     # Everything else (event bus, state store, telemetry, LLM clients) is deferred
     # to its own P0 work item so a violation is easy to spot in the lockfile diff.

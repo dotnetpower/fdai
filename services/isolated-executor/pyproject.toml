@@ -3,7 +3,12 @@ name = "fdai-isolated-executor-service"
 version = "0.1.0"
 description = "FDAI Isolated Executor service"
 requires-python = ">=3.12"
-dependencies = ["fdai==0.1.180", "fdai-service-contracts==0.1.0"]
+dependencies = [
+	"fdai==0.1.180",
+	"fdai-service-contracts==0.1.0",
+	"httpx>=0.27,<1",
+	"pydantic>=2.9,<3",
+]
 
 [project.scripts]
 fdai-isolated-executor-service = "fdai_executor_service.main:main"

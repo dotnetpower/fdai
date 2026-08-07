@@ -684,6 +684,7 @@ dependencies = [
     { name = "azure-storage-file-datalake" },
     { name = "croniter" },
     { name = "fdai-evaluation-sdk" },
+    { name = "fdai-service-contracts" },
     { name = "httpx" },
     { name = "jsonschema" },
     { name = "markdown-it-py" },
@@ -743,6 +744,7 @@ requires-dist = [
     { name = "fdai-benchmark-cybergym", marker = "extra == 'dev'", editable = "benchmarks/cybergym" },
     { name = "fdai-benchmark-sregym", marker = "extra == 'dev'", editable = "benchmarks/sregym" },
     { name = "fdai-evaluation-sdk", editable = "evaluation-sdk" },
+    { name = "fdai-service-contracts", editable = "service-contracts" },
     { name = "httpx", specifier = ">=0.27,<1" },
     { name = "jsonschema", specifier = ">=4.23,<5" },
     { name = "markdown-it-py", specifier = ">=4,<5" },
@@ -931,12 +933,16 @@ source = { editable = "services/isolated-executor" }
 dependencies = [
     { name = "fdai" },
     { name = "fdai-service-contracts" },
+    { name = "httpx" },
+    { name = "pydantic" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "fdai", editable = "." },
     { name = "fdai-service-contracts", editable = "service-contracts" },
+    { name = "httpx", specifier = ">=0.27,<1" },
+    { name = "pydantic", specifier = ">=2.9,<3" },
 ]
 
 [[package]]

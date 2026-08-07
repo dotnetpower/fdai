@@ -10,9 +10,9 @@ from typing import Protocol
 from uuid import UUID
 
 import pytest
+from fdai_executor_service.lock import LockedIsolatedExecutorShadowService
 
 from fdai.core.executor.lock import ResourceLockManager
-from fdai.runtime.isolated_executor_lock import LockedIsolatedExecutorShadowService
 from fdai.shared.contracts import (
     ExecutorCommand,
     ExecutorShadowReceipt,

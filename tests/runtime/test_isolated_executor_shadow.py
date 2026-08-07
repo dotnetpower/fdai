@@ -7,8 +7,8 @@ from typing import Any
 from uuid import UUID
 
 import pytest
+from fdai_executor_service.service import IsolatedExecutorShadowService
 
-from fdai.runtime.isolated_executor import IsolatedExecutorShadowService
 from fdai.shared.contracts import (
     ExecutorCommand,
     ExecutorShadowReceiptStatus,

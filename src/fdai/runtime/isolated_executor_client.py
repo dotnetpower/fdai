@@ -7,22 +7,53 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
+from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid5
 
-from pydantic import ValidationError
-
-from fdai.core.executor.direct_api import (
-    DirectApiExecutionOutcome,
-    DirectApiExecutionResult,
-)
-from fdai.runtime.isolated_executor_runtime import (
+from fdai_service_contracts import (
+    CORE_EXECUTOR_RECEIPT_CONSUMER_GROUP,
     EXECUTOR_COMMAND_TOPIC,
     EXECUTOR_RECEIPT_TOPIC,
 )
+from pydantic import ValidationError
+
 from fdai.shared.contracts import ExecutorCommand, ExecutorEffectReceipt
-from fdai.shared.contracts.models import Action, ExecutionPath
+from fdai.shared.contracts.models import Action, ExecutionPath, Mode
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.state_store import StateStore
+
+
+class RemoteDirectApiExecutionOutcome(StrEnum):
+    """Terminal outcomes returned through the remote Executor port."""
+
+    DISPATCHED = "dispatched"
+    ALREADY_APPLIED = "already_applied"
+    ABSTAINED_BLAST_RADIUS = "abstained_blast_radius"
+    ABSTAINED_PRECONDITION = "abstained_precondition"
+    STOPPED = "stopped"
+    FAILED = "failed"
+    AUTHENTICATION_FAILED = "authentication_failed"
+    PERMISSION_DENIED = "permission_denied"
+    POLICY_DENIED = "policy_denied"
+    NETWORK_DENIED = "network_denied"
+    REJECTED_MODE = "rejected_mode"
+    REJECTED_INVARIANT = "rejected_invariant"
+    REJECTED_IDEMPOTENCY_CONFLICT = "rejected_idempotency_conflict"
+    EXPIRED = "expired"
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteDirectApiExecutionResult:
+    """Core-facing structural result without importing a service implementation."""
+
+    action_id: str
+    outcome: RemoteDirectApiExecutionOutcome
+    mode: Mode = Mode.SHADOW
+    receipt_ref: str | None = None
+    rollback_succeeded: bool | None = None
+    reason: str | None = None
+    audit_context: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -61,7 +92,7 @@ class EventBusDirectApiExecutionClient:
                 future.cancel()
         self._pending.clear()
 
-    async def execute(self, *, action: Action) -> DirectApiExecutionResult:
+    async def execute(self, *, action: Action) -> RemoteDirectApiExecutionResult:
         """Dispatch one Action, failing closed when transport closure is unavailable."""
 
         await self.start()
@@ -115,7 +146,7 @@ class EventBusDirectApiExecutionClient:
         self,
         action: Action,
         reason: str,
-    ) -> DirectApiExecutionResult:
+    ) -> RemoteDirectApiExecutionResult:
         await self.audit_store.append_audit_entry(
             {
                 "event_id": str(action.event_id),
@@ -132,16 +163,16 @@ class EventBusDirectApiExecutionClient:
                 "recorded_at": datetime.now(UTC).isoformat(),
             }
         )
-        return DirectApiExecutionResult(
+        return RemoteDirectApiExecutionResult(
             action_id=str(action.action_id),
-            outcome=DirectApiExecutionOutcome.FAILED,
+            outcome=RemoteDirectApiExecutionOutcome.FAILED,
             mode=action.mode,
             reason=reason,
             audit_context={"resource_ref": action.target_resource_ref},
         )
 
     async def _consume(self) -> None:
-        group_id = "fdai-isolated-executor-client-core"
+        group_id = CORE_EXECUTOR_RECEIPT_CONSUMER_GROUP
         while True:
             async for envelope in self.event_bus.subscribe(EXECUTOR_RECEIPT_TOPIC, group_id):
                 try:
@@ -167,10 +198,10 @@ def executor_command_id(action: Action) -> UUID:
 def _result_from_receipt(
     action: Action,
     receipt: ExecutorEffectReceipt,
-) -> DirectApiExecutionResult:
-    return DirectApiExecutionResult(
+) -> RemoteDirectApiExecutionResult:
+    return RemoteDirectApiExecutionResult(
         action_id=str(action.action_id),
-        outcome=DirectApiExecutionOutcome(receipt.status.value),
+        outcome=RemoteDirectApiExecutionOutcome(receipt.status.value),
         mode=action.mode,
         receipt_ref=receipt.provider_receipt_ref,
         rollback_succeeded=receipt.rollback_succeeded,
@@ -186,4 +217,9 @@ def _result_from_receipt(
     )
 
 
-__all__ = ["EventBusDirectApiExecutionClient", "executor_command_id"]
+__all__ = [
+    "EventBusDirectApiExecutionClient",
+    "RemoteDirectApiExecutionOutcome",
+    "RemoteDirectApiExecutionResult",
+    "executor_command_id",
+]

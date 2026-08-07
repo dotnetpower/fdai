@@ -9,15 +9,22 @@ from fdai.shared.contracts.models import Mode, Operation
 
 def test_probe_actions_are_enforce_single_target_and_mutual_rollbacks() -> None:
     now = datetime(2026, 8, 8, tzinfo=UTC)
-    common = {
-        "resource_group": "example",
-        "nsg_name": "nsg-example",
-        "rule_name": "fdai-sd08-probe",
-        "now": now,
-    }
-
-    upsert = build_probe_action(operation="upsert", idempotency_key="probe-upsert", **common)
-    delete = build_probe_action(operation="delete", idempotency_key="probe-delete", **common)
+    upsert = build_probe_action(
+        operation="upsert",
+        resource_group="example",
+        nsg_name="nsg-example",
+        rule_name="fdai-sd08-probe",
+        idempotency_key="probe-upsert",
+        now=now,
+    )
+    delete = build_probe_action(
+        operation="delete",
+        resource_group="example",
+        nsg_name="nsg-example",
+        rule_name="fdai-sd08-probe",
+        idempotency_key="probe-delete",
+        now=now,
+    )
 
     assert upsert.mode is delete.mode is Mode.ENFORCE
     assert upsert.operation is Operation.UPDATE
@@ -30,17 +37,22 @@ def test_probe_actions_are_enforce_single_target_and_mutual_rollbacks() -> None:
 
 def test_probe_retry_preserves_action_payload_and_command_identity() -> None:
     now = datetime(2026, 8, 8, tzinfo=UTC)
-    kwargs = {
-        "operation": "upsert",
-        "resource_group": "example",
-        "nsg_name": "nsg-example",
-        "rule_name": "fdai-sd08-probe",
-        "idempotency_key": "probe-upsert",
-        "now": now,
-    }
-
-    first = build_probe_action(**kwargs)
-    retry = build_probe_action(**kwargs)
+    first = build_probe_action(
+        operation="upsert",
+        resource_group="example",
+        nsg_name="nsg-example",
+        rule_name="fdai-sd08-probe",
+        idempotency_key="probe-upsert",
+        now=now,
+    )
+    retry = build_probe_action(
+        operation="upsert",
+        resource_group="example",
+        nsg_name="nsg-example",
+        rule_name="fdai-sd08-probe",
+        idempotency_key="probe-upsert",
+        now=now,
+    )
 
     assert first.model_dump(mode="json") == retry.model_dump(mode="json")
     assert executor_command_id(first) == executor_command_id(retry)

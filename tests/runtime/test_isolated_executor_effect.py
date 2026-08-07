@@ -3,17 +3,20 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fdai.core.executor import DirectApiExecutionOutcome, DirectApiShadowExecutor
-from fdai.core.executor.lock import ResourceLockManager
-from fdai.runtime.isolated_executor import IsolatedExecutorEffectService
-from fdai.runtime.isolated_executor_client import EventBusDirectApiExecutionClient
-from fdai.runtime.isolated_executor_runtime import (
+from fdai_executor_service.effect_executor import ServiceDirectApiEffectExecutor
+from fdai_executor_service.runtime import (
     EXECUTOR_RECEIPT_TOPIC,
     IsolatedExecutorCommandConsumer,
 )
+from fdai_executor_service.service import IsolatedExecutorEffectService
+
+from fdai.core.executor import DirectApiExecutionOutcome
+from fdai.runtime.isolated_executor_client import EventBusDirectApiExecutionClient
 from fdai.shared.contracts.models import (
     Action,
     ActionStopCondition,
@@ -33,6 +36,13 @@ from fdai.shared.providers.testing import (
     RecordingDirectApiExecutor,
 )
 from fdai.shared.providers.testing.idempotency import InMemoryIdempotencyStore
+
+
+class _ResourceLock:
+    @asynccontextmanager
+    async def acquire(self, resource_id: str) -> AsyncIterator[None]:
+        del resource_id
+        yield
 
 
 def _action() -> Action:
@@ -61,10 +71,10 @@ async def test_remote_effect_is_audited_and_duplicate_safe() -> None:
     bus = InMemoryEventBus()
     audit = InMemoryStateStore()
     provider = RecordingDirectApiExecutor()
-    executor = DirectApiShadowExecutor(
+    executor = ServiceDirectApiEffectExecutor(
         executor=provider,
         audit_store=audit,
-        resource_lock=ResourceLockManager(),
+        resource_lock=_ResourceLock(),
         idempotency=InMemoryIdempotencyStore(),
         allow_enforce=True,
     )
@@ -95,7 +105,7 @@ async def test_remote_effect_is_audited_and_duplicate_safe() -> None:
         server_task.cancel()
         await asyncio.gather(server_task, return_exceptions=True)
 
-    assert first.outcome is DirectApiExecutionOutcome.DISPATCHED
+    assert first.outcome.value == DirectApiExecutionOutcome.DISPATCHED.value
     assert duplicate == first
     assert len(provider.records) == 1
     assert (EXECUTOR_RECEIPT_TOPIC, "fdai-isolated-executor-client-core") in bus._offsets
@@ -103,3 +113,48 @@ async def test_remote_effect_is_audited_and_duplicate_safe() -> None:
         "intent",
         "terminal",
     ]
+
+
+async def test_effect_executor_rejects_missing_safeguard_before_provider() -> None:
+    audit = InMemoryStateStore()
+    provider = RecordingDirectApiExecutor()
+    executor = ServiceDirectApiEffectExecutor(
+        executor=provider,
+        audit_store=audit,
+        resource_lock=_ResourceLock(),
+        idempotency=InMemoryIdempotencyStore(),
+        allow_enforce=True,
+    )
+    action = _action().model_copy(update={"stop_condition": ""})
+
+    result = await executor.execute(action=action)
+
+    assert result.outcome.value == "rejected_invariant"
+    assert provider.records == ()
+    assert [row["entry"]["audit_phase"] for row in audit.audit_entries] == ["terminal"]
+
+
+async def test_effect_executor_rejects_excessive_blast_radius_before_provider() -> None:
+    audit = InMemoryStateStore()
+    provider = RecordingDirectApiExecutor()
+    executor = ServiceDirectApiEffectExecutor(
+        executor=provider,
+        audit_store=audit,
+        resource_lock=_ResourceLock(),
+        idempotency=InMemoryIdempotencyStore(),
+        allow_enforce=True,
+    )
+    action = _action().model_copy(
+        update={
+            "blast_radius": BlastRadius(
+                scope=BlastRadiusScope.RESOURCE,
+                count=11,
+            )
+        }
+    )
+
+    result = await executor.execute(action=action)
+
+    assert result.outcome.value == "abstained_blast_radius"
+    assert provider.records == ()
+    assert [row["entry"]["audit_phase"] for row in audit.audit_entries] == ["terminal"]

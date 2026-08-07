@@ -6,16 +6,16 @@ import ast
 from pathlib import Path
 from typing import Any
 
+import fdai_executor_service.cli as cli
 import httpx
 import pytest
-
-import fdai.runtime.isolated_executor_cli as cli
-from fdai.core.executor.lock import ResourceLockManager
-from fdai.delivery.azure.event_bus import EventHubsKafkaBusConfig
-from fdai.runtime.isolated_executor_cli import (
+from fdai_executor_service.cli import (
     IsolatedExecutorRuntimeConfig,
     build_isolated_executor_supervisor,
 )
+
+from fdai.core.executor.lock import ResourceLockManager
+from fdai.delivery.azure.event_bus import EventHubsKafkaBusConfig
 from fdai.shared.providers.testing import InMemoryEventBus, InMemoryStateStore
 
 
@@ -109,7 +109,8 @@ def test_entrypoint_keeps_effect_adapter_behind_explicit_cutover() -> None:
     tree = ast.parse(source_path.read_text(encoding="utf-8"))
     imports = {node.module or "" for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
 
-    assert "fdai.runtime.delivery" in imports
+    assert "fdai_executor_service.composition" in imports
+    assert not any(name.startswith("fdai.runtime") for name in imports)
     assert "fdai.core.executor" not in imports
     assert "fdai.delivery.remediation" not in imports
     assert IsolatedExecutorRuntimeConfig.from_env(_environment()).authority_cutover is False

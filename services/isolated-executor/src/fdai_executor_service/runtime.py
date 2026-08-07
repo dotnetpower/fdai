@@ -13,11 +13,13 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Protocol
 
+from fdai_service_contracts import (
+    EXECUTOR_COMMAND_TOPIC,
+    EXECUTOR_CONSUMER_GROUP,
+    EXECUTOR_RECEIPT_TOPIC,
+)
 from pydantic import ValidationError
 
-from fdai.runtime.health import RuntimeHealthServer
-from fdai.runtime.isolated_executor import ExecutorCommandConflictError
-from fdai.runtime.isolated_executor_lock import ExecutorShadowCommandHandler
 from fdai.shared.contracts import (
     ExecutorCommand,
     ExecutorEffectReceipt,
@@ -25,10 +27,9 @@ from fdai.shared.contracts import (
 )
 from fdai.shared.contracts.validation import ContractValidationError
 from fdai.shared.providers.event_bus import EventBus, EventEnvelope
-
-EXECUTOR_COMMAND_TOPIC = "object.executor-command"
-EXECUTOR_RECEIPT_TOPIC = "object.executor-receipt"
-EXECUTOR_CONSUMER_GROUP = "fdai-isolated-executor-shadow"
+from fdai_executor_service.health import RuntimeHealthServer
+from fdai_executor_service.lock import ExecutorShadowCommandHandler
+from fdai_executor_service.service import ExecutorCommandConflictError
 
 _LOGGER = logging.getLogger("fdai.isolated_executor")
 type ExecutorReceipt = ExecutorShadowReceipt | ExecutorEffectReceipt

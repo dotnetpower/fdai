@@ -13,7 +13,7 @@ SERVICE = ServiceDescriptor(
 
 
 def main() -> int:
-    """Start the isolated Executor through the service-owned entry point."""
-    from fdai.runtime.isolated_executor_cli import main as run
+    """Start the service-owned isolated Executor process."""
+    from fdai_executor_service.cli import main as run
 
     return run()

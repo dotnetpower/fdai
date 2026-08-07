@@ -9,16 +9,16 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
+import fdai_executor_service.runtime as runtime_module
 import pytest
-
-import fdai.runtime.isolated_executor_runtime as runtime_module
-from fdai.runtime.isolated_executor import IsolatedExecutorShadowService
-from fdai.runtime.isolated_executor_runtime import (
+from fdai_executor_service.runtime import (
     EXECUTOR_COMMAND_TOPIC,
     EXECUTOR_RECEIPT_TOPIC,
     IsolatedExecutorCommandConsumer,
     IsolatedExecutorSupervisor,
 )
+from fdai_executor_service.service import IsolatedExecutorShadowService
+
 from fdai.shared.contracts import ExecutorCommand, executor_action_payload_digest
 from fdai.shared.contracts.models import (
     Action,

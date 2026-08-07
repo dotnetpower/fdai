@@ -20,6 +20,8 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import NAMESPACE_URL, uuid5
 
+from fdai_service_contracts import DirectApiExecutionResultLike
+
 from fdai.shared.contracts import (
     ContractValidator,
     ExecutorCommand,
@@ -29,6 +31,7 @@ from fdai.shared.contracts import (
     ExecutorShadowReceiptStatus,
     Mode,
 )
+from fdai.shared.contracts.models import Action, ExecutionPath
 from fdai.shared.providers.state_store import StateStore
 
 _ATTEMPT_PREFIX = "isolated_executor_attempt:"
@@ -42,7 +45,7 @@ class ExecutorCommandConflictError(RuntimeError):
 class DirectApiCommandExecutor(Protocol):
     """Direct-API surface already enforcing the seven action safeguards."""
 
-    async def execute(self, *, action: Any) -> Any: ...
+    async def execute(self, *, action: Action) -> DirectApiExecutionResultLike: ...
 
 
 class IsolatedExecutorEffectService:
@@ -65,9 +68,6 @@ class IsolatedExecutorEffectService:
 
     async def handle(self, command: ExecutorCommand) -> ExecutorEffectReceipt:
         """Dispatch one command without claiming independent effect verification."""
-
-        from fdai.core.executor.direct_api import DirectApiExecutionOutcome
-        from fdai.shared.contracts.models import Action, ExecutionPath
 
         self._contract_validator.validate(
             "executor-command",
@@ -103,10 +103,7 @@ class IsolatedExecutorEffectService:
         result = await self._direct_api_executor.execute(action=action)
         completed_at = self._clock()
         status = ExecutorEffectReceiptStatus(result.outcome.value)
-        effect_applied = result.outcome in {
-            DirectApiExecutionOutcome.DISPATCHED,
-            DirectApiExecutionOutcome.ALREADY_APPLIED,
-        }
+        effect_applied = result.outcome.value in {"dispatched", "already_applied"}
         return self._effect_receipt(
             command,
             status=status,

@@ -9,13 +9,14 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 from uuid import NAMESPACE_URL, uuid5
 
+from fdai_service_contracts import EXECUTOR_COMMAND_TOPIC
+
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
 from fdai.runtime.bootstrap_bindings import build_runtime_workload_identity
 from fdai.runtime.bootstrap_lifecycle import run_main
 from fdai.runtime.configuration import _new_http_client
 from fdai.runtime.delivery import _build_direct_api_executor
 from fdai.runtime.isolated_executor_client import executor_command_id
-from fdai.runtime.isolated_executor_runtime import EXECUTOR_COMMAND_TOPIC
 from fdai.runtime.providers import (
     _build_audit_store,
     _build_idempotency_store,
