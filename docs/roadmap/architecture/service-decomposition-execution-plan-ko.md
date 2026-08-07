@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 9ecb21e2b390b0b0cb1aea8b7f43fa1304f513b8
+translation_source_sha: 76ddd761072c06219718a12a1579870cc2fa8f75
 translation_revised: 2026-08-07
 ---
 # 서비스 분해 실행 계획
@@ -38,10 +38,10 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 
 | 상태 | 개수 | 의미 |
 |------|------|------|
-| 완료 | 6 | SD-00, SD-01, SD-02, SD-04, SD-05, SD-06의 exit evidence와 focused validation을 기록했습니다. |
-| 진행 중 | 1 | SD-03은 persistent isolated worktree에서 계속 진행 중입니다. |
+| 완료 | 7 | SD-00부터 SD-06까지 exit evidence와 focused validation을 기록했습니다. |
+| 진행 중 | 1 | SD-07은 healthy live shadow deployment를 완료했고 image-admission hardening handoff를 계속 진행합니다. |
 | 계획됨 | 2 | SD-08과 SD-09는 시작하지 않았습니다. |
-| 차단됨 | 1 | SD-07은 live dispatch 전에 centralized validation receipt와 push 가능한 remote commit을 기다립니다. |
+| 차단됨 | 0 | 현재 차단된 work package가 없습니다. |
 
 마지막 업데이트: 2026-08-07.
 
@@ -52,7 +52,7 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 | [x] | SD-00 | Canonical 문서와 machine manifest에서 5개 service topology, owner, contract, writer, identity, baseline test, rollback unit을 고정합니다. | 없음 | 직렬 | 검토된 topology와 ownership record, baseline check receipt |
 | [x] | SD-01 | JSON, SSE, authentication, history behavior를 변경하지 않고 Operator route family를 transport, application, projection, adapter, streaming, persistence package로 분해합니다. | SD-00 | A | 고정된 route contract와 package-boundary check |
 | [x] | SD-02 | Core composition, Thor execution, Saga audit intent와 closure, Vidar recovery를 명시적으로 주입된 port 뒤로 분리합니다. | SD-00 | A | Authority regression과 import-boundary receipt |
-| [ ] | SD-03 | Ingestion API와 Worker identity, database grant, claim, duplicate/reorder behavior, restart recovery, probe, co-host rollback을 강화합니다. | SD-00 | A | Role test와 15분 이내 rollback rehearsal |
+| [x] | SD-03 | Ingestion API와 Worker identity, database grant, claim, duplicate/reorder behavior, restart recovery, probe, co-host rollback을 강화합니다. | SD-00 | A | Role test와 15분 이내 rollback rehearsal |
 | [x] | SD-04 | Canonical ontology release 배포, exact reference pinning, N/N-1 compatibility, projection-writer ownership, mismatch rejection, replay, rollback을 추가합니다. | SD-00 | B | Cross-service ontology compatibility와 semantic regression receipt |
 | [x] | SD-05 | Canonical AST analysis부터 catalog build, semantic validation, ontology/vector generation, incremental parity, exact applicability, evaluation, governed feedback까지 Rego knowledge path를 구축합니다. | SD-04 | B | Query-to-exact-Rego contract test와 generation rollback receipt |
 | [x] | SD-06 | Canonical Change lineage, provider adapter, decision trace, delivery/outcome join, resilience coverage, candidate-only learning, read-only Operator projection을 추가합니다. | SD-02, SD-04, SD-05 | C | Replay 가능한 lineage와 authority non-escalation receipt |
@@ -98,7 +98,7 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 | 예약 | 현재 owner | 예약 path | 해제 조건 |
 |------|------------|-----------|-----------|
 | SD-01 completed route closure | `main`의 integration owner가 관리하며 handoff된 worker는 `/home/moonchoi/dev/fdai-worktrees/sd01-turn-execution`에 read-only로 유지합니다. | 예약된 source path가 없습니다. 이전 `/home/moonchoi/dev/fdai-worktrees/sd01-route-closure` worktree는 read-only이며 예약되지 않은 상태로 유지합니다. 이 worktree의 untracked worker-local `chat_route_common.py` artifact를 부수적으로 merge하거나 정리하지 않습니다. | Transport-only route ownership, application lifecycle ownership, 변경되지 않은 wire behavior, reverse import 0이 focused validation과 독립 review를 통과한 후 완료하고 해제했습니다. |
-| SD-03 effective access와 rollback | `/home/moonchoi/dev/fdai-worktrees/sd03-effective-access`의 기존 SD-03 isolated session | Ingestion runtime, ingestion 전용 Terraform, access probe와 해당 test | Effective-access proof와 rollback evidence를 integration owner에게 handoff |
+| SD-03 completed effective access와 rollback | `main`의 integration owner가 관리하며 이전 worker는 `/home/moonchoi/dev/fdai-worktrees/sd03-effective-access`에 read-only로 유지합니다. | 예약된 source path가 없습니다. | Live effective-access proof와 2초 rollback rehearsal을 수락하고 구현 예약을 해제했습니다. |
 | SD-06 completed lineage | `main`의 integration owner. 이전 core, projection, hardening worker는 read-only로 유지합니다. | `d4e430d60` 후 모든 SD-06 구현 path를 해제했습니다. | Canonical lineage, provider compatibility, decision/resilience trace, candidate-only learning, bounded Operator projection 및 critique round 14회가 focused validation을 통과하고 Medium 이상 residual이 없음을 증명합니다. Execution 및 promotion authority는 0을 유지합니다. |
 | SD-07 serial finish | `main`의 integration owner. 이전 worker는 `/home/moonchoi/dev/fdai-worktrees/sd07-shadow-executor`에 유지합니다. | `infra/modules/isolated-executor/**`, `infra/main.tf`/`infra/variables.tf`/`infra/outputs.tf`의 SD-07 전용 block, `.github/workflows/deploy-dev.yml`의 `deploy_isolated_executor` block, 해당 Terraform/workflow test, production composition 및 paired docs | Effect authority 없이 shadow deployment evidence를 기록하고 ingestion module과 모든 SD-03 소유 Terraform hunk를 피하며 handoff 후 해제된 worker는 read-only로 유지합니다. |
 | SD-07 image health recovery | `/home/moonchoi/dev/fdai-worktrees/sd07-health-recovery`의 persistent worker | `Dockerfile`, `.github/workflows/deploy-dev.yml`, paired deployment docs, `scripts/deployment/azure/` 아래의 protected plan verification, `src/fdai/deployment_cli/remote.py`와 `src/fdai/delivery/github/deployment_workflow.py`의 typed plan evidence, 해당 focused test 및 executable fallback이 필요할 때 isolated-Executor container command/test만 소유합니다. | Terraform 전에 exact current image가 isolated Executor startup contract를 증명하고 배포 revision이 effect authority 없이 healthy에 도달하며 critique round 10회 이상에서 Medium 이상 residual이 없음을 확인합니다. Terraform apply와 rollback은 SD-03과 계속 직렬로 실행합니다. |
@@ -156,6 +156,8 @@ Work package의 상태를 바꾸는 focused commit에서 이 문서를 함께 �
 | 2026-08-07 | SD-01 | 완료 | `e141ab07e`, `d741d40e4`, `2de2c15f1`, `2c9bbd89f`, 최종 독립 review | `e141ab07e`에서 partial structural closure를 수립하고 `d741d40e4`에서 typed JSON execution, `2de2c15f1`에서 typed SSE execution, `2c9bbd89f`에서 structural boundary와 문서를 고정했습니다. SSE 통합 후 main union test 283개와 focused structural closure test 114개가 통과했습니다. 정확한 route inventory는 `chat.py`, `chat_registration.py`, `chat_stream.py`, `chat_stream_protocol.py`, `chat_stream_request.py`, `chat_verification.py`이며 `chat.py`는 259 LOC, `chat_stream.py`는 211 LOC입니다. Application, projection, persistence의 routes reverse import는 0이고 `turn_execution`의 Starlette, routes, concrete adapter import도 0입니다. Ruff와 strict mypy가 green이며 translation은 175/175를 통과했습니다. JSON/SSE transport, authentication, request parsing, status mapping, frame sequencing, cancellation은 route가 소유하고 planning, evidence, generation, verification, persistence, metering lifecycle coordination은 application이 소유합니다. Wire, replay, interruption, history behavior를 보존했습니다. 최종 독립 review는 Medium 이상 finding 0건과 Low residual 1건을 확인했습니다. 구현이 없는 `routes/chat_verification.py` compatibility facade는 catalog/source-path compatibility를 위해 남아 있으며 SD-09 cleanup candidate이고 완료 blocker가 아닙니다. |
 | 2026-08-07 | SD-01 | 완료 | Hardening round 1-13, Low-only review | 독립 critique round 12회에서 JSON/SSE transport parity, route inventory, lifecycle ordering과 cancellation, persistence와 replay, principal isolation, identity boundary, redaction 및 provenance를 검토했습니다. 재현 가능한 Medium finding 1건은 임의 document-resolver `RuntimeError` detail이 JSON과 SSE HTTP response에 모두 노출되는 문제였습니다. Shared request-preparation 및 JSON lifecycle boundary는 이제 원래 exception을 내부 cause로 보존하면서 고정된 unavailable detail만 제공합니다. 전체 chat-route test 82개, exact redaction regression 2개, Ruff, formatting 및 production slice strict mypy가 통과했습니다. Round 13 독립 review는 current call path를 기준으로 불완전한 SSE status map, double cleanup, persistence 전 completion 및 duplicate planning finding을 반증했습니다. Medium 이상 residual은 없습니다. 구현이 없는 `routes/chat_verification.py` facade는 의도된 Low SD-09 cleanup candidate로 유지합니다. |
 | 2026-08-07 | SD-07 | 진행 중 | Live run `31177967045`, image admission recovery 시작 | Terraform apply와 convergence는 성공했지만 reused ACR `v0.1.163` image에 configured `fdai-isolated-executor` command가 없어 isolated Executor revision이 unhealthy 상태에 머물렀습니다. Log Analytics는 process 시작 전 반복된 OCI `ContainerCreateFailure`를 증명했고 image pull, Core health 및 Operator API health는 성공했습니다. Persistent recovery worker는 image-admission slice만 소유합니다. 다음 반증 check는 Terraform 전에 isolated entry point를 통과하는 exact current image와 healthy에 도달한 배포 revision입니다. |
+| 2026-08-07 | SD-03 | 완료 | `480d11686`, `5c034fc65`, live effective-access receipt | Focused Terraform case 7개가 통과했고 split-to-cohost-to-split rehearsal은 900초 budget 중 2초에 완료됐습니다. VNet runner는 inherited Azure RBAC의 exact 일치와 non-privileged PostgreSQL runtime role을 확인했습니다. Live ingestion API와 worker revision도 healthy입니다. |
+| 2026-08-07 | SD-07 | 진행 중 | Plan `31179749690`, apply `31180087754` | Exact protected plan은 `0 add / 9 in-place change / 0 destroy`였고 apply는 exact-plan verification, convergence, migration 2개, healthy runtime revision 5개, API health, canary 및 immutable receipt를 완료했습니다. Isolated identity는 ACR pull, command receive, receipt/DLQ send 및 state-secret read role만 가지며 effect authority는 0입니다. 기존 in-process Core path는 SD-08 rollback artifact로 유지합니다. Image-admission critique handoff와 SD-08 timed authority-cutover rollback은 계속 열려 있습니다. |
 
 ## 관련 문서
 
