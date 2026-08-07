@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: a939cd1abd38bb6c5c5213176086ba983b3d75c3
+translation_source_sha: 13e00c801cc19c731e734bb0d77ba52e5d81ab8b
 translation_revised: 2026-08-08
 ---
 
@@ -426,8 +426,7 @@ Identity를 사용하며 connection string 또는 Storage account key를 만들�
 - **Replica floor**: 기본값은 replica 하나입니다. 검증된 Kafka scaler 없이 0으로 설정하면 Event Hubs 데이터로 깨어나지 않으므로 Terraform은 scale-to-zero를 주장하지 않습니다.
 - **분리 기준**: 목표는 Core, Operator, Ingestion API, Processing Worker, Isolated Executor이며 authority cutover는 [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)의 모든 gate를 따릅니다.
 - **Identity 분리**: Operator API read/command와 ingestion API/worker/migration principal을 분리합니다. Worker는 `aw.pantheon.objects`에서 Saga/Muninn object만 receive하고 `aw.pipeline.stages`로 stage fact를 send합니다. `ingestion_cohost_worker=true`는 두 scope를 API identity로 돌립니다.
-- **Executor shadow 배포**: `enable_isolated_executor=true`는 internal app과 ACR pull, command receive, receipt/DLQ send, state-secret read만 가진 전용 UAMI를 프로비저닝합니다. 기본값은 `false`이며 SD-07에서는 action-specific effect role을 부여하지 않습니다. Private-runner workflow는 이를 `deploy_isolated_executor`로 노출하고 기본 plan-only를 유지하며 apply 후 app의 latest revision을 health verification에 포함합니다. Executor plan은 `runtime_image_revision`을 resolve하고, 지정하지 않으면 checkout commit을 사용하며, GHCR attestation을 검증한 뒤 ACR에 이미 존재하는 동일 digest를 binding합니다. `promote_runtime_image=true`는 rebuild 없이 해당 verified digest를 명시적으로 import합니다. Exact apply는 image promotion을 거부하고 protected plan artifact만 사용합니다.
-- **Executor authority cutover**: `enable_isolated_executor_authority_cutover=true`는 isolated app과 development operations gateway를 함께 요구합니다. Core의 gateway 및 vertical effect access를 제거하고 isolated identity를 승인하며 Core에는 transport/read identity만 유지합니다. `verify_executor_effect=true`는 reversible NSG rule probe를 실행하고 Azure Resource Manager에서 effect를 확인하며 duplicate write를 차단하고 command offset과 terminal receipt를 기록한 뒤 rule을 정리합니다. 전환이 900초를 넘으면 실패합니다.
+- **Executor 배포와 cutover**: `enable_isolated_executor=true`는 internal app과 ACR pull, command receive, receipt/DLQ send, state-secret read만 가진 전용 UAMI를 프로비저닝합니다. 기본값은 `false`이며 private-runner workflow는 기본 plan-only를 유지하고 GHCR attestation을 검증하며 동일한 ACR digest를 binding하고 latest revision을 health check에 포함합니다. `promote_runtime_image=true`는 rebuild 없이 verified digest를 import하지만 exact apply는 promotion을 거부하고 protected plan만 사용합니다. `enable_isolated_executor_authority_cutover=true`는 development operations gateway도 요구하며 Core의 gateway 및 vertical effect access를 제거하고 isolated identity를 승인하며 Core에는 transport/read access만 유지합니다. `verify_executor_effect=true`는 reversible NSG rule probe를 실행하고 Azure Resource Manager에서 확인하며 duplicate write를 차단하고 offset과 terminal receipt를 기록한 뒤 정리합니다. 900초가 지나면 실패합니다.
 
 ## 부트스트랩 순서
 
