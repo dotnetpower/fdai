@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: fc6e6012f4e69ba0ea0f1dadac246b249cd92a1c
-translation_revised: 2026-08-07
+translation_source_sha: f72ca34eb393b8716c1e63c0dc1dcfc83b913a0c
+translation_revised: 2026-08-08
 ---
 # Operator Console Module Map and Boundaries
 
@@ -111,11 +111,10 @@ check, deterministic claim/evidence coordination, bounded incident/agent-activit
 tool/operational verification handler를 포함합니다. Request-local이며 HTTP status mapping, JSON
 envelope, SSE sequencing, authentication, cancellation 및 terminal frame assembly는 route에 유지합니다.
 
-Internal route와 test consumer는 explicit package facade를 import합니다. Capability catalog가 해당
-source path를 계속 사용하므로 `routes.chat_verification`만 compatibility facade로 유지하며 verification
-implementation은 포함하지 않습니다. Rollback은 이동한 module을 `routes/` 아래에 복원하고 package
-facade가 복원된 owner를 가리키게 합니다. JSON, SSE, authentication 또는 conversation-history behavior는
-변경하지 않습니다.
+Internal route와 test consumer는 explicit package facade를 import합니다. Capability catalog는 해당
+owned package를 직접 사용하므로 `routes/` 아래에 verification compatibility module이 남지 않습니다.
+Rollback은 이동한 module을 `routes/` 아래에 복원하고 package facade가 복원된 owner를 가리키게 합니다.
+JSON, SSE, authentication 또는 conversation-history behavior는 변경하지 않습니다.
 
 ### Conversation presentation projection boundary
 
@@ -353,9 +352,9 @@ sequence와 revision field, async iterator teardown을 통한 connection-close c
 Application event가 canonical answer `revision`을 소유하고 route는 wire-frame order용 별도 monotonic
 `seq`를 추가하며 revision을 변경하지 않고 보존합니다. `chat_registration.py`는 registration,
 `chat_stream_protocol.py`는 SSE protocol,
-`chat_stream_request.py`는 request transport를 소유하고 `chat_verification.py`는 implementation이 없는
-compatibility facade입니다. Chat family는 SSE frame order, replay, interruption, cancellation, history
-및 terminal payload를 보존하면서 structural transport-only 상태가 되었습니다.
+`chat_stream_request.py`는 request transport를 소유합니다. Chat family는 SSE frame order, replay,
+interruption, cancellation, history 및 terminal payload를 보존하면서 structural transport-only 상태가
+되었습니다.
 
 ### Change lineage projection 경계
 
@@ -424,7 +423,6 @@ verification을 소유하고 `operator_api.auth`와 `operator_api.entra_verifier
 seam입니다.
 현재 fork 및 reporting guide가 직접 import하므로 `routes.panels`와 `routes.reporting`은 transitional
 public extension seam으로 유지합니다. 그 외 개별 `routes.*` module은 internal implementation path이며,
-`routes.chat_verification`은 capability catalog를 위한 분류된 source-path facade입니다. Migration에서는
 분류된 compatibility 필요가 있을 때만 module별 forwarding shim을 사용합니다.
 Runtime-owned agent-state record 및 event-bus publication은 `fdai.delivery.agent_activity`에 있으므로
 headless runtime은 Operator API streaming implementation을 import하지 않습니다. Provisioning의
@@ -527,12 +525,11 @@ frame을 거부합니다.
 - `application/conversation/turn_execution/`은 typed dependency와 result를 통해 one-shot JSON
   request preparation, planning, evidence, generation, verification, persistence, metering 및 terminal
   completion을 소유합니다. Starlette, route 또는 provider-adapter module을 import하지 않습니다.
-- 여섯 file의 `chat*.py` structural inventory에는 `chat.py`, `chat_registration.py`,
-  `chat_stream.py`, `chat_stream_protocol.py`, `chat_stream_request.py` 및 implementation이 없는
-  `chat_verification.py` source-path facade가 포함됩니다. `chat.py`는 이제 JSON HTTP transport와
-  compatibility binding만 소유합니다. `chat_stream.py`는 SSE transport만 소유하고 application
-  revision을 transport sequence가 있는 frame으로 매핑합니다. 나머지 네 file은 각각 registration,
-  SSE protocol, request transport 및 compatibility-facade owner로 유지됩니다.
+- 다섯 file의 `chat*.py` structural inventory에는 `chat.py`, `chat_registration.py`,
+  `chat_stream.py`, `chat_stream_protocol.py` 및 `chat_stream_request.py`가 포함됩니다. `chat.py`는 이제
+  JSON HTTP transport와 compatibility binding만 소유합니다. `chat_stream.py`는 SSE transport만 소유하고
+  application revision을 transport sequence가 있는 frame으로 매핑합니다. 나머지 세 file은 각각
+  registration, SSE protocol 및 request-transport owner로 유지됩니다.
 - `application/conversation/capabilities/knowledge_context.py`는 state write 없이 exact prior-turn
   runbook, source freshness, consented
   memory 및 materialized learning을 읽습니다.

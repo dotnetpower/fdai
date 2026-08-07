@@ -4,7 +4,7 @@
   "services": [
     {
       "id": "core-control-plane",
-      "current_state": "deployed-with-executor",
+      "current_state": "deployed-without-executor-authority",
       "target_state": "deployed-without-executor-authority"
     },
     {
@@ -24,7 +24,7 @@
     },
     {
       "id": "isolated-executor",
-      "current_state": "deployed-shadow-no-effect-authority",
+      "current_state": "deployed-sole-executor-identity",
       "target_state": "deployed-sole-executor-identity"
     }
   ],
@@ -79,13 +79,13 @@
     },
     {
       "id": "SD-08",
-      "status": "in_progress",
+      "status": "completed",
       "dependencies": ["SD-07"],
       "parallel_lane": null
     },
     {
       "id": "SD-09",
-      "status": "planned",
+      "status": "completed",
       "dependencies": [
         "SD-01",
         "SD-02",
@@ -159,13 +159,37 @@
       "plan_summary": "0-add-9-change-0-destroy",
       "healthy_runtime_services": 5,
       "effect_authority": false,
-      "timed_authority_cutover_rollback": "pending-sd08"
+      "timed_authority_cutover_rollback": "passed-sd08"
     },
     "sd08": {
-      "implementation": "focused-green",
-      "live_effect_authority": "unchanged-pending-protected-plan",
-      "independent_effect_verification": "pending-live-apply",
-      "timed_rollback_rehearsal": "pending-live-apply"
+      "implementation": "completed",
+      "initial_cutover_apply_run": "31209982126",
+      "initial_command_offsets": [0, 1],
+      "initial_effect_seconds": 142,
+      "rollback_plan_run": "31211368557",
+      "rollback_apply_run": "31211927016",
+      "rollback_plan_summary": "0-add-3-change-0-destroy",
+      "rollback_transport": "local",
+      "rollback_seconds": 450,
+      "cutover_plan_run": "31214493667",
+      "cutover_apply_run": "31214900219",
+      "cutover_plan_summary": "0-add-4-change-0-destroy",
+      "cutover_transport": "isolated",
+      "cutover_command_offsets": [3, 4],
+      "cutover_effect_seconds": 436,
+      "provider_write_count": 1,
+      "effect_observer": "azure-resource-manager",
+      "independent_effect_verification": "passed",
+      "timed_rollback_rehearsal": "passed",
+      "healthy_runtime_services": 5,
+      "terraform_convergence": "no-op",
+      "synthetic_effect_cleanup": "passed"
+    },
+    "sd09": {
+      "expired_compatibility_paths_removed": 1,
+      "boundary_docstring_scopes_enforced": 22,
+      "focused_tests_passed": 30,
+      "central_validation": "passed"
     }
   },
   "completion_constraints": [

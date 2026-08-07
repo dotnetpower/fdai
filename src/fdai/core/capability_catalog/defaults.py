@@ -491,7 +491,7 @@ _SRE_PARITY_CAPABILITIES: tuple[Capability, ...] = (
         _TOOLS,
         (
             "src/fdai/core/rca/contract.py",
-            "src/fdai/delivery/operator_api/routes/chat_verification.py",
+            "src/fdai/delivery/operator_api/application/conversation/verification/",
         ),
         status=CapabilityParity.SAFER_ALTERNATIVE,
     ),

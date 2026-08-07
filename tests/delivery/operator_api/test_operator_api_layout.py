@@ -24,7 +24,6 @@ _CHAT_ROUTE_FILES = frozenset(
         "chat_stream.py",
         "chat_stream_protocol.py",
         "chat_stream_request.py",
-        "chat_verification.py",
     }
 )
 _MODULE_INVENTORY_PATH = (
@@ -193,28 +192,6 @@ def test_required_subpackages_exist() -> None:
 def test_chat_route_family_is_exactly_transport_and_reviewed_facade_files() -> None:
     actual = {path.name for path in (_OPERATOR_API_DIR / "routes").glob("chat*.py")}
     assert actual == _CHAT_ROUTE_FILES
-
-
-def test_chat_verification_is_a_source_path_facade_without_implementation() -> None:
-    path = _OPERATOR_API_DIR / "routes" / "chat_verification.py"
-    tree = ast.parse(path.read_text(encoding="utf-8"))
-    definitions = [
-        node.name
-        for node in tree.body
-        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
-    ]
-    assert not definitions
-    imports = [
-        (node.module, tuple(alias.name for alias in node.names))
-        for node in tree.body
-        if isinstance(node, ast.ImportFrom) and node.module != "__future__"
-    ]
-    assert imports == [
-        (
-            "fdai.delivery.operator_api.application.conversation.verification",
-            ("AnswerVerification", "VerificationStatus", "verify_answer"),
-        )
-    ]
 
 
 def test_module_inventory_covers_current_operator_api_tree() -> None:

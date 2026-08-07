@@ -67,7 +67,19 @@ def test_service_decomposition_baseline_receipt_is_explicit() -> None:
     assert live_receipts["sd03"]["rollback_rehearsal_seconds"] < 900
     assert live_receipts["sd07"]["healthy_runtime_services"] == 5
     assert live_receipts["sd07"]["effect_authority"] is False
-    assert live_receipts["sd07"]["timed_authority_cutover_rollback"] == "pending-sd08"
+    assert live_receipts["sd07"]["timed_authority_cutover_rollback"] == "passed-sd08"
+
+    sd08 = live_receipts["sd08"]
+    assert sd08["implementation"] == "completed"
+    assert sd08["initial_command_offsets"] == [0, 1]
+    assert sd08["cutover_command_offsets"] == [3, 4]
+    assert sd08["rollback_seconds"] < 900
+    assert sd08["cutover_effect_seconds"] < 900
+    assert sd08["provider_write_count"] == 1
+    assert sd08["independent_effect_verification"] == "passed"
+    assert sd08["healthy_runtime_services"] == 5
+    assert sd08["terraform_convergence"] == "no-op"
+    assert sd08["synthetic_effect_cleanup"] == "passed"
 
 
 def test_service_decomposition_tracker_matches_machine_status() -> None:

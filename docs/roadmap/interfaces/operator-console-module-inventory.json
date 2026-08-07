@@ -204,9 +204,9 @@
   "route_families": [
     {
       "pattern": "chat*.py",
-      "responsibility": "Conversation JSON and SSE transport, registration, request parsing, protocol framing, and the classified chat_verification source-path facade",
+      "responsibility": "Conversation JSON and SSE transport, registration, request parsing, and protocol framing",
       "classification": "transport-and-facades",
-      "candidate_destination": "retain the six reviewed route files while application, projection, and persistence owners hold non-transport behavior"
+      "candidate_destination": "retain the five reviewed route files while application, projection, and persistence owners hold non-transport behavior"
     },
     {
       "pattern": "audit*.py",
@@ -510,11 +510,6 @@
           "classification": "internal-implementation",
           "migration": "owned read-only operational, execution, screen-data, model-trace, trajectory-detail, and resource-response projections; no route compatibility shim retained"
         },
-    {
-      "module": "fdai.delivery.operator_api.routes.chat_verification",
-      "classification": "public-compatibility-facade",
-      "migration": "preserve the capability-catalog source path while runtime consumers import the owned verification package"
-    },
     {
       "module": "fdai.delivery.operator_api.routes.audit_finops",
       "classification": "public-compatibility-facade",

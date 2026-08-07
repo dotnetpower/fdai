@@ -111,11 +111,10 @@ incident and agent-activity rendering, and tool/operational verification handler
 request-local and keeps HTTP status mapping, JSON envelopes, SSE sequencing, authentication,
 cancellation, and terminal frame assembly in routes.
 
-Internal route and test consumers import the explicit package facade. The only retained
-`routes.chat_verification` module is a compatibility facade because the capability catalog still
-names that source path; it contains no verification implementation. Rollback restores the moved
-modules under `routes/` and redirects the package facade without changing JSON, SSE, authentication,
-or conversation-history behavior.
+Internal route and test consumers import the explicit package facade. The capability catalog names
+that owned package directly, so no verification compatibility module remains under `routes/`.
+Rollback restores the moved modules under `routes/` and redirects the package facade without
+changing JSON, SSE, authentication, or conversation-history behavior.
 
 ### Conversation presentation projection boundary
 
@@ -358,9 +357,9 @@ heartbeat bytes, sequence and revision fields, and connection-close cancellation
 iterator teardown. The application event owns the canonical answer `revision`; the route adds a
 separate monotonic `seq` for wire-frame order and preserves the revision unchanged.
 `chat_registration.py` owns registration, `chat_stream_protocol.py` owns the
-SSE protocol, `chat_stream_request.py` owns request transport, and `chat_verification.py` is the
-implementation-free compatibility facade. The chat family is structurally transport-only while
-preserving SSE frame order, replay, interruption, cancellation, history, and terminal payloads.
+SSE protocol, and `chat_stream_request.py` owns request transport. The chat family is structurally
+transport-only while preserving SSE frame order, replay, interruption, cancellation, history, and
+terminal payloads.
 
 ### Change lineage projection boundary
 
@@ -431,9 +430,8 @@ The `main` facade's `busy_input_runtime` re-export is a transitional public seam
 runtime ownership claim.
 `routes.panels` and `routes.reporting` remain transitional public extension seams because current
 fork and reporting guidance imports them directly. Other individual `routes.*` modules are
-internal implementation paths; `routes.chat_verification` is the classified source-path facade for
-the capability catalog. A migration uses a per-module forwarding shim only when a classified
-compatibility need exists. Runtime-owned agent-state records and event-bus publication
+internal implementation paths. A migration uses a per-module forwarding shim only when a
+classified compatibility need exists. Runtime-owned agent-state records and event-bus publication
 live in `fdai.delivery.agent_activity`, so the headless runtime imports no Operator API streaming
 implementation. Provisioning's `streaming.provision_stream` compatibility remains classified
 separately. Issue 71 closes the chat wire debts recorded by the baseline. Version 1 semantic frames
@@ -532,12 +530,11 @@ a separately reviewed boundary.
 - `application/conversation/turn_execution/` owns one-shot JSON request preparation, planning,
   evidence, generation, verification, persistence, metering, and terminal completion through typed
   dependencies and results. It imports no Starlette, route, or provider-adapter module.
-- The six-file `chat*.py` structural inventory contains `chat.py`, `chat_registration.py`,
-  `chat_stream.py`, `chat_stream_protocol.py`, `chat_stream_request.py`, and the
-  implementation-free `chat_verification.py` source-path facade. `chat.py` now owns only JSON HTTP
-  transport and compatibility binding. `chat_stream.py` owns only SSE transport and maps
-  application revisions into transport-sequenced frames. The other four files remain registration,
-  SSE protocol, request transport, and compatibility-facade owners respectively.
+- The five-file `chat*.py` structural inventory contains `chat.py`, `chat_registration.py`,
+  `chat_stream.py`, `chat_stream_protocol.py`, and `chat_stream_request.py`. `chat.py` owns only
+  JSON HTTP transport and compatibility binding. `chat_stream.py` owns only SSE transport and maps
+  application revisions into transport-sequenced frames. The other three files remain
+  registration, SSE protocol, and request-transport owners respectively.
 - `application/conversation/capabilities/knowledge_context.py` reads exact prior-turn runbooks,
   source freshness, consented memory,
   and materialized learning without writing state.
