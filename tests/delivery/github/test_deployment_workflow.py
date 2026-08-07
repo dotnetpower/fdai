@@ -456,6 +456,7 @@ def test_runner_promotes_only_an_exact_attested_executor_image_before_plan() -> 
     assert "attestations: read" in workflow
     assert "packages: read" in workflow
     assert "runtime image promotion is not allowed during exact apply" in workflow
+    assert "runtime image promotion requires a protected plan request" in workflow
     step = workflow[workflow.index("- name: Bind exact isolated Executor runtime image") :]
     step = step[: step.index("- name: Adopt existing Azure resources")]
     assert "if: ${{ !inputs.apply && inputs.deploy_isolated_executor }}" in step

@@ -215,6 +215,7 @@ jobs:
         env:
           APPLY: ${{ inputs.apply }}
           DEPLOY_ISOLATED_EXECUTOR: ${{ inputs.deploy_isolated_executor }}
+          PLAN_REQUEST_ID: ${{ inputs.request_id }}
           PROMOTE_RUNTIME_IMAGE: ${{ inputs.promote_runtime_image }}
           RUNTIME_IMAGE_REVISION: ${{ inputs.runtime_image_revision }}
         run: |
@@ -229,6 +230,10 @@ jobs:
           fi
           if [[ "$APPLY" == "true" && "$PROMOTE_RUNTIME_IMAGE" == "true" ]]; then
             echo "runtime image promotion is not allowed during exact apply." >&2
+            exit 1
+          fi
+          if [[ "$PROMOTE_RUNTIME_IMAGE" == "true" && -z "$PLAN_REQUEST_ID" ]]; then
+            echo "runtime image promotion requires a protected plan request." >&2
             exit 1
           fi
 
