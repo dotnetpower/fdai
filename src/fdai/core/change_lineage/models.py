@@ -15,6 +15,69 @@ from fdai.shared.providers.change_feed import ChangeRecord
 
 
 @dataclass(frozen=True, slots=True)
+class ChangeResilienceTrace:
+    """Bounded resilience intent and observed recovery state for replay."""
+
+    execution_mode: str
+    blast_radius_scope: str
+    blast_radius_count: int | None
+    rollback_kind: str
+    verification_status: str
+    execution_outcome: str
+    predicted_at: datetime | None
+    observation_deadline: datetime | None
+    observed_at: datetime | None
+    rollback_succeeded: bool | None
+
+    def __post_init__(self) -> None:
+        text_values = (
+            self.execution_mode,
+            self.blast_radius_scope,
+            self.rollback_kind,
+            self.verification_status,
+            self.execution_outcome,
+        )
+        if any(not value.strip() for value in text_values):
+            raise ValueError("change resilience trace values MUST be non-empty")
+        if self.blast_radius_count is not None and self.blast_radius_count < 1:
+            raise ValueError("change resilience blast radius count MUST be positive")
+        timestamps = (self.predicted_at, self.observation_deadline, self.observed_at)
+        if any(value is not None and value.tzinfo is None for value in timestamps):
+            raise ValueError("change resilience timestamps MUST be timezone-aware")
+        if (self.predicted_at is None) != (self.observation_deadline is None):
+            raise ValueError("change resilience prediction window MUST be supplied together")
+        if (
+            self.predicted_at is not None
+            and self.observation_deadline is not None
+            and self.predicted_at > self.observation_deadline
+        ):
+            raise ValueError("change resilience deadline MUST NOT precede prediction")
+        if self.observed_at is not None:
+            if self.predicted_at is None or self.observation_deadline is None:
+                raise ValueError("change resilience observation requires a prediction window")
+            if not self.predicted_at <= self.observed_at <= self.observation_deadline:
+                raise ValueError("change resilience observation MUST fall inside its effect window")
+
+    def to_mapping(self) -> dict[str, Any]:
+        """Return the canonical mapping included in lineage identity and projections."""
+
+        return {
+            "execution_mode": self.execution_mode,
+            "blast_radius_scope": self.blast_radius_scope,
+            "blast_radius_count": self.blast_radius_count,
+            "rollback_kind": self.rollback_kind,
+            "verification_status": self.verification_status,
+            "execution_outcome": self.execution_outcome,
+            "predicted_at": self.predicted_at.isoformat() if self.predicted_at else None,
+            "observation_deadline": (
+                self.observation_deadline.isoformat() if self.observation_deadline else None
+            ),
+            "observed_at": self.observed_at.isoformat() if self.observed_at else None,
+            "rollback_succeeded": self.rollback_succeeded,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class ChangeLineageRecord:
     """Replay-stable evidence chain with no execution or promotion authority."""
 
@@ -36,6 +99,7 @@ class ChangeLineageRecord:
     decision_at: datetime
     action_at: datetime
     outcome_at: datetime
+    resilience: ChangeResilienceTrace
     evidence_refs: tuple[str, ...]
     execution_authority: bool = False
     promotion_authority: bool = False
@@ -93,6 +157,7 @@ class ChangeLineageRecord:
             "decision_at": self.decision_at.isoformat(),
             "action_at": self.action_at.isoformat(),
             "outcome_at": self.outcome_at.isoformat(),
+            "resilience": self.resilience.to_mapping(),
             "evidence_refs": list(self.evidence_refs),
             "execution_authority": False,
             "promotion_authority": False,
@@ -151,6 +216,18 @@ def build_change_lineage(
             }
         )
     )
+    resilience = ChangeResilienceTrace(
+        execution_mode=action.mode.value,
+        blast_radius_scope=action.blast_radius.scope.value,
+        blast_radius_count=action.blast_radius.count,
+        rollback_kind=action.rollback_ref.kind.value,
+        verification_status=outcome.verification_status.value,
+        execution_outcome=outcome.execution_outcome,
+        predicted_at=outcome.predicted_at,
+        observation_deadline=outcome.observation_deadline,
+        observed_at=outcome.observed_at,
+        rollback_succeeded=outcome.rollback_succeeded,
+    )
     identity_material = {
         "change_id": change.change_id,
         "change_source": change.source,
@@ -165,6 +242,7 @@ def build_change_lineage(
         "target_digest": expected_target_digest,
         "outcome_id": str(outcome.outcome_id),
         "outcome_label": outcome.label.value,
+        "resilience": resilience.to_mapping(),
         "evidence_refs": evidence_refs,
     }
     digest = hashlib.sha256(
@@ -189,8 +267,9 @@ def build_change_lineage(
         decision_at=decision_case.created_at,
         action_at=action.created_at,
         outcome_at=outcome.recorded_at,
+        resilience=resilience,
         evidence_refs=evidence_refs,
     )
 
 
-__all__ = ["ChangeLineageRecord", "build_change_lineage"]
+__all__ = ["ChangeLineageRecord", "ChangeResilienceTrace", "build_change_lineage"]

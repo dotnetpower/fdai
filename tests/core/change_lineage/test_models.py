@@ -179,6 +179,81 @@ def test_builds_replay_stable_authority_free_lineage() -> None:
         first.change_id = "other"  # type: ignore[misc]
 
 
+def test_captures_resilience_trace_in_replay_identity() -> None:
+    change, assessment, decision_case, selection, action, outcome = _fixtures()
+    windowed_outcome = ResponseOutcome.model_validate(
+        {
+            **outcome.model_dump(),
+            "prediction_id": "prediction:one",
+            "metric": "availability",
+            "expected_min": 0.99,
+            "expected_max": 1.0,
+            "predicted_at": action.created_at,
+            "observation_deadline": action.created_at + timedelta(minutes=5),
+            "execution_outcome": "rolled_back",
+            "rollback_succeeded": True,
+        }
+    )
+
+    baseline = build_change_lineage(
+        change=change,
+        assessment=assessment,
+        decision_case=decision_case,
+        selection=selection,
+        action=action,
+        outcome=outcome,
+    )
+    traced = build_change_lineage(
+        change=change,
+        assessment=assessment,
+        decision_case=decision_case,
+        selection=selection,
+        action=action,
+        outcome=windowed_outcome,
+    )
+
+    assert traced.resilience.execution_mode == "shadow"
+    assert traced.resilience.blast_radius_scope == "resource"
+    assert traced.resilience.blast_radius_count == 1
+    assert traced.resilience.rollback_kind == "scripted"
+    assert traced.resilience.verification_status == "hold"
+    assert traced.resilience.execution_outcome == "rolled_back"
+    assert traced.resilience.predicted_at == action.created_at
+    assert traced.resilience.observation_deadline == action.created_at + timedelta(minutes=5)
+    assert traced.resilience.observed_at is None
+    assert traced.resilience.rollback_succeeded is True
+    assert traced.lineage_id != baseline.lineage_id
+    assert (
+        traced.to_mapping()["resilience"]["observation_deadline"]
+        == (action.created_at + timedelta(minutes=5)).isoformat()
+    )
+
+
+def test_resilience_trace_rejects_invalid_observation_windows() -> None:
+    change, assessment, decision_case, selection, action, outcome = _fixtures()
+    lineage = build_change_lineage(
+        change=change,
+        assessment=assessment,
+        decision_case=decision_case,
+        selection=selection,
+        action=action,
+        outcome=outcome,
+    )
+
+    with pytest.raises(ValueError, match="timezone-aware"):
+        replace(lineage.resilience, predicted_at=NOW.replace(tzinfo=None))
+    with pytest.raises(ValueError, match="supplied together"):
+        replace(lineage.resilience, predicted_at=NOW)
+    with pytest.raises(ValueError, match="MUST NOT precede"):
+        replace(
+            lineage.resilience,
+            predicted_at=NOW + timedelta(minutes=1),
+            observation_deadline=NOW,
+        )
+    with pytest.raises(ValueError, match="requires a prediction window"):
+        replace(lineage.resilience, observed_at=NOW)
+
+
 def test_rejects_change_and_assessment_identity_mismatch() -> None:
     change, assessment, decision_case, selection, action, outcome = _fixtures()
 
