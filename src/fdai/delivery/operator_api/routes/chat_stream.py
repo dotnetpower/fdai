@@ -112,6 +112,14 @@ from fdai.delivery.operator_api.application.conversation.prompt import (
 from fdai.delivery.operator_api.application.conversation.prompt_ontology import (
     _with_ontology_storage_contract,
 )
+from fdai.delivery.operator_api.application.conversation.request_preparation import (
+    DEFAULT_CHAT_HISTORY_POLICY,
+    AnswerPreferenceResolver,
+    BackendChatHistoryCompressor,
+    ChatDocumentEvidenceResolver,
+    ChatHistoryPolicy,
+    ModelPreferenceResolver,
+)
 from fdai.delivery.operator_api.application.conversation.turn_plan import (
     TurnPlanner,
     TurnTool,
@@ -157,7 +165,6 @@ from fdai.delivery.operator_api.routes.chat_content_policy import (
     collect_stream_with_content_policy_recovery,
 )
 from fdai.delivery.operator_api.routes.chat_document_evidence import (
-    ChatDocumentEvidenceResolver,
     merge_document_verification,
     with_document_evidence,
 )
@@ -165,11 +172,6 @@ from fdai.delivery.operator_api.routes.chat_history import (
     append_assistant_turn,
     append_content_policy_receipt,
     replay_metadata,
-)
-from fdai.delivery.operator_api.routes.chat_history_context import (
-    DEFAULT_CHAT_HISTORY_POLICY,
-    BackendChatHistoryCompressor,
-    ChatHistoryPolicy,
 )
 from fdai.delivery.operator_api.routes.chat_image_history import (
     image_turn_metadata,
@@ -186,9 +188,7 @@ from fdai.delivery.operator_api.routes.chat_resource_context import (
 )
 from fdai.delivery.operator_api.routes.chat_route_common import (
     DEFAULT_MAX_CHAT_BODY_BYTES,
-    AnswerPreferenceResolver,
     AuthorizeFn,
-    ModelPreferenceResolver,
     _metering_correlation_id,
     _turn_metadata,
     _uses_evidence_fast_path,
@@ -203,7 +203,7 @@ from fdai.delivery.operator_api.routes.chat_stream_protocol import (
     _sse_heartbeat,
     _with_sse_heartbeats,
 )
-from fdai.delivery.operator_api.routes.chat_stream_setup import (
+from fdai.delivery.operator_api.routes.chat_stream_request import (
     ContentPolicyReplayRequest,
     prepare_chat_stream_request,
 )

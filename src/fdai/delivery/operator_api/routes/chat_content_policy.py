@@ -8,7 +8,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from typing import Any
 
 from fdai.delivery.operator_api.application.conversation.backend import ChatContentPolicyError
-from fdai.delivery.operator_api.routes.chat_history_context import (
+from fdai.delivery.operator_api.application.conversation.request_preparation import (
     ChatHistoryCompressor,
     ChatHistoryPolicy,
     ResolvedChatHistory,

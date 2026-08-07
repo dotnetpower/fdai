@@ -10,15 +10,15 @@ from starlette.requests import Request
 from starlette.testclient import TestClient
 
 from fdai.delivery.operator_api.application.conversation.backend import ChatContentPolicyError
+from fdai.delivery.operator_api.application.conversation.request_preparation import (
+    ChatHistoryPolicy,
+    resolve_chat_history,
+    resolve_chat_history_result,
+)
 from fdai.delivery.operator_api.routes.chat import make_chat_route
 from fdai.delivery.operator_api.routes.chat_content_policy import (
     answer_with_content_policy_recovery,
     collect_stream_with_content_policy_recovery,
-)
-from fdai.delivery.operator_api.routes.chat_history_context import (
-    ChatHistoryPolicy,
-    resolve_chat_history,
-    resolve_chat_history_result,
 )
 from fdai.delivery.operator_api.routes.chat_stream import make_chat_stream_route
 from fdai.shared.providers.testing.user_context import InMemoryConversationHistoryStore

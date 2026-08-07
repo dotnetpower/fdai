@@ -67,6 +67,9 @@ from fdai.delivery.operator_api.application.conversation.evidence import (
 from fdai.delivery.operator_api.application.conversation.intent_graph import (
     BackendIntentGraphPlanner,
 )
+from fdai.delivery.operator_api.application.conversation.request_preparation import (
+    ChatDocumentEvidenceResolver,
+)
 from fdai.delivery.operator_api.application.conversation.turn_plan import (
     StructuredCompletionBackend,
     action_turn_tools,
@@ -91,7 +94,6 @@ from fdai.delivery.operator_api.routes.chat_capability_registry import (
     static_capabilities,
     validate_panel_chat_bindings,
 )
-from fdai.delivery.operator_api.routes.chat_document_evidence import ChatDocumentEvidenceResolver
 from fdai.delivery.operator_api.routes.chat_skills import RuntimeSkillChatTools
 from fdai.delivery.operator_api.routes.data_sources import ReadDataSourceStatus
 from fdai.delivery.operator_api.routes.detection_readiness import DetectionReadinessReader

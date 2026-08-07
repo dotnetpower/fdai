@@ -1,12 +1,9 @@
-"""Authenticated request preparation for the chat SSE route."""
+"""Application coordination for bounded chat request preparation."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
-
-from starlette.exceptions import HTTPException
-from starlette.requests import Request
 
 from fdai.core.conversation.answer_plan import AnswerPlan, build_answer_plan
 from fdai.core.conversation.answer_preferences import ResponsePreferenceProfile
@@ -44,37 +41,64 @@ from fdai.delivery.operator_api.application.conversation.vision_evidence import 
     VisionAttachment,
     parse_vision_attachments,
 )
-from fdai.delivery.operator_api.routes.chat_document_evidence import (
-    ChatDocumentEvidenceResolver,
-    resolve_document_refs,
-)
-from fdai.delivery.operator_api.routes.chat_history import content_policy_replay_stage
-from fdai.delivery.operator_api.routes.chat_history_context import (
-    DEFAULT_CHAT_HISTORY_POLICY,
-    ChatHistoryCompressor,
-    ChatHistoryPolicy,
-    resolve_chat_history_result,
-)
-from fdai.delivery.operator_api.routes.chat_resource_context import (
-    contextualize_resource_followup,
-    missing_read_investigation_context_evidence,
-    parse_resource_context,
-)
-from fdai.delivery.operator_api.routes.chat_route_common import (
-    AnswerPreferenceResolver,
-    AuthorizeFn,
-    ModelPreferenceResolver,
-    _conversation_context,
-    _request_id,
-    _session_id,
-    _target_agent,
-)
-from fdai.delivery.operator_api.routes.chat_stream_request import read_chat_stream_body
 from fdai.shared.providers.document_ingestion import DocumentAccessDeniedError
 from fdai.shared.providers.user_context import (
     ConversationHistoryStore,
     UserContextConflictError,
 )
+
+from .document_evidence import (
+    ChatDocumentEvidenceResolver,
+    resolve_document_refs,
+)
+from .history import (
+    DEFAULT_CHAT_HISTORY_POLICY,
+    ChatHistoryCompressor,
+    ChatHistoryPolicy,
+    resolve_chat_history_result,
+)
+from .identity import (
+    AnswerPreferenceResolver,
+    ModelPreferenceResolver,
+    parse_conversation_context,
+    resolve_request_id,
+    resolve_session_id,
+    resolve_target_agent,
+)
+from .replay import content_policy_replay_stage
+from .resource_context import (
+    contextualize_resource_followup,
+    missing_read_investigation_context_evidence,
+    parse_resource_context,
+)
+
+
+class InvalidChatRequestError(ValueError):
+    """Raised when bounded chat request fields are invalid."""
+
+
+class ChatContentRejectedError(ValueError):
+    """Raised when request content violates the chat input policy."""
+
+
+class ChatRequestConflictError(RuntimeError):
+    """Raised when a request id conflicts with durable conversation state."""
+
+
+class ChatDocumentAccessDeniedError(PermissionError):
+    """Raised when the principal cannot access a referenced document."""
+
+
+class ChatDocumentEvidenceUnavailableError(RuntimeError):
+    """Raised when configured document evidence cannot be resolved."""
+
+
+@dataclass(frozen=True, slots=True)
+class ChatRequestPreparationInput:
+    """Authenticated, byte-bounded JSON object passed by an HTTP adapter."""
+
+    principal_id: str
+    body: dict[str, Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,30 +135,33 @@ class PreparedChatStreamRequest:
     vision_attachments: list[VisionAttachment]
 
 
-async def prepare_chat_stream_request(
-    request: Request,
+async def prepare_chat_request(
+    request_input: ChatRequestPreparationInput,
     *,
-    authorize: AuthorizeFn,
     model_preference_resolver: ModelPreferenceResolver | None,
     answer_preference_resolver: AnswerPreferenceResolver | None,
     document_evidence_resolver: ChatDocumentEvidenceResolver | None,
     conversation_history_store: ConversationHistoryStore | None,
     history_compressor: ChatHistoryCompressor,
     history_policy: ChatHistoryPolicy = DEFAULT_CHAT_HISTORY_POLICY,
-    max_body_bytes: int,
 ) -> PreparedChatStreamRequest | ContentPolicyReplayRequest:
-    user_id = await authorize(request)
-    body = await read_chat_stream_body(request, max_body_bytes=max_body_bytes)
+    """Prepare one authenticated chat request without owning HTTP transport."""
+
+    user_id = request_input.principal_id
+    body = request_input.body
     prompt = body.get("prompt")
     if not isinstance(prompt, str) or not prompt.strip():
-        raise HTTPException(status_code=400, detail="prompt MUST be a non-empty string")
+        raise InvalidChatRequestError("prompt MUST be a non-empty string")
     clean_prompt = prompt.strip()
     try:
         reject_direct_override(clean_prompt)
     except ChatContentPolicyError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    session_id = _session_id(body)
-    request_id = _request_id(body)
+        raise ChatContentRejectedError(str(exc)) from exc
+    try:
+        session_id = resolve_session_id(body)
+        request_id = resolve_request_id(body)
+    except ValueError as exc:
+        raise InvalidChatRequestError(str(exc)) from exc
     if conversation_history_store is not None:
         try:
             replay_stage = await content_policy_replay_stage(
@@ -145,9 +172,8 @@ async def prepare_chat_stream_request(
                 content=clean_prompt,
             )
         except UserContextConflictError as exc:
-            raise HTTPException(
-                status_code=409,
-                detail="chat request id conflicts with an existing turn",
+            raise ChatRequestConflictError(
+                "chat request id conflicts with an existing turn"
             ) from exc
         if replay_stage is not None:
             return ContentPolicyReplayRequest(
@@ -172,17 +198,17 @@ async def prepare_chat_stream_request(
             resolver=document_evidence_resolver,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise InvalidChatRequestError(str(exc)) from exc
     except DocumentAccessDeniedError as exc:
-        raise HTTPException(status_code=403, detail="document reference access denied") from exc
+        raise ChatDocumentAccessDeniedError("document reference access denied") from exc
     except RuntimeError as exc:
-        raise HTTPException(status_code=501, detail=str(exc)) from exc
+        raise ChatDocumentEvidenceUnavailableError(str(exc)) from exc
 
     view_context = body.get("view_context")
     if view_context is None:
         view_context = {}
     if not isinstance(view_context, dict):
-        raise HTTPException(status_code=400, detail="view_context MUST be an object")
+        raise InvalidChatRequestError("view_context MUST be an object")
     view_context.pop("_answer_plan", None)
     view_context.pop("_turn_plan", None)
     view_context.pop("_attachments", None)
@@ -192,11 +218,11 @@ async def prepare_chat_stream_request(
     view_context.pop("_verified_prior_context", None)
     include_model_trace = body.get("include_model_trace", False)
     if not isinstance(include_model_trace, bool):
-        raise HTTPException(status_code=400, detail="include_model_trace MUST be a boolean")
+        raise InvalidChatRequestError("include_model_trace MUST be a boolean")
     try:
         vision_attachments = parse_vision_attachments(body, request_id=request_id)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise InvalidChatRequestError(str(exc)) from exc
     if vision_attachments:
         view_context["_attachments"] = [
             attachment.to_view_dict() for attachment in vision_attachments
@@ -204,7 +230,7 @@ async def prepare_chat_stream_request(
 
     history_raw = body.get("history", [])
     if not isinstance(history_raw, list):
-        raise HTTPException(status_code=400, detail="history MUST be a list")
+        raise InvalidChatRequestError("history MUST be a list")
     history: list[dict[str, str]] = []
     for turn in history_raw:
         if isinstance(turn, dict):
@@ -243,7 +269,7 @@ async def prepare_chat_stream_request(
             prior_context.evidence_freshness_context if prior_context is not None else None
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise InvalidChatRequestError(str(exc)) from exc
     selector_hold = (
         None
         if needs_action_context(clean_prompt)
@@ -280,7 +306,11 @@ async def prepare_chat_stream_request(
         preferences=answer_preferences,
     )
     view_context["_answer_plan"] = answer_plan.to_dict()
-    conversation_context = _conversation_context(body)
+    try:
+        conversation_context = parse_conversation_context(body)
+        target_agent = resolve_target_agent(body, conversation_context)
+    except ValueError as exc:
+        raise InvalidChatRequestError(str(exc)) from exc
     return PreparedChatStreamRequest(
         user_id=user_id,
         preferred_model=preferred_model,
@@ -295,7 +325,7 @@ async def prepare_chat_stream_request(
         inventory_scope_followup=inventory_scope_followup,
         view_context=view_context,
         conversation_context=conversation_context,
-        target_agent=_target_agent(body, conversation_context),
+        target_agent=target_agent,
         history=history,
         history_metadata=history_result.metadata(),
         answer_plan=answer_plan,

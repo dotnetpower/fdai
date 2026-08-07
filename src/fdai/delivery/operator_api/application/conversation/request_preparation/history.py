@@ -1,4 +1,4 @@
-"""Principal-scoped durable history assembly for Operator API chat routes."""
+"""Principal-scoped durable history assembly for chat request preparation."""
 
 from __future__ import annotations
 

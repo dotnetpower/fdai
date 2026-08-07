@@ -15,8 +15,10 @@ from fdai.delivery.operator_api.application.conversation.capabilities.subscripti
     needs_subscription_health,
     render_subscription_health_answer,
 )
+from fdai.delivery.operator_api.application.conversation.request_preparation import (
+    contextualize_resource_followup,
+)
 from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
-from fdai.delivery.operator_api.routes.chat_resource_context import contextualize_resource_followup
 
 
 class _Backend:

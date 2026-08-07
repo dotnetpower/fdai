@@ -167,6 +167,25 @@ from fdai.delivery.operator_api.application.conversation.prompt import (
 from fdai.delivery.operator_api.application.conversation.prompt_ontology import (
     _with_ontology_storage_contract,
 )
+from fdai.delivery.operator_api.application.conversation.request_preparation import (
+    DEFAULT_CHAT_HISTORY_POLICY,
+    DEFAULT_MAX_SESSION_ID_CHARS,
+    AnswerPreferenceResolver,
+    BackendChatHistoryCompressor,
+    ChatDocumentEvidenceResolver,
+    ChatHistoryPolicy,
+    ModelPreferenceResolver,
+    content_policy_replay_stage,
+    contextualize_resource_followup,
+    missing_read_investigation_context_evidence,
+    parse_conversation_context,
+    parse_resource_context,
+    resolve_chat_history_result,
+    resolve_document_refs,
+    resolve_request_id,
+    resolve_session_id,
+    resolve_target_agent,
+)
 from fdai.delivery.operator_api.application.conversation.turn_plan import (
     TurnPlanner,
     TurnTool,
@@ -215,31 +234,19 @@ from fdai.delivery.operator_api.routes.chat_content_policy import (
     answer_with_content_policy_recovery,
 )
 from fdai.delivery.operator_api.routes.chat_document_evidence import (
-    ChatDocumentEvidenceResolver,
     merge_document_verification,
-    resolve_document_refs,
     with_document_evidence,
 )
 from fdai.delivery.operator_api.routes.chat_history import (
     append_assistant_turn,
     append_content_policy_receipt,
-    content_policy_replay_stage,
     replay_metadata,
-)
-from fdai.delivery.operator_api.routes.chat_history_context import (
-    DEFAULT_CHAT_HISTORY_POLICY,
-    BackendChatHistoryCompressor,
-    ChatHistoryPolicy,
-    resolve_chat_history_result,
 )
 from fdai.delivery.operator_api.routes.chat_image_history import (
     image_turn_metadata,
     persist_operator_turn_with_images,
 )
 from fdai.delivery.operator_api.routes.chat_resource_context import (
-    contextualize_resource_followup,
-    missing_read_investigation_context_evidence,
-    parse_resource_context,
     resource_followup_verification,
     response_resource_context,
 )
@@ -250,15 +257,8 @@ from fdai.delivery.operator_api.routes.chat_response_tail import (
 )
 from fdai.delivery.operator_api.routes.chat_route_common import (
     DEFAULT_MAX_CHAT_BODY_BYTES,
-    DEFAULT_MAX_SESSION_ID_CHARS,
-    AnswerPreferenceResolver,
     AuthorizeFn,
-    ModelPreferenceResolver,
-    _conversation_context,
     _metering_correlation_id,
-    _request_id,
-    _session_id,
-    _target_agent,
     _turn_metadata,
     _uses_evidence_fast_path,
     _with_assurance_policy,
@@ -402,8 +402,11 @@ def make_chat_route(
         prompt = body.get("prompt")
         if not isinstance(prompt, str) or not prompt.strip():
             raise HTTPException(status_code=400, detail="prompt MUST be a non-empty string")
-        session_id = _session_id(body)
-        request_id = _request_id(body)
+        try:
+            session_id = resolve_session_id(body)
+            request_id = resolve_request_id(body)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         view_context = body.get("view_context")
         if view_context is None:
             view_context = {}
@@ -423,8 +426,11 @@ def make_chat_route(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         if vision_attachments:
             view_context["_attachments"] = [a.to_view_dict() for a in vision_attachments]
-        conversation_context = _conversation_context(body)
-        target_agent = _target_agent(body, conversation_context)
+        try:
+            conversation_context = parse_conversation_context(body)
+            target_agent = resolve_target_agent(body, conversation_context)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         history_raw = body.get("history", [])
         if not isinstance(history_raw, list):
             raise HTTPException(status_code=400, detail="history MUST be a list")

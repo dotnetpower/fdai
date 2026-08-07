@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: e0c821db5fffda96fbee006b4ed26c6815e19014
+translation_source_sha: d8355410780778a524f196d1d58b3b6c8ce0da86
 translation_revised: 2026-08-07
 ---
 # Operator Console Module Map and Boundaries
@@ -229,6 +229,27 @@ package는 `fdai.delivery.operator_api.routes` module을 import하지 않습니�
 Rollback은 해당 route module을 복원하고 stream-route import를 변경하며 frame order, JSON 또는 SSE
 terminal payload, verification, history 및 post-turn review behavior는 변경하지 않습니다.
 
+### Conversation request preparation application boundary
+
+SD-01 request-preparation 슬라이스는
+`fdai.delivery.operator_api.application.conversation.request_preparation` 아래에서 content-policy
+validation과 replay, 사용자 preference, document-reference resolution, complete-history 조립,
+verified prior context, resource와 freshness context, follow-up scope, answer planning,
+target-agent 파생을 소유합니다. 이 package는 server-authenticated, byte-bounded JSON object 하나를
+받고 typed prepared request 또는 replay outcome을 반환합니다. Process-local이고 authority가
+없으며 `operator_api.routes` module을 import하지 않습니다.
+
+`routes/chat_stream_request.py`는 `authorize(request)`, Content-Length preflight, raw body 읽기,
+byte 제한, JSON-object parsing, Starlette `HTTPException` mapping 및 SSE adapter 호출을 유지합니다.
+JSON chat은 기존 transport 순서를 유지하면서 같은 preparation contract와 helper를 import합니다.
+기존 route-owned history module은 전체 이동했고 document, replay, resource-context, identity helper는
+혼합 route module에서 분리했습니다. 모든 consumer가 internal source 또는 test import였으므로
+compatibility shim은 남기지 않았습니다.
+
+Rollback은 history와 preparation helper를 `routes/` 아래에 복원하고 `chat_stream_setup.py`를
+복원한 뒤 JSON과 SSE import를 되돌립니다. Authentication, status code, body bound,
+content-policy replay, history, document access, answer plan 및 두 wire contract는 변경하지 않습니다.
+
 ### Immutable app composition
 
 Issue 72는 `OperatorApiConfig(**kwargs)`를 bounded compatibility constructor로 유지하고 route를 등록하기
@@ -264,6 +285,7 @@ signature를 그대로 유지합니다. 이 절차는 wire 또는 caller migrati
 | `application/conversation/verification/` | Deterministic terminal answer verification 및 bounded evidence rendering | Explicit package facade로 import하고 wire behavior와 authentication은 route에 유지합니다. |
 | `application/conversation/evidence/` | Operational evidence resolution, provenance, branch lifecycle 및 authority-preserving merge | Explicit package facade로 import하고 JSON, SSE, authentication, cancellation 및 history는 route에 유지합니다. |
 | `application/conversation/post_generation/` | Quality review, verification, history persistence coordination, terminal payload validation 및 post-turn review | Explicit package facade로 import하고 authorization, request parsing, heartbeat framing, sequencing, cancellation 및 SSE delivery는 route에 유지합니다. |
+| `application/conversation/request_preparation/` | Content policy와 replay, preference, document ref, history, prior context, resource와 freshness context, follow-up scope, answer plan 및 target-agent 파생 | Explicit package facade로 import하고 authorization, bounded body parsing, HTTP mapping, SSE sequencing 및 transport delivery는 route에 유지합니다. |
 | `dev/` | Interactive local 및 test-only provider composition | Production import에서 사용할 수 없게 유지합니다. |
 | `dev/fixtures/` | Synthetic pytest-only fixture | Production composition 밖에 유지합니다. |
 | `persistence/` | Operator API read-model implementation 및 projection | 소유된 read contract 뒤에 유지합니다. |
@@ -354,6 +376,10 @@ frame을 거부합니다.
   validation, history persistence coordination 및 post-turn review를 소유합니다. HTTP,
   authentication, request parsing, heartbeat framing, SSE sequencing, connection cancellation 또는
   transport delivery는 소유하지 않습니다.
+- `application/conversation/request_preparation/`은 content-policy validation과 replay,
+  preference, document ref, history 조립, verified prior context, resource와 freshness context,
+  follow-up scope, answer planning 및 target-agent 파생을 소유합니다. Request, HTTP status mapping,
+  authorization, SSE sequencing, cancellation 또는 transport delivery는 소유하지 않습니다.
 - `application/conversation/capabilities/`는 action, prior-context, current-time, source,
   readiness, knowledge, metering, log, network, subscription-health, T2 recovery, behavior 및
   read-model helper를 소유합니다. `application/conversation/`은 turn/intent-graph planning, prompt
@@ -374,7 +400,8 @@ frame을 거부합니다.
 - `projections/conversation/`은 incident-dossier와 RCA rendering, bounded execution-output
   projection, provider-receipt projection 및 tool-progress reduction을 소유합니다. 이동된 internal
   helper에는 compatibility shim이 없습니다.
-- `chat_stream_setup.py`는 authenticated request, evidence, history 및 answer-plan validation을 소유합니다.
+- `routes/chat_stream_request.py`는 authorization, Content-Length와 raw-body bound, JSON-object
+  parsing, application error의 HTTP mapping 및 SSE preparation adapter를 소유합니다.
 - `chat_trajectory_detail.py`는 durable trajectory replay용 bounded final progress projection을 소유합니다.
 - `application/conversation/capabilities/knowledge_context.py`는 state write 없이 exact prior-turn
   runbook, source freshness, consented

@@ -83,6 +83,12 @@
       "candidate_destination": "retain behind the explicit post-generation package facade"
     },
     {
+      "path": "application/conversation/request_preparation",
+      "responsibility": "Content policy, replay, preferences, document references, history, prior context, resource and freshness context, follow-up scope, answer planning, and target-agent preparation outside HTTP transport",
+      "classification": "application-coordination",
+      "candidate_destination": "retain behind the explicit request-preparation package facade"
+    },
+    {
       "path": "dev",
       "responsibility": "Interactive local and test-only provider composition",
       "classification": "composition",

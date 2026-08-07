@@ -230,6 +230,27 @@ The package imports no `fdai.delivery.operator_api.routes` module. The former
 restores that route module and changes the stream-route import without changing frame order, JSON
 or SSE terminal payloads, verification, history, or post-turn review behavior.
 
+### Conversation request preparation application boundary
+
+The SD-01 request-preparation slice owns content-policy validation and replay, user preferences,
+document-reference resolution, complete-history assembly, verified prior context, resource and
+freshness context, follow-up scope, answer planning, and target-agent derivation under
+`fdai.delivery.operator_api.application.conversation.request_preparation`. The package accepts one
+server-authenticated, byte-bounded JSON object and returns a typed prepared request or replay
+outcome. It is process-local, non-authoritative, and imports no `operator_api.routes` module.
+
+`routes/chat_stream_request.py` retains `authorize(request)`, Content-Length preflight, raw body
+reading, byte limits, JSON-object parsing, Starlette `HTTPException` mapping, and the SSE adapter
+call. JSON chat retains its established transport sequence while importing the same preparation
+contracts and helpers. The former route-owned history module moved in full; document, replay,
+resource-context, and identity helpers split from their mixed route modules. Every consumer was an
+internal source or test import, so no compatibility shim remains.
+
+Rollback restores the history and preparation helpers under `routes/`, restores
+`chat_stream_setup.py`, and redirects JSON and SSE imports without changing authentication, status
+codes, body bounds, content-policy replay, history, document access, answer plans, or either wire
+contract.
+
 ### Immutable app composition
 
 Issue 72 keeps `OperatorApiConfig(**kwargs)` as the bounded compatibility constructor and projects
@@ -267,6 +288,7 @@ reverses physical ownership without a wire or caller migration.
 | `application/conversation/verification/` | Deterministic terminal answer verification and bounded evidence rendering | Import through its explicit package facade; keep wire behavior and authentication in routes. |
 | `application/conversation/evidence/` | Operational evidence resolution, provenance, branch lifecycle, and authority-preserving merge | Import through its explicit package facade; keep JSON, SSE, authentication, cancellation, and history in routes. |
 | `application/conversation/post_generation/` | Quality review, verification, history persistence coordination, terminal payload validation, and post-turn review | Import through its explicit package facade; keep authorization, request parsing, heartbeat framing, sequencing, cancellation, and SSE delivery in routes. |
+| `application/conversation/request_preparation/` | Content policy and replay, preferences, document refs, history, prior context, resource and freshness context, follow-up scope, answer plans, and target-agent derivation | Import through its explicit package facade; keep authorization, bounded body parsing, HTTP mapping, SSE sequencing, and transport delivery in routes. |
 | `dev/` | Interactive local and test-only provider composition | Keep unavailable to production imports. |
 | `dev/fixtures/` | Synthetic pytest-only fixtures | Keep outside production composition. |
 | `persistence/` | Operator API read-model implementations and projections | Retain behind owned read contracts. |
@@ -357,6 +379,10 @@ a separately reviewed boundary.
   validation, history persistence coordination, and post-turn review. It does not own HTTP,
   authentication, request parsing, heartbeat framing, SSE sequencing, connection cancellation, or
   transport delivery.
+- `application/conversation/request_preparation/` owns content-policy validation and replay,
+  preferences, document refs, history assembly, verified prior context, resource and freshness
+  context, follow-up scope, answer planning, and target-agent derivation. It does not own Request,
+  HTTP status mapping, authorization, SSE sequencing, cancellation, or transport delivery.
 - `application/conversation/capabilities/` owns action, prior-context, current-time, source,
   readiness, knowledge, metering, log, network, subscription-health, T2 recovery, behavior, and
   read-model helpers. `application/conversation/` owns turn and intent-graph planning, prompt
@@ -375,7 +401,8 @@ a separately reviewed boundary.
 - `projections/conversation/` owns incident-dossier and RCA rendering, bounded execution-output
   projection, provider-receipt projection, and tool-progress reduction. These moved internal
   helpers have no compatibility shims.
-- `chat_stream_setup.py` owns authenticated request, evidence, history, and answer-plan validation.
+- `routes/chat_stream_request.py` owns authorization, Content-Length and raw-body bounds, JSON-object
+  parsing, application-error to HTTP mapping, and the SSE preparation adapter.
 - `chat_trajectory_detail.py` owns bounded final progress projection for durable trajectory replay.
 - `application/conversation/capabilities/knowledge_context.py` reads exact prior-turn runbooks,
   source freshness, consented memory,
