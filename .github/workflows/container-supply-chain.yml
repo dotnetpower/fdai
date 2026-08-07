@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "Dockerfile"
+      - "services/**"
+      - "service-contracts/**"
       - "pyproject.toml"
       - "uv.lock"
       - "src/**"
@@ -15,6 +17,8 @@ on:
     tags: ["v*"]
     paths:
       - "Dockerfile"
+      - "services/**"
+      - "service-contracts/**"
       - "pyproject.toml"
       - "uv.lock"
       - "src/**"
@@ -34,6 +38,25 @@ env:
 jobs:
   build-scan-attest:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: core-control-plane
+            target: core-control-plane
+            image: fdai-core-control-plane
+          - service: operator-service
+            target: operator-service
+            image: fdai-operator-service
+          - service: document-ingestion-api
+            target: document-ingestion-api
+            image: fdai-document-ingestion-api
+          - service: document-processing-worker
+            target: document-processing-worker
+            image: fdai-document-processing-worker
+          - service: isolated-executor
+            target: isolated-executor
+            image: fdai-isolated-executor
     permissions:
       contents: read
       packages: write
@@ -82,10 +105,11 @@ jobs:
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a
         with:
           context: .
-          file: ./Dockerfile
+          file: ./services/Dockerfile
+          target: ${{ matrix.target }}
           load: true
           push: false
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.image }}:${{ env.IMAGE_TAG }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -104,18 +128,18 @@ jobs:
           trivy image --exit-code 1 --severity HIGH,CRITICAL
           --ignore-unfixed
           --ignorefile .trivyignore.yaml
-          "${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+          "${REGISTRY}/${IMAGE_NAME}/${{ matrix.image }}:${IMAGE_TAG}"
 
       - name: Generate CycloneDX SBOM
         run: >-
-          trivy image --format cyclonedx --output sbom.cdx.json
-          "${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+          trivy image --format cyclonedx --output "sbom-${{ matrix.service }}.cdx.json"
+          "${REGISTRY}/${IMAGE_NAME}/${{ matrix.image }}:${IMAGE_TAG}"
 
       - name: Upload SBOM evidence
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: fdai-sbom-${{ github.sha }}
-          path: sbom.cdx.json
+          name: fdai-sbom-${{ matrix.service }}-${{ github.sha }}
+          path: sbom-${{ matrix.service }}.cdx.json
           if-no-files-found: error
           retention-days: 90
 
@@ -131,7 +155,7 @@ jobs:
         if: github.event_name != 'pull_request'
         id: push
         run: |
-          image="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+          image="${REGISTRY}/${IMAGE_NAME}/${{ matrix.image }}:${IMAGE_TAG}"
           docker push "$image"
           digest="$(docker buildx imagetools inspect "$image" --format '{{json .Manifest.Digest}}' | tr -d '"')"
           if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
@@ -144,7 +168,7 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: actions/attest@v4.2.0
         with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.image }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
@@ -152,7 +176,7 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: actions/attest@v4.2.0
         with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.image }}
           subject-digest: ${{ steps.push.outputs.digest }}
-          sbom-path: sbom.cdx.json
+          sbom-path: sbom-${{ matrix.service }}.cdx.json
           push-to-registry: true
