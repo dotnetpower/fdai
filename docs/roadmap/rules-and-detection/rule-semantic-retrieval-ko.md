@@ -1,7 +1,7 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 1f2edfaa9f1df50630b1d888ec826863a938d1b2
-translation_revised: 2026-08-06
+translation_source_sha: 54930db1e15f900c86c84cedcfd512adf95bd2bb
+translation_revised: 2026-08-07
 ---
 # Rule 의미 검색
 
@@ -16,9 +16,10 @@ translation_revised: 2026-08-06
 > **안전 경계:** Rule 발견과 정책 평가는 별개의 작업입니다. OPA는 기존 T0 경로를 통해
 > 스키마에 맞고 현재 상태인 근거를 사용하는 정확한 활성 Rule만 평가합니다.
 >
-> **구현 상태 (2026-08-06):** FDAI는 결정론적 Rego 및 expression manifest, strict promoted
-> surface loading, held-out cohort evaluation, privacy-safe challenger feedback, atomic in-memory
-> 및 PostgreSQL generation, read-only `catalog.search_rules` function, concept-first bounded
+> **구현 상태 (2026-08-07):** FDAI는 결정론적 Rego 및 expression manifest, strict promoted
+> surface loading, held-out cohort evaluation, privacy-safe challenger feedback, retained-generation
+> rollback receipt를 포함한 atomic in-memory 및 PostgreSQL generation, read-only
+> `catalog.search_rules` function, concept-first bounded
 > retrieval, lexical degradation 및 durable StateStore challenger store를 제공합니다.
 > Generation publishing은 Operator API startup 경로 밖에서 실행됩니다. PostgreSQL generation
 > adapter에는 focused contract coverage가 있으며 live database test에는 `FDAI_DATABASE_URL`이
@@ -119,6 +120,16 @@ validation receipt와 content digest를 기록합니다. 상태는 `candidate`, 
 않습니다.
 PostgreSQL activation은 corpus마다 하나의 transaction-scoped lock도 유지하므로 concurrent
 publisher는 pointer를 retire하거나 activate하기 전에 serialize됩니다.
+
+Rollback은 보존된 이전 generation만 다시 활성화합니다. 호출자는 예상 active 및 target
+generation revision과 digest, target validation receipt를 고정합니다. 두 generation은 같은
+corpus에 속해야 합니다. Ontology compatibility receipt는 target을 previous release로, current
+active generation을 candidate release로 고정하며 canonical compatibility gate를 통과한 exact
+identity 또는 additive N/N-1 transition을 허용합니다. Store는 같은 corpus lock 안에서 이 값을
+확인하고 current generation retire와 target reactivation을 하나의 atomic transition으로
+수행합니다. 같은 rollback time을 가진 exact retry는 추가 state 변경 없이 동일한
+content-addressed receipt를 반환합니다. Stale revision 또는 compatibility mismatch가 있으면
+active generation은 변경되지 않습니다.
 
 ### CatalogRetrievalReceipt
 
@@ -278,7 +289,7 @@ function registry 또는 provider를 사용할 수 없을 때 generic `503`을 �
 | S1 | 변경 불가능한 contract 및 corpus isolation | 잘못된 ref, digest, state, origin 및 cross-corpus operation이 안전하게 차단됨 |
 | S2 | Deterministic manifest 및 licensing gate | Rego와 expression fixture가 재생 가능한 manifest를 생성하고 reference-only 위반은 차단됨 |
 | S3 | Surface candidate 및 held-out evaluator | Training과 evaluation data가 겹칠 수 없고 모든 필수 cohort가 receipt를 생성 |
-| S4 | 원자적 persistent generation | Search가 이전 또는 새로운 완전한 generation만 관측하며 혼합 corpus를 관측하지 않음 |
+| S4 | 원자적 persistent generation | Search는 이전 또는 새로운 완전한 generation만 관측하고 rollback은 replay-stable receipt를 반환하며 어떤 transition도 혼합 corpus를 노출하지 않음 |
 | S5 | Concept-first typed query | Exact, lexical, graph 및 semantic stage가 candidate-only authority와 clarification을 유지 |
 | S6 | Challenger feedback | 재현된 retrieval failure가 durable inert candidate만 만들고 online active-index mutation이 없음 |
 | S7 | Production projection 및 observability | Operator API startup이 embedding을 만들지 않고 health가 catalog 및 generation ID를 공개 |

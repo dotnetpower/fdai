@@ -8,9 +8,11 @@ from collections.abc import Sequence
 from dataclasses import replace
 from datetime import datetime
 
+from fdai.shared.ontology.compatibility import OntologyGenerationCompatibilityReceipt
 from fdai.shared.providers.catalog_search import (
     CatalogCorpus,
     CatalogGenerationMetadata,
+    CatalogGenerationRollbackReceipt,
     CatalogGenerationStaleError,
     CatalogSearchDocument,
     CatalogSearchMatch,
@@ -18,6 +20,8 @@ from fdai.shared.providers.catalog_search import (
     Embedder,
 )
 from fdai.shared.providers.knowledge import cosine_similarity
+
+from .generation_rollback import plan_catalog_generation_rollback
 
 _TOKEN = re.compile(r"[A-Za-z0-9_]+|[가-힣]+")
 _RRF_K = 60.0
@@ -111,12 +115,63 @@ class InMemoryCatalogSemanticIndex:
                 raise ValueError("catalog generation is unavailable") from exc
             if metadata.generation_digest != expected_generation_digest:
                 raise ValueError("catalog generation digest mismatch")
+            if metadata.state != "staged":
+                raise ValueError("only a staged catalog generation can be activated")
             if metadata.validation_receipt_digest is None:
                 raise ValueError("catalog generation validation receipt is unavailable")
+            prior_active_id = self._active_generation_ids.get(metadata.corpus)
+            if prior_active_id is not None:
+                prior_metadata, prior_documents = self._generations[prior_active_id]
+                self._generations[prior_active_id] = (
+                    replace(prior_metadata, state="retired"),
+                    prior_documents,
+                )
             active = replace(metadata, state="active", activated_at=activated_at)
             self._generations[generation_id] = active, documents
             self._active_generation_ids[metadata.corpus] = generation_id
             return active
+
+    async def rollback_generation(
+        self,
+        target_generation_id: str,
+        *,
+        expected_active_generation_id: str,
+        expected_active_generation_digest: str,
+        expected_target_generation_digest: str,
+        expected_validation_receipt_digest: str,
+        ontology_compatibility_receipt: OntologyGenerationCompatibilityReceipt,
+        rolled_back_at: datetime,
+    ) -> CatalogGenerationRollbackReceipt:
+        """Atomically restore a retained generation when every pinned identity matches."""
+
+        async with self._generation_lock:
+            try:
+                target, target_documents = self._generations[target_generation_id]
+                current, current_documents = self._generations[expected_active_generation_id]
+            except KeyError as exc:
+                raise ValueError("catalog rollback generation is unavailable") from exc
+            transition = plan_catalog_generation_rollback(
+                current=current,
+                target=target,
+                active_generation_id=self._active_generation_ids.get(target.corpus),
+                expected_active_generation_digest=expected_active_generation_digest,
+                expected_target_generation_digest=expected_target_generation_digest,
+                expected_validation_receipt_digest=expected_validation_receipt_digest,
+                ontology_compatibility_receipt=ontology_compatibility_receipt,
+                rolled_back_at=rolled_back_at,
+            )
+            if transition.already_applied:
+                return transition.receipt
+            self._generations[expected_active_generation_id] = (
+                transition.receipt.retired_generation,
+                current_documents,
+            )
+            self._generations[target_generation_id] = (
+                transition.receipt.reactivated_generation,
+                target_documents,
+            )
+            self._active_generation_ids[target.corpus] = target_generation_id
+            return transition.receipt
 
     async def active_generation(
         self, corpus: CatalogCorpus = "active"

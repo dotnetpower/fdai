@@ -14,9 +14,11 @@ import psycopg
 from psycopg.rows import dict_row
 
 from fdai.delivery.pgvector.knowledge import _encode_vector
+from fdai.shared.ontology.compatibility import OntologyGenerationCompatibilityReceipt
 from fdai.shared.providers.catalog_search import (
     CatalogCorpus,
     CatalogGenerationMetadata,
+    CatalogGenerationRollbackReceipt,
     CatalogGenerationStaleError,
     CatalogSearchDocument,
     CatalogSearchMatch,
@@ -24,6 +26,8 @@ from fdai.shared.providers.catalog_search import (
     Embedder,
 )
 from fdai.shared.providers.secret_provider import SecretProvider
+
+from .generation_rollback import plan_catalog_generation_rollback
 
 _IDENTIFIER_RE: Final[re.Pattern[str]] = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
@@ -221,6 +225,86 @@ class PgvectorCatalogGenerationStore:
                     (activated_at, generation_id),
                 )
         return replace(metadata, state="active", activated_at=activated_at)
+
+    async def rollback_generation(
+        self,
+        target_generation_id: str,
+        *,
+        expected_active_generation_id: str,
+        expected_active_generation_digest: str,
+        expected_target_generation_digest: str,
+        expected_validation_receipt_digest: str,
+        ontology_compatibility_receipt: OntologyGenerationCompatibilityReceipt,
+        rolled_back_at: datetime,
+    ) -> CatalogGenerationRollbackReceipt:
+        """Atomically restore a validated retained generation under the corpus lock."""
+
+        dsn = await self._secrets.get(self._config.dsn_secret)
+        table = self._config.generation_table
+        async with await psycopg.AsyncConnection.connect(
+            dsn,
+            row_factory=dict_row,
+            connect_timeout=self._config.connect_timeout_s,
+        ) as connection:
+            async with connection.transaction():
+                await self._set_session_knobs(connection)
+                cursor = await connection.execute(
+                    f"SELECT corpus FROM {table} WHERE generation_id = %s",  # noqa: S608
+                    (target_generation_id,),
+                )
+                identity = await cursor.fetchone()
+                if identity is None:
+                    raise ValueError("catalog rollback target generation is unavailable")
+                await connection.execute(
+                    _activation_lock_sql(),
+                    (f"catalog-search:{identity['corpus']}",),
+                )
+                cursor = await connection.execute(
+                    f"SELECT * FROM {table} WHERE generation_id IN (%s, %s) "  # noqa: S608
+                    "ORDER BY generation_id FOR UPDATE",
+                    (expected_active_generation_id, target_generation_id),
+                )
+                rows = await cursor.fetchall()
+                generations = {
+                    metadata.generation_id: metadata
+                    for metadata in (_row_to_metadata(row) for row in rows)
+                }
+                try:
+                    current = generations[expected_active_generation_id]
+                    target = generations[target_generation_id]
+                except KeyError as exc:
+                    raise ValueError("catalog rollback generation is unavailable") from exc
+                cursor = await connection.execute(
+                    f"SELECT generation_id FROM {table} "  # noqa: S608
+                    "WHERE corpus = %s AND state = 'active' FOR UPDATE",
+                    (target.corpus,),
+                )
+                active_row = await cursor.fetchone()
+                transition = plan_catalog_generation_rollback(
+                    current=current,
+                    target=target,
+                    active_generation_id=(
+                        str(active_row["generation_id"]) if active_row is not None else None
+                    ),
+                    expected_active_generation_digest=expected_active_generation_digest,
+                    expected_target_generation_digest=expected_target_generation_digest,
+                    expected_validation_receipt_digest=expected_validation_receipt_digest,
+                    ontology_compatibility_receipt=ontology_compatibility_receipt,
+                    rolled_back_at=rolled_back_at,
+                )
+                if transition.already_applied:
+                    return transition.receipt
+                await connection.execute(
+                    f"UPDATE {table} SET state = 'retired' "  # noqa: S608
+                    "WHERE generation_id = %s AND state = 'active'",
+                    (expected_active_generation_id,),
+                )
+                await connection.execute(
+                    f"UPDATE {table} SET state = 'active', activated_at = %s "  # noqa: S608
+                    "WHERE generation_id = %s AND state = 'retired'",
+                    (rolled_back_at, target_generation_id),
+                )
+        return transition.receipt
 
     async def active_generation(
         self, corpus: CatalogCorpus = "active"

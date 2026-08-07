@@ -18,9 +18,11 @@ from fdai.delivery.catalog_search.postgres_generation import (
     PgvectorCatalogGenerationStore,
 )
 from fdai.delivery.pgvector.knowledge import _encode_vector
+from fdai.shared.ontology.compatibility import OntologyGenerationCompatibilityReceipt
 from fdai.shared.providers.catalog_search import (
     CatalogCorpus,
     CatalogGenerationMetadata,
+    CatalogGenerationRollbackReceipt,
     CatalogSearchDocument,
     CatalogSearchMatch,
     CatalogSearchResult,
@@ -191,6 +193,27 @@ class PgvectorCatalogSemanticIndex(CatalogSemanticIndex):
             generation_id,
             expected_generation_digest=expected_generation_digest,
             activated_at=activated_at,
+        )
+
+    async def rollback_generation(
+        self,
+        target_generation_id: str,
+        *,
+        expected_active_generation_id: str,
+        expected_active_generation_digest: str,
+        expected_target_generation_digest: str,
+        expected_validation_receipt_digest: str,
+        ontology_compatibility_receipt: OntologyGenerationCompatibilityReceipt,
+        rolled_back_at: datetime,
+    ) -> CatalogGenerationRollbackReceipt:
+        return await self._generations.rollback_generation(
+            target_generation_id,
+            expected_active_generation_id=expected_active_generation_id,
+            expected_active_generation_digest=expected_active_generation_digest,
+            expected_target_generation_digest=expected_target_generation_digest,
+            expected_validation_receipt_digest=expected_validation_receipt_digest,
+            ontology_compatibility_receipt=ontology_compatibility_receipt,
+            rolled_back_at=rolled_back_at,
         )
 
     async def active_generation(

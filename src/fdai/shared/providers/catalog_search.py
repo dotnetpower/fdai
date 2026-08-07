@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal, Protocol, runtime_checkable
 
+from fdai.shared.ontology.compatibility import OntologyGenerationCompatibilityReceipt
 from fdai.shared.providers.knowledge import Embedder
 
 CatalogSearchMatch = Literal["exact_id", "hybrid"]
@@ -61,6 +64,63 @@ class CatalogGenerationMetadata:
             self.validation_receipt_digest is None or self.activated_at is None
         ):
             raise ValueError("active catalog generation MUST carry validation and activation")
+
+
+@dataclass(frozen=True, slots=True)
+class CatalogGenerationRollbackReceipt:
+    """Replay-stable proof of one atomic active-generation rollback."""
+
+    retired_generation: CatalogGenerationMetadata
+    reactivated_generation: CatalogGenerationMetadata
+    validation_receipt_digest: str
+    ontology_compatibility_receipt: OntologyGenerationCompatibilityReceipt
+    rolled_back_at: datetime
+    receipt_digest: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        retired = self.retired_generation
+        reactivated = self.reactivated_generation
+        if retired.state != "retired" or reactivated.state != "active":
+            raise ValueError("catalog rollback receipt MUST describe retired and active states")
+        if retired.corpus != reactivated.corpus:
+            raise ValueError("catalog rollback generations MUST share one corpus")
+        compatibility = self.ontology_compatibility_receipt
+        if (
+            compatibility.previous_release_digest != reactivated.ontology_release_digest
+            or compatibility.candidate_release_digest != retired.ontology_release_digest
+        ):
+            raise ValueError("catalog rollback ontology compatibility receipt mismatch")
+        if reactivated.validation_receipt_digest != self.validation_receipt_digest:
+            raise ValueError("catalog rollback validation receipt mismatch")
+        if _DIGEST.fullmatch(self.validation_receipt_digest) is None:
+            raise ValueError("catalog rollback validation receipt MUST be a sha256 digest")
+        if self.rolled_back_at.tzinfo is None:
+            raise ValueError("catalog rollback time MUST be timezone-aware")
+        payload = {
+            "corpus": retired.corpus,
+            "ontology_compatibility": {
+                "added_declarations": compatibility.added_declarations,
+                "candidate_release_digest": compatibility.candidate_release_digest,
+                "checked_declarations": compatibility.checked_declarations,
+                "previous_release_digest": compatibility.previous_release_digest,
+            },
+            "reactivated_generation_digest": reactivated.generation_digest,
+            "reactivated_generation_id": reactivated.generation_id,
+            "retired_generation_digest": retired.generation_digest,
+            "retired_generation_id": retired.generation_id,
+            "rolled_back_at": self.rolled_back_at.isoformat(),
+            "validation_receipt_digest": self.validation_receipt_digest,
+        }
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        object.__setattr__(self, "receipt_digest", f"sha256:{hashlib.sha256(encoded).hexdigest()}")
+
+    @property
+    def retired_generation_id(self) -> str:
+        return self.retired_generation.generation_id
+
+    @property
+    def reactivated_generation_id(self) -> str:
+        return self.reactivated_generation.generation_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,6 +181,20 @@ class CatalogSemanticIndex(Protocol):
         activated_at: datetime,
     ) -> CatalogGenerationMetadata: ...
 
+    async def rollback_generation(
+        self,
+        target_generation_id: str,
+        *,
+        expected_active_generation_id: str,
+        expected_active_generation_digest: str,
+        expected_target_generation_digest: str,
+        expected_validation_receipt_digest: str,
+        ontology_compatibility_receipt: OntologyGenerationCompatibilityReceipt,
+        rolled_back_at: datetime,
+    ) -> CatalogGenerationRollbackReceipt:
+        """Atomically reactivate one validated retained generation."""
+        ...
+
     async def active_generation(
         self, corpus: CatalogCorpus = "active"
     ) -> CatalogGenerationMetadata | None: ...
@@ -141,6 +215,7 @@ __all__ = [
     "CatalogSearchResult",
     "CatalogCorpus",
     "CatalogGenerationMetadata",
+    "CatalogGenerationRollbackReceipt",
     "CatalogGenerationStaleError",
     "CatalogSemanticIndex",
     "Embedder",

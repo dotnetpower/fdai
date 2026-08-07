@@ -15,9 +15,10 @@ evaluation gates, and failed-query feedback loop.
 > **Safety boundary:** Rule discovery and policy evaluation are separate operations. OPA evaluates
 > only an exact active Rule against schema-valid, current evidence through the existing T0 path.
 >
-> **Implementation status (2026-08-06):** FDAI ships deterministic Rego and expression manifests,
+> **Implementation status (2026-08-07):** FDAI ships deterministic Rego and expression manifests,
 > strict promoted-surface loading, held-out cohort evaluation, privacy-safe challenger feedback,
-> atomic in-memory and PostgreSQL generations, the read-only `catalog.search_rules` function,
+> atomic in-memory and PostgreSQL generations with retained-generation rollback receipts, the
+> read-only `catalog.search_rules` function,
 > concept-first bounded retrieval, lexical degradation, and a durable StateStore challenger store.
 > Generation publishing runs off the Operator API startup path. The PostgreSQL generation adapter
 > has focused contract coverage; its live-database test requires `FDAI_DATABASE_URL`.
@@ -113,6 +114,16 @@ Only one generation per corpus is active. A worker builds and validates an inact
 then atomically changes the active pointer. A failed build leaves the prior generation unchanged.
 PostgreSQL activation also holds one transaction-scoped lock per corpus, so concurrent publishers
 serialize before retiring or activating a pointer.
+
+Rollback reactivates only a retained prior generation. The caller pins the expected active and
+target generation revisions and digests plus the target validation receipt. Both generations must
+belong to the same corpus. An ontology compatibility receipt binds the target as the previous
+release and the current active generation as the candidate release, allowing exact identity or an
+additive N/N-1 transition that passed the canonical compatibility gate. The store checks those
+values under the same corpus lock, retires the current generation, and reactivates the target in
+one atomic transition. An exact retry with the same rollback time returns the same content-addressed
+receipt without another state change. A stale revision or compatibility mismatch leaves the active
+generation unchanged.
 
 ### CatalogRetrievalReceipt
 
@@ -274,7 +285,7 @@ generic `503` when its exact function registry or provider is unavailable.
 | S1 | Immutable contracts and corpus isolation | Invalid refs, digests, states, origins, and cross-corpus operations fail closed |
 | S2 | Deterministic manifests and licensing gate | Rego and expression fixtures produce replay-stable manifests; reference-only violations are rejected |
 | S3 | Surface candidates and held-out evaluator | Training and evaluation data cannot overlap; all required cohorts produce receipts |
-| S4 | Atomic persistent generations | Searches observe either the prior or new complete generation, never a mixed corpus |
+| S4 | Atomic persistent generations | Searches observe either the prior or new complete generation, rollback returns a replay-stable receipt, and no transition exposes a mixed corpus |
 | S5 | Concept-first typed query | Exact, lexical, graph, and semantic stages preserve candidate-only authority and clarification |
 | S6 | Challenger feedback | Reproduced retrieval failures create only durable inert candidates; no online active-index mutation exists |
 | S7 | Production projection and observability | Operator API startup does not build embeddings; health exposes catalog and generation identity |
