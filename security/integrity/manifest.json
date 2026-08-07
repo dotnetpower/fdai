@@ -314,7 +314,7 @@
     "src/fdai/core/executor/executor.py": "201f1d06aeb64a7a5352a4a9ae1da883c988abf170674d314e1b2f2938c89d9a",
     "src/fdai/core/executor/lock.py": "98f8147a315c421e2782ea3ae0f0d9b22fdaef583c3cdbbaa67c9f1ad0319250",
     "src/fdai/core/executor/path_selection.py": "7754782c19f29db1a235688893eda1f53ae1107ef50066e329a2dd67873c61c7",
-    "src/fdai/core/executor/port.py": "a004ce7a2c5faf4c496a27282ea56a3fbda6f1bf394eaec8615bfb21b5c1a581",
+    "src/fdai/core/executor/port.py": "972f3bfc584a22fd868ce0b74a4e8d87e5ddd140434894f54126e027d7be796f",
     "src/fdai/core/executor/renderer.py": "9f87c695aba42442a6bc7027cc007a4ed52c0b8cfd8748a02a1d4ccd150b7556",
     "src/fdai/core/executor/tool_call.py": "bd625bd02ac4041b7f7c532d365104d8370aefa5c550797a5f7084098f351ba8",
     "src/fdai/core/hil_resume/__init__.py": "cf9bfbc5ee4621ae6de6975c3beb3d1d2b2b995e19cd631500bfe06a6f079c97",
@@ -995,7 +995,7 @@
     "src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-07T15:53:16Z",
+  "generated_at": "2026-08-07T16:25:49Z",
   "surface": [
     "src/fdai/core/",
     "src/fdai/composition.py",

@@ -153,7 +153,7 @@ def _legacy_executor_bindings(
     """Adapt the injected Thor port to the unchanged Core and HIL APIs."""
     return (
         cast(ShadowExecutor, port.pr_native),
-        cast(DirectApiExecutionPort | None, port.direct_api),
+        port.direct_api,
         cast(ToolCallShadowExecutor | None, port.tool_call),
     )
 

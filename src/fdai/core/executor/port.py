@@ -20,10 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
-from fdai.core.executor.direct_api import (
-    DirectApiExecutionResult,
-    DirectApiShadowExecutor,
-)
+from fdai.core.executor.direct_api import DirectApiExecutionResult
 from fdai.core.executor.executor import ExecutionResult, ShadowExecutor
 from fdai.core.executor.tool_call import (
     ToolCallExecutionResult,
@@ -107,7 +104,7 @@ class InProcessThorExecutionPort:
     """Bind the existing Thor executors without adding transport or authority."""
 
     pr_native: ShadowExecutor
-    direct_api: DirectApiShadowExecutor | None = None
+    direct_api: DirectApiExecutionPort | None = None
     tool_call: ToolCallShadowExecutor | None = None
 
 
