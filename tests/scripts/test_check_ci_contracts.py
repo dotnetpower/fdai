@@ -166,6 +166,7 @@ def test_dockerfile_installs_only_runtime_workspace_packages() -> None:
     assert "COPY benchmarks/sregym/pyproject.toml" in dockerfile
     assert "COPY benchmarks/cybergym/pyproject.toml" in dockerfile
     assert "uv sync --frozen --package fdai" in dockerfile
+    assert "RUN test -x /app/.venv/bin/fdai-isolated-executor" in dockerfile
 
 
 def test_ci_installs_and_audits_the_frozen_runtime_workspace() -> None:
