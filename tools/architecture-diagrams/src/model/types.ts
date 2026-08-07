@@ -113,7 +113,8 @@ export interface DiagramEdge {
     | "orthogonal-trunk"
     | "orthogonal-top"
     | "orthogonal-above"
-    | "orthogonal-right";
+    | "orthogonal-right"
+    | "orthogonal-outer";
   lane?: number;
   step?: number;
 }

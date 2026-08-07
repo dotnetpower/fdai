@@ -41,6 +41,42 @@ test("state, domain, and timeline strategies preserve their primary axis", async
   }
 });
 
+test("decision tree strategy places branches below their decision", async () => {
+  const spec = linearSpec("decision-tree", "request");
+  const layout = await layoutDiagram(spec);
+  assert.ok(layout.nodes.get("second")!.y > layout.nodes.get("first")!.y);
+});
+
+test("swimlane strategy places lanes side by side and work top to bottom", async () => {
+  const spec = validateDiagram({
+    id: "swimlane-sample",
+    version: 1,
+    kind: "swimlane",
+    locales: {
+      en: { title: "Swimlane", description: "Swimlane", alt: "Two lanes." },
+      ko: { title: "스윔레인", description: "스윔레인", alt: "두 개의 레인입니다." },
+    },
+    canvas: { width: 900, height: 540, direction: "RIGHT" },
+    groups: [
+      { id: "operator", kind: "layer", presentation: "lane", label: { en: "Operator", ko: "운영자" } },
+      { id: "system", kind: "layer", presentation: "lane", label: { en: "System", ko: "시스템" } },
+    ],
+    nodes: [
+      { id: "request", parent: "operator", kind: "process", label: { en: "Request", ko: "요청" } },
+      { id: "review", parent: "operator", kind: "process", label: { en: "Review", ko: "검토" } },
+      { id: "execute", parent: "system", kind: "process", label: { en: "Execute", ko: "실행" } },
+    ],
+    edges: [
+      { id: "request-review", from: "request", to: "review", kind: "sequence" },
+      { id: "review-execute", from: "review", to: "execute", kind: "approval" },
+    ],
+  });
+  const layout = await layoutDiagram(spec);
+
+  assert.ok(layout.groups.get("system")!.x > layout.groups.get("operator")!.x);
+  assert.ok(layout.nodes.get("review")!.y > layout.nodes.get("request")!.y);
+});
+
 test("kind contracts reject missing semantic primitives", () => {
   const sequence = linearSpec("sequence", "sequence");
   sequence.edges[0]!.kind = "request";

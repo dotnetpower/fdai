@@ -34,8 +34,12 @@ interface DiagramManifest {
   nodes: Array<{
     id: string;
     kind: string;
+    shape?: string;
+    tone?: string;
+    badge?: number;
     label: Record<Locale, string>;
     description: Record<Locale, string>;
+    content?: Array<Record<Locale, string>>;
   }>;
   edges: Array<{
     id: string;
@@ -90,6 +94,12 @@ const edgeKindLabels = {
     rollback: "Rollback",
     read: "Read projection",
     write: "Write",
+    feedback: "Feedback loop",
+    sequence: "Interaction",
+    transition: "State transition",
+    association: "Association",
+    dependency: "Dependency",
+    timeline: "Timeline",
   },
   ko: {
     request: "결정 요청",
@@ -100,6 +110,12 @@ const edgeKindLabels = {
     rollback: "롤백",
     read: "읽기 projection",
     write: "쓰기",
+    feedback: "피드백 루프",
+    sequence: "상호작용",
+    transition: "상태 전이",
+    association: "연관 관계",
+    dependency: "의존 관계",
+    timeline: "타임라인",
   },
 } as const;
 
@@ -236,6 +252,8 @@ class ArchitectureDiagramElement extends HTMLElement {
       .details-close { position: absolute; inset-block-start: 0.65rem; inset-inline-end: 0.65rem; }
       .details h3 { margin: 0 0 0.3rem; font-size: 1rem; letter-spacing: 0; }
       .details p { margin: 0; color: var(--fdai-diagram-muted); font-size: 0.9rem; }
+      .details ul { margin: 0.65rem 0 0; padding-inline-start: 1.1rem; color: var(--fdai-diagram-muted); font-size: 0.84rem; }
+      .details li + li { margin-block-start: 0.2rem; }
       .connections { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 0.4rem; }
       .flow { padding: 0.2rem 0.55rem; border-radius: 999px; border: 1px solid var(--sl-color-hairline, #cbd5e1); font-size: 0.78rem; }
       .shell:fullscreen { width: 100vw; height: 100vh; border: 0; border-radius: 0; }
@@ -464,6 +482,15 @@ class ArchitectureDiagramElement extends HTMLElement {
     const description = document.createElement("p");
     description.textContent = node.description[locale];
     summary.append(heading, description);
+    if (node.content?.length) {
+      const content = document.createElement("ul");
+      for (const item of node.content) {
+        const listItem = document.createElement("li");
+        listItem.textContent = item[locale];
+        content.append(listItem);
+      }
+      summary.append(content);
+    }
     const flows = document.createElement("div");
     flows.className = "connections";
     flows.setAttribute("aria-label", labels.connections);

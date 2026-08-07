@@ -44,6 +44,33 @@ npm --prefix tools/architecture-diagrams run check
 `render` writes both generated output trees. `check` compiles in memory and
 fails when a committed artifact is missing or stale.
 
+## Diagram kinds
+
+Use `kind` to select a validated layout strategy rather than treating it as a
+descriptive tag. Existing Azure topology kinds remain supported, while logical
+and behavioral diagrams use the same bilingual compiler and viewer.
+
+| Kind | Use it for | Strategy or required primitive |
+|------|------------|--------------------------------|
+| `context` | Systems and external actors | Layered graph |
+| `container` | Services and runtime boundaries | Layered compound graph |
+| `component` | Internals of one service or subsystem | Layered compound graph |
+| `deployment` | Deployed resources and boundaries | Compound-edge hierarchy |
+| `network` | Networks, subnets, and network paths | Orthogonal layered graph |
+| `data-flow` | Events, reads, and writes | Semantic edge flow |
+| `conceptual-flow` | Explanatory architecture and feedback loops | Conceptual profile and semantic tones |
+| `sequence` | Ordered interactions | Downward layout and a `sequence` edge |
+| `swimlane` | Cross-team or cross-system processes | Row of `lane` groups with downward contents |
+| `state` | Lifecycle and recovery transitions | Polyline layout and a `transition` edge |
+| `decision-tree` | Policy and branching decisions | Downward tree layout |
+| `domain` | Objects and semantic relationships | Polyline layout and an `association` edge |
+| `entity-relationship` | Data entities and relationships | Polyline layout and an `association` edge |
+| `timeline` | Milestones and phased delivery | Rightward layout and a `timeline` edge |
+
+Kind-specific requirements fail during validation. This prevents a nominal
+sequence diagram with no interactions or a swimlane diagram with no lanes from
+silently rendering as an unrelated generic graph.
+
 ## Authoring contract
 
 Each `.diagram.yaml` file contains:
@@ -66,6 +93,53 @@ Each `.diagram.yaml` file contains:
 SVG is the mandatory canonical format. Diagrams default to SVG and PNG for
 backward compatibility, and can set `formats: [svg]` when no raster consumer
 exists.
+
+### Conceptual architecture
+
+Set `canvas.profile: conceptual` for architecture flows such as
+`docs/diagrams/fdai-conceptual-control-loop.diagram.yaml`. Keep domain meaning
+in `kind`, and use presentation fields only for visual communication:
+
+- Use `shape` for `card`, `diamond`, `terminator`, `database`, `document`, or
+  `circle` geometry.
+- Use `tone` for semantic color roles such as `input`, `model`, `policy`,
+  `decision`, `execution`, `feedback`, or `store`.
+- Use `content` for localized bullet text inside a node and `badge` for a
+  numbered stage.
+- Use `presentation: lane`, `sidebar`, `feedback`, or `datastore` for logical
+  group surfaces.
+- Use a tone legend for colored stages and an edge legend for connector
+  semantics.
+
+```yaml
+kind: conceptual-flow
+canvas:
+  width: 1600
+  height: 900
+  direction: RIGHT
+  rootLayout: column
+  profile: conceptual
+groups:
+  - id: governed-flow
+    kind: layer
+    presentation: lane
+    layout: row
+    label: { en: Governed flow, ko: 통제된 흐름 }
+nodes:
+  - id: policy
+    parent: governed-flow
+    kind: decision
+    shape: diamond
+    tone: policy
+    badge: 1
+    label: { en: Policy decision, ko: 정책 결정 }
+    content:
+      - { en: "Allow, deny, or hold", ko: "허용, 거부 또는 보류" }
+edges: []
+legend:
+  - tone: policy
+    label: { en: Policy judgment, ko: 정책 판단 }
+```
 
 Deployment diagrams can opt into `canvas.profile: azure-reference` for a compact,
 icon-forward Azure reference style. In that profile, use semantic presentation
@@ -99,7 +173,9 @@ Individual cross-layer edges can opt into an explicit route; compilation rejects
 a route when it crosses an unrelated node. All other edges retain ELK routing
 and bounded corner rounding. Use `orthogonal-shortest` for an obstacle-aware
 one-bend connection that falls back to the standard orthogonal route when both
-L-shaped candidates are blocked.
+L-shaped candidates are blocked. Use `orthogonal-outer` when a connection must
+leave its source band before following a right-side corridor across stacked
+bands.
 
 The validator rejects unknown keys, duplicate ids, missing locales, unknown
 parents, edges that reference missing elements, and port references that don't

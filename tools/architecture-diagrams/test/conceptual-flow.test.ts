@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import { compileDiagram } from "../src/compiler.js";
 import { layoutDiagram } from "../src/layout/elk.js";
 import { parseDiagram } from "../src/model/validate.js";
 import { renderSvg } from "../src/render/svg.js";
@@ -53,6 +55,11 @@ legend:
     label: { en: Feedback loop, ko: 피드백 루프 }
 `;
 
+const canonicalUrl = new URL(
+  "../../../docs/diagrams/fdai-conceptual-control-loop.diagram.yaml",
+  import.meta.url,
+);
+
 test("renders conceptual shapes, content, tones, and feedback semantics", async () => {
   const spec = parseDiagram(source);
   const layout = await layoutDiagram(spec);
@@ -66,4 +73,22 @@ test("renders conceptual shapes, content, tones, and feedback semantics", async 
   assert.match(svg, /class="node-badge"/);
   assert.match(svg, /class="diagram-edge edge-feedback"/);
   assert.match(svg, /class="legend-swatch"/);
+});
+
+test("compiles the canonical conceptual control loop in both locales", async () => {
+  const spec = parseDiagram(await readFile(canonicalUrl, "utf8"));
+  const artifacts = await compileDiagram(spec);
+  const paths = artifacts.map((artifact) => artifact.path);
+
+  assert.deepEqual(paths, [
+    "fdai-conceptual-control-loop.en.svg",
+    "fdai-conceptual-control-loop.en.png",
+    "fdai-conceptual-control-loop.ko.svg",
+    "fdai-conceptual-control-loop.ko.png",
+    "fdai-conceptual-control-loop.manifest.json",
+  ]);
+  const koreanSvg = artifacts.find(
+    (artifact) => artifact.path === "fdai-conceptual-control-loop.ko.svg",
+  );
+  assert.match(koreanSvg!.content.toString("utf8"), /통제형 자동화 아키텍처/);
 });

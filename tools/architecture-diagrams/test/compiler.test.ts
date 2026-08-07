@@ -66,6 +66,52 @@ edges:
   assert.equal(manifest.edges[0]?.step, 2);
 });
 
+test("manifest preserves conceptual node presentation and localized content", async () => {
+  const spec = parseDiagram(`
+id: manifest-concept
+version: 1
+kind: conceptual-flow
+locales:
+  en: { title: Concept, description: Concept, alt: A conceptual node. }
+  ko: { title: 개념, description: 개념, alt: 개념 노드입니다. }
+canvas: { width: 640, height: 360, direction: RIGHT, profile: conceptual }
+groups: []
+nodes:
+  - id: decision
+    kind: decision
+    shape: diamond
+    tone: policy
+    badge: 4
+    label: { en: Decide, ko: 결정 }
+    content:
+      - { en: Evaluate policy, ko: 정책 평가 }
+edges: []
+`);
+  const artifacts = await compileDiagram(spec);
+  const manifestArtifact = artifacts.find(
+    (artifact) => artifact.path === "manifest-concept.manifest.json",
+  );
+  assert.ok(manifestArtifact);
+  const manifest = JSON.parse(manifestArtifact.content.toString("utf8")) as {
+    nodes: Array<{
+      shape?: string;
+      tone?: string;
+      badge?: number;
+      content?: Array<Record<string, string>>;
+    }>;
+  };
+  assert.deepEqual(manifest.nodes[0], {
+    id: "decision",
+    kind: "decision",
+    shape: "diamond",
+    tone: "policy",
+    badge: 4,
+    label: { en: "Decide", ko: "결정" },
+    description: { en: "Decide", ko: "결정" },
+    content: [{ en: "Evaluate policy", ko: "정책 평가" }],
+  });
+});
+
 test("SVG-only diagrams omit PNG artifacts and manifest references", async () => {
   const spec = parseDiagram(`
 id: svg-only

@@ -81,8 +81,12 @@ export async function compileDiagram(spec: DiagramSpec): Promise<DiagramArtifact
     nodes: spec.nodes.map((node) => ({
       id: node.id,
       kind: node.kind,
+      ...(node.shape ? { shape: node.shape } : {}),
+      ...(node.tone ? { tone: node.tone } : {}),
+      ...(node.badge ? { badge: node.badge } : {}),
       label: node.label,
       description: node.description ?? node.label,
+      ...(node.content ? { content: node.content } : {}),
     })),
     edges: spec.edges.map((edge) => ({
       id: edge.id,

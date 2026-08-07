@@ -1154,6 +1154,53 @@ function orthogonalRightRouteSection(
   };
 }
 
+function orthogonalOuterRouteSection(
+  edgeId: string,
+  source: PositionedShape,
+  target: PositionedShape,
+  nodes: Map<string, PositionedShape>,
+  laneIndex: number,
+): ElkEdgeSection {
+  const targetIsBelow = target.y >= source.y;
+  const sourceExit = {
+    x: source.x + source.width / 2,
+    y: targetIsBelow ? source.y + source.height : source.y,
+  };
+  const sourceApproachY = sourceExit.y + (targetIsBelow ? 24 : -24);
+  const targetEntry = {
+    x: target.x + target.width / 2,
+    y: targetIsBelow ? target.y : target.y + target.height,
+  };
+  const approachY = targetEntry.y + (targetIsBelow ? -24 : 24);
+  const minimumY = Math.min(sourceApproachY, approachY);
+  const maximumY = Math.max(sourceApproachY, approachY);
+  const obstacleRight = Math.max(
+    source.x + source.width,
+    target.x + target.width,
+    ...[...nodes.values()]
+      .filter(
+        (node) =>
+          node.id !== source.id &&
+          node.id !== target.id &&
+          node.y < maximumY &&
+          node.y + node.height > minimumY,
+      )
+      .map((node) => node.x + node.width),
+  );
+  const corridorX = obstacleRight + 36 + laneIndex * 96;
+  return {
+    id: `${edgeId}-orthogonal-outer-route`,
+    startPoint: sourceExit,
+    bendPoints: [
+      { x: sourceExit.x, y: sourceApproachY },
+      { x: corridorX, y: sourceApproachY },
+      { x: corridorX, y: approachY },
+      { x: targetEntry.x, y: approachY },
+    ],
+    endPoint: targetEntry,
+  };
+}
+
 function routeLabelPosition(
   section: ElkEdgeSection,
   width: number,
@@ -1242,7 +1289,9 @@ function applyExplicitRoutes(
   const rightLaneByEdge = new Map<string, number>();
   const rightLaneCountByTargetGroup = new Map<string, number>();
   for (const edge of spec.edges.filter(
-    (candidate) => candidate.route === "orthogonal-right",
+    (candidate) =>
+      candidate.route === "orthogonal-right" ||
+      candidate.route === "orthogonal-outer",
   )) {
     const targetGroup = elementParent(spec, endpointNodeId(edge.to));
     const lane = rightLaneCountByTargetGroup.get(targetGroup) ?? 0;
@@ -1276,7 +1325,8 @@ function applyExplicitRoutes(
       specEdge.route !== "orthogonal-trunk" &&
       specEdge.route !== "orthogonal-top" &&
         specEdge.route !== "orthogonal-above" &&
-        specEdge.route !== "orthogonal-right")
+          specEdge.route !== "orthogonal-right" &&
+          specEdge.route !== "orthogonal-outer")
     ) {
       return edge;
     }
@@ -1339,6 +1389,14 @@ function applyExplicitRoutes(
               nodes,
               rightLaneByEdge.get(edge.id) ?? 0,
             )
+        : specEdge.route === "orthogonal-outer"
+          ? orthogonalOuterRouteSection(
+              edge.id,
+              source,
+              target,
+              nodes,
+              rightLaneByEdge.get(edge.id) ?? 0,
+            )
         : {
             id: `${edge.id}-diagonal-route`,
             startPoint: boundaryPoint(source, target),
@@ -1347,6 +1405,7 @@ function applyExplicitRoutes(
     const labels = edge.labels?.map((label) => ({
       ...label,
       ...(specEdge.route === "orthogonal-right" ||
+      specEdge.route === "orthogonal-outer" ||
       specEdge.route === "orthogonal-horizontal"
         ? rightRouteLabelPosition(section, label.width ?? 0, label.height ?? 0)
         : specEdge.route === "orthogonal" ||
