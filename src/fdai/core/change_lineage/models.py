@@ -180,6 +180,11 @@ def build_change_lineage(
         or outcome.execution_mode is not action.mode
     ):
         raise ValueError("response outcome identity does not match the Action")
+    if outcome.prediction_id is not None and not _matches_selected_effect(
+        outcome,
+        selected.effects,
+    ):
+        raise ValueError("response outcome prediction does not match a selected objective effect")
     if action.created_at < decision_case.created_at or outcome.recorded_at < action.created_at:
         raise ValueError("change lineage records do not preserve causal order")
 
@@ -285,6 +290,24 @@ def _objective_trace(effect: ObjectiveEffect) -> ChangeObjectiveTrace:
         expected_min=effect.expected_min,
         expected_max=effect.expected_max,
         observation_window_seconds=effect.observation_window_seconds,
+    )
+
+
+def _matches_selected_effect(
+    outcome: ResponseOutcome,
+    effects: tuple[ObjectiveEffect, ...],
+) -> bool:
+    if outcome.predicted_at is None or outcome.observation_deadline is None:
+        return False
+    observation_window_seconds = int(
+        (outcome.observation_deadline - outcome.predicted_at).total_seconds()
+    )
+    return any(
+        effect.metric == outcome.metric
+        and effect.expected_min == outcome.expected_min
+        and effect.expected_max == outcome.expected_max
+        and effect.observation_window_seconds == observation_window_seconds
+        for effect in effects
     )
 
 

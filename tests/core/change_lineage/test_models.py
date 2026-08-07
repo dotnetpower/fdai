@@ -229,6 +229,31 @@ def test_captures_resilience_trace_in_replay_identity() -> None:
     )
 
 
+def test_rejects_outcome_prediction_not_declared_by_selected_effect() -> None:
+    change, assessment, decision_case, selection, action, outcome = _fixtures()
+    contradictory_outcome = ResponseOutcome.model_validate(
+        {
+            **outcome.model_dump(),
+            "prediction_id": "prediction:one",
+            "metric": "latency",
+            "expected_min": 1.0,
+            "expected_max": 2.0,
+            "predicted_at": action.created_at,
+            "observation_deadline": action.created_at + timedelta(minutes=1),
+        }
+    )
+
+    with pytest.raises(ValueError, match="selected objective effect"):
+        build_change_lineage(
+            change=change,
+            assessment=assessment,
+            decision_case=decision_case,
+            selection=selection,
+            action=action,
+            outcome=contradictory_outcome,
+        )
+
+
 def test_captures_decision_trace_in_replay_identity() -> None:
     change, assessment, decision_case, selection, action, outcome = _fixtures()
 
