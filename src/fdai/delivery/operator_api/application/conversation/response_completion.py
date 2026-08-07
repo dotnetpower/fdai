@@ -1,13 +1,12 @@
-"""Finalize a verified JSON chat response and persist its assistant turn."""
+"""Coordinate one-shot conversation completion after terminal verification."""
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, cast
-
-from starlette.responses import JSONResponse
 
 from fdai.delivery.operator_api.application import (
     ConversationTurnApplicationService,
@@ -15,9 +14,64 @@ from fdai.delivery.operator_api.application import (
 )
 
 
-@dataclass(frozen=True)
-class ChatResponseTailContext:
-    """Request-local state required after chat generation and verification."""
+def turn_metadata(
+    *,
+    model: str,
+    view_context: Mapping[str, Any],
+    answer_planning: Mapping[str, object] | None = None,
+) -> dict[str, Any]:
+    """Build replay evidence that remains outside the browser payload."""
+
+    metadata: dict[str, Any] = {"model": model}
+    web = view_context.get("_web_evidence")
+    if isinstance(web, Mapping):
+        metadata["web_evidence"] = dict(web)
+    if answer_planning is not None:
+        metadata["answer_planning"] = dict(answer_planning)
+    return metadata
+
+
+def metering_correlation_id(user_id: str, session_id: str) -> str:
+    """Return an opaque, stable metering key for one operator conversation."""
+
+    digest = hashlib.sha256(f"{user_id}\0{session_id}".encode()).hexdigest()[:32]
+    return f"chat-{digest}"
+
+
+def uses_evidence_fast_path(view_context: Mapping[str, Any]) -> bool:
+    """Return whether server evidence can render the answer without a model."""
+
+    if isinstance(view_context.get("_behavior_evidence"), Mapping):
+        return True
+    graph_evidence = view_context.get("_intent_graph_evidence")
+    if isinstance(graph_evidence, Mapping) and graph_evidence.get("status") != "completed":
+        return True
+    tool = view_context.get("_tool_evidence")
+    if isinstance(tool, Mapping) and tool.get("tool") in {
+        "describe_read_sources",
+        "get_current_time",
+        "get_kpi",
+        "list_hil",
+        "list_incidents",
+        "query_action_context",
+        "query_audit",
+        "query_conversation_context",
+        "query_inventory",
+        "query_knowledge_context",
+        "query_detection_readiness",
+        "query_log",
+        "query_llm_usage",
+        "query_network_reachability",
+        "query_subscription_scope",
+        "query_subscription_health",
+    }:
+        return True
+    return isinstance(view_context.get("_operational_evidence"), Mapping)
+
+
+@dataclass(frozen=True, slots=True)
+class ResponseCompletionContext:
+    """Request-local state required after one-shot generation and verification."""
 
     started: float
     reply: Mapping[str, Any]
@@ -46,8 +100,8 @@ class ChatResponseTailContext:
         values: Mapping[str, Any],
         *,
         post_turn_review_submitter: Any | None,
-    ) -> ChatResponseTailContext:
-        """Capture the completed handler state without moving request coordination here."""
+    ) -> ResponseCompletionContext:
+        """Capture completed handler state without retaining transport objects."""
 
         return cls(
             started=cast(float, values["started"]),
@@ -73,9 +127,9 @@ class ChatResponseTailContext:
         )
 
 
-@dataclass(frozen=True)
-class ChatResponseTailDependencies:
-    """Call-time dependencies that keep the ``chat`` compatibility patch surface intact."""
+@dataclass(frozen=True, slots=True)
+class ResponseCompletionDependencies:
+    """Injected projection and persistence operations used to complete a turn."""
 
     monotonic: Callable[[], float]
     now_utc: Callable[[], datetime]
@@ -98,11 +152,10 @@ class ChatResponseTailDependencies:
     turn_metadata: Callable[..., Any]
     post_turn_review_submission: Callable[..., Any]
     explicit_corrections: Callable[..., Any]
-    json_response: Callable[..., Any]
 
     @classmethod
-    def from_chat_namespace(cls, namespace: Mapping[str, Any]) -> ChatResponseTailDependencies:
-        """Resolve current globals so monkeypatches remain effective for each request."""
+    def from_namespace(cls, namespace: Mapping[str, Any]) -> ResponseCompletionDependencies:
+        """Resolve route-injected callables at request time for testable composition."""
 
         datetime_type = namespace["datetime"]
         utc = namespace["UTC"]
@@ -125,8 +178,7 @@ class ChatResponseTailDependencies:
                 namespace["response_resource_context"], "response_resource_context"
             ),
             response_resource_result_context=_dependency(
-                namespace["response_resource_result_context"],
-                "response_resource_result_context",
+                namespace["response_resource_result_context"], "response_resource_result_context"
             ),
             response_source_failure_context=_dependency(
                 namespace["response_source_failure_context"], "response_source_failure_context"
@@ -153,14 +205,13 @@ class ChatResponseTailDependencies:
                 namespace["append_assistant_turn"], "append_assistant_turn"
             ),
             replay_metadata=_dependency(namespace["replay_metadata"], "replay_metadata"),
-            turn_metadata=_dependency(namespace["_turn_metadata"], "_turn_metadata"),
+            turn_metadata=_dependency(namespace["turn_metadata"], "turn_metadata"),
             post_turn_review_submission=_dependency(
                 namespace["PostTurnReviewSubmission"], "PostTurnReviewSubmission"
             ),
             explicit_corrections=_dependency(
                 namespace["explicit_corrections"], "explicit_corrections"
             ),
-            json_response=_dependency(namespace["JSONResponse"], "JSONResponse"),
         )
 
 
@@ -170,11 +221,11 @@ def _dependency(value: Any, name: str) -> Callable[..., Any]:
     return cast(Callable[..., Any], value)
 
 
-async def finalize_chat_response(
-    context: ChatResponseTailContext,
-    dependencies: ChatResponseTailDependencies,
-) -> JSONResponse:
-    """Enrich, persist, submit review, and return one verified terminal payload."""
+async def complete_chat_response(
+    context: ResponseCompletionContext,
+    dependencies: ResponseCompletionDependencies,
+) -> dict[str, Any]:
+    """Enrich, persist, and close one verified terminal payload."""
 
     latency_ms = int((dependencies.monotonic() - context.started) * 1000)
     answer_planning = await dependencies.planning_metadata(context.planning_task)
@@ -255,10 +306,7 @@ async def finalize_chat_response(
         artifact.to_dict()
         for artifact in dependencies.extract_grounded_code(context.verification.answer)
     ]
-    validated_result = context.turn_service.validate_turn_result(
-        context.turn_execution,
-        enriched,
-    )
+    validated_result = context.turn_service.validate_turn_result(context.turn_execution, enriched)
     terminal_payload = validated_result.to_wire_payload()
     if context.conversation_history_store is not None:
         assistant_turn = await dependencies.append_assistant_turn(
@@ -291,6 +339,14 @@ async def finalize_chat_response(
                 ),
             )
     result = context.turn_service.complete_turn(context.turn_execution, terminal_payload)
-    terminal_payload = result.to_wire_payload()
-    response = dependencies.json_response(terminal_payload)
-    return cast(JSONResponse, response)
+    return cast(dict[str, Any], result.to_wire_payload())
+
+
+__all__ = [
+    "ResponseCompletionContext",
+    "ResponseCompletionDependencies",
+    "complete_chat_response",
+    "metering_correlation_id",
+    "turn_metadata",
+    "uses_evidence_fast_path",
+]

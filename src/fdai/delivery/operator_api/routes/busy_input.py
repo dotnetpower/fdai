@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any, Final
 
@@ -20,7 +20,8 @@ from fdai.core.conversation import (
     BusyInputMode,
     BusySessionState,
 )
-from fdai.delivery.operator_api.routes.chat_route_common import AuthorizeFn
+
+AuthorizeFn = Callable[[Request], Awaitable[str]]
 
 DEFAULT_BUSY_INPUT_PATH: Final = "/chat/busy-input"
 MAX_BUSY_INPUT_BODY_BYTES: Final = 8_192

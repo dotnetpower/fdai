@@ -333,6 +333,22 @@ former route modules were internal source or test imports, so no compatibility s
 Rollback restores those implementations under `routes/` and redirects internal imports without
 changing authority classification, provider scope, intent precedence, or either wire contract.
 
+### Final conversation route closure
+
+The final SD-01 slice moves compiled user-policy and assurance-policy resolution to
+`application.conversation.policy`. One-shot response enrichment, replay metadata, opaque metering
+identity, persistence coordination, and turn closure live in
+`application.conversation.response_completion`. Pure terminal summaries and payload values remain
+under `projections.conversation.terminal`; the application coordinator returns a transport-neutral
+payload and the JSON route alone constructs `JSONResponse`.
+
+The `chat*.py` route family is closed as `transport-and-facades` with exactly six files:
+`chat.py`, `chat_registration.py`, `chat_stream.py`, `chat_stream_protocol.py`,
+`chat_stream_request.py`, and `chat_verification.py`. The first five own JSON/SSE transport,
+registration, request parsing, framing, status mapping, and cancellation. `chat_verification.py`
+is the reviewed source-path facade and contains no verification implementation. Conversation
+application, projection, and persistence packages import no route module.
+
 ### Change lineage projection boundary
 
 The SD-06 Operator projection owns bounded summary and detail views over canonical immutable
@@ -369,7 +385,7 @@ reverses physical ownership without a wire or caller migration.
 | `adapters/conversation/` | Azure and OpenAI-compatible narrator transports plus web-search startup construction | Import through explicit modules; keep credentials, endpoints, deployment selection, and transport outside application and routes. |
 | `app/` | Shared ASGI assembly, middleware, registration, and lifespan | Retain as the HTTP composition boundary. |
 | `application/` | Typed process-local, non-authoritative application coordination | Retain until service-graduation evidence justifies a process boundary. |
-| `application/conversation/` | Process-local conversation planning, capability visibility, strict intent classification, busy-input steering and interruption, and capabilities outside HTTP transport | Retain in-process until service-graduation evidence exists; keep connection cancellation and wire delivery in routes. |
+| `application/conversation/` | Process-local conversation planning, server policy resolution, one-shot response completion, capability visibility, strict intent classification, busy-input steering and interruption, and capabilities outside HTTP transport | Retain in-process until service-graduation evidence exists; keep response construction, connection cancellation, and wire delivery in routes. |
 | `application/conversation/capabilities/` | Typed process-local agent delegation, runtime-skill, configuration-drift, web-search, and read-model capabilities grouped by domain | Retain as the non-authoritative capability owner; use injected read-only runtime and provider contracts. |
 | `application/conversation/capabilities/inventory/` | Typed inventory queries, deterministic compilation, semantic grounding, and provider-read coordination | Import through its explicit package facade; keep JSON, SSE, authentication, and history in routes. |
 | `application/conversation/backend/` | Provider-neutral backend contracts and request-local latency routing | Import through its explicit facade; keep provider implementations in adapters. |
@@ -390,7 +406,7 @@ reverses physical ownership without a wire or caller migration.
 | `projections/conversation/inventory/` | Inventory evidence sanitization, result projection, and deterministic rendering | Import through its explicit facade; keep query compilation and provider coordination in the application package. |
 | `projections/conversation/terminal/` | Terminal payload, LLM usage, resource-result, and source-failure projections | Import through its explicit facade; keep JSON, SSE, authentication, cancellation, and history in routes. |
 | `production/` | Production provider construction and bindings | Reduce fanout incrementally without changing wire behavior. |
-| `routes/` | Mixed HTTP adapters, coordination, projections, and policy helpers | Move one measured family at a time; don't bulk-move chat before its typed service boundary. |
+| `routes/` | HTTP and SSE transport, route registration, domain request adapters, and classified compatibility facades | Retain as the transport and reviewed facade boundary; non-transport conversation behavior belongs to application, projection, or persistence owners. |
 | `streaming/` | Read-only SSE transport, redaction, fanout, and runtime projection | Retain until versioned relay and replay contracts exist. |
 
 `fdai.delivery.operator_api.main` is the public app facade. `read_model` remains a public delivery
@@ -499,12 +515,15 @@ a separately reviewed boundary.
   These moved internal helpers have no compatibility shims.
 - `routes/chat_stream_request.py` owns authorization, Content-Length and raw-body bounds, JSON-object
   parsing, application-error to HTTP mapping, and the SSE preparation adapter.
+- The closed `chat*.py` family contains only `chat.py`, `chat_registration.py`, `chat_stream.py`,
+  `chat_stream_protocol.py`, `chat_stream_request.py`, and the implementation-free
+  `chat_verification.py` source-path facade.
 - `application/conversation/capabilities/knowledge_context.py` reads exact prior-turn runbooks,
   source freshness, consented memory,
   and materialized learning without writing state.
 - `application/conversation/vision_prompt.py` projects validated images.
 - `routes/` retains JSON and SSE envelopes, authentication, HTTP and SSE status mapping, frame
-  sequencing, connection cancellation, history transport, and HTTP handlers for graph,
+  sequencing, connection cancellation, route registration, and HTTP handlers for graph,
   data-source, and readiness projections.
 - `read_investigation_responder.py` renders registered Heimdall read intents from typed evidence.
   Missing evidence produces an explicit unavailable answer. `read_investigation_catalog.py` blocks

@@ -20,6 +20,9 @@ from fdai.delivery.operator_api.application.conversation.evidence.operational im
 from fdai.delivery.operator_api.application.conversation.freshness_context import (
     response_evidence_freshness_context,
 )
+from fdai.delivery.operator_api.application.conversation.response_completion import (
+    uses_evidence_fast_path,
+)
 from fdai.delivery.operator_api.application.conversation.verification import verify_answer
 from fdai.delivery.operator_api.projections.conversation.incident_dossier import (
     IncidentDossierIntent,
@@ -27,7 +30,6 @@ from fdai.delivery.operator_api.projections.conversation.incident_dossier import
 )
 from fdai.delivery.operator_api.read_model import AuditItem, InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes.chat import make_chat_route, make_chat_stream_route
-from fdai.delivery.operator_api.routes.chat_route_common import _uses_evidence_fast_path
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,7 +161,7 @@ def test_q061_q064_incident_language_requires_operational_evidence(prompt: str) 
 
 def test_matched_operational_evidence_uses_deterministic_fast_path() -> None:
     assert (
-        _uses_evidence_fast_path(
+        uses_evidence_fast_path(
             {
                 "_operational_evidence": {
                     "authority": "server_read_model",

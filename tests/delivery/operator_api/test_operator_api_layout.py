@@ -17,6 +17,16 @@ from starlette.testclient import TestClient
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _OPERATOR_API_DIR = _REPO_ROOT / "src" / "fdai" / "delivery" / "operator_api"
+_CHAT_ROUTE_FILES = frozenset(
+    {
+        "chat.py",
+        "chat_registration.py",
+        "chat_stream.py",
+        "chat_stream_protocol.py",
+        "chat_stream_request.py",
+        "chat_verification.py",
+    }
+)
 _MODULE_INVENTORY_PATH = (
     _REPO_ROOT / "docs" / "roadmap" / "interfaces" / "operator-console-module-inventory.json"
 )
@@ -44,6 +54,7 @@ _PACKAGE_CLASSIFICATIONS = frozenset(
         "read-projection",
         "stream-transport",
         "test-fixture",
+        "transport-and-facades",
     }
 )
 _TOP_LEVEL_CLASSIFICATIONS = frozenset(
@@ -61,6 +72,7 @@ _ROUTE_CLASSIFICATIONS = frozenset(
         "mixed-domain-route",
         "mixed-transitional",
         "read-projection",
+        "transport-and-facades",
     }
 )
 _IMPORT_SURFACE_CLASSIFICATIONS = frozenset(
@@ -176,6 +188,33 @@ def test_required_subpackages_exist() -> None:
         sub = _OPERATOR_API_DIR / name
         assert sub.is_dir(), f"operator_api/{name}/ sub-package missing"
         assert (sub / "__init__.py").is_file(), f"operator_api/{name}/__init__.py missing"
+
+
+def test_chat_route_family_is_exactly_transport_and_reviewed_facade_files() -> None:
+    actual = {path.name for path in (_OPERATOR_API_DIR / "routes").glob("chat*.py")}
+    assert actual == _CHAT_ROUTE_FILES
+
+
+def test_chat_verification_is_a_source_path_facade_without_implementation() -> None:
+    path = _OPERATOR_API_DIR / "routes" / "chat_verification.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    definitions = [
+        node.name
+        for node in tree.body
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+    ]
+    assert not definitions
+    imports = [
+        (node.module, tuple(alias.name for alias in node.names))
+        for node in tree.body
+        if isinstance(node, ast.ImportFrom) and node.module != "__future__"
+    ]
+    assert imports == [
+        (
+            "fdai.delivery.operator_api.application.conversation.verification",
+            ("AnswerVerification", "VerificationStatus", "verify_answer"),
+        )
+    ]
 
 
 def test_module_inventory_covers_current_operator_api_tree() -> None:
@@ -659,6 +698,27 @@ def test_no_external_caller_reaches_into_routes() -> None:
         "External src/ code imports specific route modules directly - "
         "routes are implementation detail; use the ASGI app or "
         "read_model. Offenders:\n  " + "\n  ".join(f"{p}: {line}" for p, line in offenders)
+    )
+
+
+def test_owned_conversation_layers_do_not_import_routes() -> None:
+    offenders: list[tuple[str, str]] = []
+    for package in (
+        "application/conversation",
+        "projections/conversation",
+        "persistence/conversation",
+    ):
+        for path in (_OPERATOR_API_DIR / package).rglob("*.py"):
+            rel_str = path.relative_to(_REPO_ROOT).as_posix()
+            offenders.extend(
+                (rel_str, module)
+                for module in _imported_modules(path)
+                if module == "fdai.delivery.operator_api.routes"
+                or module.startswith("fdai.delivery.operator_api.routes.")
+            )
+    assert not offenders, (
+        "Conversation application, projection, and persistence owners cannot import routes: "
+        f"{offenders}"
     )
 
 

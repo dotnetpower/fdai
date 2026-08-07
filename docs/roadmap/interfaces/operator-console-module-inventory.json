@@ -162,9 +162,9 @@
     },
     {
       "path": "routes",
-      "responsibility": "HTTP and SSE adapters, authentication, cancellation, history transport, and classified compatibility paths",
-      "classification": "mixed-transitional",
-      "candidate_destination": "classify and migrate one bounded family at a time under issues 69-72"
+      "responsibility": "HTTP and SSE transport, route registration, domain request adapters, and classified compatibility facades",
+      "classification": "transport-and-facades",
+      "candidate_destination": "retain as the HTTP transport and reviewed facade boundary"
     },
     {
       "path": "streaming",
@@ -198,9 +198,9 @@
   "route_families": [
     {
       "pattern": "chat*.py",
-      "responsibility": "Conversation JSON and SSE transport, authentication, status mapping, cancellation, and the classified chat_verification source-path facade",
-      "classification": "mixed-transitional",
-      "candidate_destination": "move bounded internal families behind typed application or projection owners while routes retain wire behavior"
+      "responsibility": "Conversation JSON and SSE transport, registration, request parsing, protocol framing, and the classified chat_verification source-path facade",
+      "classification": "transport-and-facades",
+      "candidate_destination": "retain the six reviewed route files while application, projection, and persistence owners hold non-transport behavior"
     },
     {
       "pattern": "audit*.py",

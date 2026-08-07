@@ -15,10 +15,12 @@ from fdai.delivery.operator_api.application.conversation.capabilities.current_ti
     current_time_evidence_refs,
     render_current_time_answer,
 )
+from fdai.delivery.operator_api.application.conversation.response_completion import (
+    uses_evidence_fast_path,
+)
 from fdai.delivery.operator_api.application.conversation.verification import verify_answer
 from fdai.delivery.operator_api.read_model import InMemoryConsoleReadModel
 from fdai.delivery.operator_api.routes.chat_registration import append_chat_routes
-from fdai.delivery.operator_api.routes.chat_route_common import _uses_evidence_fast_path
 from fdai.shared.providers.testing import InMemoryUserPreferenceStore
 from fdai.shared.providers.user_context import UserPreferenceRecord
 
@@ -64,7 +66,7 @@ async def test_current_time_uses_principal_iana_timezone() -> None:
     assert result["timezone"] == "Asia/Seoul"
     assert result["timezone_source"] == "principal_preference"
     context = {"_tool_evidence": evidence}
-    assert _uses_evidence_fast_path(context) is True
+    assert uses_evidence_fast_path(context) is True
     assert render_current_time_answer(evidence, locale="ko") == (
         "현재 시각은 2026-07-23 17:42:09 (Asia/Seoul)입니다."
     )

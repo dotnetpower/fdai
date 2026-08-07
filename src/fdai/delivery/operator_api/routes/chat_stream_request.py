@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from collections.abc import Awaitable, Callable
+from typing import Any, Final
 
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
@@ -25,8 +26,10 @@ from fdai.delivery.operator_api.application.conversation.request_preparation imp
     PreparedChatStreamRequest,
     prepare_chat_request,
 )
-from fdai.delivery.operator_api.routes.chat_route_common import AuthorizeFn
 from fdai.shared.providers.user_context import ConversationHistoryStore
+
+DEFAULT_MAX_CHAT_BODY_BYTES: Final[int] = 26 * 1024 * 1024
+AuthorizeFn = Callable[[Request], Awaitable[str]]
 
 
 async def read_chat_stream_body(
@@ -91,4 +94,10 @@ async def prepare_chat_stream_request(
         raise HTTPException(status_code=501, detail=str(exc)) from exc
 
 
-__all__ = ["ContentPolicyReplayRequest", "prepare_chat_stream_request", "read_chat_stream_body"]
+__all__ = [
+    "AuthorizeFn",
+    "ContentPolicyReplayRequest",
+    "DEFAULT_MAX_CHAT_BODY_BYTES",
+    "prepare_chat_stream_request",
+    "read_chat_stream_body",
+]

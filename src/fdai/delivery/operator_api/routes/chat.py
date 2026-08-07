@@ -133,6 +133,10 @@ from fdai.delivery.operator_api.application.conversation.planning import (
     planning_metadata,
     start_shadow_answer_planning,
 )
+from fdai.delivery.operator_api.application.conversation.policy import (
+    with_assurance_policy,
+    with_compiled_user_policy,
+)
 from fdai.delivery.operator_api.application.conversation.post_generation import (
     review_korean_narrator_answer,
     verify_quality_result,
@@ -202,6 +206,14 @@ from fdai.delivery.operator_api.application.conversation.request_preparation imp
     resolve_session_id,
     resolve_target_agent,
 )
+from fdai.delivery.operator_api.application.conversation.response_completion import (
+    ResponseCompletionContext,
+    ResponseCompletionDependencies,
+    complete_chat_response,
+    metering_correlation_id,
+    turn_metadata,
+    uses_evidence_fast_path,
+)
 from fdai.delivery.operator_api.application.conversation.turn_plan import (
     TurnPlanner,
     TurnTool,
@@ -249,20 +261,6 @@ from fdai.delivery.operator_api.projections.conversation.terminal import (
     response_resource_result_context,
     response_source_failure_context,
 )
-from fdai.delivery.operator_api.routes.chat_response_tail import (
-    ChatResponseTailContext,
-    ChatResponseTailDependencies,
-    finalize_chat_response,
-)
-from fdai.delivery.operator_api.routes.chat_route_common import (
-    DEFAULT_MAX_CHAT_BODY_BYTES,
-    AuthorizeFn,
-    _metering_correlation_id,
-    _turn_metadata,
-    _uses_evidence_fast_path,
-    _with_assurance_policy,
-    _with_compiled_user_policy,
-)
 from fdai.delivery.operator_api.routes.chat_stream import (
     DEFAULT_STREAM_PATH,
     make_chat_stream_route,
@@ -274,6 +272,10 @@ from fdai.delivery.operator_api.routes.chat_stream_protocol import (
     _sse,
     _sse_heartbeat,
     _with_sse_heartbeats,
+)
+from fdai.delivery.operator_api.routes.chat_stream_request import (
+    DEFAULT_MAX_CHAT_BODY_BYTES,
+    AuthorizeFn,
 )
 from fdai.delivery.operator_api.routes.post_turn_review import (
     PostTurnReviewSubmission,
@@ -445,7 +447,7 @@ def make_chat_route(
             principal_id=user_id,
             conversation_id=session_id,
             request_id=request_id,
-            correlation_id=_metering_correlation_id(user_id, session_id),
+            correlation_id=metering_correlation_id(user_id, session_id),
             prompt=clean_prompt,
             response_locale=_response_locale(clean_prompt, view_context),
             target_agent=target_agent,
@@ -488,7 +490,7 @@ def make_chat_route(
             else None
         )
         with (
-            with_correlation(_metering_correlation_id(user_id, session_id)),
+            with_correlation(metering_correlation_id(user_id, session_id)),
             with_invocation_scope(InvocationScope.OPERATOR_CHAT),
         ):
             history_result = await resolve_chat_history_result(
@@ -767,12 +769,12 @@ def make_chat_route(
                     terminal_status=ConversationTurnTerminalStatus.UNVERIFIED,
                 )
                 return JSONResponse(draft.to_wire_payload())
-            view_context = await _with_compiled_user_policy(
+            view_context = await with_compiled_user_policy(
                 view_context,
                 user_id=user_id,
                 store=conversation_policy_store,
             )
-            view_context = await _with_assurance_policy(
+            view_context = await with_assurance_policy(
                 view_context,
                 user_id=user_id,
                 request_id=request_id,
@@ -821,7 +823,7 @@ def make_chat_route(
                     if "_screen_scope" in view_context
                     or "_ontology_storage_contract" in view_context
                     or deterministic_followup
-                    or _uses_evidence_fast_path(view_context)
+                    or uses_evidence_fast_path(view_context)
                     else answer_planning_delegate
                 ),
             )
@@ -878,9 +880,9 @@ def make_chat_route(
                 if freshness_answer is not None and freshness_context is not None
                 else None
             )
-            if _uses_evidence_fast_path(view_context):
+            if uses_evidence_fast_path(view_context):
                 with (
-                    with_correlation(_metering_correlation_id(user_id, session_id)),
+                    with_correlation(metering_correlation_id(user_id, session_id)),
                     with_invocation_scope(InvocationScope.OPERATOR_CHAT),
                 ):
                     presentation_decision = await await_with_interrupt(
@@ -915,7 +917,7 @@ def make_chat_route(
                     "source": "evidence:read-investigation",
                     "verification": verification.to_dict(),
                 }
-            elif _uses_evidence_fast_path(view_context):
+            elif uses_evidence_fast_path(view_context):
                 canonical = verify_answer(
                     "",
                     view_context,
@@ -1012,7 +1014,7 @@ def make_chat_route(
                     return backend_reply
 
                 with (
-                    with_correlation(_metering_correlation_id(user_id, session_id)),
+                    with_correlation(metering_correlation_id(user_id, session_id)),
                     with_invocation_scope(InvocationScope.OPERATOR_CHAT),
                 ):
                     draft_reply = await answer_with_busy_input(
@@ -1042,7 +1044,7 @@ def make_chat_route(
                     )
 
                 with (
-                    with_correlation(_metering_correlation_id(user_id, session_id)),
+                    with_correlation(metering_correlation_id(user_id, session_id)),
                     with_invocation_scope(InvocationScope.OPERATOR_CHAT),
                 ):
                     quality = await await_with_interrupt(
@@ -1171,13 +1173,14 @@ def make_chat_route(
                     principal_id=user_id,
                 )
         try:
-            return await finalize_chat_response(
-                ChatResponseTailContext.from_handler_locals(
+            terminal_payload = await complete_chat_response(
+                ResponseCompletionContext.from_handler_locals(
                     locals(),
                     post_turn_review_submitter=post_turn_review_submitter,
                 ),
-                ChatResponseTailDependencies.from_chat_namespace(globals()),
+                ResponseCompletionDependencies.from_namespace(globals()),
             )
+            return JSONResponse(terminal_payload)
         except asyncio.CancelledError:
             cancelled_detail = "chat turn cancelled"
             if not turn_execution.closed:

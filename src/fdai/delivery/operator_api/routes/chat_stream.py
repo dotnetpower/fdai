@@ -109,6 +109,10 @@ from fdai.delivery.operator_api.application.conversation.planning import (
     planning_metadata,
     start_shadow_answer_planning,
 )
+from fdai.delivery.operator_api.application.conversation.policy import (
+    with_assurance_policy,
+    with_compiled_user_policy,
+)
 from fdai.delivery.operator_api.application.conversation.post_generation import (
     PostGenerationContext,
     PostGenerationDependencies,
@@ -136,6 +140,11 @@ from fdai.delivery.operator_api.application.conversation.request_preparation imp
     ModelPreferenceResolver,
     answer_with_content_policy_recovery,
     collect_stream_with_content_policy_recovery,
+)
+from fdai.delivery.operator_api.application.conversation.response_completion import (
+    metering_correlation_id,
+    turn_metadata,
+    uses_evidence_fast_path,
 )
 from fdai.delivery.operator_api.application.conversation.turn_plan import (
     TurnPlanner,
@@ -187,15 +196,6 @@ from fdai.delivery.operator_api.projections.conversation.trajectory import (
     TrajectoryDetailCollector,
     trajectory_detail_budget,
 )
-from fdai.delivery.operator_api.routes.chat_route_common import (
-    DEFAULT_MAX_CHAT_BODY_BYTES,
-    AuthorizeFn,
-    _metering_correlation_id,
-    _turn_metadata,
-    _uses_evidence_fast_path,
-    _with_assurance_policy,
-    _with_compiled_user_policy,
-)
 from fdai.delivery.operator_api.routes.chat_stream_protocol import (
     DEFAULT_STREAM_HEARTBEAT_S,
     _chunk_answer_for_stream,
@@ -204,6 +204,8 @@ from fdai.delivery.operator_api.routes.chat_stream_protocol import (
     _with_sse_heartbeats,
 )
 from fdai.delivery.operator_api.routes.chat_stream_request import (
+    DEFAULT_MAX_CHAT_BODY_BYTES,
+    AuthorizeFn,
     ContentPolicyReplayRequest,
     prepare_chat_stream_request,
 )
@@ -296,7 +298,7 @@ def make_chat_stream_route(
                     principal_id=prepared.user_id,
                     conversation_id=prepared.session_id,
                     request_id=prepared.request_id,
-                    correlation_id=_metering_correlation_id(
+                    correlation_id=metering_correlation_id(
                         prepared.user_id,
                         prepared.session_id,
                     ),
@@ -391,7 +393,7 @@ def make_chat_stream_route(
                 principal_id=user_id,
                 conversation_id=session_id,
                 request_id=request_id,
-                correlation_id=_metering_correlation_id(user_id, session_id),
+                correlation_id=metering_correlation_id(user_id, session_id),
                 prompt=clean_prompt,
                 response_locale=_response_locale(clean_prompt, view_context),
                 target_agent=target_agent,
@@ -702,12 +704,12 @@ def make_chat_stream_route(
                             "sources": vision_previews,
                         },
                     )
-                enriched_context = await _with_compiled_user_policy(
+                enriched_context = await with_compiled_user_policy(
                     view_context,
                     user_id=user_id,
                     store=conversation_policy_store,
                 )
-                enriched_context = await _with_assurance_policy(
+                enriched_context = await with_assurance_policy(
                     enriched_context,
                     user_id=user_id,
                     request_id=request_id,
@@ -808,14 +810,14 @@ def make_chat_stream_route(
                         if "_screen_scope" in enriched_context
                         or "_ontology_storage_contract" in enriched_context
                         or deterministic_followup
-                        or _uses_evidence_fast_path(enriched_context)
+                        or uses_evidence_fast_path(enriched_context)
                         else answer_planning_delegate
                     ),
                 )
                 enriched_context["_answer_plan"] = answer_plan.to_dict()
                 delegation = _delegation_summary(enriched_context)
                 has_operational_evidence = "_operational_evidence" in enriched_context
-                evidence_fast_path = _uses_evidence_fast_path(enriched_context)
+                evidence_fast_path = uses_evidence_fast_path(enriched_context)
                 response_locale = _response_locale(clean_prompt, enriched_context)
                 freshness_answer = render_evidence_freshness_answer(
                     clean_prompt,
@@ -1011,7 +1013,7 @@ def make_chat_stream_route(
 
                         provisional_answer = ""
                         with (
-                            with_correlation(_metering_correlation_id(user_id, session_id)),
+                            with_correlation(metering_correlation_id(user_id, session_id)),
                             with_invocation_scope(InvocationScope.OPERATOR_CHAT),
                         ):
                             events = _with_sse_heartbeats(
@@ -1089,7 +1091,7 @@ def make_chat_stream_route(
                         return backend_reply
 
                     with (
-                        with_correlation(_metering_correlation_id(user_id, session_id)),
+                        with_correlation(metering_correlation_id(user_id, session_id)),
                         with_invocation_scope(InvocationScope.OPERATOR_CHAT),
                     ):
                         reply = await answer_with_busy_input(
@@ -1144,7 +1146,7 @@ def make_chat_stream_route(
                         metadata=replay_metadata(
                             model=str(terminal_model or "unknown"),
                             payload=terminal_payload,
-                            additional=_turn_metadata(
+                            additional=turn_metadata(
                                 model=str(terminal_model or "unknown"),
                                 view_context=enriched_context,
                                 answer_planning=answer_planning,
@@ -1187,7 +1189,7 @@ def make_chat_stream_route(
                         model_generated=model_generated,
                         preferred_model=preferred_model,
                         response_locale=response_locale,
-                        metering_correlation_id=_metering_correlation_id(user_id, session_id),
+                        metering_correlation_id=metering_correlation_id(user_id, session_id),
                         review_quality=review_korean_narrator_answer,
                         verify_quality=verify_quality_result,
                         freshness_verification=freshness_verification,
