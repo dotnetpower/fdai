@@ -483,6 +483,10 @@ jobs:
             fi
             sleep "$((attempt * 2))"
           done
+          if [[ -z "$target_digest" ]]; then
+            echo "Verified runtime image is not present in ACR; submit an authorized plan with promote_runtime_image=true." >&2
+            exit 1
+          fi
           if [[ "$target_digest" != "$source_digest" ]]; then
             echo "ACR runtime image digest does not match the verified GHCR subject." >&2
             exit 1

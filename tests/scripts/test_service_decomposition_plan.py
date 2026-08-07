@@ -60,9 +60,14 @@ def test_service_decomposition_baseline_receipt_is_explicit() -> None:
     assert receipt["revision"] == "95bd58718"
     assert sum(check["passed"] for check in receipt["checks"]) == 918
     assert sum(check["skipped"] for check in receipt["checks"]) == 2
-    assert receipt["open_live_evidence"] == [
-        "ingestion-postgresql-role-isolation",
-    ]
+    assert receipt["open_live_evidence"] == []
+
+    live_receipts = _load_plan()["live_receipts"]
+    assert live_receipts["sd03"]["effective_access"] == "passed"
+    assert live_receipts["sd03"]["rollback_rehearsal_seconds"] < 900
+    assert live_receipts["sd07"]["healthy_runtime_services"] == 5
+    assert live_receipts["sd07"]["effect_authority"] is False
+    assert live_receipts["sd07"]["timed_authority_cutover_rollback"] == "pending-sd08"
 
 
 def test_service_decomposition_tracker_matches_machine_status() -> None:

@@ -475,6 +475,7 @@ def test_runner_promotes_only_an_exact_attested_executor_image_before_plan() -> 
     assert "timeout 600s az acr import \\" in step
     assert "for attempt in 1 2 3 4 5" in step
     assert "timeout 30s az acr manifest list-metadata" in step
+    assert "Verified runtime image is not present in ACR" in step
     assert '--source "ghcr.io/${source_repository}@${source_digest}"' in step
     assert '--image "fdai:sha-${revision}"' in step
     assert 'if [[ "$target_digest" != "$source_digest" ]]' in step
