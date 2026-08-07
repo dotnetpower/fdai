@@ -53,7 +53,8 @@
     position: absolute; transform: translate(-50%, -50%); z-index: 5; }
 
   /* ================= SLIDE 1: executive overview (5 function cards) ================= */
-  .fn-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-top: 4px; }
+  .fn-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-top: 4px; position: relative; }
+  .fn-grid > .wf-tag, .tl-phase-axis > .wf-tag, .tl-rows > .wf-tag, .tl-legend > .wf-tag { top: -14px; left: -14px; }
   .fn-card { border: 1.5px dashed var(--wf-line-strong); border-radius: 10px; background: var(--wf-card);
     padding: 16px 14px; display: flex; flex-direction: column; gap: 8px; min-height: 300px; position: relative; }
   .fn-card .fn-swatch { width: 34px; height: 34px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); }
@@ -71,7 +72,7 @@
 
   /* ================= SLIDE 2: roadmap timeline (5 swimlanes x 5 phases) ================= */
   .tl-wrap { position: relative; }
-  .tl-phase-axis { display: grid; grid-template-columns: 168px repeat(5, 1fr); gap: 8px; margin-bottom: 6px; }
+  .tl-phase-axis { display: grid; grid-template-columns: 168px repeat(5, 1fr); gap: 8px; margin-bottom: 6px; position: relative; }
   .tl-phase-axis .tl-corner { }
   .tl-phase-head { border-bottom: 3px solid var(--wf-line-strong); padding: 4px 8px 8px; }
   .tl-phase-head .p-id { font-size: 11px; font-weight: 700; color: var(--wf-muted); letter-spacing: .04em; }
@@ -86,8 +87,8 @@
   .tl-cell.is-pilot { background: var(--wf-pilot-fill); }
   .tl-cell.is-enforce { background: var(--wf-enforce-fill); }
   .tl-row { display: grid; grid-template-columns: 168px repeat(5, 1fr); gap: 8px; }
-  .tl-rows { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
-  .tl-legend { position: absolute; right: 0; bottom: -2px; display: flex; gap: 14px; font-size: 10.5px; color: var(--wf-muted); }
+  .tl-rows { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; position: relative; }
+  .tl-legend { position: relative; margin-top: 12px; display: flex; justify-content: flex-end; gap: 14px; font-size: 10.5px; color: var(--wf-muted); }
   .tl-legend .sw { display: inline-flex; align-items: center; gap: 5px; }
   .tl-legend .chip { width: 12px; height: 12px; border-radius: 3px; border: 1px dashed var(--wf-line-strong); }
 
@@ -117,8 +118,8 @@
         결정론적 규칙(T0)이 반복 이벤트를 먼저 처리하고, 애매한 잔여 사례만 유사사례 재사용(T1)과
         승인 게이트를 거친 판단(T2)으로 넘어가는 동일한 안전 루프를 공유한다.</p>
 
-      <span class="wf-tag" style="left:56px; top:170px;">2</span>
       <div class="fn-grid">
+        <span class="wf-tag">2</span>
         <article class="fn-card">
           <div class="fn-swatch" style="background:var(--f-sre);"></div>
           <p class="fn-en">Reliability</p>
@@ -210,8 +211,8 @@
         수준(관찰 → 제한 실행 → 전면 자동화)을 나타낸다.</p>
 
       <div class="tl-wrap">
-        <span class="wf-tag" style="left:224px; top:198px;">4</span>
         <div class="tl-phase-axis">
+          <span class="wf-tag">4</span>
           <div class="tl-corner"></div>
           <div class="tl-phase-head"><div class="p-id">PHASE 0</div><div class="p-name">계측 · 언블록</div></div>
           <div class="tl-phase-head"><div class="p-id">PHASE 1</div><div class="p-name">규칙 카탈로그 (T0)</div></div>
@@ -220,8 +221,8 @@
           <div class="tl-phase-head"><div class="p-id">PHASE 4</div><div class="p-name">스케일 (TBD)</div></div>
         </div>
 
-        <span class="wf-tag" style="left:56px; top:280px;">5</span>
         <div class="tl-rows">
+          <span class="wf-tag">5</span>
           <div class="tl-row">
             <div class="tl-lane-label"><span class="dot" style="background:var(--f-sre);"></span><div><strong>SRE</strong><span>신뢰성</span></div></div>
             <div class="tl-cell">이벤트/감사 텔레메트리 배선</div>
@@ -264,8 +265,8 @@
           </div>
         </div>
 
-        <span class="wf-tag" style="left:1180px; top:668px;">6</span>
         <div class="tl-legend">
+          <span class="wf-tag">6</span>
           <span class="sw"><span class="chip" style="background:var(--wf-shadow-fill);"></span>Shadow(관찰)</span>
           <span class="sw"><span class="chip" style="background:var(--wf-pilot-fill);"></span>Pilot(제한 실행)</span>
           <span class="sw"><span class="chip" style="background:var(--wf-enforce-fill);"></span>Enforce(전면 자동화)</span>
