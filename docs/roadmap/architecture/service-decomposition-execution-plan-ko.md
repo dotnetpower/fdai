@@ -1,6 +1,6 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: 2611101b34c5826f305607a6424ec8e9417b7608
+translation_source_sha: 2db8307e4fbd05fd7e1f4ca0c9636d7bd7cab8fc
 translation_revised: 2026-08-07
 ---
 # 서비스 분해 실행 계획
@@ -97,7 +97,7 @@ job 또는 독립 실행 가능한 event subscriber로 유지합니다.
 
 | 예약 | 현재 owner | 예약 path | 해제 조건 |
 |------|------------|-----------|-----------|
-| SD-01 remaining route family | Request-preparation handoff 이후 integration owner | `src/fdai/delivery/operator_api/**`, 해당 Operator API test와 module-map 업데이트. 완료된 handoff는 `/home/moonchoi/dev/fdai-worktrees/` 아래에 유지합니다. | 편집 전에 다음 persistent worker를 예약한 후 route boundary focused commit과 receipt 하나를 handoff합니다. |
+| SD-01 terminal projection | `/home/moonchoi/dev/fdai-worktrees/sd01-terminal-projections`의 persistent worker | `chat_trajectory_detail.py`, `chat_screen_data.py`, `chat_model_trace.py`, `chat_resource_context.py`의 response 영역, destination conversation projection, 해당 test와 module-map 업데이트 | Pure projection handoff가 focused JSON/SSE 및 boundary check를 통과하고 application/projection-to-route import가 0임을 증명합니다. |
 | SD-03 effective access와 rollback | `/home/moonchoi/dev/fdai-worktrees/sd03-effective-access`의 기존 SD-03 isolated session | Ingestion runtime, ingestion 전용 Terraform, access probe와 해당 test | Effective-access proof와 rollback evidence를 integration owner에게 handoff |
 | SD-07 serial finish | `main`의 integration owner. 이전 worker는 `/home/moonchoi/dev/fdai-worktrees/sd07-shadow-executor`에 유지합니다. | `infra/modules/isolated-executor/**`, `infra/main.tf`/`infra/variables.tf`/`infra/outputs.tf`의 SD-07 전용 block, `.github/workflows/deploy-dev.yml`의 `deploy_isolated_executor` block, 해당 Terraform/workflow test, production composition 및 paired docs | Effect authority 없이 shadow deployment evidence를 기록하고 ingestion module과 모든 SD-03 소유 Terraform hunk를 피하며 handoff 후 해제된 worker는 read-only로 유지합니다. |
 | Serial integration | Integration owner | 이 계획 문서 쌍, machine status manifest, package 간 contract, production composition, pantheon role, executor identity cutover | Focused package handoff를 수락하고 dependency 상태를 업데이트 |
