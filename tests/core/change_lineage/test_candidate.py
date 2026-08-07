@@ -60,13 +60,22 @@ def _lineage() -> ChangeLineageRecord:
         observed_at=None,
         rollback_succeeded=None,
     )
-    evidence_refs = ("evidence:one", "evidence:two")
+    assessment_digest = "c" * 64
+    evidence_refs = tuple(
+        sorted(
+            (
+                f"change-assessment:{assessment_digest}",
+                "evidence:one",
+                "evidence:two",
+            )
+        )
+    )
     lineage_id = compute_change_lineage_id(
         change_id="change:one",
         change_source="github",
         change_ref="commit:abc",
         correlation_id="correlation:one",
-        assessment_digest="c" * 64,
+        assessment_digest=assessment_digest,
         decision_case_id="decision:one",
         selected_option_id=decision.selected_option_id,
         action_id="action:one",
@@ -89,7 +98,7 @@ def _lineage() -> ChangeLineageRecord:
         change_source="github",
         change_ref="commit:abc",
         correlation_id="correlation:one",
-        assessment_digest="c" * 64,
+        assessment_digest=assessment_digest,
         decision_case_id="decision:one",
         selected_option_id=decision.selected_option_id,
         action_id="action:one",

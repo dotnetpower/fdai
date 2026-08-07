@@ -33,6 +33,8 @@ def _lineage(
     active_constraint_ids: tuple[str, ...] = ("constraint:one",),
     violated_constraint_ids: tuple[str, ...] = (),
 ) -> ChangeLineageRecord:
+    assessment_digest = "c" * 64
+    evidence_refs = tuple(sorted({f"change-assessment:{assessment_digest}", *evidence_refs}))
     effect = ChangeObjectiveTrace(
         objective_id="objective:availability",
         utility=0.8,
@@ -78,7 +80,7 @@ def _lineage(
         change_source="github",
         change_ref="commit:abc",
         correlation_id="correlation:one",
-        assessment_digest="c" * 64,
+        assessment_digest=assessment_digest,
         decision_case_id="decision:one",
         selected_option_id=decision.selected_option_id,
         action_id="action:one",
@@ -101,7 +103,7 @@ def _lineage(
         change_source="github",
         change_ref="commit:abc",
         correlation_id="correlation:one",
-        assessment_digest="c" * 64,
+        assessment_digest=assessment_digest,
         decision_case_id="decision:one",
         selected_option_id=decision.selected_option_id,
         action_id="action:one",
@@ -136,7 +138,7 @@ def test_summary_preserves_seal_gate_and_zero_authority() -> None:
 
 
 def test_detail_is_bounded_and_omits_raw_provider_content() -> None:
-    evidence = tuple(f"evidence:{index:02d}" for index in range(40))
+    evidence = tuple(f"evidence:{index:02d}" for index in range(39))
     detail = project_change_lineage_detail(_lineage(reason="r" * 800, evidence_refs=evidence))
     mapping = detail.to_mapping()
 

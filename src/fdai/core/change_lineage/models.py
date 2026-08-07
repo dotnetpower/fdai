@@ -105,6 +105,9 @@ class ChangeLineageRecord:
             raise ValueError("change lineage timestamps MUST preserve causal order")
         if not self.evidence_refs or self.evidence_refs != tuple(sorted(set(self.evidence_refs))):
             raise ValueError("change lineage evidence refs MUST be sorted and unique")
+        assessment_evidence_ref = f"change-assessment:{self.assessment_digest}"
+        if assessment_evidence_ref not in self.evidence_refs:
+            raise ValueError("change lineage MUST retain its canonical assessment evidence ref")
         if self.execution_authority or self.promotion_authority:
             raise ValueError("change lineage MUST NOT grant execution or promotion authority")
 
