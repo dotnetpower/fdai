@@ -52,7 +52,7 @@ test: ## pytest with safety-core branch coverage (--cov-fail-under=90 matches CI
 test-changed: ## pytest paths affected by changes (optional: DIFF=origin/main...HEAD)
 	@bash scripts/automation/tests-for-diff.sh --run $(DIFF)
 
-service-test: ## run one deployable service suite (SERVICE=<service-id>, optional PYTEST_ARGS="-q")
+service-test: ## run one service-owned suite (SERVICE=<service-id>, safe PYTEST_ARGS only)
 	@test -n "$(SERVICE)" || (echo "SERVICE is required" >&2; exit 2)
 	@uv run --extra dev python scripts/automation/run-service-tests.py "$(SERVICE)" -- $(PYTEST_ARGS)
 

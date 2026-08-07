@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import runpy
+import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -13,8 +15,43 @@ RUNNER_PATH = REPO_ROOT / "scripts" / "automation" / "run-service-tests.py"
 GROUPS = ("unit", "contract", "integration", "smoke")
 
 
-def _load(path: Path) -> dict[str, object]:
-    return json.loads(path.read_text(encoding="utf-8"))
+def _load(path: Path) -> dict[str, Any]:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    assert isinstance(value, dict)
+    return value
+
+
+def _runner_namespace() -> dict[str, Any]:
+    return runpy.run_path(str(RUNNER_PATH))
+
+
+def _write_manifest(tmp_path: Path, services: list[object]) -> Path:
+    path = tmp_path / "service-suites.json"
+    path.write_text(
+        json.dumps({"schema_version": 1, "services": services}),
+        encoding="utf-8",
+    )
+    return path
+
+
+def _service(
+    *,
+    service_id: str = "isolated-executor",
+    source_roots: list[str] | None = None,
+    test_paths: list[str] | None = None,
+) -> dict[str, object]:
+    return {
+        "id": service_id,
+        "source_roots": source_roots or ["src/fdai/runtime/isolated_executor.py"],
+        "test_groups": {
+            "unit": test_paths
+            if test_paths is not None
+            else ["tests/runtime/test_isolated_executor_shadow.py"],
+            "contract": [],
+            "integration": [],
+            "smoke": [],
+        },
+    }
 
 
 def test_every_runtime_service_has_one_test_suite() -> None:
@@ -58,7 +95,7 @@ def _assert_exclusive(
             or claimed_path.is_relative_to(owned_path)
             or owned_path.is_relative_to(claimed_path)
         )
-        assert not overlaps or owner == service_id, (
+        assert not overlaps, (
             claimed_path.as_posix(),
             service_id,
             owned_path.as_posix(),
@@ -69,9 +106,151 @@ def _assert_exclusive(
 def test_service_test_runner_lists_only_owned_paths(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    namespace = runpy.run_path(str(RUNNER_PATH))
+    namespace = _runner_namespace()
 
     assert namespace["main"](["isolated-executor", "--list"]) == 0
     listed = capsys.readouterr().out.splitlines()
     assert "tests/contracts/test_executor_transport.py" in listed
     assert all("operator_api" not in path for path in listed)
+
+
+def test_service_test_runner_rejects_foreign_pytest_path(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    namespace = _runner_namespace()
+
+    def fail_if_called(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        del args, kwargs
+        raise AssertionError("pytest MUST NOT run with a foreign service path")
+
+    monkeypatch.setattr(subprocess, "run", fail_if_called)
+
+    assert namespace["main"](["isolated-executor", "--", "tests/delivery/operator_api"]) == 2
+    assert "pytest argument is not allowed" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "unsafe_path",
+    (
+        "/outside.py",
+        "tests/../src/fdai/runtime/isolated_executor.py",
+    ),
+)
+def test_service_suite_manifest_rejects_unconfined_paths(
+    tmp_path: Path,
+    unsafe_path: str,
+) -> None:
+    namespace = _runner_namespace()
+    manifest = _write_manifest(tmp_path, [_service(test_paths=[unsafe_path])])
+    namespace["_load_services"].__globals__["MANIFEST_PATH"] = manifest
+
+    with pytest.raises(ValueError, match="MUST stay within"):
+        namespace["_load_services"]()
+
+
+def test_service_suite_manifest_rejects_symlink_escape(tmp_path: Path) -> None:
+    namespace = _runner_namespace()
+    outside = tmp_path / "outside.py"
+    outside.write_text("def test_outside(): pass\n", encoding="utf-8")
+    link = REPO_ROOT / "tests" / ".service-suite-escape.py"
+    link.symlink_to(outside)
+    try:
+        manifest = _write_manifest(
+            tmp_path,
+            [_service(test_paths=[link.relative_to(REPO_ROOT).as_posix()])],
+        )
+        namespace["_load_services"].__globals__["MANIFEST_PATH"] = manifest
+
+        with pytest.raises(ValueError, match="symlink|MUST stay within"):
+            namespace["_load_services"]()
+    finally:
+        link.unlink(missing_ok=True)
+
+
+def test_service_test_runner_rejects_empty_suite(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    namespace = _runner_namespace()
+    manifest = _write_manifest(tmp_path, [_service(test_paths=[])])
+    namespace["main"].__globals__["MANIFEST_PATH"] = manifest
+
+    def fail_if_called(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        del args, kwargs
+        raise AssertionError("pytest MUST NOT fall back to repository discovery")
+
+    monkeypatch.setattr(subprocess, "run", fail_if_called)
+
+    assert namespace["main"](["isolated-executor"]) == 2
+    assert "MUST own at least one test path" in capsys.readouterr().err
+
+
+def test_service_suite_manifest_rejects_malformed_service_entry(tmp_path: Path) -> None:
+    namespace = _runner_namespace()
+    manifest = _write_manifest(tmp_path, [42])
+    namespace["_load_services"].__globals__["MANIFEST_PATH"] = manifest
+
+    with pytest.raises(ValueError, match="service entry MUST be an object"):
+        namespace["_load_services"]()
+
+
+def test_service_suite_manifest_rejects_overlap_within_one_service(tmp_path: Path) -> None:
+    namespace = _runner_namespace()
+    service = _service(
+        source_roots=[
+            "src/fdai/runtime",
+            "src/fdai/runtime/isolated_executor.py",
+        ]
+    )
+    manifest = _write_manifest(tmp_path, [service])
+    namespace["_load_services"].__globals__["MANIFEST_PATH"] = manifest
+
+    with pytest.raises(ValueError, match="overlaps service isolated-executor"):
+        namespace["_load_services"]()
+
+
+def test_service_suite_manifest_reports_unreadable_file(tmp_path: Path) -> None:
+    namespace = _runner_namespace()
+    missing = tmp_path / "missing.json"
+    namespace["_load_services"].__globals__["MANIFEST_PATH"] = missing
+
+    with pytest.raises(ValueError, match=f"manifest is unreadable: {missing}"):
+        namespace["_load_services"]()
+
+
+def test_service_suite_manifest_reports_invalid_json(tmp_path: Path) -> None:
+    namespace = _runner_namespace()
+    manifest = tmp_path / "service-suites.json"
+    manifest.write_text('{"schema_version": 1,', encoding="utf-8")
+    namespace["_load_services"].__globals__["MANIFEST_PATH"] = manifest
+
+    with pytest.raises(ValueError, match=r"manifest is invalid JSON: .*:1"):
+        namespace["_load_services"]()
+
+
+def test_service_suite_manifest_reports_unsupported_schema_version(tmp_path: Path) -> None:
+    namespace = _runner_namespace()
+    manifest = tmp_path / "service-suites.json"
+    manifest.write_text(
+        json.dumps({"schema_version": 2, "services": []}),
+        encoding="utf-8",
+    )
+    namespace["_load_services"].__globals__["MANIFEST_PATH"] = manifest
+
+    with pytest.raises(ValueError, match="schema_version MUST be 1; got 2"):
+        namespace["_load_services"]()
+
+
+def test_service_suite_manifest_reports_invalid_services_type(tmp_path: Path) -> None:
+    namespace = _runner_namespace()
+    manifest = tmp_path / "service-suites.json"
+    manifest.write_text(
+        json.dumps({"schema_version": 1, "services": {}}),
+        encoding="utf-8",
+    )
+    namespace["_load_services"].__globals__["MANIFEST_PATH"] = manifest
+
+    with pytest.raises(ValueError, match="services MUST be an array"):
+        namespace["_load_services"]()

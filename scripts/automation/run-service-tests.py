@@ -5,22 +5,171 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = REPO_ROOT / "tests" / "service-suites.json"
+GROUPS = ("unit", "contract", "integration", "smoke")
+_SERVICE_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+_PYTEST_FLAGS = frozenset(
+    {
+        "-q",
+        "-v",
+        "-vv",
+        "-x",
+        "-s",
+        "--cache-clear",
+        "--disable-warnings",
+        "--exitfirst",
+        "--ff",
+        "--lf",
+        "--nf",
+        "--no-cov",
+        "--showlocals",
+        "--stepwise",
+        "--stepwise-skip",
+        "--strict-config",
+        "--strict-markers",
+    }
+)
+_PYTEST_VALUE_OPTIONS = frozenset(
+    {
+        "-k",
+        "-m",
+        "-n",
+        "--color",
+        "--dist",
+        "--durations",
+        "--log-cli-level",
+        "--maxfail",
+        "--tb",
+    }
+)
+_PYTEST_VALUE_PREFIXES = tuple(f"{option}=" for option in _PYTEST_VALUE_OPTIONS)
 
 
 def _load_services() -> dict[str, dict[str, Any]]:
-    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    try:
+        raw = MANIFEST_PATH.read_text(encoding="utf-8")
+        manifest = json.loads(raw)
+    except OSError as exc:
+        raise ValueError(f"service test suite manifest is unreadable: {MANIFEST_PATH}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"service test suite manifest is invalid JSON: {MANIFEST_PATH}:{exc.lineno}"
+        ) from exc
+    if not isinstance(manifest, dict):
+        raise ValueError("service test suite manifest MUST be an object")
+    schema_version = manifest.get("schema_version")
+    if schema_version != 1:
+        raise ValueError(
+            f"service test suite manifest schema_version MUST be 1; got {schema_version!r}"
+        )
     services = manifest.get("services")
-    if manifest.get("schema_version") != 1 or not isinstance(services, list):
-        raise ValueError("service test suite manifest MUST use schema version 1")
-    return {str(service["id"]): service for service in services}
+    if not isinstance(services, list):
+        raise ValueError("service test suite manifest services MUST be an array")
+    if not services:
+        raise ValueError("service test suite manifest MUST declare at least one service")
+    loaded: dict[str, dict[str, Any]] = {}
+    source_claims: list[tuple[Path, str]] = []
+    test_claims: list[tuple[Path, str]] = []
+    for entry in services:
+        if not isinstance(entry, dict):
+            raise ValueError("service entry MUST be an object")
+        service = _validated_service(entry)
+        service_id = service["id"]
+        if service_id in loaded:
+            raise ValueError(f"duplicate service test suite id: {service_id}")
+        for source_root in service["source_roots"]:
+            _claim_path(Path(source_root), service_id, source_claims, "source")
+        for test_path in _test_paths(service):
+            _claim_path(Path(test_path), service_id, test_claims, "test")
+        loaded[service_id] = service
+    return loaded
+
+
+def _validated_service(entry: Mapping[str, object]) -> dict[str, Any]:
+    service_id = entry.get("id")
+    if not isinstance(service_id, str) or _SERVICE_ID.fullmatch(service_id) is None:
+        raise ValueError("service id MUST use lowercase kebab-case")
+    source_roots = _validated_paths(
+        entry.get("source_roots"),
+        allowed_root=REPO_ROOT / "src" / "fdai",
+        label=f"service {service_id} source root",
+    )
+    groups = entry.get("test_groups")
+    if not isinstance(groups, dict) or set(groups) != set(GROUPS):
+        raise ValueError(f"service {service_id} test_groups MUST declare {', '.join(GROUPS)}")
+    test_groups = {
+        group: _validated_paths(
+            groups[group],
+            allowed_root=REPO_ROOT / "tests",
+            label=f"service {service_id} {group} test path",
+            allow_empty=True,
+        )
+        for group in GROUPS
+    }
+    service = {
+        "id": service_id,
+        "source_roots": source_roots,
+        "test_groups": test_groups,
+    }
+    if not _test_paths(service):
+        raise ValueError(f"service {service_id} MUST own at least one test path")
+    return service
+
+
+def _validated_paths(
+    value: object,
+    *,
+    allowed_root: Path,
+    label: str,
+    allow_empty: bool = False,
+) -> list[str]:
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError(f"{label} MUST be a string array")
+    if not value and not allow_empty:
+        raise ValueError(f"{label} MUST not be empty")
+    return [_validated_path(item, allowed_root=allowed_root, label=label) for item in value]
+
+
+def _validated_path(value: str, *, allowed_root: Path, label: str) -> str:
+    relative = Path(value)
+    if relative.is_absolute() or not relative.parts or ".." in relative.parts:
+        raise ValueError(f"{label} MUST stay within {allowed_root.relative_to(REPO_ROOT)}")
+    candidate = REPO_ROOT / relative
+    current = REPO_ROOT
+    for part in relative.parts:
+        current /= part
+        if current.is_symlink():
+            raise ValueError(f"{label} MUST not traverse a symlink: {value}")
+    try:
+        resolved = candidate.resolve(strict=True)
+    except OSError as exc:
+        raise ValueError(f"{label} does not exist: {value}") from exc
+    if not resolved.is_relative_to(allowed_root.resolve()):
+        raise ValueError(f"{label} MUST stay within {allowed_root.relative_to(REPO_ROOT)}")
+    return resolved.relative_to(REPO_ROOT).as_posix()
+
+
+def _claim_path(
+    path: Path,
+    service_id: str,
+    existing: list[tuple[Path, str]],
+    kind: str,
+) -> None:
+    for owned_path, owner in existing:
+        if path == owned_path or path.is_relative_to(owned_path) or owned_path.is_relative_to(path):
+            raise ValueError(
+                f"service {service_id} {kind} path {path.as_posix()} overlaps "
+                f"service {owner} path {owned_path.as_posix()}"
+            )
+    existing.append((path, service_id))
 
 
 def _test_paths(service: dict[str, Any]) -> tuple[str, ...]:
@@ -28,7 +177,7 @@ def _test_paths(service: dict[str, Any]) -> tuple[str, ...]:
     if not isinstance(groups, dict):
         raise ValueError("service test suite MUST declare test_groups")
     paths: list[str] = []
-    for group in ("unit", "contract", "integration", "smoke"):
+    for group in GROUPS:
         values = groups.get(group)
         if not isinstance(values, list) or not all(isinstance(item, str) for item in values):
             raise ValueError(f"service test group {group} MUST be a string array")
@@ -43,16 +192,40 @@ def _parser(service_ids: Sequence[str]) -> argparse.ArgumentParser:
     return parser
 
 
+def _validated_pytest_args(values: Sequence[str]) -> list[str]:
+    args = list(values)
+    if args[:1] == ["--"]:
+        args = args[1:]
+    validated: list[str] = []
+    index = 0
+    while index < len(args):
+        value = args[index]
+        if value in _PYTEST_FLAGS or value.startswith(_PYTEST_VALUE_PREFIXES):
+            validated.append(value)
+            index += 1
+            continue
+        if value in _PYTEST_VALUE_OPTIONS and index + 1 < len(args):
+            validated.extend((value, args[index + 1]))
+            index += 2
+            continue
+        raise ValueError(f"pytest argument is not allowed for a service suite: {value}")
+    return validated
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    services = _load_services()
-    args, pytest_args = _parser(tuple(services)).parse_known_args(argv)
-    paths = _test_paths(services[args.service])
-    if args.list:
-        print("\n".join(paths))
-        return 0
-    pytest_args = list(pytest_args)
-    if pytest_args[:1] == ["--"]:
-        pytest_args = pytest_args[1:]
+    try:
+        services = _load_services()
+        args, pytest_args = _parser(tuple(services)).parse_known_args(argv)
+        paths = _test_paths(services[args.service])
+        pytest_args = _validated_pytest_args(pytest_args)
+        if args.list:
+            if pytest_args:
+                raise ValueError("pytest arguments cannot be combined with --list")
+            print("\n".join(paths))
+            return 0
+    except ValueError as exc:
+        print(f"service-test: {exc}", file=sys.stderr)
+        return 2
     command = [sys.executable, "-m", "pytest", *pytest_args, *paths]
     return subprocess.run(command, cwd=REPO_ROOT, check=False).returncode
 
